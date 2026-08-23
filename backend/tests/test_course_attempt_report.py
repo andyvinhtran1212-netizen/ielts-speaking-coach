@@ -141,7 +141,21 @@ def test_the_stage_count_excludes_writing_questions():
     """Câu tự luận nằm ngoài vòng chặng (không chấm máy), tính vào là đòi thêm
     một chặng không tồn tại và không ai 'xong' được nữa."""
     src = inspect.getsource(qs._course_stage_count)
-    assert '"writing"' in src and "total - writing" in src
+    assert "_course_bank_shape" in src
+
+
+def test_the_stage_count_uses_the_same_mastery_contract_as_the_runner():
+    rows = [
+        {"qid": f"q{i}", "type": "mcq", "counts_toward_mastery": True}
+        for i in range(90)
+    ] + [
+        {"qid": f"w{i}", "type": "writing"} for i in range(10)
+    ] + [
+        {"qid": f"supp-{i}", "type": "course_reading",
+         "counts_toward_mastery": False} for i in range(42)
+    ]
+    with patch.object(qs, "_report_pages", lambda *_a, **_k: rows):
+        assert qs._course_stage_count("bank-1") == (9, 10, True)
 
 
 def test_a_partial_read_is_flagged_not_silently_smoothed_over():
@@ -233,8 +247,8 @@ def test_every_helper_that_swallows_a_read_error_also_reports_it():
     """
     src = inspect.getsource(qs._course_stage_count)
     assert "-> tuple[int, int, bool]" in src, "phải trả kèm cờ đọc-được"
-    j = src.index("except Exception")
-    assert "return 0, 0, False" in src[j:], "nhánh hỏng phải nói ra"
+    assert "_course_bank_shape" in src and "if not ok" in src
+    assert "return 0, 0, False" in src, "nhánh hỏng phải nói ra"
     caller = _src()
     assert "_count_ok" in caller and 'out["stale"] = True' in caller[
         caller.index("_count_ok"):caller.index("_count_ok") + 200]

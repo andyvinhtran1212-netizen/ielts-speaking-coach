@@ -54,7 +54,7 @@ def test_retake_sessions_are_excluded():
 
 def test_writing_questions_are_not_in_the_multiple_choice_report():
     src = _src()
-    assert 'q.get("type") == "writing"' in src
+    assert "not _is_course_quiz_question(q)" in src
 
 
 def test_the_time_per_question_is_a_median_not_a_mean():

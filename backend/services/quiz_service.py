@@ -47,6 +47,17 @@ _AUDIO_TOKEN = "{{audio}}"
 _COURSE_LISTENING_TTL = 7200
 
 
+def _is_course_quiz_question(row: dict) -> bool:
+    """True only for an auto-graded Grammar question in the course quiz lane.
+
+    Legacy course banks may not have populated ``counts_toward_mastery``; only
+    an explicit false opts an MCQ out. Other course section types are never
+    inferred as quiz questions merely because they are not writing prompts.
+    """
+    return (row.get("type") in (None, "mcq")
+            and row.get("counts_toward_mastery") is not False)
+
+
 def _is_lesson_source(source) -> bool:
     return bool(_LESSON_SRC_RE.match((source or "").strip()))
 
@@ -1353,17 +1364,18 @@ def _course_mcq_order(bank_id: str) -> list[str]:
     thứ tự ở đây LÀ định nghĩa của "chặng". Đọc bằng cột `order` — cùng cột mà
     đường phát đề dùng; xếp theo cột khác là hai bên nói về hai bài khác nhau.
 
-    Câu tự luận bị loại: chúng nằm ngoài vòng chặng, để chúng chiếm chỗ trong hệ
-    đếm thì mọi chặng sau đó lệch đi.
+    Chỉ câu MCQ mastery được giữ. Tự luận và các section đọc/nghe/phát âm nằm
+    ngoài vòng chặng; để chúng chiếm chỗ sẽ làm mọi chặng Grammar lệch đi.
 
     Ném chứ không trả rỗng: nơi gọi có đường lùi riêng, còn trả rỗng lặng lẽ thì
     nó tưởng bộ đề không có câu nào và tính ra chặng 0 — đẩy học viên về đầu bài
     (codex 06/08).
     """
-    rows = (supabase_admin.table("quiz_questions").select("qid, type")
+    rows = (supabase_admin.table("quiz_questions")
+            .select("qid, type, counts_toward_mastery")
             .eq("bank_id", bank_id).order("order").execute().data) or []
     return [r["qid"] for r in rows
-            if r.get("qid") and r.get("type") != "writing"]
+            if r.get("qid") and _is_course_quiz_question(r)]
 
 
 def _course_stage_reached(order: list[str], answered_all: set[str],
@@ -1512,14 +1524,16 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     # thường, còn chặn học viên khỏi bài tập vì một lượt đọc phụ trợ thì tệ hơn.
     try:
         order = _course_mcq_order(bank_id)
+        order_ok = True
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] course-resume order read failed bank=%s: %s", bank_id, exc)
         order = []
+        order_ok = False
     answered_all = _course_answered_qids(completed) if order else None
     # Không đọc được thứ tự đề HAY không đọc được câu đã làm ⇒ lùi về cách cũ
     # (đếm phiên). Cách cũ sai ở các ca lẻ, nhưng nó KHÔNG bao giờ trả 0 cho một
     # em đã xong 8 chặng.
-    usable = bool(order) and answered_all is not None
+    usable = order_ok and bool(order) and answered_all is not None
     result = {"session_id": None, "answered": [], "completed": completed,
               "item_id": item_id, "last_stage": result_last,
               "stage": (_course_stage_reached(order, answered_all)
@@ -1536,6 +1550,15 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] course-resume attempts failed bank=%s: %s", bank_id, exc)
         return result
+
+    # Client cũ từng ghi Reading/Listening/Pronunciation (và MCQ opt-out) vào
+    # chính quiz session. Nếu đếm các dòng ấy để chọn phiên, một phiên bổ trợ
+    # dài hơn sẽ luôn thắng phiên Grammar thật và frontend từ chối resume vì
+    # QID không khớp tiền tố đề. Khi đọc được contract bank, chỉ evidence
+    # Grammar canonical mới được tham gia cả việc chọn phiên lẫn payload trả về.
+    if order_ok:
+        grammar_qids = set(order)
+        att = [a for a in att if a.get("qid") in grammar_qids]
 
     by_session: dict[str, list[dict]] = {}
     for a in att:
@@ -1797,12 +1820,13 @@ def _course_bank_shape(bank_id: str | None) -> tuple[set[str], int, bool]:
     if not bank_id:
         return set(), 0, True
     try:
-        rows = _report_pages("quiz_questions", "qid, type",
+        rows = _report_pages("quiz_questions", "qid, type, counts_toward_mastery",
                              lambda q: q.eq("bank_id", bank_id))
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] không đọc được bộ đề bank=%s: %s", bank_id, exc)
         return set(), 0, False
-    mcq = {r["qid"] for r in rows if r.get("type") != "writing" and r.get("qid")}
+    mcq = {r["qid"] for r in rows
+           if r.get("qid") and _is_course_quiz_question(r)}
     writing = sum(1 for r in rows if r.get("type") == "writing")
     return mcq, writing, True
 
@@ -1894,12 +1918,13 @@ def _bank_shapes(bank_ids: list[str], db=None) -> dict[str, tuple[set[str], int]
     """
     out: dict[str, tuple[set[str], int]] = {b: (set(), 0) for b in bank_ids}
     for c in _chunks(list(bank_ids)):
-        for r in _report_pages("quiz_questions", "bank_id, qid, type",
+        for r in _report_pages(
+                "quiz_questions", "bank_id, qid, type, counts_toward_mastery",
                                lambda q, c=c: q.in_("bank_id", c), db=db):
             mcq, writing = out.get(r.get("bank_id"), (set(), 0))
             if r.get("type") == "writing":
                 out[r["bank_id"]] = (mcq, writing + 1)
-            elif r.get("qid"):
+            elif r.get("qid") and _is_course_quiz_question(r):
                 out[r["bank_id"]] = (mcq | {r["qid"]}, writing)
     return out
 
@@ -2666,7 +2691,7 @@ def course_section_weight_snapshot(
     pronunciation_sets = pronunciation_sets or []
     counts: dict[str, int] = {}
 
-    quiz_n = sum(1 for row in questions if row.get("type") != "writing")
+    quiz_n = sum(1 for row in questions if _is_course_quiz_question(row))
     writing_n = sum(1 for row in questions if row.get("type") == "writing")
     if quiz_n:
         counts["quiz"] = quiz_n
@@ -2766,7 +2791,8 @@ def _course_live_required_sections(bank_id: str) -> list[str]:
     try:
         bank_rows = (supabase_admin.table("quiz_banks").select("meta")
                      .eq("id", bank_id).limit(1).execute().data) or []
-        questions = (supabase_admin.table("quiz_questions").select("id, type")
+        questions = (supabase_admin.table("quiz_questions")
+                     .select("id, type, counts_toward_mastery")
                      .eq("bank_id", bank_id).limit(2000).execute().data) or []
         pronunciation_sets = (supabase_admin.table("course_pronunciation_sets")
                               .select("id").eq("bank_id", bank_id)
@@ -2776,7 +2802,7 @@ def _course_live_required_sections(bank_id: str) -> list[str]:
 
     meta = (bank_rows[0].get("meta") or {}) if bank_rows else {}
     required: list[str] = []
-    if any(q.get("type") != "writing" for q in questions):
+    if any(_is_course_quiz_question(q) for q in questions):
         required.append("quiz")
     if any(q.get("type") == "writing" for q in questions):
         required.append("writing")
@@ -3089,7 +3115,7 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
         # Đề GỐC — thước để server tự chấm lại. Câu tự luận không chấm máy nên
         # đứng ngoài thước.
         qrows = (supabase_admin.table("quiz_questions")
-                 .select("qid, answer, type")
+                 .select("qid, answer, type, counts_toward_mastery")
                  .eq("bank_id", bank_id).limit(2000).execute().data) or []
 
         # Lượt làm ĐÃ LƯU của các phiên được nêu tên. Phân trang tường minh:
@@ -3140,7 +3166,11 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
     # thật là: đáp án ĐÃ LƯU (answer_given, ghi theo vị trí gốc) so với đáp án
     # trong đề. is_correct trong attempts cũng là lời client — bỏ qua nốt.
     key = {q["qid"]: q for q in qrows
-           if q.get("qid") and q.get("type") != "writing" and q.get("answer") is not None}
+           if q.get("qid") and _is_course_quiz_question(q)
+           and q.get("answer") is not None}
+    known_non_quiz = {q["qid"] for q in qrows
+                      if q.get("qid") and q.get("type") != "writing"
+                      and not _is_course_quiz_question(q)}
     if not key:
         raise HTTPException(422, "Bộ đề không có câu trắc nghiệm nào")
     # Vân tay đề tại thời điểm xét — thứ tự độc lập (sort theo qid) vì nó phục
@@ -3162,7 +3192,12 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
     for a in sorted(att, key=lambda x: x.get("created_at") or ""):
         qid = a.get("qid")
         if qid not in key:
-            # Câu lạ (kể cả câu tự luận bị nhồi kèm is_correct) — bác cả lượt.
+            # Một số phiên production đã bị client cũ nhét câu bổ trợ của CHÍNH
+            # bank vào lane Grammar. Chúng không được tính điểm, nhưng cũng không
+            # được làm hỏng 90 câu Grammar hợp lệ đã lưu. Qid thật sự xa lạ vẫn
+            # bị bác để client không thể tự co mẫu số.
+            if qid in known_non_quiz:
+                continue
             raise HTTPException(422, "Có lượt làm không thuộc bộ đề này")
         if qid in seen:
             continue
@@ -3641,7 +3676,8 @@ def course_answer_report(*, user_id: str, bank_id: str,
     try:
         qs_rows = _report_pages(
             "quiz_questions",
-            "qid, type, subtype, prompt, options, answer, explain, why_wrong, item_key, order",
+            "qid, type, subtype, prompt, options, answer, explain, why_wrong, "
+            "item_key, counts_toward_mastery, order",
             lambda q: q.eq("bank_id", bank_id), order="order")
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] answer-report questions failed: %s", exc)
@@ -3651,7 +3687,7 @@ def course_answer_report(*, user_id: str, bank_id: str,
     rows = []
     for q in qs_rows:
         a = first.get(q.get("qid"))
-        if not a or q.get("type") == "writing":
+        if not a or not _is_course_quiz_question(q):
             continue
         opts = q.get("options") or []
         # `answer_given` là CHỈ SỐ phương án, lưu dạng chuỗi. Đổi về số để tra
@@ -3755,21 +3791,14 @@ def _course_stage_count(bank_id: str) -> tuple[int, int, bool]:
     dừng trước phần viết trông y hệt một em đã hoàn thành — và đó đúng là điều
     đã xảy ra với em Phương Anh Nguyễn.
     """
-    try:
-        total = (supabase_admin.table("quiz_questions").select("id", count="exact")
-                 .eq("bank_id", bank_id).limit(1).execute()).count or 0
-        writing = (supabase_admin.table("quiz_questions").select("id", count="exact")
-                   .eq("bank_id", bank_id).eq("type", "writing").limit(1).execute()).count or 0
-    except Exception as exc:  # noqa: BLE001
+    mcq_qids, writing, ok = _course_bank_shape(bank_id)
+    if not ok:
         # Không đếm được thì trả 0, và `0` được đọc là "chưa biết": nhánh gọi
         # KHÔNG bao giờ kết luận "xong" khi chưa biết cần bao nhiêu chặng.
-        #
-        # Nhưng phải NÓI RA — trả 0 im lặng thì báo cáo hiện `stale: false` rồi
-        # diễn giải tiến độ bằng dữ liệu thiếu (codex cục bộ, 05/08).
-        logger.warning("[quiz] stage count failed bank=%s: %s", bank_id, exc)
+        # `_course_bank_shape` đã log lỗi và trả cờ đọc-được để mặt admin bật
+        # `stale`, thay vì diễn giải dữ liệu thiếu như một con số thật.
         return 0, 0, False
-    graded = max(0, total - writing)
-    return -(-graded // 10), writing, True    # làm tròn lên, không cần import math
+    return -(-len(mcq_qids) // 10), writing, True
 
 
 def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
@@ -3930,9 +3959,11 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
     key_of: dict[str, int] = {}
     axis_of: dict[str, str] = {}
     try:
-        for q in _report_pages("quiz_questions", "qid, answer, type, item_key",
+        for q in _report_pages(
+                "quiz_questions",
+                "qid, answer, type, item_key, counts_toward_mastery",
                                lambda q2: q2.eq("bank_id", bank_id)):
-            if q.get("type") == "writing":
+            if not _is_course_quiz_question(q):
                 continue
             if isinstance(q.get("answer"), int):
                 key_of[q["qid"]] = q["answer"]
@@ -3956,6 +3987,10 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
         if a["session_id"] in open_ids:
             with_work.add(a["session_id"])
         uid = sess_user.get(a["session_id"])
+        if a.get("qid") not in key_of:
+            # Attempts của section bổ trợ từng lọt qua runner cũ không phải bằng
+            # chứng Grammar và không được làm phình số câu/tỷ lệ sai của admin.
+            continue
         key2 = (uid, a.get("qid"))
         # LƯỢT ĐẦU của mỗi câu, giống hệt `course_answer_report`. Áp cho CẢ trục
         # sai lẫn số đúng/tổng, không chỉ cho thời gian: em làm Q1 đúng, đóng

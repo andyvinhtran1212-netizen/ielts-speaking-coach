@@ -33,6 +33,19 @@ const BATCH = 5;
 
 export const KEYS = ['A', 'B', 'C', 'D'];
 
+/**
+ * Câu thuộc lane Grammar và được tính vào mastery.
+ *
+ * Bank course cũ chỉ có `mcq`/`writing`, nhưng bank nhiều section có thể trả
+ * thêm `course_reading`, `course_listening`, `course_pronunciation` trong cùng
+ * payload. Dùng `type !== 'writing'` sẽ nhét cả các section ấy vào chặng Grammar.
+ * Cờ mastery vắng mặt vẫn được nhận để giữ tương thích với các bank legacy.
+ */
+export function isCourseQuizQuestion(q) {
+  return q && (q.type == null || q.type === 'mcq')
+    && q.counts_toward_mastery !== false;
+}
+
 export const DANG = {
   A1: 'GÁN NHÃN Ô', A2: 'GỌI TÊN', A3: 'TÌM HẠT NHÂN',
   B1: 'CHỌN DẠNG ĐÚNG', B2: 'CHỌN CẢ CỤM', B3: 'CẶP TỐI THIỂU',
@@ -463,7 +476,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // chúng vào cùng một dòng chảy khiến học viên tưởng viết xong một câu là
       // được chấm ngay — mà lượt chấm chỉ có MỘT.
       writingQs = qs.filter(function (q) { return q.type === 'writing'; });
-      qs = qs.filter(function (q) { return q.type !== 'writing'; });
+      qs = qs.filter(isCourseQuizQuestion);
       if (!qs.length && !writingQs.length) {
         throw new Error('Bài tập này chưa có câu hỏi nào.');
       }
@@ -542,7 +555,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
      */
     async finishStage() {
       const list = stageQuestions();
-      let graded = list.filter((q) => q.type !== 'writing').length;
+      let graded = list.filter(isCourseQuizQuestion).length;
       let right = marks.filter((m) => m === 'right').length;
       // Khôi phục vào màn kết quả trên một máy chưa có `marks`: đếm từ mảng
       // rỗng ra 0 là bịa một điểm số cho một chặng ĐÃ CHẤM XONG. Dùng con số
@@ -630,7 +643,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
      * được gì về ngưỡng.
      */
     async startRetake(size, rng = Math.random) {
-      const pool = qs.filter((q) => q.type !== 'writing');
+      const pool = qs.filter(isCourseQuizQuestion);
       const n = Math.max(1, Math.min(Number(size) || 20, pool.length));
       mode = 'retake';
       retakeNo += 1;

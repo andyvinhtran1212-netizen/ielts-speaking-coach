@@ -77,6 +77,17 @@ def _questions(n, writing=0):
     return out
 
 
+def _supplements():
+    return [
+        {"bank_id": "bank-1", "qid": "read-1", "answer": 0,
+         "type": "course_reading", "counts_toward_mastery": False},
+        {"bank_id": "bank-1", "qid": "listen-1", "answer": 1,
+         "type": "course_listening", "counts_toward_mastery": False},
+        {"bank_id": "bank-1", "qid": "pron-1", "answer": None,
+         "type": "course_pronunciation", "counts_toward_mastery": False},
+    ]
+
+
 def _attempts(sessions, given):
     """Chia các lượt làm đều vào các phiên. `given`: {qid: answer_given}."""
     sids = [s["id"] for s in sessions]
@@ -230,6 +241,38 @@ def test_run_pass_writes_verdict():
     assert patch_["passed_at"] and patch_["score"] == 90.0
     assert patch_["mastery"]["threshold"] == 80
     assert patch_["mastery"]["attempts"][0]["phase"] == "run"
+
+
+def test_run_ignores_known_supplement_rows_and_attempts_in_mixed_bank():
+    ss = _sessions(2)
+    questions = _questions(10) + _supplements()
+    given = {**_given(10, wrong=1), "read-1": 0, "listen-1": 1}
+    out, _ = _verdict(
+        sessions=ss, questions=questions,
+        attempts=_attempts(ss, given),
+    )
+    assert out["passed"] is True
+    assert out["pct"] == 90.0
+    quiz = next(row for row in out["sections"] if row["key"] == "quiz")
+    assert quiz["total"] == 10
+
+
+def test_run_ignores_same_bank_mcq_explicitly_opted_out_of_mastery():
+    ss = _sessions(2)
+    opted_out = {
+        "bank_id": "bank-1", "qid": "practice-only", "answer": 2,
+        "type": "mcq", "counts_toward_mastery": False,
+    }
+    questions = _questions(10) + [opted_out]
+    given = {**_given(10, wrong=1), "practice-only": 2}
+    out, _ = _verdict(
+        sessions=ss, questions=questions,
+        attempts=_attempts(ss, given),
+    )
+    assert out["passed"] is True
+    assert out["pct"] == 90.0
+    quiz = next(row for row in out["sections"] if row["key"] == "quiz")
+    assert quiz["total"] == 10
 
 
 def test_run_fail_offers_retake_and_keeps_not_passed():

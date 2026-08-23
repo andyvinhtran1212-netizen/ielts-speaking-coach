@@ -121,6 +121,21 @@ def test_hybrid_question_count_policy_matches_course_1_shapes():
         assert round(sum(snap["section_weights"].values()), 2) == 100
 
 
+def test_flattened_supplement_rows_never_inflate_the_grammar_quiz_count():
+    questions = _questions(90, 10) + [
+        {"id": f"r-{i}", "type": "course_reading",
+         "counts_toward_mastery": False} for i in range(10)
+    ] + [
+        {"id": f"l-{i}", "type": "course_listening",
+         "counts_toward_mastery": False} for i in range(20)
+    ] + [
+        {"id": f"p-{i}", "type": "course_pronunciation",
+         "counts_toward_mastery": False} for i in range(12)
+    ]
+    snap = qs.course_section_weight_snapshot(questions=questions)
+    assert snap["section_counts"] == {"quiz": 90, "writing": 10}
+
+
 def test_snapshotted_weights_win_over_retake_question_count():
     assignment = {"content_config": {
         "weight_policy": "hybrid_question_count_v1",
