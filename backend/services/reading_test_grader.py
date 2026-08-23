@@ -321,7 +321,10 @@ def grade_attempt(
                     # so every row reports the complete unordered answer set.
                     "expected":      expected_group_display,
                     "alternatives":  alternatives,
-                    "skill_tag":     grouped_row.get("skill_tag"),
+                    "skill_tag":     (
+                        matched_row.get("skill_tag") if matched_row
+                        else grouped_row.get("skill_tag")
+                    ),
                     "explanation":   explanation,
                     "passage_order": grouped_row.get("passage_order"),
                     "group":         "grouped_mcq_single",

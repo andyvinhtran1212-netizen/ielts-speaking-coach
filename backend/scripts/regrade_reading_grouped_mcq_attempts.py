@@ -281,6 +281,7 @@ def _merge_grouped_result(
             }
             if matched_row:
                 replacement["alternatives"] = matched_row.get("alternatives") or []
+                replacement["skill_tag"] = matched_row.get("skill_tag")
             replacements[display_row["q_num"]] = replacement
 
     merged = [replacements.get(row["q_num"], row) for row in persisted]
@@ -288,6 +289,11 @@ def _merge_grouped_result(
     score = sum(1 for row in merged if row.get("correct"))
     if score == attempt.get("score"):
         next_band = attempt.get("band_estimate")
+    elif score < 4 and attempt.get("band_estimate") is None:
+        # Every currently implemented module is unbanded below raw 4, so a
+        # low-score correction that stays below the floor needs no module
+        # inference and must not abort the rest of a batch.
+        next_band = None
     else:
         submission_module = _submission_module(attempt)
         next_band = grader.band_estimate(score, module=submission_module)

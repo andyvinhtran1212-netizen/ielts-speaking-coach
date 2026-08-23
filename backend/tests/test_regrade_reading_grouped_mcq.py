@@ -236,7 +236,7 @@ def test_backfill_preserves_unrelated_historical_grading_rows():
         "user_answer": "B",
         "expected": "B, D",
         "alternatives": ["historical B alternative"],
-        "skill_tag": "historical-detail-21",
+        "skill_tag": "historical-detail-22",
         "explanation": "historical B explanation",
         "passage_order": 2,
         "group": "grouped_mcq_single",
@@ -244,6 +244,7 @@ def test_backfill_preserves_unrelated_historical_grading_rows():
     }
     assert merged["per_question"][2]["explanation"] == "historical D explanation"
     assert merged["per_question"][2]["rationale_q_num"] == 21
+    assert merged["per_question"][2]["skill_tag"] == "historical-detail-21"
     assert merged["score"] == 2
     assert merged["skill_breakdown"] == {
         "inference": {"correct": 0, "total": 1},
@@ -341,6 +342,36 @@ def test_backfill_refuses_ambiguous_submission_band_table():
         assert "không suy ra chắc chắn bảng band" in str(error)
     else:
         raise AssertionError("ambiguous historical band table must stop the backfill")
+
+
+def test_backfill_preserves_none_when_low_score_stays_below_band_floor():
+    attempt = {
+        "id": "attempt-low-score",
+        "score": 1,
+        "band_estimate": None,
+        "grading_details": [
+            {"q_num": 1, "correct": True, "skill_tag": "detail"},
+            {"q_num": 21, "correct": False, "user_answer": "B", "expected": "D"},
+            {"q_num": 22, "correct": False, "user_answer": "D", "expected": "B"},
+        ],
+    }
+    key = [
+        {
+            "q_num": 21,
+            "group_type": "grouped_mcq_single",
+            "group_key": "group-21",
+        },
+        {
+            "q_num": 22,
+            "group_type": "grouped_mcq_single",
+            "group_key": "group-21",
+        },
+    ]
+
+    result = backfill._merge_grouped_result(attempt, key)
+
+    assert result["score"] == 3
+    assert result["band_estimate"] is None
 
 
 def test_backfill_paginates_past_postgrest_one_thousand_row_cap(monkeypatch):

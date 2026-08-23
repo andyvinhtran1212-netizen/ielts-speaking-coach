@@ -150,7 +150,7 @@ def _legacy_grouped_mcq_key():
             "prompt": "Which TWO statements are made?",
             "payload": {"options": options},
             "answer": {"answer": "D", "alternatives": []},
-            "skill_tag": "detail",
+            "skill_tag": "skill_for_d",
             "explanation": "Rationale for D.",
             "passage_id": "p2",
         },
@@ -160,7 +160,7 @@ def _legacy_grouped_mcq_key():
             "prompt": "Which TWO statements are made?",
             "payload": {"options": options},
             "answer": {"answer": "B", "alternatives": []},
-            "skill_tag": "detail",
+            "skill_tag": "skill_for_b",
             "explanation": "Rationale for B.",
             "passage_id": "p2",
         },
@@ -187,6 +187,9 @@ def test_legacy_grouped_mcq_grades_reversed_stored_keys_as_unordered_set():
     assert [row["correct"] for row in result["per_question"]] == [True, True]
     assert {row["expected"] for row in result["per_question"]} == {"B, D"}
     assert [row["rationale_q_num"] for row in result["per_question"]] == [22, 21]
+    assert [row["skill_tag"] for row in result["per_question"]] == [
+        "skill_for_b", "skill_for_d",
+    ]
     assert [row["explanation"] for row in result["per_question"]] == [
         "Rationale for B.", "Rationale for D.",
     ]
@@ -198,6 +201,10 @@ def test_legacy_grouped_mcq_grades_reversed_stored_keys_as_unordered_set():
         key,
     )
     assert existing["score"] == 2
+    assert existing["skill_breakdown"] == {
+        "skill_for_d": {"correct": 1, "total": 1},
+        "skill_for_b": {"correct": 1, "total": 1},
+    }
 
 
 def test_legacy_grouped_mcq_awards_one_mark_per_distinct_correct_letter():
