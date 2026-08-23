@@ -10,7 +10,9 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createRunner, splitStem, md, esc, STAGE } from '../js/course-runner.js';
+import {
+  createRunner, splitStem, md, esc, isCourseQuizQuestion, STAGE,
+} from '../js/course-runner.js';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,6 +38,14 @@ function essay(i) {
     qid: `E${i}`, type: 'writing', subtype: 'E1', skill: 'TU-LUAN',
     item_key: 'RB1', prompt: 'Viết lại:', options: null, answer: null,
     explain: '**Đáp án mẫu:** x', why_wrong: null, points: 1,
+  };
+}
+
+function sectionQuestion(i, type, over = {}) {
+  return {
+    qid: `S${i}`, type, subtype: 'SUP', skill: 'SUP', item_key: type,
+    prompt: `Supplement ${i}`, options: ['a', 'b'], answer: 0,
+    explain: 'x', points: 1, counts_toward_mastery: false, ...over,
   };
 }
 
@@ -261,7 +271,7 @@ describe('vòng đời phiên', () => {
     // tưởng viết xong một câu là được chấm ngay — mà lượt chấm chỉ có một.
     const i = SRC.indexOf('writingQs = qs.filter');
     assert.ok(i !== -1, 'load() phải lọc tự luận ra khỏi qs');
-    assert.match(SRC.slice(i, i + 260), /qs = qs\.filter[\s\S]{0,80}?!== 'writing'/);
+    assert.match(SRC.slice(i, i + 260), /qs = qs\.filter\(isCourseQuizQuestion\)/);
   });
 
   test('chặng chỉ đếm câu trắc nghiệm', async () => {
@@ -271,6 +281,22 @@ describe('vòng đời phiên', () => {
     assert.equal(r.stageCount, 2);
     assert.equal(r.writing.length, 2);
     assert.equal(r.hasWriting, true);
+  });
+
+  test('bank hỗn hợp chỉ đưa MCQ mastery vào chặng Grammar', async () => {
+    const qsn = [
+      ...Array.from({ length: 12 }, (_, i) => mcq(i)),
+      essay(1),
+      sectionQuestion(1, 'course_reading'),
+      sectionQuestion(2, 'course_listening'),
+      sectionQuestion(3, 'course_pronunciation', { options: null, answer: null }),
+      mcq(99, { counts_toward_mastery: false }),
+    ];
+    const { r } = await run({ questions: qsn });
+    assert.equal(r.total, 12);
+    assert.equal(r.stageCount, 2);
+    assert.equal(r.writing.length, 1);
+    assert.ok(r.stageQuestions().every(isCourseQuizQuestion));
   });
 });
 

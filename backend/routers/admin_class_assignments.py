@@ -704,7 +704,8 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
     # Đếm trên TOÀN bank. Một select không range bị PostgREST cắt khoảng 1000
     # dòng; nếu bank lớn hơn, trọng số sẽ bị chụp thấp mà không có lỗi nào đỏ.
     questions = _paged(
-        supabase_admin, "quiz_questions", "id, type, segments, audio_url",
+        supabase_admin, "quiz_questions",
+        "id, type, counts_toward_mastery, segments, audio_url",
         lambda q: q.eq("bank_id", bank["id"]),
     )
     if not questions:
