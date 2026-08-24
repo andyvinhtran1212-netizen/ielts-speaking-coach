@@ -149,7 +149,7 @@ test.describe('luồng bắt đầu luyện tập trên /speaking (bản Next)',
     // Và phải ĐI TỚI trang luyện tập với session_id — nửa sau của luồng.
     const clickError = await startClick;
     if (clickError) throw clickError;
-    await page.waitForURL(/practice\.html\?session_id=/, { timeout: 30_000 });
+    await page.waitForURL(/\/practice\/session\?session_id=/, { timeout: 30_000 });
     const routedSessionId = new URL(page.url()).searchParams.get('session_id');
     expect(routedSessionId, 'phải mang session_id sang trang luyện tập').toBeTruthy();
     expect(routedSessionId).toBe(createdSessionId);
