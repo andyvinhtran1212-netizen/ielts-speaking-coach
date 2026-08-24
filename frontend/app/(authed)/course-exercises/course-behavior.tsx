@@ -551,7 +551,10 @@ export function CourseBehavior() {
               // review của lượt cũ không được sống lại sau khi đã bị dọn.
               if (seq !== reportSeq) return;
               box.innerHTML = CR.renderReport(d, { learner: true, verdict: lastVerdict });
-              box.dataset.crReady = '1';
+              // `stale` là báo cáo đọc thiếu. Không cache để cú bấm kế tiếp
+              // gọi lại API và có thể thay bản một phần bằng dữ liệu đầy đủ.
+              if (d.stale !== true) box.dataset.crReady = '1';
+              else delete box.dataset.crReady;
               CR.bindReport(box);
             } catch (err: any) {
               if (seq !== reportSeq) return;

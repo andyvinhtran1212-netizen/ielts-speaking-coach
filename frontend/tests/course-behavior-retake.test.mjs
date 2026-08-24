@@ -51,6 +51,33 @@ function loadRetakeFlow() {
   };
 }
 
+function loadReportFlow(env) {
+  const marker = 'async function showReport(options: { scroll?: boolean } = {}) {';
+  const i = SRC.indexOf(marker);
+  assert.ok(i !== -1, 'không thấy showReport');
+  const open = i + marker.length - 1;
+  let depth = 0, close = open;
+  for (let k = open; k < SRC.length; k++) {
+    if (SRC[k] === '{') depth++;
+    else if (SRC[k] === '}' && --depth === 0) { close = k; break; }
+  }
+  const body = SRC.slice(open + 1, close)
+    .replace(/catch \(err: any\)/g, 'catch (err)')
+    .replace(/bankId!/g, 'bankId');
+  const factory = new Function(
+    '$', 'setActiveSection', 'CR', 'api', 'bankId', 'runner',
+    'requestedItem', 'lastVerdict', 'esc',
+    `let reportLoad = null;
+     let reportSeq = 0;
+     return async function showReport(options = {}) {${body}};`,
+  );
+  return factory(
+    env.$, env.setActiveSection || (() => {}), env.CR, env.api, 'bank-1',
+    env.runner || { reviewOnly: false }, null, env.lastVerdict || { passed: true, pct: 80 },
+    (value) => String(value),
+  );
+}
+
 describe('làm kiểm tra lại', () => {
   test('dọn báo cáo của lượt trước', async () => {
     const run = loadRetakeFlow();
@@ -112,6 +139,40 @@ describe('làm kiểm tra lại', () => {
     });
     assert.equal(rendered, 0);
     assert.match(verdict.innerHTML, /không thuộc mức gần đạt/i);
+  });
+});
+
+describe('nạp phần tự review', () => {
+  test('báo cáo stale không bị cache và cú bấm sau thay bằng bản đầy đủ', async () => {
+    const box = {
+      hidden: true,
+      innerHTML: '',
+      dataset: {},
+      scrollIntoView: () => {},
+    };
+    const responses = [
+      { stale: true, questions: [{ qid: 'q1' }] },
+      { stale: false, questions: [{ qid: 'q1' }, { qid: 'q2' }] },
+    ];
+    let calls = 0;
+    const showReport = loadReportFlow({
+      $: (id) => id === 'cx-report' ? box : null,
+      api: { get: async () => responses[calls++] },
+      CR: {
+        renderReport: (d) => d.stale ? 'bản đọc thiếu' : 'bản đầy đủ',
+        bindReport: () => {},
+      },
+    });
+
+    await showReport({ scroll: false });
+    assert.equal(calls, 1);
+    assert.equal(box.innerHTML, 'bản đọc thiếu');
+    assert.equal(box.dataset.crReady, undefined);
+
+    await showReport({ scroll: false });
+    assert.equal(calls, 2, 'cú bấm sau phải gọi API lại');
+    assert.equal(box.innerHTML, 'bản đầy đủ');
+    assert.equal(box.dataset.crReady, '1');
   });
 });
 

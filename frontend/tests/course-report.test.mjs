@@ -126,7 +126,10 @@ describe('màn tự review sau khi học viên đã đạt', () => {
       why_wrong: null, explain: 'many dùng với danh từ đếm được số nhiều.',
     }),
   ];
-  const html = renderReport(data(qs), { learner: true, verdict: { pct: 82 } });
+  const html = renderReport(data(qs), {
+    learner: true,
+    verdict: { passed: true, pct: 82 },
+  });
 
   test('kết quả đạt dẫn thẳng tới việc học, không dẫn bằng dải thống kê trục', () => {
     assert.match(html, /Đã đạt — giờ hãy hiểu rõ từng câu/);
@@ -171,10 +174,24 @@ describe('màn tự review sau khi học viên đã đạt', () => {
     assert.doesNotMatch(admin, /class="cr-review-list"/);
   });
 
+  test('response fail-open không được đọc thành đã đạt khi verdict hiện tại chưa đạt', () => {
+    const unlocked = data(qs);
+    unlocked.summary = { latest_pct: 70, latest_action: 'retake', pass_pct: 80 };
+    const failed = renderReport(unlocked, {
+      learner: true,
+      verdict: { passed: false, pct: 70 },
+    });
+    assert.match(failed, /class="cr-axes"/);
+    assert.doesNotMatch(failed, /Đã đạt — giờ hãy hiểu rõ từng câu/);
+    assert.doesNotMatch(failed, /Kết quả đạt/);
+  });
+
   test('chế độ chỉ xem dùng điểm mastery mới nhất khi không còn verdict trong bộ nhớ', () => {
     const d = data(qs);
     d.summary = { latest_pct: 85, latest_action: 'passed', pass_pct: 80 };
-    assert.match(renderReport(d, { learner: true }), /85%/);
+    const review = renderReport(d, { learner: true });
+    assert.match(review, /85%/);
+    assert.match(review, /Đã đạt — giờ hãy hiểu rõ từng câu/);
   });
 });
 

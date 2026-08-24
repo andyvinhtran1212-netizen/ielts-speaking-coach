@@ -234,10 +234,18 @@ export function renderReport(data, opts = {}) {
   const groups = groupByAxis(qs);
   const weak = groups.filter(needsWork);
   const worst = weak[0] || null;
+  // `locked=false` không phải bằng chứng đạt: gate backend chủ động fail-open
+  // khi lượt đọc trạng thái lỗi. Nếu trang vừa có verdict thì verdict hiện tại
+  // là nguồn thật; chế độ chỉ xem mới rơi về kết luận canonical trong summary.
+  const hasCurrentVerdict = !!(opts.verdict
+    && typeof opts.verdict.passed === 'boolean');
+  const learnerPassed = hasCurrentVerdict
+    ? opts.verdict.passed === true
+    : summary.latest_action === 'passed';
 
   // Học viên đã đạt cần chữa từng câu theo đúng thứ tự bài. Giáo viên và trạng
   // thái chưa đạt vẫn dùng bản theo trục hiện hành.
-  if (opts.learner && !locked) {
+  if (opts.learner && !locked && learnerPassed) {
     const correct = Number(t.correct) || 0;
     const answered = Number(t.answered) || qs.length;
     const wrong = Math.max(0, answered - correct);
