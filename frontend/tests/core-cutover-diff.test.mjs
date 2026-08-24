@@ -13,15 +13,31 @@ import {
 const FRONTEND = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const FLOOR = 'a'.repeat(40);
 const CUTOVER = 'b'.repeat(40);
-const FLOOR_SOURCE = readFileSync(path.join(FRONTEND, 'lib/core-player-affinity.mjs'), 'utf8');
-const CUTOVER_SOURCE = CORE_CUTOVER_SURFACES.reduce((source, surface) => {
+const CURRENT_SOURCE = readFileSync(path.join(FRONTEND, 'lib/core-player-affinity.mjs'), 'utf8');
+
+function withAdmission(source, surface, admission) {
   const marker = `${surface}: Object.freeze({`;
   const start = source.indexOf(marker);
   assert.notEqual(start, -1, `missing ${surface}`);
-  const admission = source.indexOf("admit_new: 'legacy'", start);
-  assert.notEqual(admission, -1, `missing Legacy floor admission for ${surface}`);
-  return `${source.slice(0, admission)}admit_new: 'next'${source.slice(admission + "admit_new: 'legacy'".length)}`;
-}, FLOOR_SOURCE);
+  const nextSurface = source.indexOf('Object.freeze({', start + marker.length);
+  const blockEnd = nextSurface === -1 ? source.length : nextSurface;
+  const match = source.slice(start, blockEnd).match(/admit_new: '(legacy|next)'/);
+  assert.ok(match, `missing admission for ${surface}`);
+  const offset = start + match.index;
+  return `${source.slice(0, offset)}admit_new: '${admission}'${source.slice(offset + match[0].length)}`;
+}
+
+// These are protocol fixtures, not aliases for the repository's current
+// admission state. Keeping both sides synthetic lets this verifier continue
+// guarding rollback after the real policy has flipped to Next.
+const FLOOR_SOURCE = CORE_CUTOVER_SURFACES.reduce(
+  (source, surface) => withAdmission(source, surface, 'legacy'),
+  CURRENT_SOURCE,
+);
+const CUTOVER_SOURCE = CORE_CUTOVER_SURFACES.reduce(
+  (source, surface) => withAdmission(source, surface, 'next'),
+  FLOOR_SOURCE,
+);
 
 const baseInput = {
   floorSha: FLOOR,
