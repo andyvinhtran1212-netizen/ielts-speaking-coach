@@ -308,6 +308,12 @@ def test_migration_is_additive_rls_protected_and_keeps_answer_snapshot():
     assert "CREATE TABLE IF NOT EXISTS course_section_submissions" in sql
     assert "UNIQUE (class_assignment_item_id, section)" in sql
     assert "answer_key" in sql and "content_snapshot" in sql and "duration_sec" in sql
+    assert "ADD COLUMN IF NOT EXISTS content_snapshot JSONB" in sql
+    assert "WHERE content_snapshot IS NULL" in sql
+    assert "ALTER COLUMN content_snapshot SET DEFAULT '{}'::jsonb" in sql
+    assert "ALTER COLUMN content_snapshot SET NOT NULL" in sql
+    assert "DROP CONSTRAINT IF EXISTS course_section_submissions_snapshot_object" in sql
+    assert "VALIDATE CONSTRAINT course_section_submissions_snapshot_object" in sql
     assert "ENABLE ROW LEVEL SECURITY" in sql
     assert "REVOKE ALL ON TABLE public.course_section_submissions" in sql
     assert "FROM PUBLIC, anon, authenticated" in sql

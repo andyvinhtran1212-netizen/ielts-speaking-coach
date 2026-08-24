@@ -40,6 +40,25 @@ CREATE TABLE IF NOT EXISTS course_section_submissions (
         UNIQUE (class_assignment_item_id, section)
 );
 
+-- Bản đầu của migration này từng mang số 216 và có thể đã tạo bảng trước khi
+-- content_snapshot được bổ sung. CREATE TABLE IF NOT EXISTS không nâng cấp một
+-- bảng đã tồn tại, vì vậy phải backfill cột/constraint theo đường idempotent.
+ALTER TABLE course_section_submissions
+    ADD COLUMN IF NOT EXISTS content_snapshot JSONB;
+UPDATE course_section_submissions
+   SET content_snapshot = '{}'::jsonb
+ WHERE content_snapshot IS NULL;
+ALTER TABLE course_section_submissions
+    ALTER COLUMN content_snapshot SET DEFAULT '{}'::jsonb,
+    ALTER COLUMN content_snapshot SET NOT NULL;
+ALTER TABLE course_section_submissions
+    DROP CONSTRAINT IF EXISTS course_section_submissions_snapshot_object;
+ALTER TABLE course_section_submissions
+    ADD CONSTRAINT course_section_submissions_snapshot_object
+        CHECK (jsonb_typeof(content_snapshot) = 'object') NOT VALID;
+ALTER TABLE course_section_submissions
+    VALIDATE CONSTRAINT course_section_submissions_snapshot_object;
+
 CREATE INDEX IF NOT EXISTS idx_course_section_submissions_user_bank
     ON course_section_submissions (user_id, bank_id, submitted_at DESC);
 CREATE INDEX IF NOT EXISTS idx_course_section_submissions_item
