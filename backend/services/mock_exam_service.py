@@ -32,6 +32,7 @@ in — regardless of order.
 from __future__ import annotations
 
 import logging
+import re
 import time
 from datetime import datetime, timezone
 from typing import Optional
@@ -96,11 +97,25 @@ class SittingConflictError(MockExamError):
     """State-machine transition not allowed from the current status."""
 
 
+class DuplicateExamCodeError(MockExamError):
+    """An exam already owns the requested unique code."""
+
+
 # ── Helpers ───────────────────────────────────────────────────────────
 
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _is_unique_violation(exc: Exception) -> bool:
+    """Recognize PostgREST/Postgres unique violations without prose matching."""
+    if str(getattr(exc, "code", "")) == "23505":
+        return True
+    if exc.args and isinstance(exc.args[0], dict):
+        if str(exc.args[0].get("code", "")) == "23505":
+            return True
+    return bool(re.search(r"\b23505\b", str(exc)))
 
 
 def _now_iso() -> str:
@@ -2174,7 +2189,12 @@ def admin_create_exam(payload: dict, created_by: str) -> dict:
     if not row.get("code") or not row.get("title"):
         raise ValueError("code và title là bắt buộc.")
     row["created_by"] = str(created_by)
-    inserted = supabase_admin.table("mock_exams").insert(row).execute()
+    try:
+        inserted = supabase_admin.table("mock_exams").insert(row).execute()
+    except Exception as exc:  # noqa: BLE001 — PostgREST exposes SQLSTATE dynamically
+        if _is_unique_violation(exc):
+            raise DuplicateExamCodeError("Mã đề đã tồn tại.") from exc
+        raise
     if not inserted.data:
         raise MockExamError("Không tạo được mock exam.")
     _reserve_exam_content(inserted.data[0])

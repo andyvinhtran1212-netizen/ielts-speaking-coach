@@ -179,6 +179,8 @@ async def create_exam(body: ExamCreate, authorization: str | None = Header(defau
     admin = await require_admin(authorization)
     try:
         return svc.admin_create_exam(body.model_dump(exclude_none=True), admin["id"])
+    except svc.DuplicateExamCodeError as e:
+        raise HTTPException(409, str(e))
     except ValueError as e:
         raise HTTPException(400, str(e))
 

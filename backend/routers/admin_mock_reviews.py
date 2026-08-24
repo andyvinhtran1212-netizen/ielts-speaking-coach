@@ -16,6 +16,8 @@ aggregates the 4-skill final decision + release.
 """
 from __future__ import annotations
 
+from uuid import UUID
+
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
@@ -72,8 +74,9 @@ async def queue(
 
 
 @router.get("/{review_id}")
-async def get_review(review_id: str, authorization: str | None = Header(default=None)):
+async def get_review(review_id: UUID, authorization: str | None = Header(default=None)):
     await require_admin(authorization)
+    review_id = str(review_id)
     review = wf.get_review(review_id)
     if not review:
         raise HTTPException(404, "Review không tồn tại.")

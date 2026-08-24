@@ -21,17 +21,20 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const API_JS = readFileSync(path.join(ROOT, 'frontend/public/js/api.js'), 'utf8');
 
 /** Chạy api.js trong sandbox với một `supabase.createClient` đếm được. */
-function loadApi() {
+function loadApi({ withSdk = true, sdkReady } = {}) {
   let created = 0;
   const win = {
-    supabase: {
-      createClient: (url, key) => { created += 1; return { __id: created, url, key }; },
-    },
     location: { hostname: 'localhost', origin: 'http://localhost:3000', href: 'http://localhost:3000/' },
     addEventListener() {},
     localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
     fetch: async () => ({ ok: true, status: 200, json: async () => ({}) }),
   };
+  if (withSdk) {
+    win.supabase = {
+      createClient: (url, key) => { created += 1; return { __id: created, url, key }; },
+    };
+  }
+  if (sdkReady) win.__AVER_SUPABASE_SDK_READY__ = sdkReady;
   win.window = win;
   const ctx = vm.createContext(win);
   ctx.document = { addEventListener() {}, readyState: 'complete' };
@@ -70,5 +73,33 @@ describe('api.js — một GoTrue client cho mỗi trang', () => {
     assert.throws(() => win.initSupabase(undefined, undefined));
     const ok = win.initSupabase('https://y.supabase.co', 'anon-key');
     assert.ok(ok && ok.url === 'https://y.supabase.co', 'lần sau phải dựng được');
+  });
+
+  test('SDK không nạp tạo lỗi có mã rõ ràng thay vì dereference undefined', () => {
+    const { win } = loadApi({ withSdk: false });
+    assert.throws(
+      () => win.initSupabase('https://x.supabase.co', 'anon-key'),
+      (error) => error && error.code === 'SUPABASE_SDK_UNAVAILABLE'
+        && /browser bundle did not load/.test(error.message),
+    );
+  });
+
+  test('Next fallback xếp hàng init và vẫn chỉ dựng một client khi SDK về', async () => {
+    let releaseSdk;
+    const sdkReady = new Promise((resolve) => { releaseSdk = resolve; });
+    const { win } = loadApi({ withSdk: false, sdkReady });
+
+    assert.equal(win.initSupabase('https://x.supabase.co', 'anon-key'), null);
+    let fallbackCreates = 0;
+    win.supabase = {
+      createClient: (url, key) => { fallbackCreates += 1; return { url, key }; },
+    };
+    releaseSdk(true);
+    await sdkReady;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.ok(win.getSupabase(), 'queued initialization must recover');
+    win.initSupabase('https://x.supabase.co', 'anon-key');
+    assert.equal(fallbackCreates, 1, 'recovery must preserve the single-client invariant');
   });
 });

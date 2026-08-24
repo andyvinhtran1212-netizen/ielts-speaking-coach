@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 _AUTH = {"Authorization": "Bearer fake.user.jwt"}
 _USER = {"id": "00000000-0000-0000-0000-00000000bbbb", "email": "u@x"}
 _OTHER = {"id": "00000000-0000-0000-0000-0000000cccccc", "email": "o@x"}
+_ATTEMPT_ID = "11111111-1111-4111-8111-111111111101"
 
 
 def _client():
@@ -45,7 +46,7 @@ def _db(tables):
 
 
 _SUBMITTED_ATTEMPT = {
-    "id": "a-uuid", "user_id": _USER["id"], "test_id": "t-uuid",
+    "id": _ATTEMPT_ID, "user_id": _USER["id"], "test_id": "t-uuid",
     "status": "submitted", "score": 1, "band_estimate": 5.0,
     "skill_breakdown": {"vocabulary_in_context": {"correct": 1, "total": 1}},
     "grading_details": [
@@ -75,7 +76,7 @@ def test_review_gated_to_submitted_attempts():
     db = _db({"reading_test_attempts": [in_progress]})
     with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.reading_student.supabase_admin", db):
-        r = _client().get("/api/reading/test/attempts/a-uuid/review", headers=_AUTH)
+        r = _client().get(f"/api/reading/test/attempts/{_ATTEMPT_ID}/review", headers=_AUTH)
     assert r.status_code == 409
 
 
@@ -83,7 +84,7 @@ def test_review_403_for_other_users_attempt():
     db = _db({"reading_test_attempts": [_SUBMITTED_ATTEMPT]})
     with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_OTHER)), \
          patch("routers.reading_student.supabase_admin", db):
-        r = _client().get("/api/reading/test/attempts/a-uuid/review", headers=_AUTH)
+        r = _client().get(f"/api/reading/test/attempts/{_ATTEMPT_ID}/review", headers=_AUTH)
     assert r.status_code == 403
 
 
@@ -96,7 +97,7 @@ def test_review_merges_solution_translation_and_by_part():
     })
     with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.reading_student.supabase_admin", db):
-        r = _client().get("/api/reading/test/attempts/a-uuid/review", headers=_AUTH)
+        r = _client().get(f"/api/reading/test/attempts/{_ATTEMPT_ID}/review", headers=_AUTH)
 
     assert r.status_code == 200
     body = r.json()
@@ -129,7 +130,7 @@ def test_review_legacy_grading_row_falls_back_to_current_explanation():
     })
     with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.reading_student.supabase_admin", db):
-        r = _client().get("/api/reading/test/attempts/a-uuid/review", headers=_AUTH)
+        r = _client().get(f"/api/reading/test/attempts/{_ATTEMPT_ID}/review", headers=_AUTH)
 
     assert r.status_code == 200
     assert r.json()["review"][0]["explanation"].startswith("Gravity is named")
@@ -172,7 +173,7 @@ def test_grouped_mcq_review_uses_matched_answer_rationale_not_display_slot():
     })
     with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.reading_student.supabase_admin", db):
-        response = _client().get("/api/reading/test/attempts/a-uuid/review", headers=_AUTH)
+        response = _client().get(f"/api/reading/test/attempts/{_ATTEMPT_ID}/review", headers=_AUTH)
 
     assert response.status_code == 200
     review = response.json()["review"]
@@ -217,7 +218,7 @@ def test_grouped_mcq_review_wrong_picks_keep_authored_rich_solutions():
     })
     with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.reading_student.supabase_admin", db):
-        response = _client().get("/api/reading/test/attempts/a-uuid/review", headers=_AUTH)
+        response = _client().get(f"/api/reading/test/attempts/{_ATTEMPT_ID}/review", headers=_AUTH)
 
     assert response.status_code == 200
     review = response.json()["review"]
@@ -276,7 +277,7 @@ def test_admin_preview_grouped_mcq_keeps_each_authored_rich_solution():
 
 
 def test_review_requires_auth():
-    assert _client().get("/api/reading/test/attempts/a-uuid/review").status_code == 401
+    assert _client().get(f"/api/reading/test/attempts/{_ATTEMPT_ID}/review").status_code == 401
 
 
 def test_review_admin_bypasses_ownership_and_seal():
@@ -296,6 +297,6 @@ def test_review_admin_bypasses_ownership_and_seal():
          patch("routers.admin.supabase_admin", db), \
          patch("routers.reading_student.supabase_admin", db), \
          patch("services.mock_exam_service.is_sealed", return_value=True):
-        r = _client().get("/api/reading/test/attempts/a-uuid/review", headers=_AUTH)
+        r = _client().get(f"/api/reading/test/attempts/{_ATTEMPT_ID}/review", headers=_AUTH)
     assert r.status_code == 200
     assert r.json()["score"] == 1

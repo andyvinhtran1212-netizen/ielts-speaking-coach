@@ -75,6 +75,30 @@
     }
   }
 
+  // Production error_logs are an operational signal, not a sink for local
+  // development or synthetic crawlers. A local build can legitimately carry
+  // production runtime-config while reproducing a bug; reporting from it made
+  // localhost/headless hydration failures look like real user incidents.
+  function _shouldSkipTelemetry() {
+    try {
+      var location = window.location || {};
+      var host = String(location.hostname || '').toLowerCase();
+      var protocol = String(location.protocol || '').toLowerCase();
+      if (
+        protocol === 'file:'
+        || host === 'localhost'
+        || host === '127.0.0.1'
+        || host === '::1'
+        || /\.local$/.test(host)
+      ) return true;
+
+      var ua = String((window.navigator && window.navigator.userAgent) || '');
+      return /Googlebot|bingbot|HeadlessChrome|Playwright|Puppeteer/i.test(ua);
+    } catch {
+      return false;
+    }
+  }
+
   // ── ADR-012 migration tags (FE Next.js migration, Pilot Entry) ─────
   // Every error report carries which STACK rendered the page and which
   // RELEASE served it, so the cutover dashboard can compare error rates
@@ -157,6 +181,7 @@
       try { console.warn('[error-reporter] reportError called with no payload'); } catch {}
       return;
     }
+    if (_shouldSkipTelemetry()) return;
     // Defensive non-empty message guard — never bail silently. Sprint
     // 12.3.1: tightened from `if (!payload.message) return;` so a
     // missing/falsy message becomes "Unknown error" instead of a silent
@@ -290,6 +315,12 @@
     var errObj = event && event.error;
     if (errObj && errObj.request_id) extra.api_request_id = errObj.request_id;
     if (errObj && errObj.ref) extra.api_ref = errObj.ref;
+    // React/Next production errors often replace the useful message with an
+    // opaque render failure and put the only correlation handle in `digest`.
+    // Preserve it as bounded metadata so an RSC server log can be joined.
+    if (errObj && errObj.digest != null) {
+      try { extra.digest = String(errObj.digest).slice(0, 200); } catch {}
+    }
     return {
       level:   'error',
       message: String(msg),
@@ -330,6 +361,9 @@
       // exact backend log line instead of only the page-session REQUEST_ID.
       if (reason && reason.request_id) extra.api_request_id = reason.request_id;
       if (reason && reason.ref) extra.api_ref = reason.ref;
+      if (reason && reason.digest != null) {
+        try { extra.digest = String(reason.digest).slice(0, 200); } catch {}
+      }
       reportError({
         level:   'error',
         message: msg || 'Unhandled promise rejection',

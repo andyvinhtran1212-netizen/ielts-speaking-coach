@@ -58,6 +58,7 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
         src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js"
         defer
       />
+      <script src="/js/supabase-sdk-fallback.js" defer />
       <script src="/js/runtime-config.js" defer />
       {/* DEBT-2026-07-31-O — reporter phải nạp TRƯỚC api.js/chrome. Script
           `defer` chạy theo THỨ TỰ TÀI LIỆU, nên đặt sau api.js thì một lỗi

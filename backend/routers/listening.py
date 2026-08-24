@@ -4720,7 +4720,7 @@ def _assert_listening_exam_content_allowed(test: dict, user_id) -> None:
 
 @user_router.get("/tests/{test_id}")
 async def get_published_listening_test(
-    test_id: str,
+    test_id: uuid.UUID,
     authorization: str | None = Header(default=None),
 ):
     """Fetch a published test bundle for the student player.
@@ -4733,6 +4733,7 @@ async def get_published_listening_test(
     from services import listening_test_grader as grader
 
     _user = await _require_auth(authorization)
+    test_id = str(test_id)
 
     res = (
         supabase_admin.table("listening_tests")
@@ -6423,7 +6424,7 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
 
 @user_router.get("/tests/attempts/{attempt_id}/review")
 async def get_listening_test_attempt_review(
-    attempt_id: str,
+    attempt_id: uuid.UUID,
     authorization: str | None = Header(default=None),
 ):
     """listening-review-ui (Phase B) — post-submit chữa-bài for a listening
@@ -6441,6 +6442,7 @@ async def get_listening_test_attempt_review(
     releasing results. Everyone else keeps the existing ownership + seal
     gate unchanged."""
     user = await _require_auth(authorization)
+    attempt_id = str(attempt_id)
     is_admin = await _is_admin(authorization)
     if is_admin:
         res = supabase_admin.table("listening_test_attempts").select("*").eq(
