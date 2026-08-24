@@ -324,6 +324,20 @@ describe('error-reporter noise filter', () => {
     await flush();
     assert.equal(fetchCalls.length, 0);
   });
+
+  test('MetaMask extension rejection is NOT reported by an app with no wallet integration', async () => {
+    const { listeners, fetchCalls } = setupSandbox();
+    listeners.unhandledrejection({ reason: { message: 'Failed to connect to MetaMask' } });
+    await flush();
+    assert.equal(fetchCalls.length, 0);
+  });
+
+  test('a genuine app connection rejection remains visible', async () => {
+    const { listeners, fetchCalls } = setupSandbox();
+    listeners.unhandledrejection({ reason: { message: 'Failed to connect to classroom server' } });
+    await flush();
+    assert.equal(fetchCalls.length, 1);
+  });
 });
 
 // ── DEBT-2026-07-30-N (review #884) ────────────────────────────────────────

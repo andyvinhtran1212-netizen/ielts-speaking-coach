@@ -133,6 +133,15 @@ describe('a failed load never reads as "you owe nothing"', () => {
     assert.match(fn, /\$\('mc-content'\)\.hidden = true/);
   });
 
+  test('a null or malformed 200 response follows the same visible error path', () => {
+    const fn = codeOnly(SRC.slice(SRC.indexOf('async function load()'),
+                                  SRC.indexOf('function main()')));
+    assert.match(fn, /!nextData\s*\|\|\s*typeof nextData !== 'object'/);
+    assert.match(fn, /typeof nextData\.has_class !== 'boolean'/);
+    assert.ok(fn.indexOf('render();') < fn.indexOf('} catch'),
+      'render must stay inside the guarded try/catch');
+  });
+
   test('a degraded assignments block suppresses the "no homework" empty state', () => {
     const fn = codeOnly(SRC.slice(SRC.indexOf('function render()'), SRC.indexOf('async function load()')));
     assert.match(fn, /degraded\.includes\('assignments'\)/,

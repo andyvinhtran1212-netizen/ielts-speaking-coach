@@ -523,6 +523,11 @@ async def startup_event():
     from services.provider_fixtures import assert_fixture_mode_safe
     assert_fixture_mode_safe()
 
+    # A TestClient/embedded server can restart the lifespan in one interpreter;
+    # rebuild the sync PostgREST pool if the preceding shutdown closed it.
+    from database import init_supabase_http_client
+    init_supabase_http_client()
+
     logger.info("Server started")
 
     # P0-1 (C-1.1) async-DB scaffold. The event-loop-lag monitor always runs —
@@ -600,6 +605,10 @@ async def shutdown_event():
     # Perf (B) — release the shared token-verification keep-alive pool cleanly.
     from routers.auth import close_auth_http_client
     await close_auth_http_client()
+    # The service-role Supabase client owns an explicit sync HTTP/1.1 pool;
+    # release it only when the process is actually shutting down.
+    from database import close_supabase_http_client
+    close_supabase_http_client()
 
 
 @app.get("/topics")
