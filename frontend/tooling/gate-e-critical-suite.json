@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "suite_id": "gate-e-critical-suite-v12",
+  "suite_id": "gate-e-critical-suite-v13",
   "matrix_id": "gate-e-device-matrix-v1",
   "target_consecutive_clean_runs": 20,
   "expected_total_tests": 34,
@@ -123,7 +123,7 @@
     { "path": "frontend/tooling/verify-gate-e-listening-device-matrix.mjs", "sha256": "1b81f3902094ef6f3d9aef5007b5d728c5ff9e7d1fed3bd8df2f8467778ca71a" },
     { "path": "frontend/tooling/verify-gate-e-listening-failure-evidence.mjs", "sha256": "af9bec13ebdc88df525f1aad1a25e62af64699e4aceeaf97f643a9dfff10bf32" },
     { "path": "frontend/tests/gate-e-listening/listening-gate-e-harness.js", "sha256": "f546a9e81bd8117fff8dec3738e89345a353d7a340bbb33e31fa89ee8defb13e" },
-    { "path": "frontend/tests/gate-e-listening/listening-failure-matrix.spec.js", "sha256": "b6bd9c9cc5f5327bff79a14b563097b65f8667b3f72c8fb9af39ea52ce50404e" },
+    { "path": "frontend/tests/gate-e-listening/listening-failure-matrix.spec.js", "sha256": "a342961cac568b95e3ddc5e40f2b82add6a883e7c573ce7196b9b64cbec96cd1" },
     { "path": "frontend/tests/gate-e-listening/dictation-gate-e-harness.js", "sha256": "9216e4e9e35c5c517ea6ff1dd507e62f3a1de22194b972ae685a41c1b8653f53" },
     { "path": "frontend/tests/gate-e-listening/dictation-failure-matrix.spec.js", "sha256": "4a385374e528eacb61b219d3c6f05b8fef04705a857c4b382d41d5140e75898a" },
     { "path": "frontend/playwright.gate-e-writing.config.js", "sha256": "a2c932207b297415ea10477b0fcdcc98002e429c98019df083cc178e9beed6d3" },

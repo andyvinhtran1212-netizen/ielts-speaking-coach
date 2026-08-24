@@ -11,6 +11,14 @@ const {
   openNext,
 } = require('./listening-gate-e-harness');
 
+async function startNextListening(page) {
+  await openNext(page);
+  await page.getByRole('button', { name: 'Bắt đầu test' }).click();
+  const audioPrompt = page.getByRole('dialog', { name: 'Check your headphones' });
+  await audioPrompt.getByRole('button', { name: 'Play' }).click();
+  await expect(audioPrompt).toBeHidden();
+}
+
 test('listening-core-player-ambiguous-commit', async ({ page }) => {
   const state = createListeningGateEState();
   let q1Writes = 0;
@@ -31,11 +39,7 @@ test('listening-core-player-ambiguous-commit', async ({ page }) => {
     },
   });
 
-  await openNext(page);
-  await page.getByRole('button', { name: 'Bắt đầu test' }).click();
-  const audioPrompt = page.getByRole('dialog', { name: 'Check your headphones' });
-  await audioPrompt.getByRole('button', { name: 'Play' }).click();
-  await expect(audioPrompt).toBeHidden();
+  await startNextListening(page);
   await page.getByLabel('Answer 1').fill('library');
   await expect.poll(() => state.patchCalls.filter(({ q_num }) => q_num === 1).length).toBe(2);
   expect(state.answers.get(1)).toBe('library');
@@ -67,11 +71,7 @@ test('listening-core-player-partial-persistence', async ({ page }) => {
     },
   });
 
-  await openNext(page);
-  await page.getByRole('button', { name: 'Bắt đầu test' }).click();
-  const audioPrompt = page.getByRole('dialog', { name: 'Check your headphones' });
-  await audioPrompt.getByRole('button', { name: 'Play' }).click();
-  await expect(audioPrompt).toBeHidden();
+  await startNextListening(page);
   await page.getByLabel('Answer 1').fill('library');
   await expect.poll(() => state.answers.get(1)).toBe('library');
   await page.getByLabel('Answer 2').fill('blue');
@@ -108,8 +108,7 @@ test('listening-core-player-reload-resume', async ({ page }) => {
   const state = createListeningGateEState();
   const harness = await installListeningGateEHarness(page, { state });
 
-  await openNext(page);
-  await page.getByRole('button', { name: 'Bắt đầu test' }).click();
+  await startNextListening(page);
   await page.getByLabel('Answer 1').fill('library');
   await expect.poll(() => state.answers.get(1)).toBe('library');
 
