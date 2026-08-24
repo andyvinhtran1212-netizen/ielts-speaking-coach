@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "suite_id": "gate-e-critical-suite-v13",
+  "suite_id": "gate-e-critical-suite-v14",
   "matrix_id": "gate-e-device-matrix-v1",
   "target_consecutive_clean_runs": 20,
   "expected_total_tests": 34,
@@ -98,7 +98,7 @@
     { "path": "frontend/tests/staging-e2e/pilot-3-profile.spec.js", "sha256": "fb0e06c29adb5cb95a0fff39019263d2de1f0d8f191f54045f48d92f7fcc5b47" },
     { "path": "frontend/tests/staging-e2e/pilot-4-profile-save.spec.js", "sha256": "15374c6cd12c33a9d109de06d59c2dd58566eefa232555862dca67557c0403d2" },
     { "path": "frontend/tests/staging-e2e/platform.spec.js", "sha256": "ad384d15a58de98eff5161cc535b7aaa4d704adcb570fe2bd3e09ccd231908ce" },
-    { "path": "frontend/tests/staging-e2e/speaking-start-flow.spec.js", "sha256": "704f4879b5c3e4015e9b4e7c1c3c6b2f127e0ff19b1e8c81edaf2954b544e48d" },
+    { "path": "frontend/tests/staging-e2e/speaking-start-flow.spec.js", "sha256": "910db4dba87f6122d92860a61ac1ec80c7835b34dc3aa44ecd690e178f3f7a1d" },
     { "path": "frontend/tests/staging-e2e/core-player-failure-injection.spec.js", "sha256": "a5bccfbfe4d6a4cb1e7f0c5bea72275ad0279f6c37508175c73575af17e61c0c" },
     { "path": "frontend/tooling/verify-gate-e-live-staging-failure-evidence.mjs", "sha256": "8e3a6e9bd7e48ad9212a14c469497fc5afe743d77501f7f3fc174d4357898389" },
     { "path": "frontend/tests/gate-e-live-staging-failure-evidence.test.mjs", "sha256": "88256110a058edd0dc56072b578a5d5ad5917b1606faa53d00615a6e3229d76f" },
