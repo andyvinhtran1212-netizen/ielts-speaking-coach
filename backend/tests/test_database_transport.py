@@ -65,6 +65,10 @@ def test_shutdown_then_startup_rebuilds_a_usable_postgrest_pool(monkeypatch):
     monkeypatch.setattr(main.settings, "WRITING_REAPER_ENABLED", False)
     monkeypatch.setattr(main.settings, "RETAKE_REAPER_ENABLED", False)
 
+    # The full suite contains TestClient lifespans that may already have run a
+    # legitimate shutdown. Establish this test's own open starting state rather
+    # than depending on collection/execution order.
+    database.init_supabase_http_client()
     old = database._supabase_postgrest_http_client
     assert old is not None and not old.is_closed
     database.close_supabase_http_client()
