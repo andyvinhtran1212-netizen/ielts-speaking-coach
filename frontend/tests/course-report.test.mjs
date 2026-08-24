@@ -111,6 +111,90 @@ describe('màn hình nói được bốn điều học viên hỏi', () => {
   });
 });
 
+describe('màn tự review sau khi học viên đã đạt', () => {
+  const qs = [
+    Q({
+      qid: 'q1', prompt: 'She bought ___ umbrella.',
+      options: ['a', 'an', 'the', '—'], picked: 0, picked_text: 'a',
+      answer: 1, answer_text: 'an', is_correct: false,
+      why_wrong: 'a đứng trước âm phụ âm.', explain: 'umbrella mở đầu bằng nguyên âm.',
+    }),
+    Q({
+      qid: 'q2', prompt: 'There are ___ students today.',
+      options: ['much', 'many', 'little', 'less'], picked: 1, picked_text: 'many',
+      answer: 1, answer_text: 'many', is_correct: true,
+      why_wrong: null, explain: 'many dùng với danh từ đếm được số nhiều.',
+    }),
+  ];
+  const html = renderReport(data(qs), {
+    learner: true,
+    verdict: { passed: true, pct: 82 },
+  });
+
+  test('kết quả đạt dẫn thẳng tới việc học, không dẫn bằng dải thống kê trục', () => {
+    assert.match(html, /Đã đạt — giờ hãy hiểu rõ từng câu/);
+    assert.match(html, /Xem lại toàn bộ bài làm/);
+    assert.match(html, /82%/);
+    assert.doesNotMatch(html, /class="cr-axes"/);
+    assert.doesNotMatch(html, /class="cr-strip"/);
+  });
+
+  test('mặc định dựng đủ toàn bộ bài theo thứ tự câu', () => {
+    assert.equal((html.match(/class="cr-review-q"/g) || []).length, 2);
+    assert.ok(html.indexOf('She bought') < html.indexOf('There are'));
+    assert.match(html, /Câu 1/);
+    assert.match(html, /Câu 2/);
+  });
+
+  test('câu sai có đủ lựa chọn, đáp án chuẩn, bẫy và lời giải', () => {
+    for (const option of ['a', 'an', 'the', '—']) assert.match(html, new RegExp(`>${option}<`));
+    assert.match(html, /data-state="picked-wrong"/);
+    assert.match(html, /data-state="correct"/);
+    assert.match(html, /Bạn chọn/);
+    assert.match(html, /Đáp án đúng/);
+    assert.match(html, /Vì sao bạn dễ nhầm ở đây/);
+    assert.match(html, /umbrella mở đầu bằng nguyên âm/);
+  });
+
+  test('câu đúng vẫn có lời giải để củng cố', () => {
+    assert.match(html, /data-state="picked-correct"/);
+    assert.match(html, /Bạn chọn · Đúng/);
+    assert.match(html, /many dùng với danh từ đếm được số nhiều/);
+  });
+
+  test('bộ lọc có trạng thái truy cập được và số lượng đúng', () => {
+    assert.match(html, /data-cr-filter="all" aria-pressed="true">Tất cả <span>2<\/span>/);
+    assert.match(html, /data-cr-filter="wrong" aria-pressed="false">Câu sai <span>1<\/span>/);
+    assert.match(html, /data-cr-filter="correct" aria-pressed="false">Câu đúng <span>1<\/span>/);
+  });
+
+  test('mặt giáo viên vẫn giữ báo cáo theo trục hiện hành', () => {
+    const admin = renderReport(data(qs));
+    assert.match(admin, /class="cr-axes"/);
+    assert.doesNotMatch(admin, /class="cr-review-list"/);
+  });
+
+  test('response fail-open không được đọc thành đã đạt khi verdict hiện tại chưa đạt', () => {
+    const unlocked = data(qs);
+    unlocked.summary = { latest_pct: 70, latest_action: 'retake', pass_pct: 80 };
+    const failed = renderReport(unlocked, {
+      learner: true,
+      verdict: { passed: false, pct: 70 },
+    });
+    assert.match(failed, /class="cr-axes"/);
+    assert.doesNotMatch(failed, /Đã đạt — giờ hãy hiểu rõ từng câu/);
+    assert.doesNotMatch(failed, /Kết quả đạt/);
+  });
+
+  test('chế độ chỉ xem dùng điểm mastery mới nhất khi không còn verdict trong bộ nhớ', () => {
+    const d = data(qs);
+    d.summary = { latest_pct: 85, latest_action: 'passed', pass_pct: 80 };
+    const review = renderReport(d, { learner: true });
+    assert.match(review, /85%/);
+    assert.match(review, /Đã đạt — giờ hãy hiểu rõ từng câu/);
+  });
+});
+
 describe('con số', () => {
   test('rời máy CHỈ hiện khi có', () => {
     // Một dòng "rời máy 0 giây" là nhiễu.
@@ -295,6 +379,13 @@ describe('bản rút gọn khi chưa đạt', () => {
     assert.doesNotMatch(html, /class="cr-qs"/,
       'danh sách câu là chỗ đáp án hiện ra');
     assert.doesNotMatch(html, /cr-q__prompt/);
+  });
+
+  test('cờ learner không được vượt cổng khi chưa đạt', () => {
+    const html = renderReport(lockedData, { learner: true, verdict: { pct: 70 } });
+    assert.match(html, /cr-locked/);
+    assert.doesNotMatch(html, /cr-review-list/);
+    assert.doesNotMatch(html, /Đáp án đúng/);
   });
 
   test('nói ra ĐIỀU KIỆN mở mức hai', () => {
