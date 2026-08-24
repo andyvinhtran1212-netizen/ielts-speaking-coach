@@ -259,6 +259,11 @@
     if (/^ResizeObserver loop/i.test(m)) return true;
     // Known third-party scripts / trackers by message text.
     if (/zalojsv2|zalosdk|\bgmo\b|\bfbq\b|gtag\(|adsbygoogle|google[- ]analytics/i.test(m)) return true;
+    // Browser-wallet extensions inject providers into every page. Aver does
+    // not integrate MetaMask, so its connection rejection is extension noise,
+    // not an application failure. Match the product name as well as the text
+    // so genuine app/network "Failed to connect" errors remain visible.
+    if (/metamask/i.test(m) && /failed to connect|not installed|provider/i.test(m)) return true;
     // Errors thrown from third-party CDNs (not our origin).
     var f = String(filename || '');
     if (f && /(zalo|zdn\.vn|facebook|fbcdn|googletagmanager|google-analytics|doubleclick|gstatic|hotjar)/i.test(f)) return true;

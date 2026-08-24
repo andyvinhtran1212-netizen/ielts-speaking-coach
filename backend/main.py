@@ -600,6 +600,10 @@ async def shutdown_event():
     # Perf (B) — release the shared token-verification keep-alive pool cleanly.
     from routers.auth import close_auth_http_client
     await close_auth_http_client()
+    # The service-role Supabase client owns an explicit sync HTTP/1.1 pool;
+    # release it only when the process is actually shutting down.
+    from database import close_supabase_http_client
+    close_supabase_http_client()
 
 
 @app.get("/topics")
