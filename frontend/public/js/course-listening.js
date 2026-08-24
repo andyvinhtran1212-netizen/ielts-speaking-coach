@@ -6,10 +6,11 @@ const esc = (value) => String(value == null ? '' : value)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
-export const listeningDraftKey = (bankId, userId) =>
-  `cl:${userId || 'anon'}:${bankId}`;
+export const listeningDraftKey = (bankId, userId, assignmentItemId = null) =>
+  `cl:${userId || 'anon'}:${bankId}:${assignmentItemId || 'unscoped'}`;
 
-export function createListening({ api, storage, userId, now = () => Date.now() }) {
+export function createListening({ api, storage, userId, assignmentItemId = null,
+  now = () => Date.now() }) {
   let bankId = null;
   let data = null;
   let draft = {};
@@ -22,13 +23,15 @@ export function createListening({ api, storage, userId, now = () => Date.now() }
 
   function loadDraft() {
     if (!storage || !bankId) return {};
-    try { return JSON.parse(storage.getItem(listeningDraftKey(bankId, userId)) || '{}') || {}; }
+    try { return JSON.parse(storage.getItem(
+      listeningDraftKey(bankId, userId, assignmentItemId)) || '{}') || {}; }
     catch (_error) { return {}; }
   }
 
   function save() {
     if (!storage || !bankId) return;
-    try { storage.setItem(listeningDraftKey(bankId, userId), JSON.stringify(draft)); }
+    try { storage.setItem(
+      listeningDraftKey(bankId, userId, assignmentItemId), JSON.stringify(draft)); }
     catch (_error) { /* localStorage hỏng không chặn làm bài */ }
   }
 
@@ -127,13 +130,29 @@ export function createListening({ api, storage, userId, now = () => Date.now() }
       solution = await api.post('/api/quiz/course/listening-solution', {
         bank_id: bankId, answers: { ...draft },
         duration_sec: activeTimer.seconds(),
+        ...(assignmentItemId ? { class_item: assignmentItemId } : {}),
       });
+      draft = { ...(solution?.result?.submitted_answers || draft) };
+      save();
+      activeTimer.setActive(false);
+      return true;
+    },
+    async review() {
+      if (!bankId) return false;
+      solution = await api.post('/api/quiz/course/listening-solution', {
+        bank_id: bankId, answers: {}, duration_sec: 0,
+        ...(assignmentItemId ? { class_item: assignmentItemId } : {}),
+      });
+      draft = { ...(solution?.result?.submitted_answers || {}) };
       activeTimer.setActive(false);
       return true;
     },
     async refreshAudio() {
-      if (!data || !bankId) return false;
-      data = await api.post('/api/quiz/course/listening-audio', { bank_id: bankId });
+      if (!bankId) return false;
+      data = await api.post('/api/quiz/course/listening-audio', {
+        bank_id: bankId,
+        ...(assignmentItemId ? { class_item: assignmentItemId } : {}),
+      });
       return true;
     },
     render,

@@ -129,6 +129,16 @@ function fakeApi({ questions, mastery = null, failSession = false, failProgress 
   };
 }
 
+test('review load pins the bank read to the exact assignment item', async () => {
+  const api = fakeApi({ questions: [mcq(1)], mastery: {
+    item_id: 'item-old', review_only: true, completed_sections: ['quiz'],
+  } });
+  const runner = createRunner({ api, storage: null });
+  await runner.load('b1', { reviewOnly: true, assignmentItemId: 'item-old' });
+  assert.equal(api.calls.get[0], '/api/quiz/banks/b1?class_item=item-old');
+  assert.deepEqual(runner.mastery.completed_sections, ['quiz']);
+});
+
 function memStore() {
   const m = new Map();
   return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, v), _m: m };

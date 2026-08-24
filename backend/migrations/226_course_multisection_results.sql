@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS course_section_submissions (
     section                  TEXT NOT NULL,
     answers                  JSONB NOT NULL DEFAULT '{}'::jsonb,
     answer_key               JSONB NOT NULL DEFAULT '[]'::jsonb,
+    content_snapshot         JSONB NOT NULL DEFAULT '{}'::jsonb,
     total                    INTEGER NOT NULL CHECK (total > 0),
     correct                  INTEGER NOT NULL CHECK (correct >= 0 AND correct <= total),
     score                    NUMERIC(5,2) NOT NULL CHECK (score >= 0 AND score <= 100),
@@ -33,6 +34,8 @@ CREATE TABLE IF NOT EXISTS course_section_submissions (
         CHECK (jsonb_typeof(answers) = 'object'),
     CONSTRAINT course_section_submissions_key_array
         CHECK (jsonb_typeof(answer_key) = 'array'),
+    CONSTRAINT course_section_submissions_snapshot_object
+        CHECK (jsonb_typeof(content_snapshot) = 'object'),
     CONSTRAINT course_section_submissions_item_section_unique
         UNIQUE (class_assignment_item_id, section)
 );
@@ -62,11 +65,16 @@ COMMENT ON TABLE course_section_submissions IS
     'Kết quả chốt một lần cho phần đọc/nghe của một mục bài giao; draft vẫn ở client và không phải kết quả.';
 COMMENT ON COLUMN course_section_submissions.answer_key IS
     'Bản chụp đáp án/lời giải tại thời điểm nộp để kết quả không trôi khi bank được nhập lại.';
+COMMENT ON COLUMN course_section_submissions.content_snapshot IS
+    'Bản chụp đầy đủ passage/câu hỏi hoặc audio manifest/transcript tại thời điểm nộp; review không ghép với bank live.';
 COMMENT ON COLUMN course_section_submissions.duration_sec IS
     'Thời gian hoạt động do client đo cho riêng phần này; không suy từ khoảng mở tab.';
 
 -- Học viên chỉ đi qua API đã kiểm tra bài giao. Không mở policy PostgREST.
 ALTER TABLE course_section_submissions ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.course_section_submissions
+    FROM PUBLIC, anon, authenticated;
+GRANT ALL ON TABLE public.course_section_submissions TO service_role;
 
 -- Nâng hàng rào xoá bài giao của mig 196. Nếu không thêm hai bảng mới, một bài
 -- đã nộp đọc/nghe hoặc phát âm nhưng chưa chốt ledger vẫn bị RPC coi là trắng
@@ -177,6 +185,12 @@ COMMIT;
 --  ORDER BY table_name, ordinal_position;
 -- SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint
 --  WHERE conrelid = 'course_section_submissions'::regclass;
+-- SELECT role_name, privilege_type,
+--        has_table_privilege(role_name, 'public.course_section_submissions', privilege_type)
+--   FROM (VALUES ('anon'), ('authenticated'), ('service_role')) roles(role_name)
+--  CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'),
+--                     ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) privileges(privilege_type)
+--  ORDER BY role_name, privilege_type;
 -- SELECT prosrc LIKE '%course_section_submissions c%' AS co_doc_nghe,
 --        prosrc LIKE '%course_pronunciation_submissions p%' AS co_phat_am
 --   FROM pg_proc WHERE proname = 'fn_delete_class_assignment_if_unsubmitted';

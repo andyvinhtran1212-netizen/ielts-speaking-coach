@@ -196,10 +196,33 @@ describe('cổng hoàn thành bài nhiều phần', () => {
     assert.match(SRC, /sectionRows\.filter/);
   });
 
-  test('chỉ mở hành động cho phần chưa hoàn thành', () => {
-    for (const key of ['writingDone', 'readingDone', 'listeningDone', 'pronunciationDone']) {
+  test('phần tự luận và phát âm chỉ mở làm khi chưa hoàn thành', () => {
+    for (const key of ['writingDone', 'pronunciationDone']) {
       assert.match(SRC, new RegExp(`!${key}`));
     }
+  });
+
+  test('phần đọc và nghe đã hoàn thành vẫn có hành động xem lại', () => {
+    const reviewHub = functionBody('renderReviewHub');
+    assert.match(SRC, /readingDone \? 'Xem lại bài đọc đã nộp'/);
+    assert.match(SRC, /listeningDone \? 'Xem lại bài nghe đã nộp'/);
+    assert.match(SRC, /await reading\.review\(\)/);
+    assert.match(SRC, /await listening\.review\(\)/);
+    assert.match(SRC, /const sectionAssignmentItem = requestedItem \|\| runner\.mastery\?\.item_id \|\| null/);
+    assert.match(SRC, /assignmentItemId: sectionAssignmentItem/);
+    assert.match(reviewHub, /reviewSectionCompleted\('reading'\)/);
+    assert.match(reviewHub, /reviewSectionCompleted\('listening'\)/);
+    assert.match(reviewHub, /cx-reading-open/);
+    assert.match(reviewHub, /cx-listening-open/);
+  });
+
+  test('review hub không suy phần đã nộp từ bank live', () => {
+    const reviewHub = functionBody('renderReviewHub');
+    assert.doesNotMatch(reviewHub, /\(reading\.exists\s*\?/);
+    assert.doesNotMatch(reviewHub, /\(listening\.exists\s*\?/);
+    assert.match(SRC, /runner\.mastery\?\.completed_sections/);
+    assert.doesNotMatch(reviewHub, /reading\.exists && reviewSectionCompleted/);
+    assert.doesNotMatch(reviewHub, /listening\.exists && reviewSectionCompleted/);
   });
 
   test('không mở phần chỉ mới được thêm vào bank sau lúc giao bài', () => {

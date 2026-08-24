@@ -529,7 +529,9 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     isStageDone() { return at >= stageQuestions().length; },
 
     async load(bankId, options = {}) {
-      const r = await api.get('/api/quiz/banks/' + encodeURIComponent(bankId));
+      const itemQuery = options.assignmentItemId
+        ? '?class_item=' + encodeURIComponent(options.assignmentItemId) : '';
+      const r = await api.get('/api/quiz/banks/' + encodeURIComponent(bankId) + itemQuery);
       bank = r.bank;
       mastery = r.mastery || null;
       this.mastery = mastery;   // {item_id, passed_at, threshold, near_threshold, retake_size, retakes, due_at}
