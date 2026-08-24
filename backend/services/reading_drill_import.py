@@ -41,6 +41,7 @@ import re
 from typing import Optional
 
 from services.content_import_service import ParsedReadingTest, slugify
+from services.listening_test_grader import normalize_answer
 from services.reading_prose_import import (
     _SKILL_CODE_TO_TAG,
     parse_rich_solutions,
@@ -161,8 +162,8 @@ def _split_accept(cell: str) -> list[str]:
 
 
 def _norm_key(s: str) -> str:
-    """Dedup key — mirrors the grader's case/punctuation-insensitive compare."""
-    return re.sub(r"[^\w\s]", "", (s or "").lower()).strip()
+    """Dedup key — exactly mirrors the grader's answer normalisation."""
+    return normalize_answer(s)
 
 
 def expand_answer(primary_cell: str, accept_cell: str = "") -> tuple[str, list[str]]:
@@ -563,6 +564,8 @@ def build_parsed_reading_test_from_drill(
 
     meta = _meta(drill_text)
     test_id = _norm(meta.get("Test ID") or "")
+    questions_header = _QUESTIONS_HDR_RE.search(drill_text)
+    declared_total = int(questions_header.group(2)) if questions_header else 0
     ptitle, body, section = _parse_passage(drill_text)
     if not test_id:
         warnings.append("Thiếu 'Test ID' trong bảng metadata của drill.")
@@ -645,7 +648,10 @@ def build_parsed_reading_test_from_drill(
         module             = "academic",
         time_limit_minutes = 15,
         passage_count      = 1,
-        total_questions    = len(questions),
+        # Keep the authored range as canonical truth.  Deriving this from the
+        # parsed answer rows would let a missing row shrink both sides of the
+        # validator's count comparison and silently publish a partial drill.
+        total_questions    = declared_total or len(questions),
         band_target        = band_target,
         published          = published,
         passages           = [passage],

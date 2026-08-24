@@ -403,10 +403,14 @@ def grade_attempt(
         })
 
     score = sum(1 for r in per_question if r["correct"])
+    max_score = len(per_question)
     return {
         "score":           score,
-        "max_score":       len(per_question),
-        "band_estimate":   band_estimate(score, module=module),
+        "max_score":       max_score,
+        # The published IELTS conversion table is defined for 40 questions.
+        # Applying it directly to a seven-question mini reports 7/7 as Band
+        # 3.0, so short or structurally incomplete tests must not emit a band.
+        "band_estimate":   band_estimate(score, module=module) if max_score == 40 else None,
         "per_question":    per_question,
         "skill_breakdown": rollup_skill_breakdown(per_question),
         "by_part":         by_part_breakdown(per_question),
