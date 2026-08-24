@@ -44,6 +44,7 @@ export default function PublicAuthLayout({ children }: { children: ReactNode }) 
         src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js"
         defer
       />
+      <script src="/js/supabase-sdk-fallback.js" defer />
       <script src="/js/runtime-config.js" defer />
       <script src="/js/error-reporter.js" defer />
       <script src="/js/api.js" defer />

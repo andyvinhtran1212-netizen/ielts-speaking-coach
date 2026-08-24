@@ -37,6 +37,7 @@ describe('/login native auth entry', () => {
 
   test('keeps one shared Supabase client and the implicit callback contract', () => {
     assert.match(LAYOUT, /supabase-js@2\.107\.0\/dist\/umd\/supabase\.min\.js/);
+    assert.match(LAYOUT, /\/js\/supabase-sdk-fallback\.js/);
     assert.match(LAYOUT, /initSupabase\(/);
     assert.match(BEHAVIOR, /const fragment = new URLSearchParams\(window\.location\.hash\.replace/);
     assert.match(BEHAVIOR, /'error_description'/);

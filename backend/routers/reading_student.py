@@ -35,6 +35,7 @@ import logging
 import secrets
 from datetime import datetime, timezone
 from typing import Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -1413,7 +1414,7 @@ def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
 
 @router.get("/test/attempts/{attempt_id}/review")
 async def review_reading_test_attempt(
-    attempt_id: str,
+    attempt_id: UUID,
     authorization: str | None = Header(default=None),
     x_reading_anon: str | None = Header(default=None, alias="X-Reading-Anon"),
 ):
@@ -1440,6 +1441,7 @@ async def review_reading_test_attempt(
     of a DIFFERENT sitting)."""
     user = await _optional_auth(authorization)
     is_admin = await _is_admin(authorization)
+    attempt_id = str(attempt_id)
     if is_admin:
         res = supabase_admin.table("reading_test_attempts").select("*").eq(
             "id", attempt_id,
