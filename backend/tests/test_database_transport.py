@@ -27,7 +27,11 @@ def test_service_role_client_uses_the_explicit_transport():
 
 def test_close_releases_the_shared_transport(monkeypatch):
     close = Mock()
-    monkeypatch.setattr(database, "_supabase_postgrest_http_client", Mock(close=close))
+    monkeypatch.setattr(
+        database,
+        "_supabase_postgrest_http_client",
+        Mock(close=close, is_closed=False),
+    )
     database.close_supabase_http_client()
     close.assert_called_once_with()
 
@@ -49,3 +53,27 @@ def test_application_shutdown_closes_both_http_pools(monkeypatch):
 
     auth_close.assert_called_once_with()
     db_close.assert_called_once_with()
+
+
+def test_shutdown_then_startup_rebuilds_a_usable_postgrest_pool(monkeypatch):
+    import main
+    from services import loop_monitor, provider_fixtures
+
+    monkeypatch.setattr(provider_fixtures, "assert_fixture_mode_safe", Mock())
+    monkeypatch.setattr(loop_monitor, "start", Mock())
+    monkeypatch.setattr(main.settings, "USE_ASYNC_DB", False)
+    monkeypatch.setattr(main.settings, "WRITING_REAPER_ENABLED", False)
+    monkeypatch.setattr(main.settings, "RETAKE_REAPER_ENABLED", False)
+
+    old = database._supabase_postgrest_http_client
+    assert old is not None and not old.is_closed
+    database.close_supabase_http_client()
+    assert old.is_closed
+
+    asyncio.run(main.startup_event())
+
+    rebuilt = database._supabase_postgrest_http_client
+    assert rebuilt is not None and rebuilt is not old and not rebuilt.is_closed
+    # Building a real table request exercises Client.table -> rebound
+    # PostgREST session without sending anything over the network.
+    assert database.supabase_admin.table("error_logs") is not None

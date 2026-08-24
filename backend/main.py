@@ -523,6 +523,11 @@ async def startup_event():
     from services.provider_fixtures import assert_fixture_mode_safe
     assert_fixture_mode_safe()
 
+    # A TestClient/embedded server can restart the lifespan in one interpreter;
+    # rebuild the sync PostgREST pool if the preceding shutdown closed it.
+    from database import init_supabase_http_client
+    init_supabase_http_client()
+
     logger.info("Server started")
 
     # P0-1 (C-1.1) async-DB scaffold. The event-loop-lag monitor always runs —

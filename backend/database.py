@@ -50,22 +50,45 @@ def _build_supabase_http_client() -> httpx.Client:
 
 
 supabase_admin: Client = create_client(_url, _key)
-_supabase_postgrest_http_client = _build_supabase_http_client()
-# Scope the override to PostgREST. Supplying it through SyncClientOptions would
-# also replace the Auth/Storage/Functions transports and silently erase their
-# shorter, service-specific timeouts (Storage 20s, Functions 5s).
-supabase_admin._postgrest = supabase_admin._init_postgrest_client(
-    rest_url=str(supabase_admin.rest_url),
-    headers=supabase_admin.options.headers,
-    schema=supabase_admin.options.schema,
-    timeout=supabase_admin.options.postgrest_client_timeout,
-    http_client=_supabase_postgrest_http_client,
-)
+_supabase_postgrest_http_client: httpx.Client | None = None
+
+
+def init_supabase_http_client() -> httpx.Client:
+    """Create/recreate the PostgREST pool for the current ASGI lifespan.
+
+    TestClient and embedded servers may run more than one startup/shutdown
+    cycle in the same interpreter. Reusing the module after shutdown must not
+    leave ``supabase_admin`` bound to a permanently closed httpx session.
+    """
+    global _supabase_postgrest_http_client
+    current = _supabase_postgrest_http_client
+    if current is not None and not current.is_closed:
+        return current
+
+    current = _build_supabase_http_client()
+    _supabase_postgrest_http_client = current
+    # Scope the override to PostgREST. Supplying it through SyncClientOptions
+    # would also replace the Auth/Storage/Functions transports and silently
+    # erase their shorter, service-specific timeouts (Storage 20s, Functions
+    # 5s).
+    supabase_admin._postgrest = supabase_admin._init_postgrest_client(
+        rest_url=str(supabase_admin.rest_url),
+        headers=supabase_admin.options.headers,
+        schema=supabase_admin.options.schema,
+        timeout=supabase_admin.options.postgrest_client_timeout,
+        http_client=current,
+    )
+    return current
+
+
+init_supabase_http_client()
 
 
 def close_supabase_http_client() -> None:
     """Release the shared sync connection pool during application shutdown."""
-    _supabase_postgrest_http_client.close()
+    if (_supabase_postgrest_http_client is not None
+            and not _supabase_postgrest_http_client.is_closed):
+        _supabase_postgrest_http_client.close()
 
 
 # ── P0-1 async client (lazy, opt-in) ─────────────────────────────────────────
