@@ -11,6 +11,14 @@ const {
   openNext,
 } = require('./listening-gate-e-harness');
 
+async function startNextListening(page) {
+  await openNext(page);
+  await page.getByRole('button', { name: 'Bắt đầu test' }).click();
+  const audioPrompt = page.getByRole('dialog', { name: 'Check your headphones' });
+  await audioPrompt.getByRole('button', { name: 'Play' }).click();
+  await expect(audioPrompt).toBeHidden();
+}
+
 test('listening-core-player-ambiguous-commit', async ({ page }) => {
   const state = createListeningGateEState();
   let q1Writes = 0;
@@ -31,8 +39,7 @@ test('listening-core-player-ambiguous-commit', async ({ page }) => {
     },
   });
 
-  await openNext(page);
-  await page.getByRole('button', { name: 'Bắt đầu test' }).click();
+  await startNextListening(page);
   await page.getByLabel('Answer 1').fill('library');
   await expect.poll(() => state.patchCalls.filter(({ q_num }) => q_num === 1).length).toBe(2);
   expect(state.answers.get(1)).toBe('library');
@@ -64,8 +71,7 @@ test('listening-core-player-partial-persistence', async ({ page }) => {
     },
   });
 
-  await openNext(page);
-  await page.getByRole('button', { name: 'Bắt đầu test' }).click();
+  await startNextListening(page);
   await page.getByLabel('Answer 1').fill('library');
   await expect.poll(() => state.answers.get(1)).toBe('library');
   await page.getByLabel('Answer 2').fill('blue');
@@ -85,7 +91,10 @@ test('listening-core-player-partial-persistence', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Submit answers' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Nộp bài' }).click();
-  await expect(page.locator('.listening-next-score > strong')).toHaveText('2/2');
+  await expect(page.getByRole('heading', { name: 'Kết quả bài thi' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Tổng quan kết quả' })).toContainText('2/2');
+  await expect(page.getByLabel('Câu 1: đúng')).toBeVisible();
+  await expect(page.getByLabel('Câu 2: đúng')).toBeVisible();
   expect(state.submitCalls).toHaveLength(1);
   expect(Object.fromEntries(state.answers)).toEqual({ 1: 'library', 2: 'blue' });
 
@@ -99,8 +108,7 @@ test('listening-core-player-reload-resume', async ({ page }) => {
   const state = createListeningGateEState();
   const harness = await installListeningGateEHarness(page, { state });
 
-  await openNext(page);
-  await page.getByRole('button', { name: 'Bắt đầu test' }).click();
+  await startNextListening(page);
   await page.getByLabel('Answer 1').fill('library');
   await expect.poll(() => state.answers.get(1)).toBe('library');
 

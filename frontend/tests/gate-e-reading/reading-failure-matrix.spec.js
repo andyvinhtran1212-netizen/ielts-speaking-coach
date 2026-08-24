@@ -71,9 +71,10 @@ test('reading-core-player-partial-persistence', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Submit' }).click();
   await page.getByRole('button', { name: 'Nộp bài', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Kết quả' })).toBeVisible();
-  await expect(page.locator('.exam-results-score')).toHaveText('2/3');
-  await expect(page.locator('.reading-next-result-table')).toContainText('TRUE');
+  await expect(page.getByRole('heading', { name: 'Kết quả bài thi' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Tổng quan kết quả' })).toContainText('2/3');
+  await expect(page.getByLabel('Câu 2: đúng')).toBeVisible();
+  await expect(page.getByLabel('Câu 3: bỏ trống')).toBeVisible();
   expect(state.submitCalls).toHaveLength(1);
   expect(state.submitCalls[0]).toEqual([
     { q_num: 1, user_answer: 'first idea' },
