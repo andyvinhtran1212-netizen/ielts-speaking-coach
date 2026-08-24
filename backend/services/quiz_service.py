@@ -102,6 +102,15 @@ def _course_listening_for_play(listening: dict) -> dict:
     listening_for_play["sections"] = sections
     return listening_for_play
 
+
+def _course_reading_for_play(reading: dict) -> dict:
+    """Lọc lời giải khỏi snapshot/bank đọc trước khi đưa lại cho trình duyệt."""
+    reading_for_play = dict(reading)
+    reading_for_play.pop("translation", None)
+    reading_for_play.pop("answers", None)
+    reading_for_play["has_solution"] = True
+    return reading_for_play
+
 _ATTEMPT_FIELDS = ("client_id", "item_key", "qid", "skill", "type", "subtype",
                    "is_correct", "answer_given", "response_time_ms", "attempt_no")
 _WORD_STAT_FIELDS = ("item_key", "correct_count", "wrong_count", "first_try_correct",
@@ -711,11 +720,7 @@ def get_bank_for_play(
     meta = dict(bank.get("meta") or {})
     reading = meta.get("short_reading")
     if isinstance(reading, dict):
-        reading_for_play = dict(reading)
-        reading_for_play.pop("translation", None)
-        reading_for_play.pop("answers", None)
-        reading_for_play["has_solution"] = True
-        meta["short_reading"] = reading_for_play
+        meta["short_reading"] = _course_reading_for_play(reading)
         bank = {**bank, "meta": meta}
 
     # BÀI NGHE THÊM: đáp án/transcript không đi cùng đề. Audio nằm trong bucket
@@ -761,6 +766,7 @@ def _save_course_section_result(
     *, user_id: str, bank_id: str, section: str, answers: dict,
     answer_rows: list[dict], duration_sec: int,
     assignment_item_id: str | None = None,
+    content_snapshot: dict | None = None,
 ) -> dict:
     review_existing = not bool(answers)
     item = (_assignment_item_for_review(
@@ -817,6 +823,7 @@ def _save_course_section_result(
                 "section": section,
                 "answers": {qid: submitted[qid] for qid in expected},
                 "answer_key": answer_rows,
+                "content_snapshot": content_snapshot or {},
                 "total": total,
                 "correct": correct,
                 "score": round(correct / total * 100, 2),
@@ -857,6 +864,7 @@ def _save_course_section_result(
         # Use the immutable answer snapshot when reviewing a completed section;
         # a later bank import must not rewrite what the learner was graded on.
         "answer_key": saved.get("answer_key") or answer_rows,
+        "_content_snapshot": saved.get("content_snapshot") or content_snapshot or {},
     }
     if not reviewed_existing:
         try:
@@ -871,16 +879,60 @@ def _save_course_section_result(
     return result
 
 
+def _review_course_section_result(
+    *, user_id: str, bank_id: str, section: str,
+    assignment_item_id: str | None = None,
+) -> dict:
+    """Đọc đúng submission đã chốt trước khi đụng nội dung bank hiện tại."""
+    item = _assignment_item_for_review(
+        bank_id, user_id, assignment_item_id=assignment_item_id,
+    )
+    if not item:
+        raise HTTPException(404, "Không tìm thấy bài giao đã nộp")
+    try:
+        rows = (supabase_admin.table("course_section_submissions")
+                .select("*").eq("class_assignment_item_id", item["id"])
+                .eq("user_id", user_id).eq("bank_id", bank_id)
+                .eq("section", section).limit(1).execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi đọc kết quả phần {section}: {exc}") from exc
+    if not rows:
+        raise HTTPException(404, f"Chưa có kết quả phần {section} cho bài giao này")
+    saved = rows[0]
+    return {
+        "section": section,
+        "total": int(saved.get("total") or 0),
+        "correct": int(saved.get("correct") or 0),
+        "pct": float(saved.get("score") or 0),
+        "duration_sec": int(saved.get("duration_sec") or 0),
+        "submitted_at": saved.get("submitted_at") or saved.get("created_at"),
+        "submitted_answers": saved.get("answers") or {},
+        "answer_key": saved.get("answer_key") or [],
+        "_content_snapshot": saved.get("content_snapshot") or {},
+    }
+
+
 def course_reading_solution(*, user_id: str, bank_id: str,
                             submitted_answers: dict, duration_sec: int = 0,
                             assignment_item_id: str | None = None) -> dict:
     """Chấm + lưu phần đọc rồi mới trả bản dịch và lời giải."""
-    if submitted_answers:
-        _bank_meta_or_404(
-            bank_id, user_id, assignment_item_id=assignment_item_id,
+    if not submitted_answers:
+        result = _review_course_section_result(
+            user_id=user_id, bank_id=bank_id, section="reading",
+            assignment_item_id=assignment_item_id,
         )
+        reading = result.pop("_content_snapshot")
+        if isinstance(reading, dict) and reading:
+            return {
+                "content": _course_reading_for_play(reading),
+                "translation": reading.get("translation"),
+                "answers": result["answer_key"],
+                "result": result,
+            }
+        # Compatibility for rows created before the immutable content snapshot.
+        # Authorization and the exact submitted row were already verified above.
     else:
-        _bank_meta_for_review_or_404(
+        _bank_meta_or_404(
             bank_id, user_id, assignment_item_id=assignment_item_id,
         )
     try:
@@ -898,24 +950,38 @@ def course_reading_solution(*, user_id: str, bank_id: str,
     expected = [str(row.get("id") or "") for row in answers if row.get("id")]
     if len(expected) != len(answers):
         raise HTTPException(500, "Đáp án bài đọc thiếu mã câu")
-    result = _save_course_section_result(
-        user_id=user_id, bank_id=bank_id, section="reading",
-        answers=submitted_answers, answer_rows=answers, duration_sec=duration_sec,
-        assignment_item_id=assignment_item_id,
-    )
-    return {"translation": translation, "answers": result["answer_key"], "result": result}
+    if submitted_answers:
+        result = _save_course_section_result(
+            user_id=user_id, bank_id=bank_id, section="reading",
+            answers=submitted_answers, answer_rows=answers, duration_sec=duration_sec,
+            assignment_item_id=assignment_item_id, content_snapshot=reading,
+        )
+        reading = result.pop("_content_snapshot") or reading
+        translation = reading.get("translation")
+    return {
+        "content": _course_reading_for_play(reading),
+        "translation": translation,
+        "answers": result["answer_key"],
+        "result": result,
+    }
 
 
 def course_listening_solution(*, user_id: str, bank_id: str,
                               submitted_answers: dict, duration_sec: int = 0,
                               assignment_item_id: str | None = None) -> dict:
     """Chấm + lưu phần nghe rồi mới trả đáp án và transcript."""
-    if submitted_answers:
-        _bank_meta_or_404(
-            bank_id, user_id, assignment_item_id=assignment_item_id,
+    if not submitted_answers:
+        result = _review_course_section_result(
+            user_id=user_id, bank_id=bank_id, section="listening",
+            assignment_item_id=assignment_item_id,
         )
+        listening = result.pop("_content_snapshot")
+        solution = listening.get("solution") if isinstance(listening, dict) else None
+        if isinstance(solution, dict):
+            return {**solution, "answers": result["answer_key"], "result": result}
+        # Compatibility for rows created before the immutable content snapshot.
     else:
-        _bank_meta_for_review_or_404(
+        _bank_meta_or_404(
             bank_id, user_id, assignment_item_id=assignment_item_id,
         )
     try:
@@ -931,11 +997,14 @@ def course_listening_solution(*, user_id: str, bank_id: str,
     expected = [str(row.get("id") or "") for row in answers if row.get("id")]
     if len(expected) != len(answers):
         raise HTTPException(500, "Đáp án bài nghe thiếu mã câu")
-    result = _save_course_section_result(
-        user_id=user_id, bank_id=bank_id, section="listening",
-        answers=submitted_answers, answer_rows=answers, duration_sec=duration_sec,
-        assignment_item_id=assignment_item_id,
-    )
+    if submitted_answers:
+        result = _save_course_section_result(
+            user_id=user_id, bank_id=bank_id, section="listening",
+            answers=submitted_answers, answer_rows=answers, duration_sec=duration_sec,
+            assignment_item_id=assignment_item_id, content_snapshot=listening,
+        )
+        listening = result.pop("_content_snapshot") or listening
+        solution = listening.get("solution")
     return {**solution, "answers": result["answer_key"], "result": result}
 
 
@@ -944,9 +1013,23 @@ def course_listening_audio(
 ) -> dict:
     """Tái ký URL ngay khi mở phần nghe; bank/assignment được kiểm tra lại."""
     if assignment_item_id:
-        _bank_meta_for_review_or_404(
+        item = _assignment_item_for_review(
             bank_id, user_id, assignment_item_id=assignment_item_id,
         )
+        if not item:
+            raise HTTPException(404, "Không tìm thấy bài giao")
+        try:
+            saved_rows = (supabase_admin.table("course_section_submissions")
+                          .select("content_snapshot")
+                          .eq("class_assignment_item_id", item["id"])
+                          .eq("user_id", user_id).eq("bank_id", bank_id)
+                          .eq("section", "listening").limit(1)
+                          .execute().data) or []
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(500, "Không tải được audio bài nghe") from exc
+        snapshot = (saved_rows[0].get("content_snapshot") if saved_rows else None)
+        if isinstance(snapshot, dict) and snapshot:
+            return _course_listening_for_play(snapshot)
     else:
         _bank_meta_or_404(bank_id, user_id)
     try:

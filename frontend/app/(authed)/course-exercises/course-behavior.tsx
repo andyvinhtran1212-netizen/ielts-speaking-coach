@@ -120,14 +120,18 @@ export function CourseBehavior() {
           + '. Trắc nghiệm hiện giải thích ngay sau mỗi câu.';
       }
 
+      // Một bank có thể được giao nhiều lần. Draft và mọi review phải bám đúng
+      // item canonical mà server vừa trả, không dùng chung theo bank.
+      const sectionAssignmentItem = requestedItem || runner.mastery?.item_id || null;
+
       const reading = RD.createReading({
         api, storage: window.localStorage, userId: user.id,
-        assignmentItemId: requestedItem,
+        assignmentItemId: sectionAssignmentItem,
       });
       reading.load(runner.bank);
       const listening = LD.createListening({
         api, storage: window.localStorage, userId: user.id,
-        assignmentItemId: requestedItem,
+        assignmentItemId: sectionAssignmentItem,
       });
       listening.load(runner.bank);
       pronunciation = PD.createPronunciation({ api, userId: user.id });
@@ -628,10 +632,10 @@ export function CourseBehavior() {
           + '<p class="cx-verdict__sub">Bạn đang ở chế độ chỉ xem; hệ thống sẽ không tạo lượt làm mới.</p>'
           + '</div></div><div class="cx-verdict__body"><div class="cx-verdict__actions">'
           + '<button class="av-button av-button-secondary" id="cx-see-report" type="button">Xem lại bài trắc nghiệm</button>'
-          + (reading.exists && reviewSectionCompleted('reading')
+          + (reviewSectionCompleted('reading')
             ? '<button class="av-button av-button-secondary" id="cx-reading-open" type="button">Xem lại bài đọc đã nộp</button>'
             : '')
-          + (listening.exists && reviewSectionCompleted('listening')
+          + (reviewSectionCompleted('listening')
             ? '<button class="av-button av-button-secondary" id="cx-listening-open" type="button">Xem lại bài nghe đã nộp</button>'
             : '')
           + (writingReady && writing.submitted

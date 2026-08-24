@@ -208,7 +208,8 @@ describe('cổng hoàn thành bài nhiều phần', () => {
     assert.match(SRC, /listeningDone \? 'Xem lại bài nghe đã nộp'/);
     assert.match(SRC, /await reading\.review\(\)/);
     assert.match(SRC, /await listening\.review\(\)/);
-    assert.match(SRC, /assignmentItemId: requestedItem/);
+    assert.match(SRC, /const sectionAssignmentItem = requestedItem \|\| runner\.mastery\?\.item_id \|\| null/);
+    assert.match(SRC, /assignmentItemId: sectionAssignmentItem/);
     assert.match(reviewHub, /reviewSectionCompleted\('reading'\)/);
     assert.match(reviewHub, /reviewSectionCompleted\('listening'\)/);
     assert.match(reviewHub, /cx-reading-open/);
@@ -220,6 +221,8 @@ describe('cổng hoàn thành bài nhiều phần', () => {
     assert.doesNotMatch(reviewHub, /\(reading\.exists\s*\?/);
     assert.doesNotMatch(reviewHub, /\(listening\.exists\s*\?/);
     assert.match(SRC, /runner\.mastery\?\.completed_sections/);
+    assert.doesNotMatch(reviewHub, /reading\.exists && reviewSectionCompleted/);
+    assert.doesNotMatch(reviewHub, /listening\.exists && reviewSectionCompleted/);
   });
 
   test('không mở phần chỉ mới được thêm vào bank sau lúc giao bài', () => {

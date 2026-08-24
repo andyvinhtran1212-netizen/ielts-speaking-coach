@@ -17,8 +17,8 @@ export function inlineMd(value) {
     .replace(/\*([^*]+)\*/g, '<em>$1</em>');
 }
 
-export const readingDraftKey = (bankId, userId) =>
-  `cr:${userId || 'anon'}:${bankId}`;
+export const readingDraftKey = (bankId, userId, assignmentItemId = null) =>
+  `cr:${userId || 'anon'}:${bankId}:${assignmentItemId || 'unscoped'}`;
 
 export function createReading({ api, storage, userId, assignmentItemId = null,
   now = () => Date.now() }) {
@@ -34,13 +34,14 @@ export function createReading({ api, storage, userId, assignmentItemId = null,
 
   function save() {
     if (!storage || !bankId) return;
-    try { storage.setItem(readingDraftKey(bankId, userId), JSON.stringify(draft)); }
+    try { storage.setItem(readingDraftKey(bankId, userId, assignmentItemId), JSON.stringify(draft)); }
     catch (e) { /* lưu cục bộ hỏng không được chặn làm bài */ }
   }
 
   function loadDraft() {
     if (!storage || !bankId) return {};
-    try { return JSON.parse(storage.getItem(readingDraftKey(bankId, userId)) || '{}') || {}; }
+    try { return JSON.parse(storage.getItem(
+      readingDraftKey(bankId, userId, assignmentItemId)) || '{}') || {}; }
     catch (e) { return {}; }
   }
 
@@ -164,19 +165,20 @@ export function createReading({ api, storage, userId, assignmentItemId = null,
         duration_sec: activeTimer.seconds(),
         ...(assignmentItemId ? { class_item: assignmentItemId } : {}),
       });
+      if (solution?.content) data = solution.content;
       draft = { ...(solution?.result?.submitted_answers || draft) };
       save();
       activeTimer.setActive(false);
       return true;
     },
     async review() {
-      if (!data) return false;
+      if (!bankId) return false;
       solution = await api.post('/api/quiz/course/reading-solution', {
         bank_id: bankId, answers: {}, duration_sec: 0,
         ...(assignmentItemId ? { class_item: assignmentItemId } : {}),
       });
+      if (solution?.content) data = solution.content;
       draft = { ...(solution?.result?.submitted_answers || {}) };
-      save();
       activeTimer.setActive(false);
       return true;
     },

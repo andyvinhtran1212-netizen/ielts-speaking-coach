@@ -307,7 +307,7 @@ def test_migration_is_additive_rls_protected_and_keeps_answer_snapshot():
            "226_course_multisection_results.sql").read_text(encoding="utf-8")
     assert "CREATE TABLE IF NOT EXISTS course_section_submissions" in sql
     assert "UNIQUE (class_assignment_item_id, section)" in sql
-    assert "answer_key" in sql and "duration_sec" in sql
+    assert "answer_key" in sql and "content_snapshot" in sql and "duration_sec" in sql
     assert "ENABLE ROW LEVEL SECURITY" in sql
     assert "REVOKE ALL ON TABLE public.course_section_submissions" in sql
     assert "FROM PUBLIC, anon, authenticated" in sql

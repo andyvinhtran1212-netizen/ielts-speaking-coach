@@ -100,27 +100,34 @@ test('duration counts only intervals while the reading section is visible', asyn
 
 test('completed reading can hydrate canonical answers after a full reload', async () => {
   const calls = [];
+  let writes = 0;
+  const reviewStorage = { getItem: () => null, setItem: () => { writes += 1; } };
   const api = { post: async (path, body) => {
     calls.push({ path, body });
     return {
       translation: 'Mai đọc sách.',
+      content: { ...bank.meta.short_reading, passage: 'Original saved passage.' },
       answers: [{ id: 'r-01', answer: 'T', explanation: 'Đúng.' }],
       result: { submitted_answers: { 'r-01': 'T', 'r-02': 'a' } },
     };
   } };
-  const reading = createReading({ api, storage: storage(), userId: 'u1' });
-  reading.load(bank);
+  const reading = createReading({ api, storage: reviewStorage, userId: 'u1' });
+  reading.load({ id: 'bank-03', meta: {} });
   assert.equal(await reading.review(), true);
   assert.deepEqual(calls, [{
     path: '/api/quiz/course/reading-solution',
     body: { bank_id: 'bank-03', answers: {}, duration_sec: 0 },
   }]);
   assert.match(reading.render(), /Mai đọc sách\./);
+  assert.match(reading.render(), /Original saved passage\./);
   assert.match(reading.render(), /value="T" checked/);
+  assert.equal(writes, 0, 'review hydration must not become a draft for a later assignment');
 });
 
 test('draft keys are isolated by learner and markdown escapes HTML first', () => {
   assert.notEqual(readingDraftKey('bank-03', 'u1'), readingDraftKey('bank-03', 'u2'));
+  assert.notEqual(readingDraftKey('bank-03', 'u1', 'item-1'),
+    readingDraftKey('bank-03', 'u1', 'item-2'));
   assert.equal(inlineMd('<img> **safe** *text*'),
     '&lt;img&gt; <strong>safe</strong> <em>text</em>');
 });

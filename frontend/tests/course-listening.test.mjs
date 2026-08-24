@@ -76,6 +76,8 @@ test('refreshes signed audio when the learner opens the listening flow', async (
 });
 
 test('completed listening can hydrate canonical answers and transcript after reload', async () => {
+  let writes = 0;
+  const reviewStorage = { getItem: () => null, setItem: () => { writes += 1; } };
   const api = { post: async (path, body) => {
     assert.equal(path, '/api/quiz/course/listening-solution');
     assert.deepEqual(body, { bank_id: 'bank-05', answers: {}, duration_sec: 0 });
@@ -86,12 +88,13 @@ test('completed listening can hydrate canonical answers and transcript after rel
       result: { submitted_answers: { 'l-A1': 'A', 'l-D1': 'T' } },
     };
   } };
-  const listening = createListening({ api, storage: storage(), userId: 'u1' });
+  const listening = createListening({ api, storage: reviewStorage, userId: 'u1' });
   listening.load(bank);
   assert.equal(await listening.review(), true);
   assert.match(listening.render(), /Nghe được: “city”/);
   assert.match(listening.render(), /value="A" checked/);
   assert.match(listening.render(), /Thành phố lớn hơn\./);
+  assert.equal(writes, 0, 'review hydration must not become a draft for a later assignment');
 });
 
 test('review audio is authorized against the exact submitted assignment item', async () => {
@@ -113,4 +116,6 @@ test('review audio is authorized against the exact submitted assignment item', a
 
 test('draft keys are isolated by learner', () => {
   assert.notEqual(listeningDraftKey('bank-05', 'u1'), listeningDraftKey('bank-05', 'u2'));
+  assert.notEqual(listeningDraftKey('bank-05', 'u1', 'item-1'),
+    listeningDraftKey('bank-05', 'u1', 'item-2'));
 });
