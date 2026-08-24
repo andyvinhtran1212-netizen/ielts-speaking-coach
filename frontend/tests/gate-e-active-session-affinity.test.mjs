@@ -63,10 +63,10 @@ describe('current admission policy preserves behavior', () => {
   test('policy is internally valid and every rollback target remains available', () => {
     assert.deepEqual(validateCorePlayerAffinityPolicy(), []);
     const expectedAdmission = {
-      speaking: 'legacy',
-      reading_exam: 'legacy',
-      listening_test: 'legacy',
-      listening_dictation: 'legacy',
+      speaking: 'next',
+      reading_exam: 'next',
+      listening_test: 'next',
+      listening_dictation: 'next',
       writing_assignment: 'next',
     };
     for (const [surface, config] of Object.entries(CORE_PLAYER_AFFINITY_POLICY.surfaces)) {
@@ -92,7 +92,7 @@ describe('current admission policy preserves behavior', () => {
     )));
   });
 
-  test('runtime admission follows each staging surface policy', () => {
+  test('runtime admission follows the final core cutover policy', () => {
     assert.equal(
       admitCorePlayer('speaking', { session_id: 'session A' }),
       '/core-player/launch?surface=speaking&session_id=session+A',
@@ -119,19 +119,19 @@ describe('current admission policy preserves behavior', () => {
     );
     assert.equal(
       resolveCorePlayerAdmission('speaking', { session_id: 'session-a' }),
-      '/pages/practice.html?session_id=session-a',
+      '/practice/session?session_id=session-a',
     );
     assert.equal(
       resolveCorePlayerAdmission('reading_exam', { test_id: 'AVR-1', class_item: 'homework-1' }),
-      '/pages/reading-exam.html?test_id=AVR-1&class_item=homework-1',
+      '/reading/exam/session?test_id=AVR-1&class_item=homework-1',
     );
     assert.equal(
       resolveCorePlayerAdmission('listening_test', { id: 'test-1', class_item: 'homework-1' }),
-      '/pages/listening-test.html?id=test-1&class_item=homework-1',
+      '/listening/test/session?id=test-1&class_item=homework-1',
     );
     assert.equal(
       resolveCorePlayerAdmission('listening_dictation', { test_id: 'test-1', section: 3 }),
-      '/pages/listening-test-dictation.html?test_id=test-1&section=3',
+      '/listening/dictation/session?test_id=test-1&section=3',
     );
     assert.equal(
       resolveCorePlayerAdmission('writing_assignment', { assignment_id: 'assignment-1' }),
@@ -139,34 +139,27 @@ describe('current admission policy preserves behavior', () => {
     );
   });
 
-  test('Dictation forward rollback leaves every deployment on Legacy admission', () => {
-    assert.equal(corePlayerAdmissionForDeployment('listening_dictation', {
-      vercelEnv: 'preview', gitRef: 'staging',
-    }), 'legacy');
-    assert.equal(CORE_PLAYER_AFFINITY_POLICY.surfaces.listening_dictation.admit_new, 'legacy');
-    const params = new URLSearchParams('surface=listening_dictation&test_id=test-1&section=1');
-    assert.equal(
-      resolveCorePlayerAdmissionFromParamsForDeployment(params, {
-        vercelEnv: 'preview', gitRef: 'staging',
-      }),
-      '/pages/listening-test-dictation.html?test_id=test-1&section=1',
-    );
-    assert.equal(
-      resolveCorePlayerAdmissionFromParamsForDeployment(params, {
-        vercelEnv: 'production', gitRef: 'main',
-      }),
-      '/pages/listening-test-dictation.html?test_id=test-1&section=1',
-    );
-    for (const deployment of [
-      { vercelEnv: 'production', gitRef: 'main' },
-      { vercelEnv: 'production', gitRef: 'staging' },
-      { vercelEnv: 'preview', gitRef: 'feature-branch' },
-      { vercelEnv: '', gitRef: 'staging' },
-    ]) {
-      assert.equal(
-        corePlayerAdmissionForDeployment('listening_dictation', deployment),
-        'legacy',
-      );
+  test('the four authorized core surfaces admit Next on staging and production', () => {
+    const queryBySurface = {
+      speaking: 'surface=speaking&session_id=session-1',
+      reading_exam: 'surface=reading_exam&test_id=reading-1',
+      listening_test: 'surface=listening_test&id=listening-1',
+      listening_dictation: 'surface=listening_dictation&test_id=dictation-1&section=1',
+    };
+    for (const [surface, query] of Object.entries(queryBySurface)) {
+      assert.equal(CORE_PLAYER_AFFINITY_POLICY.surfaces[surface].admit_new, 'next');
+      for (const deployment of [
+        { vercelEnv: 'preview', gitRef: 'staging' },
+        { vercelEnv: 'production', gitRef: 'main' },
+      ]) {
+        assert.equal(corePlayerAdmissionForDeployment(surface, deployment), 'next');
+        assert.match(
+          resolveCorePlayerAdmissionFromParamsForDeployment(
+            new URLSearchParams(query), deployment,
+          ),
+          /^\/(?!pages\/)/,
+        );
+      }
     }
   });
 
@@ -403,7 +396,7 @@ describe('cutover and rollback drill', () => {
       resolveCorePlayerAdmissionFromParams(
         new URLSearchParams('surface=speaking&session_id=x'),
       ),
-      '/pages/practice.html?session_id=x',
+      '/practice/session?session_id=x',
     );
     for (const query of [
       'session_id=x',

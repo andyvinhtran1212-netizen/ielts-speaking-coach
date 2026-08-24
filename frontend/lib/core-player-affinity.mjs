@@ -1,4 +1,4 @@
-// Gate E active-session policy.
+// Core-player active-session policy.
 //
 // An implementation-specific PATH is the affinity key. Query flags are not:
 // they are forgeable, easy to drop and cannot make a same-path deployment
@@ -11,59 +11,58 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
   surfaces: Object.freeze({
     speaking: Object.freeze({
       // Floor e96c2cd and cutover 1398c50 were verified separately. This
-      // descendant forward rollback returns fresh staging admission to Legacy;
-      // claimed sessions keep their stable implementation URL.
-      admit_new: 'legacy',
+      // descendant now admits fresh sessions to Next; claimed sessions keep
+      // their stable implementation URL, including the Legacy rollback path.
+      admit_new: 'next',
       identity_query_any_of: Object.freeze(['session_id']),
       allowed_query: Object.freeze(['session_id']),
       legacy: Object.freeze({ path: '/pages/practice.html', route_ready: true }),
-      // The dark route was established in a separate floor release. This
-      // staging-only cutover is evidence collection, not a production cutover.
+      // The Next implementation was established and drilled in separate
+      // floor/cutover/rollback releases before becoming the canonical target.
       next: Object.freeze({ path: '/practice/session', route_ready: true }),
     }),
     reading_exam: Object.freeze({
       // Reading coexistence floor 7a6bdb9 (run 32060549833 attempt 3) proved
       // canonical Legacy + dark Next affinity. Cutover run 32072244886 attempt
       // 2 proved new Next admission on 0599a8f with matching staging
-      // provenance. This descendant is the forward-rollback candidate: fresh
-      // staging admissions return to Legacy while claimed attempts stay sticky.
-      admit_new: 'legacy',
+      // provenance and a subsequent rollback. This descendant admits fresh
+      // attempts to Next while claimed attempts stay sticky.
+      admit_new: 'next',
       identity_query_any_of: Object.freeze(['test_id', 'share']),
       allowed_query: Object.freeze([
         'test_id', 'share', 'sitting_id', 'mock_embed', 'from', 'class_item',
       ]),
       legacy: Object.freeze({ path: '/pages/reading-exam.html', route_ready: true }),
-      // Native App Router player remains dark-ready and owns attempts already
-      // claimed during cutover. Production admission was never changed.
+      // Native App Router owns fresh attempts. The stable Legacy path remains
+      // available only for attempts that claimed it before cutover.
       next: Object.freeze({ path: '/reading/exam/session', route_ready: true }),
     }),
     listening_test: Object.freeze({
       // Listening coexistence floor eacba4f (run 32084645112 attempt 2)
       // proved canonical Legacy + dark Next affinity. Cutover run 32093601359
       // attempt 2 proved new Next admission on 1328db32 with matching staging
-      // provenance. This descendant is the forward-rollback candidate: fresh
-      // staging admissions return to Legacy while claimed attempts stay sticky.
-      admit_new: 'legacy',
+      // provenance and a subsequent rollback. This descendant admits fresh
+      // attempts to Next while claimed attempts stay sticky.
+      admit_new: 'next',
       identity_query_any_of: Object.freeze(['id']),
       allowed_query: Object.freeze(['id', 'sitting_id', 'mock_embed', 'from', 'class_item']),
       legacy: Object.freeze({ path: '/pages/listening-test.html', route_ready: true }),
-      // Native App Router player remains dark-ready and owns attempts already
-      // claimed during cutover. Production admission was never changed.
+      // Native App Router owns fresh attempts. The stable Legacy path remains
+      // available only for attempts that claimed it before cutover.
       next: Object.freeze({ path: '/listening/test/session', route_ready: true }),
     }),
     listening_dictation: Object.freeze({
       // Dictation coexistence floor 4ae5106 (run 32103908150 attempt 2)
       // proved canonical Legacy + dark Next affinity. Cutover run 32106478117
       // attempt 2 proved new Next admission on e30f489 with matching staging
-      // provenance. This descendant is the forward-rollback candidate: fresh
-      // admissions return to Legacy while claimed attempts stay sticky.
-      admit_new: 'legacy',
+      // provenance and a subsequent rollback. This descendant admits fresh
+      // attempts to Next while claimed attempts stay sticky.
+      admit_new: 'next',
       identity_query_any_of: Object.freeze(['test_id']),
       allowed_query: Object.freeze(['test_id', 'section']),
       legacy: Object.freeze({ path: '/pages/listening-test-dictation.html', route_ready: true }),
-      // Native App Router player owns the complete dark-route flow, including
-      // durable completion reconciliation. Admission stays legacy until its
-      // Gate E browser/failure matrix passes.
+      // Native App Router owns the complete flow, including durable completion
+      // reconciliation. Legacy remains available for persisted affinity.
       next: Object.freeze({ path: '/listening/dictation/session', route_ready: true }),
     }),
     writing_assignment: Object.freeze({
@@ -79,9 +78,9 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
   }),
 });
 
-// Staging cutovers must never change the default/production policy. The
-// override is activated only for Vercel's exact preview deployment of the
-// `staging` branch; every other environment fails closed to `admit_new` above.
+// A future staging-only drill must not alter the default production policy.
+// Any override is activated only for Vercel's exact preview deployment of the
+// `staging` branch; every other environment uses canonical `admit_new` above.
 export const STAGING_CORE_PLAYER_ADMISSION_OVERRIDES = Object.freeze({
   // No active override after the Writing forward restore. Keep this
   // deployment-scoped hook so later staged cutovers cannot alter production.
