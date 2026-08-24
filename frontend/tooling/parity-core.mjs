@@ -225,6 +225,11 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // test through `id`/`from`; canonicalize only the route owner and preserve
   // every query key so G1 compares the actual destination contract.
   else if (path === '/pages/listening-test.html') path = '/listening/test/session';
+  // Dictation browse cards still expose the rollback HTML URL on the Legacy
+  // stack while fresh admissions on the Next stack point at the native player.
+  // Both carry the same `test_id`; canonicalize only the route owner so the
+  // parity gate does not report a cutover as missing/extra content.
+  else if (path === '/pages/listening-test-dictation.html') path = '/listening/dictation/session';
   // Reading exam admissions now resolve to the native stable player on
   // staging, while the HTML URL remains intentionally reachable for active
   // Legacy attempts and rollback. Compare links by canonical route ownership;
