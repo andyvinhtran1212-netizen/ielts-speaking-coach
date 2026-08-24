@@ -876,6 +876,13 @@ def validate_reading_test(p: ParsedReadingTest) -> list[dict]:
         if len(all_q_nums) != p.total_questions:
             err("passages",
                 f"Tổng số câu hỏi ({len(all_q_nums)}) khác total_questions ({p.total_questions}).")
+        expected_q_nums = list(range(1, p.total_questions + 1))
+        if sorted(set(all_q_nums)) != expected_q_nums:
+            err(
+                "passages",
+                "q_num phải liên tục từ 1 đến total_questions; "
+                f"nhận {sorted(set(all_q_nums))}, cần {expected_q_nums}.",
+            )
 
     return errors
 
