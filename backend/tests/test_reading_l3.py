@@ -314,6 +314,17 @@ def test_grade_attempt_full_marks_returns_band_9():
     assert result["band_estimate"] == 9.0
 
 
+def test_grade_attempt_perfect_mini_does_not_use_the_40_question_band_table():
+    answer_key = [
+        {"q_num": i, "answer": "A", "alternatives": [], "skill_tag": "detail", "passage_order": 1}
+        for i in range(1, 8)
+    ]
+    user_answers = [{"q_num": i, "user_answer": "A"} for i in range(1, 8)]
+    result = grade_attempt(user_answers, answer_key)
+    assert result["score"] == result["max_score"] == 7
+    assert result["band_estimate"] is None
+
+
 # ── L3 endpoints: auth-gating ─────────────────────────────────────────
 
 

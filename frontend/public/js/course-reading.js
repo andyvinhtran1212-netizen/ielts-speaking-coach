@@ -1,9 +1,10 @@
+import { createActiveTimer } from './course-active-timer.js';
+
 /**
  * Bài đọc ngắn đi kèm bài tập theo buổi.
  *
- * Đây là phần TỰ LUYỆN, không tham gia điểm mastery. Module giữ dữ liệu và bản
- * nháp; CourseBehavior chỉ nối DOM. Bản dịch/đáp án không có trong bank payload
- * và chỉ được gọi khi học viên đã điền đủ câu.
+ * Module giữ draft nhẹ ở máy; chỉ khi đủ câu mới nộp để server chấm và đưa vào
+ * điểm tổng hợp. Bản dịch/đáp án không có trong bank payload trước lúc nộp.
  */
 
 const esc = (value) => String(value == null ? '' : value)
@@ -19,11 +20,12 @@ export function inlineMd(value) {
 export const readingDraftKey = (bankId, userId) =>
   `cr:${userId || 'anon'}:${bankId}`;
 
-export function createReading({ api, storage, userId }) {
+export function createReading({ api, storage, userId, now = () => Date.now() }) {
   let bankId = null;
   let data = null;
   let draft = {};
   let solution = null;
+  const activeTimer = createActiveTimer(now);
 
   function questions() {
     return (data && data.question_groups || []).flatMap((group) => group.questions || []);
@@ -95,6 +97,7 @@ export function createReading({ api, storage, userId }) {
       <p>${inlineMd(solution.translation)}</p>
     </section>` : '';
 
+    const result = solution?.result;
     return `<article class="cr-shell">
       <button class="cr-back" id="cr-back" type="button">← Quay lại tổng kết</button>
       <header class="cr-hero">
@@ -122,12 +125,12 @@ export function createReading({ api, storage, userId }) {
       ${translation}
       <footer class="cr-bar" id="cr-bar">
         <p>${solution
-          ? '<strong>Đã đối chiếu.</strong> Bài đọc này là phần tự luyện, không cộng vào điểm trắc nghiệm.'
+          ? `<strong>Đã nộp phần đọc.</strong> ${result ? `${result.correct}/${result.total} câu đúng · ${Math.round(result.pct)}%.` : 'Kết quả đã được lưu.'}`
           : miss.length
             ? `Còn <strong>${miss.length}</strong> câu chưa trả lời. Điền đủ để mở bản dịch và lời giải.`
             : `Đã trả lời đủ ${questionCount} câu. Bạn có thể mở bản dịch và lời giải.`}</p>
         ${solution ? '' : `<button class="av-button av-button-primary" id="cr-check" type="button"${
-          miss.length ? ' disabled' : ''}>Đối chiếu bài đọc</button>`}
+          miss.length ? ' disabled' : ''}>Nộp phần đọc</button>`}
       </footer>
     </article>`;
   }
@@ -137,13 +140,17 @@ export function createReading({ api, storage, userId }) {
     get count() { return questions().length; },
     get missing() { return missing(); },
     get revealed() { return !!solution; },
+    get result() { return solution?.result || null; },
+    get course() { return solution?.result?.course || null; },
     load(bank) {
       bankId = bank && bank.id;
       data = bank && bank.meta && bank.meta.short_reading || null;
       draft = data ? loadDraft() : {};
       solution = null;
+      activeTimer.reset();
       return !!data;
     },
+    setActive(active) { activeTimer.setActive(active); },
     write(qid, value) {
       if (!data || !questions().some((q) => q.id === qid)) return;
       draft[qid] = String(value || '');
@@ -153,7 +160,9 @@ export function createReading({ api, storage, userId }) {
       if (!data || missing().length) return false;
       solution = await api.post('/api/quiz/course/reading-solution', {
         bank_id: bankId, answers: { ...draft },
+        duration_sec: activeTimer.seconds(),
       });
+      activeTimer.setActive(false);
       return true;
     },
     render,

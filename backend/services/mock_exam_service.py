@@ -32,6 +32,7 @@ in — regardless of order.
 from __future__ import annotations
 
 import logging
+import re
 import time
 from datetime import datetime, timezone
 from typing import Optional
@@ -96,11 +97,25 @@ class SittingConflictError(MockExamError):
     """State-machine transition not allowed from the current status."""
 
 
+class DuplicateExamCodeError(MockExamError):
+    """An exam already owns the requested unique code."""
+
+
 # ── Helpers ───────────────────────────────────────────────────────────
 
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _is_unique_violation(exc: Exception) -> bool:
+    """Recognize PostgREST/Postgres unique violations without prose matching."""
+    if str(getattr(exc, "code", "")) == "23505":
+        return True
+    if exc.args and isinstance(exc.args[0], dict):
+        if str(exc.args[0].get("code", "")) == "23505":
+            return True
+    return bool(re.search(r"\b23505\b", str(exc)))
 
 
 def _now_iso() -> str:
@@ -502,10 +517,14 @@ def retire_abandoned_sittings() -> dict:
 
 
 def _user_in_cohort(user_id: str, cohort_id: str) -> bool:
-    resp = supabase_admin.table("students").select("cohort_id").eq(
-        "user_id", str(user_id),
-    ).execute()
-    return any(str(r.get("cohort_id")) == str(cohort_id) for r in (resp.data or []))
+    from services.class_membership_service import active_cohort_ids_for_student
+
+    students = (supabase_admin.table("students").select("id, cohort_id")
+                .eq("user_id", str(user_id)).limit(1).execute().data) or []
+    if not students:
+        return False
+    return str(cohort_id) in active_cohort_ids_for_student(
+        supabase_admin, students[0])
 
 
 def _assert_window_open(exam: dict) -> None:
@@ -2019,6 +2038,128 @@ _EXAM_CONTENT_COLS = (
 )
 
 
+def _exam_content_row(table: str, content_id, columns: str) -> Optional[dict]:
+    """Read one configured paper while failing closed on lookup uncertainty.
+
+    Publishing/opening a timed exam is an operational gate: a database error is
+    not evidence that the paper is ready.  Keep this helper deliberately small
+    so every caller gets the same truth instead of reimplementing a weaker UI
+    check.
+    """
+    try:
+        response = supabase_admin.table(table).select(columns).eq(
+            "id", str(content_id),
+        ).limit(1).execute()
+    except Exception as exc:  # noqa: BLE001
+        logger.exception(
+            "[mock-exam] content readiness lookup failed table=%s id=%s",
+            table, content_id,
+        )
+        raise ValueError(
+            "Không kiểm tra được nội dung đề thi lúc này — chưa thể publish hoặc "
+            "mở kỳ thi. Thử lại sau giây lát."
+        ) from exc
+    return response.data[0] if response.data else None
+
+
+def _exam_content_readiness_issues(
+    exam: dict,
+    sections: Optional[tuple[str, ...]] = None,
+) -> list[str]:
+    """Return concrete reasons a configured timed section cannot be served.
+
+    The admin pickers are convenience filters, not security/correctness gates:
+    stale tabs and direct API calls can still submit old IDs.  The canonical
+    service therefore re-checks the referenced rows before publish/open and
+    immediately before a shared clock starts.
+    """
+    wanted = set(sections or tuple(_configured_sections(exam)))
+    issues: list[str] = []
+
+    if "listening" in wanted and exam.get("listening_test_id"):
+        row = _exam_content_row(
+            "listening_tests",
+            exam["listening_test_id"],
+            "id,status,test_type,full_audio_storage_path,assembled_audio_storage_path,"
+            "full_audio_duration_seconds",
+        )
+        if not row:
+            issues.append("Listening không còn tồn tại")
+        else:
+            if row.get("status") != "published":
+                issues.append("Listening chưa được publish")
+            if row.get("test_type") != "full":
+                issues.append("Listening phải là đề full test")
+            if not (
+                str(row.get("assembled_audio_storage_path") or "").strip()
+                or str(row.get("full_audio_storage_path") or "").strip()
+            ):
+                issues.append("Listening chưa có audio phát được")
+            try:
+                duration = int(row.get("full_audio_duration_seconds") or 0)
+            except (TypeError, ValueError):
+                duration = 0
+            if duration <= 0:
+                issues.append("Listening chưa có thời lượng audio hợp lệ")
+
+    if "reading" in wanted and exam.get("reading_test_id"):
+        row = _exam_content_row(
+            "reading_tests", exam["reading_test_id"], "id,status,test_type",
+        )
+        if not row:
+            issues.append("Reading không còn tồn tại")
+        else:
+            if row.get("status") != "published":
+                issues.append("Reading chưa được publish")
+            if row.get("test_type") != "full":
+                issues.append("Reading phải là đề full test")
+
+    if "writing" in wanted:
+        for label, column, expected in (
+            ("Writing Task 1", "writing_task1_prompt_id", "task1"),
+            ("Writing Task 2", "writing_task2_prompt_id", "task2"),
+        ):
+            prompt_id = exam.get(column)
+            if not prompt_id:
+                continue
+            row = _exam_content_row(
+                "writing_prompts", prompt_id, "id,task_type,prompt_text,is_active",
+            )
+            if not row:
+                issues.append(f"{label} không còn tồn tại")
+                continue
+            if row.get("is_active") is False:
+                issues.append(f"{label} đã bị vô hiệu hóa")
+            task_type = str(row.get("task_type") or "")
+            type_matches = task_type.startswith("task1") if expected == "task1" else task_type == "task2"
+            if not type_matches:
+                issues.append(f"{label} đang trỏ nhầm loại đề")
+            if not str(row.get("prompt_text") or "").strip():
+                issues.append(f"{label} chưa có nội dung đề")
+
+    for section, column in (("Reading", "reading_minutes"), ("Writing", "writing_minutes")):
+        if section.lower() not in wanted:
+            continue
+        try:
+            minutes = int(exam.get(column) or 60)
+        except (TypeError, ValueError):
+            minutes = 0
+        if minutes <= 0:
+            issues.append(f"Thời gian {section} phải lớn hơn 0 phút")
+    return issues
+
+
+def _require_exam_content_ready(
+    exam: dict,
+    *,
+    sections: Optional[tuple[str, ...]] = None,
+    error_type=ValueError,
+) -> None:
+    issues = _exam_content_readiness_issues(exam, sections)
+    if issues:
+        raise error_type("Nội dung kỳ thi chưa sẵn sàng: " + "; ".join(issues) + ".")
+
+
 def _reserve_exam_content(row: dict) -> None:
     """Flag every test/prompt this exam uses as exam_only (mig 170).
 
@@ -2048,7 +2189,12 @@ def admin_create_exam(payload: dict, created_by: str) -> dict:
     if not row.get("code") or not row.get("title"):
         raise ValueError("code và title là bắt buộc.")
     row["created_by"] = str(created_by)
-    inserted = supabase_admin.table("mock_exams").insert(row).execute()
+    try:
+        inserted = supabase_admin.table("mock_exams").insert(row).execute()
+    except Exception as exc:  # noqa: BLE001 — PostgREST exposes SQLSTATE dynamically
+        if _is_unique_violation(exc):
+            raise DuplicateExamCodeError("Mã đề đã tồn tại.") from exc
+        raise
     if not inserted.data:
         raise MockExamError("Không tạo được mock exam.")
     _reserve_exam_content(inserted.data[0])
@@ -2059,6 +2205,38 @@ def admin_update_exam(exam_id: str, patch: dict) -> dict:
     upd = {k: v for k, v in patch.items() if k in _EXAM_WRITABLE}
     if not upd:
         raise ValueError("Không có trường hợp lệ để cập nhật.")
+    current: Optional[dict] = None
+    readiness_fields = {
+        "status", "listening_test_id", "reading_test_id",
+        "writing_task1_prompt_id", "writing_task2_prompt_id",
+        "reading_minutes", "writing_minutes",
+    }
+    if readiness_fields.intersection(upd):
+        current = get_published_exam_by_id(exam_id)
+        if not current:
+            raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
+        candidate = {**current, **upd}
+        if candidate.get("status") == "published":
+            # Validate before fn_set_exam_mode: that RPC commits independently.
+            # A mixed patch must not report a readiness error after the mode has
+            # already changed underneath every existing sitting contract.
+            if "status" in upd:
+                _require_exam_content_ready(candidate)
+            else:
+                affected_sections = []
+                if "listening_test_id" in upd:
+                    affected_sections.append("listening")
+                if {"reading_test_id", "reading_minutes"}.intersection(upd):
+                    affected_sections.append("reading")
+                if {
+                    "writing_task1_prompt_id", "writing_task2_prompt_id",
+                    "writing_minutes",
+                }.intersection(upd):
+                    affected_sections.append("writing")
+                if affected_sections:
+                    _require_exam_content_ready(
+                        candidate, sections=tuple(affected_sections),
+                    )
     if "exam_mode" in upd:
         # MODE IS NOT A SETTING, IT IS THE CONTRACT A SITTING IS READ UNDER.
         #
@@ -2233,10 +2411,22 @@ def set_open(exam_id: str, is_open: bool, admin_id: str) -> dict:
         exam = get_published_exam_by_id(exam_id)
         if not exam:
             raise NotFoundError(f"Mock exam {exam_id} không tồn tại.")
+        if exam.get("status") != "published":
+            raise SittingConflictError(
+                "Đề chưa được publish — chưa thể mở kỳ thi cho học viên."
+            )
         if (exam.get("active_section") or "not_started") == "done":
             raise SittingConflictError(
                 "Kỳ thi đã kết thúc — không mở lại được. Tạo đề mới nếu cần thi lại."
             )
+        active_section = exam.get("active_section") or "not_started"
+        readiness_sections = (
+            (active_section,) if active_section in _LRW_ORDER else None
+        )
+        try:
+            _require_exam_content_ready(exam, sections=readiness_sections)
+        except ValueError as exc:
+            raise SittingConflictError(str(exc)) from exc
     resp = supabase_admin.table("mock_exams").update({
         "is_open": bool(is_open),
     }).eq("id", str(exam_id)).execute()
@@ -2323,7 +2513,7 @@ def _grade_and_finalize_reading(attempt_id: str) -> None:
         passage_order_by_id = {p["id"]: p.get("passage_order") for p in passages}
         q_rows = (
             supabase_admin.table("reading_questions")
-            .select("q_num,answer,skill_tag,explanation,passage_id")
+            .select("q_num,question_type,prompt,payload,answer,skill_tag,explanation,passage_id")
             .in_("passage_id", list(passage_order_by_id.keys())).execute().data
             if passage_order_by_id else []
         )
@@ -3135,6 +3325,12 @@ def _advance_from(exam_id: str, admin_id: str, current: str) -> dict:
             nxt = seq[idx + 1] if idx + 1 < len(seq) else "done"
         else:
             nxt = "done"
+
+    if nxt in _LRW_ORDER:
+        try:
+            _require_exam_content_ready(exam, sections=(nxt,))
+        except ValueError as exc:
+            raise SittingConflictError(str(exc)) from exc
 
     # Opening the next section ENDS the collected-but-paused state, whatever it
     # was. Leaving it set would keep every sitting created afterwards born with

@@ -1,6 +1,6 @@
 // Fixture-backed browser contract for native `/mock-exam`.
 import { chromium } from 'playwright';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 
 import { storageKey } from './supabase-session.mjs';
 
@@ -9,6 +9,7 @@ const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co
 const USER_ID = '00000000-0000-4000-8000-000000000088';
 const SITTING_ID = '22222222-2222-4222-8222-222222222222';
 const CODE = 'MOCK-NATIVE-1';
+const SCREENSHOT_DIR = process.env.MOCK_UI_SCREENSHOT_DIR || '';
 const session = JSON.stringify({
   access_token: 'mock-exam-not-a-real-token', refresh_token: 'x', token_type: 'bearer',
   expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600,
@@ -41,7 +42,7 @@ function mockState(overrides = {}) {
     },
     exam: {
       listening_test_id: 'listen-1', reading_test_code: 'READ-1', reading_title: 'Mock <script>alert(1)</script>',
-      writing_task1: { id: 'w1', task_type: 'task1', title: 'Chart', prompt_text: 'Describe <b>the chart</b>.', prompt_image_url: null },
+      writing_task1: { id: 'w1', task_type: 'task1_academic', title: 'Chart', prompt_text: 'Describe <b>the chart</b>.', prompt_image_url: null },
       writing_task2: { id: 'w2', task_type: 'task2', title: 'Essay', prompt_text: 'Discuss both views.', prompt_image_url: null },
       speaking_topic_set: { part1: ['Work'] }, total_minutes: 150,
       reading_minutes: 60, writing_minutes: 60, review_sla_days: 3,
@@ -65,17 +66,29 @@ async function fixturePage(browser, initialState, {
   drafts = {}, createLostAck = false, finalWritingLostAck = false,
   finalWritingAlwaysFails = false, writingDraftAlwaysFails = false, fakeClock = false,
   finalWritingCollectPause = false, deferStateGet = null, deferEmbedSave = false,
-  deferFlushAck = false, readingFlushFailsOnce = false,
+  deferFlushAck = false, readingFlushFailsOnce = false, localDraftWritesFail = false,
+  viewport = { width: 1280, height: 900 },
+  theme = null,
 } = {}) {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-  await context.addInitScript(([key, value, sittingId, seededDrafts]) => {
+  const context = await browser.newContext({ viewport });
+  await context.addInitScript(([key, value, sittingId, seededDrafts, failDraftWrites, selectedTheme]) => {
     try {
       localStorage.setItem(key, value);
+      if (selectedTheme) localStorage.setItem('av-theme', selectedTheme);
       for (const [task, draft] of Object.entries(seededDrafts)) {
         localStorage.setItem(`mock-writing:${sittingId}:${task}`, JSON.stringify(draft));
       }
     } catch (_) {}
-  }, [storageKey(SB), session, SITTING_ID, drafts]);
+    if (failDraftWrites) {
+      const originalSetItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function setItem(nextKey, nextValue) {
+        if (String(nextKey).startsWith(`mock-writing:${sittingId}:`)) {
+          throw new DOMException('Fixture storage quota exceeded', 'QuotaExceededError');
+        }
+        return originalSetItem.call(this, nextKey, nextValue);
+      };
+    }
+  }, [storageKey(SB), session, SITTING_ID, drafts, localDraftWritesFail, theme]);
   const page = await context.newPage();
   if (fakeClock) await page.clock.install({ time: new Date() });
   const errors = [];
@@ -184,8 +197,8 @@ async function fixturePage(browser, initialState, {
     if (request.method() === 'POST' && url.pathname.endsWith('/sections/writing/start')) {
       calls.push('start-writing');
       state.current.active_section = 'writing';
-      state.current.section_time_left_seconds = 600;
-      state.current.section_duration_seconds = 600;
+      state.current.section_time_left_seconds = 3600;
+      state.current.section_duration_seconds = 3600;
       return route.fulfill(json({ ok: true }));
     }
     if (request.method() === 'POST' && url.pathname === `/api/mock-exams/sittings/${SITTING_ID}/writing`) {
@@ -251,6 +264,7 @@ async function fixturePage(browser, initialState, {
 }
 
 const browser = await launch();
+if (SCREENSHOT_DIR) mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
 const signedOut = await browser.newContext({ viewport: { width: 375, height: 812 } });
 const signedOutPage = await signedOut.newPage();
@@ -279,7 +293,55 @@ await retake.page.getByLabel('Bài viết Task 1').waitFor();
 check('retake starts only an explicitly assigned section',
   retake.calls.join(',') === 'start-writing'
     && await retake.page.getByRole('button', { name: /Listening|Reading/ }).count() === 0);
+check('Writing renders task-specific time, word minimum and honest progress cues',
+  await retake.page.getByText('Ít nhất 150 từ').isVisible()
+    && await retake.page.getByText('Gợi ý 20 phút').isVisible()
+    && await retake.page.getByText('Academic', { exact: true }).isVisible()
+    && await retake.page.getByText(/Tóm tắt và so sánh các đặc điểm chính/).isVisible()
+    && await retake.page.getByText(/Chưa bắt đầu/).isVisible()
+    && await retake.page.getByRole('progressbar', { name: /Tiến độ số từ Task 1/ }).isVisible());
+check('Writing desktop workspace stays within the viewport', await retake.page.evaluate(() => (
+  document.documentElement.scrollWidth <= document.documentElement.clientWidth
+)));
+if (SCREENSHOT_DIR) await retake.page.screenshot({ path: `${SCREENSHOT_DIR}/mock-writing-desktop.png`, fullPage: true });
+await retake.page.setViewportSize({ width: 900, height: 900 });
+check('Writing mid-width toolbar stays within the viewport', await retake.page.evaluate(() => (
+  document.documentElement.scrollWidth <= document.documentElement.clientWidth
+)));
 await retake.context.close();
+
+const narrowWriting = await fixturePage(browser, mockState({
+  active_section: 'writing', section_time_left_seconds: 540, section_duration_seconds: 3600,
+}), { viewport: { width: 390, height: 844 }, fakeClock: true });
+await narrowWriting.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+await narrowWriting.page.getByLabel('Bài viết Task 1').waitFor();
+check('Writing narrow fallback keeps both tasks, deadline guidance and editor visible',
+  await narrowWriting.page.getByRole('tab', { name: /Task 1/ }).isVisible()
+    && await narrowWriting.page.getByRole('tab', { name: /Task 2/ }).isVisible()
+    && await narrowWriting.page.getByText(/Còn 09:00/).isVisible()
+    && await narrowWriting.page.getByLabel('Bài viết Task 1').isVisible());
+check('Writing narrow workspace has no page-level horizontal overflow', await narrowWriting.page.evaluate(() => (
+  document.documentElement.scrollWidth <= document.documentElement.clientWidth
+)));
+if (SCREENSHOT_DIR) await narrowWriting.page.screenshot({ path: `${SCREENSHOT_DIR}/mock-writing-narrow.png`, fullPage: true });
+await narrowWriting.context.close();
+
+const darkWriting = await fixturePage(browser, mockState({
+  active_section: 'writing', section_time_left_seconds: 540, section_duration_seconds: 3600,
+}), { theme: 'dark', fakeClock: true });
+await darkWriting.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+await darkWriting.page.getByLabel('Bài viết Task 1').waitFor();
+check('Writing dark theme keeps the exam hierarchy and readable editor surface',
+  await darkWriting.page.locator('html').getAttribute('data-theme') === 'dark'
+    && await darkWriting.page.getByText('WRITING TASK 1').isVisible()
+    && await darkWriting.page.getByLabel('Bài viết Task 1').isVisible()
+    && await darkWriting.page.locator('.mw-time-guidance').isVisible()
+    && await darkWriting.page.locator('.mw-time-guidance').evaluate((element) => {
+      const background = getComputedStyle(element).backgroundColor;
+      return background !== 'transparent' && background !== 'rgba(0, 0, 0, 0)';
+    }));
+if (SCREENSHOT_DIR) await darkWriting.page.screenshot({ path: `${SCREENSHOT_DIR}/mock-writing-dark.png`, fullPage: true });
+await darkWriting.context.close();
 
 const staleReadState = mockState({
   exam_mode: 'retake', assigned_skills: ['writing'], active_section: 'not_started',
@@ -392,6 +454,51 @@ check('Writing collection persists the latest draft before its server ACK',
     && collectedWriting.state.collectionOrder.slice(-2).join(',') === 'writing-save,flush-ack:writing');
 await collectedWriting.context.close();
 
+const noLocalBackup = await fixturePage(browser, mockState({
+  active_section: 'writing', section_time_left_seconds: 600, section_duration_seconds: 600,
+}), { localDraftWritesFail: true });
+await noLocalBackup.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+await noLocalBackup.page.getByLabel('Bài viết Task 1').fill('X'.repeat(500));
+check('Writing warns truthfully when browser storage cannot hold a local backup',
+  await noLocalBackup.page.getByText(/Trình duyệt không tạo được bản dự phòng/).isVisible());
+await noLocalBackup.page.getByText(/Đã lưu lên máy chủ lúc .* nhưng trình duyệt không tạo được bản dự phòng/).waitFor();
+check('successful server autosave does not hide a persistent local-backup failure',
+  noLocalBackup.state.writingDrafts.length >= 1
+    && await noLocalBackup.page.getByText(/Đã lưu lên máy chủ lúc .* nhưng trình duyệt không tạo được bản dự phòng/).isVisible());
+await noLocalBackup.page.getByLabel('Bài viết Task 1').fill(`${'X'.repeat(500)}Y`);
+check('a new unsaved edit immediately clears the stale server-saved reassurance',
+  await noLocalBackup.page.getByText(/Trình duyệt không tạo được bản dự phòng trên thiết bị — giữ nguyên tab/).isVisible()
+    && !await noLocalBackup.page.getByText(/Đã lưu lên máy chủ lúc/).isVisible());
+await noLocalBackup.page.evaluate(() => window.dispatchEvent(new Event('online')));
+await noLocalBackup.page.getByText(/Đã lưu lên máy chủ lúc .* nhưng trình duyệt không tạo được bản dự phòng/).waitFor();
+check('the server-saved cue returns only after the newer draft is acknowledged',
+  noLocalBackup.state.writingDrafts.length >= 2);
+await noLocalBackup.context.close();
+
+const serverOnlyFailure = await fixturePage(browser, mockState({
+  active_section: 'writing', section_time_left_seconds: 600, section_duration_seconds: 600,
+}), { writingDraftAlwaysFails: true });
+await serverOnlyFailure.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+await serverOnlyFailure.page.getByLabel('Bài viết Task 1').fill('X'.repeat(500));
+await serverOnlyFailure.page.getByText(/Chưa lưu được lên máy chủ — bản dự phòng trên thiết bị vẫn còn/).waitFor();
+await serverOnlyFailure.page.getByLabel('Bài viết Task 1').fill(`${'X'.repeat(500)}Y`);
+check('a later edit preserves the server-failure cue when device backup still works',
+  await serverOnlyFailure.page.getByText(/Chưa lưu được lên máy chủ — bản dự phòng trên thiết bị vẫn còn/).isVisible());
+await serverOnlyFailure.context.close();
+
+const noBackupOrServer = await fixturePage(browser, mockState({
+  active_section: 'writing', section_time_left_seconds: 600, section_duration_seconds: 600,
+}), { localDraftWritesFail: true, writingDraftAlwaysFails: true });
+await noBackupOrServer.page.goto(`${BASE}/mock-exam?sitting=${SITTING_ID}`, { waitUntil: 'domcontentloaded' });
+await noBackupOrServer.page.getByLabel('Bài viết Task 1').fill('X'.repeat(500));
+await noBackupOrServer.page.getByText(/Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng/).waitFor();
+check('Writing reports simultaneous server and local-backup failure without false reassurance',
+  await noBackupOrServer.page.getByText(/Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng/).isVisible());
+await noBackupOrServer.page.getByLabel('Bài viết Task 1').fill(`${'X'.repeat(500)}Y`);
+check('a later edit preserves the combined server-and-device failure cue',
+  await noBackupOrServer.page.getByText(/Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng/).isVisible());
+await noBackupOrServer.context.close();
+
 const writingState = mockState({
   active_section: 'writing', section_time_left_seconds: 1, section_duration_seconds: 60,
 });
@@ -503,12 +610,12 @@ await waitForWritingAttempts(6);
 check('explicit online recovery may start one new submit attempt',
   boundedFailure.state.writingFinals.length === 6, String(boundedFailure.state.writingFinals.length));
 check('fixture flows have no production egress or browser error',
-  [waiting, retake, staleRead, listening, collectedListening, collectedWriting, writing, forceCollected, pausedRetry, boundedFailure]
+  [waiting, retake, narrowWriting, darkWriting, staleRead, listening, collectedListening, collectedWriting, noLocalBackup, writing, forceCollected, pausedRetry, boundedFailure]
     .every((run) => run.egress.length === 0 && run.errors.length === 0),
-  [...waiting.egress, ...retake.egress, ...staleRead.egress, ...listening.egress, ...collectedListening.egress, ...writing.egress,
-    ...collectedWriting.egress, ...forceCollected.egress, ...pausedRetry.egress, ...boundedFailure.egress, ...waiting.errors, ...retake.errors,
+  [...waiting.egress, ...retake.egress, ...narrowWriting.egress, ...darkWriting.egress, ...staleRead.egress, ...listening.egress, ...collectedListening.egress, ...writing.egress,
+    ...collectedWriting.egress, ...noLocalBackup.egress, ...forceCollected.egress, ...pausedRetry.egress, ...boundedFailure.egress, ...waiting.errors, ...retake.errors,
     ...staleRead.errors, ...listening.errors, ...collectedListening.errors, ...collectedWriting.errors, ...writing.errors, ...forceCollected.errors,
-    ...pausedRetry.errors, ...boundedFailure.errors][0] || '');
+    ...noLocalBackup.errors, ...pausedRetry.errors, ...boundedFailure.errors][0] || '');
 await boundedFailure.context.close();
 await writing.context.close();
 

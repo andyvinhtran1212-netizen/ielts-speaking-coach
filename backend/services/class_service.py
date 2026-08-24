@@ -32,6 +32,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
+from services.class_membership_service import active_memberships_for_cohorts
+
 logger = logging.getLogger(__name__)
 
 # PostgREST's own default ceiling. Pages of exactly this size mean "there may be
@@ -53,29 +55,31 @@ def _all_students_for_cohorts(db, cohort_ids: List[str]) -> List[Dict[str, Any]]
     if not cohort_ids:
         return []
 
-    rows: List[Dict[str, Any]] = []
-    # Chunk the ids as well as page the rows. _PAGE bounds what comes back;
-    # _ID_CHUNK bounds what goes out in the `in.(...)` URL. Found by sweeping for
-    # this pattern rather than by a review — the same split was already applied
-    # in class_assignment_service, and this sibling was missed.
-    for chunk in (cohort_ids[i:i + _ID_CHUNK]
-                  for i in range(0, len(cohort_ids), _ID_CHUNK)):
+    memberships = active_memberships_for_cohorts(db, cohort_ids)
+    student_ids = list({m["student_id"] for m in memberships if m.get("student_id")})
+    students: Dict[str, Dict[str, Any]] = {}
+    for chunk in (student_ids[i:i + _ID_CHUNK]
+                  for i in range(0, len(student_ids), _ID_CHUNK)):
         start = 0
         while True:
             page = (
                 db.table("students")
-                .select("id, cohort_id, user_id")
-                .in_("cohort_id", chunk)
+                .select("id, user_id")
+                .in_("id", chunk)
                 .order("id")
                 .range(start, start + _PAGE - 1)
                 .execute()
                 .data
             ) or []
-            rows.extend(page)
+            students.update({row["id"]: row for row in page})
             if len(page) < _PAGE:
                 break
             start += _PAGE
-    return rows
+    return [
+        {"id": m["student_id"], "cohort_id": m["cohort_id"],
+         "user_id": students.get(m["student_id"], {}).get("user_id")}
+        for m in memberships if m.get("student_id") in students
+    ]
 
 
 def _roster_rollup(db, cohort_ids: List[str]) -> tuple[Dict[str, Dict[str, int]], bool]:

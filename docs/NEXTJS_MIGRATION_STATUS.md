@@ -43,9 +43,10 @@ Playwright-only response-body race in the Speaking launcher assertion, so the
 corrected frozen manifest first moved to v9. Canary v9 `32243889759` then proved
 the product routes rendered the correct `30bedcda…` release but exposed Vercel
 Toolbar injection retrying its feedback script and preventing browser load
-states from settling. The isolated-toolbar manifest is now critical-suite v10;
+states from settling. The integrated Reading/Listening UI contract is now
+critical-suite v11;
 no earlier candidate can carry forward and the qualifying streak remains
-**0/20**. The first v10 canary must prove matching frontend/backend provenance
+**0/20**. The first v11 canary must prove matching frontend/backend provenance
 before the remaining streak can accrue.
 Gate F observation began at `2026-08-17T00:15:22Z`, but retirement/permanent
 redirects must not start before its operational and time-window criteria close.

@@ -459,6 +459,10 @@ ASSIGNED = {"topic": "Hometown", "mode": "test_part", "part": 3}
 def _bind_db(*, cfg=None, status="published", publish_at=None):
     return _DB({
         "students": [{"id": "stu-1", "user_id": "user-1", "cohort_id": "cohort-1"}],
+        "student_cohort_memberships": [{
+            "id": "membership-1", "student_id": "stu-1",
+            "cohort_id": "cohort-1", "is_active": True,
+        }],
         "class_assignment_items": [
             {"id": "item-1", "student_id": "stu-1", "assignment_id": "asg-1"},
         ],
@@ -1050,11 +1054,11 @@ def test_every_band_write_path_syncs_the_ledger():
 
 
 def test_transferred_student_cannot_start_the_old_class_work():
-    """Moving a student between classes only rewrites students.cohort_id — the
-    old class's item rows survive. Without a cohort check the old homework
-    reappears when they join a new class, and can still be started."""
+    """Ending the old membership leaves its item rows in history, but that old
+    homework must not become startable again."""
     db = _bind_db()
     db.tables["students"][0]["cohort_id"] = "cohort-NEW"
+    db.tables["student_cohort_memberships"][0]["is_active"] = False
     db.tables["class_assignments"][0]["cohort_id"] = "cohort-OLD"
     with pytest.raises(TaskMismatchError):
         _bind(db)

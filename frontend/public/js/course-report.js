@@ -16,6 +16,8 @@
  * là học viên chỉ phải học nó một lần.
  */
 
+import { formatCourseExplanation } from './course-explanation-format.js';
+
 const esc = (s) => (typeof window !== 'undefined' && window.WC && window.WC.escapeHtml
   ? window.WC.escapeHtml(s)
   : String(s == null ? '' : s)
@@ -70,8 +72,60 @@ function questionCard(q) {
       <dd><b>${esc(answer)}</b> ${esc(q.answer_text || '')}</dd>`}
     </dl>
     ${q.why_wrong ? `<p class="cr-q__why">${esc(q.why_wrong)}</p>` : ''}
-    ${q.explain ? `<p class="cr-q__explain">${esc(q.explain)}</p>` : ''}
+    ${q.explain ? `<div class="cr-q__explain course-explain">${formatCourseExplanation(q.explain)}</div>` : ''}
     ${q.seconds != null ? `<p class="cr-q__time">${esc(q.seconds)} giây</p>` : ''}
+  </li>`;
+}
+
+/** Một câu trong màn tự review đầy đủ của học viên sau khi đã đạt. */
+function learnerQuestionCard(q, index) {
+  const options = Array.isArray(q.options) ? q.options : [];
+  const picked = typeof q.picked === 'number' ? q.picked : null;
+  const answer = typeof q.answer === 'number' ? q.answer : null;
+  const state = q.is_correct ? 'correct' : 'wrong';
+  const choices = options.length
+    ? `<ol class="cr-review-q__choices">${options.map((text, i) => {
+        const isPicked = i === picked;
+        const isAnswer = i === answer;
+        const choiceState = isPicked && isAnswer ? 'picked-correct'
+          : isPicked ? 'picked-wrong'
+            : isAnswer ? 'correct' : 'neutral';
+        const badge = isPicked && isAnswer ? 'Bạn chọn · Đúng'
+          : isPicked ? 'Bạn chọn'
+            : isAnswer ? 'Đáp án đúng' : '';
+        return `<li class="cr-review-choice" data-state="${choiceState}">
+          <span class="cr-review-choice__key">${esc(optLabel(i))}</span>
+          <span class="cr-review-choice__text">${mdBold(text || '')}</span>
+          ${badge ? `<span class="cr-review-choice__badge">${esc(badge)}</span>` : ''}
+        </li>`;
+      }).join('')}</ol>`
+    : `<dl class="cr-q__pick">
+        <dt>Bạn chọn</dt><dd><b>${esc(optLabel(picked))}</b> ${esc(q.picked_text || 'không trả lời')}</dd>
+        ${q.is_correct ? '' : `<dt>Đáp án đúng</dt><dd><b>${esc(optLabel(answer))}</b> ${esc(q.answer_text || '')}</dd>`}
+      </dl>`;
+
+  return `<li class="cr-review-q" data-cr-state="${state}">
+    <header class="cr-review-q__head">
+      <div>
+        <span class="cr-review-q__no">Câu ${esc(index + 1)}</span>
+        ${q.item_key ? `<span class="cr-review-q__axis">${esc(q.item_key)}</span>` : ''}
+      </div>
+      <span class="cr-review-q__status" data-state="${state}">
+        <span aria-hidden="true">${q.is_correct ? '✓' : '×'}</span>
+        ${q.is_correct ? 'Đúng' : 'Cần xem lại'}
+      </span>
+    </header>
+    <p class="cr-review-q__prompt">${mdBold(q.prompt || '')}</p>
+    ${choices}
+    ${q.why_wrong ? `<section class="cr-review-note" data-tone="trap">
+      <h3>Vì sao bạn dễ nhầm ở đây?</h3><p>${esc(q.why_wrong)}</p>
+    </section>` : ''}
+    <section class="cr-review-note" data-tone="explain">
+      <h3>Giải thích</h3>
+      <div class="course-explain">${q.explain
+        ? formatCourseExplanation(q.explain)
+        : '<p>Câu này chưa có lời giải chi tiết.</p>'}</div>
+    </section>
   </li>`;
 }
 
@@ -123,14 +177,17 @@ export function renderAttemptHistory(history) {
         </tr></thead>
         <tbody>${rows.map((row, i) => {
           const phase = row.phase === 'retake' ? 'Revision' : 'Full session';
-          const next = NEXT_LABEL[row.next_action] || 'Đã ghi nhận';
-          const state = row.next_action === 'passed' ? 'pass'
+          const completed = row.completed !== false;
+          const next = completed ? (NEXT_LABEL[row.next_action] || 'Đã ghi nhận') : 'Làm nốt các phần';
+          const state = !completed ? 'progress' : row.next_action === 'passed' ? 'pass'
             : row.next_action === 'retry_full' ? 'retry' : 'revise';
           return `<tr${i === rows.length - 1 ? ' data-current="true"' : ''}>
             <td data-label="Lượt"><b>#${esc(row.number || i + 1)}</b></td>
             <td data-label="Hình thức">${esc(phase)}</td>
             <td data-label="Session">${esc(row.session_count || 0)}</td>
-            <td data-label="Kết quả"><strong>${esc(row.pct)}%</strong></td>
+            <td data-label="Kết quả"><strong>${completed
+              ? (row.pct == null ? '—' : esc(row.pct) + '%')
+              : 'Đang hoàn thành'}</strong></td>
             <td data-label="Bước tiếp"><span class="cr-history__state" data-state="${state}">${esc(next)}</span></td>
             <td data-label="Thời gian">${esc(historyDate(row.at))}</td>
           </tr>`;
@@ -153,6 +210,7 @@ export function renderReport(data, opts = {}) {
   // — nên ở đây chỉ cần đừng vẽ thẻ câu rỗng, và nói ra điều kiện mở mức hai.
   const locked = !!(data && data.locked);
   const t = (data && data.totals) || {};
+  const summary = (data && data.summary) || {};
   // Máy chủ nói nó ĐỌC THIẾU. Vẽ như thường là đưa ra một bản tổng kết trông
   // đầy đủ mà sai — và khi thiếu SẠCH thì "chưa có câu nào được chấm" là một
   // khẳng định lượt đọc hỏng không chứng minh được (codex cục bộ 06/08).
@@ -160,13 +218,86 @@ export function renderReport(data, opts = {}) {
     ? '<p class="cr-stale">Chưa đọc được đầy đủ bài làm — vài câu có thể thiếu. '
       + 'Mở lại để thử lại.</p>'
     : '';
+  const hasDecision = summary.latest_pct != null || summary.latest_action
+    || summary.pass_pct != null;
+  const decision = hasDecision ? `<section class="cr-decision">
+      <div><p>Kết luận gần nhất</p><strong>${esc(NEXT_LABEL[summary.latest_action] || 'Chưa có kết luận')}</strong>
+      <span>${summary.latest_pct == null ? 'Chưa có lượt hoàn thành đủ phần.'
+        : `${esc(summary.latest_pct)}% · ngưỡng đạt ${esc(summary.pass_pct)}%`}</span></div>
+      <b>${summary.latest_pct == null ? '—' : `${esc(Math.round(summary.latest_pct))}%`}</b>
+    </section>` : '';
   if (!qs.length) {
-    return warn + history + (warn || history ? '' : '<p class="cr-empty">Chưa có câu nào được chấm. Làm xong một '
-      + 'chặng là báo cáo hiện ra ở đây.</p>');
+    const empty = warn || history || decision ? ''
+      : '<p class="cr-empty">Chưa có câu nào được chấm. Làm xong một chặng là báo cáo hiện ra ở đây.</p>';
+    return `<div class="cr">${warn}${decision}${history}${empty}</div>`;
   }
   const groups = groupByAxis(qs);
   const weak = groups.filter(needsWork);
   const worst = weak[0] || null;
+  // `locked=false` không phải bằng chứng đạt: gate backend chủ động fail-open
+  // khi lượt đọc trạng thái lỗi. Nếu trang vừa có verdict thì verdict hiện tại
+  // là nguồn thật; chế độ chỉ xem mới rơi về kết luận canonical trong summary.
+  const hasCurrentVerdict = !!(opts.verdict
+    && typeof opts.verdict.passed === 'boolean');
+  const learnerPassed = hasCurrentVerdict
+    ? opts.verdict.passed === true
+    : summary.latest_action === 'passed';
+
+  // Học viên đã đạt cần chữa từng câu theo đúng thứ tự bài. Giáo viên và trạng
+  // thái chưa đạt vẫn dùng bản theo trục hiện hành.
+  if (opts.learner && !locked && learnerPassed) {
+    const correct = Number(t.correct) || 0;
+    const answered = Number(t.answered) || qs.length;
+    const wrong = Math.max(0, answered - correct);
+    const verdictRaw = opts.verdict && opts.verdict.pct;
+    const verdictPct = verdictRaw == null ? Number.NaN : Number(verdictRaw);
+    const summaryPct = summary.latest_pct == null ? Number.NaN : Number(summary.latest_pct);
+    const pct = Number.isFinite(verdictPct)
+      ? Math.round(verdictPct)
+      : Number.isFinite(summaryPct)
+        ? Math.round(summaryPct)
+        : (answered ? Math.round(correct / answered * 100) : 0);
+    const bankTitle = t.bank_title
+      ? `<p class="cr-review-hero__bank">${esc(t.bank_title)}</p>` : '';
+    return `<div class="cr cr--learner">
+      ${warn}
+      <section class="cr-review-hero" aria-labelledby="cr-review-result-title">
+        <div class="cr-review-hero__copy">
+          <p class="cr-review-eyebrow">Kết quả bài làm</p>
+          <h2 id="cr-review-result-title">Đã đạt — giờ hãy hiểu rõ từng câu</h2>
+          ${bankTitle}
+          <p>Điểm số cho biết bạn đã qua bài. Phần bên dưới giúp bạn biết mình đã
+            chọn gì, đáp án nào đúng và vì sao.</p>
+        </div>
+        <div class="cr-review-hero__score"><b>${esc(pct)}%</b><span>Kết quả đạt</span></div>
+        <ul class="cr-review-summary" aria-label="Tóm tắt bài làm">
+          <li><b>${esc(answered)}</b><span>Câu đã làm</span></li>
+          <li data-tone="correct"><b>${esc(correct)}</b><span>Trả lời đúng</span></li>
+          <li data-tone="wrong"><b>${esc(wrong)}</b><span>Cần xem lại</span></li>
+        </ul>
+      </section>
+
+      <section class="cr-review" aria-labelledby="cr-review-title">
+        <header class="cr-review__head">
+          <div>
+            <p class="cr-review-eyebrow">Tự review</p>
+            <h2 id="cr-review-title">Xem lại toàn bộ bài làm</h2>
+            <p>${wrong
+              ? `Có ${esc(wrong)} câu cần chú ý. Bạn có thể lọc câu sai, hoặc đọc lại theo đúng thứ tự bài test.`
+              : 'Bạn đã làm đúng toàn bộ. Hãy đọc lời giải để củng cố cách dùng.'}</p>
+          </div>
+          <div class="cr-review-filter" role="group" aria-label="Lọc câu hỏi">
+            <button type="button" data-cr-filter="all" aria-pressed="true">Tất cả <span>${esc(answered)}</span></button>
+            <button type="button" data-cr-filter="wrong" aria-pressed="false">Câu sai <span>${esc(wrong)}</span></button>
+            <button type="button" data-cr-filter="correct" aria-pressed="false">Câu đúng <span>${esc(correct)}</span></button>
+          </div>
+        </header>
+        <ol class="cr-review-list">${qs.map(learnerQuestionCard).join('')}</ol>
+        <p class="cr-review-filter-empty" hidden>Không có câu nào trong nhóm này.</p>
+      </section>
+      ${history}
+    </div>`;
+  }
 
   // HERO là TRỤC YẾU NHẤT, không phải điểm số. Điểm số nói em ấy đứng đâu; trục
   // yếu nói em ấy phải làm gì tiếp.
@@ -178,15 +309,17 @@ export function renderReport(data, opts = {}) {
        <p class="cr-hero__axis">Cả bài đều vững</p>`;
 
   const stats = [
-    ['đúng', `${t.correct || 0}/${t.answered || 0}`],
-    ['giây/câu', t.median_sec == null ? '—' : String(t.median_sec)],
-    ['làm bài', t.active_sec ? Math.round(t.active_sec / 60) + ' phút' : '—'],
+    ['trắc nghiệm lượt đầu', summary.baseline_quiz_pct == null ? '—' : `${summary.baseline_quiz_pct}%`],
+    ['đúng lượt đầu', `${t.correct || 0}/${t.answered || 0}`],
+    ['trung vị mỗi câu', t.median_sec == null ? '—' : `${t.median_sec} giây`],
+    ['thời gian trả lời', t.active_sec ? Math.round(t.active_sec / 60) + ' phút' : '—'],
     // Chỉ hiện khi CÓ — một dòng "rời máy 0 giây" là nhiễu.
     ...(t.idle_sec ? [['rời máy', Math.round(t.idle_sec / 60) + ' phút']] : []),
   ];
 
   return `<div class="cr">
     ${warn}
+    ${decision}
     <section class="cr-hero">
       <div class="cr-hero__main">${hero}</div>
       <p class="cr-hero__count">
@@ -227,6 +360,22 @@ export function bindReport(root) {
   if (!root || root.dataset.crBound === '1') return;
   root.dataset.crBound = '1';
   root.addEventListener('click', (e) => {
+    const filter = e.target.closest('[data-cr-filter]');
+    if (filter && root.contains(filter)) {
+      const wanted = filter.dataset.crFilter || 'all';
+      root.querySelectorAll('[data-cr-filter]').forEach((button) => {
+        button.setAttribute('aria-pressed', String(button === filter));
+      });
+      let visible = 0;
+      root.querySelectorAll('[data-cr-state]').forEach((card) => {
+        const show = wanted === 'all' || card.dataset.crState === wanted;
+        card.hidden = !show;
+        if (show) visible += 1;
+      });
+      const empty = root.querySelector('.cr-review-filter-empty');
+      if (empty) empty.hidden = visible !== 0;
+      return;
+    }
     const head = e.target.closest('.cr-axis__head');
     if (!head || !root.contains(head)) return;
     const list = head.parentElement.querySelector('.cr-qs');

@@ -21,6 +21,12 @@ export function normalizeStudent(value) {
   const row = object(value);
   const id = text(row.id);
   if (!id) return null;
+  const cohorts = Array.isArray(row.cohorts) ? row.cohorts.map((item) => {
+    const membership = object(item);
+    const id = text(membership.id);
+    return id ? { id, name: nullableText(membership.name),
+      is_primary: Boolean(membership.is_primary) } : null;
+  }).filter(Boolean) : [];
   return {
     ...row,
     id,
@@ -30,6 +36,8 @@ export function normalizeStudent(value) {
     cohort_id: nullableText(row.cohort_id),
     cohort_name: nullableText(row.cohort_name),
     cohort_lookup_failed: Boolean(row.cohort_lookup_failed),
+    membership_lookup_failed: Boolean(row.membership_lookup_failed),
+    cohorts,
     target_band: nullableNumber(row.target_band),
     current_band_estimate: nullableNumber(row.current_band_estimate),
     target_date: nullableText(row.target_date),
@@ -70,7 +78,7 @@ export function studentSummary(students, now = new Date()) {
   end.setDate(end.getDate() + 90);
   return {
     total: rows.length,
-    unassigned: rows.filter((row) => !row.cohort_id).length,
+    unassigned: rows.filter((row) => !row.cohorts?.length && !row.cohort_id).length,
     upcoming: rows.filter((row) => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(row.target_date || '')) return false;
       const date = new Date(`${row.target_date}T00:00:00`);
@@ -80,7 +88,13 @@ export function studentSummary(students, now = new Date()) {
 }
 
 export function cohortTruth(student) {
-  if (!student?.cohort_id) return { kind: 'unassigned', label: 'Chưa xếp lớp' };
+  if (student?.cohorts?.length) return {
+    kind: 'assigned',
+    label: student.cohorts.map((cohort) => cohort.name || 'Không đọc được tên lớp').join(' · '),
+  };
+  if (!student?.cohort_id) return student?.membership_lookup_failed
+    ? { kind: 'unknown', label: 'Không đọc được danh sách lớp' }
+    : { kind: 'unassigned', label: 'Chưa xếp lớp' };
   if (student.cohort_name) return { kind: 'assigned', label: student.cohort_name };
   return student.cohort_lookup_failed
     ? { kind: 'unknown', label: 'Không đọc được tên lớp' }

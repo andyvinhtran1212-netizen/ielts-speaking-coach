@@ -31,10 +31,16 @@ from services import speaking_flags
 from services import speaking_question_audio as sqa
 from services import tts_audio
 from routers.admin import require_admin
+from services.course_pronunciation_manifest import pronunciation_content_hash
 from services.quiz_service import (
     bank_has_mcq,
+    course_admin_summary,
+    course_bank_is_multisection,
     course_hand_in_score,
+    course_required_sections,
+    course_section_weight_snapshot,
     reconcile_course_items,
+    unavailable_course_admin_summary,
 )
 from services.class_assignment_service import (
     CLASS_TZ,
@@ -60,6 +66,7 @@ from services.class_assignment_service import (
     reconcile_ledger_from_sessions,
     reconcile_test_attempts,
 )
+from services.class_membership_service import student_is_active_in_cohort
 
 logger = logging.getLogger(__name__)
 
@@ -638,6 +645,37 @@ def _pick_set_questions(body: "AssignmentCreate", eligible: list, qs: list) -> l
     return [in_set[i] for i in sorted(ids, key=lambda i: in_set[i].get("order_num") or 0)]
 
 
+def _pronunciation_set_matches(requirement, sets: list[dict]) -> bool:
+    """Require the active set to be the exact content declared by the importer."""
+    if not requirement:
+        return bool(sets)
+    if not isinstance(requirement, dict) or not sets:
+        return False
+    registered = sets[0]
+    sentences = registered.get("sentences")
+    try:
+        expected_count = int(requirement.get("sentence_count"))
+    except (TypeError, ValueError):
+        return False
+    if not isinstance(sentences, list) or any(
+            not isinstance(sentence, dict) for sentence in sentences):
+        return False
+    actual_hash = pronunciation_content_hash(
+        sentences=[sentence.get("text") for sentence in sentences],
+        locale=registered.get("locale"),
+        voice_engine=registered.get("voice_engine"),
+        voice=registered.get("voice"),
+    )
+    return (
+        len(sentences) == expected_count
+        and actual_hash == requirement.get("content_hash")
+        and registered.get("content_hash") == actual_hash
+        and registered.get("locale") == requirement.get("locale")
+        and registered.get("voice_engine") == requirement.get("voice_engine")
+        and registered.get("voice") == requirement.get("voice")
+    )
+
+
 def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str, dict]:
     """Chọn một bộ bài tập theo buổi từ kho của khoá mà lớp thuộc về.
 
@@ -648,7 +686,7 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
     course_id = _cohort_course_id(cohort_id)
 
     rows = (supabase_admin.table("quiz_banks")
-            .select("id, code, title, skill_area, course_id, lesson_no, words_count")
+            .select("id, code, title, skill_area, course_id, lesson_no, words_count, meta")
             .eq("id", body.content_id).limit(1).execute().data) or []
     if not rows:
         raise HTTPException(404, "Không tìm thấy bộ bài tập này.")
@@ -663,10 +701,45 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
 
     # Bank rỗng vẫn "tồn tại". Giao nó nghĩa là học viên mở ra một trang trắng và
     # không có gì nói vì sao.
-    n = (supabase_admin.table("quiz_questions").select("id", count="exact")
-         .eq("bank_id", bank["id"]).limit(1).execute())
-    if not (n.count or 0):
+    # Đếm trên TOÀN bank. Một select không range bị PostgREST cắt khoảng 1000
+    # dòng; nếu bank lớn hơn, trọng số sẽ bị chụp thấp mà không có lỗi nào đỏ.
+    questions = _paged(
+        supabase_admin, "quiz_questions",
+        "id, type, counts_toward_mastery, segments, audio_url",
+        lambda q: q.eq("bank_id", bank["id"]),
+    )
+    if not questions:
         raise HTTPException(400, "Bộ bài tập này chưa có câu hỏi nào.")
+
+    missing_question_audio = [
+        question for question in questions
+        if str((question.get("segments") or {}).get("question_audio_text") or "").strip()
+        and not str(question.get("audio_url") or "").strip()
+    ]
+    if missing_question_audio:
+        raise HTTPException(
+            400,
+            f"Bộ bài tập còn {len(missing_question_audio)} câu tiếng Anh "
+            "chưa có audio.")
+
+    pronunciation_sets = (
+        supabase_admin.table("course_pronunciation_sets").select(
+            "id, sentences, content_hash, locale, voice_engine, voice")
+        .eq("bank_id", bank["id"]).eq("is_active", True).limit(1)
+        .execute().data
+    ) or []
+    requirement = (bank.get("meta") or {}).get("pronunciation_requirement")
+    if requirement and not _pronunciation_set_matches(requirement, pronunciation_sets):
+        raise HTTPException(
+            400, "Bộ phát âm đang thiếu hoặc không khớp nội dung bắt buộc.")
+    try:
+        weight_snapshot = course_section_weight_snapshot(
+            questions=questions,
+            meta=bank.get("meta"),
+            pronunciation_sets=pronunciation_sets,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
     dup = (supabase_admin.table("class_assignments").select("id, title")
            .eq("cohort_id", cohort_id).eq("skill", "course")
@@ -678,15 +751,16 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
             f"(bài giao \"{dup[0].get('title')}\").")
 
     cfg = {
-        # Chỉ nhãn để hiển thị. Câu hỏi KHÔNG chụp vào đây: khác kho Speaking,
-        # đề bài tập tới tay học viên qua endpoint quiz đã có cổng riêng, và chụp
-        # thêm một bản ở đây là tạo ra một nguồn sự thật thứ hai để trôi.
+        # Không chụp NỘI DUNG câu hỏi — đề vẫn có đúng một nguồn. Chỉ chụp hình
+        # dạng + trọng số tại lúc giao để một lần re-import sau đó không đổi luật
+        # tính điểm của bài học viên đang làm.
         "test_title": bank["title"],
         "lesson_no":  bank.get("lesson_no"),
         "bank_code":  bank.get("code"),
+        **weight_snapshot,
     }
-    # Cổng thuộc-bài: chỉ ghi khi admin ĐẶT — vắng mặt nghĩa là "theo mặc định
-    # hiện hành", và mặc định được phép tiến hoá mà không phải sửa bài giao cũ.
+    # Cổng thuộc-bài: pass/revision chỉ ghi khi admin đặt. Riêng trọng số luôn
+    # chụp ở trên vì luật chấm không được tiến hoá giữa một bài đã giao.
     if body.pass_pct is not None:
         cfg["pass_pct"] = body.pass_pct
     if body.retake_size is not None:
@@ -709,7 +783,7 @@ async def list_course_banks(
     course_id = _cohort_course_id(cohort_id)
 
     banks = (supabase_admin.table("quiz_banks")
-             .select("id, code, title, lesson_no, words_count")
+             .select("id, code, title, lesson_no, words_count, meta")
              .eq("skill_area", "course").eq("course_id", course_id)
              .order("lesson_no").execute().data) or []
     if not banks:
@@ -723,21 +797,56 @@ async def list_course_banks(
         ) if r.get("content_id")
     }
     counts: dict = {}
+    audio_required: dict = {}
+    missing_audio: dict = {}
     ids = [b["id"] for b in banks]
     for chunk in (ids[i:i + _ID_CHUNK] for i in range(0, len(ids), _ID_CHUNK)):
-        for q in _paged(supabase_admin, "quiz_questions", "id, bank_id",
+        for q in _paged(supabase_admin, "quiz_questions",
+                        "id, bank_id, segments, audio_url",
                         lambda q2, c=chunk: q2.in_("bank_id", c)):
-            counts[q["bank_id"]] = counts.get(q["bank_id"], 0) + 1
+            bank_id = q["bank_id"]
+            counts[bank_id] = counts.get(bank_id, 0) + 1
+            text = str((q.get("segments") or {}).get("question_audio_text") or "").strip()
+            if text:
+                audio_required[bank_id] = audio_required.get(bank_id, 0) + 1
+                if not str(q.get("audio_url") or "").strip():
+                    missing_audio[bank_id] = missing_audio.get(bank_id, 0) + 1
 
-    return {"items": [{
-        "id":             b["id"],
-        "code":           b.get("code"),
-        "lesson_no":      b.get("lesson_no"),
-        "title":          b.get("title"),
-        "question_count": counts.get(b["id"], 0),
-        "already_given":  b["id"] in given,
-        "ready":          counts.get(b["id"], 0) > 0,
-    } for b in banks]}
+    pronunciation_sets = {}
+    for chunk in (ids[i:i + _ID_CHUNK] for i in range(0, len(ids), _ID_CHUNK)):
+        rows = (supabase_admin.table("course_pronunciation_sets").select(
+                    "bank_id, sentences, content_hash, locale, voice_engine, voice")
+                .in_("bank_id", chunk).eq("is_active", True).execute().data) or []
+        pronunciation_sets.update({
+            row["bank_id"]: row for row in rows if row.get("bank_id")})
+
+    items = []
+    for bank in banks:
+        bank_id = bank["id"]
+        pronunciation_required = bool(
+            (bank.get("meta") or {}).get("pronunciation_requirement"))
+        pronunciation_is_ready = _pronunciation_set_matches(
+            (bank.get("meta") or {}).get("pronunciation_requirement"),
+            [pronunciation_sets[bank_id]] if bank_id in pronunciation_sets else [],
+        )
+        items.append({
+            "id":                    bank_id,
+            "code":                  bank.get("code"),
+            "lesson_no":             bank.get("lesson_no"),
+            "title":                 bank.get("title"),
+            "question_count":        counts.get(bank_id, 0),
+            "question_audio_count":  audio_required.get(bank_id, 0),
+            "missing_audio":         missing_audio.get(bank_id, 0),
+            "pronunciation_required": pronunciation_required,
+            "pronunciation_ready":   pronunciation_is_ready,
+            "already_given":         bank_id in given,
+            "ready": (
+                counts.get(bank_id, 0) > 0
+                and missing_audio.get(bank_id, 0) == 0
+                and (not pronunciation_required or pronunciation_is_ready)
+            ),
+        })
+    return {"items": items}
 
 
 @router.get("/{cohort_id}/speaking-lesson-sets")
@@ -1147,8 +1256,21 @@ async def assignment_tally(
     # `bank_has_mcq` tự lo chiều an toàn khi đọc hỏng — `_course_bank_shape`
     # KHÔNG ném, nên một `try/except` ở đây không bắt được gì (codex #994).
     has_mcq = False
+    course_is_multisection = False
     if assignment.get("skill") == "course":
         has_mcq = bank_has_mcq(assignment.get("content_id"))
+        course_is_multisection = course_bank_is_multisection(
+            assignment.get("content_id"), supabase_admin)
+    course_sections: list[str] = []
+    sections_shape_unknown = False
+    if assignment.get("skill") == "course":
+        try:
+            course_sections = course_required_sections(assignment)
+        except Exception as exc:  # noqa: BLE001
+            stale = True
+            sections_shape_unknown = True
+            logger.warning("[class] course section shape failed asg=%s: %s",
+                           assignment_id, exc)
     writing_by_item: dict = {}
     if assignment.get("skill") == "course":
         ids = [i["id"] for i in items]
@@ -1175,6 +1297,11 @@ async def assignment_tally(
         for it in items:
             w = writing_by_item.get(it["id"])
             if not w:
+                continue
+            # Với bài nhiều phần, submission writing chỉ là MỘT phần. Điểm và
+            # dấu thu bài phải do sổ hợp nhất ghi sau khi quiz/reading/listening/
+            # pronunciation đều xong; bảng admin không được tự suy ngược.
+            if course_is_multisection:
                 continue
             if it.get("submitted_at"):
                 # ĐIỀN BÙ. Đã chốt sổ nhưng ô điểm còn trống nghĩa là lượt chốt
@@ -1250,7 +1377,28 @@ async def assignment_tally(
     for it in items:
         s = students.get(it["student_id"]) or {}
         status_ = _hand_in_status(it, s, due, sealed)
-        flags = flags_by_session.get(it.get("artifact_id")) or []
+        course_summary = None
+        if assignment.get("skill") == "course":
+            try:
+                course_summary = course_admin_summary(
+                    it, assignment, required_sections=course_sections)
+            except Exception as exc:  # noqa: BLE001
+                stale = True
+                logger.warning("[class] course summary shape failed item=%s: %s",
+                               it.get("id"), exc)
+                # Dữ liệu hỏng ở MỘT học viên không được làm sập bảng cả lớp.
+                # Dựng shape rỗng an toàn rồi gắn cờ kỹ thuật có hành động rõ;
+                # không gọi lại với chính payload hỏng vì lỗi pct/duration sẽ
+                # ném lần hai y hệt và thoát khỏi khối except.
+                course_summary = unavailable_course_admin_summary(
+                    it, assignment, required_sections=course_sections)
+            if not s.get("user_id"):
+                # Chưa kích hoạt = chưa từng có quyền mở bài. Đếm em ấy vào
+                # "chưa mở" sẽ biến vấn đề tài khoản thành vấn đề học tập.
+                course_summary = {**course_summary, "state": "no_account", "flags": []}
+        flags = ((course_summary or {}).get("flags")
+                 if course_summary is not None
+                 else flags_by_session.get(it.get("artifact_id"))) or []
         out.append({
             "student_id":   it["student_id"],
             "name":         s.get("full_name") or "",
@@ -1263,17 +1411,25 @@ async def assignment_tally(
             # phải nằm ngay cạnh tên em ấy.
             "flags":        flags,
             "flag_level":   speaking_flags.worst(flags),
+            "course_state": (course_summary or {}).get("state"),
+            "next_action":  (course_summary or {}).get("next_action"),
+            "pass_pct":     (course_summary or {}).get("pass_pct"),
+            "near_pass_pct": (course_summary or {}).get("near_pass_pct"),
+            "sections_done": (course_summary or {}).get("sections_done", 0),
+            "sections_total": (course_summary or {}).get("sections_total", 0),
+            "missing_sections": (course_summary or {}).get("missing_sections", []),
             # Cổng thuộc bài (chỉ bài course có): đạt/chưa + số lần kiểm tra
             # lại. "Trượt 2 lần rồi mới đạt" là tín hiệu cần kèm cặp — nó phải
             # tới mắt giáo viên, không nằm im trong jsonb.
             "passed_at":    it.get("passed_at"),
-            "retakes":      sum(1 for a in ((it.get("mastery") or {}).get("attempts") or [])
-                                if a.get("phase") == "retake"),
+            "retakes":      ((course_summary or {}).get("retakes")
+                               if course_summary is not None else 0),
             # Số lượt ĐÃ XÉT. mark_item_submitted đóng dấu submitted ngay chặng
             # đầu, nên "đã nộp mà chưa passed_at" chưa chắc là trượt — có thể
             # em ấy đang làm dở. Chỉ khi đã có ít nhất một lượt xét mới được
             # nói "chưa đạt" (codex R6).
-            "verdicts":     len(((it.get("mastery") or {}).get("attempts")) or []),
+            "verdicts":     ((course_summary or {}).get("attempts")
+                               if course_summary is not None else 0),
             # Đường mở thẳng bài làm: nghe audio + đọc nhận xét. Không có nó thì
             # giáo viên phải tự mò trong danh sách phiên toàn hệ thống, nên trên
             # thực tế không ai nghe bài của học viên mình cả. `artifact_kind` đi
@@ -1312,10 +1468,17 @@ async def assignment_tally(
             # vẫn là đã nộp. Trộn hai con số sẽ khiến giáo viên tưởng em ấy chưa
             # làm bài, trong khi lỗi nằm ở phía hệ thống.
             "flagged":   sum(1 for r in out if r["flags"]),
+            "passed": sum(1 for r in out if r.get("course_state") == "passed"),
+            "near_pass": sum(1 for r in out if r.get("course_state") == "near_pass"),
+            "retry_full": sum(1 for r in out if r.get("course_state") == "retry_full"),
+            "in_progress": sum(1 for r in out if r.get("course_state") == "in_progress"),
+            "untouched": sum(1 for r in out if r.get("course_state") == "untouched"),
         },
     }
     if stale:
         result["homework_stale"] = True
+    if sections_shape_unknown:
+        result["sections_shape_unknown"] = True
     return result
 
 
@@ -1523,18 +1686,12 @@ async def student_work(
     await require_admin(authorization)
     _require_cohort(cohort_id)
 
-    # Lọc theo CẢ `cohort_id`. Chỉ lọc theo id thì bất kỳ admin nào đoán được
-    # một id học viên đều đọc được bài của em ấy qua đường của lớp mình — và
-    # mục bài tập CỐ Ý sống sót khi học viên chuyển lớp, nên một em đã rời đi
-    # vẫn còn dòng ở lớp này để lộ ra. Sổ điểm danh là `students.cohort_id`
-    # (WF-1), đúng thứ `_roster_student_ids` dùng để phát bài (codex cục bộ).
-    students = (
-        supabase_admin.table("students")
-        .select("id, full_name, student_code, user_id")
-        .eq("id", student_id).eq("cohort_id", cohort_id)
-        .limit(1).execute().data
-    ) or []
-    if not students:
+    students = (supabase_admin.table("students")
+                .select("id, full_name, student_code, user_id, cohort_id")
+                .eq("id", student_id).limit(1).execute().data) or []
+    if not students or not student_is_active_in_cohort(
+        supabase_admin, student_id, cohort_id, students[0].get("cohort_id")
+    ):
         raise HTTPException(404, "Không tìm thấy học viên trong lớp này")
     student = students[0]
 

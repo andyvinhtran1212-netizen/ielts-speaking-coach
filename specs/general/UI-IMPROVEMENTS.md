@@ -227,6 +227,27 @@ apply valid findings, rerun tests, and record any deferred behavior-level issue.
 
 ## Implementation record
 
+### Course multi-section completion gate (2026-08-20)
+
+- Replaced the premature MCQ-only verdict with one learner-facing completion
+  checklist for every section actually present in the assigned bank: quiz,
+  sentence writing, short reading, listening and pronunciation.
+- Partial work remains resumable and is labelled “Đang hoàn thành”; pass/fail
+  language, the combined percentage and the assignment hand-in are withheld
+  until every required section has a canonical result.
+- Reading and listening now use explicit submit actions instead of “self-study”
+  wording. Their result bars show section accuracy and return learners to the
+  same completion checklist, so the next unfinished section is always visible.
+- The admin effort table prioritizes completion state, latest combined score,
+  number of graded attempts and total active time. The learner drill-down shows
+  a per-attempt section breakdown rather than forcing teachers to infer the
+  total from unrelated screens.
+- Accessibility contract: progress uses text plus native progress semantics;
+  incomplete/complete states never rely on colour alone; existing shared
+  buttons, table containment and focus styles are reused rather than creating a
+  new control family.
+
+
 ### Native `/instructor/grade` migration (2026-08-16)
 
 - Replaced the legacy stacked cards and browser confirmations with a focused
@@ -527,6 +548,114 @@ None found that require a schema or grading rewrite.
   and canonical next action. Explicitly warn that answers do not carry over.
 - **Verification:** full fail → full retry → near pass → revision → pass; compare
   the table against persisted mastery attempts after reload.
+
+### Answer-explanation rendering follow-up (2026-08-21)
+
+#### Issue: Authored explanation structure is flattened into one text block
+
+- **Root cause:** `course-runner.js:49` and `course-writing.js:23` implement an
+  inline-only formatter: escape HTML, then replace `**…**` with `<mark>`. The
+  immediate MCQ renderer at `course-behavior.tsx:282` injects that result
+  directly inside one `.cx-why` container. The writing result renderer at
+  `course-writing.js:416` does the same inside `.cw-model`. Neither formatter
+  creates paragraphs, lists, headings, or explicit label/value groups.
+- **Severity:** Medium.
+- **Impact:** learners receive the correct answer and canonical explanation, but
+  must parse several independent teaching claims as one grey paragraph. The
+  cost is highest on “find the error / why wrong / constraint” questions, where
+  the learner needs to compare the chosen distractor, the correct rule, and the
+  repair step rather than reread prose.
+- **Evidence:** production contains 500 populated explanations across C1-B01 to
+  C1-B05. All five banks have ten multiline writing explanations with authored
+  blank-line sections and bold labels; the current renderer collapses those
+  line breaks. C1-B05's 90 MCQ explanations are authored as single paragraphs;
+  the longest is 527 characters, so renderer support alone will preserve future
+  lists but existing long MCQ content also needs deliberate list markers.
+- **Impacted files:** `frontend/public/js/course-runner.js:40-50`,
+  `frontend/app/(authed)/course-exercises/course-behavior.tsx:270-287`,
+  `frontend/public/js/course-writing.js:16-24,414-424`, and
+  `frontend/public/css/course-exercises.css:832-845,1108-1124`.
+- **Suggested minimal fix:** introduce one small, safe course-content formatter
+  that escapes first and supports only the authored subset actually needed:
+  `**strong label**`, blank-line paragraphs, `-`/`*`/`•` unordered items and
+  `1.` ordered items. Render the first explanatory paragraph as the lead rule,
+  subsequent authored items as a semantic list, and labels such as “Đáp án
+  mẫu”, “Cũng được chấp nhận”, and “Chấm thế nào” as strong text—not generic
+  browser-yellow `<mark>` elements. Preserve authored list boundaries. For the
+  legacy single-paragraph MCQ bank only, use a bounded fallback (at least 240
+  characters and three complete sentences): keep the first sentence as the
+  lead and make later complete sentences bullets. Never split commas or
+  semicolons, and never transform shorter prose.
+- **Target hierarchy:** retain the existing correctness summary first; show the
+  chosen-distractor trap second when present; then show a labelled “Vì sao”
+  panel with a short lead, 2–4 authored bullets, and the existing topic axis as
+  quiet metadata. Highlight only grammar forms, correct repairs, or explicit
+  author labels—not whole sentences.
+- **Verification:** fixture explanations covering one paragraph, several
+  paragraphs, unordered and ordered lists, bold labels, empty content and
+  hostile HTML; then light/dark and 390px/desktop visual checks on correct,
+  wrong, writing-result and long-explanation states.
+
+#### Issue: The same explanation has three incompatible render contracts
+
+- **Root cause:** immediate feedback uses `md()`, writing review duplicates a
+  second `md()`, the shared learner/admin answer report escapes `q.explain` into
+  one `<p>` at `course-report.js:61-74`, and the durable mistake page sends the
+  value through the prompt formatter at `quiz-progress.js:41-54`. Admin writing
+  additionally carries a fourth copy, `cwMd()` in `admin-classes.js:1298`.
+- **Severity:** Medium.
+- **Impact:** the same canonical explanation can show highlights in one place,
+  literal Markdown or flattened whitespace in another. Learner and teacher may
+  discuss screens that visually emphasize different evidence.
+- **Impacted files:** `course-behavior.tsx`, `course-writing.js`,
+  `course-report.js`, `quiz-progress.js`, `admin-classes.js`,
+  `course-exercises.css`, `course-report.css`, and `quiz-progress.css`.
+- **Suggested minimal fix:** make the safe formatter a shared pure module and
+  use it for explanation content on all learner/admin course surfaces. Keep
+  prompt formatting separate: a question stem and an explanation have different
+  block semantics. No backend or database migration is required; the canonical
+  `explain` string is already preserved by `quiz_service.py:3424-3470` and
+  `quiz_service.py:4200-4209`.
+- **Verification:** one shared formatter contract test plus parity assertions
+  proving that immediate feedback, learner report, admin report, writing result,
+  and mistake history emit the same paragraph/list/strong structure.
+
+#### Issue: Feedback announcement semantics are broader than the changed result
+
+- **Root cause:** `#cx-q` is the polite live region, while answering mutates only
+  `#cx-why` and adds the next button. The explanation label is a styled `<span>`,
+  not a heading tied to the explanation panel.
+- **Severity:** Low.
+- **Impact:** visual users see a local result, but assistive technology may
+  announce too much of the question card or provide no useful heading when the
+  learner navigates back through the new content.
+- **Impacted files:** `page-shell.tsx:50-51` and
+  `course-behavior.tsx:282-289`.
+- **Suggested minimal fix:** give the result summary its own concise polite
+  status, make “Vì sao” a real heading, and connect the explanation region with
+  `aria-labelledby`. Preserve keyboard position unless testing shows that moving
+  focus to the result is necessary; never force focus past the explanation to
+  “Câu tiếp”.
+- **Verification:** VoiceOver/NVDA pass for correct and wrong selection, followed
+  by keyboard navigation through the trap, explanation heading/list, and next
+  action without duplicate full-question announcements.
+
+#### Positive observations to preserve
+
+- Backend answer/report paths return the canonical raw explanation and keep
+  distractor-specific `why_wrong` separate; no content has been lost in transit.
+- HTML is escaped before the current limited Markdown substitution. The richer
+  renderer must retain this fail-closed order and must not accept arbitrary HTML.
+- The existing correctness summary, text state badges, selected-distractor trap,
+  semantic color tokens, and responsive answer card already establish the right
+  top-level reading order.
+
+#### Audit limitation
+
+- Chrome had no connected browser session during this audit, so findings are
+  based on production content queries and renderer/CSS contracts. A signed-in
+  production screenshot pass remains required before calling the visual repair
+  complete.
 
 ## Positive observations to preserve
 
@@ -2770,3 +2899,658 @@ remediation remains owned by each affected workflow and its regression tests.
 - **Route-outs:** backend/API/schema changes, grading policy and exact-thinking-
   time inference are out of scope. Pacing timestamps remain last-save evidence.
 - **Open decisions:** none; all labels map onto existing canonical operations.
+# Admin assignment surfaces — light/dark and workflow closure
+
+> Audit closure: 2026-08-21
+> Scope: Admin Students, Class Homework, Writing Prompts, Writing Assignments,
+> plus shared class and My Class readability styles.
+
+## Validated root causes and fixes
+
+- Writing assignment and prompt states used fixed teal palette values. Those
+  values had 1.02–1.15:1 contrast on dark surfaces. Operational states now use
+  semantic theme roles (`--av-primary`, `--av-primary-soft`,
+  `--av-primary-border`, `--av-text-on-primary`).
+- Meaningful 10–12px metadata used the decorative muted text role. The affected
+  labels now use `--av-text-secondary`, which measures at least 4.5:1 against
+  the light page and card surfaces. Muted colour remains only on decorative
+  arrows and rhythm cells.
+- Students, class homework and prompt inventory had no direct path to the
+  Writing assignment ledger. Each now links to one assignment URL contract
+  with a student, cohort or prompt prefill. The destination validates every ID
+  against its canonical picker snapshot or exact detail endpoint before
+  selecting it, including entities outside list caps and archived classes, and
+  rejects an ambiguous student-plus-cohort target.
+- The native student and class ledgers remain separate: “Gửi bài chấm” still
+  submits on behalf of a learner, while “Giao bài Writing” creates a Writing
+  assignment. Writing is not inserted into the class-homework backend contract.
+- Student and class tables no longer depend on a 980–1080px minimum width on
+  phones. They become labelled cards so identity, class/account/goal, due date,
+  progress and actions remain visible without horizontal page overflow.
+- Mixed English/internal terms in the primary prompt and assignment workflow
+  were replaced with learner-facing Vietnamese labels where they affected task
+  comprehension; persisted API field names and backend contracts are unchanged.
+
+## False positives explicitly rejected
+
+- Theme initialization was not broken; the fault was page-local fixed palette
+  usage, so the shared token values were not globally changed.
+- The learner Writing dashboard remains the canonical Writing inbox. My Class
+  does not need to duplicate the Writing assignment ledger.
+- A four-request peak in the prompt browser fixture occurs only under React dev
+  effect replay. The same production build fixture peaks at two parallel reads,
+  one per lifecycle, while stale-response guards remain active.
+- Decorative muted glyphs are not treated as readable copy and are intentionally
+  excluded from the AA text assertion.
+
+## Verification
+
+- Theme and responsive contracts cover fixed-palette exclusion, semantic state
+  roles, measured light-theme AA contrast, labelled mobile cards and phone-width
+  prompt actions.
+- Deep-link tests cover exact student/cohort/prompt serialization, ambiguous
+  target rejection, canonical option validation and preservation of the two
+  distinct admin Writing actions.
+- Fixture browser flows cover canonical readback, idempotent assignment retry,
+  prompt lifecycle writes, hostile-text escaping, mobile containment and the
+  separate class/student ledgers. The prompt concurrency assertion is run on the
+  production build to avoid React development replay noise.
+- A successful Next production build is required to close TypeScript and route
+  integration for all touched surfaces.
+
+---
+
+ # Multi-class membership UX — 2026-08-21
+
+## Summary
+
+The admin and learner class surfaces now treat class membership as additive.
+One learner can remain active in two classes, receive each class's assignments,
+and see the source class beside every task and lesson.
+
+## Critical issues resolved
+
+### Issue: “Add to class” silently moved a learner
+
+**Current State**: Single and bulk admin actions now write an active membership
+and explicitly say that existing classes are preserved.
+
+**Problem**: The previous label suggested addition while the backend overwrote
+`students.cohort_id`, hiding the old class's work.
+
+**Recommendation**: Keep “Thêm vào lớp” additive. If transfer is introduced,
+ship it as a separate destructive action with a confirmation listing every
+membership that will end.
+
+**Impact**: Admin intent and persisted roster truth stay aligned after reload.
+
+**Implementation Notes**: Student rows render class chips; the class picker
+disables only a membership that already exists in the current class.
+
+### Issue: Learner work from different classes was indistinguishable
+
+**Current State**: My Class exposes `Tất cả` plus one 44px class control per
+active membership. Tasks and lessons carry their class name, and the home card
+summarizes the number of active classes.
+
+**Problem**: A flat unlabelled list makes deadlines and lesson notes ambiguous.
+
+**Recommendation**: Preserve the aggregate view for cross-class prioritization
+and class filters for focused work; never remove source labels from the
+aggregate view.
+
+**Impact**: Learners can act on the nearest deadline without losing class
+context and can isolate one timetable when needed.
+
+**Implementation Notes**: The class switcher scrolls horizontally on narrow
+screens, uses `aria-pressed`, visible focus and semantic buttons. The backend
+remains the source of deadline and membership truth.
+
+## Verification
+
+- Add a learner to class B while they remain in A; compare immediate admin
+  state with a full reload on both class rosters and the student directory.
+- Give one task from each class; confirm `Tất cả`, A and B show the correct
+  counts, task labels, lesson labels and nearest deadline.
+- Remove only A; confirm B remains visible and an A assignment can no longer be
+  opened while historical A submission evidence remains intact.
+ - Keyboard through the class switcher and verify 375px horizontal containment.
+
+---
+
+# Admin course-Grammar result and inspection content audit — 2026-08-22
+
+> Validated against the production C1 “GRAMMAR 01” assignment on both the
+> legacy class workspace and the native Next.js class workspace. This is an
+> information/content audit only; no grading or submission behaviour changed.
+
+## Critical issues
+
+### Issue: completed failed attempts are presented as “not submitted”
+
+- **Root cause:** course completion only stamps `submitted_at` after the learner
+  passes, while the generic tally derives hand-in state exclusively from
+  `submitted_at`. A completed failed run is therefore labelled `pending` or
+  `missing`, even when it has a canonical score and next action.
+- **Severity:** Critical.
+- **Observed impact:** four C1 learners with completed 47–70% results appeared
+  as “chưa nộp”; the 5/13 headline was effectively a pass count labelled as a
+  submission count. Admin outreach can target the wrong learners for the wrong
+  reason.
+- **Impacted files:** `backend/services/quiz_service.py`
+  (`refresh_course_completion()`),
+  `backend/routers/admin_class_assignments.py` (`_hand_in_status()`,
+  `assignment_tally()`), `frontend/public/js/admin-classes.js` (`tallyRow()`),
+  and `frontend/app/(authed-admin-classes)/admin/classes/[cohortId]/admin-class-submissions.tsx`.
+- **Suggested minimal fix:** keep the immutable mastery ledger as truth and add
+  an explicit course learning state to each tally row. For course assignments,
+  replace “Ai nộp” with an outcome summary: Đã đạt, Gần đạt / Revision, Cần làm
+  lại toàn bài, Thiếu phần, Đang làm, Chưa mở. Keep deadline/hand-in state as a
+  separate operational field instead of using it as the learning verdict.
+- **Verification:** fixture one learner in each outcome and deadline state;
+  assert the API, immediate UI, and full reload agree, and a completed failed
+  attempt is never described as “chưa nộp”.
+
+### Issue: the completion denominator is derived from existing evidence
+
+- **Root cause:** `course_attempt_report()` sets `sections_total` to
+  `len(latest_attempt.sections)`. Missing required sections are absent from that
+  object, so the denominator shrinks to the work already present.
+- **Severity:** Critical.
+- **Observed impact:** a learner was labelled “Còn phần chưa xong” and “1/1
+  phần” on the same row. The admin still cannot see which required section is
+  missing.
+- **Impacted files:** `backend/services/quiz_service.py`
+  (`course_attempt_report()`), both class submission renderers, and their
+  report/model tests.
+- **Suggested minimal fix:** derive `sections_total` from the assignment's
+  canonical required-section snapshot, count only completed required sections,
+  and return `missing_sections[{key,label}]`.
+- **Verification:** cover quiz-only, writing-only and every multi-section
+  permutation; a quiz-complete/writing-missing attempt must say “1/2 · thiếu Tự
+  luận”, never “1/1”.
+
+## High-priority improvements
+
+### Issue: the individual report mixes different scoring scopes without labels
+
+- **Root cause:** `course_answer_report()` builds question groups and top stats
+  from the earliest response ever recorded for each question, while the history
+  uses the latest canonical mastery attempts and the combined weighted result.
+- **Severity:** Medium.
+- **Observed impact:** the C1 report showed 44/90 in the hero beside a latest
+  53.4% result; a passed learner showed 76/90 quiz answers beside 77.2% overall.
+  Both values can be valid, but the UI makes them look like the same metric.
+- **Impacted files:** `backend/services/quiz_service.py`
+  (`course_answer_report()`), `frontend/public/js/course-report.js`
+  (`renderReport()`), and the native `Report` component.
+- **Suggested minimal fix:** expose labelled `baseline_quiz`,
+  `latest_attempt`, `section_results`, `history` and `delta`. Lead with “Điểm
+  tổng gần nhất” and next action; label the diagnostic as “Trắc nghiệm lượt
+  đầu”. Add an attempt selector for per-question inspection, defaulting to the
+  latest completed full run.
+- **Verification:** use one multi-attempt learner and one weighted multi-section
+  learner; every displayed value must name its attempt, section and scoring
+  scope, and the latest value must match the canonical ledger.
+
+### Issue: the legacy history renderer invents a result for an incomplete run
+
+- **Root cause:** `renderAttemptHistory()` appends `%` to a null percentage and
+  maps an absent `next_action` to “Đã ghi nhận”. The backend correctly returns
+  `completed: false`; the legacy renderer ignores it.
+- **Severity:** Medium.
+- **Observed impact:** production displayed “Kết quả % · Đã ghi nhận · —” for
+  an in-progress learner. The Next.js renderer already avoids this error.
+- **Impacted files:** `frontend/public/js/course-report.js`
+  (`renderAttemptHistory()`), `frontend/tests/course-report.test.mjs`.
+- **Suggested minimal fix:** port the native semantics: show “Đang hoàn thành”,
+  “Làm nốt các phần”, existing section scores and the missing-section label;
+  never render a percent suffix for `null`.
+- **Verification:** add an incomplete-history fixture with `pct: null`, no
+  timestamp and one missing section; assert that no bare `%`, false completion
+  copy or invented timestamp appears.
+
+### Issue: class difficulty ranking has no denominator or affected-learner count
+
+- **Root cause:** class axes expose only raw wrong count and median seconds,
+  aggregated from first responses. They omit attempts, error rate, affected
+  students, eligible students and the aggregation scope.
+- **Severity:** Medium.
+- **Observed impact:** “23 sai” can mean a broadly misunderstood concept or
+  simply an axis with more questions. Admin cannot separate teaching need from
+  a potentially flawed question.
+- **Impacted files:** `backend/services/quiz_service.py`
+  (`course_attempt_report()` axes aggregation), both class effort renderers.
+- **Suggested minimal fix:** return and display `affected_students / eligible`,
+  `wrong / attempted`, error rate, median time, sample size and scope. Rank by
+  affected-learner rate with a minimum sample; surface a neutral “Kiểm tra chất
+  lượng câu hỏi” flag when a high error rate is broad and concentrated.
+- **Verification:** compare axes with different question counts and sparse
+  samples; rankings must not be driven by raw exposure alone.
+
+### Issue: course Grammar has no actionable admin flag contract
+
+- **Root cause:** tally flags are currently computed only for Speaking. Grammar
+  has enough canonical evidence to detect intervention and data-quality needs,
+  but none is transformed into an admin action queue.
+- **Severity:** Medium.
+- **Impacted files:** `backend/routers/admin_class_assignments.py`
+  (`assignment_tally()`), course report services, both admin renderers.
+- **Suggested minimal fix:** produce server-side course flags with evidence and
+  a concrete action: near pass (revision eligible), repeated full failure,
+  stalled over 24h, no improvement across completed attempts, persistent
+  misconception, missing required section, deadline risk, suspicious timing
+  for review, and data/system mismatch. Use non-accusatory language and never
+  infer cheating from timing alone.
+- **Verification:** one fixture per flag plus negative boundary fixtures (for
+  example 64.9%, 65%, 74.9%, 75% when the pass threshold is 75%); every flag
+  states what happened, why it matters and what the admin can inspect.
+
+## Proposed information architecture
+
+1. **Tổng kết / Cần xử lý:** outcome funnel, due-state context and a prioritized
+   queue of evidence-backed flags. Primary CTA: “Inspect”.
+2. **Tiến độ lớp:** learner rows with latest overall score, threshold, required
+   sections, attempt trend and contextualised time (`5 lượt · 386 phút tổng ·
+   77 phút/lượt`; idle remains explicitly approximate).
+3. **Inspect học viên:** decision card first (current outcome, score versus
+   threshold, next required action), weighted section cards, attempt trend,
+   top three persistent misconceptions, then detailed questions. Default the
+   question list to wrong answers; keep “Tất cả câu” and an attempt selector.
+4. **Inspect câu:** preserve the existing prompt, learner answer, correct answer,
+   misconception-specific `why_wrong`, explanation and response time. Keep the
+   writing submission in the same learner view rather than making admin switch
+   to a disconnected report.
+
+## Positive observations to preserve
+
+- Canonical mastery history, section weights and per-question explanations are
+  already available and substantially more useful than a score-only report.
+- Stale/partial reads are visible instead of silently rendered as empty data.
+- The effort report already distinguishes untouched, doing, stalled,
+  incomplete-section, retry and passed states and sorts actionable states first.
+- The native Next.js history renderer correctly handles incomplete runs and is
+  the best semantic baseline for legacy parity.
+
+## Implementation record — first remediation wave
+
+- Added a canonical read-only course summary so learning outcome no longer
+  inherits the generic `submitted_at` label. The admin funnel now separates
+  passed, near-pass Revision, full retry, in-progress, untouched and
+  unactivated learners.
+- Required-section progress now uses the assignment snapshot, returns explicit
+  missing-section labels and refuses to count a partial section as complete.
+- Near-pass and full-retry remain explicit outcomes but no longer become admin
+  flags on a learner's first unsuccessful run. The action queue is reserved for
+  repeated failure, missing sections in an active attempt, stalled work and
+  ledger/data mismatch, so routine learning states do not bury real intervention.
+- Individual reports now label baseline quiz evidence separately from the
+  latest weighted course result, lead with the current decision and section
+  scores, and default detailed inspection to wrong answers with progressive
+  disclosure.
+- Class misconceptions now include affected learners, learner sample, wrong
+  attempts, error rate, median response time and an explicit first-attempt
+  scope. Axes with no errors are not presented as class problems; samples below
+  three learners rank after reliable samples and are labelled “Mẫu nhỏ · chỉ
+  tham khảo” instead of being presented as a class-wide conclusion.
+- Legacy assignments without a required-section snapshot now resolve their bank
+  shape once and share that denominator across tally and effort reports. A
+  malformed learner ledger marks only that row and the report as stale rather
+  than returning a class-wide 500 in either tally or effort. If the assignment
+  shape itself cannot be read, both admin surfaces say the required-section
+  denominator is unknown instead of presenting zero as a real denominator.
+- Writing-only course reports now build the canonical mastery decision before
+  the quiz-session path, preserving result/history even when no quiz session can
+  exist.
+- The legacy surface received the same semantic corrections for course outcome,
+  incomplete history, required sections and misconception denominators; the
+  native Next.js surface owns the richer action queue and inspection layout.
+
+## Release verification
+
+- Backend contract tests for course outcome, required sections, score scopes,
+  flag boundaries and stale reads.
+- Renderer tests for null values, incomplete attempts, labels and progressive
+  disclosure in both legacy and Next.js paths.
+- Signed-in production-like fixture covering passed, near-pass, full retry,
+  missing section, stalled and untouched learners; compare immediate and
+  full-reload state.
+- Light/dark visual QA at 1280px, 768px and 375px; keyboard through filters,
+  attempt selector, accordion and Inspect actions.
+
+---
+
+# Mock Exam resilience and live-operations audit — 2026-08-22
+
+## Summary
+
+The sequential Listening → Reading → Writing journey and the admin live room
+were audited as one distributed workflow: canonical paper readiness, shared
+clock admission, embedded-player flush, answer autosave, Writing local backup,
+audio recovery, collection ACKs, and stale live snapshots. The remediation is
+fail-closed where an irreversible exam action depends on fresh server truth,
+but keeps the learner in the current attempt while recoverable network or media
+failures are retried.
+
+## Critical issues
+
+### Issue: an unservable paper could start the shared section clock
+
+**Root cause:** published status and the admin content picker were treated as
+sufficient readiness evidence. Opening or advancing an exam did not re-check
+that referenced Listening/Reading rows still existed and were published, that
+Listening had a storage path and positive duration, or that configured Writing
+prompts still matched their task slot. The service also trusted IDs from the
+picker without proving that both LR papers were `test_type=full`.
+
+**Severity:** Critical.
+
+**Impacted files:** `backend/services/mock_exam_service.py`
+(`admin_update_exam()`, `set_open()`, `_advance_from()` and the new canonical
+readiness helpers) and `backend/tests/test_mock_exam_workflow.py`.
+
+**Suggested minimal fix:** validate canonical content before publish, before
+opening the room, and immediately before stamping the next section clock. Treat
+lookup uncertainty as not ready. Run validation before the atomic mode-change
+RPC so a mixed failed PATCH cannot leave `exam_mode` changed behind an error.
+On an already-published exam, validate only the section whose paper or duration
+is being repaired; a broken historical Listening asset must not prevent an
+admin from repairing the future Writing paper.
+
+**Verification:** reject missing/unpublished Reading, missing/zero-duration
+Listening audio, non-full LR papers, wrong-slot Writing prompts, and a mixed
+mode/content patch; also prove a future paper can be repaired after a consumed
+historical asset breaks and that closing remains available in that condition;
+assert status, mode, `active_section`, and `{section}_started_at` remain
+unchanged. A valid published paper must still open and advance normally.
+
+### Issue: a stale admin snapshot still looked operational
+
+**Root cause:** a failed live refresh retained the last useful snapshot, but its
+clock continued ticking locally and mutation controls remained enabled. That
+made an old client estimate look current and allowed open, collect,
+advance, recollect, or void decisions without fresh canonical state.
+
+**Severity:** Critical for live operations.
+
+**Impacted files:**
+`frontend/app/(authed-admin-mock-live)/admin/mock-live/admin-mock-live.tsx`,
+`frontend/lib/admin-mock-live-model.mjs`,
+`frontend/public/css/admin-mock-live-next.css`, and their model/browser gates.
+
+**Suggested minimal fix:** retain the snapshot for situational awareness, label
+it explicitly as stale, freeze its clock, close any pending destructive dialog,
+and disable every risky mutation until a canonical refresh succeeds. Preserve
+one explicit idempotent `Đóng kỳ khẩn` action while the stale snapshot says the
+room was open: backend closing is intentionally always legal and reduces harm
+even when the confirming live read is unavailable. Reject partial
+student section maps, malformed clocks, malformed server time, and retake rows
+whose section keys differ from their assigned skills.
+
+**Verification:** inject a 503 on the live endpoint, wait longer than one clock
+tick, and assert the displayed time is unchanged and all coordination actions
+except emergency close are disabled; assert emergency close sends exactly
+`is_open=false`, then restore the endpoint and verify canonical closed state and
+re-enabled controls. Model fixtures must reject missing/extra sections and
+invalid timing.
+
+## High-priority improvements
+
+### Issue: Listening media failure had no in-attempt recovery path
+
+**Root cause:** `<audio>` load/decode errors and rejected `play()` promises only
+changed internal playback state. A signed URL could expire or a connection
+could drop after the section clock began, leaving the learner with no diagnosis
+or way to request a fresh URL.
+
+**Severity:** High.
+
+**Impacted files:**
+`frontend/app/(authed-listening-player)/listening/test/session/listening-test-session.tsx`,
+`frontend/public/css/listening-test-next.css`, and Listening controller/browser
+tests.
+
+**Suggested minimal fix:** show a persistent accessible alert that truthfully
+states the exam clock continues, refresh the canonical test payload to obtain a
+new signed URL, remount the audio element, and resume from the shared mock clock
+for a sitting. For a standalone attempt in the same tab, retain the media
+element's last heard `currentTime` so time spent before the learner first pressed
+Play is not incorrectly counted as heard audio. Retry automatically when the
+browser returns online while keeping an explicit manual retry.
+
+**Verification:** serve a broken media URL first, confirm the alert, replace it
+with a decodable WAV, click “Tải lại audio”, and assert recovery happens in the
+same attempt without losing answers or restarting the section.
+
+### Issue: the parent could acknowledge an embedded flush it never performed
+
+**Root cause:** a missing iframe/content window resolved the parent flush as if
+it succeeded, and the three-second timeout was shorter than the embedded save
+coordinator's retry ladder.
+
+**Severity:** High.
+
+**Impacted files:**
+`frontend/app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx`, embedded
+Reading/Listening flush contracts, and `verify-mock-exam-flow.mjs`.
+
+**Suggested minimal fix:** missing or unreachable embeds must reject, malformed
+ACKs must reject, and the parent timeout must cover the child retry window. Only
+`unsaved: 0` from the exact frame and origin may release the server flush ACK.
+
+**Verification:** delay a final embedded PATCH, fail the first Reading PATCH,
+and omit `unsaved` once. Assert the paper remains mounted and inert, no server
+ACK is sent early, and unmount occurs only after the latest answer persists and
+an explicit clean ACK returns.
+
+### Issue: Writing copy overpromised a local backup
+
+**Root cause:** local-storage writes swallowed quota/privacy exceptions, while
+the failure message always claimed the essay remained on the device.
+
+**Severity:** High.
+
+**Impacted files:**
+`frontend/app/(authed-mock-exam)/mock-exam/mock-exam-runner.tsx` and its unit and
+browser flow gates.
+
+**Suggested minimal fix:** make local backup writes return success/failure and
+show the stronger “keep this tab open until server saved” warning when storage
+is unavailable. Offline and final-submit copy must distinguish in-memory,
+device-local, and server-persisted states instead of treating them as equal.
+When server autosave and local backup fail together, compose both facts into one
+warning instead of letting the local-storage message hide the server failure.
+
+**Verification:** force `Storage.setItem()` to throw for mock Writing draft keys
+and verify the warning appears immediately. Separately verify newer unsynced
+local drafts win restore, server autosave clears the dirty state, final-submit
+retries reuse one immutable payload, and an ACK-lost submission reconciles from
+canonical server state without duplication. A combined failure fixture must
+show the stronger two-layer warning without false reassurance.
+
+## Positive observations to preserve
+
+- Native Reading and Listening coordinators already expose per-answer unsaved
+  state, retry transient failures, retain terminal failures visibly, flush on
+  `pagehide`/hidden state with keepalive, and retry when connectivity returns.
+- Reading final submit sends the full current in-memory answer map after its
+  flush; the mock parent independently refuses to ACK while the child snapshot
+  still contains unsaved answers.
+- Writing already combines server autosave, a versioned local draft, keepalive
+  flush, bounded final-submit retry, and canonical readback after a lost ACK.
+- Collection already freezes the paper before its ACK, and the backend sweep is
+  gated by per-sitting flush acknowledgements rather than optimistic UI state.
+- The runner already reports offline/blur/resume evidence as neutral integrity
+  signals; the admin pacing view explicitly warns that these are not proof of
+  misconduct.
+
+## False positives rejected during validation
+
+- Reading's standalone submit does not need to abort when an individual PATCH
+  remains failed: the submit body contains the complete in-memory answer map.
+  In mock collection, the stronger parent/child `unsaved` handshake still
+  blocks an early sweep.
+- The live payload's `live: false` value is not currently emitted by the
+  backend, so no new attention flag was added for a state that has no canonical
+  producer.
+- Listening duration fallback remains useful for legacy standalone attempts,
+  but publish/open/advance now prevent a configured mock section from reaching
+  the shared clock without canonical positive audio duration.
+
+## Independent Claude follow-up — 2026-08-23
+
+- Accepted P1: reopening a mid-flight exam now validates only its current LRW
+  section; a broken already-consumed paper cannot strand learners in a later
+  section. A current broken section still blocks reopening without changing the
+  room state or its original clock.
+- Accepted P2: a successful Writing server autosave no longer clears the local
+  backup warning unless both Task 1 and Task 2 device writes really succeed.
+  Copy distinguishes canonical server persistence from unavailable device
+  backup.
+- Rejected P3: standalone Listening intentionally resumes from the media
+  position actually heard in the same tab. Using wall time would count the
+  briefing period before the learner first presses Play as consumed audio;
+  seated Mock Exam attempts continue to derive position from the shared server
+  clock.
+- Rejected the prompt-injection warning for `frontend/AGENTS.md`: it is the
+  framework-generated Next 16.3 instruction file required by the repository,
+  not executable product input.
+- Claude follow-up review found no further product defect. Its one Medium test-
+  coverage concern about `active_section=not_started` was rejected after
+  repository-context validation: `test_open_revalidates_audio_after_publish`
+  and `test_deactivated_writing_prompt_blocks_open_without_changing_state`
+  already prove that the explicit `sections=None` path validates all configured
+  sections and leaves the room closed when readiness fails.
+- Accepted post-merge inline P2: every new Writing edit now clears the prior
+  server-saved cue immediately. When device backup is unavailable, the debounce
+  window shows an unsaved-device warning until the newer snapshot receives its
+  own server ACK; it no longer reassures the learner using an ACK for stale text.
+- Accepted follow-up inline P2: edits after a failed server autosave preserve
+  the server-failure cue. This keeps both the server-only warning (device backup
+  succeeded) and the combined server/device warning visible while retry is due.
+
+## Release verification
+
+- Backend: full mock workflow and result endpoint suites, including readiness,
+  mode atomicity, shared clocks, collection and submission reconciliation.
+- Frontend: mock runner, Listening/Reading native controllers, admin live model,
+  API auth/transport, and sealed-section contract suites.
+- Browser: hermetic native mock journey, Listening broken-audio recovery, and
+  admin stale-snapshot failure injection; no production egress.
+- Build: strict TypeScript plus production Next.js build so Client Component and
+  global CSS ordering are validated in the shipped mode.
+- Independent review: send only the final repository diff to Claude with tool
+  access disabled; remediate any validated P0–P2 finding and rerun the affected
+  layer plus the full focused gates.
+
+---
+
+# Learner Mock Test exam-fidelity remediation — 2026-08-23
+
+## Summary
+
+The Mock runner already shares Reading and Listening through the stable core
+player admission route, but fresh admission remains on Legacy while the latest
+native redesign is staged behind Gate E. This batch deliberately does not flip
+renderer policy. It removes Mock-only nested learner chrome from the admitted
+Legacy Listening player and upgrades the native Mock Writing workspace without
+changing answer, timer, save, collection or submission contracts.
+
+## High-priority improvements completed
+
+### Issue: Listening exposed a second product navigation inside the exam room
+
+**Current state:** the embedded Legacy page rendered `<aver-chrome>` plus its
+library header below the Mock room timer.
+
+**Problem:** duplicate navigation consumed exam space and offered an irrelevant
+escape route, while Reading correctly retained only its task-specific exam
+tools.
+
+**Recommendation applied:** scope embed CSS to `body.av-page`; hide the learner
+chrome and library header, widen the Listening paper to the Mock viewport, and
+leave Reading's `.exam-topbar` untouched.
+
+**Impact:** one room-level timer and navigation hierarchy, with skill-specific
+audio and question controls preserved.
+
+### Issue: Writing showed a generic editor without task-completion guidance
+
+**Current state:** Task tabs carried no progress, the editor showed only a raw
+word count, and learners received no persistent 150/250-word, 20/40-minute or
+Task 2 weighting context.
+
+**Problem:** a learner could reach automatic collection with a blank or very
+short task without noticing, even though the admin queue later applies those
+same word minimums.
+
+**Recommendation applied:** add canonical per-task guidance, honest tab states,
+structured prompt hierarchy, word progress and a ten-minute short-task warning.
+“Enough words” is never labelled “complete” and the warning explicitly states
+that length is not a quality judgement. Spellcheck and autocorrect are disabled
+for exam fidelity. Existing server/device save truth remains unchanged.
+
+**Impact:** learners can allocate attention between both tasks and identify an
+incomplete-length response before collection without receiving false quality
+reassurance.
+
+## Positive observations preserved
+
+- Reading keeps its display settings, Hide/Help controls, split paper and exam
+  palette; the Mock embed patch does not flatten task-specific behavior.
+- Writing keeps four pane layouts, pointer and keyboard resizing, responsive
+  stacking, canonical autosave, local recovery and collection freeze.
+- No renderer cutover, API, schema, scoring or timer behavior changes are part
+  of this UI remediation.
+
+## Verification
+
+- Focused source/model suite: 48 tests passed.
+- Strict TypeScript: `tsc --noEmit --incremental false` passed.
+- Hermetic browser journey: 34/34 checks passed, including desktop, 390×844,
+  dark theme, page-level overflow, save failure, lost ACK and collection flows.
+- Visual QA used populated Writing fixtures at 1280×900, 390×844 and dark
+  1280×900. Developer cache overlays are excluded from product assessment.
+
+## Independent Claude review
+
+- Accepted P2: Task 1 guidance now reads canonical `task_type` and distinguishes
+  Academic visual-information analysis from General Training letter writing;
+  unknown historical types receive neutral instructions instead of guessed
+  chart guidance.
+- Accepted the coverage part of Claude's Listening selector concern: regression
+  tests now pin the actual Legacy Listening `av-page`/`ft-shell` DOM and the
+  separate Reading `exam-chrome`/`exam-topbar` DOM, not only hook source text.
+- Rejected the claimed cross-surface regression after repository validation:
+  the admitted Reading page uses `body.exam-chrome`, never `body.av-page`, so
+  the Listening-only selector cannot remove Reading tools.
+- Rejected the warning-token concern: `--av-warning-soft` is defined in light,
+  explicit dark and system-dark token scopes and was visually checked in dark
+  mode.
+- Rejected the heading concern: the Writing prompt heading is the sole `<h1>`
+  in the mounted exam-workspace state; waiting/submitted states are mutually
+  exclusive, and Task switching keeps exactly one page heading mounted.
+- Claude's final follow-up confirmed all four concerns closed and found no new
+  actionable P0–P2 issue; Gate E admission remains unchanged.
+
+## Final independent-review remediation
+
+- The ten-minute Writing guidance is visual context only. Its ticking clock is
+  no longer an `aria-live` region, preventing per-second screen-reader
+  announcements from masking autosave and collection messages.
+- Task 1/2 time guidance now follows the canonical server section duration at a
+  1:2 allocation. A 40-minute section shows 13/27 minutes rather than the fixed
+  20/40-minute full-test recommendation; extremely short fixtures fall back to
+  proportional wording instead of impossible minute totals.
+- Active-tab progress text now uses the full on-primary token. The previous 78%
+  alpha colour measured about 4.00:1 on the light primary surface and did not
+  meet WCAG AA for small text.
+- Browser QA now freezes the 09:00 countdown, exercises the final-ten-minute
+  banner in dark mode, checks its computed background, and covers the 900px
+  toolbar band. Listening/Reading source sentinels also match body classes and
+  hidden selectors structurally instead of relying on whitespace-exact strings.
+- Follow-up review hardened the same contracts further: configured-duration
+  fallback and zero/invalid inputs are covered in model tests, the 1:2 time
+  ratio is derived from one canonical guidance table, warning text uses the
+  primary readable text token, and Listening tests pin the direct-child DOM
+  relationships required by the embed selectors.

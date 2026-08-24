@@ -72,7 +72,7 @@ test('listening-core-player-partial-persistence', async ({ page }) => {
   await expect(page.locator('.ft-unsaved-note')).toContainText('1 câu chưa lưu được lên máy chủ');
   expect(state.answers.has(2)).toBe(false);
 
-  await page.getByRole('button', { name: 'Nộp bài' }).click();
+  await page.getByRole('button', { name: 'Submit answers' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Nộp bài' }).click();
   await expect(page.locator('.ft-nothing-saved')).toContainText('Vẫn còn câu chưa lưu được lên máy chủ');
   expect(state.submitCalls).toHaveLength(0);
@@ -83,7 +83,7 @@ test('listening-core-player-partial-persistence', async ({ page }) => {
   await expect.poll(() => state.answers.get(2)).toBe('blue');
   await expect(page.locator('.ft-unsaved-note')).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Nộp bài' }).click();
+  await page.getByRole('button', { name: 'Submit answers' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Nộp bài' }).click();
   await expect(page.locator('.listening-next-score > strong')).toHaveText('2/2');
   expect(state.submitCalls).toHaveLength(1);
@@ -109,7 +109,7 @@ test('listening-core-player-reload-resume', async ({ page }) => {
   await expect(page.getByLabel('Answer 1')).toHaveValue('library');
   await dispatchAudioMetadata(page);
   await expect.poll(() => page.locator('audio').evaluate((audio) => audio.currentTime)).toBeGreaterThanOrEqual(29);
-  await expect(page.locator('.ft-time')).toContainText('/ 2:00');
+  await expect(page.locator('.listening-next-audio-state')).toContainText('Listening test');
   expect(state.startCount).toBe(1);
   expect(state.resumeReads).toBe(3);
   await expectNoHarnessErrors(harness);

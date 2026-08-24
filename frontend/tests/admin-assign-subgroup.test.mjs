@@ -128,10 +128,10 @@ describe('chi tiết làm bài', () => {
     assert.match(CODE, /openMarking\(btn\.dataset\.id, btn\.dataset\.title, btn\.dataset\.bank\)/);
   });
 
-  test('bốn tình trạng đều có chữ tiếng Việt riêng', () => {
+  test('mọi tình trạng đều có chữ tiếng Việt riêng', () => {
     const i = CODE.indexOf('const EFFORT_STATE');
     const body = CODE.slice(i, i + 420);
-    for (const s2 of ['stalled', 'doing', 'done', 'untouched', 'awaiting_writing']) {
+    for (const s2 of ['stalled', 'doing', 'done', 'untouched', 'completing_sections', 'needs_retry']) {
       assert.ok(body.includes(s2 + ':'), `thiếu nhãn cho '${s2}'`);
     }
   });
@@ -143,7 +143,7 @@ describe('chi tiết làm bài', () => {
 
   test('nói rõ thời gian nghĩa là gì', () => {
     const i = CODE.indexOf('async function openEffort');
-    assert.match(CODE.slice(i, i + 4200), /cộng từ các chặng đã chốt/);
+    assert.match(CODE.slice(i, i + 4200), /cộng từ lúc mỗi phần được mở trong lượt làm/);
   });
 });
 
@@ -232,20 +232,24 @@ describe('bù người nhận không được mở rộng phạm vi bài giao', 
 
 });
 
-describe('xong chặng chưa phải xong bài', () => {
-  test('có nhãn riêng cho "chưa nộp tự luận"', () => {
+describe('xong chặng chưa phải xong toàn bộ bài', () => {
+  test('có nhãn riêng cho phần bắt buộc còn thiếu', () => {
     // Ca thật: em Phương Anh Nguyễn — 9/9 chặng, 0 câu viết, nhưng mọi mặt đọc
     // đều nói "Xong", nên không ai biết cần nhắc em ấy.
     const i = CODE.indexOf('const EFFORT_STATE');
     const body = CODE.slice(i, i + 420);
-    assert.match(body, /awaiting_writing:\s*'Chưa nộp tự luận'/);
+    assert.match(body, /completing_sections:\s*'Còn phần chưa xong'/);
+    assert.match(body, /needs_retry:\s*'Chưa đạt · cần làm lại'/);
   });
 
-  test('modal có cột Tự luận khi bộ đề có phần viết', () => {
+  test('modal tổng hợp số phần, lượt, điểm gộp và tổng thời gian', () => {
     const i = CODE.indexOf('async function openEffort');
-    const body = CODE.slice(i, i + 3400);
-    assert.match(body, /r\.writing_total \? `<th>Tự luận/);
-    assert.match(body, /x\.wrote \? 'đã nộp' : '—'/);
+    const body = CODE.slice(i, i + 6000);
+    for (const label of ['Hoàn thành', 'Lượt đã chấm', 'Điểm tổng gần nhất', 'Tổng thời gian']) {
+      assert.ok(body.includes(label), `thiếu cột ${label}`);
+    }
+    assert.match(body, /x\.sections_done/);
+    assert.match(body, /x\.combined_pct/);
   });
 
   test('bảng "Xem ai nộp" NÓI RA khi chưa nộp tự luận', () => {

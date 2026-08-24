@@ -52,6 +52,7 @@ from pathlib import Path
 from config import settings
 from database import supabase_admin
 from services import quiz_why_wrong
+from services.course_pronunciation_manifest import pronunciation_content_hash
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("import-course-bank")
@@ -72,8 +73,26 @@ _SKILL_AREA = "course"
 
 _READING_KIND = "reading"
 _LISTENING_KIND = "listening"
+_PRONUNCIATION_KIND = "pronunciation"
 _AUDIO_BUCKET = settings.LISTENING_AUDIO_BUCKET
 _MP3_MAGIC = (b"ID3", b"\xff\xfb", b"\xff\xf3", b"\xff\xf2")
+_VIETNAMESE_CHARS = re.compile(
+    r"[ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩị"
+    r"óòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]", re.I)
+_BOLD = re.compile(r"\*\*([^*]+)\*\*")
+
+
+def _english_audio_text(prompt: str) -> str | None:
+    """Extract standalone English lines from a bilingual multiple-choice stem."""
+    spoken = []
+    for raw in (prompt or "").splitlines():
+        line = _BOLD.sub(r"\1", raw).strip()
+        if not line or _VIETNAMESE_CHARS.search(line) or not re.search(r"[A-Za-z]", line):
+            continue
+        line = re.sub(r"_{2,}", " blank ", line)
+        line = re.sub(r"\s+", " ", line).strip()
+        spoken.append(line)
+    return " ".join(spoken) or None
 
 
 def _lesson_no(path: Path, override: int | None) -> int:
@@ -116,7 +135,10 @@ def _mcq_row(r: dict, order: int) -> dict:
         "options":   pa,
         "answer":    r["dap_an"],
         "accept":    None,
-        "segments":  None,
+        # The audio batch reads this canonical text instead of guessing from the
+        # rendered prompt.  Vietnamese instructions are intentionally excluded.
+        "segments":  ({"question_audio_text": text}
+                      if (text := _english_audio_text(r["de"])) else None),
         "mask":      None,
         "pairs":     None,
         "explain":   r.get("giai_thich"),
@@ -383,7 +405,47 @@ def _listening_meta(r: dict) -> dict:
     }
 
 
-def _normalise(rows: list[dict]) -> tuple[list[dict], dict | None, dict | None]:
+def _pronunciation_meta(r: dict) -> dict:
+    """Validate the source marker for the separately registered shadowing set."""
+    pronunciation_id = (r.get("id") or "").strip()
+    if not pronunciation_id:
+        raise SystemExit("Phần phát âm không có id.")
+    sentences = r.get("sentences")
+    if not isinstance(sentences, list) or len(sentences) != 12:
+        raise SystemExit(
+            f"[{pronunciation_id}] phần phát âm cần đúng 12 câu, có "
+            f"{len(sentences) if isinstance(sentences, list) else 0}.")
+    canonical = []
+    for expected, item in enumerate(sentences, 1):
+        if not isinstance(item, dict) or item.get("so") != expected:
+            actual_number = item.get("so") if isinstance(item, dict) else None
+            raise SystemExit(
+                f"[{pronunciation_id}] câu phát âm phải đánh số 1–12 liên tục; "
+                f"vị trí {expected} đang mang số {actual_number!r}.")
+        text = str(item.get("text") or "").strip()
+        if not text or len(text) > 500:
+            raise SystemExit(
+                f"[{pronunciation_id}] câu phát âm {expected} trống hoặc quá dài.")
+        canonical.append(text)
+    voice = _required_text(r.get("voice"), "giọng đọc", pronunciation_id)
+    locale = _required_text(r.get("lang"), "ngôn ngữ", pronunciation_id)
+    voice_engine = str(r.get("voice_engine") or "kokoro").strip()
+    digest = pronunciation_content_hash(
+        sentences=canonical, locale=locale, voice_engine=voice_engine, voice=voice)
+    return {
+        "id": pronunciation_id,
+        "role": _required_text(r.get("vai_tro"), "vai trò", pronunciation_id),
+        "locale": locale,
+        "voice_engine": voice_engine,
+        "voice": voice,
+        "sentence_count": len(canonical),
+        "content_hash": digest,
+    }
+
+
+def _normalise(
+    rows: list[dict],
+) -> tuple[list[dict], dict | None, dict | None, dict | None]:
     """Kiểm TOÀN BỘ tệp trước khi ghi dòng đầu tiên.
 
     RPC `quiz_replace_questions` xoá sạch câu cũ rồi ghi lại — nên một tệp hỏng
@@ -394,6 +456,7 @@ def _normalise(rows: list[dict]) -> tuple[list[dict], dict | None, dict | None]:
     out, seen = [], set()
     reading = None
     listening = None
+    pronunciation = None
     for i, r in enumerate(rows, 1):
         if r.get("kind") == _READING_KIND:
             if reading is not None:
@@ -404,6 +467,11 @@ def _normalise(rows: list[dict]) -> tuple[list[dict], dict | None, dict | None]:
             if listening is not None:
                 raise SystemExit("Mỗi buổi chỉ nhận một bài nghe thêm.")
             listening = _listening_meta(r)
+            continue
+        if r.get("kind") == _PRONUNCIATION_KIND:
+            if pronunciation is not None:
+                raise SystemExit("Mỗi buổi chỉ nhận một phần phát âm.")
+            pronunciation = _pronunciation_meta(r)
             continue
         qid = (r.get("id") or "").strip()
         if not qid:
@@ -447,7 +515,7 @@ def _normalise(rows: list[dict]) -> tuple[list[dict], dict | None, dict | None]:
         if errs:
             raise SystemExit(f"[{qid}] " + " · ".join(errs))
         out.append(row)
-    return out, reading, listening
+    return out, reading, listening, pronunciation
 
 
 def _prepare_listening_audio(listening: dict, jsonl_path: Path,
@@ -521,7 +589,7 @@ def main() -> int:
         raise SystemExit(f"Không thấy tệp {path}.")
     raw = [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
     lesson = _lesson_no(path, args.lesson)
-    rows, reading, listening = _normalise(raw)
+    rows, reading, listening, pronunciation = _normalise(raw)
     audio_uploads: list[tuple[str, bytes]] = []
     if listening:
         listening, audio_uploads = _prepare_listening_audio(
@@ -553,6 +621,10 @@ def main() -> int:
         logger.info("Bài nghe thêm: %s · %d phần · %d câu · %d file MP3 đã kiểm",
                     listening["title"], len(listening["sections"]),
                     listening_questions, len(audio_uploads))
+    if pronunciation:
+        logger.info("Phát âm: %d câu · %s · giọng %s",
+                    pronunciation["sentence_count"], pronunciation["locale"],
+                    pronunciation["voice"])
 
     if not commit:
         logger.info("\n-- THỬ KHÔ. Một câu mẫu: --")
@@ -584,6 +656,8 @@ def main() -> int:
             "so_tu_luan": len(essay),
             **({"short_reading": reading} if reading else {}),
             **({"short_listening": listening} if listening else {}),
+            **({"pronunciation_requirement": pronunciation}
+               if pronunciation else {}),
         },
     }
     # Audio dùng prefix theo hash nội dung. Upload hoàn tất trước khi metadata

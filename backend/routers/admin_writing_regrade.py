@@ -45,7 +45,9 @@ class RegradeAction(BaseModel):
     response: Optional[str]  = Field(None, max_length=1000)
 
 
-def _decorate(requests: list[dict]) -> list[dict]:
+def _decorate(
+    requests: list[dict], *, preferred_cohort_id: str | None = None,
+) -> list[dict]:
     """Attach student (name/code/cohort) + essay (prompt snippet/task/band)
     context to each request via batched lookups."""
     if not requests:
@@ -64,7 +66,10 @@ def _decorate(requests: list[dict]) -> list[dict]:
             .execute()
         ).data or []
         students = {s["id"]: s for s in srows}
-        cohort_ids = sorted({s["cohort_id"] for s in srows if s.get("cohort_id")})
+        cohort_ids = {s["cohort_id"] for s in srows if s.get("cohort_id")}
+        if preferred_cohort_id:
+            cohort_ids.add(preferred_cohort_id)
+        cohort_ids = sorted(cohort_ids)
         if cohort_ids:
             crows = (
                 supabase_admin.table("cohorts")
@@ -98,11 +103,15 @@ def _decorate(requests: list[dict]) -> list[dict]:
         s = students.get(r.get("student_id")) or {}
         e = essays.get(r.get("essay_id")) or {}
         prompt = e.get("prompt_text") or ""
+        # The canonical list RPC already matched preferred_cohort_id through
+        # active membership. Preserve that filter context instead of relabeling
+        # a secondary-class result with the legacy primary pointer.
+        display_cohort_id = preferred_cohort_id or s.get("cohort_id")
         out.append({
             **r,
             "student_name":  s.get("full_name") or s.get("student_code") or "—",
             "student_code":  s.get("student_code"),
-            "cohort_name":   cohorts.get(s.get("cohort_id")),
+            "cohort_name":   cohorts.get(display_cohort_id),
             "essay_prompt":  (prompt[:_PROMPT_SNIPPET] + "…") if len(prompt) > _PROMPT_SNIPPET else prompt,
             "essay_task_type": e.get("task_type"),
             "essay_status":  e.get("status"),
@@ -137,7 +146,11 @@ async def list_regrade_requests(
     if not isinstance(result, dict) or not isinstance(result.get("requests"), list) \
             or not isinstance(result.get("capped"), bool):
         raise HTTPException(500, "Máy chủ không trả về danh sách chấm lại hợp lệ.")
-    return {"requests": _decorate(result["requests"]), "capped": result["capped"]}
+    decorated = (
+        _decorate(result["requests"], preferred_cohort_id=str(cohort_id))
+        if cohort_id else _decorate(result["requests"])
+    )
+    return {"requests": decorated, "capped": result["capped"]}
 
 
 @router.get("/{request_id}")

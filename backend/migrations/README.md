@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-08-20 the highest is `225`, so the next new
-migration is `226`.
+sequence is dense. As of 2026-08-24 the highest is `229`, so the next new
+migration is `230`.
 
 ## Conventions
 
@@ -121,3 +121,21 @@ project and executes `verify_prod_nextjs_migrations_213_225.sql` inside a
 read-only transaction. It proves the exact 213–225 ledger range, Mock
 collection columns/constraints, affinity functions/tables/policies/triggers,
 pronunciation table fingerprints, RLS/table grants and the TTL/lease contract.
+
+## Forward scope 226–229
+
+Migrations 226–229 were originally authored on `main` with prefixes 216–219
+while the long-lived Next.js staging branch already owned those numbers for
+renderer affinity. The integration branch renumbered them forward instead of
+creating two meanings for one ledger row:
+
+- 226 stores canonical multi-section course results;
+- 227 adds the normalized multi-class membership source of truth;
+- 228 restores idempotent individual Writing assignment creation after 227;
+- 229 codifies the quiz RPC and Writing view hardening already present on the
+  hosted databases.
+
+Apply them through the normal advisory-locked forward runner. All four are
+additive or idempotent so a hosted database that already has some durable
+effects outside the ledger converges safely and records the unambiguous new
+prefixes.

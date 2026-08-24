@@ -6,10 +6,11 @@ import { useAuth } from '@/lib/auth/auth-provider';
 import {
   answersFromRows,
   claimReadingAttemptRenderer,
-  consecutiveReadingQuestionRuns,
   createReadingSaveCoordinator,
+  groupedReadingMcqChoiceCount,
   normalizeReadingBoot,
   READING_RENDERER_AFFINITY_PROTOCOL,
+  readingDisplayQuestionRuns,
   readingExamParams,
   readingLibraryHref,
   readingPlayerQuery,
@@ -495,6 +496,49 @@ function MatchingMatrixRun({ run, answers, saveStates, flagged, currentQuestion,
   </div>;
 }
 
+function GroupedMcqRun({ run, answers, saveStates, flagged, onAnswer, onFlag }: Omit<QuestionRunProps, 'part' | 'currentQuestion' | 'onCurrent'>) {
+  const first = run[0];
+  const options = questionOptions(first);
+  const choose = groupedReadingMcqChoiceCount(run);
+  const selected = new Set(run.map((question) => answers.get(question.q_num) || '').filter(Boolean));
+  const update = (value: string, checked: boolean) => {
+    const next = new Set(selected);
+    if (checked) next.add(value); else next.delete(value);
+    const ordered = options.map(optionValue).filter((option) => next.has(option)).slice(0, choose);
+    run.forEach((question, index) => onAnswer(question.q_num, ordered[index] || ''));
+  };
+  return <article className={`exam-q exam-q--grouped-mcq${selected.size ? ' is-answered' : ''}`} id={`q-${first.q_num}`}>
+    <div className="exam-grouped-mcq__numbers" aria-label={`Questions ${first.q_num} to ${run.at(-1)?.q_num}`}>
+      {run.map((question, index) => <span className="exam-q__num" id={index ? `q-${question.q_num}` : undefined} key={question.q_num}>{question.q_num}</span>)}
+    </div>
+    <div className="exam-q__body">
+      <p className="exam-q__prompt">{first.prompt || ''}</p>
+      <div className="exam-q__options exam-q__options--multi" role="group" aria-label={`Choose ${choose} answers for questions ${first.q_num} to ${run.at(-1)?.q_num}`}>
+        {options.map((option) => {
+          const value = optionValue(option);
+          const checked = selected.has(value);
+          return <label className="exam-q__option exam-q__option--checkbox" key={value}>
+            <input type="checkbox" value={value} checked={checked} disabled={!checked && selected.size >= choose} onChange={(event) => update(value, event.target.checked)} />
+            {optionPrefix(option) ? <span className="exam-q__option-prefix">{optionPrefix(option)}</span> : null}
+            <span className="exam-q__option-text">{optionBodyText(option)}</span>
+          </label>;
+        })}
+      </div>
+      <div className="exam-grouped-mcq__status">{run.map((question) => <span key={question.q_num}>
+        <SaveHint state={saveStates.get(question.q_num)} />
+      </span>)}</div>
+    </div>
+    <div className="exam-grouped-mcq__flags">{run.map((question) => <button
+      className="exam-q__flag"
+      type="button"
+      key={question.q_num}
+      aria-label={`Flag question ${question.q_num} for review`}
+      aria-pressed={flagged.has(question.q_num)}
+      onClick={() => onFlag(question.q_num)}
+    >⚑ {question.q_num}</button>)}</div>
+  </article>;
+}
+
 function QuestionRun({ run, part, answers, saveStates, flagged, currentQuestion, onAnswer, onFlag, onCurrent }: QuestionRunProps) {
   const first = run[0];
   const type = String(first.question_type || '');
@@ -504,12 +548,14 @@ function QuestionRun({ run, part, answers, saveStates, flagged, currentQuestion,
     && !!first.payload?.image_url;
   const hasFlowingTemplate = FLOWING_COMPLETION_TYPES.has(type)
     && typeof first.payload?.template?.summary_text === 'string';
+  const groupedMcq = groupedReadingMcqChoiceCount(run) > 0;
   return <section className="exam-questions__group" data-question-type={type}>
     <div className="exam-questions__instructions exam-questions__instructions--type" data-question-type={type}>
       {readingQuestionInstruction(run, part)}
     </div>
     {hasBank ? <QuestionBank type={type} options={options} /> : null}
-    {type === 'matching_features' && options.length ? <MatchingMatrixRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} currentQuestion={currentQuestion} onAnswer={onAnswer} onFlag={onFlag} onCurrent={onCurrent} />
+    {groupedMcq ? <GroupedMcqRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} onAnswer={onAnswer} onFlag={onFlag} />
+      : type === 'matching_features' && options.length ? <MatchingMatrixRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} currentQuestion={currentQuestion} onAnswer={onAnswer} onFlag={onFlag} onCurrent={onCurrent} />
       : hasImageVariant ? <DiagramImageRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} currentQuestion={currentQuestion} onAnswer={onAnswer} onFlag={onFlag} onCurrent={onCurrent} />
       : hasFlowingTemplate ? <FlowingCompletionRun run={run} answers={answers} saveStates={saveStates} flagged={flagged} currentQuestion={currentQuestion} onAnswer={onAnswer} onFlag={onFlag} onCurrent={onCurrent} />
         : run.map((question) => <QuestionCard
@@ -947,7 +993,7 @@ export function ReadingExamSession() {
   const passages = test?.passages || [];
   const currentPassage = passages.find((passage) => Number(passage.passage_order || 1) === currentPart) || passages[0] || null;
   const questions = (test?.questions || []).filter((question) => Number(question.passage_order || 1) === currentPart);
-  const questionRuns = consecutiveReadingQuestionRuns(questions) as Question[][];
+  const questionRuns = readingDisplayQuestionRuns(questions) as Question[][];
   const unsavedFailed = [...saveStates.values()].filter((state) => state === 'failed').length;
   const unsavedRetrying = saveStates.size - unsavedFailed;
   const total = test?.total_questions || test?.questions.length || 0;

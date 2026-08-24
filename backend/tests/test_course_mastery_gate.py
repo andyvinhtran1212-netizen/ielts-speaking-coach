@@ -77,6 +77,17 @@ def _questions(n, writing=0):
     return out
 
 
+def _supplements():
+    return [
+        {"bank_id": "bank-1", "qid": "read-1", "answer": 0,
+         "type": "course_reading", "counts_toward_mastery": False},
+        {"bank_id": "bank-1", "qid": "listen-1", "answer": 1,
+         "type": "course_listening", "counts_toward_mastery": False},
+        {"bank_id": "bank-1", "qid": "pron-1", "answer": None,
+         "type": "course_pronunciation", "counts_toward_mastery": False},
+    ]
+
+
 def _attempts(sessions, given):
     """Chia các lượt làm đều vào các phiên. `given`: {qid: answer_given}."""
     sids = [s["id"] for s in sessions]
@@ -140,6 +151,84 @@ def test_threshold_75_has_an_exact_ten_point_near_pass_band(pct, action):
     assert qs.mastery_next_action(pct, 75) == action
 
 
+def _summary_assignment(pass_pct=75):
+    return {"content_config": {
+        "pass_pct": pass_pct,
+        "weight_policy": qs.COURSE_WEIGHT_POLICY_HYBRID_QUESTION_COUNT_V1,
+        "section_counts": {"quiz": 90, "writing": 10},
+        "section_weights": {"quiz": 75, "writing": 25},
+    }}
+
+
+def test_admin_summary_separates_near_pass_from_hand_in_receipt():
+    item = {"submitted_at": None, "passed_at": None, "mastery": {"attempts": [{
+        "completed": True, "pct": 70, "next_action": "retake",
+        "sections": {"quiz": {"pct": 70}, "writing": {"pct": 70}},
+    }]}}
+    out = qs.course_admin_summary(item, _summary_assignment())
+    assert out["state"] == "near_pass"
+    assert out["latest_pct"] == 70
+    assert out["sections_done"] == 2 and out["sections_total"] == 2
+    assert out["flags"] == [], "gần đạt là outcome, không phải cảnh báo admin"
+
+
+def test_admin_summary_uses_required_sections_for_the_denominator():
+    item = {"passed_at": None, "mastery": {"attempts": [{
+        "completed": False, "pct": None,
+        "sections": {"quiz": {"pct": 82, "duration_sec": 600}},
+    }]}}
+    out = qs.course_admin_summary(item, _summary_assignment())
+    assert out["state"] == "in_progress"
+    assert (out["sections_done"], out["sections_total"]) == (1, 2)
+    assert out["missing_sections"] == [{"key": "writing", "label": "Viết câu"}]
+    assert any(flag["code"] == "course_missing_section" for flag in out["flags"])
+
+
+def test_admin_summary_counts_completed_legacy_quiz_only_attempt_as_its_section():
+    item = {"passed_at": "2026-08-22T01:00:00+00:00", "mastery": {"attempts": [{
+        "phase": "run", "pct": 82, "next_action": "passed", "sessions": ["q1"],
+    }]}}
+    out = qs.course_admin_summary(item, {"content_config": {"pass_pct": 75}},
+                                  required_sections=["quiz"])
+    assert (out["sections_done"], out["sections_total"]) == (1, 1)
+    assert out["missing_sections"] == []
+    assert out["section_results"][0]["key"] == "quiz"
+    assert out["section_results"][0]["pct"] == 82
+
+
+def test_admin_summary_flags_repeated_failure_with_evidence():
+    item = {"passed_at": None, "mastery": {"attempts": [
+        {"completed": True, "pct": 50, "next_action": "retry_full", "sections": {}},
+        {"completed": True, "pct": 60, "next_action": "retry_full", "sections": {}},
+    ]}}
+    out = qs.course_admin_summary(item, _summary_assignment())
+    assert out["state"] == "retry_full"
+    repeated = next(flag for flag in out["flags"]
+                    if flag["code"] == "course_repeated_failure")
+    assert "50.0%" in repeated["why"] and "60.0%" in repeated["why"]
+
+
+def test_admin_summary_keeps_prior_repeated_failure_while_a_new_attempt_is_in_progress():
+    item = {"passed_at": None, "mastery": {"attempts": [
+        {"completed": True, "pct": 50, "next_action": "retry_full", "sections": {}},
+        {"completed": True, "pct": 60, "next_action": "retry_full", "sections": {}},
+        {"completed": False, "pct": None,
+         "sections": {"quiz": {"pct": 80, "completed": True}}},
+    ]}}
+    out = qs.course_admin_summary(item, _summary_assignment())
+    assert out["state"] == "in_progress"
+    assert out["latest_pct"] == 60
+    assert {flag["code"] for flag in out["flags"]} == {
+        "course_repeated_failure", "course_missing_section",
+    }
+
+
+def test_legacy_required_sections_use_the_live_bank_shape_once_snapshot_is_absent():
+    with patch.object(qs, "_course_live_required_sections",
+                      lambda bank_id: ["quiz", "writing"] if bank_id == "bank-1" else []):
+        assert qs.course_required_sections({"content_id": "bank-1"}) == ["quiz", "writing"]
+
+
 # ── Lượt chính: server tự chấm, kết luận đúng, ghi đúng ──────────────────────
 
 def test_run_pass_writes_verdict():
@@ -154,17 +243,50 @@ def test_run_pass_writes_verdict():
     assert patch_["mastery"]["attempts"][0]["phase"] == "run"
 
 
+def test_run_ignores_known_supplement_rows_and_attempts_in_mixed_bank():
+    ss = _sessions(2)
+    questions = _questions(10) + _supplements()
+    given = {**_given(10, wrong=1), "read-1": 0, "listen-1": 1}
+    out, _ = _verdict(
+        sessions=ss, questions=questions,
+        attempts=_attempts(ss, given),
+    )
+    assert out["passed"] is True
+    assert out["pct"] == 90.0
+    quiz = next(row for row in out["sections"] if row["key"] == "quiz")
+    assert quiz["total"] == 10
+
+
+def test_run_ignores_same_bank_mcq_explicitly_opted_out_of_mastery():
+    ss = _sessions(2)
+    opted_out = {
+        "bank_id": "bank-1", "qid": "practice-only", "answer": 2,
+        "type": "mcq", "counts_toward_mastery": False,
+    }
+    questions = _questions(10) + [opted_out]
+    given = {**_given(10, wrong=1), "practice-only": 2}
+    out, _ = _verdict(
+        sessions=ss, questions=questions,
+        attempts=_attempts(ss, given),
+    )
+    assert out["passed"] is True
+    assert out["pct"] == 90.0
+    quiz = next(row for row in out["sections"] if row["key"] == "quiz")
+    assert quiz["total"] == 10
+
+
 def test_run_fail_offers_retake_and_keeps_not_passed():
     ss = _sessions(2)
     out, log = _verdict(sessions=ss, attempts=_attempts(ss, _given(10, wrong=3)))
     assert out["passed"] is False and out["pct"] == 70.0
     assert out["retake_size"] == 20 and out["threshold"] == 80
     assert out["near_threshold"] == 70 and out["next_action"] == "retake"
-    assert out["history"] == [{
-        "number": 1, "phase": "run", "pct": 70.0,
-        "at": out["history"][0]["at"], "session_count": 2,
-        "next_action": "retake",
-    }]
+    history = out["history"][0]
+    assert {key: history[key] for key in (
+        "number", "phase", "pct", "session_count", "next_action",
+    )} == {"number": 1, "phase": "run", "pct": 70.0,
+          "session_count": 2, "next_action": "retake"}
+    assert history["completed"] is True
     patch_ = [e for e in log if e[1] == "update"][0][2]
     assert "passed_at" not in patch_          # chưa đạt thì KHÔNG có mốc đạt
     assert patch_["mastery"]["attempts"][0]["pct"] == 70.0
@@ -646,6 +768,86 @@ def test_write_failure_is_not_a_silent_pass():
             qs.course_verdict(user_id="u-1", bank_id="bank-1",
                               session_ids=[s["id"] for s in ss])
     assert e.value.status_code == 500
+
+
+def test_multisection_pass_is_not_reported_when_hand_in_cannot_be_persisted():
+    """Điểm đã tính nhưng `submitted_at` còn trống thì client phải retry."""
+    ss = _sessions(2)
+    quiz = {"completed": True, "pct": 90.0, "correct": 9, "total": 10,
+            "duration_sec": 300}
+    writing = {"completed": True, "pct": 100.0, "correct": 1, "total": 1,
+               "duration_sec": 120}
+    with patch.object(qs, "_course_completion_evidence", return_value=(
+            ["quiz", "writing"], {"quiz": quiz, "writing": writing},
+            {"quiz": "s-0", "writing": "w-1"})), \
+         patch.object(qs, "mark_item_submitted", return_value=False):
+        with pytest.raises(HTTPException) as exc:
+            _verdict(
+                sessions=ss, questions=_questions(10, writing=1),
+                attempts=_attempts(ss, _given(10)),
+                item_row={"id": "it-1", "passed_at": None, "submitted_at": None,
+                          "mastery": None, "score": None},
+            )
+    assert exc.value.status_code == 500
+    assert "chưa thu được bài" in exc.value.detail
+
+
+def test_retry_repairs_a_passed_multisection_item_missing_submitted_at():
+    """Mạng rớt giữa `passed_at` và `submitted_at` không để trạng thái kẹt."""
+    ss = _sessions(2)
+    sections = {
+        "quiz": {"completed": True, "pct": 90.0, "correct": 9, "total": 10,
+                 "duration_sec": 300, "weight": 50},
+        "writing": {"completed": True, "pct": 100.0, "correct": 1, "total": 1,
+                    "duration_sec": 120, "weight": 50},
+    }
+    prior = {"phase": "run", "sessions": ["s-0", "s-1"], "sections": sections,
+             "completed": True, "pct": 95.0, "at": "2026-08-20T00:00:00Z",
+             "duration_sec": 420, "next_action": "passed"}
+    marked = []
+    with patch.object(qs, "_course_completion_evidence", return_value=(
+            ["quiz", "writing"], sections, {"quiz": "s-0", "writing": "w-1"})), \
+         patch.object(qs, "mark_item_submitted",
+                      side_effect=lambda *a, **k: marked.append(k) or True):
+        out, _ = _verdict(
+            sessions=ss, questions=_questions(10, writing=1),
+            attempts=_attempts(ss, _given(10)),
+            item_row={"id": "it-1", "passed_at": "2026-08-20T00:00:00Z",
+                      "submitted_at": None, "mastery": {"attempts": [prior]},
+                      "score": 95.0},
+        )
+    assert out["passed"] is True and out["pct"] == 95.0
+    assert marked and marked[0]["artifact_kind"] == "quiz_session"
+
+
+def test_full_retry_carries_section_scores_without_counting_their_time_twice():
+    ss = _sessions(2, created_at="2026-08-21T00:00:00Z")
+    prior_sections = {
+        "quiz": {"completed": True, "pct": 60.0, "duration_sec": 300, "weight": 50},
+        "writing": {"completed": True, "pct": 20.0, "duration_sec": 600, "weight": 50},
+    }
+    prior = {"phase": "run", "sessions": ["old"], "sections": prior_sections,
+             "completed": True, "pct": 40.0, "at": "2026-08-20T00:00:00Z",
+             "duration_sec": 900, "next_action": "retry_full"}
+    new_quiz = {"completed": True, "pct": 100.0, "correct": 10, "total": 10,
+                "duration_sec": 240}
+    writing = {"completed": True, "pct": 20.0, "correct": 2, "total": 10,
+               "duration_sec": 600}
+    with patch.object(qs, "_course_completion_evidence", return_value=(
+            ["quiz", "writing"], {"quiz": new_quiz, "writing": writing},
+            {"quiz": "s-0", "writing": "w-1"})):
+        out, log = _verdict(
+            sessions=ss, questions=_questions(10, writing=1),
+            attempts=_attempts(ss, _given(10)),
+            item_row={"id": "it-1", "passed_at": None, "submitted_at": None,
+                      "mastery": {"attempts": [prior]}, "score": 40.0},
+        )
+    latest = out["history"][-1]
+    writing_row = next(row for row in latest["sections"] if row["key"] == "writing")
+    assert writing_row["carried"] is True and writing_row["duration_sec"] == 0
+    assert latest["duration_sec"] == 240
+    saved = [entry for entry in log if entry[1] == "update"][-1][2]
+    assert saved["mastery"]["attempts"][-1]["duration_sec"] == 240
 
 
 # ── start_session: cổng kind + an toàn trước migration ───────────────────────

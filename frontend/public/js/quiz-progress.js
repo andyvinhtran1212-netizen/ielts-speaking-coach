@@ -7,6 +7,8 @@
  * KHÔNG tự gọi `initSupabase`: bản legacy gọi ngay trước `mount()`, bản Next để
  * `AuthedShell` lo.
  */
+import { formatCourseExplanation } from './course-explanation-format.js';
+
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
   ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
@@ -50,7 +52,8 @@ function mistakeQuestionHtml(q) {
         ? '<div class="pg-mk__row">Đáp án đúng: <span class="pg-mk__ans is-right">'
           + fmt(String(q.correct_answer)) + '</span></div>'
         : '')
-    + (q.explain ? '<div class="pg-mk__explain">' + fmt(q.explain) + '</div>' : '')
+    + (q.explain ? '<div class="pg-mk__explain course-explain">'
+      + formatCourseExplanation(q.explain) + '</div>' : '')
     + (q.article_url
         ? '<div class="pg-mk__row"><a href="' + esc(q.article_url)
           + '" target="_blank" rel="noopener">📖 Ôn lại bài</a></div>'

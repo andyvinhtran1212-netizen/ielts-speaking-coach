@@ -43,6 +43,25 @@ def _db(**tables):
 _COHORT = {"id": "co-1", "name": "Lớp A", "course_id": "c-1"}
 _BANK = {"id": "bank-1", "code": "C1-B01", "title": "Buổi 1", "skill_area": "course",
          "course_id": "c-1", "lesson_no": 1, "words_count": 100}
+_PRON_SENTENCES = [
+    {"id": f"s{number}", "order": number, "text": f"Sentence {number}."}
+    for number in range(1, 13)
+]
+_PRON_REQUIREMENT = {
+    "sentence_count": 12,
+    "locale": "en-GB",
+    "voice_engine": "kokoro",
+    "voice": "bf_emma",
+    "content_hash": adm.pronunciation_content_hash(
+        sentences=[sentence["text"] for sentence in _PRON_SENTENCES],
+        locale="en-GB", voice_engine="kokoro", voice="bf_emma"),
+}
+_PRON_SET = {
+    "id": "pron-1", "bank_id": "bank-1", "is_active": True,
+    "sentences": _PRON_SENTENCES,
+    "locale": "en-GB", "voice_engine": "kokoro", "voice": "bf_emma",
+    "content_hash": _PRON_REQUIREMENT["content_hash"],
+}
 
 
 def _body(**over):
@@ -66,12 +85,16 @@ def _full(**over):
 
 # ── Nhận ─────────────────────────────────────────────────────────────────────
 
-def test_a_valid_bank_resolves_with_display_labels_only():
-    """Câu hỏi KHÔNG chụp vào bài giao: đề tới tay học viên qua endpoint quiz đã
-    có cổng riêng, và chụp thêm một bản ở đây là tạo nguồn sự thật thứ hai."""
+def test_a_valid_bank_freezes_weight_shape_without_copying_questions():
+    """Không chụp nội dung đề, nhưng phải chụp luật tính điểm lúc giao."""
     bank_id, cfg = _resolve(_full())
     assert bank_id == "bank-1"
-    assert cfg == {"test_title": "Buổi 1", "lesson_no": 1, "bank_code": "C1-B01"}
+    assert cfg == {
+        "test_title": "Buổi 1", "lesson_no": 1, "bank_code": "C1-B01",
+        "weight_policy": "hybrid_question_count_v1",
+        "section_counts": {"quiz": 1},
+        "section_weights": {"quiz": 100.0},
+    }
     assert "questions" not in cfg and "question_ids" not in cfg
 
 
@@ -102,6 +125,45 @@ def test_an_EMPTY_bank_is_refused():
     with pytest.raises(HTTPException) as exc:
         _resolve(db)
     assert "chưa có câu hỏi" in exc.value.detail
+
+
+def test_a_bank_with_missing_required_question_audio_is_refused():
+    db = _full(quiz_questions=[{
+        "id": "q1", "bank_id": "bank-1", "type": "mcq",
+        "segments": {"question_audio_text": "Read this sentence."},
+        "audio_url": None,
+    }])
+    with pytest.raises(HTTPException) as exc:
+        _resolve(db)
+    assert "1 câu tiếng Anh chưa có audio" in exc.value.detail
+
+
+def test_a_bank_with_required_pronunciation_needs_an_active_set():
+    required_bank = {**_BANK, "meta": {
+        "pronunciation_requirement": _PRON_REQUIREMENT}}
+    with pytest.raises(HTTPException) as exc:
+        _resolve(_full(quiz_banks=[required_bank]))
+    assert "không khớp nội dung bắt buộc" in exc.value.detail
+
+    bank_id, config = _resolve(_full(
+        quiz_banks=[required_bank],
+        course_pronunciation_sets=[_PRON_SET],
+    ))
+    assert bank_id == "bank-1"
+    assert config["section_counts"]["pronunciation"] == 12
+
+
+def test_a_stale_active_pronunciation_set_is_refused():
+    required_bank = {**_BANK, "meta": {
+        "pronunciation_requirement": _PRON_REQUIREMENT}}
+    stale = {**_PRON_SET, "sentences": [
+        *_PRON_SENTENCES[:-1],
+        {**_PRON_SENTENCES[-1], "text": "A revised final sentence."},
+    ]}
+    with pytest.raises(HTTPException) as exc:
+        _resolve(_full(
+            quiz_banks=[required_bank], course_pronunciation_sets=[stale]))
+    assert "không khớp nội dung bắt buộc" in exc.value.detail
 
 
 def test_an_unknown_bank_is_404():
@@ -163,6 +225,60 @@ async def test_the_library_separates_ALREADY_GIVEN_from_NOT_YET_LOADED():
     assert by[1]["ready"] is True and by[1]["already_given"] is False
     assert by[2]["already_given"] is True
     assert by[3]["ready"] is False and by[3]["question_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_the_library_exposes_audio_and_pronunciation_readiness():
+    required_bank = {**_BANK, "meta": {
+        "pronunciation_requirement": _PRON_REQUIREMENT}}
+    db = _db(
+        cohorts=[_COHORT],
+        quiz_banks=[required_bank],
+        quiz_questions=[{
+            "id": "q1", "bank_id": "bank-1",
+            "segments": {"question_audio_text": "Read this sentence."},
+            "audio_url": None,
+        }],
+        course_pronunciation_sets=[],
+        class_assignments=[],
+    )
+    with patch.object(adm, "supabase_admin", db), \
+         patch.object(adm, "require_admin", new=lambda *_a, **_k: _async({"id": "ad"})):
+        out = await adm.list_course_banks("co-1", authorization="Bearer x")
+    bank = out["items"][0]
+    assert bank["question_audio_count"] == 1
+    assert bank["missing_audio"] == 1
+    assert bank["pronunciation_required"] is True
+    assert bank["pronunciation_ready"] is False
+    assert bank["ready"] is False
+
+
+@pytest.mark.asyncio
+async def test_the_library_rejects_a_stale_active_pronunciation_set():
+    required_bank = {**_BANK, "meta": {
+        "pronunciation_requirement": _PRON_REQUIREMENT}}
+    stale = {**_PRON_SET, "content_hash": "stale"}
+    db = _db(
+        cohorts=[_COHORT], quiz_banks=[required_bank],
+        quiz_questions=[{"id": "q1", "bank_id": "bank-1"}],
+        course_pronunciation_sets=[stale], class_assignments=[],
+    )
+    with patch.object(adm, "supabase_admin", db), \
+         patch.object(adm, "require_admin", new=lambda *_a, **_k: _async({"id": "ad"})):
+        out = await adm.list_course_banks("co-1", authorization="Bearer x")
+    assert out["items"][0]["pronunciation_ready"] is False
+    assert out["items"][0]["ready"] is False
+
+    matching_db = _db(
+        cohorts=[_COHORT], quiz_banks=[required_bank],
+        quiz_questions=[{"id": "q1", "bank_id": "bank-1"}],
+        course_pronunciation_sets=[_PRON_SET], class_assignments=[],
+    )
+    with patch.object(adm, "supabase_admin", matching_db), \
+         patch.object(adm, "require_admin", new=lambda *_a, **_k: _async({"id": "ad"})):
+        matching = await adm.list_course_banks("co-1", authorization="Bearer x")
+    assert matching["items"][0]["pronunciation_ready"] is True
+    assert matching["items"][0]["ready"] is True
 
 
 def _async(v):

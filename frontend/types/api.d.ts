@@ -1617,11 +1617,7 @@ export interface paths {
         };
         /**
          * Cohort Members
-         * @description WF-1 — a cohort's CLASS ROSTER = students WHERE `students.cohort_id` =
-         *     cohort_id. This is the single source of truth: the SAME column writing
-         *     fan-out (`cohort_assignment_service`) and the grade-by-class matrix
-         *     (`admin_writing_cohorts`) read, so what the admin sees here is exactly who
-         *     gets writing assigned + graded (no split-brain).
+         * @description Canonical active roster from ``student_cohort_memberships``.
          *
          *     Each member carries `student_code` + `full_name`; per-member activity
          *     (sessions / last_active / ai_cost) is joined via `students.user_id` when the
@@ -1678,10 +1674,7 @@ export interface paths {
         put?: never;
         /**
          * Assign Student To Cohort
-         * @description WF-1 — add an EXISTING student to this cohort's roster by setting
-         *     `students.cohort_id`. Issues NO access code (entitlement is separate).
-         *     Idempotent. The student then appears in GET /members and receives writing
-         *     fan-out + shows in the grade-by-class matrix.
+         * @description Add an existing student without removing their other classes.
          */
         post: operations["assign_student_to_cohort_admin_cohorts__cohort_id__students_post"];
         delete?: never;
@@ -1701,9 +1694,7 @@ export interface paths {
         put?: never;
         /**
          * Bulk Assign Students To Cohort
-         * @description WF-1 — assign MANY existing students to this cohort in one atomic
-         *     UPDATE (set students.cohort_id for all given ids). No codes issued.
-         *     Re-assigning students already in the cohort is a harmless no-op.
+         * @description Add many existing students atomically without moving them.
          */
         post: operations["bulk_assign_students_to_cohort_admin_cohorts__cohort_id__students_bulk_post"];
         delete?: never;
@@ -1724,10 +1715,7 @@ export interface paths {
         post?: never;
         /**
          * Remove Student From Cohort
-         * @description WF-1 — remove a student from this cohort's roster (clear
-         *     `students.cohort_id`). Only clears when the student is currently in THIS
-         *     cohort (no-op otherwise, so a stale request can't yank a student out of a
-         *     different class). Access codes / entitlement are NOT touched.
+         * @description Remove only this membership; other classes and entitlement stay intact.
          */
         delete: operations["remove_student_from_cohort_admin_cohorts__cohort_id__students__student_id__delete"];
         options?: never;
@@ -3517,8 +3505,8 @@ export interface paths {
          *     and student (id/student_code/full_name) so the admin list view
          *     doesn't need a second round-trip.
          *
-         *     Sprint 19.2: `cohort_id` filters to assignments whose student belongs
-         *     to that cohort (derived via students.cohort_id — Discovery D1).
+         *     `cohort_id` uses the stamped fan-out origin for new rows. Legacy/direct
+         *     rows without provenance retain the historical membership-based fallback.
          */
         get: operations["list_assignments_admin_writing_assignments_get"];
         put?: never;
@@ -11318,6 +11306,11 @@ export interface components {
             client_id: string;
             /** Sentence Ids */
             sentence_ids: string;
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
             /** Recordings */
             recordings: string[];
         };
@@ -11500,13 +11493,15 @@ export interface components {
         CourseListeningBody: {
             /** Bank Id */
             bank_id: string;
-            /**
-             * Answers
-             * @default {}
-             */
-            answers: {
+            /** Answers */
+            answers?: {
                 [key: string]: string;
             };
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
         };
         /** CoursePatch */
         CoursePatch: {
@@ -11525,13 +11520,15 @@ export interface components {
         CourseReadingBody: {
             /** Bank Id */
             bank_id: string;
-            /**
-             * Answers
-             * @default {}
-             */
-            answers: {
+            /** Answers */
+            answers?: {
                 [key: string]: string;
             };
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
         };
         /** CourseVerdictBody */
         CourseVerdictBody: {
@@ -11544,13 +11541,15 @@ export interface components {
         CourseWritingBody: {
             /** Bank Id */
             bank_id: string;
-            /**
-             * Answers
-             * @default {}
-             */
-            answers: {
+            /** Answers */
+            answers?: {
                 [key: string]: string;
             };
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
         };
         /** CreateEssayRequest */
         CreateEssayRequest: {
@@ -12008,8 +12007,7 @@ export interface components {
         };
         /**
          * FanOutCreate
-         * @description N prompts → every student in a cohort. Cohort membership is
-         *     derived from students.cohort_id (Discovery D1). W-ASSIGN: the rows
+         * @description N prompts → every active member in a cohort. W-ASSIGN: the rows
          *     share an `assignment_group_id` + `name`; the give is allow + warn
          *     (NOT skip) so re-giving a prompt in a new "Buổi" works as intended.
          *

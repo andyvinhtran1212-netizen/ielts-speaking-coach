@@ -40,11 +40,12 @@ class _Table:
     def execute(self): return _Resp(self._rows)
 
 
-def _db(*, student=None, item=None, assignment=None):
+def _db(*, student=None, item=None, assignment=None, memberships=None):
     tables = {
         "students": [student] if student else [],
         "class_assignment_items": [item] if item else [],
         "class_assignments": [assignment] if assignment else [],
+        "student_cohort_memberships": memberships or [],
     }
     db = type("DB", (), {})()
     db.table = lambda n: _Table(tables.get(n, []))
@@ -59,7 +60,12 @@ def _ok(**over):
     assignment.update(over.pop("assignment", {}))
     student.update(over.pop("student", {}))
     item.update(over.pop("item", {}))
-    return _db(student=student, item=item, assignment=assignment)
+    memberships = over.pop("memberships", [{
+        "id": "membership-1", "student_id": student["id"],
+        "cohort_id": assignment["cohort_id"], "is_active": True,
+    }])
+    return _db(student=student, item=item, assignment=assignment,
+               memberships=memberships)
 
 
 def _check(db, **over):
@@ -119,6 +125,16 @@ def test_a_task_not_yet_revealed_cannot_be_started():
 def test_a_transferred_learner_cannot_hand_in_their_old_classes_work():
     """Moving a student rewrites students.cohort_id only; the old item rows
     survive."""
-    db = _ok(student={"cohort_id": "co-NEW"})
+    db = _ok(student={"cohort_id": "co-NEW"}, memberships=[])
     with pytest.raises(TaskMismatchError):
         _check(db)
+
+
+def test_a_learner_in_two_active_classes_can_hand_in_either_classes_work():
+    db = _ok(student={"cohort_id": "co-NEW"}, memberships=[
+        {"id": "membership-old", "student_id": "stu-1", "cohort_id": "co-1",
+         "is_active": True},
+        {"id": "membership-new", "student_id": "stu-1", "cohort_id": "co-NEW",
+         "is_active": True},
+    ])
+    _check(db)

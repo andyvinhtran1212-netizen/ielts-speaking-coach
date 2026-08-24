@@ -22,6 +22,38 @@
   gap: var(--av-space-6);
 }
 
+.mc-class-switcher {
+  display: flex;
+  gap: var(--av-space-2);
+  overflow-x: auto;
+  padding: 2px 2px var(--av-space-2);
+  scrollbar-width: thin;
+}
+
+.mc-class-switcher button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: var(--av-space-2);
+  flex: 0 0 auto;
+  padding: 0 var(--av-space-4);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-pill);
+  background: var(--av-surface-card);
+  color: var(--av-text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.mc-class-switcher button span { color: var(--av-text-muted); font-family: var(--av-font-mono); }
+.mc-class-switcher button.is-active {
+  border-color: var(--av-primary-border);
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+  font-weight: var(--av-fw-semibold);
+}
+.mc-class-switcher button:focus-visible { outline: 2px solid var(--av-primary); outline-offset: 2px; }
+
 .mc-hero {
   position: relative;
   display: grid;
@@ -229,7 +261,7 @@
 .mc-section-head > p {
   max-width: 35ch;
   margin: 0;
-  color: var(--av-text-muted);
+  color: var(--av-text-secondary);
   font-size: var(--av-fs-xs);
   text-align: right;
 }
@@ -282,7 +314,8 @@
 }
 
 .mc-item-kind,
-.mc-item-state {
+.mc-item-state,
+.mc-item-class {
   display: inline-flex;
   align-items: center;
   width: fit-content;
@@ -294,7 +327,20 @@
 
 .mc-item-kind {
   border: 1px solid var(--av-border-default);
-  color: var(--av-text-muted);
+  color: var(--av-text-secondary);
+}
+
+.mc-item-class {
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+}
+
+.mc-lesson-class {
+  width: fit-content;
+  margin: 0;
+  color: var(--av-primary);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
 }
 
 .mc-item-state {

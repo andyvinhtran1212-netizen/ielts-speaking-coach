@@ -1366,7 +1366,7 @@ async def admin_preview_reading_test(
     order_by_id = {p["id"]: p.get("passage_order") for p in passages}
     q_res = (
         supabase_admin.table("reading_questions")
-        .select("q_num,answer,skill_tag,explanation,passage_id")
+        .select("q_num,question_type,prompt,payload,answer,skill_tag,explanation,passage_id")
         .in_("passage_id", list(order_by_id.keys())).execute()
     ) if order_by_id else None
     answer_key = grader.collect_answer_key(
@@ -1380,6 +1380,7 @@ async def admin_preview_reading_test(
 
     synthetic = {
         "test_id":          test_uuid,
+        "_admin_preview":   True,
         # 'submitted' is what makes the page render the review layout; nothing
         # is persisted, so this is a rendering hint, not a claim.
         "status":           "submitted",

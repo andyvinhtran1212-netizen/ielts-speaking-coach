@@ -45,7 +45,16 @@ const SOURCE = readFileSync(
  * resolves (or rejects) — critical for pinning Falsification #82's
  * rejecting-auth scenario.
  */
-function setupSandbox({ getSessionImpl, fetchImpl, docRelease = 'doc-sha-abc', isNext = true } = {}) {
+function setupSandbox({
+  getSessionImpl,
+  fetchImpl,
+  docRelease = 'doc-sha-abc',
+  isNext = true,
+  hostname = 'www.averlearning.com',
+  protocol = 'https:',
+  userAgent = 'Mozilla/5.0 Edg/140.0',
+  runtimeConfig,
+} = {}) {
   const fetchCalls = [];
   const consoleErrors = [];
   const listeners = {};
@@ -64,8 +73,8 @@ function setupSandbox({ getSessionImpl, fetchImpl, docRelease = 'doc-sha-abc', i
       listeners[name] = fn;
     },
     fetch: fetchImpl ? recording(fetchImpl) : defaultFetch,
-    location: { pathname: '/test/path', hostname: 'localhost' },
-    navigator: { userAgent: 'test/1.0' },
+    location: { pathname: '/test/path', hostname, protocol },
+    navigator: { userAgent },
     crypto: { randomUUID: () => 'rid-fixed-001' },
     getSupabase() {
       return {
@@ -73,6 +82,7 @@ function setupSandbox({ getSessionImpl, fetchImpl, docRelease = 'doc-sha-abc', i
       };
     },
   };
+  if (runtimeConfig) fakeWindow.__AVER_RUNTIME_CONFIG__ = runtimeConfig;
 
   const fakeConsole = {
     error: (...args) => consoleErrors.push(['error', ...args]),
@@ -275,6 +285,27 @@ describe('Sprint 12.3.1 — Falsification #82 dispatch sentinel', () => {
     assert.equal(body.extra.type, 'unhandled_promise_rejection');
   });
 
+  test('React digest is retained for synchronous render errors', async () => {
+    const { listeners, fetchCalls } = setupSandbox();
+    listeners.error({
+      message: 'An error occurred in the Server Components render',
+      error: { stack: 'opaque', digest: 'RSC-418-join-key' },
+    });
+    await flush();
+    const body = JSON.parse(fetchCalls[0].opts.body);
+    assert.equal(body.extra.digest, 'RSC-418-join-key');
+  });
+
+  test('React digest is retained for rejected RSC promises', async () => {
+    const { listeners, fetchCalls } = setupSandbox();
+    listeners.unhandledrejection({
+      reason: { message: 'RSC failed', digest: 'RSC-promise-join-key' },
+    });
+    await flush();
+    const body = JSON.parse(fetchCalls[0].opts.body);
+    assert.equal(body.extra.digest, 'RSC-promise-join-key');
+  });
+
   test('unhandledrejection with string reason fires POST', async () => {
     const { listeners, fetchCalls } = setupSandbox();
     listeners.unhandledrejection({ reason: 'plain string reason' });
@@ -282,6 +313,48 @@ describe('Sprint 12.3.1 — Falsification #82 dispatch sentinel', () => {
     assert.equal(fetchCalls.length, 1);
     const body = JSON.parse(fetchCalls[0].opts.body);
     assert.equal(body.message, 'plain string reason');
+  });
+});
+
+describe('production telemetry provenance guard', () => {
+  test('localhost never posts into production even with production runtime-config', async () => {
+    const { listeners, fetchCalls } = setupSandbox({
+      hostname: 'localhost',
+      protocol: 'http:',
+      runtimeConfig: {
+        apiBase: 'https://ielts-speaking-coach-production.up.railway.app',
+        environment: 'production',
+      },
+    });
+    listeners.error({ message: 'local hydration mismatch' });
+    await flush();
+    assert.equal(fetchCalls.length, 0);
+  });
+
+  test('file previews never post into production', async () => {
+    const { listeners, fetchCalls } = setupSandbox({ hostname: '', protocol: 'file:' });
+    listeners.error({ message: 'preview-only failure' });
+    await flush();
+    assert.equal(fetchCalls.length, 0);
+  });
+
+  test('headless and crawler traffic is excluded from the operational ledger', async () => {
+    for (const userAgent of [
+      'Mozilla/5.0 HeadlessChrome/140.0',
+      'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+    ]) {
+      const { listeners, fetchCalls } = setupSandbox({ userAgent });
+      listeners.error({ message: 'synthetic hydration mismatch' });
+      await flush();
+      assert.equal(fetchCalls.length, 0, userAgent);
+    }
+  });
+
+  test('a real production browser still reports', async () => {
+    const { listeners, fetchCalls } = setupSandbox();
+    listeners.error({ message: 'real production error' });
+    await flush();
+    assert.equal(fetchCalls.length, 1);
   });
 });
 
@@ -323,6 +396,20 @@ describe('error-reporter noise filter', () => {
     listeners.unhandledrejection({ reason: { message: 'zaloJSV2 is not defined' } });
     await flush();
     assert.equal(fetchCalls.length, 0);
+  });
+
+  test('MetaMask extension rejection is NOT reported by an app with no wallet integration', async () => {
+    const { listeners, fetchCalls } = setupSandbox();
+    listeners.unhandledrejection({ reason: { message: 'Failed to connect to MetaMask' } });
+    await flush();
+    assert.equal(fetchCalls.length, 0);
+  });
+
+  test('a genuine app connection rejection remains visible', async () => {
+    const { listeners, fetchCalls } = setupSandbox();
+    listeners.unhandledrejection({ reason: { message: 'Failed to connect to classroom server' } });
+    await flush();
+    assert.equal(fetchCalls.length, 1);
   });
 });
 

@@ -228,4 +228,6 @@ def test_end_session_asks_before_marking():
     import inspect
     src = inspect.getsource(qs.end_session)
     i = src.index("            mark_item_submitted(")
+    assert "course_bank_is_multisection(" in src[:i], (
+        "bank nhiều phần phải dành quyền chốt cho refresh_course_completion")
     assert "_course_work_is_done(" in src[:i], "phải hỏi TRƯỚC khi chốt sổ"

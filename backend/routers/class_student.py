@@ -38,6 +38,10 @@ from services.class_assignment_service import (
     reconcile_test_attempts,
 )
 from services.active_player_lifecycle import is_resume_active
+from services.class_membership_service import (
+    active_cohort_ids_for_student,
+    student_is_active_in_cohort,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +193,8 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime,
         "is_missing":   is_missing,
         "assignment": {
             "id":             assignment["id"],
+            "cohort_id":      assignment.get("cohort_id"),
+            "cohort_name":    assignment.get("cohort_name"),
             "title":          assignment.get("title"),
             "skill":          assignment.get("skill"),
             "instructions":   assignment.get("instructions"),
@@ -207,7 +213,8 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime,
     }
 
 
-def _visible_assignments(student: Dict[str, Any], now: datetime) -> tuple[list, bool]:
+def _visible_assignments(student: Dict[str, Any], now: datetime,
+                         cohort_ids: list[str] | None = None) -> tuple[list, bool]:
     """This student's assignments — outstanding in full, history capped.
 
     Shared by /my-assignments and /me so the two can never disagree about what
@@ -219,6 +226,8 @@ def _visible_assignments(student: Dict[str, Any], now: datetime) -> tuple[list, 
     ahead of one old unsubmitted one. A student must never be shown "nothing to
     do" while an unanswered task exists.
     """
+    cohort_ids = cohort_ids if cohort_ids is not None else (
+        [str(student["cohort_id"])] if student.get("cohort_id") else [])
     outstanding = _paged_items(
         lambda q: q.eq("student_id", student["id"]).is_("submitted_at", "null")
     )
@@ -236,22 +245,23 @@ def _visible_assignments(student: Dict[str, Any], now: datetime) -> tuple[list, 
     if not items:
         return [], False
 
+    if not cohort_ids:
+        return [], False
     a_ids = list({i["assignment_id"] for i in items})
     by_id: Dict[str, Dict[str, Any]] = {}
     for chunk in (a_ids[i:i + _ID_CHUNK] for i in range(0, len(a_ids), _ID_CHUNK)):
         for a in ((supabase_admin.table("class_assignments")
                    .select("*")
                    .in_("id", chunk)
-                   .eq("cohort_id", student["cohort_id"])   # CURRENT class only
+                   .in_("cohort_id", cohort_ids)
                    .execute().data) or []):
             # Items are created eagerly at give time, so `publish_at` is the only
             # thing keeping a give scheduled for next week off the list;
             # `status` keeps draft and archived ones off it.
             #
-            # The cohort filter matters because moving a student between classes
-            # only rewrites students.cohort_id — their old class's item rows
-            # stay. Without it, class A's homework vanishes while the student has
-            # no class and REAPPEARS when they join class B.
+            # The cohort filter keeps historical items from a membership that
+            # has ended out of the active to-do list while allowing two active
+            # classes at the same time.
             if is_assignment_open(a, now=now):
                 by_id[a["id"]] = a
 
@@ -321,13 +331,19 @@ async def my_assignments(authorization: str | None = Header(default=None)):
     auth_user = await get_supabase_user(authorization)
     student = _student_for_user(auth_user["id"])
 
-    if not student or not student.get("cohort_id"):
+    if not student:
+        return {"has_class": False, "assignments": []}
+
+    cohort_ids = active_cohort_ids_for_student(supabase_admin, student)
+    if not cohort_ids:
         return {"has_class": False, "assignments": []}
 
     now = datetime.now(timezone.utc)
     try:
-        rows, stale = _visible_assignments(student, now)
-        out: Dict[str, Any] = {"has_class": True, "assignments": rows}
+        rows, stale = _visible_assignments(student, now, cohort_ids)
+        out: Dict[str, Any] = {
+            "has_class": True, "class_count": len(cohort_ids), "assignments": rows,
+        }
         if stale:
             out["homework_stale"] = True
         return out
@@ -375,15 +391,18 @@ async def start_assignment(
 
     # ── Thứ tự ba cổng dưới đây LÀ MỘT QUYẾT ĐỊNH, không phải ngẫu nhiên ──
     #
-    #   1. ĐÚNG LỚP HIỆN TẠI  — chặn TẤT CẢ, kể cả xem lại.
+    #   1. CÒN THUỘC LỚP ĐÃ GIAO — chặn TẤT CẢ, kể cả xem lại.
     #   2. mở lại phiên cũ     — được phép cả khi đã quá hạn.
     #   3. quá hạn             — chỉ chặn việc DỰNG PHIÊN MỚI.
     #
     # Cohort phải đứng ĐẦU: mục bài tập cố ý sống sót khi học viên chuyển lớp,
     # nên đặt nó sau bước 2 thì một em đã chuyển đi vẫn mở (và nộp tiếp) bài
     # của lớp cũ — đúng thứ `/my-assignments` cố tình giấu đi (codex #931).
-    if assignment.get("cohort_id") != student.get("cohort_id"):
-        raise HTTPException(404, "Bài tập không thuộc lớp hiện tại của bạn")
+    if not student_is_active_in_cohort(
+        supabase_admin, student["id"], str(assignment.get("cohort_id") or ""),
+        student.get("cohort_id"),
+    ):
+        raise HTTPException(404, "Bạn không còn thuộc lớp đã giao bài này")
 
     # Bài Speaking ĐÃ CÓ phiên thì mở lại CHÍNH phiên ấy — kể cả khi đã quá hạn.
     #
@@ -584,29 +603,43 @@ async def my_class(
     auth_user = await get_supabase_user(authorization)
     student = _student_for_user(auth_user["id"])
 
-    if not student or not student.get("cohort_id"):
+    if not student:
+        return {"has_class": False}
+
+    cohort_ids = active_cohort_ids_for_student(supabase_admin, student)
+    if not cohort_ids:
         return {"has_class": False}
 
     now = datetime.now(timezone.utc)
     degraded: list[str] = []
 
-    cohort: Dict[str, Any] = {}
+    cohorts: list[Dict[str, Any]] = []
     try:
         rows = (
             supabase_admin.table("cohorts")
             .select("id, name, description, course_id")
-            .eq("id", student["cohort_id"]).limit(1).execute().data
+            .in_("id", cohort_ids).execute().data
         ) or []
-        cohort = rows[0] if rows else {}
-        if cohort.get("course_id"):
-            crows = (
-                supabase_admin.table("courses").select("code, name")
-                .eq("id", cohort["course_id"]).limit(1).execute().data
-            ) or []
-            cohort["course"] = crows[0] if crows else None
+        course_ids = list({row["course_id"] for row in rows if row.get("course_id")})
+        course_by_id = {}
+        if course_ids:
+            crows = (supabase_admin.table("courses").select("id, code, name")
+                     .in_("id", course_ids).execute().data) or []
+            course_by_id = {row["id"]: {"code": row.get("code"), "name": row.get("name")}
+                            for row in crows}
+        for row in rows:
+            row["course"] = course_by_id.get(row.get("course_id"))
+        primary = str(student.get("cohort_id") or "")
+        cohorts = sorted(rows, key=lambda row: (
+            str(row.get("id")) != primary, (row.get("name") or "").casefold()))
     except Exception as exc:
         logger.warning("[class] cohort read failed: %s", exc)
         degraded.append("class")
+        cohorts = [{"id": cohort_id, "name": None, "description": None,
+                    "course_id": None, "course": None}
+                   for cohort_id in cohort_ids]
+
+    cohort_names = {str(row["id"]): row.get("name") for row in cohorts if row.get("id")}
 
     lessons: list = []
     # Skipped entirely for the home strip: this is the unbounded part of the
@@ -615,8 +648,10 @@ async def my_class(
       try:
         lessons = _paged_items_of(
             "class_lessons",
-            lambda q: q.eq("cohort_id", student["cohort_id"]).eq("is_published", True),
+            lambda q: q.in_("cohort_id", cohort_ids).eq("is_published", True),
         )
+        for lesson in lessons:
+            lesson["cohort_name"] = cohort_names.get(str(lesson.get("cohort_id") or ""))
         # Same ordering the admin list uses (lesson_no NULLS LAST, then date), so
         # a student and their teacher are always looking at the same sequence.
         lessons.sort(key=lambda r: (
@@ -629,7 +664,11 @@ async def my_class(
 
     assignments: list = []
     try:
-        assignments, homework_stale = _visible_assignments(student, now)
+        assignments, homework_stale = _visible_assignments(student, now, cohort_ids)
+        for row in assignments:
+            assignment = row.get("assignment") or {}
+            assignment["cohort_name"] = cohort_names.get(
+                str(assignment.get("cohort_id") or ""))
         if homework_stale:
             # Same word the admin Progress tab uses for the same condition:
             # the rows are real, they may just be missing the newest hand-in.
@@ -644,7 +683,9 @@ async def my_class(
 
     result: Dict[str, Any] = {
         "has_class": True,
-        "class":     cohort,
+        "class":     cohorts[0] if cohorts else {},
+        "classes":   cohorts,
+        "class_count": len(cohort_ids),
         "progress":  progress,
     }
     if not summary:

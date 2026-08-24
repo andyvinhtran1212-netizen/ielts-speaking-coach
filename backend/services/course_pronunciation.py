@@ -140,6 +140,7 @@ def _public_attempt(row: dict | None) -> dict | None:
         "client_id": row.get("client_id"),
         "status": row.get("status"),
         "batch_count": row.get("batch_count") or 0,
+        "duration_sec": int(row.get("duration_sec") or 0),
         "pronunciation_score": row.get("pronunciation_score"),
         "accuracy_score": row.get("accuracy_score"),
         "fluency_score": row.get("fluency_score"),
@@ -356,6 +357,7 @@ def _existing_by_client(client_id: str, user_id: str) -> dict | None:
 
 async def submit(
     *, user_id: str, bank_id: str, client_id: str, recordings: list[Recording],
+    duration_sec: int = 0,
 ) -> dict:
     item = _assignment_item(bank_id, user_id)
     exercise = _set_for_bank(bank_id)
@@ -405,6 +407,7 @@ async def submit(
         "locale": exercise["locale"],
         "voice": exercise["voice"],
         "batch_count": len(batches),
+        "duration_sec": max(0, min(int(duration_sec or 0), 12 * 60 * 60)),
         "results": snapshot,
         "error_message": None,
         "updated_at": _now(),
@@ -490,7 +493,7 @@ async def submit(
         )
         if not rows:
             raise RuntimeError("submission update returned no row")
-        return _public_attempt(rows[0]) or {}
+        public = _public_attempt(rows[0]) or {}
     except Exception as exc:  # noqa: BLE001
         logger.exception("[course-pronunciation] grading failed submission=%s", saved.get("id"))
         try:
@@ -502,3 +505,15 @@ async def submit(
         except Exception as persist_exc:  # noqa: BLE001
             logger.warning("[course-pronunciation] failed-state write failed: %s", persist_exc)
         raise CoursePronunciationError(502, "Dịch vụ chấm phát âm tạm thời chưa phản hồi") from exc
+
+    # Kết quả Azure đã lưu là bất biến. Lỗi cập nhật checklist không được đổi
+    # nó thành một submission `failed` rồi tốn thêm tiền chấm ở lần retry.
+    try:
+        public["course"] = quiz_service.refresh_course_completion(
+            user_id=user_id, bank_id=bank_id, item_id=item["id"],
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[course-pronunciation] completion refresh failed item=%s: %s",
+                       item.get("id"), exc)
+        public["completion_pending"] = True
+    return public

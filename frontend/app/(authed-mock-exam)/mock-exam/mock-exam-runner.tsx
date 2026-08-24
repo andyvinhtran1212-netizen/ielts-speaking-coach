@@ -16,6 +16,8 @@ import { useAuth } from '@/lib/auth/auth-provider';
 import {
   MOCK_LIVE_STATUSES,
   MOCK_SECTION_LABELS,
+  MOCK_WRITING_GUIDANCE,
+  MOCK_WRITING_TIME_SHARE_TOTAL,
   canDiscardWritingDrafts,
   chooseWritingDraft,
   configuredMockSections,
@@ -27,6 +29,7 @@ import {
   mockSpeakingHref,
   mockSpeakingTopic,
   mockWordCount,
+  mockWritingTimeAllocation,
   normalizeIntegrity,
   normalizeMockExamState,
   parseLocalWritingDraft,
@@ -58,6 +61,7 @@ interface MockState {
     writingTask1: Prompt | null;
     writingTask2: Prompt | null;
     speakingTopicSet: Record<string, unknown>;
+    writingMinutes: number;
     reviewSlaDays: number;
   };
   examMode: 'sequential' | 'retake';
@@ -69,6 +73,7 @@ interface MockState {
 }
 
 interface Prompt {
+  taskType: string | null;
   title: string;
   promptText: string;
   promptImageUrl: string | null;
@@ -81,11 +86,12 @@ interface WritingBridge {
 
 const POLL_MS = 8_000;
 const WARN_SECONDS = 120;
+const EMBED_FLUSH_TIMEOUT_MS = 8_000;
 const SUBMIT_RETRY_DELAYS = [2_000, 5_000, 10_000, 20_000] as const;
 const CONNECTION_MESSAGES: Record<Exclude<ConnectionState, null>, string> = {
-  offline: '⚠ Đang mất kết nối với máy chủ — bài của bạn vẫn được giữ, hệ thống sẽ tự thử lại.',
+  offline: '⚠ Đang mất kết nối với máy chủ — câu trả lời vẫn đang giữ trong tab này. Đừng đóng hoặc tải lại; hệ thống sẽ tự thử lại.',
   submitting: '⏳ Đang nộp bài — kết nối chập chờn, hệ thống đang thử lại…',
-  submit_failed: '⚠ Chưa nộp được lên máy chủ. Giữ nguyên tab này; giám thị vẫn thu được bài của bạn khi hết giờ.',
+  submit_failed: '⚠ Chưa nộp được lên máy chủ. Giữ nguyên tab này; hệ thống sẽ tiếp tục thử lại và giám thị có thể thu phần dữ liệu đã lưu.',
 };
 
 function statusOf(caught: unknown) {
@@ -137,7 +143,8 @@ function readLocalDraft(sittingId: string, task: 'task1' | 'task2') {
 function writeLocalDraft(sittingId: string, task: 'task1' | 'task2', text: string, synced: boolean) {
   try {
     localStorage.setItem(localDraftKey(sittingId, task), JSON.stringify({ text, ts: Date.now(), synced }));
-  } catch {}
+    return true;
+  } catch { return false; }
 }
 
 function clearLocalDrafts(sittingId: string) {
@@ -251,9 +258,10 @@ function SubmittedCard({ state, onSpeaking, openingSpeaking }: {
   );
 }
 
-function WritingWorkspace({ state, register, locked = false }: {
+function WritingWorkspace({ state, register, remaining, locked = false }: {
   state: MockState;
   register(bridge: WritingBridge | null): void;
+  remaining: number;
   locked?: boolean;
 }) {
   const sittingId = state.sitting.id;
@@ -266,6 +274,7 @@ function WritingWorkspace({ state, register, locked = false }: {
   const [task1, setTask1] = useState(initial.task1.text);
   const [task2, setTask2] = useState(initial.task2.text);
   const [saveCue, setSaveCue] = useState<SaveCue>('idle');
+  const [localBackupFailed, setLocalBackupFailed] = useState(false);
   const [savedAt, setSavedAt] = useState<string>('');
   const [narrow, setNarrow] = useState(false);
   const [layout, setLayout] = useState<Layout>(() => {
@@ -326,8 +335,9 @@ function WritingWorkspace({ state, register, locked = false }: {
       retryRef.current = 0;
       if (task1Ref.current === body.task1_text && task2Ref.current === body.task2_text) {
         dirtyRef.current = false;
-        writeLocalDraft(sittingId, 'task1', body.task1_text, true);
-        writeLocalDraft(sittingId, 'task2', body.task2_text, true);
+        const task1BackedUp = writeLocalDraft(sittingId, 'task1', body.task1_text, true);
+        const task2BackedUp = writeLocalDraft(sittingId, 'task2', body.task2_text, true);
+        setLocalBackupFailed(!task1BackedUp || !task2BackedUp);
         setSavedAt(new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }));
         setSaveCue('saved');
       }
@@ -353,10 +363,13 @@ function WritingWorkspace({ state, register, locked = false }: {
 
   const schedule = useCallback(() => {
     dirtyRef.current = true;
-    retryRef.current = 0;
+    // A new edit does not make an outstanding server failure disappear. Keep
+    // its bounded retry timer/budget; otherwise a keystroke cancels the timer,
+    // starts a fresh request, and downgrades the visible failure warning.
+    const retryPending = retryRef.current > 0;
     const delta = Math.abs(task1Ref.current.length - lastSavedRef.current.task1.length)
       + Math.abs(task2Ref.current.length - lastSavedRef.current.task2.length);
-    if (delta >= 400 && !inFlightRef.current) { void flush(); return; }
+    if (delta >= 400 && !inFlightRef.current && !retryPending) { void flush(); return; }
     if (timerRef.current == null) {
       timerRef.current = window.setTimeout(() => { timerRef.current = null; void flush(); }, 15_000);
     }
@@ -366,7 +379,11 @@ function WritingWorkspace({ state, register, locked = false }: {
     if (locked) return;
     if (which === 'task1') { task1Ref.current = value; setTask1(value); }
     else { task2Ref.current = value; setTask2(value); }
-    writeLocalDraft(sittingId, which, value, false);
+    // The last server ACK covers the previous snapshot, not this edit. Reset
+    // the cue immediately so a learner is never told the current text is saved
+    // during the debounce window (especially when device backup is unavailable).
+    setSaveCue((current) => current === 'failed' ? current : 'idle');
+    setLocalBackupFailed(!writeLocalDraft(sittingId, which, value, false));
     schedule();
   }, [locked, schedule, sittingId]);
 
@@ -463,6 +480,39 @@ function WritingWorkspace({ state, register, locked = false }: {
   };
   const prompt = task === 'task1' ? state.exam.writingTask1 : state.exam.writingTask2;
   const value = task === 'task1' ? task1 : task2;
+  const counts = { task1: mockWordCount(task1), task2: mockWordCount(task2) };
+  const guidance = MOCK_WRITING_GUIDANCE[task];
+  const timeAllocation = mockWritingTimeAllocation(
+    state.sectionDurationSeconds,
+    state.exam.writingMinutes,
+  );
+  const recommendedMinutes = task === 'task1'
+    ? timeAllocation.task1Minutes
+    : timeAllocation.task2Minutes;
+  const timeGuidance = recommendedMinutes == null
+    ? `Gợi ý khoảng ${guidance.timeShare}/${MOCK_WRITING_TIME_SHARE_TOTAL} thời gian`
+    : `Gợi ý ${recommendedMinutes} phút`;
+  const currentCount = counts[task];
+  const targetReached = currentCount >= guidance.minWords;
+  const taskVariant = task === 'task1' && prompt?.taskType === 'task1_academic' ? 'Academic'
+    : task === 'task1' && prompt?.taskType === 'task1_general' ? 'General Training' : null;
+  const taskInstruction = task === 'task2'
+    ? 'Trình bày lập trường rõ ràng, phát triển luận điểm và dùng ví dụ phù hợp.'
+    : prompt?.taskType === 'task1_academic'
+      ? 'Tóm tắt và so sánh các đặc điểm chính của thông tin trực quan; không cần nêu ý kiến cá nhân.'
+      : prompt?.taskType === 'task1_general'
+        ? 'Viết một lá thư đúng vai trò, mục đích và giọng điệu được yêu cầu; bao quát các ý gợi dẫn.'
+        : 'Thực hiện đúng yêu cầu trong đề và trình bày một câu trả lời hoàn chỉnh.';
+  const shortTasks = (['task1', 'task2'] as const).filter((name) => (
+    counts[name] < MOCK_WRITING_GUIDANCE[name].minWords
+  ));
+  const taskStatus = (name: 'task1' | 'task2') => {
+    const count = counts[name];
+    const target = MOCK_WRITING_GUIDANCE[name].minWords;
+    if (count === 0) return 'Chưa bắt đầu';
+    if (count >= target) return 'Đạt mức tối thiểu';
+    return `${count}/${target} từ`;
+  };
   const splitStyle = { '--mw-split': `${split}%` } as CSSProperties;
 
   return (
@@ -477,12 +527,18 @@ function WritingWorkspace({ state, register, locked = false }: {
               role="tab"
               type="button"
               onClick={() => setTask(name)}
-            >Task {index + 1}</button>
+            >
+              <span className="me-tab__label">Task {index + 1}</span>
+              <span className="me-tab__status">{taskStatus(name)}</span>
+            </button>
           ))}
         </div>
-        <span className={`mw-savecue${saveCue === 'failed' ? ' is-failed' : ''}`} role="status" aria-live="polite">
-          {saveCue === 'saving' ? 'Đang lưu…' : saveCue === 'saved' ? `Đã lưu lúc ${savedAt}`
-            : saveCue === 'failed' ? 'Chưa lưu được lên máy chủ — bài vẫn giữ trên máy này, sẽ tự thử lại.' : ''}
+        <span className={`mw-savecue${saveCue === 'failed' || localBackupFailed ? ' is-failed' : ''}`} role="status" aria-live="polite">
+          {localBackupFailed && saveCue === 'failed' ? 'Chưa lưu được lên máy chủ và trình duyệt không tạo được bản dự phòng — tuyệt đối không đóng hoặc tải lại tab; hệ thống vẫn đang thử lại.'
+            : localBackupFailed && saveCue === 'saved' ? `Đã lưu lên máy chủ lúc ${savedAt}, nhưng trình duyệt không tạo được bản dự phòng trên thiết bị.`
+            : localBackupFailed ? 'Trình duyệt không tạo được bản dự phòng trên thiết bị — giữ nguyên tab đến khi hiện “Đã lưu”.'
+            : saveCue === 'saving' ? 'Đang lưu…' : saveCue === 'saved' ? `Đã lưu lúc ${savedAt}`
+              : saveCue === 'failed' ? 'Chưa lưu được lên máy chủ — bản dự phòng trên thiết bị vẫn còn, hệ thống sẽ tự thử lại.' : ''}
         </span>
         <div className="mw-layout" role="group" aria-label="Bố cục đề và khung viết">
           <span className="mw-layout__label">Bố cục đề:</span>
@@ -500,10 +556,33 @@ function WritingWorkspace({ state, register, locked = false }: {
           ))}
         </div>
       </div>
+      {remaining > 0 && remaining <= 600 && shortTasks.length ? (
+        <div className="mw-time-guidance">
+          <strong>Còn {formatMockTime(remaining)}</strong>
+          <span>
+            {shortTasks.map((name) => `Task ${name === 'task1' ? '1' : '2'} còn thiếu ${MOCK_WRITING_GUIDANCE[name].minWords - counts[name]} từ`).join(' · ')}.
+             Đây là mốc độ dài, không phải đánh giá chất lượng bài viết.
+          </span>
+        </div>
+      ) : null}
       <div className="mw-split" data-layout={layout} ref={splitRef} style={splitStyle}>
         <section className="mw-pane mw-pane--prompt" aria-label="Đề bài">
-          <div className="me-muted me-prompt-text">
-            {prompt ? <>{prompt.title ? <strong>{prompt.title} — </strong> : null}{prompt.promptText}</> : `(Không có đề ${task === 'task1' ? 'Task 1' : 'Task 2'})`}
+          <header className="mw-prompt-head">
+            <p>WRITING TASK {task === 'task1' ? '1' : '2'}</p>
+            <h1>{prompt?.title || `Task ${task === 'task1' ? '1' : '2'}`}</h1>
+            <div className="mw-task-meta" aria-label="Thông tin task">
+              <span>Ít nhất {guidance.minWords} từ</span>
+              <span>{timeGuidance}</span>
+              {taskVariant ? <span>{taskVariant}</span> : null}
+              {guidance.scoreWeight === 2 ? <span>Trọng số gấp 2 Task 1</span> : null}
+            </div>
+          </header>
+          <aside className="mw-instructions">
+            <strong>Hướng dẫn</strong>
+            <p>{taskInstruction}</p>
+          </aside>
+          <div className="me-prompt-text">
+            {prompt?.promptText || `(Không có đề ${task === 'task1' ? 'Task 1' : 'Task 2'})`}
           </div>
           {task === 'task1' && prompt?.promptImageUrl ? <img className="me-prompt-image" src={prompt.promptImageUrl} alt="Biểu đồ hoặc hình minh hoạ của đề Task 1" /> : null}
         </section>
@@ -523,15 +602,35 @@ function WritingWorkspace({ state, register, locked = false }: {
           onPointerUp={pointerUp}
         />
         <section className="mw-pane mw-pane--editor" aria-label="Khung viết bài">
+          <header className="mw-editor-head">
+            <div><span>BÀI LÀM</span><strong>Task {task === 'task1' ? '1' : '2'}</strong></div>
+            <span className={`mw-target-state${targetReached ? ' is-ready' : ''}`}>
+              {targetReached ? 'Đã đạt mức tối thiểu' : `Còn ${guidance.minWords - currentCount} từ đến mức tối thiểu`}
+            </span>
+          </header>
           <textarea
             aria-label={`Bài viết ${task === 'task1' ? 'Task 1' : 'Task 2'}`}
+            aria-describedby={`mock-writing-count-${task}`}
+            autoCorrect="off"
             className="me-essay"
             placeholder={`Viết ${task === 'task1' ? 'Task 1' : 'Task 2'}…`}
             readOnly={locked}
+            spellCheck={false}
             value={value}
             onChange={(event) => edit(task, event.target.value)}
           />
-          <div className="me-count">{mockWordCount(value)} từ</div>
+          <div className="mw-count-row" id={`mock-writing-count-${task}`}>
+            <strong>{currentCount} từ</strong>
+            <span>Mức tối thiểu: {guidance.minWords} từ</span>
+          </div>
+          <div
+            aria-label={`Tiến độ số từ Task ${task === 'task1' ? '1' : '2'}`}
+            aria-valuemax={guidance.minWords}
+            aria-valuemin={0}
+            aria-valuenow={Math.min(currentCount, guidance.minWords)}
+            className={`mw-word-progress${targetReached ? ' is-ready' : ''}`}
+            role="progressbar"
+          ><span style={{ width: `${Math.min(100, currentCount / guidance.minWords * 100)}%` }} /></div>
         </section>
       </div>
     </div>
@@ -801,11 +900,13 @@ export function MockExamRunner() {
 
   const flushEmbed = useCallback((section: Section) => new Promise<void>((resolve, reject) => {
     const frame = frameRef.current;
-    if (!frame?.contentWindow) { resolve(); return; }
+    if (!frame?.contentWindow) { reject(new Error('mock-embed-not-ready')); return; }
     let settled = false;
+    let timeout: number | null = null;
     const finish = (error?: Error) => {
       if (settled) return;
       settled = true;
+      if (timeout != null) window.clearTimeout(timeout);
       window.removeEventListener('message', message);
       if (error) reject(error); else resolve();
     };
@@ -820,8 +921,16 @@ export function MockExamRunner() {
       finish(unsaved > 0 ? new Error('mock-embed-unsaved-answers') : undefined);
     };
     window.addEventListener('message', message);
-    frame.contentWindow.postMessage({ type: 'mock-flush' }, window.location.origin);
-    window.setTimeout(() => finish(new Error('mock-embed-flush-timeout')), 3_000);
+    try {
+      frame.contentWindow.postMessage({ type: 'mock-flush' }, window.location.origin);
+    } catch {
+      finish(new Error('mock-embed-postmessage-failed'));
+      return;
+    }
+    timeout = window.setTimeout(
+      () => finish(new Error('mock-embed-flush-timeout')),
+      EMBED_FLUSH_TIMEOUT_MS,
+    );
   }), []);
 
   const acknowledgeCollectionFlush = useCallback(async (section: Section) => {
@@ -1054,7 +1163,7 @@ export function MockExamRunner() {
       {remaining <= WARN_SECONDS ? <div className="me-warn-banner" role="status">⚠ Sắp hết giờ phần này — bài sẽ tự nộp khi hết giờ.</div> : null}
       <section className="me-panels" aria-label={renderedSection ? `Phần thi ${renderedSection}` : 'Phần thi'}>
         {renderedSection === 'writing'
-          ? <WritingWorkspace key={state.sitting.id} state={state} register={registerWriting} locked={awaitingCollectionFlush} />
+          ? <WritingWorkspace key={state.sitting.id} state={state} register={registerWriting} remaining={remaining} locked={awaitingCollectionFlush} />
           : frameSrc
             ? <iframe inert={awaitingCollectionFlush} ref={frameRef} src={frameSrc} title={`Bài thi ${renderedSection}`} />
             : <ErrorCard message="Kỳ thi thiếu nội dung cho phần đang mở. Liên hệ giám thị." />}

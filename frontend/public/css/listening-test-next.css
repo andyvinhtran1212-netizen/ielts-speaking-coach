@@ -116,6 +116,7 @@
 .listening-next-audio-icon { display: grid; place-items: center; width: 76px; height: 76px; margin: 0 auto; border: 4px solid var(--exam-text-primary); border-radius: 50%; font-size: 0; }
 .listening-next-audio-icon::before { content: "♫"; font-size: 34px; }
 .listening-next-audio-prompt .ft-control-btn { min-width: 150px; margin-top: 12px; }
+.listening-next-shell .ft-audio-error { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--av-error); border-radius: var(--av-radius-md); background: var(--av-error-soft); color: var(--av-error); font-size: 13px; font-weight: 700; }
 
 @media (max-width: 780px) {
   .listening-next-player-page.listening-next-testing { overflow: auto; }
@@ -129,6 +130,7 @@
   .listening-next-shell .ielts-plan-container, .listening-next-match-layout { grid-template-columns: 1fr; }
   .listening-next-match-bank { grid-row: 1; }
   .listening-next-palette { position: static; }
+  .listening-next-shell .ft-audio-error { align-items: stretch; flex-direction: column; }
   .listening-next-submit-row .btn-submit-final { width: 100%; }
 }
 @media (max-width: 480px) {

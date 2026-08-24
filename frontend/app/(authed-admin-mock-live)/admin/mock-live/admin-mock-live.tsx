@@ -113,6 +113,7 @@ export function AdminMockLive({ initialExamId, embedded }: { initialExamId: stri
     } catch (caught) {
       if (request === requestRef.current && accountRef.current === account && selectedRef.current === wanted) {
         setRefreshError(`${snapshotRef.current ? 'Không làm mới được; đang giữ snapshot cũ. ' : 'Không tải được phòng thi. '}${messageOf(caught)}`);
+        setVoidTarget(null);
       }
       return null;
     } finally {
@@ -165,10 +166,10 @@ export function AdminMockLive({ initialExamId, embedded }: { initialExamId: stri
   }, [autoRefresh, examId, loadSnapshot]);
 
   useEffect(() => {
-    if (!snapshot || snapshot.exam.examMode === 'retake' || snapshot.exam.collectedSection === snapshot.exam.activeSection || snapshot.exam.sectionTimeLeftSeconds == null) return;
+    if (!snapshot || refreshError || snapshot.exam.examMode === 'retake' || snapshot.exam.collectedSection === snapshot.exam.activeSection || snapshot.exam.sectionTimeLeftSeconds == null) return;
     const timer = window.setInterval(() => setClockNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
-  }, [snapshot]);
+  }, [refreshError, snapshot]);
 
   const changeExam = (nextId: string) => {
     if (!nextId || nextId === examId || busyRef.current) return;
@@ -178,6 +179,11 @@ export function AdminMockLive({ initialExamId, embedded }: { initialExamId: stri
     setExamId(nextId); setSnapshot(null); setFilter('all'); setNotice(null); setRefreshError(''); setLoading(true);
     window.history.replaceState(null, '', `/admin/mock-live?exam_id=${encodeURIComponent(nextId)}`);
     void loadSnapshot(nextId);
+  };
+
+  const refreshNow = async () => {
+    const canonical = await loadSnapshot(examId);
+    if (canonical) setNotice(null);
   };
 
   const reconcileMutation = async (key: string, operation: () => Promise<unknown>, postcondition: (next: Snapshot) => boolean, success: string) => {
@@ -200,16 +206,16 @@ export function AdminMockLive({ initialExamId, embedded }: { initialExamId: stri
     } finally { setBusyKey(''); }
   };
 
-  const toggleOpen = async () => {
-    if (!snapshot) return;
+  const toggleOpen = async (forceClose = false) => {
+    if (!snapshot || (refreshError && !forceClose)) return;
     const exam = snapshot.exam;
-    const next = !exam.isOpen;
+    const next = forceClose ? false : !exam.isOpen;
     if (!window.confirm(`${next ? 'MỞ' : 'ĐÓNG'} kỳ thi “${exam.code} — ${exam.title}”?`)) return;
     await reconcileMutation('open', () => window.api.post(`/admin/mock-exams/${encodeURIComponent(exam.id)}/open`, { is_open: next }), (value) => value.exam.isOpen === next, next ? 'Đã mở kỳ thi.' : 'Đã đóng kỳ thi.');
   };
 
   const collect = async () => {
-    if (!snapshot) return;
+    if (!snapshot || refreshError) return;
     const exam = snapshot.exam;
     const summary = snapshot.sections[exam.activeSection];
     const pending = summary?.working || 0;
@@ -218,7 +224,7 @@ export function AdminMockLive({ initialExamId, embedded }: { initialExamId: stri
   };
 
   const advance = async () => {
-    if (!snapshot) return;
+    if (!snapshot || refreshError) return;
     const exam = snapshot.exam;
     const next = nextConfiguredSection(exam);
     if (!next) return;
@@ -231,7 +237,7 @@ export function AdminMockLive({ initialExamId, embedded }: { initialExamId: stri
   };
 
   const recollect = async (section: string) => {
-    if (!snapshot || busyRef.current) return;
+    if (!snapshot || refreshError || busyRef.current) return;
     const exam = snapshot.exam;
     if (!window.confirm(`Thu lại ${LABEL[section]} của kỳ “${exam.code}”? Các bài chưa thu sẽ được xếp hàng xử lý theo hiện trạng.`)) return;
     setBusyKey(`recollect:${section}`); setNotice(null);
@@ -251,7 +257,7 @@ export function AdminMockLive({ initialExamId, embedded }: { initialExamId: stri
   };
 
   const confirmVoid = async (reason: string) => {
-    if (!voidTarget || !snapshot) return;
+    if (!voidTarget || !snapshot || refreshError) return;
     const target = voidTarget;
     const closed = await reconcileMutation(`void:${target.sittingId}`, () => window.api.post(`/admin/mock-exams/sittings/${encodeURIComponent(target.sittingId)}/void`, { reason }), (value) => !value.students.some((student) => student.sittingId === target.sittingId), `Đã huỷ lượt thi của ${target.studentName}.`);
     if (closed) setVoidTarget(null);
@@ -266,6 +272,7 @@ export function AdminMockLive({ initialExamId, embedded }: { initialExamId: stri
     snapshot.exam.activeSection === 'not_started'
     || (paused && snapshot.exam.collectionSweepCompletedSection === snapshot.exam.activeSection)
   ));
+  const snapshotStale = Boolean(refreshError);
   const seconds = paused ? null : clockSeconds(clockAnchorRef.current, clockNow);
   const speakingShown = snapshot?.students.some((student) => student.speaking.required) || false;
   const nextSection = snapshot ? nextConfiguredSection(snapshot.exam) : null;
@@ -277,7 +284,7 @@ export function AdminMockLive({ initialExamId, embedded }: { initialExamId: stri
       <section className="mlv-toolbar" aria-label="Điều khiển cập nhật">
         {!embedded && <label>Kỳ thi<select value={examId} onChange={(event) => changeExam(event.target.value)} disabled={Boolean(busyKey)}><option value="">Chọn kỳ thi</option>{exams.map((exam) => <option key={exam.id} value={exam.id}>{exam.code || exam.id} — {exam.title}{exam.examMode === 'retake' ? ' [test lại]' : exam.isOpen ? ' · ĐANG MỞ' : ' · đóng'}</option>)}</select></label>}
         <label className="mlv-check"><input type="checkbox" checked={autoRefresh} onChange={(event) => setAutoRefresh(event.target.checked)} /> Tự cập nhật (5s)</label>
-        <button type="button" className="adm-btn-secondary" onClick={() => void loadSnapshot(examId)} disabled={!examId || Boolean(busyKey) || loading}>Cập nhật ngay</button>
+        <button type="button" className="adm-btn-secondary" onClick={() => void refreshNow()} disabled={!examId || Boolean(busyKey) || loading}>Cập nhật ngay</button>
       </section>
 
       {notice && <div className={`mlv-alert is-${notice.kind}`} role={notice.kind === 'success' ? 'status' : 'alert'}>{notice.message}</div>}
@@ -290,19 +297,21 @@ export function AdminMockLive({ initialExamId, embedded }: { initialExamId: stri
           <div className="mlv-identity-top"><span className="mlv-code">{snapshot.exam.code || snapshot.exam.id}</span><span>{snapshot.exam.title}</span><span className={`mlv-pill ${snapshot.exam.isOpen ? 'is-live' : ''}`}>{snapshot.exam.isOpen ? 'Phòng đang mở' : 'Phòng đã đóng'}</span><span className="mlv-pill">{snapshot.exam.examMode === 'retake' ? 'Test lại' : 'Thi theo lớp'}</span><span className="mlv-pill">{LABEL[snapshot.exam.activeSection]}</span>{snapshot.roster.offRoster.length > 0 && <span className="mlv-pill is-warning">{snapshot.roster.offRoster.length} ngoài danh sách</span>}</div>
           {snapshot.exam.examMode !== 'retake' && <ol className="mlv-section-flow" aria-label="Tiến trình các phần thi"><li className={snapshot.exam.activeSection === 'not_started' ? 'is-current' : 'is-done'}><b>00</b><span>Chờ bắt đầu</span></li>{snapshot.exam.configuredSections.map((section) => { const sectionIndex = snapshot.exam.configuredSections.indexOf(section); const activeIndex = snapshot.exam.configuredSections.indexOf(snapshot.exam.activeSection); const done = snapshot.exam.activeSection === 'done' || (activeIndex >= 0 && sectionIndex < activeIndex); return <li key={section} className={done ? 'is-done' : snapshot.exam.activeSection === section ? 'is-current' : ''}><b>{String(sectionIndex + 1).padStart(2, '0')}</b><span>{LABEL[section]}</span><small>{snapshot.sections[section].submitted}/{snapshot.sections[section].expected} đã nộp</small></li>;})}<li className={snapshot.exam.activeSection === 'done' ? 'is-current' : ''}><b>✓</b><span>Hoàn tất</span></li></ol>}
           <div className="mlv-identity-main">
-            {snapshot.exam.examMode !== 'retake' && <div><span className="mlv-clock-label">{collecting ? `Đang đồng bộ và thu ${LABEL[snapshot.exam.activeSection]}…` : paused ? `Đã thu ${LABEL[snapshot.exam.activeSection]} · đang nghỉ` : `Còn lại · ${LABEL[snapshot.exam.activeSection]}`}</span><strong className={`mlv-clock ${seconds != null && seconds <= 120 ? 'is-low' : ''}`}>{fmtClock(seconds)}</strong></div>}
+            {snapshot.exam.examMode !== 'retake' && <div><span className="mlv-clock-label">{snapshotStale ? 'Snapshot cũ · đồng hồ đã đóng băng' : collecting ? `Đang đồng bộ và thu ${LABEL[snapshot.exam.activeSection]}…` : paused ? `Đã thu ${LABEL[snapshot.exam.activeSection]} · đang nghỉ` : `Còn lại · ${LABEL[snapshot.exam.activeSection]}`}</span><strong className={`mlv-clock ${seconds != null && seconds <= 120 ? 'is-low' : ''} ${snapshotStale ? 'is-stale' : ''}`}>{fmtClock(seconds)}</strong>{snapshotStale && <small className="mlv-clock-stale">Cập nhật lại thành công trước khi điều phối kỳ thi.</small>}</div>}
             <div className="mlv-actions">
               {snapshot.exam.examMode !== 'retake' && <>
-                {!(snapshot.exam.activeSection === 'done' && !snapshot.exam.isOpen) ? <button type="button" className="adm-btn-secondary" onClick={() => void toggleOpen()} disabled={Boolean(busyKey)}>{snapshot.exam.isOpen ? 'Đóng kỳ' : 'Mở kỳ'}</button> : <span className="mlv-ended">Kỳ thi đã kết thúc</span>}
-                {snapshot.exam.activeSection !== 'done' && snapshot.exam.activeSection !== 'not_started' && !paused && <button type="button" className="adm-btn-primary" onClick={() => void collect()} disabled={Boolean(busyKey)}>Thu bài ({snapshot.sections[snapshot.exam.activeSection]?.working || 0} đang làm)</button>}
-                {nextSection && <button type="button" className="adm-btn-primary" onClick={() => void advance()} disabled={Boolean(busyKey) || !readyToAdvance}>{collecting ? 'Đang thu bài…' : !readyToAdvance ? 'Thu bài trước' : snapshot.exam.activeSection === 'not_started' ? `Bắt đầu · mở ${LABEL[nextSection]}` : `Mở ${LABEL[nextSection]} →`}</button>}
+                {snapshotStale && snapshot.exam.isOpen
+                  ? <button type="button" className="adm-btn-danger" onClick={() => void toggleOpen(true)} disabled={Boolean(busyKey)}>Đóng kỳ khẩn</button>
+                  : !(snapshot.exam.activeSection === 'done' && !snapshot.exam.isOpen) ? <button type="button" className="adm-btn-secondary" onClick={() => void toggleOpen()} disabled={Boolean(busyKey) || snapshotStale}>{snapshot.exam.isOpen ? 'Đóng kỳ' : 'Mở kỳ'}</button> : <span className="mlv-ended">Kỳ thi đã kết thúc</span>}
+                {snapshot.exam.activeSection !== 'done' && snapshot.exam.activeSection !== 'not_started' && !paused && <button type="button" className="adm-btn-primary" onClick={() => void collect()} disabled={Boolean(busyKey) || snapshotStale}>Thu bài ({snapshot.sections[snapshot.exam.activeSection]?.working || 0} đang làm)</button>}
+                {nextSection && <button type="button" className="adm-btn-primary" onClick={() => void advance()} disabled={Boolean(busyKey) || snapshotStale || !readyToAdvance}>{collecting ? 'Đang thu bài…' : snapshotStale ? 'Cập nhật snapshot trước' : !readyToAdvance ? 'Thu bài trước' : snapshot.exam.activeSection === 'not_started' ? `Bắt đầu · mở ${LABEL[nextSection]}` : `Mở ${LABEL[nextSection]} →`}</button>}
               </>}
               <a className="adm-btn-secondary" href={`/admin/mock-tests?tab=review&exam_id=${encodeURIComponent(snapshot.exam.id)}`} target={embedded ? '_top' : undefined}>Duyệt bài →</a>
             </div>
           </div>
         </section>
 
-        {snapshot.exam.configuredSections.filter((section) => snapshot.sections[section]?.missed > 0).map((section) => <div className="mlv-missed" key={section} role="alert"><span>⚠ <b>{LABEL[section]}</b> còn <b>{snapshot.sections[section].missed}</b> bài chưa thu vì sweep bị gián đoạn.</span><button type="button" className="adm-btn-danger" onClick={() => void recollect(section)} disabled={Boolean(busyKey)}>Thu lại {LABEL[section]}</button></div>)}
+        {snapshot.exam.configuredSections.filter((section) => snapshot.sections[section]?.missed > 0).map((section) => <div className="mlv-missed" key={section} role="alert"><span>⚠ <b>{LABEL[section]}</b> còn <b>{snapshot.sections[section].missed}</b> bài chưa thu vì sweep bị gián đoạn.</span><button type="button" className="adm-btn-danger" onClick={() => void recollect(section)} disabled={Boolean(busyKey) || snapshotStale}>Thu lại {LABEL[section]}</button></div>)}
 
         <section className="mlv-stats" aria-label="Tổng quan phòng thi">
           <article><span>Danh sách lớp</span><strong>{snapshot.roster.expected == null ? '—' : snapshot.roster.expected}</strong><small>{snapshot.roster.expected == null ? 'Đề không gắn lớp' : 'học viên được xếp thi'}</small></article>
@@ -314,7 +323,7 @@ export function AdminMockLive({ initialExamId, embedded }: { initialExamId: stri
         <section className={`mlv-attention${problems ? ' has-problems' : ''}`} aria-label="Ưu tiên điều hành"><div><p className="aop-section-label">Ưu tiên lúc này</p><strong>{problems ? `${problems} học viên cần kiểm tra` : 'Phòng thi đang ổn định'}</strong><span>{problems ? 'Lọc “Cần chú ý” để xử lý bài trắng, mất tín hiệu hoặc học viên chưa vào.' : 'Tiếp tục theo dõi lần lưu và chờ đủ bài trước khi thu phần hiện tại.'}</span></div>{problems > 0 && <button type="button" className="adm-btn-secondary" onClick={() => setFilter('problem')}>Xem danh sách cần chú ý</button>}</section>
 
         <section className="mlv-filterbar" aria-label="Lọc học viên">{FILTERS.map(([key, label]) => <button type="button" key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>{label} <span>{filterCounts[key]}</span></button>)}</section>
-        <div className="mlv-table-wrap"><table className="mlv-table"><thead><tr><th>Học viên</th>{snapshot.exam.configuredSections.map((section) => <th key={section}>{LABEL[section]}</th>)}{speakingShown && <th>Speaking</th>}<th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{visibleStudents.length ? visibleStudents.map((student) => <tr key={student.sittingId || student.userId || student.studentName} className={`${!student.started ? 'is-absent' : ''} ${!student.inRoster ? 'is-offroster' : ''}`}><td><b>{student.studentName}</b>{!student.inRoster && <span className="mlv-pill is-warning">ngoài DS</span>}{student.needsRetest && <span className="mlv-pill">cần test lại</span>}</td>{snapshot.exam.configuredSections.map((section) => <td key={section}><SectionCell section={student.sections[section]} /></td>)}{speakingShown && <td>{!student.speaking.required ? '—' : student.speaking.completedAt ? <span className="mlv-cell"><i className="mlv-dot is-submitted" />{fmtTime(student.speaking.completedAt)}</span> : <span className="mlv-cell"><i className="mlv-dot is-waiting" />{student.speaking.count} phần</span>}</td>}<td><span>{student.status}</span>{studentIntegrity(student) && <small>{studentIntegrity(student)}</small>}</td><td>{student.sittingId && <div className="mlv-row-actions"><a className="mlv-row-link" href={`/admin/mock-pacing?sitting=${encodeURIComponent(student.sittingId)}`}>Nhịp làm bài</a>{student.status !== 'released' && <button type="button" onClick={() => setVoidTarget({ sittingId: student.sittingId!, studentName: student.studentName })} disabled={Boolean(busyKey)}>Huỷ lượt</button>}</div>}</td></tr>) : <tr><td colSpan={snapshot.exam.configuredSections.length + (speakingShown ? 4 : 3)} className="mlv-empty">Không có học viên nào khớp bộ lọc.</td></tr>}</tbody></table></div>
+        <div className="mlv-table-wrap"><table className="mlv-table"><thead><tr><th>Học viên</th>{snapshot.exam.configuredSections.map((section) => <th key={section}>{LABEL[section]}</th>)}{speakingShown && <th>Speaking</th>}<th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>{visibleStudents.length ? visibleStudents.map((student) => <tr key={student.sittingId || student.userId || student.studentName} className={`${!student.started ? 'is-absent' : ''} ${!student.inRoster ? 'is-offroster' : ''}`}><td><b>{student.studentName}</b>{!student.inRoster && <span className="mlv-pill is-warning">ngoài DS</span>}{student.needsRetest && <span className="mlv-pill">cần test lại</span>}</td>{snapshot.exam.configuredSections.map((section) => <td key={section}><SectionCell section={student.sections[section]} /></td>)}{speakingShown && <td>{!student.speaking.required ? '—' : student.speaking.completedAt ? <span className="mlv-cell"><i className="mlv-dot is-submitted" />{fmtTime(student.speaking.completedAt)}</span> : <span className="mlv-cell"><i className="mlv-dot is-waiting" />{student.speaking.count} phần</span>}</td>}<td><span>{student.status}</span>{studentIntegrity(student) && <small>{studentIntegrity(student)}</small>}</td><td>{student.sittingId && <div className="mlv-row-actions"><a className="mlv-row-link" href={`/admin/mock-pacing?sitting=${encodeURIComponent(student.sittingId)}`}>Nhịp làm bài</a>{student.status !== 'released' && <button type="button" onClick={() => setVoidTarget({ sittingId: student.sittingId!, studentName: student.studentName })} disabled={Boolean(busyKey) || snapshotStale}>Huỷ lượt</button>}</div>}</td></tr>) : <tr><td colSpan={snapshot.exam.configuredSections.length + (speakingShown ? 4 : 3)} className="mlv-empty">Không có học viên nào khớp bộ lọc.</td></tr>}</tbody></table></div>
         <div className="mlv-legend"><span><i className="mlv-dot is-submitted" /> đã nộp</span><span><i className="mlv-dot is-working" /> đang làm</span><span><i className="mlv-dot is-waiting" /> chờ mở</span><span><i className="mlv-dot is-absent" /> chưa vào</span><span><b className="mlv-flag is-stalled">im</b> không có lần lưu mới &gt;5 phút</span><span><b className="mlv-flag is-blank">trắng</b> chưa lưu câu nào</span><span className="mlv-updated">Snapshot máy chủ: {fmtTime(snapshot.serverTime)}</span></div>
       </>}
       {voidTarget && <VoidSittingDialog studentName={voidTarget.studentName} busy={busyKey === `void:${voidTarget.sittingId}`} onCancel={() => setVoidTarget(null)} onConfirm={confirmVoid} />}

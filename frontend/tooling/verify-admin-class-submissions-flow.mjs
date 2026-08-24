@@ -50,10 +50,10 @@ const tally = () => ({
   assignment: { id: assignment.id, title: assignment.title, skill: assignment.skill, due_at: assignment.due_at },
   sealed: false, homework_stale: false, writing_total: 1,
   students: [
-    { student_id: 'st-a', name: 'An', student_code: 'A001', status: returned ? 'pending' : 'submitted', submitted_at: returned ? null : '2026-08-12T02:00:00Z', score: 68, flags: [], flag_level: null, passed_at: null, retakes: 1, verdicts: 2, artifact_kind: returned ? null : 'course_writing', artifact_id: returned ? null : 'writing-1', has_writing: !returned, writing_expected: true },
-    { student_id: 'st-b', name: 'Bình', student_code: 'B001', status: 'no-account', submitted_at: null, score: null, flags: [], flag_level: null, passed_at: null, retakes: 0, verdicts: 0, artifact_kind: null, artifact_id: null, has_writing: false, writing_expected: true },
+    { student_id: 'st-a', name: 'An', student_code: 'A001', status: returned ? 'pending' : 'submitted', submitted_at: returned ? null : '2026-08-12T02:00:00Z', score: 68, course_state: 'near_pass', next_action: 'retake', pass_pct: 75, near_pass_pct: 65, sections_done: 2, sections_total: 2, missing_sections: [], flags: [], flag_level: null, passed_at: null, retakes: 1, verdicts: 2, artifact_kind: returned ? null : 'course_writing', artifact_id: returned ? null : 'writing-1', has_writing: !returned, writing_expected: true },
+    { student_id: 'st-b', name: 'Bình', student_code: 'B001', status: 'no-account', submitted_at: null, score: null, course_state: 'no_account', next_action: null, pass_pct: 75, near_pass_pct: 65, sections_done: 0, sections_total: 2, missing_sections: [{ key: 'quiz', label: 'Trắc nghiệm' }, { key: 'writing', label: 'Viết câu' }], flags: [], flag_level: null, passed_at: null, retakes: 0, verdicts: 0, artifact_kind: null, artifact_id: null, has_writing: false, writing_expected: true },
   ],
-  counts: { total: 2, submitted: returned ? 0 : 1, late: 0, missing: 0, no_account: 1, flagged: 0 },
+  counts: { total: 2, submitted: returned ? 0 : 1, late: 0, missing: 0, no_account: 1, flagged: 0, passed: 0, near_pass: 1, retry_full: 0, in_progress: 0, untouched: 0 },
 });
 
 const browser = await launchChromium();
@@ -84,15 +84,16 @@ await page.route('**/*', async (route) => {
   if (parsed.pathname === '/admin/quiz/banks/bank-2/attempt-report') return json({
     stale: false, stages_total: 8, writing_total: 1,
     students: [
-      { student_id: 'st-a', user_id: 'u-a', state: 'done', wrote: true, stages_done: 8, minutes: 32.5, questions: 60, correct: 41, accuracy: 0.683, median_sec: 18, idle_sec: 0, last_at: '2026-08-12T02:00:00Z' },
-      { student_id: 'st-b', user_id: null, state: 'untouched', wrote: false, stages_done: 0, minutes: 0, questions: 0, correct: 0, accuracy: null, median_sec: null, idle_sec: 0, last_at: null },
-      { student_id: null, user_id: 'u-gone', state: 'done', wrote: false, stages_done: 8, minutes: 28, questions: 60, correct: 48, accuracy: 0.8, median_sec: 15, idle_sec: 0, last_at: '2026-08-11T02:00:00Z' },
+      { student_id: 'st-a', user_id: 'u-a', state: 'needs_retry', wrote: true, stages_done: 8, minutes: 32.5, questions: 60, correct: 41, accuracy: 0.683, median_sec: 18, idle_sec: 0, last_at: '2026-08-12T02:00:00Z', attempts: 2, combined_pct: 68, next_action: 'retake', pass_pct: 75, near_pass_pct: 65, sections_done: 2, sections_total: 2, section_results: [{ key: 'quiz', label: 'Trắc nghiệm', pct: 68 }, { key: 'writing', label: 'Viết câu', pct: 68 }], missing_sections: [], flags: [], attempt_minutes: 32.5 },
+      { student_id: 'st-b', user_id: null, state: 'untouched', wrote: false, stages_done: 0, minutes: 0, questions: 0, correct: 0, accuracy: null, median_sec: null, idle_sec: 0, last_at: null, attempts: 0, sections_done: 0, sections_total: 2, missing_sections: [{ key: 'quiz', label: 'Trắc nghiệm' }, { key: 'writing', label: 'Viết câu' }], flags: [] },
+      { student_id: null, user_id: 'u-gone', state: 'done', wrote: false, stages_done: 8, minutes: 28, questions: 60, correct: 48, accuracy: 0.8, median_sec: 15, idle_sec: 0, last_at: '2026-08-11T02:00:00Z', attempts: 1, combined_pct: 80, next_action: 'passed', pass_pct: 75, sections_done: 2, sections_total: 2, missing_sections: [], flags: [], attempt_minutes: 28 },
     ],
-    axes: [{ axis: 'Articles', wrong: 5, median_sec: 22 }],
+    axes: [{ axis: 'Articles', wrong: 5, attempted: 10, wrong_rate: .5, affected_students: 2, student_sample: 3, affected_rate: .667, median_sec: 22, scope: 'first_attempt', sample_low: false }],
   });
   if (parsed.pathname === '/admin/quiz/banks/bank-2/students/u-a/report') return json({
     stale: false, locked: false,
-    totals: { answered: 2, correct: 1, median_sec: 18, active_sec: 75, idle_sec: 0, bank_title: 'Grammar 2' },
+    totals: { answered: 2, correct: 1, median_sec: 18, active_sec: 75, idle_sec: 0, bank_title: 'Grammar 2', scope: 'baseline_quiz' },
+    summary: { pass_pct: 75, near_pass_pct: 65, latest_pct: 60, latest_action: 'retry_full', latest_attempt_number: 2, baseline_quiz_pct: 50, baseline_correct: 1, baseline_answered: 2, latest_sections: [{ key: 'quiz', label: 'Trắc nghiệm', pct: 60 }] },
     history: [{ number: 1, phase: 'run', session_count: 8, pct: 68, next_action: 'retake', at: '2026-08-12T02:00:00Z' }, { number: 2, phase: 'retake', session_count: 1, pct: 60, next_action: 'retry_full', at: '2026-08-12T03:00:00Z' }],
     questions: [{ qid: 'q1', item_key: 'Articles', prompt: 'Choose the article.', picked_text: 'a', answer_text: 'an', is_correct: false, why_wrong: 'Âm đầu là nguyên âm.', explain: 'Dùng an trước âm nguyên âm.', seconds: 21 }, { qid: 'q2', item_key: 'Articles', prompt: 'Choose another article.', picked_text: 'the', answer_text: 'the', is_correct: true, seconds: 17 }],
   });
@@ -107,27 +108,28 @@ await page.goto(`${BASE}/admin/classes/${cohortId}?assignment_id=asg-course`, { 
 await page.getByRole('heading', { name: 'Grammar 2', exact: true }).waitFor({ state: 'visible' });
 check('assignment_id tự vào tab Bài tập và mở workspace native', await page.getByRole('tab', { name: /Bài tập/ }).getAttribute('aria-selected') === 'true' && page.url().includes('assignment_id=asg-course'));
 check('không điều hướng sang rollback legacy', !page.url().includes('/pages/admin/classes/index.html') && await page.locator('a[href*="/pages/admin/classes/index.html"]').count() === 0);
-check('tally giữ trạng thái và mastery chuẩn', await page.getByText('1/ 2 đã nộp', { exact: true }).count() === 1 && await page.getByText('68%', { exact: true }).count() === 1 && await page.getByText(/Chưa đạt · KTL×1/).count() === 1);
+check('tổng kết tách outcome khỏi biên nhận nộp', await page.getByText('Gần đạt · Revision', { exact: true }).count() >= 1 && await page.getByText('68%', { exact: true }).count() >= 1 && await page.getByText('Chưa kích hoạt', { exact: true }).count() >= 1 && await page.getByText(/đã nộp/).count() === 0);
 
-await page.getByRole('tab', { name: 'Chi tiết làm bài' }).click();
-await page.locator('tr').filter({ hasText: 'An' }).getByText('8/8', { exact: true }).waitFor({ state: 'visible' });
+await page.getByRole('tab', { name: 'Tiến độ lớp' }).click();
+await page.locator('tr').filter({ hasText: 'An' }).getByText('2/2 phần', { exact: true }).waitFor({ state: 'visible' });
 const effortTable = page.locator('#acs-panel-effort');
-check('effort phân biệt xong, chưa kích hoạt và giữ học viên đã rời lớp', await effortTable.getByText('Xong', { exact: true }).count() === 2 && await effortTable.getByText('Chưa mở', { exact: true }).count() === 1 && await effortTable.getByText('Chưa kích hoạt', { exact: true }).count() === 1 && await effortTable.getByText('Học viên đã rời lớp', { exact: true }).count() === 1);
-check('trục yếu cả lớp đọc từ report chuẩn', await page.getByText('Articles', { exact: true }).count() === 1 && await page.getByText('5 sai', { exact: true }).count() === 1);
+check('effort phân biệt cần làm lại, chưa kích hoạt và giữ học viên đã rời lớp', await effortTable.getByText('Chưa đạt · cần làm lại', { exact: true }).count() === 1 && await effortTable.getByText('Chưa mở', { exact: true }).count() === 1 && await effortTable.getByText('Chưa kích hoạt', { exact: true }).count() === 1 && await effortTable.getByText('Học viên đã rời lớp', { exact: true }).count() === 1);
+check('trục yếu cả lớp có mẫu số học viên và tỷ lệ câu', await page.getByText('Articles', { exact: true }).count() === 1 && await page.getByText('2/3 học viên', { exact: true }).count() === 1 && await page.getByText(/50% câu sai/).count() === 1);
 
-await page.locator('tr').filter({ hasText: 'An' }).getByRole('button', { name: 'Xem bài' }).click();
+await page.locator('tr').filter({ hasText: 'An' }).getByRole('button', { name: 'Inspect' }).click();
 await page.getByRole('heading', { name: 'An', exact: true }).waitFor({ state: 'visible' });
 check('bài từng em ghép course report và tự luận', await page.getByText('I has a cat.', { exact: true }).count() === 1 && await page.getByText('Không có trục yếu nổi bật', { exact: true }).count() === 0);
-check('history chỉ hiện session và revision đã chấm', await page.getByText('Full session', { exact: true }).count() === 1 && await page.getByText('Revision', { exact: true }).count() === 1 && await page.getByText('Làm lại toàn bộ', { exact: true }).count() === 1);
+check('history chỉ hiện session và revision đã chấm', await page.getByText('Full session', { exact: true }).count() === 1 && await page.getByText('Revision', { exact: true }).count() === 1 && await page.getByText('Làm lại toàn bộ', { exact: true }).count() >= 1);
 
-await page.getByRole('tab', { name: 'Chi tiết làm bài' }).click();
-await page.locator('tr').filter({ hasText: 'Học viên đã rời lớp' }).getByRole('button', { name: 'Xem bài' }).click();
+await page.getByRole('tab', { name: 'Tiến độ lớp' }).click();
+await page.locator('tr').filter({ hasText: 'Học viên đã rời lớp' }).getByRole('button', { name: 'Inspect' }).click();
 await page.getByRole('heading', { name: 'Học viên đã rời lớp', exact: true }).waitFor({ state: 'visible' });
+await page.getByRole('button', { name: 'Tất cả câu' }).click();
 await page.getByRole('button', { name: /Articles/ }).click();
 await page.getByText('Archived learner question.', { exact: true }).waitFor({ state: 'visible' });
 check('học viên đã rời lớp vẫn mở được report bằng user_id chuẩn', true);
 
-await page.getByRole('tab', { name: 'Ai nộp' }).click();
+await page.getByRole('tab', { name: 'Tổng kết' }).click();
 const tallyPath = `/admin/cohorts/${cohortId}/assignments/asg-course/tally`;
 const readsBeforeReturn = reads(tallyPath).length;
 await page.locator('.acs-tally-list article').filter({ hasText: 'An' }).getByRole('button', { name: 'Trả bài' }).click();
@@ -137,8 +139,8 @@ await page.getByText(/Đã trả bài. 1 câu đã được đưa lại/).waitFo
 const returnWriteIndex = requests.findIndex((item) => item.method === 'POST' && item.path.endsWith('/return/st-a'));
 const canonicalReadAfter = returnWriteIndex >= 0 && requests.slice(returnWriteIndex + 1).some((item) => item.method === 'GET' && item.path === tallyPath);
 check('trả bài reload canonical tally trước khi báo thành công', returned && reads(tallyPath).length > readsBeforeReturn && canonicalReadAfter);
-check('canonical tally sau trả không còn nhận là đã nộp', await page.getByText('0/ 2 đã nộp', { exact: true }).count() === 1 && await page.getByText('Chưa nộp', { exact: true }).count() >= 1);
-await page.getByRole('tab', { name: 'Chi tiết làm bài' }).click();
+check('canonical tally sau trả vẫn giữ outcome mastery', await page.getByText('Gần đạt · Revision', { exact: true }).count() >= 1 && await page.getByText(/chưa đạt không đồng nghĩa chưa nộp/i).count() === 1);
+await page.getByRole('tab', { name: 'Tiến độ lớp' }).click();
 check('trả bài xoá effort cache và đọc lại nguồn chuẩn', reads('/admin/quiz/banks/bank-2/attempt-report').length >= 2);
 check('không có write ngoài contract', unexpectedWrites.length === 0, unexpectedWrites.join(', '));
 check('không có lỗi JS', pageErrors.length === 0, pageErrors.join(' | '));
