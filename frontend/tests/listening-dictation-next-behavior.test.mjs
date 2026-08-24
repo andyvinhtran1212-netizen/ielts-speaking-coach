@@ -106,11 +106,11 @@ describe('native Listening Dictation model', () => {
 });
 
 describe('native Listening Dictation ownership', () => {
-  test('dark route is ready but admission remains on legacy until Gate E', () => {
+  test('stable Next route owns fresh admission after the core cutover', () => {
     const policy = CORE_PLAYER_AFFINITY_POLICY.surfaces.listening_dictation;
     assert.equal(policy.next.path, '/listening/dictation/session');
     assert.equal(policy.next.route_ready, true);
-    assert.equal(policy.admit_new, 'legacy');
+    assert.equal(policy.admit_new, 'next');
   });
 
   test('renders authored content through React and owns the full workflow', () => {

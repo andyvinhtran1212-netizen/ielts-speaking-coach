@@ -132,19 +132,19 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
     const pairs = [
       [
         '/core-player/launch?surface=speaking&session_id=session+1',
-        '/pages/practice.html?session_id=session+1',
+        '/practice/session?session_id=session+1',
       ],
       [
         '/core-player/launch?from=full&class_item=homework-1&surface=reading_exam&test_id=AVR-1',
-        '/pages/reading-exam.html?test_id=AVR-1&from=full&class_item=homework-1',
+        '/reading/exam/session?test_id=AVR-1&from=full&class_item=homework-1',
       ],
       [
         '/core-player/launch?surface=listening_test&id=test-1&from=mini',
-        '/pages/listening-test.html?id=test-1&from=mini',
+        '/listening/test/session?id=test-1&from=mini',
       ],
       [
         '/core-player/launch?surface=listening_dictation&test_id=test-1&section=2',
-        '/pages/listening-test-dictation.html?test_id=test-1&section=2',
+        '/listening/dictation/session?test_id=test-1&section=2',
       ],
     ];
     for (const [launcher, admittedPlayer] of pairs) {
