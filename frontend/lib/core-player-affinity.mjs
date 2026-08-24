@@ -1,4 +1,4 @@
-// Gate E active-session policy.
+// Core-player active-session policy.
 //
 // An implementation-specific PATH is the affinity key. Query flags are not:
 // they are forgeable, easy to drop and cannot make a same-path deployment
@@ -10,45 +10,80 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
   strategy_id: 'stable-player-url-admission-switch-v1',
   surfaces: Object.freeze({
     speaking: Object.freeze({
-      admit_new: 'legacy',
+      // Floor e96c2cd and cutover 1398c50 were verified separately. This
+      // descendant now admits fresh sessions to Next; claimed sessions keep
+      // their stable implementation URL, including the Legacy rollback path.
+      admit_new: 'next',
       identity_query_any_of: Object.freeze(['session_id']),
       allowed_query: Object.freeze(['session_id']),
       legacy: Object.freeze({ path: '/pages/practice.html', route_ready: true }),
-      // Dark-route floor only. New attempts remain on Legacy until the live
-      // coexistence drill and real Safari/iOS evidence pass in later releases.
+      // The Next implementation was established and drilled in separate
+      // floor/cutover/rollback releases before becoming the canonical target.
       next: Object.freeze({ path: '/practice/session', route_ready: true }),
     }),
     reading_exam: Object.freeze({
-      admit_new: 'legacy',
+      // Reading coexistence floor 7a6bdb9 (run 32060549833 attempt 3) proved
+      // canonical Legacy + dark Next affinity. Cutover run 32072244886 attempt
+      // 2 proved new Next admission on 0599a8f with matching staging
+      // provenance and a subsequent rollback. This descendant admits fresh
+      // attempts to Next while claimed attempts stay sticky.
+      admit_new: 'next',
       identity_query_any_of: Object.freeze(['test_id', 'share']),
       allowed_query: Object.freeze([
         'test_id', 'share', 'sitting_id', 'mock_embed', 'from', 'class_item',
       ]),
       legacy: Object.freeze({ path: '/pages/reading-exam.html', route_ready: true }),
-      // Native App Router player exists as a dark route. Admission stays
-      // legacy until Gate E's Reading failure matrix and coexistence drill pass.
+      // Native App Router owns fresh attempts. The stable Legacy path remains
+      // available only for attempts that claimed it before cutover.
       next: Object.freeze({ path: '/reading/exam/session', route_ready: true }),
     }),
     listening_test: Object.freeze({
-      admit_new: 'legacy',
+      // Listening coexistence floor eacba4f (run 32084645112 attempt 2)
+      // proved canonical Legacy + dark Next affinity. Cutover run 32093601359
+      // attempt 2 proved new Next admission on 1328db32 with matching staging
+      // provenance and a subsequent rollback. This descendant admits fresh
+      // attempts to Next while claimed attempts stay sticky.
+      admit_new: 'next',
       identity_query_any_of: Object.freeze(['id']),
       allowed_query: Object.freeze(['id', 'sitting_id', 'mock_embed', 'from', 'class_item']),
       legacy: Object.freeze({ path: '/pages/listening-test.html', route_ready: true }),
-      // Native App Router player is dark-ready. Admission stays legacy until
-      // the Listening Gate E failure matrix and coexistence drill pass.
+      // Native App Router owns fresh attempts. The stable Legacy path remains
+      // available only for attempts that claimed it before cutover.
       next: Object.freeze({ path: '/listening/test/session', route_ready: true }),
     }),
     listening_dictation: Object.freeze({
-      admit_new: 'legacy',
+      // Dictation coexistence floor 4ae5106 (run 32103908150 attempt 2)
+      // proved canonical Legacy + dark Next affinity. Cutover run 32106478117
+      // attempt 2 proved new Next admission on e30f489 with matching staging
+      // provenance and a subsequent rollback. This descendant admits fresh
+      // attempts to Next while claimed attempts stay sticky.
+      admit_new: 'next',
       identity_query_any_of: Object.freeze(['test_id']),
       allowed_query: Object.freeze(['test_id', 'section']),
       legacy: Object.freeze({ path: '/pages/listening-test-dictation.html', route_ready: true }),
-      // Native App Router player owns the complete dark-route flow, including
-      // durable completion reconciliation. Admission stays legacy until its
-      // Gate E browser/failure matrix passes.
+      // Native App Router owns the complete flow, including durable completion
+      // reconciliation. Legacy remains available for persisted affinity.
       next: Object.freeze({ path: '/listening/dictation/session', route_ready: true }),
     }),
+    writing_assignment: Object.freeze({
+      // Writing dashboard admission was already Next-canonical before Gate E
+      // affinity existed. Preserve that product behavior while the per-
+      // assignment claim makes direct Legacy rollback URLs sticky and safe.
+      admit_new: 'next',
+      identity_query_any_of: Object.freeze(['assignment_id']),
+      allowed_query: Object.freeze(['assignment_id']),
+      legacy: Object.freeze({ path: '/pages/writing-dashboard.html', route_ready: true }),
+      next: Object.freeze({ path: '/writing/dashboard', route_ready: true }),
+    }),
   }),
+});
+
+// A future staging-only drill must not alter the default production policy.
+// Any override is activated only for Vercel's exact preview deployment of the
+// `staging` branch; every other environment uses canonical `admit_new` above.
+export const STAGING_CORE_PLAYER_ADMISSION_OVERRIDES = Object.freeze({
+  // No active override after the Writing forward restore. Keep this
+  // deployment-scoped hook so later staged cutovers cannot alter production.
 });
 
 const IMPLEMENTATIONS = new Set(['legacy', 'next']);
@@ -57,6 +92,7 @@ const REQUIRED_SURFACES = Object.freeze([
   'reading_exam',
   'listening_test',
   'listening_dictation',
+  'writing_assignment',
 ]);
 const RUNTIME_ADMISSION_PATH = '/core-player/launch';
 
@@ -67,6 +103,17 @@ function surfacePolicy(surface, policy) {
     : null;
   if (!found) throw new Error(`unknown-core-player-surface:${surface}`);
   return found;
+}
+
+export function corePlayerAdmissionForDeployment(
+  surface,
+  { vercelEnv = '', gitRef = '' } = {},
+  policy = CORE_PLAYER_AFFINITY_POLICY,
+) {
+  const config = surfacePolicy(surface, policy);
+  const override = STAGING_CORE_PLAYER_ADMISSION_OVERRIDES[surface];
+  if (vercelEnv === 'preview' && gitRef === 'staging' && override) return override;
+  return config.admit_new;
 }
 
 function scalarQueryValue(value, key) {
@@ -173,11 +220,7 @@ export function resolveCorePlayerAdmission(
   return corePlayerUrl(surface, config.admit_new, query, policy);
 }
 
-/** Parse and resolve the exact query-string contract accepted by the runtime route. */
-export function resolveCorePlayerAdmissionFromParams(
-  searchParams,
-  policy = CORE_PLAYER_AFFINITY_POLICY,
-) {
+function parseCorePlayerAdmissionParams(searchParams) {
   const entries = [...searchParams.entries()];
   const seen = new Set();
   const hasDuplicate = entries.some(([key]) => {
@@ -189,9 +232,36 @@ export function resolveCorePlayerAdmissionFromParams(
   if (hasDuplicate || surfaces.length !== 1) {
     throw new Error('invalid-core-player-admission-query');
   }
+  return {
+    surface: surfaces[0],
+    query: Object.fromEntries(entries.filter(([key]) => key !== 'surface')),
+  };
+}
+
+/** Parse and resolve the exact query-string contract accepted by the runtime route. */
+export function resolveCorePlayerAdmissionFromParams(
+  searchParams,
+  policy = CORE_PLAYER_AFFINITY_POLICY,
+) {
+  const { surface, query } = parseCorePlayerAdmissionParams(searchParams);
   return resolveCorePlayerAdmission(
-    surfaces[0],
-    Object.fromEntries(entries.filter(([key]) => key !== 'surface')),
+    surface,
+    query,
+    policy,
+  );
+}
+
+/** Resolve a deployment-scoped override without mutating the default policy. */
+export function resolveCorePlayerAdmissionFromParamsForDeployment(
+  searchParams,
+  deployment,
+  policy = CORE_PLAYER_AFFINITY_POLICY,
+) {
+  const { surface, query } = parseCorePlayerAdmissionParams(searchParams);
+  return corePlayerUrl(
+    surface,
+    corePlayerAdmissionForDeployment(surface, deployment, policy),
+    query,
     policy,
   );
 }

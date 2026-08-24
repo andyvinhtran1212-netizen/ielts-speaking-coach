@@ -92,6 +92,14 @@ jobs:
           GATE_E_PREVIOUS_NEXT_SESSION_ID: ${{ inputs.previous_next_session_id }}
         run: node tooling/validate-gate-e-speaking-coexistence-handoff.mjs
 
+      - name: Preserve verified preflight evidence
+        env:
+          EVIDENCE_DIR: ${{ runner.temp }}/gate-e-speaking-preflight
+        run: |
+          mkdir -p "$EVIDENCE_DIR"
+          cp frontend/test-results/gate-e-speaking-coexistence-lineage.json "$EVIDENCE_DIR/"
+          cp frontend/test-results/gate-e-speaking-coexistence-handoff.json "$EVIDENCE_DIR/"
+
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
@@ -129,6 +137,18 @@ jobs:
           GATE_E_PROVENANCE_REQUIRED: 'true'
         run: node tooling/capture-gate-e-staging-provenance.mjs
 
+      - name: Verify complete phase evidence bundle
+        if: always()
+        env:
+          EVIDENCE_DIR: ${{ runner.temp }}/gate-e-speaking-preflight
+        run: |
+          test -f frontend/tooling/gate-e-speaking-coexistence-drill.json
+          test -f frontend/test-results/gate-e-speaking-coexistence-evidence.json
+          test -f frontend/test-results/gate-e-speaking-coexistence-results.json
+          test -f "$EVIDENCE_DIR/gate-e-speaking-coexistence-lineage.json"
+          test -f "$EVIDENCE_DIR/gate-e-speaking-coexistence-handoff.json"
+          test -f frontend/test-results/gate-e-staging-provenance.json
+
       - name: Upload phase evidence
         if: always()
         uses: actions/upload-artifact@v6
@@ -138,8 +158,8 @@ jobs:
             frontend/tooling/gate-e-speaking-coexistence-drill.json
             frontend/test-results/gate-e-speaking-coexistence-evidence.json
             frontend/test-results/gate-e-speaking-coexistence-results.json
-            frontend/test-results/gate-e-speaking-coexistence-lineage.json
-            frontend/test-results/gate-e-speaking-coexistence-handoff.json
+            ${{ runner.temp }}/gate-e-speaking-preflight/gate-e-speaking-coexistence-lineage.json
+            ${{ runner.temp }}/gate-e-speaking-preflight/gate-e-speaking-coexistence-handoff.json
             frontend/test-results/gate-e-staging-provenance.json
           if-no-files-found: error
           retention-days: 30

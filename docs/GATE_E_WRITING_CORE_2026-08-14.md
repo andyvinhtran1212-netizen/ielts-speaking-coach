@@ -1,6 +1,8 @@
 # Gate E — Writing submission failure matrix
 
-Ngày khóa contract: **2026-08-14**.
+Ngày khóa contract ban đầu: **2026-08-14**. Affinity contract được version lại
+ngày **2026-08-18**; thay đổi frozen-suite hash này bắt buộc khởi động lại
+candidate clean streak từ run staging đầu tiên sau merge.
 
 ## Phạm vi và kết luận
 
@@ -51,6 +53,27 @@ Readback không schedule job, không trust essay id từ client và chỉ trả 
 của student hiện tại. Payload khác nhưng dùng lại request UUID trả `409`.
 Flagged submit cũng dùng cùng contract và replay đúng thông điệp moderation.
 
+Migration `221_writing_assignment_renderer_affinity.sql` bổ sung affinity
+`legacy|next` nullable, không default/backfill lịch sử vì Writing đã Next-canonical
+trong lúc Legacy rollback URL vẫn còn sống. Renderer đầu tiên claim nguyên tử
+trên assignment đang `pending|in_progress`; cả hai dashboard claim trước `/start`
+và redirect về affinity canonical nếu mở nhầm stack. Assignment mới vẫn admit
+vào Next để giữ hành vi sản phẩm hiện tại; thay đổi này chỉ chuẩn bị staging
+coexistence/rollback, không đổi production deployment.
+
+Live coexistence runner dùng chuỗi phù hợp với trạng thái sản phẩm hiện tại:
+`floor (Next) → rollback override (Legacy) → restore (Next)`. Mỗi phase tạo một
+assignment mới qua canonical admin API, lưu draft qua chính player đang được
+admit, đọc lại canonical affinity/draft và mở lại assignment phase trước bằng
+stable URL. Floor còn mở một assignment mới trực tiếp bằng Legacy URL để chứng
+minh first claim `NULL → legacy`. Runner bind phase sau vào successful artifact,
+assignment UUID và descendant SHA của phase trước; evidence không chứa access
+token. Ba workflow run đã pass với matching frontend/backend staging
+provenance: floor `32121670793` attempt 3 trên
+`fe9000fdfa4e6c5d801ce8c13b7f1723a23455a4`, rollback `32126575888` attempt 2
+trên `c800dfedf4c2f5faa921b8230aadfd60d98059b7` và restore `32128868942` attempt
+2 trên `b07e8325edc3854e1dbd0f2702f32e4108577839`.
+
 ## Bốn failure path được đóng băng
 
 1. `writing-core-player-ambiguous-commit`: fixture commit essay + job rồi abort
@@ -59,8 +82,9 @@ Flagged submit cũng dùng cùng contract và replay đúng thông điệp moder
    422; submit vẫn dùng toàn bộ exact in-memory text, không chấm draft cũ.
 3. `writing-core-player-reload-resume`: reload khôi phục canonical draft và cùng
    `started_at`.
-4. `writing-bidirectional-cross-version-core-player`: Legacy lưu → Next khôi
-   phục/lưu → Legacy khôi phục cùng canonical draft.
+4. `writing-bidirectional-cross-version-core-player`: Legacy claim + lưu; direct
+   Next deep-link bị redirect về Legacy affinity rồi tiếp tục đúng canonical
+   draft. Reload/copy URL không đổi renderer giữa attempt.
 
 Mọi path fail nếu có production egress hoặc uncaught browser error.
 
@@ -72,11 +96,18 @@ Mọi path fail nếu có production egress hoặc uncaught browser error.
 - Manifest/pins: `verify-gate-e-writing-device-matrix.mjs`.
 - Semantic evidence: exact 12 tests/3 projects/four titles, zero
   skip/fail/flake và complete embedded Playwright ZIP.
+- Affinity/backend drain: 38 targeted tests pass; Gate F đếm cả assignment
+  `pending` hoặc `in_progress` đã pin Legacy, kể cả claim thành công nhưng
+  `/start` bị gián đoạn. Assignment `in_progress` còn affinity `NULL` từ client
+  N−1 cũng fail closed thành blocker; `pending + NULL` không bị tính vì có thể
+  chỉ là bài được giao nhưng chưa từng mở.
 - CI chạy Writing matrix + verifier trước metadata/ledger; suite/verifier đỏ
   đặt `GATE_E_RUN_OUTCOME=failure`.
 
 `frontend/tooling/gate-e-critical-suite.json` chuyển
 `failure_injection.status=complete` sau khi Speaking live-staging journey chứng
 minh commit-then-response-loss được canonical GET reconcile mà không replay.
-Gate E vẫn còn thiếu Safari/iOS thật, active-session drill và 20 consecutive
-clean runs.
+Tại checkpoint 14/08, Gate E còn thiếu Safari/iOS thật và trusted run
+`32136607306` là candidate 1/20 của frozen manifest khi đó. Trạng thái này đã
+được supersede ngày 19/08: real-device evidence đã COMPLETE, manifest đổi sang
+critical-suite v8 và qualifying streak bắt buộc reset về **0/20**.

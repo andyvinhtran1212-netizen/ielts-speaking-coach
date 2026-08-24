@@ -4,8 +4,8 @@ import logging
 import math
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional
-from uuid import UUID
+from typing import Literal, Optional
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Header, Query
 from pydantic import BaseModel, field_validator
@@ -30,6 +30,10 @@ from services.access_code_permissions import (
     has_permission,
 )
 from services.retention import compute_expiry, content_purge_cutoff, should_touch
+from services.active_player_lifecycle import (
+    is_active_player_expired_error,
+    require_resume_active,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +217,12 @@ class CreateSessionBody(BaseModel):
     # second daily slot. Linked class/mock creates keep their established path
     # until their post-create hooks can report replay state explicitly.
     client_session_id: UUID | None = None
+    # Capability marker added with migration 216. Browsers that do not send it
+    # are N-1 and must be pinned Legacy at INSERT time; current players send
+    # claim-v1 and receive an unclaimed row which their stable player claims
+    # before any canonical read/write.
+    renderer_affinity_protocol: Literal["claim-v1"] | None = None
+
     @field_validator("mode")
     @classmethod
     def validate_mode(cls, v):
@@ -243,6 +253,10 @@ class CreateSessionBody(BaseModel):
         if not session_id:
             raise ValueError("previous_session_id không được để trống")
         return session_id
+
+
+class ClaimRendererAffinityBody(BaseModel):
+    renderer_affinity: Literal["legacy", "next"]
 
 
 class FinalizeFullTestBody(BaseModel):
@@ -329,7 +343,10 @@ def _resolve_full_test_attempt_id(user_id: str, body: CreateSessionBody) -> str 
     try:
         result = (
             supabase_admin.table("sessions")
-            .select("id, mode, part, status, full_test_attempt_id")
+            .select(
+                "id, mode, part, status, full_test_attempt_id, "
+                "resume_expires_at"
+            )
             .eq("id", previous_id)
             .eq("user_id", user_id)
             .limit(1)
@@ -349,6 +366,7 @@ def _resolve_full_test_attempt_id(user_id: str, body: CreateSessionBody) -> str 
             400,
             f"Session trước đó không phải Full Test Part {body.part - 1} đang làm",
         )
+    require_resume_active(row)
     attempt_id = str(row.get("full_test_attempt_id") or "").strip()
     if not attempt_id:
         raise HTTPException(
@@ -378,6 +396,7 @@ def _session_create_payload(session: dict) -> dict:
         "topic": session["topic"],
         "started_at": session["started_at"],
         "status": session["status"],
+        "resume_expires_at": session.get("resume_expires_at"),
         "full_test_attempt_id": session.get("full_test_attempt_id"),
     }
 
@@ -400,7 +419,7 @@ def _find_replayable_full_test_part(
             supabase_admin.table("sessions")
             .select(
                 "id, mode, part, topic, started_at, status, sitting_id, "
-                "class_assignment_item_id, full_test_attempt_id"
+                "class_assignment_item_id, full_test_attempt_id, resume_expires_at"
             )
             .eq("user_id", user_id)
             .eq("full_test_attempt_id", attempt_id)
@@ -417,6 +436,7 @@ def _find_replayable_full_test_part(
     if len(rows) != 1:
         raise HTTPException(409, "Full Test có nhiều session cho cùng một Part")
     session = rows[0]
+    require_resume_active(session)
     sitting_matches = session.get("sitting_id") in {None, body.sitting_id}
     payload_matches = (
         session.get("mode") == "test_full"
@@ -567,10 +587,15 @@ async def create_session(
     # lock, so concurrent POST /sessions can't both slip under the daily cap.
     # Admins bypass the cap via an effectively-unlimited ceiling.
     max_daily = 2_000_000_000 if is_admin else settings.MAX_SESSIONS_PER_USER_PER_DAY
+    affinity_aware = body.renderer_affinity_protocol == "claim-v1"
     rpc_name = (
-        "fn_create_session_daily_capped_v2"
-        if body.client_session_id
-        else "fn_create_session_daily_capped"
+        "fn_create_session_daily_capped_v3"
+        if affinity_aware
+        else (
+            "fn_create_session_daily_capped_v2"
+            if body.client_session_id
+            else "fn_create_session_daily_capped"
+        )
     )
     rpc_params = {
         "p_user_id":   user_id,
@@ -580,7 +605,13 @@ async def create_session(
         "p_day_start": today_start,
         "p_max_daily": max_daily,
     }
-    if body.client_session_id:
+    if affinity_aware:
+        # v3 explicitly inserts NULL. Migration 216 gives every legacy/v1/v2
+        # insert a database default of Legacy, including requests handled by an
+        # N-1 backend instance during a rolling deployment.
+        rpc_params["p_session_id"] = str(body.client_session_id or uuid4())
+        rpc_params["p_renderer_affinity"] = None
+    elif body.client_session_id:
         rpc_params["p_session_id"] = str(body.client_session_id)
 
     try:
@@ -927,6 +958,46 @@ async def get_session_stats(
 
 
 # ── GET /sessions/{session_id} ─────────────────────────────────────────────────
+
+@router.post("/{session_id}/renderer-affinity")
+async def claim_renderer_affinity(
+    session_id: UUID,
+    body: ClaimRendererAffinityBody,
+    authorization: str | None = Header(default=None),
+):
+    """Claim the stable renderer on first player boot; never move it later."""
+    auth_user = await get_supabase_user(authorization)
+    try:
+        result = supabase_admin.rpc(
+            "fn_claim_session_renderer_affinity",
+            {
+                "p_session_id": str(session_id),
+                "p_user_id": auth_user["id"],
+                "p_renderer_affinity": body.renderer_affinity,
+            },
+        ).execute()
+    except Exception as exc:
+        logger.error(
+            "[renderer-affinity] claim failed session=%s renderer=%s: %s",
+            session_id,
+            body.renderer_affinity,
+            exc,
+        )
+        if is_active_player_expired_error(exc):
+            raise HTTPException(
+                410,
+                "Phiên làm bài đã hết thời gian tiếp tục. Dữ liệu cũ vẫn được lưu; "
+                "hãy bắt đầu một phiên mới.",
+            ) from exc
+        raise HTTPException(500, "Không thể xác nhận phiên bản player. Hãy tải lại trang.")
+
+    rows = result.data or []
+    if len(rows) != 1:
+        raise HTTPException(404, "Session không tồn tại")
+    affinity = rows[0].get("renderer_affinity")
+    if affinity not in {"legacy", "next"}:
+        raise HTTPException(500, "Session chưa có renderer hợp lệ")
+    return {"session_id": str(session_id), "renderer_affinity": affinity}
 
 @router.get("/{session_id}")
 async def get_session(
@@ -1750,7 +1821,10 @@ async def finalize_full_test(
     try:
         s_res = (
             supabase_admin.table("sessions")
-            .select("id, mode, part, sitting_id, full_test_attempt_id")
+            .select(
+                "id, mode, part, status, sitting_id, full_test_attempt_id, "
+                "resume_expires_at"
+            )
             .in_("id", all_ids)
             .eq("user_id", user_id)
             .execute()
@@ -1764,6 +1838,21 @@ async def finalize_full_test(
         raise HTTPException(404, f"Session(s) không tồn tại hoặc không có quyền: {missing}")
 
     _validate_full_test_chain(all_ids, s_res.data or [])
+
+    # The request can spend time validating the 9/1/5 question set before the
+    # terminal write below.  Reject an already-expired open part now for a
+    # useful 410; migration 224's parent trigger repeats this check inside the
+    # final UPDATE so an N-1 instance or a request crossing the exact deadline
+    # still cannot submit after the hard TTL.
+    for session in s_res.data or []:
+        status = session.get("status")
+        if status == "in_progress":
+            require_resume_active(session)
+        elif status != "submitted":
+            raise HTTPException(
+                409,
+                f"Full Test part đã đổi trạng thái thành '{status}'. Hãy tải lại.",
+            )
 
     # Question rows are immutable once answers start. Reject an old/corrupted
     # short set immediately instead of accepting it, waiting 210 seconds and
@@ -1779,11 +1868,31 @@ async def finalize_full_test(
         raise HTTPException(500, f"Lỗi khi kiểm tra bộ câu hỏi Full Test: {e}")
     _validate_full_test_question_counts(all_ids, q_res.data or [])
 
-    # Mark all sessions 'submitted' immediately — history shows "Đang phân tích"
+    # Mark all sessions 'submitted' immediately — history shows "Đang phân tích".
+    # This must be fatal on failure: returning accepted=true after no terminal
+    # write would schedule a background finalizer for an unsubmitted/expired
+    # player and make the client believe the hand-in was durable.
     try:
-        supabase_admin.table("sessions").update({"status": "submitted"}).in_("id", all_ids).execute()
+        submitted = (
+            supabase_admin.table("sessions")
+            .update({"status": "submitted"})
+            .in_("id", all_ids)
+            .execute()
+        )
     except Exception as e:
-        logger.warning("[finalize_ft] failed to mark submitted (non-fatal): %s", e)
+        if is_active_player_expired_error(e):
+            raise HTTPException(410, "Full Test đã hết thời gian tiếp tục.") from e
+        if "active_player_state_conflict" in str(e):
+            raise HTTPException(409, "Full Test đã đổi trạng thái; hãy tải lại.") from e
+        logger.error("[finalize_ft] failed to mark submitted: %s", e)
+        raise HTTPException(500, "Không thể ghi nhận nộp Full Test.") from e
+
+    if len(submitted.data or []) != len(all_ids):
+        logger.error(
+            "[finalize_ft] submitted row-count mismatch expected=%s actual=%s ids=%s",
+            len(all_ids), len(submitted.data or []), all_ids,
+        )
+        raise HTTPException(409, "Full Test đã đổi trạng thái; hãy tải lại.")
 
     # Schedule the background aggregation — browser can safely close after this returns
     background_tasks.add_task(_bg_finalize_full_test, all_ids)
@@ -1902,6 +2011,11 @@ async def complete_session(
 
     session = s_result.data[0]
 
+    # A completed row stays idempotently readable/completable.  Only a still-
+    # open player mutation is bounded by the hard resume TTL.
+    if session.get("status") == "in_progress":
+        require_resume_active(session)
+
     if session["status"] == "completed" and session.get("overall_band") is not None:
         # Idempotent: already done with a valid band — return current state.
         # The ledger write is retried here on purpose: if it failed the first
@@ -1984,14 +2098,41 @@ async def complete_session(
         update_payload["completed_at"] = datetime.now(timezone.utc).isoformat()
 
     try:
-        result = (
+        update_query = (
             supabase_admin.table("sessions")
             .update(update_payload)
             .eq("id", session_id)
-            .execute()
         )
+        if session.get("status") == "in_progress":
+            # Band aggregation can cross the hard resume deadline. Bind the
+            # deadline and status to the same statement that finalizes the row.
+            update_query = (
+                update_query
+                .eq("status", "in_progress")
+                .gt("resume_expires_at", datetime.now(timezone.utc).isoformat())
+            )
+        result = update_query.execute()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Không thể hoàn thành session: {e}")
+
+    if not result.data:
+        fresh_result = (
+            supabase_admin.table("sessions")
+            .select("*")
+            .eq("id", session_id)
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if not fresh_result.data:
+            raise HTTPException(status_code=404, detail="Session không tồn tại")
+        fresh = fresh_result.data[0]
+        if fresh.get("status") == "completed":
+            _record_class_submission(fresh)
+            return {**fresh, "session_id": fresh["id"]}
+        if fresh.get("status") == "in_progress":
+            require_resume_active(fresh)
+        raise HTTPException(409, "Session đã thay đổi; hãy tải lại trạng thái.")
 
     completed = result.data[0]
     _record_class_submission(completed)

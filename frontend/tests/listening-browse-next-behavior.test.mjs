@@ -31,7 +31,7 @@ describe('/listening/browse — native React behavior', () => {
     assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
     assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
     assert.match(BEHAVIOR, /if \(!accountKey\)/);
-    assert.match(BEHAVIOR, /\[accountKey, filters\]/);
+    assert.match(BEHAVIOR, /\[accountKey, filters, offset, retryKey\]/);
   });
 
   test('keeps all three controlled canonical filters', () => {
@@ -45,13 +45,16 @@ describe('/listening/browse — native React behavior', () => {
   });
 
   test('pages the content endpoint and aborts stale filter/account requests', () => {
+    assert.match(BEHAVIOR, /const PAGE_LIMIT = 24/);
     assert.match(BEHAVIOR, /`\/api\/listening\/content\?\$\{query\.toString\(\)\}`/);
     assert.match(BEHAVIOR, /query\.set\('limit', String\(PAGE_LIMIT\)\)/);
     assert.match(BEHAVIOR, /query\.set\('offset', String\(offset\)\)/);
     assert.match(BEHAVIOR, /window\.api\.getWith<unknown>/);
-    assert.match(BEHAVIOR, /if \(pageItems\.length < PAGE_LIMIT\) return all/);
-    assert.match(BEHAVIOR, /Danh sách vượt \$\{MAX_PAGES \* PAGE_LIMIT\} mục/);
-    assert.match(BEHAVIOR, /fetchAllContent\(filters, controller\.signal\)/);
+    assert.match(BEHAVIOR, /fetchContentPage\(filters, offset, controller\.signal\)/);
+    assert.match(BEHAVIOR, /setOffset\(\(current\) => current \+ PAGE_LIMIT\)/);
+    assert.match(BEHAVIOR, /Xem thêm \(\$\{shown\}\/\$\{state\.total\}\)/);
+    assert.match(BEHAVIOR, /Các bài đã tải vẫn được giữ lại/);
+    assert.match(BEHAVIOR, /setRetryKey\(\(current\) => current \+ 1\)/);
     assert.match(BEHAVIOR, /\{ signal \}/);
     assert.match(BEHAVIOR, /controller\.abort\(\)/);
   });
@@ -67,13 +70,14 @@ describe('/listening/browse — native React behavior', () => {
 
   test('distinguishes lookup failure, genuine no-mode and list failure', () => {
     assert.match(BEHAVIOR, /Array\.isArray\(raw\.available_modes\)[\s\S]*: null/);
-    assert.match(BEHAVIOR, /⚠ Không đọc được danh sách dạng luyện/);
+    assert.match(BEHAVIOR, /Chưa đồng bộ được dạng luyện/);
     assert.match(BEHAVIOR, /Chưa có dạng luyện nào cho bài này/);
     assert.match(BEHAVIOR, /Không tải được danh sách bài nghe\. Vui lòng thử lại\./);
     assert.match(BEHAVIOR, /Chưa có bài nghe nào khớp bộ lọc\./);
     assert.match(BEHAVIOR, /id="state-loading" role="status"/);
     assert.match(BEHAVIOR, /id="state-empty" role="status"/);
     assert.match(BEHAVIOR, /id="state-error" role="alert"/);
+    assert.match(BEHAVIOR, /state\.status === 'error'[\s\S]*setRetryKey\(\(current\) => current \+ 1\)/);
     assert.doesNotMatch(BEHAVIOR, /caught instanceof Error[\s\S]*caught\.message|String\(caught\)/);
   });
 
@@ -82,7 +86,7 @@ describe('/listening/browse — native React behavior', () => {
     assert.match(BEHAVIOR, /<div className="desc">\{item\.description\}<\/div>/);
     assert.match(BEHAVIOR, /meta-pill is-brand/);
     assert.match(BEHAVIOR, /Section \{item\.section\}/);
-    assert.match(BEHAVIOR, /\{item\.minutes\}p/);
+    assert.match(BEHAVIOR, /\{item\.minutes\} phút/);
     assert.doesNotMatch(BEHAVIOR, /innerHTML|dangerouslySetInnerHTML|__html|eval\(/);
   });
 

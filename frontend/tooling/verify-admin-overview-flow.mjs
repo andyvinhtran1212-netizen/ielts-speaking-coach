@@ -66,7 +66,7 @@ const overviewPayload = {
       skill: 'speaking',
       action: 'Hoàn thành buổi Speaking',
       score: 6.5,
-      link: '/pages/result.html?session_id=fixture',
+      link: '/result?session_id=fixture',
     },
   ],
   generated_at: '2026-08-12T01:02:03Z',
@@ -198,7 +198,7 @@ check('link không an toàn bị hạ thành row tĩnh',
   await page.locator('.activity-row.is-static').count() === 1
     && await page.locator('.activity-row[href^="javascript:"]').count() === 0);
 check('đường dẫn nội bộ hợp lệ vẫn là link',
-  await page.locator('a.activity-row[href="/pages/result.html?session_id=fixture"]').count() === 1);
+  await page.locator('a.activity-row[href="/result?session_id=fixture"]').count() === 1);
 check('Listening hiển thị đúng tỷ lệ từ canonical payload',
   await page.getByText('75%', { exact: true }).count() === 1);
 check('Reading hiển thị đúng tỷ lệ và dẫn đến native hub',

@@ -84,7 +84,8 @@ describe('cohorts.html / states + CSS + nav', () => {
     assert.ok(!/#[0-9a-fA-F]{3,6}\b/.test(stripped), 'no hex literals');
     assert.ok(!/var\(--av-space-(5|7|9|10|11|13|14|15)\)/.test(css), 'no skipped 4px steps');
   });
-  test('chrome nav carries a cohorts subsection → cohorts.html', () => {
-    assert.match(chrome_js, /slug:\s*'cohorts'[\s\S]*?\/pages\/admin\/writing\/cohorts\.html/);
+  test('chrome nav carries cohorts to the canonical native route', () => {
+    assert.match(chrome_js, /slug:\s*'cohorts'[^\n]*href:\s*'\/admin\/writing\/cohorts'/);
+    assert.doesNotMatch(chrome_js, /slug:\s*'cohorts'[^\n]*\/pages\/admin\/writing\/cohorts\.html/);
   });
 });

@@ -63,7 +63,7 @@ export function WritingShell() {
           <div className="wd-error-box">
             <p className="wd-error-box__msg" id="error-message"></p>
             <a id="error-cta"
-               href="../index.html"
+               href="/home"
                className="inline-block text-teal-light underline hover:text-white transition">
               Quay về trang chủ
             </a>

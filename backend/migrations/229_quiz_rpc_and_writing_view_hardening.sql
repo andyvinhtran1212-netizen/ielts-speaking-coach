@@ -1,4 +1,4 @@
--- Migration: 219_quiz_rpc_and_writing_view_hardening.sql
+-- Migration: 229_quiz_rpc_and_writing_view_hardening.sql
 -- Mô tả: ghi lại hardening đang chạy trên production/staging để môi trường mới
 -- không dựng các RPC analytics với mutable search_path và không dựng view đọc
 -- Writing theo quyền owner.

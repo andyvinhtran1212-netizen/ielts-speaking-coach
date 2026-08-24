@@ -52,6 +52,7 @@ const DIFFICULTY_LABEL: Record<string, string> = {
   intermediate: 'Intermediate',
   advanced: 'Advanced',
 };
+const PAGE_SIZE = 24;
 
 function textValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -121,6 +122,10 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
   const [difficulty, setDifficulty] = useState('');
   const [skill, setSkill] = useState('');
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const [offset, setOffset] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     if (!accountKey) {
@@ -130,7 +135,9 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
 
     const controller = new AbortController();
     let disposed = false;
-    setState({ status: 'loading' });
+    if (offset === 0) setState({ status: 'loading' });
+    else setLoadingMore(true);
+    setLoadMoreError(false);
 
     (async () => {
       const ready = await whenGlobalReady(
@@ -138,14 +145,19 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
         'window.api (reading skill)',
       );
       if (!ready || disposed) {
-        if (!disposed) setState({ status: 'error' });
+        if (!disposed) {
+          if (offset > 0) setLoadMoreError(true);
+          else setState({ status: 'error' });
+          setLoadingMore(false);
+        }
         return;
       }
 
       const query = new URLSearchParams();
       if (difficulty) query.set('difficulty', difficulty);
       if (skill) query.set('skill', skill);
-      query.set('limit', '50');
+      query.set('limit', String(PAGE_SIZE));
+      query.set('offset', String(offset));
 
       try {
         const payload = await window.api.getWith<unknown>(
@@ -155,10 +167,18 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
         );
         if (disposed) return;
         const exercises = normalizeExercises(payload);
-        setState({ status: 'ready', exercises, total: normalizeTotal(payload, exercises.length) });
+        setState((current) => {
+          const prior = offset > 0 && current.status === 'ready' ? current.exercises : [];
+          const merged = [...prior, ...exercises].filter((exercise, index, all) =>
+            all.findIndex((candidate) => candidate.slug === exercise.slug) === index);
+          return { status: 'ready', exercises: merged, total: normalizeTotal(payload, offset + exercises.length) };
+        });
       } catch (caught: unknown) {
         if (disposed || (caught instanceof DOMException && caught.name === 'AbortError')) return;
-        setState({ status: 'error' });
+        if (offset > 0) setLoadMoreError(true);
+        else setState({ status: 'error' });
+      } finally {
+        if (!disposed) setLoadingMore(false);
       }
     })();
 
@@ -166,7 +186,7 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
       disposed = true;
       controller.abort();
     };
-  }, [accountKey, difficulty, skill]);
+  }, [accountKey, difficulty, skill, offset, retryToken]);
 
   const shown = state.status === 'ready' ? state.exercises.length : 0;
   const total = state.status === 'ready' ? state.total : null;
@@ -199,7 +219,7 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
               <select
                 id="filter-difficulty"
                 value={difficulty}
-                onChange={(event) => setDifficulty(event.target.value)}
+                onChange={(event) => { setDifficulty(event.target.value); setOffset(0); }}
               >
                 <option value="">Tất cả</option>
                 <option value="foundation">Foundation</option>
@@ -209,7 +229,7 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
             </label>
             <label>
               Kỹ năng
-              <select id="filter-skill" value={skill} onChange={(event) => setSkill(event.target.value)}>
+              <select id="filter-skill" value={skill} onChange={(event) => { setSkill(event.target.value); setOffset(0); }}>
                 <option value="">Tất cả</option>
                 <option value="skimming">Skimming</option>
                 <option value="scanning">Scanning</option>
@@ -229,6 +249,7 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
               onClick={() => {
                 setDifficulty('');
                 setSkill('');
+                setOffset(0);
               }}
             >
               Xóa lọc
@@ -246,7 +267,7 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
           <div className="rv-error" id="state-error">Không tải được thư viện. Vui lòng thử lại.</div>
         ) : null}
         {state.status === 'ready' && state.exercises.length ? (
-          <div className="rv-grid rv-grid--articles" id="rv-grid">
+          <><div className="rv-grid rv-grid--articles" id="rv-grid">
             {state.exercises.map((exercise) => {
               const difficulty = exercise.difficulty
                 ? DIFFICULTY_LABEL[exercise.difficulty] || exercise.difficulty
@@ -279,6 +300,20 @@ function ReadingSkillLibrary({ accountKey }: { accountKey: string | null }) {
               );
             })}
           </div>
+          {total !== null && shown < total ? (
+            <div className="rv-load-more">
+              {loadMoreError ? <p role="alert">Chưa tải được trang tiếp theo.</p> : null}
+              <button
+                type="button"
+                disabled={loadingMore}
+                onClick={() => loadMoreError
+                  ? setRetryToken((value) => value + 1)
+                  : setOffset((current) => current + PAGE_SIZE)}
+              >
+                {loadingMore ? 'Đang tải…' : loadMoreError ? 'Thử lại' : `Xem thêm (${shown}/${total})`}
+              </button>
+            </div>
+          ) : null}</>
         ) : null}
       </section>
     </ReadingSkillShell>

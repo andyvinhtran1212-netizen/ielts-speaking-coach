@@ -5,6 +5,15 @@
   text-align: center;
 }
 
+.exam-chrome { overflow-x: clip; }
+.lr-topbar,
+.exam-split,
+.lr-bottombar { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+.exam-split { grid-template-columns: minmax(0, var(--exam-split-left, 50%)) 6px minmax(0, 1fr); }
+.exam-passage,
+.lr-review-pane,
+.lr-review-header > div:first-child { min-width: 0; box-sizing: border-box; }
+
 .listening-review-next-error a {
   color: var(--exam-accent);
   font-weight: var(--av-fw-semibold);
@@ -23,8 +32,29 @@
   margin-bottom: 0;
 }
 
+.lr-summary { display: flex; gap: var(--av-space-2); }
+.lr-summary span { padding: 4px 10px; border-radius: var(--av-radius-pill); background: var(--exam-accent-soft); color: var(--exam-text-primary); }
+
+.exam-review-guide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--exam-border-default);
+  background: var(--exam-border-default);
+}
+
+.exam-review-guide span { display: flex; align-items: center; gap: var(--av-space-2); padding: 9px 11px; background: var(--exam-surface-card); color: var(--exam-text-secondary); font-size: var(--av-fs-xs); }
+.exam-review-guide b { display: grid; place-items: center; flex: 0 0 20px; width: 20px; height: 20px; border-radius: 50%; background: var(--exam-accent-soft); color: var(--exam-accent); }
+
 @media (max-width: 520px) {
   .lr-preview-banner {
     max-width: min(62vw, 280px);
   }
+  .lr-summary span:last-child { display: none; }
+  .exam-review-guide { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 820px) {
+  .exam-split { grid-template-columns: 1fr; }
 }

@@ -39,7 +39,7 @@ test('pins dry-run/commit identities and mutation ACKs', () => {
 test('preview rows and canonical share URL stay safe', () => {
   const rows = readingPreviewRows({ content_type: 'reading_full_test', test_id: 'T1', title: '<script>', total_questions: 40 });
   assert.ok(rows.some((row) => row.value === '<script>'));
-  assert.equal(canonicalReadingShareUrl('a b', { protocol: 'https:', hostname: 'averlearning.com.', port: '' }), 'https://www.averlearning.com/pages/reading-exam.html?share=a%20b');
+  assert.equal(canonicalReadingShareUrl('a b', { protocol: 'https:', hostname: 'averlearning.com.', port: '' }), 'https://www.averlearning.com/core-player/launch?surface=reading_exam&share=a%20b');
 });
 
 test('native route preserves admin gate, contracts, rollback and responsive layout', () => {
@@ -48,6 +48,9 @@ test('native route preserves admin gate, contracts, rollback and responsive layo
   assert.match(LAYOUT, /admin-reading-content-next\.css/);
   for (const contract of ['dry_run=true', 'dry_run=false', 'import-bundle', '/exam-only', '/lock', '/share', 'findCanonical']) assert.match(CLIENT, new RegExp(contract.replace('/', '\\/')));
   assert.match(CLIENT, /readingPreviewHref\(row\.slug\)/);
+  assert.match(CLIENT, /`\/reading\/vocab\/\$\{encodeURIComponent\(row\.slug\)\}`/);
+  assert.match(CLIENT, /`\/reading\/skill\/\$\{encodeURIComponent\(row\.slug\)\}`/);
+  assert.doesNotMatch(CLIENT, /pages\/(?:reading-vocab-passage|reading-skill-exercise)\.html/);
   assert.match(CLIENT, /normalizeDeleteAck/);
   assert.match(CSS, /@media\(max-width:900px\)/);
   assert.match(CSS, /@media\(prefers-reduced-motion:reduce\)/);

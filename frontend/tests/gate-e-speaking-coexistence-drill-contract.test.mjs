@@ -36,9 +36,14 @@ describe('Speaking coexistence drill contract', () => {
     assert.equal(MANIFEST.phases[1].required_previous_session, 'legacy_session_id');
     assert.equal(MANIFEST.phases[2].required_previous_session, 'next_session_id');
     assert.ok(!MANIFEST.required_evidence.includes('floor_dark_next_url'));
-    assert.deepEqual(MANIFEST.conditional_evidence.floor, ['floor_dark_next_url']);
+    assert.deepEqual(MANIFEST.conditional_evidence.floor, [
+      'floor_dark_next_url',
+      'floor_dark_next_session_id',
+      'floor_dark_next_affinity_before',
+      'floor_dark_next_affinity_after',
+    ]);
     assert.deepEqual(MANIFEST.conditional_evidence.rollback, ['rollback_mode']);
-    assert.match(MANIFEST.status, /artifacts-pending/);
+    assert.equal(MANIFEST.status, 'live-three-phase-artifacts-verified-gate-e-pending');
   });
 
   test('runner is serial, retry-free and checks deployed SHA before browser evidence', () => {
@@ -64,9 +69,16 @@ describe('Speaking coexistence drill contract', () => {
 
   test('each phase proves admission, old URL reload/copy and canonical backend truth', () => {
     assert.match(SPEC, /createThroughAdmission/);
+    assert.doesNotMatch(SPEC, /created\.(?:text|json)\(\)/);
+    assert.match(SPEC, /UUID\.test\(url\.searchParams\.get\('session_id'\)/);
+    assert.match(SPEC, /new URL\(page\.url\(\)\)\.searchParams\.get\('session_id'\)/);
+    assert.match(SPEC, /createdCanonical\.renderer_affinity\)\.toBe\([\s\S]*?PHASE === 'cutover' \? 'next' : 'legacy'/);
     assert.match(SPEC, /probeStableUrl/);
     assert.match(SPEC, /PHASE === 'floor'[\s\S]*?previousPath = created\.expectedPath/);
-    assert.match(SPEC, /probeStableUrl\(context, '\/practice\/session', created\.sessionId\)/);
+    assert.match(SPEC, /createUnclaimedSession/);
+    assert.match(SPEC, /renderer_affinity_protocol: 'claim-v1'/);
+    assert.match(SPEC, /floorDarkNextBefore\.renderer_affinity\)\.toBeNull\(\)/);
+    assert.match(SPEC, /floorDarkNextAfter\.renderer_affinity\)\.toBe\('next'\)/);
     assert.match(SPEC, /await tab\.reload\(\)/);
     assert.match(SPEC, /await copied\.goto\(exactUrl\)/);
     assert.match(SPEC, /canonicalSession/);
@@ -74,7 +86,7 @@ describe('Speaking coexistence drill contract', () => {
     assert.match(SPEC, /expect\(runtimeApiBase\)\.toBe\(STAGING_API\)/);
     assert.match(SPEC, /backend\.git_sha\)\.toBe\(SOURCE_SHA\)/);
     assert.match(SPEC, /backend\.git_branch\)\.toBe\('staging'\)/);
-    assert.match(SPEC, /PHASE === 'floor' \? \{ floor_dark_next_url: floorDarkNextUrl \} : \{\}/);
+    assert.match(SPEC, /PHASE === 'floor' \? \{[\s\S]*?floor_dark_next_url: floorDarkNextUrl,[\s\S]*?floor_dark_next_affinity_after: floorDarkNextAfter\.renderer_affinity/);
     assert.match(SPEC, /\/health\/runtime/);
     assert.match(SPEC, /reload_and_copy_url_passed:\s*true/);
   });
@@ -100,6 +112,15 @@ describe('Speaking coexistence drill contract', () => {
     assert.match(WORKFLOW, /E2E_PASSWORD: \$\{\{ secrets\.E2E_PASSWORD \}\}/);
     assert.match(WORKFLOW, /GATE_E_PROVENANCE_REQUIRED: 'true'/);
     assert.match(WORKFLOW, /Capture staging release provenance[\s\S]*?E2E_PASSWORD: \$\{\{ secrets\.E2E_PASSWORD \}\}/);
+    assert.match(WORKFLOW, /Preserve verified preflight evidence/);
+    assert.match(WORKFLOW, /runner\.temp \}\}\/gate-e-speaking-preflight/);
+    assert.match(WORKFLOW, /Verify complete phase evidence bundle\n\s+if: always\(\)/);
+    assert.match(WORKFLOW, /test -f "\$EVIDENCE_DIR\/gate-e-speaking-coexistence-lineage\.json"/);
+    assert.match(WORKFLOW, /test -f "\$EVIDENCE_DIR\/gate-e-speaking-coexistence-handoff\.json"/);
+    assert.ok(WORKFLOW.indexOf('Preserve verified preflight evidence') <
+      WORKFLOW.indexOf('npx playwright test -c playwright.speaking-coexistence.config.js'));
+    assert.ok(WORKFLOW.indexOf('Verify complete phase evidence bundle') <
+      WORKFLOW.indexOf('Upload phase evidence'));
     assert.match(WORKFLOW, /Upload phase evidence\n\s+if: always\(\)/);
     assert.match(WORKFLOW, /if-no-files-found: error/);
     assert.doesNotMatch(WORKFLOW, /playwright-report/);
@@ -209,9 +230,13 @@ describe('Speaking coexistence drill contract', () => {
     assert.match(HANDOFF, /git', \['merge-base', '--is-ancestor'/);
   });
 
-  test('docs keep the live drill pending until all real phase artifacts exist', () => {
+  test('docs record all real phase artifacts without overclaiming Gate E', () => {
     assert.match(DOC, /three-phase runner/i);
-    assert.match(DOC, /LIVE CORE DRILL PENDING/);
+    assert.match(DOC, /THREE-PHASE LIVE CORE DRILL PASSED/);
+    assert.match(DOC, /32043317793/);
+    assert.match(DOC, /32045284608/);
+    assert.match(DOC, /32047774312/);
+    assert.match(DOC, /rollback_mode=forward-revert/);
     assert.match(DOC, /không tuyên\s+bố Gate E PASS/);
   });
 });

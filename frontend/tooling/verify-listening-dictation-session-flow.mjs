@@ -20,7 +20,8 @@ await context.addInitScript(([key, value]) => {
   Object.defineProperty(globalThis.crypto, 'randomUUID', { configurable: true, value: undefined });
 }, [storageKey(SB), session]);
 const page = await context.newPage();
-const errors = []; const completionPosts = []; const receiptReads = [];
+const errors = []; const completionPosts = []; const receiptReads = []; const attemptWrites = [];
+const attemptId = '00000000-0000-0000-0000-000000000789';
 let canonical = null;
 let releaseCompletion;
 let markCompletionStarted;
@@ -40,9 +41,27 @@ await page.route('**/*', async (route) => {
       { section_num: 2, title: 'Section 2', cue_start: 7, sentences: ['A final sentence.'], timings: [], hints: [[]] },
     ],
   });
-  if (parsed.pathname === '/api/listening/tests/dictation/grade' && method === 'POST') {
-    const body = JSON.parse(request.postData() || '{}');
-    if (body.sentence_idx === 0) return json({ score: 1, is_correct: true, correct_words: 2, total_words: 2, diff: [{ op: 'match', actual: 'Hello' }, { op: 'match', actual: 'there.' }] });
+  if (parsed.pathname === '/api/listening/tests/test-1/dictation/attempts/in-progress' && method === 'GET') {
+    return json({ attempt: null });
+  }
+  if (parsed.pathname === '/api/listening/tests/test-1/dictation/attempts' && method === 'POST') {
+    attemptWrites.push(JSON.parse(request.postData() || '{}'));
+    return json({
+      attempt_id: attemptId, test_id: 'test-1', section_num: 1,
+      status: 'in_progress', renderer_affinity: null,
+      started_at: '2026-08-18T00:00:00Z', answers: [],
+      units: [
+        { text: 'Hello there.', start: 0, end: 3, hints: [] },
+        { text: 'The address is Brighton.', start: 3, end: 7, hints: ['Brighton'] },
+      ],
+    });
+  }
+  if (parsed.pathname === `/api/listening/tests/dictation/attempts/${attemptId}/renderer-affinity` && method === 'POST') {
+    return json({ attempt_id: attemptId, renderer_affinity: 'next' });
+  }
+  if (parsed.pathname.startsWith(`/api/listening/tests/dictation/attempts/${attemptId}/sentences/`) && method === 'POST') {
+    const sentenceIdx = Number(parsed.pathname.split('/').at(-1));
+    if (sentenceIdx === 0) return json({ score: 1, is_correct: true, correct_words: 2, total_words: 2, diff: [{ op: 'match', actual: 'Hello' }, { op: 'match', actual: 'there.' }] });
     return json({ score: .8, is_correct: false, correct_words: 4, total_words: 5, diff: [{ op: 'match', actual: 'The' }, { op: 'match', actual: 'address' }, { op: 'match', actual: 'is' }, { op: 'wrong', actual: 'bright', expected: 'Brighton.' }] });
   }
   if (parsed.pathname.startsWith('/api/listening/tests/dictation/session/by-request/') && method === 'GET') {
@@ -93,7 +112,8 @@ await completionStarted;
 releaseCompletion();
 await page.getByText('✓ Đã lưu & xác nhận', { exact: true }).waitFor();
 check('mất ACK được read-back tự động bằng đúng receipt', completionPosts.length === 1 && receiptReads.length >= 2 && canonical?.client_request_id === completionPosts[0].client_request_id);
-check('payload hoàn tất đủ coverage và receipt UUID', completionPosts[0].sentences.length === 2 && /^[0-9a-f-]{36}$/i.test(completionPosts[0].client_request_id));
+check('attempt mới claim Next trước khi làm bài', attemptWrites.length === 1 && attemptWrites[0].renderer_affinity_protocol === 'claim-v1');
+check('payload hoàn tất đủ coverage, attempt và receipt UUID', completionPosts[0].attempt_id === attemptId && completionPosts[0].sentences.length === 2 && /^[0-9a-f-]{36}$/i.test(completionPosts[0].client_request_id));
 check('summary dùng canonical report', await page.getByText('90%', { exact: true }).count() === 1 && await page.getByText('1/2', { exact: true }).count() === 1 && await page.getByText('6/7', { exact: true }).count() === 1);
 check('mobile không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 await page.getByRole('button', { name: '⚑ Báo lỗi' }).first().click();

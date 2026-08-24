@@ -2494,6 +2494,411 @@ and component teardown discards an unfinished blob and releases every track.
 
 ---
 
+# Whole-web UI/UX completion audit — learner + admin
+
+> Audit date: 2026-08-20
+> Scope: revalidation and remediation closure for the two whole-web passes:
+> admin operations surfaces and learner-visible pages/flows.
+
+## Summary
+
+The high-impact findings were contract and state-truth problems rather than a
+missing visual system. The remediation preserves Aver's shared semantic tokens,
+the Grammar editorial subsystem and the Reading exam subsystem while fixing
+session truth, resume behavior, navigation dead ends, loading/error states,
+catalog density and responsive interaction targets.
+
+## Critical issues resolved
+
+### Issue: Course revision could be lost or rebuilt as a different test
+
+**Current State**: An unledgered revision is returned by the canonical resume
+endpoint. Its server session ID deterministically seeds both question selection
+and option order, including across devices. A completed revision whose verdict
+request failed restores the result and retries only the verdict.
+
+**Problem**: Revision state was treated as ephemeral; reload or network failure
+could replace the 20-question sample, lose progress or finalize a session twice.
+
+**Recommendation**: Keep the session/ledger boundary in
+`backend/services/quiz_service.py` and deterministic reconstruction in
+`frontend/public/js/course-runner.js`; do not move canonical progress to local
+storage.
+
+**Impact**: Learners resume the same revision and a verdict retry cannot create
+or patch a second attempt.
+
+**Implementation Notes**: No migration was required. Recorded ledger session
+IDs exclude completed revisions from future resume responses.
+
+## High priority improvements resolved
+
+- Dashboard and progress totals count completed sessions only; recently opened
+  but abandoned rows no longer masquerade as completed practice.
+- Speaking history distinguishes read failure from a genuinely empty history.
+- Writing deadlines exclude overdue work; MY CLASS keeps expired work closed
+  and explains that the learner must contact the instructor to reopen it.
+- Reading Vocab, Reading Skill and Listening Browse use 24-row server
+  pagination. Load-more failures retain prior cards and retry the same page.
+- Vocabulary Practice renders canonical per-bank progress as independent
+  enrichment. Malformed numeric values normalize to zero instead of `NaN`.
+- Admin Writing links use native canonical routes. Listening chrome no longer
+  exposes contextless authoring editors that require `content_id`; independent
+  import, inventory, attempts, report and audit destinations remain visible.
+- Speaking's topic picker is initially absent from the accessibility tree and
+  has dialog semantics, Escape close, Tab containment and focus restoration.
+- React-owned Speaking selects use `defaultValue` rather than `selected` on
+  child options, removing the runtime warning without changing DOM behavior.
+- Learner load failures no longer display raw transport messages such as
+  `Failed to fetch`; actionable backend-owned 4xx explanations remain visible.
+- A revision left open in an older tab is discarded once a newer revision
+  verdict has entered the mastery ledger. Only an unledgered revision created
+  after the latest canonical verdict can be resumed.
+
+## Design-system boundary and preserved exceptions
+
+- Shared semantic `--av-*` foundations remain canonical; meaningful KPI labels
+  were promoted from faint to muted without globally weakening the faint token.
+- Grammar's editorial typography and Reading's exam-paper chrome are intentional
+  product modes, not inconsistencies to normalize.
+- Listening rows with an explicit empty `available_modes` list truthfully show
+  that no exercise mode exists; `null` remains a separate lookup-failure state.
+- Horizontally scrollable mobile top navigation is contained inside the chrome;
+  the document itself has no horizontal overflow. This is not treated as a page
+  layout failure.
+- Mini tests may validly have a configured 60-minute duration. Copy describes
+  one-passage/configured-duration practice rather than inventing a duration cap.
+- User-name differences require canonical account/data verification and are not
+  patched in presentation code. Gate E/F and migration state are operational,
+  not UI findings.
+
+## Verification
+
+- Full frontend contract suite passed before the final completion guards and
+  again after them (exit 0); the final focused frontend gate passed 115 tests.
+- Current backend resume/quiz/dashboard regression: 83 passed. The earlier
+  broader backend run passed 112 with 1 skipped.
+- Production build compiled TypeScript and generated all 132 routes.
+- Public Grammar browser checks at 1440×900 and 390×844 found no document
+  overflow; disclosure controls measure 44px.
+- Authenticated read-only browser check covered nine learner routes against
+  staging truth. A fixture render then covered populated learner/admin states at
+  1440×900 and 390×844: no page errors, no document overflow and no visible
+  button/input/select/textarea target below 24px.
+- Populated pagination checks moved Listening, Reading Vocab and Reading Skill
+  from 24 to 25 unique cards on both viewports. MY CLASS exposed the overdue
+  next-step copy; Vocabulary rejected malformed progress without `NaN`.
+- Admin shadow-DOM navigation exposed only canonical native Writing links and
+  context-valid Listening destinations at both viewports.
+- Claude Sonnet reviewed the production diff independently in read-only mode.
+  One valid concurrent-tab retake finding was fixed and covered by regression
+  tests. The reported account-pagination bleed was rejected because all three
+  libraries remount on `key={accountKey || status}`; the remaining total-count,
+  completed-status and retake-number notes were rejected against canonical
+  backend and runner contracts.
+
+## Design system packet
+
+- **Scope**: learner app shell, public editorial content and admin operations.
+- **Primary mode**: cross-surface alignment; shared foundations with distinct
+  learning modes.
+- **Foundations**: semantic tokens, Plus Jakarta Sans for product UI, 4px spacing
+  scale, visible focus, reduced-motion baseline and responsive containment.
+- **Primitive policy**: keep `av-*` learner primitives and `adm-*` admin
+  primitives shared; course player, exam chrome and authoring tools stay local.
+- **Promotion threshold**: only promote a local pattern after reuse on at least
+  two surfaces and light/dark plus responsive evidence.
+- **Open decision**: none required for this remediation batch.
+
+This packet defines shared UI governance; page-level responsive and accessibility
+remediation remains owned by each affected workflow and its regression tests.
+
+---
+
+# Reading and Listening full-test fidelity audit
+
+> Audit date: 2026-08-21
+> Scope: native Next Reading `/reading/exam/session` and Listening
+> `/listening/test/session`, their stylesheet cascades, canonical attempt/save/
+> submit contracts, the internal interactive-HTML standard, and current official
+> IELTS on-computer sample/familiarisation surfaces.
+
+## Validated findings and remediation
+
+### High — the Listening full test looked and behaved like a learner dashboard
+
+- **Root cause:** `ListeningTestSession()` mounted the global `aver-chrome`, a
+  sticky media-player card with elapsed/total progress, a wide card-like paper,
+  and a flat 40-question grid. The same audio controls served both practice and
+  full-test modes even though their learning contracts are intentionally
+  different.
+- **Impact:** the visible hierarchy trained the learner to look for a media
+  scrubber and product navigation rather than the recording status, current
+  part, question paper and exam navigator used during a computer-delivered test.
+- **Impacted files/functions:**
+  `frontend/app/(authed-listening-player)/listening/test/session/listening-test-session.tsx`
+  (`ListeningTestSession`, `startAudio`) and
+  `frontend/public/css/listening-test-next.css`.
+- **Minimal fix applied:** neutral exam top bar; explicit headphone/Play gate;
+  one-shot full-test audio status with no seek timeline; practice-only pause and
+  seek controls; flat institutional question canvas; bottom palette grouped by
+  Part with current, answered, review and save states.
+- **Verification:** source-contract tests pin the practice/full-test split and
+  one-shot latch; keyboard and pointer navigation are checked at desktop and
+  narrow widths; answer autosave and submit continue to use the canonical APIs.
+
+### Medium — choice and matching tasks were flattened into generic controls
+
+- **Root cause:** the React ports preserved data and scoring contracts but used
+  a shared `<select>` fallback for Reading T/F/NG, Y/N/NG and Matching Features,
+  and Listening matching. This discarded the comparison model of each task.
+- **Impact:** learners could not scan all choices at once; matching features did
+  not resemble the row-by-option matrix used by the official computer sample;
+  claim-evaluation tasks felt like completion gaps.
+- **Impacted files/functions:**
+  `reading-exam-session.tsx` (`QuestionControl`, `QuestionRun`,
+  `MatchingMatrixRun`) and `listening-test-session.tsx` (`Exercise`,
+  `MatchingMatrixTemplate`).
+- **Minimal fix applied:** vertical radios for T/F/NG and Y/N/NG; radios for
+  single-choice and checkboxes for multiple-choice; matrix renderers for feature
+  matching; option-bank plus constrained select retained for heading/endings,
+  map and plan-label tasks; authored inline form/table/note/summary templates
+  remain structurally distinct.
+- **Verification:** renderer source tests cover each dispatch branch; typecheck
+  rejects prop/answer-shape drift; desktop and mobile QA checks matrix overflow.
+
+### Medium — Reading lacked complete computer-test navigation affordances
+
+- **Root cause:** the native player had the split-view CSS foundation, but its
+  divider was inert and the palette did not expose a current question or grouped
+  Part model. The React route also omitted the selection highlight affordance
+  present in the official familiarisation UI.
+- **Impact:** pane balance could not be adjusted, Previous/Next acted at the
+  wrong information level, and learners had weaker position/review awareness.
+- **Impacted files/functions:**
+  `frontend/app/(authed-reading-player)/reading/exam/session/reading-exam-session.tsx`
+  (`ReadingExamSession`, `QuestionCard`, `QuestionRun`) and
+  `frontend/public/css/reading-exam-next.css`.
+- **Minimal fix applied:** pointer- and keyboard-operable 30–70% divider;
+  current-question tracking; grouped Part palette; Previous/Next by question;
+  local Review markers; selection toolbar using the browser Highlight API;
+  display Options and Help without changing answer state.
+- **Verification:** divider exposes separator ARIA range state and Arrow/Home/
+  End keys; question palette states and radio/matrix branches are source-tested;
+  independent pane scrolling is visually checked at 1280×720.
+
+### Low — inherited “paper” typography misrepresented the current exam mode
+
+- **Root cause:** `ielts-test-paper.css` intentionally used Georgia and rounded
+  paper cards from an earlier Cambridge-book metaphor.
+- **Impact:** the test looked like a printable worksheet instead of a modern
+  institutional computer test and reduced visual continuity between Reading and
+  Listening.
+- **Impacted file:** `frontend/public/css/listening-test-next.css` (final cascade
+  override; the legacy shared stylesheet remains intact for legacy dependants).
+- **Minimal fix applied:** system sans typography, neutral gray/white surfaces,
+  square controls, restrained accent use and a full-viewport test canvas.
+- **Verification:** computed typography, surface, focus and containment are
+  checked in the native Next route; no broad change is made to legacy pages.
+
+## Preserved canonical behavior and boundaries
+
+- Attempt ownership, renderer affinity, resume offsets, class sitting hooks,
+  debounced autosave, unload flush, failed-save retry, sealed mock flow and
+  server submit/grading contracts are unchanged.
+- The redesign is a faithful training simulation, not a copied IELTS product:
+  it keeps Aver Learning identification and does not reproduce protected IELTS
+  logos or claim official affiliation.
+- Desktop is the fidelity target. Small screens use a deliberate training
+  fallback (stacked content and horizontally contained matrices/palettes) rather
+  than squeezing a desktop examination layout into an unusable viewport.
+- Highlighting is local to the active rendered attempt and is not part of the
+  canonical answer contract. Persisted notes would require a separate approved
+  data contract and are not invented as optimistic client state.
+
+---
+
+# Reading and Listening result + review continuity audit
+
+> Audit date: 2026-08-21
+> Scope: submitted full-test result states and native Reading/Listening review
+> workspaces on desktop and narrow training viewports.
+
+## Validated findings and remediation
+
+### High — completion screens exposed answer-key detail without a learning hierarchy
+
+- **Root cause:** both native players rendered every `per_question` row directly
+  after submit; Listening also printed `user_answer → expected` before the
+  learner entered the review workspace. Score, section signal and next action
+  competed with a long technical answer dump.
+- **Impact:** a 40-row table pushed the primary review action below the fold and
+  encouraged answer scanning instead of evidence-led correction. Reading and
+  Listening also ended the same exam journey with unrelated visual structures.
+- **Impacted files/functions:**
+  `frontend/app/(authed-reading-player)/reading/exam/session/reading-exam-session.tsx`
+  (`ResultView`),
+  `frontend/app/(authed-listening-player)/listening/test/session/listening-test-session.tsx`
+  (`ResultView`), both player layouts, and
+  `frontend/public/css/exam-result-next.css`.
+- **Minimal fix applied:** one shared completion hierarchy with submitted state,
+  estimated band, canonical raw score, answered count, correction count,
+  Listening Part breakdown and a compact right/wrong/blank question map. Full
+  expected answers remain in the server-gated review route. Primary CTA enters
+  review; dictation/library remain secondary.
+- **Verification:** native controller tests require the shared result layer and
+  reject reintroduction of the old expected-answer row; result fixtures are
+  checked for 40-question containment at desktop and mobile.
+
+### Medium — Reading review did not prioritize incorrect answers
+
+- **Root cause:** the workspace opened the first canonical item and always
+  rendered every question in the active passage, although the bottom palette
+  already knew each verdict.
+- **Impact:** learners with a small error set had to scan all forty questions;
+  the review flow did not state whether to locate evidence before revealing the
+  explanation.
+- **Impacted files/functions:**
+  `frontend/app/(reading-review)/reading/review/reading-review-workspace.tsx`
+  (`ReadingReviewWorkspace`, `selectQuestion`) and
+  `frontend/public/css/reading-review-next.css`.
+- **Minimal fix applied:** start on the first incorrect item when one exists;
+  add incorrect/all/correct filters; preserve palette access by automatically
+  revealing a filtered-out target; add an explicit evidence → answer → trap
+  sequence and an honest empty-filter state.
+- **Verification:** source-contract tests pin the default and palette reveal
+  behavior; the passage locate, translation, distractor, micro-check and
+  feedback contracts remain covered by their existing tests.
+
+### Medium — Listening review had strong tools but weak process orientation
+
+- **Root cause:** audio seek, transcript highlight and solution accordions were
+  individually present, but the header did not tell learners how to combine
+  them. Score was compressed into one unstructured text string.
+- **Impact:** learners could open the explanation before listening again and
+  miss the core Listening correction loop.
+- **Impacted files/functions:**
+  `frontend/app/(authed-listening-review)/listening/review/listening-review-workspace.tsx`
+  and `frontend/public/css/listening-review-next.css`.
+- **Minimal fix applied:** explicit listen → transcript → paraphrase sequence,
+  separate band/raw-score pills, while retaining wrong-first filtering, exact
+  audio-window seek, transcript anchors, skills and authored explanation blocks.
+- **Verification:** contract tests keep real audio-window seek and transcript
+  anchors server-owned; the new process cues are pinned in the native review
+  suite.
+
+## Preserved contracts and constraints
+
+- Server result, band, section breakdown and per-question verdicts remain the
+  canonical source. The UI only derives display counts from that submitted
+  payload and never updates persistence.
+- Review ownership, anonymous Reading capability, submitted/approved gates,
+  admin preview neutrality, feedback widgets, knowledge links and audio timing
+  are unchanged.
+- Result screens intentionally do not reveal expected answers; they summarize
+  performance and route the learner into the protected pedagogical workspace.
+- Reading and Listening retain task-specific review tools: passage evidence and
+  distractor analysis for Reading; exact audio windows, transcript and
+  paraphrase analysis for Listening.
+
+## Verification
+
+- Focused native controller/review regression: 68 tests passed.
+- TypeScript check passed and the production build generated all 132 routes.
+- Four populated result/review browser fixtures passed at 1280×720 and
+  390×844. Each asserted `scrollWidth <= clientWidth`; visual QA found and fixed
+  an intrinsic-width overflow in the Listening review grid before sign-off.
+- Demo screenshots use canonical-shaped 40-question submitted payloads and keep
+  developer overlays out of the learner-facing evidence.
+
+---
+
+## Admin Mock Test operations wave — 2026-08-21
+
+### Validated audit findings
+
+#### Fragmented workflow language and hierarchy
+
+- **Root cause:** `/admin/mock-tests`, `/admin/mock-exams`, `/admin/mock-live`
+  and `/admin/mock-reviews` exposed the same lifecycle as separate tools with
+  different headings, English/Vietnamese status labels and no persistent model
+  of the next operational step.
+- **Severity:** Medium.
+- **Impact:** admins had to remember whether publish, open, collect, claim,
+  final-band and release belonged to the current screen; this increased the
+  risk of acting on the wrong exam or mistaking “claim” for learner submission.
+- **Impacted files/functions:** `admin-mock-tests.tsx` (`TABS`, cockpit shell),
+  `admin-mock-exams.tsx` (inventory actions), `admin-mock-live.tsx` (command
+  room), `admin-mock-reviews.tsx` (review roster and release workspace).
+- **Minimal fix applied:** introduce one route-local operations language and a
+  six-stage workflow: Soạn đề → Giao đề → Phòng live → Thu bài → Chấm nháp →
+  Trả kết quả. Backend statuses and mutation contracts remain unchanged.
+- **Verification:** source/model tests, TypeScript build, and populated desktop
+  plus mobile visual checks across all four routes.
+
+#### Flat exam creation form hid sequencing and review context
+
+- **Root cause:** eleven fields were presented in one four-column grid with the
+  submit action detached from the consequences of creating a draft.
+- **Severity:** Medium.
+- **Impact:** weak scan order, easy content/duration omission and unclear
+  difference between saving a draft, publishing and assigning a test.
+- **Impacted file/function:** `exam-create-form.tsx` (`ExamCreateForm`).
+- **Minimal fix applied:** group fields into identity/audience, published exam
+  content and timing/review fieldsets; add a sticky draft summary and explicit
+  next-step copy without changing `buildExamCreatePayload()`.
+- **Verification:** create-payload contract tests; keyboard and responsive form
+  pass; confirm sequential mode still requires a cohort and retake does not.
+
+#### Live-room command priority competed with monitoring data
+
+- **Root cause:** exam identity, timer, destructive/open controls and phase
+  actions shared one visual level; the roster did not expose the active paper
+  sequence above the command area.
+- **Severity:** Critical for operational UX; no backend correctness defect was
+  found.
+- **Impact:** during a timed session an operator could take longer to identify
+  whether the room was collecting, paused or safe to advance.
+- **Impacted file/function:** `admin-mock-live.tsx` (`AdminMockLive`).
+- **Minimal fix applied:** add a section phase rail, isolate the priority queue,
+  preserve the existing `collectionSweepCompletedSection` gate and keep table
+  identity/header visible while scanning horizontally.
+- **Verification:** live model/source guard tests must continue to prove that
+  Advance remains disabled until final-save collection is canonical.
+
+#### Review queue mixed selection, AI draft grading and release actions
+
+- **Root cause:** a single bulk toolbar placed selection metadata, Writing tier,
+  claim, final-band and irreversible release controls in one undifferentiated
+  row.
+- **Severity:** Medium.
+- **Impact:** eligibility counts were hard to associate with their action and
+  the difference between “receive for grading” and “return to learner” was weak.
+- **Impacted file/function:** `admin-mock-reviews.tsx` (`AdminMockReviews`).
+- **Minimal fix applied:** expose queue-stage counts; group selection, Writing
+  draft grading and canonical bulk actions; rename display copy to “Nhận bài”
+  and “Trả kết quả” while preserving claim/release endpoints and reconciliation.
+- **Verification:** review behavior/model tests; bulk partial-refusal test; full
+  reload must match immediate post-action status.
+
+### Design-system packet for this wave
+
+- **Scope:** admin Mock Test cockpit, exam definition/assignment, live room,
+  pacing evidence and review/release workspace.
+- **Primary mode:** cross-surface alignment, not a global token rewrite.
+- **Foundations:** existing semantic `--av-*` tokens, operational low-elevation
+  surfaces, mono only for IDs/timers/counts, 44px critical controls, sticky data
+  context, visible focus and reduced-motion support.
+- **Primitive policy:** shared lifecycle primitives use `aop-*`; route contracts
+  and domain layouts retain `mts-*`, `mex-*`, `mlv-*`, `mpn-*` and `mrr-*`.
+- **Surface guidance:** one dominant next action per state; destructive actions
+  remain isolated; canonical snapshot warnings stay visible and never collapse
+  into empty states.
+- **Accessibility:** semantic nav/section labels, horizontally contained dense
+  tables, visible focus, 44px actions and mobile workflow scrolling.
+- **Route-outs:** backend/API/schema changes, grading policy and exact-thinking-
+  time inference are out of scope. Pacing timestamps remain last-save evidence.
+- **Open decisions:** none; all labels map onto existing canonical operations.
 # Admin assignment surfaces — light/dark and workflow closure
 
 > Audit closure: 2026-08-21

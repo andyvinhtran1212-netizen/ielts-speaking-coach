@@ -934,8 +934,12 @@ async def test_a_class_session_cannot_have_custom_questions_saved_into_it():
         def execute(self): return _Resp(self._rows)
 
     db = type("DB", (), {})()
-    db.table = lambda _n: _T([{"id": "sess-1", "part": 1, "user_id": "u1",
-                               "class_assignment_item_id": "item-1"}])
+    db.table = lambda _n: _T([{
+        "id": "sess-1", "part": 1, "user_id": "u1",
+        "status": "in_progress",
+        "resume_expires_at": "2999-01-01T00:00:00+00:00",
+        "class_assignment_item_id": "item-1",
+    }])
 
     with patch.object(qmod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
          patch.object(qmod, "supabase_admin", db):
@@ -1082,6 +1086,7 @@ async def test_the_fast_path_WIRE_rejects_a_tampered_set():
     tables = {
         "sessions": [{"id": "sess-1", "part": 1, "topic": "x", "mode": "practice",
                       "status": "in_progress", "user_id": "u1",
+                      "resume_expires_at": "2999-01-01T00:00:00+00:00",
                       "class_assignment_item_id": "item-1"}],
         # Hàng đã nằm sẵn trong phiên, nhưng KHÔNG phải đề được giao.
         "questions": [{"id": "row-1", "session_id": "sess-1", "part": 1,

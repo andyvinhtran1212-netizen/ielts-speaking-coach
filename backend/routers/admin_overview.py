@@ -466,7 +466,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
             "skill":      "speaking",
             "action":     "Hoàn thành buổi Speaking",
             "score":      s.get("overall_band"),
-            "link":       f"/pages/result.html?session_id={s['id']}",
+            "link":       f"/result?session_id={s['id']}",
         })
     for r in listening_recent:
         # Chỉ lượt ĐÃ NỘP mới là "hoàn thành" (in_progress/abandoned vẫn tính
@@ -516,7 +516,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
             "skill":      "writing",
             "action":     f"Nộp bài Writing ({e.get('status') or 'pending'})",
             "score":      None,
-            "link":       f"/pages/admin/writing/grade.html?essay_id={e['id']}",
+            "link":       f"/admin/writing/grade?essay_id={e['id']}",
         })
 
     activity = [a for a in activity if a.get("timestamp")]

@@ -39,6 +39,7 @@ const DIFFICULTY_LABELS: Record<string, string> = {
   intermediate: 'Intermediate',
   advanced: 'Advanced',
 };
+const PAGE_SIZE = 24;
 
 function textValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -99,6 +100,10 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
   const [tag, setTag] = useState('');
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const [offset, setOffset] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     if (!accountKey) {
@@ -108,7 +113,9 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
 
     const controller = new AbortController();
     let disposed = false;
-    setState({ status: 'loading' });
+    if (offset === 0) setState({ status: 'loading' });
+    else setLoadingMore(true);
+    setLoadMoreError(false);
 
     (async () => {
       const ready = await whenGlobalReady(
@@ -116,14 +123,19 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
         'window.api (reading vocab)',
       );
       if (!ready || disposed) {
-        if (!disposed) setState({ status: 'error' });
+        if (!disposed) {
+          if (offset > 0) setLoadMoreError(true);
+          else setState({ status: 'error' });
+          setLoadingMore(false);
+        }
         return;
       }
 
       const query = new URLSearchParams();
       if (difficulty) query.set('difficulty', difficulty);
       if (tag) query.set('tag', tag);
-      query.set('limit', '50');
+      query.set('limit', String(PAGE_SIZE));
+      query.set('offset', String(offset));
 
       try {
         const payload = await window.api.getWith<unknown>(
@@ -133,14 +145,21 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
         );
         if (disposed) return;
         const passages = normalizePassages(payload);
-        setAvailableTags((current) => {
-          if (current.length) return current;
-          return [...new Set(passages.flatMap((passage) => passage.tags))].sort();
+        setAvailableTags((current) => [...new Set([
+          ...current, ...passages.flatMap((passage) => passage.tags),
+        ])].sort());
+        setState((current) => {
+          const prior = offset > 0 && current.status === 'ready' ? current.passages : [];
+          const merged = [...prior, ...passages].filter((passage, index, all) =>
+            all.findIndex((candidate) => candidate.slug === passage.slug) === index);
+          return { status: 'ready', passages: merged, total: normalizeTotal(payload, offset + passages.length) };
         });
-        setState({ status: 'ready', passages, total: normalizeTotal(payload, passages.length) });
       } catch (caught: unknown) {
         if (disposed || (caught instanceof DOMException && caught.name === 'AbortError')) return;
-        setState({ status: 'error' });
+        if (offset > 0) setLoadMoreError(true);
+        else setState({ status: 'error' });
+      } finally {
+        if (!disposed) setLoadingMore(false);
       }
     })();
 
@@ -148,7 +167,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
       disposed = true;
       controller.abort();
     };
-  }, [accountKey, difficulty, tag]);
+  }, [accountKey, difficulty, tag, offset, retryToken]);
 
   const shown = state.status === 'ready' ? state.passages.length : 0;
   const total = state.status === 'ready' ? state.total : null;
@@ -178,7 +197,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
               <select
                 id="filter-difficulty"
                 value={difficulty}
-                onChange={(event) => setDifficulty(event.target.value)}
+                onChange={(event) => { setDifficulty(event.target.value); setOffset(0); }}
               >
                 <option value="">Tất cả</option>
                 <option value="foundation">Foundation</option>
@@ -188,7 +207,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
             </label>
             <label>
               Chủ đề
-              <select id="filter-tag" value={tag} onChange={(event) => setTag(event.target.value)}>
+              <select id="filter-tag" value={tag} onChange={(event) => { setTag(event.target.value); setOffset(0); }}>
                 <option value="">Tất cả</option>
                 {availableTags.map((value) => <option value={value} key={value}>{value}</option>)}
               </select>
@@ -201,6 +220,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
               onClick={() => {
                 setDifficulty('');
                 setTag('');
+                setOffset(0);
               }}
             >
               Xóa lọc
@@ -218,7 +238,7 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
           <div className="rv-error" id="state-error">Không tải được thư viện. Vui lòng thử lại.</div>
         ) : null}
         {state.status === 'ready' && state.passages.length ? (
-          <div className="rv-grid rv-grid--articles" id="rv-grid">
+          <><div className="rv-grid rv-grid--articles" id="rv-grid">
             {state.passages.map((passage) => {
               const difficultyLabel = passage.difficulty
                 ? DIFFICULTY_LABELS[passage.difficulty] || passage.difficulty
@@ -252,6 +272,20 @@ function ReadingVocabLibrary({ accountKey }: { accountKey: string | null }) {
               );
             })}
           </div>
+          {total !== null && shown < total ? (
+            <div className="rv-load-more">
+              {loadMoreError ? <p role="alert">Chưa tải được trang tiếp theo.</p> : null}
+              <button
+                type="button"
+                disabled={loadingMore}
+                onClick={() => loadMoreError
+                  ? setRetryToken((value) => value + 1)
+                  : setOffset((current) => current + PAGE_SIZE)}
+              >
+                {loadingMore ? 'Đang tải…' : loadMoreError ? 'Thử lại' : `Xem thêm (${shown}/${total})`}
+              </button>
+            </div>
+          ) : null}</>
         ) : null}
       </section>
     </ReadingVocabShell>

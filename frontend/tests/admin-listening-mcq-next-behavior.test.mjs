@@ -164,7 +164,7 @@ describe('native MCQ route and persistence contract', () => {
     assert.match(PAGE, /<HydratedSignal \/>/);
     assert.match(PAGE, /<LegacyModule src="\/js\/components\/audio-player\.js" \/>/);
     assert.match(PAGE, /watchdogScript\('\/pages\/admin\/listening\/mcq\.html'\)/);
-    assert.match(CHROME, /slug: 'mcq',[^\n]+href: '\/admin\/listening'/);
+    assert.doesNotMatch(CHROME, /slug: 'mcq'/);
     assert.match(LIST, /\/admin\/listening\/mcq\?content_id=/);
     assert.match(DETAIL, /`\/admin\/listening\/mcq\?content_id=/);
     assert.match(LEDGER, /`\/admin\/listening\/mcq`[^\n]+required `content_id`; optional exact `exercise_id`/);

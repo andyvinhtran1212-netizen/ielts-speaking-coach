@@ -175,7 +175,7 @@ function ReadingMiniTestLibrary({ accountKey }: { accountKey: string | null }) {
       <section className="rv-library" aria-labelledby="rv-library-title">
         <header className="rv-library__toolbar">
           <div>
-            <p className="rv-kicker">BÀI THI NHỊP NGẮN</p>
+            <p className="rv-kicker">BÀI LUYỆN MỘT ĐOẠN</p>
             <h2 id="rv-library-title">Chọn một mini test</h2>
             <p className="rv-result-count" id="rv-result-count" aria-live="polite">{resultText}</p>
           </div>

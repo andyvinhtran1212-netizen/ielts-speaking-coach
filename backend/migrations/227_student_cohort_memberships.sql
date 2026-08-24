@@ -1,4 +1,4 @@
--- Migration 217 — one student may actively belong to more than one class.
+-- Migration 227 — one student may actively belong to more than one class.
 --
 -- Additive compatibility migration: students.cohort_id remains the legacy
 -- primary-class pointer. The normalized table below is the canonical roster.

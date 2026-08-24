@@ -591,5 +591,5 @@ class TestRecentActivity:
         feed = r.json()["recent_activity"]
         speaking_row = next(a for a in feed if a["skill"] == "speaking")
         writing_row = next(a for a in feed if a["skill"] == "writing")
-        assert "/pages/result.html?session_id=s1" in speaking_row["link"]
-        assert "/pages/admin/writing/grade.html?essay_id=e1" in writing_row["link"]
+        assert speaking_row["link"] == "/result?session_id=s1"
+        assert writing_row["link"] == "/admin/writing/grade?essay_id=e1"

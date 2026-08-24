@@ -53,7 +53,7 @@ describe('Speaking Gate E device matrix is pinned and auditable', () => {
     assert.match(WORKFLOW, /Run Speaking Gate E native fixtures\n\s+id: speaking_gate_e\n\s+if: always\(\)/);
     assert.match(
       WORKFLOW,
-      /GATE_E_REQUIRE_AFFINITY: \$\{\{ \(github\.event\.pull_request\.base\.ref == 'staging' \|\| github\.ref_name == 'staging'\) && 'true' \|\| 'false' \}\}/,
+      /GATE_E_REQUIRE_AFFINITY: 'true'/,
     );
     assert.match(AFFINITY_SPEC, /process\.env\.GATE_E_REQUIRE_AFFINITY/);
     assert.match(AFFINITY_SPEC, /if \(requireAffinity\)/);

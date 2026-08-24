@@ -13,6 +13,11 @@ from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
+from services.active_player_lifecycle import (
+    ACTIVE_PLAYER_EXPIRED_DETAIL,
+    is_active_player_expired_error,
+    require_resume_active,
+)
 from services.question_visibility import redact_questions, should_reveal
 
 logger = logging.getLogger(__name__)
@@ -250,7 +255,10 @@ async def generate_questions(
     try:
         s_result = (
             supabase_admin.table("sessions")
-            .select("id, part, topic, mode, status, class_assignment_item_id")
+            .select(
+                "id, part, topic, mode, status, class_assignment_item_id, "
+                "resume_expires_at"
+            )
             .eq("id", session_id)
             .eq("user_id", user_id)
             .limit(1)
@@ -263,6 +271,11 @@ async def generate_questions(
         raise HTTPException(status_code=404, detail="Session không tồn tại")
 
     session = s_result.data[0]
+    # POST /generate may return an existing set, but it is still a player
+    # mutation/admission endpoint. Result/history views use the read-only GET
+    # route below; an expired Legacy client must not use this POST to keep an
+    # old player alive or create rows after the canonical hard deadline.
+    require_resume_active(session)
     part: int  = session["part"]
     topic: str = session["topic"]
     mode: str  = session.get("mode", "practice")
@@ -303,6 +316,8 @@ async def generate_questions(
             result = supabase_admin.table("questions").insert(pinned).execute()
             return redact_questions(sorted(result.data, key=lambda q: q["order_num"]))
         except Exception as e:
+            if is_active_player_expired_error(e):
+                raise HTTPException(410, ACTIVE_PLAYER_EXPIRED_DETAIL) from e
             if _is_unique_violation(e):
                 winner = _load_existing_questions(session_id)
                 if winner:
@@ -323,6 +338,8 @@ async def generate_questions(
                 result = supabase_admin.table("questions").insert(library_rows).execute()
                 return redact_questions(sorted(result.data, key=lambda q: q["order_num"]))
             except Exception as e:
+                if is_active_player_expired_error(e):
+                    raise HTTPException(410, ACTIVE_PLAYER_EXPIRED_DETAIL) from e
                 # L6: a concurrent generate already inserted this session's set —
                 # return the winner's rows instead of double-inserting via Gemini.
                 if _is_unique_violation(e):
@@ -435,6 +452,8 @@ async def generate_questions(
     try:
         result = supabase_admin.table("questions").insert(rows).execute()
     except Exception as e:
+        if is_active_player_expired_error(e):
+            raise HTTPException(410, ACTIVE_PLAYER_EXPIRED_DETAIL) from e
         # L6: lost a concurrent generate race — return the winner's set rather
         # than a 500 (the unique index on session_id,part,order_num rejected us).
         if _is_unique_violation(e):
@@ -503,7 +522,9 @@ async def save_custom_questions(
     try:
         s_result = (
             supabase_admin.table("sessions")
-            .select("id, part, class_assignment_item_id")
+            .select(
+                "id, part, status, class_assignment_item_id, resume_expires_at"
+            )
             .eq("id", session_id)
             .eq("user_id", user_id)
             .limit(1)
@@ -514,6 +535,8 @@ async def save_custom_questions(
 
     if not s_result.data:
         raise HTTPException(status_code=404, detail="Session không tồn tại")
+
+    require_resume_active(s_result.data[0])
 
     # BÀI TẬP LỚP KHÔNG ĐƯỢC TỰ NHẬP CÂU. Endpoint này cho phép chủ phiên chèn
     # câu hỏi bất kỳ; với một phiên đã gắn bài tập lớp, học viên có thể thay đề
@@ -578,6 +601,8 @@ async def save_custom_questions(
     try:
         result = supabase_admin.table("questions").insert(rows).execute()
     except Exception as e:
+        if is_active_player_expired_error(e):
+            raise HTTPException(410, ACTIVE_PLAYER_EXPIRED_DETAIL) from e
         # L6: concurrent insert already populated this session — return that set.
         if _is_unique_violation(e):
             winner = _load_existing_questions(session_id)

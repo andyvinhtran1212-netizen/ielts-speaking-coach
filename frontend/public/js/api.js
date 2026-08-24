@@ -123,6 +123,22 @@
     //
     // Dùng token của lần lấy gần nhất. Token hết hạn thì request 401 và mất
     // đúng lượt ấy — vẫn hơn một request không bao giờ được tạo.
+    // Renderer-affinity create protocol (migration 216). A page that loaded an
+    // older api.js omits this marker and the backend atomically pins its new
+    // sessions to Legacy. Current pages explicitly request an unclaimed row;
+    // their stable Speaking player claims Legacy/Next before canonical reads.
+    // Copy rather than mutate the caller's object so retry/debug state remains
+    // exactly what the caller supplied.
+    if (
+      method === 'POST' && path === '/sessions' && !isFormData && body
+      && typeof body === 'object' && !Array.isArray(body)
+    ) {
+      var versionedSessionBody = {};
+      for (var bodyKey in body) versionedSessionBody[bodyKey] = body[bodyKey];
+      versionedSessionBody.renderer_affinity_protocol = 'claim-v1';
+      body = versionedSessionBody;
+    }
+
     var token = (opts && opts.keepalive && _lastToken !== null)
       ? _lastToken
       : await _getAuthToken();

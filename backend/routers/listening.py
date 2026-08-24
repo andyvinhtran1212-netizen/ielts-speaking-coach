@@ -25,7 +25,8 @@ import json
 import logging
 import re
 import uuid
-from typing import Any, Optional
+from datetime import datetime, timezone
+from typing import Any, Literal, Optional
 
 from fastapi import (
     APIRouter, File, Header, HTTPException, Query,
@@ -56,6 +57,12 @@ from services.listening_grader import (
 from services import listening_fulltest_import
 from services import listening_drill_import
 from services import listening_audit as listening_audit_svc
+from services.active_player_lifecycle import (
+    is_active_player_expired_error,
+    is_resume_active,
+    require_resume_active,
+    resume_expires_at,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +134,13 @@ def _is_unique_violation(exc: Exception) -> bool:
     # uniqueness from prose such as "duplicate key": that can misclassify an
     # unrelated future constraint as a block-identity conflict.
     return str(code or "") == "23505" or bool(re.search(r"\b23505\b", message))
+
+
+def _is_dictation_attempt_conflict(exc: Exception) -> bool:
+    """Recognize the migration-220 transaction guards across SDK shapes."""
+    message = str(exc).lower()
+    return "dictation_attempt_not_in_progress" in message \
+        or "dictation_attempt_payload_mismatch" in message
 
 
 def _published_standalone_orders(
@@ -4361,6 +4375,21 @@ class PracticeCheckRequest(BaseModel):
     reveal:      bool = False
 
 
+class _ListeningAttemptStartRequest(BaseModel):
+    """Opt in to first-player renderer claiming for a new attempt.
+
+    A missing body is the N-1 contract and stays pinned to the database's
+    Legacy default. ``claim-v1`` inserts NULL so the stable player URL can
+    atomically own the attempt before any answer mutation.
+    """
+
+    renderer_affinity_protocol: Literal["claim-v1"] | None = None
+
+
+class _ListeningAttemptRendererAffinityRequest(BaseModel):
+    renderer_affinity: Literal["legacy", "next"]
+
+
 def _student_audio_url_for_test(test_row: dict) -> tuple[str | None, str | None, int | None]:
     """Pick the right audio for a student player.
 
@@ -5067,7 +5096,22 @@ class DictationSentenceSubmit(BaseModel):
     time_seconds:    int | None = Field(default=None, ge=0)
 
 
+class DictationAttemptStartRequest(BaseModel):
+    renderer_affinity_protocol: Literal["claim-v1"] | None = None
+
+
+class DictationAttemptAnswerRequest(BaseModel):
+    user_transcript: str = Field(default="", max_length=10_000)
+    listen_count:    int = Field(default=0, ge=0)
+    time_seconds:    int | None = Field(default=None, ge=0)
+
+
+class DictationAttemptRendererAffinityRequest(BaseModel):
+    renderer_affinity: Literal["legacy", "next"]
+
+
 class DictationSessionRequest(BaseModel):
+    attempt_id:         uuid.UUID | None = None
     test_id:            str = Field(min_length=1, max_length=100)
     section_num:        int = Field(ge=1)
     client_request_id:  uuid.UUID | None = None
@@ -5087,6 +5131,7 @@ def _dictation_session_response(row: dict, test_title: str | None = None) -> dic
     """Return the stable completion contract from a persisted canonical row."""
     return {
         "session_id":         row.get("id"),
+        "attempt_id":         row.get("attempt_id"),
         "client_request_id":  row.get("client_request_id"),
         "test_title":         test_title,
         "section_num":        row.get("section_num"),
@@ -5101,10 +5146,271 @@ def _dictation_session_response(row: dict, test_title: str | None = None) -> dic
     }
 
 
+def _dictation_attempt_or_404(
+    attempt_id: str,
+    user_id: str,
+    *,
+    require_in_progress: bool = False,
+) -> dict:
+    res = (
+        supabase_admin.table("dictation_attempts").select("*")
+        .eq("id", attempt_id).limit(1).execute()
+    )
+    if not res.data:
+        raise HTTPException(404, "Không tìm thấy lượt chép chính tả.")
+    row = res.data[0]
+    if row.get("user_id") != user_id:
+        raise HTTPException(403, "Lượt chép chính tả thuộc học viên khác.")
+    if require_in_progress and row.get("status") != "in_progress":
+        raise HTTPException(409, "Lượt chép chính tả này đã kết thúc.")
+    if require_in_progress:
+        require_resume_active(row)
+    return row
+
+
+def _dictation_attempt_answers(attempt_id: str) -> list[dict]:
+    res = (
+        supabase_admin.table("dictation_attempt_answers").select("*")
+        .eq("attempt_id", attempt_id).order("sentence_idx").execute()
+    )
+    return res.data or []
+
+
+def _dictation_attempt_response(row: dict) -> dict:
+    return {
+        "attempt_id": row.get("id"),
+        "test_id": row.get("test_id"),
+        "section_num": row.get("section_num"),
+        "status": row.get("status"),
+        "renderer_affinity": row.get("renderer_affinity"),
+        "started_at": row.get("started_at") or row.get("created_at"),
+        "resume_expires_at": row.get("resume_expires_at"),
+        "units": row.get("units_snapshot") or [],
+        "answers": _dictation_attempt_answers(str(row.get("id"))),
+    }
+
+
+def _find_latest_in_progress_dictation_attempt(
+    user_id: str,
+    test_id: str,
+    section_num: int,
+) -> dict | None:
+    res = (
+        supabase_admin.table("dictation_attempts").select("*")
+        .eq("user_id", user_id).eq("test_id", test_id)
+        .eq("section_num", section_num).eq("status", "in_progress")
+        .order("created_at", desc=True).limit(1).execute()
+    )
+    return res.data[0] if res.data else None
+
+
+def _find_in_progress_dictation_attempt(
+    user_id: str,
+    test_id: str,
+    section_num: int,
+) -> dict | None:
+    """Read-only resume lookup; expired audit rows are not resumable."""
+    row = _find_latest_in_progress_dictation_attempt(user_id, test_id, section_num)
+    return row if row and is_resume_active(row) else None
+
+
+def _dictation_section_units_snapshot(test_id: str, section_num: int) -> list[dict]:
+    sec_res = (
+        supabase_admin.table("listening_content").select("transcript,metadata")
+        .eq("test_id", test_id).eq("section_num", section_num)
+        .limit(1).execute()
+    )
+    if not sec_res.data:
+        raise HTTPException(404, "Section không có nội dung chép chính tả.")
+    units = _dictation_units(sec_res.data[0])
+    if not units:
+        raise HTTPException(404, "Section không có nội dung chép chính tả.")
+    return [
+        {
+            "text": unit["text"],
+            "start": unit.get("start"),
+            "end": unit.get("end"),
+            "hints": proper_noun_hints(unit["text"]) or [],
+        }
+        for unit in units
+    ]
+
+
+@user_router.get("/tests/{test_id}/dictation/attempts/in-progress")
+async def get_in_progress_dictation_attempt(
+    test_id: str,
+    section_num: int = Query(ge=1),
+    authorization: str | None = Header(default=None),
+):
+    user = await _require_auth(authorization)
+    _published_test_for_dictation(test_id, user.get("id"))
+    row = _find_in_progress_dictation_attempt(user["id"], test_id, section_num)
+    return {"attempt": _dictation_attempt_response(row) if row else None}
+
+
+@user_router.post("/tests/{test_id}/dictation/attempts")
+async def start_dictation_attempt(
+    test_id: str,
+    section_num: int = Query(ge=1),
+    body: DictationAttemptStartRequest | None = None,
+    authorization: str | None = Header(default=None),
+):
+    """Resume the one active section attempt, or create it without destroying progress."""
+    user = await _require_auth(authorization)
+    _published_test_for_dictation(test_id, user.get("id"))
+    previous = _find_latest_in_progress_dictation_attempt(
+        user["id"], test_id, section_num,
+    )
+    if previous and is_resume_active(previous):
+        return {**_dictation_attempt_response(previous), "created": False}
+    if previous:
+        # Preserve every answer row, but retire the expired parent from the
+        # partial one-active index before creating a fresh attempt. This stays
+        # on POST; the GET resume lookup above remains strictly read-only.
+        supabase_admin.table("dictation_attempts").update({
+            "status": "abandoned",
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", previous["id"]).eq("status", "in_progress").execute()
+
+    units_snapshot = _dictation_section_units_snapshot(test_id, section_num)
+    now = datetime.now(timezone.utc).isoformat()
+    expires_at = resume_expires_at(now)
+    attempt_id = str(uuid.uuid4())
+    payload = {
+        "id": attempt_id,
+        "user_id": user["id"],
+        "test_id": test_id,
+        "section_num": section_num,
+        "status": "in_progress",
+        "units_snapshot": units_snapshot,
+        "started_at": now,
+        "resume_expires_at": expires_at,
+        "created_at": now,
+        "updated_at": now,
+    }
+    affinity_aware = body is not None and body.renderer_affinity_protocol == "claim-v1"
+    if affinity_aware:
+        payload["renderer_affinity"] = None
+    try:
+        supabase_admin.table("dictation_attempts").insert(payload).execute()
+    except Exception as exc:
+        if not _is_unique_violation(exc):
+            logger.error("[dictation-attempt] create failed: %s", exc)
+            raise HTTPException(500, "Không tạo được lượt chép chính tả.")
+        existing = _find_in_progress_dictation_attempt(user["id"], test_id, section_num)
+        if not existing:
+            raise HTTPException(409, "Không thể xác định lượt chép chính tả đang mở.")
+        return {**_dictation_attempt_response(existing), "created": False}
+    return {
+        **_dictation_attempt_response(payload),
+        "renderer_affinity": None if affinity_aware else "legacy",
+        "created": True,
+    }
+
+
+@user_router.post("/tests/dictation/attempts/{attempt_id}/renderer-affinity")
+async def claim_dictation_attempt_renderer_affinity(
+    attempt_id: uuid.UUID,
+    body: DictationAttemptRendererAffinityRequest,
+    authorization: str | None = Header(default=None),
+):
+    user = await _require_auth(authorization)
+    owned_attempt = _dictation_attempt_or_404(
+        str(attempt_id), user["id"], require_in_progress=True,
+    )
+    try:
+        result = supabase_admin.rpc(
+            "fn_claim_dictation_attempt_renderer_affinity",
+            {
+                "p_attempt_id": str(attempt_id),
+                "p_user_id": user["id"],
+                "p_renderer_affinity": body.renderer_affinity,
+            },
+        ).execute()
+    except Exception as exc:
+        logger.error("[dictation-affinity] claim failed attempt=%s: %s", attempt_id, exc)
+        if is_active_player_expired_error(exc):
+            require_resume_active(owned_attempt)
+            raise HTTPException(410, "Lượt chép chính tả đã hết thời gian tiếp tục.") from exc
+        raise HTTPException(500, "Không thể xác nhận phiên bản Dictation.")
+    rows = result.data or []
+    if len(rows) != 1:
+        raise HTTPException(404, "Lượt chép chính tả không còn hoạt động.")
+    affinity = rows[0].get("renderer_affinity")
+    if affinity not in {"legacy", "next"}:
+        raise HTTPException(500, "Lượt chép chính tả chưa có renderer hợp lệ.")
+    return {"attempt_id": str(attempt_id), "renderer_affinity": affinity}
+
+
+@user_router.post("/tests/dictation/attempts/{attempt_id}/sentences/{sentence_idx}")
+async def grade_and_save_dictation_attempt_sentence(
+    attempt_id: uuid.UUID,
+    sentence_idx: int,
+    body: DictationAttemptAnswerRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Grade and atomically upsert the latest canonical state of one sentence."""
+    if sentence_idx < 0:
+        raise HTTPException(422, "sentence_idx phải từ 0 trở lên.")
+    user = await _require_auth(authorization)
+    attempt = _dictation_attempt_or_404(
+        str(attempt_id), user["id"], require_in_progress=True,
+    )
+    _published_test_for_dictation(attempt["test_id"], user.get("id"))
+    units = attempt.get("units_snapshot") or []
+    if not units:
+        raise HTTPException(409, "Lượt làm bài thiếu snapshot nội dung; vui lòng bắt đầu lại.")
+    if sentence_idx >= len(units):
+        raise HTTPException(422, f"sentence_idx {sentence_idx} ngoài phạm vi.")
+    grade = grade_dictation(
+        reference_transcript=units[sentence_idx]["text"],
+        user_transcript=body.user_transcript,
+        ignore_fillers=True,
+    )
+    now = datetime.now(timezone.utc).isoformat()
+    row = {
+        "attempt_id": str(attempt_id),
+        "sentence_idx": sentence_idx,
+        "user_transcript": body.user_transcript,
+        "score": grade["score"],
+        "correct_words": grade["correct_words"],
+        "total_words": grade["total_words"],
+        "diff": grade["diff"],
+        "listen_count": body.listen_count,
+        "time_seconds": body.time_seconds,
+        "updated_at": now,
+    }
+    try:
+        supabase_admin.table("dictation_attempt_answers").upsert(
+            row, on_conflict="attempt_id,sentence_idx",
+        ).execute()
+        supabase_admin.table("dictation_attempts").update({"updated_at": now}) \
+            .eq("id", str(attempt_id)).eq("user_id", user["id"]) \
+            .eq("status", "in_progress").execute()
+    except Exception as exc:
+        logger.error("[dictation-attempt] sentence save failed attempt=%s: %s", attempt_id, exc)
+        if is_active_player_expired_error(exc):
+            require_resume_active(attempt)
+            raise HTTPException(410, "Lượt chép chính tả đã hết thời gian tiếp tục.") from exc
+        if _is_dictation_attempt_conflict(exc):
+            raise HTTPException(409, "Lượt làm bài đã thay đổi; hãy tải lại tiến độ.")
+        raise HTTPException(500, "Không lưu được tiến độ câu này.")
+    return {**grade, **row}
+
+
 def _dictation_session_by_request(user_id: str, request_id: uuid.UUID) -> dict | None:
     res = (
         supabase_admin.table("dictation_sessions").select("*")
         .eq("user_id", user_id).eq("client_request_id", str(request_id))
+        .limit(1).execute()
+    )
+    return res.data[0] if res.data else None
+
+
+def _dictation_session_by_attempt(user_id: str, attempt_id: uuid.UUID) -> dict | None:
+    res = (
+        supabase_admin.table("dictation_sessions").select("*")
+        .eq("user_id", user_id).eq("attempt_id", str(attempt_id))
         .limit(1).execute()
     )
     return res.data[0] if res.data else None
@@ -5117,9 +5423,60 @@ def _assert_dictation_request_replay(
 ) -> None:
     if row.get("test_id") != body.test_id or row.get("section_num") != body.section_num:
         raise HTTPException(409, "Mã gửi lại đã được dùng cho một bài chép chính tả khác.")
+    if body.attempt_id and row.get("attempt_id") != str(body.attempt_id):
+        raise HTTPException(409, "Mã gửi lại đã được dùng cho một lượt chép chính tả khác.")
     stored_fingerprint = row.get("submission_fingerprint")
     if stored_fingerprint and stored_fingerprint != fingerprint:
         raise HTTPException(409, "Nội dung gửi lại không khớp với lần nộp đầu tiên.")
+
+
+def _assert_dictation_attempt_submission(
+    attempt: dict,
+    body: DictationSessionRequest,
+) -> None:
+    if attempt.get("test_id") != body.test_id \
+            or attempt.get("section_num") != body.section_num:
+        raise HTTPException(409, "Lượt chép chính tả không khớp bài hoặc section.")
+    saved = _dictation_attempt_answers(str(attempt["id"]))
+    submitted = sorted(body.sentences, key=lambda item: item.sentence_idx)
+    if len(saved) != len(submitted):
+        raise HTTPException(409, "Vẫn còn câu chưa được máy chủ xác nhận.")
+    for canonical, incoming in zip(saved, submitted):
+        if canonical.get("sentence_idx") != incoming.sentence_idx \
+                or canonical.get("user_transcript") != incoming.user_transcript \
+                or int(canonical.get("listen_count") or 0) != incoming.listen_count \
+                or canonical.get("time_seconds") != incoming.time_seconds:
+            raise HTTPException(409, "Tiến độ canonical không khớp payload hoàn tất.")
+
+
+def _mark_dictation_attempt_completed(row: dict, user_id: str) -> None:
+    attempt_id = row.get("attempt_id")
+    if not attempt_id:
+        return
+    now = row.get("completed_at") or datetime.now(timezone.utc).isoformat()
+    mutation_observed_at = datetime.now(timezone.utc).isoformat()
+    try:
+        updated = (
+            supabase_admin.table("dictation_attempts")
+            .update({"status": "completed", "completed_at": now, "updated_at": now})
+            .eq("id", attempt_id).eq("user_id", user_id)
+            .eq("status", "in_progress")
+            .gt("resume_expires_at", mutation_observed_at)
+            .execute()
+        )
+        if updated.data:
+            return
+        current = _dictation_attempt_or_404(str(attempt_id), user_id)
+        if current.get("status") == "completed":
+            return
+        if current.get("status") == "in_progress":
+            require_resume_active(current)
+        raise HTTPException(409, "Lượt làm bài đã thay đổi; hãy tải lại trạng thái.")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("[dictation-attempt] completion reconciliation failed: %s", exc)
+        raise HTTPException(500, "Kết quả đã ghi nhưng chưa đóng được lượt làm bài; hãy thử xác nhận lại.")
 
 
 @user_router.post("/tests/dictation/session")
@@ -5134,8 +5491,6 @@ async def submit_listening_dictation_session(
     the grade endpoint uses, rolls up accuracy + error trends, and stores one
     dictation_sessions row. Returns the report the completion screen renders.
     """
-    from datetime import datetime, timezone
-
     user = await _require_auth(authorization)
     if not body.sentences:
         raise HTTPException(422, "Chưa có câu nào để tổng kết.")
@@ -5145,7 +5500,22 @@ async def submit_listening_dictation_session(
         existing = _dictation_session_by_request(user["id"], body.client_request_id)
         if existing:
             _assert_dictation_request_replay(existing, body, fingerprint)
+            _mark_dictation_attempt_completed(existing, user["id"])
             return _dictation_session_response(existing)
+
+    attempt = None
+    if body.attempt_id:
+        existing = _dictation_session_by_attempt(user["id"], body.attempt_id)
+        if existing:
+            _assert_dictation_request_replay(existing, body, fingerprint)
+            _mark_dictation_attempt_completed(existing, user["id"])
+            return _dictation_session_response(existing)
+        attempt = _dictation_attempt_or_404(
+            str(body.attempt_id), user["id"], require_in_progress=True,
+        )
+        if attempt.get("status") != "in_progress":
+            raise HTTPException(409, "Lượt chép chính tả này đã kết thúc.")
+        _assert_dictation_attempt_submission(attempt, body)
 
     test = _published_test_for_dictation(body.test_id, user.get("id"))
     sec_res = (
@@ -5154,9 +5524,11 @@ async def submit_listening_dictation_session(
         .eq("test_id", body.test_id).eq("section_num", body.section_num)
         .limit(1).execute()
     )
-    if not sec_res.data:
+    if not sec_res.data and not attempt:
         raise HTTPException(404, "Section không tồn tại cho test này.")
-    units = _dictation_units(sec_res.data[0])
+    units = (attempt.get("units_snapshot") or []) if attempt else _dictation_units(sec_res.data[0])
+    if not units:
+        raise HTTPException(409, "Lượt làm bài thiếu snapshot nội dung; vui lòng bắt đầu lại.")
 
     # A completion report must cover the WHOLE section exactly once. Reject a
     # subset / duplicate / out-of-range index set so a client can't persist a
@@ -5195,11 +5567,12 @@ async def submit_listening_dictation_session(
     session_id = str(uuid.uuid4())
     row = {
         "id":                 session_id,
+        "attempt_id":         str(body.attempt_id) if body.attempt_id else None,
         "user_id":            user["id"],
         "test_id":            body.test_id,
         "test_id_external":   test.get("test_id"),
         "section_num":        body.section_num,
-        "section_title":      sec_res.data[0].get("title"),
+        "section_title":      sec_res.data[0].get("title") if sec_res.data else None,
         "total_sentences":    report["total_sentences"],
         "correct_count":      report["correct_count"],
         "accuracy":           report["accuracy"],
@@ -5222,14 +5595,27 @@ async def submit_listening_dictation_session(
     try:
         supabase_admin.table("dictation_sessions").insert(row).execute()
     except Exception as exc:  # pragma: no cover
-        if body.client_request_id and _is_unique_violation(exc):
-            existing = _dictation_session_by_request(user["id"], body.client_request_id)
+        if is_active_player_expired_error(exc):
+            raise HTTPException(
+                410, "Lượt chép chính tả đã hết thời gian tiếp tục."
+            ) from exc
+        if _is_unique_violation(exc):
+            existing = (
+                _dictation_session_by_request(user["id"], body.client_request_id)
+                if body.client_request_id else None
+            )
+            if not existing and body.attempt_id:
+                existing = _dictation_session_by_attempt(user["id"], body.attempt_id)
             if existing:
                 _assert_dictation_request_replay(existing, body, fingerprint)
+                _mark_dictation_attempt_completed(existing, user["id"])
                 return _dictation_session_response(existing, test.get("title"))
+        if _is_dictation_attempt_conflict(exc):
+            raise HTTPException(409, "Tiến độ vừa thay đổi ở phiên khác; hãy tải lại rồi hoàn tất lại.")
         logger.error("[dictation] session insert failed: %s", exc)
         raise HTTPException(500, "Không lưu được kết quả chép chính tả.")
 
+    _mark_dictation_attempt_completed(row, user["id"])
     return _dictation_session_response(row, test.get("title"))
 
 
@@ -5243,6 +5629,7 @@ async def get_listening_dictation_session_by_request(
     row = _dictation_session_by_request(user["id"], client_request_id)
     if not row:
         raise HTTPException(404, "Chưa tìm thấy phiên cho mã gửi này.")
+    _mark_dictation_attempt_completed(row, user["id"])
     return _dictation_session_response(row)
 
 
@@ -5735,7 +6122,10 @@ async def get_in_progress_listening_attempt(
     user = await _require_auth(authorization)
     query = (
         supabase_admin.table("listening_test_attempts")
-        .select("id, started_at, created_at, answers")
+        .select(
+            "id, started_at, created_at, answers, renderer_affinity, "
+            "resume_expires_at, status"
+        )
         .eq("user_id", user["id"])
         .eq("test_id", test_id)
         .eq("status", "in_progress")
@@ -5765,7 +6155,7 @@ async def get_in_progress_listening_attempt(
         # (Codex review, PR #834).
         query = query.is_("sitting_id", "null")
     res = query.order("created_at", desc=True).limit(1).execute()
-    if not res.data:
+    if not res.data or not is_resume_active(res.data[0]):
         return {"attempt": None}
     row = res.data[0]
     return {
@@ -5778,6 +6168,8 @@ async def get_in_progress_listening_attempt(
                 a for a in (row.get("answers") or [])
                 if str(a.get("user_answer") or "").strip()
             ],
+            "renderer_affinity": row.get("renderer_affinity"),
+            "resume_expires_at": row.get("resume_expires_at"),
         }
     }
 
@@ -5785,6 +6177,7 @@ async def get_in_progress_listening_attempt(
 @user_router.post("/tests/{test_id}/attempts")
 async def start_listening_test_attempt(
     test_id: str,
+    body: _ListeningAttemptStartRequest | None = None,
     class_item: str | None = None,
     authorization: str | None = Header(default=None),
 ):
@@ -5840,13 +6233,20 @@ async def start_listening_test_attempt(
     )
 
     attempt_id = str(uuid.uuid4())
+    started_at = datetime.now(timezone.utc).isoformat()
+    expires_at = resume_expires_at(started_at)
     payload = {
         "id":      attempt_id,
         "test_id": test_id,
         "user_id": user["id"],
         "status":  "in_progress",
         "answers": [],
+        "started_at": started_at,
+        "resume_expires_at": expires_at,
     }
+    affinity_aware = body is not None and body.renderer_affinity_protocol == "claim-v1"
+    if affinity_aware:
+        payload["renderer_affinity"] = None
     # Class homework: stamp WHICH task this is being done for, so the ledger
     # never has to work it out afterwards (mig 181).
     if class_item:
@@ -5856,7 +6256,13 @@ async def start_listening_test_attempt(
         .insert(payload)
         .execute()
     )
-    return {"attempt_id": attempt_id, "status": "in_progress"}
+    return {
+        "attempt_id": attempt_id,
+        "status": "in_progress",
+        "started_at": started_at,
+        "resume_expires_at": expires_at,
+        "renderer_affinity": None if affinity_aware else "legacy",
+    }
 
 
 def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
@@ -5873,6 +6279,48 @@ def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
     if row.get("user_id") != user_id:
         raise HTTPException(403, "Attempt belongs to another user")
     return row
+
+
+@user_router.post("/tests/attempts/{attempt_id}/renderer-affinity")
+async def claim_listening_attempt_renderer_affinity(
+    attempt_id: uuid.UUID,
+    body: _ListeningAttemptRendererAffinityRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Claim a stable Listening player on first boot; never move it later."""
+    user = await _require_auth(authorization)
+    owned_attempt = _fetch_attempt_or_404(str(attempt_id), user["id"])
+    require_resume_active(owned_attempt)
+    try:
+        result = supabase_admin.rpc(
+            "fn_claim_listening_attempt_renderer_affinity",
+            {
+                "p_attempt_id": str(attempt_id),
+                "p_user_id": user["id"],
+                "p_renderer_affinity": body.renderer_affinity,
+            },
+        ).execute()
+    except Exception as exc:
+        logger.error(
+            "[listening-renderer-affinity] claim failed attempt=%s renderer=%s: %s",
+            attempt_id,
+            body.renderer_affinity,
+            exc,
+        )
+        if is_active_player_expired_error(exc):
+            require_resume_active(owned_attempt)
+            raise HTTPException(410, "Attempt đã hết thời gian tiếp tục.") from exc
+        raise HTTPException(
+            500, "Không thể xác nhận phiên bản player. Hãy tải lại trang."
+        )
+
+    rows = result.data or []
+    if len(rows) != 1:
+        raise HTTPException(404, "Attempt không tồn tại")
+    affinity = rows[0].get("renderer_affinity")
+    if affinity not in {"legacy", "next"}:
+        raise HTTPException(500, "Attempt chưa có renderer hợp lệ")
+    return {"attempt_id": str(attempt_id), "renderer_affinity": affinity}
 
 
 async def _is_admin(authorization: str | None) -> bool:
@@ -5921,6 +6369,7 @@ async def patch_listening_test_attempt_answer(
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])   # ownership gate
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
+    require_resume_active(attempt)
     if not (1 <= body.q_num <= 40):
         raise HTTPException(422, "q_num must be in 1..40")
     # A practice attempt is scored on the FIRST answer to each question, which
@@ -5944,6 +6393,7 @@ async def patch_listening_test_attempt_answer(
         # The RPC also enforces status='in_progress', so a NULL here means the
         # attempt was submitted between the check above and the write — a real
         # race, and the honest answer is that the edit did not land.
+        require_resume_active(attempt)
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
     return {"attempt_id": attempt_id, "answer_count": count}
 
@@ -6078,6 +6528,7 @@ async def check_listening_practice_answer(
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])       # ownership gate
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể chấm thêm.")
+    require_resume_active(attempt)
 
     test_res = (
         supabase_admin.table("listening_tests")
@@ -6113,6 +6564,7 @@ async def check_listening_practice_answer(
             # The RPC re-checks status, so NULL means the attempt was submitted
             # between our read and the write. Say so instead of returning a
             # grade for an answer that was never stored.
+            require_resume_active(attempt)
             raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể chấm thêm.")
         recorded = bool(wrote)
         if recorded:
@@ -6207,6 +6659,7 @@ async def submit_listening_test_attempt(
         raise HTTPException(422, "Attempt đã submit rồi — không thể submit lại.")
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt status không hợp lệ.")
+    require_resume_active(attempt)
 
     # Pull the test's exercises + extract the answer key.
     test_id = attempt["test_id"]
@@ -6231,7 +6684,7 @@ async def submit_listening_test_attempt(
     result = grader.grade_attempt(attempt.get("answers") or [], answer_key)
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    (
+    finalized = (
         supabase_admin.table("listening_test_attempts")
         .update({
             "status":          "submitted",
@@ -6242,8 +6695,15 @@ async def submit_listening_test_attempt(
             "submitted_at":    now_iso,
         })
         .eq("id", attempt_id)
+        .eq("status", "in_progress")
+        .gt("resume_expires_at", now_iso)
         .execute()
     )
+    if not finalized.data:
+        fresh = _fetch_attempt_or_404(attempt_id, user["id"])
+        if fresh.get("status") == "in_progress":
+            require_resume_active(fresh)
+        raise HTTPException(409, "Attempt đã thay đổi; hãy tải lại trạng thái.")
 
     # Sealed 4-skill mock: grade + persist above (the admin's draft), but never
     # expose the score to the student until the sitting is released.

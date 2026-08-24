@@ -302,15 +302,21 @@ ROLLBACK_TABLE_MAX_WINDOW_MIN = 129_600   # 90 days
 ROLLBACK_TABLE_MIN_WINDOW_MIN = 5
 LEGACY_RETIREMENT_EVENT_NAME = "legacy_retirement_page_view"
 
-# Gate F stateful-player drain inventory. These three tables are the canonical
+# Gate F stateful-player drain inventory. These tables are the canonical
 # persistence sources for the core players that can keep an implementation-
-# specific URL alive across deployments. Dictation is intentionally absent:
-# its player is attempt-free and writes append-only per segment, so it has no
-# in-progress backend row that could truthfully be counted here.
+# specific URL alive across deployments.
 GATE_F_STATEFUL_PLAYER_TABLES = (
     ("speaking", "sessions"),
     ("reading_exam", "reading_test_attempts"),
     ("listening_test", "listening_test_attempts"),
+    ("listening_dictation", "dictation_attempts"),
+)
+
+# Writing claims its renderer before ``/start`` so a failed start can leave a
+# still-pending assignment pinned to Legacy. Count the canonical affinity
+# directly instead of inferring renderer ownership from ``started_at``.
+GATE_F_AFFINITY_PLAYER_TABLES = (
+    ("writing_assignment", "writing_assignments"),
 )
 
 
@@ -781,22 +787,56 @@ def _gate_f_cutover_at(value: str) -> datetime:
 def _gate_f_exact_active_count(
     table: str,
     *,
-    cutover_at: str | None = None,
-    missing_started_at: bool = False,
+    affinity: str | None | object = ...,
+    resume_after: str | None = None,
+    missing_resume_expiry: bool = False,
 ) -> int:
-    """Return one exact active count; never degrade to a scanned lower bound."""
+    """Return one exact active-player count; never use a scanned lower bound."""
     query = (
         supabase_admin.table(table)
         .select("id", count="exact")
         .eq("status", "in_progress")
     )
-    if cutover_at is not None:
-        query = query.lte("started_at", cutover_at)
-    if missing_started_at:
-        query = query.is_("started_at", "null")
+    if affinity is not ...:
+        query = (
+            query.is_("renderer_affinity", "null")
+            if affinity is None else query.eq("renderer_affinity", affinity)
+        )
+    if resume_after is not None:
+        query = query.gt("resume_expires_at", resume_after)
+    if missing_resume_expiry:
+        query = query.is_("resume_expires_at", "null")
     result = query.limit(1).execute()
     if result.count is None:
         raise RuntimeError(f"{table}: exact count unavailable")
+    return int(result.count)
+
+
+def _gate_f_exact_affinity_count(
+    table: str,
+    *,
+    status: str,
+    affinity: str | None,
+    lease_after: str | None = None,
+    missing_lease_expiry: bool = False,
+) -> int:
+    """Return an exact affinity-pinned count for one active workflow state."""
+    query = (
+        supabase_admin.table(table)
+        .select("id", count="exact")
+        .eq("status", status)
+    )
+    if affinity is None:
+        query = query.is_("renderer_affinity", "null")
+    else:
+        query = query.eq("renderer_affinity", affinity)
+    if lease_after is not None:
+        query = query.gt("renderer_affinity_expires_at", lease_after)
+    if missing_lease_expiry:
+        query = query.is_("renderer_affinity_expires_at", "null")
+    result = query.limit(1).execute()
+    if result.count is None:
+        raise RuntimeError(f"{table}: exact affinity count unavailable")
     return int(result.count)
 
 
@@ -805,14 +845,15 @@ async def gate_f_legacy_active_session_drain(
     cutover_at: str,
     authorization: str | None = Header(default=None),
 ):
-    """Gate F exact inventory of stateful attempts admitted before cutover.
+    """Gate F exact inventory of still-resumable Legacy player state.
 
-    Before the admission flip every core-player launch resolves to Legacy, so
-    an ``in_progress`` row whose ``started_at`` is at or before the verified
-    cutover timestamp remains a possible Legacy renderer dependency. Missing
-    timestamps fail closed and count as blockers. This endpoint is read-only;
-    a non-zero result must drain naturally or be covered by a versioned,
-    owner-approved exception before any Legacy player is retired.
+    Renderer affinity is canonical after migrations 215–221. Migration 224
+    adds a hard resume/lease deadline, so an ancient audit row is not mistaken
+    for a live browser dependency. A Legacy or unclaimed row blocks only while
+    its canonical deadline is still in the future. Missing deadlines fail
+    closed. The cutoff remains the versioned release timestamp, but post-cutover
+    Legacy admissions also block — silently allowing one would hide a routing
+    regression.
 
     The result deliberately does not claim that Gate F passed. Zero stateful
     rows is only one retirement prerequisite; the 14-day/full-cycle telemetry,
@@ -821,25 +862,89 @@ async def gate_f_legacy_active_session_drain(
     await require_admin(authorization)
     cutoff = _gate_f_cutover_at(cutover_at)
     cutoff_iso = cutoff.isoformat()
+    observed_at = datetime.now(timezone.utc).isoformat()
 
     surfaces: dict[str, dict] = {}
     try:
         for surface, table in GATE_F_STATEFUL_PLAYER_TABLES:
             active_total = _gate_f_exact_active_count(table)
-            pre_cutover = _gate_f_exact_active_count(table, cutover_at=cutoff_iso)
-            missing_started = _gate_f_exact_active_count(table, missing_started_at=True)
-            blockers = pre_cutover + missing_started
-            post_cutover = active_total - blockers
-            if post_cutover < 0:
+            legacy_live = _gate_f_exact_active_count(
+                table, affinity="legacy", resume_after=observed_at,
+            )
+            unclaimed_live = _gate_f_exact_active_count(
+                table, affinity=None, resume_after=observed_at,
+            )
+            next_live = _gate_f_exact_active_count(
+                table, affinity="next", resume_after=observed_at,
+            )
+            missing_expiry = _gate_f_exact_active_count(
+                table, missing_resume_expiry=True,
+            )
+            blockers = legacy_live + unclaimed_live + missing_expiry
+            expired_audit_rows = active_total - (
+                legacy_live + unclaimed_live + next_live + missing_expiry
+            )
+            if expired_audit_rows < 0:
                 raise RuntimeError(f"{table}: inconsistent exact counts")
             surfaces[surface] = {
                 "table": table,
                 "active_status": "in_progress",
                 "active_total": active_total,
-                "pre_cutover_active": pre_cutover,
-                "missing_started_at": missing_started,
+                "legacy_unexpired": legacy_live,
+                "unclaimed_unexpired": unclaimed_live,
+                "next_unexpired": next_live,
+                "missing_resume_expires_at": missing_expiry,
+                "expired_audit_rows": expired_audit_rows,
                 "legacy_blocking": blockers,
-                "post_cutover_active": post_cutover,
+                "exact": True,
+            }
+        for surface, table in GATE_F_AFFINITY_PLAYER_TABLES:
+            legacy_pending = _gate_f_exact_affinity_count(
+                table,
+                status="pending",
+                affinity="legacy",
+                lease_after=observed_at,
+            )
+            legacy_in_progress = _gate_f_exact_affinity_count(
+                table,
+                status="in_progress",
+                affinity="legacy",
+                lease_after=observed_at,
+            )
+            unclaimed_in_progress = _gate_f_exact_affinity_count(
+                table,
+                status="in_progress",
+                affinity=None,
+                lease_after=observed_at,
+            )
+            missing_lease = sum(
+                _gate_f_exact_affinity_count(
+                    table,
+                    status=status,
+                    affinity=affinity,
+                    missing_lease_expiry=True,
+                )
+                for status, affinity in (
+                    ("pending", "legacy"),
+                    ("in_progress", "legacy"),
+                    ("in_progress", None),
+                    ("pending", "next"),
+                    ("in_progress", "next"),
+                )
+            )
+            blockers = (
+                legacy_pending + legacy_in_progress
+                + unclaimed_in_progress + missing_lease
+            )
+            surfaces[surface] = {
+                "table": table,
+                "blocking_renderer_affinities": ["legacy", None],
+                "active_statuses": ["pending", "in_progress"],
+                "legacy_pending": legacy_pending,
+                "legacy_in_progress": legacy_in_progress,
+                "unclaimed_in_progress": unclaimed_in_progress,
+                "missing_renderer_lease": missing_lease,
+                "legacy_blocking": blockers,
                 "exact": True,
             }
     except Exception as exc:
@@ -851,21 +956,13 @@ async def gate_f_legacy_active_session_drain(
 
     legacy_blocking_total = sum(row["legacy_blocking"] for row in surfaces.values())
     return {
-        "schema_version": 1,
+        "schema_version": 4,
         "cutover_at": cutoff_iso,
-        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "observed_at": observed_at,
         "exact": True,
         "stateful_legacy_drain_zero": legacy_blocking_total == 0,
         "legacy_blocking_total": legacy_blocking_total,
-        "surfaces": {
-            **surfaces,
-            "listening_dictation": {
-                "lifecycle": "attempt-free",
-                "active_row_tracking": False,
-                "legacy_blocking": None,
-                "drain_evidence": LEGACY_RETIREMENT_EVENT_NAME,
-            },
-        },
+        "surfaces": surfaces,
         "retirement_decision": "pending-additional-gate-f-evidence",
     }
 

@@ -21,7 +21,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 from pydantic import ValidationError
 
 from routers import sessions as sessions_module
@@ -281,6 +281,7 @@ def test_next_full_test_part_inherits_only_from_owned_immediate_predecessor(monk
         "mode": "test_full",
         "part": 1,
         "status": "in_progress",
+        "resume_expires_at": "2999-01-01T00:00:00+00:00",
         "full_test_attempt_id": "attempt-1",
     }])
     monkeypatch.setattr(sessions_module, "supabase_admin", db)
@@ -324,3 +325,122 @@ def test_full_test_question_count_contract_is_exact_9_1_5():
             rows[:-1],
         )
     assert incomplete.value.status_code == 409
+
+
+class _FinalizeEndpointBuilder:
+    def __init__(self, db, table):
+        self.db = db
+        self.table = table
+        self.payload = None
+        self.filters = []
+
+    def select(self, *_args, **_kwargs):
+        return self
+
+    def update(self, payload):
+        self.payload = payload
+        return self
+
+    def in_(self, column, values):
+        self.filters.append(("in", column, set(values)))
+        return self
+
+    def eq(self, column, value):
+        self.filters.append(("eq", column, value))
+        return self
+
+    def _rows(self):
+        rows = self.db.sessions if self.table == "sessions" else self.db.questions
+        out = list(rows)
+        for kind, column, value in self.filters:
+            if kind == "in":
+                out = [row for row in out if row.get(column) in value]
+            else:
+                out = [row for row in out if row.get(column) == value]
+        return out
+
+    def execute(self):
+        rows = self._rows()
+        if self.payload is not None:
+            if self.db.update_error is not None:
+                raise self.db.update_error
+            for row in rows:
+                row.update(self.payload)
+            self.db.updated_ids.extend(row["id"] for row in rows)
+        return _CoverageResult([dict(row) for row in rows])
+
+
+class _FinalizeEndpointDb:
+    def __init__(self, expiry="2999-01-01T00:00:00+00:00", update_error=None):
+        self.sessions = [
+            {
+                "id": f"p{part}",
+                "user_id": "u1",
+                "mode": "test_full",
+                "part": part,
+                "status": "in_progress",
+                "sitting_id": None,
+                "full_test_attempt_id": "attempt-1",
+                "resume_expires_at": expiry,
+            }
+            for part in (1, 2, 3)
+        ]
+        self.questions = (
+            [{"id": f"q1-{i}", "session_id": "p1"} for i in range(9)]
+            + [{"id": "q2-1", "session_id": "p2"}]
+            + [{"id": f"q3-{i}", "session_id": "p3"} for i in range(5)]
+        )
+        self.update_error = update_error
+        self.updated_ids = []
+
+    def table(self, name):
+        return _FinalizeEndpointBuilder(self, name)
+
+
+def _finalize_body():
+    return sessions_module.FinalizeFullTestBody(p1_id="p1", p2_id="p2", p3_id="p3")
+
+
+def _patch_finalize_auth(monkeypatch):
+    async def _auth(_authorization):
+        return {"id": "u1"}
+
+    monkeypatch.setattr(sessions_module, "get_supabase_user", _auth)
+
+
+def test_finalize_full_test_rejects_expired_part_before_terminal_write(monkeypatch):
+    db = _FinalizeEndpointDb(expiry="2000-01-01T00:00:00+00:00")
+    monkeypatch.setattr(sessions_module, "supabase_admin", db)
+    _patch_finalize_auth(monkeypatch)
+
+    with pytest.raises(HTTPException) as expired:
+        _run(sessions_module.finalize_full_test(_finalize_body(), BackgroundTasks()))
+
+    assert expired.value.status_code == 410
+    assert db.updated_ids == []
+
+
+def test_finalize_full_test_maps_db_deadline_race_to_410(monkeypatch):
+    db = _FinalizeEndpointDb(update_error=RuntimeError("active_player_expired"))
+    monkeypatch.setattr(sessions_module, "supabase_admin", db)
+    _patch_finalize_auth(monkeypatch)
+    tasks = BackgroundTasks()
+
+    with pytest.raises(HTTPException) as expired:
+        _run(sessions_module.finalize_full_test(_finalize_body(), tasks))
+
+    assert expired.value.status_code == 410
+    assert tasks.tasks == []
+
+
+def test_finalize_full_test_persists_all_three_before_scheduling(monkeypatch):
+    db = _FinalizeEndpointDb()
+    monkeypatch.setattr(sessions_module, "supabase_admin", db)
+    _patch_finalize_auth(monkeypatch)
+    tasks = BackgroundTasks()
+
+    result = _run(sessions_module.finalize_full_test(_finalize_body(), tasks))
+
+    assert result == {"accepted": True, "session_ids": ["p1", "p2", "p3"]}
+    assert db.updated_ids == ["p1", "p2", "p3"]
+    assert len(tasks.tasks) == 1

@@ -15,6 +15,7 @@ export default function AdminMockLiveLayout({ children }: { children: ReactNode 
         '/css/aver-design/admin-buttons.css',
         '/css/aver-design/admin-status.css',
         '/css/admin-mock-live-next.css',
+        '/css/admin-exam-ops-next.css',
       ]}
     >
       {children}

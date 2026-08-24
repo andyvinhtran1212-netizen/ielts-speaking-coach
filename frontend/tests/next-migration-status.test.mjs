@@ -6,6 +6,7 @@ import {
   classifyLegacyHtml,
   collectNextMigrationStatus,
   redirectSourcesFromConfig,
+  retirementRedirectsInstalledFromConfig,
   summarizeCorePlayers,
 } from '../tooling/next-migration-status.mjs';
 import {
@@ -40,6 +41,21 @@ test('only treats actual Next redirects as compatibility redirects', () => {
   });
 });
 
+test('only recognizes the generated retirement manifest when config wires all three steps', () => {
+  const complete = `
+    import { buildLegacyRetirementRedirects } from './tooling/gate-f-retirement-redirects.mjs';
+    const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(paths);
+    async function redirects() { return [...LEGACY_RETIREMENT_REDIRECTS]; }
+  `;
+  assert.equal(retirementRedirectsInstalledFromConfig(complete), true);
+  assert.equal(retirementRedirectsInstalledFromConfig(
+    '// ...LEGACY_RETIREMENT_REDIRECTS from gate-f-retirement-redirects.mjs',
+  ), false);
+  assert.equal(retirementRedirectsInstalledFromConfig(
+    complete.replace('...LEGACY_RETIREMENT_REDIRECTS', '// omitted'),
+  ), false);
+});
+
 test('reports core route readiness separately from new-session admission', () => {
   const report = summarizeCorePlayers({ surfaces: {
     ready_dark: { admit_new: 'legacy', next: { path: '/next', route_ready: true } },
@@ -57,6 +73,9 @@ test('maps legacy aliases and nested filename families to canonical Next routes'
   assert.equal(canonicalNextRouteForLegacy('/pages/reading-exam.html'), '/reading/exam/session');
   assert.equal(canonicalNextRouteForLegacy('/pages/listening-test.html'), '/listening/test/session');
   assert.equal(canonicalNextRouteForLegacy('/pages/admin/listening/content-detail.html'), '/admin/listening/content/[contentId]');
+  assert.equal(canonicalNextRouteForLegacy('/pages/admin/access-codes/index.html'), '/admin/users');
+  assert.equal(canonicalNextRouteForLegacy('/pages/admin/cohorts/index.html'), '/admin/classes');
+  assert.equal(canonicalNextRouteForLegacy('/pages/admin/dashboard/index.html'), '/admin');
   assert.equal(canonicalNextRouteForLegacy('/pages/vocabulary.html'), '/vocabulary/hub');
   assert.equal(canonicalNextRouteForLegacy('/vocabulary.html'), '/vocabulary');
   assert.equal(buildLegacyReplacementInventory(['/pages/exam.html'], ['/exam']).entries[0].owner, 'exam-platform');
@@ -80,7 +99,7 @@ test('replacement inventory fails closed when an App Router owner is absent', ()
 
 test('repository report is internally consistent and cannot overclaim completion', () => {
   const report = collectNextMigrationStatus();
-  assert.equal(report.schemaVersion, 2);
+  assert.equal(report.schemaVersion, 3);
   assert.equal(report.appPages.source, report.appPages.product + report.appPages.excluded.length);
   assert.equal(report.legacyHtml.total, report.legacyHtml.compatibilityRedirected + report.legacyHtml.directlyRenderable);
   assert.equal(report.legacyHtml.serverRedirected, 4);
@@ -90,20 +109,47 @@ test('repository report is internally consistent and cannot overclaim completion
     '/pages/admin/students/index.html',
     '/pricing.html',
   ]);
+  assert.equal(report.legacyHtml.directlyRenderable, 121);
   assert.equal(report.legacyHtml.telemetryInstrumented, report.legacyHtml.directlyRenderable);
   assert.deepEqual(report.legacyHtml.telemetryMissingPaths, []);
   assert.equal(report.gateFObservationReady, true);
   assert.equal(report.legacyReplacement.total, report.legacyHtml.directlyRenderable);
-  assert.equal(report.legacyReplacement.nextRoutePresent, 121);
+  assert.equal(report.legacyReplacement.nextRoutePresent, report.legacyHtml.directlyRenderable);
   assert.deepEqual(report.legacyReplacement.missingNextRoutes, []);
   assert.deepEqual(report.routeOwnershipCollisions, []);
   assert.equal(report.corePlayers.nextReady, report.corePlayers.total);
-  assert.equal(report.corePlayers.admittedToNext, 0);
-  assert.equal(report.staticCutoverReady, false, 'remove this pin only in the intentional final static cutover');
+  assert.equal(report.corePlayers.admittedToNext, report.corePlayers.total);
+  assert.deepEqual(report.legacyRetirementRedirects, {
+    installed: false,
+    artifactSet: {
+      count: 129,
+      sha256: '5916f9f6ce2ee703a6b69d1996237cf126750a97c952f27efc35c00f7d729aa2',
+    },
+    rules: 0,
+    sourcePaths: 0,
+  });
+  assert.equal(report.staticCutoverReady, false);
   assert.ok(report.blockers.some((blocker) => blocker.code === 'legacy-html-renderable'));
-  assert.ok(report.blockers.some((blocker) => blocker.code === 'core-admission-still-legacy'));
-  assert.ok(!report.blockers.some((blocker) => blocker.code === 'legacy-next-replacement-missing'));
-  assert.ok(!report.blockers.some((blocker) => blocker.code === 'core-next-route-not-ready'));
-  assert.ok(!report.blockers.some((blocker) => blocker.code === 'legacy-retirement-telemetry-missing'));
+  assert.ok(!report.blockers.some((blocker) => blocker.code === 'core-admission-still-legacy'));
   assert.match(report.scopeNote, /operational evidence/i);
+});
+
+test('all-Next admission alone cannot overclaim Legacy static retirement', () => {
+  const allNextPolicy = { surfaces: Object.fromEntries([
+    'speaking',
+    'reading_exam',
+    'listening_test',
+    'listening_dictation',
+    'writing_assignment',
+  ].map((surface) => [surface, {
+    admit_new: 'next',
+    next: { path: `/native/${surface}`, route_ready: true },
+  }])) };
+  const report = collectNextMigrationStatus(undefined, {
+    corePlayerPolicy: allNextPolicy,
+  });
+  assert.equal(report.corePlayers.admittedToNext, report.corePlayers.total);
+  assert.equal(report.legacyHtml.directlyRenderable, 121);
+  assert.equal(report.staticCutoverReady, false);
+  assert.ok(report.blockers.some((blocker) => blocker.code === 'legacy-html-renderable'));
 });

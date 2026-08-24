@@ -24,7 +24,7 @@ const items = [{
   id: 'content-unreadable', title: 'Lookup failed', description: '',
   available_modes: 'dictation',
 }];
-const fullPage = Array.from({ length: 100 }, (_, index) => ({
+const fullPage = Array.from({ length: 24 }, (_, index) => ({
   id: `paged-${index}`,
   title: `Paged item ${index}`,
   description: '',
@@ -80,7 +80,10 @@ await page.route('**/*', async (route) => {
           ielts_section: 4, available_modes: [],
         }])
       : query.cefr === 'C2' ? [] : items;
-    const body = { items: pageItems };
+    const total = query.section === '4'
+      ? 25
+      : query.cefr === 'C2' ? 0 : items.length;
+    const body = { items: pageItems, total };
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   }
   if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(url)) return route.continue();
@@ -94,11 +97,11 @@ check('authored metadata được React escape',
   (await page.locator('[data-content-id="content-one"] h3').innerText()) === 'Travel <script>'
     && (await page.locator('[data-content-id="content-one"] .desc').innerText()) === 'Airport & hotel'
     && await page.locator('.content-card script').count() === 0);
-check('metadata pills giữ accent, CEFR, section và duration',
+check('card giữ accent, CEFR, section và duration',
   (await page.locator('[data-content-id="content-one"] .meta-row').innerText()).includes('uk_rp')
     && (await page.locator('[data-content-id="content-one"] .meta-row').innerText()).includes('B2')
     && (await page.locator('[data-content-id="content-one"] .meta-row').innerText()).includes('Section 1')
-    && (await page.locator('[data-content-id="content-one"] .meta-row').innerText()).includes('1p'));
+    && (await page.locator('[data-content-id="content-one"] .content-card__head').innerText()).includes('1 phút'));
 const modeLinks = page.locator('[data-content-id="content-one"] .mode-link');
 check('chỉ render mode được backend báo theo thứ tự sư phạm',
   await modeLinks.count() === 2
@@ -114,9 +117,9 @@ check('empty array là no-mode thật',
     .includes('Chưa có dạng luyện nào'));
 check('missing hoặc malformed modes là lookup failure, không giả no-data',
   (await page.locator('[data-content-id="content-unreadable"] .mode-empty').innerText())
-    .includes('Không đọc được'));
+    .includes('Chưa đồng bộ được'));
 check('request đầu dùng paging contract không kèm filter rỗng',
-  observedQueries[0]?.limit === '100' && observedQueries[0]?.offset === '0'
+  observedQueries[0]?.limit === '24' && observedQueries[0]?.offset === '0'
     && observedQueries[0]?.accent === null && observedQueries[0]?.cefr === null
     && observedQueries[0]?.section === null);
 
@@ -126,10 +129,11 @@ check('đổi accent gửi đúng canonical query',
   observedQueries.some((query) => query.accent === 'us_general'));
 
 await page.locator('#filter-section').selectOption('4');
+await page.getByRole('button', { name: 'Xem thêm (24/25)' }).click();
 await page.locator('[data-content-id="paged-final"]').waitFor({ state: 'visible' });
-check('trang đủ 100 mục tiếp tục tải offset 100 và ghép kết quả',
-  await page.locator('.content-card').count() === 101
-    && observedQueries.some((query) => query.section === '4' && query.offset === '100'));
+check('nút Xem thêm tải offset 24 và ghép mục cuối',
+  await page.locator('.content-card').count() === 25
+    && observedQueries.some((query) => query.section === '4' && query.offset === '24'));
 await page.locator('#filter-section').selectOption('');
 await page.locator('[data-content-id="content-one"]').waitFor({ state: 'visible' });
 
@@ -144,8 +148,8 @@ await page.locator('#state-error').waitFor({ state: 'visible' });
 check('lỗi backend dùng thông báo chung, không lộ raw detail',
   !(await page.locator('#state-error').innerText()).includes('secret-browse-detail'));
 check('mọi request đều giữ limit/offset contract',
-  observedQueries.every((query) => query.limit === '100'
-    && (query.offset === '0' || (query.section === '4' && query.offset === '100'))));
+  observedQueries.every((query) => query.limit === '24'
+    && (query.offset === '0' || (query.section === '4' && query.offset === '24'))));
 check('không có lỗi JS chưa bắt', pageErrors.length === 0, pageErrors[0] || '');
 
 await browser.close();

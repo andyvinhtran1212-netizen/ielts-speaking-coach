@@ -5,8 +5,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
-const PAGE_LIMIT = 100;
-const MAX_PAGES = 20;
+const PAGE_LIMIT = 24;
 
 const MODE_LINKS = [
   ['dictation', 'Chép chính tả', '/listening/dictation'],
@@ -46,16 +45,8 @@ interface ListeningContent {
 
 type LoadState =
   | { status: 'loading' }
-  | { status: 'ready'; items: ListeningContent[] }
+  | { status: 'ready'; items: ListeningContent[]; total: number }
   | { status: 'error' };
-
-const labelStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '4px',
-  fontSize: 'var(--av-fs-xs)',
-  color: 'var(--av-text-muted)',
-} as const;
 
 function textValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -70,7 +61,7 @@ function displayValue(value: unknown): string | null {
 }
 
 function normalizeItems(items: unknown[]): ListeningContent[] {
-  return items.flatMap((value, index) => {
+  return items.flatMap((value) => {
     const raw: RawContent = value && typeof value === 'object' ? value : {};
     const id = textValue(raw.id);
     if (!id) return [];
@@ -79,7 +70,7 @@ function normalizeItems(items: unknown[]): ListeningContent[] {
       ? raw.available_modes.filter((mode): mode is string => typeof mode === 'string')
       : null;
     return [{
-      key: `${id}-${index}`,
+      key: id,
       id,
       title: textValue(raw.title) || 'Bài nghe',
       description: textValue(raw.description),
@@ -102,27 +93,21 @@ function buildPath(filters: Filters, offset: number): string {
   return `/api/listening/content?${query.toString()}`;
 }
 
-async function fetchAllContent(filters: Filters, signal: AbortSignal): Promise<unknown[]> {
-  const all: unknown[] = [];
-  let offset = 0;
-  for (let page = 0; page < MAX_PAGES; page += 1) {
-    const payload = await window.api.getWith<unknown>(
-      buildPath(filters, offset),
-      undefined,
-      { signal },
-    );
-    const items = payload && typeof payload === 'object'
-      ? (payload as { items?: unknown }).items
-      : null;
-    const pageItems = Array.isArray(items) ? items : [];
-    all.push(...pageItems);
-    if (pageItems.length < PAGE_LIMIT) return all;
-    offset += PAGE_LIMIT;
-  }
-  throw new Error(
-    `Danh sách vượt ${MAX_PAGES * PAGE_LIMIT} mục — chưa tải hết, `
-    + 'cần phân trang trên giao diện thay vì tải một lượt.',
+async function fetchContentPage(filters: Filters, offset: number, signal: AbortSignal) {
+  const payload = await window.api.getWith<unknown>(
+    buildPath(filters, offset), undefined, { signal },
   );
+  const record = payload && typeof payload === 'object'
+    ? payload as { items?: unknown; total?: unknown }
+    : {};
+  const items = Array.isArray(record.items) ? record.items : [];
+  const reportedTotal = Number(record.total);
+  return {
+    items,
+    total: Number.isFinite(reportedTotal)
+      ? Math.max(offset + items.length, reportedTotal)
+      : offset + items.length,
+  };
 }
 
 function FiltersBar({ filters, onChange }: {
@@ -130,9 +115,18 @@ function FiltersBar({ filters, onChange }: {
   onChange: (key: keyof Filters, value: string) => void;
 }) {
   return (
-    <div className="browse-filters">
-      <label style={labelStyle}>
-        Accent
+    <details className="browse-filter-panel" open>
+      <summary>
+        <span>Bộ lọc bài nghe</span>
+        <span className="browse-filter-count">
+          {Object.values(filters).filter(Boolean).length
+            ? `${Object.values(filters).filter(Boolean).length} đang dùng`
+            : 'Tất cả'}
+        </span>
+      </summary>
+      <div className="browse-filters">
+      <label>
+        Giọng đọc
         <select id="filter-accent" value={filters.accent} onChange={(event) => onChange('accent', event.target.value)}>
           <option value="">Tất cả</option>
           <option value="us_general">US</option>
@@ -142,8 +136,8 @@ function FiltersBar({ filters, onChange }: {
           <option value="other">Khác</option>
         </select>
       </label>
-      <label style={labelStyle}>
-        CEFR
+      <label>
+        Trình độ CEFR
         <select id="filter-cefr" value={filters.cefr} onChange={(event) => onChange('cefr', event.target.value)}>
           <option value="">Tất cả</option>
           <option value="A2">A2</option>
@@ -153,8 +147,8 @@ function FiltersBar({ filters, onChange }: {
           <option value="C2">C2</option>
         </select>
       </label>
-      <label style={labelStyle}>
-        Section
+      <label>
+        Phần thi
         <select id="filter-section" value={filters.section} onChange={(event) => onChange('section', event.target.value)}>
           <option value="">Tất cả</option>
           <option value="1">Section 1</option>
@@ -163,13 +157,14 @@ function FiltersBar({ filters, onChange }: {
           <option value="4">Section 4</option>
         </select>
       </label>
-    </div>
+      </div>
+    </details>
   );
 }
 
 function ModeLinks({ item }: { item: ListeningContent }) {
   if (item.availableModes === null) {
-    return <span className="mode-empty">⚠ Không đọc được danh sách dạng luyện</span>;
+    return <span className="mode-empty is-warning">Chưa đồng bộ được dạng luyện</span>;
   }
   const links = MODE_LINKS.filter(([mode]) => item.availableModes?.includes(mode));
   if (!links.length) {
@@ -184,17 +179,17 @@ function ModeLinks({ item }: { item: ListeningContent }) {
 
 function ContentCard({ item }: { item: ListeningContent }) {
   return (
-    <div className="content-card" data-content-id={item.id}>
+    <article className="content-card" data-content-id={item.id}>
+      <div className="content-card__head"><span>Bài nghe</span>{item.minutes > 0 ? <small>{item.minutes} phút</small> : null}</div>
       <h3>{item.title}</h3>
       <div className="desc">{item.description}</div>
       <div className="meta-row">
         {item.accent && <span className="meta-pill">{item.accent}</span>}
         {item.cefr && <span className="meta-pill is-brand">{item.cefr}</span>}
         {item.section && <span className="meta-pill">Section {item.section}</span>}
-        {item.minutes > 0 && <span className="meta-pill">{item.minutes}p</span>}
       </div>
-      <div className="mode-links"><ModeLinks item={item} /></div>
-    </div>
+      <div className="mode-links"><strong>Chọn dạng luyện</strong><div><ModeLinks item={item} /></div></div>
+    </article>
   );
 }
 
@@ -211,7 +206,11 @@ export function ListeningBrowseBehavior() {
 
 function ListeningBrowseLibrary({ accountKey }: { accountKey: string | null }) {
   const [filters, setFilters] = useState<Filters>({ accent: '', cefr: '', section: '' });
+  const [offset, setOffset] = useState(0);
+  const [retryKey, setRetryKey] = useState(0);
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(false);
 
   useEffect(() => {
     if (!accountKey) {
@@ -221,7 +220,9 @@ function ListeningBrowseLibrary({ accountKey }: { accountKey: string | null }) {
 
     const controller = new AbortController();
     let disposed = false;
-    setState({ status: 'loading' });
+    if (offset === 0) setState({ status: 'loading' });
+    else setLoadingMore(true);
+    setLoadMoreError(false);
 
     (async () => {
       const ready = await whenGlobalReady(
@@ -229,15 +230,36 @@ function ListeningBrowseLibrary({ accountKey }: { accountKey: string | null }) {
         'window.api (listening content browse)',
       );
       if (!ready || disposed) {
-        if (!disposed) setState({ status: 'error' });
+        if (!disposed) {
+          if (offset === 0) setState({ status: 'error' });
+          else setLoadMoreError(true);
+          setLoadingMore(false);
+        }
         return;
       }
       try {
-        const items = await fetchAllContent(filters, controller.signal);
-        if (!disposed) setState({ status: 'ready', items: normalizeItems(items) });
+        const page = await fetchContentPage(filters, offset, controller.signal);
+        if (!disposed) {
+          const normalized = normalizeItems(page.items);
+          setState((current) => {
+            if (offset === 0 || current.status !== 'ready') {
+              return { status: 'ready', items: normalized, total: page.total };
+            }
+            const known = new Set(current.items.map((item) => item.id));
+            const additions = normalized.filter((item) => !known.has(item.id));
+            return {
+              status: 'ready',
+              items: [...current.items, ...additions],
+              total: Math.max(current.total, page.total),
+            };
+          });
+        }
       } catch (caught: unknown) {
         if (disposed || (caught instanceof DOMException && caught.name === 'AbortError')) return;
-        setState({ status: 'error' });
+        if (offset === 0) setState({ status: 'error' });
+        else setLoadMoreError(true);
+      } finally {
+        if (!disposed) setLoadingMore(false);
       }
     })();
 
@@ -245,11 +267,16 @@ function ListeningBrowseLibrary({ accountKey }: { accountKey: string | null }) {
       disposed = true;
       controller.abort();
     };
-  }, [accountKey, filters]);
+  }, [accountKey, filters, offset, retryKey]);
 
   const changeFilter = (key: keyof Filters, value: string) => {
+    setOffset(0);
+    setRetryKey(0);
     setFilters((current) => ({ ...current, [key]: value }));
   };
+
+  const shown = state.status === 'ready' ? state.items.length : 0;
+  const hasMore = state.status === 'ready' && shown < state.total;
 
   return (
     <>
@@ -259,14 +286,40 @@ function ListeningBrowseLibrary({ accountKey }: { accountKey: string | null }) {
         <div className="empty-state" id="state-empty" role="status">Chưa có bài nghe nào khớp bộ lọc.</div>
       )}
       {state.status === 'error' && (
-        <div className="error-banner" id="state-error" role="alert">
-          Không tải được danh sách bài nghe. Vui lòng thử lại.
+        <div className="browse-state is-error" id="state-error" role="alert">
+          <div><strong>Chưa tải được kho bài nghe</strong><p>Không tải được danh sách bài nghe. Vui lòng thử lại.</p></div>
+          <button type="button" onClick={() => setRetryKey((current) => current + 1)}>Thử lại</button>
         </div>
       )}
       {state.status === 'ready' && state.items.length > 0 && (
-        <div className="content-grid" id="content-grid">
-          {state.items.map((item) => <ContentCard item={item} key={item.key} />)}
-        </div>
+        <>
+          <div className="browse-results-head">
+            <div><p className="browse-eyebrow">Kết quả</p><h2>{state.total} bài nghe phù hợp</h2></div>
+            <span>Đang hiển thị {shown}</span>
+          </div>
+          <div className="content-grid" id="content-grid">
+            {state.items.map((item) => <ContentCard item={item} key={item.key} />)}
+          </div>
+          {hasMore ? (
+            <div className="browse-pagination">
+              {loadMoreError ? (
+                <p className="browse-pagination__error" role="alert">
+                  Chưa tải được trang tiếp theo. Các bài đã tải vẫn được giữ lại.
+                </p>
+              ) : null}
+              <button
+                type="button"
+                className="av-button av-button-secondary"
+                disabled={loadingMore}
+                onClick={() => loadMoreError
+                  ? setRetryKey((current) => current + 1)
+                  : setOffset((current) => current + PAGE_LIMIT)}
+              >
+                {loadingMore ? 'Đang tải…' : loadMoreError ? 'Thử lại' : `Xem thêm (${shown}/${state.total})`}
+              </button>
+            </div>
+          ) : null}
+        </>
       )}
     </>
   );

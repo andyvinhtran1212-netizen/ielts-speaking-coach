@@ -104,6 +104,23 @@ export function shuffled(arr, rng) {
   return a;
 }
 
+/** PRNG ổn định từ session id — cùng revision dựng lại đúng cùng một đề. */
+export function seededRng(seed) {
+  let h = 2166136261;
+  const s = String(seed || '');
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return function () {
+    h += 0x6D2B79F5;
+    let t = h;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 /**
  * Bản sao một câu trắc nghiệm với ĐÁP ÁN ĐÃ TRỘN — để bài kiểm tra lại hỏi lại
  * sự hiểu, không hỏi lại trí nhớ vị trí ("câu này đáp án C").
@@ -131,6 +148,7 @@ export function retakeClone(q, rng) {
 
 export function createRunner({ api, storage, now = () => Date.now() }) {
   let bank = null;
+  let mastery = null;
   let qs = [];
   let stage = 0;
   let at = 0;
@@ -147,6 +165,9 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   let retakeQs = [];
   let writingQs = [];
   let retakeNo = 0;
+  // Phiên revision đã chốt nhưng request verdict bị rớt: khôi phục thẳng màn
+  // kết quả để gửi lại verdict, tuyệt đối không PATCH/chốt phiên lần hai.
+  let resumedRetakeFinal = false;
   // Phiên của các chặng ĐÃ CHỐT THÀNH CÔNG — chính là danh sách gửi đi xét đạt.
   // Chặng không chốt được (mạng đứt) không có tên: server sẽ từ chối phiên chưa
   // hoàn thành, và thà thiếu một chặng còn hơn cả lượt bị bác.
@@ -190,9 +211,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
 
   function save(done) {
     if (!storage) return;
-    // Kiểm tra lại là lượt PHÙ DU: mẫu bốc ngẫu nhiên không tái lập được sau
-    // reload, nên không lưu — tải lại trang thì quay về màn kết quả lượt chính
-    // và bốc mẫu mới. Lưu nó đè lên trạng thái lượt chính mới là mất dữ liệu.
+    // Revision sống trên máy chủ và được dựng lại từ session id. Không ghi vào
+    // key của full session vì hai dòng tiến độ độc lập không được đè nhau.
     if (mode === 'retake') return;
     try {
       storage.setItem(key(), JSON.stringify({
@@ -284,6 +304,43 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     if (!sv) return false;
     // Mục bài giao khác = lượt của một bài giao khác (chuyển lớp, giao lại).
     if ((sv.item_id || null) !== itemId) return false;
+
+    // Revision đang làm (hoặc đã chốt nhưng chưa ghi verdict) thắng trạng thái
+    // full session. Mẫu và đáp án được trộn bằng session id nên dựng lại giống
+    // hệt trên tab/máy khác mà không cần đưa đáp án vào storage riêng.
+    const rr = sv.retake;
+    if (rr && rr.session_id) {
+      mode = 'retake';
+      sessionId = rr.session_id;
+      sessionFailed = false;
+      retakeNo += 1;
+      const pool = qs.filter((q) => q.type !== 'writing');
+      const size = Math.max(1, Math.min(
+        Number((mastery && mastery.retake_size) || 20), pool.length,
+      ));
+      const rng = seededRng(sessionId);
+      retakeQs = shuffled(pool, rng).slice(0, size).map((q) => retakeClone(q, rng));
+      const firstByQid = new Map();
+      (Array.isArray(rr.answered) ? rr.answered : []).forEach((a) => {
+        if (a && a.qid && !firstByQid.has(a.qid)) firstByQid.set(a.qid, a);
+      });
+      const aligned = [];
+      for (const q of retakeQs) {
+        if (!firstByQid.has(q.qid)) break;
+        aligned.push(firstByQid.get(q.qid));
+      }
+      marks = aligned.map((a) => a.is_correct ? 'right' : 'wrong');
+      at = aligned.length;
+      resumedRetakeFinal = Boolean(rr.completed);
+      if (resumedRetakeFinal) {
+        at = retakeQs.length;
+        restored = { right: Number(rr.right) || 0, graded: Number(rr.graded) || retakeQs.length };
+      } else {
+        restored = null;
+      }
+      stageStartedAt = now();
+      return true;
+    }
 
     const done = Array.isArray(sv.completed) ? sv.completed.slice() : [];
     runSessions = done;
@@ -472,9 +529,12 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     isStageDone() { return at >= stageQuestions().length; },
 
     async load(bankId, options = {}) {
-      const r = await api.get('/api/quiz/banks/' + encodeURIComponent(bankId));
+      const itemQuery = options.assignmentItemId
+        ? '?class_item=' + encodeURIComponent(options.assignmentItemId) : '';
+      const r = await api.get('/api/quiz/banks/' + encodeURIComponent(bankId) + itemQuery);
       bank = r.bank;
-      this.mastery = r.mastery || null;   // {item_id, passed_at, threshold, near_threshold, retake_size, retakes, due_at}
+      mastery = r.mastery || null;
+      this.mastery = mastery;   // {item_id, passed_at, threshold, near_threshold, retake_size, retakes, due_at}
       // `options.reviewOnly` chỉ làm flow ít quyền hơn (không ghi); quyền đọc
       // vẫn do các endpoint backend kiểm bằng assignment item.
       reviewOnly = Boolean(options.reviewOnly || (r.mastery && r.mastery.review_only));
@@ -586,7 +646,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // không được gọi mãi một flush không có sessionId rồi bắt làm lại 10 câu.
       if (!sessionId && sessionFailed && pending.length) await openSession();
       let persisted = !sessionFailed;
-      if (sessionId) {
+      if (sessionId && !resumedRetakeFinal) {
         try {
           await inflight;        // chờ lượt đẩy nền xong rồi mới xét hàng đợi
           await flush();
@@ -656,14 +716,17 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
      * nhớ vị trí. Câu tự luận không vào mẫu: nó không chấm máy nên không nói
      * được gì về ngưỡng.
      */
-    async startRetake(size, rng = Math.random) {
+    async startRetake(size, rng = null) {
       const pool = qs.filter(isCourseQuizQuestion);
       const n = Math.max(1, Math.min(Number(size) || 20, pool.length));
       mode = 'retake';
       retakeNo += 1;
-      retakeQs = shuffled(pool, rng).slice(0, n).map((q) => retakeClone(q, rng));
       at = 0; marks = []; answered = false;
+      resumedRetakeFinal = false;
       await openSession();
+      if (sessionFailed || !sessionId) { retakeQs = []; return 0; }
+      const pick = rng || seededRng(sessionId);
+      retakeQs = shuffled(pool, pick).slice(0, n).map((q) => retakeClone(q, pick));
       shownAt = now();
       return retakeQs.length;
     },
@@ -674,6 +737,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       stage = 0; at = 0; marks = []; answered = false;
       retakeQs = []; runSessions = []; pending = [];
       resumedFinal = false; restored = null;
+      resumedRetakeFinal = false;
       sessionId = null; sessionFailed = false; persistError = '';
       save(false);
       await openSession();

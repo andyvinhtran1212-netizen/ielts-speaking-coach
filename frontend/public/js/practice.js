@@ -51,6 +51,7 @@
 
   var _sessionId    = null;
   var _sessionData  = null;
+  var _rendererAffinity = null; // stable owner for every session in this player chain
   var _questions    = [];
   var _currentIdx   = 0;
   var _currentQ     = null;
@@ -247,6 +248,11 @@
     if (sessionIds[1]) url += '&p2=' + encodeURIComponent(sessionIds[1]);
     if (sessionIds[2]) url += '&p3=' + encodeURIComponent(sessionIds[2]);
     return url;
+  }
+
+  function _practiceSessionUrlForRenderer(sessionId, renderer) {
+    var path = renderer === 'next' ? '/practice/session' : '/pages/practice.html';
+    return path + '?session_id=' + encodeURIComponent(sessionId);
   }
 
   function _startManagedInterval(key, callback, milliseconds) {
@@ -3830,6 +3836,12 @@
     showState('loading');
 
     try {
+      // Validate local routing state before creating a durable child session.
+      // After /sessions succeeds, every exit path below must preserve that child.
+      if (_rendererAffinity !== 'legacy' && _rendererAffinity !== 'next') {
+        throw new Error('Player chưa có renderer ổn định cho Part ' + part);
+      }
+
       // NOTE: do NOT complete the current session here.
       // All part sessions are completed together at the very end (_finishTestAndShowResults).
 
@@ -3853,23 +3865,53 @@
       var newId = newSession && (newSession.id || newSession.session_id);
       if (!newId) throw new Error('Server không trả về session_id cho Part ' + part);
 
-      // Session creation is a mutation and cannot be assumed cancelled by a
-      // soft navigation. A disposed controller may extend shared storage only
-      // when no newer Full Test has replaced the exact chain it started from.
+      // Session creation is a committed mutation even if the claim below is
+      // slow or fails. Keep one guarded persistence path so a disposed player
+      // cannot orphan this child from its canonical predecessors.
       var nextChain = priorChain.concat([newId]);
-      var playerStillOwnsRoute = _playerActive && generation === _playerGeneration;
-      if (nativeFullTest) {
-        if (playerStillOwnsRoute) nativeFullTest.replaceChain(nextChain);
-        else nativeFullTest.replaceChainIfCurrent(priorChain, nextChain);
-      }
-      else {
-        if (playerStillOwnsRoute) {
-          try { sessionStorage.setItem(FT_CHAIN_KEY, JSON.stringify(nextChain)); } catch (e) {}
-        } else {
-          _replaceLegacyFtChainIfCurrent(priorChain, nextChain);
+      function persistCreatedChain() {
+        var stillOwnsRoute = _playerActive && generation === _playerGeneration;
+        if (nativeFullTest) {
+          if (stillOwnsRoute) nativeFullTest.replaceChain(nextChain);
+          else nativeFullTest.replaceChainIfCurrent(priorChain, nextChain);
         }
+        else {
+          if (stillOwnsRoute) {
+            try { sessionStorage.setItem(FT_CHAIN_KEY, JSON.stringify(nextChain)); } catch (e) {}
+          } else {
+            _replaceLegacyFtChainIfCurrent(priorChain, nextChain);
+          }
+        }
+        return stillOwnsRoute;
       }
+
+      // On the normal path, claim the child before it enters the durable chain
+      // or becomes the routing source of truth. A failed claim is the exception:
+      // preserve the committed child so a later reload can retry it safely.
+      var childAffinityClaim;
+      try {
+        childAffinityClaim = await window.api.post(
+          '/sessions/' + encodeURIComponent(newId) + '/renderer-affinity',
+          { renderer_affinity: _rendererAffinity }
+        );
+      } catch (claimError) {
+        persistCreatedChain();
+        throw claimError;
+      }
+      var playerStillOwnsRoute = persistCreatedChain();
       if (!playerStillOwnsRoute) return;
+      var childRenderer = childAffinityClaim && childAffinityClaim.renderer_affinity;
+      if (childRenderer !== 'legacy' && childRenderer !== 'next') {
+        throw new Error('Server không trả về renderer hợp lệ cho Part ' + part);
+      }
+
+      // A replayed/concurrently opened child may already belong to the other
+      // renderer. Its complete predecessor chain must be durable before the
+      // full-document handoff, or the destination will adopt [newId] alone.
+      if (childRenderer !== _rendererAffinity) {
+        window.location.replace(_practiceSessionUrlForRenderer(newId, childRenderer));
+        return;
+      }
 
       // Commit module, chain and URL state together before the next network
       // mutation. The error screen then also refers to the session that truly
@@ -5235,6 +5277,7 @@
     _recordedBlob = null;
     _sessionId = null;
     _sessionData = null;
+    _rendererAffinity = null;
     _questions = [];
     _currentQ = null;
     _currentIdx = 0;
@@ -5345,6 +5388,7 @@
   function _isNextPracticeBootstrap(bootstrap) {
     return !!bootstrap
       && bootstrap.source === 'next-native-bootstrap-v1'
+      && bootstrap.rendererAffinity === 'next'
       && typeof bootstrap.sessionId === 'string'
       && bootstrap.sessionId.length > 0
       && !!bootstrap.sessionData
@@ -5374,6 +5418,7 @@
     _sheetSubmitting = false;
     _fullTestRetryInFlight = false;
     _testMode = null;
+    _rendererAffinity = null;
     _bindPlayerEffects();
     _bindSheet();
     showState('loading');
@@ -5397,6 +5442,7 @@
     if (hasNextBootstrap) {
       _currentUserId = bootstrap.userId || null;
       _sessionId = bootstrap.sessionId;
+      _rendererAffinity = 'next';
     } else {
       var sb = window.getSupabase && window.getSupabase();
       if (!sb) { showError('Không thể khởi tạo Supabase.'); return; }
@@ -5434,6 +5480,24 @@
 
     try {
       var questions;
+      if (!hasNextBootstrap) {
+        var affinityClaim = await window.api.post(
+          '/sessions/' + encodeURIComponent(_sessionId) + '/renderer-affinity',
+          { renderer_affinity: 'legacy' }
+        );
+        if (!_playerActive || generation !== _playerGeneration) return;
+        var claimedRenderer = affinityClaim && affinityClaim.renderer_affinity;
+        if (claimedRenderer === 'next') {
+          window.location.replace(
+            '/practice/session?session_id=' + encodeURIComponent(_sessionId)
+          );
+          return;
+        }
+        if (claimedRenderer !== 'legacy') {
+          throw new Error('Server không trả về renderer hợp lệ cho session.');
+        }
+        _rendererAffinity = claimedRenderer;
+      }
       if (hasNextBootstrap) {
         _sessionData = bootstrap.sessionData;
         _assertFullTestResponseLookup(_sessionData);

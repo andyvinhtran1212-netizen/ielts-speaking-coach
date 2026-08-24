@@ -371,6 +371,14 @@
 
 .mc-item-sub { line-height: var(--av-lh-normal); }
 
+.mc-item-next-step {
+  max-width: 60ch;
+  margin: var(--av-space-1) 0 0;
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-xs);
+  line-height: var(--av-lh-normal);
+}
+
 .mc-aside {
   position: static;
   display: grid;

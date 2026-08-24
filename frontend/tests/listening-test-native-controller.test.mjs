@@ -13,6 +13,7 @@ import {
   listeningInlineTokens,
   listeningLibraryHref,
   listeningQuestions,
+  listeningRendererHref,
   listeningResumeOffsetSeconds,
   listeningReviewHref,
   listeningTableCellLines,
@@ -55,10 +56,14 @@ describe('native Listening test controller', () => {
     assert.deepEqual(listeningQuestions(normalized).map((row) => row.question.q_num), [1, 2]);
     const resume = normalizeListeningResume({ attempt: {
       attempt_id: 'a1', started_at: '2026-08-11T00:00:00Z',
-      answers: [{ q_num: 2, user_answer: 'B' }],
+      answers: [{ q_num: 2, user_answer: 'B' }], renderer_affinity: 'next',
     } });
     assert.deepEqual([...listeningAnswersFromRows(resume.answers)], [[2, 'B']]);
+    assert.equal(resume.renderer_affinity, 'next');
     assert.equal(normalizeListeningResume({ attempt: null }), null);
+    assert.throws(() => normalizeListeningResume({ attempt: {
+      attempt_id: 'a1', started_at: '2026-08-11T00:00:00Z', renderer_affinity: 'other',
+    } }), /invalid-listening-renderer-affinity/);
   });
 
   test('anchors resumed audio to server started_at', () => {
@@ -75,6 +80,14 @@ describe('native Listening test controller', () => {
     assert.equal(listeningReviewHref('a 1', 'mini'), '/listening/review?attempt_id=a+1&from=mini');
     assert.equal(listeningReviewHref('a1', 'https://evil.test'), '/listening/review?attempt_id=a1&from=full');
     assert.equal(listeningDictationHref('t/1'), '/core-player/launch?surface=listening_dictation&test_id=t%2F1');
+    assert.equal(
+      listeningRendererHref('legacy', '?id=t%2F1&from=mini&ignored=x'),
+      '/pages/listening-test.html?id=t%2F1&from=mini',
+    );
+    assert.equal(
+      listeningRendererHref('next', '?id=t1&sitting_id=s1&mock_embed=1'),
+      '/listening/test/session?id=t1&sitting_id=s1&mock_embed=1',
+    );
   });
 
   test('places the answer control at the first authored blank token', () => {
@@ -201,11 +214,11 @@ describe('native Listening test route contract', () => {
   const page = read('frontend/app/(authed-listening-player)/listening/test/session/listening-test-session.tsx');
   const layout = read('frontend/app/(authed-listening-player)/layout.tsx');
 
-  test('stable route is dark-ready while admissions stay legacy', () => {
+  test('stable Next route owns fresh admission after the core cutover', () => {
     const policy = CORE_PLAYER_AFFINITY_POLICY.surfaces.listening_test;
     assert.equal(policy.next.path, '/listening/test/session');
     assert.equal(policy.next.route_ready, true);
-    assert.equal(policy.admit_new, 'legacy');
+    assert.equal(policy.admit_new, 'next');
   });
 
   test('React owns state, audio and persistence without loading the legacy player', () => {
@@ -218,11 +231,59 @@ describe('native Listening test route contract', () => {
     assert.match(page, /listeningTableCellLines\(cell\)/);
   });
 
+  test('uses an exam shell and distinct renderers for different Listening tasks', () => {
+    assert.doesNotMatch(page, /<aver-chrome active="listening"/);
+    assert.match(page, /exam-topbar listening-next-topbar/);
+    assert.match(page, /function MatchingMatrixTemplate/);
+    assert.match(page, /kind === 'matching'.*MatchingMatrixTemplate/);
+    assert.match(page, /\['mcq_letter_label', 'plan_label'\].*SelectTemplate/);
+    assert.match(page, /FormTemplate/);
+    assert.match(page, /TableTemplate/);
+    assert.match(page, /NotesTemplate/);
+  });
+
+  test('separates one-shot full-test audio from seekable practice audio', () => {
+    assert.match(page, /listening-next-audio-prompt/);
+    assert.match(page, /cannot pause, rewind or play it again/);
+    assert.match(page, /practice \? <>/);
+    assert.match(page, /Audio progress \(kéo để tua\)/);
+    assert.match(page, /audioPromptOpen.*!isPracticeListeningTest/s);
+    assert.match(page, /setAudioPromptOpen\(false\)/);
+  });
+
+  test('groups question navigation by Part and exposes current, review and save states', () => {
+    assert.match(page, /listening-next-palette-group/);
+    assert.match(page, /qNum === currentQuestion \? ' current'/);
+    assert.match(page, /reviewQuestions\.has\(qNum\)/);
+    assert.match(page, /moveQuestion\(-1\)/);
+    assert.match(page, /moveQuestion\(1\)/);
+    assert.match(page, /id=\{`q-\$\{qNum\}`\} data-q-num=\{qNum\}/);
+    assert.match(page, /data-q-group=\{slots\.join\(' '\)\}/);
+    assert.match(page, /querySelector<HTMLElement>\(`\[data-q-group~/);
+  });
+
+  test('keeps the current question synchronized when an audio cue advances the Part', () => {
+    assert.match(page, /nextSection !== activeSection[\s\S]*setActiveSection\(nextSection\)/);
+    assert.match(page, /allQuestions\.find\(\(\{ sectionNum \}: any\) => Number\(sectionNum\) === nextSection\)/);
+    assert.match(page, /if \(qNum\) setCurrentQuestion\(qNum\)/);
+  });
+
+  test('uses a Safari 15-safe testing-state hook for page overflow', () => {
+    const css = read('frontend/public/css/listening-test-next.css');
+    assert.doesNotMatch(css, /:has\(/);
+    assert.match(css, /\.listening-next-player-page\.listening-next-testing/);
+    assert.match(page, /document\.body\.classList\.toggle\('listening-next-testing', testing\)/);
+  });
+
   test('uses canonical load, resume, start, answer and submit endpoints', () => {
     assert.match(page, /\/api\/listening\/tests\/\$\{encodeURIComponent\(params\.testId\)\}/);
     assert.match(page, /\/attempts\/in-progress/);
     assert.match(page, /\/api\/listening\/tests\/attempts\/\$\{encodeURIComponent\(attempt\.attempt_id\)\}\/answers/);
     assert.match(page, /\/api\/listening\/tests\/attempts\/\$\{encodeURIComponent\(attempt\.attempt_id\)\}\/submit/);
+    assert.match(page, /\/renderer-affinity/);
+    assert.match(page, /renderer_affinity_protocol: 'claim-v1'/);
+    assert.match(page, /renderer_affinity: 'next'/);
+    assert.match(page, /window\.location\.replace\(listeningRendererHref/);
   });
 
   test('preserves mock sealing, canonical resume and submit safety', () => {
@@ -232,9 +293,18 @@ describe('native Listening test route contract', () => {
     assert.match(page, /if \(!clean\)/);
     assert.match(page, /coordinatorRef\.current\?\.snapshot\?\.\(\)\.size/);
     assert.match(page, /audio\.ended \|\| audioEnded/);
-    assert.match(page, /'▶ Tiếp tục'/);
+    assert.match(page, /▶ Tiếp tục/);
     assert.match(page, /flushPage = \(\) => \{ void coordinator\.flush\(\{ keepalive: true \}\); \}/);
     assert.match(page, /flushHidden = \(\) => \{ if \(document\.visibilityState === 'hidden'\) void coordinator\.flush\(\); \}/);
+  });
+
+  test('summarizes the completed test before sending answer detail to review', () => {
+    assert.match(layout, /exam-result-next\.css/);
+    assert.match(page, /LISTENING · FULL TEST COMPLETE/);
+    assert.match(page, /exam-result-part-grid/);
+    assert.match(page, /exam-result-question-map/);
+    assert.match(page, /listeningReviewHref\(attempt\.attempt_id, from\)/);
+    assert.doesNotMatch(page, /→ \{row\.expected/);
   });
 
   test('surfaces audio failures and refreshes the signed URL at the correct clock offset', () => {

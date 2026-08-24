@@ -100,9 +100,26 @@ async function canonicalSession(request, token, sessionId) {
     mode: body.mode,
     part: body.part,
     status: body.status,
+    renderer_affinity: body.renderer_affinity ?? null,
     response_count: Array.isArray(body.responses) ? body.responses.length : null,
     receipt_count: Array.isArray(body.response_receipts) ? body.response_receipts.length : null,
   };
+}
+
+async function createUnclaimedSession(request, token) {
+  const response = await request.post(`${STAGING_API}/sessions`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: {
+      mode: 'practice',
+      part: 2,
+      topic: `Gate E floor dark Next ${Date.now()}`,
+      renderer_affinity_protocol: 'claim-v1',
+    },
+  });
+  expect(response.status(), await response.text()).toBe(200);
+  const body = await response.json();
+  expect(body.session_id).toMatch(UUID);
+  return body.session_id;
 }
 
 async function probeStableUrl(context, pathName, sessionId) {
@@ -151,14 +168,18 @@ async function createThroughAdmission(page) {
   await page.locator('#prac-topic-custom').fill(`Gate E ${PHASE} ${Date.now()}`);
   await page.locator('#prac-topic-start').click();
   const created = await post;
-  expect(created.status(), await created.text()).toBe(200);
-  const body = await created.json();
-  const sessionId = body.session_id;
-  expect(sessionId).toMatch(UUID);
+  expect(created.status()).toBe(200);
   const expectedPath = PHASE === 'cutover' ? '/practice/session' : '/pages/practice.html';
   await page.waitForURL((url) => (
-    url.pathname === expectedPath && url.searchParams.get('session_id') === sessionId
+    url.pathname === expectedPath && UUID.test(url.searchParams.get('session_id') || '')
   ));
+  await expect(page.locator('#state-loading')).not.toHaveClass(/\bactive\b/);
+  // The POST immediately triggers a document navigation, so Chromium may evict
+  // its DevTools response body before Playwright can read text()/json(). The
+  // admitted URL is the browser-visible contract; canonicalSession() below
+  // independently proves that the emitted id was persisted by the backend.
+  const sessionId = new URL(page.url()).searchParams.get('session_id');
+  expect(sessionId).toMatch(UUID);
   return { sessionId, expectedPath, url: page.url() };
 }
 
@@ -222,6 +243,9 @@ test('live floor → cutover → rollback phase preserves renderer affinity and 
 
   const created = await createThroughAdmission(page);
   const createdCanonical = await canonicalSession(request, auth.access_token, created.sessionId);
+  expect(createdCanonical.renderer_affinity).toBe(
+    PHASE === 'cutover' ? 'next' : 'legacy',
+  );
 
   let previousSessionId = null;
   let previousPath = null;
@@ -237,9 +261,35 @@ test('live floor → cutover → rollback phase preserves renderer affinity and 
   }
 
   const previousUrl = await probeStableUrl(context, previousPath, previousSessionId);
-  const floorDarkNextUrl = PHASE === 'floor'
-    ? await probeStableUrl(context, '/practice/session', created.sessionId)
-    : null;
+  let floorDarkNextSessionId = null;
+  let floorDarkNextBefore = null;
+  let floorDarkNextAfter = null;
+  let floorDarkNextUrl = null;
+  if (PHASE === 'floor') {
+    // The admitted session has already been claimed Legacy by the stable
+    // Legacy player. Reusing it here would correctly redirect Next back to
+    // Legacy and would no longer prove the dark route. Create a claim-v1 row
+    // directly, prove it is unclaimed, then let the Next stable URL win the
+    // first-player claim before exercising reload and copied-link resume.
+    floorDarkNextSessionId = await createUnclaimedSession(request, auth.access_token);
+    floorDarkNextBefore = await canonicalSession(
+      request,
+      auth.access_token,
+      floorDarkNextSessionId,
+    );
+    expect(floorDarkNextBefore.renderer_affinity).toBeNull();
+    floorDarkNextUrl = await probeStableUrl(
+      context,
+      '/practice/session',
+      floorDarkNextSessionId,
+    );
+    floorDarkNextAfter = await canonicalSession(
+      request,
+      auth.access_token,
+      floorDarkNextSessionId,
+    );
+    expect(floorDarkNextAfter.renderer_affinity).toBe('next');
+  }
   const previousCanonical = await canonicalSession(request, auth.access_token, previousSessionId);
 
   writeEvidence({
@@ -260,11 +310,20 @@ test('live floor → cutover → rollback phase preserves renderer affinity and 
     created_session_id: created.sessionId,
     created_session_url: created.url,
     previous_session_url: previousUrl,
-    ...(PHASE === 'floor' ? { floor_dark_next_url: floorDarkNextUrl } : {}),
+    ...(PHASE === 'floor' ? {
+      floor_dark_next_url: floorDarkNextUrl,
+      floor_dark_next_session_id: floorDarkNextSessionId,
+      floor_dark_next_affinity_before: floorDarkNextBefore.renderer_affinity,
+      floor_dark_next_affinity_after: floorDarkNextAfter.renderer_affinity,
+    } : {}),
     ...(PHASE === 'rollback' ? {
       rollback_mode: LINEAGE_ROLLBACK_MODE,
     } : {}),
-    canonical_sessions: [createdCanonical, previousCanonical],
+    canonical_sessions: [
+      createdCanonical,
+      previousCanonical,
+      ...(floorDarkNextAfter ? [floorDarkNextAfter] : []),
+    ],
     reload_and_copy_url_passed: true,
   });
 });

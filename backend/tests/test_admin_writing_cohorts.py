@@ -230,6 +230,24 @@ def test_cohort_list_uses_writing_origin_for_a_two_class_student():
     assert cohorts["c2"]["active_assignments"] == 0
 
 
+def test_cohort_list_ignores_history_stamped_to_an_archived_origin():
+    table_map = {
+        "cohorts": [{"id": "active", "name": "Lớp đang học"}],
+        "student_cohort_memberships": [
+            {"id": "m1", "student_id": "s1", "cohort_id": "active", "is_active": True},
+        ],
+        "writing_assignments": [
+            {"student_id": "s1", "cohort_id": "archived", "essay_id": None,
+             "status": "pending"},
+        ],
+    }
+    with patch("routers.admin_writing_cohorts.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_cohorts.supabase_admin", _db(table_map)):
+        response = _client().get("/admin/writing/cohorts", headers=_ADMIN_AUTH)
+    assert response.status_code == 200
+    assert response.json()["cohorts"][0]["active_assignments"] == 0
+
+
 # ── Cohort detail matrix ──────────────────────────────────────────────
 
 

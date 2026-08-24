@@ -65,7 +65,8 @@ function renderMistakes(m) {
   const host = $('pg-mistakes');
   const items = (m && m.items) || [];
   if (!items.length) {
-    host.innerHTML = '<p class="pg-empty">🎉 Chưa có câu nào bị sai — hoặc bạn chưa làm bài nào.</p>';
+    host.innerHTML = '<div class="pg-state"><div><strong>Chưa có câu nào cần ôn</strong>'
+      + '<p>Làm một bài luyện để bắt đầu xây lịch sử học tập.</p></div></div>';
     return;
   }
   host.innerHTML = items.map((it, i) => {
@@ -133,18 +134,18 @@ async function boot() {
           + '<span class="pg-bank__meta">Đã thuộc ' + b.mastered + '/' + total + '</span></div>'
           + '<div class="pg-track"><div class="pg-bar" style="width:' + w + '%;"></div></div></div>';
       }).join('')
-    : '<p class="pg-empty">Chưa có dữ liệu. Hãy làm một bài Quick-Check để bắt đầu.</p>';
+    : '<p class="pg-empty">Chưa có dữ liệu. Hãy làm một bài luyện nhanh để bắt đầu.</p>';
 
   // ── Recent sessions ──────────────────────────────────────────
   const sessions = p.recent_sessions || [];
   $('pg-sessions').innerHTML = sessions.length
     ? '<table class="pg-sess"><thead><tr><th>Bộ</th><th>Chính xác</th><th>Đã thuộc</th>'
       + '<th>Thời gian</th><th>Kết thúc</th></tr></thead><tbody>'
-      + sessions.map((s) => '<tr><td>' + esc(s.code || '') + '</td>'
-          + '<td>' + pct(s.accuracy) + '</td>'
-          + '<td>' + (s.words_mastered || 0) + '</td>'
-          + '<td>' + (s.duration_sec ? fmtHm(s.duration_sec) : '—') + '</td>'
-          + '<td>' + esc((s.ended_at || '').slice(0, 10))
+      + sessions.map((s) => '<tr><td data-label="Bộ">' + esc(s.code || '') + '</td>'
+          + '<td data-label="Chính xác">' + pct(s.accuracy) + '</td>'
+          + '<td data-label="Đã thuộc">' + (s.words_mastered || 0) + '</td>'
+          + '<td data-label="Thời gian">' + (s.duration_sec ? fmtHm(s.duration_sec) : '—') + '</td>'
+          + '<td data-label="Kết thúc">' + esc((s.ended_at || '').slice(0, 10))
           + (s.ended_by === 'paused' ? ' <span class="av-badge av-badge-warning">tạm dừng</span>' : '')
           + '</td></tr>').join('')
       + '</tbody></table>'

@@ -30,7 +30,7 @@ import hashlib
 import logging
 from datetime import datetime, timedelta, timezone
 from email.utils import format_datetime
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Query, Request, UploadFile
@@ -58,6 +58,60 @@ router = APIRouter(prefix="/api/writing", tags=["writing-student"])
 # small for the dashboard list UI without losing context. Anything
 # longer is truncated with an ellipsis.
 _PROMPT_PREVIEW_CHARS = 200
+_WRITING_RENDERER_LEASE = timedelta(hours=24)
+
+
+def _writing_renderer_lease_active(assignment: dict, *, now: datetime | None = None) -> bool:
+    affinity = assignment.get("renderer_affinity")
+    raw_expiry = assignment.get("renderer_affinity_expires_at")
+    if affinity not in {"legacy", "next"} or not raw_expiry:
+        return False
+    try:
+        expiry = datetime.fromisoformat(str(raw_expiry).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return False
+    if expiry.tzinfo is None or expiry.utcoffset() is None:
+        return False
+    return expiry > (now or datetime.now(timezone.utc))
+
+
+def _effective_writing_renderer(
+    assignment: dict, *, now: datetime | None = None,
+) -> dict:
+    """Hide an expired lease without changing the assignment or its draft."""
+    if _writing_renderer_lease_active(assignment, now=now):
+        return assignment
+    return {
+        **assignment,
+        "renderer_affinity": None,
+        "renderer_affinity_claimed_at": None,
+        "renderer_affinity_expires_at": None,
+    }
+
+
+def _require_writing_renderer_lease(assignment: dict) -> None:
+    if not _writing_renderer_lease_active(assignment):
+        raise HTTPException(
+            410,
+            "Phiên soạn bài đã hết hạn. Bản nháp vẫn được lưu; hãy mở lại bài để tiếp tục.",
+        )
+
+
+def _refresh_writing_renderer_lease(assignment_id: str, student_id: str) -> None:
+    """Best-effort activity touch after a canonical write/start succeeds."""
+    now = datetime.now(timezone.utc)
+    try:
+        supabase_admin.table("writing_assignments").update({
+            "renderer_affinity_claimed_at": now.isoformat(),
+            "renderer_affinity_expires_at": (now + _WRITING_RENDERER_LEASE).isoformat(),
+        }).eq("id", assignment_id).eq("student_id", student_id) \
+          .in_("status", list(_ACTIVE_ASSIGNMENT_STATES)) \
+          .gt("renderer_affinity_expires_at", now.isoformat()).execute()
+    except Exception as exc:
+        logger.warning(
+            "[writing-student] renderer lease refresh failed assignment=%s: %s",
+            assignment_id, exc,
+        )
 
 
 async def get_current_student(
@@ -575,6 +629,15 @@ class DraftUpsert(BaseModel):
     draft_text: str = Field(default="", max_length=15000)
 
 
+class WritingAssignmentRendererAffinityRequest(BaseModel):
+    renderer_affinity: Literal["legacy", "next"]
+
+
+class WritingAssignmentRendererAffinityResponse(BaseModel):
+    assignment_id: UUID
+    renderer_affinity: Literal["legacy", "next"]
+
+
 class SubmitEssay(BaseModel):
     """Body for POST .../submit. `essay_text` is optional — when
     omitted, the endpoint pulls the student's last saved draft from
@@ -882,12 +945,14 @@ def _persist_flagged_submission(
                 "student_submit_request_id": str(request_id),
                 "student_submit_text_sha256": submit_text_sha256,
             })
+        claim_observed_at = datetime.now(timezone.utc).isoformat()
         claim_resp = (
             supabase_admin.table("writing_assignments")
             .update(claim_payload)
             .eq("id", str(assignment_id))
             .eq("student_id", student_id)
             .in_("status", list(_ACTIVE_ASSIGNMENT_STATES))
+            .gt("renderer_affinity_expires_at", claim_observed_at)
             .execute()
         )
     except Exception as exc:
@@ -926,7 +991,8 @@ def _persist_flagged_submission(
                 supabase_admin.table("writing_assignments")
                 .select(
                     "id, status, essay_id, student_submit_request_id, "
-                    "student_submit_text_sha256"
+                    "student_submit_text_sha256, renderer_affinity, "
+                    "renderer_affinity_claimed_at, renderer_affinity_expires_at"
                 )
                 .eq("id", str(assignment_id))
                 .eq("student_id", student_id)
@@ -941,6 +1007,8 @@ def _persist_flagged_submission(
                 )
                 if replay is not None:
                     return replay
+                if fresh.data[0].get("status") in _ACTIVE_ASSIGNMENT_STATES:
+                    _require_writing_renderer_lease(fresh.data[0])
             cur = fresh.data[0]["status"] if fresh.data else "unknown"
         except HTTPException:
             raise
@@ -1084,7 +1152,8 @@ def _resolve_active_assignment(student_id: str, assignment_id: str) -> dict:
             "created_at, submitted_at, delivered_at, "
             "essay_id, prompt_id, assigned_by, "
             "assignment_group_id, name, allow_soft_check, analysis_level, grading_tier, "
-            "is_timed, time_limit_minutes, started_at, auto_submitted, "
+            "is_timed, time_limit_minutes, started_at, auto_submitted, renderer_affinity, "
+            "renderer_affinity_claimed_at, renderer_affinity_expires_at, "
             "student_submit_request_id, student_submit_text_sha256, "
             "writing_prompts(id, title, prompt_text, task_type, difficulty, prompt_image_url, "
             "prompt_image_analysis, prompt_image_analysis_reviewed)"
@@ -1096,7 +1165,7 @@ def _resolve_active_assignment(student_id: str, assignment_id: str) -> dict:
     )
     if not r.data:
         raise HTTPException(404, "Assignment không tìm thấy")
-    return r.data[0]
+    return _effective_writing_renderer(r.data[0])
 
 
 @router.get("/my-assignments")
@@ -1122,7 +1191,8 @@ async def list_my_assignments(
             "id, status, deadline, instructions, "
             "created_at, submitted_at, delivered_at, essay_id, "
             "assignment_group_id, name, allow_soft_check, "
-            "is_timed, time_limit_minutes, started_at, auto_submitted, "
+            "is_timed, time_limit_minutes, started_at, auto_submitted, renderer_affinity, "
+            "renderer_affinity_claimed_at, renderer_affinity_expires_at, "
             "writing_prompts(id, title, prompt_text, task_type, difficulty, prompt_image_url)"
         )
         .eq("student_id", student_id)
@@ -1164,6 +1234,7 @@ async def list_my_assignments(
 
     annotated = []
     for a in assignments:
+        a = _effective_writing_renderer(a)
         d = drafts_by_assignment.get(a["id"])
         annotated.append({
             **a,
@@ -1214,6 +1285,59 @@ async def get_my_assignment(
     }
 
 
+@router.post(
+    "/my-assignments/{assignment_id}/renderer-affinity",
+    response_model=WritingAssignmentRendererAffinityResponse,
+)
+async def claim_writing_assignment_renderer_affinity(
+    assignment_id: UUID,
+    body: WritingAssignmentRendererAffinityRequest,
+    student: dict = Depends(require_writing_permission),
+):
+    """Atomically pin an active Writing workspace to Legacy or Next.
+
+    The ownership-filtered pre-read preserves the endpoint's symmetric 404
+    contract. The RPC repeats ownership + active-status checks at the mutation
+    boundary so a concurrent submit cannot claim or reopen a terminal row.
+    """
+    assignment = _resolve_active_assignment(student["id"], str(assignment_id))
+    if assignment["status"] not in _ACTIVE_ASSIGNMENT_STATES:
+        raise HTTPException(
+            409,
+            f"Không thể mở trình soạn thảo — trạng thái bài là '{assignment['status']}'.",
+        )
+
+    try:
+        result = supabase_admin.rpc(
+            "fn_claim_writing_assignment_renderer_affinity",
+            {
+                "p_assignment_id": str(assignment_id),
+                "p_student_id": student["id"],
+                "p_renderer_affinity": body.renderer_affinity,
+            },
+        ).execute()
+    except Exception as exc:
+        logger.warning(
+            "[writing-student] renderer affinity claim failed assignment=%s: %s",
+            assignment_id,
+            exc,
+        )
+        raise HTTPException(500, "Không thể xác minh phiên làm bài") from exc
+
+    rows = result.data or []
+    if not rows:
+        # The ownership pre-read succeeded, so an empty atomic UPDATE means the
+        # row became terminal before the claim committed. Never invent affinity.
+        raise HTTPException(409, "Bài viết đã đổi trạng thái. Vui lòng tải lại.")
+    affinity = rows[0].get("renderer_affinity")
+    if affinity not in ("legacy", "next"):
+        raise HTTPException(500, "Phiên làm bài không có renderer hợp lệ")
+    return {
+        "assignment_id": str(assignment_id),
+        "renderer_affinity": affinity,
+    }
+
+
 @router.patch("/my-assignments/{assignment_id}/draft")
 async def upsert_my_draft(
     assignment_id: UUID,
@@ -1240,7 +1364,6 @@ async def upsert_my_draft(
             409,
             f"Không thể chỉnh draft — trạng thái bài là '{assignment['status']}'.",
         )
-
     # Sprint 2.6.1 — IELTS-mode timer expiry check.
     # The auto-stamp branch that used to live here was REMOVED:
     # `started_at` is now stamped explicitly by POST /start when the
@@ -1259,6 +1382,7 @@ async def upsert_my_draft(
             410,
             "Hết giờ làm bài. Hệ thống đang nộp bài tự động.",
         )
+    _require_writing_renderer_lease(assignment)
 
     payload = {
         "assignment_id": str(assignment_id),
@@ -1280,6 +1404,8 @@ async def upsert_my_draft(
 
     if not r.data:
         raise HTTPException(500, "Không lưu được bản nháp")
+
+    _refresh_writing_renderer_lease(str(assignment_id), student_id)
 
     if assignment["status"] == "pending":
         try:
@@ -1357,6 +1483,8 @@ async def submit_my_assignment(
     )
     if replay is not None:
         return replay
+
+    _require_writing_renderer_lease(assignment)
 
     prompt = assignment.get("writing_prompts") or {}
     prompt_text = prompt.get("prompt_text")
@@ -1508,12 +1636,14 @@ async def submit_my_assignment(
                 "student_submit_request_id": str(body.request_id),
                 "student_submit_text_sha256": submit_text_sha256,
             })
+        claim_observed_at = datetime.now(timezone.utc).isoformat()
         claim_resp = (
             supabase_admin.table("writing_assignments")
             .update(claim_payload)
             .eq("id", str(assignment_id))
             .eq("student_id", student_id)
             .in_("status", list(_ACTIVE_ASSIGNMENT_STATES))
+            .gt("renderer_affinity_expires_at", claim_observed_at)
             .execute()
         )
     except Exception as exc:
@@ -1556,7 +1686,8 @@ async def submit_my_assignment(
                 supabase_admin.table("writing_assignments")
                 .select(
                     "id, status, essay_id, student_submit_request_id, "
-                    "student_submit_text_sha256"
+                    "student_submit_text_sha256, renderer_affinity, "
+                    "renderer_affinity_claimed_at, renderer_affinity_expires_at"
                 )
                 .eq("id", str(assignment_id))
                 .eq("student_id", student_id)
@@ -1571,6 +1702,8 @@ async def submit_my_assignment(
                 )
                 if replay is not None:
                     return replay
+                if fresh.data[0].get("status") in _ACTIVE_ASSIGNMENT_STATES:
+                    _require_writing_renderer_lease(fresh.data[0])
             cur = fresh.data[0]["status"] if fresh.data else "unknown"
         except HTTPException:
             raise
@@ -1688,7 +1821,8 @@ async def get_timer_state(
     r = (
         supabase_admin.table("writing_assignments")
         .select(
-            "status, is_timed, time_limit_minutes, started_at, auto_submitted"
+            "status, is_timed, time_limit_minutes, started_at, auto_submitted, "
+            "renderer_affinity, renderer_affinity_claimed_at, renderer_affinity_expires_at"
         )
         .eq("id", str(assignment_id))
         .eq("student_id", student_id)
@@ -1745,7 +1879,8 @@ async def start_assignment(
     r = (
         supabase_admin.table("writing_assignments")
         .select(
-            "status, is_timed, time_limit_minutes, started_at, auto_submitted"
+            "status, is_timed, time_limit_minutes, started_at, auto_submitted, "
+            "renderer_affinity, renderer_affinity_claimed_at, renderer_affinity_expires_at"
         )
         .eq("id", str(assignment_id))
         .eq("student_id", student_id)
@@ -1765,6 +1900,7 @@ async def start_assignment(
             409,
             f"Không thể bắt đầu — trạng thái bài là '{row['status']}'.",
         )
+    _require_writing_renderer_lease(row)
 
     update_payload: dict = {}
     if row["status"] == "pending":
@@ -1773,22 +1909,47 @@ async def start_assignment(
         update_payload["started_at"] = datetime.now(timezone.utc).isoformat()
 
     if update_payload:
+        transition_observed_at = datetime.now(timezone.utc).isoformat()
         try:
-            (
+            transition = (
                 supabase_admin.table("writing_assignments")
                 .update(update_payload)
                 .eq("id", str(assignment_id))
+                .eq("student_id", student_id)
+                .in_("status", list(_ACTIVE_ASSIGNMENT_STATES))
+                .gt("renderer_affinity_expires_at", transition_observed_at)
                 .execute()
             )
-            # Reflect the patch on the local row so the timer state
-            # we return matches what the DB will return on the next
-            # read.
-            row.update(update_payload)
         except Exception as exc:
             logger.warning(
                 "[writing-student] start stamp failed assignment=%s: %s",
                 assignment_id, exc,
             )
+            raise HTTPException(500, "Không thể bắt đầu bài viết") from exc
+
+        if not transition.data:
+            fresh = (
+                supabase_admin.table("writing_assignments")
+                .select(
+                    "status, renderer_affinity, renderer_affinity_claimed_at, "
+                    "renderer_affinity_expires_at"
+                )
+                .eq("id", str(assignment_id))
+                .eq("student_id", student_id)
+                .limit(1)
+                .execute()
+            )
+            if not fresh.data:
+                raise HTTPException(404, "Assignment không tìm thấy")
+            if fresh.data[0].get("status") in _ACTIVE_ASSIGNMENT_STATES:
+                _require_writing_renderer_lease(fresh.data[0])
+            raise HTTPException(409, "Bài viết đã đổi trạng thái. Vui lòng tải lại.")
+
+        # Reflect the committed patch on the local row so the timer state we
+        # return matches what the DB will return on the next read.
+        row.update(update_payload)
+
+    _refresh_writing_renderer_lease(str(assignment_id), student_id)
 
     timer = _compute_timer_state(row)
     timer["status"]         = row["status"]
@@ -1823,7 +1984,10 @@ async def log_paste(
 
     a_resp = (
         supabase_admin.table("writing_assignments")
-        .select("id, status")
+        .select(
+            "id, status, renderer_affinity, renderer_affinity_claimed_at, "
+            "renderer_affinity_expires_at"
+        )
         .eq("id", str(assignment_id))
         .eq("student_id", student_id)
         .limit(1)
@@ -1837,6 +2001,7 @@ async def log_paste(
             409,
             f"Không thể log paste — trạng thái bài là '{a_resp.data[0]['status']}'.",
         )
+    _require_writing_renderer_lease(a_resp.data[0])
 
     event = {
         "at":         datetime.now(timezone.utc).isoformat(),
@@ -1870,6 +2035,7 @@ async def log_paste(
         total = int(raw)
     else:
         total = 0
+    _refresh_writing_renderer_lease(str(assignment_id), student_id)
     return {"logged": True, "total_events": total}
 
 

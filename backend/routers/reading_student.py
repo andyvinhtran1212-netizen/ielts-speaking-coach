@@ -17,6 +17,7 @@ Three libraries, ten endpoints (all auth-gated, mirroring the listening user_rou
     GET   /api/reading/test/{test_id}                             — test + 3 passages + 40 Qs (keys stripped)
     POST  /api/reading/test/{test_id}/attempts                    — start: create attempt (started_at NOW)
     GET   /api/reading/test/{test_id}/attempts/in-progress  (20.6)— resume: user's open attempt for this test
+    POST  /api/reading/test/attempts/{attempt_id}/renderer-affinity— atomically pin Legacy/Next player
     PATCH /api/reading/test/attempts/{attempt_id}/answers   (20.6)— auto-save one answer (debounced client-side)
     POST  /api/reading/test/attempts/{attempt_id}/submit          — submit + grade + finalize attempt
 
@@ -34,7 +35,7 @@ import hashlib
 import logging
 import secrets
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
@@ -53,6 +54,12 @@ from services.listening_test_grader import answer_matches
 from services.reading_diagnostic_engine import build_reading_diagnostic
 from services import reading_solution
 from services import kp_registry
+from services.active_player_lifecycle import (
+    is_active_player_expired_error,
+    is_resume_active,
+    require_resume_active,
+    resume_expires_at,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -729,7 +736,9 @@ def _fetch_in_progress_payload(
     student is finishing the work they started, and the link they already
     earned goes on standing.
     """
-    q = supabase_admin.table("reading_test_attempts").select("id,started_at,status")
+    q = supabase_admin.table("reading_test_attempts").select(
+        "id,started_at,status,renderer_affinity,resume_expires_at"
+    )
     # Owner filter FIRST (the authed user_id, or the anonymous anon_id token),
     # then test + status. Exactly one ownership filter is applied.
     if anon_id is not None:
@@ -744,7 +753,7 @@ def _fetch_in_progress_payload(
         .limit(1)
         .execute()
     )
-    if not res.data:
+    if not res.data or not is_resume_active(res.data[0]):
         if raise_on_missing:
             raise HTTPException(404, "No in-progress attempt for this test")
         return None
@@ -772,6 +781,8 @@ def _fetch_in_progress_payload(
         "started_at":         row.get("started_at"),
         "answers":            answers,
         "time_limit_minutes": test["time_limit_minutes"],
+        "renderer_affinity":  row.get("renderer_affinity"),
+        "resume_expires_at":  row.get("resume_expires_at"),
     }
 
 
@@ -924,10 +935,26 @@ async def boot_shared_reading_test(
     return {"test": detail, "in_progress": in_progress}
 
 
+class _ReadingAttemptStartRequest(BaseModel):
+    """Opt in to first-player renderer claiming for a new attempt.
+
+    A missing body is the N-1 contract and stays pinned to the database's
+    Legacy default. `claim-v1` deliberately inserts NULL so the stable player
+    URL can atomically own the attempt before any answer mutation.
+    """
+
+    renderer_affinity_protocol: Literal["claim-v1"] | None = None
+
+
+class _ReadingAttemptRendererAffinityRequest(BaseModel):
+    renderer_affinity: Literal["legacy", "next"]
+
+
 @router.post("/test/share/{share_token}/attempts")
 async def start_shared_reading_test_attempt(
     share_token: str,
     request: Request,
+    body: _ReadingAttemptStartRequest | None = None,
     x_reading_anon: str | None = Header(default=None, alias="X-Reading-Anon"),
 ):
     """Anonymous start via share-link. Validates the token, mints a NEW anon_id
@@ -957,7 +984,8 @@ async def start_shared_reading_test_attempt(
     )
     attempt_id = str(_uuid.uuid4())
     started_at = datetime.now(timezone.utc).isoformat()
-    supabase_admin.table("reading_test_attempts").insert({
+    expires_at = resume_expires_at(started_at)
+    payload = {
         "id":          attempt_id,
         "test_id":     test_uuid,
         "user_id":     None,                       # anonymous
@@ -967,12 +995,19 @@ async def start_shared_reading_test_attempt(
         "status":      "in_progress",
         "answers":     [],
         "started_at":  started_at,
-    }).execute()
+        "resume_expires_at": expires_at,
+    }
+    affinity_aware = body is not None and body.renderer_affinity_protocol == "claim-v1"
+    if affinity_aware:
+        payload["renderer_affinity"] = None
+    supabase_admin.table("reading_test_attempts").insert(payload).execute()
     return {
         "attempt_id":         attempt_id,
         "anon_id":            anon_id,             # client MUST keep this (ownership)
         "started_at":         started_at,
         "time_limit_minutes": test.get("time_limit_minutes") or 60,
+        "resume_expires_at":  expires_at,
+        "renderer_affinity":   None if affinity_aware else "legacy",
     }
 
 
@@ -1023,6 +1058,7 @@ def _is_unique_violation(exc: Exception) -> bool:
 @router.post("/test/{test_id}/attempts")
 async def start_reading_test_attempt(
     test_id: str,
+    body: _ReadingAttemptStartRequest | None = None,
     class_item: str | None = None,
     authorization: str | None = Header(default=None),
     x_reading_password: str | None = Header(default=None, alias="X-Reading-Password"),
@@ -1068,6 +1104,7 @@ async def start_reading_test_attempt(
         _abandon_open_attempts(user["id"], test_uuid)
         attempt_id = str(uuid.uuid4())
         started_at = datetime.now(timezone.utc).isoformat()
+        expires_at = resume_expires_at(started_at)
         payload = {
             "id":         attempt_id,
             "test_id":    test_uuid,
@@ -1075,7 +1112,11 @@ async def start_reading_test_attempt(
             "status":     "in_progress",
             "answers":    [],
             "started_at": started_at,
+            "resume_expires_at": expires_at,
         }
+        affinity_aware = body is not None and body.renderer_affinity_protocol == "claim-v1"
+        if affinity_aware:
+            payload["renderer_affinity"] = None
         # Class homework: stamp WHICH task this attempt is being done for, so
         # the ledger never has to work it out afterwards (mig 181). Validated
         # first — an unchecked id from the query string would let a student mark
@@ -1099,6 +1140,8 @@ async def start_reading_test_attempt(
             "status":             "in_progress",
             "started_at":         started_at,
             "time_limit_minutes": test["time_limit_minutes"],
+            "resume_expires_at":  expires_at,
+            "renderer_affinity":   None if affinity_aware else "legacy",
         }
 
     logger.error(
@@ -1123,6 +1166,56 @@ def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
     if row.get("user_id") != user_id:
         raise HTTPException(403, "Attempt belongs to another user")
     return row
+
+
+@router.post("/test/attempts/{attempt_id}/renderer-affinity")
+async def claim_reading_attempt_renderer_affinity(
+    attempt_id: UUID,
+    body: _ReadingAttemptRendererAffinityRequest,
+    authorization: str | None = Header(default=None),
+    x_reading_anon: str | None = Header(default=None, alias="X-Reading-Anon"),
+):
+    """Claim a stable Reading player on first boot; never move it later.
+
+    Both account-owned and anonymous share attempts use the same canonical
+    column. Ownership is checked before the RPC for precise HTTP errors and is
+    repeated inside the atomic UPDATE so a claim can never cross owners.
+    """
+    user = await _optional_auth(authorization)
+    owned_attempt = _fetch_attempt_owned(str(attempt_id), user, x_reading_anon)
+    require_resume_active(owned_attempt)
+    owner_user_id = owned_attempt.get("user_id")
+    try:
+        result = supabase_admin.rpc(
+            "fn_claim_reading_attempt_renderer_affinity",
+            {
+                "p_attempt_id": str(attempt_id),
+                "p_user_id": owner_user_id,
+                "p_anon_id": x_reading_anon if owner_user_id is None else None,
+                "p_renderer_affinity": body.renderer_affinity,
+            },
+        ).execute()
+    except Exception as exc:
+        logger.error(
+            "[reading-renderer-affinity] claim failed attempt=%s renderer=%s: %s",
+            attempt_id,
+            body.renderer_affinity,
+            exc,
+        )
+        if is_active_player_expired_error(exc):
+            require_resume_active(owned_attempt)
+            raise HTTPException(410, "Attempt đã hết thời gian tiếp tục.") from exc
+        raise HTTPException(
+            500, "Không thể xác nhận phiên bản player. Hãy tải lại trang."
+        )
+
+    rows = result.data or []
+    if len(rows) != 1:
+        raise HTTPException(404, "Attempt không tồn tại")
+    affinity = rows[0].get("renderer_affinity")
+    if affinity not in {"legacy", "next"}:
+        raise HTTPException(500, "Attempt chưa có renderer hợp lệ")
+    return {"attempt_id": str(attempt_id), "renderer_affinity": affinity}
 
 
 class _SubmitAnswerItem(BaseModel):
@@ -1175,6 +1268,7 @@ async def submit_reading_test_attempt(
         raise HTTPException(422, "Attempt đã submit rồi — không thể submit lại.")
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt status không hợp lệ.")
+    require_resume_active(attempt)
 
     # Resolve the test for the time-limit guard + Academic/GT routing.
     test_uuid = attempt["test_id"]
@@ -1268,17 +1362,31 @@ async def submit_reading_test_attempt(
     ]
     result = grader.grade_attempt(user_answers, answer_key, module=test_row.get("module") or "academic")
 
-    submitted_at = now.isoformat()
-    supabase_admin.table("reading_test_attempts").update({
-        "status":             "submitted",
-        "answers":            user_answers,
-        "score":              result["score"],
-        "grading_details":    result["per_question"],
-        "skill_breakdown":    result["skill_breakdown"],
-        "band_estimate":      result["band_estimate"],
-        "submitted_at":       submitted_at,
-        "time_spent_seconds": max(0, elapsed_seconds),
-    }).eq("id", attempt_id).execute()
+    # Re-check the hard player deadline atomically with the final write. The
+    # answer-key reads and grading above can straddle resume_expires_at even
+    # though the admission check passed at request start.
+    submitted_at = datetime.now(timezone.utc).isoformat()
+    finalized = (
+        supabase_admin.table("reading_test_attempts").update({
+            "status":             "submitted",
+            "answers":            user_answers,
+            "score":              result["score"],
+            "grading_details":    result["per_question"],
+            "skill_breakdown":    result["skill_breakdown"],
+            "band_estimate":      result["band_estimate"],
+            "submitted_at":       submitted_at,
+            "time_spent_seconds": max(0, elapsed_seconds),
+        })
+        .eq("id", attempt_id)
+        .eq("status", "in_progress")
+        .gt("resume_expires_at", submitted_at)
+        .execute()
+    )
+    if not finalized.data:
+        fresh = _fetch_attempt_owned(attempt_id, user, x_reading_anon)
+        if fresh.get("status") == "in_progress":
+            require_resume_active(fresh)
+        raise HTTPException(409, "Attempt đã thay đổi; hãy tải lại trạng thái.")
 
     # Sealed 4-skill mock: this attempt belongs to a sitting whose scores are
     # withheld until an admin releases results. We STILL grade + persist above
@@ -1525,17 +1633,24 @@ async def patch_reading_test_attempt_answer(
     attempt = _fetch_attempt_owned(attempt_id, user, x_reading_anon)
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
+    require_resume_active(attempt)
 
     # PK upsert — supabase-py routes this to PostgREST's `Prefer:
     # resolution=merge-duplicates` semantics. PostgreSQL handles the conflict
     # against the (attempt_id, q_num) PK in a single statement; no concurrent
     # PATCH for a different q_num can see a stale snapshot.
-    supabase_admin.table("reading_attempt_answers").upsert({
-        "attempt_id":  attempt_id,
-        "q_num":       body.q_num,
-        "user_answer": body.user_answer or "",
-        "answered_at": datetime.now(timezone.utc).isoformat(),
-    }, on_conflict="attempt_id,q_num").execute()
+    try:
+        supabase_admin.table("reading_attempt_answers").upsert({
+            "attempt_id":  attempt_id,
+            "q_num":       body.q_num,
+            "user_answer": body.user_answer or "",
+            "answered_at": datetime.now(timezone.utc).isoformat(),
+        }, on_conflict="attempt_id,q_num").execute()
+    except Exception as exc:
+        if is_active_player_expired_error(exc):
+            require_resume_active(attempt)
+            raise HTTPException(410, "Attempt đã hết thời gian tiếp tục.") from exc
+        raise
 
     # Echo a small ack with the persisted-row count for the test surface to
     # verify state. We don't echo the whole answers array — the client

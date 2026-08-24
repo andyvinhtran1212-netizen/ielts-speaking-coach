@@ -73,7 +73,9 @@ type Snapshot = { hasClass: false } | ClassSnapshot | null;
 type StartTarget =
   | { kind: 'course'; bankId: string; itemId: string; reviewOnly: boolean }
   | { kind: 'player'; surface: string; query: Record<string, string> }
+  | { kind: 'stable-player'; url: string }
   | { kind: 'admission'; url: string }
+  | { kind: 'result'; url: string }
   | { kind: 'create-speaking'; body: {
       mode: string; part: number; topic: string; class_assignment_item_id: string;
     } };
@@ -171,6 +173,11 @@ function TaskCard({
         </p>
         {row.assignment.instructions && (
           <p className="mc-item-sub">{row.assignment.instructions}</p>
+        )}
+        {row.isMissing && !action && (
+          <p className="mc-item-next-step">
+            Hạn nộp đã đóng. Liên hệ giảng viên nếu bạn cần được mở lại bài.
+          </p>
         )}
       </div>
       {action && (
@@ -537,7 +544,15 @@ export function MyClassWorkspace() {
         window.location.assign(admitCorePlayer(target.surface, target.query));
         return;
       }
+      if (target.kind === 'stable-player') {
+        window.location.assign(target.url);
+        return;
+      }
       if (target.kind === 'admission') {
+        window.location.assign(target.url);
+        return;
+      }
+      if (target.kind === 'result') {
         window.location.assign(target.url);
         return;
       }

@@ -7,9 +7,11 @@ import { fileURLToPath } from 'node:url';
 import {
   CORE_PLAYER_AFFINITY_POLICY,
   admitCorePlayer,
+  corePlayerAdmissionForDeployment,
   corePlayerUrl,
   resolveCorePlayerAdmission,
   resolveCorePlayerAdmissionFromParams,
+  resolveCorePlayerAdmissionFromParamsForDeployment,
   validateCorePlayerAffinityPolicy,
 } from '../lib/core-player-affinity.mjs';
 
@@ -19,6 +21,16 @@ const read = (relativePath) => readFileSync(path.join(ROOT, relativePath), 'utf8
 const DOC = read('docs/GATE_E_ACTIVE_SESSION_AFFINITY_2026-08-09.md');
 const PREFLIGHT = read('docs/GATE_E_PREFLIGHT_2026-08-09.md');
 const RUNTIME_ROUTE = read('frontend/app/core-player/launch/route.ts');
+const SPEAKING_FLOW = read('frontend/tooling/verify-speaking-flow.mjs');
+const AFFINITY_MIGRATION = read('backend/migrations/215_speaking_session_renderer_affinity.sql');
+const CREATE_PROTOCOL_MIGRATION = read('backend/migrations/216_version_session_renderer_affinity_create.sql');
+const GAP_BACKFILL_MIGRATION = read('backend/migrations/217_backfill_renderer_affinity_migration_gap.sql');
+const API_CLIENT = read('frontend/public/js/api.js');
+const SESSION_ROUTER = read('backend/routers/sessions.py');
+const CLASS_STUDENT_ROUTER = read('backend/routers/class_student.py');
+const PRACTICE_BOOTSTRAP = read('frontend/lib/practice-session-bootstrap.mjs');
+const LEGACY_PRACTICE = read('frontend/public/js/practice.js');
+const MY_CLASS_MODEL = read('frontend/lib/my-class-model.mjs');
 
 const NEXT_LAUNCHERS = [
   'frontend/app/(authed-speaking)/speaking/speaking-behavior.tsx',
@@ -48,10 +60,17 @@ function readyNextPolicy() {
 }
 
 describe('current admission policy preserves behavior', () => {
-  test('policy is internally valid and every ready legacy target exists', () => {
+  test('policy is internally valid and every rollback target remains available', () => {
     assert.deepEqual(validateCorePlayerAffinityPolicy(), []);
+    const expectedAdmission = {
+      speaking: 'next',
+      reading_exam: 'next',
+      listening_test: 'next',
+      listening_dictation: 'next',
+      writing_assignment: 'next',
+    };
     for (const [surface, config] of Object.entries(CORE_PLAYER_AFFINITY_POLICY.surfaces)) {
-      assert.equal(config.admit_new, 'legacy');
+      assert.equal(config.admit_new, expectedAdmission[surface]);
       assert.equal(config.next.route_ready, true, `${surface} dark route must stay available`);
       assert.ok(existsSync(path.join(FRONTEND, 'public', config.legacy.path)));
     }
@@ -67,9 +86,13 @@ describe('current admission policy preserves behavior', () => {
       FRONTEND,
       'app/(authed-listening-dictation)/listening/dictation/session/page.tsx',
     )));
+    assert.ok(existsSync(path.join(
+      FRONTEND,
+      'app/(authed-writing)/writing/dashboard/page.tsx',
+    )));
   });
 
-  test('launchers use the runtime endpoint and the current server policy preserves legacy semantics', () => {
+  test('runtime admission follows the final core cutover policy', () => {
     assert.equal(
       admitCorePlayer('speaking', { session_id: 'session A' }),
       '/core-player/launch?surface=speaking&session_id=session+A',
@@ -87,30 +110,102 @@ describe('current admission policy preserves behavior', () => {
       '/core-player/launch?surface=listening_dictation&test_id=test-1',
     );
     assert.equal(
+      admitCorePlayer('writing_assignment', { assignment_id: 'assignment-1' }),
+      '/core-player/launch?surface=writing_assignment&assignment_id=assignment-1',
+    );
+    assert.equal(
       corePlayerUrl('speaking', 'next', { session_id: 'session-a' }),
       '/practice/session?session_id=session-a',
     );
     assert.equal(
       resolveCorePlayerAdmission('speaking', { session_id: 'session-a' }),
-      '/pages/practice.html?session_id=session-a',
+      '/practice/session?session_id=session-a',
     );
     assert.equal(
       resolveCorePlayerAdmission('reading_exam', { test_id: 'AVR-1', class_item: 'homework-1' }),
-      '/pages/reading-exam.html?test_id=AVR-1&class_item=homework-1',
+      '/reading/exam/session?test_id=AVR-1&class_item=homework-1',
     );
     assert.equal(
       resolveCorePlayerAdmission('listening_test', { id: 'test-1', class_item: 'homework-1' }),
-      '/pages/listening-test.html?id=test-1&class_item=homework-1',
+      '/listening/test/session?id=test-1&class_item=homework-1',
     );
     assert.equal(
       resolveCorePlayerAdmission('listening_dictation', { test_id: 'test-1', section: 3 }),
-      '/pages/listening-test-dictation.html?test_id=test-1&section=3',
+      '/listening/dictation/session?test_id=test-1&section=3',
     );
+    assert.equal(
+      resolveCorePlayerAdmission('writing_assignment', { assignment_id: 'assignment-1' }),
+      '/writing/dashboard?assignment_id=assignment-1',
+    );
+  });
+
+  test('the four authorized core surfaces admit Next on staging and production', () => {
+    const queryBySurface = {
+      speaking: 'surface=speaking&session_id=session-1',
+      reading_exam: 'surface=reading_exam&test_id=reading-1',
+      listening_test: 'surface=listening_test&id=listening-1',
+      listening_dictation: 'surface=listening_dictation&test_id=dictation-1&section=1',
+    };
+    for (const [surface, query] of Object.entries(queryBySurface)) {
+      assert.equal(CORE_PLAYER_AFFINITY_POLICY.surfaces[surface].admit_new, 'next');
+      for (const deployment of [
+        { vercelEnv: 'preview', gitRef: 'staging' },
+        { vercelEnv: 'production', gitRef: 'main' },
+      ]) {
+        assert.equal(corePlayerAdmissionForDeployment(surface, deployment), 'next');
+        assert.match(
+          resolveCorePlayerAdmissionFromParamsForDeployment(
+            new URLSearchParams(query), deployment,
+          ),
+          /^\/(?!pages\/)/,
+        );
+      }
+    }
+  });
+
+  test('Writing forward restore leaves every deployment on Next admission', () => {
+    assert.equal(corePlayerAdmissionForDeployment('writing_assignment', {
+      vercelEnv: 'preview', gitRef: 'staging',
+    }), 'next');
+    assert.equal(CORE_PLAYER_AFFINITY_POLICY.surfaces.writing_assignment.admit_new, 'next');
+    const params = new URLSearchParams('surface=writing_assignment&assignment_id=assignment-1');
+    assert.equal(
+      resolveCorePlayerAdmissionFromParamsForDeployment(params, {
+        vercelEnv: 'preview', gitRef: 'staging',
+      }),
+      '/writing/dashboard?assignment_id=assignment-1',
+    );
+    assert.equal(
+      resolveCorePlayerAdmissionFromParamsForDeployment(params, {
+        vercelEnv: 'production', gitRef: 'main',
+      }),
+      '/writing/dashboard?assignment_id=assignment-1',
+    );
+    for (const deployment of [
+      { vercelEnv: 'production', gitRef: 'main' },
+      { vercelEnv: 'production', gitRef: 'staging' },
+      { vercelEnv: 'preview', gitRef: 'feature-branch' },
+      { vercelEnv: '', gitRef: 'staging' },
+    ]) {
+      assert.equal(
+        corePlayerAdmissionForDeployment('writing_assignment', deployment),
+        'next',
+      );
+    }
+  });
+
+  test('the local Speaking flow verifier follows the deployed admission policy', () => {
+    assert.match(SPEAKING_FLOW, /import \{ resolveCorePlayerAdmission \}/);
+    assert.match(SPEAKING_FLOW, /resolveCorePlayerAdmission\('speaking', \{/);
+    assert.match(SPEAKING_FLOW, /page\.url\(\) === expectedPracticeUrl/);
+    assert.doesNotMatch(SPEAKING_FLOW, /practice\.html\?session_id=sess-verify-1/);
   });
 
   test('runtime route resolves server-side, redirects temporarily and cannot be cached', () => {
     assert.match(RUNTIME_ROUTE,
-      /resolveCorePlayerAdmissionFromParams\(request\.nextUrl\.searchParams\)/);
+      /resolveCorePlayerAdmissionFromParamsForDeployment\([\s\S]*request\.nextUrl\.searchParams/);
+    assert.match(RUNTIME_ROUTE, /vercelEnv: process\.env\.VERCEL_ENV/);
+    assert.match(RUNTIME_ROUTE, /gitRef: process\.env\.VERCEL_GIT_COMMIT_REF/);
     assert.match(RUNTIME_ROUTE, /new NextResponse\(null, \{[\s\S]*status: 307/);
     assert.match(RUNTIME_ROUTE, /headers: \{ Location: destination, \.\.\.NO_STORE_HEADERS \}/);
     assert.doesNotMatch(RUNTIME_ROUTE, /request\.nextUrl\.origin/);
@@ -120,6 +215,33 @@ describe('current admission policy preserves behavior', () => {
     assert.doesNotMatch(RUNTIME_ROUTE, /getAll\('surface'\)|hasDuplicate|key !== 'surface'/,
       'wire validation must stay centralized in the affinity module');
     assert.match(RUNTIME_ROUTE, /status: 400/);
+  });
+
+  test('session affinity is persisted on first player boot and honored on reopen', () => {
+    assert.match(AFFINITY_MIGRATION, /ADD COLUMN renderer_affinity TEXT/);
+    assert.match(AFFINITY_MIGRATION,
+      /COALESCE\(target\.renderer_affinity, p_renderer_affinity\)/);
+    assert.match(AFFINITY_MIGRATION, /target\.user_id = p_user_id/);
+    assert.match(SESSION_ROUTER, /fn_claim_session_renderer_affinity/);
+    assert.match(CREATE_PROTOCOL_MIGRATION,
+      /ALTER COLUMN renderer_affinity SET DEFAULT 'legacy'/);
+    assert.match(CREATE_PROTOCOL_MIGRATION, /fn_create_session_daily_capped_v3/);
+    assert.match(GAP_BACKFILL_MIGRATION,
+      /SET renderer_affinity = 'legacy'[\s\S]*WHERE renderer_affinity IS NULL/);
+    assert.match(SESSION_ROUTER, /renderer_affinity_protocol: Literal\["claim-v1"\]/);
+    assert.match(API_CLIENT, /renderer_affinity_protocol = 'claim-v1'/);
+    assert.match(CLASS_STUDENT_ROUTER,
+      /response\["renderer_affinity"\] = existing\["renderer_affinity"\]/);
+    assert.match(CLASS_STUDENT_ROUTER,
+      /response\["result_session_id"\] = existing\["id"\]/,
+      'completed class work must route to canonical result, not a retired player');
+    const nextClaim = PRACTICE_BOOTSTRAP.indexOf("'/renderer-affinity'");
+    const nextRead = PRACTICE_BOOTSTRAP.indexOf("'/sessions/' + encodedSessionId,");
+    assert.ok(nextClaim !== -1 && nextClaim < nextRead,
+      'Next must claim before reading session/question state');
+    assert.match(LEGACY_PRACTICE, /renderer_affinity: 'legacy'/);
+    assert.match(MY_CLASS_MODEL, /kind: 'stable-player'/);
+    assert.match(MY_CLASS_MODEL, /corePlayerUrl\('speaking', implementation/);
   });
 
   test('canonical Next launchers use the policy, not scattered player literals', () => {
@@ -274,7 +396,7 @@ describe('cutover and rollback drill', () => {
       resolveCorePlayerAdmissionFromParams(
         new URLSearchParams('surface=speaking&session_id=x'),
       ),
-      '/pages/practice.html?session_id=x',
+      '/practice/session?session_id=x',
     );
     for (const query of [
       'session_id=x',
@@ -306,15 +428,19 @@ describe('cutover and rollback drill', () => {
 });
 
 describe('evidence truth', () => {
-  test('calls the unit contract accurately and does not claim a live Gate E pass', () => {
-    assert.match(DOC, /FOUR DARK ROUTES READY; ADMISSION LEGACY; LIVE CORE DRILL\s+PENDING/);
+  test('records completed affinity drills without claiming global Gate E pass', () => {
+    assert.match(DOC, /SPEAKING THREE-PHASE LIVE CORE DRILL PASSED; REAL DEVICE \+ GATE E\s+PENDING/);
     assert.match(DOC, /không tuyên\s+bố Gate E PASS/);
     assert.match(DOC, /không\s+có finite maximum active-session TTL/);
     assert.match(DOC, /[Qq]uery flag không phải affinity/);
     assert.match(DOC, /rollback floor SHA/);
     assert.match(DOC, /khác PR và khác commit/i);
     assert.match(DOC, /Writing[\s\S]*ngoài helper/i);
-    assert.match(PREFLIGHT, /Sticky active-session hoặc drain strategy đã drill \| \*\*MISSING\*\*/);
-    assert.match(PREFLIGHT, /unit-level only; chưa có active attempt nào được drill/);
+    assert.match(PREFLIGHT, /Sticky active-session hoặc drain strategy đã drill \| \*\*PASS\*\*/);
+    assert.match(PREFLIGHT, /\*\*Trạng thái:\*\* NOT READY\./);
+    assert.match(PREFLIGHT, /real-device COMPLETE: safari-desktop `32225845849` \+ ios-safari `32226876978`/);
+    assert.match(PREFLIGHT, /floor run `32043317793`/);
+    assert.match(PREFLIGHT, /cutover run `32045284608`/);
+    assert.match(PREFLIGHT, /rollback run `32047774312`/);
   });
 });

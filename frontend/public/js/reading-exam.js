@@ -3110,16 +3110,22 @@
     var startPromise = SESSION.share_mode
       ? window.api.postWith(
           '/api/reading/test/share/' + encodeURIComponent(SESSION.share_token) + '/attempts',
-          null, _anonHeaders(), { noRedirect: true })
+          _RENDERER_AFFINITY_PROTOCOL, _anonHeaders(), { noRedirect: true })
         .then(function (res) { _setAnonId(res && res.anon_id); return res; })
       // F1 — carry the locked-test password (if any) so start passes the gate.
       : window.api.postWith(
           '/api/reading/test/' + encodeURIComponent(SESSION.test_id) + '/attempts'
             + (classItemFromUrl()
                 ? '?class_item=' + encodeURIComponent(classItemFromUrl()) : ''),
-          null, _pwHeaders());
+          _RENDERER_AFFINITY_PROTOCOL, _pwHeaders());
     return startPromise
       .then(function (res) {
+        return _claimAttemptRenderer(res.attempt_id).then(function (matches) {
+          return matches ? res : null;
+        });
+      })
+      .then(function (res) {
+        if (!res) return;
         SESSION.attempt_id = res.attempt_id;
         _startNothingSavedWatch();
         SESSION.started_at = res.started_at;
@@ -3213,6 +3219,39 @@
     return id ? { 'X-Reading-Anon': id } : null;
   }
 
+  var _RENDERER_AFFINITY_PROTOCOL = { renderer_affinity_protocol: 'claim-v1' };
+  function _stableReadingPlayerHref(renderer) {
+    var target = new URL(
+      renderer === 'next' ? '/reading/exam/session' : '/pages/reading-exam.html',
+      window.location.origin
+    );
+    var current = new URLSearchParams(window.location.search);
+    ['test_id', 'share', 'sitting_id', 'mock_embed', 'from', 'class_item']
+      .forEach(function (key) {
+        var value = current.get(key);
+        if (value) target.searchParams.set(key, value);
+      });
+    return target.pathname + target.search;
+  }
+  function _claimAttemptRenderer(attemptId) {
+    return window.api.postWith(
+      '/api/reading/test/attempts/' + encodeURIComponent(attemptId) + '/renderer-affinity',
+      { renderer_affinity: 'legacy' },
+      SESSION.share_mode ? _anonHeaders() : null,
+      { noRedirect: true }
+    ).then(function (claim) {
+      var canonical = claim && claim.renderer_affinity;
+      if (canonical !== 'legacy' && canonical !== 'next') {
+        throw new Error('Không thể xác nhận phiên bản player. Hãy tải lại trang.');
+      }
+      if (canonical !== 'legacy') {
+        window.location.replace(_stableReadingPlayerHref(canonical));
+        return false;
+      }
+      return true;
+    });
+  }
+
   function boot() {
     wireBack();                 // before any early return — the error state is
                                 // exactly when a working way out matters most
@@ -3251,6 +3290,14 @@
           _pwHeaders());
     bootPromise
       .then(function (bootPayload) {
+        var inprog = bootPayload && bootPayload.in_progress;
+        if (!inprog) return bootPayload;
+        return _claimAttemptRenderer(inprog.attempt_id).then(function (matches) {
+          return matches ? bootPayload : null;
+        });
+      })
+      .then(function (bootPayload) {
+        if (!bootPayload) return;
         var test = bootPayload && bootPayload.test;
         if (!test) throw new Error('Boot payload missing test');
         // In share mode there is no ?test_id= — adopt the bundle's test_id so

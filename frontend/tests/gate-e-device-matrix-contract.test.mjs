@@ -40,6 +40,9 @@ const speakingEvidenceCheckCode = workflowCode.match(
 const liveFailureEvidenceCheckCode = workflowCode.match(
   /^      - name: Verify live-staging core-player failure evidence\n[\s\S]*?(?=^      - )/m,
 )?.[0] || '';
+const playwrightInstallCode = workflowCode.match(
+  /^      - name: Install Playwright matrix engines\n[\s\S]*?(?=^      - )/m,
+)?.[0] || '';
 const liveFailureEvidenceUploadCode = workflowCode.match(
   /^      - name: Upload live-staging core-player failure evidence\n[\s\S]*?(?=^      - )/m,
 )?.[0] || '';
@@ -142,11 +145,13 @@ describe('Gate E device matrix is pinned and bounded', () => {
 
   test('CI installs both engines and uploads only validated machine-readable evidence', () => {
     assert.match(workflowCode, /name: Install Playwright matrix engines[\s\S]*?timeout-minutes: 15/);
-    assert.match(workflowCode, /test -f \/etc\/apt\/apt-mirrors\.txt/);
-    assert.match(workflowCode, /https:\/\/archive\.ubuntu\.com\/ubuntu/);
-    assert.match(workflowCode, /Acquire::Retries "2";/);
-    assert.match(workflowCode, /Acquire::https::Timeout "15";/);
-    assert.match(workflowCode, /npx playwright install --with-deps chromium webkit/);
+    assert.match(playwrightInstallCode, /^\s*npx playwright install --with-deps chromium webkit\s*$/m);
+    assert.match(playwrightInstallCode, /test -f \/etc\/apt\/apt-mirrors\.txt/);
+    assert.match(playwrightInstallCode, /https:\/\/archive\.ubuntu\.com\/ubuntu/);
+    assert.match(playwrightInstallCode, /Acquire::Retries "2";/);
+    assert.match(playwrightInstallCode, /Acquire::http::Timeout "15";/);
+    assert.match(playwrightInstallCode, /Acquire::https::Timeout "15";/);
+    assert.doesNotMatch(playwrightInstallCode, /azure\.archive\.ubuntu\.com/);
     assert.match(CONFIG, /staging-e2e-results\.json/);
     assert.match(WORKFLOW, /id: staging_e2e/);
     assert.match(WORKFLOW, /steps\.staging_e2e\.outcome/);

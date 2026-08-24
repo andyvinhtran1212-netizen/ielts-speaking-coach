@@ -61,6 +61,7 @@ _ASSIGNMENT_ID = "assign-uuid-cccc"
 _PROMPT_ID     = "prompt-uuid-dddd"
 _ESSAY_ID      = "essay-uuid-eeee"
 _JOB_ID        = "job-uuid-ffff"
+_ACTIVE_RENDERER_LEASE = "2099-01-01T00:00:00+00:00"
 
 
 def _run(coro):
@@ -92,6 +93,7 @@ class _Builder:
         self._payload = None
         self._filters: list[tuple] = []
         self._in: tuple[str, list] | None = None
+        self._gt: tuple[str, object] | None = None
 
     def select(self, *_a, **_kw): self._action = "select"; return self
     def insert(self, payload, *_a, **_kw): self._action = "insert"; self._payload = payload; return self
@@ -108,6 +110,10 @@ class _Builder:
         self._in = (col, list(vals))
         return self
 
+    def gt(self, col, val):
+        self._gt = (col, val)
+        return self
+
     def execute(self):
         rec = {
             "table":   self._table,
@@ -115,6 +121,7 @@ class _Builder:
             "payload": self._payload,
             "filters": list(self._filters),
             "in":      self._in,
+            "gt":      self._gt,
         }
         self._parent.calls.append(("call", rec))
         return self._parent._respond(rec)
@@ -129,13 +136,16 @@ class _Client:
 
     def __init__(self, *, assignment_status="in_progress", drafts_data=None,
                  student_row=None, analysis_level=None,
-                 claim_transport_error_after_commit=False):
+                 claim_transport_error_after_commit=False,
+                 expire_on_guarded_claim=False):
         self._assignment_status = assignment_status
         self._analysis_level    = analysis_level
         self._drafts            = drafts_data or []
         self._student_row       = student_row or {"flag_count": 0, "is_under_review": False}
         self._essay_id          = None
         self._claim_transport_error_after_commit = claim_transport_error_after_commit
+        self._expire_on_guarded_claim = expire_on_guarded_claim
+        self._renderer_expiry = _ACTIVE_RENDERER_LEASE
         self.calls: list[tuple] = []
 
     def table(self, name): return _Builder(self, name)
@@ -161,6 +171,9 @@ class _Client:
                     "time_limit_minutes": None,
                     "started_at":  None,
                     "auto_submitted": False,
+                    "renderer_affinity": "legacy",
+                    "renderer_affinity_claimed_at": "2026-05-01T00:00:00+00:00",
+                    "renderer_affinity_expires_at": self._renderer_expiry,
                     "analysis_level": self._analysis_level,
                     "writing_prompts": {
                         "id":          _PROMPT_ID,
@@ -177,6 +190,17 @@ class _Client:
                 if rec.get("in"):
                     in_col, in_vals = rec["in"]
                     if in_col == "status" and self._assignment_status not in in_vals:
+                        r.data = []
+                        return r
+                if rec.get("gt"):
+                    gt_col, gt_val = rec["gt"]
+                    if self._expire_on_guarded_claim:
+                        self._expire_on_guarded_claim = False
+                        self._renderer_expiry = "2000-01-01T00:00:00+00:00"
+                    current = {
+                        "renderer_affinity_expires_at": self._renderer_expiry,
+                    }
+                    if current.get(gt_col) is None or not (current.get(gt_col) > gt_val):
                         r.data = []
                         return r
                 payload = rec["payload"] or {}
@@ -405,6 +429,39 @@ def test_claim_transport_error_after_commit_preserves_linked_essay(monkeypatch):
         for rec in client.calls
     )
     bg.add_task.assert_called_once()
+
+
+@pytest.mark.parametrize("essay_text", [_LONG, "too short"])
+def test_claim_rechecks_lease_after_speculative_essay(monkeypatch, essay_text):
+    """Both clean and flagged SAGA branches fail closed across lease expiry."""
+    events: list[str] = []
+    client = _Client(
+        assignment_status="in_progress",
+        expire_on_guarded_claim=True,
+    )
+    monkeypatch.setattr(ws_module, "supabase_admin", client)
+    _patch_saga_service(
+        monkeypatch,
+        on_schedule=lambda _kw: events.append("schedule_job"),
+    )
+    bg = MagicMock(); bg.add_task = MagicMock()
+
+    with pytest.raises(HTTPException) as excinfo:
+        _run(submit_my_assignment(
+            assignment_id=_ASSIGNMENT_ID,
+            body=SubmitEssay(essay_text=essay_text),
+            background_tasks=bg,
+            student=_student(),
+        ))
+
+    assert excinfo.value.status_code == 410
+    assert client._assignment_status == "in_progress"
+    assert any(
+        rec[1]["table"] == "writing_essays" and rec[1]["action"] == "delete"
+        for rec in client.calls
+    ), "the speculative essay must be rolled back when the lease expires"
+    assert events == []
+    bg.add_task.assert_not_called()
 
 
 def test_saga_flagged_path_creates_row_first_then_claims(monkeypatch):

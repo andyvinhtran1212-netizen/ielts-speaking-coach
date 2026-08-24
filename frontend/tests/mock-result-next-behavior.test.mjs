@@ -59,7 +59,8 @@ describe('/mock/result — native React behavior', () => {
     assert.match(BEHAVIOR, /&from=mock&sitting=\$\{encodeURIComponent\(sittingId\)\}/);
     assert.match(BEHAVIOR, /\/listening\/review\?attempt_id=/);
     assert.match(BEHAVIOR, /\/reading\/review\?attempt_id=/);
-    assert.match(BEHAVIOR, /\/pages\/writing-result\.html\?id=/);
+    assert.match(BEHAVIOR, /\/writing\/result\?id=/);
+    assert.doesNotMatch(BEHAVIOR, /\/pages\/writing-result\.html/);
     assert.match(BEHAVIOR, /\/speaking\/result\?sitting=/);
     assert.match(BEHAVIOR, /rel="noopener"/);
   });

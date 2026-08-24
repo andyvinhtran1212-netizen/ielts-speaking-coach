@@ -59,7 +59,7 @@ describe('Gate E preflight reports current evidence truthfully', () => {
     assert.match(workflowCode, /playwright install --with-deps chromium/);
     assert.equal(hasWebkitProject, installsWebkit, 'staging config and browser install must add/remove WebKit together');
     assert.equal(claimsChromiumOnly, !hasWebkitProject, 'update preflight when staging WebKit coverage changes');
-    assert.match(PREFLIGHT, /Critical-suite v5 freeze 34 tests/);
+    assert.match(PREFLIGHT, /Critical-suite v13 freeze 34 tests/);
   });
 
   test('device matrix is PASS with real evidence; ledger stays honest about the streak', () => {
@@ -70,13 +70,17 @@ describe('Gate E preflight reports current evidence truthfully', () => {
     assert.match(PREFLIGHT, /Run `31348712238` trên SHA `bff32975`/);
     assert.match(PREFLIGHT, /real-device COMPLETE: safari-desktop `32225845849` \+ ios-safari `32226876978`, pair `32227093444`/);
     assert.doesNotMatch(PREFLIGHT, /Chưa có real-device/);
-    assert.match(PREFLIGHT, /Critical-suite v5 freeze 34 tests/);
-    assert.match(PREFLIGHT, /Chưa có qualifying 20-run artifact/);
+    assert.match(PREFLIGHT, /Critical-suite v13 freeze 34 tests/);
+    assert.match(PREFLIGHT, /trusted run `32136607306`/);
+    assert.match(PREFLIGHT, /\*\*0\/20\*\*/);
+    assert.doesNotMatch(PREFLIGHT, /\*\*1\/20\*\*/);
+    assert.match(PREFLIGHT, /frozen manifest trước v13/);
+    assert.match(PREFLIGHT, /failure_matrix_complete=true/);
   });
 
   test('retry-reset invariant is fail-closed at the staging runner', () => {
     assert.match(STAGING_CONFIG, /^\s*retries:\s*0,\s*$/m);
-    assert.match(PREFLIGHT, /ledger reset trên fail\/unexpected skip\/flake\/rerun/);
+    assert.match(PREFLIGHT, /[Ll]edger\s+reset trên fail\/unexpected skip\/flake\/rerun/);
   });
 });
 

@@ -29,6 +29,8 @@ from routers import questions as questions_router  # noqa: E402
 
 
 def _stub_supabase(*, session_part: int = 2,
+                   resume_expires_at: str | None = "2099-01-01T00:00:00+00:00",
+                   insert_error: Exception | None = None,
                    inserted_sink: list | None = None) -> MagicMock:
     """Build a duck-typed `supabase_admin` whose `.table(...)` returns a
     chainable object. The session lookup returns one row with the given
@@ -46,18 +48,26 @@ def _stub_supabase(*, session_part: int = 2,
         def eq(self, *_a, **_kw):     return self
         def limit(self, *_a, **_kw):  return self
         def execute(self):
-            return _Result([{"id": "sess-1", "part": session_part}])
+            return _Result([{
+                "id": "sess-1",
+                "part": session_part,
+                "status": "in_progress",
+                "resume_expires_at": resume_expires_at,
+            }])
 
     class _QuestionsQuery:
         def insert(self, rows):
-            sink.extend(rows)
             # Pretend Supabase returned each row with an id appended.
             return _InsertExec(rows)
 
     class _InsertExec:
         def __init__(self, rows):
+            self._source_rows = rows
             self._rows = [dict(r, id=f"q-{i}") for i, r in enumerate(rows)]
         def execute(self):
+            if insert_error is not None:
+                raise insert_error
+            sink.extend(self._source_rows)
             return _Result(self._rows)
 
     class _Sb:
@@ -246,6 +256,65 @@ def test_empty_questions_list_returns_422(monkeypatch, client):
     r = client.post("/sessions/sess-1/questions/custom",
                     json={"questions": []})
     assert r.status_code == 422
+
+
+@pytest.mark.parametrize("expiry", ["2000-01-01T00:00:00+00:00", None])
+def test_custom_questions_fail_closed_after_or_without_player_expiry(
+    monkeypatch, client, expiry,
+):
+    sink: list = []
+    monkeypatch.setattr(
+        questions_router,
+        "supabase_admin",
+        _stub_supabase(
+            session_part=1,
+            resume_expires_at=expiry,
+            inserted_sink=sink,
+        ),
+    )
+    response = client.post(
+        "/sessions/sess-1/questions/custom",
+        json={"questions": ["Should never persist?"]},
+    )
+    assert response.status_code == 410
+    assert sink == []
+
+
+@pytest.mark.parametrize("expiry", ["2000-01-01T00:00:00+00:00", None])
+def test_generate_questions_fails_closed_before_ai_after_or_without_expiry(
+    monkeypatch, client, expiry,
+):
+    generate = MagicMock(side_effect=AssertionError("AI must not run"))
+    monkeypatch.setattr(questions_router, "generate_part1_questions", generate)
+    monkeypatch.setattr(
+        questions_router,
+        "supabase_admin",
+        _stub_supabase(session_part=1, resume_expires_at=expiry),
+    )
+    response = client.post("/sessions/sess-1/questions/generate")
+    assert response.status_code == 410
+    generate.assert_not_called()
+
+
+def test_custom_questions_returns_410_when_expiry_crosses_at_insert(monkeypatch, client):
+    sink: list = []
+    monkeypatch.setattr(
+        questions_router,
+        "supabase_admin",
+        _stub_supabase(
+            session_part=1,
+            insert_error=RuntimeError("active_player_expired"),
+            inserted_sink=sink,
+        ),
+    )
+
+    response = client.post(
+        "/sessions/sess-1/questions/custom",
+        json={"questions": ["Should not cross the TTL boundary?"]},
+    )
+
+    assert response.status_code == 410
+    assert sink == []
 
 
 def test_order_num_is_sequential_across_mixed_types(monkeypatch, client):

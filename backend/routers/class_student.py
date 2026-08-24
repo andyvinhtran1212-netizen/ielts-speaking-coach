@@ -37,6 +37,7 @@ from services.class_assignment_service import (
     is_assignment_open,
     reconcile_test_attempts,
 )
+from services.active_player_lifecycle import is_resume_active
 from services.class_membership_service import (
     active_cohort_ids_for_student,
     student_is_active_in_cohort,
@@ -68,7 +69,7 @@ def _paged_items(apply_filters) -> list:
 router = APIRouter(prefix="/api/class", tags=["class-student"])
 
 
-def _existing_speaking_session(item_id: str, user_id: str) -> Optional[str]:
+def _existing_speaking_session(item_id: str, user_id: str) -> Optional[Dict[str, Any]]:
     """Phiên Speaking đã dựng cho mục bài giao này, nếu có.
 
     Của CHÍNH em ấy (`user_id`) chứ không chỉ theo mục: mục là của một học viên,
@@ -89,7 +90,10 @@ def _existing_speaking_session(item_id: str, user_id: str) -> Optional[str]:
     """
     try:
         rows = (
-            supabase_admin.table("sessions").select("id, started_at, completed_at, status")
+            supabase_admin.table("sessions").select(
+                "id, started_at, completed_at, status, renderer_affinity, "
+                "resume_expires_at"
+            )
             .eq("class_assignment_item_id", item_id).eq("user_id", user_id)
             .order("started_at", desc=True).limit(20).execute().data
         ) or []
@@ -99,19 +103,36 @@ def _existing_speaking_session(item_id: str, user_id: str) -> Optional[str]:
         done = [r for r in rows
                 if r.get("completed_at") or r.get("status") == "completed"]
         if done:
-            return done[0]["id"]
+            winner = done[0]
+            return {
+                "id": winner["id"],
+                "status": "completed",
+                "renderer_affinity": winner.get("renderer_affinity"),
+            }
 
         # Phiên nào ĐANG GIỮ bài. Một lượt đọc cho tất cả, không hỏi từng phiên.
-        ids = [r["id"] for r in rows]
+        resumable = [r for r in rows if is_resume_active(r)]
+        if not resumable:
+            return None
+        ids = [r["id"] for r in resumable]
         with_work = {
             x["session_id"] for x in
             ((supabase_admin.table("responses").select("session_id")
               .in_("session_id", ids).execute().data) or [])
         }
-        for r in rows:                      # rows đã mới→cũ
+        for r in resumable:                 # rows đã mới→cũ
             if r["id"] in with_work:
-                return r["id"]
-        return rows[0]["id"]
+                return {
+                    "id": r["id"],
+                    "status": "in_progress",
+                    "renderer_affinity": r.get("renderer_affinity"),
+                }
+        winner = resumable[0]
+        return {
+            "id": winner["id"],
+            "status": "in_progress",
+            "renderer_affinity": winner.get("renderer_affinity"),
+        }
     except Exception as exc:  # noqa: BLE001
         logger.warning("[class] existing session lookup failed item=%s: %s", item_id, exc)
         return None
@@ -394,12 +415,34 @@ async def start_assignment(
     existing = _existing_speaking_session(item_id, auth_user["id"]) \
         if assignment.get("skill") == "speaking" else None
     if existing:
-        return {
+        response = {
             "item_id":       item_id,
             "assignment_id": assignment["id"],
             "skill":         "speaking",
-            "session_id":    existing,
             "accepting":     bool(is_accepting_submissions(assignment)),
+        }
+        if existing["status"] == "completed":
+            # A completed artifact is canonical history, not an active player.
+            # Return semantic identity and let each client construct its own
+            # current result route; never reopen a retired Legacy renderer just
+            # because that renderer originally owned the session.
+            response["result_session_id"] = existing["id"]
+        else:
+            response["session_id"] = existing["id"]
+            response["renderer_affinity"] = existing["renderer_affinity"]
+        return response
+
+    # A submitted course item reopens in a read-only review lane. Keep this
+    # before the deadline gate: expiry blocks a new attempt, not access to the
+    # learner's persisted result. `review_only` prevents the runner from
+    # creating another quiz session.
+    if assignment.get("skill") == "course" and item.get("submitted_at"):
+        return {
+            "item_id":       item_id,
+            "assignment_id": assignment["id"],
+            "skill":         "course",
+            "bank_id":       assignment.get("content_id"),
+            "review_only":   True,
         }
 
     # Bài theo buổi ĐÃ NỘP mở lại ở lane chỉ-đọc. Đặt trước cổng deadline giống
@@ -462,9 +505,9 @@ async def start_assignment(
             },
         }
 
-    # Reading/Listening open their existing test pages directly. No attempt is
-    # created here — those pages own their own attempt lifecycle, and a parallel
-    # "start" path would mean two places deciding when an attempt begins.
+    # Reading/Listening enter through the runtime admission route. No attempt is
+    # created here — the selected player owns its attempt lifecycle, and a
+    # parallel "start" path would mean two places deciding when it begins.
     #
     # `class_item` is what ties the two together. The page passes it back when
     # it creates the attempt, so the attempt row records WHICH homework it was
@@ -494,10 +537,11 @@ async def start_assignment(
         if not (rows[0].get("assembled_audio_storage_path")
                 or rows[0].get("full_audio_storage_path")):
             raise HTTPException(409, "Đề nghe này chưa có audio sẵn sàng.")
-        # listening-test.html?id= is the row id, the same value the attempt row
-        # carries — one identifier throughout.
-        url = (f"/pages/listening-test.html?id={quote(test_uuid)}"
-               f"&class_item={quote(item_id)}")
+        # Listening uses the row id at both ends — one identifier throughout.
+        player_surface = "listening_test"
+        player_query = {"id": str(test_uuid), "class_item": item_id}
+        url = (f"/core-player/launch?surface={player_surface}"
+               f"&id={quote(test_uuid)}&class_item={quote(item_id)}")
     else:
         # Reading needs BOTH ids and they are different columns. The reader page
         # resolves ?test_id= against reading_tests.test_id (the public code,
@@ -513,12 +557,19 @@ async def start_assignment(
             raise HTTPException(404, "Không tìm thấy đề đọc của bài tập này.")
         if (row[0].get("status") or "") != "published" or row[0].get("exam_only"):
             raise HTTPException(409, "Đề đọc của bài tập này hiện không mở được.")
-        url = (f"/pages/reading-exam.html?test_id={quote(code)}"
-               f"&class_item={quote(item_id)}")
+        player_surface = "reading_exam"
+        player_query = {"test_id": str(code), "class_item": item_id}
+        url = (f"/core-player/launch?surface={player_surface}"
+               f"&test_id={quote(code)}&class_item={quote(item_id)}")
     return {
         "item_id":       item_id,
         "assignment_id": assignment["id"],
         "skill":         skill,
+        # Semantic fields are canonical for current clients. `open_url` stays
+        # during the N/N-1 rollout so the previous My Class client can still
+        # navigate, but it now points at runtime admission instead of Legacy.
+        "player_surface": player_surface,
+        "player_query":  player_query,
         "open_url":      url,
     }
 

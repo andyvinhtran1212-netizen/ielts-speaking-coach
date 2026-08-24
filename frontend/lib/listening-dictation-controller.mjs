@@ -1,4 +1,7 @@
+import { corePlayerUrl } from './core-player-affinity.mjs';
+
 const SAFE_AUDIO_PROTOCOLS = new Set(['https:', 'http:']);
+const DICTATION_RENDERERS = new Set(['legacy', 'next']);
 
 function text(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -35,6 +38,70 @@ export function dictationParams(search) {
     throw new Error('invalid-dictation-section');
   }
   return Object.freeze({ testId, section });
+}
+
+export function dictationRendererHref(renderer, search) {
+  if (!DICTATION_RENDERERS.has(renderer)) throw new Error('invalid-dictation-renderer');
+  const params = dictationParams(search);
+  return corePlayerUrl('listening_dictation', renderer, {
+    test_id: params.testId,
+    ...(params.section == null ? {} : { section: params.section }),
+  });
+}
+
+export function normalizeDictationAttempt(payload) {
+  const source = payload?.attempt === null ? null : (payload?.attempt || payload);
+  if (source == null) return null;
+  if (!source || typeof source !== 'object') throw new Error('invalid-dictation-attempt');
+  const attemptId = text(source.attempt_id || source.id);
+  const testId = text(source.test_id);
+  const sectionNum = Number(source.section_num);
+  const status = text(source.status);
+  const affinity = source.renderer_affinity ?? null;
+  if (!attemptId || !testId || !Number.isInteger(sectionNum) || sectionNum < 1
+      || status !== 'in_progress' || (affinity !== null && !DICTATION_RENDERERS.has(affinity))) {
+    throw new Error('invalid-dictation-attempt');
+  }
+  const units = (Array.isArray(source.units) ? source.units : []).map((unit) => {
+    const unitText = text(unit?.text);
+    if (!unitText) return null;
+    const start = Number(unit?.start);
+    const end = Number(unit?.end);
+    const timing = Number.isFinite(start) && Number.isFinite(end) && start >= 0 && end > start
+      ? Object.freeze({ start, end }) : null;
+    const hints = Array.isArray(unit?.hints)
+      ? unit.hints.map(text).filter(Boolean).slice(0, 12) : [];
+    return Object.freeze({ text: unitText, timing, hints: Object.freeze(hints) });
+  }).filter(Boolean);
+  if (!units.length) throw new Error('invalid-dictation-attempt-units');
+  const answers = (Array.isArray(source.answers) ? source.answers : []).map((answer) => {
+    const sentenceIdx = Number(answer?.sentence_idx);
+    if (!Number.isInteger(sentenceIdx) || sentenceIdx < 0) return null;
+    const grade = normalizeDictationGrade({
+      score: answer.score,
+      is_correct: Number(answer.score) >= 1,
+      correct_words: answer.correct_words,
+      total_words: answer.total_words,
+      diff: answer.diff,
+    });
+    return Object.freeze({
+      ...grade,
+      sentence_idx: sentenceIdx,
+      user_text: typeof answer.user_transcript === 'string' ? answer.user_transcript : '',
+      listen_count: Math.max(0, Number(answer.listen_count) || 0),
+      time_seconds: Math.max(0, Number(answer.time_seconds) || 0),
+    });
+  }).filter(Boolean).sort((a, b) => a.sentence_idx - b.sentence_idx);
+  return Object.freeze({
+    attempt_id: attemptId,
+    test_id: testId,
+    section_num: sectionNum,
+    status,
+    renderer_affinity: affinity,
+    started_at: text(source.started_at) || null,
+    units: Object.freeze(units),
+    answers: Object.freeze(answers),
+  });
 }
 
 export function normalizeDictationBundle(payload) {

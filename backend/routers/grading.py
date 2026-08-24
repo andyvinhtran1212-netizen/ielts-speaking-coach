@@ -54,6 +54,11 @@ from services.grammar_check import (
     GrammarCheckResult,
     get_grammar_check_service,
 )
+from services.active_player_lifecycle import (
+    ACTIVE_PLAYER_EXPIRED_DETAIL,
+    is_active_player_expired_error,
+    require_resume_active,
+)
 from dataclasses import asdict
 
 logger = logging.getLogger(__name__)
@@ -462,7 +467,10 @@ async def grade_response_endpoint(
         try:
             s_res = await aexecute(
                 lambda db: db.table("sessions")
-                .select("id, part, topic, status, mode, sitting_id")
+                .select(
+                    "id, part, topic, status, mode, sitting_id, "
+                    "started_at, resume_expires_at"
+                )
                 .eq("id", session_id)
                 .eq("user_id", user_id)
                 .limit(1)
@@ -474,6 +482,7 @@ async def grade_response_endpoint(
             raise HTTPException(404, "Session không tồn tại hoặc không có quyền truy cập")
 
         session = s_res.data[0]
+        require_resume_active(session)
         part: int = session["part"]
         session_mode: str = session.get("mode", "practice") or "practice"
 
@@ -1193,6 +1202,8 @@ def _persist_response_with_fallback(db_row, core_columns, upsert_fn, *,
             raise ValueError("response upsert returned no row id (empty insert representation)")
         return rid, False
     except Exception as e:
+        if is_active_player_expired_error(e):
+            raise HTTPException(410, ACTIVE_PLAYER_EXPIRED_DETAIL) from e
         logger.warning("[grading] DB save failed with full row (%s) — retrying with core columns only", e)
         core_row = {k: v for k, v in db_row.items() if k in core_columns}
         try:
@@ -1204,6 +1215,8 @@ def _persist_response_with_fallback(db_row, core_columns, upsert_fn, *,
                            session_id, question_id)
             return rid, True
         except Exception as e2:
+            if is_active_player_expired_error(e2):
+                raise HTTPException(410, ACTIVE_PLAYER_EXPIRED_DETAIL) from e2
             logger.error("[grading][metric] response_persist_failed=1 session=%s question=%s: %s",
                          session_id, question_id, e2, exc_info=True)
             raise HTTPException(

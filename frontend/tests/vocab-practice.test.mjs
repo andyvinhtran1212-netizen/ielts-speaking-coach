@@ -47,6 +47,7 @@ describe('vocab-practice hub — lists published vocab banks', () => {
     assert.match(LOGIC, /b\.code/);
     assert.match(LOGIC, /b\.title/);
     assert.match(LOGIC, /b\.words_count/);
+    assert.doesNotMatch(LOGIC, /<\/span> · /);
   });
 
   test('back link goes UP to the Vocabulary hub, not the public word wiki', () => {

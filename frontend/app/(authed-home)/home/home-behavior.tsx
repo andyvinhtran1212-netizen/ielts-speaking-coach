@@ -328,7 +328,7 @@ async function loadHome(api: any, cancelled: () => boolean, cleanups: Array<() =
   clearStatLoading('0');
 
   // Báo cho <aver-chrome> biết người dùng đã đăng nhập để link vocab trên thanh
-  // điều hướng đổi sang /pages/vocabulary.html ngay lập tức — khử cuộc đua khi
+  // điều hướng đổi sang /vocabulary/hub ngay lập tức — khử cuộc đua khi
   // việc dò phiên bất đồng bộ chưa xong mà người dùng đã bấm.
   const chrome = document.querySelector('aver-chrome') as any;
   if (chrome && typeof chrome.setUser === 'function') {

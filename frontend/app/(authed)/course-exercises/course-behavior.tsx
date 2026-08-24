@@ -100,7 +100,10 @@ export function CourseBehavior() {
 
       runner = createRunner({ api, storage: window.localStorage });
       try {
-        await runner.load(bankId, { reviewOnly: requestedView === 'writing' && Boolean(requestedItem) });
+        await runner.load(bankId, {
+          reviewOnly: requestedView === 'writing' && Boolean(requestedItem),
+          assignmentItemId: requestedItem,
+        });
       } catch (err: any) {
         return fail('Không mở được bài tập: ' + (err?.message || err));
       }
@@ -117,12 +120,18 @@ export function CourseBehavior() {
           + '. Trắc nghiệm hiện giải thích ngay sau mỗi câu.';
       }
 
+      // Một bank có thể được giao nhiều lần. Draft và mọi review phải bám đúng
+      // item canonical mà server vừa trả, không dùng chung theo bank.
+      const sectionAssignmentItem = requestedItem || runner.mastery?.item_id || null;
+
       const reading = RD.createReading({
         api, storage: window.localStorage, userId: user.id,
+        assignmentItemId: sectionAssignmentItem,
       });
       reading.load(runner.bank);
       const listening = LD.createListening({
         api, storage: window.localStorage, userId: user.id,
+        assignmentItemId: sectionAssignmentItem,
       });
       listening.load(runner.bank);
       pronunciation = PD.createPronunciation({ api, userId: user.id });
@@ -376,6 +385,12 @@ export function CourseBehavior() {
 
       let lastVerdict: any = null;
 
+      const completedReviewSections = new Set<string>(
+        Array.isArray(runner.mastery?.completed_sections)
+          ? runner.mastery.completed_sections : [],
+      );
+      const reviewSectionCompleted = (key: CourseSection) => completedReviewSections.has(key);
+
       /**
        * Màn kết luận. Ba trạng thái, không trạng thái nào im lặng:
        * đang xét → ĐẠT (chốt bài) → hoặc CHƯA ĐẠT kèm đúng một việc phải làm.
@@ -420,12 +435,16 @@ export function CourseBehavior() {
           : (writingSection && writingReady && writing.submitted
               ? '<button class="av-button av-button-secondary" id="cx-writing" type="button">Xem phần tự luận đã chấm</button>'
               : '');
-        const readMore = readingSection && reading.exists && !readingDone
+        const readMore = readingSection && reading.exists
           ? '<button class="av-button av-button-secondary" id="cx-reading-open" type="button">'
-            + `Làm bài đọc ngắn (${reading.count} câu)</button>` : '';
-        const listenMore = listeningSection && listening.exists && !listeningDone
+            + (readingDone ? 'Xem lại bài đọc đã nộp'
+              : `Làm bài đọc ngắn (${reading.count} câu)`)
+            + '</button>' : '';
+        const listenMore = listeningSection && listening.exists
           ? '<button class="av-button av-button-secondary" id="cx-listening-open" type="button">'
-            + `Làm bài nghe (${listening.count} câu)</button>` : '';
+            + (listeningDone ? 'Xem lại bài nghe đã nộp'
+              : `Làm bài nghe (${listening.count} câu)`)
+            + '</button>' : '';
         const pronunciationMore = pronunciationSection && pronunciationReady
           && pronunciation.exists && !pronunciationDone
           ? '<button class="av-button av-button-secondary" id="cx-pronunciation-open" type="button">'
@@ -613,6 +632,12 @@ export function CourseBehavior() {
           + '<p class="cx-verdict__sub">Bạn đang ở chế độ chỉ xem; hệ thống sẽ không tạo lượt làm mới.</p>'
           + '</div></div><div class="cx-verdict__body"><div class="cx-verdict__actions">'
           + '<button class="av-button av-button-secondary" id="cx-see-report" type="button">Xem lại bài trắc nghiệm</button>'
+          + (reviewSectionCompleted('reading')
+            ? '<button class="av-button av-button-secondary" id="cx-reading-open" type="button">Xem lại bài đọc đã nộp</button>'
+            : '')
+          + (reviewSectionCompleted('listening')
+            ? '<button class="av-button av-button-secondary" id="cx-listening-open" type="button">Xem lại bài nghe đã nộp</button>'
+            : '')
           + (writingReady && writing.submitted
             ? '<button class="av-button av-button-primary" id="cx-writing" type="button">Xem phần tự luận đã chấm</button>'
             : '')
@@ -633,6 +658,25 @@ export function CourseBehavior() {
         box.innerHTML = reading.render();
         const st = $('cx-stage'); if (st) st.hidden = true;
         window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+      }
+
+      async function openReading() {
+        const completed = runner.reviewOnly
+          ? reviewSectionCompleted('reading')
+          : (lastVerdict?.sections || [])
+            .some((row: any) => row.key === 'reading' && row.completed === true);
+        if (!completed || reading.revealed) return renderReading();
+        const box = $('cx-reading')!;
+        box.hidden = false;
+        box.innerHTML = '<p class="cx-empty">Đang tải bài đọc đã nộp…</p>';
+        try {
+          await reading.review();
+          renderReading();
+        } catch (err: any) {
+          box.innerHTML = '<p class="cx-empty">Chưa tải được bài đọc đã nộp: '
+            + esc(err?.message || err) + '.</p>'
+            + '<button class="av-button av-button-secondary" id="cr-back" type="button">Quay lại tổng kết</button>';
+        }
       }
 
       async function revealReading() {
@@ -680,6 +724,11 @@ export function CourseBehavior() {
         window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
         try {
           await listening.refreshAudio();
+          const completed = runner.reviewOnly
+            ? reviewSectionCompleted('listening')
+            : (lastVerdict?.sections || [])
+              .some((row: any) => row.key === 'listening' && row.completed === true);
+          if (completed && !listening.revealed) await listening.review();
           renderListening();
         } catch (err: any) {
           box.innerHTML = '<p class="cx-empty">Chưa mở được audio bài nghe: '
@@ -948,7 +997,7 @@ export function CourseBehavior() {
           if (done) done.innerHTML = '<div id="cx-verdict"></div>';
           return void renderVerdict();
         }
-        if (t.id === 'cx-reading-open') return renderReading();
+        if (t.id === 'cx-reading-open') return void openReading();
         if (t.id === 'cx-listening-open') return void openListening();
         if (t.id === 'cx-pronunciation-open') return void openPronunciation();
         if (t.id === 'cr-back') {

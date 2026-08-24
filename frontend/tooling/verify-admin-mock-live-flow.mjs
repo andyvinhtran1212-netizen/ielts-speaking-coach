@@ -135,8 +135,9 @@ await page.route('**/*', async (route) => {
 });
 
 await page.goto(`${BASE}/admin/mock-live?exam_id=exam-1`, { waitUntil: 'domcontentloaded' });
-await page.getByRole('heading', { name: 'Phòng thi trực tiếp' }).waitFor();
+await page.getByRole('heading', { name: 'Phòng thi live' }).waitFor();
 await page.getByText('LIVE-1', { exact: true }).first().waitFor();
+if (process.env.CAPTURE_UI) await page.screenshot({ path: '/tmp/admin-mock-live-redesign.png', fullPage: true });
 check('admin gate, published inventory và exact live snapshot chạy', ['/auth/me', '/admin/mock-exams', '/admin/mock-exams/exam-1/live'].every((path) => requests.some((item) => item.path === path)));
 check('blank persisted state lọt vào danh sách cần chú ý', await page.getByRole('button', { name: /Cần chú ý 1/ }).count() === 1 && await page.getByText('trắng', { exact: true }).count() >= 1);
 

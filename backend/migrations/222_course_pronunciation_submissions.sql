@@ -1,4 +1,4 @@
--- Migration 215 — pronunciation/shadowing sets and learner submissions
+-- Migration 222 — pronunciation/shadowing sets and learner submissions
 --
 -- A course pronunciation exercise is attached to an existing quiz bank but is
 -- not a quiz_attempt: the learner records a fixed set of sentences, the server

@@ -129,6 +129,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sessions/{session_id}/renderer-affinity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Renderer Affinity
+         * @description Claim the stable renderer on first player boot; never move it later.
+         */
+        post: operations["claim_renderer_affinity_sessions__session_id__renderer_affinity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sessions/{session_id}": {
         parameters: {
             query?: never;
@@ -2482,14 +2502,15 @@ export interface paths {
         };
         /**
          * Gate F Legacy Active Session Drain
-         * @description Gate F exact inventory of stateful attempts admitted before cutover.
+         * @description Gate F exact inventory of still-resumable Legacy player state.
          *
-         *     Before the admission flip every core-player launch resolves to Legacy, so
-         *     an ``in_progress`` row whose ``started_at`` is at or before the verified
-         *     cutover timestamp remains a possible Legacy renderer dependency. Missing
-         *     timestamps fail closed and count as blockers. This endpoint is read-only;
-         *     a non-zero result must drain naturally or be covered by a versioned,
-         *     owner-approved exception before any Legacy player is retired.
+         *     Renderer affinity is canonical after migrations 215–221. Migration 224
+         *     adds a hard resume/lease deadline, so an ancient audit row is not mistaken
+         *     for a live browser dependency. A Legacy or unclaimed row blocks only while
+         *     its canonical deadline is still in the future. Missing deadlines fail
+         *     closed. The cutoff remains the versioned release timestamp, but post-cutover
+         *     Legacy admissions also block — silently allowing one would hide a routing
+         *     regression.
          *
          *     The result deliberately does not claim that Gate F passed. Zero stateful
          *     rows is only one retirement prerequisite; the 14-day/full-cycle telemetry,
@@ -4438,6 +4459,30 @@ export interface paths {
         get: operations["get_my_assignment_api_writing_my_assignments__assignment_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/writing/my-assignments/{assignment_id}/renderer-affinity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Writing Assignment Renderer Affinity
+         * @description Atomically pin an active Writing workspace to Legacy or Next.
+         *
+         *     The ownership-filtered pre-read preserves the endpoint's symmetric 404
+         *     contract. The RPC repeats ownership + active-status checks at the mutation
+         *     boundary so a concurrent submit cannot claim or reopen a terminal row.
+         */
+        post: operations["claim_writing_assignment_renderer_affinity_api_writing_my_assignments__assignment_id__renderer_affinity_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6438,6 +6483,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/listening/tests/{test_id}/dictation/attempts/in-progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get In Progress Dictation Attempt */
+        get: operations["get_in_progress_dictation_attempt_api_listening_tests__test_id__dictation_attempts_in_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/{test_id}/dictation/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Dictation Attempt
+         * @description Resume the one active section attempt, or create it without destroying progress.
+         */
+        post: operations["start_dictation_attempt_api_listening_tests__test_id__dictation_attempts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/dictation/attempts/{attempt_id}/renderer-affinity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Claim Dictation Attempt Renderer Affinity */
+        post: operations["claim_dictation_attempt_renderer_affinity_api_listening_tests_dictation_attempts__attempt_id__renderer_affinity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/dictation/attempts/{attempt_id}/sentences/{sentence_idx}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grade And Save Dictation Attempt Sentence
+         * @description Grade and atomically upsert the latest canonical state of one sentence.
+         */
+        post: operations["grade_and_save_dictation_attempt_sentence_api_listening_tests_dictation_attempts__attempt_id__sentences__sentence_idx__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/listening/tests/dictation/session": {
         parameters: {
             query?: never;
@@ -6583,6 +6702,26 @@ export interface paths {
          *     GET /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
          */
         post: operations["start_listening_test_attempt_api_listening_tests__test_id__attempts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/attempts/{attempt_id}/renderer-affinity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Listening Attempt Renderer Affinity
+         * @description Claim a stable Listening player on first boot; never move it later.
+         */
+        post: operations["claim_listening_attempt_renderer_affinity_api_listening_tests_attempts__attempt_id__renderer_affinity_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8979,6 +9118,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reading/test/attempts/{attempt_id}/renderer-affinity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Reading Attempt Renderer Affinity
+         * @description Claim a stable Reading player on first boot; never move it later.
+         *
+         *     Both account-owned and anonymous share attempts use the same canonical
+         *     column. Ownership is checked before the RPC for precise HTTP errors and is
+         *     repeated inside the atomic UPDATE so a claim can never cross owners.
+         */
+        post: operations["claim_reading_attempt_renderer_affinity_api_reading_test_attempts__attempt_id__renderer_affinity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/reading/test/attempts/{attempt_id}/submit": {
         parameters: {
             query?: never;
@@ -11239,6 +11402,14 @@ export interface components {
             /** Topic Ids */
             topic_ids: string[];
         };
+        /** ClaimRendererAffinityBody */
+        ClaimRendererAffinityBody: {
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
         /** CodeMintBody */
         CodeMintBody: {
             /** Cohort Id */
@@ -11317,11 +11488,15 @@ export interface components {
         CourseListeningAudioBody: {
             /** Bank Id */
             bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
         };
         /** CourseListeningBody */
         CourseListeningBody: {
             /** Bank Id */
             bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
             /** Answers */
             answers?: {
                 [key: string]: string;
@@ -11349,6 +11524,8 @@ export interface components {
         CourseReadingBody: {
             /** Bank Id */
             bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
             /** Answers */
             answers?: {
                 [key: string]: string;
@@ -11429,6 +11606,8 @@ export interface components {
             class_assignment_item_id?: string | null;
             /** Client Session Id */
             client_session_id?: string | null;
+            /** Renderer Affinity Protocol */
+            renderer_affinity_protocol?: "claim-v1" | null;
         };
         /** CreateStackRequest */
         CreateStackRequest: {
@@ -11539,6 +11718,34 @@ export interface components {
             /** Instructor Note */
             instructor_note?: string | null;
         };
+        /** DictationAttemptAnswerRequest */
+        DictationAttemptAnswerRequest: {
+            /**
+             * User Transcript
+             * @default
+             */
+            user_transcript: string;
+            /**
+             * Listen Count
+             * @default 0
+             */
+            listen_count: number;
+            /** Time Seconds */
+            time_seconds?: number | null;
+        };
+        /** DictationAttemptRendererAffinityRequest */
+        DictationAttemptRendererAffinityRequest: {
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
+        /** DictationAttemptStartRequest */
+        DictationAttemptStartRequest: {
+            /** Renderer Affinity Protocol */
+            renderer_affinity_protocol?: "claim-v1" | null;
+        };
         /** DictationFlagRequest */
         DictationFlagRequest: {
             /** Test Id */
@@ -11571,6 +11778,8 @@ export interface components {
         };
         /** DictationSessionRequest */
         DictationSessionRequest: {
+            /** Attempt Id */
+            attempt_id?: string | null;
             /** Test Id */
             test_id: string;
             /** Section Num */
@@ -13377,6 +13586,27 @@ export interface components {
              */
             reason: string;
         };
+        /** WritingAssignmentRendererAffinityRequest */
+        WritingAssignmentRendererAffinityRequest: {
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
+        /** WritingAssignmentRendererAffinityResponse */
+        WritingAssignmentRendererAffinityResponse: {
+            /**
+             * Assignment Id
+             * Format: uuid
+             */
+            assignment_id: string;
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
         /** WritingBody */
         WritingBody: {
             /**
@@ -13432,6 +13662,46 @@ export interface components {
         _GenerateCueCardBody: {
             /** Trigger */
             trigger: string;
+        };
+        /** _ListeningAttemptRendererAffinityRequest */
+        _ListeningAttemptRendererAffinityRequest: {
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
+        /**
+         * _ListeningAttemptStartRequest
+         * @description Opt in to first-player renderer claiming for a new attempt.
+         *
+         *     A missing body is the N-1 contract and stays pinned to the database's
+         *     Legacy default. ``claim-v1`` inserts NULL so the stable player URL can
+         *     atomically own the attempt before any answer mutation.
+         */
+        _ListeningAttemptStartRequest: {
+            /** Renderer Affinity Protocol */
+            renderer_affinity_protocol?: "claim-v1" | null;
+        };
+        /** _ReadingAttemptRendererAffinityRequest */
+        _ReadingAttemptRendererAffinityRequest: {
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
+        /**
+         * _ReadingAttemptStartRequest
+         * @description Opt in to first-player renderer claiming for a new attempt.
+         *
+         *     A missing body is the N-1 contract and stays pinned to the database's
+         *     Legacy default. `claim-v1` deliberately inserts NULL so the stable player
+         *     URL can atomically own the attempt before any answer mutation.
+         */
+        _ReadingAttemptStartRequest: {
+            /** Renderer Affinity Protocol */
+            renderer_affinity_protocol?: "claim-v1" | null;
         };
         /** _SubmitAnswerItem */
         _SubmitAnswerItem: {
@@ -13866,6 +14136,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_renderer_affinity_sessions__session_id__renderer_affinity_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimRendererAffinityBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -21331,6 +21638,43 @@ export interface operations {
             };
         };
     };
+    claim_writing_assignment_renderer_affinity_api_writing_my_assignments__assignment_id__renderer_affinity_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WritingAssignmentRendererAffinityRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WritingAssignmentRendererAffinityResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     upsert_my_draft_api_writing_my_assignments__assignment_id__draft_patch: {
         parameters: {
             query?: never;
@@ -24298,6 +24642,155 @@ export interface operations {
             };
         };
     };
+    get_in_progress_dictation_attempt_api_listening_tests__test_id__dictation_attempts_in_progress_get: {
+        parameters: {
+            query: {
+                section_num: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_dictation_attempt_api_listening_tests__test_id__dictation_attempts_post: {
+        parameters: {
+            query: {
+                section_num: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DictationAttemptStartRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_dictation_attempt_renderer_affinity_api_listening_tests_dictation_attempts__attempt_id__renderer_affinity_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DictationAttemptRendererAffinityRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grade_and_save_dictation_attempt_sentence_api_listening_tests_dictation_attempts__attempt_id__sentences__sentence_idx__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+                sentence_idx: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DictationAttemptAnswerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     submit_listening_dictation_session_api_listening_tests_dictation_session_post: {
         parameters: {
             query?: never;
@@ -24483,7 +24976,48 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["_ListeningAttemptStartRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_listening_attempt_renderer_affinity_api_listening_tests_attempts__attempt_id__renderer_affinity_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["_ListeningAttemptRendererAffinityRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -27280,7 +27814,9 @@ export interface operations {
     };
     get_bank_api_quiz_banks__bank_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                class_item?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -28266,7 +28802,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["_ReadingAttemptStartRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -28302,7 +28842,49 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["_ReadingAttemptStartRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_reading_attempt_renderer_affinity_api_reading_test_attempts__attempt_id__renderer_affinity_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "X-Reading-Anon"?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["_ReadingAttemptRendererAffinityRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

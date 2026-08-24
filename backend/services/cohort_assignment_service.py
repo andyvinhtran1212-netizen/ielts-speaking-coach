@@ -89,7 +89,7 @@ def fan_out_assignment(
     student_rows = active_students_for_cohort(db, cohort_str, "id, instructor_id")
     if not student_rows:
         # Rolling compatibility with a backend/test fixture that predates
-        # migration 217. The migration backfill makes this branch dormant in
+        # migration 227. The migration backfill makes this branch dormant in
         # production after rollout.
         legacy = (db.table("students").select("id, instructor_id")
                   .eq("cohort_id", cohort_str).execute().data) or []

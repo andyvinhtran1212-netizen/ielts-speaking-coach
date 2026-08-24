@@ -1,6 +1,6 @@
--- Migration 218 — restore idempotent individual Writing assignment creation.
+-- Migration 228 — restore idempotent individual Writing assignment creation.
 --
--- Migration 217 added optional cohort provenance to the shared idempotency
+-- Migration 227 added optional cohort provenance to the shared idempotency
 -- RPC, but incorrectly required every request payload to contain cohort_id.
 -- Individual gives intentionally have no cohort origin. Keep cohort_id NULL
 -- for those requests and run roster locking only for cohort fan-outs.

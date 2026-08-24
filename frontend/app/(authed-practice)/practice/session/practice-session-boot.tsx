@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { corePlayerUrl } from '@/lib/core-player-affinity.mjs';
 import {
   createPracticeBootstrapOnce,
   loadPracticeBootstrap,
@@ -106,6 +107,19 @@ export function PracticeSessionBoot() {
       })
       .catch((error) => {
         if (!active) return;
+        if (error instanceof PracticeBootstrapError
+            && error.code === 'renderer_affinity_mismatch'
+            && error.renderer_affinity) {
+          const sessionId = readPracticeSessionId(window.location.search);
+          if (sessionId) {
+            window.location.replace(corePlayerUrl(
+              'speaking',
+              error.renderer_affinity,
+              { session_id: sessionId },
+            ));
+            return;
+          }
+        }
         if (error instanceof PracticeBootstrapError && error.code === 'auth_required') {
           window.location.replace('/login');
           return;

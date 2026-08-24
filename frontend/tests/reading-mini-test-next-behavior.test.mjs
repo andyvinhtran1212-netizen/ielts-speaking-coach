@@ -15,6 +15,7 @@ const BEHAVIOR = read(
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
 const BROWSER_FLOW = read('tooling', 'verify-reading-mini-test-flow.mjs');
 const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const LEGACY = read('public', 'pages', 'reading-mini-test.html');
 
 describe('/reading/mini-test — native React behavior', () => {
   test('removes legacy module injection, hydration sentinel and watchdog', () => {
@@ -85,6 +86,12 @@ describe('/reading/mini-test — native React behavior', () => {
     assert.match(BEHAVIOR, /hidden=\{!module\}/);
     assert.match(BEHAVIOR, /onClick=\{\(\) => setModule\(''\)\}/);
     assert.doesNotMatch(BEHAVIOR, /caught instanceof Error \? caught\.message|state\.message/);
+    assert.doesNotMatch(SHELL, /nhịp ngắn|chưa có đủ 60 phút/,
+      'mini test có thể được admin cấu hình 60 phút nên không được hứa là bài ngắn');
+    assert.match(SHELL, /Thời lượng hiển thị theo cấu hình của từng đề/);
+    assert.match(LEGACY, /Thời lượng hiển thị theo cấu hình của từng đề/,
+      'rollback leg phải dùng cùng lời hứa thời lượng để G1 phản ánh đúng sản phẩm');
+    assert.match(LEGACY, /BÀI LUYỆN MỘT ĐOẠN/);
   });
 
   test('runs its browser-backed flow unconditionally in the parity gate', () => {

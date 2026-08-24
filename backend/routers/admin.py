@@ -899,7 +899,7 @@ async def list_users(authorization: str | None = Header(default=None)):
             for membership in memberships:
                 membership_ids_by_student.setdefault(
                     membership["student_id"], []).append(membership["cohort_id"])
-            # Rolling/test compatibility: migration 217 backfills every legacy
+            # Rolling/test compatibility: migration 227 backfills every legacy
             # pointer. If a row is absent, retain that visible association.
             for student in srows:
                 if not membership_ids_by_student.get(student.get("id")) and student.get("cohort_id"):

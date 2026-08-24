@@ -6,14 +6,17 @@ import { fileURLToPath } from 'node:url';
 
 import {
   answersFromRows,
+  claimReadingAttemptRenderer,
   consecutiveReadingQuestionRuns,
   createReadingSaveCoordinator,
   groupedReadingMcqChoiceCount,
   isRetriableReadingSave,
   normalizeReadingBoot,
+  READING_RENDERER_AFFINITY_PROTOCOL,
   readingDisplayQuestionRuns,
   readingExamParams,
   readingLibraryHref,
+  readingPlayerQuery,
   readingQuestionInstruction,
   readingRemainingSeconds,
   readingReviewHref,
@@ -32,6 +35,12 @@ describe('native Reading exam controller', () => {
     });
     assert.equal(readingExamParams('?share=abc').share, 'abc');
     assert.throws(() => readingExamParams('?from=full'), /missing-reading-exam-identity/);
+    assert.deepEqual(readingPlayerQuery(readingExamParams(
+      '?test_id=RD-1&class_item=homework-1&sitting_id=s1&mock_embed=1&from=mock',
+    )), {
+      test_id: 'RD-1', class_item: 'homework-1', sitting_id: 's1',
+      mock_embed: '1', from: 'mock',
+    });
   });
 
   test('normalizes canonical boot + server-owned resume answers', () => {
@@ -44,12 +53,43 @@ describe('native Reading exam controller', () => {
       in_progress: {
         attempt_id: 'a1', started_at: '2026-08-11T00:00:00Z',
         time_limit_minutes: 60,
+        renderer_affinity: 'next',
         answers: [{ q_num: 2, user_answer: 'B' }],
       },
     });
     assert.deepEqual(normalized.test.passages.map((p) => p.passage_order), [1, 2]);
     assert.deepEqual(normalized.test.questions.map((q) => q.q_num), [1, 2]);
     assert.deepEqual([...answersFromRows(normalized.inProgress.answers)], [[2, 'B']]);
+    assert.equal(normalized.inProgress.renderer_affinity, 'next');
+  });
+
+  test('claims the attempt renderer through the canonical endpoint', async () => {
+    const calls = [];
+    const canonical = await claimReadingAttemptRenderer({
+      api: {
+        postWith: async (...args) => {
+          calls.push(args);
+          return { attempt_id: 'a/1', renderer_affinity: 'legacy' };
+        },
+      },
+      attemptId: 'a/1',
+      renderer: 'next',
+      headers: { 'X-Reading-Anon': 'secret' },
+    });
+    assert.equal(canonical, 'legacy');
+    assert.deepEqual(calls, [[
+      '/api/reading/test/attempts/a%2F1/renderer-affinity',
+      { renderer_affinity: 'next' },
+      { 'X-Reading-Anon': 'secret' },
+      { noRedirect: true },
+    ]]);
+    await assert.rejects(
+      claimReadingAttemptRenderer({
+        api: { postWith: async () => ({ renderer_affinity: 'unknown' }) },
+        attemptId: 'a1', renderer: 'next',
+      }),
+      /invalid-reading-renderer-affinity/,
+    );
   });
 
   test('countdown is anchored to the backend started_at', () => {
@@ -239,11 +279,11 @@ describe('native Reading exam route contract', () => {
   const page = read('frontend/app/(authed-reading-player)/reading/exam/session/reading-exam-session.tsx');
   const layout = read('frontend/app/(authed-reading-player)/layout.tsx');
 
-  test('stable route is dark-ready while new admissions remain legacy', () => {
+  test('stable Next route owns fresh admission after the core cutover', () => {
     const policy = CORE_PLAYER_AFFINITY_POLICY.surfaces.reading_exam;
     assert.equal(policy.next.path, '/reading/exam/session');
     assert.equal(policy.next.route_ready, true);
-    assert.equal(policy.admit_new, 'legacy');
+    assert.equal(policy.admit_new, 'next');
   });
 
   test('React owns the player and never boots the legacy reading-exam script', () => {
@@ -257,7 +297,19 @@ describe('native Reading exam route contract', () => {
     assert.match(page, /\/api\/reading\/test\/\$\{encodeURIComponent\(params\.testId!\)\}\/boot/);
     assert.match(page, /\/api\/reading\/test\/attempts\/\$\{encodeURIComponent\(attempt\.attempt_id\)\}\/answers/);
     assert.match(page, /\/api\/reading\/test\/attempts\/\$\{encodeURIComponent\(attempt\.attempt_id\)\}\/submit/);
+    assert.match(page, /claimReadingAttemptRenderer/);
+    assert.match(page, /READING_RENDERER_AFFINITY_PROTOCOL/);
+    assert.equal(READING_RENDERER_AFFINITY_PROTOCOL.renderer_affinity_protocol, 'claim-v1');
     assert.match(page, /\[\.\.\.answersRef\.current\]\.map/);
+  });
+
+  test('legacy and Next players claim before entering and redirect on mismatch', () => {
+    const legacy = read('frontend/public/js/reading-exam.js');
+    assert.match(legacy, /renderer_affinity_protocol: 'claim-v1'/);
+    assert.match(legacy, /renderer_affinity: 'legacy'/);
+    assert.match(legacy, /window\.location\.replace\(_stableReadingPlayerHref\(canonical\)\)/);
+    assert.match(page, /renderer: 'next'/);
+    assert.match(page, /window\.location\.replace\(corePlayerUrl\('reading_exam', canonical/);
   });
 
   test('preserves anonymous capability, password and mock-sitting boundaries', () => {
@@ -274,6 +326,49 @@ describe('native Reading exam route contract', () => {
     assert.match(page, /template\?\.summary_text/);
     assert.match(page, /function DiagramImageRun/);
     assert.match(page, /readingQuestionInstruction\(run, part\)/);
+  });
+
+  test('preserves the interaction model of each Reading question type', () => {
+    assert.match(page, /choices\.map\(\(choice\) => <label className="exam-q__option exam-q__option--claim"/);
+    assert.match(page, /type="radio" name=\{`q-\$\{question\.q_num\}`\}/);
+    assert.match(page, /function MatchingMatrixRun/);
+    assert.match(page, /type === 'matching_features'/);
+    assert.match(page, /type === 'matching_headings' \? 'headings'/);
+    assert.match(page, /type === 'matching_sentence_endings' \? 'endings'/);
+    assert.match(page, /className=\{`exam-\$\{family\}-box`\}/);
+  });
+
+  test('ships computer-test navigation, resizable panes and selection highlighting', () => {
+    assert.match(page, /exam-palette__group/);
+    assert.match(page, /is-current/);
+    assert.match(page, /aria-valuemin=\{30\}/);
+    assert.match(page, /setPointerCapture/);
+    assert.match(page, /\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
+    assert.match(page, /CSS as any\)\.highlights/);
+    assert.match(page, /> Review<\/label>/);
+  });
+
+  test('uses a Safari 15-safe testing-state hook for the four-row exam grid', () => {
+    const css = read('frontend/public/css/reading-exam-next.css');
+    assert.doesNotMatch(css, /:has\(/);
+    assert.match(css, /\.reading-next-player-page\.reading-next-testing/);
+    assert.match(page, /document\.body\.classList\.toggle\('reading-next-testing', testing\)/);
+  });
+
+  test('renders string options once and reserves prefixes for labeled objects', () => {
+    assert.match(page, /function optionPrefix\(option: Option\)/);
+    assert.match(page, /if \(typeof option === 'string'\) return '';/);
+    assert.match(page, /prefix \? <span className="exam-q__option-prefix">\{prefix\}<\/span> : null/);
+    assert.match(page, /prefix \? <strong className=\{`exam-\$\{family\}-box__roman`\}>\{prefix\}<\/strong> : null/);
+  });
+
+  test('hands completion off from a scannable result summary to protected review detail', () => {
+    assert.match(layout, /exam-result-next\.css/);
+    assert.match(page, /READING · FULL TEST COMPLETE/);
+    assert.match(page, /exam-result-question-map/);
+    assert.match(page, /Kết quả chi tiết chỉ hiển thị trong không gian chữa bài/);
+    assert.match(page, /readingReviewHref\(attemptId, \{ anonId, from, sittingId \}\)/);
+    assert.doesNotMatch(page, /<td>\{row\.expected/);
   });
 });
 

@@ -44,6 +44,12 @@ async function openPractice(page, seededChain) {
         },
       });
     }
+    if (url.endsWith(`/sessions/${SID}/renderer-affinity`)) {
+      return route.fulfill({
+        json: { session_id: SID, renderer_affinity: 'legacy' },
+        headers: { 'access-control-allow-origin': '*' },
+      });
+    }
     if (url.endsWith(`/sessions/${SID}`)) {
       return route.fulfill({ json: { session_id: SID, id: SID, mode: 'test_full', part: 2, topic: 'Hobbies', status: 'in_progress' }, headers: { 'access-control-allow-origin': '*' } });
     }

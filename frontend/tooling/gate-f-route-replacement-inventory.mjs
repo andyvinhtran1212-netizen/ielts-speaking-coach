@@ -7,6 +7,9 @@
 // remain separate Gate F evidence.
 
 const EXACT_REPLACEMENTS = Object.freeze({
+  '/pages/admin/access-codes/index.html': '/admin/users',
+  '/pages/admin/cohorts/index.html': '/admin/classes',
+  '/pages/admin/dashboard/index.html': '/admin',
   '/practice.legacy.html': '/practice/session',
   '/vocabulary.html': '/vocabulary',
   '/pages/vocabulary.html': '/vocabulary/hub',

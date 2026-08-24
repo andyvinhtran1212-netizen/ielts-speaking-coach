@@ -15,6 +15,7 @@ const BEHAVIOR = read(
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
 const BROWSER_FLOW = read('tooling', 'verify-reading-vocab-flow.mjs');
 const PARITY_WORKFLOW = readFileSync(join(ROOT, '..', '.github', 'workflows', 'parity-gate.yml'), 'utf8');
+const LEGACY_BEHAVIOR = read('public', 'js', 'reading-vocab.js');
 
 describe('/reading/vocab — native React behavior', () => {
   test('removes legacy module injection, hydration sentinel and watchdog', () => {
@@ -33,20 +34,27 @@ describe('/reading/vocab — native React behavior', () => {
     assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
     assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
     assert.match(BEHAVIOR, /if \(!accountKey\)/);
-    assert.match(BEHAVIOR, /\[accountKey, difficulty, tag\]/);
+    assert.match(BEHAVIOR, /\[accountKey, difficulty, tag, offset, retryToken\]/);
   });
 
   test('preserves the canonical filtered read with abort cleanup', () => {
     assert.match(BEHAVIOR, /query\.set\('difficulty', difficulty\)/);
     assert.match(BEHAVIOR, /query\.set\('tag', tag\)/);
-    assert.match(BEHAVIOR, /query\.set\('limit', '50'\)/);
+    assert.match(BEHAVIOR, /query\.set\('limit', String\(PAGE_SIZE\)\)/);
+    assert.match(BEHAVIOR, /query\.set\('offset', String\(offset\)\)/);
     assert.match(BEHAVIOR, /window\.api\.getWith<unknown>/);
     assert.match(BEHAVIOR, /`\/api\/reading\/vocab\?\$\{query\.toString\(\)\}`/);
     assert.match(BEHAVIOR, /new AbortController\(\)/);
     assert.match(BEHAVIOR, /signal: controller\.signal/);
     assert.match(BEHAVIOR, /controller\.abort\(\)/);
-    assert.match(BEHAVIOR, /normalizeTotal\(payload, passages\.length\)/);
+    assert.match(BEHAVIOR, /normalizeTotal\(payload, offset \+ passages\.length\)/);
     assert.match(BEHAVIOR, /total > shown[\s\S]*đang hiển thị/);
+    assert.match(BEHAVIOR, /Xem thêm \(\$\{shown\}\/\$\{total\}\)/);
+    assert.match(BEHAVIOR, /setOffset\(\(current\) => current \+ PAGE_SIZE\)/);
+    assert.match(BEHAVIOR, /Chưa tải được trang tiếp theo/);
+    assert.match(LEGACY_BEHAVIOR, /const PAGE_SIZE = 24/);
+    assert.match(LEGACY_BEHAVIOR, /qs\.set\('offset', String\(STATE\.offset\)\)/);
+    assert.match(LEGACY_BEHAVIOR, /Xem thêm \(\$\{STATE\.items\.length\}\/\$\{STATE\.total\}\)/);
   });
 
   test('normalizes malformed payloads and renders authored data declaratively', () => {
@@ -67,7 +75,8 @@ describe('/reading/vocab — native React behavior', () => {
 
   test('preserves filters, first-load tag seeding and passage destinations', () => {
     assert.match(BEHAVIOR, /setAvailableTags\(\(current\) =>/);
-    assert.match(BEHAVIOR, /if \(current\.length\) return current/);
+    assert.match(BEHAVIOR, /\.\.\.current, \.\.\.passages\.flatMap/,
+      'tag options phải tích lũy từ các trang đã tải');
     assert.match(BEHAVIOR, /id="filter-difficulty"/);
     assert.match(BEHAVIOR, /id="filter-tag"/);
     assert.match(BEHAVIOR, /id="rv-result-count"[^>]*aria-live="polite"/);

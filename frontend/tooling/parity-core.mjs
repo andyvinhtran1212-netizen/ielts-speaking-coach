@@ -219,6 +219,22 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // `/listening/practice-run` is the canonical light-practice runner. Preserve
   // `id` and any future source query while comparing rollback links.
   else if (path === '/pages/listening-practice-run.html') path = '/listening/practice-run';
+  // Listening test admissions now resolve to the native stable player on
+  // staging, while affinity keeps already-started Legacy attempts on the HTML
+  // player. Dynamic browse-card links on both stacks still identify the same
+  // test through `id`/`from`; canonicalize only the route owner and preserve
+  // every query key so G1 compares the actual destination contract.
+  else if (path === '/pages/listening-test.html') path = '/listening/test/session';
+  // Dictation browse cards still expose the rollback HTML URL on the Legacy
+  // stack while fresh admissions on the Next stack point at the native player.
+  // Both carry the same `test_id`; canonicalize only the route owner so the
+  // parity gate does not report a cutover as missing/extra content.
+  else if (path === '/pages/listening-test-dictation.html') path = '/listening/dictation/session';
+  // Reading exam admissions now resolve to the native stable player on
+  // staging, while the HTML URL remains intentionally reachable for active
+  // Legacy attempts and rollback. Compare links by canonical route ownership;
+  // this does not rewrite either implementation-specific player at runtime.
+  else if (path === '/pages/reading-exam.html') path = '/reading/exam/session';
   // `/exam` owns the standalone exam list/player after the native cutover.
   // Keep every identity-bearing query (`id`, `source`, and any future key)
   // intact: the mapping only changes the route owner. Without it, the live G1

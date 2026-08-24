@@ -1,4 +1,4 @@
-# Gate E preflight — 2026-08-09
+# Gate E preflight — 2026-08-09 (cập nhật 2026-08-24)
 
 **Trạng thái:** NOT READY. Tài liệu này là inventory và remediation order, không
 phải waiver hay tuyên bố Gate E đã pass.
@@ -12,6 +12,15 @@ phải waiver hay tuyên bố Gate E đã pass.
 > `32225845849`, ios-safari `32226876978`, pair `32227093444`, staging
 > `3dce244f`) — xem `docs/GATE_E_REAL_DEVICE_EVIDENCE_2026-08-19.md`. Mọi câu
 > "chưa có thiết bị thật" còn lại trong snapshot dưới là lịch sử 09/08.
+
+> **Amendment 2026-08-24:** staging đã reconcile tại
+> `38f05dfc5a27cdd54c12f7d5c878b82c8216a9e5`; migrations 225–229 đã apply và
+> verify. Canary `32727069070` pass live suite, Speaking, Writing và provenance,
+> nhưng fail-closed vì Reading còn assert DOM kết quả cũ và Listening chưa xác
+> nhận modal audio trước khi submit. Frozen contract ban đầu được bump thành
+> v12; inline audit sau đó gom mọi Listening fresh-start qua cùng audio-prompt
+> contract và chốt freeze v13. Streak vẫn **0/20** và không carry forward
+> evidence v11/v12.
 
 **Nguồn chuẩn:** `docs/FE_NEXTJS_MIGRATION_MASTER_PLAN_2026-07-12.md` §16,
 `docs/ROUTE_LEDGER.md`, cấu hình/test hiện có và code runtime tại baseline
@@ -29,31 +38,70 @@ khác nhau theo thiết kế và không được dùng lẫn nhau. Đây vẫn c
 Gate D behavior migration, không chứng minh core-flow ready. Matrix v1 mới cấu
 hình core suite trên Chromium và một browser seam giới hạn trên Chromium/WebKit
 emulation. Automated run `31348712238` đã xanh trên SHA `bff32975` và artifact
-ghi đủ project counts/version/outcome. Critical-suite v5 và ledger đã được
-định nghĩa, nhưng chưa có qualifying 20-run artifact; Safari/iOS thiết bị thật
-đã COMPLETE 2026-08-19 (xem amendment đầu tài liệu).
-Active-session affinity mới có foundation và unit-level contract,
-chưa có live core-player drill. Runtime endpoint no-store đã loại quyết định
-implementation khỏi bundle launcher đã cache, nhưng đây vẫn chỉ là unit-level
-contract. Speaking đã có stable hybrid Next player route với native bootstrap,
+ghi đủ project counts/version/outcome. Critical-suite v13 freeze 34 tests (33
+pass + 1 intentional skip). Trusted run `32136607306` trên staging SHA
+`37e9b882b192a5abb068e01abd98feeb39c8f9f2` đã pass live suite, toàn bộ failure
+matrix/verifier và matching frontend/backend provenance, nhưng thuộc frozen
+manifest cũ nên không được carry forward. Safari/iOS thiết bị thật đã COMPLETE
+2026-08-19 (xem amendment đầu tài liệu); chuỗi bắt buộc đếm lại từ
+critical-suite v13 và hiện là **0/20**. Canary v8 `32232288966` đã reset đúng về
+0 sau khi 32 test pass, 1 intentional skip và assertion launcher gặp race khi
+đọc lại response body sau điều hướng; v9 chỉ sửa cách assertion thu evidence,
+không đổi contract sản phẩm. Canary v9 `32243889759` tiếp tục fail-closed vì
+Vercel inject toolbar trên custom Preview alias: trace ghi 938 lần tải feedback
+script trên Chromium và script giữ `load` trên WebKit dù trang đã render đúng
+release. v10 cô lập đúng namespace toolbar, không đổi app traffic. Active-session affinity đã có
+runtime foundation, unit contract
+và persisted-affinity floor run `32043317793` trên SHA `e96c2cd`: session Legacy
+thật cùng dark Next claim `null → next`; hai stable URL đều reload/copy được với
+frontend/backend staging đồng nhất. cutover run `32045284608` trên SHA
+`1398c50e` đã giữ session Legacy cũ, tạo session Next canonical và pass
+reload/copy với matching staging provenance. Forward rollback run `32047774312`
+trên SHA `28b23569` giữ session Next cũ, tạo session Legacy mới và pass
+reload/copy với `rollback_mode=forward-revert`, matching provenance `ok:true`.
+Ba phase live của Speaking đã hoàn tất. Floor version
+cả create contract: client N−1 hoặc backend N−1 nhận database default `legacy`,
+còn client hiện tại gửi `claim-v1` và dùng RPC v3 để tạo row NULL atomically cho
+stable player đầu tiên claim. Migration 217 sửa mọi row NULL
+có thể lọt vào khoảng commit riêng giữa backfill 215 và default 216 trước khi
+backend affinity-aware được deploy.
+Speaking đã có stable hybrid Next player route với native bootstrap,
 recorder, submission, Full Test state, player lifecycle và dark-route readiness;
-admission vẫn Legacy. Reading đã có native
-player cùng failure matrix versioned 12 case trên Chromium/WebKit desktop và
-WebKit/iPhone emulation. Listening cũng có native core player và matrix 12 case
-tương ứng. Writing cũng đã có matrix 12 case cùng idempotent submit/readback;
-đây vẫn là synthetic evidence. Live-staging failure-injection journey và
-trusted verifier đã được tích hợp nhưng chưa có artifact từ release đã merge;
-thiết bị Safari/iOS thật, active-session drill và qualifying streak chưa hoàn
-tất. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
+admission vẫn Legacy. Reading đã có native player cùng failure matrix versioned
+12 case trên Chromium/WebKit desktop và WebKit/iPhone emulation. Reading
+coexistence floor run `32060549833` attempt 3 tại
+`7a6bdb9cafdc405226f1d85ffbaf366ff5841adb` đã pass với matching
+frontend/backend staging provenance. Cutover run `32072244886` attempt 2 tại
+`0599a8f33340593452a3372c755eb27931939645` cũng đã pass; staging admission hiện
+trở về Legacy và forward rollback run `32076013600` attempt 2 tại
+`14e3855501e31037a84eec6118ac7e45f75a0d26` đã pass với matching provenance.
+Listening cũng có native core player; frozen run hiện có 27 failure-matrix case
+bao gồm Listening test và Dictation. Coexistence
+floor `32084645112` attempt 2 và cutover `32093601359` attempt 2 đã pass trên
+matching frontend/backend staging provenance. Forward rollback `32095451591`
+attempt 1 cũng đã pass trên `f60df75f8ff68ffd49d68da00e73a8ff5c1bbb54`;
+Listening test đã đủ three-phase và staging admission hiện trở về Legacy.
+Listening Dictation cũng đã đủ three-phase qua floor `32103908150` attempt 2,
+cutover `32106478117` attempt 2 và forward rollback `32108579377` attempt 1;
+staging admission hiện trở về Legacy và prior Next attempt vẫn sticky Next.
+Writing có matrix 12 case cùng idempotent submit/readback và đã hoàn tất live
+three-phase: floor `32121670793` attempt 3 trên
+`fe9000fdfa4e6c5d801ce8c13b7f1723a23455a4`, rollback `32126575888` attempt 2
+trên `c800dfedf4c2f5faa921b8230aadfd60d98059b7`, restore `32128868942` attempt 2
+trên `b07e8325edc3854e1dbd0f2702f32e4108577839`; cả ba phase có matching
+frontend/backend staging provenance.
+Thiết bị Safari/iOS thật đã hoàn tất 2026-08-19; qualifying streak đếm lại từ
+critical-suite v13 nên chưa có run nào tích lũy. Vì vậy canonical core cutover
+vẫn bị chặn bởi Gate E.
 
 ## Ma trận tiêu chí Gate E
 
 | Tiêu chí master plan | Trạng thái | Bằng chứng hiện có | Khoảng trống bắt buộc |
 |---|---|---|---|
 | Versioned Safari/iOS/Chromium device matrix xanh | **PASS** (2026-08-19) | Run `31348712238` trên SHA `bff32975`: core Chromium 26 pass + 1 intentional skip; Chromium desktop, WebKit desktop và WebKit/iPhone 13 emulation đều 2/2 pass, 0 skip; cả Speaking, Reading, Listening và Writing có production-build synthetic matrix, exact browser pins và semantic evidence verifier; real-device COMPLETE: safari-desktop `32225845849` + ios-safari `32226876978`, pair `32227093444` (`docs/GATE_E_REAL_DEVICE_EVIDENCE_2026-08-19.md`) | Không còn cho hàng này — WebKit/static scan vẫn không được tính thay thiết bị thật ở các lần thu lại sau. |
-| Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PARTIAL** | Bốn domain đều có automated four-path matrix; Reading/Listening/Writing mỗi slice 12 case trên Chromium/WebKit desktop/WebKit-iPhone; live Speaking journey đã ghim commit-then-reset → canonical reconcile/no replay | Chưa có successful artifact của live journey trên cùng frontend/backend staging SHA; source/tooling không được tính thay lần chạy thật. |
-| Sticky active-session hoặc drain strategy đã drill | **MISSING** | Stable-player-URL admission mechanism đã chọn; launcher dùng runtime endpoint no-store nên bundle cũ không ghim implementation; unit-level only; chưa có active attempt nào được drill. Unit test giữ URL legacy/Next tách biệt và target chưa ready fail closed | Chưa có live staging artifact trên player Next thật; mỗi cluster còn phải pin rollback floor SHA gồm cả admission endpoint, drill tab cũ/reload/tab mới và chứng minh canonical backend state. |
-| Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **PARTIAL** | Critical-suite v5 freeze 34 tests live-staging, gồm live failure injection; cùng workflow chạy Speaking 46 case và Reading/Listening/Writing 12 case mỗi domain trên production build; ledger reset trên fail/unexpected skip/flake/rerun/history gap/release drift hoặc fail semantic verifier | Chưa có qualifying 20-run artifact và chưa có successful live-staging artifact từ release v5. Cơ chế đếm không thay thế các lần chạy thật. |
+| Reload/resume, ambiguous commit, partial persistence và bidirectional cross-version tests xanh | **PASS** | Bốn domain đều có automated four-path matrix; trusted run `32136607306` pass Speaking 46, Reading 12, Listening 27 và Writing 12 case, kèm semantic verifier; Speaking, Reading, Listening test, Listening Dictation và Writing đều đã đủ live three-phase trên matching frontend/backend staging SHA | Không còn khoảng trống cho tiêu chí automated/cross-version này; real-device requirement được theo dõi ở hàng riêng. |
+| Sticky active-session hoặc drain strategy đã drill | **PASS** | Stable-player-URL admission mechanism đã chọn; launcher dùng runtime endpoint no-store. Speaking, Reading, Listening test, Listening Dictation và Writing đều đã đủ three-phase trên matching provenance. Writing floor `32121670793` attempt 3, rollback `32126575888` attempt 2 và restore `32128868942` attempt 2 đều pass. | Không còn khoảng trống affinity/drain cho năm surface; giữ regression evidence cho tới Gate F. |
+| Full-stack staging E2E đạt frozen clean-pass/flake thresholds trên versioned matrix, đủ failure-injection matrix và tối thiểu 20 consecutive clean critical-suite executions; retry reset streak | **PARTIAL** | Trusted run `32136607306` pass 33 + 1 intentional skip live-staging tests, Speaking 46, Reading 12, Listening 27 và Writing 12 case; provenance frontend/backend đều đúng `37e9b882…`; `failure_matrix_complete=true`, nhưng run thuộc frozen manifest trước v13 và không được tính vào streak hiện tại. Canary `32727069070` trên `38f05dfc…` pass live suite, Speaking, Writing và provenance nhưng reset vì Reading result contract và Listening audio-prompt contract chưa đồng bộ. | Ledger hiện **0/20**; còn thiếu 20 consecutive clean run thật trên critical-suite v13. Cơ chế đếm không thay thế các lần chạy thật. |
 
 ## Findings và remediation tối thiểu
 
@@ -74,71 +122,71 @@ tất. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
 - **Verification:** workflow chạy đủ project + upload JSON evidence; Safari/iOS
   real-device artifact khớp frozen matrix và SHA trước khi đổi tiêu chí sang PASS.
 
-### GE-2 — Resume evidence vẫn rời rạc
+### GE-2 — Resume và cross-version evidence đã đóng
 
-- **Root cause:** trước batch này,
-  `docs/SPIKE_3_CROSS_STACK_RESUME_2026-07-14.md` vẫn ghi full-test chain và
-  `_pendingTestAnswers` bị mất dù Spike 2 remediation đã persist chain vào
-  `ielts_ft_session_ids` và xóa queue blob để await từng upload. Bằng chứng hiện
-  có chỉ test refresh trong legacy player, chưa test browser handoff
-  legacy↔Next; backend cũng chưa sở hữu chain cho fresh client hoặc thiết bị
-  khác.
-- **Severity:** Critical — tài liệu stale có thể dẫn tới quyết định cutover sai,
-  hoặc che khuất giới hạn thật: sessionStorage chỉ sống cùng origin/cùng tab.
-- **Impacted files/functions:** `docs/SPIKE_3_CROSS_STACK_RESUME_2026-07-14.md`;
-  `frontend/public/js/practice.js` `_saveFtChain`, `_loadFtChain`, init resume;
-  `frontend/tests/full-test-chain.test.mjs`,
-  `frontend/tests/test-part-eager.test.mjs`,
-  `frontend/tests/e2e/full_test_chain_persistence.spec.js` và
-  `frontend/tests/e2e/test_part_resume.spec.js`.
-- **Suggested minimal fix:** đồng bộ Spike 3 với runtime, nói rõ boundary
-  same-origin/same-tab; batch test kế tiếp phải lập matrix reload/resume,
-  ambiguous commit, partial persistence và legacy↔Next cho từng core flow.
-- **Verification:** source pins + browser regressions refresh speaking xanh;
-  không gọi đó là cross-stack evidence. Mỗi flow mới phải có canonical
-  server-state assertion sau reload và sau đổi stack.
+- **Root cause lịch sử:** preflight ban đầu chỉ có refresh coverage trong legacy
+  player và tài liệu Spike 3 chưa phản ánh persistence remediation; chưa có
+  canonical server-state assertion sau handoff Legacy↔Next.
+- **Severity lịch sử:** Critical — thiếu bằng chứng này có thể che mất chain,
+  timer, draft hoặc câu trả lời khi renderer đổi giữa attempt.
+- **Impacted files/functions:** các canonical player controllers, frozen
+  `frontend/tests/gate-e/`, `frontend/tests/gate-e-reading/`,
+  `frontend/tests/gate-e-listening/`, `frontend/tests/gate-e-writing/` failure
+  matrices và năm coexistence workflows.
+- **Suggested minimal fix còn lại:** không còn remediation riêng cho automated
+  resume/cross-version; giữ matrix, semantic verifier và live three-phase
+  artifacts trong frozen regression set. Không dùng WebKit emulation để tuyên
+  bố real-device PASS.
+- **Verification:** trusted run `32136607306` pass Speaking 46, Reading 12,
+  Listening 27 và Writing 12 case với zero unexpected/flake; cả năm core
+  surfaces có live three-phase matching frontend/backend provenance.
 
 ### GE-3 — Có cơ chế ledger, chưa có qualifying 20-run evidence
 
 - **Root cause:** workflow nightly ban đầu không có frozen critical manifest,
   provenance hay ledger. Batch streak đã thêm cơ chế fail-closed; Speaking
-  failure matrix nay chạy trong cùng workflow và làm reset streak khi đỏ. Phần
-  còn thiếu là 20 executions thật cùng một successful artifact từ live-staging
-  failure-injection journey đã tích hợp.
+  failure matrix nay chạy trong cùng workflow và làm reset streak khi đỏ. Ledger
+  reset trên fail/unexpected skip/flake/rerun, history gap hoặc release drift.
+  Frozen manifest đã đổi sang v13: canary v11 xác nhận renderer mới nhưng phát
+  hiện assertions kết quả/audio-prompt còn bám DOM cũ; inline audit v12 tiếp tục
+  buộc mọi Listening fresh-start xác nhận audio prompt qua cùng một helper;
+  v10 trước đó đã cô lập Vercel Toolbar injection giữ load state của browser
+  matrix. Candidate thuộc manifest
+  trước không được carry forward. Chưa có qualifying run nào sau lần reset bắt
+  buộc; ledger hiện là **0/20**.
 - **Severity:** Critical — thiếu trực tiếp exit evidence của Gate E.
 - **Impacted files/functions:** `.github/workflows/staging-e2e.yml` job
   `staging-e2e`; `frontend/playwright.staging.config.js`; toàn bộ
   thư mục `frontend/tests/staging-e2e/`.
-- **Suggested minimal fix còn lại:** sync Vercel + Railway staging cùng SHA,
-  chạy v5 để thu live artifact đầu tiên rồi bắt đầu candidate streak. Không
-  backfill run trước khi ledger/provenance tồn tại.
+- **Suggested minimal fix còn lại:** giữ frozen manifest v13 ổn định, chạy một
+  canary có matching frontend/backend provenance rồi để nightly workflow tích
+  lũy đủ 20 clean run. Không backfill run trước
+  khi ledger/provenance tồn tại và không tính run có retry/history gap.
 - **Verification:** auditor tái dựng đúng 20 run IDs liên tiếp từ artifacts,
   cùng frozen matrix/suite/releases, zero retry/unexpected skip và failure
   matrix complete.
 
-### GE-4 — Có affinity mechanism, active-session drill vẫn thiếu
+### GE-4 — Writing affinity và live drill đã đóng
 
-- **Root cause:** trước batch affinity, coexistence/rollback drill chỉ chứng minh
-  deployment recovery, chưa chọn cách xử lý attempt đang làm dở khi ownership
-  đổi release. Batch đã chọn stable implementation-specific URL + runtime
-  admission endpoint no-store để bundle launcher cũ hỏi policy tại thời điểm
-  navigation, rồi chạy unit-level URL/state-machine contract. Speaking đã có
-  `/practice/session` với native bootstrap/recorder/submission/Full Test/player
-  lifecycle và dark-route floor, nhưng chưa có live drill; Reading/Listening
-  cũng đã có dark routes nhưng chưa có domain-specific live coexistence drill.
+- **Root cause lịch sử:** runtime admission từng chỉ quyết định renderer cho
+  một navigation và không persist renderer theo session/attempt. Remediation
+  đã thêm atomic first-player claim; Speaking, Reading, Listening test và
+  Listening Dictation nay giữ affinity canonical qua launcher, reload và
+  forward rollback. Writing hiện đã có surface trong affinity policy/launcher,
+  canonical first-player claim, synthetic cross-version matrix và live runner
+  contract. Ba phase staging hiện đã pass với matching provenance.
 - **Severity:** Critical — core exam/grading có thể mất chain, timer hoặc câu trả
   lời nếu user bị chuyển stack giữa attempt.
 - **Impacted files/functions:** `frontend/lib/core-player-affinity.mjs`,
-  `frontend/app/core-player/launch/route.ts`; chưa có canonical Gate E runbook;
-  các core route và state keys được liệt kê dưới đây.
-- **Suggested minimal fix còn lại:** deploy release Speaking dark-route-ready làm
-  coexistence rollback floor SHA có cả runtime admission endpoint; sau đó mỗi
-  core cluster phải pin floor tương ứng rồi drill
-  staging cả cutover lẫn rollback, gồm launcher đã mở trước rollback, tab cũ,
-  reload, tab mới và canonical state sau handoff.
-- **Verification:** run artifact ghi release trước/sau, session/attempt ID,
-  persisted answers, canonical final state, TTL và recovery time; không có data
-  invariant violation.
+  `frontend/app/core-player/launch/route.ts`, canonical attempt/session tables
+  và từng Gate E coexistence workflow.
+- **Suggested minimal fix còn lại:** không còn remediation riêng cho Writing;
+  giữ artifacts và migration 221 trong regression set, không đổi production
+  admission trước khi Gate E toàn cục pass.
+- **Verification:** Writing floor `32121670793` attempt 3, rollback
+  `32126575888` attempt 2 và restore `32128868942` attempt 2 chứng minh fresh
+  admission đổi đúng, prior assignment giữ renderer, reload/copy URL pass và
+  canonical draft/affinity không vi phạm invariant.
 
 ## Core-flow inventory còn phải đóng
 
@@ -147,7 +195,7 @@ tất. Vì vậy canonical core cutover vẫn bị chặn bởi Gate E.
 | Speaking | `/practice`, `/result`, `/full-test-result` | MediaRecorder blob, awaited grade, full-test chain, finalize ambiguity, result aggregation |
 | Reading | `/reading/exam`, `/reading/skill/:exercise_id`, `/reading/vocab/:passage_id`, `/reading/review` | timer, answers, in-progress attempt, submit/reconcile, review truth |
 | Listening | `/listening/mcq`, `/listening/gist`, `/listening/tf`, `/listening/dictation`, `/listening/test-dictation`, `/listening/review` | audio lifecycle, answer persistence, attempt section, submit/review aggregation |
-| Writing | `/writing/dashboard` (Next đã cutover; legacy stable URL vẫn sống), `/writing/result`, `/admin/writing/grade` | automated modal/autosave/submit matrix đã có; còn live-staging canonical submission/regrade agreement và rollback drill không thấp hơn coexistence floor |
+| Writing | `/writing/dashboard` (Next đã cutover; legacy stable URL vẫn sống), `/writing/result`, `/admin/writing/grade` | automated modal/autosave/submit matrix và three-phase live artifacts đã đủ; tiếp tục giữ canonical submission/regrade agreement trong regression set |
 
 Route ownership hoặc React launcher không được dùng thay bằng chứng player flow.
 Legacy retirement thuộc Gate F; không xóa rollback target trong Gate E.

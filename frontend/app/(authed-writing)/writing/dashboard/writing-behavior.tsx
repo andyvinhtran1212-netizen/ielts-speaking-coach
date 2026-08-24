@@ -34,6 +34,7 @@
 import { useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { admitCorePlayer, corePlayerUrl } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 /** Trạng thái toàn trang — giữ trong object để cleanup dứt điểm. */
@@ -141,6 +142,13 @@ const TIP_TYPE_LABELS: Record<string, string> = {
   tip: '💡 Mẹo', knowledge: '📖 Kiến thức', sample: '✍️ Bài mẫu', outline: '🗂️ Dàn bài',
 };
 
+function writingAssignmentHref(assignmentId: string, affinity?: string | null) {
+  if (affinity === 'legacy' || affinity === 'next') {
+    return corePlayerUrl('writing_assignment', affinity, { assignment_id: assignmentId });
+  }
+  return admitCorePlayer('writing_assignment', { assignment_id: assignmentId });
+}
+
 const PB_TASK_LABELS: Record<string, string> = {
   task1_academic: 'Task 1 Academic', task1_general: 'Task 1 General', task2: 'Task 2',
 };
@@ -228,6 +236,16 @@ function hideSubmissionNotice() {
 function statusCode(err: any): number | null {
   const value = Number(err && err.status);
   return Number.isFinite(value) ? value : null;
+}
+
+function loadFailureMessage(err: any, fallback: string): string {
+  const status = statusCode(err);
+  const message = typeof err?.message === 'string' ? err.message.trim() : '';
+  // These two list endpoints use 403 for the one actionable learner-facing
+  // explanation (account not linked / Writing permission missing). Do not echo
+  // arbitrary 4xx/5xx details: validation or transport text may be internal.
+  if (status === 403 && message) return message;
+  return fallback;
 }
 
 function isDefinitiveSubmitRejection(err: any): boolean {
@@ -772,7 +790,13 @@ function renderDeadlines(assignments: any[]) {
   if (!surface || !list) return;
 
   const withDeadline = (assignments || [])
-    .filter((a: any) => a.deadline)
+    // Khối này có tên “sắp đến hạn”. Bài đã quá hạn vẫn xuất hiện ở thẻ bài
+    // chính với trạng thái riêng; trộn nó vào đây khiến tiêu đề nói sai.
+    .filter((a: any) => {
+      if (!a.deadline) return false;
+      const deadline = new Date(a.deadline).getTime();
+      return Number.isFinite(deadline) && deadline >= Date.now();
+    })
     .sort((a: any, b: any) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
 
   if (withDeadline.length === 0) {
@@ -787,7 +811,8 @@ function renderDeadlines(assignments: any[]) {
     const dl = formatDeadline(a.deadline) || { urgency: 'normal', label: '' };
     return (
       '<button type="button" class="wd-deadline-row wd-deadline-row--' + dl.urgency + '"' +
-          ' data-assignment-id="' + escapeHtml(a.id) + '">' +
+          ' data-assignment-id="' + escapeHtml(a.id) + '"' +
+          ' data-renderer-affinity="' + escapeHtml(a.renderer_affinity || '') + '">' +
         '<span class="wd-deadline-row__dot" aria-hidden="true"></span>' +
         '<span class="wd-deadline-row__title">' + escapeHtml(prompt.title || '(Đề bài)') + '</span>' +
         '<span class="wd-deadline-row__when">' + escapeHtml(dl.label) + '</span>' +
@@ -798,7 +823,10 @@ function renderDeadlines(assignments: any[]) {
   list.querySelectorAll<HTMLElement>('.wd-deadline-row').forEach((row) => {
     row.addEventListener('click', () => {
       const id = row.getAttribute('data-assignment-id');
-      if (id) openSubmitModal(id, window as any, (window as any).api);
+      if (id) window.location.href = writingAssignmentHref(
+        id,
+        row.getAttribute('data-renderer-affinity'),
+      );
     });
   });
 }
@@ -823,7 +851,8 @@ function buildAssignmentCardHtml(a: any): string {
   const startLabel = a.has_draft ? 'Tiếp tục làm bài' : 'Làm bài';
 
   return (
-    '<div class="assignment-card" data-assignment-id="' + escapeHtml(a.id) + '">' +
+    '<div class="assignment-card" data-assignment-id="' + escapeHtml(a.id) + '"' +
+        ' data-renderer-affinity="' + escapeHtml(a.renderer_affinity || '') + '">' +
       '<div class="flex items-start justify-between gap-3 mb-2">' +
         '<div class="min-w-0">' +
           '<h3 class="font-semibold text-gray-100 truncate">' + escapeHtml(prompt.title || '(Đề bài đã xóa)') + '</h3>' +
@@ -884,7 +913,10 @@ function renderAssignments(assignments: any[]) {
         const card = btn.closest('.assignment-card');
         if (!card) return;
         const assignmentId = card.getAttribute('data-assignment-id');
-        if (assignmentId) openSubmitModal(assignmentId, window as any, (window as any).api);
+        if (assignmentId) window.location.href = writingAssignmentHref(
+          assignmentId,
+          card.getAttribute('data-renderer-affinity'),
+        );
       });
     });
   }
@@ -1357,6 +1389,17 @@ async function openSubmitModal(assignmentId: string, win: any, api: any) {
         return;
       }
     }
+    const claim = await api.post(
+      '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/renderer-affinity',
+      { renderer_affinity: 'next' },
+    );
+    if (!isCurrent()) return;
+    const affinity = claim && claim.renderer_affinity;
+    if (affinity !== 'next') {
+      if (affinity !== 'legacy') throw new Error('Phiên làm bài không có renderer hợp lệ.');
+      window.location.replace(writingAssignmentHref(assignmentId, affinity));
+      return;
+    }
     const startResult = await api.post(
       '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/start',
       {}
@@ -1407,8 +1450,10 @@ async function loadAssignments(api: any) {
     if (ps.dead || ps.generation !== generation) return;
     const list = $('assignments-list');
     if (list) {
-      list.innerHTML = '<div class="wd-inline-error">Không tải được bài giao: ' +
-        escapeHtml((err && err.message) || 'lỗi không xác định') + '</div>';
+      list.innerHTML = '<div class="wd-inline-error">' + escapeHtml(loadFailureMessage(
+        err,
+        'Không tải được bài giao. Vui lòng thử lại.',
+      )) + '</div>';
     }
   }
 }
@@ -1428,8 +1473,10 @@ async function loadEssays(api: any) {
     if (ps.dead || ps.generation !== generation) return;
     const list = $('essays-list');
     if (list) {
-      list.innerHTML = '<div class="wd-inline-error">Không tải được bài viết: ' +
-        escapeHtml((err && err.message) || 'lỗi không xác định') + '</div>';
+      list.innerHTML = '<div class="wd-inline-error">' + escapeHtml(loadFailureMessage(
+        err,
+        'Không tải được bài viết. Vui lòng thử lại.',
+      )) + '</div>';
     }
   }
 }
@@ -1654,6 +1701,11 @@ export function WritingBehavior() {
       if (!isCurrent()) return;
       await applyWritingPermissionGating(api, isCurrent);
       if (!isCurrent()) return;
+      const requestedAssignment = new URLSearchParams(window.location.search).get('assignment_id');
+      if (requestedAssignment) {
+        await openSubmitModal(requestedAssignment, window as any, api);
+        if (!isCurrent()) return;
+      }
       await loadPromptBank(api, ps);
     })();
 

@@ -1,0 +1,58 @@
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const SHA = /^[a-f0-9]{40}$/;
+
+export function validateReadingPhaseLineage({ phase, sourceSha, floorSha, isAncestor }) {
+  if (!['floor', 'cutover', 'rollback'].includes(phase)) throw new Error('phase-invalid');
+  if (!SHA.test(sourceSha || '') || !SHA.test(floorSha || '')) throw new Error('sha-invalid');
+  if (phase === 'floor' && sourceSha !== floorSha) throw new Error('floor-source-must-equal-floor');
+  if (phase === 'cutover' && (sourceSha === floorSha || !isAncestor(floorSha, sourceSha))) {
+    throw new Error('cutover-source-is-not-floor-descendant');
+  }
+  if (phase === 'rollback' && sourceSha !== floorSha && !isAncestor(floorSha, sourceSha)) {
+    throw new Error('rollback-source-is-not-floor-descendant');
+  }
+  return {
+    phase, source_sha: sourceSha, rollback_floor_sha: floorSha, verified: true,
+    rollback_mode: phase === 'rollback'
+      ? (sourceSha === floorSha ? 'exact-floor' : 'forward-revert') : null,
+  };
+}
+
+function run() {
+  const phase = process.env.GATE_E_DRILL_PHASE || '';
+  const sourceSha = process.env.GATE_E_SOURCE_SHA || '';
+  const floorSha = process.env.GATE_E_ROLLBACK_FLOOR_SHA || '';
+  const output = path.resolve('test-results/gate-e-reading-coexistence-lineage.json');
+  let evidence;
+  try {
+    for (const sha of [sourceSha, floorSha]) if (SHA.test(sha)) {
+      execFileSync('git', ['cat-file', '-e', `${sha}^{commit}`], { stdio: 'ignore' });
+    }
+    evidence = validateReadingPhaseLineage({
+      phase, sourceSha, floorSha,
+      isAncestor(ancestor, descendant) {
+        try {
+          execFileSync('git', ['merge-base', '--is-ancestor', ancestor, descendant], { stdio: 'ignore' });
+          return true;
+        } catch { return false; }
+      },
+    });
+  } catch (error) {
+    evidence = { phase: phase || null, source_sha: sourceSha || null,
+      rollback_floor_sha: floorSha || null, verified: false,
+      error: String(error?.message || error) };
+  }
+  mkdirSync(path.dirname(output), { recursive: true });
+  writeFileSync(output, `${JSON.stringify({ schema_version: 1, ...evidence }, null, 2)}\n`);
+  if (evidence.verified && process.env.GITHUB_OUTPUT) {
+    appendFileSync(process.env.GITHUB_OUTPUT, 'verified=true\n');
+    if (evidence.rollback_mode) appendFileSync(process.env.GITHUB_OUTPUT, `rollback_mode=${evidence.rollback_mode}\n`);
+  }
+  if (!evidence.verified) process.exitCode = 1;
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) run();

@@ -61,8 +61,9 @@ await page.route('**/*', async (route) => {
 });
 
 await page.goto(`${BASE}/admin/mock-tests?tab=live`, { waitUntil: 'domcontentloaded' });
-await page.getByRole('heading', { name: 'Mock Test cockpit' }).waitFor();
+await page.getByRole('heading', { name: 'Trung tâm vận hành Mock Test' }).waitFor();
 await page.getByText('2 đề sai contract đã bị loại').waitFor();
+if (process.env.CAPTURE_UI) await page.screenshot({ path: '/tmp/admin-mock-tests-redesign.png', fullPage: true });
 check('backend-owned admin gate và canonical exam list chạy', requests.includes('GET /auth/me') && requests.includes('GET /admin/mock-exams'));
 check('deep-link live fail-closed khi đề mặc định còn draft', await page.getByText('Đề chưa được publish').count() === 1 && await page.locator('iframe').count() === 0);
 
@@ -71,14 +72,14 @@ await page.locator('iframe').waitFor();
 check('live frame giữ đúng selected exam identity và dùng route native', (await page.locator('iframe').getAttribute('src')) === '/admin/mock-live?exam_id=live-1&embed=1');
 await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
 await page.waitForFunction(() => document.querySelector('iframe')?.contentDocument?.documentElement?.getAttribute('data-theme') === 'dark');
-check('theme parent được đồng bộ sang workspace native', await page.locator('iframe').evaluate((node) => node.contentDocument?.documentElement.getAttribute('data-theme') === 'dark'));
+check('theme parent được đồng bộ sang workspace native', await page.locator('iframe').evaluate((node) => node.contentDocument?.documentElement?.getAttribute('data-theme') === 'dark'));
 
 await page.getByRole('button', { name: 'Đang thi', exact: true }).click();
 check('stage filter giữ canonical total và đúng một live exam', await page.getByText('1/3', { exact: true }).count() === 1 && await page.getByRole('button', { name: /MOCK-LIVE/ }).count() === 1 && await page.getByRole('button', { name: /MOCK-DRAFT/ }).count() === 0);
 await page.getByRole('button', { name: 'Đã đóng', exact: true }).click();
 check('lọc không tự đổi đề đang thao tác', await page.getByText('Đề đang thao tác bị ẩn bởi bộ lọc').count() === 1 && (await page.locator('iframe').getAttribute('src'))?.includes('exam_id=live-1'));
 
-await page.getByRole('tab', { name: /Duyệt bài thi/ }).click();
+await page.getByRole('tab', { name: /Nhận & chấm bài/ }).click();
 await page.waitForFunction(() => document.querySelector('iframe')?.contentWindow?.location.pathname === '/admin/mock-reviews');
 check('tab query shareable và review frame giữ exact identity native', new URL(page.url()).searchParams.get('tab') === 'review' && (await page.locator('iframe').getAttribute('src')) === '/admin/mock-reviews?mock_exam_id=live-1&embed=1' && await page.getByText('MODULE ROLLBACK').count() === 0);
 
@@ -92,9 +93,9 @@ await page.waitForFunction(() => document.querySelector('iframe')?.contentWindow
 check('bấm lại tab hiện tại trả iframe về workspace gốc', await page.locator('iframe').evaluate((node) => node.contentWindow.location.pathname === '/admin/writing/queue'));
 
 await page.getByRole('tab', { name: 'Chấm Writing' }).press('Home');
-check('tablist hỗ trợ Home/End/arrow mà không tự kích hoạt iframe', await page.getByRole('tab', { name: 'Quản lý đề' }).evaluate((node) => node === document.activeElement) && new URL(page.url()).searchParams.get('tab') === 'writing');
+check('tablist hỗ trợ Home/End/arrow mà không tự kích hoạt iframe', await page.getByRole('tab', { name: /Quản lý & giao đề/ }).evaluate((node) => node === document.activeElement) && new URL(page.url()).searchParams.get('tab') === 'writing');
 
-await page.getByRole('tab', { name: 'Quản lý đề' }).click();
+await page.getByRole('tab', { name: /Quản lý & giao đề/ }).click();
 await page.locator('iframe[src="/admin/mock-exams?embed=1"]').waitFor();
 check('Manage đã nhúng route Next.js native, không còn rollback HTML', (await page.locator('iframe').getAttribute('src')) === '/admin/mock-exams?embed=1' && await page.getByText('MODULE ROLLBACK').count() === 0);
 

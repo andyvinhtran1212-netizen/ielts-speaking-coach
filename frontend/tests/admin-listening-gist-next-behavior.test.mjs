@@ -114,7 +114,7 @@ describe('native Gist route and persistence contract', () => {
     assert.match(PAGE, /<HydratedSignal \/>/);
     assert.match(PAGE, /<LegacyModule src="\/js\/components\/audio-player\.js" \/>/);
     assert.match(PAGE, /watchdogScript\('\/pages\/admin\/listening\/gist\.html'\)/);
-    assert.match(CHROME, /slug: 'gist',[^\n]+href: '\/admin\/listening'/);
+    assert.doesNotMatch(CHROME, /slug: 'gist'/);
     assert.match(LIST, /\/admin\/listening\/gist\?content_id=/);
     assert.match(DETAIL, /item\.type === 'gist' \? `\/admin\/listening\/gist\?content_id=/);
     assert.match(LEDGER, /`\/admin\/listening\/gist`[^\n]+required `content_id`; optional exact `exercise_id`/);

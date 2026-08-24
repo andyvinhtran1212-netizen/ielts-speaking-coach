@@ -1093,6 +1093,17 @@
       return { urgency: diffHrs < 72 ? 'soon' : 'normal', label: 'Còn ' + days + ' ngày' };
     }
 
+    function writingAssignmentHref(assignmentId, affinity) {
+      var encoded = encodeURIComponent(assignmentId);
+      if (affinity === 'legacy') {
+        return '/pages/writing-dashboard.html?assignment_id=' + encoded;
+      }
+      if (affinity === 'next') {
+        return '/writing/dashboard?assignment_id=' + encoded;
+      }
+      return '/core-player/launch?surface=writing_assignment&assignment_id=' + encoded;
+    }
+
     // Renders the "Bài sắp đến hạn" surface from the active assignments
     // that have a deadline, sorted soonest-first. Each row reuses the
     // submit-modal entry point so the student can jump straight in.
@@ -1117,7 +1128,8 @@
         var dl = formatDeadline(a.deadline) || { urgency: 'normal', label: '' };
         return (
           '<button type="button" class="wd-deadline-row wd-deadline-row--' + dl.urgency + '"' +
-              ' data-assignment-id="' + escapeHtml(a.id) + '">' +
+              ' data-assignment-id="' + escapeHtml(a.id) + '"' +
+              ' data-renderer-affinity="' + escapeHtml(a.renderer_affinity || '') + '">' +
             '<span class="wd-deadline-row__dot" aria-hidden="true"></span>' +
             '<span class="wd-deadline-row__title">' + escapeHtml(prompt.title || '(Đề bài)') + '</span>' +
             '<span class="wd-deadline-row__when">' + escapeHtml(dl.label) + '</span>' +
@@ -1128,7 +1140,10 @@
       list.querySelectorAll('.wd-deadline-row').forEach(function (row) {
         row.addEventListener('click', function () {
           var id = row.getAttribute('data-assignment-id');
-          if (id) openSubmitModal(id);
+          if (id) window.location.href = writingAssignmentHref(
+            id,
+            row.getAttribute('data-renderer-affinity')
+          );
         });
       });
     }
@@ -1156,7 +1171,8 @@
       var startLabel = a.has_draft ? 'Tiếp tục làm bài' : 'Làm bài';
 
       return (
-        '<div class="assignment-card" data-assignment-id="' + escapeHtml(a.id) + '">' +
+        '<div class="assignment-card" data-assignment-id="' + escapeHtml(a.id) + '"' +
+            ' data-renderer-affinity="' + escapeHtml(a.renderer_affinity || '') + '">' +
           '<div class="flex items-start justify-between gap-3 mb-2">' +
             '<div class="min-w-0">' +
               '<h3 class="font-semibold text-gray-100 truncate">' + escapeHtml(prompt.title || '(Đề bài đã xóa)') + '</h3>' +
@@ -1225,7 +1241,10 @@
           var card = btn.closest('.assignment-card');
           if (!card) return;
           var assignmentId = card.getAttribute('data-assignment-id');
-          openSubmitModal(assignmentId);
+          if (assignmentId) window.location.href = writingAssignmentHref(
+            assignmentId,
+            card.getAttribute('data-renderer-affinity')
+          );
         });
       });
     }
@@ -1263,6 +1282,16 @@
             await Promise.all([loadAssignments(), loadEssays()]);
             return;
           }
+        }
+        var claim = await window.api.post(
+          '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/renderer-affinity',
+          { renderer_affinity: 'legacy' }
+        );
+        var affinity = claim && claim.renderer_affinity;
+        if (affinity !== 'legacy') {
+          if (affinity !== 'next') throw new Error('Phiên làm bài không có renderer hợp lệ.');
+          window.location.replace(writingAssignmentHref(assignmentId, affinity));
+          return;
         }
         // 1. Stamp started_at + transition pending → in_progress.
         //    Returns the fresh timer state we render the banner from.
@@ -1881,6 +1910,9 @@
         // endpoint is independent so a failure here doesn't block the
         // dashboard from rendering.
         await applyWritingPermissionGating();
+
+        var requestedAssignment = new URLSearchParams(window.location.search).get('assignment_id');
+        if (requestedAssignment) await openSubmitModal(requestedAssignment);
 
         // content is always visible; loading starts hidden — nothing to toggle
       } catch (err) {

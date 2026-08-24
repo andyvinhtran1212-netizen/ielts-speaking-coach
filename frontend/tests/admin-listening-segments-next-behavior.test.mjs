@@ -157,7 +157,7 @@ describe('native segments route and persistence contract', () => {
     assert.match(PAGE, /watchdogScript\('\/pages\/admin\/listening\/segments\.html'\)/);
     assert.match(PAGE, /watchdogScript intentionally appends the current search\/hash/);
     assert.doesNotMatch(PAGE, /<script type="module"/);
-    assert.match(CHROME, /slug: 'segments',[^\n]+href: '\/admin\/listening'/);
+    assert.doesNotMatch(CHROME, /slug: 'segments'/);
     assert.match(LIST, /\/admin\/listening\/segments\?content_id=/);
     assert.match(DETAIL, /\/admin\/listening\/segments\?content_id=/);
     assert.doesNotMatch(DETAIL, /pages\/admin\/listening\/segments\.html\?content_id/);

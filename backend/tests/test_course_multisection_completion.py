@@ -304,11 +304,23 @@ def test_all_sections_are_weighted_then_passed_and_hand_in_once():
 
 def test_migration_is_additive_rls_protected_and_keeps_answer_snapshot():
     sql = (Path(__file__).parents[1] / "migrations" /
-           "216_course_multisection_results.sql").read_text(encoding="utf-8")
+           "226_course_multisection_results.sql").read_text(encoding="utf-8")
     assert "CREATE TABLE IF NOT EXISTS course_section_submissions" in sql
     assert "UNIQUE (class_assignment_item_id, section)" in sql
-    assert "answer_key" in sql and "duration_sec" in sql
+    assert "answer_key" in sql and "content_snapshot" in sql and "duration_sec" in sql
+    assert "ADD COLUMN IF NOT EXISTS content_snapshot JSONB" in sql
+    assert "WHERE content_snapshot IS NULL" in sql
+    assert "ALTER COLUMN content_snapshot SET DEFAULT '{}'::jsonb" in sql
+    assert "ALTER COLUMN content_snapshot SET NOT NULL" in sql
+    assert "DROP CONSTRAINT IF EXISTS course_section_submissions_snapshot_object" in sql
+    assert "VALIDATE CONSTRAINT course_section_submissions_snapshot_object" in sql
     assert "ENABLE ROW LEVEL SECURITY" in sql
+    assert "REVOKE ALL ON TABLE public.course_section_submissions" in sql
+    assert "FROM PUBLIC, anon, authenticated" in sql
+    assert "GRANT ALL ON TABLE public.course_section_submissions TO service_role" in sql
+    for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE",
+                      "REFERENCES", "TRIGGER"):
+        assert f"('{privilege}')" in sql
     assert "ON DELETE SET NULL" in sql
     assert "course_section_submissions c" in sql
     assert "course_pronunciation_submissions p" in sql

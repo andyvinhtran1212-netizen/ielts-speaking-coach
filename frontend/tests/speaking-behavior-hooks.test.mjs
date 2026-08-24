@@ -31,6 +31,7 @@ const SHELL = stripComments(readFileSync(path.join(DIR, 'page-shell.tsx'), 'utf8
 const BEHAVIOR = stripComments(readFileSync(path.join(DIR, 'speaking-behavior.tsx'), 'utf8'))
   + '\n' + stripComments(readFileSync(path.join(DIR, 'speaking-stats.tsx'), 'utf8'))
   + '\n' + stripComments(readFileSync(path.join(DIR, 'speaking-charts.ts'), 'utf8'));
+const LEGACY_SOURCE = readFileSync(path.join(FRONTEND, 'public/pages/speaking.html'), 'utf8');
 
 const shellIds = new Set([...SHELL.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
 
@@ -78,6 +79,32 @@ const CREATED_AT_RUNTIME = new Set(['flashcards-tab-sub']);
 const DYNAMIC_PREFIXES = ['mtab-', 'tab-', 'prac-part-', 'prac-tp-part-', 'pbp-card-'];
 
 describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
+  test('modal chủ đề có semantics và vòng đời focus đầy đủ', () => {
+    assert.match(SHELL, /id="topic-modal"[^>]*\bhidden\b[^>]*aria-hidden="true"/,
+      'modal đóng ban đầu phải rời khỏi cây tương tác');
+    assert.match(SHELL, /role="dialog"[^>]*aria-modal="true"[^>]*aria-labelledby="topic-modal-title"/,
+      'hộp thoại phải được screen reader nhận diện và có tên');
+    assert.match(SHELL, /id="modal-close"[^>]*aria-label="Đóng hộp thoại chọn chủ đề"/,
+      'nút chỉ có biểu tượng phải có accessible name');
+    for (const contract of [
+      "e.key === 'Escape'", "e.key !== 'Tab'", 'topicModalTrigger?.focus()',
+      'modal.inert = true', 'modal.hidden = true', 'modal.hidden = false',
+    ]) {
+      assert.ok(BEHAVIOR.includes(contract), `thiếu contract modal: ${contract}`);
+    }
+    assert.doesNotMatch(SHELL, /<option[^>]*\bselected\b/,
+      'React select phải dùng defaultValue/value thay vì selected trên option');
+    assert.match(LEGACY_SOURCE,
+      /id="topic-modal"[^>]*\bhidden\b[^>]*\binert\b[^>]*aria-hidden="true"/,
+      'rollback leg cũng phải đóng modal ban đầu để parity không lộ nội dung ẩn');
+    assert.match(LEGACY_SOURCE,
+      /role="dialog"[^>]*aria-modal="true"[^>]*aria-labelledby="topic-modal-title"/);
+    for (const contract of [
+      "e.key === 'Escape'", "e.key !== 'Tab'", '_topicModalTrigger.focus()',
+      'modal.inert = true', 'modal.hidden = true', 'modal.hidden = false',
+    ]) assert.ok(LEGACY_SOURCE.includes(contract), `legacy thiếu contract modal: ${contract}`);
+  });
+
   test('mọi id hằng trong $(\'…\') đều tồn tại ở vỏ', () => {
     const used = new Set([...BEHAVIOR.matchAll(/\$\('([^']+)'\)/g)].map((m) => m[1]));
     assert.ok(used.size >= 15, `phải tìm thấy nhiều id, chỉ thấy ${used.size} — regex hỏng?`);

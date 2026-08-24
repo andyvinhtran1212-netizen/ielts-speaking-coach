@@ -189,12 +189,46 @@ describe('assignment start contract', () => {
     });
   });
 
-  test('existing Speaking sessions go through the runtime admission switch', () => {
+  test('completed Speaking sessions go to canonical result, never a historical player', () => {
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'speaking',
+      result_session_id: 'done/1', renderer_affinity: 'legacy',
+    }, 'item-1'), {
+      kind: 'result', url: '/result?id=done%2F1',
+    });
+  });
+
+  test('existing Speaking sessions keep their persisted stable renderer', () => {
     assert.deepEqual(normalizeClassStartResponse({
       item_id: 'item-1', assignment_id: 'a', skill: 'speaking', session_id: 'session-1',
+      renderer_affinity: 'legacy',
     }, 'item-1'), {
-      kind: 'player', surface: 'speaking', query: { session_id: 'session-1' },
+      kind: 'stable-player', url: '/pages/practice.html?session_id=session-1',
     });
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'speaking', session_id: 'session-2',
+      renderer_affinity: 'next',
+    }, 'item-1'), {
+      kind: 'stable-player', url: '/practice/session?session_id=session-2',
+    });
+  });
+
+  test('an unclaimed fresh Speaking session still asks runtime; N-1 sessions stay Legacy', () => {
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'speaking', session_id: 'fresh',
+      renderer_affinity: null,
+    }, 'item-1'), {
+      kind: 'player', surface: 'speaking', query: { session_id: 'fresh' },
+    });
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'speaking', session_id: 'old-backend',
+    }, 'item-1'), {
+      kind: 'stable-player', url: '/pages/practice.html?session_id=old-backend',
+    });
+    assert.equal(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'speaking', session_id: 'bad',
+      renderer_affinity: 'random',
+    }, 'item-1'), null);
   });
 
   test('new Speaking sessions retain the server-authorized class identity', () => {
@@ -207,7 +241,28 @@ describe('assignment start contract', () => {
     });
   });
 
-  test('legacy Reading/Listening response URLs re-enter the runtime admission switch', () => {
+  test('canonical Reading/Listening response semantics enter runtime admission', () => {
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'reading',
+      player_surface: 'reading_exam',
+      player_query: { test_id: 'CAM19-T3', class_item: 'item-1' },
+      open_url: '/core-player/launch?surface=reading_exam&test_id=CAM19-T3&class_item=item-1',
+    }, 'item-1'), {
+      kind: 'admission',
+      url: '/core-player/launch?surface=reading_exam&test_id=CAM19-T3&class_item=item-1',
+    });
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'listening',
+      player_surface: 'listening_test',
+      player_query: { id: 'test-7', class_item: 'item-1' },
+      open_url: '/core-player/launch?surface=listening_test&id=test-7&class_item=item-1',
+    }, 'item-1'), {
+      kind: 'admission',
+      url: '/core-player/launch?surface=listening_test&id=test-7&class_item=item-1',
+    });
+  });
+
+  test('legacy N-1 Reading/Listening response URLs re-enter runtime admission', () => {
     assert.deepEqual(normalizeClassStartResponse({
       item_id: 'item-1', assignment_id: 'a', skill: 'reading',
       open_url: '/pages/reading-exam.html?test_id=CAM19-T3&class_item=item-1',
@@ -225,6 +280,21 @@ describe('assignment start contract', () => {
   });
 
   test('foreign, mismatched and unrecognized destinations fail closed', () => {
+    assert.equal(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'reading',
+      player_surface: 'listening_test',
+      player_query: { id: 'test-7', class_item: 'item-1' },
+    }, 'item-1'), null);
+    assert.equal(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'reading',
+      player_surface: 'reading_exam',
+      player_query: { test_id: 'CAM19-T3', class_item: 'other' },
+    }, 'item-1'), null);
+    assert.equal(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'reading',
+      player_surface: 'reading_exam',
+      player_query: { test_id: 'CAM19-T3', class_item: 'item-1', extra: 'unsafe' },
+    }, 'item-1'), null);
     assert.equal(normalizeClassStartResponse({
       item_id: 'item-1', assignment_id: 'a', skill: 'reading',
       open_url: 'https://evil.example/pages/reading-exam.html?test_id=x&class_item=item-1',
@@ -259,6 +329,8 @@ describe('native route ownership', () => {
       'a failed old-account mutation must not toast into the new account');
     assert.match(layout, /\/js\/toast\.js/,
       'start errors must have the global toast implementation the workspace calls');
+    assert.match(workspace, /Hạn nộp đã đóng\. Liên hệ giảng viên nếu bạn cần được mở lại bài\./,
+      'bài quá hạn không có action phải nói rõ bước tiếp theo thay vì kết thúc cụt');
   });
 
   test('all canonical inbound links use the clean route', () => {

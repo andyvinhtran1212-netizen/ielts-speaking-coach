@@ -83,7 +83,9 @@ async def _start(*, sessions, assignment=None, item=None, student=None):
 
 def _sess(sid="sess-cu"):
     return [{"id": sid, "user_id": "u1", "class_assignment_item_id": "it1",
-             "started_at": "2026-08-01T00:00:00+00:00"}]
+             "started_at": "2026-08-01T00:00:00+00:00",
+             "status": "in_progress",
+             "resume_expires_at": "2999-01-01T00:00:00+00:00"}]
 
 
 # ── Mở lại đúng phiên cũ ─────────────────────────────────────────────────────
@@ -94,6 +96,20 @@ async def test_reopens_the_existing_session_instead_of_making_a_new_one():
     assert out["session_id"] == "sess-cu"
     # Không trả session_params: trang mà thấy nó sẽ POST /sessions và đẻ phiên mới.
     assert "session_params" not in out
+
+
+@pytest.mark.asyncio
+async def test_completed_session_opens_canonical_result_not_historical_player():
+    sessions = _sess()
+    sessions[0].update({
+        "status": "completed",
+        "completed_at": "2026-08-01T00:20:00+00:00",
+        "renderer_affinity": "legacy",
+    })
+    out, _ = await _start(sessions=sessions)
+    assert out["result_session_id"] == "sess-cu"
+    assert "session_id" not in out
+    assert "renderer_affinity" not in out
 
 
 @pytest.mark.asyncio
@@ -249,12 +265,13 @@ async def _pick(sessions, responses=()):
          patch.object(mod, "_student_for_user", return_value=_STUDENT), \
          patch.object(mod, "supabase_admin", db):
         out = await mod.start_assignment("it1", None)
-    return out.get("session_id")
+    return out.get("session_id") or out.get("result_session_id")
 
 
 def _s(sid, started, **over):
     return {"id": sid, "user_id": "u1", "class_assignment_item_id": "it1",
             "started_at": started, "completed_at": None, "status": "in_progress",
+            "resume_expires_at": "2999-01-01T00:00:00+00:00",
             **over}
 
 
