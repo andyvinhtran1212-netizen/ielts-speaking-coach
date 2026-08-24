@@ -1001,16 +1001,20 @@ def _bank_meta_for_review_or_404(
 ) -> dict:
     """Normal gate first; submitted-after-deadline fallback for reads only."""
     try:
-        return _bank_meta_or_404(
-            bank_id, user_id, assignment_item_id=assignment_item_id,
-        )
+        if assignment_item_id:
+            return _bank_meta_or_404(
+                bank_id, user_id, assignment_item_id=assignment_item_id,
+            )
+        return _bank_meta_or_404(bank_id, user_id)
     except HTTPException as exc:
         if exc.status_code != 404:
             raise
-    return _bank_meta_or_404(
-        bank_id, user_id, allow_submitted_review=True,
-        assignment_item_id=assignment_item_id,
-    )
+    if assignment_item_id:
+        return _bank_meta_or_404(
+            bank_id, user_id, allow_submitted_review=True,
+            assignment_item_id=assignment_item_id,
+        )
+    return _bank_meta_or_404(bank_id, user_id, allow_submitted_review=True)
 
 
 def _word_cards_for(bank: dict) -> dict:
