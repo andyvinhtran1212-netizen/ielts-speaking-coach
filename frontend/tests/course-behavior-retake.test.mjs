@@ -44,16 +44,21 @@ function loadRetakeFlow() {
     .replace(/\}$/, '');
   return (env) => {
     const fn = new Function('$', 'lastVerdict', 'runner', 'renderQuestion', 'esc', 'setSaveState',
+      'reportSeq', 'reportLoad',
       `return (async () => {${body}})();`);
     return fn(env.$, env.lastVerdict, env.runner, env.renderQuestion,
-      env.esc || ((value) => String(value)), env.setSaveState || (() => {}));
+      env.esc || ((value) => String(value)), env.setSaveState || (() => {}), 0, null);
   };
 }
 
 describe('làm kiểm tra lại', () => {
   test('dọn báo cáo của lượt trước', async () => {
     const run = loadRetakeFlow();
-    const rep = { hidden: false, innerHTML: '<p>chi tiết từng câu còn khoá</p>' };
+    const rep = {
+      hidden: false,
+      innerHTML: '<p>chi tiết từng câu còn khoá</p>',
+      dataset: { crReady: '1' },
+    };
     await run({
       $: (id) => (id === 'cx-report' ? rep : null),
       lastVerdict: { retake_size: 5 },
@@ -62,6 +67,7 @@ describe('làm kiểm tra lại', () => {
     });
     assert.equal(rep.innerHTML, '', 'để lại bảng cũ là nói sai về lượt vừa làm');
     assert.equal(rep.hidden, true);
+    assert.equal(rep.dataset.crReady, undefined, 'không được tái dùng cache báo cáo của lượt cũ');
   });
 
   test('không có khung báo cáo thì vẫn chạy được', async () => {

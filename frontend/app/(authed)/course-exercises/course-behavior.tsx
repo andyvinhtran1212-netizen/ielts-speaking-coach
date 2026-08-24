@@ -445,7 +445,7 @@ export function CourseBehavior() {
         // mới là em cần biết mình yếu chỗ nào nhất; khoá cả hai mức là sai
         // chiều (bản #964 khoá cả hai).
         const seeReport = '<button class="av-button av-button-secondary" id="cx-see-report" type="button">'
-          + (v.passed ? 'Xem lại toàn bộ bài làm' : 'Xem mình yếu trục nào')
+          + (v.passed ? 'Tự review từng câu' : 'Xem mình yếu trục nào')
           + '</button>';
         const history = CR.renderAttemptHistory(v.history || []);
         if (v.completed === false) {
@@ -476,10 +476,13 @@ export function CourseBehavior() {
             + `<div class="cx-verdict__score">${v.pct}%</div></div>`
             + '<div class="cx-verdict__body"><h3>Bước tiếp theo</h3>'
             + '<ul class="cx-verdict__steps">'
-            + '<li data-step="1">Mở báo cáo để xem đáp án, lời giải và những trục cần củng cố.</li>'
+            + '<li data-step="1">Review từng câu để đối chiếu lựa chọn, đáp án đúng và lời giải.</li>'
             + '<li data-step="2">Lịch sử full session và revision được giữ nguyên bên dưới.</li>'
             + '</ul><div class="cx-verdict__actions">' + seeReport + more + readMore + listenMore + pronunciationMore + '</div>'
             + history + '</div></div>';
+          // Đã đạt thì phần chữa bài là bước học tiếp theo, không đứng sau một
+          // cú bấm. Nạp sẵn bên dưới nhưng giữ kết luận đạt trong khung nhìn.
+          void showReport({ scroll: false });
         } else if (v.next_action === 'retry_full') {
           box.innerHTML = '<div class="cx-verdict" data-v="fail-full">'
             + '<div class="cx-verdict__hero"><div>'
@@ -527,27 +530,41 @@ export function CourseBehavior() {
        * Nạp LÚC CẦN, không nạp sẵn: phần lớn lượt mở bài tập là để LÀM bài, và
        * một lượt gọi mạng lúc mở trang làm chậm đúng thứ học viên đang chờ.
        */
-      async function showReport() {
+      let reportLoad: Promise<void> | null = null;
+      let reportSeq = 0;
+
+      async function showReport(options: { scroll?: boolean } = {}) {
         setActiveSection(null);
         const box = $('cx-report');
         if (!box) return;
         box.hidden = false;
-        box.innerHTML = '<p class="cx-empty">Đang dựng báo cáo…</p>';
-        box.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        try {
-          const d = await api.get('/api/quiz/course/report?bank_id='
-            + encodeURIComponent(bankId!)
-            + (runner.reviewOnly && requestedItem
-              ? '&class_item=' + encodeURIComponent(requestedItem) : ''));
-          // `renderReport` tự biết `d.locked`: nó vẽ trục và nói điều kiện mở
-          // mức hai. Không cần nhánh riêng ở đây.
-          box.innerHTML = CR.renderReport(d);
-          CR.bindReport(box);
-        } catch (err: any) {
-          // Rỗng đọc ra là "em chưa làm câu nào" — một khẳng định mà lượt đọc
-          // hỏng không chứng minh được.
-          box.innerHTML = '<p class="cx-empty">Chưa đọc được báo cáo: '
-            + esc(err?.message || String(err)) + '. Tải lại trang để thử lại.</p>';
+        if (box.dataset.crReady !== '1' && !reportLoad) {
+          const seq = ++reportSeq;
+          box.innerHTML = '<p class="cx-empty">Đang dựng phần tự review…</p>';
+          reportLoad = (async () => {
+            try {
+              const d = await api.get('/api/quiz/course/report?bank_id='
+                + encodeURIComponent(bankId!)
+                + (runner.reviewOnly && requestedItem
+                  ? '&class_item=' + encodeURIComponent(requestedItem) : ''));
+              // Nếu người học bắt đầu lượt mới khi request còn đang bay, phần
+              // review của lượt cũ không được sống lại sau khi đã bị dọn.
+              if (seq !== reportSeq) return;
+              box.innerHTML = CR.renderReport(d, { learner: true, verdict: lastVerdict });
+              box.dataset.crReady = '1';
+              CR.bindReport(box);
+            } catch (err: any) {
+              if (seq !== reportSeq) return;
+              box.innerHTML = '<p class="cx-empty">Chưa đọc được phần tự review: '
+                + esc(err?.message || String(err)) + '. Bấm lại để thử lại.</p>';
+            } finally {
+              if (seq === reportSeq) reportLoad = null;
+            }
+          })();
+        }
+        if (reportLoad) await reportLoad;
+        if (options.scroll !== false) {
+          box.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }
 
@@ -838,7 +855,13 @@ export function CourseBehavior() {
         // không đợi lúc đạt: lượt làm lại có thể lại chưa đạt, và giữ một bảng
         // trục của lượt TRƯỚC cũng là nói sai.
         const rep = $('cx-report');
-        if (rep) { rep.hidden = true; rep.innerHTML = ''; }
+        if (rep) {
+          rep.hidden = true;
+          rep.innerHTML = '';
+          delete rep.dataset.crReady;
+        }
+        reportSeq += 1;
+        reportLoad = null;
         const size = (lastVerdict && lastVerdict.retake_size)
           || (runner.mastery && runner.mastery.retake_size) || 20;
         await runner.startRetake(size);
@@ -856,7 +879,13 @@ export function CourseBehavior() {
 
       async function restartFullFlow() {
         const rep = $('cx-report');
-        if (rep) { rep.hidden = true; rep.innerHTML = ''; }
+        if (rep) {
+          rep.hidden = true;
+          rep.innerHTML = '';
+          delete rep.dataset.crReady;
+        }
+        reportSeq += 1;
+        reportLoad = null;
         await runner.restartFull();
         if (runner.sessionFailed) {
           setSaveState('error');
