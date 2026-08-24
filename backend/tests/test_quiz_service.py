@@ -359,6 +359,8 @@ def test_course_reading_solution_empty_answers_reviews_canonical_submission():
         }],
     })
     with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_bank_meta_for_review_or_404",
+                      return_value={"id": _BANK}) as review_bank, \
          patch.object(quiz_service, "_assignment_item_for_review", return_value={
              "id": "item-1", "assignment_id": "asg-1",
          }) as review_item, \
@@ -369,6 +371,8 @@ def test_course_reading_solution_empty_answers_reviews_canonical_submission():
     assert out["answers"] == saved_answers
     assert out["result"]["submitted_answers"] == {"r-01": "T"}
     review_item.assert_called_once_with(
+        _BANK, _USER, assignment_item_id="item-1")
+    review_bank.assert_called_once_with(
         _BANK, _USER, assignment_item_id="item-1")
     assert not any(call["table"] == "course_section_submissions" and call["op"] == "insert"
                    for call in fake.calls)
@@ -431,6 +435,29 @@ def test_course_listening_audio_refreshes_urls_without_leaking_solution():
     assert "solution" not in out
     assert out["sections"][0]["questions"][0]["audio_url"].startswith("https://signed/")
     assert len([call for call in fake.calls if call.get("storage")]) == 1
+
+
+def test_course_listening_audio_uses_exact_item_review_gate():
+    listening = {
+        "audio_bundle": {"bucket": "listening-audio"},
+        "sections": [{"id": "sound", "questions": [{
+            "id": "l-A1", "audio_storage_path": "course/hash/A1.mp3",
+            "options": ["city", "pity"],
+        }]}],
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{"id": _BANK, "meta": {
+            "short_listening": listening,
+        }}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_bank_meta_for_review_or_404",
+                      return_value={"id": _BANK}) as review_gate:
+        out = quiz_service.course_listening_audio(
+            user_id=_USER, bank_id=_BANK, assignment_item_id="item-1")
+    review_gate.assert_called_once_with(
+        _BANK, _USER, assignment_item_id="item-1")
+    assert out["sections"][0]["questions"][0]["audio_url"].startswith("https://signed/")
 
 
 # ── start session + resume ───────────────────────────────────────────

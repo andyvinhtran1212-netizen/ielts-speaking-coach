@@ -98,9 +98,14 @@ async def my_mistakes(
 
 
 @router.get("/banks/{bank_id}")
-async def get_bank(bank_id: UUID, authorization: str | None = Header(None)):
+async def get_bank(
+    bank_id: UUID, class_item: str | None = None,
+    authorization: str | None = Header(None),
+):
     user = await get_supabase_user(authorization)
-    return quiz_service.get_bank_for_play(str(bank_id), user_id=user["id"])
+    return quiz_service.get_bank_for_play(
+        str(bank_id), user_id=user["id"], assignment_item_id=class_item,
+    )
 
 
 @router.get("/banks/{bank_id}/resume")
@@ -157,6 +162,7 @@ class CourseListeningBody(BaseModel):
 
 class CourseListeningAudioBody(BaseModel):
     bank_id: str
+    class_item: str | None = None
 
 
 @router.get("/course/writing")
@@ -226,6 +232,7 @@ async def course_listening_audio(body: CourseListeningAudioBody,
     user = await get_supabase_user(authorization)
     return quiz_service.course_listening_audio(
         user_id=user["id"], bank_id=body.bank_id,
+        assignment_item_id=body.class_item,
     )
 
 

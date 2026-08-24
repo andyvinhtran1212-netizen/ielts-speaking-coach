@@ -209,8 +209,17 @@ describe('cổng hoàn thành bài nhiều phần', () => {
     assert.match(SRC, /await reading\.review\(\)/);
     assert.match(SRC, /await listening\.review\(\)/);
     assert.match(SRC, /assignmentItemId: requestedItem/);
+    assert.match(reviewHub, /reviewSectionCompleted\('reading'\)/);
+    assert.match(reviewHub, /reviewSectionCompleted\('listening'\)/);
     assert.match(reviewHub, /cx-reading-open/);
     assert.match(reviewHub, /cx-listening-open/);
+  });
+
+  test('review hub không suy phần đã nộp từ bank live', () => {
+    const reviewHub = functionBody('renderReviewHub');
+    assert.doesNotMatch(reviewHub, /\(reading\.exists\s*\?/);
+    assert.doesNotMatch(reviewHub, /\(listening\.exists\s*\?/);
+    assert.match(SRC, /runner\.mastery\?\.completed_sections/);
   });
 
   test('không mở phần chỉ mới được thêm vào bank sau lúc giao bài', () => {

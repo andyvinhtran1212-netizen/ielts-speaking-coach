@@ -100,7 +100,10 @@ export function CourseBehavior() {
 
       runner = createRunner({ api, storage: window.localStorage });
       try {
-        await runner.load(bankId, { reviewOnly: requestedView === 'writing' && Boolean(requestedItem) });
+        await runner.load(bankId, {
+          reviewOnly: requestedView === 'writing' && Boolean(requestedItem),
+          assignmentItemId: requestedItem,
+        });
       } catch (err: any) {
         return fail('Không mở được bài tập: ' + (err?.message || err));
       }
@@ -378,6 +381,12 @@ export function CourseBehavior() {
 
       let lastVerdict: any = null;
 
+      const completedReviewSections = new Set<string>(
+        Array.isArray(runner.mastery?.completed_sections)
+          ? runner.mastery.completed_sections : [],
+      );
+      const reviewSectionCompleted = (key: CourseSection) => completedReviewSections.has(key);
+
       /**
        * Màn kết luận. Ba trạng thái, không trạng thái nào im lặng:
        * đang xét → ĐẠT (chốt bài) → hoặc CHƯA ĐẠT kèm đúng một việc phải làm.
@@ -619,10 +628,10 @@ export function CourseBehavior() {
           + '<p class="cx-verdict__sub">Bạn đang ở chế độ chỉ xem; hệ thống sẽ không tạo lượt làm mới.</p>'
           + '</div></div><div class="cx-verdict__body"><div class="cx-verdict__actions">'
           + '<button class="av-button av-button-secondary" id="cx-see-report" type="button">Xem lại bài trắc nghiệm</button>'
-          + (reading.exists
+          + (reading.exists && reviewSectionCompleted('reading')
             ? '<button class="av-button av-button-secondary" id="cx-reading-open" type="button">Xem lại bài đọc đã nộp</button>'
             : '')
-          + (listening.exists
+          + (listening.exists && reviewSectionCompleted('listening')
             ? '<button class="av-button av-button-secondary" id="cx-listening-open" type="button">Xem lại bài nghe đã nộp</button>'
             : '')
           + (writingReady && writing.submitted
@@ -648,8 +657,10 @@ export function CourseBehavior() {
       }
 
       async function openReading() {
-        const completed = runner.reviewOnly || (lastVerdict?.sections || [])
-          .some((row: any) => row.key === 'reading' && row.completed === true);
+        const completed = runner.reviewOnly
+          ? reviewSectionCompleted('reading')
+          : (lastVerdict?.sections || [])
+            .some((row: any) => row.key === 'reading' && row.completed === true);
         if (!completed || reading.revealed) return renderReading();
         const box = $('cx-reading')!;
         box.hidden = false;
@@ -709,8 +720,10 @@ export function CourseBehavior() {
         window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
         try {
           await listening.refreshAudio();
-          const completed = runner.reviewOnly || (lastVerdict?.sections || [])
-            .some((row: any) => row.key === 'listening' && row.completed === true);
+          const completed = runner.reviewOnly
+            ? reviewSectionCompleted('listening')
+            : (lastVerdict?.sections || [])
+              .some((row: any) => row.key === 'listening' && row.completed === true);
           if (completed && !listening.revealed) await listening.review();
           renderListening();
         } catch (err: any) {

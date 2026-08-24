@@ -11488,6 +11488,8 @@ export interface components {
         CourseListeningAudioBody: {
             /** Bank Id */
             bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
         };
         /** CourseListeningBody */
         CourseListeningBody: {
@@ -27812,7 +27814,9 @@ export interface operations {
     };
     get_bank_api_quiz_banks__bank_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                class_item?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };

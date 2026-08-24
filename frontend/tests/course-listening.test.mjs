@@ -94,6 +94,23 @@ test('completed listening can hydrate canonical answers and transcript after rel
   assert.match(listening.render(), /Thành phố lớn hơn\./);
 });
 
+test('review audio is authorized against the exact submitted assignment item', async () => {
+  const calls = [];
+  const api = { post: async (path, body) => {
+    calls.push({ path, body });
+    return bank.meta.short_listening;
+  } };
+  const listening = createListening({
+    api, storage: storage(), userId: 'u1', assignmentItemId: 'item-old',
+  });
+  listening.load(bank);
+  assert.equal(await listening.refreshAudio(), true);
+  assert.deepEqual(calls, [{
+    path: '/api/quiz/course/listening-audio',
+    body: { bank_id: 'bank-05', class_item: 'item-old' },
+  }]);
+});
+
 test('draft keys are isolated by learner', () => {
   assert.notEqual(listeningDraftKey('bank-05', 'u1'), listeningDraftKey('bank-05', 'u2'));
 });

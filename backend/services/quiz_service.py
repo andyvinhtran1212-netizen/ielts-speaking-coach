@@ -611,7 +611,10 @@ def _assignment_item_for_review(
     return _assignment_item_for(bank_id, user_id, allow_submitted_review=True)
 
 
-def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
+def get_bank_for_play(
+    bank_id: str, user_id: str | None = None,
+    assignment_item_id: str | None = None,
+) -> dict:
     """Bank META + questions WITH answers, for the authed player. 404 unless the
     bank exists AND is published.
 
@@ -636,7 +639,9 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
         #
         # Trả 404 chứ không 403: 403 xác nhận bank ấy tồn tại, và với nội dung
         # giáo trình thì chính sự tồn tại cũng không cần nói ra.
-        item = _assignment_item_for_review(bank_id, user_id) if user_id else None
+        item = (_assignment_item_for_review(
+            bank_id, user_id, assignment_item_id=assignment_item_id,
+        ) if user_id else None)
         if not item:
             raise HTTPException(404, "Không tìm thấy bank")
         # Trạng thái cổng thuộc-bài, để trang nói được "đã đạt" ngay khi mở lại
@@ -652,6 +657,8 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
             cfg = mastery_config(asg[0] if asg else None)
             it = row[0] if row else {}
             att = ((it.get("mastery") or {}).get("attempts")) or []
+            latest_sections = ((att[-1].get("sections") or {})
+                               if att and isinstance(att[-1], dict) else {})
             mastery_state = {
                 # id MỤC bài giao — runner khoá trạng thái localStorage vào nó:
                 # em chuyển lớp rồi được giao lại CÙNG bank ở lớp mới là một
@@ -662,6 +669,11 @@ def get_bank_for_play(bank_id: str, user_id: str | None = None) -> dict:
                 "near_threshold": near_pass_pct(cfg["pass_pct"]),
                 "retake_size": cfg["retake_size"],
                 "retakes": sum(1 for a in att if a.get("phase") == "retake"),
+                # Canonical item snapshot, not the current bank. Review UI must
+                # not advertise a section added after this item was issued.
+                "completed_sections": [
+                    key for key in _COURSE_SECTION_LABELS if key in latest_sections
+                ],
                 "due_at": item.get("due_at"),
                 # A submitted assignment reopens read-only. Never create a new
                 # quiz session merely because the learner chose "Xem kết quả".
@@ -863,7 +875,14 @@ def course_reading_solution(*, user_id: str, bank_id: str,
                             submitted_answers: dict, duration_sec: int = 0,
                             assignment_item_id: str | None = None) -> dict:
     """Chấm + lưu phần đọc rồi mới trả bản dịch và lời giải."""
-    _bank_meta_or_404(bank_id, user_id)
+    if submitted_answers:
+        _bank_meta_or_404(
+            bank_id, user_id, assignment_item_id=assignment_item_id,
+        )
+    else:
+        _bank_meta_for_review_or_404(
+            bank_id, user_id, assignment_item_id=assignment_item_id,
+        )
     try:
         rows = (supabase_admin.table("quiz_banks").select("meta")
                 .eq("id", bank_id).limit(1).execute().data) or []
@@ -891,7 +910,14 @@ def course_listening_solution(*, user_id: str, bank_id: str,
                               submitted_answers: dict, duration_sec: int = 0,
                               assignment_item_id: str | None = None) -> dict:
     """Chấm + lưu phần nghe rồi mới trả đáp án và transcript."""
-    _bank_meta_or_404(bank_id, user_id)
+    if submitted_answers:
+        _bank_meta_or_404(
+            bank_id, user_id, assignment_item_id=assignment_item_id,
+        )
+    else:
+        _bank_meta_for_review_or_404(
+            bank_id, user_id, assignment_item_id=assignment_item_id,
+        )
     try:
         rows = (supabase_admin.table("quiz_banks").select("meta")
                 .eq("id", bank_id).limit(1).execute().data) or []
@@ -913,9 +939,16 @@ def course_listening_solution(*, user_id: str, bank_id: str,
     return {**solution, "answers": result["answer_key"], "result": result}
 
 
-def course_listening_audio(*, user_id: str, bank_id: str) -> dict:
+def course_listening_audio(
+    *, user_id: str, bank_id: str, assignment_item_id: str | None = None,
+) -> dict:
     """Tái ký URL ngay khi mở phần nghe; bank/assignment được kiểm tra lại."""
-    _bank_meta_or_404(bank_id, user_id)
+    if assignment_item_id:
+        _bank_meta_for_review_or_404(
+            bank_id, user_id, assignment_item_id=assignment_item_id,
+        )
+    else:
+        _bank_meta_or_404(bank_id, user_id)
     try:
         rows = (supabase_admin.table("quiz_banks").select("meta")
                 .eq("id", bank_id).limit(1).execute().data) or []
@@ -929,6 +962,7 @@ def course_listening_audio(*, user_id: str, bank_id: str) -> dict:
 
 def _bank_meta_or_404(
     bank_id: str, user_id: str | None = None, *, allow_submitted_review: bool = False,
+    assignment_item_id: str | None = None,
 ) -> dict:
     """Lightweight published-bank guard: fetch ONLY the bank's own row (id, code,
     is_published) — no questions, no word_cards. Used by start_session, which just
@@ -953,6 +987,7 @@ def _bank_meta_or_404(
     if bank.get("skill_area") == COURSE_AREA:
         item = (_assignment_item_for(
             bank_id, user_id, allow_submitted_review=allow_submitted_review,
+            assignment_item_id=assignment_item_id,
         ) if user_id else None)
         if not item:
             raise HTTPException(404, "Không tìm thấy bank")
@@ -961,14 +996,21 @@ def _bank_meta_or_404(
     return bank
 
 
-def _bank_meta_for_review_or_404(bank_id: str, user_id: str) -> dict:
+def _bank_meta_for_review_or_404(
+    bank_id: str, user_id: str, assignment_item_id: str | None = None,
+) -> dict:
     """Normal gate first; submitted-after-deadline fallback for reads only."""
     try:
-        return _bank_meta_or_404(bank_id, user_id)
+        return _bank_meta_or_404(
+            bank_id, user_id, assignment_item_id=assignment_item_id,
+        )
     except HTTPException as exc:
         if exc.status_code != 404:
             raise
-    return _bank_meta_or_404(bank_id, user_id, allow_submitted_review=True)
+    return _bank_meta_or_404(
+        bank_id, user_id, allow_submitted_review=True,
+        assignment_item_id=assignment_item_id,
+    )
 
 
 def _word_cards_for(bank: dict) -> dict:

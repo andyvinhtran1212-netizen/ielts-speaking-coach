@@ -148,7 +148,10 @@ export function createListening({ api, storage, userId, assignmentItemId = null,
     },
     async refreshAudio() {
       if (!data || !bankId) return false;
-      data = await api.post('/api/quiz/course/listening-audio', { bank_id: bankId });
+      data = await api.post('/api/quiz/course/listening-audio', {
+        bank_id: bankId,
+        ...(assignmentItemId ? { class_item: assignmentItemId } : {}),
+      });
       return true;
     },
     render,
