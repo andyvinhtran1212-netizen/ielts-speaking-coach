@@ -9,7 +9,8 @@ const esc = (value) => String(value == null ? '' : value)
 export const listeningDraftKey = (bankId, userId) =>
   `cl:${userId || 'anon'}:${bankId}`;
 
-export function createListening({ api, storage, userId, now = () => Date.now() }) {
+export function createListening({ api, storage, userId, assignmentItemId = null,
+  now = () => Date.now() }) {
   let bankId = null;
   let data = null;
   let draft = {};
@@ -127,7 +128,21 @@ export function createListening({ api, storage, userId, now = () => Date.now() }
       solution = await api.post('/api/quiz/course/listening-solution', {
         bank_id: bankId, answers: { ...draft },
         duration_sec: activeTimer.seconds(),
+        ...(assignmentItemId ? { class_item: assignmentItemId } : {}),
       });
+      draft = { ...(solution?.result?.submitted_answers || draft) };
+      save();
+      activeTimer.setActive(false);
+      return true;
+    },
+    async review() {
+      if (!data) return false;
+      solution = await api.post('/api/quiz/course/listening-solution', {
+        bank_id: bankId, answers: {}, duration_sec: 0,
+        ...(assignmentItemId ? { class_item: assignmentItemId } : {}),
+      });
+      draft = { ...(solution?.result?.submitted_answers || {}) };
+      save();
       activeTimer.setActive(false);
       return true;
     },

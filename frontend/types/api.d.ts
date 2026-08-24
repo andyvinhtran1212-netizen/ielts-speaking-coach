@@ -11493,6 +11493,8 @@ export interface components {
         CourseListeningBody: {
             /** Bank Id */
             bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
             /** Answers */
             answers?: {
                 [key: string]: string;
@@ -11520,6 +11522,8 @@ export interface components {
         CourseReadingBody: {
             /** Bank Id */
             bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
             /** Answers */
             answers?: {
                 [key: string]: string;

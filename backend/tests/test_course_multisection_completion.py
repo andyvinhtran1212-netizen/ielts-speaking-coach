@@ -309,6 +309,12 @@ def test_migration_is_additive_rls_protected_and_keeps_answer_snapshot():
     assert "UNIQUE (class_assignment_item_id, section)" in sql
     assert "answer_key" in sql and "duration_sec" in sql
     assert "ENABLE ROW LEVEL SECURITY" in sql
+    assert "REVOKE ALL ON TABLE public.course_section_submissions" in sql
+    assert "FROM PUBLIC, anon, authenticated" in sql
+    assert "GRANT ALL ON TABLE public.course_section_submissions TO service_role" in sql
+    for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE",
+                      "REFERENCES", "TRIGGER"):
+        assert f"('{privilege}')" in sql
     assert "ON DELETE SET NULL" in sql
     assert "course_section_submissions c" in sql
     assert "course_pronunciation_submissions p" in sql

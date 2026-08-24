@@ -342,6 +342,39 @@ def test_course_reading_solution_rejects_an_incomplete_attempt():
     assert exc.value.detail["missing"] == ["r-02"]
 
 
+def test_course_reading_solution_empty_answers_reviews_canonical_submission():
+    live_answers = [{"id": "r-01", "answer": "F", "explanation": "live changed"}]
+    saved_answers = [{"id": "r-01", "answer": "T", "explanation": "saved key"}]
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "is_published": True, "skill_area": "grammar",
+            "meta": {"short_reading": {
+                "translation": "Mai đọc.", "answers": live_answers,
+            }},
+        }],
+        ("course_section_submissions", "select"): [{
+            "answers": {"r-01": "T"}, "answer_key": saved_answers,
+            "total": 1, "correct": 1, "score": 100, "duration_sec": 20,
+            "submitted_at": "2026-08-20T00:00:00Z",
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for_review", return_value={
+             "id": "item-1", "assignment_id": "asg-1",
+         }) as review_item, \
+         patch.object(quiz_service, "refresh_course_completion") as refresh:
+        out = quiz_service.course_reading_solution(
+            user_id=_USER, bank_id=_BANK, submitted_answers={},
+            assignment_item_id="item-1")
+    assert out["answers"] == saved_answers
+    assert out["result"]["submitted_answers"] == {"r-01": "T"}
+    review_item.assert_called_once_with(
+        _BANK, _USER, assignment_item_id="item-1")
+    assert not any(call["table"] == "course_section_submissions" and call["op"] == "insert"
+                   for call in fake.calls)
+    refresh.assert_not_called()
+
+
 def test_course_listening_solution_is_guarded_and_requires_every_answer():
     solution = {
         "answers": [{"id": "l-A1", "answer": "A", "transcript": "city"},

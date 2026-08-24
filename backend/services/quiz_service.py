@@ -748,11 +748,18 @@ def _grade_course_section(submitted: dict, answer_rows: list[dict]) -> tuple[int
 def _save_course_section_result(
     *, user_id: str, bank_id: str, section: str, answers: dict,
     answer_rows: list[dict], duration_sec: int,
+    assignment_item_id: str | None = None,
 ) -> dict:
-    item = _assignment_item_for(bank_id, user_id)
+    review_existing = not bool(answers)
+    item = (_assignment_item_for_review(
+        bank_id, user_id, assignment_item_id=assignment_item_id,
+    ) if review_existing else _assignment_item_for(
+        bank_id, user_id, assignment_item_id=assignment_item_id,
+    ))
     if not item:
         raise HTTPException(404, "Không tìm thấy bài giao còn hiệu lực")
     expected = [str(row.get("id") or "") for row in answer_rows if row.get("id")]
+    total = len(answer_rows)
     submitted = {}
     for qid in expected:
         value = str((answers or {}).get(qid) or "").strip()
@@ -760,35 +767,49 @@ def _save_course_section_result(
             raise HTTPException(422, f"Câu {qid} vượt quá 2.000 ký tự")
         submitted[qid] = value
     missing = [qid for qid in expected if not submitted.get(qid)]
-    if missing:
-        raise HTTPException(422, {
-            "message": f"Còn {len(missing)} câu {section} chưa trả lời.",
-            "missing": missing,
-        })
-    correct, total = _grade_course_section(submitted, answer_rows)
-    safe_duration = max(0, min(int(duration_sec or 0), 12 * 60 * 60))
-    row = {
-        "bank_id": bank_id,
-        "user_id": user_id,
-        "class_assignment_item_id": item["id"],
-        "section": section,
-        "answers": {qid: submitted[qid] for qid in expected},
-        "answer_key": answer_rows,
-        "total": total,
-        "correct": correct,
-        "score": round(correct / total * 100, 2),
-        "duration_sec": safe_duration,
-    }
+    row = None
+    reviewed_existing = False
     try:
         existing = (supabase_admin.table("course_section_submissions")
                     .select("*").eq("class_assignment_item_id", item["id"])
                     .eq("section", section).limit(1).execute().data) or []
         if existing:
             prior_answers = existing[0].get("answers") or {}
-            if prior_answers != row["answers"]:
+            if review_existing:
+                # Empty answers are a read-only review request.  They reveal
+                # nothing unless this user already owns a canonical completed
+                # row for the same assignment item and section.
+                saved = existing[0]
+                reviewed_existing = True
+            elif missing:
+                raise HTTPException(422, {
+                    "message": f"Còn {len(missing)} câu {section} chưa trả lời.",
+                    "missing": missing,
+                })
+            elif prior_answers != submitted:
                 raise HTTPException(409, f"Phần {section} đã nộp rồi — không sửa được nữa.")
-            saved = existing[0]
+            else:
+                saved = existing[0]
         else:
+            if missing:
+                raise HTTPException(422, {
+                    "message": f"Còn {len(missing)} câu {section} chưa trả lời.",
+                    "missing": missing,
+                })
+            correct, total = _grade_course_section(submitted, answer_rows)
+            safe_duration = max(0, min(int(duration_sec or 0), 12 * 60 * 60))
+            row = {
+                "bank_id": bank_id,
+                "user_id": user_id,
+                "class_assignment_item_id": item["id"],
+                "section": section,
+                "answers": {qid: submitted[qid] for qid in expected},
+                "answer_key": answer_rows,
+                "total": total,
+                "correct": correct,
+                "score": round(correct / total * 100, 2),
+                "duration_sec": safe_duration,
+            }
             saved_rows = (supabase_admin.table("course_section_submissions")
                           .insert(row).execute().data) or []
             if not saved_rows:
@@ -807,7 +828,7 @@ def _save_course_section_result(
             except Exception as read_exc:  # noqa: BLE001
                 raise HTTPException(
                     500, f"Không xác nhận được lượt nộp phần {section}") from read_exc
-            if raced and (raced[0].get("answers") or {}) == row["answers"]:
+            if row and raced and (raced[0].get("answers") or {}) == row["answers"]:
                 saved = raced[0]
             else:
                 raise HTTPException(409, f"Phần {section} đã được nộp ở nơi khác.")
@@ -820,21 +841,27 @@ def _save_course_section_result(
         "pct": float(saved.get("score") or 0),
         "duration_sec": int(saved.get("duration_sec") or 0),
         "submitted_at": saved.get("submitted_at") or saved.get("created_at"),
+        "submitted_answers": saved.get("answers") or {},
+        # Use the immutable answer snapshot when reviewing a completed section;
+        # a later bank import must not rewrite what the learner was graded on.
+        "answer_key": saved.get("answer_key") or answer_rows,
     }
-    try:
-        result["course"] = refresh_course_completion(
-            user_id=user_id, bank_id=bank_id, item_id=item["id"],
-            assignment_id=item.get("assignment_id"),
-        )
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("[quiz] section completion refresh failed item=%s: %s",
-                       item.get("id"), exc)
-        result["completion_pending"] = True
+    if not reviewed_existing:
+        try:
+            result["course"] = refresh_course_completion(
+                user_id=user_id, bank_id=bank_id, item_id=item["id"],
+                assignment_id=item.get("assignment_id"),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[quiz] section completion refresh failed item=%s: %s",
+                           item.get("id"), exc)
+            result["completion_pending"] = True
     return result
 
 
 def course_reading_solution(*, user_id: str, bank_id: str,
-                            submitted_answers: dict, duration_sec: int = 0) -> dict:
+                            submitted_answers: dict, duration_sec: int = 0,
+                            assignment_item_id: str | None = None) -> dict:
     """Chấm + lưu phần đọc rồi mới trả bản dịch và lời giải."""
     _bank_meta_or_404(bank_id, user_id)
     try:
@@ -855,12 +882,14 @@ def course_reading_solution(*, user_id: str, bank_id: str,
     result = _save_course_section_result(
         user_id=user_id, bank_id=bank_id, section="reading",
         answers=submitted_answers, answer_rows=answers, duration_sec=duration_sec,
+        assignment_item_id=assignment_item_id,
     )
-    return {"translation": translation, "answers": answers, "result": result}
+    return {"translation": translation, "answers": result["answer_key"], "result": result}
 
 
 def course_listening_solution(*, user_id: str, bank_id: str,
-                              submitted_answers: dict, duration_sec: int = 0) -> dict:
+                              submitted_answers: dict, duration_sec: int = 0,
+                              assignment_item_id: str | None = None) -> dict:
     """Chấm + lưu phần nghe rồi mới trả đáp án và transcript."""
     _bank_meta_or_404(bank_id, user_id)
     try:
@@ -879,8 +908,9 @@ def course_listening_solution(*, user_id: str, bank_id: str,
     result = _save_course_section_result(
         user_id=user_id, bank_id=bank_id, section="listening",
         answers=submitted_answers, answer_rows=answers, duration_sec=duration_sec,
+        assignment_item_id=assignment_item_id,
     )
-    return {**solution, "result": result}
+    return {**solution, "answers": result["answer_key"], "result": result}
 
 
 def course_listening_audio(*, user_id: str, bank_id: str) -> dict:

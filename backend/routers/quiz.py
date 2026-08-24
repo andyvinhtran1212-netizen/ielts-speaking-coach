@@ -141,6 +141,7 @@ class CourseWritingBody(BaseModel):
 
 class CourseReadingBody(BaseModel):
     bank_id: str
+    class_item: str | None = None
     # Nộp đủ một lần; server tự chấm từ đáp án canonical và lưu theo bài giao.
     answers: dict[str, str] = Field(default_factory=dict, max_length=2000)
     duration_sec: int = Field(default=0, ge=0, le=12 * 60 * 60)
@@ -148,6 +149,7 @@ class CourseReadingBody(BaseModel):
 
 class CourseListeningBody(BaseModel):
     bank_id: str
+    class_item: str | None = None
     # Nộp đủ một lần; server tự chấm từ đáp án canonical và lưu theo bài giao.
     answers: dict[str, str] = Field(default_factory=dict, max_length=2000)
     duration_sec: int = Field(default=0, ge=0, le=12 * 60 * 60)
@@ -202,7 +204,7 @@ async def course_reading_solution(body: CourseReadingBody,
     user = await get_supabase_user(authorization)
     return quiz_service.course_reading_solution(
         user_id=user["id"], bank_id=body.bank_id, submitted_answers=body.answers,
-        duration_sec=body.duration_sec,
+        duration_sec=body.duration_sec, assignment_item_id=body.class_item,
     )
 
 
@@ -213,7 +215,7 @@ async def course_listening_solution(body: CourseListeningBody,
     user = await get_supabase_user(authorization)
     return quiz_service.course_listening_solution(
         user_id=user["id"], bank_id=body.bank_id, submitted_answers=body.answers,
-        duration_sec=body.duration_sec,
+        duration_sec=body.duration_sec, assignment_item_id=body.class_item,
     )
 
 

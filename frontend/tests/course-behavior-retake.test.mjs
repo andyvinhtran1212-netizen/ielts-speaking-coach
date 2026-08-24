@@ -196,10 +196,21 @@ describe('cổng hoàn thành bài nhiều phần', () => {
     assert.match(SRC, /sectionRows\.filter/);
   });
 
-  test('chỉ mở hành động cho phần chưa hoàn thành', () => {
-    for (const key of ['writingDone', 'readingDone', 'listeningDone', 'pronunciationDone']) {
+  test('phần tự luận và phát âm chỉ mở làm khi chưa hoàn thành', () => {
+    for (const key of ['writingDone', 'pronunciationDone']) {
       assert.match(SRC, new RegExp(`!${key}`));
     }
+  });
+
+  test('phần đọc và nghe đã hoàn thành vẫn có hành động xem lại', () => {
+    const reviewHub = functionBody('renderReviewHub');
+    assert.match(SRC, /readingDone \? 'Xem lại bài đọc đã nộp'/);
+    assert.match(SRC, /listeningDone \? 'Xem lại bài nghe đã nộp'/);
+    assert.match(SRC, /await reading\.review\(\)/);
+    assert.match(SRC, /await listening\.review\(\)/);
+    assert.match(SRC, /assignmentItemId: requestedItem/);
+    assert.match(reviewHub, /cx-reading-open/);
+    assert.match(reviewHub, /cx-listening-open/);
   });
 
   test('không mở phần chỉ mới được thêm vào bank sau lúc giao bài', () => {

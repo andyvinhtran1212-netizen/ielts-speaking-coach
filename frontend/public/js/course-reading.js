@@ -20,7 +20,8 @@ export function inlineMd(value) {
 export const readingDraftKey = (bankId, userId) =>
   `cr:${userId || 'anon'}:${bankId}`;
 
-export function createReading({ api, storage, userId, now = () => Date.now() }) {
+export function createReading({ api, storage, userId, assignmentItemId = null,
+  now = () => Date.now() }) {
   let bankId = null;
   let data = null;
   let draft = {};
@@ -161,7 +162,21 @@ export function createReading({ api, storage, userId, now = () => Date.now() }) 
       solution = await api.post('/api/quiz/course/reading-solution', {
         bank_id: bankId, answers: { ...draft },
         duration_sec: activeTimer.seconds(),
+        ...(assignmentItemId ? { class_item: assignmentItemId } : {}),
       });
+      draft = { ...(solution?.result?.submitted_answers || draft) };
+      save();
+      activeTimer.setActive(false);
+      return true;
+    },
+    async review() {
+      if (!data) return false;
+      solution = await api.post('/api/quiz/course/reading-solution', {
+        bank_id: bankId, answers: {}, duration_sec: 0,
+        ...(assignmentItemId ? { class_item: assignmentItemId } : {}),
+      });
+      draft = { ...(solution?.result?.submitted_answers || {}) };
+      save();
       activeTimer.setActive(false);
       return true;
     },

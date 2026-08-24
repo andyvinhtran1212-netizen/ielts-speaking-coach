@@ -75,6 +75,25 @@ test('refreshes signed audio when the learner opens the listening flow', async (
   assert.doesNotMatch(listening.render(), /Nghe được:/);
 });
 
+test('completed listening can hydrate canonical answers and transcript after reload', async () => {
+  const api = { post: async (path, body) => {
+    assert.equal(path, '/api/quiz/course/listening-solution');
+    assert.deepEqual(body, { bank_id: 'bank-05', answers: {}, duration_sec: 0 });
+    return {
+      answers: [{ id: 'l-A1', answer: 'A', transcript: 'city' },
+        { id: 'l-D1', answer: 'T' }],
+      talk_transcript: 'The city is bigger.', talk_translation: 'Thành phố lớn hơn.',
+      result: { submitted_answers: { 'l-A1': 'A', 'l-D1': 'T' } },
+    };
+  } };
+  const listening = createListening({ api, storage: storage(), userId: 'u1' });
+  listening.load(bank);
+  assert.equal(await listening.review(), true);
+  assert.match(listening.render(), /Nghe được: “city”/);
+  assert.match(listening.render(), /value="A" checked/);
+  assert.match(listening.render(), /Thành phố lớn hơn\./);
+});
+
 test('draft keys are isolated by learner', () => {
   assert.notEqual(listeningDraftKey('bank-05', 'u1'), listeningDraftKey('bank-05', 'u2'));
 });

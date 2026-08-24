@@ -170,6 +170,13 @@ async def list_cohorts(authorization: str | None = Header(None)):
             continue
         cell = _cell_status(a, essays.get(a.get("essay_id")))
         for cid in cids:
+            # A learner may retain Writing history stamped to a cohort that is
+            # now archived while belonging to another active cohort.  This
+            # endpoint summarizes active cohorts only; historical origins must
+            # not be re-attributed to the learner's current class or index a
+            # non-existent summary bucket.
+            if cid not in summary:
+                continue
             st = summary[cid]
             if cell not in ("delivered", "failed"):
                 st["active_assignments"] += 1

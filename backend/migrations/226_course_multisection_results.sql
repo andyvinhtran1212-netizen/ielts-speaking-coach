@@ -67,6 +67,9 @@ COMMENT ON COLUMN course_section_submissions.duration_sec IS
 
 -- Học viên chỉ đi qua API đã kiểm tra bài giao. Không mở policy PostgREST.
 ALTER TABLE course_section_submissions ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.course_section_submissions
+    FROM PUBLIC, anon, authenticated;
+GRANT ALL ON TABLE public.course_section_submissions TO service_role;
 
 -- Nâng hàng rào xoá bài giao của mig 196. Nếu không thêm hai bảng mới, một bài
 -- đã nộp đọc/nghe hoặc phát âm nhưng chưa chốt ledger vẫn bị RPC coi là trắng
@@ -177,6 +180,12 @@ COMMIT;
 --  ORDER BY table_name, ordinal_position;
 -- SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint
 --  WHERE conrelid = 'course_section_submissions'::regclass;
+-- SELECT role_name, privilege_type,
+--        has_table_privilege(role_name, 'public.course_section_submissions', privilege_type)
+--   FROM (VALUES ('anon'), ('authenticated'), ('service_role')) roles(role_name)
+--  CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE'),
+--                     ('TRUNCATE'), ('REFERENCES'), ('TRIGGER')) privileges(privilege_type)
+--  ORDER BY role_name, privilege_type;
 -- SELECT prosrc LIKE '%course_section_submissions c%' AS co_doc_nghe,
 --        prosrc LIKE '%course_pronunciation_submissions p%' AS co_phat_am
 --   FROM pg_proc WHERE proname = 'fn_delete_class_assignment_if_unsubmitted';
