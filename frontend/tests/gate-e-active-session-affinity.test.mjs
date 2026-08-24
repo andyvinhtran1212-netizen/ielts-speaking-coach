@@ -139,7 +139,7 @@ describe('current admission policy preserves behavior', () => {
     );
   });
 
-  test('the four authorized core surfaces admit Next on staging and production', () => {
+  test('the four core surfaces stay Next on staging but fail closed on production', () => {
     const queryBySurface = {
       speaking: 'surface=speaking&session_id=session-1',
       reading_exam: 'surface=reading_exam&test_id=reading-1',
@@ -148,18 +148,23 @@ describe('current admission policy preserves behavior', () => {
     };
     for (const [surface, query] of Object.entries(queryBySurface)) {
       assert.equal(CORE_PLAYER_AFFINITY_POLICY.surfaces[surface].admit_new, 'next');
-      for (const deployment of [
-        { vercelEnv: 'preview', gitRef: 'staging' },
-        { vercelEnv: 'production', gitRef: 'main' },
-      ]) {
-        assert.equal(corePlayerAdmissionForDeployment(surface, deployment), 'next');
-        assert.match(
-          resolveCorePlayerAdmissionFromParamsForDeployment(
-            new URLSearchParams(query), deployment,
-          ),
-          /^\/(?!pages\/)/,
-        );
-      }
+      const staging = { vercelEnv: 'preview', gitRef: 'staging' };
+      assert.equal(corePlayerAdmissionForDeployment(surface, staging), 'next');
+      assert.match(
+        resolveCorePlayerAdmissionFromParamsForDeployment(
+          new URLSearchParams(query), staging,
+        ),
+        /^\/(?!pages\/)/,
+      );
+
+      const production = { vercelEnv: 'production', gitRef: 'main' };
+      assert.equal(corePlayerAdmissionForDeployment(surface, production), 'legacy');
+      assert.match(
+        resolveCorePlayerAdmissionFromParamsForDeployment(
+          new URLSearchParams(query), production,
+        ),
+        /^\/pages\//,
+      );
     }
   });
 

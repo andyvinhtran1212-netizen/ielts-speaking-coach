@@ -86,6 +86,18 @@ export const STAGING_CORE_PLAYER_ADMISSION_OVERRIDES = Object.freeze({
   // deployment-scoped hook so later staged cutovers cannot alter production.
 });
 
+// Production rollback guard (2026-08-25): the production database still has
+// the pre-renumber 215–218 ledger and does not yet expose the renderer-affinity
+// columns/functions. Keep staging on the canonical Next policy while routing
+// fresh production attempts to Legacy until the production schema is
+// reconciled and verified. Writing is intentionally not part of this rollback.
+export const PRODUCTION_CORE_PLAYER_ADMISSION_OVERRIDES = Object.freeze({
+  speaking: 'legacy',
+  reading_exam: 'legacy',
+  listening_test: 'legacy',
+  listening_dictation: 'legacy',
+});
+
 const IMPLEMENTATIONS = new Set(['legacy', 'next']);
 const REQUIRED_SURFACES = Object.freeze([
   'speaking',
@@ -111,6 +123,10 @@ export function corePlayerAdmissionForDeployment(
   policy = CORE_PLAYER_AFFINITY_POLICY,
 ) {
   const config = surfacePolicy(surface, policy);
+  const productionOverride = PRODUCTION_CORE_PLAYER_ADMISSION_OVERRIDES[surface];
+  if (vercelEnv === 'production' && gitRef === 'main' && productionOverride) {
+    return productionOverride;
+  }
   const override = STAGING_CORE_PLAYER_ADMISSION_OVERRIDES[surface];
   if (vercelEnv === 'preview' && gitRef === 'staging' && override) return override;
   return config.admit_new;
