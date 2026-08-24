@@ -166,7 +166,7 @@ check('progress không đọc được không mở đường xoá', await unknow
 const markingButton = page.locator('tr').filter({ hasText: 'Grammar 1' }).getByRole('button', { name: 'Nhận bài' });
 check('marking mở bằng workspace native', await markingButton.count() === 1 && await page.locator('a[href*="/pages/admin/classes/index.html"]').count() === 0);
 
-await page.getByRole('button', { name: 'Giao bài mới' }).click();
+await page.getByRole('button', { name: 'Giao bài lớp' }).click();
 let create = page.getByRole('dialog');
 await create.getByLabel('Chủ đề').selectOption('topic-1');
 await create.getByLabel('Tên bài giao').fill('Speaking theo thứ tự');
@@ -201,7 +201,7 @@ const speakingBody = JSON.parse(speakingWrite?.body || '{}');
 check('payload Speaking giữ nguyên click order q2→q1', JSON.stringify(speakingBody.question_ids) === '["q2","q1"]', speakingWrite?.body || 'missing write');
 check('giao Speaking được canonical reload trước success', hasReadAfter(speakingWrite));
 
-await page.getByRole('button', { name: 'Giao bài mới' }).click();
+await page.getByRole('button', { name: 'Giao bài lớp' }).click();
 create = page.getByRole('dialog');
 await create.getByLabel('Kỹ năng').selectOption('course');
 await create.getByLabel('Bộ bài tập').selectOption('bank-2');

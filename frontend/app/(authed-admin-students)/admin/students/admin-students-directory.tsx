@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { Dialog, Field, messageOf, StatusBanner } from '@/components/admin-directory-ui';
+import { assignmentHref } from '@/lib/admin-writing-assignments-model.mjs';
 import {
   cohortTruth,
   formatBandGoal,
@@ -61,7 +62,8 @@ function ProfileDialog({ profile, onClose }: { profile: ProfileState | null; onC
       description={subtitle}
       onClose={onClose}
       actions={<>
-        {profile && <a className="adm-btn-secondary" href={`/admin/writing/new?student_id=${encodeURIComponent(profile.id)}`}>Gửi bài chấm</a>}
+        {profile && <a className="adm-btn-secondary" href={assignmentHref({}, { studentId: profile.id })} aria-label={`Giao bài Writing cho ${title}`}>Giao bài Writing</a>}
+        {profile && <a className="adm-btn-secondary" href={`/admin/writing/new?student_id=${encodeURIComponent(profile.id)}`} aria-label={`Gửi bài chấm cho ${title}`}>Gửi bài chấm</a>}
         <button className="adm-btn-primary" type="button" onClick={onClose}>Đóng</button>
       </>}
     >
@@ -209,7 +211,7 @@ export function AdminStudentsDirectory() {
       // Clear the action inputs now so a stale retry cannot submit it twice.
       setSelected(new Set());
       setBulkCohort('');
-      await canonicalReload(`Đã xếp ${result.assigned ?? selected.size} học viên vào lớp.`);
+      await canonicalReload(`Đã thêm ${result.assigned ?? selected.size} học viên vào lớp; các lớp khác được giữ nguyên.`);
     } catch (caught) { setBanner({ kind: 'error', text: messageOf(caught) }); }
     finally { setBusy(false); }
   };
@@ -270,14 +272,14 @@ export function AdminStudentsDirectory() {
 
     <section className="acd-workspace" aria-label="Danh sách học viên">
       <div className="asd-toolbar"><Field label="Tìm học viên"><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tên hoặc mã học viên…" disabled={busy} /></Field><button className="adm-btn-secondary" type="button" onClick={() => void loadStudents(debouncedQuery)} disabled={loading || busy}>{loading ? 'Đang tải…' : 'Tải lại'}</button></div>
-      {selected.size ? <div className="asd-bulk" role="region" aria-label="Xếp lớp hàng loạt"><strong>{selected.size} đã chọn</strong><select aria-label="Lớp đích" value={bulkCohort} onChange={(event) => setBulkCohort(event.target.value)} disabled={Boolean(cohortError) || busy}><option value="">Chọn lớp hoạt động…</option>{cohorts.map((cohort) => <option key={cohort.id} value={cohort.id}>{cohort.name}</option>)}</select><button className="adm-btn-primary adm-btn-sm" type="button" onClick={() => void assignSelected()} disabled={!bulkCohort || busy}>Xếp vào lớp</button><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setSelected(new Set())} disabled={busy}>Bỏ chọn</button></div> : null}
+      {selected.size ? <div className="asd-bulk" role="region" aria-label="Thêm lớp hàng loạt"><strong>{selected.size} đã chọn · không gỡ lớp hiện có</strong><select aria-label="Lớp cần thêm" value={bulkCohort} onChange={(event) => setBulkCohort(event.target.value)} disabled={Boolean(cohortError) || busy}><option value="">Chọn lớp hoạt động…</option>{cohorts.map((cohort) => <option key={cohort.id} value={cohort.id}>{cohort.name}</option>)}</select><button className="adm-btn-primary adm-btn-sm" type="button" onClick={() => void assignSelected()} disabled={!bulkCohort || busy}>Thêm vào lớp</button><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setSelected(new Set())} disabled={busy}>Bỏ chọn</button></div> : null}
       <div className="acd-result-bar"><strong>{loadError ? (showingStale ? `${students.length} học viên · dữ liệu lần tải trước` : 'Chưa đọc được danh sách') : students.length === LIMIT ? '200+ học viên' : `${students.length} học viên`}</strong><span>{students.length === LIMIT ? 'Thu hẹp tìm kiếm để đếm chính xác.' : 'Kết quả tìm kiếm từ backend.'}</span></div>
       {loadError && <div className={showingStale ? 'acd-warning' : 'acd-state is-error'} role="alert"><strong>Không tải được danh sách mới nhất</strong><span>{loadError}{showingStale ? ' Dữ liệu bên dưới có thể đã cũ.' : ''}</span><button className="adm-btn-secondary" type="button" onClick={() => void loadStudents(debouncedQuery)} disabled={loading || busy}>Thử lại</button></div>}
       {!loadError && loading && !hasSnapshot ? <div className="acd-state" role="status"><span className="acd-spinner" aria-hidden="true" />Đang tải danh sách học viên…</div> : null}
       {!loadError && !loading && !students.length ? <div className="acd-state"><strong>{debouncedQuery ? 'Không có học viên khớp tìm kiếm' : 'Chưa có học viên nào'}</strong><span>{debouncedQuery ? 'Thử tên hoặc mã khác.' : 'Thêm hồ sơ đầu tiên hoặc import CSV.'}</span></div> : null}
       {(students.length > 0) ? <div className="acd-table-scroll"><table className="acd-table asd-table"><thead><tr><th className="asd-check"><input type="checkbox" aria-label="Chọn tất cả học viên trong kết quả" checked={allSelected} onChange={toggleAll} disabled={busy} /></th><th>Học viên</th><th>Lớp</th><th>Tài khoản</th><th>Mục tiêu</th><th><span className="sr-only">Thao tác</span></th></tr></thead><tbody>{students.map((student) => {
         const cohort = cohortTruth(student);
-        return <tr key={student.id}><td className="asd-check"><input type="checkbox" aria-label={`Chọn ${student.full_name}`} checked={selected.has(student.id)} onChange={() => toggleOne(student.id)} disabled={busy} /></td><td><button className="asd-student-name" type="button" onClick={() => void openProfile(student)}><strong>{student.full_name}</strong><code>{student.student_code}</code></button></td><td><span className={`asd-cohort is-${cohort.kind}`}>{cohort.label}</span></td><td><span className={`adm-status-pill ${student.user_id ? 'is-active' : 'is-archived'}`}>{student.user_id ? 'Đã kích hoạt' : 'Chưa kích hoạt'}</span></td><td><div className="asd-goal"><strong>{formatBandGoal(student)}</strong>{student.target_date && <span>{dateLabel(student.target_date)}</span>}</div></td><td><div className="acd-actions"><a className="adm-btn-secondary adm-btn-sm" href={`/admin/writing/new?student_id=${encodeURIComponent(student.id)}`}>Gửi bài chấm</a><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setDraft(studentDraft(student) as StudentDraft)} disabled={busy}>Sửa</button></div></td></tr>;
+        return <tr key={student.id}><td className="asd-check"><input type="checkbox" aria-label={`Chọn ${student.full_name}`} checked={selected.has(student.id)} onChange={() => toggleOne(student.id)} disabled={busy} /></td><td className="asd-student-cell"><button className="asd-student-name" type="button" onClick={() => void openProfile(student)}><strong>{student.full_name}</strong><code>{student.student_code}</code></button></td><td className="asd-cohort-cell">{student.cohorts.length ? <div className="asd-cohort-list" aria-label={`Các lớp của ${student.full_name}`}>{student.cohorts.map((item) => <span className="adm-chip" key={item.id}>{item.name || 'Không đọc được tên lớp'}</span>)}{student.membership_lookup_failed || student.cohort_lookup_failed ? <span className="asd-cohort-warning">⚠ lookup failed</span> : null}</div> : <span className={`asd-cohort is-${cohort.kind}`}>{cohort.label}</span>}</td><td className="asd-account-cell"><span className={`adm-status-pill ${student.user_id ? 'is-active' : 'is-archived'}`}>{student.user_id ? 'Đã kích hoạt' : 'Chưa kích hoạt'}</span></td><td className="asd-goal-cell"><div className="asd-goal"><strong>{formatBandGoal(student)}</strong>{student.target_date && <span>{dateLabel(student.target_date)}</span>}</div></td><td><div className="acd-actions"><a className="adm-btn-secondary adm-btn-sm" href={assignmentHref({}, { studentId: student.id })} aria-label={`Giao bài Writing cho ${student.full_name}`}>Giao bài Writing</a><a className="adm-btn-secondary adm-btn-sm" href={`/admin/writing/new?student_id=${encodeURIComponent(student.id)}`} aria-label={`Gửi bài chấm cho ${student.full_name}`}>Gửi bài chấm</a><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setDraft(studentDraft(student) as StudentDraft)} aria-label={`Sửa hồ sơ ${student.full_name}`} disabled={busy}>Sửa</button></div></td></tr>;
       })}</tbody></table></div> : null}
     </section>
 

@@ -1,8 +1,7 @@
 """
 tests/test_cohort_members.py — WF-1 (class roster).
 
-GET /admin/cohorts/{id}/members — CLASS ROSTER from `students.cohort_id` (the
-single source of truth writing fan-out + grade-matrix also read), with per-member
+GET /admin/cohorts/{id}/members — canonical active membership roster, with per-member
 usage joined via students.user_id (Sprint 17.2 aggregation). Pins: roster =
 students in the cohort, students without a linked user show zero usage, other
 cohorts excluded, 404, guard.
@@ -33,7 +32,8 @@ class _B:
     def __init__(self, name, tables, sink=None):
         self._name, self._t, self._eqs = name, tables, []
         self._sink, self._upd = sink, None
-        self._gts, self._order_col, self._limit = [], None, None
+        self._gts, self._ins, self._order_col, self._limit = [], [], None, None
+        self._range = None
 
     def select(self, *a, **k): return self
     def order(self, col, *a, **k):
@@ -42,7 +42,8 @@ class _B:
     def limit(self, value):
         self._limit = value
         return self
-    def in_(self, *a, **k): return self
+    def in_(self, col, vals): self._ins.append((col, vals)); return self
+    def range(self, start, end): self._range = (start, end); return self
     def gte(self, *a, **k): return self
     def lte(self, *a, **k): return self
     def gt(self, col, val):
@@ -61,12 +62,16 @@ class _B:
         rows = list(self._t.get(self._name, []))
         for col, val in self._eqs:
             rows = [r for r in rows if r.get(col) == val]
+        for col, vals in self._ins:
+            rows = [r for r in rows if r.get(col) in vals]
         for col, val in self._gts:
             rows = [r for r in rows if (r.get(col) or "") > val]
         if self._order_col:
             rows.sort(key=lambda row: row.get(self._order_col) or "")
         if self._limit is not None:
             rows = rows[:self._limit]
+        if self._range is not None:
+            rows = rows[self._range[0]:self._range[1] + 1]
         if self._upd is not None and self._sink is not None:
             self._sink.append({"table": self._name, "payload": self._upd, "eqs": list(self._eqs)})
         return _Exec(rows)
@@ -79,6 +84,15 @@ class _Stub:
 
     def table(self, name):
         return _B(name, self._t, self.writes)
+
+    def rpc(self, name, params):
+        self.writes.append({"rpc": name, "params": params})
+        values = {
+            "fn_add_student_cohort_membership": True,
+            "fn_add_students_cohort_membership": len(params.get("p_student_ids") or []),
+            "fn_remove_student_cohort_membership": True,
+        }
+        return type("RPC", (), {"execute": lambda _self: _Exec(values[name])})()
 
 
 def _install(monkeypatch, tables):
@@ -93,13 +107,18 @@ def _install(monkeypatch, tables):
     return stub
 
 
-def test_members_roster_from_students_cohort_id_with_usage(monkeypatch):
+def test_members_roster_from_active_memberships_with_usage(monkeypatch):
     _install(monkeypatch, {
         "cohorts": [{"id": "co1", "name": "Lớp A", "is_active": True, "description": "x"}],
         "students": [
             {"id": "s1", "student_code": "S001", "full_name": "An",   "cohort_id": "co1", "user_id": "u1"},
             {"id": "s2", "student_code": "S002", "full_name": "Bình", "cohort_id": "co1", "user_id": None},  # not activated → zero usage
             {"id": "s3", "student_code": "S003", "full_name": "Khác", "cohort_id": "other"},                 # other cohort → excluded
+        ],
+        "student_cohort_memberships": [
+            {"id": "m1", "student_id": "s1", "cohort_id": "co1", "is_active": True},
+            {"id": "m2", "student_id": "s2", "cohort_id": "co1", "is_active": True},
+            {"id": "m3", "student_id": "s3", "cohort_id": "other", "is_active": True},
         ],
         "sessions": [{"user_id": "u1", "started_at": "2026-01-02T00:00:00Z"},
                      {"user_id": "u1", "started_at": "2026-01-09T00:00:00Z"}],
@@ -148,7 +167,7 @@ def test_members_admin_guarded(monkeypatch):
 
 # ── WF-1 roster assign / remove (students.cohort_id; NO code issued) ──────────
 
-def test_assign_student_sets_cohort_id_no_code(monkeypatch):
+def test_assign_student_adds_membership_without_code(monkeypatch):
     stub = _install(monkeypatch, {
         "cohorts":  [{"id": "co1", "name": "Lớp A"}],
         "students": [{"id": "s1", "student_code": "S001", "full_name": "An", "cohort_id": None}],
@@ -156,11 +175,10 @@ def test_assign_student_sets_cohort_id_no_code(monkeypatch):
     body = cohorts_module.AssignStudentRequest(student_id="s1")
     out = _run(cohorts_module.assign_student_to_cohort("co1", body, authorization="x"))
     assert out["ok"] and out["cohort_id"] == "co1"
-    # exactly one write: students.cohort_id = co1 for s1 (NO user_code_assignments touched)
-    sw = [w for w in stub.writes if w["table"] == "students"]
-    assert len(sw) == 1 and sw[0]["payload"] == {"cohort_id": "co1"}
-    assert ("id", "s1") in sw[0]["eqs"]
-    assert not [w for w in stub.writes if w["table"] in ("user_code_assignments", "access_codes")]
+    calls = [w for w in stub.writes if w.get("rpc") == "fn_add_student_cohort_membership"]
+    assert calls == [{"rpc": "fn_add_student_cohort_membership", "params": {
+        "p_student_id": "s1", "p_cohort_id": "co1", "p_added_by": "admin"}}]
+    assert not [w for w in stub.writes if w.get("table") in ("user_code_assignments", "access_codes")]
 
 
 def test_assign_student_404_when_student_missing(monkeypatch):
@@ -172,25 +190,25 @@ def test_assign_student_404_when_student_missing(monkeypatch):
     assert ei.value.status_code == 404
 
 
-def test_remove_student_clears_cohort_id(monkeypatch):
+def test_remove_student_removes_only_requested_membership(monkeypatch):
     stub = _install(monkeypatch, {
         "students": [{"id": "s1", "cohort_id": "co1"}],
     })
     _run(cohorts_module.remove_student_from_cohort("co1", "s1", authorization="x"))
-    sw = [w for w in stub.writes if w["table"] == "students"]
-    assert len(sw) == 1 and sw[0]["payload"] == {"cohort_id": None}
+    assert {"rpc": "fn_remove_student_cohort_membership", "params": {
+        "p_student_id": "s1", "p_cohort_id": "co1"}} in stub.writes
 
 
-def test_remove_student_noop_when_in_other_cohort(monkeypatch):
-    # student is in a DIFFERENT cohort → request must NOT yank them out
+def test_remove_student_never_targets_other_membership(monkeypatch):
     stub = _install(monkeypatch, {
         "students": [{"id": "s1", "cohort_id": "other"}],
     })
     _run(cohorts_module.remove_student_from_cohort("co1", "s1", authorization="x"))
-    assert not [w for w in stub.writes if w["table"] == "students"]
+    calls = [w for w in stub.writes if w.get("rpc")]
+    assert calls[0]["params"] == {"p_student_id": "s1", "p_cohort_id": "co1"}
 
 
-def test_bulk_assign_sets_cohort_id_for_all_no_code(monkeypatch):
+def test_bulk_assign_adds_membership_for_all_no_code(monkeypatch):
     stub = _install(monkeypatch, {
         "cohorts":  [{"id": "co1"}],
         "students": [{"id": "s1", "cohort_id": None}, {"id": "s2", "cohort_id": None}],
@@ -198,10 +216,11 @@ def test_bulk_assign_sets_cohort_id_for_all_no_code(monkeypatch):
     body = cohorts_module.BulkAssignStudentsRequest(student_ids=["s1", "s2"])
     out = _run(cohorts_module.bulk_assign_students_to_cohort("co1", body, authorization="x"))
     assert out["ok"] and out["cohort_id"] == "co1"
-    sw = [w for w in stub.writes if w["table"] == "students"]
-    assert len(sw) == 1 and sw[0]["payload"] == {"cohort_id": "co1"}    # ONE atomic update
+    calls = [w for w in stub.writes if w.get("rpc") == "fn_add_students_cohort_membership"]
+    assert calls[0]["params"] == {"p_student_ids": ["s1", "s2"],
+                                   "p_cohort_id": "co1", "p_added_by": "admin"}
     # entitlement tables never touched
-    assert not [w for w in stub.writes if w["table"] in ("user_code_assignments", "access_codes")]
+    assert not [w for w in stub.writes if w.get("table") in ("user_code_assignments", "access_codes")]
 
 
 def test_bulk_assign_404_when_cohort_missing(monkeypatch):

@@ -75,8 +75,8 @@ class _DB:
 COHORT = "co-1"
 SID = "st-1"
 
-# `cohort_id` là SỔ ĐIỂM DANH (WF-1) — thiếu nó trong ô thử thì phép lọc theo
-# lớp không kiểm được gì.
+# Legacy primary remains in the student row; the active membership fixture is
+# the canonical roster used by the endpoint.
 STUDENT = {"id": SID, "full_name": "Hà Linh", "student_code": "hl01",
            "user_id": "u-1", "cohort_id": COHORT}
 
@@ -84,6 +84,10 @@ STUDENT = {"id": SID, "full_name": "Hà Linh", "student_code": "hl01",
 def _tables(**over):
     t = {
         "students": [STUDENT],
+        "student_cohort_memberships": [{
+            "id": "membership-1", "student_id": SID,
+            "cohort_id": COHORT, "is_active": True,
+        }],
         "class_assignments": [
             {"id": "a-old", "cohort_id": COHORT, "title": "Buổi 1", "skill": "course",
              "due_at": "2026-08-01T12:00:00+00:00", "status": "published",
@@ -298,7 +302,13 @@ def test_a_student_of_another_class_is_404_even_though_the_id_is_real():
     hồ sơ của em ấy dưới tên lớp mới (codex cục bộ 07/08).
     """
     from fastapi import HTTPException
-    t = _tables(students=[{**STUDENT, "cohort_id": "co-KHAC"}])
+    t = _tables(
+        students=[{**STUDENT, "cohort_id": "co-KHAC"}],
+        student_cohort_memberships=[{
+            "id": "membership-new", "student_id": SID,
+            "cohort_id": "co-KHAC", "is_active": True,
+        }],
+    )
     with pytest.raises(HTTPException) as e:
         _call(t)
     assert e.value.status_code == 404

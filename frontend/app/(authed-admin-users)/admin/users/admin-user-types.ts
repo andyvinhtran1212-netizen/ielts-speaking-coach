@@ -7,6 +7,8 @@ export type AdminUser = {
   role: 'admin' | 'instructor' | 'student';
   sessions_today: number;
   cohort_name: string | null;
+  cohort_names: string[];
+  cohort_lookup_failed: boolean;
   code_summary: {
     codes: Array<{ id: string; code: string; code_type: string; permissions: string[]; is_active: boolean; created_at: string | null }>;
     code_count: number;

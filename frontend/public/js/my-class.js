@@ -583,7 +583,16 @@ function render() {
  *  result to decide whether a deadline refresh actually happened. */
 async function load() {
   try {
-    _data = await api.get('/api/class/me');
+    const nextData = await api.get('/api/class/me');
+    // The page contract is an object with an explicit boolean. A transient
+    // gateway/null body must use the existing visible load-error state instead
+    // of escaping the try block as `Cannot read ... has_class` from render().
+    if (!nextData || typeof nextData !== 'object'
+        || typeof nextData.has_class !== 'boolean') {
+      throw new Error('Máy chủ trả về dữ liệu lớp không hợp lệ.');
+    }
+    _data = nextData;
+    render();
   } catch (err) {
     $('mc-loading').hidden = true;
     $('mc-content').hidden = true;
@@ -592,7 +601,6 @@ async function load() {
       'error', { persist: true });
     return false;
   }
-  render();
   return true;
 }
 

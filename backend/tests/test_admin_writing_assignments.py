@@ -125,6 +125,23 @@ def test_list_assignments_reports_and_removes_sentinel_row():
     assert len(r.json()["assignments"]) == 500
 
 
+def test_cohort_list_filter_keeps_stamped_rows_and_limits_legacy_rows_to_roster():
+    from routers.admin_writing_assignments import _cohort_assignment_filter
+
+    cohort_id = "00000000-0000-0000-0000-00000000eeee"
+    assert _cohort_assignment_filter(cohort_id, [_STUDENT_ID]) == (
+        f"cohort_id.eq.{cohort_id},"
+        f"and(cohort_id.is.null,student_id.in.({_STUDENT_ID}))"
+    )
+
+
+def test_cohort_list_filter_keeps_stamped_history_after_last_member_leaves():
+    from routers.admin_writing_assignments import _cohort_assignment_filter
+
+    cohort_id = "00000000-0000-0000-0000-00000000eeee"
+    assert _cohort_assignment_filter(cohort_id, []) == f"cohort_id.eq.{cohort_id}"
+
+
 def test_create_single_assignment_returns_count_one_no_duplicates():
     """Create one assignment for one student — no existing duplicates →
     `duplicates_warning` is empty."""
@@ -183,6 +200,7 @@ def test_create_with_request_id_uses_atomic_idempotency_rpc():
     assert name == "fn_create_writing_assignments_idempotent"
     assert args["p_request_id"] == request_id
     assert args["p_student_ids"] == [_STUDENT_ID]
+    assert "cohort_id" not in args["p_request_payload"]
     mock_db.table.return_value.insert.assert_not_called()
 
 
@@ -227,6 +245,29 @@ def test_fanout_request_id_rejects_changed_cohort_size_before_rpc():
     assert r.status_code == 409
     assert "Sĩ số lớp đã đổi từ 1 thành 2" in r.json()["detail"]
     mock_db.rpc.assert_not_called()
+
+
+def test_fanout_atomic_roster_race_is_reported_as_conflict():
+    mock_db = MagicMock()
+    mock_db.rpc.return_value.execute.side_effect = RuntimeError(
+        "writing_assignment_request_roster_changed"
+    )
+    with patch("routers.admin_writing_assignments.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_assignments.supabase_admin", mock_db), \
+         patch("routers.admin_writing_assignments._read_assignment_request_receipt", return_value=None), \
+         patch("routers.admin_writing_assignments.active_student_ids_for_cohort", return_value=[_STUDENT_ID]):
+        r = _client().post(
+            "/admin/writing/assignments/fan-out",
+            json={
+                "request_id": "00000000-0000-4000-8000-000000000123",
+                "prompt_id": _PROMPT_ID,
+                "cohort_id": "00000000-0000-0000-0000-00000000eeee",
+                "expected_student_count": 1,
+            },
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 409
+    assert "Sĩ số lớp đã thay đổi" in r.json()["detail"]
 
 
 def test_fanout_replay_returns_original_receipt_before_reading_changed_cohort():

@@ -110,7 +110,8 @@ describe('/admin/writing/prompts native ownership and safety contract', () => {
     assert.match(COMPONENT, /mutationLock\.current/);
     assert.match(COMPONENT, /const canonical = await readAll\(\)/);
     assert.match(COMPONENT, /Đọc lại không khớp/);
-    assert.match(COMPONENT, /Snapshot đang stale/);
+    assert.match(COMPONENT, /Không thể làm mới — đang giữ dữ liệu lần tải trước/);
+    assert.match(COMPONENT, /Dữ liệu đang xem có thể đã cũ/);
     assert.doesNotMatch(COMPONENT, /window\.confirm|window\.alert|\bconfirm\(/);
   });
 

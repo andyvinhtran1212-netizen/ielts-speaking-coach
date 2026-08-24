@@ -9,9 +9,11 @@ import {
   claimReadingAttemptRenderer,
   consecutiveReadingQuestionRuns,
   createReadingSaveCoordinator,
+  groupedReadingMcqChoiceCount,
   isRetriableReadingSave,
   normalizeReadingBoot,
   READING_RENDERER_AFFINITY_PROTOCOL,
+  readingDisplayQuestionRuns,
   readingExamParams,
   readingLibraryHref,
   readingPlayerQuery,
@@ -106,6 +108,23 @@ describe('native Reading exam controller', () => {
     assert.deepEqual(runs.map((run) => run.map((q) => q.q_num)), [[1, 2], [3]]);
     assert.match(readingQuestionInstruction(runs[0], 1), /Questions 1–2:.*ONE WORD ONLY/);
     assert.match(readingQuestionInstruction(runs[1], 1), /A, B or C/);
+  });
+
+  test('splits and identifies Cambridge choose-TWO rows without merging ordinary MCQs', () => {
+    const options = [
+      { label: 'A', text: 'Alpha' }, { label: 'B', text: 'Beta' }, { label: 'C', text: 'Gamma' },
+    ];
+    const questions = [
+      { q_num: 20, question_type: 'mcq_single', prompt: 'Choose one.', payload: { options } },
+      { q_num: 21, question_type: 'mcq_single', prompt: 'Which TWO statements are made?', payload: { options } },
+      { q_num: 22, question_type: 'mcq_single', prompt: 'Which TWO statements are made?', payload: { options } },
+      { q_num: 23, question_type: 'mcq_single', prompt: 'Choose another one.', payload: { options } },
+    ];
+    const runs = readingDisplayQuestionRuns(questions);
+    assert.deepEqual(runs.map((run) => run.map((q) => q.q_num)), [[20], [21, 22], [23]]);
+    assert.equal(groupedReadingMcqChoiceCount(runs[1]), 2);
+    assert.match(readingQuestionInstruction(runs[1], 2), /Questions 21–22: Choose TWO letters/);
+    assert.equal(groupedReadingMcqChoiceCount([questions[0], questions[3]]), 0);
   });
 
   test('builds a capability-safe review URL with an allowlisted origin', () => {
@@ -301,8 +320,8 @@ describe('native Reading exam route contract', () => {
     assert.match(page, /readingReviewHref\(attemptId, \{ anonId, from, sittingId \}\)/);
   });
 
-  test('renders shared completion templates by consecutive run instead of placeholder cards', () => {
-    assert.match(page, /consecutiveReadingQuestionRuns\(questions\)/);
+  test('renders shared completion templates by display run instead of placeholder cards', () => {
+    assert.match(page, /readingDisplayQuestionRuns\(questions\)/);
     assert.match(page, /function FlowingCompletionRun/);
     assert.match(page, /template\?\.summary_text/);
     assert.match(page, /function DiagramImageRun/);

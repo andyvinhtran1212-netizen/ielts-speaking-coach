@@ -25,7 +25,15 @@ window.MockHook = (function () {
     if (!embedded()) return;
     var css = document.createElement('style');
     css.textContent =
-      '#exam-timer-wrap,#exam-submit-btn,#btn-submit,.ft-timer,.exam-topbar-actions{display:none !important}';
+      '#exam-timer-wrap,#exam-submit-btn,#btn-submit,.ft-timer,.exam-topbar-actions{display:none !important}' +
+      /* The Legacy Listening runner still owns learner-site chrome and a
+         library header. Inside Mock Exam those become a second navigation
+         layer below the room timer and expose an escape route from the paper.
+         Scope these overrides to its body class so Reading keeps its genuine
+         exam topbar (display options, Hide and Help). */
+      'body.av-page>aver-chrome,body.av-page .ft-shell>.ft-header{display:none !important}' +
+      'body.av-page .ft-shell{width:100%;max-width:1280px;padding:14px 18px 24px;gap:16px}' +
+      'body.av-page .ielts-test-paper{max-width:none}';
     document.head.appendChild(css);
     var tries = 0;
     var iv = setInterval(function () {

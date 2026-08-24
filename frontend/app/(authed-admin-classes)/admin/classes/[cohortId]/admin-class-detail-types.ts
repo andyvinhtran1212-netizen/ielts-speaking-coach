@@ -90,6 +90,9 @@ export type StudentOption = {
   full_name: string;
   cohort_id: string | null;
   cohort_name: string | null;
+  cohorts: Array<{ id: string; name: string | null; is_primary: boolean }>;
+  membership_lookup_failed: boolean;
+  cohort_lookup_failed: boolean;
 };
 
 export type Banner = null | { kind: 'success' | 'error'; text: string };

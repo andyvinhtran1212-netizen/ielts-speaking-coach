@@ -44,6 +44,10 @@ await page.goto(`${BASE}/admin/writing/new?student_id=${presetStudent}`);
 await page.getByRole('heading', { name: 'Gửi bài chấm' }).waitFor();
 const studentSelect = page.locator('.awn-form select').first();
 await studentSelect.waitFor();
+await page.waitForFunction(
+  ({ selector, expected }) => document.querySelector(selector)?.value === expected,
+  { selector: '.awn-form select', expected: presetStudent },
+);
 const preset = await studentSelect.inputValue();
 check('preset ngoài cửa sổ 200 được fetch riêng và giữ canonical', preset === presetStudent && requests.some((x) => x.path === '/auth/me') && requests.some((x) => x.path === `/admin/students/${presetStudent}`), `preset=${preset}`);
 

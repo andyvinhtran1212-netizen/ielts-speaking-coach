@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import {
+  MOCK_WRITING_GUIDANCE,
+  MOCK_WRITING_TIME_SHARE_TOTAL,
   canDiscardWritingDrafts,
   chooseWritingDraft,
   configuredMockSections,
@@ -12,6 +14,7 @@ import {
   mockExamParams,
   mockExamView,
   mockPlayerHref,
+  mockWritingTimeAllocation,
   normalizeMockExamState,
   parseLocalWritingDraft,
 } from '../lib/mock-exam-model.mjs';
@@ -28,9 +31,9 @@ const payload = (overrides = {}) => ({
   },
   exam: {
     listening_test_id: 'listen-test', reading_test_code: 'READ-1', reading_title: 'Mock 1',
-    writing_task1: { id: 'w1', title: 'Task 1', prompt_text: 'Write.', prompt_image_url: null },
-    writing_task2: { id: 'w2', title: 'Task 2', prompt_text: 'Discuss.', prompt_image_url: null },
-    speaking_topic_set: { part1: ['General'] }, review_sla_days: 3,
+    writing_task1: { id: 'w1', task_type: 'task1_academic', title: 'Task 1', prompt_text: 'Write.', prompt_image_url: null },
+    writing_task2: { id: 'w2', task_type: 'task2', title: 'Task 2', prompt_text: 'Discuss.', prompt_image_url: null },
+    speaking_topic_set: { part1: ['General'] }, writing_minutes: 45, review_sla_days: 3,
   },
   exam_mode: 'sequential', assigned_skills: null, active_section: 'reading',
   collected_section: null, section_time_left_seconds: 120, section_duration_seconds: 3600,
@@ -70,6 +73,37 @@ test('player launch uses stable Gate E admission and preserves mock identity', (
   const state = normalizeMockExamState(payload());
   assert.equal(mockPlayerHref(state, 'listening'), '/core-player/launch?surface=listening_test&id=listen-test&sitting_id=sitting-1&mock_embed=1&from=mock');
   assert.equal(mockPlayerHref(state, 'reading'), '/core-player/launch?surface=reading_exam&test_id=READ-1&sitting_id=sitting-1&mock_embed=1&from=mock');
+});
+
+test('Writing guidance keeps the canonical IELTS task minimums and weighting', () => {
+  assert.deepEqual(MOCK_WRITING_GUIDANCE, {
+    task1: { minWords: 150, timeShare: 1, scoreWeight: 1 },
+    task2: { minWords: 250, timeShare: 2, scoreWeight: 2 },
+  });
+  assert.equal(MOCK_WRITING_TIME_SHARE_TOTAL, 3);
+  assert.deepEqual(mockWritingTimeAllocation(3600), {
+    totalMinutes: 60, task1Minutes: 20, task2Minutes: 40,
+  });
+  assert.deepEqual(mockWritingTimeAllocation(2400), {
+    totalMinutes: 40, task1Minutes: 13, task2Minutes: 27,
+  });
+  assert.deepEqual(mockWritingTimeAllocation(60), {
+    totalMinutes: 1, task1Minutes: null, task2Minutes: null,
+  });
+  assert.deepEqual(mockWritingTimeAllocation(null, 45), {
+    totalMinutes: 45, task1Minutes: 15, task2Minutes: 30,
+  });
+  assert.deepEqual(mockWritingTimeAllocation(0, 45), {
+    totalMinutes: 1, task1Minutes: null, task2Minutes: null,
+  });
+  assert.deepEqual(mockWritingTimeAllocation(-1, 45), {
+    totalMinutes: 45, task1Minutes: 15, task2Minutes: 30,
+  });
+  assert.equal(normalizeMockExamState(payload()).exam.writingTask1.taskType, 'task1_academic');
+  assert.equal(normalizeMockExamState(payload()).exam.writingMinutes, 45);
+  assert.equal(normalizeMockExamState(payload({ exam: {
+    ...payload().exam, writing_minutes: undefined,
+  } })).exam.writingMinutes, 60);
 });
 
 test('writing recovery prefers an explicitly unsynced local deletion and otherwise compares copies', () => {

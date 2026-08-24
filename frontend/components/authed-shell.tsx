@@ -200,12 +200,14 @@ export function AuthedShell({
       })}
       {tailwindLayer && <link rel="stylesheet" href="/css/tailwind.build.css" />}
 
-      {/* Cùng CDN pin với legacy (lucide@1.17.0, supabase-js@2.107.0) */}
+      {/* Keep the frozen primary URL for Gate E; a local loader immediately
+          below recovers with a verified published release if it fails. */}
       <script src="https://unpkg.com/lucide@1.17.0" defer />
       <script
         src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js"
         defer
       />
+      <script src="/js/supabase-sdk-fallback.js" defer />
       <script src="/js/runtime-config.js" defer />
       {/* DEBT-2026-07-31-O — reporter phải nạp TRƯỚC api.js/chrome. Script
           `defer` chạy theo THỨ TỰ TÀI LIỆU, nên đặt sau api.js thì một lỗi

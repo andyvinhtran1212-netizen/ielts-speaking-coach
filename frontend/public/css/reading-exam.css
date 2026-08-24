@@ -867,6 +867,29 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
   line-height: 1.5;
 }
 
+/* Cambridge grouped MCQ: one shared option bank maps its selected letters to
+ * the independently graded question numbers (for example Questions 21–22).
+ * The badges and flag controls stay visible for both canonical q_nums. */
+.exam-chrome .exam-q--grouped-mcq {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+.exam-chrome .exam-grouped-mcq__numbers,
+.exam-chrome .exam-grouped-mcq__flags {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.exam-chrome .exam-grouped-mcq__numbers .exam-q__num {
+  position: static;
+}
+.exam-chrome .exam-grouped-mcq__flags .exam-q__flag {
+  position: static;
+  white-space: nowrap;
+}
+
 /* ── §2A.15 — Instruction prominence (Sprint 20.14e) ───────────────── */
 /* Sprint 20.14a chose "standards-strict" — drop the sunken box, thin
  * separator. Andy's dogfood after 20.14a said the result was TOO

@@ -135,8 +135,34 @@ async def _tally(items, subs, *, mark=None):
          patch.object(adm, "supabase_admin", _tally_db(items, subs)), \
          patch.object(adm, "reconcile_ledger_from_sessions", lambda *a: None), \
          patch.object(adm, "reconcile_test_attempts", lambda *a: None), \
+         patch.object(adm, "course_bank_is_multisection", lambda *a: False), \
          patch.object(adm, "mark_item_submitted", fake_mark):
         return await adm.assignment_tally("co1", "a1", None), calls
+
+
+@pytest.mark.asyncio
+async def test_tally_never_turns_one_section_into_a_multisection_hand_in():
+    item = {"id": "it1", "assignment_id": "a1", "student_id": "s1",
+            "submitted_at": None, "score": None, "state": "opened",
+            "artifact_kind": None, "artifact_id": None,
+            "passed_at": None, "mastery": None}
+    calls = []
+    writing = [{"id": "sub-9", "class_assignment_item_id": "it1",
+                "graded_at": "2026-08-01T10:00:00+00:00",
+                "clean": 8, "total": 10}]
+    with patch.object(adm, "require_admin", AsyncMock(return_value=None)), \
+         patch.object(adm, "_require_cohort", lambda _c: None), \
+         patch.object(adm, "supabase_admin", _tally_db([item], writing)), \
+         patch.object(adm, "reconcile_ledger_from_sessions", lambda *a: None), \
+         patch.object(adm, "reconcile_test_attempts", lambda *a: None), \
+         patch.object(adm, "reconcile_course_items", lambda *a: 0), \
+         patch.object(adm, "course_bank_is_multisection", lambda *a: True), \
+         patch.object(adm, "mark_item_submitted",
+                      side_effect=lambda *a, **k: calls.append(k)):
+        out = await adm.assignment_tally("co1", "a1", None)
+    assert out["students"][0]["status"] == "pending"
+    assert out["students"][0]["has_writing"] is True
+    assert calls == []
 
 
 @pytest.mark.asyncio

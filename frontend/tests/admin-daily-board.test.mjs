@@ -388,23 +388,22 @@ describe('admin và học viên nhìn CÙNG một bản chấm (codex #940)', ()
   const SRC2 = readFileSync(join(HERE, '..', 'public', 'js', 'admin-classes.js'), 'utf8');
   const STU = readFileSync(join(HERE, '..', 'public', 'js', 'course-writing.js'), 'utf8');
 
-  test('đề và đáp án mẫu được DỰNG markdown, không hiện ** thô', () => {
+  test('đề và đáp án mẫu được DỰNG, không hiện ** thô', () => {
     // Nguồn đề cố ý mang `**Đáp án mẫu:**`; escape trơn làm giáo viên đọc ra
     // dấu sao còn học viên đọc ra chữ đậm.
     const i = SRC2.indexOf('function renderStudentWriting');
     const body = SRC2.slice(i, SRC2.indexOf('async function openStudentWriting'));
     assert.match(body, /cwMd\(g\.prompt/);
-    assert.match(body, /cwMd\(g\.explain/);
+    assert.match(body, /formatCourseExplanation\(g\.explain/);
     // Bài HỌC VIÊN VIẾT thì không dựng markdown — nó là câu tiếng Anh thô.
     assert.match(body, /esc\(g\.answer\)/);
   });
 
-  test('cùng một phép dựng với phía học viên', () => {
-    const rule = /\*\*\(\[\^\*\]\+\)\*\*/;
-    const a = /replace\((\/\\\*\\\*[^/]+\/g), '<mark>\$1<\/mark>'\)/.exec(SRC2);
-    const b = /replace\((\/\\\*\\\*[^/]+\/g), '<mark>\$1<\/mark>'\)/.exec(STU);
-    assert.ok(a && b, 'cả hai bên phải có phép dựng');
-    assert.equal(a[1], b[1], 'hai bên phải dùng CÙNG một biểu thức');
+  test('đáp án mẫu dùng CÙNG formatter với phía học viên', () => {
+    assert.match(SRC2, /import \{ formatCourseExplanation \} from '\.\/course-explanation-format\.js'/);
+    assert.match(STU, /import \{ formatCourseExplanation \} from '\.\/course-explanation-format\.js'/);
+    assert.match(SRC2, /formatCourseExplanation\(g\.explain/);
+    assert.match(STU, /formatCourseExplanation\(modelText/);
   });
 
   test('thoát HTML TRƯỚC khi dựng thẻ', () => {

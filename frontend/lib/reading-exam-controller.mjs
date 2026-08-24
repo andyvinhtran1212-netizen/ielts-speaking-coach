@@ -124,10 +124,78 @@ export function consecutiveReadingQuestionRuns(questions) {
   return runs;
 }
 
+function readingOptionFingerprint(question) {
+  const options = Array.isArray(question?.payload?.options) ? question.payload.options : [];
+  return JSON.stringify(options.map((option) => typeof option === 'string'
+    ? [option, option]
+    : [String(option?.label ?? option?.text ?? ''), String(option?.text ?? '')]));
+}
+
+/**
+ * Cambridge stores a grouped "Questions 21-22: choose TWO" answer as two
+ * independently graded mcq_single rows. Detect that storage shape without
+ * changing its grading contract. Ordinary MCQs remain ordinary MCQs.
+ */
+export function groupedReadingMcqChoiceCount(run) {
+  if (!Array.isArray(run) || run.length < 2 || run.length > 3) return 0;
+  const first = run[0];
+  if (first?.question_type !== 'mcq_single') return 0;
+  const prompt = String(first.prompt || '').trim();
+  const authored = /\b(TWO|THREE)\b/i.exec(prompt)?.[1]?.toUpperCase();
+  const choose = authored === 'TWO' ? 2 : authored === 'THREE' ? 3 : 0;
+  if (choose !== run.length) return 0;
+  const fingerprint = readingOptionFingerprint(first);
+  for (let index = 0; index < run.length; index += 1) {
+    const question = run[index];
+    if (question?.question_type !== 'mcq_single'
+        || Number(question?.q_num) !== Number(first.q_num) + index
+        || String(question?.prompt || '').trim() !== prompt
+        || readingOptionFingerprint(question) !== fingerprint) return 0;
+  }
+  return choose;
+}
+
+/** Split a same-type run around authentic grouped MCQs while retaining normal runs. */
+export function readingDisplayQuestionRuns(questions) {
+  const output = [];
+  for (const typeRun of consecutiveReadingQuestionRuns(questions)) {
+    if (typeRun[0]?.question_type !== 'mcq_single') {
+      output.push(typeRun);
+      continue;
+    }
+    let ordinary = [];
+    const flushOrdinary = () => {
+      if (ordinary.length) output.push(ordinary);
+      ordinary = [];
+    };
+    for (let index = 0; index < typeRun.length;) {
+      const first = typeRun[index];
+      const prompt = String(first?.prompt || '').trim();
+      const fingerprint = readingOptionFingerprint(first);
+      let end = index + 1;
+      while (end < typeRun.length
+          && String(typeRun[end]?.prompt || '').trim() === prompt
+          && readingOptionFingerprint(typeRun[end]) === fingerprint
+          && Number(typeRun[end]?.q_num) === Number(typeRun[end - 1]?.q_num) + 1) end += 1;
+      const candidate = typeRun.slice(index, end);
+      if (groupedReadingMcqChoiceCount(candidate)) {
+        flushOrdinary();
+        output.push(candidate);
+      } else {
+        ordinary.push(...candidate);
+      }
+      index = end;
+    }
+    flushOrdinary();
+  }
+  return output;
+}
+
 export function readingQuestionInstruction(run, part = 1) {
   if (!Array.isArray(run) || !run.length) return '';
   const first = run[0];
-  const type = String(first?.question_type || '');
+  const groupedChoose = groupedReadingMcqChoiceCount(run);
+  const type = groupedChoose ? 'mcq_multi' : String(first?.question_type || '');
   const firstQ = Number(first?.q_num || 0);
   const lastQ = Number(run.at(-1)?.q_num || firstQ);
   const range = firstQ === lastQ ? String(firstQ) : `${firstQ}\u2013${lastQ}`;
@@ -142,7 +210,7 @@ export function readingQuestionInstruction(run, part = 1) {
     true_false_not_given: `${questionLead} Do the following statements agree with the information given in Reading Passage ${part}?\nTRUE        if the statement agrees with the information\nFALSE       if the statement contradicts the information\nNOT GIVEN   if there is no information on this`,
     yes_no_not_given: `${questionLead} Do the following statements agree with the claims of the writer in Reading Passage ${part}?\nYES         if the statement agrees with the writer's claims\nNO          if the statement contradicts the writer's claims\nNOT GIVEN   if it is impossible to say what the writer thinks about this`,
     mcq_single: `${questionLead} Choose the correct letter, ${letters}.`,
-    mcq_multi: `${questionLead} Choose TWO letters, A\u2013${String.fromCharCode(64 + Math.max(1, Math.min(26, options.length || 5)))}.`,
+    mcq_multi: `${questionLead} Choose ${groupedChoose === 3 ? 'THREE' : 'TWO'} letters, A\u2013${String.fromCharCode(64 + Math.max(1, Math.min(26, options.length || 5)))}.`,
     sentence_completion: `${questionLead} Complete the sentences below. Choose ${wordLimit} from the passage for each answer.`,
     summary_completion: options.length
       ? `${questionLead} Complete the summary using the list of phrases, A-${String.fromCharCode(64 + Math.max(1, Math.min(26, options.length)))}, below.`

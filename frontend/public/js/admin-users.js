@@ -35,7 +35,7 @@ function _sortVal(u, f) {
   switch (f) {
     case 'display_name': return (u.display_name || '').toLowerCase();
     case 'role':         return (u.role || '').toLowerCase();
-    case 'cohort_name':  return (u.cohort_name || '').toLowerCase();
+    case 'cohort_name':  return ((u.cohort_names || []).join(' ') || u.cohort_name || '').toLowerCase();
     case 'code_type':    return ((u.code_summary || {}).code_type || '').toLowerCase();
     case 'code_status':  return (u.code_summary || {}).has_active_code ? 0 : 1;  // active first
     case 'created_at':
@@ -140,6 +140,10 @@ function render(rows) {
     const codeStatus = cs.has_active_code
       ? '<span class="usr-chip">có mã</span>'
       : '<span class="usr-code-none">không có mã active</span>';
+    const legacyCohortCell = escapeHtml(u.cohort_name || '—');
+    const cohortCell = (u.cohort_names || []).length
+      ? escapeHtml(u.cohort_names.join(', '))
+      : u.cohort_lookup_failed ? '⚠ lookup failed' : legacyCohortCell;
     // "Gỡ khỏi mã" targets the newest active code (DELETE /access-codes/{id}/users/{uid}).
     const removeBtn = (cs.has_active_code && codes[0] && codes[0].id)
       ? `<button class="ac-link ac-link-danger" data-removecode="${escapeHtml(codes[0].id)}" data-user="${escapeHtml(u.id)}">Gỡ khỏi mã</button>`
@@ -158,7 +162,7 @@ function render(rows) {
       <td>${typeCell}</td>
       <td>${permsCell}</td>
       <td>${codeStatus}</td>
-      <td>${escapeHtml(u.cohort_name || '—')}</td>
+      <td>${cohortCell}</td>
       <td class="usr-role-cell">${roleChip(u.role)}</td>
       <td style="font-family: var(--av-font-mono); text-align: center;">${u.sessions_today || 0}</td>
       <td>${u.is_active === false

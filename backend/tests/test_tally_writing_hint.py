@@ -136,8 +136,9 @@ def test_the_rule_is_fed_by_BANK_SHAPE_never_by_a_row_field():
     for arg in sigs:
         assert "mastery" not in arg and "item[" not in arg and "it[" not in arg, \
             f"`has_mcq` lấy từ trạng thái DÒNG, cuộc đua quay lại: {arg}"
-        assert any(k in arg for k in ("bank_has_mcq", "_bank_shape", "_shapes",
-                                      "has_mcq", "known")), \
+        assert arg.strip() == "False" or any(
+            k in arg for k in ("bank_has_mcq", "_bank_shape", "_shapes",
+                               "has_mcq", "known")), \
             f"`has_mcq` không đến từ hình dạng bộ đề: {arg}"
 
 

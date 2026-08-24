@@ -29,7 +29,7 @@ test('renders question and section audio without exposing a solution', () => {
   assert.match(html, /https:\/\/signed\/A1\.mp3/);
   assert.match(html, /https:\/\/signed\/D\.mp3/);
   assert.match(html, /<strong>2<small>câu nghe/);
-  assert.match(html, /disabled>Đối chiếu bài nghe/);
+  assert.match(html, /disabled>Nộp phần nghe/);
   assert.doesNotMatch(html, /Nghe được:/);
 });
 
@@ -39,6 +39,7 @@ test('requests answer and transcript only after every response exists', async ()
     calls += 1;
     assert.equal(path, '/api/quiz/course/listening-solution');
     assert.deepEqual(body.answers, { 'l-A1': 'A', 'l-D1': 'T' });
+    assert.equal(typeof body.duration_sec, 'number');
     return { answers: [{ id: 'l-A1', answer: 'A', transcript: 'city' },
       { id: 'l-D1', answer: 'T' }], talk_transcript: 'The city is bigger.',
       talk_translation: 'Thành phố lớn hơn.' };

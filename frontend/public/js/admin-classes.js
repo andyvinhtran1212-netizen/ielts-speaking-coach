@@ -20,6 +20,7 @@
  */
 
 import { usdLabel, countLabel, lastActiveLabel } from './admin-usage-util.js';
+import { formatCourseExplanation } from './course-explanation-format.js';
 
 const SUPABASE_URL = 'https://huwsmtubwulikhlmcirx.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
@@ -1155,9 +1156,15 @@ const TALLY_WHEN = {
   missing: 'không nộp',
   pending: 'chưa nộp',
 };
+const COURSE_TALLY_STATE = {
+  passed: 'đã đạt', near_pass: 'gần đạt · Revision', retry_full: 'làm lại toàn bài',
+  in_progress: 'đang hoàn thành', untouched: 'chưa mở', no_account: 'chưa kích hoạt',
+};
 
 function tallyRow(r, skill) {
-  const when = r.submitted_at
+  const when = skill === 'course' && r.course_state
+    ? (COURSE_TALLY_STATE[r.course_state] || r.course_state)
+    : r.submitted_at
     ? hhmm(r.submitted_at) + (r.status === 'late' ? ' · trễ' : '')
     : (TALLY_WHEN[r.status] || '');
   const empty = (r.score === null || r.score === undefined);
@@ -1231,10 +1238,14 @@ function hhmm(iso) {
 function renderTally(d) {
   const c = (d && d.counts) || {};
   const sealed = !!(d && d.sealed);
+  const course = !!(d && d.assignment && d.assignment.skill === 'course');
   const rows = ((d && d.students) || [])
     .map((r) => tallyRow(r, d && d.assignment && d.assignment.skill)).join('');
   const notes = [];
-  if (sealed) {
+  if (course) {
+    notes.push(`Hạn <strong>${esc(dueText(d.assignment.due_at))}</strong>.`
+      + ' Đây là mốc vận hành; kết quả đạt/chưa đạt được đọc từ sổ mastery.');
+  } else if (sealed) {
     notes.push(`Chốt lúc <strong>${esc(dueText(d.assignment.due_at))}</strong>`
       + ` — ${c.missing || 0} em không nộp. Sau giờ này hệ thống không nhận bài nữa.`);
   } else {
@@ -1249,16 +1260,20 @@ function renderTally(d) {
   if (d && d.homework_stale) {
     notes.push('Chưa đối chiếu được bài nộp mới nhất — số có thể còn thiếu.');
   }
+  if (d && d.sections_shape_unknown) {
+    notes.push('<strong>Chưa xác định được các phần bắt buộc</strong> — không dùng mẫu số hoàn thành cho tới khi tải lại thành công.');
+  }
   if (c.flagged) {
     // ĐẾM RIÊNG, không trừ vào "đã nộp": một bài nộp rồi mà chấm hỏng vẫn là đã
     // nộp. Trộn hai con số sẽ khiến giáo viên tưởng em ấy chưa làm bài, trong
     // khi lỗi nằm ở phía hệ thống.
     notes.push(`<strong>${c.flagged} bài cần xem lại</strong> — lý do ghi ngay dưới tên.`);
   }
+  if (course) notes.push('Chưa đạt không đồng nghĩa chưa nộp.');
   return `<div class="av-tally" data-state="${sealed ? 'sealed' : 'live'}">
     <div class="av-tally__head">
-      <span class="av-tally__count">${c.submitted || 0}<small>/${c.total || 0} đã nộp</small></span>
-      <span class="av-tally__state">${sealed ? 'Đã chốt' : 'Đang nhận bài'}</span>
+      <span class="av-tally__count">${course ? c.passed || 0 : c.submitted || 0}<small>/${c.total || 0} ${course ? 'đã đạt' : 'đã nộp'}</small></span>
+      <span class="av-tally__state">${course ? `${c.near_pass || 0} gần đạt · ${c.retry_full || 0} làm lại toàn bài` : sealed ? 'Đã chốt' : 'Đang nhận bài'}</span>
     </div>
     <div class="av-tally__rows">${rows}</div>
     <p class="av-tally__foot">${notes.join(' ')}</p>
@@ -1346,7 +1361,7 @@ function renderStudentWriting(d) {
       <span class="cw-item__no">Câu ${i + 1}</span>
       <p class="cw-item__ask">${cwMd(g.prompt || '')}</p>
       ${body}
-      ${g.explain ? `<div class="cw-model">${cwMd(g.explain)}</div>` : ''}
+      ${g.explain ? `<div class="cw-model course-explain">${formatCourseExplanation(g.explain)}</div>` : ''}
     </article>`;
   }).join('');
 
@@ -2015,14 +2030,20 @@ async function loadCourseBanks() {
       : '<option value="">Chưa có buổi nào giao được</option>';
 
     const given = items.filter((b) => b.already_given).length;
-    const empty = items.filter((b) => !b.already_given && !b.ready).length;
+    const unavailable = items.filter((b) => !b.already_given && !b.ready);
+    const empty = unavailable.filter((b) => !b.question_count).length;
+    const noAudio = unavailable.filter((b) => b.missing_audio > 0).length;
+    const noPronunciation = unavailable.filter((b) => b.pronunciation_required
+      && !b.pronunciation_ready).length;
     const bits = [];
     if (given) bits.push(`${given} buổi lớp này đã làm`);
     if (empty) bits.push(`${empty} buổi chưa nạp câu hỏi`);
+    if (noAudio) bits.push(`${noAudio} buổi thiếu audio câu tiếng Anh`);
+    if (noPronunciation) bits.push(`${noPronunciation} buổi thiếu bộ phát âm`);
     note.textContent = items.length
       ? (bits.length ? `Đã ẩn: ${bits.join(', ')}.` : '')
       : 'Khoá này chưa có bộ bài tập nào.';
-    note.dataset.tone = (empty || !items.length) ? 'warn' : 'ok';
+    note.dataset.tone = (unavailable.length || !items.length) ? 'warn' : 'ok';
   } catch (err) {
     if (!stillCurrent()) return;
     sel.innerHTML = '<option value="">Không đọc được kho bài tập</option>';
@@ -2601,10 +2622,8 @@ async function submitCourseHomework(title) {
 
 const EFFORT_STATE = {
   stalled:          'Bỏ dở',
-  // Xong CHẶNG chưa phải xong BÀI: phần tự luận nằm ngoài vòng chặng, nên gộp
-  // hai chuyện lại là báo rằng em ấy đã hoàn thành trong khi còn mười câu chưa
-  // động tới (ca thật: em Phương Anh Nguyễn, 9/9 chặng, 0 câu viết).
-  awaiting_writing: 'Chưa nộp tự luận',
+  completing_sections: 'Còn phần chưa xong',
+  needs_retry:      'Chưa đạt · cần làm lại',
   doing:            'Đang làm',
   done:             'Xong',
   untouched:        'Chưa mở',
@@ -2646,30 +2665,37 @@ async function openEffort(bankId, assignmentId, title) {
     return;
   }
   const body = rows.map((x) => {
-    const acc = x.accuracy == null ? '—' : Math.round(x.accuracy * 100) + '%';
+    const missing = (x.missing_sections || []).map((s) => s.label).join(', ');
+    const progress = x.sections_total
+      ? `${x.sections_done}/${x.sections_total} phần${missing ? ` · thiếu ${esc(missing)}` : ''}`
+      : `${x.stages_done}${r.stages_total ? '/' + r.stages_total : ''} chặng`;
+    const combined = x.combined_pct == null ? '—' : Math.round(x.combined_pct) + '%';
+    const minutes = x.attempt_minutes || x.minutes;
     return `<tr>
       <td>${esc(nameOf[x.student_id] || 'Học viên đã rời lớp')}${
         noAcct[x.student_id] ? ' <span class="av-board__na">chưa kích hoạt</span>' : ''}</td>
       <td><span class="cl-effort-state" data-s="${esc(x.state)}">${esc(EFFORT_STATE[x.state] || x.state)}</span></td>
-      <td class="cl-effort-num">${x.stages_done}${r.stages_total ? '/' + r.stages_total : ''}</td>
-      <td class="cl-effort-num">${r.writing_total
-        ? (x.wrote ? 'đã nộp' : '—') : ''}</td>
-      <td class="cl-effort-num">${x.minutes ? x.minutes + '′' : '—'}</td>
-      <td class="cl-effort-num">${x.questions ? x.correct + '/' + x.questions : '—'}</td>
-      <td class="cl-effort-num">${acc}</td>
+      <td class="cl-effort-num">${progress}</td>
+      <td class="cl-effort-num">${x.attempts || 0}</td>
+      <td class="cl-effort-num">${combined}</td>
+      <td class="cl-effort-num">${minutes ? minutes + '′' : '—'}</td>
     </tr>`;
   }).join('');
 
   const axes = (r.axes || []);
-  const top = axes.length ? axes[0].wrong : 1;
+  const sampleLow = (a) => a.sample_low === true || ((a.student_sample || 0) > 0 && (a.student_sample || 0) < 3);
+  const rankedAxes = axes.filter((a) => !sampleLow(a));
+  const scaleAxes = rankedAxes.length ? rankedAxes : axes;
+  const top = scaleAxes.length ? Math.max(...scaleAxes.map((a) => a.affected_rate || 0), 0.01) : 1;
   const axesHtml = axes.length
     ? '<h4>Cả lớp vướng ở đâu</h4><table class="adm-table"><thead><tr>'
-      + '<th>Trục</th><th>Sai</th><th>Trung vị thời gian</th><th></th></tr></thead><tbody>'
+      + '<th>Trục</th><th>Học viên bị ảnh hưởng</th><th>Tỷ lệ câu sai</th><th>Trung vị</th><th></th></tr></thead><tbody>'
       + axes.map((a) => `<tr>
-          <td>${esc(a.axis)}</td>
-          <td class="cl-effort-num">${a.wrong}</td>
+          <td>${esc(a.axis)}${sampleLow(a) ? '<small>Mẫu nhỏ · chỉ tham khảo</small>' : ''}</td>
+          <td class="cl-effort-num">${a.affected_students || 0}/${a.student_sample || 0}</td>
+          <td class="cl-effort-num">${a.attempted ? Math.round((a.wrong_rate || 0) * 100) + '%' : '—'}</td>
           <td class="cl-effort-num">${a.median_sec == null ? '—' : a.median_sec + 's'}</td>
-          <td><div class="cl-axis-bar" style="width:${Math.round(100 * a.wrong / top)}%"></div></td>
+          <td><div class="cl-axis-bar" style="width:${Math.round(100 * (a.affected_rate || 0) / top)}%"></div></td>
         </tr>`).join('')
       + '</tbody></table>'
     : '';
@@ -2683,12 +2709,11 @@ async function openEffort(bankId, assignmentId, title) {
 
   $('effort-body').innerHTML = warn
     + '<table class="adm-table"><thead><tr><th>Học viên</th><th>Tình trạng</th>'
-    + '<th>Chặng</th>'
-    + (r.writing_total ? `<th>Tự luận (${r.writing_total} câu)</th>` : '<th></th>')
-    + '<th>Thời gian</th><th>Đúng</th><th>Tỉ lệ</th></tr></thead>'
+    + '<th>Hoàn thành</th><th>Lượt đã chấm</th><th>Điểm tổng gần nhất</th>'
+    + '<th>Tổng thời gian</th></tr></thead>'
     + '<tbody>' + body + '</tbody></table>'
-    + '<p class="adm-hint">Thời gian cộng từ các chặng đã chốt, không phải khoảng '
-    + 'từ lúc mở tới lúc đóng — đóng tab rồi mở lại hôm sau không thành “một ngày rưỡi”.</p>'
+    + '<p class="adm-hint">Thời gian cộng từ lúc mỗi phần được mở trong lượt làm, không suy từ '
+    + 'khoảng cách giữa hai timestamp trên máy chủ.</p>'
     + axesHtml;
 }
 

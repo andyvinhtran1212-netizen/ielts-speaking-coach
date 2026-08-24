@@ -398,6 +398,21 @@ def _insert_error_log_safely(payload: dict) -> None:
         logger.error("[error_logs] Background INSERT failed: %s", e)
 
 
+def _bounded_traceback(trace: str, limit: int = 5000) -> str:
+    """Bound a traceback while retaining both the request frame and root cause.
+
+    Python 3.12 ExceptionGroup traces can exceed the error_logs column budget.
+    Keeping only the prefix removes the final frames — usually the only useful
+    callsite — so split the budget between the head and tail instead.
+    """
+    if len(trace) <= limit:
+        return trace
+    marker = "\n... [traceback truncated; tail preserved] ...\n"
+    head_size = (limit - len(marker)) // 2
+    tail_size = limit - len(marker) - head_size
+    return trace[:head_size] + marker + trace[-tail_size:]
+
+
 # Catch-all: ensures any unhandled exception still returns JSON + CORS headers
 # (without this, Starlette's raw 500 page can strip CORS headers). Sprint
 # 12.3 extended this to capture the exception into the error_logs table
@@ -417,7 +432,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         "level":      "error",
         "source":     "backend",
         "message":    (str(exc) or exc.__class__.__name__)[:1000],
-        "stack":      _traceback.format_exc()[:5000],
+        "stack":      _bounded_traceback(_traceback.format_exc()),
         "url":        str(request.url.path)[:500],
         "request_id": request_id,
         "extra": {
@@ -523,6 +538,11 @@ async def startup_event():
     from services.provider_fixtures import assert_fixture_mode_safe
     assert_fixture_mode_safe()
 
+    # A TestClient/embedded server can restart the lifespan in one interpreter;
+    # rebuild the sync PostgREST pool if the preceding shutdown closed it.
+    from database import init_supabase_http_client
+    init_supabase_http_client()
+
     logger.info("Server started")
 
     # P0-1 (C-1.1) async-DB scaffold. The event-loop-lag monitor always runs —
@@ -600,6 +620,10 @@ async def shutdown_event():
     # Perf (B) — release the shared token-verification keep-alive pool cleanly.
     from routers.auth import close_auth_http_client
     await close_auth_http_client()
+    # The service-role Supabase client owns an explicit sync HTTP/1.1 pool;
+    # release it only when the process is actually shutting down.
+    from database import close_supabase_http_client
+    close_supabase_http_client()
 
 
 @app.get("/topics")

@@ -45,6 +45,24 @@ import pytest
 from fastapi.testclient import TestClient
 
 
+def test_backend_traceback_bound_preserves_root_cause_tail():
+    from main import _bounded_traceback
+
+    trace = "REQUEST-FRAME\n" + ("middle\n" * 1000) + "ROOT-CAUSE-CALLSITE"
+    bounded = _bounded_traceback(trace)
+
+    assert len(bounded) == 5000
+    assert bounded.startswith("REQUEST-FRAME")
+    assert bounded.endswith("ROOT-CAUSE-CALLSITE")
+    assert "traceback truncated; tail preserved" in bounded
+
+
+def test_short_backend_traceback_is_unchanged():
+    from main import _bounded_traceback
+
+    assert _bounded_traceback("short trace") == "short trace"
+
+
 # ── In-memory Supabase fake (extends Sprint 12.2 pattern with .is_/.gte) ─
 
 

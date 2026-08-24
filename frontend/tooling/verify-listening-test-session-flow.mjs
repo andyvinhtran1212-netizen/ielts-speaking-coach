@@ -41,6 +41,18 @@ const state = {
   rendererAffinity: null,
   starts: 0, claims: 0, patches: [], submits: 0, rejectQ2: true,
 };
+let audioReady = false;
+function silentWav() {
+  const sampleRate = 8000;
+  const samples = 2000;
+  const wav = Buffer.alloc(44 + samples, 128);
+  wav.write('RIFF', 0); wav.writeUInt32LE(36 + samples, 4); wav.write('WAVE', 8);
+  wav.write('fmt ', 12); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22); wav.writeUInt32LE(sampleRate, 24);
+  wav.writeUInt32LE(sampleRate, 28); wav.writeUInt16LE(1, 32); wav.writeUInt16LE(8, 34);
+  wav.write('data', 36); wav.writeUInt32LE(samples, 40);
+  return wav;
+}
 const results = [];
 const check = (name, ok, detail = '') => {
   results.push({ name, ok, detail });
@@ -65,9 +77,14 @@ const context = await browser.newContext({ viewport: { width: 1280, height: 900 
 await context.addInitScript(([key, value]) => {
   try { localStorage.setItem(key, value); } catch (_) {}
   try {
+    window.__AVER_AUDIO_READY__ = false;
     Object.defineProperty(HTMLMediaElement.prototype, 'play', {
       configurable: true,
-      value() { return Promise.resolve(); },
+      value() {
+        return window.__AVER_AUDIO_READY__
+          ? Promise.resolve()
+          : Promise.reject(new DOMException('Fixture audio is unavailable', 'NotSupportedError'));
+      },
     });
   } catch (_) {}
 }, [storageKey(SB), fakeSession]);
@@ -81,6 +98,10 @@ page.on('dialog', async (dialog) => dialog.accept());
 await page.route('**/*', async (route) => {
   const request = route.request();
   const url = new URL(request.url());
+  if (url.origin === 'https://audio.fixture') {
+    if (!audioReady) return route.abort('failed');
+    return route.fulfill({ status: 200, contentType: 'audio/wav', body: silentWav() });
+  }
   if (FORCE_PRODUCTION_RUNTIME && request.method() === 'GET' && url.pathname === '/js/runtime-config.js') {
     return route.fulfill({
       status: 200,
@@ -109,7 +130,14 @@ await page.route('**/*', async (route) => {
   }
   if (request.method() === 'GET' && url.pathname === `/api/listening/tests/${TEST_ID}`) {
     interceptedApiRequests += 1;
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(testPayload), headers: cors });
+    return route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({
+        ...testPayload,
+        audio_url: `https://audio.fixture/${audioReady ? 'ready' : 'broken'}.wav`,
+      }),
+      headers: cors,
+    });
   }
   if (request.method() === 'GET' && url.pathname === `/api/listening/tests/${TEST_ID}/attempts/in-progress`) {
     interceptedApiRequests += 1;
@@ -176,6 +204,15 @@ await page.getByRole('heading', { name: 'Native Listening fixture' }).waitFor();
 check('dark route boots canonical test and prestart', await page.getByRole('button', { name: 'Bắt đầu test' }).isVisible());
 
 await page.getByRole('button', { name: 'Bắt đầu test' }).click();
+await page.getByRole('dialog', { name: 'Check your headphones' }).getByRole('button', { name: /Play$/ }).click();
+await page.getByText(/Không tải được dữ liệu audio|Audio chưa phát được/).waitFor();
+audioReady = true;
+await page.evaluate(() => { window.__AVER_AUDIO_READY__ = true; });
+await page.getByRole('button', { name: 'Tải lại audio' }).click();
+await page.waitForFunction(() => document.querySelectorAll('.ft-audio-error').length === 0);
+check('audio failure is visible and a refreshed signed URL recovers in-place',
+  await page.getByRole('dialog', { name: 'Check your headphones' }).getByRole('button', { name: /Play$/ }).isVisible()
+    && interceptedApiRequests >= 4);
 await page.getByRole('dialog', { name: 'Check your headphones' }).getByRole('button', { name: /Play$/ }).click();
 await page.getByLabel('Answer 1').fill('library');
 await page.waitForFunction(() => true, null, { timeout: 600 });

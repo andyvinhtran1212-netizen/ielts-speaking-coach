@@ -11,6 +11,9 @@
  *   · chưa chấm được KHÁC HẲN câu-của-em-đúng.
  */
 
+import { createActiveTimer } from './course-active-timer.js';
+import { formatCourseExplanation } from './course-explanation-format.js';
+
 const esc = (s) => (typeof window !== 'undefined' && window.WC && window.WC.escapeHtml)
   ? window.WC.escapeHtml(s)
   : String(s == null ? '' : s)
@@ -107,6 +110,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
   // `{}` lên đè bản dự phòng đang có — chỉ cần mở trang trên mạng chậm rồi
   // chuyển app.
   let ready = false;
+  const activeTimer = createActiveTimer(now);
 
   function loadDraft() {
     if (!storage) return {};
@@ -229,6 +233,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
     get questions() { return questions.slice(); },
     get missing() { return missing(); },
     get draft() { return { ...draft }; },
+    get course() { return submission?.course || null; },
     /** Đang ở bước XÁC NHẬN (đã bấm Nộp một lần). */
     get armed() { return armed; },
 
@@ -268,6 +273,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       const remote = (!submitted && r && r.draft && r.draft.answers) || null;
       draft = Object.keys(local).length ? local : { ...(remote || {}) };
       ready = true;
+      activeTimer.reset();
       if (!submitted) {
         saveDraft();
         // Máy này có bài mà bản dự phòng khác đi (hoặc chưa có) thì gửi lên
@@ -280,6 +286,8 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       }
       return { submitted, count: questions.length };
     },
+
+    setActive(active) { activeTimer.setActive(active); },
 
     /**
      * Đẩy nốt nháp NGAY. Gọi khi rời trang.
@@ -320,9 +328,14 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       if (!armed) return { needsConfirm: true };
       const answers = {};
       questions.forEach((q) => { answers[q.qid] = String(draft[q.qid] || '').trim(); });
-      const r = await api.post('/api/quiz/course/writing', { bank_id: bankId, answers });
+      const r = await api.post('/api/quiz/course/writing', {
+        bank_id: bankId,
+        answers,
+        duration_sec: activeTimer.seconds(),
+      });
       submitted = true;
       submission = r;
+      activeTimer.setActive(false);
       if (storage) {
         try { storage.removeItem(draftKey(bankId, userId, itemId)); } catch (e) { /* kệ */ }
       }
@@ -402,7 +415,9 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
         // Đáp án mẫu cũng từ BẢN CHỤP: đề soạn lại mà lấy `q.explain` thì bài
         // cũ đứng cạnh đáp án mẫu của một đề khác (codex #935).
         const modelText = g.explain || q.explain || '';
-        const model = modelText ? `<div class="cw-model">${md(modelText)}</div>` : '';
+        const model = modelText
+          ? `<div class="cw-model course-explain">${formatCourseExplanation(modelText)}</div>`
+          : '';
         // Đề lấy từ BẢN CHỤP trước, đề hiện hành chỉ là phương án dự phòng.
         const ask = g.prompt || q.prompt || '';
         return `<article class="cw-item" data-ok="${String(ok)}"${formOnly ? ' data-form="true"' : ''}>

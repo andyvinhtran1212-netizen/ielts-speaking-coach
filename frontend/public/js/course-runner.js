@@ -20,6 +20,10 @@
  *   hề tới máy chủ.
  */
 
+import { formatCourseExplanation } from './course-explanation-format.js';
+
+export { formatCourseExplanation };
+
 // Mười câu một chặng. 100 câu liền một mạch quá dài cho một buổi tối, và một
 // lượt bỏ dở thì không có chỗ nào để nói "em đã làm tới đâu".
 export const STAGE = 10;
@@ -28,6 +32,19 @@ export const STAGE = 10;
 const BATCH = 5;
 
 export const KEYS = ['A', 'B', 'C', 'D'];
+
+/**
+ * Câu thuộc lane Grammar và được tính vào mastery.
+ *
+ * Bank course cũ chỉ có `mcq`/`writing`, nhưng bank nhiều section có thể trả
+ * thêm `course_reading`, `course_listening`, `course_pronunciation` trong cùng
+ * payload. Dùng `type !== 'writing'` sẽ nhét cả các section ấy vào chặng Grammar.
+ * Cờ mastery vắng mặt vẫn được nhận để giữ tương thích với các bank legacy.
+ */
+export function isCourseQuizQuestion(q) {
+  return q && (q.type == null || q.type === 'mcq')
+    && q.counts_toward_mastery !== false;
+}
 
 export const DANG = {
   A1: 'GÁN NHÃN Ô', A2: 'GỌI TÊN', A3: 'TÌM HẠT NHÂN',
@@ -173,6 +190,10 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // thái lưu của bản đề cũ mà đem dùng tiếp thì phiên cũ lẫn vào lượt xét
   // (verdict bác mãi) hoặc lượt làm cũ bị chấm bằng thước mới (codex #928 R4).
   let rev = '';
+  // Vân tay theo contract runner TRƯỚC PR #1291: mọi row trừ writing. Nó chỉ
+  // dùng một lần để nhận diện chính xác localStorage 132-row cũ sau khi lane
+  // Grammar được thu về MCQ mastery; không bao giờ dùng làm thước chấm mới.
+  let legacyRev = '';
   // Mục bài giao đang gắn với lượt này. Em chuyển lớp rồi được giao lại CÙNG
   // bank ở lớp mới là một MỤC KHÁC — phiên cũ thuộc mục cũ, verdict bác chúng,
   // và màn kết quả khôi phục sẽ kẹt không mở nổi phiên mới (codex #928 R5).
@@ -211,7 +232,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
    * Đọc trạng thái lưu cục bộ.
    *
    * Trả về: 'fresh' chưa có gì lưu · 'stale' có lưu nhưng của BÀI KHÁC (bộ đề
-   * đã soạn lại, hoặc mục bài giao khác) · 'ok' dùng được.
+   * đã soạn lại, hoặc mục bài giao khác) · 'legacy-filter' là đúng payload cũ
+   * nhưng cần nhận lại tiến độ canonical từ server · 'ok' dùng được.
    *
    * Phân biệt 'fresh' với 'stale' là điều kiện để biết có nên tin máy chủ hay
    * không: máy chủ không biết vân tay bộ đề, nên chính chỗ này là nơi duy nhất
@@ -222,12 +244,17 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     let v = {};
     try { v = JSON.parse(storage.getItem(key()) || '{}'); } catch (e) { return 'fresh'; }
     if (typeof v.stage !== 'number') return 'fresh';
-    // Bộ đề đã đổi (re-import: câu khác hay đáp án khác) → trạng thái lưu là
-    // của một bài KHÁC. Làm lại từ đầu sạch sẽ; giữ lại là phiên cũ lẫn vào
-    // lượt xét hoặc bài cũ bị chấm bằng thước mới.
-    if (v.rev !== rev) return 'stale';
     // Khác mục bài giao (chuyển lớp, giao lại) = lượt của một BÀI GIAO khác.
     if ((v.item || null) !== itemId) return 'stale';
+    // PR #1291 không đổi câu hay đáp án Grammar; nó chỉ loại các row bổ trợ mà
+    // runner cũ đã nhầm là quiz. Nếu vân tay local khớp CHÍNH XÁC hình dạng cũ
+    // của payload hiện tại, không dùng stage/runSessions cũ (chúng có thể chứa
+    // chặng bổ trợ) mà cho server dựng lại từ QID Grammar canonical đã lưu.
+    if (v.rev !== rev) {
+      if (legacyRev && v.rev === legacyRev) return 'legacy-filter';
+      // Re-import thật (đổi QID/đáp án) vẫn là một bài khác và phải reset sạch.
+      return 'stale';
+    }
     stage = v.stage;
     runSessions = Array.isArray(v.runSessions)
       ? v.runSessions.filter((s) => typeof s === 'string')
@@ -511,13 +538,14 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       reviewOnly = Boolean(options.reviewOnly || (r.mastery && r.mastery.review_only));
       retakeNo = Math.max(0, Number((r.mastery && r.mastery.retakes) || 0));
       itemId = (r.mastery && r.mastery.item_id) || null;
-      qs = r.questions || [];
+      const allQuestions = r.questions || [];
+      qs = allQuestions;
       // TỰ LUẬN TÁCH KHỎI VÒNG CHẶNG. Ở phần trắc nghiệm nhịp là hỏi–đáp–giải
       // thích từng câu; phần tự luận là ngồi viết cả cụm rồi nộp một lần. Trộn
       // chúng vào cùng một dòng chảy khiến học viên tưởng viết xong một câu là
       // được chấm ngay — mà lượt chấm chỉ có MỘT.
       writingQs = qs.filter(function (q) { return q.type === 'writing'; });
-      qs = qs.filter(function (q) { return q.type !== 'writing'; });
+      qs = qs.filter(isCourseQuizQuestion);
       if (!qs.length && !writingQs.length) {
         throw new Error('Bài tập này chưa có câu hỏi nào.');
       }
@@ -529,6 +557,9 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
         return bank;
       }
       rev = fingerprint(qs);
+      legacyRev = fingerprint(allQuestions.filter(function (q) {
+        return q.type !== 'writing';
+      }));
       const local = restore();
       // Máy chủ là nguồn thật — TRỪ khi chính máy này biết bộ đề vừa bị soạn
       // lại (hoặc bài giao đã đổi mục). Máy chủ không giữ vân tay bộ đề, nên
@@ -596,7 +627,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
      */
     async finishStage() {
       const list = stageQuestions();
-      let graded = list.filter((q) => q.type !== 'writing').length;
+      let graded = list.filter(isCourseQuizQuestion).length;
       let right = marks.filter((m) => m === 'right').length;
       // Khôi phục vào màn kết quả trên một máy chưa có `marks`: đếm từ mảng
       // rỗng ra 0 là bịa một điểm số cho một chặng ĐÃ CHẤM XONG. Dùng con số
@@ -684,7 +715,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
      * được gì về ngưỡng.
      */
     async startRetake(size, rng = null) {
-      const pool = qs.filter((q) => q.type !== 'writing');
+      const pool = qs.filter(isCourseQuizQuestion);
       const n = Math.max(1, Math.min(Number(size) || 20, pool.length));
       mode = 'retake';
       retakeNo += 1;

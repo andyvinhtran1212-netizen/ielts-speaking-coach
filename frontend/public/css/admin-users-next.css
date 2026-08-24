@@ -90,6 +90,8 @@ aver-admin-chrome[data-collapsed="1"] > .au-shell {
 .au-code-cell code, .au-code-value { width: fit-content; padding: 3px 7px; border: 1px solid var(--av-border-default); border-radius: var(--av-radius-sm); background: var(--av-surface-sunken); color: var(--av-text-primary); font-family: var(--av-font-mono); font-size: var(--av-fs-xs); white-space: nowrap; }
 .au-code-cell span { color: var(--av-text-muted); font-size: var(--av-fs-xs); }
 .au-permission-summary, .au-notes { display: block; max-width: 180px; color: var(--av-text-secondary); font-size: var(--av-fs-xs); overflow-wrap: anywhere; }
+.au-cohort-list { min-width: 150px; display: flex; flex-wrap: wrap; gap: 5px; }
+.au-warning-text { color: var(--av-warning); font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold); }
 .au-muted { color: var(--av-text-muted); font-size: var(--av-fs-xs); font-style: italic; }
 .au-number { font-family: var(--av-font-mono); font-variant-numeric: tabular-nums; text-align: center !important; }
 .au-role { display: inline-flex; padding: 3px 9px; border: 1px solid var(--av-border-default); border-radius: var(--av-radius-pill); background: var(--av-surface-sunken); color: var(--av-text-secondary); font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold); }

@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field, model_validator
 from database import supabase_admin
 from routers.admin import require_admin
 from services.cohort_assignment_service import fan_out_assignment
+from services.class_membership_service import active_student_ids_for_cohort
 
 
 router = APIRouter(
@@ -133,6 +134,17 @@ def _read_assignment_request_receipt(
     if not isinstance(receipt, dict):
         raise HTTPException(409, "Yêu cầu giao bài đang được xử lý. Vui lòng thử lại.")
     return {**receipt, "replayed": True}
+
+
+def _cohort_assignment_filter(cohort_id: str, active_student_ids: list[str]) -> str:
+    """Keep stamped history; membership only broadens legacy NULL-origin rows."""
+    stamped = f"cohort_id.eq.{cohort_id}"
+    if not active_student_ids:
+        return stamped
+    student_ids = ",".join(dict.fromkeys(active_student_ids))
+    return (
+        f"{stamped},and(cohort_id.is.null,student_id.in.({student_ids}))"
+    )
 
 
 # ── Request bodies ────────────────────────────────────────────────────
@@ -240,29 +252,23 @@ async def list_assignments(
     and student (id/student_code/full_name) so the admin list view
     doesn't need a second round-trip.
 
-    Sprint 19.2: `cohort_id` filters to assignments whose student belongs
-    to that cohort (derived via students.cohort_id — Discovery D1)."""
+    `cohort_id` uses the stamped fan-out origin for new rows. Legacy/direct
+    rows without provenance retain the historical membership-based fallback."""
     await require_admin(authorization)
 
-    # Resolve cohort → student_ids before querying assignments.
+    # Stamped rows retain their immutable class origin after roster changes.
+    # Current membership is consulted only for legacy/direct NULL-origin rows.
     cohort_student_ids: Optional[list[str]] = None
     if cohort_id:
-        srows = (
-            supabase_admin.table("students")
-            .select("id")
-            .eq("cohort_id", str(cohort_id))
-            .execute()
-        ).data or []
-        cohort_student_ids = [s["id"] for s in srows]
-        if not cohort_student_ids:
-            return {"assignments": [], "capped": False}
+        cohort_student_ids = active_student_ids_for_cohort(
+            supabase_admin, str(cohort_id))
 
     q = (
         supabase_admin.table("writing_assignments")
         .select(
             "id, status, deadline, instructions, created_at, "
             "submitted_at, graded_at, delivered_at, "
-            "essay_id, prompt_id, student_id, "
+            "essay_id, prompt_id, student_id, cohort_id, "
             "assignment_group_id, name, allow_soft_check, "
             "is_timed, time_limit_minutes, started_at, auto_submitted, "
             "writing_prompts(id, title, task_type, difficulty), "
@@ -278,7 +284,7 @@ async def list_assignments(
     if prompt_id:
         q = q.eq("prompt_id", str(prompt_id))
     if cohort_student_ids is not None:
-        q = q.in_("student_id", cohort_student_ids)
+        q = q.or_(_cohort_assignment_filter(str(cohort_id), cohort_student_ids))
     if status_filter:
         q = q.eq("status", status_filter)
 
@@ -343,6 +349,10 @@ async def create_assignments(
                 raise HTTPException(409, "request_id đã được dùng với nội dung khác.") from exc
             if "owned_by_other_admin" in message:
                 raise HTTPException(409, "request_id không thuộc tài khoản admin này.") from exc
+            if "roster_changed" in message:
+                raise HTTPException(
+                    409, "Sĩ số lớp đã thay đổi trong lúc giao bài. Vui lòng rà lại và thử lại."
+                ) from exc
             raise
         receipt = rpc.data
         if not isinstance(receipt, dict):
@@ -408,8 +418,7 @@ async def create_assignments(
 
 
 class FanOutCreate(BaseModel):
-    """N prompts → every student in a cohort. Cohort membership is
-    derived from students.cohort_id (Discovery D1). W-ASSIGN: the rows
+    """N prompts → every active member in a cohort. W-ASSIGN: the rows
     share an `assignment_group_id` + `name`; the give is allow + warn
     (NOT skip) so re-giving a prompt in a new "Buổi" works as intended.
 
@@ -472,13 +481,8 @@ async def fan_out_to_cohort(
         if replay is not None:
             return replay
 
-        students = (
-            supabase_admin.table("students")
-            .select("id")
-            .eq("cohort_id", str(body.cohort_id))
-            .execute()
-        ).data or []
-        student_ids = [row["id"] for row in students if row.get("id")]
+        student_ids = active_student_ids_for_cohort(
+            supabase_admin, str(body.cohort_id))
         if not student_ids:
             raise HTTPException(400, "Lớp này chưa có học viên nào.")
         if body.expected_student_count is not None and len(student_ids) != body.expected_student_count:
@@ -507,6 +511,10 @@ async def fan_out_to_cohort(
                 raise HTTPException(409, "request_id đã được dùng với nội dung khác.") from exc
             if "owned_by_other_admin" in message:
                 raise HTTPException(409, "request_id không thuộc tài khoản admin này.") from exc
+            if "roster_changed" in message:
+                raise HTTPException(
+                    409, "Sĩ số lớp đã thay đổi trong lúc giao bài. Vui lòng rà lại và thử lại."
+                ) from exc
             raise
         result = rpc.data
         if not isinstance(result, dict):

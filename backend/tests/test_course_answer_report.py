@@ -54,7 +54,7 @@ def test_retake_sessions_are_excluded():
 
 def test_writing_questions_are_not_in_the_multiple_choice_report():
     src = _src()
-    assert 'q.get("type") == "writing"' in src
+    assert "not _is_course_quiz_question(q)" in src
 
 
 def test_the_time_per_question_is_a_median_not_a_mean():
@@ -338,7 +338,7 @@ def test_the_redaction_lists_the_kept_fields_INSTEAD_of_deleting_the_rest():
 # là sai chiều. Nhưng chi tiết từng câu thì phải chờ: kỳ kiểm tra lại bốc mẫu
 # từ chính bộ câu ấy.
 
-def _report(*, passed):
+def _report(*, passed, assignment_id=None, with_quiz=True):
     """Chạy trọn `course_answer_report` với một cơ sở dữ liệu giả."""
     QS = [{"qid": "q0", "type": "mcq", "subtype": "gap", "item_key": "chia động từ",
            "prompt": "She ___ to school.", "options": ["go", "goes"], "answer": 1,
@@ -369,18 +369,21 @@ def _report(*, passed):
     class _DB:
         def table(self, name):
             rows = {
-                "quiz_sessions": [{"id": "s1", "user_id": "u1", "kind": "run",
+                "quiz_sessions": ([{"id": "s1", "user_id": "u1", "kind": "run",
                                    "bank_id": "b1",
                                    "class_assignment_item_id": "i1",
-                                   "duration_sec": 60, "ended_at": "2026-08-06T01:00:00+00:00"}],
-                "quiz_attempts": [{"session_id": "s1", "qid": "q0", "is_correct": False,
+                                   "duration_sec": 60, "ended_at": "2026-08-06T01:00:00+00:00"}]
+                                  if with_quiz else []),
+                "quiz_attempts": ([{"session_id": "s1", "qid": "q0", "is_correct": False,
                                    "answer_given": "0", "response_time_ms": 9000,
                                    "created_at": "2026-08-06T00:59:00+00:00"},
                                   {"session_id": "s1", "qid": "q1", "is_correct": True,
                                    "answer_given": "1", "response_time_ms": 4000,
-                                   "created_at": "2026-08-06T00:59:30+00:00"}],
+                                   "created_at": "2026-08-06T00:59:30+00:00"}]
+                                  if with_quiz else []),
                 "quiz_questions": [{**q, "bank_id": "b1"} for q in QS],
                 "class_assignment_items": [{"id": "i1", "assignment_id": "a1",
+                                            "student_id": "st1",
                                             "passed_at": "2026-08-06T02:00:00+00:00" if passed else None,
                                             "mastery": {"threshold": 75, "attempts": [
                                                 {"phase": "run", "pct": 70,
@@ -389,6 +392,7 @@ def _report(*, passed):
                                                  "next_action": "retake"},
                                             ]}}],
                 "class_assignments": [{"id": "a1", "content_config": {"pass_pct": 75}}],
+                "students": [{"id": "st1", "user_id": "u1"}],
                 "quiz_banks": [{"id": "b1", "title": "Buổi 1"}],
             }.get(name, [])
 
@@ -400,7 +404,8 @@ def _report(*, passed):
             patch.object(qs, "_bank_meta_or_404", lambda *_a, **_k: {"id": "b1", "title": "Buổi 1"}), \
             patch.object(qs, "_assignment_item_for",
                          lambda *_a, **_k: {"id": "i1", "assignment_id": "a1"}):
-        return qs.course_answer_report(user_id="u1", bank_id="b1")
+        return qs.course_answer_report(
+            user_id="u1", bank_id="b1", assignment_id=assignment_id)
 
 
 def test_a_student_who_has_not_passed_STILL_learns_which_axis_is_weak():
@@ -444,7 +449,22 @@ def test_the_learner_report_uses_the_canonical_mastery_history():
         "at": "2026-08-06T01:10:00+00:00",
         "session_count": 1,
         "next_action": "retake",
+        "completed": True,
+        "duration_sec": 0,
+        "sections": [],
     }]
+    assert d["summary"]["latest_pct"] == 70.0
+    assert d["summary"]["latest_action"] == "retake"
+    assert d["totals"]["scope"] == "baseline_quiz"
+    assert d["summary"]["baseline_answered"] == d["totals"]["answered"]
+
+
+def test_a_writing_only_teacher_report_keeps_the_mastery_summary_without_quiz_sessions():
+    d = _report(passed=True, assignment_id="a1", with_quiz=False)
+    assert d["questions"] == [] and d["totals"] == {}
+    assert d["summary"]["latest_pct"] == 70.0
+    assert d["summary"]["latest_action"] == "retake"
+    assert d["summary"]["baseline_quiz_pct"] is None
 
 
 def test_history_shape_does_not_expose_raw_session_ids():

@@ -65,7 +65,7 @@ test('reading-core-player-partial-persistence', async ({ page }) => {
   await page.getByRole('button', { name: 'Bắt đầu bài thi' }).click();
   await page.getByLabel('Answer 1').fill('first idea');
   await expect.poll(() => state.answers.get(1)).toBe('first idea');
-  await page.getByLabel('Answer 2').selectOption('TRUE');
+  await page.getByRole('radiogroup', { name: 'Answer 2' }).getByRole('radio', { name: 'TRUE' }).check();
   await expect(page.locator('.reading-next-save-banner')).toContainText('1 câu chưa lưu được lên máy chủ');
   expect(state.answers.has(2)).toBe(false);
 
@@ -124,7 +124,7 @@ test('reading-bidirectional-cross-version-core-player', async ({ page }) => {
   await openNext(page);
   await page.getByRole('button', { name: 'Tiếp tục bài đang làm' }).click();
   await expect(page.getByLabel('Answer 1')).toHaveValue('first idea');
-  await page.getByLabel('Answer 2').selectOption('TRUE');
+  await page.getByRole('radiogroup', { name: 'Answer 2' }).getByRole('radio', { name: 'TRUE' }).check();
   await expect.poll(() => state.answers.get(2)).toBe('TRUE');
 
   await openLegacy(page);

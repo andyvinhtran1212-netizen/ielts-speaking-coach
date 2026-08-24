@@ -47,7 +47,7 @@ body.av-page {
 }
 
 .mc-rhythm__label {
-  color: var(--av-text-muted);
+  color: var(--av-text-secondary);
   font-family: var(--av-font-mono);
   font-size: var(--av-fs-xs);
   letter-spacing: var(--av-tracking-wide);
@@ -102,7 +102,7 @@ body.av-page {
   font-weight: var(--av-fw-bold);
   line-height: 1.1;
 }
-.mc-stat-label { margin-top: 2px; color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+.mc-stat-label { margin-top: 2px; color: var(--av-text-secondary); font-size: var(--av-fs-xs); }
 .mc-stat.is-alarm .mc-stat-num { color: var(--av-warning); }
 
 .mc-due-now {
@@ -152,7 +152,7 @@ body.av-page {
 .mc-item.is-missing { border-color: color-mix(in srgb, var(--av-warning) 40%, transparent); }
 .mc-item-main { min-width: 0; flex: 1; }
 .mc-item-title { margin: 0 0 2px; font-weight: var(--av-fw-semibold); }
-.mc-item-sub { margin: 0; color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+.mc-item-sub { margin: 0; color: var(--av-text-secondary); font-size: var(--av-fs-xs); }
 .mc-item-sub.is-alarm { color: var(--av-warning); }
 .mc-band { font-family: var(--av-font-mono); font-weight: var(--av-fw-semibold); }
 .mc-partial { color: var(--av-warning); font-weight: var(--av-fw-semibold); }
@@ -166,7 +166,7 @@ body.av-page {
   border-radius: var(--av-radius-lg);
   background: var(--av-surface-card);
 }
-.mc-lesson-no { min-width: 3.5rem; padding-top: 2px; color: var(--av-text-muted); font-family: var(--av-font-mono); font-size: var(--av-fs-sm); }
+.mc-lesson-no { min-width: 3.5rem; padding-top: 2px; color: var(--av-text-secondary); font-family: var(--av-font-mono); font-size: var(--av-fs-sm); }
 .mc-lesson-main { min-width: 0; flex: 1; }
 .mc-lesson-title { margin: 0 0 2px; font-weight: var(--av-fw-semibold); }
 .mc-lesson-body { margin: var(--av-space-2) 0 0; overflow-wrap: anywhere; color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
@@ -191,7 +191,7 @@ body.av-page {
   padding: var(--av-space-6);
   border: 1px dashed var(--av-border-default);
   border-radius: var(--av-radius-lg);
-  color: var(--av-text-muted);
+  color: var(--av-text-secondary);
   font-size: var(--av-fs-sm);
   text-align: center;
 }

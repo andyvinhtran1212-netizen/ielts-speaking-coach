@@ -370,6 +370,9 @@ export function ListeningTestSession() {
   const [playing, setPlaying] = useState(false);
   const [playbackStarted, setPlaybackStarted] = useState(false);
   const [audioEnded, setAudioEnded] = useState(false);
+  const [audioError, setAudioError] = useState('');
+  const [audioRetrying, setAudioRetrying] = useState(false);
+  const [audioReloadKey, setAudioReloadKey] = useState(0);
   const [resumeOffset, setResumeOffset] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const coordinatorRef = useRef<any>(null);
@@ -481,17 +484,23 @@ export function ListeningTestSession() {
     };
   }, [attempt?.attempt_id, phase === 'results' || phase === 'sealed', saveAnswer]);
 
+  const resolveAudioOffset = useCallback(async (nextAttempt: Attempt, nextTest: ListeningTest | null) => {
+    const hook = (window as any).MockHook;
+    if (params?.sittingId && typeof hook?.sectionElapsedSeconds === 'function') {
+      return hook.sectionElapsedSeconds('listening');
+    }
+    if (nextTest && !isPracticeListeningTest(nextTest)) {
+      return listeningResumeOffsetSeconds(nextAttempt.started_at);
+    }
+    return null;
+  }, [params?.sittingId]);
+
   const enterAttempt = useCallback(async (nextAttempt: Attempt, restored: AnswerMap, attach = true) => {
     const hook = (window as any).MockHook;
     if (attach && params?.sittingId && typeof hook?.attach === 'function') {
       await hook.attach('listening', nextAttempt.attempt_id);
     }
-    let offset: number | null = null;
-    if (params?.sittingId && typeof hook?.sectionElapsedSeconds === 'function') {
-      offset = await hook.sectionElapsedSeconds('listening');
-    } else if (testData && !isPracticeListeningTest(testData)) {
-      offset = listeningResumeOffsetSeconds(nextAttempt.started_at);
-    }
+    const offset = await resolveAudioOffset(nextAttempt, testData);
     answersRef.current = restored;
     setAnswers(new Map(restored)); setAttempt(nextAttempt); setResumeAvailable(false);
     setResumeOffset(Number.isFinite(offset) ? Math.max(0, Number(offset)) : null);
@@ -499,7 +508,7 @@ export function ListeningTestSession() {
     setCurrentQuestion(firstQuestion || null);
     setAudioPromptOpen(!!testData && !isPracticeListeningTest(testData) && !params?.mockEmbed);
     setPhase('inprogress');
-  }, [params?.mockEmbed, params?.sittingId, testData]);
+  }, [params?.mockEmbed, params?.sittingId, resolveAudioOffset, testData]);
 
   const resume = useCallback(() => {
     if (!attempt) return;
@@ -593,9 +602,17 @@ export function ListeningTestSession() {
     const audio = audioRef.current;
     if (!audio || (!practice && (playing || audio.ended || audioEnded))) return;
     const alreadyStarted = playbackStarted;
-    try { await audio.play(); setPlaying(true); setPlaybackStarted(true); setAudioEnded(false); setAudioPromptOpen(false); }
+    try {
+      await audio.play();
+      setPlaying(true); setPlaybackStarted(true); setAudioEnded(false);
+      setAudioPromptOpen(false); setAudioError('');
+    }
     catch {
       setPlaying(false);
+      setAudioPromptOpen(false);
+      setAudioError(navigator.onLine
+        ? 'Audio chưa phát được. Hãy tải lại đường dẫn audio rồi bấm Play; thời gian thi vẫn tiếp tục chạy.'
+        : 'Đang mất mạng nên audio chưa phát được. Giữ nguyên tab; hệ thống sẽ tải lại khi có kết nối.');
       // A rejected first play may be retried. A rejected RESUME must retain the
       // single-shot latch so it can never become a restart-from-zero affordance.
       if (!practice && !alreadyStarted) setPlaybackStarted(false);
@@ -606,6 +623,40 @@ export function ListeningTestSession() {
     if (!audio) return;
     if (audio.paused) void startAudio(); else { audio.pause(); setPlaying(false); }
   }, [startAudio]);
+
+  const retryAudio = useCallback(async () => {
+    if (!params || !attempt || audioRetrying) return;
+    const mediaOffset = Number(audioRef.current?.currentTime);
+    setAudioRetrying(true);
+    try {
+      const refreshed = normalizeListeningTest(await window.api.get(
+        `/api/listening/tests/${encodeURIComponent(params.testId)}`,
+      ));
+      const offset = params.sittingId || !Number.isFinite(mediaOffset)
+        ? await resolveAudioOffset(attempt, refreshed)
+        : Math.max(0, mediaOffset);
+      audioRef.current?.pause();
+      setPlaying(false);
+      setPlaybackStarted(false);
+      setAudioEnded(false);
+      setResumeOffset(Number.isFinite(offset) ? Math.max(0, Number(offset)) : null);
+      setTestData(refreshed);
+      setAudioReloadKey((value) => value + 1);
+      setAudioError('');
+      setAudioPromptOpen(!isPracticeListeningTest(refreshed) && !params.mockEmbed);
+    } catch (caught: any) {
+      setAudioError(`Chưa tải lại được audio. ${caught?.message || 'Kiểm tra kết nối rồi thử lại.'}`);
+    } finally {
+      setAudioRetrying(false);
+    }
+  }, [attempt, audioRetrying, params, resolveAudioOffset]);
+
+  useEffect(() => {
+    if (!audioError) return undefined;
+    const online = () => { void retryAudio(); };
+    window.addEventListener('online', online);
+    return () => window.removeEventListener('online', online);
+  }, [audioError, retryAudio]);
 
   const allQuestions = useMemo(() => listeningQuestions(testData), [testData]);
   const total = allQuestions.length;
@@ -699,22 +750,28 @@ export function ListeningTestSession() {
             <div className="ft-sticky-row"><span className="ft-progress-text">Practice audio</span><span className="ft-time">{formatTime(currentTime)} / {formatTime(duration)}</span></div>
             <div className="ft-audio-bar ft-audio-bar--seekable"><div className="ft-audio-fill" style={{ width: `${duration ? currentTime / duration * 100 : 0}%` }} /></div>
           </> : <div className="listening-next-full-audio-copy"><span className="listening-next-headphones" aria-hidden="true">◉</span><span><strong>{audioEnded ? 'Audio has ended' : playing ? 'Audio is Playing' : playbackStarted ? 'Audio paused by the browser' : 'Audio ready'}</strong><small>{audioEnded ? 'Continue answering before you submit.' : 'The recording cannot be rewound or restarted.'}</small></span></div>}
+          {audioError ? <div className="ft-audio-error" role="alert"><span>{audioError}</span><button className="ft-control-btn ghost" type="button" onClick={() => void retryAudio()} disabled={audioRetrying}>{audioRetrying ? 'Đang tải lại…' : 'Tải lại audio'}</button></div> : null}
           <div className="ft-audio-controls">
             {practice ? <><button className="ft-control-btn" type="button" onClick={toggleAudio}>{playing ? '⏸ Tạm dừng' : '▶ Play'}</button><input aria-label="Audio progress (kéo để tua)" type="range" min="0" max={Math.max(1, duration)} value={currentTime} onChange={(event) => { const next = Number(event.target.value); if (audioRef.current) audioRef.current.currentTime = next; setCurrentTime(next); }} /></>
               : playbackStarted && !playing && !audioEnded ? <button className="ft-control-btn" type="button" onClick={startAudio}>▶ Tiếp tục</button> : null}
             <label>Volume <input aria-label="Âm lượng" type="range" min="0" max="100" defaultValue="100" onChange={(event) => { if (audioRef.current) audioRef.current.volume = Number(event.target.value) / 100; }} /></label>
           </div>
           <audio
+            key={`${testData.audio_url}:${audioReloadKey}`}
             ref={audioRef}
             src={testData.audio_url}
             preload="auto"
             onLoadedMetadata={(event) => {
               const audio = event.currentTarget; setDuration(Number.isFinite(audio.duration) ? audio.duration : testData.audio_duration_seconds || 0);
               if (resumeOffset != null && !practice) { const target = Math.min(resumeOffset, Math.max(0, audio.duration - 0.25)); try { audio.currentTime = target; setCurrentTime(target); } catch {} }
+              setAudioError(''); setAudioRetrying(false);
             }}
             onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
             onPlay={() => { setPlaying(true); setAudioEnded(false); }} onPause={() => setPlaying(false)}
             onEnded={() => { setPlaying(false); setAudioEnded(!practice); if (practice) setPlaybackStarted(false); }}
+            onError={() => setAudioError(navigator.onLine
+              ? 'Không tải được dữ liệu audio. Hãy tải lại đường dẫn audio; thời gian thi vẫn tiếp tục chạy.'
+              : 'Đang mất mạng nên audio bị gián đoạn. Giữ nguyên tab; hệ thống sẽ tải lại khi có kết nối.')}
           />
         </section>
         <div className="ielts-test-paper" id="listening-paper" onFocusCapture={(event) => {

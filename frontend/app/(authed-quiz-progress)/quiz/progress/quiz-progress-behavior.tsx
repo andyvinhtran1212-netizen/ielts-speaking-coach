@@ -10,6 +10,7 @@ import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { parseCourseExplanation } from '../../../../public/js/course-explanation-format.js';
 
 interface ProgressTotals {
   sessions?: number;
@@ -99,6 +100,58 @@ function FormattedText({ value }: { value?: string | null }) {
   });
 }
 
+type ExplanationBlock =
+  | { kind: 'paragraph'; text: string }
+  | { kind: 'lead'; text: string }
+  | { kind: 'unordered-list'; items: string[]; legacy?: boolean }
+  | { kind: 'ordered-list'; items: string[] };
+
+// Explanation và prompt có contract khác nhau: prompt hỗ trợ chỗ trống,
+// explanation hỗ trợ block/list nhưng không nhận HTML. React escape toàn bộ
+// text; parser chung chỉ quyết định cấu trúc và giữ **nhãn** dưới dạng data.
+function ExplanationInline({ value }: { value: string }) {
+  return value.split(/(\*\*[^*]+\*\*)/g).map((part, index): ReactNode => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong className="course-explain__emphasis" key={index}>{part.slice(2, -2)}</strong>;
+    }
+    return <Fragment key={index}>{part}</Fragment>;
+  });
+}
+
+function ExplanationBlocks({ value }: { value: string }) {
+  const blocks = parseCourseExplanation(value) as ExplanationBlock[];
+  return (
+    <div className="course-explain">
+      {blocks.map((block, index) => {
+        if (block.kind === 'ordered-list') {
+          return (
+            <ol className="course-explain__list" key={index}>
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}><ExplanationInline value={item} /></li>
+              ))}
+            </ol>
+          );
+        }
+        if (block.kind === 'unordered-list') {
+          const className = `course-explain__list${block.legacy ? ' course-explain__list--legacy' : ''}`;
+          return (
+            <ul className={className} key={index}>
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}><ExplanationInline value={item} /></li>
+              ))}
+            </ul>
+          );
+        }
+        const className = block.kind === 'lead'
+          ? 'course-explain__lead' : 'course-explain__paragraph';
+        return (
+          <p className={className} key={index}><ExplanationInline value={block.text} /></p>
+        );
+      })}
+    </div>
+  );
+}
+
 function StatCard({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="av-card pg-stat">
@@ -145,7 +198,7 @@ function MistakeQuestionView({ question }: { question: MistakeQuestion }) {
         </div>
       ) : null}
       {question.explain ? (
-        <div className="pg-mk__explain"><FormattedText value={question.explain} /></div>
+        <div className="pg-mk__explain"><ExplanationBlocks value={question.explain} /></div>
       ) : null}
       {articleUrl ? (
         <div className="pg-mk__row">

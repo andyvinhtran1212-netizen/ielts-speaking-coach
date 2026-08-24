@@ -241,17 +241,20 @@ def test_list_students_attaches_cohort_name(monkeypatch):
 
     class _Q:
         def __init__(self, name, tables):
-            self.name, self.t, self._in = name, tables, None
+            self.name, self.t, self._in, self._eqs = name, tables, None, []
         def select(self, *a, **k): return self
         def order(self, *a, **k): return self
         def or_(self, *a, **k): return self
         def range(self, *a, **k): return self
         def in_(self, col, vals): self._in = (col, vals); return self
+        def eq(self, col, val): self._eqs.append((col, val)); return self
         def execute(self):
             rows = list(self.t.get(self.name, []))
             if self._in:
                 col, vals = self._in
                 rows = [r for r in rows if r.get(col) in vals]
+            for col, val in self._eqs:
+                rows = [r for r in rows if r.get(col) == val]
             return type("R", (), {"data": rows})()
 
     class _C:
@@ -264,6 +267,9 @@ def test_list_students_attaches_cohort_name(monkeypatch):
             {"id": "s2", "student_code": "S2", "full_name": "B", "cohort_id": None},
         ],
         "cohorts": [{"id": "co1", "name": "Lớp A"}],
+        "student_cohort_memberships": [
+            {"id": "m1", "student_id": "s1", "cohort_id": "co1", "is_active": True},
+        ],
     }
     monkeypatch.setattr(ss, "supabase_admin", _C(tables))
 
@@ -273,6 +279,8 @@ def test_list_students_attaches_cohort_name(monkeypatch):
     assert by["s2"]["cohort_name"] is None   # unassigned → None → UI "—"
     assert by["s1"]["cohort_lookup_failed"] is False
     assert by["s2"]["cohort_lookup_failed"] is False
+    assert by["s1"]["cohorts"] == [
+        {"id": "co1", "name": "Lớp A", "is_primary": True}]
 
 
 def test_list_students_exposes_cohort_lookup_failure(monkeypatch):

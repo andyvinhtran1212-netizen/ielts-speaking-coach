@@ -1022,6 +1022,13 @@
   font-size: var(--av-fs-base);
 }
 
+.cx-question-audio {
+  display: block;
+  width: min(100%, 28rem);
+  height: 42px;
+  margin: calc(-1 * var(--av-space-2)) 0 var(--av-space-6);
+}
+
 .cx-opts { gap: var(--av-space-3); }
 
 .cx-opt {
@@ -1114,13 +1121,57 @@
 
 .cx-why__label {
   display: block;
-  margin-bottom: var(--av-space-2);
+  margin: 0 0 var(--av-space-2);
   font-family: var(--av-font-mono);
   font-size: var(--av-fs-xs);
   font-weight: var(--av-fw-semibold);
   letter-spacing: var(--av-tracking-wide);
   color: var(--av-primary);
   text-transform: uppercase;
+}
+
+/* Một contract cho lời giải ở phản hồi tức thời, tự luận và mặt đọc admin.
+   Nội dung được formatter escape trước khi dựng các khối có ngữ nghĩa. */
+.course-explain {
+  display: grid;
+  gap: var(--av-space-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.course-explain__paragraph,
+.course-explain__lead {
+  margin: 0;
+}
+
+.course-explain__lead {
+  color: var(--av-text-primary);
+  font-weight: var(--av-fw-medium);
+}
+
+.course-explain__list {
+  display: grid;
+  gap: var(--av-space-2);
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+
+.course-explain__list li {
+  padding-inline-start: var(--av-space-1);
+}
+
+.course-explain__list li::marker {
+  color: var(--av-primary);
+  font-weight: var(--av-fw-bold);
+}
+
+.course-explain__emphasis {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 .cx-next {
@@ -1235,6 +1286,57 @@
 
 .cx-verdict__body { padding: var(--av-space-6); }
 .cx-verdict__body h3 { margin: 0 0 var(--av-space-3); font-size: var(--av-fs-sm); }
+
+.cx-completion-progress {
+  width: 100%;
+  height: 8px;
+  margin: 0 0 var(--av-space-4);
+  border: 0;
+  border-radius: var(--av-radius-pill);
+  overflow: hidden;
+  color: var(--av-primary);
+  background: var(--av-surface-sunken);
+}
+.cx-completion-progress::-webkit-progress-bar { background: var(--av-surface-sunken); }
+.cx-completion-progress::-webkit-progress-value { background: var(--av-primary); }
+.cx-completion-progress::-moz-progress-bar { background: var(--av-primary); }
+
+.cx-section-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--av-space-3);
+  margin: 0 0 var(--av-space-4);
+  padding: 0;
+  list-style: none;
+}
+.cx-section-checklist li {
+  display: flex;
+  align-items: center;
+  gap: var(--av-space-3);
+  min-width: 0;
+  padding: var(--av-space-3);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-lg);
+  background: var(--av-surface-card);
+}
+.cx-section-checklist li > span {
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--av-text-muted);
+  background: var(--av-surface-sunken);
+  font-weight: var(--av-fw-bold);
+}
+.cx-section-checklist li[data-complete='true'] > span {
+  color: var(--av-success);
+  background: color-mix(in srgb, var(--av-success) 12%, var(--av-surface-card));
+}
+.cx-section-checklist strong,
+.cx-section-checklist small { display: block; }
+.cx-section-checklist small { margin-top: 2px; color: var(--av-text-muted); }
 
 .cx-verdict__steps {
   display: grid;

@@ -15,6 +15,7 @@ let collectionSweepCompletedSection = null;
 let isOpen = true;
 let missedListening = 0;
 let sittingExists = true;
+let liveReadFails = false;
 
 const exams = [
   { id: 'exam-1', code: 'LIVE-1', title: 'Lớp C1 · Full Test', status: 'published', exam_mode: 'sequential', is_open: true, active_section: 'listening' },
@@ -100,7 +101,10 @@ await page.route('**/*', async (route) => {
   const json = (value, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
   if (parsed.pathname === '/auth/me') return json({ id: adminId, email: 'admin-mock-live@local', role: 'admin' });
   if (parsed.pathname === '/admin/mock-exams' && method === 'GET') return json({ exams });
-  if (parsed.pathname === '/admin/mock-exams/exam-1/live' && method === 'GET') return json(liveSnapshot());
+  if (parsed.pathname === '/admin/mock-exams/exam-1/live' && method === 'GET') {
+    if (liveReadFails) return json({ detail: 'fixture live read failed' }, 503);
+    return json(liveSnapshot());
+  }
   if (parsed.pathname === '/admin/mock-exams/invalid/live' && method === 'GET') return json({ detail: 'must not be called' }, 500);
   if (parsed.pathname === '/admin/mock-exams/exam-1/open' && method === 'POST') {
     isOpen = body?.is_open === true;
@@ -136,6 +140,36 @@ await page.getByText('LIVE-1', { exact: true }).first().waitFor();
 if (process.env.CAPTURE_UI) await page.screenshot({ path: '/tmp/admin-mock-live-redesign.png', fullPage: true });
 check('admin gate, published inventory và exact live snapshot chạy', ['/auth/me', '/admin/mock-exams', '/admin/mock-exams/exam-1/live'].every((path) => requests.some((item) => item.path === path)));
 check('blank persisted state lọt vào danh sách cần chú ý', await page.getByRole('button', { name: /Cần chú ý 1/ }).count() === 1 && await page.getByText('trắng', { exact: true }).count() >= 1);
+
+missedListening = 1;
+await page.getByRole('button', { name: 'Cập nhật ngay' }).click();
+await page.getByRole('button', { name: 'Thu lại Listening' }).waitFor();
+await page.getByRole('button', { name: 'Huỷ lượt' }).click();
+liveReadFails = true;
+await page.getByRole('button', { name: 'Cập nhật ngay' }).click({ force: true });
+await page.getByRole('dialog').waitFor({ state: 'detached' });
+await page.getByText(/Không làm mới được; đang giữ snapshot cũ/).waitFor();
+const frozenClock = await page.locator('.mlv-clock').innerText();
+await page.waitForTimeout(1200);
+check('snapshot stale đóng băng đồng hồ, đóng dialog và khóa điều phối rủi ro',
+  frozenClock === await page.locator('.mlv-clock').innerText()
+    && await page.getByRole('button', { name: /^Thu bài \(/ }).isDisabled()
+    && await page.getByRole('button', { name: /Cập nhật snapshot trước/ }).isDisabled()
+    && await page.getByRole('button', { name: 'Thu lại Listening' }).isDisabled()
+    && await page.getByRole('button', { name: 'Huỷ lượt' }).isDisabled()
+    && await page.getByRole('button', { name: 'Đóng kỳ khẩn' }).isEnabled());
+await page.getByRole('button', { name: 'Đóng kỳ khẩn' }).click();
+await page.getByText(/Yêu cầu có thể đã được ghi nhưng chưa xác nhận được trạng thái backend/).waitFor();
+check('đóng kỳ khẩn vẫn gửi hành động idempotent theo hướng an toàn khi live read lỗi',
+  isOpen === false && requests.some((item) => item.path === '/admin/mock-exams/exam-1/open' && item.body?.is_open === false));
+liveReadFails = false;
+await page.getByRole('button', { name: 'Cập nhật ngay' }).click();
+await page.getByRole('button', { name: 'Mở kỳ' }).waitFor();
+check('snapshot canonical xác nhận kỳ đã đóng và mở lại thao tác',
+  await page.getByRole('button', { name: /^Thu bài \(/ }).isEnabled()
+    && await page.locator('.mlv-alert.is-error').count() === 0);
+await page.getByRole('button', { name: 'Mở kỳ' }).click();
+await page.getByText('Đã mở kỳ thi.').waitFor();
 
 await page.getByRole('button', { name: /^Thu bài \(/ }).click();
 await page.getByText('Đã đóng phần Listening và xếp hàng thu bài.').waitFor();

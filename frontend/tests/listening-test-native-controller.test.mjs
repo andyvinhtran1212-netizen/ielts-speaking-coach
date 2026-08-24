@@ -306,4 +306,18 @@ describe('native Listening test route contract', () => {
     assert.match(page, /listeningReviewHref\(attempt\.attempt_id, from\)/);
     assert.doesNotMatch(page, /→ \{row\.expected/);
   });
+
+  test('surfaces audio failures and refreshes the signed URL at the correct clock offset', () => {
+    assert.match(page, /const \[audioError, setAudioError\]/);
+    assert.match(page, /onError=\{\(\) => setAudioError/);
+    assert.match(page, /Tải lại audio/);
+    assert.match(page, /normalizeListeningTest\(await window\.api\.get/);
+    assert.match(page, /const mediaOffset = Number\(audioRef\.current\?\.currentTime\)/);
+    assert.match(page, /params\.sittingId \|\| !Number\.isFinite\(mediaOffset\)/);
+    assert.match(page, /await resolveAudioOffset\(attempt, refreshed\)/);
+    assert.match(page, /Math\.max\(0, mediaOffset\)/);
+    assert.match(page, /hook\?\.sectionElapsedSeconds/);
+    assert.match(page, /setAudioReloadKey\(\(value\) => value \+ 1\)/);
+    assert.match(page, /window\.addEventListener\('online', online\)/);
+  });
 });

@@ -101,7 +101,8 @@ async def test_no_student_row_is_not_an_error():
 @pytest.mark.asyncio
 async def test_student_with_no_cohort_is_not_an_error():
     with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
-         patch.object(mod, "_student_for_user", return_value={"id": "s1", "cohort_id": None}):
+         patch.object(mod, "_student_for_user", return_value={"id": "s1", "cohort_id": None}), \
+         patch.object(mod, "active_cohort_ids_for_student", return_value=[]):
         out = await mod.my_class(None)
     assert out == {"has_class": False}
 
@@ -143,6 +144,9 @@ def _db(fail: set[str]):
                            "lesson_date": None, "created_at": "x"}],
         "class_assignment_items": [],
         "class_assignments": [],
+        "student_cohort_memberships": [
+            {"id": "m1", "student_id": "s1", "cohort_id": "c1", "is_active": True},
+        ],
     }
     db = type("DB", (), {})()
     db.table = lambda name: _Table(tables.get(name, []), name in fail)
@@ -307,6 +311,9 @@ def _start_db(*, skill, content_id, tables=None):
         "class_assignments": [
             {"id": "a1", "cohort_id": "c1", "skill": skill, "status": "published",
              "content_id": content_id, "content_config": {}, "due_at": None},
+        ],
+        "student_cohort_memberships": [
+            {"id": "m1", "student_id": "s1", "cohort_id": "c1", "is_active": True},
         ],
         "reading_tests": [{"id": "uuid-abc", "test_id": "CAM19-T3",
                            "status": "published", "exam_only": False}],

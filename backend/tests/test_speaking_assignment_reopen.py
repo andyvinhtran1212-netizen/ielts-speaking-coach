@@ -65,12 +65,18 @@ def _assignment(**over):
 
 async def _start(*, sessions, assignment=None, item=None, student=None):
     log = []
+    student_row = student or _STUDENT
     db = _db(log,
              class_assignment_items=[item or _ITEM],
              class_assignments=[assignment or _assignment()],
+             student_cohort_memberships=[{
+                 "id": "m1", "student_id": "s1",
+                 "cohort_id": student_row["cohort_id"],
+                 "is_active": True,
+             }],
              sessions=sessions)
     with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
-         patch.object(mod, "_student_for_user", return_value=student or _STUDENT), \
+         patch.object(mod, "_student_for_user", return_value=student_row), \
          patch.object(mod, "supabase_admin", db):
         return await mod.start_assignment("it1", None), log
 
@@ -249,6 +255,10 @@ async def _pick(sessions, responses=()):
     db = _db(log,
              class_assignment_items=[_ITEM],
              class_assignments=[_assignment()],
+             student_cohort_memberships=[{
+                 "id": "m1", "student_id": "s1", "cohort_id": "co1",
+                 "is_active": True,
+             }],
              sessions=sessions,
              responses=list(responses))
     with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
