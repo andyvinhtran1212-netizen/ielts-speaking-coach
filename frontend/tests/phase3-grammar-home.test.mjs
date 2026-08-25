@@ -124,6 +124,11 @@ describe('parity với trang legacy', () => {
     }
     assert.ok(!CARDS.includes('gw-progress-track'),
       'editorial completion không được giả làm learner progress');
+    const legacyJs = readFileSync(path.join(FRONTEND, 'public', 'js', 'grammar.js'), 'utf8');
+    assert.ok(!legacyJs.includes('gw-progress-track'),
+      'rollback cũng không được giả editorial completion làm learner progress');
+    assert.match(legacyJs, /g\.article_count \+ ' bài<\/span>'/,
+      'rollback phải dùng cùng article inventory truth với native cards');
   });
 
   test('link bài viết trỏ URL sạch canonical (route Next của pilot 2)', () => {

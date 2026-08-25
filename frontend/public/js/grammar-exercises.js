@@ -1,71 +1,93 @@
 /**
- * Trang "Bài tập Grammar" — gom bộ đề theo thư mục ngữ pháp.
+ * Rollback implementation for the native Grammar exercise directory.
  *
- * TÁCH RA TỪ MÃ INLINE của `pages/grammar-exercises.html` khi port sang Next
- * (không đổi một dòng logic nào). Bản Next chạy CHÍNH mã này, không chép lại.
- *
- * Trang CÔNG KHAI: không cần phiên đăng nhập, chỉ cần `window.api`.
+ * The backend payload is the canonical source for category, level and article
+ * metadata. Keep the initial anonymous render semantically aligned with the
+ * Next route; signed-in mastery is a progressive enhancement.
  */
-  var CATEGORIES = [
-    'foundations', 'parts-of-speech', 'modifiers', 'sentence-structures',
-    'tenses', 'verb-patterns', 'grammar-for-meaning', 'ielts-grammar-lab',
-    'grammar-for-writing', 'error-clinic'
-  ];
   function prettify(s) {
     return (s || '').replace(/-/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
   }
-  function categoryOf(code) {
-    // code = G-<category>-<slug>; category may contain hyphens → longest match wins.
-    var sorted = CATEGORIES.slice().sort(function (a, b) { return b.length - a.length; });
-    for (var i = 0; i < sorted.length; i++) {
-      if (code && code.indexOf('G-' + sorted[i] + '-') === 0) return sorted[i];
-    }
-    return 'other';
-  }
   function esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
 
-  function render(banks) {
-    var skel = document.getElementById('ex-skeleton');
-    var empty = document.getElementById('ex-empty');
-    var wrap = document.getElementById('ex-groups');
-    skel.classList.add('hidden');
-    if (!banks || !banks.length) { empty.classList.remove('hidden'); return; }
+  var state = { banks: [], mastery: {}, query: '', category: '', level: '' };
 
-    var byCat = {};
-    banks.forEach(function (b) {
-      var c = categoryOf(b.code);
-      (byCat[c] = byCat[c] || []).push(b);
+  function masteryLabel(status) {
+    if (status === 'weak') return 'Cần luyện';
+    if (status === 'strong') return 'Đã vững';
+    return 'Đang học';
+  }
+
+  function render() {
+    var query = state.query.trim().toLowerCase();
+    var visible = state.banks.filter(function (bank) {
+      var haystack = ((bank.title || '') + ' ' + (bank.summary || '')).toLowerCase();
+      return (!query || haystack.indexOf(query) !== -1)
+        && (!state.category || bank.category === state.category)
+        && (!state.level || bank.level === state.level);
     });
-
-    var order = CATEGORIES.concat(['other']);
-    var html = order.filter(function (c) { return byCat[c]; }).map(function (c) {
-      var items = byCat[c].map(function (b) {
-        var count = b.words_count ? (b.words_count + ' điểm') : 'bài tập';
-        return '<a href="/pages/quiz.html?bank=' + encodeURIComponent(b.id) + '" ' +
-          'class="group flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 transition hover:border-teal/40 hover:bg-teal/[0.06]">' +
-          '<span class="text-white/85 font-medium truncate">' + esc(b.title || b.code) + '</span>' +
-          '<span class="text-xs text-white/40 whitespace-nowrap group-hover:text-teal-light">' + count + ' →</span>' +
-          '</a>';
-      }).join('');
-      return '<section>' +
-        '<h2 class="text-lg font-bold text-white mb-3">' + esc(prettify(c)) + '</h2>' +
-        '<div class="grid gap-2 sm:grid-cols-2">' + items + '</div>' +
-        '</section>';
+    document.getElementById('ex-count').textContent = visible.length;
+    document.getElementById('ex-grid').innerHTML = visible.map(function (bank) {
+      var status = bank.slug ? state.mastery[bank.slug] : '';
+      return '<a href="/quiz?bank=' + encodeURIComponent(bank.id) + '" class="gw-exercise-card">' +
+        '<div class="gw-exercise-card-top"><span>' + esc(prettify(bank.category || 'Grammar')) + '</span>' +
+        (status ? '<small class="is-' + esc(status) + '">' + masteryLabel(status) + '</small>' : '') + '</div>' +
+        '<h2>' + esc(bank.title || bank.code) + '</h2>' +
+        '<p>' + esc(bank.summary || 'Luyện đúng trọng tâm của bài Grammar Wiki này.') + '</p>' +
+        '<div><span>' + esc(bank.level || 'mixed level') + '</span><strong>' +
+        (bank.words_count ? esc(bank.words_count + ' điểm') : 'Bắt đầu') + ' →</strong></div></a>';
     }).join('');
+    document.getElementById('ex-grid').classList.toggle('hidden', !visible.length);
+    document.getElementById('ex-no-match').classList.toggle('hidden', !!visible.length);
+  }
 
-    wrap.innerHTML = html;
-    wrap.classList.remove('hidden');
+  function bindFilters() {
+    var query = document.getElementById('ex-query');
+    var category = document.getElementById('ex-category');
+    var level = document.getElementById('ex-level');
+    query.addEventListener('input', function () { state.query = query.value; render(); });
+    category.addEventListener('change', function () { state.category = category.value; render(); });
+    level.addEventListener('change', function () { state.level = level.value; render(); });
+  }
+
+  async function loadMastery() {
+    try {
+      var supabase = window.getSupabase && window.getSupabase();
+      var session = supabase && await supabase.auth.getSession();
+      if (!session || !session.data || !session.data.session) return;
+      var data = await window.api.get('/api/me/kp-mastery?kp_type=grammar');
+      state.mastery = Object.fromEntries(((data && data.items) || [])
+        .filter(function (item) { return item.ref_slug; })
+        .map(function (item) { return [item.ref_slug, item.status || 'learning']; }));
+      render();
+    } catch (_) {
+      // Mastery is optional. Public practice discovery stays available.
+    }
   }
 
 export async function mount() {
   try {
     var data = await window.api.get('/api/grammar/exercises');
-    render((data && data.banks) || []);
-  } catch (e) {
-    document.getElementById('ex-skeleton').textContent = 'Không tải được bài tập: ' + (e.message || e);
+    state.banks = Array.isArray(data && data.banks) ? data.banks : [];
+    document.getElementById('ex-skeleton').classList.add('hidden');
+    if (!state.banks.length) {
+      document.getElementById('ex-empty').classList.remove('hidden');
+      return;
+    }
+    var categories = Array.from(new Set(state.banks.map(function (bank) { return bank.category; }).filter(Boolean))).sort();
+    document.getElementById('ex-category').insertAdjacentHTML('beforeend', categories.map(function (category) {
+      return '<option value="' + esc(category) + '">' + esc(prettify(category)) + '</option>';
+    }).join(''));
+    bindFilters();
+    document.getElementById('ex-workspace').classList.remove('hidden');
+    render();
+    loadMastery();
+  } catch (_) {
+    document.getElementById('ex-skeleton').classList.add('hidden');
+    document.getElementById('ex-error').classList.remove('hidden');
   }
 }

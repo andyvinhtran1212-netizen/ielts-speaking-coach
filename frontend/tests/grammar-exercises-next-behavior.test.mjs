@@ -11,6 +11,8 @@ const PAGE = read('app', '(public-content)', 'grammar', 'exercises', 'page.tsx')
 const BEHAVIOR = read(
   'app', '(public-content)', 'grammar', 'exercises', 'grammar-exercises-behavior.tsx',
 );
+const LEGACY_PAGE = read('public', 'pages', 'grammar-exercises.html');
+const LEGACY_BEHAVIOR = read('public', 'js', 'grammar-exercises.js');
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
 
 describe('/grammar/exercises — native React behavior', () => {
@@ -56,5 +58,21 @@ describe('/grammar/exercises — canonical entry points', () => {
       assert.match(source, /href=["']\/grammar\/exercises["']/);
       assert.doesNotMatch(source, /pages\/grammar-exercises\.html/);
     }
+  });
+
+  test('rollback leg mirrors the enriched directory instead of the retired grouped list', () => {
+    for (const source of [PAGE, LEGACY_PAGE]) {
+      assert.match(source, /Chọn đúng bài cần luyện/);
+      assert.match(source, /Tìm theo chủ đề và trình độ/);
+    }
+    assert.match(LEGACY_PAGE, /id="ex-query"/);
+    assert.match(LEGACY_PAGE, /id="ex-category"/);
+    assert.match(LEGACY_PAGE, /id="ex-level"/);
+    assert.match(LEGACY_PAGE, /supabase\.min\.js/);
+    assert.match(LEGACY_PAGE, /initSupabase\(SUPABASE_URL, SUPABASE_ANON\)/);
+    assert.match(LEGACY_BEHAVIOR, /bank\.category/);
+    assert.match(LEGACY_BEHAVIOR, /bank\.level/);
+    assert.match(LEGACY_BEHAVIOR, /href="\/quiz\?bank=/);
+    assert.doesNotMatch(LEGACY_BEHAVIOR, /categoryOf|\/pages\/quiz\.html/);
   });
 });
