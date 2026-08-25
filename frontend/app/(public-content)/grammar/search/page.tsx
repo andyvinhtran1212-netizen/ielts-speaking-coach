@@ -11,6 +11,14 @@ export const metadata: Metadata = {
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
+function matchesUse(article: Article, use: string) {
+  if (!use) return true;
+  if (use === 'speaking') return article.speaking_relevance === 'high';
+  if (use === 'writing') return article.writing_relevance === 'high' || article.category === 'grammar-for-writing';
+  if (use === 'reading') return article.category === 'grammar-for-reading';
+  return true;
+}
+
 function ResultsSkeleton() {
   return (
     <div id="search-skeleton" className="av-w-page py-8">
@@ -29,13 +37,41 @@ async function SearchResults({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const raw = typeof params.q === 'string' ? params.q : '';
   const query = raw.trim();
+  const level = typeof params.level === 'string' && ['beginner', 'intermediate', 'advanced'].includes(params.level)
+    ? params.level : '';
+  const use = typeof params.use === 'string' && ['speaking', 'writing', 'reading'].includes(params.use)
+    ? params.use : '';
   const results = query ? await getSearch(query) : [];
-  const articles = Array.isArray(results) ? results as Article[] : [];
+  const articles = (Array.isArray(results) ? results as Article[] : []).filter((article) => {
+    const levelMatches = !level || article.level?.toLowerCase() === level;
+    return levelMatches && matchesUse(article, use);
+  });
 
   return (
     <main id="search-container" className="av-w-page py-8 ds-fadein">
       <div className="mb-8">
         <SearchBox initialQuery={raw} className="relative mb-4" />
+        <form method="get" className="gw-filter-row" aria-label="Bộ lọc kết quả">
+          <input type="hidden" name="q" value={query} />
+          <label>Trình độ
+            <select name="level" defaultValue={level}>
+              <option value="">Tất cả</option>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </label>
+          <label>Mục tiêu
+            <select name="use" defaultValue={use}>
+              <option value="">Tất cả</option>
+              <option value="speaking">Speaking</option>
+              <option value="writing">Writing</option>
+              <option value="reading">Reading</option>
+            </select>
+          </label>
+          <button type="submit" className="gw-filter-reset">Áp dụng</button>
+          {(level || use) ? <a className="gw-filter-reset" href={`/grammar/search?q=${encodeURIComponent(query)}`}>Xóa bộ lọc</a> : null}
+        </form>
       </div>
 
       <div className="mb-5">

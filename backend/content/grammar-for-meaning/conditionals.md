@@ -91,7 +91,24 @@ anchors:
   - id: conditionals.natural-speech-patterns
     location: "## Conditionals trong nói tự nhiên"
     type: section
+learning_blocks:
+  - id: conditional-distance-map
+    type: visual
+    variant: decision-tree
+    eyebrow: Reality map
+    title: Chọn conditional theo “khoảng cách với thực tế”
+    items:
+      - label: Luôn đúng
+        value: Zero · if + present, present
+      - label: Có thể xảy ra
+        value: First · if + present, will
+      - label: Giả định hiện tại
+        value: Second · if + past, would
+      - label: Quá khứ không đổi được
+        value: Third · if + had V3, would have V3
 ---
+<!-- learning-block: conditional-distance-map -->
+
 <!-- anchor: conditionals.overview -->
 ## Tóm tắt
 

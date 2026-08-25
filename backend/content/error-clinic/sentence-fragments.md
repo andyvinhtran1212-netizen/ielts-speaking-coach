@@ -58,7 +58,24 @@ anchors:
   - id: sentence-fragments.ving-toinf-alone
     location: '## LOẠI 4: CỤM V-ING HOẶC TO-INFINITIVE ĐỨNG MỘT MÌNH'
     type: pitfall
+learning_blocks:
+  - id: fragment-completeness
+    type: visual
+    variant: decision-tree
+    eyebrow: Completeness check
+    title: Một dòng có thật sự là câu hoàn chỉnh?
+    items:
+      - label: Có subject?
+        value: ai hoặc cái gì là trung tâm?
+      - label: Có finite verb?
+        value: động từ đã chia theo thì?
+      - label: Đứng độc lập được?
+        value: because/although mở đầu thường cần main clause
+      - label: Đủ ý
+        value: nếu thiếu, nối hoặc bổ sung phần lõi
 ---
+
+<!-- learning-block: fragment-completeness -->
 
 <!-- anchor: sentence-fragments.overview -->
 ## Tóm tắt

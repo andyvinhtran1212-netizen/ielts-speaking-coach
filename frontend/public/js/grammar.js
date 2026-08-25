@@ -301,8 +301,6 @@
           remaining.map(renderArticleRow).join('') + '</div></details>'
         : '');
 
-      var pct = g.article_count > 0 ? Math.round(g.complete_count / g.article_count * 100) : 0;
-
       return '<div class="group-card rounded-2xl p-5 border" ' +
              'style="background:' + pal.bg + ';border-color:' + pal.border + '">' +
 
@@ -323,18 +321,10 @@
              '<h3 class="font-semibold text-white text-base leading-tight">' + escHtml(g.title) + '</h3>' +
              '<span class="text-xs flex-shrink-0 px-2 py-0.5 rounded-full font-medium" ' +
              'style="background:' + pal.bg + ';color:' + pal.hex + ';border:1px solid ' + pal.border + '">' +
-             g.complete_count + '/' + g.article_count + '</span>' +
+             g.article_count + ' bài</span>' +
              '</div>' +
              '<p class="text-xs text-white/40 leading-relaxed">' + escHtml(g.description || '') + '</p>' +
              '</div></div>' +
-
-             // ── Progress bar ──
-             // Sprint 6.15.6-hotfix: track background moved to class hook
-             // (gw-progress-track) so light theme picks up token surface.
-             // Fill colour stays inline because it's data-driven (pal.hex).
-             '<div class="gw-progress-track h-0.5 rounded-full mb-4 overflow-hidden">' +
-             '<div class="h-full rounded-full transition-all" style="width:' + pct + '%;background:' + pal.hex + '"></div>' +
-             '</div>' +
 
              // ── Article rows ──
              '<div class="space-y-0.5">' + rows + '</div>' +
@@ -535,16 +525,16 @@
     if (Array.isArray(groups) && groups.length) {
       renderGroups(groups, 'groups-list');
 
-      // Update summary counters
-      var totalComplete = 0, totalPlanned = 0;
+      // This is editorial inventory, not learner mastery. Show a plain article
+      // count and keep the legacy IDs only as stable DOM hooks.
+      var totalArticles = 0;
       groups.forEach(function(g) {
-        totalComplete += (g.complete_count || 0);
-        totalPlanned  += (g.article_count || 0) - (g.complete_count || 0);
+        totalArticles += (g.article_count || 0);
       });
       var gcEl = document.getElementById('groups-complete-count');
       var gpEl = document.getElementById('groups-planned-count');
-      if (gcEl) gcEl.textContent = totalComplete;
-      if (gpEl) gpEl.textContent = totalPlanned;
+      if (gcEl) gcEl.textContent = totalArticles;
+      if (gpEl) gpEl.textContent = '';
     }
 
     // Render home data (categories + featured)

@@ -117,10 +117,10 @@ describe('whenGlobalReady', () => {
 });
 
 describe('article-behavior dùng bản chờ, không kiểm-một-lần', () => {
-  test('cả ba chốt global đều đi qua whenGlobalReady', () => {
+  test('cả năm chốt global đều đi qua whenGlobalReady', () => {
     assert.equal(
-      (BEHAVIOR.match(/await whenGlobalReady\(/g) || []).length, 3,
-      'ba chỗ: đếm lượt xem, nút Lưu bài, CTA khách');
+      (BEHAVIOR.match(/await whenGlobalReady\(/g) || []).length, 5,
+      'năm chỗ: đếm lượt xem, nút Lưu bài, CTA khách, Grammar Lab evidence, exercise CTA');
     // Dạng cũ — kiểm một lần rồi thoát — không được quay lại.
     assert.ok(!/if \(!\(window as any\)\.(api|getSupabase)[^\n]*\) return;/.test(BEHAVIOR),
       'còn chốt kiểm-một-lần nghĩa là lỗi đua quay lại');

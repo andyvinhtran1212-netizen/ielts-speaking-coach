@@ -71,7 +71,25 @@ anchors:
   - id: relative-clauses.compare-with.complex-sentence
     location: "## Tóm tắt nhanh"
     type: compare-with
+learning_blocks:
+  - id: relative-clause-reference
+    type: visual
+    variant: decision-tree
+    eyebrow: Reference map
+    title: Chọn relative pronoun từ danh từ được mô tả
+    items:
+      - label: Người
+        value: who · that
+      - label: Vật hoặc ý
+        value: which · that
+      - label: Sở hữu
+        value: whose
+      - label: Nơi hoặc thời gian
+        value: where · when
+        note: non-defining clause cần dấu phẩy và không dùng that
 ---
+
+<!-- learning-block: relative-clause-reference -->
 
 <!-- anchor: relative-clauses.overview -->
 ## Tóm tắt

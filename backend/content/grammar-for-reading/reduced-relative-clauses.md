@@ -53,7 +53,24 @@ anchors:
 - id: reduced-relative-clauses.pitfall
   location: '## Bẫy khi đọc'
   type: pitfall
+learning_blocks:
+  - id: reduced-relative-expand
+    type: visual
+    variant: flow
+    eyebrow: Decode flow
+    title: Mở rộng mệnh đề rút gọn để nhìn đúng vai trò
+    items:
+      - label: Noun + V-ing
+        value: active meaning
+        note: people living here → people who live here
+      - label: Noun + V3
+        value: passive meaning
+        note: data collected → data that was collected
+      - label: Tìm main verb
+        value: phân từ không phải lúc nào cũng là động từ chính
 ---
+
+<!-- learning-block: reduced-relative-expand -->
 
 <!-- anchor: reduced-relative-clauses.overview -->
 ## Tóm tắt

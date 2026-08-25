@@ -30,6 +30,15 @@ describe('/grammar/search native ownership', () => {
     assert.match(API, /export const getSearch = cache\(fetchSearch\)/);
   });
 
+  test('level và IELTS-use facets nằm trong URL canonical và lọc metadata backend', () => {
+    assert.match(PAGE, /<form method="get"/);
+    assert.match(PAGE, /name="level"/);
+    assert.match(PAGE, /name="use"/);
+    assert.match(PAGE, /article\.speaking_relevance/);
+    assert.match(PAGE, /article\.writing_relevance/);
+    assert.match(PAGE, /article\.category === 'grammar-for-reading'/);
+  });
+
   test('giữ đủ empty/result contract và React tự escape query/backend text', () => {
     assert.match(PAGE, /Nhập từ khóa để tìm kiếm\./);
     assert.match(PAGE, /Kết quả cho/);

@@ -56,3 +56,25 @@ def test_grammar_no_vocab_leak():
     assert leaked == set(), (
         f"Vocab category slugs leaked into grammar data: {leaked}"
     )
+
+
+def test_grammar_search_preserves_card_metadata():
+    """Search cards must show canonical level, status, and reading time."""
+    results = grammar_service.search("present")
+    assert results, "Expected at least one result for a common grammar query"
+
+    for result in results:
+        source = grammar_service.get_article_by_slug(result["slug"])
+        assert source is not None
+        assert result["level"] == source["level"]
+        assert result["status"] == source["status"]
+        assert result["reading_time"] == source["reading_time"]
+        assert result["speaking_relevance"] == source["speaking_relevance"]
+        assert result["writing_relevance"] == source["writing_relevance"]
+
+
+def test_tenses_roadmap_orders_are_unique_and_contiguous():
+    roadmap = grammar_service.get_roadmap("tenses")
+    assert roadmap is not None
+    orders = [article["order"] for article in roadmap["articles"]]
+    assert orders == list(range(1, len(orders) + 1))

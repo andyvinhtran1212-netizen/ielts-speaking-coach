@@ -4955,7 +4955,7 @@ export interface paths {
         };
         /**
          * Get Groups
-         * @description Return the 8 conceptual topic groups with enriched article lists.
+         * @description Return the conceptual topic groups with enriched article lists.
          *     Each article has a resolved status: complete | updating | planned.
          *     Planned articles have no MD file yet — they should be shown but not linked.
          */
@@ -5045,8 +5045,7 @@ export interface paths {
         };
         /**
          * List Exercises
-         * @description All published grammar quiz banks (id/code/title/count). Public, uncached
-         *     (bank state is dynamic). Category is derivable from the code G-<category>-<slug>.
+         * @description Published banks enriched from canonical Grammar article metadata.
          */
         get: operations["list_exercises_api_grammar_exercises_get"];
         put?: never;

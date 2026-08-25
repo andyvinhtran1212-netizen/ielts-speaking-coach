@@ -83,7 +83,25 @@ anchors:
 - id: grammar-in-task2.common-mistakes
   location: '## Lỗi thường gặp'
   type: pitfall
+learning_blocks:
+  - id: task2-argument-stack
+    type: visual
+    variant: flow
+    eyebrow: Argument stack
+    title: Ngữ pháp phục vụ lập luận, không phải khoe cấu trúc
+    items:
+      - label: Claim
+        value: modal hoặc hedging để đặt độ chắc chắn
+      - label: Reason
+        value: because · since · as
+      - label: Evidence
+        value: relative clause hoặc example frame
+      - label: Qualification
+        value: although · while · may
+        note: cho thấy lập luận có sắc thái
 ---
+
+<!-- learning-block: task2-argument-stack -->
 
 <!-- anchor: grammar-in-task2.overview -->
 ## Tóm tắt

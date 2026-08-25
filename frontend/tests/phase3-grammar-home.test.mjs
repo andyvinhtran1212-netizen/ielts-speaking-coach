@@ -27,7 +27,7 @@ const SEARCH = readFileSync(path.join(DIR, 'search-box.tsx'), 'utf8');
 const LEGACY = readFileSync(path.join(FRONTEND, 'public', 'grammar.html'), 'utf8');
 
 describe('route /grammar (Phase 3)', () => {
-  test('là Server Component; chỉ ô tìm kiếm là client boundary', () => {
+  test('là Server Component; interaction nằm trong client boundaries nhỏ', () => {
     assert.ok(!PAGE.includes("'use client'"), 'trang phải render phía máy chủ');
     assert.ok(!CARDS.includes("'use client'"), 'thẻ hiển thị không cần client');
     assert.match(SEARCH, /^'use client';/m, 'ô tìm kiếm cần state + sự kiện bàn phím');
@@ -43,9 +43,9 @@ describe('route /grammar (Phase 3)', () => {
       + ' searchParams không được phép đọc bên trong vùng cache');
   });
 
-  test('ba chế độ của legacy được giữ nguyên: ?q= · ?category= · trang chủ', () => {
+  test('ba chế độ được giữ: ?q= · ?category= · trang chủ', () => {
     assert.match(PAGE, /redirect\(`\/grammar\/search\?q=/,
-      '?q= phải chuyển sang route kết quả canonical');
+      '?q= phải chuyển sang route search Next canonical');
     assert.match(PAGE, /getCategory\(category\)/);
     assert.match(PAGE, /Promise\.all\(\[getHome\(\), getGroups\(\)\]\)/,
       'trang chủ nạp song song như legacy; tuần tự sẽ cộng dồn độ trễ');
@@ -106,7 +106,6 @@ describe('parity với trang legacy', () => {
   test('giữ đúng các id mà grammar-wiki.css nhắm tới', () => {
     for (const id of [
       'home-content', 'groups-section', 'groups-list',
-      'groups-complete-count', 'groups-planned-count',
       'featured-list', 'categories', 'category-cards',
       'category-view', 'category-view-title', 'category-view-list',
     ]) {
@@ -120,9 +119,16 @@ describe('parity với trang legacy', () => {
   test('giữ class hook cho chủ đề sáng (không quay lại inline color)', () => {
     // Sprint 6.15.6-hotfix: các chỗ này từng là rgba() inline và làm chủ đề
     // sáng đọc sai token; đã đổi sang class hook, không được lùi lại.
-    for (const cls of ['gw-progress-track', 'gw-status-dot--planned', 'gw-status-badge--planned']) {
+    for (const cls of ['gw-status-dot--planned', 'gw-status-badge--planned']) {
       assert.ok(CARDS.includes(cls), `thiếu class hook ${cls}`);
     }
+    assert.ok(!CARDS.includes('gw-progress-track'),
+      'editorial completion không được giả làm learner progress');
+    const legacyJs = readFileSync(path.join(FRONTEND, 'public', 'js', 'grammar.js'), 'utf8');
+    assert.ok(!legacyJs.includes('gw-progress-track'),
+      'rollback cũng không được giả editorial completion làm learner progress');
+    assert.match(legacyJs, /g\.article_count \+ ' bài<\/span>'/,
+      'rollback phải dùng cùng article inventory truth với native cards');
   });
 
   test('link bài viết trỏ URL sạch canonical (route Next của pilot 2)', () => {

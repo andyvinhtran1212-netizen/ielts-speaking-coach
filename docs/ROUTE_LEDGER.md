@@ -146,10 +146,10 @@
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
 | `/grammar` | `/grammar.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(public-content)/grammar/page.tsx` — CUTOVER (pilot 2) | Public | none | localStorage (theme) | M | Grammar hub; category browser |
-| `/grammar/:category/:slug` | `/:category/:slug` (clean URL alias via vercel rewrite) | `pages/grammar-article.html` | Public | `anchor` (scroll to section) | localStorage (theme), fetch (public API) | M | Article view; ~150 articles served by single page; server-side SEO metadata |
+| `/grammar/:category/:slug` | `pages/grammar-article.html` retained for parity/rollback | `app/(public-content)/grammar/[category]/[slug]/page.tsx` | Public | URL hash anchor | SSR content + client view/save/micro-check | M | Native article view; semantic Grammar Lab blocks; server-side SEO metadata |
 | `/grammar/compare` | `/pages/grammar-compare.html` vẫn phục vụ làm mốc rollback + vế parity | `app/(public-content)/grammar/compare/page.tsx` — CUTOVER 2026-08-15 | Public | `slug` theo dạng `<left>-vs-<right>` | localStorage (theme); server fetch public API | M | Native SSR side-by-side article comparison; legacy page retained for rollback/parity |
 | `/grammar/roadmap` | `/pages/grammar-roadmap.html` vẫn phục vụ làm mốc rollback + vế parity | `app/(public-content)/grammar/roadmap/page.tsx` — CUTOVER 2026-08-15 | Mixed: public khi có `slug`, Student khi không có | `slug` category tùy chọn | localStorage (theme); public server fetch `/api/grammar/roadmap/{slug}`; personal AuthProvider + `/api/me/roadmap` | M | Native public category roadmap và personal KP roadmap; legacy retained for rollback/parity |
-| `/grammar/search` | `/pages/grammar-search.html` vẫn phục vụ làm mốc rollback + vế parity | `app/(public-content)/grammar/search/page.tsx` — CUTOVER 2026-08-15 | Public | `q` (search term) | localStorage (theme); server fetch public API | M | Native SSR full-text search; legacy page retained for rollback/parity |
+| `/grammar/search` | `/pages/grammar-search.html` vẫn phục vụ làm mốc rollback + vế parity | `app/(public-content)/grammar/search/page.tsx` — CUTOVER 2026-08-15 | Public | `q`, `level`, `use` | localStorage (theme); server fetch public API | M | Native SSR full-text search with shareable level/IELTS-use facets; legacy page retained for rollback/parity |
 
 ### Migration Runtime Infrastructure
 

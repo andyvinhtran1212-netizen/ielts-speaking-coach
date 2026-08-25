@@ -42,24 +42,59 @@
         <span class="mx-1">/</span>
         <span class="text-white/60">Bài tập</span>
       </nav>
-      <h1 class="text-3xl font-extrabold text-white mb-2">Bài tập Grammar</h1>
-      <p class="text-white/45">Kiểm tra kiến thức ngữ pháp theo từng bài — làm tới khi thành thạo.</p>
+      <p class="eyebrow">Practice directory</p>
+      <h1 class="text-3xl font-extrabold text-white mb-2">Chọn đúng bài cần luyện</h1>
+      <p class="text-white/45">Tìm theo chủ đề và trình độ; khi đăng nhập, trạng thái mastery thật sẽ giúp bạn ưu tiên bài phù hợp.</p>
     </header>
 
     <div id="ex-skeleton" class="text-white/40 py-12 text-center">Đang tải bài tập…</div>
     <div id="ex-empty" class="hidden text-white/40 py-12 text-center">
       Chưa có bài tập nào được mở. Vui lòng quay lại sau.
     </div>
-    <div id="ex-groups" class="hidden flex flex-col gap-8"></div>
+    <div id="ex-error" class="gw-state-card hidden">Không tải được bài tập. Vui lòng tải lại trang.</div>
+    <div id="ex-workspace" class="gw-exercise-workspace hidden">
+      <div class="gw-exercise-filters">
+        <label class="gw-filter-search">Tìm bài luyện
+          <input id="ex-query" type="search" placeholder="Articles, tenses, sentence…" />
+        </label>
+        <label>Chủ đề
+          <select id="ex-category"><option value="">Tất cả</option></select>
+        </label>
+        <label>Trình độ
+          <select id="ex-level">
+            <option value="">Tất cả</option>
+            <option value="beginner">Beginner</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="advanced">Advanced</option>
+          </select>
+        </label>
+      </div>
+      <div class="gw-exercise-summary">
+        <strong id="ex-count">0</strong><span>bài luyện phù hợp</span>
+        <p>Mỗi bank vẫn là nguồn canonical cho câu hỏi và đáp án.</p>
+      </div>
+      <div id="ex-grid" class="gw-exercise-grid"></div>
+      <div id="ex-no-match" class="gw-state-card hidden">Không có bài luyện khớp bộ lọc. Hãy thử phạm vi rộng hơn.</div>
+    </div>
   </main>
 
-  <script src="/js/runtime-config.js"></script>
-  <script src="/js/api.js"></script>
-  <script type="module">
-    // Logic đã tách sang `/js/grammar-exercises.js` để bản Next chạy CHÍNH mã
-    // này chứ không chép lại.
-    import { mount } from '/js/grammar-exercises.js';
-    mount();
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js" defer></script>
+  <script src="/js/runtime-config.js" defer></script>
+  <script src="/js/api.js" defer></script>
+  <script>
+    var SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
+    document.addEventListener('DOMContentLoaded', function () {
+      initSupabase(SUPABASE_URL, SUPABASE_ANON);
+      // Rollback leg keeps the same canonical metadata, filters and
+      // destinations as the native Next route so G1 compares real behavior.
+      import('/js/grammar-exercises.js').then(function (module) {
+        module.mount();
+      }).catch(function () {
+        document.getElementById('ex-skeleton').classList.add('hidden');
+        document.getElementById('ex-error').classList.remove('hidden');
+      });
+    });
   </script>
 </body>
 </html>

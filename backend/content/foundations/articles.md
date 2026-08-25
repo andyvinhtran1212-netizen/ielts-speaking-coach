@@ -69,7 +69,65 @@ anchors:
   - id: articles.ielts.speaking-application
     location: '### IELTS Speaking'
     type: ielts-application
+learning_blocks:
+  - id: articles-precheck
+    type: check
+    kind: precheck
+    eyebrow: Khởi động · 20 giây
+    title: Bạn đang nói về đối tượng nào?
+    prompt: Chọn câu phù hợp khi bạn nhắc đến một chiếc xe bất kỳ lần đầu tiên.
+    options:
+      - text: I bought the car yesterday.
+        feedback: The ngụ ý người nghe đã biết chiếc xe nào.
+      - text: I bought a car yesterday.
+        feedback: A giới thiệu một danh từ đếm được số ít chưa xác định.
+      - text: I bought car yesterday.
+        feedback: Danh từ đếm được số ít cần một determiner.
+    correct_index: 1
+    kp_anchor: articles.overview
+  - id: articles-decision-tree
+    type: visual
+    variant: decision-tree
+    eyebrow: Bản đồ quyết định
+    title: Chọn mạo từ bằng ba câu hỏi
+    intro: Đi từ trái sang phải; dừng lại ngay khi điều kiện khớp.
+    items:
+      - label: Đếm được số ít?
+        value: Nếu không, xét nghĩa chung hay cụ thể.
+        note: Danh từ số ít đếm được không đứng trần.
+      - label: Người nghe biết rõ?
+        value: Có → dùng the.
+        note: Biết nhờ ngữ cảnh, nhắc lại hoặc tính duy nhất.
+      - label: Chưa xác định?
+        value: Có → dùng a hoặc an.
+        note: Chọn a/an theo âm đầu, không theo chữ cái.
+      - label: Nói chung?
+        value: Số nhiều hoặc không đếm được → zero article.
+        note: Books matter; Education matters.
+  - id: articles-microcheck
+    type: check
+    kind: microcheck
+    eyebrow: Dừng và kiểm tra
+    title: Áp dụng quy tắc “biết rõ hay chưa”
+    prompt: Câu nào tự nhiên khi cả hai người đang ở trong một căn phòng chỉ có một cửa?
+    options:
+      - text: Please close a door.
+        feedback: A door gợi ý một cánh cửa bất kỳ, không khớp ngữ cảnh.
+      - text: Please close the door.
+        feedback: The phù hợp vì ngữ cảnh xác định rõ cánh cửa.
+    correct_index: 1
+    kp_anchor: articles.definite.when-to-use
+  - id: articles-transfer
+    type: transfer
+    eyebrow: Chuyển sang IELTS Speaking
+    title: Từ câu liệt kê sang câu có tham chiếu rõ
+    context: Speaking Part 2 · Describe a useful object
+    before: I bought phone last year. Phone helps me study.
+    after: I bought a phone last year, and the phone has helped me study more efficiently.
+    tip: Dùng a/an để giới thiệu, rồi dùng the khi nhắc lại cùng đối tượng.
 ---
+
+<!-- learning-block: articles-precheck -->
 
 <!-- anchor: articles.overview -->
 ## Tóm tắt
@@ -100,6 +158,8 @@ Tiếng Anh có ba loại mạo từ:
 | **an** | Indefinite article | Trước vowel sound — lần đầu nhắc, không xác định |
 | **the** | Definite article | Cả hai bên đều biết đang nói về cái gì |
 | *(zero)* | Zero article | Danh từ không đếm được / số nhiều nói chung |
+
+<!-- learning-block: articles-decision-tree -->
 
 ## Cấu trúc
 
@@ -198,6 +258,8 @@ Chỉ có một trên thế giới hoặc trong ngữ cảnh đó.
 
 - She plays **the** piano.
 - He learned **the** guitar when he was young.
+
+<!-- learning-block: articles-microcheck -->
 
 <!-- anchor: articles.zero.when-to-use -->
 ### Zero Article — Không dùng mạo từ
@@ -345,6 +407,8 @@ Khi gặp danh từ, hỏi 3 câu:
 ✅ Sửa: "I come from **a** small city in **the** north of Vietnam. Life there is quiet, and **the** people are friendly. I think **the** city has good food."
 
 Phân tích: thiếu "a" trước "small city" (lần đầu nhắc + đếm được số ít); thiếu "the" trước "north of Vietnam" (duy nhất); "people" cần "the" vì đã chỉ rõ "people [of that city]"; "city" trong câu cuối cần "the" vì đã được giới thiệu ở câu đầu.
+
+<!-- learning-block: articles-transfer -->
 
 - Khi kể chuyện: "I met **a** man on the train. **The** man told me an interesting story about his life."
 - Khi mô tả xu hướng: "**The** rise of **social media** has changed how **people** communicate."
