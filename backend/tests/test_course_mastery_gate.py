@@ -965,6 +965,83 @@ def test_full_retry_rejects_quiz_sessions_opened_before_the_new_attempt():
     assert "sau khi bắt đầu lượt mới" in error.value.detail
 
 
+def test_stale_client_fresh_full_quiz_opens_next_section_attempt_lazily():
+    ss = _sessions(2, created_at="2026-08-21T00:00:00Z")
+    prior = {
+        "phase": "run", "sessions": ["old"], "completed": True,
+        "pct": 40.0, "at": "2026-08-20T00:00:00Z",
+        "next_action": "retry_full",
+    }
+    calls = []
+
+    def evidence(**kwargs):
+        attempt_no = kwargs["attempt_no"]
+        calls.append(attempt_no)
+        quiz = kwargs["attempt"]["sections"]["quiz"]
+        results = {"quiz": quiz}
+        if attempt_no == 1:
+            # The compatibility read must not carry this old section into the
+            # recovered attempt.  Attempt 2 intentionally returns Quiz only.
+            results["writing"] = {
+                "completed": True, "pct": 20.0, "correct": 2, "total": 10,
+                "duration_sec": 600,
+            }
+        return ["quiz", "writing"], results, {
+            "quiz": "s-0", "writing": "old-writing",
+        }
+
+    with patch.object(qs, "_course_completion_evidence", side_effect=evidence):
+        out, log = _verdict(
+            sessions=ss, questions=_questions(10, writing=1),
+            attempts=_attempts(ss, _given(10)),
+            config={"pass_pct": 75, "section_weights": {
+                "quiz": 50, "writing": 50,
+            }},
+            item_row={
+                "id": "it-1", "passed_at": None, "submitted_at": None,
+                "mastery": {"threshold": 75, "attempts": [prior]},
+                "score": 40.0,
+            },
+        )
+
+    assert calls == [1, 2]
+    assert out["completed"] is False
+    assert out["remaining"] == ["writing"]
+    saved = next(row[2]["mastery"] for row in log
+                 if row[0:2] == ("class_assignment_items", "update"))
+    assert saved["active_section_attempt_no"] == 2
+    assert saved["section_attempt_pending"] is True
+    assert saved["section_attempt_started_at"] == "2026-08-20T00:00:00+00:00"
+    latest = saved["attempts"][-1]
+    assert latest["attempt_no"] == 2
+    assert set(latest["sections"]) == {"quiz"}
+
+
+def test_stale_client_full_retry_without_a_trustworthy_boundary_fails_closed():
+    ss = _sessions(2, created_at="2026-08-21T00:00:00Z")
+    prior = {
+        "phase": "run", "sessions": ["old"], "completed": True,
+        "pct": 40.0, "at": None, "next_action": "retry_full",
+    }
+    with patch.object(qs, "_course_completion_evidence", return_value=(
+            ["quiz", "writing"], {
+                "quiz": {"completed": True, "pct": 100.0},
+                "writing": {"completed": True, "pct": 100.0},
+            }, {"quiz": "s-0", "writing": "w-1"})):
+        with pytest.raises(HTTPException) as error:
+            _verdict(
+                sessions=ss, questions=_questions(10, writing=1),
+                attempts=_attempts(ss, _given(10)),
+                item_row={
+                    "id": "it-1", "passed_at": None, "submitted_at": None,
+                    "mastery": {"threshold": 75, "attempts": [prior]},
+                    "score": 40.0,
+                },
+            )
+    assert error.value.status_code == 409
+    assert "mở lượt làm lại mới" in error.value.detail
+
+
 # ── start_session: cổng kind + an toàn trước migration ───────────────────────
 
 def _start(kind, *, area="course"):

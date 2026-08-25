@@ -3702,11 +3702,14 @@ def course_verdict(
         # gần đạt; nếu chỉ nhìn action CUỐI (`retake`) thì reload sẽ kéo
         # lượt fail cũ trở lại. UI lọc để khôi phục đúng, server lọc để
         # client cũ/giả mạo không thể trộn session.
+        full_retry_boundary = None
         if phase == "run" and existing_attempt is None and attempts:
-            boundary = _full_retry_boundary(attempts, cfg["pass_pct"])
-            if boundary:
+            full_retry_boundary = _full_retry_boundary(
+                attempts, cfg["pass_pct"],
+            )
+            if full_retry_boundary:
                 created = [_at(s.get("created_at")) for s in rows]
-                if boundary and any(at is None or at <= boundary for at in created):
+                if any(at is None or at <= full_retry_boundary for at in created):
                     raise HTTPException(
                         422, "Lượt dưới mức gần đạt phải làm lại toàn bộ "
                              "bằng các phiên mới.")
@@ -3721,12 +3724,43 @@ def course_verdict(
             bank_id=bank_id, item_id=item["id"], user_id=user_id,
             attempt=candidate, assignment=assignment, attempt_no=attempt_no,
         )
-        if (phase == "run" and existing_attempt is None and attempts
-                and len(required) > 1
-                and _recorded_next_action(attempts[-1], cfg["pass_pct"]) == "retry_full"
-                and mastery.get("section_attempt_pending") is not True):
-            raise HTTPException(
-                409, "Hãy mở lượt làm lại mới trước khi nộp full session.",
+        needs_full_retry_open = (
+            phase == "run" and existing_attempt is None and attempts
+            and len(required) > 1
+            and _recorded_next_action(
+                attempts[-1], cfg["pass_pct"],
+            ) == "retry_full"
+            and mastery.get("section_attempt_pending") is not True
+        )
+        if needs_full_retry_open:
+            # Compatibility bridge for a tab loaded before the explicit
+            # ``/course/full-retry`` handshake existed.  The ownership/scope
+            # gates above have already proved these are this learner's complete
+            # canonical Quiz sessions; the boundary check proves none belongs
+            # to the failed attempt.  Adopt that fresh Quiz as the next section
+            # attempt instead of stranding real work behind a permanent 409.
+            #
+            # No trustworthy cutoff means no recovery: opening from "now"
+            # would bless sessions whose age cannot be established.
+            if full_retry_boundary is None:
+                raise HTTPException(
+                    409, "Hãy mở lượt làm lại mới trước khi nộp full session.",
+                )
+            attempt_no += 1
+            mastery = {
+                **mastery,
+                "active_section_attempt_no": attempt_no,
+                "section_attempt_pending": True,
+                "section_attempt_started_at": full_retry_boundary.isoformat(),
+            }
+            candidate["attempt_no"] = attempt_no
+            # The first read used the old attempt number and may contain old
+            # Writing/Reading/Listening.  Re-read after opening so only fresh
+            # section submissions can join this recovered Quiz.
+            required, evidence, artifacts = _course_completion_evidence(
+                bank_id=bank_id, item_id=item["id"], user_id=user_id,
+                attempt=candidate, assignment=assignment,
+                attempt_no=attempt_no,
             )
         if (phase == "run" and existing_attempt is None and len(required) > 1
                 and mastery.get("section_attempt_pending") is True):
