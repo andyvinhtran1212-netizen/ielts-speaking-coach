@@ -40,15 +40,17 @@ export function AdminMockReviewReport({ reviewId, examId }: { reviewId: string; 
   }, [profile.id, reviewId]);
 
   const back = examId ? `/admin/mock-reviews?mock_exam_id=${encodeURIComponent(examId)}` : '/admin/mock-tests?tab=review';
-  const blocked = detail && (Object.values(detail.review.retestFlags).some(Boolean) || !['reviewed', 'released'].includes(detail.review.status));
+  const blocked = Boolean(detail && !['reviewed', 'released'].includes(detail.review.status));
+  const retestSkills = detail ? Object.keys(LABEL).filter((skill) => detail.review.retestFlags[skill] === true) : [];
   const skills = reportSkills(detail) as string[];
   return <main className="mrr-report-shell">
     <div className="mrr-report-actions"><a className="adm-btn-secondary" href={back}>← Quay lại bàn duyệt</a>{detail && !blocked && <button className="adm-btn-primary" type="button" onClick={() => window.print()}>In phiếu</button>}</div>
     {loading && <div className="mrr-state" role="status">Đang tải dữ liệu canonical…</div>}
     {error && <div className="mrr-state is-error" role="alert">{error}</div>}
-    {blocked && <div className="mrr-state is-warning" role="alert">{Object.values(detail.review.retestFlags).some(Boolean) ? 'Học viên còn kỹ năng cần test lại — chưa thể tạo phiếu báo điểm.' : 'Chưa nhập band cuối — chưa thể tạo phiếu báo điểm.'}</div>}
+    {blocked && <div className="mrr-state is-warning" role="alert">Chưa nhập band cuối — chưa thể tạo phiếu báo điểm.</div>}
     {detail && !blocked && <article className="mrr-report-card">
       <header><p className="mrr-kicker">Aver Learning · Mock Test</p><h1>Phiếu báo điểm</h1><p>{detail.sitting.studentName}</p></header>
+      {retestSkills.length > 0 && <aside className="mrr-report-retest" role="note"><span aria-hidden="true">↻</span><div><strong>Cần test lại: {retestSkills.map((skill) => LABEL[skill]).join(', ')}</strong><p>Kết quả trên phiếu vẫn là kết quả chính thức của lần mock test này.</p></div></aside>}
       <div className="mrr-report-grid">
         {skills.map((skill) => <div className="mrr-report-score" key={skill}><span>{LABEL[skill] || skill}</span><strong>{detail.review.finalBands[skill] == null ? '—' : detail.review.finalBands[skill].toFixed(1)}</strong></div>)}
         {detail.review.finalBands.overall != null && <div className="mrr-report-score is-overall"><span>Overall</span><strong>{detail.review.finalBands.overall.toFixed(1)}</strong></div>}

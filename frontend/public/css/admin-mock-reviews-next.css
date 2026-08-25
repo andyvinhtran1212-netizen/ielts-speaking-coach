@@ -121,6 +121,10 @@
 .mrr-report-card > header { padding: clamp(24px, 5vw, 48px); background: linear-gradient(135deg, var(--av-surface-sunken), var(--av-surface-card)); text-align: center; }
 .mrr-report-card h1 { margin: var(--av-space-2) 0; font-size: clamp(2rem, 5vw, 3.4rem); }
 .mrr-report-card header > p:last-child { margin: 0; color: var(--av-text-secondary); font-size: 18px; }
+.mrr-report-retest { display: flex; align-items: flex-start; gap: var(--av-space-3); margin: var(--av-space-4) var(--av-space-6) 0; padding: var(--av-space-4); border: 1px solid var(--av-warning); border-radius: var(--av-radius-lg); background: var(--av-warning-soft); color: var(--av-text-primary); }
+.mrr-report-retest > span { color: var(--av-warning); font-size: 22px; line-height: 1.2; }
+.mrr-report-retest strong { display: block; }
+.mrr-report-retest p { margin: var(--av-space-1) 0 0; color: var(--av-text-secondary); font-size: 13px; line-height: 1.5; }
 .mrr-report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: var(--av-space-3); padding: var(--av-space-6); }
 .mrr-report-score { padding: var(--av-space-4); border: 1px solid var(--av-border-subtle); border-radius: var(--av-radius-lg); text-align: center; }
 .mrr-report-score span { display: block; color: var(--av-text-secondary); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
