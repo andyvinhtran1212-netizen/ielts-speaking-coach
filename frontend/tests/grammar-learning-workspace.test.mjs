@@ -28,11 +28,12 @@ test('home exposes explicit reference and learning modes using canonical learner
 });
 
 test('search facets are shareable through the canonical URL', () => {
-  const search = read('search', 'search-behavior.tsx');
-  assert.match(search, /new URLSearchParams/);
-  assert.match(search, /params\.set\('level'/);
-  assert.match(search, /params\.set\('use'/);
-  assert.match(search, /window\.history\.replaceState/);
+  const search = read('search', 'page.tsx');
+  assert.match(search, /<form method="get"/);
+  assert.match(search, /name="level"/);
+  assert.match(search, /name="use"/);
+  assert.match(search, /typeof params\.level/);
+  assert.match(search, /typeof params\.use/);
 });
 
 test('article behavior records Grammar Lab checks through KP evidence API', () => {

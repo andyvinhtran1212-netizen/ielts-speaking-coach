@@ -70,7 +70,7 @@ describe('Item 2 — L3 grouped as test rows (consistent + 404-safe)', () => {
     assert.match(readingRouter, /def _normalise_l3_test_row/);
     assert.match(readingRouter, /"slug":\s*r\.get\("test_id"\)/);          // slug ← test_id
     assert.match(readingRouter, /\.neq\(\s*"library",\s*"l3_test"\s*\)/);  // "Tất cả" drops raw l3 passages
-    assert.match(readingRouter, /_l3_test_rows\(status\)/);                // splice in the test rows
+    assert.match(readingRouter, /_l3_test_rows\(status, fetch_count - 1\)/); // splice in bounded test rows
   });
 
   test('frontend previews L3 by its test_id (it.slug), gated on it.library', () => {

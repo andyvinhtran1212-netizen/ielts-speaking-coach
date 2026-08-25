@@ -94,7 +94,8 @@ def test_saving_a_draft_never_grades_or_finalises():
     i = src.index("row = {")
     written = set(re.findall(r'"(\w+)":', src[i:src.index("}", i)]))
     assert written == {"class_assignment_item_id", "user_id", "bank_id",
-                       "answers", "updated_at"}, f"ghi cả cột lạ: {written}"
+                       "attempt_no", "answers", "updated_at"}, \
+        f"ghi cả cột lạ: {written}"
     tables = set(re.findall(r'table\("(\w+)"\)', src))
     assert tables == {"course_writing_drafts", "course_writing_submissions"}
     i2 = src.index('table("course_writing_submissions")')

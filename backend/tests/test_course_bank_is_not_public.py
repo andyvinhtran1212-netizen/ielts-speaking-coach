@@ -170,6 +170,38 @@ def test_an_ASSIGNED_student_can_open_it():
     assert len(out["questions"]) == 1
 
 
+def test_submitted_expired_item_is_pinned_and_exposes_only_completed_snapshot_sections():
+    expired = {**_LIVE_ASG, "due_at": "2020-01-01T00:00:00Z",
+               "content_config": {"required_sections": ["quiz"]}}
+    db = _db(
+        quiz_banks=[{**_COURSE_BANK, "meta": {
+            # Live bank gained these sections after the assignment was issued.
+            "short_reading": {"title": "new"},
+            "short_listening": {"title": "new", "sections": []},
+        }}],
+        quiz_questions=[{"id": "q1", "bank_id": "bank-course", "order": 0,
+                         "type": "mcq", "item_key": "x"}],
+        class_assignments=[expired], students=[_STUDENT],
+        class_assignment_items=[{
+            "id": "it-old", "assignment_id": "asg-1", "student_id": "st-1",
+            "submitted_at": "2020-01-01T00:00:00Z", "passed_at": "2020-01-01T00:00:00Z",
+            "mastery": {"attempts": [{"phase": "run", "sections": {
+                "quiz": {"pct": 100},
+            }}]},
+        }],
+    )
+    with patch.object(mod, "supabase_admin", db), \
+         patch.object(mod, "_word_cards_for", lambda *_a, **_k: []), \
+         patch.object(mod, "_attach_article_urls", lambda *_a, **_k: None), \
+         patch.object(mod, "_resolve_question_audio", lambda *_a, **_k: None):
+        with patch.object(mod, "_course_listening_for_play", lambda row: row):
+            out = mod.get_bank_for_play(
+                "bank-course", user_id="u1", assignment_item_id="it-old")
+    assert out["mastery"]["review_only"] is True
+    assert out["mastery"]["item_id"] == "it-old"
+    assert out["mastery"]["completed_sections"] == ["quiz"]
+
+
 def test_ANOTHER_students_assignment_does_not_open_it():
     """Bài giao của bạn cùng lớp không phải bài giao của em ấy.
 
@@ -479,6 +511,19 @@ def test_a_bank_WITH_writing_is_not_closed_by_finishing_a_stage():
     Đường chốt sổ khi ấy là lượt NỘP TỰ LUẬN, không phải lượt kết chặng.
     """
     assert _end(_stage_db(stages_done=2, has_writing=True)) == []
+
+
+def test_multisection_bank_is_never_closed_by_mcq_session_end():
+    """MCQ đủ câu vẫn chỉ là MỘT phần của bài nhiều phần.
+
+    `submitted_at` là bất biến và lần tải lại dùng nó để bật review-only, nên
+    đường kết phiên legacy tuyệt đối không được gọi `mark_item_submitted` ở
+    đây. Cổng hợp nhất sẽ chốt đúng một lần sau khi đủ mọi phần.
+    """
+    with patch.object(mod, "course_bank_is_multisection", return_value=True) as gate:
+        marked = _end(_stage_db(stages_done=2))
+    assert marked == []
+    gate.assert_called_once_with("bank-course")
 
 
 def test_finishing_ONE_of_TWO_stages_does_not_close_it():

@@ -33,6 +33,7 @@
   <script type="module" src="/js/components/aver-chrome.js"></script>
 
   <link rel="stylesheet" href="/css/listening-browse.css" />
+  <script src="/js/legacy-retirement-beacon.js" defer></script>
 </head>
 <body class="av-page">
 
@@ -40,17 +41,25 @@
 
   <div class="shell">
     <main class="browse-shell">
-      <header class="browse-header">
-        <p class="eyebrow"><a href="/listening" style="color: var(--av-text-secondary);">← Quay lại</a></p>
-        <h1>Kho bài nghe <span class="accent">·</span> <span style="color: var(--av-text-muted);">Browse</span></h1>
-        <p class="subtitle">
-          Chọn một bài nghe rồi bắt đầu luyện với dạng bài bạn muốn.
-        </p>
+      <header class="subpage-header">
+        <div class="subpage-header__lhs">
+          <a class="subpage-header__back" href="/listening"><span aria-hidden="true">←</span><span>Listening</span></a>
+        </div>
       </header>
+      <section class="browse-hero">
+        <div>
+          <p class="browse-eyebrow">Thư viện luyện nghe</p>
+          <h1>Tìm bài nghe phù hợp với mục tiêu hôm nay</h1>
+          <p>Lọc theo giọng đọc, trình độ và phần thi; sau đó chọn đúng dạng luyện bạn muốn tập trung.</p>
+        </div>
+        <a href="/listening/analytics">Xem tiến độ <span aria-hidden="true">→</span></a>
+      </section>
 
-      <div class="browse-filters">
+      <details class="browse-filter-panel" open>
+        <summary><span>Bộ lọc bài nghe</span><span class="browse-filter-count">Tất cả</span></summary>
+        <div class="browse-filters">
         <label style="display: flex; flex-direction: column; gap: 4px; font-size: var(--av-fs-xs); color: var(--av-text-muted);">
-          Accent
+          Giọng đọc
           <select id="filter-accent">
             <option value="">Tất cả</option>
             <option value="us_general">US</option>
@@ -61,7 +70,7 @@
           </select>
         </label>
         <label style="display: flex; flex-direction: column; gap: 4px; font-size: var(--av-fs-xs); color: var(--av-text-muted);">
-          CEFR
+          Trình độ CEFR
           <select id="filter-cefr">
             <option value="">Tất cả</option>
             <option value="A2">A2</option>
@@ -72,7 +81,7 @@
           </select>
         </label>
         <label style="display: flex; flex-direction: column; gap: 4px; font-size: var(--av-fs-xs); color: var(--av-text-muted);">
-          Section
+          Phần thi
           <select id="filter-section">
             <option value="">Tất cả</option>
             <option value="1">Section 1</option>
@@ -81,7 +90,8 @@
             <option value="4">Section 4</option>
           </select>
         </label>
-      </div>
+        </div>
+      </details>
 
       <div class="empty-state" id="state-loading">Đang tải…</div>
       <div class="empty-state" id="state-empty" hidden>

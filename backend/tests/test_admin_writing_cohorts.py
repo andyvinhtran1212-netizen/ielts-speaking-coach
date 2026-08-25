@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from routers.admin_writing_cohorts import _cell_status
+from routers.admin_writing_cohorts import _cell_status, _column_key, _is_overdue
 from services.cohort_assignment_service import fan_out_assignment
 
 
@@ -68,6 +68,30 @@ def test_cell_status_derivation():
     assert _cell_status({"status": "delivered"}, None) == "delivered"
 
 
+def test_column_identity_separates_repeated_prompt_gives():
+    prompt = "p1"
+    first = {"id": "a1", "prompt_id": prompt, "assignment_group_id": "g1"}
+    second = {"id": "a2", "prompt_id": prompt, "assignment_group_id": "g2"}
+    assert _column_key(first) == "group:g1:prompt:p1"
+    assert _column_key(second) == "group:g2:prompt:p1"
+    assert _column_key(first) != _column_key(second)
+    assert _column_key({"id": "legacy-a", "prompt_id": prompt}) == "legacy:legacy-a"
+
+
+def test_overdue_parses_equivalent_timezone_formats():
+    from datetime import datetime, timezone
+    now = datetime(2026, 8, 13, 12, 0, tzinfo=timezone.utc)
+    assert _is_overdue("2026-08-13T18:00:00+07:00", now) is True
+    assert _is_overdue("2026-08-13T20:00:00+07:00", now) is False
+    assert _is_overdue("not-a-date", now) is False
+
+
+def test_flagged_delivered_essay_is_not_counted_overdue():
+    assignment = {"status": "submitted"}
+    essay = {"status": "delivered", "is_flagged": True}
+    assert _cell_status(assignment, essay) == "flagged"
+
+
 # ── fan-out service (idempotency) ─────────────────────────────────────
 
 
@@ -87,12 +111,15 @@ def _fanout_db(student_ids, already_ids, created_rows):
 
 def test_fanout_creates_for_all_students():
     db = _fanout_db(["s1", "s2", "s3"], [], [{"id": "a1"}, {"id": "a2"}, {"id": "a3"}])
-    r = fan_out_assignment(db, prompt_ids=[uuid.uuid4()], cohort_id=uuid.uuid4(), assigned_by="admin")
+    cohort_id = uuid.uuid4()
+    r = fan_out_assignment(db, prompt_ids=[uuid.uuid4()], cohort_id=cohort_id, assigned_by="admin")
     assert r["student_count"] == 3
     assert r["created_count"] == 3
     assert r["duplicates_warning"] == []
     assert r["group_id"] is not None
     assert len(r["assignment_ids"]) == 3
+    sent = db.table.return_value.insert.call_args[0][0]
+    assert {row["cohort_id"] for row in sent} == {str(cohort_id)}
 
 
 def test_fanout_allow_and_warn_when_student_already_has_a_prompt():
@@ -183,6 +210,44 @@ def test_cohort_list_aggregates_activity():
     assert cohorts["c2"]["active_assignments"] == 1  # not_submitted counts as active
 
 
+def test_cohort_list_uses_writing_origin_for_a_two_class_student():
+    table_map = {
+        "cohorts": [{"id": "c1", "name": "Lớp A"}, {"id": "c2", "name": "Lớp B"}],
+        "student_cohort_memberships": [
+            {"id": "m1", "student_id": "s1", "cohort_id": "c1", "is_active": True},
+            {"id": "m2", "student_id": "s1", "cohort_id": "c2", "is_active": True},
+        ],
+        "writing_assignments": [
+            {"student_id": "s1", "cohort_id": "c1", "essay_id": None, "status": "pending"},
+        ],
+    }
+    with patch("routers.admin_writing_cohorts.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_cohorts.supabase_admin", _db(table_map)):
+        r = _client().get("/admin/writing/cohorts", headers=_ADMIN_AUTH)
+    assert r.status_code == 200
+    cohorts = {row["id"]: row for row in r.json()["cohorts"]}
+    assert cohorts["c1"]["active_assignments"] == 1
+    assert cohorts["c2"]["active_assignments"] == 0
+
+
+def test_cohort_list_ignores_history_stamped_to_an_archived_origin():
+    table_map = {
+        "cohorts": [{"id": "active", "name": "Lớp đang học"}],
+        "student_cohort_memberships": [
+            {"id": "m1", "student_id": "s1", "cohort_id": "active", "is_active": True},
+        ],
+        "writing_assignments": [
+            {"student_id": "s1", "cohort_id": "archived", "essay_id": None,
+             "status": "pending"},
+        ],
+    }
+    with patch("routers.admin_writing_cohorts.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_cohorts.supabase_admin", _db(table_map)):
+        response = _client().get("/admin/writing/cohorts", headers=_ADMIN_AUTH)
+    assert response.status_code == 200
+    assert response.json()["cohorts"][0]["active_assignments"] == 0
+
+
 # ── Cohort detail matrix ──────────────────────────────────────────────
 
 
@@ -195,9 +260,11 @@ def test_cohort_detail_builds_matrix():
         ],
         "writing_assignments": [
             {"id": "a1", "student_id": "s1", "prompt_id": "p1", "essay_id": "e1",
-             "status": "submitted", "deadline": None, "created_at": "2026-01-01", "updated_at": "2026-01-02"},
+             "status": "submitted", "deadline": None, "created_at": "2026-01-01", "updated_at": "2026-01-02",
+             "assignment_group_id": "g1", "name": "Buổi 1"},
             {"id": "a2", "student_id": "s2", "prompt_id": "p1", "essay_id": None,
-             "status": "pending", "deadline": None, "created_at": "2026-01-01", "updated_at": "2026-01-01"},
+             "status": "pending", "deadline": None, "created_at": "2026-01-01", "updated_at": "2026-01-01",
+             "assignment_group_id": "g1", "name": "Buổi 1"},
         ],
         "writing_prompts": [{"id": "p1", "title": "Đề 1", "task_type": "task_2"}],
         "writing_essays": [{"id": "e1", "status": "delivered", "is_flagged": False}],
@@ -211,12 +278,34 @@ def test_cohort_detail_builds_matrix():
     assert r.status_code == 200
     data = r.json()
     assert data["cohort"]["student_count"] == 2
-    assert [c["prompt_id"] for c in data["assignments"]] == ["p1"]
+    assert [c["id"] for c in data["assignments"]] == ["group:g1:prompt:p1"]
     # s1 has a delivered essay; s2 hasn't submitted.
-    assert data["matrix"]["s1"]["p1"]["status"] == "delivered"
-    assert data["matrix"]["s1"]["p1"]["band"] == 7.0   # sourced from writing_feedback
-    assert data["matrix"]["s2"]["p1"]["status"] == "not_submitted"
+    assert data["matrix"]["s1"]["group:g1:prompt:p1"]["status"] == "delivered"
+    assert data["matrix"]["s1"]["group:g1:prompt:p1"]["band"] == 7.0   # sourced from writing_feedback
+    assert data["matrix"]["s2"]["group:g1:prompt:p1"]["status"] == "not_submitted"
     assert data["stats"]["essays_delivered"] == 1
+
+
+def test_cohort_detail_keeps_same_prompt_in_two_gives():
+    table_map = {
+        "cohorts": [{"id": "c1", "name": "Lớp A"}],
+        "students": [{"id": "s1", "full_name": "An", "student_code": "A1"}],
+        "writing_assignments": [
+            {"id": "a1", "student_id": "s1", "prompt_id": "p1", "essay_id": None,
+             "status": "pending", "deadline": None, "created_at": "2026-01-01", "updated_at": "2026-01-01", "assignment_group_id": "g1", "name": "Buổi 1"},
+            {"id": "a2", "student_id": "s1", "prompt_id": "p1", "essay_id": None,
+             "status": "pending", "deadline": None, "created_at": "2026-02-01", "updated_at": "2026-02-01", "assignment_group_id": "g2", "name": "Buổi 2"},
+        ],
+        "writing_prompts": [{"id": "p1", "title": "Đề dùng lại", "task_type": "task2"}],
+    }
+    cid = "11111111-1111-1111-1111-111111111111"
+    with patch("routers.admin_writing_cohorts.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_writing_cohorts.supabase_admin", _db(table_map)):
+        r = _client().get("/admin/writing/cohorts/" + cid, headers=_ADMIN_AUTH)
+    assert r.status_code == 200
+    data = r.json()
+    assert [column["name"] for column in data["assignments"]] == ["Buổi 1", "Buổi 2"]
+    assert set(data["matrix"]["s1"]) == {"group:g1:prompt:p1", "group:g2:prompt:p1"}
 
 
 def test_cohort_essay_selects_never_reference_overall_band_score():

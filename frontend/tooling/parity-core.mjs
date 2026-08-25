@@ -30,9 +30,28 @@
 //    mới thường là tính năng thêm. Không gộp hai loại vào một con số.
 // 3. Mọi ngoại lệ phải có `reason`. Allowlist không lý do = tự cấp phép.
 
+import { resolveCorePlayerAdmissionFromParams } from '../lib/core-player-affinity.mjs';
+
 /** Chuẩn hoá khoảng trắng; giữ nguyên chữ và dấu. */
 export function normalizeText(s) {
   return String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Keep DOM/API parity deterministic without masking executable third-party
+ * dependencies. Google Fonts is presentation-only for this text/contract
+ * extractor; its CSS has repeatedly returned WOFF2 URLs that later 404 in CI
+ * (runs 31439749380 and 31440757513), making an unchanged Legacy baseline red.
+ * Stub only the exact stylesheet host. Scripts, CDNs, and even direct gstatic
+ * font URLs remain visible failures, so a real broken dependency is not hidden.
+ */
+export function externalPresentationFixture(url) {
+  try {
+    if (new URL(url).hostname === 'fonts.googleapis.com') {
+      return { status: 200, contentType: 'text/css', body: '' };
+    }
+  } catch { /* malformed URL is not eligible for a fixture */ }
+  return null;
 }
 
 // Lỗi TẦNG VẬN CHUYỂN: request không bao giờ tới nơi, nên không có phản hồi để
@@ -138,9 +157,52 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   let path = u.pathname;
   const params = u.searchParams;
 
+  // Launcher của Next cố ý không trỏ thẳng vào một implementation:
+  // deployment nhận navigation mới quyết định legacy/Next để một tab đã
+  // mở không giữ quyết định cutover cũ. Parity phải so đích mà policy
+  // HIỆN TẠI sẽ chọn, không so URL admission trung gian với URL player
+  // legacy. Dùng chính resolver production để không sinh thêm một bảng ánh xạ
+  // có thể trôi khỏi source of truth.
+  //
+  // Tham số không hợp lệ KHÔNG bị nuốt: giữ nguyên launcher trong facts
+  // để parity vẫn báo lệch. Cả route runtime lẫn parity gọi cùng một
+  // parser, nên validation key lặp/surface không thể trôi lệch giữa hai bên.
+  if (path === '/core-player/launch') {
+    let destination;
+    try {
+      destination = resolveCorePlayerAdmissionFromParams(params);
+    } catch {
+      // Cố ý fall through: URL admission hỏng phải hiện trong báo cáo.
+    }
+    // Policy cấm launcher làm player path, nên lời gọi này không thể đệ quy.
+    // Đặt ngoài try để lỗi canonical downstream không bị gán nhầm cho input.
+    if (destination) return canonicalHref(destination, { base });
+  }
+
   // ── Hợp đồng URL: legacy → canonical ───────────────────────────────────
   if (path === '/index.html') path = '/';
   else if (path === '/grammar.html') path = '/grammar';
+  // `/login` owns authentication entry after the native cutover. Keep the
+  // HTML page directly reachable as a rollback/parity reference, but compare
+  // every link according to the canonical owner.
+  else if (path === '/login.html') path = '/login';
+  else if (path === '/onboarding.html') path = '/onboarding';
+  // `/grammar/search` cutover 2026-08-15. Giữ trang HTML làm rollback/parity,
+  // nhưng mọi link tới nó phải so theo chủ sở hữu canonical mới; query `q`
+  // vẫn được giữ nguyên ở bước dựng URL bên dưới.
+  else if (path === '/pages/grammar-search.html') path = '/grammar/search';
+  // `/grammar/compare` cutover 2026-08-15. Query `slug` là một phần của hợp
+  // đồng backend và được giữ nguyên ở bước dựng URL bên dưới.
+  else if (path === '/pages/grammar-compare.html') path = '/grammar/compare';
+  // `/grammar/roadmap` giữ hai mode trên cùng URL: `?slug=` public và không
+  // query là lộ trình cá nhân. Canonicalization chỉ đổi owner, không đổi mode.
+  else if (path === '/pages/grammar-roadmap.html') path = '/grammar/roadmap';
+  // Pricing remains intentionally closed before launch. The Next route owns
+  // that server redirect; the legacy HTML is now rollback-only.
+  else if (path === '/pricing.html') path = '/pricing';
+  // `/vocabulary` là wiki công khai; `cat` + `slug` tạo identity kép vì một
+  // slug có thể thuộc nhiều category. Giữ nguyên query khi đổi owner.
+  else if (path === '/vocabulary.html') path = '/vocabulary';
   else if (path === '/pages/profile.html') path = '/profile';
   // `/exercises` + `/flashcards` cutover 2026-08-06. CẦN ánh xạ dù sweep đã đổi
   // link ở cả hai vế: bản legacy dùng đường TƯƠNG ĐỐI (`href="exercises.html"`)
@@ -148,16 +210,51 @@ export function canonicalHref(href, { base = SYNTHETIC_BASE } = {}) {
   // Bot bắt ở #958. Giữ ánh xạ để neo trong trang và mọi link còn sót vẫn khớp.
   else if (path === '/pages/exercises.html') path = '/exercises';
   else if (path === '/pages/flashcards.html') path = '/flashcards';
+  // `/quiz` cutover 2026-08-15. Grammar articles and Vocabulary Practice still
+  // expose the rollback link on their legacy side while the native side points
+  // at the clean owner. Without this mapping the parity gate reports every
+  // migrated launcher as a missing/extra pair even though the bank query is
+  // identical — and then skips the browser write-flow that proves the player.
+  else if (path === '/pages/quiz.html') path = '/quiz';
+  // `/listening/practice-run` is the canonical light-practice runner. Preserve
+  // `id` and any future source query while comparing rollback links.
+  else if (path === '/pages/listening-practice-run.html') path = '/listening/practice-run';
+  // Listening test admissions now resolve to the native stable player on
+  // staging, while affinity keeps already-started Legacy attempts on the HTML
+  // player. Dynamic browse-card links on both stacks still identify the same
+  // test through `id`/`from`; canonicalize only the route owner and preserve
+  // every query key so G1 compares the actual destination contract.
+  else if (path === '/pages/listening-test.html') path = '/listening/test/session';
+  // Dictation browse cards still expose the rollback HTML URL on the Legacy
+  // stack while fresh admissions on the Next stack point at the native player.
+  // Both carry the same `test_id`; canonicalize only the route owner so the
+  // parity gate does not report a cutover as missing/extra content.
+  else if (path === '/pages/listening-test-dictation.html') path = '/listening/dictation/session';
+  // Reading exam admissions now resolve to the native stable player on
+  // staging, while the HTML URL remains intentionally reachable for active
+  // Legacy attempts and rollback. Compare links by canonical route ownership;
+  // this does not rewrite either implementation-specific player at runtime.
+  else if (path === '/pages/reading-exam.html') path = '/reading/exam/session';
+  // `/exam` owns the standalone exam list/player after the native cutover.
+  // Keep every identity-bearing query (`id`, `source`, and any future key)
+  // intact: the mapping only changes the route owner. Without it, the live G1
+  // list fixture reports every correctly migrated card as one missing legacy
+  // link plus one extra native link and blocks the player write-flow entirely.
+  else if (path === '/pages/exam.html') path = '/exam';
   // `/home` đã cutover (PR #932). Ánh xạ này KHÔNG còn cần cho link nội bộ —
   // sweep cutover đã đổi hết sang `/home` ở CẢ HAI vế — nhưng nó CẦN cho NEO
   // TRONG TRANG: `#x` phân giải theo URL trang, nên thiếu ánh xạ thì
   // `/pages/home.html#x` và `/home#x` không bao giờ khớp. Đó đúng là lý do khu
   // Grammar khớp được (`/grammar.html` → `/grammar`) còn nơi khác thì không.
   else if (path === '/pages/home.html') path = '/home';
+  // `/mock-exam` owns the student runner; the HTML surface remains the
+  // rollback/parity reference until Gate F retirement.
+  else if (path === '/pages/mock-exam.html') path = '/mock-exam';
   // `/speaking` cutover 2026-08-05 — cùng lý do: NEO TRONG TRANG.
   // `practice.html` có `href="/speaking#history"`, và không có ánh xạ thì
   // `/pages/speaking.html#history` ≠ `/speaking#history` ⇒ báo lệch giả.
   else if (path === '/pages/speaking.html') path = '/speaking';
+  else if (path === '/pages/admin/writing/grade.html') path = '/admin/writing/grade';
   else if (path === '/pages/grammar-article.html') {
     const c = params.get('category');
     const s = params.get('slug');

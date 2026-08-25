@@ -66,7 +66,7 @@ describe('Pha 4 — grammar exercises wiring', () => {
     assert.match(quiz, /\/admin\/quiz\/banks\?skill_area=' \+ SKILL/);
   });
   test('chrome nav exposes Grammar → exercises (shared console, grammar mode)', () => {
-    assert.match(chrome, /slug: 'exercises',\s*label: 'Bài tập \(Exercises\)',\s*href: '\/pages\/admin\/vocab\/topics\.html\?skill_area=grammar'/);
+    assert.match(chrome, /slug: 'exercises',\s*label: 'Bài tập \(Exercises\)',\s*href: '\/admin\/vocab\/topics\?skill_area=grammar'/);
   });
   test('player shows a "review article" link on a wrong grammar answer', () => {
     assert.match(player, /article_url/);
@@ -78,7 +78,7 @@ describe('Pha 4 — grammar exercises wiring', () => {
     assert.match(player, /\/grammar["']/);
     // Vocab back returns to the lesson picker (vocab-practice), NOT /vocabulary.html
     // (the public word wiki) — both back controls share one unambiguous target.
-    assert.match(player, /\/pages\/vocab-practice\.html/);
+    assert.match(player, /\/vocabulary\/practice/);
     assert.ok(!/← Về Từ vựng<\/a>/.test(player), 'back CTA label must not be hard-coded vocab in markup');
   });
 });

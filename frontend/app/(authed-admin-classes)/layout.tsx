@@ -1,0 +1,27 @@
+import type { ReactNode } from 'react';
+
+import { AuthedShell } from '@/components/authed-shell';
+
+export default function AdminClassesLayout({ children }: { children: ReactNode }) {
+  return (
+    <AuthedShell
+      chrome="admin"
+      bodyClass="av-page av-admin-surface"
+      utilityLayer={false}
+      tailwindLayer={false}
+      pageStylesheets={[
+        { href: '/css/aver-design/admin-surface.css', dataAverAdminSurface: true },
+        '/css/aver-design/admin-components.css',
+        '/css/aver-design/admin-buttons.css',
+        '/css/aver-design/admin-status.css',
+        '/css/admin-classes-next.css',
+        '/css/admin-class-detail-next.css',
+        '/css/admin-class-homework-next.css',
+        '/css/admin-class-submissions-next.css',
+        '/css/admin-class-student-work-next.css',
+      ]}
+    >
+      {children}
+    </AuthedShell>
+  );
+}

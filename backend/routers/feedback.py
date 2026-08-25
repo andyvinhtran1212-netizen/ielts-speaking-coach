@@ -17,13 +17,14 @@ test_id (text) is resolved server-side from the attempt for admin grouping.
 """
 from __future__ import annotations
 
+import logging
 import secrets
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Header, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ValidationError
 
 from database import supabase_admin
 from routers.admin import require_admin
@@ -31,12 +32,62 @@ from routers.auth import get_supabase_user
 from services.vocab_content import vocab_service
 
 router = APIRouter(prefix="/api", tags=["feedback"])
+logger = logging.getLogger(__name__)
 
 _TYPES = {"rating", "report", "flag"}
 _SKILLS = {"reading", "listening", "vocabulary"}
 _STATUSES = {"new", "resolved"}
+_VOCAB_REPORT_CATEGORIES = {"audio_issue", "content_issue", "other"}
 _ATTEMPT_TABLE = {"reading": "reading_test_attempts", "listening": "listening_test_attempts"}
 _TEST_TABLE = {"reading": "reading_tests", "listening": "listening_tests"}
+
+# PostgREST may cap a response below the requested limit. Read the operational
+# inbox through a stable composite keyset and report a conservative partial
+# state if the safety ceiling or an upstream interruption is reached.
+FEEDBACK_PAGE = 1000
+FEEDBACK_MAX_ROWS = 50_000
+
+
+class AdminFeedbackItemOut(BaseModel):
+    id: str
+    type: Literal["rating", "report", "flag"]
+    skill: Literal["reading", "listening", "vocabulary"]
+    status: Literal["new", "resolved"]
+    test_id: str | None = None
+    q_num: int | None = Field(default=None, ge=1)
+    rating_de: int | None = Field(default=None, ge=1, le=5)
+    rating_audio: int | None = Field(default=None, ge=1, le=5)
+    category: str | None = Field(default=None, max_length=64)
+    note: str | None = Field(default=None, max_length=1000)
+    anon_id: Literal["redacted"] | None = None
+    identity_kind: Literal["user", "anonymous", "unknown"]
+    created_at: str | None = None
+
+
+class AdminFeedbackGroupOut(BaseModel):
+    test_id: str | None = None
+    skill: Literal["reading", "listening", "vocabulary"]
+    new_count: int
+    items: list[AdminFeedbackItemOut]
+
+
+class AdminFeedbackInboxOut(BaseModel):
+    data_status: Literal["complete", "partial", "unavailable"]
+    snapshot_to: str
+    skill: str | None = None
+    feedback_type: str | None = None
+    status: str | None = None
+    test_id: str | None = None
+    items: list[AdminFeedbackItemOut]
+    count: int | None
+    groups: list[AdminFeedbackGroupOut]
+    truncated: bool
+    malformed_count: int
+
+
+class AdminFeedbackStatusOut(BaseModel):
+    id: str
+    status: Literal["new", "resolved"]
 
 
 class FeedbackIn(BaseModel):
@@ -50,17 +101,29 @@ class FeedbackIn(BaseModel):
     attempt_id: Optional[str] = None
     passage_slug: Optional[str] = None
     content_id: Optional[str] = None
-    vocab_category: Optional[str] = None
-    vocab_slug: Optional[str] = None
+    vocab_category: Optional[str] = Field(default=None, max_length=120)
+    vocab_slug: Optional[str] = Field(default=None, max_length=160)
     q_num: Optional[int] = None
     rating_de: Optional[int] = None
     rating_audio: Optional[int] = None
-    category: Optional[str] = None
-    note: Optional[str] = None
+    category: Optional[str] = Field(default=None, max_length=64)
+    note: Optional[str] = Field(default=None, max_length=1000)
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _anonymous_vocab_dedupe_key(test_id: str, category: str) -> str:
+    """One anonymous inbox row per card/category/UTC day.
+
+    The value is minted by the server and protected by a database unique index
+    (migration 203), so parallel requests cannot race past an application-only
+    count check. Authenticated reports remain attributable and do not use this
+    anonymous abuse-control key.
+    """
+    bucket = datetime.now(timezone.utc).date().isoformat()
+    return f"{test_id}|{category}|{bucket}"
 
 
 async def _optional_user(authorization: str | None) -> Optional[dict]:
@@ -242,6 +305,16 @@ async def submit_feedback(
             raise HTTPException(422, "report requires a category or a note")
         rating_de = rating_audio = None
         if body.skill == "vocabulary":
+            # The public card UI emits the first two values. Note-only reports
+            # share the finite `other` bucket instead of creating infinitely
+            # many NULL categories (NULL values do not collide in a UNIQUE
+            # index).
+            category = category or "other"
+            if category not in _VOCAB_REPORT_CATEGORIES:
+                raise HTTPException(
+                    422,
+                    f"vocabulary category must be one of {sorted(_VOCAB_REPORT_CATEGORIES)}",
+                )
             q_num = None
     else:  # flag
         # Attempt-anchored flags target one review card → q_num bắt buộc.
@@ -264,12 +337,21 @@ async def submit_feedback(
         "status": "new",
         "created_by": user["id"] if user else None,
         "anon_id": anon_id if not user else None,
+        "anonymous_dedupe_key": (
+            _anonymous_vocab_dedupe_key(test_id, category)
+            if body.skill == "vocabulary" and user is None else None
+        ),
         "created_at": _now(),
     }
     try:
         supabase_admin.table("user_feedback").insert(row).execute()
     except Exception as exc:  # unique-index backstop for a racing double-rating
         msg = str(exc).lower()
+        if "uq_feedback_anon_vocab_daily" in msg:
+            raise HTTPException(429, {
+                "error": "anonymous_feedback_rate_limited",
+                "message": "Báo cáo cùng loại cho thẻ này đã được gửi hôm nay.",
+            })
         if "uq_feedback_rating" in msg or "duplicate key" in msg or "23505" in msg:
             raise HTTPException(409, "Bạn đã đánh giá đề này rồi.")
         raise HTTPException(500, f"Không lưu được feedback: {exc}")
@@ -277,7 +359,7 @@ async def submit_feedback(
     return {"id": row["id"], "status": "new"}
 
 
-@router.get("/admin/feedback")
+@router.get("/admin/feedback", response_model=AdminFeedbackInboxOut)
 async def admin_list_feedback(
     skill: str | None = Query(default=None),
     type: str | None = Query(default=None),
@@ -293,22 +375,110 @@ async def admin_list_feedback(
     if status is not None and status not in _STATUSES:
         raise HTTPException(422, f"status must be one of {sorted(_STATUSES)}")
 
-    q = supabase_admin.table("user_feedback").select("*").order("created_at", desc=True)
-    if skill is not None:
-        q = q.eq("skill", skill)
-    if type is not None:
-        q = q.eq("type", type)
-    if status is not None:
-        q = q.eq("status", status)
-    if test_id is not None:
-        q = q.eq("test_id", test_id)
-    rows = q.execute().data or []
+    snapshot_to = (datetime.now(timezone.utc) - timedelta(seconds=5)).isoformat()
+    rows: list[dict] = []
+    data_status = "complete"
+    truncated = False
+    cursor_created_at: str | None = None
+    cursor_id: Any = None
+    try:
+        while True:
+            q = (
+                supabase_admin.table("user_feedback")
+                .select(
+                    "id,type,skill,status,test_id,q_num,rating_de,rating_audio,"
+                    "category,note,created_by,anon_id,created_at"
+                )
+                .lte("created_at", snapshot_to)
+            )
+            if skill is not None:
+                q = q.eq("skill", skill)
+            if type is not None:
+                q = q.eq("type", type)
+            if status is not None:
+                q = q.eq("status", status)
+            if test_id is not None:
+                q = q.eq("test_id", test_id)
+            if cursor_created_at is not None:
+                q = q.or_(
+                    f"created_at.lt.{cursor_created_at},"
+                    f"and(created_at.eq.{cursor_created_at},id.lt.{cursor_id})"
+                )
+            page_size = min(FEEDBACK_PAGE, FEEDBACK_MAX_ROWS - len(rows))
+            batch = (
+                q.order("created_at", desc=True)
+                .order("id", desc=True)
+                .limit(page_size)
+                .execute()
+                .data
+                or []
+            )
+            if not batch:
+                break
+            last = batch[-1]
+            next_created_at = last.get("created_at")
+            next_id = last.get("id")
+            if not next_created_at or next_id is None:
+                truncated = True
+                data_status = "partial"
+                break
+            if next_created_at == cursor_created_at and next_id == cursor_id:
+                raise RuntimeError("feedback pagination cursor did not advance")
+            rows.extend(batch)
+            cursor_created_at, cursor_id = str(next_created_at), next_id
+            if len(rows) >= FEEDBACK_MAX_ROWS:
+                truncated = True
+                data_status = "partial"
+                logger.warning(
+                    "admin_feedback: hit the %d-row ceiling; results truncated",
+                    FEEDBACK_MAX_ROWS,
+                )
+                break
+    except Exception as exc:
+        logger.warning("admin_feedback: query failed: %s", exc)
+        if not rows:
+            return {
+                "data_status": "unavailable", "snapshot_to": snapshot_to,
+                "skill": skill, "feedback_type": type, "status": status,
+                "test_id": test_id, "items": [], "count": None, "groups": [],
+                "truncated": False, "malformed_count": 0,
+            }
+        truncated = True
+        data_status = "partial"
 
-    # Group by test for the inbox (preserve newest-first order of first appearance).
+    clean_rows: list[dict] = []
+    malformed_count = 0
+    for row in rows:
+        if (
+            not isinstance(row, dict)
+            or not row.get("id")
+            or row.get("type") not in _TYPES
+            or row.get("skill") not in _SKILLS
+            or row.get("status") not in _STATUSES
+        ):
+            malformed_count += 1
+            continue
+        candidate = {key: row.get(key) for key in (
+            "id", "type", "skill", "status", "test_id", "q_num", "rating_de",
+            "rating_audio", "category", "note", "created_at",
+        )}
+        candidate["id"] = str(candidate["id"])
+        candidate["anon_id"] = "redacted" if row.get("anon_id") else None
+        candidate["identity_kind"] = (
+            "user" if row.get("created_by") else
+            "anonymous" if row.get("anon_id") else "unknown"
+        )
+        try:
+            clean_rows.append(AdminFeedbackItemOut.model_validate(candidate).model_dump())
+        except ValidationError:
+            malformed_count += 1
+
+    # Group by BOTH skill and test. Human test ids are not globally unique across
+    # Reading/Listening, so test_id alone can merge unrelated operational work.
     groups: list[dict] = []
-    index: dict[str, dict] = {}
-    for r in rows:
-        key = r.get("test_id") or "(unknown)"
+    index: dict[tuple[str, str], dict] = {}
+    for r in clean_rows:
+        key = (r["skill"], r.get("test_id") or "(unknown)")
         g = index.get(key)
         if g is None:
             g = {"test_id": r.get("test_id"), "skill": r.get("skill"),
@@ -319,14 +489,20 @@ async def admin_list_feedback(
         if r.get("status") == "new":
             g["new_count"] += 1
 
-    return {"items": rows, "count": len(rows), "groups": groups}
+    return {
+        "data_status": data_status, "snapshot_to": snapshot_to,
+        "skill": skill, "feedback_type": type, "status": status,
+        "test_id": test_id, "items": clean_rows, "count": len(clean_rows),
+        "groups": groups, "truncated": truncated,
+        "malformed_count": malformed_count,
+    }
 
 
 class StatusIn(BaseModel):
     status: str
 
 
-@router.patch("/admin/feedback/{feedback_id}")
+@router.patch("/admin/feedback/{feedback_id}", response_model=AdminFeedbackStatusOut)
 async def admin_patch_feedback_status(
     feedback_id: str,
     body: StatusIn,

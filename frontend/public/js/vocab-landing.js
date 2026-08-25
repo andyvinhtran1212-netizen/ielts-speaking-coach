@@ -30,7 +30,7 @@
   // (see vocab-modules/_loader.js guardMount()).
   const TAB_LOADERS = {
     // Inline module — fetches /api/vocabulary/categories and renders a
-    // topic-card grid. Each card links to /vocabulary.html?cat=<slug>
+    // topic-card grid. Each card links to /vocabulary?cat=<slug>
     // (the public wiki filtered to that topic). No separate file needed.
     'vocab-topics': () => Promise.resolve({
       mount(container) {
@@ -79,8 +79,8 @@
               + '</span>'
               + '</div>'
               + '<div class="vtc-actions">'
-              + '<a class="vtc-act vtc-act--browse" href="/vocabulary.html?cat=' + slug + '">Khám phá</a>'
-              + '<a class="vtc-act vtc-act--study" href="/pages/flashcard-study.html?stack=wiki:' + slug + '">🃏 Flashcards</a>'
+              + '<a class="vtc-act vtc-act--browse" href="/vocabulary?cat=' + slug + '">Khám phá</a>'
+              + '<a class="vtc-act vtc-act--study" href="/flashcard-study?stack=wiki:' + slug + '">🃏 Flashcards</a>'
               // "✍️ Luyện tập" → straight into the adaptive Quick-Check player.
               // Audit 2026-07-28 §C6: this link used to be global, so picking
               // "Environment" still dumped the learner on the L01–L30 picker to

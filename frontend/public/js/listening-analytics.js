@@ -75,7 +75,10 @@ function showState(name) {
   VIEWS.error.hidden   = name !== 'error';
   VIEWS.surface.hidden = name !== 'ready';
 }
-function showError(msg) { VIEWS.error.textContent = msg; showState('error'); }
+function showError() {
+  VIEWS.error.textContent = 'Không tải được thống kê. Vui lòng thử lại.';
+  showState('error');
+}
 
 
 async function load() {
@@ -87,8 +90,8 @@ async function load() {
     if (!res || res.total_attempts === 0) { showState('empty'); return; }
     render(res);
     showState('ready');
-  } catch (e) {
-    showError('Không tải được thống kê. ' + (e && e.message ? e.message : ''));
+  } catch {
+    showError();
   }
 }
 
@@ -139,10 +142,10 @@ function render(data) {
     const r = (data.by_mode || {})[m] || { count: 0, avg_score: null, completion: null };
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${escapeHtml(MODE_LABELS[m] || m)}</td>
-      <td class="num">${r.count || 0}</td>
-      <td class="num">${r.avg_score == null ? '—' : `${Math.round(r.avg_score * 100)}%`}</td>
-      <td class="num">${r.completion == null ? '—' : `${Math.round(r.completion * 100)}%`}</td>
+      <td data-label="Dạng">${escapeHtml(MODE_LABELS[m] || m)}</td>
+      <td class="num" data-label="Số bài">${r.count || 0}</td>
+      <td class="num" data-label="Đúng TB">${r.avg_score == null ? '—' : `${Math.round(r.avg_score * 100)}%`}</td>
+      <td class="num" data-label="Hoàn thành">${r.completion == null ? '—' : `${Math.round(r.completion * 100)}%`}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -209,6 +212,7 @@ if (typeof document !== 'undefined') {
         STATE.range = btn.dataset.range;
         document.querySelectorAll('.range-tab').forEach((b) => {
           b.classList.toggle('is-active', b === btn);
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
         });
         load();
       });

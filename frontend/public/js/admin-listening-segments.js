@@ -37,6 +37,8 @@ const STATE = {
   contentId:   null,
   content:     null,
   exerciseId:  null,
+  exerciseOrder: 1,
+  exerciseUpdatedAt: null,
   segments:    [],   // [{transcript, start_sec, end_sec}]
 };
 
@@ -132,6 +134,8 @@ async function load() {
     const ex = (exRes && exRes.exercises || [])[0];
     if (ex) {
       STATE.exerciseId = ex.id;
+      STATE.exerciseOrder = Number(ex.order_num) || 1;
+      STATE.exerciseUpdatedAt = ex.updated_at || null;
       STATE.segments = (ex.segments || []).slice().sort((a, b) => (a.idx || 0) - (b.idx || 0))
         .map((s) => ({
           transcript: s.transcript || '',
@@ -517,12 +521,18 @@ function buildSavePayload(status) {
     end_sec:    Number(seg.end_sec) || 0,
     transcript: (seg.transcript || '').trim(),
   }));
-  return {
+  const payload = {
     content_id:    STATE.contentId,
     exercise_type: 'dictation',
+    order_num:     STATE.exerciseOrder,
     segments,
     status,
   };
+  if (STATE.exerciseId && STATE.exerciseUpdatedAt) {
+    payload.exercise_id = STATE.exerciseId;
+    payload.expected_updated_at = STATE.exerciseUpdatedAt;
+  }
+  return payload;
 }
 
 
@@ -539,6 +549,7 @@ async function save(status) {
       buildSavePayload(status),
     );
     STATE.exerciseId = out.exercise_id;
+    STATE.exerciseUpdatedAt = out.updated_at || STATE.exerciseUpdatedAt;
     showBanner(
       `Đã ${out.created ? 'tạo' : 'cập nhật'} exercise (${out.exercise_id}, status=${status}).`,
       'success',

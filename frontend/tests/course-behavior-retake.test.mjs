@@ -44,16 +44,48 @@ function loadRetakeFlow() {
     .replace(/\}$/, '');
   return (env) => {
     const fn = new Function('$', 'lastVerdict', 'runner', 'renderQuestion', 'esc', 'setSaveState',
+      'reportSeq', 'reportLoad',
       `return (async () => {${body}})();`);
     return fn(env.$, env.lastVerdict, env.runner, env.renderQuestion,
-      env.esc || ((value) => String(value)), env.setSaveState || (() => {}));
+      env.esc || ((value) => String(value)), env.setSaveState || (() => {}), 0, null);
   };
+}
+
+function loadReportFlow(env) {
+  const marker = 'async function showReport(options: { scroll?: boolean } = {}) {';
+  const i = SRC.indexOf(marker);
+  assert.ok(i !== -1, 'không thấy showReport');
+  const open = i + marker.length - 1;
+  let depth = 0, close = open;
+  for (let k = open; k < SRC.length; k++) {
+    if (SRC[k] === '{') depth++;
+    else if (SRC[k] === '}' && --depth === 0) { close = k; break; }
+  }
+  const body = SRC.slice(open + 1, close)
+    .replace(/catch \(err: any\)/g, 'catch (err)')
+    .replace(/bankId!/g, 'bankId');
+  const factory = new Function(
+    '$', 'setActiveSection', 'CR', 'api', 'bankId', 'runner',
+    'requestedItem', 'lastVerdict', 'esc',
+    `let reportLoad = null;
+     let reportSeq = 0;
+     return async function showReport(options = {}) {${body}};`,
+  );
+  return factory(
+    env.$, env.setActiveSection || (() => {}), env.CR, env.api, 'bank-1',
+    env.runner || { reviewOnly: false }, null, env.lastVerdict || { passed: true, pct: 80 },
+    (value) => String(value),
+  );
 }
 
 describe('làm kiểm tra lại', () => {
   test('dọn báo cáo của lượt trước', async () => {
     const run = loadRetakeFlow();
-    const rep = { hidden: false, innerHTML: '<p>chi tiết từng câu còn khoá</p>' };
+    const rep = {
+      hidden: false,
+      innerHTML: '<p>chi tiết từng câu còn khoá</p>',
+      dataset: { crReady: '1' },
+    };
     await run({
       $: (id) => (id === 'cx-report' ? rep : null),
       lastVerdict: { retake_size: 5 },
@@ -62,6 +94,7 @@ describe('làm kiểm tra lại', () => {
     });
     assert.equal(rep.innerHTML, '', 'để lại bảng cũ là nói sai về lượt vừa làm');
     assert.equal(rep.hidden, true);
+    assert.equal(rep.dataset.crReady, undefined, 'không được tái dùng cache báo cáo của lượt cũ');
   });
 
   test('không có khung báo cáo thì vẫn chạy được', async () => {
@@ -109,6 +142,40 @@ describe('làm kiểm tra lại', () => {
   });
 });
 
+describe('nạp phần tự review', () => {
+  test('báo cáo stale không bị cache và cú bấm sau thay bằng bản đầy đủ', async () => {
+    const box = {
+      hidden: true,
+      innerHTML: '',
+      dataset: {},
+      scrollIntoView: () => {},
+    };
+    const responses = [
+      { stale: true, questions: [{ qid: 'q1' }] },
+      { stale: false, questions: [{ qid: 'q1' }, { qid: 'q2' }] },
+    ];
+    let calls = 0;
+    const showReport = loadReportFlow({
+      $: (id) => id === 'cx-report' ? box : null,
+      api: { get: async () => responses[calls++] },
+      CR: {
+        renderReport: (d) => d.stale ? 'bản đọc thiếu' : 'bản đầy đủ',
+        bindReport: () => {},
+      },
+    });
+
+    await showReport({ scroll: false });
+    assert.equal(calls, 1);
+    assert.equal(box.innerHTML, 'bản đọc thiếu');
+    assert.equal(box.dataset.crReady, undefined);
+
+    await showReport({ scroll: false });
+    assert.equal(calls, 2, 'cú bấm sau phải gọi API lại');
+    assert.equal(box.innerHTML, 'bản đầy đủ');
+    assert.equal(box.dataset.crReady, '1');
+  });
+});
+
 describe('kết luận gọi đúng lượt đã giúp học viên đạt', () => {
   const label = new Function('v', functionBody('passingAttemptLabel'));
 
@@ -118,6 +185,83 @@ describe('kết luận gọi đúng lượt đã giúp học viên đạt', () =
 
   test('chỉ current phase retake mới được gọi là đạt ở revision', () => {
     assert.equal(label({ phase: 'retake', retakes: 2 }), ' · đạt ở revision lần 2');
+  });
+});
+
+describe('cổng hoàn thành bài nhiều phần', () => {
+  test('không vẽ đạt hoặc không đạt khi vẫn còn phần bắt buộc', () => {
+    assert.match(SRC, /v\.completed === false/);
+    assert.match(SRC, /chỉ kết luận đạt hoặc chưa đạt sau khi đủ tất cả các phần/);
+    assert.match(SRC, /cx-section-checklist/);
+    assert.match(SRC, /sectionRows\.filter/);
+  });
+
+  test('phần tự luận và phát âm chỉ mở làm khi chưa hoàn thành', () => {
+    for (const key of ['writingDone', 'pronunciationDone']) {
+      assert.match(SRC, new RegExp(`!${key}`));
+    }
+  });
+
+  test('phần đọc và nghe đã hoàn thành vẫn có hành động xem lại', () => {
+    const reviewHub = functionBody('renderReviewHub');
+    assert.match(SRC, /readingDone \? 'Xem lại bài đọc đã nộp'/);
+    assert.match(SRC, /listeningDone \? 'Xem lại bài nghe đã nộp'/);
+    assert.match(SRC, /await reading\.review\(\)/);
+    assert.match(SRC, /await listening\.review\(\)/);
+    assert.match(SRC, /const sectionAssignmentItem = requestedItem \|\| runner\.mastery\?\.item_id \|\| null/);
+    assert.match(SRC, /assignmentItemId: sectionAssignmentItem/);
+    assert.match(reviewHub, /reviewSectionCompleted\('reading'\)/);
+    assert.match(reviewHub, /reviewSectionCompleted\('listening'\)/);
+    assert.match(reviewHub, /cx-reading-open/);
+    assert.match(reviewHub, /cx-listening-open/);
+  });
+
+  test('review hub không suy phần đã nộp từ bank live', () => {
+    const reviewHub = functionBody('renderReviewHub');
+    assert.doesNotMatch(reviewHub, /\(reading\.exists\s*\?/);
+    assert.doesNotMatch(reviewHub, /\(listening\.exists\s*\?/);
+    assert.match(SRC, /runner\.mastery\?\.completed_sections/);
+    assert.doesNotMatch(reviewHub, /reading\.exists && reviewSectionCompleted/);
+    assert.doesNotMatch(reviewHub, /listening\.exists && reviewSectionCompleted/);
+  });
+
+  test('không mở phần chỉ mới được thêm vào bank sau lúc giao bài', () => {
+    assert.match(SRC, /writingSection && writingReady/);
+    assert.match(SRC, /readingSection && reading\.exists/);
+    assert.match(SRC, /listeningSection && listening\.exists/);
+    assert.match(SRC, /pronunciationSection && pronunciationReady/);
+  });
+
+  test('quay lại từ từng phần sẽ đọc lại kết luận canonical', () => {
+    assert.match(SRC, /t\.id === 'cr-back'[\s\S]{0,180}renderVerdict\(\)/);
+    assert.match(SRC, /t\.id === 'cl-back'[\s\S]{0,180}renderVerdict\(\)/);
+  });
+
+  test('làm lại full mở attempt canonical rồi reset mọi phần', () => {
+    const body = functionBody('restartFullFlow');
+    assert.match(body, /api\.post\('\/api\/quiz\/course\/full-retry'/);
+    assert.match(body, /reading\.beginAttempt\(attemptNo\)/);
+    assert.match(body, /listening\.beginAttempt\(attemptNo\)/);
+    assert.match(body, /writing\.load\(bankId/);
+    assert.match(body, /pronunciation\.load\(bankId\)/);
+    assert.ok(body.indexOf("/api/quiz/course/full-retry") < body.indexOf('runner.restartFull()'),
+      'phải mở sổ attempt trước khi tạo session quiz mới');
+  });
+});
+
+describe('thời lượng từng phần chỉ tính khi màn đang hiện', () => {
+  test('mọi màn chuyển ownership qua một cổng timer duy nhất', () => {
+    assert.match(SRC, /setActiveSection\(writing\.submitted \? null : 'writing'\)/);
+    assert.match(SRC, /setActiveSection\(reading\.revealed \? null : 'reading'\)/);
+    assert.match(SRC, /setActiveSection\(listening\.revealed \? null : 'listening'\)/);
+    assert.match(SRC, /setActiveSection\(pronunciation\.completed \? null : 'pronunciation'\)/);
+  });
+
+  test('ẩn tab tạm dừng và hiện lại tiếp tục đúng section đang mở', () => {
+    const body = functionBody('syncSectionTimers');
+    assert.match(body, /pauseSectionTimers\(\)/);
+    assert.match(body, /document\.visibilityState === 'hidden'/);
+    assert.match(SRC, /onHide = \(\) => \{\s*syncSectionTimers\(\)/);
   });
 });
 
@@ -148,5 +292,46 @@ describe('chỉ báo lưu phản ánh persistence thật', () => {
   test('kết quả finishStage là nguồn quyết định saved hay error', () => {
     assert.match(SRC, /setSaveState\(res\.persisted \? 'saved' : 'error'\)/);
     assert.match(SRC, /runner\.sessionFailed \? 'error'/);
+  });
+});
+
+describe('chuyển chặng trên giao diện', () => {
+  function loadAdvanceStageFlow(env) {
+    const body = functionBody('advanceStageFlow');
+    const factory = new Function('$', 'runner', 'renderQuestion', 'setSaveState', `
+      let stageAdvance = null;
+      return function advanceStageFlow() {${body}};
+    `);
+    return factory(env.$, env.runner, env.renderQuestion, env.setSaveState || (() => {}));
+  }
+
+  test('double-tap dùng chung một lượt và chỉ render chặng mới một lần', async () => {
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    let advanced = 0;
+    let rendered = 0;
+    const attrs = new Set();
+    const button = {
+      isConnected: true,
+      setAttribute: (name) => attrs.add(name),
+      removeAttribute: (name) => attrs.delete(name),
+    };
+    const advance = loadAdvanceStageFlow({
+      $: (id) => id === 'cx-more' ? button : null,
+      runner: { nextStage: () => { advanced += 1; return gate; } },
+      renderQuestion: () => { rendered += 1; button.isConnected = false; },
+    });
+
+    const first = advance();
+    const second = advance();
+    assert.strictEqual(second, first);
+    assert.equal(advanced, 0, 'promise phải được giữ trước khi gọi runner');
+    assert.ok(attrs.has('disabled') && attrs.has('aria-busy'));
+
+    await Promise.resolve();
+    assert.equal(advanced, 1);
+    release();
+    await Promise.all([first, second]);
+    assert.equal(rendered, 1, 'render hai lần vẫn để lại cửa cho event cũ chạy lại');
   });
 });

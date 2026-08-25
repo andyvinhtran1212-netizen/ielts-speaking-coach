@@ -64,6 +64,15 @@ async function step(page, s, observed) {
     return undefined;
   }
   if (s.click) return page.locator(s.click).first().click();
+  // Một số implementations có thêm một bước xác nhận nội tuyến trong khi vế
+  // legacy dùng `window.confirm()`. Bước tùy chọn chỉ dùng cho lớp UI đó; hợp
+  // đồng `writes` vẫn bắt buộc request cuối phải thật sự xảy ra, nên thiếu nút
+  // xác nhận ở vế cần nó vẫn làm luồng đỏ thay vì bị bỏ qua âm thầm.
+  if (s.clickIfPresent) {
+    const target = page.locator(s.clickIfPresent).first();
+    if (await target.count()) return target.click();
+    return undefined;
+  }
   if (s.fill) return page.locator(s.fill[0]).first().fill(s.fill[1]);
   if (s.wait) return page.waitForTimeout(s.wait);
   // Tua đồng hồ của TRANG (cần `fakeClock: true`). Khác `wait`: `wait` để trang
@@ -143,8 +152,10 @@ async function step(page, s, observed) {
     // HIỆN RA rồi mới xét chữ. `innerText()` vẫn trả chữ của một phần tử đang
     // `hidden`, nên chỉ so chữ thì một cảnh báo có nội dung nhưng KHÔNG hiện lên
     // vẫn qua — đúng thứ cảnh báo đó sinh ra để làm (phá thử bắt ở #970).
-    if (!(await el.isVisible().catch(() => false))) {
-      throw new Error(`«${sel}» không hiện ra (có thể đang bị ẩn)`);
+    try {
+      await el.waitFor({ state: 'visible', timeout: s.timeoutMs || 8000 });
+    } catch {
+      throw new Error(`không thấy «${sel}» sau ${s.timeoutMs || 8000}ms`);
     }
     const got = await el.innerText().catch(() => null);
     if (got == null || !got.includes(text)) {
@@ -194,6 +205,16 @@ async function runFlow(browser, flow) {
         for (const [k, v] of pairs) localStorage.setItem(k, v);
       } catch (_) {}
     }, Object.entries(flow.initStorage));
+  }
+  // Queue context của admin Writing sống trong sessionStorage, không phải
+  // localStorage. Gieo trước navigation để kiểm đúng đường "Lưu & bài kế"
+  // và vẫn giữ mỗi browser context cô lập như một tab thật.
+  if (flow.initSessionStorage) {
+    await ctx.addInitScript((pairs) => {
+      try {
+        for (const [k, v] of pairs) sessionStorage.setItem(k, v);
+      } catch (_) {}
+    }, Object.entries(flow.initSessionStorage));
   }
 
   const page = await ctx.newPage();
@@ -391,7 +412,7 @@ for (const f of files) {
     continue;
   }
 
-  const { verdict, stepError, pageErrors, dialogs, urlError } =
+  const { verdict, stepError, pageErrors, observed, dialogs, urlError } =
     await runFlow(await browserFor(flow), flow);
   const bad = !verdict.pass || stepError || pageErrors.length || urlError;
   if (bad) failed += 1;
@@ -402,6 +423,12 @@ for (const f of files) {
   if (stepError) console.log(`  ✗ [bước] ${stepError.message}`);
   if (urlError) console.log(`  ✗ [đường dẫn cuối] ${urlError}`);
   for (const e of pageErrors) console.log(`  ✗ [lỗi JS] ${e.slice(0, 140)}`);
+  if (bad && observed.length) {
+    for (const r of observed) {
+      const u = new URL(r.url);
+      console.log(`  · [write đã thấy] ${r.method} ${u.pathname}${u.search}`);
+    }
+  }
   console.log(formatFindings(verdict.findings));
 }
 await browser.close();

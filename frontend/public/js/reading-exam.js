@@ -74,6 +74,7 @@
     unsaved: new Map(),
     save_retry_timers: new Map(),
     inflight: new Map(),
+    inflight_waiters: [],
     save_gen: new Map(),
     resume_inprogress: false,   // Sprint 20.11 D5 — true when boot detected an
                                 // open attempt; pre-start surfaces the Resume
@@ -627,7 +628,8 @@
     mcq_multi: function (range, ctx) {
       var n = ctx.optionsCount || 5;
       var lettersUpper = String.fromCharCode(64 + n);    // 5 → "E"
-      return 'Questions ' + range + ': Choose TWO letters, A–' + lettersUpper + '.';
+      return 'Questions ' + range + ': Choose ' + (ctx.choose === 3 ? 'THREE' : 'TWO') +
+        ' letters, A–' + lettersUpper + '.';
     },
     matching_information: function (range, ctx) {
       return 'Questions ' + range + ': Reading Passage ' + ctx.part +
@@ -698,9 +700,10 @@
       // means `position: sticky` computes its containing block as the
       // section, and the box scrolls off naturally when the section's
       // bottom edge reaches the top of the pane.
-      var typeRuns = _consecutiveTypeRuns(partQs);
+      var typeRuns = _displayQuestionRuns(partQs);
       typeRuns.forEach(function (run) {
         var type = run[0].question_type;
+        var groupedMcqChoose = _groupedMcqChooseCount(run);
         var rangeLabel = _qRangeLabel(run);
 
         var groupEl = document.createElement('section');
@@ -710,7 +713,7 @@
         var instructionEl = document.createElement('div');
         instructionEl.className = 'exam-questions__instructions exam-questions__instructions--type';
         instructionEl.setAttribute('data-question-type', type);
-        var template = QTYPE_INSTRUCTIONS[type];
+        var template = QTYPE_INSTRUCTIONS[groupedMcqChoose ? 'mcq_multi' : type];
         // optionsCount: matching_headings uses the heading-bank size; mcq uses
         // the choice count. Read from the FIRST question in the run as a
         // representative — same-typed runs in real IELTS share the same
@@ -723,7 +726,7 @@
         var wordLimit = (run[0].payload && run[0].payload.word_limit) || '';
         var ctx = { part: part, optionsCount: optionsCount, wordLimit: wordLimit };
         var instrText = template
-          ? template(rangeLabel, ctx)
+          ? template(rangeLabel, groupedMcqChoose ? Object.assign({}, ctx, { choose: groupedMcqChoose }) : ctx)
           : 'Questions ' + rangeLabel + '.';
         // reading-review-locate-exam-format B2/B3 — bold/enlarge the
         // "Questions X–Y" header + bold the format restrictions (word limits,
@@ -776,6 +779,12 @@
           groupEl.appendChild(diagramBox);
           host.appendChild(groupEl);
           return; // skip the mono-block path for this run
+        }
+
+        if (groupedMcqChoose) {
+          groupEl.appendChild(_renderGroupedMcqRun(run));
+          host.appendChild(groupEl);
+          return;
         }
 
         // Sprint 20.14e — completion FLOWING block (Standards §2A.10 /
@@ -1161,6 +1170,141 @@
     }
     runs.push(cur);
     return runs;
+  }
+
+  function _mcqOptionFingerprint(q) {
+    var options = (q && q.payload && Array.isArray(q.payload.options)) ? q.payload.options : [];
+    return JSON.stringify(options.map(function (o) {
+      return (typeof o === 'string')
+        ? [o, o]
+        : [String(o && (o.label != null ? o.label : o.text) || ''), String(o && o.text || '')];
+    }));
+  }
+
+  // Cambridge represents "Questions 21-22: choose TWO" as two independently
+  // graded mcq_single rows. Keep that backend contract, but render the rows as
+  // the one checkbox group the paper describes. Tight detection prevents an
+  // ordinary run of single-answer MCQs from being merged accidentally.
+  function _groupedMcqChooseCount(run) {
+    if (!Array.isArray(run) || run.length < 2 || run.length > 3) return 0;
+    var first = run[0];
+    if (!first || first.question_type !== 'mcq_single') return 0;
+    var prompt = String(first.prompt || '').trim();
+    var authored = /\b(TWO|THREE)\b/i.exec(prompt);
+    var choose = authored && authored[1].toUpperCase() === 'TWO' ? 2
+      : authored && authored[1].toUpperCase() === 'THREE' ? 3 : 0;
+    if (choose !== run.length) return 0;
+    var fingerprint = _mcqOptionFingerprint(first);
+    for (var i = 0; i < run.length; i++) {
+      var q = run[i];
+      if (!q || q.question_type !== 'mcq_single' ||
+          Number(q.q_num) !== Number(first.q_num) + i ||
+          String(q.prompt || '').trim() !== prompt ||
+          _mcqOptionFingerprint(q) !== fingerprint) return 0;
+    }
+    return choose;
+  }
+
+  function _displayQuestionRuns(qs) {
+    var output = [];
+    _consecutiveTypeRuns(qs).forEach(function (typeRun) {
+      if (!typeRun[0] || typeRun[0].question_type !== 'mcq_single') {
+        output.push(typeRun); return;
+      }
+      var ordinary = [];
+      var flushOrdinary = function () {
+        if (ordinary.length) output.push(ordinary);
+        ordinary = [];
+      };
+      for (var i = 0; i < typeRun.length;) {
+        var first = typeRun[i];
+        var prompt = String(first.prompt || '').trim();
+        var fingerprint = _mcqOptionFingerprint(first);
+        var end = i + 1;
+        while (end < typeRun.length &&
+               String(typeRun[end].prompt || '').trim() === prompt &&
+               _mcqOptionFingerprint(typeRun[end]) === fingerprint &&
+               Number(typeRun[end].q_num) === Number(typeRun[end - 1].q_num) + 1) end++;
+        var candidate = typeRun.slice(i, end);
+        if (_groupedMcqChooseCount(candidate)) {
+          flushOrdinary(); output.push(candidate);
+        } else {
+          Array.prototype.push.apply(ordinary, candidate);
+        }
+        i = end;
+      }
+      flushOrdinary();
+    });
+    return output;
+  }
+
+  function _groupedMcqChanged(run, box) {
+    var selected = [];
+    var boxes = box.querySelectorAll('input[type="checkbox"]');
+    for (var i = 0; i < boxes.length; i++) if (boxes[i].checked) selected.push(boxes[i].value);
+    var choose = _groupedMcqChooseCount(run);
+    var lock = selected.length >= choose;
+    for (var j = 0; j < boxes.length; j++) boxes[j].disabled = !boxes[j].checked && lock;
+    run.forEach(function (q, index) { _summaryGapChanged(q.q_num, selected[index] || ''); });
+    box.classList.toggle('is-answered', selected.length > 0);
+    if (lock) liveSay('Choose ' + choose + ' answers — limit reached.');
+  }
+
+  function _renderGroupedMcqRun(run) {
+    var first = run[0];
+    var choose = _groupedMcqChooseCount(run);
+    var card = document.createElement('div');
+    card.className = 'exam-q exam-q--grouped-mcq';
+    card.id = 'q-' + first.q_num;
+    card.dataset.q = String(first.q_num);
+    card.dataset.groupedQnums = run.map(function (q) { return q.q_num; }).join(',');
+
+    var nums = document.createElement('div');
+    nums.className = 'exam-grouped-mcq__numbers';
+    nums.setAttribute('aria-label', 'Questions ' + first.q_num + ' to ' + run[run.length - 1].q_num);
+    run.forEach(function (q, index) {
+      var num = document.createElement('span');
+      num.className = 'exam-q__num';
+      num.textContent = String(q.q_num);
+      if (index) num.id = 'q-' + q.q_num;
+      nums.appendChild(num);
+    });
+
+    var body = document.createElement('div');
+    body.className = 'exam-q__body';
+    var prompt = document.createElement('p');
+    prompt.className = 'exam-q__prompt';
+    prompt.textContent = first.prompt || '';
+    body.appendChild(prompt);
+    var options = document.createElement('div');
+    options.className = 'exam-q__options exam-q__options--multi';
+    options.setAttribute('role', 'group');
+    options.setAttribute('aria-label', 'Choose ' + choose + ' answers for questions ' +
+      first.q_num + ' to ' + run[run.length - 1].q_num);
+    ((first.payload && first.payload.options) || []).forEach(function (o) {
+      var isString = typeof o === 'string';
+      var val = isString ? o : (o.label != null ? String(o.label) : String(o.text || ''));
+      var prefix = isString ? '' : (o.label != null ? String(o.label) : '');
+      var text = isString ? o : String(o.text || '');
+      options.appendChild(checkboxOption('q-' + first.q_num + '-' + run[run.length - 1].q_num,
+        val, prefix, text));
+    });
+    options.addEventListener('change', function () { _groupedMcqChanged(run, card); });
+    body.appendChild(options);
+
+    var flags = document.createElement('div');
+    flags.className = 'exam-grouped-mcq__flags';
+    run.forEach(function (q) {
+      var flag = document.createElement('button');
+      flag.type = 'button'; flag.className = 'exam-q__flag';
+      flag.setAttribute('aria-pressed', SESSION.flagged.has(q.q_num) ? 'true' : 'false');
+      flag.setAttribute('aria-label', 'Flag question ' + q.q_num + ' for review');
+      flag.textContent = '⚑ ' + q.q_num;
+      flag.addEventListener('click', function () { toggleFlag(q.q_num, flag); });
+      flags.appendChild(flag);
+    });
+    card.appendChild(nums); card.appendChild(body); card.appendChild(flags);
+    return card;
   }
 
   function renderQuestion(q) {
@@ -1724,6 +1868,20 @@
       var n = (SESSION.inflight.get(qNum) || 1) - 1;
       if (n > 0) SESSION.inflight.set(qNum, n);
       else SESSION.inflight['delete'](qNum);
+      if (SESSION.inflight.size === 0 && SESSION.inflight_waiters.length) {
+        var waiters = SESSION.inflight_waiters.splice(0);
+        // Let the success/failure handler finish first. In particular, a
+        // failed request may enqueue its retry immediately after `settled()`;
+        // the mock flush must get a chance to cancel that timer before writing
+        // the final in-memory value.
+        Promise.resolve().then(function () {
+          if (SESSION.inflight.size) {
+            Array.prototype.push.apply(SESSION.inflight_waiters, waiters);
+            return;
+          }
+          waiters.forEach(function (resolve) { resolve(); });
+        });
+      }
     };
     // reading-access-tracking B2 — anonymous auto-save carries X-Reading-Anon +
     // noRedirect (a transient 401 must not bounce an anon mid-test to login);
@@ -1800,6 +1958,56 @@
       patchAnswer(qNum, SESSION.answers.get(qNum), { keepalive: true });
     });
   }
+
+  // The mock parent needs a PROVABLE clean boundary before it acknowledges
+  // collection to the server. Unlike the pagehide helper above, this returns a
+  // promise and reports false when any latest answer still has no canonical
+  // PATCH. A missing/failed result must never be presented as a clean flush.
+  function _waitForInflightSaves() {
+    if (SESSION.inflight.size === 0) return Promise.resolve();
+    return new Promise(function (resolve) { SESSION.inflight_waiters.push(resolve); });
+  }
+
+  function _flushPendingSavesForMock() {
+    if (!SESSION.attempt_id) return Promise.resolve(false);
+    var due = [];
+    var add = function (qNum) { if (due.indexOf(qNum) === -1) due.push(qNum); };
+    var drainDeferred = function () {
+      SESSION.debounce_timers.forEach(function (handle, qNum) { clearTimeout(handle); add(qNum); });
+      SESSION.debounce_timers.clear();
+      SESSION.save_retry_timers.forEach(function (handle, qNum) { clearTimeout(handle); add(qNum); });
+      SESSION.save_retry_timers.clear();
+      SESSION.inflight.forEach(function (_n, qNum) { add(qNum); });
+      SESSION.unsaved.forEach(function (_state, qNum) { add(qNum); });
+    };
+    drainDeferred();
+
+    // Never race a final value B against an older in-flight value A. The
+    // answer endpoint is last-write-wins per q_num, so B completing first
+    // would let A overwrite it after the parent has already acknowledged the
+    // collection. Wait for every older request, cancel any retry it scheduled,
+    // then write the latest frozen in-memory value as the definitive tail.
+    return _waitForInflightSaves().then(function () {
+      drainDeferred();
+      var refused = false;
+      var pending = due.map(function (qNum) {
+        var latest = SESSION.answers.has(qNum) ? SESSION.answers.get(qNum) : '';
+        var save = patchAnswer(qNum, latest);
+        if (!save || typeof save.then !== 'function') {
+          refused = true;
+          return Promise.resolve();
+        }
+        return save;
+      });
+      return Promise.all(pending).then(function () {
+        return !refused
+          && SESSION.inflight.size === 0
+          && SESSION.debounce_timers.size === 0
+          && SESSION.save_retry_timers.size === 0
+          && SESSION.unsaved.size === 0;
+      }, function () { return false; });
+    });
+  }
   function restoreAnswers() {
     SESSION.answers.forEach(function (value, qNum) {
       // Sprint 20.14e — flowing summary block: gaps live inside the
@@ -1846,6 +2054,15 @@
           (window.CSS && CSS.escape ? CSS.escape(String(value)) : String(value).replace(/"/g, '\\"')) + '"]');
         if (radio) { radio.checked = true; markAnswered(qNum); }
       } catch (e) {}
+    });
+    document.querySelectorAll('.exam-q--grouped-mcq').forEach(function (card) {
+      var qNums = String(card.dataset.groupedQnums || '').split(',').map(Number);
+      var selected = new Set(qNums.map(function (qNum) { return SESSION.answers.get(qNum); }).filter(Boolean));
+      var boxes = card.querySelectorAll('input[type="checkbox"]');
+      for (var i = 0; i < boxes.length; i++) boxes[i].checked = selected.has(boxes[i].value);
+      var lock = selected.size >= qNums.length;
+      for (var j = 0; j < boxes.length; j++) boxes[j].disabled = !boxes[j].checked && lock;
+      card.classList.toggle('is-answered', selected.size > 0);
     });
   }
 
@@ -2407,7 +2624,7 @@
         ? '&anon=' + encodeURIComponent(_getAnonId()) : '';
       // Carry the origin through to the review page too — it has the same
       // both-libraries problem and would otherwise guess.
-      chuaBai.href = '/pages/reading-review.html?attempt_id=' + encodeURIComponent(result.attempt_id)
+      chuaBai.href = '/reading/review?attempt_id=' + encodeURIComponent(result.attempt_id)
         + anonSuffix + '&from=' + originFromUrl();
       chuaBai.hidden = false;
     }
@@ -2893,16 +3110,22 @@
     var startPromise = SESSION.share_mode
       ? window.api.postWith(
           '/api/reading/test/share/' + encodeURIComponent(SESSION.share_token) + '/attempts',
-          null, _anonHeaders(), { noRedirect: true })
+          _RENDERER_AFFINITY_PROTOCOL, _anonHeaders(), { noRedirect: true })
         .then(function (res) { _setAnonId(res && res.anon_id); return res; })
       // F1 — carry the locked-test password (if any) so start passes the gate.
       : window.api.postWith(
           '/api/reading/test/' + encodeURIComponent(SESSION.test_id) + '/attempts'
             + (classItemFromUrl()
                 ? '?class_item=' + encodeURIComponent(classItemFromUrl()) : ''),
-          null, _pwHeaders());
+          _RENDERER_AFFINITY_PROTOCOL, _pwHeaders());
     return startPromise
       .then(function (res) {
+        return _claimAttemptRenderer(res.attempt_id).then(function (matches) {
+          return matches ? res : null;
+        });
+      })
+      .then(function (res) {
+        if (!res) return;
         SESSION.attempt_id = res.attempt_id;
         _startNothingSavedWatch();
         SESSION.started_at = res.started_at;
@@ -2996,6 +3219,39 @@
     return id ? { 'X-Reading-Anon': id } : null;
   }
 
+  var _RENDERER_AFFINITY_PROTOCOL = { renderer_affinity_protocol: 'claim-v1' };
+  function _stableReadingPlayerHref(renderer) {
+    var target = new URL(
+      renderer === 'next' ? '/reading/exam/session' : '/pages/reading-exam.html',
+      window.location.origin
+    );
+    var current = new URLSearchParams(window.location.search);
+    ['test_id', 'share', 'sitting_id', 'mock_embed', 'from', 'class_item']
+      .forEach(function (key) {
+        var value = current.get(key);
+        if (value) target.searchParams.set(key, value);
+      });
+    return target.pathname + target.search;
+  }
+  function _claimAttemptRenderer(attemptId) {
+    return window.api.postWith(
+      '/api/reading/test/attempts/' + encodeURIComponent(attemptId) + '/renderer-affinity',
+      { renderer_affinity: 'legacy' },
+      SESSION.share_mode ? _anonHeaders() : null,
+      { noRedirect: true }
+    ).then(function (claim) {
+      var canonical = claim && claim.renderer_affinity;
+      if (canonical !== 'legacy' && canonical !== 'next') {
+        throw new Error('Không thể xác nhận phiên bản player. Hãy tải lại trang.');
+      }
+      if (canonical !== 'legacy') {
+        window.location.replace(_stableReadingPlayerHref(canonical));
+        return false;
+      }
+      return true;
+    });
+  }
+
   function boot() {
     wireBack();                 // before any early return — the error state is
                                 // exactly when a working way out matters most
@@ -3034,6 +3290,14 @@
           _pwHeaders());
     bootPromise
       .then(function (bootPayload) {
+        var inprog = bootPayload && bootPayload.in_progress;
+        if (!inprog) return bootPayload;
+        return _claimAttemptRenderer(inprog.attempt_id).then(function (matches) {
+          return matches ? bootPayload : null;
+        });
+      })
+      .then(function (bootPayload) {
+        if (!bootPayload) return;
         var test = bootPayload && bootPayload.test;
         if (!test) throw new Error('Boot payload missing test');
         // In share mode there is no ?test_id= — adopt the bundle's test_id so
@@ -3122,19 +3386,14 @@
   // typed just before "Nộp toàn bộ" isn't stranded in the debounce queue.
   window.addEventListener('message', function (ev) {
     if (!ev.data || ev.data.type !== 'mock-flush') return;
-    var pending = [];
-    try {
-      SESSION.debounce_timers.forEach(function (handle, qNum) {
-        clearTimeout(handle);
-        // Flush from the IN-MEMORY answer store (source of truth), not the DOM
-        // card — the card may be unmounted (student switched Part within the
-        // debounce window) or be a non-#q-N input (summary/diagram), in which
-        // case readAnswer(card) would be null and the answer silently lost.
-        pending.push(patchAnswer(qNum, SESSION.answers.get(qNum)));
-      });
-      SESSION.debounce_timers.clear();
-    } catch (e) { /* best-effort */ }
-    Promise.all(pending.map(function (p) { return (p && p.catch) ? p.catch(function () {}) : Promise.resolve(); }))
-      .then(function () { if (ev.source) ev.source.postMessage({ type: 'mock-flushed', section: 'reading' }, '*'); });
+    _flushPendingSavesForMock().then(function (clean) {
+      if (!ev.source) return;
+      ev.source.postMessage({
+        type: 'mock-flushed', section: 'reading',
+        // Explicit zero is a protocol guarantee. The parent rejects a missing,
+        // non-finite, or positive value and retries without sending flush-ack.
+        unsaved: clean ? 0 : Math.max(1, SESSION.unsaved.size),
+      }, '*');
+    });
   });
 })();

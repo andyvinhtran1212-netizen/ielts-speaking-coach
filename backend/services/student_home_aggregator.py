@@ -439,10 +439,9 @@ def _build_vocabulary(sb, user_id: str) -> Dict[str, Any]:
     except Exception as e:
         logger.debug("flashcards due-count failed: %s", _short_error(e))
 
-    # Sprint 6.0 — both branches now point at the unified
-    # /pages/vocabulary.html landing. The hash deep-links into the
-    # right tab so a student with due cards lands on the Flashcards
-    # tab, while a student with no due cards lands on My Vocabulary.
+    # Both branches point at the canonical Next.js Vocabulary hub. The hash
+    # deep-links into the right tab: due cards open Flashcards, otherwise the
+    # learner lands on the topic browser.
     return {
         "status": "active",
         "last_activity_at": last_activity,
@@ -462,8 +461,8 @@ def _build_vocabulary(sb, user_id: str) -> Dict[str, Any]:
         "quiz_sessions": int(quiz["sessions"]),
         "primary_cta": "Practice flashcards" if due_count else "Browse vocabulary",
         "primary_cta_url": (
-            "/pages/vocabulary.html#flashcards" if due_count
-            else "/pages/vocabulary.html#vocab-topics"   # #my-vocab surface removed
+            "/vocabulary/hub#flashcards" if due_count
+            else "/vocabulary/hub#vocab-topics"   # #my-vocab surface removed
         ),
     }
 

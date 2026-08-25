@@ -149,7 +149,7 @@ export function HomeShell() {
           <span className="rule" aria-hidden="true" />
           <span className="meta" id="class-strip-meta" />
         </div>
-        <a className="skill-card" id="class-strip-card" href="/pages/my-class.html">
+        <a className="skill-card" id="class-strip-card" href="/my-class">
           <div className="head">
             <div className="icon">◎</div>
             <span className="arrow">→</span>
@@ -162,7 +162,7 @@ export function HomeShell() {
             </span>
           </div>
           <div className="sub-metric" id="class-strip-sub">
-            Bài tập và nội dung buổi học của lớp bạn.
+            Bài tập và nội dung buổi học từ tất cả các lớp của bạn.
           </div>
           <div className="footer">
             <span className="last-activity" id="class-strip-alarm" />
@@ -189,7 +189,7 @@ export function HomeShell() {
         {/* Thẻ bắt đầu + các ô kết quả nằm cạnh nhau; ô kết quả đã trả điểm do
             `home-mock-tiles.js` chèn vào bên cạnh thẻ bắt đầu. */}
         <div className="mock-hub__grid" id="mock-hub-grid">
-          <a href="/pages/full-test.html" className="mock-start">
+          <a href="/full-test" className="mock-start">
             <div className="mock-start__title">🎯 Thi thử Full Test 4 kỹ năng →</div>
             <div className="mock-start__sub">
               Listening + Reading + Writing (một đồng hồ tổng) + Speaking — thu bài kín,

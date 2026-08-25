@@ -1,27 +1,95 @@
 // Vercel Deployment Protection bypass for staging-e2e (plan §12/§7.1).
 //
-// The bypass header must only ever reach the STAGING origin: sending it
-// browser-wide breaks CORS on every cross-origin request (custom headers
-// force preflights that Railway/fonts don't allow). So we make ONE
-// request-level call with the header + x-vercel-set-bypass-cookie, which
-// drops a `_vercel_jwt` cookie into the context — after that the browser
-// navigates the protected deployment with no special headers at all.
+// Both Vercel automation headers must only ever reach the STAGING frontend
+// origin: sending either browser-wide breaks CORS on cross-origin requests
+// (Railway/fonts do not allow arbitrary custom headers).
+//
+// `x-vercel-protection-bypass` is sent once through APIRequestContext to mint
+// the `_vercel_jwt` cookie. `x-vercel-skip-toolbar` is installed through an
+// origin-scoped browser route, per Vercel's documented E2E contract. Vercel can
+// still inject `<vercel-live-feedback>` on the staging custom alias even when
+// the document request carries that header, so an init script also removes the
+// platform-owned element before React hydrates. This keeps Gate E scoped to the
+// application under test instead of accepting a third-party React #418.
 // @ts-check
 
 const BYPASS = process.env.STAGING_BYPASS || '';
+const PRODUCTION_ORIGINS = Object.freeze([
+  'ielts-speaking-coach-production.up.railway.app',
+  'huwsmtubwulikhlmcirx.supabase.co',
+]);
 
 const BYPASS_HEADERS = BYPASS
   ? { 'x-vercel-protection-bypass': BYPASS, 'x-vercel-set-bypass-cookie': 'true' }
   : {};
+const TOOLBAR_HEADER = Object.freeze({ 'x-vercel-skip-toolbar': '1' });
+const TOOLBAR_TAG = 'vercel-live-feedback';
+const TOOLBAR_SCRIPT_PATTERN = 'https://vercel.live/_next-live/**';
+const toolbarScopedContexts = new WeakSet();
+
+/** Runs before page scripts and synchronously rejects Vercel's injected node. */
+function suppressInjectedVercelToolbar(tagName) {
+  document.querySelectorAll(tagName).forEach((node) => node.remove());
+  if (!globalThis.customElements || !globalThis.HTMLElement) return;
+
+  const registry = globalThis.customElements;
+  const nativeDefine = registry.define.bind(registry);
+  if (!registry.get(tagName)) {
+    nativeDefine(tagName, class extends globalThis.HTMLElement {
+      connectedCallback() { this.remove(); }
+    });
+  }
+
+  // The platform script may attempt to register its implementation after our
+  // inert element. Ignore only that duplicate while preserving the registry
+  // contract for every application-owned custom element.
+  registry.define = (name, constructor, options) => {
+    if (String(name).toLowerCase() === tagName) return;
+    nativeDefine(name, constructor, options);
+  };
+}
+
+/** Install Vercel's automation-only toolbar opt-out on the frontend origin. */
+async function installToolbarSkip(context, baseURL) {
+  if (toolbarScopedContexts.has(context)) return;
+  const origin = new URL(baseURL).origin;
+  await context.addInitScript(suppressInjectedVercelToolbar, TOOLBAR_TAG);
+  // Vercel can ignore the skip header on a custom Preview alias and inject a
+  // script that retries hundreds of times. Neutralize only the platform toolbar
+  // namespace so application requests and the production-egress guard remain
+  // observable while load/networkidle can settle deterministically.
+  await context.route(TOOLBAR_SCRIPT_PATTERN, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: '',
+    });
+  });
+  await context.route(`${origin}/**`, async (route) => {
+    await route.continue({
+      headers: { ...route.request().headers(), ...TOOLBAR_HEADER },
+    });
+  });
+  toolbarScopedContexts.add(context);
+}
 
 /** Prime the protection-bypass cookie into a browser context. */
 async function primeBypassCookie(context, baseURL) {
+  await installToolbarSkip(context, baseURL);
   if (!BYPASS) return;
   const res = await context.request.get(baseURL + '/', { headers: BYPASS_HEADERS });
   if (!res.ok()) throw new Error(`bypass priming failed: HTTP ${res.status()}`);
 }
 
-module.exports = { BYPASS_HEADERS, primeBypassCookie };
+module.exports = {
+  BYPASS_HEADERS,
+  PRODUCTION_ORIGINS,
+  TOOLBAR_HEADER,
+  TOOLBAR_SCRIPT_PATTERN,
+  TOOLBAR_TAG,
+  installToolbarSkip,
+  primeBypassCookie,
+};
 
 // ── Shared staging API helpers (Gate A flows) ────────────────────────────
 
@@ -54,8 +122,28 @@ async function signIn(request, role) {
   return (await res.json()).access_token;
 }
 
+/**
+ * Remove one synthetic Speaking session through the staging-only admin seam.
+ * Cleanup is intentionally fail-loud: a green soak run must not consume a
+ * hidden daily-quota slot that makes a later run fail for accumulated state.
+ */
+async function cleanupE2ESession(request, sessionId, adminToken) {
+  if (!sessionId) return;
+  const response = await request.delete(
+    `${STAGING_API}/admin/e2e/sessions/${encodeURIComponent(sessionId)}`,
+    { headers: { Authorization: `Bearer ${adminToken}` } },
+  );
+  if (response.status() !== 204) {
+    throw new Error(
+      `E2E session cleanup failed for ${sessionId}: `
+        + `HTTP ${response.status()} ${await response.text()}`,
+    );
+  }
+}
+
 module.exports.STAGING_API = STAGING_API;
 module.exports.STAGING_SUPABASE = STAGING_SUPABASE;
 module.exports.STAGING_ANON = STAGING_ANON;
 module.exports.signIn = signIn;
 module.exports.identityEmail = identityEmail;
+module.exports.cleanupE2ESession = cleanupE2ESession;

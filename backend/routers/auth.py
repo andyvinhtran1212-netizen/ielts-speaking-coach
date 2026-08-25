@@ -13,6 +13,7 @@ from database import supabase_admin
 from services.server_timing import record_stage
 from services.feature_flags import is_flashcard_enabled
 from services.runtime_flags import require_flag
+from services.class_membership_service import remove_student, student_is_active_in_cohort
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -561,10 +562,14 @@ async def activate_account(
     # LAST, so an enroll-write failure still does NOT consume the code).
     enroll_inserted_id: str | None = None
     enroll_revert: tuple | None = None  # (student_id, {field: prior_value_to_restore})
+    enroll_added_cohort: tuple[str, str] | None = None  # rollback-only membership
     try:
         if target:
             upd: dict = {}
             revert: dict = {}
+            already_in_code_cohort = bool(code_cohort_id) and student_is_active_in_cohort(
+                supabase_admin, target["id"], str(code_cohort_id), target.get("cohort_id")
+            )
             if not target.get("user_id"):
                 upd["user_id"] = user_id
                 revert["user_id"] = None
@@ -577,6 +582,10 @@ async def activate_account(
             if upd:
                 supabase_admin.table("students").update(upd).eq("id", target["id"]).execute()
                 enroll_revert = (target["id"], revert)
+                if code_cohort_id and not already_in_code_cohort:
+                    # Migration 217's compatibility trigger mirrored this
+                    # provisional legacy pointer as an additive membership.
+                    enroll_added_cohort = (target["id"], str(code_cohort_id))
         elif by_code:
             # student_code==code exists but is linked to ANOTHER user (code/account
             # mismatch — NOT an ownership conflict). Existing behaviour: log + skip
@@ -681,7 +690,17 @@ async def activate_account(
         elif enroll_revert:
             _sid, _fields = enroll_revert
             try:
-                supabase_admin.table("students").update(_fields).eq("id", _sid).execute()
+                if enroll_added_cohort:
+                    remove_student(
+                        supabase_admin, student_id=enroll_added_cohort[0],
+                        cohort_id=enroll_added_cohort[1],
+                    )
+                    # remove_student atomically restores another active primary
+                    # (or NULL), so a second cohort_id write would be stale.
+                    _fields = {key: value for key, value in _fields.items()
+                               if key != "cohort_id"}
+                if _fields:
+                    supabase_admin.table("students").update(_fields).eq("id", _sid).execute()
             except Exception as e:
                 logger.error(
                     "[auth] race rollback of student link FAILED id=%s (critical): %s",

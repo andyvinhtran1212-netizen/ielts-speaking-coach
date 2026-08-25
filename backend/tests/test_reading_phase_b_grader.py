@@ -25,7 +25,7 @@ from services.content_import_service import (
     parse_reading_test,
     validate_reading_test,
 )
-from services.reading_test_grader import grade_attempt
+from services.reading_test_grader import collect_answer_key, grade_attempt
 
 
 _CONTENT_DIR = Path(__file__).parent.parent / "content" / "reading"
@@ -129,6 +129,120 @@ def test_mcq_multi_case_insensitive():
         _ak_mcq_multi(["A", "C"]),
     )
     assert r["per_question"][0]["correct"] is True
+
+
+# ── Legacy Cambridge choose-TWO rows (independent q_nums, unordered set) ──
+
+
+def _legacy_grouped_mcq_key():
+    options = [
+        {"label": "A", "text": "Alpha"},
+        {"label": "B", "text": "Beta"},
+        {"label": "C", "text": "Gamma"},
+        {"label": "D", "text": "Delta"},
+    ]
+    # The stored keys are deliberately reversed relative to option-bank order.
+    # The student UI cannot and must not know this ordering.
+    rows = [
+        {
+            "q_num": 21,
+            "question_type": "mcq_single",
+            "prompt": "Which TWO statements are made?",
+            "payload": {"options": options},
+            "answer": {"answer": "D", "alternatives": []},
+            "skill_tag": "skill_for_d",
+            "explanation": "Rationale for D.",
+            "passage_id": "p2",
+        },
+        {
+            "q_num": 22,
+            "question_type": "mcq_single",
+            "prompt": "Which TWO statements are made?",
+            "payload": {"options": options},
+            "answer": {"answer": "B", "alternatives": []},
+            "skill_tag": "skill_for_b",
+            "explanation": "Rationale for B.",
+            "passage_id": "p2",
+        },
+    ]
+    return collect_answer_key(rows, {"p2": 2})
+
+
+def test_legacy_grouped_mcq_detects_repeated_choose_two_rows():
+    key = _legacy_grouped_mcq_key()
+    assert {row.get("group_key") for row in key} == {"grouped-mcq-21"}
+    assert {row.get("group_type") for row in key} == {"grouped_mcq_single"}
+
+
+def test_legacy_grouped_mcq_grades_reversed_stored_keys_as_unordered_set():
+    key = _legacy_grouped_mcq_key()
+
+    # New grouped UI persists checked values in option-bank order (B then D),
+    # even though the canonical DB rows above happen to store D then B.
+    result = grade_attempt(
+        [{"q_num": 21, "user_answer": "B"}, {"q_num": 22, "user_answer": "D"}],
+        key,
+    )
+    assert result["score"] == 2
+    assert [row["correct"] for row in result["per_question"]] == [True, True]
+    assert {row["expected"] for row in result["per_question"]} == {"B, D"}
+    assert [row["rationale_q_num"] for row in result["per_question"]] == [22, 21]
+    assert [row["skill_tag"] for row in result["per_question"]] == [
+        "skill_for_b", "skill_for_d",
+    ]
+    assert [row["explanation"] for row in result["per_question"]] == [
+        "Rationale for B.", "Rationale for D.",
+    ]
+
+    # Existing attempts created by the old two-radio renderer may have the
+    # same correct set in the opposite slots; they must remain gradeable too.
+    existing = grade_attempt(
+        [{"q_num": 21, "user_answer": "D"}, {"q_num": 22, "user_answer": "B"}],
+        key,
+    )
+    assert existing["score"] == 2
+    assert existing["skill_breakdown"] == {
+        "skill_for_d": {"correct": 1, "total": 1},
+        "skill_for_b": {"correct": 1, "total": 1},
+    }
+
+
+def test_legacy_grouped_mcq_awards_one_mark_per_distinct_correct_letter():
+    key = _legacy_grouped_mcq_key()
+    partial = grade_attempt(
+        [{"q_num": 21, "user_answer": "B"}, {"q_num": 22, "user_answer": "C"}],
+        key,
+    )
+    duplicate = grade_attempt(
+        [{"q_num": 21, "user_answer": "B"}, {"q_num": 22, "user_answer": "B"}],
+        key,
+    )
+    assert partial["score"] == 1
+    assert {row["expected"] for row in partial["per_question"]} == {"B, D"}
+    assert [row["rationale_q_num"] for row in partial["per_question"]] == [22, 21]
+    assert [row["skill_tag"] for row in partial["per_question"]] == [
+        "skill_for_b", "skill_for_d",
+    ]
+    assert duplicate["score"] == 1
+
+
+def test_legacy_grouped_mcq_wrong_picks_keep_distinct_canonical_rationales():
+    key = _legacy_grouped_mcq_key()
+
+    result = grade_attempt(
+        [{"q_num": 21, "user_answer": "A"}, {"q_num": 22, "user_answer": "C"}],
+        key,
+    )
+
+    assert result["score"] == 0
+    assert [row["rationale_q_num"] for row in result["per_question"]] == [21, 22]
+    assert [row["explanation"] for row in result["per_question"]] == [
+        "Rationale for D.", "Rationale for B.",
+    ]
+    assert result["skill_breakdown"] == {
+        "skill_for_d": {"correct": 0, "total": 1},
+        "skill_for_b": {"correct": 0, "total": 1},
+    }
 
 
 # ── matching_* family (letter match — regression on existing path) ────

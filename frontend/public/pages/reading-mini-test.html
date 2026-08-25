@@ -29,6 +29,7 @@
   <script src="/js/runtime-config.js"></script>
   <script src="/js/api.js"></script>
   <script type="module" src="/js/components/aver-chrome.js"></script>
+  <script src="/js/legacy-retirement-beacon.js" defer></script>
 </head>
 <body class="av-page">
 
@@ -36,10 +37,18 @@
 
   <div class="shell">
     <main class="rv-shell">
-      <header class="rv-header">
-        <p class="eyebrow"><a href="/home" style="color: var(--av-text-secondary);">← Trang chủ</a></p>
-        <h1>Mini Tests <span class="accent">·</span> <span style="color: var(--av-text-muted);">1 đoạn văn</span></h1>
-        <p class="subtitle">Bài thi ngắn — 1 đoạn văn, số câu hỏi tùy bài, kèm bảng điểm + band IELTS. Cùng giao diện làm bài &amp; chữa bài như Full Test.</p>
+      <header class="rv-header rv-header--mini">
+        <div class="rv-header__copy">
+          <a class="rv-back" href="/home">← Trang chủ</a>
+          <p class="rv-kicker">READING LAB · MINI TEST</p>
+          <h1>Một đoạn văn, <span>một phiên luyện tập trung.</span></h1>
+          <p class="subtitle">Mỗi đề tập trung vào một đoạn văn và dùng cùng giao diện chữa bài như Full Test. Thời lượng hiển thị theo cấu hình của từng đề.</p>
+        </div>
+        <dl class="rv-header__stats" aria-label="Cấu trúc Mini Test">
+          <div><dt id="rv-total-count">—</dt><dd>mini test</dd></div>
+          <div><dt>1 đoạn</dt><dd>Mỗi đề</dd></div>
+          <div><dt id="rv-duration-count">—</dt><dd>thời lượng phổ biến</dd></div>
+        </dl>
       </header>
 
       <!-- Library switcher: Vocab ↔ Skill ↔ Full Test ↔ Mini Test. -->
@@ -50,21 +59,30 @@
         <a class="rv-libnav__link is-active" aria-current="page">Mini Tests</a>
       </nav>
 
-      <div class="rv-filters">
-        <label>Mô-đun
-          <select id="filter-module">
-            <option value="">Tất cả</option>
-            <option value="academic">Academic</option>
-            <option value="general_training" disabled>General Training (Phase B)</option>
-          </select>
-        </label>
-      </div>
+      <section class="rv-library" aria-labelledby="rv-library-title">
+        <header class="rv-library__toolbar">
+          <div>
+            <p class="rv-kicker">BÀI LUYỆN MỘT ĐOẠN</p>
+            <h2 id="rv-library-title">Chọn một mini test</h2>
+            <p class="rv-result-count" id="rv-result-count" aria-live="polite">Đang tải danh sách…</p>
+          </div>
+          <div class="rv-filters">
+            <label>Mô-đun
+              <select id="filter-module">
+                <option value="">Tất cả</option>
+                <option value="academic">Academic</option>
+                <option value="general_training" disabled>General Training (Phase B)</option>
+              </select>
+            </label>
+            <button class="rv-filter-reset" id="clear-filters" type="button" hidden>Xóa lọc</button>
+          </div>
+        </header>
 
-      <div class="rv-empty" id="state-loading">Đang tải…</div>
-      <div class="rv-empty" id="state-empty" hidden>Chưa có mini test nào.</div>
-      <div class="rv-error" id="state-error" hidden></div>
-
-      <div class="rv-grid" id="rv-grid" hidden></div>
+        <div class="rv-empty" id="state-loading">Đang chuẩn bị mini test…</div>
+        <div class="rv-empty" id="state-empty" hidden>Chưa có mini test nào.</div>
+        <div class="rv-error" id="state-error" hidden></div>
+        <div class="rv-grid rv-grid--tests" id="rv-grid" hidden></div>
+      </section>
     </main>
   </div>
 

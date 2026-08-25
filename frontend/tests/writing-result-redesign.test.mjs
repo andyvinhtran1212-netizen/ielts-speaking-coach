@@ -675,15 +675,30 @@ describe('writing-result.html / U2 hide-all scores (overall band gated)', () => 
   });
 });
 
-describe('writing-result.css / U3 layout aligned to nav width (1180)', () => {
-  test('shared gutter centers content to the 1180 nav column', () => {
-    assert.match(css, /--rg:\s*max\(var\(--av-space-8\),\s*calc\(\(100% - 1180px\) \/ 2\)\)/);
+describe('writing-result.css / learner review workspace', () => {
+  test('shared gutter centers the redesigned 1240px review workspace', () => {
+    assert.match(css, /--rg:\s*max\(var\(--av-space-8\),\s*calc\(\(100% - 1240px\) \/ 2\)\)/);
   });
-  test('header + tabs + content + tips all use the shared gutter (no more 920 block)', () => {
-    assert.match(css, /\.result-header\s*\{[^}]*padding:\s*var\(--av-space-4\)\s+var\(--rg\)/);
-    assert.match(css, /\.result-tabs\s*\{[^}]*padding:\s*0\.625rem\s+var\(--rg\)/);
+  test('header + content + tips use the shared gutter; tabs stay inside feedback', () => {
+    assert.match(css, /\.result-header\s*\{[^}]*padding:\s*var\(--av-space-6\)\s+var\(--rg\)/);
     assert.match(css, /main\.result-content\s*\{[^}]*var\(--rg\)/);
+    assert.match(html, /class="feedback-column"[\s\S]*?class="result-tabs"/);
     // The old narrower centered column is gone (header was full-bleed → mismatch).
     assert.doesNotMatch(css, /main\.result-content\s*\{[^}]*max-width:\s*920px/);
+  });
+  test('feedback and source essay form a responsive two-column learning workspace', () => {
+    assert.match(html, /class="review-workspace"/);
+    assert.match(html, /class="feedback-column"/);
+    assert.match(html, /class="essay-column"/);
+    assert.match(css, /grid-template-areas:\s*"essay feedback"/);
+    assert.match(css, /@media \(max-width: 960px\)[\s\S]*?"feedback"[\s\S]*?"essay"/);
+  });
+  test('tab state is exposed to assistive technology', () => {
+    assert.match(html, /role="tablist"/);
+    assert.match(html, /role="tab"[^>]*data-tab="tongquan"[^>]*aria-selected="true"/);
+    assert.match(html, /setAttribute\('aria-selected', b === btn \? 'true' : 'false'\)/);
+    assert.match(html, /aria-controls="panel-tongquan"/);
+    assert.match(html, /aria-labelledby="tab-tongquan"/);
+    assert.match(html, /\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
   });
 });

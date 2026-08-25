@@ -31,38 +31,7 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const APP = path.join(ROOT, 'frontend', 'app');
 
 /** Route dựa vào module legacy — thêm vào đây mỗi khi port thêm một trang. */
-const LEGACY_MODULE_ROUTES = [
-  '/reading/vocab',
-  '/reading/skill',
-  '/reading/test',
-  '/reading/mini-test',
-  '/listening/tests',
-  '/listening/mini-test',
-  '/listening/skills',
-  '/listening/practice',
-  '/listening',
-  '/listening/browse',
-  '/listening/analytics',
-  // Khuôn mount(): interval chờ Supabase không có cleanup khi điều hướng mềm,
-  // nên hai route này CÀNG phải giữ tải cứng (review cục bộ #958).
-  '/exercises',
-  '/flashcards',
-  // `/js/vocab-exam.js` nạp bằng `defer`; điều hướng mềm không tái tạo bảo đảm
-  // thứ tự của defer nên nó có thể đua với `api.js` (review cục bộ #960).
-  '/vocabulary/exam',
-  // BỐN TRANG PORT 2026-08-07 còn nạp module bằng `<script type="module">`
-  // NỘI TUYẾN, và một script do React tạo ra trong lúc điều hướng mềm là script
-  // TRƠ — trình duyệt không thực thi nó. Nên vào bằng `<Link>` là vào một trang
-  // không bao giờ boot: khung Next hiện ra, phần nội dung đứng ở "Đang tải…".
-  //
-  // Danh sách này TRƯỚC ĐÂY không có chúng, nên thêm một `<Link href="/full-test">`
-  // vẫn qua được cổng (codex bắt ở #1003). Cùng họ với các lần "chốt có tồn tại
-  // nhưng đường kích hoạt không phủ hết thứ nó canh".
-  '/full-test',
-  '/vocabulary/practice',
-  '/mock/result',
-  '/vocabulary/hub',
-];
+const LEGACY_MODULE_ROUTES = [];
 
 function walk(dir, out = []) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {

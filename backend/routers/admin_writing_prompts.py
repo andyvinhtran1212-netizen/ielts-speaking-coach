@@ -52,17 +52,29 @@ router = APIRouter(
 _TASK_TYPE_PATTERN  = r"^(task1_academic|task1_general|task2)$"
 _DIFFICULTY_PATTERN = r"^(beginner|intermediate|advanced)$"
 
+_PATCH_NULLABLE_FIELDS = {
+    "difficulty",
+    "prompt_image_url",
+    "prompt_image_public_id",
+}
+_ANALYSIS_CLEAR_PATCH = {
+    "prompt_image_analysis": None,
+    "prompt_image_analysis_status": None,
+    "prompt_image_analysis_reviewed": False,
+    "prompt_image_analysis_model": None,
+    "prompt_image_analysis_public_id": None,
+    "prompt_image_analysis_error": None,
+    "prompt_image_analysis_at": None,
+}
+
 
 class PromptCreate(BaseModel):
     """Required fields for creating a library prompt.  Bounds match
     the migration's CHECK constraints + writing_essays size caps.
 
     Phase 2.3c-1: `prompt_image_url` + `prompt_image_public_id`
-    plumbed for Task 1 Academic charts/diagrams.  Both NULL on
-    text-only prompts.  Admin UI hides the upload field unless
-    `task_type == 'task1_academic'`; the schema doesn't enforce
-    the pairing yet (intentional flexibility for content edge
-    cases — see migration 038's comment)."""
+    plumbed for Task 1 Academic charts/diagrams. Both are NULL on
+    text-only prompts and the route validates them as one storage pair."""
     task_type:              str = Field(..., pattern=_TASK_TYPE_PATTERN)
     prompt_text:            str = Field(..., min_length=10, max_length=5000)
     title:                  str = Field(..., min_length=2, max_length=200)
@@ -101,13 +113,18 @@ class PromptUpdate(BaseModel):
 class UploadImageResponse(BaseModel):
     """Response shape for `POST .../upload-image`. `url` is the public
     Supabase Storage URL (persisted into `prompt_image_url`); `public_id`
-    is the storage path (persisted into `prompt_image_public_id`, used to
-    delete the object on prompt delete). `width`/`height` are null — we
-    don't decode dimensions server-side (no Pillow dependency)."""
+    is the storage path persisted into `prompt_image_public_id`. Published
+    objects are retained as immutable grading evidence; only unattached
+    uploads may be discarded. `width`/`height` are null — we don't decode
+    dimensions server-side (no Pillow dependency)."""
     url:       str
     public_id: str
     width:     Optional[int] = None
     height:    Optional[int] = None
+
+
+class DiscardImageRequest(BaseModel):
+    public_id: str = Field(..., min_length=9, max_length=300)
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────
@@ -151,8 +168,14 @@ def _maybe_trigger_analysis(prompt_row: dict, background_tasks: BackgroundTasks)
     if not writing_prompt_analysis.image_needs_analysis(prompt_row):
         return
     pid = prompt_row["id"]
-    writing_prompt_analysis.mark_analysis_pending(pid)
-    background_tasks.add_task(writing_prompt_analysis.run_and_store_analysis, pid)
+    pending_token = writing_prompt_analysis.mark_analysis_pending(
+        pid, prompt_row["prompt_image_public_id"],
+    )
+    if pending_token is None:
+        return
+    background_tasks.add_task(
+        writing_prompt_analysis.run_and_store_analysis, pid, pending_token,
+    )
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -167,6 +190,15 @@ async def create_prompt(
     admin = await require_admin(authorization)
 
     payload = body.model_dump()
+    image_url = payload.get("prompt_image_url")
+    public_id = payload.get("prompt_image_public_id")
+    if bool(image_url) != bool(public_id):
+        raise HTTPException(
+            422,
+            "prompt_image_url and prompt_image_public_id must both be set or both be null",
+        )
+    if body.task_type != "task1_academic" and (image_url or public_id):
+        raise HTTPException(422, "Only Task 1 Academic prompts can have an image")
     payload["created_by"] = admin["id"]
 
     r = supabase_admin.table("writing_prompts").insert(payload).execute()
@@ -234,6 +266,32 @@ async def upload_image(
     return result
 
 
+@router.post("/discard-image")
+async def discard_unattached_image(
+    body: DiscardImageRequest,
+    authorization: str | None = Header(None),
+):
+    """Best-effort cleanup for an upload whose following prompt write failed.
+
+    Only paths minted by ``upload_prompt_image`` are accepted. This endpoint is
+    deliberately not a general-purpose storage delete surface.
+    """
+    await require_admin(authorization)
+    if not body.public_id.startswith("prompts/"):
+        raise HTTPException(400, "Invalid prompt image path")
+    referenced = (
+        supabase_admin.table("writing_prompts")
+        .select("id")
+        .eq("prompt_image_public_id", body.public_id)
+        .limit(1)
+        .execute()
+    )
+    if referenced.data:
+        raise HTTPException(409, "Prompt image is still referenced")
+    deleted = delete_prompt_image(body.public_id)
+    return {"discarded": deleted, "public_id": body.public_id}
+
+
 @router.get("/{prompt_id}")
 async def get_prompt(
     prompt_id: UUID,
@@ -266,12 +324,22 @@ async def update_prompt(
     answer-key extraction (and the prior analysis is re-reviewed)."""
     await require_admin(authorization)
 
-    # Build the patch from non-None fields only — None means
-    # "client didn't send this field", not "set to NULL".
-    patch = {k: v for k, v in body.model_dump(exclude_unset=True).items()
-             if v is not None}
+    # `exclude_unset=True` distinguishes an omitted field from an explicit
+    # JSON null. Difficulty and image columns are nullable by contract; all
+    # other fields reject null rather than silently pretending no change was
+    # requested.
+    patch = body.model_dump(exclude_unset=True)
     if not patch:
         raise HTTPException(400, "No fields to update")
+    invalid_nulls = sorted(
+        key for key, value in patch.items()
+        if value is None and key not in _PATCH_NULLABLE_FIELDS
+    )
+    if invalid_nulls:
+        raise HTTPException(
+            422,
+            f"Fields cannot be null: {', '.join(invalid_nulls)}",
+        )
     if patch.get("exam_only") is False:
         from services import mock_exam_service
         try:
@@ -281,17 +349,81 @@ async def update_prompt(
         except mock_exam_service.MockExamError as e:
             raise HTTPException(503, str(e))
 
-    r = (
+    old_public_id = None
+    image_changed = False
+    image_contract_touched = bool({
+        "task_type", "prompt_image_url", "prompt_image_public_id",
+    } & patch.keys())
+    if image_contract_touched:
+        existing = (
+            supabase_admin.table("writing_prompts")
+            .select(
+                "id, task_type, prompt_image_url, prompt_image_public_id, "
+                "prompt_image_analysis_public_id"
+            )
+            .eq("id", str(prompt_id))
+            .limit(1)
+            .execute()
+        )
+        if not existing.data:
+            raise HTTPException(404, "Prompt not found")
+        current = existing.data[0]
+        old_public_id = current.get("prompt_image_public_id")
+        next_task_type = patch.get("task_type", current.get("task_type"))
+        next_image_url = patch.get("prompt_image_url", current.get("prompt_image_url"))
+        next_public_id = patch.get(
+            "prompt_image_public_id", current.get("prompt_image_public_id")
+        )
+
+        # Images are meaningful only for Task 1 Academic and the URL/storage
+        # path must move as one pair. Switching task type intentionally clears
+        # the old asset instead of retaining a hidden chart.
+        if next_task_type != "task1_academic":
+            next_image_url = None
+            next_public_id = None
+            patch["prompt_image_url"] = None
+            patch["prompt_image_public_id"] = None
+        elif bool(next_image_url) != bool(next_public_id):
+            raise HTTPException(
+                422,
+                "prompt_image_url and prompt_image_public_id must both be set or both be null",
+            )
+
+        image_changed = (
+            next_image_url != current.get("prompt_image_url")
+            or next_public_id != old_public_id
+            or next_task_type != current.get("task_type")
+        )
+        if image_changed:
+            patch.update(_ANALYSIS_CLEAR_PATCH)
+
+    update_query = (
         supabase_admin.table("writing_prompts")
         .update(patch)
         .eq("id", str(prompt_id))
-        .execute()
     )
+    if image_contract_touched:
+        update_query = update_query.eq("task_type", current.get("task_type"))
+        update_query = (
+            update_query.is_("prompt_image_public_id", "null")
+            if old_public_id is None
+            else update_query.eq("prompt_image_public_id", old_public_id)
+        )
+    r = update_query.execute()
     if not r.data:
+        if image_contract_touched:
+            raise HTTPException(409, "Prompt changed; reload before saving")
         raise HTTPException(404, "Prompt not found")
-    # The returned row carries all columns (incl. the analysis public_id), so the
-    # image-changed check is exact — a title-only PATCH won't re-trigger.
-    _maybe_trigger_analysis(r.data[0], background_tasks)
+    # Never delete an object that has been published on a prompt. Essay rows
+    # snapshot the public URL, and an in-flight submission may persist that
+    # snapshot after this update commits. Storage cleanup cannot prove the
+    # absence of that race atomically, so published chart objects are immutable
+    # grading evidence. The discard endpoint remains limited to uploads that
+    # were never attached to a prompt.
+    # Only a chart identity change auto-triggers extraction. A title/tag edit
+    # while an analysis is pending must not start a duplicate model call.
+    if image_changed:
+        _maybe_trigger_analysis(r.data[0], background_tasks)
     return r.data[0]
 
 
@@ -300,6 +432,12 @@ class PromptAnalysisReview(BaseModel):
     hand-edited) facts, validated against the same schema the extractor emits."""
     analysis: PromptImageAnalysis
     reviewed: bool = True
+    expected_image_public_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=300,
+        description="Optimistic-concurrency fingerprint for the chart being reviewed.",
+    )
 
 
 @router.post("/{prompt_id}/reanalyze", status_code=status.HTTP_202_ACCEPTED)
@@ -315,7 +453,7 @@ async def reanalyze_prompt_image(
 
     row = (
         supabase_admin.table("writing_prompts")
-        .select("id, task_type, prompt_image_url")
+        .select("id, task_type, prompt_image_url, prompt_image_public_id")
         .eq("id", str(prompt_id)).limit(1).execute()
     ).data
     if not row:
@@ -326,9 +464,13 @@ async def reanalyze_prompt_image(
             400, "Chỉ đề Task 1 Academic có hình mới phân tích được.",
         )
 
-    writing_prompt_analysis.mark_analysis_pending(str(prompt_id))
+    pending_token = writing_prompt_analysis.mark_analysis_pending(
+        str(prompt_id), p["prompt_image_public_id"],
+    )
+    if pending_token is None:
+        raise HTTPException(409, "Prompt image changed; reload before re-analyzing")
     background_tasks.add_task(
-        writing_prompt_analysis.run_and_store_analysis, str(prompt_id),
+        writing_prompt_analysis.run_and_store_analysis, str(prompt_id), pending_token,
     )
     return {"status": "pending", "prompt_id": str(prompt_id)}
 
@@ -344,7 +486,27 @@ async def review_prompt_analysis(
     grades. Sets status='ready' since approved content is, by definition, ready."""
     await require_admin(authorization)
 
-    r = (
+    existing = (
+        supabase_admin.table("writing_prompts")
+        .select(
+            "id, task_type, prompt_image_url, prompt_image_public_id, "
+            "prompt_image_analysis_status"
+        )
+        .eq("id", str(prompt_id))
+        .limit(1)
+        .execute()
+    )
+    if not existing.data:
+        raise HTTPException(404, "Prompt not found")
+    prompt = existing.data[0]
+    if prompt.get("task_type") != "task1_academic" or not prompt.get("prompt_image_url"):
+        raise HTTPException(409, "Prompt no longer has a Task 1 Academic image")
+    if body.expected_image_public_id != prompt.get("prompt_image_public_id"):
+        raise HTTPException(409, "Prompt image changed; reload the answer key before saving")
+    if prompt.get("prompt_image_analysis_status") == "pending":
+        raise HTTPException(409, "Image analysis is still pending; wait before reviewing")
+
+    update_query = (
         supabase_admin.table("writing_prompts")
         .update({
             "prompt_image_analysis":          body.analysis.model_dump(),
@@ -353,10 +515,15 @@ async def review_prompt_analysis(
             "prompt_image_analysis_error":    None,
         })
         .eq("id", str(prompt_id))
-        .execute()
     )
+    update_query = update_query.eq(
+        "prompt_image_public_id", body.expected_image_public_id
+    ).eq(
+        "prompt_image_analysis_status", "ready"
+    )
+    r = update_query.execute()
     if not r.data:
-        raise HTTPException(404, "Prompt not found")
+        raise HTTPException(409, "Prompt image changed; reload the answer key before saving")
     return r.data[0]
 
 
@@ -369,19 +536,17 @@ async def soft_delete_prompt(
     the row, so old assignments / submissions referencing this prompt
     keep their context.  PATCH with is_active=true to restore.
 
-    Phase 2.3c-1: also deletes the Supabase Storage object and clears
-    the image columns. Soft-deleted prompts are never re-shown to admins
-    (filter dropdown was removed in Sprint 2.3a-1.1), so keeping orphan
-    image objects "just in case" of restore would steadily accumulate
-    storage. If a restore is ever needed, admin can re-upload the image
-    alongside the PATCH `is_active=true`."""
+    The prompt's image columns and analysis are cleared, but a published
+    Storage object is retained as immutable evidence for historical essays
+    and in-flight submissions that snapshot its public URL. If restored,
+    the admin can attach a new image."""
     await require_admin(authorization)
 
-    # Read the existing public_id BEFORE updating so we can clean up
-    # the storage object even if the row is missing afterwards (race-safe).
+    # Read the existing public_id for optimistic concurrency. The object itself
+    # is intentionally retained for historical essay snapshots.
     existing = (
         supabase_admin.table("writing_prompts")
-        .select("prompt_image_public_id")
+        .select("prompt_image_url, prompt_image_public_id")
         .eq("id", str(prompt_id))
         .limit(1)
         .execute()
@@ -391,23 +556,23 @@ async def soft_delete_prompt(
 
     public_id = existing.data[0].get("prompt_image_public_id")
 
-    r = (
+    update_query = (
         supabase_admin.table("writing_prompts")
         .update({
             "is_active":              False,
             "prompt_image_url":       None,
             "prompt_image_public_id": None,
+            **_ANALYSIS_CLEAR_PATCH,
         })
         .eq("id", str(prompt_id))
-        .execute()
     )
+    update_query = (
+        update_query.is_("prompt_image_public_id", "null")
+        if public_id is None
+        else update_query.eq("prompt_image_public_id", public_id)
+    )
+    r = update_query.execute()
     if not r.data:
-        # Row vanished between the SELECT and UPDATE — extremely rare,
-        # but treat it as "not found" rather than 500.
-        raise HTTPException(404, "Prompt not found")
-
-    # Best-effort storage cleanup — never blocks the soft-delete.
-    if public_id:
-        delete_prompt_image(public_id)
+        raise HTTPException(409, "Prompt changed; reload before archiving")
 
     return {"message": "Prompt deactivated", "prompt_id": str(prompt_id)}

@@ -1,0 +1,161 @@
+/* Native /reading/review additions. Core layout stays in the frozen legacy
+   stylesheet so the rollback renderer and the Next owner share one visual
+   contract during migration. */
+.reading-review-next-error {
+  display: grid;
+  justify-items: center;
+  gap: var(--av-space-4);
+  max-width: 680px;
+  text-align: center;
+}
+.reading-review-next-error a {
+  color: var(--exam-accent);
+  font-weight: var(--av-fw-semibold);
+}
+
+.rr-review {
+  padding: 0;
+  background: var(--exam-surface-page);
+}
+
+.exam-chrome { overflow-x: clip; }
+.rr-topbar,
+.exam-split,
+.exam-palette { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+.exam-split { grid-template-columns: minmax(0, var(--exam-split-left, 50%)) 6px minmax(0, 1fr); }
+.exam-passage,
+.exam-questions { min-width: 0; box-sizing: border-box; }
+
+.rr-review-header {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--av-space-4);
+  padding: var(--av-space-4);
+  border-bottom: 1px solid var(--exam-border-default);
+  background: var(--exam-surface-page);
+}
+
+.rr-review-header__eyebrow {
+  margin: 0 0 var(--av-space-1);
+  color: var(--exam-accent);
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-xs);
+  font-weight: 700;
+  letter-spacing: var(--av-tracking-widest);
+}
+
+.rr-review-header h1 { margin: 0 0 var(--av-space-1); font-size: var(--av-fs-xl); }
+.rr-review-header__copy { max-width: 580px; margin: 0; color: var(--exam-text-muted); font-size: var(--av-fs-xs); line-height: var(--av-lh-relaxed); }
+.rr-filter { display: inline-flex; flex: 0 0 auto; gap: var(--av-space-1); padding: var(--av-space-1); border: 1px solid var(--exam-border-default); border-radius: var(--av-radius-pill); background: var(--exam-surface-sunken); }
+.rr-filter__button { min-height: 36px; padding: var(--av-space-1) var(--av-space-3); border: 0; border-radius: var(--av-radius-pill); background: transparent; color: var(--exam-text-secondary); font: inherit; font-size: var(--av-fs-xs); font-weight: 600; cursor: pointer; white-space: nowrap; }
+.rr-filter__button.is-active { background: var(--exam-surface-card); color: var(--exam-accent); box-shadow: var(--av-shadow-sm); }
+.rr-filter__button:focus-visible { outline: 2px solid var(--exam-accent); outline-offset: 1px; }
+.rr-review-tools { display: flex; align-items: center; justify-content: space-between; gap: var(--av-space-3); padding: var(--av-space-3) var(--av-space-4) 0; color: var(--exam-text-muted); font-size: var(--av-fs-xs); }
+.rr-review-tools + .exam-review-guide,
+.rr-review-tools ~ [data-feedback-survey],
+.rr-cards { margin-inline: var(--av-space-4); }
+.rr-cards { padding-bottom: var(--av-space-8); }
+.rr-expand-all:disabled { cursor: default; opacity: .45; }
+
+.exam-review-guide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin-block: var(--av-space-3);
+  overflow: hidden;
+  border: 1px solid var(--exam-border-default);
+  background: var(--exam-border-default);
+}
+
+.exam-review-guide span { display: flex; align-items: center; gap: var(--av-space-2); padding: 9px 11px; background: var(--exam-surface-card); color: var(--exam-text-secondary); font-size: var(--av-fs-xs); }
+.exam-review-guide b { display: grid; place-items: center; flex: 0 0 20px; width: 20px; height: 20px; border-radius: 50%; background: var(--exam-accent-soft); color: var(--exam-accent); }
+.exam-review-empty { padding: var(--av-space-6); border: 1px dashed var(--exam-border-default); color: var(--exam-text-muted); text-align: center; }
+.rr-stepper,
+.rr-distractors {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rr-stepper > li {
+  display: flex;
+  gap: var(--av-space-3);
+  padding: var(--av-space-2) 0;
+}
+.rr-stepper > li + li { border-top: 1px solid var(--av-border-subtle); }
+.rr-stepper__number {
+  align-items: center;
+  background: var(--av-primary-soft);
+  border-radius: 999px;
+  color: var(--av-primary);
+  display: inline-flex;
+  flex: 0 0 24px;
+  font-size: var(--av-fs-xs);
+  font-weight: 700;
+  height: 24px;
+  justify-content: center;
+}
+.rr-stepper__body { flex: 1; min-width: 0; }
+.rr-stepper__body p { margin: 2px 0 0; }
+.rr-stepper__action {
+  color: var(--av-primary);
+  font-size: var(--av-fs-xs);
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+.rr-kp-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.rr-kp-link { text-decoration: none; }
+.rr-kp-chip {
+  background: var(--av-primary-soft);
+  border-radius: 999px;
+  color: var(--av-primary);
+  display: inline-flex;
+  font-size: var(--av-fs-xs);
+  padding: 2px 8px;
+}
+.rr-microcheck {
+  background: var(--av-primary-soft);
+  border: 1px dashed var(--av-primary-border);
+  border-radius: var(--av-radius-md);
+  margin-top: var(--av-space-3);
+  padding: var(--av-space-3);
+}
+.rr-microcheck__prompt { font-size: var(--av-fs-sm); font-weight: 600; margin: 0 0 6px; }
+.rr-microcheck__option {
+  background: var(--av-surface-card);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+  color: var(--av-text-primary);
+  cursor: pointer;
+  display: block;
+  font: inherit;
+  margin-top: 6px;
+  padding: 8px 12px;
+  text-align: left;
+  width: 100%;
+}
+.rr-microcheck__option.is-correct { background: var(--av-success-soft); border-color: var(--av-success); }
+.rr-microcheck__option.is-incorrect { background: var(--av-error-soft); border-color: var(--av-error); }
+.rr-microcheck__ok,
+.rr-microcheck__bad { font-size: var(--av-fs-sm); font-weight: 600; margin: 8px 0 0; }
+.rr-microcheck__ok { color: var(--av-success); }
+.rr-microcheck__bad { color: var(--av-error); }
+.rr-microcheck__note { color: var(--av-text-secondary); font-size: var(--av-fs-xs); margin: 8px 0 0; }
+.rr-distractors li { padding: 6px 0; }
+.rr-distractors b { color: var(--av-error); }
+
+@media (max-width: 680px) {
+  .rr-topbar__right { width: 100%; justify-content: flex-start; }
+  .rr-skills { flex-wrap: nowrap; max-width: 100%; overflow-x: auto; padding-bottom: 2px; }
+  .rr-card__toggle { margin-left: 0; }
+  .rr-review-header { top: 0; align-items: stretch; flex-direction: column; }
+  .rr-filter { align-self: flex-start; max-width: 100%; overflow-x: auto; }
+  .rr-review-tools + .exam-review-guide,
+  .rr-cards { margin-inline: var(--av-space-3); }
+  .exam-review-guide { grid-template-columns: 1fr; }
+  .exam-split { grid-template-columns: 1fr; }
+}

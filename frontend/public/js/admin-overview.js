@@ -110,6 +110,12 @@ function renderSkills(data) {
   setValue('[data-skill-total="writing"]', skills.writing?.essays_total);
   setValue('[data-skill-extra="writing"]', skills.writing?.feedback_pending);
 
+  // Reading
+  setValue('[data-skill-7d="reading"]', skills.reading?.attempts_7d);
+  setValue('[data-skill-total="reading"]', skills.reading?.attempts_total);
+  setValue('[data-skill-extra="reading"]',
+    skills.reading?.avg_score_7d != null ? Math.round(skills.reading.avg_score_7d * 100) + '%' : '—');
+
   // Listening
   setValue('[data-skill-7d="listening"]', skills.listening?.attempts_7d);
   setValue('[data-skill-total="listening"]', skills.listening?.attempts_total);

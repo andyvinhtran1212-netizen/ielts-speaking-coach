@@ -54,6 +54,11 @@ from services.grammar_check import (
     GrammarCheckResult,
     get_grammar_check_service,
 )
+from services.active_player_lifecycle import (
+    ACTIVE_PLAYER_EXPIRED_DETAIL,
+    is_active_player_expired_error,
+    require_resume_active,
+)
 from dataclasses import asdict
 
 logger = logging.getLogger(__name__)
@@ -79,6 +84,20 @@ _PERSISTED_SOURCE_TYPES: frozenset[str] = frozenset({
 
 _AUDIO_BUCKET  = "audio-responses"
 _MAX_BYTES     = 50 * 1024 * 1024   # 50 MB hard limit before upload
+
+
+def _backend_release_sha() -> str | None:
+    """Return the exact Railway source SHA when the runtime exposes one.
+
+    The value is safe release provenance (not a credential) and is attached to
+    the persisted-response receipt so real-device evidence is bound to the
+    backend that actually accepted the recording. Local/dev runtimes without a
+    canonical 40-character SHA return ``None`` instead of an ambiguous marker.
+    """
+    value = os.environ.get("RAILWAY_GIT_COMMIT_SHA", "").strip().lower()
+    if len(value) == 40 and all(char in "0123456789abcdef" for char in value):
+        return value
+    return None
 
 
 def _mark_session_error(
@@ -429,7 +448,7 @@ def _apply_off_topic_penalty(grading: dict, verdict, is_practice: bool) -> bool:
 async def grade_response_endpoint(
     session_id:  str,
     question_id: str       = Form(..., description="UUID of the question being answered"),
-    audio_file:  UploadFile = File(..., description="Audio recording (MP3 / WAV / WebM / OGG)"),
+    audio_file:  UploadFile = File(..., description="Audio recording (MP3 / WAV / WebM / OGG / MP4/M4A)"),
     authorization: str | None = Header(default=None),
     background_tasks: BackgroundTasks = BackgroundTasks(),
 ):
@@ -448,7 +467,10 @@ async def grade_response_endpoint(
         try:
             s_res = await aexecute(
                 lambda db: db.table("sessions")
-                .select("id, part, topic, status, mode, sitting_id")
+                .select(
+                    "id, part, topic, status, mode, sitting_id, "
+                    "started_at, resume_expires_at"
+                )
                 .eq("id", session_id)
                 .eq("user_id", user_id)
                 .limit(1)
@@ -460,6 +482,7 @@ async def grade_response_endpoint(
             raise HTTPException(404, "Session không tồn tại hoặc không có quyền truy cập")
 
         session = s_res.data[0]
+        require_resume_active(session)
         part: int = session["part"]
         session_mode: str = session.get("mode", "practice") or "practice"
 
@@ -1117,6 +1140,7 @@ async def grade_response_endpoint(
                 # câu chung chung — và để lượt điều tra sau không phải đoán.
                 "_reason":             grading_error,
                 "response_id":         response_id,
+                "backend_release_sha": _backend_release_sha(),
                 "partial":             partial,
                 "transcript":          transcript,
                 "duration_seconds":    round(duration_sec, 2),
@@ -1133,6 +1157,7 @@ async def grade_response_endpoint(
             from services import mock_exam_service
             if mock_exam_service.is_sealed(session["sitting_id"]):
                 return {"received": True, "response_id": response_id,
+                        "backend_release_sha": _backend_release_sha(),
                         "sitting_id": session["sitting_id"], "sealed": True}
 
         return _build_response_payload(
@@ -1141,6 +1166,7 @@ async def grade_response_endpoint(
             duration_sec=duration_sec, confidence=confidence,
             assessment_confidence=assessment_confidence,
             score_confidence=score_confidence, grading=grading, signals=signals,
+            backend_release_sha=_backend_release_sha(),
         )
 
     except HTTPException:
@@ -1176,6 +1202,8 @@ def _persist_response_with_fallback(db_row, core_columns, upsert_fn, *,
             raise ValueError("response upsert returned no row id (empty insert representation)")
         return rid, False
     except Exception as e:
+        if is_active_player_expired_error(e):
+            raise HTTPException(410, ACTIVE_PLAYER_EXPIRED_DETAIL) from e
         logger.warning("[grading] DB save failed with full row (%s) — retrying with core columns only", e)
         core_row = {k: v for k, v in db_row.items() if k in core_columns}
         try:
@@ -1187,6 +1215,8 @@ def _persist_response_with_fallback(db_row, core_columns, upsert_fn, *,
                            session_id, question_id)
             return rid, True
         except Exception as e2:
+            if is_active_player_expired_error(e2):
+                raise HTTPException(410, ACTIVE_PLAYER_EXPIRED_DETAIL) from e2
             logger.error("[grading][metric] response_persist_failed=1 session=%s question=%s: %s",
                          session_id, question_id, e2, exc_info=True)
             raise HTTPException(
@@ -1198,7 +1228,8 @@ def _persist_response_with_fallback(db_row, core_columns, upsert_fn, *,
 
 def _build_response_payload(is_practice, *, response_id, partial, transcript,
                             duration_sec, confidence, assessment_confidence,
-                            score_confidence, grading, signals):
+                            score_confidence, grading, signals,
+                            backend_release_sha=None):
     """Build the /responses success payload. Extracted from the endpoint so the
     grading-dict access is unit-testable (mirrors the _persist_response_with_fallback
     extraction).
@@ -1212,6 +1243,7 @@ def _build_response_payload(is_practice, *, response_id, partial, transcript,
     if is_practice:
         return {
             "response_id":              response_id,
+            "backend_release_sha":      backend_release_sha,
             "partial":                  partial,
             "transcript":               transcript,
             "duration_seconds":         round(duration_sec, 2),
@@ -1232,6 +1264,7 @@ def _build_response_payload(is_practice, *, response_id, partial, transcript,
 
     return {
         "response_id":           response_id,
+        "backend_release_sha":   backend_release_sha,
         "partial":               partial,
         "transcript":            transcript,
         "duration_seconds":      round(duration_sec, 2),

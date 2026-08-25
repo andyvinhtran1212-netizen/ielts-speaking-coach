@@ -74,7 +74,7 @@ describe('admin-listening-attempts.js — hành vi', () => {
 
 describe('nav admin', () => {
   test('Lượt làm bài nằm trong subsections của Listening', () => {
-    assert.match(CHROME, /slug: 'attempts',\s+label: 'Lượt làm bài',\s+href: '\/pages\/admin\/listening\/attempts\.html'/);
+    assert.match(CHROME, /slug: 'attempts',\s+label: 'Lượt làm bài',\s+href: '\/admin\/listening\/attempts'/);
   });
 });
 

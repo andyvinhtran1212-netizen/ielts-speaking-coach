@@ -56,7 +56,7 @@ export function SpeakingShell() {
             </div>
 
             <div className="stat-card rounded-2xl p-5">
-              <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: "var(--av-text-muted)" }}>Tổng sessions</p>
+              <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: "var(--av-text-muted)" }}>Buổi đã hoàn thành</p>
               <p id="stat-total" className="text-3xl font-extrabold text-white"><span className="skeleton" style={{ display: "inline-block", width: "3rem", height: "1.75rem", verticalAlign: "middle" }}>&nbsp;</span></p>
               <p className="text-xs mt-1" style={{ color: "var(--av-text-muted)" }}>Kể từ khi tham gia</p>
             </div>
@@ -276,6 +276,10 @@ export function SpeakingShell() {
                 <div className="skeleton" style={{ height: "2.25rem", borderRadius: "var(--av-radius-md)" }}></div>
               </div>
 
+              <div id="history-error" className="speaking-history-error hidden" role="alert">
+                Không tải được lịch sử. Kiểm tra kết nối rồi thử lại.
+              </div>
+
               {/* Empty state (hidden until loadHistory confirms zero sessions) */}
               <div id="history-empty" className="ds-empty hidden">
                 <div className="ds-empty-icon">📭</div>
@@ -315,7 +319,7 @@ export function SpeakingShell() {
 
         {/* ════ TAB: PRACTICE ═════════════════════════════════════ */}
         <div id="tab-practice" className="main-tab-panel">
-        <div className="av-w-page py-8">
+        <div className="av-w-page py-8 speaking-setup-shell">
 
           <header className="subpage-header mb-2">
             <div className="subpage-header__lhs">
@@ -327,15 +331,24 @@ export function SpeakingShell() {
               <h1 className="subpage-header__title">Luyện tập</h1>
             </div>
           </header>
-          <p className="text-sm mb-8" style={{ color: "var(--av-text-muted)" }}>Nhập câu hỏi của bạn hoặc chọn chủ đề từ thư viện để luyện nói.</p>
+          <div className="speaking-setup-intro">
+            <p className="speaking-setup-kicker">Practice studio</p>
+            <p className="speaking-setup-lede">Nhập câu hỏi của bạn hoặc chọn chủ đề từ thư viện để luyện nói.</p>
+            <dl className="speaking-mode-facts" aria-label="Thông tin chế độ Luyện tập">
+              <div><dt>Nhịp luyện</dt><dd>Từng câu một</dd></div>
+              <div><dt>Phản hồi</dt><dd>Ngay sau khi nói</dd></div>
+              <div><dt>Phù hợp khi</dt><dd>Muốn sửa một kỹ năng cụ thể</dd></div>
+            </dl>
+          </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="speaking-setup-grid speaking-setup-grid--practice grid md:grid-cols-2 gap-6">
 
             {/* Option A: Custom question(s) */}
-            <div className="option-card flex flex-col">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background: "rgba(15,118,110,0.2)" }}>✍️</div>
+            <div className="option-card option-card--custom flex flex-col">
+              <div className="option-card__head flex items-center gap-3 mb-5">
+                <div className="option-card__icon w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0">✍️</div>
                 <div>
+                  <p className="option-card__step">Cách 1 · Có sẵn câu hỏi</p>
                   <h3 className="font-bold text-sm">Câu hỏi tùy chỉnh</h3>
                   <p className="text-xs" style={{ color: "var(--av-text-muted)" }}>Nhập câu hỏi — bỏ qua bước AI tạo</p>
                 </div>
@@ -378,10 +391,11 @@ export function SpeakingShell() {
             </div>
 
             {/* Option B: Topic from library */}
-            <div className="option-card flex flex-col">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background: "rgba(15,118,110,0.2)" }}>📚</div>
+            <div className="option-card option-card--library flex flex-col">
+              <div className="option-card__head flex items-center gap-3 mb-5">
+                <div className="option-card__icon w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0">📚</div>
                 <div>
+                  <p className="option-card__step">Cách 2 · Chọn chủ đề</p>
                   <h3 className="font-bold text-sm">Chủ đề từ thư viện</h3>
                   <p className="text-xs" style={{ color: "var(--av-text-muted)" }}>AI tạo câu hỏi theo chủ đề</p>
                 </div>
@@ -399,8 +413,8 @@ export function SpeakingShell() {
               <div className="mb-3">
                 <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--av-text-muted)" }}>Chủ đề từ thư viện</label>
                 <div style={{ position: "relative" }}>
-                  <select id="prac-topic-select" className="tab-input" style={{ appearance: "none", paddingRight: "36px" }}>
-                    <option value="" disabled selected>— Chọn tab để tải... —</option>
+                  <select id="prac-topic-select" className="tab-input" style={{ appearance: "none", paddingRight: "36px" }} defaultValue="">
+                    <option value="" disabled>— Chọn tab để tải... —</option>
                   </select>
                   <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--av-text-muted)" }}>▾</span>
                 </div>
@@ -422,7 +436,7 @@ export function SpeakingShell() {
 
         {/* ════ TAB: PART-BY-PART ═════════════════════════════════ */}
         <div id="tab-partbpart" className="main-tab-panel">
-        <div className="av-w-page py-8">
+        <div className="av-w-page py-8 speaking-setup-shell">
 
           <header className="subpage-header mb-2">
             <div className="subpage-header__lhs">
@@ -434,12 +448,20 @@ export function SpeakingShell() {
               <h1 className="subpage-header__title">Luyện từng Part</h1>
             </div>
           </header>
-          <p className="text-sm mb-8" style={{ color: "var(--av-text-muted)" }}>Chọn Part để luyện tập có cấu trúc đầy đủ số câu hỏi theo IELTS.</p>
+          <div className="speaking-setup-intro">
+            <p className="speaking-setup-kicker">Part simulator</p>
+            <p className="speaking-setup-lede">Chọn Part để luyện tập có cấu trúc đầy đủ số câu hỏi theo IELTS.</p>
+            <dl className="speaking-mode-facts" aria-label="Thông tin chế độ Luyện từng Part">
+              <div><dt>Cấu trúc</dt><dd>Đúng format từng Part</dd></div>
+              <div><dt>Chấm điểm</dt><dd>4 tiêu chí IELTS</dd></div>
+              <div><dt>Kết quả</dt><dd>Tổng kết cuối phiên</dd></div>
+            </dl>
+          </div>
 
           {/* Part cards */}
           <div className="grid sm:grid-cols-3 gap-4 mb-6">
 
-            <div className="pbp-part-card" id="pbp-card-1">
+            <button type="button" className="pbp-part-card" id="pbp-card-1">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background: "rgba(15,118,110,0.2)" }}>💬</div>
                 <div>
@@ -451,9 +473,9 @@ export function SpeakingShell() {
                 3 câu hỏi về chủ đề quen thuộc. Phản hồi coaching chi tiết.
               </p>
               <p className="text-xs mt-2" style={{ color: "var(--av-text-muted)" }}>⏱ 4–5 phút</p>
-            </div>
+            </button>
 
-            <div className="pbp-part-card" id="pbp-card-2">
+            <button type="button" className="pbp-part-card" id="pbp-card-2">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background: "rgba(15,118,110,0.2)" }}>🗒️</div>
                 <div>
@@ -465,9 +487,9 @@ export function SpeakingShell() {
                 1 cue card, nói 2 phút sau 1 phút chuẩn bị.
               </p>
               <p className="text-xs mt-2" style={{ color: "var(--av-text-muted)" }}>⏱ 3–4 phút</p>
-            </div>
+            </button>
 
-            <div className="pbp-part-card" id="pbp-card-3">
+            <button type="button" className="pbp-part-card" id="pbp-card-3">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background: "rgba(15,118,110,0.2)" }}>🧠</div>
                 <div>
@@ -479,21 +501,22 @@ export function SpeakingShell() {
                 3 câu hỏi thảo luận chuyên sâu về vấn đề xã hội.
               </p>
               <p className="text-xs mt-2" style={{ color: "var(--av-text-muted)" }}>⏱ 4–5 phút</p>
-            </div>
+            </button>
 
           </div>
 
           {/* Topic section (revealed after part selection) */}
           <div id="pbp-topic-section" style={{ display: "none" }}>
-            <div className="option-card">
+            <div className="option-card pbp-topic-card">
+              <p className="option-card__step">Bước 2 · Chọn nội dung</p>
               <h3 id="pbp-part-label" className="font-bold text-sm mb-4" style={{ color: "var(--av-primary)" }}>Chọn chủ đề</h3>
 
               <div className="grid md:grid-cols-2 gap-4 mb-3">
                 <div>
                   <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--av-text-muted)" }}>Từ thư viện</label>
                   <div style={{ position: "relative" }}>
-                    <select id="pbp-topic-select" className="tab-input" style={{ appearance: "none", paddingRight: "36px" }}>
-                      <option value="" disabled selected>— Đang tải... —</option>
+                    <select id="pbp-topic-select" className="tab-input" style={{ appearance: "none", paddingRight: "36px" }} defaultValue="">
+                      <option value="" disabled>— Đang tải... —</option>
                     </select>
                     <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--av-text-muted)" }}>▾</span>
                   </div>
@@ -515,7 +538,7 @@ export function SpeakingShell() {
 
         {/* ════ TAB: FULL TEST ═════════════════════════════════════ */}
         <div id="tab-fulltest" className="main-tab-panel">
-        <div className="av-w-page py-8">
+        <div className="av-w-page py-8 speaking-setup-shell">
 
           <header className="subpage-header mb-2">
             <div className="subpage-header__lhs">
@@ -527,20 +550,18 @@ export function SpeakingShell() {
               <h1 className="subpage-header__title">Full Test</h1>
             </div>
           </header>
-          <p className="text-sm mb-8" style={{ color: "var(--av-text-muted)" }}>Mô phỏng kỳ thi IELTS Speaking thật: Part 1 → Part 2 → Part 3 liên tiếp.</p>
-
-          {/* Info banner */}
-          <div className="mb-6 rounded-2xl px-5 py-4 flex items-start gap-3" style={{ background: "rgba(14,165,233,0.08)", border: "1px solid rgba(14,165,233,0.2)" }}>
-            <span className="text-lg flex-shrink-0">🔊</span>
-            <div>
-              <p className="text-sm font-semibold mb-1" style={{ color: "var(--av-info)" }}>Chế độ Listening (mặc định)</p>
-              <p className="text-xs leading-relaxed" style={{ color: "var(--av-text-secondary)" }}>
-                Câu hỏi sẽ được đọc to bởi AI (giọng nói tự nhiên). Văn bản câu hỏi ẩn mặc định — bạn có thể bật hiển thị bất cứ lúc nào. Đánh giá theo 4 tiêu chí IELTS: FC, LR, GRA, Pronunciation.
-              </p>
-            </div>
+          <div className="speaking-setup-intro">
+            <p className="speaking-setup-kicker">Exam simulation</p>
+            <p className="speaking-setup-lede">Mô phỏng kỳ thi IELTS Speaking thật: Part 1 → Part 2 → Part 3 liên tiếp.</p>
+            <dl className="speaking-mode-facts" aria-label="Thông tin chế độ Full Test">
+              <div><dt>Thời lượng</dt><dd>Khoảng 11–14 phút</dd></div>
+              <div><dt>Lộ trình</dt><dd>3 Part liên tục</dd></div>
+              <div><dt>Chấm điểm</dt><dd>Band tổng thể + 4 tiêu chí</dd></div>
+            </dl>
           </div>
 
-          <div className="space-y-4 mb-6">
+          <div className="fulltest-setup-grid">
+          <div className="fulltest-part-list space-y-4">
 
             {/* Part 1 */}
             <div className="ft-part-row">
@@ -577,7 +598,7 @@ export function SpeakingShell() {
             </div>
 
             {/* Part 3 */}
-            <div className="ft-part-row" style={{ opacity: "0.7" }}>
+            <div className="ft-part-row ft-part-row--derived">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0" style={{ background: "rgba(15,118,110,0.2)" }}>🧠</div>
                 <div>
@@ -592,10 +613,30 @@ export function SpeakingShell() {
 
           </div>
 
-          <p id="ft-error" className="tab-error mb-3"></p>
-          <button id="ft-start" className="btn-fulltest w-full rounded-2xl py-4 font-bold text-base tracking-wide">
-            🏆 Bắt đầu Full Test
-          </button>
+          <aside className="fulltest-start-panel">
+            <p className="option-card__step">Thiết lập phiên thi</p>
+            <h2 className="fulltest-start-panel__title">Sẵn sàng vào phòng thi?</h2>
+            <div className="fulltest-listening-note flex items-start gap-3">
+              <span className="text-lg flex-shrink-0">🔊</span>
+              <div>
+                <p className="text-sm font-semibold mb-1" style={{ color: "var(--av-info)" }}>Chế độ Listening (mặc định)</p>
+                <p className="text-xs leading-relaxed" style={{ color: "var(--av-text-secondary)" }}>
+                  AI đọc câu hỏi bằng giọng tự nhiên; văn bản được ẩn để mô phỏng phòng thi thật.
+                </p>
+              </div>
+            </div>
+            <ul className="fulltest-checklist">
+              <li>Kiểm tra microphone trước khi bắt đầu</li>
+              <li>Có thể để trống toàn bộ chủ đề để hệ thống chọn ngẫu nhiên</li>
+              <li>Không hiển thị nhận xét giữa các Part</li>
+            </ul>
+            <p id="ft-error" className="tab-error mb-3"></p>
+            <button id="ft-start" className="btn-fulltest w-full rounded-2xl py-4 font-bold text-base tracking-wide">
+              🏆 Bắt đầu Full Test
+            </button>
+            <p className="fulltest-start-panel__fineprint">Kết quả tổng hợp xuất hiện sau khi hoàn thành đủ cả ba Part.</p>
+          </aside>
+          </div>
 
         </div>
         </div>{/* /tab-fulltest */}
@@ -604,13 +645,13 @@ export function SpeakingShell() {
         </main>
 
         {/* ─── TOPIC MODAL ──────────────────────────────────────────────── */}
-        <div id="topic-modal" className="modal-backdrop">
-          <div className="modal-box">
+        <div id="topic-modal" className="modal-backdrop" hidden aria-hidden="true">
+          <div className="modal-box" role="dialog" aria-modal="true" aria-labelledby="topic-modal-title" tabIndex={-1}>
 
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
-              <h2 className="font-bold text-base">Chọn chủ đề luyện tập</h2>
-              <button id="modal-close" className="w-8 h-8 flex items-center justify-center rounded-full transition" style={{ background: "var(--av-surface-card)", color: "var(--av-text-secondary)" }}>✕</button>
+              <h2 id="topic-modal-title" className="font-bold text-base">Chọn chủ đề luyện tập</h2>
+              <button id="modal-close" type="button" aria-label="Đóng hộp thoại chọn chủ đề" className="w-8 h-8 flex items-center justify-center rounded-full transition" style={{ background: "var(--av-surface-card)", color: "var(--av-text-secondary)" }}>✕</button>
             </div>
 
             {/* Subtitle */}
@@ -620,13 +661,13 @@ export function SpeakingShell() {
 
             {/* Tabs */}
             <div className="flex gap-1.5 mb-5 p-1 rounded-xl" style={{ background: "var(--av-surface-sunken)" }}>
-              <button id="tab-list" className="topic-tab active">
+              <button id="tab-list" type="button" className="topic-tab active">
                 📚 Chọn từ danh sách
               </button>
-              <button id="tab-custom" className="topic-tab">
+              <button id="tab-custom" type="button" className="topic-tab">
                 ✏️ Tự nhập chủ đề
               </button>
-              <button id="tab-myq" className="topic-tab">
+              <button id="tab-myq" type="button" className="topic-tab">
                 ✍️ Câu hỏi riêng
               </button>
             </div>
@@ -635,8 +676,8 @@ export function SpeakingShell() {
             <div id="panel-list">
               <label className="block text-xs font-medium mb-2" style={{ color: "var(--av-text-muted)" }}>Chủ đề đề xuất</label>
               <div id="topic-select-wrap" style={{ position: "relative" }}>
-                <select id="topic-select" className="topic-input" style={{ appearance: "none", paddingRight: "36px" }}>
-                  <option value="" disabled selected>— Đang tải danh sách... —</option>
+                <select id="topic-select" className="topic-input" style={{ appearance: "none", paddingRight: "36px" }} defaultValue="">
+                  <option value="" disabled>— Đang tải danh sách... —</option>
                 </select>
                 <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--av-text-muted)" }}>▾</span>
               </div>
@@ -669,7 +710,7 @@ export function SpeakingShell() {
             <p id="modal-error" className="modal-error"></p>
 
             {/* Confirm */}
-            <button id="btn-confirm" className="btn-confirm mt-4">
+            <button id="btn-confirm" type="button" className="btn-confirm mt-4">
               🚀 Bắt đầu tạo câu hỏi
             </button>
 

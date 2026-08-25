@@ -55,6 +55,30 @@
     // Nếu lần đầu NÉM (ví dụ gọi không đối số khi `_RC` chưa cấu hình) thì `_sb`
     // vẫn rỗng và lần gọi sau có đối số thật vẫn dựng được client.
     if (_sb) return _sb;
+    if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+      var sdkReady = /** @type {any} */ (window).__AVER_SUPABASE_SDK_READY__;
+      if (sdkReady && typeof sdkReady.then === 'function') {
+        sdkReady.then(function () {
+          if (!_sb) initSupabase(url, anonKey);
+        }).catch(function (loadError) {
+          try { console.error('[api] Supabase SDK fallback failed:', loadError); } catch {}
+          try {
+            var aver = /** @type {any} */ (window).aver;
+            if (aver && typeof aver.reportError === 'function') {
+              aver.reportError('Supabase SDK unavailable', {
+                code: 'SUPABASE_SDK_UNAVAILABLE',
+              });
+            }
+          } catch {}
+        });
+        return null;
+      }
+      var sdkError = new Error(
+        'Supabase SDK unavailable: the browser bundle did not load before api.js initialization.'
+      );
+      /** @type {any} */ (sdkError).code = 'SUPABASE_SDK_UNAVAILABLE';
+      throw sdkError;
+    }
     _sb = window.supabase.createClient(
       _RC.supabaseUrl || url,
       _RC.supabaseAnonKey || anonKey
@@ -99,6 +123,22 @@
     //
     // Dùng token của lần lấy gần nhất. Token hết hạn thì request 401 và mất
     // đúng lượt ấy — vẫn hơn một request không bao giờ được tạo.
+    // Renderer-affinity create protocol (migration 216). A page that loaded an
+    // older api.js omits this marker and the backend atomically pins its new
+    // sessions to Legacy. Current pages explicitly request an unclaimed row;
+    // their stable Speaking player claims Legacy/Next before canonical reads.
+    // Copy rather than mutate the caller's object so retry/debug state remains
+    // exactly what the caller supplied.
+    if (
+      method === 'POST' && path === '/sessions' && !isFormData && body
+      && typeof body === 'object' && !Array.isArray(body)
+    ) {
+      var versionedSessionBody = {};
+      for (var bodyKey in body) versionedSessionBody[bodyKey] = body[bodyKey];
+      versionedSessionBody.renderer_affinity_protocol = 'claim-v1';
+      body = versionedSessionBody;
+    }
+
     var token = (opts && opts.keepalive && _lastToken !== null)
       ? _lastToken
       : await _getAuthToken();
@@ -153,12 +193,12 @@
     // through to the throw path below. The default (authed) behaviour is
     // unchanged: bounce to login on 401.
     if (response.status === 401 && !(opts && opts.noRedirect)) {
-      // Sprint 13.4.1 hotfix — login.html lives at the site root
-      // (/login.html). The previous _appRoot+'login.html' build
+      // The canonical login entry lives at the site root (/login). The
+      // previous _appRoot+'login.html' build
       // resolved correctly for /pages/X.html but broke for any deeper
       // path (e.g. /pages/admin/listening/X.html → 404). Use an
       // absolute path so redirect works from any depth.
-      window.location.href = '/login.html';
+      window.location.href = '/login';
       return null;
     }
 
@@ -212,6 +252,8 @@
     delete: function (path)        { return _apiRequest('DELETE', path); },
     /** @template T @param {string} path @param {FormData} fd @returns {Promise<T>} */
     upload: function (path, fd)    { return _apiRequest('POST',   path, fd, true); },
+    /** @template T @param {string} path @param {FormData} fd @param {*} [opts] @returns {Promise<T>} */
+    uploadWith: function (path, fd, opts) { return _apiRequest('POST', path, fd, true, null, opts); },
     // reading-access-tracking — GET/POST/PATCH with extra request headers
     // (X-Reading-Password / X-Reading-Anon) + optional opts ({noRedirect:true}
     // suppresses the 401→login bounce for the anonymous share-link path).

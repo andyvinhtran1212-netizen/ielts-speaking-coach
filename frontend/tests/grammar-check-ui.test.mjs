@@ -215,20 +215,22 @@ describe('Sprint 14.8 — bidirectional click linking (Pattern #32)', () => {
   });
 
   test('Enter / Space on focused highlight triggers scroll (keyboard a11y)', () => {
-    // The listener pattern: keydown → key check (Enter or Space) →
-    // closest('.ds-grammar-highlight') → _scrollToGrammarEntry. Match
-    // tolerantly because the key-check can be either `===` (allowlist)
-    // or `!==` (early-return guard).
+    // The managed listener delegates to a named handler so the Next bridge can
+    // remove it on unmount. Pin both registration and keyboard behavior.
     assert.match(
       PRACTICE_JS,
-      /addEventListener\(['"]keydown['"][\s\S]{0,600}e\.key[\s\S]{0,80}['"]Enter['"][\s\S]{0,400}_scrollToGrammarEntry/,
+      /_listenManaged\('grammar-keydown', document, 'keydown', _handleGrammarKeydown\)/,
+    );
+    assert.match(
+      PRACTICE_JS,
+      /function _handleGrammarKeydown[\s\S]{0,500}e\.key[\s\S]{0,80}['"]Enter['"][\s\S]{0,400}_scrollToGrammarEntry/,
     );
   });
 
   test('flash animation adds + removes is-flash class with a timeout', () => {
     assert.match(
       PRACTICE_JS,
-      /classList\.add\(['"]is-flash['"]\)[\s\S]{0,200}setTimeout[\s\S]{0,80}classList\.remove\(['"]is-flash['"]\)/,
+      /classList\.add\(['"]is-flash['"]\)[\s\S]{0,240}_startManagedTimeout\('grammar-entry-flash'[\s\S]{0,120}classList\.remove\(['"]is-flash['"]\)/,
     );
   });
 

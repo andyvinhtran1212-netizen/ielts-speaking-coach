@@ -146,12 +146,14 @@ def dry_run(base: Path, types: list[str]) -> int:
     return bad
 
 
-async def commit(base: Path, types: list[str]) -> None:
+async def commit(base: Path, types: list[str]) -> int:
     from routers.admin_reading import _commit_l3_parsed  # noqa: E402
+    bad = 0
     for t in types:
         parsed = _parse(base, t, published=True)
         errs = validate_reading_test(parsed)
         if errs:
+            bad += 1
             print(f"{t:5} SKIPPED — {len(errs)} validation error(s)")
             continue
         result = await _commit_l3_parsed(
@@ -162,6 +164,7 @@ async def commit(base: Path, types: list[str]) -> None:
         print(f"{t:5} {parsed.test_id}  action={result.get('action')}  "
               f"id={test_uuid}  errors={result.get('validation_errors') or 'none'}  "
               f"| {img}")
+    return bad
 
 
 if __name__ == "__main__":
@@ -176,6 +179,6 @@ if __name__ == "__main__":
         parser.error("--source-dir phải chứa hai thư mục Drills và Solutions")
     selected = [args.only] if args.only else TYPES
     if args.commit:
-        asyncio.run(commit(source_dir, selected))
+        sys.exit(1 if asyncio.run(commit(source_dir, selected)) else 0)
     else:
         sys.exit(1 if dry_run(source_dir, selected) else 0)

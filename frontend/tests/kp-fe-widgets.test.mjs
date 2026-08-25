@@ -25,7 +25,8 @@ describe('result-page weak-KP widget', () => {
   });
 
   test('widget funnels to the personal roadmap', () => {
-    assert.match(WIDGET_JS, /grammar-roadmap\.html/);
+    assert.match(WIDGET_JS, /href="\/grammar\/roadmap"/);
+    assert.doesNotMatch(WIDGET_JS, /pages\/grammar-roadmap\.html/);
   });
 
   test('chips show enriched title + deep-link via category', () => {

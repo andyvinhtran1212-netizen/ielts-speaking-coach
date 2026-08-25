@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import sys
+import zipfile
 from unittest.mock import patch
 
 import pytest
@@ -48,6 +49,69 @@ def _essay(qid="B01-E1-01", **over):
     }
     r.update(over)
     return r
+
+
+def _reading(**over):
+    r = {
+        "kind": "reading", "id": "TM20-B01-DOC", "vai_tro": "bài về nhà",
+        "chu_de": "MỘT NGÀY Ở THƯ VIỆN", "cau_truc_trong_tam": "mạo từ",
+        "so_tu": 4, "bai_doc": "Mai reads a book.",
+        "tu_vung": [{"tu": "book", "loai": "n", "nghia": "sách"}],
+        "cau_hoi": {
+            "phan1_noi_dung": ["Mai reads. → T / F / NG"],
+            "phan2_cau_truc": ["Chọn mạo từ đúng. → …"],
+        },
+        "dap_an": {
+            "phan1_noi_dung": [
+                {"cau": 1, "dap_an": "T", "giai_thich": "Đúng nguyên văn."}],
+            "phan2_cau_truc": [
+                {"cau": 2, "dap_an": "a", "giai_thich": "Danh từ số ít."}],
+        },
+        "ban_dich": "Mai đọc một cuốn sách.",
+    }
+    r.update(over)
+    return r
+
+
+def _listening(**over):
+    r = {
+        "kind": "listening", "id": "TM20-B01-NGHE", "vai_tro": "bài luyện nghe",
+        "chu_de": "THÀNH PHỐ", "cau_truc_trong_tam": "so sánh", "lang": "en-GB",
+        "audio_zip": "audio.zip",
+        "phan_A_am": [{"so": 1, "audio": "A1.mp3", "lua_chon": ["city", "pity"],
+                        "dap_an": "A", "nghe_duoc": "city"}],
+        "phan_B_chu": [{"so": 1, "audio": "B1.mp3", "lua_chon": ["noise", "nose"],
+                         "dap_an": "A", "nghe_duoc": "noise"}],
+        "phan_C_cau": [{"so": 1, "audio": "C1.mp3", "lua_chon": ["City", "Country"],
+                         "dap_an": "A", "nghe_duoc": "Which is bigger?"}],
+        "phan_D_noi_dung": {
+            "audio": "D.mp3", "doan_noi": "The city is bigger.",
+            "ban_dich": "Thành phố lớn hơn.",
+            "cau_hoi": [{"so": 1, "prompt": "The city is bigger.", "dap_an": "T"}],
+        },
+    }
+    r.update(over)
+    return r
+
+
+def _pronunciation(**over):
+    r = {
+        "kind": "pronunciation", "id": "TM20-B01-PHAT-AM",
+        "vai_tro": "bài luyện phát âm — nghe và nhắc lại",
+        "lang": "en-GB", "voice": "bf_emma",
+        "sentences": [
+            {"so": number, "text": f"English sentence number {number}."}
+            for number in range(1, 13)
+        ],
+    }
+    r.update(over)
+    return r
+
+
+def _audio_zip(path, names=("A1.mp3", "B1.mp3", "C1.mp3", "D.mp3")):
+    with zipfile.ZipFile(path, "w") as archive:
+        for name in names:
+            archive.writestr(name, b"ID3" + name.encode())
 
 
 def _run(tmp_path, db, rows, *flags, name="KBT-buoi-01.jsonl"):
@@ -102,6 +166,22 @@ def test_every_distractor_carries_its_trap(tmp_path):
     assert "N4" in row["why_wrong"]["1"]
 
 
+def test_only_the_english_line_is_marked_for_question_audio():
+    row = mod._mcq_row(_mcq(de=(
+        "Chọn cụm giới từ đúng.\n"
+        "The council **works with local clinics** near the market."
+    )), 0)
+    assert row["segments"] == {
+        "question_audio_text": "The council works with local clinics near the market."
+    }
+
+
+def test_an_english_gap_is_spoken_as_blank():
+    assert mod._english_audio_text("Điền từ.\nThe clinic is ____ the market.") == (
+        "The clinic is blank the market."
+    )
+
+
 def test_the_CORRECT_option_gets_no_trap_entry(tmp_path):
     """Nguồn để ô của đáp án đúng rỗng. Đưa nó vào `why_wrong` sẽ hiện ra một
     dòng "vì sao sai" bên cạnh chính đáp án đúng."""
@@ -114,6 +194,82 @@ def test_the_teaching_axis_becomes_the_grouping_key(tmp_path):
     """`item_key` là chỗ sổ lỗi gom "em này sai ở đâu". Trục kiến thức mịn hơn
     mã dạng, nên nó mới trả lời được câu ấy."""
     assert mod._mcq_row(_mcq(), 0)["item_key"] == "cụm giới từ độn thêm"
+
+
+def test_a_short_reading_is_bank_metadata_not_a_scored_question(tmp_path):
+    db = _db()
+    _run(tmp_path, db, [_mcq(), _essay(), _reading()], "--commit")
+    bank = db.tables["quiz_banks"][0]
+    reading = bank["meta"]["short_reading"]
+    assert bank["words_count"] == 2
+    assert reading["word_count"] == 4
+    assert len(reading["question_groups"]) == 2
+    assert len(reading["answers"]) == 2
+    assert "T / F / NG" not in reading["question_groups"][0]["questions"][0]["prompt"]
+    assert len(_rpc_rows(db)[0][2]["p_rows"]) == 2
+
+
+@pytest.mark.parametrize("broken", [
+    {"bai_doc": ""},
+    {"so_tu": 99},
+    {"ban_dich": ""},
+    {"tu_vung": []},
+    {"dap_an": {"phan1_noi_dung": [], "phan2_cau_truc": []}},
+])
+def test_a_broken_short_reading_is_refused_before_any_write(tmp_path, broken):
+    db = _db()
+    with pytest.raises(SystemExit):
+        _run(tmp_path, db, [_mcq(), _reading(**broken)], "--commit")
+    assert db.writes == []
+
+
+def test_listening_is_bank_metadata_and_audio_paths_are_hash_scoped(tmp_path):
+    _audio_zip(tmp_path / "audio.zip")
+    rows, _reading_meta, listening, _pronunciation_meta = mod._normalise(
+        [_mcq(), _listening()])
+    prepared, uploads = mod._prepare_listening_audio(
+        listening, tmp_path / "KBT-buoi-01.jsonl")
+    assert len(rows) == 1
+    assert len(uploads) == 4
+    assert len(prepared["sections"]) == 4
+    assert len(prepared["solution"]["answers"]) == 4
+    assert prepared["audio_bundle"]["file_count"] == 4
+    assert all(path.startswith("course/") for path, _data in uploads)
+    assert "audio_file" not in prepared["sections"][0]["questions"][0]
+
+
+@pytest.mark.parametrize("names", [
+    ("A1.mp3", "B1.mp3", "C1.mp3"),
+    ("A1.mp3", "B1.mp3", "C1.mp3", "D.mp3", "extra.mp3"),
+    ("../A1.mp3", "B1.mp3", "C1.mp3", "D.mp3"),
+])
+def test_listening_zip_must_exactly_match_jsonl_before_any_write(tmp_path, names):
+    _audio_zip(tmp_path / "audio.zip", names)
+    _rows, _reading_meta, listening, _pronunciation_meta = mod._normalise(
+        [_mcq(), _listening()])
+    with pytest.raises(SystemExit):
+        mod._prepare_listening_audio(listening, tmp_path / "KBT-buoi-01.jsonl")
+
+
+def test_pronunciation_requirement_is_validated_and_kept_in_bank_meta(tmp_path):
+    db = _db()
+    _run(tmp_path, db, [_mcq(), _pronunciation()], "--commit")
+    requirement = db.tables["quiz_banks"][0]["meta"]["pronunciation_requirement"]
+    assert requirement["sentence_count"] == 12
+    assert requirement["locale"] == "en-GB"
+    assert requirement["voice_engine"] == "kokoro"
+    assert requirement["voice"] == "bf_emma"
+    assert len(requirement["content_hash"]) == 64
+    assert len(_rpc_rows(db)[0][2]["p_rows"]) == 1
+
+
+def test_pronunciation_numbers_must_be_one_through_twelve_before_any_write(tmp_path):
+    broken = _pronunciation()
+    broken["sentences"][5]["so"] = 9
+    db = _db()
+    with pytest.raises(SystemExit):
+        _run(tmp_path, db, [_mcq(), broken], "--commit")
+    assert db.writes == []
 
 
 def test_difficulty_becomes_points(tmp_path):

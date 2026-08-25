@@ -1,8 +1,8 @@
 /* My Class — student workspace redesign.
  *
  * The page is organised by learner intent: the next deadline first, actionable
- * work second, class rhythm and lesson notes in a quieter rail. All colours and
- * measurements consume the Aver design tokens already used across the product.
+ * work second, class rhythm and lesson notes in a quieter secondary row. All
+ * colours and measurements consume the Aver design tokens used by the product.
  */
 
 .mc-shell {
@@ -12,6 +12,47 @@
   padding: 0 0 var(--av-space-20);
   gap: var(--av-space-6);
 }
+
+/* `#mc-content` is the shell's single child, so the shell gap cannot space the
+ * hero, deadline and work area inside it. Keep those page-level sections on
+ * the same 24px rhythm instead of letting their borders touch. */
+#mc-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--av-space-6);
+}
+
+.mc-class-switcher {
+  display: flex;
+  gap: var(--av-space-2);
+  overflow-x: auto;
+  padding: 2px 2px var(--av-space-2);
+  scrollbar-width: thin;
+}
+
+.mc-class-switcher button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: var(--av-space-2);
+  flex: 0 0 auto;
+  padding: 0 var(--av-space-4);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-pill);
+  background: var(--av-surface-card);
+  color: var(--av-text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.mc-class-switcher button span { color: var(--av-text-muted); font-family: var(--av-font-mono); }
+.mc-class-switcher button.is-active {
+  border-color: var(--av-primary-border);
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+  font-weight: var(--av-fw-semibold);
+}
+.mc-class-switcher button:focus-visible { outline: 2px solid var(--av-primary); outline-offset: 2px; }
 
 .mc-hero {
   position: relative;
@@ -187,8 +228,8 @@
 
 .mc-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(18rem, .75fr);
-  gap: var(--av-space-8);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--av-space-6);
   align-items: start;
 }
 
@@ -220,7 +261,7 @@
 .mc-section-head > p {
   max-width: 35ch;
   margin: 0;
-  color: var(--av-text-muted);
+  color: var(--av-text-secondary);
   font-size: var(--av-fs-xs);
   text-align: right;
 }
@@ -239,9 +280,9 @@
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--av-space-4);
+  gap: var(--av-space-6);
   align-items: center;
-  padding: var(--av-space-4) var(--av-space-6);
+  padding: var(--av-space-6);
   border-color: var(--av-border-subtle);
   border-radius: var(--av-radius-xl);
   box-shadow: var(--av-shadow-sm);
@@ -262,18 +303,19 @@
   box-shadow: inset 3px 0 0 var(--av-warning);
 }
 
-.mc-item-main { display: flex; flex-direction: column; gap: var(--av-space-1); }
+.mc-item-main { display: flex; flex-direction: column; gap: var(--av-space-2); }
 
 .mc-item-meta {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--av-space-2);
-  margin-bottom: var(--av-space-1);
+  margin-bottom: 0;
 }
 
 .mc-item-kind,
-.mc-item-state {
+.mc-item-state,
+.mc-item-class {
   display: inline-flex;
   align-items: center;
   width: fit-content;
@@ -285,7 +327,20 @@
 
 .mc-item-kind {
   border: 1px solid var(--av-border-default);
-  color: var(--av-text-muted);
+  color: var(--av-text-secondary);
+}
+
+.mc-item-class {
+  background: var(--av-primary-soft);
+  color: var(--av-primary);
+}
+
+.mc-lesson-class {
+  width: fit-content;
+  margin: 0;
+  color: var(--av-primary);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
 }
 
 .mc-item-state {
@@ -316,11 +371,18 @@
 
 .mc-item-sub { line-height: var(--av-lh-normal); }
 
+.mc-item-next-step {
+  max-width: 60ch;
+  margin: var(--av-space-1) 0 0;
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-xs);
+  line-height: var(--av-lh-normal);
+}
+
 .mc-aside {
-  position: sticky;
-  top: var(--av-space-4);
-  display: flex;
-  flex-direction: column;
+  position: static;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--av-space-6);
 }
 
@@ -398,8 +460,6 @@
 @media (max-width: 900px) {
   .mc-hero { grid-template-columns: 1fr; }
   .mc-stats { max-width: 38rem; }
-  .mc-layout { grid-template-columns: 1fr; }
-  .mc-aside { position: static; display: grid; grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 640px) {
@@ -413,7 +473,7 @@
   .mc-section-head > p { text-align: left; }
   .mc-item { grid-template-columns: 1fr; padding: var(--av-space-4); }
   .mc-item .av-button { width: 100%; }
-  .mc-aside { display: flex; }
+  .mc-aside { grid-template-columns: minmax(0, 1fr); }
   .mc-rhythm,
   .mc-lessons-panel { padding: var(--av-space-4); }
 }

@@ -641,6 +641,11 @@ def _fake_supabase(*, status: str | None, update_data: list | None = None) -> Ma
     table.update.return_value.eq.return_value.execute.return_value = (
         MagicMock(data=update_data)
     )
+    fake.rpc.return_value.execute.return_value = MagicMock(data={
+        "ok": status == "reviewed",
+        "status": "delivered" if status == "reviewed" else status,
+        "reason": None if status == "reviewed" else ("not_found" if status is None else "not_reviewed"),
+    })
     return fake
 
 
@@ -720,12 +725,11 @@ def test_mark_delivered_default_method_persists():
     body = r.json()
     assert body["status"] == "delivered"
     assert body["method"] == "google_docs_paste"  # default
-    # Sprint 19.4: mark_delivered now also (best-effort) fulfils an accepted
-    # regrade request, so the essay-delivery update is no longer the only
-    # .update() call — find the one carrying delivery_method.
-    payloads = [c.args[0] for c in fake.table.return_value.update.call_args_list]
-    delivery = next(p for p in payloads if "delivery_method" in p)
-    assert delivery["delivery_method"] == "google_docs_paste"
+    fake.rpc.assert_called_once_with("fn_deliver_writing_essay", {
+        "p_essay_id": _ESSAY_ID,
+        "p_method": "google_docs_paste",
+        "p_hide_subbands": False,
+    })
 
 
 def test_mark_delivered_word_download_method():
@@ -760,9 +764,7 @@ def test_mark_delivered_hide_subbands_true_persists():
         )
     assert r.status_code == 200
     assert r.json()["hide_subbands"] is True
-    payloads = [c.args[0] for c in fake.table.return_value.update.call_args_list]
-    delivery = next(p for p in payloads if "delivery_method" in p)
-    assert delivery["hide_subbands"] is True
+    assert fake.rpc.call_args.args[1]["p_hide_subbands"] is True
 
 
 def test_mark_delivered_hide_subbands_defaults_false():
@@ -779,9 +781,7 @@ def test_mark_delivered_hide_subbands_defaults_false():
         )
     assert r.status_code == 200
     assert r.json()["hide_subbands"] is False
-    payloads = [c.args[0] for c in fake.table.return_value.update.call_args_list]
-    delivery = next(p for p in payloads if "delivery_method" in p)
-    assert delivery["hide_subbands"] is False
+    assert fake.rpc.call_args.args[1]["p_hide_subbands"] is False
 
 
 def test_mark_delivered_hide_subbands_does_not_bypass_review_guard():
@@ -797,8 +797,7 @@ def test_mark_delivered_hide_subbands_does_not_bypass_review_guard():
             headers=_ADMIN_AUTH,
         )
     assert r.status_code == 409
-    payloads = [c.args[0] for c in fake.table.return_value.update.call_args_list]
-    assert not any("delivery_method" in p for p in payloads)
+    assert fake.rpc.call_count == 1
 
 
 # ── U1 revoke-delivery (delivered → reviewed) ────────────────────────

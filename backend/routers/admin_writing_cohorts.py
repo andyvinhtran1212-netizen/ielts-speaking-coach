@@ -1,7 +1,8 @@
 """routers/admin_writing_cohorts.py — Sprint 19.2 cohort admin views.
 
-Cohort-level writing overview, derived from students.cohort_id (Discovery
-D1 — no cohort_id on writing_assignments, no new tables). All admin-only.
+Cohort-level writing overview from active memberships and the stamped origin
+on new cohort fan-outs. Legacy rows without provenance remain visible through
+the historical membership fallback. All admin-only.
 
   GET /admin/writing/cohorts                                   — list + activity summary
   GET /admin/writing/cohorts/{cohort_id}                       — student × assignment matrix
@@ -10,7 +11,7 @@ D1 — no cohort_id on writing_assignments, no new tables). All admin-only.
 Cell status is the ADMIN operational view — full backend states surface
 here (Pattern #11: the 4-state student-facing collapse from 19.1A does NOT
 apply to admin chrome). Queries are separate indexed selects + a Python
-join (no PostgREST embed naming dependency, no N+1): students(cohort_id),
+join (no PostgREST embed naming dependency, no N+1): memberships,
 writing_assignments(student_id), writing_prompts(id), writing_essays(id).
 """
 
@@ -24,6 +25,11 @@ from fastapi import APIRouter, Header, HTTPException
 
 from database import supabase_admin
 from routers.admin import require_admin
+from services.class_membership_service import (
+    active_memberships_for_cohorts,
+    active_students_for_cohort,
+    student_is_active_in_cohort,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +56,38 @@ def _cell_status(assignment: dict, essay: dict | None) -> str:
     if (assignment.get("status") or "") == "delivered":
         return "delivered"
     return "not_submitted"
+
+
+def _column_key(assignment: dict) -> str:
+    """Return the identity of one real give × prompt column.
+
+    A prompt can be assigned repeatedly in different lessons.  Using only
+    ``prompt_id`` silently collapsed those gives and made whichever row was
+    iterated last win.  New writes always carry ``assignment_group_id``; old
+    standalone rows fall back to their immutable assignment id so no history
+    is hidden.
+    """
+    group_id = assignment.get("assignment_group_id")
+    prompt_id = assignment.get("prompt_id") or "missing-prompt"
+    if group_id:
+        return f"group:{group_id}:prompt:{prompt_id}"
+    return f"legacy:{assignment['id']}"
+
+
+def _is_overdue(deadline: str | None, now: datetime | None = None) -> bool:
+    """Compare deadlines as instants instead of lexicographic ISO strings."""
+    if not deadline:
+        return False
+    try:
+        parsed = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
+    except (AttributeError, TypeError, ValueError):
+        return False
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return parsed < current
 
 
 def _fetch_bands_by_essay_ids(essay_ids: list[str]) -> dict[str, float | None]:
@@ -103,20 +141,18 @@ async def list_cohorts(authorization: str | None = Header(None)):
         return {"cohorts": []}
 
     cohort_ids = [c["id"] for c in cohorts]
-    students = (
-        supabase_admin.table("students")
-        .select("id, cohort_id")
-        .in_("cohort_id", cohort_ids)
-        .execute()
-    ).data or []
-    student_cohort = {s["id"]: s["cohort_id"] for s in students}
-    student_ids = list(student_cohort.keys())
+    memberships = active_memberships_for_cohorts(supabase_admin, cohort_ids)
+    student_cohorts: dict[str, set[str]] = {}
+    for membership in memberships:
+        student_cohorts.setdefault(membership["student_id"], set()).add(
+            membership["cohort_id"])
+    student_ids = list(student_cohorts)
 
     assignments = []
     if student_ids:
         assignments = (
             supabase_admin.table("writing_assignments")
-            .select("student_id, essay_id, status")
+            .select("student_id, cohort_id, essay_id, status")
             .in_("student_id", student_ids)
             .execute()
         ).data or []
@@ -124,20 +160,30 @@ async def list_cohorts(authorization: str | None = Header(None)):
 
     summary = {cid: {"student_count": 0, "active_assignments": 0,
                      "essays_pending": 0, "essays_delivered": 0} for cid in cohort_ids}
-    for s in students:
-        summary[s["cohort_id"]]["student_count"] += 1
+    for memberships_for_student in student_cohorts.values():
+        for cid in memberships_for_student:
+            summary[cid]["student_count"] += 1
     for a in assignments:
-        cid = student_cohort.get(a["student_id"])
-        if not cid:
+        origin = a.get("cohort_id")
+        cids = ({origin} if origin else student_cohorts.get(a["student_id"], set()))
+        if not cids:
             continue
         cell = _cell_status(a, essays.get(a.get("essay_id")))
-        st = summary[cid]
-        if cell not in ("delivered", "failed"):
-            st["active_assignments"] += 1
-        if cell in _PENDING_CELL and cell != "not_submitted":
-            st["essays_pending"] += 1
-        elif cell == "delivered":
-            st["essays_delivered"] += 1
+        for cid in cids:
+            # A learner may retain Writing history stamped to a cohort that is
+            # now archived while belonging to another active cohort.  This
+            # endpoint summarizes active cohorts only; historical origins must
+            # not be re-attributed to the learner's current class or index a
+            # non-existent summary bucket.
+            if cid not in summary:
+                continue
+            st = summary[cid]
+            if cell not in ("delivered", "failed"):
+                st["active_assignments"] += 1
+            if cell in _PENDING_CELL and cell != "not_submitted":
+                st["essays_pending"] += 1
+            elif cell == "delivered":
+                st["essays_delivered"] += 1
 
     out = [{**c, **summary[c["id"]]} for c in cohorts]
     out.sort(key=lambda c: (c["active_assignments"], c["student_count"]), reverse=True)
@@ -148,9 +194,9 @@ async def list_cohorts(authorization: str | None = Header(None)):
 async def cohort_detail(cohort_id: UUID, authorization: str | None = Header(None)):
     """Student × assignment matrix for one cohort.
 
-    matrix[student_id][prompt_id] = {assignment_id, status, essay_id,
-    deadline, band}. Columns = distinct prompts assigned to the cohort,
-    ordered by earliest assignment. Sparse: a missing (student, prompt)
+    matrix[student_id][column_id] = {assignment_id, status, essay_id,
+    deadline, band}. Columns are distinct give/group × prompt identities,
+    ordered by earliest assignment. Sparse: a missing (student, give × prompt)
     pair simply has no key (the UI renders '—')."""
     await require_admin(authorization)
 
@@ -165,23 +211,25 @@ async def cohort_detail(cohort_id: UUID, authorization: str | None = Header(None
         raise HTTPException(404, "Không tìm thấy lớp.")
     cohort = cohort_rows[0]
 
-    students = (
-        supabase_admin.table("students")
-        .select("id, full_name, student_code")
-        .eq("cohort_id", str(cohort_id))
-        .order("full_name")
-        .execute()
-    ).data or []
+    students = active_students_for_cohort(
+        supabase_admin, str(cohort_id), "id, full_name, student_code")
+    students.sort(key=lambda row: (row.get("full_name") or "").casefold())
     student_ids = [s["id"] for s in students]
 
     assignments = []
     if student_ids:
         assignments = (
             supabase_admin.table("writing_assignments")
-            .select("id, student_id, prompt_id, essay_id, status, deadline, created_at, updated_at")
+            .select("id, student_id, cohort_id, prompt_id, essay_id, status, deadline, created_at, updated_at, assignment_group_id, name")
             .in_("student_id", student_ids)
+            .or_(f"cohort_id.eq.{cohort_id},cohort_id.is.null")
+            .order("created_at")
             .execute()
         ).data or []
+        # Defense in depth for non-PostgREST callers/test doubles. NULL means
+        # legacy data whose original cohort was never persisted.
+        assignments = [a for a in assignments
+                       if not a.get("cohort_id") or str(a["cohort_id"]) == str(cohort_id)]
 
     prompt_ids = sorted({a["prompt_id"] for a in assignments if a.get("prompt_id")})
     prompts = {}
@@ -195,31 +243,39 @@ async def cohort_detail(cohort_id: UUID, authorization: str | None = Header(None
         prompts = {p["id"]: p for p in prows}
     essays = _fetch_essays_by_ids([a["essay_id"] for a in assignments if a.get("essay_id")])
 
-    # Columns ordered by the earliest assignment created_at per prompt.
-    first_seen: dict[str, str] = {}
+    # Columns represent a real give × prompt, not merely a prompt.  Re-giving
+    # the same prompt in another lesson must remain a separate column.
+    columns_by_id: dict[str, dict] = {}
     for a in assignments:
         pid = a.get("prompt_id")
-        ca = a.get("created_at") or ""
-        if pid and (pid not in first_seen or ca < first_seen[pid]):
-            first_seen[pid] = ca
-    columns = sorted(prompts.keys(), key=lambda pid: first_seen.get(pid, ""))
-    assignment_cols = [{
-        "prompt_id": pid,
-        "title":     (prompts[pid].get("title") or "(Đề đã xóa)"),
-        "task_type": prompts[pid].get("task_type"),
-    } for pid in columns]
+        if not pid:
+            continue
+        column_id = _column_key(a)
+        if column_id not in columns_by_id:
+            prompt = prompts.get(pid, {})
+            columns_by_id[column_id] = {
+                "id": column_id,
+                "prompt_id": pid,
+                "group_id": a.get("assignment_group_id"),
+                "name": a.get("name"),
+                "title": prompt.get("title") or "(Đề đã xóa)",
+                "task_type": prompt.get("task_type"),
+                "assigned_at": a.get("created_at"),
+            }
+    assignment_cols = list(columns_by_id.values())
 
     matrix: dict[str, dict] = {sid: {} for sid in student_ids}
     stats = {"students": len(students), "assignments": len(assignments),
              "essays_pending": 0, "essays_delivered": 0, "overdue": 0}
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
     for a in assignments:
         sid, pid = a.get("student_id"), a.get("prompt_id")
         if sid not in matrix or not pid:
             continue
+        column_id = _column_key(a)
         essay = essays.get(a.get("essay_id"))
         cell = _cell_status(a, essay)
-        matrix[sid][pid] = {
+        matrix[sid][column_id] = {
             "assignment_id": a["id"],
             "status":        cell,
             "essay_id":      a.get("essay_id"),
@@ -233,7 +289,9 @@ async def cohort_detail(cohort_id: UUID, authorization: str | None = Header(None
             stats["essays_delivered"] += 1
         # Overdue = deadline passed and not delivered.
         dl = a.get("deadline")
-        if dl and dl < now_iso and cell != "delivered":
+        # A flagged essay carries canonical essay status=delivered; the flag is
+        # an operational issue, not an overdue submission.
+        if _is_overdue(dl, now) and cell not in ("delivered", "flagged"):
             stats["overdue"] += 1
 
     return {
@@ -255,15 +313,9 @@ async def cohort_student_essays(
     Verifies the student belongs to the cohort before returning."""
     await require_admin(authorization)
 
-    belongs = (
-        supabase_admin.table("students")
-        .select("id")
-        .eq("id", str(student_id))
-        .eq("cohort_id", str(cohort_id))
-        .limit(1)
-        .execute()
-    ).data
-    if not belongs:
+    if not student_is_active_in_cohort(
+        supabase_admin, str(student_id), str(cohort_id)
+    ):
         raise HTTPException(404, "Học viên không thuộc lớp này.")
 
     essays = (

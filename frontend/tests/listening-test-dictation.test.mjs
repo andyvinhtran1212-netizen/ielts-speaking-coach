@@ -84,10 +84,13 @@ describe('test-linked dictation — JS contract', () => {
     assert.match(JS, /sp\.get\('test_id'\)/);
   });
 
-  it('grades via POST /api/listening/tests/dictation/grade', () => {
-    assert.match(JS, /window\.api\.post\('\/api\/listening\/tests\/dictation\/grade'/);
-    assert.match(JS, /section_num:/);
-    assert.match(JS, /sentence_idx:/);
+  it('resumes a canonical attempt and grades through the durable sentence endpoint', () => {
+    assert.match(JS, /dictation\/attempts\/in-progress/);
+    assert.match(JS, /renderer_affinity_protocol:\s*'claim-v1'/);
+    assert.match(JS, /run !== SESSION\.sectionRun/);
+    assert.match(JS, /section\.sentences = attempt\.units\.map/);
+    assert.match(JS, /\/renderer-affinity/);
+    assert.match(JS, /dictation\/attempts\/\$\{encodeURIComponent\(SESSION\.attemptId\)\}\/sentences/);
     assert.match(JS, /user_transcript:/);
   });
 
@@ -131,6 +134,14 @@ describe('test-linked dictation — JS contract', () => {
 
 describe('grading UX — filler leniency + proper-noun hints + redesign', () => {
 
+  it('makes the listen → write → compare loop explicit without changing controller ids', () => {
+    assert.match(HTML, /class="dict-loop"/);
+    assert.match(HTML, /id="dict-listen-title"/);
+    assert.match(HTML, /id="dict-write-title"/);
+    assert.match(HTML, /BƯỚC 3 · ĐỐI CHIẾU TỪNG TỪ/);
+    assert.match(HTML, /grid-template-columns:\s*minmax\(0, 0\.85fr\) minmax\(0, 1\.15fr\)/);
+  });
+
   it('renders proper-noun hints for the current sentence', () => {
     assert.match(HTML, /id="sentence-hint"/);
     assert.match(JS, /function renderSentenceHint\(/);
@@ -173,6 +184,8 @@ describe('completion report — persist + stats + trends', () => {
     assert.match(JS, /av-audio-play['"],\s*\(\)\s*=>\s*\{\s*SESSION\.listenCount/);
     assert.match(JS, /listen_count:\s*SESSION\.listenCount/);
     assert.match(JS, /window\.api\.post\('\/api\/listening\/tests\/dictation\/session'/);
+    assert.match(JS, /attempt_id:\s*SESSION\.attemptId/);
+    assert.match(JS, /client_request_id:\s*dictationRequestId\(\)/);
     assert.match(JS, /function submitSessionAndRenderReport/);
   });
 

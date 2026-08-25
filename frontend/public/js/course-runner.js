@@ -20,6 +20,10 @@
  *   hề tới máy chủ.
  */
 
+import { formatCourseExplanation } from './course-explanation-format.js';
+
+export { formatCourseExplanation };
+
 // Mười câu một chặng. 100 câu liền một mạch quá dài cho một buổi tối, và một
 // lượt bỏ dở thì không có chỗ nào để nói "em đã làm tới đâu".
 export const STAGE = 10;
@@ -28,6 +32,19 @@ export const STAGE = 10;
 const BATCH = 5;
 
 export const KEYS = ['A', 'B', 'C', 'D'];
+
+/**
+ * Câu thuộc lane Grammar và được tính vào mastery.
+ *
+ * Bank course cũ chỉ có `mcq`/`writing`, nhưng bank nhiều section có thể trả
+ * thêm `course_reading`, `course_listening`, `course_pronunciation` trong cùng
+ * payload. Dùng `type !== 'writing'` sẽ nhét cả các section ấy vào chặng Grammar.
+ * Cờ mastery vắng mặt vẫn được nhận để giữ tương thích với các bank legacy.
+ */
+export function isCourseQuizQuestion(q) {
+  return q && (q.type == null || q.type === 'mcq')
+    && q.counts_toward_mastery !== false;
+}
 
 export const DANG = {
   A1: 'GÁN NHÃN Ô', A2: 'GỌI TÊN', A3: 'TÌM HẠT NHÂN',
@@ -87,6 +104,23 @@ export function shuffled(arr, rng) {
   return a;
 }
 
+/** PRNG ổn định từ session id — cùng revision dựng lại đúng cùng một đề. */
+export function seededRng(seed) {
+  let h = 2166136261;
+  const s = String(seed || '');
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return function () {
+    h += 0x6D2B79F5;
+    let t = h;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 /**
  * Bản sao một câu trắc nghiệm với ĐÁP ÁN ĐÃ TRỘN — để bài kiểm tra lại hỏi lại
  * sự hiểu, không hỏi lại trí nhớ vị trí ("câu này đáp án C").
@@ -114,6 +148,7 @@ export function retakeClone(q, rng) {
 
 export function createRunner({ api, storage, now = () => Date.now() }) {
   let bank = null;
+  let mastery = null;
   let qs = [];
   let stage = 0;
   let at = 0;
@@ -130,6 +165,9 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   let retakeQs = [];
   let writingQs = [];
   let retakeNo = 0;
+  // Phiên revision đã chốt nhưng request verdict bị rớt: khôi phục thẳng màn
+  // kết quả để gửi lại verdict, tuyệt đối không PATCH/chốt phiên lần hai.
+  let resumedRetakeFinal = false;
   // Phiên của các chặng ĐÃ CHỐT THÀNH CÔNG — chính là danh sách gửi đi xét đạt.
   // Chặng không chốt được (mạng đứt) không có tên: server sẽ từ chối phiên chưa
   // hoàn thành, và thà thiếu một chặng còn hơn cả lượt bị bác.
@@ -152,10 +190,17 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // thái lưu của bản đề cũ mà đem dùng tiếp thì phiên cũ lẫn vào lượt xét
   // (verdict bác mãi) hoặc lượt làm cũ bị chấm bằng thước mới (codex #928 R4).
   let rev = '';
+  // Vân tay theo contract runner TRƯỚC PR #1291: mọi row trừ writing. Nó chỉ
+  // dùng một lần để nhận diện chính xác localStorage 132-row cũ sau khi lane
+  // Grammar được thu về MCQ mastery; không bao giờ dùng làm thước chấm mới.
+  let legacyRev = '';
   // Mục bài giao đang gắn với lượt này. Em chuyển lớp rồi được giao lại CÙNG
   // bank ở lớp mới là một MỤC KHÁC — phiên cũ thuộc mục cũ, verdict bác chúng,
   // và màn kết quả khôi phục sẽ kẹt không mở nổi phiên mới (codex #928 R5).
   let itemId = null;
+  // Bài đã nộp chỉ được đọc. Cờ này do backend suy từ submitted_at; URL hay
+  // localStorage không thể tự bật quyền review.
+  let reviewOnly = false;
 
   function fingerprint(list) {
     const s = list.map((q) => q.qid + ':' + q.answer).join('|');
@@ -166,9 +211,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
 
   function save(done) {
     if (!storage) return;
-    // Kiểm tra lại là lượt PHÙ DU: mẫu bốc ngẫu nhiên không tái lập được sau
-    // reload, nên không lưu — tải lại trang thì quay về màn kết quả lượt chính
-    // và bốc mẫu mới. Lưu nó đè lên trạng thái lượt chính mới là mất dữ liệu.
+    // Revision sống trên máy chủ và được dựng lại từ session id. Không ghi vào
+    // key của full session vì hai dòng tiến độ độc lập không được đè nhau.
     if (mode === 'retake') return;
     try {
       storage.setItem(key(), JSON.stringify({
@@ -188,7 +232,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
    * Đọc trạng thái lưu cục bộ.
    *
    * Trả về: 'fresh' chưa có gì lưu · 'stale' có lưu nhưng của BÀI KHÁC (bộ đề
-   * đã soạn lại, hoặc mục bài giao khác) · 'ok' dùng được.
+   * đã soạn lại, hoặc mục bài giao khác) · 'legacy-filter' là đúng payload cũ
+   * nhưng cần nhận lại tiến độ canonical từ server · 'ok' dùng được.
    *
    * Phân biệt 'fresh' với 'stale' là điều kiện để biết có nên tin máy chủ hay
    * không: máy chủ không biết vân tay bộ đề, nên chính chỗ này là nơi duy nhất
@@ -199,12 +244,17 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     let v = {};
     try { v = JSON.parse(storage.getItem(key()) || '{}'); } catch (e) { return 'fresh'; }
     if (typeof v.stage !== 'number') return 'fresh';
-    // Bộ đề đã đổi (re-import: câu khác hay đáp án khác) → trạng thái lưu là
-    // của một bài KHÁC. Làm lại từ đầu sạch sẽ; giữ lại là phiên cũ lẫn vào
-    // lượt xét hoặc bài cũ bị chấm bằng thước mới.
-    if (v.rev !== rev) return 'stale';
     // Khác mục bài giao (chuyển lớp, giao lại) = lượt của một BÀI GIAO khác.
     if ((v.item || null) !== itemId) return 'stale';
+    // PR #1291 không đổi câu hay đáp án Grammar; nó chỉ loại các row bổ trợ mà
+    // runner cũ đã nhầm là quiz. Nếu vân tay local khớp CHÍNH XÁC hình dạng cũ
+    // của payload hiện tại, không dùng stage/runSessions cũ (chúng có thể chứa
+    // chặng bổ trợ) mà cho server dựng lại từ QID Grammar canonical đã lưu.
+    if (v.rev !== rev) {
+      if (legacyRev && v.rev === legacyRev) return 'legacy-filter';
+      // Re-import thật (đổi QID/đáp án) vẫn là một bài khác và phải reset sạch.
+      return 'stale';
+    }
     stage = v.stage;
     runSessions = Array.isArray(v.runSessions)
       ? v.runSessions.filter((s) => typeof s === 'string')
@@ -249,11 +299,49 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     if (!qs.length) return false;
     let sv = null;
     try {
-      sv = await api.get('/api/quiz/banks/' + encodeURIComponent(bank.id) + '/course-resume');
+      sv = await api.get('/api/quiz/banks/' + encodeURIComponent(bank.id) + '/course-resume'
+        + (itemId ? '?class_item=' + encodeURIComponent(itemId) : ''));
     } catch (e) { return false; }
     if (!sv) return false;
     // Mục bài giao khác = lượt của một bài giao khác (chuyển lớp, giao lại).
     if ((sv.item_id || null) !== itemId) return false;
+
+    // Revision đang làm (hoặc đã chốt nhưng chưa ghi verdict) thắng trạng thái
+    // full session. Mẫu và đáp án được trộn bằng session id nên dựng lại giống
+    // hệt trên tab/máy khác mà không cần đưa đáp án vào storage riêng.
+    const rr = sv.retake;
+    if (rr && rr.session_id) {
+      mode = 'retake';
+      sessionId = rr.session_id;
+      sessionFailed = false;
+      retakeNo += 1;
+      const pool = qs.filter((q) => q.type !== 'writing');
+      const size = Math.max(1, Math.min(
+        Number((mastery && mastery.retake_size) || 20), pool.length,
+      ));
+      const rng = seededRng(sessionId);
+      retakeQs = shuffled(pool, rng).slice(0, size).map((q) => retakeClone(q, rng));
+      const firstByQid = new Map();
+      (Array.isArray(rr.answered) ? rr.answered : []).forEach((a) => {
+        if (a && a.qid && !firstByQid.has(a.qid)) firstByQid.set(a.qid, a);
+      });
+      const aligned = [];
+      for (const q of retakeQs) {
+        if (!firstByQid.has(q.qid)) break;
+        aligned.push(firstByQid.get(q.qid));
+      }
+      marks = aligned.map((a) => a.is_correct ? 'right' : 'wrong');
+      at = aligned.length;
+      resumedRetakeFinal = Boolean(rr.completed);
+      if (resumedRetakeFinal) {
+        at = retakeQs.length;
+        restored = { right: Number(rr.right) || 0, graded: Number(rr.graded) || retakeQs.length };
+      } else {
+        restored = null;
+      }
+      stageStartedAt = now();
+      return true;
+    }
 
     const done = Array.isArray(sv.completed) ? sv.completed.slice() : [];
     runSessions = done;
@@ -309,8 +397,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // Một lượt mở phiên ĐANG BAY thì lượt gọi sau dùng chung nó.
   //
   // Không có chốt này thì hai lời gọi gần nhau tạo HAI phiên, một cái bị bỏ
-  // ngay lập tức. Dữ liệu thật 06/08: em Lê Ngọc Hà Linh có hai phiên mở đúng
-  // cùng một giây (16:14:49), một cái 0 câu và một cái 8 câu không lối về.
+  // ngay lập tức. Một incident production có hai phiên mở đúng cùng một giây,
+  // một cái 0 câu và một cái 8 câu không lối về.
   let opening = null;
 
   function openSession() {
@@ -318,11 +406,25 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     return opening;
   }
 
+  // Khoá CẢ lượt chuyển chặng, không chỉ request mở phiên ở cuối lượt.
+  //
+  // Nếu chỉ khoá `openSession`, một lần bấm thứ hai có thể chạy sau khi lần đầu
+  // đã đổi `stage` nhưng trước khi màn hình kịp bỏ nút cũ. Nó cộng thêm một lần,
+  // dùng chung request mở phiên đang bay, rồi để lại nguyên một chặng không hề
+  // được hỏi. Một lượt retry production đã bị bỏ đúng 10 câu của một chặng.
+  let advancing = null;
+
+  function advanceStage() {
+    if (!advancing) advancing = _advanceStage().finally(function () { advancing = null; });
+    return advancing;
+  }
+
   async function _openSession() {
     sessionId = null;
     sessionFailed = false;
     try {
       const body = { bank_id: bank.id };
+      if (itemId) body.class_item = itemId;
       // Chỉ khai khi khác mặc định — phiên 'run' giữ nguyên hợp đồng cũ.
       if (mode === 'retake') body.kind = 'retake';
       const s = await api.post('/api/quiz/sessions', body);
@@ -335,6 +437,35 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     else persistError = '';
     stageStartedAt = now();
     return !sessionFailed;
+  }
+
+  async function _advanceStage() {
+    let next = stage + 1;
+    if (mode === 'run') {
+      try {
+        const sv = await api.get('/api/quiz/banks/'
+          + encodeURIComponent(bank.id) + '/course-resume'
+          + (itemId ? '?class_item=' + encodeURIComponent(itemId) : ''));
+        if (sv && Number.isInteger(sv.stage) && sv.stage > stage) next = sv.stage;
+      } catch (e) { /* giữ nguyên cộng một */ }
+    }
+    // XONG HẾT thì KHÔNG mở phiên mới.
+    //
+    // Lấp nốt lỗ cuối cùng của một bài gần xong thì máy chủ trả `stage` bằng
+    // số chặng. Mở phiên nữa là mở một chặng KHÔNG TỒN TẠI: trang không có
+    // câu nào để vẽ, phiên rỗng ấy bị chốt 0/0 rồi đi vào lượt xét, và học
+    // viên thấy thoáng qua "chặng 10/9" (codex #970).
+    const stages = Math.ceil(qs.length / STAGE);
+    if (mode === 'run' && next >= stages) {
+      stage = stages - 1; at = STAGE; marks = [];
+      resumedFinal = true; sessionId = null; sessionFailed = false;
+      save(false);
+      return;
+    }
+    stage = next; at = 0; marks = []; restored = null;
+    save(false);
+    await openSession();
+    shownAt = now();
   }
 
   /**
@@ -390,6 +521,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     get mode() { return mode; },
     get retakeNo() { return retakeNo; },
     get runSessionCount() { return runSessions.length; },
+    get reviewOnly() { return reviewOnly; },
     stageQuestions,
 
     current() {
@@ -399,23 +531,40 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
 
     isStageDone() { return at >= stageQuestions().length; },
 
-    async load(bankId) {
-      const r = await api.get('/api/quiz/banks/' + encodeURIComponent(bankId));
+    async load(bankId, options = {}) {
+      const itemQuery = options.assignmentItemId
+        ? '?class_item=' + encodeURIComponent(options.assignmentItemId) : '';
+      const r = await api.get('/api/quiz/banks/' + encodeURIComponent(bankId) + itemQuery);
       bank = r.bank;
-      this.mastery = r.mastery || null;   // {item_id, passed_at, threshold, near_threshold, retake_size, retakes, due_at}
+      mastery = r.mastery || null;
+      this.mastery = mastery;   // {item_id, passed_at, threshold, near_threshold, retake_size, retakes, due_at}
+      // `options.reviewOnly` chỉ làm flow ít quyền hơn (không ghi); quyền đọc
+      // vẫn do các endpoint backend kiểm bằng assignment item.
+      reviewOnly = Boolean(options.reviewOnly || (r.mastery && r.mastery.review_only));
       retakeNo = Math.max(0, Number((r.mastery && r.mastery.retakes) || 0));
       itemId = (r.mastery && r.mastery.item_id) || null;
-      qs = r.questions || [];
+      const allQuestions = r.questions || [];
+      qs = allQuestions;
       // TỰ LUẬN TÁCH KHỎI VÒNG CHẶNG. Ở phần trắc nghiệm nhịp là hỏi–đáp–giải
       // thích từng câu; phần tự luận là ngồi viết cả cụm rồi nộp một lần. Trộn
       // chúng vào cùng một dòng chảy khiến học viên tưởng viết xong một câu là
       // được chấm ngay — mà lượt chấm chỉ có MỘT.
       writingQs = qs.filter(function (q) { return q.type === 'writing'; });
-      qs = qs.filter(function (q) { return q.type !== 'writing'; });
+      qs = qs.filter(isCourseQuizQuestion);
       if (!qs.length && !writingQs.length) {
         throw new Error('Bài tập này chưa có câu hỏi nào.');
       }
+      // Lane xem kết quả tuyệt đối không khôi phục/chốt/mở phiên. Nếu chạy qua
+      // flow thường, một lần bấm "Xem kết quả" có thể đẻ quiz session rỗng.
+      if (reviewOnly) {
+        sessionId = null; sessionFailed = false; resumedFinal = false;
+        stageStartedAt = now(); shownAt = now();
+        return bank;
+      }
       rev = fingerprint(qs);
+      legacyRev = fingerprint(allQuestions.filter(function (q) {
+        return q.type !== 'writing';
+      }));
       const local = restore();
       // Máy chủ là nguồn thật — TRỪ khi chính máy này biết bộ đề vừa bị soạn
       // lại (hoặc bài giao đã đổi mục). Máy chủ không giữ vân tay bộ đề, nên
@@ -483,7 +632,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
      */
     async finishStage() {
       const list = stageQuestions();
-      let graded = list.filter((q) => q.type !== 'writing').length;
+      let graded = list.filter(isCourseQuizQuestion).length;
       let right = marks.filter((m) => m === 'right').length;
       // Khôi phục vào màn kết quả trên một máy chưa có `marks`: đếm từ mảng
       // rỗng ra 0 là bịa một điểm số cho một chặng ĐÃ CHẤM XONG. Dùng con số
@@ -500,7 +649,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // không được gọi mãi một flush không có sessionId rồi bắt làm lại 10 câu.
       if (!sessionId && sessionFailed && pending.length) await openSession();
       let persisted = !sessionFailed;
-      if (sessionId) {
+      if (sessionId && !resumedRetakeFinal) {
         try {
           await inflight;        // chờ lượt đẩy nền xong rồi mới xét hàng đợi
           await flush();
@@ -543,38 +692,14 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
      * "đếm thay vì suy từ độ phủ": em ấy có thể vừa lấp một LỖ ở giữa bài (một
      * chặng cũ chưa xong), và chặng liền sau nó thì đã làm rồi.
      *
-     * Chuyện thật (em Lê Ngọc Hà Linh, 06/08): làm chặng 3→8, quay lại lấp
-     * chặng 2, rồi bị đẩy sang chặng 3 — làm lại nguyên một chặng đã xong.
+     * Incident production: làm chặng 3→8, quay lại lấp chặng 2, rồi bị đẩy
+     * sang chặng 3 — làm lại nguyên một chặng đã xong.
      *
      * Hỏi hỏng thì cộng một như cũ: một lượt gọi mạng hỏng không được chặn em
      * ấy học tiếp.
      */
-    async nextStage() {
-      let next = stage + 1;
-      if (mode === 'run') {
-        try {
-          const sv = await api.get('/api/quiz/banks/'
-            + encodeURIComponent(bank.id) + '/course-resume');
-          if (sv && Number.isInteger(sv.stage) && sv.stage > stage) next = sv.stage;
-        } catch (e) { /* giữ nguyên cộng một */ }
-      }
-      // XONG HẾT thì KHÔNG mở phiên mới.
-      //
-      // Lấp nốt lỗ cuối cùng của một bài gần xong thì máy chủ trả `stage` bằng
-      // số chặng. Mở phiên nữa là mở một chặng KHÔNG TỒN TẠI: trang không có
-      // câu nào để vẽ, phiên rỗng ấy bị chốt 0/0 rồi đi vào lượt xét, và học
-      // viên thấy thoáng qua "chặng 10/9" (codex #970).
-      const stages = Math.ceil(qs.length / STAGE);
-      if (mode === 'run' && next >= stages) {
-        stage = stages - 1; at = STAGE; marks = [];
-        resumedFinal = true; sessionId = null; sessionFailed = false;
-        save(false);
-        return;
-      }
-      stage = next; at = 0; marks = []; restored = null;
-      save(false);
-      await openSession();
-      shownAt = now();
+    nextStage() {
+      return advanceStage();
     },
 
     /**
@@ -585,6 +710,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       const ids = mode === 'retake' ? [sessionId].filter(Boolean) : runSessions.slice();
       return api.post('/api/quiz/course/verdict', {
         bank_id: bank.id, session_ids: ids,
+        ...(itemId ? { class_item: itemId } : {}),
       });
     },
 
@@ -594,14 +720,17 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
      * nhớ vị trí. Câu tự luận không vào mẫu: nó không chấm máy nên không nói
      * được gì về ngưỡng.
      */
-    async startRetake(size, rng = Math.random) {
-      const pool = qs.filter((q) => q.type !== 'writing');
+    async startRetake(size, rng = null) {
+      const pool = qs.filter(isCourseQuizQuestion);
       const n = Math.max(1, Math.min(Number(size) || 20, pool.length));
       mode = 'retake';
       retakeNo += 1;
-      retakeQs = shuffled(pool, rng).slice(0, n).map((q) => retakeClone(q, rng));
       at = 0; marks = []; answered = false;
+      resumedRetakeFinal = false;
       await openSession();
+      if (sessionFailed || !sessionId) { retakeQs = []; return 0; }
+      const pick = rng || seededRng(sessionId);
+      retakeQs = shuffled(pool, pick).slice(0, n).map((q) => retakeClone(q, pick));
       shownAt = now();
       return retakeQs.length;
     },
@@ -612,6 +741,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       stage = 0; at = 0; marks = []; answered = false;
       retakeQs = []; runSessions = []; pending = [];
       resumedFinal = false; restored = null;
+      resumedRetakeFinal = false;
       sessionId = null; sessionFailed = false; persistError = '';
       save(false);
       await openSession();

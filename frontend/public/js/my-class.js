@@ -143,13 +143,18 @@ function itemRow(a, { action }) {
   // Speaking đã nộp (hoặc đã quá hạn mà có bài) mở lại được để đọc nhận xét
   // từng câu — lệnh /start trả về chính phiên cũ, và phiếu tự khoá ở chế độ
   // chỉ-đọc. Nhãn nói đúng việc nút làm, không hứa "làm bài".
-  const canReview = a.assignment.skill === 'speaking'
+  const canReviewCourse = a.assignment.skill === 'course' && a.submitted_at;
+  const canReviewSpeaking = a.assignment.skill === 'speaking'
     && (a.submitted_at || (a.is_missing && a.state !== 'assigned'));
+  const canReview = canReviewCourse || canReviewSpeaking;
   const btn = canReview
-    ? `<button class="av-button av-button-secondary" data-action="start" data-item="${esc(a.item_id)}">Xem lại bài</button>`
+    ? `<button class="av-button av-button-secondary" data-action="start" data-item="${esc(a.item_id)}">${canReviewCourse ? 'Xem kết quả' : 'Xem lại bài'}</button>`
     : (action && !a.is_missing)
       ? `<button class="av-button av-button-primary" data-action="start" data-item="${esc(a.item_id)}">${isPartial ? 'Tiếp tục bài' : 'Làm bài'}</button>`
       : '';
+  const closedNextStep = a.is_missing && !canReview
+    ? '<p class="mc-item-next-step">Hạn nộp đã đóng. Liên hệ giảng viên nếu bạn cần được mở lại bài.</p>'
+    : '';
   return `<article class="mc-item${a.is_missing ? ' is-missing' : ''}">
     <div class="mc-item-main">
       <div class="mc-item-meta">
@@ -160,6 +165,7 @@ function itemRow(a, { action }) {
       ${sub ? `<p class="mc-item-sub">${esc(sub)}</p>` : ''}
       <p class="mc-item-sub${a.is_missing ? ' is-alarm' : ''}">${meta}</p>
       ${a.assignment.instructions ? `<p class="mc-item-sub">${esc(a.assignment.instructions)}</p>` : ''}
+      ${closedNextStep}
     </div>
     ${btn}
   </article>`;
@@ -460,7 +466,17 @@ async function startAssignment(itemId, btn) {
     // trước — chính bài giao vừa được xác nhận ở lệnh /start là thứ cho phép
     // trang kia đọc được bank ấy.
     if (r && r.bank_id) {
-      window.location.href = '/course-exercises?bank=' + encodeURIComponent(r.bank_id);
+      window.location.href = '/course-exercises?bank=' + encodeURIComponent(r.bank_id)
+        + (r.review_only === true
+          ? '&view=writing&class_item=' + encodeURIComponent(r.item_id) : '');
+      return;
+    }
+
+    // A completed Speaking artifact belongs on the canonical result page. It
+    // is no longer a live player dependency, even if its historical renderer
+    // affinity was Legacy.
+    if (r && r.result_session_id) {
+      window.location.href = '/result?id=' + encodeURIComponent(r.result_session_id);
       return;
     }
 
@@ -567,7 +583,16 @@ function render() {
  *  result to decide whether a deadline refresh actually happened. */
 async function load() {
   try {
-    _data = await api.get('/api/class/me');
+    const nextData = await api.get('/api/class/me');
+    // The page contract is an object with an explicit boolean. A transient
+    // gateway/null body must use the existing visible load-error state instead
+    // of escaping the try block as `Cannot read ... has_class` from render().
+    if (!nextData || typeof nextData !== 'object'
+        || typeof nextData.has_class !== 'boolean') {
+      throw new Error('Máy chủ trả về dữ liệu lớp không hợp lệ.');
+    }
+    _data = nextData;
+    render();
   } catch (err) {
     $('mc-loading').hidden = true;
     $('mc-content').hidden = true;
@@ -576,7 +601,6 @@ async function load() {
       'error', { persist: true });
     return false;
   }
-  render();
   return true;
 }
 

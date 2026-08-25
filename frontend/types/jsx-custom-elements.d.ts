@@ -10,6 +10,17 @@ declare module 'react' {
       };
       'aver-admin-chrome': DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement> & {
         active?: string;
+        subsection?: string;
+        embed?: string;
+      };
+      'audio-player': DetailedHTMLProps<HTMLAttributes<HTMLElement>, HTMLElement> & {
+        src?: string;
+        'duration-hint'?: string | number;
+        'refetch-url'?: string;
+        'segment-start'?: string | number;
+        'segment-end'?: string | number;
+        'auto-loop'?: string;
+        compact?: string;
       };
     }
   }

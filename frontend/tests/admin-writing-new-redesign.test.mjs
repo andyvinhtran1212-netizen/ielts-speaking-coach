@@ -105,9 +105,8 @@ describe('admin-writing-new.html / submit JS contract preserved', () => {
     assert.match(html, /window\.api\.post\(\s*['"]\/admin\/writing\/essays['"]/);
   });
 
-  test('redirects to /pages/admin/writing/status.html?essay_id=… on success', () => {
-    if (USES_ADMIN_CHROME) return;  // Sprint 12.1 — chrome in shadow DOM
-    assert.match(html, /\/pages\/admin-writing-status\.html\?essay_id=/);
+  test('redirects to native /admin/writing/status?essay_id=… on success', () => {
+    assert.match(html, /\/admin\/writing\/status\?essay_id=/);
   });
 
   test('loadStudents calls GET /admin/students?limit=200', () => {

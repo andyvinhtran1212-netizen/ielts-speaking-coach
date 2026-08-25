@@ -277,6 +277,7 @@ def test_d3_patch_two_different_qnums_each_upserts_independently():
         MagicMock(data=[{
             "id": "a-uuid", "user_id": _USER["id"], "test_id": "t-uuid",
             "status": "in_progress",
+            "resume_expires_at": "2099-01-01T00:00:00+00:00",
         }])
     chain.select.return_value.eq.return_value.execute.return_value = \
         MagicMock(data=[{"q_num": 1}, {"q_num": 7}], count=2)
@@ -314,6 +315,7 @@ def test_d4_submit_fails_closed_on_unparseable_started_at():
     attempt_row = {
         "id": "a-uuid", "user_id": _USER["id"], "test_id": "t-uuid",
         "status": "in_progress",
+        "resume_expires_at": "2099-01-01T00:00:00+00:00",
         "started_at": "this is not a timestamp",   # corrupted
         "answers": [],
     }
@@ -343,6 +345,7 @@ def test_d4_submit_fails_closed_on_missing_started_at():
     attempt_row = {
         "id": "a-uuid", "user_id": _USER["id"], "test_id": "t-uuid",
         "status": "in_progress",
+        "resume_expires_at": "2099-01-01T00:00:00+00:00",
         # started_at intentionally absent
         "answers": [],
     }

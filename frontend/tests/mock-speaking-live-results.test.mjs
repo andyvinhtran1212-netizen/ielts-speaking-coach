@@ -78,7 +78,8 @@ describe('TRF học viên — Speaking là thẻ mở trang riêng (bản duyệ
   test('trang riêng gate đúng: thiếu sitting hay không có nhận xét đều báo rõ', () => {
     assert.match(SPR, /Thiếu mã lượt thi/);
     assert.match(SPR, /không có nhận xét Speaking/);
-    assert.match(SPR, /mock-result\.html\?sitting='/);
+    assert.match(SPR, /\/mock\/result\?sitting='/);
+    assert.doesNotMatch(SPR, /\/pages\/mock-result\.html\?sitting=/);
   });
 
   test('trang riêng NẠP supabase-js trước api.js', () => {

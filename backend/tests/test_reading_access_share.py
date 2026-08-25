@@ -197,6 +197,32 @@ def test_share_start_mints_anon_id_and_salted_src_no_raw_ip():
     assert row["anon_src"] and "203.0.113.9" not in row["anon_src"]   # salted, not raw IP
 
 
+def test_share_start_claim_v1_leaves_affinity_for_first_player_claim():
+    db = _DB({"reading_tests": [_shared_test()], "reading_test_attempts": []})
+    with patch("routers.reading_student.supabase_admin", db), \
+         patch.object(settings, "READING_ANON_SALT", "salt-x"):
+        r = _client().post(
+            "/api/reading/test/share/TOK/attempts",
+            json={"renderer_affinity_protocol": "claim-v1"},
+        )
+    assert r.status_code == 200
+    assert r.json()["renderer_affinity"] is None
+    row = [p for (t, p) in db.inserts if t == "reading_test_attempts"][0]
+    assert "renderer_affinity" in row
+    assert row["renderer_affinity"] is None
+
+
+def test_share_start_unversioned_client_uses_database_legacy_default():
+    db = _DB({"reading_tests": [_shared_test()], "reading_test_attempts": []})
+    with patch("routers.reading_student.supabase_admin", db), \
+         patch.object(settings, "READING_ANON_SALT", "salt-x"):
+        r = _client().post("/api/reading/test/share/TOK/attempts")
+    assert r.status_code == 200
+    assert r.json()["renderer_affinity"] == "legacy"
+    row = [p for (t, p) in db.inserts if t == "reading_test_attempts"][0]
+    assert "renderer_affinity" not in row
+
+
 # ── _fetch_attempt_owned: capability-token ownership ───────────────────
 
 def test_fetch_attempt_owned_anon_match_and_mismatch():
@@ -230,8 +256,9 @@ def test_fetch_attempt_owned_authed_requires_user_match():
 # ── anonymous review gated by anon_id (other anon_id → 403) ────────────
 
 def test_share_review_gated_by_anon_id_and_reveals_solution_to_owner():
+    attempt_id = "11111111-1111-4111-8111-111111111102"
     attempt = {
-        "id": "a1", "user_id": None, "anon_id": "SECRET", "test_id": "t-uuid",
+        "id": attempt_id, "user_id": None, "anon_id": "SECRET", "test_id": "t-uuid",
         "status": "submitted", "score": 0, "band_estimate": 4.0,
         "skill_breakdown": {}, "answers": [],
         "grading_details": [{"q_num": 1, "correct": False, "passage_order": 1}],
@@ -244,9 +271,9 @@ def test_share_review_gated_by_anon_id_and_reveals_solution_to_owner():
         "reading_questions": [_question_with_solution()],
     })
     with patch("routers.reading_student.supabase_admin", db):
-        bad = _client().get("/api/reading/test/attempts/a1/review",
+        bad = _client().get(f"/api/reading/test/attempts/{attempt_id}/review",
                             headers={"X-Reading-Anon": "OTHER"})
-        ok = _client().get("/api/reading/test/attempts/a1/review",
+        ok = _client().get(f"/api/reading/test/attempts/{attempt_id}/review",
                            headers={"X-Reading-Anon": "SECRET"})
     assert bad.status_code == 403                       # foreign anon_id can't review
     assert ok.status_code == 200

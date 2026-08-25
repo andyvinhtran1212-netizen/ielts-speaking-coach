@@ -55,6 +55,20 @@ def test_transcription_shape():
                                 "no_speech_prob"} <= set(out["segments"][0])
 
 
+def test_fixture_duration_clears_every_part_floor():
+    """A fixture submission must survive validate_audio_duration for EVERY
+    part — the 45.0s fixture silently 422'd all part-2 submissions on staging
+    (found by the Gate E real-device journey, 2026-08-19). Pin against the
+    real floor table so a future floor bump fails loud here, not on staging.
+    """
+    from services.audio_validation import MIN_DURATION_BY_PART, validate_audio_duration
+    out = provider_fixtures.fixture_transcription()
+    for part in MIN_DURATION_BY_PART:
+        validate_audio_duration(out["duration_seconds"], part)
+    assert out["duration_seconds"] > max(MIN_DURATION_BY_PART.values())
+    assert out["segments"][-1]["end"] == out["duration_seconds"]
+
+
 def test_pronunciation_shape():
     out = provider_fixtures.fixture_pronunciation()
     for key in ("pronunciation_score", "fluency_score", "accuracy_score",

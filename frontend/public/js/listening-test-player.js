@@ -76,6 +76,40 @@ const STATE = {
   sectionQCounts: {},         // section_num → question count (for tab "n/m")
 };
 
+function listeningRendererUrl(renderer) {
+  const path = renderer === 'legacy'
+    ? '/pages/listening-test.html'
+    : renderer === 'next'
+      ? '/listening/test/session'
+      : null;
+  if (!path) throw new Error('invalid-listening-renderer');
+  const source = new URLSearchParams(window.location.search);
+  const query = new URLSearchParams();
+  for (const key of ['id', 'sitting_id', 'mock_embed', 'from', 'class_item']) {
+    const value = source.get(key);
+    if (value) query.set(key, value);
+  }
+  if (!query.get('id') && STATE.testId) query.set('id', STATE.testId);
+  if (!query.get('id')) throw new Error('missing-listening-test-identity');
+  return `${path}?${query.toString()}`;
+}
+
+async function claimListeningRenderer(attemptId) {
+  const claim = await window.api.post(
+    `/api/listening/tests/attempts/${encodeURIComponent(attemptId)}/renderer-affinity`,
+    { renderer_affinity: 'legacy' },
+  );
+  const canonical = claim && claim.renderer_affinity;
+  if (canonical !== 'legacy' && canonical !== 'next') {
+    throw new Error('Renderer của attempt không hợp lệ.');
+  }
+  if (canonical !== 'legacy') {
+    window.location.replace(listeningRendererUrl(canonical));
+    return null;
+  }
+  return canonical;
+}
+
 // Derive the test's real shape (section count, total questions, q→section map,
 // per-section counts) from the loaded payload — NOT a hardcoded 4×10.
 function computeTestShape(test) {
@@ -235,6 +269,28 @@ async function loadTest(testId) {
     STATE.test   = test;
     computeTestShape(test);            // sets sectionCount / totalQuestions / qToSection / firstSection
     STATE.activeTab = STATE.firstSection;   // a mini may start at Section 3, not 1
+    const testType = test.test_type || 'full';
+    document.body.setAttribute('data-listening-mode', testType);
+    const kindLabel = testType === 'mini'
+      ? 'MINI LISTENING TEST'
+      : (testType === 'drill' || testType === 'practice')
+        ? 'LISTENING PRACTICE'
+        : 'FULL LISTENING TEST';
+    const kind = $('ft-kind');
+    if (kind) kind.textContent = kindLabel;
+    const practice = isPracticeTest(test);
+    const audioRule = $('ft-prestart-audio-rule');
+    const controlRule = $('ft-prestart-control-rule');
+    if (audioRule) {
+      audioRule.textContent = practice
+        ? 'Bạn có thể tạm dừng, tua và nghe lại audio để luyện tập chủ động.'
+        : 'Audio phát trong một lượt như đề thật — không tua, không phát lại từ đầu.';
+    }
+    if (controlRule) {
+      controlRule.textContent = practice
+        ? 'Thanh tiến độ cho phép quay lại đúng đoạn bạn muốn nghe thêm.'
+        : 'Kiểm tra âm lượng trước khi bắt đầu; trong lúc làm bài bạn chỉ có thể điều chỉnh âm lượng.';
+    }
     $('ft-title').textContent = test.title || test.test_id || 'Untitled';
     $('ft-subtitle').textContent =
       `${STATE.sectionCount} section${STATE.sectionCount > 1 ? 's' : ''} · ${STATE.totalQuestions} câu`;
@@ -294,6 +350,9 @@ async function detectResumable() {
     );
     const att = res && res.attempt;
     if (!att) return;
+    const affinity = await claimListeningRenderer(att.attempt_id);
+    if (!affinity) return;
+    att.renderer_affinity = affinity;
     STATE.resumable = att;
     const n = (att.answers || []).length;
     $('ft-resume-note').textContent = n
@@ -464,16 +523,21 @@ async function seekAudioToRoom() {
   }
 }
 
+function isPracticeTest(test) {
+  const tt = test && test.test_type;
+  return tt === 'mini' || tt === 'drill' || tt === 'practice';
+}
+
 async function startAttempt() {
   // 4-skill mock (mock_embed): skip the native confirm — it would pop from the
   // hidden child iframe, and a dismiss/block would leave the listening attempt
   // unattached. The parent's prep screen already confirmed the start.
   var _embed = window.MockHook && MockHook.embedded && MockHook.embedded();
   if (!_embed) {
-    const ok = window.confirm(
-      'Bắt đầu test? Audio sẽ phát ngay và không thể tua lại. ' +
-      'Bài thi sẽ kết thúc khi bạn nộp bài hoặc audio chạy hết.',
-    );
+    const ok = window.confirm(isPracticeTest(STATE.test)
+      ? 'Bắt đầu luyện nghe? Bạn có thể tạm dừng, tua và nghe lại audio trước khi nộp bài.'
+      : 'Bắt đầu test? Audio sẽ phát ngay và không thể tua lại. ' +
+        'Bài thi sẽ kết thúc khi bạn nộp bài hoặc audio chạy hết.');
     if (!ok) return;
   }
 
@@ -485,8 +549,10 @@ async function startAttempt() {
     const res = await window.api.post(
       `/api/listening/tests/${encodeURIComponent(STATE.testId)}/attempts`
         + (classItem ? `?class_item=${encodeURIComponent(classItem)}` : ''),
-      {},
+      { renderer_affinity_protocol: 'claim-v1' },
     );
+    const affinity = await claimListeningRenderer(res.attempt_id);
+    if (!affinity) return;
     STATE.attemptId = res.attempt_id;
     startNothingSavedWatch();
     // Mock sitting: link this attempt so its submit is sealed server-side.
@@ -1637,8 +1703,7 @@ function mountAudio() {
   // `practice` belongs here and not with `full`: a 40-second trap drill whose
   // whole point is hearing the trap again would be unusable under exam rules,
   // and resume-by-started_at would skip past the audio entirely.
-  const tt = STATE.test && STATE.test.test_type;
-  STATE.scrub = tt === 'mini' || tt === 'drill' || tt === 'practice';
+  STATE.scrub = isPracticeTest(STATE.test);
 
   // Sprint 13.5.5 — index cue points by tab so timeupdate can lazily
   // check whether to auto-advance the active tab (Cambridge-style:
@@ -1894,7 +1959,7 @@ function renderResult(result) {
   // libraries + the mock result, and would otherwise guess.
   const chuabai = $('res-chuabai');
   if (chuabai && STATE.attemptId) {
-    chuabai.href = '/pages/listening-review.html?attempt_id=' + encodeURIComponent(STATE.attemptId)
+    chuabai.href = '/listening/review?attempt_id=' + encodeURIComponent(STATE.attemptId)
       + '&from=' + originFromUrl();
   }
 

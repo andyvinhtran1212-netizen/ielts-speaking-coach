@@ -374,7 +374,7 @@
     const total = _state.cards.length;
     const k = _state.wikiBreakdown.known;
     const r = _state.wikiBreakdown.review;
-    const backHref = window.api.url('pages/vocabulary.html') + '#vocab-topics';
+    const backHref = window.api.url('vocabulary/hub') + '#vocab-topics';
     setHtml('study-container', `
       <div class="summary">
         <h2>Xong chủ đề ${escape(_state.categoryTitle)}!</h2>

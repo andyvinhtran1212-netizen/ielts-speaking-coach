@@ -98,14 +98,14 @@ describe('quiz.html — typo-tolerant accept shows the canonical spelling', () =
 describe('vocabulary back-nav consistency (Hub → Picker → Quiz/Stats)', () => {
   test('quiz.html: BOTH back controls target the picker, never the public word wiki', () => {
     // vocab branch of boot() sets top + end back to the same practice picker.
-    assert.match(QUIZ, /back\.href = '\/pages\/vocab-practice\.html'/);
-    assert.match(QUIZ, /topBack\.href = '\/pages\/vocab-practice\.html'/);
+    assert.match(QUIZ, /back\.href = '\/vocabulary\/practice'/);
+    assert.match(QUIZ, /topBack\.href = '\/vocabulary\/practice'/);
     // The old ambiguous "back to /vocabulary.html (public wiki)" is gone.
     assert.doesNotMatch(QUIZ, /href="\/vocabulary\.html"/);
     assert.doesNotMatch(QUIZ, /\.href = '\/vocabulary\.html'/);
   });
   test('quiz-progress.html back → the picker (not the public wiki)', () => {
-    assert.match(PROG, /subpage-header__back" href="\/pages\/vocab-practice\.html"/);
+    assert.match(PROG, /subpage-header__back" href="\/vocabulary\/practice"/);
     assert.doesNotMatch(PROG, /subpage-header__back" href="\/vocabulary\.html"/);
   });
 });

@@ -27,6 +27,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let html;
 let css;
+let behavior;
+let shell;
 
 before(() => {
   html = readFileSync(
@@ -35,6 +37,14 @@ before(() => {
   );
   css = readFileSync(
     path.join(__dirname, '..', 'css', 'writing-dashboard.css'),
+    'utf8',
+  );
+  behavior = readFileSync(
+    path.join(__dirname, '..', 'app', '(authed-writing)', 'writing', 'dashboard', 'writing-behavior.tsx'),
+    'utf8',
+  );
+  shell = readFileSync(
+    path.join(__dirname, '..', 'app', '(authed-writing)', 'writing', 'dashboard', 'page-shell.tsx'),
     'utf8',
   );
 });
@@ -197,6 +207,42 @@ describe('writing-dashboard.html / state container IDs', () => {
   });
 });
 
+describe('/writing/dashboard — idempotent submit and account lifecycle', () => {
+  test('both stacks load the shared account-keyed submit receipt', () => {
+    assert.match(html, /writing-submit-receipt\.js/);
+    assert.match(behavior, /WritingSubmitReceipt/);
+    assert.match(behavior, /request_id: receipt\.requestId/);
+    assert.match(behavior, /\/submission\?request_id=/);
+  });
+
+  test('Next account switches cancel stale work and hide prior learner data', () => {
+    assert.doesNotMatch(behavior, /ranRef/);
+    assert.match(behavior, /const generation = ps\.generation \+ 1/);
+    assert.match(behavior, /ps\.generation !== generation/);
+    assert.match(behavior, /ms\.accountId === user\.id/);
+    assert.match(behavior, /ms\.accountId === accountId && ms\.assignmentId === assignmentId/);
+    assert.match(behavior, /setupAntiPaste\(textarea, ms, on\)/);
+    assert.match(behavior, /wireEssayFilterTabs\(ps, on\)/);
+    assert.match(behavior, /ps\.allEssays = \[\]/);
+    assert.match(behavior, /assignmentsList\.innerHTML = '<p class="text-sm py-8 text-center"/);
+  });
+
+  test('a superseded receipt is cleared and canonical lists are reloaded', () => {
+    assert.match(behavior, /statusCode\(err\) === 409/);
+    assert.match(behavior, /helper\.remove\(accountId, receipt\.assignmentId\)/);
+    assert.match(behavior, /Bài đã được nộp ở một tab khác/);
+    assert.match(html, /WritingSubmitReceipt\.remove\(accountId, pending\[i\]\.assignmentId\)/);
+  });
+
+  test('load failures preserve actionable 4xx copy but hide raw transport errors', () => {
+    assert.match(behavior, /function loadFailureMessage/);
+    assert.match(behavior, /status === 403 && message/);
+    assert.match(behavior, /Không tải được bài giao\. Vui lòng thử lại\./);
+    assert.match(behavior, /Không tải được bài viết\. Vui lòng thử lại\./);
+    assert.doesNotMatch(behavior, /Không tải được bài giao: ' \+/);
+  });
+});
+
 
 describe('writing-dashboard.html / 2-tab nav contract (Phase 2.3b)', () => {
   test('2 primary tabs preserved with their inline JS IDs', () => {
@@ -296,6 +342,7 @@ describe('writing-dashboard.html / submit modal IDs (Sprint 2.6.1)', () => {
       'modal-close',
       'modal-loading',
       'modal-content',
+      'modal-workspace',
       'modal-timer',
       'modal-timer-total',
       'modal-timer-display',
@@ -305,8 +352,6 @@ describe('writing-dashboard.html / submit modal IDs (Sprint 2.6.1)', () => {
       'modal-prompt-text',
       'modal-instructions',
       'modal-instructions-text',
-      'modal-file-input',
-      'modal-upload-status',
       'modal-essay-textarea',
       'modal-word-counter',
       'modal-save-status',
@@ -408,7 +453,7 @@ describe('writing-dashboard.html / color migration', () => {
     );
   });
 
-  test('Vietnamese microcopy lifted from existing page (no drift)', () => {
+  test('core Vietnamese workflow microcopy remains explicit', () => {
     for (const phrase of [
       // "Đăng xuất" microcopy now lives inside <aver-chrome> shadow root
       // (Sprint 7.12); page-level body microcopy pinned below.
@@ -427,14 +472,73 @@ describe('writing-dashboard.html / color migration', () => {
       'Em chưa có bài viết nào',
       'Làm bài',
       'Lưu bản nháp',
-      'Nộp bài',
-      'IELTS-mode',
+      'Kiểm tra và nộp bài',
+      'Bài viết có giới hạn thời gian',
+      'Mục tiêu tối thiểu',
     ]) {
       assert.ok(
         html.includes(phrase),
         `microcopy "${phrase}" must be preserved verbatim`,
       );
     }
+  });
+});
+
+describe('writing-dashboard.html / learner writing workspace', () => {
+  test('composition hierarchy keeps prompt, editor, progress, and final actions distinct', () => {
+    for (const className of [
+      'wd-compose-header',
+      'wd-modal-pane-left',
+      'wd-editor-toolbar',
+      'wd-word-progress',
+      'wd-modal-footer',
+    ]) {
+      assert.match(html, new RegExp(`class="[^"]*\\b${className}\\b`));
+    }
+  });
+
+  test('word guide derives the IELTS minimum from canonical task_type', () => {
+    assert.match(html, /textarea\.dataset\.wordTarget\s*=\s*prompt\.task_type\s*===\s*['"]task2['"]\s*\?\s*['"]250['"]\s*:\s*['"]150['"]/);
+    assert.match(html, /id="modal-word-target"/);
+    assert.match(html, /id="modal-word-progress"/);
+  });
+
+  test('full-screen composition surface exposes dialog semantics', () => {
+    const modal = html.match(/<div\b[^>]*id="submit-modal"[^>]*>/);
+    assert.ok(modal);
+    assert.match(modal[0], /role="dialog"/);
+    assert.match(modal[0], /aria-modal="true"/);
+    assert.match(modal[0], /aria-labelledby="modal-title"/);
+  });
+
+  test('dialog keyboard flow closes on Escape, traps Tab, and restores focus', () => {
+    assert.match(html, /function trapSubmitModalFocus\(ev\)/);
+    assert.match(html, /ev\.key\s*!==\s*['"]Tab['"]/);
+    assert.match(html, /ev\.key\s*!==\s*['"]Escape['"]/);
+    assert.match(html, /modalState\.returnFocus\s*=\s*document\.activeElement/);
+    assert.match(html, /returnFocus\.focus\(\)/);
+  });
+
+  test('dialog takes focus while loading and recovers focus that escapes the modal', () => {
+    for (const source of [html, behavior]) {
+      assert.match(source, /initialFocus\??\.focus\(\)/);
+      assert.match(source, /!modal\.contains\(document\.activeElement\)/);
+      assert.match(source, /\(ev\.shiftKey \? last : first\)\.focus\(\)/);
+    }
+  });
+
+  test('learner composition no longer exposes file import UI or upload behavior', () => {
+    for (const source of [html, behavior, shell, css]) {
+      assert.doesNotMatch(source, /modal-file-(?:trigger|input)/);
+      assert.doesNotMatch(source, /modal-upload-status/);
+      assert.doesNotMatch(source, /wd-(?:editor-import|modal-file-label)/);
+      assert.doesNotMatch(source, /\/api\/writing\/extract-text/);
+    }
+  });
+
+  test('word guide describes the editor without announcing every keystroke', () => {
+    assert.match(html, /id="modal-essay-textarea"[^>]*aria-describedby="modal-word-target"/s);
+    assert.doesNotMatch(html, /class="wd-word-progress"[^>]*aria-live/);
   });
 });
 
@@ -654,6 +758,8 @@ describe('writing-dashboard / Sprint 19.1A refinement', () => {
     assert.match(html, /function\s+renderDeadlines\s*\(/);
     assert.match(html, /function\s+formatDeadline\s*\(/);
     assert.match(html, /renderDeadlines\(active\)/);
+    assert.match(behavior, /deadline\s*>=\s*Date\.now\(\)/,
+      '“Bài sắp đến hạn” không được trộn bài đã quá hạn');
   });
 
   test('D3: per-card .docx download affordance wired', () => {
@@ -813,13 +919,24 @@ describe('writing-dashboard.html / W-UI 2-pane submit modal', () => {
     assert.match(left[0], /id="modal-instructions"/);
   });
 
-  test('khung viết (textarea + timer + upload + submit) on the RIGHT pane', () => {
+  test('khung viết (textarea + timer + progress + submit) on the RIGHT pane', () => {
     const right = html.match(/wd-modal-pane-right[\s\S]*?<\/textarea>[\s\S]*?modal-btn-submit[\s\S]*?<\/div>\s*<\/div>/);
     assert.ok(right, 'right pane not found');
     assert.match(right[0], /id="modal-essay-textarea"/);
     assert.match(right[0], /id="modal-timer"/);
-    assert.match(right[0], /id="modal-file-input"/);
+    assert.doesNotMatch(right[0], /id="modal-file-input"/);
     assert.match(right[0], /id="modal-word-counter"/);
+  });
+
+  test('Task 1 image expands the prompt pane and viewport-bounds the chart', () => {
+    for (const source of [html, behavior]) {
+      assert.match(source, /modal-workspace/);
+      assert.match(source, /has-prompt-image/);
+    }
+    assert.match(shell, /alt="Biểu đồ hoặc hình minh họa của đề Writing Task 1"/);
+    assert.match(html, /alt="Biểu đồ hoặc hình minh họa của đề Writing Task 1"/);
+    assert.match(css, /\.wd-modal-2pane\.has-prompt-image\s*\{[\s\S]*?1\.1fr[\s\S]*?0\.9fr/);
+    assert.match(css, /\.has-prompt-image \.wd-modal-prompt__image\s*\{[\s\S]*?max-height:\s*min\(58dvh, 40rem\)/);
   });
 
   test('layout-only: 7 anti-spellcheck attrs preserved on the textarea', () => {

@@ -28,6 +28,10 @@ from fastapi import HTTPException
 
 from routers import listening as listening_router
 
+EXERCISE_ONE = "00000000-0000-0000-0000-000000000101"
+EXERCISE_TWO = "00000000-0000-0000-0000-000000000102"
+EXERCISE_MISSING = "00000000-0000-0000-0000-000000000199"
+
 
 # ── _validate_dictation_segments unit tests ──────────────────────────
 
@@ -104,6 +108,31 @@ def test_validate_segments_rejects_empty_list():
     assert exc.value.status_code == 422
 
 
+def test_validate_segments_rejects_more_than_editor_limit():
+    segments = [
+        {"idx": i, "start_sec": i, "end_sec": i + 1, "transcript": f"Segment {i}"}
+        for i in range(listening_router.MAX_LISTENING_SEGMENTS + 1)
+    ]
+    with pytest.raises(HTTPException) as exc:
+        listening_router._validate_dictation_segments(
+            segments,
+            audio_duration_seconds=len(segments) + 1,
+        )
+    assert exc.value.status_code == 422
+    assert str(listening_router.MAX_LISTENING_SEGMENTS) in str(exc.value.detail)
+
+
+def test_timestamp_comparison_accepts_equivalent_postgres_serializations():
+    assert listening_router._same_timestamp(
+        "2026-08-14T00:00:00.100000+00:00",
+        "2026-08-14T00:00:00.1Z",
+    )
+    assert not listening_router._same_timestamp(
+        "2026-08-14T00:00:00.1+00:00",
+        "2026-08-14T00:00:01.1+00:00",
+    )
+
+
 def test_validate_segments_rejects_bad_field_types():
     segs = [{"idx": "zero", "start_sec": 0, "end_sec": 3, "transcript": "a"}]
     with pytest.raises(HTTPException) as exc:
@@ -131,6 +160,10 @@ class _FakeRes:
         self.count = count
 
 
+class _StructuredUniqueViolation(Exception):
+    code = "23505"
+
+
 class _FakeTableQuery:
     """Extended Sprint 11.3 — supports .update() in addition to .insert()."""
 
@@ -146,6 +179,7 @@ class _FakeTableQuery:
 
     def select(self, *_a, count=None, **_k):
         self._count_mode = count
+        self._parent.selects.append((self._table, _a[0] if _a else None))
         return self
 
     def limit(self, *_a, **_k): return self
@@ -174,17 +208,43 @@ class _FakeTableQuery:
 
     def execute(self):
         if self._insert is not None:
+            if self._parent.concurrent_insert_row is not None:
+                winner = self._parent.concurrent_insert_row
+                self._parent.concurrent_insert_row = None
+                self._parent.canned.setdefault(self._table, []).append(winner)
+                raise _StructuredUniqueViolation("conflict")
+            if self._parent.unique_violation_on_insert == "structured":
+                raise _StructuredUniqueViolation("conflict")
+            if self._parent.unique_violation_on_insert:
+                raise RuntimeError("23505 duplicate key unique constraint")
+            if self._parent.drop_inserts:
+                return _FakeRes([])
+            self._parent.canned.setdefault(self._table, []).append(self._insert)
             return _FakeRes([self._insert])
         if self._update is not None:
             # Apply update to matching rows so subsequent reads see the change.
             rows = list(self._parent.canned.get(self._table, []))
-            for r in rows:
-                if all(r.get(c) == v for c, v in self._filters):
-                    r.update(self._update)
-            return _FakeRes([self._update])
+            matched = [r for r in rows if all(r.get(c) == v for c, v in self._filters)]
+            if self._parent.unique_violation_on_update:
+                raise _StructuredUniqueViolation("concurrent publication conflict")
+            if self._parent.drop_updates:
+                return _FakeRes([])
+            for r in matched:
+                r.update(self._update)
+            return _FakeRes(matched)
         rows = list(self._parent.canned.get(self._table, []))
         for col, val in self._filters:
-            rows = [r for r in rows if r.get(col) == val]
+            rows = [
+                r for r in rows
+                if (
+                    listening_router._same_timestamp(r.get(col), val)
+                    if col == "updated_at"
+                    else r.get(col) == val
+                )
+            ]
+        if self._order is not None:
+            col, desc = self._order
+            rows.sort(key=lambda row: row.get(col), reverse=desc)
         total = len(rows)
         if self._range is not None:
             lo, hi = self._range
@@ -214,6 +274,12 @@ class _FakeAdminClient:
         self.canned = canned or {}
         self.inserts: list[tuple] = []
         self.updates: list[tuple] = []
+        self.selects: list[tuple[str, str | None]] = []
+        self.drop_updates = False
+        self.drop_inserts = False
+        self.unique_violation_on_insert = False
+        self.unique_violation_on_update = False
+        self.concurrent_insert_row: dict | None = None
         self.storage = _FakeStorage(self)
 
     def table(self, name):
@@ -249,6 +315,7 @@ def _content_row(content_id="c1", duration=15):
         "audio_duration_seconds": duration,
         "transcript": "Hello world.",
         "audio_storage_path": f"ai/{content_id}.mp3",
+        "updated_at": "2026-08-14T00:00:00+00:00",
     }
 
 
@@ -282,6 +349,20 @@ def test_admin_exercise_upsert_creates_new(monkeypatch):
     assert len(inserts[0]["segments"]) == 2
 
 
+def test_admin_exercise_dictation_save_requires_explicit_segments(monkeypatch):
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": []})
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_type="dictation", status="published",
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    assert exc.value.status_code == 422
+    assert fake.inserts == []
+
+
 def test_admin_exercise_upsert_updates_existing(monkeypatch):
     fake = _FakeAdminClient({
         "listening_content": [_content_row()],
@@ -289,8 +370,10 @@ def test_admin_exercise_upsert_updates_existing(monkeypatch):
             "id": "ex-existing",
             "content_id": "c1",
             "exercise_type": "dictation",
+            "order_num": 1,
             "status": "draft",
             "segments": [],
+            "updated_at": "2026-08-14T00:00:00+00:00",
         }],
     })
     _patch_admin_client(monkeypatch, fake)
@@ -309,6 +392,521 @@ def test_admin_exercise_upsert_updates_existing(monkeypatch):
     assert [t for t, _ in fake.inserts if t == "listening_exercises"] == []
     updates = [u for u in fake.updates if u[0] == "listening_exercises"]
     assert len(updates) == 1
+
+
+def test_lazy_dictation_create_adopts_concurrent_order_one_winner(monkeypatch):
+    fake = _FakeAdminClient({"listening_exercises": []})
+    fake.concurrent_insert_row = {
+        "id": EXERCISE_ONE,
+        "content_id": "c1",
+        "exercise_type": "dictation",
+        "order_num": 1,
+        "status": "published",
+    }
+    _patch_admin_client(monkeypatch, fake)
+
+    assert listening_router._ensure_dictation_exercise("c1") == EXERCISE_ONE
+    assert len([payload for table, payload in fake.inserts if table == "listening_exercises"]) == 1
+
+
+def test_lazy_dictation_create_adopts_existing_authored_block_at_another_order(monkeypatch):
+    fake = _FakeAdminClient({"listening_exercises": [{
+        "id": EXERCISE_TWO,
+        "content_id": "c1",
+        "exercise_type": "dictation",
+        "order_num": 2,
+        "status": "published",
+    }]})
+    _patch_admin_client(monkeypatch, fake)
+
+    assert listening_router._ensure_dictation_exercise("c1") == EXERCISE_TWO
+    assert [payload for table, payload in fake.inserts if table == "listening_exercises"] == []
+
+
+def test_lazy_dictation_create_uses_lowest_authored_order(monkeypatch):
+    fake = _FakeAdminClient({"listening_exercises": [
+        {
+            "id": EXERCISE_TWO,
+            "content_id": "c1",
+            "exercise_type": "dictation",
+            "order_num": 2,
+            "status": "published",
+        },
+        {
+            "id": EXERCISE_ONE,
+            "content_id": "c1",
+            "exercise_type": "dictation",
+            "order_num": 1,
+            "status": "published",
+        },
+    ]})
+    _patch_admin_client(monkeypatch, fake)
+
+    assert listening_router._ensure_dictation_exercise("c1") == EXERCISE_ONE
+    assert fake.inserts == []
+
+
+def test_lazy_dictation_create_persists_explicit_empty_segments(monkeypatch):
+    fake = _FakeAdminClient({"listening_exercises": []})
+    _patch_admin_client(monkeypatch, fake)
+
+    listening_router._ensure_dictation_exercise("c1")
+    insert = [payload for table, payload in fake.inserts if table == "listening_exercises"][0]
+    assert insert["segments"] == []
+
+
+def test_admin_exercise_versioned_update_targets_exact_block(monkeypatch):
+    first = {
+        "id": EXERCISE_ONE, "content_id": "c1", "exercise_type": "dictation",
+        "order_num": 1, "status": "draft", "segments": _good_segments(),
+        "updated_at": "2026-08-14T00:00:00+00:00",
+    }
+    second = {
+        "id": EXERCISE_TWO, "content_id": "c1", "exercise_type": "dictation",
+        "order_num": 2, "status": "published", "segments": _good_segments(),
+        "updated_at": "2026-08-14T00:00:00+00:00",
+    }
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [first, second]})
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_id=EXERCISE_TWO, exercise_type="dictation",
+        order_num=2, segments=_good_segments(), status="draft",
+        expected_updated_at=second["updated_at"],
+    )
+    out = _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+
+    assert out["exercise_id"] == EXERCISE_TWO
+    assert first["status"] == "draft"
+    assert first["updated_at"] == "2026-08-14T00:00:00+00:00"
+    assert second["status"] == "draft"
+    assert second["updated_at"] != "2026-08-14T00:00:00+00:00"
+
+
+def test_admin_exercise_versioned_update_rejects_stale_block(monkeypatch):
+    row = {
+        "id": EXERCISE_ONE, "content_id": "c1", "exercise_type": "dictation",
+        "order_num": 1, "status": "draft", "segments": _good_segments(),
+        "updated_at": "2026-08-14T00:00:00+00:00",
+    }
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [row]})
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_id=EXERCISE_ONE, exercise_type="dictation",
+        order_num=1, segments=_good_segments(), expected_updated_at="stale",
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    assert exc.value.status_code == 409
+    assert fake.updates == []
+
+
+def test_admin_exercise_expected_absent_rejects_existing_order_block(monkeypatch):
+    row = {
+        "id": "ex-1", "content_id": "c1", "exercise_type": "dictation",
+        "order_num": 1, "status": "draft", "segments": _good_segments(),
+        "updated_at": "2026-08-14T00:00:00+00:00",
+    }
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [row]})
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_type="dictation", order_num=1,
+        segments=_good_segments(), expected_absent=True,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    assert exc.value.status_code == 409
+    assert fake.inserts == []
+
+
+def test_admin_exercise_rejects_standalone_mcq_on_importer_content(monkeypatch):
+    imported_content = {**_content_row(), "test_id": "test-uuid"}
+    fake = _FakeAdminClient({"listening_content": [imported_content], "listening_exercises": []})
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_type="mcq", order_num=1,
+        payload={"questions": []}, expected_absent=True,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    assert exc.value.status_code == 409
+    assert "importer" in str(exc.value.detail)
+    assert fake.inserts == []
+
+
+def test_admin_exercise_atomic_version_race_is_conflict(monkeypatch):
+    row = {
+        "id": EXERCISE_ONE, "content_id": "c1", "exercise_type": "dictation",
+        "order_num": 1, "status": "draft", "segments": _good_segments(),
+        "updated_at": "2026-08-14T00:00:00+00:00",
+    }
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [row]})
+    fake.drop_updates = True
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_id=EXERCISE_ONE, exercise_type="dictation",
+        order_num=1, segments=_good_segments(), expected_updated_at=row["updated_at"],
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    assert exc.value.status_code == 409
+
+
+def test_admin_exercise_exact_update_requires_version(monkeypatch):
+    row = {
+        "id": EXERCISE_ONE, "content_id": "c1", "exercise_type": "dictation",
+        "order_num": 1, "status": "draft", "segments": _good_segments(),
+        "updated_at": "2026-08-14T00:00:00+00:00",
+    }
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [row]})
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_id=EXERCISE_ONE, exercise_type="dictation",
+        order_num=1, segments=_good_segments(),
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    assert exc.value.status_code == 422
+    assert fake.updates == []
+
+
+def test_admin_exercise_exact_update_rejects_non_uuid_identity(monkeypatch):
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": []})
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_id="not-a-uuid", exercise_type="dictation",
+        order_num=1, segments=_good_segments(),
+        expected_updated_at="2026-08-14T00:00:00+00:00",
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    assert exc.value.status_code == 422
+    assert fake.updates == []
+
+
+def test_admin_exercise_exact_missing_never_falls_through_to_create(monkeypatch):
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": []})
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_id=EXERCISE_MISSING, exercise_type="dictation",
+        order_num=1, segments=_good_segments(),
+        expected_updated_at="2026-08-14T00:00:00+00:00",
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    assert exc.value.status_code == 409
+    assert fake.inserts == []
+
+
+def test_admin_exercise_exact_identity_mismatch_is_conflict(monkeypatch):
+    row = {
+        "id": EXERCISE_ONE, "content_id": "other", "exercise_type": "dictation",
+        "order_num": 2, "status": "draft", "segments": _good_segments(),
+        "updated_at": "2026-08-14T00:00:00+00:00",
+    }
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [row]})
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_id=EXERCISE_ONE, exercise_type="dictation",
+        order_num=1, segments=_good_segments(), expected_updated_at=row["updated_at"],
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    assert exc.value.status_code == 409
+    assert fake.updates == []
+
+
+def test_admin_exercise_segments_only_update_preserves_existing_payload(monkeypatch):
+    row = {
+        "id": EXERCISE_ONE, "content_id": "c1", "exercise_type": "dictation",
+        "order_num": 1, "status": "draft", "segments": _good_segments(),
+        "payload": {"instructions": "Keep me", "tolerance": 0.8},
+        "updated_at": "2026-08-14T00:00:00+00:00",
+    }
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [row]})
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_id=EXERCISE_ONE, exercise_type="dictation",
+        order_num=1, segments=_good_segments(), expected_updated_at=row["updated_at"],
+    )
+
+    _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    assert row["payload"] == {"instructions": "Keep me", "tolerance": 0.8}
+    assert fake.updates[-1][2]["payload"] == row["payload"]
+
+
+def test_admin_exercise_archived_status_round_trips(monkeypatch):
+    row = {
+        "id": EXERCISE_ONE, "content_id": "c1", "exercise_type": "dictation",
+        "order_num": 1, "status": "published", "segments": _good_segments(),
+        "updated_at": "2026-08-14T00:00:00+00:00",
+    }
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [row]})
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_id=EXERCISE_ONE, exercise_type="dictation",
+        order_num=1, segments=_good_segments(), status="archived",
+        expected_updated_at=row["updated_at"],
+    )
+
+    out = _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    listed = _run(listening_router.admin_list_listening_exercises(
+        content_id="c1", exercise_type="dictation", authorization=authz,
+    ))
+    assert out["exercise_id"] == EXERCISE_ONE
+    assert listed["exercises"][0]["status"] == "archived"
+
+
+def test_admin_exercise_legacy_upsert_is_order_scoped(monkeypatch):
+    first = {
+        "id": "legacy-1", "content_id": "c1", "exercise_type": "dictation",
+        "order_num": 1, "status": "draft", "segments": _good_segments(),
+        "updated_at": "2026-08-14T00:00:00+00:00",
+    }
+    second = {
+        "id": "legacy-2", "content_id": "c1", "exercise_type": "dictation",
+        "order_num": 2, "status": "draft", "segments": _good_segments(),
+        "updated_at": "2026-08-14T00:00:00+00:00",
+    }
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [first, second]})
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_type="dictation", order_num=2,
+        segments=_good_segments(), status="published",
+    )
+
+    out = _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    assert out["exercise_id"] == "legacy-2"
+    assert first["status"] == "draft"
+    assert second["status"] == "published"
+
+
+def test_admin_exercise_legacy_implicit_order_updates_imported_block(monkeypatch):
+    imported = {
+        "id": "legacy-gist-3", "content_id": "c1", "exercise_type": "gist",
+        "order_num": 3, "status": "draft",
+        "payload": {"prompt_text": "Old prompt", "model_answer": "Old answer"},
+        "updated_at": "2026-08-14T00:00:00+00:00",
+    }
+    fake = _FakeAdminClient({
+        "listening_content": [_content_row()],
+        "listening_exercises": [imported],
+    })
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1",
+        exercise_type="gist",
+        payload={"prompt_text": "New prompt", "model_answer": "New answer"},
+        status="published",
+    )
+
+    out = _run(listening_router.admin_upsert_listening_exercise(
+        body=body,
+        authorization=authz,
+    ))
+    assert out["created"] is False
+    assert out["exercise_id"] == "legacy-gist-3"
+    assert imported["order_num"] == 3
+    assert imported["payload"]["prompt_text"] == "New prompt"
+    assert fake.inserts == []
+
+
+@pytest.mark.parametrize(
+    "exercise_type,payload",
+    [
+        ("gist", {"prompt_text": "Question", "model_answer": "Answer"}),
+        ("true_false", {"statements": [
+            {"idx": 0, "text": "One", "answer": "T"},
+            {"idx": 1, "text": "Two", "answer": "F"},
+            {"idx": 2, "text": "Three", "answer": "NG"},
+        ]}),
+        ("mcq", {"questions": [{
+            "idx": 0,
+            "stem": "Question",
+            "options": ["A", "B", "C", "D"],
+            "answer_idx": 0,
+        }]}),
+    ],
+)
+def test_admin_exercise_rejects_second_published_standalone_block(
+    monkeypatch, exercise_type, payload,
+):
+    live = {
+        "id": EXERCISE_ONE,
+        "content_id": "c1",
+        "exercise_type": exercise_type,
+        "order_num": 1,
+        "status": "published",
+        "payload": payload,
+        "updated_at": "2026-08-14T00:00:00+00:00",
+    }
+    fake = _FakeAdminClient({
+        "listening_content": [_content_row()],
+        "listening_exercises": [live],
+    })
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1",
+        exercise_type=exercise_type,
+        order_num=2,
+        payload=payload,
+        status="published",
+        expected_absent=True,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(
+            body=body,
+            authorization=authz,
+        ))
+    assert exc.value.status_code == 409
+    assert "Only one published" in str(exc.value.detail)
+    assert fake.inserts == []
+
+
+def test_admin_exercise_expected_absent_requires_explicit_order(monkeypatch):
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": []})
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1",
+        exercise_type="dictation",
+        segments=_good_segments(),
+        expected_absent=True,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(
+            body=body,
+            authorization=authz,
+        ))
+    assert exc.value.status_code == 422
+    assert fake.inserts == []
+
+
+def test_admin_exercise_unconfirmed_legacy_update_never_returns_success(monkeypatch):
+    row = {
+        "id": "legacy-1", "content_id": "c1", "exercise_type": "dictation",
+        "order_num": 1, "status": "draft", "segments": _good_segments(),
+        "updated_at": "2026-08-14T00:00:00+00:00",
+    }
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": [row]})
+    fake.drop_updates = True
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_type="dictation", order_num=1,
+        segments=_good_segments(),
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    assert exc.value.status_code == 500
+
+
+def test_admin_exercise_concurrent_create_unique_violation_is_conflict(monkeypatch):
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": []})
+    fake.unique_violation_on_insert = True
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_type="dictation", order_num=1,
+        segments=_good_segments(), expected_absent=True,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    assert exc.value.status_code == 409
+
+
+def test_admin_exercise_concurrent_publish_unique_violation_is_conflict(monkeypatch):
+    row = {
+        "id": EXERCISE_ONE,
+        "content_id": "c1",
+        "exercise_type": "gist",
+        "order_num": 1,
+        "status": "draft",
+        "payload": {"prompt_text": "Question", "model_answer": "Answer"},
+        "updated_at": "2026-08-14T00:00:00+00:00",
+    }
+    fake = _FakeAdminClient({
+        "listening_content": [_content_row()],
+        "listening_exercises": [row],
+    })
+    fake.unique_violation_on_update = True
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1",
+        exercise_id=EXERCISE_ONE,
+        exercise_type="gist",
+        order_num=1,
+        payload={"prompt_text": "Question", "model_answer": "Answer"},
+        status="published",
+        expected_updated_at=row["updated_at"],
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(
+            body=body,
+            authorization=authz,
+        ))
+
+    assert exc.value.status_code == 409
+    assert "concurrently" in str(exc.value.detail)
+
+
+def test_admin_exercise_unconfirmed_insert_never_returns_success(monkeypatch):
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": []})
+    fake.drop_inserts = True
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_type="dictation", order_num=1,
+        segments=_good_segments(), expected_absent=True,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    assert exc.value.status_code == 500
+    assert fake.canned["listening_exercises"] == []
+
+
+def test_admin_exercise_structured_unique_violation_is_conflict_for_legacy_caller(monkeypatch):
+    fake = _FakeAdminClient({"listening_content": [_content_row()], "listening_exercises": []})
+    fake.unique_violation_on_insert = "structured"
+    _patch_admin_client(monkeypatch, fake)
+    authz = _patch_admin_auth(monkeypatch)
+    body = listening_router.ListeningExerciseUpsertRequest(
+        content_id="c1", exercise_type="dictation", order_num=1,
+        segments=_good_segments(),
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.admin_upsert_listening_exercise(body=body, authorization=authz))
+    assert exc.value.status_code == 409
 
 
 def test_admin_exercise_upsert_rejects_bad_segments(monkeypatch):
@@ -366,17 +964,23 @@ def test_admin_exercise_upsert_rejects_unknown_type(monkeypatch):
 def test_admin_list_exercises_sees_drafts(monkeypatch):
     canned = {"listening_exercises": [
         {"id": "ex-1", "content_id": "c1", "exercise_type": "dictation",
-         "status": "draft",     "order_num": 1},
+         "status": "draft", "order_num": 1, "segments": _good_segments(),
+         "updated_at": "2026-08-14T00:00:00+00:00"},
         {"id": "ex-2", "content_id": "c1", "exercise_type": "dictation",
-         "status": "published", "order_num": 2},
+         "status": "published", "order_num": 2, "segments": _good_segments(),
+         "updated_at": "2026-08-14T00:00:00+00:00"},
     ]}
-    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
+    fake = _FakeAdminClient(canned)
+    _patch_admin_client(monkeypatch, fake)
     authz = _patch_admin_auth(monkeypatch)
 
     out = _run(listening_router.admin_list_listening_exercises(
         content_id="c1", exercise_type="dictation", authorization=authz,
     ))
     assert len(out["exercises"]) == 2
+    required = {"id", "content_id", "exercise_type", "order_num", "status", "updated_at", "segments"}
+    assert required.issubset(out["exercises"][0])
+    assert ("listening_exercises", "*") in fake.selects
 
 
 def test_user_list_exercises_published_only(monkeypatch):
@@ -434,6 +1038,7 @@ def test_admin_delete_exercise_soft_archives(monkeypatch):
     # Soft-delete = UPDATE with status='archived', NOT a DELETE.
     updates = [u for u in fake.updates if u[0] == "listening_exercises"]
     assert any(u[2].get("status") == "archived" for u in updates)
+    assert any(u[2].get("updated_at") for u in updates)
 
 
 def test_admin_delete_exercise_404_when_missing(monkeypatch):

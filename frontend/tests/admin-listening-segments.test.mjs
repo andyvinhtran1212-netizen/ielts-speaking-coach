@@ -86,6 +86,9 @@ describe('Sprint 11.3 — admin segment editor JS contract', () => {
     assert.match(JS, /content_id:\s*STATE\.contentId/);
     assert.match(JS, /exercise_type:\s*['"]dictation['"]/);
     assert.match(JS, /segments,/);
+    assert.match(JS, /order_num:\s*STATE\.exerciseOrder/);
+    assert.match(JS, /payload\.exercise_id = STATE\.exerciseId/);
+    assert.match(JS, /payload\.expected_updated_at = STATE\.exerciseUpdatedAt/);
   });
 
   it('parses mm:ss.s timestamps + formats back to mm:ss.s', () => {

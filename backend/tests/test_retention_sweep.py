@@ -177,6 +177,44 @@ def test_live_audio_writes_and_storage_first_ordering(monkeypatch):
     assert "audio_purged_at" in calls[sess_updates[0]]["payload"]
 
 
+def test_live_retention_abandons_expired_open_player_before_response_scrub(monkeypatch):
+    sessions = [{
+        "id": "expired-open",
+        "user_id": "u1",
+        "status": "in_progress",
+        "started_at": _ago(20),
+        "resume_expires_at": _ago(19),
+        "last_accessed_at": None,
+        "audio_purged_at": None,
+        "content_purged_at": None,
+    }]
+    calls = _install(
+        monkeypatch,
+        dry_run=False,
+        sessions=sessions,
+        responses={"expired-open": [{"audio_storage_path": None}]},
+    )
+
+    result = sweep.sweep_audio()
+
+    assert result["purged"] == 1
+    abandon_idx = next(
+        i for i, call in enumerate(calls)
+        if call["type"] == "update"
+        and call["table"] == "sessions"
+        and call["payload"] == {"status": "abandoned"}
+    )
+    response_scrub_idx = next(
+        i for i, call in enumerate(calls)
+        if call["type"] == "update" and call["table"] == "responses"
+    )
+    assert abandon_idx < response_scrub_idx
+    assert calls[abandon_idx]["eq"] == {
+        "id": "expired-open",
+        "status": "in_progress",
+    }
+
+
 # ── Content scrub preserves scores ──────────────────────────────────────────────
 
 def test_content_scrub_nulls_heavy_cols_preserves_scores(monkeypatch):

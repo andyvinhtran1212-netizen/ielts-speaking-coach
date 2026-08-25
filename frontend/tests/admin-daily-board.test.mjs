@@ -122,7 +122,7 @@ describe('lưới ngày', () => {
                            cell('missing')] }],
     }));
     const body = nodes['board-body'].innerHTML;
-    assert.match(body, /sessions\.html\?session=sess-9/);
+    assert.match(body, /admin\/speaking\/sessions\?session=sess-9/);
     // Ô không có bài thì KHÔNG có liên kết dẫn tới trang trống.
     assert.equal((body.match(/<a /g) || []).length, 1);
   });
@@ -206,13 +206,13 @@ describe('mở thẳng bài làm từ bảng tổng kết', () => {
 
   test('có phiên thì có nút Nghe & xem', () => {
     const html = tallyRow(row({ artifact_kind: 'session', artifact_id: 'sess-9' }), 'speaking');
-    assert.match(html, /sessions\.html\?session=sess-9/);
+    assert.match(html, /admin\/speaking\/sessions\?session=sess-9/);
     assert.match(html, /Nghe/);
   });
 
   test('chưa có bài thì KHÔNG có liên kết dẫn tới trang trống', () => {
     assert.doesNotMatch(tallyRow(row({ status: 'missing', score: null }), 'speaking'),
-      /sessions\.html/);
+      /admin\/speaking\/sessions/);
   });
 
   test('bài KHÔNG phải Speaking không mở bằng trang phiên Speaking', () => {
@@ -275,9 +275,14 @@ describe('bảng ngày nói thật khi hỏng, và không nói CŨ (codex #931 v
     const inv = SRC.indexOf('function invalidateProgress');
     assert.ok(/_dailyBoardLoaded = false/.test(SRC.slice(inv, inv + 700)),
       'invalidateProgress phải làm cũ cả bảng ngày');
-    // Mỗi lần nạp lại bảng bài tập là một lần dữ liệu bài giao vừa đổi.
-    const loads = (SRC.match(/await loadHomework\(\);/g) || []).length;
-    const paired = (SRC.match(/await loadHomework\(\);\s*(?:\/\/[^\n]*\n\s*)*invalidateProgress\(\);/g) || []).length;
+    // Deep-link từ directory Next chỉ ĐỌC danh sách để tìm assignment rồi mở
+    // workspace chấm; nó không đổi dữ liệu nên không được tính như mutation.
+    const seamStart = SRC.indexOf('async function openAssignmentDeepLink');
+    const seamEnd = seamStart < 0 ? seamStart : SRC.indexOf('\n}', seamStart) + 2;
+    const mutationSource = seamStart < 0 ? SRC : SRC.slice(0, seamStart) + SRC.slice(seamEnd);
+    // Mỗi lần nạp lại bảng bài tập SAU MUTATION là một lần dữ liệu vừa đổi.
+    const loads = (mutationSource.match(/await loadHomework\(\);/g) || []).length;
+    const paired = (mutationSource.match(/await loadHomework\(\);\s*(?:\/\/[^\n]*\n\s*)*invalidateProgress\(\);/g) || []).length;
     assert.equal(paired, loads,
       `${loads} đường đổi bài tập nhưng chỉ ${paired} đường báo bảng ngày cũ`);
   });
@@ -383,23 +388,22 @@ describe('admin và học viên nhìn CÙNG một bản chấm (codex #940)', ()
   const SRC2 = readFileSync(join(HERE, '..', 'public', 'js', 'admin-classes.js'), 'utf8');
   const STU = readFileSync(join(HERE, '..', 'public', 'js', 'course-writing.js'), 'utf8');
 
-  test('đề và đáp án mẫu được DỰNG markdown, không hiện ** thô', () => {
+  test('đề và đáp án mẫu được DỰNG, không hiện ** thô', () => {
     // Nguồn đề cố ý mang `**Đáp án mẫu:**`; escape trơn làm giáo viên đọc ra
     // dấu sao còn học viên đọc ra chữ đậm.
     const i = SRC2.indexOf('function renderStudentWriting');
     const body = SRC2.slice(i, SRC2.indexOf('async function openStudentWriting'));
     assert.match(body, /cwMd\(g\.prompt/);
-    assert.match(body, /cwMd\(g\.explain/);
+    assert.match(body, /formatCourseExplanation\(g\.explain/);
     // Bài HỌC VIÊN VIẾT thì không dựng markdown — nó là câu tiếng Anh thô.
     assert.match(body, /esc\(g\.answer\)/);
   });
 
-  test('cùng một phép dựng với phía học viên', () => {
-    const rule = /\*\*\(\[\^\*\]\+\)\*\*/;
-    const a = /replace\((\/\\\*\\\*[^/]+\/g), '<mark>\$1<\/mark>'\)/.exec(SRC2);
-    const b = /replace\((\/\\\*\\\*[^/]+\/g), '<mark>\$1<\/mark>'\)/.exec(STU);
-    assert.ok(a && b, 'cả hai bên phải có phép dựng');
-    assert.equal(a[1], b[1], 'hai bên phải dùng CÙNG một biểu thức');
+  test('đáp án mẫu dùng CÙNG formatter với phía học viên', () => {
+    assert.match(SRC2, /import \{ formatCourseExplanation \} from '\.\/course-explanation-format\.js'/);
+    assert.match(STU, /import \{ formatCourseExplanation \} from '\.\/course-explanation-format\.js'/);
+    assert.match(SRC2, /formatCourseExplanation\(g\.explain/);
+    assert.match(STU, /formatCourseExplanation\(modelText/);
   });
 
   test('thoát HTML TRƯỚC khi dựng thẻ', () => {

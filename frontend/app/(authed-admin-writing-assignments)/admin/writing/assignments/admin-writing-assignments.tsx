@@ -1,0 +1,226 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useAdminProfile } from '@/components/admin-access-gate';
+import { Dialog, messageOf, StatusBanner } from '@/components/admin-directory-ui';
+import {
+  assignmentFilters, assignmentHref, assignmentMatches, assignmentPrefill, groupAssignments,
+  normalizeAssignmentList, normalizeCohortDetail, normalizeCohortOptions, normalizeCreateReceipt,
+  normalizeFanoutReceipt, normalizePromptDetail, normalizePromptOptions, normalizeStudentDetail, normalizeStudentOptions,
+  normalizeStoredAssignmentReceipt, normalizeStoredAssignmentRequest, receiptMatchesVerification, isDefinitiveClientRejection, validateAssignmentDraft,
+} from '@/lib/admin-writing-assignments-model.mjs';
+
+type Status = 'pending' | 'in_progress' | 'submitted' | 'graded' | 'delivered';
+type Assignment = { id: string; promptId: string; studentId: string; status: Status; groupId: string | null; name: string | null; deadline: string | null; instructions: string | null; createdAt: string | null; submittedAt: string | null; gradedAt: string | null; deliveredAt: string | null; essayId: string | null; allowSoftCheck: boolean; isTimed: boolean; timeLimitMinutes: number | null; autoSubmitted: boolean; promptTitle: string | null; taskType: string | null; difficulty: string | null; studentName: string | null; studentCode: string | null };
+type PromptOption = { id: string; title: string; taskType: string; difficulty: string | null };
+type StudentOption = { id: string; name: string | null; code: string | null; cohortId: string | null };
+type CohortOption = { id: string; name: string; studentCount: number };
+type Snapshot = { account: string; rows: Assignment[]; capped: boolean; malformed: number; readAt: string };
+type Receipt = { requestId: string; assignmentIds: string[]; firstId: string; groupId: string; createdCount: number; duplicateStudentIds: string[] };
+type PendingRequest = { requestId: string; path: string; body: Record<string, unknown>; mode: 'individual' | 'cohort'; expectedStudents: number; expectedCount: number };
+type Draft = { mode: 'individual' | 'cohort'; cohortId: string; name: string; deadline: string; instructions: string; isTimed: boolean; timeLimitMinutes: string; allowSoftCheck: boolean; analysisLevel: number };
+
+const STATUS_OPTIONS: Array<{ id: 'all' | Status; label: string }> = [
+  { id: 'all', label: 'Tất cả' }, { id: 'pending', label: 'Chờ làm' }, { id: 'in_progress', label: 'Đang làm' },
+  { id: 'submitted', label: 'Đã nộp' }, { id: 'graded', label: 'Đã chấm' }, { id: 'delivered', label: 'Đã trả' },
+];
+const STATUS_COPY: Record<Status, string> = { pending: 'Chờ làm', in_progress: 'Đang làm', submitted: 'Đã nộp', graded: 'Đã chấm', delivered: 'Đã trả' };
+const TASK_COPY: Record<string, string> = { task1_academic: 'Task 1 · Academic', task1_general: 'Task 1 · General', task2: 'Task 2' };
+const initialDraft = (): Draft => ({ mode: 'individual', cohortId: '', name: '', deadline: '', instructions: '', isTimed: false, timeLimitMinutes: '', allowSoftCheck: false, analysisLevel: 3 });
+const formatDate = (value: string | null) => value ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : 'Chưa có';
+
+export function AdminWritingAssignments() {
+  const profile = useAdminProfile(); const router = useRouter(); const params = useSearchParams();
+  const filters = useMemo(() => assignmentFilters({ status: params?.get('status') || '', cohort: params?.get('cohort') || '', q: params?.get('q') || '' }) as { status: 'all' | Status; cohort: string; q: string }, [params]);
+  const prefill = useMemo(() => assignmentPrefill({ assign_student: params?.get('assign_student'), assign_cohort: params?.get('assign_cohort'), prompt_id: params?.get('prompt_id') }) as { studentId: string; cohortId: string; promptId: string; conflict: boolean }, [params]);
+  const prefillKey = prefill.conflict ? 'conflict' : prefill.studentId || prefill.cohortId || prefill.promptId
+    ? `student:${prefill.studentId}|cohort:${prefill.cohortId}|prompt:${prefill.promptId}` : '';
+  const [query, setQuery] = useState(filters.q); const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const [prompts, setPrompts] = useState<PromptOption[]>([]); const [students, setStudents] = useState<StudentOption[]>([]); const [cohorts, setCohorts] = useState<CohortOption[]>([]);
+  const [sourceErrors, setSourceErrors] = useState<Record<string, string>>({}); const [optionWarnings, setOptionWarnings] = useState<string[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null); const [loading, setLoading] = useState(true); const [optionsLoading, setOptionsLoading] = useState(false); const [optionsReady, setOptionsReady] = useState(false); const [prefillVerifying, setPrefillVerifying] = useState(false);
+  const [banner, setBanner] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const [open, setOpen] = useState(false); const [reviewing, setReviewing] = useState(false); const [busy, setBusy] = useState(false); const [dialogError, setDialogError] = useState<string | null>(null);
+  const [pendingReceipt, setPendingReceipt] = useState<Receipt | null>(null);
+  const [pendingRequest, setPendingRequest] = useState<PendingRequest | null>(null);
+  const [draft, setDraft] = useState<Draft>(initialDraft); const [selectedPrompts, setSelectedPrompts] = useState<Set<string>>(new Set()); const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
+  const [promptQuery, setPromptQuery] = useState(''); const [studentQuery, setStudentQuery] = useState('');
+  const sequence = useRef(0); const optionSequence = useRef(0); const prefillSequence = useRef(0); const mutationLock = useRef(false); const profileRef = useRef(profile.id); profileRef.current = profile.id;
+  const deepLinkHandled = useRef('');
+  const rows = snapshot?.account === profile.id ? snapshot.rows : [];
+
+  const listPath = useCallback(() => { const q = new URLSearchParams({ limit: '500' }); if (filters.status !== 'all') q.set('status_filter', filters.status); if (filters.cohort) q.set('cohort_id', filters.cohort); return `/admin/writing/assignments?${q}`; }, [filters.status, filters.cohort]);
+  const loadList = useCallback(async (silent = false) => {
+    const account = profile.id; const requestId = ++sequence.current; if (!silent) setLoading(true); setLoadError(null);
+    try { const normalized = normalizeAssignmentList(await window.api.get<unknown>(listPath())) as { rows: Assignment[]; capped: boolean; malformedCount: number } | null; if (!normalized) throw new Error('Snapshot bài giao không đúng contract canonical.'); if (requestId !== sequence.current || profileRef.current !== account) return null; setSnapshot({ account, rows: normalized.rows, capped: normalized.capped, malformed: normalized.malformedCount, readAt: new Date().toISOString() }); return normalized.rows; }
+    catch (caught) { if (requestId === sequence.current && profileRef.current === account) setLoadError(messageOf(caught)); return null; }
+    finally { if (requestId === sequence.current && profileRef.current === account) setLoading(false); }
+  }, [profile.id, listPath]);
+
+  const loadOptions = useCallback(async () => {
+    const account = profile.id; const requestId = ++optionSequence.current; setOptionsLoading(true); setOptionsReady(false); setSourceErrors({}); setOptionWarnings([]);
+    const errors: Record<string, string> = {}; const warnings: string[] = [];
+    const promptPromise = window.api.get<unknown>('/admin/writing/prompts?is_active=true&limit=500');
+    const cohortPromise = window.api.get<unknown>('/admin/writing/cohorts');
+    const studentPromise = (async () => { const all: unknown[] = []; for (let offset = 0; offset < 2000; offset += 200) { const page = await window.api.get<unknown>(`/admin/students?limit=200&offset=${offset}`); if (!Array.isArray(page)) throw new Error('Danh sách học viên không phải mảng.'); all.push(...page); if (page.length < 200) return { all, capped: false }; } return { all, capped: true }; })();
+    const [promptResult, studentResult, cohortResult] = await Promise.allSettled([promptPromise, studentPromise, cohortPromise]);
+    if (requestId !== optionSequence.current || profileRef.current !== account) return;
+    if (promptResult.status === 'fulfilled') { const value = normalizePromptOptions(promptResult.value) as { rows: PromptOption[]; malformedCount: number; capped: boolean } | null; if (value) { setPrompts(value.rows); if (value.capped) warnings.push('Kho đề chạm ngưỡng 500; picker có thể chưa đủ.'); if (value.malformedCount) warnings.push(`${value.malformedCount} đề sai contract đã bị loại.`); } else { setPrompts([]); errors.prompts = 'Kho đề trả dữ liệu sai contract.'; } } else { setPrompts([]); errors.prompts = messageOf(promptResult.reason); }
+    if (studentResult.status === 'fulfilled') { const value = normalizeStudentOptions(studentResult.value.all) as { rows: StudentOption[]; malformedCount: number } | null; if (value) { setStudents(value.rows); if (studentResult.value.capped) warnings.push('Danh sách học viên chạm ngưỡng an toàn 2.000; picker có thể chưa đủ.'); if (value.malformedCount) warnings.push(`${value.malformedCount} học viên sai contract đã bị loại.`); } else { setStudents([]); errors.students = 'Danh sách học viên trả dữ liệu sai contract.'; } } else { setStudents([]); errors.students = messageOf(studentResult.reason); }
+    if (cohortResult.status === 'fulfilled') { const value = normalizeCohortOptions(cohortResult.value) as { rows: CohortOption[]; malformedCount: number } | null; if (value) { setCohorts(value.rows); if (value.malformedCount) warnings.push(`${value.malformedCount} lớp sai contract đã bị loại.`); } else { setCohorts([]); errors.cohorts = 'Danh sách lớp trả dữ liệu sai contract.'; } } else { setCohorts([]); errors.cohorts = messageOf(cohortResult.reason); }
+    setSourceErrors(errors); setOptionWarnings(warnings); setOptionsLoading(false); setOptionsReady(true);
+  }, [profile.id]);
+
+  useEffect(() => { setSnapshot(null); setBanner(null); setPendingReceipt(null); setPendingRequest(null); setPrefillVerifying(false); prefillSequence.current += 1; deepLinkHandled.current = ''; const receiptKey = `awa-pending-receipt:${profile.id}`; const requestKey = `awa-pending-request:${profile.id}`; try { const storedReceipt = sessionStorage.getItem(receiptKey); const receipt = storedReceipt ? normalizeStoredAssignmentReceipt(JSON.parse(storedReceipt)) as Receipt | null : null; const storedRequest = sessionStorage.getItem(requestKey); const request = storedRequest ? normalizeStoredAssignmentRequest(JSON.parse(storedRequest)) as PendingRequest | null : null; if (receipt) { setPendingReceipt(receipt); setOpen(true); setReviewing(true); setDialogError('Đã khôi phục biên nhận chưa đối chiếu. Chỉ cần thử đọc lại; hệ thống sẽ không POST lần nữa.'); } else if (request?.requestId && request?.path && request?.body) { setPendingRequest(request); setOpen(true); setReviewing(true); setDialogError('Đã khôi phục yêu cầu chưa nhận được response. Có thể retry an toàn với cùng request_id; backend sẽ không insert lần hai.'); } else { if (storedReceipt) sessionStorage.removeItem(receiptKey); if (storedRequest) sessionStorage.removeItem(requestKey); } } catch { sessionStorage.removeItem(receiptKey); sessionStorage.removeItem(requestKey); } void loadList(); return () => { sequence.current += 1; prefillSequence.current += 1; }; }, [profile.id, loadList]);
+  useEffect(() => { void loadOptions(); return () => { optionSequence.current += 1; }; }, [profile.id, loadOptions]);
+  useEffect(() => { setQuery(filters.q); }, [filters.q]);
+
+  const navigate = (next: { status: string; cohort: string; q: string }) => { if (!busy) router.replace(assignmentHref(next), { scroll: false }); };
+  const visible = useMemo(() => rows.filter((row) => assignmentMatches(row, query)), [rows, query]);
+  const groups = useMemo(() => groupAssignments(visible) as Array<{ key: string; groupId: string | null; name: string | null; createdAt: string | null; rows: Assignment[] }>, [visible]);
+  const selectedCohort = cohorts.find((item) => item.id === draft.cohortId) || null;
+  const validation = validateAssignmentDraft(draft, selectedPrompts.size, selectedStudents.size, selectedCohort?.studentCount ?? 0) as { ok: boolean; error?: string; expectedCount?: number; timeLimitMinutes?: number | null; deadline?: string | null };
+  const stale = Boolean(loadError && snapshot?.account === profile.id);
+  const filteredPrompts = prompts.filter((item) => `${item.title} ${item.taskType}`.toLowerCase().includes(promptQuery.trim().toLowerCase()));
+  const filteredStudents = students.filter((item) => `${item.name || ''} ${item.code || ''}`.toLowerCase().includes(studentQuery.trim().toLowerCase()));
+
+  const startCreate = () => { if (pendingReceipt || pendingRequest) { setOpen(true); setReviewing(true); return; } prefillSequence.current += 1; setPrefillVerifying(false); setDraft(initialDraft()); setSelectedPrompts(new Set()); setSelectedStudents(new Set()); setPromptQuery(''); setStudentQuery(''); setDialogError(null); setReviewing(false); setOpen(true); void loadOptions(); };
+  useEffect(() => {
+    if (!prefillKey || optionsLoading || !optionsReady || deepLinkHandled.current === prefillKey || pendingReceipt || pendingRequest) return;
+    setPromptQuery(''); setStudentQuery(''); setReviewing(false); setOpen(true);
+
+    if (prefill.conflict) {
+      deepLinkHandled.current = prefillKey;
+      setDraft(initialDraft()); setSelectedStudents(new Set()); setSelectedPrompts(new Set());
+      setPrefillVerifying(false);
+      setDialogError('Liên kết giao bài chứa đồng thời học viên và lớp. Hãy chọn lại đúng một loại đối tượng.');
+      return;
+    }
+    const account = profile.id; const requestId = ++prefillSequence.current;
+    const listedStudent = students.find((item) => item.id === prefill.studentId) || null;
+    const listedCohort = cohorts.find((item) => item.id === prefill.cohortId) || null;
+    const listedPrompt = prompts.find((item) => item.id === prefill.promptId) || null;
+    const needsLookup = Boolean((prefill.studentId && !listedStudent) || (prefill.cohortId && !listedCohort) || (prefill.promptId && !listedPrompt));
+    setPrefillVerifying(needsLookup); setDialogError(null);
+
+    void (async () => {
+      const [studentResult, cohortResult, promptResult] = await Promise.allSettled([
+        prefill.studentId && !listedStudent ? window.api.get<unknown>(`/admin/students/${encodeURIComponent(prefill.studentId)}`) : Promise.resolve(null),
+        prefill.cohortId && !listedCohort ? window.api.get<unknown>(`/admin/writing/cohorts/${encodeURIComponent(prefill.cohortId)}`) : Promise.resolve(null),
+        prefill.promptId && !listedPrompt ? window.api.get<unknown>(`/admin/writing/prompts/${encodeURIComponent(prefill.promptId)}`) : Promise.resolve(null),
+      ]);
+      if (requestId !== prefillSequence.current || profileRef.current !== account) return;
+
+      const directStudent = listedStudent || (studentResult.status === 'fulfilled' ? normalizeStudentDetail(studentResult.value, prefill.studentId) as StudentOption | null : null);
+      const directCohort = listedCohort || (cohortResult.status === 'fulfilled' ? normalizeCohortDetail(cohortResult.value, prefill.cohortId) as CohortOption | null : null);
+      const directPrompt = listedPrompt || (promptResult.status === 'fulfilled' ? normalizePromptDetail(promptResult.value, prefill.promptId) as PromptOption | null : null);
+      const failure = (id: string, listed: unknown, result: PromiseSettledResult<unknown>, normalized: unknown, label: string) => {
+        if (!id || listed) return '';
+        if (result.status === 'rejected') {
+          const statusCode = typeof result.reason === 'object' && result.reason !== null && 'status' in result.reason ? Number((result.reason as { status?: unknown }).status) : 0;
+          return statusCode === 404 ? `Không tìm thấy ${label} từ liên kết trong dữ liệu canonical; vui lòng chọn lại.` : `Chưa thể xác minh ${label} từ liên kết: ${messageOf(result.reason)}`;
+        }
+        return normalized ? '' : `Dữ liệu chi tiết ${label} không đúng contract canonical; vui lòng chọn lại.`;
+      };
+      const problem = failure(prefill.studentId, listedStudent, studentResult, directStudent, 'học viên')
+        || failure(prefill.cohortId, listedCohort, cohortResult, directCohort, 'lớp')
+        || failure(prefill.promptId, listedPrompt, promptResult, directPrompt, 'đề Writing');
+
+      deepLinkHandled.current = prefillKey; setPrefillVerifying(false);
+      if (problem) {
+        setDraft(initialDraft()); setSelectedStudents(new Set()); setSelectedPrompts(new Set()); setDialogError(problem);
+        return;
+      }
+      const recoveredSources = [
+        prefill.studentId && directStudent && sourceErrors.students ? 'học viên' : '',
+        prefill.cohortId && directCohort && sourceErrors.cohorts ? 'lớp' : '',
+        prefill.promptId && directPrompt && sourceErrors.prompts ? 'đề Writing' : '',
+      ].filter(Boolean);
+      if (recoveredSources.length) {
+        setSourceErrors((current) => { const next = { ...current }; if (directStudent) delete next.students; if (directCohort) delete next.cohorts; if (directPrompt) delete next.prompts; return next; });
+        setOptionWarnings((current) => [...current, `Danh sách ${recoveredSources.join(', ')} chưa tải được; lựa chọn từ liên kết đã được xác minh riêng qua nguồn chi tiết.`]);
+      }
+      if (directStudent && !listedStudent) setStudents((current) => current.some((item) => item.id === directStudent.id) ? current : [directStudent, ...current]);
+      if (directCohort && !listedCohort) setCohorts((current) => current.some((item) => item.id === directCohort.id) ? current : [directCohort, ...current]);
+      if (directPrompt && !listedPrompt) setPrompts((current) => current.some((item) => item.id === directPrompt.id) ? current : [directPrompt, ...current]);
+      setDraft({ ...initialDraft(), mode: prefill.cohortId ? 'cohort' : 'individual', cohortId: prefill.cohortId });
+      setSelectedStudents(new Set(prefill.studentId ? [prefill.studentId] : []));
+      setSelectedPrompts(new Set(prefill.promptId ? [prefill.promptId] : []));
+    })();
+    return () => { if (prefillSequence.current === requestId) prefillSequence.current += 1; };
+  }, [prefill, prefillKey, optionsLoading, optionsReady, pendingReceipt, pendingRequest, profile.id, sourceErrors, students, cohorts, prompts]);
+
+  const clearPrefillUrl = () => {
+    const cleanHref = assignmentHref(filters);
+    if (`${window.location.pathname}${window.location.search}` !== cleanHref) window.history.replaceState(window.history.state, '', cleanHref);
+  };
+  const closeDialog = () => { if (!busy && !pendingReceipt && !pendingRequest) { prefillSequence.current += 1; setPrefillVerifying(false); setOpen(false); setReviewing(false); setDialogError(null); clearPrefillUrl(); } };
+  const toggle = (setter: Dispatch<SetStateAction<Set<string>>>, id: string) => setter((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+
+  const reconcile = async (receipt: Receipt, account: string) => {
+    const verification = receiptMatchesVerification(await window.api.get<unknown>(`/admin/writing/assignments/requests/${encodeURIComponent(receipt.requestId)}`), receipt);
+    if (!verification) throw new Error('Chưa xác minh đủ mọi assignment trong biên nhận đã xác nhận.');
+    const canonical = await loadList(true); if (!canonical) throw new Error('Chưa đọc lại được snapshot canonical.');
+    if (profileRef.current !== account) return;
+    setPendingReceipt(null); setPendingRequest(null); sessionStorage.removeItem(`awa-pending-receipt:${account}`); sessionStorage.removeItem(`awa-pending-request:${account}`); setOpen(false); setReviewing(false);
+    clearPrefillUrl();
+    const duplicateNote = receipt.duplicateStudentIds.length ? ` · ${receipt.duplicateStudentIds.length} học viên từng có ít nhất một đề này (vẫn giao lại theo chính sách).` : '';
+    setBanner({ kind: 'success', text: `Đã giao và đối chiếu ${receipt.createdCount} bài · mã nhóm ${receipt.groupId.slice(0, 8)}${duplicateNote}` });
+  };
+
+  const submit = async () => {
+    const account = profile.id; if (mutationLock.current) return;
+    if (pendingReceipt) { mutationLock.current = true; setBusy(true); setDialogError(null); try { await reconcile(pendingReceipt, account); } catch (caught) { setDialogError(`Biên nhận đã có nhưng chưa đối chiếu xong: ${messageOf(caught)}`); } finally { mutationLock.current = false; setBusy(false); } return; }
+    if (!pendingRequest && !validation.ok) { setDialogError(validation.error || 'Kiểm tra lại dữ liệu giao bài.'); return; }
+    mutationLock.current = true; setBusy(true); setDialogError(null); setBanner(null);
+    const common = { prompt_ids: [...selectedPrompts], name: draft.name.trim() || null, allow_soft_check: draft.allowSoftCheck, deadline: validation.deadline, instructions: draft.instructions.trim() || null, is_timed: draft.isTimed, time_limit_minutes: validation.timeLimitMinutes, analysis_level: draft.analysisLevel };
+    try {
+      const request = pendingRequest || (() => { const requestId = crypto.randomUUID(); const mode = draft.mode; const expectedStudents = mode === 'cohort' ? selectedCohort?.studentCount || 0 : selectedStudents.size; const expectedCount = validation.expectedCount || 0; const path = mode === 'cohort' ? '/admin/writing/assignments/fan-out' : '/admin/writing/assignments'; const body = mode === 'cohort' ? { ...common, request_id: requestId, cohort_id: draft.cohortId, expected_student_count: expectedStudents } : { ...common, request_id: requestId, student_ids: [...selectedStudents] }; return { requestId, path, body, mode, expectedStudents, expectedCount }; })();
+      setPendingRequest(request); sessionStorage.setItem(`awa-pending-request:${account}`, JSON.stringify(request));
+      const response = await window.api.post<unknown>(request.path, request.body); let receipt: Receipt | null;
+      if (request.mode === 'cohort') receipt = normalizeFanoutReceipt(response, request.expectedStudents, request.expectedCount, request.requestId) as Receipt | null;
+      else receipt = normalizeCreateReceipt(response, request.expectedCount, request.requestId) as Receipt | null;
+      if (!receipt) throw new Error('Máy chủ không trả biên nhận đúng số lượng/định danh; dừng để tránh gửi trùng.');
+      setPendingRequest(null); sessionStorage.removeItem(`awa-pending-request:${account}`); setPendingReceipt(receipt); sessionStorage.setItem(`awa-pending-receipt:${account}`, JSON.stringify(receipt)); await reconcile(receipt, account);
+    } catch (caught) {
+      const acknowledged = Boolean(sessionStorage.getItem(`awa-pending-receipt:${account}`));
+      const statusCode = typeof caught === 'object' && caught !== null && 'status' in caught ? Number((caught as { status?: unknown }).status) : 0;
+      if (!acknowledged && isDefinitiveClientRejection(statusCode)) {
+        setPendingRequest(null); sessionStorage.removeItem(`awa-pending-request:${account}`); setReviewing(false);
+        setDialogError(`Không có bài nào được tạo từ yêu cầu cũ: ${messageOf(caught)} Hãy rà lại dữ liệu rồi xác nhận một lượt giao mới.`);
+        void loadOptions();
+      } else {
+        setDialogError(acknowledged ? `Bài đã được máy chủ xác nhận nhưng chưa đối chiếu xong: ${messageOf(caught)}` : `Chưa nhận được biên nhận hoàn chỉnh: ${messageOf(caught)}. Retry sẽ dùng lại cùng request_id nên không insert trùng.`);
+      }
+    }
+    finally { mutationLock.current = false; setBusy(false); }
+  };
+
+  return <main className="awa-shell">
+    <header className="awa-header"><div><p className="awa-eyebrow">Writing · Giao bài</p><h1>Bàn giao bài</h1><p>Chọn đúng đối tượng, rà lại số bài sẽ tạo và chỉ báo thành công sau khi đọc lại dữ liệu chuẩn.</p></div><div className="awa-header__actions"><a className="awa-hub-link" href="/admin/writing">Không gian Writing ↗</a><button className="adm-btn-primary" type="button" onClick={startCreate}>Giao bài mới</button></div></header>
+    <section className="awa-principle" aria-label="Luồng giao bài"><div><span>01</span><strong>Chọn đối tượng</strong><small>Cá nhân hoặc toàn lớp</small></div><i>→</i><div><span>02</span><strong>Rà quy mô</strong><small>Đề × học viên = số bài</small></div><i>→</i><div><span>03</span><strong>Đối chiếu</strong><small>Biên nhận + dữ liệu chuẩn</small></div></section>
+    <StatusBanner banner={banner} />
+    {stale && <div className="awa-warning" role="alert"><strong>Dữ liệu đang xem đã cũ</strong><span>Lần làm mới lỗi: {loadError}. Dữ liệu này được đọc lúc {formatDate(snapshot?.readAt || null)}.</span><button className="adm-btn-secondary adm-btn-sm" onClick={() => void loadList()} type="button">Thử lại</button></div>}
+    {snapshot?.capped && <div className="awa-warning"><strong>Danh sách bị giới hạn</strong><span>Đang hiển thị 500 bài mới nhất theo bộ lọc; count và tìm kiếm không đại diện toàn bộ dữ liệu.</span></div>}
+    {snapshot && snapshot.malformed > 0 && <div className="awa-warning" role="alert"><strong>Dữ liệu bị loại</strong><span>{snapshot.malformed} dòng sai contract không được hiển thị.</span></div>}
+    <section className="awa-workspace">
+      <header className="awa-workspace__head"><div><p className="awa-eyebrow">Sổ giao bài</p><h2>Nhật ký giao bài</h2><p>Mỗi nhóm phản ánh một thao tác giao; từng dòng giữ trạng thái thật của một đề × một học viên.</p></div><div className="awa-count"><strong>{visible.length}</strong><span>bài đang hiển thị</span></div></header>
+      <div className="awa-toolbar"><label><span>Trạng thái</span><select value={filters.status} onChange={(e) => navigate({ ...filters, status: e.target.value })}>{STATUS_OPTIONS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><label><span>Lớp</span><select value={filters.cohort} onChange={(e) => navigate({ ...filters, cohort: e.target.value })}><option value="">Tất cả lớp</option>{cohorts.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className="is-search"><span>Tìm trong dữ liệu đang xem</span><input value={query} maxLength={120} placeholder="Tên nhóm, đề, học viên…" onChange={(e) => { setQuery(e.target.value); navigate({ ...filters, q: e.target.value }); }}/></label><button className="adm-btn-secondary" type="button" disabled={loading || busy} onClick={() => { void loadList(); if (!cohorts.length) void loadOptions(); }}>Đọc lại dữ liệu chuẩn</button></div>
+      {loading && !rows.length ? <div className="awa-state" role="status"><span className="awa-spinner"/><strong>Đang tải nhật ký…</strong></div> : loadError && !rows.length ? <div className="awa-state is-error" role="alert"><strong>Không tải được bài giao</strong><p>{loadError}</p><button className="adm-btn-secondary" type="button" onClick={() => void loadList()}>Thử lại</button></div> : !groups.length ? <div className="awa-state"><strong>Chưa có bài phù hợp</strong><p>Đổi bộ lọc hoặc bắt đầu một lượt giao mới.</p></div> : <div className="awa-groups">{groups.map((group) => <article className="awa-group" key={group.key}><header><div><span>{group.groupId ? 'Nhóm giao bài' : 'Bài từ hệ thống cũ'}</span><h3>{group.name || group.rows[0]?.promptTitle || 'Bài giao chưa đặt tên'}</h3><p>{formatDate(group.createdAt)} · {group.rows.length} bài</p></div><div className="awa-distribution">{STATUS_OPTIONS.slice(1).map((status) => { const count = group.rows.filter((row) => row.status === status.id).length; return count ? <span className={`is-${status.id}`} key={status.id}>{status.label} <b>{count}</b></span> : null; })}</div></header><div className="awa-rows">{group.rows.map((row) => <div className="awa-row" key={row.id}><div><strong>{row.promptTitle || 'Đề đã bị xoá'}</strong><small>{TASK_COPY[row.taskType || ''] || 'Không rõ dạng đề'}{row.isTimed ? ` · ${row.timeLimitMinutes} phút` : ''}{row.autoSubmitted ? ' · Tự nộp khi hết giờ' : ''}</small></div><div><strong>{row.studentName || row.studentCode || 'Học viên không còn hồ sơ'}</strong><small>{row.studentCode || 'Chưa có mã'}{row.deadline ? ` · Hạn ${formatDate(row.deadline)}` : ''}</small></div><span className={`awa-status is-${row.status}`}>{STATUS_COPY[row.status]}</span>{row.essayId ? <a href={`/admin/writing/grade?essay_id=${encodeURIComponent(row.essayId)}`}>Mở bài ↗</a> : <span className="awa-no-action">Chưa nộp</span>}</div>)}</div></article>)}</div>}
+    </section>
+
+    <Dialog open={open} title={pendingReceipt ? 'Đối chiếu biên nhận' : pendingRequest ? 'Khôi phục yêu cầu giao' : reviewing ? 'Rà lại lượt giao' : 'Giao bài Writing'} description={pendingReceipt ? 'Máy chủ đã xác nhận ghi. Chỉ đọc lại dữ liệu; không gửi lại thao tác giao.' : pendingRequest ? 'Response trước chưa hoàn tất. Retry cùng request_id được backend bảo đảm idempotent.' : reviewing ? 'Đây là bước xác nhận cuối; số bài bên dưới là quy mô ghi thật.' : 'Chọn đối tượng và đề trước, sau đó cấu hình trải nghiệm làm bài.'} onClose={closeDialog} busy={busy || Boolean(pendingReceipt || pendingRequest)} panelClassName="awa-dialog" actions={<>{pendingReceipt ? <button className="adm-btn-primary" type="button" onClick={() => void submit()} disabled={busy}>{busy ? 'Đang đối chiếu…' : 'Thử đối chiếu lại'}</button> : pendingRequest ? <button className="adm-btn-primary" type="button" onClick={() => void submit()} disabled={busy}>{busy ? 'Đang retry an toàn…' : 'Retry với cùng request_id'}</button> : reviewing ? <><button className="adm-btn-secondary" type="button" onClick={() => setReviewing(false)} disabled={busy}>Quay lại chỉnh</button><button className="adm-btn-primary" type="button" onClick={() => void submit()} disabled={busy || !validation.ok}>{busy ? 'Đang giao & đối chiếu…' : `Xác nhận giao ${validation.expectedCount || 0} bài`}</button></> : <><button className="adm-btn-secondary" type="button" onClick={closeDialog}>Huỷ</button><button className="adm-btn-primary" type="button" onClick={() => { if (validation.ok) { setDialogError(null); setReviewing(true); } else setDialogError(validation.error || 'Kiểm tra lại dữ liệu.'); }} disabled={optionsLoading || prefillVerifying}>Rà lại trước khi giao</button></>}</>}>
+      {pendingReceipt ? <div className="awa-review"><div className="awa-receipt"><span>Biên nhận máy chủ</span><strong>{pendingReceipt.createdCount} bài đã ghi</strong><code>{pendingReceipt.groupId}</code><small>Đối chiếu đủ {pendingReceipt.assignmentIds.length} assignment ID trong một DB snapshot.</small></div><p>Không tạo lượt giao mới cho đến khi snapshot canonical đọc lại thành công. Nút bên dưới chỉ gửi GET.</p>{dialogError && <div className="awa-inline-error" role="alert">{dialogError}</div>}</div> : pendingRequest ? <div className="awa-review"><div className="awa-receipt"><span>Yêu cầu idempotent</span><strong>{pendingRequest.expectedCount} bài dự kiến</strong><code>{pendingRequest.requestId}</code><small>Retry cùng định danh sẽ trả receipt cũ nếu lần trước đã ghi.</small></div>{dialogError && <div className="awa-inline-error" role="alert">{dialogError}</div>}</div> : reviewing ? <div className="awa-review"><div className="awa-review__math"><strong>{selectedPrompts.size}</strong><span>đề</span><i>×</i><strong>{draft.mode === 'cohort' ? selectedCohort?.studentCount || 0 : selectedStudents.size}</strong><span>học viên</span><i>=</i><strong>{validation.expectedCount || 0}</strong><span>bài sẽ tạo</span></div><dl><div><dt>Đối tượng</dt><dd>{draft.mode === 'cohort' ? selectedCohort?.name : `${selectedStudents.size} học viên đã chọn`}</dd></div><div><dt>Chế độ</dt><dd>{draft.isTimed ? `IELTS-mode · ${draft.timeLimitMinutes} phút` : 'Không giới hạn thời gian'}</dd></div><div><dt>Feedback AI</dt><dd>L{draft.analysisLevel}{draft.allowSoftCheck ? ' · có kiểm tra chính tả' : ''}</dd></div><div><dt>Hạn nộp</dt><dd>{draft.deadline ? formatDate(new Date(draft.deadline).toISOString()) : 'Không đặt'}</dd></div></dl><p>Chính sách giao trùng: hệ thống vẫn tạo bài mới và báo số học viên đã từng có đề; không tự bỏ qua.</p>{dialogError && <div className="awa-inline-error" role="alert">{dialogError}</div>}</div> : <div className="awa-form">
+        <section><header><span>01</span><div><strong>Đối tượng nhận bài</strong><small>Chọn cá nhân hoặc fan-out toàn lớp</small></div></header><div className="awa-segmented"><button type="button" className={draft.mode === 'individual' ? 'is-active' : ''} onClick={() => setDraft((d) => ({ ...d, mode: 'individual' }))}>Theo học viên</button><button type="button" className={draft.mode === 'cohort' ? 'is-active' : ''} onClick={() => setDraft((d) => ({ ...d, mode: 'cohort' }))}>Theo lớp</button></div>{draft.mode === 'cohort' ? <label className="awa-field"><span>Lớp</span><select value={draft.cohortId} onChange={(e) => setDraft((d) => ({ ...d, cohortId: e.target.value }))}><option value="">Chọn lớp…</option>{cohorts.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.studentCount} học viên</option>)}</select></label> : <Picker title="Học viên" query={studentQuery} onQuery={setStudentQuery} count={selectedStudents.size} error={sourceErrors.students} loading={optionsLoading}>{filteredStudents.map((item) => <label className="awa-option" key={item.id}><input type="checkbox" checked={selectedStudents.has(item.id)} onChange={() => toggle(setSelectedStudents, item.id)}/><span><strong>{item.name || 'Học viên chưa đặt tên'}</strong><small>{item.code || 'Chưa có mã'}</small></span></label>)}</Picker>}{draft.mode === 'cohort' && sourceErrors.cohorts && <div className="awa-source-error" role="alert">Lớp: {sourceErrors.cohorts}</div>}</section>
+        <section><header><span>02</span><div><strong>Đề Writing</strong><small>Tối đa 20 đề trong một lượt</small></div></header><Picker title="Đề bài" query={promptQuery} onQuery={setPromptQuery} count={selectedPrompts.size} error={sourceErrors.prompts} loading={optionsLoading}>{filteredPrompts.map((item) => <label className="awa-option" key={item.id}><input type="checkbox" checked={selectedPrompts.has(item.id)} onChange={() => toggle(setSelectedPrompts, item.id)}/><span><strong>{item.title}</strong><small>{TASK_COPY[item.taskType] || item.taskType}{item.difficulty ? ` · ${item.difficulty}` : ''}</small></span></label>)}</Picker></section>
+        <section><header><span>03</span><div><strong>Cấu hình lượt giao</strong><small>Áp dụng cho mọi bài trong nhóm</small></div></header><div className="awa-grid"><label className="awa-field"><span>Tên nhóm (tuỳ chọn)</span><input value={draft.name} maxLength={200} placeholder="Buổi 5 · Task 1 + Task 2" onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}/></label><label className="awa-field"><span>Hạn nộp (tuỳ chọn)</span><input type="datetime-local" value={draft.deadline} onChange={(e) => setDraft((d) => ({ ...d, deadline: e.target.value }))}/></label><label className="awa-field"><span>Mức phân tích AI</span><select value={draft.analysisLevel} onChange={(e) => setDraft((d) => ({ ...d, analysisLevel: Number(e.target.value) }))}>{[1,2,3,4,5].map((level) => <option key={level} value={level}>L{level}{level === 3 ? ' · mặc định' : ''}</option>)}</select></label><label className="awa-check"><input type="checkbox" checked={draft.allowSoftCheck} onChange={(e) => setDraft((d) => ({ ...d, allowSoftCheck: e.target.checked }))}/><span><strong>Cho phép kiểm tra chính tả</strong><small>Học viên có thể soft-check trước khi nộp</small></span></label><label className="awa-check"><input type="checkbox" checked={draft.isTimed} onChange={(e) => setDraft((d) => ({ ...d, isTimed: e.target.checked, timeLimitMinutes: e.target.checked ? d.timeLimitMinutes : '' }))}/><span><strong>IELTS-mode</strong><small>Đếm ngược và tự nộp khi hết giờ</small></span></label>{draft.isTimed && <label className="awa-field"><span>Thời gian (phút)</span><input type="number" min="1" max="180" value={draft.timeLimitMinutes} onChange={(e) => setDraft((d) => ({ ...d, timeLimitMinutes: e.target.value }))}/></label>}<label className="awa-field is-wide"><span>Ghi chú cho học viên (tuỳ chọn)</span><textarea rows={3} maxLength={2000} value={draft.instructions} placeholder="Mục tiêu, yêu cầu hoặc lưu ý cho lượt làm bài…" onChange={(e) => setDraft((d) => ({ ...d, instructions: e.target.value }))}/></label></div></section>
+        {prefillVerifying && <div className="awa-source-warning" role="status">Đang xác minh dữ liệu chọn sẵn qua nguồn chi tiết canonical…</div>}{Object.keys(sourceErrors).length > 0 && <div className="awa-source-summary" role="alert"><strong>Nguồn dữ liệu chưa sẵn sàng</strong>{Object.entries(sourceErrors).map(([source, error]) => <p key={source}><span>{source === 'prompts' ? 'Kho đề' : source === 'students' ? 'Học viên' : 'Lớp'}</span>{error}</p>)}<button className="adm-btn-secondary" type="button" onClick={() => { deepLinkHandled.current = ''; void loadOptions(); }} disabled={optionsLoading}>Tải lại dữ liệu chọn</button></div>}{optionWarnings.length > 0 && <div className="awa-source-warning">{optionWarnings.join(' ')}</div>}{dialogError && <div className="awa-inline-error" role="alert">{dialogError}</div>}
+      </div>}
+    </Dialog>
+  </main>;
+}
+
+function Picker({ title, query, onQuery, count, error, loading, children }: { title: string; query: string; onQuery: (value: string) => void; count: number; error?: string; loading: boolean; children: ReactNode }) {
+  return <div className="awa-picker"><label><span>{title} · {count} đã chọn</span><input value={query} placeholder={`Tìm ${title.toLowerCase()}…`} onChange={(e) => onQuery(e.target.value)}/></label>{error ? <div className="awa-source-error" role="alert">{title}: {error}</div> : loading ? <div className="awa-picker__state">Đang tải {title.toLowerCase()}…</div> : <div className="awa-picker__list">{children}</div>}</div>;
+}

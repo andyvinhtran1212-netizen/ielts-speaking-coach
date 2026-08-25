@@ -23,11 +23,20 @@ _ADMIN_AUTH = {"Authorization": "Bearer fake.admin.jwt"}
 _ADMIN_USER = {"id": "00000000-0000-0000-0000-00000000aaaa", "email": "admin@x"}
 
 
+def _stable_order_query(table, *, after_neq=False):
+    query = table.select.return_value
+    if after_neq:
+        query = query.neq.return_value
+    query.order.return_value = query
+    return query
+
+
 def test_l3_filter_queries_reading_tests_not_passages():
     """When library=l3_test, the endpoint must query the reading_tests table
     so the listing is one row per test (not 3 rows per test via passages)."""
     mock_db = MagicMock()
-    chain = mock_db.table.return_value.select.return_value.order.return_value.range.return_value
+    query = _stable_order_query(mock_db.table.return_value)
+    chain = query.range.return_value
     chain.execute.return_value = MagicMock(
         data=[{
             "id": "uuid-1", "test_id": "AVR-READ-001", "title": "Academic Reading — Test 1",
@@ -55,7 +64,8 @@ def test_l3_row_normalised_to_l1_l2_shape():
     """The frontend uses one table template across all libraries. The L3 branch
     must normalise the test row into the same fields the L1/L2 rows carry."""
     mock_db = MagicMock()
-    chain = mock_db.table.return_value.select.return_value.order.return_value.range.return_value
+    query = _stable_order_query(mock_db.table.return_value)
+    chain = query.range.return_value
     chain.execute.return_value = MagicMock(
         data=[{
             "id": "uuid-1", "test_id": "AVR-READ-001", "title": "Academic Reading — Test 1",
@@ -93,21 +103,23 @@ def test_all_view_groups_l3_as_test_rows():
     passage rows (.neq) and splices in reading_tests. So L3 gets the same full
     actions as L1/L2 and there are no 3-passages-per-test rows."""
     passages = MagicMock()
-    passages.select.return_value.neq.return_value.order.return_value.range.return_value.execute.return_value = MagicMock(
+    passage_query = _stable_order_query(passages, after_neq=True)
+    passage_query.range.return_value.execute.return_value = MagicMock(
         data=[
             {"id": "p2", "slug": "l1-vocab-y", "library": "l1_vocab", "title": "V1",
              "status": "published", "difficulty_level": "b1", "skill_focus": "skim",
              "topic_tags": [], "updated_at": "2026-05-20", "created_at": "2026-05-19"},
-        ],
+        ], count=1,
     )
     tests = MagicMock()
-    tests.select.return_value.order.return_value.execute.return_value = MagicMock(
+    test_query = _stable_order_query(tests)
+    test_query.range.return_value.execute.return_value = MagicMock(
         data=[
             {"id": "uuid-1", "test_id": "AVR-READ-001", "title": "Academic Reading — Test 1",
              "module": "academic", "time_limit_minutes": 60, "passage_count": 3,
              "total_questions": 40, "band_target": 7.0, "status": "published",
              "updated_at": "2026-05-29", "created_at": "2026-05-28"},
-        ],
+        ], count=1,
     )
 
     def _table(name):
@@ -137,7 +149,8 @@ def test_all_view_groups_l3_as_test_rows():
 
 def test_l1_filter_still_queries_passages():
     mock_db = MagicMock()
-    chain = mock_db.table.return_value.select.return_value.order.return_value.range.return_value.eq.return_value
+    query = _stable_order_query(mock_db.table.return_value)
+    chain = query.range.return_value.eq.return_value
     chain.execute.return_value = MagicMock(data=[], count=0)
 
     with patch("routers.admin_reading.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
@@ -156,23 +169,52 @@ def test_unknown_library_rejected_422():
     assert r.status_code == 422
 
 
+def test_identity_requires_library_and_filters_by_canonical_key():
+    with patch("routers.admin_reading.require_admin", new=AsyncMock(return_value=_ADMIN_USER)):
+        missing_library = _client().get(
+            "/admin/reading/content?identity=AVR-READ-001", headers=_ADMIN_AUTH,
+        )
+    assert missing_library.status_code == 422
+
+    mock_db = MagicMock()
+    query = _stable_order_query(mock_db.table.return_value)
+    identity_query = query.range.return_value.eq.return_value
+    identity_query.execute.return_value = MagicMock(
+        data=[{"id": "uuid-1", "test_id": "AVR-READ-001", "title": "Test",
+               "module": "academic", "time_limit_minutes": 60,
+               "total_questions": 40, "status": "published"}], count=1,
+    )
+    with patch("routers.admin_reading.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_reading.supabase_admin", mock_db):
+        response = _client().get(
+            "/admin/reading/content?library=l3_test&identity=AVR-READ-001&limit=1",
+            headers=_ADMIN_AUTH,
+        )
+    assert response.status_code == 200
+    assert response.json()["items"][0]["slug"] == "AVR-READ-001"
+    query.range.return_value.eq.assert_called_once_with("test_id", "AVR-READ-001")
+
+
 def test_all_view_l3_row_preview_identity_is_test_id():
     """404-safety (#363) under grouping: an L3 row in the 'Tất cả' view carries
     the TEXT test_id as its slug (the canonical preview/edit/delete key), NEVER
     a passage slug. The old per-passage parent_test_id enrichment is gone —
     L3 is one test row, so there is no passage-vs-test ambiguity to resolve."""
     passages = MagicMock()
-    passages.select.return_value.neq.return_value.order.return_value.range.return_value.execute.return_value = MagicMock(
+    passage_query = _stable_order_query(passages, after_neq=True)
+    passage_query.range.return_value.execute.return_value = MagicMock(
         data=[],
+        count=0,
     )
     tests = MagicMock()
-    tests.select.return_value.order.return_value.execute.return_value = MagicMock(
+    test_query = _stable_order_query(tests)
+    test_query.range.return_value.execute.return_value = MagicMock(
         data=[
             {"id": "uuid-test-1", "test_id": "AVR-READ-002", "title": "Test 2",
              "module": "academic", "time_limit_minutes": 60, "passage_count": 3,
              "total_questions": 40, "band_target": 7.5, "status": "draft",
              "updated_at": "2026-05-29", "created_at": "2026-05-28"},
-        ],
+        ], count=1,
     )
 
     def _table(name):
@@ -195,12 +237,104 @@ def test_all_view_l3_row_preview_identity_is_test_id():
     assert "test_id" not in it
 
 
+def test_all_view_uses_exact_cross_source_total_and_fetches_through_offset():
+    """The mixed view must not turn a bounded response into a false total.
+
+    For offset=40&limit=25, each source can contribute to the global page, so
+    the endpoint reads the first 65 rows of each source, merges/sorts, slices,
+    and reports the independent exact counts (87 + 73), not len(the slice).
+    """
+    passages = MagicMock()
+    passage_query = _stable_order_query(passages, after_neq=True)
+    pquery = passage_query.range.return_value
+    pquery.execute.return_value = MagicMock(data=[], count=87)
+    tests = MagicMock()
+    test_query = _stable_order_query(tests)
+    tquery = test_query.range.return_value
+    tquery.execute.return_value = MagicMock(data=[], count=73)
+
+    mock_db = MagicMock()
+    mock_db.table.side_effect = lambda name: tests if name == "reading_tests" else passages
+
+    with patch("routers.admin_reading.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_reading.supabase_admin", mock_db):
+        r = _client().get(
+            "/admin/reading/content?offset=40&limit=25", headers=_ADMIN_AUTH,
+        )
+
+    assert r.status_code == 200
+    assert r.json() == {"items": [], "total": 160, "limit": 25, "offset": 40}
+    passage_query.range.assert_called_once_with(0, 64)
+    test_query.range.assert_called_once_with(0, 64)
+
+
+def test_all_view_pages_each_source_past_postgrest_cap():
+    passages = MagicMock()
+    passage_query = _stable_order_query(passages, after_neq=True)
+    first = [{"id": str(i), "slug": f"p-{i}", "library": "l1_vocab",
+              "title": f"P {i}", "status": "draft",
+              "updated_at": f"2026-01-{(i % 28) + 1:02d}"} for i in range(1000)]
+    second = [{"id": str(1000 + i), "slug": f"p-{1000 + i}", "library": "l1_vocab",
+               "title": f"P {1000 + i}", "status": "draft",
+               "updated_at": "2025-12-01"} for i in range(125)]
+    passage_query.range.return_value.execute.side_effect = [
+        MagicMock(data=first, count=1500), MagicMock(data=second, count=1500),
+    ]
+    tests = MagicMock()
+    test_query = _stable_order_query(tests)
+    test_query.range.return_value.execute.return_value = MagicMock(data=[], count=0)
+    mock_db = MagicMock()
+    mock_db.table.side_effect = lambda name: tests if name == "reading_tests" else passages
+
+    with patch("routers.admin_reading.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_reading.supabase_admin", mock_db):
+        response = _client().get(
+            "/admin/reading/content?offset=1100&limit=25", headers=_ADMIN_AUTH,
+        )
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 1500
+    assert [call.args for call in passage_query.range.call_args_list] == [(0, 999), (1000, 1124)]
+
+
+def test_l3_filter_allows_paging_beyond_ten_thousand_rows():
+    """The exact total and pager must agree: a reported row after 10k remains
+    reachable instead of the next request being rejected by validation."""
+    mock_db = MagicMock()
+    query = _stable_order_query(mock_db.table.return_value)
+    query.range.return_value.execute.return_value = MagicMock(data=[], count=10_026)
+
+    with patch("routers.admin_reading.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_reading.supabase_admin", mock_db):
+        response = _client().get(
+            "/admin/reading/content?library=l3_test&offset=10025&limit=25",
+            headers=_ADMIN_AUTH,
+        )
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 10_026
+    query.range.assert_called_once_with(10_025, 10_049)
+
+
+def test_all_view_fails_closed_when_exact_count_is_missing():
+    passages = MagicMock()
+    query = _stable_order_query(passages, after_neq=True)
+    query.range.return_value.execute.return_value = MagicMock(data=[])
+    mock_db = MagicMock()
+    mock_db.table.return_value = passages
+    with patch("routers.admin_reading.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_reading.supabase_admin", mock_db):
+        response = _client().get("/admin/reading/content", headers=_ADMIN_AUTH)
+    assert response.status_code == 503
+
+
 def test_status_filter_applied_on_l3_branch():
     """status= filter must still be honoured on the L3 branch (admin can
     list only draft tests, for instance)."""
     mock_db = MagicMock()
     # First range -> eq (status filter) -> execute
-    chain = mock_db.table.return_value.select.return_value.order.return_value.range.return_value.eq.return_value
+    query = _stable_order_query(mock_db.table.return_value)
+    chain = query.range.return_value.eq.return_value
     chain.execute.return_value = MagicMock(data=[], count=0)
 
     with patch("routers.admin_reading.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
@@ -209,7 +343,7 @@ def test_status_filter_applied_on_l3_branch():
                           headers=_ADMIN_AUTH)
     assert r.status_code == 200
     # Confirm a .eq("status", "draft") was applied somewhere on the chain.
-    eq_calls = mock_db.table.return_value.select.return_value.order.return_value.range.return_value.eq.call_args_list
+    eq_calls = query.range.return_value.eq.call_args_list
     assert any(c.args[:2] == ("status", "draft") for c in eq_calls), (
         f"status=draft filter not applied; eq calls: {eq_calls}"
     )

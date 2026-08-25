@@ -120,7 +120,12 @@ def test_d6_admin_list_l3_returns_the_imported_test():
     """After import, the L3 filter on the admin list must show the test row.
     The 20.8 endpoint queries reading_tests directly for library=l3_test."""
     mock_db = MagicMock()
-    chain = mock_db.table.return_value.select.return_value.order.return_value.range.return_value
+    ordered = mock_db.table.return_value.select.return_value.order.return_value
+    # The list uses updated_at plus id as its stable order. Keep the fluent
+    # mock on one builder across both order() calls so execute() returns the
+    # exact-count response required by the fail-closed endpoint.
+    ordered.order.return_value = ordered
+    chain = ordered.range.return_value
     chain.execute.return_value = MagicMock(
         data=[{
             "id": "test-uuid", "test_id": "INT-LIVE-001", "title": "Integration Live Test",
@@ -225,6 +230,7 @@ def test_d6_two_patches_for_different_qnums_each_upsert_reading_attempt_answers(
     chain.select.return_value.eq.return_value.limit.return_value.execute.return_value = MagicMock(data=[{
         "id": "attempt-uuid", "user_id": _USER["id"], "test_id": "test-uuid",
         "status": "in_progress",
+        "resume_expires_at": "2099-01-01T00:00:00+00:00",
     }])
     chain.select.return_value.eq.return_value.execute.return_value = MagicMock(data=[
         {"q_num": 1}, {"q_num": 2},
@@ -260,7 +266,8 @@ def test_d6_submit_returns_grade_with_skill_breakdown():
     mock_db.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.side_effect = [
         MagicMock(data=[{
             "id": "attempt-uuid", "user_id": _USER["id"], "test_id": "test-uuid",
-            "status": "in_progress", "started_at": started_at, "answers": [],
+            "status": "in_progress", "started_at": started_at,
+            "resume_expires_at": "2099-01-01T00:00:00+00:00", "answers": [],
         }]),
         MagicMock(data=[{
             "id": "test-uuid", "test_id": "INT-LIVE-001",

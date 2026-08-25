@@ -77,6 +77,7 @@ function renderHistory(sessions: any[], total: number | undefined, st: HistorySt
   const cnt = $('history-count');
   if (cnt) cnt.textContent = `${count} sessions`;
   $('history-skeleton')?.classList.add('hidden');
+  $('history-error')?.classList.add('hidden');
 
   const RW = (window as any).RetentionWarning;
   const banner = $('history-retention-banner');
@@ -119,7 +120,7 @@ function renderHistory(sessions: any[], total: number | undefined, st: HistorySt
       const viewBtn = s.id
         ? (isPending || isFailed)
           ? `<span class="text-xs px-3 py-1.5 rounded-lg font-medium" style="color:var(--av-text-muted);border:1px solid var(--av-border-subtle);cursor:default;">${isFailed ? 'Xem lại' : 'Chờ kết quả'}</span>`
-          : `<a href="/pages/result.html?id=${encodeURIComponent(s.id)}" class="text-xs px-3 py-1.5 rounded-lg transition font-medium" style="color:var(--av-primary);border:1px solid var(--av-primary-border);">Xem lại</a>`
+          : `<a href="/result?id=${encodeURIComponent(s.id)}" class="text-xs px-3 py-1.5 rounded-lg transition font-medium" style="color:var(--av-primary);border:1px solid var(--av-primary-border);">Xem lại</a>`
         : '—';
       const mode = s.mode || 'practice';
       const badge = (MODE_BADGE as any)[mode] || (MODE_BADGE as any).practice;
@@ -195,9 +196,14 @@ async function loadHistory(api: any, st: HistoryState, dead: () => boolean) {
     data = await api.get('/sessions?' + params.toString());
   } catch (err: any) {
     console.warn('Could not load sessions:', err && err.message);
-    // Lỗi ⇒ vẽ bảng RỖNG, KHÔNG để nguyên khung xương: một bảng nhấp nháy mãi
-    // trông giống "đang tải" và người dùng chờ vô hạn.
-    renderHistory([], 0, st);
+    // Lỗi tải KHÔNG đồng nghĩa “chưa có session”. Hiện trạng thái lỗi riêng để
+    // người học không hiểu nhầm lịch sử của mình đã bị mất.
+    $('history-skeleton')?.classList.add('hidden');
+    $('history-table-wrap')?.classList.add('hidden');
+    $('history-empty')?.classList.add('hidden');
+    $('history-error')?.classList.remove('hidden');
+    const count = $('history-count');
+    if (count) count.textContent = '— sessions';
     renderHistoryPagination(0, 0);
     renderHistoryFilterInfo(0, filtered);
     return;

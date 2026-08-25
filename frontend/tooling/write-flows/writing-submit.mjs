@@ -6,7 +6,9 @@
 // một đường ghi bị bỏ sót trong lúc port sẽ bị bỏ sót y hệt trong bản khai. Khai
 // từ legacy thì bản khai là hợp đồng độc lập.
 //
-// Trang này có bốn đường ghi và chúng KHÔNG tương đương nhau về hậu quả:
+// Trang này có năm đường ghi và chúng KHÔNG tương đương nhau về hậu quả:
+//   · `/renderer-affinity` — chốt renderer canonical TRƯỚC khi đọc workspace
+//                    hoặc mở lượt; thiếu claim thì hai renderer có thể cùng ghi.
 //   · `/start`     — mở lượt làm bài, khởi động đồng hồ phía server. Gọi thiếu
 //                    thì bài không tính giờ; gọi thừa thì lượt bị đặt lại.
 //   · `/draft`     — tự lưu sau 3 giây ngừng gõ. Mất nó là mất bài của học viên.
@@ -54,6 +56,12 @@ export default {
     [/\/api\/writing\/my-essays$/, { student: { display_name: 'Học Viên' }, essays: [] }],
     [/\/api\/writing\/prompt-bank$/, { enabled: false, prompts: [] }],
     [/\/api\/writing\/tips$/, { tips: [] }],
+    // Claim phải đứng trước mẫu GET chi tiết tổng quát và trả renderer canonical
+    // để client được phép tiếp tục tới `/start`.
+    [/\/api\/writing\/my-assignments\/[^/]+\/renderer-affinity$/, {
+      assignment_id: ASSIGNMENT,
+      renderer_affinity: 'next',
+    }],
     // GET chi tiết bài giao — CHÚ Ý thứ tự: mẫu này phải đứng SAU mẫu
     // `my-assignments$` ở trên, vì bộ chạy lấy mẫu khớp ĐẦU TIÊN.
     [/\/api\/writing\/my-assignments\/[^/]+$/, {
@@ -87,6 +95,11 @@ export default {
   ignoreWrites: ['/api/analytics/events'],
 
   writes: [
+    {
+      method: 'POST',
+      path: `/api/writing/my-assignments/${ASSIGNMENT}/renderer-affinity`,
+      body: { renderer_affinity: 'next' },
+    },
     { method: 'POST', path: `/api/writing/my-assignments/${ASSIGNMENT}/start` },
     { method: 'PATCH', path: `/api/writing/my-assignments/${ASSIGNMENT}/draft`, body: { draft_text: ESSAY } },
     // `char_count` là trường BẮT BUỘC của backend (`PasteLog`, `Field(..., ge=0)`),
@@ -106,7 +119,11 @@ export default {
     {
       method: 'POST',
       path: `/api/writing/my-assignments/${ASSIGNMENT}/submit`,
-      body: { essay_text: ESSAY + PASTED },
+      body: {
+        essay_text: ESSAY + PASTED,
+        request_id: (value) => typeof value === 'string' &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value),
+      },
     },
   ],
 };

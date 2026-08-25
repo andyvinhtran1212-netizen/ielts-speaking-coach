@@ -11,13 +11,14 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
   canonicalHref, normalizeText, comparePages, formatReport,
   buildFacts, linkFact, hrefFromInlineHandler, sameDocumentUrl, isTransportError,
+  externalPresentationFixture,
 } from '../tooling/parity-core.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -53,11 +54,70 @@ const nextSide = (over = {}) => ({
   ...base(), url: 'https://x/grammar', finalUrl: 'https://x/grammar', ...over,
 });
 
+describe('externalPresentationFixture — font CDN không làm phép đo chớp đỏ', () => {
+  test('chỉ fixture đúng stylesheet host Google Fonts', () => {
+    assert.deepEqual(
+      externalPresentationFixture('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans'),
+      { status: 200, contentType: 'text/css', body: '' },
+    );
+    assert.equal(externalPresentationFixture('https://fonts.gstatic.com/s/font.woff2'), null);
+    assert.equal(externalPresentationFixture('https://fonts.googleapis.com.evil.test/css2'), null);
+    assert.equal(externalPresentationFixture('https://cdn.jsdelivr.net/npm/x.js'), null);
+    assert.equal(externalPresentationFixture('not a url'), null);
+  });
+
+  test('runner áp fixture trước khi request ra mạng', () => {
+    assert.match(RUNNER, /externalPresentationFixture\(r\.url\(\)\)/);
+    assert.match(RUNNER, /if \(externalFixture\) return route\.fulfill\(externalFixture\)/);
+    assert.ok(
+      RUNNER.indexOf("if (!['GET', 'HEAD', 'OPTIONS'].includes(r.method()))")
+        < RUNNER.indexOf('externalPresentationFixture(r.url())'),
+      'mọi mutation phải bị block/log trước khi áp fixture chỉ-đọc',
+    );
+  });
+});
+
 describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
   test('đưa link legacy về dạng canonical', () => {
     assert.equal(canonicalHref('/grammar.html'), '/grammar');
     assert.equal(canonicalHref('/index.html'), '/');
+    assert.equal(canonicalHref('/login.html'), '/login');
+    assert.equal(canonicalHref('/onboarding.html'), '/onboarding');
     assert.equal(canonicalHref('/pages/profile.html'), '/profile');
+    assert.equal(
+      canonicalHref('/pages/quiz.html?bank=bank-1'),
+      '/quiz?bank=bank-1');
+    assert.equal(
+      canonicalHref('/pages/listening-practice-run.html?source=library&id=test-1'),
+      '/listening/practice-run?id=test-1&source=library');
+    assert.equal(
+      canonicalHref('/pages/listening-test.html?from=mini&id=test-1'),
+      '/listening/test/session?from=mini&id=test-1');
+    assert.equal(
+      canonicalHref('/pages/listening-test.html?id=test-1&from=mini'),
+      canonicalHref('/listening/test/session?from=mini&id=test-1'));
+    assert.equal(
+      canonicalHref('/pages/listening-test-dictation.html?test_id=test-1'),
+      '/listening/dictation/session?test_id=test-1');
+    assert.equal(
+      canonicalHref('/pages/listening-test-dictation.html?section=2&test_id=test-1'),
+      canonicalHref('/listening/dictation/session?test_id=test-1&section=2'));
+    assert.equal(
+      canonicalHref('/pages/reading-exam.html?from=mini&test_id=AVR-1'),
+      '/reading/exam/session?from=mini&test_id=AVR-1');
+    assert.equal(
+      canonicalHref('/pages/exam.html?id=exam-1&source=toeic_rc'),
+      '/exam?id=exam-1&source=toeic_rc');
+    assert.equal(
+      canonicalHref('/pages/grammar-compare.html?slug=past-perfect-vs-past-simple'),
+      '/grammar/compare?slug=past-perfect-vs-past-simple');
+    assert.equal(canonicalHref('/pricing.html'), '/pricing');
+    assert.equal(
+      canonicalHref('/pages/grammar-roadmap.html?slug=tenses'),
+      '/grammar/roadmap?slug=tenses');
+    assert.equal(
+      canonicalHref('/vocabulary.html?cat=technology&slug=cutting-edge'),
+      '/vocabulary?cat=technology&slug=cutting-edge');
     assert.equal(
       canonicalHref('/pages/grammar-article.html?category=tenses&slug=present-perfect'),
       '/grammar/tenses/present-perfect');
@@ -66,6 +126,52 @@ describe('canonicalHref — hợp đồng URL giữa hai stack', () => {
   test('giữ tham số truy vấn nhưng sắp xếp ổn định', () => {
     assert.equal(canonicalHref('/grammar.html?category=tenses'), '/grammar?category=tenses');
     assert.equal(canonicalHref('/x?b=2&a=1'), canonicalHref('/x?a=1&b=2'));
+  });
+
+  test('chuẩn hoá launcher runtime theo đúng policy admission hiện tại', () => {
+    const pairs = [
+      [
+        '/core-player/launch?surface=speaking&session_id=session+1',
+        '/practice/session?session_id=session+1',
+      ],
+      [
+        '/core-player/launch?from=full&class_item=homework-1&surface=reading_exam&test_id=AVR-1',
+        '/reading/exam/session?test_id=AVR-1&from=full&class_item=homework-1',
+      ],
+      [
+        '/core-player/launch?surface=listening_test&id=test-1&from=mini',
+        '/listening/test/session?id=test-1&from=mini',
+      ],
+      [
+        '/core-player/launch?surface=listening_dictation&test_id=test-1&section=2',
+        '/listening/dictation/session?test_id=test-1&section=2',
+      ],
+    ];
+    for (const [launcher, admittedPlayer] of pairs) {
+      assert.equal(canonicalHref(launcher), canonicalHref(admittedPlayer), launcher);
+    }
+  });
+
+  test('launcher không hợp lệ vẫn hiện ra để parity báo lệch', () => {
+    const cases = [
+      ['/core-player/launch?session_id=x', '/core-player/launch?session_id=x'],
+      [
+        '/core-player/launch?surface=speaking&surface=reading_exam&session_id=x',
+        '/core-player/launch?session_id=x&surface=reading_exam&surface=speaking',
+      ],
+      [
+        '/core-player/launch?surface=speaking&session_id=x&session_id=y',
+        '/core-player/launch?session_id=x&session_id=y&surface=speaking',
+      ],
+      [
+        '/core-player/launch?surface=speaking&session_id=x&implementation=next',
+        '/core-player/launch?implementation=next&session_id=x&surface=speaking',
+      ],
+    ];
+    for (const [href, expected] of cases) {
+      assert.equal(canonicalHref(href), expected);
+    }
+    assert.equal(new Set(cases.map(([href]) => canonicalHref(href))).size, cases.length);
   });
 
   test('bỏ origin cùng site, giữ nguyên link ra ngoài', () => {
@@ -297,7 +403,7 @@ describe('vá 7 phát hiện của vòng review đầu', () => {
   test('#5 phân giải ../ theo URL trang, không nối chuỗi', () => {
     const base2 = 'https://x/pages/grammar-article.html?category=tenses&slug=present-perfect';
     assert.equal(canonicalHref('../grammar.html', { base: base2 }), '/grammar');
-    assert.equal(canonicalHref('./grammar-search.html', { base: base2 }), '/pages/grammar-search.html');
+    assert.equal(canonicalHref('./grammar-search.html?q=tenses', { base: base2 }), '/grammar/search?q=tenses');
     // Chốt chặn: dạng cũ nối chuỗi sẽ ra '/../grammar.html'.
     assert.ok(!String(canonicalHref('../grammar.html', { base: base2 })).includes('..'));
   });
@@ -573,16 +679,16 @@ test('hợp đồng URL: /pages/home.html → /home (đã cutover PR #932)', () 
 });
 
 test('route đã cutover mà KHÔNG có cặp parity phải được khai báo', () => {
-  // Bot bắt ở #958: bộ lọc + regex mở lượt authed cho `/exercises`, nhưng
-  // `parity-pairs-authed.json` CỐ Ý không có cặp đó (vế legacy đang hỏng với
-  // tài khoản probe). Hệ quả: một PR chỉ sửa trang đó nhận G1 XANH mà không cặp
-  // nào được mở — đúng kiểu "cổng tự cấp phép" mà đầu `parity-gate.yml` bác bỏ.
+  // Bot bắt ở #958: bộ lọc + regex từng mở lượt authed cho `/exercises`, nhưng
+  // `parity-pairs-authed.json` chưa có cặp đó. Batch lifecycle 2026-08-09 đã
+  // xác nhận 4 dòng là trạng thái feature-disabled đầy đủ và đăng ký lại cặp
+  // với `minBaselineLines: 4`; không được đưa route đó trở lại danh sách này.
   //
   // Không sửa được bằng cách gỡ glob (thì PR đó lại không chạy cổng nào cả).
   // Cách đúng là làm việc LOẠI TRỪ trở nên tường minh và có người ký tên: mỗi
   // route ở đây phải có lý do ghi trong tài liệu, và danh sách này phải khớp
   // CHÍNH XÁC thực tế — thừa hay thiếu đều đỏ.
-  const KNOWN_NO_PAIR = ['/writing/dashboard', '/exercises'];
+  const KNOWN_NO_PAIR = ['/pricing', '/writing/dashboard'];
 
   const pairs = JSON.parse(
     readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
@@ -594,7 +700,12 @@ test('route đã cutover mà KHÔNG có cặp parity phải được khai báo',
   // đọc đi thêm một tên vào `KNOWN_NO_PAIR`, tức tự tay tạo ra đúng lỗ mà chốt
   // sinh ra để chặn. Mô hình của chốt phải phủ CẢ HAI nơi khai cặp.
   const diffSrc = readFileSync(path.join(ROOT, 'frontend/tooling/parity-diff.mjs'), 'utf8');
-  const publicPairs = [...diffSrc.matchAll(/next:\s*'([^']+)'/g)].map((m) => m[1]);
+  const publicPairs = [...diffSrc.matchAll(/next:\s*'([^']+)'/g)].map((m) => {
+    // Một cặp có thể cần query fixture để chạm đúng state hữu ích (ví dụ
+    // Grammar Search). Quyền sở hữu route vẫn là pathname; so cả `?q=` ở đây
+    // sẽ báo giả rằng route đã cutover nhưng chưa có cặp.
+    return new URL(m[1], 'https://parity.local').pathname;
+  });
   assert.ok(publicPairs.length >= 1, 'không đọc được cặp công khai nào — bộ dò hỏng?');
   for (const r of publicPairs) paired.add(r);
 
@@ -654,7 +765,7 @@ test('regex authed KHÔNG mở lượt cho trang không có cặp parity', () =>
   // chỉ sửa MCQ vẫn mở lượt authed — lượt cần secret PROBE_*, đăng nhập thật,
   // rồi so đúng con số KHÔNG cặp. Không đỏ, chỉ tốn và gây ảo giác đã phủ.
   //
-  // Trang bị loại có chủ ý (`writing-dashboard`, `exercises`) phải được nêu
+  // Trang bị loại có chủ ý (`writing-dashboard`) phải được nêu
   // TRONG tài liệu loại trừ, nếu không thì "chưa có cặp" và "quên mất cặp"
   // trông giống hệt nhau.
   const rxs = [...GATE.matchAll(/grep -qE '([^']+)'/g)].map((m) => m[1]);
@@ -668,7 +779,8 @@ test('regex authed KHÔNG mở lượt cho trang không có cặp parity', () =>
 
   const pairs = JSON.parse(
     readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
-  const paired = new Set(pairs.map((x) => path.basename(x.legacy, '.html')));
+  const paired = new Set(pairs.map((x) => path.basename(
+    new URL(x.legacy, 'https://parity.invalid').pathname, '.html')));
   const documented = readFileSync(
     path.join(ROOT, 'docs/PARITY_WRITING_PAIR_2026-08-05.md'), 'utf8');
 
@@ -716,6 +828,69 @@ test('MỌI glob authed trong `paths` đều được regex chọn phạm vi b�
     assert.ok(yml.includes(`- '${shared}'`),
       `«${shared}» phải có trong \`paths\`, nếu không job không khởi động`);
   }
+
+  // Khối glob theo-trang bên trên không thể thấy các dependency khai
+  // tường minh ở những khối write-flow phía sau. Đã từng lọt liên tiếp
+  // `speaking-debt.js`, `runtime-config.js` và `analytics-beacon.js`: workflow
+  // khởi động nhưng selector cho `authed=false`, nên không mở trang nào
+  // thực sự nạp tệp vừa đổi. Dựng dependency từ chính các legacy page
+  // trong inventory để file mới cùng họ tự động bị chặn, không phải
+  // chờ thêm một hand-pinned sentinel.
+  const pullRequestPaths = yml.slice(
+    yml.indexOf('  pull_request:'),
+    yml.indexOf('\n  push:'),
+  );
+  const configuredPaths = [...pullRequestPaths.matchAll(/^\s+- '([^']+)'/gm)]
+    .map((match) => match[1]);
+  const missingPathPrefixes = configuredPaths.filter((configuredPath) => {
+    const prefix = configuredPath.split(/[*?[]/, 1)[0].replace(/\/$/, '');
+    return !prefix || !existsSync(path.join(ROOT, prefix));
+  });
+  assert.deepEqual(missingPathPrefixes, [],
+    'path filter trỏ vào prefix không tồn tại ⇒ GitHub không bao giờ khởi động gate');
+
+  const exactTrackedPaths = new Set(
+    configuredPaths.filter((configuredPath) => !/[*?[]/.test(configuredPath)),
+  );
+  const pairs = JSON.parse(
+    readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
+  const loadedLocalDependencies = new Set();
+  for (const pair of pairs) {
+    const legacyPathname = new URL(pair.legacy, 'https://parity.invalid').pathname;
+    const legacyPage = readFileSync(
+      path.join(ROOT, 'frontend/public', legacyPathname.replace(/^\//, '')),
+      'utf8',
+    );
+    const assetUrls = [];
+    for (const match of legacyPage.matchAll(/<script\b[^>]*>/gi)) {
+      const src = /\bsrc=["']([^"']+)["']/i.exec(match[0]);
+      if (src) assetUrls.push(src[1]);
+    }
+    for (const match of legacyPage.matchAll(/<link\b[^>]*>/gi)) {
+      const rel = /\brel=["']([^"']+)["']/i.exec(match[0]);
+      const href = /\bhref=["']([^"']+)["']/i.exec(match[0]);
+      if (href && rel?.[1].split(/\s+/).includes('stylesheet')) assetUrls.push(href[1]);
+    }
+    for (const raw of assetUrls) {
+      if (/^(?:https?:)?\/\//.test(raw) || /^(?:data|blob|mailto):/.test(raw)) continue;
+      const pathname = new URL(raw, `https://parity.invalid${legacyPathname}`).pathname;
+      const dependency = `frontend/public${pathname}`;
+      if (existsSync(path.join(ROOT, dependency))) loadedLocalDependencies.add(dependency);
+    }
+  }
+  const untrackedDependencies = [...loadedLocalDependencies]
+    .filter((dependency) => !exactTrackedPaths.has(dependency))
+    .sort();
+  assert.deepEqual(untrackedDependencies, [],
+    'script/stylesheet local được authed pair nạp nhưng không có trong paths '
+    + '⇒ PR chỉ sửa dependency đó không khởi động parity gate');
+
+  const uncoveredDependencies = [...loadedLocalDependencies]
+    .filter((dependency) => !authedRe.test(dependency))
+    .sort();
+  assert.deepEqual(uncoveredDependencies, [],
+    'dependency khai tường minh trong paths và được authed pair nạp, nhưng '
+    + 'selector không bật authed=true ⇒ job xanh mà không so trang chịu ảnh hưởng');
 
   // Chiều ngược: đường dẫn của khu công khai KHÔNG được kích hoạt lượt authed.
   for (const neg of ['frontend/app/(public-content)/grammar/page.tsx',

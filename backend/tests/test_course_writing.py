@@ -127,6 +127,52 @@ async def test_a_race_that_hits_the_unique_index_reads_as_already_submitted():
     assert e.value.status_code == 409
 
 
+@pytest.mark.asyncio
+async def test_the_losing_retry_cas_keeps_its_actionable_409():
+    """Hai tab cùng chấm lại dòng hỏng: tab thua CAS phải tải lại, không phải
+    nhận một lỗi máy chủ 500 do chính ``HTTPException`` bị bắt lại."""
+    broken = [{
+        "id": "sub1", "bank_id": "b1", "user_id": "u1",
+        "class_assignment_item_id": "it1",
+        "items": [{"qid": "E1", "ok": None}],
+        "graded_at": "2026-08-05T00:00:00Z",
+    }]
+
+    class _CasLoser(_Table):
+        def update(self, row):
+            self._log.append((self._name, "update", row))
+            # Tab kia đã đổi ``graded_at`` sau lượt đọc ban đầu, nên điều kiện
+            # CAS không còn khớp và Supabase trả danh sách rỗng.
+            self._rows = []
+            return self
+
+        def is_(self, *_a):
+            return self
+
+    log = []
+    tables = {"quiz_questions": _QS, "course_writing_submissions": broken}
+    db = type("DB", (), {})()
+    db.table = lambda n: _CasLoser(n, tables.get(n, []), log)
+
+    async def g(items):
+        return ([{"qid": i["qid"], "prompt": i["prompt"],
+                  "answer": i["answer"], "corrected": i["answer"],
+                  "issues": [], "ok": True} for i in items], "m")
+
+    with patch.object(qs, "supabase_admin", db), \
+         patch.object(qs, "_bank_meta_or_404",
+                      lambda b, u=None: {"id": b, "skill_area": "course"}), \
+         patch.object(qs, "_assignment_item_for", lambda b, u: {"id": "it1"}), \
+         patch.object(qs.course_writing_grader, "grade", g):
+        with pytest.raises(HTTPException) as e:
+            await qs.submit_course_writing(
+                user_id="u1", bank_id="b1", answers={"E1": "x", "E2": "y"})
+
+    assert e.value.status_code == 409
+    assert "Tải lại trang" in str(e.value.detail)
+    assert not str(e.value.detail).startswith("Lỗi lưu bài tự luận")
+
+
 # ── Đủ câu mới nhận ──────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
@@ -347,46 +393,33 @@ def test_the_play_endpoint_never_ships_writing_answers():
     assert by["M1"]["answer"] == 0
 
 
-# ── Chốt sổ bài giao khi nộp tự luận (codex #935) ───────────────────────────
+# ── Nộp tự luận đi qua cổng hoàn thành hợp nhất ─────────────────────────────
 
 @pytest.mark.asyncio
-async def test_submitting_writing_stamps_the_assignment_ledger():
-    """Bank CHỈ có tự luận không sinh phiên quiz nào, nên đây là đường chốt sổ
-    DUY NHẤT. Thiếu nó, bài đã nộp vẫn nằm ở "Cần nộp" rồi thành "Quá hạn"."""
+async def test_submitting_writing_delegates_to_the_whole_assignment_gate():
+    """Phần viết không tự kết luận; gate đọc toàn bộ hình dạng bank trước."""
     seen = {}
-    def fake_mark(db, *, item_id, artifact_kind, artifact_id, score=None, now=None):
-        seen.update(item_id=item_id, kind=artifact_kind, score=score)
-        return True
-    # Khai HÌNH DẠNG BỘ ĐỀ tường minh, đúng tiền đề của chính chốt này ("bank
-    # CHỈ có tự luận"). Bộ giả ở tệp này không phục vụ `quiz_questions`, nên
-    # `bank_has_mcq` sẽ trả True theo chiều an toàn và chốt đỏ vì một lý do
-    # không liên quan tới thứ nó kiểm.
-    with patch.object(qs, "mark_item_submitted", fake_mark), \
-         patch.object(qs, "bank_has_mcq", lambda _b: False):
+    def refresh(**kwargs):
+        seen.update(kwargs)
+        return {"completed": True, "passed": True}
+    with patch.object(qs, "refresh_course_completion", refresh):
         await _submit({"E1": "a", "E2": "b"})
     assert seen["item_id"] == "it1"
-    assert seen["kind"] == "course_writing", "mượn 'quiz_session' là trỏ vào bảng không có dòng ấy"
-    assert seen["score"] == 100.0
+    assert seen["bank_id"] == "b1"
 
 
 @pytest.mark.asyncio
-async def test_a_MIXED_bank_is_stamped_WITHOUT_touching_the_quiz_score():
-    """Bộ đề có trắc nghiệm ⇒ vẫn chốt sổ, nhưng KHÔNG ghi điểm.
-
-    Điểm của mục là kết quả trắc nghiệm mà `course_verdict` đã ghi và `passed_at`
-    được xét trên. Đây là đường chạy THẬT trên sản phẩm, và nó đã xoá điểm của
-    11/11 mục trên prod.
-    """
+async def test_a_mixed_bank_is_not_stamped_by_writing_alone():
+    """Điểm và thu bài thuộc gate hợp nhất, không thuộc riêng phần viết."""
     seen = {}
-    def fake_mark(db, *, item_id, artifact_kind, artifact_id, score=None, now=None):
-        seen.update(item_id=item_id, kind=artifact_kind, score=score)
-        return True
-    with patch.object(qs, "mark_item_submitted", fake_mark), \
-         patch.object(qs, "bank_has_mcq", lambda _b: True):
+    def refresh(**kwargs):
+        seen.update(kwargs)
+        return {"completed": False, "passed": None}
+    with patch.object(qs, "refresh_course_completion", refresh), \
+         patch.object(qs, "mark_item_submitted") as direct_mark:
         await _submit({"E1": "a", "E2": "b"})
-    assert seen["item_id"] == "it1", "vẫn phải chốt sổ"
-    assert seen["kind"] == "course_writing"
-    assert seen["score"] is None, "đã ghi đè lên kết quả trắc nghiệm"
+    assert seen["item_id"] == "it1"
+    direct_mark.assert_not_called()
 
 
 @pytest.mark.asyncio

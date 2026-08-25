@@ -54,10 +54,39 @@ function render(slots, session) {
   const _sessionData = session === undefined
     ? { status: 'in_progress', class_task: { accepting: true } }
     : session;
-  new Function('$', '_esc', '_sheet', '_sessionData', 'document', 'window',
+  new Function('$', '_esc', '_sheet', '_sessionData', 'document', 'window', '_updateNativeView',
     `${JS.slice(start, end)} _renderSheet();`)(
-    $, _esc, _sheet, _sessionData, document, { addEventListener() {} });
+    $, _esc, _sheet, _sessionData, document, { addEventListener() {} }, () => false);
   return nodes;
+}
+
+/** Chạy cùng renderer nhưng nhận model native thay vì HTML fallback. */
+function renderNative(slots, session) {
+  const start = JS.indexOf('  var _SHEET_LABEL = {');
+  const end = JS.indexOf('  function _sheetListen(');
+  assert.ok(start !== -1 && end > start, 'render block not found');
+
+  const stateSheet = { style: { setProperty() {} } };
+  const $ = (id) => (id === 'state-sheet' ? stateSheet : null);
+  const document = {
+    querySelector: (selector) => (selector === '.practice-context-bar'
+      ? { offsetHeight: 52 }
+      : null),
+  };
+  const _sheet = { slots, recIdx: slots.findIndex((slot) => slot.state === 'recording') };
+  const _sessionData = session === undefined
+    ? { status: 'in_progress', class_task: { accepting: true } }
+    : session;
+  let model = null;
+  const update = (section, patch) => {
+    assert.equal(section, 'sheet');
+    model = patch;
+    return true;
+  };
+  new Function('$', '_esc', '_sheet', '_sessionData', 'document', 'window', '_updateNativeView',
+    `${JS.slice(start, end)} _renderSheet();`)(
+    $, String, _sheet, _sessionData, document, {}, update);
+  return model;
 }
 
 const S = (state, over = {}) => ({
@@ -66,15 +95,15 @@ const S = (state, over = {}) => ({
 });
 
 describe('trạng thái nói đúng sự thật', () => {
-  test('bốn trạng thái đều có nhãn tiếng Việt riêng', () => {
+  test('các trạng thái đều có nhãn tiếng Việt riêng', () => {
     const labels = new Set();
-    for (const st of ['idle', 'recording', 'grading', 'saved']) {
+    for (const st of ['idle', 'retry', 'recording', 'grading', 'saved']) {
       const html = render([S(st)])['sheet-slots'].innerHTML;
       const m = html.match(/av-slot__status">([^<]+)</);
       assert.ok(m, st);
       labels.add(m[1]);
     }
-    assert.equal(labels.size, 4, 'hai trạng thái dùng chung một nhãn là bắt người ta đoán');
+    assert.equal(labels.size, 5, 'hai trạng thái dùng chung một nhãn là bắt người ta đoán');
   });
 
   test('cột trạng thái mang data-state để liếc dọc là thấy', () => {
@@ -131,6 +160,106 @@ describe('nút nộp', () => {
     const n = render([S('saved', { band: 6 }), S('grading')]);
     assert.equal(n['btn-sheet-submit'].disabled, true);
   });
+
+  test('hai click sát nhau chỉ tạo một mutation complete', async () => {
+    const start = JS.indexOf('  async function _sheetSubmit() {');
+    const end = JS.indexOf('  function nextQuestion()', start);
+    assert.ok(start !== -1 && end > start, '_sheetSubmit not found');
+    let calls = 0;
+    let release;
+    const pending = new Promise((resolve) => { release = resolve; });
+    const window = {
+      api: { patch: () => { calls += 1; return pending; } },
+      location: { href: '' },
+    };
+    const create = new Function(
+      'window', '_updateNativeView', '$', '_sheet', '_releaseRecorderResources',
+      '_singleSessionResultUrl', `
+      var _sheetSubmitting = false;
+      var _playerGeneration = 1, _playerActive = true, _sessionId = 'session-1';
+      ${JS.slice(start, end)}
+      return _sheetSubmit;
+    `);
+    const submit = create(
+      window, () => true, () => null, { slots: [] }, () => {},
+      (id) => `/result?id=${id}`,
+    );
+    const first = submit();
+    const second = submit();
+    assert.equal(calls, 1, 'click thứ hai không được PATCH /complete lần nữa');
+    release();
+    await Promise.all([first, second]);
+  });
+
+  test('từ chối nộp bản cũ không khóa lần nộp kế tiếp', async () => {
+    const start = JS.indexOf('  async function _sheetSubmit() {');
+    const end = JS.indexOf('  function nextQuestion()', start);
+    assert.ok(start !== -1 && end > start, '_sheetSubmit not found');
+    let calls = 0;
+    let confirmations = 0;
+    const window = {
+      api: { patch: async () => { calls += 1; } },
+      confirm: () => { confirmations += 1; return confirmations > 1; },
+      location: { href: '' },
+    };
+    const updates = [];
+    const create = new Function(
+      'window', '_updateNativeView', '$', '_sheet', '_releaseRecorderResources',
+      '_singleSessionResultUrl', `
+      var _sheetSubmitting = false;
+      var _playerGeneration = 1, _playerActive = true, _sessionId = 'session-1';
+      ${JS.slice(start, end)}
+      return _sheetSubmit;
+    `);
+    const submit = create(
+      window,
+      (section, patch) => { updates.push([section, patch]); return true; },
+      () => null,
+      { slots: [{ retryBlob: {} }] },
+      () => {},
+      (id) => `/result?id=${id}`,
+    );
+
+    await submit();
+    assert.equal(calls, 0, 'từ chối cảnh báo không được complete session');
+    assert.equal(updates.length, 0, 'chưa xác nhận thì chưa được khóa nút nộp');
+
+    await submit();
+    assert.equal(calls, 1, 'lần nộp kế tiếp vẫn phải hoạt động');
+    assert.deepEqual(updates[0], ['sheet', { submitting: true }]);
+  });
+});
+
+describe('view-model React giữ nguyên sự thật của phiếu', () => {
+  test('xuất từng trạng thái, action và tiến độ mà không cần HTML injection', () => {
+    const model = renderNative([
+      S('saved', { band: 6.5, resp: { feedback: {} } }),
+      S('grading'),
+      S('retry', { retryBlob: {} }),
+      S('ungraded'),
+    ]);
+    assert.deepEqual(model.slots.map((slot) => slot.state), [
+      'saved', 'grading', 'retry', 'ungraded',
+    ]);
+    assert.equal(model.slots[0].canReview, true);
+    assert.equal(model.slots[1].note, 'Bạn làm câu kia được ngay, không phải chờ.');
+    assert.equal(model.slots[2].canRetry, true);
+    assert.equal(model.done, 2, 'saved và ungraded đều đã lên máy chủ');
+    assert.equal(model.ready, false);
+    assert.equal(model.meterVisible, true);
+  });
+
+  test('bài khoá chỉ-đọc nhưng vẫn giữ action xem nhận xét', () => {
+    const model = renderNative([
+      S('saved', { band: 7, resp: { feedback: {} } }),
+      S('saved', { band: 6, resp: { feedback: {} } }),
+    ], { status: 'completed', class_task: { accepting: false, submitted_at: 'now' } });
+    assert.equal(model.locked, true);
+    assert.equal(model.ready, false);
+    assert.equal(model.submitLabel, 'Đã chốt');
+    assert.equal(model.slots.every((slot) => slot.canReview), true);
+    assert.match(model.submitNote, /vẫn xem lại nhận xét/);
+  });
 });
 
 /**
@@ -154,11 +283,12 @@ async function recordThenFail(startState) {
   const api = new Function(
     '_sheet', '_renderSheet', 'startRecording', 'stopRecording',
     '_submitGradingEager', '_sessionId', 'console', 'window', '$', '_testMode',
-    '_showFeedback', '_respToFeedbackData', '_sheetReviewIdx', body)(
+    '_showFeedback', '_respToFeedbackData', '_sheetReviewIdx',
+    '_playerGeneration', '_playerActive', body)(
       _sheet, () => {}, async () => true, () => {},
       () => Promise.reject(new Error('mạng đứt')), 'sess', console,
       { api: { get: async () => [] }, scrollTo() {} }, () => null, null,
-      () => {}, (x) => x, 0);
+      () => {}, (x) => x, 0, 1, true);
 
   await api.toggle(0);
   assert.equal(slot.state, 'recording', 'bấm nút xong ô phải đang ghi âm');
@@ -169,20 +299,37 @@ async function recordThenFail(startState) {
 }
 
 describe('lưu hỏng thì nói ra', () => {
-  test('nộp hỏng đưa ô về CHƯA LÀM — nhưng chỉ khi CHƯA có bài nào', async () => {
-    // Để "đã lưu" nghĩa là học viên bấm Nộp rồi mất câu trả lời mà không biết.
+  test('nộp hỏng giữ blob ở trạng thái CHƯA GỬI — không bắt ghi lại', async () => {
+    // Để "đã lưu" là sai, nhưng hạ về "chưa làm" cũng vứt mất bản ghi còn sống.
     //
     // Chốt này từng ghim NGUYÊN VĂN `s.state = 'idle';` — lại là ghim một dòng
     // mã, không phải một hành vi. Nó đúng khi mọi lần ghi đều là lần đầu, và
     // sai ngay khi có "ghi âm lại": bản cũ vẫn nằm trên server, hạ ô về 'chưa
     // làm' là nói sai VÀ khoá lại nút Nộp. Nay ghim BẤT BIẾN đầy đủ.
     const first = await recordThenFail('idle');
-    assert.equal(first.state, 'idle', 'lần ghi ĐẦU mà hỏng: chưa có gì trên server');
-    assert.match(first.error, /Chưa lưu được câu này/);
+    assert.equal(first.state, 'retry', 'lần ghi đầu hỏng phải giữ trạng thái retry');
+    assert.ok(first.retryBlob, 'blob phải còn trong slot để gửi lại');
+    assert.match(first.error, /Bản ghi vẫn còn trên thiết bị/);
   });
 
-  test('micro hỏng không làm ô kẹt ở "đang ghi âm"', () => {
-    assert.match(CODE, /catch \(err\)[\s\S]{0,200}?_sheet\.recIdx = -1;/);
+  test('micro hỏng không làm ô kẹt ở "đang ghi âm"', async () => {
+    const from = JS.indexOf('  async function _sheetToggleRec(');
+    const to = JS.indexOf('  function _sheetOnRecorded(blob) {');
+    const slot = { state: 'idle', error: null, hadWork: null };
+    const sheet = { slots: [slot], recIdx: -1 };
+    const toggle = new Function(
+      '_sheet', '_renderSheet', 'startRecording', 'stopRecording',
+      '_getNativeRecorder', '_analyser', '_playerGeneration', '_playerActive',
+      JS.slice(from, to) + ' return _sheetToggleRec;',
+    )(
+      sheet, () => {}, async () => false, () => {},
+      () => null, null, 1, true,
+    );
+
+    await toggle(0);
+    assert.equal(sheet.recIdx, -1);
+    assert.equal(slot.state, 'idle');
+    assert.match(slot.error, /Không ghi âm được/);
   });
 });
 
@@ -210,10 +357,13 @@ describe('DÂY NỐI', () => {
   test('sự kiện dùng uỷ quyền và có gọi _bindSheet', () => {
     // Phiếu được vẽ lại sau MỖI thay đổi trạng thái, nên nút gắn tay mất ngay ở
     // lần vẽ kế tiếp. Cả BA nút của một ô đều phải đi qua uỷ quyền.
-    const i = CODE.indexOf("slots.addEventListener('click'");
+    const i = CODE.indexOf("_listenManaged('sheet-slots-click', slots, 'click'");
     assert.ok(i !== -1, 'phải uỷ quyền trên #sheet-slots');
-    const body = CODE.slice(i, i + 600);
-    for (const fn of ['_sheetListen', '_sheetReview', '_sheetToggleRec']) {
+    const body = CODE.slice(
+      CODE.indexOf('function _handleSheetSlotsClick'),
+      CODE.indexOf('function _bindSheet'),
+    );
+    for (const fn of ['_sheetListen', '_sheetReview', '_sheetRetrySubmission', '_sheetToggleRec']) {
       assert.ok(body.includes(fn), `${fn} phải nằm trong bộ uỷ quyền`);
     }
     assert.match(CODE, /_bindSheet\(\);/);
@@ -228,7 +378,7 @@ describe('DÂY NỐI', () => {
 
 describe('style', () => {
   test('mỗi trạng thái một màu cột riêng', () => {
-    for (const st of ['recording', 'grading', 'saved']) {
+    for (const st of ['retry', 'recording', 'grading', 'saved']) {
       // \s+ chứ không phải một dấu cách: CSS căn lề bằng nhiều dấu cách, và
       // ghim định dạng thay vì ghim hành vi là cách test đỏ vì một lần format.
       assert.match(CSS, new RegExp(`data-state='${st}'\\]\\s+\\.av-slot__spine`), st);
@@ -245,8 +395,9 @@ describe('đường HỎNG — chỗ dễ mất bài của học viên nhất', 
     // `_submitGradingEager` cố ý nuốt lỗi cho Full Test (ở đó cảnh báo được vẽ
     // riêng). Phiếu DỰA VÀO promise này để quyết ô có "đã lưu" không — nuốt ở
     // đây nghĩa là ô hỏng vẫn xanh, học viên bấm Nộp và mất câu trả lời.
-    assert.match(CODE, /if \(opts && opts\.rethrow\) throw err;/);
-    assert.match(CODE, /_submitGradingEager\(_sessionId, s\.q\.id, blob, \{ rethrow: true \}\)/);
+    assert.match(CODE, /if \(submitOpts\.rethrow\) throw err;/);
+    assert.match(CODE,
+      /_submitGradingEager\(_sessionId, s\.q\.id, blob, \{[\s\S]{0,180}?rethrow: true,[\s\S]{0,180}?priorResponseId:/);
   });
 
   test('micro hỏng nhận ra qua GIÁ TRỊ TRẢ VỀ, không chỉ qua ngoại lệ', () => {
@@ -470,6 +621,7 @@ describe('dựng lại phiếu từ bài đã nộp', () => {
       _renderSheet: () => {},
       showState: () => {},
       _syncMeterTop: () => {},
+      _listenManaged: () => true,
       window: { addEventListener() {} },
     };
     const names = Object.keys(env);
@@ -528,7 +680,7 @@ describe('nút Xem nhận xét', () => {
     // Một bộ vẽ rút gọn riêng là chỗ thứ hai để trôi khỏi bộ vẽ thật.
     const i = CODE.indexOf('function _sheetReview');
     assert.ok(i !== -1);
-    const body = CODE.slice(i, i + 900);
+    const body = CODE.slice(i, CODE.indexOf('function _backToSheet', i));
     assert.ok(body.includes('_showFeedback'), 'phải gọi đúng _showFeedback');
     assert.ok(body.includes("btn-back-sheet"), 'phải có đường quay lại phiếu');
     assert.match(HTML, /id="btn-back-sheet"/);
@@ -575,7 +727,7 @@ describe('xem lại: hai bẫy của việc DÙNG LẠI màn nhận xét (codex 
     // `_advanceTestMode()`. Admin chọn được "Luyện từng Part" khi giao, nên
     // không tắt thì bấm "Xem nhận xét" đá học viên sang luồng tuần tự cũ.
     const i = CODE.indexOf('function _sheetReview');
-    const body = CODE.slice(i, i + 900);
+    const body = CODE.slice(i, CODE.indexOf('function _backToSheet', i));
     assert.ok(/_testMode = null;/.test(body), 'phải tắt test-mode trước khi vẽ');
     assert.ok(/finally/.test(body) && /_testMode = savedMode;/.test(body),
       'và PHẢI trả lại — vẽ hỏng mà mất test-mode thì cả phiên thi lệch');
@@ -636,7 +788,10 @@ describe('xem lại phát ĐÚNG audio của câu ấy (codex #931 vòng 3)', ()
   test('URL đã ký không bị revokeObjectURL', () => {
     // Nó không phải blob URL; thu hồi là sai nghĩa và là chỗ sau này chết khó hiểu.
     const i = CODE.indexOf('if (_feedbackAudioUrl) {');
-    assert.match(CODE.slice(i, i + 260), /_feedbackAudioIsBlob\) URL\.revokeObjectURL/);
+    assert.match(
+      CODE.slice(i, i + 320),
+      /if \(_feedbackAudioIsBlob\) \{[\s\S]*?_revokeManagedObjectUrl\('feedback-audio'/,
+    );
   });
 
   test('bảng URL dựng từ MẢNG mà endpoint thật trả về', () => {
@@ -756,7 +911,8 @@ describe('chấm hỏng: một trạng thái riêng, không gộp vào đâu c�
       const slot = await recordThenFail(before);
       assert.equal(slot.state, before,
         `ô '${before}' ghi lại mà hỏng phải quay về đúng '${before}'`);
-      assert.match(slot.error, /bản ghi trước của bạn vẫn còn/);
+      assert.match(slot.error, /bản ghi trước vẫn còn/);
+      assert.ok(slot.retryBlob, 'bản ghi mới vẫn phải gửi lại được');
     }
   });
 
@@ -765,7 +921,7 @@ describe('chấm hỏng: một trạng thái riêng, không gộp vào đâu c�
     // bảng tổng quan nói ngược lại chính phiếu ngay bên dưới.
     const ticks = [...CSS.matchAll(/\.av-sheet__ticks i\[data-state='(\w+)'\]/g)]
       .map((m) => m[1]);
-    for (const st of ['recording', 'grading', 'saved', 'ungraded']) {
+    for (const st of ['retry', 'recording', 'grading', 'saved', 'ungraded']) {
       assert.ok(ticks.includes(st), `vạch thiếu màu cho '${st}'`);
     }
   });

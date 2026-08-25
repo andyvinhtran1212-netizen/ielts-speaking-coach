@@ -21,7 +21,7 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Header, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from routers.auth import get_supabase_user
 from services import quiz_service
@@ -33,14 +33,21 @@ router = APIRouter(prefix="/api/quiz", tags=["quiz-player"])
 
 class StartSessionBody(BaseModel):
     bank_id: str
+    class_item: str | None = None
     # 'retake' = phiên kiểm tra lại của cổng thuộc-bài (chỉ bank giáo trình).
     kind: str = "run"
 
 
 class CourseVerdictBody(BaseModel):
     bank_id: str
+    class_item: str | None = None
     # Các phiên của lượt vừa làm — server tự cộng điểm từ dòng nó giữ.
     session_ids: list[str]
+
+
+class CourseFullRetryBody(BaseModel):
+    bank_id: str
+    class_item: str | None = None
 
 
 class ProgressBody(BaseModel):
@@ -98,9 +105,14 @@ async def my_mistakes(
 
 
 @router.get("/banks/{bank_id}")
-async def get_bank(bank_id: UUID, authorization: str | None = Header(None)):
+async def get_bank(
+    bank_id: UUID, class_item: str | None = None,
+    authorization: str | None = Header(None),
+):
     user = await get_supabase_user(authorization)
-    return quiz_service.get_bank_for_play(str(bank_id), user_id=user["id"])
+    return quiz_service.get_bank_for_play(
+        str(bank_id), user_id=user["id"], assignment_item_id=class_item,
+    )
 
 
 @router.get("/banks/{bank_id}/resume")
@@ -110,10 +122,28 @@ async def resume(bank_id: UUID, authorization: str | None = Header(None)):
 
 
 @router.get("/banks/{bank_id}/course-resume")
-async def course_resume(bank_id: UUID, authorization: str | None = Header(None)):
+async def course_resume(
+    bank_id: UUID, class_item: str | None = None,
+    authorization: str | None = Header(None),
+):
     """Chỗ đang làm dở của bài tập theo buổi. Chỉ ĐỌC — không chốt gì cả."""
     user = await get_supabase_user(authorization)
-    return quiz_service.get_course_resume(user_id=user["id"], bank_id=str(bank_id))
+    return quiz_service.get_course_resume(
+        user_id=user["id"], bank_id=str(bank_id),
+        assignment_item_id=class_item,
+    )
+
+
+@router.post("/course/full-retry")
+async def begin_course_full_retry(
+    body: CourseFullRetryBody, authorization: str | None = Header(None),
+):
+    """Mở một full attempt mới cho cả quiz và mọi section bắt buộc."""
+    user = await get_supabase_user(authorization)
+    return quiz_service.begin_course_full_retry(
+        user_id=user["id"], bank_id=body.bank_id,
+        assignment_item_id=body.class_item,
+    )
 
 
 @router.post("/banks/{bank_id}/reset")
@@ -129,29 +159,59 @@ async def start_session(body: StartSessionBody, authorization: str | None = Head
     user = await get_supabase_user(authorization)
     return quiz_service.start_session(
         user_id=user["id"], bank_id=body.bank_id, kind=body.kind,
+        assignment_item_id=body.class_item,
     )
 
 
 class CourseWritingBody(BaseModel):
     bank_id: str
+    class_item: str | None = None
     # {qid: câu học viên viết}
-    answers: dict[str, str] = {}
+    answers: dict[str, str] = Field(default_factory=dict, max_length=2000)
+    duration_sec: int = Field(default=0, ge=0, le=12 * 60 * 60)
+
+
+class CourseReadingBody(BaseModel):
+    bank_id: str
+    class_item: str | None = None
+    # Nộp đủ một lần; server tự chấm từ đáp án canonical và lưu theo bài giao.
+    answers: dict[str, str] = Field(default_factory=dict, max_length=2000)
+    duration_sec: int = Field(default=0, ge=0, le=12 * 60 * 60)
+
+
+class CourseListeningBody(BaseModel):
+    bank_id: str
+    class_item: str | None = None
+    # Nộp đủ một lần; server tự chấm từ đáp án canonical và lưu theo bài giao.
+    answers: dict[str, str] = Field(default_factory=dict, max_length=2000)
+    duration_sec: int = Field(default=0, ge=0, le=12 * 60 * 60)
+
+
+class CourseListeningAudioBody(BaseModel):
+    bank_id: str
+    class_item: str | None = None
 
 
 @router.get("/course/writing")
-async def course_writing_state(bank_id: str, authorization: str | None = Header(None)):
+async def course_writing_state(
+    bank_id: str, class_item: str | None = None,
+    authorization: str | None = Header(None),
+):
     """Đề tự luận của bank + bản chấm nếu đã nộp."""
     user = await get_supabase_user(authorization)
-    return quiz_service.course_writing_state(user_id=user["id"], bank_id=bank_id)
+    return quiz_service.course_writing_state(
+        user_id=user["id"], bank_id=bank_id, assignment_item_id=class_item,
+    )
 
 
 @router.post("/course/writing")
 async def submit_course_writing(body: CourseWritingBody,
                                 authorization: str | None = Header(None)):
-    """Nộp CẢ CỤM tự luận — một lượt duy nhất cho mỗi học viên mỗi bank."""
+    """Nộp CẢ CỤM tự luận — một lần trong full attempt hiện hành."""
     user = await get_supabase_user(authorization)
     return await quiz_service.submit_course_writing(
         user_id=user["id"], bank_id=body.bank_id, answers=body.answers,
+        duration_sec=body.duration_sec, assignment_item_id=body.class_item,
     )
 
 
@@ -167,18 +227,57 @@ async def save_course_writing_draft(
     user = await get_supabase_user(authorization)
     return quiz_service.save_course_writing_draft(
         user_id=user["id"], bank_id=body.bank_id, answers=body.answers,
+        assignment_item_id=body.class_item,
+    )
+
+
+@router.post("/course/reading-solution")
+async def course_reading_solution(body: CourseReadingBody,
+                                  authorization: str | None = Header(None)):
+    """Bản dịch + lời giải bài đọc thêm; đề ban đầu không mang hai phần này."""
+    user = await get_supabase_user(authorization)
+    return quiz_service.course_reading_solution(
+        user_id=user["id"], bank_id=body.bank_id, submitted_answers=body.answers,
+        duration_sec=body.duration_sec, assignment_item_id=body.class_item,
+    )
+
+
+@router.post("/course/listening-solution")
+async def course_listening_solution(body: CourseListeningBody,
+                                    authorization: str | None = Header(None)):
+    """Đáp án + transcript bài nghe; đề ban đầu không mang những phần này."""
+    user = await get_supabase_user(authorization)
+    return quiz_service.course_listening_solution(
+        user_id=user["id"], bank_id=body.bank_id, submitted_answers=body.answers,
+        duration_sec=body.duration_sec, assignment_item_id=body.class_item,
+    )
+
+
+@router.post("/course/listening-audio")
+async def course_listening_audio(body: CourseListeningAudioBody,
+                                 authorization: str | None = Header(None)):
+    """Cấp URL audio mới ngay khi học viên mở phần nghe."""
+    user = await get_supabase_user(authorization)
+    return quiz_service.course_listening_audio(
+        user_id=user["id"], bank_id=body.bank_id,
+        assignment_item_id=body.class_item,
     )
 
 
 @router.get("/course/report")
-async def course_answer_report(bank_id: str, authorization: str | None = Header(None)):
+async def course_answer_report(
+    bank_id: str, class_item: str | None = None,
+    authorization: str | None = Header(None),
+):
     """Bài làm chi tiết của CHÍNH học viên: câu nào sai, em chọn gì, đáp án gì.
 
     Cùng một bộ dựng với mặt đọc của giáo viên — hai bộ dựng cho cùng một nội
     dung là hai chỗ để trôi khỏi nhau.
     """
     user = await get_supabase_user(authorization)
-    return quiz_service.course_answer_report(user_id=user["id"], bank_id=bank_id)
+    return quiz_service.course_answer_report(
+        user_id=user["id"], bank_id=bank_id, assignment_item_id=class_item,
+    )
 
 
 @router.post("/course/verdict")
@@ -187,6 +286,7 @@ async def course_verdict(body: CourseVerdictBody, authorization: str | None = He
     user = await get_supabase_user(authorization)
     return quiz_service.course_verdict(
         user_id=user["id"], bank_id=body.bank_id, session_ids=body.session_ids,
+        assignment_item_id=body.class_item,
     )
 
 

@@ -11,7 +11,7 @@ Covers:
 from __future__ import annotations
 
 import asyncio
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi import HTTPException
@@ -178,16 +178,26 @@ class _Q:
         self._mode = "select"
         self._payload = None
         self._eq: list[tuple[str, object]] = []
+        self._gt: list[tuple[str, object]] = []
         self._range: tuple[int, int] | None = None
+        self._orders: list[tuple[str, bool]] = []
 
     def select(self, *_a, **_kw): self._mode = "select"; return self
     def insert(self, p): self._mode = "insert"; self._payload = p; return self
+    def upsert(self, p, **_kw): self._mode = "upsert"; self._payload = p; return self
     def update(self, p): self._mode = "update"; self._payload = p; return self
     def eq(self, c, v): self._eq.append((c, v)); return self
-    def in_(self, c, vals): self._eq.append((c, ("__in__", list(vals)))); return self
+    def gt(self, c, v): self._gt.append((c, v)); return self
+    def in_(self, c, vals):
+        values = list(vals)
+        self.fake.in_filter_sizes.append((self.name, c, len(values)))
+        self._eq.append((c, ("__in__", values)))
+        return self
     def or_(self, expr): self._or = expr; return self
     def limit(self, *_a, **_kw): return self
-    def order(self, *_a, **_kw): return self
+    def order(self, column, desc=False, **_kw):
+        self._orders.append((column, desc))
+        return self
     def range(self, s, e): self._range = (s, e); return self
 
     def _match(self, r):
@@ -196,6 +206,9 @@ class _Q:
                 if r.get(c) not in v[1]:
                     return False
             elif r.get(c) != v:
+                return False
+        for c, v in self._gt:
+            if r.get(c) is None or not (r.get(c) > v):
                 return False
         # ilike_or_filter sinh 'col.ilike."%pat%"' (value quoted + escaped) —
         # strip cả ngoặc kép lẫn % để so substring, case-insensitive.
@@ -211,6 +224,11 @@ class _Q:
         return True
 
     def execute(self):
+        if self.name in self.fake.fail_tables:
+            raise RuntimeError(f"forced lookup failure: {self.name}")
+        if self._range is not None:
+            self.fake.range_orderings.append(
+                (self.name, tuple(self._orders), self._range))
         rows = self.fake.tables.setdefault(self.name, [])
         if self._mode == "insert":
             payloads = self._payload if isinstance(self._payload, list) else [self._payload]
@@ -218,6 +236,22 @@ class _Q:
                 rows.append(dict(p))
             return _Resp(payloads)
         matched = [r for r in rows if self._match(r)]
+        if self._mode == "upsert":
+            payload = dict(self._payload)
+            keys = ("attempt_id", "sentence_idx")
+            current = next((r for r in rows if all(r.get(k) == payload.get(k) for k in keys)), None)
+            if current is None:
+                rows.append(payload)
+                current = payload
+            else:
+                current.update(payload)
+            return _Resp([current])
+        if self._mode == "update":
+            for row in matched:
+                row.update(self._payload)
+            return _Resp(matched)
+        for column, desc in reversed(self._orders):
+            matched.sort(key=lambda row: str(row.get(column) or ""), reverse=desc)
         total = len(matched)
         if self._range:
             s, e = self._range
@@ -238,10 +272,33 @@ class _Storage:
 class _Fake:
     def __init__(self):
         self.tables = {"listening_tests": [], "listening_content": [],
-                       "dictation_sessions": [], "user_feedback": []}
+                       "dictation_sessions": [], "dictation_attempts": [],
+                       "dictation_attempt_answers": [],
+                       "user_feedback": [], "users": []}
+        self.fail_tables: set[str] = set()
+        self.in_filter_sizes: list[tuple[str, str, int]] = []
+        self.range_orderings: list[tuple[str, tuple[tuple[str, bool], ...], tuple[int, int]]] = []
         self.storage = _Storage()
 
     def table(self, name): return _Q(self, name)
+
+    def rpc(self, name, params):
+        if name != "fn_claim_dictation_attempt_renderer_affinity":
+            raise AssertionError(f"unexpected rpc {name}")
+        row = next((item for item in self.tables["dictation_attempts"]
+                    if item.get("id") == params["p_attempt_id"]
+                    and item.get("user_id") == params["p_user_id"]
+                    and item.get("status") == "in_progress"), None)
+        if not row:
+            return _RpcResult([])
+        row["renderer_affinity"] = row.get("renderer_affinity") or params["p_renderer_affinity"]
+        return _RpcResult([{"attempt_id": row["id"],
+                            "renderer_affinity": row["renderer_affinity"]}])
+
+
+class _RpcResult:
+    def __init__(self, data): self.data = data
+    def execute(self): return self
 
 
 def _patch(monkeypatch, user_id="user-1"):
@@ -571,6 +628,147 @@ def _submit_session(test_id, section_num, sentences, authz, **kw):
         body=body, authorization=authz))
 
 
+def test_dictation_attempt_resumes_saves_and_claims_renderer(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "The address is Brighton. It opens at ten.")
+    start_body = listening_router.DictationAttemptStartRequest(
+        renderer_affinity_protocol="claim-v1")
+
+    started = _run(listening_router.start_dictation_attempt(
+        test["id"], section_num=1, body=start_body, authorization=authz))
+    assert started["created"] is True
+    assert started["renderer_affinity"] is None
+    assert [unit["text"] for unit in started["units"]] == [
+        "The address is Brighton.", "It opens at ten."]
+
+    claimed = _run(listening_router.claim_dictation_attempt_renderer_affinity(
+        UUID(started["attempt_id"]),
+        listening_router.DictationAttemptRendererAffinityRequest(
+            renderer_affinity="next"),
+        authorization=authz,
+    ))
+    assert claimed["renderer_affinity"] == "next"
+
+    saved = _run(listening_router.grade_and_save_dictation_attempt_sentence(
+        UUID(started["attempt_id"]), 0,
+        listening_router.DictationAttemptAnswerRequest(
+            user_transcript="the address is brighton", listen_count=2,
+            time_seconds=9,
+        ),
+        authorization=authz,
+    ))
+    assert saved["score"] == 1
+    resumed = _run(listening_router.get_in_progress_dictation_attempt(
+        test["id"], section_num=1, authorization=authz))
+    assert resumed["attempt"]["attempt_id"] == started["attempt_id"]
+    assert resumed["attempt"]["renderer_affinity"] == "next"
+    assert resumed["attempt"]["answers"][0]["user_transcript"] == "the address is brighton"
+
+    # Published content may be edited while a learner is mid-run. The attempt
+    # keeps grading and rendering the immutable units it started with.
+    fake.tables["listening_content"][0]["transcript"] = "Completely changed text."
+    second = _run(listening_router.grade_and_save_dictation_attempt_sentence(
+        UUID(started["attempt_id"]), 1,
+        listening_router.DictationAttemptAnswerRequest(
+            user_transcript="it opens at ten", listen_count=1,
+            time_seconds=5,
+        ),
+        authorization=authz,
+    ))
+    assert second["score"] == 1
+
+    reopened = _run(listening_router.start_dictation_attempt(
+        test["id"], section_num=1, body=start_body, authorization=authz))
+    assert reopened["created"] is False
+    assert reopened["attempt_id"] == started["attempt_id"]
+
+
+def test_dictation_attempt_completion_requires_saved_canonical_answers(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "Hello there.")
+    started = _run(listening_router.start_dictation_attempt(
+        test["id"], section_num=1,
+        body=listening_router.DictationAttemptStartRequest(
+            renderer_affinity_protocol="claim-v1"),
+        authorization=authz,
+    ))
+    attempt_id = UUID(started["attempt_id"])
+    submission = [{"sentence_idx": 0, "user_transcript": "hello there",
+                   "listen_count": 1, "time_seconds": 4}]
+
+    with pytest.raises(HTTPException) as unsaved:
+        _submit_session(
+            test["id"], 1, submission, authz,
+            attempt_id=attempt_id, client_request_id=uuid4(),
+        )
+    assert unsaved.value.status_code == 409
+
+    _run(listening_router.grade_and_save_dictation_attempt_sentence(
+        attempt_id, 0,
+        listening_router.DictationAttemptAnswerRequest(
+            user_transcript="hello there", listen_count=1, time_seconds=4),
+        authorization=authz,
+    ))
+    fake.tables["listening_content"][0]["transcript"] = "Edited after the learner saved."
+    request_id = uuid4()
+    completed = _submit_session(
+        test["id"], 1, submission, authz,
+        attempt_id=attempt_id, client_request_id=request_id,
+    )
+    assert completed["attempt_id"] == str(attempt_id)
+    assert fake.tables["dictation_attempts"][0]["status"] == "completed"
+    assert fake.tables["dictation_sessions"][0]["attempt_id"] == str(attempt_id)
+    assert completed["results"][0]["reference"] == "Hello there."
+
+    replay = _submit_session(
+        test["id"], 1, submission, authz,
+        attempt_id=attempt_id, client_request_id=request_id,
+    )
+    assert replay["session_id"] == completed["session_id"]
+    assert len(fake.tables["dictation_sessions"]) == 1
+
+
+def test_dictation_completion_translates_database_expiry_guard(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "Hello there.")
+    started = _run(listening_router.start_dictation_attempt(
+        test["id"], section_num=1,
+        body=listening_router.DictationAttemptStartRequest(
+            renderer_affinity_protocol="claim-v1"),
+        authorization=authz,
+    ))
+    attempt_id = UUID(started["attempt_id"])
+    _run(listening_router.grade_and_save_dictation_attempt_sentence(
+        attempt_id, 0,
+        listening_router.DictationAttemptAnswerRequest(
+            user_transcript="hello there", listen_count=1, time_seconds=4),
+        authorization=authz,
+    ))
+
+    original_execute = _Q.execute
+
+    def expire_at_completion_insert(query):
+        if query.name == "dictation_sessions" and query._mode == "insert":
+            raise RuntimeError("active_player_expired")
+        return original_execute(query)
+
+    monkeypatch.setattr(_Q, "execute", expire_at_completion_insert)
+    with pytest.raises(HTTPException) as excinfo:
+        _submit_session(
+            test["id"], 1,
+            [{"sentence_idx": 0, "user_transcript": "hello there",
+              "listen_count": 1, "time_seconds": 4}],
+            authz, attempt_id=attempt_id, client_request_id=uuid4(),
+        )
+
+    assert excinfo.value.status_code == 410
+    assert fake.tables["dictation_sessions"] == []
+    assert fake.tables["dictation_attempts"][0]["status"] == "in_progress"
+
+
 def test_submit_dictation_session_persists_and_reports(monkeypatch):
     fake, authz = _patch(monkeypatch)
     test = _seed_test(fake)
@@ -588,6 +786,59 @@ def test_submit_dictation_session_persists_and_reports(monkeypatch):
     rows = fake.tables["dictation_sessions"]
     assert len(rows) == 1 and rows[0]["user_id"] == "user-1"
     assert rows[0]["test_id_external"] == test["test_id"]
+
+
+def test_submit_dictation_session_is_idempotent_by_client_request(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "The address is Brighton.")
+    request_id = uuid4()
+    submission = [{"sentence_idx": 0, "user_transcript": "the address is brighton"}]
+
+    first = _submit_session(
+        test["id"], 1, submission, authz, client_request_id=request_id)
+    replay = _submit_session(
+        test["id"], 1, submission, authz, client_request_id=request_id)
+
+    assert replay["session_id"] == first["session_id"]
+    assert replay["client_request_id"] == str(request_id)
+    assert len(fake.tables["dictation_sessions"]) == 1
+
+
+def test_submit_dictation_session_rejects_request_id_reuse_with_changed_payload(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    _seed_section(fake, test["id"], 1, "The address is Brighton.")
+    request_id = uuid4()
+    _submit_session(test["id"], 1, [
+        {"sentence_idx": 0, "user_transcript": "the address is brighton"},
+    ], authz, client_request_id=request_id)
+
+    with pytest.raises(HTTPException) as excinfo:
+        _submit_session(test["id"], 1, [
+            {"sentence_idx": 0, "user_transcript": "changed answer"},
+        ], authz, client_request_id=request_id)
+    assert excinfo.value.status_code == 409
+
+
+def test_get_dictation_session_by_request_is_owner_scoped(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    request_id = uuid4()
+    fake.tables["dictation_sessions"].extend([
+        {"id": "mine", "user_id": "user-1", "client_request_id": str(request_id),
+         "total_sentences": 1, "correct_count": 1, "accuracy": 1},
+        {"id": "theirs", "user_id": "another-user", "client_request_id": str(request_id),
+         "total_sentences": 1, "correct_count": 0, "accuracy": 0},
+    ])
+    out = _run(listening_router.get_listening_dictation_session_by_request(
+        client_request_id=request_id, authorization=authz))
+    assert out["session_id"] == "mine"
+
+    missing = uuid4()
+    with pytest.raises(HTTPException) as excinfo:
+        _run(listening_router.get_listening_dictation_session_by_request(
+            client_request_id=missing, authorization=authz))
+    assert excinfo.value.status_code == 404
 
 
 def test_submit_dictation_session_rejects_partial_or_duplicate_coverage(monkeypatch):
@@ -702,6 +953,79 @@ def test_admin_list_and_aggregate_dictation_reports(monkeypatch):
         test_id=None, user_query="khong-ai-ca", authorization=authz))
     assert agg_none == {"session_count": 0, "mean_accuracy": 0.0,
                         "top_missed": [], "top_wrong": []}
+
+
+def test_admin_dictation_list_and_detail_expose_user_lookup_failure(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    fake.tables["dictation_sessions"].append({
+        "id": "s-lookup", "user_id": "u-missing", "test_id_external": "C19-T1",
+        "section_num": 1, "total_sentences": 1, "correct_count": 1,
+        "accuracy": 1.0, "results": [], "created_at": "2026-08-14T00:00:00Z",
+    })
+    fake.fail_tables.add("users")
+    listed = _run(listening_router.admin_list_dictation_reports(
+        test_id=None, user_query=None, limit=30, offset=0, authorization=authz))
+    assert listed["association_lookup_failed"] is True
+    assert listed["association_lookup_failures"] == ["users"]
+    assert listed["items"][0]["user"] == {
+        "id": "u-missing", "email": None, "display_name": None}
+    detail = _run(listening_router.admin_get_dictation_report(
+        session_id="s-lookup", authorization=authz))
+    assert detail["association_lookup_failed"] is True
+    assert detail["user"]["id"] == "u-missing"
+
+
+def test_admin_dictation_aggregate_pages_past_postgrest_cap(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    fake.tables["dictation_sessions"] = [{
+        "id": f"session-{index}", "user_id": "u1", "test_id_external": "C19-T1",
+        "section_num": 1, "accuracy": 1.0,
+        "error_trends": {"missed": {"brighton": 1}, "wrong": {}},
+    } for index in range(1001)]
+    aggregate = _run(listening_router.admin_dictation_reports_aggregate(
+        test_id="C19-T1", user_query=None, authorization=authz))
+    assert aggregate["session_count"] == 1001
+    assert aggregate["mean_accuracy"] == 1.0
+    assert aggregate["top_missed"][0] == {"word": "brighton", "count": 1001}
+
+
+def test_admin_dictation_user_filter_pages_past_old_200_user_cap(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    fake.tables["users"] = [{
+        "id": f"user-{index}", "email": f"learner-{index}@ex.com",
+        "display_name": f"Learner {index}",
+    } for index in range(1001)]
+    fake.tables["dictation_sessions"] = [{
+        "id": f"session-{index}", "user_id": f"user-{index}",
+        "test_id_external": "C19-T1", "section_num": 1,
+        "total_sentences": 1, "correct_count": 1, "accuracy": 1.0,
+        "created_at": "2026-08-14T00:00:00Z",
+    } for index in range(1001)]
+    listed = _run(listening_router.admin_list_dictation_reports(
+        test_id=None, user_query="@ex.com", limit=30, offset=0,
+        authorization=authz))
+    assert listed["total"] == 1001
+    assert len(listed["items"]) == 30
+    session_batches = [size for table, column, size in fake.in_filter_sizes
+                       if table == "dictation_sessions" and column == "user_id"]
+    assert len(session_batches) == 11
+    assert max(session_batches) <= listening_router._DICTATION_USER_FILTER_BATCH_SIZE
+    paged_orders = [orders for table, orders, _range in fake.range_orderings
+                    if table in {"users", "dictation_sessions"}]
+    assert paged_orders and all(orders for orders in paged_orders)
+
+    fake.in_filter_sizes.clear()
+    fake.range_orderings.clear()
+    aggregate = _run(listening_router.admin_dictation_reports_aggregate(
+        test_id=None, user_query="@ex.com", authorization=authz))
+    assert aggregate["session_count"] == 1001
+    session_batches = [size for table, column, size in fake.in_filter_sizes
+                       if table == "dictation_sessions" and column == "user_id"]
+    assert len(session_batches) == 11
+    assert max(session_batches) <= listening_router._DICTATION_USER_FILTER_BATCH_SIZE
+    aggregate_orders = [orders for table, orders, _range in fake.range_orderings
+                        if table in {"users", "dictation_sessions"}]
+    assert aggregate_orders and all(orders for orders in aggregate_orders)
 
 
 def test_admin_dictation_reports_requires_admin(monkeypatch):

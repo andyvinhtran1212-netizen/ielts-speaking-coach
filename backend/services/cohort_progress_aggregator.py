@@ -34,6 +34,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Iterable, List, Optional, Set
 
+from services.class_membership_service import active_students_for_cohort
+
 from services.class_assignment_service import (
     reconcile_ledger_from_sessions,
     reconcile_test_attempts,
@@ -282,12 +284,8 @@ def cohort_progress(db, cohort_id: str) -> Dict[str, Any]:
     query failed; those cells come back as None rather than zero so the page can
     show "không đọc được" instead of inventing a fact.
     """
-    students = _paged(
-        # `target_band` đi kèm để bảng biết thế nào là "yếu" CHO EM ẤY. Một
-        # ngưỡng chung cho cả lớp là gọi một em mục tiêu 5.5 đạt 6.0 là yếu.
-        db, "students", "id, student_code, full_name, user_id, target_band",
-        lambda q: q.eq("cohort_id", cohort_id),
-    )
+    students = active_students_for_cohort(
+        db, cohort_id, "id, student_code, full_name, user_id, target_band")
     if not students:
         return {"students": [], "degraded": []}
 

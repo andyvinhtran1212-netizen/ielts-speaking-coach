@@ -228,7 +228,8 @@
     try {
       var res = await window.api.post('/admin/listening/tests/' + encodeURIComponent(STATE.testId) + '/audit/run', {});
       STATE.data.live = { issues: res.issues, health: res.health };
-      STATE.data.saved = { status: res.status, notes: $('ad-notes').value };
+      STATE.data.saved = { status: res.status, notes: $('ad-notes').value,
+        updated_at: res.audited_at, audited_at: res.audited_at };
       $('ad-run-status').textContent = '✓ xong · ' + (res.status);
       render();
     } catch (err) {
@@ -238,8 +239,12 @@
 
   async function saveTriage() {
     try {
-      await window.api.patch('/admin/listening/tests/' + encodeURIComponent(STATE.testId) + '/audit',
-        { status: $('ad-status').value, notes: $('ad-notes').value });
+      var version = STATE.data && STATE.data.saved && STATE.data.saved.updated_at;
+      if (!version) throw new Error('Thiếu version audit; tải lại trang trước khi lưu.');
+      var res = await window.api.patch('/admin/listening/tests/' + encodeURIComponent(STATE.testId) + '/audit',
+        { status: $('ad-status').value, notes: $('ad-notes').value,
+          expected_updated_at: version });
+      STATE.data.saved.updated_at = res.updated_at;
       $('ad-run-status').textContent = '✓ đã lưu trạng thái';
     } catch (err) {
       // 404 → chưa có bản audit; chạy audit trước.

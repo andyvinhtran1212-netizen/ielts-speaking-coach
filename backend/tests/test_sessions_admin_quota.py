@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from pathlib import Path
+from uuid import UUID
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -114,7 +115,11 @@ class _DispatchClient:
         """
         self.calls.append(("rpc", name, params))
         params = params or {}
-        if name == "fn_create_session_daily_capped":
+        if name in {
+            "fn_create_session_daily_capped",
+            "fn_create_session_daily_capped_v2",
+            "fn_create_session_daily_capped_v3",
+        }:
             if self._sessions_today >= params.get("p_max_daily", 0):
                 return _Builder(
                     [],
@@ -123,7 +128,7 @@ class _DispatchClient:
                     ),
                 )
             return _Builder([{
-                "id": "new-session-uuid",
+                "id": params.get("p_session_id") or "new-session-uuid",
                 "mode": params.get("p_mode"),
                 "part": params.get("p_part"),
                 "topic": params.get("p_topic"),
@@ -271,4 +276,53 @@ def test_non_admin_under_quota_creates_normally(monkeypatch):
     # Non-admin path: the create RPC ran with the ENFORCED daily cap.
     rpc_calls = [c for c in client.calls if c[0] == "rpc"]
     assert len(rpc_calls) == 1
+    assert rpc_calls[0][1] == "fn_create_session_daily_capped"
+    assert "p_renderer_affinity" not in rpc_calls[0][2]
     assert rpc_calls[0][2]["p_max_daily"] == settings.MAX_SESSIONS_PER_USER_PER_DAY
+
+
+def test_affinity_aware_client_explicitly_requests_unclaimed_v3_row(monkeypatch):
+    client = _patch(monkeypatch, role="student", sessions_today=2)
+    out = _run(sessions_module.create_session(
+        sessions_module.CreateSessionBody(
+            mode="practice",
+            part=1,
+            topic="A favourite place",
+            renderer_affinity_protocol="claim-v1",
+        ),
+        authorization="Bearer x",
+    ))
+    rpc_calls = [call for call in client.calls if call[0] == "rpc"]
+    assert out["session_id"] == rpc_calls[0][2]["p_session_id"]
+    assert rpc_calls[0][1] == "fn_create_session_daily_capped_v3"
+    assert rpc_calls[0][2]["p_renderer_affinity"] is None
+
+
+def test_client_session_id_uses_idempotent_v2_rpc(monkeypatch):
+    client = _patch(monkeypatch, role="student", sessions_today=2)
+    request_id = UUID("00000000-0000-4000-8000-000000000199")
+    out = _run(sessions_module.create_session(
+        sessions_module.CreateSessionBody(
+            mode="practice", part=1, topic="A favourite place",
+            client_session_id=request_id,
+        ),
+        authorization="Bearer x",
+    ))
+    assert out["session_id"] == str(request_id)
+    rpc_calls = [call for call in client.calls if call[0] == "rpc"]
+    assert rpc_calls[0][1] == "fn_create_session_daily_capped_v2"
+    assert rpc_calls[0][2]["p_session_id"] == str(request_id)
+
+
+def test_client_session_id_rejected_for_linked_create(monkeypatch):
+    _patch(monkeypatch)
+    request_id = UUID("00000000-0000-4000-8000-000000000199")
+    with pytest.raises(HTTPException) as exc:
+        _run(sessions_module.create_session(
+            sessions_module.CreateSessionBody(
+                mode="practice", part=1, topic="A favourite place",
+                client_session_id=request_id, class_assignment_item_id="item-1",
+            ),
+            authorization="Bearer x",
+        ))
+    assert exc.value.status_code == 400

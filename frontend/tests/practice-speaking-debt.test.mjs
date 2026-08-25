@@ -24,6 +24,10 @@ const RUNNER = readFileSync(join(__dirname, '..', 'public', 'js', 'mock-exam-run
 const HOME = readFileSync(join(__dirname, '..', 'public', 'pages', 'home.html'), 'utf8');
 const MOCK = readFileSync(join(__dirname, '..', 'public', 'pages', 'mock-exam.html'), 'utf8');
 const HTML = readFileSync(join(__dirname, '..', 'public', 'pages', 'practice.html'), 'utf8');
+const NEXT_BOOT = readFileSync(
+  join(__dirname, '..', 'app', '(authed-practice)', 'practice', 'session', 'practice-session-boot.tsx'),
+  'utf8',
+);
 
 describe('A5 — the debt retry must wait for authentication', () => {
   test('practice.js is deferred and initSupabase runs separately', () => {
@@ -37,14 +41,24 @@ describe('A5 — the debt retry must wait for authentication', () => {
     assert.doesNotMatch(JS, /\n {2}_retryOwedSpeakingReport\(\);/);
   });
 
-  test('it runs inside init(), after the session check', () => {
-    const init = JS.slice(JS.indexOf('async function init()'));
-    const body = init.slice(0, init.indexOf('\n  }\n'));
+  test('it runs after authentication on both legacy and Next bootstrap paths', () => {
+    const initStart = JS.indexOf('async function init(bootstrap)');
+    const initEnd = JS.indexOf('// ── PDF Export', initStart);
+    const body = JS.slice(initStart, initEnd);
     const sessionAt = body.indexOf('sb.auth.getSession()');
+    const handoffAt = body.indexOf('if (hasNextBootstrap)');
     const retryAt = body.indexOf('_retryOwedSpeakingReport()');
     assert.ok(sessionAt !== -1, 'session check not found in init()');
+    assert.ok(handoffAt !== -1, 'Next bootstrap branch not found in init()');
     assert.ok(retryAt !== -1, 'retry not called from init()');
     assert.ok(retryAt > sessionAt, 'retry must come AFTER the session check');
+    assert.ok(retryAt > handoffAt, 'retry must come AFTER the checked Next handoff');
+
+    const signedInAt = NEXT_BOOT.indexOf("status === 'signed-out'");
+    const loadAt = NEXT_BOOT.indexOf('loadPracticeBootstrap({');
+    const initAt = NEXT_BOOT.indexOf('PracticeApp.init(bootstrap)');
+    assert.ok(signedInAt !== -1 && signedInAt < loadAt && loadAt < initAt,
+      'Next must prove auth before loading and handing off the session');
   });
 });
 

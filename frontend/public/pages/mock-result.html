@@ -167,6 +167,7 @@
       .trf-sk { grid-template-columns: 80px 1fr 40px; }
     }
   </style>
+  <script src="/js/legacy-retirement-beacon.js" defer></script>
 </head>
 <body class="av-page font-sans min-h-screen">
   <aver-chrome active="home"></aver-chrome>
@@ -231,7 +232,7 @@
     initSupabase('https://huwsmtubwulikhlmcirx.supabase.co', 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao');
   </script>
   <script type="module">
-    // Logic đã tách sang `/js/mock-result.js` để bản Next chạy CHÍNH mã này.
+    // Logic legacy giữ riêng để làm mốc parity/rollback cho route Next native.
     import { mount } from '/js/mock-result.js';
     mount();
   </script>

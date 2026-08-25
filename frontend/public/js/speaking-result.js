@@ -56,8 +56,11 @@
       });
       metrics.forEach(function (mrow) {
         var tr = tbl.insertRow();
-        [mrow.label, mrow.value, mrow.class_avg].forEach(function (t) {
-          tr.insertCell().textContent = t == null ? '—' : t;
+        var labels = ['Chỉ số', 'Của bạn', 'Trung bình lớp'];
+        [mrow.label, mrow.value, mrow.class_avg].forEach(function (t, index) {
+          var td = tr.insertCell();
+          td.dataset.label = labels[index];
+          td.textContent = t == null ? '—' : t;
         });
       });
       host.appendChild(tbl);
@@ -75,7 +78,7 @@
   async function boot() {
     var sittingId = new URLSearchParams(location.search).get('sitting');
     if (!sittingId) { $('state-error').textContent = 'Thiếu mã lượt thi.'; showState('error'); return; }
-    $('back-link').href = '/pages/mock-result.html?sitting=' + encodeURIComponent(sittingId);
+    $('back-link').href = '/mock/result?sitting=' + encodeURIComponent(sittingId);
     try {
       var data = await window.api.get('/api/mock-exams/sittings/' + encodeURIComponent(sittingId) + '/result');
       var spk = (data.per_skill_notes || {}).speaking;

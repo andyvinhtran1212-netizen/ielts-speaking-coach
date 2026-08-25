@@ -186,6 +186,7 @@ async def health_runtime(authorization: str | None = Header(default=None)) -> di
         "status": "ok",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "git_sha":          os.environ.get("RAILWAY_GIT_COMMIT_SHA", "unknown") if is_admin else _REDACTED,
+        "git_branch":       os.environ.get("RAILWAY_GIT_BRANCH", "unknown") if is_admin else _REDACTED,
         "deployment_id":    os.environ.get("RAILWAY_DEPLOYMENT_ID",  "unknown") if is_admin else _REDACTED,
         "service_name":     os.environ.get("RAILWAY_SERVICE_NAME",   "unknown") if is_admin else _REDACTED,
         "environment_name": os.environ.get("RAILWAY_ENVIRONMENT_NAME", "unknown") if is_admin else _REDACTED,

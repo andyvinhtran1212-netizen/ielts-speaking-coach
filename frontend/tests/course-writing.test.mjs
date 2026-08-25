@@ -66,6 +66,29 @@ async function load(opts = {}) {
   return { w, api, storage };
 }
 
+test('review load pins the persisted result to its assignment item', async () => {
+  const api = fakeApi({ submitted: true });
+  const writing = createWriting({ api, storage: memStore(), userId: 'u1' });
+  await writing.load('b1', 'item-old');
+  assert.equal(
+    api.calls.get[0],
+    '/api/quiz/course/writing?bank_id=b1&class_item=item-old',
+  );
+});
+
+test('draft and final submission stay pinned to the loaded assignment item', async () => {
+  const api = fakeApi({ itemId: 'item-current' });
+  const writing = createWriting({ api, storage: memStore(), userId: 'u1' });
+  await writing.load('b1', 'item-current');
+  writing.write('E1', 'I am a student.');
+  writing.write('E2', 'She works here.');
+  await writing.flushDraft();
+  writing.arm();
+  await writing.submit();
+  assert.ok(api.calls.post.length >= 2);
+  assert.ok(api.calls.post.every((call) => call.body.class_item === 'item-current'));
+});
+
 // ── Sai → sửa trên cùng một dòng ─────────────────────────────────────────────
 
 describe('inlineDiff', () => {
@@ -177,6 +200,10 @@ describe('bản nháp', () => {
     a.w.write('E1', 'bài của lần giao trước');
     const b = await load({ storage, itemId: 'it-MOI' });
     assert.equal(b.w.draft.E1, undefined);
+  });
+
+  test('nháp khoá theo FULL ATTEMPT — làm lại không rót bài viết cũ', () => {
+    assert.notEqual(draftKey('b1', 'u1', 'it1', 1), draftKey('b1', 'u1', 'it1', 2));
   });
 
   test('nháp khoá theo NGƯỜI DÙNG — hai học viên chung máy không đọc bài nhau', () => {
@@ -416,7 +443,7 @@ describe('màn kết luận không được vẽ TRƯỚC khi biết có phần 
   test('giữ LỜI HỨA của lượt nạp, không chỉ một cờ', () => {
     // Cờ `false` lúc vẽ làm nút "Làm phần tự luận" biến mất vĩnh viễn cho tới
     // khi học viên tự tải lại trang và thắng cuộc đua.
-    assert.match(PAGE, /const writingLoaded = writing\.load\(bankId\)/);
+    assert.match(PAGE, /const writingLoaded = writing\.load\(bankId,/);
     const i = PAGE.indexOf('async function renderVerdict');
     const body = PAGE.slice(i, i + 700);
     assert.ok(/await writingLoaded;/.test(body), 'renderVerdict phải chờ lượt nạp ấy');
@@ -432,6 +459,24 @@ describe('màn kết luận không được vẽ TRƯỚC khi biết có phần 
 
   test('bank chỉ có tự luận vào THẲNG màn tự luận', () => {
     assert.match(PAGE, /if \(!runner\.total && runner\.hasWriting\)/);
+  });
+
+  test('review bank hỗn hợp mở hub trước và giữ cả MCQ lẫn tự luận reachable', () => {
+    const hubStart = PAGE.indexOf('function renderReviewHub()');
+    const hubEnd = PAGE.indexOf('/**', hubStart + 10);
+    const hub = PAGE.slice(hubStart, hubEnd);
+    assert.match(hub, /id="cx-see-report"/);
+    assert.match(hub, /id="cx-writing"/);
+
+    const reviewStart = PAGE.indexOf('if (runner.reviewOnly) {', hubEnd);
+    const reviewEnd = PAGE.indexOf('} else if', reviewStart);
+    const landing = PAGE.slice(reviewStart, reviewEnd);
+    assert.match(landing, /renderReviewHub\(\)/);
+    assert.doesNotMatch(landing, /renderWriting\(\)/,
+      'landing không được tự nhảy vào writing rồi giấu báo cáo MCQ');
+
+    assert.match(PAGE, /id="cx-review-home"/,
+      'đọc writing xong phải quay lại được hub mà không reload');
   });
 });
 

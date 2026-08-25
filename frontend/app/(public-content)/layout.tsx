@@ -43,11 +43,12 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
         rel="stylesheet"
       />
 
-      {/* Stylesheets: tokens → components → ds → grammar-wiki.css → tailwind (last for cascade) */}
+      {/* Stylesheets: tokens → components → ds → content CSS → tailwind (last for cascade) */}
       <link rel="stylesheet" href="/css/aver-design/tokens.css" />
       <link rel="stylesheet" href="/css/aver-design/components.css" />
       <link rel="stylesheet" href="/css/ds.css" />
       <link rel="stylesheet" href="/css/grammar-wiki.css" />
+      <link rel="stylesheet" href="/css/vocab-wiki.css" />
       <link rel="stylesheet" href="/css/tailwind.build.css" />
 
       {/* Canonical chrome Web Component (Sprint 7.13) */}
@@ -57,6 +58,7 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
         src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js"
         defer
       />
+      <script src="/js/supabase-sdk-fallback.js" defer />
       <script src="/js/runtime-config.js" defer />
       {/* DEBT-2026-07-31-O — reporter phải nạp TRƯỚC api.js/chrome. Script
           `defer` chạy theo THỨ TỰ TÀI LIỆU, nên đặt sau api.js thì một lỗi

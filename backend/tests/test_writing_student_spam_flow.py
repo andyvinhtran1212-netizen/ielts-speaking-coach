@@ -74,6 +74,7 @@ class _Builder:
         self._filters: list[tuple] = []
         # Sprint 2.7 fix #3: support `.in_()` on the atomic-claim UPDATE.
         self._in: tuple[str, list] | None = None
+        self._gt: tuple[str, object] | None = None
 
     def select(self, *_a, **_kw): self._action = "select"; return self
     def insert(self, payload, *_a, **_kw): self._action = "insert"; self._payload = payload; return self
@@ -90,6 +91,10 @@ class _Builder:
         self._in = (col, list(vals))
         return self
 
+    def gt(self, col, val):
+        self._gt = (col, val)
+        return self
+
     def execute(self):
         rec = {
             "table":   self._table,
@@ -97,6 +102,7 @@ class _Builder:
             "payload": self._payload,
             "filters": list(self._filters),
             "in":      self._in,
+            "gt":      self._gt,
         }
         self._parent.calls.append(rec)
         return self._parent._respond(rec)
@@ -137,6 +143,11 @@ class _Client:
                     for col, val in rec["filters"]:
                         matches = [a2 for a2 in matches if str(a2.get(col)) == str(val)]
                     if not matches or matches[0].get(in_col) not in in_vals:
+                        r.data = []
+                        return r
+                if rec.get("gt"):
+                    gt_col, gt_val = rec["gt"]
+                    if matches[0].get(gt_col) is None or not (matches[0].get(gt_col) > gt_val):
                         r.data = []
                         return r
                 r.data = [{"id": rec["filters"][0][1] if rec["filters"] else None,
@@ -199,6 +210,9 @@ def _active_assignment_row():
     return {
         "id": _ASSIGNMENT_ID, "student_id": _STUDENT_ID,
         "status": "in_progress",
+        "renderer_affinity": "legacy",
+        "renderer_affinity_claimed_at": "2026-05-01T00:00:00+00:00",
+        "renderer_affinity_expires_at": "2099-01-01T00:00:00+00:00",
         "writing_prompts": {
             "id": _PROMPT_ID, "title": "T",
             "prompt_text": "Some Task 2 prompt about education.",

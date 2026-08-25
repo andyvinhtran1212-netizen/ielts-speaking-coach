@@ -12,6 +12,8 @@
 //
 //   node tooling/verify-speaking-flow.mjs [base]      (mặc định http://localhost:3011)
 import { chromium } from 'playwright';
+import { existsSync } from 'node:fs';
+import { resolveCorePlayerAdmission } from '../lib/core-player-affinity.mjs';
 import { storageKey } from './supabase-session.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
@@ -44,7 +46,19 @@ const check = (name, ok, detail = '') => {
   console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ' — ' + detail : ''}`);
 };
 
-const browser = await chromium.launch();
+async function launchChromium() {
+  try {
+    return await chromium.launch();
+  } catch (error) {
+    const localChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+    if (process.platform === 'darwin' && existsSync(localChrome)) {
+      return chromium.launch({ executablePath: localChrome });
+    }
+    throw error;
+  }
+}
+
+const browser = await launchChromium();
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 await ctx.addInitScript(([k, v]) => {
   try { localStorage.setItem(k, v); } catch (_) {}
@@ -130,8 +144,11 @@ check('thân request mang đúng state của trang',
   !!sessionPost && sessionPost.mode === 'practice'
     && sessionPost.part === 2 && sessionPost.topic === topic,
   JSON.stringify(sessionPost));
+const expectedPracticeUrl = new URL(resolveCorePlayerAdmission('speaking', {
+  session_id: 'sess-verify-1',
+}), BASE).href;
 check('điều hướng sang trang luyện tập kèm session_id',
-  page.url().includes('practice.html?session_id=sess-verify-1'), page.url());
+  page.url() === expectedPracticeUrl, page.url());
 
 // ── 5. Modal chủ đề ─────────────────────────────────────────────────────────
 await page.goto(BASE + ROUTE, { waitUntil: 'domcontentloaded' });

@@ -56,7 +56,7 @@ export function GrammarExercisesBehavior() {
     <div className="gw-exercise-summary"><strong>{visible.length}</strong><span>bài luyện phù hợp</span><p>Mỗi bank vẫn là nguồn canonical cho câu hỏi và đáp án.</p></div>
     {visible.length ? <div className="gw-exercise-grid">{visible.map((bank) => {
       const status = bank.slug ? mastery[bank.slug] : '';
-      return <a key={bank.id} href={`/pages/quiz.html?bank=${encodeURIComponent(bank.id)}`} className="gw-exercise-card">
+      return <a key={bank.id} href={`/quiz?bank=${encodeURIComponent(bank.id)}`} className="gw-exercise-card">
         <div className="gw-exercise-card-top"><span>{prettify(bank.category || 'Grammar')}</span>{status && <small className={`is-${status}`}>{status === 'weak' ? 'Cần luyện' : status === 'strong' ? 'Đã vững' : 'Đang học'}</small>}</div>
         <h2>{bank.title || bank.code}</h2><p>{bank.summary || 'Luyện đúng trọng tâm của bài Grammar Wiki này.'}</p>
         <div><span>{bank.level || 'mixed level'}</span><strong>{bank.words_count ? `${bank.words_count} điểm` : 'Bắt đầu'} →</strong></div>

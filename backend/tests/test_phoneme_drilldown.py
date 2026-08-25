@@ -30,6 +30,15 @@ def test_assessment_header_requests_phoneme_granularity():
     assert decoded["GradingSystem"] == "HundredMark"  # 0–100, so <70 threshold is valid
 
 
+def test_assessment_header_can_enable_reading_miscues_without_paid_prosody():
+    decoded = json.loads(base64.b64decode(_assessment_header(
+        "The air is cleaner.", enable_miscue=True, enable_prosody=False,
+    )))
+    assert decoded["ReferenceText"] == "The air is cleaner."
+    assert decoded["EnableMiscue"] is True
+    assert decoded["EnableProsodyAssessment"] is False
+
+
 # ── extract_weak_phonemes against the real captured fixture ─────────────────────
 
 def test_extract_weak_phonemes_from_real_fixture():

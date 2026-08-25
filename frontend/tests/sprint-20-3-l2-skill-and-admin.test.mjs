@@ -73,7 +73,7 @@ describe('Sprint 20.3 — L2 library JS (reading-skill.js)', () => {
     assert.match(js, /qs\.set\('skill'/);
   });
   test('deep-links to the exercise page by slug', () => {
-    assert.match(js, /reading-skill-exercise\.html\?slug=/);
+    assert.match(js, /\/reading\/skill\/\$\{encodeURIComponent\(p\.slug\)\}/);
   });
   test('emphasises the skill_focus pill (brand-coloured)', () => {
     assert.match(js, /skill_focus/);
@@ -180,7 +180,7 @@ describe('Sprint 20.3 — aver-admin chrome ships a Reading section', () => {
   const js = read('frontend/js/components/aver-admin-chrome.js');
   test('Reading appears under Nội dung with a content subsection link', () => {
     assert.match(js, /section:\s*'reading'/);
-    assert.match(js, /href:\s*'\/pages\/admin\/reading\/content\.html'/);
+    assert.match(js, /href:\s*'\/admin\/reading\/content'/);
   });
 });
 

@@ -187,12 +187,14 @@ def _build_sessions_stats(sb, user_id: str, *, chart_limit: int) -> Dict[str, An
     )
     sessions: List[Dict[str, Any]] = s_res.data or []
 
-    # Total sessions (any status).
+    # Total COMPLETED sessions — same contract as profile and chart data. Merely
+    # opening a recorder creates an in_progress row and is not a completed buổi.
     try:
         total_res = (
             sb.table("sessions")
             .select("id", count="exact")
             .eq("user_id", user_id)
+            .eq("status", "completed")
             .execute()
         )
         total_sessions = (

@@ -2,13 +2,23 @@
 
 // Ô tìm kiếm của trang chủ Grammar. Đây là mảnh DUY NHẤT của trang cần chạy
 // phía client — legacy cũng chỉ làm đúng một việc: Enter hoặc bấm icon thì
-// chuyển sang route kết quả Next canonical.
+// chuyển sang trang kết quả (`grammarWiki.setupSearch(..., redirectToSearch)`).
 //
-// Giữ nguyên id `search-input` / `search-btn` vì `grammar-wiki.css` bám vào.
+// Giữ nguyên id `search-input` / `search-btn` vì `grammar-wiki.css` bám vào
+// chúng. Điều hướng full-document giữ URL truy vấn làm nguồn sự thật duy nhất:
+// nút Back/Forward và link chia sẻ đều dựng lại đúng cùng kết quả phía server.
 import { useState } from 'react';
 
-export function SearchBox() {
-  const [q, setQ] = useState('');
+type Props = {
+  initialQuery?: string;
+  className?: string;
+};
+
+export function SearchBox({
+  initialQuery = '',
+  className = 'relative max-w-lg mx-auto mb-8',
+}: Props = {}) {
+  const [q, setQ] = useState(initialQuery);
 
   const submit = () => {
     const value = q.trim();
@@ -17,12 +27,18 @@ export function SearchBox() {
   };
 
   return (
-    <div className="relative max-w-lg mx-auto mb-8">
+    <form
+      role="search"
+      className={className}
+      onSubmit={(event) => {
+        event.preventDefault();
+        submit();
+      }}
+    >
       <button
         id="search-btn"
-        type="button"
+        type="submit"
         aria-label="Tìm kiếm"
-        onClick={submit}
         className="absolute left-4 top-1/2 -translate-y-1/2 p-1 text-white/30 hover:text-teal-light transition-colors"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -35,11 +51,8 @@ export function SearchBox() {
         type="search"
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') submit();
-        }}
         placeholder="Tìm kiếm: present simple, conditionals, passive voice..."
       />
-    </div>
+    </form>
   );
 }

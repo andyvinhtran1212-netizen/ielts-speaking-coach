@@ -24,12 +24,25 @@ class _FakeSupabase:
     def __init__(self, responses=None):
         self.responses = responses or {}
         self.calls = []
+        self.storage = _FakeStorage(self)
 
     def table(self, name):
         return _FakeQuery(self, name)
 
     def rpc(self, name, params):
         return _FakeRpc(self, name)
+
+
+class _FakeStorage:
+    def __init__(self, parent): self._parent = parent
+    def from_(self, bucket): return _FakeBucket(self._parent, bucket)
+
+
+class _FakeBucket:
+    def __init__(self, parent, bucket): self._parent = parent; self._bucket = bucket
+    def create_signed_url(self, path, ttl):
+        self._parent.calls.append({"storage": self._bucket, "path": path, "ttl": ttl})
+        return {"signedURL": f"https://signed/{path}"}
 
 
 class _FakeRpc:
@@ -56,6 +69,9 @@ class _FakeQuery:
     def eq(self, c, v): self._filters.append((c, v)); return self
     def neq(self, c, v): self._filters.append(("neq", c, v)); return self
     def in_(self, c, vals): self._filters.append(("in", c, list(vals))); return self
+    @property
+    def not_(self): return self
+    def is_(self, c, v): self._filters.append(("not_is", c, v)); return self
     def order(self, *a, **k): return self
     def limit(self, *a, **k): return self
     # PostgREST range() is an inclusive offset window — the paging primitive
@@ -215,6 +231,295 @@ def test_get_bank_for_play_unpublished_404():
         with pytest.raises(HTTPException) as e:
             quiz_service.get_bank_for_play(_BANK)
     assert e.value.status_code == 404
+
+
+def test_get_bank_for_play_hides_short_reading_solution():
+    reading = {
+        "title": "Library", "passage": "Mai reads.",
+        "translation": "Mai đọc.",
+        "answers": [{"id": "r-01", "answer": "T", "explanation": "Đúng."}],
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "is_published": True, "skill_area": "grammar",
+            "meta": {"short_reading": reading},
+        }],
+        ("quiz_questions", "select"): [{"qid": "g1"}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.get_bank_for_play(_BANK)
+    served = out["bank"]["meta"]["short_reading"]
+    assert served["passage"] == "Mai reads."
+    assert served["has_solution"] is True
+    assert "translation" not in served
+    assert "answers" not in served
+
+
+def test_get_bank_for_play_hides_listening_solution_and_signs_private_audio():
+    listening = {
+        "audio_bundle": {"bucket": "listening-audio"},
+        "sections": [
+            {"id": "sound", "questions": [
+                {"id": "l-A1", "audio_storage_path": "course/hash/A1.mp3",
+                 "options": ["city", "pity"]}]},
+            {"id": "content", "audio_storage_path": "course/hash/D.mp3",
+             "questions": [{"id": "l-D1", "options": ["T", "F", "NG"]}]},
+        ],
+        "solution": {"answers": [{"id": "l-A1", "answer": "A"}]},
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "is_published": True, "skill_area": "grammar",
+            "meta": {"short_listening": listening},
+        }],
+        ("quiz_questions", "select"): [{"qid": "g1"}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.get_bank_for_play(_BANK)
+    served = out["bank"]["meta"]["short_listening"]
+    assert "solution" not in served
+    assert "audio_storage_path" not in str(served)
+    assert served["sections"][0]["questions"][0]["audio_url"].startswith("https://signed/")
+    assert served["sections"][1]["audio_url"].startswith("https://signed/")
+    assert len([call for call in fake.calls if call.get("storage")]) == 2
+
+
+def test_course_reading_solution_uses_a_separate_guarded_read():
+    reading = {
+        "translation": "Mai đọc.",
+        "answers": [{"id": "r-01", "answer": "T", "explanation": "Đúng."}],
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "is_published": True, "skill_area": "grammar",
+            "meta": {"short_reading": reading},
+        }],
+        ("course_section_submissions", "select"): [],
+        ("course_section_submissions", "insert"): [{
+            "total": 1, "correct": 1, "score": 100,
+            "duration_sec": 0, "submitted_at": "2026-08-20T00:00:00Z",
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for", return_value={
+             "id": "item-1", "assignment_id": "asg-1",
+         }), \
+         patch.object(quiz_service, "refresh_course_completion",
+                      return_value={"completed": False}):
+        out = quiz_service.course_reading_solution(
+            user_id=_USER, bank_id=_BANK, submitted_answers={"r-01": "T"})
+    assert out["translation"] == reading["translation"]
+    assert out["answers"] == reading["answers"]
+    assert out["result"]["pct"] == 100
+    inserted = next(c for c in fake.calls
+                    if c["table"] == "course_section_submissions" and c["op"] == "insert")
+    assert inserted["payload"]["class_assignment_item_id"] == "item-1"
+    assert inserted["payload"]["answers"] == {"r-01": "T"}
+    assert inserted["payload"]["content_snapshot"] == reading
+    assert len([c for c in fake.calls if c["table"] == "quiz_banks"]) == 2
+
+
+def test_course_reading_solution_rejects_an_incomplete_attempt():
+    reading = {
+        "translation": "Mai đọc.",
+        "answers": [
+            {"id": "r-01", "answer": "T", "explanation": "Đúng."},
+            {"id": "r-02", "answer": "a", "explanation": "Danh từ số ít."},
+        ],
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "is_published": True, "skill_area": "grammar",
+            "meta": {"short_reading": reading},
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for",
+                      return_value={"id": "item-1", "assignment_id": "asg-1"}):
+        with pytest.raises(HTTPException) as exc:
+            quiz_service.course_reading_solution(
+                user_id=_USER, bank_id=_BANK, submitted_answers={"r-01": "T"})
+    assert exc.value.status_code == 422
+    assert exc.value.detail["missing"] == ["r-02"]
+
+
+def test_course_reading_solution_empty_answers_reviews_canonical_submission():
+    saved_answers = [{"id": "r-01", "answer": "T", "explanation": "saved key"}]
+    saved_reading = {
+        "title": "Bản đã nộp", "passage": "Original passage.",
+        "translation": "Bản dịch gốc.", "answers": saved_answers,
+        "question_groups": [],
+    }
+    fake = _FakeSupabase(responses={
+        ("course_section_submissions", "select"): [{
+            "answers": {"r-01": "T"}, "answer_key": saved_answers,
+            "content_snapshot": saved_reading,
+            "total": 1, "correct": 1, "score": 100, "duration_sec": 20,
+            "submitted_at": "2026-08-20T00:00:00Z",
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for_review", return_value={
+             "id": "item-1", "assignment_id": "asg-1",
+         }) as review_item, \
+         patch.object(quiz_service, "refresh_course_completion") as refresh:
+        out = quiz_service.course_reading_solution(
+            user_id=_USER, bank_id=_BANK, submitted_answers={},
+            assignment_item_id="item-1")
+    assert out["answers"] == saved_answers
+    assert out["translation"] == "Bản dịch gốc."
+    assert out["content"]["passage"] == "Original passage."
+    assert "translation" not in out["content"] and "answers" not in out["content"]
+    assert out["result"]["submitted_answers"] == {"r-01": "T"}
+    assert "_content_snapshot" not in out["result"]
+    review_item.assert_called_once_with(
+        _BANK, _USER, assignment_item_id="item-1")
+    assert not any(call.get("table") == "quiz_banks" for call in fake.calls)
+    assert not any(call["table"] == "course_section_submissions" and call["op"] == "insert"
+                   for call in fake.calls)
+    refresh.assert_not_called()
+
+
+def test_course_reading_idempotent_retry_keeps_original_content_snapshot():
+    live_reading = {
+        "passage": "Changed passage.", "translation": "Bản dịch mới.",
+        "answers": [{"id": "r-01", "answer": "F"}],
+    }
+    saved_answers = [{"id": "r-01", "answer": "T"}]
+    saved_reading = {
+        "passage": "Original passage.", "translation": "Bản dịch gốc.",
+        "answers": saved_answers,
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "is_published": True, "skill_area": "grammar",
+            "meta": {"short_reading": live_reading},
+        }],
+        ("course_section_submissions", "select"): [{
+            "answers": {"r-01": "T"}, "answer_key": saved_answers,
+            "content_snapshot": saved_reading,
+            "total": 1, "correct": 1, "score": 100,
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for", return_value={
+             "id": "item-1", "assignment_id": "asg-1",
+         }), \
+         patch.object(quiz_service, "refresh_course_completion",
+                      return_value={"completed": True}):
+        out = quiz_service.course_reading_solution(
+            user_id=_USER, bank_id=_BANK, submitted_answers={"r-01": "T"})
+    assert out["translation"] == "Bản dịch gốc."
+    assert out["content"]["passage"] == "Original passage."
+    assert out["answers"] == saved_answers
+
+
+def test_course_listening_solution_is_guarded_and_requires_every_answer():
+    solution = {
+        "answers": [{"id": "l-A1", "answer": "A", "transcript": "city"},
+                    {"id": "l-D1", "answer": "T"}],
+        "talk_transcript": "The city is bigger.",
+        "talk_translation": "Thành phố lớn hơn.",
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "is_published": True, "skill_area": "grammar",
+            "meta": {"short_listening": {"solution": solution}},
+        }],
+        ("course_section_submissions", "select"): [],
+        ("course_section_submissions", "insert"): [{
+            "total": 2, "correct": 2, "score": 100,
+            "duration_sec": 0, "submitted_at": "2026-08-20T00:00:00Z",
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for", return_value={
+             "id": "item-1", "assignment_id": "asg-1",
+         }), \
+         patch.object(quiz_service, "refresh_course_completion",
+                      return_value={"completed": False}):
+        with pytest.raises(HTTPException) as exc:
+            quiz_service.course_listening_solution(
+                user_id=_USER, bank_id=_BANK, submitted_answers={"l-A1": "A"})
+        assert exc.value.status_code == 422
+        out = quiz_service.course_listening_solution(
+            user_id=_USER, bank_id=_BANK,
+            submitted_answers={"l-A1": "A", "l-D1": "T"})
+    assert out["talk_transcript"] == solution["talk_transcript"]
+    assert out["answers"] == solution["answers"]
+    assert out["result"]["correct"] == 2
+    inserted = next(c for c in fake.calls
+                    if c["table"] == "course_section_submissions" and c["op"] == "insert")
+    assert inserted["payload"]["content_snapshot"]["solution"] == solution
+
+
+def test_course_listening_review_uses_saved_transcript_not_live_bank():
+    saved_solution = {
+        "answers": [{"id": "l-A1", "answer": "A", "transcript": "original"}],
+        "talk_transcript": "Original transcript.",
+        "talk_translation": "Bản dịch gốc.",
+    }
+    fake = _FakeSupabase(responses={
+        ("course_section_submissions", "select"): [{
+            "answers": {"l-A1": "A"}, "answer_key": saved_solution["answers"],
+            "content_snapshot": {"title": "Original", "sections": [],
+                                 "solution": saved_solution},
+            "total": 1, "correct": 1, "score": 100, "duration_sec": 30,
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for_review", return_value={
+             "id": "item-1", "assignment_id": "asg-1",
+         }):
+        out = quiz_service.course_listening_solution(
+            user_id=_USER, bank_id=_BANK, submitted_answers={},
+            assignment_item_id="item-1")
+    assert out["talk_transcript"] == "Original transcript."
+    assert out["answers"] == saved_solution["answers"]
+    assert not any(call["table"] == "quiz_banks" for call in fake.calls)
+
+
+def test_course_listening_audio_refreshes_urls_without_leaking_solution():
+    listening = {
+        "audio_bundle": {"bucket": "listening-audio"},
+        "sections": [{"id": "sound", "questions": [{
+            "id": "l-A1", "audio_storage_path": "course/hash/A1.mp3",
+            "options": ["city", "pity"],
+        }]}],
+        "solution": {"answers": [{"id": "l-A1", "answer": "A"}]},
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "is_published": True, "skill_area": "grammar",
+            "meta": {"short_listening": listening},
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.course_listening_audio(user_id=_USER, bank_id=_BANK)
+    assert "solution" not in out
+    assert out["sections"][0]["questions"][0]["audio_url"].startswith("https://signed/")
+    assert len([call for call in fake.calls if call.get("storage")]) == 1
+
+
+def test_course_listening_audio_uses_exact_item_review_gate():
+    listening = {
+        "audio_bundle": {"bucket": "listening-audio"},
+        "sections": [{"id": "sound", "questions": [{
+            "id": "l-A1", "audio_storage_path": "course/hash/A1.mp3",
+            "options": ["city", "pity"],
+        }]}],
+    }
+    fake = _FakeSupabase(responses={
+        ("course_section_submissions", "select"): [{"content_snapshot": listening}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for_review",
+                      return_value={"id": "item-1"}) as review_gate:
+        out = quiz_service.course_listening_audio(
+            user_id=_USER, bank_id=_BANK, assignment_item_id="item-1")
+    review_gate.assert_called_once_with(_BANK, _USER, assignment_item_id="item-1")
+    assert out["sections"][0]["questions"][0]["audio_url"].startswith("https://signed/")
+    assert not any(call.get("table") == "quiz_banks" for call in fake.calls)
 
 
 # ── start session + resume ───────────────────────────────────────────
@@ -400,6 +705,9 @@ def test_student_progress_groups_by_bank_and_lists_sessions():
     assert b["code"] == "L14" and b["mastered"] == 2 and b["in_progress"] == 1
     assert b["words_count"] == 29
     assert out["recent_sessions"][0]["accuracy"] == 0.8
+    session_reads = [c for c in fake.calls if c["table"] == "quiz_sessions" and c["op"] == "select"]
+    assert any(("not_is", "ended_at", "null") in c["filters"] for c in session_reads), \
+        "recent_sessions phải lọc phiên chưa kết thúc trước LIMIT"
     # Lifetime totals — the abandoned (ended_at-less) session is EXCLUDED so the
     # count isn't inflated by opening the quiz and leaving.
     t = out["totals"]

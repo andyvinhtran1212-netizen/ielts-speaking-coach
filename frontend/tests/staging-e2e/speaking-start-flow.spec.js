@@ -26,7 +26,8 @@
 // test đỏ vì môi trường chưa đồng bộ sẽ bị học cách phớt lờ.
 const { test, expect } = require('@playwright/test');
 const {
-  primeBypassCookie, identityEmail, STAGING_API, STAGING_SUPABASE, STAGING_ANON,
+  cleanupE2ESession, primeBypassCookie, signIn, identityEmail, STAGING_API,
+  STAGING_SUPABASE, STAGING_ANON,
 } = require('./helpers');
 
 const STORAGE_KEY = `sb-${new URL(STAGING_SUPABASE).hostname.split('.')[0]}-auth-token`;
@@ -60,24 +61,13 @@ async function asStudent(context, request, baseURL) {
 }
 
 test.describe('luồng bắt đầu luyện tập trên /speaking (bản Next)', () => {
-  /**
-   * Phiên do test tạo ra.
-   *
-   * KHÔNG DỌN ĐƯỢC — backend không có `DELETE /sessions/{id}` (đã kiểm:
-   * `routers/sessions.py` chỉ khai GET/POST/PATCH). Bản đầu của tệp này gọi
-   * DELETE trong `afterAll` và bọc `.catch()`, tức là một hàm dọn dẹp KHÔNG
-   * BAO GIỜ dọn được gì mà vẫn trông như có. Thà nói thẳng.
-   *
-   * Chấp nhận được: staging là môi trường seed, và `gate-a-flows` cũng để lại
-   * phiên của nó. Khi cần làm sạch thì chạy `backend/scripts/staging_seed.py
-   * --cleanup`.
-   */
   const created = [];
 
-  test.afterAll(() => {
-    if (created.length) {
-      console.log(`[speaking-flow] để lại ${created.length} phiên trên staging: `
-        + `${created.join(', ')} — không có endpoint xoá; dùng staging_seed.py --cleanup`);
+  test.afterAll(async ({ request }) => {
+    if (!created.length) return;
+    const adminToken = await signIn(request, 'admin');
+    for (const sessionId of created) {
+      await cleanupE2ESession(request, sessionId, adminToken);
     }
   });
 
@@ -100,6 +90,10 @@ test.describe('luồng bắt đầu luyện tập trên /speaking (bản Next)',
     // `mode`/`part` là đúng loại lỗi mà cổng parity không thấy.
     const postPromise = page.waitForRequest(
       (r) => r.method() === 'POST' && r.url().endsWith('/sessions'), { timeout: 30_000 });
+    const responsePromise = page.waitForResponse(
+      (r) => r.request().method() === 'POST' && r.url().endsWith('/sessions'),
+      { timeout: 30_000 },
+    );
 
     // Mở panel Luyện tập qua thẻ mode (giống người dùng thật, không gọi hàm).
     await page.locator('.mode-card[data-mode="practice"]').first().click();
@@ -113,21 +107,55 @@ test.describe('luồng bắt đầu luyện tập trên /speaking (bản Next)',
     // Nhập chủ đề tự do — không phụ thuộc danh sách chủ đề của staging.
     const topic = `E2E chủ đề ${Date.now()}`;
     await page.locator('#prac-topic-custom').fill(topic);
-    await page.locator('#prac-topic-start').click();
+    // Không await trực tiếp: click có thể chờ navigation. Ta phải đăng ký ID
+    // cleanup ngay sau POST, trước khi bất kỳ lỗi/timeout navigation nào nổ ra.
+    const startClick = page.locator('#prac-topic-start').click().then(
+      () => null,
+      (error) => error,
+    );
 
-    const req = await postPromise;
+    const [req, postResponse] = await Promise.all([postPromise, responsePromise]);
     const body = JSON.parse(req.postData() || '{}');
     expect(body, 'thân request phải mang đúng state của trang')
       .toMatchObject({ mode: 'practice', part: 2, topic });
 
+    const postStatus = postResponse.status();
+    let postFailure = `POST /sessions trả HTTP ${postStatus}`;
+    if (postStatus !== 200) {
+      try {
+        postFailure += `: ${await postResponse.text()}`;
+      } catch {
+        postFailure += ' (response body không còn khả dụng sau điều hướng)';
+      }
+    }
+    expect(postStatus, postFailure).toBe(200);
+
+    // Tra lại bằng topic duy nhất qua API canonical để cleanup không phụ thuộc
+    // response body của document cũ hay navigation thành công.
+    const lookup = await request.get(
+      `${STAGING_API}/sessions?status=in_progress&page=1&page_size=5&search=${encodeURIComponent(topic)}`,
+      { headers: { Authorization: `Bearer ${session.access_token}` } },
+    );
+    const lookupText = await lookup.text();
+    expect(lookup.status(), lookupText).toBe(200);
+    const lookupBody = JSON.parse(lookupText);
+    const matches = (lookupBody.sessions || []).filter((row) => (
+      row.topic === topic && row.mode === 'practice' && row.part === 2
+    ));
+    expect(matches, 'phải tìm đúng một session vừa tạo để đăng ký cleanup').toHaveLength(1);
+    const createdSessionId = matches[0].id;
+    created.push(createdSessionId);
+
     // Và phải ĐI TỚI trang luyện tập với session_id — nửa sau của luồng.
-    await page.waitForURL(/practice\.html\?session_id=/, { timeout: 30_000 });
-    const sessionId = new URL(page.url()).searchParams.get('session_id');
-    expect(sessionId, 'phải mang session_id sang trang luyện tập').toBeTruthy();
-    created.push(sessionId);
+    const clickError = await startClick;
+    if (clickError) throw clickError;
+    await page.waitForURL(/\/practice\/session\?session_id=/, { timeout: 30_000 });
+    const routedSessionId = new URL(page.url()).searchParams.get('session_id');
+    expect(routedSessionId, 'phải mang session_id sang trang luyện tập').toBeTruthy();
+    expect(routedSessionId).toBe(createdSessionId);
 
     // Phiên có thật ở backend, và mang đúng thuộc tính — không chỉ là một URL.
-    const check = await request.get(`${STAGING_API}/sessions/${sessionId}`, {
+    const check = await request.get(`${STAGING_API}/sessions/${createdSessionId}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     });
     expect(check.status()).toBe(200);

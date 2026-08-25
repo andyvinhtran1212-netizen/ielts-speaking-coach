@@ -1,0 +1,109 @@
+/** Regression gate for `/reading/mini-test` native React behavior. */
+import { describe, test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
+const PAGE = read('app', '(authed-reading)', 'reading', 'mini-test', 'page.tsx');
+const SHELL = read('app', '(authed-reading)', 'reading', 'mini-test', 'page-shell.tsx');
+const BEHAVIOR = read(
+  'app', '(authed-reading)', 'reading', 'mini-test', 'reading-mini-test-behavior.tsx',
+);
+const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
+const BROWSER_FLOW = read('tooling', 'verify-reading-mini-test-flow.mjs');
+const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const LEGACY = read('public', 'pages', 'reading-mini-test.html');
+
+describe('/reading/mini-test — native React behavior', () => {
+  test('removes legacy module injection, hydration sentinel and watchdog', () => {
+    assert.doesNotMatch(PAGE, /LegacyModule|reading-mini-test\.js|watchdogScript|HydratedSignal/);
+    assert.doesNotMatch(PAGE, /<script|dangerouslySetInnerHTML|modulepreload/);
+    assert.match(PAGE, /<ReadingMiniTestBehavior\s*\/>/);
+    assert.match(SHELL, /\{children\}/);
+  });
+
+  test('uses shared auth, fails closed and keys requests by account', () => {
+    assert.match(BEHAVIOR, /useAuth\(\)/);
+    assert.match(BEHAVIOR, /status === 'signed-out'/);
+    assert.match(BEHAVIOR, /window\.location\.replace\('\/login'\)/);
+    assert.match(BEHAVIOR, /status === 'signed-in' && user\?\.id \? user\.id : null/);
+    assert.match(BEHAVIOR, /accountKey=\{accountKey\} key=\{accountKey \|\| status\}/);
+    assert.match(BEHAVIOR, /if \(!accountKey\)/);
+    assert.match(BEHAVIOR, /\[accountKey, module\]/);
+  });
+
+  test('always requests only mini tests and aborts stale work', () => {
+    assert.match(BEHAVIOR, /query\.set\('module', module\)/);
+    assert.match(BEHAVIOR, /query\.set\('limit', '50'\)/);
+    assert.match(BEHAVIOR, /query\.set\('test_type', 'mini'\)/);
+    assert.match(BEHAVIOR, /window\.api\.getWith<unknown>/);
+    assert.match(BEHAVIOR, /`\/api\/reading\/test\?\$\{query\.toString\(\)\}`/);
+    assert.match(BEHAVIOR, /new AbortController\(\)/);
+    assert.match(BEHAVIOR, /signal: controller\.signal/);
+    assert.match(BEHAVIOR, /controller\.abort\(\)/);
+  });
+
+  test('normalizes canonical defaults and renders authored data declaratively', () => {
+    assert.match(BEHAVIOR, /if \(!Array\.isArray\(items\)\) return \[\]/);
+    assert.match(BEHAVIOR, /if \(!testId\) return \[\]/);
+    assert.match(BEHAVIOR, /title: textValue\(raw\?\.title\) \|\| 'Mini Test'/);
+    assert.match(BEHAVIOR, /positiveInteger\(raw\?\.passage_count\) \|\| 1/);
+    assert.match(BEHAVIOR, /totalQuestions: positiveInteger\(raw\?\.total_questions\)/);
+    assert.match(BEHAVIOR, /timeLimitMinutes: positiveInteger\(raw\?\.time_limit_minutes\)/);
+    assert.match(BEHAVIOR, /normalizeTotal\(payload, tests\.length\)/);
+    assert.match(BEHAVIOR, /MODULE_LABEL\[module\] \|\| module/);
+    assert.doesNotMatch(BEHAVIOR, /innerHTML|dangerouslySetInnerHTML|__html|eval\(/);
+  });
+
+  test('keeps module availability and all four render states truthful', () => {
+    assert.match(BEHAVIOR, /value="academic">Academic/);
+    assert.match(BEHAVIOR, /value="general_training" disabled/);
+    assert.match(BEHAVIOR, /state\.status === 'loading'/);
+    assert.match(BEHAVIOR, /Chưa có mini test nào\./);
+    assert.match(BEHAVIOR, /Không tải được danh sách bài thi\./);
+    assert.match(BEHAVIOR, /state\.status === 'ready' && state\.tests\.length/);
+  });
+
+  test('preserves card facts, pill order and mini-exam origin stamp', () => {
+    assert.match(BEHAVIOR, /test\.moduleLabel[\s\S]*test\.passageCount[\s\S]*test\.totalQuestions[\s\S]*test\.timeLimitMinutes[\s\S]*test\.bandTarget/);
+    assert.match(BEHAVIOR, /admitCorePlayer\('reading_exam', \{ test_id: test\.testId, from: 'mini' \}\)/);
+    assert.match(BEHAVIOR, /className="rv-card__top"/);
+    assert.match(BEHAVIOR, /className="rv-card__facts"/);
+    assert.match(BEHAVIOR, /className="rv-card__footer"/);
+    assert.match(BEHAVIOR, /className="rv-card__cta"/);
+    assert.match(BEHAVIOR, /aria-label=\{`Bắt đầu mini test/);
+  });
+
+  test('keeps canonical totals, popular duration, reset and generic errors', () => {
+    assert.match(SHELL, /durationCount = '—'/);
+    assert.match(SHELL, /totalCount = '—'/);
+    assert.match(BEHAVIOR, /durationCounts = new Map<number, number>/);
+    assert.match(BEHAVIOR, /b\[1\] - a\[1\] \|\| a\[0\] - b\[0\]/);
+    assert.match(BEHAVIOR, /total > shown[\s\S]*đang hiển thị/);
+    assert.match(BEHAVIOR, /hidden=\{!module\}/);
+    assert.match(BEHAVIOR, /onClick=\{\(\) => setModule\(''\)\}/);
+    assert.doesNotMatch(BEHAVIOR, /caught instanceof Error \? caught\.message|state\.message/);
+    assert.doesNotMatch(SHELL, /nhịp ngắn|chưa có đủ 60 phút/,
+      'mini test có thể được admin cấu hình 60 phút nên không được hứa là bài ngắn');
+    assert.match(SHELL, /Thời lượng hiển thị theo cấu hình của từng đề/);
+    assert.match(LEGACY, /Thời lượng hiển thị theo cấu hình của từng đề/,
+      'rollback leg phải dùng cùng lời hứa thời lượng để G1 phản ánh đúng sản phẩm');
+    assert.match(LEGACY, /BÀI LUYỆN MỘT ĐOẠN/);
+  });
+
+  test('runs its browser-backed flow unconditionally in the parity gate', () => {
+    assert.match(BROWSER_FLOW, /const ROUTE = '\/reading\/mini-test'/);
+    assert.match(BROWSER_FLOW, /default Mini Test là 1 đoạn và không bịa số câu\/phút/);
+    assert.match(BROWSER_FLOW, /response filter cũ không ghi đè response mới/);
+    assert.match(PARITY_WORKFLOW, /frontend\/tooling\/verify-reading-mini-test-flow\.mjs/);
+    assert.match(PARITY_WORKFLOW, /run: node tooling\/verify-reading-mini-test-flow\.mjs/);
+  });
+
+  test('is no longer hard-navigation-only', () => {
+    const list = HARD_NAV_GATE.match(/const LEGACY_MODULE_ROUTES = \[([\s\S]*?)\];/)?.[1] || '';
+    assert.doesNotMatch(list, /['"]\/reading\/mini-test['"]/);
+  });
+});

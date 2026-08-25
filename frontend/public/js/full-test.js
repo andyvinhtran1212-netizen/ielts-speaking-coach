@@ -42,8 +42,8 @@ export async function mount() {
       // whose only outcome is a 409.
       var action = ex.blocked_by_sitting_id
         ? '<p class="ft-muted" style="color:var(--av-warning);margin:0 0 8px"><b>Bạn đang có một bài thi chưa hoàn thành.</b> Hãy hoàn thành bài đó trước.</p>' +
-          '<a class="av-btn" style="display:inline-block" href="/pages/mock-exam.html?sitting=' + encodeURIComponent(ex.blocked_by_sitting_id) + '">← Quay lại bài đang thi</a>'
-        : '<a class="av-btn av-btn--primary" style="display:inline-block" href="/pages/mock-exam.html?' +
+          '<a class="av-btn" style="display:inline-block" href="/mock-exam?sitting=' + encodeURIComponent(ex.blocked_by_sitting_id) + '">← Quay lại bài đang thi</a>'
+        : '<a class="av-btn av-btn--primary" style="display:inline-block" href="/mock-exam?' +
           (ex.my_sitting_id
             ? 'sitting=' + encodeURIComponent(ex.my_sitting_id) + '">Tiếp tục bài đang làm →'
             : 'code=' + encodeURIComponent(ex.code) + '">Bắt đầu →') + '</a>';

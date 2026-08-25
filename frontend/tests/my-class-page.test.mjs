@@ -133,6 +133,15 @@ describe('a failed load never reads as "you owe nothing"', () => {
     assert.match(fn, /\$\('mc-content'\)\.hidden = true/);
   });
 
+  test('a null or malformed 200 response follows the same visible error path', () => {
+    const fn = codeOnly(SRC.slice(SRC.indexOf('async function load()'),
+                                  SRC.indexOf('function main()')));
+    assert.match(fn, /!nextData\s*\|\|\s*typeof nextData !== 'object'/);
+    assert.match(fn, /typeof nextData\.has_class !== 'boolean'/);
+    assert.ok(fn.indexOf('render();') < fn.indexOf('} catch'),
+      'render must stay inside the guarded try/catch');
+  });
+
   test('a degraded assignments block suppresses the "no homework" empty state', () => {
     const fn = codeOnly(SRC.slice(SRC.indexOf('function render()'), SRC.indexOf('async function load()')));
     assert.match(fn, /degraded\.includes\('assignments'\)/,
@@ -533,9 +542,10 @@ describe('nút Làm bài biến mất khi quá hạn', () => {
 
   test('bài quá hạn CHƯA TỪNG mở thì không có nút', () => {
     // Không có gì để xem, và bấm chỉ để nhận 409 sau một vòng gọi mạng.
-    assert.doesNotMatch(
-      itemRow(row({ is_missing: true, state: 'assigned' }), { action: true }),
-      /data-action="start"/);
+    const html = itemRow(row({ is_missing: true, state: 'assigned' }), { action: true });
+    assert.doesNotMatch(html, /data-action="start"/);
+    assert.match(html, /Liên hệ giảng viên nếu bạn cần được mở lại bài/,
+      'khoá bài phải kèm bước tiếp theo, không để học viên ở ngõ cụt');
   });
 
   test('bài quá hạn ĐÃ LÀM DỞ vẫn mở xem lại được', () => {
@@ -560,6 +570,16 @@ describe('nút Làm bài biến mất khi quá hạn', () => {
     const html = itemRow(row({ submitted_at: 'x' }), { action: false });
     assert.match(html, /data-action="start"/);
     assert.match(html, /Xem lại bài/);
+  });
+
+  test('bài course ĐÃ NỘP mở lại được để đọc phần tự luận đã chấm', () => {
+    const html = itemRow(row({
+      submitted_at: 'x',
+      assignment: { id: 'a1', title: 'Grammar 05', skill: 'course',
+                    due_at: null, content_config: {} },
+    }), { action: false });
+    assert.match(html, /data-action="start"/);
+    assert.match(html, /Xem kết quả/);
   });
 
   test('kỹ năng khác chưa có màn xem lại thì KHÔNG hứa suông', () => {
@@ -679,7 +699,7 @@ describe('trang Lớp học nằm trên thanh điều hướng', () => {
     join(HERE, '..', 'public', 'js', 'components', 'aver-chrome.js'), 'utf8');
 
   test('đổi nhãn thành MY CLASS và trỏ đúng trang', () => {
-    assert.match(CHROME, /href="\/pages\/my-class\.html" data-tab="class">MY CLASS<\/a>/);
+    assert.match(CHROME, /href="\/my-class" data-tab="class">MY CLASS<\/a>/);
   });
 
   test('MY CLASS có active state thật, không chỉ có data-tab', () => {
@@ -692,7 +712,7 @@ describe('trang Lớp học nằm trên thanh điều hướng', () => {
   });
 
   test('được nạp trước như các mục điều hướng khác', () => {
-    assert.match(CHROME, /href_matches: '\/pages\/my-class\.html'/);
+    assert.match(CHROME, /href_matches: '\/my-class'/);
   });
 });
 
@@ -736,5 +756,36 @@ describe('trang học viên trên điện thoại', () => {
       'không tạo thêm một button family riêng cho My Class');
     assert.match(MY_CLASS_CSS, /\.mc-due-now \.av-button,[^}]*\.mc-item \.av-button\s*\{[^}]*min-height:\s*44px/s,
       'touch target của CTA trên trang phải cao tối thiểu 44px');
+  });
+});
+
+describe('nhịp chiều rộng và khoảng cách của khu vực bài tập', () => {
+  test('các section cấp trang không chạm viền nhau', () => {
+    assert.match(MY_CLASS_CSS,
+      /#mc-content\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column;[^}]*gap:\s*var\(--av-space-6\)/s,
+      'hero, ưu tiên và việc cần làm phải có cùng nhịp cách 24px');
+  });
+
+  test('danh sách bài dùng trọn chiều rộng như thẻ ưu tiên', () => {
+    assert.match(MY_CLASS_CSS,
+      /\.mc-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
+      'không giữ một cột sidebar trống làm thẻ bài tập ngắn hơn');
+  });
+
+  test('nội dung trong thẻ có khoảng thở dọc rõ ràng', () => {
+    assert.match(MY_CLASS_CSS,
+      /\.mc-item\s*\{[^}]*gap:\s*var\(--av-space-6\);[^}]*padding:\s*var\(--av-space-6\)/s);
+    assert.match(MY_CLASS_CSS,
+      /\.mc-item-main\s*\{[^}]*gap:\s*var\(--av-space-2\)/s,
+      'nhãn, tiêu đề, mô tả và deadline không được chỉ cách nhau 4px');
+  });
+
+  test('hai panel phụ xếp dọc trên mobile 390px', () => {
+    const mobile = MY_CLASS_CSS.slice(MY_CLASS_CSS.indexOf('@media (max-width: 640px)'));
+    assert.match(mobile,
+      /\.mc-aside\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
+      'Nhịp 14 ngày và Buổi học phải nằm một cột khi cùng xuất hiện');
+    assert.doesNotMatch(mobile, /\.mc-aside\s*\{[^}]*display:\s*flex/s,
+      'flex mặc định theo hàng sẽ ép hai panel nằm ngang');
   });
 });

@@ -179,6 +179,8 @@ async def create_exam(body: ExamCreate, authorization: str | None = Header(defau
     admin = await require_admin(authorization)
     try:
         return svc.admin_create_exam(body.model_dump(exclude_none=True), admin["id"])
+    except svc.DuplicateExamCodeError as e:
+        raise HTTPException(409, str(e))
     except ValueError as e:
         raise HTTPException(400, str(e))
 
@@ -217,21 +219,16 @@ async def set_open(
 async def advance_section(
     exam_id: str,
     body: AdvanceBody,
-    background_tasks: BackgroundTasks,
     authorization: str | None = Header(default=None),
 ):
     """Open the NEXT seated section for every sitting under this exam —
     not_started → listening → reading → writing → done.
 
-    The transition returns immediately; the straggler sweep for the section
-    being closed is QUEUED (B3). It used to run inline — one loop over every
-    unsubmitted sitting, grading each L/R attempt — which for a class of 25-30
-    made this a very long request, and a timeout left papers collected but the
-    section unmoved with no way for the admin to tell.
-
-    The live console polls every 5s, so the papers visibly land one by one. If
-    the sweep dies (a restart mid-task), the console flags the section as
-    "chưa thu đủ" and POST /collect?section=… re-runs it."""
+    The initial transition opens the first paper. Every later transition is
+    accepted only after POST /collect has closed the current paper, waited for
+    final-save ACKs, swept outstanding sittings, and published completion. This
+    keeps direct API calls from bypassing the same coordination as the live UI.
+    """
     admin = await require_admin(authorization)
     try:
         out = svc.advance_section(exam_id, admin["id"], body.from_section)
@@ -239,10 +236,8 @@ async def advance_section(
         raise HTTPException(404, str(e))
     except svc.SittingConflictError as e:
         raise HTTPException(409, str(e))
-    if out.get("sweep_section"):
-        background_tasks.add_task(
-            svc._force_collect_section, exam_id, out["sweep_section"],
-        )
+    except svc.MockExamError as e:
+        raise HTTPException(503, str(e))
     return out
 
 
@@ -299,13 +294,24 @@ async def collect_section(
         raise HTTPException(503, str(e))
     # Close admissions synchronously — the pause must hold from the moment the
     # request is accepted, not from whenever the queued sweep happens to run.
-    svc.mark_section_collected(exam_id, info["section"])
+    marked = svc.mark_section_collected(exam_id, info["section"])
+    # For a fresh collection, a false compare-and-set means advance won the
+    # race after preflight. Do not queue an uncoordinated sweep against the old
+    # section. Recovery re-sweeps intentionally target an earlier section, so
+    # their marker update is expected to be a no-op.
+    if info["section"] == from_section and not marked:
+        raise HTTPException(
+            409,
+            "Phần thi vừa được chuyển bởi thao tác khác; chưa xếp hàng thu bài. "
+            "Tải lại trang để đối chiếu.",
+        )
     background_tasks.add_task(
         # No from_section: the stale-screen check already ran, synchronously,
         # against the state at request time. Re-checking it inside the queued
         # task would fail the sweep whenever a legitimate advance happened in
         # between — losing the very papers this call accepted responsibility for.
-        svc.collect_section, exam_id, admin["id"], info["section"],
+        svc.collect_section_after_flush_grace,
+        exam_id, admin["id"], info["section"],
     )
     return {**info, "queued": True}
 

@@ -38,13 +38,13 @@ export default function LandingPreviewPage() {
           {/* CTA buttons */}
           <div className="flex items-center gap-3">
             <a
-              href="/login.html"
+              href="/login"
               className="ix-nav-signin hidden sm:inline-flex text-sm font-medium px-3 py-2"
             >
               Đăng nhập
             </a>
             <a
-              href="/login.html"
+              href="/login"
               className="ix-nav-cta inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-lg"
             >
               Dùng thử miễn phí
@@ -110,7 +110,7 @@ export default function LandingPreviewPage() {
 
               <div className="flex flex-col sm:flex-row gap-4">
                 <a
-                  href="/login.html"
+                  href="/login"
                   className="ix-cta-light inline-flex items-center justify-center gap-2 font-bold px-6 py-3.5 rounded-xl text-base"
                 >
                   Bắt đầu miễn phí
@@ -325,7 +325,7 @@ export default function LandingPreviewPage() {
                 <li>Chấm 4 tiêu chí: FC · LR · GRA · P</li>
                 <li>Lịch sử band và tiến độ theo tuần</li>
               </ul>
-              <a href="/login.html" className="ix-skill-card__cta">
+              <a href="/login" className="ix-skill-card__cta">
                 Bắt đầu luyện Speaking
                 <svg
                   className="w-4 h-4"
@@ -363,7 +363,7 @@ export default function LandingPreviewPage() {
                 <li>Chấm 4 tiêu chí IELTS chuẩn</li>
                 <li>Feedback từng câu, không chung chung</li>
               </ul>
-              <a href="/login.html" className="ix-skill-card__cta">
+              <a href="/login" className="ix-skill-card__cta">
                 Bắt đầu luyện Writing
                 <svg
                   className="w-4 h-4"
@@ -397,7 +397,7 @@ export default function LandingPreviewPage() {
                 <li>True/False, Matching, Fill-in</li>
                 <li>Phân tích chiến lược đọc hiểu</li>
               </ul>
-              <a href="/login.html" className="ix-skill-card__cta">
+              <a href="/login" className="ix-skill-card__cta">
                 Bắt đầu luyện Reading
                 <svg
                   className="w-4 h-4"
@@ -431,7 +431,7 @@ export default function LandingPreviewPage() {
                 <li>Dictation và note-taking</li>
                 <li>Phân tích bẫy đáp án phổ biến</li>
               </ul>
-              <a href="/login.html" className="ix-skill-card__cta">
+              <a href="/login" className="ix-skill-card__cta">
                 Bắt đầu luyện Listening
                 <svg
                   className="w-4 h-4"
@@ -465,7 +465,7 @@ export default function LandingPreviewPage() {
                 <li>Tự lưu từ "used well" sau buổi Speaking</li>
                 <li>Exercises ôn tập theo chủ đề</li>
               </ul>
-              <a href="/login.html" className="ix-skill-card__cta">
+              <a href="/login" className="ix-skill-card__cta">
                 Khám phá từ vựng
                 <svg
                   className="w-4 h-4"
@@ -746,7 +746,7 @@ export default function LandingPreviewPage() {
                   Full Test mode
                 </li>
               </ul>
-              <a href="/login.html" className="ix-price-card__cta block text-center font-bold py-3 rounded-xl">
+              <a href="/login" className="ix-price-card__cta block text-center font-bold py-3 rounded-xl">
                 Bắt đầu miễn phí
               </a>
             </div>
@@ -852,7 +852,7 @@ export default function LandingPreviewPage() {
                   Grammar Wiki đầy đủ
                 </li>
               </ul>
-              <a href="/login.html" className="ix-price-card__cta ix-price-card__cta--popular block text-center font-bold py-3 rounded-xl">
+              <a href="/login" className="ix-price-card__cta ix-price-card__cta--popular block text-center font-bold py-3 rounded-xl">
                 Chọn gói này
               </a>
             </div>
@@ -939,7 +939,7 @@ export default function LandingPreviewPage() {
                   Ưu tiên hỗ trợ kỹ thuật
                 </li>
               </ul>
-              <a href="/login.html" className="ix-price-card__cta block text-center font-bold py-3 rounded-xl">
+              <a href="/login" className="ix-price-card__cta block text-center font-bold py-3 rounded-xl">
                 Chọn gói này
               </a>
             </div>
@@ -947,7 +947,7 @@ export default function LandingPreviewPage() {
 
           <p className="ix-price-note text-center mt-8 text-sm">
             Giá hiển thị là dự kiến — xem chi tiết tại{' '}
-            <a href="/pricing.html" className="ix-price-note__link underline underline-offset-2">
+            <a href="/pricing" className="ix-price-note__link underline underline-offset-2">
               trang bảng giá
             </a>
             .
@@ -1110,7 +1110,7 @@ export default function LandingPreviewPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
-              href="/login.html"
+              href="/login"
               className="ix-cta-light inline-flex items-center justify-center gap-2 font-bold px-8 py-4 rounded-xl text-lg"
             >
               Dùng thử miễn phí ngay
@@ -1129,7 +1129,7 @@ export default function LandingPreviewPage() {
               </svg>
             </a>
             <a
-              href="/login.html"
+              href="/login"
               className="ix-cta-ghost inline-flex items-center justify-center gap-2 font-semibold px-8 py-4 rounded-xl text-lg"
             >
               Đăng nhập
@@ -1195,12 +1195,12 @@ export default function LandingPreviewPage() {
               </p>
               <ul className="space-y-2.5">
                 <li>
-                  <a href="/login.html" className="ix-footer__link text-sm">
+                  <a href="/login" className="ix-footer__link text-sm">
                     Đăng nhập
                   </a>
                 </li>
                 <li>
-                  <a href="/login.html" className="ix-footer__link text-sm">
+                  <a href="/login" className="ix-footer__link text-sm">
                     Đăng ký
                   </a>
                 </li>

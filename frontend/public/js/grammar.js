@@ -24,6 +24,7 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
   };
+  var GROUP_ARTICLE_PREVIEW = 5;
 
   // ── Raw fetch helper (no auth needed) ─────────────────────────────────────
   async function fetchGrammarAPI(path) {
@@ -260,8 +261,7 @@
     el.innerHTML = groups.map(function (g) {
       var pal = _groupPalette[g.color] || _groupPalette.teal;
 
-      // Article list rows
-      var rows = (g.articles || []).map(function (a) {
+      function renderArticleRow(a) {
         if (a.status === 'planned') {
           // Sprint 6.15.6-hotfix: inline rgba(255,255,255,X) colors replaced
           // with class hooks so light theme picks up token-driven colors via
@@ -286,7 +286,20 @@
                  'class="text-sm text-white/65 hover:text-white/90 transition-colors flex-1 truncate">' + escHtml(a.title) + '</a>' +
                  '</div>';
         }
-      }).join('');
+      }
+
+      // Keep the rollback leg aligned with the native page: the first five
+      // articles stay scannable and the rest remain reachable without JS.
+      var articles = g.articles || [];
+      var previewRows = articles.slice(0, GROUP_ARTICLE_PREVIEW)
+        .map(renderArticleRow).join('');
+      var remaining = articles.slice(GROUP_ARTICLE_PREVIEW);
+      var rows = previewRows + (remaining.length
+        ? '<details class="gw-group-more">' +
+          '<summary>Xem thêm ' + remaining.length + ' bài</summary>' +
+          '<div class="space-y-0.5 gw-group-more__list">' +
+          remaining.map(renderArticleRow).join('') + '</div></details>'
+        : '');
 
       var pct = g.article_count > 0 ? Math.round(g.complete_count / g.article_count * 100) : 0;
 
@@ -337,7 +350,7 @@
     if (!compareWith || compareWith.length === 0) return;
     el.innerHTML = compareWith.map(function (otherSlug) {
       var compareSlug = currentSlug + '-vs-' + otherSlug;
-      return '<a href="' + _url('pages/grammar-compare.html') + '?slug=' + compareSlug + '" ' +
+      return '<a href="/grammar/compare?slug=' + encodeURIComponent(compareSlug) + '" ' +
              'class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal/25 ' +
              'bg-teal/[0.06] text-sm text-teal-light hover:border-teal/50 hover:bg-teal/[0.12] transition-all">' +
              'So sánh với ' + _prettifySlug(otherSlug) + ' →</a>';

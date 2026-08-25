@@ -91,7 +91,7 @@ async function load() {
     render();
     showState('ready');
   } catch (e) {
-    showError('Không tải được danh sách. ' + (e && e.message ? e.message : ''));
+    showError('Không tải được danh sách bài nghe. Vui lòng thử lại.');
   }
 }
 
@@ -109,11 +109,10 @@ const MODE_LINKS = {
 
 export function modeLinksHtml(item) {
   const cid = encodeURIComponent(item && item.id ? item.id : '');
-  // `available_modes: null` means the server could not read the exercise table.
-  // Printing "chưa có dạng luyện nào" there would dress a backend fault up as
-  // canonical no-data — the same trap the access-code endpoints avoid with
-  // `association_lookup_failed`. Say so instead.
-  if (item && item.available_modes === null) {
+  // Only an explicit array is canonical. Null means the exercise-table lookup
+  // failed; a missing/malformed field is also an unreadable contract, not
+  // proof that this content genuinely has no modes.
+  if (!item || !Array.isArray(item.available_modes)) {
     return '<span class="mode-empty">⚠ Không đọc được danh sách dạng luyện</span>';
   }
   const modes = Array.isArray(item && item.available_modes) ? item.available_modes : [];
@@ -137,7 +136,7 @@ function render() {
       c.accent_tag ? `<span class="meta-pill">${escapeHtml(c.accent_tag)}</span>` : '',
       c.cefr_level ? `<span class="meta-pill is-brand">${escapeHtml(c.cefr_level)}</span>` : '',
       c.ielts_section ? `<span class="meta-pill">Section ${c.ielts_section}</span>` : '',
-      mins > 0 ? `<span class="meta-pill">${mins}p</span>` : '',
+      mins > 0 ? `<span class="meta-pill">${mins} phút</span>` : '',
     ].join('');
 
     card.innerHTML = `

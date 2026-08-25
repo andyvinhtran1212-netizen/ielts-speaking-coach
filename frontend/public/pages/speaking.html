@@ -69,6 +69,7 @@
        tokens. Class names + selectors are byte-identical so the
        inline JS state machine continues to find what it expects. */
   </style>
+  <script src="/js/legacy-retirement-beacon.js" defer></script>
 </head>
 <body class="av-page font-sans antialiased min-h-screen flex flex-col">
 
@@ -111,7 +112,7 @@
       </div>
 
       <div class="stat-card rounded-2xl p-5">
-        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:var(--av-text-muted);">Tổng sessions</p>
+        <p class="text-xs font-medium uppercase tracking-wider mb-2" style="color:var(--av-text-muted);">Buổi đã hoàn thành</p>
         <p id="stat-total" class="text-3xl font-extrabold text-white"><span class="skeleton" style="display:inline-block;width:3rem;height:1.75rem;vertical-align:middle;">&nbsp;</span></p>
         <p class="text-xs mt-1" style="color:var(--av-text-muted);">Kể từ khi tham gia</p>
       </div>
@@ -388,7 +389,7 @@
 
   <!-- ════ TAB: PRACTICE ═════════════════════════════════════ -->
   <div id="tab-practice" class="main-tab-panel">
-  <div class="av-w-page py-8">
+  <div class="av-w-page py-8 speaking-setup-shell">
 
     <header class="subpage-header mb-2">
       <div class="subpage-header__lhs">
@@ -400,16 +401,24 @@
         <h1 class="subpage-header__title">Luyện tập</h1>
       </div>
     </header>
-    <p class="text-sm mb-8" style="color:var(--av-text-muted);">Nhập câu hỏi của bạn hoặc chọn chủ đề từ thư viện để luyện nói.</p>
+    <div class="speaking-setup-intro">
+      <p class="speaking-setup-kicker">Practice studio</p>
+      <p class="speaking-setup-lede">Nhập câu hỏi của bạn hoặc chọn chủ đề từ thư viện để luyện nói.</p>
+      <dl class="speaking-mode-facts" aria-label="Thông tin chế độ Luyện tập">
+        <div><dt>Nhịp luyện</dt><dd>Từng câu một</dd></div>
+        <div><dt>Phản hồi</dt><dd>Ngay sau khi nói</dd></div>
+        <div><dt>Phù hợp khi</dt><dd>Muốn sửa một kỹ năng cụ thể</dd></div>
+      </dl>
+    </div>
 
-    <div class="grid md:grid-cols-2 gap-6">
+    <div class="speaking-setup-grid speaking-setup-grid--practice grid md:grid-cols-2 gap-6">
 
       <!-- Option A: Custom question(s) -->
-      <div class="option-card flex flex-col">
-        <div class="flex items-center gap-3 mb-5">
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-               style="background:rgba(15,118,110,0.2);">✍️</div>
+      <div class="option-card option-card--custom flex flex-col">
+        <div class="option-card__head flex items-center gap-3 mb-5">
+          <div class="option-card__icon w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0">✍️</div>
           <div>
+            <p class="option-card__step">Cách 1 · Có sẵn câu hỏi</p>
             <h3 class="font-bold text-sm">Câu hỏi tùy chỉnh</h3>
             <p class="text-xs" style="color:var(--av-text-muted);">Nhập câu hỏi — bỏ qua bước AI tạo</p>
           </div>
@@ -460,11 +469,11 @@
       </div>
 
       <!-- Option B: Topic from library -->
-      <div class="option-card flex flex-col">
-        <div class="flex items-center gap-3 mb-5">
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-               style="background:rgba(15,118,110,0.2);">📚</div>
+      <div class="option-card option-card--library flex flex-col">
+        <div class="option-card__head flex items-center gap-3 mb-5">
+          <div class="option-card__icon w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0">📚</div>
           <div>
+            <p class="option-card__step">Cách 2 · Chọn chủ đề</p>
             <h3 class="font-bold text-sm">Chủ đề từ thư viện</h3>
             <p class="text-xs" style="color:var(--av-text-muted);">AI tạo câu hỏi theo chủ đề</p>
           </div>
@@ -507,7 +516,7 @@
 
   <!-- ════ TAB: PART-BY-PART ═════════════════════════════════ -->
   <div id="tab-partbpart" class="main-tab-panel">
-  <div class="av-w-page py-8">
+  <div class="av-w-page py-8 speaking-setup-shell">
 
     <header class="subpage-header mb-2">
       <div class="subpage-header__lhs">
@@ -519,12 +528,20 @@
         <h1 class="subpage-header__title">Luyện từng Part</h1>
       </div>
     </header>
-    <p class="text-sm mb-8" style="color:var(--av-text-muted);">Chọn Part để luyện tập có cấu trúc đầy đủ số câu hỏi theo IELTS.</p>
+    <div class="speaking-setup-intro">
+      <p class="speaking-setup-kicker">Part simulator</p>
+      <p class="speaking-setup-lede">Chọn Part để luyện tập có cấu trúc đầy đủ số câu hỏi theo IELTS.</p>
+      <dl class="speaking-mode-facts" aria-label="Thông tin chế độ Luyện từng Part">
+        <div><dt>Cấu trúc</dt><dd>Đúng format từng Part</dd></div>
+        <div><dt>Chấm điểm</dt><dd>4 tiêu chí IELTS</dd></div>
+        <div><dt>Kết quả</dt><dd>Tổng kết cuối phiên</dd></div>
+      </dl>
+    </div>
 
     <!-- Part cards -->
     <div class="grid sm:grid-cols-3 gap-4 mb-6">
 
-      <div class="pbp-part-card" id="pbp-card-1" onclick="selectPbpPart(1)">
+      <button type="button" class="pbp-part-card" id="pbp-card-1" onclick="selectPbpPart(1)">
         <div class="flex items-center gap-3 mb-3">
           <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
                style="background:rgba(15,118,110,0.2);">💬</div>
@@ -537,9 +554,9 @@
           3 câu hỏi về chủ đề quen thuộc. Phản hồi coaching chi tiết.
         </p>
         <p class="text-xs mt-2" style="color:var(--av-text-muted);">⏱ 4–5 phút</p>
-      </div>
+      </button>
 
-      <div class="pbp-part-card" id="pbp-card-2" onclick="selectPbpPart(2)">
+      <button type="button" class="pbp-part-card" id="pbp-card-2" onclick="selectPbpPart(2)">
         <div class="flex items-center gap-3 mb-3">
           <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
                style="background:rgba(15,118,110,0.2);">🗒️</div>
@@ -552,9 +569,9 @@
           1 cue card, nói 2 phút sau 1 phút chuẩn bị.
         </p>
         <p class="text-xs mt-2" style="color:var(--av-text-muted);">⏱ 3–4 phút</p>
-      </div>
+      </button>
 
-      <div class="pbp-part-card" id="pbp-card-3" onclick="selectPbpPart(3)">
+      <button type="button" class="pbp-part-card" id="pbp-card-3" onclick="selectPbpPart(3)">
         <div class="flex items-center gap-3 mb-3">
           <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
                style="background:rgba(15,118,110,0.2);">🧠</div>
@@ -567,13 +584,14 @@
           3 câu hỏi thảo luận chuyên sâu về vấn đề xã hội.
         </p>
         <p class="text-xs mt-2" style="color:var(--av-text-muted);">⏱ 4–5 phút</p>
-      </div>
+      </button>
 
     </div>
 
     <!-- Topic section (revealed after part selection) -->
     <div id="pbp-topic-section" style="display:none;">
-      <div class="option-card">
+      <div class="option-card pbp-topic-card">
+        <p class="option-card__step">Bước 2 · Chọn nội dung</p>
         <h3 id="pbp-part-label" class="font-bold text-sm mb-4" style="color:var(--av-primary);">Chọn chủ đề</h3>
 
         <div class="grid md:grid-cols-2 gap-4 mb-3">
@@ -605,7 +623,7 @@
 
   <!-- ════ TAB: FULL TEST ═════════════════════════════════════ -->
   <div id="tab-fulltest" class="main-tab-panel">
-  <div class="av-w-page py-8">
+  <div class="av-w-page py-8 speaking-setup-shell">
 
     <header class="subpage-header mb-2">
       <div class="subpage-header__lhs">
@@ -617,21 +635,18 @@
         <h1 class="subpage-header__title">Full Test</h1>
       </div>
     </header>
-    <p class="text-sm mb-8" style="color:var(--av-text-muted);">Mô phỏng kỳ thi IELTS Speaking thật: Part 1 → Part 2 → Part 3 liên tiếp.</p>
-
-    <!-- Info banner -->
-    <div class="mb-6 rounded-2xl px-5 py-4 flex items-start gap-3"
-         style="background:rgba(14,165,233,0.08);border:1px solid rgba(14,165,233,0.2);">
-      <span class="text-lg flex-shrink-0">🔊</span>
-      <div>
-        <p class="text-sm font-semibold mb-1" style="color:var(--av-info);">Chế độ Listening (mặc định)</p>
-        <p class="text-xs leading-relaxed" style="color:var(--av-text-secondary);">
-          Câu hỏi sẽ được đọc to bởi AI (giọng nói tự nhiên). Văn bản câu hỏi ẩn mặc định — bạn có thể bật hiển thị bất cứ lúc nào. Đánh giá theo 4 tiêu chí IELTS: FC, LR, GRA, Pronunciation.
-        </p>
-      </div>
+    <div class="speaking-setup-intro">
+      <p class="speaking-setup-kicker">Exam simulation</p>
+      <p class="speaking-setup-lede">Mô phỏng kỳ thi IELTS Speaking thật: Part 1 → Part 2 → Part 3 liên tiếp.</p>
+      <dl class="speaking-mode-facts" aria-label="Thông tin chế độ Full Test">
+        <div><dt>Thời lượng</dt><dd>Khoảng 11–14 phút</dd></div>
+        <div><dt>Lộ trình</dt><dd>3 Part liên tục</dd></div>
+        <div><dt>Chấm điểm</dt><dd>Band tổng thể + 4 tiêu chí</dd></div>
+      </dl>
     </div>
 
-    <div class="space-y-4 mb-6">
+    <div class="fulltest-setup-grid">
+    <div class="fulltest-part-list space-y-4">
 
       <!-- Part 1 -->
       <div class="ft-part-row">
@@ -678,7 +693,7 @@
       </div>
 
       <!-- Part 3 -->
-      <div class="ft-part-row" style="opacity:0.7;">
+      <div class="ft-part-row ft-part-row--derived">
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0"
                style="background:rgba(15,118,110,0.2);">🧠</div>
@@ -694,11 +709,31 @@
 
     </div>
 
-    <p id="ft-error" class="tab-error mb-3"></p>
-    <button class="btn-fulltest w-full rounded-2xl py-4 font-bold text-base tracking-wide"
-            onclick="startFullTest(event)">
-      🏆 Bắt đầu Full Test
-    </button>
+    <aside class="fulltest-start-panel">
+      <p class="option-card__step">Thiết lập phiên thi</p>
+      <h2 class="fulltest-start-panel__title">Sẵn sàng vào phòng thi?</h2>
+      <div class="fulltest-listening-note flex items-start gap-3">
+        <span class="text-lg flex-shrink-0">🔊</span>
+        <div>
+          <p class="text-sm font-semibold mb-1" style="color:var(--av-info);">Chế độ Listening (mặc định)</p>
+          <p class="text-xs leading-relaxed" style="color:var(--av-text-secondary);">
+            AI đọc câu hỏi bằng giọng tự nhiên; văn bản được ẩn để mô phỏng phòng thi thật.
+          </p>
+        </div>
+      </div>
+      <ul class="fulltest-checklist">
+        <li>Kiểm tra microphone trước khi bắt đầu</li>
+        <li>Có thể để trống toàn bộ chủ đề để hệ thống chọn ngẫu nhiên</li>
+        <li>Không hiển thị nhận xét giữa các Part</li>
+      </ul>
+      <p id="ft-error" class="tab-error mb-3"></p>
+      <button class="btn-fulltest w-full rounded-2xl py-4 font-bold text-base tracking-wide"
+              onclick="startFullTest(event)">
+        🏆 Bắt đầu Full Test
+      </button>
+      <p class="fulltest-start-panel__fineprint">Kết quả tổng hợp xuất hiện sau khi hoàn thành đủ cả ba Part.</p>
+    </aside>
+    </div>
 
   </div>
   </div><!-- /tab-fulltest -->
@@ -707,13 +742,17 @@
   </main>
 
   <!-- ─── TOPIC MODAL ──────────────────────────────────────────────── -->
-  <div id="topic-modal" class="modal-backdrop" onclick="handleModalBackdropClick(event)">
-    <div class="modal-box" onclick="event.stopPropagation()">
+  <div id="topic-modal" class="modal-backdrop" hidden inert aria-hidden="true"
+       onclick="handleModalBackdropClick(event)">
+    <div class="modal-box" role="dialog" aria-modal="true"
+         aria-labelledby="topic-modal-title" tabindex="-1"
+         onclick="event.stopPropagation()">
 
       <!-- Header -->
       <div class="flex items-center justify-between mb-5">
-        <h2 class="font-bold text-base">Chọn chủ đề luyện tập</h2>
-        <button onclick="closeTopicModal()"
+        <h2 id="topic-modal-title" class="font-bold text-base">Chọn chủ đề luyện tập</h2>
+        <button id="modal-close" type="button" aria-label="Đóng hộp thoại chọn chủ đề"
+                onclick="closeTopicModal()"
                 class="w-8 h-8 flex items-center justify-center rounded-full transition"
                 style="background:var(--av-surface-card);color:var(--av-text-secondary);"
                 onmouseover="this.style.background='var(--av-primary-soft)'"
@@ -727,13 +766,13 @@
 
       <!-- Tabs -->
       <div class="flex gap-1.5 mb-5 p-1 rounded-xl" style="background:var(--av-surface-sunken);">
-        <button id="tab-list" class="topic-tab active" onclick="switchTopicTab('list')">
+        <button id="tab-list" type="button" class="topic-tab active" onclick="switchTopicTab('list')">
           📚 Chọn từ danh sách
         </button>
-        <button id="tab-custom" class="topic-tab" onclick="switchTopicTab('custom')">
+        <button id="tab-custom" type="button" class="topic-tab" onclick="switchTopicTab('custom')">
           ✏️ Tự nhập chủ đề
         </button>
-        <button id="tab-myq" class="topic-tab" onclick="switchTopicTab('myq')">
+        <button id="tab-myq" type="button" class="topic-tab" onclick="switchTopicTab('myq')">
           ✍️ Câu hỏi riêng
         </button>
       </div>
@@ -786,7 +825,7 @@
       <p id="modal-error" class="modal-error"></p>
 
       <!-- Confirm -->
-      <button id="btn-confirm" class="btn-confirm mt-4" onclick="confirmTopicAndStart()">
+      <button id="btn-confirm" type="button" class="btn-confirm mt-4" onclick="confirmTopicAndStart()">
         🚀 Bắt đầu tạo câu hỏi
       </button>
 
@@ -1502,8 +1541,11 @@
     var _modalPart = 1;
     var _modalMode = 'practice';
     var _activeTopicTab = 'list';
+    var _topicModalTrigger = null;
 
     async function openTopicModal(part, mode) {
+      _topicModalTrigger = document.activeElement instanceof HTMLElement
+        ? document.activeElement : null;
       _modalPart = part;
       _modalMode = mode || 'practice';
 
@@ -1524,8 +1566,12 @@
       select.disabled = true;
 
       var modal = document.getElementById('topic-modal');
+      modal.hidden = false;
+      modal.inert = false;
+      modal.setAttribute('aria-hidden', 'false');
       modal.classList.add('open');
       document.body.style.overflow = 'hidden';
+      document.getElementById('modal-close').focus();
 
       try {
         var session = await requireAuth();
@@ -1555,12 +1601,53 @@
     function closeTopicModal() {
       var modal = document.getElementById('topic-modal');
       modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      modal.inert = true;
+      modal.hidden = true;
       document.body.style.overflow = '';
+      if (_topicModalTrigger) _topicModalTrigger.focus();
+      _topicModalTrigger = null;
     }
 
     function handleModalBackdropClick(e) {
       if (e.target === document.getElementById('topic-modal')) closeTopicModal();
     }
+
+    document.addEventListener('keydown', function (e) {
+      var modal = document.getElementById('topic-modal');
+      if (!modal || !modal.classList.contains('open')) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeTopicModal();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      var focusable = Array.prototype.filter.call(
+        modal.querySelectorAll(
+          'button:not([disabled]), select:not([disabled]), input:not([disabled]), ' +
+          'textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+        ),
+        function (el) {
+          var style = window.getComputedStyle(el);
+          return !el.hidden && el.getAttribute('aria-hidden') !== 'true' &&
+            style.display !== 'none' && style.visibility !== 'hidden';
+        }
+      );
+      if (!focusable.length) {
+        e.preventDefault();
+        modal.querySelector('[role="dialog"]').focus();
+        return;
+      }
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
 
     function switchTopicTab(tab) {
       _activeTopicTab = tab;

@@ -32,6 +32,7 @@
   <script src="/js/runtime-config.js"></script>
   <script src="/js/api.js"></script>
   <script type="module" src="/js/components/audio-player.js"></script>
+  <script src="/js/legacy-retirement-beacon.js" defer></script>
 </head>
 <body class="exam-chrome" data-text-size="medium">
 
@@ -61,7 +62,21 @@
       <div class="lr-transcript__body md-body" id="lr-transcript-body"></div>
     </section>
     <div class="exam-divider" aria-hidden="true"></div>
-    <section class="exam-questions lr-review" id="lr-review" aria-label="Chữa từng câu"></section>
+    <section class="exam-questions lr-review-pane" aria-label="Chữa từng câu">
+      <header class="lr-review-header">
+        <div>
+          <p class="lr-review-header__eyebrow">KIỂM TRA ĐÁP ÁN</p>
+          <h1>Chữa từng câu</h1>
+          <p class="lr-review-header__copy" id="lr-review-counts">Ưu tiên câu sai, nghe lại đúng đoạn rồi mở lời giải khi cần.</p>
+        </div>
+        <div class="lr-filter" role="group" aria-label="Lọc kết quả câu hỏi">
+          <button type="button" class="lr-filter__button" data-review-filter="wrong" aria-pressed="false">Cần xem lại</button>
+          <button type="button" class="lr-filter__button" data-review-filter="all" aria-pressed="true">Tất cả</button>
+          <button type="button" class="lr-filter__button" data-review-filter="correct" aria-pressed="false">Đúng</button>
+        </div>
+      </header>
+      <div class="lr-review" id="lr-review"></div>
+    </section>
   </main>
 
   <!-- ── BOTTOM CHROME: full-test player + a single horizontal 1–40 palette ── -->
@@ -69,7 +84,7 @@
     <div class="lr-bottombar__player">
       <audio-player id="lr-player" compact></audio-player>
     </div>
-    <span class="lr-player-label" id="lr-player-label">🔊 Bấm timestamp ở mỗi câu để tua tới đoạn đáp án</span>
+    <span class="lr-player-label" id="lr-player-label">Bấm mốc thời gian ở mỗi câu để nghe lại đúng đoạn đáp án</span>
     <div class="lr-palette-strip" id="lr-nav-grid" role="group" aria-label="40 câu — chọn để chữa"></div>
   </footer>
 

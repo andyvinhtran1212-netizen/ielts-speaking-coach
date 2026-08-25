@@ -493,6 +493,31 @@ body.av-page .hover\:bg-white\/\[0\.03\]:hover { background-color: var(--av-surf
 
 .group-article-row { transition: background 0.15s; border-radius: 6px; }
 .group-article-row:hover { background: var(--av-surface-card); }
+.gw-group-more {
+  margin-top: var(--av-space-2);
+  border-top: 1px solid var(--av-border-subtle);
+}
+.gw-group-more > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: var(--av-space-2);
+  padding: var(--av-space-2);
+  color: var(--av-primary);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-semibold);
+  cursor: pointer;
+  list-style: none;
+}
+.gw-group-more > summary::-webkit-details-marker { display: none; }
+.gw-group-more > summary::after { content: '+'; margin-left: auto; }
+.gw-group-more[open] > summary::after { content: '\2212'; }
+.gw-group-more > summary:focus-visible {
+  outline: 2px solid var(--av-primary);
+  outline-offset: 2px;
+  border-radius: var(--av-radius-sm);
+}
+.gw-group-more__list { padding-bottom: var(--av-space-2); }
 
 
 /* ── Search input (landing + grammar-search.html) ──────────────── */

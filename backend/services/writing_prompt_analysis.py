@@ -117,19 +117,35 @@ def image_needs_analysis(prompt: dict) -> bool:
     return prompt.get("prompt_image_public_id") != prompt.get("prompt_image_analysis_public_id")
 
 
-def mark_analysis_pending(prompt_id: str) -> None:
+def mark_analysis_pending(
+    prompt_id: str,
+    expected_image_public_id: str,
+) -> str | None:
     """Flip the prompt into 'pending' (and un-review) so the UI shows work in
     flight the instant a create/PATCH/reanalyze is accepted, before the BG task
     runs. Un-reviewing here is intentional: a new image must be re-approved."""
     from database import supabase_admin
-    supabase_admin.table("writing_prompts").update({
+    pending_token = _now_iso()
+    result = supabase_admin.table("writing_prompts").update({
         "prompt_image_analysis_status":   "pending",
         "prompt_image_analysis_reviewed": False,
         "prompt_image_analysis_error":    None,
-    }).eq("id", prompt_id).execute()
+        # Also serves as the revision token for this extraction request. A
+        # slower older task cannot overwrite a later reanalysis of the same
+        # storage object.
+        "prompt_image_analysis_at":       pending_token,
+    }).eq("id", prompt_id).eq(
+        "task_type", "task1_academic"
+    ).eq(
+        "prompt_image_public_id", expected_image_public_id
+    ).execute()
+    return pending_token if result.data else None
 
 
-async def run_and_store_analysis(prompt_id: str) -> None:
+async def run_and_store_analysis(
+    prompt_id: str,
+    expected_pending_at: str | None = None,
+) -> None:
     """BG task: (re)extract the answer key for one prompt and persist it.
 
     NEVER raises — a failure records status='failed' + the error so the admin UI
@@ -140,7 +156,10 @@ async def run_and_store_analysis(prompt_id: str) -> None:
     try:
         rows = (
             supabase_admin.table("writing_prompts")
-            .select("id, task_type, prompt_text, prompt_image_url, prompt_image_public_id")
+            .select(
+                "id, task_type, prompt_text, prompt_image_url, "
+                "prompt_image_public_id, prompt_image_analysis_at"
+            )
             .eq("id", prompt_id).limit(1).execute()
         ).data
         if not rows:
@@ -148,11 +167,20 @@ async def run_and_store_analysis(prompt_id: str) -> None:
         p = rows[0]
         if p.get("task_type") != "task1_academic" or not p.get("prompt_image_url"):
             return
+        if (
+            expected_pending_at is not None
+            and p.get("prompt_image_analysis_at") != expected_pending_at
+        ):
+            logger.info("[prompt-analysis] stale request skipped prompt=%s", prompt_id)
+            return
 
         analysis, model = await analyze_prompt_image(
             image_url=p["prompt_image_url"], prompt_text=p.get("prompt_text"),
         )
-        supabase_admin.table("writing_prompts").update({
+        # Compare-and-set on the storage fingerprint. The chart can be replaced
+        # while the model is running; an old result must never become the answer
+        # key for the new image.
+        ready_query = supabase_admin.table("writing_prompts").update({
             "prompt_image_analysis":           analysis.model_dump(),
             "prompt_image_analysis_status":    "ready",
             "prompt_image_analysis_reviewed":  False,
@@ -160,15 +188,37 @@ async def run_and_store_analysis(prompt_id: str) -> None:
             "prompt_image_analysis_public_id": p.get("prompt_image_public_id"),
             "prompt_image_analysis_error":     None,
             "prompt_image_analysis_at":        _now_iso(),
-        }).eq("id", prompt_id).execute()
+        }).eq("id", prompt_id).eq(
+            "prompt_image_public_id", p.get("prompt_image_public_id")
+        )
+        if expected_pending_at is not None:
+            ready_query = ready_query.eq(
+                "prompt_image_analysis_at", expected_pending_at
+            )
+        result = ready_query.execute()
+        if not result.data:
+            logger.info("[prompt-analysis] stale result discarded prompt=%s", prompt_id)
+            return
         logger.info("[prompt-analysis] ready prompt=%s model=%s", prompt_id, model)
     except Exception as exc:  # noqa: BLE001 — BG task, must not surface
         logger.warning("[prompt-analysis] failed prompt=%s: %s", prompt_id, exc)
         try:
-            supabase_admin.table("writing_prompts").update({
+            failure_query = supabase_admin.table("writing_prompts").update({
                 "prompt_image_analysis_status": "failed",
                 "prompt_image_analysis_error":  str(exc)[:500],
                 "prompt_image_analysis_at":     _now_iso(),
-            }).eq("id", prompt_id).execute()
+            }).eq("id", prompt_id)
+            # `p` is available after the canonical row read. If the failure
+            # happened before that read completed, do not risk marking an
+            # unrelated/current image failed.
+            if "p" in locals():
+                failure_query = failure_query.eq(
+                    "prompt_image_public_id", p.get("prompt_image_public_id")
+                )
+                if expected_pending_at is not None:
+                    failure_query = failure_query.eq(
+                        "prompt_image_analysis_at", expected_pending_at
+                    )
+                failure_query.execute()
         except Exception:  # noqa: BLE001 — best effort
             pass

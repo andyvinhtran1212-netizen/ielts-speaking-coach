@@ -1,0 +1,71 @@
+{
+  "bank_code": "C1-B05",
+  "title": "Phát âm & Shadowing — Câu so sánh",
+  "locale": "en-GB",
+  "provider": "azure",
+  "voice_engine": "kokoro",
+  "voice": "bf_emma",
+  "playback_rates": [0.85, 1.0],
+  "sentences": [
+    {
+      "id": "C1-B05-PRON-01",
+      "order": 1,
+      "text": "The air in the mountains is cleaner than the city air."
+    },
+    {
+      "id": "C1-B05-PRON-02",
+      "order": 2,
+      "text": "My brother’s new flat is smaller than mine, but its monthly rent is very low."
+    },
+    {
+      "id": "C1-B05-PRON-03",
+      "order": 3,
+      "text": "Journeys by metro always feel shorter than journeys by bus in the heavy Hanoi traffic."
+    },
+    {
+      "id": "C1-B05-PRON-04",
+      "order": 4,
+      "text": "The new metro line is more reliable than the old bus service."
+    },
+    {
+      "id": "C1-B05-PRON-05",
+      "order": 5,
+      "text": "Public transport in Singapore is more efficient than public transport in most Asian cities today."
+    },
+    {
+      "id": "C1-B05-PRON-06",
+      "order": 6,
+      "text": "My grandmother’s old recipes are more interesting than the recipes in modern cookery books today."
+    },
+    {
+      "id": "C1-B05-PRON-07",
+      "order": 7,
+      "text": "The new electric buses start earlier than the old diesel ones on my street every morning."
+    },
+    {
+      "id": "C1-B05-PRON-08",
+      "order": 8,
+      "text": "Farmers in the delta work harder than office staff during the two short harvest seasons."
+    },
+    {
+      "id": "C1-B05-PRON-09",
+      "order": 9,
+      "text": "Air quality in the old quarter falls faster than anywhere else in the city’s crowded centre."
+    },
+    {
+      "id": "C1-B05-PRON-10",
+      "order": 10,
+      "text": "Air pollution remains the most serious environmental problem in many large Asian capital cities today."
+    },
+    {
+      "id": "C1-B05-PRON-11",
+      "order": 11,
+      "text": "The old diesel buses in this city are the worst vehicles for local air quality."
+    },
+    {
+      "id": "C1-B05-PRON-12",
+      "order": 12,
+      "text": "The new solar power plant is the largest energy project in the whole northern region."
+    }
+  ]
+}

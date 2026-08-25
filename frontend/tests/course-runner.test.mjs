@@ -10,7 +10,9 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createRunner, splitStem, md, esc, STAGE } from '../js/course-runner.js';
+import {
+  createRunner, splitStem, md, esc, isCourseQuizQuestion, STAGE,
+} from '../js/course-runner.js';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,6 +38,14 @@ function essay(i) {
     qid: `E${i}`, type: 'writing', subtype: 'E1', skill: 'TU-LUAN',
     item_key: 'RB1', prompt: 'Viết lại:', options: null, answer: null,
     explain: '**Đáp án mẫu:** x', why_wrong: null, points: 1,
+  };
+}
+
+function sectionQuestion(i, type, over = {}) {
+  return {
+    qid: `S${i}`, type, subtype: 'SUP', skill: 'SUP', item_key: type,
+    prompt: `Supplement ${i}`, options: ['a', 'b'], answer: 0,
+    explain: 'x', points: 1, counts_toward_mastery: false, ...over,
   };
 }
 
@@ -118,6 +128,16 @@ function fakeApi({ questions, mastery = null, failSession = false, failProgress 
     },
   };
 }
+
+test('review load pins the bank read to the exact assignment item', async () => {
+  const api = fakeApi({ questions: [mcq(1)], mastery: {
+    item_id: 'item-old', review_only: true, completed_sections: ['quiz'],
+  } });
+  const runner = createRunner({ api, storage: null });
+  await runner.load('b1', { reviewOnly: true, assignmentItemId: 'item-old' });
+  assert.equal(api.calls.get[0], '/api/quiz/banks/b1?class_item=item-old');
+  assert.deepEqual(runner.mastery.completed_sections, ['quiz']);
+});
 
 function memStore() {
   const m = new Map();
@@ -211,6 +231,19 @@ describe('cái bẫy', () => {
 // ── MỘT PHIÊN = MỘT CHẶNG ─────────────────────────────────────────────────
 
 describe('vòng đời phiên', () => {
+  test('mở kết quả đã nộp không đọc resume và không dựng session mới', async () => {
+    const questions = [mcq(0), essay(1)];
+    const api = fakeApi({
+      questions,
+      mastery: { item_id: 'it1', passed_at: '2026-08-19T18:08:58Z', review_only: true },
+    });
+    const r = createRunner({ api, storage: memStore(), now: () => 1000 });
+    await r.load('b1');
+    assert.equal(r.reviewOnly, true);
+    assert.equal(api.calls.get.filter((path) => path.includes('/course-resume')).length, 0);
+    assert.equal(api.calls.post.filter((call) => call.path === '/api/quiz/sessions').length, 0);
+  });
+
   test('mỗi chặng mở một phiên MỚI', async () => {
     // Dùng lại một phiên cho mọi chặng thì chặng 2 ghi đè lên một phiên đã chốt
     // bằng con số của riêng nó — giáo viên chỉ thấy chặng cuối.
@@ -248,7 +281,7 @@ describe('vòng đời phiên', () => {
     // tưởng viết xong một câu là được chấm ngay — mà lượt chấm chỉ có một.
     const i = SRC.indexOf('writingQs = qs.filter');
     assert.ok(i !== -1, 'load() phải lọc tự luận ra khỏi qs');
-    assert.match(SRC.slice(i, i + 260), /qs = qs\.filter[\s\S]{0,80}?!== 'writing'/);
+    assert.match(SRC.slice(i, i + 260), /qs = qs\.filter\(isCourseQuizQuestion\)/);
   });
 
   test('chặng chỉ đếm câu trắc nghiệm', async () => {
@@ -258,6 +291,22 @@ describe('vòng đời phiên', () => {
     assert.equal(r.stageCount, 2);
     assert.equal(r.writing.length, 2);
     assert.equal(r.hasWriting, true);
+  });
+
+  test('bank hỗn hợp chỉ đưa MCQ mastery vào chặng Grammar', async () => {
+    const qsn = [
+      ...Array.from({ length: 12 }, (_, i) => mcq(i)),
+      essay(1),
+      sectionQuestion(1, 'course_reading'),
+      sectionQuestion(2, 'course_listening'),
+      sectionQuestion(3, 'course_pronunciation', { options: null, answer: null }),
+      mcq(99, { counts_toward_mastery: false }),
+    ];
+    const { r } = await run({ questions: qsn });
+    assert.equal(r.total, 12);
+    assert.equal(r.stageCount, 2);
+    assert.equal(r.writing.length, 1);
+    assert.ok(r.stageQuestions().every(isCourseQuizQuestion));
   });
 });
 
@@ -464,7 +513,7 @@ describe('hết chặng', () => {
 
 // ── Cổng thuộc bài: kiểm tra lại (mẫu nhỏ, trộn câu + trộn đáp án) ──────────
 
-import { retakeClone, shuffled } from '../js/course-runner.js';
+import { retakeClone, seededRng, shuffled } from '../js/course-runner.js';
 
 /** LCG — rng tái lập được cho test. */
 function lcg(seed) {
@@ -502,6 +551,16 @@ describe('retakeClone — trộn đáp án mà không đổi nghĩa', () => {
 });
 
 describe('bài kiểm tra lại', () => {
+  test('cùng session id luôn dựng lại cùng câu và cùng hoán vị đáp án', () => {
+    const questions = Array.from({ length: 30 }, (_, i) => mcq(i));
+    const build = () => {
+      const rng = seededRng('6b1df028-f32a-4d09-a2c5-d6f8d4d74636');
+      return shuffled(questions, rng).slice(0, 20).map((q) => retakeClone(q, rng));
+    };
+    const shape = (list) => list.map((q) => ({ qid: q.qid, perm: q._perm }));
+    assert.deepEqual(shape(build()), shape(build()));
+  });
+
   test('số lần retake khôi phục từ sổ server', async () => {
     const { r } = await run({
       questions: Array.from({ length: 6 }, (_, i) => mcq(i)),
@@ -562,6 +621,55 @@ describe('bài kiểm tra lại', () => {
     assert.equal(out.hasMore, false, 'kiểm tra lại chỉ có MỘT chặng');
     assert.equal(store.getItem('cx:b1'), savedBefore,
       'trạng thái lượt chính không được đè trong lúc kiểm tra lại');
+  });
+
+  test('reload giữa revision nhận lại đúng mẫu và đúng câu kế tiếp từ server', async () => {
+    const questions = Array.from({ length: 30 }, (_, i) => mcq(i));
+    const rng = seededRng('revision-1');
+    const expected = shuffled(questions, rng).slice(0, 20).map((q) => retakeClone(q, rng));
+    const resume = {
+      item_id: 'it-1', completed: ['run-1'], stage: 3,
+      retake: {
+        session_id: 'revision-1', completed: false,
+        answered: expected.slice(0, 2).map((q, i) => ({ qid: q.qid, is_correct: i === 0 })),
+      },
+    };
+    const { r, api } = await run({
+      questions, resume,
+      mastery: { item_id: 'it-1', retakes: 2, retake_size: 20 },
+    });
+    assert.equal(r.mode, 'retake');
+    assert.equal(r.retakeNo, 3);
+    assert.equal(r.at, 2);
+    assert.equal(r.current().qid, expected[2].qid);
+    assert.deepEqual(r.stageQuestions().map((q) => q.qid), expected.map((q) => q.qid));
+    assert.equal(api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length, 0,
+      'đã có revision dở thì không được mở phiên mới');
+  });
+
+  test('revision đã chốt nhưng verdict rớt mạng được gửi lại mà không PATCH lần hai', async () => {
+    const questions = Array.from({ length: 25 }, (_, i) => mcq(i));
+    const rng = seededRng('revision-done');
+    const expected = shuffled(questions, rng).slice(0, 20).map((q) => retakeClone(q, rng));
+    const { r, api } = await run({
+      questions,
+      mastery: { item_id: 'it-1', retakes: 0, retake_size: 20 },
+      resume: {
+        item_id: 'it-1', completed: ['run-1'], stage: 3,
+        retake: {
+          session_id: 'revision-done', completed: true, right: 16, graded: 20,
+          answered: expected.map((q, i) => ({ qid: q.qid, is_correct: i < 16 })),
+        },
+      },
+    });
+    assert.equal(r.isStageDone(), true);
+    const result = await r.finishStage();
+    assert.equal(result.persisted, true);
+    assert.equal(result.right, 16);
+    assert.equal(api.calls.patch.length, 0, 'phiên đã chốt không được chốt lại');
+    await r.verdict();
+    const verdict = api.calls.post.find((c) => c.path === '/api/quiz/course/verdict');
+    assert.deepEqual(verdict.body.session_ids, ['revision-done']);
   });
 
   test('failed attempt khởi động lại một lượt đầy đủ sạch', async () => {
@@ -756,7 +864,92 @@ describe('re-import bộ đề CÙNG độ dài (codex #928 R4)', () => {
   });
 });
 
+describe('tương thích tiến độ trước khi tách lane Grammar (PR #1291)', () => {
+  function oldShape() {
+    return [
+      ...Array.from({ length: 12 }, (_, i) => mcq(i)),
+      sectionQuestion(1, 'mcq', { counts_toward_mastery: true }),
+      sectionQuestion(2, 'mcq', { counts_toward_mastery: true }),
+      sectionQuestion(3, 'mcq', {
+        counts_toward_mastery: true, options: null, answer: null,
+      }),
+    ];
+  }
+
+  function canonicalShape(over = {}) {
+    return [
+      ...Array.from({ length: 12 }, (_, i) => mcq(i, i === 0 ? over : {})),
+      sectionQuestion(1, 'course_reading'),
+      sectionQuestion(2, 'course_listening'),
+      sectionQuestion(3, 'course_pronunciation', { options: null, answer: null }),
+    ];
+  }
+
+  test('phiên Grammar đang dở được nhận lại, không quay về câu đầu', async () => {
+    const store = memStore();
+    const first = await run({ storage: store, questions: oldShape() });
+    const list = first.r.stageQuestions();
+    for (let i = 0; i < 5; i++) {
+      first.r.show(); first.r.answer(list[i].answer); first.r.next();
+    }
+    await first.r.leave();
+
+    const second = await run({ storage: store, questions: canonicalShape() });
+    assert.equal(second.r.stage, 0);
+    assert.equal(second.r.at, 5, 'phải tiếp tục ở câu Grammar thứ 6');
+    assert.equal(second.r.runSessionCount, 0);
+    assert.equal(second.api.calls.post.filter(
+      (c) => c.path === '/api/quiz/sessions').length, 0,
+      'dùng lại phiên canonical trên server, không mở phiên mới từ chặng 1');
+  });
+
+  test('chặng Grammar đã chốt được giữ khi fingerprint chỉ hẹp lane', async () => {
+    const store = memStore();
+    const first = await run({ storage: store, questions: oldShape() });
+    await playStage(first.r);
+
+    const second = await run({ storage: store, questions: canonicalShape() });
+    assert.equal(second.r.stage, 1, 'server phải đưa học viên tới chặng Grammar 2');
+    assert.equal(second.r.runSessionCount, 1);
+  });
+
+  test('đổi đáp án thật vẫn reset, không mượn đường tương thích legacy', async () => {
+    const store = memStore();
+    const first = await run({ storage: store, questions: oldShape() });
+    await playStage(first.r);
+
+    const second = await run({
+      storage: store, questions: canonicalShape({ answer: 1 }),
+    });
+    assert.equal(second.r.stage, 0);
+    assert.equal(second.r.at, 0);
+    assert.equal(second.r.runSessionCount, 0,
+      'phiên chấm theo đáp án cũ không được lẫn vào lượt mới');
+  });
+});
+
 describe('trạng thái khoá vào MỤC bài giao (codex #928 R5)', () => {
+  test('resume, session và verdict đều mang đúng mục canonical', async () => {
+    const { r, api } = await run({
+      questions: Array.from({ length: 5 }, (_, i) => mcq(i)),
+      mastery: { item_id: 'it-CANONICAL' },
+    });
+    assert.match(
+      api.calls.get.find((path) => path.includes('/course-resume')),
+      /\?class_item=it-CANONICAL$/,
+    );
+    assert.equal(
+      api.calls.post.find((call) => call.path === '/api/quiz/sessions').body.class_item,
+      'it-CANONICAL',
+    );
+    await playStage(r);
+    await r.verdict();
+    assert.equal(
+      api.calls.post.find((call) => call.path === '/api/quiz/course/verdict').body.class_item,
+      'it-CANONICAL',
+    );
+  });
+
   test('chuyển lớp → giao lại cùng bank: mục khác là lượt mới sạch', async () => {
     const store = memStore();
     const qsn = Array.from({ length: 5 }, (_, i) => mcq(i));
@@ -984,7 +1177,7 @@ describe('mở lại khi ĐÃ XONG cả bài', () => {
 // phiên MỚI — bỏ rơi luôn những câu vừa làm. Lần sau lại lệch thêm.
 //
 // Đo được: 29 phiên mồ côi mang 90 câu đã trả lời, đúng bằng số câu được tính.
-// Em Lê Ngọc Hà Linh đang làm câu của chặng 3 trong khi sổ đếm được 2 phiên.
+// Học viên đang làm câu của chặng 3 trong khi sổ đếm được 2 phiên.
 
 describe('chặng lấy từ máy chủ', () => {
   test('nhận lại bài dở khi số phiên KHÔNG khớp chặng thật', async () => {
@@ -1026,8 +1219,8 @@ describe('chặng lấy từ máy chủ', () => {
 
 describe('không mở hai phiên cùng lúc', () => {
   test('hai lần sang chặng gần nhau chỉ tạo MỘT phiên', async () => {
-    // Dữ liệu thật: em Lê Ngọc Hà Linh có hai phiên mở đúng cùng một giây
-    // (16:14:49) — một cái 0 câu, một cái 8 câu không lối về. Bấm hai lần, hay
+    // Một incident production có hai phiên mở đúng cùng một giây: một phiên 0
+    // câu và một phiên 8 câu không lối về. Bấm hai lần, hay
     // một lần bấm đi kèm một lượt tự động, là đủ để sinh ra cảnh ấy.
     //
     // Đi qua ĐƯỜNG CÔNG KHAI (`nextStage`), không gọi hàm riêng: ghim hàm mà
@@ -1038,11 +1231,50 @@ describe('không mở hai phiên cùng lúc', () => {
     const after = api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length;
     assert.equal(after - before, 1, 'mỗi phiên thừa là một chỗ bài học viên rơi vào');
   });
+
+  test('lần chuyển thứ hai đang bay không được bỏ qua nguyên một chặng', async () => {
+    // Race thật khác hai promise bắt đầu đúng cùng một nhịp: lần đầu đã đổi
+    // `stage`, nhưng request mở phiên còn bay và nút cũ vẫn có thể nhận một
+    // double-tap. Khoá riêng `openSession` giữ số phiên đúng nhưng vẫn để stage
+    // tăng hai lần — chính là mẫu 10 câu bị thiếu trong incident production.
+    const questions = Array.from({ length: 40 }, (_, i) => mcq(i));
+    const api = fakeApi({ questions });
+    const originalPost = api.post.bind(api);
+    let opened = 0;
+    let releaseOpen;
+    let markOpenStarted;
+    const openGate = new Promise((resolve) => { releaseOpen = resolve; });
+    const openStarted = new Promise((resolve) => { markOpenStarted = resolve; });
+    api.post = async (path, body) => {
+      if (path === '/api/quiz/sessions' && ++opened === 2) {
+        markOpenStarted();
+        await openGate;
+      }
+      return originalPost(path, body);
+    };
+
+    const { r } = await run({ questions, api });
+    const before = api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length;
+    const first = r.nextStage();
+    await openStarted;                 // stage đã là 1, phiên chặng 2 còn bay
+    const second = r.nextStage();      // mô phỏng double-tap tới trễ
+
+    assert.strictEqual(second, first, 'mọi kích hoạt trong cùng lượt phải dùng chung promise');
+    await Promise.resolve();
+    assert.equal(r.stage, 1, 'không được tăng tiếp sang chặng 3');
+
+    releaseOpen();
+    await Promise.all([first, second]);
+    const after = api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length;
+    assert.equal(after - before, 1);
+    assert.deepEqual(r.stageQuestions().map((q) => q.qid),
+      questions.slice(10, 20).map((q) => q.qid), 'phải hiện đủ câu 11–20');
+  });
 });
 
 // ── Sang chặng sau: HỎI máy chủ, đừng cộng một ─────────────────────────────
 //
-// Chuyện thật (em Lê Ngọc Hà Linh, 06/08): làm chặng 3→8, quay lại lấp chặng 2
+// Incident production: làm chặng 3→8, quay lại lấp chặng 2
 // còn thiếu, rồi bị đẩy sang chặng 3 — làm lại nguyên một chặng đã xong. Cộng
 // một là quay lại đúng bệnh "đếm thay vì suy từ độ phủ".
 

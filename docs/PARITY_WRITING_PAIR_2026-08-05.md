@@ -51,38 +51,84 @@ Cần nói rõ giới hạn: **không lớp nào ở trên so được BỐ CỤ
 
 ---
 
-# Cặp `exercises` cũng phải để ngoài (2026-08-06)
+# Cặp `exercises` đã bật lại (2026-08-09)
 
-G1 đỏ ở cặp `/pages/exercises.html` ↔ `/exercises`:
+G1 từng đỏ ở cặp `/pages/exercises.html` ↔ `/exercises`:
 
 ```
 ✗ [baseline-suspect] legacy chỉ render 4 dòng — vế tham chiếu nhiều khả năng hỏng
 ```
 
-Cùng một cơ chế như cặp `writing`: **vế THAM CHIẾU** không render đủ nội dung
-với tài khoản probe, nên bản Next chỉ toàn "thừa" ở mức thấp và bảng kết quả sẽ
-XANH trong khi chẳng so được gì.
+Lúc đó chưa chứng minh được 4 dòng là baseline hỏng hay trạng thái hợp lệ, nên
+cặp bị loại có chủ ý thay vì cho cổng tự xanh.
 
 Khác cặp `writing` ở một điểm đáng chú ý: cặp `flashcards` — cùng khuôn
 `mount()`, cùng route-group kiểu, cùng tài khoản probe — thì **ĐẠT**. Nên đây
 không phải giới hạn của khuôn, mà là chuyện riêng của `exercises.html` với tài
 khoản đó.
 
-**Đáng điều tra riêng:** trang `exercises` legacy chỉ render 4 dòng cho một tài
-khoản không có dữ liệu bài tập. Có thể là trạng thái rỗng hợp lệ, cũng có thể là
-lỗi thật của trang legacy. Chưa kiểm được vì cần tài khoản probe.
+Batch lifecycle 2026-08-09 đã đối chiếu contract module: khi `/auth/me` trả cả
+`d1_enabled` và `flashcard_enabled` khác `true`, chính module chuẩn phải render
+header + trạng thái `Exercises are not enabled` — đủ 4 dòng. Đây là trạng thái
+feature-disabled hợp lệ, không phải shell legacy hỏng.
 
-Bật lại: cấp cho tài khoản probe dữ liệu bài tập (hoặc xác nhận trạng thái rỗng
-là đúng rồi nới `minBaselineLines` cho riêng cặp này), sau đó thêm lại:
+Bởi vậy cặp được bật lại với baseline tường minh:
 
 ```json
 { "name": "exercises", "legacy": "/pages/exercises.html",
-  "next": "/exercises", "allow": [] }
+  "next": "/exercises", "allow": [], "minBaselineLines": 4 }
 ```
 
-Glob và regex authed trong `parity-gate.yml` ĐÃ sẵn sàng — không cần đụng thêm.
+Glob và regex authed trong `parity-gate.yml` đã sẵn sàng nên không cần đổi.
 
-Trong lúc chưa có, `/exercises` được che bằng: đo `getComputedStyle` theo đường
-DOM hai vế (41 nút, lệch 0), chốt `mount-waits-for-supabase.test.mjs`, và chốt
-`legacy-module-routes-need-hard-nav.test.mjs`. Không lớp nào so bố cục theo bề
-rộng — đúng thứ G1 làm và đang thiếu cho riêng trang này.
+Giới hạn còn lại phải nói rõ: nếu probe vẫn feature-disabled, cặp chỉ chứng minh
+hai shell khớp ở nhánh đó trên desktop/mobile. Muốn phủ hai drill card phải bật
+ít nhất một feature flag cho probe rồi bỏ hoặc nâng baseline tương ứng.
+
+---
+
+# Vì sao `/instructor` dùng browser contract thay cho visual parity (2026-08-16)
+
+Tài khoản probe G1 không có role giảng viên. Bản legacy dựng phần lớn shell tĩnh
+trước khi role gate hoàn tất, còn route Next chặn ở canonical `/auth/me` trước
+mọi `/instructor/*` read. So hai ảnh ở trạng thái này không chứng minh roster,
+lớp/mã, giao bài, hàng chờ chấm hay admin impersonation; nó còn khuyến khích bản
+Next render dữ liệu trước khi xác thực chỉ để giống baseline cũ.
+
+Vì vậy `/pages/instructor/index.html` ↔ `/instructor` không nằm trong
+`parity-pairs-authed.json`. Thay vào đó,
+`verify-instructor-dashboard-flow.mjs` chạy trên production build với session và
+backend fixture, kiểm role admin/student, đủ sáu collection owner-scoped,
+`as_instructor` trên từng request, canonical reload không replay sau mutation,
+drawer học viên, escaping và tràn ngang mobile/desktop. Legacy HTML vẫn được giữ
+làm rollback artifact tới Gate F; chi tiết chấm bài vẫn là route legacy riêng.
+
+`/instructor/compare` cũng không dùng visual pair vì cùng role gate và cần dữ
+liệu có ít nhất hai grading version. `verify-instructor-compare-flow.mjs` dùng
+fixture owner-scoped để kiểm full-feedback preview, bốn lựa chọn nguyên khối,
+base-version provenance, Overall tính lại, admin impersonation, student deny,
+responsive overflow và POST → canonical GET reconciliation không replay. HTML
+compare cũ vẫn là rollback artifact; entry từ grade đã chuyển sang route native.
+
+---
+
+# Vì sao `/pricing` không có cặp visual parity (2026-08-15)
+
+`/pricing` đang được khóa có chủ ý trước launch. Bản legacy
+`/pricing.html` dùng `window.location.replace('/')`; route Next sở hữu cùng
+quyết định ở server bằng HTTP 307 về `/`.
+
+Đây không phải một cặp ảnh hợp lệ: sau redirect cả hai URL cùng thành `/`, và
+G1 cố ý chặn `same-final-url` vì nếu cho phép thì nó chỉ chụp homepage hai lần,
+không chứng minh gì về route Pricing.
+
+Thay cho ảnh parity, `verify-pricing-redirect-flow.mjs` chạy trên production
+build trong chính G1 và kiểm bốn invariant:
+
+1. `/pricing` trả đúng 307, không phải redirect vĩnh viễn;
+2. `Location` trỏ chính xác về `/`;
+3. response redirect không gửi nội dung giá chưa phát hành;
+4. navigation bình thường theo redirect và kết thúc ở homepage.
+
+`frontend/public/pricing.html` vẫn giữ nguyên redirect sentinel và toàn bộ UI
+giá làm rollback/source artifact cho ngày marketing quyết định mở launch.

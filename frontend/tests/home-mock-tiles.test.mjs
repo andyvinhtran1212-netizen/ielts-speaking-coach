@@ -2,7 +2,7 @@
  * home-mock-tiles.test.mjs — released mock-result tile on the student home.
  *
  * When a mock sitting is released, a result tile appears next to the "Thi thử
- * Full Test" start card → opens the TRF (mock-result.html). Source-sentinels.
+ * Full Test" start card → opens the canonical TRF route. Source-sentinels.
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,7 +24,8 @@ const JS = read('public', 'js', 'home-mock-tiles.js');
 describe('home — mock hub (start card + result-tile slot)', () => {
   test('start card + tile grid container present, tile loader wired', () => {
     assert.match(HOME, /id="mock-hub-grid"/);
-    assert.match(HOME, /class="mock-start"[\s\S]*?\/pages\/full-test\.html|\/pages\/full-test\.html[\s\S]*?class="mock-start"/);
+    assert.match(HOME, /class="mock-start"[\s\S]*?\/full-test|\/full-test[\s\S]*?class="mock-start"/);
+    assert.doesNotMatch(HOME, /\/pages\/full-test\.html/);
     assert.match(HOME, /src="\.\.\/js\/home-mock-tiles\.js"/);
   });
   test('tile styles use design tokens (band + hover)', () => {
@@ -51,7 +52,8 @@ describe('home-mock-tiles — released results become tiles', () => {
     assert.match(JS, /\.filter\(function \(s\) \{ return s\.released; \}\)/);
   });
   test('tile links to the TRF (mock-result) by sitting_id + shows the overall band', () => {
-    assert.match(JS, /mock-result\.html\?sitting=' \+ encodeURIComponent\(s\.sitting_id\)/);
+    assert.match(JS, /\/mock\/result\?sitting=' \+ encodeURIComponent\(s\.sitting_id\)/);
+    assert.doesNotMatch(JS, /\/pages\/mock-result\.html/);
     assert.match(JS, /mock-result-tile__band">' \+ fmtBand\(s\.overall\)/);
   });
   test('best-effort: a fetch error leaves the start card alone', () => {

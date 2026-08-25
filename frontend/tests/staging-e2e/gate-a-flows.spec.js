@@ -13,7 +13,7 @@
 // silently flips back to real providers, this suite goes red on purpose).
 // @ts-check
 const { test, expect } = require('@playwright/test');
-const { STAGING_API, signIn } = require('./helpers');
+const { cleanupE2ESession, STAGING_API, signIn } = require('./helpers');
 
 test.describe.serial('Gate A flows', () => {
   /** @type {string} */ let adminToken;
@@ -29,8 +29,20 @@ test.describe.serial('Gate A flows', () => {
   // mid-suite (review 2026-07-13): the freshly minted code must never be
   // left active/assigned to the smoke student, or it pollutes later runs.
   test.afterAll(async ({ request }) => {
+    const cleanupErrors = [];
+    if (sessionId) {
+      try {
+        adminToken = adminToken || (await signIn(request, 'admin'));
+        await cleanupE2ESession(request, sessionId, adminToken);
+      } catch (e) {
+        cleanupErrors.push(e);
+      }
+    }
     try {
-      if (!code) return;
+      if (!code) {
+        if (cleanupErrors.length) throw new AggregateError(cleanupErrors, 'gate-a cleanup failed');
+        return;
+      }
       adminToken = adminToken || (await signIn(request, 'admin'));
       if (!codeId) {
         const list = await request.get(`${STAGING_API}/admin/access-codes`, { headers: auth(adminToken) });
@@ -39,18 +51,24 @@ test.describe.serial('Gate A flows', () => {
           codeId = row ? row.id : undefined;
         }
       }
-      if (!codeId) return;
-      if (studentId) {
-        await request.delete(
-          `${STAGING_API}/admin/access-codes/${codeId}/users/${studentId}`,
-          { headers: auth(adminToken) },
-        ); // 404 = already removed — fine
+      if (!codeId) {
+        cleanupErrors.push(new Error(`minted code ${code} could not be found for cleanup`));
+      } else {
+        if (studentId) {
+          await request.delete(
+            `${STAGING_API}/admin/access-codes/${codeId}/users/${studentId}`,
+            { headers: auth(adminToken) },
+          ); // 404 = already removed — fine
+        }
+        await request.delete(`${STAGING_API}/admin/access-codes/${codeId}`, {
+          headers: auth(adminToken),
+        }); // revoke is idempotent
       }
-      await request.delete(`${STAGING_API}/admin/access-codes/${codeId}`, {
-        headers: auth(adminToken),
-      }); // revoke is idempotent
     } catch (e) {
-      console.warn(`gate-a cleanup skipped: ${e}`);
+      cleanupErrors.push(e);
+    }
+    if (cleanupErrors.length) {
+      throw new AggregateError(cleanupErrors, 'gate-a cleanup failed');
     }
   });
   // Lazy + memoized so a single test can also run in isolation (-g).

@@ -269,7 +269,7 @@ describe('Tiến độ là tab cấp một của chi tiết lớp', () => {
     // khỏi bản gốc — đúng họ lỗi cả chương trình này lặp lại.
     const fn = codeOnly(SRC.slice(SRC.indexOf('function workOpen'),
                                   SRC.indexOf('async function loadStudentWork')));
-    assert.match(fn, /pages\/admin\/speaking\/sessions\.html\?session=/);
+    assert.match(fn, /admin\/speaking\/sessions\?session=/);
     assert.doesNotMatch(fn, /renderReport|questionCard|<audio/,
       'ngăn kéo tự vẽ bài làm là bản vẽ thứ hai');
   });
@@ -435,7 +435,7 @@ describe('Tiến độ là tab cấp một của chi tiết lớp', () => {
 
     // Speaking đã nộp → nghe thẳng ở trang phiên.
     const speak = workOpen({ artifact_kind: 'session', artifact_id: 's-1' });
-    assert.match(speak, /sessions\.html\?session=s-1/);
+    assert.match(speak, /admin\/speaking\/sessions\?session=s-1/);
     assert.match(speak, /Nghe bài/);
 
     // Bài theo buổi có tự luận → đọc bài viết. Ưu tiên hơn "xem từng câu" vì đó

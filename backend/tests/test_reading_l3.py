@@ -314,6 +314,17 @@ def test_grade_attempt_full_marks_returns_band_9():
     assert result["band_estimate"] == 9.0
 
 
+def test_grade_attempt_perfect_mini_does_not_use_the_40_question_band_table():
+    answer_key = [
+        {"q_num": i, "answer": "A", "alternatives": [], "skill_tag": "detail", "passage_order": 1}
+        for i in range(1, 8)
+    ]
+    user_answers = [{"q_num": i, "user_answer": "A"} for i in range(1, 8)]
+    result = grade_attempt(user_answers, answer_key)
+    assert result["score"] == result["max_score"] == 7
+    assert result["band_estimate"] is None
+
+
 # ── L3 endpoints: auth-gating ─────────────────────────────────────────
 
 
@@ -392,7 +403,8 @@ def test_l3_submit_rejects_when_elapsed_exceeds_limit_plus_grace():
     # call 1 = _fetch_attempt_or_404 (attempt row), call 2 = test_row fetch.
     attempt_row = {
         "id": "a-uuid", "user_id": _USER["id"], "test_id": "t-uuid",
-        "status": "in_progress", "started_at": started_long_ago, "answers": [],
+        "status": "in_progress", "started_at": started_long_ago,
+        "resume_expires_at": "2099-01-01T00:00:00+00:00", "answers": [],
     }
     test_row = {"id": "t-uuid", "test_id": "T1", "time_limit_minutes": 60, "module": "academic"}
     execute_returns = [MagicMock(data=[attempt_row]), MagicMock(data=[test_row])]
@@ -475,7 +487,8 @@ def test_resume_returns_open_attempt_when_one_exists():
     # in-progress lookup (reading_test_attempts): select.eq.eq.eq.order.limit.execute
     chain.eq.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = \
         MagicMock(data=[{"id": "a-uuid", "started_at": "2026-05-28T10:00:00+00:00",
-                          "status": "in_progress"}])
+                          "status": "in_progress",
+                          "resume_expires_at": "2099-01-01T00:00:00+00:00"}])
     # 20.9 — per-q_num answers fetch (reading_attempt_answers): select.eq.order.execute
     chain.eq.return_value.order.return_value.execute.return_value = \
         MagicMock(data=[{"q_num": 1, "user_answer": "A",
@@ -524,6 +537,7 @@ def test_patch_answers_upserts_by_qnum_when_in_progress():
         MagicMock(data=[{
             "id": "a-uuid", "user_id": _USER["id"], "test_id": "t-uuid",
             "status": "in_progress",
+            "resume_expires_at": "2099-01-01T00:00:00+00:00",
         }])
     # Echo count fetch (after the upsert) — select.eq.execute returns row count.
     chain.select.return_value.eq.return_value.execute.return_value = \
@@ -611,7 +625,8 @@ def test_l3_boot_returns_test_and_resume_payload_without_answer_keys():
     # in-progress lookup: select.eq.eq.eq.order.limit.execute
     chain.eq.return_value.eq.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = \
         MagicMock(data=[{"id": "a-uuid", "started_at": "2026-05-28T10:00:00+00:00",
-                          "status": "in_progress"}])
+                          "status": "in_progress",
+                          "resume_expires_at": "2099-01-01T00:00:00+00:00"}])
     # per-q_num answers: select.eq.order.execute
     chain.eq.return_value.order.return_value.execute.return_value = \
         MagicMock(data=[{"q_num": 1, "user_answer": "A",
@@ -633,11 +648,13 @@ def test_l3_boot_returns_test_and_resume_payload_without_answer_keys():
         "test_id": "T1",
         "status": "in_progress",
         "started_at": "2026-05-28T10:00:00+00:00",
+        "resume_expires_at": "2099-01-01T00:00:00+00:00",
         "answers": [{
             "q_num": 1, "user_answer": "A",
             "answered_at": "2026-05-28T10:01:00+00:00",
         }],
         "time_limit_minutes": 60,
+        "renderer_affinity": None,
     }
     # The attempts query must remain user-scoped (RLS/application guard).
     assert any(c.args == ("user_id", _USER["id"]) for c in chain.eq.call_args_list)
