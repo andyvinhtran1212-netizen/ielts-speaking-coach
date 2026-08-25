@@ -43,11 +43,14 @@ describe('/admin/mock-reviews native ownership', () => {
   });
 
   test('renders report from canonical final bands including LRW live Speaking extras', () => {
-    for (const token of ['normalizeReviewDetail', 'reportSkills(detail)', 'detail.review.finalBands.overall != null', "['reviewed', 'released']", 'Object.values(detail.review.retestFlags).some(Boolean)', 'window.print()']) assert.ok(REPORT.includes(token), token);
+    for (const token of ['normalizeReviewDetail', 'reportSkills(detail)', 'detail.review.finalBands.overall != null', "['reviewed', 'released']", 'retestSkills', 'Cần test lại:', 'vẫn là kết quả chính thức của lần mock test này', 'window.print()']) assert.ok(REPORT.includes(token), token);
+    assert.doesNotMatch(REPORT, /Object\.values\(detail\.review\.retestFlags\)\.some\(Boolean\)/);
+    assert.doesNotMatch(REPORT, /cần test lại — chưa thể tạo phiếu báo điểm/i);
+    assert.match(REPORT, /className="mrr-report-retest" role="note"/);
   });
 
   test('ships responsive accessible styles rather than an iframe-sized legacy surface', () => {
-    for (const token of ['@media (max-width: 900px)', '@media (max-width: 640px)', '@media print', '.mrr-band-grid', '.mrr-report-grid']) assert.ok(CSS.includes(token), token);
+    for (const token of ['@media (max-width: 900px)', '@media (max-width: 640px)', '@media print', '.mrr-band-grid', '.mrr-report-grid', '.mrr-report-retest']) assert.ok(CSS.includes(token), token);
     assert.doesNotMatch(CSS, /aver-admin-chrome\s*,\s*\.mrr-report-actions\s*\{\s*display:\s*contents/);
     assert.match(ADMIN_CHROME, /@media print\s*\{[\s\S]*\.admin-header, \.sidebar, \.backdrop \{ display: none !important; \}[\s\S]*\.admin-body \{ display: block; min-height: 0; \}/);
     assert.doesNotMatch(COMPONENT, /dangerouslySetInnerHTML|<iframe/);
