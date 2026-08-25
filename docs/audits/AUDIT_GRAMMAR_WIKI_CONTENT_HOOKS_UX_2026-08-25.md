@@ -3,7 +3,7 @@
 > Ngày audit: 2026-08-25
 > Nhánh: `codex/audit-grammar-wiki-ux`
 > Phạm vi: 137 bài Markdown, 137 grammar quiz banks, trang `/grammar`, trang bài viết, search, roadmap, exercises, desktop/mobile, light/dark.
-> Trạng thái: discovery hoàn tất; Phase 0 đã triển khai trên nhánh audit; Phase 1–3 chưa triển khai.
+> Trạng thái: discovery và Phase 0–3 đã triển khai, kiểm thử và visual-QA trên nhánh audit.
 
 ## 1. Kết luận ngắn
 
@@ -40,6 +40,7 @@ Giới hạn: discovery này không đọc lại toàn văn từng câu của c�
 | Bài có heading bài tập/thực hành | 106/137 |
 | Bài có mục đáp án | 98/137 |
 | Bài có ảnh/diagram/figure | 0/137 |
+| Bài có structured learning blocks sau remediation | 20/137 |
 | Median độ dài source | khoảng 1.925 từ |
 | Trạng thái nội dung | 137 `complete` |
 
@@ -237,20 +238,33 @@ Pilot đại diện cho 5 visual archetype:
 4. `complex-noun-phrases` — sentence x-ray.
 5. `grammar-in-task1` — annotated chart.
 
-Ship primitives, một pre-check, một inline micro-check, answer reveal và CTA full bank. Không đổi nội dung factual ngoài những chỗ cần chia chunk.
+- [x] Ship primitives, một pre-check, một inline micro-check, feedback tại chỗ và CTA full bank.
+- [x] Hoàn tất đủ 5 archetype: decision tree, timeline, error repair/flow, sentence X-ray và annotated chart map.
+- [x] Giữ nguyên quiz bank canonical; micro-check chỉ ghi evidence qua endpoint hiện có khi user đã đăng nhập.
 
 ### Phase 2 — content hook system
 
-- Định nghĩa schema block/metadata và validator.
-- Backfill theo article family, không theo 137 file cùng lúc.
-- Ưu tiên 20 bài có traffic/recommendation cao; lấy baseline analytics trước khi chọn.
-- Giữ quiz bank là canonical source; thêm anchor/item mapping khi cần micro-check chính xác theo section.
+- [x] Định nghĩa schema block/metadata và validator cho `check`, `visual`, `repair`, `transfer`, `takeaways`.
+- [x] Backfill theo article family trên 20 bài ưu tiên, gồm foundations, tenses, sentence structures, reading, writing, meaning, verb patterns và error clinic.
+- [x] Chặn block type/variant sai, ID trùng, marker thiếu và answer index sai; escape toàn bộ editorial string trước khi render.
+- [x] Giữ quiz bank là canonical source; CTA full practice tiếp tục dùng bank ID hiện có.
 
 ### Phase 3 — home/search/roadmap personalization
 
-- Tách “tra cứu” và “học & luyện”.
-- Filters/facets, resume, saved, weak areas và progress thật.
-- Roadmap dùng prerequisites + learner state; next step giải thích lý do.
+- [x] Tách “Tra cứu” và “Học & luyện” bằng tablist semantic trên Grammar home.
+- [x] Thêm Next search canonical với filter level và Speaking/Writing/Reading.
+- [x] Redesign exercise directory với search/category/level và taxonomy lấy động từ backend.
+- [x] Với user đăng nhập, dùng dashboard, roadmap và KP mastery canonical cho recently viewed, saved, weak areas, next step và mastery; guest không thấy progress giả.
+- [x] Roadmap dùng prerequisites + learner state khi có evidence, và giải thích rõ fallback category order khi chưa có evidence.
+
+### Completion verification — Phase 1–3
+
+- Learning-block validator: 184 file hợp lệ; 20 bài dùng structured blocks.
+- Backend Grammar suite: 403/403 pass, gồm slug/anchor drift, renderer, quiz-bank, persistence, recommendation truth và exercise-directory contract.
+- Frontend source suite: 6.975/6.975 pass.
+- Next production build: compile + TypeScript + page generation pass; 35/35 route outputs, gồm `/grammar`, `/grammar/search`, `/grammar/roadmap` và `/grammar/exercises`.
+- Browser QA desktop/mobile: Search lọc `present` từ 20 xuống 6 bài Beginner; Exercises trả 14 bank cho Grammar for Reading; 5 pilot đều render đúng 4 blocks; home learning mode, guest roadmap và inline feedback hoạt động.
+- Responsive QA ở 390×844: home, search, roadmap, exercises và cả 5 pilot đều không có page-level horizontal overflow; semantic controls và text feedback dùng được bằng keyboard.
 
 ## 8. Đo lường
 

@@ -343,9 +343,27 @@ pass.
 - Tenses roadmap orders are unique and contiguous (1–8).
 - Verification: focused frontend 199/199, full frontend source suite pass,
   backend Grammar 286/286, TypeScript checker pass, and responsive visual QA at
-  390×844/1280×900. Next 16.2.10 production build also passes, including all
-  33 prerendered pages. Phase 1 visual learning blocks remain intentionally
-  untouched.
+  390×844/1280×900. Next production build also passed all 33 route outputs in
+  this batch.
+
+## Phase 1–3 implementation (completed on audit branch)
+
+- Added a safe, data-driven Grammar Lab renderer and validator for semantic
+  checks, diagrams, repair strips, IELTS transfer and takeaway blocks. The five
+  pilots each contain four inline learning moments, and 15 additional priority
+  articles received family-appropriate visual blocks (20 articles total).
+- Reframed Grammar home as two explicit modes: **Tra cứu** and **Học & luyện**.
+  Editorial completeness bars were removed; signed-in recommendations, recent
+  history, saved items and weak areas come from existing canonical endpoints.
+- Added canonical Next search with level/skill facets, a prerequisite-aware
+  roadmap, and an exercise directory with dynamic categories and authenticated
+  KP mastery. Guests receive honest static fallbacks, never fabricated progress.
+- Backend search/exercise contracts now carry canonical article metadata and
+  skill relevance; full-bank quiz links remain unchanged.
+- Final verification: learning-block validator 184/184 files; backend Grammar
+  403/403; frontend 6,975/6,975; production build
+  35/35 route outputs; mobile QA at 390×844 found no horizontal overflow across
+  home, search, roadmap, exercises or the five pilots.
 
 ---
 
