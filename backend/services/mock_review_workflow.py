@@ -376,8 +376,8 @@ def save_final_bands(
 
     retest_flags (2026-07-12, mig 152) is the admin's independent PASS/FAIL
     judgment per skill — {skill: bool} — separate from the score. Only keys
-    for the sitting's required skills are kept; an unset/False flag means "no
-    retest needed" for that skill.
+    for the sitting's required or canonically live-assessed skills are kept;
+    an unset/False flag means "no retest needed" for that skill.
     """
     review = get_review(review_id)
     if not review:
@@ -443,7 +443,9 @@ def save_final_bands(
     if per_skill_notes is not None:
         update["per_skill_notes"] = per_skill_notes
     if retest_flags is not None:
-        update["retest_flags"] = {s: bool(retest_flags.get(s)) for s in skills if s in retest_flags}
+        update["retest_flags"] = {
+            s: bool(retest_flags.get(s)) for s in banded if s in retest_flags
+        }
 
     response = supabase_admin.table("mock_exam_reviews").update(update).eq(
         "id", str(review_id),

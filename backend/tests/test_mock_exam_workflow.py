@@ -5681,6 +5681,35 @@ def test_extra_speaking_band_is_stored_not_dropped(fake_db, svc, wf):
     assert saved["final_bands"]["overall"] == 5.5
 
 
+def test_final_band_save_keeps_live_speaking_retest_flag(fake_db, svc, wf):
+    """Roster decision -> final-band save -> reload must retain live Speaking.
+
+    An LRW classroom exam can carry a direct teacher assessment without a
+    speaking_topic_set.  Saving final bands used to rebuild retest_flags from
+    required LRW only and silently erase the already-selected Speaking flag.
+    """
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    wf._merge_review_ai_draft(sid, {"speaking": {"band": 4.5}})
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf.set_retest_flags_for_sitting(sid, admin, {"speaking": True})
+
+    saved = wf.save_final_bands(
+        review["id"], admin,
+        {"listening": 6.0, "reading": 6.0, "writing": 6.0, "speaking": 4.5},
+        retest_flags={
+            "listening": False, "reading": False,
+            "writing": False, "speaking": True,
+        },
+    )
+
+    assert saved["retest_flags"] == {
+        "listening": False, "reading": False,
+        "writing": False, "speaking": True,
+    }
+
+
 def test_extra_speaking_still_optional(fake_db, svc, wf):
     """The 14th student (no live speaking) must still save and release on LRW
     alone — that is WHY speaking cannot simply be made required."""

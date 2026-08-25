@@ -39,6 +39,7 @@ describe('/admin/mock-reviews native ownership', () => {
 
   test('preserves skill review, Writing, Speaking and final-band capabilities', () => {
     for (const token of ['/api/reading/test/attempts/', '/api/listening/tests/attempts/', '/admin/writing/essays/', '/start-grading', '/speaking-assessment', '/final-bands', '/release-claim', '/full-test-result?session_id=', '/admin/writing/grade?essay_id=', 'Cần test lại', 'Overall xem trước']) assert.ok(COMPONENT.includes(token), token);
+    assert.doesNotMatch(COMPONENT, /requiredSkills\.includes\(skill\)\s*&&\s*<em>/);
   });
 
   test('renders report from canonical final bands including LRW live Speaking extras', () => {
