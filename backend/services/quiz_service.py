@@ -291,6 +291,58 @@ def mastery_next_action(pct: float, pass_pct: int) -> str:
     return "retry_full"
 
 
+def _course_max_pct_after_quiz_retake(sections: dict | None) -> float | None:
+    """Điểm trần nếu revision chỉ thay điểm Quiz bằng 100%.
+
+    Revision ngắn không nộp lại Writing/Reading/Listening/Pronunciation. Vì
+    vậy tổng điểm gần đạt chưa chắc có thể vượt ngưỡng bằng revision; trả về
+    ``None`` khi snapshot cũ thiếu trọng số để giữ hành vi legacy an toàn.
+    """
+    if not isinstance(sections, dict) or len(sections) < 2:
+        return None
+    quiz = sections.get("quiz")
+    if not isinstance(quiz, dict):
+        return None
+
+    maximum = 0.0
+    for name, result in sections.items():
+        if not isinstance(result, dict):
+            return None
+        try:
+            weight = float(result.get("weight"))
+            pct = 100.0 if name == "quiz" else float(result.get("pct"))
+        except (TypeError, ValueError):
+            return None
+        maximum += pct * weight / 100
+    return round(maximum, 1)
+
+
+def course_mastery_next_action(
+    pct: float, pass_pct: int, sections: dict | None = None,
+) -> str:
+    """Quyết định bước tiếp theo, có xét trần của revision nhiều phần."""
+    action = mastery_next_action(pct, pass_pct)
+    if action != "retake":
+        return action
+    maximum = _course_max_pct_after_quiz_retake(sections)
+    if maximum is not None and maximum < float(pass_pct):
+        return "retry_full"
+    return action
+
+
+def _course_retry_reason(attempt: dict | None, pass_pct: int) -> str | None:
+    """Lý do máy đọc được để UI giải thích đúng một full retry gần ngưỡng."""
+    if not attempt or attempt.get("pct") is None:
+        return None
+    pct = float(attempt.get("pct") or 0)
+    if (mastery_next_action(pct, pass_pct) == "retake"
+            and course_mastery_next_action(
+                pct, pass_pct, attempt.get("sections"),
+            ) == "retry_full"):
+        return "section_ceiling"
+    return None
+
+
 def _recorded_next_action(attempt: dict | None, pass_pct: int) -> str | None:
     """Read the stored decision, deriving it only for legacy attempt rows.
 
@@ -303,8 +355,14 @@ def _recorded_next_action(attempt: dict | None, pass_pct: int) -> str | None:
         return None
     action = attempt.get("next_action")
     if action in {"passed", "retake", "retry_full"}:
+        if action == "retake":
+            maximum = _course_max_pct_after_quiz_retake(attempt.get("sections"))
+            if maximum is not None and maximum < float(pass_pct):
+                return "retry_full"
         return action
-    return mastery_next_action(float(attempt.get("pct") or 0), pass_pct)
+    return course_mastery_next_action(
+        float(attempt.get("pct") or 0), pass_pct, attempt.get("sections"),
+    )
 
 
 def _full_retry_boundary(attempts: list[dict], pass_pct: int) -> datetime | None:
@@ -3265,14 +3323,19 @@ def _course_completion_payload(
     } for name in required]
     complete = bool(required) and all(row["completed"] for row in sections)
     pct = attempt.get("pct") if complete else None
-    passed = bool(passed_before or (complete and attempt.get("next_action") == "passed"))
+    action = ("passed" if passed_before else _recorded_next_action(
+        attempt, cfg["pass_pct"],
+    )) if complete else None
+    passed = bool(complete and action == "passed")
     return {
         "completed": complete,
         "passed": passed if complete else None,
         "pct": float(pct) if pct is not None else None,
         "threshold": cfg["pass_pct"],
         "near_threshold": near_pass_pct(cfg["pass_pct"]),
-        "next_action": ("passed" if passed_before else attempt.get("next_action")) if complete else None,
+        "next_action": action,
+        "retry_reason": (_course_retry_reason(attempt, cfg["pass_pct"])
+                         if action == "retry_full" else None),
         "phase": attempt.get("phase") or "run",
         "retake_size": cfg["retake_size"],
         "retakes": sum(1 for row in attempts if row.get("phase") == "retake"),
@@ -3363,7 +3426,9 @@ def refresh_course_completion(
             attempt["at"] = _now()
             attempt["duration_sec"] = sum(int(snapshot[name].get("duration_sec") or 0)
                                           for name in required)
-            attempt["next_action"] = mastery_next_action(pct, cfg["pass_pct"])
+            attempt["next_action"] = course_mastery_next_action(
+                pct, cfg["pass_pct"], snapshot,
+            )
         else:
             attempt["pct"] = None
             attempt["at"] = None
@@ -3705,8 +3770,9 @@ def course_verdict(
             candidate["duration_sec"] = sum(int(v.get("duration_sec") or 0)
                                             for v in snapshot.values())
             if complete:
-                candidate["next_action"] = mastery_next_action(
-                    combined_pct, cfg["pass_pct"])
+                candidate["next_action"] = course_mastery_next_action(
+                    combined_pct, cfg["pass_pct"], snapshot,
+                )
             else:
                 candidate.pop("next_action", None)
         else:

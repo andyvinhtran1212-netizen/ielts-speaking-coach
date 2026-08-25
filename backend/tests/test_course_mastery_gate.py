@@ -183,6 +183,55 @@ def test_threshold_75_has_an_exact_ten_point_near_pass_band(pct, action):
     assert qs.mastery_next_action(pct, 75) == action
 
 
+def test_multisection_retake_is_refused_when_perfect_quiz_cannot_pass():
+    sections = {
+        "quiz": {"completed": True, "pct": 100, "weight": 50},
+        "writing": {"completed": True, "pct": 30, "weight": 50},
+    }
+    assert qs._course_max_pct_after_quiz_retake(sections) == 65.0
+    assert qs.course_mastery_next_action(65.0, 75, sections) == "retry_full"
+
+
+def test_multisection_retake_stays_open_when_quiz_can_reach_threshold():
+    sections = {
+        "quiz": {"completed": True, "pct": 50, "weight": 50},
+        "writing": {"completed": True, "pct": 80, "weight": 50},
+    }
+    assert qs._course_max_pct_after_quiz_retake(sections) == 90.0
+    assert qs.course_mastery_next_action(65.0, 75, sections) == "retake"
+
+
+def test_stored_impossible_retake_is_normalized_for_existing_learners():
+    sections = {
+        "quiz": {"completed": True, "pct": 100, "weight": 50},
+        "writing": {"completed": True, "pct": 30, "weight": 50},
+    }
+    attempt = {
+        "phase": "retake", "pct": 65.0, "completed": True,
+        "next_action": "retake", "sections": sections,
+    }
+    assert qs._recorded_next_action(attempt, 75) == "retry_full"
+    out = qs._course_completion_payload(
+        attempt=attempt, attempts=[attempt], cfg={"pass_pct": 75, "retake_size": 20},
+        required=["quiz", "writing"], results=sections,
+        weights={"quiz": 50, "writing": 50},
+    )
+    assert out["passed"] is False
+    assert out["next_action"] == "retry_full"
+    assert out["retry_reason"] == "section_ceiling"
+
+
+def test_section_ceiling_guard_does_not_regrade_a_stored_action_after_config_edit():
+    attempt = {
+        "pct": 65.0, "completed": True, "next_action": "retake",
+        "sections": {
+            "quiz": {"pct": 100, "weight": 50},
+            "writing": {"pct": 30, "weight": 50},
+        },
+    }
+    assert qs._recorded_next_action(attempt, 60) == "retake"
+
+
 def _summary_assignment(pass_pct=75):
     return {"content_config": {
         "pass_pct": pass_pct,

@@ -469,6 +469,7 @@ export function CourseBehavior() {
           + (v.passed ? 'Tự review từng câu' : 'Xem mình yếu trục nào')
           + '</button>';
         const history = CR.renderAttemptHistory(v.history || []);
+        const sectionCeiling = v.retry_reason === 'section_ceiling';
         if (v.completed === false) {
           const finished = sectionRows.filter((row: any) => row.completed).length;
           const total = sectionRows.length;
@@ -508,13 +509,20 @@ export function CourseBehavior() {
           box.innerHTML = '<div class="cx-verdict" data-v="fail-full">'
             + '<div class="cx-verdict__hero"><div>'
             + '<p class="cx-verdict__eyebrow">Chưa đạt · cần làm lại full session</p>'
-            + `<p class="cx-verdict__title">Điểm hiện tại chưa vào vùng gần đạt</p>`
-            + `<p class="cx-verdict__sub">Gần đạt bắt đầu từ ${v.near_threshold}% · ngưỡng đạt ${v.threshold}%.</p>`
+            + `<p class="cx-verdict__title">${sectionCeiling
+              ? 'Revision Quiz không thể đưa tổng điểm tới ngưỡng'
+              : 'Điểm hiện tại chưa vào vùng gần đạt'}</p>`
+            + `<p class="cx-verdict__sub">${sectionCeiling
+              ? `Quiz revision chỉ thay điểm Quiz; các phần còn lại giữ nguyên. Điểm hiện tại ${v.pct}% · cần ${v.threshold}%.`
+              : `Gần đạt bắt đầu từ ${v.near_threshold}% · ngưỡng đạt ${v.threshold}%.`}</p>`
             + `</div><div class="cx-verdict__score">${v.pct}%</div></div>`
             + '<div class="cx-verdict__body"><h3>Bạn cần làm gì?</h3>'
             + '<ul class="cx-verdict__steps">'
-            + `<li data-step="1">Xem bảng trục yếu để biết phần nào cần ôn trước.</li>`
-            + `<li data-step="2">Bắt đầu lại toàn bộ ${runner.stageCount} chặng; revision ${v.retake_size} câu chưa mở ở mức điểm này.</li>`
+            + (sectionCeiling
+              ? '<li data-step="1">Xem điểm từng phần để biết phần ngoài Quiz nào đang giới hạn điểm tổng.</li>'
+                + `<li data-step="2">Bắt đầu lại toàn bộ ${runner.stageCount} chặng và nộp lại các phần của lượt mới.</li>`
+              : `<li data-step="1">Xem bảng trục yếu để biết phần nào cần ôn trước.</li>`
+                + `<li data-step="2">Bắt đầu lại toàn bộ ${runner.stageCount} chặng; revision ${v.retake_size} câu chưa mở ở mức điểm này.</li>`)
             + '</ul>'
             + '<p class="cx-retry-warning"><strong>Lưu ý khi làm lại:</strong> '
             + 'lượt mới không cộng dồn đáp án từ lượt cũ. Tiến độ cũ vẫn nằm trong lịch sử, '

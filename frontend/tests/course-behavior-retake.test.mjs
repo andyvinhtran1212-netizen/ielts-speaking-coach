@@ -247,6 +247,13 @@ describe('cổng hoàn thành bài nhiều phần', () => {
     assert.ok(body.indexOf("/api/quiz/course/full-retry") < body.indexOf('runner.restartFull()'),
       'phải mở sổ attempt trước khi tạo session quiz mới');
   });
+
+  test('giải thích đúng khi revision Quiz không thể kéo tổng điểm qua ngưỡng', () => {
+    assert.match(SRC, /v\.retry_reason === 'section_ceiling'/);
+    assert.match(SRC, /Revision Quiz không thể đưa tổng điểm tới ngưỡng/);
+    assert.match(SRC, /Quiz revision chỉ thay điểm Quiz; các phần còn lại giữ nguyên/);
+    assert.match(SRC, /phần ngoài Quiz nào đang giới hạn điểm tổng/);
+  });
 });
 
 describe('thời lượng từng phần chỉ tính khi màn đang hiện', () => {
