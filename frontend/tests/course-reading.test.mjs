@@ -128,6 +128,8 @@ test('draft keys are isolated by learner and markdown escapes HTML first', () =>
   assert.notEqual(readingDraftKey('bank-03', 'u1'), readingDraftKey('bank-03', 'u2'));
   assert.notEqual(readingDraftKey('bank-03', 'u1', 'item-1'),
     readingDraftKey('bank-03', 'u1', 'item-2'));
+  assert.notEqual(readingDraftKey('bank-03', 'u1', 'item-1', 1),
+    readingDraftKey('bank-03', 'u1', 'item-1', 2));
   assert.equal(inlineMd('<img> **safe** *text*'),
     '&lt;img&gt; <strong>safe</strong> <em>text</em>');
 });

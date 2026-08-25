@@ -57,6 +57,22 @@ test('renders the cached sample, two speeds and a complete sentence queue', asyn
 });
 
 
+test('state lookup stays pinned to the assigned course item', async () => {
+  browserShell();
+  let requested = '';
+  const api = { get: async (path) => {
+    requested = path;
+    return { exercise, latest_attempt: null };
+  } };
+  const pronunciation = createPronunciation({
+    api, userId: 'u1', assignmentItemId: 'item-current',
+  });
+  await pronunciation.load('bank-05');
+  assert.equal(requested,
+    '/api/quiz/course/pronunciation?bank_id=bank-05&class_item=item-current');
+});
+
+
 test('moves by sentence without reading the DOM as state', async () => {
   browserShell();
   const api = { get: async () => ({ exercise, latest_attempt: null }) };

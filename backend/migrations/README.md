@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-08-24 the highest is `229`, so the next new
-migration is `230`.
+sequence is dense. As of 2026-08-25 the highest is `231`, so the next new
+migration is `232`.
 
 ## Conventions
 
@@ -139,3 +139,18 @@ Apply them through the normal advisory-locked forward runner. All four are
 additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
+
+## Forward scope 230–231
+
+- 230 versions writing drafts/submissions, reading/listening results and
+  pronunciation grading by the canonical full-course attempt. Existing rows
+  are attached to their current run without deleting history; a later full
+  retry can therefore submit every required section again.
+- 231 snapshots the hybrid question-count weights onto legacy course
+  assignments that predate weight snapshots. This keeps the denominator tied
+  to sections that actually exist and prevents later bank edits from changing
+  an assignment under learners' feet.
+
+Both migrations are transactional and idempotent. Apply them through the
+normal advisory-locked forward runner; do not run a data-deleting reset to
+repair legacy course scores.

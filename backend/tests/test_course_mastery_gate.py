@@ -127,6 +127,38 @@ def test_config_defaults():
     assert qs.mastery_config({"content_config": {}}) == {"pass_pct": 80, "retake_size": 20}
 
 
+def test_begin_full_retry_opens_one_idempotent_section_attempt():
+    prior = {"phase": "run", "pct": 40, "completed": True,
+             "next_action": "retry_full"}
+    item = {"id": "it-1", "passed_at": None, "updated_at": "t0",
+            "mastery": {"threshold": 75, "attempts": [prior]}}
+    log = []
+    db = _db(log, class_assignment_items=[item])
+    with patch.object(qs, "supabase_admin", db), \
+         patch.object(qs, "_assignment_item_for", return_value=item):
+        out = qs.begin_course_full_retry(user_id="u-1", bank_id="bank-1")
+    assert out == {"ok": True, "item_id": "it-1", "attempt_no": 2,
+                   "already_started": False}
+    update = next(row for row in log if row[0:2] == ("class_assignment_items", "update"))
+    mastery = update[2]["mastery"]
+    assert mastery["attempts"] == [prior]
+    assert mastery["active_section_attempt_no"] == 2
+    assert mastery["section_attempt_pending"] is True
+
+
+def test_begin_full_retry_uses_assignment_threshold_not_stale_ledger_threshold():
+    # 66% belongs to the near-pass band for the canonical 75% assignment, so
+    # the server must refuse a full retry even if an old ledger says 80%.
+    prior = {"phase": "run", "pct": 66, "completed": True}
+    item = {"id": "it-1", "passed_at": None, "updated_at": "t0",
+            "content_config": {"pass_pct": 75},
+            "mastery": {"threshold": 80, "attempts": [prior]}}
+    with patch.object(qs, "_assignment_item_for", return_value=item):
+        with pytest.raises(HTTPException) as error:
+            qs.begin_course_full_retry(user_id="u-1", bank_id="bank-1")
+    assert error.value.status_code == 409
+
+
 def test_config_reads_assignment():
     cfg = qs.mastery_config({"content_config": {"pass_pct": 90, "retake_size": 15}})
     assert cfg == {"pass_pct": 90, "retake_size": 15}
@@ -820,7 +852,7 @@ def test_retry_repairs_a_passed_multisection_item_missing_submitted_at():
     assert marked and marked[0]["artifact_kind"] == "quiz_session"
 
 
-def test_full_retry_carries_section_scores_without_counting_their_time_twice():
+def test_full_retry_uses_fresh_section_scores_and_time_for_the_new_attempt():
     ss = _sessions(2, created_at="2026-08-21T00:00:00Z")
     prior_sections = {
         "quiz": {"completed": True, "pct": 60.0, "duration_sec": 300, "weight": 50},
@@ -831,7 +863,7 @@ def test_full_retry_carries_section_scores_without_counting_their_time_twice():
              "duration_sec": 900, "next_action": "retry_full"}
     new_quiz = {"completed": True, "pct": 100.0, "correct": 10, "total": 10,
                 "duration_sec": 240}
-    writing = {"completed": True, "pct": 20.0, "correct": 2, "total": 10,
+    writing = {"completed": True, "pct": 100.0, "correct": 10, "total": 10,
                "duration_sec": 600}
     with patch.object(qs, "_course_completion_evidence", return_value=(
             ["quiz", "writing"], {"quiz": new_quiz, "writing": writing},
@@ -840,14 +872,46 @@ def test_full_retry_carries_section_scores_without_counting_their_time_twice():
             sessions=ss, questions=_questions(10, writing=1),
             attempts=_attempts(ss, _given(10)),
             item_row={"id": "it-1", "passed_at": None, "submitted_at": None,
-                      "mastery": {"attempts": [prior]}, "score": 40.0},
+                      "mastery": {"attempts": [prior],
+                                  "active_section_attempt_no": 2,
+                                  "section_attempt_pending": True,
+                                  "section_attempt_started_at": "2026-08-20T12:00:00Z"},
+                      "score": 40.0},
         )
     latest = out["history"][-1]
     writing_row = next(row for row in latest["sections"] if row["key"] == "writing")
-    assert writing_row["carried"] is True and writing_row["duration_sec"] == 0
-    assert latest["duration_sec"] == 240
-    saved = [entry for entry in log if entry[1] == "update"][-1][2]
-    assert saved["mastery"]["attempts"][-1]["duration_sec"] == 240
+    assert writing_row["carried"] is False and writing_row["duration_sec"] == 600
+    assert latest["duration_sec"] == 840
+    assert out["pct"] == 100.0 and out["passed"] is True
+    saved = next(entry[2] for entry in log
+                 if entry[1] == "update" and "mastery" in entry[2])
+    assert saved["mastery"]["attempts"][-1]["duration_sec"] == 840
+
+
+def test_full_retry_rejects_quiz_sessions_opened_before_the_new_attempt():
+    ss = _sessions(2, created_at="2026-08-20T06:00:00Z")
+    prior = {"phase": "run", "sessions": ["old"], "completed": True,
+             "pct": 40.0, "at": "2026-08-20T00:00:00Z",
+             "next_action": "retry_full"}
+    with patch.object(qs, "_course_completion_evidence", return_value=(
+            ["quiz", "writing"], {
+                "quiz": {"completed": True, "pct": 100},
+                "writing": {"completed": True, "pct": 100},
+            }, {"quiz": "s-0", "writing": "w-1"})):
+        with pytest.raises(HTTPException) as error:
+            _verdict(
+                sessions=ss, questions=_questions(10, writing=1),
+                attempts=_attempts(ss, _given(10)),
+                item_row={"id": "it-1", "passed_at": None,
+                          "submitted_at": None, "score": 40.0,
+                          "mastery": {"attempts": [prior],
+                                      "active_section_attempt_no": 2,
+                                      "section_attempt_pending": True,
+                                      "section_attempt_started_at":
+                                          "2026-08-20T12:00:00Z"}},
+            )
+    assert error.value.status_code == 422
+    assert "sau khi bắt đầu lượt mới" in error.value.detail
 
 
 # ── start_session: cổng kind + an toàn trước migration ───────────────────────
@@ -959,10 +1023,13 @@ async def test_router_wires_verdict_through():
     with patch.object(qr, "get_supabase_user", fake_user), \
          patch.object(qr.quiz_service, "course_verdict", fake_verdict):
         out = await qr.course_verdict(
-            qr.CourseVerdictBody(bank_id="bank-1", session_ids=["s-1"]),
+            qr.CourseVerdictBody(
+                bank_id="bank-1", class_item="it-1", session_ids=["s-1"],
+            ),
             authorization="Bearer x")
     assert out == {"passed": True}
-    assert seen == {"user_id": "u-1", "bank_id": "bank-1", "session_ids": ["s-1"]}
+    assert seen == {"user_id": "u-1", "bank_id": "bank-1",
+                    "session_ids": ["s-1"], "assignment_item_id": "it-1"}
 
 
 # ── Làm lại một chặng KHÔNG được chặn học viên khỏi kết quả ─────────────────

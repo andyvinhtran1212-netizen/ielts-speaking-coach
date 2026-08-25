@@ -94,10 +94,14 @@ def _set_for_bank(bank_id: str) -> dict:
     return result
 
 
-def _assignment_item(bank_id: str, user_id: str) -> dict:
+def _assignment_item(
+    bank_id: str, user_id: str, assignment_item_id: str | None = None,
+) -> dict:
     # Reuse the canonical live-assignment gate.  A saved URL must not keep
     # exposing course content after archive, deadline, or cohort transfer.
-    item = quiz_service._assignment_item_for(bank_id, user_id)
+    item = (quiz_service._assignment_item_for(
+        bank_id, user_id, assignment_item_id=assignment_item_id,
+    ) if assignment_item_id else quiz_service._assignment_item_for(bank_id, user_id))
     if not item:
         raise CoursePronunciationError(404, "Không tìm thấy bài tập")
     return item
@@ -135,6 +139,7 @@ def _public_attempt(row: dict | None) -> dict | None:
     safe_results = {k: v for k, v in results.items() if k != "provider_payloads"}
     return {
         "id": row.get("id"),
+        "attempt_no": int(row.get("attempt_no") or 1),
         # The learner reuses this persisted key after a reload so a retry cannot
         # bypass the database idempotency constraint and spend another AI call.
         "client_id": row.get("client_id"),
@@ -152,25 +157,31 @@ def _public_attempt(row: dict | None) -> dict | None:
     }
 
 
-def get_state(*, user_id: str, bank_id: str) -> dict:
-    _assignment_item(bank_id, user_id)
+def get_state(
+    *, user_id: str, bank_id: str, assignment_item_id: str | None = None,
+) -> dict:
+    item = _assignment_item(bank_id, user_id, assignment_item_id)
+    attempt_no = quiz_service.course_section_attempt_no(item)
     exercise = _set_for_bank(bank_id)
     try:
-        latest = (
+        all_attempts = (
             supabase_admin.table("course_pronunciation_submissions")
             .select("*")
             .eq("user_id", user_id)
             .eq("bank_id", bank_id)
+            .eq("class_assignment_item_id", item["id"])
             .order("created_at", desc=True)
-            .limit(1)
             .execute()
             .data
             or []
         )
+        latest = quiz_service._course_rows_for_attempt(all_attempts, attempt_no)[:1]
     except Exception as exc:  # noqa: BLE001
         logger.warning("[course-pronunciation] attempt lookup failed: %s", exc)
         raise CoursePronunciationError(500, "Không tải được kết quả phát âm") from exc
-    return {"exercise": _public_set(exercise), "latest_attempt": _public_attempt(latest[0] if latest else None)}
+    return {"exercise": _public_set(exercise),
+            "attempt_no": attempt_no,
+            "latest_attempt": _public_attempt(latest[0] if latest else None)}
 
 
 def _decode_recording(recording: Recording, sentence: dict) -> DecodedRecording:
@@ -357,9 +368,10 @@ def _existing_by_client(client_id: str, user_id: str) -> dict | None:
 
 async def submit(
     *, user_id: str, bank_id: str, client_id: str, recordings: list[Recording],
-    duration_sec: int = 0,
+    duration_sec: int = 0, assignment_item_id: str | None = None,
 ) -> dict:
-    item = _assignment_item(bank_id, user_id)
+    item = _assignment_item(bank_id, user_id, assignment_item_id)
+    attempt_no = quiz_service.course_section_attempt_no(item)
     exercise = _set_for_bank(bank_id)
     sentences = sorted(exercise.get("sentences") or [], key=lambda row: int(row.get("order") or 0))
     if not sentences or len(sentences) > MAX_RECORDINGS:
@@ -380,6 +392,8 @@ async def submit(
     if existing:
         if existing.get("bank_id") != bank_id:
             raise CoursePronunciationError(409, "Mã lượt nộp đã được dùng cho bài khác")
+        if int(existing.get("attempt_no") or 1) != attempt_no:
+            raise CoursePronunciationError(409, "Mã lượt nộp thuộc một lượt làm khác")
         if existing.get("status") == "completed":
             return _public_attempt(existing) or {}
         if existing.get("status") == "processing":
@@ -402,6 +416,7 @@ async def submit(
         "bank_id": bank_id,
         "user_id": user_id,
         "class_assignment_item_id": item.get("id"),
+        "attempt_no": attempt_no,
         "status": "processing",
         "provider": exercise["provider"],
         "locale": exercise["locale"],

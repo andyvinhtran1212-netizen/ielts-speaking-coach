@@ -6,8 +6,9 @@ const esc = (value) => String(value == null ? '' : value)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
-export const listeningDraftKey = (bankId, userId, assignmentItemId = null) =>
-  `cl:${userId || 'anon'}:${bankId}:${assignmentItemId || 'unscoped'}`;
+export const listeningDraftKey = (bankId, userId, assignmentItemId = null, attemptNo = 1) =>
+  `cl:${userId || 'anon'}:${bankId}:${assignmentItemId || 'unscoped'}`
+    + (Number(attemptNo) > 1 ? `:a${Number(attemptNo)}` : '');
 
 export function createListening({ api, storage, userId, assignmentItemId = null,
   now = () => Date.now() }) {
@@ -15,6 +16,7 @@ export function createListening({ api, storage, userId, assignmentItemId = null,
   let data = null;
   let draft = {};
   let solution = null;
+  let attemptNo = 1;
   const activeTimer = createActiveTimer(now);
 
   const questions = () => (data?.sections || [])
@@ -24,14 +26,14 @@ export function createListening({ api, storage, userId, assignmentItemId = null,
   function loadDraft() {
     if (!storage || !bankId) return {};
     try { return JSON.parse(storage.getItem(
-      listeningDraftKey(bankId, userId, assignmentItemId)) || '{}') || {}; }
+      listeningDraftKey(bankId, userId, assignmentItemId, attemptNo)) || '{}') || {}; }
     catch (_error) { return {}; }
   }
 
   function save() {
     if (!storage || !bankId) return;
     try { storage.setItem(
-      listeningDraftKey(bankId, userId, assignmentItemId), JSON.stringify(draft)); }
+      listeningDraftKey(bankId, userId, assignmentItemId, attemptNo), JSON.stringify(draft)); }
     catch (_error) { /* localStorage hỏng không chặn làm bài */ }
   }
 
@@ -118,6 +120,12 @@ export function createListening({ api, storage, userId, assignmentItemId = null,
       solution = null;
       activeTimer.reset();
       return !!data;
+    },
+    beginAttempt(nextAttemptNo) {
+      attemptNo = Math.max(1, Number(nextAttemptNo) || 1);
+      draft = data ? loadDraft() : {};
+      solution = null;
+      activeTimer.reset();
     },
     setActive(active) { activeTimer.setActive(active); },
     write(qid, value) {

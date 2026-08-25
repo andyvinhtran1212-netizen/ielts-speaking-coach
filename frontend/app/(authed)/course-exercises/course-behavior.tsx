@@ -134,7 +134,9 @@ export function CourseBehavior() {
         assignmentItemId: sectionAssignmentItem,
       });
       listening.load(runner.bank);
-      pronunciation = PD.createPronunciation({ api, userId: user.id });
+      pronunciation = PD.createPronunciation({
+        api, userId: user.id, assignmentItemId: sectionAssignmentItem,
+      });
       let pronunciationReady = false;
       const pronunciationLoaded = pronunciation.load(bankId)
         .then(() => {
@@ -929,25 +931,60 @@ export function CourseBehavior() {
         renderQuestion();
       }
 
-      async function restartFullFlow() {
-        const rep = $('cx-report');
-        if (rep) {
-          rep.hidden = true;
-          rep.innerHTML = '';
-          delete rep.dataset.crReady;
+      let fullRestart: Promise<void> | null = null;
+      function restartFullFlow(): Promise<void> {
+        if (fullRestart) return fullRestart;
+        const button = $('cx-retry-full') as HTMLButtonElement | null;
+        if (button) {
+          button.disabled = true;
+          button.setAttribute('aria-busy', 'true');
+          button.textContent = 'Đang mở lượt mới…';
         }
-        reportSeq += 1;
-        reportLoad = null;
-        await runner.restartFull();
-        if (runner.sessionFailed) {
-          setSaveState('error');
-          const box = $('cx-verdict');
-          if (box) box.innerHTML = '<div class="cx-verdict" data-v="wait">'
-            + '<p class="cx-verdict__sub">Chưa tạo được lượt làm mới. Tải lại trang để thử lại.</p></div>';
-          return;
-        }
-        setSaveState('idle');
-        renderQuestion();
+        fullRestart = (async () => {
+          const rep = $('cx-report');
+          if (rep) {
+            rep.hidden = true;
+            rep.innerHTML = '';
+            delete rep.dataset.crReady;
+          }
+          reportSeq += 1;
+          reportLoad = null;
+          let opened: any;
+          try {
+            opened = await api.post('/api/quiz/course/full-retry', {
+              bank_id: bankId,
+              ...(sectionAssignmentItem ? { class_item: sectionAssignmentItem } : {}),
+            });
+            const attemptNo = Math.max(1, Number(opened?.attempt_no) || 1);
+            reading.beginAttempt(attemptNo);
+            listening.beginAttempt(attemptNo);
+            await Promise.all([
+              writing.load(bankId, opened?.item_id || sectionAssignmentItem),
+              pronunciation.load(bankId),
+            ]);
+            writingReady = true;
+            pronunciationReady = true;
+          } catch (err: any) {
+            setSaveState('error');
+            const box = $('cx-verdict');
+            if (box) box.innerHTML = '<div class="cx-verdict" data-v="wait">'
+              + `<p class="cx-verdict__sub">Chưa mở được lượt làm lại: ${esc(
+                err?.message || err)}</p>`
+              + '<button class="av-button av-button-primary" id="cx-retry-full" type="button">Thử mở lại</button></div>';
+            return;
+          }
+          await runner.restartFull();
+          if (runner.sessionFailed) {
+            setSaveState('error');
+            const box = $('cx-verdict');
+            if (box) box.innerHTML = '<div class="cx-verdict" data-v="wait">'
+              + '<p class="cx-verdict__sub">Chưa tạo được lượt làm mới. Tải lại trang để thử lại.</p></div>';
+            return;
+          }
+          setSaveState('idle');
+          renderQuestion();
+        })().finally(() => { fullRestart = null; });
+        return fullRestart;
       }
 
       const l = $('cx-loading'); if (l) l.hidden = true;

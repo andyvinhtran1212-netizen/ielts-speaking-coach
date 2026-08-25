@@ -8552,6 +8552,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/quiz/course/full-retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Begin Course Full Retry
+         * @description Mở một full attempt mới cho cả quiz và mọi section bắt buộc.
+         */
+        post: operations["begin_course_full_retry_api_quiz_course_full_retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/quiz/banks/{bank_id}/reset": {
         parameters: {
             query?: never;
@@ -8605,7 +8625,7 @@ export interface paths {
         put?: never;
         /**
          * Submit Course Writing
-         * @description Nộp CẢ CỤM tự luận — một lượt duy nhất cho mỗi học viên mỗi bank.
+         * @description Nộp CẢ CỤM tự luận — một lần trong full attempt hiện hành.
          */
         post: operations["submit_course_writing_api_quiz_course_writing_post"];
         delete?: never;
@@ -11299,6 +11319,8 @@ export interface components {
              * Format: uuid
              */
             bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
             /**
              * Client Id
              * Format: uuid
@@ -11484,6 +11506,13 @@ export interface components {
              */
             sort_order: number;
         };
+        /** CourseFullRetryBody */
+        CourseFullRetryBody: {
+            /** Bank Id */
+            bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
+        };
         /** CourseListeningAudioBody */
         CourseListeningAudioBody: {
             /** Bank Id */
@@ -11540,6 +11569,8 @@ export interface components {
         CourseVerdictBody: {
             /** Bank Id */
             bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
             /** Session Ids */
             session_ids: string[];
         };
@@ -11547,6 +11578,8 @@ export interface components {
         CourseWritingBody: {
             /** Bank Id */
             bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
             /** Answers */
             answers?: {
                 [key: string]: string;
@@ -13251,6 +13284,8 @@ export interface components {
         StartSessionBody: {
             /** Bank Id */
             bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
             /**
              * Kind
              * @default run
@@ -27882,7 +27917,9 @@ export interface operations {
     };
     course_resume_api_quiz_banks__bank_id__course_resume_get: {
         parameters: {
-            query?: never;
+            query?: {
+                class_item?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -27892,6 +27929,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    begin_course_full_retry_api_quiz_course_full_retry_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseFullRetryBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -28337,6 +28409,7 @@ export interface operations {
         parameters: {
             query: {
                 bank_id: string;
+                class_item?: string | null;
             };
             header?: {
                 authorization?: string | null;

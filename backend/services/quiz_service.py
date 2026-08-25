@@ -571,7 +571,8 @@ def _assignment_item_for(
             return None
         sids = [s["id"] for s in student]
         item_query = (supabase_admin.table("class_assignment_items")
-                      .select("id, assignment_id, student_id, submitted_at")
+                      .select("id, assignment_id, student_id, submitted_at, "
+                              "passed_at, mastery, updated_at")
                       .in_("assignment_id", [a["id"] for a in owned])
                       .in_("student_id", sids))
         if assignment_item_id:
@@ -591,6 +592,9 @@ def _assignment_item_for(
         assignment = owned_by_id.get(item.get("assignment_id")) or {}
         item["due_at"] = assignment.get("due_at")
         item["accepting"] = bool(is_accepting_submissions(assignment))
+        # Retry decisions must use the assignment snapshot, not a possibly
+        # stale/missing threshold copied into the learner ledger.
+        item["content_config"] = assignment.get("content_config") or {}
         return item
     except Exception as exc:  # noqa: BLE001
         # Không đọc được thì TỪ CHỐI. Mở cửa khi chốt hỏng là biến một lỗi tạm
@@ -618,6 +622,32 @@ def _assignment_item_for_review(
             assignment_item_id=assignment_item_id,
         )
     return _assignment_item_for(bank_id, user_id, allow_submitted_review=True)
+
+
+def course_section_attempt_no(item: dict | None) -> int:
+    """Lượt full-session đang sở hữu các submission nhiều phần.
+
+    Revision chỉ làm lại quiz nên không tăng số này. Ledger cũ chưa có trường
+    tường minh được suy từ số dòng ``phase=run``; migration 230 backfill các
+    submission bằng cùng một luật để lần deploy không làm mất dấu bài hiện tại.
+    """
+    mastery = ((item or {}).get("mastery") or {})
+    try:
+        explicit = int(mastery.get("active_section_attempt_no") or 0)
+    except (TypeError, ValueError):
+        explicit = 0
+    if explicit > 0:
+        return explicit
+    attempts = mastery.get("attempts") or []
+    runs = sum(1 for attempt in attempts
+               if (attempt or {}).get("phase", "run") == "run")
+    return max(1, runs)
+
+
+def _course_rows_for_attempt(rows: list[dict], attempt_no: int) -> list[dict]:
+    """Filter rows while keeping pre-migration in-memory fixtures compatible."""
+    return [row for row in rows
+            if int(row.get("attempt_no") or 1) == int(attempt_no)]
 
 
 def get_bank_for_play(
@@ -776,6 +806,7 @@ def _save_course_section_result(
     ))
     if not item:
         raise HTTPException(404, "Không tìm thấy bài giao còn hiệu lực")
+    attempt_no = course_section_attempt_no(item)
     expected = [str(row.get("id") or "") for row in answer_rows if row.get("id")]
     total = len(answer_rows)
     submitted = {}
@@ -788,9 +819,10 @@ def _save_course_section_result(
     row = None
     reviewed_existing = False
     try:
-        existing = (supabase_admin.table("course_section_submissions")
+        all_existing = (supabase_admin.table("course_section_submissions")
                     .select("*").eq("class_assignment_item_id", item["id"])
-                    .eq("section", section).limit(1).execute().data) or []
+                    .eq("section", section).execute().data) or []
+        existing = _course_rows_for_attempt(all_existing, attempt_no)
         if existing:
             prior_answers = existing[0].get("answers") or {}
             if review_existing:
@@ -821,6 +853,7 @@ def _save_course_section_result(
                 "user_id": user_id,
                 "class_assignment_item_id": item["id"],
                 "section": section,
+                "attempt_no": attempt_no,
                 "answers": {qid: submitted[qid] for qid in expected},
                 "answer_key": answer_rows,
                 "content_snapshot": content_snapshot or {},
@@ -841,9 +874,10 @@ def _save_course_section_result(
             # Hai tab có thể cùng vượt lượt đọc `existing`. Đọc canonical row:
             # cùng payload là retry luỹ đẳng, payload khác mới là xung đột.
             try:
-                raced = (supabase_admin.table("course_section_submissions")
+                all_raced = (supabase_admin.table("course_section_submissions")
                          .select("*").eq("class_assignment_item_id", item["id"])
-                         .eq("section", section).limit(1).execute().data) or []
+                         .eq("section", section).execute().data) or []
+                raced = _course_rows_for_attempt(all_raced, attempt_no)
             except Exception as read_exc:  # noqa: BLE001
                 raise HTTPException(
                     500, f"Không xác nhận được lượt nộp phần {section}") from read_exc
@@ -855,6 +889,7 @@ def _save_course_section_result(
             raise HTTPException(500, f"Lỗi lưu kết quả phần {section}: {exc}")
     result = {
         "section": section,
+        "attempt_no": attempt_no,
         "total": int(saved.get("total") or total),
         "correct": int(saved.get("correct") or 0),
         "pct": float(saved.get("score") or 0),
@@ -889,11 +924,13 @@ def _review_course_section_result(
     )
     if not item:
         raise HTTPException(404, "Không tìm thấy bài giao đã nộp")
+    attempt_no = course_section_attempt_no(item)
     try:
-        rows = (supabase_admin.table("course_section_submissions")
+        all_rows = (supabase_admin.table("course_section_submissions")
                 .select("*").eq("class_assignment_item_id", item["id"])
                 .eq("user_id", user_id).eq("bank_id", bank_id)
-                .eq("section", section).limit(1).execute().data) or []
+                .eq("section", section).execute().data) or []
+        rows = _course_rows_for_attempt(all_rows, attempt_no)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi đọc kết quả phần {section}: {exc}") from exc
     if not rows:
@@ -901,6 +938,7 @@ def _review_course_section_result(
     saved = rows[0]
     return {
         "section": section,
+        "attempt_no": attempt_no,
         "total": int(saved.get("total") or 0),
         "correct": int(saved.get("correct") or 0),
         "pct": float(saved.get("score") or 0),
@@ -1018,13 +1056,15 @@ def course_listening_audio(
         )
         if not item:
             raise HTTPException(404, "Không tìm thấy bài giao")
+        attempt_no = course_section_attempt_no(item)
         try:
-            saved_rows = (supabase_admin.table("course_section_submissions")
-                          .select("content_snapshot")
+            all_saved_rows = (supabase_admin.table("course_section_submissions")
+                          .select("content_snapshot, attempt_no")
                           .eq("class_assignment_item_id", item["id"])
                           .eq("user_id", user_id).eq("bank_id", bank_id)
-                          .eq("section", "listening").limit(1)
+                          .eq("section", "listening")
                           .execute().data) or []
+            saved_rows = _course_rows_for_attempt(all_saved_rows, attempt_no)
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(500, "Không tải được audio bài nghe") from exc
         snapshot = (saved_rows[0].get("content_snapshot") if saved_rows else None)
@@ -1212,7 +1252,10 @@ def _assert_retake_allowed(item: dict | None) -> None:
                                  "không thể mở bài kiểm tra lại 20 câu.")
 
 
-def start_session(*, user_id: str, bank_id: str, kind: str = "run") -> dict:
+def start_session(
+    *, user_id: str, bank_id: str, kind: str = "run",
+    assignment_item_id: str | None = None,
+) -> dict:
     """Create a session and return {session_id, resume} — resume = prior word_stats
     so the engine continues carry-over.
 
@@ -1231,7 +1274,9 @@ def start_session(*, user_id: str, bank_id: str, kind: str = "run") -> dict:
     # Ghi lại mục bài giao NGAY LÚC TẠO PHIÊN, không đoán về sau. Suy ra "lượt
     # này thuộc bài giao nào" từ thời điểm và người làm là một phép đoán, và phép
     # đoán ấy đã sai đủ nhiều lần (mig 181) để không đáng làm lại.
-    item = (_assignment_item_for(bank_id, user_id)
+    item = ((_assignment_item_for(
+        bank_id, user_id, assignment_item_id=assignment_item_id,
+    ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
             if bank.get("skill_area") == COURSE_AREA else None)
     if kind == "retake":
         _assert_retake_allowed(item)
@@ -1570,7 +1615,9 @@ def _course_stage_reached(order: list[str], answered_all: set[str],
     return total
 
 
-def get_course_resume(*, user_id: str, bank_id: str) -> dict:
+def get_course_resume(
+    *, user_id: str, bank_id: str, assignment_item_id: str | None = None,
+) -> dict:
     """Chỗ đang làm dở của MỘT lượt bài tập theo buổi — đọc từ máy chủ.
 
     Trước đây chỗ này chỉ sống trong `localStorage` của đúng một trình duyệt,
@@ -1601,7 +1648,9 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
     if bank.get("skill_area") != COURSE_AREA:
         return empty
 
-    item = _assignment_item_for(bank_id, user_id)
+    item = (_assignment_item_for(
+        bank_id, user_id, assignment_item_id=assignment_item_id,
+    ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
     item_id = (item or {}).get("id")
     empty["item_id"] = item_id
 
@@ -1620,8 +1669,7 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
             if ledger:
                 state = ledger[0]
                 attempts = ((state.get("mastery") or {}).get("attempts")) or []
-                cfg_threshold = int((state.get("mastery") or {}).get(
-                    "threshold") or PASS_PCT_DEFAULT)
+                cfg_threshold = mastery_config(item)["pass_pct"]
                 recorded_session_ids = {
                     str(session_id)
                     for attempt in attempts
@@ -1636,6 +1684,10 @@ def get_course_resume(*, user_id: str, bank_id: str) -> dict:
                 )
             if ledger and not ledger[0].get("passed_at"):
                 retry_after = _full_retry_boundary(attempts, cfg_threshold)
+                pending_started = _at((state.get("mastery") or {}).get(
+                    "section_attempt_started_at"))
+                if pending_started and (retry_after is None or pending_started > retry_after):
+                    retry_after = pending_started
         except Exception as exc:  # noqa: BLE001
             logger.warning("[quiz] course-resume mastery read failed item=%s: %s",
                            item_id, exc)
@@ -2534,15 +2586,17 @@ def course_writing_state(
     item = _assignment_item_for_review(bank_id, user_id, assignment_item_id)
     if assignment_item_id and not item:
         raise HTTPException(404, "Không tìm thấy bài đã nộp")
+    attempt_no = course_section_attempt_no(item)
     _bank_meta_for_review_or_404(bank_id, user_id)
     try:
         qs = (supabase_admin.table("quiz_questions")
               .select("qid, prompt, explain, points, item_key, subtype, order")
               .eq("bank_id", bank_id).eq("type", "writing")
               .order("order").execute().data) or []
-        rows = ((supabase_admin.table("course_writing_submissions")
+        all_rows = ((supabase_admin.table("course_writing_submissions")
                  .select("*").eq("class_assignment_item_id", item["id"])
-                 .limit(1).execute().data) or []) if item else []
+                 .execute().data) or []) if item else []
+        rows = _course_rows_for_attempt(all_rows, attempt_no)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi đọc phần tự luận: {exc}")
 
@@ -2552,10 +2606,11 @@ def course_writing_state(
     draft = None
     if item and not sub:
         try:
-            d = (supabase_admin.table("course_writing_drafts")
-                 .select("answers, updated_at")
+            all_drafts = (supabase_admin.table("course_writing_drafts")
+                 .select("answers, updated_at, attempt_no")
                  .eq("class_assignment_item_id", item["id"])
-                 .limit(1).execute().data) or []
+                 .execute().data) or []
+            d = _course_rows_for_attempt(all_drafts, attempt_no)
             draft = d[0] if d else None
         except Exception as exc:  # noqa: BLE001
             # Nháp hỏng KHÔNG chặn học viên khỏi phần viết. Trang lấy bản trong
@@ -2567,6 +2622,7 @@ def course_writing_state(
         # id MỤC BÀI GIAO — trang khoá bản nháp vào nó: giao lại cùng bộ bài là
         # một lượt MỚI, và nháp của lần trước không được rót vào lần này.
         "item_id": (item or {}).get("id"),
+        "attempt_no": attempt_no,
         # Đề luôn trả — kể cả sau khi nộp, để học viên đọc lại đề bên cạnh bản
         # chấm. `explain` (đáp án mẫu) CHỈ trả sau khi đã nộp.
         "questions": [{
@@ -2597,7 +2653,8 @@ def course_writing_state(
 
 
 def save_course_writing_draft(*, user_id: str, bank_id: str,
-                              answers: dict) -> dict:
+                              answers: dict,
+                              assignment_item_id: str | None = None) -> dict:
     """Ghi bản nháp phần tự luận. Ghi đè bản cũ của CÙNG mục bài giao.
 
     Không phải một lần nộp: không chấm gì, không chốt gì, và gọi bao nhiêu lần
@@ -2609,15 +2666,20 @@ def save_course_writing_draft(*, user_id: str, bank_id: str,
     cạnh bài đã chấm như thể còn sửa được.
     """
     _bank_meta_or_404(bank_id, user_id)
-    item = _assignment_item_for(bank_id, user_id)
+    item = (_assignment_item_for(
+        bank_id, user_id, assignment_item_id=assignment_item_id,
+    ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
     if not item:
         # Không có bài giao còn hiệu lực = không có chỗ để gắn bản nháp. Nói ra
         # thay vì ghi vào hư không.
         raise HTTPException(403, "Bài này không còn nhận bài nữa.")
+    attempt_no = course_section_attempt_no(item)
     try:
-        done = (supabase_admin.table("course_writing_submissions")
-                .select("id, items").eq("class_assignment_item_id", item["id"])
-                .limit(1).execute().data) or []
+        all_done = (supabase_admin.table("course_writing_submissions")
+                    .select("id, items, attempt_no")
+                    .eq("class_assignment_item_id", item["id"])
+                    .execute().data) or []
+        done = _course_rows_for_attempt(all_done, attempt_no)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi kiểm lượt nộp: {exc}")
     # Dòng hỏng hoàn toàn KHÔNG chặn lưu nháp: em ấy còn phải nộp lại, và chặn
@@ -2641,12 +2703,13 @@ def save_course_writing_draft(*, user_id: str, bank_id: str,
         "class_assignment_item_id": item["id"],
         "user_id": user_id,
         "bank_id": bank_id,
+        "attempt_no": attempt_no,
         "answers": kept,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     try:
         supabase_admin.table("course_writing_drafts").upsert(
-            row, on_conflict="class_assignment_item_id").execute()
+            row, on_conflict="class_assignment_item_id,attempt_no").execute()
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi lưu nháp: {exc}")
     return {"saved": len(kept), "item_id": item["id"]}
@@ -2669,13 +2732,14 @@ def _writing_row_is_broken(sub) -> bool:
 
 
 async def submit_course_writing(*, user_id: str, bank_id: str,
-                                answers: dict, duration_sec: int = 0) -> dict:
-    """Nộp CẢ CỤM tự luận, chấm một lượt, ghi một lần.
+                                answers: dict, duration_sec: int = 0,
+                                assignment_item_id: str | None = None) -> dict:
+    """Nộp CẢ CỤM tự luận, chấm một lượt, ghi một lần trong full attempt.
 
-    MỘT LƯỢT DUY NHẤT. Ràng buộc thật nằm ở `UNIQUE (bank_id, user_id)` của
-    migration 190 — kiểm ở đây chỉ để trả về một câu đọc được thay vì lỗi 500
-    của cơ sở dữ liệu; hai lượt bấm song song thì lượt thua va khoá và cũng
-    được kể lại đúng như vậy.
+    MỘT LƯỢT DUY NHẤT TRONG MỖI FULL ATTEMPT. Ràng buộc thật nằm ở
+    `UNIQUE (class_assignment_item_id, attempt_no)` của migration 230 — kiểm ở
+    đây chỉ để trả về một câu đọc được thay vì lỗi 500 của cơ sở dữ liệu; hai
+    lượt bấm song song thì lượt thua va khoá và cũng được kể lại đúng như vậy.
 
     ĐỦ CÂU MỚI NHẬN. Thiếu một câu là 422 kèm danh sách còn thiếu — trang giữ
     bản nháp và chờ, chứ không tiêu mất lượt chấm duy nhất cho một bài dở dang.
@@ -2717,16 +2781,20 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     # PHẢI có mục bài giao. Bank giáo trình chỉ mở được qua bài giao, nên đây
     # luôn có ở luồng thật; đòi tường minh vì "một lượt" nay tính theo MỤC, và
     # một mục NULL sẽ lọt qua UNIQUE của Postgres (NULL không va nhau).
-    item = _assignment_item_for(bank_id, user_id)
+    item = (_assignment_item_for(
+        bank_id, user_id, assignment_item_id=assignment_item_id,
+    ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
     if not item:
         raise HTTPException(404, "Không tìm thấy bài giao còn hiệu lực")
+    attempt_no = course_section_attempt_no(item)
 
     # Kiểm SỚM, trước khi tốn một lượt gọi model.
     try:
-        already = (supabase_admin.table("course_writing_submissions")
-                   .select("id, items, graded_at")
+        all_submissions = (supabase_admin.table("course_writing_submissions")
+                   .select("id, items, graded_at, attempt_no")
                    .eq("class_assignment_item_id", item["id"])
-                   .limit(1).execute().data) or []
+                   .execute().data) or []
+        already = _course_rows_for_attempt(all_submissions, attempt_no)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi kiểm lượt nộp: {exc}")
     # Dòng cũ mà bộ chấm hỏng HOÀN TOÀN thì KHÔNG phải một lượt đã dùng — đó là
@@ -2775,6 +2843,7 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     row = {
         "bank_id": bank_id, "user_id": user_id,
         "class_assignment_item_id": item["id"],
+        "attempt_no": attempt_no,
         "items": graded,
         "total": len(graded),
         "clean": sum(1 for g in graded if g.get("ok") is True),
@@ -2784,7 +2853,7 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     try:
         if retry_of:
             # Chấm lại một lượt máy chủ đã làm hỏng — dùng lại đúng dòng cũ, nên
-            # ràng buộc "một lượt mỗi mục" (mig 192) không bị đụng tới.
+            # ràng buộc "một lượt mỗi mục/attempt" (mig 230) không bị đụng tới.
             #
             # SO-VÀ-ĐỔI trên `graded_at`: chỉ ghi khi dòng vẫn đúng như lúc đọc.
             # Người ĐẦU thắng; người sau nhận 409 thay vì lặng lẽ đè lên.
@@ -3054,9 +3123,57 @@ def course_required_sections(
     return _course_live_required_sections(resolved_bank_id) if resolved_bank_id else []
 
 
+def begin_course_full_retry(
+    *, user_id: str, bank_id: str, assignment_item_id: str | None = None,
+) -> dict:
+    """Mở lượt full mới mà không xoá bất kỳ submission hay ledger cũ nào."""
+    for _cas in range(3):
+        item = _assignment_item_for(
+            bank_id, user_id, assignment_item_id=assignment_item_id,
+        )
+        if not item:
+            raise HTTPException(404, "Không tìm thấy bài giao còn hiệu lực")
+        if item.get("passed_at"):
+            raise HTTPException(409, "Bài này đã đạt, không cần mở lượt làm lại.")
+
+        mastery = dict(item.get("mastery") or {})
+        cfg = mastery_config(item)
+        attempts = list(mastery.get("attempts") or [])
+        if not attempts or _recorded_next_action(attempts[-1], int(
+                cfg["pass_pct"])) != "retry_full":
+            raise HTTPException(409, "Kết quả hiện tại chưa yêu cầu làm lại toàn bài.")
+
+        current_no = course_section_attempt_no(item)
+        if mastery.get("section_attempt_pending") is True:
+            return {"ok": True, "item_id": item["id"],
+                    "attempt_no": current_no, "already_started": True}
+
+        next_no = current_no + 1
+        now = _now()
+        next_mastery = {
+            **mastery,
+            "active_section_attempt_no": next_no,
+            "section_attempt_pending": True,
+            "section_attempt_started_at": now,
+        }
+        try:
+            query = (supabase_admin.table("class_assignment_items")
+                     .update({"mastery": next_mastery, "updated_at": now})
+                     .eq("id", item["id"]))
+            if item.get("updated_at") is not None:
+                query = query.eq("updated_at", item["updated_at"])
+            changed = query.execute().data or []
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(500, f"Không mở được lượt làm lại: {exc}") from exc
+        if changed:
+            return {"ok": True, "item_id": item["id"],
+                    "attempt_no": next_no, "already_started": False}
+    raise HTTPException(409, "Lượt làm lại đang được mở ở nơi khác; hãy thử lại.")
+
+
 def _course_completion_evidence(
     *, bank_id: str, item_id: str, user_id: str, attempt: dict | None,
-    assignment: dict | None = None,
+    assignment: dict | None = None, attempt_no: int = 1,
 ) -> tuple[list[str], dict[str, dict], dict[str, str | None]]:
     """Đọc hình dạng đề và kết quả canonical của từng phần cho đúng item."""
     # Assignment mới dùng hình dạng đã chụp tại lúc giao. Chỉ assignment legacy
@@ -3071,19 +3188,26 @@ def _course_completion_evidence(
         artifacts["quiz"] = next(iter((attempt or {}).get("sessions") or []), None)
 
     try:
-        writing_rows = (supabase_admin.table("course_writing_submissions")
-                        .select("id, total, clean, duration_sec, graded_at")
-                        .eq("class_assignment_item_id", item_id).limit(1)
-                        .execute().data) or []
-        section_rows = (supabase_admin.table("course_section_submissions")
-                        .select("section, total, correct, score, duration_sec, submitted_at")
-                        .eq("class_assignment_item_id", item_id).execute().data) or []
-        pronunciation_rows = (supabase_admin.table("course_pronunciation_submissions")
-                              .select("id, pronunciation_score, duration_sec, graded_at")
+        all_writing_rows = (supabase_admin.table("course_writing_submissions")
+                            .select("id, total, clean, duration_sec, graded_at, attempt_no")
+                            .eq("class_assignment_item_id", item_id)
+                            .execute().data) or []
+        writing_rows = _course_rows_for_attempt(all_writing_rows, attempt_no)
+        all_section_rows = (supabase_admin.table("course_section_submissions")
+                            .select("section, total, correct, score, duration_sec, "
+                                    "submitted_at, attempt_no")
+                            .eq("class_assignment_item_id", item_id).execute().data) or []
+        section_rows = _course_rows_for_attempt(all_section_rows, attempt_no)
+        all_pronunciation_rows = (supabase_admin.table("course_pronunciation_submissions")
+                              .select("id, pronunciation_score, duration_sec, graded_at, "
+                                      "created_at, attempt_no")
                               .eq("class_assignment_item_id", item_id)
                               .eq("status", "completed")
-                              .order("created_at", desc=True).limit(1)
+                              .order("created_at", desc=True)
                               .execute().data) or []
+        pronunciation_rows = _course_rows_for_attempt(
+            all_pronunciation_rows, attempt_no,
+        )[:1]
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi đọc kết quả các phần: {exc}")
 
@@ -3188,23 +3312,29 @@ def refresh_course_completion(
         cfg = mastery_config(assignment)
         mastery = dict(item.get("mastery") or {})
         attempts = list(mastery.get("attempts") or [])
+        attempt_no = course_section_attempt_no(item)
         attempt = attempts[-1] if attempts else None
+        if (mastery.get("section_attempt_pending") is True
+                and (not attempt or int(attempt.get("attempt_no") or 0) != attempt_no)):
+            attempt = None
         required, results, artifacts = _course_completion_evidence(
             bank_id=bank_id, item_id=item_id, user_id=user_id, attempt=attempt,
-            assignment=assignment,
+            assignment=assignment, attempt_no=attempt_no,
         )
         if not attempt:
             # Bank không có trắc nghiệm vẫn cần một lượt hợp nhất. Bank có quiz
             # phải chờ verdict server-side tạo section quiz trước.
             if "quiz" in required:
                 attempt = {"phase": "run", "sessions": [], "sections": {},
-                           "completed": False, "pct": None, "at": None}
+                           "attempt_no": attempt_no, "completed": False,
+                           "pct": None, "at": None}
                 return _course_completion_payload(
                     attempt=attempt, attempts=attempts, cfg=cfg, required=required,
                     results=results, weights=_course_section_weights(assignment, required),
                 )
             attempt = {"phase": "run", "sessions": [], "sections": {},
-                       "completed": False, "pct": None, "at": None}
+                       "attempt_no": attempt_no, "completed": False,
+                       "pct": None, "at": None}
             attempts.append(attempt)
 
         # Một lượt đã chốt là lịch sử bất biến. Gọi lại do retry mạng chỉ đọc
@@ -3241,8 +3371,11 @@ def refresh_course_completion(
                                           for v in snapshot.values())
             attempt.pop("next_action", None)
 
+        next_mastery = {**mastery, "threshold": cfg["pass_pct"], "attempts": attempts}
+        if complete:
+            next_mastery["section_attempt_pending"] = False
         patch = {
-            "mastery": {**mastery, "threshold": cfg["pass_pct"], "attempts": attempts},
+            "mastery": next_mastery,
             "updated_at": _now(),
         }
         already_passed = bool(item.get("passed_at"))
@@ -3282,7 +3415,10 @@ def refresh_course_completion(
     raise HTTPException(500, "Sổ hoàn thành đang bị ghi tranh chấp — thử lại")
 
 
-def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dict:
+def course_verdict(
+    *, user_id: str, bank_id: str, session_ids: list[str],
+    assignment_item_id: str | None = None,
+) -> dict:
     """Xét ĐẠT/CHƯA ĐẠT bài tập buổi từ chính các phiên server đang giữ.
 
     Client chỉ NÊU TÊN các phiên của lượt vừa làm (10 phiên chặng, hoặc 1 phiên
@@ -3310,7 +3446,9 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
     if not session_ids or len(session_ids) > 40:
         raise HTTPException(422, "session_ids phải có 1–40 phiên")
 
-    item = _assignment_item_for(bank_id, user_id)
+    item = (_assignment_item_for(
+        bank_id, user_id, assignment_item_id=assignment_item_id,
+    ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
     if not item:
         raise HTTPException(404, "Không tìm thấy bài giao còn hiệu lực")
 
@@ -3458,6 +3596,7 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
     for _cas in range(3):
         mastery = cur.get("mastery") or {}
         attempts = list(mastery.get("attempts") or [])
+        attempt_no = course_section_attempt_no({"mastery": mastery})
         existing_attempt = next(
             (a for a in attempts
              if a.get("phase") == phase and a.get("sessions") == sess_key),
@@ -3469,6 +3608,7 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
             required, evidence, artifacts = _course_completion_evidence(
                 bank_id=bank_id, item_id=item["id"], user_id=user_id,
                 attempt=existing_attempt, assignment=assignment,
+                attempt_no=int(existing_attempt.get("attempt_no") or attempt_no),
             )
             weights = {name: float(((existing_attempt.get("sections") or {})
                                     .get(name) or {}).get("weight") or 0)
@@ -3513,17 +3653,33 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
         candidate = dict(existing_attempt) if existing_attempt else {
             "phase": phase, "sessions": sess_key,
         }
+        candidate["attempt_no"] = attempt_no
         candidate["sections"] = {**(candidate.get("sections") or {}),
                                  "quiz": quiz_result}
         required, evidence, artifacts = _course_completion_evidence(
             bank_id=bank_id, item_id=item["id"], user_id=user_id,
-            attempt=candidate, assignment=assignment,
+            attempt=candidate, assignment=assignment, attempt_no=attempt_no,
         )
+        if (phase == "run" and existing_attempt is None and attempts
+                and len(required) > 1
+                and _recorded_next_action(attempts[-1], cfg["pass_pct"]) == "retry_full"
+                and mastery.get("section_attempt_pending") is not True):
+            raise HTTPException(
+                409, "Hãy mở lượt làm lại mới trước khi nộp full session.",
+            )
+        if (phase == "run" and existing_attempt is None and len(required) > 1
+                and mastery.get("section_attempt_pending") is True):
+            started_at = _at(mastery.get("section_attempt_started_at"))
+            created = [_at(s.get("created_at")) for s in rows]
+            if started_at and any(at is None or at <= started_at for at in created):
+                raise HTTPException(
+                    422, "Lượt làm lại chỉ nhận các phiên được mở sau khi bắt đầu lượt mới.",
+                )
         weights = _course_section_weights(assignment, required)
         snapshot = {name: {**evidence[name], "weight": weights[name]}
                     for name in required if name in evidence}
-        if existing_attempt is None and attempts:
-            # Retry quiz dùng lại kết quả các phần một-lượt. Điểm vẫn tham gia
+        if phase == "retake" and existing_attempt is None and attempts:
+            # Revision quiz dùng lại kết quả các phần của cùng full attempt. Điểm vẫn tham gia
             # aggregate, nhưng thời gian ấy đã thuộc lượt trước và không được
             # cộng lần hai vào lịch sử/tổng thời gian của admin.
             for name in required:
@@ -3573,9 +3729,12 @@ def course_verdict(*, user_id: str, bank_id: str, session_ids: list[str]) -> dic
                 break
             attempts[index] = candidate
         final_attempt = candidate
+        next_mastery = {**mastery, "threshold": cfg["pass_pct"],
+                        "bank_rev": bank_rev, "attempts": attempts}
+        if complete:
+            next_mastery["section_attempt_pending"] = False
         patch: dict = {
-            "mastery": {"threshold": cfg["pass_pct"], "bank_rev": bank_rev,
-                        "attempts": attempts},
+            "mastery": next_mastery,
             "updated_at": _now(),
         }
         already = bool(cur.get("passed_at"))

@@ -254,6 +254,28 @@ def test_a_PAUSED_session_is_not_a_finished_stage():
         "điểm màn kết quả phải lấy từ chặng CHỐT THẬT"
 
 
+def test_pending_full_retry_resumes_only_sessions_after_its_start_boundary():
+    mastery = {
+        "attempts": [{"phase": "run", "pct": 40,
+                      "at": "2026-08-20T00:00:00+00:00",
+                      "next_action": "retry_full"}],
+        "section_attempt_pending": True,
+        "section_attempt_started_at": "2026-08-20T12:00:00+00:00",
+    }
+    sessions = [
+        _sess("before-open", ended_by="completed",
+              created="2026-08-20T06:00:00+00:00", tq=90, tc=90),
+        _sess("after-open", ended_by="completed",
+              created="2026-08-20T13:00:00+00:00", tq=90, tc=90),
+    ]
+    attempts = [
+        {"session_id": sid, "qid": f"q{i:02d}"}
+        for sid in ("before-open", "after-open") for i in range(90)
+    ]
+    sv = _resume(sessions=sessions, attempts=attempts, mastery=mastery)
+    assert sv["completed"] == ["after-open"]
+
+
 def test_the_answers_come_back_in_the_BANK_ORDER():
     """Một lô lượt làm ghi cùng lúc mang CÙNG dấu thời gian, và Postgres không
     hứa gì về thứ tự giữa các dòng bằng nhau. Trang lại đòi khớp ĐÚNG tiền tố,

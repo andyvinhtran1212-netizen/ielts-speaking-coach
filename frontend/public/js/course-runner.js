@@ -299,7 +299,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     if (!qs.length) return false;
     let sv = null;
     try {
-      sv = await api.get('/api/quiz/banks/' + encodeURIComponent(bank.id) + '/course-resume');
+      sv = await api.get('/api/quiz/banks/' + encodeURIComponent(bank.id) + '/course-resume'
+        + (itemId ? '?class_item=' + encodeURIComponent(itemId) : ''));
     } catch (e) { return false; }
     if (!sv) return false;
     // Mục bài giao khác = lượt của một bài giao khác (chuyển lớp, giao lại).
@@ -423,6 +424,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     sessionFailed = false;
     try {
       const body = { bank_id: bank.id };
+      if (itemId) body.class_item = itemId;
       // Chỉ khai khi khác mặc định — phiên 'run' giữ nguyên hợp đồng cũ.
       if (mode === 'retake') body.kind = 'retake';
       const s = await api.post('/api/quiz/sessions', body);
@@ -442,7 +444,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     if (mode === 'run') {
       try {
         const sv = await api.get('/api/quiz/banks/'
-          + encodeURIComponent(bank.id) + '/course-resume');
+          + encodeURIComponent(bank.id) + '/course-resume'
+          + (itemId ? '?class_item=' + encodeURIComponent(itemId) : ''));
         if (sv && Number.isInteger(sv.stage) && sv.stage > stage) next = sv.stage;
       } catch (e) { /* giữ nguyên cộng một */ }
     }
@@ -707,6 +710,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       const ids = mode === 'retake' ? [sessionId].filter(Boolean) : runSessions.slice();
       return api.post('/api/quiz/course/verdict', {
         bank_id: bank.id, session_ids: ids,
+        ...(itemId ? { class_item: itemId } : {}),
       });
     },
 

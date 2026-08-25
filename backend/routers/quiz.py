@@ -33,14 +33,21 @@ router = APIRouter(prefix="/api/quiz", tags=["quiz-player"])
 
 class StartSessionBody(BaseModel):
     bank_id: str
+    class_item: str | None = None
     # 'retake' = phiên kiểm tra lại của cổng thuộc-bài (chỉ bank giáo trình).
     kind: str = "run"
 
 
 class CourseVerdictBody(BaseModel):
     bank_id: str
+    class_item: str | None = None
     # Các phiên của lượt vừa làm — server tự cộng điểm từ dòng nó giữ.
     session_ids: list[str]
+
+
+class CourseFullRetryBody(BaseModel):
+    bank_id: str
+    class_item: str | None = None
 
 
 class ProgressBody(BaseModel):
@@ -115,10 +122,28 @@ async def resume(bank_id: UUID, authorization: str | None = Header(None)):
 
 
 @router.get("/banks/{bank_id}/course-resume")
-async def course_resume(bank_id: UUID, authorization: str | None = Header(None)):
+async def course_resume(
+    bank_id: UUID, class_item: str | None = None,
+    authorization: str | None = Header(None),
+):
     """Chỗ đang làm dở của bài tập theo buổi. Chỉ ĐỌC — không chốt gì cả."""
     user = await get_supabase_user(authorization)
-    return quiz_service.get_course_resume(user_id=user["id"], bank_id=str(bank_id))
+    return quiz_service.get_course_resume(
+        user_id=user["id"], bank_id=str(bank_id),
+        assignment_item_id=class_item,
+    )
+
+
+@router.post("/course/full-retry")
+async def begin_course_full_retry(
+    body: CourseFullRetryBody, authorization: str | None = Header(None),
+):
+    """Mở một full attempt mới cho cả quiz và mọi section bắt buộc."""
+    user = await get_supabase_user(authorization)
+    return quiz_service.begin_course_full_retry(
+        user_id=user["id"], bank_id=body.bank_id,
+        assignment_item_id=body.class_item,
+    )
 
 
 @router.post("/banks/{bank_id}/reset")
@@ -134,11 +159,13 @@ async def start_session(body: StartSessionBody, authorization: str | None = Head
     user = await get_supabase_user(authorization)
     return quiz_service.start_session(
         user_id=user["id"], bank_id=body.bank_id, kind=body.kind,
+        assignment_item_id=body.class_item,
     )
 
 
 class CourseWritingBody(BaseModel):
     bank_id: str
+    class_item: str | None = None
     # {qid: câu học viên viết}
     answers: dict[str, str] = Field(default_factory=dict, max_length=2000)
     duration_sec: int = Field(default=0, ge=0, le=12 * 60 * 60)
@@ -180,11 +207,11 @@ async def course_writing_state(
 @router.post("/course/writing")
 async def submit_course_writing(body: CourseWritingBody,
                                 authorization: str | None = Header(None)):
-    """Nộp CẢ CỤM tự luận — một lượt duy nhất cho mỗi học viên mỗi bank."""
+    """Nộp CẢ CỤM tự luận — một lần trong full attempt hiện hành."""
     user = await get_supabase_user(authorization)
     return await quiz_service.submit_course_writing(
         user_id=user["id"], bank_id=body.bank_id, answers=body.answers,
-        duration_sec=body.duration_sec,
+        duration_sec=body.duration_sec, assignment_item_id=body.class_item,
     )
 
 
@@ -200,6 +227,7 @@ async def save_course_writing_draft(
     user = await get_supabase_user(authorization)
     return quiz_service.save_course_writing_draft(
         user_id=user["id"], bank_id=body.bank_id, answers=body.answers,
+        assignment_item_id=body.class_item,
     )
 
 
@@ -258,6 +286,7 @@ async def course_verdict(body: CourseVerdictBody, authorization: str | None = He
     user = await get_supabase_user(authorization)
     return quiz_service.course_verdict(
         user_id=user["id"], bank_id=body.bank_id, session_ids=body.session_ids,
+        assignment_item_id=body.class_item,
     )
 
 
