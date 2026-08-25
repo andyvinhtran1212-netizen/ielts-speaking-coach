@@ -246,7 +246,7 @@ export function buildFinalBandsPayload(detail, draft, flags, comment) {
     finalBands[skill] = value;
   }
   const retestFlags = {};
-  for (const skill of detail.requiredSkills) retestFlags[skill] = flags?.[skill] === true;
+  for (const skill of reviewBandSkills(detail)) retestFlags[skill] = flags?.[skill] === true;
   return { ok: true, value: { final_bands: finalBands, examiner_comment_vi: TEXT(comment) || null, retest_flags: retestFlags } };
 }
 

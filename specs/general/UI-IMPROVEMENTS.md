@@ -227,6 +227,20 @@ apply valid findings, rerun tests, and record any deferred behavior-level issue.
 
 ## Implementation record
 
+### Teacher-authored full-test results (2026-08-25)
+
+- Confirmed the released-result hierarchy remains easy to scan: Overall first,
+  four skill bands second, then the examiner comment, retest notice, and
+  per-skill review actions for Listening, Reading, Writing, and Speaking.
+- Kept retest status independent of band availability, so a scored Speaking
+  result can still carry a prominent teacher-requested retest instruction.
+- Replaced the generic AI-attribution footer with a truthful publication stamp:
+  the result was confirmed by a teacher/examiner before release. This avoids
+  implying that teacher-final Speaking bands and comments were machine-graded.
+- Verification: desktop production pass at 1920×1080, accessibility snapshot
+  for labels/statuses, and focused source tests for result links, retest copy,
+  authored feedback, and the publication stamp.
+
 ### Course multi-section completion gate (2026-08-20)
 
 - Replaced the premature MCQ-only verdict with one learner-facing completion

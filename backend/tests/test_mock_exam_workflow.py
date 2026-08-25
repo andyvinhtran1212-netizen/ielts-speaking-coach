@@ -1730,6 +1730,28 @@ def test_roster_retest_flags_drop_unrequired_skills(fake_db, svc, wf, monkeypatc
     assert rv["retest_flags"]["reading"] is True
 
 
+def test_roster_retest_flags_keep_teacher_assessed_speaking_extra(
+    fake_db, svc, wf, monkeypatch,
+):
+    """A live teacher assessment is the canonical permission for Speaking even
+    when this classroom exam has no speaking_topic_set.  The band save path
+    already honours that extra skill; the roster flag path must use the same
+    boundary instead of silently dropping the checkbox value."""
+    _seed_retest_fixture(fake_db)
+    monkeypatch.setattr(wf, "_required_skills", lambda _sid: (
+        "listening", "reading", "writing",
+    ))
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    rv["ai_draft"] = {"speaking": {"band": 4.5}}
+    rv["per_skill_notes"] = {"speaking": {"intro": "Giáo viên chấm trực tiếp."}}
+
+    wf.set_retest_flags_for_sitting(
+        "sit-1", "admin-1", {"speaking": True, "writing": False},
+    )
+
+    assert rv["retest_flags"] == {"writing": False, "speaking": True}
+
+
 def test_roster_retest_flags_frozen_after_release(fake_db, svc, wf, monkeypatch):
     """A released result is what the student already saw — a stale admin tab must
     not silently rewrite its retest decision."""
@@ -5657,6 +5679,35 @@ def test_extra_speaking_band_is_stored_not_dropped(fake_db, svc, wf):
     # only the 3 required skills would say 6.0 — so this line alone catches a
     # regression that silently drops the extra from the mean.
     assert saved["final_bands"]["overall"] == 5.5
+
+
+def test_final_band_save_keeps_live_speaking_retest_flag(fake_db, svc, wf):
+    """Roster decision -> final-band save -> reload must retain live Speaking.
+
+    An LRW classroom exam can carry a direct teacher assessment without a
+    speaking_topic_set.  Saving final bands used to rebuild retest_flags from
+    required LRW only and silently erase the already-selected Speaking flag.
+    """
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    wf._merge_review_ai_draft(sid, {"speaking": {"band": 4.5}})
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf.set_retest_flags_for_sitting(sid, admin, {"speaking": True})
+
+    saved = wf.save_final_bands(
+        review["id"], admin,
+        {"listening": 6.0, "reading": 6.0, "writing": 6.0, "speaking": 4.5},
+        retest_flags={
+            "listening": False, "reading": False,
+            "writing": False, "speaking": True,
+        },
+    )
+
+    assert saved["retest_flags"] == {
+        "listening": False, "reading": False,
+        "writing": False, "speaking": True,
+    }
 
 
 def test_extra_speaking_still_optional(fake_db, svc, wf):

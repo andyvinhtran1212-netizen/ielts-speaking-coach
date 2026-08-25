@@ -57,8 +57,8 @@ describe('Admin Mock Reviews strict models', () => {
     assert.equal(overallPreview(detail, { listening: '7', reading: '6.5', writing: '6.5', speaking: '' }), 6.5, 'optional live extra does not blank preview');
     const missingSpeaking = buildFinalBandsPayload(detail, { listening: '7', reading: '6.5', writing: '6.5', speaking: '' }, {}, '');
     assert.equal(missingSpeaking.ok, false, 'live assessment still needs a signed-off Speaking band before save');
-    const saved = buildFinalBandsPayload(detail, { listening: '7', reading: '6.5', writing: '6.5', speaking: '7' }, { reading: true }, ' ok ');
-    assert.deepEqual(saved.value, { final_bands: { listening: 7, reading: 6.5, writing: 6.5, speaking: 7 }, examiner_comment_vi: 'ok', retest_flags: { listening: false, reading: true, writing: false } });
+    const saved = buildFinalBandsPayload(detail, { listening: '7', reading: '6.5', writing: '6.5', speaking: '7' }, { reading: true, speaking: true }, ' ok ');
+    assert.deepEqual(saved.value, { final_bands: { listening: 7, reading: 6.5, writing: 6.5, speaking: 7 }, examiner_comment_vi: 'ok', retest_flags: { listening: false, reading: true, writing: false, speaking: true } });
   });
 
   test('accepts only half-band steps and permits canonical blankable skills', () => {

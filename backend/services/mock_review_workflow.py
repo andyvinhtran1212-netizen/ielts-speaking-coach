@@ -214,6 +214,24 @@ def _required_skills(sitting_id: UUID | str) -> tuple:
     return skills
 
 
+def _live_assessed_extra_skills(review: dict, required: tuple) -> tuple:
+    """Skills assessed live even though the exam definition did not run them.
+
+    Some classroom full tests run Speaking directly with a teacher, outside the
+    platform's ``speaking_topic_set``.  ``save_speaking_assessment`` stamps that
+    canonical assessment into ``ai_draft`` and ``per_skill_notes``.  Those
+    stamps are the permission boundary: without either one, an unconfigured
+    skill remains outside the review and stale clients cannot invent it.
+    """
+    draft = review.get("ai_draft") or {}
+    notes = review.get("per_skill_notes") or {}
+    return tuple(
+        skill for skill in _SKILLS
+        if skill not in required
+        and (draft.get(skill) is not None or notes.get(skill) is not None)
+    )
+
+
 # ── Workflow ──────────────────────────────────────────────────────────
 
 
@@ -358,8 +376,8 @@ def save_final_bands(
 
     retest_flags (2026-07-12, mig 152) is the admin's independent PASS/FAIL
     judgment per skill — {skill: bool} — separate from the score. Only keys
-    for the sitting's required skills are kept; an unset/False flag means "no
-    retest needed" for that skill.
+    for the sitting's required or canonically live-assessed skills are kept;
+    an unset/False flag means "no retest needed" for that skill.
     """
     review = get_review(review_id)
     if not review:
@@ -395,10 +413,7 @@ def save_final_bands(
     # could post Listening/Reading bands onto a writing-only retake; and once
     # a live assessment exists, leaving its band blank would release a
     # 3-skill overall while the TRF shows full Speaking feedback (Codex, #872).
-    def _has_live(sk):
-        return ((review.get("ai_draft") or {}).get(sk) is not None
-                or (review.get("per_skill_notes") or {}).get(sk) is not None)
-    live_extras = tuple(s for s in _SKILLS if s not in skills and _has_live(s))
+    live_extras = _live_assessed_extra_skills(review, skills)
     bogus = [s for s in _SKILLS if s not in skills and s not in live_extras
              and final_bands.get(s) is not None]
     if bogus:
@@ -428,7 +443,9 @@ def save_final_bands(
     if per_skill_notes is not None:
         update["per_skill_notes"] = per_skill_notes
     if retest_flags is not None:
-        update["retest_flags"] = {s: bool(retest_flags.get(s)) for s in skills if s in retest_flags}
+        update["retest_flags"] = {
+            s: bool(retest_flags.get(s)) for s in banded if s in retest_flags
+        }
 
     response = supabase_admin.table("mock_exam_reviews").update(update).eq(
         "id", str(review_id),
@@ -689,7 +706,14 @@ def set_retest_flags_for_sitting(
             f"Sitting {sitting_id} đã công bố — không thể đổi quyết định test lại. "
             "Thu hồi trước nếu cần."
         )
-    skills = _required_skills(review["sitting_id"])
+    required = _required_skills(review["sitting_id"])
+    # A teacher-assessed Speaking component may live outside the exam's
+    # speaking_topic_set.  It is still a real review skill once the direct
+    # assessment has been saved, so the roster must retain its retest flag just
+    # as save_final_bands retains its band.  Previously this endpoint filtered
+    # only by _required_skills(), silently dropped ``speaking``, and the UI
+    # correctly reported that the backend had not confirmed the selected flag.
+    skills = required + _live_assessed_extra_skills(review, required)
     stored = {s: bool(retest_flags.get(s)) for s in skills if s in retest_flags}
 
     response = supabase_admin.table("mock_exam_reviews").update({
