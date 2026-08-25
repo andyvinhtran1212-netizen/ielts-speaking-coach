@@ -71,6 +71,11 @@ describe('/mock/result — native React behavior', () => {
     assert.match(BEHAVIOR, /\{textOf\(notes\[key\]\)\}/);
     assert.match(BEHAVIOR, /aria-label=\{`Overall \$\{fmtBand\(overall\)\}`\}/);
   });
+
+  test('credits the published result to the teacher without machine-grading language', () => {
+    assert.match(BEHAVIOR, /Kết quả đã được giáo viên\/giám khảo xác nhận trước khi công bố\./);
+    assert.doesNotMatch(BEHAVIOR, /\bAI\b|máy chấm|phân tích máy/);
+  });
 });
 
 describe('/mock/result — canonical entry points', () => {

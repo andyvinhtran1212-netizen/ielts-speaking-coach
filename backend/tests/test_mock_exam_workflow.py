@@ -1730,6 +1730,28 @@ def test_roster_retest_flags_drop_unrequired_skills(fake_db, svc, wf, monkeypatc
     assert rv["retest_flags"]["reading"] is True
 
 
+def test_roster_retest_flags_keep_teacher_assessed_speaking_extra(
+    fake_db, svc, wf, monkeypatch,
+):
+    """A live teacher assessment is the canonical permission for Speaking even
+    when this classroom exam has no speaking_topic_set.  The band save path
+    already honours that extra skill; the roster flag path must use the same
+    boundary instead of silently dropping the checkbox value."""
+    _seed_retest_fixture(fake_db)
+    monkeypatch.setattr(wf, "_required_skills", lambda _sid: (
+        "listening", "reading", "writing",
+    ))
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    rv["ai_draft"] = {"speaking": {"band": 4.5}}
+    rv["per_skill_notes"] = {"speaking": {"intro": "Giáo viên chấm trực tiếp."}}
+
+    wf.set_retest_flags_for_sitting(
+        "sit-1", "admin-1", {"speaking": True, "writing": False},
+    )
+
+    assert rv["retest_flags"] == {"writing": False, "speaking": True}
+
+
 def test_roster_retest_flags_frozen_after_release(fake_db, svc, wf, monkeypatch):
     """A released result is what the student already saw — a stale admin tab must
     not silently rewrite its retest decision."""

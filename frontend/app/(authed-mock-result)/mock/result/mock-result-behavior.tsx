@@ -356,7 +356,7 @@ function ResultContent({ data, sittingId }: {
       <LrGaps skills={data.lr_skills || []} finalBands={finalBands} />
       <WritingGaps tasks={data.writing_tasks || []} />
 
-      <p className="trf-foot">Kết quả do giám khảo duyệt, có tham khảo phân tích AI.</p>
+      <p className="trf-foot">Kết quả đã được giáo viên/giám khảo xác nhận trước khi công bố.</p>
     </div>
   );
 }
