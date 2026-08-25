@@ -115,13 +115,17 @@ BEGIN
     END LOOP;
 
     FOR expected_table IN
+        -- This verifier runs at the current forward floor, not immediately
+        -- after migration 225. Migration 226 additively appends duration_sec
+        -- plus its nonnegative constraint to pronunciation submissions, so
+        -- the exact fingerprint below must include that durable extension.
         SELECT * FROM (VALUES
             ('course_pronunciation_sets',
              'aa2821b60270a8cdf1cd6ba681a2d5d7', 13,
              'f1296210d743d00f453fc207e3b6d4ef', 5),
             ('course_pronunciation_submissions',
-             'e3b79744593b14b14e081a353974099a', 20,
-             '591d2668e5dafedd25bc45ac7297f7b7', 9)
+             '5dba1a9cdba1722d03789db62a08b185', 21,
+             '033f197219448de8299798632d1d4e4d', 10)
         ) AS expected(
             table_name, column_hash, column_count,
             constraint_hash, constraint_count
