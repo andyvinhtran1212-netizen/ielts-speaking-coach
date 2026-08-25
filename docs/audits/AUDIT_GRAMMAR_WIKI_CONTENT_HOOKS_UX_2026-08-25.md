@@ -225,7 +225,7 @@ Verification Phase 0:
 - Backend Grammar suites: 286/286 pass; mọi slug reference và quiz bank vẫn hợp lệ.
 - TypeScript: `tsc --noEmit --incremental false` pass.
 - Visual QA local: 390×844 không còn page overflow, nav có `scrollWidth 718 > clientWidth 353`, tab Grammar được đưa vào viewport khi tải trực tiếp; mobile TOC có 29 link, native focus và vùng cuộn 50vh; desktop TOC giữ `top: 72px` sau khi cuộn 3.359px.
-- Next production build chưa dùng làm bằng chứng trong worktree: Turbopack từ chối symlink `node_modules` nằm ngoài filesystem root; đây là giới hạn setup worktree, không phải compile error (TypeScript checker độc lập đã pass).
+- Next 16.2.10 production build pass đầy đủ khi dùng dependencies vật lý trong worktree và backend Grammar local cho bước prerender: compile, TypeScript và 33/33 static pages đều hoàn tất.
 
 ### Phase 1 — article shell pilot (5 bài)
 

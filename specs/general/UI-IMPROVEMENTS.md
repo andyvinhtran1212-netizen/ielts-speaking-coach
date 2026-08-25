@@ -343,7 +343,8 @@ pass.
 - Tenses roadmap orders are unique and contiguous (1–8).
 - Verification: focused frontend 199/199, full frontend source suite pass,
   backend Grammar 286/286, TypeScript checker pass, and responsive visual QA at
-  390×844/1280×900. Phase 1 visual learning blocks remain intentionally
+  390×844/1280×900. Next 16.2.10 production build also passes, including all
+  33 prerendered pages. Phase 1 visual learning blocks remain intentionally
   untouched.
 
 ---
