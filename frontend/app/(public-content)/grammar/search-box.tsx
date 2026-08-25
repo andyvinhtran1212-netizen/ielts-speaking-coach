@@ -2,14 +2,9 @@
 
 // Ô tìm kiếm của trang chủ Grammar. Đây là mảnh DUY NHẤT của trang cần chạy
 // phía client — legacy cũng chỉ làm đúng một việc: Enter hoặc bấm icon thì
-// chuyển sang trang kết quả (`grammarWiki.setupSearch(..., redirectToSearch)`).
+// chuyển sang route kết quả Next canonical.
 //
-// Giữ nguyên id `search-input` / `search-btn` vì `grammar-wiki.css` bám vào
-// chúng, và vì trang kết quả legacy vẫn đọc cùng tham số `?q=`.
-//
-// Dùng `window.location.assign` chứ không `router.push`: đích đến là trang
-// LEGACY, phải điều hướng full-document — đúng seam Next → legacy đã drill ở
-// Gate B. Khi trang search được port sang Next thì đổi một dòng này.
+// Giữ nguyên id `search-input` / `search-btn` vì `grammar-wiki.css` bám vào.
 import { useState } from 'react';
 
 export function SearchBox() {
@@ -18,7 +13,7 @@ export function SearchBox() {
   const submit = () => {
     const value = q.trim();
     if (!value) return;
-    window.location.assign(`/pages/grammar-search.html?q=${encodeURIComponent(value)}`);
+    window.location.assign(`/grammar/search?q=${encodeURIComponent(value)}`);
   };
 
   return (

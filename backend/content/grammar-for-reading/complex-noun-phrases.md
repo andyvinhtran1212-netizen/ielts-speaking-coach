@@ -52,7 +52,65 @@ anchors:
 - id: complex-noun-phrases.pitfall
   location: '## Bẫy khi đọc'
   type: pitfall
+learning_blocks:
+  - id: noun-phrase-precheck
+    type: check
+    kind: precheck
+    eyebrow: Khởi động · Scan nhanh
+    title: Từ nào điều khiển động từ?
+    prompt: Trong “The impact of rising sea levels is serious”, head noun là từ nào?
+    options:
+      - text: levels
+        feedback: Levels nằm trong cụm of; nó không điều khiển động từ chính.
+      - text: impact
+        feedback: Impact là trung tâm của toàn cụm danh từ và đi với is.
+      - text: sea
+        feedback: Sea chỉ bổ nghĩa cho levels.
+    correct_index: 1
+    kp_anchor: complex-noun-phrases.head-noun
+  - id: noun-phrase-xray
+    type: visual
+    variant: sentence-xray
+    eyebrow: Sentence X-ray
+    title: Tách cụm dài thành bốn lớp
+    intro: Đọc cấu trúc trước, rồi mới ghép nghĩa.
+    items:
+      - label: Determiner
+        value: the
+        note: mở đầu phạm vi cụm danh từ
+      - label: Pre-modifier
+        value: recently discovered fossil fuel
+        note: thông tin đứng trước head noun
+      - label: Head noun
+        value: reserves
+        note: từ quyết định số của động từ
+      - label: Post-modifier
+        value: beneath the Arctic ice
+        note: thông tin bổ sung đứng sau
+  - id: noun-phrase-microcheck
+    type: check
+    kind: microcheck
+    eyebrow: Dừng và kiểm tra
+    title: Hợp động từ với head noun
+    prompt: Chọn động từ đúng cho “The number of endangered species ___ falling.”
+    options:
+      - text: are
+        feedback: Species là danh từ trong cụm of, không phải head noun.
+      - text: is
+        feedback: Head noun number là số ít nên dùng is.
+    correct_index: 1
+    kp_anchor: complex-noun-phrases.pitfall
+  - id: noun-phrase-transfer
+    type: transfer
+    eyebrow: Chuyển sang IELTS Reading
+    title: Rút câu học thuật về “xương sống”
+    context: Locate the main claim
+    before: The rapid expansion of privately funded urban transport projects in developing regions has raised concerns.
+    after: Expansion has raised concerns.
+    tip: Giữ head noun + động từ chính trước; gắn các lớp bổ nghĩa trở lại sau khi đã hiểu xương sống.
 ---
+
+<!-- learning-block: noun-phrase-precheck -->
 
 <!-- anchor: complex-noun-phrases.overview -->
 ## Tóm tắt
@@ -62,6 +120,8 @@ Một cụm danh từ dài vẫn chỉ là **một** thành phần (chủ ngữ 
 > **the recently discovered fossil fuel reserves beneath the Arctic ice**
 
 Cả cụm này chỉ là **một chủ ngữ**; danh từ trung tâm là **reserves**.
+
+<!-- learning-block: noun-phrase-xray -->
 
 <!-- anchor: complex-noun-phrases.head-noun -->
 ### Tìm danh từ trung tâm (head noun)
@@ -93,10 +153,14 @@ Trong *the number of species is falling*, chủ ngữ là **number** (số ít) 
 ### Bẫy 2: Bị cụm giới từ dài làm mất dấu động từ chính
 Gạch mọi cụm *of/in/on/for…* để lộ head noun rồi mới tìm động từ.
 
+<!-- learning-block: noun-phrase-microcheck -->
+
 ### Chiến lược giải mã
 1. Khoanh vùng cả cụm danh từ (nó là một khối).
 2. Tước bổ nghĩa trước + sau → tìm head noun.
 3. Hợp head noun với động từ chính để hiểu câu.
+
+<!-- learning-block: noun-phrase-transfer -->
 
 ## Tóm tắt nhanh
 

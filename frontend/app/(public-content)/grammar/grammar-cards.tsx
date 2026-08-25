@@ -18,6 +18,8 @@ export type Article = {
   status?: string;
   summary?: string;
   reading_time?: number;
+  speaking_relevance?: string;
+  writing_relevance?: string;
 };
 
 export type Category = {
@@ -170,7 +172,6 @@ export function GroupCards({ groups }: { groups?: Group[] }) {
     <>
       {groups.map((g) => {
         const pal = GROUP_PALETTE[g.color || 'teal'] || GROUP_PALETTE.teal;
-        const pct = g.article_count > 0 ? Math.round((g.complete_count / g.article_count) * 100) : 0;
         return (
           <div key={g.title} className="group-card rounded-2xl p-5 border" style={{ background: pal.bg, borderColor: pal.border }}>
             <div className="flex items-start gap-3 mb-4">
@@ -187,17 +188,11 @@ export function GroupCards({ groups }: { groups?: Group[] }) {
                     className="text-xs flex-shrink-0 px-2 py-0.5 rounded-full font-medium"
                     style={{ background: pal.bg, color: pal.hex, border: `1px solid ${pal.border}` }}
                   >
-                    {g.complete_count}/{g.article_count}
+                    {g.article_count} bài
                   </span>
                 </div>
                 <p className="text-xs text-white/40 leading-relaxed">{g.description || ''}</p>
               </div>
-            </div>
-
-            {/* Nền thanh tiến độ đi qua class hook để chủ đề sáng lấy đúng token;
-                màu phần đã hoàn thành vẫn inline vì nó theo dữ liệu. */}
-            <div className="gw-progress-track h-0.5 rounded-full mb-4 overflow-hidden">
-              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pal.hex }} />
             </div>
 
             <div className="space-y-0.5">

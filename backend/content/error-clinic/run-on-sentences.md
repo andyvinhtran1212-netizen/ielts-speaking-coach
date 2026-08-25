@@ -73,7 +73,54 @@ anchors:
   - id: run-on-sentences.tom-tat-nhanh
     location: '## Tóm tắt nhanh'
     type: overview
+learning_blocks:
+  - id: run-on-precheck
+    type: check
+    kind: precheck
+    eyebrow: Khởi động · Bắt lỗi
+    title: Một dấu phẩy có đủ mạnh không?
+    prompt: Câu nào là run-on sentence?
+    options:
+      - text: I enjoy travelling because it broadens my perspective.
+        feedback: Because nối mệnh đề phụ với mệnh đề chính đúng cách.
+      - text: I enjoy travelling, it broadens my perspective.
+        feedback: Hai mệnh đề độc lập chỉ được nối bằng dấu phẩy.
+      - text: I enjoy travelling. It broadens my perspective.
+        feedback: Dấu chấm tách hai câu hoàn chỉnh.
+    correct_index: 1
+    kp_anchor: run-on-sentences.tom-tat
+  - id: run-on-repair
+    type: repair
+    eyebrow: Error repair
+    title: Nhìn cấu trúc, không nhìn độ dài
+    before: Technology is convenient, it can also be distracting.
+    reason: Cả hai vế đều có chủ ngữ + động từ và có thể đứng độc lập; dấu phẩy một mình không nối được chúng.
+    after: Technology is convenient, but it can also be distracting.
+  - id: run-on-flow
+    type: visual
+    variant: flow
+    eyebrow: Quy trình sửa
+    title: Chọn cách nối theo quan hệ ý nghĩa
+    items:
+      - label: Tìm hai mệnh đề
+        value: Mỗi vế có chủ ngữ và động từ riêng?
+      - label: Gọi tên quan hệ
+        value: bổ sung · tương phản · nguyên nhân · kết quả
+      - label: Chọn công cụ
+        value: dấu chấm · FANBOYS · từ phụ · mệnh đề quan hệ
+      - label: Đọc lại
+        value: kiểm tra dấu câu và nhịp câu
+  - id: run-on-transfer
+    type: transfer
+    eyebrow: Chuyển sang IELTS Writing
+    title: Biến chuỗi ý thành lập luận có nhịp
+    context: Writing Task 2 · technology
+    before: Technology saves time, people depend on it, they lose basic skills.
+    after: Although technology saves time, excessive dependence on it can gradually weaken basic skills.
+    tip: Một từ nối có quan hệ rõ thường tốt hơn nhiều “and” liên tiếp.
 ---
+
+<!-- learning-block: run-on-precheck -->
 
 <!-- anchor: run-on-sentences.tom-tat -->
 ## Tóm tắt
@@ -83,6 +130,8 @@ anchors:
 | **Comma splice** | "I love cooking, I do it every day." | Dấu phẩy không đủ để nối hai câu độc lập |
 | **Fused sentence** | "I love cooking I do it every day." | Không có dấu câu hoặc liên từ gì cả |
 | **Over-chained "and"** | "I woke up and I ate breakfast and I went to work and I had a meeting." | Quá nhiều mệnh đề nối bằng "and" |
+
+<!-- learning-block: run-on-repair -->
 
 ---
 
@@ -246,6 +295,10 @@ Dấu chấm phẩy (`;`) nối hai câu độc lập **có liên quan chặt ch
 1. **Có hai chủ ngữ + động từ không?** → Kiểm tra xem chúng được nối đúng cách chưa.
 2. **Có dấu phẩy giữa hai câu đầy đủ không có liên từ?** → Comma splice.
 3. **Câu dài hơn 3-4 mệnh đề nối bằng "and"?** → Có thể cần chia nhỏ hoặc dùng từ nối khác.
+
+<!-- learning-block: run-on-flow -->
+
+<!-- learning-block: run-on-transfer -->
 
 ---
 

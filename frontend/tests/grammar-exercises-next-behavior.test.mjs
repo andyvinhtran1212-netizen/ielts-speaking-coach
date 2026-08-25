@@ -32,9 +32,11 @@ describe('/grammar/exercises — native React behavior', () => {
     assert.match(BEHAVIOR, /'\/api\/grammar\/exercises'/);
   });
 
-  test('groups by the canonical code categories and renders without raw HTML', () => {
-    assert.match(BEHAVIOR, /function categoryOf/);
-    assert.match(BEHAVIOR, /G-\$\{category\}-/);
+  test('uses backend-enriched canonical categories and renders without raw HTML', () => {
+    assert.match(BEHAVIOR, /bank\.category/);
+    assert.match(BEHAVIOR, /bank\.level/);
+    assert.doesNotMatch(BEHAVIOR, /function categoryOf|const CATEGORIES/,
+      'client must not re-derive category truth from ambiguous bank codes');
     assert.match(BEHAVIOR, /encodeURIComponent\(bank\.id\)/);
     assert.doesNotMatch(BEHAVIOR, /\.innerHTML\s*=|__html/);
   });
@@ -42,7 +44,7 @@ describe('/grammar/exercises — native React behavior', () => {
   test('keeps loading, empty and error states distinct', () => {
     assert.match(BEHAVIOR, /Đang tải bài tập…/);
     assert.match(BEHAVIOR, /Chưa có bài tập nào được mở/);
-    assert.match(BEHAVIOR, /Không tải được bài tập:/);
+    assert.match(BEHAVIOR, /Không tải được bài tập/);
   });
 });
 

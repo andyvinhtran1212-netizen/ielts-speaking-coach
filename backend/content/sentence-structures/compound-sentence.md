@@ -65,7 +65,24 @@ anchors:
 - id: compound-sentence.compare-with
   location: '## So sánh với'
   type: compare-with
+learning_blocks:
+  - id: compound-sentence-bridge
+    type: visual
+    variant: flow
+    eyebrow: Clause bridge
+    title: Hai mệnh đề độc lập cần một “cây cầu” đúng nghĩa
+    items:
+      - label: Independent clause 1
+        value: The city is expensive.
+      - label: Quan hệ ý
+        value: contrast → but / yet
+      - label: Independent clause 2
+        value: It offers many opportunities.
+      - label: Câu ghép
+        value: The city is expensive, but it offers many opportunities.
 ---
+
+<!-- learning-block: compound-sentence-bridge -->
 
 <!-- anchor: compound-sentence.overview -->
 ## Tóm tắt

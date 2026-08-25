@@ -71,7 +71,23 @@ anchors:
   - id: future-forms.compare-with.three-forms
     location: "### Bảng so sánh tổng hợp"
     type: compare-with
+learning_blocks:
+  - id: future-forms-choice
+    type: visual
+    variant: decision-tree
+    eyebrow: Choice map
+    title: Chọn future form theo bằng chứng và mức độ sắp xếp
+    items:
+      - label: Quyết định ngay lúc nói?
+        value: will
+      - label: Đã có ý định hoặc dấu hiệu?
+        value: be going to
+      - label: Đã chốt lịch với người khác?
+        value: Present Continuous
+        note: meeting at 3 · flying on Friday
 ---
+
+<!-- learning-block: future-forms-choice -->
 
 <!-- anchor: future-forms.overview -->
 ## Tóm tắt

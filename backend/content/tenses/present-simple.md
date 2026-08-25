@@ -63,7 +63,23 @@ anchors:
   - id: present-simple.common-mistake.do-does-confusion
     location: "### Lỗi 3: Thiếu do/does trong câu hỏi"
     type: pitfall
+learning_blocks:
+  - id: present-simple-habit-loop
+    type: visual
+    variant: timeline
+    eyebrow: Time pattern
+    title: Present Simple mô tả mẫu lặp, không phải ảnh chụp lúc này
+    items:
+      - label: Thứ hai
+        value: I study after work.
+      - label: Thứ tư
+        value: I study after work.
+      - label: Thói quen
+        value: usually · every week · often
+        note: với he/she/it, động từ thêm -s/-es
 ---
+
+<!-- learning-block: present-simple-habit-loop -->
 
 <!-- anchor: present-simple.overview -->
 ## Tóm tắt

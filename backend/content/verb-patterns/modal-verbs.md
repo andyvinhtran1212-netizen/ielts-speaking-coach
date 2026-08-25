@@ -75,7 +75,25 @@ anchors:
   - id: modal-verbs.ielts.part3-speculation-examples
     location: "### Speaking — diễn đạt không chắc chắn:"
     type: ielts-application
+learning_blocks:
+  - id: modal-strength-scale
+    type: visual
+    variant: flow
+    eyebrow: Meaning scale
+    title: Modal verbs thay đổi “độ mạnh” của phát biểu
+    items:
+      - label: Khả năng thấp
+        value: might · could
+      - label: Khả năng hợp lý
+        value: may · should
+      - label: Suy luận mạnh
+        value: must
+      - label: Chắc chắn không
+        value: can't
+        note: modal + bare infinitive, không thêm to
 ---
+
+<!-- learning-block: modal-strength-scale -->
 
 <!-- anchor: modal-verbs.overview -->
 ## Tóm tắt

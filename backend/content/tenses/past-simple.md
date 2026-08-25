@@ -65,7 +65,23 @@ anchors:
   - id: past-simple.compare-with.present-perfect
     location: "### Past Simple vs Present Perfect"
     type: compare-with
+learning_blocks:
+  - id: past-simple-closed-time
+    type: visual
+    variant: timeline
+    eyebrow: Timeline
+    title: Past Simple đặt sự việc trong một “hộp thời gian” đã đóng
+    items:
+      - label: Mốc rõ
+        value: yesterday · in 2020 · last week
+      - label: Hành động hoàn tất
+        value: started → happened → ended
+      - label: Bây giờ
+        value: chỉ là điểm kể lại
+        note: không cần kết quả còn nối tới hiện tại
 ---
+
+<!-- learning-block: past-simple-closed-time -->
 
 <!-- anchor: past-simple.overview -->
 ## Tóm tắt

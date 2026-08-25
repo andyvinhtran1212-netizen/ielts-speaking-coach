@@ -62,7 +62,25 @@ anchors:
 - id: simple-sentence.compare-with
   location: '## So sánh với'
   type: compare-with
+learning_blocks:
+  - id: simple-sentence-core
+    type: visual
+    variant: sentence-xray
+    eyebrow: Sentence X-ray
+    title: Câu đơn có một lõi, nhưng lõi có thể được mở rộng
+    items:
+      - label: Subject
+        value: The new policy
+      - label: Verb
+        value: affects
+      - label: Object
+        value: local businesses
+      - label: Detail
+        value: in several ways
+        note: thêm chi tiết không tạo thêm independent clause
 ---
+
+<!-- learning-block: simple-sentence-core -->
 
 <!-- anchor: simple-sentence.overview -->
 ## Tóm tắt

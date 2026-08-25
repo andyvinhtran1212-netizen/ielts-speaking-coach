@@ -64,7 +64,25 @@ anchors:
   - id: countable-vs-uncountable.both-countable-and-uncountable
     location: "### 4. Danh từ vừa countable vừa uncountable"
     type: concept
+learning_blocks:
+  - id: countability-map
+    type: visual
+    variant: decision-tree
+    eyebrow: Meaning map
+    title: Đếm “đơn vị” hay nói về “chất/khái niệm”?
+    items:
+      - label: Có từng đơn vị riêng?
+        value: one idea · two ideas
+        note: dùng a/an và dạng số nhiều
+      - label: Là chất hoặc khái niệm?
+        value: advice · information · traffic
+        note: không thêm -s, không dùng a/an
+      - label: Cần đếm cụ thể?
+        value: a piece of advice
+        note: thêm partitive để tạo đơn vị
 ---
+
+<!-- learning-block: countability-map -->
 
 <!-- anchor: countable-vs-uncountable.overview -->
 <!-- anchor: countable-vs-uncountable.decision-rule -->

@@ -23,9 +23,10 @@ export default function GrammarExercisesPage() {
             <span className="mx-1">/</span>{' '}
             <span className="text-white/60">Bài tập</span>
           </nav>
-          <h1 className="text-3xl font-extrabold text-white mb-2">Bài tập Grammar</h1>
+          <p className="eyebrow">Practice directory</p>
+          <h1 className="text-3xl font-extrabold text-white mb-2">Chọn đúng bài cần luyện</h1>
           <p className="text-white/45">
-            Kiểm tra kiến thức ngữ pháp theo từng bài — làm tới khi thành thạo.
+            Tìm theo chủ đề và trình độ; khi đăng nhập, trạng thái mastery thật sẽ giúp bạn ưu tiên bài phù hợp.
           </p>
         </header>
 

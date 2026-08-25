@@ -69,6 +69,8 @@ def test_grammar_search_preserves_card_metadata():
         assert result["level"] == source["level"]
         assert result["status"] == source["status"]
         assert result["reading_time"] == source["reading_time"]
+        assert result["speaking_relevance"] == source["speaking_relevance"]
+        assert result["writing_relevance"] == source["writing_relevance"]
 
 
 def test_tenses_roadmap_orders_are_unique_and_contiguous():

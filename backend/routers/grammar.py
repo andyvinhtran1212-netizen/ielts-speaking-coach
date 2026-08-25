@@ -426,9 +426,22 @@ def _published_grammar_banks() -> list[dict]:
 
 @router.get("/exercises")
 async def list_exercises() -> dict:
-    """All published grammar quiz banks (id/code/title/count). Public, uncached
-    (bank state is dynamic). Category is derivable from the code G-<category>-<slug>."""
-    return {"banks": _published_grammar_banks()}
+    """Published banks enriched from canonical Grammar article metadata."""
+    banks = []
+    by_code = {
+        f"G-{article['category']}-{article['slug']}": article
+        for article in grammar_service.articles_by_slug.values()
+    }
+    for bank in _published_grammar_banks():
+        article = by_code.get(bank.get("code"))
+        banks.append({
+            **bank,
+            "slug": article.get("slug") if article else None,
+            "category": article.get("category") if article else None,
+            "level": article.get("level") if article else None,
+            "summary": article.get("summary") if article else None,
+        })
+    return {"banks": banks}
 
 
 @router.get("/article/{category}/{slug}/exercise")

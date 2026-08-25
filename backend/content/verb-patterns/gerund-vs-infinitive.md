@@ -86,7 +86,26 @@ anchors:
   - id: gerund-vs-infinitive.ielts.speaking-examples
     location: "### IELTS Speaking — Cụm từ hữu ích"
     type: ielts-application
+learning_blocks:
+  - id: gerund-infinitive-meaning
+    type: visual
+    variant: decision-tree
+    eyebrow: Verb-pattern map
+    title: Học pattern theo động từ và nghĩa, không theo một quy tắc duy nhất
+    items:
+      - label: Sau giới từ
+        value: V-ing
+        note: interested in learning
+      - label: Sau plan / decide / hope
+        value: to + V
+      - label: Sau enjoy / avoid / consider
+        value: V-ing
+      - label: Động từ đổi nghĩa
+        value: stop · remember · try
+        note: kiểm tra nghĩa trước khi chọn form
 ---
+<!-- learning-block: gerund-infinitive-meaning -->
+
 <!-- anchor: gerund-vs-infinitive.overview -->
 ## Tóm tắt
 

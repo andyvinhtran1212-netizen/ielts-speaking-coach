@@ -144,10 +144,10 @@
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
 | `/grammar` | `/grammar.html` bản legacy vẫn phục vụ làm mốc rollback + vế parity | `app/(public-content)/grammar/page.tsx` — CUTOVER (pilot 2) | Public | none | localStorage (theme) | M | Grammar hub; category browser |
-| `/grammar/:category/:slug` | `/:category/:slug` (clean URL alias via vercel rewrite) | `pages/grammar-article.html` | Public | `anchor` (scroll to section) | localStorage (theme), fetch (public API) | M | Article view; ~150 articles served by single page; server-side SEO metadata |
+| `/grammar/:category/:slug` | `pages/grammar-article.html` (parity/rollback only) | `app/(public-content)/grammar/[category]/[slug]/page.tsx` | Public | URL hash anchor | SSR content + client view/save/micro-check | M | Article view; semantic Grammar Lab blocks; server-side SEO metadata |
 | `/grammar/compare` | — | `pages/grammar-compare.html` | Public | `a`, `b` (article slugs to compare) | localStorage (theme), fetch API | M | Side-by-side article comparison |
-| `/grammar/roadmap` | — | `pages/grammar-roadmap.html` | Public | none | localStorage (theme) | S | Learning path graph; static layout |
-| `/grammar/search` | — | `pages/grammar-search.html` | Public | `q` (search term) | localStorage (theme), fetch API | M | Full-text search; real-time results |
+| `/grammar/roadmap` | `pages/grammar-roadmap.html` (parity/rollback only) | `app/(public-content)/grammar/roadmap/page.tsx` | Public | none | `/api/me/roadmap` when signed in; static category fallback | M | Prerequisite-first personal roadmap using canonical KP mastery |
+| `/grammar/search` | `pages/grammar-search.html` (parity/rollback only) | `app/(public-content)/grammar/search/page.tsx` | Public | `q` | public search API; client filters | M | Full-text search with level and IELTS-use facets |
 
 ### Speaking
 

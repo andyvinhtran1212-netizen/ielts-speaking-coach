@@ -69,7 +69,60 @@ anchors:
   - id: present-perfect.compare-with.past-simple
     location: "### Present Perfect vs Past Simple"
     type: compare-with
+learning_blocks:
+  - id: present-perfect-precheck
+    type: check
+    kind: precheck
+    eyebrow: Khởi động · 20 giây
+    title: Quá khứ đã khép lại hay còn nối tới hiện tại?
+    prompt: Bạn vẫn sống ở Hà Nội. Câu nào diễn đạt đúng?
+    options:
+      - text: I lived in Hanoi for five years.
+        feedback: Past Simple thường gợi ý giai đoạn sống đó đã kết thúc.
+      - text: I have lived in Hanoi for five years.
+        feedback: Present Perfect nối thời điểm bắt đầu trong quá khứ với hiện tại.
+    correct_index: 1
+    kp_anchor: present-perfect.overview
+  - id: present-perfect-timeline
+    type: visual
+    variant: timeline
+    eyebrow: Timeline trực quan
+    title: Present Perfect luôn chạm vào “bây giờ”
+    intro: Đừng hỏi “hành động ở quá khứ không?”; hãy hỏi “hiện tại còn liên quan không?”.
+    items:
+      - label: Điểm bắt đầu
+        value: Một trải nghiệm, thay đổi hoặc tình trạng bắt đầu trước đây.
+        note: since 2021 · three times · recently
+      - label: Khoảng nối
+        value: Thời điểm cụ thể không phải trọng tâm.
+        note: have/has + V3
+      - label: Hiện tại
+        value: Kết quả, kinh nghiệm hoặc tình trạng còn đúng lúc nói.
+        note: now · so far · yet
+  - id: present-perfect-microcheck
+    type: check
+    kind: microcheck
+    eyebrow: Dừng và kiểm tra
+    title: Nhìn dấu mốc thời gian
+    prompt: Câu nào đúng khi “last year” là một giai đoạn đã kết thúc?
+    options:
+      - text: I have taken the IELTS test last year.
+        feedback: Present Perfect không đi với mốc quá khứ đã kết thúc.
+      - text: I took the IELTS test last year.
+        feedback: Past Simple phù hợp với last year.
+    correct_index: 1
+    kp_anchor: present-perfect.common-mistake.past-simple-where-pp-needed
+  - id: present-perfect-transfer
+    type: transfer
+    eyebrow: Chuyển sang IELTS Speaking
+    title: Dùng thì để mở rộng câu trả lời Part 1
+    context: Have your study habits changed recently?
+    before: Yes. I study online now.
+    after: Yes, my study habits have changed considerably in recent years, because I have started using online courses more regularly.
+    tip: Dùng Present Perfect cho xu hướng tới hiện tại, rồi thêm nguyên nhân hoặc ví dụ.
 ---
+
+<!-- learning-block: present-perfect-precheck -->
 
 <!-- anchor: present-perfect.overview -->
 ## Tóm tắt
@@ -95,6 +148,8 @@ Present Perfect diễn tả:
 2. **Hành động vừa xảy ra** và còn ảnh hưởng đến hiện tại
 3. **Tình trạng kéo dài từ quá khứ đến nay** (dùng with *since/for*)
 4. **Thành tựu hoặc sự thay đổi** tính đến hiện tại
+
+<!-- learning-block: present-perfect-timeline -->
 
 <!-- anchor: present-perfect.structure.have-pp -->
 ## Cấu trúc
@@ -250,6 +305,8 @@ Nói về điều gì đó đã thay đổi hoặc đạt được **tính đế
 | **in recent years** | IELTS Part 3 | **In recent years**, attitudes have shifted. |
 | **over the past + khoảng TG** | IELTS Part 3 | **Over the past decade**, much has changed. |
 
+<!-- learning-block: present-perfect-microcheck -->
+
 ## Ví dụ
 
 ### Ví dụ giao tiếp
@@ -359,6 +416,8 @@ Tiếng Việt dùng "đã" cho cả Past Simple và Present Perfect — ngữ c
 - **Part 1:** "I've been studying English for about eight years, but I've only recently started focusing on speaking."
 - **Part 2:** "This is an experience I've never forgotten. I had never travelled alone before, so it was both terrifying and exciting."
 - **Part 3:** "In recent years, the education system has become more exam-focused. Young people have faced increasing pressure to achieve top grades."
+
+<!-- learning-block: present-perfect-transfer -->
 
 ### IELTS Writing
 - **Task 2 (intro):** "Over the past few decades, rapid urbanisation has transformed the way people live and work."
