@@ -21,6 +21,21 @@ const renderRetestSource = lift(
   /function renderRetest\(retestFlags\) \{[\s\S]*?\n  \}/,
   'renderRetest',
 );
+const reportSkillsSource = lift(
+  JS,
+  /function reportSkills\(requiredSkills, finalBands\) \{[\s\S]*?\n  \}/,
+  'reportSkills',
+);
+
+function runReportSkills(requiredSkills, finalBands) {
+  const SKILL_VI = { listening: 'Listening', reading: 'Reading', writing: 'Writing', speaking: 'Speaking' };
+  return new Function(
+    'requiredSkills',
+    'finalBands',
+    'SKILL_VI',
+    `${reportSkillsSource}\nreturn reportSkills(requiredSkills, finalBands);`,
+  )(requiredSkills, finalBands, SKILL_VI);
+}
 
 function runRenderRetest(flags) {
   const classes = new Set(['rp-retest', 'hidden']);
@@ -70,5 +85,26 @@ describe('admin mock report — retest preserves the completed score report', ()
     assert.match(NEXT, /retestSkills\.length > 0/);
     assert.match(NEXT, /window\.print\(\)/);
     assert.doesNotMatch(NEXT, /Object\.values\(detail\.review\.retestFlags\)\.some\(Boolean\)/);
+  });
+
+  test('teacher-assessed live Speaking stays visible outside the LRW exam config', () => {
+    assert.deepEqual(
+      runReportSkills(
+        ['listening', 'reading', 'writing'],
+        { listening: 6, reading: 5.5, writing: 6, speaking: 5.5, overall: 6 },
+      ),
+      ['listening', 'reading', 'writing', 'speaking'],
+    );
+    assert.match(JS, /skills\.indexOf\('speaking'\) !== -1/);
+  });
+
+  test('an LRW-only result does not invent a Speaking card', () => {
+    assert.deepEqual(
+      runReportSkills(
+        ['listening', 'reading', 'writing'],
+        { listening: 6, reading: 5.5, writing: 6, overall: 6 },
+      ),
+      ['listening', 'reading', 'writing'],
+    );
   });
 });
