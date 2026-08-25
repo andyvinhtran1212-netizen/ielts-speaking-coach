@@ -248,6 +248,12 @@ describe('cổng hoàn thành bài nhiều phần', () => {
       'phải mở sổ attempt trước khi tạo session quiz mới');
   });
 
+  test('409 từ tab cũ mở được full retry thay vì lặp nút Xét lại', () => {
+    const body = functionBody('renderVerdict');
+    assert.match(body, /message\.includes\('Hãy mở lượt làm lại mới'\)/);
+    assert.match(body, /needsFullRetryOpen[\s\S]*id="cx-retry-full"/);
+  });
+
   test('giải thích đúng khi revision Quiz không thể kéo tổng điểm qua ngưỡng', () => {
     assert.match(SRC, /v\.retry_reason === 'section_ceiling'/);
     assert.match(SRC, /Revision Quiz không thể đưa tổng điểm tới ngưỡng/);

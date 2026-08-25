@@ -410,9 +410,14 @@ export function CourseBehavior() {
           v = await runner.verdict();
         } catch (err: any) {
           // Xét hỏng KHÔNG được đọc thành "chưa đạt" — đó là hai câu khác nhau.
+          const message = String(err?.message || err);
+          const needsFullRetryOpen = message.includes('Hãy mở lượt làm lại mới');
           box.innerHTML = '<div class="cx-verdict" data-v="wait">'
-            + `<p class="cx-verdict__sub">Chưa xét được kết quả: ${esc(err?.message || err)}</p>`
-            + '<button class="av-button" id="cx-verdict-retry" type="button">Xét lại</button></div>';
+            + `<p class="cx-verdict__sub">Chưa xét được kết quả: ${esc(message)}</p>`
+            + (needsFullRetryOpen
+              ? '<button class="av-button av-button-primary" id="cx-retry-full" type="button">Mở lượt mới</button>'
+              : '<button class="av-button" id="cx-verdict-retry" type="button">Xét lại</button>')
+            + '</div>';
           return;
         }
         lastVerdict = v;
