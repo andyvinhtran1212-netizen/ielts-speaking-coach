@@ -929,6 +929,27 @@ describe('tương thích tiến độ trước khi tách lane Grammar (PR #1291)
 });
 
 describe('trạng thái khoá vào MỤC bài giao (codex #928 R5)', () => {
+  test('resume, session và verdict đều mang đúng mục canonical', async () => {
+    const { r, api } = await run({
+      questions: Array.from({ length: 5 }, (_, i) => mcq(i)),
+      mastery: { item_id: 'it-CANONICAL' },
+    });
+    assert.match(
+      api.calls.get.find((path) => path.includes('/course-resume')),
+      /\?class_item=it-CANONICAL$/,
+    );
+    assert.equal(
+      api.calls.post.find((call) => call.path === '/api/quiz/sessions').body.class_item,
+      'it-CANONICAL',
+    );
+    await playStage(r);
+    await r.verdict();
+    assert.equal(
+      api.calls.post.find((call) => call.path === '/api/quiz/course/verdict').body.class_item,
+      'it-CANONICAL',
+    );
+  });
+
   test('chuyển lớp → giao lại cùng bank: mục khác là lượt mới sạch', async () => {
     const store = memStore();
     const qsn = Array.from({ length: 5 }, (_, i) => mcq(i));

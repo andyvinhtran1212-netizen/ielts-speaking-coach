@@ -33,11 +33,13 @@ from services import tts_audio
 from routers.admin import require_admin
 from services.course_pronunciation_manifest import pronunciation_content_hash
 from services.quiz_service import (
+    _course_rows_for_attempt,
     bank_has_mcq,
     course_admin_summary,
     course_bank_is_multisection,
     course_hand_in_score,
     course_required_sections,
+    course_section_attempt_no,
     course_section_weight_snapshot,
     reconcile_course_items,
     unavailable_course_admin_summary,
@@ -1274,12 +1276,18 @@ async def assignment_tally(
     writing_by_item: dict = {}
     if assignment.get("skill") == "course":
         ids = [i["id"] for i in items]
+        items_by_id = {i["id"]: i for i in items}
         for chunk in (ids[i:i + _ID_CHUNK] for i in range(0, len(ids), _ID_CHUNK)):
             try:
                 for r in ((supabase_admin.table("course_writing_submissions")
-                           .select("id, class_assignment_item_id, graded_at, clean, total")
+                           .select("id, class_assignment_item_id, graded_at, clean, total, "
+                                   "attempt_no")
                            .in_("class_assignment_item_id", chunk).execute().data) or []):
-                    if r.get("class_assignment_item_id"):
+                    item_id = r.get("class_assignment_item_id")
+                    item = items_by_id.get(item_id)
+                    if (item_id and item
+                            and int(r.get("attempt_no") or 1)
+                            == course_section_attempt_no(item)):
                         writing_by_item[r["class_assignment_item_id"]] = r
             except Exception as exc:  # noqa: BLE001
                 # Đọc hỏng thì KHÔNG hiện nút — nhưng phải NÓI RA. Im lặng ở đây
@@ -1512,7 +1520,7 @@ async def student_course_writing(
         raise HTTPException(404, "Không tìm thấy bài giao của lớp này")
 
     items = (supabase_admin.table("class_assignment_items")
-             .select("id, student_id")
+             .select("id, student_id, mastery")
              .eq("assignment_id", assignment_id).eq("student_id", student_id)
              .limit(1).execute().data) or []
     if not items:
@@ -1522,10 +1530,13 @@ async def student_course_writing(
           .select("id, full_name, student_code")
           .eq("id", student_id).limit(1).execute().data) or []
 
-    subs = (supabase_admin.table("course_writing_submissions")
-            .select("items, total, clean, model, graded_at")
+    all_subs = (supabase_admin.table("course_writing_submissions")
+            .select("items, total, clean, model, graded_at, attempt_no")
             .eq("class_assignment_item_id", items[0]["id"])
-            .limit(1).execute().data) or []
+            .execute().data) or []
+    subs = _course_rows_for_attempt(
+        all_subs, course_section_attempt_no(items[0]),
+    )[:1]
 
     return {
         "student": {

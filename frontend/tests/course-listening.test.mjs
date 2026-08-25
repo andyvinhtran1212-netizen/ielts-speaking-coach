@@ -118,4 +118,6 @@ test('draft keys are isolated by learner', () => {
   assert.notEqual(listeningDraftKey('bank-05', 'u1'), listeningDraftKey('bank-05', 'u2'));
   assert.notEqual(listeningDraftKey('bank-05', 'u1', 'item-1'),
     listeningDraftKey('bank-05', 'u1', 'item-2'));
+  assert.notEqual(listeningDraftKey('bank-05', 'u1', 'item-1', 1),
+    listeningDraftKey('bank-05', 'u1', 'item-1', 2));
 });

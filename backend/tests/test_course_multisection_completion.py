@@ -149,6 +149,62 @@ def test_snapshotted_weights_win_over_retake_question_count():
     ) == {"quiz": 70.0, "writing": 30.0}
 
 
+def test_section_attempt_number_counts_full_runs_not_revisions():
+    item = {"mastery": {"attempts": [
+        {"phase": "run"}, {"phase": "retake"}, {"phase": "retake"},
+        {"phase": "run"},
+    ]}}
+    assert qs.course_section_attempt_no(item) == 2
+    item["mastery"]["active_section_attempt_no"] = 3
+    assert qs.course_section_attempt_no(item) == 3
+
+
+def test_completion_evidence_reads_only_the_active_full_attempt():
+    assignment = {"content_config": {
+        "weight_policy": "hybrid_question_count_v1",
+        "section_counts": {"quiz": 90, "writing": 10, "reading": 10},
+        "section_weights": {"quiz": 60, "writing": 20, "reading": 20},
+    }}
+    state = {
+        "course_writing_submissions": [
+            {"id": "w-old", "class_assignment_item_id": "item-1", "attempt_no": 1,
+             "total": 10, "clean": 1, "duration_sec": 10},
+            {"id": "w-new", "class_assignment_item_id": "item-1", "attempt_no": 2,
+             "total": 10, "clean": 10, "duration_sec": 20},
+        ],
+        "course_section_submissions": [
+            {"class_assignment_item_id": "item-1", "attempt_no": 1,
+             "section": "reading", "total": 10, "correct": 2, "score": 20},
+            {"class_assignment_item_id": "item-1", "attempt_no": 2,
+             "section": "reading", "total": 10, "correct": 10, "score": 100},
+        ],
+        "course_pronunciation_submissions": [],
+    }
+    attempt = {"sections": {"quiz": {"completed": True, "pct": 100}},
+               "sessions": ["session-new"]}
+    with patch.object(qs, "supabase_admin", _db(state)):
+        required, evidence, artifacts = qs._course_completion_evidence(
+            bank_id="bank-1", item_id="item-1", user_id="user-1",
+            attempt=attempt, assignment=assignment, attempt_no=2,
+        )
+    assert required == ["quiz", "writing", "reading"]
+    assert evidence["writing"]["pct"] == 100
+    assert evidence["reading"]["pct"] == 100
+    assert artifacts["writing"] == "w-new"
+
+
+def test_attempt_migration_is_additive_and_versions_every_section_table():
+    sql = (Path(__file__).parents[1] / "migrations" /
+           "230_course_section_attempts.sql").read_text(encoding="utf-8")
+    for table in ("course_writing_submissions", "course_writing_drafts",
+                  "course_section_submissions", "course_pronunciation_submissions"):
+        assert f"ALTER TABLE {table}" in sql
+    assert sql.count("ADD COLUMN IF NOT EXISTS attempt_no") == 4
+    assert sql.count("IF NOT EXISTS (") == 4, "backfill phải bỏ qua khi migration chạy lại"
+    assert "UNIQUE (class_assignment_item_id, attempt_no, section)" in sql
+    assert "DROP TABLE" not in sql and "DROP COLUMN" not in sql
+
+
 def test_live_sections_added_after_assignment_do_not_change_in_progress_shape():
     attempt = _attempt()
     assignment = {"id": "asg-1", "content_config": {

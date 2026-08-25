@@ -20,11 +20,15 @@ def _raise(exc: course_pronunciation.CoursePronunciationError) -> None:
 @router.get("")
 async def pronunciation_state(
     bank_id: UUID,
+    class_item: UUID | None = None,
     authorization: str | None = Header(default=None),
 ):
     user = await get_supabase_user(authorization)
     try:
-        return course_pronunciation.get_state(user_id=user["id"], bank_id=str(bank_id))
+        return course_pronunciation.get_state(
+            user_id=user["id"], bank_id=str(bank_id),
+            assignment_item_id=str(class_item) if class_item else None,
+        )
     except course_pronunciation.CoursePronunciationError as exc:
         _raise(exc)
 
@@ -32,6 +36,7 @@ async def pronunciation_state(
 @router.post("/submit")
 async def submit_pronunciation(
     bank_id: UUID = Form(...),
+    class_item: UUID | None = Form(default=None),
     client_id: UUID = Form(...),
     sentence_ids: str = Form(...),
     duration_sec: int = Form(default=0, ge=0, le=12 * 60 * 60),
@@ -72,6 +77,7 @@ async def submit_pronunciation(
             client_id=str(client_id),
             recordings=loaded,
             duration_sec=duration_sec,
+            assignment_item_id=str(class_item) if class_item else None,
         )
     except course_pronunciation.CoursePronunciationError as exc:
         _raise(exc)

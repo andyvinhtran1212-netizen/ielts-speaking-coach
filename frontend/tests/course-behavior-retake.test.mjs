@@ -236,6 +236,17 @@ describe('cổng hoàn thành bài nhiều phần', () => {
     assert.match(SRC, /t\.id === 'cr-back'[\s\S]{0,180}renderVerdict\(\)/);
     assert.match(SRC, /t\.id === 'cl-back'[\s\S]{0,180}renderVerdict\(\)/);
   });
+
+  test('làm lại full mở attempt canonical rồi reset mọi phần', () => {
+    const body = functionBody('restartFullFlow');
+    assert.match(body, /api\.post\('\/api\/quiz\/course\/full-retry'/);
+    assert.match(body, /reading\.beginAttempt\(attemptNo\)/);
+    assert.match(body, /listening\.beginAttempt\(attemptNo\)/);
+    assert.match(body, /writing\.load\(bankId/);
+    assert.match(body, /pronunciation\.load\(bankId\)/);
+    assert.ok(body.indexOf("/api/quiz/course/full-retry") < body.indexOf('runner.restartFull()'),
+      'phải mở sổ attempt trước khi tạo session quiz mới');
+  });
 });
 
 describe('thời lượng từng phần chỉ tính khi màn đang hiện', () => {

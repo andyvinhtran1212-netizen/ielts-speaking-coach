@@ -6,7 +6,7 @@
  * hỏi–đáp–giải thích từng câu, ở đây là ngồi viết cả cụm rồi nộp MỘT lần.
  *
  * Ba luật của phần này, và cả ba đều dễ hỏng nếu để trong trang:
- *   · nộp MỘT lần cho mỗi học viên mỗi bank (server giữ, không phải localStorage);
+ *   · nộp MỘT lần trong mỗi lượt làm toàn bài (server giữ, không phải localStorage);
  *   · ĐỦ CÂU MỚI NHẬN — thiếu một câu thì giữ nháp và chờ;
  *   · chưa chấm được KHÁC HẲN câu-của-em-đúng.
  */
@@ -83,8 +83,9 @@ export const PUSH_DELAY_MS = 1500;
  * localStorage là bộ nhớ CHUNG của trình duyệt, không phải của tài khoản
  * (codex #935).
  */
-export const draftKey = (bankId, userId, itemId) =>
-  'cw:' + (userId || 'anon') + ':' + bankId + (itemId ? ':' + itemId : '');
+export const draftKey = (bankId, userId, itemId, attemptNo = 1) =>
+  'cw:' + (userId || 'anon') + ':' + bankId + (itemId ? ':' + itemId : '')
+    + (Number(attemptNo) > 1 ? ':a' + Number(attemptNo) : '');
 
 export function createWriting({ api, storage, userId, now = () => Date.now() }) {
   let bankId = null;
@@ -97,6 +98,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
   // trước màn hình chứ không phải một trạng thái đáng nhớ.
   let armed = false;
   let itemId = null;
+  let attemptNo = 1;
   // Đẩy nháp lên máy chủ SAU khi ngừng gõ, không phải mỗi phím: một câu 600 ký
   // tự là 600 request.
   let pushTimer = null;
@@ -114,13 +116,14 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
 
   function loadDraft() {
     if (!storage) return {};
-    try { return JSON.parse(storage.getItem(draftKey(bankId, userId, itemId)) || '{}') || {}; }
+    try { return JSON.parse(storage.getItem(
+      draftKey(bankId, userId, itemId, attemptNo)) || '{}') || {}; }
     catch (e) { return {}; }
   }
 
   function saveDraft() {
     if (!storage || submitted) return;   // đã nộp thì nháp không còn nghĩa
-    try { storage.setItem(draftKey(bankId, userId, itemId), JSON.stringify(draft)); }
+    try { storage.setItem(draftKey(bankId, userId, itemId, attemptNo), JSON.stringify(draft)); }
     catch (e) { /* trình duyệt chặn lưu — vẫn viết và nộp được */ }
   }
 
@@ -153,7 +156,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       if (body === lastPushed) return null;             // không có gì mới
       lastPushed = body;
       const path = '/api/quiz/course/writing/draft';
-      const payload = { bank_id: bankId, answers: { ...draft } };
+      const payload = { bank_id: bankId, class_item: itemId, answers: { ...draft } };
       // `keepalive` THẬT của fetch: rời trang thì request thường bị huỷ giữa
       // chừng. Không cứu được thì cũng chỉ mất BẢN DỰ PHÒNG — bài vẫn nằm trong
       // máy này.
@@ -255,6 +258,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       const r = await api.get('/api/quiz/course/writing?bank_id=' + encodeURIComponent(id)
         + (assignmentItemId ? '&class_item=' + encodeURIComponent(assignmentItemId) : ''));
       itemId = (r && r.item_id) || null;
+      attemptNo = Number(r && r.attempt_no) || 1;
       questions = (r && r.questions) || [];
       submitted = !!(r && r.submitted);
       submission = (r && r.submission) || null;
@@ -282,7 +286,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
         if (Object.keys(local).length) pushDraft();
       }
       if (submitted && storage) {
-        try { storage.removeItem(draftKey(bankId, userId, itemId)); } catch (e) { /* kệ */ }
+        try { storage.removeItem(draftKey(bankId, userId, itemId, attemptNo)); } catch (e) { /* kệ */ }
       }
       return { submitted, count: questions.length };
     },
@@ -330,6 +334,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       questions.forEach((q) => { answers[q.qid] = String(draft[q.qid] || '').trim(); });
       const r = await api.post('/api/quiz/course/writing', {
         bank_id: bankId,
+        class_item: itemId,
         answers,
         duration_sec: activeTimer.seconds(),
       });
@@ -337,7 +342,7 @@ export function createWriting({ api, storage, userId, now = () => Date.now() }) 
       submission = r;
       activeTimer.setActive(false);
       if (storage) {
-        try { storage.removeItem(draftKey(bankId, userId, itemId)); } catch (e) { /* kệ */ }
+        try { storage.removeItem(draftKey(bankId, userId, itemId, attemptNo)); } catch (e) { /* kệ */ }
       }
       return { graded: r };
     },

@@ -76,6 +76,19 @@ test('review load pins the persisted result to its assignment item', async () =>
   );
 });
 
+test('draft and final submission stay pinned to the loaded assignment item', async () => {
+  const api = fakeApi({ itemId: 'item-current' });
+  const writing = createWriting({ api, storage: memStore(), userId: 'u1' });
+  await writing.load('b1', 'item-current');
+  writing.write('E1', 'I am a student.');
+  writing.write('E2', 'She works here.');
+  await writing.flushDraft();
+  writing.arm();
+  await writing.submit();
+  assert.ok(api.calls.post.length >= 2);
+  assert.ok(api.calls.post.every((call) => call.body.class_item === 'item-current'));
+});
+
 // ── Sai → sửa trên cùng một dòng ─────────────────────────────────────────────
 
 describe('inlineDiff', () => {
@@ -187,6 +200,10 @@ describe('bản nháp', () => {
     a.w.write('E1', 'bài của lần giao trước');
     const b = await load({ storage, itemId: 'it-MOI' });
     assert.equal(b.w.draft.E1, undefined);
+  });
+
+  test('nháp khoá theo FULL ATTEMPT — làm lại không rót bài viết cũ', () => {
+    assert.notEqual(draftKey('b1', 'u1', 'it1', 1), draftKey('b1', 'u1', 'it1', 2));
   });
 
   test('nháp khoá theo NGƯỜI DÙNG — hai học viên chung máy không đọc bài nhau', () => {

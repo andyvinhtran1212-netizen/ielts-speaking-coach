@@ -17,8 +17,9 @@ export function inlineMd(value) {
     .replace(/\*([^*]+)\*/g, '<em>$1</em>');
 }
 
-export const readingDraftKey = (bankId, userId, assignmentItemId = null) =>
-  `cr:${userId || 'anon'}:${bankId}:${assignmentItemId || 'unscoped'}`;
+export const readingDraftKey = (bankId, userId, assignmentItemId = null, attemptNo = 1) =>
+  `cr:${userId || 'anon'}:${bankId}:${assignmentItemId || 'unscoped'}`
+    + (Number(attemptNo) > 1 ? `:a${Number(attemptNo)}` : '');
 
 export function createReading({ api, storage, userId, assignmentItemId = null,
   now = () => Date.now() }) {
@@ -26,6 +27,7 @@ export function createReading({ api, storage, userId, assignmentItemId = null,
   let data = null;
   let draft = {};
   let solution = null;
+  let attemptNo = 1;
   const activeTimer = createActiveTimer(now);
 
   function questions() {
@@ -34,14 +36,15 @@ export function createReading({ api, storage, userId, assignmentItemId = null,
 
   function save() {
     if (!storage || !bankId) return;
-    try { storage.setItem(readingDraftKey(bankId, userId, assignmentItemId), JSON.stringify(draft)); }
+    try { storage.setItem(
+      readingDraftKey(bankId, userId, assignmentItemId, attemptNo), JSON.stringify(draft)); }
     catch (e) { /* lưu cục bộ hỏng không được chặn làm bài */ }
   }
 
   function loadDraft() {
     if (!storage || !bankId) return {};
     try { return JSON.parse(storage.getItem(
-      readingDraftKey(bankId, userId, assignmentItemId)) || '{}') || {}; }
+      readingDraftKey(bankId, userId, assignmentItemId, attemptNo)) || '{}') || {}; }
     catch (e) { return {}; }
   }
 
@@ -151,6 +154,12 @@ export function createReading({ api, storage, userId, assignmentItemId = null,
       solution = null;
       activeTimer.reset();
       return !!data;
+    },
+    beginAttempt(nextAttemptNo) {
+      attemptNo = Math.max(1, Number(nextAttemptNo) || 1);
+      draft = data ? loadDraft() : {};
+      solution = null;
+      activeTimer.reset();
     },
     setActive(active) { activeTimer.setActive(active); },
     write(qid, value) {

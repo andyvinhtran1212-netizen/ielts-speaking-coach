@@ -96,7 +96,8 @@ function uuid() {
 
 const indexedDbDraftStore = { put: dbPut, get: dbGet, delete: dbDelete };
 
-export function createPronunciation({ api, userId, draftStore = indexedDbDraftStore, now = () => Date.now() }) {
+export function createPronunciation({ api, userId, assignmentItemId = null,
+  draftStore = indexedDbDraftStore, now = () => Date.now() }) {
   let bankId = null;
   let exercise = null;
   let latest = null;
@@ -114,13 +115,15 @@ export function createPronunciation({ api, userId, draftStore = indexedDbDraftSt
   let clientId = null;
   let submitting = false;
   let errorMessage = '';
+  let attemptNo = 1;
   const activeTimer = createActiveTimer(now);
   const recordings = new Map();
   const objectUrls = new Map();
 
   const sentences = () => exercise?.sentences || [];
-  const cacheKey = (id) => `${userId}:${bankId}:${id}`;
-  const attemptKey = (name) => `${userId}:${bankId}:attempt:${name}`;
+  const attemptSuffix = () => attemptNo > 1 ? `:a${attemptNo}` : '';
+  const cacheKey = (id) => `${userId}:${bankId}${attemptSuffix()}:${id}`;
+  const attemptKey = (name) => `${userId}:${bankId}${attemptSuffix()}:attempt:${name}`;
   const attemptCacheKeys = () => [
     ...sentences().map((sentence) => cacheKey(sentence.id)),
     attemptKey('active'), attemptKey('client-id'),
@@ -344,6 +347,7 @@ export function createPronunciation({ api, userId, draftStore = indexedDbDraftSt
     const ids = sentences().map((sentence) => sentence.id);
     const form = new FormData();
     form.append('bank_id', bankId);
+    if (assignmentItemId) form.append('class_item', assignmentItemId);
     form.append('client_id', clientId);
     form.append('sentence_ids', JSON.stringify(ids));
     form.append('duration_sec', String(activeTimer.seconds()));
@@ -371,7 +375,9 @@ export function createPronunciation({ api, userId, draftStore = indexedDbDraftSt
   async function load(nextBankId) {
     bankId = nextBankId;
     try {
-      const state = await api.get('/api/quiz/course/pronunciation?bank_id=' + encodeURIComponent(bankId));
+      const state = await api.get('/api/quiz/course/pronunciation?bank_id=' + encodeURIComponent(bankId)
+        + (assignmentItemId ? '&class_item=' + encodeURIComponent(assignmentItemId) : ''));
+      attemptNo = Math.max(1, Number(state?.attempt_no) || 1);
       exercise = state?.exercise || null;
       latest = state?.latest_attempt || null;
       activeTimer.reset();
