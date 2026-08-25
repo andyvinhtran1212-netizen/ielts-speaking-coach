@@ -205,6 +205,23 @@ def test_attempt_migration_is_additive_and_versions_every_section_table():
     assert "DROP TABLE" not in sql and "DROP COLUMN" not in sql
 
 
+def test_legacy_weight_reconcile_is_scoped_to_the_three_audited_items():
+    sql = (Path(__file__).parents[1] / "migrations" /
+           "232_reconcile_legacy_course_weight_results.sql").read_text(encoding="utf-8")
+    for item_id in (
+        "5173a6ec-392a-44aa-b565-da08ca198c1b",
+        "be3680b1-8e04-4d95-b3b9-73f38f61ca02",
+        "fd2bad7d-8090-4731-b10e-910fe994e893",
+    ):
+        assert item_id in sql
+    assert "72b25b9d-6b66-47cd-91e4-df14aa422459" in sql
+    assert "item.updated_at = reconciled.updated_at" in sql
+    assert "item.passed_at IS NULL" in sql
+    assert "item.submitted_at IS NULL" in sql
+    assert "'next_action', 'passed'" in sql
+    assert "DROP TABLE" not in sql and "TRUNCATE" not in sql
+
+
 def test_live_sections_added_after_assignment_do_not_change_in_progress_shape():
     attempt = _attempt()
     assignment = {"id": "asg-1", "content_config": {
