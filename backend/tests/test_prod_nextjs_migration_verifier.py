@@ -114,6 +114,12 @@ def test_sql_is_read_only_and_covers_the_exact_forward_gap():
     assert "direct-client-table-grant" in sql
     assert "service-role-" in sql
     assert "unexpected-client-policy" in sql
+    assert re.search(
+        r"\('course_pronunciation_submissions',\s*"
+        r"'5dba1a9cdba1722d03789db62a08b185', 21,\s*"
+        r"'033f197219448de8299798632d1d4e4d', 10\)",
+        sql,
+    ), "post-226 duration_sec must be part of the exact production fingerprint"
 
     for source in (sql, affinity_sql, TTL_VERIFY_PATH.read_text(encoding="utf-8")):
         statements = re.sub(r"--[^\n]*", "", source)
