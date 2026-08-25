@@ -261,6 +261,93 @@ apply valid findings, rerun tests, and record any deferred behavior-level issue.
 
 ---
 
+# Grammar Wiki content, learning-hook and UI/UX audit
+
+> Audit date: 2026-08-25
+> Full packet: `docs/audits/AUDIT_GRAMMAR_WIKI_CONTENT_HOOKS_UX_2026-08-25.md`
+
+## Summary
+
+Grammar Wiki has a strong corpus (137 live articles), rich metadata, full
+anchor coverage and one quiz bank per article. The UX gap is the presentation
+model: long Markdown flows are styled as reference documents, while meaningful
+actions are concentrated at the end. The redesign direction is a Grammar Lab
+system with semantic visual explainers, inline retrieval, immediate feedback
+and explicit IELTS transfer—not a cosmetic reskin or decorative illustration
+pass.
+
+## Critical issues
+
+### Issue: Grammar navigation is inaccessible on mobile
+
+- **Current state:** at 390px, the global nav visibly ends at Listening;
+  Grammar, Vocabulary and Reading sit outside the viewport and cannot be
+  reached through the intended horizontal scroller.
+- **Root cause:** the mobile `.nav-links` container is fixed to `width: 100%`;
+  overflowing children do not expand its scrollable width.
+- **Recommendation:** use a proper mobile menu or intrinsic-width inner track,
+  retain keyboard access, and expose current state.
+- **Impact:** restores access to three primary product areas.
+- **Implementation notes:** `frontend/public/js/components/aver-chrome.js`,
+  mobile media block.
+
+## High priority improvements
+
+- Introduce reusable learning blocks inside articles: lesson hero, visual
+  explainer, example pair, error repair, micro-check, IELTS transfer and
+  next-step card.
+- Convert static in-article practice into answer-reveal or bank-backed
+  micro-checks; keep quiz banks canonical.
+- Add code-native semantic diagrams. Current corpus has zero image/figure/SVG
+  content despite concepts that benefit from timelines, sentence anatomy,
+  decision trees and certainty scales.
+- Fix the article TOC containment bug and add a mobile TOC disclosure.
+
+## Medium priority enhancements
+
+- Make one taxonomy primary; the home currently shows 10 conceptual groups and
+  11 filesystem categories while still saying “9 nhóm chủ đề”.
+- Stop presenting editorial completeness (`18/18`, all bars at 100%) as if it
+  were learner progress.
+- Return canonical `reading_time` from search; current results fall back to
+  “1 phút”. Add skill/level facets after the contract fix.
+- Make roadmap use prerequisites and learner state rather than category order
+  alone; remove duplicate order values first.
+
+## Positive observations
+
+- Markdown remains a suitable canonical source and should be preserved.
+- Existing anchors, compare/related/next metadata, save behavior and quiz-bank
+  coverage substantially reduce implementation cost.
+- Current typography and light/dark tokens are a good foundation for the
+  proposed Grammar Lab language.
+
+## Recommended first batch
+
+1. Correct mobile nav, group count, search duration, sticky/mobile TOC and
+   duplicate Tenses order.
+2. Pilot the new article system on `articles`, `present-perfect`,
+   `run-on-sentences`, `complex-noun-phrases` and `grammar-in-task1`.
+3. Compare against baseline micro-check completion, full Quick Check start and
+   wrong-answer return-to-anchor before scaling to the corpus.
+
+## Phase 0 implementation (completed on audit branch)
+
+- Mobile global nav now forms a real horizontal scroller, preserves every tab,
+  exposes `aria-current`, and brings the active destination into view.
+- The home CTA derives its group count from the groups API; metadata and loading
+  fallback no longer freeze an editorial count.
+- Search results preserve canonical `level`, `status`, and `reading_time`.
+- Long articles keep a sticky desktop TOC and expose the same anchors through a
+  semantic mobile disclosure.
+- Tenses roadmap orders are unique and contiguous (1–8).
+- Verification: focused frontend 199/199, full frontend source suite pass,
+  backend Grammar 286/286, TypeScript checker pass, and responsive visual QA at
+  390×844/1280×900. Phase 1 visual learning blocks remain intentionally
+  untouched.
+
+---
+
 # Learner My Class and course quiz redesign
 
 > Audit date: 2026-08-08

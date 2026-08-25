@@ -25,8 +25,15 @@ import { SearchBox } from './search-box';
 export const metadata: Metadata = {
   title: 'Grammar Wiki — Aver Learning',
   description:
-    'Tra cứu ngữ pháp IELTS theo hệ thống: 9 nhóm chủ đề, lộ trình học, và bài viết áp dụng vào Speaking & Writing.',
+    'Tra cứu ngữ pháp IELTS theo hệ thống: các nhóm chủ đề, lộ trình học, và bài viết áp dụng vào Speaking & Writing.',
 };
+
+async function GroupCountLink() {
+  const groups = await getGroups();
+  const count = Array.isArray(groups) ? groups.length : 0;
+  const label = count > 0 ? `Xem ${count} nhóm chủ đề` : 'Xem các nhóm chủ đề';
+  return <a href="#groups-section" className="btn-cta btn-outline">{label}</a>;
+}
 
 function Hero() {
   return (
@@ -69,7 +76,11 @@ function Hero() {
           </svg>
           Khám phá hệ thống
         </a>
-        <a href="#groups-section" className="btn-cta btn-outline">Xem 9 nhóm chủ đề</a>
+        <Suspense
+          fallback={<a href="#groups-section" className="btn-cta btn-outline">Xem các nhóm chủ đề</a>}
+        >
+          <GroupCountLink />
+        </Suspense>
         <a href="/pages/grammar-search.html?q=ielts" className="btn-cta btn-outline">Grammar cho IELTS</a>
         <a href="/grammar/exercises" className="btn-cta btn-outline">Bài tập Grammar</a>
       </div>

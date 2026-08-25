@@ -50,10 +50,9 @@ export function ArticleBehavior({
   useEffect(() => {
     if (!hasTOC) return;
 
-    const tocContainer = document.getElementById('toc-container');
-    if (!tocContainer) return;
-
-    const links = tocContainer.querySelectorAll('.toc-link');
+    const links = document.querySelectorAll(
+      '#toc-container .toc-link, #mobile-toc-container .toc-link'
+    );
     if (links.length === 0) return;
 
     const observer = new IntersectionObserver(
@@ -63,10 +62,12 @@ export function ArticleBehavior({
             links.forEach((l) => {
               l.classList.remove('text-teal-light', '!text-white/90');
             });
-            const active = tocContainer.querySelector(`a[href="#${entry.target.id}"]`);
-            if (active) {
-              active.classList.add('text-teal-light');
-            }
+            document
+              .querySelectorAll(
+                `#toc-container a[href="#${entry.target.id}"], ` +
+                  `#mobile-toc-container a[href="#${entry.target.id}"]`
+              )
+              .forEach((active) => active.classList.add('text-teal-light'));
           }
         });
       },

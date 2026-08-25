@@ -21,7 +21,7 @@ async function fetchHome(): Promise<any | null> {
   return getPublicJson('/api/grammar/home');
 }
 
-/** 9 nhóm chủ đề + trạng thái từng bài trong nhóm. */
+/** Các nhóm chủ đề + trạng thái từng bài trong nhóm. */
 async function fetchGroups(): Promise<any | null> {
   return getPublicJson('/api/grammar/groups');
 }

@@ -151,7 +151,7 @@ async def mark_recommendation_clicked(
 @router.get("/groups")
 async def get_groups(request: Request) -> Response:
     """
-    Return the 8 conceptual topic groups with enriched article lists.
+    Return the conceptual topic groups with enriched article lists.
     Each article has a resolved status: complete | updating | planned.
     Planned articles have no MD file yet — they should be shown but not linked.
     """

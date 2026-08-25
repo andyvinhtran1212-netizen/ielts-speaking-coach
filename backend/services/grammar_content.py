@@ -151,6 +151,9 @@ class GrammarContentService:
                 "category": a["category"],
                 "title":    a["title"],
                 "summary":  a.get("summary", ""),
+                "level":    a.get("level", ""),
+                "status":   a.get("status", "complete"),
+                "reading_time": a.get("reading_time", 1),
                 "tags":     a.get("tags", []),
                 "text":     plain.lower(),
             })
@@ -380,6 +383,9 @@ class GrammarContentService:
                 "category": r["category"],
                 "title":    r["title"],
                 "summary":  r["summary"],
+                "level":    r["level"],
+                "status":   r["status"],
+                "reading_time": r["reading_time"],
             }
             for _, r in results[:20]
         ]

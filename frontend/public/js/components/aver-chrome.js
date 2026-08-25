@@ -304,7 +304,17 @@ const STYLE = /* css */ `
 @media (max-width: 720px) {
   .topnav-wrap { padding: 0 var(--av-space-4); }
   .topnav { gap: var(--av-space-3); flex-wrap: wrap; margin-bottom: var(--av-space-8); }
-  .nav-links { width: 100%; order: 3; overflow-x: auto; flex-wrap: nowrap; }
+  .nav-links {
+    width: 100%;
+    min-width: 0;
+    order: 3;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav-links a,
+  .nav-links span { flex: 0 0 auto; }
   .topnav-right { margin-left: auto; }
 }
 `;
@@ -607,13 +617,31 @@ export class AverChrome extends HTMLElement {
     if (!root) return;
     const links = root.querySelectorAll('.nav-links a[data-tab]');
     const target = VALID_ACTIVE.includes(value) ? value : null;
+    let activeLink = null;
     links.forEach((a) => {
-      if (target && a.dataset.tab === target) {
+      const isActive = target && a.dataset.tab === target;
+      if (isActive) {
         a.classList.add('active');
+        a.setAttribute('aria-current', 'page');
+        activeLink = a;
       } else {
         a.classList.remove('active');
+        a.removeAttribute('aria-current');
       }
     });
+
+    // The primary nav becomes a horizontal strip on phones. Bring the active
+    // destination into view without moving the page vertically.
+    if (activeLink && typeof window.matchMedia === 'function'
+        && window.matchMedia('(max-width: 720px)').matches) {
+      requestAnimationFrame(() => {
+        if (!this.isConnected) return;
+        const nav = activeLink.closest('.nav-links');
+        if (!nav || !activeLink.offsetWidth) return;
+        const targetLeft = activeLink.offsetLeft - (nav.clientWidth - activeLink.offsetWidth) / 2;
+        nav.scrollLeft = Math.max(0, targetLeft);
+      });
+    }
   }
 
   _bindToggle() {

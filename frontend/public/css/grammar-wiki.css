@@ -624,6 +624,10 @@ body.av-page .hover\:bg-white\/\[0\.03\]:hover { background-color: var(--av-surf
 
 /* ── Sticky TOC sidebar (grammar-article.html) ───────────────── */
 
+.toc-rail {
+  align-self: stretch;
+}
+
 .toc-sidebar {
   position: sticky;
   top: 72px;
@@ -638,6 +642,67 @@ body.av-page .hover\:bg-white\/\[0\.03\]:hover { background-color: var(--av-surf
   border-left: 2px solid var(--av-primary);
   padding-left: 10px;
   color: var(--av-primary) !important;
+}
+
+.gw-mobile-toc {
+  overflow: hidden;
+  border: 1px solid var(--av-border-subtle);
+  border-radius: 14px;
+  background: var(--av-surface-card);
+}
+
+.gw-mobile-toc > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  color: var(--av-text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.gw-mobile-toc > summary::-webkit-details-marker {
+  display: none;
+}
+
+.gw-mobile-toc > summary::after {
+  content: '+';
+  color: var(--av-primary);
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.gw-mobile-toc[open] > summary::after {
+  content: '\2212';
+}
+
+.gw-mobile-toc > summary:focus-visible {
+  outline: 2px solid var(--av-primary);
+  outline-offset: -3px;
+}
+
+.gw-mobile-toc-count {
+  margin-left: auto;
+  color: var(--av-text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+#mobile-toc-container {
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 0.85rem 1rem 1rem;
+  border-top: 1px solid var(--av-border-subtle);
+}
+
+#mobile-toc-container nav > p {
+  display: none;
+}
+
+#mobile-toc-container .toc-link {
+  padding-block: 0.35rem;
 }
 
 
