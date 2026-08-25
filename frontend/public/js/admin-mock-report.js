@@ -5,9 +5,9 @@
  * always shows the canonical final bands and renders retest_flags as a separate
  * instruction for the next sitting (matching the learner result page).
  *
- * Overall is shown ONLY when speaking is among the sitting's required
- * skills (an LRW-only exam reports per-skill bands with no combined figure —
- * mirrors mock_review_workflow.compute_overall's same skill-set rule).
+ * Overall is shown ONLY when Speaking belongs to the completed result. This
+ * includes teacher-assessed live Speaking stored in final_bands even when the
+ * exam definition itself is LRW-only.
  */
 (function () {
   'use strict';
@@ -26,6 +26,12 @@
     return (new URLSearchParams(location.search).get('review_id') || '').trim() || null;
   }
 
+  function reportSkills(requiredSkills, finalBands) {
+    return Object.keys(SKILL_VI).filter(function (skill) {
+      return requiredSkills.indexOf(skill) !== -1 || finalBands[skill] != null;
+    });
+  }
+
   // ── Back target ──────────────────────────────────────────────────
   // The queue REFUSES to load without ?mock_exam_id= (it shows a "chọn đề"
   // prompt instead), so a bare link to index.html would not return the admin to
@@ -39,8 +45,8 @@
 
   function render(data) {
     var review = data.review, sitting = data.sitting || {};
-    var skills = data.required_skills || [];
     var fb = review.final_bands || {};
+    var skills = reportSkills(data.required_skills || [], fb);
 
     el('rp-title').textContent = 'Phiếu báo điểm — ' + (sitting.student_name || '—');
     el('rp-sub').textContent = 'Kết quả các kỹ năng đã thi';
