@@ -13,6 +13,7 @@
 // nằm SAU `Suspense`. Đây không phải lựa chọn thẩm mỹ — `searchParams` không
 // được phép đọc bên trong `use cache`, mà mọi loader nội dung đều `use cache`.
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { notFound, redirect } from 'next/navigation';
 
@@ -30,8 +31,15 @@ export const metadata: Metadata = {
 };
 
 async function GroupCountLink() {
-  const groups = await getGroups();
-  const count = Array.isArray(groups) ? groups.length : 0;
+  await connection();
+  let count = 0;
+  try {
+    const groups = await getGroups();
+    count = Array.isArray(groups) ? groups.length : 0;
+  } catch {
+    // The route-manifest CI build intentionally has no backend. Keep the
+    // generic CTA truthful and let request-time content load normally.
+  }
   const label = count > 0 ? `Xem ${count} nhóm chủ đề` : 'Xem các nhóm chủ đề';
   return <a href="#groups-section" className="btn-cta btn-outline">{label}</a>;
 }
@@ -150,6 +158,9 @@ function CategoryView({ slug, data }: { slug: string; data: any }) {
  *   không tham số → trang chủ đầy đủ
  */
 async function GrammarBody({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  // The route-manifest CI build intentionally has no backend. Defer canonical
+  // Grammar reads to a real request while preserving the prerendered shell.
+  await connection();
   const params = await searchParams;
   const q = typeof params.q === 'string' ? params.q : '';
   const category = typeof params.category === 'string' ? params.category : '';

@@ -17,7 +17,11 @@ test('search, roadmap, and exercises are first-class Next routes', () => {
 });
 
 test('home exposes explicit reference and learning modes using canonical learner APIs', () => {
+  const page = read('page.tsx');
   const mode = read('grammar-home-mode.tsx');
+  assert.match(page, /import \{ connection \} from 'next\/server'/);
+  assert.match(page, /await connection\(\)[\s\S]*Promise\.all\(\[getHome\(\), getGroups\(\)\]\)/,
+    'public Grammar data must defer to request time so the generic build does not depend on a backend');
   assert.match(mode, /role="tablist"/);
   assert.match(mode, /aria-controls="grammar-panel-reference"/);
   assert.match(mode, /onKeyDown={handleKeyDown}/);
