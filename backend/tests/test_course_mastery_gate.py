@@ -201,14 +201,14 @@ def test_multisection_retake_stays_open_when_quiz_can_reach_threshold():
     assert qs.course_mastery_next_action(65.0, 75, sections) == "retake"
 
 
-def test_stored_impossible_retake_is_normalized_for_existing_learners():
+def test_legacy_impossible_retake_without_stored_decision_is_derived_safely():
     sections = {
         "quiz": {"completed": True, "pct": 100, "weight": 50},
         "writing": {"completed": True, "pct": 30, "weight": 50},
     }
     attempt = {
         "phase": "retake", "pct": 65.0, "completed": True,
-        "next_action": "retake", "sections": sections,
+        "sections": sections,
     }
     assert qs._recorded_next_action(attempt, 75) == "retry_full"
     out = qs._course_completion_payload(
@@ -221,15 +221,17 @@ def test_stored_impossible_retake_is_normalized_for_existing_learners():
     assert out["retry_reason"] == "section_ceiling"
 
 
-def test_section_ceiling_guard_does_not_regrade_a_stored_action_after_config_edit():
+def test_section_ceiling_guard_preserves_stored_retake_after_threshold_is_raised():
     attempt = {
         "pct": 65.0, "completed": True, "next_action": "retake",
         "sections": {
-            "quiz": {"pct": 100, "weight": 50},
-            "writing": {"pct": 30, "weight": 50},
+            "quiz": {"pct": 70, "weight": 50},
+            "writing": {"pct": 60, "weight": 50},
         },
     }
-    assert qs._recorded_next_action(attempt, 60) == "retake"
+    assert qs.course_mastery_next_action(65.0, 75, attempt["sections"]) == "retake"
+    assert qs.course_mastery_next_action(65.0, 85, attempt["sections"]) == "retry_full"
+    assert qs._recorded_next_action(attempt, 85) == "retake"
 
 
 def _summary_assignment(pass_pct=75):

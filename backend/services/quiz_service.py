@@ -355,10 +355,6 @@ def _recorded_next_action(attempt: dict | None, pass_pct: int) -> str | None:
         return None
     action = attempt.get("next_action")
     if action in {"passed", "retake", "retry_full"}:
-        if action == "retake":
-            maximum = _course_max_pct_after_quiz_retake(attempt.get("sections"))
-            if maximum is not None and maximum < float(pass_pct):
-                return "retry_full"
         return action
     return course_mastery_next_action(
         float(attempt.get("pct") or 0), pass_pct, attempt.get("sections"),
