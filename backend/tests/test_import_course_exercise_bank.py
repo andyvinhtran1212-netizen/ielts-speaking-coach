@@ -65,7 +65,9 @@ def _reading(**over):
             "phan1_noi_dung": [
                 {"cau": 1, "dap_an": "T", "giai_thich": "Đúng nguyên văn."}],
             "phan2_cau_truc": [
-                {"cau": 2, "dap_an": "a", "giai_thich": "Danh từ số ít."}],
+                {"cau": 2, "dap_an": "a (indefinite article)",
+                 "bien_the_chap_nhan": ["a", "indefinite article"],
+                 "giai_thich": "Danh từ số ít."}],
         },
         "ban_dich": "Mai đọc một cuốn sách.",
     }
@@ -205,6 +207,9 @@ def test_a_short_reading_is_bank_metadata_not_a_scored_question(tmp_path):
     assert reading["word_count"] == 4
     assert len(reading["question_groups"]) == 2
     assert len(reading["answers"]) == 2
+    assert reading["answers"][1]["accepted"] == [
+        "a (indefinite article)", "a", "indefinite article",
+    ]
     assert "T / F / NG" not in reading["question_groups"][0]["questions"][0]["prompt"]
     assert len(_rpc_rows(db)[0][2]["p_rows"]) == 2
 
@@ -220,6 +225,15 @@ def test_a_broken_short_reading_is_refused_before_any_write(tmp_path, broken):
     db = _db()
     with pytest.raises(SystemExit):
         _run(tmp_path, db, [_mcq(), _reading(**broken)], "--commit")
+    assert db.writes == []
+
+
+def test_empty_reading_answer_variants_are_refused_before_any_write(tmp_path):
+    reading = _reading()
+    reading["dap_an"]["phan2_cau_truc"][0]["bien_the_chap_nhan"] = []
+    db = _db()
+    with pytest.raises(SystemExit):
+        _run(tmp_path, db, [_mcq(), reading], "--commit")
     assert db.writes == []
 
 

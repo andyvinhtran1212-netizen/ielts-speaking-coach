@@ -213,6 +213,32 @@ def _reading_prompt(value, input_type: str, number: int, reading_id: str) -> str
     return prompt.strip()
 
 
+def _reading_accepted_answers(key: dict, answer: str, number: int,
+                              reading_id: str) -> list[str] | None:
+    """Keep explicit, semantically equivalent short-answer variants.
+
+    The grader already ignores case and presentation punctuation.  Variants are
+    still needed when the canonical label is bilingual but either language is
+    a complete answer (for example ``quá khứ đơn (past simple)``).
+    """
+    variants = key.get("bien_the_chap_nhan")
+    if variants is None:
+        return None
+    if not isinstance(variants, list) or not variants:
+        raise SystemExit(
+            f"[{reading_id}] biến thể đáp án câu {number} phải là danh sách có nội dung.")
+    accepted = [answer]
+    seen = {answer.casefold()}
+    for position, value in enumerate(variants, 1):
+        text = _required_text(
+            value, f"biến thể {position} của đáp án câu {number}", reading_id)
+        marker = text.casefold()
+        if marker not in seen:
+            accepted.append(text)
+            seen.add(marker)
+    return accepted
+
+
 def _reading_meta(r: dict) -> dict:
     """Chuẩn hoá bài đọc thêm ở cấp BANK, không trộn vào 100 câu chấm điểm.
 
@@ -269,14 +295,20 @@ def _reading_meta(r: dict) -> dict:
                 "number": number,
                 "prompt": _reading_prompt(prompt, input_type, number, reading_id),
             })
-            answers.append({
+            answer = _required_text(
+                key.get("dap_an"), f"đáp án câu {number}", reading_id)
+            answer_row = {
                 "id": f"{reading_id}-{number:02d}",
                 "number": number,
-                "answer": _required_text(
-                    key.get("dap_an"), f"đáp án câu {number}", reading_id),
+                "answer": answer,
                 "explanation": _required_text(
                     key.get("giai_thich"), f"giải thích câu {number}", reading_id),
-            })
+            }
+            accepted = _reading_accepted_answers(
+                key, answer, number, reading_id)
+            if accepted:
+                answer_row["accepted"] = accepted
+            answers.append(answer_row)
         groups.append({
             "id": group_id,
             "title": title,
