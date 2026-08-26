@@ -74,6 +74,7 @@ _SKILL_AREA = "course"
 _READING_KIND = "reading"
 _LISTENING_KIND = "listening"
 _PRONUNCIATION_KIND = "pronunciation"
+_MAX_PRONUNCIATION_SENTENCES = 20
 _AUDIO_BUCKET = settings.LISTENING_AUDIO_BUCKET
 _MP3_MAGIC = (b"ID3", b"\xff\xfb", b"\xff\xf3", b"\xff\xf2")
 _VIETNAMESE_CHARS = re.compile(
@@ -411,16 +412,19 @@ def _pronunciation_meta(r: dict) -> dict:
     if not pronunciation_id:
         raise SystemExit("Phần phát âm không có id.")
     sentences = r.get("sentences")
-    if not isinstance(sentences, list) or len(sentences) != 12:
+    sentence_count = len(sentences) if isinstance(sentences, list) else 0
+    if (not isinstance(sentences, list)
+            or not 1 <= sentence_count <= _MAX_PRONUNCIATION_SENTENCES):
         raise SystemExit(
-            f"[{pronunciation_id}] phần phát âm cần đúng 12 câu, có "
-            f"{len(sentences) if isinstance(sentences, list) else 0}.")
+            f"[{pronunciation_id}] phần phát âm cần từ 1 đến "
+            f"{_MAX_PRONUNCIATION_SENTENCES} câu, có {sentence_count}.")
     canonical = []
     for expected, item in enumerate(sentences, 1):
         if not isinstance(item, dict) or item.get("so") != expected:
             actual_number = item.get("so") if isinstance(item, dict) else None
             raise SystemExit(
-                f"[{pronunciation_id}] câu phát âm phải đánh số 1–12 liên tục; "
+                f"[{pronunciation_id}] câu phát âm phải đánh số "
+                f"1–{sentence_count} liên tục; "
                 f"vị trí {expected} đang mang số {actual_number!r}.")
         text = str(item.get("text") or "").strip()
         if not text or len(text) > 500:

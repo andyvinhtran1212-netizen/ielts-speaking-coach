@@ -1,0 +1,27 @@
+{
+  "bank_code": "C1-B07",
+  "title": "Phát âm & Shadowing — Cụm động từ và đọc thì",
+  "locale": "en-GB",
+  "provider": "azure",
+  "voice_engine": "kokoro",
+  "voice": "bf_emma",
+  "playback_rates": [0.85, 1.0],
+  "sentences": [
+    {"id": "C1-B07-PRON-01", "order": 1, "text": "The number of tourists fell during the long rainy season last year."},
+    {"id": "C1-B07-PRON-02", "order": 2, "text": "Traffic in the capital city increased sharply after 2010, and the situation still worries many local residents."},
+    {"id": "C1-B07-PRON-03", "order": 3, "text": "Local factories in this province produce cheap plastic goods for the whole southern region every single year."},
+    {"id": "C1-B07-PRON-04", "order": 4, "text": "The old bus service between these two small mountain towns disappeared completely in the early years of this century."},
+    {"id": "C1-B07-PRON-05", "order": 5, "text": "Vietnamese universities now offer many short practical courses to international students from all over Asia every year."},
+    {"id": "C1-B07-PRON-06", "order": 6, "text": "The new metro line will carry thousands of passengers every single day."},
+    {"id": "C1-B07-PRON-07", "order": 7, "text": "Electricity demand in the capital city rose sharply during the cold winter months at the end of last year."},
+    {"id": "C1-B07-PRON-08", "order": 8, "text": "Electric buses will replace older diesel vehicles in most large Vietnamese cities within the next ten years."},
+    {"id": "C1-B07-PRON-09", "order": 9, "text": "The government announced a new recycling programme for all coastal provinces at the start of this year."},
+    {"id": "C1-B07-PRON-10", "order": 10, "text": "Online courses offer busy adult learners a cheap and flexible route into higher education across the whole country."},
+    {"id": "C1-B07-PRON-11", "order": 11, "text": "Volunteers from the local university are collecting plastic waste along the river bank every weekend this month."},
+    {"id": "C1-B07-PRON-12", "order": 12, "text": "My parents were living in a small fishing village near Nha Trang at that very difficult time."},
+    {"id": "C1-B07-PRON-13", "order": 13, "text": "More and more young Vietnamese people are choosing practical careers in technology and modern engineering every year."},
+    {"id": "C1-B07-PRON-14", "order": 14, "text": "The city council is planting hundreds of new trees on both sides of the main southern road."},
+    {"id": "C1-B07-PRON-15", "order": 15, "text": "The national museum has attracted far more foreign visitors since the opening of the new metro line."},
+    {"id": "C1-B07-PRON-16", "order": 16, "text": "Several coastal provinces had suffered serious flood damage long before the government approved the new sea wall."}
+  ]
+}

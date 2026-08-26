@@ -109,6 +109,26 @@ test('renders canonical persisted result and per-word focus', async () => {
 });
 
 
+test('uses the actual sentence count on the retry action', async () => {
+  browserShell();
+  const sixteenSentenceExercise = {
+    ...exercise,
+    sentences: Array.from({ length: 16 }, (_value, index) => ({
+      id: `S${index + 1}`, order: index + 1,
+      text: `Sentence number ${index + 1}.`, audio_url: `https://audio/${index + 1}.mp3`,
+    })),
+  };
+  const latest_attempt = {
+    status: 'completed', pronunciation_score: 88, results: { sentences: [] },
+  };
+  const api = { get: async () => ({ exercise: sixteenSentenceExercise, latest_attempt }) };
+  const pronunciation = createPronunciation({ api, userId: 'u1' });
+  await pronunciation.load('bank-07');
+  assert.match(pronunciation.render(), /Luyện lại 16 câu/);
+  assert.doesNotMatch(pronunciation.render(), /Luyện lại 12 câu/);
+});
+
+
 test('surfaces a persisted failed attempt while keeping the practice flow', async () => {
   browserShell();
   const api = { get: async () => ({ exercise, latest_attempt: {
