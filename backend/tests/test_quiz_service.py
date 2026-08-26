@@ -311,6 +311,9 @@ def test_course_reading_solution_uses_a_separate_guarded_read():
     assert out["translation"] == reading["translation"]
     assert out["answers"] == reading["answers"]
     assert out["result"]["pct"] == 100
+    assert out["result"]["answer_results"] == [{
+        "id": "r-01", "submitted_answer": "T", "is_correct": True,
+    }]
     inserted = next(c for c in fake.calls
                     if c["table"] == "course_section_submissions" and c["op"] == "insert")
     assert inserted["payload"]["class_assignment_item_id"] == "item-1"
@@ -371,6 +374,9 @@ def test_course_reading_solution_empty_answers_reviews_canonical_submission():
     assert out["content"]["passage"] == "Original passage."
     assert "translation" not in out["content"] and "answers" not in out["content"]
     assert out["result"]["submitted_answers"] == {"r-01": "T"}
+    assert out["result"]["answer_results"] == [{
+        "id": "r-01", "submitted_answer": "T", "is_correct": True,
+    }]
     assert "_content_snapshot" not in out["result"]
     review_item.assert_called_once_with(
         _BANK, _USER, assignment_item_id="item-1")
@@ -378,6 +384,22 @@ def test_course_reading_solution_empty_answers_reviews_canonical_submission():
     assert not any(call["table"] == "course_section_submissions" and call["op"] == "insert"
                    for call in fake.calls)
     refresh.assert_not_called()
+
+
+def test_course_section_item_results_use_the_same_exact_match_as_total_score():
+    answers = [
+        {"id": "r-06", "answer": "under the desk"},
+        {"id": "r-07", "answer": "with a blue roof"},
+    ]
+    submitted = {"r-06": "Under the desk.", "r-07": "with"}
+
+    results = quiz_service._course_section_answer_results(submitted, answers)
+
+    assert results == [
+        {"id": "r-06", "submitted_answer": "Under the desk.", "is_correct": True},
+        {"id": "r-07", "submitted_answer": "with", "is_correct": False},
+    ]
+    assert quiz_service._grade_course_section(submitted, answers) == (1, 2)
 
 
 def test_course_reading_idempotent_retry_keeps_original_content_snapshot():

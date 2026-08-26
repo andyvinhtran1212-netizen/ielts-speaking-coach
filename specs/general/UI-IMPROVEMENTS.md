@@ -213,6 +213,26 @@ focus, and semantic color reserved for status and action.
 - Reduced-motion handling exists in several data-loading states and should be
   expanded, not replaced.
 
+## Learner exercise review remediation — 2026-08-26
+
+### Issue: Reading review styled every answer as correct
+
+- **Root cause:** the reading solution returned only an aggregate score, while
+  `.cr-answer` always used success styling and omitted the learner's submitted
+  answer. A 9/10 result could therefore display ten green explanation cards.
+- **Severity:** Critical — the review contradicted the canonical grade and made
+  it impossible for a learner to identify the missed question.
+- **Impacted files:** `backend/services/quiz_service.py`
+  (`_grade_course_section`, section-result responses),
+  `frontend/public/js/course-reading.js` (`renderQuestion`), and
+  `frontend/public/css/course-exercises.css` (`.cr-answer`).
+- **Minimal fix:** derive per-question `is_correct` values from the same exact
+  backend matcher used for the total, then render explicit “Bạn trả lời”,
+  “Đáp án đúng”, and text status. Legacy responses stay visually neutral.
+- **Verification:** confirm exact-match backend tests keep `with` incorrect for
+  `with a blue roof`; confirm frontend tests show both explicit text and
+  success/error styling and never infer correctness client-side.
+
 ## Batch and review gates
 
 1. **Batch A — shell and foundations:** fix active-section contract, redesign
