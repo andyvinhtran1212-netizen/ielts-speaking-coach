@@ -111,3 +111,15 @@ def test_completed_two_section_ledger_reopens_as_a_carried_continuation():
     assert continuation["sections"]["quiz"]["carried"] is True
     assert continuation["sections"]["quiz"]["weight"] == 41.69
     assert result["active_section_attempt_no"] == 2
+
+
+def test_reopened_item_state_matches_the_submitted_at_constraint():
+    item = {"opened_at": "2026-08-24T01:00:00+00:00"}
+
+    patch = repair.reopened_item_patch(item, {"attempts": []})
+
+    assert patch["state"] == "opened"
+    assert patch["submitted_at"] is None
+    assert patch["passed_at"] is None
+    assert patch["artifact_kind"] is None
+    assert patch["artifact_id"] is None

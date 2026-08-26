@@ -286,6 +286,19 @@ def continued_mastery(item: dict, weights: dict[str, float], writing_attempt: in
     }
 
 
+def reopened_item_patch(item: dict, mastery: dict) -> dict:
+    """Return a submitted item to an interactive state without erasing history."""
+    return {
+        "mastery": mastery,
+        "state": "opened" if item.get("opened_at") else "assigned",
+        "score": None,
+        "passed_at": None,
+        "submitted_at": None,
+        "artifact_kind": None,
+        "artifact_id": None,
+    }
+
+
 def _parse_due_at(value: str | None) -> str | None:
     if not value:
         return None
@@ -397,8 +410,10 @@ def main() -> int:
             if not attempt_no:
                 raise SystemExit(
                     f"Item {item['id']} có mastery nhưng thiếu submission Viết.")
-            item_patches.append((item["id"], continued_mastery(
-                item, snapshot["section_weights"], attempt_no)))
+            next_mastery = continued_mastery(
+                item, snapshot["section_weights"], attempt_no)
+            item_patches.append((item["id"], reopened_item_patch(
+                item, next_mastery)))
         assignment_plans.append((assignment, item_patches))
 
     print(json.dumps({
@@ -436,15 +451,9 @@ def main() -> int:
         supabase_admin.table("class_assignments").update(patch) \
             .eq("id", assignment["id"]).execute()
 
-        for item_id, next_mastery in item_patches:
-            supabase_admin.table("class_assignment_items").update({
-                "mastery": next_mastery,
-                "score": None,
-                "passed_at": None,
-                "submitted_at": None,
-                "artifact_kind": None,
-                "artifact_id": None,
-            }).eq("id", item_id).execute()
+        for item_id, item_patch in item_patches:
+            (supabase_admin.table("class_assignment_items").update(item_patch)
+             .eq("id", item_id).execute())
     return 0
 
 
