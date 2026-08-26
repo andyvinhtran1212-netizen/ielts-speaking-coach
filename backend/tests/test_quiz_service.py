@@ -402,6 +402,23 @@ def test_course_section_item_results_use_the_same_exact_match_as_total_score():
     assert quiz_service._grade_course_section(submitted, answers) == (1, 2)
 
 
+def test_course_section_accepts_explicit_bilingual_short_answer_variants():
+    answers = [{
+        "id": "r-06",
+        "answer": "quá khứ đơn (past simple)",
+        "accepted": [
+            "quá khứ đơn (past simple)", "quá khứ đơn", "past simple",
+        ],
+    }]
+
+    assert quiz_service._grade_course_section(
+        {"r-06": "Quá khứ đơn"}, answers) == (1, 1)
+    assert quiz_service._grade_course_section(
+        {"r-06": "PAST SIMPLE"}, answers) == (1, 1)
+    assert quiz_service._grade_course_section(
+        {"r-06": "quá khứ"}, answers) == (0, 1)
+
+
 def test_course_reading_idempotent_retry_keeps_original_content_snapshot():
     live_reading = {
         "passage": "Changed passage.", "translation": "Bản dịch mới.",
