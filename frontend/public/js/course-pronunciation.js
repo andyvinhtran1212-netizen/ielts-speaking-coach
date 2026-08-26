@@ -199,7 +199,7 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
         }).join('')}
       </section>
       <footer class="cp-submitbar"><p>Lượt luyện lại sẽ tạo một kết quả mới.</p>
-        <button class="av-button av-button-primary" id="cp-new" type="button">Luyện lại 12 câu</button></footer>
+        <button class="av-button av-button-primary" id="cp-new" type="button">Luyện lại ${sentences().length} câu</button></footer>
     </article>`;
   }
 

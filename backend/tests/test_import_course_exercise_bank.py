@@ -263,12 +263,36 @@ def test_pronunciation_requirement_is_validated_and_kept_in_bank_meta(tmp_path):
     assert len(_rpc_rows(db)[0][2]["p_rows"]) == 1
 
 
-def test_pronunciation_numbers_must_be_one_through_twelve_before_any_write(tmp_path):
+def test_pronunciation_numbers_must_be_contiguous_before_any_write(tmp_path):
     broken = _pronunciation()
     broken["sentences"][5]["so"] = 9
     db = _db()
     with pytest.raises(SystemExit):
         _run(tmp_path, db, [_mcq(), broken], "--commit")
+    assert db.writes == []
+
+
+def test_pronunciation_accepts_a_contiguous_sixteen_sentence_set(tmp_path):
+    pronunciation = _pronunciation()
+    pronunciation["sentences"].extend([
+        {"so": number, "text": f"Sentence number {number}."}
+        for number in range(13, 17)
+    ])
+    db = _db()
+    _run(tmp_path, db, [_mcq(), pronunciation], "--commit")
+    requirement = db.tables["quiz_banks"][0]["meta"]["pronunciation_requirement"]
+    assert requirement["sentence_count"] == 16
+
+
+def test_pronunciation_rejects_more_than_twenty_sentences_before_any_write(tmp_path):
+    pronunciation = _pronunciation()
+    pronunciation["sentences"] = [
+        {"so": number, "text": f"Sentence number {number}."}
+        for number in range(1, 22)
+    ]
+    db = _db()
+    with pytest.raises(SystemExit):
+        _run(tmp_path, db, [_mcq(), pronunciation], "--commit")
     assert db.writes == []
 
 
