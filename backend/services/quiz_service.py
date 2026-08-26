@@ -834,16 +834,30 @@ def _course_answer_text(value) -> str:
     return re.sub(r"[^\w+]+", " ", text, flags=re.UNICODE).strip()
 
 
-def _grade_course_section(submitted: dict, answer_rows: list[dict]) -> tuple[int, int]:
-    correct = 0
+def _course_section_answer_results(
+    submitted: dict, answer_rows: list[dict],
+) -> list[dict]:
+    """Return learner-safe item results using the canonical section grader."""
+    results = []
     for row in answer_rows:
         qid = str(row.get("id") or "")
-        got = _course_answer_text(submitted.get(qid))
+        submitted_answer = str(submitted.get(qid) or "").strip()
+        got = _course_answer_text(submitted_answer)
         accepted = row.get("accepted")
         keys = accepted if isinstance(accepted, list) and accepted else [row.get("answer")]
-        if got and any(got == _course_answer_text(key) for key in keys):
-            correct += 1
-    return correct, len(answer_rows)
+        results.append({
+            "id": qid,
+            "submitted_answer": submitted_answer,
+            "is_correct": bool(
+                got and any(got == _course_answer_text(key) for key in keys)
+            ),
+        })
+    return results
+
+
+def _grade_course_section(submitted: dict, answer_rows: list[dict]) -> tuple[int, int]:
+    results = _course_section_answer_results(submitted, answer_rows)
+    return sum(1 for row in results if row["is_correct"]), len(results)
 
 
 def _save_course_section_result(
@@ -941,6 +955,8 @@ def _save_course_section_result(
                 raise HTTPException(409, f"Phần {section} đã được nộp ở nơi khác.")
         else:
             raise HTTPException(500, f"Lỗi lưu kết quả phần {section}: {exc}")
+    saved_answers = saved.get("answers") or submitted
+    saved_answer_key = saved.get("answer_key") or answer_rows
     result = {
         "section": section,
         "attempt_no": attempt_no,
@@ -949,10 +965,13 @@ def _save_course_section_result(
         "pct": float(saved.get("score") or 0),
         "duration_sec": int(saved.get("duration_sec") or 0),
         "submitted_at": saved.get("submitted_at") or saved.get("created_at"),
-        "submitted_answers": saved.get("answers") or {},
+        "submitted_answers": saved_answers,
+        "answer_results": _course_section_answer_results(
+            saved_answers, saved_answer_key,
+        ),
         # Use the immutable answer snapshot when reviewing a completed section;
         # a later bank import must not rewrite what the learner was graded on.
-        "answer_key": saved.get("answer_key") or answer_rows,
+        "answer_key": saved_answer_key,
         "_content_snapshot": saved.get("content_snapshot") or content_snapshot or {},
     }
     if not reviewed_existing:
@@ -990,6 +1009,8 @@ def _review_course_section_result(
     if not rows:
         raise HTTPException(404, f"Chưa có kết quả phần {section} cho bài giao này")
     saved = rows[0]
+    saved_answers = saved.get("answers") or {}
+    saved_answer_key = saved.get("answer_key") or []
     return {
         "section": section,
         "attempt_no": attempt_no,
@@ -998,8 +1019,11 @@ def _review_course_section_result(
         "pct": float(saved.get("score") or 0),
         "duration_sec": int(saved.get("duration_sec") or 0),
         "submitted_at": saved.get("submitted_at") or saved.get("created_at"),
-        "submitted_answers": saved.get("answers") or {},
-        "answer_key": saved.get("answer_key") or [],
+        "submitted_answers": saved_answers,
+        "answer_results": _course_section_answer_results(
+            saved_answers, saved_answer_key,
+        ),
+        "answer_key": saved_answer_key,
         "_content_snapshot": saved.get("content_snapshot") or {},
     }
 

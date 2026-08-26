@@ -67,7 +67,57 @@ test('solution is requested only after every reading answer exists', async () =>
   assert.equal(await reading.reveal(), true);
   assert.equal(calls, 1);
   assert.match(reading.render(), /Mai đọc sách\./);
-  assert.match(reading.render(), /Đáp án · T/);
+  assert.match(reading.render(), /Đáp án đúng · <strong>T<\/strong>/);
+});
+
+test('review distinguishes a wrong answer from the canonical answer without client grading', async () => {
+  const api = { post: async () => ({
+    translation: 'Mai đọc sách.',
+    answers: [
+      { id: 'r-01', answer: 'T', explanation: 'Đúng theo bài đọc.' },
+      { id: 'r-02', answer: 'with a blue roof', explanation: 'Cần cả cụm giới từ.' },
+    ],
+    result: {
+      correct: 1, total: 2, pct: 50,
+      submitted_answers: { 'r-01': 'T', 'r-02': 'with' },
+      answer_results: [
+        { id: 'r-01', submitted_answer: 'T', is_correct: true },
+        { id: 'r-02', submitted_answer: 'with', is_correct: false },
+      ],
+    },
+  }) };
+  const reading = createReading({ api, storage: storage(), userId: 'u1' });
+  reading.load(bank);
+  reading.write('r-01', 'T');
+  reading.write('r-02', 'with');
+  assert.equal(await reading.reveal(), true);
+
+  const html = reading.render();
+  assert.match(html, /data-correct="true"/);
+  assert.match(html, /✓ Chính xác/);
+  assert.match(html, /data-correct="false"/);
+  assert.match(html, /✕ Chưa chính xác/);
+  assert.match(html, /Bạn trả lời · <strong>with<\/strong>/);
+  assert.match(html, /Đáp án đúng · <strong>with a blue roof<\/strong>/);
+  assert.match(html, /1\/2 câu đúng · 50%/);
+  assert.match(html, /value="T" checked disabled/);
+  assert.match(html, /value="with" autocomplete="off" disabled/);
+});
+
+test('legacy review without item results stays neutral instead of claiming success', async () => {
+  const api = { post: async () => ({
+    translation: 'Mai đọc sách.',
+    answers: [{ id: 'r-01', answer: 'T', explanation: 'Đúng.' }],
+    result: { submitted_answers: { 'r-01': 'T', 'r-02': 'a' } },
+  }) };
+  const reading = createReading({ api, storage: storage(), userId: 'u1' });
+  reading.load(bank);
+  await reading.review();
+
+  const html = reading.render();
+  assert.match(html, /data-correct="unknown"/);
+  assert.match(html, /Đã có lời giải/);
+  assert.doesNotMatch(html, /data-correct="true"/);
 });
 
 test('duration counts only intervals while the reading section is visible', async () => {

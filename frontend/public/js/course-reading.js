@@ -57,12 +57,30 @@ export function createReading({ api, storage, userId, assignmentItemId = null,
     return solution.answers.find((row) => row.id === qid) || null;
   }
 
+  function answerResultFor(qid) {
+    const rows = solution?.result?.answer_results;
+    if (!Array.isArray(rows)) return null;
+    const row = rows.find((item) => item.id === qid);
+    return row && typeof row.is_correct === 'boolean' ? row : null;
+  }
+
   function renderQuestion(group, q) {
     const chosen = String(draft[q.id] || '');
     const key = answerFor(q.id);
-    const result = key ? `<div class="cr-answer">
-      <span class="cr-answer__key">Đáp án · ${inlineMd(key.answer)}</span>
-      <p>${inlineMd(key.explanation)}</p>
+    const answerResult = answerResultFor(q.id);
+    const state = answerResult ? String(answerResult.is_correct) : 'unknown';
+    const status = answerResult
+      ? (answerResult.is_correct ? '✓ Chính xác' : '✕ Chưa chính xác')
+      : 'Đã có lời giải';
+    const submittedAnswer = answerResult
+      ? String(answerResult.submitted_answer || '') : chosen;
+    const result = key ? `<div class="cr-answer" data-correct="${state}">
+      <div class="cr-answer__head">
+        <span class="cr-answer__status">${status}</span>
+        <span class="cr-answer__submitted">Bạn trả lời · <strong>${inlineMd(submittedAnswer || '—')}</strong></span>
+      </div>
+      <p class="cr-answer__key">Đáp án đúng · <strong>${inlineMd(key.answer)}</strong></p>
+      <p class="cr-answer__explanation">${inlineMd(key.explanation)}</p>
     </div>` : '';
     if (group.input_type === 'tfng') {
       return `<li class="cr-question" id="cr-${esc(q.id)}">
@@ -70,7 +88,7 @@ export function createReading({ api, storage, userId, assignmentItemId = null,
         <div class="cr-choices" role="radiogroup" aria-label="Câu ${q.number}">
           ${['T', 'F', 'NG'].map((choice) => `<label>
             <input class="cr-input" type="radio" name="cr-${esc(q.id)}"
-              data-qid="${esc(q.id)}" value="${choice}"${chosen === choice ? ' checked' : ''}>
+              data-qid="${esc(q.id)}" value="${choice}"${chosen === choice ? ' checked' : ''}${solution ? ' disabled' : ''}>
             <span>${choice}</span>
           </label>`).join('')}
         </div>${result}
@@ -79,7 +97,7 @@ export function createReading({ api, storage, userId, assignmentItemId = null,
     return `<li class="cr-question" id="cr-${esc(q.id)}">
       <label for="cr-input-${esc(q.id)}"><span class="cr-question__no">${q.number}</span><span class="cr-question__prompt">${inlineMd(q.prompt)}</span></label>
       <input class="cr-input cr-text" id="cr-input-${esc(q.id)}" data-qid="${esc(q.id)}"
-        type="text" value="${esc(chosen)}" autocomplete="off"
+        type="text" value="${esc(chosen)}" autocomplete="off"${solution ? ' disabled' : ''}
         placeholder="Viết câu trả lời ngắn…">${result}
     </li>`;
   }
