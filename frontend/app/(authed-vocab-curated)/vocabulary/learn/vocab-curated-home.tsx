@@ -38,9 +38,11 @@ type ViewState =
   | { kind: 'error'; message: string }
   | { kind: 'ready'; today: TodayPayload; pathways: Pathway[] };
 
-function UnitCard({ unit, reason, badge }: { unit: UnitSummary; reason?: string; badge?: string }) {
+function UnitCard({ unit, reason, badge, recommendationId }: { unit: UnitSummary; reason?: string; badge?: string; recommendationId?: string }) {
+  const href = `/vocabulary/learn/${encodeURIComponent(unit.unit_slug)}`
+    + (recommendationId ? `?recommendation=${encodeURIComponent(recommendationId)}` : '');
   return (
-    <a className="vc-unit-card" href={`/vocabulary/learn/${encodeURIComponent(unit.unit_slug)}`}>
+    <a className="vc-unit-card" href={href}>
       <div className="vc-unit-meta">
         <span>{badge || unit.target_level}</span>
         <span>{unit.estimated_minutes ? `${unit.estimated_minutes} phút` : 'Learning unit'}</span>
@@ -118,7 +120,7 @@ export function VocabCuratedHome() {
       {recommendations.length ? (
         <section className="vc-section" aria-labelledby="vc-for-you">
           <div className="vc-section-head"><div><p>For You</p><h2 id="vc-for-you">Từ lỗi thật trong bài nói của bạn</h2></div><span>{recommendations.length} đề xuất</span></div>
-          <div className="vc-grid">{recommendations.map((item) => <UnitCard key={item.id} unit={item.unit} reason={item.reason_vi} badge="Được đề xuất" />)}</div>
+          <div className="vc-grid">{recommendations.map((item) => <UnitCard key={item.id} unit={item.unit} reason={item.reason_vi} badge="Được đề xuất" recommendationId={item.id} />)}</div>
         </section>
       ) : null}
 

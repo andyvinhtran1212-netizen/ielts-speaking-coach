@@ -1582,7 +1582,8 @@
             reason: String(item.reason_vi || ''),
             evidence: String(item.evidence || ''),
             corrected: String(item.corrected || ''),
-            href: '/vocabulary/learn/' + encodeURIComponent(slug),
+            href: '/vocabulary/learn/' + encodeURIComponent(slug)
+              + (item.rec_id ? '?recommendation=' + encodeURIComponent(String(item.rec_id)) : ''),
           };
         }).filter(Boolean),
       corrections: (Array.isArray(payload.corrections) ? payload.corrections : [])

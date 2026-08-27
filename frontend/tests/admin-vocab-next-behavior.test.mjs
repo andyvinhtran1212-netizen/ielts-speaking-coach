@@ -27,7 +27,7 @@ describe('Admin Vocabulary native ownership', () => {
   });
 
   test('hub exposes all real consoles and learner preview without business reads', () => {
-    for (const href of ['/vocabulary/hub', '/admin/vocab/stats', '/admin/vocab/content', '/admin/vocab/topics', '/admin/vocab/quiz', '/admin/vocab/quiz-analytics', '/admin/vocab/d1-curation', '/admin/vocab/lemmas', '/admin/vocab/exercises']) assert.ok(PAGE.includes(href), href);
+    for (const href of ['/vocabulary/hub', '/admin/vocab/stats', '/admin/vocab/pilot-metrics', '/admin/vocab/content', '/admin/vocab/topics', '/admin/vocab/quiz', '/admin/vocab/quiz-analytics', '/admin/vocab/d1-curation', '/admin/vocab/lemmas', '/admin/vocab/exercises']) assert.ok(PAGE.includes(href), href);
     assert.doesNotMatch(PAGE, /window\.api\.|\bfetch\(/);
   });
 

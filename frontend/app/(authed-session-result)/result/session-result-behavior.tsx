@@ -519,7 +519,7 @@ function VocabRecommendations({ recommendations }: { recommendations: unknown })
         Học từ lỗi vừa nói
       </div>
       {items.map((item) => <a
-        href={`/vocabulary/learn/${encodeURIComponent(item.slug)}`}
+        href={`/vocabulary/learn/${encodeURIComponent(item.slug)}?recommendation=${encodeURIComponent(item.id)}`}
         key={item.id}
         rel="noopener"
         style={{ display: 'block', padding: '11px 12px', border: '1px solid var(--av-border-subtle)', borderLeft: '3px solid var(--av-primary)', borderRadius: 8, background: 'var(--av-surface-card)', color: 'var(--av-text-primary)', textDecoration: 'none' }}

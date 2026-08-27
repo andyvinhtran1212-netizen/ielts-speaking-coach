@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
@@ -126,13 +127,16 @@ function TaskCard({ task }: { task: Task }) {
 }
 
 export function VocabUnitLesson({ unitSlug }: { unitSlug: string }) {
-  const { status } = useAuth();
+  const { status, user } = useAuth();
+  const accountKey = status === 'signed-in' ? user?.id : null;
+  const searchParams = useSearchParams();
+  const recommendationId = searchParams?.get('recommendation') || '';
   const [unit, setUnit] = useState<UnitPayload | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (status === 'signed-out') { window.location.replace('/login'); return; }
-    if (status !== 'signed-in') return;
+    if (!accountKey) return;
     const controller = new AbortController();
     let disposed = false;
     (async () => {
@@ -146,12 +150,20 @@ export function VocabUnitLesson({ unitSlug }: { unitSlug: string }) {
         if (disposed) return;
         if (me?.vocab_curated_enabled !== true) { setError('Learning unit này chưa mở cho tài khoản của bạn.'); return; }
         setUnit(payload);
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(recommendationId)) {
+          void window.api.post(
+            `/api/me/vocabulary/recommendations/${encodeURIComponent(recommendationId)}/open`,
+            { unit_slug: unitSlug },
+          ).catch(() => {
+            // Opening telemetry is retryable and must never block lesson access.
+          });
+        }
       } catch (caught: unknown) {
         if (!disposed && !(caught instanceof DOMException && caught.name === 'AbortError')) setError('Không tải được learning unit này.');
       }
     })();
     return () => { disposed = true; controller.abort(); };
-  }, [status, unitSlug]);
+  }, [accountKey, recommendationId, status, unitSlug]);
 
   if (error) return <section className="vc-state is-error" role="alert"><h1>Chưa thể mở bài học</h1><p>{error}</p><a className="av-button av-button-primary" href="/vocabulary/learn">Quay lại</a></section>;
   if (!unit) return <section className="vc-state" aria-live="polite">Đang tải learning unit…</section>;

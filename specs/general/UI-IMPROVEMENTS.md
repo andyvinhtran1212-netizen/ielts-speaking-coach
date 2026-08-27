@@ -3866,3 +3866,36 @@ shell focus baseline. Invalid slugs are discarded before rendering.
 - Confirm Vietnamese labels and rationale remain readable in light and dark
   themes, and that an invalid unit slug renders no card.
 - Reload `/result` and verify the same DB-confirmed recommendation appears.
+
+# Vocab Curated pilot measurement review — 2026-08-27
+
+## Root cause and severity
+
+**Medium:** The product had canonical attempts/mastery, but recommendation
+`opened/completed` had no write path and delayed cohorts had no explicit closed
+observation windows. A dashboard built directly on those fields would either
+show an incomplete funnel or mislabel “not yet due / not assessed” as failure.
+
+## Improvement applied
+
+- Added one admin-only outcome surface with immediate, day-7 and day-28 sections
+  ordered by time rather than by vanity metric.
+- Each delayed section separates eligible unit-starts, assessed unit-starts,
+  follow-up rate, accuracy and productive transfer.
+- Percentages with no denominator render “Chưa đủ dữ liệu”, never `0%`.
+- A visible early-sample badge prevents rollout decisions below 10 eligible
+  unit-starts; metric definitions remain on the same page.
+- Runtime gates and canonical cohort count sit above outcome cards so operators
+  can distinguish disabled collection from poor learning performance.
+- The unit table becomes labelled cards on narrow screens; status does not rely
+  on color alone.
+
+## Verification
+
+- Validate null, zero and populated payloads; null rates must remain unavailable.
+- At 375px and 768px, verify outcome tiles, cohort controls and unit rows do not
+  overflow and every table value retains its label.
+- Disable each runtime gate and confirm its textual `ON/OFF` truth changes after
+  refresh without altering historical outcomes.
+- Add/remove one test learner and verify both immediate UI state and full reload
+  read the same canonical cohort count.
