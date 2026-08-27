@@ -12,7 +12,6 @@ interface Task {
   dimension: string;
   prompt: string;
   options: Array<string | { value?: string; label?: string }>;
-  explanation_vi: string;
 }
 
 interface UnitPayload {
@@ -32,6 +31,7 @@ interface AttemptResult {
   duplicate: boolean;
   feedback_vi?: string | null;
   model_answer?: string | null;
+  explanation_vi?: string | null;
   mastery?: { state?: string; next_review_at?: string } | null;
 }
 
@@ -97,7 +97,7 @@ function TaskCard({ task }: { task: Task }) {
     {error ? <p className="vc-task-result is-error" role="alert">{error}</p> : null}
     {result ? <div className={`vc-task-result ${result.correct ? 'is-correct' : 'is-retry'}`} role="status">
       <strong>{result.correct ? 'Đã dùng đúng' : 'Chưa ổn — sửa ngay lúc này'}</strong>
-      <p>{result.feedback_vi || task.explanation_vi}</p>
+      <p>{result.feedback_vi || result.explanation_vi}</p>
       {!result.correct && result.model_answer ? <p><b>Mẫu tham khảo:</b> {result.model_answer}</p> : null}
       {result.mastery?.state ? <small>Trạng thái: {result.mastery.state.replaceAll('_', ' ')}</small> : null}
     </div> : null}

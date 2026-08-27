@@ -49,6 +49,8 @@ describe('/vocabulary/learn/[unitSlug] — server-graded learning loop', () => {
     assert.match(LESSON, /attempt_id: newAttemptId\(\), response: \{ answer:/);
     assert.doesNotMatch(LESSON, /correct:\s*(?:true|false|answer)/);
     assert.doesNotMatch(LESSON, /answer_key/);
+    assert.doesNotMatch(LESSON, /task\.explanation_vi/);
+    assert.match(LESSON, /result\.explanation_vi/);
   });
 
   test('renders meaning, construction, Vietnamese problem clinic and context diversity', () => {

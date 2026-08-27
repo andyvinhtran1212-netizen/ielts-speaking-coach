@@ -6,11 +6,12 @@ import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from services import vocab_units
+from services import vocab_unit_rules, vocab_units
 
 AUTH = {"Authorization": "Bearer learner.jwt"}
 ADMIN_AUTH = {"Authorization": "Bearer admin.jwt"}
@@ -23,6 +24,14 @@ ATTEMPT_ID = "33333333-3333-3333-3333-333333333333"
 def _client() -> TestClient:
     from main import app
     return TestClient(app)
+
+
+def _query(data):
+    query = MagicMock()
+    for method in ("select", "eq", "in_", "limit", "order", "lte", "update", "upsert"):
+        getattr(query, method).return_value = query
+    query.execute.return_value = MagicMock(data=data)
+    return query
 
 
 def _complete_content() -> dict:
@@ -48,10 +57,10 @@ def _complete_content() -> dict:
 
 def _tasks() -> list[dict]:
     return [
-        {"status": "active", "dimension": "meaning_recall", "prompt": "Nghĩa?", "answer_key": {}},
-        {"status": "active", "dimension": "usage_control", "prompt": "Sửa lỗi", "answer_key": {}},
-        {"status": "active", "dimension": "usage_control", "prompt": "Điền từ", "answer_key": {}},
-        {"status": "active", "dimension": "productive_transfer", "prompt": "Tạo câu", "answer_key": {}},
+        {"status": "active", "task_type": "meaning_recall", "dimension": "meaning_recall", "prompt": "Nghĩa?", "answer_key": {"accepted": ["target"]}},
+        {"status": "active", "task_type": "error_repair", "dimension": "usage_control", "prompt": "Sửa lỗi", "answer_key": {"accepted": ["target"]}},
+        {"status": "active", "task_type": "controlled_gap", "dimension": "usage_control", "prompt": "Điền từ", "answer_key": {"accepted": ["target"]}},
+        {"status": "active", "task_type": "productive_transfer", "dimension": "productive_transfer", "prompt": "Tạo câu", "answer_key": {"required_groups": [["target"]], "minimum_words": 1, "model_answer": "target"}},
     ]
 
 
@@ -72,11 +81,26 @@ def test_exact_grader_uses_private_answer_key_not_client_correctness():
     assert result["score"] == 1.0
 
 
+def test_version_hash_covers_content_sources_and_private_tasks():
+    content = {"title_vi": "Unit"}
+    sources = [{"title": "Source", "url": "https://example.com"}]
+    tasks = [{"task_type": "controlled_gap", "answer_key": {"accepted": ["on"]}}]
+    baseline = vocab_unit_rules.canonical_version_hash(content, sources, tasks)
+    assert vocab_unit_rules.canonical_version_hash(
+        content, [{**sources[0], "title": "Changed"}], tasks,
+    ) != baseline
+    assert vocab_unit_rules.canonical_version_hash(
+        content, sources, [{**tasks[0], "prompt": "Changed"}],
+    ) != baseline
+
+
 def test_productive_transfer_requires_context_and_avoids_known_error():
     task = {
         "task_type": "productive_transfer",
         "answer_key": {
             "required_groups": [["impact on"], ["technology", "social media"]],
+            "required_frames": [[["have", "has", "had"], ["impact"], ["on"]]],
+            "maximum_gap_words": 3,
             "minimum_words": 7,
             "forbidden": ["make an impact on"],
             "retry_vi": "Dùng have an impact on và thêm ngữ cảnh.",
@@ -88,8 +112,12 @@ def test_productive_transfer_requires_context_and_avoids_known_error():
     weak = vocab_units.grade_response(
         task, {"answer": "Technology make an impact on work."},
     )
+    keyword_only = vocab_units.grade_response(
+        task, {"answer": "Technology impact on work is becoming more significant."},
+    )
     assert good == {"correct": True, "score": 1.0, "feedback_vi": None, "model_answer": None}
     assert weak["correct"] is False and weak["score"] < 1
+    assert keyword_only["correct"] is False and keyword_only["score"] < 1
 
 
 def test_publish_validator_requires_three_dimensions_contexts_and_sources():
@@ -102,6 +130,22 @@ def test_publish_validator_requires_three_dimensions_contexts_and_sources():
     assert any("productive_transfer" in error for error in errors)
     assert any("sources" in error for error in errors)
     assert any("examples" in error for error in errors)
+
+
+def test_publish_validator_rejects_ungradable_or_misclassified_tasks():
+    tasks = _tasks()
+    tasks[1] = {**tasks[1], "dimension": "meaning_recall"}
+    tasks[3] = {
+        **tasks[3],
+        "answer_key": {"required_frames": "not-a-frame", "model_answer": "target"},
+    }
+    errors = vocab_units.validate_for_publish(
+        _complete_content(),
+        [{"title": "Cambridge Dictionary", "url": "https://dictionary.cambridge.org/"}],
+        tasks,
+    )
+    assert any("dimension phải là usage_control" in error for error in errors)
+    assert any("không chấm được model answer" in error for error in errors)
 
 
 def test_public_units_default_off_and_legacy_routes_remain_available():
@@ -120,6 +164,75 @@ def test_public_units_return_safe_service_payload_when_enabled():
         response = _client().get("/api/vocabulary/units?level=B1")
     assert response.status_code == 200
     assert response.json() == {"count": 1, "units": items}
+
+
+def test_public_unit_withholds_editorial_explanation_until_attempt():
+    unit_query = _query([{
+        "id": "unit-1", "kp_id": "kp-1", "unit_slug": "have-an-impact-on",
+        "display_headword": "have an impact on", "unit_type": "learning_unit",
+        "target_level": "B1", "problem_tags": [], "learner_tags": [],
+        "current_published_version_id": "version-1",
+    }])
+    version_query = _query([{
+        "id": "version-1", "unit_id": "unit-1", "version_number": 1,
+        "schema_version": 1, "content": {}, "sources": [], "published_at": None,
+    }])
+    task_query = _query([{
+        "id": "task-1", "sequence": 1, "task_type": "controlled_gap",
+        "dimension": "usage_control", "prompt": "Điền cụm", "options": [],
+    }])
+    with patch.object(vocab_units, "supabase_admin") as database:
+        database.table.side_effect = [unit_query, version_query, task_query]
+        payload = vocab_units.get_unit("have-an-impact-on")
+    selected = task_query.select.call_args.args[0]
+    assert "answer_key" not in selected
+    assert "explanation_vi" not in selected
+    assert "explanation_vi" not in payload["tasks"][0]
+
+
+def test_attempt_releases_explanation_only_in_persisted_server_result():
+    task_query = _query([{
+        "id": TASK_ID, "version_id": "version-1", "task_type": "controlled_gap",
+        "dimension": "usage_control", "answer_key": {"accepted": ["on"]},
+        "explanation_vi": "Cụm này kết thúc bằng on.",
+    }])
+    persisted = {
+        "correct": True, "score": 1.0, "feedback_vi": "Đúng.",
+        "model_answer": "on", "explanation_vi": "Cụm này kết thúc bằng on.",
+    }
+    rpc_query = _query([{
+        "duplicate": False,
+        "attempt": {"attempt_id": ATTEMPT_ID, "score": 1.0, "result": persisted},
+        "mastery": {"state": "acquiring"},
+    }])
+    with patch.object(vocab_units, "supabase_admin") as database:
+        database.table.return_value = task_query
+        database.rpc.return_value = rpc_query
+        result = vocab_units.submit_attempt(
+            LEARNER["id"], TASK_ID, ATTEMPT_ID, {"answer": "on"},
+        )
+    rpc_payload = database.rpc.call_args.args[1]
+    assert rpc_payload["p_result"]["explanation_vi"] == "Cụm này kết thúc bằng on."
+    assert result["explanation_vi"] == "Cụm này kết thúc bằng on."
+
+
+def test_attempt_id_reuse_with_different_payload_becomes_conflict():
+    task_query = _query([{
+        "id": TASK_ID, "version_id": "version-1", "task_type": "controlled_gap",
+        "dimension": "usage_control", "answer_key": {"accepted": ["on"]},
+        "explanation_vi": "Cụm này kết thúc bằng on.",
+    }])
+    rpc_query = _query([])
+    rpc_query.execute.side_effect = Exception(
+        "attempt_id_reused_for_different_payload",
+    )
+    with patch.object(vocab_units, "supabase_admin") as database:
+        database.table.return_value = task_query
+        database.rpc.return_value = rpc_query
+        with pytest.raises(vocab_units.VocabUnitConflict, match="câu trả lời khác"):
+            vocab_units.submit_attempt(
+                LEARNER["id"], TASK_ID, ATTEMPT_ID, {"answer": "on"},
+            )
 
 
 def test_attempt_requires_auth_before_cohort_or_runtime_checks():
@@ -212,13 +325,28 @@ def test_schema_migrations_pin_idempotency_rls_and_rpc_security():
         assert f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY" in identity + attempts
     assert "'vocab_unit'" in identity
     assert "UNIQUE (user_id, attempt_id)" in attempts
+    assert "attempt_id_reused_for_different_payload" in attempts
     assert "pg_advisory_xact_lock" in attempts
     assert "published_vocab_version_is_immutable" in identity
     assert "published_vocab_task_is_immutable" in attempts
+    assert "FOR SHARE" in identity and "FOR SHARE" in attempts
     assert "COUNT(DISTINCT reviewer_id)" in attempts
+    assert "missing_task_count" in attempts
+    assert "task_dimension_mismatch" in attempts
     assert "vocab_unit_publication_events" in identity + attempts
     assert "FROM PUBLIC, anon, authenticated" in attempts
     assert "('vocab_units_read', FALSE" in flags
+
+
+def test_curated_runbook_names_the_canonical_migration_sequence():
+    backend = Path(__file__).parent.parent
+    runbook = (backend / "docs" / "VOCAB_CURATED_V1.md").read_text("utf-8")
+    for number in (234, 235, 236):
+        assert f"Migration {number}:" in runbook
+    assert "migrations `234`, `235`, `236`" in runbook
+    assert "Migration 220:" not in runbook
+    assert "Migration 221:" not in runbook
+    assert "Migration 222:" not in runbook
 
 
 def test_curated_pilot_is_valid_and_model_answers_pass_server_grader():
@@ -229,6 +357,26 @@ def test_curated_pilot_is_valid_and_model_answers_pass_server_grader():
     assert sum(len(unit["tasks"]) for unit in payload["units"]) == 48
     assert len(payload["pathways"]) == 3
     assert validate_pilot(payload) == []
+
+
+def test_pilot_construction_units_reject_keyword_only_transfer_answers():
+    from scripts.seed_vocab_curated import CONTENT_FILE, load_pilot
+
+    probes = {
+        "have-an-impact-on": "Technology impact on jobs is becoming more significant every year.",
+        "play-a-role-in": "Teachers role in education is extremely important for every child today.",
+        "be-responsible-for": "Companies responsible for pollution should reduce their plastic waste more quickly.",
+        "spend-time-doing": "I spend my free time with close friends and really enjoy cooking.",
+        "prefer-x-to-y": "I prefer quiet libraries because I want to improve my results.",
+    }
+    units = {unit["unit_slug"]: unit for unit in load_pilot(CONTENT_FILE)["units"]}
+    for slug, answer in probes.items():
+        task = next(
+            task for task in units[slug]["tasks"]
+            if task["task_type"] == "productive_transfer"
+        )
+        result = vocab_units.grade_response(task, {"answer": answer})
+        assert result["correct"] is False, f"{slug} accepted keyword-only answer"
 
 
 def test_curated_pilot_identity_and_pathway_refs_are_unique():

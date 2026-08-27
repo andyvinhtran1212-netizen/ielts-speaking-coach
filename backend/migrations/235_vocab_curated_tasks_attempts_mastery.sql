@@ -85,16 +85,18 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_version_id UUID;
+    v_version_status TEXT;
 BEGIN
     IF TG_OP = 'DELETE' THEN
         v_version_id := OLD.version_id;
     ELSE
         v_version_id := NEW.version_id;
     END IF;
-    IF EXISTS (
-        SELECT 1 FROM vocab_unit_versions
-         WHERE id = v_version_id AND status = 'published'
-    ) THEN
+    SELECT status INTO v_version_status
+      FROM vocab_unit_versions
+     WHERE id = v_version_id
+     FOR SHARE;
+    IF v_version_status = 'published' THEN
         RAISE EXCEPTION 'published_vocab_task_is_immutable';
     END IF;
     IF TG_OP = 'DELETE' THEN
@@ -252,6 +254,9 @@ BEGIN
         IF v_attempt.task_id <> p_task THEN
             RAISE EXCEPTION 'attempt_id_reused_for_different_task';
         END IF;
+        IF v_attempt.response <> p_response THEN
+            RAISE EXCEPTION 'attempt_id_reused_for_different_payload';
+        END IF;
         SELECT * INTO v_mastery
           FROM user_kp_dimension_mastery
          WHERE user_id = p_user
@@ -384,9 +389,28 @@ BEGIN
         RAISE EXCEPTION 'reviewers_must_be_distinct';
     END IF;
 
+    IF (SELECT COUNT(*) FROM vocab_unit_tasks
+         WHERE version_id = p_version AND status = 'active') < 4 THEN
+        RAISE EXCEPTION 'missing_task_count';
+    END IF;
+
     IF (SELECT COUNT(DISTINCT dimension) FROM vocab_unit_tasks
          WHERE version_id = p_version AND status = 'active') <> 3 THEN
         RAISE EXCEPTION 'missing_task_dimension';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM vocab_unit_tasks
+         WHERE version_id = p_version
+           AND status = 'active'
+           AND dimension <> CASE task_type
+               WHEN 'meaning_recall' THEN 'meaning_recall'
+               WHEN 'error_repair' THEN 'usage_control'
+               WHEN 'controlled_gap' THEN 'usage_control'
+               WHEN 'productive_transfer' THEN 'productive_transfer'
+           END
+    ) THEN
+        RAISE EXCEPTION 'task_dimension_mismatch';
     END IF;
 
     UPDATE vocab_unit_versions

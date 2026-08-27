@@ -9,8 +9,6 @@ through the atomic database RPC from migration 235.
 
 from __future__ import annotations
 
-import hashlib
-import json
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
@@ -52,11 +50,6 @@ def _one(result: Any) -> dict[str, Any] | None:
     if isinstance(data, list):
         return data[0] if data else None
     return data if isinstance(data, dict) else None
-
-
-def _canonical_hash(content: dict[str, Any]) -> str:
-    raw = json.dumps(content, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def _unit_summary(unit: dict[str, Any], version: dict[str, Any]) -> dict[str, Any]:
@@ -161,7 +154,7 @@ def get_unit(unit_slug: str) -> dict[str, Any]:
         raise VocabUnitNotFound("Published version của learning unit không hợp lệ")
     tasks = _rows(
         supabase_admin.table("vocab_unit_tasks")
-        .select("id,sequence,task_type,dimension,prompt,options,explanation_vi")
+        .select("id,sequence,task_type,dimension,prompt,options")
         .eq("version_id", version["id"])
         .eq("status", "active")
         .order("sequence")
@@ -349,7 +342,7 @@ def submit_attempt(
 ) -> dict[str, Any]:
     task = _one(
         supabase_admin.table("vocab_unit_tasks")
-        .select("id,version_id,task_type,dimension,answer_key")
+        .select("id,version_id,task_type,dimension,answer_key,explanation_vi")
         .eq("id", task_id)
         .eq("status", "active")
         .limit(1)
@@ -357,7 +350,12 @@ def submit_attempt(
     )
     if not task:
         raise VocabUnitNotFound("Không tìm thấy task đang hoạt động")
-    grade = grade_response(task, response)
+    grade = {
+        **grade_response(task, response),
+        # Editorial explanation is withheld from the lesson payload and only
+        # released after a server-graded attempt.
+        "explanation_vi": task.get("explanation_vi"),
+    }
     now_iso = datetime.now(timezone.utc).isoformat()
     try:
         stored = _one(
@@ -377,6 +375,8 @@ def submit_attempt(
         message = str(exc)
         if "attempt_id_reused_for_different_task" in message:
             raise VocabUnitConflict("attempt_id đã được dùng cho một task khác") from exc
+        if "attempt_id_reused_for_different_payload" in message:
+            raise VocabUnitConflict("attempt_id đã được dùng với câu trả lời khác") from exc
         if "task_not_active" in message:
             raise VocabUnitNotFound("Task không còn thuộc published version hiện tại") from exc
         raise
@@ -391,6 +391,7 @@ def submit_attempt(
         "score": attempt.get("score", persisted_result.get("score", 0)),
         "feedback_vi": persisted_result.get("feedback_vi"),
         "model_answer": persisted_result.get("model_answer"),
+        "explanation_vi": persisted_result.get("explanation_vi"),
         "mastery": stored.get("mastery"),
     }
 
@@ -441,7 +442,9 @@ def create_version(
         result = supabase_admin.rpc("fn_create_vocab_unit_version", {
             "p_unit": unit_id,
             "p_content": content,
-            "p_content_hash": _canonical_hash(content),
+            "p_content_hash": vocab_unit_rules.canonical_version_hash(
+                content, sources, tasks,
+            ),
             "p_sources": sources,
             "p_tasks": tasks,
             "p_change_note": change_note,
@@ -539,7 +542,8 @@ def publish_version(version_id: str, admin_id: str) -> dict[str, Any]:
     except Exception as exc:
         message = str(exc)
         if any(token in message for token in (
-            "missing_approval", "changes_requested", "missing_task_dimension",
+            "missing_approval", "changes_requested", "missing_task_count",
+            "missing_task_dimension", "task_dimension_mismatch",
             "reviewers_must_be_distinct", "version_not_publishable",
         )):
             raise VocabUnitValidationError("Version chưa đạt editorial publish gate", [message]) from exc

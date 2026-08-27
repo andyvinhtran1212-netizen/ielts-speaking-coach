@@ -63,6 +63,9 @@ CREATE TABLE IF NOT EXISTS vocab_unit_versions (
     CONSTRAINT vocab_unit_versions_hash_key UNIQUE (unit_id, content_hash)
 );
 
+COMMENT ON COLUMN vocab_unit_versions.content_hash IS
+    'Canonical SHA-256 of the immutable {content, sources, tasks} artifact.';
+
 ALTER TABLE vocab_learning_units
     DROP CONSTRAINT IF EXISTS vocab_learning_units_current_version_fkey;
 ALTER TABLE vocab_learning_units
@@ -187,16 +190,18 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_version_id UUID;
+    v_version_status TEXT;
 BEGIN
     IF TG_OP = 'DELETE' THEN
         v_version_id := OLD.version_id;
     ELSE
         v_version_id := NEW.version_id;
     END IF;
-    IF EXISTS (
-        SELECT 1 FROM vocab_unit_versions
-         WHERE id = v_version_id AND status = 'published'
-    ) THEN
+    SELECT status INTO v_version_status
+      FROM vocab_unit_versions
+     WHERE id = v_version_id
+     FOR SHARE;
+    IF v_version_status = 'published' THEN
         RAISE EXCEPTION 'published_vocab_review_is_immutable';
     END IF;
     IF TG_OP = 'DELETE' THEN

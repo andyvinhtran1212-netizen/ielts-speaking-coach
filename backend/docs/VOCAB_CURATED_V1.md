@@ -21,14 +21,16 @@ Không hiển thị điểm mastery 0–100. UI dùng trạng thái có ý nghĩ
 
 ## Thành phần đã triển khai
 
-- Migration 220: unit identity, immutable version, card mapping, ba loại review,
+- Migration 234: unit identity, immutable version, card mapping, ba loại review,
   pathway và KP type `vocab_unit`.
-- Migration 221: private task answer key, attempt UUID idempotency, server-side
+- Migration 235: private task answer key, attempt UUID idempotency, server-side
   persistence RPC, advisory lock chống lost update và mastery ba chiều.
-- Migration 222: canonical recommendation records và bốn runtime switch mặc
+- Migration 236: canonical recommendation records và bốn runtime switch mặc
   định `false`.
 - Public API: published units và pathways; answer key không có trong response.
 - Learner API: Today queue, mastery và server-graded attempt.
+- Task payload trước attempt chỉ có prompt/options; editorial explanation và model
+  answer chỉ được trả sau khi server chấm và lưu kết quả idempotent.
 - Admin API: tạo unit/version, validate, review ba cửa, publish và rollback.
 - Frontend: entry card có cohort gate, Today/Paths và lesson loop tại
   `/vocabulary/learn`.
@@ -42,16 +44,20 @@ Một version chỉ publish khi đồng thời đạt:
 - đủ các trường chuyên môn và tối thiểu ba ví dụ ở ngữ cảnh khác nhau;
 - có ít nhất một nguồn biên tập có `title` và `url`;
 - có ít nhất bốn task active, phủ đủ ba mastery dimension;
+- mỗi task tự chấm đúng model answer bằng production grader; construction task
+  dùng ordered frame để không chấp nhận câu chỉ gom đủ keyword;
 - có approval `language`, `pedagogy`, `assessment` và không còn
   `changes_requested`;
 - DB RPC xác minh lại review/task/current identity trong transaction.
 
 Published version không được sửa tại chỗ. Mọi thay đổi tạo version mới. Rollback
 chỉ đổi `current_published_version_id` về một published version cũ.
+Version identity băm toàn bộ `{content, sources, tasks}`; thay nguồn hoặc task
+vẫn luôn tạo artifact mới dù phần bài viết không đổi.
 
 ## Trình tự deploy
 
-1. Backup/đo schema và áp dụng migrations `220`, `221`, `222` theo thứ tự.
+1. Backup/đo schema và áp dụng migrations `234`, `235`, `236` theo thứ tự.
 2. Chạy lại ba migration để kiểm tra idempotency.
 3. QA nội dung offline:
 

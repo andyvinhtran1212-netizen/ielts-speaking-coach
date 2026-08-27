@@ -17,7 +17,6 @@ service publish gate as the admin API; it cannot bypass validation or reviews.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -119,11 +118,6 @@ def validate_pilot(payload: dict[str, Any]) -> list[str]:
     return errors
 
 
-def _content_hash(content: dict[str, Any]) -> str:
-    raw = json.dumps(content, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
-
 def _one(result: Any) -> dict[str, Any] | None:
     data = getattr(result, "data", None)
     if isinstance(data, list):
@@ -160,7 +154,9 @@ def _ensure_version(unit_id: str, unit: dict[str, Any], admin_id: str) -> dict[s
     from database import supabase_admin
     from services import vocab_units
 
-    content_hash = _content_hash(unit["content"])
+    content_hash = vocab_unit_rules.canonical_version_hash(
+        unit["content"], unit["sources"], unit["tasks"],
+    )
     existing = _one(
         supabase_admin.table("vocab_unit_versions")
         .select("id,unit_id,version_number,status,content_hash")
