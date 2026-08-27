@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   dictationParams, dictationReceiptKey, dictationRendererHref, dictationRequestId,
   formatDictationTime, isDictationCanonicalMismatch, isMissingReceipt, normalizeDictationAttempt,
-  normalizeDictationBundle, normalizeDictationGrade, normalizeDictationReceipt,
+  normalizeDictationAttemptReport, normalizeDictationBundle, normalizeDictationGrade, normalizeDictationReceipt,
   normalizeDictationReport, reconcileDictationReceiptWithAttempt, topDictationWords,
 } from '../lib/listening-dictation-controller.mjs';
 import { CORE_PLAYER_AFFINITY_POLICY } from '../lib/core-player-affinity.mjs';
@@ -71,6 +71,11 @@ describe('native Listening Dictation model', () => {
     const report = normalizeDictationReport({ session_id: 's1', client_request_id: 'req-1', total_sentences: 2, correct_count: 1, accuracy: .5, total_words: 8, correct_words: 4, results: [] }, 'req-1');
     assert.equal(report.session_id, 's1');
     assert.throws(() => normalizeDictationReport({ ...report, client_request_id: 'other' }, 'req-1'), /invalid-dictation-receipt/);
+
+    const backfilled = normalizeDictationAttemptReport({ ...report, attempt_id: 'attempt-1', client_request_id: null }, 'attempt-1');
+    assert.equal(backfilled.attempt_id, 'attempt-1');
+    assert.throws(() => normalizeDictationAttemptReport({ ...backfilled, attempt_id: 'attempt-2' }, 'attempt-1'), /invalid-dictation-attempt-receipt/);
+    assert.throws(() => normalizeDictationAttemptReport({ ...backfilled, attempt_id: null }, 'attempt-1'), /invalid-dictation-attempt-receipt/);
   });
 
   test('scopes pending receipts to exact account/test/section identity', () => {
@@ -159,6 +164,7 @@ describe('native Listening Dictation ownership', () => {
     assert.match(CLIENT, /setAnswer\(restored\[selectedIndex\]\?\.user_text \|\| ''\)/);
     assert.match(CLIENT, /sentences:\s*canonicalAttempt\.units\.map/);
     assert.match(CLIENT, /dictation\/session\/by-request/);
+    assert.match(CLIENT, /normalizeDictationAttemptReport\(payload, receipt\.submission\?\.attempt_id\)/);
     assert.match(CLIENT, /client_request_id/);
     assert.match(CLIENT, /localStorage\.setItem/);
     assert.match(CLIENT, /Gửi lại và xác nhận/);
