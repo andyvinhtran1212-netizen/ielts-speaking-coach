@@ -137,6 +137,8 @@ def test_migration_keeps_lifecycle_private_transactional_and_time_bounded():
     assert "AFTER INSERT ON vocab_unit_recommendations" in sql
     assert "status IN ('pending', 'opened')" in sql
     assert "FOR UPDATE OF recommendation" in sql
+    assert sql.count("'vocab-recommendation:'") == 2
+    assert sql.count("pg_advisory_xact_lock") >= 2
     assert "INTERVAL '6 days'" in sql and "INTERVAL '10 days'" in sql
     assert "INTERVAL '25 days'" in sql and "INTERVAL '35 days'" in sql
     assert "GRANT EXECUTE ON FUNCTION fn_vocab_curated_pilot_metrics" in sql

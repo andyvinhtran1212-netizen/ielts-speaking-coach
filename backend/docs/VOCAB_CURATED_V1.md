@@ -157,6 +157,9 @@ cùng transaction khi learner đã thử đủ task active của đúng version.
 terminal không bị request mở lại làm lùi. `opened_at` chỉ ghi khi learner đi từ
 recommendation; hoàn tất unit qua Discover/Path vẫn có `completed_at` nhưng
 không giả lập một lượt mở recommendation.
+Hai trigger completion dùng cùng transaction advisory lock theo learner + unit,
+tránh bỏ sót terminal state khi các attempt cuối hoặc recommendation insert chạy
+đồng thời.
 
 ## Rollback
 

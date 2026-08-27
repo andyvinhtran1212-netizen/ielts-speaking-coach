@@ -165,6 +165,14 @@ BEGIN
         RETURN NEW;
     END IF;
 
+    -- Serialize completion decisions for one learner/unit. Without a shared
+    -- transaction lock, concurrent final attempts (or a recommendation insert)
+    -- can each miss the other's uncommitted row and leave lifecycle state stale.
+    PERFORM pg_advisory_xact_lock(hashtextextended(
+        'vocab-recommendation:' || NEW.user_id::text || ':' || v_unit_id::text,
+        0
+    ));
+
     SELECT COUNT(*)
       INTO v_task_count
       FROM vocab_unit_tasks task
@@ -212,6 +220,13 @@ DECLARE
     v_task_count INTEGER;
     v_attempted_task_count INTEGER;
 BEGIN
+    -- Use the same learner/unit lock as the attempt trigger so either side that
+    -- runs second observes the first transaction after it commits.
+    PERFORM pg_advisory_xact_lock(hashtextextended(
+        'vocab-recommendation:' || NEW.user_id::text || ':' || NEW.unit_id::text,
+        0
+    ));
+
     SELECT current_published_version_id
       INTO v_version_id
       FROM vocab_learning_units
