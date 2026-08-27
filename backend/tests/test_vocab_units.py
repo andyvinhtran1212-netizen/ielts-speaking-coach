@@ -330,7 +330,8 @@ def test_schema_migrations_pin_idempotency_rls_and_rpc_security():
     assert "published_vocab_version_is_immutable" in identity
     assert "published_vocab_task_is_immutable" in attempts
     assert "FOR SHARE" in identity and "FOR SHARE" in attempts
-    assert "COUNT(DISTINCT reviewer_id)" in attempts
+    assert "pedagogy.reviewer_id <> language.reviewer_id" in attempts
+    assert "assessment.reviewer_id <> pedagogy.reviewer_id" in attempts
     assert "missing_task_count" in attempts
     assert "task_dimension_mismatch" in attempts
     assert "vocab_unit_publication_events" in identity + attempts
@@ -359,7 +360,7 @@ def test_curated_pilot_is_valid_and_model_answers_pass_server_grader():
     assert validate_pilot(payload) == []
 
 
-def test_pilot_construction_units_reject_keyword_only_transfer_answers():
+def test_every_pilot_unit_rejects_its_known_transfer_error():
     from scripts.seed_vocab_curated import CONTENT_FILE, load_pilot
 
     probes = {
@@ -368,8 +369,16 @@ def test_pilot_construction_units_reject_keyword_only_transfer_answers():
         "be-responsible-for": "Companies responsible for pollution should reduce their plastic waste more quickly.",
         "spend-time-doing": "I spend my free time with close friends and really enjoy cooking.",
         "prefer-x-to-y": "I prefer quiet libraries because I want to improve my results.",
+        "access-to-vs-access": "Many students cannot access to academic journals about healthcare research.",
+        "actually-vs-currently": "I actually work as an intern this summer in Hanoi.",
+        "convenient-vs-comfortable": "The hotel is comfortable because it is next to the station and shops.",
+        "borrow-vs-lend": "My friend borrowed me some money for the camera last week.",
+        "say-tell-speak-talk": "My teacher spoke me the answer during our English lesson yesterday.",
+        "economic-vs-economical": "Taking the bus is more economic for students every single day.",
+        "fun-vs-funny": "Playing badminton with my friends is really funny because we enjoy it.",
     }
     units = {unit["unit_slug"]: unit for unit in load_pilot(CONTENT_FILE)["units"]}
+    assert set(probes) == set(units), "Mỗi pilot unit cần một known-error probe"
     for slug, answer in probes.items():
         task = next(
             task for task in units[slug]["tasks"]
@@ -377,6 +386,12 @@ def test_pilot_construction_units_reject_keyword_only_transfer_answers():
         )
         result = vocab_units.grade_response(task, {"answer": answer})
         assert result["correct"] is False, f"{slug} accepted keyword-only answer"
+
+    impact_task = next(
+        task for task in units["have-an-impact-on"]["tasks"]
+        if task["task_type"] == "productive_transfer"
+    )
+    assert "make an impact on" not in impact_task["answer_key"]["forbidden"]
 
 
 def test_curated_pilot_identity_and_pathway_refs_are_unique():

@@ -383,9 +383,27 @@ BEGIN
         RAISE EXCEPTION 'changes_requested';
     END IF;
 
-    IF (SELECT COUNT(DISTINCT reviewer_id)
-          FROM vocab_unit_version_reviews
-         WHERE version_id = p_version AND decision = 'approved') < 3 THEN
+    -- Require an actual one-to-one assignment between the three review gates
+    -- and three people. Merely seeing three distinct IDs somewhere in the
+    -- approval set is insufficient when one person owns multiple required gates.
+    IF NOT EXISTS (
+        SELECT 1
+          FROM vocab_unit_version_reviews language
+          JOIN vocab_unit_version_reviews pedagogy
+            ON pedagogy.version_id = language.version_id
+           AND pedagogy.review_type = 'pedagogy'
+           AND pedagogy.decision = 'approved'
+           AND pedagogy.reviewer_id <> language.reviewer_id
+          JOIN vocab_unit_version_reviews assessment
+            ON assessment.version_id = language.version_id
+           AND assessment.review_type = 'assessment'
+           AND assessment.decision = 'approved'
+           AND assessment.reviewer_id <> language.reviewer_id
+           AND assessment.reviewer_id <> pedagogy.reviewer_id
+         WHERE language.version_id = p_version
+           AND language.review_type = 'language'
+           AND language.decision = 'approved'
+    ) THEN
         RAISE EXCEPTION 'reviewers_must_be_distinct';
     END IF;
 
