@@ -10,6 +10,7 @@ import {
   readingDetailPath,
   validReadingSlug,
 } from '@/lib/reading-detail-model.mjs';
+import { normalizeVocabContextLinks } from '@/lib/vocab-context-links-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 type Library = 'vocab' | 'skill';
@@ -34,6 +35,7 @@ type Detail = {
   questions: Question[];
 };
 type CheckResult = { qNum: number; correct: boolean; expected: string; explanation: string | null; skillTag: string | null };
+type ContextLink = { requestTerm: string; unitSlug: string; title: string; rationale: string; level: string };
 type DialogState =
   | { kind: 'glossary'; entry: GlossaryEntry }
   | { kind: 'image'; src: string; alt: string }
@@ -195,7 +197,7 @@ function ReadingDetailWorkspace({ accountKey, library, slug }: {
   if (state.status === 'error') {
     return <ReadingDetailState kind="error" message={messageFor(library, 'error')} />;
   }
-  return <ReadingWorkspace detail={state.detail} library={library} />;
+  return <ReadingWorkspace accountKey={accountKey} detail={state.detail} library={library} />;
 }
 
 function ReadingDetailState({ kind, message }: { kind: 'loading' | 'empty' | 'error'; message: string }) {
@@ -210,7 +212,8 @@ function ReadingDetailState({ kind, message }: { kind: 'loading' | 'empty' | 'er
   );
 }
 
-function ReadingWorkspace({ detail, library }: {
+function ReadingWorkspace({ accountKey, detail, library }: {
+  accountKey: string | null;
   detail: NonNullable<Detail>;
   library: Library;
 }) {
@@ -218,6 +221,7 @@ function ReadingWorkspace({ detail, library }: {
   const [progress, setProgress] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [results, setResults] = useState<Record<number, CheckResult>>({});
+  const [contextLinks, setContextLinks] = useState<ContextLink[]>([]);
   const correct = Object.values(results).filter((result) => result.correct).length;
 
   useEffect(() => {
@@ -243,6 +247,37 @@ function ReadingWorkspace({ detail, library }: {
   useEffect(() => {
     document.title = `${detail.title} — Aver Learning`;
   }, [detail.title]);
+
+  useEffect(() => {
+    const terms = detail.glossary.map((entry) => entry.term).filter(Boolean).slice(0, 30);
+    setContextLinks([]);
+    if (!accountKey || !terms.length) return undefined;
+    const controller = new AbortController();
+    let disposed = false;
+    void (async () => {
+      try {
+        const ready = await whenGlobalReady(
+          () => typeof window.api?.postWith === 'function',
+          'window.api POST (Reading glossary context links)',
+        );
+        if (!ready || disposed) return;
+        const payload = await window.api.postWith<unknown>(
+          '/api/me/vocabulary/context-links',
+          { terms },
+          {},
+          { signal: controller.signal, noRedirect: true },
+        );
+        if (!disposed) setContextLinks(normalizeVocabContextLinks(payload) as ContextLink[]);
+      } catch {
+        // Optional enrichment: a cohort/flag/network failure must not break Reading.
+        if (!disposed) setContextLinks([]);
+      }
+    })();
+    return () => {
+      disposed = true;
+      controller.abort();
+    };
+  }, [accountKey, detail.glossary]);
 
   const backHref = library === 'vocab' ? '/reading/vocab' : '/reading/skill';
   const kicker = library === 'vocab' ? 'READING LAB · VOCAB' : 'READING LAB · SKILL PRACTICE';
@@ -276,7 +311,7 @@ function ReadingWorkspace({ detail, library }: {
             <div className={`rv-passage-layout${detail.questions.length ? '' : ' rv-passage-layout--reading-only'}`}>
               <article className="rv-reader" aria-label={library === 'vocab' ? 'Nội dung bài đọc' : 'Nội dung bài luyện'} ref={articleRef}>
                 <header className="rv-reader__head"><p>Bài đọc</p><span>{library === 'vocab' ? 'Chạm vào từ gạch chân để xem nghĩa trong ngữ cảnh.' : 'Đọc theo mục tiêu kỹ năng, sau đó kiểm tra từng câu.'}</span></header>
-                <ReadingPanes detail={detail} />
+                <ReadingPanes contextLinks={contextLinks} detail={detail} />
               </article>
               {detail.questions.length > 0 && (
                 <aside className="rv-questions" aria-label={heading}>
@@ -314,7 +349,7 @@ function InlineStrong({ value }: { value: string }) {
   })}</>;
 }
 
-function ReadingPanes({ detail }: { detail: NonNullable<Detail> }) {
+function ReadingPanes({ contextLinks, detail }: { contextLinks: ContextLink[]; detail: NonNullable<Detail> }) {
   const tabs = useMemo(() => [
     { id: 'original', label: 'Văn bản gốc' },
     ...(detail.translationVi ? [{ id: 'translation', label: 'Bài dịch' }] : []),
@@ -351,7 +386,7 @@ function ReadingPanes({ detail }: { detail: NonNullable<Detail> }) {
         >{tab.label}</button>)}
       </div>}
       <div aria-labelledby="rv-tab-original" hidden={active !== 'original'} id="rv-panel-original" role={tabs.length > 1 ? 'tabpanel' : undefined}>
-        <ReadingBody detail={detail} />
+        <ReadingBody contextLinks={contextLinks} detail={detail} />
       </div>
       {detail.translationVi && <div aria-labelledby="rv-tab-translation" className="rv-pane rv-pane--vi md-body" hidden={active !== 'translation'} id="rv-panel-translation" role="tabpanel">
         {detail.translationVi.split(/\n\s*\n/).map((paragraph, index) => paragraph.trim() ? <p key={index}>{paragraph.trim()}</p> : null)}
@@ -367,7 +402,7 @@ function ReadingPanes({ detail }: { detail: NonNullable<Detail> }) {
   );
 }
 
-function ReadingBody({ detail }: { detail: NonNullable<Detail> }) {
+function ReadingBody({ contextLinks, detail }: { contextLinks: ContextLink[]; detail: NonNullable<Detail> }) {
   const [html, setHtml] = useState('');
   const [dialog, setDialog] = useState<DialogState>(null);
   useEffect(() => {
@@ -404,12 +439,16 @@ function ReadingBody({ detail }: { detail: NonNullable<Detail> }) {
         {detail.imageUrl && <img alt={detail.title} className="prompt-chart-img" onClick={() => setDialog({ kind: 'image', src: detail.imageUrl!, alt: detail.title })} role="button" src={detail.imageUrl} tabIndex={0} />}
         {html ? <div dangerouslySetInnerHTML={{ __html: html }} /> : <p>{detail.bodyMarkdown}</p>}
       </div>
-      <ReadingDialog dialog={dialog} onClose={() => setDialog(null)} />
+      <ReadingDialog
+        contextLink={dialog?.kind === 'glossary' ? contextLinks.find((link) => link.requestTerm === dialog.entry.term) || null : null}
+        dialog={dialog}
+        onClose={() => setDialog(null)}
+      />
     </>
   );
 }
 
-function ReadingDialog({ dialog, onClose }: { dialog: DialogState; onClose(): void }) {
+function ReadingDialog({ contextLink, dialog, onClose }: { contextLink: ContextLink | null; dialog: DialogState; onClose(): void }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -438,7 +477,7 @@ function ReadingDialog({ dialog, onClose }: { dialog: DialogState; onClose(): vo
       <button aria-label="Đóng" className="rv-dialog__close" onClick={onClose} type="button">✕</button>
       {dialog.kind === 'image'
         ? <><h2 className="rv-visually-hidden" id="rv-dialog-title">Xem ảnh bài đọc</h2><img alt={dialog.alt} src={dialog.src} /></>
-        : <><h2 id="rv-dialog-title">{dialog.entry.term}</h2>{(dialog.entry.ipa || dialog.entry.pos) && <p className="rv-dialog__meta">{dialog.entry.ipa && `/${String(dialog.entry.ipa).replace(/^\/+|\/+$/g, '')}/`} {dialog.entry.pos}</p>}<p>{dialog.entry.definition}</p>{dialog.entry.example && <p className="rv-dialog__example">“{dialog.entry.example}”</p>}{dialog.entry.synonyms && <p className="rv-dialog__synonyms">Đồng nghĩa: {Array.isArray(dialog.entry.synonyms) ? dialog.entry.synonyms.join(', ') : dialog.entry.synonyms}</p>}</>}
+        : <><h2 id="rv-dialog-title">{dialog.entry.term}</h2>{(dialog.entry.ipa || dialog.entry.pos) && <p className="rv-dialog__meta">{dialog.entry.ipa && `/${String(dialog.entry.ipa).replace(/^\/+|\/+$/g, '')}/`} {dialog.entry.pos}</p>}<p>{dialog.entry.definition}</p>{dialog.entry.example && <p className="rv-dialog__example">“{dialog.entry.example}”</p>}{dialog.entry.synonyms && <p className="rv-dialog__synonyms">Đồng nghĩa: {Array.isArray(dialog.entry.synonyms) ? dialog.entry.synonyms.join(', ') : dialog.entry.synonyms}</p>}{contextLink && <section className="rv-dialog__curated" aria-label="Bài học Vocab Wiki liên quan"><p className="rv-dialog__curated-kicker">VOCAB WIKI{contextLink.level ? ` · ${contextLink.level}` : ''}</p><h3>{contextLink.title}</h3><p>{contextLink.rationale}</p><a className="rv-dialog__curated-link" href={`/vocabulary/learn/${encodeURIComponent(contextLink.unitSlug)}`}>Học cách dùng sâu hơn <span aria-hidden="true">→</span></a></section>}</>}
     </div>
   </div>;
 }
