@@ -187,7 +187,7 @@ describe('Sprint 14.2 — practice.js dispatches on backend audio_too_short deta
     // is invoked inside _resetRecorder.
     assert.match(
       PRACTICE_JS,
-      /function\s+_resetRecorder\s*\(\)\s*\{[\s\S]{0,1200}_teardownRecordedPlayback\(\)/,
+      /function\s+_resetRecorder\s*\(\)\s*\{[\s\S]{0,1400}_teardownRecordedPlayback\(\)/,
     );
     // And the teardown actually revokes the URL.
     assert.match(
