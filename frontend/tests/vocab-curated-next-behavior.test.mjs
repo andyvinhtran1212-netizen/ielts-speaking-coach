@@ -81,4 +81,17 @@ describe('/vocabulary/learn/[unitSlug] — server-graded learning loop', () => {
     assert.match(LESSON, /status === 403 \|\| status === 503/);
     assert.match(LESSON, /Vocab Curated vừa tạm đóng/);
   });
+
+  test('records an owned recommendation open without blocking lesson access', () => {
+    assert.match(LESSON, /useSearchParams/);
+    assert.match(LESSON, /accountKey = status === 'signed-in' \? user\?\.id : null/);
+    assert.match(LESSON, /recommendations\/\$\{encodeURIComponent\(recommendationId\)\}\/open/);
+    assert.match(LESSON, /unit_slug: unitSlug/);
+    assert.match(LESSON, /must never block lesson access/);
+    assert.match(HOME, /recommendation=\$\{encodeURIComponent\(recommendationId\)\}/);
+  });
+
+  test('clears prior lesson and error state before an account-scoped reload', () => {
+    assert.match(LESSON, /useEffect\(\(\) => \{\s*setUnit\(null\);\s*setError\(''\);\s*if \(status === 'signed-out'\)/);
+  });
 });

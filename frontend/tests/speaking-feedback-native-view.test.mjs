@@ -250,7 +250,7 @@ describe('Speaking feedback native structured model', () => {
       recId: 'rec-1', slug: 'prefer-x-to-y', title: 'prefer X to Y',
       reason: 'Bạn vừa dùng sai khung prefer.',
       evidence: 'I prefer tea than coffee', corrected: 'I prefer tea to coffee',
-      href: '/vocabulary/learn/prefer-x-to-y',
+      href: '/vocabulary/learn/prefer-x-to-y?recommendation=rec-1',
     }]);
     assert.match(SHELL, /<VocabRecommendations recommendations=\{feedback\.vocabRecommendations\}/);
     assert.match(SHELL, /Học từ lỗi vừa nói/);

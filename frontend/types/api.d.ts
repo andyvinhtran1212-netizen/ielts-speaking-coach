@@ -5339,6 +5339,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/vocabulary/recommendations/{recommendation_id}/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open My Vocab Recommendation */
+        post: operations["open_my_vocab_recommendation_api_me_vocabulary_recommendations__recommendation_id__open_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vocabulary/tasks/{task_id}/attempt": {
         parameters: {
             query?: never;
@@ -5350,6 +5367,40 @@ export interface paths {
         put?: never;
         /** Submit Vocab Task Attempt */
         post: operations["submit_vocab_task_attempt_api_vocabulary_tasks__task_id__attempt_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/pilot-metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Get Vocab Pilot Metrics */
+        get: operations["admin_get_vocab_pilot_metrics_admin_vocabulary_pilot_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/pilot-cohort/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Set Vocab Pilot Cohort */
+        post: operations["admin_set_vocab_pilot_cohort_admin_vocabulary_pilot_cohort__user_id__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11969,6 +12020,11 @@ export interface components {
             /** Bullets */
             bullets?: string[];
         };
+        /** CuratedCohortRequest */
+        CuratedCohortRequest: {
+            /** Enabled */
+            enabled: boolean;
+        };
         /** D1AttemptRequest */
         D1AttemptRequest: {
             /** User Answer */
@@ -13413,6 +13469,11 @@ export interface components {
             to_user_id: string;
             /** Reason */
             reason?: string | null;
+        };
+        /** RecommendationOpenRequest */
+        RecommendationOpenRequest: {
+            /** Unit Slug */
+            unit_slug: string;
         };
         /** RefillRequest */
         RefillRequest: {
@@ -23244,6 +23305,43 @@ export interface operations {
             };
         };
     };
+    open_my_vocab_recommendation_api_me_vocabulary_recommendations__recommendation_id__open_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                recommendation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecommendationOpenRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     submit_vocab_task_attempt_api_vocabulary_tasks__task_id__attempt_post: {
         parameters: {
             query?: never;
@@ -23258,6 +23356,76 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AttemptRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_get_vocab_pilot_metrics_admin_vocabulary_pilot_metrics_get: {
+        parameters: {
+            query?: {
+                days?: "30" | "90" | "180";
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_set_vocab_pilot_cohort_admin_vocabulary_pilot_cohort__user_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CuratedCohortRequest"];
             };
         };
         responses: {
