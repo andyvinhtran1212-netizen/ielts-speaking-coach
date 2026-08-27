@@ -132,6 +132,9 @@ def test_migration_keeps_lifecycle_private_transactional_and_time_bounded():
         / "migrations"
         / "238_vocab_curated_pilot_metrics.sql"
     ).read_text("utf-8")
+    assert sql.lstrip().splitlines()[0].startswith("--")
+    assert "\nBEGIN;\n" in sql
+    assert sql.rstrip().endswith("COMMIT;")
     assert "ALTER TABLE vocab_curated_cohort_events ENABLE ROW LEVEL SECURITY" in sql
     assert "AFTER INSERT ON vocab_unit_attempts" in sql
     assert "AFTER INSERT ON vocab_unit_recommendations" in sql

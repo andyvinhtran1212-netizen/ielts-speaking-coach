@@ -8,6 +8,8 @@
 -- aggregates computed in PostgreSQL so learner-level rows never leave the DB.
 -- ============================================================================
 
+BEGIN;
+
 ALTER TABLE vocab_unit_recommendations
     ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ,
@@ -667,3 +669,5 @@ REVOKE ALL ON FUNCTION fn_vocab_curated_pilot_metrics(
 GRANT EXECUTE ON FUNCTION fn_vocab_curated_pilot_metrics(
     INTEGER, TIMESTAMPTZ
 ) TO service_role;
+
+COMMIT;
