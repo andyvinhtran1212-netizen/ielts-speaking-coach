@@ -211,6 +211,34 @@ async def submit_vocab_task_attempt(
         raise _translate_domain_error(exc) from exc
 
 
+@router.get("/admin/vocabulary/editorial/units")
+async def admin_list_vocab_editorial_units(
+    status: Literal["draft", "published", "archived"] | None = Query(default=None),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+    authorization: str | None = Header(default=None),
+):
+    await require_admin(authorization)
+    try:
+        return vocab_units.list_editorial_units(
+            status=status, offset=offset, limit=limit,
+        )
+    except Exception as exc:
+        raise _translate_domain_error(exc) from exc
+
+
+@router.get("/admin/vocabulary/editorial/units/{unit_id}")
+async def admin_get_vocab_editorial_unit(
+    unit_id: UUID,
+    authorization: str | None = Header(default=None),
+):
+    await require_admin(authorization)
+    try:
+        return vocab_units.get_editorial_unit(str(unit_id))
+    except Exception as exc:
+        raise _translate_domain_error(exc) from exc
+
+
 @router.post("/admin/vocabulary/units", status_code=201)
 async def admin_create_vocab_unit(
     body: UnitCreateRequest,
