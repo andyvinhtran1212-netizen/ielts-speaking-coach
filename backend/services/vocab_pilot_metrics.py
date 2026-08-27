@@ -86,4 +86,3 @@ def set_cohort_flag(
     if not row:
         raise VocabPilotMetricsError("Không cập nhật được cohort Vocab Curated")
     return row
-
