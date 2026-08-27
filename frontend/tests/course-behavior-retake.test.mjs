@@ -216,6 +216,31 @@ describe('cổng hoàn thành bài nhiều phần', () => {
     assert.match(SRC, /assignedSectionCount\('listening', liveListeningCount\)/);
   });
 
+  test('snapshot phát âm được đếm ngay cả khi lookup live thất bại', async () => {
+    const countBody = functionBody('assignedSectionCount');
+    const assignedCount = new Function(
+      'hasSectionSnapshot', 'assignedSectionCounts', 'name', 'liveCount',
+      countBody,
+    );
+    const pronunciationCount = assignedCount(
+      true, { quiz: 90, writing: 10, reading: 10, listening: 20, pronunciation: 12 },
+      'pronunciation', 0,
+    );
+    const titleMeta = { textContent: '' };
+    const render = new Function(
+      'runner', 'titleMeta', 'quizCount', 'writingCount',
+      'readingCount', 'listeningCount', 'pronunciationCount',
+      functionBody('renderTitleMeta'),
+    );
+
+    render({}, titleMeta, 90, 10, 10, 20, pronunciationCount);
+    await Promise.reject(new Error('lookup hỏng')).catch(() => {});
+
+    assert.match(titleMeta.textContent, /^142 câu tất cả/);
+    assert.match(titleMeta.textContent, /12 câu phát âm/);
+    assert.match(SRC, /renderTitleMeta\(initialPronunciationCount\)/);
+  });
+
   test('không vẽ đạt hoặc không đạt khi vẫn còn phần bắt buộc', () => {
     assert.match(SRC, /v\.completed === false/);
     assert.match(SRC, /chỉ kết luận đạt hoặc chưa đạt sau khi đủ tất cả các phần/);

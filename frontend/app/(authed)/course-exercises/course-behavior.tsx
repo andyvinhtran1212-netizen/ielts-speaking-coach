@@ -135,6 +135,7 @@ export function CourseBehavior() {
       );
       const readingCount = assignedSectionCount('reading', liveReadingCount);
       const listeningCount = assignedSectionCount('listening', liveListeningCount);
+      const initialPronunciationCount = assignedSectionCount('pronunciation', 0);
       function renderTitleMeta(pronunciationCount = 0) {
         if (!titleMeta) return;
         const totalCount = quizCount + writingCount + readingCount
@@ -147,7 +148,7 @@ export function CourseBehavior() {
         titleMeta.textContent = `${totalCount} câu tất cả · ${parts.join(' · ')}`
           + '. Trắc nghiệm hiện giải thích ngay sau mỗi câu.';
       }
-      renderTitleMeta();
+      renderTitleMeta(initialPronunciationCount);
 
       // Một bank có thể được giao nhiều lần. Draft và mọi review phải bám đúng
       // item canonical mà server vừa trả, không dùng chung theo bank.
