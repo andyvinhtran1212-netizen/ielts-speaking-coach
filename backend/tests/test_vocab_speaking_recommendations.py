@@ -286,6 +286,45 @@ def test_confirmed_recommendations_are_written_back_to_feedback_blob():
     assert '"prefer-x-to-y"' in stored
 
 
+def test_recommendation_gate_requires_flag_read_switch_and_learner_cohort():
+    states = {
+        "vocab_unit_recommendations": True,
+        "vocab_units_read": True,
+    }
+    with (
+        patch.object(
+            grading_router.runtime_flags,
+            "is_enabled",
+            side_effect=lambda key, default=False: states.get(key, default),
+        ),
+        patch.object(
+            grading_router.feature_flags,
+            "is_vocab_curated_enabled",
+            return_value=True,
+        ) as cohort,
+    ):
+        assert grading_router._curated_vocab_recommendations_enabled("eligible") is True
+        cohort.return_value = False
+        assert grading_router._curated_vocab_recommendations_enabled("outside-pilot") is False
+        cohort.return_value = True
+        states["vocab_units_read"] = False
+        assert grading_router._curated_vocab_recommendations_enabled("read-disabled") is False
+
+
+def test_recommendation_gate_short_circuits_when_recommendation_flag_is_off():
+    with (
+        patch.object(
+            grading_router.runtime_flags, "is_enabled", return_value=False,
+        ) as switches,
+        patch.object(
+            grading_router.feature_flags, "is_vocab_curated_enabled",
+        ) as cohort,
+    ):
+        assert grading_router._curated_vocab_recommendations_enabled("user") is False
+    switches.assert_called_once_with("vocab_unit_recommendations", default=False)
+    cohort.assert_not_called()
+
+
 def test_practice_parser_sanitizes_generic_evidence_without_requiring_it():
     payload = {
         "grammar_issues": [], "vocabulary_issues": [], "pronunciation_issues": [],

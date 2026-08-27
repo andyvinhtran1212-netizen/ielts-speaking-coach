@@ -60,7 +60,9 @@ mastery tăng chỉ nhờ đoán lựa chọn.
   định `confidence` của model.
 - Recommendation xuất hiện ngay trong feedback Speaking, được giữ trong
   persisted feedback để `/result` render lại, và vào Today queue từ bảng
-  `vocab_unit_recommendations` khi runtime flag được bật.
+  `vocab_unit_recommendations` chỉ khi recommendation flag, read switch và
+  cohort `users.feature_flags.vocab_curated_enabled` cùng bật. Vì vậy mọi link
+  được tạo đều trỏ tới một lesson mà chính học viên đó có quyền mở.
 
 ## Publish gate
 

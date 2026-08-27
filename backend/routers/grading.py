@@ -38,6 +38,7 @@ from services import claude_grader
 from services import azure_pronunciation
 from services import ai_usage_logger
 from services import kp_evidence
+from services import feature_flags
 from services import runtime_flags
 from services import vocab_speaking_recommendations
 from services.pronunciation_sampling import _part2_segment, extract_audio_segment
@@ -906,8 +907,8 @@ async def grade_response_endpoint(
             raw_vocab_evidence = grading.pop("vocabulary_evidence", [])
             grading["vocab_recommendations"] = []
             try:
-                vocab_recommendations_enabled = runtime_flags.is_enabled(
-                    "vocab_unit_recommendations", default=False,
+                vocab_recommendations_enabled = (
+                    _curated_vocab_recommendations_enabled(user_id)
                 )
                 if vocab_recommendations_enabled:
                     signal_catalog = vocab_speaking_recommendations.load_signal_catalog()
@@ -1429,6 +1430,17 @@ def _serialize_feedback(grading: dict, signals: dict) -> str:
     invariant (every grammar rec in the blob carries its rec_id) is
     unit-testable without a DB."""
     return json.dumps({**grading, **signals}, ensure_ascii=False)
+
+
+def _curated_vocab_recommendations_enabled(user_id: str) -> bool:
+    """Mirror the destination's rollout gates before creating a learner link."""
+    if not runtime_flags.is_enabled(
+        "vocab_unit_recommendations", default=False,
+    ):
+        return False
+    if not runtime_flags.is_enabled("vocab_units_read", default=False):
+        return False
+    return feature_flags.is_vocab_curated_enabled(user_id)
 
 
 def _persist_curated_vocab_feedback_blob(
