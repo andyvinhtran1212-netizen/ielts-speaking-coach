@@ -24,8 +24,9 @@ describe('native curated editorial workspace', () => {
     assert.match(CLIENT, /\/admin\/vocabulary\/editorial\/units\/\$\{encodeURIComponent\(unitId\)\}/);
     for (const path of ['/validate', '/reviews', '/publish', '/rollback']) assert.ok(CLIENT.includes(path), path);
     assert.match(CLIENT, /await refreshCanonical\(/);
-    assert.match(CLIENT, /Mutation đã trả về nhưng canonical readback thất bại/);
-    assert.match(CLIENT, /if \(!await loadDetail\(/);
+    assert.match(CLIENT, /Mutation đã được backend nhận nhưng canonical readback thất bại/);
+    assert.match(CLIENT, /if \(detailResult !== 'ok'\) return detailResult/);
+    assert.match(CLIENT, /result === 'error'/);
   });
 
   test('pages the bounded server catalog instead of hiding units after the first 100', () => {
@@ -40,7 +41,15 @@ describe('native curated editorial workspace', () => {
     assert.match(CLIENT, /Chờ duyệt/);
     assert.match(CLIENT, /Cần sửa/);
     assert.match(CLIENT, /<details><summary>Đáp án riêng & giải thích<\/summary>/);
+    assert.match(CLIENT, /<summary>Mở diff task và đáp án riêng<\/summary>/);
     assert.match(CLIENT, /ba cửa bắt buộc ba reviewer khác nhau/);
+  });
+
+  test('keeps pilot and page-local state operationally truthful', () => {
+    assert.match(HUB, /item\.status === 'LIVE' \? 'live' : 'new'/);
+    assert.match(CLIENT, /Lọc inbox áp dụng cho trang đang tải/);
+    assert.match(CLIENT, /setReviewNotes\(''\)/);
+    assert.match(CLIENT, /rollbackCancelRef\.current\?\.focus\(\)/);
   });
 
   test('has bounded master-detail and mobile layout rules', () => {

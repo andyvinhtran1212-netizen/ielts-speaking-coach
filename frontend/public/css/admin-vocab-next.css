@@ -228,7 +228,10 @@
 .avv-editorial-preview footer a { color: var(--av-brand-teal-700); }
 .avv-editorial-diff > article { overflow: hidden; border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md); }
 .avv-editorial-diff h4 { margin: 0; padding: 10px 12px; border-bottom: 1px solid var(--av-border-default); background: var(--av-surface-sunken); font-family: var(--av-font-mono); font-size: .76rem; }
-.avv-editorial-diff article > div { display: grid; grid-template-columns: 1fr 1fr; }
+.avv-editorial-diff article > div, .avv-editorial-diff details > div { display: grid; grid-template-columns: 1fr 1fr; }
+.avv-editorial-diff details { padding: 12px; }
+.avv-editorial-diff summary { color: var(--av-brand-teal-700); font-size: .78rem; font-weight: 750; cursor: pointer; }
+.avv-editorial-diff details > div { margin: 10px -12px -12px; border-top: 1px solid var(--av-border-default); }
 .avv-editorial-diff article section { min-width: 0; padding: 12px; }
 .avv-editorial-diff article section + section { border-left: 1px solid var(--av-border-default); background: color-mix(in srgb, var(--av-brand-teal-50) 38%, var(--av-surface-card)); }
 .avv-editorial-diff article section > span { display: block; margin-bottom: 8px; color: var(--av-text-muted); font-size: .65rem; font-weight: 800; text-transform: uppercase; }

@@ -10,7 +10,7 @@ function normalizeGate(value) {
   if (!isObject(value) || !isObject(value.states)
     || !Array.isArray(value.pending_review_types)
     || typeof value.has_distinct_reviewers !== 'boolean'
-    || typeof value.ready_for_publish !== 'boolean') return null;
+    || typeof value.reviews_ready !== 'boolean') return null;
   const states = {};
   for (const type of REVIEW_TYPES) {
     const state = value.states[type];
@@ -22,7 +22,7 @@ function normalizeGate(value) {
     states,
     pendingReviewTypes: [...value.pending_review_types],
     hasDistinctReviewers: value.has_distinct_reviewers,
-    readyForPublish: value.ready_for_publish,
+    reviewsReady: value.reviews_ready,
   };
 }
 
@@ -142,10 +142,13 @@ function normalizeVersionDetail(value) {
 export function normalizeEditorialDetail(value) {
   if (!isObject(value) || !isObject(value.unit)
     || !Array.isArray(value.versions) || !Array.isArray(value.events)
+    || !isInteger(value.events_total) || value.events_total < value.events.length
+    || typeof value.events_has_more !== 'boolean'
+    || value.events_has_more !== (value.events_total > value.events.length)
     || !isString(value.unit.id) || !isString(value.unit.display_headword)
     || !isString(value.unit.unit_slug)) return null;
   const versions = value.versions.map(normalizeVersionDetail);
-  if (versions.some((item) => !item)) return null;
+  if (versions.some((item) => !item) || value.events.some((item) => !isObject(item))) return null;
   return {
     unit: {
       ...value.unit,
@@ -155,7 +158,9 @@ export function normalizeEditorialDetail(value) {
         ? value.unit.current_published_version_id ?? '' : '',
     },
     versions,
-    events: value.events.filter(isObject),
+    events: value.events,
+    eventsTotal: value.events_total,
+    eventsHasMore: value.events_has_more,
   };
 }
 

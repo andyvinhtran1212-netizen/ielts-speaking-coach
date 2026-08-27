@@ -103,7 +103,7 @@ def _rows_for_ids(
 
 
 def _review_gate_summary(reviews: list[dict[str, Any]]) -> dict[str, Any]:
-    """Mirror the database publish gate without replacing it as source of truth."""
+    """Mirror only the database review gates; content/task validation stays separate."""
     by_type: dict[str, list[dict[str, Any]]] = {
         review_type: [] for review_type in REVIEW_TYPES
     }
@@ -143,7 +143,7 @@ def _review_gate_summary(reviews: list[dict[str, Any]]) -> dict[str, Any]:
         "states": states,
         "pending_review_types": pending,
         "has_distinct_reviewers": has_distinct_reviewers,
-        "ready_for_publish": not pending and has_distinct_reviewers,
+        "reviews_ready": not pending and has_distinct_reviewers,
     }
 
 
@@ -604,6 +604,9 @@ def list_editorial_units(
         .execute()
     )
     units = _rows(result)
+    total = getattr(result, "count", None)
+    if total is None:
+        raise VocabUnitError("Editorial catalog thiếu exact count")
     unit_ids = [str(unit["id"]) for unit in units if unit.get("id")]
     versions = _rows_for_ids(
         "vocab_unit_versions",
@@ -665,10 +668,9 @@ def list_editorial_units(
         {**unit, "versions": versions_by_unit.get(str(unit.get("id")), [])}
         for unit in units
     ]
-    total = getattr(result, "count", None)
     return {
         "items": items,
-        "total": int(total) if total is not None else len(items),
+        "total": int(total),
         "offset": offset,
         "limit": limit,
     }
@@ -720,15 +722,19 @@ def get_editorial_unit(unit_id: str) -> dict[str, Any]:
         version_ids,
         max_rows=1000,
     )
-    events = _rows(
+    event_result = (
         supabase_admin.table("vocab_unit_publication_events")
-        .select("id,unit_id,version_id,action,actor_id,created_at")
+        .select("id,unit_id,version_id,action,actor_id,created_at", count="exact")
         .eq("unit_id", unit_id)
         .order("created_at", desc=True)
         .order("id", desc=True)
         .limit(100)
         .execute()
     )
+    events = _rows(event_result)
+    events_total = getattr(event_result, "count", None)
+    if events_total is None:
+        raise VocabUnitError("Editorial history thiếu exact count")
 
     tasks_by_version: dict[str, list[dict[str, Any]]] = {}
     for task in tasks:
@@ -751,7 +757,13 @@ def get_editorial_unit(unit_id: str) -> dict[str, Any]:
             "reviews": version_reviews,
             "review_gate": _review_gate_summary(version_reviews),
         })
-    return {"unit": unit, "versions": version_bundles, "events": events}
+    return {
+        "unit": unit,
+        "versions": version_bundles,
+        "events": events,
+        "events_total": int(events_total),
+        "events_has_more": int(events_total) > len(events),
+    }
 
 
 def create_unit(payload: dict[str, Any], admin_id: str) -> dict[str, Any]:

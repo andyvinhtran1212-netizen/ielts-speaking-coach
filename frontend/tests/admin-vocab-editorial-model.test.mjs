@@ -4,6 +4,7 @@ import { describe, test } from 'node:test';
 import {
   buildEditorialDiff,
   editorialCatalogQuery,
+  normalizeEditorialDetail,
   normalizeEditorialListPayload,
   safeEditorialSourceHref,
 } from '../lib/admin-vocab-editorial-model.mjs';
@@ -12,7 +13,7 @@ const gate = {
   states: { language: 'approved', pedagogy: 'pending', assessment: 'changes_requested' },
   pending_review_types: ['pedagogy', 'assessment'],
   has_distinct_reviewers: false,
-  ready_for_publish: false,
+  reviews_ready: false,
 };
 
 describe('admin vocab editorial model', () => {
@@ -50,6 +51,20 @@ describe('admin vocab editorial model', () => {
     assert.deepEqual(buildEditorialDiff(base, target).map((entry) => entry.field), [
       'content.title_vi', 'sources', 'tasks',
     ]);
+  });
+
+  test('normalizes a complete detail bundle and rejects event-count drift', () => {
+    const payload = {
+      unit: { id: 'unit-1', display_headword: 'impact', unit_slug: 'impact', current_published_version_id: null },
+      versions: [{
+        id: 'version-1', version_number: 1, status: 'in_review', content: { title_vi: 'Impact' },
+        sources: [], tasks: [], reviews: [], review_gate: gate,
+      }],
+      events: [{ id: 'event-1', action: 'publish' }], events_total: 2, events_has_more: true,
+    };
+    assert.equal(normalizeEditorialDetail(payload).eventsTotal, 2);
+    assert.equal(normalizeEditorialDetail({ ...payload, events_has_more: false }), null);
+    assert.equal(normalizeEditorialDetail({ ...payload, events: [null] }), null);
   });
 
   test('catalog query rejects unbounded or unknown filters', () => {

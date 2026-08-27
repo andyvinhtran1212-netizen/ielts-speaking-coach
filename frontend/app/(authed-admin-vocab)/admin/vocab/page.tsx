@@ -34,7 +34,7 @@ export default function AdminVocabPage() {
             <div className="avv-grid">
               {destinations.map((item, index) => (
                 <a className={`avv-card${'featured' in item && item.featured ? ' avv-card--featured' : ''}`} href={item.href} key={item.href}>
-                  <div className="avv-card__top"><span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span><span className="adm-status-pill is-live">{item.status}</span></div>
+                  <div className="avv-card__top"><span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span><span className={`adm-status-pill is-${item.status === 'LIVE' ? 'live' : 'new'}`}>{item.status}</span></div>
                   <div><p className="avv-card__eyebrow">{item.eyebrow}</p><h3>{item.title}</h3><p>{item.description}</p></div>
                   <footer><span>{item.detail}</span><span aria-hidden="true">→</span></footer>
                 </a>

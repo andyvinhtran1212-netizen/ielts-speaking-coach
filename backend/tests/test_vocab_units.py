@@ -563,7 +563,7 @@ def test_editorial_catalog_derives_the_database_review_gate_truthfully():
         },
         "pending_review_types": [],
         "has_distinct_reviewers": True,
-        "ready_for_publish": True,
+        "reviews_ready": True,
     }
 
 
@@ -576,7 +576,16 @@ def test_editorial_review_gate_stays_blocked_by_change_request():
     ])
     assert gate["states"]["language"] == "changes_requested"
     assert gate["pending_review_types"] == ["language"]
-    assert gate["ready_for_publish"] is False
+    assert gate["reviews_ready"] is False
+
+
+def test_editorial_catalog_fails_closed_without_exact_count():
+    unit_query = _query([])
+    unit_query.execute.return_value.count = None
+    with patch.object(vocab_units, "supabase_admin") as database:
+        database.table.return_value = unit_query
+        with pytest.raises(vocab_units.VocabUnitError, match="thiếu exact count"):
+            vocab_units.list_editorial_units(offset=20, limit=10)
 
 
 def test_editorial_catalog_route_requires_admin_and_forwards_pagination():
@@ -596,7 +605,7 @@ def test_editorial_detail_route_keeps_private_bundle_behind_admin_guard():
     expected = {
         "unit": {"id": TASK_ID, "display_headword": "target"},
         "versions": [{"id": "version-1", "tasks": [{"answer_key": {"accepted": ["target"]}}]}],
-        "events": [],
+        "events": [], "events_total": 0, "events_has_more": False,
     }
     with patch("routers.vocab_units.require_admin", new=AsyncMock(return_value=ADMIN)), \
          patch("routers.vocab_units.vocab_units.get_editorial_unit", return_value=expected) as detail:
@@ -624,6 +633,7 @@ def test_schema_migrations_pin_idempotency_rls_and_rpc_security():
     assert "published_vocab_task_is_immutable" in attempts
     assert "FOR SHARE" in identity and "FOR SHARE" in attempts
     assert "pedagogy.reviewer_id <> language.reviewer_id" in attempts
+    assert "assessment.reviewer_id <> language.reviewer_id" in attempts
     assert "assessment.reviewer_id <> pedagogy.reviewer_id" in attempts
     assert "missing_task_count" in attempts
     assert "task_dimension_mismatch" in attempts
