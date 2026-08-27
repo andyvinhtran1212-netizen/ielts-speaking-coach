@@ -81,6 +81,10 @@ def validate_pilot(payload: dict[str, Any]) -> list[str]:
             elif code in signal_codes:
                 errors.append(f"signal_code bị trùng: {code}")
             signal_codes.add(code)
+            if signal.get("status", "active") not in {"active", "inactive"}:
+                errors.append(
+                    f"{slug}: speaking_signals[{signal_index}].status không hợp lệ"
+                )
             for field in (
                 "trigger_description", "exclusion_description", "reason_vi",
             ):
@@ -298,7 +302,7 @@ def _seed_speaking_signals(
             "match_spec": signal["match_spec"],
             "reason_vi": signal["reason_vi"],
             "priority": int(signal.get("priority") or 100),
-            "status": "active",
+            "status": signal.get("status", "active"),
         }
         if existing:
             stored = _one(

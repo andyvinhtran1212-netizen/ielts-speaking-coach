@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 import uuid
+from copy import deepcopy
 from typing import Any
 
 from database import supabase_admin
@@ -20,9 +22,11 @@ logger = logging.getLogger(__name__)
 
 MAX_ACTIVE_SIGNAL_MAPS = 100
 MAX_RECOMMENDATIONS_PER_RESPONSE = 2
+SIGNAL_CATALOG_CACHE_TTL_SECONDS = 15.0
 _RECOMMENDATION_NAMESPACE = uuid.UUID("24c31e9c-65c1-4fbd-93b6-f187c66f9fa7")
 _NON_WORD = re.compile(r"[^a-z0-9']+")
 _SPACES = re.compile(r"\s+")
+_catalog_cache: tuple[float, list[dict[str, Any]]] | None = None
 
 
 class VocabSpeakingRecommendationError(Exception):
@@ -34,7 +38,7 @@ def _rows(result: Any) -> list[dict[str, Any]]:
     return data if isinstance(data, list) else []
 
 
-def load_signal_catalog() -> list[dict[str, Any]]:
+def _load_signal_catalog_uncached() -> list[dict[str, Any]]:
     """Load active mappings whose target is a currently published unit."""
     mappings = _rows(
         supabase_admin.table("vocab_speaking_signal_maps")
@@ -89,6 +93,23 @@ def load_signal_catalog() -> list[dict[str, Any]]:
         })
     catalog.sort(key=lambda row: (row["priority"], row["signal_code"]))
     return catalog
+
+
+def load_signal_catalog() -> list[dict[str, Any]]:
+    """Load a short-lived copy so practice grading avoids two DB reads each time."""
+    global _catalog_cache
+    now = time.monotonic()
+    if _catalog_cache and now - _catalog_cache[0] < SIGNAL_CATALOG_CACHE_TTL_SECONDS:
+        return deepcopy(_catalog_cache[1])
+    catalog = _load_signal_catalog_uncached()
+    _catalog_cache = (now, deepcopy(catalog))
+    return catalog
+
+
+def clear_signal_catalog_cache() -> None:
+    """Test/operator hook; normal editorial changes age out within 15 seconds."""
+    global _catalog_cache
+    _catalog_cache = None
 
 
 def _normalise_phrase(value: str) -> str:
@@ -236,11 +257,23 @@ def persist_recommendations(
             "[vocab_speaking_recommendations] saved %d recommendations response=%s",
             len(stored), response_id,
         )
-        return [
-            {**row, **stored_by_unit.get(str(row.get("unit_id")), {})}
-            for row in recommendations
-            if str(row.get("unit_id")) in stored_by_unit
-        ]
+        public_rows: list[dict[str, Any]] = []
+        for row in recommendations:
+            stored_row = stored_by_unit.get(str(row.get("unit_id")))
+            if not stored_row:
+                continue
+            public_rows.append({
+                "rec_id": stored_row.get("rec_id"),
+                "unit_id": stored_row.get("unit_id"),
+                "unit_slug": stored_row.get("unit_slug"),
+                "title": stored_row.get("title"),
+                "reason_vi": stored_row.get("reason_vi"),
+                "status": stored_row.get("status"),
+                "confidence": stored_row.get("confidence"),
+                "evidence": row.get("evidence"),
+                "corrected": row.get("corrected"),
+            })
+        return public_rows
     except Exception as exc:  # noqa: BLE001 - explicitly non-fatal to grading
         logger.warning(
             "[vocab_speaking_recommendations] save failed response=%s (non-fatal): %s",

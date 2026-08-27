@@ -54,6 +54,10 @@ mastery tăng chỉ nhờ đoán lựa chọn.
   được gửi cho provider. Server chỉ nhận match khi transcript có đúng evidence,
   confidence `high`, đúng một rule biên tập match và target vẫn là published
   version; mơ hồ hoặc lỗi hạ tầng đều trả rỗng, không làm hỏng kết quả chấm.
+- Pilot chỉ kích hoạt các rule có bằng chứng cấu trúc độc lập (preposition và
+  verb frame). Năm clinic ngữ nghĩa hai chiều vẫn được seed `inactive` để biên
+  tập/corpus audit, không được recommendation runtime dùng chỉ dựa trên nhận
+  định `confidence` của model.
 - Recommendation xuất hiện ngay trong feedback Speaking, được giữ trong
   persisted feedback để `/result` render lại, và vào Today queue từ bảng
   `vocab_unit_recommendations` khi runtime flag được bật.

@@ -18,7 +18,7 @@
           "signal_code": "have-impact.wrong-preposition",
           "trigger_description": "The learner attempts the collocation 'have an impact' but uses a complement other than 'on', or omits 'on' before the affected noun.",
           "exclusion_description": "Do not trigger for natural 'have an impact on', for another valid impact collocation, or merely because this phrase was not used.",
-          "match_spec": {"issue_type": "preposition", "original_pattern": "\\b(?:have|has|had|having)\\s+(?:an?\\s+|the\\s+)?impact\\s+(?:to|for|in|of)\\b", "corrected_pattern": "\\b(?:have|has|had|having)\\s+(?:an?\\s+|the\\s+)?impact\\s+on\\b"},
+          "match_spec": {"issue_type": "preposition", "original_pattern": "\\b(?:have|has|had|having)\\s+(?:an?\\s+|the\\s+)?impact\\s+(?:to|for|of)\\b", "corrected_pattern": "\\b(?:have|has|had|having)\\s+(?:an?\\s+|the\\s+)?impact\\s+on\\b"},
           "reason_vi": "Bạn vừa gặp lỗi ở khung 'have an impact on'. Unit này luyện đúng giới từ và cách dùng khi giải thích hệ quả."
         }
       ],
@@ -328,6 +328,7 @@
       "speaking_signals": [
         {
           "signal_code": "actually-currently.false-friend",
+          "status": "inactive",
           "trigger_description": "Context makes clear that the learner uses 'actually' to mean 'at present/currently', or 'currently' to correct a fact or assumption.",
           "exclusion_description": "Do not trigger when either adverb has its natural English meaning, or when the intended time/correction meaning is ambiguous.",
           "match_spec": {"issue_type": "meaning", "original_pattern": "\\b(?:actually|currently)\\b", "corrected_pattern": "\\b(?:actually|currently)\\b", "require_distinct_match": true},
@@ -379,6 +380,7 @@
       "speaking_signals": [
         {
           "signal_code": "convenient-comfortable.false-friend",
+          "status": "inactive",
           "trigger_description": "Context clearly shows 'convenient' was used for physical/emotional comfort, or 'comfortable' for practical ease of time/location/service.",
           "exclusion_description": "Do not trigger when the intended meaning is ambiguous or when each adjective is used with its natural English sense.",
           "match_spec": {"issue_type": "meaning", "original_pattern": "\\b(?:convenient|comfortable)\\b", "corrected_pattern": "\\b(?:convenient|comfortable)\\b", "require_distinct_match": true},
@@ -430,6 +432,7 @@
       "speaking_signals": [
         {
           "signal_code": "borrow-lend.direction",
+          "status": "inactive",
           "trigger_description": "The transfer direction or participant frame shows that the learner selected 'borrow' where 'lend' is required, or vice versa.",
           "exclusion_description": "Do not trigger unless giver, receiver and direction are clear enough to prove the choice is wrong.",
           "match_spec": {"issue_type": "meaning", "original_pattern": "\\b(?:borrow|borrows|borrowed|borrowing|lend|lends|lent|lending)\\b", "corrected_pattern": "\\b(?:borrow|borrows|borrowed|borrowing|lend|lends|lent|lending)\\b", "require_distinct_match": true},
@@ -532,6 +535,7 @@
       "speaking_signals": [
         {
           "signal_code": "economic-economical.word-choice",
+          "status": "inactive",
           "trigger_description": "The noun collocation and meaning clearly require 'economic' (economy-related) but the learner says 'economical', or require 'economical' (cost-saving) but says 'economic'.",
           "exclusion_description": "Do not trigger when both interpretations remain plausible or when the adjective is used correctly.",
           "match_spec": {"issue_type": "word_choice", "original_pattern": "\\b(?:economic|economical)\\b", "corrected_pattern": "\\b(?:economic|economical)\\b", "require_distinct_match": true},
@@ -583,6 +587,7 @@
       "speaking_signals": [
         {
           "signal_code": "fun-funny.meaning",
+          "status": "inactive",
           "trigger_description": "Context clearly shows the learner uses 'funny' to mean enjoyable, or 'fun' to mean humorous/strange, producing the wrong intended meaning.",
           "exclusion_description": "Do not trigger for natural uses, deliberate humour/strangeness, or contexts where both readings are plausible.",
           "match_spec": {"issue_type": "meaning", "original_pattern": "\\b(?:fun|funny)\\b", "corrected_pattern": "\\b(?:fun|funny)\\b", "require_distinct_match": true},

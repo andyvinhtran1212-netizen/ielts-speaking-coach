@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 from services import claude_grader
 from services import vocab_speaking_recommendations as recommendations
 from routers import grading as grading_router
+from scripts.seed_vocab_curated import load_pilot
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -118,6 +119,72 @@ def test_false_friend_rule_requires_the_matched_lexeme_to_change():
     )) == 1
 
 
+def test_impact_in_is_not_an_active_wrong_preposition_pattern():
+    unit = next(
+        item for item in load_pilot()["units"]
+        if item["unit_slug"] == "have-an-impact-on"
+    )
+    signal = unit["speaking_signals"][0]
+    mapping = {
+        **_mapping(code=signal["signal_code"], slug=unit["unit_slug"]),
+        "match_spec": signal["match_spec"],
+    }
+    assert recommendations.match_structured_signals(
+        [{
+            "evidence": "The policy had an impact in rural areas",
+            "corrected": "The policy had an impact on rural areas",
+            "issue_type": "preposition",
+            "confidence": "high",
+        }],
+        [mapping],
+        "The policy had an impact in rural areas.",
+        reliability_label="high",
+    ) == []
+
+
+def test_symmetric_meaning_rules_remain_inactive_until_corpus_audit():
+    signals = [
+        signal
+        for unit in load_pilot()["units"]
+        for signal in unit["speaking_signals"]
+    ]
+    inactive_codes = {
+        signal["signal_code"] for signal in signals
+        if signal.get("status") == "inactive"
+    }
+    assert inactive_codes == {
+        "actually-currently.false-friend",
+        "convenient-comfortable.false-friend",
+        "borrow-lend.direction",
+        "economic-economical.word-choice",
+        "fun-funny.meaning",
+    }
+    assert all(
+        signal["match_spec"]["issue_type"] in {"preposition", "verb_frame"}
+        for signal in signals if signal.get("status", "active") == "active"
+    )
+
+
+def test_signal_catalog_uses_a_short_ttl_and_returns_copies():
+    catalog = [_mapping()]
+    recommendations.clear_signal_catalog_cache()
+    with (
+        patch.object(
+            recommendations, "_load_signal_catalog_uncached",
+            side_effect=[[dict(catalog[0])], [dict(catalog[0])]],
+        ) as loader,
+        patch.object(recommendations.time, "monotonic", side_effect=[10.0, 20.0, 26.0]),
+    ):
+        first = recommendations.load_signal_catalog()
+        first[0]["title"] = "mutated by caller"
+        second = recommendations.load_signal_catalog()
+        third = recommendations.load_signal_catalog()
+    assert second[0]["title"] == "prefer X to Y"
+    assert third[0]["title"] == "prefer X to Y"
+    assert loader.call_count == 2
+    recommendations.clear_signal_catalog_cache()
+
+
 def test_caps_two_unique_units_and_deduplicates_one_unit():
     second = _mapping(
         code="spend-time.infinitive",
@@ -179,6 +246,8 @@ def test_persistence_uses_atomic_rpc_and_keeps_feedback_evidence_in_memory():
             [rec], user_id="user", response_id="response",
         )
     assert stored[0]["evidence"] == "I prefer tea than coffee"
+    assert "mapping_id" not in stored[0]
+    assert "signal_code" not in stored[0]
     name, payload = database.rpc.call_args.args
     assert name == "fn_replace_speaking_vocab_recommendations"
     assert payload["p_rows"][0] == {
