@@ -442,8 +442,9 @@ await page.route('**/*', async (route) => {
 await page.goto(`${BASE}/admin/vocab`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Vocabulary workspace', exact: true }).waitFor();
 check('hub qua backend-owned admin gate', requests.some((item) => item.path === '/auth/me'));
-check('hub có đủ tám workspace và canonical links', await page.locator('a.avv-card').count() === 8
+check('hub có đủ chín workspace và canonical links', await page.locator('a.avv-card').count() === 9
   && await page.getByRole('link', { name: /Xem phía học viên/ }).getAttribute('href') === '/vocabulary/hub'
+  && await page.locator('a.avv-card[href="/admin/vocab/curated"]').count() === 1
   && await page.locator('a.avv-card[href="/admin/vocab/topics"]').count() === 1
   && await page.locator('a.avv-card[href="/admin/vocab/quiz"]').count() === 1
   && await page.getByRole('link', { name: /Kết quả Quick-Check/ }).getAttribute('href') === '/admin/vocab/quiz-analytics'
