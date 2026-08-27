@@ -24,9 +24,9 @@ describe('native curated editorial workspace', () => {
     assert.match(CLIENT, /\/admin\/vocabulary\/editorial\/units\/\$\{encodeURIComponent\(unitId\)\}/);
     for (const path of ['/validate', '/reviews', '/publish', '/rollback']) assert.ok(CLIENT.includes(path), path);
     assert.match(CLIENT, /await refreshCanonical\(/);
-    assert.match(CLIENT, /Mutation đã được backend nhận nhưng canonical readback thất bại/);
+    assert.match(CLIENT, /Mutation đã được backend nhận nhưng canonical readback chưa hoàn tất/);
     assert.match(CLIENT, /if \(detailResult !== 'ok'\) return detailResult/);
-    assert.match(CLIENT, /result === 'error'/);
+    assert.match(CLIENT, /result !== 'ok'/);
   });
 
   test('pages the bounded server catalog instead of hiding units after the first 100', () => {
@@ -50,6 +50,9 @@ describe('native curated editorial workspace', () => {
     assert.match(CLIENT, /Lọc inbox áp dụng cho trang đang tải/);
     assert.match(CLIENT, /setReviewNotes\(''\)/);
     assert.match(CLIENT, /rollbackCancelRef\.current\?\.focus\(\)/);
+    assert.match(CLIENT, /trigger\?\.focus\(\)/);
+    assert.match(CLIENT, /reviewContextChanged/);
+    assert.match(CLIENT, /setDetailLoading\(false\)/);
   });
 
   test('has bounded master-detail and mobile layout rules', () => {

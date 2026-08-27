@@ -111,8 +111,12 @@ export function AdminVocabEditorial() {
   const catalogSequence = useRef(0);
   const detailSequence = useRef(0);
   const rollbackCancelRef = useRef<HTMLButtonElement>(null);
+  const rollbackTriggerRef = useRef<HTMLButtonElement>(null);
+  const busyRef = useRef(busy);
+  const reviewContextRef = useRef({ accountId: profile.id, versionId: '' });
   const accountRef = useRef(profile.id);
   accountRef.current = profile.id;
+  busyRef.current = busy;
 
   const loadDetail = useCallback(async (unitId: string, preferredVersionId = ''): Promise<LoadResult> => {
     const requestId = ++detailSequence.current;
@@ -126,9 +130,13 @@ export function AdminVocabEditorial() {
       const chosen = payload.versions.find((version) => version.id === preferredVersionId)
         || payload.versions.find((version) => ['draft', 'in_review'].includes(version.status))
         || payload.versions[0];
-      setDetail(payload); setSelectedUnitId(unitId); setSelectedVersionId(chosen?.id || '');
+      const nextVersionId = chosen?.id || '';
+      const reviewContextChanged = reviewContextRef.current.accountId !== account
+        || reviewContextRef.current.versionId !== nextVersionId;
+      reviewContextRef.current = { accountId: account, versionId: nextVersionId };
+      setDetail(payload); setSelectedUnitId(unitId); setSelectedVersionId(nextVersionId);
       setValidation(null); setRollbackVersion(null);
-      setReviewNotes(''); setReviewType('language');
+      if (reviewContextChanged) { setReviewNotes(''); setReviewType('language'); }
       return 'ok';
     } catch (caught) {
       if (requestId === detailSequence.current && account === accountRef.current) {
@@ -142,7 +150,7 @@ export function AdminVocabEditorial() {
 
   const loadCatalog = useCallback(async (nextStatus = status, nextOffset = offset, preferredUnitId = selectedUnitId, preferredVersionId = selectedVersionId): Promise<LoadResult> => {
     const query = editorialCatalogQuery({ status: nextStatus, offset: nextOffset, limit: CATALOG_PAGE_SIZE });
-    if (!query) return 'error';
+    if (!query) { setError('Bộ lọc catalog không hợp lệ.'); setLoading(false); return 'error'; }
     const requestId = ++catalogSequence.current;
     const account = profile.id;
     setLoading(true); setError(null);
@@ -158,6 +166,7 @@ export function AdminVocabEditorial() {
         if (detailResult !== 'ok') return detailResult;
       } else {
         setDetail(null); setSelectedUnitId(''); setSelectedVersionId('');
+        setDetailLoading(false);
       }
       return 'ok';
     } catch (caught) {
@@ -173,13 +182,14 @@ export function AdminVocabEditorial() {
 
   useEffect(() => {
     if (!rollbackVersion) return undefined;
+    const trigger = rollbackTriggerRef.current;
     rollbackCancelRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !busy) setRollbackVersion(null);
+      if (event.key === 'Escape' && !busyRef.current) setRollbackVersion(null);
     };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [busy, rollbackVersion]);
+    return () => { window.removeEventListener('keydown', onKeyDown); trigger?.focus(); };
+  }, [rollbackVersion]);
 
   useEffect(() => {
     void loadCatalog(status, offset, '', '');
@@ -215,11 +225,13 @@ export function AdminVocabEditorial() {
 
   const refreshCanonical = async (message: string) => {
     const result = await loadCatalog(status, offset, selectedUnitId, selectedVersionId);
-    if (result === 'error') {
-      setNotice({ kind: 'warning', message: 'Mutation đã được backend nhận nhưng canonical readback thất bại. Hãy tải lại trước khi thao tác tiếp.' });
+    if (result !== 'ok') {
+      if (profile.id === accountRef.current) {
+        setNotice({ kind: 'warning', message: 'Mutation đã được backend nhận nhưng canonical readback chưa hoàn tất. Hãy tải lại trước khi thao tác tiếp.' });
+      }
       return;
     }
-    if (result === 'ok') setNotice({ kind: 'success', message });
+    setNotice({ kind: 'success', message });
   };
 
   const validate = async () => {
@@ -295,7 +307,7 @@ export function AdminVocabEditorial() {
     <section className="avv-editorial-toolbar" aria-label="Bộ lọc editorial">
       <label>Tìm unit<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Headword hoặc slug" /></label>
       <label>Unit status<select value={status} disabled={loading || busy} onChange={(event) => { setOffset(0); setStatus(event.target.value); }}><option value="">Tất cả</option><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></label>
-      <label>Reviewer inbox<select value={inbox} onChange={(event) => setInbox(event.target.value)}><option value="all">Tất cả unit</option><option value="language">Chờ Language</option><option value="pedagogy">Chờ Pedagogy</option><option value="assessment">Chờ Assessment</option><option value="ready">Đủ review gates</option></select>{total > units.length ? <small>Lọc inbox áp dụng cho trang đang tải.</small> : null}</label>
+      <div className="avv-editorial-filter"><label>Reviewer inbox<select value={inbox} onChange={(event) => setInbox(event.target.value)}><option value="all">Tất cả unit</option><option value="language">Chờ Language</option><option value="pedagogy">Chờ Pedagogy</option><option value="assessment">Chờ Assessment</option><option value="ready">Đủ review gates</option></select></label>{total > units.length ? <small>Lọc inbox áp dụng cho trang đang tải.</small> : null}</div>
       <button className="btn-secondary" type="button" disabled={loading || busy} onClick={() => void loadCatalog()}>{loading ? 'Đang tải…' : 'Làm mới'}</button>
       <div className="avv-editorial-pager" aria-label="Phân trang catalog"><button className="btn-secondary" type="button" disabled={loading || busy || offset === 0} onClick={() => setOffset(Math.max(0, offset - CATALOG_PAGE_SIZE))}>← Trước</button><span>{total ? `${offset + 1}–${Math.min(offset + units.length, total)} / ${total}` : '0 / 0'}</span><button className="btn-secondary" type="button" disabled={loading || busy || offset + units.length >= total} onClick={() => setOffset(offset + CATALOG_PAGE_SIZE)}>Sau →</button></div>
     </section>
@@ -335,7 +347,7 @@ export function AdminVocabEditorial() {
 
           {tab === 'history' ? <section className="avv-editorial-history"><h3>Publication events</h3>{detail.events.length ? <><ol>{detail.events.map((event, index) => <li key={String(event.id || index)}><span className={`avv-chip is-${event.action === 'publish' ? 'teal' : 'warning'}`}>{String(event.action || 'event')}</span><strong>v{detail.versions.find((version) => version.id === event.version_id)?.versionNumber || '?'}</strong><time>{formatDate(event.created_at)}</time><code>{String(event.actor_id || 'system')}</code></li>)}</ol>{detail.eventsHasMore ? <p className="avv-banner is-warning">Đang hiển thị {detail.events.length}/{detail.eventsTotal} event mới nhất.</p> : null}</> : <div className="avv-state">Chưa có publication event.</div>}</section> : null}
 
-          <footer className="avv-editorial-actions"><div><button className="btn-secondary" type="button" disabled={busy} onClick={() => void validate()}>{busy ? 'Đang xử lý…' : 'Validate content gate'}</button>{validation?.versionId === selectedVersion.id ? <span className={`avv-chip is-${validation.valid ? 'teal' : 'warning'}`}>{validation.valid ? 'Validation pass' : `${validation.errors.length} lỗi`}</span> : <span className="avv-chip is-muted">Chưa validate phiên này</span>}</div><div>{selectedVersion.status === 'published' && selectedVersion.id !== detail.unit.currentPublishedVersionId ? <button className="btn-danger" type="button" disabled={busy} onClick={() => setRollbackVersion(selectedVersion)}>Rollback về v{selectedVersion.versionNumber}</button> : null}{['draft', 'in_review'].includes(selectedVersion.status) ? <button className="btn-primary" type="button" disabled={busy || validation?.versionId !== selectedVersion.id || !validation.valid || !selectedVersion.reviewGate.reviewsReady} onClick={() => void publish()}>Publish version</button> : null}</div></footer>
+          <footer className="avv-editorial-actions"><div><button className="btn-secondary" type="button" disabled={busy} onClick={() => void validate()}>{busy ? 'Đang xử lý…' : 'Validate content gate'}</button>{validation?.versionId === selectedVersion.id ? <span className={`avv-chip is-${validation.valid ? 'teal' : 'warning'}`}>{validation.valid ? 'Validation pass' : `${validation.errors.length} lỗi`}</span> : <span className="avv-chip is-muted">Chưa validate phiên này</span>}</div><div>{selectedVersion.status === 'published' && selectedVersion.id !== detail.unit.currentPublishedVersionId ? <button ref={rollbackTriggerRef} className="btn-danger" type="button" disabled={busy} onClick={() => setRollbackVersion(selectedVersion)}>Rollback về v{selectedVersion.versionNumber}</button> : null}{['draft', 'in_review'].includes(selectedVersion.status) ? <button className="btn-primary" type="button" disabled={busy || validation?.versionId !== selectedVersion.id || !validation.valid || !selectedVersion.reviewGate.reviewsReady} onClick={() => void publish()}>Publish version</button> : null}</div></footer>
           {validation?.versionId === selectedVersion.id && !validation.valid ? <div className="avv-banner is-warning"><strong>Content gate chưa đạt</strong><ul>{validation.errors.map((item) => <li key={item}>{item}</li>)}</ul></div> : null}
           {rollbackVersion ? <section className="avv-editorial-confirm" role="group" aria-labelledby="avv-rollback-title"><div><p className="avv-eyebrow">Xác nhận rollback</p><h3 id="avv-rollback-title">Đưa learner traffic về v{rollbackVersion.versionNumber}?</h3><p>Attempt và publication history không bị xoá. Backend chỉ đổi current published version sau khi xác minh version thuộc đúng unit.</p></div><div><button ref={rollbackCancelRef} className="btn-secondary" type="button" disabled={busy} onClick={() => setRollbackVersion(null)}>Hủy</button><button className="btn-danger" type="button" disabled={busy} onClick={() => void rollback()}>{busy ? 'Đang xác minh…' : 'Xác nhận rollback'}</button></div></section> : null}
         </>}

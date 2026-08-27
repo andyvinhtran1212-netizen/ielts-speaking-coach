@@ -184,6 +184,8 @@
 .avv-editorial-toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) 180px 210px auto; gap: 10px; align-items: end; padding: 14px; border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg); background: var(--av-surface-card); }
 .avv-editorial-toolbar label, .avv-editorial-detail__head label, .avv-editorial-review-form label { display: grid; gap: 6px; color: var(--av-text-muted); font-size: .7rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
 .avv-editorial-toolbar input, .avv-editorial-toolbar select, .avv-editorial-detail__head select, .avv-editorial-review-form select, .avv-editorial-review-form textarea { width: 100%; min-height: 42px; box-sizing: border-box; padding: 9px 11px; border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md); background: var(--av-surface-card); color: var(--av-text-primary); font: inherit; letter-spacing: normal; text-transform: none; }
+.avv-editorial-filter { display: grid; gap: 5px; }
+.avv-editorial-filter > small { color: var(--av-text-muted); font-size: .68rem; line-height: 1.35; }
 .avv-editorial-pager { grid-column: 1 / -1; display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding-top: 4px; }
 .avv-editorial-pager span { min-width: 120px; color: var(--av-text-muted); font-family: var(--av-font-mono); font-size: .75rem; text-align: center; }
 .avv-editorial-layout { display: grid; grid-template-columns: minmax(285px, 350px) minmax(0, 1fr); gap: 18px; align-items: start; }
