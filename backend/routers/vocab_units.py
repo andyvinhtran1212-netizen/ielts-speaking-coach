@@ -8,12 +8,13 @@ canonical ``require_admin`` database-role check.
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
@@ -24,10 +25,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["vocabulary-learning-units"])
 
 
+class LearnerAnswer(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    answer: str = Field(min_length=1, max_length=1200)
+
+
 class AttemptRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     attempt_id: UUID
-    response: dict[str, Any]
+    response: LearnerAnswer
 
 
 class UnitCreateRequest(BaseModel):
@@ -62,6 +68,13 @@ class VersionCreateRequest(BaseModel):
     sources: list[dict[str, Any]] = Field(min_length=1, max_length=20)
     tasks: list[TaskCreateRequest] = Field(min_length=1, max_length=20)
     change_note: str | None = Field(default=None, max_length=1000)
+
+    @model_validator(mode="after")
+    def bounded_editorial_payload(self):
+        size = len(json.dumps(self.model_dump(), ensure_ascii=False).encode("utf-8"))
+        if size > 300_000:
+            raise ValueError("Version payload vượt giới hạn 300 KB")
+        return self
 
 
 class ReviewRequest(BaseModel):
@@ -186,7 +199,7 @@ async def submit_vocab_task_attempt(
     _require_learner_gate(user["id"], write=True)
     try:
         return vocab_units.submit_attempt(
-            user["id"], str(task_id), str(body.attempt_id), body.response,
+            user["id"], str(task_id), str(body.attempt_id), body.response.model_dump(),
         )
     except Exception as exc:
         raise _translate_domain_error(exc) from exc

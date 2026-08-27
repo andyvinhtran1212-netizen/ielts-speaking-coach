@@ -66,5 +66,6 @@ describe('/vocabulary/learn/[unitSlug] — server-graded learning loop', () => {
     assert.match(LESSON, /role="status"/);
     assert.match(LESSON, /role="alert"/);
     assert.match(LESSON, /maxLength=\{1200\}/);
+    assert.match(LESSON, /startsWith\('https:\/\/'\)/);
   });
 });

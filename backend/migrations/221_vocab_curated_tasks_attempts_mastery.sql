@@ -84,15 +84,23 @@ LANGUAGE plpgsql
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-    v_version_id UUID := CASE WHEN TG_OP = 'DELETE' THEN OLD.version_id ELSE NEW.version_id END;
+    v_version_id UUID;
 BEGIN
+    IF TG_OP = 'DELETE' THEN
+        v_version_id := OLD.version_id;
+    ELSE
+        v_version_id := NEW.version_id;
+    END IF;
     IF EXISTS (
         SELECT 1 FROM vocab_unit_versions
          WHERE id = v_version_id AND status = 'published'
     ) THEN
         RAISE EXCEPTION 'published_vocab_task_is_immutable';
     END IF;
-    RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+    RETURN NEW;
 END;
 $$;
 
@@ -276,7 +284,7 @@ BEGIN
 
     IF NOT p_is_correct THEN
         v_state := CASE
-            WHEN v_mastery.state IN ('transfer_ready', 'retained') THEN 'needs_refresh'
+            WHEN v_mastery.state IN ('controlled', 'transfer_ready', 'retained') THEN 'needs_refresh'
             ELSE 'acquiring'
         END;
         v_next_review := p_now + INTERVAL '1 day';
@@ -370,6 +378,12 @@ BEGIN
         RAISE EXCEPTION 'changes_requested';
     END IF;
 
+    IF (SELECT COUNT(DISTINCT reviewer_id)
+          FROM vocab_unit_version_reviews
+         WHERE version_id = p_version AND decision = 'approved') < 3 THEN
+        RAISE EXCEPTION 'reviewers_must_be_distinct';
+    END IF;
+
     IF (SELECT COUNT(DISTINCT dimension) FROM vocab_unit_tasks
          WHERE version_id = p_version AND status = 'active') <> 3 THEN
         RAISE EXCEPTION 'missing_task_dimension';
@@ -386,6 +400,10 @@ BEGIN
            updated_at = p_now
      WHERE id = v_version.unit_id
     RETURNING * INTO v_unit;
+
+    INSERT INTO vocab_unit_publication_events
+        (unit_id, version_id, action, actor_id, created_at)
+    VALUES (v_unit.id, p_version, 'publish', p_published_by, p_now);
 
     RETURN jsonb_build_object('unit', to_jsonb(v_unit), 'version', to_jsonb(v_version));
 END;
@@ -425,7 +443,11 @@ BEGIN
         RAISE EXCEPTION 'unit_not_found';
     END IF;
 
-    RETURN to_jsonb(v_unit) || jsonb_build_object('updated_by', p_updated_by);
+    INSERT INTO vocab_unit_publication_events
+        (unit_id, version_id, action, actor_id, created_at)
+    VALUES (p_unit, p_version, 'rollback', p_updated_by, p_now);
+
+    RETURN to_jsonb(v_unit);
 END;
 $$;
 

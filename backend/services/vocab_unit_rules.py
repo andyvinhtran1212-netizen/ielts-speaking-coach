@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from typing import Any
+from urllib.parse import urlparse
 
 GRADER_VERSION = "vocab-unit-rules-v1"
 MASTERY_DIMENSIONS = (
@@ -137,6 +138,10 @@ def validate_for_publish(
         for index, source in enumerate(sources, start=1):
             if not isinstance(source, dict) or not _text(source.get("title")) or not _text(source.get("url")):
                 errors.append(f"sources[{index}] cần title và url")
+                continue
+            parsed = urlparse(_text(source.get("url")))
+            if parsed.scheme != "https" or not parsed.hostname:
+                errors.append(f"sources[{index}].url phải là HTTPS URL hợp lệ")
     active_tasks = [task for task in tasks if task.get("status") == "active"]
     dimensions = {task.get("dimension") for task in active_tasks}
     missing = set(MASTERY_DIMENSIONS) - dimensions

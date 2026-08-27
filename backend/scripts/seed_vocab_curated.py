@@ -215,16 +215,23 @@ def _seed_pathways(
     from database import supabase_admin
 
     for pathway in pathways:
+        row = {
+            "pathway_slug": pathway["pathway_slug"],
+            "title_vi": pathway["title_vi"],
+            "description_vi": pathway["description_vi"],
+            "target_level": pathway["target_level"],
+            "learner_tags": pathway.get("learner_tags") or [],
+            "created_by": admin_id,
+        }
+        # A safe draft refresh must never unpublish a live pathway. Omit status
+        # on the upsert unless this invocation explicitly publishes; new rows
+        # still receive the table's default `draft` status.
+        if publish:
+            row["status"] = "published"
         stored = _one(
-            supabase_admin.table("vocab_pathways").upsert({
-                "pathway_slug": pathway["pathway_slug"],
-                "title_vi": pathway["title_vi"],
-                "description_vi": pathway["description_vi"],
-                "target_level": pathway["target_level"],
-                "learner_tags": pathway.get("learner_tags") or [],
-                "status": "published" if publish else "draft",
-                "created_by": admin_id,
-            }, on_conflict="pathway_slug").execute()
+            supabase_admin.table("vocab_pathways").upsert(
+                row, on_conflict="pathway_slug",
+            ).execute()
         )
         if not stored:
             raise RuntimeError(f"Không seed được pathway {pathway['pathway_slug']}")
@@ -281,6 +288,8 @@ def main() -> int:
     parser.add_argument("--pedagogy-reviewer")
     parser.add_argument("--assessment-reviewer")
     args = parser.parse_args()
+    if args.publish and not args.apply:
+        parser.error("--publish yêu cầu --apply")
     payload = load_pilot(args.content)
     errors = validate_pilot(payload)
     if errors:

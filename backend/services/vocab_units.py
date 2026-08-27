@@ -540,7 +540,7 @@ def publish_version(version_id: str, admin_id: str) -> dict[str, Any]:
         message = str(exc)
         if any(token in message for token in (
             "missing_approval", "changes_requested", "missing_task_dimension",
-            "version_not_publishable",
+            "reviewers_must_be_distinct", "version_not_publishable",
         )):
             raise VocabUnitValidationError("Version chưa đạt editorial publish gate", [message]) from exc
         raise

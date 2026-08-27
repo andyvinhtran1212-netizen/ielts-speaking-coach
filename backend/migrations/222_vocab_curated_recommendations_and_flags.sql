@@ -41,4 +41,3 @@ VALUES
     ('vocab_unit_recommendations', FALSE, 'Post-feedback curated unit recommendations'),
     ('vocab_ai_scoring', FALSE, 'Reserved; deterministic grading remains canonical')
 ON CONFLICT (key) DO NOTHING;
-

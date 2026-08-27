@@ -150,6 +150,21 @@ def test_attempt_rejects_client_supplied_correct_field():
     assert response.status_code == 422
 
 
+def test_attempt_rejects_extra_nested_response_fields():
+    with patch("routers.vocab_units.get_supabase_user", new=AsyncMock(return_value=LEARNER)), \
+         patch("routers.vocab_units.is_vocab_curated_enabled", return_value=True), \
+         patch("routers.vocab_units.runtime_flags.is_enabled", return_value=True):
+        response = _client().post(
+            f"/api/vocabulary/tasks/{TASK_ID}/attempt",
+            headers=AUTH,
+            json={
+                "attempt_id": ATTEMPT_ID,
+                "response": {"answer": "x", "correct": True},
+            },
+        )
+    assert response.status_code == 422
+
+
 def test_attempt_calls_server_service_only_after_both_gates():
     expected = {"attempt_id": ATTEMPT_ID, "correct": True, "duplicate": False}
     with patch("routers.vocab_units.get_supabase_user", new=AsyncMock(return_value=LEARNER)), \
@@ -200,6 +215,8 @@ def test_schema_migrations_pin_idempotency_rls_and_rpc_security():
     assert "pg_advisory_xact_lock" in attempts
     assert "published_vocab_version_is_immutable" in identity
     assert "published_vocab_task_is_immutable" in attempts
+    assert "COUNT(DISTINCT reviewer_id)" in attempts
+    assert "vocab_unit_publication_events" in identity + attempts
     assert "FROM PUBLIC, anon, authenticated" in attempts
     assert "('vocab_units_read', FALSE" in flags
 
@@ -225,3 +242,12 @@ def test_curated_pilot_identity_and_pathway_refs_are_unique():
     assert len(slugs) == len(set(slugs))
     assert len(identities) == len(set(identities))
     assert all(ref in set(slugs) for path in payload["pathways"] for ref in path["units"])
+
+
+def test_publish_validator_rejects_non_https_sources():
+    errors = vocab_units.validate_for_publish(
+        _complete_content(),
+        [{"title": "Unsafe", "url": "javascript:alert(1)"}],
+        _tasks(),
+    )
+    assert any("HTTPS" in error for error in errors)

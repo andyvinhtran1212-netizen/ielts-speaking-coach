@@ -146,6 +146,6 @@ export function VocabUnitLesson({ unitSlug }: { unitSlug: string }) {
     <section className="vc-lesson-section"><p className="vc-eyebrow">Context diversity</p><h2>Nhìn cấu trúc hoạt động trong nhiều ngữ cảnh</h2><Examples value={content.examples} /></section>
     <section className="vc-lesson-section"><p className="vc-eyebrow">Active practice</p><h2>Gọi lại → kiểm soát → tự tạo câu</h2><div className="vc-task-list">{unit.tasks.map((task) => <TaskCard task={task} key={task.id} />)}</div></section>
     <aside className="vc-memory"><span>Memory hook</span><p>{text(content, 'memory_hook_vi')}</p></aside>
-    {unit.sources?.length ? <footer className="vc-sources"><strong>Nguồn biên tập</strong>{unit.sources.map((source, index) => source.url ? <a href={source.url} target="_blank" rel="noreferrer" key={`${source.url}:${index}`}>{source.title || source.url}</a> : null)}</footer> : null}
+    {unit.sources?.length ? <footer className="vc-sources"><strong>Nguồn biên tập</strong>{unit.sources.map((source, index) => source.url?.startsWith('https://') ? <a href={source.url} target="_blank" rel="noreferrer" key={`${source.url}:${index}`}>{source.title || source.url}</a> : null)}</footer> : null}
   </div>;
 }

@@ -117,6 +117,15 @@ CREATE TABLE IF NOT EXISTS vocab_pathway_units (
     CONSTRAINT vocab_pathway_units_sequence_key UNIQUE (pathway_id, sequence)
 );
 
+CREATE TABLE IF NOT EXISTS vocab_unit_publication_events (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    unit_id     UUID NOT NULL REFERENCES vocab_learning_units(id) ON DELETE CASCADE,
+    version_id  UUID NOT NULL REFERENCES vocab_unit_versions(id) ON DELETE RESTRICT,
+    action      TEXT NOT NULL CHECK (action IN ('publish', 'rollback')),
+    actor_id    UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_vocab_learning_units_status_level
     ON vocab_learning_units(status, target_level);
 CREATE INDEX IF NOT EXISTS idx_vocab_unit_versions_unit_status
@@ -127,6 +136,8 @@ CREATE INDEX IF NOT EXISTS idx_vocab_unit_reviews_version
     ON vocab_unit_version_reviews(version_id);
 CREATE INDEX IF NOT EXISTS idx_vocab_pathway_units_unit
     ON vocab_pathway_units(unit_id);
+CREATE INDEX IF NOT EXISTS idx_vocab_unit_publication_events_unit
+    ON vocab_unit_publication_events(unit_id, created_at DESC);
 
 DROP TRIGGER IF EXISTS trg_vocab_learning_units_updated_at ON vocab_learning_units;
 CREATE TRIGGER trg_vocab_learning_units_updated_at
@@ -157,7 +168,10 @@ BEGIN
     IF OLD.status = 'published' THEN
         RAISE EXCEPTION 'published_vocab_version_is_immutable';
     END IF;
-    RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+    RETURN NEW;
 END;
 $$;
 
@@ -172,15 +186,23 @@ LANGUAGE plpgsql
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-    v_version_id UUID := CASE WHEN TG_OP = 'DELETE' THEN OLD.version_id ELSE NEW.version_id END;
+    v_version_id UUID;
 BEGIN
+    IF TG_OP = 'DELETE' THEN
+        v_version_id := OLD.version_id;
+    ELSE
+        v_version_id := NEW.version_id;
+    END IF;
     IF EXISTS (
         SELECT 1 FROM vocab_unit_versions
          WHERE id = v_version_id AND status = 'published'
     ) THEN
         RAISE EXCEPTION 'published_vocab_review_is_immutable';
     END IF;
-    RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+    RETURN NEW;
 END;
 $$;
 
@@ -197,6 +219,7 @@ ALTER TABLE vocab_card_unit_map ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vocab_unit_version_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vocab_pathways ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vocab_pathway_units ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vocab_unit_publication_events ENABLE ROW LEVEL SECURITY;
 
 CREATE OR REPLACE FUNCTION fn_create_vocab_learning_unit(
     p_unit_slug                TEXT,
