@@ -82,7 +82,9 @@ function canonicalReport(body, sessionId) {
   };
 }
 
-async function installDictationGateEHarness(page, { state, handleApi = null } = {}) {
+async function installDictationGateEHarness(page, {
+  state, handleApi = null, beforeGradeCommit = null,
+} = {}) {
   if (!state) throw new TypeError('state is required');
   const calls = [];
   const pageErrors = [];
@@ -198,7 +200,10 @@ async function installDictationGateEHarness(page, { state, handleApi = null } = 
       }
       const sentenceIdx = Number(sentenceMatch[2]);
       state.gradeCalls.push({ test_id: TEST_ID, section_num: 1,
-        sentence_idx: sentenceIdx, user_transcript: body?.user_transcript });
+        sentence_idx: sentenceIdx, user_transcript: body?.user_transcript,
+        listen_count: Number(body?.listen_count) || 0,
+        time_seconds: Number(body?.time_seconds) || 0 });
+      if (beforeGradeCommit) await beforeGradeCommit({ page, entry, state });
       const answer = {
         sentence_idx: sentenceIdx, user_transcript: body?.user_transcript || '',
         score: 1, is_correct: true, correct_words: 2, total_words: 2,

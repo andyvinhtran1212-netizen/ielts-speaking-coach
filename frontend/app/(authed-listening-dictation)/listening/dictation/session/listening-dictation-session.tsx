@@ -10,12 +10,14 @@ import {
   dictationRendererHref,
   dictationRequestId,
   formatDictationTime,
+  isDictationCanonicalMismatch,
   isMissingReceipt,
   normalizeDictationBundle,
   normalizeDictationAttempt,
   normalizeDictationGrade,
   normalizeDictationReceipt,
   normalizeDictationReport,
+  reconcileDictationReceiptWithAttempt,
   topDictationWords,
 } from '@/lib/listening-dictation-controller.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
@@ -174,26 +176,55 @@ export function ListeningDictationSession() {
     return canonical;
   }, []);
 
+  const recoverReceiptFromCanonicalAttempt = useCallback(async (receipt: any, selected: any) => {
+    const submission = receipt?.submission;
+    const testId = String(submission?.test_id || '');
+    const sectionNum = Number(submission?.section_num);
+    if (!testId || !Number.isInteger(sectionNum) || sectionNum < 1) {
+      throw new Error('Không đủ thông tin để khôi phục kết quả đã lưu.');
+    }
+    const query = `section_num=${encodeURIComponent(sectionNum)}`;
+    const canonicalAttempt = normalizeDictationAttempt(await window.api.get(
+      `/api/listening/tests/${encodeURIComponent(testId)}/dictation/attempts/in-progress?${query}`,
+    ));
+    const recovered = reconcileDictationReceiptWithAttempt(receipt, canonicalAttempt);
+    if (!recovered) throw new Error('Dữ liệu đã lưu trên máy chủ chưa đủ để xác nhận kết quả.');
+    persistReceipt(recovered, selected);
+    setPendingReceipt(recovered);
+    return recovered;
+  }, [persistReceipt]);
+
   const reconcile = useCallback(async (receipt: any, selected: any) => {
     const run = sectionRunRef.current;
     if (accountRef.current !== receipt.accountId) return;
     setSaveState('saving'); setPendingReceipt(receipt);
     try {
+      let activeReceipt = receipt;
       try { await confirmReceipt(receipt, selected, run); return; }
       catch (caught) { if (!isMissingReceipt(caught)) throw caught; }
       try {
         await window.api.post('/api/listening/tests/dictation/session', receipt.submission);
       } catch (postError) {
-        // The request may have committed while its HTTP acknowledgement was
-        // lost. Read by durable receipt before declaring the save pending.
-        try { await confirmReceipt(receipt, selected, run); return; }
-        catch { throw postError; }
+        if (isDictationCanonicalMismatch(postError)) {
+          activeReceipt = await recoverReceiptFromCanonicalAttempt(receipt, selected);
+          try {
+            await window.api.post('/api/listening/tests/dictation/session', activeReceipt.submission);
+          } catch (recoveryPostError) {
+            try { await confirmReceipt(activeReceipt, selected, run); return; }
+            catch { throw recoveryPostError; }
+          }
+        } else {
+          // The request may have committed while its HTTP acknowledgement was
+          // lost. Read by durable receipt before declaring the save pending.
+          try { await confirmReceipt(receipt, selected, run); return; }
+          catch { throw postError; }
+        }
       }
       const canonical = normalizeDictationReport(
-        await window.api.get(`/api/listening/tests/dictation/session/by-request/${encodeURIComponent(receipt.requestId)}`),
-        receipt.requestId,
+        await window.api.get(`/api/listening/tests/dictation/session/by-request/${encodeURIComponent(activeReceipt.requestId)}`),
+        activeReceipt.requestId,
       );
-      if (accountRef.current !== receipt.accountId || sectionRunRef.current !== run) return;
+      if (accountRef.current !== activeReceipt.accountId || sectionRunRef.current !== run) return;
       clearReceipt(selected); setReport(canonical);
       setResults(resultsFromReport(canonical, selected.sentences.length));
       setPendingReceipt(null); setSaveState('saved');
@@ -201,7 +232,7 @@ export function ListeningDictationSession() {
       if (accountRef.current !== receipt.accountId || sectionRunRef.current !== run) return;
       setSaveState('pending'); setError(`Kết quả chưa được máy chủ xác nhận. ${caught?.message || ''}`);
     }
-  }, [clearReceipt, confirmReceipt]);
+  }, [clearReceipt, confirmReceipt, recoverReceiptFromCanonicalAttempt]);
 
   const selectSection = useCallback(async (selected: any) => {
     sectionRunRef.current += 1;
@@ -336,18 +367,19 @@ export function ListeningDictationSession() {
     const run = sectionRunRef.current;
     setGrading(true); setInlineError('');
     try {
+      const listenCount = listenCountRef.current;
       const timeSeconds = Math.max(0, Math.round(
         (Date.now() - (sentenceStartedAtRef.current || Date.now())) / 1000,
       ));
       const canonical = normalizeDictationGrade(await window.api.post(
         `/api/listening/tests/dictation/attempts/${encodeURIComponent(attempt.attempt_id)}/sentences/${sentenceIndex}`,
-        { user_transcript: answer, listen_count: listenCountRef.current, time_seconds: timeSeconds },
+        { user_transcript: answer, listen_count: listenCount, time_seconds: timeSeconds },
       ));
       if (sectionRunRef.current !== run) return;
       const next = [...results];
       next[sentenceIndex] = {
         ...canonical, diff: [...canonical.diff], user_text: answer,
-        listen_count: listenCountRef.current,
+        listen_count: listenCount,
         time_seconds: timeSeconds,
       };
       setResults(next);

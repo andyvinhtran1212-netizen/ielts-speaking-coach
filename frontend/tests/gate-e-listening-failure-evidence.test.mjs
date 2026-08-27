@@ -76,11 +76,11 @@ const runVerifier = (testedRoot) => spawnSync(
 );
 
 describe('Listening failure evidence is semantic and fail-closed', () => {
-  test('accepts only the exact 27-test/3-project/nine-path report', () => {
+  test('accepts only the exact 33-test/3-project/eleven-path report', () => {
     assert.deepEqual(validateListeningFailureJson(MANIFEST, validReport()).project_counts, {
-      'gate-e-listening-chromium-desktop': 9,
-      'gate-e-listening-webkit-desktop': 9,
-      'gate-e-listening-webkit-iphone13': 9,
+      'gate-e-listening-chromium-desktop': 11,
+      'gate-e-listening-webkit-desktop': 11,
+      'gate-e-listening-webkit-iphone13': 11,
     });
     assert.ok(validateListeningFailureHtml(validHtml()).embedded_bytes > 22);
   });
@@ -88,7 +88,7 @@ describe('Listening failure evidence is semantic and fail-closed', () => {
   test('rejects an empty report, wrong title and non-passing result', () => {
     const empty = validReport();
     empty.suites = [];
-    assert.throws(() => validateListeningFailureJson(MANIFEST, empty), /JSON discovered 0 tests != 27/);
+    assert.throws(() => validateListeningFailureJson(MANIFEST, empty), /JSON discovered 0 tests != 33/);
     const wrongTitle = validReport();
     wrongTitle.suites[0].specs[0].tests[0].title = 'not-a-listening-failure-path';
     assert.throws(() => validateListeningFailureJson(MANIFEST, wrongTitle), /unexpected test/);

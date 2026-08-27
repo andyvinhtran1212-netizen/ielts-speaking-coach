@@ -245,6 +245,41 @@ export function isMissingReceipt(error) {
   return Number(error?.status) === 404 || /\b404\b/.test(String(error?.message || ''));
 }
 
+export function isDictationCanonicalMismatch(error) {
+  const detail = typeof error?.detail === 'string' ? error.detail : '';
+  const message = detail || String(error?.message || '');
+  return Number(error?.status) === 409
+    && [
+      'Tiến độ canonical không khớp payload hoàn tất.',
+      'Tiến độ vừa thay đổi ở phiên khác; hãy tải lại rồi hoàn tất lại.',
+    ].some((canonicalConflict) => message.includes(canonicalConflict));
+}
+
+export function reconcileDictationReceiptWithAttempt(receipt, attempt) {
+  const submission = receipt?.submission;
+  if (!receipt || !submission || !attempt || attempt.status !== 'in_progress') return null;
+  if (text(submission.attempt_id) !== text(attempt.attempt_id)
+      || text(submission.test_id) !== text(attempt.test_id)
+      || Number(submission.section_num) !== Number(attempt.section_num)) return null;
+  const unitCount = Array.isArray(attempt.units) ? attempt.units.length : 0;
+  const answers = Array.isArray(attempt.answers) ? attempt.answers : [];
+  if (!unitCount || answers.length !== unitCount) return null;
+  const sentences = answers.map((answer, index) => {
+    if (Number(answer?.sentence_idx) !== index || typeof answer?.user_text !== 'string') return null;
+    return Object.freeze({
+      sentence_idx: index,
+      user_transcript: answer.user_text,
+      listen_count: Math.max(0, Math.trunc(finite(answer.listen_count))),
+      time_seconds: Math.max(0, Math.trunc(finite(answer.time_seconds))),
+    });
+  });
+  if (sentences.some((sentence) => sentence === null)) return null;
+  return Object.freeze({
+    ...receipt,
+    submission: Object.freeze({ ...submission, sentences: Object.freeze(sentences) }),
+  });
+}
+
 export function topDictationWords(map, limit = 8) {
   if (!map || typeof map !== 'object' || Array.isArray(map)) return [];
   return Object.entries(map).map(([word, count]) => ({ word: text(word), count: Number(count) }))

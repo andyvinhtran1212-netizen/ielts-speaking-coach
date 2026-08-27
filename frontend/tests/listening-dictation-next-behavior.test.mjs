@@ -6,9 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 import {
   dictationParams, dictationReceiptKey, dictationRendererHref, dictationRequestId,
-  formatDictationTime, isMissingReceipt, normalizeDictationAttempt,
+  formatDictationTime, isDictationCanonicalMismatch, isMissingReceipt, normalizeDictationAttempt,
   normalizeDictationBundle, normalizeDictationGrade, normalizeDictationReceipt,
-  normalizeDictationReport, topDictationWords,
+  normalizeDictationReport, reconcileDictationReceiptWithAttempt, topDictationWords,
 } from '../lib/listening-dictation-controller.mjs';
 import { CORE_PLAYER_AFFINITY_POLICY } from '../lib/core-player-affinity.mjs';
 
@@ -82,6 +82,43 @@ describe('native Listening Dictation model', () => {
     assert.equal(normalizeDictationReceipt(stored, { ...identity, accountId: 'u2' }), null);
     assert.equal(isMissingReceipt({ status: 404 }), true);
     assert.equal(isMissingReceipt(new Error('HTTP 503')), false);
+  });
+
+  test('rebuilds a rejected completion receipt from the canonical attempt', () => {
+    const attempt = normalizeDictationAttempt({ attempt: {
+      attempt_id: 'a1', test_id: 't1', section_num: 2, status: 'in_progress',
+      renderer_affinity: 'next', started_at: '2026-08-18T00:00:00Z',
+      units: [{ text: 'First.' }, { text: 'Second.' }],
+      answers: [
+        { sentence_idx: 0, user_transcript: 'First.', score: 1, correct_words: 1,
+          total_words: 1, diff: [], listen_count: 2, time_seconds: 8 },
+        { sentence_idx: 1, user_transcript: 'Second.', score: 1, correct_words: 1,
+          total_words: 1, diff: [], listen_count: 3, time_seconds: 9 },
+      ],
+    } });
+    const receipt = {
+      requestId: '550e8400-e29b-41d4-a716-446655440000', accountId: 'u1',
+      testId: 't1', sectionNum: 2, createdAt: '2026-08-18T00:00:00Z',
+      submission: { attempt_id: 'a1', test_id: 't1', section_num: 2,
+        sentences: [{ sentence_idx: 0, user_transcript: 'First.', listen_count: 99, time_seconds: 8 }],
+      },
+      localResults: [], localReport: null,
+    };
+    const recovered = reconcileDictationReceiptWithAttempt(receipt, attempt);
+    assert.deepEqual(recovered.submission.sentences, [
+      { sentence_idx: 0, user_transcript: 'First.', listen_count: 2, time_seconds: 8 },
+      { sentence_idx: 1, user_transcript: 'Second.', listen_count: 3, time_seconds: 9 },
+    ]);
+    assert.equal(receipt.submission.sentences[0].listen_count, 99);
+    assert.equal(reconcileDictationReceiptWithAttempt(receipt, { ...attempt, answers: [] }), null);
+    assert.equal(isDictationCanonicalMismatch({ status: 409,
+      message: 'Tiến độ canonical không khớp payload hoàn tất.' }), true);
+    assert.equal(isDictationCanonicalMismatch({ status: 409,
+      detail: 'Tiến độ vừa thay đổi ở phiên khác; hãy tải lại rồi hoàn tất lại.' }), true);
+    assert.equal(isDictationCanonicalMismatch({ status: 503,
+      message: 'Tiến độ canonical không khớp payload hoàn tất.' }), false);
+    assert.equal(isDictationCanonicalMismatch({ status: 409,
+      message: 'Nội dung gửi lại không khớp với lần nộp đầu tiên.' }), false);
   });
 
   test('generates a secure v4 receipt without randomUUID on the Safari floor', () => {

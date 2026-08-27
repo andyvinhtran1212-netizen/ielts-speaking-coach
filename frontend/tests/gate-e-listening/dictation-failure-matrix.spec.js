@@ -36,6 +36,55 @@ test('listening-dictation-core-player-ambiguous-commit', async ({ page }) => {
   await expectNoDictationHarnessErrors(harness);
 });
 
+test('listening-dictation-grade-snapshots-listen-count-across-await', async ({ page }) => {
+  const state = createDictationGateEState();
+  const harness = await installDictationGateEHarness(page, {
+    state,
+    beforeGradeCommit: async ({ page: activePage }) => {
+      await activePage.locator('audio-player').evaluate((player) => {
+        player.dispatchEvent(new CustomEvent('av-audio-play'));
+      });
+    },
+  });
+
+  await openNextDictation(page);
+  await completeNextDictation(page);
+  await expect(page.getByText('✓ Đã lưu & xác nhận', { exact: true })).toBeVisible();
+  expect(state.completionCalls[0].sentences[0].listen_count)
+    .toBe(state.gradeCalls[0].listen_count);
+  await expectNoDictationHarnessErrors(harness);
+});
+
+test('listening-dictation-recovers-rejected-receipt-from-canonical-attempt', async ({ page }) => {
+  const state = createDictationGateEState();
+  let rejectStaleReceipt = true;
+  const harness = await installDictationGateEHarness(page, {
+    state,
+    handleApi: async ({ route, entry, state: activeState, cors }) => {
+      if (!entry.body?.client_request_id || !rejectStaleReceipt) return false;
+      rejectStaleReceipt = false;
+      activeState.attempts[0].answers[0].listen_count = entry.body.sentences[0].listen_count + 1;
+      await route.fulfill({
+        status: 409,
+        json: { detail: 'Tiến độ canonical không khớp payload hoàn tất.' },
+        headers: cors,
+      });
+      return true;
+    },
+  });
+
+  await openNextDictation(page);
+  await completeNextDictation(page);
+  await expect(page.getByText('✓ Đã lưu & xác nhận', { exact: true })).toBeVisible();
+  expect(state.completionCalls).toHaveLength(2);
+  expect(state.completionCalls[1].client_request_id)
+    .toBe(state.completionCalls[0].client_request_id);
+  expect(state.completionCalls[1].sentences[0].listen_count)
+    .toBe(state.attempts[0].answers[0].listen_count);
+  expect(await page.evaluate((key) => localStorage.getItem(key), RECEIPT_KEY)).toBeNull();
+  await expectNoDictationHarnessErrors(harness);
+});
+
 test('listening-dictation-core-player-pre-commit-failure-retry', async ({ page }) => {
   const state = createDictationGateEState();
   let failBeforeCommit = true;
