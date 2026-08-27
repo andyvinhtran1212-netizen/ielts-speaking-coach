@@ -172,8 +172,14 @@ test('Next route unmount releases every owned microphone track', async ({ page }
   // would let the browser release hardware by destroying the whole document
   // and could hide a missing route-owned cleanup.
   await page.evaluate(() => { window.__gateESameDocument = true; });
+  let leaveWarning = '';
+  page.once('dialog', async (dialog) => {
+    leaveWarning = dialog.message();
+    await dialog.accept();
+  });
   await page.locator('.practice-back-link').click();
   await expect(page).toHaveURL(/\/speaking$/);
+  expect(leaveWarning).toContain('bản ghi chưa gửi');
   expect(await page.evaluate(() => window.__gateESameDocument)).toBe(true);
   await expect.poll(stoppedTracks).toBeGreaterThanOrEqual(1);
   expect(await page.evaluate(() => typeof window.PracticeRecorder)).toBe('undefined');
