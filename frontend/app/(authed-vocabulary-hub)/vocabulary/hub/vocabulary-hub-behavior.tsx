@@ -41,11 +41,13 @@ interface HomeSummaryPayload {
 interface FeatureFlags {
   flashcardEnabled: boolean;
   d1Enabled: boolean;
+  vocabCuratedEnabled: boolean;
 }
 
 interface AuthMePayload {
   flashcard_enabled?: unknown;
   d1_enabled?: unknown;
+  vocab_curated_enabled?: unknown;
 }
 
 interface VocabCategory {
@@ -169,6 +171,14 @@ function ExamIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="lucide lucide-graduation-cap">
       <path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" /><path d="M22 10v6" /><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" />
+    </svg>
+  );
+}
+
+function CuratedIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3v18" /><path d="M5 7h14" /><path d="M7 17h10" /><path d="m8 11 2 2 5-5" />
     </svg>
   );
 }
@@ -404,6 +414,7 @@ export function VocabularyHubBehavior() {
           value: {
             flashcardEnabled: flagsResult.value?.flashcard_enabled === true,
             d1Enabled: flagsResult.value?.d1_enabled === true,
+            vocabCuratedEnabled: flagsResult.value?.vocab_curated_enabled === true,
           },
         });
       }
@@ -462,6 +473,9 @@ export function VocabularyHubBehavior() {
       <section className="vocab-modes" aria-labelledby="modes-heading" hidden={activeMode !== null}>
         <h2 id="modes-heading">Bắt đầu học từ vựng</h2>
         <div className="modes-grid">
+          {flags?.vocabCuratedEnabled ? (
+            <ModeCard href="/vocabulary/learn" label="Mở Vocab Curated" title="Học có chủ đích" description="Từ và cụm từ được tuyển chọn cho lỗi thật của người Việt, luyện đến khi dùng được khi nói." icon={<CuratedIcon />} />
+          ) : null}
           <ModeCard mode="vocab-topics" href="#" label="Duyệt từ vựng theo chủ đề" title="Từ vựng" description="Duyệt từ vựng IELTS theo chủ đề." icon={<LibraryIcon />} onOpen={openMode} />
           <ModeCard href="/vocabulary/practice" label="Mở Luyện tập từ vựng" title="Luyện tập" description="Kiểm tra tới khi thuộc trọn cả list từ." icon={<PracticeIcon />} />
           {flags?.flashcardEnabled ? (

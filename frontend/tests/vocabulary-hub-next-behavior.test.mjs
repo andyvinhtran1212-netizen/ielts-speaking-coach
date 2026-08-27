@@ -49,7 +49,10 @@ describe('/vocabulary/hub — native React ownership', () => {
   test('keeps gated cards default-deny', () => {
     assert.match(BEHAVIOR, /flashcard_enabled === true/);
     assert.match(BEHAVIOR, /d1_enabled === true/);
+    assert.match(BEHAVIOR, /vocab_curated_enabled === true/);
     assert.match(BEHAVIOR, /flags\?\.flashcardEnabled/);
+    assert.match(BEHAVIOR, /flags\?\.vocabCuratedEnabled/);
+    assert.match(BEHAVIOR, /href="\/vocabulary\/learn"/);
     assert.match(BEHAVIOR, /flags && \(flags\.d1Enabled \|\| flags\.flashcardEnabled\)/);
     assert.doesNotMatch(BEHAVIOR, /localStorage[^\n]*(?:flag|permission)|sessionStorage[^\n]*(?:flag|permission)/i);
   });
