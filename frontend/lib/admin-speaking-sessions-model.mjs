@@ -119,7 +119,14 @@ function normalizeQuestion(raw) {
   const row = record(raw);
   const id = text(row?.id);
   if (!row || !id) return null;
-  return { id, text: nullableText(row.question_text), order: finite(row.order_num) };
+  return {
+    id,
+    text: nullableText(row.question_text),
+    order: finite(row.order_num),
+    cueBullets: Array.isArray(row.cue_card_bullets)
+      ? row.cue_card_bullets.map(text).filter(Boolean).slice(0, 8) : [],
+    cueReflection: nullableText(row.cue_card_reflection),
+  };
 }
 
 function normalizeResponse(raw) {

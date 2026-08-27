@@ -1288,6 +1288,66 @@ async def test_the_picker_shows_the_text_to_the_TEACHER():
 
 
 @pytest.mark.asyncio
+async def test_lesson_picker_returns_the_complete_part2_cue_card():
+    sets = [{
+        "id": "set-p2", "course_id": "course-c3", "lesson_no": 3,
+        "part": 2, "title": "Buổi 3 · Part 2", "description": "Hai cue card",
+        "is_active": True,
+    }]
+    questions = [{
+        "id": "cue-1", "set_id": "set-p2", "order_num": 1,
+        "question_text": "Describe a journey.", "question_type": "cuecard",
+        "level": None, "topic_label": None, "audio_url": None,
+        "audio_path": None, "is_active": True,
+        "cue_card_bullets": ["when you went", "who you went with"],
+        "cue_card_reflection": "and explain why you remember it.",
+    }]
+    tables = {
+        "speaking_lesson_sets": sets,
+        "speaking_lesson_set_questions": questions,
+    }
+    db = type("DB", (), {})()
+    db.table = lambda name: _Table(tables.get(name, []))
+    with patch.object(mod, "require_admin", AsyncMock(return_value={"id": "a"})), \
+         patch.object(mod, "_require_cohort", lambda _c: None), \
+         patch.object(mod, "_cohort_course_id", lambda _c: "course-c3"), \
+         patch.object(mod, "supabase_admin", db):
+        out = await mod.list_lesson_set_questions(
+            "co-1", "set-p2", authorization=None)
+
+    assert out["items"][0]["cue_card_bullets"] == [
+        "when you went", "who you went with"]
+    assert out["items"][0]["cue_card_reflection"] == \
+        "and explain why you remember it."
+
+
+@pytest.mark.asyncio
+async def test_topic_picker_returns_the_complete_part2_cue_card():
+    topic = {"id": "topic-p2", "title": "Journeys", "part": 2,
+             "is_active": True}
+    question = {
+        "id": "cue-1", "topic_id": "topic-p2", "part": 2, "order_num": 1,
+        "question_text": "Describe a journey.", "question_type": "cuecard",
+        "level": None, "audio_url": None, "audio_path": None,
+        "is_active": True, "cue_card_bullets": ["when you went"],
+        "cue_card_reflection": "and explain why you remember it.",
+    }
+    db = type("DB", (), {})()
+    db.table = lambda name: _Table({
+        "topics": [topic], "topic_questions": [question],
+    }.get(name, []))
+    with patch.object(mod, "require_admin", AsyncMock(return_value={"id": "a"})), \
+         patch.object(mod, "_require_cohort", lambda _c: None), \
+         patch.object(mod, "supabase_admin", db):
+        out = await mod.list_topic_questions(
+            "co-1", "topic-p2", part=2, authorization=None)
+
+    assert out["items"][0]["cue_card_bullets"] == ["when you went"]
+    assert out["items"][0]["cue_card_reflection"] == \
+        "and explain why you remember it."
+
+
+@pytest.mark.asyncio
 async def test_an_unknown_topic_is_a_404():
     db = _db(topic=None)
     with patch.object(mod, "require_admin", AsyncMock(return_value={"id": "a"})), \

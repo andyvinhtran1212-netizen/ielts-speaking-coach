@@ -80,6 +80,7 @@ def _normalise_questions(doc: dict) -> list[dict]:
     if int(doc["lesson_no"]) < 1:
         raise SystemExit(f"lesson_no phải ≥ 1, tệp ghi {doc['lesson_no']!r}.")
 
+    part = int(doc["part"])
     out, seen = [], set()
     for i, q in enumerate(doc["questions"], 1):
         text = (q.get("question_text") or "").strip()
@@ -108,14 +109,34 @@ def _normalise_questions(doc: dict) -> list[dict]:
             raise SystemExit(
                 f"Câu thứ {i} có level không hợp lệ: {level!r} "
                 f"(chỉ nhận {sorted(_LEVELS)}).")
+        bullets = q.get("cue_card_bullets")
+        reflection = (q.get("cue_card_reflection") or "").strip() or None
+        if part == 2:
+            if qtype != "cuecard":
+                raise SystemExit(
+                    f"Câu thứ {i} của Part 2 phải có question_type='cuecard'.")
+            if not isinstance(bullets, list) or not bullets:
+                raise SystemExit(
+                    f"Cue card thứ {i} phải có danh sách cue_card_bullets.")
+            clean_bullets = []
+            for bullet_no, bullet in enumerate(bullets, 1):
+                bullet_text = str(bullet or "").strip()
+                if not bullet_text:
+                    raise SystemExit(
+                        f"Cue card thứ {i} có gợi ý số {bullet_no} bị trống.")
+                clean_bullets.append(bullet_text)
+            if not reflection:
+                raise SystemExit(
+                    f"Cue card thứ {i} phải có cue_card_reflection.")
+            bullets = clean_bullets
         row = {
             "order_num":     order,
             "question_text": text,
             "question_type": qtype,
             "topic_label":   (q.get("topic_label") or "").strip() or None,
             "level":         level,
-            "cue_card_bullets":    q.get("cue_card_bullets"),
-            "cue_card_reflection": q.get("cue_card_reflection"),
+            "cue_card_bullets":    bullets,
+            "cue_card_reflection": reflection,
         }
         out.append(row)
     out.sort(key=lambda r: r["order_num"])

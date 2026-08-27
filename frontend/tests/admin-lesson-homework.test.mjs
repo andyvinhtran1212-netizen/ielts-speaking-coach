@@ -453,6 +453,27 @@ describe('khung trang', () => {
 });
 
 
+describe('admin xem đủ cue card Part 2 trước khi giao', () => {
+  test('danh sách câu hiển thị prompt, gợi ý và câu explain', () => {
+    const p = load({ kind: 'lesson' });
+    p.state = {
+      items: [{
+        id: 'cue-1', question_text: 'Describe a journey.', giveable: true,
+        cue_card_bullets: ['when you went', 'who you went with'],
+        cue_card_reflection: 'and explain why you remember it.',
+      }],
+      picked: ['cue-1'], want: 1, topicId: 'set-p2', part: '2', mode: 'subset',
+    };
+    p.renderQpick();
+    const html = p.nodes['hf-qpick-list'].innerHTML;
+    assert.match(html, /Describe a journey/);
+    assert.match(html, /when you went/);
+    assert.match(html, /who you went with/);
+    assert.match(html, /explain why you remember it/);
+  });
+});
+
+
 // ── Vòng review 1 ────────────────────────────────────────────────────────────
 
 describe('đổi loại bài giữa chừng', () => {

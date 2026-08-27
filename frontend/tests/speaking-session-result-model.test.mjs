@@ -133,6 +133,19 @@ describe('native session-result view model — canonical truth', () => {
     assert.equal(view.cards[1].audioUrl, 'https://old/q2');
   });
 
+  test('Part 2 review keeps the complete cue card beside score and feedback', () => {
+    const view = buildSessionResult({
+      id: 'p2', status: 'completed', questions: [{
+        id: 'q1', question_text: 'Describe a journey.',
+        cue_card_bullets: ['when you went', 'who you went with'],
+        cue_card_reflection: 'and explain why you remember it.',
+      }],
+      responses: [response('q1', { strengths: ['Clear story'] })],
+    });
+    assert.deepEqual(view.cards[0].cueBullets, ['when you went', 'who you went with']);
+    assert.equal(view.cards[0].cueReflection, 'and explain why you remember it.');
+  });
+
   test('media URL allowlist blocks executable schemes', () => {
     assert.equal(safeMediaUrl('javascript:alert(1)'), '');
     assert.equal(safeMediaUrl('data:text/html,boom'), '');

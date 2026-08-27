@@ -931,12 +931,14 @@ async def list_lesson_set_questions(
         "set": {"id": st["id"], "lesson_no": st["lesson_no"], "part": st["part"],
                 "title": st["title"], "description": st.get("description")},
         "items": [{
-            "id":            q["id"],
-            "order_num":     q.get("order_num"),
-            "question_text": q.get("question_text"),
-            "question_type": q.get("question_type"),
-            "level":         q.get("level"),
-            "topic_label":   q.get("topic_label"),
+            "id":                  q["id"],
+            "order_num":           q.get("order_num"),
+            "question_text":       q.get("question_text"),
+            "question_type":       q.get("question_type"),
+            "level":               q.get("level"),
+            "topic_label":         q.get("topic_label"),
+            "cue_card_bullets":    q.get("cue_card_bullets"),
+            "cue_card_reflection": q.get("cue_card_reflection"),
             # Đường nghe thử. Admin ĐƯỢC xem chữ — chốt che chữ áp cho học viên,
             # còn người giao bài phải biết mình đang giao gì.
             "audio_url":     q.get("audio_url"),
@@ -1090,6 +1092,7 @@ async def list_topic_questions(
             "blocked_by":    None if voiced else "audio",
             "audio_url":     q.get("audio_url") if voiced else None,
             "cue_card_bullets": q.get("cue_card_bullets"),
+            "cue_card_reflection": q.get("cue_card_reflection"),
         })
     return {
         "topic": {"id": topic["id"], "title": topic["title"]},
