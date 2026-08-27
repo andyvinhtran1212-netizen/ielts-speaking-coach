@@ -92,7 +92,7 @@ function TaskCard({ task }: { task: Task }) {
       {options.length ? <div className="vc-options">{options.map((option) => <label key={option.value}><input type="radio" name={`task-${task.id}`} value={option.value} checked={answer === option.value} onChange={() => { setAnswer(option.value); setResult(null); }} /> <span>{option.label}</span></label>)}</div>
         : task.task_type === 'productive_transfer' ? <textarea value={answer} onChange={(event) => { setAnswer(event.target.value); setResult(null); }} maxLength={1200} rows={4} placeholder="Viết hoặc nhập câu bạn sẽ nói…" />
           : <input value={answer} onChange={(event) => { setAnswer(event.target.value); setResult(null); }} maxLength={1200} placeholder="Câu trả lời của bạn" />}
-      <button className="vc-button" type="submit" disabled={!answer.trim() || pending}>{pending ? 'Đang chấm…' : 'Kiểm tra'}</button>
+      <button className="av-button av-button-primary" type="submit" disabled={!answer.trim() || pending}>{pending ? 'Đang chấm…' : 'Kiểm tra'}</button>
     </form>
     {error ? <p className="vc-task-result is-error" role="alert">{error}</p> : null}
     {result ? <div className={`vc-task-result ${result.correct ? 'is-correct' : 'is-retry'}`} role="status">
@@ -132,7 +132,7 @@ export function VocabUnitLesson({ unitSlug }: { unitSlug: string }) {
     return () => { disposed = true; controller.abort(); };
   }, [status, unitSlug]);
 
-  if (error) return <section className="vc-state is-error" role="alert"><h1>Chưa thể mở bài học</h1><p>{error}</p><a className="vc-button" href="/vocabulary/learn">Quay lại</a></section>;
+  if (error) return <section className="vc-state is-error" role="alert"><h1>Chưa thể mở bài học</h1><p>{error}</p><a className="av-button av-button-primary" href="/vocabulary/learn">Quay lại</a></section>;
   if (!unit) return <section className="vc-state" aria-live="polite">Đang tải learning unit…</section>;
   const content = unit.content || {};
   return <div className="vc-lesson">

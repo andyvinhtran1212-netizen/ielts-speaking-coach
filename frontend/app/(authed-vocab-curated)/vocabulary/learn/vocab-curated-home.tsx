@@ -105,7 +105,7 @@ export function VocabCuratedHome() {
     <section className="vc-state">
       <h2>Chưa mở cho tài khoản này</h2>
       <p>Vocab Curated đang được thử nghiệm theo nhóm nhỏ để bảo đảm chất lượng nội dung và đo hiệu quả học thật.</p>
-      <a className="vc-button" href="/vocabulary/hub">Quay lại Vocabulary</a>
+      <a className="av-button av-button-primary" href="/vocabulary/hub">Quay lại Vocabulary</a>
     </section>
   );
   if (state.kind === 'error') return <section className="vc-state is-error" role="alert">{state.message}</section>;

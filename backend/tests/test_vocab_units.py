@@ -201,9 +201,9 @@ def test_admin_create_unit_requires_canonical_admin_guard():
 
 def test_schema_migrations_pin_idempotency_rls_and_rpc_security():
     migrations = Path(__file__).parent.parent / "migrations"
-    identity = (migrations / "220_vocab_curated_identity_and_editorial.sql").read_text("utf-8")
-    attempts = (migrations / "221_vocab_curated_tasks_attempts_mastery.sql").read_text("utf-8")
-    flags = (migrations / "222_vocab_curated_recommendations_and_flags.sql").read_text("utf-8")
+    identity = (migrations / "234_vocab_curated_identity_and_editorial.sql").read_text("utf-8")
+    attempts = (migrations / "235_vocab_curated_tasks_attempts_mastery.sql").read_text("utf-8")
+    flags = (migrations / "236_vocab_curated_recommendations_and_flags.sql").read_text("utf-8")
     for table in (
         "vocab_learning_units", "vocab_unit_versions", "vocab_card_unit_map",
         "vocab_unit_tasks", "vocab_unit_attempts", "user_kp_dimension_mastery",

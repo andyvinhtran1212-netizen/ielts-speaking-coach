@@ -1,5 +1,5 @@
 -- ============================================================================
--- Migration 221 — Curated vocab tasks, idempotent attempts and 3-D mastery
+-- Migration 235 — Curated vocab tasks, idempotent attempts and 3-D mastery
 -- ============================================================================
 --
 -- The browser never declares an answer correct. It submits a UUID attempt_id and

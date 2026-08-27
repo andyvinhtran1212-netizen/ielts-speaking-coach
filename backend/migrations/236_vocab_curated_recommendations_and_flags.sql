@@ -1,5 +1,5 @@
 -- ============================================================================
--- Migration 222 — Curated vocab recommendations and default-off rollout flags
+-- Migration 236 — Curated vocab recommendations and default-off rollout flags
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS vocab_unit_recommendations (

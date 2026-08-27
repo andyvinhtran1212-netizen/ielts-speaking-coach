@@ -1,5 +1,5 @@
 -- ============================================================================
--- Migration 220 — Curated Vocab Wiki identity, versions and editorial workflow
+-- Migration 234 — Curated Vocab Wiki identity, versions and editorial workflow
 -- ============================================================================
 --
 -- `vocab_cards` remains the broad reference library. A curated learning unit has
@@ -8,7 +8,7 @@
 -- Published versions are immutable by application convention; a unit points to
 -- the currently published version so rollback is a pointer change, not a rewrite.
 --
--- ADDITIVE + idempotent. Apply after migration 219.
+-- ADDITIVE + idempotent. Apply after migration 233.
 -- ============================================================================
 
 ALTER TABLE knowledge_points

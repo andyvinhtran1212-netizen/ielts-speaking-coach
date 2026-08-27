@@ -4,7 +4,7 @@ Legacy ``vocab_cards`` stays the broad reference library. This module owns the
 versioned, editorially reviewed learning units and deterministic task grading.
 It deliberately imports no FastAPI symbols so routes only translate errors and
 authentication; all canonical learning outcomes are produced here and persisted
-through the atomic database RPC from migration 221.
+through the atomic database RPC from migration 235.
 """
 
 from __future__ import annotations
