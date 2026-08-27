@@ -18,6 +18,9 @@ Mỗi unit phải giúp học viên Việt Nam B1–B2 chuyển từ “biết n
 Không hiển thị điểm mastery 0–100. UI dùng trạng thái có ý nghĩa sư phạm:
 `not_started → acquiring → controlled → transfer_ready → retained`, và
 `needs_refresh` khi đã đến lịch ôn hoặc vừa dùng sai một cấu trúc từng làm được.
+Recall/control chỉ lên `controlled` sau ít nhất ba lần đúng và accuracy ≥75%;
+productive transfer cần ít nhất hai lần đúng và accuracy ≥67%, giảm khả năng
+mastery tăng chỉ nhờ đoán lựa chọn.
 
 ## Thành phần đã triển khai
 
@@ -29,6 +32,9 @@ Không hiển thị điểm mastery 0–100. UI dùng trạng thái có ý nghĩ
   định `false`.
 - Public API: published units và pathways; answer key không có trong response.
 - Learner API: Today queue, mastery và server-graded attempt.
+- Today giữ tổng queue tối đa năm unit, xoay Discover ổn định theo user/ngày và
+  loại unit đã retained đủ ba dimension. Mastery endpoint phân trang tối đa 100
+  unit/lượt; `page_counts` chỉ mô tả đúng trang hiện tại.
 - Task payload trước attempt chỉ có prompt/options; editorial explanation và model
   answer chỉ được trả sau khi server chấm và lưu kết quả idempotent.
 - Admin API: tạo unit/version, validate, review ba cửa, publish và rollback.

@@ -294,14 +294,18 @@ BEGIN
         END;
         v_next_review := p_now + INTERVAL '1 day';
     ELSIF v_successes >= 4
+          AND v_successes::NUMERIC / GREATEST(v_attempts, 1) >= 0.75
           AND v_mastery.last_success_at IS NOT NULL
           AND p_now - v_mastery.last_success_at >= INTERVAL '7 days' THEN
         v_state := 'retained';
         v_next_review := p_now + INTERVAL '28 days';
-    ELSIF v_task.dimension = 'productive_transfer' AND v_successes >= 2 THEN
+    ELSIF v_task.dimension = 'productive_transfer'
+          AND v_successes >= 2
+          AND v_successes::NUMERIC / GREATEST(v_attempts, 1) >= 0.67 THEN
         v_state := 'transfer_ready';
         v_next_review := p_now + INTERVAL '7 days';
-    ELSIF v_successes >= 2 THEN
+    ELSIF v_successes >= 3
+          AND v_successes::NUMERIC / GREATEST(v_attempts, 1) >= 0.75 THEN
         v_state := 'controlled';
         v_next_review := p_now + INTERVAL '7 days';
     ELSE

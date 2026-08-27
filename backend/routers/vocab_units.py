@@ -180,11 +180,17 @@ async def get_my_vocab_today(authorization: str | None = Header(default=None)):
 
 
 @router.get("/api/me/vocabulary/unit-mastery")
-async def get_my_vocab_mastery(authorization: str | None = Header(default=None)):
+async def get_my_vocab_mastery(
+    page: int = Query(default=1, ge=1, le=10_000),
+    page_size: int = Query(default=50, ge=1, le=100),
+    authorization: str | None = Header(default=None),
+):
     user = await get_supabase_user(authorization)
     _require_learner_gate(user["id"])
     try:
-        return vocab_units.get_user_mastery(user["id"])
+        return vocab_units.get_user_mastery(
+            user["id"], page=page, page_size=page_size,
+        )
     except Exception as exc:
         raise _translate_domain_error(exc) from exc
 

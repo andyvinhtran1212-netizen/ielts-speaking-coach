@@ -10,6 +10,7 @@ import hashlib
 import json
 import re
 import unicodedata
+from functools import lru_cache
 from typing import Any
 from urllib.parse import urlparse
 
@@ -76,6 +77,7 @@ def _matches_ordered_frame(
     if not slots or any(not slot for slot in slots):
         return False
 
+    @lru_cache(maxsize=None)
     def match_slot(slot_index: int, previous_end: int) -> bool:
         if slot_index >= len(slots):
             return True

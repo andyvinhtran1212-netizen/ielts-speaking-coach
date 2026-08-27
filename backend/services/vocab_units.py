@@ -9,6 +9,7 @@ through the atomic database RPC from migration 235.
 
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
@@ -52,6 +53,18 @@ def _one(result: Any) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def _paged_rows(query: Any, *, page_size: int = 1000) -> list[dict[str, Any]]:
+    """Read every PostgREST page explicitly; the server otherwise caps at 1,000."""
+    rows: list[dict[str, Any]] = []
+    start = 0
+    while True:
+        batch = _rows(query.range(start, start + page_size - 1).execute())
+        rows.extend(batch)
+        if len(batch) < page_size:
+            return rows
+        start += page_size
+
+
 def _unit_summary(unit: dict[str, Any], version: dict[str, Any]) -> dict[str, Any]:
     content = version.get("content") if isinstance(version.get("content"), dict) else {}
     return {
@@ -93,17 +106,19 @@ def _load_published_units(
         if not ids:
             return []
         query = query.in_("id", ids)
-    units = _rows(query.order("display_headword").execute())
+    units = _paged_rows(query.order("display_headword").order("id"))
     version_ids = [u.get("current_published_version_id") for u in units if u.get("current_published_version_id")]
     if not version_ids:
         return []
-    versions = _rows(
-        supabase_admin.table("vocab_unit_versions")
-        .select("id,unit_id,version_number,content,published_at")
-        .in_("id", version_ids)
-        .eq("status", "published")
-        .execute()
-    )
+    versions: list[dict[str, Any]] = []
+    # Keep PostgREST URLs bounded as well as paging response rows.
+    for start in range(0, len(version_ids), 200):
+        versions.extend(_paged_rows(
+            supabase_admin.table("vocab_unit_versions")
+            .select("id,unit_id,version_number,content,published_at")
+            .in_("id", version_ids[start:start + 200])
+            .eq("status", "published")
+        ))
     by_id = {str(v.get("id")): v for v in versions}
     return [
         (unit, by_id[str(unit["current_published_version_id"])])
@@ -173,22 +188,21 @@ def get_unit(unit_slug: str) -> dict[str, Any]:
 
 
 def list_pathways() -> list[dict[str, Any]]:
-    pathways = _rows(
+    pathways = _paged_rows(
         supabase_admin.table("vocab_pathways")
         .select("id,pathway_slug,title_vi,description_vi,target_level,learner_tags")
         .eq("status", "published")
         .order("title_vi")
-        .execute()
+        .order("id")
     )
     if not pathways:
         return []
     pathway_ids = [row["id"] for row in pathways]
-    links = _rows(
+    links = _paged_rows(
         supabase_admin.table("vocab_pathway_units")
         .select("pathway_id,unit_id,sequence,rationale_vi")
         .in_("pathway_id", pathway_ids)
         .order("sequence")
-        .execute()
     )
     unit_ids = list({str(link["unit_id"]) for link in links})
     units = {
@@ -211,7 +225,25 @@ def list_pathways() -> list[dict[str, Any]]:
     ]
 
 
-def get_user_mastery(user_id: str) -> dict[str, Any]:
+def get_user_mastery(
+    user_id: str,
+    *,
+    page: int = 1,
+    page_size: int = 50,
+) -> dict[str, Any]:
+    offset = (page - 1) * page_size
+    unit_page = _rows(
+        supabase_admin.table("vocab_learning_units")
+        .select("id,kp_id,unit_slug,display_headword,target_level")
+        .eq("status", "published")
+        .order("display_headword")
+        .order("id")
+        .range(offset, offset + page_size)
+        .execute()
+    )
+    has_more = len(unit_page) > page_size
+    units = unit_page[:page_size]
+    kp_ids = [str(unit["kp_id"]) for unit in units if unit.get("kp_id")]
     rows = _rows(
         supabase_admin.table("user_kp_dimension_mastery")
         .select(
@@ -219,15 +251,10 @@ def get_user_mastery(user_id: str) -> dict[str, Any]:
             "last_success_at,next_review_at,updated_at"
         )
         .eq("user_id", user_id)
+        .in_("kp_id", kp_ids)
         .order("updated_at", desc=True)
         .execute()
-    )
-    units = _rows(
-        supabase_admin.table("vocab_learning_units")
-        .select("id,kp_id,unit_slug,display_headword,target_level")
-        .eq("status", "published")
-        .execute()
-    )
+    ) if kp_ids else []
     units_by_kp = {str(unit["kp_id"]): unit for unit in units}
     now = datetime.now(timezone.utc)
     items: list[dict[str, Any]] = []
@@ -268,7 +295,17 @@ def get_user_mastery(user_id: str) -> dict[str, Any]:
                 "last_attempt_at": None, "last_success_at": None,
                 "next_review_at": None, "updated_at": None, "unit": unit,
             })
-    return {"counts": counts, "items": items, "dimensions": list(MASTERY_DIMENSIONS)}
+    return {
+        "page_counts": counts,
+        "items": items,
+        "dimensions": list(MASTERY_DIMENSIONS),
+        "pagination": {
+            "page": page,
+            "page_size": page_size,
+            "returned_units": len(units),
+            "has_more": has_more,
+        },
+    }
 
 
 def get_today(user_id: str, *, include_recommendations: bool) -> dict[str, Any]:
@@ -309,19 +346,62 @@ def get_today(user_id: str, *, include_recommendations: bool) -> dict[str, Any]:
         str(unit["id"]): _unit_summary(unit, version)
         for unit, version in _load_published_units(unit_ids=requested_ids)
     }
-    discovery = list_units()[:5] if len(requested) < 5 else []
+    selected_unit_ids: set[str] = set()
+    recommendation_items: list[dict[str, Any]] = []
+    for row in recommendations:
+        unit_id = str(row.get("unit_id"))
+        unit = requested.get(unit_id)
+        if not unit or unit_id in selected_unit_ids or len(recommendation_items) >= 5:
+            continue
+        recommendation_items.append({**row, "unit": unit})
+        selected_unit_ids.add(unit_id)
+    due_unit_by_kp = {
+        str(unit.get("kp_id")): unit for unit in due_units if unit.get("kp_id")
+    }
+    due_items: list[dict[str, Any]] = []
+    for row in due:
+        unit = due_unit_by_kp.get(str(row.get("kp_id")))
+        unit_id = str(unit.get("id")) if unit else ""
+        summary = requested.get(unit_id)
+        if not summary or unit_id in selected_unit_ids:
+            continue
+        if len(recommendation_items) + len(due_items) >= 5:
+            break
+        due_items.append({**row, "unit": summary})
+        selected_unit_ids.add(unit_id)
+    mastery_rows = _paged_rows(
+        supabase_admin.table("user_kp_dimension_mastery")
+        .select("kp_id,dimension,state")
+        .eq("user_id", user_id)
+    )
+    retained_by_kp: dict[str, set[str]] = {}
+    for row in mastery_rows:
+        if row.get("state") == "retained":
+            retained_by_kp.setdefault(str(row.get("kp_id")), set()).add(
+                str(row.get("dimension")),
+            )
+    fully_retained = {
+        kp_id for kp_id, dimensions in retained_by_kp.items()
+        if set(MASTERY_DIMENSIONS).issubset(dimensions)
+    }
+    candidates = [
+        (unit, version)
+        for unit, version in _load_published_units()
+        if str(unit.get("id")) not in selected_unit_ids
+        and str(unit.get("kp_id")) not in fully_retained
+    ]
+    day = datetime.now(timezone.utc).date().isoformat()
+    candidates.sort(key=lambda pair: hashlib.sha256(
+        f"{user_id}:{day}:{pair[0].get('id')}".encode("utf-8")
+    ).hexdigest())
+    discovery_slots = max(0, 5 - len(recommendation_items) - len(due_items))
+    discovery = [
+        _unit_summary(unit, version)
+        for unit, version in candidates[:discovery_slots]
+    ]
     return {
-        "recommendations": [
-            {**row, "unit": requested.get(str(row["unit_id"]))}
-            for row in recommendations if requested.get(str(row["unit_id"]))
-        ],
-        "due": [
-            {**row, "unit": requested.get(str(unit["id"]))}
-            for row in due
-            for unit in due_units
-            if str(unit.get("kp_id")) == str(row.get("kp_id"))
-               and requested.get(str(unit["id"]))
-        ],
+        "recommendations": recommendation_items,
+        "due": due_items,
         "discover": discovery,
     }
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -28,7 +28,9 @@ def _client() -> TestClient:
 
 def _query(data):
     query = MagicMock()
-    for method in ("select", "eq", "in_", "limit", "order", "lte", "update", "upsert"):
+    for method in (
+        "select", "eq", "in_", "limit", "order", "lte", "range", "update", "upsert",
+    ):
         getattr(query, method).return_value = query
     query.execute.return_value = MagicMock(data=data)
     return query
@@ -92,6 +94,18 @@ def test_version_hash_covers_content_sources_and_private_tasks():
     assert vocab_unit_rules.canonical_version_hash(
         content, sources, [{**tasks[0], "prompt": "Changed"}],
     ) != baseline
+
+
+def test_postgrest_pager_reads_beyond_the_default_cap():
+    query = _query([])
+    query.execute.side_effect = [
+        MagicMock(data=[{"id": "1"}, {"id": "2"}]),
+        MagicMock(data=[{"id": "3"}]),
+    ]
+    assert [row["id"] for row in vocab_units._paged_rows(query, page_size=2)] == [
+        "1", "2", "3",
+    ]
+    assert query.range.call_args_list == [call(0, 1), call(2, 3)]
 
 
 def test_productive_transfer_requires_context_and_avoids_known_error():
@@ -188,6 +202,113 @@ def test_public_unit_withholds_editorial_explanation_until_attempt():
     assert "answer_key" not in selected
     assert "explanation_vi" not in selected
     assert "explanation_vi" not in payload["tasks"][0]
+
+
+def test_mastery_is_bounded_by_unit_page():
+    unit_query = _query([
+        {"id": "unit-2", "kp_id": "kp-2", "unit_slug": "u-2", "display_headword": "B", "target_level": "B1"},
+        {"id": "unit-3", "kp_id": "kp-3", "unit_slug": "u-3", "display_headword": "C", "target_level": "B1"},
+        {"id": "unit-4", "kp_id": "kp-4", "unit_slug": "u-4", "display_headword": "D", "target_level": "B1"},
+    ])
+    mastery_query = _query([{
+        "kp_id": "kp-2", "dimension": "meaning_recall", "state": "retained",
+        "attempt_count": 4, "success_count": 4, "last_attempt_at": None,
+        "last_success_at": None, "next_review_at": None, "updated_at": None,
+    }])
+    with patch.object(vocab_units, "supabase_admin") as database:
+        database.table.side_effect = [unit_query, mastery_query]
+        payload = vocab_units.get_user_mastery(
+            LEARNER["id"], page=2, page_size=2,
+        )
+    unit_query.range.assert_called_once_with(2, 4)
+    assert payload["pagination"] == {
+        "page": 2, "page_size": 2, "returned_units": 2, "has_more": True,
+    }
+    assert "counts" not in payload and payload["page_counts"]["retained"] == 1
+    assert len(payload["items"]) == 6
+    assert {item["unit"]["id"] for item in payload["items"]} == {"unit-2", "unit-3"}
+
+
+def test_today_discover_rotates_and_excludes_fully_retained_units():
+    due_query = _query([])
+    retained_query = _query([
+        {"kp_id": "kp-retained", "dimension": dimension, "state": "retained"}
+        for dimension in vocab_units.MASTERY_DIMENSIONS
+    ])
+    candidates = [
+        (
+            {
+                "id": f"unit-{index}", "kp_id": "kp-retained" if index == 0 else f"kp-{index}",
+                "unit_slug": f"unit-{index}", "display_headword": f"Unit {index}",
+                "unit_type": "learning_unit", "target_level": "B1",
+                "problem_tags": [], "learner_tags": [],
+            },
+            {"version_number": 1, "content": {"title_vi": f"Unit {index}"}},
+        )
+        for index in range(7)
+    ]
+    with patch.object(vocab_units, "supabase_admin") as database, \
+         patch.object(vocab_units, "_load_published_units", side_effect=[[], candidates]):
+        database.table.side_effect = [due_query, retained_query]
+        payload = vocab_units.get_today(LEARNER["id"], include_recommendations=False)
+    assert len(payload["discover"]) == 5
+    assert all(item["id"] != "unit-0" for item in payload["discover"])
+
+
+def test_today_queue_is_capped_and_deduplicated_across_sources():
+    recommendation_query = _query([
+        {"id": f"rec-{index}", "unit_id": f"unit-{index}", "status": "pending"}
+        for index in range(1, 4)
+    ])
+    due_query = _query([
+        {
+            "kp_id": kp_id, "dimension": "usage_control", "state": "acquiring",
+            "next_review_at": "2026-01-01T00:00:00+00:00",
+        }
+        for kp_id in ("kp-2", "kp-4", "kp-5", "kp-6")
+    ])
+    due_units_query = _query([
+        {"id": f"unit-{index}", "kp_id": f"kp-{index}"}
+        for index in (2, 4, 5, 6)
+    ])
+    retained_query = _query([])
+    requested = [
+        (
+            {
+                "id": f"unit-{index}", "kp_id": f"kp-{index}",
+                "unit_slug": f"unit-{index}", "display_headword": f"Unit {index}",
+                "unit_type": "learning_unit", "target_level": "B1",
+                "problem_tags": [], "learner_tags": [],
+            },
+            {"version_number": 1, "content": {"title_vi": f"Unit {index}"}},
+        )
+        for index in range(1, 7)
+    ]
+    with patch.object(vocab_units, "supabase_admin") as database, \
+         patch.object(vocab_units, "_load_published_units", side_effect=[requested, []]):
+        database.table.side_effect = [
+            recommendation_query, due_query, due_units_query, retained_query,
+        ]
+        payload = vocab_units.get_today(LEARNER["id"], include_recommendations=True)
+    items = payload["recommendations"] + payload["due"] + payload["discover"]
+    unit_ids = [str(item["unit"]["id"]) for item in items if "unit" in item]
+    unit_ids.extend(str(item["id"]) for item in payload["discover"])
+    assert len(items) == 5
+    assert len(unit_ids) == len(set(unit_ids))
+    assert unit_ids.count("unit-2") == 1
+
+
+def test_mastery_route_forwards_validated_pagination():
+    expected = {"items": [], "pagination": {"page": 2, "page_size": 10}}
+    with patch("routers.vocab_units.get_supabase_user", new=AsyncMock(return_value=LEARNER)), \
+         patch("routers.vocab_units.is_vocab_curated_enabled", return_value=True), \
+         patch("routers.vocab_units.runtime_flags.is_enabled", return_value=True), \
+         patch("routers.vocab_units.vocab_units.get_user_mastery", return_value=expected) as mastery:
+        response = _client().get(
+            "/api/me/vocabulary/unit-mastery?page=2&page_size=10", headers=AUTH,
+        )
+    assert response.status_code == 200 and response.json() == expected
+    mastery.assert_called_once_with(LEARNER["id"], page=2, page_size=10)
 
 
 def test_attempt_releases_explanation_only_in_persisted_server_result():
@@ -334,6 +455,8 @@ def test_schema_migrations_pin_idempotency_rls_and_rpc_security():
     assert "assessment.reviewer_id <> pedagogy.reviewer_id" in attempts
     assert "missing_task_count" in attempts
     assert "task_dimension_mismatch" in attempts
+    assert "v_successes >= 3" in attempts
+    assert ">= 0.75" in attempts and ">= 0.67" in attempts
     assert "vocab_unit_publication_events" in identity + attempts
     assert "FROM PUBLIC, anon, authenticated" in attempts
     assert "('vocab_units_read', FALSE" in flags
