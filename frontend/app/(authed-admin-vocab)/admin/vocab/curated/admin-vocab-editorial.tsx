@@ -308,7 +308,7 @@ export function AdminVocabEditorial() {
     </header>
 
     <section className="avv-editorial-toolbar" aria-label="Bộ lọc editorial">
-      <label>Tìm unit<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Headword hoặc slug" /></label>
+      <div className="avv-editorial-filter"><label>Tìm unit<input value={search} aria-describedby="avv-editorial-search-scope" onChange={(event) => setSearch(event.target.value)} placeholder="Headword hoặc slug" /></label><small id="avv-editorial-search-scope">Tìm kiếm áp dụng cho trang đang tải.</small></div>
       <label>Unit status<select value={status} disabled={loading || busy} onChange={(event) => { setOffset(0); setStatus(event.target.value); }}><option value="">Tất cả</option><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></label>
       <div className="avv-editorial-filter"><label>Reviewer inbox<select value={inbox} aria-describedby={total > units.length ? 'avv-editorial-inbox-scope' : undefined} onChange={(event) => setInbox(event.target.value)}><option value="all">Tất cả unit</option><option value="language">Chờ Language</option><option value="pedagogy">Chờ Pedagogy</option><option value="assessment">Chờ Assessment</option><option value="ready">Đủ review gates</option></select></label>{total > units.length ? <small id="avv-editorial-inbox-scope">Lọc inbox áp dụng cho trang đang tải.</small> : null}</div>
       <button className="btn-secondary" type="button" disabled={loading || busy} onClick={() => void loadCatalog()}>{loading ? 'Đang tải…' : 'Làm mới'}</button>

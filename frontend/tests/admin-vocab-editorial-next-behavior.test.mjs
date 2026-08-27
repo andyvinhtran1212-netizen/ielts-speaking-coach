@@ -47,12 +47,14 @@ describe('native curated editorial workspace', () => {
 
   test('keeps pilot and page-local state operationally truthful', () => {
     assert.match(HUB, /item\.status === 'LIVE' \? 'live' : 'new'/);
+    assert.match(CLIENT, /Tìm kiếm áp dụng cho trang đang tải/);
     assert.match(CLIENT, /Lọc inbox áp dụng cho trang đang tải/);
     assert.match(CLIENT, /setReviewNotes\(''\)/);
     assert.match(CLIENT, /rollbackCancelRef\.current\?\.focus\(\)/);
     assert.match(CLIENT, /trigger\?\.focus\(\)/);
     assert.match(CLIENT, /requestAnimationFrame\(\(\) => detailHeadingRef\.current\?\.focus\(\)\)/);
     assert.match(CLIENT, /aria-describedby=\{total > units\.length \? 'avv-editorial-inbox-scope' : undefined\}/);
+    assert.match(CLIENT, /aria-describedby="avv-editorial-search-scope"/);
     assert.match(CLIENT, /reviewContextChanged/);
     assert.match(CLIENT, /setSelectedVersionId\(''\);\s*setDetailLoading\(false\);/);
   });
