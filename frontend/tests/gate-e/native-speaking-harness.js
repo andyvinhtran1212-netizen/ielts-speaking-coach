@@ -30,6 +30,8 @@ async function installHarness(page, {
   handleApi = null,
   expectBootstrapOnce = true,
   expectQuestionLookup = true,
+  waitForPlayer = true,
+  includeSessionQuery = true,
 } = {}) {
   const calls = [];
   const pageErrors = [];
@@ -115,10 +117,15 @@ async function installHarness(page, {
     });
   });
 
-  await page.goto(`${routePath}?session_id=${encodeURIComponent(sessionId)}`);
-  await expect(page.locator('#state-loading')).not.toHaveClass(/\bactive\b/);
+  const initialUrl = includeSessionQuery
+    ? `${routePath}?session_id=${encodeURIComponent(sessionId)}`
+    : routePath;
+  await page.goto(initialUrl);
+  if (waitForPlayer) {
+    await expect(page.locator('#state-loading')).not.toHaveClass(/\bactive\b/);
+  }
   expect(pageErrors).toEqual([]);
-  if (expectBootstrapOnce) {
+  if (expectBootstrapOnce && waitForPlayer) {
     expect(calls.filter((call) => call === `GET /sessions/${sessionId}`)).toHaveLength(1);
     expect(calls.filter((call) => call === `GET /sessions/${sessionId}/questions`)).toHaveLength(
       expectQuestionLookup ? 1 : 0,

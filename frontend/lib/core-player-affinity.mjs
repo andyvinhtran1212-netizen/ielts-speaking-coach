@@ -291,6 +291,44 @@ export function admitCorePlayer(
 }
 
 /**
+ * Resolve runtime admission without making the browser follow the route's
+ * redirect as a document navigation. The server remains the source of truth
+ * for deployment-scoped cutover/rollback decisions; the client accepts only
+ * one of the two policy-owned stable destinations.
+ */
+export async function resolveCorePlayerAdmissionForNavigation(
+  surface,
+  query,
+  fetchImpl = globalThis.fetch,
+  policy = CORE_PLAYER_AFFINITY_POLICY,
+) {
+  if (typeof fetchImpl !== 'function') throw new Error('core-player-admission-fetch-unavailable');
+  const admission = admitCorePlayer(surface, query, policy);
+  const response = await fetchImpl(admission, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+    credentials: 'same-origin',
+  });
+  if (!response?.ok) throw new Error('core-player-admission-failed');
+
+  let payload;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error('invalid-core-player-admission-response');
+  }
+  const destination = payload?.destination;
+  const allowedDestinations = [...IMPLEMENTATIONS].map((implementation) => (
+    corePlayerUrl(surface, implementation, query, policy)
+  ));
+  if (typeof destination !== 'string' || !allowedDestinations.includes(destination)) {
+    throw new Error('invalid-core-player-admission-destination');
+  }
+  return destination;
+}
+
+/**
  * Convert an N-1 backend's implementation-specific URL into a fresh runtime
  * admission decision. Compatibility parsing lives here so callers never need
  * to copy legacy player paths and silently bypass a later cutover/rollback.

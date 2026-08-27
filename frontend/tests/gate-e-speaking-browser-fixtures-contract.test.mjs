@@ -46,6 +46,6 @@ test('Speaking fixtures mock only pinned dependencies and use canonical attempt 
   assert.match(recoverySpec, /full_test_attempt_id/);
   assert.doesNotMatch(spec, /full_test_chain_id/);
   assert.doesNotMatch(recoverySpec, /full_test_chain_id/);
-  assert.equal((spec.match(/^test\('/gm) || []).length, 6);
+  assert.equal((spec.match(/^test\('/gm) || []).length, 7);
   assert.equal((recoverySpec.match(/^test\('/gm) || []).length, 7);
 });

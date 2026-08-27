@@ -26,6 +26,9 @@ export function GET(request: NextRequest) {
         gitRef: process.env.VERCEL_GIT_COMMIT_REF,
       },
     );
+    if (request.headers.get('accept')?.includes('application/json')) {
+      return NextResponse.json({ destination }, { headers: NO_STORE_HEADERS });
+    }
     return new NextResponse(null, {
       status: 307,
       headers: { Location: destination, ...NO_STORE_HEADERS },

@@ -3694,3 +3694,70 @@ reassurance.
   ratio is derived from one canonical guidance table, warning text uses the
   primary readable text token, and Listening tests pin the direct-child DOM
   relationships required by the embed selectors.
+
+---
+
+# My Class → Speaking continuity — 2026-08-27
+
+## Summary
+
+Speaking homework already reuses one canonical session per class item, but the
+learner-facing handoff still behaved like two unrelated products: My Class used
+a full-document navigation, and both the player and result page returned to the
+standalone Speaking dashboard. The remediation keeps the isolated Speaking
+layout while using Next App Router navigation for Next-owned sessions and
+results.
+
+## High-priority improvement applied
+
+### Issue: A class assignment lost its class context during practice and review
+
+**Current state:** My Class called `window.location.assign()` for every player.
+The Next Speaking player and result page used `/speaking` as their fixed return
+destination.
+
+**Problem:** Learners experienced a document reload and landed in a generic
+Speaking flow. Returning after submission required rediscovering the original
+lesson and made Part 1/Part 2 feel detached from the class assignment.
+
+**Recommendation applied:** Next-owned Speaking admission, stable player URLs
+and completed results use App Router navigation. The canonical session
+`class_task.item_id` decides whether the player/result label is “Bài tập theo
+buổi” and whether “Về lớp học” returns to `/my-class`. Legacy renderer affinity
+continues to use its stable hard-navigation path.
+
+**Impact:** The authenticated application shell is no longer reloaded for the
+normal Next flow, the learner retains a clear class-task mental model, and My
+Class refreshes from canonical backend truth when revisited.
+
+**Implementation notes:** A modal player over My Class was deliberately not
+introduced while Speaking remains hybrid. My Class excludes `ds.css` and
+Tailwind by design, whereas the recorder depends on a separate CSS cascade and
+the `practice.js` global orchestrator. Combining those layouts now would risk
+CSS leakage and duplicate recorder lifecycle ownership. Route unmount already
+calls `PracticeApp.destroy()` and releases MediaRecorder, streams, timers,
+audio contexts and object URLs; the Next navigation callback now uses that
+existing safe boundary.
+
+## Accessibility and error prevention
+
+- The primary exit and error-state return links expose their actual destination
+  in visible text (“Về lớp học”).
+- Leaving through those controls while a recording is active or recorded but
+  unsent requires explicit confirmation.
+- Browser unload is also guarded when either the Full Test controller or the
+  practice player owns unsent audio.
+- Direct `/practice/session` and `/result` visits retain the standalone
+  Speaking return behavior.
+
+## Verification
+
+- Reopen an in-progress class assignment and confirm the same `session_id` is
+  used.
+- Complete the session and confirm player → result → My Class stays in the Next
+  application shell and the assignment row reloads from backend state.
+- Confirm a persisted Legacy-affinity session still opens
+  `/pages/practice.html`.
+- Verify the active/unsent recording warning and microphone teardown on route
+  exit.
+- Check the class-aware player/result header at desktop and mobile widths.

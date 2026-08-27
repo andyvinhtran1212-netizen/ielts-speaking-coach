@@ -291,11 +291,11 @@ describe('Next Speaking recorder integration', () => {
   test('all terminal result redirects are root-absolute on the nested Next route', () => {
     assert.match(PRACTICE, /var path = _getNativeView\(\) \? '\/result' : '\/pages\/result\.html'/);
     assert.ok(
-      [...PRACTICE.matchAll(/window\.location\.href\s*=\s*_singleSessionResultUrl\(/g)].length >= 3,
-      'single-session exits must use the renderer ownership helper',
+      [...PRACTICE.matchAll(/_navigateTo\(_singleSessionResultUrl\(/g)].length >= 3,
+      'single-session exits must use the renderer ownership helper through route navigation',
     );
     assert.match(PRACTICE, /var path = _getNativeView\(\) \? '\/full-test-result' : '\/pages\/full-test-result\.html'/);
-    assert.match(PRACTICE, /window\.location\.href\s*=\s*_fullTestResultUrl\(_ftAllSessionIds\)/);
+    assert.match(PRACTICE, /_navigateTo\(_fullTestResultUrl\(_ftAllSessionIds\)\)/);
     assert.doesNotMatch(PRACTICE, /window\.location\.href\s*=\s*(?:api\.url|['"](?:result|pages\/result)\.html)/);
   });
 });

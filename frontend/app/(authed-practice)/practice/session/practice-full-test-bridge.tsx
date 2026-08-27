@@ -34,7 +34,7 @@ export function PracticeFullTestBridge() {
     });
 
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!controller.hasUnsavedAudio()) return;
+      if (!controller.hasUnsavedAudio() && !win.PracticeApp?.hasUnsavedWork?.()) return;
       event.preventDefault();
       event.returnValue = '';
     };

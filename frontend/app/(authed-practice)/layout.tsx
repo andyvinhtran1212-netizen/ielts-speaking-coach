@@ -8,6 +8,7 @@
 import type { ReactNode } from 'react';
 
 import { AuthedShell } from '@/components/authed-shell';
+import { PracticeRuntimeScripts } from './practice-runtime-scripts';
 
 export default function AuthedPracticeLayout({ children }: { children: ReactNode }) {
   return (
@@ -15,14 +16,10 @@ export default function AuthedPracticeLayout({ children }: { children: ReactNode
       pageStylesheets={['/css/practice.css', '/css/speaking-assignment.css']}
       bodyClass="av-page font-sans antialiased min-h-screen flex flex-col"
       extraScripts={
-        <>
-          {/* Thứ tự byte-faithful với practice.html. Ba tệp chỉ định nghĩa
-              global/listener; PracticeSessionBoot mới tải payload đã xác thực
-              rồi handoff vào init sau khi các global sẵn sàng. */}
-          <script src="/js/speaking-debt.js" defer />
-          <script src="/js/practice.js" defer />
-          <script src="/js/pronunciation-drilldown.js" defer />
-        </>
+        /* Raw script tags do not execute when this layout is entered through
+           App Router navigation. The client loader preserves source order on
+           both first-document and soft-navigation entry. */
+        <PracticeRuntimeScripts />
       }
     >
       {children}

@@ -50,7 +50,7 @@ describe('/full-test-result — native ownership and safety', () => {
 describe('/full-test-result — coexistence boundary', () => {
   test('Next player selects the native route while legacy keeps the rollback URL', () => {
     assert.match(PRACTICE, /var path = _getNativeView\(\) \? '\/full-test-result' : '\/pages\/full-test-result\.html'/);
-    assert.match(PRACTICE, /window\.location\.href = _fullTestResultUrl\(_ftAllSessionIds\)/);
+    assert.match(PRACTICE, /_navigateTo\(_fullTestResultUrl\(_ftAllSessionIds\)\)/);
   });
 
   test('later parts identify only their predecessor and never mint an attempt id', () => {

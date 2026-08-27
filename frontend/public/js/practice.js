@@ -58,6 +58,8 @@
   var _currentState = null;   // top-level state name
   var _playerGeneration = 0;  // suppress stale async UI after soft navigation
   var _playerActive = false;
+  var _navigate = null;       // Next route callback; Legacy falls back to location
+  var _recordingDirty = false; // local non-sheet blob not yet confirmed persisted
 
   // ── Recorder state ────────────────────────────────────────────────────────────
 
@@ -253,6 +255,28 @@
   function _practiceSessionUrlForRenderer(sessionId, renderer) {
     var path = renderer === 'next' ? '/practice/session' : '/pages/practice.html';
     return path + '?session_id=' + encodeURIComponent(sessionId);
+  }
+
+  function _navigateTo(url) {
+    if (_navigate) {
+      _navigate(url);
+      return;
+    }
+    window.location.href = url;
+  }
+
+  function _hasUnsentWork() {
+    if (_recSubState === 'recording' || _recordingDirty) return true;
+    return !!(_sheet && Array.isArray(_sheet.slots)
+      && _sheet.slots.some(function (slot) { return !!slot.retryBlob; }));
+  }
+
+  function _canLeave() {
+    if (!_hasUnsentWork()) return true;
+    if (typeof window.confirm !== 'function') return false;
+    return window.confirm(
+      'Bạn có bản ghi chưa gửi. Nếu rời bài bây giờ, phần ghi âm này sẽ bị mất. Bạn vẫn muốn rời bài?'
+    );
   }
 
   function _startManagedInterval(key, callback, milliseconds) {
@@ -735,6 +759,7 @@
       _sheetOnRecorded(_recordedBlob);
       return;
     }
+    _recordingDirty = true;
     _renderRecordedPlayback();
     _renderRecordedLengthHint();
     _showRecSub('recorded');
@@ -958,6 +983,7 @@
     _recorder     = null;
     _audioChunks  = [];
     _recordedBlob = null;
+    _recordingDirty = false;
     _elapsedSecs  = 0;
     // Reset timer display
     if (!_updateNativeView('recording', { timer: '0:00', duration: '' })) {
@@ -1199,6 +1225,7 @@
       _handlePersistFailure(null);
       return;
     }
+    if (!(data && data._stub)) _recordingDirty = false;
     _clearP2SubmissionRetry();
     _showFeedback(data || { _stub: true, _error: 'Không có phản hồi từ server' });
   }
@@ -3201,6 +3228,7 @@
       return;
     }
 
+    _recordingDirty = true;
     _startProcessing(_recordedBlob, questionId);
   }
 
@@ -3210,6 +3238,7 @@
     // when the native controller owns the device lifecycle.
     _audioChunks = [];
     _recordedBlob = null;
+    _recordingDirty = false;
     _elapsedSecs = 0;
     var nativeRecorder = _getNativeRecorder();
     if (nativeRecorder) {
@@ -3978,7 +4007,7 @@
 
     if (_testMode === 'test_full' && _ftAllSessionIds.length > 0) {
       // Redirect to dedicated full-test result page
-      window.location.href = _fullTestResultUrl(_ftAllSessionIds);
+      _navigateTo(_fullTestResultUrl(_ftAllSessionIds));
       return;
     }
 
@@ -3988,7 +4017,7 @@
     // the dashboard-history view diverged enough to be confusing; both now
     // route through result.html?id=<session_id>.
     if (_sessionId) {
-      window.location.href = _singleSessionResultUrl(_sessionId);
+      _navigateTo(_singleSessionResultUrl(_sessionId));
       return;
     }
 
@@ -5160,7 +5189,7 @@
       return;
     }
     if (!_playerActive || generation !== _playerGeneration || sessionId !== _sessionId) return;
-    window.location.href = _singleSessionResultUrl(sessionId);
+    _navigateTo(_singleSessionResultUrl(sessionId));
   }
 
   function nextQuestion() {
@@ -5236,7 +5265,7 @@
     }
 
     if (!_playerActive || generation !== _playerGeneration || sessionId !== _sessionId) return;
-    window.location.href = _singleSessionResultUrl(sessionId);
+    _navigateTo(_singleSessionResultUrl(sessionId));
   }
 
   function destroy() {
@@ -5296,6 +5325,8 @@
     _sessionId = null;
     _sessionData = null;
     _rendererAffinity = null;
+    _navigate = null;
+    _recordingDirty = false;
     _questions = [];
     _currentQ = null;
     _currentIdx = 0;
@@ -5437,6 +5468,8 @@
     _fullTestRetryInFlight = false;
     _testMode = null;
     _rendererAffinity = null;
+    _navigate = null;
+    _recordingDirty = false;
     _bindPlayerEffects();
     _bindSheet();
     showState('loading');
@@ -5461,6 +5494,7 @@
       _currentUserId = bootstrap.userId || null;
       _sessionId = bootstrap.sessionId;
       _rendererAffinity = 'next';
+      _navigate = typeof bootstrap.navigate === 'function' ? bootstrap.navigate : null;
     } else {
       var sb = window.getSupabase && window.getSupabase();
       if (!sb) { showError('Không thể khởi tạo Supabase.'); return; }
@@ -5536,6 +5570,15 @@
           if (!_playerActive || generation !== _playerGeneration) return;
         }
       }
+
+      var classTask = _sessionData && _sessionData.class_task;
+      var classItemId = (classTask && classTask.item_id)
+        || (_sessionData && _sessionData.class_assignment_item_id);
+      _updateNativeView('frame', {
+        returnHref: classItemId ? '/my-class' : '/speaking',
+        returnLabel: classItemId ? 'Về lớp học' : 'Quay lại',
+        contextLabel: classItemId ? 'Bài tập theo buổi' : 'Speaking',
+      });
 
       if (!questions || questions.length === 0) {
         showError('Không thể tạo câu hỏi. Hãy kiểm tra kết nối mạng và thử lại.');
@@ -5771,6 +5814,8 @@
   window.PracticeApp = {
     init:                 init,
     destroy:              destroy,
+    hasUnsavedWork:       _hasUnsentWork,
+    canLeave:             _canLeave,
     goToRecording:        goToRecording,
     startRecording:       startRecording,
     stopRecording:        stopRecording,

@@ -1,9 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
-import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
+import {
+  admitCorePlayer,
+  resolveCorePlayerAdmissionForNavigation,
+} from '@/lib/core-player-affinity.mjs';
 import {
   assignmentAction,
   assignmentSubtitle,
@@ -408,6 +412,7 @@ function ReadyView({
 }
 
 export function MyClassWorkspace() {
+  const router = useRouter();
   const { status, user } = useAuth();
   const accountKey = status === 'signed-in' && user?.id ? user.id : null;
   const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -541,11 +546,26 @@ export function MyClassWorkspace() {
       }
       if (target.kind === 'player') {
         if (!isKnownPlayerSurface(target.surface)) throw new Error('Player không được hỗ trợ.');
-        window.location.assign(admitCorePlayer(target.surface, target.query));
+        if (target.surface === 'speaking') {
+          const destination = await resolveCorePlayerAdmissionForNavigation(
+            target.surface,
+            target.query,
+          );
+          if (accountRef.current !== owner) return;
+          if (destination.startsWith('/practice/session?')) router.push(destination);
+          else window.location.assign(destination);
+        } else {
+          window.location.assign(admitCorePlayer(target.surface, target.query));
+        }
         return;
       }
       if (target.kind === 'stable-player') {
-        window.location.assign(target.url);
+        // Stable Legacy attempts must stay on their historical renderer. A
+        // Next-owned Speaking session can use App Router navigation: this keeps
+        // the authenticated shell alive and lets the player cleanup run on
+        // unmount instead of reloading the whole document.
+        if (target.url.startsWith('/practice/session?')) router.push(target.url);
+        else window.location.assign(target.url);
         return;
       }
       if (target.kind === 'admission') {
@@ -553,7 +573,7 @@ export function MyClassWorkspace() {
         return;
       }
       if (target.kind === 'result') {
-        window.location.assign(target.url);
+        router.push(target.url);
         return;
       }
       const created = await window.api.post<unknown>('/sessions', target.body);
@@ -562,7 +582,13 @@ export function MyClassWorkspace() {
       const sessionId = typeof session?.id === 'string' && session.id.trim() ? session.id.trim()
         : typeof session?.session_id === 'string' && session.session_id.trim() ? session.session_id.trim() : '';
       if (!sessionId) throw new Error('Máy chủ không trả về buổi học hợp lệ.');
-      window.location.assign(admitCorePlayer('speaking', { session_id: sessionId }));
+      const destination = await resolveCorePlayerAdmissionForNavigation(
+        'speaking',
+        { session_id: sessionId },
+      );
+      if (accountRef.current !== owner) return;
+      if (destination.startsWith('/practice/session?')) router.push(destination);
+      else window.location.assign(destination);
     } catch (caught) {
       if (accountRef.current !== owner) return;
       const message = caught instanceof Error ? caught.message : String(caught);
@@ -570,7 +596,7 @@ export function MyClassWorkspace() {
       startingItemRef.current = null;
       setStartingItem(null);
     }
-  }, [accountKey]);
+  }, [accountKey, router]);
 
   if (status !== 'signed-in' || !accountKey || stateAccount !== accountKey || phase === 'loading') {
     return <main className="mc-shell"><div className="mc-note" role="status">Đang tải lớp của bạn…</div></main>;

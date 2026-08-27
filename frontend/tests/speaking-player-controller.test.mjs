@@ -174,6 +174,18 @@ describe('SpeakingPlayerController — state and effect ownership', () => {
     assert.equal(controller.updateView('prep', { topic: 'stale' }), false);
   });
 
+  test('defaults to the standalone Speaking return context', () => {
+    const controller = new SpeakingPlayerController(makeEnvironment().environment);
+    assert.deepEqual(controller.getViewSnapshot().frame, {
+      loadingMessage: 'Đang tải...',
+      errorMessage: '',
+      testModeBannerVisible: false,
+      returnHref: '/speaking',
+      returnLabel: 'Quay lại',
+      contextLabel: 'Speaking',
+    });
+  });
+
   test('deep-freezes structured feedback items instead of retaining mutable AI payload objects', () => {
     const fixture = makeEnvironment();
     const controller = new SpeakingPlayerController(fixture.environment);

@@ -60,6 +60,23 @@ describe('native session-result view model — canonical truth', () => {
     assert.deepEqual(view.bands, { fc: null, lr: null, gra: null, p: null });
   });
 
+  test('class-assignment results return to canonical My Class context', () => {
+    const classView = buildSessionResult({
+      id: 'class-session', status: 'completed', class_assignment_item_id: 'item-1',
+      class_task: { item_id: 'item-1', title: 'Course 3 · Buổi 3 · Part 1' },
+      questions: [], responses: [],
+    });
+    assert.equal(classView.returnHref, '/my-class');
+    assert.equal(classView.returnLabel, 'Về lớp học');
+    assert.equal(classView.contextLabel, 'Bài tập theo buổi');
+
+    const freeView = buildSessionResult({
+      id: 'free-session', status: 'completed', questions: [], responses: [],
+    });
+    assert.equal(freeView.returnHref, '/speaking');
+    assert.equal(freeView.contextLabel, 'Speaking');
+  });
+
   test('completed legacy rows can fall back per criterion without replacing canonical overall', () => {
     const view = buildSessionResult({
       id: 'legacy',
