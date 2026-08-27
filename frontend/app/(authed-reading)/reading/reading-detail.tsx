@@ -10,10 +10,7 @@ import {
   readingDetailPath,
   validReadingSlug,
 } from '@/lib/reading-detail-model.mjs';
-import {
-  normalizeContextTerm,
-  normalizeVocabContextLinks,
-} from '@/lib/vocab-context-links-model.mjs';
+import { normalizeVocabContextLinks } from '@/lib/vocab-context-links-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 type Library = 'vocab' | 'skill';
@@ -38,8 +35,7 @@ type Detail = {
   questions: Question[];
 };
 type CheckResult = { qNum: number; correct: boolean; expected: string; explanation: string | null; skillTag: string | null };
-type ContextLink = { normalizedTerm: string; unitSlug: string; title: string; rationale: string; level: string };
-type ContextLinks = Record<string, ContextLink>;
+type ContextLink = { requestTerm: string; unitSlug: string; title: string; rationale: string; level: string };
 type DialogState =
   | { kind: 'glossary'; entry: GlossaryEntry }
   | { kind: 'image'; src: string; alt: string }
@@ -225,7 +221,7 @@ function ReadingWorkspace({ accountKey, detail, library }: {
   const [progress, setProgress] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [results, setResults] = useState<Record<number, CheckResult>>({});
-  const [contextLinks, setContextLinks] = useState<ContextLinks>({});
+  const [contextLinks, setContextLinks] = useState<ContextLink[]>([]);
   const correct = Object.values(results).filter((result) => result.correct).length;
 
   useEffect(() => {
@@ -254,7 +250,7 @@ function ReadingWorkspace({ accountKey, detail, library }: {
 
   useEffect(() => {
     const terms = detail.glossary.map((entry) => entry.term).filter(Boolean).slice(0, 30);
-    setContextLinks({});
+    setContextLinks([]);
     if (!accountKey || !terms.length) return undefined;
     const controller = new AbortController();
     let disposed = false;
@@ -271,10 +267,10 @@ function ReadingWorkspace({ accountKey, detail, library }: {
           {},
           { signal: controller.signal, noRedirect: true },
         );
-        if (!disposed) setContextLinks(normalizeVocabContextLinks(payload) as ContextLinks);
+        if (!disposed) setContextLinks(normalizeVocabContextLinks(payload) as ContextLink[]);
       } catch {
         // Optional enrichment: a cohort/flag/network failure must not break Reading.
-        if (!disposed) setContextLinks({});
+        if (!disposed) setContextLinks([]);
       }
     })();
     return () => {
@@ -353,7 +349,7 @@ function InlineStrong({ value }: { value: string }) {
   })}</>;
 }
 
-function ReadingPanes({ contextLinks, detail }: { contextLinks: ContextLinks; detail: NonNullable<Detail> }) {
+function ReadingPanes({ contextLinks, detail }: { contextLinks: ContextLink[]; detail: NonNullable<Detail> }) {
   const tabs = useMemo(() => [
     { id: 'original', label: 'Văn bản gốc' },
     ...(detail.translationVi ? [{ id: 'translation', label: 'Bài dịch' }] : []),
@@ -406,7 +402,7 @@ function ReadingPanes({ contextLinks, detail }: { contextLinks: ContextLinks; de
   );
 }
 
-function ReadingBody({ contextLinks, detail }: { contextLinks: ContextLinks; detail: NonNullable<Detail> }) {
+function ReadingBody({ contextLinks, detail }: { contextLinks: ContextLink[]; detail: NonNullable<Detail> }) {
   const [html, setHtml] = useState('');
   const [dialog, setDialog] = useState<DialogState>(null);
   useEffect(() => {
@@ -444,7 +440,7 @@ function ReadingBody({ contextLinks, detail }: { contextLinks: ContextLinks; det
         {html ? <div dangerouslySetInnerHTML={{ __html: html }} /> : <p>{detail.bodyMarkdown}</p>}
       </div>
       <ReadingDialog
-        contextLink={dialog?.kind === 'glossary' ? contextLinks[normalizeContextTerm(dialog.entry.term)] || null : null}
+        contextLink={dialog?.kind === 'glossary' ? contextLinks.find((link) => link.requestTerm === dialog.entry.term) || null : null}
         dialog={dialog}
         onClose={() => setDialog(null)}
       />

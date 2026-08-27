@@ -67,7 +67,8 @@ describe('native Reading detail workspace', () => {
     assert.match(BEHAVIOR, /window\.api\.postWith<unknown>/);
     assert.match(BEHAVIOR, /\{ signal: controller\.signal, noRedirect: true \}/);
     assert.match(BEHAVIOR, /normalizeVocabContextLinks\(payload\)/);
-    assert.match(BEHAVIOR, /if \(!disposed\) setContextLinks\(\{\}\)/);
+    assert.match(BEHAVIOR, /if \(!disposed\) setContextLinks\(\[\]\)/);
+    assert.match(BEHAVIOR, /link\.requestTerm === dialog\.entry\.term/);
     assert.match(BEHAVIOR, /Học cách dùng sâu hơn/);
     assert.match(BEHAVIOR, /\/vocabulary\/learn\/\$\{encodeURIComponent\(contextLink\.unitSlug\)\}/);
     assert.doesNotMatch(BEHAVIOR, /onDoubleClick|dblclick|window\.getSelection/);

@@ -27,9 +27,13 @@ def resolve_context_links(terms: list[str]) -> dict[str, Any]:
             f"Context lookup vượt giới hạn {MAX_CONTEXT_TERMS} terms"
         )
     normalized: list[str] = []
+    identity_by_request: list[tuple[str, str]] = []
     for term in terms:
         identity = vocab_context_rules.normalize_context_term(term)
-        if identity and identity not in normalized:
+        if not identity:
+            continue
+        identity_by_request.append((term, identity))
+        if identity not in normalized:
             normalized.append(identity)
     if not normalized:
         return {"links": []}
@@ -52,19 +56,24 @@ def resolve_context_links(terms: list[str]) -> dict[str, Any]:
         str(unit.get("id")): vocab_units._unit_summary(unit, version)
         for unit, version in published
     }
-    links: list[dict[str, Any]] = []
-    seen: set[str] = set()
+    mapping_by_identity: dict[str, dict[str, Any]] = {}
     for mapping in mappings:
         normalized_term = str(mapping.get("normalized_term") or "")
         summary = summaries.get(str(mapping.get("unit_id") or ""))
-        if normalized_term not in normalized or normalized_term in seen or not summary:
+        if normalized_term not in normalized or normalized_term in mapping_by_identity or not summary:
             continue
-        links.append({
+        mapping_by_identity[normalized_term] = {
             "term": str(mapping.get("term") or ""),
             "normalized_term": normalized_term,
             "rationale_vi": str(mapping.get("rationale_vi") or ""),
             "unit": summary,
-        })
-        seen.add(normalized_term)
-    links.sort(key=lambda row: normalized.index(row["normalized_term"]))
+        }
+    links: list[dict[str, Any]] = []
+    seen_requests: set[str] = set()
+    for request_term, identity in identity_by_request:
+        match = mapping_by_identity.get(identity)
+        if not match or request_term in seen_requests:
+            continue
+        links.append({**match, "request_term": request_term})
+        seen_requests.add(request_term)
     return {"links": links}

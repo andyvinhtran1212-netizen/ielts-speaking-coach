@@ -60,11 +60,36 @@ def test_resolver_returns_only_exact_published_safe_summary():
          patch.object(vocab_context_links.vocab_units, "_load_published_units", return_value=_published()):
         database.table.return_value = query
         result = vocab_context_links.resolve_context_links([" Actually ", "ACTUALLY"])
-    assert len(result["links"]) == 1
-    assert result["links"][0]["normalized_term"] == "actually"
-    assert result["links"][0]["unit"]["unit_slug"] == "actually-vs-currently"
-    assert "content" not in result["links"][0]["unit"]
+    assert len(result["links"]) == 2
+    assert result["links"][0]["request_term"] == " Actually "
+    assert result["links"][1]["request_term"] == "ACTUALLY"
+    assert all(row["normalized_term"] == "actually" for row in result["links"])
+    assert all(row["unit"]["unit_slug"] == "actually-vs-currently" for row in result["links"])
+    assert all("content" not in row["unit"] for row in result["links"])
     query.in_.assert_called_once_with("normalized_term", ["actually"])
+
+
+def test_resolver_binds_unicode_casefold_identity_back_to_each_authored_term():
+    query = _query([
+        {
+            "term": "strasse", "normalized_term": "strasse", "unit_id": UNIT_ID,
+            "rationale_vi": "Giữ canonical identity ở backend thay vì mô phỏng casefold trên browser.",
+        },
+        {
+            "term": "ss", "normalized_term": "ss", "unit_id": UNIT_ID,
+            "rationale_vi": "Giữ canonical identity ở backend thay vì mô phỏng casefold trên browser.",
+        },
+        {
+            "term": "σ", "normalized_term": "σ", "unit_id": UNIT_ID,
+            "rationale_vi": "Giữ canonical identity ở backend thay vì mô phỏng casefold trên browser.",
+        },
+    ])
+    with patch.object(vocab_context_links, "supabase_admin") as database, \
+         patch.object(vocab_context_links.vocab_units, "_load_published_units", return_value=_published()):
+        database.table.return_value = query
+        result = vocab_context_links.resolve_context_links(["Straße", "ẞ", "ς"])
+    assert [row["request_term"] for row in result["links"]] == ["Straße", "ẞ", "ς"]
+    query.in_.assert_called_once_with("normalized_term", ["strasse", "ss", "σ"])
 
 
 def test_resolver_fails_closed_when_target_is_not_published():
