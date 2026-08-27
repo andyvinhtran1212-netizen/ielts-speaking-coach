@@ -512,7 +512,7 @@
   letter-spacing: var(--av-tracking-wide);
 }
 
-.result-cue-card ul { margin: 0; padding-inline-start: var(--av-space-5); }
+.result-cue-card ul { margin: 0; padding-inline-start: calc(var(--av-space-4) + var(--av-space-1)); }
 .result-cue-card li + li { margin-top: var(--av-space-1); }
 .result-cue-card__reflection { margin: var(--av-space-3) 0 0; font-style: italic; }
 

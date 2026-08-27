@@ -495,7 +495,7 @@
   gap: var(--av-space-1);
   margin-top: var(--av-space-2);
   font-size: var(--av-fs-xs);
-  line-height: var(--av-leading-relaxed);
+  line-height: var(--av-lh-relaxed);
   color: var(--av-text-muted);
 }
 
@@ -709,7 +709,7 @@
   margin: 0 0 var(--av-space-3);
   font-size: var(--av-fs-base);
   font-weight: var(--av-fw-semibold);
-  line-height: var(--av-leading-relaxed);
+  line-height: var(--av-lh-relaxed);
 }
 
 .av-slot__cue-label {
@@ -723,7 +723,7 @@
 
 .av-slot__cue ul {
   margin: 0;
-  padding-inline-start: var(--av-space-5);
+  padding-inline-start: calc(var(--av-space-4) + var(--av-space-1));
   color: var(--av-text-secondary);
 }
 
