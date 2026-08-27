@@ -1092,6 +1092,7 @@ async def list_topic_questions(
             "blocked_by":    None if voiced else "audio",
             "audio_url":     q.get("audio_url") if voiced else None,
             "cue_card_bullets": q.get("cue_card_bullets"),
+            "cue_card_reflection": q.get("cue_card_reflection"),
         })
     return {
         "topic": {"id": topic["id"], "title": topic["title"]},
