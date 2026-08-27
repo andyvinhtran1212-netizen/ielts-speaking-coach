@@ -141,6 +141,9 @@ def test_migration_keeps_lifecycle_private_transactional_and_time_bounded():
     assert sql.count("pg_advisory_xact_lock") >= 2
     assert "DISABLE TRIGGER trg_vocab_unit_recommendations_updated_at" in sql
     assert "ENABLE TRIGGER trg_vocab_unit_recommendations_updated_at" in sql
+    assert "historically_completed AS" in sql
+    assert "COUNT(first_attempted_at) = COUNT(*)" in sql
+    assert "GREATEST(recommendation.updated_at, completed.completed_at)" in sql
     assert "task.status AS task_status" in sql
     assert "fact.task_status = 'active'" in sql
     assert "'vocab_curated_enabled', v_persisted" in sql

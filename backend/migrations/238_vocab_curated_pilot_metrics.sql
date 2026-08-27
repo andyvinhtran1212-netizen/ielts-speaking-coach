@@ -34,6 +34,45 @@ UPDATE vocab_unit_recommendations
  WHERE status = 'dismissed'
    AND dismissed_at IS NULL;
 
+-- Triggers below only observe future inserts. Reconcile recommendations whose
+-- learners had already completed every active task in the unit's current
+-- published version before this migration. The completion event is when the
+-- last required task was first attempted, but cannot predate the recommendation.
+WITH active_task_first_attempts AS (
+    SELECT recommendation.id AS recommendation_id,
+           recommendation.created_at AS recommendation_created_at,
+           task.id AS task_id,
+           MIN(attempt.created_at) AS first_attempted_at
+      FROM vocab_unit_recommendations recommendation
+      JOIN vocab_learning_units unit
+        ON unit.id = recommendation.unit_id
+      JOIN vocab_unit_tasks task
+        ON task.version_id = unit.current_published_version_id
+       AND task.status = 'active'
+      LEFT JOIN vocab_unit_attempts attempt
+        ON attempt.user_id = recommendation.user_id
+       AND attempt.version_id = unit.current_published_version_id
+       AND attempt.task_id = task.id
+     WHERE recommendation.status IN ('pending', 'opened')
+     GROUP BY recommendation.id, recommendation.created_at, task.id
+), historically_completed AS (
+    SELECT recommendation_id,
+           GREATEST(
+               recommendation_created_at,
+               MAX(first_attempted_at)
+           ) AS completed_at
+      FROM active_task_first_attempts
+     GROUP BY recommendation_id, recommendation_created_at
+    HAVING COUNT(*) > 0
+       AND COUNT(first_attempted_at) = COUNT(*)
+)
+UPDATE vocab_unit_recommendations recommendation
+   SET status = 'completed',
+       completed_at = completed.completed_at,
+       updated_at = GREATEST(recommendation.updated_at, completed.completed_at)
+  FROM historically_completed completed
+ WHERE recommendation.id = completed.recommendation_id;
+
 ALTER TABLE vocab_unit_recommendations
     ENABLE TRIGGER trg_vocab_unit_recommendations_updated_at;
 
