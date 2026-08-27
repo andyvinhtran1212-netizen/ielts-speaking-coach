@@ -108,6 +108,15 @@ def test_postgrest_pager_reads_beyond_the_default_cap():
     assert query.range.call_args_list == [call(0, 1), call(2, 3)]
 
 
+def test_postgrest_pager_fails_closed_when_editorial_cap_is_exceeded():
+    query = _query([
+        {"id": "1"}, {"id": "2"}, {"id": "3"},
+    ])
+    with pytest.raises(vocab_units.VocabUnitError, match="giới hạn an toàn 2"):
+        vocab_units._paged_rows(query, page_size=100, max_rows=2)
+    query.range.assert_called_once_with(0, 2)
+
+
 def test_published_unit_id_filters_are_chunked_to_bound_urls():
     first_units = _query([])
     second_units = _query([])
@@ -505,6 +514,106 @@ def test_admin_create_unit_requires_canonical_admin_guard():
     create.assert_called_once()
 
 
+def test_editorial_catalog_derives_the_database_review_gate_truthfully():
+    unit_query = _query([{
+        "id": "unit-1", "unit_slug": "have-an-impact-on",
+        "display_headword": "have an impact on", "status": "draft",
+        "current_published_version_id": None,
+    }])
+    unit_query.execute.return_value.count = 1
+    version_query = _query([{
+        "id": "version-1", "unit_id": "unit-1", "version_number": 1,
+        "status": "in_review", "updated_at": "2026-08-27T00:00:00Z",
+    }])
+    review_query = _query([
+        {
+            "id": f"review-{index}", "version_id": "version-1",
+            "reviewer_id": reviewer, "review_type": review_type,
+            "decision": "approved",
+        }
+        for index, (review_type, reviewer) in enumerate((
+            ("language", "reviewer-language"),
+            ("pedagogy", "reviewer-pedagogy"),
+            ("assessment", "reviewer-assessment"),
+        ))
+    ])
+    task_query = _query([
+        {
+            "id": f"task-{index}", "version_id": "version-1",
+            "dimension": dimension, "status": "active",
+        }
+        for index, dimension in enumerate((
+            "meaning_recall", "usage_control", "usage_control",
+            "productive_transfer",
+        ))
+    ])
+    with patch.object(vocab_units, "supabase_admin") as database:
+        database.table.side_effect = [
+            unit_query, version_query, review_query, task_query,
+        ]
+        payload = vocab_units.list_editorial_units(offset=0, limit=50)
+    version = payload["items"][0]["versions"][0]
+    assert payload["total"] == 1
+    assert version["task_count"] == 4
+    assert version["dimensions"] == list(vocab_units.MASTERY_DIMENSIONS)
+    assert version["review_gate"] == {
+        "states": {
+            "language": "approved", "pedagogy": "approved",
+            "assessment": "approved",
+        },
+        "pending_review_types": [],
+        "has_distinct_reviewers": True,
+        "reviews_ready": True,
+    }
+
+
+def test_editorial_review_gate_stays_blocked_by_change_request():
+    gate = vocab_units._review_gate_summary([
+        {"review_type": "language", "decision": "approved", "reviewer_id": "a"},
+        {"review_type": "language", "decision": "changes_requested", "reviewer_id": "b"},
+        {"review_type": "pedagogy", "decision": "approved", "reviewer_id": "b"},
+        {"review_type": "assessment", "decision": "approved", "reviewer_id": "c"},
+    ])
+    assert gate["states"]["language"] == "changes_requested"
+    assert gate["pending_review_types"] == ["language"]
+    assert gate["reviews_ready"] is False
+
+
+def test_editorial_catalog_fails_closed_without_exact_count():
+    unit_query = _query([])
+    unit_query.execute.return_value.count = None
+    with patch.object(vocab_units, "supabase_admin") as database:
+        database.table.return_value = unit_query
+        with pytest.raises(vocab_units.VocabUnitError, match="thiếu exact count"):
+            vocab_units.list_editorial_units(offset=20, limit=10)
+
+
+def test_editorial_catalog_route_requires_admin_and_forwards_pagination():
+    path = "/admin/vocabulary/editorial/units?status=draft&offset=20&limit=10"
+    assert _client().get(path).status_code == 401
+    expected = {"items": [], "total": 0, "offset": 20, "limit": 10}
+    with patch("routers.vocab_units.require_admin", new=AsyncMock(return_value=ADMIN)), \
+         patch("routers.vocab_units.vocab_units.list_editorial_units", return_value=expected) as listing:
+        response = _client().get(path, headers=ADMIN_AUTH)
+    assert response.status_code == 200 and response.json() == expected
+    listing.assert_called_once_with(status="draft", offset=20, limit=10)
+
+
+def test_editorial_detail_route_keeps_private_bundle_behind_admin_guard():
+    path = f"/admin/vocabulary/editorial/units/{TASK_ID}"
+    assert _client().get(path).status_code == 401
+    expected = {
+        "unit": {"id": TASK_ID, "display_headword": "target"},
+        "versions": [{"id": "version-1", "tasks": [{"answer_key": {"accepted": ["target"]}}]}],
+        "events": [], "events_total": 0, "events_has_more": False,
+    }
+    with patch("routers.vocab_units.require_admin", new=AsyncMock(return_value=ADMIN)), \
+         patch("routers.vocab_units.vocab_units.get_editorial_unit", return_value=expected) as detail:
+        response = _client().get(path, headers=ADMIN_AUTH)
+    assert response.status_code == 200 and response.json() == expected
+    detail.assert_called_once_with(TASK_ID)
+
+
 def test_schema_migrations_pin_idempotency_rls_and_rpc_security():
     migrations = Path(__file__).parent.parent / "migrations"
     identity = (migrations / "234_vocab_curated_identity_and_editorial.sql").read_text("utf-8")
@@ -524,6 +633,7 @@ def test_schema_migrations_pin_idempotency_rls_and_rpc_security():
     assert "published_vocab_task_is_immutable" in attempts
     assert "FOR SHARE" in identity and "FOR SHARE" in attempts
     assert "pedagogy.reviewer_id <> language.reviewer_id" in attempts
+    assert "assessment.reviewer_id <> language.reviewer_id" in attempts
     assert "assessment.reviewer_id <> pedagogy.reviewer_id" in attempts
     assert "missing_task_count" in attempts
     assert "task_dimension_mismatch" in attempts

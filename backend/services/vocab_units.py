@@ -21,6 +21,7 @@ GRADER_VERSION = vocab_unit_rules.GRADER_VERSION
 MASTERY_DIMENSIONS = vocab_unit_rules.MASTERY_DIMENSIONS
 REVIEW_TYPES = vocab_unit_rules.REVIEW_TYPES
 DISCOVERY_TIMEZONE = ZoneInfo("Asia/Ho_Chi_Minh")
+EDITORIAL_UNIT_STATUSES = ("draft", "published", "archived")
 
 
 class VocabUnitError(Exception):
@@ -55,16 +56,95 @@ def _one(result: Any) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
-def _paged_rows(query: Any, *, page_size: int = 1000) -> list[dict[str, Any]]:
-    """Read every PostgREST page explicitly; the server otherwise caps at 1,000."""
+def _paged_rows(
+    query: Any,
+    *,
+    page_size: int = 1000,
+    max_rows: int | None = None,
+) -> list[dict[str, Any]]:
+    """Read PostgREST pages explicitly, optionally failing closed at a cap."""
     rows: list[dict[str, Any]] = []
     start = 0
     while True:
-        batch = _rows(query.range(start, start + page_size - 1).execute())
+        allowance = None if max_rows is None else max_rows - len(rows)
+        request_size = page_size if allowance is None else min(page_size, allowance + 1)
+        batch = _rows(query.range(start, start + request_size - 1).execute())
         rows.extend(batch)
-        if len(batch) < page_size:
+        if max_rows is not None and len(rows) > max_rows:
+            raise VocabUnitError(
+                f"Editorial read vượt giới hạn an toàn {max_rows} rows"
+            )
+        if len(batch) < request_size:
             return rows
-        start += page_size
+        start += request_size
+
+
+def _rows_for_ids(
+    table: str,
+    projection: str,
+    column: str,
+    values: Iterable[str],
+    *,
+    chunk_size: int = 100,
+    max_rows: int | None = None,
+) -> list[dict[str, Any]]:
+    """Fetch a bounded projection without building oversized PostgREST URLs."""
+    ids = list(dict.fromkeys(str(value) for value in values if value))
+    rows: list[dict[str, Any]] = []
+    for start in range(0, len(ids), chunk_size):
+        remaining = None if max_rows is None else max_rows - len(rows)
+        rows.extend(_paged_rows(
+            supabase_admin.table(table)
+            .select(projection)
+            .in_(column, ids[start:start + chunk_size]),
+            max_rows=remaining,
+        ))
+    return rows
+
+
+def _review_gate_summary(reviews: list[dict[str, Any]]) -> dict[str, Any]:
+    """Mirror only the database review gates; content/task validation stays separate."""
+    by_type: dict[str, list[dict[str, Any]]] = {
+        review_type: [] for review_type in REVIEW_TYPES
+    }
+    for review in reviews:
+        review_type = str(review.get("review_type") or "")
+        if review_type in by_type:
+            by_type[review_type].append(review)
+
+    states: dict[str, str] = {}
+    approved_reviewers: dict[str, set[str]] = {}
+    for review_type, rows in by_type.items():
+        if any(row.get("decision") == "changes_requested" for row in rows):
+            states[review_type] = "changes_requested"
+        elif any(row.get("decision") == "approved" for row in rows):
+            states[review_type] = "approved"
+        else:
+            states[review_type] = "pending"
+        approved_reviewers[review_type] = {
+            str(row["reviewer_id"])
+            for row in rows
+            if row.get("decision") == "approved" and row.get("reviewer_id")
+        }
+
+    has_distinct_reviewers = any(
+        language != pedagogy
+        and language != assessment
+        and pedagogy != assessment
+        for language in approved_reviewers.get("language", set())
+        for pedagogy in approved_reviewers.get("pedagogy", set())
+        for assessment in approved_reviewers.get("assessment", set())
+    )
+    pending = [
+        review_type for review_type in REVIEW_TYPES
+        if states.get(review_type) != "approved"
+    ]
+    return {
+        "states": states,
+        "pending_review_types": pending,
+        "has_distinct_reviewers": has_distinct_reviewers,
+        "reviews_ready": not pending and has_distinct_reviewers,
+    }
 
 
 def _unit_summary(unit: dict[str, Any], version: dict[str, Any]) -> dict[str, Any]:
@@ -498,6 +578,192 @@ def validate_for_publish(
     tasks: list[dict[str, Any]],
 ) -> list[str]:
     return vocab_unit_rules.validate_for_publish(content, sources, tasks)
+
+
+def list_editorial_units(
+    *,
+    status: str | None = None,
+    offset: int = 0,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """Return a bounded canonical catalog that also powers the review inbox."""
+    query = supabase_admin.table("vocab_learning_units").select(
+        "id,kp_id,unit_slug,display_headword,unit_type,sense_key,construction_key,"
+        "communicative_function,context_key,target_level,problem_tags,learner_tags,"
+        "status,current_published_version_id,created_at,updated_at",
+        count="exact",
+    )
+    if status:
+        if status not in EDITORIAL_UNIT_STATUSES:
+            raise VocabUnitValidationError("Trạng thái unit không hợp lệ")
+        query = query.eq("status", status)
+    result = (
+        query.order("updated_at", desc=True)
+        .order("id", desc=True)
+        .range(offset, offset + limit - 1)
+        .execute()
+    )
+    units = _rows(result)
+    total = getattr(result, "count", None)
+    if total is None:
+        raise VocabUnitError("Editorial catalog thiếu exact count")
+    unit_ids = [str(unit["id"]) for unit in units if unit.get("id")]
+    versions = _rows_for_ids(
+        "vocab_unit_versions",
+        "id,unit_id,version_number,status,change_note,authored_by,published_by,"
+        "published_at,created_at,updated_at",
+        "unit_id",
+        unit_ids,
+        max_rows=500,
+    )
+    version_ids = [str(version["id"]) for version in versions if version.get("id")]
+    reviews = _rows_for_ids(
+        "vocab_unit_version_reviews",
+        "id,version_id,reviewer_id,review_type,decision,notes,created_at,updated_at",
+        "version_id",
+        version_ids,
+        max_rows=3000,
+    )
+    tasks = _rows_for_ids(
+        "vocab_unit_tasks",
+        "id,version_id,dimension,status",
+        "version_id",
+        version_ids,
+        max_rows=10_000,
+    )
+
+    reviews_by_version: dict[str, list[dict[str, Any]]] = {}
+    for review in reviews:
+        reviews_by_version.setdefault(str(review.get("version_id")), []).append(review)
+    tasks_by_version: dict[str, list[dict[str, Any]]] = {}
+    for task in tasks:
+        tasks_by_version.setdefault(str(task.get("version_id")), []).append(task)
+    versions_by_unit: dict[str, list[dict[str, Any]]] = {}
+    for version in versions:
+        version_id = str(version.get("id"))
+        version_tasks = tasks_by_version.get(version_id, [])
+        version_reviews = reviews_by_version.get(version_id, [])
+        active_dimensions = {
+            str(task.get("dimension"))
+            for task in version_tasks
+            if task.get("status") == "active" and task.get("dimension")
+        }
+        versions_by_unit.setdefault(str(version.get("unit_id")), []).append({
+            **version,
+            "task_count": sum(task.get("status") == "active" for task in version_tasks),
+            "dimensions": [
+                dimension for dimension in MASTERY_DIMENSIONS
+                if dimension in active_dimensions
+            ],
+            "review_gate": _review_gate_summary(version_reviews),
+            "review_count": len(version_reviews),
+        })
+    for rows in versions_by_unit.values():
+        rows.sort(
+            key=lambda row: (int(row.get("version_number") or 0), str(row.get("id") or "")),
+            reverse=True,
+        )
+
+    items = [
+        {**unit, "versions": versions_by_unit.get(str(unit.get("id")), [])}
+        for unit in units
+    ]
+    return {
+        "items": items,
+        "total": int(total),
+        "offset": offset,
+        "limit": limit,
+    }
+
+
+def get_editorial_unit(unit_id: str) -> dict[str, Any]:
+    """Return one unit's complete, admin-only version/review/task bundle."""
+    unit = _one(
+        supabase_admin.table("vocab_learning_units")
+        .select(
+            "id,kp_id,unit_slug,display_headword,unit_type,sense_key,construction_key,"
+            "communicative_function,context_key,target_level,problem_tags,learner_tags,"
+            "status,current_published_version_id,created_by,created_at,updated_at"
+        )
+        .eq("id", unit_id)
+        .limit(1)
+        .execute()
+    )
+    if not unit:
+        raise VocabUnitNotFound("Không tìm thấy learning unit")
+
+    versions = _rows(
+        supabase_admin.table("vocab_unit_versions")
+        .select(
+            "id,unit_id,version_number,schema_version,status,content,content_hash,"
+            "sources,change_note,authored_by,published_by,published_at,created_at,updated_at"
+        )
+        .eq("unit_id", unit_id)
+        .order("version_number", desc=True)
+        .order("id", desc=True)
+        .limit(101)
+        .execute()
+    )
+    if len(versions) > 100:
+        raise VocabUnitError("Unit có hơn 100 versions; cần archive/aggregate trước khi mở editor")
+    version_ids = [str(version["id"]) for version in versions if version.get("id")]
+    tasks = _rows_for_ids(
+        "vocab_unit_tasks",
+        "id,version_id,sequence,task_type,dimension,prompt,options,answer_key,"
+        "explanation_vi,status,created_at,updated_at",
+        "version_id",
+        version_ids,
+        max_rows=2000,
+    )
+    reviews = _rows_for_ids(
+        "vocab_unit_version_reviews",
+        "id,version_id,reviewer_id,review_type,decision,notes,created_at,updated_at",
+        "version_id",
+        version_ids,
+        max_rows=1000,
+    )
+    event_result = (
+        supabase_admin.table("vocab_unit_publication_events")
+        .select("id,unit_id,version_id,action,actor_id,created_at", count="exact")
+        .eq("unit_id", unit_id)
+        .order("created_at", desc=True)
+        .order("id", desc=True)
+        .limit(100)
+        .execute()
+    )
+    events = _rows(event_result)
+    events_total = getattr(event_result, "count", None)
+    if events_total is None:
+        raise VocabUnitError("Editorial history thiếu exact count")
+
+    tasks_by_version: dict[str, list[dict[str, Any]]] = {}
+    for task in tasks:
+        tasks_by_version.setdefault(str(task.get("version_id")), []).append(task)
+    for rows in tasks_by_version.values():
+        rows.sort(key=lambda row: (int(row.get("sequence") or 0), str(row.get("id") or "")))
+    reviews_by_version: dict[str, list[dict[str, Any]]] = {}
+    for review in reviews:
+        reviews_by_version.setdefault(str(review.get("version_id")), []).append(review)
+    for rows in reviews_by_version.values():
+        rows.sort(key=lambda row: (str(row.get("updated_at") or ""), str(row.get("id") or "")), reverse=True)
+
+    version_bundles = []
+    for version in versions:
+        version_id = str(version.get("id"))
+        version_reviews = reviews_by_version.get(version_id, [])
+        version_bundles.append({
+            **version,
+            "tasks": tasks_by_version.get(version_id, []),
+            "reviews": version_reviews,
+            "review_gate": _review_gate_summary(version_reviews),
+        })
+    return {
+        "unit": unit,
+        "versions": version_bundles,
+        "events": events,
+        "events_total": int(events_total),
+        "events_has_more": int(events_total) > len(events),
+    }
 
 
 def create_unit(payload: dict[str, Any], admin_id: str) -> dict[str, Any]:

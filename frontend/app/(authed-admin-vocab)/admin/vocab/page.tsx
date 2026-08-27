@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 };
 
 const destinations = [
+  { eyebrow: 'Curated learning units', title: 'Editorial & review inbox', description: 'Preview, so sánh immutable versions và điều phối ba cửa review trước khi publish.', detail: 'Diff · Review · Publish · Rollback', href: '/admin/vocab/curated', status: 'PILOT', featured: true },
   { eyebrow: 'Sức khoẻ hệ thống', title: 'Vocab + Flashcards Stats', description: 'Theo dõi quy mô ngân hàng, false-positive, feature flag và sức khoẻ SRS.', detail: 'Bank · SRS · Engagement', href: '/admin/vocab/stats', status: 'LIVE', featured: true },
   { eyebrow: 'Tín hiệu người học', title: 'Kết quả Quick-Check', description: 'Quan sát số phiên, độ chính xác và những từ dễ sai theo từng bộ.', detail: 'Attempts · Accuracy · Difficult words', href: '/admin/vocab/quiz-analytics', status: 'LIVE' },
   { eyebrow: 'Ngân hàng nội dung', title: 'Nội dung từ vựng', description: 'Tìm kiếm, nhập, sửa và quản lý vòng đời các thẻ từ vựng.', detail: 'Import · Edit · Audio · Delete', href: '/admin/vocab/content', status: 'LIVE' },
@@ -33,7 +34,7 @@ export default function AdminVocabPage() {
             <div className="avv-grid">
               {destinations.map((item, index) => (
                 <a className={`avv-card${'featured' in item && item.featured ? ' avv-card--featured' : ''}`} href={item.href} key={item.href}>
-                  <div className="avv-card__top"><span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span><span className="adm-status-pill is-live">{item.status}</span></div>
+                  <div className="avv-card__top"><span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span><span className={`adm-status-pill is-${item.status === 'LIVE' ? 'live' : 'new'}`}>{item.status}</span></div>
                   <div><p className="avv-card__eyebrow">{item.eyebrow}</p><h3>{item.title}</h3><p>{item.description}</p></div>
                   <footer><span>{item.detail}</span><span aria-hidden="true">→</span></footer>
                 </a>

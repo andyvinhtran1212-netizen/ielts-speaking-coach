@@ -213,6 +213,59 @@ focus, and semantic color reserved for status and action.
 - Reduced-motion handling exists in several data-loading states and should be
   expanded, not replaced.
 
+## Vocab Curated editorial audit — 2026-08-27
+
+### Issue: mutations existed without an editorial read model
+
+- **Root cause:** Vocab Curated V1 exposed create, validate, review, publish and
+  rollback mutations, but no admin catalog or version-detail read API.
+- **Severity:** Critical for an editorial UI.
+- **Current state:** an interface would have to guess version/review state from
+  mutation acknowledgements or query database tables directly.
+- **Impact:** editors could see stale approval state, miss a blocking
+  `changes_requested`, or believe a publish/rollback succeeded without reading
+  canonical backend truth.
+- **Impacted files:** `backend/routers/vocab_units.py` and
+  `backend/services/vocab_units.py`.
+- **Suggested minimal fix:** add a bounded catalog/inbox read and one complete
+  unit editorial bundle; derive the visible gate with exactly the same three
+  review types and distinct-reviewer rule as the database RPC. Every mutation
+  must trigger a canonical readback.
+- **Verification:** route auth/pagination tests; review-gate regression with
+  three distinct approvals and with a blocking change request; UI source test
+  pins canonical readback after review, publish and rollback.
+
+### Issue: raw version data needs progressive disclosure
+
+- **Root cause:** a curated version combines learner content, sources, private
+  answer keys, review notes and publication history. Rendering it as one JSON
+  form overloads reviewers and makes answer-key exposure easy.
+- **Severity:** Medium.
+- **Impact:** reviewers spend time scanning implementation-shaped data rather
+  than the language/pedagogy/assessment evidence they own.
+- **Suggested minimal fix:** use a master–detail workspace with explicit
+  Preview, Diff, Tasks, Reviews and History tabs. Keep private answer keys behind
+  a disclosure in the admin-only Tasks tab; represent every review gate with
+  text plus color, never color alone.
+- **Verification:** keyboard and 375px/768px/1280px visual pass; confirm the
+  learner endpoint still withholds answer keys while the admin bundle includes
+  them behind `require_admin`.
+
+### Issue: publication actions need visible preconditions
+
+- **Root cause:** the database correctly rejects incomplete content and
+  non-distinct reviewers, but a generic Publish button would reveal these rules
+  only after failure.
+- **Severity:** Medium.
+- **Impact:** unnecessary failed releases and unclear reviewer ownership.
+- **Suggested minimal fix:** require a fresh validation result for the selected
+  version, show all three reviewer states, warn when the current admin already
+  approved a different gate, and enable Publish only when the visible gate is
+  ready. The database RPC remains canonical and revalidates everything.
+- **Verification:** source/model tests for disabled publication, distinct
+  reviewer warning and actionable change-request notes; backend publish-gate
+  tests remain unchanged.
+
 ## Learner exercise review remediation — 2026-08-26
 
 ### Issue: Reading review styled every answer as correct

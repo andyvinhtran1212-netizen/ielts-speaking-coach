@@ -5356,6 +5356,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/vocabulary/editorial/units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin List Vocab Editorial Units */
+        get: operations["admin_list_vocab_editorial_units_admin_vocabulary_editorial_units_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/editorial/units/{unit_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Get Vocab Editorial Unit */
+        get: operations["admin_get_vocab_editorial_unit_admin_vocabulary_editorial_units__unit_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/vocabulary/units": {
         parameters: {
             query?: never;
@@ -23226,6 +23260,74 @@ export interface operations {
                 "application/json": components["schemas"]["AttemptRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_list_vocab_editorial_units_admin_vocabulary_editorial_units_get: {
+        parameters: {
+            query?: {
+                status?: ("draft" | "published" | "archived") | null;
+                offset?: number;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_get_vocab_editorial_unit_admin_vocabulary_editorial_units__unit_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                unit_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
