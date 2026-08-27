@@ -651,6 +651,18 @@
         // ── Body content (practice vs test) ──────────────────────────────────
         var bodyHtml = '';
 
+        if (Array.isArray(q.cue_card_bullets) && q.cue_card_bullets.length) {
+          bodyHtml += '<div class="result-cue-card">'
+            + '<p class="result-cue-card__label">You should say:</p>'
+            + '<ul>' + q.cue_card_bullets.map(function (bullet) {
+              return '<li>' + escHtml(bullet) + '</li>';
+            }).join('') + '</ul>'
+            + (q.cue_card_reflection
+              ? '<p class="result-cue-card__reflection">' + escHtml(q.cue_card_reflection) + '</p>'
+              : '')
+            + '</div>';
+        }
+
         // Sprint 14.8.1 (Codex F1) — persisted off-topic + length warnings, above all.
         bodyHtml += _persistedWarningsBlock(fb);
 

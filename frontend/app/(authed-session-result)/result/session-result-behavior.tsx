@@ -849,6 +849,13 @@ function QuestionAccordion({
           </div>
         ) : null}
         <div className={`acc-body px-5 pb-5 space-y-3 ${isOpen ? 'open' : ''}`}>
+          {card.cueBullets.length || card.cueReflection ? (
+            <div className="result-cue-card">
+              <p className="result-cue-card__label">You should say:</p>
+              {card.cueBullets.length ? <ul>{card.cueBullets.map((bullet: string, index: number) => <li key={`${index}:${bullet}`}>{bullet}</li>)}</ul> : null}
+              {card.cueReflection ? <p className="result-cue-card__reflection">{card.cueReflection}</p> : null}
+            </div>
+          ) : null}
           <QuestionFeedback card={card} />
         </div>
       </div>

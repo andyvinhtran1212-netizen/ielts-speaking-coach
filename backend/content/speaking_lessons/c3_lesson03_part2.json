@@ -1,0 +1,36 @@
+{
+  "_note": [
+    "Bộ đề Speaking Part 2 cho Buổi 3, Khóa C3.",
+    "Nạp bằng: python -m scripts.import_speaking_lesson_sets --file content/speaking_lessons/c3_lesson03_part2.json --commit",
+    "Part 2 là cue card đọc bằng mắt, không tạo audio câu hỏi."
+  ],
+  "course_code": "C3",
+  "lesson_no": 3,
+  "part": 2,
+  "title": "Buổi 3 · Part 2 — Hành trình và tình huống ngoài kế hoạch",
+  "description": "2 cue card Part 2 luyện kể chuyện theo trình tự, mô tả sự cố và giải thích cách xử lý tình huống.",
+  "questions": [
+    {
+      "order_num": 1,
+      "question_text": "Describe a journey that you remember well.",
+      "question_type": "cuecard",
+      "cue_card_bullets": [
+        "when and where you went",
+        "who you went with",
+        "what happened during the journey"
+      ],
+      "cue_card_reflection": "and explain why you remember this journey well."
+    },
+    {
+      "order_num": 2,
+      "question_text": "Describe a time when something did not go as planned.",
+      "question_type": "cuecard",
+      "cue_card_bullets": [
+        "what you planned to do",
+        "where and when it happened",
+        "what went wrong"
+      ],
+      "cue_card_reflection": "and explain how you dealt with the situation."
+    }
+  ]
+}

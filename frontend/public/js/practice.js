@@ -4694,6 +4694,11 @@
         state: s.state,
         status: _SHEET_LABEL[s.state] || s.state,
         audioAvailable: !!(s.q && s.q.audio_url),
+        isCueCard: !!(s.q && s.q.question_type === 'cuecard'),
+        questionText: (s.q && s.q.question_text) || '',
+        cueBullets: (s.q && Array.isArray(s.q.cue_card_bullets))
+          ? s.q.cue_card_bullets.slice() : [],
+        cueReflection: (s.q && s.q.cue_card_reflection) || '',
         replays: s.replays || 0,
         recording: recording,
         busy: busy,
@@ -4757,6 +4762,24 @@
           + (busy ? ' disabled' : '') + '>Gửi lại bản ghi</button>'
         : '';
 
+      var cue = s.q && s.q.question_type === 'cuecard'
+        ? '<div class="av-slot__cue">'
+          + '<p class="av-slot__cue-question">' + _esc(s.q.question_text || '') + '</p>'
+          + '<p class="av-slot__cue-label">You should say:</p>'
+          + '<ul>' + ((s.q.cue_card_bullets || []).map(function (bullet) {
+            return '<li>' + _esc(bullet) + '</li>';
+          }).join('')) + '</ul>'
+          + (s.q.cue_card_reflection
+            ? '<p class="av-slot__cue-reflection">' + _esc(s.q.cue_card_reflection) + '</p>'
+            : '')
+          + '</div>'
+        : '<button type="button" class="av-slot__listen" data-listen="' + i + '"'
+          + (s.q.audio_url ? '' : ' disabled') + '>'
+          + '<span class="av-slot__listen-icon" aria-hidden="true">▶</span>'
+          + '<span>' + (s.q.audio_url ? 'Nghe câu hỏi' : 'Chưa có bản đọc đề') + '</span>'
+          + replays
+          + '</button>';
+
       return '<section class="av-slot" data-state="' + s.state + '" data-idx="' + i + '">'
         + '<span class="av-slot__spine" aria-hidden="true"></span>'
         + '<div class="av-slot__body">'
@@ -4764,12 +4787,7 @@
         +     '<span class="av-slot__no">Câu ' + (i + 1) + '</span>'
         +     '<span class="av-slot__status">' + _SHEET_LABEL[s.state] + '</span>'
         +   '</div>'
-        +   '<button type="button" class="av-slot__listen" data-listen="' + i + '"'
-        +     (s.q.audio_url ? '' : ' disabled') + '>'
-        +     '<span class="av-slot__listen-icon" aria-hidden="true">▶</span>'
-        +     '<span>' + (s.q.audio_url ? 'Nghe câu hỏi' : 'Chưa có bản đọc đề') + '</span>'
-        +     replays
-        +   '</button>'
+        +   cue
         +   '<div class="av-slot__actions">'
         +     (locked ? ''
         :       '<button type="button" class="btn ' + (recording ? 'btn-danger' : 'btn-secondary')

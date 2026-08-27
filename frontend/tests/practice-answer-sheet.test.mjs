@@ -249,6 +249,19 @@ describe('view-model React giữ nguyên sự thật của phiếu', () => {
     assert.equal(model.meterVisible, true);
   });
 
+  test('Part 2 xuất toàn bộ cue card thay vì báo thiếu audio', () => {
+    const model = renderNative([S('idle', { q: {
+      id: 'cue-1', question_type: 'cuecard', audio_url: null,
+      question_text: 'Describe a journey.',
+      cue_card_bullets: ['when you went', 'who you went with'],
+      cue_card_reflection: 'and explain why you remember it.',
+    } })]);
+    assert.equal(model.slots[0].isCueCard, true);
+    assert.equal(model.slots[0].questionText, 'Describe a journey.');
+    assert.deepEqual(model.slots[0].cueBullets, ['when you went', 'who you went with']);
+    assert.match(model.slots[0].cueReflection, /explain why/);
+  });
+
   test('bài khoá chỉ-đọc nhưng vẫn giữ action xem nhận xét', () => {
     const model = renderNative([
       S('saved', { band: 7, resp: { feedback: {} } }),
@@ -259,6 +272,25 @@ describe('view-model React giữ nguyên sự thật của phiếu', () => {
     assert.equal(model.submitLabel, 'Đã chốt');
     assert.equal(model.slots.every((slot) => slot.canReview), true);
     assert.match(model.submitNote, /vẫn xem lại nhận xét/);
+  });
+});
+
+describe('Part 2 nhiều đề vẫn có nội dung để làm', () => {
+  const cue = (id, question) => S('idle', { q: {
+    id, question_type: 'cuecard', audio_url: null, question_text: question,
+    cue_card_bullets: ['what happened', 'who was there'],
+    cue_card_reflection: 'and explain why you remember it.',
+  } });
+
+  test('fallback renderer hiện đủ hai cue card và không báo thiếu bản đọc', () => {
+    const html = render([
+      cue('c1', 'Describe a journey.'),
+      cue('c2', 'Describe a plan that went wrong.'),
+    ])['sheet-slots'].innerHTML;
+    assert.match(html, /Describe a journey/);
+    assert.match(html, /Describe a plan that went wrong/);
+    assert.equal((html.match(/You should say:/g) || []).length, 2);
+    assert.doesNotMatch(html, /Chưa có bản đọc đề/);
   });
 });
 

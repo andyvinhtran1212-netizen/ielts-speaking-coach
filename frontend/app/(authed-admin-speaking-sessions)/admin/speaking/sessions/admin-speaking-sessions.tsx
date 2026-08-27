@@ -91,6 +91,7 @@ function SessionDetail({ data, busy, onAction }: { data: SpeakingSessionDetail; 
     {!data.questions.length && !data.questionsLookupFailed ? <div className="acd-state"><strong>Session chưa có câu hỏi</strong><span>Không có dữ liệu câu hỏi để đối chiếu.</span></div> : <div className="ass-responses">{data.questions.map((question, index) => {
       const response = responseMap.get(question.id);
       return <article className="ass-response" key={question.id}><header><span>Q{index + 1}</span><h4>{question.text || 'Câu hỏi không có nội dung'}</h4>{response && <Band value={response.overallBand} />}</header>
+        {question.cueBullets.length || question.cueReflection ? <div className="ass-cue-card"><strong>You should say:</strong>{question.cueBullets.length ? <ul>{question.cueBullets.map((bullet, bulletIndex) => <li key={`${bulletIndex}:${bullet}`}>{bullet}</li>)}</ul> : null}{question.cueReflection ? <p>{question.cueReflection}</p> : null}</div> : null}
         {!response ? <p className="ass-muted">Chưa có câu trả lời.</p> : <>
           <div className="ass-response__status"><span>STT <strong>{response.sttStatus || '—'}</strong></span><span>Grading <strong>{response.gradingStatus || '—'}</strong></span></div>
           {response.audioUrl ? <audio controls preload="none" src={response.audioUrl}>Trình duyệt không hỗ trợ audio.</audio> : response.audioStored ? <p className="ass-warning is-compact">Audio có trong storage nhưng chưa lấy được URL phát an toàn.</p> : <p className="ass-muted">Không có audio.</p>}

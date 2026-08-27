@@ -45,11 +45,13 @@ describe('Speaking Sessions native model', () => {
   });
 
   test('normalizes detail, feedback and rejects unsafe audio URL', () => {
-    const result = normalizeSpeakingSessionDetail({ ...row, p1_session_id: 's1', p2_session_id: 's2', p3_session_id: 's3', full_test_siblings_lookup_failed: false, questions: [{ id: 'q1', question_text: '<script>x</script>', order_num: 1 }], responses: [{ id: 'r1', question_id: 'q1', transcript: '<img onerror=x>', overall_band: 6, feedback: JSON.stringify({ grammar_issues: ['issue'], sample_answer: 'safe' }), audio_playback_url: 'javascript:alert(1)', audio_storage_path: 'stored', grading_status: 'completed', stt_status: 'completed' }], questions_lookup_failed: false, responses_lookup_failed: false }, 's1');
+    const result = normalizeSpeakingSessionDetail({ ...row, p1_session_id: 's1', p2_session_id: 's2', p3_session_id: 's3', full_test_siblings_lookup_failed: false, questions: [{ id: 'q1', question_text: '<script>x</script>', order_num: 1, cue_card_bullets: ['when you went'], cue_card_reflection: 'and explain why.' }], responses: [{ id: 'r1', question_id: 'q1', transcript: '<img onerror=x>', overall_band: 6, feedback: JSON.stringify({ grammar_issues: ['issue'], sample_answer: 'safe' }), audio_playback_url: 'javascript:alert(1)', audio_storage_path: 'stored', grading_status: 'completed', stt_status: 'completed' }], questions_lookup_failed: false, responses_lookup_failed: false }, 's1');
     assert.equal(result.questions[0].text, '<script>x</script>');
     assert.equal(result.responses[0].transcript, '<img onerror=x>');
     assert.equal(result.responses[0].audioUrl, null);
     assert.equal(result.responses[0].audioStored, true);
+    assert.deepEqual(result.questions[0].cueBullets, ['when you went']);
+    assert.equal(result.questions[0].cueReflection, 'and explain why.');
     assert.deepEqual([result.p1SessionId, result.p2SessionId, result.p3SessionId], ['s1', 's2', 's3']);
     assert.equal(result.fullTestSiblingsLookupFailed, false);
     assert.deepEqual(result.responses[0].feedback.grammarIssues, ['issue']);

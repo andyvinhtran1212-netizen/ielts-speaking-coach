@@ -11,7 +11,7 @@ export type SpeakingResponse = { id: string; questionId: string; transcript: str
 export type SpeakingSessionDetail = SpeakingSessionRow & {
   userDisplayName: string | null; p1SessionId: string | null; p2SessionId: string | null; p3SessionId: string | null;
   fullTestSiblingsLookupFailed: boolean;
-  questions: { id: string; text: string | null; order: number | null }[]; responses: SpeakingResponse[];
+  questions: { id: string; text: string | null; order: number | null; cueBullets: string[]; cueReflection: string | null }[]; responses: SpeakingResponse[];
   malformedQuestions: number; malformedResponses: number; questionsLookupFailed: boolean; responsesLookupFailed: boolean;
 };
 export type SessionAction =

@@ -485,11 +485,20 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
                 <span className="av-slot__spine" aria-hidden="true" />
                 <div className="av-slot__body">
                   <div className="av-slot__head"><span className="av-slot__no">Câu {slot.index + 1}</span><span className="av-slot__status">{slot.status}</span></div>
-                  <button type="button" className="av-slot__listen" disabled={!slot.audioAvailable} onClick={() => callPractice('sheetListen', slot.index)}>
-                    <span className="av-slot__listen-icon" aria-hidden="true">▶</span>
-                    <span>{slot.audioAvailable ? 'Nghe câu hỏi' : 'Chưa có bản đọc đề'}</span>
-                    {slot.replays > 0 ? <span className="av-slot__replays">đã nghe {slot.replays} lần</span> : null}
-                  </button>
+                  {slot.isCueCard ? (
+                    <div className="av-slot__cue">
+                      <p className="av-slot__cue-question">{slot.questionText}</p>
+                      <p className="av-slot__cue-label">You should say:</p>
+                      <ul>{slot.cueBullets.map((bullet: string, index: number) => <li key={`${index}:${bullet}`}>{bullet}</li>)}</ul>
+                      {slot.cueReflection ? <p className="av-slot__cue-reflection">{slot.cueReflection}</p> : null}
+                    </div>
+                  ) : (
+                    <button type="button" className="av-slot__listen" disabled={!slot.audioAvailable} onClick={() => callPractice('sheetListen', slot.index)}>
+                      <span className="av-slot__listen-icon" aria-hidden="true">▶</span>
+                      <span>{slot.audioAvailable ? 'Nghe câu hỏi' : 'Chưa có bản đọc đề'}</span>
+                      {slot.replays > 0 ? <span className="av-slot__replays">đã nghe {slot.replays} lần</span> : null}
+                    </button>
+                  )}
                   <div className="av-slot__actions">
                     {!view.sheet.locked ? <button type="button" className={`btn ${slot.recording ? 'btn-danger' : 'btn-secondary'}`} disabled={slot.busy} onClick={() => callPractice('sheetToggleRecording', slot.index)}>{slot.recordLabel}</button> : null}
                     {slot.canRetry ? <button type="button" className="btn btn-primary" disabled={slot.busy} onClick={() => callPractice('sheetRetrySubmission', slot.index)}>Gửi lại bản ghi</button> : null}

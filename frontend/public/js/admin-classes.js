@@ -1912,11 +1912,18 @@ function renderQpick() {
     const play = q.audio_url
       ? `<button type="button" class="av-qpick__play" data-play="${esc(q.audio_url)}"
                  title="Nghe thử" aria-label="Nghe thử câu này">▶</button>` : '';
+    const cue = Array.isArray(q.cue_card_bullets) && q.cue_card_bullets.length
+      ? `<span class="av-qpick__cue"><strong>You should say:</strong>`
+        + `<span>${q.cue_card_bullets.map((bullet) => esc(bullet)).join(' · ')}</span>`
+        + (q.cue_card_reflection
+          ? `<em>${esc(q.cue_card_reflection)}</em>` : '')
+        + '</span>'
+      : '';
     return `<div class="av-qpick__item">
       <button type="button" class="av-qpick__row" data-id="${esc(q.id)}"
               aria-pressed="${at !== -1}" ${q.giveable ? '' : 'disabled'}>
         <span class="av-qpick__num" aria-hidden="true">${subset ? idx + 1 : (at !== -1 ? at + 1 : '')}</span>
-        <span class="av-qpick__text">${esc(q.question_text || '')}</span>
+        <span class="av-qpick__text">${esc(q.question_text || '')}${cue}</span>
         <span class="av-qpick__meta">${lvl}${blocked}</span>
       </button>${play}
     </div>`;

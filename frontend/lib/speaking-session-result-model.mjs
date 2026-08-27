@@ -296,6 +296,9 @@ function responseCards(questions, responses, audioUrlMap) {
       key: String(question?.id || index),
       questionId: String(question?.id || ''),
       questionText: String(question?.question_text || ''),
+      cueBullets: Array.isArray(question?.cue_card_bullets)
+        ? uniqueStrings(question.cue_card_bullets) : [],
+      cueReflection: String(question?.cue_card_reflection || ''),
       response,
       feedback,
       gradingFailed,

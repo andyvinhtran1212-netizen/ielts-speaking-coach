@@ -1,0 +1,35 @@
+{
+  "_note": [
+    "Bộ đề Speaking Part 1 cho Buổi 3, Khóa C3.",
+    "Nạp bằng: python -m scripts.import_speaking_lesson_sets --file content/speaking_lessons/c3_lesson03_part1.json --commit",
+    "Part 1 được giao bằng audio Kokoro; chạy pregen_speaking_question_audio sau khi nạp.",
+    "topic_label để trống vì bốn câu rải qua trải nghiệm cuối tuần, chụp ảnh và giúp đỡ người khác."
+  ],
+  "course_code": "C3",
+  "lesson_no": 3,
+  "part": 1,
+  "title": "Buổi 3 · Part 1 — Trải nghiệm gần đây",
+  "description": "4 câu Part 1 luyện kể lại trải nghiệm gần đây và trả lời về sở thích cá nhân bằng các thì quá khứ và hiện tại hoàn thành.",
+  "questions": [
+    {
+      "order_num": 1,
+      "question_text": "What did you do last weekend?",
+      "question_type": "personal"
+    },
+    {
+      "order_num": 2,
+      "question_text": "Do you like taking photos?",
+      "question_type": "personal"
+    },
+    {
+      "order_num": 3,
+      "question_text": "When was the last time you helped someone?",
+      "question_type": "time"
+    },
+    {
+      "order_num": 4,
+      "question_text": "Have you ever got lost?",
+      "question_type": "personal"
+    }
+  ]
+}
