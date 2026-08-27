@@ -174,6 +174,25 @@ def test_publish_validator_rejects_ungradable_or_misclassified_tasks():
     assert any("không chấm được model answer" in error for error in errors)
 
 
+def test_publish_validator_rejects_unconstrained_productive_transfer():
+    tasks = _tasks()
+    tasks[3] = {
+        **tasks[3],
+        "answer_key": {"minimum_words": 1, "model_answer": "anything"},
+    }
+    errors = vocab_units.validate_for_publish(
+        _complete_content(),
+        [{"title": "Source", "url": "https://example.com/source"}],
+        tasks,
+    )
+    assert any(
+        "productive_transfer cần required_groups hoặc required_frames" in error
+        for error in errors
+    )
+    with pytest.raises(vocab_units.VocabUnitValidationError, match="required_groups"):
+        vocab_units.grade_response(tasks[3], {"answer": "anything"})
+
+
 def test_public_units_default_off_and_legacy_routes_remain_available():
     with patch("routers.vocab_units.runtime_flags.is_enabled", return_value=False):
         response = _client().get("/api/vocabulary/units")
@@ -310,6 +329,45 @@ def test_today_queue_is_capped_and_deduplicated_across_sources():
     assert len(unit_ids) == len(set(unit_ids))
     assert unit_ids.count("unit-2") == 1
     assert all(item["state"] == "needs_refresh" for item in payload["due"])
+
+
+def test_today_deduplicates_due_dimensions_before_filling_queue():
+    due_query = _query([
+        {
+            "kp_id": f"kp-{kp_index}", "dimension": dimension,
+            "state": "controlled", "next_review_at": "2026-01-01T00:00:00+00:00",
+        }
+        for kp_index in range(1, 4)
+        for dimension in vocab_units.MASTERY_DIMENSIONS
+    ] + [{
+        "kp_id": "kp-4", "dimension": "meaning_recall", "state": "controlled",
+        "next_review_at": "2026-01-01T00:00:00+00:00",
+    }])
+    due_units_query = _query([
+        {"id": f"unit-{index}", "kp_id": f"kp-{index}"}
+        for index in range(1, 5)
+    ])
+    retained_query = _query([])
+    pairs = [
+        (
+            {
+                "id": f"unit-{index}", "kp_id": f"kp-{index}",
+                "unit_slug": f"unit-{index}", "display_headword": f"Unit {index}",
+                "unit_type": "learning_unit", "target_level": "B1",
+                "problem_tags": [], "learner_tags": [],
+            },
+            {"version_number": 1, "content": {"title_vi": f"Unit {index}"}},
+        )
+        for index in range(1, 6)
+    ]
+    with patch.object(vocab_units, "supabase_admin") as database, \
+         patch.object(vocab_units, "_load_published_units", side_effect=[pairs[:4], pairs]):
+        database.table.side_effect = [due_query, due_units_query, retained_query]
+        payload = vocab_units.get_today(LEARNER["id"], include_recommendations=False)
+    assert [item["unit"]["id"] for item in payload["due"]] == [
+        "unit-1", "unit-2", "unit-3", "unit-4",
+    ]
+    assert len(payload["discover"]) == 1
 
 
 def test_mastery_route_forwards_validated_pagination():
@@ -472,6 +530,9 @@ def test_schema_migrations_pin_idempotency_rls_and_rpc_security():
     assert "v_successes >= 3" in attempts
     assert ">= 0.75" in attempts and ">= 0.67" in attempts
     assert "vocab_unit_publication_events" in identity + attempts
+    assert "fn_replace_vocab_pathway_units" in identity
+    assert "DELETE FROM vocab_pathway_units WHERE pathway_id = p_pathway" in identity
+    assert "REVOKE ALL ON FUNCTION fn_replace_vocab_pathway_units" in identity
     assert "FROM PUBLIC, anon, authenticated" in attempts
     assert "('vocab_units_read', FALSE" in flags
 
@@ -549,21 +610,37 @@ def test_pathway_seed_refresh_preserves_original_creator():
 
     existing_query = _query([{"id": "path-1", "created_by": "original-admin"}])
     pathway_upsert = _query([{"id": "path-1"}])
-    links_upsert = _query([])
+    replace_query = _query([{"count": 2}])
     pathway = {
         "pathway_slug": "pilot-path", "title_vi": "Pilot",
         "description_vi": "Pathway", "target_level": "B1",
-        "learner_tags": [], "units": ["unit-one"],
+        "learner_tags": [], "units": ["unit-two", "unit-one"],
     }
     with patch("database.supabase_admin") as database:
-        database.table.side_effect = [existing_query, pathway_upsert, links_upsert]
+        database.table.side_effect = [existing_query, pathway_upsert]
+        database.rpc.return_value = replace_query
         _seed_pathways(
-            [pathway], {"unit-one": {"id": "unit-1"}}, "refreshing-admin",
+            [pathway], {
+                "unit-one": {"id": "unit-1"}, "unit-two": {"id": "unit-2"},
+            }, "refreshing-admin",
             publish=False,
         )
     seeded_row = pathway_upsert.upsert.call_args.args[0]
     assert "created_by" not in seeded_row
     assert "status" not in seeded_row
+    database.rpc.assert_called_once_with("fn_replace_vocab_pathway_units", {
+        "p_pathway": "path-1",
+        "p_links": [
+            {
+                "unit_id": "unit-2", "sequence": 1,
+                "rationale_vi": "Tiếp nối có chủ đích trong pathway pilot.",
+            },
+            {
+                "unit_id": "unit-1", "sequence": 2,
+                "rationale_vi": "Tiếp nối có chủ đích trong pathway pilot.",
+            },
+        ],
+    })
 
 
 def test_publish_validator_rejects_non_https_sources():

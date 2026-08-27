@@ -242,15 +242,19 @@ def _seed_pathways(
         if not stored:
             raise RuntimeError(f"Không seed được pathway {pathway['pathway_slug']}")
         links = [{
-            "pathway_id": stored["id"],
             "unit_id": units_by_slug[slug]["id"],
             "sequence": sequence,
             "rationale_vi": "Tiếp nối có chủ đích trong pathway pilot.",
         } for sequence, slug in enumerate(pathway["units"], start=1)]
-        if links:
-            supabase_admin.table("vocab_pathway_units").upsert(
-                links, on_conflict="pathway_id,unit_id",
-            ).execute()
+        replaced = _one(
+            supabase_admin.rpc("fn_replace_vocab_pathway_units", {
+                "p_pathway": stored["id"], "p_links": links,
+            }).execute()
+        )
+        if not replaced or int(replaced.get("count", -1)) != len(links):
+            raise RuntimeError(
+                f"Không đồng bộ được pathway units cho {pathway['pathway_slug']}",
+            )
 
 
 def apply_pilot(

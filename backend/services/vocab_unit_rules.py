@@ -129,6 +129,15 @@ def grade_response(task: dict[str, Any], response: dict[str, Any]) -> dict[str, 
         required_groups = key.get("required_groups") or []
         if not isinstance(required_groups, list):
             raise VocabUnitRuleError("required_groups phải là một mảng")
+        if any(not _string_list(group) for group in required_groups):
+            raise VocabUnitRuleError("required_groups có group rỗng hoặc không hợp lệ")
+        required_frames = key.get("required_frames") or []
+        if not isinstance(required_frames, list):
+            raise VocabUnitRuleError("required_frames phải là một mảng frame")
+        if not required_groups and not required_frames:
+            raise VocabUnitRuleError(
+                "productive_transfer cần required_groups hoặc required_frames",
+            )
         group_hits = 0
         for group in required_groups:
             alternatives = [_normalise_answer(item) for item in _string_list(group)]
@@ -140,9 +149,8 @@ def grade_response(task: dict[str, Any], response: dict[str, Any]) -> dict[str, 
         forbidden_ok = not any(_contains_phrase(normalised, item) for item in forbidden)
         checks = group_hits + int(word_ok) + int(forbidden_ok)
         denominator = len(required_groups) + 2
-        required_frames = key.get("required_frames") or []
         if required_frames:
-            if not isinstance(required_frames, list) or any(
+            if any(
                 not isinstance(frame, list) for frame in required_frames
             ):
                 raise VocabUnitRuleError("required_frames phải là một mảng frame")

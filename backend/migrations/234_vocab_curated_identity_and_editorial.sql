@@ -226,6 +226,52 @@ ALTER TABLE vocab_pathways ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vocab_pathway_units ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vocab_unit_publication_events ENABLE ROW LEVEL SECURITY;
 
+-- Replace one pathway's ordered membership as one transaction. A delete plus
+-- client-side upserts can leave stale links, or hit the unique sequence key
+-- halfway through a reorder. This RPC makes the submitted list canonical.
+CREATE OR REPLACE FUNCTION fn_replace_vocab_pathway_units(
+    p_pathway UUID,
+    p_links   JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_count INTEGER := 0;
+BEGIN
+    PERFORM 1
+      FROM vocab_pathways
+     WHERE id = p_pathway
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'pathway_not_found';
+    END IF;
+    IF p_links IS NULL OR jsonb_typeof(p_links) <> 'array' THEN
+        RAISE EXCEPTION 'pathway_links_must_be_array';
+    END IF;
+
+    DELETE FROM vocab_pathway_units WHERE pathway_id = p_pathway;
+    INSERT INTO vocab_pathway_units (
+        pathway_id, unit_id, sequence, rationale_vi
+    )
+    SELECT
+        p_pathway,
+        (link->>'unit_id')::UUID,
+        (link->>'sequence')::INTEGER,
+        NULLIF(link->>'rationale_vi', '')
+      FROM jsonb_array_elements(p_links) AS link;
+    GET DIAGNOSTICS v_count = ROW_COUNT;
+
+    RETURN jsonb_build_object('count', v_count);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION fn_replace_vocab_pathway_units(UUID, JSONB)
+    FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION fn_replace_vocab_pathway_units(UUID, JSONB)
+    TO service_role;
+
 CREATE OR REPLACE FUNCTION fn_create_vocab_learning_unit(
     p_unit_slug                TEXT,
     p_display_headword         TEXT,

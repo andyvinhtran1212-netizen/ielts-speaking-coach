@@ -336,16 +336,16 @@ def get_today(user_id: str, *, include_recommendations: bool) -> dict[str, Any]:
             .execute()
         )
     now_iso = datetime.now(timezone.utc).isoformat()
-    due = _rows(
+    due = _paged_rows(
         supabase_admin.table("user_kp_dimension_mastery")
         .select("kp_id,dimension,state,next_review_at")
         .eq("user_id", user_id)
         .lte("next_review_at", now_iso)
         .order("next_review_at")
-        .limit(8)
-        .execute()
     )
-    kp_ids = list({str(row["kp_id"]) for row in due if row.get("kp_id")})
+    kp_ids = list(dict.fromkeys(
+        str(row["kp_id"]) for row in due if row.get("kp_id")
+    ))
     due_units = _rows(
         supabase_admin.table("vocab_learning_units")
         .select("id,kp_id")
