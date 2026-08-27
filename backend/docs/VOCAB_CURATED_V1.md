@@ -33,6 +33,8 @@ mastery tăng chỉ nhờ đoán lựa chọn.
 - Migration 237: catalog signal Speaking riêng tư và RPC transaction để xác
   minh ownership, mapping active, unit published trước khi recommendation trở
   thành canonical.
+- Migration 238: lifecycle `opened/completed` cho recommendation, cohort audit
+  transaction và aggregate pilot ẩn danh cho immediate/7-day/28-day outcome.
 - Public API: published units và pathways; answer key không có trong response.
 - Learner API: Today queue, mastery và server-graded attempt.
 - Today giữ tổng queue tối đa năm unit, xoay Discover ổn định theo user/ngày và
@@ -84,8 +86,8 @@ vẫn luôn tạo artifact mới dù phần bài viết không đổi.
 
 ## Trình tự deploy
 
-1. Backup/đo schema và áp dụng migrations `234`, `235`, `236`, `237` theo thứ tự.
-2. Chạy lại bốn migration để kiểm tra idempotency.
+1. Backup/đo schema và áp dụng migrations `234`, `235`, `236`, `237`, `238` theo thứ tự.
+2. Chạy lại năm migration để kiểm tra idempotency.
 3. QA nội dung offline:
 
    ```bash
@@ -133,9 +135,28 @@ Không scale theo số lượng bài đã viết. Scale khi dữ liệu học đ
 | 25–50% | cohort mở rộng | retention 28 ngày không giảm, support burden chấp nhận được |
 | 100% | toàn bộ học viên phù hợp | metric học tốt hơn Reference-only baseline, content QA SLA ổn định |
 
-Metric canonical lấy từ `vocab_unit_attempts` và
-`user_kp_dimension_mastery`; client analytics chỉ đo funnel, không quyết định
-mastery.
+Metric canonical lấy từ `vocab_unit_attempts`, task/version và lifecycle
+`vocab_unit_recommendations`; client analytics không quyết định mastery hoặc
+recommendation completion. Dashboard `/admin/vocab/pilot-metrics` dùng các định
+nghĩa cố định:
+
+- immediate: 0–24 giờ từ attempt đầu tiên của learner/unit; chỉ unit-start đã
+  đủ 24 giờ mới vào mẫu số completion;
+- day 7: attempts từ ngày 6 đến trước ngày 10; chỉ unit-start đã đi hết 10 ngày
+  mới vào mẫu số follow-up;
+- day 28: attempts từ ngày 25 đến trước ngày 35; chỉ unit-start đã đi hết 35
+  ngày mới vào mẫu số follow-up;
+- accuracy và productive transfer để `null` khi chưa có attempt, không chuyển
+  thiếu dữ liệu thành `0%`;
+- dưới 10 unit-start đủ hạn chỉ được đọc như tín hiệu sớm, không dùng để quyết
+  định scale rollout.
+
+Recommendation chuyển `pending → opened` bằng endpoint có kiểm tra owner và
+đúng unit slug. Trigger sau attempt chuyển `pending/opened → completed` trong
+cùng transaction khi learner đã thử đủ task active của đúng version. Trạng thái
+terminal không bị request mở lại làm lùi. `opened_at` chỉ ghi khi learner đi từ
+recommendation; hoàn tất unit qua Discover/Path vẫn có `completed_at` nhưng
+không giả lập một lượt mở recommendation.
 
 ## Rollback
 
@@ -148,7 +169,6 @@ mastery.
 
 ## Các pha tiếp theo
 
-- Pilot measurement dashboard cho immediate/7-day/28-day outcome.
 - Mở từ 12 lên 24–30 unit sau pilot; chỉ lên 60 khi gate delayed transfer đạt.
 - Context lookup trong nội dung học có thể link sang curated unit khi match chắc
   chắn; không triển khai double-click toàn site trong V1.

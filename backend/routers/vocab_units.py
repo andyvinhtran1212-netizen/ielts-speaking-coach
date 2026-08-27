@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
-from services import runtime_flags, vocab_units
+from services import runtime_flags, vocab_pilot_metrics, vocab_units
 from services.feature_flags import is_vocab_curated_enabled
 
 logger = logging.getLogger(__name__)
@@ -87,6 +87,19 @@ class ReviewRequest(BaseModel):
 class RollbackRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     version_id: UUID
+
+
+class RecommendationOpenRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    unit_slug: str = Field(
+        min_length=3, max_length=120,
+        pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    )
+
+
+class CuratedCohortRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool
 
 
 def _read_switch() -> None:
@@ -195,6 +208,32 @@ async def get_my_vocab_mastery(
         raise _translate_domain_error(exc) from exc
 
 
+@router.post("/api/me/vocabulary/recommendations/{recommendation_id}/open")
+async def open_my_vocab_recommendation(
+    recommendation_id: UUID,
+    body: RecommendationOpenRequest,
+    authorization: str | None = Header(default=None),
+):
+    user = await get_supabase_user(authorization)
+    _require_learner_gate(user["id"])
+    if not runtime_flags.is_enabled("vocab_unit_recommendations", default=False):
+        raise HTTPException(status_code=503, detail={
+            "error_code": "feature_disabled",
+            "flag": "vocab_unit_recommendations",
+            "message": "Recommendation Vocab Curated đang tạm khóa.",
+        })
+    try:
+        return vocab_pilot_metrics.open_recommendation(
+            user_id=user["id"],
+            recommendation_id=str(recommendation_id),
+            unit_slug=body.unit_slug,
+        )
+    except vocab_pilot_metrics.VocabRecommendationNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise _translate_domain_error(exc) from exc
+
+
 @router.post("/api/vocabulary/tasks/{task_id}/attempt")
 async def submit_vocab_task_attempt(
     task_id: UUID,
@@ -207,6 +246,35 @@ async def submit_vocab_task_attempt(
         return vocab_units.submit_attempt(
             user["id"], str(task_id), str(body.attempt_id), body.response.model_dump(),
         )
+    except Exception as exc:
+        raise _translate_domain_error(exc) from exc
+
+
+@router.get("/admin/vocabulary/pilot-metrics")
+async def admin_get_vocab_pilot_metrics(
+    days: Literal["30", "90", "180"] = Query(default="90"),
+    authorization: str | None = Header(default=None),
+):
+    await require_admin(authorization)
+    try:
+        return vocab_pilot_metrics.get_metrics(days=int(days))
+    except Exception as exc:
+        raise _translate_domain_error(exc) from exc
+
+
+@router.post("/admin/vocabulary/pilot-cohort/{user_id}")
+async def admin_set_vocab_pilot_cohort(
+    user_id: UUID,
+    body: CuratedCohortRequest,
+    authorization: str | None = Header(default=None),
+):
+    admin = await require_admin(authorization)
+    try:
+        return vocab_pilot_metrics.set_cohort_flag(
+            user_id=str(user_id), enabled=body.enabled, changed_by=admin["id"],
+        )
+    except vocab_pilot_metrics.VocabPilotUserNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
         raise _translate_domain_error(exc) from exc
 
