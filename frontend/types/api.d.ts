@@ -5254,6 +5254,210 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vocabulary/units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Learning Units */
+        get: operations["list_learning_units_api_vocabulary_units_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary/units/{unit_slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Learning Unit */
+        get: operations["get_learning_unit_api_vocabulary_units__unit_slug__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary/pathways": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Learning Pathways */
+        get: operations["list_learning_pathways_api_vocabulary_pathways_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/vocabulary/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get My Vocab Today */
+        get: operations["get_my_vocab_today_api_me_vocabulary_today_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/vocabulary/unit-mastery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get My Vocab Mastery */
+        get: operations["get_my_vocab_mastery_api_me_vocabulary_unit_mastery_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary/tasks/{task_id}/attempt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Vocab Task Attempt */
+        post: operations["submit_vocab_task_attempt_api_vocabulary_tasks__task_id__attempt_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Create Vocab Unit */
+        post: operations["admin_create_vocab_unit_admin_vocabulary_units_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/units/{unit_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Create Vocab Version */
+        post: operations["admin_create_vocab_version_admin_vocabulary_units__unit_id__versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/versions/{version_id}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Validate Vocab Version */
+        post: operations["admin_validate_vocab_version_admin_vocabulary_versions__version_id__validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/versions/{version_id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Review Vocab Version */
+        post: operations["admin_review_vocab_version_admin_vocabulary_versions__version_id__reviews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/versions/{version_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Publish Vocab Version */
+        post: operations["admin_publish_vocab_version_admin_vocabulary_versions__version_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/units/{unit_id}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Rollback Vocab Version */
+        post: operations["admin_rollback_vocab_version_admin_vocabulary_units__unit_id__rollback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/analytics/events": {
         parameters: {
             query?: never;
@@ -11081,6 +11285,15 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** AttemptRequest */
+        AttemptRequest: {
+            /**
+             * Attempt Id
+             * Format: uuid
+             */
+            attempt_id: string;
+            response: components["schemas"]["LearnerAnswer"];
+        };
         /**
          * AuditRunRequest
          * @description Optional client identity for a paid/non-idempotent full audit run.
@@ -12503,6 +12716,11 @@ export interface components {
             /** Anchor */
             anchor?: string | null;
         };
+        /** LearnerAnswer */
+        LearnerAnswer: {
+            /** Answer */
+            answer: string;
+        };
         /** LemmaOverridePayload */
         LemmaOverridePayload: {
             /** Original Word */
@@ -13216,15 +13434,13 @@ export interface components {
                 [key: string]: boolean;
             };
         };
-        /**
-         * ReviewRequest
-         * @description Body for POST /api/flashcards/{vocab_id}/review (step 4).
-         */
-        ReviewRequest: {
-            /** Rating */
-            rating: string;
-            /** Client Review Id */
-            client_review_id?: string | null;
+        /** RollbackRequest */
+        RollbackRequest: {
+            /**
+             * Version Id
+             * Format: uuid
+             */
+            version_id: string;
         };
         /** SectionSubmitBody */
         SectionSubmitBody: {
@@ -13333,6 +13549,29 @@ export interface components {
              */
             voice: string;
         };
+        /** TaskCreateRequest */
+        TaskCreateRequest: {
+            /**
+             * Task Type
+             * @enum {string}
+             */
+            task_type: "meaning_recall" | "error_repair" | "controlled_gap" | "productive_transfer";
+            /**
+             * Dimension
+             * @enum {string}
+             */
+            dimension: "meaning_recall" | "usage_control" | "productive_transfer";
+            /** Prompt */
+            prompt: string;
+            /** Options */
+            options?: unknown[];
+            /** Answer Key */
+            answer_key: {
+                [key: string]: unknown;
+            };
+            /** Explanation Vi */
+            explanation_vi: string;
+        };
         /** TestAttemptAnswerPatchRequest */
         TestAttemptAnswerPatchRequest: {
             /** Q Num */
@@ -13438,6 +13677,33 @@ export interface components {
             /** Is Published */
             is_published?: boolean | null;
         };
+        /** UnitCreateRequest */
+        UnitCreateRequest: {
+            /** Unit Slug */
+            unit_slug: string;
+            /** Display Headword */
+            display_headword: string;
+            /**
+             * Unit Type
+             * @default learning_unit
+             * @enum {string}
+             */
+            unit_type: "learning_unit" | "clinic";
+            /** Sense Key */
+            sense_key: string;
+            /** Construction Key */
+            construction_key: string;
+            /** Communicative Function */
+            communicative_function: string;
+            /** Context Key */
+            context_key: string;
+            /** Target Level */
+            target_level: string;
+            /** Problem Tags */
+            problem_tags?: string[];
+            /** Learner Tags */
+            learner_tags?: string[];
+        };
         /** UpdateStudentRequest */
         UpdateStudentRequest: {
             /** Student Code */
@@ -13503,6 +13769,21 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** VersionCreateRequest */
+        VersionCreateRequest: {
+            /** Content */
+            content: {
+                [key: string]: unknown;
+            };
+            /** Sources */
+            sources: {
+                [key: string]: unknown;
+            }[];
+            /** Tasks */
+            tasks: components["schemas"]["TaskCreateRequest"][];
+            /** Change Note */
+            change_note?: string | null;
         };
         /** ViewBody */
         ViewBody: {
@@ -13871,6 +14152,16 @@ export interface components {
             analysis_level: number;
         };
         /**
+         * ReviewRequest
+         * @description Body for POST /api/flashcards/{vocab_id}/review (step 4).
+         */
+        routers__flashcards__ReviewRequest: {
+            /** Rating */
+            rating: string;
+            /** Client Review Id */
+            client_review_id?: string | null;
+        };
+        /**
          * AssignBody
          * @description Single-student assign (one prompt → one of MY students).
          */
@@ -13900,6 +14191,21 @@ export interface components {
              * @enum {string}
              */
             grading_tier: "standard" | "deep";
+        };
+        /** ReviewRequest */
+        routers__vocab_units__ReviewRequest: {
+            /**
+             * Review Type
+             * @enum {string}
+             */
+            review_type: "language" | "pedagogy" | "assessment";
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "approved" | "changes_requested";
+            /** Notes */
+            notes?: string | null;
         };
     };
     responses: never;
@@ -22755,6 +23061,404 @@ export interface operations {
             };
         };
     };
+    list_learning_units_api_vocabulary_units_get: {
+        parameters: {
+            query?: {
+                level?: string | null;
+                unit_type?: ("learning_unit" | "clinic") | null;
+                problem_tag?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_learning_unit_api_vocabulary_units__unit_slug__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                unit_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_learning_pathways_api_vocabulary_pathways_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_my_vocab_today_api_me_vocabulary_today_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_vocab_mastery_api_me_vocabulary_unit_mastery_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_vocab_task_attempt_api_vocabulary_tasks__task_id__attempt_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttemptRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_create_vocab_unit_admin_vocabulary_units_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_create_vocab_version_admin_vocabulary_units__unit_id__versions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                unit_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_validate_vocab_version_admin_vocabulary_versions__version_id__validate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_review_vocab_version_admin_vocabulary_versions__version_id__reviews_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["routers__vocab_units__ReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_publish_vocab_version_admin_vocabulary_versions__version_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_rollback_vocab_version_admin_vocabulary_units__unit_id__rollback_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                unit_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RollbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     record_event_api_analytics_events_post: {
         parameters: {
             query?: never;
@@ -24248,7 +24952,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReviewRequest"];
+                "application/json": components["schemas"]["routers__flashcards__ReviewRequest"];
             };
         };
         responses: {
