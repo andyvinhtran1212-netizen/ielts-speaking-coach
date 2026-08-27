@@ -19,6 +19,9 @@ const PLAYER_BRIDGE = readFrontend('app', '(authed-practice)', 'practice', 'sess
 const PLAYER_LIFECYCLE = readFrontend('lib', 'practice-player-lifecycle.mjs');
 const BOOT = readFrontend('app', '(authed-practice)', 'practice', 'session', 'practice-session-boot.tsx');
 const LAYOUT = readFrontend('app', '(authed-practice)', 'layout.tsx');
+const RUNTIME_SCRIPTS = readFrontend(
+  'app', '(authed-practice)', 'practice-runtime-scripts.tsx',
+);
 const PAIRS = JSON.parse(readFrontend('tooling', 'parity-pairs-authed.json'));
 const DOC = readRoot('docs', 'GATE_E_SPEAKING_CORE_2026-08-09.md');
 const PARITY_GATE = readRoot('.github', 'workflows', 'parity-gate.yml');
@@ -156,10 +159,13 @@ describe('/practice/session stable Next implementation route', () => {
 
   test('layout preserves the legacy CSS and script ordering', () => {
     assert.match(LAYOUT, /pageStylesheets=\{\['\/css\/practice\.css', '\/css\/speaking-assignment\.css'\]\}/);
-    const debt = LAYOUT.indexOf('/js/speaking-debt.js');
-    const practice = LAYOUT.indexOf('/js/practice.js');
-    const pronunciation = LAYOUT.indexOf('/js/pronunciation-drilldown.js');
+    assert.match(LAYOUT, /<PracticeRuntimeScripts \/>/);
+    const debt = RUNTIME_SCRIPTS.indexOf('/js/speaking-debt.js');
+    const practice = RUNTIME_SCRIPTS.indexOf('/js/practice.js');
+    const pronunciation = RUNTIME_SCRIPTS.indexOf('/js/pronunciation-drilldown.js');
     assert.ok(debt !== -1 && debt < practice && practice < pronunciation);
+    assert.match(RUNTIME_SCRIPTS, /RUNTIME_SCRIPTS\.reduce/);
+    assert.match(RUNTIME_SCRIPTS, /document\.head\.appendChild\(script\)/);
     assert.match(LAYOUT, /antialiased min-h-screen flex flex-col/);
   });
 

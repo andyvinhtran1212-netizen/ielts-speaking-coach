@@ -469,6 +469,7 @@ export function buildSessionResult(session, categoriesPayload = null, audioItems
   const legacyReceiptSeal = Boolean(session?.sitting_id && responses.length === 0
     && Array.isArray(session?.response_receipts) && session.response_receipts.length > 0);
   const isSealed = explicitSeal ?? legacyReceiptSeal;
+  const isClassTask = Boolean(session?.class_task?.item_id || session?.class_assignment_item_id);
 
   return {
     sessionId: String(session?.id || session?.session_id || ''),
@@ -480,6 +481,9 @@ export function buildSessionResult(session, categoriesPayload = null, audioItems
     isCompleted,
     isPractice,
     isSealed,
+    returnHref: isClassTask ? '/my-class' : '/speaking',
+    returnLabel: isClassTask ? 'Về lớp học' : 'Quay lại',
+    contextLabel: isClassTask ? 'Bài tập theo buổi' : 'Speaking',
     overall,
     bands,
     strengths: lists.strengths,

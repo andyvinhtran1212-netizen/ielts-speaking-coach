@@ -101,7 +101,12 @@ test('class assignment renders the multi-question answer sheet from persisted tr
   await installHarness(page, {
     session: baseSession({
       class_assignment_item_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-      class_task: { accepting: true, submitted_at: null },
+      class_task: {
+        item_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        title: 'Course 3 · Buổi 3 · Speaking Part 1',
+        accepting: true,
+        submitted_at: null,
+      },
       responses: [{
         id: 'r1',
         question_id: 'q1',
@@ -119,6 +124,109 @@ test('class assignment renders the multi-question answer sheet from persisted tr
   await expect(page.locator('#sheet-slots .av-slot').nth(0)).toHaveAttribute('data-state', 'saved');
   await expect(page.locator('#sheet-slots .av-slot').nth(1)).toHaveAttribute('data-state', 'idle');
   await expect(page.locator('#btn-sheet-submit')).toBeDisabled();
+  await expect(page.locator('.practice-back-link')).toHaveText(/Về lớp học/);
+  await expect(page.locator('.practice-back-link')).toHaveAttribute('href', '/my-class');
+  await expect(page.locator('.practice-context-bar .eyebrow')).toHaveText('Bài tập theo buổi');
+});
+
+test('My Class opens and closes a Next Speaking session without reloading the document', async ({ page }) => {
+  await page.addInitScript(() => {
+    const visits = Number(window.sessionStorage.getItem('__gate_e_document_visits') || '0') + 1;
+    window.sessionStorage.setItem('__gate_e_document_visits', String(visits));
+  });
+
+  const itemId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const assignmentId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const classSession = baseSession({
+    class_assignment_item_id: itemId,
+    class_task: {
+      item_id: itemId,
+      title: 'Course 3 · Buổi 3 · Speaking Part 1',
+      accepting: true,
+      submitted_at: null,
+    },
+  });
+  const classSnapshot = {
+    has_class: true,
+    class: {
+      id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      name: 'Course 3 Foundation',
+      course: { code: 'C3', name: 'IELTS Foundation' },
+    },
+    student: { full_name: 'Gate E', student_code: 'GE1' },
+    assignments: [{
+      item_id: itemId,
+      state: 'assigned',
+      submitted_at: null,
+      score: null,
+      passed_at: null,
+      writing_expected: false,
+      is_late: false,
+      is_missing: false,
+      assignment: {
+        id: assignmentId,
+        title: 'Buổi 3 · Speaking Part 1',
+        skill: 'speaking',
+        instructions: null,
+        due_at: '2099-08-30T12:00:00Z',
+        content_config: { mode: 'practice', part: 1, topic: 'Weekend activities' },
+      },
+    }],
+    lessons: [],
+    progress: { total: 1, submitted: 0, todo: 1, missing: 0, late: 0, on_time_pct: null },
+  };
+
+  await installHarness(page, {
+    routePath: '/my-class',
+    includeSessionQuery: false,
+    waitForPlayer: false,
+    expectBootstrapOnce: false,
+    session: classSession,
+    questions: partOneQuestions(2),
+    handleApi: async ({ route, request, path, cors }) => {
+      if (request.method() === 'GET' && path === '/api/class/me') {
+        await route.fulfill({ json: classSnapshot, headers: cors });
+        return true;
+      }
+      if (request.method() === 'POST' && path === `/api/class/assignments/${itemId}/start`) {
+        await route.fulfill({
+          json: {
+            item_id: itemId,
+            assignment_id: assignmentId,
+            skill: 'speaking',
+            session_params: {
+              mode: 'practice', part: 1, topic: 'Weekend activities',
+              class_assignment_item_id: itemId,
+            },
+          },
+          headers: cors,
+        });
+        return true;
+      }
+      if (request.method() === 'POST' && path === '/sessions') {
+        await route.fulfill({ json: classSession, headers: cors });
+        return true;
+      }
+      return false;
+    },
+  });
+
+  const assignmentButton = page.getByRole('article').getByRole('button', { name: 'Làm bài' });
+  await expect(assignmentButton).toBeVisible();
+  await assignmentButton.click();
+  await expect(page).toHaveURL(new RegExp(`/practice/session\\?session_id=${SID}$`));
+  await expect(page.locator('#state-sheet')).toHaveClass(/\bactive\b/);
+  await expect(page.locator('.practice-back-link')).toHaveText(/Về lớp học/);
+  await expect.poll(() => page.evaluate(() => (
+    window.sessionStorage.getItem('__gate_e_document_visits')
+  ))).toBe('1');
+
+  await page.locator('.practice-back-link').click();
+  await expect(page).toHaveURL('/my-class');
+  await expect(page.getByRole('article').getByText('Buổi 3 · Speaking Part 1')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (
+    window.sessionStorage.getItem('__gate_e_document_visits')
+  ))).toBe('1');
 });
 
 test('sealed mock resumes from response receipts without leaking result data', async ({ page }) => {

@@ -174,7 +174,7 @@ describe('nút nộp', () => {
     };
     const create = new Function(
       'window', '_updateNativeView', '$', '_sheet', '_releaseRecorderResources',
-      '_singleSessionResultUrl', `
+      '_singleSessionResultUrl', '_navigateTo', `
       var _sheetSubmitting = false;
       var _playerGeneration = 1, _playerActive = true, _sessionId = 'session-1';
       ${JS.slice(start, end)}
@@ -182,7 +182,7 @@ describe('nút nộp', () => {
     `);
     const submit = create(
       window, () => true, () => null, { slots: [] }, () => {},
-      (id) => `/result?id=${id}`,
+      (id) => `/result?id=${id}`, () => {},
     );
     const first = submit();
     const second = submit();
@@ -205,7 +205,7 @@ describe('nút nộp', () => {
     const updates = [];
     const create = new Function(
       'window', '_updateNativeView', '$', '_sheet', '_releaseRecorderResources',
-      '_singleSessionResultUrl', `
+      '_singleSessionResultUrl', '_navigateTo', `
       var _sheetSubmitting = false;
       var _playerGeneration = 1, _playerActive = true, _sessionId = 'session-1';
       ${JS.slice(start, end)}
@@ -218,6 +218,7 @@ describe('nút nộp', () => {
       { slots: [{ retryBlob: {} }] },
       () => {},
       (id) => `/result?id=${id}`,
+      () => {},
     );
 
     await submit();
@@ -423,6 +424,14 @@ describe('style', () => {
 });
 
 describe('đường HỎNG — chỗ dễ mất bài của học viên nhất', () => {
+  test('cảnh báo rời trang chỉ giữ tới khi bản ghi được xác nhận đã lưu', () => {
+    assert.match(JS, /var _recordingDirty = false/);
+    assert.match(JS, /_recordingDirty = true;\s+_renderRecordedPlayback/);
+    assert.match(JS, /_recordingDirty = true;\s+_startProcessing\(_recordedBlob, questionId\)/);
+    assert.match(JS, /if \(!\(data && data\._stub\)\) _recordingDirty = false;/);
+    assert.match(JS, /_recSubState === 'recording' \|\| _recordingDirty/);
+  });
+
   test('nộp hỏng phải NÉM lên, không nuốt rồi coi như xong', () => {
     // `_submitGradingEager` cố ý nuốt lỗi cho Full Test (ở đó cảnh báo được vẽ
     // riêng). Phiếu DỰA VÀO promise này để quyết ô có "đã lưu" không — nuốt ở

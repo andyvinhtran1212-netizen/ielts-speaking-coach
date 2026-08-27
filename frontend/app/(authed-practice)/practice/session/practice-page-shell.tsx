@@ -1,7 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useSyncExternalStore,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 
 type PlayerStateStore = {
   getStateSnapshot(): null | string;
@@ -342,6 +349,15 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
   const view = useSyncExternalStore(subscribeView, getViewSnapshot, getViewSnapshot);
   const stateClass = (name: string, className: string) =>
     `${className}${activeState === name ? ' active' : ''}`;
+  const returnHref = typeof view.frame.returnHref === 'string' && view.frame.returnHref.startsWith('/')
+    ? view.frame.returnHref : '/speaking';
+  const returnLabel = typeof view.frame.returnLabel === 'string' && view.frame.returnLabel
+    ? view.frame.returnLabel : 'Quay lại';
+  const contextLabel = typeof view.frame.contextLabel === 'string' && view.frame.contextLabel
+    ? view.frame.contextLabel : 'Speaking';
+  const guardUnsentRecording = (event: MouseEvent<HTMLAnchorElement>) => {
+    if ((window as any).PracticeApp?.canLeave?.() === false) event.preventDefault();
+  };
 
   useEffect(() => {
     if (view.prep.listenOnly && view.prep.listenAudioUrl) return;
@@ -363,8 +379,8 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
     <>
       <header className="practice-header practice-context-bar sticky top-0 z-30 px-5 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Link href="/speaking" className="practice-back-link"><Icon name="chevron-left" />Quay lại</Link>
-          <p className="eyebrow" style={{ margin: 0 }}>Speaking</p>
+          <Link href={returnHref} className="practice-back-link" onClick={guardUnsentRecording}><Icon name="chevron-left" />{returnLabel}</Link>
+          <p className="eyebrow" style={{ margin: 0 }}>{contextLabel}</p>
         </div>
         <div className="flex items-center gap-3 min-w-0">
           <span id="hdr-info" className={`${view.header.visible ? '' : 'hidden '}text-xs font-medium truncate practice-hdr-info`}>{view.header.info}</span>
@@ -390,7 +406,7 @@ export function PracticePageShell({ player }: { player: PlayerStateStore }) {
           <div className="practice-error-icon"><Icon name="alert-triangle" /></div>
           <h2 className="text-lg font-bold">Đã xảy ra lỗi</h2>
           <p id="error-msg" className="practice-error-msg text-sm text-center max-w-xs">{view.frame.errorMessage}</p>
-          <a href="/speaking" className="btn-ghost px-5 py-2.5 text-sm font-semibold inline-block">Quay lại</a>
+          <Link href={returnHref} className="btn-ghost px-5 py-2.5 text-sm font-semibold inline-block" onClick={guardUnsentRecording}>{returnLabel}</Link>
         </div>
 
         <div id="state-mode-choice" className={stateClass('mode-choice', 'state block-state flex-1 av-w-read py-12 ds-fadein practice-stage practice-stage--choice')}>

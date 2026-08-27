@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { corePlayerUrl } from '@/lib/core-player-affinity.mjs';
@@ -38,6 +39,7 @@ function showBootFailure(message: string) {
 }
 
 export function PracticeSessionBoot() {
+  const router = useRouter();
   const { status, user } = useAuth();
   const bootOnce = useRef<(() => Promise<any>) | null>(null);
   const ownerUserId = useRef<string | null>(null);
@@ -103,6 +105,20 @@ export function PracticeSessionBoot() {
       .then(async (bootstrap) => {
         if (!active || started.current) return;
         started.current = true;
+        bootstrap = {
+          ...bootstrap,
+          // practice.js still owns the remaining orchestration, but navigation
+          // is a route concern. Hand it a same-origin Next callback so finishing
+          // a session does not hard-reload the authenticated application shell.
+          navigate: (destination: string) => {
+            if (!/^\/(?!\/)/.test(destination)
+                || destination.includes('\\')
+                || /[\u0000-\u001f\u007f]/.test(destination)) {
+              throw new Error('unsafe-practice-navigation');
+            }
+            router.push(destination);
+          },
+        };
         await (window as any).PracticeApp.init(bootstrap);
       })
       .catch((error) => {
@@ -146,7 +162,7 @@ export function PracticeSessionBoot() {
       });
 
     return () => { active = false; };
-  }, [status, user?.id]);
+  }, [router, status, user?.id]);
 
   return null;
 }

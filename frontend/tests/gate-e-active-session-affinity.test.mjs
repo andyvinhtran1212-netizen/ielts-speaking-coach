@@ -10,6 +10,7 @@ import {
   corePlayerAdmissionForDeployment,
   corePlayerUrl,
   resolveCorePlayerAdmission,
+  resolveCorePlayerAdmissionForNavigation,
   resolveCorePlayerAdmissionFromParams,
   resolveCorePlayerAdmissionFromParamsForDeployment,
   validateCorePlayerAffinityPolicy,
@@ -208,6 +209,10 @@ describe('current admission policy preserves behavior', () => {
     assert.match(RUNTIME_ROUTE, /gitRef: process\.env\.VERCEL_GIT_COMMIT_REF/);
     assert.match(RUNTIME_ROUTE, /new NextResponse\(null, \{[\s\S]*status: 307/);
     assert.match(RUNTIME_ROUTE, /headers: \{ Location: destination, \.\.\.NO_STORE_HEADERS \}/);
+    assert.match(RUNTIME_ROUTE,
+      /request\.headers\.get\('accept'\)\?\.includes\('application\/json'\)/);
+    assert.match(RUNTIME_ROUTE,
+      /NextResponse\.json\(\{ destination \}, \{ headers: NO_STORE_HEADERS \}\)/);
     assert.doesNotMatch(RUNTIME_ROUTE, /request\.nextUrl\.origin/);
     assert.match(RUNTIME_ROUTE, /'Cache-Control': 'private, no-store, max-age=0, must-revalidate'/);
     assert.match(RUNTIME_ROUTE, /'CDN-Cache-Control': 'no-store'/);
@@ -215,6 +220,43 @@ describe('current admission policy preserves behavior', () => {
     assert.doesNotMatch(RUNTIME_ROUTE, /getAll\('surface'\)|hasDuplicate|key !== 'surface'/,
       'wire validation must stay centralized in the affinity module');
     assert.match(RUNTIME_ROUTE, /status: 400/);
+  });
+
+  test('client navigation resolves at runtime and rejects a destination outside policy', async () => {
+    const calls = [];
+    const destination = await resolveCorePlayerAdmissionForNavigation(
+      'speaking',
+      { session_id: 'session A' },
+      async (url, options) => {
+        calls.push({ url, options });
+        return {
+          ok: true,
+          json: async () => ({ destination: '/practice/session?session_id=session+A' }),
+        };
+      },
+    );
+    assert.equal(destination, '/practice/session?session_id=session+A');
+    assert.deepEqual(calls, [{
+      url: '/core-player/launch?surface=speaking&session_id=session+A',
+      options: {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+        credentials: 'same-origin',
+      },
+    }]);
+
+    await assert.rejects(
+      resolveCorePlayerAdmissionForNavigation(
+        'speaking',
+        { session_id: 'session-a' },
+        async () => ({
+          ok: true,
+          json: async () => ({ destination: 'https://evil.invalid/session-a' }),
+        }),
+      ),
+      /invalid-core-player-admission-destination/,
+    );
   });
 
   test('session affinity is persisted on first player boot and honored on reopen', () => {

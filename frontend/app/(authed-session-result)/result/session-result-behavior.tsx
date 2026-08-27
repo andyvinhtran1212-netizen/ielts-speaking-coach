@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
@@ -108,12 +109,18 @@ export function SessionResultLoading() {
   );
 }
 
-function ResultHeader() {
+function ResultHeader({
+  returnHref = '/speaking', returnLabel = 'Quay lại', contextLabel = 'Speaking',
+}: {
+  returnHref?: string;
+  returnLabel?: string;
+  contextLabel?: string;
+}) {
   return (
     <header className="result-header px-6 py-4">
       <div className="av-w-read flex items-center gap-4">
-        <a href="/speaking" className="result-back-link">← Quay lại</a>
-        <p className="eyebrow" style={{ margin: 0 }}>Speaking</p>
+        <Link href={returnHref} className="result-back-link">← {returnLabel}</Link>
+        <p className="eyebrow" style={{ margin: 0 }}>{contextLabel}</p>
         <span className="result-header__sep">|</span>
         <h1 className="result-header__title text-base font-semibold">Kết quả luyện tập</h1>
       </div>
@@ -1125,7 +1132,7 @@ function ResultContent({ view, requestKey }: { view: any; requestKey: string }) 
         <button className="btn-primary result-icon-btn" disabled={pdfBusy} onClick={downloadPdf} type="button">
           ↓ {pdfBusy ? 'Đang tạo PDF…' : 'Tải báo cáo PDF'}
         </button>
-        <a href="/speaking" className="btn-secondary result-icon-btn">▦ Quay lại</a>
+        <Link href={view.returnHref} className="btn-secondary result-icon-btn">▦ {view.returnLabel}</Link>
         {view.mode === 'test_full' ? (
           <a href="/full-test" className="btn-secondary result-icon-btn">↻ Làm lại Full Test</a>
         ) : (
@@ -1271,7 +1278,11 @@ export function SessionResultBehavior() {
 
   return (
     <>
-      <ResultHeader />
+      <ResultHeader
+        returnHref={result?.returnHref}
+        returnLabel={result?.returnLabel}
+        contextLabel={result?.contextLabel}
+      />
       {loading ? <LoadingFrame>Đang tải kết quả…</LoadingFrame> : null}
       {error ? <ErrorState message={error} /> : null}
       {result ? <ResultContent key={requestKey || ''} requestKey={requestKey || ''} view={result} /> : null}
