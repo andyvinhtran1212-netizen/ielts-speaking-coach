@@ -171,6 +171,7 @@ export function normalizeDictationGrade(payload) {
 export function normalizeDictationReport(payload, expectedRequestId = null) {
   if (!payload || typeof payload !== 'object') throw new Error('invalid-dictation-report');
   const sessionId = text(payload.session_id || payload.id);
+  const attemptId = text(payload.attempt_id);
   const requestId = text(payload.client_request_id);
   if (!sessionId || (expectedRequestId && requestId !== expectedRequestId)) {
     throw new Error('invalid-dictation-receipt');
@@ -186,6 +187,7 @@ export function normalizeDictationReport(payload, expectedRequestId = null) {
   }
   return Object.freeze({
     session_id: sessionId,
+    attempt_id: attemptId || null,
     client_request_id: requestId || null,
     section_num: Number(payload.section_num) || null,
     total_time_seconds: Number.isFinite(Number(payload.total_time_seconds)) ? Math.max(0, Number(payload.total_time_seconds)) : null,
@@ -197,6 +199,16 @@ export function normalizeDictationReport(payload, expectedRequestId = null) {
     error_trends: payload.error_trends && typeof payload.error_trends === 'object' ? payload.error_trends : {},
     results: Array.isArray(payload.results) ? payload.results : [],
   });
+}
+
+export function normalizeDictationAttemptReport(payload, expectedAttemptId) {
+  const attemptId = text(expectedAttemptId);
+  if (!attemptId) throw new Error('invalid-dictation-attempt-receipt');
+  const report = normalizeDictationReport(payload);
+  if (report.attempt_id !== attemptId) {
+    throw new Error('invalid-dictation-attempt-receipt');
+  }
+  return report;
 }
 
 export function dictationReceiptKey(accountId, testId, sectionNum) {
