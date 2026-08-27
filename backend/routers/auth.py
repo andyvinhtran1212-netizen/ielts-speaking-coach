@@ -12,6 +12,7 @@ from config import settings
 from database import supabase_admin
 from services.server_timing import record_stage
 from services.feature_flags import is_flashcard_enabled
+from services import runtime_flags
 from services.runtime_flags import require_flag
 from services.class_membership_service import remove_student, student_is_active_in_cohort
 
@@ -244,6 +245,12 @@ async def get_me(response: Response, authorization: str | None = Header(default=
         # Phase D Wave 2 — strict default-deny via the canonical helper so
         # frontends can rely on `=== true` without re-implementing the rule.
         "flashcard_enabled": is_flashcard_enabled(user_id, settings.FLASHCARD_ENABLED),
+        # Two-key rollout: learner cohort opt-in AND the hot runtime read switch.
+        # Both default deny so the legacy hub remains the automatic fallback.
+        "vocab_curated_enabled": (
+            flags.get("vocab_curated_enabled") is True
+            and runtime_flags.is_enabled("vocab_units_read", default=False)
+        ),
     }
 
 

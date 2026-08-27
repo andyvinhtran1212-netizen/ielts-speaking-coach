@@ -68,3 +68,8 @@ def is_flashcard_enabled(user_id: str, global_flag: bool) -> bool:
     if not global_flag:
         return False
     return _per_user_flag(user_id, "flashcard_enabled")
+
+
+def is_vocab_curated_enabled(user_id: str) -> bool:
+    """Curated Vocab Wiki cohort gate. Runtime kill switches are checked apart."""
+    return _per_user_flag(user_id, "vocab_curated_enabled")

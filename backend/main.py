@@ -62,6 +62,7 @@ from routers.grammar import router as grammar_router
 from routers.pronunciation import router as pronunciation_router
 from routers.sitemap import router as sitemap_router
 from routers.vocabulary import router as vocabulary_router
+from routers.vocab_units import router as vocab_units_router
 from routers.analytics import router as analytics_router
 from routers.vocabulary_bank import router as vocabulary_bank_router
 from routers.exercises import (
@@ -255,6 +256,7 @@ app.include_router(grammar_router)
 app.include_router(pronunciation_router)
 app.include_router(sitemap_router)
 app.include_router(vocabulary_router)
+app.include_router(vocab_units_router)
 app.include_router(analytics_router)
 app.include_router(vocabulary_bank_router)
 app.include_router(exercises_user_router)
