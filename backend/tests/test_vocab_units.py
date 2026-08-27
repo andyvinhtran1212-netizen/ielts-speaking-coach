@@ -662,9 +662,9 @@ def test_attempt_replay_precedes_current_version_gate():
 def test_curated_runbook_names_the_canonical_migration_sequence():
     backend = Path(__file__).parent.parent
     runbook = (backend / "docs" / "VOCAB_CURATED_V1.md").read_text("utf-8")
-    for number in (234, 235, 236):
+    for number in (234, 235, 236, 237):
         assert f"Migration {number}:" in runbook
-    assert "migrations `234`, `235`, `236`" in runbook
+    assert "migrations `234`, `235`, `236`, `237`" in runbook
     assert "Migration 220:" not in runbook
     assert "Migration 221:" not in runbook
     assert "Migration 222:" not in runbook
