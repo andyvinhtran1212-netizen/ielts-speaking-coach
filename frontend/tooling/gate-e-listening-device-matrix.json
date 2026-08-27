@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "matrix_id": "gate-e-listening-device-matrix-v3",
+  "matrix_id": "gate-e-listening-device-matrix-v4",
   "playwright_version": "1.60.0",
   "ci_runner": "ubuntu24.04-x64",
-  "expected_total_tests": 27,
+  "expected_total_tests": 33,
   "expected_project_counts": {
-    "gate-e-listening-chromium-desktop": 9,
-    "gate-e-listening-webkit-desktop": 9,
-    "gate-e-listening-webkit-iphone13": 9
+    "gate-e-listening-chromium-desktop": 11,
+    "gate-e-listening-webkit-desktop": 11,
+    "gate-e-listening-webkit-iphone13": 11
   },
   "expected_tests": [
     "listening-core-player-ambiguous-commit",
@@ -16,6 +16,8 @@
     "listening-bidirectional-cross-version-core-player",
     "listening-renderer-affinity-immutable-guard",
     "listening-dictation-core-player-ambiguous-commit",
+    "listening-dictation-grade-snapshots-listen-count-across-await",
+    "listening-dictation-recovers-rejected-receipt-from-canonical-attempt",
     "listening-dictation-core-player-pre-commit-failure-retry",
     "listening-dictation-core-player-reload-receipt-resume",
     "listening-dictation-legacy-next-canonical-coexistence"
@@ -61,6 +63,8 @@
     "listening-bidirectional-cross-version-core-player",
     "listening-renderer-affinity-immutable-guard",
     "listening-dictation-core-player-ambiguous-commit",
+    "listening-dictation-grade-snapshots-listen-count-across-await",
+    "listening-dictation-recovers-rejected-receipt-from-canonical-attempt",
     "listening-dictation-core-player-pre-commit-failure-retry",
     "listening-dictation-core-player-reload-receipt-resume",
     "listening-dictation-legacy-next-canonical-coexistence",
