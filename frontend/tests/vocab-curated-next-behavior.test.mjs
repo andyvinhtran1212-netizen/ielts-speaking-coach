@@ -74,4 +74,11 @@ describe('/vocabulary/learn/[unitSlug] — server-graded learning loop', () => {
     assert.match(LESSON, /maxLength=\{1200\}/);
     assert.match(LESSON, /startsWith\('https:\/\/'\)/);
   });
+
+  test('does not present stale-version or kill-switch failures as retryable saves', () => {
+    assert.match(LESSON, /status === 404/);
+    assert.match(LESSON, /Bài học vừa được cập nhật/);
+    assert.match(LESSON, /status === 403 \|\| status === 503/);
+    assert.match(LESSON, /Vocab Curated vừa tạm đóng/);
+  });
 });

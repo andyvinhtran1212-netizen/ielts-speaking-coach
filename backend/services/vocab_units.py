@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime, timezone
 from typing import Any, Iterable
+from zoneinfo import ZoneInfo
 
 from database import supabase_admin
 from services import vocab_unit_rules
@@ -19,6 +20,7 @@ from services import vocab_unit_rules
 GRADER_VERSION = vocab_unit_rules.GRADER_VERSION
 MASTERY_DIMENSIONS = vocab_unit_rules.MASTERY_DIMENSIONS
 REVIEW_TYPES = vocab_unit_rules.REVIEW_TYPES
+DISCOVERY_TIMEZONE = ZoneInfo("Asia/Ho_Chi_Minh")
 
 
 class VocabUnitError(Exception):
@@ -89,24 +91,36 @@ def _load_published_units(
     unit_type: str | None = None,
     unit_ids: Iterable[str] | None = None,
 ) -> list[tuple[dict[str, Any], dict[str, Any]]]:
-    query = (
-        supabase_admin.table("vocab_learning_units")
-        .select(
-            "id,kp_id,unit_slug,display_headword,unit_type,target_level,"
-            "problem_tags,learner_tags,current_published_version_id"
+    def build_query() -> Any:
+        query = (
+            supabase_admin.table("vocab_learning_units")
+            .select(
+                "id,kp_id,unit_slug,display_headword,unit_type,target_level,"
+                "problem_tags,learner_tags,current_published_version_id"
+            )
+            .eq("status", "published")
         )
-        .eq("status", "published")
-    )
-    if level:
-        query = query.eq("target_level", level)
-    if unit_type:
-        query = query.eq("unit_type", unit_type)
-    ids = [str(item) for item in (unit_ids or []) if item]
+        if level:
+            query = query.eq("target_level", level)
+        if unit_type:
+            query = query.eq("unit_type", unit_type)
+        return query
+
+    ids = list(dict.fromkeys(str(item) for item in (unit_ids or []) if item))
     if unit_ids is not None:
         if not ids:
             return []
-        query = query.in_("id", ids)
-    units = _paged_rows(query.order("display_headword").order("id"))
+        units: list[dict[str, Any]] = []
+        for start in range(0, len(ids), 200):
+            units.extend(_paged_rows(
+                build_query().in_("id", ids[start:start + 200])
+                .order("display_headword").order("id")
+            ))
+        units.sort(key=lambda row: (
+            str(row.get("display_headword") or ""), str(row.get("id") or ""),
+        ))
+    else:
+        units = _paged_rows(build_query().order("display_headword").order("id"))
     version_ids = [u.get("current_published_version_id") for u in units if u.get("current_published_version_id")]
     if not version_ids:
         return []
@@ -367,7 +381,7 @@ def get_today(user_id: str, *, include_recommendations: bool) -> dict[str, Any]:
             continue
         if len(recommendation_items) + len(due_items) >= 5:
             break
-        due_items.append({**row, "unit": summary})
+        due_items.append({**row, "state": "needs_refresh", "unit": summary})
         selected_unit_ids.add(unit_id)
     mastery_rows = _paged_rows(
         supabase_admin.table("user_kp_dimension_mastery")
@@ -390,7 +404,9 @@ def get_today(user_id: str, *, include_recommendations: bool) -> dict[str, Any]:
         if str(unit.get("id")) not in selected_unit_ids
         and str(unit.get("kp_id")) not in fully_retained
     ]
-    day = datetime.now(timezone.utc).date().isoformat()
+    # V1 targets learners in Vietnam; rotate at their local midnight instead
+    # of 07:00 Asia/Ho_Chi_Minh (UTC midnight).
+    day = datetime.now(DISCOVERY_TIMEZONE).date().isoformat()
     candidates.sort(key=lambda pair: hashlib.sha256(
         f"{user_id}:{day}:{pair[0].get('id')}".encode("utf-8")
     ).hexdigest())

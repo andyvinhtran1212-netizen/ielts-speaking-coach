@@ -91,8 +91,16 @@ function TaskCard({ task }: { task: Task }) {
         { attempt_id: retryAttempt.current.attemptId, response: { answer: responseAnswer } },
       );
       setResult(payload);
-    } catch {
-      setError('Chưa lưu được câu trả lời. Hãy thử lại.');
+    } catch (submissionError: unknown) {
+      const status = submissionError && typeof submissionError === 'object' && 'status' in submissionError
+        ? Number((submissionError as { status?: unknown }).status) : null;
+      if (status === 404) {
+        setError('Bài học vừa được cập nhật. Hãy tải lại trang trước khi làm tiếp.');
+      } else if (status === 403 || status === 503) {
+        setError('Vocab Curated vừa tạm đóng. Câu trả lời chưa được lưu.');
+      } else {
+        setError('Chưa lưu được câu trả lời. Hãy thử lại.');
+      }
     } finally {
       setPending(false);
     }

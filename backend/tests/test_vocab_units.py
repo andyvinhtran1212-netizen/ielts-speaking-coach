@@ -108,6 +108,18 @@ def test_postgrest_pager_reads_beyond_the_default_cap():
     assert query.range.call_args_list == [call(0, 1), call(2, 3)]
 
 
+def test_published_unit_id_filters_are_chunked_to_bound_urls():
+    first_units = _query([])
+    second_units = _query([])
+    with patch.object(vocab_units, "supabase_admin") as database:
+        database.table.side_effect = [first_units, second_units]
+        assert vocab_units._load_published_units(
+            unit_ids=[f"unit-{index}" for index in range(201)],
+        ) == []
+    assert len(first_units.in_.call_args.args[1]) == 200
+    assert len(second_units.in_.call_args.args[1]) == 1
+
+
 def test_productive_transfer_requires_context_and_avoids_known_error():
     task = {
         "task_type": "productive_transfer",
@@ -297,6 +309,7 @@ def test_today_queue_is_capped_and_deduplicated_across_sources():
     assert len(items) == 5
     assert len(unit_ids) == len(set(unit_ids))
     assert unit_ids.count("unit-2") == 1
+    assert all(item["state"] == "needs_refresh" for item in payload["due"])
 
 
 def test_mastery_route_forwards_validated_pagination():
@@ -492,7 +505,7 @@ def test_every_pilot_unit_rejects_its_known_transfer_error():
         "play-a-role-in": "Teachers role in education is extremely important for every child today.",
         "be-responsible-for": "Companies responsible for pollution should reduce their plastic waste more quickly.",
         "spend-time-doing": "I spend my free time with close friends and really enjoy cooking.",
-        "prefer-x-to-y": "I prefer quiet libraries because I want to improve my results.",
+        "prefer-x-to-y": "I prefer to keep studying at home rather than in cafes.",
         "access-to-vs-access": "Many students cannot access to academic journals about healthcare research.",
         "actually-vs-currently": "I actually work as an intern this summer in Hanoi.",
         "convenient-vs-comfortable": "The hotel is comfortable because it is next to the station and shops.",
