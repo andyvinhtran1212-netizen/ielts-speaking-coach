@@ -172,7 +172,11 @@ def test_an_ASSIGNED_student_can_open_it():
 
 def test_submitted_expired_item_is_pinned_and_exposes_only_completed_snapshot_sections():
     expired = {**_LIVE_ASG, "due_at": "2020-01-01T00:00:00Z",
-               "content_config": {"required_sections": ["quiz"]}}
+               "content_config": {
+                   "weight_policy": "hybrid_question_count_v1",
+                   "section_counts": {"quiz": 1},
+                   "section_weights": {"quiz": 100},
+               }}
     db = _db(
         quiz_banks=[{**_COURSE_BANK, "meta": {
             # Live bank gained these sections after the assignment was issued.
@@ -200,6 +204,7 @@ def test_submitted_expired_item_is_pinned_and_exposes_only_completed_snapshot_se
     assert out["mastery"]["review_only"] is True
     assert out["mastery"]["item_id"] == "it-old"
     assert out["mastery"]["completed_sections"] == ["quiz"]
+    assert out["mastery"]["section_counts"] == {"quiz": 1}
 
 
 def test_ANOTHER_students_assignment_does_not_open_it():

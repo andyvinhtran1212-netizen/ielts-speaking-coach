@@ -189,6 +189,58 @@ describe('kết luận gọi đúng lượt đã giúp học viên đạt', () =
 });
 
 describe('cổng hoàn thành bài nhiều phần', () => {
+  test('dòng mô tả đếm đủ mọi câu thay vì chỉ nói có một bài đọc/nghe', () => {
+    const body = functionBody('renderTitleMeta');
+    const titleMeta = { textContent: '' };
+    const render = new Function(
+      'runner', 'titleMeta', 'quizCount', 'writingCount',
+      'readingCount', 'listeningCount',
+      'pronunciationCount', body,
+    );
+    const runner = {};
+
+    render(runner, titleMeta, 90, 10, 10, 20, 0);
+    assert.equal(
+      titleMeta.textContent,
+      '130 câu tất cả · 90 câu trắc nghiệm · 10 câu tự luận · 10 câu đọc hiểu · 20 câu nghe hiểu. Trắc nghiệm hiện giải thích ngay sau mỗi câu.',
+    );
+
+    render(runner, titleMeta, 90, 10, 10, 20, 12);
+    assert.match(titleMeta.textContent, /^142 câu tất cả/);
+    assert.match(titleMeta.textContent, /12 câu phát âm/);
+
+    render(runner, titleMeta, 90, 10, 10, 0, 0);
+    assert.match(titleMeta.textContent, /^110 câu tất cả/,
+      'bài giao cũ không được mọc thêm 20 câu nghe từ bank live');
+    assert.doesNotMatch(titleMeta.textContent, /câu nghe hiểu/);
+    assert.match(SRC, /assignedSectionCount\('listening', liveListeningCount\)/);
+  });
+
+  test('snapshot phát âm được đếm ngay cả khi lookup live thất bại', async () => {
+    const countBody = functionBody('assignedSectionCount');
+    const assignedCount = new Function(
+      'hasSectionSnapshot', 'assignedSectionCounts', 'name', 'liveCount',
+      countBody,
+    );
+    const pronunciationCount = assignedCount(
+      true, { quiz: 90, writing: 10, reading: 10, listening: 20, pronunciation: 12 },
+      'pronunciation', 0,
+    );
+    const titleMeta = { textContent: '' };
+    const render = new Function(
+      'runner', 'titleMeta', 'quizCount', 'writingCount',
+      'readingCount', 'listeningCount', 'pronunciationCount',
+      functionBody('renderTitleMeta'),
+    );
+
+    render({}, titleMeta, 90, 10, 10, 20, pronunciationCount);
+    await Promise.reject(new Error('lookup hỏng')).catch(() => {});
+
+    assert.match(titleMeta.textContent, /^142 câu tất cả/);
+    assert.match(titleMeta.textContent, /12 câu phát âm/);
+    assert.match(SRC, /renderTitleMeta\(initialPronunciationCount\)/);
+  });
+
   test('không vẽ đạt hoặc không đạt khi vẫn còn phần bắt buộc', () => {
     assert.match(SRC, /v\.completed === false/);
     assert.match(SRC, /chỉ kết luận đạt hoặc chưa đạt sau khi đủ tất cả các phần/);

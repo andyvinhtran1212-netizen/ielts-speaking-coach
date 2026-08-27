@@ -747,7 +747,21 @@ def get_bank_for_play(
             asg = (supabase_admin.table("class_assignments")
                    .select("id, content_config")
                    .eq("id", item["assignment_id"]).limit(1).execute().data) or []
-            cfg = mastery_config(asg[0] if asg else None)
+            assignment = asg[0] if asg else {}
+            cfg = mastery_config(assignment)
+            content_config = assignment.get("content_config") or {}
+            raw_section_counts = content_config.get("section_counts")
+            section_counts = {}
+            if (content_config.get("weight_policy")
+                    == COURSE_WEIGHT_POLICY_HYBRID_QUESTION_COUNT_V1
+                    and isinstance(raw_section_counts, dict)):
+                for key in _COURSE_SECTION_LABELS:
+                    try:
+                        amount = int(raw_section_counts.get(key) or 0)
+                    except (TypeError, ValueError):
+                        amount = 0
+                    if amount > 0:
+                        section_counts[key] = amount
             it = row[0] if row else {}
             att = ((it.get("mastery") or {}).get("attempts")) or []
             latest_sections = ((att[-1].get("sections") or {})
@@ -767,6 +781,9 @@ def get_bank_for_play(
                 "completed_sections": [
                     key for key in _COURSE_SECTION_LABELS if key in latest_sections
                 ],
+                # Hình dạng ĐÃ GIAO, để đầu bài không đếm một section vừa được
+                # thêm vào bank live như thể học viên cũ cũng phải làm nó.
+                **({"section_counts": section_counts} if section_counts else {}),
                 "due_at": item.get("due_at"),
                 # A submitted assignment reopens read-only. Never create a new
                 # quiz session merely because the learner chose "Xem kết quả".

@@ -110,15 +110,45 @@ export function CourseBehavior() {
       const title = $('cx-title');
       if (title) title.textContent = runner.bank.title || 'Bài tập theo buổi';
       const titleMeta = $('cx-title-meta');
-      if (titleMeta) {
-        const shortReading = runner.bank?.meta?.short_reading;
-        const shortListening = runner.bank?.meta?.short_listening;
-        titleMeta.textContent = `${runner.total} câu trắc nghiệm`
-          + (runner.hasWriting ? ` · ${runner.writing.length} câu tự luận` : '')
-          + (shortReading ? ' · 1 bài đọc ngắn' : '')
-          + (shortListening ? ' · 1 bài nghe' : '')
+      const shortReading = runner.bank?.meta?.short_reading;
+      const shortListening = runner.bank?.meta?.short_listening;
+      const liveReadingCount = Array.isArray(shortReading?.question_groups)
+        ? shortReading.question_groups.reduce((total: number, group: any) => (
+          total + (Array.isArray(group?.questions) ? group.questions.length : 0)
+        ), 0) : 0;
+      const liveListeningCount = Array.isArray(shortListening?.sections)
+        ? shortListening.sections.reduce((total: number, section: any) => (
+          total + (Array.isArray(section?.questions) ? section.questions.length : 0)
+        ), 0) : 0;
+      const assignedSectionCounts = runner.mastery?.section_counts;
+      const hasSectionSnapshot = assignedSectionCounts
+        && typeof assignedSectionCounts === 'object'
+        && Object.keys(assignedSectionCounts).length > 0;
+      function assignedSectionCount(name: string, liveCount: number) {
+        if (!hasSectionSnapshot) return liveCount;
+        const amount = Number(assignedSectionCounts[name]);
+        return Number.isInteger(amount) && amount > 0 ? amount : 0;
+      }
+      const quizCount = assignedSectionCount('quiz', runner.total);
+      const writingCount = assignedSectionCount(
+        'writing', runner.hasWriting ? runner.writing.length : 0,
+      );
+      const readingCount = assignedSectionCount('reading', liveReadingCount);
+      const listeningCount = assignedSectionCount('listening', liveListeningCount);
+      const initialPronunciationCount = assignedSectionCount('pronunciation', 0);
+      function renderTitleMeta(pronunciationCount = 0) {
+        if (!titleMeta) return;
+        const totalCount = quizCount + writingCount + readingCount
+          + listeningCount + pronunciationCount;
+        const parts = [`${quizCount} câu trắc nghiệm`];
+        if (writingCount) parts.push(`${writingCount} câu tự luận`);
+        if (readingCount) parts.push(`${readingCount} câu đọc hiểu`);
+        if (listeningCount) parts.push(`${listeningCount} câu nghe hiểu`);
+        if (pronunciationCount) parts.push(`${pronunciationCount} câu phát âm`);
+        titleMeta.textContent = `${totalCount} câu tất cả · ${parts.join(' · ')}`
           + '. Trắc nghiệm hiện giải thích ngay sau mỗi câu.';
       }
+      renderTitleMeta(initialPronunciationCount);
 
       // Một bank có thể được giao nhiều lần. Draft và mọi review phải bám đúng
       // item canonical mà server vừa trả, không dùng chung theo bank.
@@ -141,10 +171,10 @@ export function CourseBehavior() {
       const pronunciationLoaded = pronunciation.load(bankId)
         .then(() => {
           pronunciationReady = true;
-          if (pronunciation.exists && titleMeta) {
-            titleMeta.textContent = titleMeta.textContent.replace(
-              '. Trắc nghiệm', ` · ${pronunciation.count} câu phát âm. Trắc nghiệm`,
-            );
+          if (pronunciation.exists) {
+            renderTitleMeta(assignedSectionCount(
+              'pronunciation', pronunciation.count,
+            ));
           }
         })
         .catch(() => { pronunciationReady = false; });
