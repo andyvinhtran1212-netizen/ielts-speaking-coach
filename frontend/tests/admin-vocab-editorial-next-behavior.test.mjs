@@ -51,8 +51,10 @@ describe('native curated editorial workspace', () => {
     assert.match(CLIENT, /setReviewNotes\(''\)/);
     assert.match(CLIENT, /rollbackCancelRef\.current\?\.focus\(\)/);
     assert.match(CLIENT, /trigger\?\.focus\(\)/);
+    assert.match(CLIENT, /requestAnimationFrame\(\(\) => detailHeadingRef\.current\?\.focus\(\)\)/);
+    assert.match(CLIENT, /aria-describedby=\{total > units\.length \? 'avv-editorial-inbox-scope' : undefined\}/);
     assert.match(CLIENT, /reviewContextChanged/);
-    assert.match(CLIENT, /setDetailLoading\(false\)/);
+    assert.match(CLIENT, /setSelectedVersionId\(''\);\s*setDetailLoading\(false\);/);
   });
 
   test('has bounded master-detail and mobile layout rules', () => {

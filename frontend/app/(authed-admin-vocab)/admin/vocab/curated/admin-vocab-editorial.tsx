@@ -112,6 +112,7 @@ export function AdminVocabEditorial() {
   const detailSequence = useRef(0);
   const rollbackCancelRef = useRef<HTMLButtonElement>(null);
   const rollbackTriggerRef = useRef<HTMLButtonElement>(null);
+  const detailHeadingRef = useRef<HTMLHeadingElement>(null);
   const busyRef = useRef(busy);
   const reviewContextRef = useRef({ accountId: profile.id, versionId: '' });
   const accountRef = useRef(profile.id);
@@ -229,9 +230,10 @@ export function AdminVocabEditorial() {
       if (profile.id === accountRef.current) {
         setNotice({ kind: 'warning', message: 'Mutation đã được backend nhận nhưng canonical readback chưa hoàn tất. Hãy tải lại trước khi thao tác tiếp.' });
       }
-      return;
+      return result;
     }
     setNotice({ kind: 'success', message });
+    return result;
   };
 
   const validate = async () => {
@@ -293,7 +295,8 @@ export function AdminVocabEditorial() {
       await window.api.post<unknown>(`/admin/vocabulary/units/${encodeURIComponent(detail.unit.id)}/rollback`, { version_id: rollbackVersion.id });
       const versionNumber = rollbackVersion.versionNumber;
       setRollbackVersion(null);
-      await refreshCanonical(`Đã rollback về version ${versionNumber} và xác nhận lại current version.`);
+      const readback = await refreshCanonical(`Đã rollback về version ${versionNumber} và xác nhận lại current version.`);
+      if (readback === 'ok') requestAnimationFrame(() => detailHeadingRef.current?.focus());
     } catch (caught) { setNotice({ kind: 'error', message: `Không rollback được unit: ${messageOf(caught)}` }); }
     finally { setBusy(false); }
   };
@@ -307,7 +310,7 @@ export function AdminVocabEditorial() {
     <section className="avv-editorial-toolbar" aria-label="Bộ lọc editorial">
       <label>Tìm unit<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Headword hoặc slug" /></label>
       <label>Unit status<select value={status} disabled={loading || busy} onChange={(event) => { setOffset(0); setStatus(event.target.value); }}><option value="">Tất cả</option><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></label>
-      <div className="avv-editorial-filter"><label>Reviewer inbox<select value={inbox} onChange={(event) => setInbox(event.target.value)}><option value="all">Tất cả unit</option><option value="language">Chờ Language</option><option value="pedagogy">Chờ Pedagogy</option><option value="assessment">Chờ Assessment</option><option value="ready">Đủ review gates</option></select></label>{total > units.length ? <small>Lọc inbox áp dụng cho trang đang tải.</small> : null}</div>
+      <div className="avv-editorial-filter"><label>Reviewer inbox<select value={inbox} aria-describedby={total > units.length ? 'avv-editorial-inbox-scope' : undefined} onChange={(event) => setInbox(event.target.value)}><option value="all">Tất cả unit</option><option value="language">Chờ Language</option><option value="pedagogy">Chờ Pedagogy</option><option value="assessment">Chờ Assessment</option><option value="ready">Đủ review gates</option></select></label>{total > units.length ? <small id="avv-editorial-inbox-scope">Lọc inbox áp dụng cho trang đang tải.</small> : null}</div>
       <button className="btn-secondary" type="button" disabled={loading || busy} onClick={() => void loadCatalog()}>{loading ? 'Đang tải…' : 'Làm mới'}</button>
       <div className="avv-editorial-pager" aria-label="Phân trang catalog"><button className="btn-secondary" type="button" disabled={loading || busy || offset === 0} onClick={() => setOffset(Math.max(0, offset - CATALOG_PAGE_SIZE))}>← Trước</button><span>{total ? `${offset + 1}–${Math.min(offset + units.length, total)} / ${total}` : '0 / 0'}</span><button className="btn-secondary" type="button" disabled={loading || busy || offset + units.length >= total} onClick={() => setOffset(offset + CATALOG_PAGE_SIZE)}>Sau →</button></div>
     </section>
@@ -329,7 +332,7 @@ export function AdminVocabEditorial() {
 
       <section className="avv-editorial-detail">
         {detailLoading ? <div className="avv-state">Đang tải canonical editorial bundle…</div> : !detail || !selectedVersion ? <div className="avv-state">Chọn một unit để xem version, diff và review gates.</div> : <>
-          <header className="avv-editorial-detail__head"><div><p className="avv-eyebrow">{detail.unit.slug}</p><h2>{detail.unit.displayHeadword}</h2><p>{String(detail.unit.sense_key || '')} · {String(detail.unit.construction_key || '')}</p></div><div><label>Version<select value={selectedVersionId} disabled={busy} onChange={(event) => { setSelectedVersionId(event.target.value); setValidation(null); setRollbackVersion(null); setReviewNotes(''); setReviewType('language'); }}>{detail.versions.map((version) => <option key={version.id} value={version.id}>v{version.versionNumber} · {STATE_LABELS[version.status] || version.status}</option>)}</select></label><span className={`adm-status-pill is-${selectedVersion.status === 'published' ? 'live' : selectedVersion.status === 'in_review' ? 'warning' : 'inactive'}`}>{STATE_LABELS[selectedVersion.status] || selectedVersion.status}</span></div></header>
+          <header className="avv-editorial-detail__head"><div><p className="avv-eyebrow">{detail.unit.slug}</p><h2 ref={detailHeadingRef} tabIndex={-1}>{detail.unit.displayHeadword}</h2><p>{String(detail.unit.sense_key || '')} · {String(detail.unit.construction_key || '')}</p></div><div><label>Version<select value={selectedVersionId} disabled={busy} onChange={(event) => { setSelectedVersionId(event.target.value); setValidation(null); setRollbackVersion(null); setReviewNotes(''); setReviewType('language'); }}>{detail.versions.map((version) => <option key={version.id} value={version.id}>v{version.versionNumber} · {STATE_LABELS[version.status] || version.status}</option>)}</select></label><span className={`adm-status-pill is-${selectedVersion.status === 'published' ? 'live' : selectedVersion.status === 'in_review' ? 'warning' : 'inactive'}`}>{STATE_LABELS[selectedVersion.status] || selectedVersion.status}</span></div></header>
           <div className="avv-editorial-version-meta"><span>Change note<strong>{selectedVersion.changeNote || 'Không có ghi chú'}</strong></span><span>Cập nhật<strong>{formatDate(selectedVersion.updatedAt)}</strong></span><span>Task<strong>{selectedVersion.tasks.filter((task) => task.status === 'active').length}</strong></span></div>
           <GatePills gate={selectedVersion.reviewGate} />
 
