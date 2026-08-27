@@ -5339,6 +5339,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/vocabulary/context-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve My Vocab Context Links */
+        post: operations["resolve_my_vocab_context_links_api_me_vocabulary_context_links_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/vocabulary/recommendations/{recommendation_id}/open": {
         parameters: {
             query?: never;
@@ -11788,6 +11805,11 @@ export interface components {
             lexicalResource: number;
             /** Grammaticalrange */
             grammaticalRange: number;
+        };
+        /** ContextLinksRequest */
+        ContextLinksRequest: {
+            /** Terms */
+            terms: string[];
         };
         /** CourseCreate */
         CourseCreate: {
@@ -23284,6 +23306,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_my_vocab_context_links_api_me_vocabulary_context_links_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContextLinksRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

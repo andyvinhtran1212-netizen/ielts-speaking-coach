@@ -22,13 +22,14 @@ import re
 from pathlib import Path
 from typing import Any
 
-from services import vocab_unit_rules
+from services import vocab_context_rules, vocab_unit_rules
 
 CONTENT_FILE = Path(__file__).parent.parent / "content_vocab_curated" / "pilot_v1.json"
 SIGNAL_CODE_RE = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
 SPEAKING_ISSUE_TYPES = {
     "meaning", "word_choice", "preposition", "verb_frame", "parallelism",
 }
+CONTEXT_SURFACE_SCOPES = {"reading_glossary"}
 
 
 def load_pilot(path: Path = CONTENT_FILE) -> dict[str, Any]:
@@ -181,6 +182,40 @@ def validate_pilot(payload: dict[str, Any]) -> list[str]:
             errors.append(f"{path_slug}: unit refs không tồn tại: {missing}")
         if len(refs) != len(set(refs)):
             errors.append(f"{path_slug}: unit refs bị trùng")
+
+    source_key = str(payload.get("context_lookup_source_key") or "")
+    lookups = payload.get("context_lookups")
+    if not (3 <= len(source_key) <= 120) or not SIGNAL_CODE_RE.fullmatch(source_key):
+        errors.append("context_lookup_source_key không hợp lệ")
+    if not isinstance(lookups, list):
+        errors.append("context_lookups phải là một mảng")
+        lookups = []
+    normalized_terms: set[tuple[str, str]] = set()
+    for lookup_index, lookup in enumerate(lookups, start=1):
+        label = f"context_lookups[{lookup_index}]"
+        if not isinstance(lookup, dict):
+            errors.append(f"{label} phải là object")
+            continue
+        term = str(lookup.get("term") or "")
+        normalized = vocab_context_rules.normalize_context_term(term)
+        scope = str(lookup.get("surface_scope") or "")
+        unit_slug = str(lookup.get("unit_slug") or "")
+        rationale = str(lookup.get("rationale_vi") or "").strip()
+        status = lookup.get("status", "active")
+        if not (1 <= len(term.strip()) <= 160 and 1 <= len(normalized) <= 160):
+            errors.append(f"{label}.term phải dài 1–160 ký tự")
+        identity = (scope, normalized)
+        if identity in normalized_terms:
+            errors.append(f"context term bị trùng sau normalize: {scope}/{normalized}")
+        normalized_terms.add(identity)
+        if scope not in CONTEXT_SURFACE_SCOPES:
+            errors.append(f"{label}.surface_scope không hợp lệ")
+        if unit_slug not in slugs:
+            errors.append(f"{label}.unit_slug không tồn tại: {unit_slug}")
+        if not (20 <= len(rationale) <= 500):
+            errors.append(f"{label}.rationale_vi phải dài 20–500 ký tự")
+        if status not in {"active", "inactive"}:
+            errors.append(f"{label}.status không hợp lệ")
     return errors
 
 
@@ -382,6 +417,78 @@ def _seed_pathways(
             )
 
 
+def _seed_context_lookups(
+    lookups: list[dict[str, Any]],
+    units_by_slug: dict[str, dict[str, Any]],
+    admin_id: str,
+    *,
+    source_key: str,
+) -> None:
+    """Reconcile one source catalog without silently transferring ownership."""
+    from database import supabase_admin
+
+    desired_by_scope: dict[str, set[str]] = {}
+    for lookup in lookups:
+        scope = str(lookup["surface_scope"])
+        normalized = vocab_context_rules.normalize_context_term(str(lookup["term"]))
+        desired_by_scope.setdefault(scope, set()).add(normalized)
+        unit_id = str(units_by_slug[str(lookup["unit_slug"])]["id"])
+        existing = _one(
+            supabase_admin.table("vocab_context_lookup_terms")
+            .select("id,unit_id,source_key,created_by")
+            .eq("surface_scope", scope)
+            .eq("normalized_term", normalized)
+            .limit(1)
+            .execute()
+        )
+        if existing and (
+            str(existing.get("unit_id")) != unit_id
+            or str(existing.get("source_key")) != source_key
+        ):
+            raise RuntimeError(
+                f"context term {scope}/{normalized} đã thuộc unit hoặc source khác"
+            )
+        row = {
+            "surface_scope": scope,
+            "term": str(lookup["term"]).strip(),
+            "normalized_term": normalized,
+            "unit_id": unit_id,
+            "rationale_vi": str(lookup["rationale_vi"]).strip(),
+            "source_key": source_key,
+            "status": lookup.get("status", "active"),
+        }
+        if existing:
+            stored = _one(
+                supabase_admin.table("vocab_context_lookup_terms")
+                .update(row).eq("id", existing["id"]).execute()
+            )
+        else:
+            row["created_by"] = admin_id
+            stored = _one(
+                supabase_admin.table("vocab_context_lookup_terms").insert(row).execute()
+            )
+        if not stored:
+            raise RuntimeError(f"Không seed được context term {scope}/{normalized}")
+
+    for scope in CONTEXT_SURFACE_SCOPES:
+        desired = desired_by_scope.get(scope, set())
+        stale = getattr(
+            supabase_admin.table("vocab_context_lookup_terms")
+            .select("id,normalized_term")
+            .eq("source_key", source_key)
+            .eq("surface_scope", scope)
+            .eq("status", "active")
+            .execute(),
+            "data",
+            None,
+        ) or []
+        for row in stale:
+            if str(row.get("normalized_term") or "") not in desired:
+                supabase_admin.table("vocab_context_lookup_terms").update({
+                    "status": "inactive",
+                }).eq("id", row["id"]).execute()
+
+
 def apply_pilot(
     payload: dict[str, Any],
     *,
@@ -414,6 +521,10 @@ def apply_pilot(
     _seed_pathways(
         payload.get("pathways") or [], units_by_slug, admin_id, publish=publish,
     )
+    _seed_context_lookups(
+        payload.get("context_lookups") or [], units_by_slug, admin_id,
+        source_key=payload["context_lookup_source_key"],
+    )
 
 
 def main() -> int:
@@ -438,7 +549,8 @@ def main() -> int:
     print(
         f"VALID {len(payload['units'])} units / "
         f"{sum(len(unit['tasks']) for unit in payload['units'])} tasks / "
-        f"{len(payload.get('pathways') or [])} pathways"
+        f"{len(payload.get('pathways') or [])} pathways / "
+        f"{len(payload.get('context_lookups') or [])} context lookups"
     )
     if not args.apply:
         return 0

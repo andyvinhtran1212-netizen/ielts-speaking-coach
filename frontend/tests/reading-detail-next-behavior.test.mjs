@@ -61,4 +61,15 @@ describe('native Reading detail workspace', () => {
     assert.match(BEHAVIOR, /aria-modal="true"/); assert.match(BEHAVIOR, /event\.key === 'Escape'/);
     assert.match(BEHAVIOR, /event\.key !== 'Tab'/);
   });
+
+  test('enriches authored glossary terms with optional exact curated links', () => {
+    assert.match(BEHAVIOR, /'\/api\/me\/vocabulary\/context-links'/);
+    assert.match(BEHAVIOR, /window\.api\.postWith<unknown>/);
+    assert.match(BEHAVIOR, /\{ signal: controller\.signal, noRedirect: true \}/);
+    assert.match(BEHAVIOR, /normalizeVocabContextLinks\(payload\)/);
+    assert.match(BEHAVIOR, /if \(!disposed\) setContextLinks\(\{\}\)/);
+    assert.match(BEHAVIOR, /Học cách dùng sâu hơn/);
+    assert.match(BEHAVIOR, /\/vocabulary\/learn\/\$\{encodeURIComponent\(contextLink\.unitSlug\)\}/);
+    assert.doesNotMatch(BEHAVIOR, /onDoubleClick|dblclick|window\.getSelection/);
+  });
 });

@@ -18,7 +18,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
-from services import runtime_flags, vocab_pilot_metrics, vocab_units
+from services import (
+    runtime_flags,
+    vocab_context_links,
+    vocab_pilot_metrics,
+    vocab_units,
+)
 from services.feature_flags import is_vocab_curated_enabled
 
 logger = logging.getLogger(__name__)
@@ -100,6 +105,17 @@ class RecommendationOpenRequest(BaseModel):
 class CuratedCohortRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     enabled: bool
+
+
+class ContextLinksRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    terms: list[str] = Field(max_length=30)
+
+    @model_validator(mode="after")
+    def bounded_terms(self):
+        if any(not (1 <= len(term.strip()) <= 160) for term in self.terms):
+            raise ValueError("Mỗi glossary term phải dài 1–160 ký tự")
+        return self
 
 
 def _read_switch() -> None:
@@ -204,6 +220,21 @@ async def get_my_vocab_mastery(
         return vocab_units.get_user_mastery(
             user["id"], page=page, page_size=page_size,
         )
+    except Exception as exc:
+        raise _translate_domain_error(exc) from exc
+
+
+@router.post("/api/me/vocabulary/context-links")
+async def resolve_my_vocab_context_links(
+    body: ContextLinksRequest,
+    authorization: str | None = Header(default=None),
+):
+    user = await get_supabase_user(authorization)
+    _require_learner_gate(user["id"])
+    try:
+        return vocab_context_links.resolve_context_links(body.terms)
+    except vocab_context_links.VocabContextLookupError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         raise _translate_domain_error(exc) from exc
 

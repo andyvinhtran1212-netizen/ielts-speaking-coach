@@ -35,6 +35,8 @@ mastery tăng chỉ nhờ đoán lựa chọn.
   thành canonical.
 - Migration 238: lifecycle `opened/completed` cho recommendation, cohort audit
   transaction và aggregate pilot ẩn danh cho immediate/7-day/28-day outcome.
+- Migration 239: catalog private nối chính xác glossary do biên tập viên viết
+  với một curated unit; không fuzzy match và không đọc trực tiếp từ browser.
 - Public API: published units và pathways; answer key không có trong response.
 - Learner API: Today queue, mastery và server-graded attempt.
 - Today giữ tổng queue tối đa năm unit, xoay Discover ổn định theo user/ngày và
@@ -65,6 +67,17 @@ mastery tăng chỉ nhờ đoán lựa chọn.
   `vocab_unit_recommendations` chỉ khi recommendation flag, read switch và
   cohort `users.feature_flags.vocab_curated_enabled` cùng bật. Vì vậy mọi link
   được tạo đều trỏ tới một lesson mà chính học viên đó có quyền mở.
+- Reading glossary vẫn luôn hiển thị nghĩa do tác giả biên soạn trước. Chỉ khi
+  term sau NFKC/casefold/whitespace normalization khớp đúng một mapping active
+  và target còn published, dialog mới thêm CTA “Học cách dùng sâu hơn”. Lookup
+  là enrichment bất đồng bộ: lỗi mạng, flag/cohort đóng, term thiếu hoặc target
+  unpublished đều không làm hỏng bài Reading và không hiện CTA.
+- Đây không phải double-click dictionary: không bắt selection tự do, không gọi
+  AI để đoán nghĩa theo ngữ cảnh, không tự link substring và không fallback sang
+  từ gần nghĩa. Năm glossary term đang publish (`beverage`, `ritual`,
+  `apex predator`, `ecosystem`, `cascade`) hiện có 0 mapping trung thực tới 12
+  unit pilot; coverage bằng 0 là quyết định fail-closed, không phải content gap
+  được che bằng link yếu.
 
 ## Publish gate
 
@@ -86,8 +99,9 @@ vẫn luôn tạo artifact mới dù phần bài viết không đổi.
 
 ## Trình tự deploy
 
-1. Backup/đo schema và áp dụng migrations `234`, `235`, `236`, `237`, `238` theo thứ tự.
-2. Chạy lại năm migration để kiểm tra idempotency.
+1. Backup/đo schema và áp dụng migrations `234`, `235`, `236`, `237`, `238`,
+   `239` theo thứ tự.
+2. Chạy lại sáu migration để kiểm tra idempotency.
 3. QA nội dung offline:
 
    ```bash
@@ -170,8 +184,9 @@ tránh bỏ sót terminal state khi các attempt cuối hoặc recommendation in
    `POST /admin/vocabulary/units/{unit_id}/rollback` với published version cũ.
 4. Không down-migrate hoặc xóa attempt/mastery khi rollback UI.
 
-## Các pha tiếp theo
+## Mở rộng có kiểm soát
 
 - Mở từ 12 lên 24–30 unit sau pilot; chỉ lên 60 khi gate delayed transfer đạt.
-- Context lookup trong nội dung học có thể link sang curated unit khi match chắc
-  chắn; không triển khai double-click toàn site trong V1.
+- Chỉ thêm context mapping sau khi editor xác nhận term authored thực sự dẫn
+  tới đúng sense/construction của unit. Không dùng tỷ lệ coverage làm KPI; một
+  term không link tốt hơn một link hời hợt hoặc sai bối cảnh.

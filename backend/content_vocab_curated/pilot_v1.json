@@ -626,6 +626,35 @@
       ]
     }
   ],
+  "context_lookup_source_key": "pilot_v1",
+  "context_lookups": [
+    {"surface_scope": "reading_glossary", "term": "have an impact on", "unit_slug": "have-an-impact-on", "rationale_vi": "Đi sâu vào collocation, giới từ cố định và cách triển khai câu giải thích hệ quả.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "impact on", "unit_slug": "have-an-impact-on", "rationale_vi": "Học cách biến cụm nghĩa này thành một construction nói hoàn chỉnh và tự nhiên.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "play a role in", "unit_slug": "play-a-role-in", "rationale_vi": "Luyện article, giới từ và cách dùng cụm này để phân tích một yếu tố ảnh hưởng.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "role in", "unit_slug": "play-a-role-in", "rationale_vi": "Mở rộng từ cụm danh từ sang frame nói đầy đủ play a role in something.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "be responsible for", "unit_slug": "be-responsible-for", "rationale_vi": "Phân biệt trách nhiệm và nguyên nhân, đồng thời kiểm soát complement sau for.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "responsible for", "unit_slug": "be-responsible-for", "rationale_vi": "Học frame hoàn chỉnh để quy trách nhiệm hoặc giải thích nguyên nhân chính xác.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "spend time doing", "unit_slug": "spend-time-doing", "rationale_vi": "Luyện verb frame V-ing và chuyển cụm này thành câu trả lời Speaking có chi tiết.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "spend time", "unit_slug": "spend-time-doing", "rationale_vi": "Đi sâu vào mẫu spend time doing thay vì dừng ở nghĩa riêng lẻ của từ.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "prefer X to Y", "unit_slug": "prefer-x-to-y", "rationale_vi": "Kiểm soát hai mẫu prefer phổ biến và tránh trộn to với rather than.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "prefer", "unit_slug": "prefer-x-to-y", "rationale_vi": "Học cách đặt hai lựa chọn vào đúng frame thay vì chỉ nhớ nghĩa thích hơn.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "access to", "unit_slug": "access-to-vs-access", "rationale_vi": "Phân biệt danh từ access to với động từ access không dùng giới từ.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "access", "unit_slug": "access-to-vs-access", "rationale_vi": "Luyện chọn đúng cấu trúc danh từ hoặc động từ theo vai trò của access trong câu.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "actually", "unit_slug": "actually-vs-currently", "rationale_vi": "Tránh false friend với hiện tại và dùng actually đúng khi sửa kỳ vọng hoặc nhấn sự thật.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "currently", "unit_slug": "actually-vs-currently", "rationale_vi": "Phân biệt thời điểm hiện tại với chức năng đính chính thông tin của actually.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "convenient", "unit_slug": "convenient-vs-comfortable", "rationale_vi": "Phân biệt sự thuận tiện về thời gian, vị trí với cảm giác thoải mái.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "comfortable", "unit_slug": "convenient-vs-comfortable", "rationale_vi": "Chọn đúng từ cho cảm giác dễ chịu thay vì sự tiện lợi về hoàn cảnh.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "borrow", "unit_slug": "borrow-vs-lend", "rationale_vi": "Khóa đúng hướng chuyển đồ vật: người nhận borrow, người cho lend.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "lend", "unit_slug": "borrow-vs-lend", "rationale_vi": "Luyện vai trò người cho, người nhận và các complement tự nhiên của lend.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "say", "unit_slug": "say-tell-speak-talk", "rationale_vi": "So sánh say, tell, speak và talk theo người nghe, nội dung và ngữ cảnh.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "tell", "unit_slug": "say-tell-speak-talk", "rationale_vi": "Luyện frame tell somebody something và tránh dịch trực tiếp từ tiếng Việt.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "speak", "unit_slug": "say-tell-speak-talk", "rationale_vi": "Phân biệt hoạt động nói, ngôn ngữ và cuộc hội thoại trong nhóm động từ giao tiếp.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "talk", "unit_slug": "say-tell-speak-talk", "rationale_vi": "Học cách dùng talk với người và chủ đề thay vì hoán đổi máy móc với say hoặc tell.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "economic", "unit_slug": "economic-vs-economical", "rationale_vi": "Phân biệt điều liên quan đến nền kinh tế với điều tiết kiệm chi phí hoặc tài nguyên.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "economical", "unit_slug": "economic-vs-economical", "rationale_vi": "Luyện collocation chi phí và tránh dùng economical khi nói về nền kinh tế.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "fun", "unit_slug": "fun-vs-funny", "rationale_vi": "Phân biệt trải nghiệm thú vị với người hoặc chuyện gây cười hay kỳ lạ.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "funny", "unit_slug": "fun-vs-funny", "rationale_vi": "Tránh dùng funny cho mọi nghĩa của từ vui và luyện ngữ cảnh tạo tiếng cười.", "status": "active"}
+  ],
   "pathways": [
     {
       "pathway_slug": "build-ielts-explanations-b1",
