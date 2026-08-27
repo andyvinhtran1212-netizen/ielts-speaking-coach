@@ -13,6 +13,12 @@ ALTER TABLE vocab_unit_recommendations
     ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS dismissed_at TIMESTAMPTZ;
 
+-- Preserve the historical last-status-change timestamp while deriving the new
+-- lifecycle columns. Migration 236's generic BEFORE UPDATE trigger would
+-- otherwise replace updated_at with the migration run time for every backfill.
+ALTER TABLE vocab_unit_recommendations
+    DISABLE TRIGGER trg_vocab_unit_recommendations_updated_at;
+
 UPDATE vocab_unit_recommendations
    SET opened_at = COALESCE(opened_at, updated_at)
  WHERE status = 'opened'
@@ -27,6 +33,9 @@ UPDATE vocab_unit_recommendations
    SET dismissed_at = COALESCE(dismissed_at, updated_at)
  WHERE status = 'dismissed'
    AND dismissed_at IS NULL;
+
+ALTER TABLE vocab_unit_recommendations
+    ENABLE TRIGGER trg_vocab_unit_recommendations_updated_at;
 
 CREATE INDEX IF NOT EXISTS idx_vocab_unit_recommendations_created_status
     ON vocab_unit_recommendations(created_at DESC, status);
@@ -57,6 +66,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_flags JSONB;
+    v_persisted BOOLEAN;
 BEGIN
     SELECT COALESCE(feature_flags, '{}'::jsonb)
       INTO v_flags
@@ -73,17 +83,23 @@ BEGIN
         to_jsonb(p_enabled),
         TRUE
     );
-    UPDATE users SET feature_flags = v_flags WHERE id = p_user;
+    UPDATE users
+       SET feature_flags = v_flags
+     WHERE id = p_user
+     RETURNING COALESCE(
+         (feature_flags ->> 'vocab_curated_enabled')::BOOLEAN,
+         FALSE
+     ) INTO v_persisted;
 
     INSERT INTO vocab_curated_cohort_events (
         user_id, enabled, changed_by, created_at
     ) VALUES (
-        p_user, p_enabled, p_changed_by, p_now
+        p_user, v_persisted, p_changed_by, p_now
     );
 
     RETURN jsonb_build_object(
         'user_id', p_user,
-        'vocab_curated_enabled', p_enabled,
+        'vocab_curated_enabled', v_persisted,
         'changed_at', p_now
     );
 END;
@@ -294,6 +310,7 @@ BEGIN
                attempt.version_id,
                version.unit_id,
                task.dimension,
+               task.status AS task_status,
                attempt.is_correct,
                attempt.created_at
           FROM vocab_unit_attempts attempt
@@ -336,6 +353,7 @@ BEGIN
                )::INTEGER AS immediate_correct,
                COUNT(DISTINCT fact.task_id) FILTER (
                    WHERE fact.version_id = cohort.version_id
+                     AND fact.task_status = 'active'
                      AND fact.created_at < cohort.started_at + INTERVAL '1 day'
                )::INTEGER AS immediate_distinct_tasks,
                COUNT(fact.id) FILTER (

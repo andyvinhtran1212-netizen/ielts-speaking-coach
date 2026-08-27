@@ -135,6 +135,8 @@ export function VocabUnitLesson({ unitSlug }: { unitSlug: string }) {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    setUnit(null);
+    setError('');
     if (status === 'signed-out') { window.location.replace('/login'); return; }
     if (!accountKey) return;
     const controller = new AbortController();

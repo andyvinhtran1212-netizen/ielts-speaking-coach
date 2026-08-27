@@ -139,6 +139,11 @@ def test_migration_keeps_lifecycle_private_transactional_and_time_bounded():
     assert "FOR UPDATE OF recommendation" in sql
     assert sql.count("'vocab-recommendation:'") == 2
     assert sql.count("pg_advisory_xact_lock") >= 2
+    assert "DISABLE TRIGGER trg_vocab_unit_recommendations_updated_at" in sql
+    assert "ENABLE TRIGGER trg_vocab_unit_recommendations_updated_at" in sql
+    assert "task.status AS task_status" in sql
+    assert "fact.task_status = 'active'" in sql
+    assert "'vocab_curated_enabled', v_persisted" in sql
     assert "INTERVAL '6 days'" in sql and "INTERVAL '10 days'" in sql
     assert "INTERVAL '25 days'" in sql and "INTERVAL '35 days'" in sql
     assert "GRANT EXECUTE ON FUNCTION fn_vocab_curated_pilot_metrics" in sql

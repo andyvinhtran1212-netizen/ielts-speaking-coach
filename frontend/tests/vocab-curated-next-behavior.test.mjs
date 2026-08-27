@@ -90,4 +90,8 @@ describe('/vocabulary/learn/[unitSlug] — server-graded learning loop', () => {
     assert.match(LESSON, /must never block lesson access/);
     assert.match(HOME, /recommendation=\$\{encodeURIComponent\(recommendationId\)\}/);
   });
+
+  test('clears prior lesson and error state before an account-scoped reload', () => {
+    assert.match(LESSON, /useEffect\(\(\) => \{\s*setUnit\(null\);\s*setError\(''\);\s*if \(status === 'signed-out'\)/);
+  });
 });
