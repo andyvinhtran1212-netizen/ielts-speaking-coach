@@ -46,7 +46,10 @@ describe('/vocabulary/learn/[unitSlug] — server-graded learning loop', () => {
     assert.match(UNIT_PAGE, /Promise<\{ unitSlug: string \}>/);
     assert.match(LESSON, /encodeURIComponent\(unitSlug\)/);
     assert.match(LESSON, /encodeURIComponent\(task\.id\)/);
-    assert.match(LESSON, /attempt_id: newAttemptId\(\), response: \{ answer:/);
+    assert.match(LESSON, /useRef<\{ answer: string; attemptId: string \} \| null>/);
+    assert.match(LESSON, /retryAttempt\.current\.attemptId/);
+    assert.match(LESSON, /retryAttempt\.current\?\.answer !== nextAnswer\.trim\(\)/);
+    assert.doesNotMatch(LESSON, /attempt_id: newAttemptId\(\)/);
     assert.doesNotMatch(LESSON, /correct:\s*(?:true|false|answer)/);
     assert.doesNotMatch(LESSON, /answer_key/);
     assert.doesNotMatch(LESSON, /task\.explanation_vi/);
@@ -67,6 +70,7 @@ describe('/vocabulary/learn/[unitSlug] — server-graded learning loop', () => {
     assert.match(LESSON, /<textarea/);
     assert.match(LESSON, /role="status"/);
     assert.match(LESSON, /role="alert"/);
+    assert.match(LESSON, /aria-labelledby=\{promptId\}/);
     assert.match(LESSON, /maxLength=\{1200\}/);
     assert.match(LESSON, /startsWith\('https:\/\/'\)/);
   });

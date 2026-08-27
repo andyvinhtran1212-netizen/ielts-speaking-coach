@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
@@ -62,20 +62,33 @@ function TaskCard({ task }: { task: Task }) {
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<AttemptResult | null>(null);
   const [error, setError] = useState('');
+  const retryAttempt = useRef<{ answer: string; attemptId: string } | null>(null);
+  const promptId = `vc-task-prompt-${task.id}`;
   const options = useMemo(() => Array.isArray(task.options) ? task.options.map((option) => typeof option === 'string'
     ? { value: option, label: option }
     : { value: String(option?.value || ''), label: String(option?.label || option?.value || '') }).filter((option) => option.value) : [], [task.options]);
 
+  function changeAnswer(nextAnswer: string) {
+    setAnswer(nextAnswer);
+    setResult(null);
+    setError('');
+    if (retryAttempt.current?.answer !== nextAnswer.trim()) retryAttempt.current = null;
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!answer.trim() || pending) return;
+    const responseAnswer = answer.trim();
+    if (!retryAttempt.current || retryAttempt.current.answer !== responseAnswer) {
+      retryAttempt.current = { answer: responseAnswer, attemptId: newAttemptId() };
+    }
     setPending(true); setError('');
     try {
       const ready = await whenGlobalReady(() => !!window.api?.post, 'window.api (vocab unit attempt)');
       if (!ready) throw new Error('api unavailable');
       const payload = await window.api.post<AttemptResult>(
         `/api/vocabulary/tasks/${encodeURIComponent(task.id)}/attempt`,
-        { attempt_id: newAttemptId(), response: { answer: answer.trim() } },
+        { attempt_id: retryAttempt.current.attemptId, response: { answer: responseAnswer } },
       );
       setResult(payload);
     } catch {
@@ -87,11 +100,11 @@ function TaskCard({ task }: { task: Task }) {
 
   return <article className="vc-task">
     <div className="vc-task-label"><span>Bước {task.sequence}</span><span>{task.dimension.replaceAll('_', ' ')}</span></div>
-    <h3>{task.prompt}</h3>
+    <h3 id={promptId}>{task.prompt}</h3>
     <form onSubmit={submit}>
-      {options.length ? <div className="vc-options">{options.map((option) => <label key={option.value}><input type="radio" name={`task-${task.id}`} value={option.value} checked={answer === option.value} onChange={() => { setAnswer(option.value); setResult(null); }} /> <span>{option.label}</span></label>)}</div>
-        : task.task_type === 'productive_transfer' ? <textarea value={answer} onChange={(event) => { setAnswer(event.target.value); setResult(null); }} maxLength={1200} rows={4} placeholder="Viết hoặc nhập câu bạn sẽ nói…" />
-          : <input value={answer} onChange={(event) => { setAnswer(event.target.value); setResult(null); }} maxLength={1200} placeholder="Câu trả lời của bạn" />}
+      {options.length ? <div className="vc-options" role="group" aria-labelledby={promptId}>{options.map((option) => <label key={option.value}><input type="radio" name={`task-${task.id}`} value={option.value} checked={answer === option.value} disabled={pending} onChange={() => changeAnswer(option.value)} /> <span>{option.label}</span></label>)}</div>
+        : task.task_type === 'productive_transfer' ? <textarea aria-labelledby={promptId} value={answer} onChange={(event) => changeAnswer(event.target.value)} disabled={pending} maxLength={1200} rows={4} placeholder="Viết hoặc nhập câu bạn sẽ nói…" />
+          : <input aria-labelledby={promptId} value={answer} onChange={(event) => changeAnswer(event.target.value)} disabled={pending} maxLength={1200} placeholder="Câu trả lời của bạn" />}
       <button className="av-button av-button-primary" type="submit" disabled={!answer.trim() || pending}>{pending ? 'Đang chấm…' : 'Kiểm tra'}</button>
     </form>
     {error ? <p className="vc-task-result is-error" role="alert">{error}</p> : null}
