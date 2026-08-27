@@ -211,14 +211,24 @@ def _seed_pathways(
     from database import supabase_admin
 
     for pathway in pathways:
+        existing = _one(
+            supabase_admin.table("vocab_pathways")
+            .select("id,created_by")
+            .eq("pathway_slug", pathway["pathway_slug"])
+            .limit(1)
+            .execute()
+        )
         row = {
             "pathway_slug": pathway["pathway_slug"],
             "title_vi": pathway["title_vi"],
             "description_vi": pathway["description_vi"],
             "target_level": pathway["target_level"],
             "learner_tags": pathway.get("learner_tags") or [],
-            "created_by": admin_id,
         }
+        # Authorship is immutable attribution: stamp new pathways, but never
+        # transfer an existing pathway to whichever admin refreshes the seed.
+        if not existing:
+            row["created_by"] = admin_id
         # A safe draft refresh must never unpublish a live pathway. Omit status
         # on the upsert unless this invocation explicitly publishes; new rows
         # still receive the table's default `draft` status.

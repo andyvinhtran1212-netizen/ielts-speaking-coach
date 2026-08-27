@@ -168,7 +168,8 @@ def test_public_units_default_off_and_legacy_routes_remain_available():
     assert response.status_code == 503
     assert response.json()["detail"]["flag"] == "vocab_units_read"
     # Existing reference route is not guarded by the new flag.
-    assert _client().get("/api/vocabulary/categories").status_code == 200
+    with patch("routers.vocabulary.vocab_service.get_categories", return_value=[]):
+        assert _client().get("/api/vocabulary/categories").status_code == 200
 
 
 def test_public_units_return_safe_service_payload_when_enabled():
@@ -528,6 +529,28 @@ def test_curated_pilot_identity_and_pathway_refs_are_unique():
     assert len(slugs) == len(set(slugs))
     assert len(identities) == len(set(identities))
     assert all(ref in set(slugs) for path in payload["pathways"] for ref in path["units"])
+
+
+def test_pathway_seed_refresh_preserves_original_creator():
+    from scripts.seed_vocab_curated import _seed_pathways
+
+    existing_query = _query([{"id": "path-1", "created_by": "original-admin"}])
+    pathway_upsert = _query([{"id": "path-1"}])
+    links_upsert = _query([])
+    pathway = {
+        "pathway_slug": "pilot-path", "title_vi": "Pilot",
+        "description_vi": "Pathway", "target_level": "B1",
+        "learner_tags": [], "units": ["unit-one"],
+    }
+    with patch("database.supabase_admin") as database:
+        database.table.side_effect = [existing_query, pathway_upsert, links_upsert]
+        _seed_pathways(
+            [pathway], {"unit-one": {"id": "unit-1"}}, "refreshing-admin",
+            publish=False,
+        )
+    seeded_row = pathway_upsert.upsert.call_args.args[0]
+    assert "created_by" not in seeded_row
+    assert "status" not in seeded_row
 
 
 def test_publish_validator_rejects_non_https_sources():

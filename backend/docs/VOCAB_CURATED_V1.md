@@ -35,6 +35,9 @@ mastery tăng chỉ nhờ đoán lựa chọn.
 - Today giữ tổng queue tối đa năm unit, xoay Discover ổn định theo user/ngày và
   loại unit đã retained đủ ba dimension. Mastery endpoint phân trang tối đa 100
   unit/lượt; `page_counts` chỉ mô tả đúng trang hiện tại.
+- V1 chủ đích đọc toàn catalog để xoay Discover ổn định (12 unit pilot, tối đa
+  60 unit theo rollout này). Trước khi vượt 200 published unit, chuyển sampling
+  xuống database/RPC và benchmark p95 thay vì tiếp tục full-scan mỗi request.
 - Task payload trước attempt chỉ có prompt/options; editorial explanation và model
   answer chỉ được trả sau khi server chấm và lưu kết quả idempotent.
 - Admin API: tạo unit/version, validate, review ba cửa, publish và rollback.
