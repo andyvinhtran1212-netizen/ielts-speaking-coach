@@ -120,6 +120,7 @@ export const SPEAKING_PLAYER_INITIAL_VIEW = Object.freeze({
     grammarGroups: Object.freeze([]),
     grammarMoreCount: 0,
     vocabularyIssues: Object.freeze([]),
+    vocabRecommendations: Object.freeze([]),
     corrections: Object.freeze([]),
     sample: null,
     transcriptVisible: false,

@@ -1570,6 +1570,21 @@
       grammarGroups: grammar.groups,
       grammarMoreCount: grammar.moreCount,
       vocabularyIssues: _nativeTextList(payload.vocabulary_issues),
+      vocabRecommendations: (Array.isArray(payload.vocab_recommendations)
+        ? payload.vocab_recommendations : []).slice(0, 2).map(function (item) {
+          if (!item || typeof item !== 'object') return null;
+          var slug = String(item.unit_slug || '').trim();
+          if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
+          return {
+            recId: item.rec_id ? String(item.rec_id) : null,
+            slug: slug,
+            title: String(item.title || slug),
+            reason: String(item.reason_vi || ''),
+            evidence: String(item.evidence || ''),
+            corrected: String(item.corrected || ''),
+            href: '/vocabulary/learn/' + encodeURIComponent(slug),
+          };
+        }).filter(Boolean),
       corrections: (Array.isArray(payload.corrections) ? payload.corrections : [])
         .filter(function (item) { return item && typeof item === 'object'; })
         .map(function (item) {

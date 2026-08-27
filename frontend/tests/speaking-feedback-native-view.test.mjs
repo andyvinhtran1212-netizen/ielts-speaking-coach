@@ -233,6 +233,28 @@ describe('Speaking feedback native structured model', () => {
     assert.equal(practice.kind, 'practice');
     assert.equal(practice.sample.unavailable, true);
   });
+
+  test('normalizes only safe curated vocab recommendation links', () => {
+    const details = pure._nativeFeedbackDetails({
+      grammar_issues: [],
+      vocab_recommendations: [
+        {
+          rec_id: 'rec-1', unit_slug: 'prefer-x-to-y', title: 'prefer X to Y',
+          reason_vi: 'Bạn vừa dùng sai khung prefer.',
+          evidence: 'I prefer tea than coffee', corrected: 'I prefer tea to coffee',
+        },
+        { unit_slug: '../admin', title: 'unsafe' },
+      ],
+    });
+    assert.deepEqual(details.vocabRecommendations, [{
+      recId: 'rec-1', slug: 'prefer-x-to-y', title: 'prefer X to Y',
+      reason: 'Bạn vừa dùng sai khung prefer.',
+      evidence: 'I prefer tea than coffee', corrected: 'I prefer tea to coffee',
+      href: '/vocabulary/learn/prefer-x-to-y',
+    }]);
+    assert.match(SHELL, /<VocabRecommendations recommendations=\{feedback\.vocabRecommendations\}/);
+    assert.match(SHELL, /Học từ lỗi vừa nói/);
+  });
 });
 
 describe('Speaking feedback native ownership and audio truth', () => {

@@ -54,6 +54,14 @@ describe('/result — native React ownership', () => {
     assert.doesNotMatch(BEHAVIOR, /__html|\.innerHTML\s*=/);
   });
 
+  test('renders persisted curated vocabulary recommendations defensively', () => {
+    assert.match(BEHAVIOR, /function VocabRecommendations/);
+    assert.match(BEHAVIOR, /Học từ lỗi vừa nói/);
+    assert.match(BEHAVIOR, /\/vocabulary\/learn\/\$\{encodeURIComponent\(item\.slug\)\}/);
+    assert.match(BEHAVIOR, /\^\[a-z0-9\]\+/);
+    assert.match(BEHAVIOR, /feedback\?\.vocab_recommendations/);
+  });
+
   test('audio and generated blob URLs are released on unmount', () => {
     assert.match(BEHAVIOR, /audioRef\.current\?\.pause\(\)/);
     assert.match(BEHAVIOR, /actionControllers\.current\.forEach\(\(controller\) => controller\.abort\(\)\)/);

@@ -493,6 +493,47 @@ function GrammarIssues({ issues, recommendations }: { issues: unknown; recommend
   );
 }
 
+function VocabRecommendations({ recommendations }: { recommendations: unknown }) {
+  const items = (Array.isArray(recommendations) ? recommendations : [])
+    .slice(0, 2)
+    .map((item: any) => {
+      const slug = String(item?.unit_slug || '').trim();
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
+      return {
+        id: String(item?.rec_id || slug),
+        slug,
+        title: String(item?.title || slug),
+        reason: String(item?.reason_vi || ''),
+        evidence: String(item?.evidence || ''),
+        corrected: String(item?.corrected || ''),
+      };
+    })
+    .filter(Boolean) as Array<{
+      id: string; slug: string; title: string; reason: string;
+      evidence: string; corrected: string;
+    }>;
+  if (!items.length) return null;
+  return (
+    <section aria-label="Bài học từ lỗi từ vựng" style={{ display: 'grid', gap: 8 }}>
+      <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--av-primary)' }}>
+        Học từ lỗi vừa nói
+      </div>
+      {items.map((item) => <a
+        href={`/vocabulary/learn/${encodeURIComponent(item.slug)}`}
+        key={item.id}
+        rel="noopener"
+        style={{ display: 'block', padding: '11px 12px', border: '1px solid var(--av-border-subtle)', borderLeft: '3px solid var(--av-primary)', borderRadius: 8, background: 'var(--av-surface-card)', color: 'var(--av-text-primary)', textDecoration: 'none' }}
+        target="_blank"
+      >
+        <strong className="text-sm" style={{ color: 'var(--av-primary)' }}>{item.title}</strong>
+        {item.evidence && item.corrected ? <span className="text-xs" style={{ display: 'grid', gap: 2, marginTop: 4 }}><span><span style={{ color: 'var(--av-text-muted)' }}>Bạn đã nói: </span><s>{item.evidence}</s></span><span><span style={{ color: 'var(--av-text-muted)' }}>Nên nói: </span>{item.corrected}</span></span> : null}
+        {item.reason ? <span className="text-xs" style={{ display: 'block', color: 'var(--av-text-muted)', marginTop: 4 }}>{item.reason}</span> : null}
+        <span className="text-xs" style={{ display: 'block', color: 'var(--av-primary)', fontWeight: 700, marginTop: 6 }}>Mở bài học →</span>
+      </a>)}
+    </section>
+  );
+}
+
 function Corrections({ corrections }: { corrections: unknown }) {
   if (!Array.isArray(corrections) || !corrections.length) return null;
   return (
@@ -754,6 +795,7 @@ function QuestionFeedback({ card }: { card: any }) {
           <BulletSection items={feedback?.strengths} title="Strengths" tone="var(--av-success)" />
           <GrammarIssues issues={feedback?.grammar_issues} recommendations={feedback?.grammar_recommendations} />
           <BulletSection items={feedback?.vocabulary_issues} title="Vocabulary Issues" tone="var(--av-warning)" />
+          <VocabRecommendations recommendations={feedback?.vocab_recommendations} />
           <BulletSection items={feedback?.pronunciation_issues} title="Luyện phát âm — gợi ý chung" tone="var(--av-info)" />
           <Corrections corrections={feedback?.corrections} />
           {feedback?.sample_answer ? (
