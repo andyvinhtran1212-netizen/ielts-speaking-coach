@@ -113,8 +113,12 @@ describe('native Listening Dictation model', () => {
     assert.equal(reconcileDictationReceiptWithAttempt(receipt, { ...attempt, answers: [] }), null);
     assert.equal(isDictationCanonicalMismatch({ status: 409,
       message: 'Tiến độ canonical không khớp payload hoàn tất.' }), true);
+    assert.equal(isDictationCanonicalMismatch({ status: 409,
+      detail: 'Tiến độ vừa thay đổi ở phiên khác; hãy tải lại rồi hoàn tất lại.' }), true);
     assert.equal(isDictationCanonicalMismatch({ status: 503,
       message: 'Tiến độ canonical không khớp payload hoàn tất.' }), false);
+    assert.equal(isDictationCanonicalMismatch({ status: 409,
+      message: 'Nội dung gửi lại không khớp với lần nộp đầu tiên.' }), false);
   });
 
   test('generates a secure v4 receipt without randomUUID on the Safari floor', () => {

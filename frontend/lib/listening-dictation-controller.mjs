@@ -249,7 +249,10 @@ export function isDictationCanonicalMismatch(error) {
   const detail = typeof error?.detail === 'string' ? error.detail : '';
   const message = detail || String(error?.message || '');
   return Number(error?.status) === 409
-    && message.includes('Tiến độ canonical không khớp payload hoàn tất.');
+    && [
+      'Tiến độ canonical không khớp payload hoàn tất.',
+      'Tiến độ vừa thay đổi ở phiên khác; hãy tải lại rồi hoàn tất lại.',
+    ].some((canonicalConflict) => message.includes(canonicalConflict));
 }
 
 export function reconcileDictationReceiptWithAttempt(receipt, attempt) {
