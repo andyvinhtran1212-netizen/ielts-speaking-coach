@@ -221,6 +221,46 @@ BEGIN
         RAISE EXCEPTION 'score_out_of_range';
     END IF;
 
+    -- Resolve an idempotent replay before enforcing the current-version gate.
+    -- A client may lose the original response and retry after an editor has
+    -- published or rolled back the unit; that retry must still return the
+    -- persisted result instead of failing because the old task is no longer
+    -- active.
+    SELECT * INTO v_attempt
+      FROM vocab_unit_attempts
+     WHERE user_id = p_user AND attempt_id = p_attempt;
+
+    IF FOUND THEN
+        IF v_attempt.task_id <> p_task THEN
+            RAISE EXCEPTION 'attempt_id_reused_for_different_task';
+        END IF;
+        IF v_attempt.response <> p_response THEN
+            RAISE EXCEPTION 'attempt_id_reused_for_different_payload';
+        END IF;
+
+        SELECT t.id, t.version_id, t.dimension, u.kp_id
+          INTO v_task
+          FROM vocab_unit_tasks t
+          JOIN vocab_unit_versions v ON v.id = t.version_id
+          JOIN vocab_learning_units u ON u.id = v.unit_id
+         WHERE t.id = v_attempt.task_id
+           AND t.version_id = v_attempt.version_id;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'attempt_task_missing';
+        END IF;
+
+        SELECT * INTO v_mastery
+          FROM user_kp_dimension_mastery
+         WHERE user_id = p_user
+           AND kp_id = v_task.kp_id
+           AND dimension = v_task.dimension;
+        RETURN jsonb_build_object(
+            'duplicate', TRUE,
+            'attempt', to_jsonb(v_attempt),
+            'mastery', CASE WHEN v_mastery.user_id IS NULL THEN NULL ELSE to_jsonb(v_mastery) END
+        );
+    END IF;
+
     SELECT t.id, t.version_id, t.dimension, u.kp_id
       INTO v_task
       FROM vocab_unit_tasks t

@@ -537,6 +537,18 @@ def test_schema_migrations_pin_idempotency_rls_and_rpc_security():
     assert "('vocab_units_read', FALSE" in flags
 
 
+def test_attempt_replay_precedes_current_version_gate():
+    migration = (
+        Path(__file__).parent.parent
+        / "migrations"
+        / "235_vocab_curated_tasks_attempts_mastery.sql"
+    ).read_text("utf-8")
+    replay_lookup = "WHERE user_id = p_user AND attempt_id = p_attempt"
+    current_version_gate = "u.current_published_version_id = v.id"
+    assert migration.index(replay_lookup) < migration.index(current_version_gate)
+    assert "t.version_id = v_attempt.version_id" in migration
+
+
 def test_curated_runbook_names_the_canonical_migration_sequence():
     backend = Path(__file__).parent.parent
     runbook = (backend / "docs" / "VOCAB_CURATED_V1.md").read_text("utf-8")
