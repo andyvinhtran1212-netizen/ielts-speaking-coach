@@ -18,12 +18,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 from services import vocab_unit_rules
 
 CONTENT_FILE = Path(__file__).parent.parent / "content_vocab_curated" / "pilot_v1.json"
+SIGNAL_CODE_RE = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
+SPEAKING_ISSUE_TYPES = {
+    "meaning", "word_choice", "preposition", "verb_frame", "parallelism",
+}
 
 
 def load_pilot(path: Path = CONTENT_FILE) -> dict[str, Any]:
@@ -42,6 +47,7 @@ def validate_pilot(payload: dict[str, Any]) -> list[str]:
 
     slugs: set[str] = set()
     identities: set[tuple[str, str, str, str]] = set()
+    signal_codes: set[str] = set()
     for index, unit in enumerate(units, start=1):
         if not isinstance(unit, dict):
             errors.append(f"units[{index}] phải là object")
@@ -60,6 +66,66 @@ def validate_pilot(payload: dict[str, Any]) -> list[str]:
         elif identity in identities:
             errors.append(f"{slug}: identity bốn phần bị trùng")
         identities.add(identity)
+
+        signals = unit.get("speaking_signals")
+        if not isinstance(signals, list) or not signals:
+            errors.append(f"{slug}: speaking_signals phải là mảng không rỗng")
+            signals = []
+        for signal_index, signal in enumerate(signals, start=1):
+            if not isinstance(signal, dict):
+                errors.append(f"{slug}: speaking_signals[{signal_index}] phải là object")
+                continue
+            code = str(signal.get("signal_code") or "")
+            if not (3 <= len(code) <= 120) or not SIGNAL_CODE_RE.fullmatch(code):
+                errors.append(f"{slug}: signal_code không hợp lệ: {code!r}")
+            elif code in signal_codes:
+                errors.append(f"signal_code bị trùng: {code}")
+            signal_codes.add(code)
+            if signal.get("status", "active") not in {"active", "inactive"}:
+                errors.append(
+                    f"{slug}: speaking_signals[{signal_index}].status không hợp lệ"
+                )
+            for field in (
+                "trigger_description", "exclusion_description", "reason_vi",
+            ):
+                value = str(signal.get(field) or "").strip()
+                if not (20 <= len(value) <= 500):
+                    errors.append(
+                        f"{slug}: speaking_signals[{signal_index}].{field} "
+                        "phải dài 20–500 ký tự"
+                    )
+            spec = signal.get("match_spec")
+            if not isinstance(spec, dict):
+                errors.append(
+                    f"{slug}: speaking_signals[{signal_index}].match_spec phải là object"
+                )
+            else:
+                if spec.get("issue_type") not in SPEAKING_ISSUE_TYPES:
+                    errors.append(
+                        f"{slug}: speaking_signals[{signal_index}] issue_type không hợp lệ"
+                    )
+                for pattern_field in ("original_pattern", "corrected_pattern"):
+                    pattern = str(spec.get(pattern_field) or "")
+                    if not (1 <= len(pattern) <= 240):
+                        errors.append(
+                            f"{slug}: speaking_signals[{signal_index}].{pattern_field} "
+                            "phải dài 1–240 ký tự"
+                        )
+                        continue
+                    try:
+                        re.compile(pattern, re.I)
+                    except re.error as exc:
+                        errors.append(
+                            f"{slug}: speaking_signals[{signal_index}].{pattern_field} "
+                            f"không compile được: {exc}"
+                        )
+                if "require_distinct_match" in spec and not isinstance(
+                    spec["require_distinct_match"], bool,
+                ):
+                    errors.append(
+                        f"{slug}: speaking_signals[{signal_index}]."
+                        "require_distinct_match phải là boolean"
+                    )
 
         for reference in unit.get("reference_cards") or []:
             if not isinstance(reference, dict):
@@ -201,6 +267,65 @@ def _map_reference_cards(unit_id: str, references: list[dict[str, Any]]) -> None
         }, on_conflict="card_id,unit_id,relation").execute()
 
 
+def _seed_speaking_signals(
+    unit_id: str,
+    signals: list[dict[str, Any]],
+    admin_id: str,
+) -> None:
+    """Replace one pilot unit's active signal catalog without reassigning codes."""
+    from database import supabase_admin
+
+    existing_for_unit = supabase_admin.table("vocab_speaking_signal_maps").select(
+        "id,signal_code,unit_id"
+    ).eq("unit_id", unit_id).execute()
+    existing_rows = getattr(existing_for_unit, "data", None) or []
+    desired_codes = {str(signal["signal_code"]) for signal in signals}
+
+    for signal in signals:
+        code = str(signal["signal_code"])
+        existing = _one(
+            supabase_admin.table("vocab_speaking_signal_maps")
+            .select("id,signal_code,unit_id,created_by")
+            .eq("signal_code", code)
+            .limit(1)
+            .execute()
+        )
+        if existing and str(existing.get("unit_id")) != str(unit_id):
+            raise RuntimeError(
+                f"signal_code {code} đã thuộc unit khác; không tự động chuyển identity"
+            )
+        row = {
+            "signal_code": code,
+            "unit_id": unit_id,
+            "trigger_description": signal["trigger_description"],
+            "exclusion_description": signal["exclusion_description"],
+            "match_spec": signal["match_spec"],
+            "reason_vi": signal["reason_vi"],
+            "priority": int(signal.get("priority") or 100),
+            "status": signal.get("status", "active"),
+        }
+        if existing:
+            stored = _one(
+                supabase_admin.table("vocab_speaking_signal_maps")
+                .update(row)
+                .eq("id", existing["id"])
+                .execute()
+            )
+        else:
+            row["created_by"] = admin_id
+            stored = _one(
+                supabase_admin.table("vocab_speaking_signal_maps").insert(row).execute()
+            )
+        if not stored:
+            raise RuntimeError(f"Không seed được speaking signal {code}")
+
+    for existing in existing_rows:
+        if str(existing.get("signal_code")) not in desired_codes:
+            supabase_admin.table("vocab_speaking_signal_maps").update({
+                "status": "inactive",
+            }).eq("id", existing["id"]).execute()
+
+
 def _seed_pathways(
     pathways: list[dict[str, Any]],
     units_by_slug: dict[str, dict[str, Any]],
@@ -275,6 +400,9 @@ def apply_pilot(
         units_by_slug[unit["unit_slug"]] = stored_unit
         version = _ensure_version(stored_unit["id"], unit, admin_id)
         _map_reference_cards(stored_unit["id"], unit.get("reference_cards") or [])
+        _seed_speaking_signals(
+            stored_unit["id"], unit.get("speaking_signals") or [], admin_id,
+        )
         if publish and version.get("status") != "published":
             for review_type in vocab_unit_rules.REVIEW_TYPES:
                 vocab_units.review_version(

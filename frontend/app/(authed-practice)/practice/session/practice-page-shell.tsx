@@ -206,6 +206,16 @@ function GrammarIssues({ issues }: { issues: any[] }) {
   );
 }
 
+function VocabRecommendations({ recommendations }: { recommendations: any[] }) {
+  if (!recommendations?.length) return null;
+  return (
+    <section aria-label="Bài học từ lỗi từ vựng" style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--av-primary)', textTransform: 'uppercase', letterSpacing: '.06em', margin: 0 }}>Học từ lỗi vừa nói</p>
+      {recommendations.map((item) => <a href={item.href} target="_blank" rel="noopener" key={item.recId || item.slug} style={{ display: 'block', padding: '11px 12px', border: '1px solid rgba(20,184,166,.28)', borderRadius: 10, background: 'rgba(20,184,166,.07)', color: 'var(--ds-text)', textDecoration: 'none' }}><strong style={{ display: 'block', fontSize: 13, color: 'var(--av-primary)' }}>{item.title}</strong>{item.evidence && item.corrected ? <span style={{ display: 'grid', gap: 2, fontSize: 12, marginTop: 4 }}><span><span style={{ color: 'var(--ds-muted)' }}>Bạn đã nói: </span><s>{item.evidence}</s></span><span><span style={{ color: 'var(--ds-muted)' }}>Nên nói: </span>{item.corrected}</span></span> : null}{item.reason ? <span style={{ display: 'block', fontSize: 12, color: 'var(--ds-muted)', marginTop: 4 }}>{item.reason}</span> : null}<span style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--av-primary)', marginTop: 6 }}>Mở bài học →</span></a>)}
+    </section>
+  );
+}
+
 function GrammarCheck({ groups, moreCount }: { groups: any[]; moreCount: number }) {
   if (!groups?.length) return null;
   return (
@@ -264,6 +274,7 @@ function FeedbackDetails({ feedback, confidenceId }: { feedback: any; confidence
       <GrammarIssues issues={feedback.grammarIssues} />
       <GrammarCheck groups={feedback.grammarGroups} moreCount={feedback.grammarMoreCount} />
       {feedback.kind === 'practice' ? <FeedbackList title="Vocabulary Issues" items={feedback.vocabularyIssues} color="#fb923c" /> : null}
+      {feedback.kind === 'practice' ? <VocabRecommendations recommendations={feedback.vocabRecommendations} /> : null}
       {feedback.kind === 'formal' ? <FeedbackList title="Cần cải thiện" items={feedback.improvements} color="#fb923c" /> : null}
       <Corrections corrections={feedback.corrections} />
       <SampleBlock sample={feedback.sample} />

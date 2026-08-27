@@ -3814,3 +3814,55 @@ existing safe boundary.
 - Verify the active/unsent recording warning and microphone teardown on route
   exit.
 - Check the class-aware player/result header at desktop and mobile widths.
+
+---
+
+# Speaking → Vocab Curated recommendation review — 2026-08-27
+
+## Summary
+
+The new recommendation is intentionally subordinate to the learner's speaking
+feedback: at most two compact cards appear only when a server-confirmed curated
+unit matches exact transcript evidence. The immediate practice view and the
+persisted result view use the same heading, correction pair, editorial reason
+and internal lesson destination.
+
+## High-priority improvement applied
+
+### Issue: strikethrough and an arrow did not explain the correction relationship
+
+**Current State:** The card displayed `original → correction`; the original was
+identified only by a strikethrough.
+
+**Problem:** Screen readers do not consistently announce deleted text, and a
+Vietnamese learner should not have to infer which phrase they said versus which
+phrase is recommended.
+
+**Recommendation applied:** Both surfaces now show visible “Bạn đã nói” and
+“Nên nói” labels, keep the editorial Vietnamese rationale optional, and use the
+Vietnamese CTA “Mở bài học”.
+
+**Impact:** The correction remains scannable while its meaning no longer
+depends on color, decoration or an English product term.
+
+**Implementation Notes:** Cards remain normal internal anchors that open a new
+tab so the completed Speaking feedback is preserved. Practice inherits the
+global `ds.css` link focus ring; the result surface uses the authenticated Aver
+shell focus baseline. Invalid slugs are discarded before rendering.
+
+## Positive observations
+
+- The section is omitted entirely when there is no high-confidence match,
+  avoiding empty-state noise after every recording.
+- The card is presented after Vocabulary Issues and before general corrections,
+  keeping the “problem → targeted lesson” relationship local.
+- Exact learner evidence is rendered as React text, never authored HTML.
+
+## Verification
+
+- Keyboard through the recommendation card and confirm a visible focus ring.
+- At 375px, confirm long evidence/correction text wraps without horizontal
+  overflow and the whole card remains one clear target.
+- Confirm Vietnamese labels and rationale remain readable in light and dark
+  themes, and that an invalid unit slug renders no card.
+- Reload `/result` and verify the same DB-confirmed recommendation appears.

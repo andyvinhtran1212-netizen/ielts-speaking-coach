@@ -54,6 +54,27 @@ def test_full_practice_grading_still_passes_sample_answer_through():
     assert out["sample_answer"] == "A model answer."
 
 
+def test_practice_payload_passes_curated_vocab_recommendations_through():
+    recommendation = {
+        "rec_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "unit_slug": "prefer-x-to-y",
+        "title": "prefer X to Y",
+        "reason_vi": "Bạn vừa dùng sai khung prefer.",
+        "evidence": "I prefer tea than coffee",
+        "corrected": "I prefer tea to coffee",
+    }
+    grading = {**_PRACTICE_GRADING, "vocab_recommendations": [recommendation]}
+
+    out = _build_response_payload(True, grading=grading, **_COMMON)
+
+    assert out["vocab_recommendations"] == [recommendation]
+
+
+def test_practice_payload_defaults_curated_vocab_recommendations_to_empty():
+    out = _build_response_payload(True, grading=_PRACTICE_GRADING, **_COMMON)
+    assert out["vocab_recommendations"] == []
+
+
 def test_persisted_response_receipt_exposes_exact_backend_release(monkeypatch):
     sha = "a" * 40
     monkeypatch.setenv("RAILWAY_GIT_COMMIT_SHA", sha.upper())

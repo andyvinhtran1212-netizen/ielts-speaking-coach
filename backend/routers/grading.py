@@ -38,6 +38,9 @@ from services import claude_grader
 from services import azure_pronunciation
 from services import ai_usage_logger
 from services import kp_evidence
+from services import feature_flags
+from services import runtime_flags
+from services import vocab_speaking_recommendations
 from services.pronunciation_sampling import _part2_segment, extract_audio_segment
 from services import speaking_progress
 from services.transcript_reliability import classify_reliability
@@ -895,6 +898,40 @@ async def grade_response_endpoint(
             },
         }
 
+        # Curated vocabulary routing is practice-only, runtime-gated and
+        # fail-closed. The provider returns generic structured evidence; the
+        # private signal catalog stays server-side and deterministically maps
+        # an exact original/corrected pair to one published learning unit.
+        vocab_recommendations_enabled = False
+        if grading and session_mode == "practice":
+            raw_vocab_evidence = grading.pop("vocabulary_evidence", [])
+            grading["vocab_recommendations"] = []
+            try:
+                vocab_recommendations_enabled = (
+                    _curated_vocab_recommendations_enabled(user_id)
+                )
+                if vocab_recommendations_enabled:
+                    signal_catalog = vocab_speaking_recommendations.load_signal_catalog()
+                    grading["vocab_recommendations"] = (
+                        vocab_speaking_recommendations.match_structured_signals(
+                            raw_vocab_evidence,
+                            signal_catalog,
+                            transcript,
+                            reliability_label=reliability.get("reliability_label"),
+                        )
+                    )
+                    vocab_speaking_recommendations.premint_recommendation_ids(
+                        grading["vocab_recommendations"],
+                        session_id=session_id,
+                        question_id=question_id,
+                    )
+            except Exception as vocab_rec_exc:  # noqa: BLE001 — never block grading
+                grading["vocab_recommendations"] = []
+                logger.warning(
+                    "[grading] curated vocab matching skipped (non-fatal): %s",
+                    vocab_rec_exc,
+                )
+
         # ── STEP 7: Upsert response row ───────────────────────────────────────
         # Only write columns that exist in the current responses schema:
         #   id, session_id, question_id, user_id, audio_url, transcript,
@@ -965,7 +1002,14 @@ async def grade_response_endpoint(
             # re-reads responses.feedback). Additive: all grading keys preserved;
             # signals add off_topic_verdict / length_warning / audio_duration_seconds
             # / length_soft_threshold / grammar_check (no key collisions).
-            db_row["feedback"]     = _serialize_feedback(grading, signals)
+            # Curated vocab rows are not canonical until the response exists
+            # and the ownership/mapping RPC accepts them. Persist the rest now;
+            # STEP 8b writes the final recommendation-bearing blob afterwards.
+            feedback_before_vocab_persist = dict(grading)
+            feedback_before_vocab_persist.pop("vocab_recommendations", None)
+            db_row["feedback"] = _serialize_feedback(
+                feedback_before_vocab_persist, signals,
+            )
         else:
             # CHẤM HỎNG: ghi lý do vào chính dòng ấy. `grading_error` trước đây
             # được gán ở nhánh except rồi KHÔNG ai dùng nữa, nên 3,8% lượt hỏng
@@ -1093,6 +1137,18 @@ async def grade_response_endpoint(
                 response_id=response_id,
             )
             grading["grammar_recommendations"] = saved_recs
+
+            if vocab_recommendations_enabled:
+                grading["vocab_recommendations"] = (
+                    vocab_speaking_recommendations.persist_recommendations(
+                        grading.get("vocab_recommendations") or [],
+                        user_id=user_id,
+                        response_id=response_id,
+                    )
+                )
+                _persist_curated_vocab_feedback_blob(
+                    response_id, grading=grading, signals=signals,
+                )
 
             # ── Phase 1: feed the same grammar signals into the unified KP
             # evidence store (source=speaking_feedback). Best-effort — the helper
@@ -1259,6 +1315,7 @@ def _build_response_payload(is_practice, *, response_id, partial, transcript,
             "sample_answer":            grading.get("sample_answer"),
             "sample_answer_status":     grading.get("sample_answer_status"),  # Mục 21: why a sample is absent
             "grammar_recommendations":  grading.get("grammar_recommendations") or [],
+            "vocab_recommendations":    grading.get("vocab_recommendations") or [],
             **signals,
         }
 
@@ -1373,6 +1430,43 @@ def _serialize_feedback(grading: dict, signals: dict) -> str:
     invariant (every grammar rec in the blob carries its rec_id) is
     unit-testable without a DB."""
     return json.dumps({**grading, **signals}, ensure_ascii=False)
+
+
+def _curated_vocab_recommendations_enabled(user_id: str) -> bool:
+    """Mirror the destination's rollout gates before creating a learner link."""
+    if not runtime_flags.is_enabled(
+        "vocab_unit_recommendations", default=False,
+    ):
+        return False
+    if not runtime_flags.is_enabled("vocab_units_read", default=False):
+        return False
+    return feature_flags.is_vocab_curated_enabled(user_id)
+
+
+def _persist_curated_vocab_feedback_blob(
+    response_id: str,
+    *,
+    grading: dict,
+    signals: dict,
+) -> bool:
+    """Persist only DB-confirmed curated recommendations into feedback.
+
+    The canonical recommendation RPC runs after the response upsert because it
+    verifies response ownership. Failure here must not lose the learner's grade;
+    the initial blob remains valid and simply omits the optional recommendations.
+    """
+    try:
+        supabase_admin.table("responses").update({
+            "feedback": _serialize_feedback(grading, signals),
+        }).eq("id", response_id).execute()
+        return True
+    except Exception as exc:  # noqa: BLE001 — optional feedback enrichment
+        logger.warning(
+            "[grading] curated vocab feedback blob update failed "
+            "response=%s (non-fatal): %s",
+            response_id, exc,
+        )
+        return False
 
 
 def _record_progress_mark(response_id: str, session_id: str, user_id: str) -> None:

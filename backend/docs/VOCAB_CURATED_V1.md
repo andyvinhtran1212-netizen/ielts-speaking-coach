@@ -30,6 +30,9 @@ mastery tăng chỉ nhờ đoán lựa chọn.
   persistence RPC, advisory lock chống lost update và mastery ba chiều.
 - Migration 236: canonical recommendation records và bốn runtime switch mặc
   định `false`.
+- Migration 237: catalog signal Speaking riêng tư và RPC transaction để xác
+  minh ownership, mapping active, unit published trước khi recommendation trở
+  thành canonical.
 - Public API: published units và pathways; answer key không có trong response.
 - Learner API: Today queue, mastery và server-graded attempt.
 - Today giữ tổng queue tối đa năm unit, xoay Discover ổn định theo user/ngày và
@@ -44,7 +47,22 @@ mastery tăng chỉ nhờ đoán lựa chọn.
 - Frontend: entry card có cohort gate, Today/Paths và lesson loop tại
   `/vocabulary/learn`.
 - Pilot: 12 units, 48 task, 3 pathway cho lỗi/cấu trúc trọng điểm của học viên
-  Việt Nam. `scripts.seed_vocab_curated` kiểm định tất cả model answer offline.
+  Việt Nam. `scripts.seed_vocab_curated` kiểm định tất cả model answer và rule
+  Speaking offline.
+- Speaking practice: grader chỉ trả evidence chung gồm câu gốc, câu sửa,
+  loại lỗi và confidence. Catalog signal, regex pair và unit identity không
+  được gửi cho provider. Server chỉ nhận match khi transcript có đúng evidence,
+  confidence `high`, đúng một rule biên tập match và target vẫn là published
+  version; mơ hồ hoặc lỗi hạ tầng đều trả rỗng, không làm hỏng kết quả chấm.
+- Pilot chỉ kích hoạt các rule có bằng chứng cấu trúc độc lập (preposition và
+  verb frame). Năm clinic ngữ nghĩa hai chiều vẫn được seed `inactive` để biên
+  tập/corpus audit, không được recommendation runtime dùng chỉ dựa trên nhận
+  định `confidence` của model.
+- Recommendation xuất hiện ngay trong feedback Speaking, được giữ trong
+  persisted feedback để `/result` render lại, và vào Today queue từ bảng
+  `vocab_unit_recommendations` chỉ khi recommendation flag, read switch và
+  cohort `users.feature_flags.vocab_curated_enabled` cùng bật. Vì vậy mọi link
+  được tạo đều trỏ tới một lesson mà chính học viên đó có quyền mở.
 
 ## Publish gate
 
@@ -66,8 +84,8 @@ vẫn luôn tạo artifact mới dù phần bài viết không đổi.
 
 ## Trình tự deploy
 
-1. Backup/đo schema và áp dụng migrations `234`, `235`, `236` theo thứ tự.
-2. Chạy lại ba migration để kiểm tra idempotency.
+1. Backup/đo schema và áp dụng migrations `234`, `235`, `236`, `237` theo thứ tự.
+2. Chạy lại bốn migration để kiểm tra idempotency.
 3. QA nội dung offline:
 
    ```bash
@@ -96,7 +114,8 @@ vẫn luôn tạo artifact mới dù phần bài viết không đổi.
 7. Bật runtime flags theo thứ tự:
    - `vocab_units_read`
    - `vocab_unit_attempts_write`
-   - `vocab_unit_recommendations` chỉ sau khi nguồn recommendation được audit
+   - `vocab_unit_recommendations` chỉ sau khi seed signal catalog, chạy probe
+     đúng/sai/mơ hồ và audit false positive trên feedback thật
    - giữ `vocab_ai_scoring=false`; deterministic grader là canonical V1.
 
 Runtime flags chỉnh qua `PATCH /admin/runtime-flags/{key}` và có hiệu lực trong
@@ -129,9 +148,6 @@ mastery.
 
 ## Các pha tiếp theo
 
-- Admin editorial UI có diff/preview và reviewer inbox trên các API hiện tại.
-- Mapping recommendation độ chính xác cao từ structured Speaking feedback; không
-  keyword-match text tự do để tránh gợi ý sai.
 - Pilot measurement dashboard cho immediate/7-day/28-day outcome.
 - Mở từ 12 lên 24–30 unit sau pilot; chỉ lên 60 khi gate delayed transfer đạt.
 - Context lookup trong nội dung học có thể link sang curated unit khi match chắc

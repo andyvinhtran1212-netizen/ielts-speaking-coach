@@ -286,6 +286,15 @@ VOCABULARY ISSUES — Identify up to 4 vocabulary weaknesses.
   If the word is natural and appropriate in context, leave it. This prevents contradictory
   corrections across sessions.
 
+STRUCTURED VOCABULARY EVIDENCE — Return `vocabulary_evidence` separately from
+  the learner-facing issue list. Each item must contain one exact transcript
+  phrase, its concise correction, one issue_type from `meaning`, `word_choice`,
+  `preposition`, `verb_frame`, `parallelism`, and confidence `high`, `medium`,
+  or `low`. Include at most 4 items. This is evidence, not a recommendation:
+  do not name lessons, internal codes, or learning resources. Only emit `high`
+  when the original is provably wrong in context. Do not emit an item merely
+  because a fancier synonym exists; return [] when there is no clear error.
+
 GENERAL PRONUNCIATION PRACTICE TIPS — up to 3 general suggestions.
   IMPORTANT: you are reading a TRANSCRIPT, not listening to audio — you CANNOT
   hear how this learner actually pronounced anything. Do NOT claim to have heard
@@ -349,6 +358,7 @@ STRICT OUTPUT RULES — violations cause grading failure:
 {
   "grammar_issues":       ["Lỗi thứ 1", "Lỗi thứ 2"],
   "vocabulary_issues":    ["Vấn đề từ vựng 1", "Vấn đề từ vựng 2"],
+  "vocabulary_evidence":  [{"evidence": "exact transcript phrase", "corrected": "corrected phrase", "issue_type": "verb_frame", "confidence": "high"}],
   "pronunciation_issues": ["Gợi ý luyện phát âm chung 1", "Gợi ý luyện phát âm chung 2"],
   "corrections": [
     {"original": "phrase from transcript", "corrected": "better version", "explanation": "giải thích bằng tiếng Việt"}
@@ -1088,6 +1098,36 @@ def _parse_and_validate_practice(raw: str) -> tuple[dict | None, str | None]:
     data["vocabulary_issues"]    = [str(s) for s in data["vocabulary_issues"]]
     data["pronunciation_issues"] = [str(s) for s in data.get("pronunciation_issues", [])]
     data["strengths"]            = [str(s) for s in data["strengths"]]
+
+    # Additive structured evidence for server-side curated-unit matching. It is
+    # deliberately optional so providers/fixtures deployed before this field do
+    # not fail the entire grade. Invalid items fail closed individually.
+    valid_vocab_evidence = []
+    raw_vocab_evidence = data.get("vocabulary_evidence")
+    if not isinstance(raw_vocab_evidence, list):
+        raw_vocab_evidence = []
+    for item in raw_vocab_evidence[:4]:
+        if not isinstance(item, dict):
+            continue
+        evidence = str(item.get("evidence") or "").strip()
+        corrected = str(item.get("corrected") or "").strip()
+        issue_type = str(item.get("issue_type") or "").strip().lower()
+        confidence = str(item.get("confidence") or "").strip().lower()
+        if issue_type not in {
+            "meaning", "word_choice", "preposition", "verb_frame", "parallelism",
+        }:
+            continue
+        if confidence not in {"high", "medium", "low"}:
+            continue
+        if not (1 <= len(evidence) <= 180 and 1 <= len(corrected) <= 240):
+            continue
+        valid_vocab_evidence.append({
+            "evidence": evidence,
+            "corrected": corrected,
+            "issue_type": issue_type,
+            "confidence": confidence,
+        })
+    data["vocabulary_evidence"] = valid_vocab_evidence
 
     valid_corrections = []
     for c in data.get("corrections", []):
