@@ -123,6 +123,54 @@ test('listening-core-player-reload-resume', async ({ page }) => {
   await expectNoHarnessErrors(harness);
 });
 
+test('listening-mock-embed-exposes-first-play-gesture', async ({ page }) => {
+  const state = createListeningGateEState({ status: 'in_progress' });
+  state.rendererAffinity = 'next';
+  const sittingId = '22222222-2222-4222-8222-222222222222';
+  await page.addInitScript(() => {
+    window.__gateEAudioPlayCalls = 0;
+    HTMLMediaElement.prototype.play = function play() {
+      window.__gateEAudioPlayCalls += 1;
+      this.dispatchEvent(new Event('play'));
+      return Promise.resolve();
+    };
+  });
+  const harness = await installListeningGateEHarness(page, {
+    state,
+    handleApi: async ({ route, request, url }) => {
+      if (request.method() === 'POST'
+          && url.pathname === `/api/mock-exams/sittings/${sittingId}/attach`) {
+        await route.fulfill({ json: { attached: true }, headers: cors });
+        return true;
+      }
+      if (request.method() === 'GET'
+          && url.pathname === `/api/mock-exams/sittings/${sittingId}`) {
+        await route.fulfill({
+          json: {
+            active_section: 'listening',
+            section_duration_seconds: 2400,
+            section_time_left_seconds: 2370,
+          },
+          headers: cors,
+        });
+        return true;
+      }
+      return false;
+    },
+  });
+
+  await page.goto(`/listening/test/session?id=${TEST_ID}&sitting_id=${sittingId}&mock_embed=1`);
+  const audioPrompt = page.getByRole('dialog', { name: 'Check your headphones' });
+  await expect(audioPrompt).toBeVisible();
+  await expect(page.getByRole('button', { name: /Play/ })).toHaveCount(1);
+  await audioPrompt.getByRole('button', { name: 'Play' }).click();
+  await expect(audioPrompt).toBeHidden();
+  await expect.poll(() => page.evaluate(() => window.__gateEAudioPlayCalls)).toBe(1);
+  await expect(page.locator('.listening-next-audio-state')).toContainText('Audio is Playing');
+  expect(state.startCount).toBe(0);
+  await expectNoHarnessErrors(harness);
+});
+
 test('listening-bidirectional-cross-version-core-player', async ({ page }) => {
   const state = createListeningGateEState();
   const harness = await installListeningGateEHarness(page, {
