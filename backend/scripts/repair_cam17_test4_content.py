@@ -12,7 +12,6 @@ Usage (from backend/):
 from __future__ import annotations
 
 import copy
-import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,6 +21,7 @@ if str(_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(_BACKEND_ROOT))
 
 from _script_env import load_env  # noqa: E402
+from canonical_text_guard import replace_expected, strip_known_note  # noqa: E402
 
 load_env()
 
@@ -86,6 +86,28 @@ def reading_question(q_num: int) -> dict:
 
 def reading_passage(order: int) -> dict:
     return one("reading_passages", test_id=READING_UUID, passage_order=order)
+
+
+def verify_listening_audit() -> None:
+    audit = one("listening_audit", test_id=LISTENING_UUID)
+    health = audit.get("health") or {}
+    expected_health = {
+        "status": "passed",
+        "error_count": 0,
+        "warning_count": 0,
+        "question_count": 40,
+    }
+    drift = {
+        "status": audit.get("status"),
+        "auditor": audit.get("auditor"),
+        "audited_at": audit.get("audited_at"),
+        "health": {key: health.get(key) for key in expected_health},
+    }
+    if (audit.get("status") != "fixed"
+            or audit.get("auditor") != AUDITOR
+            or not audit.get("audited_at")
+            or any(health.get(key) != value for key, value in expected_health.items())):
+        raise RuntimeError(f"Listening audit marker drift: {drift}")
 
 
 def verify_keys_and_types() -> None:
@@ -234,16 +256,24 @@ def build_changes(now: str) -> list[tuple[str, str, dict, dict]]:
             question["prompt"] = "best growing conditions and ___ are in Canada and North America"
     for q_num in (33, 37):
         solution = p31["solutions"][str(q_num)]
-        solution["skills"] = re.sub(r"\n\n> ⚠️ Audioscript nguồn[^\n]*", "", solution["skills"]).strip()
+        solution["skills"] = strip_known_note(
+            solution["skills"], r"\n\n> ⚠️ Audioscript nguồn[^\n]*",
+            "Audioscript nguồn", f"Listening Q{q_num} solution",
+        )
     changes.append(("listening_exercises", e31["id"], e31, {"payload": p31}))
 
     s4 = one("listening_content", test_id=LISTENING_UUID, section_num=4)
-    transcript = s4["transcript"].replace(
+    transcript = replace_expected(
+        s4["transcript"],
         "There are only certain parts of the world that have the right climate for growing these trees perfectly.",
         "There are only certain parts of the world that provide all these conditions: one is Canada, and by that, I mean all parts of Canada, and the other is the north-eastern states of North America. In these areas, the climate suits the trees perfectly.",
-    ).replace(
+        "Listening Section 4 climate transcript",
+    )
+    transcript = replace_expected(
+        transcript,
         "The trees can often take several taps. ... has to take place immediately",
         "The trees can often take several taps, though the workers take care not to cause any damage to the healthy growth of the tree itself. The sap that comes out of the trees consists of 98 percent water and 2 percent sugar and other nutrients. It has to be boiled so that much of that water evaporates, and this process has to take place immediately",
+        "Listening Section 4 sap transcript",
     )
     changes.append(("listening_content", s4["id"], s4, {"transcript": transcript}))
 
@@ -262,35 +292,54 @@ def build_changes(now: str) -> list[tuple[str, str, dict, dict]]:
     changes.append(("reading_tests", READING_UUID, reading, {"metadata": rmeta}))
 
     passage2 = reading_passage(2)
-    body2 = passage2["body_markdown"].replace(
+    body2 = replace_expected(
+        passage2["body_markdown"],
         "late. 'Modern cross-country analyses have also struggled to find evidence that education causes economic growth, even though there is plenty of evidence that growth increases education, she adds.",
         "late. 'Modern cross-country analyses have also struggled to find evidence that education causes economic growth, even though there is plenty of evidence that growth increases education,' she adds.",
-    ).replace(
+        "Reading Passage 2 paragraph B quotation",
+    )
+    body2 = replace_expected(
+        body2,
         "changes that might reduce their influence. *Early findings suggest",
         "changes that might reduce their influence. 'Early findings suggest",
-    ).replace(
+        "Reading Passage 2 paragraph E opening quotation",
+    )
+    body2 = replace_expected(
+        body2,
         "barriers, and this has implications for today, says Ogilvie.",
         "barriers, and this has implications for today,' says Ogilvie.",
-    ).replace(
+        "Reading Passage 2 paragraph E closing quotation",
+    )
+    body2 = replace_expected(
+        body2,
         "straightforward. German-speaking central Europe is an excellent laboratory for testing theories of economic growth, she explains.",
         "straightforward. 'German-speaking central Europe is an excellent laboratory for testing theories of economic growth,' she explains.",
-    ).replace(
+        "Reading Passage 2 paragraph F quotation",
+    )
+    body2 = replace_expected(
+        body2,
         'sermon. "This tells us they were continuing',
         "sermon. 'This tells us they were continuing",
+        "Reading Passage 2 paragraph G quotation",
     )
     changes.append(("reading_passages", passage2["id"], passage2, {"body_markdown": body2}))
 
     passage3 = reading_passage(3)
-    body3 = passage3["body_markdown"].replace(
+    body3 = replace_expected(
+        passage3["body_markdown"],
         "'He was not exceptional on any of these standard tests, said Rissman.",
         "'He was not exceptional on any of these standard tests,' said Rissman.",
+        "Reading Passage 3 paragraph F quotation",
     )
     changes.append(("reading_passages", passage3["id"], passage3, {"body_markdown": body3}))
 
     q19 = reading_question(19)
     q19p = copy.deepcopy(q19["payload"])
-    q19p["template"]["summary_text"] = q19p["template"]["summary_text"].replace(
-        "their {{19}}. ________ over a 300-year", "their {{19}} over a 300-year")
+    q19p["template"]["summary_text"] = replace_expected(
+        q19p["template"]["summary_text"],
+        "their {{19}}. ________ over a 300-year", "their {{19}} over a 300-year",
+        "Reading Q19 summary blank",
+    )
     changes.append(("reading_questions", q19["id"], q19, {"payload": q19p}))
 
     options_23 = [
@@ -312,12 +361,17 @@ def build_changes(now: str) -> list[tuple[str, str, dict, dict]]:
     for q_num in (25, 26):
         row = reading_question(q_num); payload = copy.deepcopy(row["payload"])
         solution = payload.get("solution") or {}
-        solution["question_text"] = re.sub(r"\s*> \*Ghi chú OCR:\*[^\n]*", "", solution.get("question_text") or "").strip()
+        solution["question_text"] = strip_known_note(
+            solution.get("question_text") or "", r"\s*> \*Ghi chú OCR:\*[^\n]*",
+            "Ghi chú OCR:", f"Reading Q{q_num} solution",
+        )
         changes.append(("reading_questions", row["id"], row, {"prompt": prompt_25, "payload": payload}))
 
     q38 = reading_question(38); q38p = copy.deepcopy(q38["payload"])
-    q38p["solution"]["question_text"] = re.sub(
-        r"\s*> \*Ghi chú OCR:\*[^\n]*", "", q38p["solution"]["question_text"]).strip()
+    q38p["solution"]["question_text"] = strip_known_note(
+        q38p["solution"]["question_text"], r"\s*> \*Ghi chú OCR:\*[^\n]*",
+        "Ghi chú OCR:", "Reading Q38 solution",
+    )
     changes.append(("reading_questions", q38["id"], q38, {"payload": q38p}))
     return [row for row in changes
             if any(row[2].get(key) != value for key, value in row[3].items())]
@@ -328,6 +382,8 @@ def main() -> int:
 
     verify_keys_and_types()
     print("Verified: 80/80 source answers and all question types")
+    verify_listening_audit()
+    print("Verified: canonical Listening audit marker")
 
     changes = build_changes(now)
     print(f"READ-ONLY VERIFY: {len(changes)} drifting canonical rows")
