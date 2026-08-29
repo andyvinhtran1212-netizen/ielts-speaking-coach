@@ -88,6 +88,10 @@ describe('Item 2 — L3 grouped as test rows (consistent + 404-safe)', () => {
   test('#363 404-safety holds: L3 slug IS the test_id (backend), never a passage slug', () => {
     // slug is sourced from reading_tests.test_id in the normaliser, so the
     // preview/edit/delete key (it.slug) can never be a passage slug.
-    assert.match(readingRouter, /def _normalise_l3_test_row[\s\S]{0,700}"slug":\s*r\.get\("test_id"\)/);
+    const normaliser = readingRouter.slice(
+      readingRouter.indexOf('def _normalise_l3_test_row'),
+      readingRouter.indexOf('\ndef _exact_count'),
+    );
+    assert.match(normaliser, /"slug":\s*r\.get\("test_id"\)/);
   });
 });

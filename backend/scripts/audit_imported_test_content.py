@@ -200,7 +200,11 @@ CLASS_NAMES = {
     "L4": "Listening: prompt lặp số thứ tự",
     "L5": "Listening: matching mất câu hỏi gốc",
     "L6": "Listening: bản đồ thiếu lựa chọn",
+    "L7": "Listening: prompt/option bị cắt hoặc tràn dòng",
+    "L8": "Listening: option bank lệch đề gốc đã xác minh",
     "R1": "Reading: thiếu/sai giới hạn từ",
+    "R2": "Reading: prompt/option bị cắt dòng",
+    "R3": "Reading: prompt/option lệch đề gốc đã xác minh",
     "E1": "KHÔNG TRẢ LỜI ĐƯỢC: câu không có đề bài",
     "E2": "KHÔNG TRẢ LỜI ĐƯỢC: câu chọn-chữ-cái không có lựa chọn",
     "E3": "KHÔNG TRẢ LỜI ĐƯỢC: exercise không có câu hỏi hợp lệ",
@@ -209,6 +213,42 @@ CLASS_NAMES = {
     "S1": "KHÔNG SOÁT ĐƯỢC: thiếu file nguồn để đối chiếu",
     "S2": "KHÔNG SOÁT ĐƯỢC: khối này không có giới hạn từ trong nguồn",
     "S3": "KHÔNG SOÁT ĐƯỢC: không chọn được đề nào",
+}
+
+# Các bank đã đối chiếu tay trực tiếp với PDF Cambridge.  Giống
+# PDF_VERIFIED_LIMITS, đây là kỳ vọng phải tiếp tục khớp sau re-import, không
+# phải waiver.  Chỉ ghim những block từng bị parser làm lệch để giữ phạm vi
+# detector hẹp và tránh false positive.
+PDF_VERIFIED_CHOICE_BLOCKS = {
+    ("ILR-LIS-CAM-B17-T4", 15): {
+        "options": [
+            ("A", "improving relationships and teamwork"),
+            ("B", "offering incentives and financial benefits"),
+            ("C", "providing career opportunities"),
+        ],
+    },
+    ("ILR-LIS-CAM-B17-T4", 21): {
+        "options": [
+            ("A", "He should have felt more positive about them."),
+            ("B", "The training was too challenging for him."),
+            ("C", "He could have worked harder at them."),
+            ("D", "His parents were disappointed in him."),
+            ("E", "His fellow students admired him."),
+        ],
+    },
+    ("ILR-RDG-CAM-B17-T4", 23): {
+        "prompt": "Which TWO of the following statements does the writer make about literacy rates in Section B?",
+        "options": [
+            ("A", "Very little research has been done into the link between high literacy rates and improved earnings."),
+            ("B", "Literacy rates in Germany between 1600 and 1900 were very good."),
+            ("C", "There is strong evidence that high literacy rates in the modern world result in economic growth."),
+            ("D", "England is a good example of how high literacy rates helped a country industrialise."),
+            ("E", "Economic growth can help to improve literacy rates."),
+        ],
+    },
+    ("ILR-RDG-CAM-B17-T4", 25): {
+        "prompt": "Which TWO of the following statements does the writer make in Section F about guilds in German-speaking Central Europe between 1600 and 1900?",
+    },
 }
 
 
@@ -369,7 +409,15 @@ def template_has(tpl, qnum: int, token: re.Pattern | None = None) -> bool:
     return hit
 
 
-JUNK_RE = re.compile(r"_{3,}|^\d{1,3}$|\|\s*\d+\s*\.")
+JUNK_RE = re.compile(r"_{3,}|^\d{1,3}$|\|\s*\d+\s*\.|^[-–—.\s]{2,}$")
+_DANGLING_END_RE = re.compile(
+    # Keep this deliberately narrow: prepositions at the end are valid in
+    # English MCQ stems/options ("what it was built with", "used to").
+    # Coordinators/articles and bare OCR punctuation are much stronger signs
+    # that a PDF line was cut before its continuation.
+    r"(?:\b(?:and|or|a|an|the)|[-–—/])\s*$",
+    re.I,
+)
 
 
 def junk_items(tpl) -> list[str]:
@@ -377,9 +425,10 @@ def junk_items(tpl) -> list[str]:
 
     def walk(n):
         if isinstance(n, dict):
-            t = n.get("text")
-            if isinstance(t, str) and JUNK_RE.search(t.strip()):
-                bad.append(t.strip()[:70])
+            for key in ("text", "prefix", "suffix", "summary_text", "paragraph"):
+                t = n.get(key)
+                if isinstance(t, str) and JUNK_RE.search(t.strip()):
+                    bad.append(t.strip()[:70])
             for v in n.values():
                 walk(v)
         elif isinstance(n, list):
@@ -387,7 +436,62 @@ def junk_items(tpl) -> list[str]:
                 walk(v)
 
     walk(tpl)
+    return list(dict.fromkeys(bad))
+
+
+def dangling_fragments(prompt: str | None, options) -> list[str]:
+    """Conservative detector for PDF line-wrap damage.
+
+    A prompt/option ending in a connector is almost never a complete IELTS
+    statement.  Also catch an option that is literally the tail of its own
+    prompt (Cam17 T4 Listening accidentally turned ``at school?`` into option
+    A).  This detector complements exact PDF expectations below and remains
+    useful for future imports that fail in the same way.
+    """
+    prompt = str(prompt or "").strip()
+    bad: list[str] = []
+    if not isinstance(options, list):
+        return bad
+    prompt_fold = re.sub(r"\s+", " ", prompt).casefold()
+    option_has_dangling_end = False
+    for option in options:
+        if not isinstance(option, dict):
+            continue
+        text = str(option.get("text") or "").strip()
+        if not text:
+            continue
+        if _DANGLING_END_RE.search(text):
+            option_has_dangling_end = True
+            bad.append(f"option {option.get('letter') or option.get('label')}: {text[:100]}")
+        text_fold = re.sub(r"\s+", " ", text).casefold()
+        if len(text_fold) >= 5 and prompt_fold.endswith(text_fold):
+            bad.append(f"option {option.get('letter') or option.get('label')}: duplicated prompt tail")
+    # Ending a stem with a preposition can be legitimate ("leave because of"
+    # followed by three noun-phrase choices).  It becomes strong line-wrap
+    # evidence only when at least one option is truncated too.
+    if prompt and option_has_dangling_end and _DANGLING_END_RE.search(prompt):
+        bad.insert(0, f"prompt: {prompt[:100]}")
     return bad
+
+
+def verified_choice_mismatch(test_id: str, first_q: int, prompt: str | None,
+                             options) -> dict | None:
+    expected = PDF_VERIFIED_CHOICE_BLOCKS.get((test_id, first_q))
+    if not expected:
+        return None
+    mismatch: dict[str, object] = {}
+    if expected.get("prompt") and str(prompt or "").strip() != expected["prompt"]:
+        mismatch["prompt"] = str(prompt or "").strip()
+    if expected.get("options"):
+        got = [
+            (str(row.get("letter") or row.get("label") or "").strip(),
+             str(row.get("text") or "").strip())
+            for row in (options if isinstance(options, list) else [])
+            if isinstance(row, dict)
+        ]
+        if got != expected["options"]:
+            mismatch["options"] = got
+    return mismatch or None
 
 
 # ── soát ────────────────────────────────────────────────────────────────────
@@ -478,6 +582,24 @@ def audit(source_dir: Path | None, modes: set[str],
                     if mm and have and (ord(mm.group(1)) - 64) != len(have):
                         issues.append({"class": "L6", "range": rng,
                                        "instr_upto": mm.group(1), "have": len(have)})
+                shared_options = ((p.get("metadata") or {}).get("match_options")
+                                  if kind in ("mcq_multi", "matching") else None)
+                fragments = []
+                for question in qs:
+                    fragments.extend(dangling_fragments(
+                        question.get("prompt"),
+                        shared_options if shared_options is not None else question.get("options"),
+                    ))
+                if fragments:
+                    issues.append({"class": "L7", "range": rng,
+                                   "fragments": list(dict.fromkeys(fragments))})
+                verified = verified_choice_mismatch(
+                    t["test_id"], qn[0], qs[0].get("prompt") if qs else None,
+                    shared_options if shared_options is not None else
+                    (qs[0].get("options") if qs else None),
+                )
+                if verified:
+                    issues.append({"class": "L8", "range": rng, **verified})
 
             if "answerable" in modes:
                 for q in qs:
@@ -535,6 +657,23 @@ def audit(source_dir: Path | None, modes: set[str],
                     elif want != got:
                         issues.append({"class": "R1", "q": q["q_num"],
                                        "got": got, "want": want})
+                if "fidelity" in modes:
+                    fragments = dangling_fragments(q.get("prompt"), p.get("options"))
+                    if fragments:
+                        issues.append({"class": "R2", "q": q["q_num"],
+                                       "fragments": fragments})
+                    # Grouped legacy MCQ repeats the same prompt/options on the
+                    # second row; checking each row is deliberate so a partial
+                    # repair cannot look green.
+                    first_q = 23 if q["q_num"] in (23, 24) else 25 if q["q_num"] in (25, 26) else q["q_num"]
+                    verified = verified_choice_mismatch(
+                        t["test_id"], first_q, q.get("prompt"), p.get("options"))
+                    if verified:
+                        issues.append({"class": "R3", "q": q["q_num"], **verified})
+                    template_junk = junk_items(p.get("template"))
+                    if template_junk:
+                        issues.append({"class": "R2", "q": q["q_num"],
+                                       "template_junk": template_junk})
                 if "answerable" in modes:
                     summary = (p.get("template") or {}).get("summary_text") or ""
                     # Có summary_text CHƯA ĐỦ: _renderFlowingSummaryBlock chỉ

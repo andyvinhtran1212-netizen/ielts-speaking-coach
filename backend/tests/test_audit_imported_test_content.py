@@ -21,6 +21,7 @@ from scripts.audit_imported_test_content import (  # noqa: E402
     LIMIT_KINDS,
     LIMIT_RE,
     PDF_VERIFIED_LIMITS,
+    PDF_VERIFIED_CHOICE_BLOCKS,
     READING_NEED_OPTIONS,
     TEMPLATE_KINDS,
     _valid_letters,
@@ -30,9 +31,11 @@ from scripts.audit_imported_test_content import (  # noqa: E402
     listening_token,
     reading_token,
     junk_items,
+    dangling_fragments,
     limit_for,
     source_limits,
     template_has,
+    verified_choice_mismatch,
 )
 
 
@@ -339,3 +342,43 @@ def test_junk_items_clean_template_is_empty():
         {"text": "must be prepared to work well in a team"},
     ]}]}
     assert junk_items(tpl) == []
+
+
+def test_junk_items_flags_suffix_punctuation_and_reading_fake_blank():
+    assert junk_items({"groups": [{"items": [{"q_num": 5, "suffix": "-.."}]}]}) == ["-.."]
+    junk = junk_items({"summary_text": "their {{19}}. ________ over time"})
+    assert junk == ["their {{19}}. ________ over time"]
+
+
+def test_dangling_fragments_catches_pdf_line_wraps_and_prompt_tail_option():
+    bad = dangling_fragments(
+        "Which TWO statements compare literacy rates and",
+        [{"label": "A", "text": "link between high literacy rates and"},
+         {"label": "B", "text": "Complete sentence."}],
+    )
+    assert any(row.startswith("prompt:") for row in bad)
+    assert any(row.startswith("option A:") for row in bad)
+    assert dangling_fragments(
+        "Which points do they make about sporting activities at school?",
+        [{"letter": "A", "text": "at school?"}, {"letter": "B", "text": "A valid choice."}],
+    ) == ["option A: duplicated prompt tail"]
+    assert dangling_fragments("A complete question?", [
+        {"label": "A", "text": "A complete option."},
+        {"label": "B", "text": "Another complete option."},
+    ]) == []
+
+
+def test_pdf_verified_choice_blocks_are_exact_expectations_not_waivers():
+    expected = PDF_VERIFIED_CHOICE_BLOCKS[("ILR-LIS-CAM-B17-T4", 21)]
+    options = [{"letter": letter, "text": text} for letter, text in expected["options"]]
+    assert verified_choice_mismatch("ILR-LIS-CAM-B17-T4", 21, "ignored", options) is None
+    shifted = [{"letter": "A", "text": "at school?"}, *options]
+    assert "options" in verified_choice_mismatch(
+        "ILR-LIS-CAM-B17-T4", 21, "ignored", shifted)
+
+    reading = PDF_VERIFIED_CHOICE_BLOCKS[("ILR-RDG-CAM-B17-T4", 23)]
+    reading_options = [{"label": letter, "text": text} for letter, text in reading["options"]]
+    assert verified_choice_mismatch(
+        "ILR-RDG-CAM-B17-T4", 23, reading["prompt"], reading_options) is None
+    assert "prompt" in verified_choice_mismatch(
+        "ILR-RDG-CAM-B17-T4", 23, reading["prompt"].removesuffix(" Section B?"), reading_options)

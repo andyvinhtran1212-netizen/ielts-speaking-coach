@@ -33,6 +33,8 @@ export function normalizeReadingContentItem(raw) {
     locked: Boolean(value.locked),
     shareActive: Boolean(value.share_active),
     shareExpiresAt: nullableText(value.share_expires_at),
+    contentAuditStatus: nullableText(value.content_audit_status),
+    contentAuditedAt: nullableText(value.content_audited_at),
     updatedAt: nullableText(value.updated_at),
     createdAt: nullableText(value.created_at),
   };
