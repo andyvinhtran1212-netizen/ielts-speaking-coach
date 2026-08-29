@@ -1,17 +1,16 @@
-"""Repair and mark the manual source audit for Cambridge 17 Test 4.
+"""Read-only verifier for the completed Cambridge 17 Test 4 repair.
 
-Dry-run is the default.  ``--commit`` writes only when both tests still have no
-attempts, then reads every changed row back before recording the audit marker.
-The fixes are intentionally tied to the two canonical test IDs; this is not a
-general re-importer.
+The production repair and audit markers were applied during the manual audit.
+This checked-in artifact deliberately has no write mode: reproducing a
+multi-table repair through separate PostgREST requests could expose a partial
+audit marker or race with a learner starting an attempt.  It now verifies the
+canonical result and reports any later drift for a separately reviewed repair.
 
 Usage (from backend/):
   python scripts/repair_cam17_test4_content.py
-  python scripts/repair_cam17_test4_content.py --commit
 """
 from __future__ import annotations
 
-import argparse
 import copy
 import re
 import sys
@@ -325,70 +324,16 @@ def build_changes(now: str) -> list[tuple[str, str, dict, dict]]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--commit", action="store_true")
-    args = parser.parse_args()
     now = datetime.now(timezone.utc).isoformat()
 
-    for table, test_uuid in (("listening_test_attempts", LISTENING_UUID),
-                             ("reading_test_attempts", READING_UUID)):
-        result = sb.table(table).select("id", count="exact").eq("test_id", test_uuid).limit(1).execute()
-        if result.count != 0:
-            raise RuntimeError(f"Refusing to patch {test_uuid}: {result.count} attempt(s) exist")
-
     verify_keys_and_types()
-    print("Verified before write: 80/80 source answers and all question types")
+    print("Verified: 80/80 source answers and all question types")
 
     changes = build_changes(now)
-    print(f"{'COMMIT' if args.commit else 'DRY-RUN'}: {len(changes)} canonical rows")
+    print(f"READ-ONLY VERIFY: {len(changes)} drifting canonical rows")
     for table, row_id, _before, patch in changes:
         print(f"  {table} {row_id}: {', '.join(sorted(patch))}")
-        if args.commit:
-            query = sb.table(table).update(patch).eq("id", row_id)
-            # Avoid overwriting a concurrent admin/import edit made after this
-            # script fetched the row.  Every target content table has
-            # updated_at; the guard stays optional for schema-safe reuse.
-            updated_at = _before.get("updated_at")
-            if updated_at:
-                query = query.eq("updated_at", updated_at)
-            result = query.execute().data or []
-            if len(result) != 1:
-                raise RuntimeError(f"{table} {row_id}: write was not confirmed (stale row?)")
-            readback = one(table, id=row_id)
-            for key, expected in patch.items():
-                if readback.get(key) != expected:
-                    raise RuntimeError(f"{table} {row_id}: readback mismatch for {key}")
-
-    if args.commit and changes:
-        issues = [
-            {"q_num": None, "dimension": "question", "severity": "error", "code": "manual_source_fidelity", "resolved": True,
-             "source": "manual", "message": "Đã sửa option bank/prompt bị cắt dòng ở Listening 15-22 và Reading 23-26."},
-            {"q_num": None, "dimension": "template", "severity": "warning", "code": "manual_render_contract", "resolved": True,
-             "source": "manual", "message": "Đã sửa bullet tách, ô trống giả và dấu OCR trong template Listening/Reading."},
-            {"q_num": 37, "dimension": "transcript", "severity": "warning", "code": "manual_transcript_gap", "resolved": True,
-             "source": "manual", "message": "Đã khôi phục đoạn audioscript Part 4 bị thiếu và gỡ cảnh báo OCR đã lỗi thời."},
-        ]
-        row = {
-            "test_id": LISTENING_UUID, "status": "fixed",
-            "health": {"status": "passed", "error_count": 0, "warning_count": 0,
-                       "question_count": 40, "manual_issue_count": len(issues)},
-            "issues": issues, "notes": "Manual Cambridge source + student renderer audit: 40/40 questions, answer key, audio windows, transcript and solutions verified.",
-            "auditor": AUDITOR, "audited_at": now, "updated_at": now,
-        }
-        existing = sb.table("listening_audit").select("id").eq("test_id", LISTENING_UUID).limit(1).execute().data or []
-        result = ((sb.table("listening_audit").update(row).eq("test_id", LISTENING_UUID)) if existing
-                  else sb.table("listening_audit").insert(row)).execute().data or []
-        if len(result) != 1:
-            raise RuntimeError("Listening audit marker write was not confirmed")
-        saved = one("listening_audit", test_id=LISTENING_UUID)
-        if saved.get("status") != "fixed" or saved.get("audited_at") != now:
-            raise RuntimeError("Listening audit marker readback mismatch")
-        print("  listening_audit: fixed marker saved and read back")
-        verify_keys_and_types()
-        print("Verified after write: 80/80 source answers and all question types")
-    elif args.commit:
-        print("No write needed: production already matches the audited canonical state")
-    return 0
+    return 1 if changes else 0
 
 
 if __name__ == "__main__":
