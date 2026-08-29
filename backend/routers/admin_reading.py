@@ -92,6 +92,9 @@ def _normalise_l3_test_row(r: dict) -> dict:
         f"{mins} phút" if mins else None,
         f"{tot} câu" if tot else None,
     ]))
+    metadata = r.get("metadata") if isinstance(r.get("metadata"), dict) else {}
+    content_audit = metadata.get("content_audit")
+    content_audit = content_audit if isinstance(content_audit, dict) else {}
     return {
         "id":               r.get("id"),
         "slug":             r.get("test_id"),
@@ -106,13 +109,18 @@ def _normalise_l3_test_row(r: dict) -> dict:
         "created_at":       r.get("created_at"),
         # reading-access-tracking F1 — surface lock state for the admin row
         # action (never the password itself).
-        "locked":           bool(((r.get("metadata") or {}).get("access") or {}).get("locked")),
+        "locked":           bool((metadata.get("access") or {}).get("locked")),
         # reading-access-tracking B2 — surface share-link state for the admin
         # row "🔗 Link" control: whether a link is active + its (non-secret)
         # expiry. The token itself is NEVER surfaced here (it is the access
         # grant — shown only once at generate time, like the F1 password).
-        "share_active":     bool(((r.get("metadata") or {}).get("share") or {}).get("token")),
-        "share_expires_at": ((r.get("metadata") or {}).get("share") or {}).get("expires_at"),
+        "share_active":     bool((metadata.get("share") or {}).get("token")),
+        "share_expires_at": (metadata.get("share") or {}).get("expires_at"),
+        # Manual/source audit is deliberately distinct from published status.
+        # It is canonical metadata shared with Listening and survives re-import
+        # only when the importer preserves the test metadata intentionally.
+        "content_audit_status": content_audit.get("status"),
+        "content_audited_at":   content_audit.get("audited_at"),
     }
 
 

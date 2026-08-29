@@ -17,9 +17,11 @@ const LAYOUT = read('app', '(authed-admin-reading-content)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-reading-content-next.css');
 
 test('normalizes canonical list and rejects envelope drift', () => {
-  const good = normalizeReadingContentList({ items: [{ id: 'u1', slug: 'R-1', library: 'l3_test', title: 'Test', status: 'published', locked: true }], total: 1, limit: 25, offset: 0 }, { limit: 25, offset: 0 });
+  const good = normalizeReadingContentList({ items: [{ id: 'u1', slug: 'R-1', library: 'l3_test', title: 'Test', status: 'published', locked: true, content_audit_status: 'passed_after_fix', content_audited_at: '2026-08-29T00:00:00Z' }], total: 1, limit: 25, offset: 0 }, { limit: 25, offset: 0 });
   assert.equal(good.rows[0].slug, 'R-1');
   assert.equal(good.rows[0].locked, true);
+  assert.equal(good.rows[0].contentAuditStatus, 'passed_after_fix');
+  assert.equal(good.rows[0].contentAuditedAt, '2026-08-29T00:00:00Z');
   assert.equal(good.malformedCount, 0);
   assert.equal(normalizeReadingContentList({ items: [], total: 0, limit: 100, offset: 0 }, { limit: 25, offset: 0 }), null);
   const partial = normalizeReadingContentList({ items: [{ id: 'x' }, { id: 'p', slug: 'p', library: 'l1_vocab', status: 'draft' }], total: 2, limit: 25, offset: 0 });
@@ -52,6 +54,7 @@ test('native route preserves admin gate, contracts, rollback and responsive layo
   assert.match(CLIENT, /`\/reading\/skill\/\$\{encodeURIComponent\(row\.slug\)\}`/);
   assert.doesNotMatch(CLIENT, /pages\/(?:reading-vocab-passage|reading-skill-exercise)\.html/);
   assert.match(CLIENT, /normalizeDeleteAck/);
+  assert.match(CLIENT, /Nội dung đã audit/);
   assert.match(CSS, /@media\(max-width:900px\)/);
   assert.match(CSS, /@media\(prefers-reduced-motion:reduce\)/);
 });

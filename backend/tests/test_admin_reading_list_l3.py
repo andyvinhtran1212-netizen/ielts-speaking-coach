@@ -44,6 +44,9 @@ def test_l3_filter_queries_reading_tests_not_passages():
             "total_questions": 40, "band_target": 7.0, "status": "published",
             "updated_at": "2026-05-29T10:00:00+00:00",
             "created_at": "2026-05-28T10:00:00+00:00",
+            "metadata": {"content_audit": {
+                "status": "passed_after_fix", "audited_at": "2026-08-29T00:00:00Z",
+            }},
         }],
         count=1,
     )
@@ -73,6 +76,9 @@ def test_l3_row_normalised_to_l1_l2_shape():
             "total_questions": 40, "band_target": 7.0, "status": "published",
             "updated_at": "2026-05-29T10:00:00+00:00",
             "created_at": "2026-05-28T10:00:00+00:00",
+            "metadata": {"content_audit": {
+                "status": "passed_after_fix", "audited_at": "2026-08-29T00:00:00Z",
+            }},
         }],
         count=1,
     )
@@ -95,6 +101,20 @@ def test_l3_row_normalised_to_l1_l2_shape():
     assert it["difficulty_level"] == "academic"
     assert "60 phút" in it["skill_focus"]
     assert "40 câu" in it["skill_focus"]
+    assert it["content_audit_status"] == "passed_after_fix"
+    assert it["content_audited_at"] == "2026-08-29T00:00:00Z"
+
+
+def test_l3_row_tolerates_non_object_metadata_without_claiming_audit():
+    from routers.admin_reading import _normalise_l3_test_row
+
+    row = _normalise_l3_test_row({
+        "id": "uuid-1", "test_id": "R-1", "status": "published",
+        "metadata": ["corrupt legacy shape"],
+    })
+    assert row["locked"] is False
+    assert row["share_active"] is False
+    assert row["content_audit_status"] is None
 
 
 def test_all_view_groups_l3_as_test_rows():
