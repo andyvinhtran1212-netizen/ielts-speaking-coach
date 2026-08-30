@@ -506,9 +506,13 @@ export function ListeningTestSession() {
     setResumeOffset(Number.isFinite(offset) ? Math.max(0, Number(offset)) : null);
     const firstQuestion = Number(listeningQuestions(testData)[0]?.question?.q_num || 0);
     setCurrentQuestion(firstQuestion || null);
-    setAudioPromptOpen(!!testData && !isPracticeListeningTest(testData) && !params?.mockEmbed);
+    // Embedded mock sections still need an explicit user gesture before a
+    // browser may start media. Suppressing this prompt leaves full-test audio
+    // with no first-play control because the parent runner cannot call play()
+    // inside the iframe on the learner's behalf.
+    setAudioPromptOpen(!!testData && !isPracticeListeningTest(testData));
     setPhase('inprogress');
-  }, [params?.mockEmbed, params?.sittingId, resolveAudioOffset, testData]);
+  }, [params?.sittingId, resolveAudioOffset, testData]);
 
   const resume = useCallback(() => {
     if (!attempt) return;
@@ -643,7 +647,7 @@ export function ListeningTestSession() {
       setTestData(refreshed);
       setAudioReloadKey((value) => value + 1);
       setAudioError('');
-      setAudioPromptOpen(!isPracticeListeningTest(refreshed) && !params.mockEmbed);
+      setAudioPromptOpen(!isPracticeListeningTest(refreshed));
     } catch (caught: any) {
       setAudioError(`Chưa tải lại được audio. ${caught?.message || 'Kiểm tra kết nối rồi thử lại.'}`);
     } finally {
@@ -734,7 +738,7 @@ export function ListeningTestSession() {
         <div className="ft-rules"><ul><li>Mỗi câu trả lời được lưu vào máy chủ.</li><li>Refresh trang có thể tiếp tục đúng attempt đang mở.</li><li>{practice ? 'Bạn có thể tạm dừng, tua và nghe lại audio.' : 'Audio chỉ phát một lượt; không tua hoặc quay lại từ đầu.'}</li></ul></div>
         {resumeAvailable ? <p className="ft-resume-note">Bạn có bài đang làm dở với {answers.size} câu đã lưu. Tiếp tục để giữ attempt và mốc audio hiện tại.</p> : null}
         <div className="listening-next-actions"><a className="ft-control-btn ghost" href={backHref}>← Quay lại</a>
-          {resumeAvailable ? <button className="ft-control-btn" type="button" onClick={resume}>Tiếp tục bài đang làm</button> : null}
+          {resumeAvailable ? <button className="ft-control-btn" id="ft-resume-btn" type="button" onClick={resume}>Tiếp tục bài đang làm</button> : null}
           <button className="ft-control-btn ghost" id="btn-start" type="button" onClick={() => {
             if (!resumeAvailable) { void startFresh(); return; }
             if (window.confirm('Bài đang làm sẽ bị bỏ và thay bằng attempt mới. Tiếp tục?')) void startFresh();
@@ -753,7 +757,7 @@ export function ListeningTestSession() {
           {audioError ? <div className="ft-audio-error" role="alert"><span>{audioError}</span><button className="ft-control-btn ghost" type="button" onClick={() => void retryAudio()} disabled={audioRetrying}>{audioRetrying ? 'Đang tải lại…' : 'Tải lại audio'}</button></div> : null}
           <div className="ft-audio-controls">
             {practice ? <><button className="ft-control-btn" type="button" onClick={toggleAudio}>{playing ? '⏸ Tạm dừng' : '▶ Play'}</button><input aria-label="Audio progress (kéo để tua)" type="range" min="0" max={Math.max(1, duration)} value={currentTime} onChange={(event) => { const next = Number(event.target.value); if (audioRef.current) audioRef.current.currentTime = next; setCurrentTime(next); }} /></>
-              : playbackStarted && !playing && !audioEnded ? <button className="ft-control-btn" type="button" onClick={startAudio}>▶ Tiếp tục</button> : null}
+              : !audioPromptOpen && !playing && !audioEnded ? <button className="ft-control-btn" type="button" onClick={startAudio}>{playbackStarted ? '▶ Tiếp tục' : '▶ Play'}</button> : null}
             <label>Volume <input aria-label="Âm lượng" type="range" min="0" max="100" defaultValue="100" onChange={(event) => { if (audioRef.current) audioRef.current.volume = Number(event.target.value) / 100; }} /></label>
           </div>
           <audio

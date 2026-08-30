@@ -30,22 +30,22 @@ const runVerifier = (runnerImage) => spawnSync(
 );
 
 describe('Listening Gate E failure matrix is pinned and auditable', () => {
-  test('manifest matches lockfile, config projects and exact eleven-path matrix', () => {
+  test('manifest matches lockfile, config projects and exact twelve-path matrix', () => {
     assert.equal(MANIFEST.playwright_version, LOCK.packages['node_modules/@playwright/test'].version);
-    assert.equal(MANIFEST.matrix_id, 'gate-e-listening-device-matrix-v4');
-    assert.equal(MANIFEST.expected_total_tests, 33);
-    assert.equal(MANIFEST.expected_tests.length, 11);
+    assert.equal(MANIFEST.matrix_id, 'gate-e-listening-device-matrix-v5');
+    assert.equal(MANIFEST.expected_total_tests, 36);
+    assert.equal(MANIFEST.expected_tests.length, 12);
     for (const project of MANIFEST.automated_projects) {
       assert.match(CONFIG, new RegExp(`name: '${project.project}'`));
-      assert.equal(MANIFEST.expected_project_counts[project.project], 11);
+      assert.equal(MANIFEST.expected_project_counts[project.project], 12);
     }
-    for (const title of MANIFEST.expected_tests.slice(0, 5)) {
+    for (const title of MANIFEST.expected_tests.slice(0, 6)) {
       assert.match(SPEC, new RegExp(`test\\('${title}'`));
     }
-    for (const title of MANIFEST.expected_tests.slice(5)) {
+    for (const title of MANIFEST.expected_tests.slice(6)) {
       assert.match(DICTATION_SPEC, new RegExp(`test\\('${title}'`));
     }
-    assert.equal((SPEC.match(/^test\('/gm) || []).length, 5);
+    assert.equal((SPEC.match(/^test\('/gm) || []).length, 6);
     assert.equal((DICTATION_SPEC.match(/^test\('/gm) || []).length, 6);
     assert.match(CONFIG, /^\s*retries:\s*0,\s*$/m);
     assert.match(CONFIG, /gate-e-listening-device-matrix-results\.json/);
