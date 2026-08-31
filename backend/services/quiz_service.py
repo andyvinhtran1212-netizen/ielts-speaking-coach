@@ -2717,6 +2717,7 @@ def course_writing_state(
         raise HTTPException(500, f"Lỗi đọc phần tự luận: {exc}")
 
     sub = rows[0] if rows else None
+    complete_sub = bool(sub) and not _writing_row_is_broken(sub)
     # Bản nháp đọc khi chưa có bản chấm HOÀN TẤT. Dòng partial từng làm client
     # xoá localStorage sau POST; không đọc bản dự phòng server ở đây thì mở lại
     # được khung viết nhưng khung trắng, dù đủ câu vẫn còn trong DB.
@@ -2748,11 +2749,11 @@ def course_writing_state(
             "subtype":  q.get("subtype"),
             "points":   q.get("points"),
             "item_key": q.get("item_key"),
-            **({"explain": q.get("explain")} if sub else {}),
+            **({"explain": q.get("explain")} if complete_sub else {}),
         } for q in qs],
-        # Dòng hỏng hoàn toàn KHÔNG phải "đã nộp": trang phải hiện lại KHUNG
-        # VIẾT để em ấy bấm Nộp lần nữa.
-        "submitted": bool(sub) and not _writing_row_is_broken(sub),
+        # Dòng partial KHÔNG phải "đã nộp": trang phải hiện lại KHUNG VIẾT để
+        # em ấy bấm Nộp lần nữa, nhưng không được lộ đáp án mẫu trước lượt đó.
+        "submitted": complete_sub,
         "grader_failed": _writing_row_is_broken(sub),
         # Bản nháp máy chủ giữ. `None` = máy chủ chưa có gì (hoặc đọc hỏng), và
         # trang sẽ dùng bản trong trình duyệt rồi đẩy lên.
@@ -2765,7 +2766,7 @@ def course_writing_state(
             "total":     sub.get("total"),
             "clean":     sub.get("clean"),
             "graded_at": sub.get("graded_at"),
-        } if (sub and not _writing_row_is_broken(sub)) else None),
+        } if complete_sub else None),
     }
 
 

@@ -169,14 +169,13 @@ def test_a_broken_row_does_not_read_as_SUBMITTED():
     """Trang đọc `submitted` để quyết hiện KHUNG VIẾT hay BẢN CHẤM."""
     import inspect
     src = inspect.getsource(qs.course_writing_state)
-    # ĐÚNG DÒNG `"submitted"`, không phải "đâu đó gần nó": dòng `grader_failed`
-    # nằm ngay bên dưới và cũng gọi cùng hàm, nên cắt theo khoảng ký tự sẽ xanh
-    # kể cả khi `submitted` quay về `bool(sub)`.
+    # Cùng một biến canonical phải giữ cả ba cổng: trạng thái nộp, đáp án mẫu
+    # và payload bản chấm. Nếu mỗi cổng tự tính, một lần sửa dễ làm chúng lệch.
+    assert "complete_sub = bool(sub) and not _writing_row_is_broken(sub)" in src
     line = next(l for l in src.splitlines() if '"submitted":' in l)
-    assert "_writing_row_is_broken" in line, line.strip()
-    # …và không phát ra một "bản chấm" rỗng để trang vẽ 0/10.
+    assert "complete_sub" in line, line.strip()
     j = src.index('"graded_at":')
-    assert "_writing_row_is_broken" in src[j:j + 300]
+    assert "if complete_sub else None" in src[j:j + 300]
 
 
 def test_a_broken_row_can_read_its_SERVER_DRAFT_again():

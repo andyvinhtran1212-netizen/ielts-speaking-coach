@@ -62,7 +62,7 @@ def _grade_with_error(msg):
             raise RuntimeError(msg)
 
     with patch.object(g, "_model", lambda: ("model-thử", _Boom())):
-        out, _ = asyncio.run(g._grade_batch(
+        out, _, _ = asyncio.run(g._grade_batch(
             [{"qid": "w1", "prompt": "đề", "answer": "câu em viết"}]))
     return out[0]
 
@@ -163,7 +163,7 @@ def test_fifteen_items_use_three_bounded_initial_batches():
 
     async def fake(batch):
         calls.append(len(batch))
-        return _ok(batch), "m"
+        return _ok(batch), "m", None
 
     with patch.object(g, "_grade_batch", fake):
         rows, _ = asyncio.run(g.grade(_items()))
@@ -180,13 +180,31 @@ def test_an_unreadable_six_item_response_is_split_and_recovered():
     async def fake(batch):
         calls.append([row["qid"] for row in batch])
         if len(batch) == 6 and batch[0]["qid"] == "w0":
-            return g._fallback(batch, "JSON hỏng"), "m"
-        return _ok(batch), "m"
+            return (g._fallback(batch, "JSON hỏng"), "m",
+                    g._BATCH_RESPONSE_FAILURE)
+        return _ok(batch), "m", None
 
     with patch.object(g, "_grade_batch", fake):
         rows, _ = asyncio.run(g.grade(_items()))
     assert [len(batch) for batch in calls] == [6, 3, 3, 6, 3]
     assert len(rows) == 15 and all(row["ok"] is True for row in rows)
+
+
+def test_a_provider_wide_failure_is_NOT_split_into_per_item_calls():
+    import asyncio
+    from unittest.mock import patch
+
+    calls = []
+
+    async def fake(batch):
+        calls.append(len(batch))
+        return (g._fallback(batch, "provider hỏng"), "m",
+                g._BATCH_PROVIDER_FAILURE)
+
+    with patch.object(g, "_grade_batch", fake):
+        rows, _ = asyncio.run(g.grade(_items()))
+    assert calls == [6, 6, 3]
+    assert len(rows) == 15 and all(row["ok"] is None for row in rows)
 
 
 def test_one_missing_qid_is_retried_alone():
@@ -200,7 +218,8 @@ def test_one_missing_qid_is_retried_alone():
         rows = _ok(batch)
         if len(batch) == 6:
             rows[2] = g._fallback([batch[2]], "bỏ sót")[0]
-        return rows, "m"
+            return rows, "m", g._BATCH_RESPONSE_FAILURE
+        return rows, "m", None
 
     with patch.object(g, "_grade_batch", fake):
         rows, _ = asyncio.run(g.grade(_items(6)))
@@ -225,7 +244,7 @@ def test_a_corrected_answer_cannot_delete_the_explanation_line():
             return _Response()
 
     with patch.object(g, "_model", lambda: ("m", _Model())):
-        rows, _ = asyncio.run(g._grade_batch([
+        rows, _, _ = asyncio.run(g._grade_batch([
             {"qid": "w1", "prompt": "đề", "answer": answer},
         ]))
     assert rows[0]["ok"] is None

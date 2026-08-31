@@ -224,6 +224,18 @@ def test_after_submitting_the_model_answer_comes_with_the_marking():
     assert st["submission"]["clean"] == 1
 
 
+def test_a_partial_submission_is_retryable_without_leaking_model_answers():
+    st = _state([{"id": "s1", "bank_id": "b1", "user_id": "u1",
+                  "class_assignment_item_id": "it1",
+                  "items": [{"qid": "E1", "ok": True},
+                            {"qid": "E2", "ok": None}],
+                  "total": 2, "clean": 1, "graded_at": "t"}])
+    assert st["submitted"] is False
+    assert st["grader_failed"] is True
+    assert st["submission"] is None
+    assert all("explain" not in q for q in st["questions"])
+
+
 # ── Bộ chấm: sửa lỗi, KHÔNG nâng cấp câu ─────────────────────────────────────
 
 def test_prompt_forbids_upgrading_in_plain_words():

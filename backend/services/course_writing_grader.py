@@ -41,6 +41,8 @@ _TIMEOUT_SECONDS = 45.0
 # được chia nhỏ/chấm lại ở `grade`, nên con số này là giới hạn bình thường chứ
 # không phải điểm lỗi duy nhất.
 _MAX_ITEMS_PER_CALL = 6
+_BATCH_PROVIDER_FAILURE = "provider"
+_BATCH_RESPONSE_FAILURE = "response"
 # Trần độ dài một câu. `quiz_service` TỪ CHỐI câu vượt trần trước khi tới đây —
 # cắt rồi chấm phần đầu nghĩa là phần đuôi model chưa từng đọc sẽ hiện ra như bị
 # xoá ở bản so sai→sửa. Lát cắt dưới đây chỉ còn là lưới an toàn cuối.
@@ -229,7 +231,9 @@ def _keeps_all_answer_lines(answer: Any, corrected: Any) -> bool:
     return len(after) >= len(before)
 
 
-async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], str | None]:
+async def _grade_batch(
+    batch: List[Dict[str, Any]],
+) -> tuple[List[Dict[str, Any]], str | None, str | None]:
     # Dựng client TRONG lớp bảo vệ: thiếu khoá API / tên model sai là lỗi cấu
     # hình, và nó phải thành một lời nhắn đọc được như mọi đường hỏng khác —
     # không phải một 500 nuốt mất lượt nộp DUY NHẤT của học viên.
@@ -237,7 +241,8 @@ async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]
         name, model = _model()
     except Exception as exc:  # noqa: BLE001
         logger.error("[course-writing] không dựng được client: %s", exc)
-        return _fallback(batch, "Bộ chấm chưa sẵn sàng."), None
+        return (_fallback(batch, "Bộ chấm chưa sẵn sàng."), None,
+                _BATCH_PROVIDER_FAILURE)
 
     payload = [{"qid": it["qid"],
                 "de": (it.get("prompt") or "")[:400],
@@ -250,7 +255,8 @@ async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]
             model.generate_content_async(prompt), timeout=_TIMEOUT_SECONDS)
     except asyncio.TimeoutError:
         logger.error("[course-writing] model quá hạn %ss", _TIMEOUT_SECONDS)
-        return _fallback(batch, "Bộ chấm không phản hồi kịp."), name
+        return (_fallback(batch, "Bộ chấm không phản hồi kịp."), name,
+                _BATCH_PROVIDER_FAILURE)
     except Exception as exc:  # noqa: BLE001
         # Lỗi thô của SDK ở lại log; học viên nhận một câu đọc được.
         #
@@ -261,10 +267,12 @@ async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]
         if _is_config_error(exc):
             logger.error("[course-writing] HỎNG CẤU HÌNH (%s): %s — sửa "
                          "COURSE_WRITING_MODEL / khoá API, nó sẽ KHÔNG tự khỏi", name, exc)
-            return _fallback(batch, "Bộ chấm đang lỗi cấu hình, đã báo quản trị. "
-                                    "Bài của em vẫn được lưu."), name
+            return (_fallback(batch, "Bộ chấm đang lỗi cấu hình, đã báo quản trị. "
+                                     "Bài của em vẫn được lưu."), name,
+                    _BATCH_PROVIDER_FAILURE)
         logger.error("[course-writing] gọi model hỏng: %s", exc)
-        return _fallback(batch, "Bộ chấm tạm thời không dùng được."), name
+        return (_fallback(batch, "Bộ chấm tạm thời không dùng được."), name,
+                _BATCH_PROVIDER_FAILURE)
 
     try:
         data = json.loads(_strip_fences(resp.text))
@@ -272,14 +280,17 @@ async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]
         by_qid = {r.get("qid"): r for r in (results or []) if isinstance(r, dict)}
     except Exception as exc:  # noqa: BLE001
         logger.error("[course-writing] không đọc được JSON: %s", exc)
-        return _fallback(batch, "Bộ chấm trả về kết quả không đọc được."), name
+        return (_fallback(batch, "Bộ chấm trả về kết quả không đọc được."), name,
+                _BATCH_RESPONSE_FAILURE)
 
     out: List[Dict[str, Any]] = []
+    failure_kind = None
     for it in batch:
         r = by_qid.get(it["qid"])
         if not r:
             # Thiếu MỘT câu không được kéo cả cụm xuống — nói riêng câu ấy.
             out.append(_fallback([it], "Bộ chấm bỏ sót câu này.")[0])
+            failure_kind = _BATCH_RESPONSE_FAILURE
             continue
         issues = [{**x, "type": _classify(x)}
                   for x in (r.get("issues") or []) if isinstance(x, dict)][:6]
@@ -288,6 +299,7 @@ async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]
             logger.error("[course-writing] corrected làm mất dòng qid=%s", it["qid"])
             out.append(_fallback(
                 [it], "Bộ chấm trả về kết quả không nhất quán.")[0])
+            failure_kind = _BATCH_RESPONSE_FAILURE
             continue
         out.append({
             "qid":       it["qid"],
@@ -305,7 +317,7 @@ async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]
             # tập này dạy.
             "ok":        not any(x["type"] in _COUNTED_TYPES for x in issues),
         })
-    return out, name
+    return out, name, failure_kind
 
 
 async def grade(items: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], str | None]:
@@ -323,10 +335,15 @@ async def grade(items: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], str 
         Không lặp vô hạn: mẻ một câu là lá. Nếu lá vẫn hỏng, tầng nộp sẽ trả
         503 và giữ nguyên nháp thay vì ghi một kết quả một phần.
         """
-        first, first_model = await _grade_batch(batch)
+        first, first_model, failure_kind = await _grade_batch(batch)
         failed = [item for item, result in zip(batch, first)
                   if result.get("ok") is None]
-        if not failed or len(batch) == 1:
+        # Timeout/429/5xx/config sẽ lặp lại cho mọi kích thước mẻ. Không chẻ
+        # chúng xuống từng câu: một mẻ sáu câu có thể thành 11 lượt gọi tuần tự
+        # và kéo endpoint gần chín phút. Chỉ response JSON hỏng/bỏ sót qid mới
+        # có khả năng được cứu bằng mẻ nhỏ hơn.
+        if (not failed or len(batch) == 1
+                or failure_kind != _BATCH_RESPONSE_FAILURE):
             return first, first_model
 
         # Hỏng cả response thường là JSON bị cắt/hỏng: gọi lại nguyên mẻ có
