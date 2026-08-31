@@ -141,3 +141,92 @@ def test_a_config_error_message_says_it_will_NOT_fix_itself():
     r = _grade_with_error("403 permission denied")
     assert "cấu hình" in (r.get("error") or "")
     assert "vẫn được lưu" in (r.get("error") or "")
+
+
+# ── Mẻ JSON hỏng phải tự chẻ nhỏ, không chốt một phần ─────────────────────
+
+def _items(n=15):
+    return [{"qid": f"w{i}", "prompt": "đề", "answer": "câu em viết"}
+            for i in range(n)]
+
+
+def _ok(batch):
+    return [{**row, "ok": True, "corrected": row["answer"], "issues": []}
+            for row in batch]
+
+
+def test_fifteen_items_use_three_bounded_initial_batches():
+    import asyncio
+    from unittest.mock import patch
+
+    calls = []
+
+    async def fake(batch):
+        calls.append(len(batch))
+        return _ok(batch), "m"
+
+    with patch.object(g, "_grade_batch", fake):
+        rows, _ = asyncio.run(g.grade(_items()))
+    assert calls == [6, 6, 3]
+    assert len(rows) == 15 and all(row["ok"] is True for row in rows)
+
+
+def test_an_unreadable_six_item_response_is_split_and_recovered():
+    import asyncio
+    from unittest.mock import patch
+
+    calls = []
+
+    async def fake(batch):
+        calls.append([row["qid"] for row in batch])
+        if len(batch) == 6 and batch[0]["qid"] == "w0":
+            return g._fallback(batch, "JSON hỏng"), "m"
+        return _ok(batch), "m"
+
+    with patch.object(g, "_grade_batch", fake):
+        rows, _ = asyncio.run(g.grade(_items()))
+    assert [len(batch) for batch in calls] == [6, 3, 3, 6, 3]
+    assert len(rows) == 15 and all(row["ok"] is True for row in rows)
+
+
+def test_one_missing_qid_is_retried_alone():
+    import asyncio
+    from unittest.mock import patch
+
+    calls = []
+
+    async def fake(batch):
+        calls.append([row["qid"] for row in batch])
+        rows = _ok(batch)
+        if len(batch) == 6:
+            rows[2] = g._fallback([batch[2]], "bỏ sót")[0]
+        return rows, "m"
+
+    with patch.object(g, "_grade_batch", fake):
+        rows, _ = asyncio.run(g.grade(_items(6)))
+    assert calls == [[f"w{i}" for i in range(6)], ["w2"]]
+    assert all(row["ok"] is True for row in rows)
+
+
+def test_a_corrected_answer_cannot_delete_the_explanation_line():
+    import asyncio
+    import json
+    from unittest.mock import patch
+
+    answer = "Tomorrow I am meeting my classmates.\nDùng hiện tại tiếp diễn."
+
+    class _Model:
+        async def generate_content_async(self, _prompt):
+            class _Response:
+                text = json.dumps({"results": [{
+                    "qid": "w1", "corrected": "Tomorrow I am meeting my classmates.",
+                    "issues": [], "ok": True,
+                }]})
+            return _Response()
+
+    with patch.object(g, "_model", lambda: ("m", _Model())):
+        rows, _ = asyncio.run(g._grade_batch([
+            {"qid": "w1", "prompt": "đề", "answer": answer},
+        ]))
+    assert rows[0]["ok"] is None
+    assert "không nhất quán" in rows[0]["error"]

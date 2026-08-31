@@ -5,10 +5,9 @@ lượt gọi model hỏng ăn mất lượt duy nhất và không đường nà
 06/08 model `gemini-2.5-flash-lite` bị ngừng cấp và TÁM em mất lượt — phải chạy
 một kịch bản riêng mới trả lại được (PR #970).
 
-Hai luật, và luật thứ hai quan trọng ngang luật thứ nhất:
-  · hỏng HOÀN TOÀN  → không ghi gì, nói thẳng, giữ nháp.
-  · chấm được dù MỘT câu → vẫn ghi. Đó là bản chấm thật, và bắt nộp lại sẽ vứt
-    luôn phần đã chấm được.
+Một luật nguyên tử: còn BẤT KỲ câu ``ok=None`` thì không ghi gì, nói thẳng và
+giữ nháp. Mẫu số của kết quả phải là toàn bộ phần tự luận, không phải số mẻ mà
+nhà cung cấp tình cờ trả JSON hợp lệ.
 """
 
 from __future__ import annotations
@@ -114,19 +113,17 @@ def test_and_the_student_is_told_their_work_is_SAFE():
     assert "vẫn còn nguyên" in d["message"] and "Nộp lại" in d["message"]
 
 
-def test_a_PARTIAL_grade_is_still_recorded():
-    """Chấm được dù chỉ một câu là bản chấm thật. Bắt nộp lại sẽ vứt luôn phần
-    đã chấm được — và lượt nộp chỉ có một."""
-    out, db = _submit(grade_oks=[True, None])
-    assert len(db.inserts) == 1
-    assert db.inserts[0]["clean"] == 1 and db.inserts[0]["total"] == 2
+def test_a_PARTIAL_grade_writes_NOTHING():
+    """Một câu thật + một câu chưa chấm không phải kết quả 1/2."""
+    with pytest.raises(HTTPException) as e:
+        _submit(grade_oks=[True, None])
+    assert e.value.status_code == 503
 
 
 def test_a_previously_BROKEN_submission_can_be_graded_again_in_place():
-    """Dòng cũ mà mọi câu `ok=None` không phải một lượt đã dùng — đó là một lượt
-    bị máy chủ làm hỏng."""
+    """Dòng cũ còn một câu `ok=None` không phải một lượt hoàn tất."""
     out, db = _submit(grade_oks=[True, True],
-                      prior_items=[{"qid": "w1", "ok": None}, {"qid": "w2", "ok": None}])
+                      prior_items=[{"qid": "w1", "ok": True}, {"qid": "w2", "ok": None}])
     assert db.inserts == [], "không được đẻ dòng thứ hai — mig 192 chỉ cho một"
     assert len(db.updates) == 1 and db.updates[0]["id"] == "old"
     assert db.updates[0]["clean"] == 2
@@ -136,7 +133,7 @@ def test_a_REAL_prior_submission_still_blocks_a_second_one():
     """Nới cho lượt hỏng KHÔNG được nới luôn cho lượt thật."""
     with pytest.raises(HTTPException) as e:
         _submit(grade_oks=[True, True],
-                prior_items=[{"qid": "w1", "ok": True}, {"qid": "w2", "ok": None}])
+                prior_items=[{"qid": "w1", "ok": True}, {"qid": "w2", "ok": False}])
     assert e.value.status_code == 409
 
 
@@ -148,11 +145,13 @@ def test_a_REAL_prior_submission_still_blocks_a_second_one():
 # — đường vá có mà không ai tới được (codex #971).
 
 BROKEN = [{"qid": "w1", "ok": None}, {"qid": "w2", "ok": None}]
-REAL = [{"qid": "w1", "ok": True}, {"qid": "w2", "ok": None}]
+REAL = [{"qid": "w1", "ok": True}, {"qid": "w2", "ok": False}]
+PARTIAL = [{"qid": "w1", "ok": True}, {"qid": "w2", "ok": None}]
 
 
 def test_one_rule_decides_what_a_broken_row_is():
     assert qs._writing_row_is_broken({"items": BROKEN}) is True
+    assert qs._writing_row_is_broken({"items": PARTIAL}) is True
     assert qs._writing_row_is_broken({"items": REAL}) is False
     assert qs._writing_row_is_broken({"items": []}) is False
     assert qs._writing_row_is_broken(None) is False
@@ -178,6 +177,14 @@ def test_a_broken_row_does_not_read_as_SUBMITTED():
     # …và không phát ra một "bản chấm" rỗng để trang vẽ 0/10.
     j = src.index('"graded_at":')
     assert "_writing_row_is_broken" in src[j:j + 300]
+
+
+def test_a_broken_row_can_read_its_SERVER_DRAFT_again():
+    """Lượt partial từng xoá localStorage sau POST thành công. Nếu API chỉ đọc
+    draft khi không có submission thì khung mở lại nhưng trắng 15 câu."""
+    import inspect
+    src = inspect.getsource(qs.course_writing_state)
+    assert "not sub or _writing_row_is_broken(sub)" in src
 
 
 def test_the_retry_write_is_a_COMPARE_AND_SWAP():
