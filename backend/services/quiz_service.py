@@ -1518,8 +1518,10 @@ def close_dead_course_sessions(db, *, idle_minutes: int = 120,
     return plan
 
 
-async def regrade_failed_course_writing(db, *, commit: bool = False) -> list[dict]:
-    """Chấm LẠI những lượt nộp tự luận mà bộ chấm đã hỏng hoàn toàn.
+async def regrade_failed_course_writing(
+    db, *, commit: bool = False, submission_id: str | None = None,
+) -> list[dict]:
+    """Chấm LẠI những lượt nộp tự luận còn ít nhất một câu chưa chấm được.
 
     Lượt nộp tự luận chỉ có MỘT. Khi bộ chấm hỏng, dòng vẫn được ghi với mọi câu
     `ok=None` — bài của em ấy còn nguyên, nhưng lượt thì đã tiêu, và không đường
@@ -1529,9 +1531,13 @@ async def regrade_failed_course_writing(db, *, commit: bool = False) -> list[dic
     Chấm lại từ chính CÂU ĐÃ LƯU, không nhận nội dung mới: đây là sửa một lượt
     chấm hỏng, không phải mở lại một lượt nộp.
 
-    Chỉ đụng những dòng hỏng HOÀN TOÀN (mọi câu `ok is None`). Một dòng chấm
-    được dù chỉ một câu là một bản chấm thật — chấm lại nó là ghi đè kết quả của
-    học viên bằng một lượt gọi model khác.
+    Một dòng có cả câu thật lẫn câu ``ok=None`` vẫn CHƯA phải bản chấm hoàn tất:
+    Thanh Nhàn bị mẻ 12 câu hỏng nhưng mẻ 3 câu sau qua, và hệ thống cũ chốt
+    thành 3/15. Chấm lại toàn bộ snapshot giữ một kết quả nhất quán; chỉ ghi khi
+    lần chấm mới không còn câu chưa đọc được.
+
+    ``submission_id`` cho phép phục hồi đúng một lượt trước, rồi mới mở rộng
+    batch nếu cần; không bắt thao tác production phải quét và ghi mọi học viên.
 
     `commit=False` là mặc định: đọc xem nó định làm gì trước đã.
     """
@@ -1540,23 +1546,25 @@ async def regrade_failed_course_writing(db, *, commit: bool = False) -> list[dic
         rows = _report_pages("course_writing_submissions",
                              "id, user_id, bank_id, class_assignment_item_id, "
                              "items, total, clean, graded_at",
-                             lambda q: q, db=db)
+                             (lambda q: q.eq("id", submission_id))
+                             if submission_id else (lambda q: q), db=db)
     except Exception as exc:  # noqa: BLE001
         logger.warning("[course-writing] regrade: không đọc được lượt nộp: %s", exc)
         return out
 
     for r in rows:
         items = r.get("items") or []
-        if not items or any(i.get("ok") is not None for i in items):
+        if not items or all(i.get("ok") is not None for i in items):
             continue
         batch = [{"qid": i.get("qid"), "prompt": i.get("prompt") or "",
                   "explain": i.get("explain") or "", "answer": i.get("answer") or ""}
                  for i in items]
         graded, model_name = await course_writing_grader.grade(batch)
         clean = sum(1 for g in graded if g.get("ok") is True)
-        still_broken = all(g.get("ok") is None for g in graded)
+        still_broken = any(g.get("ok") is None for g in graded)
         plan = {"id": r["id"], "user_id": r.get("user_id"), "total": len(graded),
-                "clean": clean, "model": model_name, "fixed": not still_broken}
+                "clean": clean, "model": model_name, "fixed": not still_broken,
+                "failed_before": sum(i.get("ok") is None for i in items)}
         out.append(plan)
         if commit and not still_broken:
             # Vẫn hỏng thì KHÔNG ghi: ghi đè một bản hỏng bằng một bản hỏng khác
@@ -1596,6 +1604,19 @@ async def regrade_failed_course_writing(db, *, commit: bool = False) -> list[dic
                 except Exception as exc:  # noqa: BLE001
                     logger.warning("[course-writing] regrade: đồng bộ điểm hỏng "
                                    "item=%s: %s", item_id, exc)
+            # Bank nhiều phần không lấy điểm Writing ghi đè điểm tổng; nó đọc
+            # checklist canonical. Thanh Nhàn đang có writing=3/15 trong
+            # `mastery`, nên sửa mỗi submission vẫn để hai màn hình cãi nhau.
+            if item_id and db is supabase_admin:
+                try:
+                    refresh_course_completion(
+                        user_id=r.get("user_id"), bank_id=r.get("bank_id"),
+                        item_id=item_id,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("[course-writing] regrade: làm mới tiến độ hỏng "
+                                   "item=%s: %s", item_id, exc)
+                    plan["completion_pending"] = True
     return out
 
 
@@ -2696,10 +2717,12 @@ def course_writing_state(
         raise HTTPException(500, f"Lỗi đọc phần tự luận: {exc}")
 
     sub = rows[0] if rows else None
-    # Bản nháp CHỈ đọc khi chưa nộp: nộp rồi thì nháp là rác, và rót nó ra màn
-    # hình chỉ để một ngày nào đó nó đè lên bài đã chấm.
+    complete_sub = bool(sub) and not _writing_row_is_broken(sub)
+    # Bản nháp đọc khi chưa có bản chấm HOÀN TẤT. Dòng partial từng làm client
+    # xoá localStorage sau POST; không đọc bản dự phòng server ở đây thì mở lại
+    # được khung viết nhưng khung trắng, dù đủ câu vẫn còn trong DB.
     draft = None
-    if item and not sub:
+    if item and (not sub or _writing_row_is_broken(sub)):
         try:
             all_drafts = (supabase_admin.table("course_writing_drafts")
                  .select("answers, updated_at, attempt_no")
@@ -2726,11 +2749,11 @@ def course_writing_state(
             "subtype":  q.get("subtype"),
             "points":   q.get("points"),
             "item_key": q.get("item_key"),
-            **({"explain": q.get("explain")} if sub else {}),
+            **({"explain": q.get("explain")} if complete_sub else {}),
         } for q in qs],
-        # Dòng hỏng hoàn toàn KHÔNG phải "đã nộp": trang phải hiện lại KHUNG
-        # VIẾT để em ấy bấm Nộp lần nữa.
-        "submitted": bool(sub) and not _writing_row_is_broken(sub),
+        # Dòng partial KHÔNG phải "đã nộp": trang phải hiện lại KHUNG VIẾT để
+        # em ấy bấm Nộp lần nữa, nhưng không được lộ đáp án mẫu trước lượt đó.
+        "submitted": complete_sub,
         "grader_failed": _writing_row_is_broken(sub),
         # Bản nháp máy chủ giữ. `None` = máy chủ chưa có gì (hoặc đọc hỏng), và
         # trang sẽ dùng bản trong trình duyệt rồi đẩy lên.
@@ -2743,7 +2766,7 @@ def course_writing_state(
             "total":     sub.get("total"),
             "clean":     sub.get("clean"),
             "graded_at": sub.get("graded_at"),
-        } if (sub and not _writing_row_is_broken(sub)) else None),
+        } if complete_sub else None),
     }
 
 
@@ -2813,8 +2836,9 @@ def save_course_writing_draft(*, user_id: str, bank_id: str,
 def _writing_row_is_broken(sub) -> bool:
     """Dòng nộp này có phải một lượt bị MÁY CHỦ làm hỏng không?
 
-    Mọi câu `ok=None` nghĩa là bộ chấm hỏng hoàn toàn — bài còn nguyên nhưng
-    chưa ai chấm. Đó KHÔNG phải một lượt đã dùng.
+    Chỉ MỘT câu `ok=None` cũng nghĩa là bản chấm chưa hoàn tất. Nếu coi một mẻ
+    3 câu thành công là đủ để chốt mẻ 12 câu hỏng, trang sẽ khoá bài và ghi
+    3/15 như thể đó là năng lực của học viên.
 
     Ba nơi phải nói cùng một câu, nếu không đường chấm lại có mà không tới
     được: `course_writing_state` (trang khoá khung viết), `save_course_writing_
@@ -2823,7 +2847,7 @@ def _writing_row_is_broken(sub) -> bool:
     (codex #971).
     """
     items = (sub or {}).get("items") or []
-    return bool(items) and all(i.get("ok") is None for i in items)
+    return bool(items) and any(i.get("ok") is None for i in items)
 
 
 async def submit_course_writing(*, user_id: str, bank_id: str,
@@ -2892,8 +2916,8 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
         already = _course_rows_for_attempt(all_submissions, attempt_no)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi kiểm lượt nộp: {exc}")
-    # Dòng cũ mà bộ chấm hỏng HOÀN TOÀN thì KHÔNG phải một lượt đã dùng — đó là
-    # một lượt bị máy chủ làm hỏng. Cho chấm lại TẠI CHỖ, dùng lại đúng dòng ấy.
+    # Dòng cũ còn BẤT KỲ câu chưa chấm được thì KHÔNG phải một lượt hoàn tất.
+    # Cho chấm lại TẠI CHỖ, dùng lại đúng dòng ấy.
     retry_of = retry_stamp = None
     if already:
         if _writing_row_is_broken(already[0]):
@@ -2914,7 +2938,7 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
               "answer": str(answers.get(q["qid"]) or "").strip()} for q in qs]
     graded, model_name = await course_writing_grader.grade(items)
 
-    # ── CHẤM HỎNG HẾT THÌ KHÔNG TIÊU LƯỢT NỘP ───────────────────────────────
+    # ── CHƯA CHẤM ĐỦ THÌ KHÔNG TIÊU LƯỢT NỘP ────────────────────────────────
     #
     # Lượt nộp tự luận chỉ có MỘT. Bản trước ghi dòng dù mọi câu `ok=None`, nên
     # một lượt gọi model hỏng ăn mất lượt duy nhất của học viên và không đường
@@ -2924,13 +2948,15 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     # Nay: không ghi gì, nói thẳng, và giữ nguyên bản nháp trên máy chủ để em ấy
     # bấm Nộp lại mà không phải gõ lại chữ nào.
     #
-    # Chấm được dù CHỈ MỘT câu thì vẫn ghi: đó là một bản chấm thật, và bắt em
-    # ấy nộp lại sẽ vứt luôn phần đã chấm được.
-    if graded and all(g.get("ok") is None for g in graded):
-        logger.error("[quiz] tự luận: bộ chấm hỏng hoàn toàn, KHÔNG ghi lượt nộp "
-                     "item=%s model=%s", item["id"], model_name)
+    # Một bản chấm là giao dịch trọn cụm: còn một câu `ok=None` thì chưa có mẫu
+    # số đáng tin. Bộ chấm đã tự chia nhỏ/chấm lại mẻ lỗi; nếu vẫn còn lỗi ở đây
+    # thì KHÔNG ghi và giữ nguyên nháp để em bấm lại.
+    if graded and any(g.get("ok") is None for g in graded):
+        logger.error("[quiz] tự luận: bộ chấm chưa đủ câu, KHÔNG ghi lượt nộp "
+                     "item=%s model=%s unresolved=%s", item["id"], model_name,
+                     sum(g.get("ok") is None for g in graded))
         raise HTTPException(503, {
-            "message": "Bộ chấm đang không dùng được nên chưa chấm được bài của "
+            "message": "Bộ chấm chưa đọc được đủ mọi câu nên chưa chốt bài của "
                        "em. Bài vẫn còn nguyên — bấm Nộp lại sau ít phút.",
             "grader_down": True,
         })

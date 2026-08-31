@@ -1,4 +1,4 @@
-"""Chấm lại lượt nộp tự luận mà bộ chấm đã hỏng HOÀN TOÀN.
+"""Chấm lại lượt nộp tự luận còn bất kỳ câu nào chưa chấm được.
 
 Lượt nộp tự luận chỉ có MỘT. Bộ chấm hỏng thì dòng vẫn được ghi với mọi câu
 `ok=None` — bài còn nguyên nhưng lượt đã tiêu, và không đường nào chấm lại.
@@ -68,17 +68,31 @@ def test_a_fully_failed_submission_is_regraded():
     assert len(db.writes) == 1 and db.writes[0]["clean"] == 10
 
 
-def test_a_submission_that_graded_even_ONE_question_is_left_alone():
-    """Một bản chấm thật, dù chỉ một câu. Chấm lại nó là ghi đè kết quả của học
-    viên bằng một lượt gọi model khác."""
+def test_a_PARTIALLY_failed_submission_is_regraded_as_one_consistent_result():
+    """Ba câu thật không biến mười hai câu lỗi thành một kết quả 3/15."""
     plan, db = _run([_sub("s1", [True] + [None] * 9)], grade_result=True, commit=True)
-    assert plan == [] and db.writes == []
+    assert len(plan) == 1 and plan[0]["failed_before"] == 9
+    assert len(db.writes) == 1 and db.writes[0]["clean"] == 10
 
 
 def test_a_regrade_that_ALSO_fails_writes_nothing():
     """Ghi đè một bản hỏng bằng một bản hỏng khác chỉ làm mất dấu vết lần đầu."""
     plan, db = _run([_sub("s1", [None] * 10)], grade_result=None, commit=True)
     assert len(plan) == 1 and plan[0]["fixed"] is False
+    assert db.writes == []
+
+
+def test_a_regrade_with_even_ONE_unresolved_item_writes_nothing():
+    db = _DB([_sub("s1", [True] + [None] * 2)])
+
+    async def partial(batch):
+        rows = [{**b, "ok": True, "corrected": "x", "issues": []} for b in batch]
+        rows[-1]["ok"] = None
+        return rows, "model-mới"
+
+    with patch.object(qs.course_writing_grader, "grade", partial):
+        plan = asyncio.run(qs.regrade_failed_course_writing(db, commit=True))
+    assert plan[0]["fixed"] is False
     assert db.writes == []
 
 
@@ -103,6 +117,19 @@ def test_an_empty_items_list_is_skipped():
     plan, _ = _run([{"id": "s1", "user_id": "u1", "items": [], "total": 0, "clean": 0}],
                    grade_result=True)
     assert plan == []
+
+
+def test_targeted_regrade_only_reads_the_requested_submission():
+    db = _DB([_sub("s1", [None]), _sub("s2", [None])])
+
+    async def grade(batch):
+        return [{**b, "ok": True} for b in batch], "m"
+
+    with patch.object(qs.course_writing_grader, "grade", grade):
+        plan = asyncio.run(qs.regrade_failed_course_writing(
+            db, commit=True, submission_id="s2"))
+    assert [p["id"] for p in plan] == ["s2"]
+    assert [w["id"] for w in db.writes] == ["s2"]
 
 
 def _writing_only(fn):
