@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
@@ -55,6 +55,21 @@ test('redirect soak can intercept the same frozen manifest without browser-cache
     redirects.map(({ source, destination, has }) => ({ source, destination, has })),
   );
   assert.ok(soakRedirects.every((entry) => entry.permanent === false));
+});
+
+test('G1 changes phase explicitly: runtime redirects replace unreachable Legacy parity', () => {
+  const workflow = readFileSync(
+    path.join(FRONTEND, '..', '.github', 'workflows', 'parity-gate.yml'),
+    'utf8',
+  );
+  assert.match(workflow, /id: gate_f/);
+  assert.match(workflow, /LEGACY_RETIREMENT_REDIRECTS_PERMANENT = true/);
+  assert.match(workflow, /name: Kiểm Gate F redirect manifest ở runtime/);
+  const phaseGuard = String.raw`\n\s+if: steps\.gate_f\.outputs\.redirect_installed != 'true'`;
+  assert.match(workflow, new RegExp(`name: Kiểm vế legacy phục vụ được VÀ gọi được backend${phaseGuard}`));
+  assert.match(workflow, new RegExp(`name: Chọn phạm vi theo tệp đã sửa${phaseGuard}`));
+  assert.match(workflow, new RegExp(`name: Chạy cổng parity \\(desktop \\+ điện thoại\\)${phaseGuard}`));
+  assert.match(workflow, new RegExp(`name: Cổng đường-ghi \\(vế legacy — cùng bản khai\\)${phaseGuard}`));
 });
 
 test('every redirect destination resolves to a real App Router owner', () => {

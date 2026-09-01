@@ -964,11 +964,57 @@ jobs:
           done
           echo "Next KHÔNG khởi động được (cổng bận?):"; tail -40 /tmp/next.log; exit 1
 
+      # G1 chỉ có nghĩa khi vế Legacy còn render trực tiếp. Gate F thay đổi
+      # contract: URL Legacy vẫn tồn tại nhưng phải bị redirect trước static
+      # file serving. Phát hiện phase từ report canonical để không biến một
+      # redirect đúng thành parity đỏ, đồng thời không skip im lặng.
+      - name: Phát hiện phase Gate F redirect
+        id: gate_f
+        run: |
+          if grep -q "from './tooling/gate-f-retirement-redirects.mjs'" next.config.ts \
+            && grep -q '\.\.\.LEGACY_RETIREMENT_REDIRECTS' next.config.ts; then
+            echo 'redirect_installed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'redirect_installed=false' >> "$GITHUB_OUTPUT"
+          fi
+          if grep -q 'LEGACY_RETIREMENT_REDIRECTS_PERMANENT = true' next.config.ts; then
+            echo 'permanent=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'permanent=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Kiểm Gate F redirect manifest ở runtime
+        if: steps.gate_f.outputs.redirect_installed == 'true'
+        run: |
+          EXPECTED=307
+          [ "${{ steps.gate_f.outputs.permanent }}" = "true" ] && EXPECTED=308
+
+          assert_redirect() {
+            local source="$1" expected_location="$2"
+            local headers code location
+            headers=$(curl -sS -o /dev/null -D - "http://localhost:$PARITY_PORT$source" | tr -d '\r')
+            code=$(printf '%s\n' "$headers" | awk 'NR == 1 { print $2 }')
+            location=$(printf '%s\n' "$headers" | awk 'tolower($1) == "location:" { print $2; exit }')
+            [ "$code" = "$EXPECTED" ] || {
+              echo "$source trả $code, cần $EXPECTED"; exit 1;
+            }
+            [ "$location" = "$expected_location" ] || {
+              echo "$source redirect tới $location, cần $expected_location"; exit 1;
+            }
+          }
+
+          assert_redirect '/index.html' '/'
+          assert_redirect '/pages/profile.html' '/profile'
+          assert_redirect '/pages/grammar-article.html?category=articles&slug=a-an-the' '/grammar/articles/a-an-the?category=articles&slug=a-an-the'
+          assert_redirect '/pages/admin/classes/index.html?tab=students' '/admin/students?tab=students'
+          echo "Gate F runtime redirect manifest OK ($EXPECTED)."
+
       # Chốt chặn hạ tầng: nếu vế legacy không gọi được backend thì mọi so sánh
       # sau đó vô giá trị — bản Next sẽ chỉ toàn "thừa" (mức thấp) và cả bảng
       # xanh. Bộ so có `baseline-suspect` cho việc này, nhưng kiểm sớm ở đây thì
       # thông báo dễ hiểu hơn nhiều so với một bảng lệch dài.
       - name: Kiểm vế legacy phục vụ được VÀ gọi được backend
+        if: steps.gate_f.outputs.redirect_installed != 'true'
         run: |
           code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PARITY_PORT/grammar.html")
           [ "$code" = "200" ] || { echo "legacy /grammar.html trả $code"; exit 1; }
@@ -993,6 +1039,7 @@ jobs:
       # `--categories-only` thì lần chạy CHẶN-MERGE không hề mở một trang bài
       # nào; lịch đêm chỉ phát hiện SAU khi đã merge. Ca đó phải chạy bộ đầy đủ.
       - name: Chọn phạm vi theo tệp đã sửa
+        if: steps.gate_f.outputs.redirect_installed != 'true'
         id: scope
         run: |
           if [ -n "${{ inputs.scope }}" ]; then
@@ -1043,6 +1090,7 @@ jobs:
       # Chạy CẢ HAI rồi mới thoát, để báo cáo hiện đủ hai bề rộng thay vì dừng
       # ở cái đỏ đầu tiên.
       - name: Chạy cổng parity (desktop + điện thoại)
+        if: steps.gate_f.outputs.redirect_installed != 'true'
         env:
           PROBE_EMAIL: ${{ secrets.PROBE_EMAIL }}
           PROBE_PASSWORD: ${{ secrets.PROBE_PASSWORD }}
@@ -1593,6 +1641,7 @@ jobs:
       # Chỉ chạy các luồng CÓ khai `legacyRoute`; luồng của trang chỉ-có-Next sẽ
       # rơi về `route` và bước này thành trùng lặp vô hại.
       - name: Cổng đường-ghi (vế legacy — cùng bản khai)
+        if: steps.gate_f.outputs.redirect_installed != 'true'
         env:
           WF_LEGACY: '1'
         run: node tooling/verify-write-flows.mjs "http://localhost:$PARITY_PORT"
