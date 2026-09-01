@@ -106,7 +106,7 @@
     { "path": "frontend/tooling/verify-gate-e-live-staging-failure-evidence.mjs", "sha256": "8e3a6e9bd7e48ad9212a14c469497fc5afe743d77501f7f3fc174d4357898389" },
     { "path": "frontend/tests/gate-e-live-staging-failure-evidence.test.mjs", "sha256": "88256110a058edd0dc56072b578a5d5ad5917b1606faa53d00615a6e3229d76f" },
     { "path": "frontend/playwright.gate-e.config.js", "sha256": "bbafe0f8547aceb85cca9cf4ecdebf4b2d23acf708f2bb3ec80edbccea75f828" },
-    { "path": "frontend/tooling/gate-e-speaking-device-matrix.json", "sha256": "e6ad5134f7f1b8be3149084e2b7793b12dfec09dede4302c5198b8774b712194" },
+    { "path": "frontend/tooling/gate-e-speaking-device-matrix.json", "sha256": "14a9c27b895cea64552d13bdb291931f26f903e12905945c1a6ad7de29f95e7d" },
     { "path": "frontend/tooling/verify-gate-e-speaking-device-matrix.mjs", "sha256": "64c34d5e35681cfe5d793ae9619ca606d0946c833f5ebf5627d154e059c0133b" },
     { "path": "frontend/tooling/verify-gate-e-speaking-failure-evidence.mjs", "sha256": "158911ffaf036f39fb7573d38231deb54075f0d094481320e6ab3848f94757d6" },
     { "path": "frontend/tests/gate-e/native-speaking-cross-version-resume.spec.js", "sha256": "a195b74031ff24971819021aad47aae20b033b7dc57d87f6b0b6cee8f4b4c571" },

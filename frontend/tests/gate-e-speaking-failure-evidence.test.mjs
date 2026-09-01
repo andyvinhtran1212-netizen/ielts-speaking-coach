@@ -82,11 +82,11 @@ const runVerifier = (testedRoot) => spawnSync(
 );
 
 describe('Speaking failure evidence is semantic and fail-closed', () => {
-  test('accepts the exact frozen 46-test/3-project report and complete HTML bundle', () => {
+  test('accepts the exact frozen 49-test/3-project report and complete HTML bundle', () => {
     assert.deepEqual(validateSpeakingFailureJson(MANIFEST, validReport()).project_counts, {
-      'gate-e-chromium-desktop': 16,
-      'gate-e-webkit-desktop': 15,
-      'gate-e-webkit-iphone13': 15,
+      'gate-e-chromium-desktop': 17,
+      'gate-e-webkit-desktop': 16,
+      'gate-e-webkit-iphone13': 16,
     });
     assert.ok(validateSpeakingFailureHtml(validHtml()).embedded_bytes > 22);
   });
@@ -97,7 +97,7 @@ describe('Speaking failure evidence is semantic and fail-closed', () => {
     empty.suites = [];
     assert.throws(
       () => validateSpeakingFailureJson(MANIFEST, empty),
-      /JSON discovered 0 tests != 46/,
+      /JSON discovered 0 tests != 49/,
     );
   });
 
@@ -106,7 +106,7 @@ describe('Speaking failure evidence is semantic and fail-closed', () => {
     wrongCount.suites[0].specs[0].tests.pop();
     assert.throws(
       () => validateSpeakingFailureJson(MANIFEST, wrongCount),
-      /JSON discovered 45 tests != 46/,
+      /JSON discovered 48 tests != 49/,
     );
 
     const failed = validReport();
@@ -123,7 +123,7 @@ describe('Speaking failure evidence is semantic and fail-closed', () => {
       item.projectId = item.projectName;
       delete item.projectName;
     }
-    assert.equal(validateSpeakingFailureJson(MANIFEST, report).total_tests, 46);
+    assert.equal(validateSpeakingFailureJson(MANIFEST, report).total_tests, 49);
   });
 
   test('rejects a truncated or semantically empty HTML report', () => {
