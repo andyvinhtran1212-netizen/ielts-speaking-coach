@@ -14,6 +14,10 @@ import {
   periodDelta,
   safeActivityLink,
 } from '../lib/admin-overview-model.mjs';
+import {
+  buildLegacyRetirementRedirects,
+  discoverLegacyHtmlPaths,
+} from '../tooling/gate-f-retirement-redirects.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -26,7 +30,10 @@ const BROWSER_FLOW = read('tooling', 'verify-admin-overview-flow.mjs');
 const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const ADMIN_STUB = read('public', 'admin.html');
-const CONFIG = read('next.config.ts');
+const RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
+  discoverLegacyHtmlPaths(join(ROOT, 'public')),
+  { permanent: false },
+);
 
 describe('/admin — native overview ownership', () => {
   test('owns the canonical route behind the backend-owned admin gate', () => {
@@ -38,7 +45,11 @@ describe('/admin — native overview ownership', () => {
     assert.match(CHROME, /<a href="\/admin" class="brand">/);
     assert.doesNotMatch(CHROME, /href: '\/pages\/admin\/index\.html'/);
     assert.match(ADMIN_STUB, /window\.location\.replace\('\/admin'\)/);
-    assert.match(CONFIG, /source: '\/pages\/admin\/dashboard\/index\.html', destination: '\/admin', permanent: false/);
+    assert.ok(RETIREMENT_REDIRECTS.some((entry) => (
+      entry.source === '/pages/admin/dashboard/index.html'
+        && entry.destination === '/admin'
+        && entry.permanent === false
+    )));
   });
 
   test('loads the measured admin cascade and width-safe slotted layout', () => {

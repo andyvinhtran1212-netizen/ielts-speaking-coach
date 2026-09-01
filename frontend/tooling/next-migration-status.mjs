@@ -35,6 +35,32 @@ export function retirementRedirectsInstalledFromConfig(source) {
     && /return \[[\s\S]*\.\.\.LEGACY_RETIREMENT_REDIRECTS/.test(config);
 }
 
+export function retirementRedirectsPermanentFromConfig(source) {
+  const config = String(source || '');
+  const call = config.match(
+    /const LEGACY_RETIREMENT_REDIRECTS\s*=\s*buildLegacyRetirementRedirects\(([\s\S]*?)\n?\s*\);/,
+  );
+  if (!call) return null;
+
+  const literal = call[1].match(/\bpermanent\s*:\s*(true|false)\b/);
+  if (literal) return literal[1] === 'true';
+
+  const reference = call[1].match(/\bpermanent\s*:\s*([A-Za-z_$][\w$]*)\b/);
+  if (reference) {
+    const declaration = config.match(new RegExp(
+      `const\\s+${reference[1]}\\s*=\\s*(true|false)\\s*;`,
+    ));
+    return declaration ? declaration[1] === 'true' : null;
+  }
+
+  // The helper's supported default is permanent=true. A second-argument
+  // expression could override it beyond what this static audit can prove, so
+  // fail closed instead of reporting a rollback-safe 307 by assumption.
+  const hasOptionsExpression = /,\s*(?!\{)[A-Za-z_$][\w$]*\s*$/.test(call[1]);
+  if (hasOptionsExpression) return null;
+  return true;
+}
+
 function walkFiles(root, accept, prefix = '') {
   const files = [];
   for (const entry of readdirSync(root, { withFileTypes: true })) {
@@ -109,8 +135,12 @@ export function collectNextMigrationStatus(
   const configSource = readFileSync(path.join(frontendRoot, 'next.config.ts'), 'utf8');
   const redirects = redirectSourcesFromConfig(configSource);
   const retirementRedirectsInstalled = retirementRedirectsInstalledFromConfig(configSource);
+  const retirementRedirectsPermanent = retirementRedirectsPermanentFromConfig(configSource);
   const retirementRedirectRules = retirementRedirectsInstalled
-    ? buildLegacyRetirementRedirects(publicHtmlPaths)
+    && retirementRedirectsPermanent !== null
+    ? buildLegacyRetirementRedirects(publicHtmlPaths, {
+      permanent: retirementRedirectsPermanent,
+    })
     : [];
   for (const redirect of retirementRedirectRules) {
     redirects.set(redirect.source, {
@@ -139,8 +169,13 @@ export function collectNextMigrationStatus(
   const legacyReplacement = buildLegacyReplacementInventory(
     replacementPaths,
     productAppPages,
+    { redirectsInstalled: retirementRedirectsInstalled },
   );
   const blockers = [];
+  if (retirementRedirectsInstalled && retirementRedirectsPermanent === null) blockers.push({
+    code: 'legacy-retirement-redirect-permanence-unproven',
+    count: 1,
+  });
   if (legacyHtml.renderable.length) blockers.push({
     code: 'legacy-html-renderable',
     count: legacyHtml.renderable.length,
@@ -163,7 +198,7 @@ export function collectNextMigrationStatus(
   if (ownership.collisions.length) blockers.push({ code: 'route-ownership-collision', count: ownership.collisions.length, details: ownership.collisions });
 
   return {
-    schemaVersion: 3,
+    schemaVersion: 5,
     scope: 'static-code-cutover',
     scopeNote: 'Gate D/E/F operational evidence is tracked separately and remains required before declaring the migration complete.',
     appPages: {
@@ -187,6 +222,7 @@ export function collectNextMigrationStatus(
     legacyReplacement,
     legacyRetirementRedirects: {
       installed: retirementRedirectsInstalled,
+      permanent: retirementRedirectsPermanent,
       artifactSet: RETIREMENT_ARTIFACT_SET,
       rules: retirementRedirectRules.length,
       sourcePaths: [...new Set(retirementRedirectRules.map((entry) => entry.source))].length,

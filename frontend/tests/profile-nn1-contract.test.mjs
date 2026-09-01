@@ -16,6 +16,11 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  buildLegacyRetirementRedirects,
+  discoverLegacyHtmlPaths,
+} from '../tooling/gate-f-retirement-redirects.mjs';
+
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const REPO = path.dirname(FRONTEND);
 const read = (...p) => readFileSync(path.join(...p), 'utf8');
@@ -85,11 +90,18 @@ test('every field the clients READ is returned by the backend GET (no-removal â€
   }
 });
 
-test('the cutover redirect keeps the legacy consumer reachable on rollback', () => {
-  // ADR-009 rollback-safety: the legacy page file must stay on disk and the
-  // redirect must be TEMPORARY so a rolled-back /profile (404) does not strand
-  // clients that cached a permanent redirect.
-  const cfg = read(FRONTEND, 'next.config.ts');
-  assert.match(cfg, /source: '\/pages\/profile\.html', destination: '\/profile', permanent: false/,
-    'legacy profile path must consolidate via a TEMPORARY redirect (rollback-safe)');
+test('Gate F redirect soak preserves the N/N-1 legacy consumer as a rollback artifact', () => {
+  // Rollback safety during redirect soak comes from keeping the tested Legacy
+  // consumer in the deployment artifact and reverting the routing release.
+  // While the soak release is active, the public path must never render it.
+  const redirects = buildLegacyRetirementRedirects(
+    discoverLegacyHtmlPaths(path.join(FRONTEND, 'public')),
+    { permanent: false },
+  );
+  assert.ok(redirects.some((entry) => (
+    entry.source === '/pages/profile.html'
+      && entry.destination === '/profile'
+      && entry.permanent === false
+  )), 'legacy profile path must be intercepted during Gate F redirect soak');
+  assert.ok(LEGACY.length > 0, 'legacy profile consumer must remain available for deployment rollback');
 });

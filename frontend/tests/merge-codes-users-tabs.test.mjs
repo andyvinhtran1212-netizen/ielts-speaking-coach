@@ -10,6 +10,11 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  buildLegacyRetirementRedirects,
+  discoverLegacyHtmlPaths,
+} from '../tooling/gate-f-retirement-redirects.mjs';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...r) => readFileSync(join(__dirname, '..', ...r), 'utf8');
 const HTML = read('pages', 'admin', 'users', 'index.html');
@@ -90,9 +95,15 @@ describe('merge-codes PR-3 — single entry (redirect + nav)', () => {
   // ADR-002 (Phase 1): redirects live in next.config.ts now.
   const NEXT_CONFIG = read('next.config.ts');
   const vercel = {
-    redirects: Array.from(NEXT_CONFIG.matchAll(
+    redirects: [
+      ...buildLegacyRetirementRedirects(
+        discoverLegacyHtmlPaths(join(__dirname, '..', 'public')),
+        { permanent: false },
+      ),
+      ...Array.from(NEXT_CONFIG.matchAll(
       /\{ source: '([^']+)', destination: '([^']+)', permanent: (true|false) \}/g,
-    )).map(([, source, destination, permanent]) => ({ source, destination, permanent: permanent === 'true' })),
+      )).map(([, source, destination, permanent]) => ({ source, destination, permanent: permanent === 'true' })),
+    ],
   };
   const chrome = read('js', 'components', 'aver-admin-chrome.js');
 
@@ -105,7 +116,8 @@ describe('merge-codes PR-3 — single entry (redirect + nav)', () => {
   test('the old access-codes page path also redirects to the codes tab', () => {
     const r = (vercel.redirects || []).find((x) => x.source === '/pages/admin/access-codes/index.html');
     assert.ok(r);
-    assert.match(r.destination, /users\/index\.html\?tab=codes/);
+    assert.equal(r.destination, '/admin/users?tab=codes');
+    assert.equal(r.permanent, false);
   });
   test('nav no longer carries a standalone access-codes entry', () => {
     assert.doesNotMatch(chrome, /href:\s*'\/pages\/admin\/access-codes\/index\.html'/);

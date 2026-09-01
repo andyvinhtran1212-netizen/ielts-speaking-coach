@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
+const NEXT_ONLY = process.argv.includes('--next-only');
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
 const adminId = '00000000-0000-0000-0000-000000000109';
 const fakeSession = JSON.stringify({ access_token: 'admin-reading-attempts-not-a-real-token', refresh_token: 'x', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-reading-attempts@local' } });
@@ -93,18 +94,20 @@ await page.getByRole('button', { name: '90 ngày' }).click();
 await page.getByText('Dữ liệu lượt làm bài hiện không khả dụng', { exact: true }).waitFor({ state: 'visible' });
 check('unavailable không hiển thị số 0 giả', await page.getByText(/dấu — không có nghĩa là 0/).count() === 1);
 
-await page.goto(`${BASE}/pages/admin/dashboard/reading-attempts.html`, { waitUntil: 'domcontentloaded' });
-lookupFails = true;
-await page.locator('#rd-refresh').click();
-await page.getByText(/Nguồn phụ không đọc được: tổng lượt toàn thời gian, tên đề Reading, danh tính lượt nộp gần đây/).waitFor({ state: 'visible' });
-check('rollback nêu rõ lookup failures và giữ all-time ở trạng thái chưa biết', await page.locator('#rd-total-alltime').textContent() === '—');
-lookupFails = false;
-await page.locator('#rd-window').selectOption('90');
-await page.getByText(/dấu — không có nghĩa là 0/).waitFor({ state: 'visible' });
-check('rollback page giữ trạng thái unavailable', await page.locator('#rd-total-window').textContent() === '—');
-await page.locator('#rd-window').selectOption('7');
-await page.getByText(/Snapshot chưa đầy đủ/).waitFor({ state: 'visible' });
-check('rollback partial giữ tổng exact, split lower-bound và ẩn trung bình', (await page.locator('#rd-total-window').textContent()) === '2.350' && (await page.locator('#rd-split').textContent())?.includes('≥') && (await page.locator('#rd-anon-sources').textContent())?.includes('≈ ≥') && await page.locator('#rd-time-avg').textContent() === '—');
+if (!NEXT_ONLY) {
+  await page.goto(`${BASE}/pages/admin/dashboard/reading-attempts.html`, { waitUntil: 'domcontentloaded' });
+  lookupFails = true;
+  await page.locator('#rd-refresh').click();
+  await page.getByText(/Nguồn phụ không đọc được: tổng lượt toàn thời gian, tên đề Reading, danh tính lượt nộp gần đây/).waitFor({ state: 'visible' });
+  check('rollback nêu rõ lookup failures và giữ all-time ở trạng thái chưa biết', await page.locator('#rd-total-alltime').textContent() === '—');
+  lookupFails = false;
+  await page.locator('#rd-window').selectOption('90');
+  await page.getByText(/dấu — không có nghĩa là 0/).waitFor({ state: 'visible' });
+  check('rollback page giữ trạng thái unavailable', await page.locator('#rd-total-window').textContent() === '—');
+  await page.locator('#rd-window').selectOption('7');
+  await page.getByText(/Snapshot chưa đầy đủ/).waitFor({ state: 'visible' });
+  check('rollback partial giữ tổng exact, split lower-bound và ẩn trung bình', (await page.locator('#rd-total-window').textContent()) === '2.350' && (await page.locator('#rd-split').textContent())?.includes('≥') && (await page.locator('#rd-anon-sources').textContent())?.includes('≈ ≥') && await page.locator('#rd-time-avg').textContent() === '—');
+}
 
 await page.setViewportSize({ width: 1440, height: 900 });
 await page.goto(`${BASE}/admin/dashboard/reading-attempts`, { waitUntil: 'domcontentloaded' });

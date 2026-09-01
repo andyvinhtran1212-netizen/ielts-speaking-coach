@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
+const NEXT_ONLY = process.argv.includes('--next-only');
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
 const adminId = '00000000-0000-0000-0000-000000000112';
 const fakeSession = JSON.stringify({ access_token: 'admin-grammar-analytics-not-real', refresh_token: 'x', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-grammar-analytics@local' } });
@@ -72,13 +73,15 @@ await page.getByRole('heading', { name: 'Analytics snapshot', exact: true }).wai
 await analyticsTable.waitFor({ state: 'visible' });
 check('desktop dùng table và không tràn ngang', await analyticsTable.evaluate((table) => getComputedStyle(table).display === 'table') && await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
 
-rollbackState = 'unavailable';
-await page.goto(`${BASE}/pages/admin/grammar/analytics.html?days=30`, { waitUntil: 'domcontentloaded' });
-await page.getByText('Nguồn views không khả dụng — không đồng nghĩa với 0.', { exact: true }).waitFor({ state: 'visible' });
-rollbackState = 'empty';
-await page.getByRole('button', { name: '↺ Tải lại' }).click();
-await page.getByText('Chưa có view nào.', { exact: true }).waitFor({ state: 'visible' });
-check('rollback phục hồi đúng empty copy sau trạng thái unavailable', await page.getByText('Chưa có save nào.', { exact: true }).count() === 1 && await page.getByText('Mọi article đều đã có view 🎉', { exact: true }).count() === 1 && await page.getByText(/không khả dụng/).count() === 0);
+if (!NEXT_ONLY) {
+  rollbackState = 'unavailable';
+  await page.goto(`${BASE}/pages/admin/grammar/analytics.html?days=30`, { waitUntil: 'domcontentloaded' });
+  await page.getByText('Nguồn views không khả dụng — không đồng nghĩa với 0.', { exact: true }).waitFor({ state: 'visible' });
+  rollbackState = 'empty';
+  await page.getByRole('button', { name: '↺ Tải lại' }).click();
+  await page.getByText('Chưa có view nào.', { exact: true }).waitFor({ state: 'visible' });
+  check('rollback phục hồi đúng empty copy sau trạng thái unavailable', await page.getByText('Chưa có save nào.', { exact: true }).count() === 1 && await page.getByText('Mọi article đều đã có view 🎉', { exact: true }).count() === 1 && await page.getByText(/không khả dụng/).count() === 0);
+}
 check('không có write ngoài contract', writes.length === 0, writes.join(', '));
 check('không có lỗi JS', errors.length === 0, errors.join(' | '));
 

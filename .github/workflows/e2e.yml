@@ -60,15 +60,37 @@ jobs:
       - name: Run modal smoke tests
         run: npx playwright test
 
+      # The PR advisory suite normally exercises the on-disk N-1 Speaking
+      # renderer through its public URL. Gate F intentionally makes that URL
+      # unreachable before static serving. Keep the frozen cross-version test
+      # in the trusted staging Gate E workflow; do not mutate its pinned file
+      # or pretend it still ran against this redirect build.
+      - name: Detect Gate F redirect phase
+        id: gate_f
+        if: always()
+        run: |
+          if grep -q "from './tooling/gate-f-retirement-redirects.mjs'" next.config.ts \
+            && grep -q '\.\.\.LEGACY_RETIREMENT_REDIRECTS' next.config.ts; then
+            echo 'redirect_installed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'redirect_installed=false' >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run Speaking Gate E native fixtures
         id: speaking_gate_e
-        if: always()
+        if: ${{ always() && steps.gate_f.outputs.redirect_installed != 'true' }}
         env:
           GATE_E_REQUIRE_AFFINITY: 'true'
         run: npm run test:e2e:gate-e
 
+      - name: Preserve Gate E frozen-suite boundary during redirect soak
+        if: ${{ always() && steps.gate_f.outputs.redirect_installed == 'true' }}
+        run: |
+          echo 'Gate E cross-version fixtures remain active on the frozen staging release.'
+          echo 'This PR job does not claim or upload Gate E evidence for an unreachable Legacy renderer.'
+
       - name: Upload Speaking Gate E device-matrix evidence
-        if: always()
+        if: ${{ always() && steps.gate_f.outputs.redirect_installed != 'true' }}
         uses: actions/upload-artifact@v6
         with:
           name: gate-e-speaking-device-matrix-${{ github.run_id }}-${{ github.run_attempt }}

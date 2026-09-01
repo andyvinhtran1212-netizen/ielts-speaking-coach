@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
@@ -15,6 +15,7 @@ import { appPageRoute } from '../tooling/next-migration-status.mjs';
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const paths = discoverLegacyHtmlPaths(path.join(FRONTEND, 'public'));
 const redirects = buildLegacyRetirementRedirects(paths);
+const soakRedirects = buildLegacyRetirementRedirects(paths, { permanent: false });
 
 function appRoutes(root, prefix = '') {
   return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
@@ -45,6 +46,41 @@ test('every Legacy HTML source is permanently intercepted before public serving'
   assert.ok(redirects.every((entry) => entry.permanent === true));
   assert.ok(redirects.every((entry) => !entry.destination.endsWith('.html')));
   assert.ok(redirects.every((entry) => !entry.destination.includes('[')));
+});
+
+test('redirect soak can intercept the same frozen manifest without browser-cached permanence', () => {
+  assert.equal(soakRedirects.length, redirects.length);
+  assert.deepEqual(
+    soakRedirects.map(({ source, destination, has }) => ({ source, destination, has })),
+    redirects.map(({ source, destination, has }) => ({ source, destination, has })),
+  );
+  assert.ok(soakRedirects.every((entry) => entry.permanent === false));
+});
+
+test('G1 changes phase explicitly: runtime redirects replace unreachable Legacy parity', () => {
+  const workflow = readFileSync(
+    path.join(FRONTEND, '..', '.github', 'workflows', 'parity-gate.yml'),
+    'utf8',
+  );
+  assert.match(workflow, /id: gate_f/);
+  assert.match(workflow, /LEGACY_RETIREMENT_REDIRECTS_PERMANENT = true/);
+  assert.match(workflow, /name: Kiểm Gate F redirect manifest ở runtime/);
+  const phaseGuard = String.raw`\n\s+if: steps\.gate_f\.outputs\.redirect_installed != 'true'`;
+  assert.match(workflow, new RegExp(`name: Kiểm vế legacy phục vụ được VÀ gọi được backend${phaseGuard}`));
+  assert.match(workflow, new RegExp(`name: Chọn phạm vi theo tệp đã sửa${phaseGuard}`));
+  assert.match(workflow, new RegExp(`name: Chạy cổng parity \\(desktop \\+ điện thoại\\)${phaseGuard}`));
+  assert.match(workflow, new RegExp(`name: Cổng đường-ghi \\(vế legacy — cùng bản khai\\)${phaseGuard}`));
+});
+
+test('advisory E2E does not mutate or overclaim the frozen Gate E suite during redirect soak', () => {
+  const workflow = readFileSync(
+    path.join(FRONTEND, '..', '.github', 'workflows', 'e2e.yml'),
+    'utf8',
+  );
+  assert.match(workflow, /name: Detect Gate F redirect phase\n\s+id: gate_f\n\s+if: always\(\)/);
+  assert.match(workflow, /name: Run Speaking Gate E native fixtures\n\s+id: speaking_gate_e\n\s+if: \$\{\{ always\(\) && steps\.gate_f\.outputs\.redirect_installed != 'true' \}\}/);
+  assert.match(workflow, /name: Preserve Gate E frozen-suite boundary during redirect soak/);
+  assert.match(workflow, /name: Upload Speaking Gate E device-matrix evidence\n\s+if: \$\{\{ always\(\) && steps\.gate_f\.outputs\.redirect_installed != 'true' \}\}/);
 });
 
 test('every redirect destination resolves to a real App Router owner', () => {

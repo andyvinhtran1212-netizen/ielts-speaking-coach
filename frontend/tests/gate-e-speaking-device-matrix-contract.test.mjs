@@ -44,20 +44,32 @@ describe('Speaking Gate E device matrix is pinned and auditable', () => {
     assert.match(CONFIG, /gate-e-speaking-device-matrix-results\.json/);
   });
 
-  test('CI installs both engines and always uploads the versioned result', () => {
+  test('CI installs both engines and keeps Gate E evidence honest across Gate F', () => {
     assert.match(WORKFLOW, /sed -i '[^']*azure\.archive\.ubuntu\.com[^']*archive\.ubuntu\.com[^']*' \/etc\/apt\/apt-mirrors\.txt/);
     assert.match(WORKFLOW, /playwright install --with-deps chromium webkit/);
     assert.match(WORKFLOW, /runs-on: ubuntu-24\.04/);
     assert.match(WORKFLOW, /node tooling\/verify-gate-e-speaking-device-matrix\.mjs/);
     assert.match(WORKFLOW, /GATE_E_RUNNER_IMAGE: ubuntu24\.04-x64/);
-    assert.match(WORKFLOW, /Run Speaking Gate E native fixtures\n\s+id: speaking_gate_e\n\s+if: always\(\)/);
+    assert.match(WORKFLOW, /Detect Gate F redirect phase\n\s+id: gate_f\n\s+if: always\(\)/);
+    assert.match(
+      WORKFLOW,
+      /Run Speaking Gate E native fixtures\n\s+id: speaking_gate_e\n\s+if: \$\{\{ always\(\) && steps\.gate_f\.outputs\.redirect_installed != 'true' \}\}/,
+    );
     assert.match(
       WORKFLOW,
       /GATE_E_REQUIRE_AFFINITY: 'true'/,
     );
     assert.match(AFFINITY_SPEC, /process\.env\.GATE_E_REQUIRE_AFFINITY/);
     assert.match(AFFINITY_SPEC, /if \(requireAffinity\)/);
-    assert.match(WORKFLOW, /Upload Speaking Gate E device-matrix evidence\n\s+if: always\(\)/);
+    assert.match(
+      WORKFLOW,
+      /Preserve Gate E frozen-suite boundary during redirect soak\n\s+if: \$\{\{ always\(\) && steps\.gate_f\.outputs\.redirect_installed == 'true' \}\}/,
+    );
+    assert.match(WORKFLOW, /does not claim or upload Gate E evidence/);
+    assert.match(
+      WORKFLOW,
+      /Upload Speaking Gate E device-matrix evidence\n\s+if: \$\{\{ always\(\) && steps\.gate_f\.outputs\.redirect_installed != 'true' \}\}/,
+    );
     assert.match(WORKFLOW, /gate-e-speaking-device-matrix-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}/);
     assert.match(WORKFLOW, /if-no-files-found: error/);
     assert.match(VERIFIER, /node_modules\/playwright-core\/browsers\.json/);

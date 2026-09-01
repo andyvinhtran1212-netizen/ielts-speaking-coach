@@ -73,7 +73,11 @@ export function replacementOwner(nextPath) {
   return 'learner-platform';
 }
 
-export function buildLegacyReplacementInventory(legacyPaths, appRoutes) {
+export function buildLegacyReplacementInventory(
+  legacyPaths,
+  appRoutes,
+  { redirectsInstalled = false } = {},
+) {
   const routeSet = new Set(appRoutes || []);
   const entries = [...(legacyPaths || [])].sort().map((legacyPath) => {
     const nextPath = canonicalNextRouteForLegacy(legacyPath);
@@ -83,9 +87,13 @@ export function buildLegacyReplacementInventory(legacyPaths, appRoutes) {
       nextPath,
       owner: replacementOwner(nextPath),
       nextRoutePresent,
-      redirectState: 'not-installed-gate-f-blocked',
+      redirectState: redirectsInstalled
+        ? 'installed-redirect-soak'
+        : 'not-installed-gate-f-blocked',
       deletionState: nextRoutePresent
-        ? 'blocked-observation-and-deletion-review'
+        ? (redirectsInstalled
+          ? 'blocked-redirect-soak-and-deletion-review'
+          : 'blocked-observation-and-deletion-review')
         : 'blocked-missing-next-route',
     };
   });

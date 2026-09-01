@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
+const NEXT_ONLY = process.argv.includes('--next-only');
 const results = [];
 const check = (name, ok, detail = '') => {
   results.push({ name, ok, detail });
@@ -182,18 +183,22 @@ function sameWizardContract(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-const [rollbackParity, nativeParity] = await Promise.all([
-  runParityLeg('/onboarding.html', true),
-  runParityLeg('/onboarding', false),
-]);
-const parityMatches = sameWizardContract(rollbackParity, nativeParity);
-check('rollback và native giữ cùng nội dung, style, hành vi và payload trên profile chưa hoàn tất',
-  parityMatches,
-  parityMatches ? '' : `legacy=${JSON.stringify(rollbackParity)}; next=${JSON.stringify(nativeParity)}`);
-const intentionalMismatch = structuredClone(nativeParity);
-intentionalMismatch.steps[0].title = 'INTENTIONAL PARITY MISMATCH';
-check('bộ so hai-leg chặn được một sai khác cố ý',
-  !sameWizardContract(rollbackParity, intentionalMismatch));
+if (!NEXT_ONLY) {
+  const [rollbackParity, nativeParity] = await Promise.all([
+    runParityLeg('/onboarding.html', true),
+    runParityLeg('/onboarding', false),
+  ]);
+  const parityMatches = sameWizardContract(rollbackParity, nativeParity);
+  check('rollback và native giữ cùng nội dung, style, hành vi và payload trên profile chưa hoàn tất',
+    parityMatches,
+    parityMatches ? '' : `legacy=${JSON.stringify(rollbackParity)}; next=${JSON.stringify(nativeParity)}`);
+  const intentionalMismatch = structuredClone(nativeParity);
+  intentionalMismatch.steps[0].title = 'INTENTIONAL PARITY MISMATCH';
+  check('bộ so hai-leg chặn được một sai khác cố ý',
+    !sameWizardContract(rollbackParity, intentionalMismatch));
+} else {
+  console.log('  ↷ Gate F redirect phase: rollback Onboarding renderer is unreachable; canonical Next checks continue.');
+}
 
 const wizard = await fixture({
   profile: { id: 'user-1', is_active: true, onboarding_completed: false },
