@@ -2032,7 +2032,9 @@ async function loadCourseBanks() {
     const free = items.filter((b) => !b.already_given && b.ready);
     sel.innerHTML = free.length
       ? '<option value="">— Chọn buổi —</option>' + free.map((b) =>
-        `<option value="${esc(b.id)}">Buổi ${esc(b.lesson_no)} · ${esc(b.title)}`
+        `<option value="${esc(b.id)}">${b.lesson_no == null
+          ? esc(b.title)
+          : `Buổi ${esc(b.lesson_no)} · ${esc(b.title)}`}`
         + ` (${esc(b.question_count)} câu)</option>`).join('')
       : '<option value="">Chưa có buổi nào giao được</option>';
 

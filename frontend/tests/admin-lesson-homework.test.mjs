@@ -726,6 +726,17 @@ describe('giao bài tập theo buổi', () => {
     assert.match(note, /1 buổi chưa nạp câu hỏi/);
   });
 
+  test('bank ôn tập không có lesson_no hiện tên thật, không hiện Buổi null', async () => {
+    const p = load({ kind: 'daily', banks: [
+      { id: 'review-1', lesson_no: null, title: 'Ôn tập Buổi 1–4 · Test 1',
+        question_count: 100, already_given: false, ready: true },
+    ] });
+    p.nodes['hf-skill'].value = 'course';
+    await p.loadCourseBanks();
+    assert.match(p.nodes['hf-cbank'].innerHTML, /Ôn tập Buổi 1–4 · Test 1/);
+    assert.doesNotMatch(p.nodes['hf-cbank'].innerHTML, /Buổi null/);
+  });
+
   test('bank thiếu audio hoặc bộ phát âm bị chặn với lý do vận hành rõ ràng', async () => {
     const p = load({ kind: 'daily', banks: [
       { id: 'b1', lesson_no: 1, title: 'Buổi 1', question_count: 100,
