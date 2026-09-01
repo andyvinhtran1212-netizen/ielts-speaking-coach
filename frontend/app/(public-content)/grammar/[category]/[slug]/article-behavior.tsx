@@ -50,10 +50,9 @@ export function ArticleBehavior({
   useEffect(() => {
     if (!hasTOC) return;
 
-    const tocContainer = document.getElementById('toc-container');
-    if (!tocContainer) return;
-
-    const links = tocContainer.querySelectorAll('.toc-link');
+    const links = document.querySelectorAll(
+      '#toc-container .toc-link, #mobile-toc-container .toc-link'
+    );
     if (links.length === 0) return;
 
     const observer = new IntersectionObserver(
@@ -63,10 +62,12 @@ export function ArticleBehavior({
             links.forEach((l) => {
               l.classList.remove('text-teal-light', '!text-white/90');
             });
-            const active = tocContainer.querySelector(`a[href="#${entry.target.id}"]`);
-            if (active) {
-              active.classList.add('text-teal-light');
-            }
+            document
+              .querySelectorAll(
+                `#toc-container a[href="#${entry.target.id}"], ` +
+                  `#mobile-toc-container a[href="#${entry.target.id}"]`
+              )
+              .forEach((active) => active.classList.add('text-teal-light'));
           }
         });
       },
@@ -135,6 +136,37 @@ export function ArticleBehavior({
     _initExerciseCTA(category, slug);
   }, [category, slug]);
 
+  // ── Grammar Lab checks ───────────────────────────────────────────
+  useEffect(() => {
+    const checks = Array.from(document.querySelectorAll<HTMLElement>('.gw-check'));
+    const cleanups = checks.map((check) => {
+      const options = Array.from(check.querySelectorAll<HTMLButtonElement>('.gw-check-option'));
+      const feedback = check.querySelector<HTMLElement>('.gw-check-feedback');
+      const handleClick = (event: Event) => {
+        const button = event.currentTarget as HTMLButtonElement;
+        if (check.dataset.answered === '1') return;
+        const selected = Number(button.dataset.optionIndex);
+        const correct = Number(check.dataset.correctIndex);
+        const isCorrect = selected === correct;
+        check.dataset.answered = '1';
+        options.forEach((option, index) => {
+          option.disabled = true;
+          option.classList.toggle('is-correct', index === correct);
+          option.classList.toggle('is-incorrect', index === selected && !isCorrect);
+        });
+        if (feedback) {
+          const explanation = button.dataset.feedback || '';
+          feedback.textContent = `${isCorrect ? 'Chính xác.' : 'Chưa đúng.'}${explanation ? ` ${explanation}` : ''}`;
+          feedback.classList.add(isCorrect ? 'is-correct' : 'is-incorrect');
+        }
+        _recordMicrocheck(check, isCorrect);
+      };
+      options.forEach((option) => option.addEventListener('click', handleClick));
+      return () => options.forEach((option) => option.removeEventListener('click', handleClick));
+    });
+    return () => cleanups.forEach((cleanup) => cleanup());
+  }, [slug]);
+
   // ── Show/hide compare section ──────────────────────────────────────
   useEffect(() => {
     const section = document.getElementById('compare-section');
@@ -152,6 +184,30 @@ export function ArticleBehavior({
   }, [hasNextArticles]);
 
   return null;
+}
+
+async function _recordMicrocheck(check: HTMLElement, correct: boolean) {
+  const anchor = check.dataset.kpAnchor;
+  const articleSlug = check.dataset.articleSlug;
+  if (!anchor || !articleSlug || typeof window === 'undefined') return;
+  try {
+    if (!await whenGlobalReady(
+      () => !!(window as any).getSupabase && !!(window as any).api?.post,
+      'window.api (Grammar Lab micro-check)',
+    )) return;
+    const sb = (window as any).getSupabase?.();
+    const session = await sb?.auth.getSession();
+    if (!session?.data?.session) return;
+    await (window as any).api.post('/api/kp/microcheck-answers', {
+      answers: [{
+        kp: { type: 'grammar', slug: articleSlug, anchor },
+        correct,
+        context: { surface: 'grammar-wiki', block_id: check.closest('[data-learning-block]')?.getAttribute('data-learning-block') },
+      }],
+    });
+  } catch (_) {
+    // Interaction remains useful offline; evidence recording is best-effort.
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -325,21 +381,10 @@ async function _initExerciseCTA(category: string, slug: string) {
   if (typeof window === 'undefined') return;
 
   try {
-    // Legacy fetchGrammarAPI goes through the backend API base — a relative
-    // fetch would hit the Next origin, which has no such route (review P2).
-    const rc = (window as any).__AVER_RUNTIME_CONFIG__ || {};
-    const apiBase =
-      ((window as any).api && (window as any).api.base) ||
-      rc.apiBase ||
-      (location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-        ? 'http://localhost:8000'
-        : 'https://ielts-speaking-coach-production.up.railway.app');
-    const response = await fetch(
-      `${apiBase}/api/grammar/article/${encodeURIComponent(category)}/${encodeURIComponent(slug)}/exercise`
+    if (!await whenGlobalReady(() => !!window.api?.getWith, 'window.api (Grammar exercise CTA)')) return;
+    const info = await window.api.getWith<{ available?: boolean; bank_id?: string; questions?: number }>(
+      `/api/grammar/article/${encodeURIComponent(category)}/${encodeURIComponent(slug)}/exercise`,
     );
-    if (!response.ok) return; // no bank
-
-    const info = await response.json();
     if (!info?.available || !info?.bank_id) return;
 
     const link = document.getElementById('exercise-cta-link');
@@ -347,7 +392,7 @@ async function _initExerciseCTA(category: string, slug: string) {
 
     if (!link) return;
 
-    link.setAttribute('href', `/pages/quiz.html?bank=${encodeURIComponent(info.bank_id)}`);
+    link.setAttribute('href', `/quiz?bank=${encodeURIComponent(info.bank_id)}`);
     if (sub && info.questions) {
       sub.textContent = `Làm ${info.questions} điểm ngữ pháp để kiểm tra kiến thức bài này.`;
     }

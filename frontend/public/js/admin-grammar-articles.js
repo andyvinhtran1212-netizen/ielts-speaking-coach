@@ -26,6 +26,8 @@ const $ = (id) => document.getElementById(id);
 let _rows = [];
 let _expandedSlug = null;
 let _previewCache = new Map();
+let _analyticsStatus = { views: 'complete', saves: 'complete' };
+let _loadSequence = 0;
 
 function escapeHtml(s) {
   // C4: delegate to the shared escaper (window.WC.escapeHtml, api.js);
@@ -38,7 +40,9 @@ function escapeHtml(s) {
 }
 
 async function loadList() {
+  const requestId = ++_loadSequence;
   $('gra-empty').hidden = true;
+  $('gra-loading').hidden = false;
   try {
     const params = new URLSearchParams();
     const cat = $('gra-category').value;
@@ -46,15 +50,20 @@ async function loadList() {
     if (cat) params.set('category', cat);
     if (search) params.set('search', search);
     const res = await api.get('/admin/grammar/articles' + (params.toString() ? '?' + params : ''));
+    if (requestId !== _loadSequence) return;
     _rows = res.items || [];
+    _analyticsStatus = res.analytics_status || { views: 'complete', saves: 'complete' };
     populateCategoryDropdown(res.categories || []);
     renderTable();
     $('gra-empty').hidden = _rows.length !== 0;
     $('gra-table-wrap').hidden = _rows.length === 0;
   } catch (e) {
+    if (requestId !== _loadSequence) return;
     $('gra-empty').textContent = 'Không tải được danh sách: ' + (e && e.message || 'lỗi');
     $('gra-empty').hidden = false;
     $('gra-table-wrap').hidden = true;
+  } finally {
+    if (requestId === _loadSequence) $('gra-loading').hidden = true;
   }
 }
 
@@ -87,8 +96,8 @@ function rowHtml(r) {
       <td><code>${escapeHtml(r.slug)}</code></td>
       <td><span class="gra-chip">${escapeHtml(r.category || '—')}</span></td>
       <td>${escapeHtml(String(r.band || '—'))}</td>
-      <td class="gra-num">${r.view_count || 0}</td>
-      <td class="gra-num">${r.save_count || 0}</td>
+      <td class="gra-num">${_analyticsStatus.views === 'complete' ? Number(r.view_count || 0).toLocaleString('vi-VN') : '—'}</td>
+      <td class="gra-num">${_analyticsStatus.saves === 'complete' ? Number(r.save_count || 0).toLocaleString('vi-VN') : '—'}</td>
       <td style="font-size: var(--av-fs-xs); color: var(--av-text-muted); font-family: var(--av-font-mono);">${escapeHtml(r.source_path || '')}</td>
     </tr>
   `;
@@ -101,7 +110,7 @@ function rowHtml(r) {
           ${cached ? cached : '<div class="gra-loading">Đang tải preview…</div>'}
         </div>
         <div class="gra-preview-actions">
-          <a class="btn-secondary" href="/pages/grammar-article.html?slug=${encodeURIComponent(r.slug)}" target="_blank" rel="noopener">
+          <a class="btn-secondary" href="/grammar/${encodeURIComponent(r.category)}/${encodeURIComponent(r.slug)}" target="_blank" rel="noopener">
             Mở trên student view ↗
           </a>
         </div>

@@ -65,19 +65,27 @@ def _assignment(**over):
 
 async def _start(*, sessions, assignment=None, item=None, student=None):
     log = []
+    student_row = student or _STUDENT
     db = _db(log,
              class_assignment_items=[item or _ITEM],
              class_assignments=[assignment or _assignment()],
+             student_cohort_memberships=[{
+                 "id": "m1", "student_id": "s1",
+                 "cohort_id": student_row["cohort_id"],
+                 "is_active": True,
+             }],
              sessions=sessions)
     with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
-         patch.object(mod, "_student_for_user", return_value=student or _STUDENT), \
+         patch.object(mod, "_student_for_user", return_value=student_row), \
          patch.object(mod, "supabase_admin", db):
         return await mod.start_assignment("it1", None), log
 
 
 def _sess(sid="sess-cu"):
     return [{"id": sid, "user_id": "u1", "class_assignment_item_id": "it1",
-             "started_at": "2026-08-01T00:00:00+00:00"}]
+             "started_at": "2026-08-01T00:00:00+00:00",
+             "status": "in_progress",
+             "resume_expires_at": "2999-01-01T00:00:00+00:00"}]
 
 
 # ── Mở lại đúng phiên cũ ─────────────────────────────────────────────────────
@@ -88,6 +96,20 @@ async def test_reopens_the_existing_session_instead_of_making_a_new_one():
     assert out["session_id"] == "sess-cu"
     # Không trả session_params: trang mà thấy nó sẽ POST /sessions và đẻ phiên mới.
     assert "session_params" not in out
+
+
+@pytest.mark.asyncio
+async def test_completed_session_opens_canonical_result_not_historical_player():
+    sessions = _sess()
+    sessions[0].update({
+        "status": "completed",
+        "completed_at": "2026-08-01T00:20:00+00:00",
+        "renderer_affinity": "legacy",
+    })
+    out, _ = await _start(sessions=sessions)
+    assert out["result_session_id"] == "sess-cu"
+    assert "session_id" not in out
+    assert "renderer_affinity" not in out
 
 
 @pytest.mark.asyncio
@@ -123,6 +145,33 @@ async def test_past_deadline_without_any_session_is_still_refused():
         await _start(sessions=[],
                      assignment=_assignment(due_at="2000-01-01T00:00:00+00:00"))
     assert e.value.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_submitted_course_reopens_as_read_only_after_deadline():
+    item = {**_ITEM, "submitted_at": "2026-08-19T18:23:55+00:00"}
+    assignment = _assignment(
+        skill="course", content_id="bank-grammar-05", content_config={},
+        due_at="2000-01-01T00:00:00+00:00",
+    )
+    out, log = await _start(sessions=[], assignment=assignment, item=item)
+    assert out == {
+        "item_id": "it1", "assignment_id": "a1", "skill": "course",
+        "bank_id": "bank-grammar-05", "review_only": True,
+    }
+    assert not [entry for entry in log if entry[1] == "update"], \
+        "xem kết quả không được đổi lại state/opened_at của bài đã nộp"
+
+
+@pytest.mark.asyncio
+async def test_unsubmitted_course_remains_closed_after_deadline():
+    assignment = _assignment(
+        skill="course", content_id="bank-grammar-05", content_config={},
+        due_at="2000-01-01T00:00:00+00:00",
+    )
+    with pytest.raises(HTTPException) as exc:
+        await _start(sessions=[], assignment=assignment)
+    assert exc.value.status_code == 409
 
 
 @pytest.mark.asyncio
@@ -206,18 +255,23 @@ async def _pick(sessions, responses=()):
     db = _db(log,
              class_assignment_items=[_ITEM],
              class_assignments=[_assignment()],
+             student_cohort_memberships=[{
+                 "id": "m1", "student_id": "s1", "cohort_id": "co1",
+                 "is_active": True,
+             }],
              sessions=sessions,
              responses=list(responses))
     with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
          patch.object(mod, "_student_for_user", return_value=_STUDENT), \
          patch.object(mod, "supabase_admin", db):
         out = await mod.start_assignment("it1", None)
-    return out.get("session_id")
+    return out.get("session_id") or out.get("result_session_id")
 
 
 def _s(sid, started, **over):
     return {"id": sid, "user_id": "u1", "class_assignment_item_id": "it1",
             "started_at": started, "completed_at": None, "status": "in_progress",
+            "resume_expires_at": "2999-01-01T00:00:00+00:00",
             **over}
 
 

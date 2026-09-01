@@ -33,6 +33,15 @@ interface Window {
   initSupabase(url: string, anonKey: string): void;
   getSupabase(): unknown;
   showToast(message: string, kind?: string, opts?: unknown): void;
+  WritingRenderers?: {
+    SECTION_RENDERERS: Record<string, (value: unknown) => string>;
+    SECTION_KEYS: Record<string, string>;
+    renderInstructorNote(value: string): string;
+    emptyShape(message?: string): string;
+  };
+  WritingHighlight?: { render(el: HTMLElement, essay: string, mistakes: unknown[]): void };
+  AvImageLightbox?: { open(src: string, alt?: string): void };
+  renderMarkdown?: (markdown: string, options?: { breaks?: boolean }) => string;
 }
 
 declare function showToast(message: string, kind?: string, opts?: unknown): void;

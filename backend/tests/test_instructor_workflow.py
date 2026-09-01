@@ -141,6 +141,9 @@ class _Query:
             return _Response(matched)
 
         if self.op == "update":
+            failure = self.fake.fail_next_update.pop(self.table_name, None)
+            if failure is not None:
+                raise failure
             with self.fake.lock:
                 changed = []
                 for r in rows:
@@ -159,6 +162,7 @@ class FakeSupabase:
     def __init__(self):
         self.tables: dict[str, list[dict]] = {}
         self.lock = threading.Lock()
+        self.fail_next_update: dict[str, Exception] = {}
 
     def table(self, name: str) -> _Query:
         if name == "writing_feedback_current":   # GV-1a: view == base for single-version test data
@@ -360,6 +364,95 @@ def test_deliver_by_non_owner_raises(fake_db, workflow):
         workflow.deliver(review.id, b, instructor_note="hi")
 
 
+def test_deliver_rejects_a_second_transition(fake_db, workflow):
+    """The service, not only the button, enforces exactly one delivery."""
+    essay_id = uuid4()
+    fake_db.tables["writing_essays"] = [{
+        "id": str(essay_id), "status": "graded", "instructor_note": None,
+    }]
+    fake_db.tables["writing_feedback"] = []
+    review = workflow.create_review(essay_id)
+    instructor = uuid4()
+    workflow.claim(review.id, instructor)
+    first = workflow.deliver(
+        review.id, instructor, instructor_note="first", expected_essay_id=essay_id,
+    )
+
+    with pytest.raises(workflow.ConflictError, match="different delivery payload"):
+        workflow.deliver(
+            review.id, instructor, instructor_note="second", expected_essay_id=essay_id,
+        )
+
+    row = fake_db.tables["instructor_reviews"][0]
+    assert row["status"] == "delivered"
+    assert row["delivered_at"] == first.delivered_at.isoformat()
+    assert row["instructor_note"] == "first"
+    assert fake_db.tables["writing_essays"][0]["instructor_note"] == "first"
+
+
+def test_deliver_retry_repairs_failure_after_review_transition(fake_db, workflow):
+    """An identical retry completes steps 2-3 after step 1 already committed."""
+    essay_id = uuid4()
+    fake_db.tables["writing_essays"] = [{
+        "id": str(essay_id), "status": "graded", "instructor_note": None,
+    }]
+    fake_db.tables["writing_feedback"] = [{
+        "essay_id": str(essay_id), "version": 1, "prompt_version": "v2.1",
+    }]
+    review = workflow.create_review(essay_id)
+    instructor = uuid4()
+    workflow.claim(review.id, instructor)
+    fake_db.fail_next_update["writing_essays"] = RuntimeError("postgrest timeout")
+
+    with pytest.raises(RuntimeError, match="postgrest timeout"):
+        workflow.deliver(
+            review.id,
+            instructor,
+            instructor_note="same payload",
+            expected_essay_id=essay_id,
+        )
+
+    assert fake_db.tables["instructor_reviews"][0]["status"] == "delivered"
+    assert fake_db.tables["writing_essays"][0]["status"] == "graded"
+
+    recovered = workflow.deliver(
+        review.id,
+        instructor,
+        instructor_note="same payload",
+        expected_essay_id=essay_id,
+    )
+
+    assert recovered.status == InstructorReviewStatus.DELIVERED
+    assert fake_db.tables["writing_essays"][0]["status"] == "delivered"
+    assert fake_db.tables["writing_essays"][0]["instructor_note"] == "same payload"
+    assert fake_db.tables["writing_feedback"][0]["prompt_version"] == "v2.1-instructor"
+
+
+def test_deliver_rejects_review_essay_mismatch(fake_db, workflow):
+    """A stale review id cannot deliver a different essay shown by the UI."""
+    essay_id = uuid4()
+    other_essay_id = uuid4()
+    fake_db.tables["writing_essays"] = [
+        {"id": str(essay_id), "status": "graded", "instructor_note": None},
+        {"id": str(other_essay_id), "status": "graded", "instructor_note": None},
+    ]
+    fake_db.tables["writing_feedback"] = []
+    review = workflow.create_review(essay_id)
+    instructor = uuid4()
+    workflow.claim(review.id, instructor)
+
+    with pytest.raises(workflow.ConflictError, match="không khớp"):
+        workflow.deliver(
+            review.id,
+            instructor,
+            instructor_note="wrong target",
+            expected_essay_id=other_essay_id,
+        )
+
+    assert fake_db.tables["instructor_reviews"][0]["status"] == "claimed"
+    assert all(row["status"] == "graded" for row in fake_db.tables["writing_essays"])
+
+
 def test_deliver_stamp_idempotent_no_double_suffix(fake_db, workflow):
     """A re-deliver (admin clicks twice) must NOT produce
     `v2.1-instructor-instructor`. Stamp is normalised before append."""
@@ -429,6 +522,24 @@ def test_get_queue_essay_id_no_match_returns_empty(fake_db, workflow):
     """No review for that essay → empty list, not error."""
     items = workflow.get_queue(essay_id=uuid4())
     assert items == []
+
+
+def test_default_queue_keeps_edited_review_visible(fake_db, workflow):
+    """The model permits deliver from edited, so the active queue must not hide it."""
+    essay_id = uuid4()
+    fake_db.tables["writing_essays"] = [{
+        "id": str(essay_id), "student_id": None, "analysis_level": 3,
+        "task_type": "task2", "created_at": "2026-05-08",
+    }]
+    review = workflow.create_review(essay_id)
+    instructor = uuid4()
+    workflow.claim(review.id, instructor)
+    fake_db.tables["instructor_reviews"][0]["status"] = "edited"
+
+    items = workflow.get_queue()
+
+    assert len(items) == 1
+    assert items[0].review.status == InstructorReviewStatus.EDITED
 
 
 # ── Sprint 2.7d.1.1 hotfix — schema-aware regression ──────────────────

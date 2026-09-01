@@ -15,6 +15,8 @@ from typing import Optional
 import markdown
 import yaml
 
+from services.grammar_learning_blocks import inject_learning_blocks, validate_learning_blocks
+
 logger = logging.getLogger(__name__)
 
 CONTENT_DIR  = Path(__file__).parent.parent / "content"
@@ -151,6 +153,11 @@ class GrammarContentService:
                 "category": a["category"],
                 "title":    a["title"],
                 "summary":  a.get("summary", ""),
+                "level":    a.get("level", ""),
+                "status":   a.get("status", "complete"),
+                "reading_time": a.get("reading_time", 1),
+                "speaking_relevance": a.get("speaking_relevance", ""),
+                "writing_relevance": a.get("writing_relevance", ""),
                 "tags":     a.get("tags", []),
                 "text":     plain.lower(),
             })
@@ -205,6 +212,16 @@ class GrammarContentService:
         category = fm.get("category") or path.parent.name
         title    = fm.get("title") or _prettify(slug)
 
+        learning_blocks, learning_block_errors = validate_learning_blocks(
+            fm.get("learning_blocks"), body,
+        )
+        if learning_block_errors:
+            logger.warning(
+                "[grammar] invalid learning blocks in %s: %s",
+                path,
+                "; ".join(learning_block_errors),
+            )
+
         # Render Markdown → HTML and capture TOC tokens
         md_proc = markdown.Markdown(
             extensions=_MD_EXTENSIONS,
@@ -217,6 +234,7 @@ class GrammarContentService:
         html = _ANCHOR_MARKER_RE.sub(
             r'<a id="\1" class="grammar-anchor"></a>', html,
         )
+        html = inject_learning_blocks(html, learning_blocks, article_slug=slug)
         toc_tokens = getattr(md_proc, "toc_tokens", [])
         toc        = _flatten_toc(toc_tokens)
 
@@ -262,6 +280,7 @@ class GrammarContentService:
                 for a in (fm.get("anchors") or [])
                 if a.get("id")
             ],
+            "learning_blocks":   learning_blocks,
         }
 
     # ── Internal helpers ─────────────────────────────────────────────────────
@@ -380,6 +399,11 @@ class GrammarContentService:
                 "category": r["category"],
                 "title":    r["title"],
                 "summary":  r["summary"],
+                "level":    r["level"],
+                "status":   r["status"],
+                "reading_time": r["reading_time"],
+                "speaking_relevance": r["speaking_relevance"],
+                "writing_relevance": r["writing_relevance"],
             }
             for _, r in results[:20]
         ]
@@ -881,7 +905,7 @@ class GrammarContentService:
 
     def get_groups(self) -> list[dict]:
         """
-        Return the 8 conceptual groups from _groups.yaml, each enriched with
+        Return the conceptual groups from _groups.yaml, each enriched with
         per-article status resolved from the live article index.
 
         Article statuses:

@@ -101,7 +101,8 @@ async def test_no_student_row_is_not_an_error():
 @pytest.mark.asyncio
 async def test_student_with_no_cohort_is_not_an_error():
     with patch.object(mod, "get_supabase_user", AsyncMock(return_value={"id": "u1"})), \
-         patch.object(mod, "_student_for_user", return_value={"id": "s1", "cohort_id": None}):
+         patch.object(mod, "_student_for_user", return_value={"id": "s1", "cohort_id": None}), \
+         patch.object(mod, "active_cohort_ids_for_student", return_value=[]):
         out = await mod.my_class(None)
     assert out == {"has_class": False}
 
@@ -143,6 +144,9 @@ def _db(fail: set[str]):
                            "lesson_date": None, "created_at": "x"}],
         "class_assignment_items": [],
         "class_assignments": [],
+        "student_cohort_memberships": [
+            {"id": "m1", "student_id": "s1", "cohort_id": "c1", "is_active": True},
+        ],
     }
     db = type("DB", (), {})()
     db.table = lambda name: _Table(tables.get(name, []), name in fail)
@@ -286,6 +290,13 @@ class _StartTable:
         return self
     def limit(self, *_a): return self
     def update(self, patch): self._store.append(patch); return self
+    def order(self, field, desc=False):
+        self._rows.sort(key=lambda row: row.get(field) or "", reverse=desc)
+        return self
+    def in_(self, field, values):
+        allowed = {str(value) for value in values}
+        self._rows = [row for row in self._rows if str(row.get(field)) in allowed]
+        return self
 
     def execute(self): return _Resp(self._rows)
 
@@ -300,6 +311,9 @@ def _start_db(*, skill, content_id, tables=None):
         "class_assignments": [
             {"id": "a1", "cohort_id": "c1", "skill": skill, "status": "published",
              "content_id": content_id, "content_config": {}, "due_at": None},
+        ],
+        "student_cohort_memberships": [
+            {"id": "m1", "student_id": "s1", "cohort_id": "c1", "is_active": True},
         ],
         "reading_tests": [{"id": "uuid-abc", "test_id": "CAM19-T3",
                            "status": "published", "exam_only": False}],
@@ -326,6 +340,9 @@ async def _start(db):
 @pytest.mark.asyncio
 async def test_a_reading_task_opens_by_the_public_test_code_not_the_uuid():
     out = await _start(_start_db(skill="reading", content_id="uuid-abc"))
+    assert out["open_url"].startswith(
+        "/core-player/launch?surface=reading_exam&"
+    )
     assert "test_id=CAM19-T3" in out["open_url"]
     assert "uuid-abc" not in out["open_url"], (
         "the reader resolves ?test_id= against reading_tests.test_id; handing it "
@@ -337,7 +354,46 @@ async def test_a_reading_task_opens_by_the_public_test_code_not_the_uuid():
 async def test_a_listening_task_opens_by_the_row_id():
     """Listening keys on the row id at both ends — one identifier throughout."""
     out = await _start(_start_db(skill="listening", content_id="uuid-xyz"))
-    assert out["open_url"].startswith("/pages/listening-test.html?id=uuid-xyz")
+    assert out["open_url"].startswith(
+        "/core-player/launch?surface=listening_test&id=uuid-xyz"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "skill,content,surface,identity_key,identity",
+    [
+        ("reading", "uuid-abc", "reading_exam", "test_id", "CAM19-T3"),
+        ("listening", "uuid-xyz", "listening_test", "id", "uuid-xyz"),
+    ],
+)
+async def test_reader_contract_includes_canonical_semantic_player_identity(
+    skill, content, surface, identity_key, identity,
+):
+    out = await _start(_start_db(skill=skill, content_id=content))
+    assert out["player_surface"] == surface
+    assert out["player_query"] == {
+        identity_key: identity,
+        "class_item": "item-1",
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("affinity", ["legacy", "next"])
+async def test_completed_speaking_ignores_historical_renderer_and_opens_result(affinity):
+    tables = {"sessions": [{
+        "id": "session-1",
+        "started_at": NOW.isoformat(),
+        "completed_at": NOW.isoformat(),
+        "status": "completed",
+        "class_assignment_item_id": "item-1",
+        "user_id": "u1",
+        "renderer_affinity": affinity,
+    }]}
+    out = await _start(_start_db(skill="speaking", content_id=None, tables=tables))
+    assert out["result_session_id"] == "session-1"
+    assert "session_id" not in out
+    assert "renderer_affinity" not in out
 
 
 @pytest.mark.asyncio
@@ -494,4 +550,50 @@ async def test_my_assignments_is_quiet_when_the_repair_worked():
          patch.object(mod, "_student_for_user", return_value=student), \
          patch.object(mod, "supabase_admin", _db(set())):
         out = await mod.my_assignments(None)
+    assert "homework_stale" not in out
+
+
+def _course_homework_db():
+    tables = {
+        "class_assignment_items": [
+            {"id": "item-1", "assignment_id": "a1", "student_id": "s1",
+             "submitted_at": None, "state": "assigned", "score": None},
+        ],
+        "class_assignments": [
+            {"id": "a1", "cohort_id": "c1", "skill": "course",
+             "status": "published", "content_id": "bank-1",
+             "content_config": {}, "due_at": None, "title": "Grammar 2"},
+        ],
+    }
+    db = type("DB", (), {})()
+    db.table = lambda name: _Table(tables.get(name, []), False)
+    return db
+
+
+async def _course_homework_with_shape(shape):
+    student = {"id": "s1", "cohort_id": "c1"}
+    reread = [{"id": "item-1", "assignment_id": "a1", "student_id": "s1",
+               "submitted_at": None, "state": "assigned", "score": None}]
+    with patch.object(mod, "get_supabase_user",
+                      AsyncMock(return_value={"id": "u1"})), \
+         patch.object(mod, "_student_for_user", return_value=student), \
+         patch.object(mod, "supabase_admin", _course_homework_db()), \
+         patch.object(mod, "reconcile_test_attempts", return_value=0), \
+         patch.object(mod, "reconcile_course_items", return_value=0), \
+         patch.object(mod, "_reread_items", return_value=reread), \
+         patch.object(mod, "bank_has_writing", return_value=shape):
+        return await mod.my_assignments(None)
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_writing_shape_marks_learner_homework_stale():
+    out = await _course_homework_with_shape(None)
+    assert out["assignments"][0]["writing_expected"] is None
+    assert out["homework_stale"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_real_zero_writing_shape_does_not_mark_homework_stale():
+    out = await _course_homework_with_shape(False)
+    assert out["assignments"][0]["writing_expected"] is False
     assert "homework_stale" not in out

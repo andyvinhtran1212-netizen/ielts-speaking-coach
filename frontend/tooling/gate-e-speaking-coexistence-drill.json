@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "drill_id": "gate-e-speaking-coexistence-v2",
+  "strategy_id": "stable-player-url-admission-switch-v1",
+  "surface": "speaking",
+  "phases": [
+    {
+      "phase": "floor",
+      "expected_admission": "legacy",
+      "required_previous_session": null,
+      "emits_session": "legacy_session_id"
+    },
+    {
+      "phase": "cutover",
+      "expected_admission": "next",
+      "required_previous_session": "legacy_session_id",
+      "emits_session": "next_session_id"
+    },
+    {
+      "phase": "rollback",
+      "expected_admission": "legacy",
+      "required_previous_session": "next_session_id",
+      "emits_session": "post_rollback_legacy_session_id"
+    }
+  ],
+  "required_evidence": [
+    "phase",
+    "source_sha",
+    "deployed_frontend_sha",
+    "deployed_frontend_branch",
+    "rollback_floor_sha",
+    "floor_lineage_verified",
+    "previous_phase_handoff_verified",
+    "previous_phase_run_id",
+    "backend_release",
+    "backend_git_branch",
+    "backend_environment_name",
+    "previous_session_id",
+    "created_session_id",
+    "created_session_url",
+    "previous_session_url",
+    "canonical_sessions",
+    "reload_and_copy_url_passed",
+    "captured_at"
+  ],
+  "conditional_evidence": {
+    "floor": [
+      "floor_dark_next_url",
+      "floor_dark_next_session_id",
+      "floor_dark_next_affinity_before",
+      "floor_dark_next_affinity_after"
+    ],
+    "rollback": [
+      "rollback_mode"
+    ]
+  },
+  "retention_days": 30,
+  "status": "live-three-phase-artifacts-verified-gate-e-pending"
+}

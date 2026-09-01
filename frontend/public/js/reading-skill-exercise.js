@@ -15,6 +15,11 @@
 
   var $ = function (id) { return document.getElementById(id); };
   var SESSION = { slug: null };
+  var DIFFICULTY_LABEL = {
+    foundation: 'Foundation',
+    intermediate: 'Intermediate',
+    advanced: 'Advanced',
+  };
 
   // Display labels for the D2 skill_tag enum (kept in lockstep with reading-skill.js).
   var SKILL_LABEL = {
@@ -52,15 +57,31 @@
     if (fill) fill.style.width = pct + '%';
   }
 
+  function renderPassageMeta(p) {
+    $('rv-difficulty').textContent = DIFFICULTY_LABEL[p.difficulty_level] || p.difficulty_level || 'Mọi trình độ';
+    $('rv-estimated-time').textContent = p.estimated_minutes || '—';
+    $('rv-word-count').textContent = p.word_count || '—';
+
+    var topics = $('rv-topic-tags');
+    topics.replaceChildren();
+    (Array.isArray(p.topic_tags) ? p.topic_tags : []).slice(0, 3).forEach(function (topic) {
+      var tag = document.createElement('span');
+      tag.textContent = topic;
+      topics.appendChild(tag);
+    });
+    topics.hidden = !topics.childElementCount;
+  }
+
   function renderPassage(p) {
     document.title = (p.title || 'Bài luyện') + ' — Aver Learning';
     $('rv-title').textContent = p.title || 'Bài luyện';
+    renderPassageMeta(p);
 
     // The defining L2 affordance: announce which skill this exercise targets.
     if (p.skill_focus) {
       var banner = $('rv-skill-banner');
       banner.hidden = false;
-      banner.textContent = 'Kỹ năng: ' + (SKILL_LABEL[p.skill_focus] || p.skill_focus);
+      banner.textContent = 'Kỹ năng trọng tâm · ' + (SKILL_LABEL[p.skill_focus] || p.skill_focus);
     }
 
     var body = $('rv-body');
@@ -99,6 +120,8 @@
         questions: p.questions || [],
         library:   'skill',
         slug:      SESSION.slug,
+        heading:   'Luyện đúng kỹ năng',
+        description: 'Kiểm tra từng câu để nhận phản hồi tức thì.',
       });
     }
   }

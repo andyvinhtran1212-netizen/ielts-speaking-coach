@@ -666,7 +666,8 @@
     opacity var(--av-duration-base) var(--av-easing-default),
     transform var(--av-duration-base) var(--av-easing-default);
 }
-.av-toast.is-shown {
+.av-toast.is-shown,
+.av-toast.is-show {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }

@@ -313,12 +313,289 @@ def _seed_exam(fake, *, cohort_id=None, open_from=None, open_until=None,
     }
     if listening:
         exam["listening_test_id"] = str(uuid4())
-        fake.seed("listening_tests", {"id": exam["listening_test_id"],
-                                      "full_audio_duration_seconds": 1800})
+        fake.seed("listening_tests", {
+            "id": exam["listening_test_id"],
+            "status": "published",
+            "test_type": "full",
+            "full_audio_storage_path": f"mock/{exam['listening_test_id']}.mp3",
+            "full_audio_duration_seconds": 1800,
+        })
     if reading:
         exam["reading_test_id"] = str(uuid4())
+        fake.seed("reading_tests", {
+            "id": exam["reading_test_id"],
+            "status": "published",
+            "test_type": "full",
+            "total_questions": 40,
+        })
     fake.seed("mock_exams", exam)
     return exam
+
+
+# ── canonical content readiness gates ─────────────────────────────────
+
+
+def test_publish_refuses_listening_without_playable_audio(fake_db, svc):
+    exam_id = str(uuid4())
+    listening_id = str(uuid4())
+    fake_db.seed("mock_exams", {
+        "id": exam_id, "code": "DRAFT-AUDIO", "title": "Draft",
+        "status": "draft", "active_section": "not_started",
+        "listening_test_id": listening_id,
+        "reading_minutes": 60, "writing_minutes": 60,
+    })
+    fake_db.seed("listening_tests", {
+        "id": listening_id, "status": "published", "test_type": "full",
+        "full_audio_storage_path": None,
+        "full_audio_duration_seconds": None,
+    })
+
+    with pytest.raises(ValueError, match="audio phát được"):
+        svc.admin_update_exam(exam_id, {"status": "published"})
+    assert fake_db.rows("mock_exams")[0]["status"] == "draft"
+
+    listening = fake_db.rows("listening_tests")[0]
+    listening["full_audio_storage_path"] = "mock/ready.mp3"
+    listening["full_audio_duration_seconds"] = 1800
+    assert svc.admin_update_exam(exam_id, {"status": "published"})["status"] == "published"
+
+
+def test_publish_refuses_an_unpublished_reading_paper(fake_db, svc):
+    exam_id = str(uuid4())
+    reading_id = str(uuid4())
+    fake_db.seed("mock_exams", {
+        "id": exam_id, "code": "DRAFT-READING", "title": "Draft",
+        "status": "draft", "active_section": "not_started",
+        "reading_test_id": reading_id,
+        "reading_minutes": 60, "writing_minutes": 60,
+    })
+    fake_db.seed("reading_tests", {
+        "id": reading_id, "status": "draft", "test_type": "full",
+    })
+
+    with pytest.raises(ValueError, match="Reading chưa được publish"):
+        svc.admin_update_exam(exam_id, {"status": "published"})
+    assert fake_db.rows("mock_exams")[0]["status"] == "draft"
+
+
+@pytest.mark.parametrize("table,column", [
+    ("listening_tests", "listening_test_id"),
+    ("reading_tests", "reading_test_id"),
+])
+def test_publish_refuses_a_non_full_lrw_paper(fake_db, svc, table, column):
+    exam_id = str(uuid4())
+    paper_id = str(uuid4())
+    fake_db.seed("mock_exams", {
+        "id": exam_id, "code": "DRAFT-MINI", "title": "Draft",
+        "status": "draft", "active_section": "not_started",
+        column: paper_id, "reading_minutes": 60, "writing_minutes": 60,
+    })
+    paper = {
+        "id": paper_id, "status": "published", "test_type": "mini",
+    }
+    if table == "listening_tests":
+        paper.update({
+            "full_audio_storage_path": "mock/mini.mp3",
+            "full_audio_duration_seconds": 600,
+        })
+    fake_db.seed(table, paper)
+
+    with pytest.raises(ValueError, match="phải là đề full test"):
+        svc.admin_update_exam(exam_id, {"status": "published"})
+    assert fake_db.rows("mock_exams")[0]["status"] == "draft"
+
+
+def test_open_revalidates_audio_after_publish(fake_db, svc):
+    exam = _seed_exam(fake_db, is_open=False, reading=False)
+    listening = fake_db.rows("listening_tests")[0]
+    listening["full_audio_storage_path"] = None
+
+    with pytest.raises(svc.SittingConflictError, match="audio phát được"):
+        svc.set_open(exam["id"], True, "admin")
+    assert fake_db.rows("mock_exams")[0]["is_open"] is False
+
+
+def test_close_remains_available_when_published_content_is_broken(fake_db, svc):
+    exam = _seed_exam(fake_db, is_open=True, reading=False)
+    fake_db.rows("listening_tests")[0]["full_audio_storage_path"] = None
+
+    assert svc.set_open(exam["id"], False, "admin")["is_open"] is False
+
+
+def test_reopen_midflight_ignores_a_broken_consumed_section(fake_db, svc):
+    exam = _seed_exam(fake_db, is_open=False)
+    stored = fake_db.rows("mock_exams")[0]
+    stored.update({
+        "active_section": "writing",
+        "writing_started_at": "2026-08-22T10:00:00+00:00",
+    })
+    fake_db.rows("listening_tests")[0]["full_audio_storage_path"] = None
+
+    reopened = svc.set_open(exam["id"], True, "admin")
+    assert reopened["is_open"] is True
+    assert reopened["active_section"] == "writing"
+    assert reopened["writing_started_at"] == "2026-08-22T10:00:00+00:00"
+
+
+def test_reopen_midflight_still_rejects_broken_active_section(fake_db, svc):
+    exam = _seed_exam(fake_db, is_open=False, reading=False)
+    stored = fake_db.rows("mock_exams")[0]
+    stored.update({
+        "active_section": "listening",
+        "listening_started_at": "2026-08-22T10:00:00+00:00",
+    })
+    fake_db.rows("listening_tests")[0]["full_audio_storage_path"] = None
+
+    with pytest.raises(svc.SittingConflictError, match="audio phát được"):
+        svc.set_open(exam["id"], True, "admin")
+    fresh = svc.get_published_exam_by_id(exam["id"])
+    assert fresh["is_open"] is False
+    assert fresh["active_section"] == "listening"
+    assert fresh["listening_started_at"] == "2026-08-22T10:00:00+00:00"
+
+
+def test_editing_future_content_does_not_revalidate_a_consumed_broken_section(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    fake_db.rows("mock_exams")[0].update({
+        "active_section": "reading",
+        "collected_section": "reading",
+        "collection_sweep_completed_section": "reading",
+    })
+    fake_db.rows("listening_tests")[0]["full_audio_storage_path"] = None
+    prompt_id = str(uuid4())
+    fake_db.seed("writing_prompts", {
+        "id": prompt_id, "task_type": "task2", "prompt_text": "Discuss.",
+    })
+
+    updated = svc.admin_update_exam(exam["id"], {
+        "writing_task2_prompt_id": prompt_id,
+    })
+    assert updated["writing_task2_prompt_id"] == prompt_id
+    assert svc.advance_section(
+        exam["id"], "admin", expected_section="reading",
+    )["active_section"] == "writing"
+
+
+def test_advance_does_not_start_a_clock_for_broken_audio(fake_db, svc):
+    exam = _seed_exam(fake_db, reading=False)
+    listening = fake_db.rows("listening_tests")[0]
+    listening["full_audio_duration_seconds"] = None
+
+    with pytest.raises(svc.SittingConflictError, match="thời lượng audio"):
+        svc.advance_section(exam["id"], "admin", expected_section="not_started")
+    fresh = svc.get_published_exam_by_id(exam["id"])
+    assert fresh["active_section"] == "not_started"
+    assert fresh.get("listening_started_at") is None
+
+
+def test_mixed_mode_and_content_patch_validates_before_mode_rpc(fake_db, svc):
+    exam = _seed_exam(fake_db, is_open=False, reading=False)
+    listening = fake_db.rows("listening_tests")[0]
+    listening["full_audio_duration_seconds"] = None
+
+    with pytest.raises(ValueError, match="thời lượng audio"):
+        svc.admin_update_exam(exam["id"], {
+            "exam_mode": "retake",
+            "listening_test_id": listening["id"],
+        })
+
+    fresh = svc.get_published_exam_by_id(exam["id"])
+    assert (fresh.get("exam_mode") or "sequential") == "sequential"
+
+
+def test_publish_rejects_a_writing_prompt_in_the_wrong_slot(fake_db, svc):
+    exam_id = str(uuid4())
+    prompt_id = str(uuid4())
+    fake_db.seed("mock_exams", {
+        "id": exam_id, "code": "DRAFT-WRITING", "title": "Draft",
+        "status": "draft", "active_section": "not_started",
+        "writing_task1_prompt_id": prompt_id,
+        "reading_minutes": 60, "writing_minutes": 60,
+    })
+    fake_db.seed("writing_prompts", {
+        "id": prompt_id, "task_type": "task2", "prompt_text": "Discuss.",
+    })
+
+    with pytest.raises(ValueError, match="Task 1 đang trỏ nhầm loại đề"):
+        svc.admin_update_exam(exam_id, {"status": "published"})
+    assert fake_db.rows("mock_exams")[0]["status"] == "draft"
+
+
+@pytest.mark.parametrize("slot,task_type", [
+    ("writing_task1_prompt_id", "task1_academic"),
+    ("writing_task2_prompt_id", "task2"),
+])
+def test_deactivated_writing_prompt_blocks_publish(fake_db, svc, slot, task_type):
+    exam_id = str(uuid4())
+    prompt_id = str(uuid4())
+    fake_db.seed("mock_exams", {
+        "id": exam_id, "code": "DRAFT-ARCHIVED", "title": "Draft",
+        "status": "draft", "is_open": False, "active_section": "not_started",
+        slot: prompt_id, "reading_minutes": 60, "writing_minutes": 60,
+    })
+    fake_db.seed("writing_prompts", {
+        "id": prompt_id, "task_type": task_type, "prompt_text": "Discuss.",
+        "is_active": False,
+    })
+
+    with pytest.raises(ValueError, match="đã bị vô hiệu hóa"):
+        svc.admin_update_exam(exam_id, {"status": "published"})
+    fresh = fake_db.rows("mock_exams")[0]
+    assert fresh["status"] == "draft"
+    assert fresh["active_section"] == "not_started"
+
+
+@pytest.mark.parametrize("inactive_slot", [
+    "writing_task1_prompt_id",
+    "writing_task2_prompt_id",
+])
+def test_deactivated_writing_prompt_blocks_open_without_changing_state(
+        fake_db, svc, inactive_slot):
+    exam = _seed_exam(fake_db, is_open=False, listening=False, reading=False)
+    prompts = {
+        "writing_task1_prompt_id": (str(uuid4()), "task1_academic"),
+        "writing_task2_prompt_id": (str(uuid4()), "task2"),
+    }
+    stored = fake_db.rows("mock_exams")[0]
+    for slot, (prompt_id, task_type) in prompts.items():
+        stored[slot] = prompt_id
+        fake_db.seed("writing_prompts", {
+            "id": prompt_id, "task_type": task_type, "prompt_text": "Discuss.",
+            "is_active": slot != inactive_slot,
+        })
+
+    with pytest.raises(svc.SittingConflictError, match="đã bị vô hiệu hóa"):
+        svc.set_open(exam["id"], True, "admin")
+    fresh = svc.get_published_exam_by_id(exam["id"])
+    assert fresh["is_open"] is False
+    assert fresh["active_section"] == "not_started"
+    assert fresh.get("writing_started_at") is None
+
+
+@pytest.mark.parametrize("inactive_slot", [
+    "writing_task1_prompt_id",
+    "writing_task2_prompt_id",
+])
+def test_deactivated_writing_prompt_blocks_advance_without_starting_clock(
+        fake_db, svc, inactive_slot):
+    exam = _seed_exam(fake_db, listening=False, reading=False)
+    prompts = {
+        "writing_task1_prompt_id": (str(uuid4()), "task1_academic"),
+        "writing_task2_prompt_id": (str(uuid4()), "task2"),
+    }
+    stored = fake_db.rows("mock_exams")[0]
+    for slot, (prompt_id, task_type) in prompts.items():
+        stored[slot] = prompt_id
+        fake_db.seed("writing_prompts", {
+            "id": prompt_id, "task_type": task_type, "prompt_text": "Discuss.",
+            "is_active": slot != inactive_slot,
+        })
+
+    with pytest.raises(svc.SittingConflictError, match="đã bị vô hiệu hóa"):
+        svc.advance_section(exam["id"], "admin", expected_section="not_started")
+    fresh = svc.get_published_exam_by_id(exam["id"])
+    assert fresh["active_section"] == "not_started"
+    assert fresh.get("writing_started_at") is None
 
 
 # ── create_sitting ────────────────────────────────────────────────────
@@ -413,18 +690,20 @@ def test_advance_section_past_done_raises(fake_db, svc):
 
 
 def _advance_and_sweep(svc, exam_id, admin):
-    """What the ROUTER does on POST /advance: the fast, atomic transition, then
-    the straggler sweep.
+    """Run the production two-step: coordinated collect, then Advance.
 
-    Since B3 the sweep is a BackgroundTask queued by the router rather than part
-    of the service call — a class of 25-30 made it a very long request, and a
-    timeout left papers collected but the section unmoved. Production behaviour
-    ("admin advances → stragglers collected") is unchanged, so tests that assert
-    on collection run both halves, exactly as the request does.
+    The initial not_started transition has no paper to collect. Every LRW
+    transition closes admissions, sweeps after the client flush/ACK grace, and
+    publishes completion before the next clock may start.
     """
+    current = (svc.get_published_exam_by_id(exam_id) or {}).get(
+        "active_section") or "not_started"
+    if current in ("listening", "reading", "writing"):
+        assert svc.mark_section_collected(exam_id, current) is True
+        svc._force_collect_section(exam_id, current, strict=True)
+        assert svc.mark_collection_sweep_completed(exam_id, current) is True
     out = svc.advance_section(exam_id, admin)
-    if out.get("sweep_section"):
-        svc._force_collect_section(exam_id, out["sweep_section"])
+    assert out.get("sweep_section") is None
     return out
 
 
@@ -609,7 +888,8 @@ def test_available_reading_tests_includes_already_reserved(fake_db, svc):
                                    "title": "Draft test", "status": "draft",
                                    "test_type": "full",
                                    "metadata": {}, "created_at": "2026-01-01T00:00:00+00:00"})
-    _seed_exam(fake_db)["reading_test_id"] = "R-1"  # already used by MOCK-TEST-A
+    exam = _seed_exam(fake_db, reading=False)
+    exam["reading_test_id"] = "R-1"  # already used by MOCK-TEST-A
 
     ids = {t["id"] for t in svc.admin_available_reading_tests()}
     assert ids == {"R-1"}  # reused-but-published in, mini + draft out
@@ -781,6 +1061,9 @@ def test_attach_attempt_rejects_wrong_test(fake_db, svc):
     """Finding 2: cannot attach an attempt of a different (easier) test."""
     exam = _seed_exam(fake_db, listening=False)
     exam["reading_test_id"] = "the-real-test"      # exam now pins a reading test
+    fake_db.seed("reading_tests", {
+        "id": "the-real-test", "status": "published", "test_type": "full",
+    })
     u = uuid4()
     s = svc.create_sitting(u, "MOCK-TEST-A")
     svc.advance_section(exam["id"], str(uuid4()))
@@ -1301,7 +1584,7 @@ def test_retest_summary_counts_per_skill_and_lists_students(fake_db, svc, wf):
     s3 = svc.create_sitting(u3, "MOCK-TEST-A")
 
     for section in svc._configured_sections(exam):
-        svc.advance_section(exam["id"], admin_id)
+        _advance_and_sweep(svc, exam["id"], admin_id)
         _expire_section(fake_db, exam["id"], section)
         for sid, u in ((s1["id"], u1), (s2["id"], u2), (s3["id"], u3)):
             if section == "writing":
@@ -1369,7 +1652,7 @@ def test_roster_lists_students_with_per_skill_snapshot(fake_db, svc, wf):
     s2 = svc.create_sitting(u2, "MOCK-TEST-A")
 
     for section in svc._configured_sections(exam):
-        svc.advance_section(exam["id"], admin_id)
+        _advance_and_sweep(svc, exam["id"], admin_id)
         _expire_section(fake_db, exam["id"], section)
         for sid, u in ((s1["id"], u1), (s2["id"], u2)):
             if section == "writing":
@@ -1445,6 +1728,28 @@ def test_roster_retest_flags_drop_unrequired_skills(fake_db, svc, wf, monkeypatc
     rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
     assert "listening" not in rv["retest_flags"]
     assert rv["retest_flags"]["reading"] is True
+
+
+def test_roster_retest_flags_keep_teacher_assessed_speaking_extra(
+    fake_db, svc, wf, monkeypatch,
+):
+    """A live teacher assessment is the canonical permission for Speaking even
+    when this classroom exam has no speaking_topic_set.  The band save path
+    already honours that extra skill; the roster flag path must use the same
+    boundary instead of silently dropping the checkbox value."""
+    _seed_retest_fixture(fake_db)
+    monkeypatch.setattr(wf, "_required_skills", lambda _sid: (
+        "listening", "reading", "writing",
+    ))
+    rv = next(r for r in fake_db.rows("mock_exam_reviews") if r["id"] == "rv-1")
+    rv["ai_draft"] = {"speaking": {"band": 4.5}}
+    rv["per_skill_notes"] = {"speaking": {"intro": "Giáo viên chấm trực tiếp."}}
+
+    wf.set_retest_flags_for_sitting(
+        "sit-1", "admin-1", {"speaking": True, "writing": False},
+    )
+
+    assert rv["retest_flags"] == {"writing": False, "speaking": True}
 
 
 def test_roster_retest_flags_frozen_after_release(fake_db, svc, wf, monkeypatch):
@@ -1906,7 +2211,7 @@ def test_promote_writing_essays_snapshots_reviewed_task1_facts(fake_db, svc):
         "prompt_image_analysis_reviewed": True,
     })
     fake_db.seed("writing_prompts", {
-        "id": prompt2, "task_type": "task1_academic",
+        "id": prompt2, "task_type": "task2",
         "prompt_text": "Describe the other chart.", "title": "T2",
         "prompt_image_url": "https://img/y.png",
         "prompt_image_analysis": {"facts": ["should not appear"]},
@@ -2465,6 +2770,90 @@ def test_retake_assign_rejects_inverted_window(fake_db):
 # ── B4: collect is separate from advance ──────────────────────────────
 
 
+def test_collection_flush_ack_is_canonical_per_sitting(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    user_id = uuid4()
+    sitting = svc.create_sitting(user_id, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    svc.mark_section_collected(exam["id"], "listening")
+
+    out = svc.acknowledge_collection_flush(
+        sitting["id"], str(user_id), "listening",
+    )
+
+    assert out == {
+        "section": "listening", "acknowledged": True, "settled": False,
+    }
+    persisted = svc.get_sitting(sitting["id"])
+    assert persisted["collection_flush_acks"]["listening"]
+    assert svc._pending_collection_flush_ids(exam["id"], "listening") == []
+
+
+def test_collection_flush_ack_rejects_wrong_owner_or_open_section(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    user_id = uuid4()
+    sitting = svc.create_sitting(user_id, "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+
+    with pytest.raises(PermissionError):
+        svc.acknowledge_collection_flush(
+            sitting["id"], str(uuid4()), "listening",
+        )
+    with pytest.raises(svc.SittingConflictError):
+        svc.acknowledge_collection_flush(
+            sitting["id"], str(user_id), "listening",
+        )
+
+
+def test_collection_flush_wait_releases_on_ack(svc, monkeypatch):
+    snapshots = iter([["sitting-1"], []])
+    sleeps = []
+    monkeypatch.setattr(
+        svc, "_pending_collection_flush_ids", lambda *_a: next(snapshots),
+    )
+    monkeypatch.setattr(svc.time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    assert svc.wait_for_collection_flush(
+        "exam-1", "reading", grace_seconds=15, poll_seconds=0.25,
+    ) == []
+    assert sleeps == [0.25]
+
+
+def test_collection_flush_wait_is_bounded_for_offline_tabs(svc, monkeypatch):
+    times = iter([0.0, 0.0, 2.0])
+    monkeypatch.setattr(svc.time, "monotonic", lambda: next(times))
+    monkeypatch.setattr(svc.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(
+        svc, "_pending_collection_flush_ids", lambda *_a: ["offline-sitting"],
+    )
+
+    assert svc.wait_for_collection_flush(
+        "exam-1", "reading", grace_seconds=1, poll_seconds=0.25,
+    ) == ["offline-sitting"]
+
+
+def test_collection_sweep_waits_before_force_collect(svc, monkeypatch):
+    events = []
+    monkeypatch.setattr(
+        svc, "wait_for_collection_flush",
+        lambda exam_id, section: events.append(("wait", exam_id, section)),
+    )
+    monkeypatch.setattr(
+        svc, "collect_section",
+        lambda exam_id, admin_id, section: events.append(
+            ("collect", exam_id, admin_id, section),
+        ) or {"section": section, "collected": 1},
+    )
+
+    out = svc.collect_section_after_flush_grace("exam-1", "admin-1", "reading")
+
+    assert out == {"section": "reading", "collected": 1}
+    assert events == [
+        ("wait", "exam-1", "reading"),
+        ("collect", "exam-1", "admin-1", "reading"),
+    ]
+
+
 def test_collect_takes_papers_without_opening_the_next_section(fake_db, svc):
     """B4 — the whole point: papers in, class to the waiting room, and NO clock
     running until the admin decides to advance."""
@@ -2494,6 +2883,43 @@ def test_collect_then_advance_is_the_normal_two_step(fake_db, svc):
     assert svc.get_published_exam_by_id(exam["id"])["active_section"] == "reading"
 
 
+def test_advance_waits_for_the_coordinated_collection_sweep(fake_db, svc):
+    """The accepted collect marker closes the paper immediately, but opening
+    the next one is forbidden until the ACK-gated sweep publishes completion."""
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+    assert svc.mark_section_collected(exam["id"], "listening") is True
+
+    with pytest.raises(svc.SittingConflictError, match="đang chờ lưu"):
+        svc.advance_section(exam["id"], "admin-1", "listening")
+    assert svc.get_published_exam_by_id(exam["id"])["active_section"] == "listening"
+
+    svc._force_collect_section(exam["id"], "listening", strict=True)
+    assert svc.mark_collection_sweep_completed(exam["id"], "listening") is True
+    svc.advance_section(exam["id"], "admin-1", "listening")
+    assert svc.get_published_exam_by_id(exam["id"])["active_section"] == "reading"
+
+
+def test_direct_advance_cannot_bypass_collect_and_flush_grace(fake_db, svc):
+    """A live LRW paper must first enter the same ACK-gated collection flow.
+
+    This pins the direct API/admin-button path: without a collected marker it
+    cannot transition or manufacture a sweep after the next clock has started.
+    """
+    exam = _seed_exam(fake_db)
+    svc.create_sitting(uuid4(), "MOCK-TEST-A")
+    svc.advance_section(exam["id"], "admin-1")
+
+    with pytest.raises(svc.SittingConflictError, match="Phải thu"):
+        svc.advance_section(exam["id"], "admin-1", "listening")
+
+    after = svc.get_published_exam_by_id(exam["id"])
+    assert after["active_section"] == "listening"
+    assert after.get("collected_section") is None
+    assert fake_db.rows("mock_exam_sittings")[0].get("listening_submitted_at") is None
+
+
 def test_collect_rejects_a_stale_screen(fake_db, svc):
     """Codex #843 (correct): a monitor still showing Listening — because another
     invigilator advanced during the confirm dialog or inside the 5s poll —
@@ -2503,6 +2929,7 @@ def test_collect_rejects_a_stale_screen(fake_db, svc):
     exam = _seed_exam(fake_db)
     svc.create_sitting(uuid4(), "MOCK-TEST-A")
     svc.advance_section(exam["id"], "admin-1")     # → listening
+    svc.collect_section(exam["id"], "admin-1")     # coordinated pause complete
     svc.advance_section(exam["id"], "admin-1")     # → reading (other invigilator)
 
     with pytest.raises(svc.SittingConflictError):
@@ -2630,7 +3057,7 @@ def test_the_writing_sweep_promotes_essays_exactly_once(fake_db, svc, monkeypatc
     exam = _seed_exam(fake_db)
     svc.create_sitting(uuid4(), "MOCK-TEST-A")
     for _ in range(3):
-        svc.advance_section(exam["id"], "admin-1")        # → writing
+        _advance_and_sweep(svc, exam["id"], "admin-1")   # → writing
     row = dict(fake_db.rows("mock_exam_sittings")[0])
 
     promoted = []
@@ -2684,7 +3111,7 @@ def test_the_final_advance_keeps_a_grace_anchor(fake_db, svc):
     exam = _seed_exam(fake_db)
     svc.create_sitting(uuid4(), "MOCK-TEST-A")
     for _ in range(4):                                    # → done
-        svc.advance_section(exam["id"], "admin-1")
+        _advance_and_sweep(svc, exam["id"], "admin-1")
 
     after = svc.get_published_exam_by_id(exam["id"])
     assert after["active_section"] == "done"
@@ -3036,10 +3463,10 @@ def test_advance_conflict_message_names_the_current_section(fake_db, svc):
 
 
 def test_advance_still_walks_the_configured_sequence(fake_db, svc):
-    """The guard must not change the normal one-at-a-time walk."""
+    """The coordinated two-step still walks the configured sequence."""
     exam = _seed_exam(fake_db)
     for expected in ("listening", "reading", "writing", "done"):
-        svc.advance_section(exam["id"], "admin-1")
+        _advance_and_sweep(svc, exam["id"], "admin-1")
         assert svc.get_published_exam_by_id(exam["id"])["active_section"] == expected
 
 
@@ -5054,7 +5481,7 @@ def test_the_final_advance_closes_the_room(fake_db, svc):
     fake_db.table("mock_exams").update({"is_open": True}).eq(
         "id", exam["id"]).execute()
     for _ in range(4):                       # → listening → reading → writing → done
-        svc.advance_section(exam["id"], "admin-1")
+        _advance_and_sweep(svc, exam["id"], "admin-1")
     fresh = svc.get_published_exam_by_id(exam["id"])
     assert fresh["active_section"] == "done"
     assert fresh["is_open"] is False
@@ -5252,6 +5679,35 @@ def test_extra_speaking_band_is_stored_not_dropped(fake_db, svc, wf):
     # only the 3 required skills would say 6.0 — so this line alone catches a
     # regression that silently drops the extra from the mean.
     assert saved["final_bands"]["overall"] == 5.5
+
+
+def test_final_band_save_keeps_live_speaking_retest_flag(fake_db, svc, wf):
+    """Roster decision -> final-band save -> reload must retain live Speaking.
+
+    An LRW classroom exam can carry a direct teacher assessment without a
+    speaking_topic_set.  Saving final bands used to rebuild retest_flags from
+    required LRW only and silently erase the already-selected Speaking flag.
+    """
+    sid = _lrw_sitting(fake_db, svc)
+    review = wf.get_review_for_sitting(sid)
+    wf._merge_review_ai_draft(sid, {"speaking": {"band": 4.5}})
+    admin = uuid4()
+    wf.claim(review["id"], admin)
+    wf.set_retest_flags_for_sitting(sid, admin, {"speaking": True})
+
+    saved = wf.save_final_bands(
+        review["id"], admin,
+        {"listening": 6.0, "reading": 6.0, "writing": 6.0, "speaking": 4.5},
+        retest_flags={
+            "listening": False, "reading": False,
+            "writing": False, "speaking": True,
+        },
+    )
+
+    assert saved["retest_flags"] == {
+        "listening": False, "reading": False,
+        "writing": False, "speaking": True,
+    }
 
 
 def test_extra_speaking_still_optional(fake_db, svc, wf):

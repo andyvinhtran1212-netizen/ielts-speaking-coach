@@ -211,10 +211,14 @@ async function loadClassStrip(api: any, cancelled: () => boolean) {
 
   const p = data.progress;
   const cls = data.class || {};
+  const classes = Array.isArray(data.classes) ? data.classes : [];
   const nameEl = $('class-strip-name');
-  if (nameEl) nameEl.textContent = cls.name || 'Lớp của tôi';
+  if (nameEl) nameEl.textContent = classes.length > 1
+    ? `${classes.length} lớp đang học` : cls.name || 'Lớp của tôi';
   const metaEl = $('class-strip-meta');
-  if (metaEl) metaEl.textContent = cls.course ? cls.course.name : '';
+  if (metaEl) metaEl.textContent = classes.length > 1
+    ? classes.map((item: any) => item?.name).filter(Boolean).join(' · ')
+    : cls.course ? cls.course.name : '';
 
   // Khối assignments suy giảm nghĩa là ta KHÔNG BIẾT con số. Nói vậy, đừng in
   // ra một con số không ai tính.
@@ -241,7 +245,7 @@ async function loadClassStrip(api: any, cancelled: () => boolean) {
  * Trên trang legacy thứ tự thẻ script bảo đảm `initSupabase` đã chạy trước;
  * trong Next mọi script ngoài đều `defer` còn script nội tuyến chạy lúc parse,
  * nên nó bắn `/api/mock-exams/my-sittings` TRƯỚC khi phiên sẵn sàng → 401 →
- * `api.js:130` đẩy sang `/login.html` và CẢ TRANG biến mất. Cổng parity authed
+ * `api.js:130` đẩy sang `/login` và CẢ TRANG biến mất. Cổng parity authed
  * bắt đúng vậy: `title-mismatch: Trang chủ → Đăng nhập`, 68 phát hiện.
  *
  * Ở đây nó chạy SAU khi `useAuth()` xác nhận đã đăng nhập và `window.api` sẵn
@@ -277,7 +281,7 @@ async function renderMockTiles(api: any, cancelled: () => boolean) {
   // Mới công bố trước (endpoint đã xếp mới-nhất-trước).
   sittings.filter((s: any) => s.released).forEach((s: any) => {
     hub.insertAdjacentHTML('beforeend',
-      '<a class="mock-result-tile" href="/pages/mock-result.html?sitting='
+      '<a class="mock-result-tile" href="/mock/result?sitting='
         + encodeURIComponent(s.sitting_id) + '">'
       + '<span class="mock-result-tile__band">' + fmtBand(s.overall) + '</span>'
       + '<span class="mock-result-tile__body">'
@@ -324,7 +328,7 @@ async function loadHome(api: any, cancelled: () => boolean, cleanups: Array<() =
   clearStatLoading('0');
 
   // Báo cho <aver-chrome> biết người dùng đã đăng nhập để link vocab trên thanh
-  // điều hướng đổi sang /pages/vocabulary.html ngay lập tức — khử cuộc đua khi
+  // điều hướng đổi sang /vocabulary/hub ngay lập tức — khử cuộc đua khi
   // việc dò phiên bất đồng bộ chưa xong mà người dùng đã bấm.
   const chrome = document.querySelector('aver-chrome') as any;
   if (chrome && typeof chrome.setUser === 'function') {
@@ -343,7 +347,7 @@ export function HomeBehavior() {
   // trang riêng tư từ lịch sử. Bản legacy tương ứng: home.html chuyển hướng về
   // login khi không có phiên.
   useEffect(() => {
-    if (status === 'signed-out') window.location.replace('/login.html');
+    if (status === 'signed-out') window.location.replace('/login');
   }, [status]);
 
   useEffect(() => {

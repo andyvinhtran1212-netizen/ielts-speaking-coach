@@ -25,8 +25,8 @@ function __averOnReady(fn) {
  *
  * Browse published L2 skill-practice exercises (GET /api/reading/skill).
  * The L2-specific filter is `skill` (skill_focus); cards emphasise the
- * targeted IELTS reading skill. Deep-links to /pages/reading-skill-exercise.
- * html?slug=... Mirrors reading-vocab.js (Sprint 20.2).
+ * targeted IELTS reading skill. Deep-links to /reading/skill/{slug}; the
+ * direct HTML exercise remains the rollback route. Mirrors reading-vocab.js.
  */
 
 const SUPABASE_URL = 'https://huwsmtubwulikhlmcirx.supabase.co';
@@ -40,13 +40,18 @@ const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
 
 const $ = (id) => document.getElementById(id);
 
-const STATE = { items: [] };
+const PAGE_SIZE = 24;
+const STATE = { items: [], offset: 0, total: 0, loadMoreError: false };
 
 const VIEWS = {
   loading: $('state-loading'),
   empty:   $('state-empty'),
   error:   $('state-error'),
   grid:    $('rv-grid'),
+  result:  $('rv-result-count'),
+  total:   $('rv-total-count'),
+  focus:   $('rv-focus-count'),
+  reset:   $('clear-filters'),
 };
 
 function showState(name) {
@@ -54,8 +59,53 @@ function showState(name) {
   VIEWS.empty.hidden   = name !== 'empty';
   VIEWS.error.hidden   = name !== 'error';
   VIEWS.grid.hidden    = name !== 'ready';
+  const more = $('rv-load-more');
+  if (more) more.hidden = name !== 'ready';
 }
-function showError(msg) { VIEWS.error.textContent = msg; showState('error'); }
+function showError(msg) {
+  VIEWS.error.textContent = msg;
+  if (VIEWS.result) VIEWS.result.textContent = 'Không thể tải danh sách';
+  showState('error');
+}
+
+function ensureLoadMore() {
+  let wrap = $('rv-load-more');
+  if (wrap) return wrap;
+  wrap = document.createElement('div');
+  wrap.id = 'rv-load-more';
+  wrap.className = 'rv-load-more';
+  wrap.hidden = true;
+  wrap.innerHTML = '<p role="alert" hidden>Chưa tải được trang tiếp theo.</p>' +
+    '<button type="button">Xem thêm</button>';
+  VIEWS.grid.insertAdjacentElement('afterend', wrap);
+  wrap.querySelector('button').addEventListener('click', () => {
+    if (!STATE.loadMoreError) STATE.offset += PAGE_SIZE;
+    load({ append: true });
+  });
+  return wrap;
+}
+
+function renderLoadMore({ loading = false } = {}) {
+  const wrap = ensureLoadMore();
+  const alert = wrap.querySelector('[role="alert"]');
+  const button = wrap.querySelector('button');
+  const hasMore = STATE.items.length < STATE.total;
+  wrap.hidden = !hasMore;
+  alert.hidden = !STATE.loadMoreError;
+  button.disabled = loading;
+  button.textContent = loading
+    ? 'Đang tải…'
+    : STATE.loadMoreError
+      ? 'Thử lại'
+      : `Xem thêm (${STATE.items.length}/${STATE.total})`;
+}
+
+function revealActiveLibraryTab() {
+  const nav = document.querySelector?.('.rv-libnav');
+  const active = nav?.querySelector('.rv-libnav__link.is-active');
+  if (!nav || !active) return;
+  nav.scrollLeft = Math.max(0, active.offsetLeft - ((nav.clientWidth - active.clientWidth) / 2));
+}
 
 function escapeHtml(s) {
   // C4: delegate to the shared escaper (window.WC.escapeHtml, api.js);
@@ -79,24 +129,71 @@ const SKILL_LABEL = {
   writer_view_TFNG: "Writer's view (T/F/NG)",
 };
 
-async function load() {
-  showState('loading');
+const DIFFICULTY_LABEL = {
+  foundation: 'Foundation',
+  intermediate: 'Intermediate',
+  advanced: 'Advanced',
+};
+
+function displaySkillTitle(p) {
+  const raw = String(p.title || 'Bài luyện').trim();
+  const parts = raw.split(/\s+[—·]\s+/).filter(Boolean);
+  return parts.length > 1 ? parts[parts.length - 1] : raw;
+}
+
+async function load({ append = false } = {}) {
+  if (!append) {
+    STATE.offset = 0;
+    STATE.items = [];
+    showState('loading');
+  } else {
+    renderLoadMore({ loading: true });
+  }
+  STATE.loadMoreError = false;
   const difficulty = ($('filter-difficulty').value || '').trim();
   const skill = ($('filter-skill').value || '').trim();
+  VIEWS.result.textContent = 'Đang cập nhật danh sách…';
+  VIEWS.reset.hidden = !(difficulty || skill);
   const qs = new URLSearchParams();
   if (difficulty) qs.set('difficulty', difficulty);
   if (skill) qs.set('skill', skill);
-  qs.set('limit', '50');
+  qs.set('limit', String(PAGE_SIZE));
+  qs.set('offset', String(STATE.offset));
 
   try {
     const res = await window.api.get(`/api/reading/skill?${qs.toString()}`);
-    STATE.items = (res && res.items) || [];
+    const incoming = (res && Array.isArray(res.items)) ? res.items : [];
+    STATE.items = (append ? STATE.items.concat(incoming) : incoming)
+      .filter((item, index, all) =>
+        all.findIndex((candidate) => candidate.slug === item.slug) === index);
+    STATE.total = (typeof res?.total === 'number' && Number.isFinite(res.total) && res.total >= 0)
+      ? res.total
+      : STATE.offset + incoming.length;
+    renderSummary(res);
     if (!STATE.items.length) { showState('empty'); return; }
     render();
     showState('ready');
+    renderLoadMore();
   } catch (e) {
-    showError('Không tải được thư viện. ' + (e && e.message ? e.message : ''));
+    if (append) {
+      STATE.loadMoreError = true;
+      showState('ready');
+      renderLoadMore();
+    } else {
+      showError('Không tải được thư viện. ' + (e && e.message ? e.message : ''));
+    }
   }
+}
+
+function renderSummary(res) {
+  const shown = STATE.items.length;
+  const total = STATE.total;
+  const focusCount = new Set(STATE.items.map((p) => p.skill_focus).filter(Boolean)).size;
+  VIEWS.total.textContent = String(total);
+  VIEWS.focus.textContent = String(focusCount);
+  VIEWS.result.textContent = total > shown
+    ? `${total} bài luyện · đang hiển thị ${shown} bài thuộc ${focusCount} nhóm kỹ năng`
+    : `${total} bài luyện · ${focusCount} nhóm kỹ năng`;
 }
 
 function render() {
@@ -105,29 +202,45 @@ function render() {
   STATE.items.forEach((p) => {
     const a = document.createElement('a');
     a.className = 'rv-card';
-    a.href = `/pages/reading-skill-exercise.html?slug=${encodeURIComponent(p.slug)}`;
+    a.href = `/reading/skill/${encodeURIComponent(p.slug)}`;
+    const title = displaySkillTitle(p);
+    a.setAttribute('aria-label', `Luyện bài ${title}`);
     const skillLabel = p.skill_focus ? (SKILL_LABEL[p.skill_focus] || p.skill_focus) : '';
+    const difficulty = DIFFICULTY_LABEL[p.difficulty_level] || p.difficulty_level || '';
     const pills = [
       // The skill-focus pill is the defining L2 affordance — render it FIRST,
       // brand-coloured, so students can scan the library by skill at a glance.
       skillLabel ? `<span class="rv-pill is-brand">${escapeHtml(skillLabel)}</span>` : '',
-      p.difficulty_level ? `<span class="rv-pill">${escapeHtml(p.difficulty_level)}</span>` : '',
+      difficulty ? `<span class="rv-pill">${escapeHtml(difficulty)}</span>` : '',
       (p.topic_tags || []).slice(0, 1).map((t) => `<span class="rv-pill">${escapeHtml(t)}</span>`).join(''),
-      p.estimated_minutes ? `<span class="rv-pill">${p.estimated_minutes}p</span>` : '',
     ].join('');
     a.innerHTML = `
-      <h3>${escapeHtml(p.title || 'Bài luyện')}</h3>
-      <div class="rv-card__excerpt">${escapeHtml(p.excerpt || '')}</div>
-      <div class="rv-meta">${pills}</div>`;
+      <div class="rv-card__top">
+        <span class="rv-card__type">SKILL PRACTICE</span>
+        ${p.estimated_minutes ? `<span class="rv-card__time">${escapeHtml(p.estimated_minutes)} PHÚT</span>` : ''}
+      </div>
+      <h3 title="${escapeHtml(p.title || '')}">${escapeHtml(title)}</h3>
+      <p class="rv-card__excerpt">${escapeHtml(p.excerpt || '')}</p>
+      <div class="rv-meta">${pills}</div>
+      <div class="rv-card__footer">
+        <span class="rv-card__code">ĐỌC + CÂU HỎI</span>
+        <span class="rv-card__cta">Luyện ngay <span aria-hidden="true">→</span></span>
+      </div>`;
     grid.appendChild(a);
   });
 }
 
 if (typeof document !== 'undefined') {
   __averOnReady(() => {
+    revealActiveLibraryTab();
     load();
     ['filter-difficulty', 'filter-skill'].forEach((id) => {
       $(id).addEventListener('change', load);
+    });
+    VIEWS.reset.addEventListener('click', () => {
+      $('filter-difficulty').value = '';
+      $('filter-skill').value = '';
+      load();
     });
   });
 }

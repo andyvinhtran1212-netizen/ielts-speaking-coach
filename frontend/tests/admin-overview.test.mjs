@@ -7,7 +7,7 @@
  *
  *   - Chrome embed regression
  *   - Top 4 stat tiles missing one of the canonical metrics
- *   - 5 skill cards missing one of the skill data-attributes
+ *   - 6 skill cards missing one of the skill data-attributes
  *   - Activity feed container missing
  *   - Refresh button + auto-refresh wiring lost
  *   - Click-through navigation on error + access-codes tiles
@@ -72,8 +72,8 @@ describe('Sprint 12.4 — 4 stat tiles', () => {
 });
 
 
-describe('Sprint 12.4 — 5 skill cards', () => {
-  const skills = ['speaking', 'writing', 'listening', 'vocab', 'grammar'];
+describe('Admin overview — 6 skill cards', () => {
+  const skills = ['speaking', 'writing', 'reading', 'listening', 'vocab', 'grammar'];
   for (const s of skills) {
     it(`skill card "${s}" exists with [data-skill="${s}"]`, () => {
       assert.match(HTML, new RegExp(`data-skill="${s}"`));
@@ -83,14 +83,22 @@ describe('Sprint 12.4 — 5 skill cards', () => {
     });
   }
 
-  it('all 5 skill cards link to their hubs (no is-placeholder remaining)', () => {
-    // Sprint 12.7 graduated Grammar — every skill card is now LIVE.
+  it('all 6 skill cards link to their hubs (no is-placeholder remaining)', () => {
+    // Speaking, Writing, Reading, Listening and Grammar now have native clean-route owners; rollback HTML
+    // remains directly reachable but must not be the normal navigation target.
     // design-fix-2 B4: skill cards reuse the shared .admin-hub-card primitive.
-    assert.match(HTML, /href="\/pages\/admin\/speaking\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="speaking"/);
-    assert.match(HTML, /href="\/pages\/admin\/writing\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="writing"/);
-    assert.match(HTML, /href="\/pages\/admin\/listening\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="listening"/);
-    assert.match(HTML, /href="\/pages\/admin\/vocab\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="vocab"/);
-    assert.match(HTML, /href="\/pages\/admin\/grammar\/index\.html"[^>]*class="admin-hub-card"\s+data-skill="grammar"/);
+    assert.match(HTML, /href="\/admin\/speaking"[^>]*class="admin-hub-card"\s+data-skill="speaking"/);
+    assert.match(HTML, /href="\/admin\/writing"[^>]*class="admin-hub-card"\s+data-skill="writing"/);
+    assert.match(HTML, /href="\/admin\/reading"[^>]*class="admin-hub-card"\s+data-skill="reading"/);
+    assert.match(HTML, /href="\/admin\/listening"[^>]*class="admin-hub-card"\s+data-skill="listening"/);
+    assert.match(HTML, /href="\/admin\/vocab"[^>]*class="admin-hub-card"\s+data-skill="vocab"/);
+    assert.match(HTML, /href="\/admin\/grammar"[^>]*class="admin-hub-card"\s+data-skill="grammar"/);
+    assert.doesNotMatch(HTML, /href="\/pages\/admin\/speaking\/index\.html"/);
+    assert.doesNotMatch(HTML, /href="\/pages\/admin\/writing\/index\.html"/);
+    assert.doesNotMatch(HTML, /href="\/pages\/admin\/reading\/content\.html"[^>]*data-skill="reading"/);
+    assert.doesNotMatch(HTML, /href="\/pages\/admin\/listening\/index\.html"[^>]*data-skill="listening"/);
+    assert.doesNotMatch(HTML, /href="\/pages\/admin\/vocab\/index\.html"[^>]*data-skill="vocab"/);
+    assert.doesNotMatch(HTML, /href="\/pages\/admin\/grammar\/index\.html"/);
   });
 
   it('no skill card carries is-placeholder anymore', () => {

@@ -33,6 +33,8 @@ class _TableQuery:
         self.fake = fake
         self.table_name = table_name
         self.in_filter: tuple[str, list] | None = None
+        self.gt_filter: tuple[str, str] | None = None
+        self.limit_value: int | None = None
 
     def select(self, *_args, **_kw):
         return self
@@ -41,11 +43,29 @@ class _TableQuery:
         self.in_filter = (field, list(values))
         return self
 
+    def order(self, *_args, **_kw):
+        return self
+
+    def gt(self, field, value):
+        self.gt_filter = (field, value)
+        return self
+
+    def limit(self, value):
+        self.limit_value = value
+        return self
+
     def execute(self):
         rows = self.fake.tables.get(self.table_name, [])
         if self.in_filter:
             f, vals = self.in_filter
             rows = [r for r in rows if r.get(f) in vals]
+        rows = sorted(rows, key=lambda row: str(row.get("id") or ""))
+        if self.gt_filter:
+            field, value = self.gt_filter
+            rows = [row for row in rows if str(row.get(field) or "") > str(value)]
+        # Match the hosted PostgREST cap so a test without explicit pagination
+        # cannot accidentally pass against this fake.
+        rows = rows[:self.limit_value or 1000]
         return _Resp(rows)
 
 
@@ -55,8 +75,11 @@ class _FakeSupabase:
             "article_views":  [],
             "saved_articles": [],
         }
+        self.fail_tables: set[str] = set()
 
     def table(self, name):
+        if name in self.fail_tables:
+            raise RuntimeError(f"{name} unavailable")
         return _TableQuery(self, name)
 
 
@@ -80,6 +103,9 @@ class _FakeGrammarService:
                     "score":    0.9,
                 }
         return None
+
+    def find_best_anchor(self, issue: str, slug: str):
+        return "past-perfect-use" if slug == "past-perfect" else None
 
 
 _ARTICLES = [
@@ -162,6 +188,8 @@ class TestArticlesList:
         r = client.get("/admin/grammar/articles?category=tenses", headers=_ADMIN_AUTH)
         body = r.json()
         assert body["total"] == 1
+        assert body["available_total"] == 3
+        assert body["categories"] == sorted(set(a["category"] for a in _ARTICLES))
         assert body["items"][0]["slug"] == "past-perfect"
 
     def test_search_by_title_substring(self, client):
@@ -190,6 +218,31 @@ class TestArticlesList:
         r = client.get("/admin/grammar/articles?category=tenses", headers=_ADMIN_AUTH)
         item = r.json()["items"][0]
         assert item["source_path"] == "backend/content/tenses/past-perfect.md"
+
+    def test_analytics_failure_is_explicit_and_never_becomes_false_zero(self, client, fake_db):
+        fake_db.fail_tables.add("article_views")
+        r = client.get("/admin/grammar/articles", headers=_ADMIN_AUTH)
+        assert r.status_code == 200
+        body = r.json()
+        assert body["analytics_status"] == {"views": "unavailable", "saves": "complete"}
+        assert all(item["view_count"] is None for item in body["items"])
+        assert all(item["save_count"] == 0 for item in body["items"])
+
+    def test_analytics_reads_every_postgrest_page_before_marking_complete(self, client, fake_db):
+        fake_db.tables["article_views"] = [
+            {"id": f"view-{index:04d}", "article_slug": "past-perfect", "view_count": 1}
+            for index in range(1205)
+        ]
+        fake_db.tables["saved_articles"] = [
+            {"id": f"save-{index:04d}", "article_slug": "past-perfect"}
+            for index in range(1107)
+        ]
+        r = client.get("/admin/grammar/articles?category=tenses", headers=_ADMIN_AUTH)
+        assert r.status_code == 200
+        body = r.json()
+        assert body["analytics_status"] == {"views": "complete", "saves": "complete"}
+        assert body["items"][0]["view_count"] == 1205
+        assert body["items"][0]["save_count"] == 1107
 
 
 # ── GET /admin/grammar/articles/{slug}/preview ────────────────────
@@ -221,6 +274,9 @@ class TestAnalytics:
         # All 3 articles are zero-view since DB is empty.
         assert body["zero_view_total"] == 3
         assert body["articles_total"] == 3
+        assert body["analytics_status"] == {
+            "views": "complete", "recent_activity": "complete", "saves": "complete"
+        }
 
     def test_aggregates_views_and_saves(self, client, fake_db):
         fake_db.tables["article_views"] = [
@@ -236,8 +292,9 @@ class TestAnalytics:
         body = r.json()
         assert body["views_total"] == 8
         assert body["saves_total"] == 3
-        # Window cutoff was 30 days; last_viewed_at far in future → all in window.
-        assert body["views_recent"] == 8
+        # The schema stores one cumulative row per learner/article, not events.
+        assert body["active_view_records_recent"] == 2
+        assert body["recent_activity_basis"] == "user_article_records_with_last_viewed_at_in_window"
         # relative-clauses has no views → zero-view
         assert body["zero_view_total"] == 1
         zero_slugs = [r["slug"] for r in body["zero_view_slugs"]]
@@ -252,6 +309,64 @@ class TestAnalytics:
         r = client.get("/admin/grammar/analytics", headers=_ADMIN_AUTH)
         top = r.json()["top_viewed"]
         assert [t["slug"] for t in top] == ["modal-verbs", "relative-clauses", "past-perfect"]
+
+    def test_reads_every_postgrest_page_before_marking_sources_complete(self, client, fake_db):
+        fake_db.tables["article_views"] = [
+            {
+                "id": f"view-{index:04d}",
+                "article_slug": "past-perfect",
+                "view_count": 1,
+                "last_viewed_at": "2099-01-01T00:00:00+00:00",
+            }
+            for index in range(1205)
+        ]
+        fake_db.tables["saved_articles"] = [
+            {"id": f"save-{index:04d}", "article_slug": "past-perfect"}
+            for index in range(1107)
+        ]
+        body = client.get("/admin/grammar/analytics", headers=_ADMIN_AUTH).json()
+        assert body["analytics_status"] == {
+            "views": "complete", "recent_activity": "complete", "saves": "complete"
+        }
+        assert body["views_total"] == 1205
+        assert body["active_view_records_recent"] == 1205
+        assert body["saves_total"] == 1107
+
+    def test_source_failure_is_unknown_not_false_zero(self, client, fake_db):
+        fake_db.fail_tables.add("article_views")
+        body = client.get("/admin/grammar/analytics", headers=_ADMIN_AUTH).json()
+        assert body["analytics_status"] == {
+            "views": "unavailable", "recent_activity": "unavailable", "saves": "complete"
+        }
+        assert body["views_total"] is None
+        assert body["active_view_records_recent"] is None
+        assert body["top_viewed"] is None
+        assert body["zero_view_total"] is None
+        assert body["zero_view_slugs"] is None
+        assert body["saves_total"] == 0
+
+    def test_invalid_activity_timestamp_only_degrades_window_metric(self, client, fake_db):
+        fake_db.tables["article_views"] = [{
+            "id": "view-invalid", "article_slug": "past-perfect", "view_count": 4,
+            "last_viewed_at": "not-a-timestamp",
+        }]
+        body = client.get("/admin/grammar/analytics", headers=_ADMIN_AUTH).json()
+        assert body["analytics_status"]["views"] == "complete"
+        assert body["analytics_status"]["recent_activity"] == "unavailable"
+        assert body["views_total"] == 4
+        assert body["active_view_records_recent"] is None
+
+    @pytest.mark.parametrize("bad_count", [None, -1])
+    def test_invalid_view_count_degrades_view_source(self, client, fake_db, bad_count):
+        fake_db.tables["article_views"] = [{
+            "id": "view-invalid", "article_slug": "past-perfect", "view_count": bad_count,
+            "last_viewed_at": "2099-01-01T00:00:00+00:00",
+        }]
+        body = client.get("/admin/grammar/analytics", headers=_ADMIN_AUTH).json()
+        assert body["analytics_status"]["views"] == "unavailable"
+        assert body["analytics_status"]["recent_activity"] == "unavailable"
+        assert body["views_total"] is None
+        assert body["zero_view_total"] is None
 
 
 # ── POST /admin/grammar/recommend-test ────────────────────────────
@@ -270,7 +385,10 @@ class TestRecommendTester:
         assert body["match"] is not None
         assert body["match"]["slug"] == "past-perfect"
         assert body["match"]["score"] == 0.9
-        assert body["match"]["url"].startswith("/pages/grammar-article.html?slug=")
+        assert body["outcome"] == "matched"
+        assert body["match"]["anchor"] == "past-perfect-use"
+        assert body["match"]["url"] == "/grammar/tenses/past-perfect#past-perfect-use"
+        assert body["candidate"] == body["match"]
 
     def test_no_match_returns_match_none(self, client):
         r = client.post(
@@ -279,7 +397,32 @@ class TestRecommendTester:
             headers=_ADMIN_AUTH,
         )
         body = r.json()
+        assert body["outcome"] == "below_threshold"
         assert body["match"] is None
+        assert body["candidate"] is None
+
+    def test_draft_candidate_is_visible_but_suppressed_like_production(self, client, fake_service):
+        fake_service.articles_by_slug["past-perfect"]["status"] = "draft"
+        body = client.post(
+            "/admin/grammar/recommend-test", json={"issue": "past perfect"}, headers=_ADMIN_AUTH
+        ).json()
+        assert body["outcome"] == "draft_suppressed"
+        assert body["match"] is None
+        assert body["candidate"]["slug"] == "past-perfect"
+        assert body["candidate"]["status"] == "draft"
+
+    @pytest.mark.parametrize("bad_score", [True, float("nan"), -0.1, 1.1])
+    def test_invalid_matcher_score_fails_closed(self, client, fake_service, monkeypatch, bad_score):
+        monkeypatch.setattr(fake_service, "find_best_match", lambda _issue: {
+            "slug": "past-perfect", "category": "tenses", "title": "Past Perfect", "score": bad_score,
+        })
+        response = client.post(
+            "/admin/grammar/recommend-test", json={"issue": "past perfect"}, headers=_ADMIN_AUTH
+        )
+        assert response.status_code == 500
+        body = response.json()["detail"]
+        assert body["error_code"] == "internal_error"
+        assert body["ref"]
 
     def test_blank_issue_returns_422_via_pydantic(self, client):
         r = client.post(

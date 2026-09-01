@@ -47,6 +47,7 @@
        Rules moved to /css/mock-hub.css (review PR #929) so the Next route can
        share ONE source instead of a second copy that silently drifts. -->
   <link rel="stylesheet" href="/css/mock-hub.css" />
+  <script src="/js/legacy-retirement-beacon.js" defer></script>
 </head>
 <body class="av-page">
 
@@ -118,7 +119,7 @@
         <span class="rule" aria-hidden="true"></span>
         <span class="meta" id="class-strip-meta"></span>
       </div>
-      <a class="skill-card" id="class-strip-card" href="/pages/my-class.html">
+      <a class="skill-card" id="class-strip-card" href="/my-class">
         <div class="head">
           <div class="icon">◎</div>
           <span class="arrow">→</span>
@@ -245,7 +246,7 @@
       <!-- Start card + result tiles side by side; a released result tile is
            injected next to the start card by home-mock-tiles.js. -->
       <div class="mock-hub__grid" id="mock-hub-grid">
-        <a href="/pages/full-test.html" class="mock-start">
+        <a href="/full-test" class="mock-start">
           <div class="mock-start__title">🎯 Thi thử Full Test 4 kỹ năng →</div>
           <div class="mock-start__sub">Listening + Reading + Writing (một đồng hồ tổng) + Speaking — thu bài kín, giám khảo chấm và trả điểm sau.</div>
         </a>

@@ -197,21 +197,15 @@ def test_unfinished_work_is_left_alone():
     assert _run(db) == 0
 
 
-def test_a_graded_writing_submission_closes_the_item():
-    """Với bộ đề có phần viết thì ĐÂY mới là đường chốt sổ."""
+def test_a_graded_writing_submission_does_not_close_a_multisection_item():
+    """Writing là một phần, không phải bằng chứng đã hoàn tất quiz + writing."""
     db = _db(items=[{"id": ITEM, "assignment_id": ASG, "submitted_at": None}],
              questions=_mcq(10) + [{"qid": "w1", "type": "writing"}],
              writing=[{"id": "w-1", "class_assignment_item_id": ITEM,
                        "graded_at": "2026-08-09T11:00:00+00:00",
                        "total": 10, "clean": 7}])
-    assert _run(db) == 1
-    assert db.marked[0]["artifact_kind"] == "course_writing"
-    assert db.marked[0]["submitted_at"].startswith("2026-08-09T11:00")
-    # ĐIỂM thì KHÔNG. Bản trước chốt `score == 70.0` ở đây, và đó chính là lỗi:
-    # bộ đề này có 10 câu trắc nghiệm, nên điểm của mục là kết quả trắc nghiệm
-    # (`course_verdict` ghi, `passed_at` xét trên số ấy) — độ sạch bài viết ghi
-    # đè lên là xoá mất nó. Xem `test_a_graded_essay_leaves_the_quiz_result_alone`.
-    assert "score" not in db.marked[0]
+    assert _run(db) == 0
+    assert db.marked == []
 
 
 def test_an_item_already_in_the_ledger_is_not_touched():
@@ -321,9 +315,9 @@ def test_no_read_is_ever_issued_PER_ITEM():
 
     for n in (3, 60, 250, 700):
         for banks in (1, n):
-            # 5 lớp đọc (bài giao · mục · tự luận · phiên · câu đã làm) cộng lớp
-            # đọc bộ đề, mỗi lớp chia lô 100.
-            cap = 6 * -(-n // 100)
+            # Thêm hai lớp đọc theo lô cho meta và pronunciation để biết bank
+            # có cổng nhiều phần; vẫn tuyệt đối không hỏi từng item.
+            cap = 9 * -(-n // 100)
             got = _reads(n, banks=banks)
             assert got <= cap, (
                 f"{n} mục / {banks} bộ đề: đọc {got} lượt, trần theo lô là {cap}")
@@ -536,26 +530,17 @@ def test_the_count_it_reports_is_the_number_of_rows_it_actually_wrote():
     assert _run(db) == len(db.marked) == 3
 
 
-def test_a_graded_essay_is_repaired_even_when_the_quiz_tables_are_down():
-    """Dòng tự luận đã chấm tự nó đủ: nó không cần biết bộ đề có bao nhiêu câu
-    hay em ấy đã làm những phiên nào. Bắt nó đi chung đường đọc với nhóm trắc
-    nghiệm nghĩa là một lượt đọc `quiz_questions` hỏng cũng chặn luôn những bài
-    viết đã chấm — chặn vì một dữ liệu không ai dùng tới (codex vòng 3)."""
-    for dead in ("quiz_questions", "quiz_sessions", "quiz_attempts"):
-        db = _db(items=[{"id": ITEM, "assignment_id": ASG, "submitted_at": None},
-                        {"id": "i-mcq", "assignment_id": ASG, "submitted_at": None}],
-                 questions=_mcq(10),
-                 sessions=[_sess("s1", item="i-mcq")],
-                 attempts=_covers("s1", [f"q{i}" for i in range(10)]),
-                 writing=[{"id": "w-1", "class_assignment_item_id": ITEM,
-                           "graded_at": "2026-08-09T11:00:00+00:00",
-                           "total": 10, "clean": 7}])
-        db.boom = {dead}
-        # Vẫn NÉM, vì nhóm trắc nghiệm quả thật chưa vá được — nhưng bài viết
-        # đã vào sổ trước khi ném.
-        with pytest.raises(qs.ReconcileIncomplete):
-            _run(db)
-        assert [m["artifact_kind"] for m in db.marked] == ["course_writing"], dead
+def test_an_essay_is_not_stamped_when_the_required_shape_is_unknown():
+    """Không đọc được hình dạng thì chưa biết writing là toàn bài hay một phần."""
+    db = _db(items=[{"id": ITEM, "assignment_id": ASG, "submitted_at": None}],
+             questions=_mcq(10),
+             writing=[{"id": "w-1", "class_assignment_item_id": ITEM,
+                       "graded_at": "2026-08-09T11:00:00+00:00",
+                       "total": 10, "clean": 7}])
+    db.boom = {"quiz_questions"}
+    with pytest.raises(qs.ReconcileIncomplete):
+        _run(db)
+    assert db.marked == []
 
 
 def test_a_single_failed_write_does_not_block_the_rest_of_the_class():
@@ -648,9 +633,8 @@ def test_a_graded_essay_leaves_the_quiz_result_alone():
              questions=_mcq(10) + [{"qid": "w1", "type": "writing"}],
              writing=[{"id": "w-1", "class_assignment_item_id": ITEM,
                        "graded_at": "2026-08-07T01:22:00+00:00", "total": 10, "clean": 0}])
-    assert _run(db) == 1
-    assert db.marked[0]["artifact_kind"] == "course_writing", "vẫn chốt sổ như cũ"
-    assert "score" not in db.marked[0], "đã chạm vào cột điểm của bộ chấm trắc nghiệm"
+    assert _run(db) == 0
+    assert db.marked == [], "một phần writing không được chốt cả bài"
 
 
 def test_a_writing_only_bank_still_takes_the_essay_score():
@@ -670,8 +654,8 @@ def test_an_essay_scored_HIGHER_is_also_refused():
              questions=_mcq(10) + [{"qid": "w1", "type": "writing"}],
              writing=[{"id": "w-1", "class_assignment_item_id": ITEM,
                        "graded_at": "2026-08-07T01:22:00+00:00", "total": 10, "clean": 10}])
-    assert _run(db) == 1
-    assert "score" not in db.marked[0]
+    assert _run(db) == 0
+    assert db.marked == []
 
 
 def test_the_rule_is_pure_so_every_branch_is_reachable_without_a_database():
@@ -690,13 +674,12 @@ def test_the_rule_is_pure_so_every_branch_is_reachable_without_a_database():
 
 # ── Đường ghi THẬT lúc nộp tự luận, không phải đường vá ─────────────────────
 
-def test_the_LIVE_submit_path_uses_the_same_rule():
-    """`submit_course_writing` là đường chạy thật trên sản phẩm; ba đường kia
-    chỉ vá sổ hoặc đồng bộ. Vá đường vá mà bỏ đường thật là không chữa gì."""
+def test_the_live_submit_path_refreshes_the_canonical_completion_gate():
+    """Nộp writing chỉ cập nhật checklist; cổng hợp nhất mới chốt toàn bài."""
     import inspect
     src = inspect.getsource(qs.submit_course_writing)
-    assert "course_hand_in_score(" in src
-    assert 'row["clean"] / row["total"]' not in src, "vẫn tự tính điểm"
+    assert "refresh_course_completion(" in src
+    assert "mark_item_submitted(" not in src
 
 
 def test_the_REGRADE_path_uses_it_too():
@@ -717,7 +700,7 @@ def test_end_session_never_stamps_a_bank_that_has_writing():
     assert "return False" in src[i:i + 60]
 
 
-def test_an_unreadable_bank_shape_withholds_the_score_but_still_closes_the_item():
+def test_an_unreadable_bank_shape_withholds_both_score_and_hand_in():
     """Không biết bộ đề có trắc nghiệm hay không thì KHÔNG ĐOÁN.
 
     Đoán "không có" là ghi độ sạch bài viết đè lên kết quả trắc nghiệm — đúng
@@ -725,8 +708,7 @@ def test_an_unreadable_bank_shape_withholds_the_score_but_still_closes_the_item(
     là không ghi: để trống một con số mà `course_verdict` sẽ điền, còn ghi nhầm
     thì xoá mất bằng chứng.
 
-    Nhưng vẫn phải CHỐT SỔ: dòng tự luận đã chấm tự nó đủ, và bắt nó chờ
-    `quiz_questions` là dựng lại ràng buộc mà cả hàm này sinh ra để tránh.
+    Không được CHỐT SỔ: chưa biết đây là writing-only hay bank nhiều phần.
     """
     db = _db(items=[{"id": ITEM, "assignment_id": ASG, "submitted_at": None}],
              questions=_mcq(10) + [{"qid": "w1", "type": "writing"}],
@@ -736,9 +718,7 @@ def test_an_unreadable_bank_shape_withholds_the_score_but_still_closes_the_item(
     db.boom = {"quiz_questions"}
     with pytest.raises(qs.ReconcileIncomplete):
         _run(db)                       # nói thật là chưa vá xong
-    assert db.marked, "bài viết đã chấm phải vào sổ dù bảng bộ đề đang hỏng"
-    assert db.marked[0]["artifact_kind"] == "course_writing"
-    assert "score" not in db.marked[0], "đã ĐOÁN điểm khi không đọc được bộ đề"
+    assert db.marked == [], "đã ĐOÁN toàn bài hoàn tất khi không đọc được bộ đề"
 
 
 # ── Đọc hình dạng bộ đề HỎNG: `_course_bank_shape` KHÔNG ném ────────────────
@@ -793,10 +773,10 @@ def test_no_caller_unpacks_the_shape_tuple_by_index():
         assert not bad, f"{name}: bóc tuple theo chỉ số, mất cờ đọc-được: {bad}"
 
 
-def test_all_three_direct_callers_go_through_the_safe_helper():
+def test_legacy_score_callers_use_the_safe_helper_and_live_submit_uses_the_gate():
     import inspect
     import routers.admin_class_assignments as adm
-    for what, fn in (("submit_course_writing", qs.submit_course_writing),
-                     ("regrade_failed_course_writing", qs.regrade_failed_course_writing),
+    for what, fn in (("regrade_failed_course_writing", qs.regrade_failed_course_writing),
                      ("assignment_tally", adm.assignment_tally)):
         assert "bank_has_mcq(" in inspect.getsource(fn), f"{what} không dùng hàm an toàn"
+    assert "refresh_course_completion(" in inspect.getsource(qs.submit_course_writing)

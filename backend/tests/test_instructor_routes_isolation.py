@@ -191,7 +191,8 @@ ROUTES = [
     ("GET",    "/instructor/reviews/queue",            "list",   None, None, RA),
     ("POST",   "/instructor/reviews/{id}/claim",       "action", RA, None, None),
     ("POST",   "/instructor/reviews/{id}/release",     "action", RA, None, None),
-    ("POST",   "/instructor/reviews/{id}/deliver",     "action", RA, None, None),
+    ("POST",   "/instructor/reviews/{id}/deliver",     "action", RA,
+        {"essay_id": EA, "instructor_note": "teacher note"}, None),
 ]
 
 

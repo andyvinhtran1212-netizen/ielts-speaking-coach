@@ -19,6 +19,8 @@ Schema dependencies (all confirmed against migrations 009, 033, 056,
   - listening_test_attempts (id, user_id, test_id, status, score,
     grading_details, created_at, submitted_at) — audit 2026-07-17: nguồn
     hoạt động listening thật (bảng listening_attempts cũ đã chết)
+  - reading_test_attempts (id, user_id, test_id, status, score,
+    grading_details, created_at, submitted_at)
   - dictation_sessions (id, user_id, accuracy, completed_at)
   - user_vocabulary (id, user_id, mastery_status, is_archived,
     created_at)
@@ -40,6 +42,7 @@ from fastapi.responses import JSONResponse
 
 from database import supabase_admin
 from routers.admin import require_admin
+from services.class_membership_service import active_memberships_for_students
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +51,7 @@ router = APIRouter(tags=["admin", "overview"])
 
 _RECENT_ACTIVITY_LIMIT = 20
 _CACHE_MAX_AGE_SECONDS = 300
+_READING_ATTEMPT_PAGE = 1000
 
 
 # ── Helpers ───────────────────────────────────────────────────────────
@@ -84,6 +88,58 @@ def _safe_count(q) -> int:
         return 0
 
 
+def _safe_reading_attempt_window(cutoff: str, snapshot_to: str) -> list[dict]:
+    """Read the complete frozen Reading-attempt window with a stable keyset.
+
+    A bare PostgREST select is capped at roughly 1,000 rows. Offset paging is
+    not safe on this hot table because concurrent inserts can shift later
+    pages, so freeze the upper bound and advance by ``(created_at, id)``.
+    Any page failure discards the partial slice rather than returning a
+    plausible-but-incomplete aggregate.
+    """
+    rows: list[dict] = []
+    cursor_created_at: str | None = None
+    cursor_id: str | None = None
+    try:
+        while True:
+            query = (
+                supabase_admin.table("reading_test_attempts")
+                .select("id, user_id, anon_src, test_id, status, score, grading_details, "
+                        "created_at, submitted_at")
+                .gte("created_at", cutoff)
+                .lte("created_at", snapshot_to)
+            )
+            if cursor_created_at is not None and cursor_id is not None:
+                query = query.or_(
+                    f"created_at.gt.{cursor_created_at},"
+                    f"and(created_at.eq.{cursor_created_at},id.gt.{cursor_id})"
+                )
+            batch = (
+                query.order("created_at")
+                .order("id")
+                .limit(_READING_ATTEMPT_PAGE)
+                .execute()
+                .data
+                or []
+            )
+            if not batch:
+                return rows
+            rows.extend(batch)
+            if len(batch) < _READING_ATTEMPT_PAGE:
+                return rows
+            next_created_at = batch[-1].get("created_at")
+            next_id = batch[-1].get("id")
+            if not next_created_at or not next_id or (
+                next_created_at == cursor_created_at and next_id == cursor_id
+            ):
+                raise ValueError("Reading attempt pagination cursor did not advance")
+            cursor_created_at = next_created_at
+            cursor_id = str(next_id)
+    except Exception as exc:
+        logger.warning("[admin_overview] Reading attempt window failed: %s", exc)
+        return []
+
+
 def _first_attempt_only(rows: list[dict]) -> list[dict]:
     """Sprint 11.5.1 rule, re-keyed cho listening_test_attempts (audit
     2026-07-17): canonical first attempt per (user_id, test_id) — retries
@@ -98,13 +154,44 @@ def _first_attempt_only(rows: list[dict]) -> list[dict]:
     return list(first_by_key.values())
 
 
-def _bucket_students_by_cohort(students: list[dict], cohort_name_by_id: dict[str, str]) -> list[dict]:
-    """Group students by cohort_id. Students with NULL cohort_id bucket
-    into the synthetic "Đại trà" group (matches Andy's vocabulary)."""
+def _first_reading_attempt_only(rows: list[dict]) -> list[dict]:
+    """Canonical first Reading attempt per authenticated user or anonymous
+    source and test. Rows missing both identities stay distinct: merging all
+    NULL owners would undercount legacy/partially enriched anonymous traffic.
+    """
+    first_by_key: dict[tuple, dict] = {}
+    for index, row in enumerate(rows):
+        if row.get("user_id"):
+            key = ("user", row["user_id"], row.get("test_id"))
+        elif row.get("anon_src"):
+            key = ("anon", row["anon_src"], row.get("test_id"))
+        else:
+            key = ("row", row.get("id") or index)
+        previous = first_by_key.get(key)
+        if previous is None or (row.get("created_at") or "") < (previous.get("created_at") or ""):
+            first_by_key[key] = row
+    return list(first_by_key.values())
+
+
+def _bucket_students_by_cohort(students: list[dict], cohort_name_by_id: dict[str, str],
+                               memberships: list[dict] | None = None) -> list[dict]:
+    """Count every active membership; students in no class remain Đại trà."""
     counts: Counter = Counter()
-    for s in students:
-        cid = s.get("cohort_id")
-        counts[cid] += 1
+    if memberships is None:
+        for student in students:
+            counts[student.get("cohort_id")] += 1
+    else:
+        active_by_student: dict[str, set[str]] = {}
+        for row in memberships:
+            if row.get("student_id") and row.get("cohort_id"):
+                active_by_student.setdefault(row["student_id"], set()).add(row["cohort_id"])
+        for student in students:
+            cohort_ids = active_by_student.get(student["id"])
+            if cohort_ids:
+                for cohort_id in cohort_ids:
+                    counts[cohort_id] += 1
+            else:
+                counts[None] += 1
     out: list[dict] = []
     for cid, n in counts.items():
         out.append({
@@ -126,6 +213,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     await require_admin(authorization)
 
     now = datetime.now(timezone.utc)
+    snapshot_to = now.isoformat()
     iso_7d  = (now - timedelta(days=7)).isoformat()
     iso_24h = (now - timedelta(hours=24)).isoformat()
     iso_30d = (now - timedelta(days=30)).isoformat()
@@ -137,6 +225,14 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     cohorts = _safe_select(
         supabase_admin.table("cohorts").select("id, name").eq("is_active", True)
     )
+    try:
+        memberships = active_memberships_for_students(
+            supabase_admin, [student.get("id") for student in students])
+    except Exception as exc:
+        logger.warning("[admin_overview] membership lookup failed; using legacy primary: %s", exc)
+        memberships = None
+    if not memberships and any(student.get("cohort_id") for student in students):
+        memberships = None
     cohort_name_by_id = {c["id"]: c.get("name") or "" for c in cohorts}
 
     # Sessions provides Speaking activity AND active-user signal.
@@ -179,6 +275,11 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     )
     listening_total = _safe_count(
         supabase_admin.table("listening_test_attempts")
+        .select("id", count="exact", head=True)
+    )
+    reading_recent = _safe_reading_attempt_window(iso_30d, snapshot_to)
+    reading_total = _safe_count(
+        supabase_admin.table("reading_test_attempts")
         .select("id", count="exact", head=True)
     )
     dictation_recent = _safe_select(
@@ -260,6 +361,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     active_7d = (
         _user_ids_in(sessions_recent, iso_7d)
         | _user_ids_in(listening_recent, iso_7d)
+        | _user_ids_in(reading_recent, iso_7d)
         | _user_ids_in(dictation_recent, iso_7d)
     )
     # Writing essays use student_id — resolve via the students roster.
@@ -274,6 +376,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
     active_30d = (
         _user_ids_in(sessions_recent, iso_30d)
         | _user_ids_in(listening_recent, iso_30d)
+        | _user_ids_in(reading_recent, iso_30d)
         | _user_ids_in(dictation_recent, iso_30d)
     )
     for e in essays_recent:
@@ -329,6 +432,27 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         if (r.get("created_at") or "") >= iso_7d
     )
 
+    # Reading uses the same canonical first-submitted-attempt rule and stores
+    # per-question grading details. Keep the ratio comparable across tests
+    # with different question counts instead of averaging raw scores.
+    reading_first = _first_reading_attempt_only([
+        r for r in reading_recent
+        if (r.get("created_at") or "") >= iso_7d and r.get("status") == "submitted"
+    ])
+    reading_accs = []
+    for r in reading_first:
+        gd = r.get("grading_details") or []
+        if r.get("score") is not None and gd:
+            reading_accs.append(r["score"] / len(gd))
+    reading_avg = (
+        round(sum(reading_accs) / len(reading_accs), 4)
+        if reading_accs else None
+    )
+    reading_7d = sum(
+        1 for r in reading_recent
+        if (r.get("created_at") or "") >= iso_7d
+    )
+
     # ── Recent activity feed ───────────────────────────────────────
     # Normalize across surfaces, sort by timestamp DESC, cap at 20.
 
@@ -342,7 +466,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
             "skill":      "speaking",
             "action":     "Hoàn thành buổi Speaking",
             "score":      s.get("overall_band"),
-            "link":       f"/pages/result.html?session_id={s['id']}",
+            "link":       f"/result?session_id={s['id']}",
         })
     for r in listening_recent:
         # Chỉ lượt ĐÃ NỘP mới là "hoàn thành" (in_progress/abandoned vẫn tính
@@ -357,7 +481,20 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
             "action":     "Hoàn thành bài Listening",
             "score":      (f"{r['score']}/{len(gd)}"
                            if r.get("score") is not None and gd else None),
-            "link":       "/pages/admin/listening/attempts.html",
+            "link":       "/admin/listening/attempts",
+        })
+    for r in reading_recent:
+        if r.get("status") != "submitted" or not r.get("submitted_at"):
+            continue
+        gd = r.get("grading_details") or []
+        activity.append({
+            "timestamp":  r["submitted_at"],
+            "user_id":    r.get("user_id"),
+            "skill":      "reading",
+            "action":     "Hoàn thành bài Reading",
+            "score":      (f"{r['score']}/{len(gd)}"
+                           if r.get("score") is not None and gd else None),
+            "link":       "/admin/dashboard/reading-attempts",
         })
     for r in dictation_recent:
         activity.append({
@@ -367,7 +504,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
             "action":     "Hoàn thành chép chính tả",
             "score":      (f"{round(float(r['accuracy']) * 100)}%"
                            if r.get("accuracy") is not None else None),
-            "link":       "/pages/admin/listening/dictation-reports.html",
+            "link":       "/admin/listening/dictation",
         })
     for e in essays_recent:
         if not e.get("created_at"):
@@ -379,7 +516,7 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
             "skill":      "writing",
             "action":     f"Nộp bài Writing ({e.get('status') or 'pending'})",
             "score":      None,
-            "link":       f"/pages/admin/writing/grade.html?essay_id={e['id']}",
+            "link":       f"/admin/writing/grade?essay_id={e['id']}",
         })
 
     activity = [a for a in activity if a.get("timestamp")]
@@ -407,7 +544,8 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
             "total":      len(students),
             "active_7d":  len(active_7d),
             "active_30d": len(active_30d),
-            "by_cohort":  _bucket_students_by_cohort(students, cohort_name_by_id),
+            "by_cohort":  _bucket_students_by_cohort(
+                students, cohort_name_by_id, memberships),
         },
         "skills": {
             "speaking": {
@@ -428,6 +566,11 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
                 "avg_score_7d":   listening_avg,
                 "dictation_total": dictation_total,
                 "dictation_7d":    dictation_7d,
+            },
+            "reading": {
+                "attempts_total": reading_total,
+                "attempts_7d":    reading_7d,
+                "avg_score_7d":   reading_avg,
             },
             "vocab": {
                 "words_total":       vocab_total,

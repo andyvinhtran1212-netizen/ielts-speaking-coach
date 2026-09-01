@@ -12,16 +12,44 @@
     "allow": []
   },
   {
+    "name": "speaking-practice-dark",
+    "legacy": "/pages/practice.html",
+    "next": "/practice/session",
+    "allow": [
+      {
+        "kind": "api-missing",
+        "value": "GET /api/grammar/categories",
+        "reason": "Cặp này cố ý không có session_id. Next fail trước PracticeApp.init nên không tải metadata Grammar vô ích; với bootstrap hợp lệ, init vẫn gọi _fetchGrArticleIndex trước khi dựng feedback."
+      }
+    ],
+    "minBaselineLines": 2,
+    "note": "Không có query thì cả hai vế dừng ở nhánh THIẾU session_id. Cặp này chỉ chứng minh stable route + shell/CSS/boot/error state parity; nó không chứng minh recorder, upload, grading, full-test chain hay resume. Player chỉ được gọi ready sau khi có session fixture và live Gate E drills."
+  },
+  {
     "name": "reading-vocab",
     "legacy": "/pages/reading-vocab.html",
     "next": "/reading/vocab",
     "allow": []
   },
   {
+    "name": "reading-vocab-detail",
+    "legacy": "/pages/reading-vocab-passage.html?slug=the-future-of-libraries",
+    "next": "/reading/vocab/the-future-of-libraries",
+    "allow": [],
+    "note": "Slug is selected from the authenticated production library response (2026-08-15), rather than an unseeded local fixture. It pins the L1 orientation header, sanitized article, panes and instant-check rail; the fixture-backed detail verifier covers mutations, malformed payloads, keyboard dialogs and all four control types."
+  },
+  {
     "name": "reading-skill",
     "legacy": "/pages/reading-skill.html",
     "next": "/reading/skill",
     "allow": []
+  },
+  {
+    "name": "reading-skill-detail",
+    "legacy": "/pages/reading-skill-exercise.html?slug=completion-how-a-battery-works",
+    "next": "/reading/skill/completion-how-a-battery-works",
+    "allow": [],
+    "note": "Slug is selected from the authenticated production library response (2026-08-15), rather than an unseeded local fixture. It pins the L2 skill-focus workspace; the fixture-backed detail verifier owns grading and interaction evidence."
   },
   {
     "name": "reading-test",
@@ -60,6 +88,14 @@
     "allow": []
   },
   {
+    "name": "listening-practice-run-missing-id",
+    "legacy": "/pages/listening-practice-run.html",
+    "next": "/listening/practice-run",
+    "allow": [],
+    "minBaselineLines": 1,
+    "note": "Không có `?id=` thì cả hai vế fail closed ở trạng thái thiếu mã. Cặp này ghim owner, shell, copy và style desktop/mobile; fixture `verify-listening-practice-run-flow.mjs` mới phủ resume/start/check/reveal/submit và mobile containment bằng dữ liệu kín."
+  },
+  {
     "name": "listening-landing",
     "legacy": "/pages/listening.html",
     "next": "/listening",
@@ -84,10 +120,26 @@
     "allow": []
   },
   {
+    "name": "exercises",
+    "legacy": "/pages/exercises.html",
+    "next": "/exercises",
+    "allow": [],
+    "minBaselineLines": 4,
+    "note": "Tài khoản probe có thể bị tắt cả D1 và Flashcards; khi đó module chuẩn render header cùng trạng thái 'Exercises are not enabled' đủ 4 dòng. Cặp này chứng minh hai shell khớp ở trạng thái feature-disabled trên desktop/mobile; muốn phủ các drill card phải bật ít nhất một feature flag cho probe."
+  },
+  {
     "name": "vocab-exam",
     "legacy": "/pages/vocab-exam.html",
     "next": "/vocabulary/exam",
     "allow": []
+  },
+  {
+    "name": "exam-player-list",
+    "legacy": "/pages/exam.html",
+    "next": "/exam",
+    "allow": [],
+    "minBaselineLines": 3,
+    "note": "Cặp live G1 ghim route/shell/list published exams ở tài khoản probe. Player, submit, review retry, KP stepper và malformed contracts được chứng minh riêng bằng verify-exam-flow.mjs với fixture ổn định."
   },
   {
     "name": "full-test",
@@ -96,6 +148,14 @@
     "allow": [],
     "minBaselineLines": 3,
     "note": "Tài khoản probe KHÔNG có kỳ thi thử nào, nên vế legacy chỉ render trạng thái RỖNG: tiêu đề + mô tả + câu 'chưa có kỳ thi nào'. Đó là 3 dòng và là nội dung ĐẦY ĐỦ của trạng thái đó, không phải vế tham chiếu hỏng. Cặp này vì thế mới chỉ chứng minh: hai vế khớp TIÊU ĐỀ, khớp từng dòng chữ, không lỗi console, và khớp getComputedStyle ở cả hai bề rộng — cho ĐÚNG trạng thái rỗng. Nó KHÔNG chứng minh gì về danh sách kỳ thi. Muốn phủ nốt: mở một kỳ thi cho tài khoản probe rồi bỏ `minBaselineLines`."
+  },
+  {
+    "name": "mock-exam-missing-identity",
+    "legacy": "/pages/mock-exam.html",
+    "next": "/mock-exam",
+    "allow": [],
+    "minBaselineLines": 1,
+    "note": "Không có `?code=` hoặc `?sitting=` thì cả hai runner fail closed với cùng thông báo thiếu định danh. Cặp tĩnh này ghim owner, title, lỗi console và responsive shell; `verify-mock-exam-flow.mjs` phủ create reconciliation, retake, embedded Listening, Writing autosave và final-submit lost ACK bằng backend kín."
   },
   {
     "name": "vocab-practice",
@@ -122,6 +182,14 @@
     "note": "Tài khoản probe có thể chưa làm Quick-Check nào, khi đó trang chỉ render tiêu đề + mô tả + các đề mục rỗng. Cặp này khi đó chỉ chứng minh hai vế khớp tiêu đề/dòng chữ/style ở trạng thái rỗng."
   },
   {
+    "name": "quiz-player-missing-bank",
+    "legacy": "/pages/quiz.html",
+    "next": "/quiz",
+    "allow": [],
+    "minBaselineLines": 1,
+    "note": "Không có query bank thì cả hai vế fail closed ở nhánh thiếu tham số. Cặp G1 này ghim route/shell/copy/style desktop-mobile; fixture verify-quiz-flow.mjs mới chứng minh player, mutation, retry, review và reset bằng một bank ổn định."
+  },
+  {
     "name": "mock-result",
     "legacy": "/pages/mock-result.html",
     "next": "/mock/result",
@@ -135,5 +203,53 @@
     "next": "/vocabulary/hub",
     "allow": [],
     "note": "ĐÃ CHỐT 2026-08-08: `/vocabulary` thuộc về WIKI CÔNG KHAI (`public/vocabulary.html`), nên trang Từ vựng của học viên Ở LẠI `/vocabulary/hub` — đây là tên cuối cùng, không phải chỗ đậu tạm. Lý do và bằng chứng: `docs/ROUTE_LEDGER.md` mục Q3. Chốt `vocabulary-route-ownership.test.mjs` giữ quyết định này."
+  },
+  {
+    "name": "writing-result",
+    "legacy": "/pages/writing-result.html",
+    "next": "/writing/result",
+    "allow": [
+      {
+        "kind": "component-missing",
+        "value": "header",
+        "reason": "Ở nhánh thiếu id, legacy vẫn giữ 17 section/header của workspace kết quả trong DOM với state-ready hidden; React chỉ mount ErrorState đang hoạt động. Text/link/API của trạng thái nhìn thấy vẫn phải khớp."
+      },
+      {
+        "kind": "component-missing",
+        "value": "main",
+        "reason": "Legacy pre-render main của state-ready rồi ẩn; React không mount workspace không có essay. Ngoại lệ chỉ cho tag structural ẩn, không miễn nội dung hay hành vi."
+      },
+      {
+        "kind": "component-missing",
+        "value": "nav",
+        "reason": "Legacy pre-render tablist của state-ready rồi ẩn; React không mount tablist khi URL thiếu essay id. Tab keyboard và delivered-state được ghim bằng contract + write-flow riêng."
+      }
+    ],
+    "minBaselineLines": 3,
+    "note": "Không có `?id=`/`?essay_id=` thì cả hai vế hiển thị trạng thái lỗi thiếu mã. Cặp G1 này ghim shell, nội dung lỗi và style ở nhánh thiếu tham số; fixture trình duyệt `writing-regrade-request` mới phủ trạng thái delivered và mutation chấm lại trên cả Legacy lẫn Next."
+  },
+  {
+    "name": "admin-writing-grade-denied",
+    "legacy": "/pages/admin/writing/grade.html",
+    "next": "/admin/writing/grade",
+    "allow": [
+      {
+        "kind": "component-missing",
+        "value": "header",
+        "reason": "Tài khoản parity không có role admin; legacy pre-render header workspace bên trong state-ready ẩn, còn React chỉ mount nhánh denied đang hiển thị."
+      },
+      {
+        "kind": "component-missing",
+        "value": "main",
+        "reason": "Legacy giữ main chấm bài trong DOM dù auth gate đang denied; React không mount dữ liệu admin khi role backend không hợp lệ."
+      },
+      {
+        "kind": "component-missing",
+        "value": "nav",
+        "reason": "Legacy pre-render tab navigation ẩn dưới state-ready; React fail-closed chỉ render denied state. Ngoại lệ không miễn text, link, API hay admin chrome."
+      }
+    ],
+    "minBaselineLines": 2,
+    "note": "G1 dùng probe không có role admin nên cặp này chứng minh fail-closed role guard, admin chrome, denied copy và style desktop/mobile. Full workspace + mutations được phủ bằng browser write-flow có fixture admin; không được dùng cặp denied làm bằng chứng grading flow."
   }
 ]

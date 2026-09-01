@@ -78,7 +78,10 @@ async function load() {
     _versions = (data && data.versions) || [];
     _budget = (data && data.budget) || { can_compose: false };
     _versionsById = {};
-    _versions.forEach((v) => { _versionsById[v.version] = v; });
+    // The canonical endpoint now includes the complete feedback payload.  Use
+    // it for preview so base-derived sections match the object the server will
+    // persist; retain the row fallback for rollback against an older backend.
+    _versions.forEach((v) => { _versionsById[v.version] = v.feedback_json || v; });
   } catch (e) {
     $('cm-loading').hidden = true;
     banner(e.status === 403 ? 'Bài này không thuộc bạn.' : ('Lỗi tải phiên bản: ' + e.message), 'err');

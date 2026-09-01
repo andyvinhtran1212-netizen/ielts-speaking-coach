@@ -95,15 +95,20 @@ def _convert_to_wav(audio_bytes: bytes) -> bytes | None:
 
 # ── Assessment config ──────────────────────────────────────────────────────────
 
-def _assessment_header(reference_text: str = "") -> str:
+def _assessment_header(
+    reference_text: str = "",
+    *,
+    enable_miscue: bool = False,
+    enable_prosody: bool = True,
+) -> str:
     """Build the base64-encoded Pronunciation-Assessment header value."""
     config = {
         "ReferenceText":          reference_text,
         "GradingSystem":          "HundredMark",
         "Granularity":            "Phoneme",       # Sprint 15.1 — phoneme scores (superset of Word) for the drill-down
         "Dimension":              "Comprehensive", # Returns all 4 sub-scores (PronScore, Fluency, Accuracy, Completeness)
-        "EnableMiscue":           False,           # True only for strict reading assessment
-        "EnableProsodyAssessment": True,           # Required for FluencyScore via REST API
+        "EnableMiscue":           enable_miscue,   # True only for strict reading assessment
+        "EnableProsodyAssessment": enable_prosody, # Prosody is currently en-US only
     }
     encoded = base64.b64encode(json.dumps(config, separators=(",", ":")).encode()).decode()
     logger.debug(f"[PRON] assessment_header config={json.dumps(config)}  encoded_len={len(encoded)}")
@@ -282,6 +287,8 @@ async def assess_pronunciation(
     content_type:   str = "audio/webm; codecs=opus",
     locale:         str = "en-US",
     reference_text: str = "",
+    enable_miscue:  bool = False,
+    enable_prosody: bool = True,
 ) -> dict:
     """
     Call Azure Pronunciation Assessment REST API.
@@ -291,6 +298,8 @@ async def assess_pronunciation(
         content_type:   MIME type passed verbatim as Content-Type to Azure.
         locale:         BCP-47 locale, default "en-US".
         reference_text: Optional transcript for comparison (free-speech if empty).
+        enable_miscue:  Detect omissions/insertions for strict read-aloud work.
+        enable_prosody: Request the paid prosody add-on (currently en-US only).
 
     Returns: Normalized dict from _normalize().
     Raises:
@@ -335,7 +344,11 @@ async def assess_pronunciation(
     headers = {
         "Ocp-Apim-Subscription-Key": key,
         "Content-Type":              send_content_type,
-        "Pronunciation-Assessment":  _assessment_header(reference_text),
+        "Pronunciation-Assessment":  _assessment_header(
+            reference_text,
+            enable_miscue=enable_miscue,
+            enable_prosody=enable_prosody,
+        ),
         # NOTE: No Transfer-Encoding header — httpx sets Content-Length automatically
         # for pre-buffered bytes. Adding chunked here conflicted with Content-Length
         # and caused Azure to misparse the audio container start.

@@ -1,40 +1,47 @@
-// Vỏ tĩnh của trang Listening Mini Tests — chép TRUNG THỰC từ `public/pages/listening-mini-test.html`.
-//
-// VÌ SAO CHÉP CƠ HỌC THAY VÌ "VIẾT LẠI CHO ĐẸP": bài học pilot 2 (#741) —
-// dựng lại từ đầu làm gãy cascade CSS và chỉ phát hiện được nhờ so ảnh chụp.
-// Ở đây ràng buộc còn mạnh hơn: hành vi KHÔNG được port, `page.tsx` nạp thẳng
-// module legacy `/js/listening-mini-test.js` — CHÍNH tệp trang legacy dùng — và module đó
-// tìm phần tử theo **id**. Trang này có 4 id (lt-grid, state-empty, state-error, state-loading);
-// đổi tên bất kỳ chỗ nào là hỏng CẢ HAI bản cùng lúc.
-//
-// `<aver-chrome>` do `page.tsx` dựng, KHÔNG dựng ở đây — bản port trang Bài
-// viết từng chép cả thẻ đó từ legacy và ra hai thanh điều hướng (#950).
+import type { ReactNode } from 'react';
 
-export function ListeningMiniTestShell() {
+export function ListeningMiniTestShell({
+  children,
+  doneCount,
+  newCount,
+  totalCount,
+}: {
+  children: ReactNode;
+  doneCount: number | null;
+  newCount: number | null;
+  totalCount: number | null;
+}) {
   return (
-    <>
-      <div className="shell">
-        <main className="lt-shell">
-          <header className="lt-header">
-            <p className="eyebrow"><a href="/listening" style={{ color: "var(--av-text-secondary)" }}>← Quay lại Listening</a></p>
-            <h1>Listening <span className="accent">Mini Tests</span></h1>
-            <p className="subtitle">
-              Bài thi ngắn — 1 section, số câu tùy bài, sát đề thật. Cùng giao diện
-              làm bài &amp; chữa bài (kèm nghe lại đúng đoạn audio) như Full Test,
-              chấm điểm + band ước tính sau khi nộp.
-            </p>
-          </header>
+    <div className="shell">
+      <main className="lt-shell">
+        <header className="lt-header">
+          <a className="lt-back" href="/listening">← Quay lại Listening</a>
+          <p className="eyebrow">LUYỆN NGHE THEO CHẶNG NGẮN</p>
+          <h1>Mini test, <span className="accent">một section mỗi lượt</span></h1>
+          <p className="subtitle">
+            Tập trung trọn vẹn vào một section, nhận điểm ngay sau khi nộp rồi
+            quay lại đúng đoạn audio để hiểu vì sao mình nghe sai.
+          </p>
+          {totalCount !== null && newCount !== null && doneCount !== null ? (
+            <div className="lt-summary" id="lt-summary" aria-live="polite">
+              <div className="lt-summary__item">
+                <span className="lt-summary__value" id="lt-total-count">{totalCount}</span>
+                <span className="lt-summary__label">Bài đang mở</span>
+              </div>
+              <div className="lt-summary__item">
+                <span className="lt-summary__value" id="lt-new-count">{newCount}</span>
+                <span className="lt-summary__label">Chưa làm</span>
+              </div>
+              <div className="lt-summary__item">
+                <span className="lt-summary__value" id="lt-done-count">{doneCount}</span>
+                <span className="lt-summary__label">Đã luyện</span>
+              </div>
+            </div>
+          ) : null}
+        </header>
 
-          <div className="empty-state" id="state-loading">Đang tải danh sách mini tests…</div>
-          <div className="empty-state" id="state-empty" hidden>
-            <p><strong>Chưa có mini test nào sẵn sàng.</strong></p>
-            <p>Hãy quay lại sau khi admin xuất bản mini test mới.</p>
-          </div>
-          <div className="error-banner" id="state-error" hidden></div>
-
-          <section id="lt-grid" className="lt-grid" hidden></section>
-        </main>
-      </div>
-    </>
+        {children}
+      </main>
+    </div>
   );
 }

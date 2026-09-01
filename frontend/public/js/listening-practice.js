@@ -98,18 +98,19 @@ export function groupTests(groupKey, items) {
 }
 
 export function renderCard(t) {
-  const attempted = (t.user_attempt_count || 0) > 0;
+  const completed = (t.user_submitted_attempt_count || 0) > 0;
+  const attemptCount = Math.max(0, Number(t.user_attempt_count) || 0);
   const best = t.user_best_score;
   const bits = [];
   if (best != null) bits.push(`Tốt nhất <strong>${esc(best)}</strong>`);
-  bits.push(attempted ? `đã làm ${esc(t.user_attempt_count)} lần` : 'chưa làm');
+  bits.push(attemptCount ? `đã mở ${esc(attemptCount)} lượt` : 'chưa làm');
   return `
-    <article class="lt-card" data-test-id="${esc(t.id)}">
+    <article class="lt-card" data-test-id="${esc(t.id)}" data-status="${completed ? 'done' : 'new'}">
       <div class="lt-card-title">${esc(t.title || t.test_id || 'Bài luyện')}</div>
       <div class="lt-card-stats">${bits.join(' · ')}</div>
-      <a class="${attempted ? 'lt-card-cta secondary' : 'lt-card-cta'}"
-         href="/pages/listening-practice-run.html?id=${encodeURIComponent(t.id)}"
-        >${attempted ? 'Làm lại' : 'Bắt đầu'}</a>
+      <a class="${completed ? 'lt-card-cta secondary' : 'lt-card-cta'}"
+         href="/listening/practice-run?id=${encodeURIComponent(t.id)}"
+        >${completed ? 'Làm lại' : 'Bắt đầu'}</a>
     </article>`;
 }
 
@@ -157,7 +158,7 @@ async function selectTab(key) {
         (p) => window.api.get(p));
       STATE.cache.set(key, items);
     } catch (e) {
-      showError(`Không tải được danh sách: ${(e && e.message) || e}`);
+      showError('Không tải được danh sách bài luyện. Vui lòng thử lại.');
       return;
     }
   }
@@ -178,7 +179,7 @@ async function load() {
     renderTabBar();
     await selectTab(start.key);
   } catch (e) {
-    showError(`Không tải được Luyện nhanh: ${(e && e.message) || e}`);
+    showError('Không tải được Luyện nhanh. Vui lòng thử lại.');
   }
 }
 

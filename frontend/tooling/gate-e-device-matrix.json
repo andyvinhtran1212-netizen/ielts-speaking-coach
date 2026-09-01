@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "matrix_id": "gate-e-device-matrix-v1",
+  "playwright_version": "1.60.0",
+  "automated_projects": [
+    {
+      "project": "staging-core-chromium",
+      "scope": "full-staging-suite-except-device-matrix-spec",
+      "engine": "chromium",
+      "browser_version": "148.0.7778.96",
+      "browser_revision": "1223",
+      "device": "Desktop Chrome"
+    },
+    {
+      "project": "matrix-chromium-148-desktop",
+      "scope": "device-matrix-spec",
+      "engine": "chromium",
+      "browser_version": "148.0.7778.96",
+      "browser_revision": "1223",
+      "device": "Desktop Chrome"
+    },
+    {
+      "project": "matrix-webkit-26.4-desktop",
+      "scope": "device-matrix-spec",
+      "engine": "webkit",
+      "browser_version": "26.4",
+      "browser_revision": "2287",
+      "device": "Desktop Safari emulation",
+      "evidence_class": "synthetic-webkit-not-real-safari"
+    },
+    {
+      "project": "matrix-webkit-26.4-iphone13",
+      "scope": "device-matrix-spec",
+      "engine": "webkit",
+      "browser_version": "26.4",
+      "browser_revision": "2287",
+      "device": "iPhone 13 emulation",
+      "evidence_class": "synthetic-webkit-not-real-ios"
+    }
+  ],
+  "real_device_requirements": [
+    {
+      "id": "safari-desktop",
+      "platform": "macOS 26.5.2",
+      "browser": "Safari 26.5.2",
+      "device_model": "MacBook Pro (Mac14,9)",
+      "status": "complete",
+      "evidence_run_id": "32225845849",
+      "evidence_pair_run_id": "32227093444",
+      "evidence_source_sha": "3dce244f51ee2ae221d8a55a1facb23f99119070",
+      "evidence_class": "manual-or-cloud-real-device"
+    },
+    {
+      "id": "ios-safari",
+      "platform": "iOS 26.6",
+      "browser": "Mobile Safari bundled with iOS 26.6",
+      "device_model": "iPhone 17 Pro",
+      "status": "complete",
+      "evidence_run_id": "32226876978",
+      "evidence_pair_run_id": "32227093444",
+      "evidence_source_sha": "3dce244f51ee2ae221d8a55a1facb23f99119070",
+      "evidence_class": "manual-or-cloud-real-device"
+    }
+  ]
+}

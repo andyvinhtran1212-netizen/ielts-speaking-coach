@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from routers.grading import _build_response_payload
+from routers.grading import _backend_release_sha, _build_response_payload
 
 
 # A complete grading dict MINUS the post-processing-removable keys.
@@ -52,3 +52,47 @@ def test_full_practice_grading_still_passes_sample_answer_through():
     g = {**_PRACTICE_GRADING, "sample_answer": "A model answer."}
     out = _build_response_payload(True, grading=g, **_COMMON)
     assert out["sample_answer"] == "A model answer."
+
+
+def test_practice_payload_passes_curated_vocab_recommendations_through():
+    recommendation = {
+        "rec_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "unit_slug": "prefer-x-to-y",
+        "title": "prefer X to Y",
+        "reason_vi": "Bạn vừa dùng sai khung prefer.",
+        "evidence": "I prefer tea than coffee",
+        "corrected": "I prefer tea to coffee",
+    }
+    grading = {**_PRACTICE_GRADING, "vocab_recommendations": [recommendation]}
+
+    out = _build_response_payload(True, grading=grading, **_COMMON)
+
+    assert out["vocab_recommendations"] == [recommendation]
+
+
+def test_practice_payload_defaults_curated_vocab_recommendations_to_empty():
+    out = _build_response_payload(True, grading=_PRACTICE_GRADING, **_COMMON)
+    assert out["vocab_recommendations"] == []
+
+
+def test_persisted_response_receipt_exposes_exact_backend_release(monkeypatch):
+    sha = "a" * 40
+    monkeypatch.setenv("RAILWAY_GIT_COMMIT_SHA", sha.upper())
+
+    out = _build_response_payload(
+        True,
+        grading=_PRACTICE_GRADING,
+        backend_release_sha=_backend_release_sha(),
+        **_COMMON,
+    )
+
+    assert out["response_id"] == "r1"
+    assert out["backend_release_sha"] == sha
+
+
+def test_backend_release_rejects_missing_or_noncanonical_runtime_sha(monkeypatch):
+    monkeypatch.delenv("RAILWAY_GIT_COMMIT_SHA", raising=False)
+    assert _backend_release_sha() is None
+
+    monkeypatch.setenv("RAILWAY_GIT_COMMIT_SHA", "staging")
+    assert _backend_release_sha() is None

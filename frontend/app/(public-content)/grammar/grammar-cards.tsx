@@ -18,6 +18,8 @@ export type Article = {
   status?: string;
   summary?: string;
   reading_time?: number;
+  speaking_relevance?: string;
+  writing_relevance?: string;
 };
 
 export type Category = {
@@ -35,6 +37,8 @@ export type Group = {
   article_count: number;
   articles?: Article[];
 };
+
+const GROUP_ARTICLE_PREVIEW = 5;
 
 /** URL sạch của bài viết — nay là route Next canonical (pilot 2, 28/07). */
 export const articleUrl = (category: string, slug: string) =>
@@ -79,6 +83,18 @@ export function UpdatingBadge() {
   );
 }
 
+function prettifySlug(slug: string) {
+  return slug.replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+export function CategoryBadge({ category }: { category: string }) {
+  return (
+    <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-white/8 text-white/50">
+      {prettifySlug(category)}
+    </span>
+  );
+}
+
 const BookIcon = ({ className, style }: { className: string; style?: React.CSSProperties }) => (
   <svg className={className} style={style} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path
@@ -114,6 +130,48 @@ export function FeaturedCards({ articles }: { articles?: Article[] }) {
           <div className="flex items-center gap-3 text-xs text-white/30">
             <span>{a.category}</span>
             <span>{a.reading_time || 1} phút</span>
+          </div>
+        </a>
+      ))}
+    </>
+  );
+}
+
+/** Thẻ kết quả tìm kiếm — cùng hình dạng với `renderSearchCards` của rollback. */
+export function SearchResultCards({ articles, query }: { articles?: Article[]; query: string }) {
+  const list = (articles || []).filter((a) => a && a.slug && a.title && a.category);
+  if (!list.length) {
+    return (
+      <div className="col-span-3 py-12 text-center">
+        <p className="text-white/40 mb-2">
+          Không tìm thấy kết quả cho &quot;<strong className="text-white/80">{query}</strong>&quot;
+        </p>
+        <p className="text-white/30 text-sm">
+          Thử từ khóa khác:{' '}
+          <a href="/grammar/search?q=present+perfect" className="text-teal-light hover:underline">present perfect</a>,{' '}
+          <a href="/grammar/search?q=conditionals" className="text-teal-light hover:underline">conditionals</a>,{' '}
+          <a href="/grammar/search?q=passive" className="text-teal-light hover:underline">passive voice</a>
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {list.map((article) => (
+        <a
+          key={`${article.category}/${article.slug}`}
+          href={articleUrl(article.category, article.slug)}
+          className="block p-4 rounded-xl border border-white/8 bg-white/[0.03] hover:border-teal/40 hover:bg-teal/[0.07] transition-all duration-200"
+        >
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <h4 className="font-semibold text-white text-sm leading-snug">{article.title}</h4>
+            {article.status === 'updating' ? <UpdatingBadge /> : <LevelBadge level={article.level} />}
+          </div>
+          <p className="text-xs text-white/50 line-clamp-2 mb-3">{article.summary || ''}</p>
+          <div className="flex items-center gap-2">
+            <CategoryBadge category={article.category} />
+            <span className="text-xs text-white/25">{article.reading_time || 1} phút</span>
           </div>
         </a>
       ))}
@@ -163,6 +221,50 @@ export function CategoryCards({ categories }: { categories?: Category[] }) {
   );
 }
 
+function GroupArticleRow({ article, color }: { article: Article; color: string }) {
+  if (article.status === 'planned') {
+    return (
+      <div className="group-article-row flex items-center gap-2 px-2 py-1">
+        <span className="gw-status-dot gw-status-dot--planned w-1.5 h-1.5 rounded-full flex-shrink-0" />
+        <span className="text-sm text-white/28 flex-1 truncate">{article.title}</span>
+        <span className="gw-status-badge gw-status-badge--planned text-xs px-1.5 py-0.5 rounded-full flex-shrink-0">
+          Sắp ra mắt
+        </span>
+      </div>
+    );
+  }
+  if (article.status === 'updating') {
+    return (
+      <div className="group-article-row flex items-center gap-2 px-2 py-1">
+        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#fbbf24' }} />
+        <a
+          href={articleUrl(article.category, article.slug)}
+          className="text-sm text-white/55 hover:text-white/85 transition-colors flex-1 truncate"
+        >
+          {article.title}
+        </a>
+        <span
+          className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0"
+          style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }}
+        >
+          Đang cập nhật
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="group-article-row flex items-center gap-2 px-2 py-1">
+      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
+      <a
+        href={articleUrl(article.category, article.slug)}
+        className="text-sm text-white/65 hover:text-white/90 transition-colors flex-1 truncate"
+      >
+        {article.title}
+      </a>
+    </div>
+  );
+}
+
 /** Thẻ nhóm chủ đề — điều hướng chính của trang chủ Grammar. */
 export function GroupCards({ groups }: { groups?: Group[] }) {
   if (!groups?.length) return <Empty span>Chưa có dữ liệu nhóm chủ đề.</Empty>;
@@ -170,7 +272,9 @@ export function GroupCards({ groups }: { groups?: Group[] }) {
     <>
       {groups.map((g) => {
         const pal = GROUP_PALETTE[g.color || 'teal'] || GROUP_PALETTE.teal;
-        const pct = g.article_count > 0 ? Math.round((g.complete_count / g.article_count) * 100) : 0;
+        const articles = g.articles || [];
+        const preview = articles.slice(0, GROUP_ARTICLE_PREVIEW);
+        const remaining = articles.slice(GROUP_ARTICLE_PREVIEW);
         return (
           <div key={g.title} className="group-card rounded-2xl p-5 border" style={{ background: pal.bg, borderColor: pal.border }}>
             <div className="flex items-start gap-3 mb-4">
@@ -187,63 +291,27 @@ export function GroupCards({ groups }: { groups?: Group[] }) {
                     className="text-xs flex-shrink-0 px-2 py-0.5 rounded-full font-medium"
                     style={{ background: pal.bg, color: pal.hex, border: `1px solid ${pal.border}` }}
                   >
-                    {g.complete_count}/{g.article_count}
+                    {g.article_count} bài
                   </span>
                 </div>
                 <p className="text-xs text-white/40 leading-relaxed">{g.description || ''}</p>
               </div>
             </div>
 
-            {/* Nền thanh tiến độ đi qua class hook để chủ đề sáng lấy đúng token;
-                màu phần đã hoàn thành vẫn inline vì nó theo dữ liệu. */}
-            <div className="gw-progress-track h-0.5 rounded-full mb-4 overflow-hidden">
-              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pal.hex }} />
-            </div>
-
             <div className="space-y-0.5">
-              {(g.articles || []).map((a) => {
-                if (a.status === 'planned') {
-                  return (
-                    <div key={a.slug || a.title} className="group-article-row flex items-center gap-2 px-2 py-1">
-                      <span className="gw-status-dot gw-status-dot--planned w-1.5 h-1.5 rounded-full flex-shrink-0" />
-                      <span className="text-sm text-white/28 flex-1 truncate">{a.title}</span>
-                      <span className="gw-status-badge gw-status-badge--planned text-xs px-1.5 py-0.5 rounded-full flex-shrink-0">
-                        Sắp ra mắt
-                      </span>
-                    </div>
-                  );
-                }
-                if (a.status === 'updating') {
-                  return (
-                    <div key={a.slug} className="group-article-row flex items-center gap-2 px-2 py-1">
-                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#fbbf24' }} />
-                      <a
-                        href={articleUrl(a.category, a.slug)}
-                        className="text-sm text-white/55 hover:text-white/85 transition-colors flex-1 truncate"
-                      >
-                        {a.title}
-                      </a>
-                      <span
-                        className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0"
-                        style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }}
-                      >
-                        Đang cập nhật
-                      </span>
-                    </div>
-                  );
-                }
-                return (
-                  <div key={a.slug} className="group-article-row flex items-center gap-2 px-2 py-1">
-                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: pal.hex }} />
-                    <a
-                      href={articleUrl(a.category, a.slug)}
-                      className="text-sm text-white/65 hover:text-white/90 transition-colors flex-1 truncate"
-                    >
-                      {a.title}
-                    </a>
+              {preview.map((article) => (
+                <GroupArticleRow key={article.slug || article.title} article={article} color={pal.hex} />
+              ))}
+              {remaining.length > 0 ? (
+                <details className="gw-group-more">
+                  <summary>Xem thêm {remaining.length} bài</summary>
+                  <div className="space-y-0.5 gw-group-more__list">
+                    {remaining.map((article) => (
+                      <GroupArticleRow key={article.slug || article.title} article={article} color={pal.hex} />
+                    ))}
                   </div>
-                );
-              })}
+                </details>
+              ) : null}
             </div>
           </div>
         );

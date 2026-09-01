@@ -37,6 +37,11 @@ from services.class_assignment_service import (
     is_assignment_open,
     reconcile_test_attempts,
 )
+from services.active_player_lifecycle import is_resume_active
+from services.class_membership_service import (
+    active_cohort_ids_for_student,
+    student_is_active_in_cohort,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +69,7 @@ def _paged_items(apply_filters) -> list:
 router = APIRouter(prefix="/api/class", tags=["class-student"])
 
 
-def _existing_speaking_session(item_id: str, user_id: str) -> Optional[str]:
+def _existing_speaking_session(item_id: str, user_id: str) -> Optional[Dict[str, Any]]:
     """Phiên Speaking đã dựng cho mục bài giao này, nếu có.
 
     Của CHÍNH em ấy (`user_id`) chứ không chỉ theo mục: mục là của một học viên,
@@ -85,7 +90,10 @@ def _existing_speaking_session(item_id: str, user_id: str) -> Optional[str]:
     """
     try:
         rows = (
-            supabase_admin.table("sessions").select("id, started_at, completed_at, status")
+            supabase_admin.table("sessions").select(
+                "id, started_at, completed_at, status, renderer_affinity, "
+                "resume_expires_at"
+            )
             .eq("class_assignment_item_id", item_id).eq("user_id", user_id)
             .order("started_at", desc=True).limit(20).execute().data
         ) or []
@@ -95,19 +103,36 @@ def _existing_speaking_session(item_id: str, user_id: str) -> Optional[str]:
         done = [r for r in rows
                 if r.get("completed_at") or r.get("status") == "completed"]
         if done:
-            return done[0]["id"]
+            winner = done[0]
+            return {
+                "id": winner["id"],
+                "status": "completed",
+                "renderer_affinity": winner.get("renderer_affinity"),
+            }
 
         # Phiên nào ĐANG GIỮ bài. Một lượt đọc cho tất cả, không hỏi từng phiên.
-        ids = [r["id"] for r in rows]
+        resumable = [r for r in rows if is_resume_active(r)]
+        if not resumable:
+            return None
+        ids = [r["id"] for r in resumable]
         with_work = {
             x["session_id"] for x in
             ((supabase_admin.table("responses").select("session_id")
               .in_("session_id", ids).execute().data) or [])
         }
-        for r in rows:                      # rows đã mới→cũ
+        for r in resumable:                 # rows đã mới→cũ
             if r["id"] in with_work:
-                return r["id"]
-        return rows[0]["id"]
+                return {
+                    "id": r["id"],
+                    "status": "in_progress",
+                    "renderer_affinity": r.get("renderer_affinity"),
+                }
+        winner = resumable[0]
+        return {
+            "id": winner["id"],
+            "status": "in_progress",
+            "renderer_affinity": winner.get("renderer_affinity"),
+        }
     except Exception as exc:  # noqa: BLE001
         logger.warning("[class] existing session lookup failed item=%s: %s", item_id, exc)
         return None
@@ -139,7 +164,7 @@ def _display_config(cfg: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime,
-              writing_memo: Dict[str, bool] | None = None) -> Dict[str, Any]:
+              writing_memo: Dict[str, bool | None] | None = None) -> Dict[str, Any]:
     """Attach the two derived states the UI needs. Both come from timestamps, so
     they stay correct without any job keeping them so."""
     due_raw = assignment.get("due_at")
@@ -168,6 +193,8 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime,
         "is_missing":   is_missing,
         "assignment": {
             "id":             assignment["id"],
+            "cohort_id":      assignment.get("cohort_id"),
+            "cohort_name":    assignment.get("cohort_name"),
             "title":          assignment.get("title"),
             "skill":          assignment.get("skill"),
             "instructions":   assignment.get("instructions"),
@@ -186,7 +213,8 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime,
     }
 
 
-def _visible_assignments(student: Dict[str, Any], now: datetime) -> tuple[list, bool]:
+def _visible_assignments(student: Dict[str, Any], now: datetime,
+                         cohort_ids: list[str] | None = None) -> tuple[list, bool]:
     """This student's assignments — outstanding in full, history capped.
 
     Shared by /my-assignments and /me so the two can never disagree about what
@@ -198,6 +226,8 @@ def _visible_assignments(student: Dict[str, Any], now: datetime) -> tuple[list, 
     ahead of one old unsubmitted one. A student must never be shown "nothing to
     do" while an unanswered task exists.
     """
+    cohort_ids = cohort_ids if cohort_ids is not None else (
+        [str(student["cohort_id"])] if student.get("cohort_id") else [])
     outstanding = _paged_items(
         lambda q: q.eq("student_id", student["id"]).is_("submitted_at", "null")
     )
@@ -215,22 +245,23 @@ def _visible_assignments(student: Dict[str, Any], now: datetime) -> tuple[list, 
     if not items:
         return [], False
 
+    if not cohort_ids:
+        return [], False
     a_ids = list({i["assignment_id"] for i in items})
     by_id: Dict[str, Dict[str, Any]] = {}
     for chunk in (a_ids[i:i + _ID_CHUNK] for i in range(0, len(a_ids), _ID_CHUNK)):
         for a in ((supabase_admin.table("class_assignments")
                    .select("*")
                    .in_("id", chunk)
-                   .eq("cohort_id", student["cohort_id"])   # CURRENT class only
+                   .in_("cohort_id", cohort_ids)
                    .execute().data) or []):
             # Items are created eagerly at give time, so `publish_at` is the only
             # thing keeping a give scheduled for next week off the list;
             # `status` keeps draft and archived ones off it.
             #
-            # The cohort filter matters because moving a student between classes
-            # only rewrites students.cohort_id — their old class's item rows
-            # stay. Without it, class A's homework vanishes while the student has
-            # no class and REAPPEARS when they join class B.
+            # The cohort filter keeps historical items from a membership that
+            # has ended out of the active to-do list while allowing two active
+            # classes at the same time.
             if is_assignment_open(a, now=now):
                 by_id[a["id"]] = a
 
@@ -271,9 +302,15 @@ def _visible_assignments(student: Dict[str, Any], now: datetime) -> tuple[list, 
 
     # MỘT chỗ nhớ cho cả lượt gọi: trang lớp hỏi cùng một bank cho nhiều mục,
     # và một lượt đọc là đủ cho cả trang.
-    writing_memo: Dict[str, bool] = {}
+    writing_memo: Dict[str, bool | None] = {}
     out = [_decorate(i, by_id[i["assignment_id"]], now, writing_memo)
            for i in items if i["assignment_id"] in by_id]
+    # ``None`` khác hẳn ``False``: truy vấn hình dạng bộ đề hỏng, chứ không phải
+    # đã chứng minh bộ đề không có phần viết. Giữ danh sách dùng được nhưng bật
+    # cùng cờ stale mà hai đường vá sổ dùng, để học viên không coi nhãn tạm thời
+    # "Cần hoàn thành" là trạng thái chính thức.
+    if any(row.get("writing_expected") is None for row in out):
+        stale = True
     # Nearest deadline FIRST — this is a to-do list, so what is due today has to
     # be at the top. A give with no deadline is never urgent, so it sorts last
     # via its own key rather than by abusing the empty string.
@@ -294,13 +331,19 @@ async def my_assignments(authorization: str | None = Header(default=None)):
     auth_user = await get_supabase_user(authorization)
     student = _student_for_user(auth_user["id"])
 
-    if not student or not student.get("cohort_id"):
+    if not student:
+        return {"has_class": False, "assignments": []}
+
+    cohort_ids = active_cohort_ids_for_student(supabase_admin, student)
+    if not cohort_ids:
         return {"has_class": False, "assignments": []}
 
     now = datetime.now(timezone.utc)
     try:
-        rows, stale = _visible_assignments(student, now)
-        out: Dict[str, Any] = {"has_class": True, "assignments": rows}
+        rows, stale = _visible_assignments(student, now, cohort_ids)
+        out: Dict[str, Any] = {
+            "has_class": True, "class_count": len(cohort_ids), "assignments": rows,
+        }
         if stale:
             out["homework_stale"] = True
         return out
@@ -348,15 +391,18 @@ async def start_assignment(
 
     # ── Thứ tự ba cổng dưới đây LÀ MỘT QUYẾT ĐỊNH, không phải ngẫu nhiên ──
     #
-    #   1. ĐÚNG LỚP HIỆN TẠI  — chặn TẤT CẢ, kể cả xem lại.
+    #   1. CÒN THUỘC LỚP ĐÃ GIAO — chặn TẤT CẢ, kể cả xem lại.
     #   2. mở lại phiên cũ     — được phép cả khi đã quá hạn.
     #   3. quá hạn             — chỉ chặn việc DỰNG PHIÊN MỚI.
     #
     # Cohort phải đứng ĐẦU: mục bài tập cố ý sống sót khi học viên chuyển lớp,
     # nên đặt nó sau bước 2 thì một em đã chuyển đi vẫn mở (và nộp tiếp) bài
     # của lớp cũ — đúng thứ `/my-assignments` cố tình giấu đi (codex #931).
-    if assignment.get("cohort_id") != student.get("cohort_id"):
-        raise HTTPException(404, "Bài tập không thuộc lớp hiện tại của bạn")
+    if not student_is_active_in_cohort(
+        supabase_admin, student["id"], str(assignment.get("cohort_id") or ""),
+        student.get("cohort_id"),
+    ):
+        raise HTTPException(404, "Bạn không còn thuộc lớp đã giao bài này")
 
     # Bài Speaking ĐÃ CÓ phiên thì mở lại CHÍNH phiên ấy — kể cả khi đã quá hạn.
     #
@@ -369,12 +415,46 @@ async def start_assignment(
     existing = _existing_speaking_session(item_id, auth_user["id"]) \
         if assignment.get("skill") == "speaking" else None
     if existing:
-        return {
+        response = {
             "item_id":       item_id,
             "assignment_id": assignment["id"],
             "skill":         "speaking",
-            "session_id":    existing,
             "accepting":     bool(is_accepting_submissions(assignment)),
+        }
+        if existing["status"] == "completed":
+            # A completed artifact is canonical history, not an active player.
+            # Return semantic identity and let each client construct its own
+            # current result route; never reopen a retired Legacy renderer just
+            # because that renderer originally owned the session.
+            response["result_session_id"] = existing["id"]
+        else:
+            response["session_id"] = existing["id"]
+            response["renderer_affinity"] = existing["renderer_affinity"]
+        return response
+
+    # A submitted course item reopens in a read-only review lane. Keep this
+    # before the deadline gate: expiry blocks a new attempt, not access to the
+    # learner's persisted result. `review_only` prevents the runner from
+    # creating another quiz session.
+    if assignment.get("skill") == "course" and item.get("submitted_at"):
+        return {
+            "item_id":       item_id,
+            "assignment_id": assignment["id"],
+            "skill":         "course",
+            "bank_id":       assignment.get("content_id"),
+            "review_only":   True,
+        }
+
+    # Bài theo buổi ĐÃ NỘP mở lại ở lane chỉ-đọc. Đặt trước cổng deadline giống
+    # Speaking: hết hạn chặn lượt làm mới, không xoá quyền xem kết quả đã lưu.
+    # `review_only` đi tới runner để nó tuyệt đối không dựng quiz session mới.
+    if assignment.get("skill") == "course" and item.get("submitted_at"):
+        return {
+            "item_id":       item_id,
+            "assignment_id": assignment["id"],
+            "skill":         "course",
+            "bank_id":       assignment.get("content_id"),
+            "review_only":   True,
         }
 
     # 409, not 404: the task exists and is theirs — it simply lapsed. Saying "not
@@ -425,9 +505,9 @@ async def start_assignment(
             },
         }
 
-    # Reading/Listening open their existing test pages directly. No attempt is
-    # created here — those pages own their own attempt lifecycle, and a parallel
-    # "start" path would mean two places deciding when an attempt begins.
+    # Reading/Listening enter through the runtime admission route. No attempt is
+    # created here — the selected player owns its attempt lifecycle, and a
+    # parallel "start" path would mean two places deciding when it begins.
     #
     # `class_item` is what ties the two together. The page passes it back when
     # it creates the attempt, so the attempt row records WHICH homework it was
@@ -457,10 +537,11 @@ async def start_assignment(
         if not (rows[0].get("assembled_audio_storage_path")
                 or rows[0].get("full_audio_storage_path")):
             raise HTTPException(409, "Đề nghe này chưa có audio sẵn sàng.")
-        # listening-test.html?id= is the row id, the same value the attempt row
-        # carries — one identifier throughout.
-        url = (f"/pages/listening-test.html?id={quote(test_uuid)}"
-               f"&class_item={quote(item_id)}")
+        # Listening uses the row id at both ends — one identifier throughout.
+        player_surface = "listening_test"
+        player_query = {"id": str(test_uuid), "class_item": item_id}
+        url = (f"/core-player/launch?surface={player_surface}"
+               f"&id={quote(test_uuid)}&class_item={quote(item_id)}")
     else:
         # Reading needs BOTH ids and they are different columns. The reader page
         # resolves ?test_id= against reading_tests.test_id (the public code,
@@ -476,12 +557,19 @@ async def start_assignment(
             raise HTTPException(404, "Không tìm thấy đề đọc của bài tập này.")
         if (row[0].get("status") or "") != "published" or row[0].get("exam_only"):
             raise HTTPException(409, "Đề đọc của bài tập này hiện không mở được.")
-        url = (f"/pages/reading-exam.html?test_id={quote(code)}"
-               f"&class_item={quote(item_id)}")
+        player_surface = "reading_exam"
+        player_query = {"test_id": str(code), "class_item": item_id}
+        url = (f"/core-player/launch?surface={player_surface}"
+               f"&test_id={quote(code)}&class_item={quote(item_id)}")
     return {
         "item_id":       item_id,
         "assignment_id": assignment["id"],
         "skill":         skill,
+        # Semantic fields are canonical for current clients. `open_url` stays
+        # during the N/N-1 rollout so the previous My Class client can still
+        # navigate, but it now points at runtime admission instead of Legacy.
+        "player_surface": player_surface,
+        "player_query":  player_query,
         "open_url":      url,
     }
 
@@ -515,29 +603,43 @@ async def my_class(
     auth_user = await get_supabase_user(authorization)
     student = _student_for_user(auth_user["id"])
 
-    if not student or not student.get("cohort_id"):
+    if not student:
+        return {"has_class": False}
+
+    cohort_ids = active_cohort_ids_for_student(supabase_admin, student)
+    if not cohort_ids:
         return {"has_class": False}
 
     now = datetime.now(timezone.utc)
     degraded: list[str] = []
 
-    cohort: Dict[str, Any] = {}
+    cohorts: list[Dict[str, Any]] = []
     try:
         rows = (
             supabase_admin.table("cohorts")
             .select("id, name, description, course_id")
-            .eq("id", student["cohort_id"]).limit(1).execute().data
+            .in_("id", cohort_ids).execute().data
         ) or []
-        cohort = rows[0] if rows else {}
-        if cohort.get("course_id"):
-            crows = (
-                supabase_admin.table("courses").select("code, name")
-                .eq("id", cohort["course_id"]).limit(1).execute().data
-            ) or []
-            cohort["course"] = crows[0] if crows else None
+        course_ids = list({row["course_id"] for row in rows if row.get("course_id")})
+        course_by_id = {}
+        if course_ids:
+            crows = (supabase_admin.table("courses").select("id, code, name")
+                     .in_("id", course_ids).execute().data) or []
+            course_by_id = {row["id"]: {"code": row.get("code"), "name": row.get("name")}
+                            for row in crows}
+        for row in rows:
+            row["course"] = course_by_id.get(row.get("course_id"))
+        primary = str(student.get("cohort_id") or "")
+        cohorts = sorted(rows, key=lambda row: (
+            str(row.get("id")) != primary, (row.get("name") or "").casefold()))
     except Exception as exc:
         logger.warning("[class] cohort read failed: %s", exc)
         degraded.append("class")
+        cohorts = [{"id": cohort_id, "name": None, "description": None,
+                    "course_id": None, "course": None}
+                   for cohort_id in cohort_ids]
+
+    cohort_names = {str(row["id"]): row.get("name") for row in cohorts if row.get("id")}
 
     lessons: list = []
     # Skipped entirely for the home strip: this is the unbounded part of the
@@ -546,8 +648,10 @@ async def my_class(
       try:
         lessons = _paged_items_of(
             "class_lessons",
-            lambda q: q.eq("cohort_id", student["cohort_id"]).eq("is_published", True),
+            lambda q: q.in_("cohort_id", cohort_ids).eq("is_published", True),
         )
+        for lesson in lessons:
+            lesson["cohort_name"] = cohort_names.get(str(lesson.get("cohort_id") or ""))
         # Same ordering the admin list uses (lesson_no NULLS LAST, then date), so
         # a student and their teacher are always looking at the same sequence.
         lessons.sort(key=lambda r: (
@@ -560,7 +664,11 @@ async def my_class(
 
     assignments: list = []
     try:
-        assignments, homework_stale = _visible_assignments(student, now)
+        assignments, homework_stale = _visible_assignments(student, now, cohort_ids)
+        for row in assignments:
+            assignment = row.get("assignment") or {}
+            assignment["cohort_name"] = cohort_names.get(
+                str(assignment.get("cohort_id") or ""))
         if homework_stale:
             # Same word the admin Progress tab uses for the same condition:
             # the rows are real, they may just be missing the newest hand-in.
@@ -575,7 +683,9 @@ async def my_class(
 
     result: Dict[str, Any] = {
         "has_class": True,
-        "class":     cohort,
+        "class":     cohorts[0] if cohorts else {},
+        "classes":   cohorts,
+        "class_count": len(cohort_ids),
         "progress":  progress,
     }
     if not summary:

@@ -44,9 +44,9 @@ describe('Sprint 12.6 — vocab landing (pages/admin/vocab/index.html)', () => {
   });
 
   it('links Stats + D1 Curation + Lemmas child pages', () => {
-    assert.match(VCB_INDEX, /href=["']\/pages\/admin\/vocab\/stats\.html["']/);
-    assert.match(VCB_INDEX, /href=["']\/pages\/admin\/vocab\/d1-curation\.html["']/);
-    assert.match(VCB_INDEX, /href=["']\/pages\/admin\/vocab\/lemmas\.html["']/);
+    assert.match(VCB_INDEX, /href=["']\/admin\/vocab\/stats["']/);
+    assert.match(VCB_INDEX, /href=["']\/admin\/vocab\/d1-curation["']/);
+    assert.match(VCB_INDEX, /href=["']\/admin\/vocab\/lemmas["']/);
   });
 
   it('marks D1 + Lemmas as new Sprint 12.6 surfaces', () => {
@@ -221,6 +221,6 @@ describe('Sprint 12.6 — vocab carve survives Sprint 12.8 closure', () => {
   });
 
   it('admin.html redirects to the unified IA', () => {
-    assert.match(ADMIN_LEGACY, /\/pages\/admin\/index\.html/);
+    assert.match(ADMIN_LEGACY, /\/admin/);
   });
 });

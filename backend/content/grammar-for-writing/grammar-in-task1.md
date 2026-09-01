@@ -78,7 +78,67 @@ anchors:
 - id: grammar-in-task1.common-mistakes
   location: '## Lỗi thường gặp'
   type: pitfall
+learning_blocks:
+  - id: task1-precheck
+    type: check
+    kind: precheck
+    eyebrow: Khởi động · Đọc biểu đồ
+    title: “To” hay “by”?
+    prompt: Số người dùng tăng từ 40 lên 70 triệu. Câu nào diễn đạt mức đạt được?
+    options:
+      - text: The figure rose by 70 million.
+        feedback: By diễn đạt lượng thay đổi, không phải mức cuối.
+      - text: The figure rose to 70 million.
+        feedback: To diễn đạt mức cuối cùng đạt được.
+      - text: The figure rose of 70 million.
+        feedback: Of đi sau danh từ như “a rise of”, không đi trực tiếp sau rose.
+    correct_index: 1
+    kp_anchor: grammar-in-task1.prepositions
+  - id: task1-chart-map
+    type: visual
+    variant: chart-map
+    eyebrow: Annotated chart
+    title: Một đường xu hướng, bốn lựa chọn ngữ pháp
+    intro: Đọc mốc thời gian và đại lượng trước khi chọn cấu trúc câu.
+    items:
+      - label: 2000 · 40m
+        value: from 40 million
+        note: mốc bắt đầu
+      - label: +30m
+        value: rose by 30 million
+        note: lượng thay đổi
+      - label: 2010 · 70m
+        value: rose to 70 million
+        note: mức đạt được
+      - label: Toàn kỳ
+        value: rose from 40 to 70 million
+        note: gói cả hai mốc trong một cấu trúc
+  - id: task1-microcheck
+    type: check
+    kind: microcheck
+    eyebrow: Dừng và kiểm tra
+    title: Chọn thì theo trạng thái dữ liệu
+    prompt: Biểu đồ ghi giai đoạn 2000–2020 và không có dự báo. Chọn câu đúng.
+    options:
+      - text: Sales increase steadily between 2000 and 2020.
+        feedback: Giai đoạn đã kết thúc nên không dùng Present Simple.
+      - text: Sales increased steadily between 2000 and 2020.
+        feedback: Past Simple phù hợp với giai đoạn quá khứ đã kết thúc.
+      - text: Sales will increase steadily between 2000 and 2020.
+        feedback: Will không phù hợp với số liệu lịch sử.
+    correct_index: 1
+    kp_anchor: grammar-in-task1.tenses
+  - id: task1-transfer
+    type: transfer
+    eyebrow: Chuyển sang bài viết thật
+    title: Gộp số liệu thành một câu so sánh có kiểm soát
+    context: Academic Task 1 · line chart
+    before: Tea sales fell. Coffee sales rose.
+    after: While tea sales fell steadily over the period, coffee consumption rose by approximately 20%.
+    tip: Dùng while/whereas để thể hiện tương phản; chỉ thêm số khi nó giúp câu chính xác hơn.
 ---
+
+<!-- learning-block: task1-precheck -->
 
 <!-- anchor: grammar-in-task1.overview -->
 ## Tóm tắt
@@ -95,6 +155,8 @@ Task 1 không chấm ý tưởng — nó chấm khả năng **mô tả số li�
 | **Câu phức** | so sánh trong một câu | ..., whereas... |
 
 > Ngôn ngữ xu hướng chi tiết (rise sharply, a gradual decline) nằm ở bài **Task 1 Trend Grammar** — bài này lo phần ngữ pháp nền.
+
+<!-- learning-block: task1-chart-map -->
 
 ---
 
@@ -176,6 +238,8 @@ S + is/are + V-ed (past participle)
 
 ⚠ Lỗi kinh điển: ❌ "increased **of** 10%" → ✅ "increased **by** 10%" hoặc "an increase **of** 10%".
 
+<!-- learning-block: task1-microcheck -->
+
 ---
 
 <!-- anchor: grammar-in-task1.articles-agreement -->
@@ -207,6 +271,8 @@ Gộp hai số liệu đối lập trong một câu (whereas / while) thay vì h
 - Spending on health increased, **with** education seeing a similar trend. *(with + noun + V-ing)*
 
 > Cấu trúc "**with** + noun + V-ing" rất gọn để thêm số liệu phụ: *..., with imports rising by 5%.*
+
+<!-- learning-block: task1-transfer -->
 
 ---
 

@@ -13,6 +13,11 @@ from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
+from services.active_player_lifecycle import (
+    ACTIVE_PLAYER_EXPIRED_DETAIL,
+    is_active_player_expired_error,
+    require_resume_active,
+)
 from services.question_visibility import redact_questions, should_reveal
 
 logger = logging.getLogger(__name__)
@@ -67,9 +72,9 @@ _FULL_TEST_PART1_COUNT = 9
 _FULL_TEST_PART3_COUNT = 5
 
 # ── Fallback questions ─────────────────────────────────────────────────────────
-# Used when Gemini is unavailable.  Intentionally NOT stored in the database so
-# that the next page-load retries Gemini rather than caching stale fallbacks.
-# The frontend detects `_fallback: True` and shows a warning banner.
+# Used when Gemini is unavailable or returns an incomplete exam set. Fallbacks
+# are persisted so every stored Full Test session has the exact canonical
+# question count; the response payload is tagged `_fallback` for the warning UI.
 
 _FALLBACK_PART1 = [
     {"question_text": "Do you enjoy spending time outdoors?",               "question_type": "personal"},
@@ -93,6 +98,8 @@ _FALLBACK_PART3 = [
     {"question_text": "Do you think tourism has a positive impact on local communities?", "question_type": "opinion"},
     {"question_text": "How has the way people travel changed over the past few decades?", "question_type": "comparison"},
     {"question_text": "What could governments do to make tourism more sustainable?",      "question_type": "solution"},
+    {"question_text": "Why do some destinations become more popular than others?",        "question_type": "analysis"},
+    {"question_text": "How might tourism change in the future?",                           "question_type": "prediction"},
 ]
 
 
@@ -138,12 +145,29 @@ def _make_fallback_rows(session_id: str, part: int, is_full_test: bool = False) 
         }]
 
     # part == 3
+    count = _FULL_TEST_PART3_COUNT if is_full_test else _PART3_COUNT
     return [
         {**base, "order_num": i + 1,
          "question_text": q["question_text"], "question_type": q["question_type"],
          "cue_card_bullets": None, "cue_card_reflection": None}
-        for i, q in enumerate(_FALLBACK_PART3)
+        for i, q in enumerate(_FALLBACK_PART3[:count])
     ]
+
+
+def _normalize_full_test_rows(
+    session_id: str,
+    part: int,
+    rows: list[dict],
+) -> tuple[list[dict], bool]:
+    """Return an exact-size Full Test set and whether fallback replaced it."""
+    expected = {1: _FULL_TEST_PART1_COUNT, 2: 1, 3: _FULL_TEST_PART3_COUNT}[part]
+    if len(rows) < expected:
+        logger.warning(
+            "[warn] Gemini returned incomplete Full Test part=%s: %d/%d — using fallback",
+            part, len(rows), expected,
+        )
+        return _make_fallback_rows(session_id, part, is_full_test=True), True
+    return rows[:expected], False
 
 
 # ── Library helper ────────────────────────────────────────────────────────────
@@ -231,7 +255,10 @@ async def generate_questions(
     try:
         s_result = (
             supabase_admin.table("sessions")
-            .select("id, part, topic, mode, status, class_assignment_item_id")
+            .select(
+                "id, part, topic, mode, status, class_assignment_item_id, "
+                "resume_expires_at"
+            )
             .eq("id", session_id)
             .eq("user_id", user_id)
             .limit(1)
@@ -244,6 +271,11 @@ async def generate_questions(
         raise HTTPException(status_code=404, detail="Session không tồn tại")
 
     session = s_result.data[0]
+    # POST /generate may return an existing set, but it is still a player
+    # mutation/admission endpoint. Result/history views use the read-only GET
+    # route below; an expired Legacy client must not use this POST to keep an
+    # old player alive or create rows after the canonical hard deadline.
+    require_resume_active(session)
     part: int  = session["part"]
     topic: str = session["topic"]
     mode: str  = session.get("mode", "practice")
@@ -284,6 +316,8 @@ async def generate_questions(
             result = supabase_admin.table("questions").insert(pinned).execute()
             return redact_questions(sorted(result.data, key=lambda q: q["order_num"]))
         except Exception as e:
+            if is_active_player_expired_error(e):
+                raise HTTPException(410, ACTIVE_PLAYER_EXPIRED_DETAIL) from e
             if _is_unique_violation(e):
                 winner = _load_existing_questions(session_id)
                 if winner:
@@ -304,6 +338,8 @@ async def generate_questions(
                 result = supabase_admin.table("questions").insert(library_rows).execute()
                 return redact_questions(sorted(result.data, key=lambda q: q["order_num"]))
             except Exception as e:
+                if is_active_player_expired_error(e):
+                    raise HTTPException(410, ACTIVE_PLAYER_EXPIRED_DETAIL) from e
                 # L6: a concurrent generate already inserted this session's set —
                 # return the winner's rows instead of double-inserting via Gemini.
                 if _is_unique_violation(e):
@@ -403,10 +439,21 @@ async def generate_questions(
         rows = _make_fallback_rows(session_id, part, is_full_test=is_full_test)
         is_fallback = True
 
+    # A partial Gemini response must never become the persisted Full Test set.
+    # Once any rows exist, /generate returns them forever; persisting 7/9 or 3/5
+    # therefore strands the learner and makes finalization aggregate a shorter
+    # exam. Keep an over-complete answer by trimming it, but replace an
+    # incomplete set atomically with the known-complete fallback.
+    if is_full_test:
+        rows, normalized_with_fallback = _normalize_full_test_rows(session_id, part, rows)
+        is_fallback = is_fallback or normalized_with_fallback
+
     # ── Persist to DB (always — fallbacks also need real IDs for grading) ──────
     try:
         result = supabase_admin.table("questions").insert(rows).execute()
     except Exception as e:
+        if is_active_player_expired_error(e):
+            raise HTTPException(410, ACTIVE_PLAYER_EXPIRED_DETAIL) from e
         # L6: lost a concurrent generate race — return the winner's set rather
         # than a 500 (the unique index on session_id,part,order_num rejected us).
         if _is_unique_violation(e):
@@ -475,7 +522,9 @@ async def save_custom_questions(
     try:
         s_result = (
             supabase_admin.table("sessions")
-            .select("id, part, class_assignment_item_id")
+            .select(
+                "id, part, status, class_assignment_item_id, resume_expires_at"
+            )
             .eq("id", session_id)
             .eq("user_id", user_id)
             .limit(1)
@@ -486,6 +535,8 @@ async def save_custom_questions(
 
     if not s_result.data:
         raise HTTPException(status_code=404, detail="Session không tồn tại")
+
+    require_resume_active(s_result.data[0])
 
     # BÀI TẬP LỚP KHÔNG ĐƯỢC TỰ NHẬP CÂU. Endpoint này cho phép chủ phiên chèn
     # câu hỏi bất kỳ; với một phiên đã gắn bài tập lớp, học viên có thể thay đề
@@ -550,6 +601,8 @@ async def save_custom_questions(
     try:
         result = supabase_admin.table("questions").insert(rows).execute()
     except Exception as e:
+        if is_active_player_expired_error(e):
+            raise HTTPException(410, ACTIVE_PLAYER_EXPIRED_DETAIL) from e
         # L6: concurrent insert already populated this session — return that set.
         if _is_unique_violation(e):
             winner = _load_existing_questions(session_id)

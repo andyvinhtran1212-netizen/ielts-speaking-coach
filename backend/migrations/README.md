@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of audit 2026-07-03 the highest is `126`, so the next new
-migration is `127`.
+sequence is dense. As of 2026-08-25 the highest is `231`, so the next new
+migration is `232`.
 
 ## Conventions
 
@@ -29,3 +29,128 @@ migration is `127`.
   and a no-op dedup step before adding a UNIQUE index (see
   `077_responses_unique_session_question.sql`, `124_questions_unique_session_part_order.sql`).
 - Functions pin `SET search_path = public, pg_temp` (hardening — see 108/113).
+
+## Production Gate E ledger reconciliation (173–204 only)
+
+Production was audited with the durable effects of a specific subset of
+173–202 already present outside `_schema_migrations`, while 197, 199 and 203
+were recorded normally. Do **not** use `--baseline` and do not run the standard
+forward loop against that drifted ledger: it would replay superseded history
+before reaching the repair.
+
+Use the dedicated fail-closed procedure instead:
+
+```bash
+# Read-only plan first.
+DRY_RUN=1 python backend/scripts/reconcile_prod_gate_e_migrations.py "$DATABASE_URL"
+
+# Explicit production authorization after reviewing the plan.
+ALLOW_PROD=1 python backend/scripts/reconcile_prod_gate_e_migrations.py "$DATABASE_URL"
+```
+
+The procedure has a fixed audited manifest; it applies migration 204 first,
+runs `verify_prod_gate_e_reconcile.sql`, records only the audited missing rows,
+and then invokes the normal runner in dry-run mode. It refuses to finish if any
+file in 173–204 would still replay. A second invocation is a read-only no-op.
+The reconciler and `apply_migrations.sh` share a PostgreSQL advisory lock;
+the forward runner re-checks every previously missing ledger row after it owns
+that lock, so a stale pre-lock snapshot cannot replay reconciled history.
+
+## Staging Next.js ledger reconciliation (215–221 only)
+
+Staging received the durable renderer-affinity contracts before their ledger
+rows were consistently recorded. Do **not** replay the range or use
+`--baseline`: migration 217's one-time backfill would now misclassify a fresh
+claim-v1 Speaking session whose affinity is legitimately still `NULL`.
+
+Use the staging-pinned, fail-closed procedure instead:
+
+```bash
+# Read-only contract verification and exact ledger plan.
+DRY_RUN=1 python backend/scripts/reconcile_staging_nextjs_migrations.py "$DATABASE_URL"
+
+# Record only the six audited missing rows after locked verification.
+python backend/scripts/reconcile_staging_nextjs_migrations.py "$DATABASE_URL"
+```
+
+The procedure refuses every database except the pinned staging project,
+requires migrations 205–214 and 219 to already exist in the ledger, verifies
+the final 215–221 schema/function/ACL/RLS/trigger contracts, and records only
+215–218 plus 220–221. It shares the forward runner's advisory lock and finishes
+with the standard migration dry-run; no migration in 215–221 may remain pending.
+
+## Production forward scope 213–225
+
+Production applies this range only through the standard locked forward runner.
+Migration 222 is safe to encounter when its two tables already exist outside
+the ledger: its table/index/RLS statements are idempotent, and the production
+verifier pins the complete table fingerprints. Migration 223 must still revoke
+all direct client table grants and preserve full `service_role` access.
+Migration 224 adds the hard 24-hour active-player resume TTL and the reclaimable
+Writing renderer lease. Database guards cover Speaking question/response
+writes, Reading/Dictation answer rows, Listening answer RPCs and Writing draft
+writes so N-1 application instances cannot bypass expiry. Parent status
+triggers additionally reject expired open -> terminal transitions for
+Speaking, Reading and Listening plus expired Writing learner finalization that
+links an essay, closing the N-1 direct-finalizer path while preserving the
+admin Writing status override. Dictation completion reports have a DB guard ordered before the
+migration-220 finalizer, so an expired report cannot complete its parent
+indirectly. The retention worker must
+transition a TTL-expired open Speaking session to `abandoned` before it scrubs
+response content. Current Reading, Listening, Dictation, Speaking and Writing
+finalizers also bind the expiry/lease predicate to their terminal mutation,
+closing the request-straddles-deadline race without blocking admin repair of
+terminal records. The postcondition verifier checks columns, bounded
+constraints, indexes, pre/post-224 function fingerprints, security/ACLs,
+triggers and live data.
+
+Migration 225 is the forward-only correction for an admitted Speaking grading
+request racing `finalize-full-test`: an unexpired response INSERT may finish
+after its parent becomes `submitted`, while the router continues to reject any
+new request that starts after submission. This prevents a valid in-flight grade
+from being dropped and later misclassified as `analysis_failed`.
+
+```bash
+ALLOW_PROD=1 DRY_RUN=1 ./backend/scripts/apply_migrations.sh "$DATABASE_URL"
+ALLOW_PROD=1 ./backend/scripts/apply_migrations.sh "$DATABASE_URL"
+python backend/scripts/verify_prod_nextjs_migrations.py "$DATABASE_URL"
+```
+
+The verifier refuses every database except the pinned production Supabase
+project and executes `verify_prod_nextjs_migrations_213_225.sql` inside a
+read-only transaction. It proves the exact 213–225 ledger range, Mock
+collection columns/constraints, affinity functions/tables/policies/triggers,
+pronunciation table fingerprints, RLS/table grants and the TTL/lease contract.
+
+## Forward scope 226–229
+
+Migrations 226–229 were originally authored on `main` with prefixes 216–219
+while the long-lived Next.js staging branch already owned those numbers for
+renderer affinity. The integration branch renumbered them forward instead of
+creating two meanings for one ledger row:
+
+- 226 stores canonical multi-section course results;
+- 227 adds the normalized multi-class membership source of truth;
+- 228 restores idempotent individual Writing assignment creation after 227;
+- 229 codifies the quiz RPC and Writing view hardening already present on the
+  hosted databases.
+
+Apply them through the normal advisory-locked forward runner. All four are
+additive or idempotent so a hosted database that already has some durable
+effects outside the ledger converges safely and records the unambiguous new
+prefixes.
+
+## Forward scope 230–231
+
+- 230 versions writing drafts/submissions, reading/listening results and
+  pronunciation grading by the canonical full-course attempt. Existing rows
+  are attached to their current run without deleting history; a later full
+  retry can therefore submit every required section again.
+- 231 snapshots the hybrid question-count weights onto legacy course
+  assignments that predate weight snapshots. This keeps the denominator tied
+  to sections that actually exist and prevents later bank edits from changing
+  an assignment under learners' feet.
+
+Both migrations are transactional and idempotent. Apply them through the
+normal advisory-locked forward runner; do not run a data-deleting reset to
+repair legacy course scores.

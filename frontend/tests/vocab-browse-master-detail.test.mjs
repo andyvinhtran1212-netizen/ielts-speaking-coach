@@ -143,6 +143,8 @@ describe('vocabulary.js — master-detail wiring', () => {
     assert.match(JS, /\/api\/vocabulary\/articles\//);
     assert.match(JS, /\+\+state\.seq/);          // ignore stale responses on fast switching
     assert.match(JS, /history\.replaceState/);   // URL reflects the open word
+    assert.match(JS, /`\$\{location\.pathname\}\?cat=/); // rollback stays on legacy owner
+    assert.doesNotMatch(JS, /replaceState\(null, '', `\/vocabulary\?cat=/);
   });
   // mig 122 — a slug can now live in several categories, so selection + deeplink
   // MUST key on (category, slug), else duplicate-slug rows highlight together and
@@ -164,6 +166,7 @@ describe('vocabulary.html — master-detail shell', () => {
   test('aver-chrome + av-page + the vmd-* shell', () => {
     assert.match(LANDING, /<aver-chrome\s+active="vocabulary"\s*>/);
     assert.match(LANDING, /<body[^>]*class="[^"]*\bav-page\b/);
+    assert.match(LANDING, /<h1 class="vmd-title">Từ vựng theo chủ đề<\/h1>/);
     for (const id of ['vmd-shell', 'vmd-rows', 'vmd-card', 'vmd-chips', 'vmd-q', 'vmd-back']) {
       assert.match(LANDING, new RegExp(`id="${id}"`));
     }

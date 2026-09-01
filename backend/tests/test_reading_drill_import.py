@@ -15,9 +15,16 @@ Focus is the logic that silently corrupts answer keys if it regresses:
 
 from __future__ import annotations
 
+import asyncio
+import sys
+from pathlib import Path
+from types import SimpleNamespace
+
 import pytest
 
+from scripts import import_reading_drills as import_script
 from services.content_import_service import validate_reading_test
+from services.reading_test_grader import grade_attempt
 from services.reading_prose_import import parse_rich_solutions
 from services.reading_drill_import import (
     _DRILL_SOL_HDR_RE,
@@ -27,7 +34,12 @@ from services.reading_drill_import import (
 )
 
 
-def _drill(dang: str, questions: str, passage: str = "**A.** Alpha body text.") -> str:
+def _drill(
+    dang: str,
+    questions: str,
+    passage: str = "**A.** Alpha body text.",
+    total_questions: int = 2,
+) -> str:
     return f"""# ILR-RDG-DRL-XX-L2-T1 — Sample Title
 
 | Field | Value |
@@ -36,13 +48,13 @@ def _drill(dang: str, questions: str, passage: str = "**A.** Alpha body text.") 
 | Dạng | {dang} |
 | Cấp | L2 Intermediate (target band 6.0–6.5) |
 | Chủ đề | Testing |
-| Số câu | 2 |
+| Số câu | {total_questions} |
 
 ## Passage — Sample Title
 
 {passage}
 
-## Questions 1–2
+## Questions 1–{total_questions}
 
 *Instruction line.*
 
@@ -99,6 +111,21 @@ def test_accept_entry_equal_to_answer_is_not_duplicated():
     answer, alts = expand_answer("a third", "one third / a third")
     assert answer == "a third"
     assert alts == ["one third"]
+
+
+def test_hyphenated_and_unhyphenated_accept_forms_remain_distinct_and_grade():
+    answer, alts = expand_answer("X-ray", "X ray")
+    assert answer == "X-ray"
+    assert alts == ["X ray"]
+    key = [{
+        "q_num": 1,
+        "answer": answer,
+        "alternatives": alts,
+        "skill_tag": "detail",
+        "passage_order": 1,
+    }]
+    assert grade_attempt([{"q_num": 1, "user_answer": "X-ray"}], key)["score"] == 1
+    assert grade_attempt([{"q_num": 1, "user_answer": "X ray"}], key)["score"] == 1
 
 
 def test_empty_and_dash_cells_are_ignored():
@@ -169,7 +196,8 @@ def test_drill_questions_carry_the_rich_solution():
     """End-to-end: a code-only header must reach question['solution']."""
     drill = _drill("Table Completion",
                    "| Topic | Detail |\n| --- | --- |\n"
-                   "| **Carbon** | The soils hold almost no **1** …………… . |")
+                   "| **Carbon** | The soils hold almost no **1** …………… . |",
+                   total_questions=1)
     sol = _solution("| 1 | Table Completion | oxygen | 6.0 | PARA |") + """
 ## Giải chi tiết câu 1
 
@@ -187,7 +215,8 @@ def test_solution_prose_is_emphasis_stripped():
     HTML and does NOT read markdown — `**x**` would show literal asterisks."""
     drill = _drill("Table Completion",
                    "| Topic | Detail |\n| --- | --- |\n"
-                   "| **Carbon** | The soils hold almost no **1** …………… . |")
+                   "| **Carbon** | The soils hold almost no **1** …………… . |",
+                   total_questions=1)
     sol = _solution("| 1 | Table Completion | oxygen | 6.0 | PARA |") + """
 ## Giải chi tiết câu 1
 
@@ -385,6 +414,7 @@ def test_image_prompt_block_never_reaches_student_content():
         "| --- | --- |\n"
         "| **Row** | Value is **1** …………… . |",
         passage="**A.** Body.\n\n[IMAGE_PROMPT: something illustrative]",
+        total_questions=1,
     )
     sol = _solution("| 1 | Table Completion | oxygen | 6.0 | SCAN |")
     parsed, qs = _one(drill, sol)
@@ -407,3 +437,53 @@ def test_drill_becomes_a_single_passage_test_with_metadata():
     assert parsed.passages[0]["translation_vi"].startswith("A. Bản dịch")
     assert qs[1]["answer"] == "NOT GIVEN"   # exact token the exam UI submits
     assert parsed.warnings == []
+
+
+def test_declared_question_range_rejects_a_missing_middle_answer_row():
+    drill = _drill(
+        "True/False/Not Given",
+        "1. First statement.\n2. Second statement.\n3. Third statement.\n",
+    ).replace("## Questions 1–2", "## Questions 1–3")
+    sol = _solution(
+        "| 1 | True/False/Not Given | TRUE | 5.5 | SCAN |\n"
+        "| 3 | True/False/Not Given | FALSE | 5.5 | SCAN |"
+    )
+    parsed = build_parsed_reading_test_from_drill(drill, sol, published=True)
+    assert parsed.total_questions == 3
+    errors = validate_reading_test(parsed)
+    assert any("Tổng số câu hỏi (2)" in e["message"] for e in errors)
+    assert any("q_num phải liên tục" in e["message"] for e in errors)
+
+
+def test_commit_imports_valid_units_but_returns_failure_for_any_skipped_unit(monkeypatch):
+    parsed_by_type = {
+        "BAD": SimpleNamespace(test_id="BAD"),
+        "GOOD": SimpleNamespace(test_id="GOOD"),
+    }
+    imported: list[str] = []
+
+    monkeypatch.setattr(
+        import_script,
+        "_parse",
+        lambda _base, drill_type, published=True: parsed_by_type[drill_type],
+    )
+    monkeypatch.setattr(
+        import_script,
+        "validate_reading_test",
+        lambda parsed: [{"field": "questions", "message": "missing"}]
+        if parsed.test_id == "BAD" else [],
+    )
+
+    async def fake_commit(parsed, **_kwargs):
+        imported.append(parsed.test_id)
+        return {"committed_id": None, "action": "inserted", "validation_errors": []}
+
+    monkeypatch.setitem(
+        sys.modules,
+        "routers.admin_reading",
+        SimpleNamespace(_commit_l3_parsed=fake_commit),
+    )
+
+    status = asyncio.run(import_script.commit(Path("/unused"), ["BAD", "GOOD"]))
+    assert status == 1
+    assert imported == ["GOOD"]

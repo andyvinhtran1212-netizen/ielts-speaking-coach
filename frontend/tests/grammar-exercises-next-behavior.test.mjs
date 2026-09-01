@@ -11,6 +11,8 @@ const PAGE = read('app', '(public-content)', 'grammar', 'exercises', 'page.tsx')
 const BEHAVIOR = read(
   'app', '(public-content)', 'grammar', 'exercises', 'grammar-exercises-behavior.tsx',
 );
+const LEGACY_PAGE = read('public', 'pages', 'grammar-exercises.html');
+const LEGACY_BEHAVIOR = read('public', 'js', 'grammar-exercises.js');
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
 
 describe('/grammar/exercises — native React behavior', () => {
@@ -32,9 +34,11 @@ describe('/grammar/exercises — native React behavior', () => {
     assert.match(BEHAVIOR, /'\/api\/grammar\/exercises'/);
   });
 
-  test('groups by the canonical code categories and renders without raw HTML', () => {
-    assert.match(BEHAVIOR, /function categoryOf/);
-    assert.match(BEHAVIOR, /G-\$\{category\}-/);
+  test('uses backend-enriched canonical categories and renders without raw HTML', () => {
+    assert.match(BEHAVIOR, /bank\.category/);
+    assert.match(BEHAVIOR, /bank\.level/);
+    assert.doesNotMatch(BEHAVIOR, /function categoryOf|const CATEGORIES/,
+      'client must not re-derive category truth from ambiguous bank codes');
     assert.match(BEHAVIOR, /encodeURIComponent\(bank\.id\)/);
     assert.doesNotMatch(BEHAVIOR, /\.innerHTML\s*=|__html/);
   });
@@ -42,7 +46,7 @@ describe('/grammar/exercises — native React behavior', () => {
   test('keeps loading, empty and error states distinct', () => {
     assert.match(BEHAVIOR, /Đang tải bài tập…/);
     assert.match(BEHAVIOR, /Chưa có bài tập nào được mở/);
-    assert.match(BEHAVIOR, /Không tải được bài tập:/);
+    assert.match(BEHAVIOR, /Không tải được bài tập/);
   });
 });
 
@@ -54,5 +58,21 @@ describe('/grammar/exercises — canonical entry points', () => {
       assert.match(source, /href=["']\/grammar\/exercises["']/);
       assert.doesNotMatch(source, /pages\/grammar-exercises\.html/);
     }
+  });
+
+  test('rollback leg mirrors the enriched directory instead of the retired grouped list', () => {
+    for (const source of [PAGE, LEGACY_PAGE]) {
+      assert.match(source, /Chọn đúng bài cần luyện/);
+      assert.match(source, /Tìm theo chủ đề và trình độ/);
+    }
+    assert.match(LEGACY_PAGE, /id="ex-query"/);
+    assert.match(LEGACY_PAGE, /id="ex-category"/);
+    assert.match(LEGACY_PAGE, /id="ex-level"/);
+    assert.match(LEGACY_PAGE, /supabase\.min\.js/);
+    assert.match(LEGACY_PAGE, /initSupabase\(SUPABASE_URL, SUPABASE_ANON\)/);
+    assert.match(LEGACY_BEHAVIOR, /bank\.category/);
+    assert.match(LEGACY_BEHAVIOR, /bank\.level/);
+    assert.match(LEGACY_BEHAVIOR, /href="\/quiz\?bank=/);
+    assert.doesNotMatch(LEGACY_BEHAVIOR, /categoryOf|\/pages\/quiz\.html/);
   });
 });

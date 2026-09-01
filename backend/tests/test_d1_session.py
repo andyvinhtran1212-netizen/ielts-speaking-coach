@@ -97,7 +97,10 @@ class _FakeQuery:
             rows = [r for r in rows if r.get(col) not in values]
 
         if self._order_col:
-            rows.sort(key=lambda r: r.get(self._order_col), reverse=self._order_desc)
+            rows.sort(
+                key=lambda r: (r.get(self._order_col) is not None, r.get(self._order_col)),
+                reverse=self._order_desc,
+            )
         if self._limit is not None:
             rows = rows[: self._limit]
 
@@ -114,6 +117,47 @@ class _FakeClient:
     def table(self, name):
         self.store.setdefault(name, [])
         return _FakeQuery(name, self.store)
+
+    def rpc(self, name, params):
+        assert name == "fn_finalize_d1_attempt"
+        store = self.store
+
+        class _Rpc:
+            def execute(self_inner):
+                rows = [
+                    row for row in store.setdefault("vocabulary_exercise_attempts", [])
+                    if row.get("id") == params["p_attempt_id"]
+                ]
+                if not rows:
+                    return _FakeRes(None)
+                attempt = rows[0]
+                finalized = not attempt.get("post_processed_at")
+                if not attempt.get("post_processed_at"):
+                    vocab_id = params.get("p_vocab_id")
+                    if vocab_id:
+                        reviews = store.setdefault("flashcard_reviews", [])
+                        existing = next(
+                            (r for r in reviews if r.get("vocabulary_id") == vocab_id), None,
+                        )
+                        if existing:
+                            existing["review_count"] = int(existing.get("review_count", 0)) + 1
+                            existing["lapse_count"] = int(existing.get("lapse_count", 0)) + int(params.get("p_lapse_delta") or 0)
+                            existing["interval_days"] = params["p_interval"]
+                            existing["ease_factor"] = params["p_ease"]
+                        else:
+                            reviews.append({
+                                "user_id": USER_ID,
+                                "vocabulary_id": vocab_id,
+                                "review_count": 1,
+                                "lapse_count": int(params.get("p_lapse_delta") or 0),
+                                "interval_days": params["p_interval"],
+                                "ease_factor": params["p_ease"],
+                            })
+                    attempt["feedback"] = params["p_feedback"]
+                    attempt["post_processed_at"] = "2026-08-16T00:00:00+00:00"
+                return _FakeRes({"attempt": attempt, "finalized": finalized})
+
+        return _Rpc()
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -161,6 +205,64 @@ def _patch_admin(monkeypatch, store: dict):
     monkeypatch.setattr(exr, "supabase_admin", _FakeClient(store))
 
 
+@pytest.fixture(autouse=True)
+def _bypass_d1_rate_limit(monkeypatch):
+    """Session tests exercise persistence contracts, not daily quota math."""
+    from services import rate_limit
+
+    monkeypatch.setattr(rate_limit, "enforce_exercise_rate_limit", lambda **_k: None)
+    monkeypatch.setattr(rate_limit, "enforce_exercise_session_capacity", lambda **_k: None)
+
+
+class _AttemptInsertFailureQuery(_FakeQuery):
+    def execute(self):
+        if self.table_name == "vocabulary_exercise_attempts" and self._insert is not None:
+            raise RuntimeError("attempt insert unavailable")
+        return super().execute()
+
+
+class _LostAckQuery(_FakeQuery):
+    def execute(self):
+        if self.table_name == "vocabulary_exercise_attempts" and self._insert is not None:
+            super().execute()
+            raise RuntimeError("connection lost after commit")
+        return super().execute()
+
+
+class _AttemptReadFailureQuery(_FakeQuery):
+    def execute(self):
+        if (
+            self.table_name == "vocabulary_exercise_attempts"
+            and self._select
+            and "user_answer" in self._select
+            and any(col == "session_id" for col, _ in self._eq)
+        ):
+            raise RuntimeError("attempt read unavailable")
+        return super().execute()
+
+
+class _SessionUpdateFailureQuery(_FakeQuery):
+    def execute(self):
+        if self.table_name == "d1_sessions" and self._update is not None:
+            raise RuntimeError("session update unavailable")
+        return super().execute()
+
+
+class _QueryClient(_FakeClient):
+    query_type = _FakeQuery
+
+    def table(self, name):
+        self.store.setdefault(name, [])
+        return self.query_type(name, self.store)
+
+
+def _replace_user_client(monkeypatch, store: dict, query_type: type[_FakeQuery]):
+    from routers import exercises as exr
+
+    client_type = type("_SpecialClient", (_QueryClient,), {"query_type": query_type})
+    monkeypatch.setattr(exr, "_user_sb", lambda _token: client_type(store))
+
+
 # ── start_d1_session ──────────────────────────────────────────────────────────
 
 
@@ -188,6 +290,34 @@ def test_start_session_creates_record(monkeypatch):
     assert saved["user_id"]      == USER_ID
     assert saved["total_count"]  == 10
     assert len(saved["exercise_ids"]) == 10
+    assert saved["exercise_snapshot"] == out["exercises"]
+
+
+def test_start_session_checks_quota_against_actual_thin_pool(monkeypatch):
+    from routers import exercises as exr
+    from routers.exercises import StartSessionRequest
+    from services import rate_limit
+
+    store = {
+        "vocabulary_exercises": [_exercise(i) for i in range(5)],
+        "vocabulary_exercise_attempts": [],
+        "d1_sessions": [],
+    }
+    _patch_user_route(monkeypatch, store)
+    requests: list[int] = []
+    monkeypatch.setattr(
+        rate_limit,
+        "enforce_exercise_session_capacity",
+        lambda **kwargs: requests.append(kwargs["requested"]),
+    )
+
+    out = asyncio.run(exr.start_d1_session(
+        StartSessionRequest(size=10), authorization="Bearer x",
+    ))
+
+    assert out["total"] == 5
+    assert requests == [5]
+    assert len(store["d1_sessions"]) == 1
 
 
 def test_start_session_returns_exercises_with_answer(monkeypatch):
@@ -536,8 +666,12 @@ def test_attempt_grades_personalized_question(monkeypatch):
     srs_calls: list = []
     def _fake_srs(_sb, _user, vocab_id, rating):
         srs_calls.append((vocab_id, rating))
-        return True
-    monkeypatch.setattr(exr, "_apply_d1_srs_update", _fake_srs)
+        return {
+            "p_vocab_id": vocab_id, "p_interval": 7, "p_ease": 2.5,
+            "p_lapse_delta": 0, "p_last_reviewed_at": "2026-08-16T00:00:00Z",
+            "p_next_review_at": "2026-08-23T00:00:00Z",
+        }
+    monkeypatch.setattr(exr, "_prepare_d1_srs_state", _fake_srs)
 
     out = asyncio.run(exr.submit_d1_attempt(
         exercise_id="pq-0",
@@ -582,8 +716,12 @@ def test_attempt_personalized_wrong_answer_fires_srs_again(monkeypatch):
     srs_calls: list = []
     def _fake_srs(_sb, _user, vocab_id, rating):
         srs_calls.append((vocab_id, rating))
-        return True
-    monkeypatch.setattr(exr, "_apply_d1_srs_update", _fake_srs)
+        return {
+            "p_vocab_id": vocab_id, "p_interval": 7, "p_ease": 2.5,
+            "p_lapse_delta": 1, "p_last_reviewed_at": "2026-08-16T00:00:00Z",
+            "p_next_review_at": "2026-08-23T00:00:00Z",
+        }
+    monkeypatch.setattr(exr, "_prepare_d1_srs_state", _fake_srs)
 
     out = asyncio.run(exr.submit_d1_attempt(
         exercise_id="pq-0",
@@ -628,9 +766,9 @@ def test_attempt_links_to_session(monkeypatch):
     assert store["vocabulary_exercise_attempts"][0]["session_id"] == "sess-1"
 
 
-def test_attempt_drops_invalid_session_link(monkeypatch):
-    """A session_id that doesn't list the exercise_id in its snapshot
-    must not pollute the link — drop it but still log the attempt."""
+def test_attempt_rejects_invalid_session_link(monkeypatch):
+    """A session cannot accept an exercise outside its immutable snapshot."""
+    from fastapi import HTTPException
     from routers import exercises as exr
     from routers.exercises import D1AttemptRequest
 
@@ -649,15 +787,255 @@ def test_attempt_drops_invalid_session_link(monkeypatch):
     async def _fake_auth(_authorization): return {"id": USER_ID}
     monkeypatch.setattr("routers.auth.get_supabase_user", _fake_auth)
 
-    asyncio.run(exr.submit_d1_attempt(
-        exercise_id="ex-0",
-        body=D1AttemptRequest(user_answer="answer0", session_id="sess-1"),
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(exr.submit_d1_attempt(
+            exercise_id="ex-0",
+            body=D1AttemptRequest(user_answer="answer0", session_id="sess-1"),
+            authorization="Bearer x",
+        ))
+
+    assert exc.value.status_code == 409
+    assert store["vocabulary_exercise_attempts"] == []
+
+
+def test_attempt_rejects_completed_session_without_writing(monkeypatch):
+    from fastapi import HTTPException
+    from routers import exercises as exr
+    from routers.exercises import D1AttemptRequest
+
+    store = {
+        "vocabulary_exercises": [_exercise(0)],
+        "vocabulary_exercise_attempts": [],
+        "d1_sessions": [{
+            "id": "sess-done", "user_id": USER_ID,
+            "exercise_ids": ["ex-0"], "total_count": 1, "status": "completed",
+        }],
+    }
+    _patch_user_route(monkeypatch, store)
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(exr.submit_d1_attempt(
+            exercise_id="ex-0",
+            body=D1AttemptRequest(user_answer="answer0", session_id="sess-done"),
+            authorization="Bearer x",
+        ))
+
+    assert exc.value.status_code == 409
+    assert store["vocabulary_exercise_attempts"] == []
+
+
+def test_attempt_insert_failure_is_not_reported_as_success_or_sent_to_srs(monkeypatch):
+    from fastapi import HTTPException
+    from routers import exercises as exr
+    from routers.exercises import D1AttemptRequest
+
+    store = {
+        "user_d1_questions": [_pq(0)],
+        "vocabulary_exercises": [],
+        "vocabulary_exercise_attempts": [],
+        "user_vocabulary": [{
+            "id": "vocab-0", "user_id": USER_ID,
+            "is_archived": False, "is_pending": False,
+        }],
+    }
+    _patch_user_route(monkeypatch, store)
+    _replace_user_client(monkeypatch, store, _AttemptInsertFailureQuery)
+    srs_calls: list[tuple] = []
+    monkeypatch.setattr(
+        exr, "_prepare_d1_srs_state",
+        lambda *args: srs_calls.append(args) or {},
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(exr.submit_d1_attempt(
+            exercise_id="pq-0",
+            body=D1AttemptRequest(
+                user_answer="target0",
+                client_attempt_id="b758d146-7a74-49e2-a763-1acb3c05174b",
+            ),
+            authorization="Bearer x",
+        ))
+
+    assert exc.value.status_code == 500
+    assert store["vocabulary_exercise_attempts"] == []
+    assert srs_calls == []
+
+
+def test_lost_ack_replays_single_persisted_attempt_without_duplicate_srs(monkeypatch):
+    from routers import exercises as exr
+    from routers.exercises import D1AttemptRequest
+
+    key = "e73f5d80-aa4e-4e0e-b45f-09fe5143178e"
+    store = {
+        "user_d1_questions": [_pq(0)],
+        "vocabulary_exercises": [],
+        "vocabulary_exercise_attempts": [],
+        "user_vocabulary": [{
+            "id": "vocab-0", "user_id": USER_ID,
+            "is_archived": False, "is_pending": False,
+        }],
+    }
+    _patch_user_route(monkeypatch, store)
+    _replace_user_client(monkeypatch, store, _LostAckQuery)
+    srs_calls: list[tuple] = []
+    monkeypatch.setattr(
+        exr, "_prepare_d1_srs_state",
+        lambda *args: srs_calls.append(args) or {
+            "p_vocab_id": "vocab-0", "p_interval": 7, "p_ease": 2.5,
+            "p_lapse_delta": 0, "p_last_reviewed_at": "2026-08-16T00:00:00Z",
+            "p_next_review_at": "2026-08-23T00:00:00Z",
+        },
+    )
+    events: list[tuple] = []
+    monkeypatch.setattr(exr, "_safe_event", lambda *args: events.append(args))
+
+    out = asyncio.run(exr.submit_d1_attempt(
+        exercise_id="pq-0",
+        body=D1AttemptRequest(user_answer="target0", client_attempt_id=key),
         authorization="Bearer x",
     ))
 
-    # Attempt logged but session_id dropped to None.
+    assert out["persisted"] is True
+    assert out["replayed"] is True
     assert len(store["vocabulary_exercise_attempts"]) == 1
-    assert store["vocabulary_exercise_attempts"][0]["session_id"] is None
+    assert store["vocabulary_exercise_attempts"][0]["client_attempt_id"] == key
+    assert len(srs_calls) == 1
+    assert out["srs_updated"] is True
+
+    replay = asyncio.run(exr.submit_d1_attempt(
+        exercise_id="pq-0",
+        body=D1AttemptRequest(user_answer="target0", client_attempt_id=key),
+        authorization="Bearer x",
+    ))
+    assert replay["replayed"] is True
+    assert replay["attempt_id"] == out["attempt_id"]
+    assert len(srs_calls) == 1
+    assert [event[0] for event in events] == ["exercise_completed"]
+
+
+def test_losing_attempt_finalizer_does_not_emit_duplicate_analytics(monkeypatch):
+    from routers import exercises as exr
+    from routers.exercises import D1AttemptRequest
+
+    key = "7a9288e2-6d28-4538-866a-cf7d31f58d0e"
+    attempt = {
+        "id": "attempt-race", "user_id": USER_ID,
+        "exercise_id": "pq-0", "exercise_source": "personalized",
+        "session_id": None, "client_attempt_id": key,
+        "user_answer": "target0", "is_correct": True, "score": 1.0,
+        "feedback": {
+            "correct_answer": "target0", "target_vocabulary_id": None,
+            "srs_first_attempt": False, "srs_updated": False, "srs_rating": None,
+        },
+        "post_processed_at": None,
+    }
+    store = {
+        "vocabulary_exercise_attempts": [attempt],
+        "user_d1_questions": [], "vocabulary_exercises": [],
+    }
+    _patch_user_route(monkeypatch, store)
+    events: list[tuple] = []
+    monkeypatch.setattr(exr, "_safe_event", lambda *args: events.append(args))
+    monkeypatch.setattr(
+        exr, "_finalize_d1_attempt",
+        lambda *_args: ({**attempt, "post_processed_at": "2026-08-16T00:00:00Z"}, False),
+    )
+
+    out = asyncio.run(exr.submit_d1_attempt(
+        exercise_id="pq-0",
+        body=D1AttemptRequest(user_answer="target0", client_attempt_id=key),
+        authorization="Bearer x",
+    ))
+
+    assert out["persisted"] is True
+    assert out["replayed"] is True
+    assert events == []
+
+
+def test_session_attempt_grades_from_snapshot_after_admin_unpublish(monkeypatch):
+    """The answer contract is frozen when the learner starts the session."""
+    from routers import exercises as exr
+    from routers.exercises import D1AttemptRequest
+
+    store = {
+        "vocabulary_exercises": [{
+            **_exercise(0),
+            "status": "draft",
+            "content_payload": {
+                "sentence": "Edited ___ sentence.",
+                "answer": "new-answer",
+                "distractors": ["a", "b", "c"],
+            },
+        }],
+        "vocabulary_exercise_attempts": [],
+        "d1_sessions": [{
+            "id": "sess-snapshot", "user_id": USER_ID,
+            "exercise_ids": ["ex-0"], "total_count": 1, "status": "active",
+            "exercise_snapshot": [{
+                "id": "ex-0", "sentence": "Original ___ sentence.",
+                "answer": "answer0", "options": ["answer0", "a", "b", "c"],
+                "source": "admin_fallback", "target_vocabulary_id": None,
+            }],
+        }],
+    }
+    _patch_user_route(monkeypatch, store)
+
+    out = asyncio.run(exr.submit_d1_attempt(
+        exercise_id="ex-0",
+        body=D1AttemptRequest(
+            user_answer="answer0", session_id="sess-snapshot",
+            client_attempt_id="4e9155c9-c3b2-4ee9-9136-d5aaf1aa8960",
+        ),
+        authorization="Bearer x",
+    ))
+
+    assert out["is_correct"] is True
+    assert out["correct_answer"] == "answer0"
+    assert store["vocabulary_exercise_attempts"][0]["exercise_source"] == "admin"
+
+
+def test_attempt_replay_happens_before_daily_limit_and_rejects_key_reuse(monkeypatch):
+    from fastapi import HTTPException
+    from routers import exercises as exr
+    from routers.exercises import D1AttemptRequest
+    from services import rate_limit
+
+    key = "a4a2bd39-763b-4757-ad47-d86a8a897191"
+    store = {
+        "vocabulary_exercise_attempts": [{
+            "id": "attempt-50", "user_id": USER_ID,
+            "exercise_id": "ex-0", "session_id": "sess-1",
+            "client_attempt_id": key, "user_answer": "answer0",
+            "is_correct": True, "score": 1.0,
+            "feedback": {"correct_answer": "answer0", "srs_updated": False},
+            "post_processed_at": "2026-08-16T00:00:00+00:00",
+        }],
+    }
+    _patch_user_route(monkeypatch, store)
+    monkeypatch.setattr(
+        rate_limit, "enforce_exercise_rate_limit",
+        lambda **_k: (_ for _ in ()).throw(AssertionError("quota checked on replay")),
+    )
+
+    out = asyncio.run(exr.submit_d1_attempt(
+        exercise_id="ex-0",
+        body=D1AttemptRequest(
+            user_answer="answer0", session_id="sess-1", client_attempt_id=key,
+        ),
+        authorization="Bearer x",
+    ))
+    assert out["attempt_id"] == "attempt-50"
+    assert out["replayed"] is True
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(exr.submit_d1_attempt(
+            exercise_id="ex-0",
+            body=D1AttemptRequest(
+                user_answer="changed", session_id="sess-1", client_attempt_id=key,
+            ),
+            authorization="Bearer x",
+        ))
+    assert exc.value.status_code == 409
 
 
 # ── complete_d1_session ──────────────────────────────────────────────────────
@@ -671,6 +1049,10 @@ def test_complete_session_returns_summary_and_updates_status(monkeypatch):
         "d1_sessions": [{
             "id": "sess-1", "user_id": USER_ID,
             "exercise_ids": ["ex-0", "ex-1", "ex-2"],
+            "exercise_snapshot": [
+                {"id": f"ex-{i}", "sentence": f"Snapshot {i} ___", "answer": f"answer{i}"}
+                for i in range(3)
+            ],
             "total_count": 3, "status": "active",
         }],
         "vocabulary_exercise_attempts": [
@@ -678,7 +1060,8 @@ def test_complete_session_returns_summary_and_updates_status(monkeypatch):
              "session_id": "sess-1", "user_id": USER_ID, "exercise_type": "D1"},
             {"exercise_id": "ex-1", "user_answer": "wrong",   "is_correct": False,
              "session_id": "sess-1", "user_id": USER_ID, "exercise_type": "D1"},
-            # ex-2 skipped — not attempted
+            {"exercise_id": "ex-2", "user_answer": "answer2", "is_correct": True,
+             "session_id": "sess-1", "user_id": USER_ID, "exercise_type": "D1"},
         ],
     }
     _patch_user_route(monkeypatch, store)
@@ -687,18 +1070,134 @@ def test_complete_session_returns_summary_and_updates_status(monkeypatch):
         session_id="sess-1", authorization="Bearer x",
     ))
 
-    assert out["correct_count"]  == 1
+    assert out["correct_count"]  == 2
     assert out["total_count"]    == 3
-    assert len(out["correct"])   == 1 and out["correct"][0]["exercise_id"] == "ex-0"
+    assert {item["exercise_id"] for item in out["correct"]} == {"ex-0", "ex-2"}
     assert len(out["wrong"])     == 1 and out["wrong"][0]["exercise_id"]   == "ex-1"
     assert out["wrong"][0]["user_answer"]    == "wrong"
     assert out["wrong"][0]["correct_answer"] == "answer1"
+    assert out["wrong"][0]["sentence"] == "Snapshot 1 ___"
 
     # Session row stamped completed.
     sess = store["d1_sessions"][0]
     assert sess["status"]        == "completed"
-    assert sess["correct_count"] == 1
+    assert sess["correct_count"] == 2
     assert sess.get("completed_at")
+
+
+def test_completion_replay_preserves_timestamp_and_emits_one_event(monkeypatch):
+    from routers import exercises as exr
+
+    store = {
+        "d1_sessions": [{
+            "id": "sess-replay", "user_id": USER_ID,
+            "exercise_ids": ["ex-0"],
+            "exercise_snapshot": [{
+                "id": "ex-0", "sentence": "Snapshot ___", "answer": "answer0",
+            }],
+            "total_count": 1, "correct_count": 0, "status": "active",
+            "completed_at": None,
+        }],
+        "vocabulary_exercise_attempts": [{
+            "id": "att-0", "exercise_id": "ex-0", "user_answer": "answer0",
+            "is_correct": True, "session_id": "sess-replay", "user_id": USER_ID,
+            "exercise_type": "D1", "attempted_at": "2026-08-16T01:01:00+00:00",
+        }],
+    }
+    _patch_user_route(monkeypatch, store)
+    events: list[tuple] = []
+    monkeypatch.setattr(exr, "_safe_event", lambda *args: events.append(args))
+
+    first = asyncio.run(exr.complete_d1_session(
+        session_id="sess-replay", authorization="Bearer x",
+    ))
+    original_completed_at = store["d1_sessions"][0]["completed_at"]
+
+    replay = asyncio.run(exr.complete_d1_session(
+        session_id="sess-replay", authorization="Bearer x",
+    ))
+
+    assert first["correct_count"] == replay["correct_count"] == 1
+    assert original_completed_at
+    assert store["d1_sessions"][0]["completed_at"] == original_completed_at
+    assert len(events) == 1
+    assert events[0][0] == "d1_session_completed"
+
+
+def test_complete_session_rejects_missing_persisted_attempt(monkeypatch):
+    from fastapi import HTTPException
+    from routers import exercises as exr
+
+    store = {
+        "d1_sessions": [{
+            "id": "sess-1", "user_id": USER_ID,
+            "exercise_ids": ["ex-0", "ex-1"],
+            "exercise_snapshot": [
+                {"id": "ex-0", "sentence": "One ___", "answer": "one"},
+                {"id": "ex-1", "sentence": "Two ___", "answer": "two"},
+            ],
+            "total_count": 2, "status": "active",
+        }],
+        "vocabulary_exercise_attempts": [{
+            "id": "att-0", "exercise_id": "ex-0", "user_answer": "one",
+            "is_correct": True, "attempted_at": "2026-08-16T00:00:00Z",
+            "session_id": "sess-1", "user_id": USER_ID,
+        }],
+    }
+    _patch_user_route(monkeypatch, store)
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(exr.complete_d1_session("sess-1", authorization="Bearer x"))
+
+    assert exc.value.status_code == 409
+    assert exc.value.detail["error"] == "session_incomplete"
+    assert exc.value.detail["missing_exercise_ids"] == ["ex-1"]
+    assert store["d1_sessions"][0]["status"] == "active"
+
+
+def test_get_session_attempt_read_failure_is_visible(monkeypatch):
+    from fastapi import HTTPException
+    from routers import exercises as exr
+
+    store = {
+        "d1_sessions": [{"id": "sess-1", "user_id": USER_ID, "status": "active"}],
+        "vocabulary_exercise_attempts": [],
+    }
+    _patch_user_route(monkeypatch, store)
+    _replace_user_client(monkeypatch, store, _AttemptReadFailureQuery)
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(exr.get_d1_session("sess-1", authorization="Bearer x"))
+    assert exc.value.status_code == 500
+
+
+def test_complete_session_update_failure_does_not_claim_completion(monkeypatch):
+    from fastapi import HTTPException
+    from routers import exercises as exr
+
+    store = {
+        "d1_sessions": [{
+            "id": "sess-1", "user_id": USER_ID,
+            "exercise_ids": ["pq-0"],
+            "exercise_snapshot": [{
+                "id": "pq-0", "source": "personalized",
+                "sentence": "The ___ matters.", "answer": "target0",
+            }],
+            "total_count": 1, "status": "active",
+        }],
+        "vocabulary_exercise_attempts": [{
+            "id": "att-0", "exercise_id": "pq-0", "user_answer": "wrong",
+            "is_correct": False, "attempted_at": "2026-08-16T00:00:00Z",
+            "session_id": "sess-1", "user_id": USER_ID,
+        }],
+    }
+    _patch_user_route(monkeypatch, store)
+    _replace_user_client(monkeypatch, store, _SessionUpdateFailureQuery)
+
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(exr.complete_d1_session("sess-1", authorization="Bearer x"))
+    assert exc.value.status_code == 500
+    assert store["d1_sessions"][0]["status"] == "active"
 
 
 def test_complete_session_404_when_not_found(monkeypatch):
@@ -777,6 +1276,9 @@ def _rls_get_user_client(email: str, password: str):
     return client
 
 
+# Đánh dấu ĐÚNG ca này, không đánh dấu cả tệp: phần trên là test đơn vị thuần,
+# và miễn trừ chúng khỏi chốt chặn mạng là tự chọc thủng cái lưới vừa dựng.
+@pytest.mark.livenet
 @pytest.mark.skipif(
     not all(os.getenv(k) for k in _RLS_REQUIRED_VARS),
     reason="Live RLS tests require 2 test users — set all RLS_TEST_USER_* env vars",

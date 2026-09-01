@@ -6,13 +6,13 @@
 // (26/07/2026)" — đường tự lưu im lặng không tới máy chủ. Không phép so DOM nào
 // thấy được chuyện đó; đúng hình dạng cổng này sinh ra để chặn.
 //
-// BA ĐƯỜNG GHI, không phải một:
+// BỐN ĐƯỜNG GHI, không phải một:
 //   1. POST .../attempts          — mở lượt làm bài
-//   2. PATCH .../answers          — TỰ LƯU từng câu, debounce 500ms
-//   3. POST .../submit            — nộp cả bài
-// Bản khai ghim CẢ BA theo đúng thứ tự, vì mất bất kỳ khâu nào cũng là mất bài
+//   2. POST .../renderer-affinity — khoá player sở hữu lượt làm
+//   3. PATCH .../answers          — TỰ LƯU từng câu, debounce 500ms
+//   4. POST .../submit            — nộp cả bài
+// Bản khai ghim CẢ BỐN theo đúng thứ tự, vì mất bất kỳ khâu nào cũng là mất bài
 // của học viên mà màn hình vẫn xanh.
-import { NO_BODY } from '../write-flow-core.mjs';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +31,8 @@ const ATTEMPT = FX.attempt_id;
 const STARTED_AT = new Date().toISOString();
 const A1 = 'con mèo';
 const A2 = 'hai giờ';
+const RENDERER = process.env.WF_LEGACY ? 'legacy' : 'next';
+const START_PROTOCOL = { renderer_affinity_protocol: 'claim-v1' };
 
 export default {
   name: 'reading-exam — bắt đầu, tự lưu, nộp',
@@ -47,6 +49,7 @@ export default {
       started_at: STARTED_AT,
       time_limit_minutes: 60,
     }],
+    [/\/renderer-affinity$/, { renderer_affinity: RENDERER }],
     [/\/answers$/, { ok: true }],
     [/\/submit$/, { score: 2, total: 2, correct: 2 }],
   ],
@@ -82,10 +85,15 @@ export default {
   ignoreWrites: ['/api/analytics/events'],
 
   writes: [
-    // Mở lượt làm bài KHÔNG mang thân (`reading-exam.js:2890` truyền `null`).
-    // Bỏ trống `body` nghĩa là "không soi", nên một bản port gửi kèm thân tuỳ ý
-    // vẫn qua — `NO_BODY` mới là điều muốn nói (codex cục bộ #969).
-    { method: 'POST', path: `/api/reading/test/${TEST}/attempts`, body: NO_BODY },
+    // Máy khách aware phải xin giao thức claim-v1 ngay lúc tạo; máy khách cũ
+    // không gửi thân vẫn được DB mặc định về legacy. Sau đó player claim đúng
+    // renderer trước khi cho học viên nhập đáp án.
+    { method: 'POST', path: `/api/reading/test/${TEST}/attempts`, body: START_PROTOCOL },
+    {
+      method: 'POST',
+      path: `/api/reading/test/attempts/${ATTEMPT}/renderer-affinity`,
+      body: { renderer_affinity: RENDERER },
+    },
     {
       method: 'PATCH',
       path: `/api/reading/test/attempts/${ATTEMPT}/answers`,

@@ -122,6 +122,10 @@ describe('instructor-compose.js — wiring', () => {
     assert.match(CTRL, /from '\.\/instructor-compose-util\.js'/);
   });
 
+  test('previews from the canonical full feedback payload when available', () => {
+    assert.match(CTRL, /v\.feedback_json\s*\|\|\s*v/);
+  });
+
   test('budget pre-disable: Commit disabled when can_compose is false', () => {
     assert.match(CTRL, /can_compose/);
     assert.match(CTRL, /cm-commit['"]\)\.disabled\s*=\s*true/);
@@ -146,6 +150,6 @@ describe('compare.html + grade.html entry', () => {
   test('grade.html entry shows only when ≥2 live versions', () => {
     assert.match(GRADE_JS, /live_count\)\s*\|\|\s*0/);
     assert.match(GRADE_JS, /liveCount\s*>=\s*2/);
-    assert.match(GRADE_JS, /compare\.html\?essay_id=/);
+    assert.match(GRADE_JS, /\/instructor\/compare\?essay_id=/);
   });
 });

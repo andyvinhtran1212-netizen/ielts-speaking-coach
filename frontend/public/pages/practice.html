@@ -59,6 +59,7 @@
 
   <!-- Canonical chrome Web Component (Sprint 7.13). -->
   <script type="module" src="/js/components/aver-chrome.js"></script>
+  <script src="/js/legacy-retirement-beacon.js" defer></script>
 </head>
 <body class="av-page font-sans antialiased min-h-screen flex flex-col">
 
@@ -121,7 +122,7 @@
     </div>
 
     <!-- STATE: Mode Choice ──────────────────────────────────────────────────── -->
-    <div id="state-mode-choice" class="state block-state flex-1 av-w-read py-12 ds-fadein">
+    <div id="state-mode-choice" class="state block-state flex-1 av-w-read py-12 ds-fadein practice-stage practice-stage--choice">
       <div class="text-center mb-8">
         <p class="practice-mode-eyebrow text-xs font-bold uppercase tracking-wider mb-3">
           Câu hỏi sẽ được trình bày như thế nào?
@@ -132,6 +133,7 @@
       <div class="flex flex-col gap-4">
         <button onclick="PracticeApp.chooseModeAndStart('visual')"
                 class="practice-mode-card w-full text-left px-6 py-6 rounded-2xl font-bold">
+          <span class="practice-mode-card__badge">Linh hoạt</span>
           <div class="practice-mode-card__icon">
             <i data-lucide="eye"></i>
           </div>
@@ -142,6 +144,7 @@
         </button>
         <button onclick="PracticeApp.chooseModeAndStart('listening')"
                 class="practice-mode-card practice-mode-card--recommended w-full text-left px-6 py-6 rounded-2xl font-bold">
+          <span class="practice-mode-card__badge">Gần phòng thi thật</span>
           <div class="practice-mode-card__icon">
             <i data-lucide="volume-2"></i>
           </div>
@@ -154,7 +157,7 @@
     </div>
 
     <!-- STATE: Preparation ─────────────────────────────────────────────────── -->
-    <div id="state-prep" class="state block-state flex-1 av-w-read py-8 ds-fadein">
+    <div id="state-prep" class="state block-state flex-1 av-w-read py-8 ds-fadein practice-stage practice-stage--player">
 
       <!-- AI unavailable warning (shown only when Gemini failed and fallback questions are used) -->
       <div id="prep-fallback-warning" class="ds-callout practice-warning-callout" style="display:none;">
@@ -373,7 +376,7 @@
     </div>
 
     <!-- STATE: P2-A — Cue Card ──────────────────────────────────────────────── -->
-    <div id="state-p2a" class="state block-state flex-1 av-w-read py-6">
+    <div id="state-p2a" class="state block-state flex-1 av-w-read py-6 practice-stage practice-stage--part2">
       <div class="flex items-center gap-2 mb-5">
         <span class="ds-badge ds-badge-teal">Part 2</span>
         <span id="p2a-topic" class="practice-p2a-topic text-sm"></span>
@@ -388,7 +391,21 @@
       <p class="practice-prep-instruction text-xs text-center mb-5">
         Đọc cue card kỹ, sau đó nhấn nút để bắt đầu 1 phút chuẩn bị.
       </p>
-      <button class="btn-primary practice-icon-btn w-full py-4 text-sm font-bold"
+      <div id="p2a-submit-retry" class="ds-callout practice-error-callout mb-4" style="display:none;">
+        <p id="p2a-submit-retry-msg" class="text-sm mb-3"></p>
+        <audio id="p2a-submit-retry-audio" controls preload="metadata" style="width:100%;margin-bottom:12px;"></audio>
+        <div class="flex gap-3">
+          <button class="btn-ghost py-3 text-sm font-semibold" style="flex:1;"
+                  onclick="PracticeApp.discardP2SubmissionRetry()">
+            Ghi lại
+          </button>
+          <button class="btn-primary py-3 text-sm font-bold" style="flex:2;"
+                  onclick="PracticeApp.retryP2Submission()">
+            Gửi lại bản ghi
+          </button>
+        </div>
+      </div>
+      <button id="p2a-start-btn" class="btn-primary practice-icon-btn w-full py-4 text-sm font-bold"
               onclick="PracticeApp.startP2Prep()">
         <i data-lucide="play"></i>
         Bắt đầu 1 phút chuẩn bị
@@ -396,7 +413,7 @@
     </div>
 
     <!-- STATE: P2-B — Prep countdown ───────────────────────────────────────── -->
-    <div id="state-p2b" class="state block-state flex-1 av-w-read py-6">
+    <div id="state-p2b" class="state block-state flex-1 av-w-read py-6 practice-stage practice-stage--part2">
       <p class="practice-prep-eyebrow text-xs font-bold uppercase tracking-wider text-center mb-3">Thời gian chuẩn bị</p>
       <p id="p2b-timer" class="practice-prep-timer text-6xl font-extrabold tabular-nums text-center mb-6">1:00</p>
       <div class="card p-4 mb-4">
@@ -416,7 +433,7 @@
     </div>
 
     <!-- STATE: P2-C — Speaking (2-min countdown) ────────────────────────────── -->
-    <div id="state-p2c" class="state block-state flex-1 av-w-read py-6">
+    <div id="state-p2c" class="state block-state flex-1 av-w-read py-6 practice-stage practice-stage--part2">
       <div class="text-center mb-6">
         <div class="flex items-center justify-center gap-3 mb-2">
           <span class="practice-rec-dot"></span>
@@ -445,9 +462,15 @@
     </div>
 
     <!-- STATE: Feedback ─────────────────────────────────────────────────────── -->
-    <div id="state-feedback" class="state block-state flex-1 av-w-read py-8 ds-fadein">
+    <div id="state-feedback" class="state block-state flex-1 av-w-read py-8 ds-fadein practice-stage practice-stage--feedback">
 
-      <h2 class="text-lg font-bold mb-5 text-center">Kết quả câu trả lời</h2>
+      <header class="practice-feedback-header">
+        <p class="practice-feedback-header__eyebrow">Phản hồi tức thì</p>
+        <h2>Kết quả câu trả lời</h2>
+        <p>Ưu tiên một điểm mạnh để giữ lại và một thay đổi nhỏ cho lượt nói tiếp theo.</p>
+      </header>
+
+      <div class="practice-feedback-overview">
 
       <!-- Overall band hero -->
       <div id="feedback-band-wrapper"
@@ -469,29 +492,33 @@
         </p>
         <div id="feedback-comments"></div>
       </div>
-
-      <!-- Transcript -->
-      <div id="feedback-transcript" class="card p-4 mb-4" style="display:none;">
-        <p class="practice-card-eyebrow practice-card-eyebrow--faint text-xs font-bold uppercase tracking-wider mb-2">Văn bản nhận dạng</p>
-        <p id="feedback-transcript-text"
-           class="practice-transcript-text text-xs leading-relaxed"></p>
       </div>
 
-      <!-- Audio replay / download (JS-populated, only shown when local recording available) -->
-      <div id="feedback-audio-section" class="practice-feedback-audio" style="display:none;">
-        <div class="flex gap-2">
-          <button class="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold"
-                  style="flex:1;"
-                  onclick="PracticeApp.replayAudio()">
-            <i data-lucide="volume-2"></i>
-            Nghe lại
-          </button>
-          <button class="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold"
-                  style="flex:1;"
-                  onclick="PracticeApp.downloadAudio()">
-            <i data-lucide="download"></i>
-            Tải audio
-          </button>
+      <div class="practice-feedback-evidence">
+        <!-- Transcript -->
+        <div id="feedback-transcript" class="card p-4 mb-4" style="display:none;">
+          <p class="practice-card-eyebrow practice-card-eyebrow--faint text-xs font-bold uppercase tracking-wider mb-2">Văn bản nhận dạng</p>
+          <p id="feedback-transcript-text"
+             class="practice-transcript-text text-xs leading-relaxed"></p>
+        </div>
+
+        <!-- Audio replay / download (JS-populated, only shown when local recording available) -->
+        <div id="feedback-audio-section" class="practice-feedback-audio" style="display:none;">
+          <p class="practice-card-eyebrow practice-card-eyebrow--faint text-xs font-bold uppercase tracking-wider mb-2">Bài nói của bạn</p>
+          <div class="flex gap-2">
+            <button class="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold"
+                    style="flex:1;"
+                    onclick="PracticeApp.replayAudio()">
+              <i data-lucide="volume-2"></i>
+              Nghe lại
+            </button>
+            <button class="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold"
+                    style="flex:1;"
+                    onclick="PracticeApp.downloadAudio()">
+              <i data-lucide="download"></i>
+              Tải audio
+            </button>
+          </div>
         </div>
       </div>
 
@@ -522,7 +549,7 @@
       </div>
 
       <!-- Navigation buttons (JS controls display) -->
-      <div class="flex flex-col gap-3">
+      <div class="practice-feedback-actions flex flex-col gap-3">
         <!-- Xem lại một câu của PHIẾU bài tập lớp. Ở đường ấy không có "câu
              tiếp theo": học viên đang xem lại một ô cụ thể và cần về đúng chỗ
              cũ. Hai nút kia bị ẩn, nút này hiện — xem `_sheetReview`. -->
@@ -551,20 +578,33 @@
     </div>
 
     <!-- STATE: Full Test Completion ─────────────────────────────────────────── -->
-    <div id="state-completion" class="state flex-1 items-center justify-center flex-col gap-0 px-6 text-center">
+    <div id="state-completion" class="state flex-1 items-center justify-center flex-col gap-0 px-6 text-center practice-stage practice-stage--completion">
 
       <!-- Check icon -->
       <div class="practice-completion-check">
         <i data-lucide="check"></i>
       </div>
 
-      <h2 class="practice-completion-title">Bạn đã hoàn thành Full Test!</h2>
-      <p class="practice-completion-desc">
+      <p class="practice-completion-eyebrow">Đã ghi nhận đủ 3 Part</p>
+      <h2 id="completion-title" class="practice-completion-title">Bạn đã hoàn thành Full Test!</h2>
+      <p id="completion-desc" class="practice-completion-desc">
         Bài thi đang được phân tích chuyên sâu để tổng hợp band score và nhận xét chi tiết.
       </p>
 
+      <div id="completion-submit-status"
+           class="practice-completion-submit-status is-pending"
+           role="status" aria-live="polite">
+        Đang kiểm tra và gửi nốt các câu trả lời…
+      </div>
+      <button id="completion-retry-btn" type="button"
+              class="btn-primary practice-icon-btn practice-completion-retry"
+              style="display:none;"
+              onclick="PracticeApp.retryFullTestSubmissions()">
+        Gửi lại và chốt bài
+      </button>
+
       <!-- Info card -->
-      <div class="practice-completion-info">
+      <div id="completion-info" class="practice-completion-info">
         <div class="practice-completion-info__row">
           <div class="practice-completion-info__icon">
             <i data-lucide="clock"></i>
@@ -586,7 +626,7 @@
       </div>
 
       <!-- CTAs -->
-      <div class="practice-completion-ctas">
+      <div id="completion-ctas" class="practice-completion-ctas">
         <a href="/speaking" class="practice-completion-cta practice-completion-cta--primary">
           Quay lại
         </a>
@@ -597,9 +637,12 @@
     </div>
 
     <!-- STATE: Test Results ──────────────────────────────────────────────────── -->
-    <div id="state-test-results" class="state block-state flex-1 av-w-read py-8">
-      <h2 class="text-xl font-bold mb-2 text-center">Kết quả bài Test</h2>
-      <p class="practice-test-results-sub text-xs text-center mb-6">Tổng hợp tất cả câu trả lời trong buổi test</p>
+    <div id="state-test-results" class="state block-state flex-1 av-w-read py-8 practice-stage practice-stage--summary">
+      <header class="practice-feedback-header">
+        <p class="practice-feedback-header__eyebrow">Tổng kết phiên</p>
+        <h2>Kết quả bài Test</h2>
+        <p class="practice-test-results-sub">Tổng hợp tất cả câu trả lời trong buổi test</p>
+      </header>
 
       <!-- Overall band -->
       <div id="test-overall-wrap" class="card practice-overall-wrap p-6 mb-6 text-center">
@@ -641,6 +684,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0" defer></script>
   <script src="../js/runtime-config.js" defer></script>
   <script src="../js/api.js" defer></script>
+  <!-- Shared canonical upload/retry/resume state for Legacy ↔ Next handoff. -->
+  <script type="module" src="../js/speaking-legacy-runtime.mjs"></script>
   <script src="../js/speaking-debt.js" defer></script>
   <script src="../js/practice.js" defer></script>
   <!-- Sprint 15.1 — pronunciation phoneme drill-down modal (weak-word badge → modal) -->
@@ -656,6 +701,19 @@
       initSupabase(SUPABASE_URL, SUPABASE_ANON);
       document.getElementById('hdr-info').classList.remove('hidden');
       document.getElementById('hdr-progress').classList.remove('hidden');
+      if (!window.PracticeLegacyRuntime ||
+          typeof window.PracticeSubmission?.submit !== 'function' ||
+          typeof window.PracticeFullTest?.restore !== 'function') {
+        var detail = document.getElementById('error-msg');
+        if (detail) detail.textContent = 'Không thể khởi động bộ lưu bài an toàn. Hãy tải lại trang.';
+        document.getElementById('state-loading')?.classList.remove('active');
+        document.getElementById('state-error')?.classList.add('active');
+        window.aver?.reportError?.(
+          'practice legacy persistence runtime unavailable',
+          { type: 'practice_legacy_runtime_unavailable' }
+        );
+        return;
+      }
       PracticeApp.init();
     });
   </script>

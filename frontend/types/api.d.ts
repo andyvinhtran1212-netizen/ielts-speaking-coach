@@ -129,6 +129,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sessions/{session_id}/renderer-affinity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Renderer Affinity
+         * @description Claim the stable renderer on first player boot; never move it later.
+         */
+        post: operations["claim_renderer_affinity_sessions__session_id__renderer_affinity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sessions/{session_id}": {
         parameters: {
             query?: never;
@@ -186,15 +206,13 @@ export interface paths {
         };
         /**
          * Get Full Test Summary
-         * @description Tổng hợp kết quả Full Test từ tối đa 3 part sessions.
-         *     session_id = Part 1 session ID (bắt buộc).
-         *     p2_id, p3_id = Part 2 & 3 session IDs (tuỳ chọn, truyền qua query params).
+         * @description Return one canonical, ownership-checked three-Part Full Test result.
          *
-         *     Tính toán từ responses.feedback JSON:
-         *       - Criterion bands (band_fc/lr/gra/p) → trung bình toàn bộ responses
-         *       - Strengths / improvements → gộp + đếm tần suất
-         *       - Grammar issues → gộp + đếm tần suất (top 5)
-         *       - Per-part summary: band_avg, key_feedback (strength + improvement đầu tiên)
+         *     New sessions are resolved by server-owned ``full_test_attempt_id`` from Part 1, so callers
+         *     only need the Part 1 ID. Explicit p2/p3 remain for pre-migration rows, but
+         *     are validated as distinct owned ``test_full`` Part 2/3 sessions. Scores are
+         *     returned only when all three canonical session aggregates are complete and
+         *     the containing mock sitting is not sealed.
          */
         get: operations["get_full_test_summary_sessions__session_id__full_test_summary_get"];
         put?: never;
@@ -421,6 +439,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/e2e/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Admin Cleanup E2E Session
+         * @description Delete one synthetic Gate E session from the certified staging DB.
+         *
+         *     This deliberately is not a general session-delete API. It requires an
+         *     admin, refuses every non-staging runtime/project, and only accepts an
+         *     unassigned session owned by a staging-E2E identity with a frozen test
+         *     topic. The narrow route lets the soak suite release its daily-quota rows
+         *     without rotating identities or exposing the service key to GitHub Actions.
+         */
+        delete: operations["admin_cleanup_e2e_session_admin_e2e_sessions__session_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/users/{user_id}/role": {
         parameters: {
             query?: never;
@@ -601,7 +645,10 @@ export interface paths {
          * Foot Traffic
          * @description Aggregated page-view foot traffic for the admin dashboard. Default window:
          *     last 30 days. Paged query over page_view events + a Python rollup (no N+1).
-         *     Pattern #29: a query failure returns zeroed metrics, never a 500.
+         *
+         *     The response explicitly distinguishes complete, partial and unavailable
+         *     reads. An upstream failure must never masquerade as a real zero-traffic
+         *     window in the admin UI.
          */
         get: operations["foot_traffic_admin_analytics_foot_traffic_get"];
         put?: never;
@@ -673,7 +720,10 @@ export interface paths {
          *     `days` (7/30/90; other values clamp to 30). Anonymous distinct counts are
          *     APPROXIMATE (salted-IP-hash dedupe limit) and the raw hash is never
          *     returned. Aggregated in Python over a bounded fetch (no RPC); Pattern #29 —
-         *     a query outage yields ok=false, never a 500. Cache-Control: 300s.
+         *     response distinguishes complete, partial and unavailable reads. Counts and
+         *     rows are frozen at one UTC watermark; a query outage yields unavailable or
+         *     partial data, never a false zero. The private response is never cached so
+         *     the explicit refresh action always obtains a new canonical snapshot.
          */
         get: operations["dashboard_reading_attempts_admin_dashboard_reading_attempts_get"];
         put?: never;
@@ -1077,7 +1127,8 @@ export interface paths {
         /**
          * Admin List Sessions
          * @description List all sessions across users (admin only).
-         *     Supports filtering by user_id, mode, status, error_code, has_error, date range.
+         *     Supports filtering by user_id or exact user_email, mode, status,
+         *     error_code, has_error, date range.
          *     Returns sessions enriched with user email.
          */
         get: operations["admin_list_sessions_admin_sessions_get"];
@@ -1460,7 +1511,7 @@ export interface paths {
          *
          *     Returns:
          *       - views_total              (sum of view_count across article_views)
-         *       - views_recent             (sum where last_viewed_at >= now-days)
+         *       - active_view_records_recent (user/article records active in the window)
          *       - saves_total              (count of saved_articles rows)
          *       - top_viewed[]             (top 20 by total views)
          *       - top_saved[]              (top 5 by save count)
@@ -1566,11 +1617,7 @@ export interface paths {
         };
         /**
          * Cohort Members
-         * @description WF-1 — a cohort's CLASS ROSTER = students WHERE `students.cohort_id` =
-         *     cohort_id. This is the single source of truth: the SAME column writing
-         *     fan-out (`cohort_assignment_service`) and the grade-by-class matrix
-         *     (`admin_writing_cohorts`) read, so what the admin sees here is exactly who
-         *     gets writing assigned + graded (no split-brain).
+         * @description Canonical active roster from ``student_cohort_memberships``.
          *
          *     Each member carries `student_code` + `full_name`; per-member activity
          *     (sessions / last_active / ai_cost) is joined via `students.user_id` when the
@@ -1627,10 +1674,7 @@ export interface paths {
         put?: never;
         /**
          * Assign Student To Cohort
-         * @description WF-1 — add an EXISTING student to this cohort's roster by setting
-         *     `students.cohort_id`. Issues NO access code (entitlement is separate).
-         *     Idempotent. The student then appears in GET /members and receives writing
-         *     fan-out + shows in the grade-by-class matrix.
+         * @description Add an existing student without removing their other classes.
          */
         post: operations["assign_student_to_cohort_admin_cohorts__cohort_id__students_post"];
         delete?: never;
@@ -1650,9 +1694,7 @@ export interface paths {
         put?: never;
         /**
          * Bulk Assign Students To Cohort
-         * @description WF-1 — assign MANY existing students to this cohort in one atomic
-         *     UPDATE (set students.cohort_id for all given ids). No codes issued.
-         *     Re-assigning students already in the cohort is a harmless no-op.
+         * @description Add many existing students atomically without moving them.
          */
         post: operations["bulk_assign_students_to_cohort_admin_cohorts__cohort_id__students_bulk_post"];
         delete?: never;
@@ -1673,10 +1715,7 @@ export interface paths {
         post?: never;
         /**
          * Remove Student From Cohort
-         * @description WF-1 — remove a student from this cohort's roster (clear
-         *     `students.cohort_id`). Only clears when the student is currently in THIS
-         *     cohort (no-op otherwise, so a stale request can't yank a student out of a
-         *     different class). Access codes / entitlement are NOT touched.
+         * @description Remove only this membership; other classes and entitlement stay intact.
          */
         delete: operations["remove_student_from_cohort_admin_cohorts__cohort_id__students__student_id__delete"];
         options?: never;
@@ -2199,6 +2238,33 @@ export interface paths {
         patch: operations["update_assignment_admin_cohorts__cohort_id__assignments__assignment_id__patch"];
         trace?: never;
     };
+    "/admin/cohorts/{cohort_id}/action-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Class Action Log
+         * @description Nhật ký thao tác của giáo viên lên hồ sơ học viên trong lớp này.
+         *
+         *     Hai đường ghi (đổi hạn, trả bài) đều sửa thứ học viên nhìn thấy, và trước
+         *     mig 198 không đường nào để lại dấu ai làm. Mặt đọc này để ba tháng sau còn
+         *     trả lời được "ai đổi, lúc nào, từ gì sang gì" khi có người hỏi.
+         *
+         *     Đọc HỎNG thì 500, không trả danh sách rỗng: một nhật ký rỗng đọc ra là
+         *     "chưa ai đụng gì" — một khẳng định mà lượt đọc hỏng chưa hề chứng minh.
+         */
+        get: operations["class_action_log_admin_cohorts__cohort_id__action_log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/cohorts/{cohort_id}/assignments/{assignment_id}/due": {
         parameters: {
             query?: never;
@@ -2419,6 +2485,38 @@ export interface paths {
          *     review #746).
          */
         get: operations["error_log_rollback_metrics_admin_error_logs_rollback_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/error-logs/legacy-active-session-drain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Gate F Legacy Active Session Drain
+         * @description Gate F exact inventory of still-resumable Legacy player state.
+         *
+         *     Renderer affinity is canonical after migrations 215–221. Migration 224
+         *     adds a hard resume/lease deadline, so an ancient audit row is not mistaken
+         *     for a live browser dependency. A Legacy or unclaimed row blocks only while
+         *     its canonical deadline is still in the future. Missing deadlines fail
+         *     closed. The cutoff remains the versioned release timestamp, but post-cutover
+         *     Legacy admissions also block — silently allowing one would hide a routing
+         *     regression.
+         *
+         *     The result deliberately does not claim that Gate F passed. Zero stateful
+         *     rows is only one retirement prerequisite; the 14-day/full-cycle telemetry,
+         *     rollback health and deletion audit remain separate evidence.
+         */
+        get: operations["gate_f_legacy_active_session_drain_admin_error_logs_legacy_active_session_drain_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3095,6 +3193,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/writing/prompts/discard-image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard Unattached Image
+         * @description Best-effort cleanup for an upload whose following prompt write failed.
+         *
+         *     Only paths minted by ``upload_prompt_image`` are accepted. This endpoint is
+         *     deliberately not a general-purpose storage delete surface.
+         */
+        post: operations["discard_unattached_image_admin_writing_prompts_discard_image_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/writing/prompts/{prompt_id}": {
         parameters: {
             query?: never;
@@ -3115,12 +3236,10 @@ export interface paths {
          *     the row, so old assignments / submissions referencing this prompt
          *     keep their context.  PATCH with is_active=true to restore.
          *
-         *     Phase 2.3c-1: also deletes the Supabase Storage object and clears
-         *     the image columns. Soft-deleted prompts are never re-shown to admins
-         *     (filter dropdown was removed in Sprint 2.3a-1.1), so keeping orphan
-         *     image objects "just in case" of restore would steadily accumulate
-         *     storage. If a restore is ever needed, admin can re-upload the image
-         *     alongside the PATCH `is_active=true`.
+         *     The prompt's image columns and analysis are cleared, but a published
+         *     Storage object is retained as immutable evidence for historical essays
+         *     and in-flight submissions that snapshot its public URL. If restored,
+         *     the admin can attach a new image.
          */
         delete: operations["soft_delete_prompt_admin_writing_prompts__prompt_id__delete"];
         options?: never;
@@ -3294,9 +3413,9 @@ export interface paths {
          * Cohort Detail
          * @description Student × assignment matrix for one cohort.
          *
-         *     matrix[student_id][prompt_id] = {assignment_id, status, essay_id,
-         *     deadline, band}. Columns = distinct prompts assigned to the cohort,
-         *     ordered by earliest assignment. Sparse: a missing (student, prompt)
+         *     matrix[student_id][column_id] = {assignment_id, status, essay_id,
+         *     deadline, band}. Columns are distinct give/group × prompt identities,
+         *     ordered by earliest assignment. Sparse: a missing (student, give × prompt)
          *     pair simply has no key (the UI renders '—').
          */
         get: operations["cohort_detail_admin_writing_cohorts__cohort_id__get"];
@@ -3386,8 +3505,8 @@ export interface paths {
          *     and student (id/student_code/full_name) so the admin list view
          *     doesn't need a second round-trip.
          *
-         *     Sprint 19.2: `cohort_id` filters to assignments whose student belongs
-         *     to that cohort (derived via students.cohort_id — Discovery D1).
+         *     `cohort_id` uses the stamped fan-out origin for new rows. Legacy/direct
+         *     rows without provenance retain the historical membership-based fallback.
          */
         get: operations["list_assignments_admin_writing_assignments_get"];
         put?: never;
@@ -3436,6 +3555,32 @@ export interface paths {
          *     these prompts (allow + warn — re-giving in a new Buổi is intended).
          */
         post: operations["fan_out_to_cohort_admin_writing_assignments_fan_out_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/writing/assignments/requests/{request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Verify Assignment Request
+         * @description Read back every assignment named by an idempotent request receipt.
+         *
+         *     A single representative row cannot prove that a bulk Cartesian insert is
+         *     still complete. This endpoint binds the immutable admin-owned receipt to
+         *     the current canonical assignment rows and returns the exact IDs that still
+         *     belong to the recorded group; the client keeps reconciliation pending
+         *     unless the complete set matches.
+         */
+        get: operations["verify_assignment_request_admin_writing_assignments_requests__request_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3708,7 +3853,8 @@ export interface paths {
         /**
          * List Essay Versions
          * @description F2 compare-data: all LIVE versions (current + ancestors) side-by-side, plus
-         *     the budget so the picker can pre-disable mix when no slot is free.
+         *     full feedback for a truthful learner preview and the budget so the picker
+         *     can pre-disable mix when no slot is free.
          */
         get: operations["list_essay_versions_instructor_essays__essay_id__versions_get"];
         put?: never;
@@ -4152,6 +4298,10 @@ export interface paths {
         /**
          * Update Student
          * @description Update student profile. Empty body → 400.
+         *
+         *     ``exclude_unset`` is intentional: optional profile fields can be cleared by
+         *     sending JSON ``null``. Required identity fields may be omitted, but may not
+         *     be explicitly cleared.
          */
         patch: operations["update_student_admin_students__student_id__patch"];
         trace?: never;
@@ -4315,6 +4465,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/writing/my-assignments/{assignment_id}/renderer-affinity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Writing Assignment Renderer Affinity
+         * @description Atomically pin an active Writing workspace to Legacy or Next.
+         *
+         *     The ownership-filtered pre-read preserves the endpoint's symmetric 404
+         *     contract. The RPC repeats ownership + active-status checks at the mutation
+         *     boundary so a concurrent submit cannot claim or reopen a terminal row.
+         */
+        post: operations["claim_writing_assignment_renderer_affinity_api_writing_my_assignments__assignment_id__renderer_affinity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/writing/my-assignments/{assignment_id}/draft": {
         parameters: {
             query?: never;
@@ -4372,6 +4546,26 @@ export interface paths {
          *     submitted" — holds; renaming it is queued for a later sprint.
          */
         post: operations["submit_my_assignment_api_writing_my_assignments__assignment_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/writing/my-assignments/{assignment_id}/submission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Assignment Submission
+         * @description Side-effect-free reconciliation for an ambiguous submit response.
+         */
+        get: operations["get_my_assignment_submission_api_writing_my_assignments__assignment_id__submission_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4761,7 +4955,7 @@ export interface paths {
         };
         /**
          * Get Groups
-         * @description Return the 8 conceptual topic groups with enriched article lists.
+         * @description Return the conceptual topic groups with enriched article lists.
          *     Each article has a resolved status: complete | updating | planned.
          *     Planned articles have no MD file yet — they should be shown but not linked.
          */
@@ -4851,8 +5045,7 @@ export interface paths {
         };
         /**
          * List Exercises
-         * @description All published grammar quiz banks (id/code/title/count). Public, uncached
-         *     (bank state is dynamic). Category is derivable from the code G-<category>-<slug>.
+         * @description Published banks enriched from canonical Grammar article metadata.
          */
         get: operations["list_exercises_api_grammar_exercises_get"];
         put?: never;
@@ -5055,6 +5248,312 @@ export interface paths {
         get: operations["search_api_vocabulary_search_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary/units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Learning Units */
+        get: operations["list_learning_units_api_vocabulary_units_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary/units/{unit_slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Learning Unit */
+        get: operations["get_learning_unit_api_vocabulary_units__unit_slug__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary/pathways": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Learning Pathways */
+        get: operations["list_learning_pathways_api_vocabulary_pathways_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/vocabulary/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get My Vocab Today */
+        get: operations["get_my_vocab_today_api_me_vocabulary_today_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/vocabulary/unit-mastery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get My Vocab Mastery */
+        get: operations["get_my_vocab_mastery_api_me_vocabulary_unit_mastery_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/vocabulary/context-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve My Vocab Context Links */
+        post: operations["resolve_my_vocab_context_links_api_me_vocabulary_context_links_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/vocabulary/recommendations/{recommendation_id}/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open My Vocab Recommendation */
+        post: operations["open_my_vocab_recommendation_api_me_vocabulary_recommendations__recommendation_id__open_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vocabulary/tasks/{task_id}/attempt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Vocab Task Attempt */
+        post: operations["submit_vocab_task_attempt_api_vocabulary_tasks__task_id__attempt_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/pilot-metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Get Vocab Pilot Metrics */
+        get: operations["admin_get_vocab_pilot_metrics_admin_vocabulary_pilot_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/pilot-cohort/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Set Vocab Pilot Cohort */
+        post: operations["admin_set_vocab_pilot_cohort_admin_vocabulary_pilot_cohort__user_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/editorial/units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin List Vocab Editorial Units */
+        get: operations["admin_list_vocab_editorial_units_admin_vocabulary_editorial_units_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/editorial/units/{unit_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Get Vocab Editorial Unit */
+        get: operations["admin_get_vocab_editorial_unit_admin_vocabulary_editorial_units__unit_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Create Vocab Unit */
+        post: operations["admin_create_vocab_unit_admin_vocabulary_units_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/units/{unit_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Create Vocab Version */
+        post: operations["admin_create_vocab_version_admin_vocabulary_units__unit_id__versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/versions/{version_id}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Validate Vocab Version */
+        post: operations["admin_validate_vocab_version_admin_vocabulary_versions__version_id__validate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/versions/{version_id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Review Vocab Version */
+        post: operations["admin_review_vocab_version_admin_vocabulary_versions__version_id__reviews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/versions/{version_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Publish Vocab Version */
+        post: operations["admin_publish_vocab_version_admin_vocabulary_versions__version_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/vocabulary/units/{unit_id}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Rollback Vocab Version */
+        post: operations["admin_rollback_vocab_version_admin_vocabulary_units__unit_id__rollback_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5466,9 +5965,9 @@ export interface paths {
          * Submit D1 Attempt
          * @description D1 free tier: 50 attempts/day to prevent abuse.
          *
-         *     The decorator above runs BEFORE this handler and raises HTTP 429 with a
-         *     machine-readable detail (error, limit, used, reset_at) once the user has
-         *     submitted 50 D1 attempts in the current UTC day.
+         *     Idempotency replay is checked before the daily limit. This matters for a
+         *     lost ACK on the 50th persisted attempt: retrying that same client key must
+         *     return the existing row, not become an artificial 429.
          *
          *     Sprint 10.5 Phase 2 — exercise_id may reference either a personalized
          *     question (user_d1_questions) or an admin-pool exercise
@@ -5557,8 +6056,8 @@ export interface paths {
          * @description Mark a session completed and return a per-item correct/wrong summary so
          *     the UI can render the results screen without making a separate request.
          *
-         *     Idempotent: calling this twice on the same session just re-derives the
-         *     summary from the attempt rows; the second update is a no-op.
+         *     Idempotent in result: calling this twice re-derives the same summary and
+         *     persists the same canonical status/count.
          */
         post: operations["complete_d1_session_api_exercises_d1_sessions__session_id__complete_post"];
         delete?: never;
@@ -5933,19 +6432,16 @@ export interface paths {
         put?: never;
         /**
          * Submit Review
-         * @description Self-rate a card.  Updates SRS state via services.srs.update_srs and
-         *     appends a row to flashcard_review_log so the next call's rate-limit
-         *     counter sees this review.
+         * @description Self-rate a card. The client operation ID, rate-limit receipt, and SRS
+         *     state are committed as one replay-safe transaction by migration 212.
          *
          *     Two-step flow:
          *       1. Look up the existing flashcard_reviews row (or fall back to
          *          per-vocab defaults — ease=2.5, interval=1, count=0, lapse=0).
          *          Validates that the vocab belongs to the caller via the SELECT
          *          on user_vocabulary (RLS hides foreign rows).
-         *       2. Compute next state + UPSERT (UNIQUE(user_id, vocabulary_id)).
-         *
-         *     Failure to write the audit log is non-fatal — SRS still updated, just
-         *     means the daily counter under-reports by one.
+         *       2. Compute the next derived state and let the RPC atomically claim the
+         *          operation ID + UPSERT the shared SRS row.
          */
         post: operations["submit_review_api_flashcards__vocab_id__review_post"];
         delete?: never;
@@ -6197,8 +6693,8 @@ export interface paths {
          *
          *     Hard-filters ``status='published'`` AND audio satisfied (full or
          *     assembled present). Each row carries the calling user's best score
-         *     + attempt count so the tests list can render "Bắt đầu" vs "Làm lại"
-         *     CTAs without a follow-up round-trip.
+         *     + total/submitted attempt counts so the tests list can render truthful
+         *     "Bắt đầu" vs "Làm lại" CTAs without a follow-up round-trip.
          *
          *     test_type segregates the full-test, mini-test and skill-drill libraries,
          *     reading the real ``test_type`` column (mig 157 — NOT NULL, CHECK
@@ -6292,6 +6788,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/listening/tests/{test_id}/dictation/attempts/in-progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get In Progress Dictation Attempt */
+        get: operations["get_in_progress_dictation_attempt_api_listening_tests__test_id__dictation_attempts_in_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/{test_id}/dictation/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Dictation Attempt
+         * @description Resume the one active section attempt, or create it without destroying progress.
+         */
+        post: operations["start_dictation_attempt_api_listening_tests__test_id__dictation_attempts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/dictation/attempts/{attempt_id}/renderer-affinity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Claim Dictation Attempt Renderer Affinity */
+        post: operations["claim_dictation_attempt_renderer_affinity_api_listening_tests_dictation_attempts__attempt_id__renderer_affinity_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/dictation/attempts/{attempt_id}/sentences/{sentence_idx}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grade And Save Dictation Attempt Sentence
+         * @description Grade and atomically upsert the latest canonical state of one sentence.
+         */
+        post: operations["grade_and_save_dictation_attempt_sentence_api_listening_tests_dictation_attempts__attempt_id__sentences__sentence_idx__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/listening/tests/dictation/session": {
         parameters: {
             query?: never;
@@ -6311,6 +6881,26 @@ export interface paths {
          *     dictation_sessions row. Returns the report the completion screen renders.
          */
         post: operations["submit_listening_dictation_session_api_listening_tests_dictation_session_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/dictation/session/by-request/{client_request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Listening Dictation Session By Request
+         * @description Reconcile an ambiguous completion POST by its durable client receipt.
+         */
+        get: operations["get_listening_dictation_session_by_request_api_listening_tests_dictation_session_by_request__client_request_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6417,6 +7007,26 @@ export interface paths {
          *     GET /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
          */
         post: operations["start_listening_test_attempt_api_listening_tests__test_id__attempts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/attempts/{attempt_id}/renderer-affinity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Listening Attempt Renderer Affinity
+         * @description Claim a stable Listening player on first boot; never move it later.
+         */
+        post: operations["claim_listening_attempt_renderer_affinity_api_listening_tests_attempts__attempt_id__renderer_affinity_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6725,10 +7335,11 @@ export interface paths {
          *       - non-overlapping
          *       - transcript non-empty
          *
-         *     Upsert semantics: if a row with the same (content_id, exercise_type)
-         *     pair already exists, the row is UPDATEd in place (preserves the
-         *     exercise_id so existing attempt rows keep referencing it). Otherwise
-         *     a new row is INSERTed.
+         *     Legacy callers that omit order_num retain their original "first block of
+         *     this type" semantics. Callers that provide order_num use the complete
+         *     (content_id, exercise_type, order_num) block identity. Native editors
+         *     update an exact exercise_id with an expected_updated_at version token so
+         *     existing attempt rows keep referencing the same exercise.
          */
         post: operations["admin_upsert_listening_exercise_admin_listening_exercises_post"];
         delete?: never;
@@ -8246,6 +8857,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/quiz/course/full-retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Begin Course Full Retry
+         * @description Mở một full attempt mới cho cả quiz và mọi section bắt buộc.
+         */
+        post: operations["begin_course_full_retry_api_quiz_course_full_retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/quiz/banks/{bank_id}/reset": {
         parameters: {
             query?: never;
@@ -8299,7 +8930,7 @@ export interface paths {
         put?: never;
         /**
          * Submit Course Writing
-         * @description Nộp CẢ CỤM tự luận — một lượt duy nhất cho mỗi học viên mỗi bank.
+         * @description Nộp CẢ CỤM tự luận — một lần trong full attempt hiện hành.
          */
         post: operations["submit_course_writing_api_quiz_course_writing_post"];
         delete?: never;
@@ -8325,6 +8956,66 @@ export interface paths {
          *     trước đó nó chỉ nằm trong `localStorage` của đúng một trình duyệt.
          */
         post: operations["save_course_writing_draft_api_quiz_course_writing_draft_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/course/reading-solution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Course Reading Solution
+         * @description Bản dịch + lời giải bài đọc thêm; đề ban đầu không mang hai phần này.
+         */
+        post: operations["course_reading_solution_api_quiz_course_reading_solution_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/course/listening-solution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Course Listening Solution
+         * @description Đáp án + transcript bài nghe; đề ban đầu không mang những phần này.
+         */
+        post: operations["course_listening_solution_api_quiz_course_listening_solution_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/course/listening-audio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Course Listening Audio
+         * @description Cấp URL audio mới ngay khi học viên mở phần nghe.
+         */
+        post: operations["course_listening_audio_api_quiz_course_listening_audio_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8406,6 +9097,40 @@ export interface paths {
         head?: never;
         /** End Session */
         patch: operations["end_session_api_quiz_sessions__session_id__patch"];
+        trace?: never;
+    };
+    "/api/quiz/course/pronunciation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pronunciation State */
+        get: operations["pronunciation_state_api_quiz_course_pronunciation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quiz/course/pronunciation/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Pronunciation */
+        post: operations["submit_pronunciation_api_quiz_course_pronunciation_submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/reading/vocab": {
@@ -8712,6 +9437,30 @@ export interface paths {
          *     abandon-then-insert and wins next iteration.
          */
         post: operations["start_reading_test_attempt_api_reading_test__test_id__attempts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reading/test/attempts/{attempt_id}/renderer-affinity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Reading Attempt Renderer Affinity
+         * @description Claim a stable Reading player on first boot; never move it later.
+         *
+         *     Both account-owned and anonymous share attempts use the same canonical
+         *     column. Ownership is checked before the RPC for precise HTTP errors and is
+         *     repeated inside the atomic UPDATE so a claim can never cross owners.
+         */
+        post: operations["claim_reading_attempt_renderer_affinity_api_reading_test_attempts__attempt_id__renderer_affinity_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9164,6 +9913,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mock-exams/sittings/{sitting_id}/sections/{section}/flush-ack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Acknowledge Collection Flush
+         * @description ACK that this student's final autosave completed after admin collect.
+         *
+         *     The admin sweep waits for this canonical per-sitting signal for a bounded
+         *     grace window.  Auth ownership and the shared collected-section marker are
+         *     both enforced in the service; a client cannot ACK another sitting or a
+         *     section that is still open.
+         */
+        post: operations["acknowledge_collection_flush_api_mock_exams_sittings__sitting_id__sections__section__flush_ack_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mock-exams/sittings/{sitting_id}/sections/{section}/start": {
         parameters: {
             query?: never;
@@ -9462,15 +10236,10 @@ export interface paths {
          * @description Open the NEXT seated section for every sitting under this exam —
          *     not_started → listening → reading → writing → done.
          *
-         *     The transition returns immediately; the straggler sweep for the section
-         *     being closed is QUEUED (B3). It used to run inline — one loop over every
-         *     unsubmitted sitting, grading each L/R attempt — which for a class of 25-30
-         *     made this a very long request, and a timeout left papers collected but the
-         *     section unmoved with no way for the admin to tell.
-         *
-         *     The live console polls every 5s, so the papers visibly land one by one. If
-         *     the sweep dies (a restart mid-task), the console flags the section as
-         *     "chưa thu đủ" and POST /collect?section=… re-runs it.
+         *     The initial transition opens the first paper. Every later transition is
+         *     accepted only after POST /collect has closed the current paper, waited for
+         *     final-save ACKs, swept outstanding sittings, and published completion. This
+         *     keeps direct API calls from bypassing the same coordination as the live UI.
          */
         post: operations["advance_section_admin_mock_exams__exam_id__advance_post"];
         delete?: never;
@@ -10413,6 +11182,99 @@ export interface components {
             /** Action */
             action: string;
         };
+        /** AdminFeedbackGroupOut */
+        AdminFeedbackGroupOut: {
+            /** Test Id */
+            test_id?: string | null;
+            /**
+             * Skill
+             * @enum {string}
+             */
+            skill: "reading" | "listening" | "vocabulary";
+            /** New Count */
+            new_count: number;
+            /** Items */
+            items: components["schemas"]["AdminFeedbackItemOut"][];
+        };
+        /** AdminFeedbackInboxOut */
+        AdminFeedbackInboxOut: {
+            /**
+             * Data Status
+             * @enum {string}
+             */
+            data_status: "complete" | "partial" | "unavailable";
+            /** Snapshot To */
+            snapshot_to: string;
+            /** Skill */
+            skill?: string | null;
+            /** Feedback Type */
+            feedback_type?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Test Id */
+            test_id?: string | null;
+            /** Items */
+            items: components["schemas"]["AdminFeedbackItemOut"][];
+            /** Count */
+            count: number | null;
+            /** Groups */
+            groups: components["schemas"]["AdminFeedbackGroupOut"][];
+            /** Truncated */
+            truncated: boolean;
+            /** Malformed Count */
+            malformed_count: number;
+        };
+        /** AdminFeedbackItemOut */
+        AdminFeedbackItemOut: {
+            /** Id */
+            id: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "rating" | "report" | "flag";
+            /**
+             * Skill
+             * @enum {string}
+             */
+            skill: "reading" | "listening" | "vocabulary";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "resolved";
+            /** Test Id */
+            test_id?: string | null;
+            /** Q Num */
+            q_num?: number | null;
+            /** Rating De */
+            rating_de?: number | null;
+            /** Rating Audio */
+            rating_audio?: number | null;
+            /** Category */
+            category?: string | null;
+            /** Note */
+            note?: string | null;
+            /** Anon Id */
+            anon_id?: "redacted" | null;
+            /**
+             * Identity Kind
+             * @enum {string}
+             */
+            identity_kind: "user" | "anonymous" | "unknown";
+            /** Created At */
+            created_at?: string | null;
+        };
+        /** AdminFeedbackStatusOut */
+        AdminFeedbackStatusOut: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "resolved";
+        };
         /** AdminGenerateBatchRequest */
         AdminGenerateBatchRequest: {
             /** Words */
@@ -10525,6 +11387,26 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** AttemptRequest */
+        AttemptRequest: {
+            /**
+             * Attempt Id
+             * Format: uuid
+             */
+            attempt_id: string;
+            response: components["schemas"]["LearnerAnswer"];
+        };
+        /**
+         * AuditRunRequest
+         * @description Optional client identity for a paid/non-idempotent full audit run.
+         *
+         *     Legacy rollback callers may omit it. Native callers persist a UUID in their
+         *     durable receipt and reconcile only against the same request_id in health.
+         */
+        AuditRunRequest: {
+            /** Request Id */
+            request_id?: string | null;
+        };
         /**
          * AuditTriageRequest
          * @description Human triage of a persisted audit: update reviewer status / notes and/or
@@ -10537,6 +11419,8 @@ export interface components {
             notes?: string | null;
             /** Resolved Indexes */
             resolved_indexes?: number[] | null;
+            /** Expected Updated At */
+            expected_updated_at: string;
         };
         /**
          * BackfillBody
@@ -10684,7 +11568,7 @@ export interface components {
             /**
              * Audio File
              * Format: binary
-             * @description Audio recording (MP3 / WAV / WebM / OGG)
+             * @description Audio recording (MP3 / WAV / WebM / OGG / MP4/M4A)
              */
             audio_file: string;
         };
@@ -10741,6 +11625,30 @@ export interface components {
              * Format: binary
              */
             file: string;
+        };
+        /** Body_submit_pronunciation_api_quiz_course_pronunciation_submit_post */
+        Body_submit_pronunciation_api_quiz_course_pronunciation_submit_post: {
+            /**
+             * Bank Id
+             * Format: uuid
+             */
+            bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
+            /**
+             * Client Id
+             * Format: uuid
+             */
+            client_id: string;
+            /** Sentence Ids */
+            sentence_ids: string;
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
+            /** Recordings */
+            recordings: string[];
         };
         /** Body_upload_image_admin_writing_prompts_upload_image_post */
         Body_upload_image_admin_writing_prompts_upload_image_post: {
@@ -10830,6 +11738,14 @@ export interface components {
             /** Topic Ids */
             topic_ids: string[];
         };
+        /** ClaimRendererAffinityBody */
+        ClaimRendererAffinityBody: {
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
         /** CodeMintBody */
         CodeMintBody: {
             /** Cohort Id */
@@ -10890,6 +11806,11 @@ export interface components {
             /** Grammaticalrange */
             grammaticalRange: number;
         };
+        /** ContextLinksRequest */
+        ContextLinksRequest: {
+            /** Terms */
+            terms: string[];
+        };
         /** CourseCreate */
         CourseCreate: {
             /** Code */
@@ -10904,6 +11825,36 @@ export interface components {
              */
             sort_order: number;
         };
+        /** CourseFullRetryBody */
+        CourseFullRetryBody: {
+            /** Bank Id */
+            bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
+        };
+        /** CourseListeningAudioBody */
+        CourseListeningAudioBody: {
+            /** Bank Id */
+            bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
+        };
+        /** CourseListeningBody */
+        CourseListeningBody: {
+            /** Bank Id */
+            bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
+            /** Answers */
+            answers?: {
+                [key: string]: string;
+            };
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
+        };
         /** CoursePatch */
         CoursePatch: {
             /** Code */
@@ -10917,10 +11868,28 @@ export interface components {
             /** Is Active */
             is_active?: boolean | null;
         };
+        /** CourseReadingBody */
+        CourseReadingBody: {
+            /** Bank Id */
+            bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
+            /** Answers */
+            answers?: {
+                [key: string]: string;
+            };
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
+        };
         /** CourseVerdictBody */
         CourseVerdictBody: {
             /** Bank Id */
             bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
             /** Session Ids */
             session_ids: string[];
         };
@@ -10928,13 +11897,17 @@ export interface components {
         CourseWritingBody: {
             /** Bank Id */
             bank_id: string;
-            /**
-             * Answers
-             * @default {}
-             */
-            answers: {
+            /** Class Item */
+            class_item?: string | null;
+            /** Answers */
+            answers?: {
                 [key: string]: string;
             };
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
         };
         /** CreateEssayRequest */
         CreateEssayRequest: {
@@ -10979,8 +11952,14 @@ export interface components {
             topic: string;
             /** Sitting Id */
             sitting_id?: string | null;
+            /** Previous Session Id */
+            previous_session_id?: string | null;
             /** Class Assignment Item Id */
             class_assignment_item_id?: string | null;
+            /** Client Session Id */
+            client_session_id?: string | null;
+            /** Renderer Affinity Protocol */
+            renderer_affinity_protocol?: "claim-v1" | null;
         };
         /** CreateStackRequest */
         CreateStackRequest: {
@@ -11042,7 +12021,7 @@ export interface components {
              * Category
              * @default
              */
-            category: string;
+            category: string | null;
             /** Part */
             part: number;
         };
@@ -11063,12 +12042,19 @@ export interface components {
             /** Bullets */
             bullets?: string[];
         };
+        /** CuratedCohortRequest */
+        CuratedCohortRequest: {
+            /** Enabled */
+            enabled: boolean;
+        };
         /** D1AttemptRequest */
         D1AttemptRequest: {
             /** User Answer */
             user_answer: string;
             /** Session Id */
             session_id?: string | null;
+            /** Client Attempt Id */
+            client_attempt_id?: string | null;
         };
         /** D1QuestionPatchPayload */
         D1QuestionPatchPayload: {
@@ -11088,6 +12074,34 @@ export interface components {
         DeliverRequest: {
             /** Instructor Note */
             instructor_note?: string | null;
+        };
+        /** DictationAttemptAnswerRequest */
+        DictationAttemptAnswerRequest: {
+            /**
+             * User Transcript
+             * @default
+             */
+            user_transcript: string;
+            /**
+             * Listen Count
+             * @default 0
+             */
+            listen_count: number;
+            /** Time Seconds */
+            time_seconds?: number | null;
+        };
+        /** DictationAttemptRendererAffinityRequest */
+        DictationAttemptRendererAffinityRequest: {
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
+        /** DictationAttemptStartRequest */
+        DictationAttemptStartRequest: {
+            /** Renderer Affinity Protocol */
+            renderer_affinity_protocol?: "claim-v1" | null;
         };
         /** DictationFlagRequest */
         DictationFlagRequest: {
@@ -11121,16 +12135,25 @@ export interface components {
         };
         /** DictationSessionRequest */
         DictationSessionRequest: {
+            /** Attempt Id */
+            attempt_id?: string | null;
             /** Test Id */
             test_id: string;
             /** Section Num */
             section_num: number;
+            /** Client Request Id */
+            client_request_id?: string | null;
             /** Started At */
             started_at?: string | null;
             /** Total Time Seconds */
             total_time_seconds?: number | null;
             /** Sentences */
             sentences?: components["schemas"]["DictationSentenceSubmit"][];
+        };
+        /** DiscardImageRequest */
+        DiscardImageRequest: {
+            /** Public Id */
+            public_id: string;
         };
         /**
          * DraftUpsert
@@ -11347,8 +12370,7 @@ export interface components {
         };
         /**
          * FanOutCreate
-         * @description N prompts → every student in a cohort. Cohort membership is
-         *     derived from students.cohort_id (Discovery D1). W-ASSIGN: the rows
+         * @description N prompts → every active member in a cohort. W-ASSIGN: the rows
          *     share an `assignment_group_id` + `name`; the give is allow + warn
          *     (NOT skip) so re-giving a prompt in a new "Buổi" works as intended.
          *
@@ -11356,6 +12378,10 @@ export interface components {
          *     `prompt_ids`.
          */
         FanOutCreate: {
+            /** Request Id */
+            request_id?: string | null;
+            /** Expected Student Count */
+            expected_student_count?: number | null;
             /** Prompt Id */
             prompt_id?: string | null;
             /** Prompt Ids */
@@ -11401,6 +12427,10 @@ export interface components {
             passage_slug?: string | null;
             /** Content Id */
             content_id?: string | null;
+            /** Vocab Category */
+            vocab_category?: string | null;
+            /** Vocab Slug */
+            vocab_slug?: string | null;
             /** Q Num */
             q_num?: number | null;
             /** Rating De */
@@ -11434,9 +12464,9 @@ export interface components {
             /** P1 Id */
             p1_id: string;
             /** P2 Id */
-            p2_id?: string | null;
+            p2_id: string;
             /** P3 Id */
-            p3_id?: string | null;
+            p3_id: string;
         };
         /** FlagUpdate */
         FlagUpdate: {
@@ -11444,6 +12474,50 @@ export interface components {
             enabled: boolean;
             /** Note */
             note?: string | null;
+        };
+        /** FootTrafficDayRow */
+        FootTrafficDayRow: {
+            /** Date */
+            date: string;
+            /** Views */
+            views: number;
+        };
+        /** FootTrafficOut */
+        FootTrafficOut: {
+            /** Date From */
+            date_from: string;
+            /** Date To */
+            date_to?: string | null;
+            /** Route */
+            route?: string | null;
+            /** Snapshot To */
+            snapshot_to: string;
+            /** Effective To */
+            effective_to: string;
+            /**
+             * Data Status
+             * @enum {string}
+             */
+            data_status: "complete" | "partial" | "unavailable";
+            /** Total Views */
+            total_views?: number | null;
+            /** Unique Visitors */
+            unique_visitors?: number | null;
+            /** Anonymous Hits */
+            anonymous_hits?: number | null;
+            /** Top Pages */
+            top_pages: components["schemas"]["FootTrafficPageRow"][];
+            /** Daily */
+            daily: components["schemas"]["FootTrafficDayRow"][];
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** FootTrafficPageRow */
+        FootTrafficPageRow: {
+            /** Path */
+            path: string;
+            /** Views */
+            views: number;
         };
         /** FullPronRequest */
         FullPronRequest: {
@@ -11573,7 +12647,7 @@ export interface components {
             /**
              * Mode
              * @description missing_only | replace_all
-             * @default replace_all
+             * @default missing_only
              */
             mode: string;
         };
@@ -11596,6 +12670,21 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** InstructorDeliverBody */
+        InstructorDeliverBody: {
+            /**
+             * Essay Id
+             * Format: uuid
+             * @description Essay identity bound to this review
+             */
+            essay_id: string;
+            /**
+             * Instructor Note
+             * @description Teacher comment copied to the review audit row and student-visible essay
+             * @default
+             */
+            instructor_note: string;
         };
         /** InstructorNoteBody */
         InstructorNoteBody: {
@@ -11739,6 +12828,11 @@ export interface components {
             /** Anchor */
             anchor?: string | null;
         };
+        /** LearnerAnswer */
+        LearnerAnswer: {
+            /** Answer */
+            answer: string;
+        };
         /** LemmaOverridePayload */
         LemmaOverridePayload: {
             /** Original Word */
@@ -11869,6 +12963,8 @@ export interface components {
             external_license?: string | null;
             /** External Source Url */
             external_source_url?: string | null;
+            /** Expected Updated At */
+            expected_updated_at?: string | null;
         };
         /**
          * ListeningContentStatusPatchRequest
@@ -11899,6 +12995,8 @@ export interface components {
         ListeningExerciseUpsertRequest: {
             /** Content Id */
             content_id: string;
+            /** Exercise Id */
+            exercise_id?: string | null;
             /**
              * Exercise Type
              * @default dictation
@@ -11922,6 +13020,13 @@ export interface components {
              * @default draft
              */
             status: string;
+            /** Expected Updated At */
+            expected_updated_at?: string | null;
+            /**
+             * Expected Absent
+             * @default false
+             */
+            expected_absent: boolean;
         };
         /** ListeningTestDictationGradeRequest */
         ListeningTestDictationGradeRequest: {
@@ -12120,6 +13225,11 @@ export interface components {
              * @default true
              */
             reviewed: boolean;
+            /**
+             * Expected Image Public Id
+             * @description Optimistic-concurrency fingerprint for the chart being reviewed.
+             */
+            expected_image_public_id: string;
         };
         /**
          * PromptCreate
@@ -12127,11 +13237,8 @@ export interface components {
          *     the migration's CHECK constraints + writing_essays size caps.
          *
          *     Phase 2.3c-1: `prompt_image_url` + `prompt_image_public_id`
-         *     plumbed for Task 1 Academic charts/diagrams.  Both NULL on
-         *     text-only prompts.  Admin UI hides the upload field unless
-         *     `task_type == 'task1_academic'`; the schema doesn't enforce
-         *     the pairing yet (intentional flexibility for content edge
-         *     cases — see migration 038's comment).
+         *     plumbed for Task 1 Academic charts/diagrams. Both are NULL on
+         *     text-only prompts and the route validates them as one storage pair.
          */
         PromptCreate: {
             /** Task Type */
@@ -12252,6 +13359,129 @@ export interface components {
             options?: {
                 [key: string]: unknown;
             }[] | null;
+            /** Expected Updated At */
+            expected_updated_at?: string | null;
+        };
+        /** ReadingAttemptTotalsOut */
+        ReadingAttemptTotalsOut: {
+            /** Submitted All Time */
+            submitted_all_time: number | null;
+            /** Submitted Window */
+            submitted_window: number | null;
+            /** Auth Attempts */
+            auth_attempts: number | null;
+            /** Anon Attempts */
+            anon_attempts: number | null;
+            /** Auth Distinct Users */
+            auth_distinct_users: number | null;
+            /** Anon Distinct Sources */
+            anon_distinct_sources: number | null;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** ReadingAttemptsDashboardOut */
+        ReadingAttemptsDashboardOut: {
+            /** Ok */
+            ok: boolean;
+            /**
+             * Data Status
+             * @enum {string}
+             */
+            data_status: "complete" | "partial" | "unavailable";
+            /**
+             * Window Days
+             * @enum {integer}
+             */
+            window_days: 7 | 30 | 90;
+            /**
+             * Window Start
+             * Format: date-time
+             */
+            window_start: string;
+            /**
+             * Snapshot To
+             * Format: date-time
+             */
+            snapshot_to: string;
+            totals: components["schemas"]["ReadingAttemptTotalsOut"];
+            /** Band Distribution */
+            band_distribution: components["schemas"]["ReadingBandBucketOut"][];
+            /** Skill Performance */
+            skill_performance: components["schemas"]["ReadingSkillPerformanceOut"][];
+            time_stats: components["schemas"]["ReadingTimeStatsOut"];
+            /** Per Test */
+            per_test: components["schemas"]["ReadingPerTestOut"][];
+            /** Recent */
+            recent: components["schemas"]["ReadingRecentAttemptOut"][];
+            /** Malformed Count */
+            malformed_count: number;
+            /** Lookup Failures */
+            lookup_failures: ("all_time_count" | "window_count" | "test_titles" | "recent_identities")[];
+            /**
+             * Computed At
+             * Format: date-time
+             */
+            computed_at: string;
+        };
+        /** ReadingBandBucketOut */
+        ReadingBandBucketOut: {
+            /** Band */
+            band: number;
+            /** Count */
+            count: number;
+        };
+        /** ReadingPerTestOut */
+        ReadingPerTestOut: {
+            /** Test Id */
+            test_id: string;
+            /** Title */
+            title: string;
+            /** Attempts */
+            attempts: number;
+            /** Auth */
+            auth: number;
+            /** Anon */
+            anon: number;
+            /** Avg Band */
+            avg_band?: number | null;
+        };
+        /** ReadingRecentAttemptOut */
+        ReadingRecentAttemptOut: {
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+            /** Test Title */
+            test_title: string;
+            /** Who */
+            who: string;
+            /** Is Anonymous */
+            is_anonymous: boolean;
+            /** Band */
+            band?: number | null;
+            /** Time Minutes */
+            time_minutes?: number | null;
+        };
+        /** ReadingSkillPerformanceOut */
+        ReadingSkillPerformanceOut: {
+            /** Skill Tag */
+            skill_tag: string;
+            /** Correct */
+            correct: number;
+            /** Total */
+            total: number;
+            /** Accuracy */
+            accuracy?: number | null;
+        };
+        /** ReadingTimeStatsOut */
+        ReadingTimeStatsOut: {
+            /** Avg Minutes */
+            avg_minutes?: number | null;
+            /** Median Minutes */
+            median_minutes?: number | null;
+            /** Count */
+            count: number;
         };
         /** ReassignRequest */
         ReassignRequest: {
@@ -12261,6 +13491,11 @@ export interface components {
             to_user_id: string;
             /** Reason */
             reason?: string | null;
+        };
+        /** RecommendationOpenRequest */
+        RecommendationOpenRequest: {
+            /** Unit Slug */
+            unit_slug: string;
         };
         /** RefillRequest */
         RefillRequest: {
@@ -12316,13 +13551,13 @@ export interface components {
                 [key: string]: boolean;
             };
         };
-        /**
-         * ReviewRequest
-         * @description Body for POST /api/flashcards/{vocab_id}/review (step 4).
-         */
-        ReviewRequest: {
-            /** Rating */
-            rating: string;
+        /** RollbackRequest */
+        RollbackRequest: {
+            /**
+             * Version Id
+             * Format: uuid
+             */
+            version_id: string;
         };
         /** SectionSubmitBody */
         SectionSubmitBody: {
@@ -12381,6 +13616,8 @@ export interface components {
         StartSessionBody: {
             /** Bank Id */
             bank_id: string;
+            /** Class Item */
+            class_item?: string | null;
             /**
              * Kind
              * @default run
@@ -12416,6 +13653,8 @@ export interface components {
         SubmitEssay: {
             /** Essay Text */
             essay_text?: string | null;
+            /** Request Id */
+            request_id?: string | null;
         };
         /** TTSRequest */
         TTSRequest: {
@@ -12426,6 +13665,29 @@ export interface components {
              * @default nova
              */
             voice: string;
+        };
+        /** TaskCreateRequest */
+        TaskCreateRequest: {
+            /**
+             * Task Type
+             * @enum {string}
+             */
+            task_type: "meaning_recall" | "error_repair" | "controlled_gap" | "productive_transfer";
+            /**
+             * Dimension
+             * @enum {string}
+             */
+            dimension: "meaning_recall" | "usage_control" | "productive_transfer";
+            /** Prompt */
+            prompt: string;
+            /** Options */
+            options?: unknown[];
+            /** Answer Key */
+            answer_key: {
+                [key: string]: unknown;
+            };
+            /** Explanation Vi */
+            explanation_vi: string;
         };
         /** TestAttemptAnswerPatchRequest */
         TestAttemptAnswerPatchRequest: {
@@ -12532,6 +13794,33 @@ export interface components {
             /** Is Published */
             is_published?: boolean | null;
         };
+        /** UnitCreateRequest */
+        UnitCreateRequest: {
+            /** Unit Slug */
+            unit_slug: string;
+            /** Display Headword */
+            display_headword: string;
+            /**
+             * Unit Type
+             * @default learning_unit
+             * @enum {string}
+             */
+            unit_type: "learning_unit" | "clinic";
+            /** Sense Key */
+            sense_key: string;
+            /** Construction Key */
+            construction_key: string;
+            /** Communicative Function */
+            communicative_function: string;
+            /** Context Key */
+            context_key: string;
+            /** Target Level */
+            target_level: string;
+            /** Problem Tags */
+            problem_tags?: string[];
+            /** Learner Tags */
+            learner_tags?: string[];
+        };
         /** UpdateStudentRequest */
         UpdateStudentRequest: {
             /** Student Code */
@@ -12549,6 +13838,8 @@ export interface components {
         };
         /** UpdateTopicQuestionRequest */
         UpdateTopicQuestionRequest: {
+            /** Part */
+            part?: number | null;
             /** Question Text */
             question_text?: string | null;
             /** Question Type */
@@ -12564,9 +13855,10 @@ export interface components {
          * UploadImageResponse
          * @description Response shape for `POST .../upload-image`. `url` is the public
          *     Supabase Storage URL (persisted into `prompt_image_url`); `public_id`
-         *     is the storage path (persisted into `prompt_image_public_id`, used to
-         *     delete the object on prompt delete). `width`/`height` are null — we
-         *     don't decode dimensions server-side (no Pillow dependency).
+         *     is the storage path persisted into `prompt_image_public_id`. Published
+         *     objects are retained as immutable grading evidence; only unattached
+         *     uploads may be discarded. `width`/`height` are null — we don't decode
+         *     dimensions server-side (no Pillow dependency).
          */
         UploadImageResponse: {
             /** Url */
@@ -12594,6 +13886,21 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** VersionCreateRequest */
+        VersionCreateRequest: {
+            /** Content */
+            content: {
+                [key: string]: unknown;
+            };
+            /** Sources */
+            sources: {
+                [key: string]: unknown;
+            }[];
+            /** Tasks */
+            tasks: components["schemas"]["TaskCreateRequest"][];
+            /** Change Note */
+            change_note?: string | null;
         };
         /** ViewBody */
         ViewBody: {
@@ -12711,6 +14018,27 @@ export interface components {
              */
             reason: string;
         };
+        /** WritingAssignmentRendererAffinityRequest */
+        WritingAssignmentRendererAffinityRequest: {
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
+        /** WritingAssignmentRendererAffinityResponse */
+        WritingAssignmentRendererAffinityResponse: {
+            /**
+             * Assignment Id
+             * Format: uuid
+             */
+            assignment_id: string;
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
         /** WritingBody */
         WritingBody: {
             /**
@@ -12766,6 +14094,46 @@ export interface components {
         _GenerateCueCardBody: {
             /** Trigger */
             trigger: string;
+        };
+        /** _ListeningAttemptRendererAffinityRequest */
+        _ListeningAttemptRendererAffinityRequest: {
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
+        /**
+         * _ListeningAttemptStartRequest
+         * @description Opt in to first-player renderer claiming for a new attempt.
+         *
+         *     A missing body is the N-1 contract and stays pinned to the database's
+         *     Legacy default. ``claim-v1`` inserts NULL so the stable player URL can
+         *     atomically own the attempt before any answer mutation.
+         */
+        _ListeningAttemptStartRequest: {
+            /** Renderer Affinity Protocol */
+            renderer_affinity_protocol?: "claim-v1" | null;
+        };
+        /** _ReadingAttemptRendererAffinityRequest */
+        _ReadingAttemptRendererAffinityRequest: {
+            /**
+             * Renderer Affinity
+             * @enum {string}
+             */
+            renderer_affinity: "legacy" | "next";
+        };
+        /**
+         * _ReadingAttemptStartRequest
+         * @description Opt in to first-player renderer claiming for a new attempt.
+         *
+         *     A missing body is the N-1 contract and stays pinned to the database's
+         *     Legacy default. `claim-v1` deliberately inserts NULL so the stable player
+         *     URL can atomically own the attempt before any answer mutation.
+         */
+        _ReadingAttemptStartRequest: {
+            /** Renderer Affinity Protocol */
+            renderer_affinity_protocol?: "claim-v1" | null;
         };
         /** _SubmitAnswerItem */
         _SubmitAnswerItem: {
@@ -12868,6 +14236,8 @@ export interface components {
          *     constraint enforces at the DB layer.
          */
         routers__admin_writing_assignments__AssignmentCreate: {
+            /** Request Id */
+            request_id?: string | null;
             /** Prompt Id */
             prompt_id?: string | null;
             /** Prompt Ids */
@@ -12899,6 +14269,16 @@ export interface components {
             analysis_level: number;
         };
         /**
+         * ReviewRequest
+         * @description Body for POST /api/flashcards/{vocab_id}/review (step 4).
+         */
+        routers__flashcards__ReviewRequest: {
+            /** Rating */
+            rating: string;
+            /** Client Review Id */
+            client_review_id?: string | null;
+        };
+        /**
          * AssignBody
          * @description Single-student assign (one prompt → one of MY students).
          */
@@ -12928,6 +14308,21 @@ export interface components {
              * @enum {string}
              */
             grading_tier: "standard" | "deep";
+        };
+        /** ReviewRequest */
+        routers__vocab_units__ReviewRequest: {
+            /**
+             * Review Type
+             * @enum {string}
+             */
+            review_type: "language" | "pedagogy" | "assessment";
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "approved" | "changes_requested";
+            /** Notes */
+            notes?: string | null;
         };
     };
     responses: never;
@@ -13219,6 +14614,43 @@ export interface operations {
             };
         };
     };
+    claim_renderer_affinity_sessions__session_id__renderer_affinity_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimRendererAffinityBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_session_sessions__session_id__get: {
         parameters: {
             query?: never;
@@ -13288,9 +14720,9 @@ export interface operations {
     get_full_test_summary_sessions__session_id__full_test_summary_get: {
         parameters: {
             query?: {
-                /** @description Part 2 session ID */
+                /** @description Legacy Part 2 session ID */
                 p2_id?: string | null;
-                /** @description Part 3 session ID */
+                /** @description Legacy Part 3 session ID */
                 p3_id?: string | null;
             };
             header?: {
@@ -13634,6 +15066,37 @@ export interface operations {
             };
         };
     };
+    admin_cleanup_e2e_session_admin_e2e_sessions__session_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     admin_set_user_role_admin_users__user_id__role_patch: {
         parameters: {
             query?: never;
@@ -13902,6 +15365,7 @@ export interface operations {
             query?: {
                 date_from?: string | null;
                 date_to?: string | null;
+                route?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -13917,7 +15381,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["FootTrafficOut"];
                 };
             };
             /** @description Validation Error */
@@ -14016,7 +15480,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ReadingAttemptsDashboardOut"];
                 };
             };
             /** @description Validation Error */
@@ -14857,6 +16321,7 @@ export interface operations {
         parameters: {
             query?: {
                 user_id?: string | null;
+                user_email?: string | null;
                 mode?: string | null;
                 status?: string | null;
                 error_code?: string | null;
@@ -16696,6 +18161,42 @@ export interface operations {
             };
         };
     };
+    class_action_log_admin_cohorts__cohort_id__action_log_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                before?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_assignment_due_admin_cohorts__cohort_id__assignments__assignment_id__due_patch: {
         parameters: {
             query?: never;
@@ -16945,6 +18446,39 @@ export interface operations {
                 match?: string;
                 baseline_error_rate?: number | null;
                 baseline_lcp_ms?: number | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gate_f_legacy_active_session_drain_admin_error_logs_legacy_active_session_drain_get: {
+        parameters: {
+            query: {
+                cutover_at: string;
             };
             header?: {
                 authorization?: string | null;
@@ -17967,6 +19501,41 @@ export interface operations {
             };
         };
     };
+    discard_unattached_image_admin_writing_prompts_discard_image_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscardImageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_prompt_admin_writing_prompts__prompt_id__get: {
         parameters: {
             query?: never;
@@ -18145,6 +19714,7 @@ export interface operations {
             query?: {
                 task_type?: string | null;
                 published?: boolean | null;
+                slug?: string | null;
                 limit?: number;
             };
             header?: {
@@ -18641,6 +20211,39 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_assignment_request_admin_writing_assignments_requests__request_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -20035,7 +21638,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstructorDeliverBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -20488,6 +22095,43 @@ export interface operations {
             };
         };
     };
+    claim_writing_assignment_renderer_affinity_api_writing_my_assignments__assignment_id__renderer_affinity_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WritingAssignmentRendererAffinityRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WritingAssignmentRendererAffinityResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     upsert_my_draft_api_writing_my_assignments__assignment_id__draft_patch: {
         parameters: {
             query?: never;
@@ -20541,6 +22185,41 @@ export interface operations {
                 "application/json": components["schemas"]["SubmitEssay"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_assignment_submission_api_writing_my_assignments__assignment_id__submission_get: {
+        parameters: {
+            query: {
+                request_id: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -21478,6 +23157,614 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_learning_units_api_vocabulary_units_get: {
+        parameters: {
+            query?: {
+                level?: string | null;
+                unit_type?: ("learning_unit" | "clinic") | null;
+                problem_tag?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_learning_unit_api_vocabulary_units__unit_slug__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                unit_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_learning_pathways_api_vocabulary_pathways_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_my_vocab_today_api_me_vocabulary_today_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_vocab_mastery_api_me_vocabulary_unit_mastery_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_my_vocab_context_links_api_me_vocabulary_context_links_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContextLinksRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_my_vocab_recommendation_api_me_vocabulary_recommendations__recommendation_id__open_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                recommendation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecommendationOpenRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_vocab_task_attempt_api_vocabulary_tasks__task_id__attempt_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttemptRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_get_vocab_pilot_metrics_admin_vocabulary_pilot_metrics_get: {
+        parameters: {
+            query?: {
+                days?: "30" | "90" | "180";
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_set_vocab_pilot_cohort_admin_vocabulary_pilot_cohort__user_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CuratedCohortRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_list_vocab_editorial_units_admin_vocabulary_editorial_units_get: {
+        parameters: {
+            query?: {
+                status?: ("draft" | "published" | "archived") | null;
+                offset?: number;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_get_vocab_editorial_unit_admin_vocabulary_editorial_units__unit_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                unit_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_create_vocab_unit_admin_vocabulary_units_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_create_vocab_version_admin_vocabulary_units__unit_id__versions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                unit_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_validate_vocab_version_admin_vocabulary_versions__version_id__validate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_review_vocab_version_admin_vocabulary_versions__version_id__reviews_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["routers__vocab_units__ReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_publish_vocab_version_admin_vocabulary_versions__version_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_rollback_vocab_version_admin_vocabulary_units__unit_id__rollback_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                unit_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RollbackRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -22992,7 +25279,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReviewRequest"];
+                "application/json": components["schemas"]["routers__flashcards__ReviewRequest"];
             };
         };
         responses: {
@@ -23420,6 +25707,155 @@ export interface operations {
             };
         };
     };
+    get_in_progress_dictation_attempt_api_listening_tests__test_id__dictation_attempts_in_progress_get: {
+        parameters: {
+            query: {
+                section_num: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_dictation_attempt_api_listening_tests__test_id__dictation_attempts_post: {
+        parameters: {
+            query: {
+                section_num: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DictationAttemptStartRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_dictation_attempt_renderer_affinity_api_listening_tests_dictation_attempts__attempt_id__renderer_affinity_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DictationAttemptRendererAffinityRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grade_and_save_dictation_attempt_sentence_api_listening_tests_dictation_attempts__attempt_id__sentences__sentence_idx__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+                sentence_idx: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DictationAttemptAnswerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     submit_listening_dictation_session_api_listening_tests_dictation_session_post: {
         parameters: {
             query?: never;
@@ -23434,6 +25870,39 @@ export interface operations {
                 "application/json": components["schemas"]["DictationSessionRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_listening_dictation_session_by_request_api_listening_tests_dictation_session_by_request__client_request_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                client_request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -23572,7 +26041,48 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["_ListeningAttemptStartRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_listening_attempt_renderer_affinity_api_listening_tests_attempts__attempt_id__renderer_affinity_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["_ListeningAttemptRendererAffinityRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -24510,7 +27020,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AuditRunRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -25038,6 +27552,7 @@ export interface operations {
             query?: {
                 library?: string | null;
                 status?: string | null;
+                identity?: string | null;
                 limit?: number;
                 offset?: number;
             };
@@ -26364,7 +28879,9 @@ export interface operations {
     };
     get_bank_api_quiz_banks__bank_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                class_item?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -26430,7 +28947,9 @@ export interface operations {
     };
     course_resume_api_quiz_banks__bank_id__course_resume_get: {
         parameters: {
-            query?: never;
+            query?: {
+                class_item?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -26440,6 +28959,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    begin_course_full_retry_api_quiz_course_full_retry_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseFullRetryBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -26533,6 +29087,7 @@ export interface operations {
         parameters: {
             query: {
                 bank_id: string;
+                class_item?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -26632,10 +29187,116 @@ export interface operations {
             };
         };
     };
+    course_reading_solution_api_quiz_course_reading_solution_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseReadingBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    course_listening_solution_api_quiz_course_listening_solution_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseListeningBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    course_listening_audio_api_quiz_course_listening_audio_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseListeningAudioBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     course_answer_report_api_quiz_course_report_get: {
         parameters: {
             query: {
                 bank_id: string;
+                class_item?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -26751,6 +29412,75 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["EndSessionBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pronunciation_state_api_quiz_course_pronunciation_get: {
+        parameters: {
+            query: {
+                bank_id: string;
+                class_item?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_pronunciation_api_quiz_course_pronunciation_submit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_submit_pronunciation_api_quiz_course_pronunciation_submit_post"];
             };
         };
         responses: {
@@ -27175,7 +29905,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["_ReadingAttemptStartRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -27211,7 +29945,49 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["_ReadingAttemptStartRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_reading_attempt_renderer_affinity_api_reading_test_attempts__attempt_id__renderer_affinity_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "X-Reading-Anon"?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["_ReadingAttemptRendererAffinityRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -27469,7 +30245,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminFeedbackInboxOut"];
                 };
             };
             /** @description Validation Error */
@@ -27506,7 +30282,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminFeedbackStatusOut"];
                 };
             };
             /** @description Validation Error */
@@ -27927,6 +30703,40 @@ export interface operations {
             };
             path: {
                 sitting_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    acknowledge_collection_flush_api_mock_exams_sittings__sitting_id__sections__section__flush_ack_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sitting_id: string;
+                section: string;
             };
             cookie?: never;
         };

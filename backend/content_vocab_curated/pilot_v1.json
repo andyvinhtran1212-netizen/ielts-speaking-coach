@@ -1,0 +1,684 @@
+{
+  "schema_version": 1,
+  "pilot": "vietnamese-ielts-speaking-b1-b2",
+  "units": [
+    {
+      "unit_slug": "have-an-impact-on",
+      "display_headword": "have an impact on",
+      "unit_type": "learning_unit",
+      "sense_key": "cause-a-change",
+      "construction_key": "have-a-modifier-impact-on-noun",
+      "communicative_function": "explain-consequences",
+      "context_key": "ielts-speaking-social-change",
+      "target_level": "B1",
+      "problem_tags": ["literal-translation", "wrong-verb-choice", "missing-preposition"],
+      "learner_tags": ["vietnamese", "ielts-speaking", "band-5-to-6.5"],
+      "speaking_signals": [
+        {
+          "signal_code": "have-impact.wrong-preposition",
+          "trigger_description": "The learner attempts the collocation 'have an impact' but uses a complement other than 'on', or omits 'on' before the affected noun.",
+          "exclusion_description": "Do not trigger for natural 'have an impact on', for another valid impact collocation, or merely because this phrase was not used.",
+          "match_spec": {"issue_type": "preposition", "original_pattern": "\\b(?:have|has|had|having)\\s+(?:an?\\s+|the\\s+)?impact\\s+(?:to|for|of)\\b", "corrected_pattern": "\\b(?:have|has|had|having)\\s+(?:an?\\s+|the\\s+)?impact\\s+on\\b"},
+          "reason_vi": "Bạn vừa gặp lỗi ở khung 'have an impact on'. Unit này luyện đúng giới từ và cách dùng khi giải thích hệ quả."
+        }
+      ],
+      "reference_cards": [{"category": "people-society", "slug": "significant"}],
+      "content": {
+        "title_vi": "Nói về tác động mà không dịch từng chữ",
+        "learning_goal_vi": "Dùng have an impact on để giải thích hệ quả trong câu trả lời IELTS Speaking.",
+        "estimated_minutes": 9,
+        "sense": "cause a noticeable change in a person, system, or situation",
+        "construction": "have + a/an + adjective + impact + on + noun/pronoun",
+        "communicative_function": "explain a positive, negative, or long-term consequence",
+        "why_vietnamese_learners_struggle": "“Có/tạo ảnh hưởng đến” dễ bị dịch thành make an influence to hoặc affect on. Trong cụm danh từ này, động từ tự nhiên là have và giới từ cố định là on.",
+        "meaning_vi": "có ảnh hưởng hoặc tạo ra thay đổi đối với ai/cái gì",
+        "usage_vi": "Đặt tính từ trước impact để thể hiện lập trường: a positive, negative, significant hoặc long-term impact. Sau on phải là đối tượng chịu tác động.",
+        "contrast_vi": "affect là động từ và không đi với on: Technology affects work. impact cũng có thể là động từ, nhưng have an impact on giúp mở rộng ý và kiểm soát collocation dễ hơn khi nói.",
+        "production_prompt_vi": "Nói 1–2 câu về tác động của công nghệ đối với cách người trẻ giao tiếp.",
+        "memory_hook_vi": "HAVE the impact; aim it ON the target.",
+        "examples": [
+          {"en": "Social media has a significant impact on how teenagers communicate.", "vi": "Mạng xã hội ảnh hưởng đáng kể tới cách thanh thiếu niên giao tiếp.", "note_vi": "how-clause có thể đứng sau on."},
+          {"en": "A long commute can have a negative impact on employees' well-being.", "vi": "Việc đi làm xa có thể ảnh hưởng xấu tới sức khỏe tinh thần của nhân viên.", "note_vi": "can giúp tránh khẳng định tuyệt đối."},
+          {"en": "Supportive teachers often have a lasting impact on students' confidence.", "vi": "Giáo viên biết hỗ trợ thường tạo ảnh hưởng lâu dài tới sự tự tin của học sinh.", "note_vi": "lasting là collocation tự nhiên với impact."}
+        ]
+      },
+      "sources": [
+        {"title": "Cambridge Dictionary — impact", "url": "https://dictionary.cambridge.org/dictionary/english/impact", "type": "learner-dictionary"},
+        {"title": "Oxford Learner's Dictionaries — impact", "url": "https://www.oxfordlearnersdictionaries.com/definition/english/impact_1", "type": "learner-dictionary"}
+      ],
+      "tasks": [
+        {"task_type": "meaning_recall", "dimension": "meaning_recall", "prompt": "Câu nào diễn đạt đúng ‘việc đi làm xa ảnh hưởng xấu tới sức khỏe’ ?", "options": ["A long commute makes a bad influence to health.", "A long commute has a negative impact on health.", "A long commute affects on health."], "answer_key": {"accepted": ["A long commute has a negative impact on health."], "success_vi": "Đúng: have + a negative impact + on.", "retry_vi": "Tìm cụm dùng have và giới từ on.", "model_answer": "A long commute has a negative impact on health."}, "explanation_vi": "impact là danh từ trong cụm have an impact on."},
+        {"task_type": "error_repair", "dimension": "usage_control", "prompt": "Sửa cụm sai: Social media makes a strong influence to young people.", "options": [], "answer_key": {"accepted": ["Social media has a strong impact on young people", "Social media has a significant impact on young people"], "success_vi": "Bạn đã thay đúng cả động từ và giới từ.", "retry_vi": "Giữ chủ ngữ, dùng has an/a ... impact on.", "model_answer": "Social media has a significant impact on young people."}, "explanation_vi": "Không dịch máy móc make an influence to."},
+        {"task_type": "controlled_gap", "dimension": "usage_control", "prompt": "Điền cụm: Good public transport can ___ the environment.", "options": [], "answer_key": {"accepted": ["have a positive impact on"], "success_vi": "Collocation và giới từ đều chính xác.", "retry_vi": "Cần 5 từ, kết thúc bằng on.", "model_answer": "have a positive impact on"}, "explanation_vi": "Tính từ nằm giữa a và impact."},
+        {"task_type": "productive_transfer", "dimension": "productive_transfer", "prompt": "Viết một câu IELTS về tác động của công nghệ đối với công việc.", "options": [], "answer_key": {"required_groups": [["impact on"], ["technology", "automation", "artificial intelligence"], ["work", "jobs", "employees", "workplace"]], "required_frames": [[["have", "has", "had", "having"], ["impact"], ["on"]]], "maximum_gap_words": 3, "minimum_words": 9, "forbidden": ["affect on", "influence to"], "success_vi": "Bạn đã chuyển cụm sang một ngữ cảnh mới và giữ đúng cấu trúc.", "retry_vi": "Cần dùng target frame have/has an impact on, cùng chủ đề công nghệ và công việc.", "model_answer": "Artificial intelligence is likely to have a major impact on the way employees work."}, "explanation_vi": "Make an impact on cũng là collocation đúng, nhưng bài này luyện riêng target frame have an impact on."}
+      ]
+    },
+    {
+      "unit_slug": "play-a-role-in",
+      "display_headword": "play a role in",
+      "unit_type": "learning_unit",
+      "sense_key": "contribute-to-an-outcome",
+      "construction_key": "play-a-modifier-role-in-noun-or-gerund",
+      "communicative_function": "explain-contributing-factors",
+      "context_key": "ielts-speaking-education-health",
+      "target_level": "B1",
+      "problem_tags": ["literal-translation", "missing-article", "gerund-control"],
+      "learner_tags": ["vietnamese", "ielts-speaking", "band-5-to-6.5"],
+      "speaking_signals": [
+        {
+          "signal_code": "play-role.missing-article",
+          "trigger_description": "The learner says a form of 'play role' where the singular count noun 'role' clearly requires 'a/the'.",
+          "exclusion_description": "Do not trigger for 'play a role', plural 'play roles', or article uncertainty caused by an unreliable transcript.",
+          "match_spec": {"issue_type": "verb_frame", "original_pattern": "\\bplay(?:s|ed|ing)?\\s+role\\b", "corrected_pattern": "\\bplay(?:s|ed|ing)?\\s+(?:a|the)\\s+role\\b"},
+          "reason_vi": "Bạn vừa dùng 'play role' thiếu mạo từ. Unit này luyện trọn khung 'play a role in' để giải thích yếu tố đóng góp."
+        },
+        {
+          "signal_code": "play-role.wrong-complement",
+          "trigger_description": "The learner attempts 'play a role' but uses the wrong preposition or an invalid verb form after 'in'.",
+          "exclusion_description": "Do not trigger when 'play a role in' is followed by a natural noun or gerund, or when the phrase is absent.",
+          "match_spec": {"issue_type": "preposition", "original_pattern": "\\bplay(?:s|ed|ing)?\\s+(?:a|the)\\s+role\\s+(?:on|to|for)\\b", "corrected_pattern": "\\bplay(?:s|ed|ing)?\\s+(?:a|the)\\s+role\\s+in\\b"},
+          "reason_vi": "Bạn vừa gặp lỗi ở phần theo sau 'play a role'. Unit này luyện 'in + noun/gerund' trong câu giải thích nguyên nhân."
+        }
+      ],
+      "reference_cards": [{"category": "work-career", "slug": "role"}],
+      "content": {
+        "title_vi": "Giải thích một yếu tố góp phần tạo kết quả",
+        "learning_goal_vi": "Dùng play a role in để phân tích nguyên nhân mà không khẳng định đó là nguyên nhân duy nhất.",
+        "estimated_minutes": 8,
+        "sense": "contribute to a process, situation, or result",
+        "construction": "play + a/an + adjective + role + in + noun / V-ing",
+        "communicative_function": "identify one contributing factor in a balanced explanation",
+        "why_vietnamese_learners_struggle": "Học viên thường nói play role hoặc play an important role to vì tiếng Việt không có mạo từ và dùng ‘trong/đối với’ linh hoạt. Cụm này cần a/an và giới từ in.",
+        "meaning_vi": "đóng vai trò, góp phần vào một quá trình hoặc kết quả",
+        "usage_vi": "Sau in dùng danh từ hoặc V-ing. Dùng key, crucial, important, minor để điều chỉnh mức độ đóng góp.",
+        "contrast_vi": "be responsible for gán trách nhiệm trực tiếp hơn; play a role in chỉ nói một yếu tố có đóng góp, phù hợp khi câu trả lời cần sắc thái thận trọng.",
+        "production_prompt_vi": "Giải thích một yếu tố góp phần giúp trẻ học tốt ở trường.",
+        "memory_hook_vi": "A ROLE happens IN the bigger process.",
+        "examples": [
+          {"en": "Parents play an important role in developing children's reading habits.", "vi": "Cha mẹ đóng vai trò quan trọng trong việc phát triển thói quen đọc của trẻ.", "note_vi": "in + developing."},
+          {"en": "Public parks can play a key role in improving urban health.", "vi": "Công viên công cộng có thể góp phần then chốt cải thiện sức khỏe đô thị.", "note_vi": "can giữ sắc thái hợp lý."},
+          {"en": "Cost plays a role in people's choice of transport.", "vi": "Chi phí là một yếu tố trong lựa chọn phương tiện của mọi người.", "note_vi": "Không nhất thiết phải có tính từ trước role."}
+        ]
+      },
+      "sources": [{"title": "Cambridge Dictionary — role", "url": "https://dictionary.cambridge.org/dictionary/english/role", "type": "learner-dictionary"}],
+      "tasks": [
+        {"task_type": "meaning_recall", "dimension": "meaning_recall", "prompt": "play a role in phù hợp nhất khi nào?", "options": ["Khi nói một yếu tố góp phần vào kết quả", "Khi nói ai đó diễn kịch", "Khi khẳng định một nguyên nhân duy nhất"], "answer_key": {"accepted": ["Khi nói một yếu tố góp phần vào kết quả"], "success_vi": "Đúng: cụm này rất hữu ích cho phân tích đa nguyên nhân.", "retry_vi": "Chọn nghĩa ‘góp phần’."}, "explanation_vi": "role trong cụm này là vai trò trong một quá trình."},
+        {"task_type": "error_repair", "dimension": "usage_control", "prompt": "Sửa câu: Parents play important role to build confidence.", "options": [], "answer_key": {"accepted": ["Parents play an important role in building confidence"], "success_vi": "Đúng mạo từ, giới từ và V-ing.", "retry_vi": "Cần an ... role in + V-ing.", "model_answer": "Parents play an important role in building confidence."}, "explanation_vi": "important bắt đầu bằng nguyên âm nên dùng an."},
+        {"task_type": "controlled_gap", "dimension": "usage_control", "prompt": "Điền cụm: Exercise ___ reducing stress.", "options": [], "answer_key": {"accepted": ["plays a role in", "plays an important role in", "plays a key role in"], "success_vi": "Đúng: plays ... role in.", "retry_vi": "Chủ ngữ số ít nên dùng plays; giới từ là in."}, "explanation_vi": "Sau in là reducing."},
+        {"task_type": "productive_transfer", "dimension": "productive_transfer", "prompt": "Viết một câu về vai trò của giáo viên hoặc cha mẹ trong giáo dục.", "options": [], "answer_key": {"required_groups": [["role in"], ["teacher", "teachers", "parent", "parents"], ["education", "learning", "students", "children"]], "required_frames": [[["play", "plays", "played", "playing"], ["role"], ["in"]]], "maximum_gap_words": 3, "minimum_words": 9, "forbidden": ["role to", "play role in"], "success_vi": "Bạn đã dùng cụm để phân tích một yếu tố giáo dục.", "retry_vi": "Cần play/plays a role in và một kết quả giáo dục.", "model_answer": "Teachers play a crucial role in helping students become independent learners."}, "explanation_vi": "Một câu transfer tốt nêu cả yếu tố và quá trình/kết quả."}
+      ]
+    },
+    {
+      "unit_slug": "be-responsible-for",
+      "display_headword": "be responsible for",
+      "unit_type": "learning_unit",
+      "sense_key": "have-duty-or-cause",
+      "construction_key": "be-responsible-for-noun-or-gerund",
+      "communicative_function": "assign-duty-or-causation",
+      "context_key": "ielts-speaking-work-environment",
+      "target_level": "B1",
+      "problem_tags": ["missing-copula", "wrong-preposition", "gerund-control"],
+      "learner_tags": ["vietnamese", "ielts-speaking"],
+      "speaking_signals": [
+        {
+          "signal_code": "responsible.missing-copula",
+          "trigger_description": "The learner uses 'responsible' predicatively without the required form of 'be'.",
+          "exclusion_description": "Do not trigger for attributive uses such as 'a responsible person' or for a correctly inflected 'be responsible'.",
+          "match_spec": {"issue_type": "verb_frame", "original_pattern": "\\b(?:i|you|we|they|he|she|it)\\s+responsible\\b", "corrected_pattern": "\\b(?:i\\s+am|you\\s+are|we\\s+are|they\\s+are|he\\s+is|she\\s+is|it\\s+is)\\s+responsible\\b"},
+          "reason_vi": "Bạn vừa thiếu động từ 'be' trước 'responsible'. Unit này luyện khung hoàn chỉnh để nói về trách nhiệm hoặc nguyên nhân."
+        },
+        {
+          "signal_code": "responsible.wrong-preposition",
+          "trigger_description": "The learner attempts 'be responsible' but uses a preposition other than 'for' before the responsibility or cause.",
+          "exclusion_description": "Do not trigger for natural 'responsible for', 'responsible to someone' in the accountability sense, or absent use.",
+          "match_spec": {"issue_type": "preposition", "original_pattern": "\\bresponsible\\s+(?:of|with|about)\\b", "corrected_pattern": "\\bresponsible\\s+for\\b"},
+          "reason_vi": "Bạn vừa chọn sai giới từ sau 'responsible'. Unit này giúp phân biệt và dùng chắc khung 'be responsible for'."
+        }
+      ],
+      "reference_cards": [{"category": "people-society", "slug": "individual"}],
+      "content": {
+        "title_vi": "Gán trách nhiệm hoặc nguyên nhân chính xác",
+        "learning_goal_vi": "Phân biệt trách nhiệm công việc và trách nhiệm gây ra kết quả với be responsible for.",
+        "estimated_minutes": 8,
+        "sense": "have a duty to deal with something, or be the cause of something",
+        "construction": "subject + be + responsible + for + noun / V-ing",
+        "communicative_function": "state duty or attribute a result to a cause",
+        "why_vietnamese_learners_struggle": "‘Chịu trách nhiệm’ thường bị nói thành responsible of hoặc bỏ động từ be. Khi theo sau là hành động, for cần V-ing chứ không phải to-infinitive.",
+        "meaning_vi": "chịu trách nhiệm về việc gì; là nguyên nhân gây ra điều gì",
+        "usage_vi": "Dùng am/is/are/was/were theo chủ ngữ và thời. Sau for là danh từ hoặc V-ing: responsible for managing, responsible for pollution.",
+        "contrast_vi": "responsible to + person/authority nghĩa là phải báo cáo hoặc chịu trách nhiệm trước ai; responsible for + task/result nói về nhiệm vụ hoặc nguyên nhân.",
+        "production_prompt_vi": "Nói ai nên chịu trách nhiệm giảm rác thải nhựa và vì sao.",
+        "memory_hook_vi": "Responsible FOR the task; responsible TO the boss.",
+        "examples": [
+          {"en": "Local authorities are responsible for maintaining public parks.", "vi": "Chính quyền địa phương chịu trách nhiệm duy trì công viên công cộng.", "note_vi": "duty sense."},
+          {"en": "Heavy traffic is partly responsible for poor air quality.", "vi": "Giao thông đông đúc chịu một phần trách nhiệm cho chất lượng không khí kém.", "note_vi": "cause sense với partly."},
+          {"en": "In my team, I am responsible for client communication.", "vi": "Trong nhóm, tôi phụ trách giao tiếp với khách hàng.", "note_vi": "for + noun phrase."}
+        ]
+      },
+      "sources": [{"title": "Cambridge Dictionary — responsible", "url": "https://dictionary.cambridge.org/dictionary/english/responsible", "type": "learner-dictionary"}],
+      "tasks": [
+        {"task_type": "meaning_recall", "dimension": "meaning_recall", "prompt": "Câu nào nói đúng ‘tôi phụ trách đào tạo nhân viên mới’?", "options": ["I responsible to train new staff.", "I am responsible for training new staff.", "I am responsibility for new staff."], "answer_key": {"accepted": ["I am responsible for training new staff."], "success_vi": "Đúng đủ be + responsible for + V-ing.", "retry_vi": "Tìm câu có am và for + training."}, "explanation_vi": "responsible là tính từ nên cần be."},
+        {"task_type": "error_repair", "dimension": "usage_control", "prompt": "Sửa câu: Companies responsible of protect customer data.", "options": [], "answer_key": {"accepted": ["Companies are responsible for protecting customer data"], "success_vi": "Đúng cả be, for và protecting.", "retry_vi": "Thêm are; đổi of thành for; protect thành V-ing.", "model_answer": "Companies are responsible for protecting customer data."}, "explanation_vi": "Ba lỗi thường đi cùng trong câu dịch từ tiếng Việt."},
+        {"task_type": "controlled_gap", "dimension": "usage_control", "prompt": "Điền: Cars are partly ___ air pollution.", "options": [], "answer_key": {"accepted": ["responsible for", "responsible for causing"], "success_vi": "Bạn đã dùng đúng nghĩa nguyên nhân.", "retry_vi": "Cần responsible for."}, "explanation_vi": "partly giúp tránh quy toàn bộ nguyên nhân cho một yếu tố."},
+        {"task_type": "productive_transfer", "dimension": "productive_transfer", "prompt": "Viết một câu về trách nhiệm giảm ô nhiễm.", "options": [], "answer_key": {"required_groups": [["responsible for"], ["pollution", "emissions", "waste", "environment"], ["government", "governments", "companies", "individuals", "people"]], "required_frames": [[["am", "is", "are", "was", "were", "be", "been", "being"], ["responsible"], ["for"]]], "maximum_gap_words": 1, "minimum_words": 9, "forbidden": ["responsible of", "responsible to reduce", "are responsibility"], "success_vi": "Bạn đã gán trách nhiệm rõ và đúng cấu trúc.", "retry_vi": "Cần một chủ thể + be responsible for + danh từ/V-ing.", "model_answer": "Both companies and individuals are responsible for reducing plastic waste."}, "explanation_vi": "Transfer tốt có chủ thể, nhiệm vụ và ngữ cảnh."}
+      ]
+    },
+    {
+      "unit_slug": "spend-time-doing",
+      "display_headword": "spend time doing",
+      "unit_type": "learning_unit",
+      "sense_key": "use-time-for-an-activity",
+      "construction_key": "spend-amount-of-time-gerund",
+      "communicative_function": "describe-routines-and-priorities",
+      "context_key": "ielts-speaking-daily-life",
+      "target_level": "B1",
+      "problem_tags": ["infinitive-after-spend", "missing-gerund"],
+      "learner_tags": ["vietnamese", "ielts-speaking-part-1"],
+      "speaking_signals": [
+        {
+          "signal_code": "spend-time.infinitive",
+          "trigger_description": "The learner uses 'spend' plus an amount of time and then a to-infinitive instead of a gerund.",
+          "exclusion_description": "Do not trigger for 'spend time on + noun', 'spend time doing', monetary spending, or when 'spend' is absent.",
+          "match_spec": {"issue_type": "verb_frame", "original_pattern": "\\b(?:spend|spends|spending|spent)\\b.{0,40}\\btime\\s+to\\s+[a-z]+", "corrected_pattern": "\\b(?:spend|spends|spending|spent)\\b.{0,40}\\btime\\s+[a-z]+ing\\b"},
+          "reason_vi": "Bạn vừa dùng 'spend time' với động từ nguyên mẫu có 'to'. Unit này luyện khung 'spend time doing' cho thói quen hằng ngày."
+        }
+      ],
+      "reference_cards": [],
+      "content": {
+        "title_vi": "Mô tả cách bạn sử dụng thời gian tự nhiên hơn",
+        "learning_goal_vi": "Dùng spend + time + V-ing để mở rộng câu trả lời về thói quen.",
+        "estimated_minutes": 7,
+        "sense": "use a period of time while doing an activity",
+        "construction": "spend + amount of time + V-ing / spend + time + on + noun",
+        "communicative_function": "describe routines, hobbies, and personal priorities",
+        "why_vietnamese_learners_struggle": "Sau ‘dành thời gian để làm’, học viên dễ chọn to + verb. Tiếng Anh dùng V-ing sau spend time; chỉ dùng on khi sau đó là danh từ.",
+        "meaning_vi": "dành một khoảng thời gian làm việc gì",
+        "usage_vi": "Nói spend two hours reading hoặc spend two hours on homework. Không kết hợp on + V-ing trong mẫu trọng tâm này.",
+        "contrast_vi": "It takes me two hours to commute tập trung vào thời lượng một việc cần; I spend two hours commuting tập trung vào cách người nói sử dụng thời gian.",
+        "production_prompt_vi": "Nói bạn thường dành thời gian rảnh làm gì và điều đó mang lại lợi ích gì.",
+        "memory_hook_vi": "After SPEND TIME, the activity is already happenING.",
+        "examples": [
+          {"en": "I spend about an hour reading before bed.", "vi": "Tôi dành khoảng một giờ đọc sách trước khi ngủ.", "note_vi": "about giúp câu tự nhiên hơn."},
+          {"en": "Many commuters spend a lot of time sitting in traffic.", "vi": "Nhiều người đi làm dành rất nhiều thời gian kẹt xe.", "note_vi": "sitting mô tả hoạt động kéo dài."},
+          {"en": "At weekends, I spend more time on household chores.", "vi": "Cuối tuần tôi dành nhiều thời gian hơn cho việc nhà.", "note_vi": "on + noun phrase."}
+        ]
+      },
+      "sources": [{"title": "Cambridge Dictionary — spend", "url": "https://dictionary.cambridge.org/dictionary/english/spend", "type": "learner-dictionary"}],
+      "tasks": [
+        {"task_type": "meaning_recall", "dimension": "meaning_recall", "prompt": "Chọn câu đúng.", "options": ["I spend an hour to read.", "I spend an hour reading.", "I spend an hour for read."], "answer_key": {"accepted": ["I spend an hour reading."], "success_vi": "Đúng: spend time + V-ing.", "retry_vi": "Hoạt động sau spend time dùng -ing."}, "explanation_vi": "Không dùng to-infinitive trong mẫu này."},
+        {"task_type": "error_repair", "dimension": "usage_control", "prompt": "Sửa câu: I spend most evenings to watch videos.", "options": [], "answer_key": {"accepted": ["I spend most evenings watching videos"], "success_vi": "Bạn đã đổi đúng sang V-ing.", "retry_vi": "Đổi to watch thành watching.", "model_answer": "I spend most evenings watching videos."}, "explanation_vi": "evenings là khoảng thời gian; watching là hoạt động."},
+        {"task_type": "controlled_gap", "dimension": "usage_control", "prompt": "Điền dạng đúng của exercise: She spends thirty minutes ___ every morning.", "options": [], "answer_key": {"accepted": ["exercising"], "success_vi": "Đúng dạng V-ing.", "retry_vi": "Thêm -ing vào động từ."}, "explanation_vi": "exercise bỏ e trước khi thêm -ing."},
+        {"task_type": "productive_transfer", "dimension": "productive_transfer", "prompt": "Viết một câu về cách bạn dùng thời gian rảnh.", "options": [], "answer_key": {"required_groups": [["spend", "spends"], ["time", "hour", "hours", "minutes", "evening", "evenings", "weekend", "weekends"], ["reading", "cooking", "playing", "watching", "studying", "exercising", "learning", "working", "relaxing", "hiking", "travelling", "traveling", "talking", "listening", "practising", "practicing", "gardening", "gaming", "socialising", "socializing"]], "required_frames": [[["spend", "spends", "spent", "spending"], ["time", "hour", "hours", "minute", "minutes", "evening", "evenings", "weekend", "weekends"], ["reading", "cooking", "playing", "watching", "studying", "exercising", "learning", "working", "relaxing", "hiking", "travelling", "traveling", "talking", "listening", "practising", "practicing", "gardening", "gaming", "socialising", "socializing"]]], "maximum_gap_words": 3, "minimum_words": 8, "forbidden": ["spend time to", "spend an hour to", "spend hours to"], "success_vi": "Bạn đã dùng cấu trúc trong một câu cá nhân hóa.", "retry_vi": "Dùng spend + khoảng thời gian + một động từ V-ing.", "model_answer": "I usually spend my free time cooking with my family."}, "explanation_vi": "Câu cần cho thấy thời gian và hoạt động."}
+      ]
+    },
+    {
+      "unit_slug": "prefer-x-to-y",
+      "display_headword": "prefer X to Y",
+      "unit_type": "learning_unit",
+      "sense_key": "like-one-option-more",
+      "construction_key": "prefer-parallel-x-to-parallel-y",
+      "communicative_function": "compare-personal-preferences",
+      "context_key": "ielts-speaking-preferences",
+      "target_level": "B1",
+      "problem_tags": ["prefer-than", "parallelism"],
+      "learner_tags": ["vietnamese", "ielts-speaking-part-1"],
+      "speaking_signals": [
+        {
+          "signal_code": "prefer.wrong-than",
+          "trigger_description": "The learner compares two preferences with 'prefer X than Y'.",
+          "exclusion_description": "Do not trigger for 'would rather ... than ...', 'prefer X to Y', or a sentence that does not compare two options.",
+          "match_spec": {"issue_type": "preposition", "original_pattern": "\\bprefer\\b.{1,80}\\bthan\\b", "corrected_pattern": "\\bprefer\\b.{1,80}\\bto\\b"},
+          "reason_vi": "Bạn vừa dùng 'prefer ... than ...'. Unit này luyện đúng khung 'prefer X to Y' và tránh lẫn với 'would rather ... than ...'."
+        }
+      ],
+      "reference_cards": [],
+      "content": {
+        "title_vi": "So sánh sở thích với cấu trúc song song",
+        "learning_goal_vi": "Dùng prefer X to Y thay cho prefer X than Y.",
+        "estimated_minutes": 7,
+        "sense": "like one person, thing, or activity more than another",
+        "construction": "prefer + noun/V-ing + to + noun/V-ing",
+        "communicative_function": "state and compare preferences concisely",
+        "why_vietnamese_learners_struggle": "Người học hay kéo than từ cấu trúc comparative vào sau prefer. Hai vế cũng dễ lệch dạng, như prefer reading to watch TV.",
+        "meaning_vi": "thích lựa chọn X hơn lựa chọn Y",
+        "usage_vi": "Giữ hai vế song song: prefer tea to coffee; prefer walking to driving. Với một tình huống cụ thể có thể dùng would prefer to do rather than do.",
+        "contrast_vi": "prefer X to Y nói sở thích chung; would rather do A than do B thường nói lựa chọn trong tình huống cụ thể.",
+        "production_prompt_vi": "So sánh hai cách di chuyển hoặc hai cách học bạn thường chọn.",
+        "memory_hook_vi": "PREFER points TO the alternative, not THAN.",
+        "examples": [
+          {"en": "I prefer public transport to driving in the city centre.", "vi": "Tôi thích phương tiện công cộng hơn tự lái xe ở trung tâm.", "note_vi": "noun và V-ing đều có thể là hai vế nếu ý rõ."},
+          {"en": "I generally prefer studying alone to working in a large group.", "vi": "Nhìn chung tôi thích học một mình hơn làm việc trong nhóm lớn.", "note_vi": "hai vế V-ing song song."},
+          {"en": "My parents prefer quiet neighbourhoods to busy city centres.", "vi": "Cha mẹ tôi thích khu yên tĩnh hơn trung tâm đông đúc.", "note_vi": "hai noun phrases song song."}
+        ]
+      },
+      "sources": [{"title": "Cambridge Dictionary — prefer", "url": "https://dictionary.cambridge.org/dictionary/english/prefer", "type": "learner-dictionary"}],
+      "tasks": [
+        {"task_type": "meaning_recall", "dimension": "meaning_recall", "prompt": "Chọn câu đúng về sở thích chung.", "options": ["I prefer tea than coffee.", "I prefer tea to coffee.", "I prefer tea rather coffee."], "answer_key": {"accepted": ["I prefer tea to coffee."], "success_vi": "Đúng giới từ to.", "retry_vi": "prefer nối với lựa chọn thứ hai bằng to."}, "explanation_vi": "Không dùng than ngay sau prefer."},
+        {"task_type": "error_repair", "dimension": "usage_control", "prompt": "Sửa câu: I prefer reading books than watch films.", "options": [], "answer_key": {"accepted": ["I prefer reading books to watching films"], "success_vi": "Bạn đã sửa giới từ và giữ hai vế V-ing song song.", "retry_vi": "Đổi than thành to và watch thành watching.", "model_answer": "I prefer reading books to watching films."}, "explanation_vi": "Parallelism làm câu dễ xử lý khi nói."},
+        {"task_type": "controlled_gap", "dimension": "usage_control", "prompt": "Điền: Many older people prefer face-to-face conversations ___ texting.", "options": [], "answer_key": {"accepted": ["to"], "success_vi": "Đúng: prefer X to Y.", "retry_vi": "Chỉ cần một giới từ hai chữ cái."}, "explanation_vi": "to ở đây là giới từ."},
+        {"task_type": "productive_transfer", "dimension": "productive_transfer", "prompt": "Viết một câu so sánh hai cách học hoặc làm việc bạn thích.", "options": [], "answer_key": {"required_groups": [["prefer"], [" to "]], "required_frames": [[["prefer", "prefers", "preferred", "preferring"], ["studying", "working", "learning", "reading", "watching", "practising", "practicing", "doing", "using", "taking"], ["to"], ["studying", "working", "learning", "reading", "watching", "practising", "practicing", "doing", "using", "taking"]]], "maximum_gap_words": 8, "minimum_words": 8, "forbidden": ["prefer than", "prefer rather"], "success_vi": "Bạn đã so sánh sở thích bằng cấu trúc mục tiêu.", "retry_vi": "Cần prefer + lựa chọn 1 + to + lựa chọn 2.", "model_answer": "I prefer studying in a quiet library to working in a noisy cafe."}, "explanation_vi": "Hãy kiểm tra hai lựa chọn có cùng dạng ngữ pháp."}
+      ]
+    },
+    {
+      "unit_slug": "access-to-vs-access",
+      "display_headword": "access to / access something",
+      "unit_type": "clinic",
+      "sense_key": "ability-to-use-or-reach",
+      "construction_key": "noun-access-to-vs-verb-access-object",
+      "communicative_function": "discuss-availability-and-opportunity",
+      "context_key": "ielts-speaking-technology-education",
+      "target_level": "B1-B2",
+      "problem_tags": ["part-of-speech", "wrong-preposition", "noun-verb-confusion"],
+      "learner_tags": ["vietnamese", "ielts-speaking"],
+      "speaking_signals": [
+        {
+          "signal_code": "access.noun-missing-to",
+          "trigger_description": "The learner uses the noun 'access' for availability/opportunity but omits required 'to' before its object.",
+          "exclusion_description": "Do not trigger when 'access' is a verb taking a direct object or when noun 'access to' is correct.",
+          "match_spec": {"issue_type": "verb_frame", "original_pattern": "\\b(?:have|has|had|gain|gains|gained)\\s+access\\s+(?!to\\b)[a-z]+", "corrected_pattern": "\\b(?:have|has|had|gain|gains|gained)\\s+access\\s+to\\b"},
+          "reason_vi": "Bạn vừa dùng danh từ 'access' nhưng thiếu 'to'. Unit này giúp tách rõ 'have access to' và động từ 'access something'."
+        },
+        {
+          "signal_code": "access.verb-extra-to",
+          "trigger_description": "The learner uses verbal 'access' but inserts 'to' before the direct object.",
+          "exclusion_description": "Do not trigger for noun phrases such as 'access to education' or 'gain access to'.",
+          "match_spec": {"issue_type": "verb_frame", "original_pattern": "\\b(?:access|accesses|accessed|accessing)\\s+to\\b", "corrected_pattern": "\\b(?:access|accesses|accessed|accessing)\\s+(?!to\\b)[a-z]+"},
+          "reason_vi": "Bạn vừa thêm 'to' sau động từ 'access'. Unit này luyện hai frame danh từ/động từ để tránh nhầm cấu trúc."
+        }
+      ],
+      "reference_cards": [{"category": "work-career", "slug": "available"}],
+      "content": {
+        "title_vi": "access: có to khi là danh từ, bỏ to khi là động từ",
+        "learning_goal_vi": "Kiểm soát hai pattern access to something và access something.",
+        "estimated_minutes": 8,
+        "sense": "the opportunity or right to use something; or the act of reaching it",
+        "construction": "have/get access to + noun; access + direct object",
+        "communicative_function": "discuss whether people can use information, services, or facilities",
+        "why_vietnamese_learners_struggle": "Cả danh từ và động từ đều thường dịch là ‘tiếp cận’, nên học viên trộn hai khung: access to the internet như động từ hoặc have access the internet như danh từ.",
+        "meaning_vi": "quyền/cơ hội sử dụng; truy cập hoặc tiếp cận trực tiếp",
+        "usage_vi": "Nếu có have, get, limited hoặc easy trước access, đó thường là danh từ và cần to. Nếu access là động từ chính, theo sau trực tiếp là tân ngữ.",
+        "contrast_vi": "Students have access to online journals. Students can access online journals. Hai câu gần nghĩa nhưng cấu trúc khác nhau.",
+        "production_prompt_vi": "Nói công nghệ đã thay đổi khả năng tiếp cận giáo dục như thế nào.",
+        "memory_hook_vi": "HAVE ACCESS TO; directly ACCESS something.",
+        "examples": [
+          {"en": "Rural students may have limited access to specialist teachers.", "vi": "Học sinh nông thôn có thể ít cơ hội tiếp cận giáo viên chuyên môn.", "note_vi": "noun access + to."},
+          {"en": "Most learners can access the materials on their phones.", "vi": "Phần lớn người học có thể truy cập tài liệu bằng điện thoại.", "note_vi": "verb access + object."},
+          {"en": "Free libraries improve access to reliable information.", "vi": "Thư viện miễn phí cải thiện khả năng tiếp cận thông tin đáng tin cậy.", "note_vi": "improve + noun access."}
+        ]
+      },
+      "sources": [{"title": "Cambridge Dictionary — access", "url": "https://dictionary.cambridge.org/dictionary/english/access", "type": "learner-dictionary"}],
+      "tasks": [
+        {"task_type": "meaning_recall", "dimension": "meaning_recall", "prompt": "Chọn cặp câu đều đúng.", "options": ["People access to the internet / People have access the internet", "People access the internet / People have access to the internet", "People access at the internet / People get access the internet"], "answer_key": {"accepted": ["People access the internet / People have access to the internet"], "success_vi": "Bạn đã phân biệt động từ và danh từ.", "retry_vi": "Động từ không có to; danh từ sau have cần to."}, "explanation_vi": "Hình thức access không đổi nhưng khung câu đổi."},
+        {"task_type": "error_repair", "dimension": "usage_control", "prompt": "Sửa câu: Many students cannot access to academic journals.", "options": [], "answer_key": {"accepted": ["Many students cannot access academic journals"], "success_vi": "Đúng: access là động từ nên bỏ to.", "retry_vi": "Bỏ giới từ sau động từ access.", "model_answer": "Many students cannot access academic journals."}, "explanation_vi": "can + access xác định access là động từ."},
+        {"task_type": "controlled_gap", "dimension": "usage_control", "prompt": "Điền: Everyone should have equal access ___ healthcare.", "options": [], "answer_key": {"accepted": ["to"], "success_vi": "Đúng pattern danh từ access to.", "retry_vi": "Sau have access cần giới từ to."}, "explanation_vi": "equal bổ nghĩa cho danh từ access."},
+        {"task_type": "productive_transfer", "dimension": "productive_transfer", "prompt": "Online courses giúp người đi làm tiếp cận giáo dục đại học. Viết một câu dùng access như danh từ.", "options": [], "answer_key": {"required_groups": [["access"], ["education", "learning"], ["online courses", "online course", "working adults", "workers"]], "required_frames": [[["have", "has", "had", "give", "gives", "gave", "provide", "provides", "provided", "offer", "offers", "offered"], ["access"], ["to"]]], "maximum_gap_words": 4, "minimum_words": 9, "forbidden": ["can access to", "cannot access to", "have access education"], "success_vi": "Bạn đã dùng noun frame access to trong đúng ngữ cảnh.", "retry_vi": "Dùng have/give/provide/offer + access to + education.", "model_answer": "Online courses give working adults better access to higher education."}, "explanation_vi": "Ngữ cảnh đã khóa nghĩa để deterministic grader kiểm tra đúng noun frame."}
+      ]
+    },
+    {
+      "unit_slug": "actually-vs-currently",
+      "display_headword": "actually ≠ currently",
+      "unit_type": "clinic",
+      "sense_key": "fact-correction-vs-present-time",
+      "construction_key": "discourse-adverb-placement",
+      "communicative_function": "correct-assumptions-or-mark-present-time",
+      "context_key": "vietnamese-false-friends-speaking",
+      "target_level": "B1",
+      "problem_tags": ["false-friend", "discourse-marker"],
+      "learner_tags": ["vietnamese", "ielts-speaking-part-1"],
+      "speaking_signals": [
+        {
+          "signal_code": "actually-currently.false-friend",
+          "status": "inactive",
+          "trigger_description": "Context makes clear that the learner uses 'actually' to mean 'at present/currently', or 'currently' to correct a fact or assumption.",
+          "exclusion_description": "Do not trigger when either adverb has its natural English meaning, or when the intended time/correction meaning is ambiguous.",
+          "match_spec": {"issue_type": "meaning", "original_pattern": "\\b(?:actually|currently)\\b", "corrected_pattern": "\\b(?:actually|currently)\\b", "require_distinct_match": true},
+          "reason_vi": "Bạn vừa lẫn nghĩa 'actually' và 'currently'. Unit này luyện cặp false friend rất hay gặp ở người Việt trong Part 1."
+        }
+      ],
+      "reference_cards": [],
+      "content": {
+        "title_vi": "actually không có nghĩa là ‘hiện tại’",
+        "learning_goal_vi": "Dùng actually để sửa kỳ vọng và currently để nói tình trạng hiện nay.",
+        "estimated_minutes": 7,
+        "sense": "actually: in fact / contrary to expectation; currently: at the present time",
+        "construction": "Actually, clause / subject actually verb; subject is currently ...",
+        "communicative_function": "gently correct an assumption or locate a situation in present time",
+        "why_vietnamese_learners_struggle": "actually nhìn giống ‘actual/hiện tại’ và thường bị dùng thay currently. Kết quả là câu I actually live in Hanoi có thể nghe như đang sửa một hiểu lầm, không đơn thuần nói nơi ở hiện nay.",
+        "meaning_vi": "actually: thực ra; currently: hiện đang, vào thời điểm này",
+        "usage_vi": "Dùng actually khi thông tin trái dự đoán hoặc sửa lời trước. Dùng currently cho việc tạm thời hoặc trạng thái hiện nay.",
+        "contrast_vi": "I currently work from home = đây là tình trạng hiện tại. I actually work from home = người nghe có thể đã nghĩ tôi làm ở văn phòng.",
+        "production_prompt_vi": "Nói một điều hiện tại về công việc/học tập và một điều thực tế có thể làm người khác bất ngờ.",
+        "memory_hook_vi": "ACTUALLY corrects the fact; CURRENTLY marks the current time.",
+        "examples": [
+          {"en": "I currently live in Da Nang, but I grew up in Hue.", "vi": "Hiện tôi sống ở Đà Nẵng, nhưng tôi lớn lên ở Huế.", "note_vi": "present-time state."},
+          {"en": "I thought the course would be easy, but it was actually quite demanding.", "vi": "Tôi tưởng khóa học dễ, nhưng thực ra khá nặng.", "note_vi": "contrary to expectation."},
+          {"en": "Actually, I prefer studying early in the morning.", "vi": "Thực ra tôi thích học vào sáng sớm hơn.", "note_vi": "gentle correction/clarification."}
+        ]
+      },
+      "sources": [
+        {"title": "Cambridge Dictionary — actually", "url": "https://dictionary.cambridge.org/dictionary/english/actually", "type": "learner-dictionary"},
+        {"title": "Cambridge Dictionary — currently", "url": "https://dictionary.cambridge.org/dictionary/english/currently", "type": "learner-dictionary"}
+      ],
+      "tasks": [
+        {"task_type": "meaning_recall", "dimension": "meaning_recall", "prompt": "Bạn muốn nói ‘Hiện tôi đang học đại học’. Chọn từ đúng.", "options": ["I actually study at university.", "I currently study at university.", "I factually study at university."], "answer_key": {"accepted": ["I currently study at university."], "success_vi": "Đúng: currently đánh dấu thời điểm hiện tại.", "retry_vi": "Không có ý sửa kỳ vọng, nên không dùng actually."}, "explanation_vi": "Currently phù hợp với tình trạng hiện nay."},
+        {"task_type": "error_repair", "dimension": "usage_control", "prompt": "Sửa từ sai: I actually work as an intern this summer.", "options": [], "answer_key": {"accepted": ["I currently work as an intern this summer", "I am currently working as an intern this summer"], "success_vi": "Bạn đã dùng từ chỉ thời điểm hiện tại.", "retry_vi": "Đổi actually thành currently.", "model_answer": "I am currently working as an intern this summer."}, "explanation_vi": "this summer gợi tình trạng tạm thời hiện tại."},
+        {"task_type": "controlled_gap", "dimension": "usage_control", "prompt": "Điền actually/currently: I expected the city to be noisy, but it was ___ very peaceful.", "options": [], "answer_key": {"accepted": ["actually"], "success_vi": "Đúng: kết quả trái kỳ vọng.", "retry_vi": "Câu có expected ... but, nên cần từ sửa kỳ vọng."}, "explanation_vi": "actually thường xuất hiện khi có contrast."},
+        {"task_type": "productive_transfer", "dimension": "productive_transfer", "prompt": "Viết một câu về công việc hoặc nơi ở tạm thời của bạn trong giai đoạn hiện nay; dùng currently.", "options": [], "answer_key": {"required_groups": [["currently"], ["work", "working", "study", "studying", "live", "living"]], "required_frames": [[["currently"], ["work", "working", "study", "studying", "live", "living"]]], "maximum_gap_words": 2, "minimum_words": 8, "forbidden": ["actually now", "actually currently"], "success_vi": "Bạn đã dùng currently cho trạng thái đang diễn ra ở hiện tại.", "retry_vi": "Ngữ cảnh này hỏi trạng thái hiện nay, vì vậy cần currently + work/study/live.", "model_answer": "I currently work from home, although I may return to the office next year."}, "explanation_vi": "Ngữ cảnh cố định phân biệt rõ current state với actually dùng để sửa kỳ vọng."}
+      ]
+    },
+    {
+      "unit_slug": "convenient-vs-comfortable",
+      "display_headword": "convenient ≠ comfortable",
+      "unit_type": "clinic",
+      "sense_key": "easy-practical-vs-physically-pleasant",
+      "construction_key": "be-convenient-for-vs-feel-comfortable",
+      "communicative_function": "evaluate-services-and-experiences",
+      "context_key": "vietnamese-tien-false-friend",
+      "target_level": "B1",
+      "problem_tags": ["semantic-overextension", "false-friend"],
+      "learner_tags": ["vietnamese", "ielts-speaking"],
+      "speaking_signals": [
+        {
+          "signal_code": "convenient-comfortable.false-friend",
+          "status": "inactive",
+          "trigger_description": "Context clearly shows 'convenient' was used for physical/emotional comfort, or 'comfortable' for practical ease of time/location/service.",
+          "exclusion_description": "Do not trigger when the intended meaning is ambiguous or when each adjective is used with its natural English sense.",
+          "match_spec": {"issue_type": "meaning", "original_pattern": "\\b(?:convenient|comfortable)\\b", "corrected_pattern": "\\b(?:convenient|comfortable)\\b", "require_distinct_match": true},
+          "reason_vi": "Bạn vừa dùng lẫn 'convenient' và 'comfortable'. Unit này tách nghĩa tiện lợi khỏi cảm giác thoải mái bằng ngữ cảnh nói thật."
+        }
+      ],
+      "reference_cards": [],
+      "content": {
+        "title_vi": "‘Tiện’ không phải lúc nào cũng là comfortable",
+        "learning_goal_vi": "Chọn convenient cho sự thuận tiện và comfortable cho cảm giác dễ chịu.",
+        "estimated_minutes": 7,
+        "sense": "convenient: easy and suitable for a purpose; comfortable: physically or emotionally relaxed",
+        "construction": "be convenient for + person/purpose; be/feel comfortable + place/with person/doing",
+        "communicative_function": "evaluate transport, technology, places, or social situations precisely",
+        "why_vietnamese_learners_struggle": "Từ ‘tiện/thoải mái’ trong tiếng Việt có vùng nghĩa giao nhau trong hội thoại, nên comfortable bị dùng cho ứng dụng, địa điểm hoặc lịch trình dù ý là ‘dễ sử dụng/phù hợp’. ",
+        "meaning_vi": "convenient: thuận tiện, dễ dùng; comfortable: thoải mái, dễ chịu",
+        "usage_vi": "An app, location, time hoặc service có thể convenient. A chair, room, temperature hoặc person có thể make you feel comfortable.",
+        "contrast_vi": "The bus is convenient because it stops near my house, but it is not comfortable because it is crowded.",
+        "production_prompt_vi": "Đánh giá một phương tiện hoặc ứng dụng bằng cả convenient và comfortable nếu phù hợp.",
+        "memory_hook_vi": "Convenient saves effort; comfortable reduces discomfort.",
+        "examples": [
+          {"en": "Online banking is convenient because it is available around the clock.", "vi": "Ngân hàng trực tuyến thuận tiện vì dùng được mọi lúc.", "note_vi": "practical ease."},
+          {"en": "The seats are comfortable enough for a short journey.", "vi": "Ghế đủ thoải mái cho chuyến đi ngắn.", "note_vi": "physical comfort."},
+          {"en": "The location is convenient, but the waiting area is uncomfortable.", "vi": "Vị trí thuận tiện nhưng khu chờ không thoải mái.", "note_vi": "một câu đối chiếu rõ hai nghĩa."}
+        ]
+      },
+      "sources": [
+        {"title": "Cambridge Dictionary — convenient", "url": "https://dictionary.cambridge.org/dictionary/english/convenient", "type": "learner-dictionary"},
+        {"title": "Cambridge Dictionary — comfortable", "url": "https://dictionary.cambridge.org/dictionary/english/comfortable", "type": "learner-dictionary"}
+      ],
+      "tasks": [
+        {"task_type": "meaning_recall", "dimension": "meaning_recall", "prompt": "Ứng dụng giúp đặt xe nhanh nên rất ___.", "options": ["comfortable", "convenient", "comforting"], "answer_key": {"accepted": ["convenient"], "success_vi": "Đúng: ứng dụng làm việc dễ và nhanh hơn.", "retry_vi": "Chọn từ nói về sự thuận tiện."}, "explanation_vi": "Không đánh giá cảm giác cơ thể ở đây."},
+        {"task_type": "error_repair", "dimension": "usage_control", "prompt": "Sửa từ chưa chính xác: The hotel is comfortable because it is next to the station.", "options": [], "answer_key": {"accepted": ["The hotel is convenient because it is next to the station"], "success_vi": "Đúng: vị trí gần ga tạo sự thuận tiện.", "retry_vi": "Đổi comfortable thành convenient.", "model_answer": "The hotel is convenient because it is next to the station."}, "explanation_vi": "Lý do location phù hợp với convenient."},
+        {"task_type": "controlled_gap", "dimension": "usage_control", "prompt": "Điền convenient/comfortable: The sofa is very ___, but the shop is not in a ___ location.", "options": [], "answer_key": {"accepted": ["comfortable convenient"], "success_vi": "Bạn đã phân biệt cảm giác và vị trí.", "retry_vi": "Sofa → comfortable; location → convenient."}, "explanation_vi": "Hai tính từ có tiêu chí đánh giá khác nhau."},
+        {"task_type": "productive_transfer", "dimension": "productive_transfer", "prompt": "Ga metro ở gần nhà và giúp bạn đi làm nhanh. Viết một câu dùng convenient và giải thích lý do.", "options": [], "answer_key": {"required_groups": [["convenient"], ["metro", "station"], ["because", "as", "since"], ["fast", "quick", "near", "close", "time"]], "required_frames": [[["convenient"], ["because", "as", "since"]]], "maximum_gap_words": 5, "minimum_words": 10, "forbidden": ["comfortable location because near", "convenient chair because soft"], "success_vi": "Bạn đã dùng convenient cho sự thuận tiện về vị trí hoặc thời gian.", "retry_vi": "Ngữ cảnh đã cho tiêu chí vị trí/thời gian: dùng convenient và nêu because/as/since.", "model_answer": "The metro is convenient because it is fast and the station is close to my home."}, "explanation_vi": "Ngữ cảnh cố định giúp chấm vùng nghĩa convenience thay vì cảm giác cơ thể."}
+      ]
+    },
+    {
+      "unit_slug": "borrow-vs-lend",
+      "display_headword": "borrow vs lend",
+      "unit_type": "clinic",
+      "sense_key": "temporary-transfer-direction",
+      "construction_key": "borrow-object-from-vs-lend-object-to",
+      "communicative_function": "describe-temporary-exchange",
+      "context_key": "vietnamese-direction-confusion",
+      "target_level": "B1",
+      "problem_tags": ["directionality", "wrong-preposition"],
+      "learner_tags": ["vietnamese", "daily-speaking"],
+      "speaking_signals": [
+        {
+          "signal_code": "borrow-lend.direction",
+          "status": "inactive",
+          "trigger_description": "The transfer direction or participant frame shows that the learner selected 'borrow' where 'lend' is required, or vice versa.",
+          "exclusion_description": "Do not trigger unless giver, receiver and direction are clear enough to prove the choice is wrong.",
+          "match_spec": {"issue_type": "meaning", "original_pattern": "\\b(?:borrow|borrows|borrowed|borrowing|lend|lends|lent|lending)\\b", "corrected_pattern": "\\b(?:borrow|borrows|borrowed|borrowing|lend|lends|lent|lending)\\b", "require_distinct_match": true},
+          "reason_vi": "Bạn vừa đảo chiều 'borrow' và 'lend'. Unit này luyện người cho, người nhận và giới từ đi kèm trong cùng một sơ đồ."
+        }
+      ],
+      "reference_cards": [],
+      "content": {
+        "title_vi": "Nhìn hướng di chuyển để chọn borrow hay lend",
+        "learning_goal_vi": "Dùng borrow ... from và lend ... to đúng góc nhìn người nói.",
+        "estimated_minutes": 7,
+        "sense": "borrow: receive temporarily; lend: give temporarily",
+        "construction": "borrow + object + from + person; lend + person + object / lend + object + to + person",
+        "communicative_function": "ask for or describe a temporary exchange",
+        "why_vietnamese_learners_struggle": "Tiếng Việt thường dùng ‘mượn/cho mượn’ nhưng trong hội thoại chủ thể có thể đổi nhanh. Học viên nhớ nghĩa mà không theo dõi hướng vật di chuyển, rồi nói borrow me hoặc lend from.",
+        "meaning_vi": "borrow: mượn về phía mình; lend: cho vật đi từ mình sang người khác",
+        "usage_vi": "Người nhận borrows something from người cho. Người cho lends someone something hoặc lends something to someone.",
+        "contrast_vi": "Can I borrow your charger? = tôi nhận. Can you lend me your charger? = bạn đưa. Hai câu yêu cầu cùng một việc nhưng đổi góc nhìn.",
+        "production_prompt_vi": "Kể một lần bạn mượn hoặc cho ai mượn một đồ vật.",
+        "memory_hook_vi": "B comes BACK to the borrower; L LEAVES the lender.",
+        "examples": [
+          {"en": "I borrowed a laptop from my cousin for the weekend.", "vi": "Tôi mượn laptop của anh họ cho cuối tuần.", "note_vi": "borrow from."},
+          {"en": "My neighbour lent me a ladder.", "vi": "Hàng xóm cho tôi mượn thang.", "note_vi": "lend + person + object."},
+          {"en": "Libraries lend books to local residents.", "vi": "Thư viện cho cư dân địa phương mượn sách.", "note_vi": "lend object to person."}
+        ]
+      },
+      "sources": [
+        {"title": "Cambridge Dictionary — borrow", "url": "https://dictionary.cambridge.org/dictionary/english/borrow", "type": "learner-dictionary"},
+        {"title": "Cambridge Dictionary — lend", "url": "https://dictionary.cambridge.org/dictionary/english/lend", "type": "learner-dictionary"}
+      ],
+      "tasks": [
+        {"task_type": "meaning_recall", "dimension": "meaning_recall", "prompt": "Bạn muốn nhận tạm bút của bạn mình. Câu nào đúng?", "options": ["Can you borrow me your pen?", "Can I borrow your pen?", "Can I lend your pen?"], "answer_key": {"accepted": ["Can I borrow your pen?"], "success_vi": "Đúng: người nói là người nhận nên dùng borrow.", "retry_vi": "Theo dõi hướng chiếc bút về phía người nói."}, "explanation_vi": "borrow không nhận tân ngữ chỉ người ngay sau động từ."},
+        {"task_type": "error_repair", "dimension": "usage_control", "prompt": "Sửa câu: My friend borrowed me some money.", "options": [], "answer_key": {"accepted": ["My friend lent me some money"], "success_vi": "Đúng: người bạn đưa tiền nên dùng lent.", "retry_vi": "Đổi động từ sang quá khứ của lend.", "model_answer": "My friend lent me some money."}, "explanation_vi": "lent là quá khứ và quá khứ phân từ của lend."},
+        {"task_type": "controlled_gap", "dimension": "usage_control", "prompt": "Điền: I borrowed the book ___ Lan, and she lent it ___ me for a week.", "options": [], "answer_key": {"accepted": ["from to"], "success_vi": "Đúng hai hướng: borrow from, lend to.", "retry_vi": "Người nhận borrow from; người cho lend to."}, "explanation_vi": "Giới từ mã hóa hướng trao đổi."},
+        {"task_type": "productive_transfer", "dimension": "productive_transfer", "prompt": "Bạn nhận tạm một chiếc máy ảnh từ chị gái để làm dự án. Viết một câu dùng borrow.", "options": [], "answer_key": {"required_groups": [["borrow", "borrowed"], ["camera"], ["sister"], ["from"]], "required_frames": [[["borrow", "borrowed"], ["camera"], ["from"]]], "maximum_gap_words": 3, "minimum_words": 8, "forbidden": ["borrow me", "borrowed me", "borrow to", "borrowed to"], "success_vi": "Bạn đã thể hiện đúng hướng nhận vật bằng borrow ... from.", "retry_vi": "Người nói nhận máy ảnh, vì vậy dùng borrow/borrowed + camera + from + sister.", "model_answer": "I borrowed a camera from my sister for a school project."}, "explanation_vi": "Ngữ cảnh cố định xác định hướng trao đổi nên grader có thể kiểm tra frame trung thực."}
+      ]
+    },
+    {
+      "unit_slug": "say-tell-speak-talk",
+      "display_headword": "say / tell / speak / talk",
+      "unit_type": "clinic",
+      "sense_key": "communication-verb-frames",
+      "construction_key": "say-content-tell-person-speak-language-talk-with",
+      "communicative_function": "report-and-describe-communication",
+      "context_key": "vietnamese-noi-verb-overload",
+      "target_level": "B1-B2",
+      "problem_tags": ["verb-frame", "direct-object", "preposition-choice"],
+      "learner_tags": ["vietnamese", "ielts-speaking"],
+      "speaking_signals": [
+        {
+          "signal_code": "say-tell.object-frame",
+          "trigger_description": "The learner gives 'say' a person as direct object, uses 'tell' without the required person/content frame, or otherwise clearly swaps the say/tell argument pattern.",
+          "exclusion_description": "Do not trigger for valid 'say something to someone', 'tell someone something', fixed expressions, or uncertain STT punctuation.",
+          "match_spec": {"issue_type": "verb_frame", "original_pattern": "\\b(?:say|says|said|saying)\\s+(?:me|you|him|her|us|them)\\b", "corrected_pattern": "\\b(?:tell|tells|told|telling)\\s+(?:me|you|him|her|us|them)\\b"},
+          "reason_vi": "Bạn vừa lẫn frame của 'say' và 'tell'. Unit này luyện nội dung, người nghe và giới từ theo từng động từ giao tiếp."
+        }
+      ],
+      "reference_cards": [],
+      "content": {
+        "title_vi": "Bốn động từ cho một chữ ‘nói’",
+        "learning_goal_vi": "Chọn động từ theo phần đi ngay sau: nội dung, người nghe, ngôn ngữ hay cuộc trò chuyện.",
+        "estimated_minutes": 10,
+        "sense": "four communication verbs with different grammatical frames",
+        "construction": "say + content; tell + person + content; speak + language / to; talk + to/with + person + about",
+        "communicative_function": "report words, give information, name language ability, or describe interaction",
+        "why_vietnamese_learners_struggle": "Một động từ ‘nói’ trong tiếng Việt bao phủ nhiều khung. Học viên dễ nói say me, tell that không có người nghe, hoặc speak about with my friend mà không kiểm soát giới từ.",
+        "meaning_vi": "say nhấn nội dung; tell cần người nhận; speak thường cho ngôn ngữ/trang trọng; talk cho cuộc trò chuyện",
+        "usage_vi": "say something/to someone; tell someone something; speak English/to the manager; talk to/with someone about something.",
+        "contrast_vi": "She said that she was tired. She told me that she was tired. Cùng nội dung, nhưng tell bắt buộc có me/người nhận.",
+        "production_prompt_vi": "Kể bạn thường nói chuyện với ai khi cần lời khuyên và hai người nói về gì.",
+        "memory_hook_vi": "SAY the words; TELL the person; SPEAK a language; TALK together.",
+        "examples": [
+          {"en": "My tutor said that regular practice was essential.", "vi": "Gia sư nói rằng luyện tập đều rất quan trọng.", "note_vi": "say + content clause."},
+          {"en": "She told me to record my answers.", "vi": "Cô ấy bảo tôi ghi âm câu trả lời.", "note_vi": "tell + person + to-infinitive."},
+          {"en": "I often talk with my classmates about difficult assignments.", "vi": "Tôi thường trao đổi với bạn về bài tập khó.", "note_vi": "talk with + person + about topic."}
+        ]
+      },
+      "sources": [
+        {"title": "Cambridge Grammar — say or tell", "url": "https://dictionary.cambridge.org/grammar/british-grammar/say-or-tell", "type": "grammar-reference"},
+        {"title": "Cambridge Grammar — speak or talk", "url": "https://dictionary.cambridge.org/grammar/british-grammar/speak-or-talk", "type": "grammar-reference"}
+      ],
+      "tasks": [
+        {"task_type": "meaning_recall", "dimension": "meaning_recall", "prompt": "Chọn câu đúng.", "options": ["She said me the answer.", "She told me the answer.", "She spoke me the answer."], "answer_key": {"accepted": ["She told me the answer."], "success_vi": "Đúng: tell + person + content.", "retry_vi": "Động từ cần nhận me trực tiếp là tell."}, "explanation_vi": "say cần to me nếu nêu người nghe."},
+        {"task_type": "error_repair", "dimension": "usage_control", "prompt": "Sửa câu: My teacher said me to speak with my mistakes.", "options": [], "answer_key": {"accepted": ["My teacher told me to talk about my mistakes", "My teacher told me to speak about my mistakes"], "success_vi": "Bạn đã sửa khung tell và giới từ chủ đề.", "retry_vi": "Dùng told me; chủ đề đi với about.", "model_answer": "My teacher told me to talk about my mistakes."}, "explanation_vi": "Hai lỗi frame thường xuất hiện cùng nhau."},
+        {"task_type": "controlled_gap", "dimension": "usage_control", "prompt": "Điền say/tell/speak/talk: I can ___ English, but I feel nervous when I ___ to strangers.", "options": [], "answer_key": {"accepted": ["speak talk", "speak speak"], "success_vi": "Đúng: speak a language; talk/speak to a person.", "retry_vi": "Ngôn ngữ → speak; tương tác với người → talk/speak to."}, "explanation_vi": "Từ sau động từ quyết định lựa chọn."},
+        {"task_type": "productive_transfer", "dimension": "productive_transfer", "prompt": "Giáo viên khuyên bạn luyện nói mỗi ngày. Viết một câu tường thuật lời khuyên bằng told me to.", "options": [], "answer_key": {"required_groups": [["teacher"], ["told"], ["me"], ["to"], ["practise", "practice", "practising", "practicing", "speak", "speaking"]], "required_frames": [[["teacher"], ["told"], ["me"], ["to"]]], "maximum_gap_words": 3, "minimum_words": 9, "forbidden": ["said me", "spoke me", "talked me", "told that"], "success_vi": "Bạn đã dùng đúng tell + person + to-infinitive cho lời khuyên.", "retry_vi": "Ngữ cảnh yêu cầu frame my teacher told me to + verb.", "model_answer": "My teacher told me to practise speaking English every day."}, "explanation_vi": "Ngữ cảnh cố định xác định complement đúng của tell."}
+      ]
+    },
+    {
+      "unit_slug": "economic-vs-economical",
+      "display_headword": "economic vs economical",
+      "unit_type": "clinic",
+      "sense_key": "economy-related-vs-cost-saving",
+      "construction_key": "adjective-noun-collocation",
+      "communicative_function": "evaluate-policy-and-cost",
+      "context_key": "ielts-speaking-economy-transport",
+      "target_level": "B2",
+      "problem_tags": ["word-family", "collocation", "near-synonym"],
+      "learner_tags": ["vietnamese", "ielts-speaking", "band-6-plus"],
+      "speaking_signals": [
+        {
+          "signal_code": "economic-economical.word-choice",
+          "status": "inactive",
+          "trigger_description": "The noun collocation and meaning clearly require 'economic' (economy-related) but the learner says 'economical', or require 'economical' (cost-saving) but says 'economic'.",
+          "exclusion_description": "Do not trigger when both interpretations remain plausible or when the adjective is used correctly.",
+          "match_spec": {"issue_type": "word_choice", "original_pattern": "\\b(?:economic|economical)\\b", "corrected_pattern": "\\b(?:economic|economical)\\b", "require_distinct_match": true},
+          "reason_vi": "Bạn vừa lẫn 'economic' và 'economical'. Unit này luyện chọn tính từ theo collocation về nền kinh tế hay tính tiết kiệm."
+        }
+      ],
+      "reference_cards": [{"category": "economy", "slug": "economy"}],
+      "content": {
+        "title_vi": "economic cho nền kinh tế; economical cho tiết kiệm",
+        "learning_goal_vi": "Chọn đúng tính từ khi bàn về phát triển kinh tế và lựa chọn ít tốn kém.",
+        "estimated_minutes": 8,
+        "sense": "economic: connected with the economy; economical: using little money or resources",
+        "construction": "economic growth/policy/activity; economical car/method/way",
+        "communicative_function": "discuss macroeconomic issues or evaluate cost efficiency",
+        "why_vietnamese_learners_struggle": "Cả hai thường được dịch gần với ‘kinh tế/tiết kiệm’ và có cùng gốc economy. Học viên chọn theo hình thức từ thay vì danh từ đi kèm.",
+        "meaning_vi": "economic: thuộc nền kinh tế; economical: tiết kiệm, hiệu quả về chi phí/tài nguyên",
+        "usage_vi": "Học theo collocation: economic development, economic policy; an economical option, economical to run.",
+        "contrast_vi": "Public transport can support economic growth and be an economical choice for commuters. Hai từ có thể cùng câu nhưng trả lời hai câu hỏi khác nhau.",
+        "production_prompt_vi": "Nói một giải pháp giao thông vừa có lợi cho kinh tế vừa tiết kiệm cho người dân.",
+        "memory_hook_vi": "Economic = ECONOMY; economical = saves MONEY/materials.",
+        "examples": [
+          {"en": "Tourism is important for the region's economic development.", "vi": "Du lịch quan trọng với phát triển kinh tế của vùng.", "note_vi": "economy-related."},
+          {"en": "Cycling is an economical way to commute.", "vi": "Đi xe đạp là cách đi làm tiết kiệm.", "note_vi": "cost-saving."},
+          {"en": "The policy may bring economic benefits, but it is not economical to administer.", "vi": "Chính sách có thể đem lại lợi ích kinh tế nhưng vận hành không tiết kiệm.", "note_vi": "contrast in one sentence."}
+        ]
+      },
+      "sources": [
+        {"title": "Cambridge Dictionary — economic", "url": "https://dictionary.cambridge.org/dictionary/english/economic", "type": "learner-dictionary"},
+        {"title": "Cambridge Dictionary — economical", "url": "https://dictionary.cambridge.org/dictionary/english/economical", "type": "learner-dictionary"}
+      ],
+      "tasks": [
+        {"task_type": "meaning_recall", "dimension": "meaning_recall", "prompt": "Chọn collocation đúng cho ‘tăng trưởng kinh tế’.", "options": ["economical growth", "economic growth", "economy growthful"], "answer_key": {"accepted": ["economic growth"], "success_vi": "Đúng: growth thuộc nền kinh tế.", "retry_vi": "Chọn tính từ liên quan tới economy."}, "explanation_vi": "economic growth là collocation tần suất cao."},
+        {"task_type": "error_repair", "dimension": "usage_control", "prompt": "Sửa từ sai: Taking the bus is more economic for students.", "options": [], "answer_key": {"accepted": ["Taking the bus is more economical for students"], "success_vi": "Đúng: ý là ít tốn tiền.", "retry_vi": "Đổi economic thành từ nghĩa tiết kiệm.", "model_answer": "Taking the bus is more economical for students."}, "explanation_vi": "for students ở đây đánh giá chi phí cá nhân."},
+        {"task_type": "controlled_gap", "dimension": "usage_control", "prompt": "Điền economic/economical: The project could create ___ opportunities, but the design is not ___ to maintain.", "options": [], "answer_key": {"accepted": ["economic economical"], "success_vi": "Bạn đã phân biệt nền kinh tế và chi phí vận hành.", "retry_vi": "opportunities → economic; tiết kiệm để bảo trì → economical."}, "explanation_vi": "Danh từ/cụm sau tính từ là manh mối."},
+        {"task_type": "productive_transfer", "dimension": "productive_transfer", "prompt": "Đi xe buýt giúp sinh viên tiết kiệm tiền. Viết một câu dùng economical.", "options": [], "answer_key": {"required_groups": [["economical"], ["bus", "public transport"], ["student", "students", "money", "cost", "costs"]], "required_frames": [[["bus", "public transport"], ["economical"]]], "maximum_gap_words": 5, "minimum_words": 9, "forbidden": ["economical growth", "economic to run", "more economic for students"], "success_vi": "Bạn đã dùng economical cho lựa chọn ít tốn tiền.", "retry_vi": "Ngữ cảnh nói chi phí cá nhân: dùng economical với bus/public transport.", "model_answer": "Taking the bus is more economical for students because it saves money."}, "explanation_vi": "Ngữ cảnh cố định tách economical khỏi economic liên quan nền kinh tế."}
+      ]
+    },
+    {
+      "unit_slug": "fun-vs-funny",
+      "display_headword": "fun vs funny",
+      "unit_type": "clinic",
+      "sense_key": "enjoyable-vs-humorous-or-strange",
+      "construction_key": "be-fun-vs-be-funny",
+      "communicative_function": "evaluate-experiences-and-humour",
+      "context_key": "vietnamese-vui-semantic-split",
+      "target_level": "B1",
+      "problem_tags": ["semantic-overextension", "near-synonym"],
+      "learner_tags": ["vietnamese", "ielts-speaking-part-1"],
+      "speaking_signals": [
+        {
+          "signal_code": "fun-funny.meaning",
+          "status": "inactive",
+          "trigger_description": "Context clearly shows the learner uses 'funny' to mean enjoyable, or 'fun' to mean humorous/strange, producing the wrong intended meaning.",
+          "exclusion_description": "Do not trigger for natural uses, deliberate humour/strangeness, or contexts where both readings are plausible.",
+          "match_spec": {"issue_type": "meaning", "original_pattern": "\\b(?:fun|funny)\\b", "corrected_pattern": "\\b(?:fun|funny)\\b", "require_distinct_match": true},
+          "reason_vi": "Bạn vừa lẫn 'fun' và 'funny'. Unit này giúp chọn đúng từ khi nói một trải nghiệm thú vị, hài hước hoặc kỳ lạ."
+        }
+      ],
+      "reference_cards": [],
+      "content": {
+        "title_vi": "‘Vui’ có thể là fun, nhưng funny thường là buồn cười",
+        "learning_goal_vi": "Dùng fun cho trải nghiệm thú vị và funny cho người/chuyện gây cười hoặc kỳ lạ.",
+        "estimated_minutes": 7,
+        "sense": "fun: enjoyable; funny: making you laugh, or sometimes strange",
+        "construction": "activity/event + be fun; person/story/joke + be funny; something feels funny",
+        "communicative_function": "evaluate leisure experiences and describe humour accurately",
+        "why_vietnamese_learners_struggle": "‘Vui’ trong tiếng Việt vừa nói trạng thái/trải nghiệm vừa nói tính hài hước. Vì funny có đuôi tính từ quen thuộc, học viên dễ nói The trip was funny khi chỉ muốn nói chuyến đi thú vị.",
+        "meaning_vi": "fun: vui, thú vị; funny: hài hước, gây cười hoặc có vẻ lạ",
+        "usage_vi": "A game, trip, class hoặc evening can be fun. A joke, comedian, story hoặc person can be funny.",
+        "contrast_vi": "The party was fun = tôi tận hưởng bữa tiệc. The party was funny = có điều gì đó gây cười/lạ trong bữa tiệc.",
+        "production_prompt_vi": "Mô tả một hoạt động fun và một người/câu chuyện funny.",
+        "memory_hook_vi": "FUN is the experience; FUNNY creates a laugh.",
+        "examples": [
+          {"en": "The cooking class was challenging but fun.", "vi": "Lớp nấu ăn khó nhưng thú vị.", "note_vi": "enjoyable experience."},
+          {"en": "My best friend is funny without trying too hard.", "vi": "Bạn thân tôi hài hước rất tự nhiên.", "note_vi": "person makes people laugh."},
+          {"en": "I heard a funny noise coming from the engine.", "vi": "Tôi nghe tiếng lạ phát ra từ động cơ.", "note_vi": "funny can mean strange."}
+        ]
+      },
+      "sources": [
+        {"title": "Cambridge Dictionary — fun", "url": "https://dictionary.cambridge.org/dictionary/english/fun", "type": "learner-dictionary"},
+        {"title": "Cambridge Dictionary — funny", "url": "https://dictionary.cambridge.org/dictionary/english/funny", "type": "learner-dictionary"}
+      ],
+      "tasks": [
+        {"task_type": "meaning_recall", "dimension": "meaning_recall", "prompt": "Bạn muốn nói chuyến đi thú vị. Chọn câu đúng.", "options": ["The trip was fun.", "The trip was funny.", "The trip was funnily."], "answer_key": {"accepted": ["The trip was fun."], "success_vi": "Đúng: fun đánh giá trải nghiệm thú vị.", "retry_vi": "Không có ý gây cười, nên chọn fun."}, "explanation_vi": "Funny sẽ đổi nghĩa câu."},
+        {"task_type": "error_repair", "dimension": "usage_control", "prompt": "Sửa từ sai: Playing badminton with my friends is really funny.", "options": [], "answer_key": {"accepted": ["Playing badminton with my friends is really fun"], "success_vi": "Đúng: hoạt động mang lại niềm vui là fun.", "retry_vi": "Đổi funny thành fun.", "model_answer": "Playing badminton with my friends is really fun."}, "explanation_vi": "Hoạt động không nhất thiết gây cười."},
+        {"task_type": "controlled_gap", "dimension": "usage_control", "prompt": "Điền fun/funny: The show was great ___, and the host was extremely ___.", "options": [], "answer_key": {"accepted": ["fun funny"], "success_vi": "Đúng: trải nghiệm fun, người dẫn funny.", "retry_vi": "Show mang lại trải nghiệm; host làm người khác cười."}, "explanation_vi": "Danh từ chủ ngữ giúp chọn từ."},
+        {"task_type": "productive_transfer", "dimension": "productive_transfer", "prompt": "Chơi cầu lông với bạn bè là một trải nghiệm thú vị, không phải gây cười. Viết một câu dùng fun và giải thích lý do.", "options": [], "answer_key": {"required_groups": [["fun"], ["badminton"], ["friend", "friends"], ["because", "when"]], "required_frames": [[["badminton"], ["fun"], ["because", "when"]]], "maximum_gap_words": 6, "minimum_words": 9, "forbidden": ["funny", "funnily"], "success_vi": "Bạn đã dùng fun cho một trải nghiệm mang lại niềm vui.", "retry_vi": "Ngữ cảnh nói trải nghiệm thú vị: dùng fun, không dùng funny.", "model_answer": "Playing badminton with my friends is fun because we can relax together."}, "explanation_vi": "Ngữ cảnh cố định loại bỏ sự mơ hồ giữa enjoyable và humorous."}
+      ]
+    }
+  ],
+  "context_lookup_source_key": "pilot_v1",
+  "context_lookups": [
+    {"surface_scope": "reading_glossary", "term": "have an impact on", "unit_slug": "have-an-impact-on", "rationale_vi": "Đi sâu vào collocation, giới từ cố định và cách triển khai câu giải thích hệ quả.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "impact on", "unit_slug": "have-an-impact-on", "rationale_vi": "Học cách biến cụm nghĩa này thành một construction nói hoàn chỉnh và tự nhiên.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "play a role in", "unit_slug": "play-a-role-in", "rationale_vi": "Luyện article, giới từ và cách dùng cụm này để phân tích một yếu tố ảnh hưởng.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "role in", "unit_slug": "play-a-role-in", "rationale_vi": "Mở rộng từ cụm danh từ sang frame nói đầy đủ play a role in something.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "be responsible for", "unit_slug": "be-responsible-for", "rationale_vi": "Phân biệt trách nhiệm và nguyên nhân, đồng thời kiểm soát complement sau for.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "responsible for", "unit_slug": "be-responsible-for", "rationale_vi": "Học frame hoàn chỉnh để quy trách nhiệm hoặc giải thích nguyên nhân chính xác.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "spend time doing", "unit_slug": "spend-time-doing", "rationale_vi": "Luyện verb frame V-ing và chuyển cụm này thành câu trả lời Speaking có chi tiết.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "spend time", "unit_slug": "spend-time-doing", "rationale_vi": "Đi sâu vào mẫu spend time doing thay vì dừng ở nghĩa riêng lẻ của từ.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "prefer X to Y", "unit_slug": "prefer-x-to-y", "rationale_vi": "Kiểm soát hai mẫu prefer phổ biến và tránh trộn to với rather than.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "prefer", "unit_slug": "prefer-x-to-y", "rationale_vi": "Học cách đặt hai lựa chọn vào đúng frame thay vì chỉ nhớ nghĩa thích hơn.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "access to", "unit_slug": "access-to-vs-access", "rationale_vi": "Phân biệt danh từ access to với động từ access không dùng giới từ.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "access", "unit_slug": "access-to-vs-access", "rationale_vi": "Luyện chọn đúng cấu trúc danh từ hoặc động từ theo vai trò của access trong câu.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "actually", "unit_slug": "actually-vs-currently", "rationale_vi": "Tránh false friend với hiện tại và dùng actually đúng khi sửa kỳ vọng hoặc nhấn sự thật.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "currently", "unit_slug": "actually-vs-currently", "rationale_vi": "Phân biệt thời điểm hiện tại với chức năng đính chính thông tin của actually.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "convenient", "unit_slug": "convenient-vs-comfortable", "rationale_vi": "Phân biệt sự thuận tiện về thời gian, vị trí với cảm giác thoải mái.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "comfortable", "unit_slug": "convenient-vs-comfortable", "rationale_vi": "Chọn đúng từ cho cảm giác dễ chịu thay vì sự tiện lợi về hoàn cảnh.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "borrow", "unit_slug": "borrow-vs-lend", "rationale_vi": "Khóa đúng hướng chuyển đồ vật: người nhận borrow, người cho lend.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "lend", "unit_slug": "borrow-vs-lend", "rationale_vi": "Luyện vai trò người cho, người nhận và các complement tự nhiên của lend.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "say", "unit_slug": "say-tell-speak-talk", "rationale_vi": "So sánh say, tell, speak và talk theo người nghe, nội dung và ngữ cảnh.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "tell", "unit_slug": "say-tell-speak-talk", "rationale_vi": "Luyện frame tell somebody something và tránh dịch trực tiếp từ tiếng Việt.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "speak", "unit_slug": "say-tell-speak-talk", "rationale_vi": "Phân biệt hoạt động nói, ngôn ngữ và cuộc hội thoại trong nhóm động từ giao tiếp.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "talk", "unit_slug": "say-tell-speak-talk", "rationale_vi": "Học cách dùng talk với người và chủ đề thay vì hoán đổi máy móc với say hoặc tell.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "economic", "unit_slug": "economic-vs-economical", "rationale_vi": "Phân biệt điều liên quan đến nền kinh tế với điều tiết kiệm chi phí hoặc tài nguyên.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "economical", "unit_slug": "economic-vs-economical", "rationale_vi": "Luyện collocation chi phí và tránh dùng economical khi nói về nền kinh tế.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "fun", "unit_slug": "fun-vs-funny", "rationale_vi": "Phân biệt trải nghiệm thú vị với người hoặc chuyện gây cười hay kỳ lạ.", "status": "active"},
+    {"surface_scope": "reading_glossary", "term": "funny", "unit_slug": "fun-vs-funny", "rationale_vi": "Tránh dùng funny cho mọi nghĩa của từ vui và luyện ngữ cảnh tạo tiếng cười.", "status": "active"}
+  ],
+  "pathways": [
+    {
+      "pathway_slug": "build-ielts-explanations-b1",
+      "title_vi": "Xây câu giải thích Band 5 → 6.5",
+      "description_vi": "Năm construction giúp nêu tác động, yếu tố, trách nhiệm, thói quen và sở thích mà không dịch từng chữ.",
+      "target_level": "B1-B2",
+      "learner_tags": ["vietnamese", "ielts-speaking", "explanation"],
+      "units": ["have-an-impact-on", "play-a-role-in", "be-responsible-for", "spend-time-doing", "prefer-x-to-y"]
+    },
+    {
+      "pathway_slug": "vietnamese-false-friends-b1",
+      "title_vi": "Thoát bẫy từ Việt–Anh tưởng giống nhau",
+      "description_vi": "Sửa những lựa chọn từ nghe đúng theo tiếng Việt nhưng làm lệch nghĩa trong tiếng Anh.",
+      "target_level": "B1",
+      "learner_tags": ["vietnamese", "false-friends", "precision"],
+      "units": ["actually-vs-currently", "convenient-vs-comfortable", "fun-vs-funny"]
+    },
+    {
+      "pathway_slug": "control-high-frequency-frames",
+      "title_vi": "Kiểm soát frame của từ quen",
+      "description_vi": "Không học thêm từ khó; học cách dùng chính xác những từ tần suất cao dễ trộn pattern.",
+      "target_level": "B1-B2",
+      "learner_tags": ["vietnamese", "verb-patterns", "word-family"],
+      "units": ["access-to-vs-access", "borrow-vs-lend", "say-tell-speak-talk", "economic-vs-economical"]
+    }
+  ]
+}

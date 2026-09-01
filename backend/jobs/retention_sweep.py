@@ -67,7 +67,10 @@ def _eligible(purged_col: str, days: int, expiry_key: str) -> list[dict]:
     cutoff = _cutoff_iso(days)
     rows = (
         supabase_admin.table("sessions")
-        .select("id, user_id, started_at, last_accessed_at, audio_purged_at, content_purged_at")
+        .select(
+            "id, user_id, status, started_at, resume_expires_at, "
+            "last_accessed_at, audio_purged_at, content_purged_at"
+        )
         .is_(purged_col, "null")
         .lt("started_at", cutoff)
         .execute()
@@ -96,6 +99,33 @@ def _storage_remove(paths: list[str]) -> None:
 
 # ── Per-session purges ─────────────────────────────────────────────────────────
 
+def _retire_expired_open_session(session: dict) -> None:
+    """Make an ancient open row terminal before response-retention writes.
+
+    Migration 224 deliberately rejects response mutations on an expired
+    ``in_progress`` Speaking player. Retention is not learner activity, but it
+    still updates the same child rows. A 15/60-day session is far beyond the
+    24-hour hard player TTL, so the truthful parent transition is ``abandoned``
+    before scrubbing. Missing/malformed/future expiry fails closed instead of
+    weakening the database guard.
+    """
+    if session.get("status") != "in_progress":
+        return
+    raw_expiry = session.get("resume_expires_at")
+    try:
+        expiry = datetime.fromisoformat(str(raw_expiry).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        raise RuntimeError("open retention candidate has invalid resume_expires_at")
+    if expiry.tzinfo is None or expiry.utcoffset() is None:
+        raise RuntimeError("open retention candidate has naive resume_expires_at")
+    if expiry > datetime.now(timezone.utc):
+        raise RuntimeError("open retention candidate is still resumable")
+
+    supabase_admin.table("sessions").update({
+        "status": "abandoned",
+    }).eq("id", session["id"]).eq("status", "in_progress").execute()
+    session["status"] = "abandoned"
+
 def _purge_audio(session: dict) -> int:
     """Storage-first (orphan-safe): capture paths → remove files → scrub audio
     columns → stamp audio_purged_at. Returns the number of objects removed."""
@@ -105,12 +135,13 @@ def _purge_audio(session: dict) -> int:
         return len(paths)
     if paths:
         _storage_remove(paths)             # 1. delete files first
+    _retire_expired_open_session(session)  # 2. make TTL-expired player terminal
     supabase_admin.table("responses").update(
         {"audio_url": None, "audio_storage_path": None}
-    ).eq("session_id", sid).execute()      # 2. scrub audio columns
+    ).eq("session_id", sid).execute()      # 3. scrub audio columns
     supabase_admin.table("sessions").update(
         {"audio_purged_at": _now_iso()}
-    ).eq("id", sid).execute()              # 3. stamp completion
+    ).eq("id", sid).execute()              # 4. stamp completion
     return len(paths)
 
 
@@ -120,6 +151,7 @@ def _purge_content(session: dict) -> None:
     sid = session["id"]
     if DRY_RUN:
         return
+    _retire_expired_open_session(session)
     supabase_admin.table("responses").update({
         "transcript":            None,
         "raw_transcript_text":   None,

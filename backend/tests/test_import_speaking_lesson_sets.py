@@ -341,6 +341,57 @@ def test_a_part_outside_1_to_3_is_refused_before_any_write(tmp_path):
     assert db.writes == []
 
 
+def test_part_2_requires_a_complete_cue_card_before_any_write(tmp_path):
+    db = _DB(courses=[_COURSE])
+    cue = {
+        "order_num": 1,
+        "question_text": "Describe a memorable journey.",
+        "question_type": "cuecard",
+        "cue_card_bullets": ["where you went", "who you went with"],
+        "cue_card_reflection": "and explain why you remember it.",
+    }
+    assert _run(tmp_path, db, _doc(part=2, questions=[cue]), "--commit") == 0
+    stored = db.tables["speaking_lesson_set_questions"][0]
+    assert stored["cue_card_bullets"] == cue["cue_card_bullets"]
+    assert stored["cue_card_reflection"] == cue["cue_card_reflection"]
+
+
+@pytest.mark.parametrize("patch", [
+    {"question_type": "personal"},
+    {"cue_card_bullets": []},
+    {"cue_card_bullets": ["where", "  "]},
+    {"cue_card_reflection": ""},
+])
+def test_incomplete_part_2_cue_cards_are_refused_before_any_write(tmp_path, patch):
+    db = _DB(courses=[_COURSE])
+    cue = {
+        "order_num": 1,
+        "question_text": "Describe a memorable journey.",
+        "question_type": "cuecard",
+        "cue_card_bullets": ["where you went"],
+        "cue_card_reflection": "and explain why you remember it.",
+        **patch,
+    }
+    with pytest.raises(SystemExit):
+        _run(tmp_path, db, _doc(part=2, questions=[cue]), "--commit")
+    assert db.writes == []
+
+
+def test_course_3_lesson_3_source_has_four_part1_and_two_complete_part2_cards():
+    content = mod.Path(mod.__file__).parents[1] / "content" / "speaking_lessons"
+    part1 = mod._load(content / "c3_lesson03_part1.json")
+    part2 = mod._load(content / "c3_lesson03_part2.json")
+
+    assert (part1["course_code"], part1["lesson_no"], part1["part"]) == ("C3", 3, 1)
+    assert (part2["course_code"], part2["lesson_no"], part2["part"]) == ("C3", 3, 2)
+    assert len(mod._normalise_questions(part1)) == 4
+    cards = mod._normalise_questions(part2)
+    assert len(cards) == 2
+    assert all(q["question_type"] == "cuecard" for q in cards)
+    assert all(len(q["cue_card_bullets"]) == 3 for q in cards)
+    assert all(q["cue_card_reflection"] for q in cards)
+
+
 # ── Vòng review 2 (inline PR #921) ───────────────────────────────────────────
 
 def _touched(db, table):

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "rollback_floor_sha": "eacba4f3bc822f72e6685b9543507b7c7b3035fb",
+  "previous_phase_run_id": "32093601359",
+  "previous_legacy_attempt_id": null,
+  "previous_legacy_test_id": null,
+  "previous_next_attempt_id": "6f67fa07-a3f6-4973-99aa-2ccffea70918",
+  "previous_next_test_id": "ee300001-0000-4000-8000-000000000001"
+}

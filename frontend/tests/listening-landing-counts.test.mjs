@@ -224,11 +224,9 @@ describe('listening-browse — modeLinksHtml', () => {
   });
 
   it('shows an honest note instead of four dead links when nothing exists', () => {
-    for (const item of [{ id: 'x', available_modes: [] }, { id: 'x' }]) {
-      const html = browse.modeLinksHtml(item);
-      assert.match(html, /Chưa có dạng luyện nào/);
-      assert.doesNotMatch(html, /<a /, 'no link may be rendered');
-    }
+    const html = browse.modeLinksHtml({ id: 'x', available_modes: [] });
+    assert.match(html, /Chưa có dạng luyện nào/);
+    assert.doesNotMatch(html, /<a /, 'no link may be rendered');
   });
 
   it('escapes the content id into the href', () => {
@@ -246,15 +244,21 @@ describe('listening-browse — lookup failure must not read as no-data', () => {
     browse = await import('../js/listening-browse.js');
   });
 
-  it('null available_modes renders a warning, not "chưa có dạng luyện nào"', () => {
+  it('null, missing or malformed available_modes renders a warning', () => {
     // The backend sets null when the listening_exercises read threw. An empty
     // list there would be indistinguishable from genuine no-data, dressing a
     // DB fault up as canonical truth — the same trap the access-code endpoints
     // avoid with association_lookup_failed.
-    const html = browse.modeLinksHtml({ id: 'x', available_modes: null });
-    assert.match(html, /Không đọc được/);
-    assert.doesNotMatch(html, /Chưa có dạng luyện nào/);
-    assert.doesNotMatch(html, /<a /);
+    for (const item of [
+      { id: 'x', available_modes: null },
+      { id: 'x' },
+      { id: 'x', available_modes: 'dictation' },
+    ]) {
+      const html = browse.modeLinksHtml(item);
+      assert.match(html, /Không đọc được/);
+      assert.doesNotMatch(html, /Chưa có dạng luyện nào/);
+      assert.doesNotMatch(html, /<a /);
+    }
   });
 
   it('an empty array still means genuine no-data', () => {
@@ -438,7 +442,7 @@ describe('shared player knows the practice library', () => {
     // `practice` back target above stays as a safety net for links minted
     // before the switch — it is no longer the path the library takes.
     const js = read('js', 'listening-practice.js');
-    assert.match(js, /\/pages\/listening-practice-run\.html\?id=/);
+    assert.match(js, /\/listening\/practice-run\?id=/);
     assert.doesNotMatch(js, /listening-test\.html/,
       'the practice library must not send learners into the full-test player');
   });

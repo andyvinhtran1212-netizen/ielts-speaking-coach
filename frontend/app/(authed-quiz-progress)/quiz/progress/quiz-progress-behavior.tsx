@@ -10,6 +10,7 @@ import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { parseCourseExplanation } from '../../../../public/js/course-explanation-format.js';
 
 interface ProgressTotals {
   sessions?: number;
@@ -99,6 +100,58 @@ function FormattedText({ value }: { value?: string | null }) {
   });
 }
 
+type ExplanationBlock =
+  | { kind: 'paragraph'; text: string }
+  | { kind: 'lead'; text: string }
+  | { kind: 'unordered-list'; items: string[]; legacy?: boolean }
+  | { kind: 'ordered-list'; items: string[] };
+
+// Explanation và prompt có contract khác nhau: prompt hỗ trợ chỗ trống,
+// explanation hỗ trợ block/list nhưng không nhận HTML. React escape toàn bộ
+// text; parser chung chỉ quyết định cấu trúc và giữ **nhãn** dưới dạng data.
+function ExplanationInline({ value }: { value: string }) {
+  return value.split(/(\*\*[^*]+\*\*)/g).map((part, index): ReactNode => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong className="course-explain__emphasis" key={index}>{part.slice(2, -2)}</strong>;
+    }
+    return <Fragment key={index}>{part}</Fragment>;
+  });
+}
+
+function ExplanationBlocks({ value }: { value: string }) {
+  const blocks = parseCourseExplanation(value) as ExplanationBlock[];
+  return (
+    <div className="course-explain">
+      {blocks.map((block, index) => {
+        if (block.kind === 'ordered-list') {
+          return (
+            <ol className="course-explain__list" key={index}>
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}><ExplanationInline value={item} /></li>
+              ))}
+            </ol>
+          );
+        }
+        if (block.kind === 'unordered-list') {
+          const className = `course-explain__list${block.legacy ? ' course-explain__list--legacy' : ''}`;
+          return (
+            <ul className={className} key={index}>
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}><ExplanationInline value={item} /></li>
+              ))}
+            </ul>
+          );
+        }
+        const className = block.kind === 'lead'
+          ? 'course-explain__lead' : 'course-explain__paragraph';
+        return (
+          <p className={className} key={index}><ExplanationInline value={block.text} /></p>
+        );
+      })}
+    </div>
+  );
+}
+
 function StatCard({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="av-card pg-stat">
@@ -125,13 +178,13 @@ function MistakeQuestionView({ question }: { question: MistakeQuestion }) {
     <div className="pg-mk__q">
       <div className="pg-mk__prompt"><FormattedText value={question.prompt} /></div>
       {question.hint ? (
-        <div className="pg-mk__hint">💡 <FormattedText value={question.hint} /></div>
+        <div className="pg-mk__hint"><strong>Gợi ý</strong><span><FormattedText value={question.hint} /></span></div>
       ) : null}
       <div className="pg-mk__row">
         Bạn trả lời:{' '}
         <span className="pg-mk__ans is-wrong">
           <FormattedText value={question.your_answer} />
-        </span>{' '}✗
+        </span>{' '}<span className="pg-mk__wrong-label">Chưa đúng</span>
         {(question.wrong_times || 0) > 1 ? (
           <span className="pg-mk__meta"> (sai {question.wrong_times} lần)</span>
         ) : null}
@@ -145,26 +198,35 @@ function MistakeQuestionView({ question }: { question: MistakeQuestion }) {
         </div>
       ) : null}
       {question.explain ? (
-        <div className="pg-mk__explain"><FormattedText value={question.explain} /></div>
+        <div className="pg-mk__explain"><ExplanationBlocks value={question.explain} /></div>
       ) : null}
       {articleUrl ? (
         <div className="pg-mk__row">
-          <a href={articleUrl} target="_blank" rel="noopener noreferrer">📖 Ôn lại bài</a>
+          <a href={articleUrl} target="_blank" rel="noopener noreferrer">Ôn lại bài <span aria-hidden="true">→</span></a>
         </div>
       ) : null}
     </div>
   );
 }
 
-function MistakesSection({ data, error }: { data: MistakesPayload | null; error: string | null }) {
+function MistakesSection({ data, error, onRetry }: {
+  data: MistakesPayload | null;
+  error: string | null;
+  onRetry: () => void;
+}) {
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
 
-  if (error) return <p className="pg-empty">Không tải được danh sách câu sai: {error}</p>;
+  if (error) return (
+    <div className="pg-state is-error" role="alert">
+      <div><strong>Chưa tải được câu cần ôn</strong><p>Phần tổng quan vẫn dùng được. Hãy thử tải riêng danh sách này.</p></div>
+      <button type="button" onClick={onRetry}>Thử lại</button>
+    </div>
+  );
   if (!data) return <p className="pg-empty">Đang tải câu trả lời sai…</p>;
 
   const items = data.items || [];
   if (!items.length) {
-    return <p className="pg-empty">🎉 Chưa có câu nào bị sai — hoặc bạn chưa làm bài nào.</p>;
+    return <div className="pg-state"><div><strong>Chưa có câu nào cần ôn</strong><p>Làm một bài luyện để bắt đầu xây lịch sử học tập.</p></div></div>;
   }
 
   return (
@@ -194,7 +256,7 @@ function MistakesSection({ data, error }: { data: MistakesPayload | null; error:
                 <span className="pg-mk__meta" style={{ fontWeight: 400 }}>{item.code || ''}</span>
               </span>
               <span className="pg-mk__meta">
-                {fixed ? '✓ đã thuộc · ' : ''}{item.questions.length} câu sai {isOpen ? '▴' : '▾'}
+                {fixed ? 'Đã thuộc · ' : ''}{item.questions.length} câu sai · {isOpen ? 'Thu gọn' : 'Mở'}
               </span>
             </button>
             <div id={bodyId} className={`pg-mk__body${isOpen ? '' : ' hidden'}`}>
@@ -222,59 +284,76 @@ function ProgressContent({ progress, children }: {
 
   return (
     <>
-      <div className="pg-stats">
-        <StatCard label="Tổng thời gian">{formatDuration(totals.time_sec)}</StatCard>
-        <StatCard label="Số phiên">{totals.sessions || 0}</StatCard>
-        <StatCard label="Từ đã thuộc">{totals.words_mastered || 0}<small>từ</small></StatCard>
-        <StatCard label="Độ chính xác TB">{formatPercent(totals.avg_accuracy)}</StatCard>
-      </div>
+      <nav className="pg-jump" aria-label="Nội dung thống kê">
+        <a href="#tong-quan">Tổng quan</a>
+        <a href="#can-on">Cần ôn</a>
+        <a href="#lich-su">Lịch sử</a>
+      </nav>
 
-      <h2 className="pg-h2">Theo bộ</h2>
-      <div>
-        {banks.length ? banks.map((bank) => {
-          const total = bank.words_count || bank.mastered + bank.in_progress || 0;
-          const width = total ? Math.round(bank.mastered / total * 100) : 0;
-          return (
-            <div className="av-card pg-bank" key={bank.bank_id}>
-              <div className="pg-bank__row">
-                <span className="pg-bank__name">
-                  {bank.code || ''}{' '}
-                  <span className="pg-bank__meta" style={{ fontWeight: 400 }}>{bank.title || ''}</span>
-                </span>
-                <span className="pg-bank__meta">Đã thuộc {bank.mastered}/{total}</span>
+      <section className="pg-section" id="tong-quan">
+        <div className="pg-section__head">
+          <div><p>Tổng quan</p><h2>Nhịp học của bạn</h2></div>
+          <span>Dữ liệu toàn thời gian</span>
+        </div>
+        <div className="pg-stats">
+          <StatCard label="Tổng thời gian">{formatDuration(totals.time_sec)}</StatCard>
+          <StatCard label="Số phiên">{totals.sessions || 0}</StatCard>
+          <StatCard label="Từ đã thuộc">{totals.words_mastered || 0}<small>từ</small></StatCard>
+          <StatCard label="Độ chính xác TB">{formatPercent(totals.avg_accuracy)}</StatCard>
+        </div>
+
+        <h3 className="pg-h3">Tiến độ theo bộ</h3>
+        <div className="pg-bank-list">
+          {banks.length ? banks.map((bank) => {
+            const total = bank.words_count || bank.mastered + bank.in_progress || 0;
+            const width = total ? Math.round(bank.mastered / total * 100) : 0;
+            return (
+              <div className="pg-bank" key={bank.bank_id}>
+                <div className="pg-bank__row">
+                  <span className="pg-bank__name">
+                    {bank.code || ''}{' '}
+                    <span className="pg-bank__meta">{bank.title || ''}</span>
+                  </span>
+                  <span className="pg-bank__meta">Đã thuộc {bank.mastered}/{total}</span>
+                </div>
+                <div className="pg-track" role="progressbar" aria-label={`Tiến độ ${bank.code || bank.title || 'bộ bài'}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={width}>
+                  <div className="pg-bar" style={{ width: `${width}%` }} />
+                </div>
               </div>
-              <div className="pg-track" role="progressbar" aria-label={`Tiến độ ${bank.code || bank.title || 'bộ bài'}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={width}>
-                <div className="pg-bar" style={{ width: `${width}%` }} />
-              </div>
-            </div>
-          );
-        }) : <p className="pg-empty">Chưa có dữ liệu. Hãy làm một bài Quick-Check để bắt đầu.</p>}
-      </div>
+            );
+          }) : <p className="pg-empty">Chưa có dữ liệu. Hãy làm một bài luyện nhanh để bắt đầu.</p>}
+        </div>
+      </section>
 
       {children}
 
-      <h2 className="pg-h2">Phiên gần đây</h2>
-      <div>
+      <section className="pg-section" id="lich-su">
+        <div className="pg-section__head">
+          <div><p>Lịch sử</p><h2>Phiên gần đây</h2></div>
+          <span>{sessions.length} phiên hiển thị</span>
+        </div>
         {sessions.length ? (
-          <table className="pg-sess">
-            <thead><tr><th>Bộ</th><th>Chính xác</th><th>Đã thuộc</th><th>Thời gian</th><th>Kết thúc</th></tr></thead>
-            <tbody>
-              {sessions.map((session, index) => (
-                <tr key={`${session.ended_at || 'session'}:${index}`}>
-                  <td>{session.code || ''}</td>
-                  <td>{formatPercent(session.accuracy)}</td>
-                  <td>{session.words_mastered || 0}</td>
-                  <td>{session.duration_sec ? formatDuration(session.duration_sec) : '—'}</td>
-                  <td>
-                    {(session.ended_at || '').slice(0, 10)}
-                    {session.ended_by === 'paused' ? <>{' '}<span className="av-badge av-badge-warning">tạm dừng</span></> : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="pg-sess-wrap">
+            <table className="pg-sess">
+              <thead><tr><th>Bộ</th><th>Chính xác</th><th>Đã thuộc</th><th>Thời gian</th><th>Kết thúc</th></tr></thead>
+              <tbody>
+                {sessions.map((session, index) => (
+                  <tr key={`${session.ended_at || 'session'}:${index}`}>
+                    <td data-label="Bộ">{session.code || '—'}</td>
+                    <td data-label="Chính xác">{formatPercent(session.accuracy)}</td>
+                    <td data-label="Đã thuộc">{session.words_mastered || 0}</td>
+                    <td data-label="Thời gian">{session.duration_sec ? formatDuration(session.duration_sec) : '—'}</td>
+                    <td data-label="Kết thúc">
+                      {(session.ended_at || '').slice(0, 10) || '—'}
+                      {session.ended_by === 'paused' ? <>{' '}<span className="av-badge av-badge-warning">tạm dừng</span></> : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : <p className="pg-empty">Chưa có phiên nào.</p>}
-      </div>
+      </section>
     </>
   );
 }
@@ -282,16 +361,19 @@ function ProgressContent({ progress, children }: {
 function PageFrame({ children, skill }: { children: ReactNode; skill: string }) {
   const grammar = skill === 'grammar';
   return (
-    <main className="av-w-read pg-shell">
+    <main className="shell pg-shell">
       <header className="subpage-header">
         <div className="subpage-header__lhs">
-          <a className="subpage-header__back" href={grammar ? '/grammar' : '/pages/vocab-practice.html'}>
+          <a className="subpage-header__back" href={grammar ? '/grammar' : '/vocabulary/practice'}>
             <span aria-hidden="true">←</span><span>{grammar ? 'Grammar' : 'Luyện tập'}</span>
           </a>
         </div>
       </header>
-      <h1 className="pg-title">📊 Thống kê luyện tập</h1>
-      <p className="pg-sub">Tổng hợp kết quả Quick-Check của bạn.</p>
+      <section className="pg-hero">
+        <p className="pg-eyebrow">Tiến độ cá nhân</p>
+        <h1 className="pg-title">Học đúng phần bạn còn thiếu</h1>
+        <p className="pg-sub">Theo dõi nhịp luyện, quay lại câu còn sai và nhìn rõ những gì đã thực sự ghi nhớ.</p>
+      </section>
       {children}
     </main>
   );
@@ -318,6 +400,8 @@ export function QuizProgressBehavior() {
   const [mistakesErrorState, setMistakesErrorState] = useState<{
     key: string; value: string;
   } | null>(null);
+  const [reloadVersion, setReloadVersion] = useState(0);
+  const [mistakesReloadVersion, setMistakesReloadVersion] = useState(0);
 
   // State cũ không được render trong frame giữa lúc account/search param đã
   // đổi nhưng effect mới chưa kịp chạy.
@@ -334,7 +418,7 @@ export function QuizProgressBehavior() {
       setProgressErrorState(null);
       setMistakesState(null);
       setMistakesErrorState(null);
-      window.location.replace('/login.html');
+      window.location.replace('/login');
     }
   }, [status]);
 
@@ -345,8 +429,6 @@ export function QuizProgressBehavior() {
     let disposed = false;
     setProgressState(null);
     setProgressErrorState(null);
-    setMistakesState(null);
-    setMistakesErrorState(null);
 
     (async () => {
       const ready = await whenGlobalReady(
@@ -361,10 +443,9 @@ export function QuizProgressBehavior() {
         return;
       }
 
-      const query = queryFor(skill);
       try {
         const payload = await window.api.getWith<QuizProgressPayload>(
-          `/api/quiz/progress${query}`,
+          `/api/quiz/progress${queryFor(skill)}`,
           undefined,
           { signal: controller.signal },
         );
@@ -372,23 +453,10 @@ export function QuizProgressBehavior() {
         setProgressState({ key: requestKey, value: payload });
       } catch (error: any) {
         if (error?.name !== 'AbortError' && !disposed) {
-          setProgressErrorState({ key: requestKey, value: error?.message || String(error) });
-        }
-        return;
-      }
-
-      // Mistakes là enrichment độc lập: lỗi ở endpoint này không được xoá phần
-      // tổng hợp đã tải thành công.
-      try {
-        const payload = await window.api.getWith<MistakesPayload>(
-          `/api/quiz/mistakes${query}`,
-          undefined,
-          { signal: controller.signal },
-        );
-        if (!disposed && payload != null) setMistakesState({ key: requestKey, value: payload });
-      } catch (error: any) {
-        if (error?.name !== 'AbortError' && !disposed) {
-          setMistakesErrorState({ key: requestKey, value: error?.message || String(error) });
+          setProgressErrorState({
+            key: requestKey,
+            value: 'Không tải được thống kê. Vui lòng thử lại.',
+          });
         }
       }
     })();
@@ -397,19 +465,73 @@ export function QuizProgressBehavior() {
       disposed = true;
       controller.abort();
     };
-  }, [requestKey, skill]);
+  }, [requestKey, skill, reloadVersion]);
+
+  useEffect(() => {
+    if (!requestKey) return;
+
+    const controller = new AbortController();
+    let disposed = false;
+    setMistakesState(null);
+    setMistakesErrorState(null);
+
+    (async () => {
+      const ready = await whenGlobalReady(
+        () => !!window.api?.getWith,
+        'window.api (quiz mistakes)',
+      );
+      if (!ready || disposed) {
+        if (!disposed) setMistakesErrorState({ key: requestKey, value: 'load-failed' });
+        return;
+      }
+
+      // Mistakes là enrichment độc lập: lỗi và retry ở endpoint này không được
+      // xoá hoặc refetch phần tổng hợp đã tải thành công.
+      try {
+        const payload = await window.api.getWith<MistakesPayload>(
+          `/api/quiz/mistakes${queryFor(skill)}`,
+          undefined,
+          { signal: controller.signal },
+        );
+        if (!disposed && payload != null) setMistakesState({ key: requestKey, value: payload });
+      } catch (error: any) {
+        if (error?.name !== 'AbortError' && !disposed) {
+          setMistakesErrorState({ key: requestKey, value: 'load-failed' });
+        }
+      }
+    })();
+
+    return () => {
+      disposed = true;
+      controller.abort();
+    };
+  }, [requestKey, skill, mistakesReloadVersion]);
 
   return (
     <PageFrame skill={skill}>
       {status === 'initial-loading' || (status === 'signed-in' && !progress && !progressError) ? (
         <p className="pg-empty">Đang tải…</p>
       ) : null}
-      {progressError ? <p className="pg-err">Không tải được thống kê: {progressError}</p> : null}
+      {progressError ? (
+        <div className="pg-state is-error" role="alert">
+          <div><strong>Chưa tải được thống kê</strong><p>{progressError}</p></div>
+          <button type="button" onClick={() => setReloadVersion((value) => value + 1)}>Thử lại</button>
+        </div>
+      ) : null}
       {progress ? (
         <ProgressContent progress={progress}>
-          <h2 className="pg-h2">Câu tôi đã trả lời sai</h2>
-          <p className="pg-sub">Bấm vào một từ để xem lại câu hỏi, đáp án bạn đã chọn và đáp án đúng.</p>
-          <MistakesSection key={requestKey} data={mistakes} error={mistakesError} />
+          <section className="pg-section" id="can-on">
+            <div className="pg-section__head">
+              <div><p>Cần ôn</p><h2>Câu bạn từng trả lời sai</h2></div>
+              <span>Mở từng từ để xem đáp án</span>
+            </div>
+            <MistakesSection
+              key={`${requestKey}:${mistakesReloadVersion}`}
+              data={mistakes}
+              error={mistakesError}
+              onRetry={() => setMistakesReloadVersion((value) => value + 1)}
+            />
+          </section>
         </ProgressContent>
       ) : null}
     </PageFrame>

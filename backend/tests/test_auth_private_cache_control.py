@@ -79,3 +79,30 @@ def test_private_auth_responses_are_no_store(client, path):
     res = client.get(path, headers={"Authorization": "Bearer x"})
     assert res.status_code == 200, res.text
     assert res.headers.get("cache-control") == "private, no-store"
+
+
+@pytest.mark.parametrize(
+    ("cohort_enabled", "runtime_enabled", "expected"),
+    [
+        (True, True, True),
+        (True, False, False),
+        (False, True, False),
+        (False, False, False),
+    ],
+)
+def test_auth_me_vocab_curated_requires_both_rollout_keys(
+    client, monkeypatch, cohort_enabled, runtime_enabled, expected,
+):
+    auth_module.supabase_admin._row["feature_flags"] = {
+        "vocab_curated_enabled": cohort_enabled,
+    }
+
+    def _runtime_flag(key, *, default=False):
+        assert key == "vocab_units_read"
+        assert default is False
+        return runtime_enabled
+
+    monkeypatch.setattr(auth_module.runtime_flags, "is_enabled", _runtime_flag)
+    res = client.get("/auth/me", headers={"Authorization": "Bearer x"})
+    assert res.status_code == 200, res.text
+    assert res.json()["vocab_curated_enabled"] is expected

@@ -126,7 +126,7 @@ function renderCompareLinks(compareWith: string[], slug: string): string {
   return compareWith
     .map((otherSlug) => {
       const compareSlug = `${slug}-vs-${otherSlug}`;
-      const url = `/pages/grammar-compare.html?slug=${encodeURIComponent(compareSlug)}`;
+      const url = `/grammar/compare?slug=${encodeURIComponent(compareSlug)}`;
       const otherDisplay = otherSlug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       return `<a href="${url}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal/25 bg-teal/[0.06] text-sm text-teal-light hover:border-teal/50 hover:bg-teal/[0.12] transition-all">So sánh với ${escapeHtml(otherDisplay)} →</a>`;
     })
@@ -152,6 +152,7 @@ function renderNextArticles(articles: ArticleLink[]): string {
  */
 export function ArticleShell({ article }: { article: GrammarArticle }) {
   const isUpdating = article.status === 'updating';
+  const hasTOC = !isUpdating && Boolean(article.toc?.length);
 
   // Build article meta spans (reading_time, word_count, last_updated) — exact format from grammar.js lines 688–692
   let metaHtml = `<span>${article.reading_time || 1} phút đọc</span>`;
@@ -217,6 +218,22 @@ export function ArticleShell({ article }: { article: GrammarArticle }) {
                 dangerouslySetInnerHTML={{ __html: metaHtml }}
               />
             </div>
+
+            {/* On narrow screens the desktop rail is unavailable. Keep the
+                same server-rendered anchors in a compact, keyboard-native
+                disclosure instead of removing navigation altogether. */}
+            {hasTOC && (
+              <details className="gw-mobile-toc lg:hidden mb-8">
+                <summary>
+                  <span>Mục lục bài học</span>
+                  <span className="gw-mobile-toc-count">{article.toc?.length} mục</span>
+                </summary>
+                <div
+                  id="mobile-toc-container"
+                  dangerouslySetInnerHTML={{ __html: renderTOC(article.toc || []) }}
+                />
+              </details>
+            )}
 
             {/* Article body (grammar.js line 709–725: bodyEl.innerHTML = article.html or updating message) */}
             <div
@@ -290,8 +307,8 @@ export function ArticleShell({ article }: { article: GrammarArticle }) {
           </article>
 
           {/* TOC sidebar (grammar.js line 702: renderTOC, hidden for updating articles) */}
-          {!isUpdating && (
-            <aside className="hidden lg:block w-56 flex-shrink-0">
+          {hasTOC && (
+            <aside className="toc-rail hidden lg:block w-56 flex-shrink-0">
               <div className="toc-sidebar">
                 <div
                   id="toc-container"
@@ -314,7 +331,7 @@ export function ArticleShell({ article }: { article: GrammarArticle }) {
             Luyện IELTS Speaking với AI — nhận feedback ngay lập tức
           </p>
           <a
-            href="/login.html"
+            href="/login"
             className="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-teal text-white hover:bg-teal-light transition-colors whitespace-nowrap"
           >
             Dùng thử miễn phí →
@@ -350,7 +367,7 @@ export function ArticleShell({ article }: { article: GrammarArticle }) {
           </p>
           <div className="flex flex-col gap-2">
             <a
-              href="/login.html"
+              href="/login"
               className="block w-full py-2.5 rounded-xl text-sm font-semibold bg-teal text-white hover:bg-teal-light transition-colors"
             >
               Luyện Speaking ngay

@@ -24,6 +24,7 @@
 import { useEffect, useRef } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import {
   CUE_CARD_HINT_DEFAULT_HTML, CUE_CARD_HINT_PART2_HTML,
@@ -32,8 +33,7 @@ import {
   cueCardLengthWarning, greetingName, hasPermission,
 } from '@/lib/speaking-copy.mjs';
 
-const PRACTICE_URL = '/pages/practice.html';
-const LOGIN_URL = '/login.html';
+const LOGIN_URL = '/login';
 
 const $ = (id: string) => document.getElementById(id);
 const val = (id: string) => ($(id) as HTMLInputElement | HTMLTextAreaElement | null)?.value ?? '';
@@ -252,7 +252,7 @@ function sessionIdOf(s: any): string | null {
 }
 
 function goToPractice(sessionId: string) {
-  window.location.href = PRACTICE_URL + '?session_id=' + sessionId;
+  window.location.href = admitCorePlayer('speaking', { session_id: sessionId });
 }
 
 // ── Modal chủ đề ────────────────────────────────────────────────────────────
@@ -269,12 +269,24 @@ function switchTopicTab(tab: State['activeTopicTab'], st: State) {
   if (err) err.textContent = '';
 }
 
+let topicModalTrigger: HTMLElement | null = null;
+
 function closeTopicModal() {
-  $('topic-modal')?.classList.remove('open');
+  const modal = $('topic-modal');
+  modal?.classList.remove('open');
+  modal?.setAttribute('aria-hidden', 'true');
+  if (modal) {
+    modal.inert = true;
+    modal.hidden = true;
+  }
   document.body.style.overflow = '';
+  topicModalTrigger?.focus();
+  topicModalTrigger = null;
 }
 
 async function openTopicModal(part: number, mode: string, st: State, api: any) {
+  topicModalTrigger = document.activeElement instanceof HTMLElement
+    ? document.activeElement : null;
   st.modalPart = part;
   st.modalMode = mode || 'practice';
 
@@ -293,8 +305,15 @@ async function openTopicModal(part: number, mode: string, st: State, api: any) {
     select.innerHTML = '<option value="" disabled selected>— Đang tải danh sách... —</option>';
     select.disabled = true;
   }
-  $('topic-modal')?.classList.add('open');
+  const modal = $('topic-modal');
+  if (modal) {
+    modal.hidden = false;
+    modal.inert = false;
+    modal.setAttribute('aria-hidden', 'false');
+    modal.classList.add('open');
+  }
   document.body.style.overflow = 'hidden';
+  ($('modal-close') as HTMLButtonElement | null)?.focus();
 
   try {
     const topics = await api.get('/topics?part=' + part);
@@ -424,7 +443,7 @@ export function SpeakingBehavior() {
 
   // Cổng fail-closed (ADR-011): rời trang bằng replace() để nút Back không dựng
   // lại trang riêng tư từ lịch sử. Bản legacy tương ứng: `requireAuth()` đẩy về
-  // `../login.html` khi không có phiên.
+  // `../login` khi không có phiên.
   useEffect(() => {
     if (status === 'signed-out') window.location.replace(LOGIN_URL);
   }, [status]);
@@ -489,6 +508,35 @@ export function SpeakingBehavior() {
       // ── Modal chủ đề ────────────────────────────────────────────────────
       on($('topic-modal'), 'click', (e: any) => {
         if (e.target === $('topic-modal')) closeTopicModal();
+      });
+      on(document, 'keydown', (e: KeyboardEvent) => {
+        const modal = $('topic-modal');
+        if (!modal || !modal.classList.contains('open')) return;
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          closeTopicModal();
+          return;
+        }
+        if (e.key !== 'Tab') return;
+        const focusable = Array.from(modal.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), select:not([disabled]), input:not([disabled]), '
+          + 'textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+        )).filter((el) => !el.hidden && el.getAttribute('aria-hidden') !== 'true'
+          && getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden');
+        if (!focusable.length) {
+          e.preventDefault();
+          modal.querySelector<HTMLElement>('[role="dialog"]')?.focus();
+          return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       });
       // Modal chỉ có MỘT nút đóng trong bản legacy — không có nút "Huỷ" riêng.
       // Bản đầu của tệp này gắn thêm `modal-cancel`, một id không tồn tại ở đâu

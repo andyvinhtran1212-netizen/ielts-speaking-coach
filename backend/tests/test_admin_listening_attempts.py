@@ -64,6 +64,8 @@ class _Q:
         return self._or_match(r)
 
     def execute(self):
+        if self.name in self.fake.fail_tables:
+            raise RuntimeError(f"forced lookup failure: {self.name}")
         rows = [r for r in self.fake.tables.get(self.name, []) if self._match(r)]
         total = len(rows)
         if self._range:
@@ -77,6 +79,7 @@ class _Fake:
         self.tables: dict[str, list] = {
             "listening_test_attempts": [], "listening_tests": [], "users": [],
         }
+        self.fail_tables: set[str] = set()
 
     def table(self, name): return _Q(self, name)
 
@@ -151,6 +154,12 @@ def test_list_joins_identity_and_computes_duration_accuracy(fake):
     assert "grading_details" not in it              # list KHÔNG mang payload nặng
 
 
+def test_list_accuracy_uses_python_four_decimal_rounding(fake):
+    _seed(fake, score=1, gd_n=32)
+    out = _list()
+    assert out["items"][0]["accuracy"] == 0.0312
+
+
 def test_list_filters_by_status_and_rejects_bad_values(fake):
     _seed(fake, status="submitted")
     _seed(fake, status="abandoned")
@@ -174,7 +183,11 @@ def test_list_user_query_matches_email_or_name(fake):
     assert out["total"] == 1 and out["items"][0]["user"]["id"] == "u1"
     # không khớp ai → rỗng, không đụng bảng attempts
     out2 = _list(user_query="khong-ton-tai")
-    assert out2 == {"items": [], "total": 0, "limit": 50, "offset": 0}
+    assert out2 == {
+        "items": [], "total": 0, "limit": 50, "offset": 0,
+        "association_lookup_failed": False,
+        "association_lookup_failures": [],
+    }
 
 
 def test_list_test_type_filter_resolves_test_ids(fake):
@@ -212,6 +225,18 @@ def test_list_practice_filter_resolves_test_ids(fake):
     assert out["items"][0]["test"]["test_type"] == "practice"
 
 
+def test_list_exposes_join_failure_instead_of_claiming_association_is_empty(fake):
+    _seed(fake)
+    fake.fail_tables.add("users")
+
+    out = _list()
+
+    assert out["association_lookup_failed"] is True
+    assert out["association_lookup_failures"] == ["users"]
+    assert out["items"][0]["user"]["id"] == "u1"
+    assert out["items"][0]["user"]["email"] is None
+
+
 # ── Detail ─────────────────────────────────────────────────────────────────
 
 
@@ -225,6 +250,21 @@ def test_detail_returns_grading_details_and_traps(fake):
     assert out["trap_analytics"]["trap_mechanism"]["caught"] == 2
     assert out["band_estimate"] == 6.5
     assert out["duration_seconds"] == 750
+    assert out["association_lookup_failed"] is False
+    assert out["association_lookup_failures"] == []
+
+
+def test_detail_exposes_test_lookup_failure(fake):
+    row = _seed(fake)
+    fake.fail_tables.add("listening_tests")
+
+    out = _run(listening_router.admin_get_listening_attempt(
+        row["id"], authorization="Bearer x"))
+
+    assert out["association_lookup_failed"] is True
+    assert out["association_lookup_failures"] == ["listening_tests"]
+    assert out["test"]["id"] == row["test_id"]
+    assert out["test"]["title"] is None
 
 
 def test_detail_404_on_unknown_id(fake):

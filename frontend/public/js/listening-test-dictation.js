@@ -36,6 +36,60 @@ const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
 
 const $ = (id) => document.getElementById(id);
 
+function dictationRendererHref(renderer, testId, sectionNum) {
+  const path = renderer === 'legacy' ? '/pages/listening-test-dictation.html'
+    : renderer === 'next' ? '/listening/dictation/session' : null;
+  if (!path) throw new Error('invalid-dictation-renderer');
+  const query = new URLSearchParams({ test_id: testId, section: String(sectionNum) });
+  return `${path}?${query.toString()}`;
+}
+
+function dictationRequestId() {
+  if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+    return window.crypto.randomUUID();
+  }
+  if (!window.crypto || typeof window.crypto.getRandomValues !== 'function') {
+    throw new Error('Không tạo được mã xác nhận an toàn.');
+  }
+  const bytes = new Uint8Array(16);
+  window.crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 15) | 64;
+  bytes[8] = (bytes[8] & 63) | 128;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function normalizeAttempt(payload) {
+  const source = payload && payload.attempt === null ? null
+    : payload && (payload.attempt || payload);
+  if (!source) return null;
+  const affinity = source.renderer_affinity == null ? null : String(source.renderer_affinity);
+  if (!source.attempt_id || source.status !== 'in_progress'
+      || (affinity !== null && affinity !== 'legacy' && affinity !== 'next')) {
+    throw new Error('Lượt làm bài canonical không hợp lệ.');
+  }
+  const units = (Array.isArray(source.units) ? source.units : []).map((unit) => {
+    const text = String(unit && unit.text || '').trim();
+    if (!text) return null;
+    const start = Number(unit.start);
+    const end = Number(unit.end);
+    return {
+      text,
+      timing: Number.isFinite(start) && Number.isFinite(end) && start >= 0 && end > start
+        ? { start, end } : null,
+      hints: Array.isArray(unit.hints) ? unit.hints.map(String).filter(Boolean).slice(0, 12) : [],
+    };
+  }).filter(Boolean);
+  if (!units.length) throw new Error('Snapshot nội dung lượt làm bài không hợp lệ.');
+  const answers = (Array.isArray(source.answers) ? source.answers : []).map((answer) => ({
+    ...answer,
+    is_correct: Number(answer.score) >= 1,
+    user_text: String(answer.user_transcript || ''),
+    diff: Array.isArray(answer.diff) ? answer.diff : [],
+  }));
+  return { ...source, renderer_affinity: affinity, units, answers };
+}
+
 const STATE = {
   loading:    $('state-loading'),
   empty:      $('state-empty'),
@@ -64,6 +118,8 @@ const SESSION = {
   sentenceStartedAt: null,    // Date the current sentence began (epoch ms)
   listenCount:   0,           // audio plays for the CURRENT sentence (resets per sentence)
   report:        null,        // server report from POST .../dictation/session
+  attemptId:     null,        // canonical in-progress run (migration 220)
+  sectionRun:    0,           // discard stale async section boots
 };
 
 
@@ -149,9 +205,9 @@ async function loadTest(testId, wantSection) {
       : -1;
 
     if (wantedIdx >= 0) {
-      startSection(wantedIdx);
+      await startSection(wantedIdx);
     } else if (sections.length === 1) {
-      startSection(0);
+      await startSection(0);
     } else {
       renderSectionPicker();
       showState('picker');
@@ -180,9 +236,11 @@ function renderSectionPicker() {
 // ── Section lifecycle ───────────────────────────────────────────────
 
 
-function startSection(idx) {
+async function startSection(idx) {
   const section = SESSION.sections[idx];
   if (!section) return;
+  const run = ++SESSION.sectionRun;
+  showState('loading');
   SESSION.activeIdx    = idx;
   SESSION.sentenceIdx  = 0;
   SESSION.results      = new Array(section.sentences.length).fill(null);
@@ -191,6 +249,47 @@ function startSection(idx) {
   SESSION.sentenceStartedAt = Date.now();
   SESSION.listenCount  = 0;
   SESSION.report       = null;
+  SESSION.attemptId    = null;
+
+  try {
+    const query = `section_num=${encodeURIComponent(section.section_num)}`;
+    const existing = normalizeAttempt(await window.api.get(
+      `/api/listening/tests/${encodeURIComponent(SESSION.testId)}/dictation/attempts/in-progress?${query}`));
+    const attempt = existing || normalizeAttempt(await window.api.post(
+      `/api/listening/tests/${encodeURIComponent(SESSION.testId)}/dictation/attempts?${query}`,
+      { renderer_affinity_protocol: 'claim-v1' }));
+    const claim = await window.api.post(
+      `/api/listening/tests/dictation/attempts/${encodeURIComponent(attempt.attempt_id)}/renderer-affinity`,
+      { renderer_affinity: 'legacy' });
+    if (run !== SESSION.sectionRun || SESSION.activeIdx !== idx) return;
+    const affinity = claim && claim.renderer_affinity;
+    if (affinity !== 'legacy' && affinity !== 'next') {
+      throw new Error('Renderer của lượt làm bài không hợp lệ.');
+    }
+    if (affinity !== 'legacy') {
+      window.location.replace(dictationRendererHref(
+        affinity, SESSION.testId, section.section_num));
+      return;
+    }
+    section.sentences = attempt.units.map((unit) => unit.text);
+    section.timings = attempt.units.map((unit) => unit.timing);
+    section.hints = attempt.units.map((unit) => unit.hints);
+    SESSION.attemptId = attempt.attempt_id;
+    SESSION.startedAt = attempt.started_at ? Date.parse(attempt.started_at) : Date.now();
+    SESSION.results = new Array(section.sentences.length).fill(null);
+    attempt.answers.forEach((saved) => {
+      if (saved.sentence_idx < SESSION.results.length) {
+        SESSION.results[saved.sentence_idx] = saved;
+      }
+    });
+    const firstOpen = SESSION.results.findIndex((result) => !result);
+    SESSION.sentenceIdx = firstOpen < 0 ? SESSION.results.length - 1 : firstOpen;
+  } catch (e) {
+    if (run !== SESSION.sectionRun || SESSION.activeIdx !== idx) return;
+    showError('Không khôi phục được tiến độ chép chính tả. '
+      + (e && e.message ? e.message : ''));
+    return;
+  }
 
   const player = $('player');
   if (!SESSION.playerSrcSet) {
@@ -221,7 +320,20 @@ function startSection(idx) {
 
   applySentenceAudio();
   renderDots();
-  resetAnswerSurface();
+  const restored = SESSION.results[SESSION.sentenceIdx];
+  if (restored) {
+    $('answer').value = restored.user_text || '';
+    $('answer').disabled = true;
+    $('btn-submit').hidden = true;
+    $('btn-reset').hidden = false;
+    $('btn-next').hidden = false;
+    $('btn-next').textContent = SESSION.sentenceIdx + 1 < section.sentences.length
+      ? 'Câu tiếp theo →' : 'Xem kết quả';
+    SESSION.hasSubmitted = true;
+    renderResult(restored);
+  } else {
+    resetAnswerSurface();
+  }
   showState('ready');
 }
 
@@ -323,11 +435,15 @@ async function submitAttempt() {
   $('answer').disabled = true;
 
   try {
-    const result = await window.api.post('/api/listening/tests/dictation/grade', {
-      test_id:         SESSION.testId,
-      section_num:     section.section_num,
-      sentence_idx:    SESSION.sentenceIdx,
+    if (!SESSION.attemptId) throw new Error('Chưa có lượt làm bài canonical.');
+    const timeSeconds = Math.max(0, Math.round(
+      (Date.now() - (SESSION.sentenceStartedAt || Date.now())) / 1000));
+    const result = await window.api.post(
+      `/api/listening/tests/dictation/attempts/${encodeURIComponent(SESSION.attemptId)}/sentences/${SESSION.sentenceIdx}`,
+      {
       user_transcript: userText,
+      listen_count: SESSION.listenCount,
+      time_seconds: timeSeconds,
     });
 
     SESSION.results[SESSION.sentenceIdx] = {
@@ -338,7 +454,7 @@ async function submitAttempt() {
       diff:          result.diff,
       user_text:     userText,
       listen_count:  SESSION.listenCount,
-      time_seconds:  Math.max(0, Math.round((Date.now() - (SESSION.sentenceStartedAt || Date.now())) / 1000)),
+      time_seconds:  timeSeconds,
     };
     SESSION.hasSubmitted = true;
 
@@ -441,6 +557,8 @@ async function submitSessionAndRenderReport() {
 
   try {
     SESSION.report = await window.api.post('/api/listening/tests/dictation/session', {
+      attempt_id:         SESSION.attemptId,
+      client_request_id:  dictationRequestId(),
       test_id:            SESSION.testId,
       section_num:        section.section_num,
       started_at:         SESSION.startedAt ? new Date(SESSION.startedAt).toISOString() : null,
@@ -626,7 +744,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('section-picker').addEventListener('click', (e) => {
     const btn = e.target.closest('.section-chip');
     if (!btn) return;
-    startSection(Number(btn.getAttribute('data-idx')));
+    void startSection(Number(btn.getAttribute('data-idx')));
   });
 
   // Count audio plays for the current sentence (for the report's listen stat).
@@ -672,7 +790,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btn-next').addEventListener('click', advanceSentenceOrComplete);
 
   $('btn-restart').addEventListener('click', () => {
-    if (SESSION.activeIdx != null) startSection(SESSION.activeIdx);
+    if (SESSION.activeIdx != null) void startSection(SESSION.activeIdx);
   });
 
   $('btn-other-section').addEventListener('click', () => {

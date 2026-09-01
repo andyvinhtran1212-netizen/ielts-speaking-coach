@@ -17,7 +17,7 @@ import { writeFileSync, readFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { normalizeText, comparePages, formatReport, buildFacts, hrefFromInlineHandler,
-         isTransportError }
+         isTransportError, externalPresentationFixture }
   from './parity-core.mjs';
 import { signIn, sessionEntry } from './supabase-session.mjs';
 
@@ -66,6 +66,15 @@ let AUTH_ENTRY = null;
 /** Cặp mặc định — chỉ những route đã có CẢ hai bản chạy song song. */
 const DEFAULT_PAIRS = [
   {
+    // Public auth entry. Both pages remain intentionally reachable during
+    // rollout: `/login` is the canonical Next owner and `/login.html` is the
+    // rollback/parity leg. Signed-out mode is read-only and deterministic.
+    name: 'login',
+    legacy: '/login.html',
+    next: '/login',
+    allow: [],
+  },
+  {
     name: 'grammar-home',
     legacy: '/grammar.html',
     next: '/grammar',
@@ -90,6 +99,53 @@ const DEFAULT_PAIRS = [
     legacy: '/pages/grammar-exercises.html',
     next: '/grammar/exercises',
     allow: [],
+  },
+  {
+    name: 'grammar-search',
+    legacy: '/pages/grammar-search.html?q=tenses',
+    next: '/grammar/search?q=tenses',
+    allow: [{
+      kind: 'api-missing',
+      value: 'GET /api/grammar/search?q=tenses',
+      reason: 'Next fetch phía máy chủ (lib/backend.ts), trình duyệt không gọi',
+    }],
+  },
+  {
+    name: 'grammar-compare',
+    legacy: '/pages/grammar-compare.html?slug=past-perfect-vs-past-simple',
+    next: '/grammar/compare?slug=past-perfect-vs-past-simple',
+    allow: [{
+      kind: 'api-missing',
+      value: 'GET /api/grammar/compare/past-perfect-vs-past-simple',
+      reason: 'Next fetch phía máy chủ (lib/backend.ts), trình duyệt không gọi',
+    }],
+  },
+  {
+    name: 'grammar-roadmap',
+    legacy: '/pages/grammar-roadmap.html?slug=tenses',
+    next: '/grammar/roadmap?slug=tenses',
+    allow: [{
+      kind: 'api-missing',
+      value: 'GET /api/grammar/roadmap/tenses',
+      reason: 'Next fetch phía máy chủ (lib/backend.ts), trình duyệt không gọi',
+    }],
+  },
+  {
+    name: 'vocabulary-wiki',
+    legacy: '/vocabulary.html?cat=technology&slug=cutting-edge',
+    next: '/vocabulary?cat=technology&slug=cutting-edge',
+    allow: [
+      {
+        kind: 'api-missing',
+        value: 'GET /api/vocabulary/categories',
+        reason: 'Next fetch category feed phía máy chủ (lib/backend.ts), trình duyệt không gọi',
+      },
+      {
+        kind: 'api-missing',
+        value: 'GET /api/vocabulary/articles/technology/cutting-edge',
+        reason: 'Next fetch thẻ đầu tiên phía máy chủ (lib/backend.ts), trình duyệt không gọi',
+      },
+    ],
   },
 ];
 
@@ -242,6 +298,8 @@ async function extractOnce(context, url) {
         try { return new URL(r.url()).pathname; } catch { return r.url(); } })()}`);
       return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     }
+    const externalFixture = externalPresentationFixture(r.url());
+    if (externalFixture) return route.fulfill(externalFixture);
     return route.continue();
   });
   const consoleErrors = [];
@@ -363,7 +421,7 @@ async function extractOnce(context, url) {
     // ngoài, có thể `display:contents` ⇒ lọc sẽ giấu mất chính lỗi mất chrome
     // mà nó sinh ra để bắt. Ở đây hợp đồng là CÓ MẶT, không phải nhìn thấy.
     const components = [];
-    for (const tag of ['aver-chrome', 'main', 'header', 'footer', 'nav']) {
+    for (const tag of ['aver-chrome', 'aver-admin-chrome', 'main', 'header', 'footer', 'nav']) {
       const n = deepAll(tag).length;
       for (let i = 0; i < n; i++) components.push(tag);
     }

@@ -13,20 +13,36 @@
 // nằm SAU `Suspense`. Đây không phải lựa chọn thẩm mỹ — `searchParams` không
 // được phép đọc bên trong `use cache`, mà mọi loader nội dung đều `use cache`.
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { notFound, redirect } from 'next/navigation';
 
 import { getHome, getGroups, getCategory } from '../../../lib/grammar-api';
 import { CategoryCards, FeaturedCards, GroupCards } from './grammar-cards';
 import { SearchBox } from './search-box';
+import { GrammarLearningDashboard, GrammarModeSwitcher } from './grammar-home-mode';
 
 // Legacy `<title>` nguyên văn — parity tiêu đề là thứ người dùng thấy trên tab
 // và Google thấy trong kết quả tìm kiếm.
 export const metadata: Metadata = {
   title: 'Grammar Wiki — Aver Learning',
   description:
-    'Tra cứu ngữ pháp IELTS theo hệ thống: 9 nhóm chủ đề, lộ trình học, và bài viết áp dụng vào Speaking & Writing.',
+    'Tra cứu ngữ pháp IELTS theo hệ thống: các nhóm chủ đề, lộ trình học, và bài viết áp dụng vào Speaking & Writing.',
 };
+
+async function GroupCountLink() {
+  await connection();
+  let count = 0;
+  try {
+    const groups = await getGroups();
+    count = Array.isArray(groups) ? groups.length : 0;
+  } catch {
+    // The route-manifest CI build intentionally has no backend. Keep the
+    // generic CTA truthful and let request-time content load normally.
+  }
+  const label = count > 0 ? `Xem ${count} nhóm chủ đề` : 'Xem các nhóm chủ đề';
+  return <a href="#groups-section" className="btn-cta btn-outline">{label}</a>;
+}
 
 function Hero() {
   return (
@@ -69,8 +85,12 @@ function Hero() {
           </svg>
           Khám phá hệ thống
         </a>
-        <a href="#groups-section" className="btn-cta btn-outline">Xem 9 nhóm chủ đề</a>
-        <a href="/pages/grammar-search.html?q=ielts" className="btn-cta btn-outline">Grammar cho IELTS</a>
+        <Suspense
+          fallback={<a href="#groups-section" className="btn-cta btn-outline">Xem các nhóm chủ đề</a>}
+        >
+          <GroupCountLink />
+        </Suspense>
+        <a href="/grammar/search?q=ielts" className="btn-cta btn-outline">Grammar cho IELTS</a>
         <a href="/grammar/exercises" className="btn-cta btn-outline">Bài tập Grammar</a>
       </div>
     </div>
@@ -94,55 +114,19 @@ function BodySkeleton() {
 }
 
 function HomeContent({ home, groups }: { home: any; groups: any[] }) {
-  const complete = groups.reduce((n, g) => n + (g.complete_count || 0), 0);
-  const planned = groups.reduce((n, g) => n + ((g.article_count || 0) - (g.complete_count || 0)), 0);
-
   return (
     <div id="home-content" className="ds-fadein">
-      <section id="groups-section" className="mb-16">
-        <div className="flex items-center justify-between mb-5">
-          <p className="section-head">Khám phá theo nhóm chủ đề</p>
-          <span className="text-xs text-white/25 hidden sm:block">
-            <span id="groups-complete-count">{complete}</span> bài hoàn chỉnh ·{' '}
-            <span id="groups-planned-count">{planned}</span> sắp ra mắt
-          </span>
-        </div>
-        <div id="groups-list" className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <GroupCards groups={groups} />
-        </div>
-      </section>
-
-      <section className="mb-14">
-        <p className="section-head">Bài nổi bật</p>
-        <div id="featured-list" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Backend trả `featured_articles` (grammar_content.py:315) — legacy đọc
-              đúng key đó. Dùng `featured` thì mục này LUÔN rỗng mà không báo lỗi
-              gì: đúng loại hỏng im lặng chỉ lộ ra khi mở trang thật xem. */}
-          <FeaturedCards articles={home?.featured_articles} />
-        </div>
-      </section>
-
-      <section id="categories" className="mb-14">
-        <p className="section-head">Duyệt theo thư mục bài</p>
-        <div id="category-cards" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <CategoryCards categories={home?.categories} />
-        </div>
-      </section>
-
-      <section className="mb-14">
-        <p className="section-head">Roadmap học tập</p>
-        <div className="roadmap-card p-6 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center gap-5">
-          <div className="flex-1">
-            <h3 className="font-bold text-white text-lg mb-1">Học có hệ thống theo thứ tự</h3>
-            <p className="text-white/50 text-sm">
-              Mỗi chủ đề có lộ trình từ kiến thức nền → nâng cao. Học theo thứ tự được đề xuất để không bỏ sót.
-            </p>
-          </div>
-          <a href="/pages/grammar-roadmap.html?slug=tenses" className="btn-cta btn-primary flex-shrink-0">
-            Bắt đầu với Tenses →
-          </a>
-        </div>
-      </section>
+      <GrammarModeSwitcher
+        reference={<>
+          <section id="groups-section" className="mb-16"><div className="flex items-center justify-between mb-5"><p className="section-head">Khám phá theo nhóm chủ đề</p><span className="text-xs text-white/35 hidden sm:block">{home?.total_articles || 0} bài tra cứu</span></div><div id="groups-list" className="grid grid-cols-1 lg:grid-cols-2 gap-5"><GroupCards groups={groups} /></div></section>
+          <section className="mb-14"><p className="section-head">Bài nổi bật</p><div id="featured-list" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"><FeaturedCards articles={home?.featured_articles} /></div></section>
+          <section id="categories" className="mb-14"><p className="section-head">Duyệt theo thư mục bài</p><div id="category-cards" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"><CategoryCards categories={home?.categories} /></div></section>
+        </>}
+        learning={<>
+          <section className="mb-10"><p className="section-head">Không học lại từ đầu — học đúng chỗ cần</p><GrammarLearningDashboard /></section>
+          <section className="gw-learning-actions"><a href="/grammar/roadmap"><span>01</span><strong>Lộ trình</strong><small>Xem thứ tự nền tảng → điểm yếu</small></a><a href="/grammar/exercises"><span>02</span><strong>Bài luyện</strong><small>Lọc theo chủ đề và trình độ</small></a><a href="/grammar/search?q=ielts"><span>03</span><strong>IELTS transfer</strong><small>Tìm bài dùng cho kỹ năng cụ thể</small></a></section>
+        </>}
+      />
     </div>
   );
 }
@@ -174,11 +158,14 @@ function CategoryView({ slug, data }: { slug: string; data: any }) {
  *   không tham số → trang chủ đầy đủ
  */
 async function GrammarBody({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  // The route-manifest CI build intentionally has no backend. Defer canonical
+  // Grammar reads to a real request while preserving the prerendered shell.
+  await connection();
   const params = await searchParams;
   const q = typeof params.q === 'string' ? params.q : '';
   const category = typeof params.category === 'string' ? params.category : '';
 
-  if (q) redirect(`/pages/grammar-search.html?q=${encodeURIComponent(q)}`);
+  if (q) redirect(`/grammar/search?q=${encodeURIComponent(q)}`);
 
   if (category) {
     const data = await getCategory(category);

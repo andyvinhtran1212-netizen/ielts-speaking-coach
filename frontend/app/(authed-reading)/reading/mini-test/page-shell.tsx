@@ -1,15 +1,31 @@
-// Markup only. Behavior is loaded by /js/reading-mini-test.js (legacy ESM module).
-// All ids are a contract with that module; don't rename them.
-// <aver-chrome> is rendered by page.tsx, not here.
+import type { ReactNode } from 'react';
 
-export function ReadingMiniTestShell() {
+interface ReadingMiniTestShellProps {
+  children: ReactNode;
+  durationCount?: number | string;
+  totalCount?: number | string;
+}
+
+export function ReadingMiniTestShell({
+  children,
+  durationCount = '—',
+  totalCount = '—',
+}: ReadingMiniTestShellProps) {
   return (
     <div className="shell">
       <main className="rv-shell">
-        <header className="rv-header">
-          <p className="eyebrow"><a href="/home" style={{ color: 'var(--av-text-secondary)' }}>← Trang chủ</a></p>
-          <h1>Mini Tests <span className="accent">·</span> <span style={{ color: 'var(--av-text-muted)' }}>1 đoạn văn</span></h1>
-          <p className="subtitle">Bài thi ngắn — 1 đoạn văn, số câu hỏi tùy bài, kèm bảng điểm + band IELTS. Cùng giao diện làm bài &amp; chữa bài như Full Test.</p>
+        <header className="rv-header rv-header--mini">
+          <div className="rv-header__copy">
+            <a className="rv-back" href="/home">← Trang chủ</a>
+            <p className="rv-kicker">READING LAB · MINI TEST</p>
+            <h1>Một đoạn văn, <span>một phiên luyện tập trung.</span></h1>
+            <p className="subtitle">Mỗi đề tập trung vào một đoạn văn và dùng cùng giao diện chữa bài như Full Test. Thời lượng hiển thị theo cấu hình của từng đề.</p>
+          </div>
+          <dl className="rv-header__stats" aria-label="Cấu trúc Mini Test">
+            <div><dt id="rv-total-count">{totalCount}</dt><dd>mini test</dd></div>
+            <div><dt>1 đoạn</dt><dd>Mỗi đề</dd></div>
+            <div><dt id="rv-duration-count">{durationCount}</dt><dd>thời lượng phổ biến</dd></div>
+          </dl>
         </header>
 
         {/* Library switcher: Vocab ↔ Skill ↔ Full Test ↔ Mini Test. Changed /pages/reading-vocab.html → /reading/vocab */}
@@ -20,21 +36,7 @@ export function ReadingMiniTestShell() {
           <a className="rv-libnav__link is-active" aria-current="page">Mini Tests</a>
         </nav>
 
-        <div className="rv-filters">
-          <label>Mô-đun
-            <select id="filter-module">
-              <option value="">Tất cả</option>
-              <option value="academic">Academic</option>
-              <option value="general_training" disabled>General Training (Phase B)</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="rv-empty" id="state-loading">Đang tải…</div>
-        <div className="rv-empty" id="state-empty" hidden>Chưa có mini test nào.</div>
-        <div className="rv-error" id="state-error" hidden></div>
-
-        <div className="rv-grid" id="rv-grid" hidden></div>
+        {children}
       </main>
     </div>
   );

@@ -8,6 +8,7 @@ một nội dung là hai chỗ để trôi khỏi nhau.
 from __future__ import annotations
 
 import inspect
+from unittest.mock import patch
 
 from services import quiz_service as qs
 
@@ -53,7 +54,7 @@ def test_retake_sessions_are_excluded():
 
 def test_writing_questions_are_not_in_the_multiple_choice_report():
     src = _src()
-    assert 'q.get("type") == "writing"' in src
+    assert "not _is_course_quiz_question(q)" in src
 
 
 def test_the_time_per_question_is_a_median_not_a_mean():
@@ -114,21 +115,34 @@ def test_finishing_a_stage_does_not_close_an_assignment_that_has_writing():
     assert "if writing:" in gate, "phải hỏi phần tự luận TỪ CÙNG lượt đọc bộ đề"
 
 
-def test_an_unreadable_bank_fails_the_way_that_does_not_STICK():
-    """Bản đầu trả `True` với lý lẽ "chặt hơn là an toàn hơn: chốt sổ chậm một
-    nhịp thôi". Lý lẽ ấy SAI — với bộ đề KHÔNG có tự luận thì không có nhịp nào
-    sau cả: `end_session` là đường chốt sổ duy nhất, và
-    `reconcile_ledger_from_sessions` chỉ vá từ bảng `sessions` (Speaking), không
-    đọc `quiz_sessions`. Một lần đọc hỏng để lại bài giao KẸT VĨNH VIỄN.
+def test_an_unreadable_bank_is_unknown_not_a_false_no_writing_claim():
+    """Trang lớp dùng cờ này để nói học viên còn phần tự luận hay không. Một
+    lượt đếm hỏng không chứng minh được số câu là 0, nên phải giữ trạng thái
+    thứ ba để route bật ``homework_stale``."""
+    class _Broken:
+        def select(self, *_a, **_k): return self
+        def eq(self, *_a): return self
+        def limit(self, *_a): return self
+        def execute(self): raise RuntimeError("count unavailable")
 
-    Hỏng chiều ngược lại thì có giới hạn: một bài bị đóng dấu sớm MỘT lần, và
-    bảng "Chi tiết làm bài" vẫn nói đúng vì nó đọc thẳng
-    `course_writing_submissions` (codex PR 952).
-    """
-    src = inspect.getsource(qs.bank_has_writing)
-    j = src.index("except Exception")
-    assert "return False" in src[j:]
-    assert "return True" not in src[j:]
+    db = type("DB", (), {"table": lambda self, _name: _Broken()})()
+    memo = {}
+    with patch.object(qs, "supabase_admin", db):
+        assert qs.bank_has_writing("b1", memo=memo) is None
+        assert memo["b1"] is None, "đừng lặp một truy vấn hỏng cho từng dòng"
+
+
+def test_a_real_zero_writing_count_stays_false():
+    """Không có câu viết thật là dữ liệu chính thức, không được bật cảnh báo."""
+    class _Empty:
+        def select(self, *_a, **_k): return self
+        def eq(self, *_a): return self
+        def limit(self, *_a): return self
+        def execute(self): return type("Resp", (), {"count": 0})()
+
+    db = type("DB", (), {"table": lambda self, _name: _Empty()})()
+    with patch.object(qs, "supabase_admin", db):
+        assert qs.bank_has_writing("b1") is False
 
 
 def test_the_writing_flag_is_NOT_cached_across_calls():
@@ -154,7 +168,7 @@ def test_the_teacher_path_does_not_go_through_the_learner_gate():
     "Bài từng em" cho một bài đã quá hạn hay đã đóng sẽ nhận 404 — đúng lúc cần
     đọc nhất. Quyền đã kiểm ở tầng tuyến (require_admin)."""
     src = _src()
-    assert '({} if assignment_id else _bank_meta_or_404(' in src
+    assert '({} if assignment_id else _bank_meta_for_review_or_404(' in src
 
 
 def test_one_rule_for_axes_scores_and_time():
@@ -324,7 +338,7 @@ def test_the_redaction_lists_the_kept_fields_INSTEAD_of_deleting_the_rest():
 # là sai chiều. Nhưng chi tiết từng câu thì phải chờ: kỳ kiểm tra lại bốc mẫu
 # từ chính bộ câu ấy.
 
-def _report(*, passed):
+def _report(*, passed, assignment_id=None, with_quiz=True):
     """Chạy trọn `course_answer_report` với một cơ sở dữ liệu giả."""
     QS = [{"qid": "q0", "type": "mcq", "subtype": "gap", "item_key": "chia động từ",
            "prompt": "She ___ to school.", "options": ["go", "goes"], "answer": 1,
@@ -355,18 +369,21 @@ def _report(*, passed):
     class _DB:
         def table(self, name):
             rows = {
-                "quiz_sessions": [{"id": "s1", "user_id": "u1", "kind": "run",
+                "quiz_sessions": ([{"id": "s1", "user_id": "u1", "kind": "run",
                                    "bank_id": "b1",
                                    "class_assignment_item_id": "i1",
-                                   "duration_sec": 60, "ended_at": "2026-08-06T01:00:00+00:00"}],
-                "quiz_attempts": [{"session_id": "s1", "qid": "q0", "is_correct": False,
+                                   "duration_sec": 60, "ended_at": "2026-08-06T01:00:00+00:00"}]
+                                  if with_quiz else []),
+                "quiz_attempts": ([{"session_id": "s1", "qid": "q0", "is_correct": False,
                                    "answer_given": "0", "response_time_ms": 9000,
                                    "created_at": "2026-08-06T00:59:00+00:00"},
                                   {"session_id": "s1", "qid": "q1", "is_correct": True,
                                    "answer_given": "1", "response_time_ms": 4000,
-                                   "created_at": "2026-08-06T00:59:30+00:00"}],
+                                   "created_at": "2026-08-06T00:59:30+00:00"}]
+                                  if with_quiz else []),
                 "quiz_questions": [{**q, "bank_id": "b1"} for q in QS],
                 "class_assignment_items": [{"id": "i1", "assignment_id": "a1",
+                                            "student_id": "st1",
                                             "passed_at": "2026-08-06T02:00:00+00:00" if passed else None,
                                             "mastery": {"threshold": 75, "attempts": [
                                                 {"phase": "run", "pct": 70,
@@ -375,6 +392,7 @@ def _report(*, passed):
                                                  "next_action": "retake"},
                                             ]}}],
                 "class_assignments": [{"id": "a1", "content_config": {"pass_pct": 75}}],
+                "students": [{"id": "st1", "user_id": "u1"}],
                 "quiz_banks": [{"id": "b1", "title": "Buổi 1"}],
             }.get(name, [])
 
@@ -386,7 +404,8 @@ def _report(*, passed):
             patch.object(qs, "_bank_meta_or_404", lambda *_a, **_k: {"id": "b1", "title": "Buổi 1"}), \
             patch.object(qs, "_assignment_item_for",
                          lambda *_a, **_k: {"id": "i1", "assignment_id": "a1"}):
-        return qs.course_answer_report(user_id="u1", bank_id="b1")
+        return qs.course_answer_report(
+            user_id="u1", bank_id="b1", assignment_id=assignment_id)
 
 
 def test_a_student_who_has_not_passed_STILL_learns_which_axis_is_weak():
@@ -430,7 +449,22 @@ def test_the_learner_report_uses_the_canonical_mastery_history():
         "at": "2026-08-06T01:10:00+00:00",
         "session_count": 1,
         "next_action": "retake",
+        "completed": True,
+        "duration_sec": 0,
+        "sections": [],
     }]
+    assert d["summary"]["latest_pct"] == 70.0
+    assert d["summary"]["latest_action"] == "retake"
+    assert d["totals"]["scope"] == "baseline_quiz"
+    assert d["summary"]["baseline_answered"] == d["totals"]["answered"]
+
+
+def test_a_writing_only_teacher_report_keeps_the_mastery_summary_without_quiz_sessions():
+    d = _report(passed=True, assignment_id="a1", with_quiz=False)
+    assert d["questions"] == [] and d["totals"] == {}
+    assert d["summary"]["latest_pct"] == 70.0
+    assert d["summary"]["latest_action"] == "retake"
+    assert d["summary"]["baseline_quiz_pct"] is None
 
 
 def test_history_shape_does_not_expose_raw_session_ids():

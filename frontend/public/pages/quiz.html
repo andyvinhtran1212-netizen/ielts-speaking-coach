@@ -212,6 +212,7 @@
     .qz-rl-empty { margin-top: var(--av-space-3); color: var(--av-text-muted);
       font-size: var(--av-fs-sm); }
   </style>
+  <script src="/js/legacy-retirement-beacon.js" defer></script>
 </head>
 <body class="av-page font-sans antialiased">
   <aver-chrome active="vocabulary"></aver-chrome>
@@ -220,7 +221,7 @@
     <!-- Subpage back-link to the lesson hub (set per skill_area in JS). -->
     <header class="subpage-header">
       <div class="subpage-header__lhs">
-        <a id="qz-top-back" class="subpage-header__back" href="/pages/vocab-practice.html">
+        <a id="qz-top-back" class="subpage-header__back" href="/vocabulary/practice">
           <span aria-hidden="true">←</span><span id="qz-top-back-label">Luyện tập</span>
         </a>
       </div>
@@ -323,7 +324,7 @@
       <div class="qz-actions">
         <!-- Neutral label — boot() sets "← Về Grammar" / "← Về Từ vựng" per skill_area. -->
         <!-- Neutral default; boot() sets the real target (Luyện tập / Grammar) per skill_area. -->
-        <a id="qz-back" href="/pages/vocab-practice.html" class="av-button av-button-primary">← Quay lại</a>
+        <a id="qz-back" href="/vocabulary/practice" class="av-button av-button-primary">← Quay lại</a>
         <!-- Neutral default; wireChrome() appends ?skill_area= so the stats page
              scopes to the skill just practised (audit 2026-07-28 §C3). -->
         <a id="qz-stats" href="/quiz/progress" class="av-button av-button-secondary">📊 Thống kê của tôi</a>
@@ -1019,10 +1020,10 @@
       // A topic that resolves to nothing must not dead-end on "chưa có bài luyện":
       // fall back to the picker, which lists every lesson.
       if (!banks.length) {
-        if (topicId) { location.replace('/pages/vocab-practice.html'); return null; }
+        if (topicId) { location.replace('/vocabulary/practice'); return null; }
         fail('Chưa có bài luyện nào được mở. Vui lòng quay lại sau.'); return null;
       }
-      if (banks.length > 1) { location.replace('/pages/vocab-practice.html'); return null; }
+      if (banks.length > 1) { location.replace('/vocabulary/practice'); return null; }
       return banks[0].id;
     }
 
@@ -1058,8 +1059,8 @@
         back.href = '/grammar'; back.textContent = '← Về Grammar';
       } else {
         if (chrome) chrome.setAttribute('active', 'vocabulary');
-        topBack.href = '/pages/vocab-practice.html'; topLabel.textContent = 'Luyện tập';
-        back.href = '/pages/vocab-practice.html'; back.textContent = '← Về Luyện tập';
+        topBack.href = '/vocabulary/practice'; topLabel.textContent = 'Luyện tập';
+        back.href = '/vocabulary/practice'; back.textContent = '← Về Luyện tập';
       }
     }
 

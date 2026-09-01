@@ -127,6 +127,11 @@ def _pv(impl, path="/"):
             "event_data": {"path": path, "implementation": impl}}
 
 
+def _retirement_view(path="/"):
+    return {"event_name": "legacy_retirement_page_view",
+            "event_data": {"path": path, "implementation": "legacy"}}
+
+
 def _wv(impl, lcp, path="/", **extra_vitals):
     ed = {"path": path, "implementation": impl, "lcp": lcp}
     ed.update(extra_vitals)
@@ -188,6 +193,28 @@ def test_route_filter_excludes_other_paths(monkeypatch):
     assert nxt["page_views"] == 30
     assert nxt["errors"] == 1
     assert nxt["vitals"]["samples"] == 0
+
+
+def test_gate_f_retirement_evidence_never_changes_page_view_denominators(monkeypatch):
+    analytics = (
+        [_pv("next", "/admin/users")] * 30
+        + [_retirement_view("/admin/users")] * 7
+        + [_retirement_view("/admin/classes")] * 11
+    )
+    body = _client(monkeypatch, analytics).get(
+        "/admin/error-logs/rollback-metrics?route=/admin/users&window_minutes=20160",
+        headers=AUTHZ,
+    ).json()
+
+    assert body["implementations"]["next"]["page_views"] == 30
+    assert body["implementations"]["legacy"]["page_views"] == 0
+    assert body["exposure"]["by_implementation"]["legacy"] == 0
+    assert body["legacy_retirement_exposure"] == {
+        "event_name": "legacy_retirement_page_view",
+        "legacy_views": 7,
+        "exact": True,
+        "window_minutes": 20160,
+    }
 
 
 # ── DEBT-2026-07-29-L: route family matching ───────────────────────────────

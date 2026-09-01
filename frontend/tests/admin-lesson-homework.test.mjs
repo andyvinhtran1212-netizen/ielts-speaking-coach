@@ -453,6 +453,27 @@ describe('khung trang', () => {
 });
 
 
+describe('admin xem đủ cue card Part 2 trước khi giao', () => {
+  test('danh sách câu hiển thị prompt, gợi ý và câu explain', () => {
+    const p = load({ kind: 'lesson' });
+    p.state = {
+      items: [{
+        id: 'cue-1', question_text: 'Describe a journey.', giveable: true,
+        cue_card_bullets: ['when you went', 'who you went with'],
+        cue_card_reflection: 'and explain why you remember it.',
+      }],
+      picked: ['cue-1'], want: 1, topicId: 'set-p2', part: '2', mode: 'subset',
+    };
+    p.renderQpick();
+    const html = p.nodes['hf-qpick-list'].innerHTML;
+    assert.match(html, /Describe a journey/);
+    assert.match(html, /when you went/);
+    assert.match(html, /who you went with/);
+    assert.match(html, /explain why you remember it/);
+  });
+});
+
+
 // ── Vòng review 1 ────────────────────────────────────────────────────────────
 
 describe('đổi loại bài giữa chừng', () => {
@@ -703,6 +724,23 @@ describe('giao bài tập theo buổi', () => {
     const note = p.nodes['hf-cbank-note'].textContent;
     assert.match(note, /1 buổi lớp này đã làm/);
     assert.match(note, /1 buổi chưa nạp câu hỏi/);
+  });
+
+  test('bank thiếu audio hoặc bộ phát âm bị chặn với lý do vận hành rõ ràng', async () => {
+    const p = load({ kind: 'daily', banks: [
+      { id: 'b1', lesson_no: 1, title: 'Buổi 1', question_count: 100,
+        already_given: false, ready: false, missing_audio: 3,
+        pronunciation_required: false, pronunciation_ready: false },
+      { id: 'b2', lesson_no: 2, title: 'Buổi 2', question_count: 100,
+        already_given: false, ready: false, missing_audio: 0,
+        pronunciation_required: true, pronunciation_ready: false },
+    ] });
+    p.nodes['hf-skill'].value = 'course';
+    await p.loadCourseBanks();
+    assert.doesNotMatch(p.nodes['hf-cbank'].innerHTML, /Buổi 1|Buổi 2/);
+    assert.match(p.nodes['hf-cbank-note'].textContent, /1 buổi thiếu audio câu tiếng Anh/);
+    assert.match(p.nodes['hf-cbank-note'].textContent, /1 buổi thiếu bộ phát âm/);
+    assert.equal(p.nodes['hf-cbank-note'].dataset.tone, 'warn');
   });
 
   test('gửi đi payload GỌN — bộ đề quyết định tất cả', async () => {

@@ -41,14 +41,18 @@ vào tỷ lệ đúng.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import re
 import sys
+import zipfile
 from pathlib import Path
 
+from config import settings
 from database import supabase_admin
 from services import quiz_why_wrong
+from services.course_pronunciation_manifest import pronunciation_content_hash
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("import-course-bank")
@@ -66,6 +70,30 @@ _DANG = ("A1", "A2", "A3", "B1", "B2", "B3",
          "C1", "C2", "C3", "C4", "D1", "D2", "D3", "D4") + _ESSAY
 
 _SKILL_AREA = "course"
+
+_READING_KIND = "reading"
+_LISTENING_KIND = "listening"
+_PRONUNCIATION_KIND = "pronunciation"
+_MAX_PRONUNCIATION_SENTENCES = 20
+_AUDIO_BUCKET = settings.LISTENING_AUDIO_BUCKET
+_MP3_MAGIC = (b"ID3", b"\xff\xfb", b"\xff\xf3", b"\xff\xf2")
+_VIETNAMESE_CHARS = re.compile(
+    r"[ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩị"
+    r"óòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]", re.I)
+_BOLD = re.compile(r"\*\*([^*]+)\*\*")
+
+
+def _english_audio_text(prompt: str) -> str | None:
+    """Extract standalone English lines from a bilingual multiple-choice stem."""
+    spoken = []
+    for raw in (prompt or "").splitlines():
+        line = _BOLD.sub(r"\1", raw).strip()
+        if not line or _VIETNAMESE_CHARS.search(line) or not re.search(r"[A-Za-z]", line):
+            continue
+        line = re.sub(r"_{2,}", " blank ", line)
+        line = re.sub(r"\s+", " ", line).strip()
+        spoken.append(line)
+    return " ".join(spoken) or None
 
 
 def _lesson_no(path: Path, override: int | None) -> int:
@@ -108,7 +136,10 @@ def _mcq_row(r: dict, order: int) -> dict:
         "options":   pa,
         "answer":    r["dap_an"],
         "accept":    None,
-        "segments":  None,
+        # The audio batch reads this canonical text instead of guessing from the
+        # rendered prompt.  Vietnamese instructions are intentionally excluded.
+        "segments":  ({"question_audio_text": text}
+                      if (text := _english_audio_text(r["de"])) else None),
         "mask":      None,
         "pairs":     None,
         "explain":   r.get("giai_thich"),
@@ -163,7 +194,294 @@ def _essay_row(r: dict, order: int) -> dict:
     }
 
 
-def _normalise(rows: list[dict]) -> list[dict]:
+def _required_text(value, label: str, reading_id: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        raise SystemExit(f"[{reading_id}] bài đọc thiếu {label}.")
+    return text
+
+
+def _reading_prompt(value, input_type: str, number: int, reading_id: str) -> str:
+    prompt = _required_text(value, f"đề câu {number}", reading_id)
+    # Nguồn in giấy mang sẵn ô “→ T / F / NG” và “→ …”. Giao diện web dựng
+    # radio/input thật, nên giữ đuôi ấy sẽ hiện hai lần cùng một điều khiển.
+    if input_type == "tfng":
+        prompt = re.sub(r"\s*→\s*T\s*/\s*F\s*/\s*NG\s*$", "", prompt,
+                        flags=re.IGNORECASE)
+    else:
+        prompt = re.sub(r"\s*→\s*…+\s*$", "", prompt)
+    return prompt.strip()
+
+
+def _reading_accepted_answers(key: dict, answer: str, number: int,
+                              reading_id: str) -> list[str] | None:
+    """Keep explicit, semantically equivalent short-answer variants.
+
+    The grader already ignores case and presentation punctuation.  Variants are
+    still needed when the canonical label is bilingual but either language is
+    a complete answer (for example ``quá khứ đơn (past simple)``).
+    """
+    variants = key.get("bien_the_chap_nhan")
+    if variants is None:
+        return None
+    if not isinstance(variants, list) or not variants:
+        raise SystemExit(
+            f"[{reading_id}] biến thể đáp án câu {number} phải là danh sách có nội dung.")
+    accepted = [answer]
+    seen = {answer.casefold()}
+    for position, value in enumerate(variants, 1):
+        text = _required_text(
+            value, f"biến thể {position} của đáp án câu {number}", reading_id)
+        marker = text.casefold()
+        if marker not in seen:
+            accepted.append(text)
+            seen.add(marker)
+    return accepted
+
+
+def _reading_meta(r: dict) -> dict:
+    """Chuẩn hoá bài đọc thêm ở cấp BANK, không trộn vào 100 câu chấm điểm.
+
+    Bản dịch và đáp án vẫn được lưu cùng nguồn canonical, nhưng đường phát đề
+    cho học viên sẽ lọc chúng ra. Chỉ endpoint đối chiếu mới trả hai phần ấy.
+    """
+    reading_id = (r.get("id") or "").strip()
+    if not reading_id:
+        raise SystemExit("Bài đọc không có id.")
+    passage = _required_text(r.get("bai_doc"), "nội dung", reading_id)
+    translation = _required_text(r.get("ban_dich"), "bản dịch", reading_id)
+
+    vocabulary = r.get("tu_vung")
+    if not isinstance(vocabulary, list) or not vocabulary:
+        raise SystemExit(f"[{reading_id}] bài đọc không có danh sách từ vựng.")
+    vocab_rows = []
+    for i, item in enumerate(vocabulary, 1):
+        if not isinstance(item, dict):
+            raise SystemExit(f"[{reading_id}] từ vựng thứ {i} không hợp lệ.")
+        vocab_rows.append({
+            "term": _required_text(item.get("tu"), f"từ vựng thứ {i}", reading_id),
+            "part_of_speech": _required_text(
+                item.get("loai"), f"loại từ của từ vựng thứ {i}", reading_id),
+            "meaning": _required_text(
+                item.get("nghia"), f"nghĩa của từ vựng thứ {i}", reading_id),
+        })
+
+    question_source = r.get("cau_hoi") or {}
+    answer_source = r.get("dap_an") or {}
+    group_specs = (
+        ("content", "Đọc hiểu", "tfng", "phan1_noi_dung"),
+        ("structure", "Soi cấu trúc câu", "short_text", "phan2_cau_truc"),
+    )
+    groups, answers = [], []
+    next_number = 1
+    for group_id, title, input_type, source_key in group_specs:
+        prompts = question_source.get(source_key)
+        keys = answer_source.get(source_key)
+        if not isinstance(prompts, list) or not prompts:
+            raise SystemExit(f"[{reading_id}] thiếu nhóm câu hỏi {title!r}.")
+        if not isinstance(keys, list) or len(keys) != len(prompts):
+            raise SystemExit(
+                f"[{reading_id}] nhóm {title!r} có {len(prompts)} câu nhưng "
+                f"{len(keys) if isinstance(keys, list) else 0} đáp án.")
+        questions = []
+        for offset, prompt in enumerate(prompts):
+            number = next_number + offset
+            key = keys[offset]
+            if not isinstance(key, dict) or key.get("cau") != number:
+                raise SystemExit(
+                    f"[{reading_id}] đáp án câu {number} sai số thứ tự.")
+            questions.append({
+                "id": f"{reading_id}-{number:02d}",
+                "number": number,
+                "prompt": _reading_prompt(prompt, input_type, number, reading_id),
+            })
+            answer = _required_text(
+                key.get("dap_an"), f"đáp án câu {number}", reading_id)
+            answer_row = {
+                "id": f"{reading_id}-{number:02d}",
+                "number": number,
+                "answer": answer,
+                "explanation": _required_text(
+                    key.get("giai_thich"), f"giải thích câu {number}", reading_id),
+            }
+            accepted = _reading_accepted_answers(
+                key, answer, number, reading_id)
+            if accepted:
+                answer_row["accepted"] = accepted
+            answers.append(answer_row)
+        groups.append({
+            "id": group_id,
+            "title": title,
+            "input_type": input_type,
+            "questions": questions,
+        })
+        next_number += len(prompts)
+
+    declared_words = r.get("so_tu")
+    actual_words = len(passage.split())
+    if declared_words != actual_words:
+        raise SystemExit(
+            f"[{reading_id}] ghi {declared_words!r} từ nhưng đếm được {actual_words}.")
+
+    return {
+        "id": reading_id,
+        "role": _required_text(r.get("vai_tro"), "vai trò", reading_id),
+        "title": _required_text(r.get("chu_de"), "chủ đề", reading_id),
+        "focus": _required_text(r.get("cau_truc_trong_tam"), "trọng tâm", reading_id),
+        "word_count": actual_words,
+        "passage": passage,
+        "vocabulary": vocab_rows,
+        "question_groups": groups,
+        "translation": translation,
+        "answers": answers,
+    }
+
+
+def _choice_answer(value, options: list, label: str, listening_id: str) -> str:
+    answer = _required_text(value, f"đáp án {label}", listening_id).upper()
+    if len(answer) != 1:
+        raise SystemExit(f"[{listening_id}] đáp án {label} không khớp lựa chọn: {answer!r}.")
+    index = ord(answer) - ord("A")
+    if not 0 <= index < len(options):
+        raise SystemExit(f"[{listening_id}] đáp án {label} không khớp lựa chọn: {answer!r}.")
+    return answer
+
+
+def _listening_meta(r: dict) -> dict:
+    """Chuẩn hoá phần nghe cấp bank; đáp án/transcript được giữ riêng để lọc."""
+    listening_id = (r.get("id") or "").strip()
+    if not listening_id:
+        raise SystemExit("Bài nghe không có id.")
+
+    specs = (
+        ("sound", "A", "Nhận diện âm", r.get("phan_A_am")),
+        ("spelling", "B", "Nghe chữ và từ", r.get("phan_B_chu")),
+        ("sentence", "C", "Nghe câu và chọn phản hồi", r.get("phan_C_cau")),
+    )
+    sections, answers, audio_files = [], [], []
+    for section_id, label, title, source in specs:
+        if not isinstance(source, list) or not source:
+            raise SystemExit(f"[{listening_id}] thiếu phần nghe {label}.")
+        questions = []
+        for position, item in enumerate(source, 1):
+            if not isinstance(item, dict) or item.get("so") != position:
+                raise SystemExit(f"[{listening_id}] phần {label} sai số thứ tự câu {position}.")
+            options = item.get("lua_chon")
+            if not isinstance(options, list) or len(options) < 2 or any(
+                    not str(option or "").strip() for option in options):
+                raise SystemExit(f"[{listening_id}] phần {label} câu {position} thiếu lựa chọn.")
+            audio = _required_text(item.get("audio"), f"audio {label}{position}", listening_id)
+            if Path(audio).name != audio or not audio.lower().endswith(".mp3"):
+                raise SystemExit(f"[{listening_id}] tên audio không an toàn: {audio!r}.")
+            qid = f"{listening_id}-{label}{position}"
+            questions.append({
+                "id": qid, "number": position, "audio_file": audio,
+                "options": [str(option).strip() for option in options],
+            })
+            answers.append({
+                "id": qid,
+                "answer": _choice_answer(item.get("dap_an"), options,
+                                           f"{label}{position}", listening_id),
+                "transcript": _required_text(
+                    item.get("nghe_duoc"), f"transcript {label}{position}", listening_id),
+            })
+            audio_files.append(audio)
+        sections.append({
+            "id": section_id, "label": label, "title": title,
+            "mode": "question_audio", "questions": questions,
+        })
+
+    talk = r.get("phan_D_noi_dung")
+    if not isinstance(talk, dict):
+        raise SystemExit(f"[{listening_id}] thiếu phần nghe D.")
+    talk_audio = _required_text(talk.get("audio"), "audio phần D", listening_id)
+    if Path(talk_audio).name != talk_audio or not talk_audio.lower().endswith(".mp3"):
+        raise SystemExit(f"[{listening_id}] tên audio không an toàn: {talk_audio!r}.")
+    talk_questions = talk.get("cau_hoi")
+    if not isinstance(talk_questions, list) or not talk_questions:
+        raise SystemExit(f"[{listening_id}] phần D không có câu hỏi.")
+    questions = []
+    for position, item in enumerate(talk_questions, 1):
+        if not isinstance(item, dict) or item.get("so") != position:
+            raise SystemExit(f"[{listening_id}] phần D sai số thứ tự câu {position}.")
+        qid = f"{listening_id}-D{position}"
+        questions.append({
+            "id": qid, "number": position,
+            "prompt": _required_text(item.get("prompt"), f"đề D{position}", listening_id),
+            "options": ["T", "F", "NG"],
+        })
+        answer = _required_text(item.get("dap_an"), f"đáp án D{position}", listening_id).upper()
+        if answer not in ("T", "F", "NG"):
+            raise SystemExit(f"[{listening_id}] đáp án D{position} phải là T/F/NG.")
+        answers.append({"id": qid, "answer": answer})
+    sections.append({
+        "id": "content", "label": "D", "title": "Nghe hiểu nội dung",
+        "mode": "section_audio", "audio_file": talk_audio, "questions": questions,
+    })
+    audio_files.append(talk_audio)
+    if len(set(audio_files)) != len(audio_files):
+        raise SystemExit(f"[{listening_id}] có tên file audio bị dùng trùng.")
+
+    return {
+        "id": listening_id,
+        "role": _required_text(r.get("vai_tro"), "vai trò", listening_id),
+        "title": _required_text(r.get("chu_de"), "chủ đề", listening_id),
+        "focus": _required_text(r.get("cau_truc_trong_tam"), "trọng tâm", listening_id),
+        "language": _required_text(r.get("lang"), "ngôn ngữ", listening_id),
+        "audio_zip": _required_text(r.get("audio_zip"), "tên gói audio", listening_id),
+        "sections": sections,
+        "solution": {
+            "answers": answers,
+            "talk_transcript": _required_text(talk.get("doan_noi"), "transcript phần D", listening_id),
+            "talk_translation": _required_text(talk.get("ban_dich"), "bản dịch phần D", listening_id),
+        },
+    }
+
+
+def _pronunciation_meta(r: dict) -> dict:
+    """Validate the source marker for the separately registered shadowing set."""
+    pronunciation_id = (r.get("id") or "").strip()
+    if not pronunciation_id:
+        raise SystemExit("Phần phát âm không có id.")
+    sentences = r.get("sentences")
+    sentence_count = len(sentences) if isinstance(sentences, list) else 0
+    if (not isinstance(sentences, list)
+            or not 1 <= sentence_count <= _MAX_PRONUNCIATION_SENTENCES):
+        raise SystemExit(
+            f"[{pronunciation_id}] phần phát âm cần từ 1 đến "
+            f"{_MAX_PRONUNCIATION_SENTENCES} câu, có {sentence_count}.")
+    canonical = []
+    for expected, item in enumerate(sentences, 1):
+        if not isinstance(item, dict) or item.get("so") != expected:
+            actual_number = item.get("so") if isinstance(item, dict) else None
+            raise SystemExit(
+                f"[{pronunciation_id}] câu phát âm phải đánh số "
+                f"1–{sentence_count} liên tục; "
+                f"vị trí {expected} đang mang số {actual_number!r}.")
+        text = str(item.get("text") or "").strip()
+        if not text or len(text) > 500:
+            raise SystemExit(
+                f"[{pronunciation_id}] câu phát âm {expected} trống hoặc quá dài.")
+        canonical.append(text)
+    voice = _required_text(r.get("voice"), "giọng đọc", pronunciation_id)
+    locale = _required_text(r.get("lang"), "ngôn ngữ", pronunciation_id)
+    voice_engine = str(r.get("voice_engine") or "kokoro").strip()
+    digest = pronunciation_content_hash(
+        sentences=canonical, locale=locale, voice_engine=voice_engine, voice=voice)
+    return {
+        "id": pronunciation_id,
+        "role": _required_text(r.get("vai_tro"), "vai trò", pronunciation_id),
+        "locale": locale,
+        "voice_engine": voice_engine,
+        "voice": voice,
+        "sentence_count": len(canonical),
+        "content_hash": digest,
+    }
+
+
+def _normalise(
+    rows: list[dict],
+) -> tuple[list[dict], dict | None, dict | None, dict | None]:
     """Kiểm TOÀN BỘ tệp trước khi ghi dòng đầu tiên.
 
     RPC `quiz_replace_questions` xoá sạch câu cũ rồi ghi lại — nên một tệp hỏng
@@ -172,7 +490,25 @@ def _normalise(rows: list[dict]) -> list[dict]:
     rõ dòng nào hỏng.
     """
     out, seen = [], set()
+    reading = None
+    listening = None
+    pronunciation = None
     for i, r in enumerate(rows, 1):
+        if r.get("kind") == _READING_KIND:
+            if reading is not None:
+                raise SystemExit("Mỗi buổi chỉ nhận một bài đọc thêm.")
+            reading = _reading_meta(r)
+            continue
+        if r.get("kind") == _LISTENING_KIND:
+            if listening is not None:
+                raise SystemExit("Mỗi buổi chỉ nhận một bài nghe thêm.")
+            listening = _listening_meta(r)
+            continue
+        if r.get("kind") == _PRONUNCIATION_KIND:
+            if pronunciation is not None:
+                raise SystemExit("Mỗi buổi chỉ nhận một phần phát âm.")
+            pronunciation = _pronunciation_meta(r)
+            continue
         qid = (r.get("id") or "").strip()
         if not qid:
             raise SystemExit(f"Câu thứ {i} không có id.")
@@ -215,7 +551,58 @@ def _normalise(rows: list[dict]) -> list[dict]:
         if errs:
             raise SystemExit(f"[{qid}] " + " · ".join(errs))
         out.append(row)
-    return out
+    return out, reading, listening, pronunciation
+
+
+def _prepare_listening_audio(listening: dict, jsonl_path: Path,
+                             override: str | None = None) -> tuple[dict, list[tuple[str, bytes]]]:
+    """Kiểm ZIP đầy đủ trước mọi write và gắn storage path bất biến theo hash."""
+    zip_path = Path(override) if override else jsonl_path.parent / listening["audio_zip"]
+    if not zip_path.is_file():
+        raise SystemExit(f"Không thấy gói audio {zip_path}.")
+    blob = zip_path.read_bytes()
+    bundle_hash = hashlib.sha256(blob).hexdigest()[:16]
+    expected = {
+        q["audio_file"] for section in listening["sections"]
+        for q in section.get("questions", []) if q.get("audio_file")
+    }
+    expected.update(section["audio_file"] for section in listening["sections"]
+                    if section.get("audio_file"))
+    try:
+        with zipfile.ZipFile(zip_path) as archive:
+            names = {info.filename for info in archive.infolist() if not info.is_dir()}
+            unsafe = [name for name in names if Path(name).name != name]
+            if unsafe:
+                raise SystemExit(f"ZIP audio chứa đường dẫn không an toàn: {unsafe[0]!r}.")
+            missing, extra = expected - names, names - expected
+            if missing or extra:
+                raise SystemExit(
+                    f"ZIP audio không khớp JSONL: thiếu {sorted(missing)} · thừa {sorted(extra)}.")
+            if archive.testzip():
+                raise SystemExit(f"ZIP audio hỏng CRC ở {archive.testzip()!r}.")
+            audio = []
+            for name in sorted(expected):
+                data = archive.read(name)
+                if not data.startswith(_MP3_MAGIC):
+                    raise SystemExit(f"File {name!r} không phải MP3 hợp lệ.")
+                storage_path = f"course/{bundle_hash}/{name}"
+                audio.append((storage_path, data))
+    except zipfile.BadZipFile as exc:
+        raise SystemExit(f"Không đọc được ZIP audio {zip_path}: {exc}") from exc
+
+    prepared = json.loads(json.dumps(listening))
+    for section in prepared["sections"]:
+        if section.get("audio_file"):
+            section["audio_storage_path"] = f"course/{bundle_hash}/{section.pop('audio_file')}"
+        for question in section.get("questions", []):
+            if question.get("audio_file"):
+                question["audio_storage_path"] = f"course/{bundle_hash}/{question.pop('audio_file')}"
+    prepared.pop("audio_zip", None)
+    prepared["audio_bundle"] = {
+        "bucket": _AUDIO_BUCKET, "sha256": hashlib.sha256(blob).hexdigest(),
+        "file_count": len(audio), "source": zip_path.name,
+    }
+    return prepared, audio
 
 
 def main() -> int:
@@ -224,6 +611,7 @@ def main() -> int:
     ap.add_argument("--course", required=True, help="Mã khoá, ví dụ C1.")
     ap.add_argument("--lesson", type=int, help="Số buổi (mặc định đoán từ tên tệp).")
     ap.add_argument("--title", help="Tên bank (mặc định 'Buổi N — bài tập').")
+    ap.add_argument("--audio-zip", help="ZIP audio (mặc định lấy cạnh JSONL).")
     ap.add_argument("--publish", action="store_true",
                     help="Xuất bản luôn. Mặc định nạp ở trạng thái NHÁP.")
     ap.add_argument("--commit", action="store_true", help="Ghi thật.")
@@ -237,8 +625,14 @@ def main() -> int:
         raise SystemExit(f"Không thấy tệp {path}.")
     raw = [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
     lesson = _lesson_no(path, args.lesson)
+    rows, reading, listening, pronunciation = _normalise(raw)
+    audio_uploads: list[tuple[str, bytes]] = []
+    if listening:
+        listening, audio_uploads = _prepare_listening_audio(
+            listening, path, args.audio_zip)
+    # Kiểm hết nội dung trước khi đụng tới kho dữ liệu — tệp hỏng phải dừng ở
+    # nguồn, không phụ thuộc kết nối production có đang sống hay không.
     course = _course(args.course)
-    rows = _normalise(raw)
 
     code = f"{course['code']}-B{lesson:02d}"
     title = args.title or f"Buổi {lesson} — bài tập"
@@ -253,6 +647,20 @@ def main() -> int:
         by_dang[r["subtype"]] = by_dang.get(r["subtype"], 0) + 1
     logger.info("Dạng: %s", ", ".join(f"{k}×{v}" for k, v in sorted(by_dang.items())))
     logger.info("Trục kiến thức: %d nhóm", len({r["item_key"] for r in rows if r["item_key"]}))
+    if reading:
+        reading_questions = sum(len(g["questions"]) for g in reading["question_groups"])
+        logger.info("Bài đọc thêm: %s · %d từ · %d từ vựng · %d câu tự đối chiếu",
+                    reading["title"], reading["word_count"],
+                    len(reading["vocabulary"]), reading_questions)
+    if listening:
+        listening_questions = sum(len(s["questions"]) for s in listening["sections"])
+        logger.info("Bài nghe thêm: %s · %d phần · %d câu · %d file MP3 đã kiểm",
+                    listening["title"], len(listening["sections"]),
+                    listening_questions, len(audio_uploads))
+    if pronunciation:
+        logger.info("Phát âm: %d câu · %s · giọng %s",
+                    pronunciation["sentence_count"], pronunciation["locale"],
+                    pronunciation["voice"])
 
     if not commit:
         logger.info("\n-- THỬ KHÔ. Một câu mẫu: --")
@@ -279,8 +687,22 @@ def main() -> int:
         # mà bank đã published sẽ để lại một bài tập RỖNG mà học viên mở được.
         # Cờ --publish được áp SAU khi RPC ghi câu thành công.
         "is_published": False,
-        "meta": {"nguon": path.name, "so_tu_luan": len(essay)},
+        "meta": {
+            "nguon": path.name,
+            "so_tu_luan": len(essay),
+            **({"short_reading": reading} if reading else {}),
+            **({"short_listening": listening} if listening else {}),
+            **({"pronunciation_requirement": pronunciation}
+               if pronunciation else {}),
+        },
     }
+    # Audio dùng prefix theo hash nội dung. Upload hoàn tất trước khi metadata
+    # của bank trỏ tới prefix ấy; nếu request sau hỏng, bank cũ vẫn không trỏ
+    # tới một gói dở dang. x-upsert làm lệnh chạy lại idempotent.
+    for storage_path, audio_bytes in audio_uploads:
+        supabase_admin.storage.from_(_AUDIO_BUCKET).upload(
+            storage_path, audio_bytes,
+            {"content-type": "audio/mpeg", "x-upsert": "true"})
     if existing:
         bank_id = existing[0]["id"]
         supabase_admin.table("quiz_banks").update(payload).eq("id", bank_id).execute()

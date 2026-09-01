@@ -94,17 +94,18 @@ def test_saving_a_draft_never_grades_or_finalises():
     i = src.index("row = {")
     written = set(re.findall(r'"(\w+)":', src[i:src.index("}", i)]))
     assert written == {"class_assignment_item_id", "user_id", "bank_id",
-                       "answers", "updated_at"}, f"ghi cả cột lạ: {written}"
+                       "attempt_no", "answers", "updated_at"}, \
+        f"ghi cả cột lạ: {written}"
     tables = set(re.findall(r'table\("(\w+)"\)', src))
     assert tables == {"course_writing_drafts", "course_writing_submissions"}
     i2 = src.index('table("course_writing_submissions")')
     assert ".select(" in src[i2:i2 + 90], "bảng đã-chấm chỉ được ĐỌC"
 
-def test_the_draft_is_only_read_when_nothing_was_submitted():
-    """Nộp rồi thì nháp là rác, và rót nó ra màn hình chỉ để một ngày nào đó nó
-    đè lên bài đã chấm."""
+def test_the_draft_is_read_until_a_COMPLETE_grade_exists():
+    """Bản chấm partial từng làm client xoá nháp local. API phải rót bản server
+    vào khung retry; bản chấm đủ mới biến nháp thành rác."""
     src = inspect.getsource(qs.course_writing_state)
-    assert "if item and not sub:" in src
+    assert "if item and (not sub or _writing_row_is_broken(sub)):" in src
 
 
 def test_a_broken_draft_read_never_blocks_the_writing_section():

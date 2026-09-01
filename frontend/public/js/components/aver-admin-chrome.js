@@ -382,6 +382,14 @@ const STYLE = /* css */ `
   .admin-header { gap: var(--av-space-2); }
 }
 
+/* The chrome owns its shadow tree, so document-level print CSS cannot reliably
+   hide these elements. Keep the slotted page and remove every navigation layer. */
+@media print {
+  .admin-header, .sidebar, .backdrop { display: none !important; }
+  .admin-body { display: block; min-height: 0; }
+  .content { padding: 0; background: transparent; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sidebar { transition: none; }
 }
@@ -404,13 +412,13 @@ const NAV_GROUPS = [
     items: [
       // The former ops Dashboard (6-metric overview + trends) was consolidated
       // INTO Tổng quan (dashboard-consolidation): one page, two tabs
-      // (Vận hành / Nội dung). /pages/admin/dashboard/index.html 301-redirects
-      // here. The reading-attempts drill-down moved under this entry.
-      { section: 'overview',  label: 'Tổng quan', href: '/pages/admin/index.html', icon: 'home',
+      // (Vận hành / Nội dung). `/admin` is the native owner; the stable file
+      // URL remains directly reachable as the rollback surface.
+      { section: 'overview',  label: 'Tổng quan', href: '/admin', icon: 'home',
         subsections: [
           // reading-access-tracking C — reading-attempts drill-down (auth +
           // anonymous share-link takers: time/band/skills).
-          { slug: 'reading-attempts', label: 'Reading — Lượt làm bài', href: '/pages/admin/dashboard/reading-attempts.html' },
+          { slug: 'reading-attempts', label: 'Reading — Lượt làm bài', href: '/admin/dashboard/reading-attempts' },
         ],
       },
     ],
@@ -418,69 +426,79 @@ const NAV_GROUPS = [
   {
     title: 'Nội dung',
     items: [
-      { section: 'speaking',  label: 'Speaking',  href: '/pages/admin/speaking/index.html',  icon: 'mic' },
-      { section: 'writing',   label: 'Writing',   href: '/pages/admin/writing/index.html',   icon: 'pen',
+      { section: 'speaking',  label: 'Speaking',  href: '/admin/speaking',  icon: 'mic',
         subsections: [
-          { slug: 'new',              label: 'Soạn bài viết',     href: '/pages/admin/writing/new.html' },
+          { slug: 'sessions', label: 'Sessions & grading', href: '/admin/speaking/sessions' },
+          { slug: 'topics', label: 'Topics & questions', href: '/admin/speaking/topics' },
+        ],
+      },
+      { section: 'writing',   label: 'Writing',   href: '/admin/writing',   icon: 'pen',
+        subsections: [
+          { slug: 'new',              label: 'Soạn bài viết',     href: '/admin/writing/new' },
           // F4 nav-dedup — "Chấm bài viết" was a duplicate of "Hàng chờ chấm"
           // (both → queue.html after F3), so it's removed. grade.html now sets
           // subsection="queue" so the grade view highlights "Hàng chờ chấm".
           // "Trạng thái chấm" stays, deep-linking to the F1 "Đang chấm" lane;
-          // status.html is kept for the post-submit poll (new.html redirect).
-          { slug: 'status',           label: 'Trạng thái chấm',   href: '/pages/admin/writing/queue.html?status=grading' },
-          { slug: 'assignments',      label: 'Gán bài tập',       href: '/pages/admin/writing/assignments.html' },
-          { slug: 'prompts',          label: 'Thư viện prompt',   href: '/pages/admin/writing/prompts.html' },
-          { slug: 'tips',             label: 'Mẹo viết',          href: '/pages/admin/writing/tips.html' },
-          { slug: 'cohorts',          label: 'Lớp học',           href: '/pages/admin/writing/cohorts.html' },
-          { slug: 'queue',            label: 'Hàng chờ chấm',     href: '/pages/admin/writing/queue.html' },
-          { slug: 'regrade-requests', label: 'Yêu cầu chấm lại',   href: '/pages/admin/writing/regrade-requests.html' },
-          { slug: 'instructor-queue', label: 'Hàng đợi Instructor', href: '/pages/admin/writing/instructor-queue.html' },
+          // The native status route owns the per-essay poller; this nav entry
+          // remains the cross-essay in-flight lane on the Queue.
+          { slug: 'status',           label: 'Trạng thái chấm',   href: '/admin/writing/queue?status=grading' },
+          { slug: 'assignments',      label: 'Gán bài tập',       href: '/admin/writing/assignments' },
+          { slug: 'prompts',          label: 'Thư viện prompt',   href: '/admin/writing/prompts' },
+          { slug: 'tips',             label: 'Mẹo viết',          href: '/admin/writing/tips' },
+          { slug: 'cohorts',          label: 'Lớp học',           href: '/admin/writing/cohorts' },
+          { slug: 'queue',            label: 'Hàng chờ chấm',     href: '/admin/writing/queue' },
+          { slug: 'regrade-requests', label: 'Yêu cầu chấm lại',   href: '/admin/writing/regrade-requests' },
+          { slug: 'instructor-queue', label: 'Hàng đợi Instructor', href: '/admin/writing/instructor-queue' },
         ],
       },
-      { section: 'mock-tests', label: 'Mock Test', href: '/pages/admin/mock-tests/index.html', icon: 'clipboard',
+      { section: 'mock-tests', label: 'Mock Test', href: '/admin/mock-tests', icon: 'clipboard',
         subsections: [
-          { slug: 'manage', label: 'Tạo & quản lý đề', href: '/pages/admin/mock-tests/index.html?tab=manage' },
-          { slug: 'review', label: 'Duyệt bài thi',    href: '/pages/admin/mock-tests/index.html?tab=review' },
-          { slug: 'writing', label: 'Chấm Writing',    href: '/pages/admin/mock-tests/index.html?tab=writing' },
+          { slug: 'manage', label: 'Tạo & quản lý đề', href: '/admin/mock-tests' },
+          { slug: 'review', label: 'Duyệt bài thi',    href: '/admin/mock-tests?tab=review' },
+          { slug: 'writing', label: 'Chấm Writing',    href: '/admin/mock-tests?tab=writing' },
         ],
       },
-      { section: 'instructors', label: 'Giảng viên', href: '/pages/admin/instructors.html', icon: 'users' },
-      { section: 'listening', label: 'Listening', href: '/pages/admin/listening/index.html', icon: 'headphones',
+      { section: 'instructors', label: 'Giảng viên', href: '/admin/instructors', icon: 'users' },
+      { section: 'listening', label: 'Listening', href: '/admin/listening', icon: 'headphones',
         subsections: [
-          { slug: 'content',   label: 'Quản lý nội dung', href: '/pages/admin/listening/index.html' },
-          { slug: 'create',    label: 'Tạo bài',          href: '/pages/admin/listening/index.html' },
-          { slug: 'tests',     label: 'Cambridge tests',  href: '/pages/admin/listening/tests.html' },
-          { slug: 'segments',  label: 'Chia cắt audio',   href: '/pages/admin/listening/segments.html' },
-          { slug: 'gist',      label: 'Bài Gist',         href: '/pages/admin/listening/gist.html' },
-          { slug: 'tf',        label: 'Bài True/False',   href: '/pages/admin/listening/tf.html' },
-          { slug: 'mcq',       label: 'Bài MCQ',          href: '/pages/admin/listening/mcq.html' },
-          { slug: 'attempts',  label: 'Lượt làm bài',     href: '/pages/admin/listening/attempts.html' },
-          { slug: 'dictation-reports', label: 'Báo cáo chép chính tả', href: '/pages/admin/listening/dictation-reports.html' },
+          { slug: 'content',   label: 'Quản lý nội dung', href: '/admin/listening' },
+          { slug: 'tests',     label: 'Cambridge tests',  href: '/admin/listening/tests' },
+          // Editors segment/gist/tf/mcq cần content_id, nên chúng chỉ xuất hiện
+          // trong action của đúng content. Đưa vào sidebar không có context chỉ
+          // dẫn tới màn lỗi “Thiếu content_id”.
+          { slug: 'import-drills', label: 'Import bài luyện', href: '/admin/listening/import-drills' },
+          { slug: 'import-fulltest', label: 'Import Cambridge', href: '/admin/listening/import-fulltest' },
+          { slug: 'audit',      label: 'Audit nội dung',    href: '/admin/listening/audit' },
+          { slug: 'attempts',  label: 'Lượt làm bài',     href: '/admin/listening/attempts' },
+          { slug: 'dictation-reports', label: 'Báo cáo chép chính tả', href: '/admin/listening/dictation' },
         ],
       },
-      { section: 'reading',   label: 'Reading',   href: '/pages/admin/reading/content.html', icon: 'book-open',
+      { section: 'reading',   label: 'Reading',   href: '/admin/reading', icon: 'book-open',
         subsections: [
-          { slug: 'content',  label: 'Quản lý nội dung', href: '/pages/admin/reading/content.html' },
+          { slug: 'content',  label: 'Quản lý nội dung', href: '/admin/reading/content' },
         ],
       },
-      { section: 'vocab',     label: 'Vocab',     href: '/pages/admin/vocab/index.html',     icon: 'book',
+      { section: 'vocab',     label: 'Vocab',     href: '/admin/vocab',     icon: 'book',
         subsections: [
-          { slug: 'topics',        label: 'Chủ đề (Topics)',  href: '/pages/admin/vocab/topics.html' },
-          { slug: 'content',       label: 'Nội dung từ vựng', href: '/pages/admin/vocab/content.html' },
-          { slug: 'quiz',          label: 'Quick-Check Quiz', href: '/pages/admin/vocab/quiz.html' },
-          { slug: 'quiz-analytics', label: 'Quiz — Học viên',  href: '/pages/admin/vocab/quiz-analytics.html' },
-          { slug: 'stats',         label: 'Stats',           href: '/pages/admin/vocab/stats.html' },
-          { slug: 'd1-curation',   label: 'D1 Curation',     href: '/pages/admin/vocab/d1-curation.html' },
-          { slug: 'lemmas',        label: 'Lemma Overrides', href: '/pages/admin/vocab/lemmas.html' },
-          { slug: 'exercises',     label: 'D1 Exercises',    href: '/pages/admin/vocab/exercises.html' },
+          { slug: 'curated',       label: 'Curated Editorial', href: '/admin/vocab/curated' },
+          { slug: 'topics',        label: 'Chủ đề (Topics)',  href: '/admin/vocab/topics' },
+          { slug: 'content',       label: 'Nội dung từ vựng', href: '/admin/vocab/content' },
+          { slug: 'quiz',          label: 'Quick-Check Quiz', href: '/admin/vocab/quiz' },
+          { slug: 'quiz-analytics', label: 'Quiz — Học viên',  href: '/admin/vocab/quiz-analytics' },
+          { slug: 'stats',         label: 'Stats',           href: '/admin/vocab/stats' },
+          { slug: 'd1-curation',   label: 'D1 Curation',     href: '/admin/vocab/d1-curation' },
+          { slug: 'lemmas',        label: 'Lemma Overrides', href: '/admin/vocab/lemmas' },
+          { slug: 'exercises',     label: 'D1 Exercises',    href: '/admin/vocab/exercises' },
         ],
       },
-      { section: 'grammar',   label: 'Grammar',   href: '/pages/admin/grammar/index.html',   icon: 'edit',
+      // Native hub owns the clean route; child tools remain legacy until their
+      // own cutover batches. The rollback hub stays directly reachable.
+      { section: 'grammar',   label: 'Grammar',   href: '/admin/grammar',   icon: 'edit',
         subsections: [
-          { slug: 'articles',         label: 'Articles',          href: '/pages/admin/grammar/articles.html' },
-          { slug: 'exercises',        label: 'Bài tập (Exercises)', href: '/pages/admin/vocab/topics.html?skill_area=grammar' },
-          { slug: 'analytics',        label: 'Analytics',         href: '/pages/admin/grammar/analytics.html' },
-          { slug: 'recommend-test',   label: 'Recommendation tester', href: '/pages/admin/grammar/recommend-test.html' },
+          { slug: 'articles',         label: 'Articles',          href: '/admin/grammar/articles' },
+          { slug: 'exercises',        label: 'Bài tập (Exercises)', href: '/admin/vocab/topics?skill_area=grammar' },
+          { slug: 'analytics',        label: 'Analytics',         href: '/admin/grammar/analytics' },
+          { slug: 'recommend-test',   label: 'Recommendation tester', href: '/admin/grammar/recommend-test' },
         ],
       },
     ],
@@ -488,36 +506,38 @@ const NAV_GROUPS = [
   {
     title: 'Người dùng',
     items: [
-      { section: 'users',    label: 'Tất cả người dùng',  href: '/pages/admin/users/index.html',    icon: 'user-check' },
+      { section: 'users',    label: 'Tất cả người dùng',  href: '/admin/users',                     icon: 'user-check' },
       // Sprint 18.1 — IA fold: the standalone "Học viên" (students) nav entry
       // is folded into this area. The cohorts + students pages now present as
       // one tabbed area ("Lớp & Học viên" tab bar); 'students' stays in
       // VALID_ACTIVE so the students page still resolves when reached via the tab.
-      // GĐ 1: lớp và học viên gộp về /pages/admin/classes/; trang cohorts cũ
-      // chuyển hướng sang đây. Slug đổi 'cohorts' → 'classes' để thư mục, slug
+      // GĐ Next: hai directory native sở hữu URL sạch; workspace chi tiết lớp
+      // vẫn ở artifact legacy cho tới batch độc lập tiếp theo.
+      // Slug đổi 'cohorts' → 'classes' để thư mục, slug
       // và thuộc tính active= của trang khớp nhau — lệch một cái là sidebar
       // thôi tô sáng mục đang mở mà không báo gì.
       // (Lưu ý: slug 'cohorts' trong mục Writing bên dưới là thứ KHÁC, giữ nguyên.)
-      { section: 'classes',  label: 'Lớp & Học viên',     href: '/pages/admin/classes/index.html',  icon: 'layers',
+      { section: 'classes',  label: 'Lớp & Học viên',     href: '/admin/classes',  icon: 'layers',
         subsections: [
-          { slug: 'classes',  label: 'Lớp',      href: '/pages/admin/classes/index.html' },
-          { slug: 'students', label: 'Học viên', href: '/pages/admin/classes/index.html?tab=students' },
+          { slug: 'classes',  label: 'Lớp',      href: '/admin/classes' },
+          { slug: 'students', label: 'Học viên', href: '/admin/students' },
         ] },
     ],
   },
   // merge-codes PR-3 — the standalone "Mã kích hoạt" nav entry is removed:
-  // access codes now live as the "Mã kích hoạt" tab inside the Users page
-  // ("Tất cả người dùng" above), and /admin/access-codes redirects there
+  // access codes now live as the "Mã kích hoạt" tab inside the native Users
+  // page ("Tất cả người dùng" above), and /admin/access-codes redirects there
   // (vercel.json). 'access-codes' stays in VALID_ACTIVE for any deep link.
   // (Sprint 18.2 "Usage logs" + "Lưu lượng" remain folded into the Dashboard.)
   {
     title: null,
     items: [
-      { section: 'error-logs', label: 'Báo lỗi',   href: '/pages/admin/error-logs/index.html', icon: 'alert' },
+      // Native owner; the public HTML URL stays reachable as the rollback target.
+      { section: 'error-logs', label: 'Báo lỗi',   href: '/admin/error-logs', icon: 'alert' },
       // Feedback feature — cross-skill inbox (đánh giá đề + báo lỗi đề + flag bài
       // giải) for reading + listening, grouped by test. Not under a skill since
       // it spans both. Endpoint: GET/PATCH /api/admin/feedback (#458).
-      { section: 'feedback',   label: 'Feedback',  href: '/pages/admin/feedback/index.html', icon: 'message' },
+      { section: 'feedback',   label: 'Feedback',  href: '/admin/feedback', icon: 'message' },
       // Sprint 18.2 — "Hệ thống" folded into the Dashboard (AI Usage is the
       // cost-card drill-down). system / ai-usage / alerts stay in VALID_ACTIVE.
     ],
@@ -625,7 +645,7 @@ function buildTemplate(active, subsection) {
     <span class="back-label">Trang chủ</span>
   </a>
   <span class="brand-divider">|</span>
-  <a href="/pages/admin/index.html" class="brand">
+  <a href="/admin" class="brand">
     Aver<span class="mark">.</span>Learning
   </a>
   <span class="admin-badge">Quản trị</span>

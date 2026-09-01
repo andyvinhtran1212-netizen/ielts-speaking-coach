@@ -20,8 +20,6 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { NO_BODY } from '../write-flow-core.mjs';
-
 const FX = JSON.parse(readFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/reading-exam.json'), 'utf8'));
 
@@ -29,6 +27,8 @@ const TEST = FX.test_id;
 const ATTEMPT = FX.attempt_id;
 const STARTED_AT = new Date().toISOString();
 const A1 = 'con mèo';
+const RENDERER = process.env.WF_LEGACY ? 'legacy' : 'next';
+const START_PROTOCOL = { renderer_affinity_protocol: 'claim-v1' };
 
 export default {
   name: 'reading-exam — máy chủ từ chối mọi lần lưu (báo động)',
@@ -44,6 +44,7 @@ export default {
     [/\/attempts$/, {
       attempt_id: ATTEMPT, started_at: STARTED_AT, time_limit_minutes: 60,
     }],
+    [/\/renderer-affinity$/, { renderer_affinity: RENDERER }],
     // MỌI lần lưu đều hỏng. 5xx là lỗi ĐƯỢC THỬ LẠI
     // (`reading-exam.js:1527-1531`), nên đây là đường mà trang cố hết sức rồi
     // vẫn không lưu được — chứ không phải đường bỏ cuộc ngay.
@@ -75,7 +76,12 @@ export default {
   ignoreWrites: ['/api/analytics/events'],
 
   writes: [
-    { method: 'POST', path: `/api/reading/test/${TEST}/attempts`, body: NO_BODY },
+    { method: 'POST', path: `/api/reading/test/${TEST}/attempts`, body: START_PROTOCOL },
+    {
+      method: 'POST',
+      path: `/api/reading/test/attempts/${ATTEMPT}/renderer-affinity`,
+      body: { renderer_affinity: RENDERER },
+    },
     {
       method: 'PATCH',
       path: `/api/reading/test/attempts/${ATTEMPT}/answers`,

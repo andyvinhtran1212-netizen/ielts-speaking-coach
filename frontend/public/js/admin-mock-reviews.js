@@ -724,7 +724,7 @@
               + '&mock_exam_id=' + encodeURIComponent(examId || '') + '">Xem phiếu báo điểm ↗</a>'
             : '') +
         '</div>' +
-        '<p class="mr-muted" style="margin-top:8px">Công bố yêu cầu đã “Lưu band” (trạng thái reviewed) và mở khoá điểm cho học viên. <b>Bài Writing phải được chấm &amp; “Lưu &amp; duyệt” (Đã duyệt/Đã trả) trước khi công bố</b> — nếu chưa, hệ thống sẽ chặn. Phiếu báo điểm chỉ tạo được khi không còn kỹ năng nào bị đánh dấu "cần test lại".</p>' +
+        '<p class="mr-muted" style="margin-top:8px">Công bố yêu cầu đã “Lưu band” (trạng thái reviewed) và mở khoá điểm cho học viên. <b>Bài Writing phải được chấm &amp; “Lưu &amp; duyệt” (Đã duyệt/Đã trả) trước khi công bố</b> — nếu chưa, hệ thống sẽ chặn. Cờ test lại sẽ hiện thành hướng dẫn trên phiếu, không xoá kết quả lần thi này.</p>' +
       '</div>';
 
     el('queue-view').classList.add('hidden');

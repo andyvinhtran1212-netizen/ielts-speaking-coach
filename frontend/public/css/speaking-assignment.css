@@ -490,6 +490,22 @@
 
 .av-qpick__row[aria-pressed='true'] .av-qpick__text { color: var(--av-text-primary); }
 
+.av-qpick__cue {
+  display: grid;
+  gap: var(--av-space-1);
+  margin-top: var(--av-space-2);
+  font-size: var(--av-fs-xs);
+  line-height: var(--av-lh-relaxed);
+  color: var(--av-text-muted);
+}
+
+.av-qpick__cue strong {
+  color: var(--av-text-secondary);
+  font-weight: var(--av-fw-semibold);
+}
+
+.av-qpick__cue em { font-style: italic; }
+
 .av-qpick__meta {
   display: flex;
   flex-direction: column;
@@ -573,14 +589,13 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   5 — PHIẾU LÀM BÀI (bài tập lớp Part 1/3, nhiều câu)
+   5 — PHIẾU LÀM BÀI (bài tập lớp Part 1/2/3, nhiều câu)
    ══════════════════════════════════════════════════════════════════════
    Thay màn phễu một-câu-một-lúc. Hai ô cùng hiện, làm ô nào trước cũng được,
    lưu từng ô, đủ mới nộp.
 
-   ĐIỂM QUYẾT ĐỊNH: câu hỏi KHÔNG có chữ. Nên ô không thể là "câu hỏi + nút ghi
-   âm" — chẳng có gì để đọc. Thứ nhận diện mỗi ô là ÂM THANH, và nút nghe phải
-   là vật to nhất trong ô: nó là cách DUY NHẤT biết đề hỏi gì.
+   Part 1/3 che chữ và dùng ÂM THANH để nhận diện từng ô. Part 2 là cue card
+   đọc bằng mắt, nên phải hiện đủ đề, các gợi ý và câu reflection ngay trong ô.
 
    Rủi ro lớn nhất của học viên là TƯỞNG ĐÃ LƯU MÀ CHƯA. Nên mỗi ô có một cột
    trạng thái ở mép trái — cùng ngôn ngữ với bảng tổng kết bên admin: liếc dọc
@@ -609,6 +624,7 @@
    thứ một cột ghi âm đang chạy muốn nói. Không tự đẻ token mới cho một trạng
    thái tạm. */
 .av-slot[data-state='recording'] .av-slot__spine { background: var(--av-error); }
+.av-slot[data-state='retry']     .av-slot__spine { background: var(--av-warning); }
 .av-slot[data-state='grading']   .av-slot__spine { background: var(--av-accent); }
 .av-slot[data-state='saved']     .av-slot__spine { background: var(--av-success); }
 
@@ -637,6 +653,7 @@
 }
 
 .av-slot[data-state='saved'] .av-slot__status { color: var(--av-success); }
+.av-slot[data-state='retry'] .av-slot__status { color: var(--av-warning); }
 .av-slot[data-state='grading'] .av-slot__status { color: var(--av-accent); }
 
 /* Nút nghe là vật TO NHẤT trong ô — nó là cách duy nhất biết đề hỏi gì. */
@@ -676,6 +693,46 @@
   font-size: var(--av-fs-xs);
   font-weight: var(--av-fw-regular);
   color: var(--av-text-muted);
+}
+
+/* Part 2 không có audio đề: cue card là nguồn duy nhất để học viên biết mình
+   phải nói gì. Giữ toàn bộ prompt trong cùng ô, trước nút ghi âm. */
+.av-slot__cue {
+  padding: var(--av-space-4);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+  background: var(--av-surface-sunken);
+  color: var(--av-text-primary);
+}
+
+.av-slot__cue-question {
+  margin: 0 0 var(--av-space-3);
+  font-size: var(--av-fs-base);
+  font-weight: var(--av-fw-semibold);
+  line-height: var(--av-lh-relaxed);
+}
+
+.av-slot__cue-label {
+  margin: 0 0 var(--av-space-2);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--av-tracking-wide);
+  color: var(--av-text-muted);
+}
+
+.av-slot__cue ul {
+  margin: 0;
+  padding-inline-start: calc(var(--av-space-4) + var(--av-space-1));
+  color: var(--av-text-secondary);
+}
+
+.av-slot__cue li + li { margin-top: var(--av-space-1); }
+
+.av-slot__cue-reflection {
+  margin: var(--av-space-3) 0 0;
+  font-style: italic;
+  color: var(--av-text-secondary);
 }
 
 .av-slot__actions {
@@ -906,6 +963,7 @@
 /* Ba trạng thái, ba màu — cùng bảng với vạch bên trái mỗi ô, để hai chỗ nói
    cùng một thứ tiếng. */
 .av-sheet__ticks i[data-state='recording'] { background: var(--av-error); }
+.av-sheet__ticks i[data-state='retry']     { background: var(--av-warning); }
 .av-sheet__ticks i[data-state='grading']   { background: var(--av-accent); }
 .av-sheet__ticks i[data-state='saved']     { background: var(--av-success); }
 /* Đã lưu nhưng chưa chấm được. Thiếu dòng này thì vạch ấy xám y hệt câu CHƯA

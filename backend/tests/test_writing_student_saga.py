@@ -13,8 +13,9 @@ The fix is a SAGA reverse order:
   2. Atomic claim + link in a single conditional UPDATE.
      `.in_("status", ["pending", "in_progress"])` is the race gate;
      a lost-race tab gets `data=[]` back.
-  3. On lost race (or UPDATE round-trip failure): DELETE the orphan
-     essay row so the moderation queue isn't poisoned.
+  3. On lost race: DELETE the orphan. On UPDATE round-trip failure:
+     read back the canonical assignment first; preserve a committed link and
+     delete only when readback proves the essay is still orphaned.
   4. Schedule the grading job ONLY after the link is committed.
      Failure here does NOT fail the request — assignment is
      correctly linked, admin can manually re-queue grading.
@@ -60,6 +61,7 @@ _ASSIGNMENT_ID = "assign-uuid-cccc"
 _PROMPT_ID     = "prompt-uuid-dddd"
 _ESSAY_ID      = "essay-uuid-eeee"
 _JOB_ID        = "job-uuid-ffff"
+_ACTIVE_RENDERER_LEASE = "2099-01-01T00:00:00+00:00"
 
 
 def _run(coro):
@@ -91,6 +93,7 @@ class _Builder:
         self._payload = None
         self._filters: list[tuple] = []
         self._in: tuple[str, list] | None = None
+        self._gt: tuple[str, object] | None = None
 
     def select(self, *_a, **_kw): self._action = "select"; return self
     def insert(self, payload, *_a, **_kw): self._action = "insert"; self._payload = payload; return self
@@ -107,6 +110,10 @@ class _Builder:
         self._in = (col, list(vals))
         return self
 
+    def gt(self, col, val):
+        self._gt = (col, val)
+        return self
+
     def execute(self):
         rec = {
             "table":   self._table,
@@ -114,6 +121,7 @@ class _Builder:
             "payload": self._payload,
             "filters": list(self._filters),
             "in":      self._in,
+            "gt":      self._gt,
         }
         self._parent.calls.append(("call", rec))
         return self._parent._respond(rec)
@@ -127,11 +135,17 @@ class _Client:
     timestamps which is flaky."""
 
     def __init__(self, *, assignment_status="in_progress", drafts_data=None,
-                 student_row=None, analysis_level=None):
+                 student_row=None, analysis_level=None,
+                 claim_transport_error_after_commit=False,
+                 expire_on_guarded_claim=False):
         self._assignment_status = assignment_status
         self._analysis_level    = analysis_level
         self._drafts            = drafts_data or []
         self._student_row       = student_row or {"flag_count": 0, "is_under_review": False}
+        self._essay_id          = None
+        self._claim_transport_error_after_commit = claim_transport_error_after_commit
+        self._expire_on_guarded_claim = expire_on_guarded_claim
+        self._renderer_expiry = _ACTIVE_RENDERER_LEASE
         self.calls: list[tuple] = []
 
     def table(self, name): return _Builder(self, name)
@@ -157,6 +171,9 @@ class _Client:
                     "time_limit_minutes": None,
                     "started_at":  None,
                     "auto_submitted": False,
+                    "renderer_affinity": "legacy",
+                    "renderer_affinity_claimed_at": "2026-05-01T00:00:00+00:00",
+                    "renderer_affinity_expires_at": self._renderer_expiry,
                     "analysis_level": self._analysis_level,
                     "writing_prompts": {
                         "id":          _PROMPT_ID,
@@ -166,6 +183,7 @@ class _Client:
                         "difficulty":  "intermediate",
                     },
                 }
+                row["essay_id"] = self._essay_id
                 r.data = [row]
             elif a == "update":
                 # Honor `.in_()` filter for atomic claim semantics.
@@ -174,7 +192,25 @@ class _Client:
                     if in_col == "status" and self._assignment_status not in in_vals:
                         r.data = []
                         return r
-                r.data = [{"id": _ASSIGNMENT_ID, **(rec["payload"] or {})}]
+                if rec.get("gt"):
+                    gt_col, gt_val = rec["gt"]
+                    if self._expire_on_guarded_claim:
+                        self._expire_on_guarded_claim = False
+                        self._renderer_expiry = "2000-01-01T00:00:00+00:00"
+                    current = {
+                        "renderer_affinity_expires_at": self._renderer_expiry,
+                    }
+                    if current.get(gt_col) is None or not (current.get(gt_col) > gt_val):
+                        r.data = []
+                        return r
+                payload = rec["payload"] or {}
+                if rec.get("in"):
+                    self._assignment_status = payload.get("status", self._assignment_status)
+                    self._essay_id = payload.get("essay_id", self._essay_id)
+                    if self._claim_transport_error_after_commit:
+                        self._claim_transport_error_after_commit = False
+                        raise RuntimeError("response lost after commit")
+                r.data = [{"id": _ASSIGNMENT_ID, **payload}]
         elif t == "writing_drafts":
             if a == "select":
                 rows = self._drafts
@@ -277,37 +313,15 @@ def test_saga_creates_essay_before_claim_and_schedules_job_after_link(monkeypatc
         "BG task is added last, after the job row is queued"
 
 
-def test_saga_rolls_back_orphan_essay_on_lost_race(monkeypatch):
-    """Lost race: the row is already past an active state by the
-    time the conditional UPDATE fires.  SAGA must DELETE the
-    speculative essay so an admin doesn't see an orphan in the
-    moderation queue."""
-    deleted_ids: list[str] = []
+def test_terminal_assignment_is_rejected_before_speculative_essay(monkeypatch):
+    """A fresh request against terminal state must fail before SAGA leg 1.
 
+    Before migration 207 this path created an essay only to delete it after
+    the conditional claim. The terminal preflight now removes that orphan
+    window entirely; same-request recovery is pinned by dedicated replay tests.
+    """
     client = _Client(assignment_status="submitted")  # tab A already won
     monkeypatch.setattr(ws_module, "supabase_admin", client)
-
-    # Hook the orphan DELETE so we can assert by id.
-    real_table = client.table
-
-    def table_with_delete_track(name):
-        b = real_table(name)
-        if name == "writing_essays":
-            orig_delete = b.delete
-            def tracking_delete(*_a, **_kw):
-                # capture the eventual eq() value (essay id)
-                ret = orig_delete()
-                orig_eq = ret.eq
-                def eq_track(col, val):
-                    if col == "id":
-                        deleted_ids.append(val)
-                    return orig_eq(col, val)
-                ret.eq = eq_track
-                return ret
-            b.delete = tracking_delete
-        return b
-    monkeypatch.setattr(client, "table", table_with_delete_track)
-
     _patch_saga_service(monkeypatch)
 
     bg = MagicMock(); bg.add_task = MagicMock()
@@ -319,8 +333,10 @@ def test_saga_rolls_back_orphan_essay_on_lost_race(monkeypatch):
             student=_student(),
         ))
     assert exc.value.status_code == 409
-    assert _ESSAY_ID in deleted_ids, \
-        "lost race must DELETE the speculatively-created essay"
+    assert not any(
+        rec[1]["table"] == "writing_essays"
+        for rec in client.calls
+    ), "terminal preflight must not create or delete a speculative essay"
     bg.add_task.assert_not_called()
 
 
@@ -380,6 +396,72 @@ def test_saga_grading_job_failure_does_not_fail_the_request(monkeypatch):
     assert any("schedule grading job failed" in m and _ESSAY_ID in m
                for m in error_messages), \
         "grading-job failure must produce an actionable ERROR log"
+
+
+def test_claim_transport_error_after_commit_preserves_linked_essay(monkeypatch):
+    """A lost UPDATE response must never delete the essay the DB linked.
+
+    The fake commits status+essay_id and then raises. Canonical readback sees
+    the exact link, so the handler continues to schedule one job and returns
+    success without issuing a writing_essays DELETE.
+    """
+    request_id = "11111111-1111-4111-8111-111111111111"
+    client = _Client(
+        assignment_status="in_progress",
+        claim_transport_error_after_commit=True,
+    )
+    monkeypatch.setattr(ws_module, "supabase_admin", client)
+    _patch_saga_service(monkeypatch)
+    bg = MagicMock(); bg.add_task = MagicMock()
+
+    result = _run(submit_my_assignment(
+        assignment_id=_ASSIGNMENT_ID,
+        body=SubmitEssay(essay_text=_LONG, request_id=request_id),
+        background_tasks=bg,
+        student=_student(),
+    ))
+
+    assert result["status"] == "submitted"
+    assert result["essay_id"] == _ESSAY_ID
+    assert result["job_id"] == _JOB_ID
+    assert not any(
+        rec[1]["table"] == "writing_essays" and rec[1]["action"] == "delete"
+        for rec in client.calls
+    )
+    bg.add_task.assert_called_once()
+
+
+@pytest.mark.parametrize("essay_text", [_LONG, "too short"])
+def test_claim_rechecks_lease_after_speculative_essay(monkeypatch, essay_text):
+    """Both clean and flagged SAGA branches fail closed across lease expiry."""
+    events: list[str] = []
+    client = _Client(
+        assignment_status="in_progress",
+        expire_on_guarded_claim=True,
+    )
+    monkeypatch.setattr(ws_module, "supabase_admin", client)
+    _patch_saga_service(
+        monkeypatch,
+        on_schedule=lambda _kw: events.append("schedule_job"),
+    )
+    bg = MagicMock(); bg.add_task = MagicMock()
+
+    with pytest.raises(HTTPException) as excinfo:
+        _run(submit_my_assignment(
+            assignment_id=_ASSIGNMENT_ID,
+            body=SubmitEssay(essay_text=essay_text),
+            background_tasks=bg,
+            student=_student(),
+        ))
+
+    assert excinfo.value.status_code == 410
+    assert client._assignment_status == "in_progress"
+    assert any(
+        rec[1]["table"] == "writing_essays" and rec[1]["action"] == "delete"
+        for rec in client.calls
+    ), "the speculative essay must be rolled back when the lease expires"
+    assert events == []
+    bg.add_task.assert_not_called()
 
 
 def test_saga_flagged_path_creates_row_first_then_claims(monkeypatch):

@@ -1,14 +1,13 @@
 /*
  * admin-mock-report.js — phiếu báo điểm (score report), 2026-07-12.
  *
- * Only reachable for a sitting whose review has ZERO retest_flags set — the
- * gate is enforced client-side here (the data itself, final_bands +
- * retest_flags + required_skills, already comes from the admin-only
- * GET /admin/mock-reviews/{id} endpoint, same as the review console).
+ * A retest decision does not erase the completed sitting's result.  The report
+ * always shows the canonical final bands and renders retest_flags as a separate
+ * instruction for the next sitting (matching the learner result page).
  *
- * Overall is shown ONLY when speaking is among the sitting's required
- * skills (an LRW-only exam reports per-skill bands with no combined figure —
- * mirrors mock_review_workflow.compute_overall's same skill-set rule).
+ * Overall is shown ONLY when Speaking belongs to the completed result. This
+ * includes teacher-assessed live Speaking stored in final_bands even when the
+ * exam definition itself is LRW-only.
  */
 (function () {
   'use strict';
@@ -27,6 +26,12 @@
     return (new URLSearchParams(location.search).get('review_id') || '').trim() || null;
   }
 
+  function reportSkills(requiredSkills, finalBands) {
+    return Object.keys(SKILL_VI).filter(function (skill) {
+      return requiredSkills.indexOf(skill) !== -1 || finalBands[skill] != null;
+    });
+  }
+
   // ── Back target ──────────────────────────────────────────────────
   // The queue REFUSES to load without ?mock_exam_id= (it shows a "chọn đề"
   // prompt instead), so a bare link to index.html would not return the admin to
@@ -40,8 +45,8 @@
 
   function render(data) {
     var review = data.review, sitting = data.sitting || {};
-    var skills = data.required_skills || [];
     var fb = review.final_bands || {};
+    var skills = reportSkills(data.required_skills || [], fb);
 
     el('rp-title').textContent = 'Phiếu báo điểm — ' + (sitting.student_name || '—');
     el('rp-sub').textContent = 'Kết quả các kỹ năng đã thi';
@@ -56,8 +61,20 @@
         '<div class="rp-overall__band">' + (fb.overall != null ? Number(fb.overall).toFixed(1) : '—') + '</div></div>'
       : '';
 
+    renderRetest(review.retest_flags || {});
     el('rp-comment').textContent = review.examiner_comment_vi || '';
     showState('report');
+  }
+
+  function renderRetest(retestFlags) {
+    var skills = Object.keys(SKILL_VI).filter(function (skill) { return retestFlags[skill]; });
+    var wrap = el('rp-retest');
+    if (!wrap) return;
+    wrap.classList.toggle('hidden', !skills.length);
+    if (!skills.length) { wrap.innerHTML = ''; return; }
+    wrap.innerHTML = '<span class="rp-retest__icon" aria-hidden="true">↻</span>' +
+      '<span><strong>Cần test lại: ' + esc(skills.map(function (skill) { return SKILL_VI[skill]; }).join(', ')) + '</strong>' +
+      '<small>Kết quả trên phiếu vẫn là kết quả chính thức của lần mock test này.</small></span>';
   }
 
   async function boot() {
@@ -69,13 +86,6 @@
     if (!id) { showState('blocked'); el('state-blocked').textContent = 'Thiếu review_id.'; return; }
     try {
       var data = await window.api.get('/admin/mock-reviews/' + encodeURIComponent(id));
-      var flags = (data.review && data.review.retest_flags) || {};
-      var needsRetest = Object.keys(flags).some(function (k) { return flags[k]; });
-      if (needsRetest) {
-        showState('blocked');
-        el('state-blocked').textContent = 'Học viên còn kỹ năng cần test lại — chưa thể tạo phiếu báo điểm.';
-        return;
-      }
       if (data.review.status !== 'reviewed' && data.review.status !== 'released') {
         showState('blocked');
         el('state-blocked').textContent = 'Chưa nhập band cuối — chưa thể tạo phiếu báo điểm.';

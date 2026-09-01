@@ -53,7 +53,24 @@ anchors:
   - id: complex-sentence.simple-to-complex-progression
     location: "## From simple to complex (worked examples)"
     type: section
+learning_blocks:
+  - id: complex-sentence-hierarchy
+    type: visual
+    variant: sentence-xray
+    eyebrow: Clause hierarchy
+    title: Mệnh đề phụ phải bám vào một mệnh đề chính
+    items:
+      - label: Subordinator
+        value: Although
+        note: báo hiệu quan hệ nhượng bộ
+      - label: Dependent clause
+        value: public transport is crowded
+      - label: Main clause
+        value: many commuters still use it
+        note: phần có thể đứng độc lập
 ---
+<!-- learning-block: complex-sentence-hierarchy -->
+
 ## Tóm tắt
 
 **Complex sentence** = một **independent clause** (mệnh đề chính) + ít nhất một **dependent clause** (mệnh đề phụ), nối bằng **subordinating conjunction** (*because, although, when, if, since, unless...*) hoặc **relative pronoun** (*who, which, that, where*).

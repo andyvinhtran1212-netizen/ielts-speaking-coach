@@ -1,5 +1,6 @@
 # Staging E2E (plan §11.3 — "staging-e2e", the real-backend suite; the PR-time
-# fixture smoke stays in backend-tests.yml). Nightly + manual. NOT PR-blocking:
+# fixture smoke stays in backend-tests.yml). Four times daily + manual. NOT
+# PR-blocking:
 # it exercises live staging infrastructure and must never gate unrelated PRs.
 #
 # Required repo secrets:
@@ -13,11 +14,20 @@
 #     Supabase (script ships in PR #733 — merge order #732 → #733 → this)
 name: Staging E2E
 
+permissions:
+  contents: read
+  actions: read
+
 on:
   schedule:
     # GitHub Actions cron is deliberate: this job runs a Playwright browser
     # suite, which Vercel Cron Jobs (URL-invoking functions) cannot host.
-    - cron: "30 20 * * *" # 03:30 Asia/Ho_Chi_Minh, daily
+    # Space the four evidence runs six hours apart so the shared staging
+    # identities never overlap: 03:30, 09:30, 15:30 and 21:30 Asia/Ho_Chi_Minh.
+    - cron: "30 2,8,14,20 * * *"
+  # Dispatch manual evidence runs with `--ref main`. The job still checks out
+  # and tests `staging` below, while keeping the streak cache in the same
+  # default-branch scope as scheduled runs.
   workflow_dispatch:
 
 jobs:
@@ -41,33 +51,387 @@ jobs:
       group: staging-e2e-shared-env
       cancel-in-progress: false
       queue: max
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: ubuntu-24.04
+    # Every step below has its own timeout. Their deliberately conservative
+    # total is 159 minutes even though the streak/reset uploads are mutually
+    # exclusive. Keep a further 31-minute job margin so a step-level timeout
+    # can still produce the fail-closed ledger and evidence artifacts below.
+    timeout-minutes: 190
     steps:
       - uses: actions/checkout@v4
+        timeout-minutes: 3
+        with:
+          # This workflow validates staging. Scheduled workflows execute from
+          # default-branch YAML, but the code under test/evidence must match the
+          # branch Vercel + Railway deploy to staging.
+          ref: staging
+          fetch-depth: 1
+
+      - name: Checkout trusted Gate E auditor
+        uses: actions/checkout@v4
+        timeout-minutes: 3
+        with:
+          ref: main
+          path: .gate-e-auditor
+          fetch-depth: 1
+
+      - name: Capture tested source revision
+        id: source_revision
+        timeout-minutes: 1
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "ref=staging" >> "$GITHUB_OUTPUT"
+
+      - name: Capture auditor revision
+        id: auditor_revision
+        timeout-minutes: 1
+        run: echo "sha=$(git -C .gate-e-auditor rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore previous Gate E streak state
+        id: restore_gate_e_streak
+        uses: actions/cache/restore@v4
+        timeout-minutes: 3
+        with:
+          path: ${{ runner.temp }}/gate-e-streak-state
+          # Do not partition the logical chain by dispatch ref. GitHub cache
+          # scope can still hide a feature-branch cache from main, so the
+          # updater also verifies global workflow history and resets on gaps.
+          key: gate-e-streak-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            gate-e-streak-
 
       - uses: actions/setup-node@v5
+        timeout-minutes: 3
         with:
           node-version: "24"
 
+      - name: Verify frozen Gate E suite before executing staging code
+        id: frozen_preflight
+        timeout-minutes: 1
+        env:
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
+          GATE_E_TESTED_SHA: ${{ steps.source_revision.outputs.sha }}
+          GATE_E_AUDITOR_SHA: ${{ steps.auditor_revision.outputs.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node .gate-e-auditor/frontend/tooling/verify-gate-e-frozen-suite.mjs
+
       - name: Install frontend deps
         working-directory: frontend
+        timeout-minutes: 5
         run: npm ci
 
-      - name: Install Playwright chromium
+      - name: Verify Speaking Gate E matrix pins
         working-directory: frontend
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 1
+        env:
+          GATE_E_RUNNER_IMAGE: ubuntu24.04-x64
+        run: node tooling/verify-gate-e-speaking-device-matrix.mjs
+
+      - name: Verify Reading Gate E matrix pins
+        working-directory: frontend
+        timeout-minutes: 1
+        env:
+          GATE_E_RUNNER_IMAGE: ubuntu24.04-x64
+        run: node tooling/verify-gate-e-reading-device-matrix.mjs
+
+      - name: Verify Listening Gate E matrix pins
+        working-directory: frontend
+        timeout-minutes: 1
+        env:
+          GATE_E_RUNNER_IMAGE: ubuntu24.04-x64
+        run: node tooling/verify-gate-e-listening-device-matrix.mjs
+
+      - name: Verify Writing Gate E matrix pins
+        working-directory: frontend
+        timeout-minutes: 1
+        env:
+          GATE_E_RUNNER_IMAGE: ubuntu24.04-x64
+        run: node tooling/verify-gate-e-writing-device-matrix.mjs
+
+      - name: Install Playwright matrix engines
+        working-directory: frontend
+        # Runs #84 and #85 both stalled in apt before any browser download:
+        # the ubuntu-24.04 mirror list kept retrying azure.archive.ubuntu.com.
+        # Keep Playwright's supported `--with-deps` path, but replace the
+        # ephemeral runner's regional mirror with Ubuntu's canonical HTTPS
+        # archive and bound every apt network attempt. A real outage still
+        # fails closed without consuming the whole evidence job.
+        timeout-minutes: 15
+        run: |
+          test -f /etc/apt/apt-mirrors.txt
+          printf '%s\n' 'https://archive.ubuntu.com/ubuntu' \
+            | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          printf '%s\n' \
+            'Acquire::Retries "2";' \
+            'Acquire::http::Timeout "15";' \
+            'Acquire::https::Timeout "15";' \
+            | sudo tee /etc/apt/apt.conf.d/99-gate-e-network >/dev/null
+          npx playwright install --with-deps chromium webkit
 
       - name: Run staging E2E
+        id: staging_e2e
         working-directory: frontend
+        # Leave enough of the 190-minute job budget for all four frozen
+        # matrices plus fail-closed evidence finalization.
+        timeout-minutes: 20
         env:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          GATE_E_SOURCE_SHA: ${{ steps.source_revision.outputs.sha }}
         run: npm run test:e2e:staging
+
+      - name: Verify live-staging core-player failure evidence
+        id: live_staging_failure_evidence
+        if: always() && steps.staging_e2e.outcome != 'skipped'
+        timeout-minutes: 2
+        env:
+          GATE_E_SOURCE_SHA: ${{ steps.source_revision.outputs.sha }}
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
+        run: node .gate-e-auditor/frontend/tooling/verify-gate-e-live-staging-failure-evidence.mjs
+
+      # The four core-player failure paths use deterministic network faults
+      # against the production Next build. Keeping this as a separate step
+      # preserves the live-staging report while making either suite failure
+      # reset the same critical streak.
+      - name: Run Gate E Speaking failure matrix
+        id: speaking_failure_matrix
+        # Never execute tested-branch package scripts when trusted preflight
+        # rejected the checkout or dependency setup skipped this suite.
+        if: always() && steps.frozen_preflight.outcome == 'success' && steps.staging_e2e.outcome != 'skipped'
+        working-directory: frontend
+        timeout-minutes: 10
+        env:
+          GATE_E_REQUIRE_AFFINITY: 'true'
+        run: npm run test:e2e:gate-e
+
+      # Validate reporter semantics before any metadata or ledger state can be
+      # written. A nonempty but truncated/empty artifact must reset the streak,
+      # never advance it and only fail later during upload.
+      - name: Verify Speaking failure-matrix evidence
+        id: speaking_failure_evidence
+        if: always() && steps.speaking_failure_matrix.outcome != 'skipped'
+        timeout-minutes: 2
+        env:
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
+        run: node .gate-e-auditor/frontend/tooling/verify-gate-e-speaking-failure-evidence.mjs
+
+      - name: Run Gate E Reading failure matrix
+        id: reading_failure_matrix
+        if: always() && steps.frozen_preflight.outcome == 'success' && steps.staging_e2e.outcome != 'skipped'
+        working-directory: frontend
+        timeout-minutes: 10
+        run: npm run test:e2e:gate-e:reading
+
+      - name: Verify Reading failure-matrix evidence
+        id: reading_failure_evidence
+        if: always() && steps.reading_failure_matrix.outcome != 'skipped'
+        timeout-minutes: 2
+        env:
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
+        run: node .gate-e-auditor/frontend/tooling/verify-gate-e-reading-failure-evidence.mjs
+
+      - name: Run Gate E Listening failure matrix
+        id: listening_failure_matrix
+        if: always() && steps.frozen_preflight.outcome == 'success' && steps.staging_e2e.outcome != 'skipped'
+        working-directory: frontend
+        timeout-minutes: 10
+        run: npm run test:e2e:gate-e:listening
+
+      - name: Verify Listening failure-matrix evidence
+        id: listening_failure_evidence
+        if: always() && steps.listening_failure_matrix.outcome != 'skipped'
+        timeout-minutes: 2
+        env:
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
+        run: node .gate-e-auditor/frontend/tooling/verify-gate-e-listening-failure-evidence.mjs
+
+      - name: Run Gate E Writing failure matrix
+        id: writing_failure_matrix
+        if: always() && steps.frozen_preflight.outcome == 'success' && steps.staging_e2e.outcome != 'skipped'
+        working-directory: frontend
+        timeout-minutes: 10
+        run: npm run test:e2e:gate-e:writing
+
+      - name: Verify Writing failure-matrix evidence
+        id: writing_failure_evidence
+        if: always() && steps.writing_failure_matrix.outcome != 'skipped'
+        timeout-minutes: 2
+        env:
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
+        run: node .gate-e-auditor/frontend/tooling/verify-gate-e-writing-failure-evidence.mjs
+
+      # Gate E evidence must remain inspectable even when the suite fails. This
+      # metadata contains only versions/run ids/outcome — never secrets or auth
+      # state — and pairs with Playwright's JSON reporter output.
+      - name: Write versioned device-matrix metadata
+        id: matrix_evidence
+        if: always()
+        timeout-minutes: 1
+        env:
+          GATE_E_RUN_OUTCOME: ${{ steps.staging_e2e.outcome == 'success' && steps.live_staging_failure_evidence.outcome == 'success' && steps.speaking_failure_matrix.outcome == 'success' && steps.speaking_failure_evidence.outcome == 'success' && steps.reading_failure_matrix.outcome == 'success' && steps.reading_failure_evidence.outcome == 'success' && steps.listening_failure_matrix.outcome == 'success' && steps.listening_failure_evidence.outcome == 'success' && steps.writing_failure_matrix.outcome == 'success' && steps.writing_failure_evidence.outcome == 'success' && 'success' || 'failure' }}
+          EVIDENCE_GIT_SHA: ${{ steps.source_revision.outputs.sha }}
+          EVIDENCE_GIT_REF: ${{ steps.source_revision.outputs.ref }}
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
+        run: node .gate-e-auditor/frontend/tooling/write-gate-e-device-matrix-evidence.mjs
+
+      - name: Capture staging release provenance
+        id: staging_provenance
+        if: always()
+        timeout-minutes: 3
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          GATE_E_SOURCE_SHA: ${{ steps.source_revision.outputs.sha }}
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
+        run: node .gate-e-auditor/frontend/tooling/capture-gate-e-staging-provenance.mjs
+
+      - name: Update Gate E streak ledger
+        id: streak_ledger
+        if: always()
+        timeout-minutes: 3
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
+          GATE_E_STATE_ROOT: ${{ runner.temp }}/gate-e-streak-state
+        run: node .gate-e-auditor/frontend/tooling/update-gate-e-streak-ledger.mjs
+
+      - name: Save Gate E streak state
+        if: always() && steps.streak_ledger.outcome == 'success'
+        uses: actions/cache/save@v4
+        timeout-minutes: 3
+        with:
+          path: ${{ runner.temp }}/gate-e-streak-state
+          key: gate-e-streak-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Package verifiable streak evidence
+        id: streak_bundle
+        if: always() && steps.streak_ledger.outcome == 'success'
+        timeout-minutes: 1
+        run: |
+          test -f frontend/test-results/gate-e-streak-ledger.json
+          test -f frontend/test-results/staging-e2e-results.json
+          mkdir -p frontend/test-results/gate-e-streak-bundle
+          cp frontend/test-results/gate-e-streak-ledger.json frontend/test-results/gate-e-streak-bundle/
+          cp frontend/test-results/staging-e2e-results.json frontend/test-results/gate-e-streak-bundle/
+
+      - name: Upload device-matrix evidence
+        if: always() && steps.matrix_evidence.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        timeout-minutes: 3
+        with:
+          name: gate-e-device-matrix-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            frontend/test-results/gate-e-device-matrix-evidence.json
+            frontend/test-results/staging-e2e-results.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload live-staging core-player failure evidence
+        if: always() && steps.live_staging_failure_evidence.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        timeout-minutes: 3
+        with:
+          name: gate-e-live-staging-failure-${{ github.run_id }}-${{ github.run_attempt }}
+          path: frontend/test-results/gate-e-live-staging-failure-injection.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Speaking failure-matrix evidence
+        if: always() && steps.speaking_failure_evidence.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        timeout-minutes: 5
+        with:
+          name: gate-e-speaking-failure-matrix-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            frontend/test-results/gate-e-speaking-device-matrix-results.json
+            frontend/tooling/gate-e-speaking-device-matrix.json
+            frontend/playwright-report/gate-e
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Reading failure-matrix evidence
+        if: always() && steps.reading_failure_evidence.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        timeout-minutes: 5
+        with:
+          name: gate-e-reading-failure-matrix-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            frontend/test-results/gate-e-reading-device-matrix-results.json
+            frontend/tooling/gate-e-reading-device-matrix.json
+            frontend/playwright-report/gate-e-reading
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Listening failure-matrix evidence
+        if: always() && steps.listening_failure_evidence.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        timeout-minutes: 5
+        with:
+          name: gate-e-listening-failure-matrix-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            frontend/test-results/gate-e-listening-device-matrix-results.json
+            frontend/tooling/gate-e-listening-device-matrix.json
+            frontend/playwright-report/gate-e-listening
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Writing failure-matrix evidence
+        if: always() && steps.writing_failure_evidence.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        timeout-minutes: 5
+        with:
+          name: gate-e-writing-failure-matrix-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            frontend/test-results/gate-e-writing-device-matrix-results.json
+            frontend/tooling/gate-e-writing-device-matrix.json
+            frontend/playwright-report/gate-e-writing
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload staging provenance
+        if: always() && steps.staging_provenance.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        timeout-minutes: 2
+        with:
+          name: gate-e-staging-provenance-${{ github.run_id }}-${{ github.run_attempt }}
+          path: frontend/test-results/gate-e-staging-provenance.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload streak ledger evidence
+        if: always() && steps.streak_bundle.outcome == 'success' && steps.streak_ledger.outputs.clean == 'true'
+        uses: actions/upload-artifact@v4
+        timeout-minutes: 2
+        with:
+          name: gate-e-streak-ledger-${{ github.run_id }}-${{ github.run_attempt }}
+          path: frontend/test-results/gate-e-streak-bundle
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload verifiable streak reset evidence
+        if: always() && steps.streak_bundle.outcome == 'success' && steps.streak_ledger.outputs.clean != 'true'
+        uses: actions/upload-artifact@v4
+        timeout-minutes: 2
+        with:
+          name: gate-e-streak-reset-${{ github.run_id }}-${{ github.run_attempt }}
+          path: frontend/test-results/gate-e-streak-bundle
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload incomplete streak reset ledger
+        if: always() && steps.streak_ledger.outcome == 'success' && steps.streak_bundle.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        timeout-minutes: 2
+        with:
+          name: gate-e-streak-reset-${{ github.run_id }}-${{ github.run_attempt }}
+          path: frontend/test-results/gate-e-streak-ledger.json
+          if-no-files-found: error
+          retention-days: 30
 
       # Synthetic data only + short retention (plan B29).
       - uses: actions/upload-artifact@v4
         if: failure()
+        timeout-minutes: 5
         with:
           name: staging-e2e-report
           path: frontend/playwright-report

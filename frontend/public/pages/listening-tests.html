@@ -31,6 +31,7 @@
   <script type="module" src="/js/components/aver-chrome.js"></script>
 
   <link rel="stylesheet" href="/css/listening-tests.css" />
+  <script src="/js/legacy-retirement-beacon.js" defer></script>
 </head>
 <body class="av-page">
 
@@ -39,13 +40,28 @@
   <div class="shell">
     <main class="lt-shell">
       <header class="lt-header">
-        <p class="eyebrow"><a href="/listening" style="color: var(--av-text-secondary);">← Quay lại Listening</a></p>
-        <h1>Cambridge IELTS <span class="accent">Full Tests</span></h1>
+        <a class="lt-back" href="/listening">← Quay lại Listening</a>
+        <p class="eyebrow">MÔ PHỎNG BÀI THI LISTENING</p>
+        <h1>Full test, <span class="accent">làm trọn một lượt</span></h1>
         <p class="subtitle">
-          Bài thi đầy đủ 40 câu trên 4 sections — sát đề thật. Mỗi test kéo dài
-          ~30 phút và không thể tua lại audio. Sau khi nộp bài, bạn sẽ nhận
-          điểm số, band ước tính và phân tích bẫy đã mắc.
+          Hoàn thành 40 câu qua 4 sections trong điều kiện sát bài thi thật.
+          Audio phát một lượt; sau khi nộp, bạn nhận điểm, band ước tính và
+          xem lại từng bẫy đã mắc.
         </p>
+        <div class="lt-summary" id="lt-summary" hidden aria-live="polite">
+          <div class="lt-summary__item">
+            <span class="lt-summary__value" id="lt-total-count">0</span>
+            <span class="lt-summary__label">Đề đang mở</span>
+          </div>
+          <div class="lt-summary__item">
+            <span class="lt-summary__value">40</span>
+            <span class="lt-summary__label">Câu mỗi đề</span>
+          </div>
+          <div class="lt-summary__item">
+            <span class="lt-summary__value">4</span>
+            <span class="lt-summary__label">Sections</span>
+          </div>
+        </div>
       </header>
 
       <div class="empty-state" id="state-loading">Đang tải danh sách tests…</div>
@@ -55,7 +71,21 @@
       </div>
       <div class="error-banner" id="state-error" hidden></div>
 
-      <section id="lt-grid" class="lt-grid" hidden></section>
+      <section class="lt-library" id="lt-library" hidden aria-labelledby="lt-library-title">
+        <div class="lt-toolbar">
+          <div>
+            <p class="eyebrow">THƯ VIỆN FULL TEST</p>
+            <h2 id="lt-library-title">Chọn đề thi</h2>
+          </div>
+          <div class="lt-filter" role="group" aria-label="Lọc full test">
+            <button class="lt-filter__button is-active" type="button" data-filter="all" aria-pressed="true">Tất cả</button>
+            <button class="lt-filter__button" type="button" data-filter="new" aria-pressed="false">Chưa làm</button>
+            <button class="lt-filter__button" type="button" data-filter="done" aria-pressed="false">Đã làm</button>
+          </div>
+        </div>
+        <p class="lt-visible-count" id="lt-visible-count" aria-live="polite"></p>
+        <div id="lt-grid" class="lt-grid"></div>
+      </section>
     </main>
   </div>
 

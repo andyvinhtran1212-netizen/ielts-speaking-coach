@@ -15,13 +15,13 @@ IP / rotation — the #370 dedupe limit) and labelled as such in the UI.
 Aggregation runs in Python over a bounded, column-projected fetch of SUBMITTED
 attempts within the window (no RPC, no migration — the table is new + small).
 The row fetch is capped; if the window exceeds the cap the response flags
-`truncated` so the UI can say "(mẫu)" rather than imply full coverage. If
+`truncated` so the UI can render lower bounds rather than imply full coverage. If
 attempts grow large, move this to an RPC (the #365 `fn_total_grading_minutes`
 pattern).
 
-Pattern #29: the computation is wrapped so a query outage yields a null-ish
-payload (ok=false), never a 500. Boundaries are UTC, consistent with
-admin_dashboard / admin_overview / foot-traffic.
+Pattern #29: a load-bearing row-query outage yields an explicit unavailable
+payload (ok=false); auxiliary failures retain safe data as partial. Boundaries
+are UTC, consistent with admin_dashboard / admin_overview / foot-traffic.
 
 Schema (confirmed against migrations, no new migration this sprint):
   - reading_test_attempts (user_id, anon_src, status, score, band_estimate,
@@ -33,7 +33,11 @@ Schema (confirmed against migrations, no new migration this sprint):
 from __future__ import annotations
 
 import logging
+import math
 from datetime import datetime, timedelta, timezone
+from typing import Any
+
+from pydantic import BaseModel, Field, ValidationError
 
 from database import supabase_admin
 from services.band_rounding import ielts_round
@@ -46,6 +50,27 @@ DEFAULT_WINDOW = 30
 # COUNT(exact) is computed separately; if it exceeds the cap we flag truncated.
 _FETCH_CAP = 5000
 _RECENT_LIMIT = 20
+
+
+class _AttemptRow(BaseModel):
+    """The small, privacy-aware projection used by this dashboard.
+
+    Validation happens before aggregation so one legacy/corrupt JSON row cannot
+    turn the whole admin read into a 500 or silently poison averages.
+    """
+
+    id: str
+    test_id: str
+    user_id: str | None = None
+    anon_src: str | None = None
+    # These diagnostics are schema-drift tolerant on input and sanitized below.
+    # A bad optional diagnostic must not erase an otherwise valid submission.
+    band_estimate: Any = None
+    # Legacy submitted attempts may not carry optional diagnostics. Their core
+    # count/band facts remain valid; only the missing diagnostic is skipped.
+    skill_breakdown: Any = None
+    time_spent_seconds: Any = None
+    submitted_at: datetime
 
 
 def _clamp_window(days: int) -> int:
@@ -64,18 +89,26 @@ def _median(nums: list[float]) -> float | None:
 def compute_reading_attempts_dashboard(days: int = DEFAULT_WINDOW) -> dict:
     """Reading-attempt aggregates for the admin dashboard. Windowed by
     `submitted_at` (last `days`), plus an all-time submitted count. Returns
-    ok=false with empty aggregates on a query outage (Pattern #29)."""
+    unavailable row-derived aggregates on a load-bearing query outage."""
     days = _clamp_window(days)
     now = datetime.now(timezone.utc)
-    window_start = (now - timedelta(days=days)).isoformat()
+    # Freeze every query at one watermark. Without an upper bound, a submission
+    # committed between COUNT and SELECT can make the totals and sample describe
+    # two different datasets in the same response.
+    snapshot_point = now
+    snapshot_to = snapshot_point.isoformat()
+    window_start = (snapshot_point - timedelta(days=days)).isoformat()
 
     empty = {
         "ok": False,
+        "data_status": "unavailable",
         "window_days": days,
+        "window_start": window_start,
+        "snapshot_to": snapshot_to,
         "totals": {
-            "submitted_all_time": None, "submitted_window": 0,
-            "auth_attempts": 0, "anon_attempts": 0,
-            "auth_distinct_users": 0, "anon_distinct_sources": 0,
+            "submitted_all_time": None, "submitted_window": None,
+            "auth_attempts": None, "anon_attempts": None,
+            "auth_distinct_users": None, "anon_distinct_sources": None,
             "truncated": False,
         },
         "band_distribution": [],
@@ -83,8 +116,14 @@ def compute_reading_attempts_dashboard(days: int = DEFAULT_WINDOW) -> dict:
         "time_stats": {"avg_minutes": None, "median_minutes": None, "count": 0},
         "per_test": [],
         "recent": [],
+        "malformed_count": 0,
+        "lookup_failures": [],
         "computed_at": now.isoformat(),
     }
+
+    lookup_failures: list[str] = []
+    submitted_all_time: int | None = None
+    submitted_window: int | None = None
 
     try:
         # All-time submitted total — head COUNT(exact), no rows pulled.
@@ -92,41 +131,138 @@ def compute_reading_attempts_dashboard(days: int = DEFAULT_WINDOW) -> dict:
             supabase_admin.table("reading_test_attempts")
             .select("id", count="exact").limit(0)
             .eq("status", "submitted")
+            .lte("submitted_at", snapshot_to)
             .execute()
         )
-        submitted_all_time = int(all_time.count or 0)
+        if all_time.count is None:
+            raise ValueError("exact all-time count missing")
+        submitted_all_time = int(all_time.count)
+    except Exception as exc:  # pragma: no cover - exercised via stub in tests
+        lookup_failures.append("all_time_count")
+        logger.warning("[reading_dashboard] all-time count failed: %s", exc)
 
+    try:
         # Exact windowed count (for truncation detection) + the bounded rows.
         win_count_res = (
             supabase_admin.table("reading_test_attempts")
             .select("id", count="exact").limit(0)
             .eq("status", "submitted")
             .gte("submitted_at", window_start)
+            .lte("submitted_at", snapshot_to)
             .execute()
         )
-        submitted_window = int(win_count_res.count or 0)
+        if win_count_res.count is None:
+            raise ValueError("exact window count missing")
+        submitted_window = int(win_count_res.count)
+    except Exception as exc:  # pragma: no cover - exercised via stub in tests
+        lookup_failures.append("window_count")
+        logger.warning("[reading_dashboard] window count failed: %s", exc)
 
+    try:
         rows_res = (
             supabase_admin.table("reading_test_attempts")
-            .select("id,test_id,user_id,anon_src,score,band_estimate,"
+            .select("id,test_id,user_id,anon_src,band_estimate,"
                     "skill_breakdown,time_spent_seconds,submitted_at")
             .eq("status", "submitted")
             .gte("submitted_at", window_start)
+            .lte("submitted_at", snapshot_to)
             .order("submitted_at", desc=True)
+            .order("id", desc=True)
             .limit(_FETCH_CAP)
             .execute()
         )
-        rows = rows_res.data or []
-        truncated = submitted_window > len(rows)
+        raw_rows = rows_res.data or []
+        raw_count = len(raw_rows)
+        # COUNT and rows are separate PostgREST requests, not one transaction.
+        # The shared upper watermark prevents ordinary forward inserts, but a
+        # late/backdated write or concurrent delete can still disagree. Only
+        # trust COUNT when it matches the scan, or when a full cap proves the
+        # scan itself was truncated. Otherwise downgrade to the scanned lower
+        # bound instead of letting response validation turn drift into a 500.
+        if submitted_window is None:
+            truncated = raw_count >= _FETCH_CAP
+        elif submitted_window == raw_count:
+            truncated = False
+        elif submitted_window > _FETCH_CAP and raw_count == _FETCH_CAP:
+            truncated = True
+        else:
+            logger.warning(
+                "[reading_dashboard] count/row mismatch at snapshot: count=%s rows=%s",
+                submitted_window, raw_count,
+            )
+            submitted_window = None
+            if "window_count" not in lookup_failures:
+                lookup_failures.append("window_count")
+            truncated = raw_count >= _FETCH_CAP
         if truncated:
             logger.warning(
                 "[reading_dashboard] window=%sd has %s submitted attempts > cap %s "
                 "— aggregating a sample (truncated=True)",
-                days, submitted_window, _FETCH_CAP,
+                days, submitted_window if submitted_window is not None else "unknown", _FETCH_CAP,
             )
     except Exception as exc:  # pragma: no cover - exercised via stub in tests
-        logger.warning("[reading_dashboard] base fetch failed: %s", exc)
+        logger.warning("[reading_dashboard] attempt-row fetch failed: %s", exc)
+        empty["totals"]["submitted_all_time"] = submitted_all_time
+        empty["lookup_failures"] = lookup_failures
         return empty
+
+    rows: list[dict] = []
+    malformed_count = 0
+    for raw in raw_rows:
+        try:
+            row = _AttemptRow.model_validate(raw).model_dump(mode="json")
+            band = row["band_estimate"]
+            if band is not None:
+                if isinstance(band, bool) or not isinstance(band, (int, float)):
+                    malformed_count += 1
+                    band = None
+                else:
+                    band = float(band)
+                    if not math.isfinite(band) or not 0 <= band <= 9:
+                        malformed_count += 1
+                        band = None
+            row["band_estimate"] = band
+
+            # JSONB is schema-less: validate each skill aggregate explicitly.
+            safe_breakdown: dict[str, dict[str, int]] = {}
+            raw_breakdown = row["skill_breakdown"]
+            if raw_breakdown is not None and not isinstance(raw_breakdown, dict):
+                malformed_count += 1
+                raw_breakdown = {}
+            for tag, value in (raw_breakdown or {}).items():
+                if not isinstance(tag, str) or not tag or not isinstance(value, dict):
+                    malformed_count += 1
+                    continue
+                correct = value.get("correct")
+                total = value.get("total")
+                if (type(correct) is not int or type(total) is not int
+                        or correct < 0 or total <= 0 or correct > total):
+                    malformed_count += 1
+                    continue
+                safe_breakdown[tag] = {"correct": correct, "total": total}
+            row["skill_breakdown"] = safe_breakdown
+
+            duration = row["time_spent_seconds"]
+            if duration is not None and (type(duration) is not int or duration < 0):
+                malformed_count += 1
+                duration = None
+            row["time_spent_seconds"] = duration
+            rows.append(row)
+        except (ValidationError, TypeError, ValueError):
+            malformed_count += 1
+
+    if submitted_all_time is not None and submitted_all_time < (submitted_window or len(raw_rows)):
+        logger.warning(
+            "[reading_dashboard] all-time count %s is below window lower bound %s",
+            submitted_all_time, submitted_window or len(raw_rows),
+        )
+        submitted_all_time = None
+        if "all_time_count" not in lookup_failures:
+            lookup_failures.append("all_time_count")
+
+    data_status = "partial" if (
+        truncated or malformed_count or lookup_failures
+    ) else "complete"
 
     # ── Split auth vs anonymous + distinct counts ─────────────────────
     auth_user_ids: set[str] = set()
@@ -192,14 +328,22 @@ def compute_reading_attempts_dashboard(days: int = DEFAULT_WINDOW) -> dict:
     # ── Per-test usage (title resolved from reading_tests) ────────────
     title_by_uuid: dict[str, str] = {}
     try:
-        tests_res = (
-            supabase_admin.table("reading_tests")
-            .select("id,test_id,title")
-            .execute()
-        )
-        for t in (tests_res.data or []):
-            title_by_uuid[t["id"]] = t.get("title") or t.get("test_id") or "(không tên)"
+        relevant_test_ids = sorted({str(r["test_id"]) for r in rows if r.get("test_id")})
+        # Do not read the whole catalog: PostgREST may cap it and silently omit
+        # a title that is present in this snapshot. Chunk the exact identities
+        # instead, keeping request URLs bounded.
+        for start in range(0, len(relevant_test_ids), 200):
+            tests_res = (
+                supabase_admin.table("reading_tests")
+                .select("id,test_id,title")
+                .in_("id", relevant_test_ids[start:start + 200])
+                .execute()
+            )
+            for t in (tests_res.data or []):
+                title_by_uuid[t["id"]] = t.get("title") or t.get("test_id") or "(không tên)"
     except Exception as exc:  # pragma: no cover
+        lookup_failures.append("test_titles")
+        data_status = "partial"
         logger.warning("[reading_dashboard] test-title lookup failed: %s", exc)
 
     per_test_acc: dict[str, dict] = {}
@@ -245,6 +389,8 @@ def compute_reading_attempts_dashboard(days: int = DEFAULT_WINDOW) -> dict:
             for u in (urs.data or []):
                 email_by_id[u["id"]] = u.get("email") or "(người dùng)"
         except Exception as exc:  # pragma: no cover
+            lookup_failures.append("recent_identities")
+            data_status = "partial"
             logger.warning("[reading_dashboard] recent email lookup failed: %s", exc)
     recent = []
     for r in recent_rows:
@@ -262,10 +408,14 @@ def compute_reading_attempts_dashboard(days: int = DEFAULT_WINDOW) -> dict:
 
     return {
         "ok": True,
+        "data_status": data_status,
         "window_days": days,
+        "window_start": window_start,
+        "snapshot_to": snapshot_to,
         "totals": {
             "submitted_all_time": submitted_all_time,
-            "submitted_window": submitted_window,
+            # If COUNT failed, the scanned rows are only a lower bound.
+            "submitted_window": submitted_window if submitted_window is not None else len(raw_rows),
             "auth_attempts": auth_attempts,
             "anon_attempts": anon_attempts,
             "auth_distinct_users": len(auth_user_ids),
@@ -277,5 +427,7 @@ def compute_reading_attempts_dashboard(days: int = DEFAULT_WINDOW) -> dict:
         "time_stats": time_stats,
         "per_test": per_test,
         "recent": recent,
+        "malformed_count": malformed_count,
+        "lookup_failures": lookup_failures,
         "computed_at": now.isoformat(),
     }

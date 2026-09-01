@@ -51,7 +51,7 @@ describe('mock-tests cockpit — controller', () => {
   test('frame src per tab; review is scoped to the selected exam (embed=1)', () => {
     assert.match(JS, /mock-exams\/index\.html\?embed=1/);
     assert.match(JS, /mock-reviews\/index\.html\?mock_exam_id=' \+ encodeURIComponent\(id\) \+ '&embed=1/);
-    assert.match(JS, /writing\/queue\.html\?embed=1&mocklane=1/);
+    assert.match(JS, /\/admin\/writing\/queue\?embed=1&mocklane=1/);
     // review returns null (→ "chọn đề") when no exam is selected
     assert.match(JS, /review:\s*function \(id\) \{ return id \?/);
   });
@@ -144,7 +144,7 @@ describe('writing queue — opening an essay from the cockpit stays chrome-less'
   test('openEssay carries embed + mocklane to grade.html and status.html', () => {
     const body = QUEUE_JS.match(/function openEssay\(essayId\) \{([\s\S]*?)\n\}/);
     assert.ok(body, 'openEssay() not found — sentinel is stale');
-    assert.match(body[1], /_withEmbed\('\/pages\/admin\/writing\/status\.html\?essay_id=/);
+    assert.match(body[1], /_withEmbed\('\/admin\/writing\/status\?essay_id=/);
     assert.match(body[1], /_withEmbed\('\/pages\/admin\/writing\/grade\.html\?essay_id=/);
   });
   test('_withEmbed forwards both flags and no-ops off the cockpit', () => {

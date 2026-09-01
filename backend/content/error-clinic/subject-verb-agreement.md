@@ -57,7 +57,25 @@ anchors:
   - id: subject-verb-agreement.collective-nouns
     location: "### Bẫy 2: Danh từ tập hợp (Collective Nouns)"
     type: section
+learning_blocks:
+  - id: agreement-head-map
+    type: visual
+    variant: sentence-xray
+    eyebrow: Agreement X-ray
+    title: Động từ theo head noun, không theo danh từ đứng gần nhất
+    items:
+      - label: Head noun
+        value: The number
+        note: số ít
+      - label: Interrupting phrase
+        value: of students
+        note: bỏ tạm khi kiểm agreement
+      - label: Verb
+        value: has increased
+        note: khớp với number, không khớp với students
 ---
+
+<!-- learning-block: agreement-head-map -->
 
 <!-- anchor: subject-verb-agreement.overview -->
 ## Tóm tắt

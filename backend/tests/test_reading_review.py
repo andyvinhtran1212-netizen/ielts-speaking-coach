@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 _AUTH = {"Authorization": "Bearer fake.user.jwt"}
 _USER = {"id": "00000000-0000-0000-0000-00000000bbbb", "email": "u@x"}
 _OTHER = {"id": "00000000-0000-0000-0000-0000000cccccc", "email": "o@x"}
+_ATTEMPT_ID = "11111111-1111-4111-8111-111111111101"
 
 
 def _client():
@@ -45,12 +46,13 @@ def _db(tables):
 
 
 _SUBMITTED_ATTEMPT = {
-    "id": "a-uuid", "user_id": _USER["id"], "test_id": "t-uuid",
+    "id": _ATTEMPT_ID, "user_id": _USER["id"], "test_id": "t-uuid",
     "status": "submitted", "score": 1, "band_estimate": 5.0,
     "skill_breakdown": {"vocabulary_in_context": {"correct": 1, "total": 1}},
     "grading_details": [
         {"q_num": 1, "correct": True, "user_answer": "gravity", "expected": "gravity",
-         "skill_tag": "vocabulary_in_context", "passage_order": 1},
+         "skill_tag": "vocabulary_in_context", "passage_order": 1,
+         "explanation": "Submission-time explanation stays immutable."},
     ],
 }
 _TEST_ROW = {"test_id": "TEST_06", "title": "Test 6", "module": "academic"}
@@ -60,6 +62,7 @@ _PASSAGES = [
 ]
 _QUESTIONS = [
     {"q_num": 1, "question_type": "diagram_label_completion", "prompt": "Label 1 ____",
+     "explanation": "Gravity is named directly in the source sentence.",
      "payload": {"solution": {"band": 5, "steps": "Định vị…", "source_excerpt": "…gravity…",
                               "vocab": ["gravity = trọng lực"], "trap_analysis": "Bẫy: gradient",
                               "tips": "Dự đoán từ loại"}},
@@ -73,7 +76,7 @@ def test_review_gated_to_submitted_attempts():
     db = _db({"reading_test_attempts": [in_progress]})
     with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.reading_student.supabase_admin", db):
-        r = _client().get("/api/reading/test/attempts/a-uuid/review", headers=_AUTH)
+        r = _client().get(f"/api/reading/test/attempts/{_ATTEMPT_ID}/review", headers=_AUTH)
     assert r.status_code == 409
 
 
@@ -81,7 +84,7 @@ def test_review_403_for_other_users_attempt():
     db = _db({"reading_test_attempts": [_SUBMITTED_ATTEMPT]})
     with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_OTHER)), \
          patch("routers.reading_student.supabase_admin", db):
-        r = _client().get("/api/reading/test/attempts/a-uuid/review", headers=_AUTH)
+        r = _client().get(f"/api/reading/test/attempts/{_ATTEMPT_ID}/review", headers=_AUTH)
     assert r.status_code == 403
 
 
@@ -94,7 +97,7 @@ def test_review_merges_solution_translation_and_by_part():
     })
     with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
          patch("routers.reading_student.supabase_admin", db):
-        r = _client().get("/api/reading/test/attempts/a-uuid/review", headers=_AUTH)
+        r = _client().get(f"/api/reading/test/attempts/{_ATTEMPT_ID}/review", headers=_AUTH)
 
     assert r.status_code == 200
     body = r.json()
@@ -108,12 +111,173 @@ def test_review_merges_solution_translation_and_by_part():
     item = body["review"][0]
     assert item["correct"] is True and item["user_answer"] == "gravity"
     assert item["prompt"] == "Label 1 ____"
+    assert item["explanation"] == "Submission-time explanation stays immutable."
     assert item["solution"]["steps"] == "Định vị…"
     assert item["solution"]["trap_analysis"].startswith("Bẫy")
 
 
+def test_review_legacy_grading_row_falls_back_to_current_explanation():
+    legacy_row = {
+        key: value for key, value in _SUBMITTED_ATTEMPT["grading_details"][0].items()
+        if key != "explanation"
+    }
+    attempt = dict(_SUBMITTED_ATTEMPT, grading_details=[legacy_row])
+    db = _db({
+        "reading_test_attempts": [attempt],
+        "reading_tests":         [_TEST_ROW],
+        "reading_passages":      _PASSAGES,
+        "reading_questions":     _QUESTIONS,
+    })
+    with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.reading_student.supabase_admin", db):
+        r = _client().get(f"/api/reading/test/attempts/{_ATTEMPT_ID}/review", headers=_AUTH)
+
+    assert r.status_code == 200
+    assert r.json()["review"][0]["explanation"].startswith("Gravity is named")
+
+
+def test_grouped_mcq_review_uses_matched_answer_rationale_not_display_slot():
+    attempt = dict(_SUBMITTED_ATTEMPT, score=2, grading_details=[
+        {
+            "q_num": 21, "correct": True, "user_answer": "B", "expected": "B, D",
+            "skill_tag": "detail", "passage_order": 1,
+            "explanation": "Rationale for B.", "group": "grouped_mcq_single",
+            "rationale_q_num": 22,
+        },
+        {
+            "q_num": 22, "correct": True, "user_answer": "D", "expected": "B, D",
+            "skill_tag": "detail", "passage_order": 1,
+            "explanation": "Rationale for D.", "group": "grouped_mcq_single",
+            "rationale_q_num": 21,
+        },
+    ])
+    questions = [
+        {
+            "q_num": 21, "question_type": "mcq_single", "prompt": "Which TWO?",
+            "explanation": "Rationale for D.",
+            "payload": {"solution": {"steps": "Rich solution for D."}},
+            "passage_id": "p1",
+        },
+        {
+            "q_num": 22, "question_type": "mcq_single", "prompt": "Which TWO?",
+            "explanation": "Rationale for B.",
+            "payload": {"solution": {"steps": "Rich solution for B."}},
+            "passage_id": "p1",
+        },
+    ]
+    db = _db({
+        "reading_test_attempts": [attempt],
+        "reading_tests": [_TEST_ROW],
+        "reading_passages": _PASSAGES,
+        "reading_questions": questions,
+    })
+    with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.reading_student.supabase_admin", db):
+        response = _client().get(f"/api/reading/test/attempts/{_ATTEMPT_ID}/review", headers=_AUTH)
+
+    assert response.status_code == 200
+    review = response.json()["review"]
+    assert review[0]["explanation"] == "Rationale for B."
+    assert review[0]["solution"]["steps"] == "Rich solution for B."
+    assert review[1]["explanation"] == "Rationale for D."
+    assert review[1]["solution"]["steps"] == "Rich solution for D."
+
+
+def test_grouped_mcq_review_wrong_picks_keep_authored_rich_solutions():
+    attempt = dict(_SUBMITTED_ATTEMPT, score=0, grading_details=[
+        {
+            "q_num": 21, "correct": False, "user_answer": "A", "expected": "B, D",
+            "skill_tag": "detail", "passage_order": 1,
+            "explanation": "Rationale for D.", "group": "grouped_mcq_single",
+            "rationale_q_num": 21,
+        },
+        {
+            "q_num": 22, "correct": False, "user_answer": "C", "expected": "B, D",
+            "skill_tag": "detail", "passage_order": 1,
+            "explanation": "Rationale for B.", "group": "grouped_mcq_single",
+            "rationale_q_num": 22,
+        },
+    ])
+    questions = [
+        {
+            "q_num": 21, "question_type": "mcq_single", "prompt": "Which TWO?",
+            "payload": {"solution": {"steps": "Rich solution for D."}},
+            "passage_id": "p1",
+        },
+        {
+            "q_num": 22, "question_type": "mcq_single", "prompt": "Which TWO?",
+            "payload": {"solution": {"steps": "Rich solution for B."}},
+            "passage_id": "p1",
+        },
+    ]
+    db = _db({
+        "reading_test_attempts": [attempt],
+        "reading_tests": [_TEST_ROW],
+        "reading_passages": _PASSAGES,
+        "reading_questions": questions,
+    })
+    with patch("routers.reading_student.get_supabase_user", new=AsyncMock(return_value=_USER)), \
+         patch("routers.reading_student.supabase_admin", db):
+        response = _client().get(f"/api/reading/test/attempts/{_ATTEMPT_ID}/review", headers=_AUTH)
+
+    assert response.status_code == 200
+    review = response.json()["review"]
+    assert [row["solution"]["steps"] for row in review] == [
+        "Rich solution for D.", "Rich solution for B.",
+    ]
+
+
+def test_admin_preview_grouped_mcq_keeps_each_authored_rich_solution():
+    synthetic = {
+        "test_id": "t-uuid",
+        "_admin_preview": True,
+        "status": "submitted",
+        "score": None,
+        "band_estimate": None,
+        "skill_breakdown": {},
+        "grading_details": [
+            {
+                "q_num": 21, "correct": False, "user_answer": "", "expected": "B, D",
+                "skill_tag": "detail", "passage_order": 1,
+                "explanation": "Combined rationale.", "group": "grouped_mcq_single",
+                "rationale_q_num": None,
+            },
+            {
+                "q_num": 22, "correct": False, "user_answer": "", "expected": "B, D",
+                "skill_tag": "detail", "passage_order": 1,
+                "explanation": "Combined rationale.", "group": "grouped_mcq_single",
+                "rationale_q_num": None,
+            },
+        ],
+    }
+    questions = [
+        {
+            "q_num": 21, "question_type": "mcq_single", "prompt": "Which TWO?",
+            "payload": {"solution": {"steps": "Authored solution for D."}},
+            "passage_id": "p1",
+        },
+        {
+            "q_num": 22, "question_type": "mcq_single", "prompt": "Which TWO?",
+            "payload": {"solution": {"steps": "Authored solution for B."}},
+            "passage_id": "p1",
+        },
+    ]
+    db = _db({
+        "reading_tests": [_TEST_ROW],
+        "reading_passages": _PASSAGES,
+        "reading_questions": questions,
+    })
+
+    with patch("routers.reading_student.supabase_admin", db):
+        from routers.reading_student import _assemble_reading_review
+        review = _assemble_reading_review(synthetic, None)["review"]
+
+    assert review[0]["solution"]["steps"] == "Authored solution for D."
+    assert review[1]["solution"]["steps"] == "Authored solution for B."
+
+
 def test_review_requires_auth():
-    assert _client().get("/api/reading/test/attempts/a-uuid/review").status_code == 401
+    assert _client().get(f"/api/reading/test/attempts/{_ATTEMPT_ID}/review").status_code == 401
 
 
 def test_review_admin_bypasses_ownership_and_seal():
@@ -133,6 +297,6 @@ def test_review_admin_bypasses_ownership_and_seal():
          patch("routers.admin.supabase_admin", db), \
          patch("routers.reading_student.supabase_admin", db), \
          patch("services.mock_exam_service.is_sealed", return_value=True):
-        r = _client().get("/api/reading/test/attempts/a-uuid/review", headers=_AUTH)
+        r = _client().get(f"/api/reading/test/attempts/{_ATTEMPT_ID}/review", headers=_AUTH)
     assert r.status_code == 200
     assert r.json()["score"] == 1

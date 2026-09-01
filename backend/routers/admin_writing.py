@@ -149,47 +149,27 @@ def _deliver_essay(essay_id: str, method: str, hide_subbands: bool = False) -> d
     behaviour), and closes any accepted regrade request. Raises only on a real DB
     failure (HTTPException 500).
     """
-    row = (
-        supabase_admin.table("writing_essays")
-        .select("status")
-        .eq("id", essay_id)
-        .is_("deleted_at", "null")
-        .limit(1)
-        .execute()
-    )
-    if not row.data:
-        return {"essay_id": essay_id, "ok": False, "status": None, "reason": "not_found"}
-    current = row.data[0]["status"]
-    if current != "reviewed":
-        return {"essay_id": essay_id, "ok": False, "status": current, "reason": "not_reviewed"}
-
     try:
-        r = (
-            supabase_admin.table("writing_essays")
-            .update({
-                "delivered_at":     _now_iso(),
-                "delivery_method":  method,
-                "status":           "delivered",
-                "hide_subbands":    hide_subbands,
-            })
-            .eq("id", essay_id)
-            .execute()
-        )
+        raw = supabase_admin.rpc("fn_deliver_writing_essay", {
+            "p_essay_id": essay_id,
+            "p_method": method,
+            "p_hide_subbands": hide_subbands,
+        }).execute().data
     except Exception as exc:
-        raise HTTPException(500, f"Database update failed: {exc}")
-    if not r.data:
-        return {"essay_id": essay_id, "ok": False, "status": None, "reason": "not_found"}
-
-    # Close the re-grade loop: a delivery that fulfils an accepted regrade request
-    # marks it fulfilled. Best-effort — never block delivery on the bookkeeping.
-    try:
-        supabase_admin.table("essay_regrade_requests").update(
-            {"status": "fulfilled", "fulfilled_at": _now_iso()}
-        ).eq("essay_id", essay_id).eq("status", "accepted").execute()
-    except Exception as exc:
-        _logger.warning("[regrade] fulfil bookkeeping failed essay=%s: %s", essay_id, exc)
-
-    return {"essay_id": essay_id, "ok": True, "status": "delivered", "reason": None}
+        _logger.error("[writing-delivery] atomic RPC failed essay=%s: %s", essay_id, exc)
+        raise HTTPException(500, "Database delivery update failed")
+    result = raw[0] if isinstance(raw, list) and raw else raw
+    if not isinstance(result, dict):
+        raise HTTPException(500, "Database returned an invalid delivery result")
+    if result.get("ok"):
+        return {"essay_id": essay_id, "ok": True, "status": "delivered", "reason": None}
+    reason = result.get("reason")
+    return {
+        "essay_id": essay_id,
+        "ok": False,
+        "status": result.get("status"),
+        "reason": "not_found" if reason == "not_found" else "not_reviewed",
+    }
 
 
 def _revoke_essay(essay_id: str) -> dict:

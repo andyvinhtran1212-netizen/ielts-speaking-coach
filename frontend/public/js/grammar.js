@@ -24,6 +24,7 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
   };
+  var GROUP_ARTICLE_PREVIEW = 5;
 
   // ── Raw fetch helper (no auth needed) ─────────────────────────────────────
   async function fetchGrammarAPI(path) {
@@ -260,8 +261,7 @@
     el.innerHTML = groups.map(function (g) {
       var pal = _groupPalette[g.color] || _groupPalette.teal;
 
-      // Article list rows
-      var rows = (g.articles || []).map(function (a) {
+      function renderArticleRow(a) {
         if (a.status === 'planned') {
           // Sprint 6.15.6-hotfix: inline rgba(255,255,255,X) colors replaced
           // with class hooks so light theme picks up token-driven colors via
@@ -286,9 +286,20 @@
                  'class="text-sm text-white/65 hover:text-white/90 transition-colors flex-1 truncate">' + escHtml(a.title) + '</a>' +
                  '</div>';
         }
-      }).join('');
+      }
 
-      var pct = g.article_count > 0 ? Math.round(g.complete_count / g.article_count * 100) : 0;
+      // Keep the rollback leg aligned with the native page: the first five
+      // articles stay scannable and the rest remain reachable without JS.
+      var articles = g.articles || [];
+      var previewRows = articles.slice(0, GROUP_ARTICLE_PREVIEW)
+        .map(renderArticleRow).join('');
+      var remaining = articles.slice(GROUP_ARTICLE_PREVIEW);
+      var rows = previewRows + (remaining.length
+        ? '<details class="gw-group-more">' +
+          '<summary>Xem thêm ' + remaining.length + ' bài</summary>' +
+          '<div class="space-y-0.5 gw-group-more__list">' +
+          remaining.map(renderArticleRow).join('') + '</div></details>'
+        : '');
 
       return '<div class="group-card rounded-2xl p-5 border" ' +
              'style="background:' + pal.bg + ';border-color:' + pal.border + '">' +
@@ -310,18 +321,10 @@
              '<h3 class="font-semibold text-white text-base leading-tight">' + escHtml(g.title) + '</h3>' +
              '<span class="text-xs flex-shrink-0 px-2 py-0.5 rounded-full font-medium" ' +
              'style="background:' + pal.bg + ';color:' + pal.hex + ';border:1px solid ' + pal.border + '">' +
-             g.complete_count + '/' + g.article_count + '</span>' +
+             g.article_count + ' bài</span>' +
              '</div>' +
              '<p class="text-xs text-white/40 leading-relaxed">' + escHtml(g.description || '') + '</p>' +
              '</div></div>' +
-
-             // ── Progress bar ──
-             // Sprint 6.15.6-hotfix: track background moved to class hook
-             // (gw-progress-track) so light theme picks up token surface.
-             // Fill colour stays inline because it's data-driven (pal.hex).
-             '<div class="gw-progress-track h-0.5 rounded-full mb-4 overflow-hidden">' +
-             '<div class="h-full rounded-full transition-all" style="width:' + pct + '%;background:' + pal.hex + '"></div>' +
-             '</div>' +
 
              // ── Article rows ──
              '<div class="space-y-0.5">' + rows + '</div>' +
@@ -337,7 +340,7 @@
     if (!compareWith || compareWith.length === 0) return;
     el.innerHTML = compareWith.map(function (otherSlug) {
       var compareSlug = currentSlug + '-vs-' + otherSlug;
-      return '<a href="' + _url('pages/grammar-compare.html') + '?slug=' + compareSlug + '" ' +
+      return '<a href="/grammar/compare?slug=' + encodeURIComponent(compareSlug) + '" ' +
              'class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-teal/25 ' +
              'bg-teal/[0.06] text-sm text-teal-light hover:border-teal/50 hover:bg-teal/[0.12] transition-all">' +
              'So sánh với ' + _prettifySlug(otherSlug) + ' →</a>';
@@ -522,16 +525,16 @@
     if (Array.isArray(groups) && groups.length) {
       renderGroups(groups, 'groups-list');
 
-      // Update summary counters
-      var totalComplete = 0, totalPlanned = 0;
+      // This is editorial inventory, not learner mastery. Show a plain article
+      // count and keep the legacy IDs only as stable DOM hooks.
+      var totalArticles = 0;
       groups.forEach(function(g) {
-        totalComplete += (g.complete_count || 0);
-        totalPlanned  += (g.article_count || 0) - (g.complete_count || 0);
+        totalArticles += (g.article_count || 0);
       });
       var gcEl = document.getElementById('groups-complete-count');
       var gpEl = document.getElementById('groups-planned-count');
-      if (gcEl) gcEl.textContent = totalComplete;
-      if (gpEl) gpEl.textContent = totalPlanned;
+      if (gcEl) gcEl.textContent = totalArticles;
+      if (gpEl) gpEl.textContent = '';
     }
 
     // Render home data (categories + featured)

@@ -42,6 +42,55 @@ describe('bản khai luồng ghi', () => {
         `${file} hoãn vế Next mà KHÔNG có \`legacyRoute\` ⇒ luồng này không được kiểm ở đâu cả`);
     });
   }
+
+  test('Speaking dựng đủ canonical bootstrap qua post-Gate-E Next admission', () => {
+    const speaking = flows.find(({ file }) => file === 'speaking-start.mjs')?.flow;
+    assert.ok(speaking, 'thiếu bản khai speaking-start.mjs');
+
+    const created = (speaking.canned || []).find(([re]) => re.test('http://localhost:8000/sessions'))?.[1];
+    assert.match(created?.id || '', /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      'session tạo mới phải dùng UUID hợp lệ như backend thật');
+
+    const detailUrl = `http://localhost:8000/sessions/${created.id}`;
+    const questionsUrl = `${detailUrl}/questions`;
+    const detail = speaking.canned.find(([re]) => re.test(detailUrl))?.[1];
+    const questions = speaking.canned.find(([re]) => re.test(questionsUrl))?.[1];
+    assert.equal(detail?.id, created.id, 'fixture phải dựng canonical session cho player Next');
+    assert.ok(Array.isArray(questions) && questions.length > 0,
+      'fixture phải dựng câu hỏi để player Next không rơi vào đường sinh AI');
+    assert.equal(speaking.expectFinalUrl,
+      `/practice/session?session_id=${created.id}`,
+      'core cutover phải đưa session mới vào stable Next player');
+    assert.ok(speaking.steps.some((step) =>
+      step.expectText?.[0] === '#p2a-question'
+      && step.expectText?.[1] === 'Describe a useful skill you learned.'
+    ), 'luồng phải chờ player render câu hỏi, không chỉ chờ request tạo session');
+    assert.ok(!(speaking.ignoreWrites || []).includes('/api/error-logs'),
+      'không được tha error log — lỗi bootstrap thật phải làm cổng đỏ');
+  });
+
+  test('Writing claim renderer Next trước khi mở lượt làm bài', () => {
+    const writing = flows.find(({ file }) => file === 'writing-submit.mjs')?.flow;
+    assert.ok(writing, 'thiếu bản khai writing-submit.mjs');
+
+    const claimPath = '/api/writing/my-assignments/asg-1/renderer-affinity';
+    const startPath = '/api/writing/my-assignments/asg-1/start';
+    const claimIndex = writing.writes.findIndex(({ method, path }) =>
+      method === 'POST' && path === claimPath);
+    const startIndex = writing.writes.findIndex(({ method, path }) =>
+      method === 'POST' && path === startPath);
+    assert.ok(claimIndex !== -1, 'phải khai write claim renderer affinity');
+    assert.ok(startIndex !== -1 && claimIndex < startIndex,
+      'claim renderer affinity phải đứng trước /start');
+    assert.deepEqual(writing.writes[claimIndex].body, { renderer_affinity: 'next' });
+
+    const cannedClaim = writing.canned.find(([re]) =>
+      re.test(`http://localhost:8000${claimPath}`))?.[1];
+    assert.deepEqual(cannedClaim, {
+      assignment_id: 'asg-1',
+      renderer_affinity: 'next',
+    }, 'fixture claim phải trả renderer canonical để client tiếp tục');
+  });
 });
 
 
@@ -63,6 +112,12 @@ describe('lược đồ bản khai', () => {
       assert.deepEqual(validateFlow({ name: 'x', route: '/r',
         steps: [{ waitForWrites: v }], writes: [{ method: 'POST', path: '/a' }] }), []);
     }
+  });
+
+  test('`clickIfPresent` là bước selector hợp lệ cho khác biệt xác nhận legacy/Next', () => {
+    assert.deepEqual(validateFlow({ name: 'x', route: '/r',
+      steps: [{ clickIfPresent: '.confirm-modal button' }],
+      writes: [{ method: 'POST', path: '/submit' }] }), []);
   });
 
   test('xoá trắng một ô là HỢP LỆ — `fill` được phép giá trị rỗng', () => {
@@ -100,6 +155,7 @@ describe('lược đồ bản khai', () => {
       [{ ...base, steps: [{ expectStorage: ['k', null] }] }, /expectStorage/],
       [{ ...base, ignoreWrite: [] }, /khoá lạ/],
       [{ ...base, steps: [{ clickk: '#a' }] }, /ĐÚNG MỘT hành động/],
+      [{ ...base, steps: [{ clickIfPresent: '' }] }, /clickIfPresent/],
       // Vòng 3 codex: hình dạng BÊN TRONG mỗi hành động.
       [{ ...base, steps: [{ fill: ['#a'] }] }, /fill/],
       [{ ...base, steps: [{ dispatch: ['#a'] }] }, /dispatch/],
@@ -120,6 +176,8 @@ describe('lược đồ bản khai', () => {
       [{ name: 'x', route: '/r', steps: [{ click: '#a' }], writes: [] }, /mảng khác rỗng/],
       [{ ...base, initStorage: {} }, /initStorage/],
       [{ ...base, initStorage: { k: 1 } }, /initStorage/],
+      [{ ...base, initSessionStorage: {} }, /initSessionStorage/],
+      [{ ...base, initSessionStorage: { k: 1 } }, /initSessionStorage/],
       // `waitForWrites` — đồng bộ theo SỐ REQUEST thay cho đồng hồ tường.
       [{ ...base, steps: [{ waitForWrites: ['/a'] }] }, /waitForWrites/],
       [{ ...base, steps: [{ waitForWrites: ['/a', 0] }] }, /waitForWrites/],
@@ -133,6 +191,10 @@ describe('lược đồ bản khai', () => {
       [{ ...base, writes: [{ method: 'POST', path: '/a', bodyAll: async () => false }] }, /async/],
       [{ ...base, writes: [{ method: 'POST', path: '/a',
         headers: { A: async () => false } }] }, /async/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', query: new Map([['x', 'y']]) }] }, /query/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a', query: {} }] }, /query.*rỗng/],
+      [{ ...base, writes: [{ method: 'POST', path: '/a',
+        query: { class_item: async () => false } }] }, /query\.class_item.*async/],
       // · vị từ LỒNG SÂU bị `JSON.stringify` xoá mất — khai rồi mà không chạy;
       [{ ...base, writes: [{ method: 'POST', path: '/a',
         body: { extra: { id: (v) => v === 1 } } }] }, /LỒNG SÂU/],

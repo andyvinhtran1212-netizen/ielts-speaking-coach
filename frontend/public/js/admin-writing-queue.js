@@ -258,7 +258,7 @@ function openEssay(essayId) {
   const row = _rows.find((e) => e.id === essayId);
   const st = row && row.status;
   if (st === 'pending' || st === 'grading') {
-    window.location.href = _withEmbed('/pages/admin/writing/status.html?essay_id=' + encodeURIComponent(essayId));
+    window.location.href = _withEmbed('/admin/writing/status?essay_id=' + encodeURIComponent(essayId));
     return;
   }
   writeQueueContext(essayId);

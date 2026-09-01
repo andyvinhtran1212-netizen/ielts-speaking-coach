@@ -31,6 +31,7 @@ import { fileURLToPath } from 'node:url';
 
 const SESSION = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const QUESTION = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const EXPECTED_RENDERER = process.env.WF_LEGACY ? 'legacy' : 'next';
 
 export default {
   name: 'speaking — thu âm câu trả lời rồi nộp chấm',
@@ -48,6 +49,10 @@ export default {
     // "questions.some is not a function", tức bản khai đỏ vì lý do SAI.
     [/\/sessions\/[^/]+\/questions$/, {
       __body: [{ id: QUESTION, question_text: 'Describe a place you like.', order_num: 1 }],
+    }],
+    [/\/sessions\/[^/]+\/renderer-affinity$/, {
+      session_id: SESSION,
+      renderer_affinity: EXPECTED_RENDERER,
     }],
     [/\/sessions\/[^/]+$/, {
       id: SESSION, part: 1, status: 'in_progress',
@@ -101,6 +106,11 @@ export default {
   ignoreWrites: ['/api/analytics/events'],
 
   writes: [
+    {
+      method: 'POST',
+      path: `/sessions/${SESSION}/renderer-affinity`,
+      body: { renderer_affinity: EXPECTED_RENDERER },
+    },
     {
       method: 'POST',
       path: `/sessions/${SESSION}/responses`,

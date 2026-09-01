@@ -109,7 +109,7 @@ a { color: inherit; text-decoration: none; }
   font-size: 0.7rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--av-text-faint);
+  color: var(--av-text-muted);
   font-weight: var(--av-fw-semibold);
 }
 .stat .value {
@@ -129,6 +129,16 @@ a { color: inherit; text-decoration: none; }
   font-weight: var(--av-fw-medium);
 }
 .stat.heat .value { color: var(--av-warning); }
+
+.stat-unavailable {
+  color: var(--av-text-muted);
+}
+
+.vocab-stats-error {
+  margin: calc(-1 * var(--av-space-8)) 0 var(--av-space-8);
+  color: var(--av-error);
+  font-size: var(--av-fs-sm);
+}
 
 
 /* Sprint 9.1 — `.mode-card` + `.modes-grid` + `.mode-card .lock-tag`
@@ -394,6 +404,26 @@ a { color: inherit; text-decoration: none; }
   margin: 0;
   line-height: var(--av-lh-normal);
 }
+
+.vtc-progress-link {
+  display: inline-block;
+  margin-top: var(--av-space-2);
+  color: var(--av-primary);
+  font-size: var(--av-fs-sm);
+  font-weight: var(--av-fw-semibold);
+  text-decoration: none;
+}
+
+.vtc-progress-link:hover { text-decoration: underline; }
+
+.vocab-panel-state {
+  margin: 0;
+  padding: var(--av-space-12) var(--av-space-4);
+  color: var(--av-text-faint);
+  text-align: center;
+}
+
+.vocab-panel-state.is-error { color: var(--av-error); }
 
 
 /* ── Responsive ─────────────────────────────────────────────────── */

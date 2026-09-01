@@ -21,10 +21,12 @@ def _src():
 
 def test_the_failure_reason_is_written_to_the_response_row():
     src = _src()
-    i = src.index('db_row["feedback"]     = _serialize_feedback')
-    tail = src[i:i + 900]
-    assert "_failed" in tail, "dòng chấm hỏng phải tự nhận là hỏng"
-    assert "grading_error" in tail, "và phải mang theo LÝ DO"
+    marker = '{"_failed": True, "_reason": (grading_error or "")[:500]'
+    i = src.index(marker)
+    assignment = src[max(0, i - 180):i + len(marker)]
+    assert 'db_row["feedback"] = json.dumps' in assignment, (
+        "dấu chấm hỏng phải được ghi vào responses.feedback"
+    )
 
 
 def test_the_reason_is_bounded_so_one_stack_trace_cannot_bloat_the_row():

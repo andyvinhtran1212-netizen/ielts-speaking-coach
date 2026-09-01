@@ -73,7 +73,7 @@
     try {
       var createdNow = false;
       if (!S.sittingId) {
-        if (!S.code) return fail('Thiếu mã kỳ thi (?code=).');
+        if (!S.code) return fail('Thiếu mã kỳ thi (?code=) hoặc mã lượt thi (?sitting=).');
         var created = await api('post', '/api/mock-exams/' + encodeURIComponent(S.code) + '/sittings');
         S.sittingId = created.id;
         // The BACKEND says which happened. Inferring it from mutable sitting
@@ -169,7 +169,7 @@
   // ── Routing ────────────────────────────────────────────────────────
   function route() {
     var s = S.sitting.status;
-    if (s === 'released') { stopPolling(); location.href = '/pages/mock-result.html?sitting=' + encodeURIComponent(S.sittingId); return; }
+    if (s === 'released') { stopPolling(); location.href = '/mock/result?sitting=' + encodeURIComponent(S.sittingId); return; }
     if (s === 'void') return fail('Kỳ thi đã bị huỷ. Liên hệ giám khảo để được cấp lượt mới.');
     if (s !== 'registered' && s !== 'lrw_in_progress') { stopPolling(); return renderSubmitted(); }
 

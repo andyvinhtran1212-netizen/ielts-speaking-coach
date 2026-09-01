@@ -165,20 +165,20 @@ describe('Sprint 14.2 — practice.js dispatches on backend audio_too_short deta
     );
   });
 
-  test('_recorder.onstop invokes the playback + hint helpers (no orphan helper)', () => {
-    // If the helpers exist but are never called, the playback widget
-    // never appears. Pin the call site.
-    //
-    // Cửa sổ 1600 (trước là 800): phiếu làm bài chèn một nhánh thoát sớm vào
-    // onstop, nên khoảng cách dài ra. Bất biến không đổi — helper VẪN được gọi
-    // ở nhánh phễu; chỉ con số tuỳ ý này phải nới.
+  test('legacy and native onRecorded converge before playback + hint helpers', () => {
+    // Both recorder implementations hand the blob to one function; pin the
+    // convergence as well as the user-visible playback/length gate.
     assert.match(
       PRACTICE_JS,
-      /_recorder\.onstop\s*=\s*function\s*\(\)\s*\{[\s\S]{0,1600}_renderRecordedPlayback\(\)/,
+      /_recorder\.onstop\s*=\s*function\s*\(\)\s*\{[\s\S]{0,400}_handleRecordedBlob\(/,
     );
     assert.match(
       PRACTICE_JS,
-      /_recorder\.onstop\s*=\s*function\s*\(\)\s*\{[\s\S]{0,1600}_renderRecordedLengthHint\(\)/,
+      /onRecorded:\s*_handleRecordedBlob/,
+    );
+    assert.match(
+      PRACTICE_JS,
+      /function _handleRecordedBlob[\s\S]{0,1200}_renderRecordedPlayback\(\)[\s\S]{0,200}_renderRecordedLengthHint\(\)/,
     );
   });
 
@@ -187,12 +187,12 @@ describe('Sprint 14.2 — practice.js dispatches on backend audio_too_short deta
     // is invoked inside _resetRecorder.
     assert.match(
       PRACTICE_JS,
-      /function\s+_resetRecorder\s*\(\)\s*\{[\s\S]{0,1200}_teardownRecordedPlayback\(\)/,
+      /function\s+_resetRecorder\s*\(\)\s*\{[\s\S]{0,1400}_teardownRecordedPlayback\(\)/,
     );
     // And the teardown actually revokes the URL.
     assert.match(
       PRACTICE_JS,
-      /function\s+_teardownRecordedPlayback[\s\S]{0,800}URL\.revokeObjectURL\(_recordedPlaybackUrl\)/,
+      /function\s+_teardownRecordedPlayback[\s\S]{0,800}_revokeManagedObjectUrl\('recorded-playback', _recordedPlaybackUrl\)/,
     );
   });
 

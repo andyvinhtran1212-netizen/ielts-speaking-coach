@@ -36,6 +36,7 @@ _STUDENT_ID    = "student-uuid-bbbb"
 _ASSIGNMENT_ID = "assign-uuid-cccc"
 _PROMPT_ID     = "prompt-uuid-dddd"
 _ESSAY_ID      = "essay-uuid-eeee"
+_ACTIVE_RENDERER_LEASE = "2099-01-01T00:00:00+00:00"
 
 
 def _run(coro):
@@ -68,6 +69,7 @@ class _Builder:
         self._filters: list[tuple] = []
         # Sprint 2.7 fix #3: support `.in_()` on the atomic-claim UPDATE.
         self._in: tuple[str, list] | None = None
+        self._gt: tuple[str, object] | None = None
 
     def select(self, *_a, **_kw): self._action = "select"; return self
     def insert(self, payload, *_a, **_kw): self._action = "insert"; self._payload = payload; return self
@@ -84,6 +86,10 @@ class _Builder:
         self._in = (col, list(vals))
         return self
 
+    def gt(self, col, val):
+        self._gt = (col, val)
+        return self
+
     def execute(self):
         rec = {
             "table":   self._table,
@@ -91,6 +97,7 @@ class _Builder:
             "payload": self._payload,
             "filters": list(self._filters),
             "in":      self._in,
+            "gt":      self._gt,
         }
         self._parent.calls.append(rec)
         return self._parent._respond(rec)
@@ -99,7 +106,14 @@ class _Builder:
 class _Client:
     def __init__(self, *, assignments_data=None, drafts_data=None,
                  student_row=None, essay_id=_ESSAY_ID):
-        self._assignments = assignments_data or []
+        self._assignments = []
+        for assignment in assignments_data or []:
+            row = dict(assignment)
+            if row.get("status") in {"pending", "in_progress"}:
+                row.setdefault("renderer_affinity", "legacy")
+                row.setdefault("renderer_affinity_claimed_at", "2026-05-01T00:00:00+00:00")
+                row.setdefault("renderer_affinity_expires_at", _ACTIVE_RENDERER_LEASE)
+            self._assignments.append(row)
         self._drafts      = drafts_data or []
         self._student_row = student_row or {"flag_count": 0, "is_under_review": False}
         self._essay_id    = essay_id
@@ -147,13 +161,22 @@ class _Client:
                     rows = [x for x in rows if str(x.get(col)) == str(val)]
                 r.data = rows
             elif a == "update":
+                matches = self._assignments
+                for col, val in rec["filters"]:
+                    matches = [a2 for a2 in matches if str(a2.get(col)) == str(val)]
                 # Sprint 2.7 fix #3: honor `.in_()` on atomic claim.
                 if rec.get("in"):
                     in_col, in_vals = rec["in"]
-                    matches = self._assignments
-                    for col, val in rec["filters"]:
-                        matches = [a2 for a2 in matches if str(a2.get(col)) == str(val)]
                     if not matches or matches[0].get(in_col) not in in_vals:
+                        r.data = []
+                        return r
+                if rec.get("gt"):
+                    gt_col, gt_val = rec["gt"]
+                    if (
+                        not matches
+                        or matches[0].get(gt_col) is None
+                        or not (matches[0].get(gt_col) > gt_val)
+                    ):
                         r.data = []
                         return r
                 r.data = [{"id": rec["filters"][0][1] if rec["filters"] else None,
@@ -213,8 +236,11 @@ def test_start_stamps_started_at_when_null(monkeypatch):
 
     updates = [c for c in client.calls
                if c["table"] == "writing_assignments" and c["action"] == "update"]
-    assert len(updates) == 1
-    payload = updates[0]["payload"]
+    # One update starts the timed assignment; a second best-effort update
+    # refreshes the renderer lease after the canonical start succeeds.
+    assert len(updates) == 2
+    transition = next(c for c in updates if "started_at" in (c["payload"] or {}))
+    payload = transition["payload"]
     assert "started_at" in payload
     assert payload["status"] == "in_progress"
 
@@ -244,6 +270,46 @@ def test_start_does_not_overwrite_existing_started_at(monkeypatch):
     # field needs writing).
     if updates:
         assert "started_at" not in (updates[0]["payload"] or {})
+
+
+def test_start_fails_if_renderer_lease_expires_at_guarded_transition(monkeypatch):
+    """A request admitted before expiry cannot transition after the deadline."""
+
+    class _ExpiresAtTransitionClient(_Client):
+        def _respond(self, rec):
+            if (
+                rec["table"] == "writing_assignments"
+                and rec["action"] == "update"
+                and "started_at" in (rec.get("payload") or {})
+            ):
+                self._assignments[0]["renderer_affinity_expires_at"] = (
+                    "2000-01-01T00:00:00+00:00"
+                )
+            return super()._respond(rec)
+
+    client = _ExpiresAtTransitionClient(assignments_data=[
+        {"id": _ASSIGNMENT_ID, "student_id": _STUDENT_ID,
+         "status": "pending", "is_timed": True, "time_limit_minutes": 40,
+         "started_at": None, "auto_submitted": False},
+    ])
+    monkeypatch.setattr(ws_module, "supabase_admin", client)
+
+    with pytest.raises(HTTPException) as excinfo:
+        _run(start_assignment(
+            assignment_id=_ASSIGNMENT_ID,
+            student=_student(),
+        ))
+
+    assert excinfo.value.status_code == 410
+    transition = next(
+        c for c in client.calls
+        if c["table"] == "writing_assignments"
+        and c["action"] == "update"
+        and "started_at" in (c.get("payload") or {})
+    )
+    assert ("student_id", _STUDENT_ID) in transition["filters"]
+    assert transition["in"] == ("status", list(ws_module._ACTIVE_ASSIGNMENT_STATES))
+    assert transition["gt"][0] == "renderer_affinity_expires_at"
 
 
 def test_start_blocks_after_submission(monkeypatch):
@@ -360,6 +426,39 @@ def test_paste_log_creates_draft_via_rpc_when_missing(monkeypatch):
         c["table"] == "writing_drafts" and c["action"] in ("update", "insert", "select")
         for c in client.calls
     )
+
+
+@pytest.mark.parametrize(
+    "lease_fields",
+    [
+        {"renderer_affinity_expires_at": "2000-01-01T00:00:00+00:00"},
+        {
+            "renderer_affinity": None,
+            "renderer_affinity_claimed_at": None,
+            "renderer_affinity_expires_at": None,
+        },
+    ],
+)
+def test_paste_log_fails_closed_without_an_active_renderer_lease(
+    monkeypatch, lease_fields,
+):
+    client = _Client(assignments_data=[{
+        "id": _ASSIGNMENT_ID,
+        "student_id": _STUDENT_ID,
+        "status": "in_progress",
+        **lease_fields,
+    }])
+    monkeypatch.setattr(ws_module, "supabase_admin", client)
+
+    with pytest.raises(HTTPException) as excinfo:
+        _run(log_paste(
+            assignment_id=_ASSIGNMENT_ID,
+            body=PasteLog(char_count=120, blocked=False),
+            student=_student(),
+        ))
+
+    assert excinfo.value.status_code == 410
+    assert client.rpc_calls == []
 
 
 def test_paste_log_blocks_on_submitted_assignment(monkeypatch):

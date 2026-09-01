@@ -31,7 +31,7 @@
     // asks which class you mean (the page itself refuses a wrong ?exam_id=).
     live:    function (id) { return id ? '/pages/admin/mock-live/index.html?exam_id=' + encodeURIComponent(id) + '&embed=1' : null; },
     review:  function (id) { return id ? '/pages/admin/mock-reviews/index.html?mock_exam_id=' + encodeURIComponent(id) + '&embed=1' : null; },
-    writing: function () { return '/pages/admin/writing/queue.html?embed=1&mocklane=1'; },
+    writing: function () { return '/admin/writing/queue?embed=1&mocklane=1'; },
   };
 
   function stageOf(ex) {

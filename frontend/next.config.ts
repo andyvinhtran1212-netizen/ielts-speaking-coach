@@ -51,12 +51,18 @@ const nextConfig: NextConfig = {
         // route PHẢI cùng một commit — cổng route-ownership chặn trạng thái nửa
         // vời, vì một URL không thể vừa là route vừa là rewrite sang legacy.
         // `/pages/writing-dashboard.html` vẫn trả 200 (cổng parity cần cả hai vế).
-        { source: '/writing/result', destination: '/pages/writing-result.html' },
-        { source: '/admin/writing/prompts', destination: '/pages/admin/writing/prompts.html' },
-        { source: '/admin/writing/tips', destination: '/pages/admin/writing/tips.html' },
-        { source: '/admin/writing/cohorts', destination: '/pages/admin/writing/cohorts.html' },
-        { source: '/admin/writing/regrade-requests', destination: '/pages/admin/writing/regrade-requests.html' },
-        { source: '/admin/writing/assignments', destination: '/pages/admin/writing/assignments.html' },
+        // `/admin/writing/prompts` is now owned by the native Next route;
+        // direct `/pages/admin/writing/prompts.html` remains the rollback page.
+        // `/admin/writing/tips` is native; direct legacy HTML stays available
+        // at `/pages/admin/writing/tips.html` for rollback.
+        // `/admin/writing/cohorts` is native; direct legacy HTML stays
+        // available at `/pages/admin/writing/cohorts.html` for rollback.
+        // `/admin/writing/regrade-requests` is native; direct legacy HTML stays
+        // available at `/pages/admin/writing/regrade-requests.html` for rollback.
+        // `/admin/writing/assignments` is native; direct legacy HTML stays
+        // available at `/pages/admin/writing/assignments.html` for rollback.
+        // `/admin/writing/instructor-queue` is native; direct legacy HTML stays
+        // available at `/pages/admin/writing/instructor-queue.html` for rollback.
         // CUTOVER 2026-08-05 — `/home` nay là ROUTE NEXT
         // (`app/(authed-home)/home/`), không còn rewrite sang bản legacy.
         // Gỡ dòng này PHẢI đi cùng commit đổi route: cổng route-ownership chặn
@@ -109,9 +115,14 @@ const nextConfig: NextConfig = {
       { source: '/pages/admin-listening-gist.html', destination: '/pages/admin/listening/gist.html', permanent: true },
       { source: '/pages/admin-listening-tf.html', destination: '/pages/admin/listening/tf.html', permanent: true },
       { source: '/pages/admin-listening-mcq.html', destination: '/pages/admin/listening/mcq.html', permanent: true },
-      { source: '/admin/access-codes', destination: '/pages/admin/users/index.html?tab=codes', permanent: true },
+      // Native Users pilot owns the clean access-code alias. Temporary on
+      // purpose: reverting the pilot must make this alias safe to repoint to
+      // the public rollback artifact without a browser-cached 308 stranding it.
+      { source: '/admin/access-codes', destination: '/admin/users?tab=codes', permanent: false },
       { source: '/pages/admin/access-codes/index.html', destination: '/pages/admin/users/index.html?tab=codes', permanent: true },
-      { source: '/pages/admin/dashboard/index.html', destination: '/pages/admin/index.html', permanent: true },
+      // Temporary during the `/admin` native pilot: a cached permanent redirect
+      // would strand old dashboard bookmarks if the pilot is rolled back.
+      { source: '/pages/admin/dashboard/index.html', destination: '/admin', permanent: false },
     ];
   },
 

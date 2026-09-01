@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field, model_validator
 from database import supabase_admin
 from routers.admin import require_admin
 from services.cohort_assignment_service import fan_out_assignment
+from services.class_membership_service import active_student_ids_for_cohort
 
 
 router = APIRouter(
@@ -100,6 +101,52 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _read_assignment_request_receipt(
+    request_id: UUID,
+    *,
+    assigned_by: str,
+    request_payload: dict,
+) -> Optional[dict]:
+    """Return a completed receipt before re-evaluating mutable fan-out input.
+
+    Cohort membership can legitimately change after a request committed but
+    before a client retries a lost HTTP response. The request ledger is the
+    canonical truth in that case: replay the original receipt instead of
+    applying today's cohort-size precondition to yesterday's completed write.
+    """
+    result = (
+        supabase_admin.table("writing_assignment_requests")
+        .select("assigned_by,request_payload,receipt")
+        .eq("id", str(request_id))
+        .limit(1)
+        .execute()
+    )
+    rows = result.data or []
+    if not rows:
+        return None
+
+    row = rows[0]
+    if str(row.get("assigned_by") or "") != assigned_by:
+        raise HTTPException(409, "request_id không thuộc tài khoản admin này.")
+    if row.get("request_payload") != request_payload:
+        raise HTTPException(409, "request_id đã được dùng với nội dung khác.")
+    receipt = row.get("receipt")
+    if not isinstance(receipt, dict):
+        raise HTTPException(409, "Yêu cầu giao bài đang được xử lý. Vui lòng thử lại.")
+    return {**receipt, "replayed": True}
+
+
+def _cohort_assignment_filter(cohort_id: str, active_student_ids: list[str]) -> str:
+    """Keep stamped history; membership only broadens legacy NULL-origin rows."""
+    stamped = f"cohort_id.eq.{cohort_id}"
+    if not active_student_ids:
+        return stamped
+    student_ids = ",".join(dict.fromkeys(active_student_ids))
+    return (
+        f"{stamped},and(cohort_id.is.null,student_id.in.({student_ids}))"
+    )
+
+
 # ── Request bodies ────────────────────────────────────────────────────
 
 
@@ -119,6 +166,7 @@ class AssignmentCreate(BaseModel):
     the other is a 422) — the same invariant the migration's CHECK
     constraint enforces at the DB layer.
     """
+    request_id:          Optional[UUID]       = None   # native idempotency key; legacy callers may omit
     prompt_id:           Optional[UUID]       = None   # legacy single (back-compat)
     prompt_ids:          Optional[list[UUID]] = Field(None, max_length=20)
     student_ids:         list[UUID]         = Field(..., min_length=1, max_length=100)
@@ -204,48 +252,45 @@ async def list_assignments(
     and student (id/student_code/full_name) so the admin list view
     doesn't need a second round-trip.
 
-    Sprint 19.2: `cohort_id` filters to assignments whose student belongs
-    to that cohort (derived via students.cohort_id — Discovery D1)."""
+    `cohort_id` uses the stamped fan-out origin for new rows. Legacy/direct
+    rows without provenance retain the historical membership-based fallback."""
     await require_admin(authorization)
 
-    # Resolve cohort → student_ids before querying assignments.
+    # Stamped rows retain their immutable class origin after roster changes.
+    # Current membership is consulted only for legacy/direct NULL-origin rows.
     cohort_student_ids: Optional[list[str]] = None
     if cohort_id:
-        srows = (
-            supabase_admin.table("students")
-            .select("id")
-            .eq("cohort_id", str(cohort_id))
-            .execute()
-        ).data or []
-        cohort_student_ids = [s["id"] for s in srows]
-        if not cohort_student_ids:
-            return {"assignments": []}
+        cohort_student_ids = active_student_ids_for_cohort(
+            supabase_admin, str(cohort_id))
 
     q = (
         supabase_admin.table("writing_assignments")
         .select(
             "id, status, deadline, instructions, created_at, "
             "submitted_at, graded_at, delivered_at, "
-            "essay_id, prompt_id, student_id, "
+            "essay_id, prompt_id, student_id, cohort_id, "
             "assignment_group_id, name, allow_soft_check, "
             "is_timed, time_limit_minutes, started_at, auto_submitted, "
             "writing_prompts(id, title, task_type, difficulty), "
             "students(id, student_code, full_name)"
         )
         .order("created_at", desc=True)
-        .limit(limit)
+        # Read one sentinel row so the UI never mistakes a truncated page for
+        # the complete canonical set. The public limit remains unchanged.
+        .limit(limit + 1)
     )
     if student_id:
         q = q.eq("student_id", str(student_id))
     if prompt_id:
         q = q.eq("prompt_id", str(prompt_id))
     if cohort_student_ids is not None:
-        q = q.in_("student_id", cohort_student_ids)
+        q = q.or_(_cohort_assignment_filter(str(cohort_id), cohort_student_ids))
     if status_filter:
         q = q.eq("status", status_filter)
 
     r = q.execute()
-    return {"assignments": r.data or []}
+    rows = r.data or []
+    return {"assignments": rows[:limit], "capped": len(rows) > limit}
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -276,6 +321,49 @@ async def create_assignments(
 
     student_id_strs = [str(s) for s in body.student_ids]
     prompt_id_strs = [str(p) for p in body.prompt_ids]
+
+    # Native clients carry an idempotency UUID. One DB transaction owns the
+    # request ledger + Cartesian insert, so a lost HTTP response can be retried
+    # without creating a second group. Legacy callers that omit request_id keep
+    # the established insert path below until they migrate.
+    if body.request_id is not None:
+        request_payload = body.model_dump(mode="json", exclude={"request_id", "prompt_id"})
+        try:
+            rpc = supabase_admin.rpc("fn_create_writing_assignments_idempotent", {
+                "p_request_id": str(body.request_id),
+                "p_assigned_by": admin["id"],
+                "p_request_payload": request_payload,
+                "p_prompt_ids": prompt_id_strs,
+                "p_student_ids": student_id_strs,
+                "p_name": body.name,
+                "p_allow_soft_check": body.allow_soft_check,
+                "p_deadline": body.deadline.isoformat() if body.deadline else None,
+                "p_instructions": body.instructions,
+                "p_is_timed": body.is_timed,
+                "p_time_limit_minutes": body.time_limit_minutes,
+                "p_analysis_level": body.analysis_level,
+            }).execute()
+        except Exception as exc:
+            message = str(exc)
+            if "payload_mismatch" in message:
+                raise HTTPException(409, "request_id đã được dùng với nội dung khác.") from exc
+            if "owned_by_other_admin" in message:
+                raise HTTPException(409, "request_id không thuộc tài khoản admin này.") from exc
+            if "roster_changed" in message:
+                raise HTTPException(
+                    409, "Sĩ số lớp đã thay đổi trong lúc giao bài. Vui lòng rà lại và thử lại."
+                ) from exc
+            raise
+        receipt = rpc.data
+        if not isinstance(receipt, dict):
+            raise HTTPException(500, "Idempotent assignment receipt is malformed")
+        return {
+            "created": receipt.get("created", []),
+            "count": receipt.get("created_count", 0),
+            "group_id": receipt.get("group_id"),
+            "duplicates_warning": receipt.get("duplicates_warning", []),
+            "replayed": bool(receipt.get("replayed")),
+        }
 
     # Detect existing duplicates (any of these prompts + student) for the
     # advisory warning. Best-effort — never blocks the insert.
@@ -330,13 +418,14 @@ async def create_assignments(
 
 
 class FanOutCreate(BaseModel):
-    """N prompts → every student in a cohort. Cohort membership is
-    derived from students.cohort_id (Discovery D1). W-ASSIGN: the rows
+    """N prompts → every active member in a cohort. W-ASSIGN: the rows
     share an `assignment_group_id` + `name`; the give is allow + warn
     (NOT skip) so re-giving a prompt in a new "Buổi" works as intended.
 
     `prompt_id` (single) is accepted for back-compat; both normalize to
     `prompt_ids`."""
+    request_id:         Optional[UUID]       = None   # native idempotency key; legacy callers may omit
+    expected_student_count: Optional[int]    = Field(None, ge=1, le=10000)
     prompt_id:          Optional[UUID]       = None   # legacy single (back-compat)
     prompt_ids:         Optional[list[UUID]] = Field(None, max_length=20)
     cohort_id:          UUID
@@ -382,6 +471,56 @@ async def fan_out_to_cohort(
     these prompts (allow + warn — re-giving in a new Buổi is intended)."""
     admin = await require_admin(authorization)
 
+    if body.request_id is not None:
+        request_payload = body.model_dump(mode="json", exclude={"request_id", "prompt_id"})
+        replay = _read_assignment_request_receipt(
+            body.request_id,
+            assigned_by=admin["id"],
+            request_payload=request_payload,
+        )
+        if replay is not None:
+            return replay
+
+        student_ids = active_student_ids_for_cohort(
+            supabase_admin, str(body.cohort_id))
+        if not student_ids:
+            raise HTTPException(400, "Lớp này chưa có học viên nào.")
+        if body.expected_student_count is not None and len(student_ids) != body.expected_student_count:
+            raise HTTPException(
+                409,
+                f"Sĩ số lớp đã đổi từ {body.expected_student_count} thành {len(student_ids)}. Vui lòng rà lại trước khi giao.",
+            )
+        try:
+            rpc = supabase_admin.rpc("fn_create_writing_assignments_idempotent", {
+                "p_request_id": str(body.request_id),
+                "p_assigned_by": admin["id"],
+                "p_request_payload": request_payload,
+                "p_prompt_ids": [str(prompt_id) for prompt_id in body.prompt_ids],
+                "p_student_ids": student_ids,
+                "p_name": body.name,
+                "p_allow_soft_check": body.allow_soft_check,
+                "p_deadline": body.deadline.isoformat() if body.deadline else None,
+                "p_instructions": body.instructions,
+                "p_is_timed": body.is_timed,
+                "p_time_limit_minutes": body.time_limit_minutes,
+                "p_analysis_level": body.analysis_level,
+            }).execute()
+        except Exception as exc:
+            message = str(exc)
+            if "payload_mismatch" in message:
+                raise HTTPException(409, "request_id đã được dùng với nội dung khác.") from exc
+            if "owned_by_other_admin" in message:
+                raise HTTPException(409, "request_id không thuộc tài khoản admin này.") from exc
+            if "roster_changed" in message:
+                raise HTTPException(
+                    409, "Sĩ số lớp đã thay đổi trong lúc giao bài. Vui lòng rà lại và thử lại."
+                ) from exc
+            raise
+        result = rpc.data
+        if not isinstance(result, dict):
+            raise HTTPException(500, "Idempotent assignment receipt is malformed")
+        return result
+
     result = fan_out_assignment(
         supabase_admin,
         prompt_ids=body.prompt_ids,
@@ -397,6 +536,34 @@ async def fan_out_to_cohort(
     )
     if result["student_count"] == 0:
         raise HTTPException(400, "Lớp này chưa có học viên nào.")
+    return result
+
+
+@router.get("/requests/{request_id}")
+async def verify_assignment_request(
+    request_id: UUID,
+    authorization: str | None = Header(None),
+):
+    """Read back every assignment named by an idempotent request receipt.
+
+    A single representative row cannot prove that a bulk Cartesian insert is
+    still complete. This endpoint binds the immutable admin-owned receipt to
+    the current canonical assignment rows and returns the exact IDs that still
+    belong to the recorded group; the client keeps reconciliation pending
+    unless the complete set matches.
+    """
+    admin = await require_admin(authorization)
+    try:
+        result = supabase_admin.rpc("fn_verify_writing_assignment_request", {
+            "p_request_id": str(request_id),
+            "p_assigned_by": admin["id"],
+        }).execute().data
+    except Exception as exc:
+        if "writing_assignment_request_not_found" in str(exc):
+            raise HTTPException(404, "Assignment request not found") from exc
+        raise
+    if not isinstance(result, dict):
+        raise HTTPException(500, "Assignment request verification is malformed")
     return result
 
 

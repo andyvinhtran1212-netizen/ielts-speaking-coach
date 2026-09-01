@@ -6,12 +6,7 @@
 //      production.
 // @ts-check
 const { test, expect } = require('@playwright/test');
-const { BYPASS_HEADERS, primeBypassCookie } = require('./helpers');
-
-const PRODUCTION_ORIGINS = [
-  'ielts-speaking-coach-production.up.railway.app',
-  'huwsmtubwulikhlmcirx.supabase.co',
-];
+const { BYPASS_HEADERS, PRODUCTION_ORIGINS, primeBypassCookie } = require('./helpers');
 
 test.beforeEach(async ({ context, baseURL }) => {
   await primeBypassCookie(context, baseURL);
@@ -52,6 +47,6 @@ test('landing stats are answered by the STAGING API', async ({ page }) => {
 });
 
 test('login page renders its chrome', async ({ page }) => {
-  await page.goto('/login.html');
+  await page.goto('/login');
   await expect(page.locator('body')).toContainText(/averlearning|Đăng nhập|Google/i);
 });

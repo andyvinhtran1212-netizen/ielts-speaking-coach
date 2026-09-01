@@ -63,7 +63,7 @@ export function WritingShell() {
           <div className="wd-error-box">
             <p className="wd-error-box__msg" id="error-message"></p>
             <a id="error-cta"
-               href="../index.html"
+               href="/home"
                className="inline-block text-teal-light underline hover:text-white transition">
               Quay về trang chủ
             </a>
@@ -72,6 +72,7 @@ export function WritingShell() {
 
         {/* Main content */}
         <div id="content">
+          <div id="writing-submit-notice" className="wd-submit-notice hidden" role="status"></div>
           {/* Sprint 5.2 — Writing permission preview banner (hidden by default,
                revealed when GET /api/student/permissions returns writing=false). */}
           <div id="writing-preview-banner" className="wd-preview-banner hidden mb-6 flex items-start gap-3">
@@ -256,13 +257,18 @@ export function WritingShell() {
           `autocomplete="off"` they form the strongest browser-side
           defence we have against IDE-style "help" leaking into a timed
           IELTS exercise. */}
-      <div id="submit-modal" className="wd-submit-modal hidden fixed inset-0 z-50 overflow-y-auto">
-        <div className="av-w-page py-6">
-          <header className="flex items-center justify-between mb-6">
-            <h1 className="text-xl font-semibold" id="modal-title">Làm bài</h1>
+      <div id="submit-modal" className="wd-submit-modal hidden fixed inset-0 z-50 overflow-y-auto"
+           role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div className="wd-compose-page av-w-page">
+          <header className="wd-compose-header">
+            <div className="wd-compose-heading">
+              <span className="wd-compose-kicker">Writing workspace</span>
+              <h1 id="modal-title">Làm bài</h1>
+              <p>Đọc kỹ đề, viết liền mạch và kiểm tra lại trước khi nộp.</p>
+            </div>
             <button id="modal-close" type="button"
                     className="wd-modal-close leading-none"
-                    aria-label="Đóng">
+                    aria-label="Đóng bài viết và quay lại danh sách">
               {/* lucide@1.17.0 tự thay icon X — nhúng thẳng SVG để tránh đua React #418 */}
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="lucide lucide-x"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
             </button>
@@ -272,55 +278,60 @@ export function WritingShell() {
 
           <div id="modal-content" className="hidden">
             {/* W-UI 2-pane: đề bài (TRÁI, scrollable) · khung viết (PHẢI).
-                 Layout-only — every id + handler below is unchanged; the DOM is
-                 just re-nested into two columns (adapts .rv-passage-layout).
+                 Task 1 widens the prompt pane when a chart is present.
                  Mobile (≤860px) stacks: đề trên / viết dưới. */}
-            <div className="wd-modal-2pane">
+            <div id="modal-workspace" className="wd-modal-2pane">
 
               {/* ── LEFT — đề bài ───────────────────────────────────────── */}
-              <div className="wd-modal-pane-left">
+              <aside className="wd-modal-pane-left" aria-label="Đề bài">
                 {/* Prompt panel */}
-                <div className="wd-modal-prompt-panel mb-4 p-4 rounded">
-                  <div className="wd-modal-prompt__meta text-xs uppercase tracking-wider mb-2" id="modal-prompt-meta">— · —</div>
-                  <h2 className="wd-modal-prompt__title text-lg font-semibold mb-3" id="modal-prompt-title">—</h2>
+                <div className="wd-modal-prompt-panel">
+                  <div className="wd-modal-section-label">Đề bài</div>
+                  <div className="wd-modal-prompt__meta" id="modal-prompt-meta">— · —</div>
+                  <h2 className="wd-modal-prompt__title" id="modal-prompt-title">—</h2>
                   {/* W-UI follow-up — đề (prompt_text) ABOVE the Task-1 chart so the
                        question reads first, then the chart it refers to. */}
-                  <p className="wd-modal-prompt__body text-sm leading-relaxed whitespace-pre-line mb-3" id="modal-prompt-text">—</p>
-                  <img id="modal-prompt-image" className="wd-modal-prompt__image hidden max-w-full rounded"
-                       alt="" loading="lazy" />
+                  <p className="wd-modal-prompt__body whitespace-pre-line" id="modal-prompt-text">—</p>
+                  <img id="modal-prompt-image" className="wd-modal-prompt__image hidden"
+                       alt="Biểu đồ hoặc hình minh họa của đề Writing Task 1" loading="lazy" />
                 </div>
 
                 {/* Optional admin instructions */}
-                <div id="modal-instructions" className="wd-modal-instructions hidden mb-4 p-3 rounded text-xs leading-relaxed">
-                  📌 <span id="modal-instructions-text"></span>
+                <div id="modal-instructions" className="wd-modal-instructions hidden">
+                  <strong>Lưu ý từ giảng viên</strong>
+                  <span id="modal-instructions-text"></span>
                 </div>
-              </div>
+                <div className="wd-prompt-checklist" aria-label="Các bước trước khi nộp">
+                  <span>1</span><p>Trả lời đúng trọng tâm đề.</p>
+                  <span>2</span><p>Kiểm tra bố cục và số từ.</p>
+                  <span>3</span><p>Đọc lại một lượt trước khi nộp.</p>
+                </div>
+              </aside>
 
               {/* ── RIGHT — khung viết ──────────────────────────────────── */}
-              <div className="wd-modal-pane-right">
+              <section className="wd-modal-pane-right" aria-labelledby="wd-editor-heading">
                 {/* Timer banner — only shown for IELTS-mode assignments */}
-                <div id="modal-timer" className="wd-modal-timer hidden p-3 rounded flex items-center justify-between">
+                <div id="modal-timer" className="wd-modal-timer hidden">
                   <div>
-                    <div className="wd-modal-timer__label text-xs uppercase tracking-wider mb-1">⏱️ IELTS-mode</div>
-                    <div className="wd-modal-timer__total text-xs" id="modal-timer-total">Tổng thời gian: — phút</div>
+                    <div className="wd-modal-timer__label">Bài viết có giới hạn thời gian</div>
+                    <div className="wd-modal-timer__total" id="modal-timer-total">Tổng thời gian: — phút</div>
                   </div>
-                  <div id="modal-timer-display" className="wd-modal-timer__display text-3xl font-mono font-bold">--:--</div>
+                  <div id="modal-timer-display" className="wd-modal-timer__display">--:--</div>
                 </div>
 
-                {/* File upload */}
-                <div className="flex items-center gap-3">
-                  <label className="wd-modal-file-label inline-flex items-center gap-1 text-sm cursor-pointer">
-                    <span>📎 Tải file (.docx, .txt)</span>
-                    <input id="modal-file-input" type="file" className="hidden" accept=".docx,.txt" />
-                  </label>
-                  <span id="modal-upload-status" className="hidden text-xs"></span>
+                <div className="wd-editor-toolbar">
+                  <div>
+                    <span className="wd-modal-section-label">Bài làm</span>
+                    <h2 id="wd-editor-heading">Bài viết của em</h2>
+                  </div>
                 </div>
 
                 {/* Essay textarea — Grammarly + autocorrect + spellcheck disabled */}
                 <textarea id="modal-essay-textarea"
-                          className="wd-modal-textarea w-full rounded p-3 text-sm"
+                          className="wd-modal-textarea"
                           rows={20}
-                          placeholder="Bắt đầu viết bài…"
+                          placeholder="Bắt đầu bài viết của em tại đây…"
+                          aria-describedby="modal-word-target"
                           autoComplete="off"
                           autoCorrect="off"
                           autoCapitalize="off"
@@ -329,25 +340,35 @@ export function WritingShell() {
                           data-gramm_editor="false"
                           data-enable-grammarly="false"></textarea>
 
-                {/* Footer */}
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="wd-modal-footer-meta text-xs flex items-center gap-3">
-                    <span><span id="modal-word-counter">0</span> từ</span>
-                    <span id="modal-save-status" className="wd-modal-save-status hidden">✓ Đã lưu draft</span>
-                    <span id="modal-save-pending" className="wd-modal-save-pending hidden">💾 Đang lưu…</span>
+                <div className="wd-word-progress">
+                  <div className="wd-word-progress__copy">
+                    <strong><span id="modal-word-counter">0</span> từ</strong>
+                    <span id="modal-word-target">Mục tiêu tối thiểu — từ</span>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="wd-word-progress__track" aria-hidden="true">
+                    <span id="modal-word-progress"></span>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <footer className="wd-modal-footer">
+                  <div className="wd-modal-footer-meta">
+                    <span id="modal-save-status" className="wd-modal-save-status hidden">Đã lưu bản nháp</span>
+                    <span id="modal-save-pending" className="wd-modal-save-pending hidden">Đang lưu…</span>
+                    <span className="wd-modal-autosave-hint">Bản nháp tự lưu khi em viết</span>
+                  </div>
+                  <div className="wd-modal-actions">
                     <button id="modal-btn-save" type="button"
-                            className="wd-modal-btn-save text-sm rounded px-4 py-2">
+                            className="wd-modal-btn-save">
                       Lưu bản nháp
                     </button>
                     <button id="modal-btn-submit" type="button"
-                            className="wd-modal-btn-submit text-sm font-medium rounded px-4 py-2">
-                      Nộp bài
+                            className="wd-modal-btn-submit">
+                      Kiểm tra và nộp bài
                     </button>
                   </div>
-                </div>
-              </div>
+                </footer>
+              </section>
 
             </div>
           </div>

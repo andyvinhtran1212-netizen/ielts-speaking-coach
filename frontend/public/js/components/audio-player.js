@@ -30,6 +30,8 @@
  * Methods:
  *   play() / pause() — control transport from page JS.
  *   reset()          — seek to 0 and pause.
+ *   getCurrentTime() — read the canonical transport position without
+ *                      reaching into the component's private _audio field.
  *
  * Events (bubbled + composed so they cross the shadow boundary):
  *   av-audio-play     — playback started
@@ -293,6 +295,10 @@ export class AverAudioPlayer extends HTMLElement {
 
   play() { if (this._audio) return this._audio.play(); }
   pause() { if (this._audio) this._audio.pause(); }
+  getCurrentTime() {
+    const value = this._audio?.currentTime;
+    return Number.isFinite(value) ? value : null;
+  }
   reset() {
     if (!this._audio) return;
     this._audio.pause();

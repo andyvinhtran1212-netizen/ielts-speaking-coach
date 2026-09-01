@@ -1,0 +1,152 @@
+name: Speaking Gate E real-device evidence
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      requirement_id:
+        description: Exact real-device matrix row
+        required: true
+        type: choice
+        options: [safari-desktop, ios-safari]
+      observed_platform:
+        description: Exact observed platform (for example macOS 26.5.2)
+        required: true
+        type: string
+      observed_browser:
+        description: Exact observed browser string from the matrix
+        required: true
+        type: string
+      device_model:
+        description: Physical device model
+        required: true
+        type: string
+      operator:
+        description: Person who performed the real-device journey
+        required: true
+        type: string
+      journey_started_at:
+        description: UTC ISO timestamp recorded before creating the fresh Practice Part 2 session
+        required: true
+        type: string
+      observed_at:
+        description: UTC ISO timestamp recorded after completing the journey; must be within 12 hours
+        required: true
+        type: string
+      observed_release_sha:
+        description: Exact runtime-config release SHA recorded during the device journey
+        required: true
+        type: string
+      observed_backend_release_sha:
+        description: Exact backend_release_sha returned by the persisted response request
+        required: true
+        type: string
+      canonical_session_id:
+        description: Session created by e2e-student-smoke during the journey
+        required: true
+        type: string
+      canonical_response_id:
+        description: response_id returned by the persisted response submitted during the journey
+        required: true
+        type: string
+      scope_results_json:
+        description: Exact required-scope keys with every value set to passed
+        required: true
+        type: string
+      console_errors_json:
+        description: JSON array; must be empty for eligible evidence
+        required: true
+        default: '[]'
+        type: string
+      network_failures_json:
+        description: JSON array; must be empty for eligible evidence
+        required: true
+        default: '[]'
+        type: string
+
+jobs:
+  speaking-real-device-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: staging-e2e-shared-env
+      cancel-in-progress: false
+    steps:
+      - name: Require trusted main workflow revision
+        run: test "$GITHUB_REF" = refs/heads/main
+
+      - name: Checkout deployed staging source
+        uses: actions/checkout@v5
+        with:
+          ref: staging
+          fetch-depth: 0
+
+      - name: Checkout trusted Gate E auditor
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          path: .gate-e-auditor
+          fetch-depth: 1
+
+      - name: Capture checked-out source SHA
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Capture trusted auditor SHA
+        id: auditor
+        run: echo "sha=$(git -C .gate-e-auditor rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Capture exact staging release provenance
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
+          GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          GATE_E_PROVENANCE_REQUIRED: 'true'
+        run: node .gate-e-auditor/frontend/tooling/capture-gate-e-staging-provenance.mjs
+
+      - name: Validate real-device attestation against canonical state
+        id: evidence
+        if: always()
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          GATE_E_REAL_DEVICE_REQUIRED: 'true'
+          GATE_E_TESTED_ROOT: ${{ github.workspace }}
+          GATE_E_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          GATE_E_AUDITOR_SHA: ${{ steps.auditor.outputs.sha }}
+          GATE_E_REQUIREMENT_ID: ${{ inputs.requirement_id }}
+          GATE_E_OBSERVED_PLATFORM: ${{ inputs.observed_platform }}
+          GATE_E_OBSERVED_BROWSER: ${{ inputs.observed_browser }}
+          GATE_E_DEVICE_MODEL: ${{ inputs.device_model }}
+          GATE_E_OPERATOR: ${{ inputs.operator }}
+          GATE_E_JOURNEY_STARTED_AT: ${{ inputs.journey_started_at }}
+          GATE_E_OBSERVED_AT: ${{ inputs.observed_at }}
+          GATE_E_OBSERVED_RELEASE_SHA: ${{ inputs.observed_release_sha }}
+          GATE_E_OBSERVED_BACKEND_RELEASE_SHA: ${{ inputs.observed_backend_release_sha }}
+          GATE_E_CANONICAL_SESSION_ID: ${{ inputs.canonical_session_id }}
+          GATE_E_CANONICAL_RESPONSE_ID: ${{ inputs.canonical_response_id }}
+          GATE_E_SCOPE_RESULTS_JSON: ${{ inputs.scope_results_json }}
+          GATE_E_CONSOLE_ERRORS_JSON: ${{ inputs.console_errors_json }}
+          GATE_E_NETWORK_FAILURES_JSON: ${{ inputs.network_failures_json }}
+        run: node .gate-e-auditor/frontend/tooling/capture-gate-e-speaking-real-device-evidence.mjs
+
+      - name: Upload validated evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: gate-e-speaking-real-device-${{ inputs.requirement_id }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .gate-e-auditor/frontend/tooling/gate-e-speaking-device-matrix.json
+            .gate-e-auditor/frontend/tooling/gate-e-speaking-real-device-evidence.schema.json
+            frontend/test-results/gate-e-staging-provenance.json
+            frontend/test-results/gate-e-speaking-real-device-evidence.json
+          if-no-files-found: error
+          retention-days: 90

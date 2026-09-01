@@ -34,9 +34,14 @@
     .rp-overall { text-align:center; margin:24px 0; padding:20px; border-radius:12px; background:var(--av-accent,#2563eb); color:#fff; }
     .rp-overall__label { font-size:13px; opacity:.85; }
     .rp-overall__band { font-size:44px; font-weight:800; }
+    .rp-retest { display:flex; align-items:flex-start; gap:10px; margin-top:18px; padding:14px 16px; border:1px solid var(--av-warning,#d97706); border-radius:10px; background:var(--av-warning-soft,#fffbeb); color:var(--av-text-primary); }
+    .rp-retest__icon { color:var(--av-warning,#d97706); font-size:20px; line-height:1.2; }
+    .rp-retest strong,.rp-retest small { display:block; }
+    .rp-retest small { margin-top:3px; color:var(--av-text-secondary); line-height:1.5; }
     .rp-blocked { padding:20px; border-radius:10px; background:var(--av-surface-card); border:1px solid var(--av-error,#dc2626); color:var(--av-error,#dc2626); }
     .hidden { display:none; }
   </style>
+  <script src="/js/legacy-retirement-beacon.js" defer></script>
 </head>
 <body class="av-page font-sans min-h-screen av-admin-surface">
   <div class="rp-wrap">
@@ -45,6 +50,7 @@
     <div id="state-report" class="hidden rp-card">
       <div class="rp-title" id="rp-title">Phiếu báo điểm</div>
       <p class="rp-muted" id="rp-sub"></p>
+      <div id="rp-retest" class="rp-retest hidden" role="note"></div>
       <div class="rp-skills" id="rp-skills"></div>
       <div id="rp-overall-wrap"></div>
       <p class="rp-muted" id="rp-comment" style="margin-top:20px;white-space:pre-wrap"></p>

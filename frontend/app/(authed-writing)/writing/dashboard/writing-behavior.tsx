@@ -31,17 +31,20 @@
 // window.WC?.escapeHtml, window.lucide được cung cấp bởi các script mà layout
 // nạp. Không import, không gọi initSupabase() — AuthedShell đã làm rồi.
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { admitCorePlayer, corePlayerUrl } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 /** Trạng thái toàn trang — giữ trong object để cleanup dứt điểm. */
 type ModalState = {
   assignmentId: string | null;
+  accountId: string | null;
   autoSaveTimer: NodeJS.Timeout | null;
   countdownInterval: NodeJS.Timeout | null;
   allowSoftCheck: boolean;
+  returnFocus: HTMLElement | null;
   dead: boolean;
 };
 
@@ -57,7 +60,10 @@ type PageState = {
   pbFilter: string;
   writingPermitted: boolean;
   dead: boolean;
+  generation: number;
 };
+
+type ListenerRegistrar = (el: Element | Document | null, ev: string, fn: any) => void;
 
 // MỘT thực thể duy nhất cho mỗi loại trạng thái, đặt ở phạm vi module — y như
 // bản legacy (`modalState` là biến toàn cục của trang).
@@ -74,9 +80,11 @@ type PageState = {
 // 3011, tức nó đang đo chính trang legacy và báo xanh.
 const modalState: ModalState = {
   assignmentId: null,
+  accountId: null,
   autoSaveTimer: null,
   countdownInterval: null,
   allowSoftCheck: false,
+  returnFocus: null,
   dead: false,
 };
 
@@ -92,6 +100,7 @@ const pageState: PageState = {
   pbFilter: 'all',
   writingPermitted: true,
   dead: false,
+  generation: 0,
 };
 
 /** Status mapping (Sprint 19.1A): 6 backend states → 4 UI states. */
@@ -132,6 +141,13 @@ const TIP_TASK_LABELS: Record<string, string> = {
 const TIP_TYPE_LABELS: Record<string, string> = {
   tip: '💡 Mẹo', knowledge: '📖 Kiến thức', sample: '✍️ Bài mẫu', outline: '🗂️ Dàn bài',
 };
+
+function writingAssignmentHref(assignmentId: string, affinity?: string | null) {
+  if (affinity === 'legacy' || affinity === 'next') {
+    return corePlayerUrl('writing_assignment', affinity, { assignment_id: assignmentId });
+  }
+  return admitCorePlayer('writing_assignment', { assignment_id: assignmentId });
+}
 
 const PB_TASK_LABELS: Record<string, string> = {
   task1_academic: 'Task 1 Academic', task1_general: 'Task 1 General', task2: 'Task 2',
@@ -201,6 +217,90 @@ function showTimerToast(message: string) {
   toast.textContent = message;
   document.body.appendChild(toast);
   setTimeout(() => { toast.remove(); }, 5000);
+}
+
+function showSubmissionNotice(kind: 'success' | 'warning' | 'error', message: string) {
+  const notice = $('writing-submit-notice');
+  if (!notice) return;
+  notice.className = 'wd-submit-notice is-' + kind;
+  notice.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+  notice.textContent = message;
+  notice.classList.remove('hidden');
+}
+
+function hideSubmissionNotice() {
+  const notice = $('writing-submit-notice');
+  if (notice) notice.classList.add('hidden');
+}
+
+function statusCode(err: any): number | null {
+  const value = Number(err && err.status);
+  return Number.isFinite(value) ? value : null;
+}
+
+function loadFailureMessage(err: any, fallback: string): string {
+  const status = statusCode(err);
+  const message = typeof err?.message === 'string' ? err.message.trim() : '';
+  // These two list endpoints use 403 for the one actionable learner-facing
+  // explanation (account not linked / Writing permission missing). Do not echo
+  // arbitrary 4xx/5xx details: validation or transport text may be internal.
+  if (status === 403 && message) return message;
+  return fallback;
+}
+
+function isDefinitiveSubmitRejection(err: any): boolean {
+  const status = statusCode(err);
+  return status !== null && status >= 400 && status < 500 && status !== 408 && status !== 429;
+}
+
+async function reconcileSubmission(receipt: any, api: any): Promise<any | null> {
+  const helper = (window as any).WritingSubmitReceipt;
+  try {
+    const raw = await api.get(
+      '/api/writing/my-assignments/' + encodeURIComponent(receipt.assignmentId) +
+      '/submission?request_id=' + encodeURIComponent(receipt.requestId)
+    );
+    const ack = helper?.normalizeAck(raw, receipt.assignmentId);
+    if (!ack) throw new Error('Biên nhận nộp bài không khớp assignment.');
+    helper.remove(receipt.account, receipt.assignmentId);
+    return ack;
+  } catch (err: any) {
+    if (statusCode(err) === 404) return null;
+    throw err;
+  }
+}
+
+async function reconcilePendingSubmissions(accountId: string, api: any) {
+  const helper = (window as any).WritingSubmitReceipt;
+  const pending = helper?.list(accountId) || [];
+  let confirmed = 0;
+  let superseded = 0;
+  for (const receipt of pending) {
+    try {
+      if (await reconcileSubmission(receipt, api)) confirmed += 1;
+    } catch (err) {
+      if (statusCode(err) === 409) {
+        helper.remove(accountId, receipt.assignmentId);
+        superseded += 1;
+      }
+      // Preserve ambiguous receipts and surface one truthful warning below.
+    }
+  }
+  if (modalState.accountId !== accountId) return;
+  if (confirmed > 0 || superseded > 0) {
+    showSubmissionNotice(
+      confirmed > 0 ? 'success' : 'warning',
+      confirmed > 0
+        ? 'Đã đối chiếu: bài viết của em đã được nộp thành công.'
+        : 'Bài đã được nộp ở một tab khác. Danh sách đã được đồng bộ lại.'
+    );
+    await Promise.all([loadAssignments(api), loadEssays(api)]);
+  } else if (pending.length > 0) {
+    showSubmissionNotice(
+      'warning',
+      'Có một bài nộp chưa nhận được xác nhận. Mở lại bài để đối chiếu hoặc gửi lại an toàn với cùng mã yêu cầu.'
+    );
+  }
 }
 
 function renderStudent(student: any) {
@@ -385,7 +485,7 @@ async function downloadEssayDocx(essayId: string, btn: HTMLElement | null) {
   try {
     const sb = (window as any).getSupabase?.();
     const session = (await sb.auth.getSession()).data.session;
-    if (!session) { window.location.href = '/login.html'; return; }
+    if (!session) { window.location.href = '/login'; return; }
     const url = (window as any).api.base + '/api/writing/my-essays/' +
       encodeURIComponent(essayId) + '/export.docx';
     const res = await fetch(url, {
@@ -425,10 +525,10 @@ function attachEssayDownloadListeners() {
   });
 }
 
-function wireEssayFilterTabs(ps: PageState) {
+function wireEssayFilterTabs(ps: PageState, on: ListenerRegistrar) {
   const btns = document.querySelectorAll<HTMLElement>('.essay-filter-btn');
   btns.forEach((btn) => {
-    btn.addEventListener('click', () => {
+    on(btn, 'click', () => {
       const f = btn.getAttribute('data-filter');
       if (f) ps.currentFilter = f;
       btns.forEach((b) => b.classList.toggle('is-active', b === btn));
@@ -438,17 +538,19 @@ function wireEssayFilterTabs(ps: PageState) {
 }
 
 async function loadTips(api: any, ps: PageState) {
+  const generation = ps.generation;
   hide('tips-empty'); hide('tips-error'); hide('tips-list');
   const loadingEl = $('tips-loading');
   if (loadingEl) loadingEl.classList.remove('hidden');
   try {
     const data = await api.get('/api/writing/tips');
-    if (ps.dead) return;
+    if (ps.dead || ps.generation !== generation) return;
     ps.allTips = (data && data.tips) || [];
     ps.tipsLoaded = true;
     hide('tips-loading');
     renderTips(ps);
   } catch (err: any) {
+    if (ps.dead || ps.generation !== generation) return;
     hide('tips-loading');
     const errMsg = $('tips-error-msg');
     if (errMsg) errMsg.textContent = 'Không tải được mẹo viết: ' + ((err && err.message) || 'lỗi không xác định');
@@ -515,12 +617,12 @@ function renderTips(ps: PageState) {
   });
 }
 
-function wireTipFilterTabs(ps: PageState) {
+function wireTipFilterTabs(ps: PageState, on: ListenerRegistrar) {
   [['[data-tip-filter]', 'data-tip-filter', 'task'],
    ['[data-tip-type-filter]', 'data-tip-type-filter', 'type']].forEach((g: any) => {
     const btns = document.querySelectorAll<HTMLElement>(g[0]);
     btns.forEach((btn) => {
-      btn.addEventListener('click', () => {
+      on(btn, 'click', () => {
         if (g[2] === 'task') ps.tipFilter = btn.getAttribute(g[1]) || 'all';
         else ps.tipTypeFilter = btn.getAttribute(g[1]) || 'all';
         btns.forEach((b) => b.classList.toggle('is-active', b === btn));
@@ -578,8 +680,10 @@ function closeTipModal() {
 }
 
 async function loadPromptBank(api: any, ps: PageState) {
+  const generation = ps.generation;
   try {
     const data = await api.get('/api/writing/prompt-bank');
+    if (ps.dead || ps.generation !== generation) return;
     if (!data || data.enabled !== true) return;
     ps.allPrompts = (data.prompts) || [];
     if (!ps.allPrompts.length) return;
@@ -629,10 +733,10 @@ function renderPromptBank(ps: PageState) {
   });
 }
 
-function wirePromptFilterTabs(ps: PageState) {
+function wirePromptFilterTabs(ps: PageState, on: ListenerRegistrar) {
   const btns = document.querySelectorAll<HTMLElement>('[data-pb-filter]');
   btns.forEach((btn) => {
-    btn.addEventListener('click', () => {
+    on(btn, 'click', () => {
       ps.pbFilter = btn.getAttribute('data-pb-filter') || 'all';
       btns.forEach((b) => b.classList.toggle('is-active', b === btn));
       renderPromptBank(ps);
@@ -686,7 +790,13 @@ function renderDeadlines(assignments: any[]) {
   if (!surface || !list) return;
 
   const withDeadline = (assignments || [])
-    .filter((a: any) => a.deadline)
+    // Khối này có tên “sắp đến hạn”. Bài đã quá hạn vẫn xuất hiện ở thẻ bài
+    // chính với trạng thái riêng; trộn nó vào đây khiến tiêu đề nói sai.
+    .filter((a: any) => {
+      if (!a.deadline) return false;
+      const deadline = new Date(a.deadline).getTime();
+      return Number.isFinite(deadline) && deadline >= Date.now();
+    })
     .sort((a: any, b: any) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
 
   if (withDeadline.length === 0) {
@@ -701,7 +811,8 @@ function renderDeadlines(assignments: any[]) {
     const dl = formatDeadline(a.deadline) || { urgency: 'normal', label: '' };
     return (
       '<button type="button" class="wd-deadline-row wd-deadline-row--' + dl.urgency + '"' +
-          ' data-assignment-id="' + escapeHtml(a.id) + '">' +
+          ' data-assignment-id="' + escapeHtml(a.id) + '"' +
+          ' data-renderer-affinity="' + escapeHtml(a.renderer_affinity || '') + '">' +
         '<span class="wd-deadline-row__dot" aria-hidden="true"></span>' +
         '<span class="wd-deadline-row__title">' + escapeHtml(prompt.title || '(Đề bài)') + '</span>' +
         '<span class="wd-deadline-row__when">' + escapeHtml(dl.label) + '</span>' +
@@ -712,7 +823,10 @@ function renderDeadlines(assignments: any[]) {
   list.querySelectorAll<HTMLElement>('.wd-deadline-row').forEach((row) => {
     row.addEventListener('click', () => {
       const id = row.getAttribute('data-assignment-id');
-      if (id) openSubmitModal(id, window as any, (window as any).api);
+      if (id) window.location.href = writingAssignmentHref(
+        id,
+        row.getAttribute('data-renderer-affinity'),
+      );
     });
   });
 }
@@ -737,7 +851,8 @@ function buildAssignmentCardHtml(a: any): string {
   const startLabel = a.has_draft ? 'Tiếp tục làm bài' : 'Làm bài';
 
   return (
-    '<div class="assignment-card" data-assignment-id="' + escapeHtml(a.id) + '">' +
+    '<div class="assignment-card" data-assignment-id="' + escapeHtml(a.id) + '"' +
+        ' data-renderer-affinity="' + escapeHtml(a.renderer_affinity || '') + '">' +
       '<div class="flex items-start justify-between gap-3 mb-2">' +
         '<div class="min-w-0">' +
           '<h3 class="font-semibold text-gray-100 truncate">' + escapeHtml(prompt.title || '(Đề bài đã xóa)') + '</h3>' +
@@ -798,7 +913,10 @@ function renderAssignments(assignments: any[]) {
         const card = btn.closest('.assignment-card');
         if (!card) return;
         const assignmentId = card.getAttribute('data-assignment-id');
-        if (assignmentId) openSubmitModal(assignmentId, window as any, (window as any).api);
+        if (assignmentId) window.location.href = writingAssignmentHref(
+          assignmentId,
+          card.getAttribute('data-renderer-affinity'),
+        );
       });
     });
   }
@@ -809,6 +927,21 @@ function updateModalWordCount() {
   const wc = countWords(textarea ? textarea.value : '');
   const counter = $('modal-word-counter');
   if (counter) counter.textContent = String(wc);
+  const target = Number(textarea?.dataset.wordTarget || 0);
+  const targetEl = $('modal-word-target');
+  const progressEl = $('modal-word-progress') as HTMLElement | null;
+  if (targetEl && target > 0) {
+    const remaining = Math.max(0, target - wc);
+    targetEl.textContent = remaining > 0
+      ? 'Mục tiêu tối thiểu ' + target + ' từ · còn ' + remaining + ' từ'
+      : 'Đã đạt mục tiêu tối thiểu ' + target + ' từ';
+    targetEl.classList.toggle('is-met', remaining === 0);
+  }
+  if (progressEl) {
+    const progress = target > 0 ? Math.min(100, Math.round((wc / target) * 100)) : 0;
+    progressEl.style.width = progress + '%';
+    progressEl.classList.toggle('is-met', target > 0 && wc >= target);
+  }
 }
 
 function scheduleModalAutoSave(ms: ModalState) {
@@ -906,8 +1039,8 @@ function startModalCountdown(ms: ModalState, initialSeconds: number) {
   }, 1000);
 }
 
-function setupAntiPaste(textarea: HTMLTextAreaElement, ms: ModalState) {
-  textarea.addEventListener('paste', async (ev) => {
+function setupAntiPaste(textarea: HTMLTextAreaElement, ms: ModalState, on: ListenerRegistrar) {
+  on(textarea, 'paste', async (ev: ClipboardEvent) => {
     const clip = ev.clipboardData || (window as any).clipboardData;
     const pasted = clip ? clip.getData('text') : '';
     const len = (pasted || '').length;
@@ -1006,7 +1139,10 @@ function hideSpellPanel() {
 }
 
 async function submitFromModal(ms: ModalState, force: boolean) {
-  if (!ms.assignmentId) return;
+  if (!ms.assignmentId || !ms.accountId) return;
+  const assignmentId = ms.assignmentId;
+  const accountId = ms.accountId;
+  const isCurrent = () => ms.accountId === accountId && ms.assignmentId === assignmentId && !ms.dead;
   const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
   const text = textarea ? textarea.value : '';
   const wc = countWords(text);
@@ -1014,6 +1150,7 @@ async function submitFromModal(ms: ModalState, force: boolean) {
   if (!force && ms.allowSoftCheck) {
     let spellIssues: any[] = [];
     try { spellIssues = await runSpellCheck(text); } catch (e) { spellIssues = []; }
+    if (!isCurrent()) return;
     if (spellIssues.length) { showSpellPanel(spellIssues); return; }
   }
 
@@ -1034,31 +1171,73 @@ async function submitFromModal(ms: ModalState, force: boolean) {
     ms.autoSaveTimer = null;
   }
 
-  try {
-    const result = await (window as any).api.post(
-      '/api/writing/my-assignments/' + encodeURIComponent(ms.assignmentId) + '/submit',
-      { essay_text: text }
+  const helper = (window as any).WritingSubmitReceipt;
+  const receipt = helper.begin(accountId, assignmentId, text);
+  if (receipt.essayText !== text) {
+    showSubmissionNotice(
+      'warning',
+      'Đang có một lần nộp chưa xác nhận với nội dung trước đó. Hệ thống sẽ đối chiếu lần đó trước.'
     );
+  }
+
+  try {
+    const raw = await (window as any).api.post(
+      '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/submit',
+      { essay_text: receipt.essayText, request_id: receipt.requestId }
+    );
+    if (!isCurrent()) return;
+    const result = helper.normalizeAck(raw, assignmentId);
+    if (!result) throw new Error('Phản hồi nộp bài không khớp assignment.');
+    helper.remove(accountId, assignmentId);
 
     if (ms.countdownInterval) {
       clearInterval(ms.countdownInterval);
       ms.countdownInterval = null;
     }
 
-    if (result && result.is_flagged) {
-      alert('⚠ ' + (result.message || 'Bài đã nộp nhưng không được chấm.') +
-        '\n\nNếu em nghĩ đây là lỗi, vui lòng liên hệ giảng viên.');
+    if (result.isFlagged) {
+      showSubmissionNotice(
+        'warning',
+        (result.message || 'Bài đã nộp nhưng không được chấm.') +
+        ' Nếu em nghĩ đây là lỗi, vui lòng liên hệ giảng viên.'
+      );
     } else if (!force) {
-      alert('✓ Đã gửi bài thành công! Giảng viên sẽ duyệt và trả bài trong 24–48 tiếng.');
+      showSubmissionNotice('success', 'Đã gửi bài thành công! Giảng viên sẽ duyệt và trả bài trong 24–48 tiếng.');
     }
 
     closeModal(ms);
     await Promise.all([loadAssignments((window as any).api), loadEssays((window as any).api)]);
   } catch (err: any) {
-    alert('Lỗi nộp bài: ' + ((err && err.message) || 'không xác định'));
+    if (!isCurrent()) return;
+    let ack = null;
+    try { ack = await reconcileSubmission(receipt, (window as any).api); } catch (_) {}
+    if (!isCurrent()) return;
+    if (ack) {
+      showSubmissionNotice('success', 'Đã đối chiếu: bài viết của em đã được nộp thành công.');
+      closeModal(ms);
+      await Promise.all([loadAssignments((window as any).api), loadEssays((window as any).api)]);
+    } else if (statusCode(err) === 409) {
+      helper.remove(accountId, assignmentId);
+      showSubmissionNotice('warning', 'Bài đã đổi trạng thái hoặc được nộp ở tab khác. Danh sách đã được đồng bộ lại.');
+      closeModal(ms);
+      await Promise.all([loadAssignments((window as any).api), loadEssays((window as any).api)]);
+    } else if (isDefinitiveSubmitRejection(err)) {
+      helper.remove(accountId, assignmentId);
+      showSubmissionNotice('error', 'Không nộp được bài: ' + ((err && err.message) || 'yêu cầu bị từ chối'));
+    } else {
+      showSubmissionNotice(
+        'warning',
+        'Chưa nhận được xác nhận nộp bài. Nội dung đã được giữ lại; em có thể thử lại an toàn hoặc tải lại để đối chiếu.'
+      );
+    }
   } finally {
-    if (submitBtn) submitBtn.disabled = false;
-    if (saveBtn) saveBtn.disabled = false;
+    // A successful submit closes the modal and clears assignmentId before
+    // finally runs. Re-enable only within the same account lifecycle: a stale
+    // callback from the previous account must never mutate the new controls.
+    if (ms.accountId === accountId && !ms.dead) {
+      if (submitBtn) submitBtn.disabled = false;
+      if (saveBtn) saveBtn.disabled = false;
+    }
   }
 }
 
@@ -1074,6 +1253,31 @@ function closeModal(ms: ModalState) {
   const modal = $('submit-modal');
   if (modal) modal.classList.add('hidden');
   ms.assignmentId = null;
+  const returnFocus = ms.returnFocus;
+  ms.returnFocus = null;
+  if (returnFocus?.isConnected) returnFocus.focus();
+}
+
+function trapSubmitModalFocus(ev: KeyboardEvent) {
+  if (ev.key !== 'Tab') return;
+  const modal = $('submit-modal');
+  if (!modal || modal.classList.contains('hidden')) return;
+  const focusable = Array.from(modal.querySelectorAll<HTMLElement>(
+    'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )).filter((el) => el.offsetParent !== null);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (!modal.contains(document.activeElement)) {
+    ev.preventDefault();
+    (ev.shiftKey ? last : first).focus();
+  } else if (ev.shiftKey && document.activeElement === first) {
+    ev.preventDefault();
+    last.focus();
+  } else if (!ev.shiftKey && document.activeElement === last) {
+    ev.preventDefault();
+    first.focus();
+  }
 }
 
 function renderModal(data: any, ms: ModalState, freshTimer: any) {
@@ -1095,6 +1299,8 @@ function renderModal(data: any, ms: ModalState, freshTimer: any) {
   const promptTextEl = $('modal-prompt-text');
   if (promptTextEl) promptTextEl.textContent = prompt.prompt_text || '';
 
+  const workspaceEl = $('modal-workspace');
+  if (workspaceEl) workspaceEl.classList.toggle('has-prompt-image', !!prompt.prompt_image_url);
   const imgEl = $('modal-prompt-image') as HTMLImageElement | null;
   if (imgEl) {
     if (prompt.prompt_image_url) {
@@ -1143,7 +1349,10 @@ function renderModal(data: any, ms: ModalState, freshTimer: any) {
   }
 
   const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
-  if (textarea) textarea.value = (draft && draft.draft_text) || '';
+  if (textarea) {
+    textarea.value = (draft && draft.draft_text) || '';
+    textarea.dataset.wordTarget = prompt.task_type === 'task2' ? '250' : '150';
+  }
   updateModalWordCount();
 }
 
@@ -1151,40 +1360,82 @@ async function openSubmitModal(assignmentId: string, win: any, api: any) {
   // GHI VÀO thực thể dùng chung, không tạo cái mới: mọi listener (Lưu, Nộp, tự
   // lưu, dán) đã đóng gói đúng object này từ lúc mount.
   const ms = modalState;
+  ms.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   ms.assignmentId = assignmentId;
   ms.allowSoftCheck = false;
   ms.dead = false;
+  const accountId = ms.accountId;
+  if (!accountId) return;
+  const isCurrent = () => ms.accountId === accountId && ms.assignmentId === assignmentId && !ms.dead;
 
   const modal = $('submit-modal');
   if (modal) modal.classList.remove('hidden');
+  const initialFocus = $('modal-close') as HTMLButtonElement | null;
+  initialFocus?.focus();
   const loadingEl = $('modal-loading');
   if (loadingEl) loadingEl.classList.remove('hidden');
   const contentEl = $('modal-content');
   if (contentEl) contentEl.classList.add('hidden');
 
   try {
+    const pending = (window as any).WritingSubmitReceipt?.read(accountId, assignmentId);
+    if (pending) {
+      const ack = await reconcileSubmission(pending, api);
+      if (!isCurrent()) return;
+      if (ack) {
+        showSubmissionNotice('success', 'Đã đối chiếu: bài viết của em đã được nộp thành công.');
+        closeModal(ms);
+        await Promise.all([loadAssignments(api), loadEssays(api)]);
+        return;
+      }
+    }
+    const claim = await api.post(
+      '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/renderer-affinity',
+      { renderer_affinity: 'next' },
+    );
+    if (!isCurrent()) return;
+    const affinity = claim && claim.renderer_affinity;
+    if (affinity !== 'next') {
+      if (affinity !== 'legacy') throw new Error('Phiên làm bài không có renderer hợp lệ.');
+      window.location.replace(writingAssignmentHref(assignmentId, affinity));
+      return;
+    }
     const startResult = await api.post(
       '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/start',
       {}
     );
+    if (!isCurrent()) return;
     const data = await api.get(
       '/api/writing/my-assignments/' + encodeURIComponent(assignmentId)
     );
+    if (!isCurrent()) return;
     if (loadingEl) loadingEl.classList.add('hidden');
     if (contentEl) contentEl.classList.remove('hidden');
     renderModal(data, ms, startResult ? startResult.timer : null);
     const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
+    const pendingAfterLoad = (window as any).WritingSubmitReceipt?.read(accountId, assignmentId);
+    if (textarea && pendingAfterLoad) textarea.value = pendingAfterLoad.essayText;
+    updateModalWordCount();
     if (textarea) textarea.focus();
   } catch (err: any) {
-    alert('Không tải được bài: ' + ((err && err.message) || 'không xác định'));
+    if (!isCurrent()) return;
+    if (statusCode(err) === 409) {
+      (window as any).WritingSubmitReceipt?.remove(accountId, assignmentId);
+      showSubmissionNotice('warning', 'Bài đã được nộp ở một tab khác. Danh sách đã được đồng bộ lại.');
+      await Promise.all([loadAssignments(api), loadEssays(api)]);
+    } else {
+      alert('Không tải được bài: ' + ((err && err.message) || 'không xác định'));
+    }
     closeModal(ms);
   }
 }
 
 async function loadAssignments(api: any) {
+  const ps = pageState;
+  const generation = ps.generation;
   try {
     const data = await api.get('/api/writing/my-assignments');
-    if (!data) return;
+    if (!data || ps.dead || ps.generation !== generation) return;
     if (data.student) renderStudent(data.student);
 
     const all = data.assignments || [];
@@ -1196,29 +1447,36 @@ async function loadAssignments(api: any) {
     renderDeadlines(active);
     renderAssignments(active);
   } catch (err: any) {
+    if (ps.dead || ps.generation !== generation) return;
     const list = $('assignments-list');
     if (list) {
-      list.innerHTML = '<div class="wd-inline-error">Không tải được bài giao: ' +
-        escapeHtml((err && err.message) || 'lỗi không xác định') + '</div>';
+      list.innerHTML = '<div class="wd-inline-error">' + escapeHtml(loadFailureMessage(
+        err,
+        'Không tải được bài giao. Vui lòng thử lại.',
+      )) + '</div>';
     }
   }
 }
 
 async function loadEssays(api: any) {
+  const ps = pageState;
+  const generation = ps.generation;
   try {
     const data = await api.get('/api/writing/my-essays');
-    if (!data) return;
+    if (!data || ps.dead || ps.generation !== generation) return;
     if (data.student) renderStudent(data.student);
-    const ps = pageState;
     renderEssays(data.essays || [], ps);
     const countEl = $('essays-count');
     const n = (data.essays || []).length;
     if (countEl) countEl.textContent = n ? '(' + n + ')' : '';
   } catch (err: any) {
+    if (ps.dead || ps.generation !== generation) return;
     const list = $('essays-list');
     if (list) {
-      list.innerHTML = '<div class="wd-inline-error">Không tải được bài viết: ' +
-        escapeHtml((err && err.message) || 'lỗi không xác định') + '</div>';
+      list.innerHTML = '<div class="wd-inline-error">' + escapeHtml(loadFailureMessage(
+        err,
+        'Không tải được bài viết. Vui lòng thử lại.',
+      )) + '</div>';
     }
   }
 }
@@ -1248,21 +1506,35 @@ function setTabActive(tab: string, ps: PageState, api: any) {
   if (tab === 'prompt-bank' && !ps.pbRendered) { renderPromptBank(ps); }
 }
 
-async function applyWritingPermissionGating(api: any) {
+async function applyWritingPermissionGating(api: any, isCurrent: () => boolean) {
   try {
     const perms = await api.get('/api/student/permissions');
-    if (!perms) return;
+    if (!perms || !isCurrent()) return;
     const permitted = perms.writing === true;
-    if (!permitted) {
-      const banner = $('writing-preview-banner');
+    const banner = $('writing-preview-banner');
+    const assignmentButtons = document.querySelectorAll<HTMLButtonElement>('.btn-start-assignment');
+    const modalSubmit = $('modal-btn-submit') as HTMLButtonElement | null;
+
+    if (permitted) {
+      if (banner) banner.classList.add('hidden');
+      assignmentButtons.forEach((btn) => {
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        btn.title = '';
+      });
+      if (modalSubmit) {
+        modalSubmit.disabled = false;
+        modalSubmit.classList.remove('opacity-50', 'cursor-not-allowed');
+        modalSubmit.title = '';
+      }
+    } else {
       if (banner) banner.classList.remove('hidden');
-      document.querySelectorAll<HTMLButtonElement>('.btn-start-assignment').forEach((btn) => {
+      assignmentButtons.forEach((btn) => {
         btn.disabled = true;
         btn.classList.add('opacity-50', 'cursor-not-allowed');
         btn.title = 'Quyền Writing chưa được kích hoạt';
         btn.textContent = '🔒 Chưa kích hoạt';
       });
-      const modalSubmit = $('modal-btn-submit') as HTMLButtonElement | null;
       if (modalSubmit) {
         modalSubmit.disabled = true;
         modalSubmit.classList.add('opacity-50', 'cursor-not-allowed');
@@ -1275,11 +1547,10 @@ async function applyWritingPermissionGating(api: any) {
 }
 
 // Khớp bản legacy (dòng 605 của writing-dashboard.html) và khớp /speaking.
-const LOGIN_URL = '/login.html';
+const LOGIN_URL = '/login';
 
 export function WritingBehavior() {
-  const { status } = useAuth();
-  const ranRef = useRef(false);
+  const { status, user } = useAuth();
 
   // Cổng fail-closed (ADR-011) — dùng replace() để nút Back không dựng lại trang
   // riêng tư từ lịch sử. Bản legacy tương ứng: kiểm `getSession()` rồi đá về
@@ -1294,16 +1565,37 @@ export function WritingBehavior() {
     // điền xong client dùng chung, nên có một khoảng mà request đi ra KHÔNG kèm
     // bearer. `api.js` coi 401 là đã đăng xuất và đá về trang đăng nhập — tức
     // học viên hợp lệ bị văng khỏi trang. (Codex bắt ở #950 vòng 2.)
-    if (status !== 'signed-in' || ranRef.current) return;
-    ranRef.current = true;
+    if (status !== 'signed-in' || !user?.id) return;
 
     const ps = pageState;
+    const generation = ps.generation + 1;
+    ps.generation = generation;
     ps.dead = false;
+    ps.allEssays = [];
+    ps.allTips = [];
+    ps.tipsLoaded = false;
+    ps.allPrompts = [];
+    ps.pbRendered = false;
+
+    // Account switch must hide the previous learner synchronously, before the
+    // new canonical reads resolve. Empty counts/lists are preferable to a
+    // momentary cross-account disclosure.
+    ['assignments-count', 'essays-count'].forEach((id) => {
+      const el = $(id);
+      if (el) el.textContent = '';
+    });
+    const assignmentsList = $('assignments-list');
+    const essaysList = $('essays-list');
+    if (assignmentsList) assignmentsList.innerHTML = '<p class="text-sm py-8 text-center" style="color:var(--av-text-muted)">Đang tải…</p>';
+    if (essaysList) essaysList.innerHTML = '<p class="text-sm py-8 text-center" style="color:var(--av-text-muted)">Đang tải…</p>';
+    hide('assignments-empty');
+    hide('essays-empty');
 
     // Modal state dùng chung (khai ở phạm vi module). `dead` phải đặt lại ở
     // mỗi lần mount vì object sống lâu hơn component.
     const ms = modalState;
     ms.dead = false;
+    ms.accountId = user.id;
 
     const cleanups: Array<() => void> = [];
     const on = (el: Element | Document | null, ev: string, fn: any) => {
@@ -1317,10 +1609,12 @@ export function WritingBehavior() {
       // ra console khi hết hạn. Vòng thăm dò im lặng thì trang chỉ đơn giản
       // không làm gì và không ai biết vì sao.
       const ok = await whenGlobalReady(
-        () => typeof (window as any).api?.get === 'function',
-        'window.api (writing)',
+        () => typeof (window as any).api?.get === 'function' &&
+          typeof (window as any).WritingSubmitReceipt?.begin === 'function',
+        'window.api + WritingSubmitReceipt (writing)',
       );
-      if (ps.dead || !ok) return;
+      const isCurrent = () => !ps.dead && ps.generation === generation && ms.accountId === user.id;
+      if (!isCurrent() || !ok) return;
       const api = (window as any).api;
 
       // GẮN LISTENER TRƯỚC ANY AWAIT
@@ -1333,7 +1627,6 @@ export function WritingBehavior() {
       const spellBtnBack = $('spell-btn-back');
       const spellBtnSubmit = $('spell-btn-submit');
       const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
-      const fileInput = $('modal-file-input') as HTMLInputElement | null;
       const saveBtn = $('modal-btn-save') as HTMLButtonElement | null;
       const submitBtn = $('modal-btn-submit') as HTMLButtonElement | null;
       const modalClose = $('modal-close') as HTMLButtonElement | null;
@@ -1343,15 +1636,26 @@ export function WritingBehavior() {
       on(tabTips, 'click', () => setTabActive('tips', ps, api));
       on(tabPromptBank, 'click', () => setTabActive('prompt-bank', ps, api));
 
-      wireEssayFilterTabs(ps);
-      wirePromptFilterTabs(ps);
-      wireTipFilterTabs(ps);
+      wireEssayFilterTabs(ps, on);
+      wirePromptFilterTabs(ps, on);
+      wireTipFilterTabs(ps, on);
 
       on(tipModalClose, 'click', closeTipModal);
       on(tipModalBackdrop, 'click', closeTipModal);
       on(document, 'keydown', (ev: KeyboardEvent) => {
+        trapSubmitModalFocus(ev);
         if (ev.key === 'Escape' && !$('tip-modal')?.classList.contains('hidden')) {
           closeTipModal();
+          return;
+        }
+        if (ev.key === 'Escape' && !$('spell-panel')?.classList.contains('hidden')) {
+          hideSpellPanel();
+          textarea?.focus();
+          return;
+        }
+        if (ev.key === 'Escape' && !$('submit-modal')?.classList.contains('hidden')) {
+          if (textarea?.value) saveDraft(ms);
+          closeModal(ms);
         }
       });
 
@@ -1368,7 +1672,7 @@ export function WritingBehavior() {
           updateModalWordCount();
           scheduleModalAutoSave(ms);
         });
-        setupAntiPaste(textarea, ms);
+        setupAntiPaste(textarea, ms, on);
       }
 
       on(saveBtn, 'click', () => {
@@ -1389,66 +1693,34 @@ export function WritingBehavior() {
         submitFromModal(ms, true);
       });
 
-      on(fileInput, 'change', async (ev: any) => {
-        const file = ev.target.files && ev.target.files[0];
-        if (!file) return;
-
-        if (file.size > 2 * 1024 * 1024) {
-          alert('File quá lớn (tối đa 2MB)');
-          ev.target.value = '';
-          return;
-        }
-
-        const status = $('modal-upload-status');
-        if (status) {
-          status.textContent = '📤 Đang xử lý ' + file.name + '…';
-          status.classList.remove('hidden', 'text-red-400', 'text-emerald-400');
-          status.classList.add('text-gray-400');
-        }
-
-        try {
-          const fd = new FormData();
-          fd.append('file', file);
-          const result = await api.upload('/api/writing/extract-text', fd);
-
-          if (textarea) {
-            const current = textarea.value;
-            const separator = current.trim() ? '\n\n' : '';
-            textarea.value = current + separator + result.text;
-            textarea.dispatchEvent(new Event('input', { bubbles: true }));
-          }
-
-          if (status) {
-            status.textContent = '✓ Đã thêm ' + result.word_count + ' từ';
-            status.classList.remove('text-gray-400');
-            status.classList.add('text-emerald-400');
-            setTimeout(() => { if (status) status.classList.add('hidden'); }, 3000);
-          }
-        } catch (err: any) {
-          if (status) {
-            status.textContent = '✕ ' + ((err && err.message) || 'Lỗi xử lý file');
-            status.classList.remove('text-gray-400');
-            status.classList.add('text-red-400');
-          }
-        } finally {
-          ev.target.value = '';
-        }
-      });
-
       // ASYNC LOADS (now that listeners are attached)
       await Promise.all([loadAssignments(api), loadEssays(api)]);
-      await applyWritingPermissionGating(api);
+      if (!isCurrent()) return;
+      hideSubmissionNotice();
+      if (ms.accountId) await reconcilePendingSubmissions(ms.accountId, api);
+      if (!isCurrent()) return;
+      await applyWritingPermissionGating(api, isCurrent);
+      if (!isCurrent()) return;
+      const requestedAssignment = new URLSearchParams(window.location.search).get('assignment_id');
+      if (requestedAssignment) {
+        await openSubmitModal(requestedAssignment, window as any, api);
+        if (!isCurrent()) return;
+      }
       await loadPromptBank(api, ps);
     })();
 
     return () => {
-      ps.dead = true;
+      if (ps.generation === generation) ps.dead = true;
       ms.dead = true;
+      if (ms.accountId === user.id) {
+        closeModal(ms);
+        ms.accountId = null;
+      }
       if (ms.autoSaveTimer) clearTimeout(ms.autoSaveTimer);
       if (ms.countdownInterval) clearInterval(ms.countdownInterval);
       cleanups.forEach((fn) => fn());
     };
-  }, [status]);
+  }, [status, user?.id]);
 
   return null;
 }

@@ -52,6 +52,21 @@ def test_core_row_fallback_returns_partial_true():
     assert "transcript_model" not in calls[1]    # core-row retry dropped the non-core column
 
 
+def test_expired_player_save_returns_410_without_core_retry():
+    calls = []
+
+    def upsert(row):
+        calls.append(row)
+        raise RuntimeError("active_player_expired")
+
+    with pytest.raises(HTTPException) as ei:
+        _persist_response_with_fallback(
+            _ROW, _CORE, upsert, session_id="s1", question_id="q1")
+
+    assert ei.value.status_code == 410
+    assert len(calls) == 1, "expiry is terminal, not a schema mismatch to retry"
+
+
 def test_both_inserts_fail_raises_500_response_persist_failed():
     def upsert(row): raise Exception("db unreachable")
     with pytest.raises(HTTPException) as ei:

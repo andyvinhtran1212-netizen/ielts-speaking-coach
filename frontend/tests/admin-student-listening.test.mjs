@@ -31,7 +31,7 @@ describe('hồ sơ học viên — mục Tiến độ (listening)', () => {
   });
   test('deep-link sang 2 trang báo cáo, filter sẵn học viên theo email', () => {
     assert.match(PAGE, /\/pages\/admin\/listening\/attempts\.html' \+ linkQs/);
-    assert.match(PAGE, /\/pages\/admin\/listening\/dictation-reports\.html' \+ linkQs/);
+    assert.match(PAGE, /\/admin\/listening\/dictation' \+ linkQs/);
     assert.match(PAGE, /'\?user=' \+ encodeURIComponent\(userQ\)/);
   });
   test('chưa kích hoạt tài khoản → nói rõ, không im lặng', () => {

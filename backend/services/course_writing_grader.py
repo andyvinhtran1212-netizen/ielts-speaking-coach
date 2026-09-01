@@ -35,10 +35,14 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 _TIMEOUT_SECONDS = 45.0
-# Cả cụm 10 câu trong MỘT lượt gọi: rẻ hơn, và bản chấm nhất quán hơn so với
-# mười lượt độc lập. Trần này chặn một bank soạn sai (200 câu tự luận) làm nổ
-# ngữ cảnh — vượt trần thì chia mẻ.
-_MAX_ITEMS_PER_CALL = 12
+# Sáu câu giữ response JSON cách xa trần output ngay cả khi mỗi câu có nhiều
+# lỗi. Buổi 08 có 15 câu: bản cũ gom 12 câu vào mẻ đầu; response mẻ ấy không
+# parse được nhưng mẻ 3 câu sau vẫn qua, tạo một bản chấm giả 3/15. Mẻ hỏng còn
+# được chia nhỏ/chấm lại ở `grade`, nên con số này là giới hạn bình thường chứ
+# không phải điểm lỗi duy nhất.
+_MAX_ITEMS_PER_CALL = 6
+_BATCH_PROVIDER_FAILURE = "provider"
+_BATCH_RESPONSE_FAILURE = "response"
 # Trần độ dài một câu. `quiz_service` TỪ CHỐI câu vượt trần trước khi tới đây —
 # cắt rồi chấm phần đầu nghĩa là phần đuôi model chưa từng đọc sẽ hiện ra như bị
 # xoá ở bản so sai→sửa. Lát cắt dưới đây chỉ còn là lưới an toàn cuối.
@@ -54,6 +58,10 @@ TUYỆT ĐỐI KHÔNG:
 - KHÔNG viết lại cấu trúc nếu cấu trúc đang dùng vốn ĐÚNG ngữ pháp.
 - KHÔNG thêm hoặc bớt ý so với câu học viên viết.
 - KHÔNG nhận xét về văn phong.
+
+`corrected` phải giữ NGUYÊN toàn bộ câu trả lời: đủ mọi dòng, kể cả dòng giải
+thích bằng tiếng Việt. Chỉ sửa đúng phần tiếng Anh có lỗi. Không được trả riêng
+câu tiếng Anh rồi làm mất dòng giải thích.
 
 Câu đã ĐÚNG ngữ pháp và ĐÚNG chính tả thì trả lại NGUYÊN VĂN, issues rỗng —
 kể cả khi bạn nghĩ có cách viết hay hơn.
@@ -210,7 +218,22 @@ def _classify(issue: Dict[str, Any]) -> str:
     return declared if declared in _COUNTED_TYPES else "grammar"
 
 
-async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], str | None]:
+def _keeps_all_answer_lines(answer: Any, corrected: Any) -> bool:
+    """Bản sửa không được làm biến mất cả một dòng học viên đã viết.
+
+    Một số câu Buổi 08 yêu cầu ``câu đã sửa`` + ``lý do một dòng``. Model từng
+    trả riêng câu tiếng Anh, bỏ sạch lý do tiếng Việt nhưng vẫn khai ``ok=true``.
+    Không đoán nội dung lý do đúng/sai ở đây; chỉ chặn sự mất dữ liệu có thể
+    chứng minh được từ hình dạng hai chuỗi.
+    """
+    before = [line for line in str(answer or "").splitlines() if line.strip()]
+    after = [line for line in str(corrected or "").splitlines() if line.strip()]
+    return len(after) >= len(before)
+
+
+async def _grade_batch(
+    batch: List[Dict[str, Any]],
+) -> tuple[List[Dict[str, Any]], str | None, str | None]:
     # Dựng client TRONG lớp bảo vệ: thiếu khoá API / tên model sai là lỗi cấu
     # hình, và nó phải thành một lời nhắn đọc được như mọi đường hỏng khác —
     # không phải một 500 nuốt mất lượt nộp DUY NHẤT của học viên.
@@ -218,7 +241,8 @@ async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]
         name, model = _model()
     except Exception as exc:  # noqa: BLE001
         logger.error("[course-writing] không dựng được client: %s", exc)
-        return _fallback(batch, "Bộ chấm chưa sẵn sàng."), None
+        return (_fallback(batch, "Bộ chấm chưa sẵn sàng."), None,
+                _BATCH_PROVIDER_FAILURE)
 
     payload = [{"qid": it["qid"],
                 "de": (it.get("prompt") or "")[:400],
@@ -231,7 +255,8 @@ async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]
             model.generate_content_async(prompt), timeout=_TIMEOUT_SECONDS)
     except asyncio.TimeoutError:
         logger.error("[course-writing] model quá hạn %ss", _TIMEOUT_SECONDS)
-        return _fallback(batch, "Bộ chấm không phản hồi kịp."), name
+        return (_fallback(batch, "Bộ chấm không phản hồi kịp."), name,
+                _BATCH_PROVIDER_FAILURE)
     except Exception as exc:  # noqa: BLE001
         # Lỗi thô của SDK ở lại log; học viên nhận một câu đọc được.
         #
@@ -242,10 +267,12 @@ async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]
         if _is_config_error(exc):
             logger.error("[course-writing] HỎNG CẤU HÌNH (%s): %s — sửa "
                          "COURSE_WRITING_MODEL / khoá API, nó sẽ KHÔNG tự khỏi", name, exc)
-            return _fallback(batch, "Bộ chấm đang lỗi cấu hình, đã báo quản trị. "
-                                    "Bài của em vẫn được lưu."), name
+            return (_fallback(batch, "Bộ chấm đang lỗi cấu hình, đã báo quản trị. "
+                                     "Bài của em vẫn được lưu."), name,
+                    _BATCH_PROVIDER_FAILURE)
         logger.error("[course-writing] gọi model hỏng: %s", exc)
-        return _fallback(batch, "Bộ chấm tạm thời không dùng được."), name
+        return (_fallback(batch, "Bộ chấm tạm thời không dùng được."), name,
+                _BATCH_PROVIDER_FAILURE)
 
     try:
         data = json.loads(_strip_fences(resp.text))
@@ -253,18 +280,27 @@ async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]
         by_qid = {r.get("qid"): r for r in (results or []) if isinstance(r, dict)}
     except Exception as exc:  # noqa: BLE001
         logger.error("[course-writing] không đọc được JSON: %s", exc)
-        return _fallback(batch, "Bộ chấm trả về kết quả không đọc được."), name
+        return (_fallback(batch, "Bộ chấm trả về kết quả không đọc được."), name,
+                _BATCH_RESPONSE_FAILURE)
 
     out: List[Dict[str, Any]] = []
+    failure_kind = None
     for it in batch:
         r = by_qid.get(it["qid"])
         if not r:
             # Thiếu MỘT câu không được kéo cả cụm xuống — nói riêng câu ấy.
             out.append(_fallback([it], "Bộ chấm bỏ sót câu này.")[0])
+            failure_kind = _BATCH_RESPONSE_FAILURE
             continue
         issues = [{**x, "type": _classify(x)}
                   for x in (r.get("issues") or []) if isinstance(x, dict)][:6]
         corrected = (r.get("corrected") or "").strip() or it.get("answer", "")
+        if not _keeps_all_answer_lines(it.get("answer"), corrected):
+            logger.error("[course-writing] corrected làm mất dòng qid=%s", it["qid"])
+            out.append(_fallback(
+                [it], "Bộ chấm trả về kết quả không nhất quán.")[0])
+            failure_kind = _BATCH_RESPONSE_FAILURE
+            continue
         out.append({
             "qid":       it["qid"],
             "prompt":    it.get("prompt", ""),
@@ -281,7 +317,7 @@ async def _grade_batch(batch: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]
             # tập này dạy.
             "ok":        not any(x["type"] in _COUNTED_TYPES for x in issues),
         })
-    return out, name
+    return out, name, failure_kind
 
 
 async def grade(items: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], str | None]:
@@ -293,9 +329,48 @@ async def grade(items: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], str 
     """
     if not items:
         return [], None
+    async def resilient(batch: List[Dict[str, Any]]):
+        """Chỉ gọi lại những câu chưa đọc được; mẻ hỏng cả cụm thì chẻ đôi.
+
+        Không lặp vô hạn: mẻ một câu là lá. Nếu lá vẫn hỏng, tầng nộp sẽ trả
+        503 và giữ nguyên nháp thay vì ghi một kết quả một phần.
+        """
+        first, first_model, failure_kind = await _grade_batch(batch)
+        failed = [item for item, result in zip(batch, first)
+                  if result.get("ok") is None]
+        # Timeout/429/5xx/config sẽ lặp lại cho mọi kích thước mẻ. Không chẻ
+        # chúng xuống từng câu: một mẻ sáu câu có thể thành 11 lượt gọi tuần tự
+        # và kéo endpoint gần chín phút. Chỉ response JSON hỏng/bỏ sót qid mới
+        # có khả năng được cứu bằng mẻ nhỏ hơn.
+        if (not failed or len(batch) == 1
+                or failure_kind != _BATCH_RESPONSE_FAILURE):
+            return first, first_model
+
+        # Hỏng cả response thường là JSON bị cắt/hỏng: gọi lại nguyên mẻ có
+        # cùng kích thước dễ tái tạo đúng lỗi. Chẻ đôi để response ngắn đi.
+        if len(failed) == len(batch):
+            mid = max(1, len(failed) // 2)
+            groups = [failed[:mid], failed[mid:]]
+        else:
+            # Model chỉ bỏ sót vài qid: chấm lại đúng phần thiếu, không tốn tiền
+            # và không làm thay đổi các câu đã có kết quả.
+            groups = [failed]
+
+        repaired: Dict[str, Dict[str, Any]] = {}
+        model_name = first_model
+        for group in groups:
+            if not group:
+                continue
+            retried, retry_model = await resilient(group)
+            model_name = retry_model or model_name
+            repaired.update({str(row.get("qid")): row for row in retried})
+        return ([repaired.get(str(row.get("qid")), row) for row in first],
+                model_name)
+
     out: List[Dict[str, Any]] = []
     model_name = None
     for i in range(0, len(items), _MAX_ITEMS_PER_CALL):
-        part, model_name = await _grade_batch(items[i:i + _MAX_ITEMS_PER_CALL])
+        part, part_model = await resilient(items[i:i + _MAX_ITEMS_PER_CALL])
+        model_name = part_model or model_name
         out.extend(part)
     return out, model_name

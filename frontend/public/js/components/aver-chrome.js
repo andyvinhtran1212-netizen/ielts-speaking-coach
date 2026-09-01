@@ -304,7 +304,17 @@ const STYLE = /* css */ `
 @media (max-width: 720px) {
   .topnav-wrap { padding: 0 var(--av-space-4); }
   .topnav { gap: var(--av-space-3); flex-wrap: wrap; margin-bottom: var(--av-space-8); }
-  .nav-links { width: 100%; order: 3; overflow-x: auto; flex-wrap: nowrap; }
+  .nav-links {
+    width: 100%;
+    min-width: 0;
+    order: 3;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav-links a,
+  .nav-links span { flex: 0 0 auto; }
   .topnav-right { margin-left: auto; }
 }
 `;
@@ -317,11 +327,11 @@ const TEMPLATE = /* html */ `
     <div class="nav-links">
       <a href="/home" data-tab="home">Trang chủ</a>
       <a href="/writing/dashboard" data-tab="writing">Writing</a>
-      <a href="/pages/my-class.html" data-tab="class">MY CLASS</a>
+      <a href="/my-class" data-tab="class">MY CLASS</a>
       <a href="/speaking" data-tab="speaking">Speaking</a>
       <a href="/listening" data-tab="listening">Listening</a>
       <a href="/grammar" data-tab="grammar">Grammar</a>
-      <a href="/vocabulary.html" data-tab="vocabulary">Vocabulary</a>
+      <a href="/vocabulary" data-tab="vocabulary">Vocabulary</a>
       <a href="/reading/vocab" data-tab="reading">Reading</a>
     </div>
 
@@ -399,6 +409,13 @@ export class AverChrome extends HTMLElement {
     shadow.innerHTML = `<style>${STYLE}</style>${TEMPLATE}`;
 
     this._applyActive(this.getAttribute('active'));
+    // Native auth-gated route groups declare this route-scoped marker from
+    // AuthedShell. Apply the signed-in target synchronously instead of racing
+    // the independent Supabase poll against navigation or parity capture.
+    // Public layouts omit it and retain the public /vocabulary default.
+    if (document.querySelector('meta[name="aver-auth-gated"][content="1"]')) {
+      this._applyVocabNav(true);
+    }
     this._applyRole();   // re-apply any role set before the element upgraded
     this._bindToggle();
     this._bindDropdown();
@@ -448,13 +465,13 @@ export class AverChrome extends HTMLElement {
           where: {
             or: [
               { href_matches: '/home' },
-              { href_matches: '/pages/my-class.html' },
+              { href_matches: '/my-class' },
               { href_matches: '/speaking' },
               { href_matches: '/writing/dashboard' },
               { href_matches: '/listening' },
               { href_matches: '/reading/vocab' },
               { href_matches: '/grammar' },
-              { href_matches: '/vocabulary.html' },
+              { href_matches: '/vocabulary' },
             ],
           },
           eagerness: 'moderate',
@@ -593,13 +610,13 @@ export class AverChrome extends HTMLElement {
 
 
   // B3 — session-adaptive Vocabulary target. Default (template) is the PUBLIC
-  // wiki /vocabulary.html so a logged-out user browses without a login wall;
+  // wiki /vocabulary so a logged-out user browses without a login wall;
   // once a session is confirmed we point it at the login-gated hub ("của bạn").
   _applyVocabNav(loggedIn) {
     const root = this.shadowRoot;
     if (!root) return;
     const link = root.querySelector('.nav-links a[data-tab="vocabulary"]');
-    if (link) link.setAttribute('href', loggedIn ? '/pages/vocabulary.html' : '/vocabulary.html');
+    if (link) link.setAttribute('href', loggedIn ? '/vocabulary/hub' : '/vocabulary');
   }
 
   _applyActive(value) {
@@ -607,13 +624,31 @@ export class AverChrome extends HTMLElement {
     if (!root) return;
     const links = root.querySelectorAll('.nav-links a[data-tab]');
     const target = VALID_ACTIVE.includes(value) ? value : null;
+    let activeLink = null;
     links.forEach((a) => {
-      if (target && a.dataset.tab === target) {
+      const isActive = target && a.dataset.tab === target;
+      if (isActive) {
         a.classList.add('active');
+        a.setAttribute('aria-current', 'page');
+        activeLink = a;
       } else {
         a.classList.remove('active');
+        a.removeAttribute('aria-current');
       }
     });
+
+    // The primary nav becomes a horizontal strip on phones. Bring the active
+    // destination into view without moving the page vertically.
+    if (activeLink && typeof window.matchMedia === 'function'
+        && window.matchMedia('(max-width: 720px)').matches) {
+      requestAnimationFrame(() => {
+        if (!this.isConnected) return;
+        const nav = activeLink.closest('.nav-links');
+        if (!nav || !activeLink.offsetWidth) return;
+        const targetLeft = activeLink.offsetLeft - (nav.clientWidth - activeLink.offsetWidth) / 2;
+        nav.scrollLeft = Math.max(0, targetLeft);
+      });
+    }
   }
 
   _bindToggle() {
@@ -676,7 +711,7 @@ export class AverChrome extends HTMLElement {
       // AFTER the awaited revoke. supabase-js v2 signOut() calls the
       // network revoke BEFORE clearing the localStorage session — if we
       // dispatched av-chrome-signed-out first, the Next AuthProvider's
-      // fail-closed redirect (profile → /login.html) would navigate away
+      // fail-closed redirect (profile → /login) would navigate away
       // mid-revoke, cancelling BOTH the revoke and the storage cleanup:
       // the next page load would restore the session and the logout would
       // silently undo itself.

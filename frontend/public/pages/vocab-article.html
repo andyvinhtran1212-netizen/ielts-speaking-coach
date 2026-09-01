@@ -63,6 +63,7 @@
 
   <script src="https://unpkg.com/lucide@1.17.0" defer></script>
   <script type="module" src="/js/components/aver-chrome.js"></script>
+  <script src="/js/legacy-retirement-beacon.js" defer></script>
 </head>
 <body class="av-page min-h-screen">
 
@@ -71,7 +72,7 @@
 
   <!-- Wiki sub-nav breadcrumb (mirrors grammar-article's gw-subnav). -->
   <nav class="va-subnav" aria-label="Vocabulary Wiki">
-    <a href="/vocabulary.html">← Vocabulary Wiki</a>
+    <a href="/vocabulary">← Vocabulary Wiki</a>
     <span id="nav-breadcrumb" class="crumb"></span>
   </nav>
 
@@ -82,7 +83,7 @@
     <!-- Error -->
     <div id="error-state" class="hidden va-empty">
       <p>Không tìm thấy từ vựng này.</p>
-      <a href="/vocabulary.html" class="va-eyebrow" style="text-transform:none;">← Quay lại Vocabulary Wiki</a>
+      <a href="/vocabulary" class="va-eyebrow" style="text-transform:none;">← Quay lại Vocabulary Wiki</a>
     </div>
 
     <!-- Article — renderArticle() fills this with the v2 detail card + body. -->

@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Admin — Đang chuyển hướng</title>
+  <meta name="aver-legacy-artifact" content="redirect-stub" />
 
   <!-- Sprint 12.8 cluster closure — admin.html is now a pure redirect to
-       the unified IA at /pages/admin/index.html. The full monolith
+       the canonical native dashboard at /admin. The full monolith
        (3,151 LOC) was carved across Sprints 12.2 → 12.7. Keeping the
        anti-flash IIFE + error-reporter so the redirect itself never
        flashes the wrong theme + bookmarks land cleanly. -->
@@ -29,8 +30,8 @@
     })();
   </script>
 
-  <meta http-equiv="refresh" content="0; url=/pages/admin/index.html" />
-  <link rel="canonical" href="/pages/admin/index.html" />
+  <meta http-equiv="refresh" content="0; url=/admin" />
+  <link rel="canonical" href="/admin" />
 
   <link rel="stylesheet" href="/css/aver-design/tokens.css" />
   <link rel="stylesheet" href="/css/aver-design/components.css" />
@@ -76,7 +77,7 @@
       <code>/pages/admin/</code> trong cluster
       DEBT-ADMIN-IA-REFACTOR (Sprint 12.0 → 12.8).
     </p>
-    <a href="/pages/admin/index.html">Mở Tổng quan →</a>
+    <a href="/admin">Mở Tổng quan →</a>
     <a class="home" href="/home">← Về trang chủ</a>
   </main>
 
@@ -84,7 +85,7 @@
     // Belt-and-suspenders: meta refresh + JS redirect. JS wins on modern
     // browsers (replace() leaves no history entry); meta refresh covers
     // JS-disabled cases.
-    window.location.replace('/pages/admin/index.html');
+    window.location.replace('/admin');
   </script>
   <script src="/js/error-reporter.js"></script>
 </body>

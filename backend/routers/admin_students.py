@@ -111,9 +111,17 @@ async def update_student(
     body: UpdateStudentRequest,
     authorization: str | None = Header(None),
 ):
-    """Update student profile. Empty body → 400."""
+    """Update student profile. Empty body → 400.
+
+    ``exclude_unset`` is intentional: optional profile fields can be cleared by
+    sending JSON ``null``. Required identity fields may be omitted, but may not
+    be explicitly cleared.
+    """
     await require_admin(authorization)
-    data = body.model_dump(exclude_none=True)
+    data = body.model_dump(exclude_unset=True)
+    for required_field in ("student_code", "full_name"):
+        if required_field in data and data[required_field] is None:
+            raise HTTPException(422, f"{required_field} cannot be null")
     return student_service.update_student(student_id=str(student_id), data=data)
 
 
