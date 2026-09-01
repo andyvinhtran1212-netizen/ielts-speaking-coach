@@ -127,10 +127,10 @@ Suite v5 phủ 401/400, double-submit, kill switch, fixture grade + persistence,
 N/N−1 replay, two-user isolation và zero production egress. Bốn nhánh
 core-player từng còn thiếu — ambiguous commit, partial persistence,
 reload/resume và bidirectional cross-version — chạy bằng production Next build
-trong `npm run test:e2e:gate-e`: 16 Chromium + 15 WebKit desktop + 15
+trong `npm run test:e2e:gate-e`: 17 Chromium + 16 WebKit desktop + 16
 WebKit/iPhone synthetic. Workflow critical chạy suite này sau live staging E2E.
 Trước khi tạo metadata hay cập nhật ledger, trusted auditor parse JSON để bắt
-đúng 46 test/3 project, zero skip/fail/flake và kiểm ZIP report nhúng trong HTML
+đúng 49 test/3 project, zero skip/fail/flake và kiểm ZIP report nhúng trong HTML
 đã flush hoàn chỉnh. Một trong hai suite đỏ hoặc semantic verifier đỏ đều làm
 `GATE_E_RUN_OUTCOME=failure` và reset streak; clean streak không được save/upload
 trước bước này. JSON + HTML report được upload thành artifact riêng, còn toàn bộ
