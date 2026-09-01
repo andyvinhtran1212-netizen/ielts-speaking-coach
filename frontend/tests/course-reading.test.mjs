@@ -46,6 +46,21 @@ test('renderer keeps passage, vocabulary and both question modes', () => {
   assert.match(html, /hoàn thành đủ 2 câu/);
 });
 
+test('a question can override its group with multiple-choice input', () => {
+  const choiceBank = structuredClone(bank);
+  choiceBank.meta.short_reading.question_groups[1].questions = [{
+    id: 'r-02', number: 2, prompt: 'Vì sao dùng **reads**?',
+    input_type: 'choice', options: ['Chủ ngữ số ít', 'Chủ ngữ số nhiều'],
+  }];
+  const reading = createReading({ api: {}, storage: storage(), userId: 'u1' });
+  reading.load(choiceBank);
+
+  const html = reading.render();
+  assert.match(html, /value="Chủ ngữ số ít"/);
+  assert.match(html, /<strong>reads<\/strong>/);
+  assert.doesNotMatch(html, /cr-input-r-02[^>]+type="text"/);
+});
+
 test('solution is requested only after every reading answer exists', async () => {
   let calls = 0;
   const api = { post: async (_path, body) => {

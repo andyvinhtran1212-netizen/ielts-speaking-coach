@@ -214,6 +214,41 @@ def test_a_short_reading_is_bank_metadata_not_a_scored_question(tmp_path):
     assert len(_rpc_rows(db)[0][2]["p_rows"]) == 2
 
 
+def test_a_reading_structure_group_keeps_embedded_multiple_choice(tmp_path):
+    reading = _reading()
+    reading["cau_hoi"]["phan2_cau_truc"] = [{
+        "so": 2, "kieu": "trac_nghiem", "de": "Vì sao dùng reads?",
+        "pa": ["Chủ ngữ số ít", "Chủ ngữ số nhiều"], "dap_an": 0,
+    }]
+    reading["dap_an"]["phan2_cau_truc"] = [{
+        "cau": 2, "kieu": "trac_nghiem", "dap_an": 0,
+        "dap_an_noi_dung": "Chủ ngữ số ít", "giai_thich": "Mai số ít.",
+    }]
+    db = _db()
+    _run(tmp_path, db, [_mcq(), reading], "--commit")
+
+    short_reading = db.tables["quiz_banks"][0]["meta"]["short_reading"]
+    question = short_reading["question_groups"][1]["questions"][0]
+    assert question["input_type"] == "choice"
+    assert question["options"] == ["Chủ ngữ số ít", "Chủ ngữ số nhiều"]
+    assert short_reading["answers"][1]["answer"] == "Chủ ngữ số ít"
+
+
+def test_a_reading_choice_with_mismatched_keys_is_refused(tmp_path):
+    reading = _reading()
+    reading["cau_hoi"]["phan2_cau_truc"] = [{
+        "so": 2, "de": "Vì sao dùng reads?", "pa": ["Số ít", "Số nhiều"],
+        "dap_an": 0,
+    }]
+    reading["dap_an"]["phan2_cau_truc"] = [{
+        "cau": 2, "dap_an": 1, "giai_thich": "Mai số ít.",
+    }]
+    db = _db()
+    with pytest.raises(SystemExit):
+        _run(tmp_path, db, [_mcq(), reading], "--commit")
+    assert db.writes == []
+
+
 @pytest.mark.parametrize("broken", [
     {"bai_doc": ""},
     {"so_tu": 99},
