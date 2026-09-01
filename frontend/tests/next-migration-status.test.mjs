@@ -46,7 +46,10 @@ test('only recognizes the generated retirement manifest when config wires all th
   const complete = `
     import { buildLegacyRetirementRedirects } from './tooling/gate-f-retirement-redirects.mjs';
     const LEGACY_RETIREMENT_REDIRECTS_PERMANENT = false;
-    const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(paths);
+    const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
+      paths,
+      { permanent: LEGACY_RETIREMENT_REDIRECTS_PERMANENT },
+    );
     async function redirects() { return [...LEGACY_RETIREMENT_REDIRECTS]; }
   `;
   assert.equal(retirementRedirectsInstalledFromConfig(complete), true);
@@ -54,6 +57,18 @@ test('only recognizes the generated retirement manifest when config wires all th
   assert.equal(retirementRedirectsPermanentFromConfig(
     complete.replace('PERMANENT = false', 'PERMANENT = true'),
   ), true);
+  assert.equal(retirementRedirectsPermanentFromConfig(`
+    const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(paths);
+  `), true);
+  assert.equal(retirementRedirectsPermanentFromConfig(`
+    const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(paths, options);
+  `), null);
+  assert.equal(retirementRedirectsPermanentFromConfig(`
+    const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
+      paths,
+      { permanent: resolveRedirectMode() },
+    );
+  `), null);
   assert.equal(retirementRedirectsInstalledFromConfig(
     '// ...LEGACY_RETIREMENT_REDIRECTS from gate-f-retirement-redirects.mjs',
   ), false);
@@ -105,7 +120,7 @@ test('replacement inventory fails closed when an App Router owner is absent', ()
 
 test('repository report is internally consistent and cannot overclaim completion', () => {
   const report = collectNextMigrationStatus();
-  assert.equal(report.schemaVersion, 4);
+  assert.equal(report.schemaVersion, 5);
   assert.equal(report.appPages.source, report.appPages.product + report.appPages.excluded.length);
   assert.equal(report.legacyHtml.total, report.legacyHtml.compatibilityRedirected + report.legacyHtml.directlyRenderable);
   assert.equal(report.legacyHtml.serverRedirected, report.legacyHtml.total);
