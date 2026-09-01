@@ -6,10 +6,19 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  buildLegacyRetirementRedirects,
+  discoverLegacyHtmlPaths,
+} from '../tooling/gate-f-retirement-redirects.mjs';
+
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const PAGE = path.join(FRONTEND, 'app', '(marketing)', 'page.tsx');
 const BEHAVIOR = path.join(FRONTEND, 'app', '(marketing)', 'landing-behavior.tsx');
 const LAYOUT = path.join(FRONTEND, 'app', '(marketing)', 'layout.tsx');
+const SOAK_REDIRECTS = buildLegacyRetirementRedirects(
+  discoverLegacyHtmlPaths(path.join(FRONTEND, 'public')),
+  { permanent: false },
+);
 
 test('page là Server Component; chỉ landing-behavior là client', () => {
   const page = readFileSync(PAGE, 'utf8');
@@ -48,8 +57,11 @@ test('CUTOVER: `/` is the Next app route; the legacy `/`→/index.html rewrite i
   const cfg = readFileSync(path.join(FRONTEND, 'next.config.ts'), 'utf8');
   assert.ok(!cfg.includes("{ source: '/', destination: '/index.html' }"),
     'the `/` rewrite must be removed atomically with the cutover (route-ownership check enforces it)');
-  assert.match(cfg, /source: '\/index\.html', destination: '\/'/,
-    'legacy /index.html consolidates to the canonical `/`');
+  assert.ok(SOAK_REDIRECTS.some((entry) => (
+    entry.source === '/index.html'
+      && entry.destination === '/'
+      && entry.permanent === false
+  )), 'legacy /index.html must be intercepted by the Gate F redirect manifest');
   assert.ok(existsSync(PAGE), 'landing page.tsx now lives directly under (marketing) → route `/`');
 });
 

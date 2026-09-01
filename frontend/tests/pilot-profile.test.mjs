@@ -6,6 +6,11 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  buildLegacyRetirementRedirects,
+  discoverLegacyHtmlPaths,
+} from '../tooling/gate-f-retirement-redirects.mjs';
+
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const DIR = path.join(FRONTEND, 'app', '(authed)', 'profile');
 const PROVIDER = readFileSync(path.join(FRONTEND, 'lib', 'auth', 'auth-provider.tsx'), 'utf8');
@@ -99,13 +104,20 @@ test('pilot-4 mutation: double-submit lock + canonical reconcile + ambiguous-com
     'PATCH /auth/profile must sit behind the ADR-010 kill switch (first require_flag adoption)');
 });
 
-test('CUTOVER: canonical /profile là app route + /pages/profile.html redirect (TEMPORARY)', () => {
-  const cfg = readFileSync(path.join(FRONTEND, 'next.config.ts'), 'utf8');
+test('GATE F SOAK: canonical /profile owns the route and legacy profile is temporarily intercepted', () => {
   // profile page.tsx now lives directly under (authed) → route `/profile`
   assert.ok(readFileSync(path.join(DIR, 'page.tsx'), 'utf8').length > 0, 'profile route at canonical path');
-  // legacy path consolidates via a TEMPORARY redirect (rollback-safe: /profile 404s on revert)
-  assert.match(cfg, /source: '\/pages\/profile\.html', destination: '\/profile', permanent: false/,
-    'profile redirect must be temporary — a permanent one would strand cached clients on 404 after rollback');
+  const redirects = buildLegacyRetirementRedirects(
+    discoverLegacyHtmlPaths(path.join(FRONTEND, 'public')),
+    { permanent: false },
+  );
+  assert.ok(redirects.some((entry) => (
+    entry.source === '/pages/profile.html'
+      && entry.destination === '/profile'
+      && entry.permanent === false
+  )), 'Gate F soak must intercept the legacy profile path with a temporary redirect');
+  assert.ok(readFileSync(path.join(FRONTEND, 'public', 'pages', 'profile.html'), 'utf8').length > 0,
+    'rollback artifact must remain on disk throughout redirect soak');
 });
 
 // ── AUDIT F6 (2026-07-14): ADR-011 §2 thực thi ĐÚNG như đã tuyên bố ────

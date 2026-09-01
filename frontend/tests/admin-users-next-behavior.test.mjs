@@ -14,6 +14,10 @@ import {
   selectUsers,
   validateCodeDraft,
 } from '../lib/admin-users-model.mjs';
+import {
+  buildLegacyRetirementRedirects,
+  discoverLegacyHtmlPaths,
+} from '../tooling/gate-f-retirement-redirects.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -30,6 +34,10 @@ const NEXT_CONFIG = read('next.config.ts');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
 const BROWSER = read('tooling', 'verify-admin-users-flow.mjs');
+const RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
+  discoverLegacyHtmlPaths(join(ROOT, 'public')),
+  { permanent: false },
+);
 
 describe('/admin/users — native ownership', () => {
   test('uses the backend admin gate and retains rollback artifacts', () => {
@@ -44,7 +52,11 @@ describe('/admin/users — native ownership', () => {
 
   test('owns the clean access-code alias without deleting the legacy consolidation path', () => {
     assert.match(NEXT_CONFIG, /source: '\/admin\/access-codes', destination: '\/admin\/users\?tab=codes', permanent: false/);
-    assert.match(NEXT_CONFIG, /source: '\/pages\/admin\/access-codes\/index\.html', destination: '\/pages\/admin\/users\/index\.html\?tab=codes', permanent: true/);
+    assert.ok(RETIREMENT_REDIRECTS.some((entry) => (
+      entry.source === '/pages/admin/access-codes/index.html'
+        && entry.destination === '/admin/users?tab=codes'
+        && entry.permanent === false
+    )));
     assert.equal((OVERVIEW.match(/href="\/admin\/users/g) || []).length, 4);
   });
 

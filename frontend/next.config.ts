@@ -13,6 +13,22 @@
 import path from 'node:path';
 import type { NextConfig } from 'next';
 
+import {
+  buildLegacyRetirementRedirects,
+  discoverLegacyHtmlPaths,
+} from './tooling/gate-f-retirement-redirects.mjs';
+
+// Gate F redirect-soak candidate. The helper hash-pins the exact Legacy
+// artifact set and fails config evaluation if a page changes without review.
+// Soak uses temporary 307 redirects: a cached 308 could strand clients on a
+// missing Next route after rollback. The final reviewed retirement release
+// flips this to true only after Gate E and redirect-soak evidence close.
+const LEGACY_RETIREMENT_REDIRECTS_PERMANENT = false;
+const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
+  discoverLegacyHtmlPaths(path.join(__dirname, 'public')),
+  { permanent: LEGACY_RETIREMENT_REDIRECTS_PERMANENT },
+);
+
 const nextConfig: NextConfig = {
   // A stray lockfile in the developer HOME makes Next infer the wrong
   // workspace root (breaks the TypeScript step with "id must be a string").
@@ -35,22 +51,21 @@ const nextConfig: NextConfig = {
         // app/(marketing)/page.tsx. The old `/` → /index.html rewrite is
         // REMOVED in the same change (route-ownership check enforces this
         // atomicity — leaving it here would shadow the app route). Legacy
-        // /index.html stays on disk for instant rollback and is consolidated
-        // to `/` via the redirect below.
+        // /index.html stays on disk as a rollback artifact and is intercepted
+        // by the generated Gate F manifest while redirect soak is active.
         // Legacy-owned clean URLs (from vercel.json, unchanged shapes).
         // PILOT 2 CUTOVER (prep): `/grammar/:category/:slug` is now the Next
         // app route app/(public-content)/grammar/[category]/[slug]. The legacy
         // rewrite is REMOVED atomically (route-ownership check enforces it).
-        // Legacy /pages/grammar-article.html stays on disk (instant rollback
-        // target) and remains directly reachable — it is param-driven
-        // (?category=&slug=) so it CANNOT be redirected to the clean path;
-        // the whole site links via the clean /grammar/:cat/:slug URL
-        // (grammar.js buildUrl), so direct .html hits are effectively unused.
+        // Legacy /pages/grammar-article.html stays on disk as a rollback
+        // artifact. The Gate F manifest translates its category/slug query
+        // identity into the canonical dynamic App Router path.
         // `/writing/dashboard` KHÔNG còn ở đây: nay là route Next
         // (`app/(authed-writing)/writing/dashboard/`). Gỡ dòng rewrite và thêm
         // route PHẢI cùng một commit — cổng route-ownership chặn trạng thái nửa
         // vời, vì một URL không thể vừa là route vừa là rewrite sang legacy.
-        // `/pages/writing-dashboard.html` vẫn trả 200 (cổng parity cần cả hai vế).
+        // `/pages/writing-dashboard.html` remains on disk for rollback; the
+        // Gate F manifest intercepts its public URL during redirect soak.
         // `/admin/writing/prompts` is now owned by the native Next route;
         // direct `/pages/admin/writing/prompts.html` remains the rollback page.
         // `/admin/writing/tips` is native; direct legacy HTML stays available
@@ -68,13 +83,13 @@ const nextConfig: NextConfig = {
         // Gỡ dòng này PHẢI đi cùng commit đổi route: cổng route-ownership chặn
         // trạng thái nửa vời ("app route /home is SHADOWED by config source
         // /home") — đã thấy nó báo đúng khi tôi đổi route trước, gỡ rewrite sau.
-        // `/pages/home.html` VẪN phục vụ 200, CỐ Ý: cổng parity G1 chỉ so được
-        // khi cả hai vế còn sống. Gỡ bản legacy thuộc Phase 7.
+        // `/pages/home.html` remains on disk for rollback but is intercepted
+        // before public-file serving during Gate F redirect soak.
         // CUTOVER 2026-08-05 — `/speaking` nay là ROUTE NEXT
         // (`app/(authed-speaking)/speaking/`), không còn rewrite sang legacy.
         // Gỡ dòng này PHẢI đi cùng commit đổi route: cổng route-ownership chặn
-        // trạng thái nửa vời. `/pages/speaking.html` VẪN phục vụ 200, CỐ Ý —
-        // cổng parity G1 chỉ so được khi cả hai vế còn sống.
+        // trạng thái nửa vời. `/pages/speaking.html` remains a rollback file
+        // but its public URL is intercepted throughout redirect soak.
       ],
       afterFiles: [],
       fallback: [],
@@ -84,23 +99,11 @@ const nextConfig: NextConfig = {
   async redirects() {
     // Permanent legacy-path consolidation — ported 1:1 from vercel.json.
     return [
-      // PILOT 1 CUTOVER: one canonical landing. Direct hits to the legacy
-      // file (bookmarks, aver-chrome logout → '/index.html') consolidate to
-      // the Next landing at `/`. Redirects run before the filesystem, so the
-      // on-disk public/index.html is never served while this is active — but
-      // it stays on disk so reverting this commit restores the old behavior.
-      { source: '/index.html', destination: '/', permanent: true },
-      // PILOTS 3+4 CUTOVER: profile page → canonical `/profile` (Next app
-      // route app/(authed)/profile). No legacy rewrite to remove (the legacy
-      // page was a direct public file), so the atomicity here is: the app
-      // route + this redirect land together. TEMPORARY (307) on purpose —
-      // unlike `/` (which always serves something), `/profile` 404s if this
-      // pilot is rolled back, so a browser-cached PERMANENT redirect would
-      // strand users on a 404; a temporary redirect isn't cached long-term.
-      // No SEO cost (authed route is noindex). aver-chrome/user-pill keep
-      // linking to /pages/profile.html (stable file path) — it redirects
-      // when the pilot is live and serves legacy directly on rollback.
-      { source: '/pages/profile.html', destination: '/profile', permanent: false },
+      // GATE F REDIRECT SOAK: temporary redirects run before public-file serving, so no
+      // frozen HTML artifact can render while this release is active. Keep the
+      // generated manifest as the single owner of those sources; duplicate
+      // literal rules could compile into contradictory route behavior.
+      ...LEGACY_RETIREMENT_REDIRECTS,
       { source: '/pages/dashboard.html', destination: '/pages/speaking.html', permanent: true },
       { source: '/pages/my-vocabulary.html', destination: '/pages/vocabulary.html', permanent: true },
       { source: '/pages/admin-writing.html', destination: '/pages/admin/writing/index.html', permanent: true },
@@ -119,10 +122,6 @@ const nextConfig: NextConfig = {
       // purpose: reverting the pilot must make this alias safe to repoint to
       // the public rollback artifact without a browser-cached 308 stranding it.
       { source: '/admin/access-codes', destination: '/admin/users?tab=codes', permanent: false },
-      { source: '/pages/admin/access-codes/index.html', destination: '/pages/admin/users/index.html?tab=codes', permanent: true },
-      // Temporary during the `/admin` native pilot: a cached permanent redirect
-      // would strand old dashboard bookmarks if the pilot is rolled back.
-      { source: '/pages/admin/dashboard/index.html', destination: '/admin', permanent: false },
     ];
   },
 

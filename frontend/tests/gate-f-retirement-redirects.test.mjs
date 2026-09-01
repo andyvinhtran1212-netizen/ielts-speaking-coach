@@ -15,6 +15,7 @@ import { appPageRoute } from '../tooling/next-migration-status.mjs';
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const paths = discoverLegacyHtmlPaths(path.join(FRONTEND, 'public'));
 const redirects = buildLegacyRetirementRedirects(paths);
+const soakRedirects = buildLegacyRetirementRedirects(paths, { permanent: false });
 
 function appRoutes(root, prefix = '') {
   return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
@@ -45,6 +46,15 @@ test('every Legacy HTML source is permanently intercepted before public serving'
   assert.ok(redirects.every((entry) => entry.permanent === true));
   assert.ok(redirects.every((entry) => !entry.destination.endsWith('.html')));
   assert.ok(redirects.every((entry) => !entry.destination.includes('[')));
+});
+
+test('redirect soak can intercept the same frozen manifest without browser-cached permanence', () => {
+  assert.equal(soakRedirects.length, redirects.length);
+  assert.deepEqual(
+    soakRedirects.map(({ source, destination, has }) => ({ source, destination, has })),
+    redirects.map(({ source, destination, has }) => ({ source, destination, has })),
+  );
+  assert.ok(soakRedirects.every((entry) => entry.permanent === false));
 });
 
 test('every redirect destination resolves to a real App Router owner', () => {

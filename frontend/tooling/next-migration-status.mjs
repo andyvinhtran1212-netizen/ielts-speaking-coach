@@ -35,6 +35,13 @@ export function retirementRedirectsInstalledFromConfig(source) {
     && /return \[[\s\S]*\.\.\.LEGACY_RETIREMENT_REDIRECTS/.test(config);
 }
 
+export function retirementRedirectsPermanentFromConfig(source) {
+  const match = String(source || '').match(
+    /const LEGACY_RETIREMENT_REDIRECTS_PERMANENT\s*=\s*(true|false)/,
+  );
+  return match?.[1] === 'true';
+}
+
 function walkFiles(root, accept, prefix = '') {
   const files = [];
   for (const entry of readdirSync(root, { withFileTypes: true })) {
@@ -109,8 +116,11 @@ export function collectNextMigrationStatus(
   const configSource = readFileSync(path.join(frontendRoot, 'next.config.ts'), 'utf8');
   const redirects = redirectSourcesFromConfig(configSource);
   const retirementRedirectsInstalled = retirementRedirectsInstalledFromConfig(configSource);
+  const retirementRedirectsPermanent = retirementRedirectsPermanentFromConfig(configSource);
   const retirementRedirectRules = retirementRedirectsInstalled
-    ? buildLegacyRetirementRedirects(publicHtmlPaths)
+    ? buildLegacyRetirementRedirects(publicHtmlPaths, {
+      permanent: retirementRedirectsPermanent,
+    })
     : [];
   for (const redirect of retirementRedirectRules) {
     redirects.set(redirect.source, {
@@ -139,6 +149,7 @@ export function collectNextMigrationStatus(
   const legacyReplacement = buildLegacyReplacementInventory(
     replacementPaths,
     productAppPages,
+    { redirectsInstalled: retirementRedirectsInstalled },
   );
   const blockers = [];
   if (legacyHtml.renderable.length) blockers.push({
@@ -163,7 +174,7 @@ export function collectNextMigrationStatus(
   if (ownership.collisions.length) blockers.push({ code: 'route-ownership-collision', count: ownership.collisions.length, details: ownership.collisions });
 
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     scope: 'static-code-cutover',
     scopeNote: 'Gate D/E/F operational evidence is tracked separately and remains required before declaring the migration complete.',
     appPages: {
@@ -187,6 +198,7 @@ export function collectNextMigrationStatus(
     legacyReplacement,
     legacyRetirementRedirects: {
       installed: retirementRedirectsInstalled,
+      permanent: retirementRedirectsPermanent,
       artifactSet: RETIREMENT_ARTIFACT_SET,
       rules: retirementRedirectRules.length,
       sourcePaths: [...new Set(retirementRedirectRules.map((entry) => entry.source))].length,

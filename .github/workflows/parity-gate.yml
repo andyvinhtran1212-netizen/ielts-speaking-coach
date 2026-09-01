@@ -854,7 +854,12 @@ on:
       - 'frontend/public/js/api.js'
       - 'frontend/public/js/analytics-beacon.js'
       - 'frontend/public/js/legacy-retirement-beacon.js'
+      # Gate F next.config walks and hash-pins the complete Legacy HTML tree;
+      # only HTML artifact-set changes can alter or invalidate this routing.
+      - 'frontend/public/**/*.html'
       - 'frontend/next.config.ts'
+      - 'frontend/tooling/gate-f-retirement-redirects.mjs'
+      - 'frontend/tooling/gate-f-route-replacement-inventory.mjs'
       - 'frontend/package-lock.json'
       # `package.json` quyết định script nào chạy và dải phiên bản nào được cài;
       # `tsconfig.json` định nghĩa bí danh `@/*` — đổi ánh xạ đó là đổi mã được

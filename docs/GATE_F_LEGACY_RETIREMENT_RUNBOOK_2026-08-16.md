@@ -90,6 +90,28 @@ không được kế thừa.
 
 ## Điều kiện retirement
 
+### Hai cửa sổ tách biệt: observation và redirect soak
+
+Telemetry trước redirect trả lời "URL HTML cũ còn được mở hay không". Một số
+dương không tự chứng minh renderer Legacy còn cần thiết: nó có thể đến từ
+bookmark, link đã copy hoặc entry point lịch sử. Khi canonical inbound checks
+xanh, 5/5 core admission ở Next và exact stateful drain bằng 0, số dương này là
+bằng chứng bắt buộc phải cài redirect trước khi xóa file — không phải lý do xóa
+URL hoặc để URL tiếp tục render Legacy vô hạn.
+
+Sau khi redirect manifest tạm thời (307) được deploy, bắt đầu một cửa sổ
+**redirect soak** mới tại đúng timestamp deployment. Từ mốc đó, mọi
+`legacy_retirement_page_view` mới là regression fail-closed vì redirect phải
+chặn trước public-file serving. Chỉ cửa sổ sau redirect mới dùng ngưỡng zero để
+cho phép deletion; observation trước redirect được giữ làm baseline và bằng
+chứng nhu cầu redirect. Contract và preflight cụ thể nằm tại
+`GATE_F_REDIRECT_SOAK_PREFLIGHT_2026-09-01.md`.
+
+Không dùng 308 trong cửa sổ này: browser có thể cache permanent redirect và
+làm rollback deployment không còn đảo ngược đối với client đã truy cập. Chỉ
+flip manifest sang 308 ở một release review riêng sau khi Gate E và redirect
+soak đều đóng; xóa artifact vẫn là batch sau đó.
+
 - Với từng path trong `legacyHtml.renderablePaths`, dùng endpoint admin
   `/admin/error-logs/rollback-metrics?route=<encoded-path>&window_minutes=20160`
   và đọc `legacy_retirement_exposure.legacy_views` trong đúng cửa sổ kể từ

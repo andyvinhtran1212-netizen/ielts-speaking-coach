@@ -100,7 +100,10 @@ export function assertFrozenLegacyArtifactSet(paths) {
   return normalized;
 }
 
-export function buildLegacyRetirementRedirects(paths) {
+export function buildLegacyRetirementRedirects(
+  paths,
+  { permanent = true } = {},
+) {
   const frozenPaths = assertFrozenLegacyArtifactSet(paths);
   return frozenPaths.flatMap((source) => {
     const dynamic = DYNAMIC_ROUTES[source];
@@ -109,7 +112,7 @@ export function buildLegacyRetirementRedirects(paths) {
         {
           source,
           destination: dynamic.destination,
-          permanent: true,
+          permanent,
           has: dynamic.query.map(({ key, parameter }) => ({
             type: 'query',
             key,
@@ -124,11 +127,11 @@ export function buildLegacyRetirementRedirects(paths) {
         rules.push({
           source,
           destination: '/admin/students',
-          permanent: true,
+          permanent,
           has: [{ type: 'query', key: 'tab', value: 'students' }],
         });
       }
-      rules.push({ source, destination: dynamic.fallback, permanent: true });
+      rules.push({ source, destination: dynamic.fallback, permanent });
       return rules;
     }
 
@@ -137,6 +140,6 @@ export function buildLegacyRetirementRedirects(paths) {
     if (!destination || destination.includes('[') || destination.endsWith('.html')) {
       throw new Error(`legacy-retirement-destination-invalid:${source}:${destination}`);
     }
-    return [{ source, destination, permanent: true }];
+    return [{ source, destination, permanent }];
   });
 }
