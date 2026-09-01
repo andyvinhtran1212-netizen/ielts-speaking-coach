@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
+const NEXT_ONLY = process.argv.includes('--next-only');
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
 const adminId = '00000000-0000-0000-0000-000000000096';
 const fakeSession = JSON.stringify({ access_token: 'admin-feedback-not-a-real-token', refresh_token: 'x', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-feedback@local' } });
@@ -122,19 +123,21 @@ const desktopLayout = await page.evaluate(() => {
 });
 check('desktop giữ hierarchy nhóm và không tràn ngang', desktopLayout.hasHeader && desktopLayout.display === 'grid' && desktopLayout.scrollWidth <= desktopLayout.viewportWidth, JSON.stringify(desktopLayout));
 
-rollbackReadMode = 'unavailable';
-await page.goto(`${BASE}/pages/admin/feedback/index.html`, { waitUntil: 'domcontentloaded' });
-await page.getByText(/không thể kết luận hộp thư đang trống/).waitFor({ state: 'visible' });
-check('rollback first-page failure không giả thành hộp thư rỗng', await page.getByText('Chưa có feedback nào khớp bộ lọc.', { exact: true }).isHidden());
+if (!NEXT_ONLY) {
+  rollbackReadMode = 'unavailable';
+  await page.goto(`${BASE}/pages/admin/feedback/index.html`, { waitUntil: 'domcontentloaded' });
+  await page.getByText(/không thể kết luận hộp thư đang trống/).waitFor({ state: 'visible' });
+  check('rollback first-page failure không giả thành hộp thư rỗng', await page.getByText('Chưa có feedback nào khớp bộ lọc.', { exact: true }).isHidden());
 
-rollbackReadMode = 'partial';
-await page.reload({ waitUntil: 'domcontentloaded' });
-await page.getByText(/chỉ là cận dưới/).waitFor({ state: 'visible' });
-const rollbackRows = page.locator('.fbx-row');
-const rollbackRowCount = await rollbackRows.count();
-const rollbackCountText = await page.locator('#fbx-count-n').textContent();
-const rollbackRowText = rollbackRowCount ? await rollbackRows.first().textContent() : '';
-check('rollback later-page failure giữ row và đánh dấu cận dưới', rollbackRowCount === 1 && rollbackRowText.includes(dangerous) && rollbackCountText === '≥ 1', `rows=${rollbackRowCount} count=${rollbackCountText}`);
+  rollbackReadMode = 'partial';
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.getByText(/chỉ là cận dưới/).waitFor({ state: 'visible' });
+  const rollbackRows = page.locator('.fbx-row');
+  const rollbackRowCount = await rollbackRows.count();
+  const rollbackCountText = await page.locator('#fbx-count-n').textContent();
+  const rollbackRowText = rollbackRowCount ? await rollbackRows.first().textContent() : '';
+  check('rollback later-page failure giữ row và đánh dấu cận dưới', rollbackRowCount === 1 && rollbackRowText.includes(dangerous) && rollbackCountText === '≥ 1', `rows=${rollbackRowCount} count=${rollbackCountText}`);
+}
 
 check('không có write ngoài contract', unexpectedWrites.length === 0, unexpectedWrites.join(', '));
 check('không có lỗi JS', pageErrors.length === 0, pageErrors.join(' | '));

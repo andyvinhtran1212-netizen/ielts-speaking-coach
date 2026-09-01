@@ -1193,7 +1193,7 @@ jobs:
         run: node tooling/verify-login-flow.mjs "http://localhost:$PARITY_PORT"
 
       - name: Kiểm luồng Onboarding native
-        run: node tooling/verify-onboarding-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-onboarding-flow.mjs "http://localhost:$PARITY_PORT" ${{ steps.gate_f.outputs.redirect_installed == 'true' && '--next-only' || '' }}
 
       # Player Quiz có state ghi thích ứng; cặp parity tĩnh chỉ phủ nhánh thiếu
       # bank. Fixture này chứng minh answer/advance locks, retry outbox,
@@ -1372,10 +1372,10 @@ jobs:
       # URL filtering, hostile-content escaping, degraded states and GET
       # readback after each PATCH without touching production data.
       - name: Kiểm luồng Admin Feedback native
-        run: node tooling/verify-admin-feedback-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-feedback-flow.mjs "http://localhost:$PARITY_PORT" ${{ steps.gate_f.outputs.redirect_installed == 'true' && '--next-only' || '' }}
 
       - name: Kiểm luồng Admin Reading Attempts native + rollback
-        run: node tooling/verify-admin-reading-attempts-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-reading-attempts-flow.mjs "http://localhost:$PARITY_PORT" ${{ steps.gate_f.outputs.redirect_installed == 'true' && '--next-only' || '' }}
 
       # `/admin/reading` is the read-only routing hub. Fixture pins role gate,
       # truthful native/legacy destinations and responsive visual containment.
@@ -1579,7 +1579,7 @@ jobs:
       # `/admin/grammar/analytics` is read-only canonical aggregation. The fixture
       # pins URL windows, stale snapshots, degraded sources and responsive tables.
       - name: Kiểm luồng Admin Grammar Analytics native
-        run: node tooling/verify-admin-grammar-analytics-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-grammar-analytics-flow.mjs "http://localhost:$PARITY_PORT" ${{ steps.gate_f.outputs.redirect_installed == 'true' && '--next-only' || '' }}
 
       - name: Kiểm luồng Admin Grammar Recommendation lab native
         run: node tooling/verify-admin-grammar-recommend-flow.mjs "http://localhost:$PARITY_PORT"
