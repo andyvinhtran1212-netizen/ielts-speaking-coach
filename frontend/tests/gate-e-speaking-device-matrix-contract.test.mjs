@@ -50,7 +50,7 @@ describe('Speaking Gate E device matrix is pinned and auditable', () => {
     assert.match(WORKFLOW, /runs-on: ubuntu-24\.04/);
     assert.match(WORKFLOW, /node tooling\/verify-gate-e-speaking-device-matrix\.mjs/);
     assert.match(WORKFLOW, /GATE_E_RUNNER_IMAGE: ubuntu24\.04-x64/);
-    assert.match(WORKFLOW, /Detect Gate F redirect phase\n\s+id: gate_f/);
+    assert.match(WORKFLOW, /Detect Gate F redirect phase\n\s+id: gate_f\n\s+if: always\(\)/);
     assert.match(
       WORKFLOW,
       /Run Speaking Gate E native fixtures\n\s+id: speaking_gate_e\n\s+if: \$\{\{ always\(\) && steps\.gate_f\.outputs\.redirect_installed != 'true' \}\}/,

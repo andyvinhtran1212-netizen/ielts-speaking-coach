@@ -67,6 +67,7 @@ jobs:
       # or pretend it still ran against this redirect build.
       - name: Detect Gate F redirect phase
         id: gate_f
+        if: always()
         run: |
           if grep -q "from './tooling/gate-f-retirement-redirects.mjs'" next.config.ts \
             && grep -q '\.\.\.LEGACY_RETIREMENT_REDIRECTS' next.config.ts; then

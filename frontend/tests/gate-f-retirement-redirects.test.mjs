@@ -77,7 +77,7 @@ test('advisory E2E does not mutate or overclaim the frozen Gate E suite during r
     path.join(FRONTEND, '..', '.github', 'workflows', 'e2e.yml'),
     'utf8',
   );
-  assert.match(workflow, /name: Detect Gate F redirect phase[\s\S]+id: gate_f/);
+  assert.match(workflow, /name: Detect Gate F redirect phase\n\s+id: gate_f\n\s+if: always\(\)/);
   assert.match(workflow, /name: Run Speaking Gate E native fixtures\n\s+id: speaking_gate_e\n\s+if: \$\{\{ always\(\) && steps\.gate_f\.outputs\.redirect_installed != 'true' \}\}/);
   assert.match(workflow, /name: Preserve Gate E frozen-suite boundary during redirect soak/);
   assert.match(workflow, /name: Upload Speaking Gate E device-matrix evidence\n\s+if: \$\{\{ always\(\) && steps\.gate_f\.outputs\.redirect_installed != 'true' \}\}/);

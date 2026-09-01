@@ -6,6 +6,18 @@ test('every renderable legacy path emits isolated Gate F evidence in a browser',
   const report = collectNextMigrationStatus();
   expect(report.gateFObservationReady).toBe(true);
 
+  // Once server redirects are installed, browser observation moves to the
+  // redirect runtime gate. This static server deliberately cannot reproduce
+  // Next's redirect phase, so it must not render frozen HTML and call that
+  // post-redirect evidence.
+  if (report.legacyRetirementRedirects.installed) {
+    expect(report.legacyHtml.serverRedirected).toBe(report.legacyHtml.total);
+    expect(report.legacyHtml.directlyRenderable).toBe(0);
+    expect(report.legacyHtml.renderablePaths).toEqual([]);
+    expect(report.legacyHtml.clientRedirectStubPaths).toEqual([]);
+    return;
+  }
+
   const received = new Map();
   await page.route(/^https?:\/\/(?!127\.0\.0\.1:4173\/).*/, (route) => route.abort());
   await page.route('**/js/runtime-config.js', (route) => route.fulfill({
