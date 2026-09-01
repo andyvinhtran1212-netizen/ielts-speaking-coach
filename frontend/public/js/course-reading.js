@@ -82,14 +82,16 @@ export function createReading({ api, storage, userId, assignmentItemId = null,
       <p class="cr-answer__key">Đáp án đúng · <strong>${inlineMd(key.answer)}</strong></p>
       <p class="cr-answer__explanation">${inlineMd(key.explanation)}</p>
     </div>` : '';
-    if (group.input_type === 'tfng') {
+    const inputType = q.input_type || group.input_type;
+    if (inputType === 'tfng' || inputType === 'choice') {
+      const choices = inputType === 'tfng' ? ['T', 'F', 'NG'] : (q.options || []);
       return `<li class="cr-question" id="cr-${esc(q.id)}">
         <p><span class="cr-question__no">${q.number}</span><span class="cr-question__prompt">${inlineMd(q.prompt)}</span></p>
         <div class="cr-choices" role="radiogroup" aria-label="Câu ${q.number}">
-          ${['T', 'F', 'NG'].map((choice) => `<label>
+          ${choices.map((choice) => `<label>
             <input class="cr-input" type="radio" name="cr-${esc(q.id)}"
-              data-qid="${esc(q.id)}" value="${choice}"${chosen === choice ? ' checked' : ''}${solution ? ' disabled' : ''}>
-            <span>${choice}</span>
+              data-qid="${esc(q.id)}" value="${esc(choice)}"${chosen === choice ? ' checked' : ''}${solution ? ' disabled' : ''}>
+            <span>${inlineMd(choice)}</span>
           </label>`).join('')}
         </div>${result}
       </li>`;

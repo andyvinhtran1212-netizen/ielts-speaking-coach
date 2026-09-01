@@ -37,6 +37,35 @@ def test_inline_reading_becomes_answer_protected_bank_metadata():
         "tfng", "short_text"]
 
 
+def test_inline_reading_preserves_a_structure_multiple_choice_question():
+    shared = {
+        "title": "NHÓM NGHIÊN CỨU", "focus": "hoà hợp chủ vị",
+        "passage": "The scientists measure the air.",
+        "translation": "Các nhà khoa học đo không khí.",
+        "vocabulary": [{"tu": "measure", "loai": "v", "nghia": "đo"}],
+    }
+    rows = [
+        _row("TM20-B09-DOC-R01", "course_reading", "READ-CONTENT", 100,
+             prompt="The scientists measure the air.", options=["T", "F", "NG"],
+             answer=0, explain="Đúng.",
+             segments={"section": "content", "shared": shared}),
+        _row("TM20-B09-DOC-R02", "course_reading", "READ-STRUCTURE", 101,
+             prompt="Vì sao dùng measure?", options=["Chủ ngữ số nhiều", "Số ít"],
+             answer=0, explain="Scientists là số nhiều.",
+             segments={"section": "structure"}),
+    ]
+
+    result = repair.reading_meta(rows)
+
+    question = result["question_groups"][1]["questions"][0]
+    assert question == {
+        "id": "TM20-B09-DOC-02", "number": 2,
+        "prompt": "Vì sao dùng measure?", "input_type": "choice",
+        "options": ["Chủ ngữ số nhiều", "Số ít"],
+    }
+    assert result["answers"][1]["answer"] == "Chủ ngữ số nhiều"
+
+
 def test_inline_listening_reuses_private_audio_paths_and_builds_solution():
     rows = []
     for order, label in enumerate("ABC", 110):

@@ -1,0 +1,26 @@
+{
+  "bank_code": "C1-B09",
+  "title": "Phát âm & Shadowing — Hoà hợp Chủ ngữ–Động từ",
+  "locale": "en-GB",
+  "provider": "azure",
+  "voice_engine": "kokoro",
+  "voice": "bf_emma",
+  "playback_rates": [0.85, 1.0],
+  "sentences": [
+    {"id": "C1-B09-PRON-01", "order": 1, "text": "The advice of experienced teachers is extremely useful for new international students at this large public university."},
+    {"id": "C1-B09-PRON-02", "order": 2, "text": "The children of these migrant workers attend a small primary school near the large industrial park outside town."},
+    {"id": "C1-B09-PRON-03", "order": 3, "text": "The students in the small classroom upstairs are very quiet this morning."},
+    {"id": "C1-B09-PRON-04", "order": 4, "text": "Fifty per cent of the land in this district belongs to small farmers."},
+    {"id": "C1-B09-PRON-05", "order": 5, "text": "Twenty per cent of the workers at this factory live in rented flats."},
+    {"id": "C1-B09-PRON-06", "order": 6, "text": "Most of the electricity in this northern region comes from coal-fired power stations near the Chinese border."},
+    {"id": "C1-B09-PRON-07", "order": 7, "text": "Physics remains a very demanding subject for many first-year engineering students at this large technical university in Hanoi."},
+    {"id": "C1-B09-PRON-08", "order": 8, "text": "The United States has a very large and very mixed population today."},
+    {"id": "C1-B09-PRON-09", "order": 9, "text": "Economics is now a very popular subject at most Vietnamese universities."},
+    {"id": "C1-B09-PRON-10", "order": 10, "text": "Either of these two routes takes about forty minutes by local bus."},
+    {"id": "C1-B09-PRON-11", "order": 11, "text": "Each of the participants receives a short questionnaire before the first interview."},
+    {"id": "C1-B09-PRON-12", "order": 12, "text": "The staff at this small clinic work long hours every single week."},
+    {"id": "C1-B09-PRON-13", "order": 13, "text": "The police are investigating the cause of the accident near the bridge."},
+    {"id": "C1-B09-PRON-14", "order": 14, "text": "There have been significant improvements in air quality since the ban on old diesel motorbikes last year."},
+    {"id": "C1-B09-PRON-15", "order": 15, "text": "There was a serious accident on the coastal road yesterday evening near Hue."}
+  ]
+}

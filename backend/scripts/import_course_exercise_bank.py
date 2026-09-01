@@ -239,6 +239,50 @@ def _reading_accepted_answers(key: dict, answer: str, number: int,
     return accepted
 
 
+def _reading_choice(prompt: dict, key: dict, number: int,
+                    reading_id: str) -> tuple[dict, str]:
+    """Validate one multiple-choice item embedded in a reading group."""
+    declared_number = prompt.get("so")
+    if declared_number is not None and declared_number != number:
+        raise SystemExit(
+            f"[{reading_id}] câu trắc nghiệm {number} mang số {declared_number!r}.")
+    options = prompt.get("pa")
+    if not isinstance(options, list) or len(options) < 2:
+        raise SystemExit(
+            f"[{reading_id}] câu trắc nghiệm {number} cần ít nhất hai phương án.")
+    clean_options = [
+        _required_text(value, f"phương án câu {number}", reading_id)
+        for value in options
+    ]
+    key_options = key.get("pa")
+    if key_options is not None and key_options != options:
+        raise SystemExit(
+            f"[{reading_id}] phương án câu {number} không khớp đáp án.")
+    prompt_index = prompt.get("dap_an")
+    key_index = key.get("dap_an")
+    if (not isinstance(prompt_index, int) or isinstance(prompt_index, bool)
+            or not 0 <= prompt_index < len(clean_options)):
+        raise SystemExit(
+            f"[{reading_id}] đáp án trong đề câu {number} không hợp lệ.")
+    if (not isinstance(key_index, int) or isinstance(key_index, bool)
+            or key_index != prompt_index):
+        raise SystemExit(
+            f"[{reading_id}] đáp án câu {number} không khớp đề trắc nghiệm.")
+    answer = clean_options[key_index]
+    declared_answer = key.get("dap_an_noi_dung")
+    if declared_answer is not None and _required_text(
+            declared_answer, f"nội dung đáp án câu {number}", reading_id) != answer:
+        raise SystemExit(
+            f"[{reading_id}] nội dung đáp án câu {number} không khớp phương án.")
+    return {
+        "id": f"{reading_id}-{number:02d}",
+        "number": number,
+        "prompt": _required_text(prompt.get("de"), f"đề câu {number}", reading_id),
+        "input_type": "choice",
+        "options": clean_options,
+    }, answer
+
+
 def _reading_meta(r: dict) -> dict:
     """Chuẩn hoá bài đọc thêm ở cấp BANK, không trộn vào 100 câu chấm điểm.
 
@@ -290,13 +334,22 @@ def _reading_meta(r: dict) -> dict:
             if not isinstance(key, dict) or key.get("cau") != number:
                 raise SystemExit(
                     f"[{reading_id}] đáp án câu {number} sai số thứ tự.")
-            questions.append({
-                "id": f"{reading_id}-{number:02d}",
-                "number": number,
-                "prompt": _reading_prompt(prompt, input_type, number, reading_id),
-            })
-            answer = _required_text(
-                key.get("dap_an"), f"đáp án câu {number}", reading_id)
+            if isinstance(prompt, dict):
+                if input_type != "short_text":
+                    raise SystemExit(
+                        f"[{reading_id}] câu {number} không được dùng trắc nghiệm ở nhóm {title!r}.")
+                question, answer = _reading_choice(
+                    prompt, key, number, reading_id)
+            else:
+                question = {
+                    "id": f"{reading_id}-{number:02d}",
+                    "number": number,
+                    "prompt": _reading_prompt(
+                        prompt, input_type, number, reading_id),
+                }
+                answer = _required_text(
+                    key.get("dap_an"), f"đáp án câu {number}", reading_id)
+            questions.append(question)
             answer_row = {
                 "id": f"{reading_id}-{number:02d}",
                 "number": number,
@@ -304,8 +357,9 @@ def _reading_meta(r: dict) -> dict:
                 "explanation": _required_text(
                     key.get("giai_thich"), f"giải thích câu {number}", reading_id),
             }
-            accepted = _reading_accepted_answers(
-                key, answer, number, reading_id)
+            accepted = (None if isinstance(prompt, dict)
+                        else _reading_accepted_answers(
+                            key, answer, number, reading_id))
             if accepted:
                 answer_row["accepted"] = accepted
             answers.append(answer_row)

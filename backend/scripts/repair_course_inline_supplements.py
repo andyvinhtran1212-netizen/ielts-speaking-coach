@@ -80,10 +80,10 @@ def reading_meta(rows: list[dict]) -> dict:
         questions = []
         for row in selected:
             qid = f"{reading_id}-{number:02d}"
-            questions.append({
+            question = {
                 "id": qid, "number": number,
                 "prompt": _required(row.get("prompt"), f"đề đọc câu {number}"),
-            })
+            }
             if input_type == "tfng":
                 options = row.get("options") or []
                 index = row.get("answer")
@@ -91,10 +91,28 @@ def reading_meta(rows: list[dict]) -> dict:
                     raise ValueError(f"Đáp án T/F/NG câu {number} không hợp lệ.")
                 answer = options[index]
             else:
-                accepted = row.get("accept") or []
-                if not isinstance(accepted, list) or not accepted:
-                    raise ValueError(f"Câu đọc {number} không có đáp án chấp nhận.")
-                answer = _required(accepted[0], f"đáp án đọc câu {number}")
+                options = row.get("options") or []
+                index = row.get("answer")
+                if options:
+                    if (not isinstance(options, list) or len(options) < 2
+                            or not isinstance(index, int) or isinstance(index, bool)
+                            or not 0 <= index < len(options)):
+                        raise ValueError(
+                            f"Đáp án trắc nghiệm đọc câu {number} không hợp lệ.")
+                    clean_options = [
+                        _required(value, f"phương án đọc câu {number}")
+                        for value in options
+                    ]
+                    question.update({
+                        "input_type": "choice", "options": clean_options,
+                    })
+                    answer = clean_options[index]
+                else:
+                    accepted = row.get("accept") or []
+                    if not isinstance(accepted, list) or not accepted:
+                        raise ValueError(f"Câu đọc {number} không có đáp án chấp nhận.")
+                    answer = _required(accepted[0], f"đáp án đọc câu {number}")
+            questions.append(question)
             answers.append({
                 "id": qid, "number": number, "answer": answer,
                 "explanation": _required(
