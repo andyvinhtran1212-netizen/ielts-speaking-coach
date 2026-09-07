@@ -270,7 +270,12 @@ describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
     assert.ok(earlyWiring.indexOf('const btn = e.currentTarget')
       < earlyWiring.indexOf('await resolveRuntimeApi()'),
       'phải chụp currentTarget trước await vì native Event sẽ xoá currentTarget sau dispatch');
-    assert.match(earlyWiring, /btn, idleLabel:/,
+    assert.ok(earlyWiring.indexOf('btn.disabled = true')
+      < earlyWiring.indexOf('await resolveRuntimeApi()'),
+      'phải khoá nút đồng bộ trước readiness await để bấm đôi không tạo hai session');
+    assert.match(earlyWiring, /if \(!st\.dead\)[\s\S]*btn\.disabled = false/,
+      'readiness fail phải trả nút về trạng thái bấm được khi component còn sống');
+    assert.match(earlyWiring, /btn,\s*idleLabel,\s*api/,
       'startFromTopic phải nhận nút đã chụp, không đọc e.currentTarget sau await');
   });
 });

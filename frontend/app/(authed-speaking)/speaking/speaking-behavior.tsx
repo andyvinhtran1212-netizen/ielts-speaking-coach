@@ -518,14 +518,24 @@ export function SpeakingBehavior() {
         if (err) err.textContent = 'Vui lòng chọn hoặc nhập chủ đề.';
         return;
       }
+      const idleLabel = '🚀 Bắt đầu tạo câu hỏi';
+      // Lock synchronously, before the readiness await. Native button clicks
+      // are then suppressed while the shared promise is pending, so two quick
+      // clicks cannot wake up into two independent session POSTs.
+      btn.disabled = true;
+      btn.textContent = 'Đang chuẩn bị...';
       const api = await resolveRuntimeApi();
       if (!api) {
-        if (err) err.textContent = 'Lỗi: Không thể tải kết nối. Hãy thử lại.';
+        if (!st.dead) {
+          if (err) err.textContent = 'Lỗi: Không thể tải kết nối. Hãy thử lại.';
+          btn.disabled = false;
+          btn.textContent = idleLabel;
+        }
         return;
       }
       return startFromTopic({
         topic, mode: 'practice', part: st.pracTopicPart, errorId: 'prac-topic-error',
-        btn, idleLabel: '🚀 Bắt đầu tạo câu hỏi', api,
+        btn, idleLabel, api,
       });
     });
 
