@@ -243,7 +243,34 @@ describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
     assert.match(BEHAVIOR_SOURCE,
       /switchMainTab\(card\.dataset\.mode \|\| 'dashboard', st, runtimeApi, cleanups\)/,
       'handler gắn sớm phải dùng API đã resolve cho mọi cú bấm về sau');
-    assert.match(BEHAVIOR_SOURCE, /runtimeApi = api;\s*loadMainTabData\(st\.mainTab, st, api\)/,
-      'API readiness phải vừa replay tab mở sớm vừa cấp API cho click tiếp theo');
+    assert.match(BEHAVIOR_SOURCE, /let runtimeApiPromise: Promise<any \| null> \| null = null/);
+    assert.match(BEHAVIOR_SOURCE, /runtimeApi = \(window as any\)\.api/,
+      'API readiness phải cấp API cho mọi handler đã gắn sớm');
+    assert.match(BEHAVIOR_SOURCE, /const api = await resolveRuntimeApi\(\)/,
+      'effect và thao tác sớm phải dùng chung một readiness promise');
+    assert.match(BEHAVIOR_SOURCE, /loadMainTabData\(st\.mainTab, st, api\)/,
+      'API readiness phải replay tab đã mở sớm');
+  });
+
+  test('validation chủ đề được bind trước API để cú bấm sớm không im lặng', () => {
+    const navStart = BEHAVIOR_SOURCE.indexOf(
+      "document.querySelectorAll<HTMLElement>('.mode-card[data-mode]')",
+    );
+    const deferredApiStart = BEHAVIOR_SOURCE.indexOf('    (async () => {', navStart);
+    assert.ok(navStart >= 0 && deferredApiStart > navStart, 'không tìm thấy ranh giới wiring sớm');
+    const earlyWiring = BEHAVIOR_SOURCE.slice(navStart, deferredApiStart);
+    assert.equal((BEHAVIOR_SOURCE.match(/on\(\$\('prac-topic-start'\)/g) || []).length, 1,
+      'nút start chỉ được có một listener để không tạo hai session');
+    assert.match(earlyWiring, /on\(\$\('prac-topic-start'\), 'click'/,
+      'validation phải gắn trước readiness wait');
+    assert.ok(earlyWiring.includes('Vui lòng chọn hoặc nhập chủ đề.'),
+      'nhánh dữ liệu rỗng phải phản hồi ngay tại chỗ');
+    assert.ok(earlyWiring.includes('await resolveRuntimeApi()'),
+      'nhánh hợp lệ bấm sớm phải đợi API thay vì làm rơi thao tác');
+    assert.ok(earlyWiring.indexOf('const btn = e.currentTarget')
+      < earlyWiring.indexOf('await resolveRuntimeApi()'),
+      'phải chụp currentTarget trước await vì native Event sẽ xoá currentTarget sau dispatch');
+    assert.match(earlyWiring, /btn, idleLabel:/,
+      'startFromTopic phải nhận nút đã chụp, không đọc e.currentTarget sau await');
   });
 });

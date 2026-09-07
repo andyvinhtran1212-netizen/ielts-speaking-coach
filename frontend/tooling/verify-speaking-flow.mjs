@@ -119,6 +119,14 @@ await page.waitForTimeout(300);
 check('thẻ mode mở đúng panel Luyện tập',
   await page.locator('#tab-practice').evaluate((el) => el.classList.contains('active')));
 
+// ── 1b. Validation phải có ngay, không chờ API/auth ────────────────────────
+await page.locator('#prac-topic-start').click();
+await page.waitForTimeout(100);
+check('bấm sớm khi chưa có chủ đề ⇒ hiện đúng thông báo lỗi',
+  (await page.locator('#prac-topic-error').textContent())?.trim()
+    === 'Vui lòng chọn hoặc nhập chủ đề.');
+check('bấm sớm khi chưa có chủ đề ⇒ KHÔNG gửi POST /sessions', sessionPost === null);
+
 // ── 2. Chọn Part 2 ──────────────────────────────────────────────────────────
 await page.locator('#prac-tp-part-2').click();
 await page.waitForTimeout(600);
@@ -143,14 +151,6 @@ check('mở lại Luyện tập sau API thì nạp mới danh sách chủ đề'
   `${topicGetsBeforeReopen} → ${topicGets} GET /topics`);
 check('select vẫn khả dụng sau khi mở lại mode',
   await page.locator('#prac-topic-select').isEnabled());
-
-// ── 3. Bấm khi CHƯA có chủ đề ⇒ báo lỗi, KHÔNG gửi ──────────────────────────
-await page.locator('#prac-topic-start').click();
-await page.waitForTimeout(800);
-check('chưa có chủ đề ⇒ hiện đúng thông báo lỗi',
-  (await page.locator('#prac-topic-error').textContent())?.trim()
-    === 'Vui lòng chọn hoặc nhập chủ đề.');
-check('chưa có chủ đề ⇒ KHÔNG gửi POST /sessions', sessionPost === null);
 
 // ── 4. Nhập chủ đề rồi bấm ⇒ gửi ĐÚNG và điều hướng ─────────────────────────
 const topic = 'Chủ đề kiểm luồng';
