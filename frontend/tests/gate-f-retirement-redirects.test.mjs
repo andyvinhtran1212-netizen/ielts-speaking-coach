@@ -16,6 +16,7 @@ const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const paths = discoverLegacyHtmlPaths(path.join(FRONTEND, 'public'));
 const redirects = buildLegacyRetirementRedirects(paths);
 const soakRedirects = buildLegacyRetirementRedirects(paths, { permanent: false });
+const nextConfig = readFileSync(path.join(FRONTEND, 'next.config.ts'), 'utf8');
 
 function appRoutes(root, prefix = '') {
   return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
@@ -55,6 +56,22 @@ test('redirect soak can intercept the same frozen manifest without browser-cache
     redirects.map(({ source, destination, has }) => ({ source, destination, has })),
   );
   assert.ok(soakRedirects.every((entry) => entry.permanent === false));
+});
+
+test('Gate E can expose rollback artifacts only in a non-Vercel local build', () => {
+  assert.match(nextConfig,
+    /process\.env\.GATE_E_LEGACY_FIXTURES === 'local-build-only'[\s\S]*?process\.env\.VERCEL !== '1'/);
+  assert.match(nextConfig,
+    /\.\.\.\(GATE_E_LOCAL_LEGACY_FIXTURES \? \[\] : LEGACY_RETIREMENT_REDIRECTS\)/);
+  for (const configName of [
+    'playwright.gate-e.config.js',
+    'playwright.gate-e-reading.config.js',
+    'playwright.gate-e-listening.config.js',
+    'playwright.gate-e-writing.config.js',
+  ]) {
+    const config = readFileSync(path.join(FRONTEND, configName), 'utf8');
+    assert.match(config, /GATE_E_LEGACY_FIXTURES: 'local-build-only'/, configName);
+  }
 });
 
 test('G1 changes phase explicitly: runtime redirects replace unreachable Legacy parity', () => {

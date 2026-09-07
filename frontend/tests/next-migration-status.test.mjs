@@ -53,6 +53,12 @@ test('only recognizes the generated retirement manifest when config wires all th
     async function redirects() { return [...LEGACY_RETIREMENT_REDIRECTS]; }
   `;
   assert.equal(retirementRedirectsInstalledFromConfig(complete), true);
+  assert.equal(retirementRedirectsInstalledFromConfig(
+    complete.replace(
+      '...LEGACY_RETIREMENT_REDIRECTS',
+      '...(GATE_E_LOCAL_LEGACY_FIXTURES ? [] : LEGACY_RETIREMENT_REDIRECTS)',
+    ),
+  ), true);
   assert.equal(retirementRedirectsPermanentFromConfig(complete), false);
   assert.equal(retirementRedirectsPermanentFromConfig(
     complete.replace('PERMANENT = false', 'PERMANENT = true'),
@@ -74,6 +80,18 @@ test('only recognizes the generated retirement manifest when config wires all th
   ), false);
   assert.equal(retirementRedirectsInstalledFromConfig(
     complete.replace('...LEGACY_RETIREMENT_REDIRECTS', '// omitted'),
+  ), false);
+  assert.equal(retirementRedirectsInstalledFromConfig(
+    complete.replace(
+      '...LEGACY_RETIREMENT_REDIRECTS',
+      '...(arbitraryFlag ? [] : LEGACY_RETIREMENT_REDIRECTS)',
+    ),
+  ), false);
+  assert.equal(retirementRedirectsInstalledFromConfig(
+    complete.replace(
+      'async function redirects() { return [...LEGACY_RETIREMENT_REDIRECTS]; }',
+      'const unused = [...LEGACY_RETIREMENT_REDIRECTS]; async function redirects() { return []; }',
+    ),
   ), false);
 });
 

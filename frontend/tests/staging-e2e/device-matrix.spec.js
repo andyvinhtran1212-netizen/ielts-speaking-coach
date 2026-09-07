@@ -35,7 +35,7 @@ test.afterEach(async ({ page }) => {
   ).toEqual([]);
 });
 
-test('Next → legacy → Next seam keeps origin storage and never calls production', async ({ page }) => {
+test('Next → redirected legacy alias → Next seam keeps origin storage and never calls production', async ({ page }) => {
   await page.goto('/next-probe');
   await expect(page.locator('h1')).toHaveText('next-probe');
   await page.evaluate(() => localStorage.setItem('av-theme', 'dark'));
@@ -43,7 +43,8 @@ test('Next → legacy → Next seam keeps origin storage and never calls product
   await page.evaluate(() => {
     window.location.assign('/grammar.html?from=gate-e-matrix#main');
   });
-  await page.waitForURL('**/grammar.html?from=gate-e-matrix#main');
+  await page.waitForURL('**/grammar?from=gate-e-matrix#main');
+  await expect(page.locator('body')).toContainText('IELTS Grammar Reference');
   await expect(page.locator('aver-chrome')).toBeAttached();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 

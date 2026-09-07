@@ -88,7 +88,15 @@ test('live staging: response commits before reset and Next reconciles without re
   const session = await installStudentSession(context, request, baseURL);
   const created = await request.post(`${STAGING_API}/sessions`, {
     headers: auth(session.access_token),
-    data: { mode: 'practice', part: 1, topic: 'Gate E live failure injection' },
+    // This fixture deliberately enters through the native Next player. Mark
+    // the caller protocol exactly like the browser start flow; omitting it is
+    // an N-1 client contract and correctly pins the session to Legacy.
+    data: {
+      mode: 'practice',
+      part: 1,
+      topic: 'Gate E live failure injection',
+      renderer_affinity_protocol: 'claim-v1',
+    },
   });
   expect(created.status(), await created.text()).toBe(200);
   const sessionId = (await created.json()).session_id;

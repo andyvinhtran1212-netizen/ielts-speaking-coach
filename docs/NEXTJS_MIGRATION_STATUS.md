@@ -36,22 +36,22 @@ This static gate does not replace Preview/staging, persistence, failure-mode,
 device, accessibility, performance, rollback, drain or soak evidence. Those
 operational gates must also be closed before the migration can be called done.
 
-Operational checkpoint **2026-08-19**: all core coexistence three-phase drills
+Operational checkpoint **2026-09-07**: all core coexistence three-phase drills
 are complete. Real-device Safari desktop and iOS Safari evidence is complete,
 with pair verification PASS. Gate E canary `32232288966` then exposed a
 Playwright-only response-body race in the Speaking launcher assertion, so the
 corrected frozen manifest first moved to v9. Canary v9 `32243889759` then proved
 the product routes rendered the correct `30bedcda…` release but exposed Vercel
 Toolbar injection retrying its feedback script and preventing browser load
-states from settling. The reconciled Reading/Listening UI and failure-path
-contract is now critical-suite v13; v13 additionally routes every Listening
-fresh-start through one headphone-prompt acknowledgement helper. Canary
-`32727069070` validated the live
-staging suite, Speaking, Writing and matching frontend/backend provenance at
-staging SHA `38f05dfc5a27cdd54c12f7d5c878b82c8216a9e5`, then fail-closed on stale
-Reading result selectors and the unacknowledged Listening audio prompt. No
-earlier candidate can carry forward and the qualifying streak remains
-**0/20**. The first v13 canary must pass all four frozen failure matrices before
-the remaining streak can accrue.
-Gate F observation began at `2026-08-17T00:15:22Z`, but retirement/permanent
-redirects must not start before its operational and time-window criteria close.
+states from settling. The critical contract is now candidate suite v17. Gate F
+temporary redirects remain active on public staging/production, while the four
+deterministic Gate E matrices use a Vercel-blocked local-only fixture mode to
+keep proving N/N-1 persistence against the frozen rollback renderers. Trusted
+run `34117825403` correctly failed closed before v17 because it mixed the public
+Gate F redirect contract with direct Legacy rendering, and because one live
+Speaking fixture created an N-1 session without the `claim-v1` marker. No
+earlier candidate can carry forward; the qualifying streak remains **0/20**
+until the first v17 live staging run passes the full suite and all four frozen
+failure matrices. Gate F temporary redirect soak is active; permanent redirects
+and artifact deletion remain blocked on its own health window and Gate E
+completion.

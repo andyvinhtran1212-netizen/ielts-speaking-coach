@@ -70,7 +70,7 @@ jobs:
         if: always()
         run: |
           if grep -q "from './tooling/gate-f-retirement-redirects.mjs'" next.config.ts \
-            && grep -q '\.\.\.LEGACY_RETIREMENT_REDIRECTS' next.config.ts; then
+            && grep -Eq '\.\.\.(LEGACY_RETIREMENT_REDIRECTS|\(GATE_E_LOCAL_LEGACY_FIXTURES \? \[\] : LEGACY_RETIREMENT_REDIRECTS\))' next.config.ts; then
             echo 'redirect_installed=true' >> "$GITHUB_OUTPUT"
           else
             echo 'redirect_installed=false' >> "$GITHUB_OUTPUT"

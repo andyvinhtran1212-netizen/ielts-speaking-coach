@@ -64,6 +64,10 @@ files, so file deletion without redirects would break real navigation.
 6. Gate E continues in parallel. A Gate E persistence, resume, audio, timer,
    submit, grading or reconciliation failure blocks deletion and may require
    reverting the redirect release even when redirect checks themselves pass.
+   Deterministic N/N-1 matrices expose the frozen rollback renderers only in a
+   local production server using `GATE_E_LEGACY_FIXTURES=local-build-only`;
+   `VERCEL=1` disables that escape hatch so deployed routing evidence remains
+   truthful.
 7. Deleting HTML/JS/CSS remains a separate reviewed batch after redirect soak,
    replacement-test disposition, asset reachability and health invariants are
    all complete.

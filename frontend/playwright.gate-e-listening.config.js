@@ -17,7 +17,7 @@ module.exports = defineConfig({
   webServer: {
     command: 'npm run build && npm run start',
     url: 'http://localhost:3213/listening/test/session?id=LIS-GATE-E-1',
-    env: { PORT: '3213' },
+    env: { PORT: '3213', GATE_E_LEGACY_FIXTURES: 'local-build-only' },
     reuseExistingServer: false,
     timeout: 180_000,
   },

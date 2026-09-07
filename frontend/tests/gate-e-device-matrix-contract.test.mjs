@@ -153,6 +153,9 @@ describe('Gate E device matrix is pinned and bounded', () => {
     assert.match(playwrightInstallCode, /Acquire::https::Timeout "15";/);
     assert.doesNotMatch(playwrightInstallCode, /azure\.archive\.ubuntu\.com/);
     assert.match(CONFIG, /staging-e2e-results\.json/);
+    assert.match(configCode, /trace: 'off'/,
+      'live password-grant request bodies must never enter uploaded traces');
+    assert.doesNotMatch(configCode, /trace: 'retain-on-failure'/);
     assert.match(WORKFLOW, /id: staging_e2e/);
     assert.match(WORKFLOW, /steps\.staging_e2e\.outcome/);
     assert.match(workflowCode, /name: Write versioned device-matrix metadata\n\s+id: matrix_evidence\n\s+if: always\(\)/);
@@ -187,6 +190,8 @@ describe('Gate E device matrix is pinned and bounded', () => {
       /steps\.live_staging_failure_evidence\.outcome == 'success'/,
     );
     assert.match(LIVE_FAILURE_SPEC, /route\.fetch\(\{ timeout: 60_000, maxRetries: 0 \}\)/);
+    assert.match(LIVE_FAILURE_SPEC, /renderer_affinity_protocol: 'claim-v1'/,
+      'a fixture that enters the Next player must not be classified as an N-1 Legacy client');
     assert.match(LIVE_FAILURE_SPEC, /route\.abort\('connectionreset'\)/);
     assert.match(LIVE_FAILURE_SPEC, /uploadAttempts[^]*?toBe\(1\)/);
     assert.match(LIVE_FAILURE_SPEC, /clientResult\._reconciled[^]*?toBe\(true\)/);

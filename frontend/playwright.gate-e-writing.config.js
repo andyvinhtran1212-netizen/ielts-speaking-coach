@@ -17,7 +17,7 @@ module.exports = defineConfig({
   webServer: {
     command: 'npm run build && npm run start',
     url: 'http://localhost:3214/writing/dashboard',
-    env: { PORT: '3214' },
+    env: { PORT: '3214', GATE_E_LEGACY_FIXTURES: 'local-build-only' },
     reuseExistingServer: false,
     timeout: 180_000,
   },

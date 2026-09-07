@@ -21,7 +21,7 @@
 //      giả định script đã nạp.
 //   3. `alert()` của `startPractice` giữ nguyên — nó là hành vi người dùng thấy;
 //      đổi sang toast là thay đổi ngoài phạm vi port.
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
@@ -47,6 +47,7 @@ type State = {
   pracPart: number;
   pracTopicPart: number;
   pbpPart: number;
+  mainTab: string;
   dead: boolean;
 };
 
@@ -191,13 +192,18 @@ function evaluateCueCardWarning(textareaId: string, warningId: string, partNum: 
 
 // ── Điều hướng panel ────────────────────────────────────────────────────────
 
-function switchMainTab(tab: string, st: State, api: any, cleanups: Array<() => void>) {
+function loadMainTabData(tab: string, st: State, api: any) {
+  if (tab === 'practice') loadTopicsInto('prac-topic-select', st.pracTopicPart, api, st);
+  if (tab === 'partbpart') selectPbpPart(st.pbpPart, st, api);
+}
+
+function switchMainTab(tab: string, st: State, api: any | null, cleanups: Array<() => void>) {
+  st.mainTab = tab;
   ['dashboard', 'practice', 'partbpart', 'fulltest'].forEach((t) => {
     const panel = $('tab-' + t);
     if (panel) panel.classList.toggle('active', t === tab);
   });
-  if (tab === 'practice') loadTopicsInto('prac-topic-select', st.pracTopicPart, api, st);
-  if (tab === 'partbpart') selectPbpPart(st.pbpPart, st, api);
+  if (api) loadMainTabData(tab, st, api);
 }
 
 // ── Chủ đề ──────────────────────────────────────────────────────────────────
@@ -439,7 +445,6 @@ function selectPbpPart(part: number, st: State, api: any) {
 
 export function SpeakingBehavior() {
   const { status } = useAuth();
-  const ranRef = useRef(false);
 
   // Cổng fail-closed (ADR-011): rời trang bằng replace() để nút Back không dựng
   // lại trang riêng tư từ lịch sử. Bản legacy tương ứng: `requireAuth()` đẩy về
@@ -449,13 +454,10 @@ export function SpeakingBehavior() {
   }, [status]);
 
   useEffect(() => {
-    if (status !== 'signed-in' || ranRef.current) return;
-    ranRef.current = true;
-
     const st: State = {
       perms: [...DEFAULT_PERMISSIONS],
       modalPart: 1, modalMode: 'practice', activeTopicTab: 'list',
-      pracPart: 1, pracTopicPart: 1, pbpPart: 1, dead: false,
+      pracPart: 1, pracTopicPart: 1, pbpPart: 1, mainTab: 'dashboard', dead: false,
     };
     const cleanups: Array<() => void> = [];
     // `document` không phải `Element` — uỷ quyền sự kiện ở cấp tài liệu là có
@@ -466,6 +468,27 @@ export function SpeakingBehavior() {
       cleanups.push(() => el.removeEventListener(ev, fn));
     };
 
+    // Bind the route's primary navigation synchronously with the effect. It
+    // must not wait for afterInteractive globals or `/auth/me`: these actions
+    // only switch visible panels and can safely defer their data request.
+    document.querySelectorAll<HTMLElement>('.mode-card[data-mode]').forEach((card) => {
+      on(card, 'click', (e: Event) => {
+        e.preventDefault();
+        switchMainTab(card.dataset.mode || 'dashboard', st, null, cleanups);
+      });
+    });
+    on(document, 'click', (e: any) => {
+      const back = e.target?.closest?.('[data-action="back-to-dashboard"]');
+      if (back && back.closest('#tab-practice, #tab-partbpart, #tab-fulltest')) {
+        e.preventDefault();
+        switchMainTab('dashboard', st, null, cleanups);
+      }
+    });
+    on($('dash-empty-start'), 'click', (e: Event) => {
+      e.preventDefault();
+      switchMainTab('practice', st, null, cleanups);
+    });
+
     (async () => {
       const ok = await whenGlobalReady(
         () => typeof (window as any).api?.get === 'function',
@@ -474,21 +497,9 @@ export function SpeakingBehavior() {
       if (st.dead) return;
       if (!ok) return;
       const api = (window as any).api;
-
-      // ── Thẻ mode + nút quay lại dashboard ───────────────────────────────
-      document.querySelectorAll<HTMLElement>('.mode-card[data-mode]').forEach((card) => {
-        on(card, 'click', (e: Event) => {
-          e.preventDefault();
-          switchMainTab(card.dataset.mode || 'dashboard', st, api, cleanups);
-        });
-      });
-      on(document, 'click', (e: any) => {
-        const back = e.target?.closest?.('[data-action="back-to-dashboard"]');
-        if (back && back.closest('#tab-practice, #tab-partbpart, #tab-fulltest')) {
-          e.preventDefault();
-          switchMainTab('dashboard', st, api, cleanups);
-        }
-      });
+      // A user may already have entered a mode while the legacy API global was
+      // loading. Hydrate that active panel now instead of discarding the click.
+      loadMainTabData(st.mainTab, st, api);
 
       // ── Cue card: theo dõi độ dài, gộp phím trong 300ms ─────────────────
       const bindWatcher = (taId: string, warnId: string, getPart: () => number) => {
@@ -659,10 +670,6 @@ export function SpeakingBehavior() {
       // nào gọi nó (0 handler). Bản đầu của tệp này tự nghĩ ra một móc
       // `[data-start-part]` cho nó — tức là dựng giao diện chưa từng tồn tại.
       // Đã bỏ. Nếu sau này có đường gọi thật thì thêm cùng với nút thật.
-      on($('dash-empty-start'), 'click', (e: Event) => {
-        e.preventDefault();
-        switchMainTab('practice', st, api, cleanups);
-      });
       on($('grammar-cta-start'), 'click', () => openTopicModal(1, 'practice', st, api));
       // ── Quyền + lời chào — SAU KHI đã gắn listener ──────────────────────
       // THỨ TỰ QUAN TRỌNG. Bản đầu `await api.get('/auth/me')` TRƯỚC khi gắn
@@ -690,7 +697,11 @@ export function SpeakingBehavior() {
       st.dead = true;
       cleanups.forEach((fn) => fn());
     };
-  }, [status]);
+  // Listener wiring is intentionally independent of the asynchronous auth
+  // state. The protected route still redirects signed-out users above and the
+  // backend remains authoritative, while a signed-in user's first click can
+  // no longer land before React has attached the dashboard controls.
+  }, []);
 
   return null;
 }

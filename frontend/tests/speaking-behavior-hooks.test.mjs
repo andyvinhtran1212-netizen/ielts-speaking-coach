@@ -28,7 +28,9 @@ const stripComments = (src) => src
 const SHELL = stripComments(readFileSync(path.join(DIR, 'page-shell.tsx'), 'utf8'));
 // Gộp CẢ HAI tệp hành vi: chốt chỉ đọc một tệp thì nửa trang kia không được
 // gác — và cụm thống kê cũng với tay vào DOM theo đúng kiểu đó.
-const BEHAVIOR = stripComments(readFileSync(path.join(DIR, 'speaking-behavior.tsx'), 'utf8'))
+const BEHAVIOR_SOURCE = stripComments(
+  readFileSync(path.join(DIR, 'speaking-behavior.tsx'), 'utf8'));
+const BEHAVIOR = BEHAVIOR_SOURCE
   + '\n' + stripComments(readFileSync(path.join(DIR, 'speaking-stats.tsx'), 'utf8'))
   + '\n' + stripComments(readFileSync(path.join(DIR, 'speaking-charts.ts'), 'utf8'));
 const LEGACY_SOURCE = readFileSync(path.join(FRONTEND, 'public/pages/speaking.html'), 'utf8');
@@ -228,5 +230,14 @@ describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
     const outsideHelper = direct.filter((recv) => recv !== 'el');
     assert.deepEqual(outsideHelper, [],
       'dùng helper on() để mỗi listener đều được đẩy vào cleanups');
+  });
+
+  test('listener dashboard không chờ auth round-trip rồi làm rơi cú bấm đầu', () => {
+    assert.doesNotMatch(BEHAVIOR_SOURCE, /status\s*!==\s*['"]signed-in['"]/,
+      'không được trì hoãn gắn listener đến sau khi AuthProvider xác nhận signed-in');
+    assert.doesNotMatch(BEHAVIOR_SOURCE, /ranRef/,
+      'one-shot ref làm StrictMode cleanup xong nhưng không gắn lại listener');
+    assert.match(BEHAVIOR_SOURCE, /\}, \[\]\);\s*return null/,
+      'effect gắn listener phải sống độc lập qua các transition của auth state');
   });
 });
