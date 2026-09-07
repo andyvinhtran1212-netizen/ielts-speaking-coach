@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Script from 'next/script';
 
 import { AuthedShell } from '@/components/authed-shell';
 
@@ -13,7 +14,7 @@ export default function InstructorCompareLayout({ children }: { children: ReactN
         '/css/writing-renderers.css',
         '/css/instructor-compare-next.css',
       ]}
-      extraScripts={<script src="/js/writing-renderers.js" defer />}
+      extraScripts={<Script src="/js/writing-renderers.js" strategy="afterInteractive" />}
     >
       {children}
     </AuthedShell>

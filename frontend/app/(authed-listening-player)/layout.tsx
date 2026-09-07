@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Script from 'next/script';
 
 import { AuthedShell } from '@/components/authed-shell';
 
@@ -13,7 +14,7 @@ export default function ListeningPlayerLayout({ children }: { children: ReactNod
         '/css/listening-test-next.css',
         '/css/exam-result-next.css',
       ]}
-      extraScripts={<script src="/js/mock-exam-hook.js" defer />}
+      extraScripts={<Script src="/js/mock-exam-hook.js" strategy="afterInteractive" />}
       utilityLayer={false}
       bodyClass="exam-chrome listening-exam-chrome listening-next-player-page"
     >

@@ -9,6 +9,7 @@
 // chung group — mà hai tệp có chung nhiều tên class chung chung. Tách group là
 // cách rẻ nhất để mỗi trang chỉ nhận đúng CSS của nó.
 import type { ReactNode } from 'react';
+import Script from 'next/script';
 
 import { AuthedShell } from '@/components/authed-shell';
 
@@ -26,19 +27,23 @@ export default function AuthedSpeakingLayout({ children }: { children: ReactNode
 
               Đã kiểm cả ba trước khi nạp (bài học `home-mock-tiles.js` ở PR
               #930): không cái nào TỰ CHẠY hay gọi API lúc nạp, chúng chỉ định
-              nghĩa global. Nạp bằng thẻ script là an toàn.
+              nghĩa global. Dùng Next Script `afterInteractive` để chúng được
+              thực thi cả khi người dùng mở route bằng client navigation; một
+              thẻ script React thường chỉ đáng tin ở hard load.
 
-              THỨ TỰ QUAN TRỌNG: script `defer` chạy theo thứ tự tài liệu, và
-              `cue-card-detector.js` tự ném lỗi nếu `window.api.post` chưa có
-              ("ensure api.js is loaded before cue-card-detector.js"). Khung đã
-              nạp api.js trước điểm chèn này. */}
+              `cue-card-detector.js` đòi `window.api.post`. Khung chung nạp
+              api.js trước hydration ở hard load; khi client-navigation vào
+              route thì khung và api đã tồn tại. */}
           {/* Chart.js — cùng pin CDN với bản legacy (chart.js@4.5.1). Chỉ trang
               này dùng, nên KHÔNG đưa vào khung dùng chung. Thư viện thuần, không
               tự gọi API lúc nạp. */}
-          <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" defer />
-          <script src="/js/format.js" defer />
-          <script src="/js/cue-card-detector.js" defer />
-          <script src="/js/retention-warning.js" defer />
+          <Script
+            src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"
+            strategy="afterInteractive"
+          />
+          <Script src="/js/format.js" strategy="afterInteractive" />
+          <Script src="/js/cue-card-detector.js" strategy="afterInteractive" />
+          <Script src="/js/retention-warning.js" strategy="afterInteractive" />
         </>
       }
     >

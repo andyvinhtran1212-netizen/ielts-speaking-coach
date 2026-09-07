@@ -1,7 +1,7 @@
 /**
  * frontend/js/analytics-beacon.js — Sprint 17.4 (Direction D)
  *
- * Fire-and-forget `page_view` beacon, fired once on page load. Reuses
+ * Fire-and-forget `page_view` beacon, fired once per document route. Reuses
  * window.api.post, which attaches the Bearer token when the visitor is logged in
  * (the backend then attributes user_id; anonymous visitors record user_id=NULL).
  * Silent on ANY failure — tracking must never affect the page (Pattern #29).
@@ -13,16 +13,18 @@
 (function () {
   'use strict';
 
-  // Chốt gửi-một-lần, cùng khuôn với rum-vitals.js (`_rumVitalsLoaded`). File
-  // này không có chốt chống nạp trùng, nên nếu một trang lỡ nhúng hai lần —
-  // hoặc listener được gắn hai lần — mẫu số page_view bị phồng, tức error-rate
-  // bị hạ một cách giả tạo. Rẻ và chặn đúng chỗ (review PR 887).
+  // `analytics-beacon.js` vẫn tự bắn đúng một lần trên trang Legacy. Native
+  // App Router gọi lại hàm công khai này khi pathname đổi; chốt theo pathname
+  // ngăn Strict Mode / onReady bắn trùng nhưng vẫn cho phép A → B → A được ghi
+  // thành ba lượt điều hướng thật.
   function fire() {
     try {
       window.aver = window.aver || {};
-      if (window.aver._pageViewSent) return;
       if (!(window.api && typeof window.api.post === 'function')) return;
+      var path = location.pathname;
+      if (window.aver._lastPageViewPath === path) return;
       window.aver._pageViewSent = true;
+      window.aver._lastPageViewPath = path;
       // ADR-012 migration tags: which stack rendered the page + which
       // release served it (cutover-dashboard denominator). Best-effort.
       var impl = 'legacy';
@@ -34,7 +36,7 @@
       window.api.post('/api/analytics/events', {
         event_name: 'page_view',
         event_data: {
-          path: location.pathname,
+          path: path,
           referrer: document.referrer || '',
           vw: window.innerWidth || 0,
           implementation: impl,
@@ -43,6 +45,9 @@
       }).catch(function () { /* best-effort */ });
     } catch (e) { /* never affect the page */ }
   }
+
+  window.aver = window.aver || {};
+  window.aver.trackPageView = fire;
 
   // Review PR 887 — 'interactive' CŨNG phải chờ. Script `defer` chạy khi
   // readyState đã là 'interactive', tức TRƯỚC sự kiện DOMContentLoaded. Trang

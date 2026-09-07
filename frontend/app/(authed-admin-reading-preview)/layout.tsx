@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { AuthedShell } from '@/components/authed-shell';
+import { RouteScriptChain } from '@/components/route-script-chain';
 
 export default function AdminReadingPreviewLayout({ children }: { children: ReactNode }) {
   return <AuthedShell
@@ -17,6 +18,10 @@ export default function AdminReadingPreviewLayout({ children }: { children: Reac
       '/css/markdown.css',
       '/css/admin-reading-preview-next.css',
     ]}
-    extraScripts={<><script src="https://cdn.jsdelivr.net/npm/marked@13.0.0/marked.min.js" defer/><script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.5/dist/purify.min.js" defer/><script src="/js/markdown.js" defer/></>}
+    extraScripts={<RouteScriptChain scripts={[
+      { src: 'https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js' },
+      { src: 'https://cdn.jsdelivr.net/npm/dompurify@3.4.8/dist/purify.min.js' },
+      { src: '/js/markdown.js' },
+    ]} />}
   >{children}</AuthedShell>;
 }

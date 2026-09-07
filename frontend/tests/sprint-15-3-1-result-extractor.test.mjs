@@ -15,6 +15,10 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DRILL = readFileSync(join(__dirname, '..', 'js', 'pronunciation-drilldown.js'), 'utf8');
 const RESULT_HTML = readFileSync(join(__dirname, '..', 'pages', 'result.html'), 'utf8');
+const RESULT_LAYOUT = readFileSync(
+  join(__dirname, '..', 'app', '(authed-session-result)', 'layout.tsx'),
+  'utf8',
+);
 // Real captured Granularity=Phoneme payload (Sprint 15.0 PF-1).
 const FIXTURE = JSON.parse(readFileSync(
   join(__dirname, '..', '..', 'backend', 'tests', 'fixtures', 'azure_phoneme_sample.json'), 'utf8'));
@@ -72,10 +76,21 @@ describe('Sprint 15.3.1 — extractWeakWordsFromPayload', () => {
 });
 
 
-describe('Sprint 15.3.1 — result.html wiring', () => {
+describe('Sprint 15.3.1 — result owner wiring', () => {
 
   test('result.html loads the shared drill-down component', () => {
     assert.match(RESULT_HTML, /pronunciation-drilldown\.js/);
+  });
+
+  test('App Router layout loads the shared drill-down on client navigation', () => {
+    assert.match(RESULT_LAYOUT, /import Script from ['"]next\/script['"]/);
+    assert.match(RESULT_LAYOUT, /src="\/js\/pronunciation-drilldown\.js"/);
+    assert.match(RESULT_LAYOUT, /strategy="afterInteractive"/);
+    assert.doesNotMatch(
+      RESULT_LAYOUT,
+      /<script\s+src="\/js\/pronunciation-drilldown\.js"/,
+      'plain React script nodes are not a client-navigation loader',
+    );
   });
 
   test('_buildPronBlock appends the phoneme drill-down (extractor → renderer)', () => {

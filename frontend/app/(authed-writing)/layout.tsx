@@ -6,6 +6,7 @@
 import type { ReactNode } from 'react';
 
 import { AuthedShell } from '@/components/authed-shell';
+import { RouteScriptChain } from '@/components/route-script-chain';
 
 export default function AuthedWritingLayout({ children }: { children: ReactNode }) {
   return (
@@ -19,17 +20,18 @@ export default function AuthedWritingLayout({ children }: { children: ReactNode 
               Cùng pin CDN với bản legacy.
 
               THỨ TỰ QUAN TRỌNG: `markdown.js` gói `marked` + `DOMPurify` thành
-              `window.renderMarkdown`, nên hai thư viện phải đứng TRƯỚC. Script
-              `defer` chạy theo thứ tự tài liệu nên thứ tự viết ở đây là thứ tự
-              chạy thật.
+              `window.renderMarkdown`, nên hai thư viện phải chạy TRƯỚC.
+              RouteScriptChain giữ thứ tự này ở cả hard load và client navigation.
 
               Đã kiểm trước khi nạp (bài học `home-mock-tiles.js` ở PR #930):
               `markdown.js` chỉ định nghĩa global, không tự chạy và không gọi
               API lúc nạp. */}
-          <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" defer />
-          <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.8/dist/purify.min.js" defer />
-          <script src="/js/markdown.js" defer />
-          <script src="/js/writing-submit-receipt.js" defer />
+          <RouteScriptChain scripts={[
+            { src: 'https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js' },
+            { src: 'https://cdn.jsdelivr.net/npm/dompurify@3.4.8/dist/purify.min.js' },
+            { src: '/js/markdown.js' },
+            { src: '/js/writing-submit-receipt.js' },
+          ]} />
         </>
       }
     >

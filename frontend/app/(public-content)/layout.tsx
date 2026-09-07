@@ -1,4 +1,9 @@
 import { ReactNode } from 'react';
+import Script from 'next/script';
+
+import { BodyClassBridge } from '@/components/body-class-bridge';
+import { NextPageViewBeacon } from '@/components/next-page-view-beacon';
+import { SupabaseRuntimeBoundary } from '@/components/supabase-runtime-boundary';
 
 export const metadata = {
   title: 'Grammar Wiki — IELTS Grammar | Aver Learning',
@@ -21,6 +26,19 @@ const themeScript = `
   }
 })();
 `;
+
+const SUPABASE_URL = 'https://huwsmtubwulikhlmcirx.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
+const SUPABASE_RUNTIME_SCRIPTS = [
+  {
+    src: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js',
+    continueOnError: true,
+  },
+  { src: '/js/supabase-sdk-fallback.js' },
+  { src: '/js/runtime-config.js' },
+  { src: '/js/error-reporter.js', continueOnError: true },
+  { src: '/js/api.js' },
+] as const;
 
 export default function PublicContentLayout({ children }: { children: ReactNode }) {
   return (
@@ -51,47 +69,15 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
       <link rel="stylesheet" href="/css/vocab-wiki.css" />
       <link rel="stylesheet" href="/css/tailwind.build.css" />
 
-      {/* Canonical chrome Web Component (Sprint 7.13) */}
-
-      {/* Grammar API + auth client scripts (C-3.2: deferred off parse path) */}
-      <script
-        src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js"
-        defer
-      />
-      <script src="/js/supabase-sdk-fallback.js" defer />
-      <script src="/js/runtime-config.js" defer />
-      {/* DEBT-2026-07-31-O — reporter phải nạp TRƯỚC api.js/chrome. Script
-          `defer` chạy theo THỨ TỰ TÀI LIỆU, nên đặt sau api.js thì một lỗi
-          trong api.js xảy ra khi listener chưa gắn — đúng khoảng mù mà bản vá
-          này nhận đóng (review #887). Reporter đọc runtime-config lúc GỬI chứ
-          không lúc nạp, nên đứng ngay sau runtime-config là an toàn. */}
-      <script src="/js/error-reporter.js" defer />
-      {/* Chrome là module (defer mặc định) nên nó cũng nằm trong hàng đợi
-          defer: đặt TRƯỚC reporter thì một lỗi lúc đánh giá aver-chrome.js xảy
-          ra khi chưa có listener (review #887). Nay chrome đứng sau reporter. */}
-      <script type="module" src="/js/components/aver-chrome.js" defer />
-      <script src="/js/api.js" defer />
-      {/* Bộ ba telemetry của cổng rollback (ADR-012): error-reporter ở trên =
-          TỬ SỐ; analytics-beacon = MẪU SỐ page_view; rum-vitals = trigger LCP. */}
-      <script src="/js/analytics-beacon.js" defer />
-      {/* AUDIT F2: field Web Vitals per implementation tag (rollback-metrics
-          reads them for the frozen LCP trigger). */}
-      <script src="/js/rum-vitals.js" defer />
-
-      {/* Supabase init + child initialization */}
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-var SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';
-var SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
-document.addEventListener('DOMContentLoaded', function () {
-  if (typeof initSupabase === 'function') {
-    initSupabase(SUPABASE_URL, SUPABASE_ANON);
-  }
-});
-          `,
-        }}
-      />
+      <SupabaseRuntimeBoundary
+        scripts={SUPABASE_RUNTIME_SCRIPTS}
+        supabaseUrl={SUPABASE_URL}
+        supabaseAnonKey={SUPABASE_ANON}
+      >
+        <Script type="module" src="/js/components/aver-chrome.js" strategy="afterInteractive" />
+        <NextPageViewBeacon />
+        <Script src="/js/rum-vitals.js" strategy="afterInteractive" />
+      </SupabaseRuntimeBoundary>
 
       {/* grammar-wiki.css scopes overrides under body.av-page (e.g.
           `body.av-page .text-white` recolors to readable) — a div wrapper
@@ -103,6 +89,7 @@ document.addEventListener('DOMContentLoaded', function () {
             "document.body.className += ' av-page min-h-screen font-sans antialiased';",
         }}
       />
+      <BodyClassBridge className="av-page min-h-screen font-sans antialiased" />
       {children}
     </>
   );

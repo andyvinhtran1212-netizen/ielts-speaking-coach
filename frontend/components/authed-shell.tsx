@@ -22,7 +22,11 @@
 // `tests/authed-shell.test.mjs` ghim điều đó, và bản refactor đã được kiểm bằng
 // cách so BYTE HTML của `/profile` và `/home` trước/sau.
 import type { ReactNode } from 'react';
+import Script from 'next/script';
 
+import { BodyClassBridge } from '@/components/body-class-bridge';
+import { NextPageViewBeacon } from '@/components/next-page-view-beacon';
+import { SupabaseRuntimeBoundary } from '@/components/supabase-runtime-boundary';
 import { AuthProvider } from '@/lib/auth/auth-provider';
 
 type PageStylesheet =
@@ -51,56 +55,19 @@ const ANTI_FLASH = `
 })();
 `.trim();
 
-// Byte-faithful với trang legacy: credential production là ĐƯỜNG LÙI — bản
-// runtime-config sinh ra lúc build (nạp trước api.js) mới là cái thắng trên
-// Vercel, và đó là thứ giữ Preview/staging tránh xa Supabase production
-// (ADR-006).
-const SUPABASE_INIT = `
-var SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';
-var SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
-document.addEventListener('DOMContentLoaded', function () {
-  if (typeof initSupabase === 'function') {
-    initSupabase(SUPABASE_URL, SUPABASE_ANON);
-  }
-});
-`.trim();
+const SUPABASE_URL = 'https://huwsmtubwulikhlmcirx.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
 
-// Lucide hydration (glyph của chrome) — chép nguyên văn từ trang legacy.
-//
-// LƯU Ý: lucide@1.17.0 TỰ thay mọi `[data-lucide]` khi script nạp xong, KHÔNG
-// cần lời gọi này (bọc `createIcons` lại và đếm: 0 lần gọi). Giữ khối này vì nó
-// byte-faithful với legacy và vô hại; nhưng ĐỪNG trông vào nó, và ĐỪNG đặt
-// `data-lucide` vào cây React — xem `tests/no-lucide-in-react-tree.test.mjs`.
-const LUCIDE_HYDRATE = `
-(function () {
-  function hydrateIcons() {
-    if (window.lucide && typeof window.lucide.createIcons === 'function') {
-      window.lucide.createIcons();
-    }
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', hydrateIcons);
-  } else {
-    hydrateIcons();
-  }
-  window.addEventListener('load', hydrateIcons);
-  // Ve lai icon khi DOI THEME. Bo doi theme thay icon theo [data-theme], va
-  // module cua trang co the chen [data-lucide] moi sau do — khong co dong nay
-  // thi icon dung nguyen o theme cu.
-  //
-  // 6/9 trang legacy co lucide deu co doan nay; khung dung chung thi KHONG, nen
-  // /speaking MAT hanh vi do tu luc port ma khong cong nao bat (parity so DOM
-  // TINH — chuyen nay chi xay ra luc nguoi dung bam nut doi theme).
-  //
-  // KHONG dung dau backtick trong khoi nay: no nam TRONG template literal, mot
-  // dau backtick se dong chuoi som va lam vo ca tep (da xay ra).
-  //
-  // An toan cho trang khac: createIcons() chi quet [data-lucide], ma cay React
-  // cua ta nhung thang SVG nen khong con the nao — no thanh no-op.
-  new MutationObserver(hydrateIcons)
-    .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-})();
-`.trim();
+const SUPABASE_RUNTIME_SCRIPTS = [
+  {
+    src: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js',
+    continueOnError: true,
+  },
+  { src: '/js/supabase-sdk-fallback.js' },
+  { src: '/js/runtime-config.js' },
+  { src: '/js/error-reporter.js', continueOnError: true },
+  { src: '/js/api.js' },
+] as const;
 
 export function AuthedShell({
   pageStylesheets,
@@ -200,36 +167,25 @@ export function AuthedShell({
       })}
       {tailwindLayer && <link rel="stylesheet" href="/css/tailwind.build.css" />}
 
-      {/* Keep the frozen primary URL for Gate E; a local loader immediately
-          below recovers with a verified published release if it fails. */}
-      <script src="https://unpkg.com/lucide@1.17.0" defer />
-      <script
-        src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js"
-        defer
-      />
-      <script src="/js/supabase-sdk-fallback.js" defer />
-      <script src="/js/runtime-config.js" defer />
-      {/* DEBT-2026-07-31-O — reporter phải nạp TRƯỚC api.js/chrome. Script
-          `defer` chạy theo THỨ TỰ TÀI LIỆU, nên đặt sau api.js thì một lỗi
-          trong api.js xảy ra khi listener chưa gắn — đúng khoảng mù mà bản vá
-          này nhận đóng (review #887). Reporter đọc runtime-config lúc GỬI chứ
-          không lúc nạp, nên đứng ngay sau runtime-config là an toàn. */}
-      <script src="/js/error-reporter.js" defer />
-      <script src="/js/api.js" defer />
-      {/* Bộ ba telemetry của cổng rollback (ADR-012): error-reporter ở trên =
-          TỬ SỐ; analytics-beacon = MẪU SỐ page_view; rum-vitals = trigger LCP. */}
-      <script src="/js/analytics-beacon.js" defer />
-      {/* AUDIT F2: field Web Vitals per implementation tag (rollback-metrics
-          reads them for the frozen LCP trigger). */}
-      <script src="/js/rum-vitals.js" defer />
-      {extraScripts}
-      <script dangerouslySetInnerHTML={{ __html: SUPABASE_INIT }} />
-      <script dangerouslySetInnerHTML={{ __html: LUCIDE_HYDRATE }} />
-
-      {/* Canonical coexistence chrome. Existing student layouts keep the exact
-          default script; the first native admin route opts into admin chrome. */}
-      {chrome === 'student' && <script type="module" src="/js/components/aver-chrome.js" />}
-      {chrome === 'admin' && <script type="module" src="/js/components/aver-admin-chrome.js" />}
+      {/* Next Script executes on hard load and App Router client navigation.
+          Lucide is independent; auth/API globals below remain strictly
+          ordered and fail closed before route-specific scripts are exposed. */}
+      <Script src="https://unpkg.com/lucide@1.17.0" strategy="afterInteractive" />
+      <SupabaseRuntimeBoundary
+        scripts={SUPABASE_RUNTIME_SCRIPTS}
+        supabaseUrl={SUPABASE_URL}
+        supabaseAnonKey={SUPABASE_ANON}
+      >
+        {extraScripts}
+        <NextPageViewBeacon />
+        <Script src="/js/rum-vitals.js" strategy="afterInteractive" />
+        {chrome === 'student' && (
+          <Script type="module" src="/js/components/aver-chrome.js" strategy="afterInteractive" />
+        )}
+        {chrome === 'admin' && (
+          <Script type="module" src="/js/components/aver-admin-chrome.js" strategy="afterInteractive" />
+        )}
+      </SupabaseRuntimeBoundary>
 
       {/* CSS trang / ds.css bọc luật dưới class của <body> — React KHÔNG được
           sở hữu thuộc tính của <body> (root layout mới sở hữu), nên class được
@@ -241,6 +197,7 @@ export function AuthedShell({
           __html: `document.body.className += ' ${bodyClass}';`,
         }}
       />
+      <BodyClassBridge className={bodyClass} />
       <AuthProvider>{children}</AuthProvider>
     </>
   );

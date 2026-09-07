@@ -31,16 +31,30 @@ function readFront(...parts) {
 }
 
 const SPEAKING_HTML = readFront('pages', 'speaking.html');
+const SPEAKING_LAYOUT = readFront('app', '(authed-speaking)', 'layout.tsx');
 const DETECTOR_JS   = readFront('js',    'cue-card-detector.js');
 
 
-// ── Script load order ─────────────────────────────────────────────────────
+// ── Route-aware script loading ────────────────────────────────────────────
 
 
-describe('Sprint 14.4 — cue-card-detector.js is loaded on speaking.html', () => {
+describe('Sprint 14.4 — cue-card-detector.js is loaded by both route owners', () => {
 
   test('speaking.html ships a <script src> for cue-card-detector.js', () => {
     assert.match(SPEAKING_HTML, /<script\s+src="[^"]*cue-card-detector\.js"\s*>/);
+  });
+
+  test('native layout executes cue-card-detector.js after client navigation', () => {
+    assert.match(SPEAKING_LAYOUT, /import Script from ['"]next\/script['"]/);
+    assert.match(
+      SPEAKING_LAYOUT,
+      /<Script src="\/js\/cue-card-detector\.js" strategy="afterInteractive" \/>/,
+    );
+    assert.doesNotMatch(
+      SPEAKING_LAYOUT,
+      /<script\s+src="\/js\/cue-card-detector\.js"/,
+      'plain React script nodes do not provide the App Router navigation contract',
+    );
   });
 
   test('cue-card-detector.js exposes window.CueCardDetector with both APIs', () => {

@@ -3,6 +3,9 @@
 // (the root layout owns them); stylesheet <link> tags render here and React
 // hoists them into <head>.
 import type { ReactNode } from 'react';
+import Script from 'next/script';
+
+import { RouteScriptChain } from '@/components/route-script-chain';
 
 // Legacy head scripts, kept byte-faithful (index.html):
 //  1. OAuth-redirect recovery — Supabase OAuth lands users on the SITE ROOT
@@ -37,6 +40,12 @@ const ANTI_FLASH = `
 })();
 `.trim();
 
+const MARKETING_RUNTIME_SCRIPTS = [
+  { src: '/js/runtime-config.js' },
+  { src: '/js/error-reporter.js', continueOnError: true },
+  { src: '/js/rum-vitals.js', continueOnError: true },
+] as const;
+
 export default function MarketingLayout({ children }: { children: ReactNode }) {
   return (
     <>
@@ -56,22 +65,9 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
       <link rel="stylesheet" href="/css/index.css" />
       <link rel="stylesheet" href="/css/tailwind.build.css" />
 
-      {/* Same CDN pin as legacy (Phase 1 CDN inventory: lucide@1.17.0). */}
-      <script src="https://unpkg.com/lucide@1.17.0" defer />
-      {/* Generated runtime config — before any consumer (plan §7.1). */}
-      <script src="/js/runtime-config.js" />
-      {/* ADR-012 observability: this migrated (pilot-1) landing must emit
-          error telemetry tagged `implementation=next` so the cutover
-          dashboard has an error signal for the soak (the rollback trigger
-          reads it). error-reporter is self-contained — it resolves its own
-          API base and reads __next_f + runtime-config for the tag, so it
-          works without api.js (which the lean marketing page doesn't load).
-          Loaded AFTER runtime-config so the release tag is available. */}
-      <script src="/js/error-reporter.js" defer />
-      {/* AUDIT F2: field Web Vitals (LCP/CLS/INP) per implementation tag —
-          the frozen LCP rollback trigger reads these via rollback-metrics.
-          Self-contained like error-reporter; after runtime-config. */}
-      <script src="/js/rum-vitals.js" defer />
+      {/* App Router navigation does not execute raw nested-layout scripts. */}
+      <Script src="https://unpkg.com/lucide@1.17.0" strategy="afterInteractive" />
+      <RouteScriptChain scripts={MARKETING_RUNTIME_SCRIPTS} />
 
       {children}
     </>
