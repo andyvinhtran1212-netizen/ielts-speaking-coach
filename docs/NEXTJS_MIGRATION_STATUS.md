@@ -57,7 +57,13 @@ Vercel to mint a bypass cookie and therefore observed Vercel's self-redirect,
 while Speaking bound empty-topic validation only after the API global became
 ready. Candidate v18 separates direct bypass headers from cookie minting and
 binds validation before readiness while sharing the eventual API promise. The
-qualifying streak remains **0/20** until the first v18 live staging run passes
-the full suite and all four frozen failure matrices. Gate F temporary redirect
-soak is active; permanent redirects and artifact deletion remain blocked on its
-own health window and Gate E completion.
+first v18 run `34137813295` then matched frontend/backend release
+`31921ebe…`, passed production release drift, staging provenance and all four
+frozen failure matrices, but failed the live Speaking launcher because a Part 2
+click made before API readiness was dropped and the session POST used Part 1.
+The remediation binds the two practice Part selectors synchronously and leaves
+only topic loading behind API readiness. The qualifying streak therefore
+remains **0/20** until a clean run on the remediated release passes the full
+suite and all four frozen failure matrices. Gate F temporary redirect soak is
+active; permanent redirects and artifact deletion remain blocked on its own
+health window and Gate E completion.

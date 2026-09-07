@@ -278,4 +278,21 @@ describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
     assert.match(earlyWiring, /btn,\s*idleLabel,\s*api/,
       'startFromTopic phải nhận nút đã chụp, không đọc e.currentTarget sau await');
   });
+
+  test('chọn Part trong panel Luyện tập không chờ API readiness', () => {
+    const navStart = BEHAVIOR_SOURCE.indexOf(
+      "document.querySelectorAll<HTMLElement>('.mode-card[data-mode]')",
+    );
+    const deferredApiStart = BEHAVIOR_SOURCE.indexOf('    (async () => {', navStart);
+    assert.ok(navStart >= 0 && deferredApiStart > navStart, 'không tìm thấy ranh giới wiring sớm');
+    const earlyWiring = BEHAVIOR_SOURCE.slice(navStart, deferredApiStart);
+    for (const idPrefix of ['prac-part-', 'prac-tp-part-']) {
+      assert.equal((BEHAVIOR_SOURCE.match(new RegExp(`on\\(\\$\\('${idPrefix}' \\+ p\\)`, 'g')) || []).length, 1,
+        `${idPrefix} chỉ được bind một lần`);
+      assert.ok(earlyWiring.includes(`on($('${idPrefix}' + p), 'click'`),
+        `${idPrefix} phải bind trước API readiness`);
+    }
+    assert.match(earlyWiring, /st\.pracTopicPart = p[\s\S]*if \(runtimeApi\)/,
+      'state Part phải đổi đồng bộ; chỉ phần tải topic mới phụ thuộc API');
+  });
 });

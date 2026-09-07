@@ -49,7 +49,13 @@ cookie: probe `maxRedirects: 0` nay quan sát redirect của ứng dụng, khôn
 307 tự quay lại URL của Vercel Protection. Runtime Speaking đồng thời bind
 validation chủ đề rỗng trước API readiness và dùng chung promise cho thao tác
 hợp lệ bấm sớm. Run v17 `34128406384` vì vậy là reset evidence, không được mang
-sang streak v18 dù provenance và bốn failure matrix đều pass.
+sang streak v18 dù provenance và bốn failure matrix đều pass. Run v18 đầu tiên
+`34137813295` cũng fail-closed ở **0/20**: production release drift, provenance
+staging và cả bốn deterministic failure matrices đều pass, nhưng live Speaking
+journey chọn Part 2 trước API readiness rồi quan sát session POST sai Part 1.
+Đây là lỗi runtime thật ở launcher, không phải thay đổi frozen suite; remediation
+bind Part selection đồng bộ nên manifest vẫn là v18, còn release-SHA continuity
+tự reset khi bản sửa được deploy.
 
 Manifest pin SHA-256 của package manifest/lockfile, Playwright config, matrix
 manifest, shared helper và cả 9 spec. Thay dependency, command, test/helper/config
