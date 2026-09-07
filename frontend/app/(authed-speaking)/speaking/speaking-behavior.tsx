@@ -460,6 +460,7 @@ export function SpeakingBehavior() {
       pracPart: 1, pracTopicPart: 1, pbpPart: 1, mainTab: 'dashboard', dead: false,
     };
     const cleanups: Array<() => void> = [];
+    let runtimeApi: any | null = null;
     // `document` không phải `Element` — uỷ quyền sự kiện ở cấp tài liệu là có
     // thật (nút "quay lại dashboard"), nên kiểu phải nhận cả hai.
     const on = (el: Element | Document | null, ev: string, fn: any) => {
@@ -474,19 +475,19 @@ export function SpeakingBehavior() {
     document.querySelectorAll<HTMLElement>('.mode-card[data-mode]').forEach((card) => {
       on(card, 'click', (e: Event) => {
         e.preventDefault();
-        switchMainTab(card.dataset.mode || 'dashboard', st, null, cleanups);
+        switchMainTab(card.dataset.mode || 'dashboard', st, runtimeApi, cleanups);
       });
     });
     on(document, 'click', (e: any) => {
       const back = e.target?.closest?.('[data-action="back-to-dashboard"]');
       if (back && back.closest('#tab-practice, #tab-partbpart, #tab-fulltest')) {
         e.preventDefault();
-        switchMainTab('dashboard', st, null, cleanups);
+        switchMainTab('dashboard', st, runtimeApi, cleanups);
       }
     });
     on($('dash-empty-start'), 'click', (e: Event) => {
       e.preventDefault();
-      switchMainTab('practice', st, null, cleanups);
+      switchMainTab('practice', st, runtimeApi, cleanups);
     });
 
     (async () => {
@@ -497,6 +498,7 @@ export function SpeakingBehavior() {
       if (st.dead) return;
       if (!ok) return;
       const api = (window as any).api;
+      runtimeApi = api;
       // A user may already have entered a mode while the legacy API global was
       // loading. Hydrate that active panel now instead of discarding the click.
       loadMainTabData(st.mainTab, st, api);

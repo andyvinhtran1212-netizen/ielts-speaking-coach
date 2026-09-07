@@ -239,5 +239,11 @@ describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
       'one-shot ref làm StrictMode cleanup xong nhưng không gắn lại listener');
     assert.match(BEHAVIOR_SOURCE, /\}, \[\]\);\s*return null/,
       'effect gắn listener phải sống độc lập qua các transition của auth state');
+    assert.match(BEHAVIOR_SOURCE, /let runtimeApi: any \| null = null/);
+    assert.match(BEHAVIOR_SOURCE,
+      /switchMainTab\(card\.dataset\.mode \|\| 'dashboard', st, runtimeApi, cleanups\)/,
+      'handler gắn sớm phải dùng API đã resolve cho mọi cú bấm về sau');
+    assert.match(BEHAVIOR_SOURCE, /runtimeApi = api;\s*loadMainTabData\(st\.mainTab, st, api\)/,
+      'API readiness phải vừa replay tab mở sớm vừa cấp API cho click tiếp theo');
   });
 });
