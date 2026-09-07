@@ -6,6 +6,7 @@
 // home.css lên `/profile` là đổ ba luật đó lên một trang đang chạy. Nên khác
 // biệt nằm ở DANH SÁCH STYLESHEET, không phải ở một bản chép layout thứ hai.
 import type { ReactNode } from 'react';
+import Script from 'next/script';
 
 import { AuthedShell } from '@/components/authed-shell';
 
@@ -16,7 +17,8 @@ export default function AuthedHomeLayout({ children }: { children: ReactNode }) 
       pageStylesheets={['/css/home.css', '/css/mock-hub.css']}
       extraScripts={
         // `speaking-debt.js` chỉ ĐỊNH NGHĨA `window.SpeakingDebt` — không tự gọi
-        // API nào lúc nạp — nên nạp bằng thẻ script là an toàn. `home-behavior.tsx`
+        // API nào lúc nạp — nên nạp bằng Next Script sau hydration để nó chạy
+        // cả khi route được mở bằng client navigation. `home-behavior.tsx`
         // gọi `retryAll()` sau khi home-summary trả về: practice.js chỉ nạp ở trang
         // luyện tập, nên học viên đóng tab hoàn thành rồi quay lại ĐÂY — đường về
         // bình thường sau kỳ thi — sẽ để lượt thi kẹt ở `speaking_pending` mãi mãi
@@ -26,7 +28,7 @@ export default function AuthedHomeLayout({ children }: { children: ReactNode }) 
         // `DOMContentLoaded` và gọi ngay `/api/mock-exams/my-sittings` → 401 →
         // `api.js:130` đẩy sang `/login` và CẢ TRANG biến mất (cổng parity bắt
         // được ở PR #930). Logic đó đã port vào `home-behavior.tsx`.
-        <script src="/js/speaking-debt.js" defer />
+        <Script src="/js/speaking-debt.js" strategy="afterInteractive" />
       }
     >
       {children}
