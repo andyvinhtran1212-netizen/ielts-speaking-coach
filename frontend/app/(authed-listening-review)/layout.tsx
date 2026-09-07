@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { AuthedShell } from '@/components/authed-shell';
+import { RouteScriptChain } from '@/components/route-script-chain';
 
 export default function ListeningReviewLayout({ children }: { children: ReactNode }) {
   return (
@@ -12,12 +13,10 @@ export default function ListeningReviewLayout({ children }: { children: ReactNod
         '/css/feedback.css',
         '/css/listening-review-next.css',
       ]}
-      extraScripts={
-        <>
-          <script type="module" src="/js/components/audio-player.js" />
-          <script src="/js/feedback-widgets.js" defer />
-        </>
-      }
+      extraScripts={<RouteScriptChain scripts={[
+        { src: '/js/components/audio-player.js', type: 'module' },
+        { src: '/js/feedback-widgets.js' },
+      ]} />}
       utilityLayer={false}
       chrome="none"
       bodyClass="exam-chrome"

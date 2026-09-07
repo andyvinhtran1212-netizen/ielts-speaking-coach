@@ -20,6 +20,8 @@ const RD_JS = read('js', 'reading-review.js');
 const LS_JS = read('js', 'listening-review.js');
 const RD_HTML = read('pages', 'reading-review.html');
 const LS_HTML = read('pages', 'listening-review.html');
+const RD_LAYOUT = read('app', '(reading-review)', 'layout.tsx');
+const LS_LAYOUT = read('app', '(authed-listening-review)', 'layout.tsx');
 
 
 describe('Feedback widgets — public API + POST contract', () => {
@@ -110,6 +112,18 @@ describe('Feedback HTML link tags', () => {
     // widgets script must come BEFORE the review script (defer runs in order → AverFeedback ready)
     assert.ok(RD_HTML.indexOf('feedback-widgets.js') < RD_HTML.indexOf('reading-review.js'));
     assert.ok(LS_HTML.indexOf('feedback-widgets.js') < LS_HTML.indexOf('listening-review.js'));
+  });
+});
+
+
+describe('Feedback App Router dependencies', () => {
+  it('both native review layouts load the shared widget and token stylesheet', () => {
+    for (const layout of [RD_LAYOUT, LS_LAYOUT]) {
+      assert.match(layout, /['"]\/css\/feedback\.css['"]/);
+      assert.match(layout, /src(?::|=)\s*['"]\/js\/feedback-widgets\.js['"]/);
+      assert.match(layout, /RouteScriptChain/,
+        'route widget must execute after App Router client navigation');
+    }
   });
 });
 

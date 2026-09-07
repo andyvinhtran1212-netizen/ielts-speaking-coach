@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { AuthedShell } from '@/components/authed-shell';
+import { RouteScriptChain } from '@/components/route-script-chain';
 
 export default function InstructorGradeLayout({ children }: { children: ReactNode }) {
   return (
@@ -14,12 +15,10 @@ export default function InstructorGradeLayout({ children }: { children: ReactNod
         '/css/writing-highlight.css',
         '/css/instructor-grade-next.css',
       ]}
-      extraScripts={(
-        <>
-          <script src="/js/writing-renderers.js" defer />
-          <script src="/js/writing-highlight.js" defer />
-        </>
-      )}
+      extraScripts={<RouteScriptChain scripts={[
+        { src: '/js/writing-renderers.js' },
+        { src: '/js/writing-highlight.js' },
+      ]} />}
     >
       {children}
     </AuthedShell>

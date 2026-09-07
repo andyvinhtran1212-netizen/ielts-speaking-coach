@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { AuthedShell } from '@/components/authed-shell';
+import { RouteScriptChain } from '@/components/route-script-chain';
 
 export default function AdminWritingGradeLayout({ children }: { children: ReactNode }) {
   return (
@@ -18,13 +19,11 @@ export default function AdminWritingGradeLayout({ children }: { children: ReactN
         '/css/admin-writing-grade.css',
         '/css/image-lightbox.css',
       ]}
-      extraScripts={
-        <>
-          <script src="/js/toast.js" defer />
-          <script src="/js/writing-renderers.js" defer />
-          <script src="/js/image-lightbox.js" defer />
-        </>
-      }
+      extraScripts={<RouteScriptChain scripts={[
+        { src: '/js/toast.js' },
+        { src: '/js/writing-renderers.js' },
+        { src: '/js/image-lightbox.js' },
+      ]} />}
     >
       {children}
     </AuthedShell>

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { AuthedShell } from '@/components/authed-shell';
+import { RouteScriptChain } from '@/components/route-script-chain';
 
 export default function ReadingPlayerLayout({ children }: { children: ReactNode }) {
   return (
@@ -11,14 +12,12 @@ export default function ReadingPlayerLayout({ children }: { children: ReactNode 
         '/css/reading-exam-next.css',
         '/css/exam-result-next.css',
       ]}
-      extraScripts={
-        <>
-          <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" defer />
-          <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.8/dist/purify.min.js" defer />
-          <script src="/js/markdown.js" defer />
-          <script src="/js/mock-exam-hook.js" defer />
-        </>
-      }
+      extraScripts={<RouteScriptChain scripts={[
+        { src: 'https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js' },
+        { src: 'https://cdn.jsdelivr.net/npm/dompurify@3.4.8/dist/purify.min.js' },
+        { src: '/js/markdown.js' },
+        { src: '/js/mock-exam-hook.js' },
+      ]} />}
       utilityLayer={false}
       bodyClass="exam-chrome reading-next-player-page"
     >
