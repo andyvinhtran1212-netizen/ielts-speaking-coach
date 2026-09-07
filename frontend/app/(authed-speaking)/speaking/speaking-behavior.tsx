@@ -504,6 +504,25 @@ export function SpeakingBehavior() {
       e.preventDefault();
       switchMainTab('practice', st, runtimeApi, cleanups);
     });
+    // Part selection is local UI state and must not wait for window.api. A
+    // staging journey exposed the race: the learner selected Part 2 while the
+    // runtime script was still loading, the click was dropped, and the later
+    // session POST silently used Part 1. When API is already ready we refresh
+    // topics immediately; otherwise the shared readiness continuation below
+    // hydrates the currently selected Part once.
+    [1, 2, 3].forEach((p) => {
+      on($('prac-part-' + p), 'click', () => {
+        st.pracPart = p;
+        [1, 2, 3].forEach((q) => $('prac-part-' + q)?.classList.toggle('selected', q === p));
+        applyCueCardCopy('prac-custom-q', p);
+        evaluateCueCardWarning('prac-custom-q', 'prac-custom-q-length-warning', p);
+      });
+      on($('prac-tp-part-' + p), 'click', () => {
+        st.pracTopicPart = p;
+        [1, 2, 3].forEach((q) => $('prac-tp-part-' + q)?.classList.toggle('selected', q === p));
+        if (runtimeApi) void loadTopicsInto('prac-topic-select', p, runtimeApi, st);
+      });
+    });
     // Validation must exist as soon as the panel can be opened. Keeping this
     // handler behind the API readiness wait created a dead interval where an
     // immediate click silently did nothing. A valid early submission waits on
@@ -631,17 +650,6 @@ export function SpeakingBehavior() {
 
       // ── Panel Luyện tập ─────────────────────────────────────────────────
       [1, 2, 3].forEach((p) => {
-        on($('prac-part-' + p), 'click', () => {
-          st.pracPart = p;
-          [1, 2, 3].forEach((q) => $('prac-part-' + q)?.classList.toggle('selected', q === p));
-          applyCueCardCopy('prac-custom-q', p);
-          evaluateCueCardWarning('prac-custom-q', 'prac-custom-q-length-warning', p);
-        });
-        on($('prac-tp-part-' + p), 'click', () => {
-          st.pracTopicPart = p;
-          [1, 2, 3].forEach((q) => $('prac-tp-part-' + q)?.classList.toggle('selected', q === p));
-          loadTopicsInto('prac-topic-select', p, api, st);
-        });
         on($('pbp-card-' + p), 'click', () => selectPbpPart(p, st, api));
       });
 

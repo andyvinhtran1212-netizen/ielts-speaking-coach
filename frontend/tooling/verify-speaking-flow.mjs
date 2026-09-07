@@ -140,7 +140,10 @@ check('bấm sớm khi chưa có chủ đề ⇒ hiện đúng thông báo lỗi
     === 'Vui lòng chọn hoặc nhập chủ đề.');
 check('bấm sớm khi chưa có chủ đề ⇒ KHÔNG gửi POST /sessions', sessionPost === null);
 
-// ── 1c. Hai cú bấm hợp lệ trước API chỉ được tạo MỘT session ──────────────
+// ── 1c. Chọn Part + hai cú bấm hợp lệ trước API chỉ tạo MỘT session ───────
+await page.locator('#prac-tp-part-2').click();
+check('chọn Part 2 trước API vẫn cập nhật state ngay',
+  await page.locator('#prac-tp-part-2').evaluate((el) => el.classList.contains('selected')));
 const earlyTopic = 'Chủ đề bấm sớm';
 await page.locator('#prac-topic-custom').fill(earlyTopic);
 await page.evaluate(() => {
@@ -155,9 +158,9 @@ releaseApiScript();
 await page.waitForTimeout(1500);
 check('bấm đôi trước API chỉ gửi một POST /sessions', sessionPostCount === 1,
   `${sessionPostCount} POST /sessions`);
-check('request bấm sớm giữ đúng topic và Part mặc định',
+check('request bấm sớm giữ đúng topic và Part đã chọn',
   !!sessionPost && sessionPost.mode === 'practice'
-    && sessionPost.part === 1 && sessionPost.topic === earlyTopic,
+    && sessionPost.part === 2 && sessionPost.topic === earlyTopic,
   JSON.stringify(sessionPost));
 const expectedPracticeUrl = new URL(resolveCorePlayerAdmission('speaking', {
   session_id: 'sess-verify-1',
