@@ -22,6 +22,11 @@ const check = (name, ok, detail = '') => {
   console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`);
 };
 
+// Keep the KPI fixture inside the rolling 90-day window. A fixed calendar
+// date turns this browser contract into a time bomb even when the UI is right.
+const targetDateWithin90Days = new Date(Date.now() + (30 * 24 * 60 * 60 * 1000))
+  .toISOString().slice(0, 10);
+
 async function launchChromium() {
   try { return await chromium.launch(); }
   catch (error) {
@@ -33,7 +38,7 @@ async function launchChromium() {
 
 const cohorts = [{ id: 'co-active', name: 'Lớp Nền Tảng', is_active: true }];
 let students = [
-  { id: 'st-a', student_code: 'A001', full_name: 'Andy <img src=x onerror=alert(1)>', user_id: null, cohort_id: null, cohort_name: null, cohorts: [], cohort_lookup_failed: true, membership_lookup_failed: false, target_band: 7.5, current_band_estimate: 6.5, target_date: '2026-09-01', persona_notes: 'Ghi chú <script>alert(1)</script>' },
+  { id: 'st-a', student_code: 'A001', full_name: 'Andy <img src=x onerror=alert(1)>', user_id: null, cohort_id: null, cohort_name: null, cohorts: [], cohort_lookup_failed: true, membership_lookup_failed: false, target_band: 7.5, current_band_estimate: 6.5, target_date: targetDateWithin90Days, persona_notes: 'Ghi chú <script>alert(1)</script>' },
   { id: 'st-b', student_code: 'B001', full_name: 'Bình', user_id: 'user-b', cohort_id: 'co-missing', cohort_name: null, cohorts: [{ id: 'co-missing', name: null, is_primary: true }], cohort_lookup_failed: true, membership_lookup_failed: false, target_band: null, current_band_estimate: null, target_date: null, persona_notes: null },
   { id: 'st-c', student_code: 'C001', full_name: 'Chi', user_id: 'user-c', cohort_id: 'co-active', cohort_name: 'Lớp Nền Tảng', cohorts: [{ id: 'co-active', name: 'Lớp Nền Tảng', is_primary: true }], cohort_lookup_failed: true, membership_lookup_failed: false, target_band: 8, current_band_estimate: 7, target_date: null, persona_notes: null },
 ];
