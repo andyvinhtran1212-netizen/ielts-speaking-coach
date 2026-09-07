@@ -200,6 +200,27 @@ describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
     }
   });
 
+  test('script riêng của route dùng Next Script để chạy sau client navigation', () => {
+    const layout = stripComments(
+      readFileSync(path.join(FRONTEND, 'app/(authed-speaking)/layout.tsx'), 'utf8'));
+    assert.match(layout, /import Script from ['"]next\/script['"]/);
+    for (const src of [
+      'https://cdn.jsdelivr.net/npm/chart.js@4.5.1',
+      '/js/format.js',
+      '/js/cue-card-detector.js',
+      '/js/retention-warning.js',
+    ]) {
+      assert.ok(layout.includes(`src="${src}"`), `thiếu provider ${src}`);
+    }
+    assert.equal(
+      (layout.match(/strategy="afterInteractive"/g) || []).length,
+      4,
+      'mọi route script phải được Next inject và thực thi khi layout mở',
+    );
+    assert.doesNotMatch(layout, /<script\s+src=/,
+      'plain React script nodes are not a client-navigation loader');
+  });
+
   test('mọi listener đều có đường gỡ (StrictMode chạy effect hai lần)', () => {
     // Gắn trực tiếp bằng addEventListener mà không qua helper `on()` là chỗ rò:
     // effect chạy lại sẽ chồng listener, và một cú bấm gửi hai request tạo phiên.
