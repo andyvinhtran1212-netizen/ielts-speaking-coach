@@ -21,6 +21,9 @@ const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 
 const JS = front('js', 'vocabulary.js');
 const CSS = front('css', 'vocab-wiki.css');
+const LAYOUT = front('app', '(public-content)', 'layout.tsx');
+const RUNTIME_BOUNDARY = front('components', 'supabase-runtime-boundary.tsx');
+const BROWSER = front('tooling', 'verify-vocabulary-wiki-flow.mjs');
 
 describe('vocab card — flag / report control', () => {
   test('cardHTML renders the flag control', () => {
@@ -75,5 +78,13 @@ describe('vocab card — flag / report control', () => {
     const idxVocab = html.indexOf('vocabulary.js"');   // the <script src> tag, not a comment mention
     assert.ok(idxInit > -1 && idxVocab > idxInit,
       'initSupabase must appear before the vocabulary.js script tag');
+  });
+
+  test('public layout loads Supabase/api before the client reports and browser proves one write', () => {
+    assert.match(LAYOUT, /@supabase\/supabase-js@/);
+    assert.match(LAYOUT, /<SupabaseRuntimeBoundary/);
+    assert.match(RUNTIME_BOUNDARY, /init\(supabaseUrl, supabaseAnonKey\)/);
+    assert.ok(LAYOUT.indexOf('/js/supabase-sdk-fallback.js') < LAYOUT.indexOf('/js/api.js'));
+    assert.match(BROWSER, /báo lỗi gửi canonical anonymous feedback/);
   });
 });

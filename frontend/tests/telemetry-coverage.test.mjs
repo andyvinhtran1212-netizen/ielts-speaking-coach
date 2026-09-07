@@ -46,9 +46,14 @@ function loadsScript(src, file) {
   // `<div data-src="…">` cũng qua (review #887) — vẫn là đường xanh-giả, chỉ
   // hẹp hơn lần đầu. `[^>]*` chặn không cho vượt qua dấu `>` sang thẻ khác;
   // `(?<![-\\w])src` loại `data-src`/`asset-src`.
-  return new RegExp(
-    `<script\\b[^>]*(?<![-\\w])src\\s*=\\s*["'][^"'>]*${name}["']`,
-  ).test(file);
+  const tag = new RegExp(
+    `<(?:script|Script)\\b[^>]*(?<![-\\w])src\\s*=\\s*["'][^"'>]*${name}["']`,
+  );
+  const orderedSpec = new RegExp(
+    `(?:^|[,{]\\s*)src\\s*:\\s*["'][^"']*${name}["']`,
+    'm',
+  );
+  return tag.test(file) || orderedSpec.test(file);
 }
 
 /**
@@ -98,13 +103,18 @@ function groupLayouts() {
  * page_view + error-reporter + rum-vitals. Hàm này lần theo import để test kiểm
  * đúng thứ trình duyệt nhận, thay vì kiểm một tệp.
  */
-function shellSourceFor(layoutFile) {
-  const src = readFileSync(layoutFile, 'utf8');
-  let out = '';
-  for (const m of src.matchAll(/from\s+'@\/(components\/[\w./-]+)'/g)) {
+function effectiveSourceFor(entryFile, seen = new Set()) {
+  if (seen.has(entryFile)) return '';
+  seen.add(entryFile);
+  const src = readFileSync(entryFile, 'utf8');
+  let out = src;
+  for (const m of src.matchAll(/from\s+["']@\/(components\/[\w./-]+)["']/g)) {
     for (const ext of ['', '.tsx', '.ts']) {
-      const f = path.join(APP, '..', m[1] + ext);
-      if (existsSync(f) && !existsSync(path.join(f, 'index.tsx'))) { out += readFileSync(f, 'utf8'); break; }
+      const file = path.join(APP, '..', m[1] + ext);
+      if (existsSync(file) && !existsSync(path.join(file, 'index.tsx'))) {
+        out += effectiveSourceFor(file, seen);
+        break;
+      }
     }
   }
   return out;
@@ -117,7 +127,7 @@ describe('phủ telemetry (DEBT-2026-07-31-O)', () => {
     // (`components/authed-shell.tsx`) thay vì tự khai. Đọc mỗi tệp layout thì
     // bất biến telemetry vẫn ĐÚNG nhưng test lại báo đỏ — chốt kiểm sai tầng.
     // Nên: nối thêm mã của khung mà layout thật sự dùng.
-    const src = readFileSync(layout, 'utf8') + shellSourceFor(layout);
+    const src = effectiveSourceFor(layout);
 
     test(`${name}: có nguồn page_view (mẫu số của error-rate)`, () => {
       // Hoặc nạp beacon dùng chung, hoặc tự gửi page_view (landing làm vậy vì
@@ -143,12 +153,17 @@ describe('phủ telemetry (DEBT-2026-07-31-O)', () => {
   // Review #887 — CHỈ CÓ MẶT LÀ CHƯA ĐỦ. Script `defer` chạy theo THỨ TỰ TÀI
   // LIỆU, nên reporter đứng sau `api.js` thì lỗi trong api.js xảy ra khi
   // listener chưa gắn: khoảng mù vẫn còn, chỉ hẹp hơn. Bài này pin thứ tự.
-  const tagIndex = (src, file) =>
-    src.search(new RegExp(`<script\\b[^>]*(?<![-\\w])src\\s*=\\s*["'][^"'>]*${file}["']`));
+  const declarationIndex = (src, file) => {
+    const indexes = [
+      src.search(new RegExp(`<(?:script|Script)\\b[^>]*(?<![-\\w])src\\s*=\\s*["'][^"'>]*${file}["']`)),
+      src.search(new RegExp(`(?:^|[,{]\\s*)src\\s*:\\s*["'][^"']*${file}["']`, 'm')),
+    ].filter((index) => index !== -1);
+    return indexes.length ? Math.min(...indexes) : -1;
+  };
 
   const reporterFirst = (src, label) => {
-    const iReporter = tagIndex(src, 'error-reporter\\.js');
-    assert.ok(iReporter !== -1, `${label}: không thấy thẻ error-reporter`);
+    const iReporter = declarationIndex(src, 'error-reporter\\.js');
+    assert.ok(iReporter !== -1, `${label}: không thấy khai báo error-reporter`);
     // Mọi script trong hàng đợi defer — kể cả MODULE (module defer mặc định) —
     // chạy theo thứ tự tài liệu, nên bất cứ cái nào đứng trước reporter đều có
     // thể ném lỗi khi listener chưa gắn (review #887 bắt `aver-chrome.js` đứng
@@ -157,7 +172,7 @@ describe('phủ telemetry (DEBT-2026-07-31-O)', () => {
       ['\\/api\\.js', 'lỗi trong api.js'],
       ['aver-chrome\\.js', 'lỗi lúc đánh giá module chrome'],
     ]) {
-      const i = tagIndex(src, file);
+      const i = declarationIndex(src, file);
       if (i === -1) continue;
       assert.ok(iReporter < i,
         `${label}: error-reporter phải đứng TRƯỚC ${file.replace(/\\/g, '')} — nếu không, ${why}`
@@ -172,7 +187,7 @@ describe('phủ telemetry (DEBT-2026-07-31-O)', () => {
       // `components/authed-shell.tsx` quyết định với các route-group authed, nên
       // đọc mỗi tệp layout là kiểm sai tầng. (Vòng lặp này TÁCH BIỆT với vòng ở
       // trên — `src` ở đó không nhìn thấy được từ đây.)
-      reporterFirst(readFileSync(layout, 'utf8') + shellSourceFor(layout), name);
+      reporterFirst(effectiveSourceFor(layout), name);
     });
   }
 

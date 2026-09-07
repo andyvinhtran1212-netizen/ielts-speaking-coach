@@ -15,6 +15,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...rel) => readFileSync(join(__dirname, '..', ...rel), 'utf8');
 
 const DASH = read('pages', 'writing-dashboard.html');
+const AUTHED_SHELL = read('components', 'authed-shell.tsx');
+const PUBLIC_CONTENT_LAYOUT = read('app', '(public-content)', 'layout.tsx');
+const PAGE_VIEW_BRIDGE = read('components', 'next-page-view-beacon.tsx');
 
 // page → expected analytics-beacon.js src (path style matched per page)
 const BEACON_PAGES = [
@@ -38,6 +41,26 @@ describe('PR-2 — page_view beacon installed on all 6 pages', () => {
       assert.ok(apiIdx !== -1 && apiIdx < beaconIdx, `${rel}: beacon must follow api.js`);
     });
   }
+});
+
+describe('PR-2 — page_view beacon installed on native route families', () => {
+  for (const [label, source] of [
+    ['authed writing shell', AUTHED_SHELL],
+    ['public grammar layout', PUBLIC_CONTENT_LAYOUT],
+  ]) {
+    it(`${label} exposes page-view telemetry only after api.js`, () => {
+      const apiIdx = source.indexOf("src: '/js/api.js'");
+      const beaconIdx = source.indexOf('<NextPageViewBeacon />');
+      assert.ok(apiIdx !== -1 && apiIdx < beaconIdx, `${label}: beacon must follow api.js`);
+    });
+  }
+
+  it('shared bridge loads the beacon and observes App Router pathname changes', () => {
+    assert.match(PAGE_VIEW_BRIDGE, /usePathname\(\)/);
+    assert.match(PAGE_VIEW_BRIDGE, /src="\/js\/analytics-beacon\.js"/);
+    assert.match(PAGE_VIEW_BRIDGE, /trackPageView\?\.\(\)/);
+    assert.match(PAGE_VIEW_BRIDGE, /\[pathname, scriptReady\]/);
+  });
 });
 
 

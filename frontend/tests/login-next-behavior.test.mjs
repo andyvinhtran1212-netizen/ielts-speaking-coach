@@ -8,6 +8,7 @@ const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
 const PAGE = read('app', '(public-auth)', 'login', 'page.tsx');
 const BEHAVIOR = read('app', '(public-auth)', 'login', 'login-behavior.tsx');
 const LAYOUT = read('app', '(public-auth)', 'layout.tsx');
+const RUNTIME_BOUNDARY = read('components', 'supabase-runtime-boundary.tsx');
 const CSS = read('public', 'css', 'login-next.css');
 const LEGACY = read('public', 'login.html');
 const PRACTICE = read('public', 'js', 'practice.js');
@@ -38,7 +39,8 @@ describe('/login native auth entry', () => {
   test('keeps one shared Supabase client and the implicit callback contract', () => {
     assert.match(LAYOUT, /supabase-js@2\.107\.0\/dist\/umd\/supabase\.min\.js/);
     assert.match(LAYOUT, /\/js\/supabase-sdk-fallback\.js/);
-    assert.match(LAYOUT, /initSupabase\(/);
+    assert.match(LAYOUT, /<SupabaseRuntimeBoundary/);
+    assert.match(RUNTIME_BOUNDARY, /init\(supabaseUrl, supabaseAnonKey\)/);
     assert.match(BEHAVIOR, /const fragment = new URLSearchParams\(window\.location\.hash\.replace/);
     assert.match(BEHAVIOR, /'error_description'/);
     assert.match(BEHAVIOR, /query\.has\('code'\)/);

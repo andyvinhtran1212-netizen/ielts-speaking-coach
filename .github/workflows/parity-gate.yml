@@ -724,6 +724,7 @@ on:
       - 'frontend/tooling/parity-diff.mjs'
       # Sửa chính bộ kiểm luồng phải chạy lại nó.
       - 'frontend/tooling/verify-speaking-flow.mjs'
+      - 'frontend/tooling/verify-shared-runtime-client-navigation.mjs'
       - 'frontend/tooling/verify-reading-vocab-flow.mjs'
       - 'frontend/tooling/verify-reading-skill-flow.mjs'
       - 'frontend/tooling/verify-reading-detail-flow.mjs'
@@ -1212,6 +1213,9 @@ jobs:
 
       - name: Kiểm luồng tạo phiên (Speaking)
         run: node tooling/verify-speaking-flow.mjs "http://localhost:$PARITY_PORT"
+
+      - name: Kiểm bootstrap qua App Router client navigation
+        run: node tooling/verify-shared-runtime-client-navigation.mjs "http://localhost:$PARITY_PORT"
 
       # `/reading/vocab` đã chuyển request/filter/state sang React. Cổng parity
       # chỉ chụp một trạng thái tĩnh nên không chứng minh được malformed payload,

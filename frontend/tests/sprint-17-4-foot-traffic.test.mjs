@@ -17,6 +17,11 @@ const front = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 const BEACON = front('js', 'analytics-beacon.js');
 const DASH = front('js', 'admin-foot-traffic.js');
 const CHROME = front('js', 'components', 'aver-admin-chrome.js');
+const PAGE_VIEW_BRIDGE = front('components', 'next-page-view-beacon.tsx');
+const AUTHED_SHELL = front('components', 'authed-shell.tsx');
+const PUBLIC_CONTENT = front('app', '(public-content)', 'layout.tsx');
+const PUBLIC_AUTH = front('app', '(public-auth)', 'layout.tsx');
+const MARKETING = front('app', '(marketing)', 'landing-behavior.tsx');
 
 
 describe('Sprint 17.4 — page-view beacon', () => {
@@ -26,9 +31,17 @@ describe('Sprint 17.4 — page-view beacon', () => {
     assert.match(BEACON, /DOMContentLoaded/);
   });
   test('captures path + referrer + viewport', () => {
-    assert.match(BEACON, /path:\s*location\.pathname/);
+    assert.match(BEACON, /var path = location\.pathname/);
+    assert.match(BEACON, /path:\s*path/);
     assert.match(BEACON, /referrer/);
     assert.match(BEACON, /vw:/);
+  });
+  test('exposes a pathname-deduplicated emitter for App Router navigation', () => {
+    assert.match(BEACON, /window\.aver\.trackPageView = fire/);
+    assert.match(BEACON, /_lastPageViewPath === path/);
+    assert.match(BEACON, /_lastPageViewPath = path/);
+    assert.match(PAGE_VIEW_BRIDGE, /usePathname\(\)/);
+    assert.match(PAGE_VIEW_BRIDGE, /\[pathname, scriptReady\]/);
   });
   test('silent on failure (Pattern #29): guards window.api + swallows errors', () => {
     assert.match(BEACON, /typeof window\.api\.post === 'function'/);
@@ -49,6 +62,21 @@ describe('Sprint 17.4 — beacon installed on core journey pages', () => {
       assert.match(front(...page), /analytics-beacon\.js/);
     });
   }
+});
+
+describe('Sprint 17.4 — beacon installed on native route families', () => {
+  test('authenticated, public-content and public-auth layouts load the shared beacon', () => {
+    for (const source of [AUTHED_SHELL, PUBLIC_CONTENT, PUBLIC_AUTH]) {
+      assert.match(source, /<NextPageViewBeacon \/>/);
+    }
+    assert.match(PAGE_VIEW_BRIDGE, /<Script[\s\S]*?src="\/js\/analytics-beacon\.js"[\s\S]*?strategy="afterInteractive"/);
+  });
+
+  test('lean marketing route records the same page_view contract directly', () => {
+    assert.match(MARKETING, /event_name:\s*'page_view'/);
+    assert.match(MARKETING, /path:\s*location\.pathname/);
+    assert.match(MARKETING, /\/api\/analytics\/events/);
+  });
 });
 
 describe('Sprint 17.4 — admin foot-traffic dashboard', () => {

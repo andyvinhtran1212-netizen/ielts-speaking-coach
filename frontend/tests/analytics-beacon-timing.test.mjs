@@ -47,6 +47,8 @@ function run(readyState) {
   vm.runInContext(SOURCE, ctx);
   return {
     posts,
+    window,
+    location,
     fireDomContentLoaded: () => (listeners.DOMContentLoaded || []).forEach((f) => f()),
   };
 }
@@ -78,5 +80,19 @@ describe('thời điểm bắn page_view (review #887)', () => {
     sb.fireDomContentLoaded();
     sb.fireDomContentLoaded();
     assert.equal(sb.posts.length, 1, 'đếm trùng làm phồng mẫu số của error-rate');
+  });
+
+  test('App Router soft navigation emits each pathname once, including back navigation', () => {
+    const sb = run('complete');
+    assert.equal(typeof sb.window.aver.trackPageView, 'function');
+    sb.window.aver.trackPageView();
+    assert.equal(sb.posts.length, 1, 'same-path hydration/onReady must not duplicate');
+    sb.location.pathname = '/grammar';
+    sb.window.aver.trackPageView();
+    sb.window.aver.trackPageView();
+    assert.equal(sb.posts.length, 2, 'one soft navigation must emit once');
+    sb.location.pathname = '/pages/profile.html';
+    sb.window.aver.trackPageView();
+    assert.equal(sb.posts.length, 3, 'A → B → A is three real page views');
   });
 });

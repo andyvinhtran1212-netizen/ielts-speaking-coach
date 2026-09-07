@@ -1,4 +1,8 @@
 import type { ReactNode } from 'react';
+import Script from 'next/script';
+
+import { NextPageViewBeacon } from '@/components/next-page-view-beacon';
+import { SupabaseRuntimeBoundary } from '@/components/supabase-runtime-boundary';
 
 const ANTI_FLASH = `
 (function () {
@@ -14,16 +18,18 @@ const ANTI_FLASH = `
 })();
 `.trim();
 
-const INIT_SUPABASE = `
-document.addEventListener('DOMContentLoaded', function () {
-  if (typeof initSupabase === 'function') {
-    initSupabase(
-      'https://huwsmtubwulikhlmcirx.supabase.co',
-      'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao'
-    );
-  }
-});
-`.trim();
+const SUPABASE_URL = 'https://huwsmtubwulikhlmcirx.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
+const SUPABASE_RUNTIME_SCRIPTS = [
+  {
+    src: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js',
+    continueOnError: true,
+  },
+  { src: '/js/supabase-sdk-fallback.js' },
+  { src: '/js/runtime-config.js' },
+  { src: '/js/error-reporter.js', continueOnError: true },
+  { src: '/js/api.js' },
+] as const;
 
 export default function PublicAuthLayout({ children }: { children: ReactNode }) {
   return (
@@ -40,17 +46,14 @@ export default function PublicAuthLayout({ children }: { children: ReactNode }) 
       <link rel="stylesheet" href="/css/login-next.css" />
       <link rel="stylesheet" href="/css/tailwind.build.css" />
 
-      <script
-        src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js"
-        defer
-      />
-      <script src="/js/supabase-sdk-fallback.js" defer />
-      <script src="/js/runtime-config.js" defer />
-      <script src="/js/error-reporter.js" defer />
-      <script src="/js/api.js" defer />
-      <script src="/js/analytics-beacon.js" defer />
-      <script src="/js/rum-vitals.js" defer />
-      <script dangerouslySetInnerHTML={{ __html: INIT_SUPABASE }} />
+      <SupabaseRuntimeBoundary
+        scripts={SUPABASE_RUNTIME_SCRIPTS}
+        supabaseUrl={SUPABASE_URL}
+        supabaseAnonKey={SUPABASE_ANON}
+      >
+        <NextPageViewBeacon />
+        <Script src="/js/rum-vitals.js" strategy="afterInteractive" />
+      </SupabaseRuntimeBoundary>
       {children}
     </>
   );

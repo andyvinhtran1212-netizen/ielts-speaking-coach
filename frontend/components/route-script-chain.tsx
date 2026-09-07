@@ -1,11 +1,13 @@
 'use client';
 
 import Script from 'next/script';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export type RouteScriptSpec = Readonly<{
   src: string;
   type?: 'module';
+  /** Keep loading later scripts when this optional dependency is unavailable. */
+  continueOnError?: boolean;
 }>;
 
 function reportLoadFailure(src: string) {
@@ -25,12 +27,19 @@ function reportLoadFailure(src: string) {
 function RouteScriptStep({
   index,
   scripts,
+  onComplete,
 }: {
   index: number;
   scripts: readonly RouteScriptSpec[];
+  onComplete?: () => void;
 }) {
   const [ready, setReady] = useState(false);
   const script = scripts[index];
+
+  useEffect(() => {
+    if (ready && index + 1 === scripts.length) onComplete?.();
+  }, [index, onComplete, ready, scripts.length]);
+
   if (!script) return null;
 
   return (
@@ -40,10 +49,13 @@ function RouteScriptStep({
         type={script.type}
         strategy="afterInteractive"
         onReady={() => setReady(true)}
-        onError={() => reportLoadFailure(script.src)}
+        onError={() => {
+          reportLoadFailure(script.src);
+          if (script.continueOnError) setReady(true);
+        }}
       />
       {ready && index + 1 < scripts.length
-        ? <RouteScriptStep index={index + 1} scripts={scripts} />
+        ? <RouteScriptStep index={index + 1} scripts={scripts} onComplete={onComplete} />
         : null}
     </>
   );
@@ -54,6 +66,14 @@ function RouteScriptStep({
  * App Router client navigation. Props are static, serializable route data;
  * executable callbacks stay inside this client boundary.
  */
-export function RouteScriptChain({ scripts }: { scripts: readonly RouteScriptSpec[] }) {
-  return scripts.length > 0 ? <RouteScriptStep index={0} scripts={scripts} /> : null;
+export function RouteScriptChain({
+  scripts,
+  onComplete,
+}: {
+  scripts: readonly RouteScriptSpec[];
+  onComplete?: () => void;
+}) {
+  return scripts.length > 0
+    ? <RouteScriptStep index={0} scripts={scripts} onComplete={onComplete} />
+    : null;
 }
