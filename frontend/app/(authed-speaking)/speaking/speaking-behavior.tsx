@@ -461,6 +461,21 @@ export function SpeakingBehavior() {
     };
     const cleanups: Array<() => void> = [];
     let runtimeApi: any | null = null;
+    let runtimeApiPromise: Promise<any | null> | null = null;
+    const resolveRuntimeApi = () => {
+      if (runtimeApi) return Promise.resolve(runtimeApi);
+      if (!runtimeApiPromise) {
+        runtimeApiPromise = whenGlobalReady(
+          () => typeof (window as any).api?.get === 'function',
+          'window.api (speaking)',
+        ).then((ok) => {
+          if (!ok || st.dead) return null;
+          runtimeApi = (window as any).api;
+          return runtimeApi;
+        });
+      }
+      return runtimeApiPromise;
+    };
     // `document` không phải `Element` — uỷ quyền sự kiện ở cấp tài liệu là có
     // thật (nút "quay lại dashboard"), nên kiểu phải nhận cả hai.
     const on = (el: Element | Document | null, ev: string, fn: any) => {
@@ -489,16 +504,44 @@ export function SpeakingBehavior() {
       e.preventDefault();
       switchMainTab('practice', st, runtimeApi, cleanups);
     });
+    // Validation must exist as soon as the panel can be opened. Keeping this
+    // handler behind the API readiness wait created a dead interval where an
+    // immediate click silently did nothing. A valid early submission waits on
+    // the shared readiness promise; an invalid one is rejected synchronously.
+    on($('prac-topic-start'), 'click', async (e: any) => {
+      e.preventDefault();
+      const btn = e.currentTarget as HTMLButtonElement;
+      const topic = val('prac-topic-custom').trim() || val('prac-topic-select');
+      const err = $('prac-topic-error');
+      if (err) err.textContent = '';
+      if (!topic) {
+        if (err) err.textContent = 'Vui lòng chọn hoặc nhập chủ đề.';
+        return;
+      }
+      const idleLabel = '🚀 Bắt đầu tạo câu hỏi';
+      // Lock synchronously, before the readiness await. Native button clicks
+      // are then suppressed while the shared promise is pending, so two quick
+      // clicks cannot wake up into two independent session POSTs.
+      btn.disabled = true;
+      btn.textContent = 'Đang chuẩn bị...';
+      const api = await resolveRuntimeApi();
+      if (!api) {
+        if (!st.dead) {
+          if (err) err.textContent = 'Lỗi: Không thể tải kết nối. Hãy thử lại.';
+          btn.disabled = false;
+          btn.textContent = idleLabel;
+        }
+        return;
+      }
+      return startFromTopic({
+        topic, mode: 'practice', part: st.pracTopicPart, errorId: 'prac-topic-error',
+        btn, idleLabel, api,
+      });
+    });
 
     (async () => {
-      const ok = await whenGlobalReady(
-        () => typeof (window as any).api?.get === 'function',
-        'window.api (speaking)',
-      );
-      if (st.dead) return;
-      if (!ok) return;
-      const api = (window as any).api;
-      runtimeApi = api;
+      const api = await resolveRuntimeApi();
+      if (!api || st.dead) return;
       // A user may already have entered a mode while the legacy API global was
       // loading. Hydrate that active panel now instead of discarding the click.
       loadMainTabData(st.mainTab, st, api);
@@ -606,20 +649,6 @@ export function SpeakingBehavior() {
         textareaId: 'prac-custom-q', errorId: 'prac-custom-q-error', btn: e.currentTarget,
         part: st.pracPart, mode: 'practice', idleLabel: '✍️ Bắt đầu luyện tập', api, st,
       }));
-
-      on($('prac-topic-start'), 'click', (e: any) => {
-        const topic = val('prac-topic-custom').trim() || val('prac-topic-select');
-        const err = $('prac-topic-error');
-        if (err) err.textContent = '';
-        if (!topic) {
-          if (err) err.textContent = 'Vui lòng chọn hoặc nhập chủ đề.';
-          return;
-        }
-        return startFromTopic({
-          topic, mode: 'practice', part: st.pracTopicPart, errorId: 'prac-topic-error',
-          btn: e.currentTarget, idleLabel: '🚀 Bắt đầu tạo câu hỏi', api,
-        });
-      });
 
       // ── Từng Part ───────────────────────────────────────────────────────
       on($('pbp-start'), 'click', (e: any) => {

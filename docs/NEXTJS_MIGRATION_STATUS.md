@@ -43,15 +43,21 @@ Playwright-only response-body race in the Speaking launcher assertion, so the
 corrected frozen manifest first moved to v9. Canary v9 `32243889759` then proved
 the product routes rendered the correct `30bedcda…` release but exposed Vercel
 Toolbar injection retrying its feedback script and preventing browser load
-states from settling. The critical contract is now candidate suite v17. Gate F
+states from settling. The critical contract is now candidate suite v18. Gate F
 temporary redirects remain active on public staging/production, while the four
 deterministic Gate E matrices use a Vercel-blocked local-only fixture mode to
 keep proving N/N-1 persistence against the frozen rollback renderers. Trusted
 run `34117825403` correctly failed closed before v17 because it mixed the public
 Gate F redirect contract with direct Legacy rendering, and because one live
 Speaking fixture created an N-1 session without the `claim-v1` marker. No
-earlier candidate can carry forward; the qualifying streak remains **0/20**
-until the first v17 live staging run passes the full suite and all four frozen
-failure matrices. Gate F temporary redirect soak is active; permanent redirects
-and artifact deletion remain blocked on its own health window and Gate E
-completion.
+earlier candidate can carry forward. Trusted v17 run `34128406384` matched the
+frontend/backend staging release and passed all four failure matrices, but its
+live suite exposed two independent races: the no-follow Gate F probe asked
+Vercel to mint a bypass cookie and therefore observed Vercel's self-redirect,
+while Speaking bound empty-topic validation only after the API global became
+ready. Candidate v18 separates direct bypass headers from cookie minting and
+binds validation before readiness while sharing the eventual API promise. The
+qualifying streak remains **0/20** until the first v18 live staging run passes
+the full suite and all four frozen failure matrices. Gate F temporary redirect
+soak is active; permanent redirects and artifact deletion remain blocked on its
+own health window and Gate E completion.

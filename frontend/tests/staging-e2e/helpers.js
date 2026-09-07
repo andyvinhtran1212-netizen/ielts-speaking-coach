@@ -19,9 +19,19 @@ const PRODUCTION_ORIGINS = Object.freeze([
   'huwsmtubwulikhlmcirx.supabase.co',
 ]);
 
-const BYPASS_HEADERS = BYPASS
-  ? { 'x-vercel-protection-bypass': BYPASS, 'x-vercel-set-bypass-cookie': 'true' }
-  : {};
+// Direct API probes need only the bypass secret. Adding
+// `x-vercel-set-bypass-cookie` changes Vercel's response into a platform-owned
+// 307 back to the same URL; that masks the application's own redirect whenever
+// a test deliberately sets `maxRedirects: 0`.
+function buildBypassHeaders(secret, { setCookie = false } = {}) {
+  if (!secret) return {};
+  return {
+    'x-vercel-protection-bypass': secret,
+    ...(setCookie ? { 'x-vercel-set-bypass-cookie': 'true' } : {}),
+  };
+}
+const BYPASS_HEADERS = buildBypassHeaders(BYPASS);
+const BYPASS_COOKIE_HEADERS = buildBypassHeaders(BYPASS, { setCookie: true });
 const TOOLBAR_HEADER = Object.freeze({ 'x-vercel-skip-toolbar': '1' });
 const TOOLBAR_TAG = 'vercel-live-feedback';
 const TOOLBAR_SCRIPT_PATTERN = 'https://vercel.live/_next-live/**';
@@ -77,12 +87,13 @@ async function installToolbarSkip(context, baseURL) {
 async function primeBypassCookie(context, baseURL) {
   await installToolbarSkip(context, baseURL);
   if (!BYPASS) return;
-  const res = await context.request.get(baseURL + '/', { headers: BYPASS_HEADERS });
+  const res = await context.request.get(baseURL + '/', { headers: BYPASS_COOKIE_HEADERS });
   if (!res.ok()) throw new Error(`bypass priming failed: HTTP ${res.status()}`);
 }
 
 module.exports = {
   BYPASS_HEADERS,
+  buildBypassHeaders,
   PRODUCTION_ORIGINS,
   TOOLBAR_HEADER,
   TOOLBAR_SCRIPT_PATTERN,

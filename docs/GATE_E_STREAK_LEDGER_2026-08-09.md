@@ -26,7 +26,7 @@ vậy lịch sử nhiều workflow xanh không đủ chứng minh “20 consecut
   backend test khóa `/health` public không có `release`/`git_branch`, còn
   frontend contract test khóa capture chỉ gọi `/health/runtime` bằng admin token.
 
-## Frozen critical suite v17
+## Frozen critical suite v18
 
 Canonical manifest: `frontend/tooling/gate-e-critical-suite.json`.
 
@@ -38,12 +38,18 @@ Canonical manifest: `frontend/tooling/gate-e-critical-suite.json`.
 | `matrix-webkit-26.4-iphone13` | 2 | cùng journey trên synthetic WebKit mobile |
 | **Tổng** | **34** | mọi test thực thi phải pass; chỉ modal core đã whitelist được phép skip |
 
-Manifest v17 giữ nguyên denominator 34 test live-staging và thêm contract chạy
+Manifest v18 giữ nguyên denominator 34 test live-staging và contract chạy
 song song Gate F: public staging/production vẫn redirect mọi URL HTML, còn bốn
 matrix deterministic chỉ mở rollback renderer trong production server cục bộ
 khi có marker `GATE_E_LEGACY_FIXTURES=local-build-only`; Vercel build luôn bỏ
 qua marker này. Suite cũng cập nhật navigation seam live theo redirect 307 và
 đòi fixture Speaking tạo cho Next phải gửi `renderer_affinity_protocol=claim-v1`.
+So với v17, shared staging helper tách header bypass trực tiếp khỏi header mint
+cookie: probe `maxRedirects: 0` nay quan sát redirect của ứng dụng, không nhầm
+307 tự quay lại URL của Vercel Protection. Runtime Speaking đồng thời bind
+validation chủ đề rỗng trước API readiness và dùng chung promise cho thao tác
+hợp lệ bấm sớm. Run v17 `34128406384` vì vậy là reset evidence, không được mang
+sang streak v18 dù provenance và bốn failure matrix đều pass.
 
 Manifest pin SHA-256 của package manifest/lockfile, Playwright config, matrix
 manifest, shared helper và cả 9 spec. Thay dependency, command, test/helper/config

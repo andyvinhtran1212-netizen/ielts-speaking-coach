@@ -66,16 +66,29 @@ await ctx.addInitScript(([k, v]) => {
 
 const page = await ctx.newPage();
 let sessionPost = null;
+let sessionPostCount = 0;
 let topicGets = 0;
+let apiScriptReleased = false;
+let releaseApiScript;
+const apiScriptGate = new Promise((resolve) => {
+  releaseApiScript = () => {
+    apiScriptReleased = true;
+    resolve();
+  };
+});
 
 // Chặn MỌI request ra ngoài origin cục bộ: backend là giả, và ta muốn thấy
 // chính xác cái gì được gửi đi.
 await page.route('**/*', async (route) => {
   const req = route.request();
   const url = req.url();
+  if (url.startsWith(BASE) && new URL(url).pathname === '/js/api.js' && !apiScriptReleased) {
+    await apiScriptGate;
+  }
   if (url.startsWith(BASE) || url.startsWith('data:')) return route.continue();
 
   if (req.method() === 'POST' && /\/sessions$/.test(url)) {
+    sessionPostCount += 1;
     sessionPost = JSON.parse(req.postData() || '{}');
     return route.fulfill({
       status: 200, contentType: 'application/json',
@@ -119,6 +132,49 @@ await page.waitForTimeout(300);
 check('thẻ mode mở đúng panel Luyện tập',
   await page.locator('#tab-practice').evaluate((el) => el.classList.contains('active')));
 
+// ── 1b. Validation phải có ngay, không chờ API/auth ────────────────────────
+await page.locator('#prac-topic-start').click();
+await page.waitForTimeout(100);
+check('bấm sớm khi chưa có chủ đề ⇒ hiện đúng thông báo lỗi',
+  (await page.locator('#prac-topic-error').textContent())?.trim()
+    === 'Vui lòng chọn hoặc nhập chủ đề.');
+check('bấm sớm khi chưa có chủ đề ⇒ KHÔNG gửi POST /sessions', sessionPost === null);
+
+// ── 1c. Hai cú bấm hợp lệ trước API chỉ được tạo MỘT session ──────────────
+const earlyTopic = 'Chủ đề bấm sớm';
+await page.locator('#prac-topic-custom').fill(earlyTopic);
+await page.evaluate(() => {
+  const btn = document.querySelector('#prac-topic-start');
+  btn.click();
+  btn.click();
+});
+await page.waitForTimeout(100);
+check('nút start bị khoá trong lúc chờ API',
+  await page.locator('#prac-topic-start').isDisabled());
+releaseApiScript();
+await page.waitForTimeout(1500);
+check('bấm đôi trước API chỉ gửi một POST /sessions', sessionPostCount === 1,
+  `${sessionPostCount} POST /sessions`);
+check('request bấm sớm giữ đúng topic và Part mặc định',
+  !!sessionPost && sessionPost.mode === 'practice'
+    && sessionPost.part === 1 && sessionPost.topic === earlyTopic,
+  JSON.stringify(sessionPost));
+const expectedPracticeUrl = new URL(resolveCorePlayerAdmission('speaking', {
+  session_id: 'sess-verify-1',
+}), BASE).href;
+check('bấm sớm hợp lệ vẫn điều hướng sau khi API sẵn sàng',
+  page.url() === expectedPracticeUrl, page.url());
+
+// Trở lại dashboard với API đã sẵn sàng để kiểm đường thao tác thông thường.
+sessionPost = null;
+sessionPostCount = 0;
+await page.goto(BASE + ROUTE, { waitUntil: 'domcontentloaded' });
+await page.waitForTimeout(400);
+await page.locator('.mode-card[data-mode="practice"]').first().click();
+await page.waitForTimeout(300);
+check('API sẵn sàng: thẻ mode vẫn mở panel Luyện tập',
+  await page.locator('#tab-practice').evaluate((el) => el.classList.contains('active')));
+
 // ── 2. Chọn Part 2 ──────────────────────────────────────────────────────────
 await page.locator('#prac-tp-part-2').click();
 await page.waitForTimeout(600);
@@ -144,14 +200,6 @@ check('mở lại Luyện tập sau API thì nạp mới danh sách chủ đề'
 check('select vẫn khả dụng sau khi mở lại mode',
   await page.locator('#prac-topic-select').isEnabled());
 
-// ── 3. Bấm khi CHƯA có chủ đề ⇒ báo lỗi, KHÔNG gửi ──────────────────────────
-await page.locator('#prac-topic-start').click();
-await page.waitForTimeout(800);
-check('chưa có chủ đề ⇒ hiện đúng thông báo lỗi',
-  (await page.locator('#prac-topic-error').textContent())?.trim()
-    === 'Vui lòng chọn hoặc nhập chủ đề.');
-check('chưa có chủ đề ⇒ KHÔNG gửi POST /sessions', sessionPost === null);
-
 // ── 4. Nhập chủ đề rồi bấm ⇒ gửi ĐÚNG và điều hướng ─────────────────────────
 const topic = 'Chủ đề kiểm luồng';
 await page.locator('#prac-topic-custom').fill(topic);
@@ -163,9 +211,6 @@ check('thân request mang đúng state của trang',
   !!sessionPost && sessionPost.mode === 'practice'
     && sessionPost.part === 2 && sessionPost.topic === topic,
   JSON.stringify(sessionPost));
-const expectedPracticeUrl = new URL(resolveCorePlayerAdmission('speaking', {
-  session_id: 'sess-verify-1',
-}), BASE).href;
 check('điều hướng sang trang luyện tập kèm session_id',
   page.url() === expectedPracticeUrl, page.url());
 

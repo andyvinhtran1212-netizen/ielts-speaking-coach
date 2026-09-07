@@ -70,6 +70,11 @@ check('deep-link live fail-closed khi đề mặc định còn draft', await pag
 await page.getByRole('button', { name: /MOCK-LIVE/ }).click();
 await page.locator('iframe').waitFor();
 check('live frame giữ đúng selected exam identity và dùng route native', (await page.locator('iframe').getAttribute('src')) === '/admin/mock-live?exam_id=live-1&embed=1');
+await page.waitForFunction(() => {
+  const frame = document.querySelector('iframe');
+  return frame?.contentWindow?.location.pathname === '/admin/mock-live'
+    && frame.contentDocument?.readyState === 'complete';
+});
 await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
 await page.waitForFunction(() => document.querySelector('iframe')?.contentDocument?.documentElement?.getAttribute('data-theme') === 'dark');
 check('theme parent được đồng bộ sang workspace native', await page.locator('iframe').evaluate((node) => node.contentDocument?.documentElement?.getAttribute('data-theme') === 'dark'));

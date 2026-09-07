@@ -8,6 +8,7 @@ const {
   TOOLBAR_HEADER,
   TOOLBAR_SCRIPT_PATTERN,
   TOOLBAR_TAG,
+  buildBypassHeaders,
   installToolbarSkip,
   primeBypassCookie,
 } = require('./staging-e2e/helpers.js');
@@ -33,6 +34,17 @@ function fakeContext() {
 }
 
 describe('Vercel Toolbar automation isolation', () => {
+  test('keeps cookie-minting redirects out of direct no-follow probes', () => {
+    assert.deepEqual(buildBypassHeaders('fixture-secret'), {
+      'x-vercel-protection-bypass': 'fixture-secret',
+    });
+    assert.deepEqual(buildBypassHeaders('fixture-secret', { setCookie: true }), {
+      'x-vercel-protection-bypass': 'fixture-secret',
+      'x-vercel-set-bypass-cookie': 'true',
+    });
+    assert.deepEqual(buildBypassHeaders(''), {});
+  });
+
   test('keeps the skip header origin-scoped and neutralizes only the injected toolbar script', async () => {
     const context = fakeContext();
     await installToolbarSkip(context, 'https://staging.averlearning.com/path?ignored=1');
