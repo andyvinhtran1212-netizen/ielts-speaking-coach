@@ -66,6 +66,7 @@ await ctx.addInitScript(([k, v]) => {
 
 const page = await ctx.newPage();
 let sessionPost = null;
+let topicGets = 0;
 
 // Chặn MỌI request ra ngoài origin cục bộ: backend là giả, và ta muốn thấy
 // chính xác cái gì được gửi đi.
@@ -81,6 +82,7 @@ await page.route('**/*', async (route) => {
       body: JSON.stringify({ id: 'sess-verify-1' }),
     });
   }
+  if (req.method() === 'GET' && /\/topics\?part=/.test(url)) topicGets += 1;
   for (const [re, body] of CANNED) {
     if (re.test(url)) {
       // `/auth/me` cố ý CHẬM: nó là thứ mà bản đầu `await` trước khi gắn
@@ -123,6 +125,23 @@ await page.waitForTimeout(600);
 check('nút Part 2 được đánh dấu đã chọn',
   await page.locator('#prac-tp-part-2').evaluate((el) => el.classList.contains('selected')));
 check('danh sách chủ đề nạp xong (select được bật)',
+  await page.locator('#prac-topic-select').isEnabled());
+
+// ── 2b. Mở lại panel SAU KHI API đã sẵn sàng ──────────────────────────────
+// Listener phải gắn ngay để không làm rơi cú bấm đầu, nhưng không được giữ
+// vĩnh viễn giá trị API `null` tại thời điểm bind. Inline review của PR #1345
+// bắt đúng hồi quy đó: mở lại mode sau khi runtime sẵn sàng sẽ không nạp data.
+await page.waitForTimeout(2600); // `/auth/me` giả đã hoàn tất; runtime chắc chắn ready
+await page.locator('#tab-practice [data-action="back-to-dashboard"]').click();
+check('quay lại dashboard sau cú bấm sớm',
+  await page.locator('#tab-dashboard').evaluate((el) => el.classList.contains('active')));
+const topicGetsBeforeReopen = topicGets;
+await page.locator('.mode-card[data-mode="practice"]').first().click();
+await page.waitForTimeout(300);
+check('mở lại Luyện tập sau API thì nạp mới danh sách chủ đề',
+  topicGets > topicGetsBeforeReopen,
+  `${topicGetsBeforeReopen} → ${topicGets} GET /topics`);
+check('select vẫn khả dụng sau khi mở lại mode',
   await page.locator('#prac-topic-select').isEnabled());
 
 // ── 3. Bấm khi CHƯA có chủ đề ⇒ báo lỗi, KHÔNG gửi ──────────────────────────

@@ -17,7 +17,7 @@ module.exports = defineConfig({
   webServer: {
     command: 'npm run build && npm run start',
     url: 'http://localhost:3212/reading/exam/session?test_id=RD-GATE-E-1',
-    env: { PORT: '3212' },
+    env: { PORT: '3212', GATE_E_LEGACY_FIXTURES: 'local-build-only' },
     reuseExistingServer: false,
     timeout: 180_000,
   },

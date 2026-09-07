@@ -1,8 +1,9 @@
-// Gate B coexistence evidence (plan v3 §16 Gate B + §8.3):
+// Gate B/Gate F routing evidence (plan v3 §16 Gate B + §8.3):
 //   1. deployed OWNERSHIP PROBE — mỗi route thuộc ĐÚNG một stack. Cập nhật
 //      2026-07-31: grammar đã cutover sang Next (pilot 2, 28/07) nên probe
-//      kiểm chiều ngược lại + một trang chưa cutover vẫn phải là legacy;
-//   2. NAVIGATION SEAM Next → legacy → Next — full-document navigations that
+//      kiểm chiều ngược lại + Gate F phải chặn public Legacy artifacts;
+//   2. NAVIGATION SEAM Next → legacy alias → canonical Next — full-document
+//      redirects that
 //      preserve query/hash/theme, with zero console errors and zero
 //      production-origin requests across the whole journey.
 // @ts-check
@@ -29,13 +30,16 @@ test('ownership probe: canonical grammar URL nay là route NEXT (lật tại pil
   expect(html).not.toContain('/js/grammar.js'); // legacy renderer đã rời route này
 });
 
-// Coexistence vẫn phải đúng cho phần CHƯA cutover — nếu không thì "Next chiếm
-// hết" cũng làm bài trên xanh mà chẳng chứng minh gì.
-test('ownership probe: trang chưa cutover vẫn do LEGACY phục vụ', async ({ request }) => {
-  const res = await request.get('/grammar.html', { headers: BYPASS_HEADERS });
-  expect(res.ok()).toBeTruthy();
-  const html = await res.text();
-  expect(html).not.toContain('__next_f');
+// Gate F hiện chặn artifact trước public-file serving. Không follow redirect
+// ở probe này để chứng minh chính hop 307 tồn tại (response 200 cuối không đủ
+// phân biệt redirect với việc vô tình phục vụ lại HTML rollback).
+test('ownership probe: Gate F chuyển legacy grammar alias sang canonical Next', async ({ request }) => {
+  const res = await request.get('/grammar.html', {
+    headers: BYPASS_HEADERS,
+    maxRedirects: 0,
+  });
+  expect(res.status()).toBe(307);
+  expect(res.headers().location).toBe('/grammar');
 });
 
 test('ownership probe: /next-probe is Next-rendered (the only Next-owned route)', async ({ request }) => {
@@ -46,7 +50,7 @@ test('ownership probe: /next-probe is Next-rendered (the only Next-owned route)'
   expect(html).toContain('__next_f'); // app-router flight payload marker
 });
 
-test('navigation seam: Next → legacy → Next keeps query/hash/theme; zero errors + zero prod egress', async ({ page }) => {
+test('navigation seam: Next → redirected legacy alias → Next keeps query/hash/theme; zero errors + zero prod egress', async ({ page }) => {
   /** @type {string[]} */ const consoleErrors = [];
   /** @type {string[]} */ const prodRequests = [];
   page.on('console', (m) => {
@@ -56,21 +60,20 @@ test('navigation seam: Next → legacy → Next keeps query/hash/theme; zero err
     if (PRODUCTION_ORIGINS.some((o) => req.url().includes(o))) prodRequests.push(req.url());
   });
 
-  // 1) Start on the Next route; set the theme the legacy page must honor.
+  // 1) Start on the Next route; set the theme the canonical destination must honor.
   await page.goto('/next-probe');
   await expect(page.locator('h1')).toHaveText('next-probe');
   await page.evaluate(() => localStorage.setItem('av-theme', 'dark'));
 
-  // 2) Full-document navigation to a PUBLIC legacy page WITH query + hash
-  //    (§8.3: legacy destinations use location.assign — never client
-  //    routing). grammar.html is public — authenticated pages would bounce
-  //    an anonymous browser to login and break the seam measurement.
+  // 2) Full-document navigation to a retired public alias WITH query + hash.
+  //    Gate F must preserve URL identity while redirecting to the App Router.
   await page.evaluate(() => {
     window.location.assign('/grammar.html?from=probe&x=1#main');
   });
-  await page.waitForURL('**/grammar.html?from=probe&x=1#main');
+  await page.waitForURL('**/grammar?from=probe&x=1#main');
   await page.waitForLoadState('load');
-  // Legacy chrome rendered + anti-flash IIFE honored the theme.
+  await expect(page.locator('body')).toContainText('IELTS Grammar Reference');
+  // Canonical chrome rendered + the pre-paint theme bootstrap honored storage.
   await expect(page.locator('aver-chrome')).toBeAttached();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 

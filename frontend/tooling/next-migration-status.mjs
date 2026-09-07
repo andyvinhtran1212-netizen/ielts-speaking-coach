@@ -30,9 +30,10 @@ export const CLIENT_REDIRECT_STUB_MARKER = 'name="aver-legacy-artifact" content=
 
 export function retirementRedirectsInstalledFromConfig(source) {
   const config = String(source || '');
+  const redirectSpread = String.raw`\.\.\.(?:LEGACY_RETIREMENT_REDIRECTS|\(GATE_E_LOCAL_LEGACY_FIXTURES\s*\?\s*\[\]\s*:\s*LEGACY_RETIREMENT_REDIRECTS\))`;
   return /from '\.\/tooling\/gate-f-retirement-redirects\.mjs'/.test(config)
     && /const LEGACY_RETIREMENT_REDIRECTS\s*=\s*buildLegacyRetirementRedirects\(/.test(config)
-    && /return \[[\s\S]*\.\.\.LEGACY_RETIREMENT_REDIRECTS/.test(config);
+    && new RegExp(String.raw`return \[[\s\S]*${redirectSpread}`).test(config);
 }
 
 export function retirementRedirectsPermanentFromConfig(source) {

@@ -24,6 +24,14 @@ import {
 // missing Next route after rollback. The final reviewed retirement release
 // flips this to true only after Gate E and redirect-soak evidence close.
 const LEGACY_RETIREMENT_REDIRECTS_PERMANENT = false;
+// Gate E still proves N/N-1 persistence and recovery while Gate F blocks every
+// public Legacy URL. Its deterministic Playwright servers may expose the
+// frozen rollback artifacts locally, but a Vercel build must never accept that
+// escape hatch. Live staging/production therefore always keep the redirects.
+const GATE_E_LOCAL_LEGACY_FIXTURES = (
+  process.env.GATE_E_LEGACY_FIXTURES === 'local-build-only'
+  && process.env.VERCEL !== '1'
+);
 const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
   discoverLegacyHtmlPaths(path.join(__dirname, 'public')),
   { permanent: LEGACY_RETIREMENT_REDIRECTS_PERMANENT },
@@ -103,7 +111,7 @@ const nextConfig: NextConfig = {
       // frozen HTML artifact can render while this release is active. Keep the
       // generated manifest as the single owner of those sources; duplicate
       // literal rules could compile into contradictory route behavior.
-      ...LEGACY_RETIREMENT_REDIRECTS,
+      ...(GATE_E_LOCAL_LEGACY_FIXTURES ? [] : LEGACY_RETIREMENT_REDIRECTS),
       { source: '/pages/dashboard.html', destination: '/pages/speaking.html', permanent: true },
       { source: '/pages/my-vocabulary.html', destination: '/pages/vocabulary.html', permanent: true },
       { source: '/pages/admin-writing.html', destination: '/pages/admin/writing/index.html', permanent: true },

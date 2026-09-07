@@ -69,12 +69,11 @@ jobs:
         id: gate_f
         if: always()
         run: |
-          if grep -q "from './tooling/gate-f-retirement-redirects.mjs'" next.config.ts \
-            && grep -q '\.\.\.LEGACY_RETIREMENT_REDIRECTS' next.config.ts; then
-            echo 'redirect_installed=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'redirect_installed=false' >> "$GITHUB_OUTPUT"
-          fi
+          node --input-type=module -e "
+            import { collectNextMigrationStatus } from './tooling/next-migration-status.mjs';
+            const gate = collectNextMigrationStatus().legacyRetirementRedirects;
+            console.log('redirect_installed=' + String(gate.installed));
+          " >> "$GITHUB_OUTPUT"
 
       - name: Run Speaking Gate E native fixtures
         id: speaking_gate_e

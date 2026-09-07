@@ -50,7 +50,11 @@ module.exports = defineConfig({
     // fonts), turning them into preflights with an unallowed custom header
     // and CORS-failing them. Specs prime a bypass COOKIE instead (helpers.js).
     screenshot: 'only-on-failure',
-    trace: 'retain-on-failure',
+    // The live suite authenticates synthetic users with a password-grant API
+    // request. Playwright traces serialize request bodies, so uploading a
+    // retained failure trace would also upload that repository secret. Keep
+    // screenshots + structured reporters, but never capture live-auth traces.
+    trace: 'off',
   },
   projects: [
     {
