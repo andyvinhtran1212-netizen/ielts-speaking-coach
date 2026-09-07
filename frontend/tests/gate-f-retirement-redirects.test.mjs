@@ -80,7 +80,9 @@ test('G1 changes phase explicitly: runtime redirects replace unreachable Legacy 
     'utf8',
   );
   assert.match(workflow, /id: gate_f/);
-  assert.match(workflow, /LEGACY_RETIREMENT_REDIRECTS_PERMANENT = true/);
+  assert.match(workflow, /collectNextMigrationStatus\(\)\.legacyRetirementRedirects/);
+  assert.match(workflow, /redirect_installed=' \+ String\(gate\.installed\)/);
+  assert.match(workflow, /permanent=' \+ String\(gate\.permanent\)/);
   assert.match(workflow, /name: Kiểm Gate F redirect manifest ở runtime/);
   const phaseGuard = String.raw`\n\s+if: steps\.gate_f\.outputs\.redirect_installed != 'true'`;
   assert.match(workflow, new RegExp(`name: Kiểm vế legacy phục vụ được VÀ gọi được backend${phaseGuard}`));

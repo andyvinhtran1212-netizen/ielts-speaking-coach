@@ -972,17 +972,12 @@ jobs:
       - name: Phát hiện phase Gate F redirect
         id: gate_f
         run: |
-          if grep -q "from './tooling/gate-f-retirement-redirects.mjs'" next.config.ts \
-            && grep -q '\.\.\.LEGACY_RETIREMENT_REDIRECTS' next.config.ts; then
-            echo 'redirect_installed=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'redirect_installed=false' >> "$GITHUB_OUTPUT"
-          fi
-          if grep -q 'LEGACY_RETIREMENT_REDIRECTS_PERMANENT = true' next.config.ts; then
-            echo 'permanent=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'permanent=false' >> "$GITHUB_OUTPUT"
-          fi
+          node --input-type=module -e "
+            import { collectNextMigrationStatus } from './tooling/next-migration-status.mjs';
+            const gate = collectNextMigrationStatus().legacyRetirementRedirects;
+            console.log('redirect_installed=' + String(gate.installed));
+            console.log('permanent=' + String(gate.permanent));
+          " >> "$GITHUB_OUTPUT"
 
       - name: Kiểm Gate F redirect manifest ở runtime
         if: steps.gate_f.outputs.redirect_installed == 'true'
