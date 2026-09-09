@@ -26,6 +26,7 @@ import { useEffect } from 'react';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { isSpeakingApiReady } from '@/lib/speaking-api-readiness.mjs';
 import {
   CUE_CARD_HINT_DEFAULT_HTML, CUE_CARD_HINT_PART2_HTML,
   CUE_CARD_PLACEHOLDER_DEFAULT, CUE_CARD_PLACEHOLDER_PART2,
@@ -466,10 +467,16 @@ export function SpeakingBehavior() {
       if (runtimeApi) return Promise.resolve(runtimeApi);
       if (!runtimeApiPromise) {
         runtimeApiPromise = whenGlobalReady(
-          () => typeof (window as any).api?.get === 'function',
-          'window.api (speaking)',
+          () => isSpeakingApiReady(window),
+          'window.api + Supabase client (speaking)',
         ).then((ok) => {
-          if (!ok || st.dead) return null;
+          if (st.dead) return null;
+          if (!ok) {
+            // A later user action may retry after the runtime recovers;
+            // concurrent callers still share this single readiness attempt.
+            runtimeApiPromise = null;
+            return null;
+          }
           runtimeApi = (window as any).api;
           return runtimeApi;
         });
