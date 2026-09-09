@@ -3,7 +3,7 @@ const { chromium, request, expect } = require('@playwright/test');
 const { primeBypassCookie, identityEmail, STAGING_API, STAGING_SUPABASE, STAGING_ANON } = require('../tests/staging-e2e/helpers');
 const { PRODUCTION } = require('./staging-profile-diagnostic.cjs');
 const BASE = 'https://staging.averlearning.com';
-const SHA = 'f82e25a9a00d46300b566f8075e3799375e9956c';
+const SHA = '17159ba0eaa8a2e889f981ba49abfe43101d0601';
 const STORAGE_KEY = `sb-${new URL(STAGING_SUPABASE).hostname.split('.')[0]}-auth-token`;
 
 function safePath(raw) {
