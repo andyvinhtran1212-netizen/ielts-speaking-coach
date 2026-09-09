@@ -174,7 +174,7 @@ body {
   line-height: 1.5;
 }
 .lx-access-icon { flex: 0 0 auto; margin-top: 1px; color: var(--av-primary); }
-.lx-fine-print { margin: 1.5rem 0 0; color: var(--av-text-faint); font-size: .75rem; line-height: 1.65; text-align: center; }
+.lx-fine-print { margin: 1.5rem 0 0; color: var(--av-text-secondary); font-size: .75rem; line-height: 1.65; text-align: center; }
 
 .lx-dialog-backdrop {
   position: fixed;

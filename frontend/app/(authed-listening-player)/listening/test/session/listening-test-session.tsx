@@ -23,7 +23,7 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 type ListeningPhase = 'loading' | 'error' | 'prestart' | 'inprogress' | 'submitting' | 'results' | 'sealed';
 type AnswerMap = Map<number, string>;
-type SaveMap = Map<number, 'retrying' | 'failed'>;
+type SaveMap = Map<number, 'pending' | 'retrying' | 'failed'>;
 type Attempt = { attempt_id: string; started_at: string; answers?: any[]; renderer_affinity?: 'legacy' | 'next' | null };
 type ListeningTest = any;
 
@@ -453,11 +453,11 @@ export function ListeningTestSession() {
     void bootWithRecovery();
   }, [bootWithRecovery, params, status, user?.id]);
 
-  const saveAnswer = useCallback(async (qNum: number, value: string, options: { keepalive?: boolean }) => {
+  const saveAnswer = useCallback(async (qNum: number, value: string, options: { keepalive?: boolean; signal?: AbortSignal }) => {
     if (!attempt) return null;
     return window.api.patchWith(
       `/api/listening/tests/attempts/${encodeURIComponent(attempt.attempt_id)}/answers`,
-      { q_num: qNum, user_answer: value }, undefined, { keepalive: !!options.keepalive },
+      { q_num: qNum, user_answer: value }, undefined, { keepalive: !!options.keepalive, signal: options.signal, noRedirect: true },
     );
   }, [attempt]);
 
@@ -666,7 +666,8 @@ export function ListeningTestSession() {
   const total = allQuestions.length;
   const sections = testData?.sections || [];
   const unsavedFailed = [...saveStates.values()].filter((state) => state === 'failed').length;
-  const unsavedRetrying = saveStates.size - unsavedFailed;
+  const unsavedRetrying = [...saveStates.values()].filter((state) => state === 'retrying').length;
+  const unsavedPending = [...saveStates.values()].filter((state) => state === 'pending').length;
   const backHref = listeningLibraryHref(params?.from, params?.sittingId);
 
   const jumpToQuestion = useCallback((qNum: number) => {
@@ -798,7 +799,7 @@ export function ListeningTestSession() {
               })}</div>
             </div>;
           })}</div>
-          {saveStates.size ? <p className="ft-unsaved-note" role="status">{unsavedRetrying ? `Đang thử lưu lại ${unsavedRetrying} câu. ` : ''}{unsavedFailed ? `${unsavedFailed} câu chưa lưu được lên máy chủ.` : 'Đừng đóng tab tới khi cảnh báo biến mất.'}{unsavedFailed ? <button className="ft-unsaved-retry" type="button" onClick={() => coordinatorRef.current?.retryFailed?.()}>Thử lại</button> : null}</p> : null}
+          {saveStates.size ? <p className="ft-unsaved-note" role="status">{unsavedPending ? `Đang lưu ${unsavedPending} câu. ` : ''}{unsavedRetrying ? `Đang thử lưu lại ${unsavedRetrying} câu. ` : ''}{unsavedFailed ? `${unsavedFailed} câu chưa lưu được lên máy chủ.` : 'Đừng đóng tab tới khi lưu xong.'}{unsavedFailed ? <button className="ft-unsaved-retry" type="button" onClick={() => coordinatorRef.current?.retryFailed?.()}>Thử lại</button> : null}</p> : null}
           {submitBlocked ? <p className="ft-nothing-saved" role="alert">{submitBlocked}</p> : null}
           <div className="listening-next-submit-row"><button className="listening-next-nav-btn" type="button" disabled={currentQuestion === Number(allQuestions[0]?.question?.q_num)} onClick={() => moveQuestion(-1)}>‹ Previous</button><label className="listening-next-review"><input type="checkbox" checked={currentQuestion != null && reviewQuestions.has(currentQuestion)} disabled={currentQuestion == null} onChange={() => { if (currentQuestion == null) return; setReviewQuestions((previous) => { const next = new Set(previous); if (next.has(currentQuestion)) next.delete(currentQuestion); else next.add(currentQuestion); return next; }); }} /> Review</label><button className="listening-next-nav-btn" type="button" disabled={currentQuestion === Number(allQuestions.at(-1)?.question?.q_num)} onClick={() => moveQuestion(1)}>Next ›</button>{!params?.mockEmbed ? <button className="btn-submit-final" id="btn-submit" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(true)}>{phase === 'submitting' ? 'Đang chấm…' : 'Submit answers'}</button> : null}</div>
         </footer>

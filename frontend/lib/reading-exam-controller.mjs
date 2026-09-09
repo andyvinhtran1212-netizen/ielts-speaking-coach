@@ -1,3 +1,5 @@
+import { boundedExamSave, boundedExamFlush } from './exam-save-deadline.mjs';
+
 const RETRY_DELAYS = Object.freeze([400, 1200, 3000]);
 export const READING_RENDERER_AFFINITY_PROTOCOL = Object.freeze({
   renderer_affinity_protocol: 'claim-v1',
@@ -259,6 +261,8 @@ export function createReadingSaveCoordinator({
   save,
   debounceMs = 500,
   retryDelays = RETRY_DELAYS,
+  requestTimeoutMs = 15000,
+  flushTimeoutMs = 20000,
   setTimer = setTimeout,
   clearTimer = clearTimeout,
 }) {
@@ -267,7 +271,10 @@ export function createReadingSaveCoordinator({
   const generations = new Map();
   const debounceTimers = new Map();
   const retryTimers = new Map();
+  const retryResolvers = new Map();
   const inflight = new Map();
+  const inflightGenerations = new Map();
+  const confirmedGenerations = new Map();
   const statuses = new Map();
   const listeners = new Set();
   let disposed = false;
@@ -283,27 +290,39 @@ export function createReadingSaveCoordinator({
     const handle = map.get(qNum);
     if (handle !== undefined) clearTimer(handle);
     map.delete(qNum);
+    if (map === retryTimers) {
+      retryResolvers.get(qNum)?.(null);
+      retryResolvers.delete(qNum);
+    }
   };
 
   async function persist(qNum, generation, attempt = 0, keepalive = false) {
     if (disposed || generations.get(qNum) !== generation) return null;
     cancelTimer(retryTimers, qNum);
-    const promise = Promise.resolve().then(() => save(qNum, values.get(qNum) || '', { keepalive }));
+    const promise = Promise.resolve().then(() => boundedExamSave(
+      (signal) => save(qNum, values.get(qNum) || '', { keepalive, signal }), requestTimeoutMs,
+    ));
     inflight.set(qNum, promise);
+    inflightGenerations.set(qNum, generation);
     try {
       const result = await promise;
-      if (generations.get(qNum) === generation) status(qNum, null);
+      if (generations.get(qNum) === generation) {
+        confirmedGenerations.set(qNum, generation);
+        status(qNum, null);
+      }
       return result;
     } catch (error) {
-      if (generations.get(qNum) !== generation) return null;
+      if (disposed || generations.get(qNum) !== generation || confirmedGenerations.get(qNum) === generation) return null;
       if (!keepalive && isRetriableReadingSave(error) && attempt < retryDelays.length) {
         status(qNum, 'retrying');
         return new Promise((resolve) => {
           const handle = setTimer(() => {
             retryTimers.delete(qNum);
+            retryResolvers.delete(qNum);
             resolve(persist(qNum, generation, attempt + 1, false));
           }, retryDelays[attempt]);
           retryTimers.set(qNum, handle);
+          retryResolvers.set(qNum, resolve);
         });
       }
       status(qNum, 'failed');
@@ -319,6 +338,7 @@ export function createReadingSaveCoordinator({
     values.set(normalizedQ, String(value ?? ''));
     const generation = (generations.get(normalizedQ) || 0) + 1;
     generations.set(normalizedQ, generation);
+    status(normalizedQ, 'pending');
     cancelTimer(debounceTimers, normalizedQ);
     cancelTimer(retryTimers, normalizedQ);
     const handle = setTimer(() => {
@@ -329,11 +349,6 @@ export function createReadingSaveCoordinator({
   }
 
   async function flush({ keepalive = false } = {}) {
-    const queuedBeforeFlush = new Set([
-      ...debounceTimers.keys(),
-      ...retryTimers.keys(),
-      ...statuses.keys(),
-    ]);
     const due = new Set([
       ...debounceTimers.keys(),
       ...retryTimers.keys(),
@@ -349,17 +364,20 @@ export function createReadingSaveCoordinator({
       // A normal fetch can be cancelled by navigation. During an unload flush,
       // re-send the latest value with keepalive even when the same generation
       // already has a request in flight. Non-unload flushes still reuse it.
-      if (active && !queuedBeforeFlush.has(qNum) && !keepalive) return active;
+      if (active && inflightGenerations.get(qNum) === generations.get(qNum) && !keepalive) return active;
       const generation = generations.get(qNum) || 1;
       generations.set(qNum, generation);
       return persist(qNum, generation, 0, keepalive);
     });
-    if (!keepalive) await Promise.all(writes);
+    if (keepalive) return true;
+    const settled = await boundedExamFlush(writes, flushTimeoutMs);
+    return settled && statuses.size === 0;
   }
 
   function retryFailed() {
     for (const [qNum, state] of statuses) {
       if (state !== 'failed') continue;
+      status(qNum, 'pending');
       const generation = generations.get(qNum) || 1;
       generations.set(qNum, generation);
       void persist(qNum, generation);
@@ -379,7 +397,7 @@ export function createReadingSaveCoordinator({
   function dispose() {
     disposed = true;
     for (const handle of debounceTimers.values()) clearTimer(handle);
-    for (const handle of retryTimers.values()) clearTimer(handle);
+    for (const qNum of retryTimers.keys()) cancelTimer(retryTimers, qNum);
     debounceTimers.clear();
     retryTimers.clear();
     listeners.clear();

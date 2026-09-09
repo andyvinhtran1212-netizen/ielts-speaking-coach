@@ -1,4 +1,20 @@
-# Admin UI/UX audit and redesign packet
+# UI/UX audit register
+
+## Current post-flip baseline — 2026-09-09
+
+Current source is Next release `453e748998fe4c1b8d0ca6ece71afcab6a937d9c`. The HTML packet below is historical context, not a claim that those old findings still reproduce after migration.
+
+Full current report: `docs/audits/POST_FLIP_FULL_STACK_AUDIT_2026-09-09.md`.
+
+Local remediation (not deployed): `docs/audits/POST_FLIP_REMEDIATION_2026-09-09.md`. F03 now has bounded save/flush, immediate pending state and generation-aware recovery; F04 has an authenticated schema-ledger gate; F09 now measures 6.07:1 light / 8.93:1 dark at 375/768/1440px. The findings below describe the production audit baseline. Owner subsequently approved Gate E dependency baseline v20: only suite ID and the two dependency hashes changed; no evidence reset, schedule change or threshold relaxation was performed.
+
+- High priority: F03 Reading/Listening transport that never settles can leave submit/collect pending without a dirty-state warning. Add bounded recovery and truthful pending feedback; preserve latest answers and late-ACK safety.
+- High priority: F04 admin curated links lead to a schema-dependent workspace before production readiness. Show controlled unavailable state; do not render missing schema as an empty catalog.
+- Medium priority: F09 login access-code guidance is12px with rendered contrast approximately2.05:1 light/2.73:1 dark. Use readable semantic text color and verify all breakpoints/themes.
+- Positive observations to preserve:94fixture assertions passed across five workflows, including canonical reload, lost-ACK handling, keyboard tabs, mock Writing backup and narrow/dark layouts. Public sampled pages had no page-level overflow or uncaught JS errors.
+- Coverage still open: authenticated production/admin visual variants, Safari/audio behavior, complete keyboard/screen-reader matrix. Do not mark all132page surfaces audited from the public browser sample.
+
+## Historical admin redesign packet — 2026-08-07
 
 > Audit date: 2026-08-07
 > Scope: all 66 HTML surfaces under `frontend/public/pages/admin/`, the legacy

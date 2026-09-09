@@ -23,10 +23,11 @@ Fail-soft contract — logging must NEVER escalate:
 from __future__ import annotations
 
 import logging
+import json
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Header, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from database import supabase_admin
 from routers.admin import require_admin
@@ -49,6 +50,37 @@ class ErrorReportRequest(BaseModel):
     user_agent: str | None = Field(default=None, max_length=500)
     request_id: str | None = Field(default=None, max_length=64)
     extra: dict | None = None
+
+    @field_validator('extra')
+    @classmethod
+    def bounded_extra(cls, value):
+        if value is None:
+            return None
+        # Bound structure before serialization; never log the rejected value.
+        nodes = 0
+        sensitive = {'authorization', 'cookie', 'password', 'access_token',
+                     'refresh_token', 'api_key', 'secret', 'transcript', 'audio'}
+
+        def visit(item, depth=0):
+            nonlocal nodes
+            nodes += 1
+            if depth > 6 or nodes > 256:
+                raise ValueError('extra exceeds structural limits')
+            if isinstance(item, dict):
+                return {key: '[redacted]' if str(key).lower() in sensitive else visit(child, depth + 1)
+                        for key, child in item.items()}
+            if isinstance(item, list):
+                return [visit(child, depth + 1) for child in item]
+            return item
+
+        clean = visit(value)
+        try:
+            encoded_size = len(json.dumps(clean, ensure_ascii=False).encode('utf-8'))
+        except UnicodeError as exc:
+            raise ValueError('extra contains invalid Unicode') from exc
+        if encoded_size > 8192:
+            raise ValueError('extra exceeds 8 KB')
+        return clean
 
 
 # ── Helpers ────────────────────────────────────────────────────────────

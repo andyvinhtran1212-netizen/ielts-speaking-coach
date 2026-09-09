@@ -22,7 +22,7 @@ import { corePlayerUrl } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 type AnswerMap = Map<number, string>;
-type SaveState = Map<number, 'retrying' | 'failed'>;
+type SaveState = Map<number, 'pending' | 'retrying' | 'failed'>;
 type ExamPhase = 'loading' | 'error' | 'prestart' | 'inprogress' | 'submitting' | 'results' | 'sealed';
 
 type Passage = {
@@ -271,7 +271,7 @@ function QuestionControl({ question, value, onChange }: {
 function QuestionCard({ question, answer, saveState, flagged, current, onAnswer, onFlag, onCurrent }: {
   question: Question;
   answer: string;
-  saveState?: 'retrying' | 'failed';
+  saveState?: 'pending' | 'retrying' | 'failed';
   flagged: boolean;
   current: boolean;
   onAnswer(value: string): void;
@@ -296,7 +296,7 @@ function QuestionCard({ question, answer, saveState, flagged, current, onAnswer,
         {!hasInlinePrompt ? <p className="exam-q__prompt">{question.prompt || ''}</p> : null}
         <QuestionControl question={question} value={answer} onChange={onAnswer} />
         {saveState ? <small role="status">
-          {saveState === 'retrying' ? 'Đang thử lưu lại…' : 'Chưa lưu được lên máy chủ.'}
+          {saveState === 'pending' ? 'Đang lưu…' : saveState === 'retrying' ? 'Đang thử lưu lại…' : 'Chưa lưu được lên máy chủ.'}
         </small> : null}
       </div>
       <button className="exam-q__flag" type="button" aria-label={`Mark question ${question.q_num} for review`} aria-pressed={flagged} onClick={onFlag}>
@@ -331,10 +331,10 @@ type QuestionRunProps = {
   onCurrent(qNum: number): void;
 };
 
-function SaveHint({ state }: { state?: 'retrying' | 'failed' }) {
+function SaveHint({ state }: { state?: 'pending' | 'retrying' | 'failed' }) {
   if (!state) return null;
   return <small className="reading-next-gap-save" role="status">
-    {state === 'retrying' ? 'Đang thử lưu lại…' : 'Chưa lưu được lên máy chủ.'}
+    {state === 'pending' ? 'Đang lưu…' : state === 'retrying' ? 'Đang thử lưu lại…' : 'Chưa lưu được lên máy chủ.'}
   </small>;
 }
 
@@ -360,7 +360,7 @@ function InlineRunAnswer({ question, sharedOptions, answer, saveState, flagged, 
   question: Question;
   sharedOptions?: Option[];
   answer: string;
-  saveState?: 'retrying' | 'failed';
+  saveState?: 'pending' | 'retrying' | 'failed';
   flagged: boolean;
   current: boolean;
   onAnswer(value: string): void;
@@ -810,14 +810,14 @@ export function ReadingExamSession() {
     void bootWithRecovery();
   }, [bootWithRecovery, params, status, user?.id]);
 
-  const saveAnswer = useCallback(async (qNum: number, value: string, options: { keepalive?: boolean }) => {
+  const saveAnswer = useCallback(async (qNum: number, value: string, options: { keepalive?: boolean; signal?: AbortSignal }) => {
     if (!attempt) return null;
     const path = `/api/reading/test/attempts/${encodeURIComponent(attempt.attempt_id)}/answers`;
     return window.api.patchWith(
       path,
       { q_num: qNum, user_answer: value },
       params?.share ? anonHeaders() : undefined,
-      { noRedirect: !!params?.share, keepalive: !!options.keepalive },
+      { noRedirect: true, keepalive: !!options.keepalive, signal: options.signal },
     );
   }, [anonHeaders, attempt, params?.share]);
 
@@ -995,7 +995,8 @@ export function ReadingExamSession() {
   const questions = (test?.questions || []).filter((question) => Number(question.passage_order || 1) === currentPart);
   const questionRuns = readingDisplayQuestionRuns(questions) as Question[][];
   const unsavedFailed = [...saveStates.values()].filter((state) => state === 'failed').length;
-  const unsavedRetrying = saveStates.size - unsavedFailed;
+  const unsavedRetrying = [...saveStates.values()].filter((state) => state === 'retrying').length;
+  const unsavedPending = [...saveStates.values()].filter((state) => state === 'pending').length;
   const total = test?.total_questions || test?.questions.length || 0;
   const backHref = readingLibraryHref(params?.from, params?.sittingId);
 
@@ -1174,6 +1175,7 @@ export function ReadingExamSession() {
             })}
           </div>
           {saveStates.size ? <p className="reading-next-save-banner" role="status">
+            {unsavedPending ? `Đang lưu ${unsavedPending} câu. ` : ''}
             {unsavedRetrying ? `Đang thử lưu lại ${unsavedRetrying} câu. ` : ''}
             {unsavedFailed ? `${unsavedFailed} câu chưa lưu được lên máy chủ.` : 'Đừng đóng tab tới khi cảnh báo biến mất.'}
             {unsavedFailed ? <button type="button" onClick={() => coordinatorRef.current?.retryFailed?.()}>Thử lại</button> : null}

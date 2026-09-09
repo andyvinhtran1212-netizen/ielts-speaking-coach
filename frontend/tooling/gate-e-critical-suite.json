@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "suite_id": "gate-e-critical-suite-v19",
+  "suite_id": "gate-e-critical-suite-v20",
   "matrix_id": "gate-e-device-matrix-v1",
   "target_consecutive_clean_runs": 20,
   "expected_total_tests": 34,
@@ -88,8 +88,8 @@
     "frontend/tests/gate-e-writing"
   ],
   "frozen_files": [
-    { "path": "frontend/package.json", "sha256": "cc572b091a594adf9b59a048761ca5b2e6f3aed05aa5e58d819984a8cb55cba0" },
-    { "path": "frontend/package-lock.json", "sha256": "3b791d160b66d96a585787c00e3bf589b729287064144d66fa0a87f7d4944eb7" },
+    { "path": "frontend/package.json", "sha256": "b16c75ab9056257cf7f67460170128d5abcf3d96baba16afc4bb998733fc7165" },
+    { "path": "frontend/package-lock.json", "sha256": "019b0a015a04cb917379b7a5398e1ab66b38c5784ef9bb5426bf1618dc29808f" },
     { "path": "frontend/playwright.staging.config.js", "sha256": "7ab98b1ecfec52a05ba84e9111298a925cfe5e4a72b16fa14a2e86e6a0b87e08" },
     { "path": "frontend/tooling/gate-e-device-matrix.json", "sha256": "c9a5648fde9a0f5bf1c69377d9b3bdc9f90a7c78783110f147ded34247822035" },
     { "path": "frontend/tests/staging-e2e/helpers.js", "sha256": "b1628a71b3122b8eb7770e7c27761d9e054acc2f24ea89db5216edc56563ee09" },

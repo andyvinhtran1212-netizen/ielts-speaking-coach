@@ -1,4 +1,5 @@
 import { corePlayerUrl } from './core-player-affinity.mjs';
+import { boundedExamSave, boundedExamFlush } from './exam-save-deadline.mjs';
 
 const RETRY_DELAYS = Object.freeze([400, 1200, 3000]);
 const LISTENING_ORIGINS = new Set(['full', 'mini', 'drill', 'practice', 'mock']);
@@ -250,6 +251,8 @@ export function createListeningSaveCoordinator({
   save,
   debounceMs = 500,
   retryDelays = RETRY_DELAYS,
+  requestTimeoutMs = 15000,
+  flushTimeoutMs = 20000,
   setTimer = setTimeout,
   clearTimer = clearTimeout,
 }) {
@@ -258,7 +261,10 @@ export function createListeningSaveCoordinator({
   const generations = new Map();
   const debounceTimers = new Map();
   const retryTimers = new Map();
+  const retryResolvers = new Map();
   const inflight = new Map();
+  const inflightGenerations = new Map();
+  const confirmedGenerations = new Map();
   const statuses = new Map();
   const listeners = new Set();
   let writeChain = Promise.resolve();
@@ -274,6 +280,10 @@ export function createListeningSaveCoordinator({
     const handle = map.get(qNum);
     if (handle !== undefined) clearTimer(handle);
     map.delete(qNum);
+    if (map === retryTimers) {
+      retryResolvers.get(qNum)?.(null);
+      retryResolvers.delete(qNum);
+    }
   };
   const enqueue = (operation) => {
     const run = writeChain.then(operation, operation);
@@ -284,26 +294,35 @@ export function createListeningSaveCoordinator({
   async function persist(qNum, generation, attempt = 0, keepalive = false) {
     if (disposed || generations.get(qNum) !== generation) return null;
     cancelTimer(retryTimers, qNum);
-    const operation = () => save(qNum, values.get(qNum) || '', { keepalive });
+    const operation = () => {
+      if ((!keepalive && disposed) || generations.get(qNum) !== generation) return null;
+      return boundedExamSave((signal) => save(qNum, values.get(qNum) || '', { keepalive, signal }), requestTimeoutMs);
+    };
     // A pagehide keepalive is the fail-safe for a regular request the browser
     // may cancel during unload, so it must leave immediately instead of waiting
     // behind that request in the interactive write chain.
     const promise = keepalive ? Promise.resolve().then(operation) : enqueue(operation);
     inflight.set(qNum, promise);
+    inflightGenerations.set(qNum, generation);
     try {
       const result = await promise;
-      if (generations.get(qNum) === generation) setStatus(qNum, null);
+      if (generations.get(qNum) === generation) {
+        confirmedGenerations.set(qNum, generation);
+        setStatus(qNum, null);
+      }
       return result;
     } catch (error) {
-      if (generations.get(qNum) !== generation) return null;
+      if (disposed || generations.get(qNum) !== generation || confirmedGenerations.get(qNum) === generation) return null;
       if (!keepalive && isRetriableListeningSave(error) && attempt < retryDelays.length) {
         setStatus(qNum, 'retrying');
         return new Promise((resolve) => {
           const handle = setTimer(() => {
             retryTimers.delete(qNum);
+            retryResolvers.delete(qNum);
             resolve(persist(qNum, generation, attempt + 1, false));
           }, retryDelays[attempt]);
           retryTimers.set(qNum, handle);
+          retryResolvers.set(qNum, resolve);
         });
       }
       setStatus(qNum, 'failed');
@@ -319,6 +338,7 @@ export function createListeningSaveCoordinator({
     values.set(normalizedQ, String(value ?? ''));
     const generation = (generations.get(normalizedQ) || 0) + 1;
     generations.set(normalizedQ, generation);
+    setStatus(normalizedQ, 'pending');
     cancelTimer(debounceTimers, normalizedQ);
     cancelTimer(retryTimers, normalizedQ);
     const handle = setTimer(() => {
@@ -345,18 +365,20 @@ export function createListeningSaveCoordinator({
       // that value with keepalive deliberately instead of trusting `active`;
       // PATCH is idempotent per q_num and answer persistence wins over duplicate
       // transport. Interactive flushes still reuse the in-flight request.
-      if (active && !keepalive) return active;
+      if (active && inflightGenerations.get(qNum) === generations.get(qNum) && !keepalive) return active;
       const generation = generations.get(qNum) || 1;
       generations.set(qNum, generation);
       return persist(qNum, generation, 0, keepalive);
     });
-    if (!keepalive) await Promise.all(writes);
-    return keepalive ? true : statuses.size === 0;
+    if (keepalive) return true;
+    const settled = await boundedExamFlush(writes, flushTimeoutMs);
+    return settled && statuses.size === 0;
   }
 
   function retryFailed() {
     for (const [qNum, state] of statuses) {
       if (state !== 'failed') continue;
+      setStatus(qNum, 'pending');
       const generation = generations.get(qNum) || 1;
       generations.set(qNum, generation);
       void persist(qNum, generation);
@@ -376,7 +398,7 @@ export function createListeningSaveCoordinator({
   function dispose() {
     disposed = true;
     for (const handle of debounceTimers.values()) clearTimer(handle);
-    for (const handle of retryTimers.values()) clearTimer(handle);
+    for (const qNum of retryTimers.keys()) cancelTimer(retryTimers, qNum);
     debounceTimers.clear();
     retryTimers.clear();
     listeners.clear();

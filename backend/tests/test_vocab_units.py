@@ -17,6 +17,13 @@ AUTH = {"Authorization": "Bearer learner.jwt"}
 ADMIN_AUTH = {"Authorization": "Bearer admin.jwt"}
 LEARNER = {"id": "11111111-1111-1111-1111-111111111111"}
 ADMIN = {"id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}
+
+
+@pytest.fixture(autouse=True)
+def curated_schema_is_deployed(monkeypatch):
+    # Existing domain tests model a deployed feature. Missing-schema and auth
+    # ordering are covered independently in test_post_flip_hardening.py.
+    monkeypatch.setattr('routers.vocab_units.require_schema', lambda: None)
 TASK_ID = "22222222-2222-2222-2222-222222222222"
 ATTEMPT_ID = "33333333-3333-3333-3333-333333333333"
 

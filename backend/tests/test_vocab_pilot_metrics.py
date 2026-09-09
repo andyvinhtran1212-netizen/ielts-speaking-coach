@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -17,6 +18,11 @@ ADMIN_AUTH = {"Authorization": "Bearer admin.jwt"}
 USER_ID = "11111111-1111-4111-8111-111111111111"
 ADMIN_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 RECOMMENDATION_ID = "22222222-2222-4222-8222-222222222222"
+
+
+@pytest.fixture(autouse=True)
+def curated_schema_is_deployed(monkeypatch):
+    monkeypatch.setattr('routers.vocab_units.require_schema', lambda: None)
 
 
 def _client() -> TestClient:

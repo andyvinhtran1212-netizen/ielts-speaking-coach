@@ -17,6 +17,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from routers.admin import require_admin
+from services.curated_readiness import require_schema
+from asyncio import to_thread
 from routers.auth import get_supabase_user
 from services import (
     runtime_flags,
@@ -281,12 +283,18 @@ async def submit_vocab_task_attempt(
         raise _translate_domain_error(exc) from exc
 
 
+async def _require_curated_admin(authorization):
+    admin = await require_admin(authorization)
+    await to_thread(require_schema)
+    return admin
+
+
 @router.get("/admin/vocabulary/pilot-metrics")
 async def admin_get_vocab_pilot_metrics(
     days: Literal["30", "90", "180"] = Query(default="90"),
     authorization: str | None = Header(default=None),
 ):
-    await require_admin(authorization)
+    await _require_curated_admin(authorization)
     try:
         return vocab_pilot_metrics.get_metrics(days=int(days))
     except Exception as exc:
@@ -299,7 +307,7 @@ async def admin_set_vocab_pilot_cohort(
     body: CuratedCohortRequest,
     authorization: str | None = Header(default=None),
 ):
-    admin = await require_admin(authorization)
+    admin = await _require_curated_admin(authorization)
     try:
         return vocab_pilot_metrics.set_cohort_flag(
             user_id=str(user_id), enabled=body.enabled, changed_by=admin["id"],
@@ -317,7 +325,7 @@ async def admin_list_vocab_editorial_units(
     limit: int = Query(default=50, ge=1, le=100),
     authorization: str | None = Header(default=None),
 ):
-    await require_admin(authorization)
+    await _require_curated_admin(authorization)
     try:
         return vocab_units.list_editorial_units(
             status=status, offset=offset, limit=limit,
@@ -331,7 +339,7 @@ async def admin_get_vocab_editorial_unit(
     unit_id: UUID,
     authorization: str | None = Header(default=None),
 ):
-    await require_admin(authorization)
+    await _require_curated_admin(authorization)
     try:
         return vocab_units.get_editorial_unit(str(unit_id))
     except Exception as exc:
@@ -343,7 +351,7 @@ async def admin_create_vocab_unit(
     body: UnitCreateRequest,
     authorization: str | None = Header(default=None),
 ):
-    admin = await require_admin(authorization)
+    admin = await _require_curated_admin(authorization)
     try:
         return vocab_units.create_unit(body.model_dump(), admin["id"])
     except Exception as exc:
@@ -356,7 +364,7 @@ async def admin_create_vocab_version(
     body: VersionCreateRequest,
     authorization: str | None = Header(default=None),
 ):
-    admin = await require_admin(authorization)
+    admin = await _require_curated_admin(authorization)
     try:
         return vocab_units.create_version(
             str(unit_id),
@@ -375,7 +383,7 @@ async def admin_validate_vocab_version(
     version_id: UUID,
     authorization: str | None = Header(default=None),
 ):
-    await require_admin(authorization)
+    await _require_curated_admin(authorization)
     try:
         return vocab_units.validate_version(str(version_id))
     except Exception as exc:
@@ -388,7 +396,7 @@ async def admin_review_vocab_version(
     body: ReviewRequest,
     authorization: str | None = Header(default=None),
 ):
-    admin = await require_admin(authorization)
+    admin = await _require_curated_admin(authorization)
     try:
         return vocab_units.review_version(
             str(version_id), review_type=body.review_type, decision=body.decision,
@@ -403,7 +411,7 @@ async def admin_publish_vocab_version(
     version_id: UUID,
     authorization: str | None = Header(default=None),
 ):
-    admin = await require_admin(authorization)
+    admin = await _require_curated_admin(authorization)
     try:
         return vocab_units.publish_version(str(version_id), admin["id"])
     except Exception as exc:
@@ -416,7 +424,7 @@ async def admin_rollback_vocab_version(
     body: RollbackRequest,
     authorization: str | None = Header(default=None),
 ):
-    admin = await require_admin(authorization)
+    admin = await _require_curated_admin(authorization)
     try:
         return vocab_units.rollback_version(
             str(unit_id), str(body.version_id), admin["id"],
