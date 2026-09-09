@@ -63,17 +63,20 @@ flaky or retried tests, counts 28/2/2/2 and matching source/frontend/backend
 provenance. Main/staging pins were read back before dispatch and before the
 next run; paginated history contained only this run for the new batch.
 
-Latest verified checkpoint: **3/20** at run `34322852572`.
-All three raw reports/provenance/ledgers were verified; paginated GitHub history
-matches exactly successful attempt-1 runs 212–214 on the pinned release.
+Latest verified checkpoint: **10/20** at run `34328774128`.
+All ten raw reports/provenance/ledgers were verified; paginated GitHub history
+matches exactly successful attempt-1 runs 212–221 on the pinned release.
 The third run's four raw failure-matrix reports were additionally downloaded
 and inspected independently: Speaking **49**, Reading **12**, Listening **36**,
 Writing **12** tests all passed, each with exactly one result and retry zero.
 Its live-staging ambiguous-commit evidence proves one upload committed with
 HTTP 200 and one canonical reconciliation read; backend, client and persisted
 response IDs match. Production egress and browser errors are both empty.
+The fifth run, `34323933527`, run number **216**, event **schedule**, was
+already in progress when the fourth run was verified; no additional manual
+run was dispatched. It completed cleanly and is included in the count above.
 Current pending run:
-[34323671178](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/34323671178).
+[34329685727](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/34329685727).
 It is not yet counted. Neither the old eight-run streak nor diagnostic runs
 contribute to this batch.
 
@@ -90,3 +93,8 @@ were not changed. No Gate E completion claim has been made.
 
 Private audio buckets remain private; no learner recordings or rows are
 changed by this remediation. Gate F elapsed-time requirements remain separate.
+
+Read-only storage metadata recheck at approximately **07:36 UTC** confirmed
+`audio-responses.public=false` on both environments, **79** staging objects and
+**7,597** production objects, with zero remaining objects in the synthetic
+probe namespace on either. This check read metadata only, not learner audio.
