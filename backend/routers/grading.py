@@ -551,7 +551,7 @@ async def grade_response_endpoint(
         # ── STEP 4: Upload to Supabase Storage (archival — non-blocking) ─────
         step = "storage_upload"
         storage_path = f"{user_id}/{session_id}/{question_id}{ext}"
-        audio_url: str | None = None
+        audio_uploaded = False
 
         try:
             # BE-1: the synchronous Storage upload (HTTP PUT of up to ~50MB of
@@ -571,7 +571,7 @@ async def grade_response_endpoint(
                     "upsert": "true",
                 },
             )
-            audio_url = supabase_admin.storage.from_(_AUDIO_BUCKET).get_public_url(storage_path)
+            audio_uploaded = True
             logger.info("[grading] storage upload OK → %s", storage_path)
         except Exception as e:
             err_str = str(e)
@@ -579,7 +579,7 @@ async def grade_response_endpoint(
             if "Bucket not found" in err_str:
                 logger.error(
                     "[grading] Supabase Storage bucket '%s' not found. "
-                    "Create it in the Supabase dashboard (Storage → New bucket) and set it to Public.",
+                    "Create it in the Supabase dashboard (Storage → New bucket) as a private bucket.",
                     _AUDIO_BUCKET,
                 )
 
@@ -945,10 +945,10 @@ async def grade_response_endpoint(
             "session_id":                  session_id,
             "question_id":                 question_id,
             # user_id intentionally omitted — not a column in the responses table
-            "audio_url":                   audio_url,
+            "audio_url":                   None,
             # storage_path is the bucket-relative path; used by /audio-urls to generate signed URLs.
-            # Only set when upload succeeded (audio_url is not None).
-            "audio_storage_path":          storage_path if audio_url else None,
+            # Playback URLs are issued only on authenticated reads, never persisted.
+            "audio_storage_path":          storage_path if audio_uploaded else None,
             "transcript":                  transcript,
             "raw_transcript_text":         transcript,     # verbatim copy; reserved for future cleaning pass
             "transcript_model":            transcript_model,
@@ -1028,11 +1028,12 @@ async def grade_response_endpoint(
             db_row["final_overall_band"] = None
             db_row["final_band_p"] = None
 
-        # Columns guaranteed to exist in the base schema (no migrations needed).
+        # Core columns include the canonical audio path (migration 001).
+        # Metadata fallback must retain the recording.
         # duration_seconds is intentionally excluded: the column may be INTEGER on
         # some deployments (pre-migration-011), and sending a float would fail the
         # core-row retry that is the last line of defence for saving the response.
-        _CORE_COLUMNS = {"session_id", "question_id", "audio_url", "transcript",
+        _CORE_COLUMNS = {"session_id", "question_id", "audio_url", "audio_storage_path", "transcript",
                          "feedback", "overall_band", "stt_status", "grading_status"}
 
         def _upsert_response(row: dict) -> str | None:

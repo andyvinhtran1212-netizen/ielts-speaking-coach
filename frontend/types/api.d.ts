@@ -179,14 +179,9 @@ export interface paths {
         /**
          * Get Session Audio Urls
          * @description Trả signed URL (1 giờ) cho tất cả audio recordings trong session.
-         *     Chỉ user sở hữu session (hoặc admin) mới truy cập được.
-         *
-         *     Strategy:
-         *     - Bucket "audio-responses" là public (Supabase default, paths gồm UUIDs khó đoán).
-         *     - Endpoint này generate signed URL qua backend đã xác thực, thêm lớp expiry-based
-         *       access control trên đầu. Old sessions không có audio_storage_path sẽ trả về
-         *       public URL thẳng (backwards-compatible fallback).
-         *     - Frontend dùng URL này để phát và tải audio; không expose public URL trực tiếp.
+         *     Chỉ user sở hữu session mới truy cập được; admin dùng endpoint riêng.
+         *     Hỗ trợ kho riêng tư và đường dẫn cũ thuộc đúng kho của hệ thống.
+         *     Không trả URL public khi ký URL thất bại.
          */
         get: operations["get_session_audio_urls_sessions__session_id__audio_urls_get"];
         put?: never;

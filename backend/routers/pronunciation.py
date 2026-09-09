@@ -20,11 +20,11 @@ endpoint stays because full-test aggregates a session-level pronunciation score
 across representative samples from all three parts.
 """
 
+import asyncio
 import json as _json
 import logging
 from typing import Optional
 
-import httpx
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
@@ -34,6 +34,7 @@ from database import supabase_admin
 from routers.auth import get_supabase_user
 from routers.sessions import update_session_bands
 from services import azure_pronunciation
+from services.recording_audio import BUCKET, recording_path
 from services.pronunciation_sampling import (
     SelectedSample,
     extract_audio_segment,
@@ -50,10 +51,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["pronunciation"])
 
-_AUDIO_BUCKET   = "audio-responses"
-_SIGNED_URL_TTL = 120   # 2 minutes — just long enough for download + assessment
-
-
 # ── Shared audio download helper ───────────────────────────────────────────────
 
 async def _download_audio_bytes(
@@ -65,12 +62,14 @@ async def _download_audio_bytes(
     Download audio for a response.
 
     Returns (audio_bytes, content_type).
-    Raises HTTPException(502) if neither source yields audio.
+    Uses authenticated Storage download, never fetches a persisted URL.
+    Raises HTTPException(502) if the recording is unavailable.
     """
+    path = recording_path({"audio_storage_path": storage_path, "audio_url": public_url})
     content_type = "audio/webm"
 
     # Infer content-type from storage path extension
-    if storage_path:
+    if path:
         ext_map = {
             ".mp3":  "audio/mpeg",
             ".wav":  "audio/wav",
@@ -80,53 +79,18 @@ async def _download_audio_bytes(
             ".flac": "audio/flac",
         }
         for ext, mime in ext_map.items():
-            if storage_path.lower().endswith(ext):
+            if path.lower().endswith(ext):
                 content_type = mime
                 break
 
-        # Try signed URL first
         try:
-            signed_resp = supabase_admin.storage.from_(_AUDIO_BUCKET).create_signed_url(
-                storage_path, _SIGNED_URL_TTL
+            audio_bytes = await asyncio.to_thread(
+                supabase_admin.storage.from_(BUCKET).download, path,
             )
-            if hasattr(signed_resp, "data") and signed_resp.data:
-                signed_url = signed_resp.data.get("signedUrl") or signed_resp.data.get("signedURL")
-            elif isinstance(signed_resp, dict):
-                signed_url = signed_resp.get("signedUrl") or signed_resp.get("signedURL")
-            else:
-                signed_url = None
-
-            if signed_url:
-                async with httpx.AsyncClient(timeout=60) as client:
-                    dl = await client.get(signed_url)
-                if dl.status_code == 200:
-                    audio_bytes = dl.content
-                    print(
-                        f"[PRON] downloaded {len(audio_bytes)}B via signed URL "
-                        f"response={response_id}  content_type={content_type}",
-                        flush=True,
-                    )
-                    return audio_bytes, content_type
-                else:
-                    logger.warning("[pronunciation] signed URL download returned HTTP %d", dl.status_code)
-        except Exception as e:
-            logger.warning("[pronunciation] signed URL download failed: %s", e)
-
-    # Fallback to public URL
-    if public_url:
-        try:
-            async with httpx.AsyncClient(timeout=60) as client:
-                dl = await client.get(public_url)
-            if dl.status_code == 200:
-                audio_bytes = dl.content
-                print(
-                    f"[PRON] downloaded {len(audio_bytes)}B via public URL "
-                    f"response={response_id}  content_type={content_type}",
-                    flush=True,
-                )
+            if isinstance(audio_bytes, bytes) and audio_bytes:
                 return audio_bytes, content_type
-        except Exception as e:
-            logger.warning("[pronunciation] public URL download failed: %s", e)
+        except Exception:
+            logger.warning("[pronunciation] Private recording download unavailable")
 
     raise HTTPException(502, f"Không thể tải file audio cho response {response_id}.")
 
