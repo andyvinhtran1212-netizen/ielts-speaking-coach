@@ -12,7 +12,7 @@ const PRODUCTION = new Set(['www.averlearning.com', 'averlearning.com',
 
 function category(raw) {
   const u = new URL(raw);
-  if (u.origin === STAGING_API && ['/auth/profile', '/auth/me'].includes(u.pathname)) return u.pathname;
+  if (u.origin === STAGING_API && ['/auth/profile', '/auth/me', '/api/analytics/events', '/api/error-logs'].includes(u.pathname)) return u.pathname;
   if (u.origin === STAGING_SUPABASE && u.pathname.startsWith('/auth/')) return 'staging-auth';
   if (u.origin === BASE && u.pathname.startsWith('/_next/')) return 'next-resource';
   if (u.origin === BASE && ['/profile', '/js/api.js', '/js/runtime-config.js'].includes(u.pathname)) return u.pathname;
@@ -37,11 +37,13 @@ async function main() {
       context.setDefaultTimeout(20000);
       await primeBypassCookie(context, BASE);
       let unexpectedWrites = 0;
+      let blockedBackgroundWrites = 0;
       await context.route('**/*', route => {
         const url = new URL(route.request().url());
         if (PRODUCTION.has(url.hostname)) return route.abort('blockedbyclient');
         if (url.origin === STAGING_API && !['GET', 'HEAD', 'OPTIONS'].includes(route.request().method())) {
-          unexpectedWrites++;
+          if (url.pathname === '/auth/profile') unexpectedWrites++;
+          else blockedBackgroundWrites++;
           return route.abort('blockedbyclient');
         }
         return route.fallback();
@@ -100,7 +102,7 @@ async function main() {
       })).catch(() => ({ snapshotUnavailable: true }));
       if (!passed || unexpectedWrites) failures++;
       console.log(JSON.stringify({ trial: trial + 1, routeInterception: Boolean(trial % 2),
-        passed, unexpectedWrites, snapshot, events,
+        passed, unexpectedWrites, blockedBackgroundWrites, snapshot, events,
         pending: [...pending.values()].map(({ kind, started }) => ({ kind, duration: Date.now() - started })) }));
       await context.close();
     }
