@@ -70,9 +70,11 @@ await dialog.getByText(/Chưa nhận được biên nhận hoàn chỉnh/).waitF
 check('response mất sau commit giữ request idempotent để retry', requests.filter((item) => item.path === '/admin/writing/assignments' && item.method === 'POST').length === 1 && await page.evaluate((key) => Boolean(sessionStorage.getItem(key)), `awa-pending-request:${adminId}`));
 const firstRequestId = requests.find((item) => item.path === '/admin/writing/assignments' && item.method === 'POST').body.request_id;
 await dialog.getByRole('button', { name: 'Retry với cùng request_id' }).click();
+// A completed click does not mean the async replay has reached the fixture.
+// Wait for its canonical reconciliation before inspecting the request ledger.
+await page.getByText(/Đã giao và đối chiếu 1 bài/).waitFor();
 const posts = requests.filter((item) => item.path === '/admin/writing/assignments' && item.method === 'POST');
 check('retry POST dùng cùng request_id và backend chỉ tạo một nhóm', posts.length === 2 && posts.every((item) => item.body.request_id === firstRequestId) && rows.filter((item) => item.id === 'a-new').length === 1);
-await page.getByText(/Đã giao và đối chiếu 1 bài/).waitFor();
 check('replay ACK đối chiếu canonical và xoá cả pending states', requests.filter((item) => item.path === '/admin/writing/assignments' && item.method === 'POST').length === 2 && !await page.evaluate(([receiptKey, requestKey]) => sessionStorage.getItem(receiptKey) || sessionStorage.getItem(requestKey), [`awa-pending-receipt:${adminId}`, `awa-pending-request:${adminId}`]));
 
 await page.getByRole('button', { name: 'Giao bài mới' }).click(); await page.getByRole('dialog').waitFor();
