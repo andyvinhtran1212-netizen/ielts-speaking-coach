@@ -274,7 +274,15 @@ check('mobile không tràn ngang', mobileGeometry.scroll === mobileGeometry.clie
 check('dashboard không phát mutation nghiệp vụ', unexpectedWrites.length === 0, unexpectedWrites.join(', '));
 
 await page.getByRole('tab', { name: 'Vận hành' }).click();
-await page.locator('.db-card').filter({ hasText: 'Token đã gọi' }).first().locator('.db-card__link').click();
+// The destination heading can render before its API effect runs.
+await Promise.all([
+  page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname === '/admin/ai-usage' && url.search === '?days=30'
+      && response.request().method() === 'GET';
+  }),
+  page.locator('.db-card').filter({ hasText: 'Token đã gọi' }).first().locator('.db-card__link').click(),
+]);
 await page.getByRole('heading', { name: 'Chi phí AI', exact: true }).waitFor({ state: 'visible' });
 check('drill-down mở native AI Usage với period và request canonical',
   page.url().endsWith('/admin/system/ai-usage?days=30')

@@ -170,7 +170,7 @@ export function collectNextMigrationStatus(
   const legacyReplacement = buildLegacyReplacementInventory(
     replacementPaths,
     productAppPages,
-    { redirectsInstalled: retirementRedirectsInstalled },
+    { redirectsInstalled: retirementRedirectsInstalled, redirectsPermanent: retirementRedirectsPermanent },
   );
   const blockers = [];
   if (retirementRedirectsInstalled && retirementRedirectsPermanent === null) blockers.push({

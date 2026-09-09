@@ -10,7 +10,7 @@ import {
   discoverLegacyHtmlPaths,
   RETIREMENT_ARTIFACT_SET,
 } from '../tooling/gate-f-retirement-redirects.mjs';
-import { appPageRoute } from '../tooling/next-migration-status.mjs';
+import { appPageRoute, collectNextMigrationStatus } from '../tooling/next-migration-status.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const paths = discoverLegacyHtmlPaths(path.join(FRONTEND, 'public'));
@@ -41,6 +41,9 @@ test('retirement plan is pinned to the exact frozen Legacy artifact set', () => 
 });
 
 test('every Legacy HTML source is permanently intercepted before public serving', () => {
+  const status = collectNextMigrationStatus();
+  assert.equal(status.legacyRetirementRedirects.installed, true);
+  assert.equal(status.legacyRetirementRedirects.permanent, true);
   const sources = new Set(redirects.map((entry) => entry.source));
   assert.equal(sources.size, paths.length);
   assert.deepEqual([...sources].sort(), paths);

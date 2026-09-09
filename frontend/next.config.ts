@@ -18,12 +18,11 @@ import {
   discoverLegacyHtmlPaths,
 } from './tooling/gate-f-retirement-redirects.mjs';
 
-// Gate F redirect-soak candidate. The helper hash-pins the exact Legacy
-// artifact set and fails config evaluation if a page changes without review.
-// Soak uses temporary 307 redirects: a cached 308 could strand clients on a
-// missing Next route after rollback. The final reviewed retirement release
-// flips this to true only after Gate E and redirect-soak evidence close.
-const LEGACY_RETIREMENT_REDIRECTS_PERMANENT = false;
+// Owner-authorized hard flip (2026-09-09): permanently redirect Legacy URLs.
+// Gate E 20/20 and the remaining soak were explicitly waived for this release;
+// see docs/NEXTJS_MIGRATION_STATUS.md. This does not certify either gate passed.
+// Keep the hash-pinned artifacts on disk; cached 308s limit redirect rollback.
+const LEGACY_RETIREMENT_REDIRECTS_PERMANENT = true;
 // Gate E still proves N/N-1 persistence and recovery while Gate F blocks every
 // public Legacy URL. Its deterministic Playwright servers may expose the
 // frozen rollback artifacts locally, but a Vercel build must never accept that
@@ -107,7 +106,7 @@ const nextConfig: NextConfig = {
   async redirects() {
     // Permanent legacy-path consolidation — ported 1:1 from vercel.json.
     return [
-      // GATE F REDIRECT SOAK: temporary redirects run before public-file serving, so no
+      // GATE F HARD FLIP: permanent redirects run before public-file serving, so no
       // frozen HTML artifact can render while this release is active. Keep the
       // generated manifest as the single owner of those sources; duplicate
       // literal rules could compile into contradictory route behavior.
