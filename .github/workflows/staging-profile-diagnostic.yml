@@ -1,4 +1,4 @@
-name: Staging profile diagnosis (not Gate E evidence)
+name: Staging auth bootstrap diagnosis (not Gate E evidence)
 
 on:
   workflow_dispatch:
@@ -6,6 +6,7 @@ on:
     branches: [codex/staging-profile-diagnostic-2026-09-09]
     paths:
       - frontend/tooling/staging-profile-diagnostic.cjs
+      - frontend/tooling/staging-speaking-auth-diagnostic.cjs
       - .github/workflows/staging-profile-diagnostic.yml
 
 permissions:
@@ -33,10 +34,10 @@ jobs:
       - name: Install Chromium
         working-directory: frontend
         run: npx playwright install --with-deps chromium
-      - name: Diagnose eight read-only profile loads with sanitized timing
+      - name: Diagnose Speaking auth bootstrap with baseline and delayed client init
         working-directory: frontend
         timeout-minutes: 8
         env:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
-        run: node tooling/staging-profile-diagnostic.cjs
+        run: node tooling/staging-speaking-auth-diagnostic.cjs
