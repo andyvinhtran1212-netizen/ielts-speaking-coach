@@ -10860,7 +10860,7 @@ export interface paths {
         };
         /**
          * Health Ready
-         * @description Comprehensive readiness probe.  Always returns HTTP 200; the per-check
+         * @description Bounded critical-contract readiness probe. Always returns HTTP 200; the per-check
          *     statuses + the overall `status` field carry the verdict so monitors can
          *     differentiate "down" from "degraded" without juggling 5xx codes.
          *
