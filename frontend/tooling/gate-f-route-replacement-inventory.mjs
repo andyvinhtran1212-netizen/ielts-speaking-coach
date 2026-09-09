@@ -76,7 +76,7 @@ export function replacementOwner(nextPath) {
 export function buildLegacyReplacementInventory(
   legacyPaths,
   appRoutes,
-  { redirectsInstalled = false } = {},
+  { redirectsInstalled = false, redirectsPermanent = false } = {},
 ) {
   const routeSet = new Set(appRoutes || []);
   const entries = [...(legacyPaths || [])].sort().map((legacyPath) => {
@@ -88,11 +88,11 @@ export function buildLegacyReplacementInventory(
       owner: replacementOwner(nextPath),
       nextRoutePresent,
       redirectState: redirectsInstalled
-        ? 'installed-redirect-soak'
+        ? (redirectsPermanent ? 'installed-permanent' : 'installed-redirect-soak')
         : 'not-installed-gate-f-blocked',
       deletionState: nextRoutePresent
         ? (redirectsInstalled
-          ? 'blocked-redirect-soak-and-deletion-review'
+          ? (redirectsPermanent ? 'blocked-deletion-review' : 'blocked-redirect-soak-and-deletion-review')
           : 'blocked-observation-and-deletion-review')
         : 'blocked-missing-next-route',
     };

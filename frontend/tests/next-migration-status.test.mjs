@@ -151,15 +151,15 @@ test('repository report is internally consistent and cannot overclaim completion
   assert.equal(report.legacyReplacement.nextRoutePresent, report.legacyHtml.total);
   assert.deepEqual(report.legacyReplacement.missingNextRoutes, []);
   assert.ok(report.legacyReplacement.entries.every((entry) => (
-    entry.redirectState === 'installed-redirect-soak'
-      && entry.deletionState === 'blocked-redirect-soak-and-deletion-review'
+    entry.redirectState === 'installed-permanent'
+      && entry.deletionState === 'blocked-deletion-review'
   )));
   assert.deepEqual(report.routeOwnershipCollisions, []);
   assert.equal(report.corePlayers.nextReady, report.corePlayers.total);
   assert.equal(report.corePlayers.admittedToNext, report.corePlayers.total);
   assert.deepEqual(report.legacyRetirementRedirects, {
     installed: true,
-    permanent: false,
+    permanent: true,
     artifactSet: {
       count: 129,
       sha256: '5916f9f6ce2ee703a6b69d1996237cf126750a97c952f27efc35c00f7d729aa2',

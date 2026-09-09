@@ -31,14 +31,14 @@ test('ownership probe: canonical grammar URL nay là route NEXT (lật tại pil
 });
 
 // Gate F hiện chặn artifact trước public-file serving. Không follow redirect
-// ở probe này để chứng minh chính hop 307 tồn tại (response 200 cuối không đủ
+// ở probe này để chứng minh chính hop 308 tồn tại (response 200 cuối không đủ
 // phân biệt redirect với việc vô tình phục vụ lại HTML rollback).
 test('ownership probe: Gate F chuyển legacy grammar alias sang canonical Next', async ({ request }) => {
   const res = await request.get('/grammar.html', {
     headers: BYPASS_HEADERS,
     maxRedirects: 0,
   });
-  expect(res.status()).toBe(307);
+  expect(res.status()).toBe(308);
   expect(res.headers().location).toBe('/grammar');
 });
 
