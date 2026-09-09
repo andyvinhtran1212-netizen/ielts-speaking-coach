@@ -26,7 +26,23 @@ vậy lịch sử nhiều workflow xanh không đủ chứng minh “20 consecut
   backend test khóa `/health` public không có `release`/`git_branch`, còn
   frontend contract test khóa capture chỉ gọi `/health/runtime` bằng admin token.
 
-## Frozen critical suite v18
+## Current local baseline — v20, 2026-09-09
+
+Owner approved the post-flip security dependency rebaseline. Manifest v20 changes
+only `suite_id` and the two SHA-256 entries for `frontend/package.json` and
+`frontend/package-lock.json`: Next 16.3.4 and the reviewed patched dependency
+graph, including the narrow js-yaml 4.3.2 tooling override. Version v19 remains
+the preceding hard-flip baseline (308 redirects); no redirect expectation,
+test/helper, browser matrix, threshold, allowed skip or denominator changes here.
+
+This is a local baseline change, not a Gate E/F pass or a deployed release.
+Existing evidence remains historical: the unchanged ledger logic detects
+`suite-version-changed` / `manifest-changed` and must not carry v19's streak into
+v20. No workflow was dispatched, schedule changed, cache deleted, artifact
+rewritten or live streak manually reset. See
+`docs/audits/POST_FLIP_REMEDIATION_2026-09-09.md` for verification and rollout limits.
+
+## Historical frozen critical suite v18
 
 Canonical manifest: `frontend/tooling/gate-e-critical-suite.json`.
 

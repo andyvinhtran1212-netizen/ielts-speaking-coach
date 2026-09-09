@@ -195,6 +195,11 @@ def _cors_headers_for_origin(origin: str | None) -> dict:
     return {}
 
 
+from services.request_safety import RequestSafetyMiddleware
+
+# Register inside CORS so even early 413/429 responses are browser-readable.
+app.add_middleware(RequestSafetyMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,

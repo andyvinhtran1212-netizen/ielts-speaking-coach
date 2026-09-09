@@ -116,16 +116,16 @@ BEGIN
 
     FOR expected_table IN
         -- This verifier runs at the current forward floor, not immediately
-        -- after migration 225. Migration 226 additively appends duration_sec
-        -- plus its nonnegative constraint to pronunciation submissions, so
-        -- the exact fingerprint below must include that durable extension.
+        -- after migration 225. The current forward floor includes duration_sec
+        -- (226) and attempt_no plus its validated positive constraint (230).
+        -- Keep exact fingerprints: do not silently accept arbitrary supersets.
         SELECT * FROM (VALUES
             ('course_pronunciation_sets',
              'aa2821b60270a8cdf1cd6ba681a2d5d7', 13,
              'f1296210d743d00f453fc207e3b6d4ef', 5),
             ('course_pronunciation_submissions',
-             '5dba1a9cdba1722d03789db62a08b185', 21,
-             '033f197219448de8299798632d1d4e4d', 10)
+             'd2abefca708e808eed7bcf62588f09a9', 22,
+             '78bdde88b02eff4b532566590cea19a6', 11)
         ) AS expected(
             table_name, column_hash, column_count,
             constraint_hash, constraint_count

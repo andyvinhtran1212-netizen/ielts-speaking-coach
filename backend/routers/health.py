@@ -23,6 +23,7 @@ from fastapi import APIRouter, Header
 from config import settings
 from database import supabase_admin
 from services.grammar_content import grammar_service
+from services import runtime_flags, curated_readiness
 
 router = APIRouter(tags=["health"])
 logger = logging.getLogger(__name__)
@@ -70,7 +71,30 @@ _CRITICAL_TABLES = (
     "d1_sessions",             # migration 023
     "flashcard_stacks",        # migration 025
     "flashcard_reviews",       # migration 027
+    "sessions",
+    "responses",
+    "reading_test_attempts",
+    "reading_attempt_answers",
+    "listening_test_attempts",
+    "mock_exams",
+    "mock_exam_sittings",
+    "course_section_submissions",
+    "course_pronunciation_submissions",
 )
+
+# Projection failures catch missing columns, not merely missing tables. This
+# bounded readiness sample is not a replacement for exact migration/RPC tests.
+_CRITICAL_COLUMNS = {
+    'sessions': 'id,overall_band,renderer_affinity,resume_expires_at',
+    'responses': 'id,session_id,grading_status,overall_band,audio_storage_path',
+    'reading_test_attempts': 'id,renderer_affinity,resume_expires_at,score,submitted_at',
+    'reading_attempt_answers': 'attempt_id,q_num,user_answer',
+    'listening_test_attempts': 'id,renderer_affinity,resume_expires_at,answers,score,submitted_at',
+    'mock_exams': 'id,collection_sweep_completed_section',
+    'mock_exam_sittings': 'id,collection_flush_acks,writing_submission',
+    'course_section_submissions': 'id,attempt_no,content_snapshot,score',
+    'course_pronunciation_submissions': 'id,attempt_no,duration_sec,status',
+}
 
 
 @router.get("/health")
@@ -86,7 +110,7 @@ async def health_basic() -> dict:
 @router.get("/health/ready")
 async def health_ready(authorization: str | None = Header(default=None)) -> dict:
     """
-    Comprehensive readiness probe.  Always returns HTTP 200; the per-check
+    Bounded critical-contract readiness probe. Always returns HTTP 200; the per-check
     statuses + the overall `status` field carry the verdict so monitors can
     differentiate "down" from "degraded" without juggling 5xx codes.
 
@@ -109,11 +133,11 @@ async def health_ready(authorization: str | None = Header(default=None)) -> dict
         overall_status = "degraded"
 
     # 2) Migrations applied — proxy by probing each critical table for
-    # existence with a 0-row count call.  Missing tables surface as fail.
+    # existence and key columns with a zero-row projection (no COUNT query).
     missing: list[str] = []
     for table in _CRITICAL_TABLES:
         try:
-            supabase_admin.table(table).select("id", count="exact").limit(0).execute()
+            supabase_admin.table(table).select(_CRITICAL_COLUMNS.get(table, 'id')).limit(0).execute()
         except Exception as e:
             # Table name is enough for a monitor to act; the error string (schema
             # hints) is admin-only.
@@ -146,6 +170,19 @@ async def health_ready(authorization: str | None = Header(default=None)) -> dict
         "d3_enabled": settings.D3_ENABLED,
         "flashcard_enabled": settings.FLASHCARD_ENABLED,
     }
+
+    curated_enabled = any(runtime_flags.is_enabled(key, default=False) for key in (
+        'vocab_units_read', 'vocab_unit_attempts_write',
+    ))
+    if curated_enabled:
+        ready = curated_readiness.schema_available()
+        checks['curated_schema'] = {'status': 'ok' if ready else 'fail'}
+        if not ready:
+            overall_status = 'degraded'
+    else:
+        checks['curated_schema'] = {'status': 'disabled'}
+
+    checks['migrations']['scope'] = 'critical-table-columns; enabled curated migration ledger'
 
     return {
         "status": overall_status,
