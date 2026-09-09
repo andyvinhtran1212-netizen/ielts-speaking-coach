@@ -94,11 +94,12 @@ the same sole-controller task: reconcile GitHub history before dispatching,
 never overlap manual runs, verify each ledger/raw report/provenance, and stop
 on any failure/retry/drift or missing evidence. The previous failed batch's
 heartbeat was deleted; the GitHub four-daily schedule and other schedules
-were not changed. Gate E evidence now passes the closure audit. Deleting this
-temporary heartbeat was requested after completion but rejected by the app's
-approval control. It remains ACTIVE pending explicit owner permission to
-delete it; its existing prompt forbids dispatch when the streak is at least 20.
-Do not bypass that denial by editing its file, pausing it or using another tool.
+were not changed. Gate E evidence now passes the closure audit. This batch's
+temporary heartbeat has also been deleted through the app's automation tool
+after the owner explicitly authorized “xóa lịch tạm”; read-back confirmed its
+local automation metadata is absent. Earlier attempts were denied pending
+that authorization, and no workaround was used. No further manual run was
+dispatched; the GitHub four-daily schedule and other schedules remain unchanged.
 
 Private audio buckets remain private; no learner recordings or rows are
 changed by this remediation. Gate F elapsed-time requirements remain separate.

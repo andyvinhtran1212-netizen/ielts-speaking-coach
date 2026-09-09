@@ -4,8 +4,8 @@
 [34337714920](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/34337714920)
 completed successfully at **10:07:03 UTC**. This closes the requested staging
 sync, recording-storage remediation and 20-consecutive-clean-run evidence.
-One administrative cleanup remains blocked by approval: deletion of the
-temporary batch heartbeat, detailed below. It does not change the test result.
+The temporary batch heartbeat has also been deleted following explicit owner
+authorization, completing the administrative cleanup detailed below.
 
 ## Frozen release and independent reconciliation
 
@@ -116,15 +116,14 @@ See [restart/remediation evidence](GATE_E_RESTART_AFTER_AUTH_FIX_2026-09-09.md).
   learner audio; owner/admin HTTP authorization was exercised on staging.
   Detailed boundaries: [private-audio rollout](PRIVATE_AUDIO_ROLLOUT_2026-09-09.md).
 
-## Remaining administrative approval and scope boundary
+## Completed administrative cleanup and scope boundary
 
 The temporary five-minute heartbeat
-`ho-n-t-t-gate-e-sau-s-a-x-c-th-c` is **still ACTIVE**. Its exact target and
-completion condition were read back, but deletion was denied by the app's
-approval control, including after that read-only validation. Explicit owner
-authorization to delete this specific automation is required. No indirect
-pause, file edit or alternate deletion route was used. Its existing prompt
-allows dispatch only below 20; no further manual run was dispatched.
+`ho-n-t-t-gate-e-sau-s-a-x-c-th-c` has been **deleted** through the app's
+automation tool after the owner explicitly authorized “xóa lịch tạm”.
+Read-back confirmed its local automation metadata is absent. Earlier deletion
+attempts were denied pending that authorization; no indirect pause, file edit
+or alternate deletion route was used. No further manual run was dispatched.
 
 The GitHub four-daily schedule and all other schedules are untouched.
 Gate F elapsed-time/retirement requirements are separate: this audit does not
