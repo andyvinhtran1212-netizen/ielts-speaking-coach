@@ -35,14 +35,42 @@ GitHub deployment status verified successful for all four targets:
 | Production frontend | 6344157704 | 06:46:07 |
 | Production backend | 6344150078 | 06:46:21 |
 
-## Verification still required at this checkpoint
+## Post-deploy verification completed
 
-The identical diagnostic is pinned to the new SHA; only its expected release
-constant changed. All eight baseline/delayed-init journeys must pass with no
-unauthenticated protected read and no login redirect. This diagnostic is not
-Gate E evidence. A new 20-run batch may start only after it passes, then must
-pin frontend/backend/source to 17159ba0 and retain v20 manifest digest
+The identical diagnostic was pinned to the new SHA; only its expected release
+constant changed. Run
+[34320767813](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/34320767813)
+passed **8/8**: all four baseline and all four 750-ms-delayed-init journeys
+showed immediate missing-topic validation, stayed on Speaking, issued no
+session POST and emitted no protected read without Authorization. Every first
+`/auth/me` had both `clientReady: true` and `authorizationPresent: true`.
+On delayed journeys the auth client finished initialization before that read.
+The sanitized log was parsed and all eight verdicts checked independently of
+the workflow's green conclusion. This is causal regression evidence, not a
+Gate E run.
+
+Production HTML `data-release` matches the new SHA. Both backend readiness
+endpoints returned OK for database and all 14 critical table projections at
+approximately 06:49 UTC. No schema migration was applied for this frontend fix.
+
+## New qualifying batch — still in progress
+
+First run:
+[34321114153](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/34321114153),
+run number **212**, started **2026-09-09T06:53:06Z**. Its result is pending at
+this checkpoint and is not counted. Main/staging pins were read back before
+dispatch; there was no queued/in-progress Gate E run.
+
+Pin frontend/backend/source to 17159ba0 and retain v20 manifest digest
 `0f2079dc6d440119af53b03faee1b2d54884f1510ac9b2c713fc957fa8738e0a`.
+
+The app confirmed creation of the five-minute temporary batch heartbeat
+`ho-n-t-t-gate-e-sau-s-a-x-c-th-c`. The main goal turn and heartbeat belong to
+the same sole-controller task: reconcile GitHub history before dispatching,
+never overlap manual runs, verify each ledger/raw report/provenance, and stop
+on any failure/retry/drift or missing evidence. The previous failed batch's
+heartbeat was deleted; the GitHub four-daily schedule and other schedules
+were not changed. No Gate E completion claim has been made.
 
 Private audio buckets remain private; no learner recordings or rows are
 changed by this remediation. Gate F elapsed-time requirements remain separate.
