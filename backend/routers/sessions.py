@@ -12,6 +12,7 @@ from pydantic import BaseModel, field_validator
 
 from config import settings
 from database import supabase_admin
+from services.recording_audio import attach_playback_urls, PLAYBACK_TTL
 from services.question_visibility import redact_questions, should_reveal
 from routers.auth import get_supabase_user
 from services.class_assignment_service import (
@@ -54,8 +55,6 @@ def _touch_last_accessed(session_id: str, last_accessed) -> None:
         logger.warning("[retention] last_accessed_at touch failed for %s: %s", session_id, exc)
 
 _VALID_MODES   = {"practice", "test_part", "test_full"}
-_AUDIO_BUCKET  = "audio-responses"
-_SIGNED_URL_TTL = 3600   # 1 hour
 
 
 def _round_band(value: float) -> float:
@@ -1096,6 +1095,8 @@ async def get_session(
         if results_sealed:
             responses = []
 
+    await attach_playback_urls(supabase_admin, responses)
+
     out = {
         **session,
         "session_id": session["id"],   # alias so frontend can use either field
@@ -1167,14 +1168,9 @@ async def get_session_audio_urls(
 ):
     """
     Trả signed URL (1 giờ) cho tất cả audio recordings trong session.
-    Chỉ user sở hữu session (hoặc admin) mới truy cập được.
-
-    Strategy:
-    - Bucket "audio-responses" là public (Supabase default, paths gồm UUIDs khó đoán).
-    - Endpoint này generate signed URL qua backend đã xác thực, thêm lớp expiry-based
-      access control trên đầu. Old sessions không có audio_storage_path sẽ trả về
-      public URL thẳng (backwards-compatible fallback).
-    - Frontend dùng URL này để phát và tải audio; không expose public URL trực tiếp.
+    Chỉ user sở hữu session mới truy cập được; admin dùng endpoint riêng.
+    Hỗ trợ kho riêng tư và đường dẫn cũ thuộc đúng kho của hệ thống.
+    Không trả URL public khi ký URL thất bại.
     """
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
@@ -1206,37 +1202,15 @@ async def get_session_audio_urls(
     except Exception as e:
         raise HTTPException(500, f"Lỗi khi tải responses: {e}")
 
-    result = []
-    for r in (r_res.data or []):
-        path = r.get("audio_storage_path")
-        signed_url: str | None = None
-
-        if path:
-            try:
-                resp = supabase_admin.storage.from_(_AUDIO_BUCKET).create_signed_url(
-                    path, _SIGNED_URL_TTL
-                )
-                # supabase-py v2 returns an object with .data dict
-                if hasattr(resp, "data") and resp.data:
-                    signed_url = resp.data.get("signedUrl") or resp.data.get("signedURL")
-                elif isinstance(resp, dict):
-                    signed_url = resp.get("signedUrl") or resp.get("signedURL")
-            except Exception as e:
-                logger.warning("[audio-urls] Signed URL failed for path=%s: %s", path, e)
-
-        if not signed_url:
-            # Fallback: use stored public URL (old sessions or signed URL error)
-            signed_url = r.get("audio_url")
-
-        if signed_url:
-            result.append({
-                "response_id": r["id"],
-                "question_id": r["question_id"],
-                "url":         signed_url,
-                "expires_in":  _SIGNED_URL_TTL if path else None,
-            })
-
-    return result
+    responses = r_res.data or []
+    complete = await attach_playback_urls(supabase_admin, responses)
+    if not complete and not any(r["audio_available"] for r in responses):
+        raise HTTPException(503, "Tạm thời không thể tạo liên kết ghi âm. Vui lòng thử lại.")
+    return [
+        {"response_id": r["id"], "question_id": r["question_id"],
+         "url": r["audio_url"], "expires_in": PLAYBACK_TTL}
+        for r in responses if r["audio_available"]
+    ]
 
 
 # ── GET /sessions/{session_id}/full-test-summary ───────────────────────────────

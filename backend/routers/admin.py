@@ -29,6 +29,7 @@ from database import supabase_admin
 from services.class_assignment_service import sync_class_item_score
 from services.class_membership_service import active_memberships_for_students, add_student
 from services import admin_dashboard
+from services.recording_audio import attach_playback_urls, recording_path
 from services import admin_reading_dashboard
 from services.access_code_permissions import (
     get_completed_session_counts,
@@ -3406,10 +3407,7 @@ async def admin_get_session(
     else:
         session["responses_lookup_failed"] = False
 
-    for response in responses:
-        playback_url = _sign_storage_url(_REGRADE_AUDIO_BUCKET, response.get("audio_storage_path"))
-        response["audio_playback_url"] = playback_url
-        response["audio_available"] = bool(response.get("audio_playback_url"))
+    await attach_playback_urls(supabase_admin, responses)
 
     return {
         **session,
@@ -3712,7 +3710,7 @@ async def _run_regrade_response(
 
     if word_count < 3:
         # Try re-transcribing from stored audio
-        audio_path = resp.get("audio_storage_path")
+        audio_path = recording_path(resp)
         if not audio_path:
             raise HTTPException(422, f"Response {response_id}: không có transcript và không có audio path")
         try:
@@ -3799,7 +3797,7 @@ async def admin_regrade_response(
     # Load response
     r_res = (
         supabase_admin.table("responses")
-        .select("id, session_id, question_id, transcript, audio_storage_path, grading_status, regrade_count")
+        .select("id, session_id, question_id, transcript, audio_storage_path, audio_url, grading_status, regrade_count")
         .eq("id", response_id)
         .limit(1)
         .execute()
@@ -3937,7 +3935,7 @@ async def admin_regrade_session(
     # Load all responses for this session
     r_res = (
         supabase_admin.table("responses")
-        .select("id, session_id, question_id, transcript, audio_storage_path, grading_status, overall_band, regrade_count")
+        .select("id, session_id, question_id, transcript, audio_storage_path, audio_url, grading_status, overall_band, regrade_count")
         .eq("session_id", session_id)
         .execute()
     )

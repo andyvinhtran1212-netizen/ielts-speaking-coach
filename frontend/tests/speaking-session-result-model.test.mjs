@@ -138,7 +138,7 @@ describe('native session-result view model — canonical truth', () => {
     assert.deepEqual(view.cards, []);
   });
 
-  test('signed audio wins and persisted public URL remains the fallback', () => {
+  test('dedicated audio lookup wins over authenticated session playback links', () => {
     const view = buildSessionResult({
       id: 's1', status: 'completed', questions: [question('q1'), question('q2')],
       responses: [
@@ -148,6 +148,22 @@ describe('native session-result view model — canonical truth', () => {
     }, null, [{ question_id: 'q1', url: 'https://signed/q1' }]);
     assert.equal(view.cards[0].audioUrl, 'https://signed/q1');
     assert.equal(view.cards[1].audioUrl, 'https://old/q2');
+  });
+
+  test('audio lookup failure is distinct from an answer without a recording', () => {
+    const session = {
+      id: 's1', status: 'completed', questions: [question('q1'), question('q2')],
+      responses: [
+        response('q1', {}, { audio_url: null, audio_lookup_failed: true }),
+        response('q2', {}, { audio_url: null, audio_lookup_failed: false }),
+      ],
+    };
+    const unavailable = buildSessionResult(session);
+    assert.equal(unavailable.cards[0].audioLookupFailed, true);
+    assert.equal(unavailable.cards[1].audioLookupFailed, false);
+    const recovered = buildSessionResult(session, null, [{ question_id: 'q1', url: 'https://signed/q1' }]);
+    assert.equal(recovered.cards[0].audioLookupFailed, false);
+    assert.equal(recovered.cards[0].audioUrl, 'https://signed/q1');
   });
 
   test('Part 2 review keeps the complete cue card beside score and feedback', () => {

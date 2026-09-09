@@ -896,6 +896,10 @@ function QuestionAccordion({
               ↓ Tải audio
             </button>
           </div>
+        ) : card.audioLookupFailed ? (
+          <p role="status" className="px-5 py-2 text-sm av-text-muted">
+            Tạm thời chưa tải được liên kết ghi âm. Hãy tải lại trang để thử lại; kết quả chấm vẫn được giữ nguyên.
+          </p>
         ) : null}
         <div className={`acc-body px-5 pb-5 space-y-3 ${isOpen ? 'open' : ''}`}>
           {card.cueBullets.length || card.cueReflection ? (
@@ -1287,7 +1291,7 @@ export function SessionResultBehavior() {
           audioItems = Array.isArray(audio) ? audio : [];
         } catch (caught) {
           if (isAbort(caught)) throw caught;
-          console.warn('[result] signed audio lookup failed; using persisted fallback URLs:', caught);
+          console.warn('[result] audio lookup unavailable; using authenticated session playback links');
         }
         if (disposed) return;
 

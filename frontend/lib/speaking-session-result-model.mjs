@@ -314,6 +314,8 @@ function responseCards(questions, responses, audioUrlMap) {
       audioUrl: safeMediaUrl(
         audioUrlMap[String(question?.id || '')] || response?.audio_url || '',
       ),
+      audioLookupFailed: response?.audio_lookup_failed === true
+        && !safeMediaUrl(audioUrlMap[String(question?.id || '')] || response?.audio_url || ''),
       audioFilename: `recording-q${index + 1}.webm`,
     };
   });
