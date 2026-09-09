@@ -1,0 +1,42 @@
+name: Staging profile diagnosis (not Gate E evidence)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/staging-profile-diagnostic-2026-09-09]
+    paths:
+      - frontend/tooling/staging-profile-diagnostic.cjs
+      - .github/workflows/staging-profile-diagnostic.yml
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    # Same synthetic identity as Gate E. Never overlap its mutations/sign-outs.
+    concurrency:
+      group: staging-e2e-shared-env
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install pinned browser test runtime
+        working-directory: frontend
+        run: npm ci
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Diagnose eight read-only profile loads with sanitized timing
+        working-directory: frontend
+        timeout-minutes: 8
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: node tooling/staging-profile-diagnostic.cjs
