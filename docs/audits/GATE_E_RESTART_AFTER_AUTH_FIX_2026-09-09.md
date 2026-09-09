@@ -57,9 +57,25 @@ approximately 06:49 UTC. No schema migration was applied for this frontend fix.
 
 First run:
 [34321114153](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/34321114153),
-run number **212**, started **2026-09-09T06:53:06Z**. Its result is pending at
-this checkpoint and is not counted. Main/staging pins were read back before
-dispatch; there was no queued/in-progress Gate E run.
+run number **212**, started **2026-09-09T06:53:06Z**. Its completed canonical
+ledger confirms **1/20**: 33 passed + one exact allowed skip, zero unexpected,
+flaky or retried tests, counts 28/2/2/2 and matching source/frontend/backend
+provenance. Main/staging pins were read back before dispatch and before the
+next run; paginated history contained only this run for the new batch.
+
+Latest verified checkpoint: **3/20** at run `34322852572`.
+All three raw reports/provenance/ledgers were verified; paginated GitHub history
+matches exactly successful attempt-1 runs 212–214 on the pinned release.
+The third run's four raw failure-matrix reports were additionally downloaded
+and inspected independently: Speaking **49**, Reading **12**, Listening **36**,
+Writing **12** tests all passed, each with exactly one result and retry zero.
+Its live-staging ambiguous-commit evidence proves one upload committed with
+HTTP 200 and one canonical reconciliation read; backend, client and persisted
+response IDs match. Production egress and browser errors are both empty.
+Current pending run:
+[34323671178](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/34323671178).
+It is not yet counted. Neither the old eight-run streak nor diagnostic runs
+contribute to this batch.
 
 Pin frontend/backend/source to 17159ba0 and retain v20 manifest digest
 `0f2079dc6d440119af53b03faee1b2d54884f1510ac9b2c713fc957fa8738e0a`.
