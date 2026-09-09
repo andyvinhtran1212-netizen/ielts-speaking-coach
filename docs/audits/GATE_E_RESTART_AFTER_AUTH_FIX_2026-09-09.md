@@ -53,7 +53,7 @@ Production HTML `data-release` matches the new SHA. Both backend readiness
 endpoints returned OK for database and all 14 critical table projections at
 approximately 06:49 UTC. No schema migration was applied for this frontend fix.
 
-## New qualifying batch — still in progress
+## New qualifying batch — complete
 
 First run:
 [34321114153](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/34321114153),
@@ -63,9 +63,13 @@ flaky or retried tests, counts 28/2/2/2 and matching source/frontend/backend
 provenance. Main/staging pins were read back before dispatch and before the
 next run; paginated history contained only this run for the new batch.
 
-Latest verified checkpoint: **10/20** at run `34328774128`.
-All ten raw reports/provenance/ledgers were verified; paginated GitHub history
-matches exactly successful attempt-1 runs 212–221 on the pinned release.
+Final verified checkpoint: **20/20** at run `34337714920`.
+All twenty raw reports/provenance/ledgers were verified; paginated GitHub history
+matches exactly successful attempt-1 runs 212–231 on the pinned release.
+The final ledger has `threshold_met=true`, `gate_e_evidence_eligible=true`,
+`failure_matrix_complete=true` and `real_devices_complete=true`. See
+[the closure audit](GATE_E_CLOSURE_2026-09-09.md) for the complete run index and
+requirement-by-requirement proof.
 The third run's four raw failure-matrix reports were additionally downloaded
 and inspected independently: Speaking **49**, Reading **12**, Listening **36**,
 Writing **12** tests all passed, each with exactly one result and retry zero.
@@ -75,10 +79,11 @@ response IDs match. Production egress and browser errors are both empty.
 The fifth run, `34323933527`, run number **216**, event **schedule**, was
 already in progress when the fourth run was verified; no additional manual
 run was dispatched. It completed cleanly and is included in the count above.
-Current pending run:
-[34329685727](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/34329685727).
-It is not yet counted. Neither the old eight-run streak nor diagnostic runs
-contribute to this batch.
+Final completed run:
+[34337714920](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/34337714920).
+It completed successfully at **10:07:03 UTC** and is counted. Neither the old
+eight-run streak nor diagnostic runs contribute to this batch. No next manual
+run was dispatched.
 
 Pin frontend/backend/source to 17159ba0 and retain v20 manifest digest
 `0f2079dc6d440119af53b03faee1b2d54884f1510ac9b2c713fc957fa8738e0a`.
@@ -89,7 +94,11 @@ the same sole-controller task: reconcile GitHub history before dispatching,
 never overlap manual runs, verify each ledger/raw report/provenance, and stop
 on any failure/retry/drift or missing evidence. The previous failed batch's
 heartbeat was deleted; the GitHub four-daily schedule and other schedules
-were not changed. No Gate E completion claim has been made.
+were not changed. Gate E evidence now passes the closure audit. Deleting this
+temporary heartbeat was requested after completion but rejected by the app's
+approval control. It remains ACTIVE pending explicit owner permission to
+delete it; its existing prompt forbids dispatch when the streak is at least 20.
+Do not bypass that denial by editing its file, pausing it or using another tool.
 
 Private audio buckets remain private; no learner recordings or rows are
 changed by this remediation. Gate F elapsed-time requirements remain separate.
@@ -98,3 +107,6 @@ Read-only storage metadata recheck at approximately **07:36 UTC** confirmed
 `audio-responses.public=false` on both environments, **79** staging objects and
 **7,597** production objects, with zero remaining objects in the synthetic
 probe namespace on either. This check read metadata only, not learner audio.
+The same storage state was verified again at approximately **10:05 UTC**;
+both backend readiness endpoints passed database and all 14 critical table
+projections. Production frontend release still matched 17159ba0.
