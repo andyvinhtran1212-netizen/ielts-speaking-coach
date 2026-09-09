@@ -137,6 +137,58 @@ def test_upload_size_rejected_and_normal_form_survives_new_parser():
     assert client.post('/upload', files={'file': ('sample.webm', b'x' * 1025)}).status_code == 413
 
 
+def test_fulltest_aggregate_accepts_all_four_files_at_route_limits():
+    from routers import listening
+    audio_size = listening._FULLTEST_MAX_AUDIO_BYTES
+    text_size = listening._FULLTEST_MAX_TEXT_BYTES
+    path = '/admin/listening/import-fulltest/commit'
+    assert any(route.path == path for route in listening.admin_router.routes)
+    app = FastAPI()
+    app.add_middleware(RequestSafetyMiddleware)
+
+    @app.post(path)
+    async def pack(question_paper: UploadFile = File(...), solution: UploadFile = File(...),
+                   timings: UploadFile = File(...), audio: UploadFile = File(...)):
+        # Actual multipart parser, no import/DB/audio service side effects.
+        return {'sizes': [item.size for item in (question_paper, solution, timings, audio)]}
+
+    client = TestClient(app)
+    response = client.post(path + '?mini=false', files={
+        'question_paper': ('questions.md', b'q' * text_size, 'text/markdown'),
+        'solution': ('solution.md', b's' * text_size, 'text/markdown'),
+        'timings': ('timings.json', b' ' * (text_size - 2) + b'{}', 'application/json'),
+        'audio': ('audio.mp3', b'a' * audio_size, 'audio/mpeg'),
+    })
+    assert response.status_code == 200
+    assert response.json()['sizes'] == [text_size, text_size, text_size, audio_size]
+    # Header rejection requires no allocation of an oversized real body.
+    for url, size in [(path, 68 * 1024 * 1024 + 1), ('/upload', 64 * 1024 * 1024 + 1)]:
+        rejected = client.post(url, content=b'', headers={
+            'content-type': 'multipart/form-data; boundary=test', 'content-length': str(size),
+        })
+        assert rejected.status_code == 413
+
+
+def test_fulltest_chunked_aggregate_still_has_a_hard_limit():
+    app = safety_app(fulltest_upload_limit=100)
+    @app.post('/admin/listening/import-fulltest/commit')
+    async def pack(request: Request):
+        await request.body()
+        return {'ok': True}
+    messages = []
+    chunks = iter([{'type': 'http.request', 'body': b'x' * 101, 'more_body': False}])
+    async def receive():
+        return next(chunks)
+    async def send(message):
+        messages.append(message)
+    scope = {'type': 'http', 'method': 'POST', 'path': '/admin/listening/import-fulltest/commit',
+             'raw_path': b'/admin/listening/import-fulltest/commit', 'query_string': b'',
+             'headers': [(b'content-type', b'multipart/form-data; boundary=test')],
+             'server': ('test', 80), 'client': ('test', 1), 'scheme': 'http', 'http_version': '1.1'}
+    asyncio.run(app(scope, receive, send))
+    assert messages[0]['status'] == 413
+
+
 def test_chunked_upload_cannot_bypass_size_limit():
     app = safety_app(upload_limit=100)
     messages = []

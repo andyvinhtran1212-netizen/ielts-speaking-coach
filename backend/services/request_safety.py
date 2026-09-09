@@ -12,9 +12,14 @@ from starlette.responses import JSONResponse
 
 class RequestSafetyMiddleware:
     def __init__(self, app, *, upload_limit=64 * 1024 * 1024,
-                 log_limit=64 * 1024, log_per_minute=600):
+                 log_limit=64 * 1024, log_per_minute=600,
+                 fulltest_upload_limit=68 * 1024 * 1024):
         self.app = app
         self.upload_limit = upload_limit
+        # Full-test commit accepts 60 MiB audio + three 2 MiB text files.
+        # Reserve another 2 MiB for the multipart envelope without relaxing
+        # every upload route's limit or its existing per-file validation.
+        self.fulltest_upload_limit = fulltest_upload_limit
         self.log_limit = log_limit
         self.log_per_minute = log_per_minute
         self._log_times = deque()
@@ -36,6 +41,9 @@ class RequestSafetyMiddleware:
                                           headers={'Retry-After': '60'})(scope, receive, send)
             self._log_times.append(now)
         limit = self.log_limit if is_log else self.upload_limit
+        if (multipart and scope.get('method') == 'POST'
+                and scope.get('path', '').rstrip('/') == '/admin/listening/import-fulltest/commit'):
+            limit = self.fulltest_upload_limit
         try:
             length = int(headers.get(b'content-length', b'0'))
             if length < 0:
