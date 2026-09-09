@@ -29,5 +29,5 @@ jobs:
         working-directory: frontend
         env:
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
-          EXPECT_PRIVATE: 'false'
+          EXPECT_PRIVATE: 'true'
         run: node tooling/staging-private-audio-verification.cjs
