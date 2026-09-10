@@ -32,19 +32,22 @@ def _decoded(order: int, *, duration_ms: int = 4_000, text: str | None = None):
     )
 
 
-def test_b05_content_has_exactly_twelve_ordered_british_shadowing_sentences():
+def test_b05_content_has_exactly_fifteen_ordered_british_shadowing_sentences():
     data = json.loads(CONTENT.read_text(encoding="utf-8"))
     assert data["bank_code"] == "C1-B05"
     assert data["locale"] == "en-GB"
     assert (data["voice_engine"], data["voice"]) == ("kokoro", "bf_emma")
     assert data["playback_rates"] == [0.85, 1.0]
-    assert [row["order"] for row in data["sentences"]] == list(range(1, 13))
-    assert len({row["id"] for row in data["sentences"]}) == 12
+    assert [row["order"] for row in data["sentences"]] == list(range(1, 16))
+    assert [row["id"] for row in data["sentences"]] == [
+        f"C1-B05-PRON-V2-{order:02d}" for order in range(1, 16)
+    ]
+    assert len({row["id"] for row in data["sentences"]}) == 15
     assert data["sentences"][0]["text"] == (
-        "The air in the mountains is cleaner than the city air."
+        "The old wooden bridge in our small village is narrower than the new concrete one."
     )
     assert data["sentences"][-1]["text"] == (
-        "The new solar power plant is the largest energy project in the whole northern region."
+        "My grandfather’s old radio still works better than the cheap new one from the market."
     )
 
 
