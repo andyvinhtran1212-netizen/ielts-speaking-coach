@@ -4,7 +4,37 @@ The migration is not complete merely because a clean URL has an App Router
 page. Evidence-based closure requires the full Gate D/E/F evidence in
 `FE_NEXTJS_MIGRATION_MASTER_PLAN_2026-07-12.md`.
 
-## Owner-authorized hard flip — 2026-09-09
+## Current checkpoint — 2026-09-10
+
+- **Production serves Next.** PR #1352 merged as `b44efaa7`; wave 1 preserves
+  all 139 permanent redirects through a versioned 129-URL manifest independent
+  of physical HTML. Wave 2 preserves five historical HTML fixtures outside public.
+- **Historical Gate E v20: PASS 20/20**, source `17159ba0`, final
+  [run 34337714920](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/34337714920).
+  Its [original manifest](audits/GATE_E_V20_COMPLETED_MANIFEST_2026-09-09.json)
+  and contract digest are retained. The authorized fixture changes produce
+  **v21**, not a relabeling of that PASS. No new v21 live 20-run claim is made.
+- **Staging synchronized to `b44efaa7`** and verified through normal Vercel
+  CLI access with deployment protection retained. Post-merge checks:
+  production 139/139 redirects; staging 26/26 representative/dynamic checks.
+- **Gate F elimination remains open.** Source inspection holds all 290 JS/MJS/CSS
+  assets: 177 have conservative Next reachability, five are additional archived
+  test dependencies, and 108 retain other Legacy/test/build consumers.
+  Source reachability is not a deletion certificate. All 129 public HTML files remain.
+- Fresh production aggregate counts show zero legacy session blockers and no
+  retirement events/new error logs since hard flip. Speaking still has 22
+  completed rows missing band and one missing completion time (possible overlap);
+  these are unclassified findings, not a clean persistence verdict.
+- Detailed evidence, exact boundaries and remaining tasks:
+  [wave 3 audit](audits/GATE_F_ASSET_AUDIT_2026-09-10.md) and
+  [per-asset inventory](audits/GATE_F_ASSET_INVENTORY_2026-09-10.json).
+
+Product development is not frozen by this checkpoint. The original redirect
+soak and hard-flip exception must be kept distinct from retirement approval;
+elapsed time, current health and per-file replacement/test disposition still
+need a truthful closure decision.
+
+## Historical owner-authorized hard flip — 2026-09-09
 
 The owner explicitly requested a hard flip after reviewing the incomplete
 Gate E streak and Gate F soak. This release changes the 129 frozen Legacy HTML
@@ -18,7 +48,7 @@ All test counts, failure matrices and thresholds are unchanged. Historical v18
 results do not carry into v19. Scheduled regression checks continue; the
 remaining soak is waived as a release hold, not fabricated as passed evidence.
 
-Latest recorded evidence for source release
+Last pre-flip evidence for source release
 `415e19353b323e357564a0fe217e12021518026d`: scheduled run `34287527314`,
 Gate E v18 **7/20**, 33 passed, 1 expected skip, zero unexpected/flaky tests.
 The remaining consecutive-run requirement and the redirect-soak wait until
@@ -73,4 +103,5 @@ Speaking initialization races and an automation-bypass self-redirect; those
 issues were remediated before release `415e1935`. The latest pre-flip evidence
 is the 7/20 v18 checkpoint recorded above. That historical observation window
 used 307 redirects and did not complete; it is not the release state of this
-308 configuration. The owner-approved v19 exception above governs this release.
+308 configuration. The owner-approved v19 exception above governed that historical
+hard-flip release; the current source contract is described at the top.
