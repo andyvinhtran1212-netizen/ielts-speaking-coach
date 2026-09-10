@@ -1,6 +1,17 @@
 # Gate F — Legacy HTML retirement runbook — 2026-08-16
 
-**Trạng thái:** OBSERVATION STARTED; RETIREMENT NO-GO. Cửa sổ bắt đầu tại
+> **Đính chính 2026-09-10 — tài liệu lịch sử.** Các mốc observation, hướng dẫn
+> redirect tạm và điều kiện giữ release bên dưới mô tả giai đoạn trước hard flip,
+> không phải deployment hiện tại. Xem [trạng thái migration hiện tại](NEXTJS_MIGRATION_STATUS.md)
+> và mục hard flip đã được chủ dự án duyệt để hiểu ranh giới 308 cùng các điều
+> kiện tiên quyết cho deletion; chúng không tự cấp quyền xóa. [Audit closure](audits/GATE_F_CLOSURE_CONTRACT_AUDIT_2026-09-10.md)
+> ghi các khoảng trống bằng chứng đã biết tại ngày 2026-09-10. Không khởi động
+> lại Gate E hoặc dùng thời hạn tháng 8 làm quyền xóa artifact.
+
+**Trạng thái tài liệu:** SUPERSEDED (historical); xem [checkpoint hiện tại](NEXTJS_MIGRATION_STATUS.md).
+
+**Ghi nhận lịch sử, không phải trạng thái hiện tại:** OBSERVATION STARTED;
+RETIREMENT NO-GO. Cửa sổ bắt đầu tại
 `2026-08-17T00:15:22Z` trên production release
 `05e2cc54499fb6fc8d8f980567632e39fc9fe808`; evidence versioned nằm tại
 `GATE_F_OBSERVATION_START_EVIDENCE_2026-08-17.md`. Không được tính thời gian

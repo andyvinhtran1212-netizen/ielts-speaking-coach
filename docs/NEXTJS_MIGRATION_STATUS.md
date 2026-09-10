@@ -24,10 +24,34 @@ page. Evidence-based closure requires the full Gate D/E/F evidence in
 - Fresh production aggregate counts show zero legacy session blockers and no
   retirement events/new error logs since hard flip. Speaking still has 22
   completed rows missing band and one missing completion time (possible overlap);
-  these are unclassified findings, not a clean persistence verdict.
+  these were initially unclassified; the follow-up below records their bounded
+  classification, not a clean persistence verdict.
 - Detailed evidence, exact boundaries and remaining tasks:
   [wave 3 audit](audits/GATE_F_ASSET_AUDIT_2026-09-10.md) and
   [per-asset inventory](audits/GATE_F_ASSET_INVENTORY_2026-09-10.json).
+
+### Follow-up — source checkpoint after PR #1359
+
+Main source `91f3b2c9` includes Pricing fixture isolation, the native site-map
+sentinel and manifest-based redirect test consumers (PRs #1355, #1356, #1358,
+#1359). The independent physical freeze is still enforced. Pricing removal
+was tested only in a disposable copy; no real public artifact was removed.
+This is a source checkpoint, not a fresh deployment claim for that SHA.
+
+Read-only production follow-up at 2026-09-10T03:27:35Z–03:27:47Z again found
+zero legacy session blockers, retirement events and new error/warning logs
+since the recorded hard flip. These are sequential, non-atomic observations,
+not a full health certificate. The 23 distinct Speaking rows missing band or
+completion time all started in April: 11 have no response rows, 11 have some
+score input and need aggregate validation, and one has responses without score
+inputs. That classifies the earlier findings; it does not establish their cause,
+authorize repair, or prove all old data clean. No learner content or identifiers
+were included in the audit output. The 45 historical unresolved logs remain.
+
+The next closure gap is not just deleting old CSS. Current status/page-view
+counts cannot prove the required eligible-attempt success/fail/abandon report.
+The [closure contract audit](audits/GATE_F_CLOSURE_CONTRACT_AUDIT_2026-09-10.md)
+maps the exact source limitations, build-file holds and remaining sequence.
 
 Product development is not frozen by this checkpoint. The original redirect
 soak and hard-flip exception must be kept distinct from retirement approval;
@@ -78,8 +102,8 @@ The report counts:
 - product `app/**/page.tsx` routes, excluding the two named engineering spikes;
 - every `public/**/*.html` artifact, split into compatibility redirects and
   HTML paths still directly rendered by production;
-- a canonical App Router replacement and domain owner for every directly
-  renderable HTML path;
+- a canonical App Router replacement and domain owner for every frozen
+  historical URL identity, even after physical HTML retirement;
 - route-ownership collisions;
 - Next readiness and live new-session admission for every core player.
 
@@ -89,7 +113,7 @@ Router replacement, any core Next player is not ready, any core surface still
 admits new sessions to legacy, or any route ownership collision exists.
 
 Current frozen replacement denominator: 129/129. Every frozen Legacy HTML
-path has a behavior-equivalent App Router owner, so
+path has a present App Router owner, so
 `legacy-next-replacement-missing` must stay absent. This closes route ownership,
 not operational cutover or legacy retirement.
 
