@@ -1,5 +1,13 @@
 # Gate F — Legacy HTML retirement runbook — 2026-08-16
 
+> Historical operational runbook. The observation start, temporary-redirect
+> instructions and release holds below describe the August/pre-hard-flip phases,
+> not the current deployment. Use [current migration status](NEXTJS_MIGRATION_STATUS.md)
+> and its owner-authorized hard-flip section for the present 308 boundary and
+> distinct deletion conditions. The [closure contract audit](audits/GATE_F_CLOSURE_CONTRACT_AUDIT_2026-09-10.md)
+> records the remaining evidence gaps. Do not restart Gate E or treat the
+> historical August deadline as permission to delete artifacts.
+
 **Trạng thái:** OBSERVATION STARTED; RETIREMENT NO-GO. Cửa sổ bắt đầu tại
 `2026-08-17T00:15:22Z` trên production release
 `05e2cc54499fb6fc8d8f980567632e39fc9fe808`; evidence versioned nằm tại
