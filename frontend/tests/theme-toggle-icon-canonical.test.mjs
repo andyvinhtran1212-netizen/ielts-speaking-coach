@@ -32,6 +32,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { readPricingFixture } from './fixtures/gate-f-pricing/loader.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '..', '..');
@@ -70,7 +71,11 @@ for (const rel of REDESIGNED_PAGES) {
   describe(`theme-toggle icon canonical / ${rel}`, () => {
     let html;
     before(() => {
-      html = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+      // Only Pricing uses historical markup; current /pricing has no chrome.
+      // Landing, shared chrome and per-page CSS retain current-source coverage.
+      html = rel === 'frontend/pricing.html'
+        ? readPricingFixture('pricing.html')
+        : readFileSync(path.join(REPO_ROOT, rel), 'utf8');
     });
 
     test('button uses canonical .icon-sun class on sun SVG', () => {
