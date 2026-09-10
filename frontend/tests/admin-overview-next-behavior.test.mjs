@@ -16,7 +16,7 @@ import {
 } from '../lib/admin-overview-model.mjs';
 import {
   buildLegacyRetirementRedirects,
-  discoverLegacyHtmlPaths,
+  LEGACY_RETIREMENT_PATHS,
 } from '../tooling/gate-f-retirement-redirects.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -31,7 +31,7 @@ const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const ADMIN_STUB = read('public', 'admin.html');
 const RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
-  discoverLegacyHtmlPaths(join(ROOT, 'public')),
+  LEGACY_RETIREMENT_PATHS,
   { permanent: false },
 );
 

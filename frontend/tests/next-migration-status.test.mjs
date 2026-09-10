@@ -18,6 +18,7 @@ import {
   buildLegacyReplacementInventory,
   canonicalNextRouteForLegacy,
 } from '../tooling/gate-f-route-replacement-inventory.mjs';
+import { LEGACY_RETIREMENT_PATHS } from '../tooling/gate-f-retirement-redirects.mjs';
 
 test('derives App Router page paths without counting route groups or private folders', () => {
   assert.equal(appPageRoute('(marketing)/page.tsx'), '/');
@@ -151,8 +152,12 @@ test('repository report is internally consistent and cannot overclaim completion
   assert.equal(report.legacyHtml.telemetryInstrumented, report.legacyHtml.directlyRenderable);
   assert.deepEqual(report.legacyHtml.telemetryMissingPaths, []);
   assert.equal(report.gateFObservationReady, true);
-  assert.equal(report.legacyReplacement.total, report.legacyHtml.total);
-  assert.equal(report.legacyReplacement.nextRoutePresent, report.legacyHtml.total);
+  // Historical URLs still need owners after their physical artifacts retire.
+  // The physical freeze is enforced separately in gate-f-retirement-redirects.
+  assert.equal(report.legacyReplacement.total, LEGACY_RETIREMENT_PATHS.length);
+  assert.equal(report.legacyReplacement.nextRoutePresent, LEGACY_RETIREMENT_PATHS.length);
+  assert.deepEqual(report.legacyReplacement.entries.map((entry) => entry.legacyPath).sort(),
+    [...LEGACY_RETIREMENT_PATHS].sort());
   assert.deepEqual(report.legacyReplacement.missingNextRoutes, []);
   assert.ok(report.legacyReplacement.entries.every((entry) => (
     entry.redirectState === 'installed-permanent'
@@ -213,10 +218,25 @@ test('retired HTML cannot erase the redirect or replacement denominator', (t) =>
   assert.equal(retired.legacyReplacement.total, 129);
   assert.equal(retired.legacyReplacement.nextRoutePresent, 129);
 
+  // Partial retirement must not shrink identity coverage either. This input
+  // is a disposable source fixture, not a change to public repository files.
+  writeFileSync(path.join(fixture, 'public', 'pricing.html'), '<h1>Historical</h1>');
+  const partial = collectNextMigrationStatus(fixture);
+  assert.equal(partial.legacyHtml.total, 1);
+  assert.deepEqual(partial.legacyHtml.serverRedirectedPaths, ['/pricing.html']);
+  assert.equal(partial.legacyRetirementRedirects.sourcePaths, 129);
+  assert.equal(partial.legacyReplacement.total, 129);
+  assert.equal(partial.legacyReplacement.nextRoutePresent, 129);
+  assert.deepEqual(partial.legacyReplacement.entries, retired.legacyReplacement.entries);
+  rmSync(path.join(fixture, 'public', 'pricing.html'));
+
   rmSync(path.join(fixture, 'app', '(authed-home)', 'home', 'page.tsx'));
   const missingOwner = collectNextMigrationStatus(fixture);
   assert.equal(missingOwner.legacyReplacement.total, 129);
   assert.ok(missingOwner.legacyReplacement.missingNextRoutes.some((row) => row.nextPath === '/home'));
+  assert.equal(missingOwner.legacyReplacement.nextRoutePresent, 128);
+  assert.equal(missingOwner.legacyReplacement.entries.find((row) => row.nextPath === '/home')
+    .deletionState, 'blocked-missing-next-route');
   assert.equal(missingOwner.staticCutoverReady, false);
 
   writeFileSync(path.join(fixture, 'public', 'unexpected.html'), '<h1>Unowned</h1>');

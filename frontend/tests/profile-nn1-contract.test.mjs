@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   buildLegacyRetirementRedirects,
-  discoverLegacyHtmlPaths,
+  LEGACY_RETIREMENT_PATHS,
 } from '../tooling/gate-f-retirement-redirects.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -95,7 +95,7 @@ test('Gate F redirect soak preserves the N/N-1 legacy consumer as a rollback art
   // consumer in the deployment artifact and reverting the routing release.
   // While the soak release is active, the public path must never render it.
   const redirects = buildLegacyRetirementRedirects(
-    discoverLegacyHtmlPaths(path.join(FRONTEND, 'public')),
+    LEGACY_RETIREMENT_PATHS,
     { permanent: false },
   );
   assert.ok(redirects.some((entry) => (

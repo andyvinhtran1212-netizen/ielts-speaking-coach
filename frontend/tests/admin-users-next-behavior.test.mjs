@@ -16,7 +16,7 @@ import {
 } from '../lib/admin-users-model.mjs';
 import {
   buildLegacyRetirementRedirects,
-  discoverLegacyHtmlPaths,
+  LEGACY_RETIREMENT_PATHS,
 } from '../tooling/gate-f-retirement-redirects.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -35,7 +35,7 @@ const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
 const BROWSER = read('tooling', 'verify-admin-users-flow.mjs');
 const RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
-  discoverLegacyHtmlPaths(join(ROOT, 'public')),
+  LEGACY_RETIREMENT_PATHS,
   { permanent: false },
 );
 
