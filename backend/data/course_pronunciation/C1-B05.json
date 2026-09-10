@@ -10,62 +10,77 @@
     {
       "id": "C1-B05-PRON-01",
       "order": 1,
-      "text": "The air in the mountains is cleaner than the city air."
+      "text": "The old wooden bridge in our small village is narrower than the new concrete one."
     },
     {
       "id": "C1-B05-PRON-02",
       "order": 2,
-      "text": "My brother’s new flat is smaller than mine, but its monthly rent is very low."
+      "text": "Rents in the centre are higher than rents in the suburbs."
     },
     {
       "id": "C1-B05-PRON-03",
       "order": 3,
-      "text": "Journeys by metro always feel shorter than journeys by bus in the heavy Hanoi traffic."
+      "text": "My grandmother’s old recipes are more interesting than the recipes in modern cookery books today."
     },
     {
       "id": "C1-B05-PRON-04",
       "order": 4,
-      "text": "The new metro line is more reliable than the old bus service."
+      "text": "Public transport in Singapore is more efficient than public transport in most Asian cities today."
     },
     {
       "id": "C1-B05-PRON-05",
       "order": 5,
-      "text": "Public transport in Singapore is more efficient than public transport in most Asian cities today."
+      "text": "Coal power stations are less popular than modern wind farms in many European countries today."
     },
     {
       "id": "C1-B05-PRON-06",
       "order": 6,
-      "text": "My grandmother’s old recipes are more interesting than the recipes in modern cookery books today."
+      "text": "A university degree is not as valuable as real work experience in some modern industries."
     },
     {
       "id": "C1-B05-PRON-07",
       "order": 7,
-      "text": "The new electric buses start earlier than the old diesel ones on my street every morning."
+      "text": "Air pollution remains the most serious environmental problem in many large Asian capital cities today."
     },
     {
       "id": "C1-B05-PRON-08",
       "order": 8,
-      "text": "Farmers in the delta work harder than office staff during the two short harvest seasons."
+      "text": "The old quarter is the busiest area in Hanoi at weekends."
     },
     {
       "id": "C1-B05-PRON-09",
       "order": 9,
-      "text": "Air quality in the old quarter falls faster than anywhere else in the city’s crowded centre."
+      "text": "The new electric buses start earlier than the old diesel ones on my street every morning."
     },
     {
       "id": "C1-B05-PRON-10",
       "order": 10,
-      "text": "Air pollution remains the most serious environmental problem in many large Asian capital cities today."
+      "text": "Young workers in this factory learn faster than the older staff."
     },
     {
       "id": "C1-B05-PRON-11",
       "order": 11,
-      "text": "The old diesel buses in this city are the worst vehicles for local air quality."
+      "text": "The new nurses treat patients more gently than the older staff."
     },
     {
       "id": "C1-B05-PRON-12",
       "order": 12,
-      "text": "The new solar power plant is the largest energy project in the whole northern region."
+      "text": "Village children learn English as easily as children in the city."
+    },
+    {
+      "id": "C1-B05-PRON-13",
+      "order": 13,
+      "text": "Doctors at the new clinic explain the treatment the most clearly of all the staff there."
+    },
+    {
+      "id": "C1-B05-PRON-14",
+      "order": 14,
+      "text": "Air quality in the industrial district is far worse than in the quiet coastal towns."
+    },
+    {
+      "id": "C1-B05-PRON-15",
+      "order": 15,
+      "text": "My grandfather’s old radio still works better than the cheap new one from the market."
     }
   ]
 }
