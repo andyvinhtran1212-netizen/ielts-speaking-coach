@@ -1,7 +1,7 @@
 # TEST INVARIANT LEDGER — Frontend Migration to Next.js
 
 **Status:** DRAFT (2026-07-13, requires human review before Gate A)  
-**Scope:** Catalogs ALL 225 frontend test files (214 node:test + 4 Playwright e2e + 7 archived)  
+**Historical scope (2026-07-13):** Cataloged 225 frontend test files (214 node:test + 4 Playwright e2e + 7 archived); not a current total.
 **Method:** Section 11.4 (test retirement rule) + sections 7.4/B7 (ledger backbone)  
 **Baseline commit:** `3f031d17` (HEAD) + 11 commits after `9047e09f`  
 
@@ -9,7 +9,28 @@
 
 ---
 
-## Summary
+## Current retirement checkpoint — 2026-09-10
+
+ADR-005 still requires per-invariant replacement or reviewed retirement. The
+July CI counts below are historical: CI now runs both `frontend/tests/*.test.mjs`
+and `frontend/tests/*.test.js` globs, including new files. Do not use historical
+"not in CI" or "retire-immediately" labels as deletion approval.
+
+Pricing was revalidated against current source. The Next owner
+`frontend/app/(marketing)/pricing/page.tsx` deliberately redirects to `/` before
+launch. `pricing-next-behavior.test.mjs` and `verify-pricing-redirect-flow.mjs`
+protect this native contract, but the former still reads the legacy pricing
+and landing HTML. `pricing-redesign.test.mjs` protects the pre-launch sentinel
+as well as dormant design. It is therefore not purely obsolete design coverage.
+Before retiring pricing HTML/CSS, preserve the Next redirect invariant, decide
+whether dormant launch content is archived or intentionally discarded, and
+explicitly disposition both legacy-source assertions. No pricing test or asset
+is retired by this checkpoint.
+
+See [wave 3 asset audit](audits/GATE_F_ASSET_AUDIT_2026-09-10.md) for the current
+read-only inventory; it grants no deletion approval.
+
+## Historical summary — 2026-07-13
 
 | Metric | Count |
 |--------|-------|
@@ -77,7 +98,7 @@
 | `admin-writing-prompts-redesign.test.mjs` | ✗ | `frontend/pages/admin/writing/prompts.html` | Prompt list: paginated, filterable by level/topic, bulk actions (publish, archive) | source-string-pin | port-to-component-test |
 | `admin-writing-status-redesign.test.mjs` | ✗ | `frontend/pages/admin/writing/status.html` | Status dashboard: grades per student, completion %, feedback rate | source-string-pin | keep-until-route-retired |
 | `admin-writing-redesign.test.mjs` | ✗ | `frontend/pages/admin/writing/index.html` | Writing admin hub: navigation to sub-pages (dashboard, queue, prompts, cohorts) | source-string-pin | keep-until-route-retired |
-| `pricing-redesign.test.mjs` | ✗ | `frontend/pages/pricing.html` | Marketing page: feature matrix, CTA, pricing tiers; no auth required | source-string-pin | retire-immediately (no migration path; design-only) |
+| `pricing-redesign.test.mjs` | ✓ (current glob) | `frontend/public/pricing.html`, `frontend/public/css/pricing.css` via aliases | Pre-launch redirect sentinel plus dormant pricing/FAQ design | source-string-pin | HOLD: native redirect replacement exists, but legacy assertions and dormant launch content need explicit retirement disposition |
 | `onboarding-redesign.test.mjs` | ✗ | `frontend/pages/onboarding.html` | Onboarding flow: skill selection, cohort join, first session setup | source-string-pin | retire-immediately (deprecated in pivot; legacy flow) |
 
 ### Reading (15 files, 8 in CI)
@@ -329,12 +350,14 @@ result is the **"## UNCLEAR resolution" appendix** at the end of this doc; the
 inline disposition column no longer contains any UNCLEAR marker. This queue is
 closed — do not treat these as open.
 
-## Tests to Retire Immediately (Obsolete / Not Migrating)
+## Historical retirement suggestions — not deletion approval
 
-These tests protect obsolete flows or historical audits. Recommend retiring before Phase 1:
+These July suggestions require current per-invariant revalidation under ADR-005.
+The pricing suggestion below was disproved by source inspection on 2026-09-10;
+other entries are not newly certified by this checkpoint.
 
 1. `admin-monolith-redesign.test.mjs` — Legacy reference to old admin.html
-2. `pricing-redesign.test.mjs` — Design-only; no migration path
+2. `pricing-redesign.test.mjs` — **HOLD; original suggestion withdrawn.** Protects a real pre-launch redirect sentinel; native coverage exists but still reads legacy artifacts (see current checkpoint).
 3. `onboarding-redesign.test.mjs` — Deprecated onboarding flow
 4. `sprint-6-7-1-audit-closure.test.mjs` — Historical audit
 5. `sprint-6-9-1-audit-closure.test.mjs` — Historical audit

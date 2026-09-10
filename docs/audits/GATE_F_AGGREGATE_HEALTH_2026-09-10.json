@@ -1,0 +1,60 @@
+{
+  "project": "huwsmtubwulikhlmcirx",
+  "startedAt": "2026-09-10T01:14:39.583243+00:00",
+  "finishedAt": "2026-09-10T01:14:43.206010+00:00",
+  "requests": 31,
+  "method": "HEAD count=exact; TLS verified; no row bodies; sequential non-atomic observations",
+  "surfaces": {
+    "speaking": {
+      "legacy_unexpired": 0,
+      "unclaimed_unexpired": 0,
+      "missing_expiry": 0
+    },
+    "reading": {
+      "legacy_unexpired": 0,
+      "unclaimed_unexpired": 0,
+      "missing_expiry": 0
+    },
+    "listening": {
+      "legacy_unexpired": 0,
+      "unclaimed_unexpired": 0,
+      "missing_expiry": 0
+    },
+    "dictation": {
+      "legacy_unexpired": 0,
+      "unclaimed_unexpired": 0,
+      "missing_expiry": 0
+    },
+    "writing": {
+      "legacy_pending": 0,
+      "legacy_in_progress": 0,
+      "unclaimed_in_progress": 0,
+      "missing_lease": 0
+    }
+  },
+  "legacyBlockingTotal": 0,
+  "telemetry": {
+    "since_redirect": 0,
+    "since_hard_flip": 0
+  },
+  "errors": {
+    "unresolved_historical": 45,
+    "errors_warnings_since_hard_flip": 0
+  },
+  "results": {
+    "reading": {
+      "submitted": 586,
+      "missing_score_or_timestamp": 0
+    },
+    "listening": {
+      "submitted": 1267,
+      "missing_score_or_timestamp": 0
+    },
+    "speaking": {
+      "completed": 3958,
+      "missing_band": 22,
+      "missing_completion_time": 1
+    }
+  },
+  "retirementApproved": false
+}

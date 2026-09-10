@@ -1,0 +1,854 @@
+{
+  "sourceRelease": "b44efaa72fe61e4c22a0be704c8a62795691d0b9",
+  "production": {
+    "observedAt": "2026-09-10T00:38:50.681Z",
+    "origin": "https://www.averlearning.com",
+    "scope": "all 139 redirect rules",
+    "total": 139,
+    "passed": 139,
+    "results": [
+      {
+        "source": "/admin.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/grammar.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/grammar?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/login.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/login?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/onboarding.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/onboarding?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/access-codes/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/users?audit_probe=gate-f-wave3&tab=codes",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/classes/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/classes?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/classes/index.html?audit_probe=gate-f-wave3&cohort_id=audit-cohortid",
+        "status": 308,
+        "location": "/admin/classes/audit-cohortid?audit_probe=gate-f-wave3&cohort_id=audit-cohortid",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/classes/index.html?audit_probe=gate-f-wave3&tab=students",
+        "status": 308,
+        "location": "/admin/students?audit_probe=gate-f-wave3&tab=students",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/cohorts/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/classes?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/cohorts/index.html?audit_probe=gate-f-wave3&cohort_id=audit-cohortid",
+        "status": 308,
+        "location": "/admin/classes/audit-cohortid?audit_probe=gate-f-wave3&cohort_id=audit-cohortid",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/cohorts/index.html?audit_probe=gate-f-wave3&tab=students",
+        "status": 308,
+        "location": "/admin/students?audit_probe=gate-f-wave3&tab=students",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/dashboard/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/dashboard/reading-attempts.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/dashboard/reading-attempts?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/error-logs/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/error-logs?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/feedback/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/feedback?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/foot-traffic/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/foot-traffic?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/grammar/analytics.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/grammar/analytics?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/grammar/articles.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/grammar/articles?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/grammar/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/grammar?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/grammar/recommend-test.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/grammar/recommend-test?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/instructors.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/instructors?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/attempts.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/listening/attempts?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/audit-detail.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/listening/audit-detail?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/audit.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/listening/audit?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/content-detail.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/listening?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/content-detail.html?audit_probe=gate-f-wave3&id=audit-contentid",
+        "status": 308,
+        "location": "/admin/listening/content/audit-contentid?audit_probe=gate-f-wave3&id=audit-contentid",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/content-meta.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/listening?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/content-meta.html?audit_probe=gate-f-wave3&id=audit-contentid",
+        "status": 308,
+        "location": "/admin/listening/content/audit-contentid/edit?audit_probe=gate-f-wave3&id=audit-contentid",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/dictation-reports.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/listening/dictation?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/gist.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/listening/gist?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/import-drills.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/listening/import-drills?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/import-fulltest.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/listening/import-fulltest?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/listening?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/mcq.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/listening/mcq?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/segments.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/listening/segments?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/tests-detail.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/listening/tests?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/tests-detail.html?audit_probe=gate-f-wave3&id=audit-testid",
+        "status": 308,
+        "location": "/admin/listening/tests/audit-testid?audit_probe=gate-f-wave3&id=audit-testid",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/tests.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/listening/tests?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/listening/tf.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/listening/tf?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/mock-exams/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/mock-exams?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/mock-live/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/mock-live?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/mock-pacing/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/mock-pacing?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/mock-reviews/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/mock-reviews?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/mock-reviews/report.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/mock-reviews/report?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/mock-tests/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/mock-tests?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/reading/content.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/reading/content?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/reading/preview.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/reading/preview?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/speaking/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/speaking?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/speaking/sessions.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/speaking/sessions?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/speaking/topics.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/speaking/topics?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/students/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/students?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/system/ai-usage.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/system/ai-usage?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/system/alerts.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/system/alerts?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/system/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/system?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/usage/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/usage?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/users/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/users?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/vocab/content.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/vocab/content?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/vocab/d1-curation.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/vocab/d1-curation?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/vocab/exercises.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/vocab/exercises?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/vocab/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/vocab?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/vocab/lemmas.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/vocab/lemmas?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/vocab/quiz-analytics.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/vocab/quiz-analytics?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/vocab/quiz.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/vocab/quiz?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/vocab/stats.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/vocab/stats?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/vocab/topics.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/vocab/topics?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/writing/assignments.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/writing/assignments?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/writing/cohorts.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/writing/cohorts?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/writing/grade.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/writing/grade?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/writing/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/writing?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/writing/instructor-queue.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/writing/instructor-queue?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/writing/new.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/writing/new?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/writing/prompts.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/writing/prompts?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/writing/queue.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/writing/queue?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/writing/regrade-requests.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/writing/regrade-requests?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/writing/status.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/writing/status?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/admin/writing/tips.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/admin/writing/tips?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/d1-exercise.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/d1-exercise?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/exam.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/exam?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/exercises.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/exercises?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/flashcard-study.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/flashcard-study?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/flashcards.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/flashcards?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/full-test-result.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/full-test-result?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/full-test.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/full-test?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/grammar-article.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/grammar?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/grammar-article.html?audit_probe=gate-f-wave3&category=audit-category&slug=audit-slug",
+        "status": 308,
+        "location": "/grammar/audit-category/audit-slug?audit_probe=gate-f-wave3&category=audit-category&slug=audit-slug",
+        "ok": true
+      },
+      {
+        "source": "/pages/grammar-compare.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/grammar/compare?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/grammar-exercises.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/grammar/exercises?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/grammar-roadmap.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/grammar/roadmap?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/grammar-search.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/grammar/search?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/home.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/home?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/instructor/compare.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/instructor/compare?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/instructor/grade.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/instructor/grade?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/instructor/index.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/instructor?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/listening-analytics.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/listening/analytics?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/listening-browse.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/listening/browse?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/listening-dictation.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/listening/dictation?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/listening-gist.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/listening/gist?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/listening-mcq.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/listening/mcq?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/listening-mini-test.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/listening/mini-test?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/listening-practice-run.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/listening/practice-run?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/listening-practice.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/listening/practice?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/listening-review.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/listening/review?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/listening-skills.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/listening/skills?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/listening-test-dictation.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/listening/dictation/session?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/listening-test.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/listening/test/session?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/listening-tests.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/listening/tests?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/listening-tf.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/listening/tf?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/listening.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/listening?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/mock-exam.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/mock-exam?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/mock-result.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/mock/result?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/my-class.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/my-class?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/practice.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/practice/session?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/profile.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/profile?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/quiz-progress.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/quiz/progress?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/quiz.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/quiz?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/reading-exam.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/reading/exam/session?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/reading-mini-test.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/reading/mini-test?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/reading-review.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/reading/review?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/reading-skill-exercise.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/reading/skill?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/reading-skill-exercise.html?audit_probe=gate-f-wave3&slug=audit-slug",
+        "status": 308,
+        "location": "/reading/skill/audit-slug?audit_probe=gate-f-wave3&slug=audit-slug",
+        "ok": true
+      },
+      {
+        "source": "/pages/reading-skill.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/reading/skill?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/reading-test.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/reading/test?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/reading-vocab-passage.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/reading/vocab?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/reading-vocab-passage.html?audit_probe=gate-f-wave3&slug=audit-slug",
+        "status": 308,
+        "location": "/reading/vocab/audit-slug?audit_probe=gate-f-wave3&slug=audit-slug",
+        "ok": true
+      },
+      {
+        "source": "/pages/reading-vocab.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/reading/vocab?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/result.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/result?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/speaking-result.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/speaking/result?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/speaking.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/speaking?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/vocab-article.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/vocabulary?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/vocab-exam.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/vocabulary/exam?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/vocab-practice.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/vocabulary/practice?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/vocabulary.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/vocabulary/hub?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/writing-dashboard.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/writing/dashboard?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pages/writing-result.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/writing/result?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/practice.legacy.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/practice/session?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/pricing.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/pricing?audit_probe=gate-f-wave3",
+        "ok": true
+      },
+      {
+        "source": "/vocabulary.html?audit_probe=gate-f-wave3",
+        "status": 308,
+        "location": "/vocabulary?audit_probe=gate-f-wave3",
+        "ok": true
+      }
+    ]
+  },
+  "staging": {
+    "observedAt": "2026-09-10T00:39:02.754Z",
+    "deploymentUrl": "https://ielts-speaking-coach-2br3rzdz4.vercel.app",
+    "total": 26,
+    "passed": 26,
+    "scope": "Representative public/admin/five core surfaces and all dynamic/fallback rules; GET via normal Vercel CLI auth, no learner session"
+  },
+  "note": "Production main may advance independently. Content-only descendant cadd3ee5 added C1-B10 pronunciation JSON, leaving redirect/asset code unchanged; this is point-in-time HTTP evidence, not a deployment freeze."
+}
