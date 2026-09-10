@@ -1,4 +1,5 @@
 const { expect } = require('@playwright/test');
+const { installLegacyFixtureRoutes } = require('../fixtures/gate-e-legacy/loader.cjs');
 
 const API = 'http://localhost:8000';
 const ORIGIN = 'http://localhost:3213';
@@ -116,6 +117,7 @@ async function installListeningGateEHarness(page, {
   allowCrossRendererFixture = false,
 } = {}) {
   if (!state) throw new TypeError('state is required');
+  await installLegacyFixtureRoutes(page, ORIGIN, ['/pages/listening-test.html']);
   const calls = [];
   const pageErrors = [];
   const productionRequests = [];

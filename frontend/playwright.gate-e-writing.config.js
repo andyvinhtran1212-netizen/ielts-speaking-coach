@@ -17,7 +17,8 @@ module.exports = defineConfig({
   webServer: {
     command: 'npm run build && npm run start',
     url: 'http://localhost:3214/writing/dashboard',
-    env: { PORT: '3214', GATE_E_LEGACY_FIXTURES: 'local-build-only' },
+    // Legacy HTML is fulfilled by the browser harness from checked test snapshots.
+    env: { PORT: '3214' },
     reuseExistingServer: false,
     timeout: 180_000,
   },

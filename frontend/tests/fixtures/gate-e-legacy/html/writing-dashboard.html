@@ -1,0 +1,2215 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Bài viết của em — Aver Learning</title>
+
+  <!-- Sprint 6.7: writing-dashboard.html surgical migration. The page is a
+       1377-line teacher-assignment workflow (2 tabs / 6-state essay pill /
+       5-state assignment pill / submit modal with timer + autosave). The
+       redesign is SURGICAL — the inline JS (~1060 lines) and every JS-
+       coupled selector + class hook + data-* attribute is preserved
+       byte-identical. Only fonts / tokens / anti-flash IIFE / theme toggle
+       / Lucide chrome icons swap.
+       Sprint 6.6.1 canonical anti-flash IIFE (DESIGN_SYSTEM.md § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+
+  <!-- Aver Design System foundation. tokens.css MUST load before
+       components.css and writing-dashboard.css. ds.css is kept because
+       the page still uses no .ds-* render classes directly, but inline
+       JS template literals emit Tailwind utilities (text-gray-*, etc.)
+       that the writing-dashboard.css override block re-routes to tokens
+       under body.av-page (Sprint 6.5.1 pattern). -->
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/ds.css" />
+  <link rel="stylesheet" href="/css/writing-dashboard.css" />
+  <!-- Sprint 19.1B — rendered-markdown typography for the "Mẹo viết" tab. -->
+  <link rel="stylesheet" href="/css/markdown.css" />
+  <!-- P0-3 C-3.4: static Tailwind loaded LAST (after page CSS) to match the
+       Play-CDN cascade — utilities/.hidden win over same-specificity page rules. -->
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
+
+  <!-- Lucide icons (line glyphs replacing the legacy ✕ close button). -->
+  <script src="https://unpkg.com/lucide@1.17.0" defer></script>
+
+  <!-- Sprint 19.1B — markdown render + sanitize for the "Mẹo viết" tab.
+       Loaded only here + admin/writing/tips.html (not bundled app-wide). -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.8/dist/purify.min.js" defer></script>
+  <script src="/js/markdown.js" defer></script>
+
+  <!-- Canonical chrome Web Component (Sprint 7.12). -->
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+  <script src="/js/legacy-retirement-beacon.js" defer></script>
+</head>
+<body class="av-page font-sans">
+
+  <!-- Canonical chrome (Sprint 7.12 — <aver-chrome> Web Component;
+       Writing active). Component owns chrome markup + theme toggle +
+       user pill + logout via Shadow DOM. -->
+  <aver-chrome active="writing"></aver-chrome>
+
+  <main class="shell">
+
+    <!-- Greeting — P0-3 LCP fix. Rendered OUTSIDE #content (always visible)
+         so the LCP h1 paints at the CSS/font floor (~1s) instead of waiting
+         for the data chain (auth + my-assignments + my-essays + permissions)
+         that reveals #content (~7.6s before). Name/code fill progressively
+         via renderStudent() once loadEssays/loadAssignments resolve; the
+         placeholders default to renderStudent's own no-data fallbacks. -->
+    <section class="mb-8">
+      <p class="eyebrow">Writing</p>
+      <h1 class="text-2xl md:text-3xl font-semibold mb-2">
+        Chào em, <span id="greeting-name">em</span> 👋
+      </h1>
+      <p class="text-sm text-gray-300">
+        Mã học viên: <span id="student-code" class="font-mono text-gray-200">—</span>
+        <span id="target-band-section" class="hidden">
+          <span class="text-gray-500 mx-2">·</span>
+          Mục tiêu: Band <span id="target-band">—</span>
+        </span>
+      </p>
+    </section>
+
+    <!-- Loading state (kept for JS compat; hidden by default — content is always visible) -->
+    <div id="loading" class="hidden text-center py-16" role="status" aria-live="polite">
+      <div class="inline-block animate-spin rounded-full h-8 w-8 border-2 border-teal-light border-t-transparent"></div>
+      <p class="mt-3 text-gray-300">Đang tải...</p>
+    </div>
+
+    <!-- Error state -->
+    <div id="error" class="hidden max-w-md mx-auto text-center py-16">
+      <div class="wd-error-box">
+        <p class="wd-error-box__msg" id="error-message"></p>
+        <a id="error-cta"
+           href="../index.html"
+           class="inline-block text-teal-light underline hover:text-white transition">
+          Quay về trang chủ
+        </a>
+      </div>
+    </div>
+
+    <!-- Main content -->
+    <div id="content">
+      <div id="writing-submit-notice" class="wd-submit-notice hidden" role="status"></div>
+      <!-- Sprint 5.2 — Writing permission preview banner (hidden by default,
+           revealed when GET /api/student/permissions returns writing=false). -->
+      <div id="writing-preview-banner" class="wd-preview-banner hidden mb-6 flex items-start gap-3">
+        <span class="wd-preview-banner__icon" aria-hidden="true">🔒</span>
+        <div class="text-sm">
+          <strong class="wd-preview-banner__title block mb-1">Chế độ xem trước</strong>
+          <p class="wd-preview-banner__body">
+            Quyền Writing chưa được kích hoạt cho tài khoản này. Em vẫn có thể xem
+            các bài đã nộp trước đây — liên hệ giảng viên để được kích hoạt
+            tính năng nộp bài mới.
+          </p>
+        </div>
+      </div>
+
+      <!-- Phase 2.3b — tab nav -->
+      <div class="flex border-b border-white/10 mb-6 gap-1">
+        <button id="tab-assignments" type="button" class="tab-btn active">
+          📋 Bài giao
+          <span id="assignments-count" class="ml-1 text-xs text-gray-500"></span>
+        </button>
+        <button id="tab-essays" type="button" class="tab-btn">
+          📝 Bài đã nộp
+          <span id="essays-count" class="ml-1 text-xs text-gray-500"></span>
+        </button>
+        <button id="tab-tips" type="button" class="tab-btn">
+          💡 Mẹo viết
+        </button>
+        <!-- R1 — "Kho đề": hidden until the prompt-bank endpoint returns enabled:true -->
+        <button id="tab-prompt-bank" type="button" class="tab-btn" hidden>
+          📚 Kho đề
+        </button>
+      </div>
+
+      <!-- Tab 1 — Bài giao (active assignments awaiting submission) -->
+      <section id="content-assignments">
+        <!-- Deliverable 2 (Sprint 19.1A) — "Bài sắp đến hạn" surface.
+             Built client-side from the active assignments that carry a
+             deadline, sorted soonest-first with an urgency colour cue.
+             Hidden when no active assignment has a deadline. -->
+        <div id="deadlines-surface" class="wd-deadlines hidden" aria-label="Bài sắp đến hạn">
+          <h2 class="wd-deadlines__title">⏰ Bài sắp đến hạn</h2>
+          <div id="deadlines-list" class="wd-deadlines__list"></div>
+        </div>
+
+        <div id="assignments-list" class="space-y-3"><p class="text-sm py-8 text-center" style="color:var(--av-text-muted)">Đang tải…</p></div>
+        <div id="assignments-empty" class="wd-empty hidden">
+          <div class="wd-empty__icon" aria-hidden="true">📋</div>
+          <p class="wd-empty__title">Em chưa có bài giao nào</p>
+          <p class="wd-empty__hint">Khi giảng viên giao đề, em sẽ thấy ở đây.</p>
+        </div>
+      </section>
+
+      <!-- Tab 2 — Bài đã nộp (existing essays list) -->
+      <section id="content-essays" class="hidden">
+        <!-- Sprint 2.5.5: 4 status filter sub-tabs -->
+        <nav id="essay-filter-tabs" class="flex gap-1 mb-4 border-b border-white/5 pb-1 overflow-x-auto"
+             aria-label="Lọc bài viết theo trạng thái">
+          <button type="button" class="essay-filter-btn is-active" data-filter="all">
+            <span class="filter-label">Tất cả</span>
+            <span class="filter-count" id="filter-count-all">—</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-filter="delivered">
+            <span class="filter-label">✓ Đã chấm</span>
+            <span class="filter-count" id="filter-count-delivered">—</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-filter="pending">
+            <span class="filter-label">⏳ Chờ chấm</span>
+            <span class="filter-count" id="filter-count-pending">—</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-filter="flagged">
+            <span class="filter-label">🚩 Bị đánh dấu</span>
+            <span class="filter-count" id="filter-count-flagged">—</span>
+          </button>
+        </nav>
+        <div id="essays-list" class="space-y-3"><p class="text-sm py-8 text-center" style="color:var(--av-text-muted)">Đang tải…</p></div>
+        <div id="empty-state" class="wd-empty hidden">
+          <div class="wd-empty__icon" aria-hidden="true">📝</div>
+          <p class="wd-empty__title">Em chưa có bài viết nào</p>
+          <p class="wd-empty__hint">Hãy nộp bài đầu tiên qua thẻ "Bài giao" hoặc qua giảng viên của em.</p>
+        </div>
+        <div id="filter-empty-state" class="wd-empty wd-empty--compact hidden">
+          <p class="wd-empty__hint">Không có bài nào trong nhóm này.</p>
+        </div>
+      </section>
+
+      <!-- Tab 3 — Mẹo viết (Sprint 19.1B: admin-published writing tips) -->
+      <section id="content-tips" class="hidden">
+        <nav id="tips-filter-tabs" class="flex gap-1 mb-4 border-b border-white/5 pb-1 overflow-x-auto"
+             aria-label="Lọc mẹo theo loại task">
+          <button type="button" class="essay-filter-btn is-active" data-tip-filter="all">
+            <span class="filter-label">Tất cả</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-tip-filter="task_1">
+            <span class="filter-label">Task 1</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-tip-filter="task_2">
+            <span class="filter-label">Task 2</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-tip-filter="both">
+            <span class="filter-label">Cả hai</span>
+          </button>
+        </nav>
+        <!-- Sprint 19.1C — content_type filter (2nd axis: AND with task) -->
+        <nav id="tips-type-tabs" class="flex gap-1 mb-4 overflow-x-auto"
+             aria-label="Lọc theo loại nội dung">
+          <button type="button" class="essay-filter-btn is-active" data-tip-type-filter="all">
+            <span class="filter-label">Tất cả</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-tip-type-filter="tip">
+            <span class="filter-label">💡 Mẹo</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-tip-type-filter="knowledge">
+            <span class="filter-label">📖 Kiến thức</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-tip-type-filter="sample">
+            <span class="filter-label">✍️ Bài mẫu</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-tip-type-filter="outline">
+            <span class="filter-label">🗂️ Dàn bài</span>
+          </button>
+        </nav>
+        <div id="tips-loading" class="text-center py-10 text-gray-300">Đang tải mẹo…</div>
+        <div id="tips-list" class="space-y-3 hidden"></div>
+        <div id="tips-empty" class="wd-empty hidden">
+          <div class="wd-empty__icon" aria-hidden="true">💡</div>
+          <p class="wd-empty__title">Chưa có mẹo nào</p>
+          <p class="wd-empty__hint">Giảng viên sẽ publish mẹo viết sớm — em quay lại sau nhé.</p>
+        </div>
+        <div id="tips-error" class="wd-empty wd-empty--compact hidden">
+          <p class="wd-empty__hint" id="tips-error-msg">Không tải được mẹo viết.</p>
+        </div>
+      </section>
+
+      <!-- Tab 4 — Kho đề (R1: public prompt-bank browse, flag-gated). Browse-only. -->
+      <section id="content-prompt-bank" class="hidden">
+        <nav id="pb-filter-tabs" class="flex gap-1 mb-4 border-b border-white/5 pb-1 overflow-x-auto"
+             aria-label="Lọc đề theo loại task">
+          <button type="button" class="essay-filter-btn is-active" data-pb-filter="all">
+            <span class="filter-label">Tất cả</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-pb-filter="task1_academic">
+            <span class="filter-label">Task 1 Academic</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-pb-filter="task1_general">
+            <span class="filter-label">Task 1 General</span>
+          </button>
+          <button type="button" class="essay-filter-btn" data-pb-filter="task2">
+            <span class="filter-label">Task 2</span>
+          </button>
+        </nav>
+        <div id="pb-list" class="space-y-3"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Tip detail modal (Sprint 19.1B) — renders the sanitized markdown body. -->
+  <div id="tip-modal" class="wd-tip-modal hidden fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="tip-modal-title">
+    <div class="wd-tip-modal__backdrop" id="tip-modal-backdrop"></div>
+    <div class="wd-tip-modal__panel">
+      <header class="flex items-start justify-between gap-3 mb-3">
+        <div class="min-w-0">
+          <h2 id="tip-modal-title" class="text-xl font-semibold"></h2>
+          <p id="tip-modal-meta" class="text-xs text-gray-400 mt-1"></p>
+        </div>
+        <button id="tip-modal-close" type="button" class="wd-modal-close leading-none" aria-label="Đóng">
+          <i data-lucide="x"></i>
+        </button>
+      </header>
+      <div id="tip-modal-body" class="md-body"></div>
+    </div>
+  </div>
+
+  <!-- ─── SCRIPTS: order matters — supabase CDN → api.js → inline ── -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0"></script>
+  <script src="../js/runtime-config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/writing-submit-receipt.js"></script>
+  <script src="../js/analytics-beacon.js" defer></script>
+  <script>
+    var SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
+    initSupabase(SUPABASE_URL, SUPABASE_ANON);
+
+    // ── Status pill mapping (Sprint 19.1A — Deliverable 4) ──────────
+    // Student-visible model collapses the 6 backend lifecycle states
+    // into 4 so the AI grading pipeline NEVER surfaces on the student
+    // UI. The flow the student sees is simply: nộp bài → chờ chấm →
+    // đã chấm. Gemini still grades in the background as a tool for the
+    // admin grade.html — it's just hidden here (Andy 2026-05-26).
+    //
+    //   pending/submitted/grading/graded/reviewed → "Chờ chấm" (neutral)
+    //   delivered                                  → "Đã chấm"  (success)
+    //   failed                                     → "Lỗi"      (error)
+    //   is_flagged (resolved separately in renderEssays, takes
+    //   precedence — a flagged essay carries status='delivered' with
+    //   no feedback row per migration 040) → "Bị đánh dấu" (warning)
+    var STATUS_CONFIG = {
+      pending:   { text: '⏳ Chờ chấm', pill: 'pill-wait',  clickable: false },
+      submitted: { text: '⏳ Chờ chấm', pill: 'pill-wait',  clickable: false },
+      grading:   { text: '⏳ Chờ chấm', pill: 'pill-wait',  clickable: false },
+      graded:    { text: '⏳ Chờ chấm', pill: 'pill-wait',  clickable: false },
+      reviewed:  { text: '⏳ Chờ chấm', pill: 'pill-wait',  clickable: false },
+      delivered: { text: '✓ Đã chấm',  pill: 'pill-green', clickable: true  },
+      failed:    { text: '⚠ Lỗi, liên hệ giảng viên', pill: 'pill-red', clickable: false },
+      // Synthetic key resolved when is_flagged === true (see renderEssays).
+      flagged:   { text: '⚠ Bị đánh dấu', pill: 'pill-amber', clickable: false },
+    };
+
+    var TASK_LABELS = {
+      task1_academic: 'Task 1 (Academic)',
+      task1_general:  'Task 1 (General)',
+      task2:          'Task 2',
+    };
+
+    // Phase 2.3b — assignment status pill mapping. Mirrors the
+    // 5-state workflow from migration 036.
+    var ASSIGNMENT_STATUS = {
+      pending:     { text: '⏳ Chờ làm',       pill: 'pill-gray'   },
+      in_progress: { text: '📝 Đang làm',      pill: 'pill-blue'   },
+      submitted:   { text: '📥 Đã nộp',        pill: 'pill-amber'  },
+      graded:      { text: '✓ Đã chấm',       pill: 'pill-purple' },
+      delivered:   { text: '📨 Đã nhận xét',   pill: 'pill-green'  },
+    };
+    // Active states show in the "Bài giao" tab; submitted/graded/
+    // delivered have their card under "Bài đã nộp" via writing_essays.
+    var ACTIVE_ASSIGNMENT_STATES = ['pending', 'in_progress'];
+
+    // ── Helpers ─────────────────────────────────────────────────────
+    function escapeHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+    function formatDate(iso) {
+      if (!iso) return '';
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return '';
+      return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    function show(id) { document.getElementById(id).classList.remove('hidden'); }
+    function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+    // ── Render ──────────────────────────────────────────────────────
+    function renderStudent(student) {
+      var s = student || {};
+      document.getElementById('greeting-name').textContent = s.full_name || 'em';
+      document.getElementById('student-code').textContent  = s.student_code || '—';
+      if (s.target_band != null) {
+        document.getElementById('target-band').textContent = s.target_band;
+        show('target-band-section');
+      }
+    }
+
+    // Sprint 2.5.5 — keep the most-recent fetched list around so the
+    // filter sub-tabs can re-render without a network round-trip.
+    var _allEssays = [];
+    var _currentFilter = 'all';
+
+    function _bandClass(band) {
+      var n = parseFloat(band);
+      if (isNaN(n)) return 'mid';
+      if (n < 5)    return 'low';
+      if (n < 6)    return 'mid';
+      if (n < 7)    return 'good';
+      return 'high';
+    }
+
+    function _filterEssays(essays, filter) {
+      if (filter === 'delivered') return essays.filter(function (e) { return e.status === 'delivered'; });
+      if (filter === 'pending')   return essays.filter(function (e) {
+        return ['grading','graded','reviewed','submitted','pending'].indexOf(e.status) !== -1;
+      });
+      if (filter === 'flagged')   return essays.filter(function (e) { return !!e.is_flagged; });
+      return essays;
+    }
+
+    function _updateFilterCounts(essays) {
+      var counts = {
+        all:       essays.length,
+        delivered: _filterEssays(essays, 'delivered').length,
+        pending:   _filterEssays(essays, 'pending').length,
+        flagged:   _filterEssays(essays, 'flagged').length,
+      };
+      Object.keys(counts).forEach(function (k) {
+        var el = document.getElementById('filter-count-' + k);
+        if (el) el.textContent = counts[k];
+      });
+    }
+
+    function renderEssays(essays) {
+      var list = document.getElementById('essays-list');
+      essays = essays || [];
+      _allEssays = essays;
+
+      // Phase 2.3b refactored the section header into a tab nav, so
+      // the original `<span id="essay-count">` is gone. The tab badge
+      // (`essays-count`, plural) is now the single source of truth and
+      // is written by `loadEssays()` after this call returns. Reading
+      // the dead id here was crashing the whole render with
+      // "Cannot set properties of null" the moment the user clicked
+      // the "Bài đã nộp" tab (Sprint 2.3b.1 production canary).
+
+      _updateFilterCounts(essays);
+
+      if (essays.length === 0) {
+        show('empty-state');
+        hide('filter-empty-state');
+        list.innerHTML = '';
+        return;
+      }
+      hide('empty-state');
+
+      var filtered = _filterEssays(essays, _currentFilter);
+      if (filtered.length === 0) {
+        show('filter-empty-state');
+        list.innerHTML = '';
+        return;
+      }
+      hide('filter-empty-state');
+
+      list.innerHTML = filtered.map(function (e) {
+        // Deliverable 4 (Sprint 19.1A): is_flagged takes precedence over
+        // status. A flagged essay carries status='delivered' with no
+        // feedback row (migration 040), so without this precedence it
+        // would mislead the student as "Đã chấm".
+        var status = e.is_flagged
+          ? STATUS_CONFIG.flagged
+          : (STATUS_CONFIG[e.status] || STATUS_CONFIG.pending);
+        var task   = TASK_LABELS[e.task_type] || 'Bài viết';
+        var date   = formatDate(e.created_at);
+
+        var clickable = status.clickable;
+        var cardClass = 'essay-card' + (clickable ? ' clickable' : '');
+
+        // Phase 2.2.1: emit ONLY data-essay-id + a11y attrs. The previous
+        // approach inlined onclick="window.location.href=" + JSON.stringify(href)
+        // which embedded a double-quoted JSON string inside the double-quoted
+        // onclick attribute, then SyntaxError'd on first user click.
+        // Listeners attached after innerHTML (see attachEssayCardClickListeners)
+        // compute the URL at click time so nothing is serialised into HTML.
+        var openAttrs = clickable ? ' role="link" tabindex="0"' : '';
+
+        var arrow = clickable
+          ? '<span class="essay-card__view">Xem →</span>'
+          : '';
+
+        var essayIdAttr = ' data-essay-id="' + escapeHtml(e.id) + '"';
+
+        // Sprint 2.5.5 — band-score pill on the footer of graded
+        // (delivered, non-flagged) cards so the student sees the overall
+        // band at a glance without opening the result page.
+        var isGraded = !e.is_flagged && e.status === 'delivered';
+        var bandPill = '';
+        if (e.overall_band_score != null && isGraded) {
+          var bc = _bandClass(e.overall_band_score);
+          bandPill = '<span class="essay-band-pill band-' + bc + '">' +
+            'Band ' + escapeHtml(String(e.overall_band_score)) +
+          '</span>';
+        }
+
+        // Deliverable 3 — explicit "tải bài đã chấm" (.docx) affordance on
+        // the history card. Only graded essays have a file to export.
+        // The download listener calls stopPropagation so the click never
+        // bubbles to the card's navigate handler.
+        var dlBtn = isGraded
+          ? '<button type="button" class="essay-dl-btn"' + essayIdAttr +
+              ' aria-label="Tải bài đã chấm định dạng Word">⬇ .docx</button>'
+          : '';
+
+        // R2b — "Mới" badge: delivered essay the student hasn't opened/exported
+        // yet (server computes has_new_feedback; clears on detail-open or .docx
+        // export). Sits next to the "✓ Đã chấm" pill.
+        var newBadge = e.has_new_feedback
+          ? '<span class="essay-new-badge" title="Bạn có nhận xét mới chưa xem">Mới</span>'
+          : '';
+
+        var footerLeft  = bandPill;
+        var hasFooter   = footerLeft || dlBtn || arrow;
+
+        return (
+          '<div class="' + cardClass + '"' + essayIdAttr + openAttrs + '>' +
+            '<div class="flex items-center justify-between gap-3 mb-2">' +
+              '<span class="text-xs text-gray-300 font-medium">' + escapeHtml(task) + ' · ' + escapeHtml(date) + '</span>' +
+              '<div class="flex items-center gap-1">' +
+                newBadge +
+                '<span class="pill ' + status.pill + '">' + escapeHtml(status.text) + '</span>' +
+              '</div>' +
+            '</div>' +
+            '<p class="text-sm text-gray-200 mb-2 line-clamp-2">' + escapeHtml(e.prompt_preview || '') + '</p>' +
+            (hasFooter
+              ? '<div class="flex items-center justify-between gap-2 mt-1">' +
+                  footerLeft +
+                  '<div class="essay-card__actions">' + dlBtn + arrow + '</div>' +
+                '</div>'
+              : '') +
+          '</div>'
+        );
+      }).join('');
+
+      attachEssayCardClickListeners();
+      attachEssayDownloadListeners();
+    }
+
+    // Filter sub-tab wiring — re-renders from cached _allEssays so we
+    // never re-fetch on filter change.
+    function wireEssayFilterTabs() {
+      var btns = document.querySelectorAll('.essay-filter-btn');
+      btns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var f = btn.getAttribute('data-filter');
+          _currentFilter = f;
+          btns.forEach(function (b) { b.classList.toggle('is-active', b === btn); });
+          renderEssays(_allEssays);
+        });
+      });
+    }
+
+    function attachEssayCardClickListeners() {
+      // Wire pointer + keyboard (Enter / Space) navigation on every
+      // .essay-card.clickable. Computing the URL inside the listener
+      // — instead of serialising it into an inline attribute —
+      // sidesteps the quote-nesting class of bugs entirely.
+      //
+      // Phase 2.2.2: navigate via absolute /writing/result rewrite
+      // instead of window.api.url('pages/...'). Reason: api.js's
+      // _appRoot heuristic only triggers when window.location.pathname
+      // matches /\/pages\/[^/]+$/. The user reaches this dashboard via
+      // the /writing/dashboard Vercel rewrite, so pathname is
+      // "/writing/dashboard" and _appRoot resolves to "./", producing
+      // ./pages/writing-result.html which the browser resolves against
+      // /writing/ → /writing/pages/writing-result.html → 404 (canary
+      // 2026-05-06). The /writing/result rewrite is already declared
+      // in frontend/vercel.json, so an absolute path is the cleanest
+      // production fix and keeps the address bar pretty.
+      var cards = document.querySelectorAll('.essay-card.clickable');
+      cards.forEach(function (card) {
+        var goToDetail = function () {
+          var essayId = card.getAttribute('data-essay-id');
+          if (!essayId) return;
+          // analytics — opening a graded essay from the dashboard (prompt_view).
+          // Fire-and-forget; never block navigation (Pattern #29).
+          try {
+            if (window.api && window.api.post) {
+              window.api.post('/api/analytics/events', {
+                event_name: 'prompt_view',
+                event_data: { essay_id: essayId, source: 'writing-dashboard' },
+              }).catch(function () {});
+            }
+          } catch (e) {}
+          window.location.href =
+            '/writing/result?essay_id=' + encodeURIComponent(essayId);
+        };
+        card.addEventListener('click', goToDetail);
+        card.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') {
+            ev.preventDefault();
+            goToDetail();
+          }
+        });
+      });
+    }
+
+    // Deliverable 3 (Sprint 19.1A) — wire the per-card .docx download.
+    // stopPropagation keeps the click off the card's navigate handler.
+    function attachEssayDownloadListeners() {
+      document.querySelectorAll('.essay-dl-btn').forEach(function (btn) {
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          ev.preventDefault();
+          downloadEssayDocx(btn.getAttribute('data-essay-id'), btn);
+        });
+        // The button sits inside a role="link" card; Enter/Space on the
+        // button should download, not navigate.
+        btn.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.stopPropagation(); }
+        });
+      });
+    }
+
+    // Authenticated .docx fetch → blob download. Mirrors the result
+    // page's handleDownload; kept page-local (no shared util) to avoid
+    // touching api.js. The endpoint streams a Word file with a
+    // Content-Disposition filename we honour when present.
+    async function downloadEssayDocx(essayId, btn) {
+      if (!essayId) return;
+      var orig = btn ? btn.innerHTML : '';
+      if (btn) { btn.disabled = true; btn.innerHTML = '⏳'; }
+      try {
+        var sb = getSupabase();
+        var session = (await sb.auth.getSession()).data.session;
+        if (!session) { window.location.href = '/login.html'; return; }
+        var url = window.api.base + '/api/writing/my-essays/' +
+          encodeURIComponent(essayId) + '/export.docx';
+        var res = await fetch(url, {
+          headers: { 'Authorization': 'Bearer ' + session.access_token },
+        });
+        if (!res.ok) {
+          var detail = '';
+          try { detail = (await res.json()).detail || ''; } catch (_) {}
+          throw new Error('HTTP ' + res.status + (detail ? ': ' + detail : ''));
+        }
+        var cd = res.headers.get('Content-Disposition') || '';
+        var m  = cd.match(/filename="([^"]+)"/);
+        var filename = m ? m[1] : ('essay_' + essayId + '.docx');
+        var blob = await res.blob();
+        var dl = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = dl; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(dl);
+      } catch (err) {
+        alert('Lỗi tải file: ' + ((err && err.message) || 'không xác định'));
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+      }
+    }
+
+    // ── Sprint 2.6.1 — submit-modal state ───────────────────────────
+    //
+    // Phase 2.3b's inline-form region was retired this sprint in
+    // favour of a single full-screen modal.  The modal owns ALL
+    // textarea / timer / auto-save state so we keep one assignment
+    // active at a time and don't have to thread region references
+    // through helper after helper.
+    //
+    // Anti-paste thresholds — match the forensic columns added by
+    // migration 041.  >200 chars: e.preventDefault() + alert + log.
+    // 50–200 chars: allow + log.  <50 chars: silent (no log either).
+    var modalState = {
+      assignmentId:      null,
+      accountId:         null,
+      autoSaveTimer:     null,
+      countdownInterval: null,
+      allowSoftCheck:    false,   // W-SOFTCHECK — per-assignment opt-in flag
+      returnFocus:       null,
+    };
+    var PASTE_BLOCK_THRESHOLD = 200;
+    var PASTE_LOG_THRESHOLD   = 50;
+
+    // ── Phase 2.3c-3 utilities (kept; now used by the modal) ────────
+    function formatTimer(seconds) {
+      if (seconds === null || seconds === undefined) return '—';
+      if (seconds <= 0) return 'Hết giờ';
+      var mins = Math.floor(seconds / 60);
+      var secs = Math.floor(seconds % 60);
+      return String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+    }
+
+    function showTimerToast(message) {
+      var toast = document.createElement('div');
+      toast.className = 'fixed top-4 right-4 z-[60] px-4 py-3 rounded shadow-lg font-medium';
+      toast.style.background = '#f59e0b';
+      toast.style.color = '#0a1628';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(function () { toast.remove(); }, 5000);
+    }
+
+    function showSubmissionNotice(kind, message) {
+      var notice = document.getElementById('writing-submit-notice');
+      if (!notice) return;
+      notice.className = 'wd-submit-notice is-' + kind;
+      notice.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+      notice.textContent = message;
+      notice.classList.remove('hidden');
+    }
+
+    function hideSubmissionNotice() {
+      var notice = document.getElementById('writing-submit-notice');
+      if (notice) notice.classList.add('hidden');
+    }
+
+    function submitStatus(err) {
+      var value = Number(err && err.status);
+      return Number.isFinite(value) ? value : null;
+    }
+
+    function definitiveSubmitRejection(err) {
+      var status = submitStatus(err);
+      return status !== null && status >= 400 && status < 500 &&
+        status !== 408 && status !== 429;
+    }
+
+    async function reconcileSubmission(receipt) {
+      try {
+        var raw = await window.api.get(
+          '/api/writing/my-assignments/' + encodeURIComponent(receipt.assignmentId) +
+          '/submission?request_id=' + encodeURIComponent(receipt.requestId)
+        );
+        var ack = window.WritingSubmitReceipt.normalizeAck(raw, receipt.assignmentId);
+        if (!ack) throw new Error('Biên nhận nộp bài không khớp assignment.');
+        window.WritingSubmitReceipt.remove(receipt.account, receipt.assignmentId);
+        return ack;
+      } catch (err) {
+        if (submitStatus(err) === 404) return null;
+        throw err;
+      }
+    }
+
+    async function reconcilePendingSubmissions(accountId) {
+      var pending = window.WritingSubmitReceipt.list(accountId);
+      var confirmed = 0;
+      var superseded = 0;
+      for (var i = 0; i < pending.length; i += 1) {
+        try {
+          if (await reconcileSubmission(pending[i])) confirmed += 1;
+        } catch (err) {
+          if (submitStatus(err) === 409) {
+            window.WritingSubmitReceipt.remove(accountId, pending[i].assignmentId);
+            superseded += 1;
+          }
+        }
+      }
+      if (confirmed > 0 || superseded > 0) {
+        showSubmissionNotice(
+          confirmed > 0 ? 'success' : 'warning',
+          confirmed > 0
+            ? 'Đã đối chiếu: bài viết của em đã được nộp thành công.'
+            : 'Bài đã được nộp ở một tab khác. Danh sách đã được đồng bộ lại.'
+        );
+        await Promise.all([loadAssignments(), loadEssays()]);
+      } else if (pending.length > 0) {
+        showSubmissionNotice(
+          'warning',
+          'Có một bài nộp chưa nhận được xác nhận. Mở lại bài để đối chiếu hoặc gửi lại an toàn với cùng mã yêu cầu.'
+        );
+      }
+    }
+
+    function formatRelativeTime(iso) {
+      if (!iso) return '';
+      var t = new Date(iso).getTime();
+      if (isNaN(t)) return '';
+      var diffSec = Math.max(0, Math.floor((Date.now() - t) / 1000));
+      if (diffSec < 30)            return 'vừa xong';
+      if (diffSec < 60)            return diffSec + ' giây trước';
+      if (diffSec < 3600)          return Math.floor(diffSec / 60)   + ' phút trước';
+      if (diffSec < 86400)         return Math.floor(diffSec / 3600) + ' giờ trước';
+      return formatDate(iso);
+    }
+
+    function countWords(text) {
+      var trimmed = (text || '').trim();
+      if (!trimmed) return 0;
+      return trimmed.split(/\s+/).length;
+    }
+
+    function setTabActive(tab) {
+      var assignBtn = document.getElementById('tab-assignments');
+      var essayBtn  = document.getElementById('tab-essays');
+      var tipsBtn   = document.getElementById('tab-tips');
+      var pbBtn = document.getElementById('tab-prompt-bank');
+      assignBtn.classList.toggle('active', tab === 'assignments');
+      essayBtn.classList.toggle('active',  tab === 'essays');
+      if (tipsBtn) tipsBtn.classList.toggle('active', tab === 'tips');
+      if (pbBtn) pbBtn.classList.toggle('active', tab === 'prompt-bank');
+      document.getElementById('content-assignments').classList.toggle('hidden', tab !== 'assignments');
+      document.getElementById('content-essays').classList.toggle('hidden',      tab !== 'essays');
+      document.getElementById('content-tips').classList.toggle('hidden',        tab !== 'tips');
+      document.getElementById('content-prompt-bank').classList.toggle('hidden', tab !== 'prompt-bank');
+
+      // Sprint 19.1B — lazy-load tips on first open of the "Mẹo viết"
+      // tab, then serve from the in-memory cache on subsequent opens.
+      if (tab === 'tips' && !_tipsLoaded) { loadTips(); }
+      // R1 — prompts are already fetched at init (to decide tab visibility);
+      // first open just renders the cache.
+      if (tab === 'prompt-bank' && !_pbRendered) { renderPromptBank(); }
+    }
+
+    // ── Sprint 19.1B — "Mẹo viết" tab (admin-published writing tips) ──
+    // Sprint 19.1C — extended to 4 content types (tip/knowledge/sample/outline).
+    var TIP_TASK_LABELS = { task_1: 'Task 1', task_2: 'Task 2', both: 'Cả hai' };
+    var TIP_TYPE_LABELS = { tip: '💡 Mẹo', knowledge: '📖 Kiến thức', sample: '✍️ Bài mẫu', outline: '🗂️ Dàn bài' };
+    var _allTips        = [];   // cached for the page lifetime (fetch-once)
+    var _tipsLoaded     = false;
+    var _tipFilter      = 'all';   // task_type axis
+    var _tipTypeFilter  = 'all';   // content_type axis
+
+    // Card snippet by content_type: sample → band/word-count; outline →
+    // first heading; tip/knowledge → markdown lead text.
+    function _tipSnippet(t) {
+      var td = t.type_data || {};
+      if (t.content_type === 'sample') {
+        var bits = [];
+        if (td.target_band != null) bits.push('Band mục tiêu: ' + td.target_band);
+        if (td.word_count != null)  bits.push(td.word_count + ' từ');
+        return bits.join(' · ') || _tipPreview(t.body_markdown);
+      }
+      if (t.content_type === 'outline') {
+        var s = Array.isArray(td.structure) ? td.structure : [];
+        if (s.length && s[0] && s[0].heading) {
+          return 'Dàn bài: ' + s.map(function (i) { return i.heading; }).filter(Boolean).slice(0, 4).join(' → ');
+        }
+        return _tipPreview(t.body_markdown);
+      }
+      return _tipPreview(t.body_markdown);
+    }
+
+    // Plain-text preview from a markdown body — strips the common syntax
+    // so the card shows readable lead text, not raw `#`/`*`/`` ` `` noise.
+    function _tipPreview(md) {
+      var t = String(md || '')
+        .replace(/```[\s\S]*?```/g, ' ')              // fenced code
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')        // images
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')       // links → text
+        .replace(/[#>*_`~]/g, ' ')                     // md punctuation
+        .replace(/\s+/g, ' ')
+        .trim();
+      return t.length > 140 ? t.slice(0, 140).trim() + '…' : t;
+    }
+
+    async function loadTips() {
+      hide('tips-empty'); hide('tips-error'); hide('tips-list');
+      document.getElementById('tips-loading').classList.remove('hidden');
+      try {
+        // Fetch ALL published tips once; the chips filter client-side.
+        var data = await window.api.get('/api/writing/tips');
+        _allTips = (data && data.tips) || [];
+        _tipsLoaded = true;
+        hide('tips-loading');
+        renderTips();
+      } catch (err) {
+        hide('tips-loading');
+        document.getElementById('tips-error-msg').textContent =
+          'Không tải được mẹo viết: ' + ((err && err.message) || 'lỗi không xác định');
+        show('tips-error');
+      }
+    }
+
+    function renderTips() {
+      var list = document.getElementById('tips-list');
+      hide('tips-loading'); hide('tips-error');
+
+      if (_allTips.length === 0) {
+        list.innerHTML = '';
+        hide('tips-list');
+        show('tips-empty');
+        return;
+      }
+      hide('tips-empty');
+
+      // Two-axis AND filter: task_type chip × content_type chip.
+      var filtered = _allTips.filter(function (t) {
+        var taskOk = _tipFilter === 'all' || t.task_type === _tipFilter;
+        var typeOk = _tipTypeFilter === 'all' || (t.content_type || 'tip') === _tipTypeFilter;
+        return taskOk && typeOk;
+      });
+
+      if (filtered.length === 0) {
+        list.innerHTML =
+          '<div class="wd-empty wd-empty--compact"><p class="wd-empty__hint">' +
+          'Không có nội dung nào cho bộ lọc này.</p></div>';
+        show('tips-list');
+        return;
+      }
+
+      list.innerHTML = filtered.map(function (t) {
+        var ctype = t.content_type || 'tip';
+        var typePill = '<span class="tip-card__type tip-card__type--' + escapeHtml(ctype) + '">' +
+          escapeHtml(TIP_TYPE_LABELS[ctype] || ctype) + '</span>';
+        var taskPill = '<span class="pill pill-wait">' +
+          escapeHtml(TIP_TASK_LABELS[t.task_type] || t.task_type) + '</span>';
+        var catPill = t.category
+          ? '<span class="tip-card__cat">' + escapeHtml(t.category) + '</span>'
+          : '';
+        return (
+          '<div class="essay-card tip-card clickable" role="link" tabindex="0"' +
+              ' data-tip-id="' + escapeHtml(t.id) + '">' +
+            '<div class="flex items-center justify-between gap-3 mb-2">' +
+              '<h3 class="tip-card__title font-semibold">' + escapeHtml(t.title || '(Mẹo viết)') + '</h3>' +
+              '<div class="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">' + typePill + catPill + taskPill + '</div>' +
+            '</div>' +
+            '<p class="tip-card__preview text-sm text-gray-300 line-clamp-2">' + escapeHtml(_tipSnippet(t)) + '</p>' +
+            '<div class="flex justify-end mt-2"><span class="essay-card__view">Đọc →</span></div>' +
+          '</div>'
+        );
+      }).join('');
+      show('tips-list');
+
+      list.querySelectorAll('.tip-card').forEach(function (card) {
+        var go = function () {
+          var id  = card.getAttribute('data-tip-id');
+          var tip = _allTips.find(function (t) { return t.id === id; });
+          openTipModal(tip);
+        };
+        card.addEventListener('click', go);
+        card.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); }
+        });
+      });
+    }
+
+    function wireTipFilterTabs() {
+      // Two independent chip groups: task_type + content_type (Sprint 19.1C).
+      [['[data-tip-filter]', 'data-tip-filter', 'task'],
+       ['[data-tip-type-filter]', 'data-tip-type-filter', 'type']].forEach(function (g) {
+        var btns = document.querySelectorAll(g[0]);
+        btns.forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            if (g[2] === 'task') _tipFilter = btn.getAttribute(g[1]);
+            else                 _tipTypeFilter = btn.getAttribute(g[1]);
+            btns.forEach(function (b) { b.classList.toggle('is-active', b === btn); });
+            renderTips();
+          });
+        });
+      });
+    }
+
+    function openTipModal(tip) {
+      if (!tip) return;
+      var ctype = tip.content_type || 'tip';
+      // analytics — viewing a writing tip (writing_tip_view). Fire-and-forget at
+      // the modal-open seam so it covers every caller; never block the UI.
+      try {
+        if (window.api && window.api.post) {
+          window.api.post('/api/analytics/events', {
+            event_name: 'writing_tip_view',
+            event_data: { tip_id: tip.id, content_type: ctype, task_type: tip.task_type },
+          }).catch(function () {});
+        }
+      } catch (e) {}
+      document.getElementById('tip-modal-title').textContent = tip.title || '';
+      var meta = [TIP_TYPE_LABELS[ctype] || ctype, TIP_TASK_LABELS[tip.task_type] || tip.task_type];
+      if (tip.category) meta.push(tip.category);
+      document.getElementById('tip-modal-meta').textContent = meta.join(' · ');
+
+      // Sprint 19.1C — type-specific metadata block above the body.
+      var td = tip.type_data || {};
+      var head = '';
+      if (ctype === 'sample') {
+        var bits = [];
+        if (td.target_band != null) bits.push('🎯 Band mục tiêu: <strong>' + escapeHtml(String(td.target_band)) + '</strong>');
+        if (td.word_count != null)  bits.push('✏️ Số từ: <strong>' + escapeHtml(String(td.word_count)) + '</strong>');
+        if (bits.length) head = '<div class="tip-modal-meta-strip">' + bits.join(' &nbsp;·&nbsp; ') + '</div>';
+      } else if (ctype === 'outline' && Array.isArray(td.structure) && td.structure.length) {
+        head = '<div class="tip-modal-outline"><ol>' + td.structure.map(function (s) {
+          var pts = Array.isArray(s.points) && s.points.length
+            ? '<ul>' + s.points.map(function (p) { return '<li>' + escapeHtml(String(p)) + '</li>'; }).join('') + '</ul>'
+            : '';
+          return '<li><strong>' + escapeHtml(String(s.heading || '')) + '</strong>' + pts + '</li>';
+        }).join('') + '</ol></div>';
+      }
+
+      // head is built from escaped strings only; body goes through
+      // renderMarkdown (DOMPurify) — never inject unsanitized HTML.
+      var bodyHtml = window.renderMarkdown ? window.renderMarkdown(tip.body_markdown) : '';
+      document.getElementById('tip-modal-body').innerHTML = head + bodyHtml;
+      document.getElementById('tip-modal').classList.remove('hidden');
+      if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+    }
+
+    function closeTipModal() {
+      document.getElementById('tip-modal').classList.add('hidden');
+    }
+
+    // ── R1 — "Kho đề" (public prompt-bank browse, flag-gated, browse-only) ──
+    var PB_TASK_LABELS = {
+      task1_academic: 'Task 1 Academic', task1_general: 'Task 1 General', task2: 'Task 2',
+    };
+    var _allPrompts = [];
+    var _pbRendered = false;
+    var _pbFilter   = 'all';
+
+    // Fetch once at init to DECIDE tab visibility (single source of truth = the
+    // backend WRITING_PROMPT_BANK_ENABLED flag). Tab stays hidden unless the
+    // endpoint returns enabled:true AND there is ≥1 prompt to browse.
+    async function loadPromptBank() {
+      try {
+        var data = await window.api.get('/api/writing/prompt-bank');
+        if (!data || data.enabled !== true) return;          // flag off → tab hidden
+        _allPrompts = (data.prompts) || [];
+        if (!_allPrompts.length) return;                      // nothing to browse → tab hidden
+        var btn = document.getElementById('tab-prompt-bank');
+        if (btn) btn.hidden = false;                          // reveal the tab
+      } catch (e) { /* network/disabled → tab stays hidden */ }
+    }
+
+    function renderPromptBank() {
+      _pbRendered = true;
+      var list = document.getElementById('pb-list');
+      var filtered = _pbFilter === 'all'
+        ? _allPrompts
+        : _allPrompts.filter(function (p) { return p.task_type === _pbFilter; });
+      if (!filtered.length) {
+        list.innerHTML = '<div class="wd-empty wd-empty--compact">' +
+          '<p class="wd-empty__hint">Không có đề nào trong nhóm này.</p></div>';
+        return;
+      }
+      list.innerHTML = filtered.map(function (p) {
+        var taskPill = '<span class="pill pill-wait">' +
+          escapeHtml(PB_TASK_LABELS[p.task_type] || p.task_type) + '</span>';
+        var diff = p.difficulty
+          ? '<span class="tip-card__cat">' + escapeHtml(p.difficulty) + '</span>' : '';
+        var imgFlag = p.prompt_image_url ? ' 🖼️' : '';
+        return (
+          '<div class="essay-card tip-card clickable" role="link" tabindex="0"' +
+              ' data-pb-id="' + escapeHtml(p.id) + '">' +
+            '<div class="flex items-center justify-between gap-3 mb-2">' +
+              '<h3 class="tip-card__title font-semibold">' + escapeHtml(p.title || '(Đề bài)') + imgFlag + '</h3>' +
+              '<div class="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">' + diff + taskPill + '</div>' +
+            '</div>' +
+            '<p class="tip-card__preview text-sm text-gray-300 line-clamp-2">' + escapeHtml(p.prompt_text || '') + '</p>' +
+            '<div class="flex justify-end mt-2"><span class="essay-card__view">Đọc đề →</span></div>' +
+          '</div>'
+        );
+      }).join('');
+
+      list.querySelectorAll('.tip-card').forEach(function (card) {
+        var go = function () {
+          var id = card.getAttribute('data-pb-id');
+          var p  = _allPrompts.find(function (x) { return String(x.id) === id; });
+          openPromptModal(p);
+        };
+        card.addEventListener('click', go);
+        card.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); }
+        });
+      });
+    }
+
+    function wirePromptFilterTabs() {
+      var btns = document.querySelectorAll('[data-pb-filter]');
+      btns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          _pbFilter = btn.getAttribute('data-pb-filter');
+          btns.forEach(function (b) { b.classList.toggle('is-active', b === btn); });
+          renderPromptBank();
+        });
+      });
+    }
+
+    // Reuses the tip-modal DOM. Browse-only — NO start-essay button.
+    function openPromptModal(p) {
+      if (!p) return;
+      // analytics — browsing a prompt in the library (prompt_bank_view, distinct
+      // from prompt_view which is an essay-open). Fire-and-forget; never block.
+      try {
+        if (window.api && window.api.post) {
+          window.api.post('/api/analytics/events', {
+            event_name: 'prompt_bank_view',
+            event_data: { prompt_id: p.id, task_type: p.task_type },
+          }).catch(function () {});
+        }
+      } catch (e) {}
+      document.getElementById('tip-modal-title').textContent = p.title || '(Đề bài)';
+      var meta = [PB_TASK_LABELS[p.task_type] || p.task_type];
+      if (p.difficulty) meta.push(p.difficulty);
+      document.getElementById('tip-modal-meta').textContent = meta.join(' · ');
+      // prompt_text is plain text → escape + preserve line breaks (no markdown).
+      var img = p.prompt_image_url
+        ? '<img src="' + escapeHtml(p.prompt_image_url) + '" alt="Đề Task 1" class="pb-modal-img" />'
+        : '';
+      document.getElementById('tip-modal-body').innerHTML =
+        img + '<p class="pb-modal-text">' + escapeHtml(p.prompt_text || '') + '</p>';
+      document.getElementById('tip-modal').classList.remove('hidden');
+    }
+
+    // ── Deliverable 2 (Sprint 19.1A) — deadline surface ─────────────
+    // Maps a deadline ISO to { urgency, label }. Thresholds chosen per
+    // common task-management UX: overdue (past), urgent (<24h), soon
+    // (<72h / 3 days), normal (≥72h). urgency drives the colour cue.
+    function formatDeadline(iso) {
+      if (!iso) return null;
+      var t = new Date(iso).getTime();
+      if (isNaN(t)) return null;
+      var diffHrs = (t - Date.now()) / 3600000;
+      if (diffHrs < 0) {
+        var od = Math.floor(-diffHrs / 24);
+        return { urgency: 'overdue', label: od >= 1 ? 'Quá hạn ' + od + ' ngày' : 'Quá hạn hôm nay' };
+      }
+      if (diffHrs < 24) {
+        var h = Math.max(1, Math.round(diffHrs));
+        return { urgency: 'urgent', label: 'Còn ' + h + ' giờ' };
+      }
+      var days = Math.ceil(diffHrs / 24);
+      return { urgency: diffHrs < 72 ? 'soon' : 'normal', label: 'Còn ' + days + ' ngày' };
+    }
+
+    function writingAssignmentHref(assignmentId, affinity) {
+      var encoded = encodeURIComponent(assignmentId);
+      if (affinity === 'legacy') {
+        return '/pages/writing-dashboard.html?assignment_id=' + encoded;
+      }
+      if (affinity === 'next') {
+        return '/writing/dashboard?assignment_id=' + encoded;
+      }
+      return '/core-player/launch?surface=writing_assignment&assignment_id=' + encoded;
+    }
+
+    // Renders the "Bài sắp đến hạn" surface from the active assignments
+    // that have a deadline, sorted soonest-first. Each row reuses the
+    // submit-modal entry point so the student can jump straight in.
+    function renderDeadlines(assignments) {
+      var surface = document.getElementById('deadlines-surface');
+      var list    = document.getElementById('deadlines-list');
+      if (!surface || !list) return;
+
+      var withDeadline = (assignments || [])
+        .filter(function (a) { return a.deadline; })
+        .sort(function (a, b) { return new Date(a.deadline) - new Date(b.deadline); });
+
+      if (withDeadline.length === 0) {
+        surface.classList.add('hidden');
+        list.innerHTML = '';
+        return;
+      }
+      surface.classList.remove('hidden');
+
+      list.innerHTML = withDeadline.map(function (a) {
+        var prompt = a.writing_prompts || {};
+        var dl = formatDeadline(a.deadline) || { urgency: 'normal', label: '' };
+        return (
+          '<button type="button" class="wd-deadline-row wd-deadline-row--' + dl.urgency + '"' +
+              ' data-assignment-id="' + escapeHtml(a.id) + '"' +
+              ' data-renderer-affinity="' + escapeHtml(a.renderer_affinity || '') + '">' +
+            '<span class="wd-deadline-row__dot" aria-hidden="true"></span>' +
+            '<span class="wd-deadline-row__title">' + escapeHtml(prompt.title || '(Đề bài)') + '</span>' +
+            '<span class="wd-deadline-row__when">' + escapeHtml(dl.label) + '</span>' +
+          '</button>'
+        );
+      }).join('');
+
+      list.querySelectorAll('.wd-deadline-row').forEach(function (row) {
+        row.addEventListener('click', function () {
+          var id = row.getAttribute('data-assignment-id');
+          if (id) window.location.href = writingAssignmentHref(
+            id,
+            row.getAttribute('data-renderer-affinity')
+          );
+        });
+      });
+    }
+
+    // One assignment = one prompt → one card with its own "Làm bài →".
+    function buildAssignmentCardHtml(a) {
+      var prompt = a.writing_prompts || {};
+      var statusKey = a.status || 'pending';
+      var statusCfg = ASSIGNMENT_STATUS[statusKey] || ASSIGNMENT_STATUS.pending;
+      var taskLabel = TASK_LABELS[prompt.task_type] || 'Bài viết';
+
+      var draftHint = '';
+      if (a.has_draft) {
+        var rel = a.draft_updated_at ? ' · ' + formatRelativeTime(a.draft_updated_at) : '';
+        draftHint =
+          '<p class="text-xs text-gray-400 mb-3">📝 Bản nháp: ' +
+            (a.draft_word_count || 0) + ' từ' + escapeHtml(rel) +
+          '</p>';
+      }
+
+      var deadlineLine = a.deadline
+        ? '<span class="text-xs text-amber-300">Hạn: ' + formatDate(a.deadline) + '</span>'
+        : '';
+
+      var startLabel = a.has_draft ? 'Tiếp tục làm bài' : 'Làm bài';
+
+      return (
+        '<div class="assignment-card" data-assignment-id="' + escapeHtml(a.id) + '"' +
+            ' data-renderer-affinity="' + escapeHtml(a.renderer_affinity || '') + '">' +
+          '<div class="flex items-start justify-between gap-3 mb-2">' +
+            '<div class="min-w-0">' +
+              '<h3 class="font-semibold text-gray-100 truncate">' + escapeHtml(prompt.title || '(Đề bài đã xóa)') + '</h3>' +
+              '<div class="flex items-center gap-2 mt-1 flex-wrap">' +
+                '<span class="pill ' + statusCfg.pill + '">' + escapeHtml(statusCfg.text) + '</span>' +
+                '<span class="text-xs text-gray-400">' + escapeHtml(taskLabel) + '</span>' +
+                (a.is_timed && a.time_limit_minutes
+                  ? '<span class="pill pill-timed">⏱️ ' + a.time_limit_minutes + ' phút</span>'
+                  : '') +
+              '</div>' +
+            '</div>' +
+            deadlineLine +
+          '</div>' +
+          draftHint +
+          '<button type="button" class="btn-start-assignment text-sm px-4 py-2 rounded font-medium">' +
+            escapeHtml(startLabel) + ' →' +
+          '</button>' +
+        '</div>'
+      );
+    }
+
+    function renderAssignments(assignments) {
+      var list  = document.getElementById('assignments-list');
+      var empty = document.getElementById('assignments-empty');
+
+      if (!assignments || assignments.length === 0) {
+        list.innerHTML = '';
+        show('assignments-empty');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      // Sprint 2.6.1: card shows TITLE ONLY (no prompt preview) — the body
+      // is revealed inside the modal once the student commits to "Làm bài".
+      // W-ASSIGN: rows that share an assignment_group_id are shown under the
+      // give's `name` ("📚 Buổi 5"); each prompt keeps its OWN "Làm bài →"
+      // (its own essay, graded separately). Legacy rows (no group) render
+      // standalone exactly as before.
+      var groups = [];
+      var byKey = {};
+      assignments.forEach(function (a) {
+        var gid = a.assignment_group_id;
+        var key = gid ? ('g:' + gid) : ('s:' + a.id);
+        if (!byKey[key]) {
+          byKey[key] = { grouped: !!gid, name: a.name || null, rows: [] };
+          groups.push(byKey[key]);
+        }
+        byKey[key].rows.push(a);
+      });
+
+      list.innerHTML = groups.map(function (g) {
+        var cards = g.rows.map(buildAssignmentCardHtml).join('');
+        if (!g.grouped) return cards;            // legacy standalone card(s)
+        var head = '<h3 class="font-semibold text-gray-200 mb-2 mt-1">📚 '
+          + escapeHtml(g.name || 'Bài giao')
+          + ' <span class="text-xs text-gray-400">· ' + g.rows.length + ' bài</span></h3>';
+        return '<div class="assignment-group">' + head
+          + '<div class="space-y-3 pl-1">' + cards + '</div></div>';
+      }).join('');
+
+      // Wire the start buttons via delegation (anti-pattern #18 still
+      // applies — no inline onclick).  Each click opens the modal
+      // which then POSTs /start to stamp the timer trigger.
+      list.querySelectorAll('.btn-start-assignment').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var card = btn.closest('.assignment-card');
+          if (!card) return;
+          var assignmentId = card.getAttribute('data-assignment-id');
+          if (assignmentId) window.location.href = writingAssignmentHref(
+            assignmentId,
+            card.getAttribute('data-renderer-affinity')
+          );
+        });
+      });
+    }
+
+
+    // ── Sprint 2.6.1 — full-screen submit modal ─────────────────────
+    //
+    // openSubmitModal is the single entry point: it POSTs /start to
+    // stamp the timer trigger (Phase 2.3c-3 column on the row), then
+    // GETs the full assignment + draft and renders the modal body
+    // around them.  Timer countdown kicks off immediately on the
+    // returned `time_remaining_seconds` so the banner ticks the
+    // second the modal opens — no longer waits for the first save.
+    async function openSubmitModal(assignmentId) {
+      modalState.returnFocus = document.activeElement instanceof HTMLElement
+        ? document.activeElement : null;
+      modalState.assignmentId = assignmentId;
+
+      var modal = document.getElementById('submit-modal');
+      modal.classList.remove('hidden');
+      var initialFocus = document.getElementById('modal-close');
+      if (initialFocus) initialFocus.focus();
+      document.getElementById('modal-loading').classList.remove('hidden');
+      document.getElementById('modal-content').classList.add('hidden');
+
+      try {
+        var pending = modalState.accountId
+          ? window.WritingSubmitReceipt.read(modalState.accountId, assignmentId)
+          : null;
+        if (pending) {
+          var ack = await reconcileSubmission(pending);
+          if (ack) {
+            showSubmissionNotice('success', 'Đã đối chiếu: bài viết của em đã được nộp thành công.');
+            closeModal();
+            await Promise.all([loadAssignments(), loadEssays()]);
+            return;
+          }
+        }
+        var claim = await window.api.post(
+          '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/renderer-affinity',
+          { renderer_affinity: 'legacy' }
+        );
+        var affinity = claim && claim.renderer_affinity;
+        if (affinity !== 'legacy') {
+          if (affinity !== 'next') throw new Error('Phiên làm bài không có renderer hợp lệ.');
+          window.location.replace(writingAssignmentHref(assignmentId, affinity));
+          return;
+        }
+        // 1. Stamp started_at + transition pending → in_progress.
+        //    Returns the fresh timer state we render the banner from.
+        var startResult = await window.api.post(
+          '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/start',
+          {}
+        );
+
+        // 2. Fetch the assignment + draft + prompt body.
+        var data = await window.api.get(
+          '/api/writing/my-assignments/' + encodeURIComponent(assignmentId)
+        );
+
+        renderModal(data, startResult ? startResult.timer : null);
+        document.getElementById('modal-loading').classList.add('hidden');
+        document.getElementById('modal-content').classList.remove('hidden');
+
+        var textarea = document.getElementById('modal-essay-textarea');
+        var pendingAfterLoad = modalState.accountId
+          ? window.WritingSubmitReceipt.read(modalState.accountId, assignmentId)
+          : null;
+        if (pendingAfterLoad) textarea.value = pendingAfterLoad.essayText;
+        updateModalWordCount();
+        textarea.focus();
+      } catch (err) {
+        if (submitStatus(err) === 409 && modalState.accountId) {
+          window.WritingSubmitReceipt.remove(modalState.accountId, assignmentId);
+          showSubmissionNotice('warning', 'Bài đã được nộp ở một tab khác. Danh sách đã được đồng bộ lại.');
+          await Promise.all([loadAssignments(), loadEssays()]);
+        } else {
+          alert('Không tải được bài: ' + ((err && err.message) || 'không xác định'));
+        }
+        closeModal();
+      }
+    }
+
+    function renderModal(data, freshTimer) {
+      var assignment = data.assignment || {};
+      var prompt     = assignment.writing_prompts || {};
+      var draft      = data.draft || {};
+      var timer      = freshTimer || data.timer || {};
+
+      // W-SOFTCHECK — stash the per-assignment opt-in so submit can gate on it.
+      modalState.allowSoftCheck = !!assignment.allow_soft_check;
+
+      // Header + prompt panel
+      document.getElementById('modal-title').textContent = prompt.title || 'Làm bài';
+      var meta = (TASK_LABELS[prompt.task_type] || prompt.task_type || '—')
+                 + ' · ' + formatDate(assignment.created_at);
+      document.getElementById('modal-prompt-meta').textContent  = meta;
+      document.getElementById('modal-prompt-title').textContent = prompt.title || '';
+      document.getElementById('modal-prompt-text').textContent  = prompt.prompt_text || '';
+
+      // Phase 2.3c-1 — Task 1 Academic chart/diagram image, when present.
+      document.getElementById('modal-workspace').classList.toggle(
+        'has-prompt-image', !!prompt.prompt_image_url
+      );
+      var imgEl = document.getElementById('modal-prompt-image');
+      if (prompt.prompt_image_url) {
+        imgEl.src = prompt.prompt_image_url;
+        imgEl.classList.remove('hidden');
+      } else {
+        imgEl.removeAttribute('src');
+        imgEl.classList.add('hidden');
+      }
+
+      // Optional admin instructions panel.
+      if (assignment.instructions) {
+        document.getElementById('modal-instructions').classList.remove('hidden');
+        document.getElementById('modal-instructions-text').textContent = assignment.instructions;
+      } else {
+        document.getElementById('modal-instructions').classList.add('hidden');
+      }
+
+      // Timer banner — render only when the assignment is timed.
+      var bannerEl  = document.getElementById('modal-timer');
+      var totalEl   = document.getElementById('modal-timer-total');
+      var displayEl = document.getElementById('modal-timer-display');
+      var isTimed   = timer.is_timed && timer.time_limit_minutes;
+
+      // Reset color classes between opens — a previous expired timer
+      // would otherwise leave the display stuck on red.
+      displayEl.classList.remove('text-red-500');
+      displayEl.classList.add('text-amber-400');
+
+      if (isTimed) {
+        bannerEl.classList.remove('hidden');
+        totalEl.textContent = 'Tổng thời gian: ' + timer.time_limit_minutes + ' phút';
+        if (timer.is_expired) {
+          // Edge case: student opens an assignment whose deadline
+          // ALREADY passed (timer ran out while the tab was closed).
+          // Render "Hết giờ" + auto-submit so the row exits the
+          // active state cleanly.
+          displayEl.textContent = 'Hết giờ';
+          showTimerToast('⏰ Hết giờ — đang nộp bài tự động.');
+          submitFromModal(/* force */ true);
+        } else if (typeof timer.time_remaining_seconds === 'number') {
+          displayEl.textContent = formatTimer(timer.time_remaining_seconds);
+          startModalCountdown(timer.time_remaining_seconds);
+        } else {
+          displayEl.textContent = '—';
+        }
+      } else {
+        bannerEl.classList.add('hidden');
+      }
+
+      // Textarea + counters.
+      var textarea = document.getElementById('modal-essay-textarea');
+      textarea.value = (draft && draft.draft_text) || '';
+      textarea.dataset.wordTarget = prompt.task_type === 'task2' ? '250' : '150';
+      updateModalWordCount();
+    }
+
+    function updateModalWordCount() {
+      var textarea = document.getElementById('modal-essay-textarea');
+      var wc = countWords(textarea.value);
+      document.getElementById('modal-word-counter').textContent = wc;
+      var target = Number(textarea.dataset.wordTarget || 0);
+      var targetEl = document.getElementById('modal-word-target');
+      var progressEl = document.getElementById('modal-word-progress');
+      if (targetEl && target > 0) {
+        var remaining = Math.max(0, target - wc);
+        targetEl.textContent = remaining > 0
+          ? 'Mục tiêu tối thiểu ' + target + ' từ · còn ' + remaining + ' từ'
+          : 'Đã đạt mục tiêu tối thiểu ' + target + ' từ';
+        targetEl.classList.toggle('is-met', remaining === 0);
+      }
+      if (progressEl) {
+        var progress = target > 0 ? Math.min(100, Math.round((wc / target) * 100)) : 0;
+        progressEl.style.width = progress + '%';
+        progressEl.classList.toggle('is-met', target > 0 && wc >= target);
+      }
+    }
+
+    // Auto-save: 3-second debounce, identical contract to Phase 2.3b.
+    function scheduleModalAutoSave() {
+      if (modalState.autoSaveTimer) clearTimeout(modalState.autoSaveTimer);
+      document.getElementById('modal-save-pending').classList.remove('hidden');
+      document.getElementById('modal-save-status').classList.add('hidden');
+      modalState.autoSaveTimer = setTimeout(saveDraft, 3000);
+    }
+
+    async function saveDraft() {
+      if (!modalState.assignmentId) return;
+      var pending = document.getElementById('modal-save-pending');
+      var saved   = document.getElementById('modal-save-status');
+      var textarea = document.getElementById('modal-essay-textarea');
+
+      pending.classList.remove('hidden');
+      saved.classList.add('hidden');
+
+      try {
+        await window.api.patch(
+          '/api/writing/my-assignments/'
+            + encodeURIComponent(modalState.assignmentId) + '/draft',
+          { draft_text: textarea.value || '' }
+        );
+        pending.classList.add('hidden');
+        saved.classList.remove('hidden');
+        setTimeout(function () { saved.classList.add('hidden'); }, 2000);
+      } catch (err) {
+        pending.classList.add('hidden');
+        var msg = (err && err.message) || 'lỗi khi lưu';
+        // 410 Gone = backend confirmed the timer is past expiry.
+        // Force-submit immediately so the assignment exits the
+        // active state instead of looping on save failures.
+        if (msg.indexOf('Hết giờ') !== -1) {
+          showTimerToast('⏰ Hết giờ — đang nộp bài tự động.');
+          await submitFromModal(/* force */ true);
+          return;
+        }
+        alert('Không lưu được bản nháp: ' + msg);
+      }
+    }
+
+    // Server-authoritative countdown.  Local 1s tick + 30s server
+    // reconciliation; snaps when drift > 10s. Identical to the
+    // Phase 2.3c-3 logic, just modal-scoped instead of region-scoped.
+    function startModalCountdown(initialSeconds) {
+      if (modalState.countdownInterval) {
+        clearInterval(modalState.countdownInterval);
+      }
+
+      var remaining   = initialSeconds;
+      var lastSync    = Date.now();
+      var warned5min  = false;
+      var displayEl   = document.getElementById('modal-timer-display');
+
+      modalState.countdownInterval = setInterval(async function () {
+        remaining -= 1;
+        displayEl.textContent = formatTimer(remaining);
+
+        if (remaining <= 300 && !displayEl.classList.contains('text-red-500')) {
+          displayEl.classList.remove('text-amber-400');
+          displayEl.classList.add('text-red-500');
+        }
+        if (!warned5min && remaining <= 300 && remaining > 295) {
+          warned5min = true;
+          showTimerToast('⚠️ Còn 5 phút!');
+        }
+
+        if (remaining <= 0) {
+          clearInterval(modalState.countdownInterval);
+          modalState.countdownInterval = null;
+          showTimerToast('⏰ Hết giờ! Đang nộp bài…');
+          await submitFromModal(/* force */ true);
+          return;
+        }
+
+        if (Date.now() - lastSync > 30000) {
+          lastSync = Date.now();
+          try {
+            var fresh = await window.api.get(
+              '/api/writing/my-assignments/'
+                + encodeURIComponent(modalState.assignmentId) + '/timer'
+            );
+            if (fresh && fresh.is_expired) {
+              remaining = 0;
+            } else if (fresh && typeof fresh.time_remaining_seconds === 'number') {
+              if (Math.abs(fresh.time_remaining_seconds - remaining) > 10) {
+                remaining = fresh.time_remaining_seconds;
+              }
+            }
+          } catch (e) {
+            console.warn('Timer sync failed:', e);
+          }
+        }
+      }, 1000);
+    }
+
+    // Anti-paste: hybrid block-or-log.  Frontend is the security
+    // BOUNDARY for the block; backend just records what the
+    // frontend reports for forensics (we don't trust char_count
+    // for any auth decision, only for audit).
+    function setupAntiPaste(textarea) {
+      textarea.addEventListener('paste', async function (ev) {
+        // Some browsers (esp. mobile) fire `paste` with neither ev.clipboardData
+        // nor window.clipboardData — reading `.getData` on undefined threw
+        // (captured in error_logs). Degrade gracefully: if the clipboard is
+        // unreadable we can't measure length, so let the native paste proceed.
+        var clip = ev.clipboardData || window.clipboardData;
+        var pasted = clip ? clip.getData('text') : '';
+        var len = (pasted || '').length;
+
+        if (len > PASTE_BLOCK_THRESHOLD) {
+          ev.preventDefault();
+          alert(
+            '⚠ Không cho phép paste nội dung dài (' + len + ' ký tự). '
+            + 'Vui lòng tự gõ bài.'
+          );
+          if (modalState.assignmentId) {
+            try {
+              await window.api.post(
+                '/api/writing/my-assignments/'
+                  + encodeURIComponent(modalState.assignmentId) + '/paste-log',
+                { char_count: len, blocked: true }
+              );
+            } catch (e) {
+              console.warn('Paste log failed:', e);
+            }
+          }
+          return;
+        }
+
+        if (len > PASTE_LOG_THRESHOLD && modalState.assignmentId) {
+          try {
+            await window.api.post(
+              '/api/writing/my-assignments/'
+                + encodeURIComponent(modalState.assignmentId) + '/paste-log',
+              { char_count: len, blocked: false }
+            );
+          } catch (e) {
+            console.warn('Paste log failed:', e);
+          }
+        }
+        // <50 chars: silent.  Browsers paste tiny snippets all the
+        // time (one-word corrections, smart quotes); logging those
+        // would drown the audit trail in noise.
+      });
+    }
+
+    // ── W-SOFTCHECK — pre-submit spell check (nspell, spell-only) ────
+    //
+    // Self-hosted + lazy: the bundle (~4KB gz) + the en dictionary
+    // (~187KB gz) are fetched on-demand ONLY when an assignment has
+    // allow_soft_check=true — sessions without it pay nothing. Spell
+    // ONLY (no grammar lib — write-good/retext give IELTS-wrong advice).
+    // SOFT: surfaces suspect words + suggestions; the student can fix or
+    // submit anyway. The textarea's 7 anti-spellcheck attrs stay — this
+    // is the platform's controlled check, gated by the admin's opt-in.
+    var _spellInstance = null;
+    var _spellLoading  = null;
+    function loadSpell() {
+      if (_spellInstance) return Promise.resolve(_spellInstance);
+      if (_spellLoading) return _spellLoading;
+      _spellLoading = (async function () {
+        var mod = await import('/assets/vendor/nspell.bundle.js');
+        var nspell = mod.default || mod;
+        var pair = await Promise.all([
+          fetch('/assets/dict/en.aff').then(function (r) { return r.text(); }),
+          fetch('/assets/dict/en.dic').then(function (r) { return r.text(); }),
+        ]);
+        _spellInstance = nspell(pair[0], pair[1]);
+        return _spellInstance;
+      })();
+      return _spellLoading;
+    }
+
+    async function runSpellCheck(text) {
+      var spell = await loadSpell();
+      // ASCII words only (the dict is English); apostrophes kept (don't).
+      var words = (text.match(/[A-Za-z][A-Za-z']*/g) || []);
+      var seen = Object.create(null);
+      var issues = [];
+      for (var i = 0; i < words.length; i++) {
+        var w = words[i];
+        var key = w.toLowerCase();
+        if (seen[key]) continue;
+        seen[key] = true;
+        if (!spell.correct(w)) {
+          issues.push({ word: w, suggestions: spell.suggest(w).slice(0, 3) });
+          if (issues.length >= 60) break;   // cap the panel; soft anyway
+        }
+      }
+      return issues;
+    }
+
+    function showSpellPanel(issues) {
+      document.getElementById('spell-count').textContent = issues.length;
+      document.getElementById('spell-list').innerHTML = issues.map(function (it) {
+        var sug = (it.suggestions && it.suggestions.length)
+          ? '<span class="wd-spell-sug"> → ' + it.suggestions.map(escapeHtml).join(', ') + '</span>'
+          : '<span class="wd-spell-sug wd-spell-sug--none"> (không có gợi ý)</span>';
+        return '<li class="wd-spell-item"><strong>' + escapeHtml(it.word) + '</strong>' + sug + '</li>';
+      }).join('');
+      document.getElementById('spell-panel').classList.remove('hidden');
+    }
+    function hideSpellPanel() {
+      document.getElementById('spell-panel').classList.add('hidden');
+    }
+
+    async function submitFromModal(force) {
+      if (!modalState.assignmentId || !modalState.accountId) return;
+      var assignmentId = modalState.assignmentId;
+      var accountId = modalState.accountId;
+      function isCurrentSubmission() {
+        return modalState.accountId === accountId && modalState.assignmentId === assignmentId;
+      }
+      var textarea = document.getElementById('modal-essay-textarea');
+      var text     = textarea.value;
+      var wc       = countWords(text);
+
+      // W-SOFTCHECK — opt-in pre-submit SPELL check (soft, never hard-blocks).
+      // Runs before the word-count/finality confirms so "Nộp luôn" (which
+      // re-enters with force=true) goes straight through. A lib/dict load
+      // failure must never block submit, so errors fall through silently.
+      if (!force && modalState.allowSoftCheck) {
+        var spellIssues = [];
+        try { spellIssues = await runSpellCheck(text); } catch (e) { spellIssues = []; }
+        if (!isCurrentSubmission()) return;
+        if (spellIssues.length) { showSpellPanel(spellIssues); return; }
+      }
+
+      if (!force) {
+        if (wc < 100) {
+          if (!confirm(
+            'Bài viết chỉ có ' + wc + ' từ.\n'
+            + 'IELTS Task 2 yêu cầu tối thiểu 250 từ.\n'
+            + 'Em chắc muốn nộp bài?'
+          )) return;
+        }
+        if (!confirm('Sau khi nộp em không thể chỉnh sửa. Em chắc muốn nộp bài?')) return;
+      }
+
+      var submitBtn = document.getElementById('modal-btn-submit');
+      var saveBtn   = document.getElementById('modal-btn-save');
+      if (submitBtn) submitBtn.disabled = true;
+      if (saveBtn)   saveBtn.disabled   = true;
+
+      // Cancel pending auto-save — submit replaces it.
+      if (modalState.autoSaveTimer) {
+        clearTimeout(modalState.autoSaveTimer);
+        modalState.autoSaveTimer = null;
+      }
+
+      var receipt = window.WritingSubmitReceipt.begin(
+        accountId,
+        assignmentId,
+        text
+      );
+      if (receipt.essayText !== text) {
+        showSubmissionNotice(
+          'warning',
+          'Đang có một lần nộp chưa xác nhận với nội dung trước đó. Hệ thống sẽ đối chiếu lần đó trước.'
+        );
+      }
+
+      try {
+        var raw = await window.api.post(
+          '/api/writing/my-assignments/'
+            + encodeURIComponent(assignmentId) + '/submit',
+          { essay_text: receipt.essayText, request_id: receipt.requestId }
+        );
+        var result = window.WritingSubmitReceipt.normalizeAck(raw, assignmentId);
+        if (!result) throw new Error('Phản hồi nộp bài không khớp assignment.');
+        window.WritingSubmitReceipt.remove(accountId, assignmentId);
+        if (!isCurrentSubmission()) return;
+
+        if (modalState.countdownInterval) {
+          clearInterval(modalState.countdownInterval);
+          modalState.countdownInterval = null;
+        }
+
+        // Phase 2.6: flagged path surfaces a friendlier alert
+        // (Vietnamese explanation from the backend) instead of the
+        // generic success copy.
+        if (result.isFlagged) {
+          showSubmissionNotice(
+            'warning',
+            (result.message || 'Bài đã nộp nhưng không được chấm.') +
+              ' Nếu em nghĩ đây là lỗi, vui lòng liên hệ giảng viên.'
+          );
+        } else if (!force) {
+          // Deliverable 4: confirmation frames the workflow as
+          // "submit → instructor reviews → returns" with no mention of
+          // the AI grading step running in the background.
+          showSubmissionNotice('success', 'Đã gửi bài thành công! Giảng viên sẽ duyệt và trả bài trong 24–48 tiếng.');
+        }
+
+        closeModal();
+        await Promise.all([loadAssignments(), loadEssays()]);
+      } catch (err) {
+        var reconciled = null;
+        try { reconciled = await reconcileSubmission(receipt); } catch (_) {}
+        if (reconciled) {
+          if (!isCurrentSubmission()) return;
+          showSubmissionNotice('success', 'Đã đối chiếu: bài viết của em đã được nộp thành công.');
+          closeModal();
+          await Promise.all([loadAssignments(), loadEssays()]);
+        } else if (submitStatus(err) === 409) {
+          window.WritingSubmitReceipt.remove(accountId, assignmentId);
+          if (!isCurrentSubmission()) return;
+          showSubmissionNotice('warning', 'Bài đã đổi trạng thái hoặc được nộp ở tab khác. Danh sách đã được đồng bộ lại.');
+          closeModal();
+          await Promise.all([loadAssignments(), loadEssays()]);
+        } else if (definitiveSubmitRejection(err)) {
+          window.WritingSubmitReceipt.remove(accountId, assignmentId);
+          if (!isCurrentSubmission()) return;
+          showSubmissionNotice('error', 'Không nộp được bài: ' + ((err && err.message) || 'yêu cầu bị từ chối'));
+        } else {
+          if (!isCurrentSubmission()) return;
+          showSubmissionNotice(
+            'warning',
+            'Chưa nhận được xác nhận nộp bài. Nội dung đã được giữ lại; em có thể thử lại an toàn hoặc tải lại để đối chiếu.'
+          );
+        }
+      } finally {
+        // Success closes the current modal (assignmentId becomes null). A late
+        // callback from assignment A must not enable controls for assignment B.
+        var mayResetControls = modalState.accountId === accountId &&
+          (modalState.assignmentId === assignmentId || modalState.assignmentId === null);
+        if (mayResetControls && submitBtn) submitBtn.disabled = false;
+        if (mayResetControls && saveBtn)   saveBtn.disabled   = false;
+      }
+    }
+
+    function closeModal() {
+      if (modalState.countdownInterval) {
+        clearInterval(modalState.countdownInterval);
+        modalState.countdownInterval = null;
+      }
+      if (modalState.autoSaveTimer) {
+        clearTimeout(modalState.autoSaveTimer);
+        modalState.autoSaveTimer = null;
+      }
+      document.getElementById('submit-modal').classList.add('hidden');
+      modalState.assignmentId = null;
+      var returnFocus = modalState.returnFocus;
+      modalState.returnFocus = null;
+      if (returnFocus && returnFocus.isConnected) returnFocus.focus();
+    }
+
+    function trapSubmitModalFocus(ev) {
+      if (ev.key !== 'Tab') return;
+      var modal = document.getElementById('submit-modal');
+      if (!modal || modal.classList.contains('hidden')) return;
+      var focusable = Array.from(modal.querySelectorAll(
+        'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )).filter(function (el) { return el.offsetParent !== null; });
+      if (!focusable.length) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (!modal.contains(document.activeElement)) {
+        ev.preventDefault();
+        (ev.shiftKey ? last : first).focus();
+      } else if (ev.shiftKey && document.activeElement === first) {
+        ev.preventDefault();
+        last.focus();
+      } else if (!ev.shiftKey && document.activeElement === last) {
+        ev.preventDefault();
+        first.focus();
+      }
+    }
+
+
+    async function loadAssignments() {
+      try {
+        var data = await window.api.get('/api/writing/my-assignments');
+        if (!data) return;
+        if (data.student) renderStudent(data.student);
+
+        var all = data.assignments || [];
+        var active = all.filter(function (a) {
+          return ACTIVE_ASSIGNMENT_STATES.indexOf(a.status) !== -1;
+        });
+
+        var countEl = document.getElementById('assignments-count');
+        countEl.textContent = active.length ? '(' + active.length + ')' : '';
+
+        renderDeadlines(active);
+        renderAssignments(active);
+      } catch (err) {
+        // Soft-fail — the assignments tab can be empty without
+        // breaking the rest of the dashboard. Surface in the empty-
+        // state pane rather than the full error screen.
+        var list = document.getElementById('assignments-list');
+        list.innerHTML =
+          '<div class="wd-inline-error">' +
+            'Không tải được bài giao: ' + escapeHtml((err && err.message) || 'lỗi không xác định') +
+          '</div>';
+      }
+    }
+
+    async function loadEssays() {
+      try {
+        var data = await window.api.get('/api/writing/my-essays');
+        if (!data) return;
+        if (data.student) renderStudent(data.student);
+        renderEssays(data.essays || []);
+        var countEl = document.getElementById('essays-count');
+        var n = (data.essays || []).length;
+        countEl.textContent = n ? '(' + n + ')' : '';
+      } catch (err) {
+        var list = document.getElementById('essays-list');
+        list.innerHTML =
+          '<div class="wd-inline-error">' +
+            'Không tải được bài viết: ' + escapeHtml((err && err.message) || 'lỗi không xác định') +
+          '</div>';
+      }
+    }
+
+    // ── Bootstrap ───────────────────────────────────────────────────
+    // Sprint 5.2 — Writing permission preview state. Cached for the
+    // page lifetime so submitFromModal can re-check before issuing the
+    // POST (defense-in-depth — backend gates independently).
+    var _writingPermitted = true;
+
+    async function applyWritingPermissionGating() {
+      try {
+        var perms = await window.api.get('/api/student/permissions');
+        if (!perms) return;
+        _writingPermitted = perms.writing === true;
+      } catch (err) {
+        // Permissions endpoint unreachable: don't lock the UI on a
+        // network blip — the backend gate still enforces. Log so the
+        // operator notices.
+        console.warn('[writing] permission fetch failed:', err);
+        return;
+      }
+
+      if (_writingPermitted) return;
+
+      // Reveal preview banner.
+      var banner = document.getElementById('writing-preview-banner');
+      if (banner) banner.classList.remove('hidden');
+
+      // Disable every "start assignment" button. They're rendered after
+      // loadAssignments resolves, so we run this AFTER the load.
+      document.querySelectorAll('.btn-start-assignment').forEach(function (btn) {
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+        btn.title = 'Quyền Writing chưa được kích hoạt';
+        btn.textContent = '🔒 Chưa kích hoạt';
+      });
+
+      // Disable the modal submit button. The modal markup is below the
+      // script in source order so this is safe to run here.
+      var modalSubmit = document.getElementById('modal-btn-submit');
+      if (modalSubmit) {
+        modalSubmit.disabled = true;
+        modalSubmit.classList.add('opacity-50', 'cursor-not-allowed');
+        modalSubmit.title = 'Quyền Writing chưa được kích hoạt';
+      }
+    }
+
+    async function main() {
+      try {
+        var auth = await getSupabase().auth.getSession();
+        var session = auth && auth.data && auth.data.session;
+        if (!session || !session.user) {
+          window.location.replace('/login.html');
+          return;
+        }
+        modalState.accountId = session.user.id;
+
+        // Default tab is "Bài giao". Both lists load in parallel so
+        // the badge counts populate immediately even if the user
+        // switches tabs before either request completes.
+        await Promise.all([loadAssignments(), loadEssays()]);
+        hideSubmissionNotice();
+        await reconcilePendingSubmissions(modalState.accountId);
+
+        // Apply Writing permission gating AFTER the lists render — the
+        // start-assignment buttons we disable are rendered by
+        // renderAssignments(), so this needs to wait. The permissions
+        // endpoint is independent so a failure here doesn't block the
+        // dashboard from rendering.
+        await applyWritingPermissionGating();
+
+        var requestedAssignment = new URLSearchParams(window.location.search).get('assignment_id');
+        if (requestedAssignment) await openSubmitModal(requestedAssignment);
+
+        // content is always visible; loading starts hidden — nothing to toggle
+      } catch (err) {
+        var msg = (err && err.message) || 'Không tải được dữ liệu. Vui lòng thử lại.';
+        var cta = document.getElementById('error-cta');
+
+        // 403 from the backend means the user JWT is valid but no
+        // students row links to them. Steer them toward login (re-
+        // activating with the right student_code might fix it).
+        if (/chưa được link/i.test(msg)) {
+          cta.textContent = 'Đăng nhập lại';
+          cta.setAttribute('href', window.api.url('login.html'));
+        }
+
+        document.getElementById('error-message').textContent = msg;
+        hide('content');
+        show('error');
+      }
+    }
+
+    document.getElementById('tab-assignments').addEventListener('click', function () {
+      setTabActive('assignments');
+    });
+    document.getElementById('tab-essays').addEventListener('click', function () {
+      setTabActive('essays');
+    });
+    document.getElementById('tab-tips').addEventListener('click', function () {
+      setTabActive('tips');
+    });
+    // R1 — "Kho đề" tab (the button is hidden until loadPromptBank reveals it).
+    document.getElementById('tab-prompt-bank').addEventListener('click', function () {
+      setTabActive('prompt-bank');
+    });
+
+    // Sprint 2.5.5 — filter sub-tabs within the "Bài đã nộp" view.
+    wireEssayFilterTabs();
+
+    // R1 — prompt-bank: wire filter chips + fetch once to decide tab visibility.
+    wirePromptFilterTabs();
+    loadPromptBank();
+
+    // Sprint 19.1B — "Mẹo viết" filter chips + detail modal close wiring.
+    wireTipFilterTabs();
+    document.getElementById('tip-modal-close').addEventListener('click', closeTipModal);
+    document.getElementById('tip-modal-backdrop').addEventListener('click', closeTipModal);
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' && !document.getElementById('tip-modal').classList.contains('hidden')) {
+        closeTipModal();
+      }
+    });
+
+    // ── Sprint 2.6.1 — wire the submit modal ─────────────────────────
+    //
+    // Sprint 2.6.1.1 hotfix: the modal markup lives BELOW the
+    // closing script tag in source order, so the wireModal
+    // body MUST run after DOMContentLoaded — when this script
+    // executes inline, getElementById('modal-close') resolves to
+    // null, .addEventListener crashes, the exception halts the
+    // rest of the script, and main() never runs.  That's how
+    // production canary 2026-05-07 ended up stuck on "Đang tải…".
+    //
+    // The defensive null guards below are belt-and-braces — once
+    // DOMContentLoaded has fired all the lookups should resolve,
+    // but a future regression that strips one element from the
+    // modal markup will then surface as "feature missing" rather
+    // than "whole page broken".
+    function wireModal() {
+      var textarea = document.getElementById('modal-essay-textarea');
+      var closeBtn = document.getElementById('modal-close');
+      if (!textarea || !closeBtn) {
+        // Modal markup not in DOM yet (or a refactor stripped an
+        // id) — bail rather than crash. main() still runs.
+        console.warn('[wireModal] modal markup missing, skipping wire-up');
+        return;
+      }
+
+      // Close button: save draft first (best-effort, fire-and-forget
+      // so close feels instant), then teardown.
+      closeBtn.addEventListener('click', function () {
+        if (textarea.value && modalState.assignmentId) {
+          saveDraft();  // unawaited intentionally
+        }
+        closeModal();
+      });
+
+      document.addEventListener('keydown', function (ev) {
+        trapSubmitModalFocus(ev);
+        if (ev.key !== 'Escape') return;
+        if (!document.getElementById('spell-panel').classList.contains('hidden')) {
+          hideSpellPanel();
+          textarea.focus();
+          return;
+        }
+        if (!document.getElementById('submit-modal').classList.contains('hidden')) {
+          if (textarea.value && modalState.assignmentId) saveDraft();
+          closeModal();
+        }
+      });
+
+      var saveBtn   = document.getElementById('modal-btn-save');
+      var submitBtn = document.getElementById('modal-btn-submit');
+      if (saveBtn)   saveBtn.addEventListener('click',   function () { saveDraft(); });
+      if (submitBtn) submitBtn.addEventListener('click', function () { submitFromModal(false); });
+
+      // W-SOFTCHECK panel — "Quay lại sửa" closes it + focuses the editor;
+      // "Nộp luôn" submits with force (bypasses the spell gate, soft).
+      var spellBack   = document.getElementById('spell-btn-back');
+      var spellSubmit = document.getElementById('spell-btn-submit');
+      if (spellBack)   spellBack.addEventListener('click',   function () { hideSpellPanel(); textarea.focus(); });
+      if (spellSubmit) spellSubmit.addEventListener('click', function () { hideSpellPanel(); submitFromModal(true); });
+
+      textarea.addEventListener('input', function () {
+        updateModalWordCount();
+        scheduleModalAutoSave();
+      });
+      setupAntiPaste(textarea);
+    }
+
+    // The modal markup lives below the script block in source order — gate
+    // the wire-up on DOMContentLoaded so getElementById finds the
+    // freshly-parsed elements. If the script is loaded after the
+    // body has already finished parsing (defer / module / late
+    // injection scenario), we run wireModal immediately so the
+    // listener doesn't sit waiting on an event that already fired.
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', wireModal);
+    } else {
+      wireModal();
+    }
+
+    // Sprint 6.17.1: logout migrated to canonical user-pill dropdown
+    // (/js/user-pill.js handles #user-menu-logout → signOut() →
+    // /index.html redirect). No page-local logout binding required.
+
+    main();
+  </script>
+
+  <!--
+    Sprint 2.6.1 — full-screen submit modal.
+    Replaces the inline form-region that lived inside each card.
+    The modal renders the prompt + image + textarea + footer; one
+    instance reused across every assignment.
+
+    `data-gramm` / `data-gramm_editor` / `data-enable-grammarly` are
+    the documented opt-out attributes for the Grammarly extension.
+    Combined with `spellcheck="false"`, `autocorrect="off"`, and
+    `autocomplete="off"` they form the strongest browser-side
+    defence we have against IDE-style "help" leaking into a timed
+    IELTS exercise.
+  -->
+  <div id="submit-modal" class="wd-submit-modal hidden fixed inset-0 z-50 overflow-y-auto"
+       role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="wd-compose-page av-w-page">
+      <header class="wd-compose-header">
+        <div class="wd-compose-heading">
+          <span class="wd-compose-kicker">Writing workspace</span>
+          <h1 id="modal-title">Làm bài</h1>
+          <p>Đọc kỹ đề, viết liền mạch và kiểm tra lại trước khi nộp.</p>
+        </div>
+        <button id="modal-close" type="button"
+                class="wd-modal-close leading-none"
+                aria-label="Đóng bài viết và quay lại danh sách">
+          <i data-lucide="x"></i>
+        </button>
+      </header>
+
+      <div id="modal-loading" class="wd-modal-loading text-center py-12">Đang tải…</div>
+
+      <div id="modal-content" class="hidden">
+        <!-- W-UI 2-pane: đề bài (TRÁI, scrollable) · khung viết (PHẢI).
+             Task 1 widens the prompt pane when a chart is present.
+             Mobile (≤860px) stacks: đề trên / viết dưới. -->
+        <div id="modal-workspace" class="wd-modal-2pane">
+
+          <!-- ── LEFT — đề bài ───────────────────────────────────────── -->
+          <aside class="wd-modal-pane-left" aria-label="Đề bài">
+            <!-- Prompt panel -->
+            <div class="wd-modal-prompt-panel">
+              <div class="wd-modal-section-label">Đề bài</div>
+              <div class="wd-modal-prompt__meta" id="modal-prompt-meta">— · —</div>
+              <h2 class="wd-modal-prompt__title" id="modal-prompt-title">—</h2>
+              <!-- W-UI follow-up — đề (prompt_text) ABOVE the Task-1 chart so the
+                   question reads first, then the chart it refers to. -->
+              <p class="wd-modal-prompt__body whitespace-pre-line" id="modal-prompt-text">—</p>
+              <img id="modal-prompt-image" class="wd-modal-prompt__image hidden"
+                   alt="Biểu đồ hoặc hình minh họa của đề Writing Task 1" loading="lazy" />
+            </div>
+
+            <!-- Optional admin instructions -->
+            <div id="modal-instructions" class="wd-modal-instructions hidden">
+              <strong>Lưu ý từ giảng viên</strong>
+              <span id="modal-instructions-text"></span>
+            </div>
+            <div class="wd-prompt-checklist" aria-label="Các bước trước khi nộp">
+              <span>1</span><p>Trả lời đúng trọng tâm đề.</p>
+              <span>2</span><p>Kiểm tra bố cục và số từ.</p>
+              <span>3</span><p>Đọc lại một lượt trước khi nộp.</p>
+            </div>
+          </aside>
+
+          <!-- ── RIGHT — khung viết ──────────────────────────────────── -->
+          <section class="wd-modal-pane-right" aria-labelledby="wd-editor-heading">
+            <!-- Timer banner — only shown for IELTS-mode assignments -->
+            <div id="modal-timer" class="wd-modal-timer hidden">
+              <div>
+                <div class="wd-modal-timer__label">Bài viết có giới hạn thời gian</div>
+                <div class="wd-modal-timer__total" id="modal-timer-total">Tổng thời gian: — phút</div>
+              </div>
+              <div id="modal-timer-display" class="wd-modal-timer__display">--:--</div>
+            </div>
+
+            <div class="wd-editor-toolbar">
+              <div>
+                <span class="wd-modal-section-label">Bài làm</span>
+                <h2 id="wd-editor-heading">Bài viết của em</h2>
+              </div>
+            </div>
+
+            <!-- Essay textarea — Grammarly + autocorrect + spellcheck disabled -->
+            <textarea id="modal-essay-textarea"
+                      class="wd-modal-textarea"
+                      rows="20"
+                      placeholder="Bắt đầu bài viết của em tại đây…"
+                      aria-describedby="modal-word-target"
+                      autocomplete="off"
+                      autocorrect="off"
+                      autocapitalize="off"
+                      spellcheck="false"
+                      data-gramm="false"
+                      data-gramm_editor="false"
+                      data-enable-grammarly="false"></textarea>
+
+            <div class="wd-word-progress">
+              <div class="wd-word-progress__copy">
+                <strong><span id="modal-word-counter">0</span> từ</strong>
+                <span id="modal-word-target">Mục tiêu tối thiểu — từ</span>
+              </div>
+              <div class="wd-word-progress__track" aria-hidden="true">
+                <span id="modal-word-progress"></span>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <footer class="wd-modal-footer">
+              <div class="wd-modal-footer-meta">
+                <span id="modal-save-status" class="wd-modal-save-status hidden">Đã lưu bản nháp</span>
+                <span id="modal-save-pending" class="wd-modal-save-pending hidden">Đang lưu…</span>
+                <span class="wd-modal-autosave-hint">Bản nháp tự lưu khi em viết</span>
+              </div>
+              <div class="wd-modal-actions">
+                <button id="modal-btn-save" type="button"
+                        class="wd-modal-btn-save">
+                  Lưu bản nháp
+                </button>
+                <button id="modal-btn-submit" type="button"
+                        class="wd-modal-btn-submit">
+                  Kiểm tra và nộp bài
+                </button>
+              </div>
+            </footer>
+          </section>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- W-SOFTCHECK — pre-submit spell-check panel (soft, opt-in). Suspect
+         words + suggestions; student fixes or submits anyway. -->
+    <div id="spell-panel" class="wd-spell-panel hidden" role="dialog" aria-modal="true" aria-labelledby="spell-panel-title">
+      <div class="wd-spell-panel__box">
+        <h3 id="spell-panel-title" class="wd-spell-panel__title">Kiểm tra chính tả</h3>
+        <p class="wd-spell-panel__hint">
+          Có <strong><span id="spell-count">0</span> từ</strong> có thể sai chính tả.
+          Em có thể quay lại sửa, hoặc nộp luôn.
+        </p>
+        <ul id="spell-list" class="wd-spell-panel__list"></ul>
+        <div class="wd-spell-panel__actions">
+          <button id="spell-btn-back" type="button" class="wd-spell-btn-back text-sm rounded px-4 py-2">← Quay lại sửa</button>
+          <button id="spell-btn-submit" type="button" class="wd-spell-btn-submit text-sm font-medium rounded px-4 py-2">Nộp luôn</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lucide hydration (body content icons; chrome icons inlined in
+       <aver-chrome> shadow root). Sprint 7.12: theme toggle + user pill
+       wiring moved into <aver-chrome>. -->
+  <script>
+    (function () {
+      function hydrateIcons() {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      }
+      hydrateIcons();
+      window.addEventListener('load', hydrateIcons);
+    })();
+  </script>
+</body>
+</html>

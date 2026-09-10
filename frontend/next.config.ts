@@ -15,7 +15,7 @@ import type { NextConfig } from 'next';
 
 import {
   buildLegacyRetirementRedirects,
-  discoverLegacyHtmlPaths,
+  LEGACY_RETIREMENT_PATHS,
 } from './tooling/gate-f-retirement-redirects.mjs';
 
 // Owner-authorized hard flip (2026-09-09): permanently redirect Legacy URLs.
@@ -32,7 +32,8 @@ const GATE_E_LOCAL_LEGACY_FIXTURES = (
   && process.env.VERCEL !== '1'
 );
 const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
-  discoverLegacyHtmlPaths(path.join(__dirname, 'public')),
+  // URL compatibility survives any later, separately approved HTML retirement.
+  LEGACY_RETIREMENT_PATHS,
   { permanent: LEGACY_RETIREMENT_REDIRECTS_PERMANENT },
 );
 

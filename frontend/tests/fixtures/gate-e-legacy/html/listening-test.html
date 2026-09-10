@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Cambridge Full Test — Aver Learning</title>
+
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark') ? stored : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/listening.css" />
+  <link rel="stylesheet" href="/css/ielts-test-paper.css" />
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
+  <script src="/js/runtime-config.js"></script>
+  <script src="/js/api.js"></script>
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+
+  <style>
+    .ft-shell {
+      max-width: 880px; margin: 0 auto;
+      padding: 0 var(--av-space-6);
+      display: flex; flex-direction: column; gap: var(--av-space-6);
+    }
+    .ft-header h1 { font-size: var(--av-fs-2xl); margin-bottom: var(--av-space-1); }
+    .ft-header .accent { color: var(--av-brand-teal-700); }
+    .ft-header .subtitle {
+      color: var(--av-text-secondary); font-size: var(--av-fs-base);
+    }
+
+    /* ── Pre-start screen ────────────────────────────────────────── */
+    .ft-prestart {
+      padding: var(--av-space-6);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card);
+      display: flex; flex-direction: column; gap: var(--av-space-4);
+    }
+    .ft-prestart h2 { font-size: var(--av-fs-xl); }
+    /* A4a — unsaved-answer cue. Amber while retrying, red once it has given
+       up: those are different situations and only one of them can still clear
+       itself. */
+    .progress-square.is-unsaved {
+      border-color: var(--av-warning) !important;
+      background: var(--av-warning-soft) !important;
+    }
+    .progress-square.is-save-failed {
+      border-color: var(--av-error) !important;
+      background: var(--av-error-soft) !important;
+    }
+    .ft-unsaved-note {
+      margin: 0 0 var(--av-space-2);
+      padding: var(--av-space-2) var(--av-space-3);
+      border: 1px solid var(--av-warning);
+      background: var(--av-warning-soft);
+      color: var(--av-warning);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+    }
+    .ft-nothing-saved {
+      margin: 0 0 var(--av-space-2);
+      padding: var(--av-space-3);
+      border: 2px solid var(--av-error);
+      background: var(--av-error-soft);
+      color: var(--av-error);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+      font-weight: 700;
+    }
+    .ft-unsaved-retry {
+      margin-left: var(--av-space-2);
+      padding: 2px var(--av-space-2);
+      border: 1px solid currentColor;
+      border-radius: var(--av-radius-sm);
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    /* Resume cue — states plainly how much work the server still holds, so
+       "Tiếp tục" vs "Bắt đầu" is an informed choice, not a guess. */
+    .ft-resume-note {
+      margin: 0;
+      padding: var(--av-space-3) var(--av-space-4);
+      border: 1px solid var(--av-success);
+      background: var(--av-success-soft);
+      color: var(--av-success);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+    }
+    .ft-rules {
+      padding: var(--av-space-3) var(--av-space-4);
+      background: var(--av-surface-sunken);
+      border-radius: var(--av-radius-md);
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-secondary);
+      line-height: var(--av-lh-relaxed);
+    }
+    .ft-rules ul { margin: 0; padding-left: var(--av-space-6); }
+    .ft-rules li { margin-bottom: var(--av-space-2); }
+    .ft-rules li:last-child { margin-bottom: 0; }
+
+    /* ── Sticky header (player active) ──────────────────────────── */
+    .ft-sticky {
+      position: sticky; top: 0; z-index: 50;
+      background: var(--av-surface-card);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      padding: var(--av-space-3) var(--av-space-4);
+      display: flex; flex-direction: column; gap: var(--av-space-3);
+      box-shadow: var(--av-shadow-sm);
+    }
+    .ft-sticky-row {
+      display: flex; flex-wrap: wrap; gap: var(--av-space-3);
+      align-items: center; justify-content: space-between;
+    }
+    .ft-progress-text {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-secondary);
+    }
+    .ft-progress-text strong {
+      color: var(--av-brand-teal-700);
+      font-weight: var(--av-fw-semibold);
+    }
+    .ft-audio-bar {
+      width: 100%; height: 6px;
+      background: var(--av-surface-sunken);
+      border-radius: var(--av-radius-sm);
+      overflow: hidden;
+      position: relative;
+    }
+    .ft-audio-fill {
+      height: 100%;
+      background: var(--av-brand-teal-700);
+      transition: width 0.2s linear;
+      width: 0%;
+    }
+    /* Practice (mini + drill) — taller, draggable seek bar. Added by the
+       player via JS (ft-audio-bar--seekable); full test keeps the thin
+       no-seek bar. */
+    .ft-audio-bar--seekable {
+      height: 12px;
+      cursor: pointer;
+      touch-action: none;
+    }
+    .ft-audio-bar--seekable .ft-audio-fill {
+      transition: none;
+    }
+    .ft-audio-controls {
+      display: flex; gap: var(--av-space-3); align-items: center; flex-wrap: wrap;
+    }
+    .ft-control-btn {
+      padding: var(--av-space-2) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700);
+      color: var(--av-text-on-primary);
+      border: none; cursor: pointer;
+      font-weight: var(--av-fw-semibold);
+      font-size: var(--av-fs-sm);
+    }
+    .ft-control-btn:hover { background: var(--av-brand-teal-800); }
+    .ft-control-btn:disabled {
+      background: var(--av-text-muted); cursor: not-allowed;
+    }
+    .ft-control-btn.ghost {
+      background: transparent;
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+    }
+    .ft-time {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+    }
+    /* Sprint 13.5.7 — speed-control CSS removed; Cambridge IELTS audio
+       plays at native 1.0× only. */
+
+    /* ── Question paper ──────────────────────────────────────────── */
+    .ft-section {
+      padding: var(--av-space-6);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card);
+      display: flex; flex-direction: column; gap: var(--av-space-4);
+      min-width: 0;
+    }
+    .ft-section-title {
+      font-size: var(--av-fs-lg);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-primary);
+    }
+    .ft-section-meta {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+    }
+    .ft-narrator {
+      padding: var(--av-space-3);
+      background: var(--av-surface-sunken);
+      border-left: 3px solid var(--av-brand-teal-700);
+      border-radius: var(--av-radius-sm);
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-secondary);
+      font-style: italic;
+    }
+    .ft-exercise {
+      padding: var(--av-space-3);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      display: flex; flex-direction: column; gap: var(--av-space-3);
+    }
+    .ft-exercise-instructions {
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-secondary);
+      line-height: var(--av-lh-normal);
+    }
+    .ft-q-row {
+      display: flex; flex-wrap: wrap; gap: var(--av-space-2);
+      align-items: center;
+      padding: var(--av-space-2) 0;
+    }
+    .ft-q-num {
+      flex: 0 0 36px;
+      font-family: var(--av-font-mono);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-brand-teal-700);
+    }
+    .ft-q-prompt {
+      flex: 1 1 0; min-width: 0;
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-primary);
+      word-break: break-word;
+    }
+    .ft-q-input {
+      flex: 0 1 200px;
+      padding: var(--av-space-2);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      color: var(--av-text-primary);
+      font-family: var(--av-font-sans);
+      font-size: var(--av-fs-sm);
+    }
+    .ft-q-input.saved {
+      border-color: var(--av-brand-teal-700);
+    }
+    .ft-mcq-options {
+      display: flex; flex-direction: column; gap: var(--av-space-2);
+      padding-left: 44px;
+    }
+    .ft-mcq-label {
+      display: flex; align-items: flex-start; gap: var(--av-space-2);
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-primary);
+      cursor: pointer;
+    }
+    .ft-mcq-label input { accent-color: var(--av-brand-teal-700); }
+
+    /* ── Submit bar + result panel ───────────────────────────────── */
+    .ft-submit-bar {
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card);
+      display: flex; gap: var(--av-space-3); flex-wrap: wrap;
+      align-items: center; justify-content: space-between;
+    }
+    .ft-result {
+      padding: var(--av-space-6);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card);
+      display: flex; flex-direction: column; gap: var(--av-space-6);
+    }
+    .ft-result-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: var(--av-space-3);
+    }
+    .ft-stat-card {
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      display: flex; flex-direction: column; gap: var(--av-space-2);
+    }
+    .ft-stat-label {
+      font-size: var(--av-fs-xs); color: var(--av-text-muted);
+      text-transform: uppercase; letter-spacing: var(--av-tracking-widest);
+    }
+    .ft-stat-value {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-2xl);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-brand-teal-700);
+    }
+    .ft-section-breakdown {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: var(--av-space-3);
+    }
+    .ft-section-cell {
+      padding: var(--av-space-3);
+      background: var(--av-surface-sunken);
+      border-radius: var(--av-radius-md);
+      text-align: center;
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-sm);
+    }
+    .ft-trap-list {
+      display: flex; flex-direction: column; gap: var(--av-space-2);
+    }
+    .ft-trap-row {
+      display: flex; justify-content: space-between;
+      padding: var(--av-space-2) var(--av-space-3);
+      background: var(--av-surface-sunken);
+      border-radius: var(--av-radius-sm);
+      font-size: var(--av-fs-sm);
+    }
+    .ft-per-q-list {
+      display: flex; flex-direction: column; gap: 6px;
+      max-height: 360px; overflow-y: auto;
+    }
+    .ft-per-q-row {
+      display: flex; gap: var(--av-space-3); align-items: center;
+      padding: var(--av-space-2) var(--av-space-3);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-sm);
+      font-size: var(--av-fs-sm);
+    }
+    .ft-per-q-row.correct { border-left: 3px solid var(--av-brand-teal-700); }
+    .ft-per-q-row.wrong   { border-left: 3px solid var(--av-error); }
+    .ft-per-q-num {
+      flex: 0 0 32px; font-family: var(--av-font-mono);
+      font-weight: var(--av-fw-semibold);
+    }
+    .ft-per-q-user, .ft-per-q-expected {
+      flex: 1 1 0; min-width: 0; word-break: break-word;
+    }
+    .ft-per-q-expected { color: var(--av-brand-teal-700); }
+
+    .empty-state, .error-banner {
+      padding: var(--av-space-6); text-align: center;
+      border: 1px dashed var(--av-border-default);
+      border-radius: var(--av-radius-lg);
+      color: var(--av-text-secondary);
+    }
+    .error-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      background: var(--av-error-soft); color: var(--av-error);
+      border: 1px solid var(--av-error); font-size: var(--av-fs-sm);
+      text-align: left;
+    }
+    [hidden] { display: none !important; }
+
+    @media (max-width: 640px) {
+      .ft-result-grid, .ft-section-breakdown {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .ft-q-input { flex: 1 1 100%; }
+      .ft-mcq-options { padding-left: 0; }
+    }
+  </style>
+  <link rel="stylesheet" href="/css/listening-test-ui.css" />
+  <script src="/js/legacy-retirement-beacon.js" defer></script>
+</head>
+<body class="av-page">
+
+  <aver-chrome active="listening"></aver-chrome>
+
+  <div class="shell">
+    <main class="ft-shell">
+
+      <header class="ft-header">
+        <a class="ft-back" href="/listening/tests">← Danh sách tests</a>
+        <p class="eyebrow" id="ft-kind">LISTENING TEST</p>
+        <h1><span id="ft-title">…</span></h1>
+        <p class="subtitle" id="ft-subtitle">Đang tải bài thi…</p>
+      </header>
+
+      <div class="empty-state" id="state-loading">Đang tải test…</div>
+      <div class="empty-state" id="state-missing" hidden>
+        <p><strong>Chưa chọn test.</strong></p>
+        <p>Gắn <code>?id=&lt;UUID&gt;</code> vào URL hoặc <a href="/listening/tests">chọn từ danh sách</a>.</p>
+      </div>
+      <div class="error-banner" id="state-error" hidden></div>
+
+      <!-- Pre-start screen -->
+      <section id="ft-prestart" class="ft-prestart" hidden>
+        <div class="ft-prestart-intro">
+          <p class="ft-step-label">TRƯỚC KHI BẮT ĐẦU</p>
+          <h2 id="ft-prestart-title">Sẵn sàng bắt đầu</h2>
+          <p class="ft-prestart-copy">Kiểm tra âm lượng, đọc nhanh quy tắc và bắt đầu khi bạn có thể tập trung trọn lượt nghe.</p>
+        </div>
+        <div class="ft-rules">
+          <p><strong>Cách bài test hoạt động</strong></p>
+          <ul>
+            <li><span id="ft-prestart-rule-count">40 câu trên 4 sections</span>, làm trong một lượt nghe.</li>
+            <li id="ft-prestart-audio-rule">Audio <strong>không tua lại</strong> — bạn chỉ nghe được 1 lần như đề thật.</li>
+            <li>Đáp án được lưu tự động lên máy chủ — không cần bấm save. Nếu có câu chưa lưu được, hệ thống sẽ báo rõ ở cuối trang.</li>
+            <li id="ft-prestart-control-rule">Kiểm tra âm lượng trước khi bắt đầu; trong lúc làm bài bạn chỉ có thể điều chỉnh âm lượng.</li>
+            <li>Sau khi nộp bài, bạn sẽ thấy điểm + band ước tính + phân tích bẫy.</li>
+          </ul>
+        </div>
+        <!-- Resume affordance: shown only when the server still holds an open
+             attempt for this student. Comes BEFORE the start button so it is
+             the obvious action, and so the mock embed's auto-click finds it
+             first (mock-exam-hook.js prefers #ft-resume-btn). -->
+        <p id="ft-resume-note" class="ft-resume-note" hidden></p>
+        <div class="ft-prestart-actions">
+          <button class="ft-control-btn" id="ft-resume-btn" type="button" hidden>Tiếp tục bài đang làm</button>
+          <button class="ft-control-btn" id="btn-start" type="button">Bắt đầu test <span aria-hidden="true">→</span></button>
+        </div>
+      </section>
+
+      <!-- Player (audio + question paper) -->
+      <section id="ft-player" hidden>
+        <div class="ft-sticky" id="ft-sticky">
+          <div class="ft-sticky-row">
+            <span class="ft-progress-text">
+              Đã trả lời: <strong id="ft-answered">0</strong> / <strong data-total-q>40</strong>
+            </span>
+            <span class="ft-time">
+              <span id="ft-current-time">0:00</span> / <span id="ft-total-time">0:00</span>
+            </span>
+          </div>
+          <div class="ft-audio-bar" aria-label="Audio progress (no seek)">
+            <div class="ft-audio-fill" id="ft-audio-fill"></div>
+          </div>
+          <!-- Sprint 13.5.7 — Cambridge IELTS audio authenticity:
+               single-shot Play (no pause / no restart), no speed
+               controls (audio plays at native 1.0×). Volume slider
+               stays — Cambridge allows volume adjustment. -->
+          <div class="ft-audio-controls">
+            <button class="ft-control-btn" id="btn-playpause" type="button">▶ Play</button>
+            <input type="range" id="ft-volume" min="0" max="100" value="100"
+                   aria-label="Volume" style="flex: 0 1 120px;" />
+          </div>
+        </div>
+
+        <!-- Sprint 13.5.5 — tab navigation (one tab per Section). The
+             JS controller hides the inactive panels by setting the
+             [hidden] attribute on every .ielts-section that doesn't
+             match the active tab. -->
+        <nav class="ielts-tabs" id="ft-tabs" role="tablist" aria-label="Test sections">
+          <button class="ielts-tab active" data-tab="1" type="button" role="tab" aria-selected="true">
+            <span class="tab-label">PART 1</span>
+            <span class="tab-progress" data-tab-progress="1">0/10</span>
+          </button>
+          <button class="ielts-tab" data-tab="2" type="button" role="tab" aria-selected="false">
+            <span class="tab-label">PART 2</span>
+            <span class="tab-progress" data-tab-progress="2">0/10</span>
+          </button>
+          <button class="ielts-tab" data-tab="3" type="button" role="tab" aria-selected="false">
+            <span class="tab-label">PART 3</span>
+            <span class="tab-progress" data-tab-progress="3">0/10</span>
+          </button>
+          <button class="ielts-tab" data-tab="4" type="button" role="tab" aria-selected="false">
+            <span class="tab-label">PART 4</span>
+            <span class="tab-progress" data-tab-progress="4">0/10</span>
+          </button>
+        </nav>
+
+        <div id="ft-paper" style="display:flex;flex-direction:column;gap:var(--av-space-4);margin-top:var(--av-space-4);"></div>
+
+        <!-- Sprint 13.5.5 — sticky bottom progress tracker.
+             40 squares (one per question) wired to onProgressSquareClick;
+             clicking switches tabs + scrolls to the input. -->
+        <footer class="ielts-progress-tracker" id="ft-progress-tracker">
+          <div class="ielts-progress-bar" id="ft-progress-bar" role="navigation" aria-label="Câu hỏi"></div>
+          <!-- A4a — answers the SERVER does not have. A single amber square
+               among 40 is easy to miss; this states the count and what it means
+               for closing the tab. role=status so it is announced. -->
+          <p class="ft-unsaved-note" id="ft-unsaved-note" role="status" aria-live="polite" hidden></p>
+          <!-- Louder than the per-question cue and separately hosted: this one
+               says the server has NONE of the student's work, which is the
+               difference between an amber square and a graded zero. -->
+          <p class="ft-nothing-saved" id="ft-nothing-saved" role="alert" aria-live="assertive" hidden></p>
+          <div class="ielts-progress-summary">
+            <span class="progress-count">
+              Đã trả lời <strong id="ft-answered-foot">0</strong> / <strong data-total-q>40</strong> câu
+            </span>
+            <button class="btn-submit-final" id="btn-submit" type="button">Nộp bài</button>
+          </div>
+        </footer>
+      </section>
+
+      <!-- Result panel -->
+      <section id="ft-result" class="ft-result" hidden>
+        <header class="ft-result-intro">
+          <p class="ft-step-label">HOÀN THÀNH</p>
+          <h2>Kết quả lượt nghe</h2>
+          <p>Đọc nhanh điểm số, sau đó mở phần chữa bài để nghe lại đúng đoạn và hiểu từng lỗi.</p>
+        </header>
+        <div class="ft-result-grid">
+          <div class="ft-stat-card ft-stat-card--featured">
+            <span class="ft-stat-label">Điểm</span>
+            <span class="ft-stat-value" id="res-score">0/40</span>
+          </div>
+          <div class="ft-stat-card">
+            <span class="ft-stat-label">Band ước tính</span>
+            <span class="ft-stat-value" id="res-band">—</span>
+          </div>
+          <div class="ft-stat-card">
+            <span class="ft-stat-label">Tỉ lệ đúng</span>
+            <span class="ft-stat-value" id="res-pct">0%</span>
+          </div>
+        </div>
+
+        <div class="ft-result-analysis">
+          <section class="ft-result-block">
+            <div class="ft-section-meta">Theo section</div>
+            <div class="ft-section-breakdown" id="res-sections"></div>
+          </section>
+
+          <section class="ft-result-block" id="res-trap-block" hidden>
+            <div class="ft-section-meta">Phân tích bẫy</div>
+            <div class="ft-trap-list" id="res-trap"></div>
+          </section>
+        </div>
+
+        <section class="ft-result-block ft-result-block--questions">
+          <div class="ft-section-meta">Chi tiết câu hỏi</div>
+          <div class="ft-per-q-list" id="res-per-q"></div>
+        </section>
+
+        <div class="ft-result-actions">
+          <div class="ft-result-actions__copy">
+            <span class="ft-section-meta">BƯỚC TIẾP THEO</span>
+            <strong>Chữa các câu sai trước khi làm lại.</strong>
+          </div>
+          <div class="ft-result-actions__buttons">
+            <!-- listening-review-ui — full-screen chữa-bài for this attempt -->
+            <a class="ft-control-btn" id="res-chuabai" href="#">Xem chữa bài <span aria-hidden="true">→</span></a>
+            <!-- Dictation (chép chính tả) for this same test — reuses the
+                 test's audio + section transcripts. -->
+            <a class="ft-control-btn ghost" id="res-dictation" href="#">Chép chính tả</a>
+            <a class="ft-text-link" href="/listening/tests">Quay lại danh sách</a>
+            <a class="ft-text-link" href="/listening">Về trang Listening</a>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/js/mock-exam-hook.js"></script>
+  <script type="module" src="/js/listening-test-player.js"></script>
+</body>
+</html>

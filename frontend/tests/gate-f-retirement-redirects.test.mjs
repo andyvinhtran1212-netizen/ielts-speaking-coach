@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
+import { runInNewContext } from 'node:vm';
+import ts from 'typescript';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +12,7 @@ import {
   assertFrozenLegacyArtifactSet,
   buildLegacyRetirementRedirects,
   discoverLegacyHtmlPaths,
+  LEGACY_RETIREMENT_PATHS,
   RETIREMENT_ARTIFACT_SET,
 } from '../tooling/gate-f-retirement-redirects.mjs';
 import { appPageRoute, collectNextMigrationStatus } from '../tooling/next-migration-status.mjs';
@@ -28,6 +33,10 @@ function appRoutes(root, prefix = '') {
 }
 
 test('retirement plan is pinned to the exact frozen Legacy artifact set', () => {
+  assert.ok(Object.isFrozen(LEGACY_RETIREMENT_PATHS));
+  assert.equal(new Set(LEGACY_RETIREMENT_PATHS).size, LEGACY_RETIREMENT_PATHS.length);
+  // Wave 1 retains every physical artifact; no retirement is authorized here.
+  assert.deepEqual(LEGACY_RETIREMENT_PATHS, paths);
   assert.equal(paths.length, RETIREMENT_ARTIFACT_SET.count);
   assert.deepEqual(assertFrozenLegacyArtifactSet(paths), paths);
   assert.throws(
@@ -38,6 +47,54 @@ test('retirement plan is pinned to the exact frozen Legacy artifact set', () => 
     () => assertFrozenLegacyArtifactSet([...paths.slice(1), '/swapped.html']),
     /legacy-retirement-artifact-set-drift/,
   );
+});
+
+test('explicit URL manifest preserves all 139 pre-refactor redirect rules byte for byte', () => {
+  const independentRules = buildLegacyRetirementRedirects();
+  assert.deepEqual(independentRules, redirects);
+  assert.equal(independentRules.length, 139);
+  // Captured from main 17159ba0 before this refactor: includes rule order,
+  // destinations, permanence and all query conditions, not only URL count.
+  assert.equal(createHash('sha256').update(JSON.stringify(independentRules)).digest('hex'),
+    '75544da36a6d78745a719e5b6d81c5b1212657726b37be38daa844882a2f02c5');
+  assert.match(nextConfig, /buildLegacyRetirementRedirects\([\s\S]*?LEGACY_RETIREMENT_PATHS,/);
+  assert.doesNotMatch(nextConfig, /discoverLegacyHtmlPaths|readdirSync/);
+});
+
+test('manifest-only edits trigger both compiled-route and parity CI', () => {
+  const workflowRoot = path.join(FRONTEND, '..', '.github', 'workflows');
+  const affected = readdirSync(workflowRoot).filter((name) => /\.ya?ml$/.test(name))
+    .map((name) => ({ name, source: readFileSync(path.join(workflowRoot, name), 'utf8') }))
+    .filter(({ source }) => /- 'frontend\/tooling\/gate-f-retirement-redirects\.mjs'/.test(source));
+  assert.ok(affected.some(({ name }) => name === 'route-manifest.yml'));
+  assert.ok(affected.some(({ name }) => name === 'parity-gate.yml'));
+  for (const { name: workflowName, source } of affected) {
+    assert.match(source, /- 'frontend\/tooling\/gate-f-legacy-paths\.mjs'/, workflowName);
+  }
+});
+
+test('actual Next config produces all redirects without reading a public tree', async () => {
+  const compiled = ts.transpileModule(nextConfig, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true,
+    },
+  }).outputText;
+  async function evaluate(env) {
+    const mod = { exports: {} };
+    runInNewContext(compiled, {
+      module: mod, exports: mod.exports,
+      require: createRequire(path.join(FRONTEND, 'next.config.ts')),
+      // Any accidental public-directory scan fails, even though fixtures
+      // remain present in the real repository. No files are removed.
+      __dirname: path.join(FRONTEND, 'nonexistent-config-fixture'),
+      process: { env: { NODE_ENV: 'production', ...env } },
+    });
+    return mod.exports.default.redirects();
+  }
+  const deployed = await evaluate({ VERCEL: '1', GATE_E_LEGACY_FIXTURES: 'local-build-only' });
+  assert.deepEqual(JSON.parse(JSON.stringify(deployed.slice(0, 139))), redirects);
+  const local = await evaluate({ GATE_E_LEGACY_FIXTURES: 'local-build-only' });
+  assert.equal(local.length, deployed.length - 139);
 });
 
 test('every Legacy HTML source is permanently intercepted before public serving', () => {
@@ -61,7 +118,7 @@ test('redirect soak can intercept the same frozen manifest without browser-cache
   assert.ok(soakRedirects.every((entry) => entry.permanent === false));
 });
 
-test('Gate E can expose rollback artifacts only in a non-Vercel local build', () => {
+test('Gate E browser fixtures no longer enable the guarded server escape hatch', () => {
   assert.match(nextConfig,
     /process\.env\.GATE_E_LEGACY_FIXTURES === 'local-build-only'[\s\S]*?process\.env\.VERCEL !== '1'/);
   assert.match(nextConfig,
@@ -73,7 +130,7 @@ test('Gate E can expose rollback artifacts only in a non-Vercel local build', ()
     'playwright.gate-e-writing.config.js',
   ]) {
     const config = readFileSync(path.join(FRONTEND, configName), 'utf8');
-    assert.match(config, /GATE_E_LEGACY_FIXTURES: 'local-build-only'/, configName);
+    assert.doesNotMatch(config, /GATE_E_LEGACY_FIXTURES: 'local-build-only'/, configName);
   }
 });
 

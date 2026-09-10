@@ -9,6 +9,9 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 
 import { canonicalNextRouteForLegacy } from './gate-f-route-replacement-inventory.mjs';
+import { LEGACY_RETIREMENT_PATHS } from './gate-f-legacy-paths.mjs';
+
+export { LEGACY_RETIREMENT_PATHS };
 
 export const RETIREMENT_ARTIFACT_SET = Object.freeze({
   count: 129,
@@ -101,7 +104,7 @@ export function assertFrozenLegacyArtifactSet(paths) {
 }
 
 export function buildLegacyRetirementRedirects(
-  paths,
+  paths = LEGACY_RETIREMENT_PATHS,
   { permanent = true } = {},
 ) {
   const frozenPaths = assertFrozenLegacyArtifactSet(paths);
