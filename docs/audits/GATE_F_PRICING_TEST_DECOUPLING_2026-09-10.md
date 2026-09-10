@@ -65,7 +65,7 @@ to production style generation.
 | `b8-frontend-polish.test.mjs` | Explicit public Pricing read for truthful manual-payment copy | Preserve copy characterization in archive; unrelated practice/result assertions remain active |
 | `site-overview-coverage.test.mjs` | Docs/source existence and coverage denominator tied to legacy paths | Migrate denominator to canonical route ownership with equivalent dead-reference coverage |
 | `fixtures/hex-budget.json` and broad CSS scans | Pricing CSS participates in historical design checks | Map per-file historical budget and shared live token invariants before removing source |
-| `e2e/legacy_retirement_beacon.spec.js` | Pricing is in a historical client-redirect-stub expectation | Review test against permanent server redirects; preserve no-false-telemetry invariant |
+| `e2e/legacy_retirement_beacon.spec.js` | Pricing appears only in the pre-redirect historical branch | Validated non-blocker for current Pricing decoupling: installed server redirects return before the stub assertion; retain the active zero-renderable/zero-stub phase guard |
 | Redirect/source inventory and generic public scans | URL identity is distinct from physical file presence | Keep permanent `/pricing.html` compatibility redirect; re-audit all generic consumers in the deletion diff |
 
 This is a bounded list from source inspection, not an exhaustive deletion
