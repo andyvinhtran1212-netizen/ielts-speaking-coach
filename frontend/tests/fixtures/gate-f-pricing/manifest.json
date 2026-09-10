@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "source_release": "9f5b2989d9d84c4e763d35215894910da4ec4053",
+  "purpose": "Historical Pricing characterization only; not served, not a deployment rollback target, not launch approval.",
+  "files": [
+    {
+      "source": "frontend/public/pricing.html",
+      "file": "pricing.html",
+      "url": "/pricing.html",
+      "sha256": "3ac850ddb63824dec53eb71410c32bacb479a9661224f43fc9a0db93e6831e3a",
+      "bytes": 47642
+    },
+    {
+      "source": "frontend/public/css/pricing.css",
+      "file": "pricing.css",
+      "url": "/css/pricing.css",
+      "sha256": "27756d0c76fa504258f560e3eb35f04c2a9088edf75a9e2052ce5de5f8e0892a",
+      "bytes": 15596
+    },
+    {
+      "source": "frontend/public/index.html",
+      "file": "index.html",
+      "url": "/index.html",
+      "sha256": "ba3714d88a3bd95c040c575b6df6bcb81312df9c9e3938f61d4530b01baca59e",
+      "bytes": 46762
+    }
+  ]
+}
