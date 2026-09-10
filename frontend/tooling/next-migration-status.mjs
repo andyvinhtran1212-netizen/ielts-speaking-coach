@@ -13,6 +13,7 @@ import { CORE_PLAYER_AFFINITY_POLICY } from '../lib/core-player-affinity.mjs';
 import { buildLegacyReplacementInventory } from './gate-f-route-replacement-inventory.mjs';
 import {
   buildLegacyRetirementRedirects,
+  LEGACY_RETIREMENT_PATHS,
   RETIREMENT_ARTIFACT_SET,
 } from './gate-f-retirement-redirects.mjs';
 import { findCollisions } from './route-ownership-check.mjs';
@@ -139,7 +140,7 @@ export function collectNextMigrationStatus(
   const retirementRedirectsPermanent = retirementRedirectsPermanentFromConfig(configSource);
   const retirementRedirectRules = retirementRedirectsInstalled
     && retirementRedirectsPermanent !== null
-    ? buildLegacyRetirementRedirects(publicHtmlPaths, {
+    ? buildLegacyRetirementRedirects(LEGACY_RETIREMENT_PATHS, {
       permanent: retirementRedirectsPermanent,
     })
     : [];
@@ -165,7 +166,7 @@ export function collectNextMigrationStatus(
   // every retired artifact. Scoping only to still-renderable paths would make
   // this inventory empty and allow a redirect-to-404 regression to look green.
   const replacementPaths = retirementRedirectsInstalled
-    ? publicHtmlPaths
+    ? LEGACY_RETIREMENT_PATHS
     : legacyHtml.renderable;
   const legacyReplacement = buildLegacyReplacementInventory(
     replacementPaths,
@@ -173,6 +174,18 @@ export function collectNextMigrationStatus(
     { redirectsInstalled: retirementRedirectsInstalled, redirectsPermanent: retirementRedirectsPermanent },
   );
   const blockers = [];
+  // A claimed client-side redirect is not authority to add a new HTML URL.
+  // Before decoupling, the filesystem-based hash check rejected all drift;
+  // retain fail-closed visibility for extra files, including redirect stubs.
+  const registeredPaths = new Set(LEGACY_RETIREMENT_PATHS);
+  const unregisteredHtml = retirementRedirectsInstalled
+    ? publicHtmlPaths.filter((publicPath) => !registeredPaths.has(publicPath))
+    : [];
+  if (unregisteredHtml.length) blockers.push({
+    code: 'legacy-retirement-unregistered-html',
+    count: unregisteredHtml.length,
+    paths: unregisteredHtml,
+  });
   if (retirementRedirectsInstalled && retirementRedirectsPermanent === null) blockers.push({
     code: 'legacy-retirement-redirect-permanence-unproven',
     count: 1,

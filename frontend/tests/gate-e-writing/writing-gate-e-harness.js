@@ -1,4 +1,5 @@
 const { expect } = require('@playwright/test');
+const { installLegacyFixtureRoutes } = require('../fixtures/gate-e-legacy/loader.cjs');
 
 const API = 'http://localhost:8000';
 const ORIGIN = 'http://localhost:3214';
@@ -134,6 +135,7 @@ function commitSubmission(state, body) {
 
 async function installWritingGateEHarness(page, { state, handleApi = null } = {}) {
   if (!state) throw new TypeError('state is required');
+  await installLegacyFixtureRoutes(page, ORIGIN, ['/pages/writing-dashboard.html']);
   const calls = [];
   const pageErrors = [];
   const productionRequests = [];

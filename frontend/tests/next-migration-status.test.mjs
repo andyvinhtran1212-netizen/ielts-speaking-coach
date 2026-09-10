@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict';
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 
 import {
@@ -191,4 +195,40 @@ test('retirement redirects compose with all-Next admission to close static cutov
   assert.equal(report.legacyHtml.directlyRenderable, 0);
   assert.equal(report.staticCutoverReady, true);
   assert.deepEqual(report.blockers, []);
+});
+
+test('retired HTML cannot erase the redirect or replacement denominator', (t) => {
+  const frontend = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+  const fixture = mkdtempSync(path.join(tmpdir(), 'aver-retirement-inventory-'));
+  t.after(() => rmSync(fixture, { recursive: true, force: true }));
+  cpSync(path.join(frontend, 'app'), path.join(fixture, 'app'), { recursive: true });
+  cpSync(path.join(frontend, 'next.config.ts'), path.join(fixture, 'next.config.ts'));
+  mkdirSync(path.join(fixture, 'public'));
+
+  // A simulated empty public HTML tree, not deletion of repository artifacts.
+  const retired = collectNextMigrationStatus(fixture);
+  assert.equal(retired.legacyHtml.total, 0);
+  assert.equal(retired.legacyRetirementRedirects.sourcePaths, 129);
+  assert.equal(retired.legacyRetirementRedirects.rules, 139);
+  assert.equal(retired.legacyReplacement.total, 129);
+  assert.equal(retired.legacyReplacement.nextRoutePresent, 129);
+
+  rmSync(path.join(fixture, 'app', '(authed-home)', 'home', 'page.tsx'));
+  const missingOwner = collectNextMigrationStatus(fixture);
+  assert.equal(missingOwner.legacyReplacement.total, 129);
+  assert.ok(missingOwner.legacyReplacement.missingNextRoutes.some((row) => row.nextPath === '/home'));
+  assert.equal(missingOwner.staticCutoverReady, false);
+
+  writeFileSync(path.join(fixture, 'public', 'unexpected.html'), '<h1>Unowned</h1>');
+  const extraHtml = collectNextMigrationStatus(fixture);
+  assert.ok(extraHtml.blockers.some((row) => row.code === 'legacy-html-renderable'
+    && row.paths.includes('/unexpected.html')));
+
+  writeFileSync(path.join(fixture, 'public', 'unexpected.html'),
+    '<meta name="aver-legacy-artifact" content="redirect-stub">');
+  const claimedStub = collectNextMigrationStatus(fixture);
+  assert.equal(claimedStub.legacyHtml.directlyRenderable, 0);
+  assert.ok(claimedStub.blockers.some((row) => row.code === 'legacy-retirement-unregistered-html'
+    && row.paths.includes('/unexpected.html')));
+  assert.equal(claimedStub.staticCutoverReady, false);
 });

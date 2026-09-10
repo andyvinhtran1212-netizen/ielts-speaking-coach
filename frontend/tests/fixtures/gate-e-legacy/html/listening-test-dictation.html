@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Chép chính tả (bài test) — Aver Learning</title>
+
+  <!-- Sprint 6.10 canonical anti-flash bootstrap (DESIGN_SYSTEM.md § 13). -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/listening.css" />
+
+  <!-- P0-3 C-3.4: static Tailwind (Plus-Jakarta cluster) — replaces 407KB Play-CDN. -->
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
+
+  <!-- Supabase + api.js — required by aver-chrome.js for the user-pill
+       fetch AND by audio-player.js for the signed-URL refetch path. -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2.107.0" defer></script>
+  <script src="/js/runtime-config.js"></script>
+  <script src="/js/api.js"></script>
+
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+  <script type="module" src="/js/components/audio-player.js"></script>
+
+  <style>
+    /* Shared dictation surface styling — mirrors listening-dictation.html
+       (kept self-contained so the stabilized content-based dictation page
+       is not touched). Test-linked additions: section picker + hint. */
+    .dictation-shell {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 0 var(--av-space-6);
+      display: flex;
+      flex-direction: column;
+      gap: var(--av-space-6);
+    }
+    .dictation-header h1 {
+      font-size: var(--av-fs-3xl);
+      margin-bottom: var(--av-space-2);
+    }
+    .dictation-header .accent { color: var(--av-brand-teal-700); }
+    .dictation-header .subtitle {
+      color: var(--av-text-secondary);
+      font-size: var(--av-fs-base);
+      line-height: var(--av-lh-normal);
+      max-width: 720px;
+    }
+    .dict-back {
+      display: inline-flex; margin-bottom: var(--av-space-6); color: var(--av-text-secondary);
+      font-size: var(--av-fs-sm); font-weight: var(--av-fw-medium); text-decoration: none;
+    }
+    .dict-back:hover { color: var(--av-brand-teal-700); }
+    .dict-loop {
+      display: inline-flex; align-items: center; gap: var(--av-space-2);
+      margin-top: var(--av-space-6); padding: var(--av-space-2);
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-pill);
+      background: var(--av-surface-sunken); color: var(--av-text-secondary);
+      font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold);
+    }
+    .dict-loop span { padding: var(--av-space-1) var(--av-space-2); }
+    .dict-loop i { width: 14px; height: 1px; background: var(--av-border-strong); }
+    .answer-block {
+      display: flex;
+      flex-direction: column;
+      gap: var(--av-space-3);
+    }
+    .answer-label {
+      font-weight: var(--av-fw-semibold);
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-primary);
+    }
+    .answer-textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      color: var(--av-text-primary);
+      font-family: var(--av-font-sans);
+      font-size: var(--av-fs-base);
+      line-height: var(--av-lh-normal);
+      resize: vertical;
+    }
+    .answer-textarea:focus {
+      outline: 2px solid var(--av-brand-teal-700);
+      outline-offset: 2px;
+      border-color: var(--av-brand-teal-700);
+    }
+    .submit-row {
+      display: flex;
+      gap: var(--av-space-3);
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn-primary {
+      padding: var(--av-space-3) var(--av-space-6);
+      border-radius: var(--av-radius-md);
+      background: var(--av-brand-teal-700);
+      color: var(--av-text-on-primary);
+      border: none;
+      font-weight: var(--av-fw-semibold);
+      cursor: pointer;
+      transition: background var(--av-duration-fast) var(--av-easing-default);
+    }
+    .btn-primary:hover { background: var(--av-brand-teal-800); }
+    .btn-primary:disabled {
+      background: var(--av-text-muted);
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: transparent;
+      color: var(--av-text-secondary);
+      border: 1px solid var(--av-border-default);
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .score-pill {
+      font-family: var(--av-font-mono);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-secondary);
+    }
+    .score-pill.is-perfect { color: var(--av-brand-teal-700); }
+    .diff-block {
+      padding: var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+      line-height: var(--av-lh-relaxed);
+      font-size: var(--av-fs-base);
+    }
+    .diff-block .label {
+      display: block;
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+      margin-bottom: var(--av-space-3);
+    }
+    .diff-token { display: inline-block; margin-right: 4px; }
+    .diff-token--match { color: var(--av-text-primary); }
+    .diff-token--miss {
+      color: var(--av-error); text-decoration: underline; text-decoration-style: dotted;
+    }
+    .diff-token--wrong { color: var(--av-error); font-weight: var(--av-fw-semibold); }
+    .diff-token--wrong .strike {
+      text-decoration: line-through;
+      color: var(--av-text-faint);
+      margin-right: 4px;
+      font-weight: var(--av-fw-regular);
+    }
+    .diff-token--extra { color: var(--av-text-faint); text-decoration: line-through; }
+    /* Forgiven hesitations (um / er / oh) — optional, not an error. */
+    .diff-token--filler {
+      color: var(--av-text-muted);
+      font-style: italic;
+      opacity: 0.7;
+      border-bottom: 1px dotted var(--av-border-default);
+    }
+    .diff-legend {
+      margin: var(--av-space-3) 0 0;
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      display: flex; align-items: center; gap: var(--av-space-2);
+      flex-wrap: wrap;
+    }
+    .empty-state {
+      padding: var(--av-space-8);
+      text-align: center;
+      border: 1px dashed var(--av-border-default);
+      border-radius: var(--av-radius-lg);
+      color: var(--av-text-secondary);
+    }
+    .empty-state a {
+      color: var(--av-brand-teal-700);
+      text-decoration: underline;
+    }
+    .error-banner {
+      padding: var(--av-space-3) var(--av-space-4);
+      border-radius: var(--av-radius-md);
+      background: var(--av-error-soft);
+      color: var(--av-error);
+      border: 1px solid var(--av-error);
+      font-size: var(--av-fs-sm);
+    }
+    [hidden] { display: none !important; }
+
+    /* Section picker — a test can have multiple sections (full test = 4). */
+    .section-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--av-space-3);
+    }
+    .section-chip {
+      padding: var(--av-space-3) var(--av-space-6);
+      border-radius: var(--av-radius-md);
+      border: 1px solid var(--av-border-default);
+      background: var(--av-surface-card);
+      color: var(--av-text-primary);
+      cursor: pointer;
+      font-weight: var(--av-fw-semibold);
+      text-align: left;
+    }
+    .section-chip:hover { border-color: var(--av-brand-teal-700); }
+    .section-chip .chip-sub {
+      display: block;
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      font-weight: var(--av-fw-regular);
+      margin-top: 2px;
+    }
+    .section-hint {
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-muted);
+      margin: 0;
+    }
+
+    /* One calm workspace card per sentence — the single focused surface. */
+    .dict-card {
+      display: grid;
+      grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+      gap: var(--av-space-4);
+      padding: var(--av-space-4);
+      background: var(--av-surface-card);
+      border: 1px solid var(--av-border-subtle);
+      border-radius: var(--av-radius-xl);
+      box-shadow: var(--av-shadow-sm);
+    }
+    .dict-stage {
+      min-width: 0; padding: var(--av-space-4);
+      border: 1px solid var(--av-border-subtle); border-radius: var(--av-radius-lg);
+      background: var(--av-surface-card); display: flex; flex-direction: column;
+      gap: var(--av-space-4);
+    }
+    .dict-stage--listen { background: var(--av-surface-sunken); }
+    .dict-stage__head { display: flex; align-items: baseline; gap: var(--av-space-3); }
+    .dict-stage__number {
+      display: inline-flex; width: 28px; height: 28px; flex: none; align-items: center;
+      justify-content: center; border-radius: 50%; background: var(--av-brand-teal-700);
+      color: var(--av-text-on-primary); font-family: var(--av-font-mono);
+      font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold);
+    }
+    .dict-stage__title { margin: 0; color: var(--av-text-primary); font-size: var(--av-fs-base); }
+    .dict-stage__hint { margin: 0; color: var(--av-text-muted); font-size: var(--av-fs-xs); line-height: var(--av-lh-normal); }
+
+    /* Progress header: section name on the left, counter + dots trailing. */
+    .dict-progress {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--av-space-4);
+      flex-wrap: wrap;
+      grid-column: 1 / -1;
+      padding: var(--av-space-2) var(--av-space-2) var(--av-space-3);
+      border-bottom: 1px solid var(--av-border-subtle);
+    }
+    .dict-progress-meta {
+      display: flex;
+      align-items: baseline;
+      gap: var(--av-space-3);
+      min-width: 0;
+    }
+    .dict-section {
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-text-primary);
+      font-size: var(--av-fs-base);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .dict-counter {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-sm);
+      color: var(--av-text-muted);
+      flex: none;
+    }
+
+    /* Proper-noun spelling hints (names) — quiet, not an answer giveaway. */
+    .sentence-hint {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--av-space-2);
+      padding: var(--av-space-2) var(--av-space-3);
+      background: var(--av-surface-sunken);
+      border-radius: var(--av-radius-md);
+    }
+    .sentence-hint .hint-label {
+      font-size: var(--av-fs-xs);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+      color: var(--av-text-muted);
+    }
+    .sentence-hint .hint-name {
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-brand-teal-700);
+      padding: 1px 8px;
+      border-radius: var(--av-radius-pill);
+      background: var(--av-surface-card);
+      border: 1px solid var(--av-border-default);
+    }
+    .segment-dots {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-left: var(--av-space-3);
+    }
+    .segment-dot {
+      width: 22px;
+      height: 6px;
+      border-radius: var(--av-radius-pill);
+      background: var(--av-surface-sunken);
+      border: 1px solid var(--av-border-default);
+      transition: background var(--av-duration-fast) var(--av-easing-default);
+    }
+    .segment-dot.is-correct {
+      background: var(--av-brand-teal-700);
+      border-color: var(--av-brand-teal-700);
+    }
+    .segment-dot.is-partial {
+      background: var(--av-brand-amber-400);
+      border-color: var(--av-brand-amber-500);
+    }
+    .segment-dot.is-incorrect {
+      background: var(--av-error);
+      border-color: var(--av-error);
+    }
+    .segment-dot.is-current {
+      box-shadow: var(--av-shadow-focus);
+    }
+    #section-hint,
+    #inline-error,
+    #diff-block { grid-column: 1 / -1; }
+    .dict-card > .diff-block { margin-top: 0; border-left: 4px solid var(--av-brand-teal-700); }
+
+    /* Completion surface */
+    .completion-title {
+      font-size: var(--av-fs-2xl);
+      color: var(--av-brand-teal-700);
+      margin-bottom: var(--av-space-3);
+    }
+    .completion-score {
+      display: flex;
+      align-items: baseline;
+      gap: var(--av-space-3);
+      margin-bottom: var(--av-space-6);
+    }
+    .score-label {
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+    }
+    .score-value {
+      font-family: var(--av-font-mono);
+      font-size: var(--av-fs-4xl);
+      font-weight: var(--av-fw-bold);
+      color: var(--av-text-primary);
+    }
+    .completion-tabs {
+      display: flex;
+      gap: var(--av-space-1);
+      border-bottom: 1px solid var(--av-border-default);
+      margin-bottom: var(--av-space-4);
+    }
+    .completion-tab {
+      padding: var(--av-space-3) var(--av-space-4);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      color: var(--av-text-secondary);
+      font-weight: var(--av-fw-medium);
+    }
+    .completion-tab.is-active {
+      color: var(--av-brand-teal-700);
+      border-bottom-color: var(--av-brand-teal-700);
+    }
+    .segment-summary {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--av-space-3);
+    }
+    .segment-summary li {
+      padding: var(--av-space-3) var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+    }
+    .segment-summary .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: var(--av-space-3);
+      font-size: var(--av-fs-sm);
+    }
+    .segment-summary .seg-label {
+      font-family: var(--av-font-mono);
+      color: var(--av-text-muted);
+    }
+    .segment-summary .seg-score {
+      font-family: var(--av-font-mono);
+      font-weight: var(--av-fw-semibold);
+      color: var(--av-brand-teal-700);
+    }
+    .segment-summary .seg-score.is-partial { color: var(--av-brand-amber-600); }
+    .segment-summary .seg-score.is-low { color: var(--av-error); }
+    .segment-summary .seg-transcript {
+      margin-top: var(--av-space-2);
+      color: var(--av-text-primary);
+      line-height: var(--av-lh-relaxed);
+    }
+
+    .transcript-review {
+      display: flex;
+      flex-direction: column;
+      gap: var(--av-space-4);
+    }
+    .transcript-review .review-segment {
+      padding: var(--av-space-3) var(--av-space-4);
+      border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md);
+      background: var(--av-surface-card);
+    }
+    .transcript-review .review-label {
+      font-size: var(--av-fs-xs);
+      color: var(--av-text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest);
+      margin-bottom: var(--av-space-2);
+      display: block;
+    }
+    .transcript-review .review-reference {
+      font-style: italic;
+      color: var(--av-text-secondary);
+      margin-bottom: var(--av-space-2);
+    }
+
+    /* ── Completion report ─────────────────────────────────────── */
+    .report-head { display: flex; flex-direction: column; gap: var(--av-space-1); }
+    .report-title { font-size: var(--av-fs-2xl); color: var(--av-brand-teal-700); margin: 0; }
+    .report-save-note { font-size: var(--av-fs-sm); color: var(--av-warning); margin: 0; }
+
+    .report-tiles {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--av-space-3);
+    }
+    @media (max-width: 560px) { .report-tiles { grid-template-columns: repeat(2, 1fr); } }
+    .report-tile {
+      display: flex; flex-direction: column; gap: var(--av-space-1);
+      padding: var(--av-space-4);
+      background: var(--av-surface-card);
+      border: 1px solid var(--av-border-subtle);
+      border-radius: var(--av-radius-lg);
+    }
+    .report-tile--accent { background: var(--av-surface-sunken); border-color: var(--av-brand-teal-200); }
+    .tile-label {
+      font-size: var(--av-fs-xs); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest); color: var(--av-text-muted);
+    }
+    .tile-value {
+      font-family: var(--av-font-mono); font-size: var(--av-fs-2xl);
+      font-weight: var(--av-fw-bold); color: var(--av-text-primary);
+    }
+    .report-tile--accent .tile-value { color: var(--av-brand-teal-700); }
+
+    .report-card {
+      padding: var(--av-space-6);
+      background: var(--av-surface-card);
+      border: 1px solid var(--av-border-subtle);
+      border-radius: var(--av-radius-xl);
+      box-shadow: var(--av-shadow-sm);
+      display: flex; flex-direction: column; gap: var(--av-space-4);
+    }
+    .report-card-title { font-size: var(--av-fs-lg); color: var(--av-text-primary); margin: 0; }
+
+    .trend-ops { display: flex; gap: var(--av-space-3); flex-wrap: wrap; }
+    .trend-op {
+      font-size: var(--av-fs-sm); padding: var(--av-space-2) var(--av-space-4);
+      border-radius: var(--av-radius-pill); background: var(--av-surface-sunken);
+      color: var(--av-text-secondary);
+    }
+    .trend-op strong { font-family: var(--av-font-mono); color: var(--av-text-primary); }
+    .trend-op--miss strong, .trend-op--wrong strong { color: var(--av-error); }
+    .trend-op--extra strong { color: var(--av-text-faint); }
+    .trend-row { display: flex; align-items: baseline; gap: var(--av-space-3); flex-wrap: wrap; }
+    .trend-row-label {
+      font-size: var(--av-fs-xs); text-transform: uppercase;
+      letter-spacing: var(--av-tracking-widest); color: var(--av-text-muted);
+      flex: none; min-width: 88px;
+    }
+    .trend-words { display: flex; gap: var(--av-space-2); flex-wrap: wrap; }
+    .trend-word {
+      display: inline-flex; align-items: center; gap: 6px; font-size: var(--av-fs-sm);
+      padding: 2px 8px; border-radius: var(--av-radius-md);
+      background: var(--av-surface-sunken); border: 1px solid var(--av-border-default);
+      color: var(--av-text-primary);
+    }
+    .trend-word-n {
+      font-family: var(--av-font-mono); font-size: var(--av-fs-xs);
+      color: var(--av-text-on-primary); background: var(--av-brand-teal-700);
+      border-radius: var(--av-radius-pill); padding: 0 6px;
+    }
+    .trend-empty { color: var(--av-text-muted); }
+
+    .review-head { display: flex; align-items: center; gap: var(--av-space-3); flex-wrap: wrap; margin-bottom: var(--av-space-2); }
+    .review-score { font-family: var(--av-font-mono); font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold); }
+    .review-score.is-perfect { color: var(--av-brand-teal-700); }
+    .review-score.is-partial { color: var(--av-brand-amber-600); }
+    .review-score.is-low { color: var(--av-error); }
+    .review-flag {
+      margin-left: auto; font-size: var(--av-fs-xs); color: var(--av-text-secondary);
+      background: transparent; border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-md); padding: 2px 8px; cursor: pointer;
+    }
+    .review-flag:hover:not(:disabled) { border-color: var(--av-brand-teal-700); color: var(--av-brand-teal-700); }
+    .review-flag:disabled { color: var(--av-brand-teal-700); border-color: var(--av-brand-teal-200); cursor: default; }
+    .review-diff { line-height: var(--av-lh-relaxed); }
+
+    /* ── Flag modal ────────────────────────────────────────────── */
+    .flag-modal {
+      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5);
+      display: flex; align-items: center; justify-content: center;
+      padding: var(--av-space-4); z-index: 50;
+    }
+    .flag-dialog {
+      width: 100%; max-width: 440px;
+      background: var(--av-surface-card); border: 1px solid var(--av-border-default);
+      border-radius: var(--av-radius-xl); box-shadow: var(--av-shadow-md);
+      padding: var(--av-space-6); display: flex; flex-direction: column; gap: var(--av-space-4);
+    }
+    .flag-title { margin: 0; font-size: var(--av-fs-lg); color: var(--av-text-primary); }
+    .flag-lede { margin: 0; font-size: var(--av-fs-sm); color: var(--av-text-secondary); }
+    .flag-chips { display: flex; flex-wrap: wrap; gap: var(--av-space-2); }
+    .flag-chip {
+      font-size: var(--av-fs-sm); padding: var(--av-space-2) var(--av-space-4);
+      border-radius: var(--av-radius-pill); border: 1px solid var(--av-border-default);
+      background: var(--av-surface-card); color: var(--av-text-secondary); cursor: pointer;
+    }
+    .flag-chip:hover { border-color: var(--av-brand-teal-700); }
+    .flag-chip.is-selected { background: var(--av-brand-teal-700); color: var(--av-text-on-primary); border-color: var(--av-brand-teal-700); }
+    .flag-note {
+      width: 100%; padding: var(--av-space-3);
+      border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md);
+      background: var(--av-surface-card); color: var(--av-text-primary);
+      font-family: var(--av-font-sans); font-size: var(--av-fs-sm); resize: vertical;
+    }
+    .flag-actions { display: flex; justify-content: flex-end; gap: var(--av-space-3); }
+
+    @media (max-width: 760px) {
+      .dictation-shell { padding-inline: var(--av-space-4); }
+      .dict-card { grid-template-columns: 1fr; padding: var(--av-space-3); }
+      .dict-progress,
+      #section-hint,
+      #inline-error,
+      #diff-block { grid-column: 1; }
+      .dict-loop { max-width: 100%; overflow-x: auto; }
+      .dict-loop span { white-space: nowrap; }
+      .segment-dots { width: 100%; margin-left: 0; }
+      .segment-dot { flex: 1 1 14px; max-width: 28px; }
+      .submit-row .btn-primary,
+      .submit-row .btn-secondary { flex: 1 1 auto; min-height: 44px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .btn-primary, .segment-dot, .answer-textarea { transition: none; }
+    }
+  </style>
+  <script src="/js/legacy-retirement-beacon.js" defer></script>
+</head>
+<body class="av-page">
+
+  <aver-chrome active="listening"></aver-chrome>
+
+  <div class="shell">
+    <main class="dictation-shell">
+
+      <header class="dictation-header">
+        <a class="dict-back" href="/listening">← Quay lại Listening</a>
+        <p class="eyebrow">LUYỆN NGHE CHỦ ĐỘNG</p>
+        <h1>Chép chính tả <span class="accent">·</span> <span id="test-title">…</span></h1>
+        <p class="subtitle">
+          Nghe và gõ lại từng câu, đối chiếu từng từ với bản gỡ băng. Bạn được
+          <strong>tua và nghe lại tự do</strong> cả đoạn — dùng thanh audio phía dưới.
+        </p>
+        <div class="dict-loop" aria-label="Ba bước luyện chép chính tả">
+          <span>1 · Nghe</span><i aria-hidden="true"></i>
+          <span>2 · Gõ lại</span><i aria-hidden="true"></i>
+          <span>3 · Đối chiếu</span>
+        </div>
+      </header>
+
+      <!-- Empty / loading / error states. -->
+      <div class="empty-state" id="state-empty" hidden>
+        <p><strong>Chưa chọn bài test.</strong></p>
+        <p>Mở trang này từ nút “✍️ Chép chính tả” trên một bài Listening.</p>
+      </div>
+      <div class="empty-state" id="state-loading">Đang tải…</div>
+      <div class="error-banner" id="state-error" hidden></div>
+
+      <!-- Section picker (shown when the test has >1 section). -->
+      <div id="section-picker-surface" hidden>
+        <p class="section-hint" style="margin-bottom:var(--av-space-3);">Chọn phần để chép chính tả:</p>
+        <div class="section-picker" id="section-picker"></div>
+      </div>
+
+      <!-- Active dictation surface — one calm workspace per sentence. -->
+      <div id="dictation-surface" hidden>
+        <div class="dict-card">
+
+          <div class="dict-progress">
+            <div class="dict-progress-meta">
+              <span class="dict-section" id="active-section-label">Câu</span>
+              <span class="dict-counter" id="progress-counter">1 / 1</span>
+            </div>
+            <div class="segment-dots" id="segment-dots" role="list" aria-label="Tiến độ các câu"></div>
+          </div>
+
+          <p class="section-hint" id="section-hint" hidden></p>
+
+          <section class="dict-stage dict-stage--listen" aria-labelledby="dict-listen-title">
+            <div class="dict-stage__head">
+              <span class="dict-stage__number">1</span>
+              <div>
+                <h2 class="dict-stage__title" id="dict-listen-title">Nghe đoạn câu</h2>
+                <p class="dict-stage__hint">Nghe ít nhất một lượt trọn câu trước khi gõ.</p>
+              </div>
+            </div>
+            <audio-player id="player"></audio-player>
+
+            <!-- Proper-noun spelling hints for this sentence (names). -->
+            <div class="sentence-hint" id="sentence-hint" hidden></div>
+          </section>
+
+          <section class="dict-stage dict-stage--write" aria-labelledby="dict-write-title">
+            <div class="dict-stage__head">
+              <span class="dict-stage__number">2</span>
+              <div>
+                <h2 class="dict-stage__title" id="dict-write-title">Gõ lại điều bạn nghe</h2>
+                <p class="dict-stage__hint">Đừng nhìn transcript; tập trung vào từng cụm âm.</p>
+              </div>
+            </div>
+            <div class="answer-block">
+              <label class="answer-label" for="answer">Câu trả lời của bạn</label>
+              <textarea class="answer-textarea" id="answer"
+                        placeholder="Gõ lại câu vừa nghe…"
+                        autocomplete="off" spellcheck="false"></textarea>
+            </div>
+
+            <div class="submit-row">
+              <button class="btn-primary" id="btn-submit" type="button">Kiểm tra đáp án</button>
+              <button class="btn-secondary" id="btn-reset" type="button" hidden>Thử lại</button>
+              <button class="btn-primary" id="btn-next" type="button" hidden>Câu tiếp theo →</button>
+              <span class="score-pill" id="score-pill" hidden></span>
+            </div>
+          </section>
+
+          <!-- Inline (per-sentence) errors — kept inside the surface so an
+               empty-answer / grade failure never hides the dictation UI. -->
+          <div class="error-banner" id="inline-error" hidden></div>
+
+          <div class="diff-block" id="diff-block" hidden>
+            <span class="label" id="diff-label">BƯỚC 3 · ĐỐI CHIẾU TỪNG TỪ</span>
+            <div id="diff-render"></div>
+            <p class="diff-legend" id="diff-legend" hidden>
+              <span class="diff-token diff-token--filler">um</span> ngập ngừng — có thể bỏ qua, không trừ điểm.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Completion report (after the last sentence of a section). -->
+      <div id="completion-surface" hidden>
+        <header class="report-head">
+          <h2 class="report-title">Báo cáo chép chính tả</h2>
+          <p class="report-save-note" id="report-save-note" hidden></p>
+        </header>
+
+        <!-- Stat tiles: time · accuracy · sentences · words. -->
+        <div class="report-tiles">
+          <div class="report-tile">
+            <span class="tile-label">Thời gian</span>
+            <span class="tile-value" id="stat-time">—</span>
+          </div>
+          <div class="report-tile report-tile--accent">
+            <span class="tile-label">Độ chính xác</span>
+            <span class="tile-value" id="stat-accuracy">—</span>
+          </div>
+          <div class="report-tile">
+            <span class="tile-label">Câu đúng</span>
+            <span class="tile-value" id="stat-sentences">—</span>
+          </div>
+          <div class="report-tile">
+            <span class="tile-label">Từ đúng</span>
+            <span class="tile-value" id="stat-words">—</span>
+          </div>
+        </div>
+
+        <!-- Error trends. -->
+        <section class="report-card">
+          <h3 class="report-card-title">Xu hướng lỗi</h3>
+          <div class="trend-ops" id="trend-ops"></div>
+          <div class="trend-row">
+            <span class="trend-row-label">Hay bỏ sót</span>
+            <div class="trend-words" id="trend-missed"></div>
+          </div>
+          <div class="trend-row">
+            <span class="trend-row-label">Hay viết sai</span>
+            <div class="trend-words" id="trend-wrong"></div>
+          </div>
+        </section>
+
+        <!-- Per-sentence review (reference + word diff + báo lỗi). -->
+        <section class="report-card">
+          <h3 class="report-card-title">Chi tiết từng câu</h3>
+          <div class="transcript-review" id="transcript-review"></div>
+        </section>
+
+        <div class="submit-row">
+          <button class="btn-secondary" id="btn-other-section" type="button" hidden>← Chọn phần khác</button>
+          <button class="btn-primary" id="btn-restart" type="button">Làm lại phần này</button>
+        </div>
+      </div>
+
+      <!-- Flag (báo lỗi nội dung) modal. -->
+      <div class="flag-modal" id="flag-modal" hidden>
+        <div class="flag-dialog" role="dialog" aria-modal="true" aria-labelledby="flag-title">
+          <h3 class="flag-title" id="flag-title">Báo lỗi</h3>
+          <p class="flag-lede">Chọn loại lỗi bạn thấy ở câu này (và mô tả nếu cần):</p>
+          <div class="flag-chips" id="flag-chips">
+            <button class="flag-chip" type="button" data-cat="transcript_wrong">Bản gỡ băng sai</button>
+            <button class="flag-chip" type="button" data-cat="audio_unclear">Audio không rõ</button>
+            <button class="flag-chip" type="button" data-cat="sentence_unfair">Câu không hợp lý</button>
+            <button class="flag-chip" type="button" data-cat="other">Khác</button>
+          </div>
+          <input type="hidden" id="flag-category" value="" />
+          <textarea class="flag-note" id="flag-note" rows="3"
+                    placeholder="Mô tả thêm (không bắt buộc)…"></textarea>
+          <div class="error-banner" id="flag-error" hidden></div>
+          <div class="flag-actions">
+            <button class="btn-secondary" id="flag-cancel" type="button">Huỷ</button>
+            <button class="btn-primary" id="flag-submit" type="button">Gửi báo lỗi</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script type="module" src="/js/listening-test-dictation.js"></script>
+
+</body>
+</html>

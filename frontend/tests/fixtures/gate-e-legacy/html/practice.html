@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Luyện tập Ghi âm — Aver Learning</title>
+
+  <!-- Sprint 6.5: practice.html supports both light + dark themes from
+       day 1 (Sprint 6.4.1/6.4.2 lessons applied). Sprint 6.6.1 normalized
+       the IIFE to match the canonical home.html bootstrap and
+       theme-toggle.js VALID_THEMES validation — closes Codex audit Phase 1
+       AMBER #1. A garbage value in localStorage no longer flows through
+       to data-theme; the IIFE falls back to system preference instead. -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('av-theme');
+        var prefersDark = window.matchMedia &&
+                          window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+
+  <!-- P0-3 C-3.4: static pre-built Tailwind (Plus-Jakarta cluster) replaces the
+       407KB runtime Play-CDN. navy/teal + Plus Jakarta live in tailwind.config.cjs;
+       rebuild via `npm run build:css` (CI-diff-guarded). Same classes, no markup change. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+
+  <!-- Aver Design System foundation. tokens.css MUST load before
+       components.css and practice.css. ds.css is kept because the page
+       still references .ds-question-card / .ds-cue-card / .ds-band-hero /
+       .ds-rec-ring / .ds-section-head / .ds-badge / .ds-fadein / .ds-callout
+       — moving those to --av-* equivalents is a follow-up cleanup. -->
+  <link rel="stylesheet" href="/css/aver-design/tokens.css" />
+  <link rel="stylesheet" href="/css/aver-design/components.css" />
+  <link rel="stylesheet" href="/css/ds.css" />
+  <link rel="stylesheet" href="/css/practice.css" />
+  <!-- Phiếu làm bài của BÀI TẬP LỚP (.av-sheet / .av-slot) chỉ được định nghĩa ở
+       đây, và trang này là trang DUY NHẤT vẽ nó. Thiếu dòng này thì phiếu ra màn
+       hình không có một quy tắc nào — đúng lỗi "bấm Làm bài ra trang trống". -->
+  <link rel="stylesheet" href="/css/speaking-assignment.css" />
+  <!-- P0-3 C-3.4: static Tailwind loaded LAST (after page CSS) to match the
+       Play-CDN cascade — utilities/.hidden win over same-specificity page rules. -->
+  <link rel="stylesheet" href="/css/tailwind.build.css" />
+
+  <!-- Lucide icons (line glyphs replacing the legacy emoji chrome). -->
+  <script src="https://unpkg.com/lucide@1.17.0" defer></script>
+
+  <!-- Canonical chrome Web Component (Sprint 7.13). -->
+  <script type="module" src="/js/components/aver-chrome.js"></script>
+  <script src="/js/legacy-retirement-beacon.js" defer></script>
+</head>
+<body class="av-page font-sans antialiased min-h-screen flex flex-col">
+
+  <!-- Canonical chrome (Sprint 7.13 — <aver-chrome>; speaking active). -->
+  <aver-chrome active="speaking"></aver-chrome>
+  <!-- Practice context bar (Sprint 6.17.1 Q4 — session-state info preserved
+       below canonical chrome). #hdr-info + #hdr-progress are populated by
+       practice.js; both stay .hidden until the session metadata loads. -->
+  <header class="practice-header practice-context-bar sticky top-0 z-30 px-5 py-3 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <a href="/speaking" class="practice-back-link">
+        <i data-lucide="chevron-left"></i>
+        Quay lại
+      </a>
+      <p class="eyebrow" style="margin:0;">Speaking</p>
+    </div>
+    <div class="flex items-center gap-3 min-w-0">
+      <span id="hdr-info"
+            class="hidden text-xs font-medium truncate practice-hdr-info"></span>
+      <span id="hdr-progress" class="hidden ds-badge ds-badge-teal" style="white-space:nowrap;"></span>
+    </div>
+  </header>
+
+  <!-- ─── MAIN CONTENT ────────────────────────────────────────────────────────── -->
+  <main class="flex-1 flex flex-col">
+
+    <!-- TEST MODE BANNER (hidden in practice mode) -->
+    <div id="test-mode-banner" class="practice-test-banner" style="display:none;">
+      <span class="practice-test-banner__label">
+        <i data-lucide="alert-triangle"></i>
+        TEST MODE — KHÔNG ĐƯỢC DỪNG GIỮA CHỪNG
+      </span>
+    </div>
+
+    <!-- PROGRESS BAR (test modes only — controlled by JS) -->
+    <div id="progress-bar-wrap" class="practice-progress-wrap" style="display:none;">
+      <div id="progress-bar-label" class="practice-progress-label"></div>
+      <div class="practice-progress-rail">
+        <div id="progress-bar-fill" class="practice-progress-fill" style="width:0%;"></div>
+      </div>
+    </div>
+
+    <!-- STATE: Loading ──────────────────────────────────────────────────────── -->
+    <div id="state-loading" class="state active flex-1 items-center justify-center flex-col gap-4">
+      <div class="spinner"></div>
+      <p id="loading-msg" class="practice-loading-msg text-sm">Đang tải...</p>
+    </div>
+
+    <!-- STATE: Error ────────────────────────────────────────────────────────── -->
+    <div id="state-error" class="state flex-1 items-center justify-center flex-col gap-4 px-6">
+      <div class="practice-error-icon">
+        <i data-lucide="alert-triangle"></i>
+      </div>
+      <h2 class="text-lg font-bold">Đã xảy ra lỗi</h2>
+      <p id="error-msg" class="practice-error-msg text-sm text-center max-w-xs"></p>
+      <a href="/speaking"
+         class="btn-ghost px-5 py-2.5 text-sm font-semibold inline-block">
+        Quay lại
+      </a>
+    </div>
+
+    <!-- STATE: Mode Choice ──────────────────────────────────────────────────── -->
+    <div id="state-mode-choice" class="state block-state flex-1 av-w-read py-12 ds-fadein practice-stage practice-stage--choice">
+      <div class="text-center mb-8">
+        <p class="practice-mode-eyebrow text-xs font-bold uppercase tracking-wider mb-3">
+          Câu hỏi sẽ được trình bày như thế nào?
+        </p>
+        <h2 class="text-xl font-bold mb-2">Chọn chế độ câu hỏi</h2>
+        <p class="practice-mode-desc text-sm">Lựa chọn này áp dụng cho toàn bộ phiên luyện tập</p>
+      </div>
+      <div class="flex flex-col gap-4">
+        <button onclick="PracticeApp.chooseModeAndStart('visual')"
+                class="practice-mode-card w-full text-left px-6 py-6 rounded-2xl font-bold">
+          <span class="practice-mode-card__badge">Linh hoạt</span>
+          <div class="practice-mode-card__icon">
+            <i data-lucide="eye"></i>
+          </div>
+          <div class="practice-mode-card__title">Visual</div>
+          <div class="practice-mode-card__desc">
+            Đọc câu hỏi trực tiếp trên màn hình
+          </div>
+        </button>
+        <button onclick="PracticeApp.chooseModeAndStart('listening')"
+                class="practice-mode-card practice-mode-card--recommended w-full text-left px-6 py-6 rounded-2xl font-bold">
+          <span class="practice-mode-card__badge">Gần phòng thi thật</span>
+          <div class="practice-mode-card__icon">
+            <i data-lucide="volume-2"></i>
+          </div>
+          <div class="practice-mode-card__title practice-mode-card__title--accent">Listening</div>
+          <div class="practice-mode-card__desc">
+            Nghe câu hỏi phát ra loa — giống phòng thi thật. Câu hỏi sẽ tự phát mỗi lần.
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- STATE: Preparation ─────────────────────────────────────────────────── -->
+    <div id="state-prep" class="state block-state flex-1 av-w-read py-8 ds-fadein practice-stage practice-stage--player">
+
+      <!-- AI unavailable warning (shown only when Gemini failed and fallback questions are used) -->
+      <div id="prep-fallback-warning" class="ds-callout practice-warning-callout" style="display:none;">
+        <i data-lucide="alert-triangle"></i>
+        <span>AI chưa sẵn sàng — đang dùng câu hỏi dự phòng. Chất lượng có thể thấp hơn bình thường.</span>
+      </div>
+
+      <!-- Part badge + topic -->
+      <div class="flex items-center gap-2 mb-4 flex-wrap">
+        <span id="prep-part-badge" class="ds-badge ds-badge-teal"></span>
+        <span id="prep-topic"
+              class="practice-prep-topic text-sm font-medium"></span>
+        <span id="prep-q-counter"
+              class="practice-prep-counter ml-auto text-xs font-semibold"></span>
+      </div>
+
+      <!-- Mode toggle (Part 1 & 3 only; hidden for Part 2 by JS).
+           Background + selection styling lives in practice.css under
+           .practice-mode-toggle so JS can flip the .is-active modifier
+           on each button without touching inline color. -->
+      <div id="prep-mode-toggle" class="practice-mode-toggle flex gap-1 mb-4 p-1 rounded-xl">
+        <button id="prep-mode-visual"
+                class="practice-mode-toggle__btn flex-1 py-1.5 text-xs font-semibold rounded-lg"
+                onclick="PracticeApp.setQMode('visual')">
+          <i data-lucide="eye"></i>
+          Visual
+        </button>
+        <button id="prep-mode-listening"
+                class="practice-mode-toggle__btn flex-1 py-1.5 text-xs font-semibold rounded-lg"
+                onclick="PracticeApp.setQMode('listening')">
+          <i data-lucide="volume-2"></i>
+          Listening
+        </button>
+      </div>
+
+      <!-- Listening-mode play/replay bar (hidden in visual mode) -->
+      <div id="prep-listen-bar" style="display:none;" class="mb-4 flex items-center justify-center">
+        <button id="prep-play-btn"
+                class="btn-primary practice-icon-btn px-7 py-2.5 text-sm font-bold"
+                onclick="PracticeApp.playQuestion()">
+          <i data-lucide="volume-2"></i>
+          Nghe câu hỏi
+        </button>
+      </div>
+
+      <!-- Question card -->
+      <div id="prep-q-card" class="ds-question-card mb-5 ds-fadein" style="transition:opacity 0.2s;">
+        <div class="ds-q-label">Câu hỏi</div>
+        <!-- prep-text-reveal: hidden in Full Test mode until user taps reveal -->
+        <div id="prep-text-reveal">
+          <p id="prep-q-text" class="ds-q-text"></p>
+        </div>
+        <!-- Reveal button: only shown in Full Test mode -->
+        <button id="prep-reveal-btn"
+                class="practice-reveal-btn w-full text-xs py-2 px-4 rounded-lg font-medium transition"
+                style="display:none;"
+                onclick="PracticeApp.revealQuestionText()">
+          <i data-lucide="eye"></i>
+          Hiện câu hỏi
+        </button>
+      </div>
+
+      <!-- PHIẾU LÀM BÀI — bài tập lớp nhiều câu.
+           Thay màn phễu một-câu-một-lúc: hai ô cùng hiện, làm ô nào trước cũng
+           được, lưu từng ô, đủ mới nộp. Chỉ hiện khi phiên là bài tập lớp có
+           nhiều hơn một câu; luyện tự do vẫn đi luồng cũ. -->
+
+      <!-- Bài tập lớp Part 1/3: chỉ NGHE, không có chữ.
+           Khác hẳn nút "Hiện câu hỏi" của Full Test: ở đó chữ đã nằm sẵn trong
+           trang và chỉ bị giấu; ở đây backend KHÔNG gửi chữ xuống, nên không có
+           gì để hiện. Đó là điều kiện làm cho bài nghe này có nghĩa. -->
+      <div id="prep-listen" class="ds-question-card mb-5 hidden">
+        <div class="ds-q-label">Nghe câu hỏi</div>
+        <p class="prep-listen__hint">
+          Nghe rồi trả lời. Không có bản chữ — như trong phòng thi.
+        </p>
+        <audio id="prep-listen-audio" preload="auto" controls class="prep-listen__audio"></audio>
+        <p id="prep-listen-error" class="prep-listen__error hidden">
+          Chưa tải được câu hỏi. Kiểm tra kết nối rồi bấm phát lại.
+        </p>
+      </div>
+
+      <!-- Cue card (Part 2 only) -->
+      <div id="prep-cue" class="hidden ds-cue-card mb-6">
+        <p class="practice-cue-card__label text-xs font-bold uppercase tracking-wider mb-3">
+          <i data-lucide="clipboard-list"></i>
+          Cue Card — Hãy nói về:
+        </p>
+        <div id="prep-cue-bullets" class="mb-3"></div>
+        <p id="prep-cue-reflection" class="practice-cue-card__reflection text-sm italic"></p>
+      </div>
+
+      <!-- Instruction (text swapped by JS based on mode) -->
+      <p id="prep-instruction" class="practice-prep-instruction text-xs text-center mb-6">
+        Đọc câu hỏi kỹ, sau đó nhấn nút để bắt đầu ghi âm.
+      </p>
+
+      <button id="prep-start-btn" class="btn-primary practice-icon-btn w-full py-4 text-base"
+              onclick="PracticeApp.goToRecording()">
+        <i data-lucide="mic"></i>
+        Bắt đầu ghi âm
+      </button>
+
+      <!-- ── Inline recording controls (shown after clicking start) ──────── -->
+      <div id="inline-rec-section" style="display:none;margin-top:16px;">
+
+        <!-- Error banner -->
+        <div id="rec-error" class="ds-callout practice-error-callout" style="display:none;"></div>
+
+        <!-- Sub-state A: idle (shown on re-record; recording starts immediately on first click) -->
+        <div id="rec-idle" style="display:none;">
+          <div class="text-center py-4">
+            <div class="ds-rec-ring practice-rec-ring--idle mb-3">
+              <i data-lucide="mic" class="practice-rec-ring__icon"></i>
+            </div>
+            <p class="practice-rec-idle-label text-sm font-medium mb-1">Sẵn sàng ghi âm</p>
+          </div>
+          <button class="btn-primary practice-icon-btn w-full py-4 text-base"
+                  onclick="PracticeApp.startRecording()">
+            <i data-lucide="mic"></i>
+            Bắt đầu ghi âm
+          </button>
+        </div>
+
+        <!-- Sub-state B: recording -->
+        <div id="rec-recording" style="display:none;">
+          <div class="text-center mb-4">
+            <div class="flex items-center justify-center gap-3 mb-2">
+              <span class="practice-rec-dot"></span>
+              <span id="rec-timer"
+                    class="practice-rec-timer text-5xl font-extrabold tabular-nums">0:00</span>
+            </div>
+            <p class="practice-rec-hint text-xs">
+              Đang ghi âm — nói rõ ràng vào microphone
+            </p>
+          </div>
+          <canvas id="rec-canvas" width="600" height="56" class="practice-rec-canvas"></canvas>
+          <button class="btn-danger practice-icon-btn w-full py-4 text-sm font-bold"
+                  onclick="PracticeApp.stopRecording()">
+            <i data-lucide="square"></i>
+            Dừng ghi âm
+          </button>
+        </div>
+
+        <!-- Sub-state C: recorded -->
+        <!-- Sprint 14.2 — Andy 2026-05-22 — added <audio controls> playback +
+             per-part length hint. Backend enforces a hard floor (HTTP 422
+             AudioTooShortError); the hint here is a client-side preview so
+             users see the issue without waiting for the network round-trip. -->
+        <div id="rec-recorded" style="display:none;">
+          <div class="text-center py-4">
+            <div class="practice-rec-success">
+              <i data-lucide="check-circle"></i>
+            </div>
+            <p class="practice-rec-success-label text-sm font-semibold mb-1">Đã ghi âm xong!</p>
+            <p id="rec-duration-display" class="practice-rec-duration text-xs"></p>
+          </div>
+
+          <audio id="rec-playback"
+                 controls
+                 preload="metadata"
+                 class="practice-rec-playback"
+                 style="display:none;width:100%;margin:0 0 12px;"></audio>
+
+          <p id="rec-length-hint"
+             class="practice-rec-length-hint text-xs"
+             style="display:none;text-align:center;margin-bottom:12px;"></p>
+
+          <div class="flex gap-3">
+            <button class="btn-ghost practice-icon-btn py-3 text-sm font-semibold"
+                    style="flex:1;"
+                    onclick="PracticeApp.resetRecording()">
+              <i data-lucide="rotate-ccw"></i>
+              Ghi lại
+            </button>
+            <button id="rec-submit-btn"
+                    class="btn-primary practice-icon-btn py-3 text-sm font-bold"
+                    style="flex:2;"
+                    onclick="PracticeApp.submitRecording()">
+              <i data-lucide="upload"></i>
+              Nộp để chấm điểm
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /inline-rec-section -->
+    </div>
+
+    <!-- STATE: Phiếu làm bài (bài tập lớp nhiều câu) ─────────────────────────
+         PHẢI là ANH EM của các khối state khác, không được lồng trong khối nào.
+         `showState()` gỡ `.active` khỏi mọi khối không được chọn; phiếu từng nằm
+         trong #state-prep, nên `showState('sheet')` tắt luôn tổ tiên của chính nó
+         → cả cây con `display:none`. Đó là lỗi "bấm Làm bài ra trang trống".
+
+         Và phải mang ĐỦ bộ lớp bố cục như anh em: chỉ để `state` thì
+         `.state.active { display: flex }` biến nó thành một hàng NGANG không
+         giới hạn bề rộng, không lề. -->
+    <div id="state-sheet" class="state block-state flex-1 av-w-read py-8">
+      <!-- Thanh tiến độ, DÍNH ở đầu phiếu.
+           Bài sau buổi học có tới 12-15 câu, nên dòng đếm ở đáy nằm ngoài màn
+           hình: học viên cuộn giữa chừng không còn biết mình còn mấy câu.
+           Mỗi vạch là MỘT câu, đúng thứ tự — làm câu nào trước cũng được, nên
+           một con số không nói được "mình đã bỏ qua câu nào".
+           Ẩn ở phiếu ngắn: hai ô thì cả danh sách đã nằm trong một màn. -->
+      <div class="av-sheet__meter" id="sheet-meter" hidden>
+        <div class="av-sheet__ticks" id="sheet-ticks" aria-hidden="true"></div>
+        <p class="av-sheet__meter-count" id="sheet-meter-count" role="status"></p>
+      </div>
+      <div class="av-sheet" id="sheet-slots"></div>
+      <div class="av-sheet__submit" id="sheet-submit" data-ready="false">
+        <span class="av-sheet__submit-note" id="sheet-submit-note"></span>
+        <button class="btn btn-primary" id="btn-sheet-submit" type="button" disabled>
+          Nộp bài
+        </button>
+      </div>
+    </div>
+
+    <!-- STATE: P2-A — Cue Card ──────────────────────────────────────────────── -->
+    <div id="state-p2a" class="state block-state flex-1 av-w-read py-6 practice-stage practice-stage--part2">
+      <div class="flex items-center gap-2 mb-5">
+        <span class="ds-badge ds-badge-teal">Part 2</span>
+        <span id="p2a-topic" class="practice-p2a-topic text-sm"></span>
+      </div>
+      <div class="card practice-card--cue p-5 mb-5">
+        <p class="practice-cue-card__label text-xs font-bold uppercase tracking-wider mb-3">Cue Card</p>
+        <p id="p2a-question"
+           class="practice-p2a-question text-base font-semibold mb-4"></p>
+        <ul id="p2a-bullets" class="space-y-2 mb-3" style="list-style:none;padding:0;margin:0;"></ul>
+        <p id="p2a-reflection" class="practice-p2a-reflection text-sm"></p>
+      </div>
+      <p class="practice-prep-instruction text-xs text-center mb-5">
+        Đọc cue card kỹ, sau đó nhấn nút để bắt đầu 1 phút chuẩn bị.
+      </p>
+      <div id="p2a-submit-retry" class="ds-callout practice-error-callout mb-4" style="display:none;">
+        <p id="p2a-submit-retry-msg" class="text-sm mb-3"></p>
+        <audio id="p2a-submit-retry-audio" controls preload="metadata" style="width:100%;margin-bottom:12px;"></audio>
+        <div class="flex gap-3">
+          <button class="btn-ghost py-3 text-sm font-semibold" style="flex:1;"
+                  onclick="PracticeApp.discardP2SubmissionRetry()">
+            Ghi lại
+          </button>
+          <button class="btn-primary py-3 text-sm font-bold" style="flex:2;"
+                  onclick="PracticeApp.retryP2Submission()">
+            Gửi lại bản ghi
+          </button>
+        </div>
+      </div>
+      <button id="p2a-start-btn" class="btn-primary practice-icon-btn w-full py-4 text-sm font-bold"
+              onclick="PracticeApp.startP2Prep()">
+        <i data-lucide="play"></i>
+        Bắt đầu 1 phút chuẩn bị
+      </button>
+    </div>
+
+    <!-- STATE: P2-B — Prep countdown ───────────────────────────────────────── -->
+    <div id="state-p2b" class="state block-state flex-1 av-w-read py-6 practice-stage practice-stage--part2">
+      <p class="practice-prep-eyebrow text-xs font-bold uppercase tracking-wider text-center mb-3">Thời gian chuẩn bị</p>
+      <p id="p2b-timer" class="practice-prep-timer text-6xl font-extrabold tabular-nums text-center mb-6">1:00</p>
+      <div class="card p-4 mb-4">
+        <p class="practice-card-eyebrow text-xs font-bold uppercase tracking-wider mb-2">Câu hỏi</p>
+        <p id="p2b-question" class="practice-p2b-question text-sm"></p>
+      </div>
+      <div class="card p-4 mb-5">
+        <p class="practice-card-eyebrow text-xs font-bold uppercase tracking-wider mb-2">Ghi chú của bạn</p>
+        <textarea id="p2b-notes" rows="4"
+                  class="practice-p2b-notes"
+                  placeholder="Ghi nhanh ý chính, từ vựng quan trọng..."></textarea>
+      </div>
+      <button class="btn-ghost w-full py-3 text-sm font-semibold"
+              onclick="PracticeApp.startP2SpeakingEarly()">
+        Bỏ qua → Bắt đầu nói ngay
+      </button>
+    </div>
+
+    <!-- STATE: P2-C — Speaking (2-min countdown) ────────────────────────────── -->
+    <div id="state-p2c" class="state block-state flex-1 av-w-read py-6 practice-stage practice-stage--part2">
+      <div class="text-center mb-6">
+        <div class="flex items-center justify-center gap-3 mb-2">
+          <span class="practice-rec-dot"></span>
+          <span id="p2c-timer" class="practice-rec-timer text-5xl font-extrabold tabular-nums">2:00</span>
+        </div>
+        <p class="practice-rec-hint text-xs">
+          Đang ghi âm — nói về chủ đề trên cue card
+        </p>
+      </div>
+      <canvas id="p2c-canvas" width="600" height="56" class="practice-rec-canvas practice-rec-canvas--p2c"></canvas>
+      <button class="btn-danger practice-icon-btn w-full py-4 text-sm font-bold"
+              onclick="PracticeApp.stopP2SpeakingEarly()">
+        <i data-lucide="square"></i>
+        Dừng sớm
+      </button>
+    </div>
+
+    <!-- STATE: Processing ───────────────────────────────────────────────────── -->
+    <div id="state-processing" class="state flex-1 items-center justify-center flex-col gap-6 px-6 text-center">
+      <div class="spinner"></div>
+      <div>
+        <p id="processing-text"
+           class="practice-processing-text text-base font-semibold"></p>
+        <p class="practice-processing-sub text-xs mt-2">Vui lòng không đóng trang này</p>
+      </div>
+    </div>
+
+    <!-- STATE: Feedback ─────────────────────────────────────────────────────── -->
+    <div id="state-feedback" class="state block-state flex-1 av-w-read py-8 ds-fadein practice-stage practice-stage--feedback">
+
+      <header class="practice-feedback-header">
+        <p class="practice-feedback-header__eyebrow">Phản hồi tức thì</p>
+        <h2>Kết quả câu trả lời</h2>
+        <p>Ưu tiên một điểm mạnh để giữ lại và một thay đổi nhỏ cho lượt nói tiếp theo.</p>
+      </header>
+
+      <div class="practice-feedback-overview">
+
+      <!-- Overall band hero -->
+      <div id="feedback-band-wrapper"
+           style="display:none;margin-bottom:16px;">
+        <div class="ds-band-hero">
+          <div class="ds-section-head" style="margin-bottom:6px;">Band Score</div>
+          <div id="feedback-band" class="ds-band-value"></div>
+        </div>
+      </div>
+
+      <!-- Per-criterion band pills -->
+      <div id="feedback-bands-row"
+           style="display:none;justify-content:center;gap:4px;margin-bottom:20px;flex-wrap:wrap;"></div>
+
+      <!-- Comments / criterion feedback -->
+      <div class="card p-5 mb-4">
+        <p class="practice-card-eyebrow text-xs font-bold uppercase tracking-wider mb-3">
+          Nhận xét
+        </p>
+        <div id="feedback-comments"></div>
+      </div>
+      </div>
+
+      <div class="practice-feedback-evidence">
+        <!-- Transcript -->
+        <div id="feedback-transcript" class="card p-4 mb-4" style="display:none;">
+          <p class="practice-card-eyebrow practice-card-eyebrow--faint text-xs font-bold uppercase tracking-wider mb-2">Văn bản nhận dạng</p>
+          <p id="feedback-transcript-text"
+             class="practice-transcript-text text-xs leading-relaxed"></p>
+        </div>
+
+        <!-- Audio replay / download (JS-populated, only shown when local recording available) -->
+        <div id="feedback-audio-section" class="practice-feedback-audio" style="display:none;">
+          <p class="practice-card-eyebrow practice-card-eyebrow--faint text-xs font-bold uppercase tracking-wider mb-2">Bài nói của bạn</p>
+          <div class="flex gap-2">
+            <button class="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold"
+                    style="flex:1;"
+                    onclick="PracticeApp.replayAudio()">
+              <i data-lucide="volume-2"></i>
+              Nghe lại
+            </button>
+            <button class="btn-ghost practice-icon-btn py-2.5 text-xs font-semibold"
+                    style="flex:1;"
+                    onclick="PracticeApp.downloadAudio()">
+              <i data-lucide="download"></i>
+              Tải audio
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grammar Resources (populated by JS after grading) -->
+      <div id="grammar-resources" class="practice-feedback-divider" style="display:none;">
+        <div class="practice-feedback-divider__inner">
+          <p class="practice-feedback-eyebrow text-xs font-bold uppercase tracking-wider mb-1">Quick Grammar Tip</p>
+          <p class="practice-feedback-sub text-xs mb-3">
+            Dựa trên lỗi ngữ pháp trong câu trả lời vừa rồi
+          </p>
+          <div id="grammar-resources-cards" class="flex flex-col gap-2.5"></div>
+        </div>
+      </div>
+
+      <!-- Pronunciation Assessment (practice mode: auto-triggered inline) -->
+      <div id="pronunciation-section" class="practice-feedback-divider" style="display:none;">
+        <div class="practice-feedback-divider__inner">
+          <p class="practice-feedback-eyebrow practice-feedback-eyebrow--xs">Phân tích phát âm chuyên sâu</p>
+          <p class="practice-feedback-sub practice-feedback-sub--xs">Ngoài nhận xét chung ở trên, hệ thống cũng phân tích kỹ hơn phần phát âm để bạn biết nên luyện thêm ở đâu.</p>
+          <!-- Loading state — separate from result, toggled independently -->
+          <div id="pron-loading-block" class="practice-pron-loading" style="display:none;">
+            <div class="spinner practice-pron-loading__spinner"></div>
+            <p class="practice-pron-loading__text">Đang phân tích bài nói của bạn...</p>
+          </div>
+          <!-- Result block — shown only when assessment is ready -->
+          <div id="pron-result-block" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- Navigation buttons (JS controls display) -->
+      <div class="practice-feedback-actions flex flex-col gap-3">
+        <!-- Xem lại một câu của PHIẾU bài tập lớp. Ở đường ấy không có "câu
+             tiếp theo": học viên đang xem lại một ô cụ thể và cần về đúng chỗ
+             cũ. Hai nút kia bị ẩn, nút này hiện — xem `_sheetReview`. -->
+        <button id="btn-back-sheet"
+                class="btn-primary practice-icon-btn w-full py-3.5 text-sm"
+                style="display:none;"
+                onclick="PracticeApp.backToSheet()">
+          <i data-lucide="arrow-left"></i>
+          Quay lại phiếu làm bài
+        </button>
+        <button id="btn-next-q"
+                class="btn-primary practice-icon-btn w-full py-3.5 text-sm"
+                style="display:none;"
+                onclick="PracticeApp.nextQuestion()">
+          Câu tiếp theo
+          <i data-lucide="arrow-right"></i>
+        </button>
+        <button id="btn-finish"
+                class="btn-primary practice-icon-btn w-full py-3.5 text-sm"
+                style="display:none;"
+                onclick="PracticeApp.finishSession()">
+          <i data-lucide="check"></i>
+          Hoàn thành phiên luyện
+        </button>
+      </div>
+    </div>
+
+    <!-- STATE: Full Test Completion ─────────────────────────────────────────── -->
+    <div id="state-completion" class="state flex-1 items-center justify-center flex-col gap-0 px-6 text-center practice-stage practice-stage--completion">
+
+      <!-- Check icon -->
+      <div class="practice-completion-check">
+        <i data-lucide="check"></i>
+      </div>
+
+      <p class="practice-completion-eyebrow">Đã ghi nhận đủ 3 Part</p>
+      <h2 id="completion-title" class="practice-completion-title">Bạn đã hoàn thành Full Test!</h2>
+      <p id="completion-desc" class="practice-completion-desc">
+        Bài thi đang được phân tích chuyên sâu để tổng hợp band score và nhận xét chi tiết.
+      </p>
+
+      <div id="completion-submit-status"
+           class="practice-completion-submit-status is-pending"
+           role="status" aria-live="polite">
+        Đang kiểm tra và gửi nốt các câu trả lời…
+      </div>
+      <button id="completion-retry-btn" type="button"
+              class="btn-primary practice-icon-btn practice-completion-retry"
+              style="display:none;"
+              onclick="PracticeApp.retryFullTestSubmissions()">
+        Gửi lại và chốt bài
+      </button>
+
+      <!-- Info card -->
+      <div id="completion-info" class="practice-completion-info">
+        <div class="practice-completion-info__row">
+          <div class="practice-completion-info__icon">
+            <i data-lucide="clock"></i>
+          </div>
+          <div>
+            <p class="practice-completion-info__title">Kết quả sẽ có trong ít phút</p>
+            <p class="practice-completion-info__desc">Thường trong vòng 10–15 phút, band score và nhận xét đầy đủ sẽ xuất hiện tại <strong>Lịch sử sessions</strong> trên Dashboard.</p>
+          </div>
+        </div>
+        <div class="practice-completion-info__row">
+          <div class="practice-completion-info__icon">
+            <i data-lucide="check-circle-2"></i>
+          </div>
+          <div>
+            <p class="practice-completion-info__title">Bạn không cần ngồi chờ ở đây</p>
+            <p class="practice-completion-info__desc">Hệ thống sẽ xử lý phần còn lại. Bạn có thể quay lại hoặc luyện thêm ngay bây giờ.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTAs -->
+      <div id="completion-ctas" class="practice-completion-ctas">
+        <a href="/speaking" class="practice-completion-cta practice-completion-cta--primary">
+          Quay lại
+        </a>
+        <a href="/speaking#history" class="practice-completion-cta practice-completion-cta--ghost">
+          Xem Lịch sử sessions
+        </a>
+      </div>
+    </div>
+
+    <!-- STATE: Test Results ──────────────────────────────────────────────────── -->
+    <div id="state-test-results" class="state block-state flex-1 av-w-read py-8 practice-stage practice-stage--summary">
+      <header class="practice-feedback-header">
+        <p class="practice-feedback-header__eyebrow">Tổng kết phiên</p>
+        <h2>Kết quả bài Test</h2>
+        <p class="practice-test-results-sub">Tổng hợp tất cả câu trả lời trong buổi test</p>
+      </header>
+
+      <!-- Overall band -->
+      <div id="test-overall-wrap" class="card practice-overall-wrap p-6 mb-6 text-center">
+        <p class="practice-overall-eyebrow text-xs font-semibold uppercase tracking-wider mb-2">Overall Band (trung bình)</p>
+        <div id="test-overall-band" class="practice-overall-band text-6xl font-bold">—</div>
+      </div>
+
+      <!-- Per-question results -->
+      <div id="test-results-list" class="flex flex-col gap-4 mb-6"></div>
+
+      <!-- Full-test Pronunciation Assessment block (populated async by JS) -->
+      <div id="full-pron-section" class="practice-full-pron-section" style="display:none;">
+        <p class="practice-feedback-eyebrow practice-feedback-eyebrow--xs">Phân tích phát âm chuyên sâu</p>
+        <p class="practice-feedback-sub practice-feedback-sub--xs">Dựa trên các bài nói của bạn trong cả ba phần, hệ thống tổng hợp nhận xét phát âm để bạn thấy rõ điểm cần luyện thêm.</p>
+        <div id="full-pron-block"></div>
+      </div>
+
+      <!-- Export PDF -->
+      <button id="btn-export-pdf"
+              onclick="PracticeApp.downloadPDFs(this)"
+              class="practice-pdf-btn practice-icon-btn w-full py-3 rounded-2xl font-bold text-sm mb-3">
+        <i data-lucide="file-down"></i>
+        Tải xuống báo cáo PDF
+      </button>
+
+      <!-- Back to dashboard -->
+      <button onclick="PracticeApp.finishSession()"
+              class="practice-finish-btn practice-icon-btn w-full py-3 rounded-2xl font-bold text-sm">
+        Quay lại
+        <i data-lucide="arrow-right"></i>
+      </button>
+    </div>
+
+  </main>
+
+  <!-- ─── SCRIPTS ──────────────────────────────────────────────────────────────── -->
+  <!-- C-3.2 defer: these now run post-parse (before DOMContentLoaded), off the
+       HTML parse path — practice.js is 140KB. Defer preserves source order. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0" defer></script>
+  <script src="../js/runtime-config.js" defer></script>
+  <script src="../js/api.js" defer></script>
+  <!-- Shared canonical upload/retry/resume state for Legacy ↔ Next handoff. -->
+  <script type="module" src="../js/speaking-legacy-runtime.mjs"></script>
+  <script src="../js/speaking-debt.js" defer></script>
+  <script src="../js/practice.js" defer></script>
+  <!-- Sprint 15.1 — pronunciation phoneme drill-down modal (weak-word badge → modal) -->
+  <script src="../js/pronunciation-drilldown.js" defer></script>
+  <script>
+    var SUPABASE_URL  = 'https://huwsmtubwulikhlmcirx.supabase.co';
+    var SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
+
+    // The libs above are `defer`, so the supabase global + PracticeApp exist
+    // only after they run — wait for DOMContentLoaded (fires AFTER all deferred
+    // scripts). Same calls, same order; only the timing moved.
+    document.addEventListener('DOMContentLoaded', function () {
+      initSupabase(SUPABASE_URL, SUPABASE_ANON);
+      document.getElementById('hdr-info').classList.remove('hidden');
+      document.getElementById('hdr-progress').classList.remove('hidden');
+      if (!window.PracticeLegacyRuntime ||
+          typeof window.PracticeSubmission?.submit !== 'function' ||
+          typeof window.PracticeFullTest?.restore !== 'function') {
+        var detail = document.getElementById('error-msg');
+        if (detail) detail.textContent = 'Không thể khởi động bộ lưu bài an toàn. Hãy tải lại trang.';
+        document.getElementById('state-loading')?.classList.remove('active');
+        document.getElementById('state-error')?.classList.add('active');
+        window.aver?.reportError?.(
+          'practice legacy persistence runtime unavailable',
+          { type: 'practice_legacy_runtime_unavailable' }
+        );
+        return;
+      }
+      PracticeApp.init();
+    });
+  </script>
+
+  <!-- ── Lucide icon hydration (Sprint 6.5) ────────────────────────
+       The Lucide CDN script is loaded with `defer` in <head>; we still
+       run a render on DOMContentLoaded + window.load as a belt-and-
+       suspenders fallback (matches the speaking.html pattern). -->
+  <script>
+    (function () {
+      function _renderLucide() {
+        if (window.lucide && window.lucide.createIcons) {
+          window.lucide.createIcons();
+        }
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _renderLucide);
+      } else {
+        _renderLucide();
+      }
+      window.addEventListener('load', _renderLucide);
+    })();
+  </script>
+
+</body>
+</html>

@@ -31,7 +31,8 @@ module.exports = defineConfig({
     // Dedicated port + no reuse: port 3000 is commonly occupied by another
     // local project, and reusing it would let this suite test the wrong app.
     url: 'http://localhost:3210/practice/session',
-    env: { PORT: '3210', GATE_E_LEGACY_FIXTURES: 'local-build-only' },
+    // Legacy HTML is fulfilled by the browser harness from checked test snapshots.
+    env: { PORT: '3210' },
     reuseExistingServer: false,
     timeout: 180_000,
   },

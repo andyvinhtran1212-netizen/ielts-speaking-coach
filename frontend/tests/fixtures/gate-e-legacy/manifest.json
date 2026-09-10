@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "source_release": "17159ba0eaa8a2e889f981ba49abfe43101d0601",
+  "scope": "html-only; shared JS/CSS still served by the local Next server",
+  "files": [
+    {
+      "url": "/pages/practice.html",
+      "file": "html/practice.html",
+      "sha256": "d5c905d682c3a0aa54b90967cc538fe35b486a4f7908d4800536873f6d03001e",
+      "bytes": 38753
+    },
+    {
+      "url": "/pages/reading-exam.html",
+      "file": "html/reading-exam.html",
+      "sha256": "8906181ebbf450cd5080f23157e19eb8584ae6b999f4e9c03840b495a6a72d34",
+      "bytes": 18188
+    },
+    {
+      "url": "/pages/listening-test.html",
+      "file": "html/listening-test.html",
+      "sha256": "bf5f7a189c5bbdb857f1d25780e4fbb6832575efa8ed9b301bded8b280e30753",
+      "bytes": 23606
+    },
+    {
+      "url": "/pages/listening-test-dictation.html",
+      "file": "html/listening-test-dictation.html",
+      "sha256": "cf1e26f889ffa82e8dbed597cccdad90c39805503338ab33a517123650161c1f",
+      "bytes": 31627
+    },
+    {
+      "url": "/pages/writing-dashboard.html",
+      "file": "html/writing-dashboard.html",
+      "sha256": "4b0ec258be2e6b9ba653fea38f7638b33e9cef952dbc48d71248eaf543396f3c",
+      "bytes": 102647
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 const { expect } = require('@playwright/test');
+const { installLegacyFixtureRoutes } = require('../fixtures/gate-e-legacy/loader.cjs');
 
 const API = 'http://localhost:8000';
 const ORIGIN = 'http://localhost:3210';
@@ -33,6 +34,7 @@ async function installHarness(page, {
   waitForPlayer = true,
   includeSessionQuery = true,
 } = {}) {
+  await installLegacyFixtureRoutes(page, ORIGIN, ['/pages/practice.html']);
   const calls = [];
   const pageErrors = [];
   let claimedRenderer = null;
