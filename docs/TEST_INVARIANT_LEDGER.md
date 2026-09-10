@@ -18,14 +18,27 @@ and `frontend/tests/*.test.js` globs, including new files. Do not use historical
 
 Pricing was revalidated against current source. The Next owner
 `frontend/app/(marketing)/pricing/page.tsx` deliberately redirects to `/` before
-launch. `pricing-next-behavior.test.mjs` and `verify-pricing-redirect-flow.mjs`
-protect this native contract, but the former still reads the legacy pricing
-and landing HTML. `pricing-redesign.test.mjs` protects the pre-launch sentinel
-as well as dormant design. It is therefore not purely obsolete design coverage.
-Before retiring pricing HTML/CSS, preserve the Next redirect invariant, decide
-whether dormant launch content is archived or intentionally discarded, and
-explicitly disposition both legacy-source assertions. No pricing test or asset
-is retired by this checkpoint.
+launch. `pricing-next-behavior.test.mjs` now protects this native contract without
+reading public Pricing or landing HTML, including execution of the actual page
+with Next's redirect implementation. `verify-pricing-redirect-flow.mjs` remains
+the HTTP boundary check. The old Pricing controls and landing assertions now
+characterize immutable snapshots in `gate-f-pricing-fixtures.test.mjs`, not
+mutations of public HTML; all `pricing-redesign.test.mjs` assertions
+remain against hash-pinned, non-public HTML/CSS. Dormant launch content is
+preserved, not discarded or approved for launch.
+
+The live HTML sentinel is intentionally superseded by server interception:
+`/pricing.html` permanently redirects to `/pricing`, whose Next owner returns
+307 to `/`; `/index.html` permanently redirects to `/`. These rules are emitted
+by `next.config.ts` before public-file serving and are guarded by the compiled
+config and 139-rule golden tests in `gate-f-retirement-redirects.test.mjs`.
+Both HTML URL redirects were also verified with production GET requests.
+
+The two dedicated suites also pass in an isolated checkout without `public`.
+Global anti-flash/theme/copy/source-inventory consumers still need disposition
+before physical Pricing retirement. No test was deleted or skipped and no
+public file was removed. See [Pricing decoupling mapping](audits/GATE_F_PRICING_TEST_DECOUPLING_2026-09-10.md)
+for the invariant-by-invariant handoff and remaining consumers.
 
 See [wave 3 asset audit](audits/GATE_F_ASSET_AUDIT_2026-09-10.md) for the current
 read-only inventory; it grants no deletion approval.
@@ -98,7 +111,8 @@ read-only inventory; it grants no deletion approval.
 | `admin-writing-prompts-redesign.test.mjs` | ✗ | `frontend/pages/admin/writing/prompts.html` | Prompt list: paginated, filterable by level/topic, bulk actions (publish, archive) | source-string-pin | port-to-component-test |
 | `admin-writing-status-redesign.test.mjs` | ✗ | `frontend/pages/admin/writing/status.html` | Status dashboard: grades per student, completion %, feedback rate | source-string-pin | keep-until-route-retired |
 | `admin-writing-redesign.test.mjs` | ✗ | `frontend/pages/admin/writing/index.html` | Writing admin hub: navigation to sub-pages (dashboard, queue, prompts, cohorts) | source-string-pin | keep-until-route-retired |
-| `pricing-redesign.test.mjs` | ✓ (current glob) | `frontend/public/pricing.html`, `frontend/public/css/pricing.css` via aliases | Pre-launch redirect sentinel plus dormant pricing/FAQ design | source-string-pin | HOLD: native redirect replacement exists, but legacy assertions and dormant launch content need explicit retirement disposition |
+| `pricing-redesign.test.mjs` | ✓ (current glob) | Hash-pinned `frontend/tests/fixtures/gate-f-pricing/` | Historical pre-launch sentinel and dormant pricing/FAQ design | archived characterization | All 119 cases preserved outside public; live guard is native redirect plus permanent HTML URL interception; physical retirement still HOLD |
+| `gate-f-pricing-fixtures.test.mjs` (added 2026-09-10) | ✓ (current glob) | Three fixture files, manifest, loader and isolated checkout | Historical controls/link, corruption/path rejection, both dedicated suites independent of public files | integrity + isolated-checkout execution | Does not certify live CTA/UI; native coverage needs declared frontend TypeScript and Next dependencies; remaining consumers in wave 4 mapping |
 | `onboarding-redesign.test.mjs` | ✗ | `frontend/pages/onboarding.html` | Onboarding flow: skill selection, cohort join, first session setup | source-string-pin | retire-immediately (deprecated in pivot; legacy flow) |
 
 ### Reading (15 files, 8 in CI)
@@ -357,7 +371,7 @@ The pricing suggestion below was disproved by source inspection on 2026-09-10;
 other entries are not newly certified by this checkpoint.
 
 1. `admin-monolith-redesign.test.mjs` — Legacy reference to old admin.html
-2. `pricing-redesign.test.mjs` — **HOLD; original suggestion withdrawn.** Protects a real pre-launch redirect sentinel; native coverage exists but still reads legacy artifacts (see current checkpoint).
+2. `pricing-redesign.test.mjs` — **Original deletion suggestion withdrawn.** Historical assertions now use hash-pinned fixtures; native coverage is independent of public HTML. Other consumers still block physical retirement (see current checkpoint).
 3. `onboarding-redesign.test.mjs` — Deprecated onboarding flow
 4. `sprint-6-7-1-audit-closure.test.mjs` — Historical audit
 5. `sprint-6-9-1-audit-closure.test.mjs` — Historical audit

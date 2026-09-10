@@ -7,14 +7,13 @@
  * Pins the Sprint 6.13b surgical migration of /pricing.html (Era B
  * `#1B3A5C` / `#0D7377` / Inter) onto the Aver Design System.
  *
- * The pricing page is currently hidden pre-launch behind a
- * `window.location.replace('/')` page-level redirect. The migration
- * preserves that redirect — when marketing removes it, the canonical
- * IIFE + tokenised page below take over without further work. Sentinel
- * test below pins the redirect so a future PR can't quietly expose
- * pricing before launch is approved.
+ * Historical characterization against hash-pinned, non-public fixtures.
+ * Live /pricing is owned by a Next server redirect; its launch guard lives
+ * in pricing-next-behavior.test.mjs and verify-pricing-redirect-flow.mjs.
+ * Preserving this dormant design is NOT approval to launch it or retire
+ * public artifacts. See TEST_INVARIANT_LEDGER.md's Pricing mapping.
  *
- * Conversion-flow contract preserved byte-identical:
+ * Historical snapshot conversion-flow contract (not live CTA protection):
  *   - 5 CTAs target /login.html (nav signin, nav cta, free-tier, final
  *     note, footer signin, footer signup — count ≥ 5 to be tolerant)
  *   - 4 CTAs target https://zalo.me/0000000000 (popular tier, intensive
@@ -36,20 +35,15 @@
 
 import { test, describe, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import path from 'node:path';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.join(__dirname, '..', '..');
+import { readPricingFixture } from './fixtures/gate-f-pricing/loader.mjs';
 
 
 let html;
 let css;
 
 before(() => {
-  html = readFileSync(path.join(REPO_ROOT, 'frontend/pricing.html'),   'utf8');
-  css  = readFileSync(path.join(REPO_ROOT, 'frontend/css/pricing.css'), 'utf8');
+  html = readPricingFixture('pricing.html');
+  css = readPricingFixture('pricing.css');
 });
 
 

@@ -6,13 +6,14 @@ import { createServer } from 'node:http';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+import { runInNewContext } from 'node:vm';
+import ts from 'typescript';
 
 const FRONTEND = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PAGE_PATH = path.join(FRONTEND, 'app', '(marketing)', 'pricing', 'page.tsx');
 const PAGE = readFileSync(PAGE_PATH, 'utf8');
-const LEGACY = readFileSync(path.join(FRONTEND, 'public', 'pricing.html'), 'utf8');
 const NEXT_LANDING = readFileSync(path.join(FRONTEND, 'app', '(marketing)', 'page.tsx'), 'utf8');
-const LEGACY_LANDING = readFileSync(path.join(FRONTEND, 'public', 'index.html'), 'utf8');
 const LEDGER = readFileSync(path.join(FRONTEND, '../docs/ROUTE_LEDGER.md'), 'utf8');
 const WORKFLOW = readFileSync(path.join(FRONTEND, '../.github/workflows/parity-gate.yml'), 'utf8');
 const VERIFY_PRICING = path.join(FRONTEND, 'tooling', 'verify-pricing-redirect-flow.mjs');
@@ -36,17 +37,26 @@ describe('/pricing pre-launch native ownership', () => {
     assert.doesNotMatch(PAGE, /use client|useEffect|window\.location/);
   });
 
-  test('legacy pricing remains a truthful rollback artifact', () => {
-    assert.match(LEGACY, /window\.location\.replace\('\/'\)/);
-    assert.match(LEGACY, /id="btn-monthly"/);
-    assert.match(LEGACY, /id="faq-list"/);
+  test('executing the actual Next page throws a temporary homepage redirect, not content', () => {
+    const compiled = ts.transpileModule(PAGE, {
+      fileName: PAGE_PATH,
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    });
+    const nativeRequire = createRequire(import.meta.url);
+    const exports = {};
+    runInNewContext(compiled.outputText, { exports, require(name) {
+      assert.equal(name, 'next/navigation');
+      return nativeRequire(name);
+    } });
+    assert.throws(() => exports.default(), (error) => {
+      assert.equal(error.digest, 'NEXT_REDIRECT;replace;/;307;');
+      return true;
+    });
   });
 
-  test('both landing stacks enter the clean canonical route', () => {
-    for (const source of [NEXT_LANDING, LEGACY_LANDING]) {
-      assert.match(source, /href="\/pricing"/);
-      assert.doesNotMatch(source, /href="\/pricing\.html"/);
-    }
+  test('native landing enters the clean canonical route', () => {
+    assert.match(NEXT_LANDING, /href="\/pricing"/);
+    assert.doesNotMatch(NEXT_LANDING, /href="\/pricing\.html"/);
   });
 
   test('ledger records closed-state behavior and rollback boundary', () => {
