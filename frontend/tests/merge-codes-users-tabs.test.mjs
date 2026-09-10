@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   buildLegacyRetirementRedirects,
-  discoverLegacyHtmlPaths,
+  LEGACY_RETIREMENT_PATHS,
 } from '../tooling/gate-f-retirement-redirects.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -97,7 +97,7 @@ describe('merge-codes PR-3 — single entry (redirect + nav)', () => {
   const vercel = {
     redirects: [
       ...buildLegacyRetirementRedirects(
-        discoverLegacyHtmlPaths(join(__dirname, '..', 'public')),
+        LEGACY_RETIREMENT_PATHS,
         { permanent: false },
       ),
       ...Array.from(NEXT_CONFIG.matchAll(

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   buildLegacyRetirementRedirects,
-  discoverLegacyHtmlPaths,
+  LEGACY_RETIREMENT_PATHS,
 } from '../tooling/gate-f-retirement-redirects.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -108,7 +108,7 @@ test('GATE F SOAK: canonical /profile owns the route and legacy profile is tempo
   // profile page.tsx now lives directly under (authed) → route `/profile`
   assert.ok(readFileSync(path.join(DIR, 'page.tsx'), 'utf8').length > 0, 'profile route at canonical path');
   const redirects = buildLegacyRetirementRedirects(
-    discoverLegacyHtmlPaths(path.join(FRONTEND, 'public')),
+    LEGACY_RETIREMENT_PATHS,
     { permanent: false },
   );
   assert.ok(redirects.some((entry) => (

@@ -18,7 +18,9 @@ import {
 import { appPageRoute, collectNextMigrationStatus } from '../tooling/next-migration-status.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const paths = discoverLegacyHtmlPaths(path.join(FRONTEND, 'public'));
+// URL compatibility survives physical retirement, as in next.config.ts.
+// The independent physical-file freeze is asserted inside its own test below.
+const paths = LEGACY_RETIREMENT_PATHS;
 const redirects = buildLegacyRetirementRedirects(paths);
 const soakRedirects = buildLegacyRetirementRedirects(paths, { permanent: false });
 const nextConfig = readFileSync(path.join(FRONTEND, 'next.config.ts'), 'utf8');
@@ -35,8 +37,6 @@ function appRoutes(root, prefix = '') {
 test('retirement plan is pinned to the exact frozen Legacy artifact set', () => {
   assert.ok(Object.isFrozen(LEGACY_RETIREMENT_PATHS));
   assert.equal(new Set(LEGACY_RETIREMENT_PATHS).size, LEGACY_RETIREMENT_PATHS.length);
-  // Wave 1 retains every physical artifact; no retirement is authorized here.
-  assert.deepEqual(LEGACY_RETIREMENT_PATHS, paths);
   assert.equal(paths.length, RETIREMENT_ARTIFACT_SET.count);
   assert.deepEqual(assertFrozenLegacyArtifactSet(paths), paths);
   assert.throws(
@@ -47,6 +47,12 @@ test('retirement plan is pinned to the exact frozen Legacy artifact set', () => 
     () => assertFrozenLegacyArtifactSet([...paths.slice(1), '/swapped.html']),
     /legacy-retirement-artifact-set-drift/,
   );
+});
+
+test('physical Legacy artifact freeze remains exact until separately authorized retirement', () => {
+  const physicalPaths = discoverLegacyHtmlPaths(path.join(FRONTEND, 'public'));
+  assert.deepEqual(physicalPaths, LEGACY_RETIREMENT_PATHS);
+  assert.deepEqual(assertFrozenLegacyArtifactSet(physicalPaths), physicalPaths);
 });
 
 test('explicit URL manifest preserves all 139 pre-refactor redirect rules byte for byte', () => {

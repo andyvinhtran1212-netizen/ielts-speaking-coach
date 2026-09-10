@@ -56,6 +56,16 @@ not physical files. The real sentinel runs in isolation without any public or
 legacy tree; helper regressions cover dead routes and misleading denominators.
 See [wave 6 mapping](audits/GATE_F_NATIVE_SITE_OVERVIEW_2026-09-10.md).
 
+Wave 7 aligns six redirect-test consumers and the central redirect suite with
+the durable URL manifest, and separates replacement identities from physical
+HTML totals in the status test. The physical-set freeze is retained as its own
+test. A source-only candidate-removal rehearsal now fails only that freeze and
+the intentionally stale Pricing CSS budget, rather than aborting unrelated
+suites. Six generated Pricing scan cases would disappear after deletion; their
+three historical UI obligations are explicitly identified, not silently marked
+replaced. No physical deletion or scanner retirement is approved by this wave.
+See [wave 7 mapping and evidence](audits/GATE_F_PRICING_RETIREMENT_REHEARSAL_2026-09-10.md).
+
 See [wave 3 asset audit](audits/GATE_F_ASSET_AUDIT_2026-09-10.md) for the current
 read-only inventory; it grants no deletion approval.
 
@@ -257,9 +267,9 @@ read-only inventory; it grants no deletion approval.
 | `theme-toggle-icon-canonical.test.mjs` | ✓ | Current landing, chrome JS and page CSS; hash-pinned Pricing fixture | Icon markup, BEM-drift rejection, shadow visibility CSS and no per-page duplication (not runtime click/ARIA coverage) | source-string-pin | Pricing decoupled in wave 5; other inputs remain current, no deletion approval |
 | `b8-frontend-polish.test.mjs` | ✓ (current glob) | Current result HTML/practice JS; hash-pinned Pricing fixture | Non-blocking notices, root-relative retry routing, navigation guard, historical manual-payment copy | source-string-pin | Four cases preserved in wave 5; native Pricing launch gate covered separately |
 | `gate-f-pricing-shared-sources.test.mjs` (added 2026-09-10) | ✓ (current glob) | Explicit temporary copies of three shared suites and inputs; no public Pricing | All 209 cases run without public Pricing; broken current Home/landing/result copies fail the corresponding suite | isolated-checkout + negative control | Supplements, does not replace, dedicated no-public Pricing isolation |
-| `theme-toggle-layout-context.test.mjs` | ✗ | `frontend/js/theme-toggle.js`, `frontend/pages/` | Layout context: theme passed via provider/context to nested components (IIFE pattern) | dom-behavior | keep-until-route-retired |
+| `theme-toggle-layout-context.test.mjs` | ✓ (current glob) | Discovered frontend HTML, including compatibility aliases | Inline theme toggle has a flex-hinted immediate parent and nesting depth ≥2; not React provider/context behavior | source-string-pin | Keep current scanner; Pricing contributes four generated cases through two paths; disposition required before deletion |
 | `typography-tier1.test.js` | ✓ | `frontend/css/tailwind.build.css`, `frontend/css/tokens.css` | Tailwind tokens: all semantic sizes (sm, md, lg, xl) present, scale proportional, no gap | source-string-pin | replace-by-types |
-| `hex-budget.test.mjs` | ✓ | `frontend/css/`, `frontend/pages/` | CSS color budget: <50 unique hex values, reuse via Tailwind tokens | source-string-pin | replace-by-types |
+| `hex-budget.test.mjs` | ✓ | `frontend/css/`, `tests/fixtures/hex-budget.json` | Per-file raw hex literal cap; default zero; no stale budget headroom or missing-file entries; exact token/generated exemptions | source-string-pin | Keep ratchet; remove a retired CSS file's row only in the same approved deletion diff |
 | `design-fix-1-admin-primitives.test.mjs` | ✓ | `frontend/pages/admin/`, `frontend/css/` | Admin primitives: button/input/modal/table styles consistent | source-string-pin | port-to-component-test |
 | `design-fix-2-admin-buttons-hubs.test.mjs` | ✓ | `frontend/pages/admin/`, `frontend/css/` | Button variants: primary/secondary/danger, sizes match tokens | source-string-pin | port-to-component-test |
 | `design-fix-3-user-tokens.test.mjs` | ✓ | `frontend/css/tokens.css`, `frontend/pages/` | User-facing tokens: spacing, shadows, border-radius, consistent everywhere | source-string-pin | port-to-component-test |
@@ -293,7 +303,7 @@ read-only inventory; it grants no deletion approval.
 |-----------|-------|--------------|--------------|-------|----------------------|
 | `api-route.test.mjs` | ✗ | `frontend/js/api.js` | Route construction: session → /sessions/id, response → /sessions/id/responses | contract | replace-by-types |
 | `no-raw-fetch-relative-path.test.mjs` | ✗ | `frontend/js/`, `frontend/pages/` | No raw fetch with relative path; use window.api.base + absolute URL | source-string-pin | replace-by-types |
-| `css-paths-absolute.test.mjs` | ✗ | `frontend/pages/`, `frontend/js/` | CSS paths: all @import/@url absolute (/css/...), not relative | source-string-pin | retire-immediately (enforced by build) |
+| `css-paths-absolute.test.mjs` | ✓ (current glob) | Discovered frontend HTML carrying inline theme toggle or aver-chrome | Stylesheet link hrefs are nonempty and root-relative/external; roster floor and Grammar import pins remain; not a CSS @import/url or build guarantee | source-string-pin | Keep current scanner; Pricing contributes two generated cases through two paths; disposition required before deletion |
 | `cross-page-navigation-canonical.test.mjs` | ✗ | `frontend/pages/`, `frontend/js/` | Navigation: all internal links use canonical routes (no double-redirects) | source-string-pin | keep-until-route-retired |
 | `error-reporter.test.mjs` | ✗ | `frontend/js/error-reporter.js` | Reporter: captures console.error, window.onerror, unhandled promise rejection; POSTs to telemetry | dom-behavior | replace-by-types |
 | `error-reporter-dispatch.test.mjs` | ✗ | `frontend/js/error-reporter.js` | Dispatch: batches errors, samples to avoid quota, scrubs tokens/URLs | dom-behavior | replace-by-types |
@@ -386,8 +396,10 @@ closed — do not treat these as open.
 ## Historical retirement suggestions — not deletion approval
 
 These July suggestions require current per-invariant revalidation under ADR-005.
-The pricing suggestion below was disproved by source inspection on 2026-09-10;
-other entries are not newly certified by this checkpoint.
+The Pricing (item 2) and CSS-link scanner (item 32) deletion suggestions were
+withdrawn after source inspection on 2026-09-10; those numbered entries remain
+only to preserve the historical record. Other entries are not newly certified
+by this checkpoint.
 
 1. `admin-monolith-redesign.test.mjs` — Legacy reference to old admin.html
 2. `pricing-redesign.test.mjs` — **Original deletion suggestion withdrawn.** Historical assertions now use hash-pinned fixtures; native coverage is independent of public HTML. Other consumers still block physical retirement (see current checkpoint).
@@ -420,7 +432,7 @@ other entries are not newly certified by this checkpoint.
 29. `sprint-20-14e-summary-instruction.test.mjs` — Historical audit
 30. `sprint-20-14f-alpha-diagram-image.test.mjs` — Historical audit
 31. `sprint-20-15-admin-reading-mgmt.test.mjs` — Historical audit
-32. `css-paths-absolute.test.mjs` — Enforced by build system
+32. `css-paths-absolute.test.mjs` — Historical retirement suggestion withdrawn in wave 7: the build does not replace this stylesheet-link invariant; keep pending explicit per-page disposition.
 
 ---
 

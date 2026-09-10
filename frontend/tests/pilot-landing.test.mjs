@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   buildLegacyRetirementRedirects,
-  discoverLegacyHtmlPaths,
+  LEGACY_RETIREMENT_PATHS,
 } from '../tooling/gate-f-retirement-redirects.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -16,7 +16,7 @@ const PAGE = path.join(FRONTEND, 'app', '(marketing)', 'page.tsx');
 const BEHAVIOR = path.join(FRONTEND, 'app', '(marketing)', 'landing-behavior.tsx');
 const LAYOUT = path.join(FRONTEND, 'app', '(marketing)', 'layout.tsx');
 const SOAK_REDIRECTS = buildLegacyRetirementRedirects(
-  discoverLegacyHtmlPaths(path.join(FRONTEND, 'public')),
+  LEGACY_RETIREMENT_PATHS,
   { permanent: false },
 );
 
