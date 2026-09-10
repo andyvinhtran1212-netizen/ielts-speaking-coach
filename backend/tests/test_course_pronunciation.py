@@ -39,6 +39,9 @@ def test_b05_content_has_exactly_fifteen_ordered_british_shadowing_sentences():
     assert (data["voice_engine"], data["voice"]) == ("kokoro", "bf_emma")
     assert data["playback_rates"] == [0.85, 1.0]
     assert [row["order"] for row in data["sentences"]] == list(range(1, 16))
+    assert [row["id"] for row in data["sentences"]] == [
+        f"C1-B05-PRON-V2-{order:02d}" for order in range(1, 16)
+    ]
     assert len({row["id"] for row in data["sentences"]}) == 15
     assert data["sentences"][0]["text"] == (
         "The old wooden bridge in our small village is narrower than the new concrete one."
