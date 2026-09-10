@@ -1,85 +1,41 @@
 /**
- * frontend/tests/site-overview-coverage.test.mjs
- *
- * Keeps docs/SITE_OVERVIEW.md from silently rotting (Lesson 5 — light, tolerant
- * doc sentinel). Checks:
- *   A. No dead references — every `pages/….html` (and root page) the doc cites
- *      actually exists under frontend/.
- *   B. Coverage floor — the doc documents the large majority of REAL product
- *      pages (route-bearing .html under frontend/, excluding test fixtures /
- *      graphify / theme-test / legacy). Trips when many new pages land
- *      undocumented, without being brittle about every utility page.
- *   C. Spine pages — a few must-document surfaces are present.
- *
- * Intentionally tolerant: update the doc when this trips, don't loosen blindly.
+ * SITE_OVERVIEW's nine original obligations, now measured against native pages:
+ * A. No dead page references. Historical HTML names resolve through the durable
+ *    redirect manifest plus a present Next owner, not a retained physical file.
+ * B. At least 85% of product App Router pages have a purpose/audience row in §4.
+ * C. The six original must-document product surfaces remain required.
+ * D. README still points to this single product map.
+ * Source/doc coverage only; no assertion of rendered UI or endpoint correctness.
  */
-
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { collectOverviewPages, inspectOverview } from '../tooling/site-overview-coverage.mjs';
+import { canonicalNextRouteForLegacy } from '../tooling/gate-f-route-replacement-inventory.mjs';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO = path.join(__dirname, '..', '..');
-const FRONTEND = path.join(REPO, 'frontend');
+const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const doc = readFileSync(path.join(REPO, 'docs/SITE_OVERVIEW.md'), 'utf8');
-
-// ── Real product pages (route-bearing .html under frontend/) ──────────
-function walk(dir, rel = '') {
-  const out = [];
-  for (const e of readdirSync(dir, { withFileTypes: true })) {
-    const r = rel ? rel + '/' + e.name : e.name;
-    if (e.isDirectory()) {
-      if ([
-        'node_modules', 'graphify-out', 'tests', 'public', '.next', 'app',
-        // Playwright reporters are generated evidence, never route-bearing
-        // product pages. Keeping the exclusion here makes this sentinel stable
-        // whether a developer has just run browser tests or has a clean tree.
-        'playwright-report', 'test-results',
-      ].includes(e.name)) continue; // public/ reached via compat symlinks at legacy paths (Phase 1)
-      out.push(...walk(path.join(dir, e.name), r));
-    } else if (e.name.endsWith('.html')) {
-      if (e.name === '_theme-test.html' || e.name.includes('.legacy.')) continue;
-      out.push(r);
-    }
-  }
-  return out;
-}
-const productPages = walk(FRONTEND);            // e.g. "pages/practice.html", "index.html"
-
-// ── Paths cited in the doc (full relative paths only) ─────────────────
-// Root pages are cited like `admin.html (root)`; pages/* are cited as full paths.
-const ROOT_PAGES = ['index.html', 'login.html', 'onboarding.html', 'pricing.html',
-                    'admin.html', 'grammar.html', 'vocabulary.html'];
-const citedFull = new Set();
-for (const m of doc.matchAll(/`(pages\/[A-Za-z0-9_/-]+\.html)`/g)) citedFull.add(m[1]);
-for (const root of ROOT_PAGES) {
-  if (new RegExp('`' + root.replace('.', '\\.') + '`').test(doc)) citedFull.add(root);
-}
-
+const { routes } = collectOverviewPages(path.join(REPO, 'frontend'));
+const report = inspectOverview(doc, routes);
 
 describe('SITE_OVERVIEW — no dead references (A)', () => {
-  test('every cited page path exists under frontend/', () => {
-    const dead = [...citedFull].filter((p) => !existsSync(path.join(FRONTEND, p)));
-    assert.deepEqual(dead, [], 'doc cites non-existent pages: ' + dead.join(', '));
+  test('every cited page has a native owner or registered historical replacement', () => {
+    assert.deepEqual(report.invalidReferences, [], 'Unknown or non-canonical page references');
+    assert.deepEqual(report.deadLegacyReferences, [], 'Unknown historical HTML or missing native replacement');
   });
 });
 
 describe('SITE_OVERVIEW — coverage floor (B)', () => {
   test('documents the large majority of real product pages', () => {
-    const documented = productPages.filter((p) => citedFull.has(p));
-    const coverage = documented.length / productPages.length;
-    const missing = productPages.filter((p) => !citedFull.has(p));
-    assert.ok(coverage >= 0.85,
-      `coverage ${(coverage * 100).toFixed(0)}% (${documented.length}/${productPages.length}); ` +
-      `undocumented: ${missing.join(', ')}`);
+    assert.ok(report.coverage >= 0.85,
+      'coverage ' + (report.coverage * 100).toFixed(0) + '% (' +
+      report.documented.length + '/' + routes.length + '); undocumented: ' + report.missing.join(', '));
   });
 });
 
 describe('SITE_OVERVIEW — README points here (D)', () => {
-  // Single-source guard: README must defer to SITE_OVERVIEW for the product
-  // map, so the detailed per-page/feature map lives in exactly one place.
   test('README links to docs/SITE_OVERVIEW.md', () => {
     const readme = readFileSync(path.join(REPO, 'README.md'), 'utf8');
     assert.match(readme, /docs\/SITE_OVERVIEW\.md/,
@@ -88,14 +44,20 @@ describe('SITE_OVERVIEW — README points here (D)', () => {
 });
 
 describe('SITE_OVERVIEW — spine pages present (C)', () => {
+  // Pin the six expected identities independently and verify their canonical
+  // mapping too; blindly deriving both sides could hide a wrong-owner change.
   const spine = [
-    'pages/practice.html', 'pages/reading-exam.html', 'pages/reading-review.html',
-    'pages/admin/dashboard/reading-attempts.html', 'pages/admin/reading/content.html',
-    'login.html',
+    ['/pages/practice.html', '/practice/session'],
+    ['/pages/reading-exam.html', '/reading/exam/session'],
+    ['/pages/reading-review.html', '/reading/review'],
+    ['/pages/admin/dashboard/reading-attempts.html', '/admin/dashboard/reading-attempts'],
+    ['/pages/admin/reading/content.html', '/admin/reading/content'],
+    ['/login.html', '/login'],
   ];
-  for (const p of spine) {
-    test(`documents ${p}`, () => {
-      assert.ok(citedFull.has(p), `SITE_OVERVIEW must document ${p}`);
+  for (const [legacy, route] of spine) {
+    test('documents ' + route, () => {
+      assert.equal(canonicalNextRouteForLegacy(legacy), route, 'Spine replacement changed: ' + legacy);
+      assert.ok(report.documented.includes(route), 'SITE_OVERVIEW must document ' + route);
     });
   }
 });

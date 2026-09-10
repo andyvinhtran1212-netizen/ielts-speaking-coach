@@ -1,9 +1,9 @@
 # averlearning.com — Site / Product Overview
 
 > **What this is:** the **single source of truth** for the live site's product map — every module, how the modules relate, and what each sub-page does (purpose · audience · basic operation). Use it to onboard fast or to locate where a feature lives. `README.md` is a thin intro that points here; keep per-page / feature detail in this file only (don't reconstruct a competing map elsewhere).
-> **Updated:** 2026-06-02 · reflects state through PR #392 (Reading module feature-complete: L1/L2 glossary + translation + grammar toggle, L3 full test + solution + chữa-bài, access control lock/share/anonymous, attempts dashboard; speaking daily limit 24).
+> **Updated:** 2026-09-10 · route ownership refreshed against the 130 product App Router pages after hard flip. Existing domain/endpoint descriptions are retained unless explicitly corrected below; source coverage is not a fresh end-to-end audit of every feature.
 > **Not this:** orchestration plans/lessons/patterns live in `docs/HANDOFF.md`; day-to-day Claude rules in `CLAUDE.md`; design-system narrative in `frontend/css/aver-design/DESIGN_SYSTEM.md`. The root `CURRENT_ARCHITECTURE_AND_PRODUCT_DIRECTION.md` is **retired** as a product-direction doc — superseded by this file (it remains a gitignored, stale-at-Sprint-6 personal-notes file on the author's machine; do not treat it as current).
-> **Sub-page unit:** one real route-bearing `.html` under `frontend/` = one sub-page. Test fixtures (`frontend/tests/**`), `graphify-out/`, `_theme-test.html`, and `practice.legacy.html` are excluded.
+> **Sub-page unit:** one unique product URL pattern from `frontend/app/**/page.tsx` or `page.ts` = one sub-page. Route groups do not add URL segments; dynamic parameters remain bracketed. Private folders, route handlers, fixtures and the two named engineering routes `/next-probe` and `/recorder-spike` are excluded. Historical HTML URLs are compatibility redirects, not separate live pages or immediately usable rollback UIs.
 
 ---
 
@@ -11,9 +11,9 @@
 
 | Layer | Stack |
 |---|---|
-| Frontend | Vanilla HTML + CSS + JS (no build step); `aver-design` token system (`--av-*`); served on Vercel at **www.averlearning.com** |
+| Frontend | Next.js App Router + React/TypeScript, built and served on Vercel at **www.averlearning.com**; `aver-design` tokens (`--av-*`). Shared web components and some public JS/CSS are still used by Next; do not equate HTML retirement with removing all public assets. |
 | Backend | Python 3.11 · FastAPI · Pydantic Settings; one router file per domain; hosted on **Railway** |
-| Database | Single Supabase Postgres (**dev = prod**); backend uses the service role (bypasses RLS), enforcing ownership in-app |
+| Database | Supabase Postgres/Auth/Storage with distinct staging and production provenance; Vercel previews target staging (ADR-006). Backend service-role queries enforce ownership in-app; never assume a local or preview session may write production. |
 | AI | OpenAI Whisper (speaking STT) · Anthropic Claude (speaking grading) · Google Gemini (writing grading + question gen) · Azure Speech (pronunciation) · ElevenLabs / Gemini image (listening audio + maps) |
 | Storage | Supabase Storage (audio + listening + reading images) · Cloudinary (writing Task-1 images) |
 | Auth | Supabase Auth (Google OAuth) + access codes; per-skill gating via `users.permissions` (JSONB) + `expires_at` |
@@ -41,7 +41,7 @@
 
 ```
 ADMIN authors content ──▶ STUDENT (or ANONYMOUS) takes it ──▶ system grades/saves ──▶ STUDENT reviews ──▶ ADMIN sees analytics
-  speaking topics            practice.html / reading-exam        Whisper+Claude /        result / chữa-bài     dashboards
+  speaking topics            practice/session / reading/exam/session  Whisper+Claude /    result / chữa-bài     dashboards
   writing prompts            listening player / writing           Gemini / auto-score      writing-result        attempts dashboard
   listening/reading imports  flashcards / exercises               SRS / instant check
 ```
@@ -59,32 +59,39 @@ Cross-cutting relationships:
 
 Operation column = audience-facing purpose + the main data in/out (key endpoint or backend router). Endpoints are precise where verified this cluster; otherwise the owning router prefix is given.
 
+The first column lists canonical Next URL patterns only; query examples do not
+create extra pages. Retained HTML sources and their permanent redirects are
+tracked in the Gate F manifest/runbook, not counted as additional product pages.
+For example, `pricing.html` enters `/pricing`, whose pre-launch owner redirects
+to `/`; the historical source file is not a separately served marketing page.
+
 ### 4.1 Public / auth
 
 | Page | Audience | Purpose · operation |
 |---|---|---|
-| `index.html` | all | Landing / entry; routes to login or app. |
-| `login.html` | all | Google OAuth + access-code activation → `POST /auth/activate` (sets `users.is_active`, permissions, marks `access_codes` used). |
-| `onboarding.html` | new user | First-time setup (band target, level, goals) → `/auth/*` profile write. |
-| `pricing.html` | public | Pricing / marketing. |
+| `/` | all | Landing / entry; routes to login or app. |
+| `/login` | all | Google OAuth + access-code activation → `POST /auth/activate` (sets `users.is_active`, permissions, marks `access_codes` used). |
+| `/onboarding` | new user | First-time setup (band target, level, goals) → `/auth/*` profile write. |
+| `/pricing` | public | Pre-launch server redirect to `/`; no pricing controls or payment promise are currently served here. |
 
 ### 4.2 Student — Speaking
 
 | Page | Audience | Purpose · operation |
 |---|---|---|
-| `pages/home.html` | student | Multi-skill hub; links to each skill. Pulls home summary (`/api/student/*`). |
-| `pages/speaking.html` | student | Speaking dashboard — session history + create new (`POST /sessions`, daily cap 24). |
-| `pages/practice.html` | student | Recording state machine; submit audio → `POST /sessions/{id}/responses` (`grading.py`: Whisper + Claude). Full-test chains 3 sessions. |
-| `pages/result.html` | student | Single-question speaking result (band + feedback panels + audio replay). |
-| `pages/full-test-result.html` | student | Full 3-part test result; band aggregation at `PATCH /sessions/{id}/complete`. |
-| `pages/profile.html` | student | Profile, band target, study goals. |
+| `/home` | student | Multi-skill hub; links to each skill. Pulls home summary (`/api/student/*`). |
+| `/speaking` | student | Speaking dashboard — session history + create new (`POST /sessions`, daily cap 24). |
+| `/practice/session` | student | Recording state machine; submit audio → `POST /sessions/{id}/responses` (`grading.py`: Whisper + Claude). Full-test chains 3 sessions. |
+| `/result` | student | Single-question speaking result (band + feedback panels + audio replay). |
+| `/full-test-result` | student | Full 3-part test result; band aggregation at `PATCH /sessions/{id}/complete`. |
+| `/profile` | student | Profile, band target, study goals. |
+| `/speaking/result` | student | Speaking feedback workspace, separate from the single-question and full-test result entries. |
 
 ### 4.3 Student — Writing
 
 | Page | Audience | Purpose · operation |
 |---|---|---|
-| `pages/writing-dashboard.html` | student | Essay queue + submit (gated by `permissions.writing`) → `/api/writing/*` (Gemini grader). |
-| `pages/writing-result.html` | student | Per-essay feedback (12-section analysis, tips). |
+| `/writing/dashboard` | student | Essay queue + submit (gated by `permissions.writing`) → `/api/writing/*` (Gemini grader). |
+| `/writing/result` | student | Per-essay feedback (12-section analysis, tips). |
 
 ### 4.4 Student — Listening
 
@@ -92,91 +99,119 @@ Operation column = audience-facing purpose + the main data in/out (key endpoint 
 
 | Page | Audience | Purpose · operation |
 |---|---|---|
-| `pages/listening.html` | student | Listening hub. |
-| `pages/listening-browse.html` · `pages/listening-tests.html` | student | Browse exercises / Cambridge full tests (`GET /api/listening/*`). |
-| `/listening/dictation` · `/listening/gist` · `/listening/tf` · `/listening/mcq` (native React) · corresponding `pages/listening-{dictation,gist,tf,mcq}.html` rollback pages | student | Standalone per-type players keyed by canonical `content_id` — play audio, submit server-graded attempts and render canonical feedback (`/api/listening/dictation/*/boot`, `/api/listening/content/*`, `/api/listening/exercises`, `/api/listening/attempts`). Dictation boot withholds reference transcripts until each segment is graded. |
-| `pages/listening-test.html` · `pages/listening-mini-test.html` | student | Full / mini test players (attempt + score). |
-| `pages/listening-skills.html` | student | Skills Practice — skill drills grouped by question type (`GET /api/listening/tests?test_type=drill`); each drill reuses the mini-test player + review. |
-| `/listening/practice-run` (`app/(authed-listening-practice-run)/listening/practice-run/*`; `pages/listening-practice-run.html` parity/rollback) | student | Native Luyện nhanh runner keyed by exact `?id=`. It reads the stripped practice bundle, resumes before any destructive start, records only the first answer, loops the question audio after a miss, reveals the canonical answer only after two confirmed misses, and reconciles ambiguous start/submit ACKs through owner GETs. |
-| `pages/listening-test-dictation.html` | student | Chép chính tả — per-sentence dictation on a test's audio (auto-clip when timed), completion report (time/accuracy/error trends) + content-error flagging (`/api/listening/tests/dictation/*`). |
-| `/listening/review` (`app/(authed-listening-review)/listening/review/*`; `pages/listening-review.html` rollback) | student, plus admin preview | Native submitted-only chữa-bài: score/band floor, wrong-answer focus, section transcript, rich per-question solution and real audio-window seek (`GET /api/listening/tests/attempts/{id}/review`). `?admin_test_id=` opens the honest no-score admin preview; mock-sealed attempts remain backend-gated until release. |
-| `pages/listening-analytics.html` | student | Personal listening analytics. |
+| `/listening` | student | Listening hub. |
+| `/listening/browse` · `/listening/tests` | student | Browse exercises / Cambridge full tests (`GET /api/listening/*`). |
+| `/listening/dictation` · `/listening/gist` · `/listening/tf` · `/listening/mcq` | student | Standalone per-type players keyed by canonical `content_id` — play audio, submit server-graded attempts and render canonical feedback (`/api/listening/dictation/*/boot`, `/api/listening/content/*`, `/api/listening/exercises`, `/api/listening/attempts`). Dictation boot withholds reference transcripts until each segment is graded. |
+| `/listening/test/session` · `/listening/mini-test` | student | Full / mini test players (attempt + score). |
+| `/listening/skills` | student | Skills Practice — skill drills grouped by question type (`GET /api/listening/tests?test_type=drill`); each drill reuses the mini-test player + review. |
+| `/listening/practice-run` | student | Native Luyện nhanh runner keyed by exact `?id=`. It reads the stripped practice bundle, resumes before any destructive start, records only the first answer, loops the question audio after a miss, reveals the canonical answer only after two confirmed misses, and reconciles ambiguous start/submit ACKs through owner GETs. |
+| `/listening/dictation/session` | student | Chép chính tả — per-sentence dictation on a test's audio (auto-clip when timed), completion report (time/accuracy/error trends) + content-error flagging (`/api/listening/tests/dictation/*`). |
+| `/listening/review` | student, plus admin preview | Native submitted-only chữa-bài: score/band floor, wrong-answer focus, section transcript, rich per-question solution and real audio-window seek (`GET /api/listening/tests/attempts/{id}/review`). `?admin_test_id=` opens the honest no-score admin preview; mock-sealed attempts remain backend-gated until release. |
+| `/listening/analytics` | student | Personal listening analytics. |
+| `/listening/practice` | student | Quick-practice selection workspace; chosen exercises open the practice runner. |
 
 ### 4.5 Student — Reading
 
 | Page | Audience | Purpose · operation |
 |---|---|---|
-| `pages/reading-vocab.html` | student | L1 vocab-passage library list (`GET /api/reading/vocab` list). |
-| `pages/reading-vocab-passage.html` | student | One L1 passage — glossary popovers + 3-toggle pane (Gốc / Dịch / Grammar) + light comprehension Qs (`GET /api/reading/vocab/{slug}`, `.../check`). |
-| `pages/reading-skill.html` | student | L2 skill-exercise library list. |
-| `pages/reading-skill-exercise.html` | student | One L2 exercise — same panes + skill-tagged Qs (`GET /api/reading/skill/{slug}`). |
-| `pages/reading-test.html` | student | L3 full-test browse (`GET /api/reading/test`). |
-| `pages/reading-exam.html` | student **or anonymous** | L3 exam: boot + start + auto-save + submit (`/api/reading/test/{id}/boot`, `/attempts`, `/answers`, `/submit`). Locked tests prompt a password; `?share=<token>` → anonymous boot/start via `/api/reading/test/share/{token}/*` carrying `X-Reading-Anon`. |
-| `/reading/review` (`app/(reading-review)/reading/review/*`; `pages/reading-review.html` rollback) | student **or anonymous**, plus admin preview | Native post-submit chữa-bài: score/band/skill + rich per-Q solution (`GET /api/reading/test/attempts/{id}/review`; `?anon=` → `X-Reading-Anon`). `?admin_test_id=` opens the honest no-score admin preview. Solution is stripped during the test, revealed only here; legacy HTML remains for rollback/parity until Gate F. |
-| `/exam` (`app/(authed-exam)/exam/*`; `pages/exam.html` parity/rollback) | student | Native multi-source exam player (Phase 3; TOEIC Part 5 first). `?id=` plays an exam (MCQ → submit → caller-owned result + KP-aware review stepper); no id lists published exams and `?source=` filters them (`GET /api/exams[?source]`, `/api/exams/{id}`, `POST /{id}/attempts`, `/attempts/{id}/review`). React guards account/request staleness and double-submit; a review-read failure retries only the safe GET, never the attempt POST. A right/wrong answer feeds `kp_evidence`. |
+| `/reading/vocab` | student | L1 vocab-passage library list (`GET /api/reading/vocab` list). |
+| `/reading/vocab/[slug]` | student | One L1 passage — glossary popovers + 3-toggle pane (Gốc / Dịch / Grammar) + light comprehension Qs (`GET /api/reading/vocab/{slug}`, `.../check`). |
+| `/reading/skill` | student | L2 skill-exercise library list. |
+| `/reading/skill/[slug]` | student | One L2 exercise — same panes + skill-tagged Qs (`GET /api/reading/skill/{slug}`). |
+| `/reading/test` | student | L3 full-test browse (`GET /api/reading/test`). |
+| `/reading/mini-test` | student | Mini-test selection and practice workspace. |
+| `/reading/exam/session` | student **or anonymous** | L3 exam: boot + start + auto-save + submit (`/api/reading/test/{id}/boot`, `/attempts`, `/answers`, `/submit`). Locked tests prompt a password; `?share=<token>` → anonymous boot/start via `/api/reading/test/share/{token}/*` carrying `X-Reading-Anon`. |
+| `/reading/review` | student **or anonymous**, plus admin preview | Native post-submit chữa-bài: score/band/skill + rich per-Q solution (`GET /api/reading/test/attempts/{id}/review`; `?anon=` → `X-Reading-Anon`). `?admin_test_id=` opens the honest no-score admin preview. Solution is stripped during the test, revealed only here; old HTML URLs are permanently redirected to their native owners. |
+| `/exam` | student | Native multi-source exam player (Phase 3; TOEIC Part 5 first). `?id=` plays an exam (MCQ → submit → caller-owned result + KP-aware review stepper); no id lists published exams and `?source=` filters them (`GET /api/exams[?source]`, `/api/exams/{id}`, `POST /{id}/attempts`, `/attempts/{id}/review`). React guards account/request staleness and double-submit; a review-read failure retries only the safe GET, never the attempt POST. A right/wrong answer feeds `kp_evidence`. |
 
 ### 4.5b Student — Mock Test (4-skill, sealed)
 
 | Page | Audience | Purpose · operation |
 |---|---|---|
-| `pages/full-test.html` | student | Full-test **entry** — lists the currently-open mock exams (`GET /api/mock-exams`, published + `is_open` + cohort-eligible) and links to the runner. Reachable from a card on `home.html`. |
-| `/mock-exam` (`app/(authed-mock-exam)/mock-exam/*`; `pages/mock-exam.html` parity/rollback) | student | Native 4-skill mock **runner** (SEQUENTIAL, admin-gated). `?code=` opens/resumes a sitting; there is no student "Start" — the admin opens Listening → Reading → Writing one at a time (`POST /admin/mock-exams/{id}/advance`), and the runner polls canonical state under the shared server clock. Reading/Listening run through stable core-player admission and flush pending answers before collection; Writing keeps local + server drafts and reuses one immutable final payload across lost-ACK reconciliation. Retake mode exposes only assigned skills, scores stay sealed until release, and the legacy HTML remains rollback-only through Gate E/F. |
-| `pages/mock-result.html` | student | Mock TRF result — 4 bands + overall + examiner comment. `GET /api/mock-exams/sittings/{id}/result` returns 403 until an admin releases the sitting. |
+| `/full-test` | student | Full-test **entry** — lists the currently-open mock exams (`GET /api/mock-exams`, published + `is_open` + cohort-eligible) and links to the runner. Reachable from a card on `/home`. |
+| `/mock-exam` | student | Native 4-skill mock **runner** (SEQUENTIAL, admin-gated). `?code=` opens/resumes a sitting; there is no student "Start" — the admin opens Listening → Reading → Writing one at a time (`POST /admin/mock-exams/{id}/advance`), and the runner polls canonical state under the shared server clock. Reading/Listening run through stable core-player admission and flush pending answers before collection; Writing keeps local + server drafts and reuses one immutable final payload across lost-ACK reconciliation. Retake mode exposes only assigned skills, scores stay sealed until release; historical source retention is tracked separately by Gate F. |
+| `/mock/result` | student | Mock TRF result — 4 bands + overall + examiner comment. `GET /api/mock-exams/sittings/{id}/result` returns 403 until an admin releases the sitting. |
 
 ### 4.6 Student — Vocabulary
 
 | Page | Audience | Purpose · operation |
 |---|---|---|
-| `pages/vocabulary.html` | student | Vocab hub landing (Từ vựng theo chủ đề / Flashcards / Exercises); mounts the tab modules. |
-| `pages/flashcards.html` · `pages/flashcard-study.html` | student | Flashcard stacks + SRS study (`/api/flashcards/*`, SM-2). |
-| `pages/exercises.html` · `pages/d1-exercise.html` | student | Fill-blank vocab exercises (`/api/exercises/*`). |
-| `vocabulary.html` (root) | student | Legacy root vocab entry (kept; `pages/vocabulary.html` is canonical). |
+| `/vocabulary/hub` | student | Vocab hub landing (Từ vựng theo chủ đề / Flashcards / Exercises); mounts the tab modules. |
+| `/flashcards` · `/flashcard-study` | student | Flashcard stacks + SRS study (`/api/flashcards/*`, SM-2). |
+| `/exercises` · `/d1-exercise` | student | Fill-blank vocab exercises (`/api/exercises/*`). |
+| `/vocabulary` | all | Vocabulary reference wiki — categories, article selection, pronunciation, usage and collocations; distinct from the authenticated practice hub. |
+| `/vocabulary/practice` | student | Active vocabulary practice by set, with progress and review. |
+| `/vocabulary/exam` | student | Exam-oriented vocabulary workspace. |
+| `/vocabulary/learn` · `/vocabulary/learn/[unitSlug]` | student | Curated learning-unit catalogue and the selected unit lesson. |
+| `/quiz` · `/quiz/progress` | student | Quick-Check quiz player and persisted practice statistics. |
 
 ### 4.7 Student — Grammar Wiki
 
 | Page | Audience | Purpose · operation |
 |---|---|---|
-| `grammar.html` (root) | all | Grammar Wiki landing (`/api/grammar/*`). |
-| `pages/grammar-article.html` | all | One grammar article. |
-| `pages/grammar-compare.html` | all | Compare confusable pairs. |
-| `pages/grammar-roadmap.html` | all | Learning-path roadmap. |
-| `pages/grammar-search.html` | all | Search the wiki. |
-| `pages/vocab-article.html` | all | Vocab-focused article view. |
+| `/grammar` | all | Grammar Wiki landing (`/api/grammar/*`). |
+| `/grammar/[category]/[slug]` | all | One grammar article. |
+| `/grammar/compare` | all | Compare confusable pairs. |
+| `/grammar/roadmap` | all | Learning-path roadmap. |
+| `/grammar/search` | all | Search the wiki. |
+| `/grammar/exercises` | all | Grammar practice directory linked from the reference wiki. |
+
+### 4.7b Student — classes and course work
+
+| Page | Audience | Purpose · operation |
+|---|---|---|
+| `/my-class` | student | My Class workspace for class activity and assigned work. |
+| `/course-exercises` | student | Session-based course exercises; opens the learner exercise/answer/review flow. |
 
 ### 4.8 Admin — landing + dashboards
 
 | Page | Audience | Purpose · operation |
 |---|---|---|
-| `admin.html` (root) | admin | Legacy combined admin (codes/users/stats/sessions); superseded by `pages/admin/*` but still present. |
-| `pages/admin/index.html` | admin | Admin Overview (pedagogical: students, skills, errors — `/admin/*` + `admin_overview.py`). |
-| `pages/admin/dashboard/index.html` | admin | Ops dashboard — visitors / practices / grading-minutes / tokens + trends (`GET /admin/dashboard/overview` + `/trends`). |
-| `/admin/dashboard/reading-attempts` (`pages/admin/dashboard/reading-attempts.html` rollback) | admin | Native Reading-attempts dashboard — frozen snapshot, truthful partial/unavailable states, auth + anonymous (approximate), band/skill/time, per-test, recent (`GET /admin/dashboard/reading-attempts`). Legacy file remains rollback-only. |
-| `pages/admin/foot-traffic/index.html` · `/admin/usage` (`pages/admin/usage/index.html` rollback) | admin | Visitor foot-traffic analytics + canonical per-user/access-code session and logged AI-cost rollups. |
-| `pages/admin/error-logs/index.html` | admin | Error-report inbox (`/admin/error-logs`). |
-| `pages/admin/system/index.html` · `pages/admin/system/ai-usage.html` · `pages/admin/system/alerts.html` | admin | System health, AI token usage, alerts. |
+| `/admin` | admin | Admin Overview (pedagogical: students, skills, errors — `/admin/*` + `admin_overview.py`). |
+| `/admin/dashboard/reading-attempts` | admin | Native Reading-attempts dashboard — frozen snapshot, truthful partial/unavailable states, auth + anonymous (approximate), band/skill/time, per-test, recent (`GET /admin/dashboard/reading-attempts`). The old HTML URL now redirects to this native owner. |
+| `/admin/foot-traffic` · `/admin/usage` | admin | Visitor foot-traffic analytics + canonical per-user/access-code session and logged AI-cost rollups. |
+| `/admin/error-logs` | admin | Error-report inbox (`/admin/error-logs`). |
+| `/admin/system` · `/admin/system/ai-usage` · `/admin/system/alerts` | admin | System health, AI token usage, alerts. |
+| `/admin/feedback` | admin | Learner-feedback inbox and inspection workspace. |
 
 ### 4.9 Admin — content authoring (per skill)
 
 | Page(s) | Audience | Purpose · operation |
 |---|---|---|
-| `/admin/speaking` (`pages/admin/speaking/index.html` rollback) · `/admin/speaking/sessions` (`pages/admin/speaking/sessions.html` rollback) · `pages/admin/speaking/topics.html` | admin | Native Speaking operations hub and session grading/rebuild workspace; topic management remains in the legacy child workspace while awaiting its separate migration. |
-| `pages/admin/writing/index.html` · `pages/admin/writing/grade.html` · `pages/admin/writing/new.html` · `pages/admin/writing/prompts.html` · `pages/admin/writing/assignments.html` · `pages/admin/writing/status.html` · `pages/admin/writing/tips.html` · `pages/admin/writing/cohorts.html` · `pages/admin/writing/instructor-queue.html` · `pages/admin/writing/regrade-requests.html` | admin / instructor | Writing authoring + grading workflow (`/api/admin/writing/*`, `admin_writing*.py`): compose, grade, prompt library, assign, status, tips, cohorts, instructor queue, regrade requests. |
-| `/admin/listening` (native content inventory) · `/admin/listening/content/[contentId]` (native content detail/status) · `/admin/listening/content/[contentId]/edit` (native versioned metadata editor) · `/admin/listening/segments` (native multi-block Dictation authoring) · `/admin/listening/gist` (native multi-block Gist rubric authoring) · `/admin/listening/tf` (native multi-block T/F/NG authoring) · `/admin/listening/mcq` (native multi-block MCQ answer-key authoring) · `/admin/listening/tests` (native test inventory/status/exam scope) · `/admin/listening/tests/[testId]` (native audio/map/publication workspace) · `/admin/listening/import-fulltest` (native four-file ingestion) · `/admin/listening/import-drills` (native skill-drill batch ingestion) · `/admin/listening/audit` (native quality inventory) · `/admin/listening/audit-detail` (native versioned repair/triage workspace) · `/admin/listening/attempts` (native learner-attempt evidence) · `/admin/listening/dictation` (native dictation aggregate/session evidence) · corresponding `pages/admin/listening/*.html` rollback pages · `pages/admin/listening/import-fulltest.html` · `pages/admin/listening/import-drills.html` · `pages/admin/listening/audit.html` · `pages/admin/listening/audit-detail.html` · `pages/admin/listening/segments.html` · `pages/admin/listening/content-meta.html` · `pages/admin/listening/gist.html` · `pages/admin/listening/tf.html` · `pages/admin/listening/mcq.html` · `pages/admin/listening/tests-detail.html` | admin | Listening operations (`/admin/listening/*`): native inventories, canonical content/test detail, versioned metadata editing, exact-block Dictation, Gist, T/F/NG and MCQ authoring, full-test/drill ingestion, quality inventory/repair, learner attempts and dictation evidence own clean routes. Exercise writes require canonical GET reconciliation, preserve distinct `order_num` blocks and never replay ambiguous POSTs. Standalone Gist/T/F/MCQ authoring may keep multiple drafts, but application preflight plus migration 209's partial unique index permit exactly one published block per content/type so every “published” label remains learner-reachable even under concurrent writes. Gist exposes AI/fallback/pass truth; T/F and MCQ expose exact answer-key meaning and all-correct completion rules. Attempt and dictation history distinguish association lookup failure from missing records; test detail reconciles mode, audio, maps and lifecycle with backend truth. Full-test import binds all four files to one SHA-256 identity. Drill import binds Source JSON/timings/audio by authoritative Test ID, labels metadata-only versus audio-ready, blocks audio without timings, writes one durable receipt before every sequential POST and requires exact list/detail GET reconciliation. Neither importer archives an existing test inside an ambiguous upload. Quality audit reads the complete stable test inventory, separates current structural/audio evidence from the last persisted structural+LLM run and never counts lookup failure as clean. Audit detail sends version tokens, reads back every edit, chooses exact section audio, uses paid-run receipts with GET-only recovery and rejects false clean triage. (ElevenLabs assembly remains active inside test detail; standalone audio cutter / convert DOCX were decommissioned 2026-07-17 — usage audit.) Deep ref: [`listening-architecture.md`](listening-architecture.md). |
-| `/admin/reading/content` (`pages/admin/reading/content.html` rollback) | admin | Native Reading content manager — mandatory dry-run, import L1/L2/L3 (`POST /admin/reading/content/import`, `/import-bundle`), exact mixed-source pagination, canonical readback and per-L3 exam-only/lock/share/attempt-safe delete controls. |
-| `/admin/reading/preview?test_id=…` (`pages/admin/reading/preview.html` rollback) | admin | Native paper-QA workspace: passages, answer keys, alternatives, explanations, parsed IMG-PROMPT and one upload/delete control per consecutive diagram/flow block; every image mutation reconciles through canonical GET. |
-| `/admin/grammar` (`pages/admin/grammar/index.html` rollback) · `/admin/grammar/articles` (`pages/admin/grammar/articles.html` rollback) · `/admin/grammar/analytics` (`pages/admin/grammar/analytics.html` rollback) · `/admin/grammar/recommend-test` (`pages/admin/grammar/recommend-test.html` rollback) | admin | Native Grammar content-operations hub, file-based article inventory, truthful analytics and no-persistence recommendation lab. Articles remain repository-authored Markdown; these native surfaces expose no content mutation. |
-| `pages/admin/vocab/index.html` · `pages/admin/vocab/lemmas.html` · `pages/admin/vocab/stats.html` · `pages/admin/vocab/exercises.html` · `pages/admin/vocab/d1-curation.html` | admin | Vocab bank curation, lemmas, stats, exercise authoring + D1 curation. |
-| `pages/admin/mock-exams/index.html` | admin | Full-test **management** — create an exam (pick Listening/Reading tests, PUBLISHED-only, + Writing task1/task2 prompts + a cohort/class + Reading/Writing minutes), publish, **live open/close** (`is_open`, gates who can even register), then walk the seated block forward ONE SECTION AT A TIME via **"Mở phần tiếp theo"** (`POST /{id}/advance`) — Listening → Reading → Writing — watching live "đã nộp X/Y" counts per section. A chosen test is reserved (hidden from the practice lists). `/admin/mock-exams/*`, `admin_mock_exams.py`. |
-| `pages/admin/mock-reviews/index.html` | admin | 4-skill mock review console — queue → atomic claim → 4 skill tabs (Listening/Reading AI draft, Writing text or `admin/writing/grade.html` deep-link, Speaking session links) → enter final bands (overall computed server-side) → release (lifts the seal). `/admin/mock-reviews/*`, `admin_mock_reviews.py`. |
+| `/admin/speaking` · `/admin/speaking/sessions` · `/admin/speaking/topics` | admin | Native Speaking operations hub, session grading/rebuild workspace and topic management. |
+| `/admin/writing` · `/admin/writing/grade` · `/admin/writing/new` · `/admin/writing/prompts` · `/admin/writing/assignments` · `/admin/writing/status` · `/admin/writing/tips` · `/admin/writing/cohorts` · `/admin/writing/instructor-queue` · `/admin/writing/regrade-requests` | admin / instructor | Writing authoring + grading workflow (`/api/admin/writing/*`, `admin_writing*.py`): compose, grade, prompt library, assign, status, tips, cohorts, instructor queue, regrade requests. |
+| `/admin/listening` · `/admin/listening/content/[contentId]` · `/admin/listening/content/[contentId]/edit` · `/admin/listening/segments` · `/admin/listening/gist` · `/admin/listening/tf` · `/admin/listening/mcq` · `/admin/listening/tests` · `/admin/listening/tests/[testId]` · `/admin/listening/import-fulltest` · `/admin/listening/import-drills` · `/admin/listening/audit` · `/admin/listening/audit-detail` · `/admin/listening/attempts` · `/admin/listening/dictation` | admin | Listening operations (`/admin/listening/*`): native inventories, canonical content/test detail, versioned metadata editing, exact-block Dictation, Gist, T/F/NG and MCQ authoring, full-test/drill ingestion, quality inventory/repair, learner attempts and dictation evidence own clean routes. Exercise writes require canonical GET reconciliation, preserve distinct `order_num` blocks and never replay ambiguous POSTs. Standalone Gist/T/F/MCQ authoring may keep multiple drafts, but application preflight plus migration 209's partial unique index permit exactly one published block per content/type so every “published” label remains learner-reachable even under concurrent writes. Gist exposes AI/fallback/pass truth; T/F and MCQ expose exact answer-key meaning and all-correct completion rules. Attempt and dictation history distinguish association lookup failure from missing records; test detail reconciles mode, audio, maps and lifecycle with backend truth. Full-test import binds all four files to one SHA-256 identity. Drill import binds Source JSON/timings/audio by authoritative Test ID, labels metadata-only versus audio-ready, blocks audio without timings, writes one durable receipt before every sequential POST and requires exact list/detail GET reconciliation. Neither importer archives an existing test inside an ambiguous upload. Quality audit reads the complete stable test inventory, separates current structural/audio evidence from the last persisted structural+LLM run and never counts lookup failure as clean. Audit detail sends version tokens, reads back every edit, chooses exact section audio, uses paid-run receipts with GET-only recovery and rejects false clean triage. (ElevenLabs assembly remains active inside test detail; standalone audio cutter / convert DOCX were decommissioned 2026-07-17 — usage audit.) Deep ref: [`listening-architecture.md`](listening-architecture.md). |
+| `/admin/reading/content` | admin | Native Reading content manager — mandatory dry-run, import L1/L2/L3 (`POST /admin/reading/content/import`, `/import-bundle`), exact mixed-source pagination, canonical readback and per-L3 exam-only/lock/share/attempt-safe delete controls. |
+| `/admin/reading/preview?test_id=…` · `/admin/reading/preview` | admin | Native paper-QA workspace: passages, answer keys, alternatives, explanations, parsed IMG-PROMPT and one upload/delete control per consecutive diagram/flow block; every image mutation reconciles through canonical GET. |
+| `/admin/grammar` · `/admin/grammar/articles` · `/admin/grammar/analytics` · `/admin/grammar/recommend-test` | admin | Native Grammar content-operations hub, file-based article inventory, truthful analytics and no-persistence recommendation lab. Articles remain repository-authored Markdown; these native surfaces expose no content mutation. |
+| `/admin/vocab` · `/admin/vocab/lemmas` · `/admin/vocab/stats` · `/admin/vocab/exercises` · `/admin/vocab/d1-curation` | admin | Vocab bank curation, lemmas, stats, exercise authoring + D1 curation. |
+| `/admin/vocab/content` · `/admin/vocab/topics` | admin | Vocabulary content inventory and topic organisation. |
+| `/admin/vocab/quiz` · `/admin/vocab/quiz-analytics` | admin | Quick-Check import/authoring and learner-result analytics. |
+| `/admin/vocab/curated` · `/admin/vocab/pilot-metrics` | admin | Curated-unit editorial review/publication and pilot metrics. |
+| `/admin/reading` | admin | Reading operations entry linking content, attempt analytics and feedback workspaces. |
+| `/admin/writing/queue` | admin | Writing grading queue: triage from AI grading through review and returning work. |
+| `/admin/mock-tests` | admin | Combined mock-test operations entry with management, review and writing sections. |
+| `/admin/mock-live` · `/admin/mock-pacing` | admin | Live exam-room monitoring and detailed pacing for a selected sitting. |
+| `/admin/mock-reviews/report` | admin | Mock score-report workspace for the selected review/exam. |
+| `/admin/mock-exams` | admin | Full-test **management** — create an exam (pick Listening/Reading tests, PUBLISHED-only, + Writing task1/task2 prompts + a cohort/class + Reading/Writing minutes), publish, **live open/close** (`is_open`, gates who can even register), then walk the seated block forward ONE SECTION AT A TIME via **"Mở phần tiếp theo"** (`POST /{id}/advance`) — Listening → Reading → Writing — watching live "đã nộp X/Y" counts per section. A chosen test is reserved (hidden from the practice lists). `/admin/mock-exams/*`, `admin_mock_exams.py`. |
+| `/admin/mock-reviews` | admin | 4-skill mock review console — queue → atomic claim → 4 skill tabs (Listening/Reading AI draft, Writing text or `/admin/writing/grade` deep-link, Speaking session links) → enter final bands (overall computed server-side) → release (lifts the seal). `/admin/mock-reviews/*`, `admin_mock_reviews.py`. |
 
 ### 4.10 Admin — people + access
 
 | Page | Audience | Purpose · operation |
 |---|---|---|
-| `pages/admin/users/index.html` | admin | All users (role, activation, sessions-today). |
-| `pages/admin/students/index.html` | admin | Student roster (Tailwind page). |
-| `pages/admin/cohorts/index.html` | admin | Cohorts / classes (`/admin/cohorts/*`). |
-| `pages/admin/access-codes/index.html` | admin | Access-code lifecycle — issue, assign, revoke; canonical ownership via `user_code_assignments` (legacy fallback `access_codes.used_by`). |
+| `/admin/users` | admin | All users (role, activation, sessions-today). |
+| `/admin/students` | admin | Student roster (Tailwind page). |
+| `/admin/classes` · `/admin/classes/[cohortId]` | admin | Class roster and selected class workspace: students, attendance, lessons and assigned work (`/admin/cohorts/*`). |
+| `/admin/users?tab=codes` | admin | Access-code tab — issue, assign, revoke; canonical ownership via `user_code_assignments` (legacy fallback `access_codes.used_by`). |
+| `/admin/instructors` | admin | Instructor management workspace. |
+
+### 4.11 Instructor — writing review
+
+| Page | Audience | Purpose · operation |
+|---|---|---|
+| `/instructor` | instructor | Instructor dashboard and assigned work. |
+| `/instructor/grade` · `/instructor/compare` | instructor | Writing grading and version comparison/merge workspaces. |
 
 ---
 
@@ -200,4 +235,16 @@ Operation column = audience-facing purpose + the main data in/out (key endpoint 
 
 ## 6. Keeping this current
 
-When you add or rename a route-bearing page under `frontend/`, add it here in the matching §4 table. A light sentinel (`frontend/tests/site-overview-coverage.test.mjs`) checks that (a) every `…​.html` path cited here exists on disk and (b) this doc covers the large majority of real product pages — so it fails loudly rather than rotting silently. It is intentionally tolerant (not every fixture/util page must be listed); update the doc when it trips.
+When you add or rename a product page under `frontend/app`, add its canonical
+URL pattern, audience and purpose to the matching §4 table. The sentinel
+`frontend/tests/site-overview-coverage.test.mjs` checks native owners for page
+references, the unchanged **85%** product-route coverage floor, six required
+spine routes and the README link. API paths in the operation column are not UI
+routes. Any historical HTML names mentioned in prose must be registered in the
+durable retirement manifest and have a present Next owner; physical HTML is not
+required. A declared source-walk limitation fails closed for unsupported routing
+conventions; compiled route ownership remains a separate build check. These
+checks do not execute UI interactions or verify endpoint/pedagogical prose.
+The native-only denominator assumes the separate cutover/redirect checks keep
+proving zero directly served legacy HTML; this documentation sentinel does not
+replace those guards or certify an unregistered non-Next surface.

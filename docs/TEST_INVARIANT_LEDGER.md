@@ -45,6 +45,17 @@ disposition before physical retirement. No test was deleted or skipped and no
 public file was removed. See [wave 4 mapping](audits/GATE_F_PRICING_TEST_DECOUPLING_2026-09-10.md)
 and [wave 5 mapping](audits/GATE_F_PRICING_SHARED_TESTS_2026-09-10.md).
 
+Wave 6 replaces the SITE_OVERVIEW physical-HTML denominator with product App
+Router pages. Replaying the old walker proved it counted just seven root HTML
+files because the pages directory is a symlink; it also explicitly excluded
+app. The unchanged 85% floor now measures 130 native route patterns, with all
+130 documented. The original nine obligations remain: dead-reference guard,
+coverage floor, README link and six canonical spine surfaces. Historical HTML
+mentions are checked against durable redirect identities and native owners,
+not physical files. The real sentinel runs in isolation without any public or
+legacy tree; helper regressions cover dead routes and misleading denominators.
+See [wave 6 mapping](audits/GATE_F_NATIVE_SITE_OVERVIEW_2026-09-10.md).
+
 See [wave 3 asset audit](audits/GATE_F_ASSET_AUDIT_2026-09-10.md) for the current
 read-only inventory; it grants no deletion approval.
 
@@ -229,7 +240,8 @@ read-only inventory; it grants no deletion approval.
 | `admin-speaking-extract.test.mjs` | ✗ | `frontend/js/admin-speaking.js`, `frontend/pages/admin/speaking.html` | Speaking admin: grading queue, retry, bulk operations | dom-behavior | replace-by-e2e |
 | `merge-codes-users-tabs.test.mjs` | ✓ | `frontend/pages/admin/`, `frontend/js/` | Tab navigation: codes/users/cohorts stay synced, active tab highlighted | source-string-pin | port-to-component-test |
 | `generate-and-assign-code.test.mjs` | ✓ | `frontend/pages/admin/access-codes/`, `frontend/js/` | Flow: generate → assign to cohort/user → confirm POST to backend | source-string-pin | port-to-component-test |
-| `site-overview-coverage.test.mjs` | ✓ | `frontend/pages/admin/overview.html`, `frontend/js/` | Overview completeness: all key metrics present (users, sessions, errors, usage) | source-string-pin | port-to-component-test |
+| `site-overview-coverage.test.mjs` | ✓ | `docs/SITE_OVERVIEW.md`, README, native App Router page inventory and legacy redirect identities | Documentation: no dead page references, ≥85% native coverage, six spine routes and README link (not admin metric/UI assertions) | source-string-pin | Nine obligations ported in wave 6; no physical HTML dependency; current route source remains required |
+| `site-overview-native-inventory.test.mjs` (added 2026-09-10) | ✓ (current glob) | Overview collector/parser and isolated native/doc checkout | Empty/unsupported inventories fail closed; canonical page citations, coverage dilution, historical identity/owner checks, no-public execution and dead-route negative control | isolated-checkout + source/doc regression | Supports the nine-case sentinel; not a compiled-route, HTTP or rendered-UI certificate |
 | `grade-queue.test.mjs` | ✓ | `frontend/pages/admin/grade-queue.html`, `frontend/js/admin-grade-queue.js` | Grade queue: pending essays list, sort by date/student, open form POSTs to grade endpoint | source-string-pin | port-to-component-test |
 | `grade-submit-next.test.mjs` | ✓ | `frontend/pages/admin/`, `frontend/js/` | Grade workflow: submit → confirm → POST /grading → success toast → next item auto-loads | source-string-pin | port-to-component-test |
 | `content-template-download.test.mjs` | ✓ | `frontend/pages/admin/`, `frontend/js/` | Download template: CSV/Excel export for import workflows; no silent data loss | source-string-pin | keep-until-route-retired |
