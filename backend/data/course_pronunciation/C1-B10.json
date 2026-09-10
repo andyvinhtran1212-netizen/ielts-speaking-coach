@@ -1,0 +1,89 @@
+{
+  "bank_code": "C1-B10",
+  "title": "Phát âm & Shadowing — Câu bị động",
+  "locale": "en-GB",
+  "provider": "azure",
+  "voice_engine": "kokoro",
+  "voice": "bf_emma",
+  "playback_rates": [
+    0.85,
+    1.0
+  ],
+  "sentences": [
+    {
+      "id": "C1-B10-PRON-01",
+      "order": 1,
+      "text": "Most of the rubbish on this beach is collected by a small group of local volunteers every Sunday."
+    },
+    {
+      "id": "C1-B10-PRON-02",
+      "order": 2,
+      "text": "The old wooden bridge was replaced by a wide concrete structure at the start of this year."
+    },
+    {
+      "id": "C1-B10-PRON-03",
+      "order": 3,
+      "text": "Thousands of young trees were planted along both sides of this new sandy coastal road last spring."
+    },
+    {
+      "id": "C1-B10-PRON-04",
+      "order": 4,
+      "text": "The results of the national survey will be published in a special government report early next spring."
+    },
+    {
+      "id": "C1-B10-PRON-05",
+      "order": 5,
+      "text": "Three additional waste sites are being built on the outskirts of the city."
+    },
+    {
+      "id": "C1-B10-PRON-06",
+      "order": 6,
+      "text": "Plastic bags are still used in almost every small local market today."
+    },
+    {
+      "id": "C1-B10-PRON-07",
+      "order": 7,
+      "text": "The old library building was closed for serious safety reasons last year."
+    },
+    {
+      "id": "C1-B10-PRON-08",
+      "order": 8,
+      "text": "Several old wooden houses were destroyed in the heavy floods last September."
+    },
+    {
+      "id": "C1-B10-PRON-09",
+      "order": 9,
+      "text": "Young children are taught basic road safety in every local primary school."
+    },
+    {
+      "id": "C1-B10-PRON-10",
+      "order": 10,
+      "text": "Students are taught critical thinking from an early age in state schools across most of northern Europe."
+    },
+    {
+      "id": "C1-B10-PRON-11",
+      "order": 11,
+      "text": "All of the participants were given a written consent form before the first group interview last March."
+    },
+    {
+      "id": "C1-B10-PRON-12",
+      "order": 12,
+      "text": "A large modern library was built for the students of this technical college only three years ago."
+    },
+    {
+      "id": "C1-B10-PRON-13",
+      "order": 13,
+      "text": "A quiet study room was found for the exchange students last term."
+    },
+    {
+      "id": "C1-B10-PRON-14",
+      "order": 14,
+      "text": "The experienced young doctor was appointed director of the district hospital at the early age of thirty-five."
+    },
+    {
+      "id": "C1-B10-PRON-15",
+      "order": 15,
+      "text": "My cousin was elected class monitor at her secondary school last September."
+    }
+  ]
+}
