@@ -1,16 +1,18 @@
 // B8 — frontend polish: alert() → non-blocking notices, root-relative routing,
-// truthful pricing copy. Structural assertions over the sources.
+// truthful pricing copy. Pricing alone characterizes the archived pre-launch
+// page; result/practice still read current sources. Native /pricing redirects.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { readPricingFixture } from './fixtures/gate-f-pricing/loader.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...p) => readFileSync(join(__dirname, '..', ...p), 'utf8');
 const resultSrc = read('pages', 'result.html');
 const practiceSrc = read('js', 'practice.js');
-const pricingSrc = read('pricing.html');
+const pricingSrc = readPricingFixture('pricing.html');
 
 
 // ── Mục 36 — result.html errors are non-blocking, no raw err.message ──

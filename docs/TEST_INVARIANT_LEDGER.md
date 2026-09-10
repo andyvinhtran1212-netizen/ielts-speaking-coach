@@ -35,10 +35,15 @@ config and 139-rule golden tests in `gate-f-retirement-redirects.test.mjs`.
 Both HTML URL redirects were also verified with production GET requests.
 
 The two dedicated suites also pass in an isolated checkout without `public`.
-Global anti-flash/theme/copy/source-inventory consumers still need disposition
-before physical Pricing retirement. No test was deleted or skipped and no
-public file was removed. See [Pricing decoupling mapping](audits/GATE_F_PRICING_TEST_DECOUPLING_2026-09-10.md)
-for the invariant-by-invariant handoff and remaining consumers.
+Wave 5 also moves only the Pricing inputs in the shared anti-flash, theme and
+payment-copy suites to the same archive; all 209 cases and other source reads
+remain. A separate isolated execution proves those suites pass without public
+Pricing, then each detects a deliberately broken current HTML source copy. These
+Pricing assertions are historical, not theme/copy requirements on the redirect-only
+native route. Source-inventory, CSS-budget and generic scan consumers still need
+disposition before physical retirement. No test was deleted or skipped and no
+public file was removed. See [wave 4 mapping](audits/GATE_F_PRICING_TEST_DECOUPLING_2026-09-10.md)
+and [wave 5 mapping](audits/GATE_F_PRICING_SHARED_TESTS_2026-09-10.md).
 
 See [wave 3 asset audit](audits/GATE_F_ASSET_AUDIT_2026-09-10.md) for the current
 read-only inventory; it grants no deletion approval.
@@ -237,7 +242,9 @@ read-only inventory; it grants no deletion approval.
 | Test file | In CI | Target files | Invariant(s) | Class | Migration disposition |
 |-----------|-------|--------------|--------------|-------|----------------------|
 | `theme-toggle.test.mjs` | ✓ | `frontend/js/theme-toggle.js`, `frontend/css/tokens.css` | Theme toggle: exports 8 functions (initTheme, setTheme, etc), localStorage persists choice, matchMedia syncs with system | dom-behavior | replace-by-types |
-| `theme-toggle-icon-canonical.test.mjs` | ✓ | `frontend/js/components/theme-toggle.js`, `frontend/pages/` | Toggle icon: moon/sun SVG swap, click changes theme, ARIA label present | source-string-pin | port-to-component-test |
+| `theme-toggle-icon-canonical.test.mjs` | ✓ | Current landing, chrome JS and page CSS; hash-pinned Pricing fixture | Icon markup, BEM-drift rejection, shadow visibility CSS and no per-page duplication (not runtime click/ARIA coverage) | source-string-pin | Pricing decoupled in wave 5; other inputs remain current, no deletion approval |
+| `b8-frontend-polish.test.mjs` | ✓ (current glob) | Current result HTML/practice JS; hash-pinned Pricing fixture | Non-blocking notices, root-relative retry routing, navigation guard, historical manual-payment copy | source-string-pin | Four cases preserved in wave 5; native Pricing launch gate covered separately |
+| `gate-f-pricing-shared-sources.test.mjs` (added 2026-09-10) | ✓ (current glob) | Explicit temporary copies of three shared suites and inputs; no public Pricing | All 209 cases run without public Pricing; broken current Home/landing/result copies fail the corresponding suite | isolated-checkout + negative control | Supplements, does not replace, dedicated no-public Pricing isolation |
 | `theme-toggle-layout-context.test.mjs` | ✗ | `frontend/js/theme-toggle.js`, `frontend/pages/` | Layout context: theme passed via provider/context to nested components (IIFE pattern) | dom-behavior | keep-until-route-retired |
 | `typography-tier1.test.js` | ✓ | `frontend/css/tailwind.build.css`, `frontend/css/tokens.css` | Tailwind tokens: all semantic sizes (sm, md, lg, xl) present, scale proportional, no gap | source-string-pin | replace-by-types |
 | `hex-budget.test.mjs` | ✓ | `frontend/css/`, `frontend/pages/` | CSS color budget: <50 unique hex values, reuse via Tailwind tokens | source-string-pin | replace-by-types |
@@ -280,7 +287,7 @@ read-only inventory; it grants no deletion approval.
 | `error-reporter-dispatch.test.mjs` | ✗ | `frontend/js/error-reporter.js` | Dispatch: batches errors, samples to avoid quota, scrubs tokens/URLs | dom-behavior | replace-by-types |
 | `safe-error-detail.test.mjs` | ✓ | `frontend/js/`, `frontend/pages/error.html` | Safe error detail: 500 response has user-safe message, no stack/token in UI | source-string-pin | port-to-component-test |
 | `perf-resource-hints.test.mjs` | ✓ | `frontend/pages/`, `frontend/html/` | Hints: preconnect, dns-prefetch, preload for critical paths (fonts, API, images) | source-string-pin | port-to-component-test |
-| `anti-flash-iife-canonical.test.mjs` | ✓ | `frontend/pages/`, `frontend/js/` | Anti-flash IIFE: runs before first paint, sets theme/lang, no flicker on reload | source-string-pin | port-to-component-test |
+| `anti-flash-iife-canonical.test.mjs` | ✓ | Current non-Pricing HTML and design-system doc; hash-pinned Pricing fixture | Theme bootstrap validation/fallback source patterns and documentation (not rendered flicker/lang coverage) | source-string-pin | Pricing decoupled in wave 5; all other page reads and assertions retained |
 | `web-readiness-p1-warnings.test.mjs` | ✓ | `frontend/pages/`, `frontend/html/` | Web readiness P1: all meta tags, viewport, charset, no deprecated attributes | source-string-pin | port-to-component-test |
 | `brief-contrast-guidance.test.mjs` | ✓ | `frontend/css/`, `frontend/pages/` | Contrast: WCAG AA everywhere, guidance text is readable | source-string-pin | replace-by-e2e |
 | `brief-hardcoded-color-lesson.test.mjs` | ✓ | `frontend/pages/`, `frontend/css/` | Hardcoded: no hex/rgb in HTML/inline styles, Tailwind tokens only | source-string-pin | replace-by-types |

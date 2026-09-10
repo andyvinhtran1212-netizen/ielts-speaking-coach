@@ -30,6 +30,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { readPricingFixture } from './fixtures/gate-f-pricing/loader.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '..', '..');
@@ -72,7 +73,11 @@ const REDESIGNED_PAGES = [
 
 for (const rel of REDESIGNED_PAGES) {
   describe(`anti-flash IIFE / ${rel}`, () => {
-    const html = readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+    // Pricing is historical characterization only: its native owner redirects.
+    // All other pages keep their existing current-source assertions.
+    const html = rel === 'frontend/pricing.html'
+      ? readPricingFixture('pricing.html')
+      : readFileSync(path.join(REPO_ROOT, rel), 'utf8');
 
     test('reads localStorage av-theme', () => {
       assert.match(
