@@ -412,7 +412,7 @@ describe('trusted-source ancestry', () => {
 });
 
 describe('workflow and provenance contract', () => {
-  test('scheduled/manual staging evidence checks out the deployed branch and exact SHA', () => {
+  test('manual staging evidence checks out the deployed branch and exact SHA', () => {
     assert.match(WORKFLOW, /ref: staging/);
     assert.match(WORKFLOW, /name: Checkout trusted Gate E auditor[\s\S]*?ref: main[\s\S]*?path: \.gate-e-auditor/);
     assert.match(WORKFLOW, /id: source_revision/);
@@ -463,6 +463,21 @@ describe('workflow and provenance contract', () => {
     assert.match(UPDATER, /verifyFrozenFiles\(TESTED_ROOT, manifest\)/);
     assert.match(PREFLIGHT, /compare\/\$\{testedSha\}\.\.\.\$\{auditorSha\}/);
     assert.match(PREFLIGHT, /isReviewedSourceComparison\(payload, testedSha\)/);
+  });
+
+  test('daily schedule runs only the production drift monitor after Gate E closure', () => {
+    const gateJob = WORKFLOW.slice(
+      WORKFLOW.indexOf('  staging-e2e:'),
+      WORKFLOW.indexOf('  production-release-drift:'),
+    );
+    const driftJob = WORKFLOW.slice(WORKFLOW.indexOf('  production-release-drift:'));
+
+    assert.match(WORKFLOW, /^  schedule:\n(?:\s*#.*\n)*\s+- cron: "11 1 \* \* \*"/m,
+      'the rollback-pin monitor must keep an automated daily trigger');
+    assert.match(gateJob, /^    if: github\.event_name == 'workflow_dispatch'$/m,
+      'a scheduled run must skip the retired Gate E staging suite');
+    assert.match(driftJob, /^    if: github\.ref == 'refs\/heads\/main'$/m,
+      'the scheduled default-branch run must compare production with main HEAD');
   });
 
   test('cache is transport; ledger and provenance have independent validated artifacts', () => {

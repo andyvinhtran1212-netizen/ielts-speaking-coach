@@ -232,15 +232,13 @@ describe('planSession — lịch phiên đi qua mốc token refresh (review #910
   });
 });
 
-describe('workflow chọn đúng chế độ theo cron (review #910)', () => {
-  test('cron phiên-dài phải ra `session`, không phải `tick`', () => {
-    // `schedule` không có `inputs`, nên `inputs.mode || 'tick'` biến CẢ HAI cron
-    // thành tick và sổ authed vĩnh viễn thiếu afterRefresh.
+describe('workflow chạy tay sau khi rollout đóng', () => {
+  test('manual dispatch chọn đúng chế độ', () => {
     assert.ok(PROBE_MODE_BLOCK, 'phải có khối env PROBE_MODE');
-    assert.match(PROBE_MODE_BLOCK, /github\.event\.schedule == '17 3 \* \* \*' && 'session'/,
-      'biểu thức chọn chế độ phải nằm trong CHÍNH khối PROBE_MODE, không phải trong chú thích');
-    assert.ok(!/--mode "\$\{\{ inputs\.mode \|\| 'tick' \}\}"/.test(WF),
-      'dạng cũ chọn chế độ chỉ từ inputs — cron sẽ luôn ra tick');
+    assert.match(PROBE_MODE_BLOCK, /inputs\.mode \|\| 'tick'/,
+      'manual dispatch phải truyền mode và mặc định an toàn về tick');
+    assert.match(WF, /options: \[tick, session, verdict\]/,
+      'ba chế độ chẩn đoán phải còn chạy tay được');
   });
 
   test('tick và session KHÔNG dùng chung concurrency group', () => {
@@ -271,19 +269,10 @@ describe('workflow chọn đúng chế độ theo cron (review #910)', () => {
       'gọi trần = mã thoát của verdict đánh đỏ mọi nhịp tick');
   });
 
-  test('cron ĐÃ bật, đúng hai lịch của sàn ADR-013-A1', () => {
-    assert.match(WF, /^\s*schedule:/m, 'schedule phải đang hoạt động');
-    // Nhịp 20 phút là ĐIỀU KIỆN của sàn (n≥72 · trải ≥24h · nhịp ≤20 phút),
-    // không phải lựa chọn tuỳ ý: 72 × 20 phút = đúng 24h.
-    // 15 phút chứ KHÔNG 20: xem test mô phỏng độ trễ bên dưới.
-    assert.match(WF, /cron: "\*\/15 \* \* \* \*"/);
-    assert.ok(!/cron: "\*\/20 \* \* \* \*"/.test(WF),
-      'cron đúng bằng sàn 20 phút = một lần trễ là mất sạch lịch sử');
-    // Và lịch phiên dài phải khớp CHÍNH chuỗi mà PROBE_MODE dò để chọn
-    // `session`; lệch một ký tự là cron đó âm thầm chạy `tick`.
-    assert.match(WF, /cron: "17 3 \* \* \*"/);
-    assert.match(PROBE_MODE_BLOCK, /'17 3 \* \* \*'/,
-      'chuỗi cron phiên-dài phải khớp giữa `schedule` và `PROBE_MODE`');
+  test('cron rollout đã retire nhưng workflow chẩn đoán vẫn tồn tại', () => {
+    assert.doesNotMatch(WF, /^\s*schedule:/m,
+      'Gate F đã đóng: không tiếp tục 96 tick/ngày và một session dài/ngày');
+    assert.match(WF, /^\s*workflow_dispatch:/m);
     assert.match(WF, /PROBE_EMAIL/);
   });
 });

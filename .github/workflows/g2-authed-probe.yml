@@ -17,7 +17,8 @@
 #   cron 15 phút → khe hở lớn nhất 18 phút → n=104, trải 25,8h → ĐẠT
 # Nguyên tắc: LỊCH phải chặt hơn SÀN, đủ biên để nuốt độ trễ của bộ lập lịch.
 #
-# ĐÃ BẬT CRON 2026-08-03. Điều kiện tiên quyết đã xong:
+# CRON ĐÃ RETIRE 2026-09-11 sau khi G2 đạt sàn và Gate F đóng. Workflow vẫn
+# chạy tay để chẩn đoán auth production khi cần. Điều kiện tiên quyết:
 #   1. Tài khoản probe `g2-probe@averlearning.com` do chủ dự án tạo trên
 #      production; hàng `users` đã được cấp qua một lần gọi `/auth/me` thủ công
 #      lúc thiết lập — lần ghi DUY NHẤT, không nằm trong vòng chạy của probe.
@@ -45,9 +46,6 @@ on:
         default: tick
         type: choice
         options: [tick, session, verdict]
-  schedule:
-    - cron: "*/15 * * * *"   # 96 nhịp/ngày, biên 5 phút dưới sàn → mode tick
-    - cron: "17 3 * * *"     # một phiên dài mỗi ngày            → mode session
 
 permissions:
   contents: read
@@ -62,22 +60,13 @@ concurrency:
   # Không tham chiếu được `env.PROBE_MODE` ở đây (concurrency lượng giá trước
   # khi env của workflow sẵn sàng), nên lặp lại biểu thức.
   group: >-
-    g2-authed-probe-${{ inputs.mode
-      || (github.event.schedule == '17 3 * * *' && 'session')
-      || 'tick' }}
+    g2-authed-probe-${{ inputs.mode || 'tick' }}
   # KHÔNG huỷ cái đang chạy — huỷ giữa chừng một phiên 70 phút là mất luôn vế
   # token refresh, thứ duy nhất phủ được chế độ hỏng của lớp authenticated.
   cancel-in-progress: false
 
 env:
-  # Sự kiện `schedule` KHÔNG có `inputs`, nên `inputs.mode || 'tick'` sẽ biến CẢ
-  # HAI cron thành `tick` và cron phiên-dài không bao giờ chạy `session` — sổ
-  # authed vĩnh viễn thiếu `afterRefresh` và verdict luôn trượt `no-token-refresh`
-  # (review PR #910). Chọn chế độ theo chính chuỗi cron đã kích hoạt.
-  PROBE_MODE: >-
-    ${{ inputs.mode
-        || (github.event.schedule == '17 3 * * *' && 'session')
-        || 'tick' }}
+  PROBE_MODE: ${{ inputs.mode || 'tick' }}
 
 jobs:
   probe:
