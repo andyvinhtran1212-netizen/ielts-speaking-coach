@@ -317,6 +317,36 @@ def test_custom_questions_returns_410_when_expiry_crosses_at_insert(monkeypatch,
     assert sink == []
 
 
+@pytest.mark.parametrize("part,payload", [
+    (1, {"questions": ["Original first?", "Original second?"]}),
+    (2, {"questions": [{"type": "cue_card", "prompt": "Describe a library.", "bullets": ["where"]}]}),
+])
+def test_custom_save_replay_returns_canonical_questions_after_unique_conflict(monkeypatch, client, part, payload):
+    """A lost response retry must return the original set, not append or fail.
+
+    The DB uniqueness rule is represented by its actual 23505 error; this is
+    route reconciliation coverage, not a claim of live PostgreSQL verification.
+    """
+    sink: list = []
+    existing = [
+        {"id": "original-2", "session_id": "sess-1", "part": part, "order_num": 2,
+         "question_text": "Original second?", "question_type": "custom"},
+        {"id": "original-1", "session_id": "sess-1", "part": part, "order_num": 1,
+         "question_text": "Original first?", "question_type": "custom"},
+    ]
+    monkeypatch.setattr(questions_router, "supabase_admin", _stub_supabase(
+        session_part=part, insert_error=RuntimeError('23505 duplicate key uq_questions_session_part_order'),
+        inserted_sink=sink,
+    ))
+    loader = MagicMock(return_value=existing)
+    monkeypatch.setattr(questions_router, "_load_existing_questions", loader)
+    response = client.post("/sessions/sess-1/questions/custom", json=payload)
+    assert response.status_code == 200
+    assert [row["id"] for row in response.json()] == ["original-1", "original-2"]
+    assert sink == []
+    loader.assert_called_once_with("sess-1")
+
+
 def test_order_num_is_sequential_across_mixed_types(monkeypatch, client):
     """`order_num` drives the practice-page question carousel. Mixed
     cue-card-then-string lists must still get 1, 2, 3, … not skip."""

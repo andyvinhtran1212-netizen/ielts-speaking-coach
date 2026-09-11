@@ -48,6 +48,8 @@ from services.writing_history import (
 from services.band_rounding import overall_from_criteria
 from services.mistake_authenticity import drop_noncorrection_mistakes
 from services.class_membership_service import active_student_ids_for_cohort
+from services.core_attempt_outcomes import observe_writing_background, observe_writing_batch
+from services.core_writing_observation import note_writing_mutation
 
 logger = logging.getLogger(__name__)
 
@@ -425,6 +427,7 @@ def schedule_grading_job(
     if not jr.data:
         raise HTTPException(500, "writing_jobs insert returned no rows")
     job = jr.data[0]
+    note_writing_mutation(essay_id)
 
     eta = estimate_eta_seconds(
         analysis_level=analysis_level,
@@ -466,6 +469,7 @@ def claim_pending_for_grading(
     )
     if not claimed.data:
         return None
+    note_writing_mutation(essay_id)
     return schedule_grading_job(
         essay_id=essay_id,
         analysis_level=analysis_level,
@@ -683,6 +687,7 @@ def upsert_composed_version(
         # `row` omits prompt_version/model_used, so the existing values are kept.
         supabase_admin.table("writing_feedback").update(row).eq(
             "essay_id", essay_id).eq("version", cur).execute()
+        note_writing_mutation(essay_id)
         return cur
 
     # current is AI (or no feedback yet) → mint a new composed version. Inherit the
@@ -706,6 +711,7 @@ def upsert_composed_version(
     else:
         row["version"], row["parent_version"] = 1, None
     supabase_admin.table("writing_feedback").insert(row).execute()
+    note_writing_mutation(essay_id)
     # advance the pointer LAST (ordered best-effort, mirrors the grade path).
     supabase_admin.table("writing_essays").update(
         {"current_version": row["version"]}).eq("id", essay_id).execute()
@@ -1121,6 +1127,9 @@ async def _bg_grade_essay(
         )
 
 
+    await observe_writing_background(essay_id)
+
+
 # Statuses an essay may be RESTORED to after a failed regrade (a prior good
 # state). Excludes in-flight/terminal-fail values so a malformed capture can
 # never park the essay back in 'grading'/'failed'/'pending'.
@@ -1207,6 +1216,7 @@ async def reap_stuck_grading_jobs(*, now: datetime | None = None) -> dict:
     std_cutoff = now - timedelta(seconds=settings.WRITING_STUCK_JOB_TIMEOUT_SECONDS)
     deep_cutoff = now - timedelta(seconds=settings.WRITING_STUCK_JOB_TIMEOUT_DEEP_SECONDS)
     summary = {"candidates": 0, "requeued": 0, "failed": 0, "skipped": 0}
+    observed_essays: set[str] = set()
 
     try:
         candidates = (
@@ -1279,6 +1289,7 @@ async def reap_stuck_grading_jobs(*, now: datetime | None = None) -> dict:
                 supabase_admin.table("writing_jobs").update(
                     {"status": "queued", "started_at": _now()}
                 ).eq("id", job_id).execute()
+                observed_essays.add(essay_id)
                 _schedule_requeue(essay_id, job_id, delay=0.0, restore_status=None)
                 summary["requeued"] += 1
             else:
@@ -1289,6 +1300,7 @@ async def reap_stuck_grading_jobs(*, now: datetime | None = None) -> dict:
                 # regrade-resilience: restore the pre-regrade good status persisted
                 # on the job (job_payload.restore_status) instead of stranding a
                 # previously graded/reviewed/delivered essay in 'failed'.
+                observed_essays.add(essay_id)
                 _mark_failed(essay_id, job_id, stuck_exc, kind="StuckTimeout",
                              restore_status=job_restore)
                 summary["failed"] += 1
@@ -1296,6 +1308,15 @@ async def reap_stuck_grading_jobs(*, now: datetime | None = None) -> dict:
             logger.exception("[writing-reaper] recovery failed essay=%s: %s", essay_id, exc)
             summary["skipped"] += 1
 
+    # Snapshot after ALL recovery attempts: no delay to this sweep's writes.
+    # Reporting still extends total sweep duration by its bounded async work.
+    # The best-effort writer may have partially failed: read canonical state,
+    # never infer an outcome or observed IDs from the summary counters.
+    if observed_essays:
+        try:
+            await observe_writing_batch(list(observed_essays))
+        except Exception:
+            logger.warning("core_writing_reaper_observation_unavailable")
     return summary
 
 

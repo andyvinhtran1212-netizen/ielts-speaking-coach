@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { coreOperationRequest } from '@/lib/core-operation-intent.mjs';
 import { SpeakingFullTestController } from '../../../../public/js/speaking-full-test-controller.mjs';
 
 export function PracticeFullTestBridge() {
@@ -22,7 +23,11 @@ export function PracticeFullTestBridge() {
         return win.PracticeSubmission.submit(request);
       },
       finalize: (body: Record<string, unknown>) => (
-        win.api.postWith('/sessions/finalize-full-test', body, {}, { noRedirect: true })
+        coreOperationRequest({
+          accountId: user.id, method: 'POST', path: '/sessions/finalize-full-test', input: body,
+          // Admission acknowledgement, not proof that background grading ended.
+          acknowledged: (reply: any) => reply?.accepted === true && Array.isArray(reply?.session_ids),
+        }, (headers: Record<string, string>) => win.api.postWith('/sessions/finalize-full-test', body, headers, { noRedirect: true }))
       ),
       getSession: (sessionId: string) => (
         win.api.getWith(

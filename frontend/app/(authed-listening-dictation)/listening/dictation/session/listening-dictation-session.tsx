@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { coreOperationHeaders, coreOperationRequest } from '@/lib/core-operation-intent.mjs';
 import {
   dictationParams,
   dictationReceiptKey,
@@ -214,14 +215,14 @@ export function ListeningDictationSession() {
       try { await confirmReceipt(receipt, selected, run); return; }
       catch (caught) { if (!isMissingReceipt(caught)) throw caught; }
       try {
-        const posted = await window.api.post('/api/listening/tests/dictation/session', receipt.submission);
+        const posted = await window.api.postWith('/api/listening/tests/dictation/session', receipt.submission, coreOperationHeaders(receipt.requestId));
         confirmAttemptReport(posted, receipt, selected, run);
         return;
       } catch (postError) {
         if (isDictationCanonicalMismatch(postError)) {
           activeReceipt = await recoverReceiptFromCanonicalAttempt(receipt, selected);
           try {
-            const posted = await window.api.post('/api/listening/tests/dictation/session', activeReceipt.submission);
+            const posted = await window.api.postWith('/api/listening/tests/dictation/session', activeReceipt.submission, coreOperationHeaders(activeReceipt.requestId));
             confirmAttemptReport(posted, activeReceipt, selected, run);
             return;
           } catch (recoveryPostError) {
@@ -275,10 +276,12 @@ export function ListeningDictationSession() {
       const inProgress = normalizeDictationAttempt(await window.api.get(
         `/api/listening/tests/${encodeURIComponent(testId)}/dictation/attempts/in-progress?${query}`,
       ));
-      const canonicalAttempt = inProgress || normalizeDictationAttempt(await window.api.post(
-        `/api/listening/tests/${encodeURIComponent(testId)}/dictation/attempts?${query}`,
-        { renderer_affinity_protocol: 'claim-v1' },
-      ));
+      const startPath = `/api/listening/tests/${encodeURIComponent(testId)}/dictation/attempts?${query}`;
+      const startBody = { renderer_affinity_protocol: 'claim-v1' };
+      const canonicalAttempt = inProgress || normalizeDictationAttempt(await coreOperationRequest({
+        accountId: user?.id, method: 'POST', path: startPath, input: startBody,
+        acknowledged: (reply: any) => !!normalizeDictationAttempt(reply),
+      }, (headers: Record<string, string>) => window.api.postWith(startPath, startBody, headers)));
       if (!canonicalAttempt) throw new Error('Máy chủ không trả về lượt làm bài.');
       const claim: any = await window.api.post(
         `/api/listening/tests/dictation/attempts/${encodeURIComponent(canonicalAttempt.attempt_id)}/renderer-affinity`,
@@ -378,10 +381,12 @@ export function ListeningDictationSession() {
       const timeSeconds = Math.max(0, Math.round(
         (Date.now() - (sentenceStartedAtRef.current || Date.now())) / 1000,
       ));
-      const canonical = normalizeDictationGrade(await window.api.post(
-        `/api/listening/tests/dictation/attempts/${encodeURIComponent(attempt.attempt_id)}/sentences/${sentenceIndex}`,
-        { user_transcript: answer, listen_count: listenCount, time_seconds: timeSeconds },
-      ));
+      const path = `/api/listening/tests/dictation/attempts/${encodeURIComponent(attempt.attempt_id)}/sentences/${sentenceIndex}`;
+      const body = { user_transcript: answer, listen_count: listenCount, time_seconds: timeSeconds };
+      const canonical = normalizeDictationGrade(await coreOperationRequest({
+        accountId: user?.id, method: 'POST', path, input: body,
+        acknowledged: (reply: any) => !!normalizeDictationGrade(reply),
+      }, (headers: Record<string, string>) => window.api.postWith(path, body, headers)));
       if (sectionRunRef.current !== run) return;
       const next = [...results];
       next[sentenceIndex] = {
@@ -392,7 +397,7 @@ export function ListeningDictationSession() {
       setResults(next);
     } catch (caught: any) { if (sectionRunRef.current === run) setInlineError(`Không chấm được câu trả lời. ${caught?.message || ''}`); }
     finally { if (sectionRunRef.current === run) setGrading(false); }
-  }, [answer, attempt, currentResult, grading, results, section, sentenceIndex]);
+  }, [answer, attempt, currentResult, grading, results, section, sentenceIndex, user?.id]);
 
   const resetCurrent = useCallback(() => {
     const next = [...results]; next[sentenceIndex] = null; setResults(next); setInlineError('');

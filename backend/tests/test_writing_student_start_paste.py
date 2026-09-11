@@ -70,6 +70,7 @@ class _Builder:
         # Sprint 2.7 fix #3: support `.in_()` on the atomic-claim UPDATE.
         self._in: tuple[str, list] | None = None
         self._gt: tuple[str, object] | None = None
+        self._is: tuple[str, object] | None = None
 
     def select(self, *_a, **_kw): self._action = "select"; return self
     def insert(self, payload, *_a, **_kw): self._action = "insert"; self._payload = payload; return self
@@ -90,6 +91,10 @@ class _Builder:
         self._gt = (col, val)
         return self
 
+    def is_(self, col, val):
+        self._is = (col, val)
+        return self
+
     def execute(self):
         rec = {
             "table":   self._table,
@@ -98,6 +103,7 @@ class _Builder:
             "filters": list(self._filters),
             "in":      self._in,
             "gt":      self._gt,
+            "is":      self._is,
         }
         self._parent.calls.append(rec)
         return self._parent._respond(rec)
@@ -179,6 +185,13 @@ class _Client:
                     ):
                         r.data = []
                         return r
+                if rec.get("is"):
+                    is_col, is_val = rec["is"]
+                    assert is_val == "null"
+                    matches = [item for item in matches if item.get(is_col) is None]
+                    if not matches:
+                        r.data = []
+                        return r
                 r.data = [{"id": rec["filters"][0][1] if rec["filters"] else None,
                            **(rec["payload"] or {})}]
         elif t == "writing_drafts":
@@ -243,6 +256,30 @@ def test_start_stamps_started_at_when_null(monkeypatch):
     payload = transition["payload"]
     assert "started_at" in payload
     assert payload["status"] == "in_progress"
+
+
+def test_start_concurrent_winner_is_read_back_without_resetting_clock(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    committed = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+
+    class CompetingStart(_Client):
+        def _respond(self, rec):
+            if rec['table'] == 'writing_assignments' and rec['action'] == 'update' and 'started_at' in (rec['payload'] or {}):
+                assert rec['is'] == ('started_at', 'null')
+                self._assignments = [{**self._assignments[0], 'started_at': committed, 'status': 'in_progress'}]
+            return super()._respond(rec)
+
+    db = CompetingStart(assignments_data=[{'id': _ASSIGNMENT_ID, 'student_id': _STUDENT_ID,
+        'status': 'pending', 'is_timed': True, 'time_limit_minutes': 40, 'started_at': None, 'auto_submitted': False}])
+    monkeypatch.setattr(ws_module, 'supabase_admin', db)
+    observations = []
+    monkeypatch.setattr(ws_module, 'bind_owned_attempt', lambda *args, **kwargs: observations.append(kwargs))
+    result = _run(start_assignment(assignment_id=_ASSIGNMENT_ID, student=_student()))
+    assert result['timer']['started_at'] == committed
+    assert db._assignments[0]['started_at'] == committed
+    assert observations[-1]['started'] is False
+    writes = [call for call in db.calls if call['action'] == 'update' and 'started_at' in (call['payload'] or {})]
+    assert len(writes) == 1
 
 
 def test_start_does_not_overwrite_existing_started_at(monkeypatch):

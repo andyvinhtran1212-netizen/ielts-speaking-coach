@@ -178,6 +178,7 @@ describe('lược đồ bản khai', () => {
       [{ ...base, initStorage: { k: 1 } }, /initStorage/],
       [{ ...base, initSessionStorage: {} }, /initSessionStorage/],
       [{ ...base, initSessionStorage: { k: 1 } }, /initSessionStorage/],
+      [{ ...base, randomUUID: 'session-fixed' }, /randomUUID/],
       // `waitForWrites` — đồng bộ theo SỐ REQUEST thay cho đồng hồ tường.
       [{ ...base, steps: [{ waitForWrites: ['/a'] }] }, /waitForWrites/],
       [{ ...base, steps: [{ waitForWrites: ['/a', 0] }] }, /waitForWrites/],

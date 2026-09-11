@@ -25,6 +25,8 @@ from database import supabase_admin
 from models.writing_feedback import WritingFeedback
 from routers.admin import require_admin
 from services import essay_service, instructor_workflow
+from services.core_attempt_outcomes import observe_writing_batch
+from services.core_writing_observation import note_writing_mutation, observe_writing_partial_failure
 from services.file_extract_service import (
     MAX_EXTRACTED_CHARS,
     FileExtractError,
@@ -222,6 +224,7 @@ def _revoke_essay(essay_id: str) -> dict:
     # Fix-1 (D2) — bring the review row back into the active queue so an
     # instructor-tier essay can be re-delivered (delivered→claimed). No-op
     # for standard/admin essays with no review row.
+    note_writing_mutation(essay_id)
     instructor_workflow.sync_revoke_review(essay_id)
 
     return {"essay_id": essay_id, "ok": True, "status": "reviewed", "reason": None}
@@ -301,6 +304,7 @@ class StartGradingRequest(BaseModel):
 
 
 @router.post("/essays/{essay_id}/start-grading", status_code=status.HTTP_202_ACCEPTED)
+@observe_writing_partial_failure
 async def start_grading(
     essay_id: str,
     body: StartGradingRequest,
@@ -352,6 +356,7 @@ async def start_grading(
         essay_id,
         job_info["job_id"],
     )
+    await observe_writing_batch([essay_id])
     return {"essay_id": essay_id, **job_info, "status": "queued"}
 
 
@@ -428,6 +433,7 @@ async def grade_ratings_summary(authorization: str | None = Header(None)):
 # ── Endpoints (W3 — still placeholders) ───────────────────────────────
 
 @router.patch("/essays/{essay_id}/feedback")
+@observe_writing_partial_failure
 async def update_feedback(
     essay_id: UUID,
     edits: dict,
@@ -502,6 +508,8 @@ async def update_feedback(
         _logger.warning("[admin-writing] mock writing-band sync skipped essay=%s",
                         essay_id, exc_info=True)
 
+    # Independent canonical snapshot, not proof of learner-visible delivery.
+    await observe_writing_batch([str(essay_id)])
     return {"essay_id": str(essay_id), "status": "reviewed"}
 
 
@@ -542,6 +550,7 @@ async def mark_delivered(
             ),
         )
     # TODO(19.4 email deferred): notify the student their essay is graded.
+    await observe_writing_batch([str(essay_id)])
     return {
         "essay_id":      str(essay_id),
         "status":        "delivered",
@@ -551,6 +560,7 @@ async def mark_delivered(
 
 
 @router.post("/essays/{essay_id}/revoke-delivery")
+@observe_writing_partial_failure
 async def revoke_delivery(
     essay_id: UUID,
     authorization: str | None = Header(None),
@@ -573,6 +583,7 @@ async def revoke_delivery(
                 f"Required: delivered."
             ),
         )
+    await observe_writing_batch([str(essay_id)])
     return {
         "essay_id": str(essay_id),
         "status":   "reviewed",
@@ -605,16 +616,22 @@ async def bulk_mark_delivered(
     delivered: list[str] = []
     skipped: list[dict]  = []
     seen: set[str]       = set()
-    for eid in body.essay_ids:
-        sid = str(eid)
-        if sid in seen:          # de-dupe a repeated id defensively
-            continue
-        seen.add(sid)
-        outcome = _deliver_essay(sid, body.method)
-        if outcome["ok"]:
-            delivered.append(sid)
-        else:
-            skipped.append({"id": sid, "status": outcome["status"], "reason": outcome["reason"]})
+    try:
+        for eid in body.essay_ids:
+            sid = str(eid)
+            if sid in seen:          # de-dupe a repeated id defensively
+                continue
+            seen.add(sid)
+            outcome = _deliver_essay(sid, body.method)
+            if outcome["ok"]:
+                delivered.append(sid)
+            else:
+                skipped.append({"id": sid, "status": outcome["status"], "reason": outcome["reason"]})
+    finally:
+        # Earlier commits survive a later item's DB error. Observe those only,
+        # after all attempted writes, without changing the original HTTP error.
+        if delivered:
+            await observe_writing_batch(delivered)
 
     return {
         "delivered":       delivered,
@@ -889,6 +906,7 @@ async def update_instructor_note(
 
 
 @router.post("/essays/{essay_id}/regrade", status_code=status.HTTP_202_ACCEPTED)
+@observe_writing_partial_failure
 async def trigger_regrade(
     essay_id: UUID,
     background_tasks: BackgroundTasks,
@@ -900,10 +918,9 @@ async def trigger_regrade(
     Workflow:
       1. Verify essay exists, is_flagged=False, status in (graded, reviewed,
          delivered, failed). pending/grading rejected — already in flight.
-      2. DELETE the existing writing_feedback row (UNIQUE constraint on
-         essay_id means the BG grader's INSERT would otherwise raise).
-      3. Clear admin_edits_json + is_manually_edited (the new AI grade
-         supersedes any prior manual edits — Andy must re-review).
+      2. Preserve the current feedback and version chain (up to the live
+         version budget); the worker advances current_version on success.
+      3. Clear is_manually_edited (the new AI grade needs another review).
          instructor_note is NOT cleared — Andy's personal feedback
          survives regrades on purpose (it's about the student, not the
          grade).
@@ -1018,6 +1035,7 @@ async def trigger_regrade(
     # the writing_jobs row and returns the job id; the router adds the
     # BG task. Same pattern as POST /admin/writing/essays + the student
     # submit path use.
+    note_writing_mutation(str(essay_id))
     job_info = essay_service.schedule_grading_job(
         essay_id       = str(essay_id),
         analysis_level = effective_level,
@@ -1038,6 +1056,7 @@ async def trigger_regrade(
         restore_status_on_fail=essay.get("status"),
     )
 
+    await observe_writing_batch([str(essay_id)])
     return {
         "essay_id":       str(essay_id),
         "job_id":         job_info["job_id"],

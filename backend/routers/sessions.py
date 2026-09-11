@@ -12,6 +12,10 @@ from pydantic import BaseModel, field_validator
 
 from config import settings
 from database import supabase_admin
+from services.core_attempt_observation import (
+    admit_start, bind_owned_attempt, observe_operation,
+)
+from services.core_attempt_outcomes import observe_speaking_background
 from services.recording_audio import attach_playback_urls, PLAYBACK_TTL
 from services.question_visibility import redact_questions, should_reveal
 from routers.auth import get_supabase_user
@@ -471,6 +475,7 @@ def _bind_session_to_mock_if_requested(
 # ── POST /sessions ─────────────────────────────────────────────────────────────
 
 @router.post("")
+@observe_operation("speaking", "start", correlate_by=("body",))
 async def create_session(
     body: CreateSessionBody,
     authorization: str | None = Header(default=None),
@@ -529,6 +534,7 @@ async def create_session(
         _bind_session_to_mock_if_requested(
             replay_session["id"], user_id, body.sitting_id,
         )
+        bind_owned_attempt(replay_session)
         return _session_create_payload(replay_session)
 
     # Admin bypass — admins không bị giới hạn quota
@@ -587,6 +593,7 @@ async def create_session(
     # Admins bypass the cap via an effectively-unlimited ceiling.
     max_daily = 2_000_000_000 if is_admin else settings.MAX_SESSIONS_PER_USER_PER_DAY
     affinity_aware = body.renderer_affinity_protocol == "claim-v1"
+    new_session_affinity = None if affinity_aware else "legacy"
     rpc_name = (
         "fn_create_session_daily_capped_v3"
         if affinity_aware
@@ -609,12 +616,35 @@ async def create_session(
         # insert a database default of Legacy, including requests handled by an
         # N-1 backend instance during a rolling deployment.
         rpc_params["p_session_id"] = str(body.client_session_id or uuid4())
-        rpc_params["p_renderer_affinity"] = None
+        rpc_params["p_renderer_affinity"] = new_session_affinity
     elif body.client_session_id:
         rpc_params["p_session_id"] = str(body.client_session_id)
 
+    legacy_rpc_name, legacy_rpc_params = rpc_name, dict(rpc_params)
+    creation_receipt_enabled = (settings.CORE_ATTEMPT_EVIDENCE_ENABLED
+                                and settings.SPEAKING_CREATION_RECEIPT_ENABLED)
+    if creation_receipt_enabled:
+        # v4 preserves v3 rules under the same quota/idempotency locks, adding an
+        # atomic created-vs-replay fact. Legacy and first-claim affinities keep
+        # exactly the same values as the flag-off v1/v2/v3 paths above.
+        rpc_name = "fn_create_session_daily_capped_v4"
+        rpc_params.setdefault("p_session_id", str(body.client_session_id or uuid4()))
+        rpc_params.setdefault("p_renderer_affinity", new_session_affinity)
+
+    admit_start(attempt_kind="speaking_full_test" if body.mode == "test_full" else "speaking_session")
     try:
-        result = supabase_admin.rpc(rpc_name, rpc_params).execute()
+        try:
+            result = supabase_admin.rpc(rpc_name, rpc_params).execute()
+        except Exception as rpc_error:
+            # Only a structured PostgREST schema-cache miss proves v4 never
+            # ran. NEVER fall back on timeout, auth/permission or SQL errors:
+            # the original write may already have committed or been rejected.
+            if (not creation_receipt_enabled or getattr(rpc_error, "code", None) != "PGRST202"
+                    or "fn_create_session_daily_capped_v4" not in str(getattr(rpc_error, "message", ""))):
+                raise
+            logger.error("[create_session] creation_receipt_rpc_missing; legacy path used; evidence incomplete")
+            creation_receipt_enabled = False
+            result = supabase_admin.rpc(legacy_rpc_name, legacy_rpc_params).execute()
     except Exception as e:
         if "daily_quota_exceeded" in str(e):
             raise HTTPException(
@@ -632,6 +662,13 @@ async def create_session(
     if not rows:
         raise HTTPException(status_code=500, detail="Không thể tạo session")
     s = rows[0]
+    created = body.client_session_id is None
+    if creation_receipt_enabled:
+        if (len(rows) != 1 or not isinstance(s, dict)
+                or not isinstance(s.get("session_data"), dict) or type(s.get("created")) is not bool):
+            logger.error("[create_session] invalid atomic creation receipt")
+            raise HTTPException(status_code=503, detail="Không thể xác nhận lượt làm bài. Vui lòng thử lại.")
+        created, s = s["created"], s["session_data"]
 
     # Migration 200's trigger creates Part 1's canonical id atomically with the
     # row. Later parts inherit the id resolved above. The partial unique index on
@@ -663,6 +700,7 @@ async def create_session(
                         _bind_session_to_mock_if_requested(
                             replay_session["id"], user_id, body.sitting_id,
                         )
+                        bind_owned_attempt(replay_session)
                         return _session_create_payload(replay_session)
                 raise HTTPException(
                     status_code=409 if conflict else 500,
@@ -706,6 +744,9 @@ async def create_session(
     # Mock sitting: link the session AT CREATION (before any response can be
     # graded) so per-response speaking grading is sealed. Validated inside.
     _bind_session_to_mock_if_requested(s["id"], user_id, body.sitting_id)
+    # Full-test parts share one canonical ID; only a newly created Part 1
+    # starts an attempt. A client-UUID replay is never another learner start.
+    bind_owned_attempt(s, started=created)
     return _session_create_payload(s)
 
 
@@ -1763,11 +1804,15 @@ async def _bg_finalize_full_test(session_ids: list) -> None:
                 )
 
 
+    await observe_speaking_background(session_ids)
+
+
 # ── POST /sessions/finalize-full-test ─────────────────────────────────────────
 # NOTE: This route MUST be declared before /{session_id} routes so FastAPI does
 # not treat the literal "finalize-full-test" as a session_id path parameter.
 
 @router.post("/finalize-full-test")
+@observe_operation("speaking", "submit", correlate_by=("body",))
 async def finalize_full_test(
     body: FinalizeFullTestBody,
     background_tasks: BackgroundTasks,
@@ -1812,6 +1857,7 @@ async def finalize_full_test(
         raise HTTPException(404, f"Session(s) không tồn tại hoặc không có quyền: {missing}")
 
     _validate_full_test_chain(all_ids, s_res.data or [])
+    bind_owned_attempt((s_res.data or [])[0])
 
     # The request can spend time validating the 9/1/5 question set before the
     # terminal write below.  Reject an already-expired open part now for a
@@ -1956,6 +2002,7 @@ def _record_class_submission(session: dict) -> bool:
 
 
 @router.patch("/{session_id}/complete")
+@observe_operation("speaking", "finalize", correlate_by=("session_id",))
 async def complete_session(
     session_id: str,
     authorization: str | None = Header(default=None),
@@ -1984,6 +2031,7 @@ async def complete_session(
         raise HTTPException(status_code=404, detail="Session không tồn tại")
 
     session = s_result.data[0]
+    bind_owned_attempt(session)
 
     # A completed row stays idempotently readable/completable.  Only a still-
     # open player mutation is bounded by the hard resume TTL.

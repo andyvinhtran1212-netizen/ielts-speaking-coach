@@ -303,6 +303,13 @@ async def test_bg_grade_essay_does_not_fallback_to_new_chart_for_historical_snap
 async def test_bg_grade_essay_happy_path_writes_feedback_and_marks_graded():
     fake = _FakeSupabase(responses=_bg_essay_responses())
     fake_grader = MagicMock()
+    observed = []
+
+    async def observe(essay_id):
+        writes = [call for call in fake.calls if call["op"] == "update"]
+        assert any(call["table"] == "writing_essays" and "current_version" in call["payload"] for call in writes)
+        assert any(call["table"] == "writing_jobs" and call["payload"].get("status") == "completed" for call in writes)
+        observed.append(essay_id)
 
     async def fake_grade(_config):
         return MagicMock(
@@ -319,8 +326,11 @@ async def test_bg_grade_essay_happy_path_writes_feedback_and_marks_graded():
     with patch.object(essay_service, "supabase_admin", fake), \
          patch.object(essay_service, "get_grader", return_value=fake_grader), \
          patch.object(essay_service, "get_recurring_patterns", return_value=None), \
+         patch.object(essay_service, "observe_writing_background", side_effect=observe), \
          patch.object(essay_service, "get_band_trajectory",  return_value=None):
         await essay_service._bg_grade_essay(_ESSAY_ID, _JOB_ID)
+
+    assert observed == [_ESSAY_ID]
 
     ops = [(c["table"], c["op"]) for c in fake.calls]
     assert ("writing_jobs",     "update") in ops    # → running
@@ -1116,6 +1126,67 @@ async def test_reap_skips_deep_tier_within_grace():
 
     assert summary["skipped"] == 1 and summary["requeued"] == 0 and summary["failed"] == 0
     requeue.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_reaper_observes_once_after_all_recovery_writes(monkeypatch):
+    from unittest.mock import AsyncMock
+    responses = _reaper_responses()
+    second = dict(responses[("writing_jobs", "select")][0], id="00000000-0000-0000-0000-000000000004", attempt_count=3)
+    responses[("writing_jobs", "select")].append(second)
+    fake = _FakeSupabase(responses=responses)
+    snapshots = []
+    async def observe(ids):
+        snapshots.append((ids, list(fake.calls)))
+    observer = AsyncMock(side_effect=observe)
+    monkeypatch.setattr(essay_service, "supabase_admin", fake)
+    monkeypatch.setattr(essay_service, "_schedule_requeue", MagicMock())
+    monkeypatch.setattr(essay_service, "observe_writing_batch", observer)
+    summary = await essay_service.reap_stuck_grading_jobs(now=_FIXED_NOW)
+    assert summary == {"candidates": 2, "requeued": 1, "failed": 1, "skipped": 0}
+    observer.assert_awaited_once_with([_ESSAY_ID])
+    ids, calls = snapshots[0]
+    statuses = [call["payload"].get("status") for call in calls if call["op"] == "update"]
+    assert "queued" in statuses and "failed" in statuses
+    assert calls == fake.calls, "no recovery write may be deferred until after observation"
+
+
+@pytest.mark.asyncio
+async def test_reaper_observer_failure_does_not_change_recovery_summary(monkeypatch, caplog):
+    from unittest.mock import AsyncMock
+    fake = _FakeSupabase(responses=_reaper_responses())
+    monkeypatch.setattr(essay_service, "supabase_admin", fake)
+    monkeypatch.setattr(essay_service, "_schedule_requeue", MagicMock())
+    monkeypatch.setattr(essay_service, "observe_writing_batch", AsyncMock(side_effect=RuntimeError("PRIVATE_OBSERVER_FAILURE")))
+    summary = await essay_service.reap_stuck_grading_jobs(now=_FIXED_NOW)
+    assert summary == {"candidates": 1, "requeued": 1, "failed": 0, "skipped": 0}
+    assert "core_writing_reaper_observation_unavailable" in caplog.text
+    assert "PRIVATE_OBSERVER_FAILURE" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_reaper_skipped_candidates_do_not_observe(monkeypatch):
+    from unittest.mock import AsyncMock
+    fake = _FakeSupabase(responses=_reaper_responses(essay_overrides={"status": "graded"}))
+    observer = AsyncMock()
+    monkeypatch.setattr(essay_service, "supabase_admin", fake)
+    monkeypatch.setattr(essay_service, "observe_writing_batch", observer)
+    summary = await essay_service.reap_stuck_grading_jobs(now=_FIXED_NOW)
+    assert summary["skipped"] == 1
+    observer.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_reaper_observes_committed_requeue_even_if_scheduling_fails(monkeypatch):
+    from unittest.mock import AsyncMock
+    fake = _FakeSupabase(responses=_reaper_responses())
+    observer = AsyncMock()
+    monkeypatch.setattr(essay_service, "supabase_admin", fake)
+    monkeypatch.setattr(essay_service, "_schedule_requeue", MagicMock(side_effect=RuntimeError("scheduler stopped")))
+    monkeypatch.setattr(essay_service, "observe_writing_batch", observer)
+    summary = await essay_service.reap_stuck_grading_jobs(now=_FIXED_NOW)
+    assert summary["skipped"] == 1 and summary["requeued"] == 0
+    observer.assert_awaited_once_with([_ESSAY_ID])
 
 
 # ── Sprint W-MM review fixes: max_attempts persist, restore via job_payload,

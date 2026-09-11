@@ -57,7 +57,8 @@ const SHARED_STRINGS = [
 
 // Gom CẢ chuỗi lồng trong object export (`DEFAULT_TOPICS`) — bản đầu chỉ lấy
 // export kiểu chuỗi nên báo thiếu 3 chủ đề mặc định một cách sai.
-const NEXT_SIDE = JSON.stringify(copy, (_k, v) => v) + '\n' + BEHAVIOR;
+const NEXT_SIDE = JSON.stringify(copy, (_k, v) => v) + '\n' + BEHAVIOR + '\n'
+  + readFileSync(path.join(FRONTEND, 'lib/speaking-start-intent.mjs'), 'utf8');
 
 // CỐ Ý KHÔNG có ở bản Next: `'Không thể tạo session: '` là thông báo `alert()`
 // của `startPractice()` — hàm mà KHÔNG nút nào trong markup legacy gọi (quét:

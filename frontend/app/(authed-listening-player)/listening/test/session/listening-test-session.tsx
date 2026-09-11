@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { coreOperationRequest } from '@/lib/core-operation-intent.mjs';
 import {
   createListeningSaveCoordinator,
   isPracticeListeningTest,
@@ -455,11 +456,15 @@ export function ListeningTestSession() {
 
   const saveAnswer = useCallback(async (qNum: number, value: string, options: { keepalive?: boolean; signal?: AbortSignal }) => {
     if (!attempt) return null;
-    return window.api.patchWith(
-      `/api/listening/tests/attempts/${encodeURIComponent(attempt.attempt_id)}/answers`,
-      { q_num: qNum, user_answer: value }, undefined, { keepalive: !!options.keepalive, signal: options.signal, noRedirect: true },
-    );
-  }, [attempt]);
+    const path = `/api/listening/tests/attempts/${encodeURIComponent(attempt.attempt_id)}/answers`;
+    const body = { q_num: qNum, user_answer: value };
+    return coreOperationRequest({
+      accountId: user?.id, method: 'PATCH', path, input: body, slot: String(qNum),
+      acknowledged: (reply: any) => reply?.attempt_id === attempt.attempt_id,
+    }, (headers: Record<string, string>) => window.api.patchWith(
+      path, body, headers, { keepalive: !!options.keepalive, signal: options.signal, noRedirect: true },
+    ));
+  }, [attempt, user?.id]);
 
   useEffect(() => {
     coordinatorRef.current?.dispose?.();
@@ -525,10 +530,12 @@ export function ListeningTestSession() {
     if (!params) return;
     setPhase('loading');
     try {
-      const started: any = await window.api.post(
-        withQuery(`/api/listening/tests/${encodeURIComponent(params.testId)}/attempts`, [['class_item', params.classItem]]),
-        { renderer_affinity_protocol: 'claim-v1' },
-      );
+      const path = withQuery(`/api/listening/tests/${encodeURIComponent(params.testId)}/attempts`, [['class_item', params.classItem]]);
+      const body = { renderer_affinity_protocol: 'claim-v1' };
+      const started: any = await coreOperationRequest({
+        accountId: user?.id, method: 'POST', path, input: body, fresh: resumeAvailable,
+        acknowledged: (reply: any) => typeof reply?.attempt_id === 'string' && !!reply.attempt_id,
+      }, (headers: Record<string, string>) => window.api.postWith(path, body, headers));
       const affinity = await claimNextRenderer(String(started.attempt_id));
       if (!affinity) return;
       const hook = (window as any).MockHook;
@@ -538,7 +545,7 @@ export function ListeningTestSession() {
       const ownedAttempt = { ...canonical, renderer_affinity: affinity };
       await enterAttempt(ownedAttempt, new Map(), false);
     } catch (caught: any) { setError(`Không bắt đầu được bài Listening. ${caught?.message || ''}`); setPhase('error'); }
-  }, [claimNextRenderer, enterAttempt, params, resumePath]);
+  }, [claimNextRenderer, enterAttempt, params, resumePath, resumeAvailable, user?.id]);
 
   useEffect(() => {
     if (phase !== 'prestart' || !params?.mockEmbed || autoEnteredMockRef.current) return;
@@ -564,7 +571,15 @@ export function ListeningTestSession() {
       return;
     }
     try {
-      const response = await window.api.post(`/api/listening/tests/attempts/${encodeURIComponent(attempt.attempt_id)}/submit`, {});
+      const path = `/api/listening/tests/attempts/${encodeURIComponent(attempt.attempt_id)}/submit`;
+      // This endpoint reads saved answers and has no body. Include the local
+      // answer snapshot in the hint identity so edited work is not a retry of
+      // the earlier submit. The server still verifies canonical ownership/input.
+      const response = await coreOperationRequest({
+        accountId: user?.id, method: 'POST', path,
+        input: [...answersRef.current].sort(([a], [b]) => a - b),
+        acknowledged: (reply: any) => reply?.attempt_id === attempt.attempt_id || (reply?.received === true && reply?.sealed === true),
+      }, (headers: Record<string, string>) => window.api.postWith(path, {}, headers));
       audioRef.current?.pause();
       const hook = (window as any).MockHook;
       if (hook?.isSealedResponse?.(response)) {
@@ -574,7 +589,7 @@ export function ListeningTestSession() {
       }
       setResult(response); setPhase('results');
     } catch (caught: any) { setError(`Không nộp được bài Listening. ${caught?.message || ''}`); setPhase('error'); }
-  }, [attempt, params?.mockEmbed, phase]);
+  }, [attempt, params?.mockEmbed, phase, user?.id]);
 
   useEffect(() => {
     if (!params?.mockEmbed) return undefined;

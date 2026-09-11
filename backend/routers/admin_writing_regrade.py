@@ -28,6 +28,8 @@ from pydantic import BaseModel, Field
 
 from database import supabase_admin
 from routers.admin import require_admin
+from services.core_attempt_outcomes import observe_writing_batch
+from services.core_writing_observation import note_writing_mutation, observe_writing_partial_failure
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +168,7 @@ async def get_regrade_request(request_id: UUID, authorization: str | None = Head
 
 
 @router.patch("/{request_id}")
+@observe_writing_partial_failure
 async def action_regrade_request(
     request_id: UUID,
     body: RegradeAction,
@@ -215,4 +218,12 @@ async def action_regrade_request(
     request = result.get("request")
     if not isinstance(request, dict) or str(request.get("id")) != str(request_id):
         raise HTTPException(500, "Máy chủ không xác nhận đúng yêu cầu vừa xử lý.")
-    return _decorate([request])[0]
+    # Only acceptance changes essay visibility. A rejected request is not a
+    # failed grading attempt and does not require a new essay-outcome snapshot.
+    accepted = request.get("status") == "accepted"
+    if accepted:
+        note_writing_mutation(str(request.get("essay_id")))
+    decorated = _decorate([request])[0]
+    if accepted:
+        await observe_writing_batch([str(request.get("essay_id"))])
+    return decorated

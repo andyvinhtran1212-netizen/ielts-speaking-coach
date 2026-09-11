@@ -27,6 +27,8 @@ import { useAuth } from '@/lib/auth/auth-provider';
 import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import { isSpeakingApiReady } from '@/lib/speaking-api-readiness.mjs';
+import { createSpeakingStartController, clearSpeakingStartIntents } from '@/lib/speaking-start-intent.mjs';
+import { coreOperationHeaders } from '@/lib/core-operation-intent.mjs';
 import {
   CUE_CARD_HINT_DEFAULT_HTML, CUE_CARD_HINT_PART2_HTML,
   CUE_CARD_PLACEHOLDER_DEFAULT, CUE_CARD_PLACEHOLDER_PART2,
@@ -50,6 +52,7 @@ type State = {
   pbpPart: number;
   mainTab: string;
   dead: boolean;
+  starter: ReturnType<typeof createSpeakingStartController> | null;
 };
 
 // ── Quyền ────────────────────────────────────────────────────────────────────
@@ -253,13 +256,59 @@ async function randomTopic(part: number, api: any): Promise<string> {
 
 // ── Tạo phiên ───────────────────────────────────────────────────────────────
 
-/** `/sessions` trả `id` hoặc `session_id` tuỳ đường — legacy chấp nhận cả hai. */
-function sessionIdOf(s: any): string | null {
-  return (s && (s.id || s.session_id)) || null;
-}
-
 function goToPractice(sessionId: string) {
   window.location.href = admitCorePlayer('speaking', { session_id: sessionId });
+}
+
+function getStarter(st: State, api: any) {
+  if (!st.starter) {
+    const identity = async () => {
+      if (st.dead) throw new Error('Trang đã đóng.');
+      const result = await (window as any).getSupabase().auth.getSession();
+      if (result?.error || !result?.data?.session?.user?.id || st.dead) throw new Error('Vui lòng đăng nhập lại trước khi bắt đầu.');
+      return result.data.session;
+    };
+    st.starter = createSpeakingStartController({
+      getAccountId: async () => (await identity()).user.id,
+      getStorage: () => window.sessionStorage,
+      post: async (path: string, body: any, accountId: string, signal: AbortSignal) => {
+        const session = await identity();
+        if (session.user.id !== accountId || signal.aborted) throw new Error('Phiên đăng nhập đã thay đổi. Vui lòng tải lại trang.');
+        // Pin the normal SDK token to the same account as the pending intent;
+        // an account switch during api.js's auth await cannot send as another user.
+        return api.postWith(path, body, {
+          Authorization: `Bearer ${session.access_token}`,
+          ...coreOperationHeaders(path === '/sessions' ? body.client_session_id : null),
+        }, { signal });
+      },
+    });
+  }
+  return st.starter;
+}
+
+function showStartError(errEl: HTMLElement | null, error: any, st: State, slot: string) {
+  if (!errEl || st.dead) return;
+  errEl.textContent = 'Lỗi: ' + (error?.message || 'Không thể tạo session.');
+  if (!error?.canDiscardStart || !st.starter) return;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn btn-secondary';
+  button.textContent = 'Bỏ mã gửi lại để bắt đầu lượt mới';
+  button.onclick = async () => {
+    if (st.dead) return;
+    button.disabled = true;
+    try {
+      await st.starter!.discard(slot);
+      if (!st.dead) errEl.textContent = 'Đã bỏ mã gửi lại, không xóa bài đã lưu. Bấm Bắt đầu khi bạn muốn tạo lượt mới.';
+    } catch (failure: any) {
+      if (!st.dead) {
+        errEl.textContent = 'Lỗi: ' + (failure?.message || 'Không thể bỏ mã gửi lại.');
+        button.disabled = false;
+        errEl.appendChild(button);
+      }
+    }
+  };
+  errEl.appendChild(button);
 }
 
 // ── Modal chủ đề ────────────────────────────────────────────────────────────
@@ -382,30 +431,22 @@ async function startFromCustomQuestions(opts: {
     btn.textContent = aiGenLikely ? 'Đang tạo cue card...' : 'Đang tạo session...';
   }
 
-  let questions: any;
   try {
-    questions = await detector.parseCustomQuestionsByPart(raw, part);
-  } catch (e: any) {
-    if (errEl) errEl.textContent = 'Lỗi: ' + (e?.message || 'Không thể chuẩn bị câu hỏi.');
-    reset(); return;
-  }
-  if (st.dead) return;
-  if (!questions || !questions.length) {
-    if (errEl) errEl.textContent = 'Không tìm thấy câu hỏi hợp lệ.';
-    reset(); return;
-  }
-  const isCueCard = typeof questions[0] === 'object' && questions[0].type === 'cue_card';
-  const sessionPart = isCueCard ? 2 : part;
-
-  try {
-    const session = await api.post('/sessions', { mode, part: sessionPart, topic: 'Custom questions' });
-    const sid = sessionIdOf(session);
-    if (!sid) throw new Error('Server không trả về session hợp lệ. Hãy thử lại.');
-    await api.post('/sessions/' + sid + '/questions/custom', { questions });
+    const { sessionId: sid } = await getStarter(st, api).start({
+      slot: 'custom', intent: { mode, part, raw },
+      prepare: async () => {
+        const questions = await detector.parseCustomQuestionsByPart(raw, part);
+        if (!questions?.length) throw new Error('Không tìm thấy câu hỏi hợp lệ.');
+        const isCueCard = typeof questions[0] === 'object' && questions[0].type === 'cue_card';
+        return { body: { mode, part: isCueCard ? 2 : part, topic: 'Custom questions' }, questions };
+      },
+    });
+    if (st.dead) return;
     opts.onSuccess?.();
     goToPractice(sid);
   } catch (e: any) {
-    if (errEl) errEl.textContent = 'Lỗi: ' + (e?.message || 'Không thể tạo session.');
+    if (st.dead) return;
+    showStartError(errEl, e, st, 'custom');
     reset();
   }
 }
@@ -413,19 +454,22 @@ async function startFromCustomQuestions(opts: {
 /** Tạo phiên theo CHỦ ĐỀ — dùng chung cho modal, panel Luyện tập và từng Part. */
 async function startFromTopic(opts: {
   topic: string; mode: string; part: number; errorId: string;
-  btn: HTMLButtonElement | null; idleLabel: string; api: any; onSuccess?: () => void;
+  btn: HTMLButtonElement | null; idleLabel: string; api: any; st: State; onSuccess?: () => void;
 }) {
-  const { topic, mode, part, errorId, btn, idleLabel, api } = opts;
+  const { topic, mode, part, errorId, btn, idleLabel, api, st } = opts;
   const errEl = $(errorId);
   if (btn) { btn.disabled = true; btn.textContent = 'Đang tạo session...'; }
   try {
-    const session = await api.post('/sessions', { mode, part, topic });
-    const sid = sessionIdOf(session);
-    if (!sid) throw new Error('Server không trả về session hợp lệ. Hãy thử lại.');
+    const { sessionId: sid } = await getStarter(st, api).start({
+      slot: 'topic', intent: { mode, part, topic: topic.trim() },
+      prepare: async () => ({ body: { mode, part, topic } }),
+    });
+    if (st.dead) return;
     opts.onSuccess?.();
     goToPractice(sid);
   } catch (e: any) {
-    if (errEl) errEl.textContent = 'Lỗi: ' + (e?.message || 'Không thể tạo session.');
+    if (st.dead) return;
+    showStartError(errEl, e, st, 'topic');
     if (btn) { btn.disabled = false; btn.textContent = idleLabel; }
   }
 }
@@ -445,20 +489,25 @@ function selectPbpPart(part: number, st: State, api: any) {
 // ── Component ───────────────────────────────────────────────────────────────
 
 export function SpeakingBehavior() {
-  const { status } = useAuth();
+  const { status, user } = useAuth();
 
   // Cổng fail-closed (ADR-011): rời trang bằng replace() để nút Back không dựng
   // lại trang riêng tư từ lịch sử. Bản legacy tương ứng: `requireAuth()` đẩy về
   // `../login` khi không có phiên.
   useEffect(() => {
-    if (status === 'signed-out') window.location.replace(LOGIN_URL);
-  }, [status]);
+    if (status === 'signed-out') {
+      try { clearSpeakingStartIntents(window.sessionStorage); } catch { /* logout must continue */ }
+      window.location.replace(LOGIN_URL);
+    } else if (status === 'signed-in' && user?.id) {
+      try { clearSpeakingStartIntents(window.sessionStorage, user.id); } catch { /* storage may be unavailable */ }
+    }
+  }, [status, user?.id]);
 
   useEffect(() => {
     const st: State = {
       perms: [...DEFAULT_PERMISSIONS],
       modalPart: 1, modalMode: 'practice', activeTopicTab: 'list',
-      pracPart: 1, pracTopicPart: 1, pbpPart: 1, mainTab: 'dashboard', dead: false,
+      pracPart: 1, pracTopicPart: 1, pbpPart: 1, mainTab: 'dashboard', dead: false, starter: null,
     };
     const cleanups: Array<() => void> = [];
     let runtimeApi: any | null = null;
@@ -561,7 +610,7 @@ export function SpeakingBehavior() {
       }
       return startFromTopic({
         topic, mode: 'practice', part: st.pracTopicPart, errorId: 'prac-topic-error',
-        btn, idleLabel, api,
+        btn, idleLabel, api, st,
       });
     });
 
@@ -651,7 +700,7 @@ export function SpeakingBehavior() {
         }
         await startFromTopic({
           topic, mode: st.modalMode, part: st.modalPart, errorId: 'modal-error',
-          btn, idleLabel: '🚀 Bắt đầu tạo câu hỏi', api, onSuccess: closeTopicModal,
+          btn, idleLabel: '🚀 Bắt đầu tạo câu hỏi', api, st, onSuccess: closeTopicModal,
         });
       });
 
@@ -676,7 +725,7 @@ export function SpeakingBehavior() {
         }
         return startFromTopic({
           topic, mode: 'test_part', part: st.pbpPart, errorId: 'pbp-error',
-          btn: e.currentTarget, idleLabel: '🚀 Bắt đầu luyện tập', api,
+          btn: e.currentTarget, idleLabel: '🚀 Bắt đầu luyện tập', api, st,
         });
       });
 
@@ -687,22 +736,25 @@ export function SpeakingBehavior() {
         const btn = e.currentTarget as HTMLButtonElement;
         btn.disabled = true; btn.textContent = 'Đang chuẩn bị...';
         try {
-          const t1 = val('ft-p1-topic-1').trim() || await randomTopic(1, api);
-          const t2 = val('ft-p1-topic-2').trim() || await randomTopic(1, api);
-          const t3 = val('ft-p1-topic-3').trim() || await randomTopic(1, api);
-          const p2Topic = val('ft-p2-topic').trim() || await randomTopic(2, api);
+          const selected = [val('ft-p1-topic-1').trim(), val('ft-p1-topic-2').trim(), val('ft-p1-topic-3').trim(), val('ft-p2-topic').trim()];
+          const { sessionId: sid, nextPartTopic: p2Topic } = await getStarter(st, api).start({
+            slot: 'full', intent: selected,
+            prepare: async () => {
+              const t1 = selected[0] || await randomTopic(1, api);
+              const t2 = selected[1] || await randomTopic(1, api);
+              const t3 = selected[2] || await randomTopic(1, api);
+              const nextPartTopic = selected[3] || await randomTopic(2, api);
+              return { body: { mode: 'test_full', part: 1, topic: [t1, t2, t3].join('|||') }, nextPartTopic };
+            },
+          });
           if (st.dead) return;
           // practice.js đọc lại khoá này khi nối sang Part 2 — hợp đồng ngầm
           // giữa hai trang (đã ghi ở SPIKE 2).
           try { sessionStorage.setItem('ielts_ft_p2topic', p2Topic); } catch { /* riêng tư/đầy */ }
-          const session = await api.post('/sessions', {
-            mode: 'test_full', part: 1, topic: [t1, t2, t3].join('|||'),
-          });
-          const sid = sessionIdOf(session);
-          if (!sid) throw new Error('Server không trả về session hợp lệ. Hãy thử lại.');
           goToPractice(sid);
         } catch (err: any) {
-          if (errEl) errEl.textContent = 'Lỗi: ' + (err?.message || 'Không thể tạo session.');
+          if (st.dead) return;
+          showStartError(errEl, err, st, 'full');
           btn.disabled = false; btn.textContent = '🏆 Bắt đầu Full Test';
         }
       });
@@ -741,6 +793,7 @@ export function SpeakingBehavior() {
 
     return () => {
       st.dead = true;
+      st.starter?.dispose();
       cleanups.forEach((fn) => fn());
     };
   // Listener wiring is intentionally independent of the asynchronous auth

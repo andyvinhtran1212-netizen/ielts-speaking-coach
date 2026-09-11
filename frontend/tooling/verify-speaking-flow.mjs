@@ -26,7 +26,9 @@ const fakeSession = JSON.stringify({
   token_type: 'bearer',
   expires_in: 3600,
   expires_at: Math.floor(Date.now() / 1000) + 3600,
-  user: { id: '00000000-0000-0000-0000-000000000000', email: 'flow@local' },
+  // Match the real Supabase UUID contract; the durable start controller
+  // deliberately rejects placeholder/non-versioned account ids.
+  user: { id: '00000000-0000-4000-8000-000000000001', email: 'flow@local' },
 });
 
 /** Dữ liệu trả sẵn cho từng endpoint — đủ để trang dựng xong, không hơn. */
@@ -92,7 +94,10 @@ await page.route('**/*', async (route) => {
     sessionPost = JSON.parse(req.postData() || '{}');
     return route.fulfill({
       status: 200, contentType: 'application/json',
-      body: JSON.stringify({ id: 'sess-verify-1' }),
+      // The durable start contract requires the server acknowledgement to
+      // carry the exact client-minted id. A fixed fixture id now correctly
+      // fails closed as an unverified write.
+      body: JSON.stringify({ id: sessionPost.client_session_id }),
     });
   }
   if (req.method() === 'GET' && /\/topics\?part=/.test(url)) topicGets += 1;
@@ -162,11 +167,13 @@ check('request bấm sớm giữ đúng topic và Part đã chọn',
   !!sessionPost && sessionPost.mode === 'practice'
     && sessionPost.part === 2 && sessionPost.topic === earlyTopic,
   JSON.stringify(sessionPost));
-const expectedPracticeUrl = new URL(resolveCorePlayerAdmission('speaking', {
-  session_id: 'sess-verify-1',
-}), BASE).href;
+const earlySessionId = sessionPost?.client_session_id;
+const expectedPracticeUrl = earlySessionId
+  ? new URL(resolveCorePlayerAdmission('speaking', { session_id: earlySessionId }), BASE).href
+  : null;
 check('bấm sớm hợp lệ vẫn điều hướng sau khi API sẵn sàng',
-  page.url() === expectedPracticeUrl, page.url());
+  expectedPracticeUrl !== null && page.url() === expectedPracticeUrl,
+  `${page.url()}${sessionPost ? '' : `; ${await page.locator('#prac-topic-error').textContent()}`}`);
 
 // Trở lại dashboard với API đã sẵn sàng để kiểm đường thao tác thông thường.
 sessionPost = null;
@@ -214,8 +221,13 @@ check('thân request mang đúng state của trang',
   !!sessionPost && sessionPost.mode === 'practice'
     && sessionPost.part === 2 && sessionPost.topic === topic,
   JSON.stringify(sessionPost));
+const secondSessionId = sessionPost?.client_session_id;
+const expectedSecondPracticeUrl = secondSessionId
+  ? new URL(resolveCorePlayerAdmission('speaking', { session_id: secondSessionId }), BASE).href
+  : null;
 check('điều hướng sang trang luyện tập kèm session_id',
-  page.url() === expectedPracticeUrl, page.url());
+  expectedSecondPracticeUrl !== null && page.url() === expectedSecondPracticeUrl,
+  `${page.url()}${sessionPost ? '' : `; ${await page.locator('#prac-topic-error').textContent()}`}`);
 
 // ── 5. Modal chủ đề ─────────────────────────────────────────────────────────
 await page.goto(BASE + ROUTE, { waitUntil: 'domcontentloaded' });

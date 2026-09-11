@@ -38,6 +38,8 @@ from routers.grading import router as grading_router
 from routers.tts import router as tts_router
 from routers.export import router as export_router
 from routers.admin import router as admin_router
+from routers.admin_core_attempt_evidence import router as admin_core_attempt_evidence_router
+from services.core_operation_correlation import HEADER_NAME as CORE_OPERATION_HEADER, operation_hint_scope
 from routers.cohorts import router as cohorts_router
 from routers.admin_courses import router as admin_courses_router
 from routers.admin_class_lessons import router as admin_class_lessons_router
@@ -154,7 +156,7 @@ _CORS_METHODS = ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
 # X-Reading-Anon (reading lock + share-link flows) and X-Request-ID
 # (error-reporter). They MUST stay allowed or those flows' CORS preflight breaks.
 _CORS_HEADERS = ["Authorization", "Content-Type",
-                 "X-Reading-Password", "X-Reading-Anon", "X-Request-ID"]
+                 "X-Reading-Password", "X-Reading-Anon", "X-Request-ID", CORE_OPERATION_HEADER]
 
 
 def _cors_headers_for_origin(origin: str | None) -> dict:
@@ -237,6 +239,7 @@ app.include_router(tts_router)
 # system deps (fonts-dejavu-core via nixpacks.toml). Works on Railway.
 app.include_router(export_router)
 app.include_router(admin_router)
+app.include_router(admin_core_attempt_evidence_router)
 app.include_router(cohorts_router)
 app.include_router(admin_courses_router)
 app.include_router(admin_class_lessons_router)
@@ -389,7 +392,8 @@ async def request_id_middleware(request: Request, call_next):
     import uuid as _uuid
     request_id = request.headers.get("x-request-id") or str(_uuid.uuid4())
     request.state.request_id = request_id
-    response = await call_next(request)
+    with operation_hint_scope(request.headers.getlist(CORE_OPERATION_HEADER)):
+        response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
     return response
 

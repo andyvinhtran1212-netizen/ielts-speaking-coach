@@ -59,6 +59,8 @@ from pydantic import BaseModel, Field
 from database import supabase_admin
 from routers.admin import require_instructor, _gen_code
 from services import essay_service, instructor_workflow
+from services.core_attempt_outcomes import observe_writing_batch
+from services.core_writing_observation import note_writing_mutation, observe_writing_partial_failure
 from services.instructor_access import (
     instructor_db,
     instructor_fan_out,
@@ -340,6 +342,7 @@ class ComposeBody(BaseModel):
 
 
 @router.post("/essays/{essay_id}/compose", status_code=status.HTTP_201_CREATED)
+@observe_writing_partial_failure
 async def compose_essay_version(request: Request, essay_id: UUID, body: ComposeBody,
                                 authorization: str | None = Header(None)):
     """F2 mix ($0, NO AI): assemble a composed version from per-criterion picks.
@@ -355,6 +358,7 @@ async def compose_essay_version(request: Request, essay_id: UUID, body: ComposeB
     }
     version = essay_service.compose_version(
         str(essay_id), base_version=body.base_version, picks=picks, mixed_by=str(me))
+    await observe_writing_batch([str(essay_id)])
     return {"essay_id": str(essay_id), "version": version, "source": "composed"}
 
 
@@ -460,11 +464,12 @@ async def export_docx(request: Request, essay_id: UUID, authorization: str | Non
 
 
 @router.post("/essays/{essay_id}/regrade", status_code=status.HTTP_202_ACCEPTED)
+@observe_writing_partial_failure
 async def regrade_essay(request: Request, essay_id: UUID, background_tasks: BackgroundTasks,
                         body: RegradeBody = RegradeBody(),
                         authorization: str | None = Header(None)):
-    """Re-run AI grading on an OWNED essay (Bucket C). Clears AI feedback +
-    admin_edits_json (new AI grade supersedes); instructor_note (teacher-comment)
+    """Re-run AI grading on an OWNED essay (Bucket C). Retains prior feedback
+    versions until the worker advances current_version; instructor_note (teacher-comment)
     is PRESERVED (survives regrade by design). analysis_level lever kept."""
     me = await _me(authorization, request)
     assert_essay_owned(me, essay_id)
@@ -497,6 +502,7 @@ async def regrade_essay(request: Request, essay_id: UUID, background_tasks: Back
         "regrade_count": new_count, "last_regraded_at": _now_iso(), "last_regraded_by": me,
         "is_manually_edited": False,   # admin_edits_json DEAD post-GV-1c (not written)
     }).eq("id", str(essay_id)).execute()   # instructor_note NOT cleared (preserved)
+    note_writing_mutation(str(essay_id))
     job_info = essay_service.schedule_grading_job(
         essay_id=str(essay_id), analysis_level=effective_level,
         selected_model=essay.get("selected_model") or "gemini-2.5-pro",
@@ -510,11 +516,13 @@ async def regrade_essay(request: Request, essay_id: UUID, background_tasks: Back
     # status was read before the 'grading' write) — don't strand the prior version.
     background_tasks.add_task(essay_service._bg_grade_essay, str(essay_id), job_info["job_id"],
                               restore_status_on_fail=essay.get("status"))
+    await observe_writing_batch([str(essay_id)])
     return {"essay_id": str(essay_id), "status": "grading",
             "analysis_level": effective_level, "eta_seconds": job_info.get("eta_seconds")}
 
 
 @router.post("/essays/{essay_id}/revoke-delivery")
+@observe_writing_partial_failure
 async def revoke_delivery(request: Request, essay_id: UUID, authorization: str | None = Header(None)):
     """Pull an OWNED delivered essay back to 'reviewed' (Bucket C). No AI re-run,
     feedback + teacher-comment preserved; student stops seeing it. delivered→reviewed
@@ -532,7 +540,9 @@ async def revoke_delivery(request: Request, essay_id: UUID, authorization: str |
     ).eq("id", str(essay_id)).execute()
     # Fix-1 (D2) — bring the review row back into the active queue so the
     # essay can be re-delivered (delivered→claimed; no-op if no review row).
+    note_writing_mutation(str(essay_id))
     instructor_workflow.sync_revoke_review(essay_id)
+    await observe_writing_batch([str(essay_id)])
     return {"essay_id": str(essay_id), "status": "reviewed",
             "message": "Đã thu hồi bài. Feedback giữ nguyên; học viên không còn thấy bài."}
 
@@ -707,6 +717,7 @@ async def release_review(request: Request, review_id: UUID, authorization: str |
 
 
 @router.post("/reviews/{review_id}/deliver")
+@observe_writing_partial_failure
 async def deliver_review(request: Request, review_id: UUID, body: InstructorDeliverBody,
                          authorization: str | None = Header(None)):
     me = await _me(authorization, request)
@@ -714,7 +725,7 @@ async def deliver_review(request: Request, review_id: UUID, body: InstructorDeli
     # prevents a stale/mixed URL from delivering review B while rendering essay A.
     assert_essay_owned(me, body.essay_id)
     try:
-        return instructor_workflow.deliver(
+        result = instructor_workflow.deliver(
             review_id,
             me,
             instructor_note=body.instructor_note,
@@ -724,3 +735,5 @@ async def deliver_review(request: Request, review_id: UUID, body: InstructorDeli
         raise HTTPException(404, "Không tìm thấy.")
     except ConflictError as e:
         raise HTTPException(409, str(e))
+    await observe_writing_batch([str(body.essay_id)])
+    return result

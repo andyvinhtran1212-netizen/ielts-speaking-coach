@@ -23,6 +23,10 @@ const codeOnly = (s) => s
   .replace(/\/\*[\s\S]*?\*\//g, '')
   .replace(/\/\/[^\n]*/g, '');
 const CODE = codeOnly(JS);
+const completionStart = JS.indexOf('  function _getNativeSubmission() {');
+const completionEnd = JS.indexOf('  function _normalizeSubmissionResult(', completionStart);
+assert.ok(completionStart !== -1 && completionEnd > completionStart, 'completion adapter not found');
+const COMPLETION = JS.slice(completionStart, completionEnd);
 
 /** Chạy THẬT _renderSheet với DOM giả. */
 function render(slots, session) {
@@ -177,6 +181,7 @@ describe('nút nộp', () => {
       '_singleSessionResultUrl', '_navigateTo', `
       var _sheetSubmitting = false;
       var _playerGeneration = 1, _playerActive = true, _sessionId = 'session-1';
+      ${COMPLETION}
       ${JS.slice(start, end)}
       return _sheetSubmit;
     `);
@@ -208,6 +213,7 @@ describe('nút nộp', () => {
       '_singleSessionResultUrl', '_navigateTo', `
       var _sheetSubmitting = false;
       var _playerGeneration = 1, _playerActive = true, _sessionId = 'session-1';
+      ${COMPLETION}
       ${JS.slice(start, end)}
       return _sheetSubmit;
     `);

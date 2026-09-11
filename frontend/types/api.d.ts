@@ -1549,6 +1549,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/core-attempt-evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Aggregate Core Observations
+         * @description Historical receipt cohort only: counts overlap, eligibility stays unknown.
+         */
+        get: operations["aggregate_core_observations_admin_core_attempt_evidence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/core-attempt-evidence/{surface}/{canonical_attempt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Inspect Core Attempt
+         * @description Receipt counts are not attempt counts. Current readback is independent.
+         *
+         *     Speaking requires an explicit session/full-test namespace. Unknown coverage
+         *     stays unknown even with a successful canonical result and capture enabled.
+         */
+        get: operations["inspect_core_attempt_admin_core_attempt_evidence__surface___canonical_attempt_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/cohorts": {
         parameters: {
             query?: never;
@@ -3035,10 +3078,9 @@ export interface paths {
          *     Workflow:
          *       1. Verify essay exists, is_flagged=False, status in (graded, reviewed,
          *          delivered, failed). pending/grading rejected — already in flight.
-         *       2. DELETE the existing writing_feedback row (UNIQUE constraint on
-         *          essay_id means the BG grader's INSERT would otherwise raise).
-         *       3. Clear admin_edits_json + is_manually_edited (the new AI grade
-         *          supersedes any prior manual edits — Andy must re-review).
+         *       2. Preserve the current feedback and version chain (up to the live
+         *          version budget); the worker advances current_version on success.
+         *       3. Clear is_manually_edited (the new AI grade needs another review).
          *          instructor_note is NOT cleared — Andy's personal feedback
          *          survives regrades on purpose (it's about the student, not the
          *          grade).
@@ -3995,8 +4037,8 @@ export interface paths {
         put?: never;
         /**
          * Regrade Essay
-         * @description Re-run AI grading on an OWNED essay (Bucket C). Clears AI feedback +
-         *     admin_edits_json (new AI grade supersedes); instructor_note (teacher-comment)
+         * @description Re-run AI grading on an OWNED essay (Bucket C). Retains prior feedback
+         *     versions until the worker advances current_version; instructor_note (teacher-comment)
          *     is PRESERVED (survives regrade by design). analysis_level lever kept.
          */
         post: operations["regrade_essay_instructor_essays__essay_id__regrade_post"];
@@ -4594,6 +4636,149 @@ export interface paths {
          *     whether the form should still accept input at all.
          */
         get: operations["get_timer_state_api_writing_my_assignments__assignment_id__timer_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/writing/my-assignments/{assignment_id}/entry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Writing Entry
+         * @description Owned classification hint; reading cannot start or enroll an assignment.
+         */
+        get: operations["get_my_writing_entry_api_writing_my_assignments__assignment_id__entry_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/writing/my-assignments/{assignment_id}/baseline-entry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enter My Writing Baseline
+         * @description Revalidate baseline under locks; never adopt it into an eligible episode.
+         */
+        post: operations["enter_my_writing_baseline_api_writing_my_assignments__assignment_id__baseline_entry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/writing/my-assignments/{assignment_id}/admission-intents/{launch_nonce}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find My Writing Admission
+         * @description Read an owned command by the original nonce, without preparing/executing.
+         */
+        get: operations["find_my_writing_admission_api_writing_my_assignments__assignment_id__admission_intents__launch_nonce__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/writing/my-assignments/{assignment_id}/admissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prepare My Writing Admission
+         * @description Validate owned prospective work before recording a start/resume command.
+         *
+         *     Reusing the nonce recovers the durable command, never a fresh timer. The
+         *     existing JWT→student→Writing-entitlement dependency authenticates each call.
+         */
+        post: operations["prepare_my_writing_admission_api_writing_my_assignments__assignment_id__admissions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/writing/my-assignments/{assignment_id}/admissions/{command_id}/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Execute My Writing Admission
+         * @description Execute an owned prepared command; never mints one or falls back to /start.
+         *
+         *     Auth is the existing JWT→student→Writing-entitlement dependency. Preparation
+         *     uses the separately validated prospective source path above.
+         */
+        post: operations["execute_my_writing_admission_api_writing_my_assignments__assignment_id__admissions__command_id__execute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/writing/my-assignments/{assignment_id}/admissions/{command_id}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reconcile My Writing Admission
+         * @description Owned bounded recovery; no client clock/policy or new start is accepted.
+         */
+        post: operations["reconcile_my_writing_admission_api_writing_my_assignments__assignment_id__admissions__command_id__reconcile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/writing/my-assignments/{assignment_id}/admissions/{command_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get My Writing Admission */
+        get: operations["get_my_writing_admission_api_writing_my_assignments__assignment_id__admissions__command_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11382,6 +11567,68 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** AttemptInspection */
+        AttemptInspection: {
+            /**
+             * Contract
+             * @default core-attempt-inspection-v1
+             * @constant
+             */
+            contract: "core-attempt-inspection-v1";
+            /**
+             * Surface
+             * @enum {string}
+             */
+            surface: "speaking" | "reading_exam" | "listening_test" | "listening_dictation" | "writing_assignment";
+            /**
+             * Attempt Kind
+             * @enum {string}
+             */
+            attempt_kind: "default" | "speaking_session" | "speaking_full_test";
+            /**
+             * Canonical Attempt Id
+             * Format: uuid
+             */
+            canonical_attempt_id: string;
+            /**
+             * Read Started At
+             * Format: date-time
+             */
+            read_started_at: string;
+            /**
+             * Read Finished At
+             * Format: date-time
+             */
+            read_finished_at: string;
+            history: components["schemas"]["HistoryRead"];
+            canonical: components["schemas"]["CanonicalRead"];
+            /** Capture Enabled On This Instance */
+            capture_enabled_on_this_instance: boolean;
+            /**
+             * Coverage
+             * @default unknown
+             * @constant
+             */
+            coverage: "unknown";
+            /**
+             * Eligibility
+             * @default not_assessed
+             * @constant
+             */
+            eligibility: "not_assessed";
+            /**
+             * Gate F
+             * @default not_assessed
+             * @constant
+             */
+            gate_f: "not_assessed";
+            /**
+             * Snapshot Scope
+             * @default history_and_canonical_separate
+             * @constant
+             */
+            snapshot_scope: "history_and_canonical_separate";
+        };
         /** AttemptRequest */
         AttemptRequest: {
             /**
@@ -11733,6 +11980,26 @@ export interface components {
             /** Topic Ids */
             topic_ids: string[];
         };
+        /** CanonicalRead */
+        CanonicalRead: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "read" | "not_found" | "unavailable";
+            /**
+             * Outcome
+             * @default unknown
+             * @enum {string}
+             */
+            outcome: "pending" | "success" | "failed" | "abandoned" | "unknown";
+            /** Reason */
+            reason: string;
+            /** Renderer */
+            renderer?: ("legacy" | "next") | null;
+            /** Flags */
+            flags?: "writing_grading_without_active_job"[];
+        };
         /** ClaimRendererAffinityBody */
         ClaimRendererAffinityBody: {
             /**
@@ -11783,6 +12050,36 @@ export interface components {
         CohortsBody: {
             /** Cohort Ids */
             cohort_ids?: string[];
+        };
+        /** CommandStatus */
+        CommandStatus: {
+            /**
+             * Command Id
+             * Format: uuid
+             */
+            command_id: string;
+            /**
+             * Episode Id
+             * Format: uuid
+             */
+            episode_id: string;
+            /**
+             * Activity Epoch Id
+             * Format: uuid
+             */
+            activity_epoch_id: string;
+            /**
+             * Phase
+             * @enum {string}
+             */
+            phase: "accepted" | "bound" | "unstarted_expired";
+            /** Generation */
+            generation: number;
+            /**
+             * Execute Before
+             * Format: date-time
+             */
+            execute_before: string;
         };
         /**
          * ComposeBody
@@ -12666,6 +12963,69 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HistoryRead */
+        HistoryRead: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "observed" | "not_observed" | "unavailable";
+            summary?: components["schemas"]["HistorySummary"] | null;
+        };
+        /** HistorySummary */
+        HistorySummary: {
+            /** Start Observed */
+            start_observed: boolean;
+            /**
+             * First Registered At
+             * Format: date-time
+             */
+            first_registered_at: string;
+            /**
+             * Receipts
+             * @description Stored event receipts, not learner attempts or logical operations.
+             */
+            receipts: number;
+            /** First Receipt At */
+            first_receipt_at: string | null;
+            /** Last Receipt At */
+            last_receipt_at: string | null;
+            /** Started */
+            started: number;
+            /** Operation Succeeded */
+            operation_succeeded: number;
+            /** Operation Failed */
+            operation_failed: number;
+            /** Outcome Observed */
+            outcome_observed: number;
+            /** Pending */
+            pending: number;
+            /** Success */
+            success: number;
+            /** Failed */
+            failed: number;
+            /** Abandoned */
+            abandoned: number;
+            /** Unknown */
+            unknown: number;
+            /** Renderer Next */
+            renderer_next: number;
+            /** Renderer Legacy */
+            renderer_legacy: number;
+            /** Renderer Unknown */
+            renderer_unknown: number;
+            /** Traffic Organic */
+            traffic_organic: number;
+            /** Traffic Synthetic */
+            traffic_synthetic: number;
+            /** Traffic Unknown */
+            traffic_unknown: number;
+            /** Release Unknown */
+            release_unknown: number;
+            /** Distinct Known Releases */
+            distinct_known_releases: number;
+            operation_correlation?: components["schemas"]["OperationCorrelationSummary"] | null;
+        };
         /** InstructorDeliverBody */
         InstructorDeliverBody: {
             /**
@@ -13095,10 +13455,168 @@ export interface components {
             /** Answers */
             answers?: components["schemas"]["MicrocheckAnswer"][];
         };
+        /** ObservationCounts */
+        ObservationCounts: {
+            /**
+             * Surface
+             * @enum {string}
+             */
+            surface: "speaking" | "reading_exam" | "listening_test" | "listening_dictation" | "writing_assignment";
+            /**
+             * Attempt Kind
+             * @enum {string}
+             */
+            attempt_kind: "default" | "speaking_session" | "speaking_full_test";
+            /** Canonical Attempts */
+            canonical_attempts: number;
+            /** Start Known At Registration */
+            start_known_at_registration: number;
+            /** Start Unknown At Registration */
+            start_unknown_at_registration: number;
+            /** Without Outcome Attempts */
+            without_outcome_attempts: number;
+            /** Mixed Outcome Attempts */
+            mixed_outcome_attempts: number;
+            /** Attempts With Pending */
+            attempts_with_pending: number;
+            /** Attempts With Success */
+            attempts_with_success: number;
+            /** Attempts With Failed */
+            attempts_with_failed: number;
+            /** Attempts With Abandoned */
+            attempts_with_abandoned: number;
+            /** Attempts With Unknown */
+            attempts_with_unknown: number;
+            /** Receipts */
+            receipts: number;
+            /** Bound Attempt Operations */
+            bound_attempt_operations: number;
+            /** Unbound Start Failure Operations */
+            unbound_start_failure_operations: number;
+            /** Server Observation Operations */
+            server_observation_operations: number;
+            /** Renderer Next Receipts */
+            renderer_next_receipts: number;
+            /** Renderer Legacy Receipts */
+            renderer_legacy_receipts: number;
+            /** Renderer Unknown Receipts */
+            renderer_unknown_receipts: number;
+            /** Organic Receipts */
+            organic_receipts: number;
+            /** Synthetic Receipts */
+            synthetic_receipts: number;
+            /** Traffic Unknown Receipts */
+            traffic_unknown_receipts: number;
+            /** Release Known Receipts */
+            release_known_receipts: number;
+            /** Release Unknown Receipts */
+            release_unknown_receipts: number;
+        };
+        /** ObservationHTTPError */
+        ObservationHTTPError: {
+            /** Detail */
+            detail: string;
+        };
+        /** ObservationReport */
+        ObservationReport: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "available" | "unavailable";
+            summary?: components["schemas"]["ObservationSnapshot"] | null;
+            /** Unavailable Reason */
+            unavailable_reason?: ("timeout" | "transport_error" | "permission_denied" | "window_rejected" | "schema_unavailable" | "query_cancelled" | "window_too_large" | "contract_mismatch" | "unavailable") | null;
+            /**
+             * Requested Window Start
+             * Format: date-time
+             */
+            requested_window_start: string;
+            /** Requested Window End */
+            requested_window_end: string | null;
+            /**
+             * Read Started At
+             * Format: date-time
+             */
+            read_started_at: string;
+            /**
+             * Read Finished At
+             * Format: date-time
+             */
+            read_finished_at: string;
+            /** Capture Enabled On This Instance */
+            capture_enabled_on_this_instance: boolean;
+            /** Eligible Attempt Denominator */
+            eligible_attempt_denominator?: null;
+            /**
+             * Coverage
+             * @default unknown
+             * @constant
+             */
+            coverage: "unknown";
+            /**
+             * Eligibility
+             * @default not_assessed
+             * @constant
+             */
+            eligibility: "not_assessed";
+            /**
+             * Gate F
+             * @default not_assessed
+             * @constant
+             */
+            gate_f: "not_assessed";
+            /** Missing Evidence */
+            readonly missing_evidence: string[];
+        };
+        /** ObservationSnapshot */
+        ObservationSnapshot: {
+            /**
+             * Contract
+             * @constant
+             */
+            contract: "core-attempt-observations-v1";
+            /**
+             * Window Start
+             * Format: date-time
+             */
+            window_start: string;
+            /**
+             * Window End
+             * Format: date-time
+             */
+            window_end: string;
+            /**
+             * Snapshot Scope
+             * @constant
+             */
+            snapshot_scope: "single_receipt_snapshot";
+            /** Rows */
+            rows: components["schemas"]["ObservationCounts"][];
+        };
         /** OpenBody */
         OpenBody: {
             /** Is Open */
             is_open: boolean;
+        };
+        /** OperationCorrelationSummary */
+        OperationCorrelationSummary: {
+            /**
+             * Observed Operations
+             * @description Distinct server observation IDs/operations in stored receipts, including background observations; not all HTTP requests.
+             */
+            observed_operations: number;
+            /** Correlated Operations */
+            correlated_operations: number;
+            /** Uncorrelated Operations */
+            uncorrelated_operations: number;
+            /**
+             * Client Input Groups
+             * @description Groups by operation, client hint and server fingerprint; not learner attempts or certified logical-intent volume.
+             */
+            client_input_groups: number;
+            /** Client Ids With Multiple Fingerprints */
+            client_ids_with_multiple_fingerprints: number;
         };
         /**
          * PasteLog
@@ -14013,6 +14531,77 @@ export interface components {
              */
             reason: string;
         };
+        /** WritingAdmissionExecute */
+        WritingAdmissionExecute: {
+            /**
+             * Protocol
+             * @constant
+             */
+            protocol: "admission-v1";
+            /** Generation */
+            generation: number;
+        };
+        /** WritingAdmissionLookupResponse */
+        WritingAdmissionLookupResponse: {
+            /** Found */
+            found: boolean;
+            admission: components["schemas"]["WritingAdmissionResponse"] | null;
+        };
+        /** WritingAdmissionPrepare */
+        WritingAdmissionPrepare: {
+            /**
+             * Protocol
+             * @constant
+             */
+            protocol: "admission-v1";
+            /**
+             * Launch Nonce
+             * Format: uuid
+             */
+            launch_nonce: string;
+        };
+        /** WritingAdmissionReconcile */
+        WritingAdmissionReconcile: {
+            /**
+             * Protocol
+             * @constant
+             */
+            protocol: "admission-v1";
+        };
+        /** WritingAdmissionResponse */
+        WritingAdmissionResponse: {
+            command: components["schemas"]["CommandStatus"];
+            /**
+             * Assignment Id
+             * Format: uuid
+             */
+            assignment_id: string;
+            /** Started */
+            started: boolean;
+            timer: components["schemas"]["WritingAdmissionTimer"];
+        };
+        /** WritingAdmissionTimer */
+        WritingAdmissionTimer: {
+            /** Is Timed */
+            is_timed: boolean;
+            /** Time Limit Minutes */
+            time_limit_minutes: number | null;
+            /** Started At */
+            started_at: string | null;
+            /** Expires At */
+            expires_at: string | null;
+            /** Time Remaining Seconds */
+            time_remaining_seconds: number | null;
+            /** Is Expired */
+            is_expired: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "in_progress" | "submitted" | "graded" | "delivered";
+            /** Auto Submitted */
+            auto_submitted: boolean;
+        };
         /** WritingAssignmentRendererAffinityRequest */
         WritingAssignmentRendererAffinityRequest: {
             /**
@@ -14034,6 +14623,24 @@ export interface components {
              */
             renderer_affinity: "legacy" | "next";
         };
+        /** WritingBaselineEnter */
+        WritingBaselineEnter: {
+            /**
+             * Protocol
+             * @constant
+             */
+            protocol: "baseline-v1";
+            /**
+             * Launch Nonce
+             * Format: uuid
+             */
+            launch_nonce: string;
+            /**
+             * Allow Start
+             * @default false
+             */
+            allow_start: boolean;
+        };
         /** WritingBody */
         WritingBody: {
             /**
@@ -14046,6 +14653,22 @@ export interface components {
              * @default
              */
             task2_text: string;
+        };
+        /** WritingEntryResponse */
+        WritingEntryResponse: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "eligible" | "admitted" | "baseline_untracked" | "baseline_unclaimed" | "terminal" | "blocked";
+            /**
+             * Assignment Id
+             * Format: uuid
+             */
+            assignment_id: string;
+            /** Started */
+            started: boolean;
+            timer: components["schemas"]["WritingAdmissionTimer"];
         };
         /** _AnswerPatchItem */
         _AnswerPatchItem: {
@@ -16995,6 +17618,113 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    aggregate_core_observations_admin_core_attempt_evidence_get: {
+        parameters: {
+            query: {
+                window_start: string;
+                /** @description Exclusive receipt cutoff; omitted uses database statement time, not the app clock. */
+                window_end?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservationReport"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservationHTTPError"];
+                };
+            };
+            /** @description Admin access required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservationHTTPError"];
+                };
+            };
+            /** @description Invalid request or rejected/oversized receipt window */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservationReport"] | components["schemas"]["ObservationHTTPError"];
+                };
+            };
+            /** @description Admin verification failed */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservationHTTPError"];
+                };
+            };
+            /** @description Evidence read or admin verification unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObservationReport"] | components["schemas"]["ObservationHTTPError"];
+                };
+            };
+        };
+    };
+    inspect_core_attempt_admin_core_attempt_evidence__surface___canonical_attempt_id__get: {
+        parameters: {
+            query?: {
+                attempt_kind?: "default" | "speaking_session" | "speaking_full_test";
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                surface: "speaking" | "reading_exam" | "listening_test" | "listening_dictation" | "writing_assignment";
+                canonical_attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttemptInspection"];
                 };
             };
             /** @description Validation Error */
@@ -22256,6 +22986,257 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_writing_entry_api_writing_my_assignments__assignment_id__entry_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WritingEntryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enter_my_writing_baseline_api_writing_my_assignments__assignment_id__baseline_entry_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WritingBaselineEnter"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WritingEntryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    find_my_writing_admission_api_writing_my_assignments__assignment_id__admission_intents__launch_nonce__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                assignment_id: string;
+                launch_nonce: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WritingAdmissionLookupResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prepare_my_writing_admission_api_writing_my_assignments__assignment_id__admissions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WritingAdmissionPrepare"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WritingAdmissionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    execute_my_writing_admission_api_writing_my_assignments__assignment_id__admissions__command_id__execute_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                assignment_id: string;
+                command_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WritingAdmissionExecute"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WritingAdmissionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reconcile_my_writing_admission_api_writing_my_assignments__assignment_id__admissions__command_id__reconcile_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                assignment_id: string;
+                command_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WritingAdmissionReconcile"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WritingAdmissionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_writing_admission_api_writing_my_assignments__assignment_id__admissions__command_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                assignment_id: string;
+                command_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WritingAdmissionResponse"];
                 };
             };
             /** @description Validation Error */

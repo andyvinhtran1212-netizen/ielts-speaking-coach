@@ -34,6 +34,8 @@
 import { useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { coreOperationHeaders, coreOperationRequest } from '@/lib/core-operation-intent.mjs';
+import { createWritingAdmissionController, clearWritingAdmissionIntents, shouldUseWritingAdmission } from '@/lib/writing-admission.mjs';
 import { admitCorePlayer, corePlayerUrl } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -46,6 +48,9 @@ type ModalState = {
   allowSoftCheck: boolean;
   returnFocus: HTMLElement | null;
   dead: boolean;
+  openGeneration: number;
+  workspaceReady: boolean;
+  admission: ReturnType<typeof createWritingAdmissionController> | null;
 };
 
 type PageState = {
@@ -86,6 +91,9 @@ const modalState: ModalState = {
   allowSoftCheck: false,
   returnFocus: null,
   dead: false,
+  openGeneration: 0,
+  workspaceReady: false,
+  admission: null,
 };
 
 const pageState: PageState = {
@@ -913,6 +921,25 @@ function renderAssignments(assignments: any[]) {
         const card = btn.closest('.assignment-card');
         if (!card) return;
         const assignmentId = card.getAttribute('data-assignment-id');
+        if (assignmentId && modalState.accountId) {
+          try {
+            if (shouldUseWritingAdmission({
+              enabled: (window as any).__AVER_RUNTIME_CONFIG__?.writingAdmissionEnabled === true,
+              getStorage: () => window.sessionStorage, accountId: modalState.accountId, assignmentId,
+            })) {
+              // Explicit click authorizes creating/reusing an intent. Direct
+              // URL loads below only recover an already persisted intent.
+              const address = new URL(window.location.href);
+              address.searchParams.set('assignment_id', assignmentId);
+              window.history.replaceState(null, '', address);
+              void openSubmitModal(assignmentId, window as any, (window as any).api);
+              return;
+            }
+          } catch (error: any) {
+            showSubmissionNotice('warning', error.message);
+            return;
+          }
+        }
         if (assignmentId) window.location.href = writingAssignmentHref(
           assignmentId,
           card.getAttribute('data-renderer-affinity'),
@@ -954,7 +981,10 @@ function scheduleModalAutoSave(ms: ModalState) {
 }
 
 async function saveDraft(ms: ModalState) {
-  if (!ms.assignmentId) return;
+  if (!ms.assignmentId || !ms.workspaceReady || ms.dead) return;
+  const generation = ms.openGeneration;
+  const assignmentId = ms.assignmentId;
+  const isCurrent = () => !ms.dead && ms.workspaceReady && ms.openGeneration === generation && ms.assignmentId === assignmentId;
   const pending = $('modal-save-pending');
   const saved = $('modal-save-status');
   const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
@@ -963,14 +993,18 @@ async function saveDraft(ms: ModalState) {
   if (saved) saved.classList.add('hidden');
 
   try {
-    await (window as any).api.patch(
-      '/api/writing/my-assignments/' + encodeURIComponent(ms.assignmentId) + '/draft',
-      { draft_text: textarea ? textarea.value || '' : '' }
-    );
+    const path = '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/draft';
+    const body = { draft_text: textarea ? textarea.value || '' : '' };
+    await coreOperationRequest({
+      accountId: ms.accountId, method: 'PATCH', path, input: body,
+      acknowledged: (reply: any) => reply?.assignment_id === assignmentId,
+    }, (headers: Record<string, string>) => (window as any).api.patchWith(path, body, headers));
+    if (!isCurrent()) return;
     if (pending) pending.classList.add('hidden');
     if (saved) saved.classList.remove('hidden');
-    setTimeout(() => { if (saved) saved.classList.add('hidden'); }, 2000);
+    setTimeout(() => { if (isCurrent() && saved) saved.classList.add('hidden'); }, 2000);
   } catch (err: any) {
+    if (!isCurrent()) return;
     if (pending) pending.classList.add('hidden');
     const msg = (err && err.message) || 'lỗi khi lưu';
     if (msg.indexOf('Hết giờ') !== -1) {
@@ -1139,7 +1173,7 @@ function hideSpellPanel() {
 }
 
 async function submitFromModal(ms: ModalState, force: boolean) {
-  if (!ms.assignmentId || !ms.accountId) return;
+  if (!ms.assignmentId || !ms.accountId || !ms.workspaceReady || ms.dead) return;
   const assignmentId = ms.assignmentId;
   const accountId = ms.accountId;
   const isCurrent = () => ms.accountId === accountId && ms.assignmentId === assignmentId && !ms.dead;
@@ -1181,9 +1215,10 @@ async function submitFromModal(ms: ModalState, force: boolean) {
   }
 
   try {
-    const raw = await (window as any).api.post(
+    const raw = await (window as any).api.postWith(
       '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/submit',
-      { essay_text: receipt.essayText, request_id: receipt.requestId }
+      { essay_text: receipt.essayText, request_id: receipt.requestId },
+      coreOperationHeaders(receipt.requestId),
     );
     if (!isCurrent()) return;
     const result = helper.normalizeAck(raw, assignmentId);
@@ -1242,6 +1277,10 @@ async function submitFromModal(ms: ModalState, force: boolean) {
 }
 
 function closeModal(ms: ModalState) {
+  ms.openGeneration = (ms.openGeneration || 0) + 1;
+  ms.workspaceReady = false;
+  ms.admission?.dispose();
+  ms.admission = null;
   if (ms.countdownInterval) {
     clearInterval(ms.countdownInterval);
     ms.countdownInterval = null;
@@ -1321,6 +1360,17 @@ function renderModal(data: any, ms: ModalState, freshTimer: any) {
     if (instrEl) instrEl.classList.add('hidden');
   }
 
+  // Populate this assignment BEFORE any expired-timer side effect can submit.
+  // A pending submission receipt takes precedence over an older server draft.
+  const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
+  const pending = (window as any).WritingSubmitReceipt?.read(ms.accountId, ms.assignmentId);
+  if (textarea) {
+    textarea.value = pending ? pending.essayText : (draft.draft_text || '');
+    textarea.dataset.wordTarget = prompt.task_type === 'task2' ? '250' : '150';
+  }
+  ms.workspaceReady = true;
+  updateModalWordCount();
+
   const bannerEl = $('modal-timer');
   const totalEl = $('modal-timer-total');
   const displayEl = $('modal-timer-display') as HTMLElement | null;
@@ -1348,25 +1398,57 @@ function renderModal(data: any, ms: ModalState, freshTimer: any) {
     if (bannerEl) bannerEl.classList.add('hidden');
   }
 
-  const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
-  if (textarea) {
-    textarea.value = (draft && draft.draft_text) || '';
-    textarea.dataset.wordTarget = prompt.task_type === 'task2' ? '250' : '150';
-  }
-  updateModalWordCount();
 }
 
-async function openSubmitModal(assignmentId: string, win: any, api: any) {
+function writingAdmissionController(ms: ModalState, api: any) {
+  if (!ms.admission) {
+    const identity = async () => {
+      const result = await (window as any).getSupabase().auth.getSession();
+      const session = result?.data?.session;
+      if (result?.error || !session?.user?.id || ms.dead || session.user.id !== ms.accountId) {
+        throw new Error('Phiên đăng nhập đã thay đổi.');
+      }
+      return session;
+    };
+    ms.admission = createWritingAdmissionController({
+      getAccountId: async () => (await identity()).user.id,
+      getStorage: () => window.sessionStorage,
+      request: async (method: string, path: string, body: any, accountId: string, signal: AbortSignal) => {
+        const session = await identity();
+        if (session.user.id !== accountId || signal.aborted) throw new Error('Phiên đăng nhập đã thay đổi.');
+        // Use the normal SDK token, pinned to this intent's account even if
+        // api.js awaits a different session during a concurrent auth change.
+        const headers = { Authorization: `Bearer ${session.access_token}` };
+        return method === 'GET'
+          ? api.getWith(path, headers, { signal, noRedirect: true })
+          : api.postWith(path, body, headers, { signal, noRedirect: true });
+      },
+    });
+  }
+  return ms.admission;
+}
+
+async function openSubmitModal(assignmentId: string, win: any, api: any, allowCreateAdmission = true) {
   // GHI VÀO thực thể dùng chung, không tạo cái mới: mọi listener (Lưu, Nộp, tự
   // lưu, dán) đã đóng gói đúng object này từ lúc mount.
   const ms = modalState;
+  if (ms.assignmentId !== assignmentId) {
+    ms.admission?.dispose();
+    ms.admission = null;
+  }
   ms.returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   ms.assignmentId = assignmentId;
+  ms.workspaceReady = false;
+  // The same modal is reused for inline card entry. Hidden text from a previous
+  // assignment is not a draft for this one; persistent receipts remain intact.
+  const staleTextarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
+  if (staleTextarea) staleTextarea.value = '';
   ms.allowSoftCheck = false;
   ms.dead = false;
   const accountId = ms.accountId;
   if (!accountId) return;
-  const isCurrent = () => ms.accountId === accountId && ms.assignmentId === assignmentId && !ms.dead;
+  const openGeneration = ++ms.openGeneration;
+  const isCurrent = () => ms.accountId === accountId && ms.assignmentId === assignmentId && !ms.dead && ms.openGeneration === openGeneration;
 
   const modal = $('submit-modal');
   if (modal) modal.classList.remove('hidden');
@@ -1389,6 +1471,10 @@ async function openSubmitModal(assignmentId: string, win: any, api: any) {
         return;
       }
     }
+    const admission = shouldUseWritingAdmission({
+      enabled: win.__AVER_RUNTIME_CONFIG__?.writingAdmissionEnabled === true,
+      getStorage: () => window.sessionStorage, accountId, assignmentId,
+    });
     const claim = await api.post(
       '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/renderer-affinity',
       { renderer_affinity: 'next' },
@@ -1396,15 +1482,27 @@ async function openSubmitModal(assignmentId: string, win: any, api: any) {
     if (!isCurrent()) return;
     const affinity = claim && claim.renderer_affinity;
     if (affinity !== 'next') {
+      if (admission) {
+        throw Object.assign(new Error('Phiên làm bài không thuộc trình soạn hiện tại. Mã yêu cầu được giữ; chưa chuyển sang cách bắt đầu khác.'), { writingAdmission: true });
+      }
       if (affinity !== 'legacy') throw new Error('Phiên làm bài không có renderer hợp lệ.');
       window.location.replace(writingAssignmentHref(assignmentId, affinity));
       return;
     }
-    const startResult = await api.post(
-      '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/start',
-      {}
-    );
+    const startPath = '/api/writing/my-assignments/' + encodeURIComponent(assignmentId) + '/start';
+    const startResult = admission
+      ? await writingAdmissionController(ms, api).enter(accountId, assignmentId, { allowCreate: allowCreateAdmission })
+      : await coreOperationRequest({
+        accountId, method: 'POST', path: startPath, input: {},
+        acknowledged: (reply: any) => reply?.started === true && !!reply?.timer,
+      }, (headers: Record<string, string>) => api.postWith(startPath, {}, headers));
     if (!isCurrent()) return;
+    if (admission && ['submitted', 'graded', 'delivered'].includes(startResult?.timer?.status)) {
+      showSubmissionNotice('success', 'Bài đã được nộp. Danh sách đã được đồng bộ lại; không mở lại trình soạn bài.');
+      closeModal(ms);
+      await Promise.all([loadAssignments(api), loadEssays(api)]);
+      return;
+    }
     const data = await api.get(
       '/api/writing/my-assignments/' + encodeURIComponent(assignmentId)
     );
@@ -1413,13 +1511,14 @@ async function openSubmitModal(assignmentId: string, win: any, api: any) {
     if (contentEl) contentEl.classList.remove('hidden');
     renderModal(data, ms, startResult ? startResult.timer : null);
     const textarea = $('modal-essay-textarea') as HTMLTextAreaElement | null;
-    const pendingAfterLoad = (window as any).WritingSubmitReceipt?.read(accountId, assignmentId);
-    if (textarea && pendingAfterLoad) textarea.value = pendingAfterLoad.essayText;
-    updateModalWordCount();
     if (textarea) textarea.focus();
   } catch (err: any) {
     if (!isCurrent()) return;
-    if (statusCode(err) === 409) {
+    if (err?.writingAdmission) {
+      // A baseline/admission conflict is NOT a submission acknowledgment and
+      // must never discard a pending WritingSubmitReceipt or learner text.
+      showSubmissionNotice('warning', err.message);
+    } else if (statusCode(err) === 409) {
       (window as any).WritingSubmitReceipt?.remove(accountId, assignmentId);
       showSubmissionNotice('warning', 'Bài đã được nộp ở một tab khác. Danh sách đã được đồng bộ lại.');
       await Promise.all([loadAssignments(api), loadEssays(api)]);
@@ -1556,7 +1655,10 @@ export function WritingBehavior() {
   // riêng tư từ lịch sử. Bản legacy tương ứng: kiểm `getSession()` rồi đá về
   // trang đăng nhập.
   useEffect(() => {
-    if (status === 'signed-out') window.location.replace(LOGIN_URL);
+    if (status === 'signed-out') {
+      try { clearWritingAdmissionIntents(window.sessionStorage); } catch { /* sign-out still proceeds */ }
+      window.location.replace(LOGIN_URL);
+    }
   }, [status]);
 
   useEffect(() => {
@@ -1566,6 +1668,7 @@ export function WritingBehavior() {
     // bearer. `api.js` coi 401 là đã đăng xuất và đá về trang đăng nhập — tức
     // học viên hợp lệ bị văng khỏi trang. (Codex bắt ở #950 vòng 2.)
     if (status !== 'signed-in' || !user?.id) return;
+    try { clearWritingAdmissionIntents(window.sessionStorage, user.id); } catch { /* server still verifies ownership */ }
 
     const ps = pageState;
     const generation = ps.generation + 1;
@@ -1703,7 +1806,9 @@ export function WritingBehavior() {
       if (!isCurrent()) return;
       const requestedAssignment = new URLSearchParams(window.location.search).get('assignment_id');
       if (requestedAssignment) {
-        await openSubmitModal(requestedAssignment, window as any, api);
+        // Reload may recover a saved intent; URL presence alone must not mint
+        // a new strict-admission nonce without an explicit learner action.
+        await openSubmitModal(requestedAssignment, window as any, api, false);
         if (!isCurrent()) return;
       }
       await loadPromptBank(api, ps);

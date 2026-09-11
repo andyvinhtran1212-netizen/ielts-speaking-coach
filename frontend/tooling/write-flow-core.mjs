@@ -444,7 +444,7 @@ export function formatFindings(findings) {
  * Trả về mảng thông báo lỗi; rỗng nghĩa là hợp lệ.
  */
 const FLOW_KEYS = new Set(['name', 'route', 'legacyRoute', 'nextPending', 'canned', 'steps',
-  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous', 'fakeMedia', 'initStorage', 'initSessionStorage']);
+  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous', 'fakeMedia', 'initStorage', 'initSessionStorage', 'randomUUID']);
 const WRITE_KEYS = new Set(['method', 'path', 'body', 'bodyAll', 'headers', 'query', 'times', 'atLeast', 'unordered']);
 
 // Mỗi hành động kèm HÌNH DẠNG của nó. `null` = giá trị vô hướng có bộ kiểm riêng.
@@ -464,6 +464,8 @@ function isPlainObject(v) {
   return proto === null || Object.getPrototypeOf(proto) === null;
 }
 const isStr = (v) => typeof v === 'string' && v.length > 0;
+const isUuid = (v) => typeof v === 'string'
+  && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 const isPair = (v) => Array.isArray(v) && v.length === 2 && v.every(isStr);
 // `fill`/`paste` cho phép GIÁ TRỊ RỖNG: xoá trắng một ô là thao tác thật, và
 // chính nó là cách kiểm "ghi đè bản nháp bằng rỗng". Chỉ CHỌN TỬ mới bắt buộc
@@ -512,6 +514,9 @@ export function validateFlow(flow) {
   }
   for (const k of ['fakeClock', 'anonymous', 'fakeMedia']) {
     if (k in flow && typeof flow[k] !== 'boolean') bad(`\`${k}\` phải là boolean`);
+  }
+  if ('randomUUID' in flow && !isUuid(flow.randomUUID)) {
+    bad('`randomUUID` phải là UUID RFC 4122 hợp lệ');
   }
   for (const k of ['settleMs', 'drainMs']) {
     if (k in flow && !(Number.isFinite(flow[k]) && flow[k] >= 0)) {

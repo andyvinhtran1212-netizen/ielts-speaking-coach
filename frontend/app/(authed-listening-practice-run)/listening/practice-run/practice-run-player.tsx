@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { coreOperationRequest } from '@/lib/core-operation-intent.mjs';
 import {
   firstPracticeUnsettledIndex,
   isChoicePracticeQuestion,
@@ -107,9 +108,26 @@ function PracticeWorkspace({ accountId, testId }: { accountId: string; testId: s
   const get = useCallback((path: string, signal?: AbortSignal) => (
     window.api.getWith<unknown>(path, {}, { noRedirect: true, ...(signal ? { signal } : {}) })
   ), []);
-  const post = useCallback((path: string, body: object) => (
-    window.api.postWith<unknown>(path, body, {}, { noRedirect: true })
+  const post = useCallback((path: string, body: object, headers: Record<string, string> = {}) => (
+    window.api.postWith<unknown>(path, body, headers, { noRedirect: true })
   ), []);
+
+  const checkQuestion = useCallback(async (id: string, request: PendingCheck) => {
+    const path = `/api/listening/tests/attempts/${encodeURIComponent(id)}/check`;
+    // Revealing an answer is read-only, not a learner answer submission.
+    if (request.reveal) {
+      return normalizePracticeCheck(await post(path, { q_num: request.qNum, reveal: true }),
+        request.qNum, { reveal: true });
+    }
+    const body = { q_num: request.qNum, user_answer: request.answer };
+    const reply = await coreOperationRequest({
+      accountId, method: 'POST', path, input: body, slot: String(request.qNum),
+      acknowledged: (value: unknown) => Boolean(normalizePracticeCheck(value, request.qNum)),
+    }, (headers: Record<string, string>) => post(path, body, headers));
+    // Validate again outside best-effort metadata cleanup: malformed replies
+    // must still reach the existing error UI, never become a learner verdict.
+    return normalizePracticeCheck(reply, request.qNum);
+  }, [accountId, post]);
 
   const readOpenAttempt = useCallback(async (numbers: number[], signal?: AbortSignal) => (
     normalizePracticeResume(await get(
@@ -122,11 +140,13 @@ function PracticeWorkspace({ accountId, testId }: { accountId: string; testId: s
     if (open) return open;
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
     if (!startPromiseRef.current) {
-      startPromiseRef.current = (async () => {
+      const path = `/api/listening/tests/${encodeURIComponent(testId)}/attempts`;
+      startPromiseRef.current = coreOperationRequest({
+        accountId, method: 'POST', path, input: {},
+        acknowledged: (value: any) => Boolean(value?.attemptId),
+      }, async (headers: Record<string, string>) => {
         try {
-          const ack = normalizePracticeStart(await post(
-            `/api/listening/tests/${encodeURIComponent(testId)}/attempts`, {},
-          ));
+          const ack = normalizePracticeStart(await post(path, {}, headers));
           return Object.freeze({ attemptId: ack.attemptId, startedAt: null, answers: Object.freeze([]) });
         } catch (startError) {
           try {
@@ -137,19 +157,21 @@ function PracticeWorkspace({ accountId, testId }: { accountId: string; testId: s
           (uncertain as any).cause = startError;
           throw uncertain;
         }
-      })();
+      });
     }
     return startPromiseRef.current;
-  }, [post, readOpenAttempt, testId]);
+  }, [accountId, post, readOpenAttempt, testId]);
 
   const submitWithReconciliation = useCallback(async (id: string, numbers: number[]): Promise<SubmitOutcome> => {
     if (!submitPromiseRef.current) {
-      submitPromiseRef.current = (async () => {
+      const path = `/api/listening/tests/attempts/${encodeURIComponent(id)}/submit`;
+      const pending: Promise<SubmitOutcome> = coreOperationRequest({
+        accountId, method: 'POST', path, input: { questionNums: [...numbers] },
+        acknowledged: (value: SubmitOutcome) => Boolean(value.summary),
+      }, async (headers: Record<string, string>): Promise<SubmitOutcome> => {
         try {
           return {
-            summary: normalizePracticeSubmit(await post(
-              `/api/listening/tests/attempts/${encodeURIComponent(id)}/submit`, {},
-            ), id, numbers),
+            summary: normalizePracticeSubmit(await post(path, {}, headers), id, numbers),
             retrySafe: false,
             uncertain: false,
           };
@@ -166,10 +188,11 @@ function PracticeWorkspace({ accountId, testId }: { accountId: string; testId: s
             return { summary: null, retrySafe: false, uncertain: true };
           }
         }
-      })().finally(() => { submitPromiseRef.current = null; });
+      });
+      submitPromiseRef.current = pending.finally(() => { submitPromiseRef.current = null; });
     }
     return submitPromiseRef.current;
-  }, [get, post]);
+  }, [accountId, get, post]);
 
   const applySubmitOutcome = useCallback((outcome: SubmitOutcome) => {
     if (outcome.summary) {
@@ -222,10 +245,9 @@ function PracticeWorkspace({ accountId, testId }: { accountId: string; testId: s
       setAttemptId(attempt.attemptId);
       const restored = new Map<number, boolean>();
       for (const stored of attempt.answers) {
-        const checked = normalizePracticeCheck(await post(
-          `/api/listening/tests/attempts/${encodeURIComponent(attempt.attemptId)}/check`,
-          { q_num: stored.qNum, user_answer: stored.userAnswer },
-        ), stored.qNum);
+        const checked = await checkQuestion(attempt.attemptId, {
+          qNum: stored.qNum, answer: stored.userAnswer, reveal: false,
+        });
         if (!current()) return;
         restored.set(stored.qNum, checked.canonicalCorrect);
       }
@@ -247,7 +269,7 @@ function PracticeWorkspace({ accountId, testId }: { accountId: string; testId: s
       }
     });
     return () => { controller.abort(); generationRef.current += 1; };
-  }, [accountId, applySubmitOutcome, ensureAttempt, get, post, submitWithReconciliation, testId]);
+  }, [accountId, applySubmitOutcome, checkQuestion, ensureAttempt, get, submitWithReconciliation, testId]);
 
   useEffect(() => {
     setAnswer(''); setResult(null); setWrongTries(0); setSettled(false);
@@ -273,19 +295,14 @@ function PracticeWorkspace({ accountId, testId }: { accountId: string; testId: s
     if (!attemptId || busy || !activeQuestion || request.qNum !== activeQuestion.qNum) return;
     setBusy(true); setPendingCheck(request); setInlineError('');
     try {
-      const checked = normalizePracticeCheck(await post(
-        `/api/listening/tests/attempts/${encodeURIComponent(attemptId)}/check`,
-        request.reveal
-          ? { q_num: request.qNum, reveal: true }
-          : { q_num: request.qNum, user_answer: request.answer },
-      ), request.qNum, { reveal: request.reveal });
+      const checked = await checkQuestion(attemptId, request);
       applyCheck(checked);
     } catch {
       setInlineError(request.reveal
         ? 'Chưa lấy được đáp án. Bạn có thể thử lại đúng yêu cầu này.'
         : 'Chưa nhận được kết quả chấm. Giữ nguyên câu trả lời và thử chấm lại để bảo toàn lần trả lời đầu.');
     } finally { setBusy(false); }
-  }, [activeQuestion, applyCheck, attemptId, busy, post]);
+  }, [activeQuestion, applyCheck, attemptId, busy, checkQuestion]);
 
   const checkAnswer = useCallback(() => {
     if (!activeQuestion || settled || pendingCheck) return;
