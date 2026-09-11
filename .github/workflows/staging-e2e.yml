@@ -288,6 +288,10 @@ jobs:
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
           GATE_E_SOURCE_SHA: ${{ steps.source_revision.outputs.sha }}
           GATE_E_TESTED_ROOT: ${{ github.workspace }}
+          # Promotion consumes this run as a release gate, so a stale Vercel
+          # or Railway deployment must fail the job rather than only reset the
+          # historical streak ledger.
+          GATE_E_PROVENANCE_REQUIRED: 'true'
         run: node .gate-e-auditor/frontend/tooling/capture-gate-e-staging-provenance.mjs
 
       - name: Update Gate E streak ledger

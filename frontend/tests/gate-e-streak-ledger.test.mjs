@@ -421,7 +421,7 @@ describe('workflow and provenance contract', () => {
     assert.match(WORKFLOW, /EVIDENCE_GIT_REF: \$\{\{ steps\.source_revision\.outputs\.ref \}\}/);
     assert.match(
       WORKFLOW,
-      /name: Capture staging release provenance[\s\S]*?GATE_E_SOURCE_SHA: \$\{\{ steps\.source_revision\.outputs\.sha \}\}[\s\S]*?capture-gate-e-staging-provenance\.mjs/,
+      /name: Capture staging release provenance[\s\S]*?GATE_E_SOURCE_SHA: \$\{\{ steps\.source_revision\.outputs\.sha \}\}[\s\S]*?GATE_E_PROVENANCE_REQUIRED: 'true'[\s\S]*?capture-gate-e-staging-provenance\.mjs/,
     );
     assert.match(CAPTURE, /if \(!shaPattern\.test\(sourceSha\)\) throw new Error\('source-sha-invalid'\)/);
     for (const tool of [
