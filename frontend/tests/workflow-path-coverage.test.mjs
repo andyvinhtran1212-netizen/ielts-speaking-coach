@@ -129,12 +129,18 @@ function expandGlob(rel) {
 
 function executedFiles(src) {
   const out = new Set();
-  // `node --test a.mjs b.js \` — danh sách nhiều dòng, có cả glob.
-  for (const m of src.matchAll(/node\s+--test\b([\s\S]*?)(?:\n\s*\n|\n\s*-\s|\n\s*#|$)/g)) {
+  // `node [--import setup.mjs] --test a.mjs b.js \` — danh sách nhiều dòng,
+  // có cả glob. Option đứng trước --test không được làm bộ dò thành xanh-rỗng.
+  for (const m of src.matchAll(/node(?:\s+(?!--test\b)\S+)*\s+--test\b([\s\S]*?)(?:\n\s*\n|\n\s*-\s|\n\s*#|$)/g)) {
     for (const tok of m[1].split(/[\s\\]+/)) {
       if (!/\.(mjs|js)$/.test(tok) || tok.startsWith('-')) continue;
       expandGlob(tok).forEach((f) => out.add(f));
     }
+  }
+  // Preload cũng là mã được thực thi và phải nằm trong workflow paths.
+  for (const m of src.matchAll(/\bnode\s+--import\s+([\w./-]+\.mjs)/g)) {
+    const abs = resolveInRepo(m[1]);
+    if (abs) out.add(abs);
   }
   // `node x.mjs` / `bash y.sh`
   for (const m of src.matchAll(/\b(?:node|bash)\s+([\w./-]+\.(?:mjs|js|sh))/g)) {
@@ -348,15 +354,16 @@ describe('workflow — tệp được CHẠY phải nằm trong paths', () => {
     }
   });
 
-  test('đường symlink quy được về đường THẬT trong public/', () => {
-    // Ghim tiền đề mà `dependencies()` dựa vào để chuẩn hoá: `frontend/pages` là
-    // symlink trỏ vào `frontend/public/pages`. Nếu ai đó biến nó thành thư mục
-    // thật, phần chuẩn hoá kia thành thừa và test này nói rõ điều đó thay vì để
-    // mã phòng thủ nằm im không ai kiểm.
+  test('đường symlink legacy quy về archive không deploy', () => {
+    // Sau Gate F, test cũ vẫn dùng bí danh frontend/pages nhưng nội dung phải
+    // nằm ngoài public để không thể trở lại thành renderer production.
     const link = path.join(ROOT, 'frontend/pages');
     assert.ok(existsSync(link), 'frontend/pages biến mất — cập nhật lại ghi chú');
-    assert.equal(path.relative(ROOT, realpathSync(link)), 'frontend/public/pages',
-      'frontend/pages không còn trỏ vào public/pages');
+    assert.equal(
+      path.relative(ROOT, realpathSync(link)),
+      'frontend/tests/fixtures/legacy-html-retired/pages',
+      'frontend/pages phải trỏ vào fixture archive sau Gate F',
+    );
   });
 
   test('glob → regex khớp đúng như GitHub Actions', () => {

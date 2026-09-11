@@ -51,7 +51,7 @@ describe('/admin/users — native ownership', () => {
   });
 
   test('owns the clean access-code alias without deleting the legacy consolidation path', () => {
-    assert.match(NEXT_CONFIG, /source: '\/admin\/access-codes', destination: '\/admin\/users\?tab=codes', permanent: false/);
+    assert.match(NEXT_CONFIG, /source: '\/admin\/access-codes', destination: '\/admin\/users\?tab=codes', permanent: true/);
     assert.ok(RETIREMENT_REDIRECTS.some((entry) => (
       entry.source === '/pages/admin/access-codes/index.html'
         && entry.destination === '/admin/users?tab=codes'

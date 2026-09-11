@@ -1,33 +1,14 @@
-# Đóng băng bề mặt legacy — chặn thêm TRANG HTML MỚI.
-#
-# VÌ SAO: bề mặt di trú đang LỚN LÊN trong lúc di trú. Đo 2026-08-04: 129 trang
-# HTML legacy, mà chỉ trong ngày trước đó đã thêm 2 trang mới
-# (`pages/my-class.html`, `pages/admin/classes/index.html`). Mỗi trang HTML mới
-# là một trang phải port lại sau — và làm mọi ước lượng lịch trình trôi đi.
-#
-# Chốt này KHÔNG cấm sửa trang legacy đang có. Chỉ cấm THÊM trang mới.
-# Trang mới thì viết bằng Next (`frontend/app/**`).
-#
-# NGOẠI LỆ: khai trong `docs/LEGACY_FREEZE_EXCEPTIONS.md`, mỗi dòng một đường
-# dẫn kèm lý do. Cùng nguyên tắc với allowlist của cổng parity: ngoại lệ không
-# lý do là tự cấp phép.
+# Gate F đã retire toàn bộ HTML renderer triển khai được ngày 2026-09-11.
+# URL cũ vẫn được giữ bằng manifest redirect; file HTML lịch sử chỉ được phép
+# tồn tại dưới tests/fixtures và không được đưa trở lại public/.
 
-name: Legacy freeze (không thêm trang HTML mới)
+name: Legacy HTML retirement guard
 
 on:
-  # CHỈ trang TRIỂN KHAI ĐƯỢC. Repo có 4 tệp HTML là FIXTURE KIỂM THỬ dưới
-  # `frontend/tests/` (e2e/fixtures/harness.html, result-harness.html,
-  # retention-harness.html, fixtures/aver-chrome-smoke.html). Bắt cả chúng nghĩa
-  # là PR thêm fixture hợp lệ bị chặn kèm lời khuyên vô nghĩa "viết bằng Next" —
-  # chốt sai phạm vi thì người ta học cách né chốt. Mốc 129 trang trong tài liệu
-  # khớp đúng `frontend/public/**`.
   pull_request:
     paths:
       - 'frontend/public/**/*.html'
-      - 'frontend/*.html'
-      - 'docs/LEGACY_FREEZE_EXCEPTIONS.md'
       - '.github/workflows/legacy-freeze.yml'
-  # Sau khi merge — xem chú thích cùng chủ đề ở `parity-gate.yml`.
   push:
     branches: [main]
 
@@ -36,7 +17,7 @@ permissions:
 
 jobs:
   freeze:
-    name: Không thêm trang HTML legacy
+    name: Public không chứa HTML legacy
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -44,98 +25,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Tìm trang HTML mới thêm
+      - name: Xác nhận public không chứa HTML
+        shell: bash
         run: |
-          # Push lên main KHÔNG có `base_ref`; bỏ qua ca này thì `BASE=origin/`
-          # và `git diff` hỏng — mà `|| true` ở dưới sẽ nuốt lỗi, cho `RAW` rỗng
-          # và cổng XANH mà chưa so gì. Mốc đúng là tip main TRƯỚC lần đẩy này.
-          # HAI SỰ KIỆN, HAI PHÉP SO KHÁC NHAU — không phải cùng một phép với mốc
-          # khác nhau:
-          #   · PR dùng ba chấm (`A...HEAD`, so từ merge-base). Đúng, vì nó loại
-          #     những tệp do NHÁNH GỐC tiến lên chứ không phải do PR thêm.
-          #   · Push dùng hai chấm (`A HEAD`, so thẳng hai cây). Đúng, vì câu hỏi
-          #     là «lần đẩy này làm main mọc thêm trang HTML nào». Dùng ba chấm ở
-          #     đây thì sau một force-push sang lịch sử phân kỳ, một trang có ở
-          #     merge-base nhưng vắng ở tip cũ sẽ KHÔNG bị tính là thêm mới.
-          if [ -n "${{ github.base_ref }}" ]; then
-            BASE="origin/${{ github.base_ref }}"
-            RANGE="$BASE...HEAD"
-          else
-            BASE="${{ github.event.before }}"
-            RANGE="$BASE HEAD"
-          fi
-          # Lần đẩy đầu tiên vào một nhánh cho `before` toàn số 0 — không có mốc
-          # nào để so, và im lặng ở đây lại thành cổng tự khen. Nói rõ rồi thoát.
-          case "$BASE" in
-            0000000000000000000000000000000000000000|origin/)
-              echo "::notice::không có mốc để so (before=$BASE) — bỏ qua lượt này"
-              exit 0 ;;
-          esac
-          # Mốc phải TỒN TẠI trong clone này. Sau một force-push, `before` có thể
-          # đã bị bỏ và không nằm trong bản checkout — khi đó `git diff` hỏng, và
-          # `|| true` bên dưới biến nó thành «không thêm tệp nào» rồi cổng báo
-          # xanh. Đây đúng là kiểu xanh-mà-chưa-đo-gì mà cả PR này sinh ra để chặn.
-          if ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            echo "::error::không tìm thấy mốc $BASE trong clone (force-push?) — không thể kết luận"
+          mapfile -t HTML_FILES < <(find frontend/public -type f -name '*.html' -print | sort)
+          if ((${#HTML_FILES[@]})); then
+            printf '::error::Gate F regression: deployable Legacy HTML returned: %s\n' "${HTML_FILES[*]}"
             exit 1
           fi
-          echo "so với mốc: $BASE"
-          # `--diff-filter=A`: chỉ tệp THÊM MỚI. Sửa và xoá đều không sao.
-          #
-          # LỌC BẰNG TAY, KHÔNG TIN PATHSPEC. Trong git pathspec, `*` khớp CẢ dấu
-          # `/`, nên `frontend/*.html` vẫn tóm luôn
-          # `frontend/tests/e2e/fixtures/retention-harness.html` — đã đo đúng ca đó.
-          # Điều kiện thật: đuôi .html VÀ (nằm dưới frontend/public/ HOẶC nằm
-          # ngay tại frontend/), và KHÔNG thuộc frontend/tests/.
-          # KHÔNG `|| true`. Mốc đã được kiểm tồn tại ở trên, nên `git diff` hỏng
-          # ở đây là chuyện bất thường — và nuốt nó đi thì `RAW` rỗng, vòng lặp
-          # dưới không chạy lần nào, cổng báo xanh. Hỏng thì phải đỏ.
-          RAW=$(git diff --diff-filter=A --name-only $RANGE -- frontend)
-          ADDED=""
-          for f in $RAW; do
-            case "$f" in
-              *.html) ;;
-              *) continue ;;
-            esac
-            case "$f" in
-              frontend/tests/*) continue ;;
-            esac
-            d=$(dirname "$f")
-            case "$d" in
-              frontend) ADDED="$ADDED $f" ;;
-              frontend/public|frontend/public/*) ADDED="$ADDED $f" ;;
-            esac
-          done
-
-          if [ -z "$ADDED" ]; then
-            echo "Không có trang HTML nào được thêm."; exit 0
-          fi
-
-          EXC_FILE="docs/LEGACY_FREEZE_EXCEPTIONS.md"
-          BAD=""
-          for f in $ADDED; do
-            # Ngoại lệ phải nêu ĐÚNG đường dẫn VÀ có lý do trên cùng dòng.
-            if [ -f "$EXC_FILE" ] && grep -qE "^\s*-\s+\`?$(printf '%s' "$f" | sed 's/[.[\*^$/]/\\&/g')\`?\s*—\s*\S" "$EXC_FILE"; then
-              echo "miễn trừ (có lý do khai): $f"
-            else
-              BAD="$BAD $f"
-            fi
-          done
-
-          if [ -n "$BAD" ]; then
-            echo ""
-            echo "══════════════════════════════════════════════════════════"
-            echo "PR này THÊM trang HTML legacy mới:"
-            for f in $BAD; do echo "   + $f"; done
-            echo ""
-            echo "Bề mặt legacy đang là ~129 trang và VẪN LỚN LÊN. Mỗi trang"
-            echo "HTML mới là một trang phải port lại sau."
-            echo ""
-            echo "Cách đi tiếp, chọn một:"
-            echo "  1. Viết trang này bằng Next trong 'frontend/app/**' (khuyến nghị)"
-            echo "  2. Nếu buộc phải dùng HTML legacy: khai vào"
-            echo "     docs/LEGACY_FREEZE_EXCEPTIONS.md theo mẫu"
-            echo "        - \`đường/dẫn.html\` — lý do cụ thể"
-            echo "══════════════════════════════════════════════════════════"
-            exit 1
-          fi
+          echo 'Gate F guard: 0 deployable HTML files.'

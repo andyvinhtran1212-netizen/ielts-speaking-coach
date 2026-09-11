@@ -11,7 +11,6 @@ import { test } from 'node:test';
 import {
   assertFrozenLegacyArtifactSet,
   buildLegacyRetirementRedirects,
-  discoverLegacyHtmlPaths,
   LEGACY_RETIREMENT_PATHS,
   RETIREMENT_ARTIFACT_SET,
 } from '../tooling/gate-f-retirement-redirects.mjs';
@@ -49,10 +48,11 @@ test('retirement plan is pinned to the exact frozen Legacy artifact set', () => 
   );
 });
 
-test('physical Legacy artifact freeze remains exact until separately authorized retirement', () => {
-  const physicalPaths = discoverLegacyHtmlPaths(path.join(FRONTEND, 'public'));
-  assert.deepEqual(physicalPaths, LEGACY_RETIREMENT_PATHS);
-  assert.deepEqual(assertFrozenLegacyArtifactSet(physicalPaths), physicalPaths);
+test('physical Legacy renderers are retired while their URL contract remains frozen', () => {
+  const physicalPaths = readdirSync(path.join(FRONTEND, 'public'), { recursive: true })
+    .filter((entry) => String(entry).endsWith('.html'));
+  assert.deepEqual(physicalPaths, []);
+  assertFrozenLegacyArtifactSet(LEGACY_RETIREMENT_PATHS);
 });
 
 test('explicit URL manifest preserves all 139 pre-refactor redirect rules byte for byte', () => {
@@ -90,17 +90,17 @@ test('actual Next config produces all redirects without reading a public tree', 
     runInNewContext(compiled, {
       module: mod, exports: mod.exports,
       require: createRequire(path.join(FRONTEND, 'next.config.ts')),
-      // Any accidental public-directory scan fails, even though fixtures
-      // remain present in the real repository. No files are removed.
+      // Any accidental public-directory scan fails. Redirect generation owns
+      // the frozen URL contract without depending on retired renderer files.
       __dirname: path.join(FRONTEND, 'nonexistent-config-fixture'),
       process: { env: { NODE_ENV: 'production', ...env } },
     });
     return mod.exports.default.redirects();
   }
-  const deployed = await evaluate({ VERCEL: '1', GATE_E_LEGACY_FIXTURES: 'local-build-only' });
+  const deployed = await evaluate({ VERCEL: '1' });
   assert.deepEqual(JSON.parse(JSON.stringify(deployed.slice(0, 139))), redirects);
-  const local = await evaluate({ GATE_E_LEGACY_FIXTURES: 'local-build-only' });
-  assert.equal(local.length, deployed.length - 139);
+  const local = await evaluate({});
+  assert.deepEqual(JSON.parse(JSON.stringify(local.slice(0, 139))), redirects);
 });
 
 test('every Legacy HTML source is permanently intercepted before public serving', () => {
@@ -124,11 +124,9 @@ test('redirect soak can intercept the same frozen manifest without browser-cache
   assert.ok(soakRedirects.every((entry) => entry.permanent === false));
 });
 
-test('Gate E browser fixtures no longer enable the guarded server escape hatch', () => {
-  assert.match(nextConfig,
-    /process\.env\.GATE_E_LEGACY_FIXTURES === 'local-build-only'[\s\S]*?process\.env\.VERCEL !== '1'/);
-  assert.match(nextConfig,
-    /\.\.\.\(GATE_E_LOCAL_LEGACY_FIXTURES \? \[\] : LEGACY_RETIREMENT_REDIRECTS\)/);
+test('retired renderer redirects cannot be disabled by a local escape hatch', () => {
+  assert.doesNotMatch(nextConfig, /GATE_E_LEGACY_FIXTURES|GATE_E_LOCAL_LEGACY_FIXTURES/);
+  assert.match(nextConfig, /\.\.\.LEGACY_RETIREMENT_REDIRECTS/);
   for (const configName of [
     'playwright.gate-e.config.js',
     'playwright.gate-e-reading.config.js',

@@ -195,6 +195,6 @@ jobs:
       # here WITH an owner + expiry comment; do not reintroduce a hand list.
       - name: Run frontend contract tests
         run: |
-          node --test \
+          node --import ./frontend/tests/fixtures/legacy-html-retired/loader.mjs --test \
             frontend/tests/*.test.mjs \
             frontend/tests/*.test.js

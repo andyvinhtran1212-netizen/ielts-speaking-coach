@@ -1,26 +1,37 @@
 # Next.js migration status contract
 
-The migration is not complete merely because a clean URL has an App Router
-page. Evidence-based closure requires the full Gate D/E/F evidence in
-`FE_NEXTJS_MIGRATION_MASTER_PLAN_2026-07-12.md`.
+The frontend migration is complete under the owner-approved Gate F exception
+recorded below. Historical evidence remains preserved with its original status;
+the exception closes the remaining hold without relabeling waived soak as PASS.
 
-## Current checkpoint — 2026-09-10
+## Current checkpoint — 2026-09-11
 
-- **Production serves Next.** PR #1352 merged as `b44efaa7`; wave 1 preserves
-  all 139 permanent redirects through a versioned 129-URL manifest independent
-  of physical HTML. Wave 2 preserves five historical HTML fixtures outside public.
+- **Gate F: CLOSED by owner exception.** All 129 deployable HTML renderers were
+  removed from `frontend/public/` and archived under
+  `frontend/tests/fixtures/legacy-html-retired/` for source-contract tests only.
+  `frontend/public/` now contains zero HTML files.
+- **URL compatibility remains intact.** The frozen 129-URL manifest still emits
+  all 139 permanent redirects to verified App Router owners. The clean
+  `/admin/access-codes` alias is permanent now that no HTML rollback renderer exists.
+- **Static closeout is green.** The repository reports 129/129 Next owners,
+  5/5 core players ready and admitted to Next, zero route collisions and
+  `staticCutoverReady: true`. The complete frontend `node:test` suite and a
+  production `next build` pass after retirement.
+- **Historical HTML is test data, not deployable fallback.** CI preloads a
+  narrow filesystem adapter that redirects only missing `public/*.html` reads
+  to the archive. A separate retirement guard scans the actual `public/` tree
+  and fails if any HTML returns.
+- **JS/MJS/CSS are retained.** These files remain shared Next runtime, archived
+  fixture or compatibility dependencies. Their presence does not constitute a
+  legacy page renderer and is not a Gate F blocker.
 - **Historical Gate E v20: PASS 20/20**, source `17159ba0`, final
   [run 34337714920](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/34337714920).
   Its [original manifest](audits/GATE_E_V20_COMPLETED_MANIFEST_2026-09-09.json)
   and contract digest are retained. The authorized fixture changes produce
   **v21**, not a relabeling of that PASS. No new v21 live 20-run claim is made.
-- **Staging synchronized to `b44efaa7`** and verified through normal Vercel
-  CLI access with deployment protection retained. Post-merge checks:
-  production 139/139 redirects; staging 26/26 representative/dynamic checks.
-- **Gate F elimination remains open.** Source inspection holds all 290 JS/MJS/CSS
-  assets: 177 have conservative Next reachability, five are additional archived
-  test dependencies, and 108 retain other Legacy/test/build consumers.
-  Source reachability is not a deletion certificate. All 129 public HTML files remain.
+- The prior staging/production checkpoint at `b44efaa7` verified production
+  139/139 redirects and staging 26/26 representative/dynamic checks. Deployment
+  provenance for the retirement release is verified by the release PR/CI.
 - Fresh production aggregate counts show zero legacy session blockers and no
   retirement events/new error logs since hard flip. Speaking still has 22
   completed rows missing band and one missing completion time (possible overlap);
@@ -48,15 +59,10 @@ inputs. That classifies the earlier findings; it does not establish their cause,
 authorize repair, or prove all old data clean. No learner content or identifiers
 were included in the audit output. The 45 historical unresolved logs remain.
 
-The next closure gap is not just deleting old CSS. Current status/page-view
-counts cannot prove the required eligible-attempt success/fail/abandon report.
-The [closure contract audit](audits/GATE_F_CLOSURE_CONTRACT_AUDIT_2026-09-10.md)
-maps the exact source limitations, build-file holds and remaining sequence.
-
-Product development is not frozen by this checkpoint. The original redirect
-soak and hard-flip exception must be kept distinct from retirement approval;
-elapsed time, current health and per-file replacement/test disposition still
-need a truthful closure decision.
+The owner explicitly waived further eligible-attempt soak and per-asset manual
+deletion review for this product scale. That missing evidence remains labeled
+as waived rather than passed. The [Gate F closure record](audits/GATE_F_OWNER_EXCEPTION_CLOSURE_2026-09-11.md)
+defines the accepted risk and retained safeguards. Product development is not frozen.
 
 ## Historical owner-authorized hard flip — 2026-09-09
 
@@ -79,11 +85,12 @@ The remaining consecutive-run requirement and the redirect-soak wait until
 `2026-09-15T17:07:36Z` are waived for this flip. Do not copy that streak to the
 new release or record waived requirements as passing evidence.
 
-All Legacy artifacts remain on disk and their source inventory stays hash-pinned.
-Static artifact deletion remains a separate retirement operation. Existing
-Next destinations must remain available because browsers may cache 308
-redirects even after the server configuration is reverted. The previous
-production source is `415e19353b323e357564a0fe217e12021518026d`.
+At the time of this historical exception all Legacy artifacts remained on disk.
+The 2026-09-11 Gate F closure supersedes that rollback arrangement: renderers
+are now archived outside `public/`, and rollback requires reverting and
+redeploying code. Existing Next destinations must remain stable because browsers
+may cache 308 redirects. The previous production source for this historical
+checkpoint was `415e19353b323e357564a0fe217e12021518026d`.
 
 This exception supersedes the historical checkpoint's release hold:
 normal development may resume after this release is deployed and verified;
@@ -117,9 +124,10 @@ path has a present App Router owner, so
 `legacy-next-replacement-missing` must stay absent. This closes route ownership,
 not operational cutover or legacy retirement.
 
-This static gate does not replace Preview/staging, persistence, failure-mode,
-device, accessibility, performance, rollback, drain or soak evidence. Those
-operational gates must also be closed before the migration can be called done.
+This static gate does not fabricate Preview/staging, persistence, failure-mode,
+device, accessibility, performance, rollback, drain or soak evidence. The
+2026-09-11 owner exception explicitly accepts the remaining operational gap and
+closes the migration without rewriting historical evidence as passed.
 
 Historical context: before the hard-flip decision, coexistence drills and the
 Safari desktop/iOS real-device pair had passed. Earlier canaries exposed

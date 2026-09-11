@@ -143,9 +143,10 @@ test('replacement inventory fails closed when an App Router owner is absent', ()
 
 test('repository report is internally consistent and cannot overclaim completion', () => {
   const report = collectNextMigrationStatus();
-  assert.equal(report.schemaVersion, 5);
+  assert.equal(report.schemaVersion, 6);
   assert.equal(report.appPages.source, report.appPages.product + report.appPages.excluded.length);
   assert.equal(report.legacyHtml.total, report.legacyHtml.compatibilityRedirected + report.legacyHtml.directlyRenderable);
+  assert.equal(report.legacyHtml.retired, true);
   assert.equal(report.legacyHtml.serverRedirected, report.legacyHtml.total);
   assert.deepEqual(report.legacyHtml.clientRedirectStubPaths, []);
   assert.equal(report.legacyHtml.directlyRenderable, 0);
@@ -161,7 +162,7 @@ test('repository report is internally consistent and cannot overclaim completion
   assert.deepEqual(report.legacyReplacement.missingNextRoutes, []);
   assert.ok(report.legacyReplacement.entries.every((entry) => (
     entry.redirectState === 'installed-permanent'
-      && entry.deletionState === 'blocked-deletion-review'
+      && entry.deletionState === 'retired'
   )));
   assert.deepEqual(report.routeOwnershipCollisions, []);
   assert.equal(report.corePlayers.nextReady, report.corePlayers.total);
@@ -179,7 +180,7 @@ test('repository report is internally consistent and cannot overclaim completion
   assert.equal(report.staticCutoverReady, true);
   assert.deepEqual(report.blockers, []);
   assert.ok(!report.blockers.some((blocker) => blocker.code === 'core-admission-still-legacy'));
-  assert.match(report.scopeNote, /operational evidence/i);
+  assert.match(report.scopeNote, /owner-approved exceptions/i);
 });
 
 test('retirement redirects compose with all-Next admission to close static cutover', () => {
@@ -217,6 +218,7 @@ test('retired HTML cannot erase the redirect or replacement denominator', (t) =>
   assert.equal(retired.legacyRetirementRedirects.rules, 139);
   assert.equal(retired.legacyReplacement.total, 129);
   assert.equal(retired.legacyReplacement.nextRoutePresent, 129);
+  assert.ok(retired.legacyReplacement.entries.every((entry) => entry.deletionState === 'retired'));
 
   // Partial retirement must not shrink identity coverage either. This input
   // is a disposable source fixture, not a change to public repository files.
@@ -227,7 +229,14 @@ test('retired HTML cannot erase the redirect or replacement denominator', (t) =>
   assert.equal(partial.legacyRetirementRedirects.sourcePaths, 129);
   assert.equal(partial.legacyReplacement.total, 129);
   assert.equal(partial.legacyReplacement.nextRoutePresent, 129);
-  assert.deepEqual(partial.legacyReplacement.entries, retired.legacyReplacement.entries);
+  assert.ok(partial.legacyReplacement.entries.every((entry) => (
+    entry.deletionState === 'blocked-deletion-review'
+  )));
+  const withoutDeletionState = (entries) => entries.map(({ deletionState: _state, ...entry }) => entry);
+  assert.deepEqual(
+    withoutDeletionState(partial.legacyReplacement.entries),
+    withoutDeletionState(retired.legacyReplacement.entries),
+  );
   rmSync(path.join(fixture, 'public', 'pricing.html'));
 
   rmSync(path.join(fixture, 'app', '(authed-home)', 'home', 'page.tsx'));

@@ -5,8 +5,6 @@
 // their required query identity into the App Router path; a missing identity
 // falls back to the nearest safe index instead of rendering Legacy HTML.
 import { createHash } from 'node:crypto';
-import { readdirSync } from 'node:fs';
-import path from 'node:path';
 
 import { canonicalNextRouteForLegacy } from './gate-f-route-replacement-inventory.mjs';
 import { LEGACY_RETIREMENT_PATHS } from './gate-f-legacy-paths.mjs';
@@ -72,18 +70,6 @@ const LEGACY_CLASS_WORKSPACE_PATHS = new Set([
 const DESTINATION_OVERRIDES = Object.freeze({
   '/pages/admin/access-codes/index.html': '/admin/users?tab=codes',
 });
-
-function walkHtml(root, prefix = '') {
-  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
-    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
-    if (entry.isDirectory()) return walkHtml(path.join(root, entry.name), relative);
-    return entry.name.endsWith('.html') ? [`/${relative}`] : [];
-  });
-}
-
-export function discoverLegacyHtmlPaths(publicRoot) {
-  return walkHtml(publicRoot).sort();
-}
 
 export function legacyArtifactSetDigest(paths) {
   return createHash('sha256').update([...paths].sort().join('\n')).digest('hex');
