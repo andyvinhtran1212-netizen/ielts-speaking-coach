@@ -34,6 +34,7 @@ export type CatalogOption = {
   ready: boolean;
   already_given: boolean;
   reason: string | null;
+  exam_only: boolean;
 };
 
 export type QuestionOption = {
@@ -60,6 +61,9 @@ export type HomeworkDraft = {
   studentIds: string[];
   passPct: string;
   retakeSize: string;
+  deliveryMode: 'standard' | 'assigned_practice';
+  webExplanationMode: 'disabled' | 'immediate_after_capture' | 'admin_release';
+  postTestCaptureRequired: boolean;
   error: string;
 };
 

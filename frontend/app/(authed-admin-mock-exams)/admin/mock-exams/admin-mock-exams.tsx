@@ -19,6 +19,7 @@ type Exam = {
   id: string; code: string; title: string; status: string; examMode: string; isOpen: boolean; activeSection: string;
   cohortId: string | null; listeningTestId: string | null; readingTestId: string | null;
   writingTask1PromptId: string | null; writingTask2PromptId: string | null;
+  webExplanationMode: string; webExplanationsReleasedAt: string | null;
 };
 type Picker = { id: string; title?: string; test_id?: string; task_type?: string; name?: string };
 type Progress = { activeSection: string; sections: Record<string, { submitted: number; total: number }> };
@@ -188,6 +189,16 @@ export function AdminMockExams() {
     await mutate(`${exam.id}:open`, () => window.api.post<unknown>(`/admin/mock-exams/${encodeURIComponent(exam.id)}/open`, { is_open: next }), next ? `Đã mở kỳ ${exam.code}.` : `Đã đóng kỳ ${exam.code}.`, () => examsRef.current.some((row) => row.id === exam.id && row.isOpen === next));
   };
 
+  const releaseWebExplanations = async (exam: Exam) => {
+    if (!window.confirm(`Cho học viên của “${exam.code}” xem web explanation sau khi kết quả đã được công bố?`)) return;
+    await mutate(
+      `${exam.id}:explanations`,
+      () => window.api.patch(`/admin/mock-corrections/mock-exams/${encodeURIComponent(exam.id)}`, { release_now: true }),
+      `Đã duyệt web explanation cho ${exam.code}.`,
+      () => examsRef.current.some((row) => row.id === exam.id && Boolean(row.webExplanationsReleasedAt)),
+    );
+  };
+
   const advance = async (exam: Exam, current: string, snapshot: Progress) => {
     const next = nextExamSection(exam, current);
     if (!next) return;
@@ -239,6 +250,7 @@ export function AdminMockExams() {
                 {exam.status === 'published' && <a className="adm-btn-secondary" href={`/admin/mock-tests?tab=live&exam_id=${encodeURIComponent(exam.id)}`}>Phòng thi trực tiếp</a>}
               </>}
               <a className="adm-btn-secondary" href={`/admin/mock-tests?tab=review&exam_id=${encodeURIComponent(exam.id)}`}>Duyệt bài</a>
+              {exam.webExplanationMode === 'admin_release' && !exam.webExplanationsReleasedAt ? <button className="adm-btn-secondary" type="button" onClick={() => void releaseWebExplanations(exam)} disabled={busy}>Duyệt web explanation</button> : null}
             </div>
           </article>;
         })}</div>}

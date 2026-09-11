@@ -1,0 +1,84 @@
+.wex-panel {
+  margin-top: var(--av-space-5);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-lg);
+  background: var(--av-surface-sunken);
+  overflow: hidden;
+}
+
+.wex-panel__head,
+.wex-stage {
+  padding: var(--av-space-4);
+}
+
+.wex-panel__head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--av-space-4);
+  border-bottom: 1px solid var(--av-border-default);
+}
+
+.wex-panel__head span,
+.wex-panel__head small {
+  color: var(--av-text-muted);
+}
+
+.wex-panel__head h3 {
+  margin: var(--av-space-1) 0 0;
+  font-size: var(--av-fs-lg);
+}
+
+.wex-stage + .wex-stage {
+  border-top: 1px solid var(--av-border-default);
+}
+
+.wex-stage p,
+.wex-stage ul {
+  margin: var(--av-space-2) 0;
+  white-space: pre-line;
+}
+
+.wex-stage textarea {
+  box-sizing: border-box;
+  width: 100%;
+  margin: var(--av-space-2) 0;
+  padding: var(--av-space-3);
+  border: 1px solid var(--av-border-strong);
+  border-radius: var(--av-radius-md);
+  color: var(--av-text-primary);
+  background: var(--av-surface-card);
+}
+
+.wex-stage button {
+  padding: var(--av-space-2) var(--av-space-3);
+  border: 0;
+  border-radius: var(--av-radius-md);
+  color: var(--av-text-on-primary);
+  background: var(--av-primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.wex-stage button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.wex-stage--full > div + div {
+  margin-top: var(--av-space-3);
+}
+
+.wex-repair {
+  padding: var(--av-space-3);
+  border-left: 3px solid var(--av-primary);
+  background: var(--av-surface-card);
+}
+
+.wex-candidates code {
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .wex-panel__head { flex-direction: column; }
+}

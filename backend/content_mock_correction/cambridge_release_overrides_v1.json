@@ -1,0 +1,104 @@
+{
+  "schema_version": "cambridge-release-overrides/1.0",
+  "content_version": "cambridge-web-explanations/2026-09-10-v1",
+  "notes": "Human-readable adjudication layer applied before import. It never rewrites canonical source questions or historical attempts.",
+  "items": {
+    "cambridge-13-test-1-listening-q03": {
+      "answer": {
+        "canonical": "20%",
+        "accepted_forms": ["20%", "20 percent", "20"],
+        "comparison_mode": "any_of",
+        "requires_normalization_review": false
+      },
+      "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+      "adjudication": "Removed the instruction-invalid written-number form 'twenty percent'; retained numeric forms supported by the transcript and ONE WORD AND/OR A NUMBER instruction."
+    },
+    "cambridge-15-test-3-listening-q05": {
+      "answer": {
+        "canonical": "1 year",
+        "accepted_forms": ["1 year"],
+        "comparison_mode": "single_value",
+        "requires_normalization_review": false
+      },
+      "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+      "adjudication": "Uses one number plus one word; removes 'one year', which exceeds the printed ONE WORD AND/OR A NUMBER form when written entirely as words."
+    },
+    "cambridge-15-test-4-reading-q07": {
+      "answer": {
+        "canonical": "leaves bark",
+        "accepted_forms": [
+          "leaves bark",
+          "bark leaves",
+          "leaves and bark",
+          "bark and leaves",
+          "leaves, bark",
+          "bark, leaves"
+        ],
+        "comparison_mode": "any_of",
+        "requires_normalization_review": false
+      },
+      "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+      "adjudication": "The printed item has two sub-blanks under Q07 with a fixed conjunction. Both 'leaves' and 'bark' are required and either order is valid. The web stores the pair in one answer field, so explicit two-word, fixed-conjunction, and comma-separated forms are accepted; either word alone remains wrong."
+    },
+    "cambridge-19-test-2-listening-q05": {
+      "answer": {
+        "canonical": "11",
+        "accepted_forms": ["11", "11 am", "11 a.m."],
+        "comparison_mode": "any_of",
+        "requires_normalization_review": false
+      },
+      "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+      "adjudication": "Retains the current time, not the corrected-away 10.30 distractor; removes the two-word written-number form."
+    },
+    "cambridge-19-test-2-listening-q11": {
+      "answer": {
+        "canonical": "A",
+        "accepted_forms": ["A"],
+        "comparison_mode": "single_value",
+        "requires_normalization_review": false
+      },
+      "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+      "adjudication": "The earlier missing-audio finding mixed the Section 2 relative timebase with the concatenated full-test timebase. Forced alignment places the complete answer cue at Section 2 82.28-91.62s, i.e. full-test 564.19-573.53s after the 481.91s section offset. The supplied MP3 contains the cue and answer A is source-supported."
+    },
+    "cambridge-19-test-3-listening-q03": {
+      "answer": {
+        "canonical": "3.30",
+        "accepted_forms": ["3.30", "3:30"],
+        "comparison_mode": "any_of",
+        "requires_normalization_review": false
+      },
+      "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+      "adjudication": "Keeps numeric clock forms and removes the instruction-invalid written two-word form."
+    },
+    "cambridge-21-test-2-listening-q01": {
+      "answer": {
+        "canonical": "13 January",
+        "accepted_forms": ["13 January", "13th January", "13 Jan", "13th Jan", "13/01"],
+        "comparison_mode": "any_of",
+        "requires_normalization_review": false
+      },
+      "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+      "adjudication": "Replaces mechanical parenthetical expansion with explicit date forms that fit one word and/or one number."
+    },
+    "cambridge-21-test-2-listening-q06": {
+      "answer": {
+        "canonical": "6 April",
+        "accepted_forms": ["6 April", "6th April", "6 Apr", "6th Apr", "06/04", "6/04"],
+        "comparison_mode": "any_of",
+        "requires_normalization_review": false
+      },
+      "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+      "adjudication": "Combines the stated month with the corrected day and stores only explicit instruction-compliant date forms."
+    },
+    "cambridge-21-test-3-listening-q03": {
+      "answer": {
+        "canonical": "250",
+        "accepted_forms": ["250", "£250"],
+        "comparison_mode": "any_of",
+        "requires_normalization_review": false
+      },
+      "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+      "adjudication": "Keeps numeric currency forms and removes the four-word written-number variant."
+    }
+  }
+}

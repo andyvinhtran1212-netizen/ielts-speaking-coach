@@ -12,6 +12,7 @@ export default function ReadingReviewLayout({ children }: { children: ReactNode 
         '/css/reading-review.css',
         '/css/feedback.css',
         '/css/reading-review-next.css',
+        '/css/web-explanation-panel.css',
       ]}
       extraScripts={<RouteScriptChain scripts={[
         { src: 'https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js' },

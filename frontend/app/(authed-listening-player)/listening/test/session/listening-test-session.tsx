@@ -21,8 +21,9 @@ import {
   normalizeListeningTest,
 } from '@/lib/listening-test-controller.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { MockPostTestCapture } from '@/components/mock-post-test-capture';
 
-type ListeningPhase = 'loading' | 'error' | 'prestart' | 'inprogress' | 'submitting' | 'results' | 'sealed';
+type ListeningPhase = 'loading' | 'error' | 'prestart' | 'inprogress' | 'submitting' | 'capture' | 'results' | 'sealed';
 type AnswerMap = Map<number, string>;
 type SaveMap = Map<number, 'pending' | 'retrying' | 'failed'>;
 type Attempt = { attempt_id: string; started_at: string; answers?: any[]; renderer_affinity?: 'legacy' | 'next' | null };
@@ -413,7 +414,9 @@ export function ListeningTestSession() {
     const ready = await whenGlobalReady(() => !!window.api?.get, 'window.api (Listening test)');
     if (!ready) throw new Error('Không thể kết nối lớp dữ liệu.');
     const [testPayload, resumePayload] = await Promise.all([
-      window.api.get(`/api/listening/tests/${encodeURIComponent(params.testId)}`),
+      window.api.get(withQuery(`/api/listening/tests/${encodeURIComponent(params.testId)}`, [
+        ['class_item', params.classItem],
+      ])),
       window.api.get(resumePath(params)),
     ]);
     const normalizedTest = normalizeListeningTest(testPayload);
@@ -587,6 +590,9 @@ export function ListeningTestSession() {
         if (!params?.mockEmbed) hook.showSealedAndReturn('listening');
         return;
       }
+      if (response?.post_test_capture_required) {
+        setResult(response); setPhase('capture'); return;
+      }
       setResult(response); setPhase('results');
     } catch (caught: any) { setError(`Không nộp được bài Listening. ${caught?.message || ''}`); setPhase('error'); }
   }, [attempt, params?.mockEmbed, phase, user?.id]);
@@ -649,7 +655,9 @@ export function ListeningTestSession() {
     setAudioRetrying(true);
     try {
       const refreshed = normalizeListeningTest(await window.api.get(
-        `/api/listening/tests/${encodeURIComponent(params.testId)}`,
+        withQuery(`/api/listening/tests/${encodeURIComponent(params.testId)}`, [
+          ['class_item', params.classItem],
+        ]),
       ));
       const offset = params.sittingId || !Number.isFinite(mediaOffset)
         ? await resolveAudioOffset(attempt, refreshed)
@@ -728,6 +736,14 @@ export function ListeningTestSession() {
   }, [phase]);
 
   if (phase === 'results' && testData) return <ResultView result={result} attempt={attempt} test={testData} from={params?.from || null} sittingId={params?.sittingId || null} />;
+  if (phase === 'capture' && result) return <MockPostTestCapture
+    skill="listening"
+    envelope={result}
+    onComplete={(payload) => {
+      if (payload?.result) { setResult(payload.result); setPhase('results'); }
+      else setPhase('sealed');
+    }}
+  />;
 
   const activeSectionData = sections.find((section: any) => Number(section.section_num) === activeSection);
   const activeSectionQuestions = questionsForSection(activeSectionData);

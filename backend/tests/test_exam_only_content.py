@@ -211,8 +211,8 @@ def _src(rel: str) -> str:
 
 
 def test_the_three_browse_lists_filter_the_flag():
-    assert '.eq("exam_only", False)' in _src("routers/reading_student.py")
-    assert '.eq("exam_only", False)' in _src("routers/listening.py")
+    assert 'exam_only.eq.false,public_practice_enabled.eq.true' in _src("routers/reading_student.py")
+    assert 'public_practice_enabled.eq.true' in _src("routers/listening.py")
     assert '.eq("exam_only", False)' in _src("routers/writing_student.py")
 
 
@@ -221,7 +221,7 @@ def test_reading_detail_and_share_are_gated():
     # the shared gate exists and the detail builder calls it
     assert "def _assert_exam_content_allowed(" in src
     body = src[src.index("def _build_reading_test_detail("):]
-    assert "_assert_exam_content_allowed(test, user_id)" in body[:600]
+    assert "_assert_exam_content_allowed(test, user_id, class_item)" in body[:700]
     # …and the anonymous share route refuses outright: no user, no sitting, so
     # there is nothing that could entitle it
     share = src[src.index("async def boot_shared_reading_test("):]
@@ -457,7 +457,7 @@ def test_starting_a_reading_attempt_is_gated():
     src = _src("routers/reading_student.py")
     seg = src[src.index("async def start_reading_test_attempt("):]
     seg = seg[:seg.index("\n@")]
-    assert '_assert_exam_content_allowed(test, user["id"])' in seg
+    assert '_assert_exam_content_allowed(test, user["id"], class_item)' in seg
     # …and BEFORE anything is written, not after
     assert seg.index("_assert_exam_content_allowed") < seg.index(".insert(")
 

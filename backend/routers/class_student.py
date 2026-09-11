@@ -532,7 +532,8 @@ async def start_assignment(
         ) or []
         if not rows or (rows[0].get("status") or "") != "published":
             raise HTTPException(409, "Đề nghe của bài tập này hiện không mở được.")
-        if rows[0].get("exam_only"):
+        if (rows[0].get("exam_only")
+                and cfg.get("delivery_mode") != "assigned_practice"):
             raise HTTPException(409, "Đề nghe của bài tập này hiện không mở được.")
         if not (rows[0].get("assembled_audio_storage_path")
                 or rows[0].get("full_audio_storage_path")):
@@ -555,7 +556,9 @@ async def start_assignment(
         code = (row[0].get("test_id") if row else None)
         if not code:
             raise HTTPException(404, "Không tìm thấy đề đọc của bài tập này.")
-        if (row[0].get("status") or "") != "published" or row[0].get("exam_only"):
+        if ((row[0].get("status") or "") != "published"
+                or (row[0].get("exam_only")
+                    and cfg.get("delivery_mode") != "assigned_practice")):
             raise HTTPException(409, "Đề đọc của bài tập này hiện không mở được.")
         player_surface = "reading_exam"
         player_query = {"test_id": str(code), "class_item": item_id}

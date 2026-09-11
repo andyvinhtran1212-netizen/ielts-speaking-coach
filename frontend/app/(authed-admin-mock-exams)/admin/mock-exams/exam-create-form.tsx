@@ -18,13 +18,14 @@ type Props = {
 const INITIAL = {
   code: '', title: '', examMode: 'sequential', cohortId: '', listeningTestId: '', readingTestId: '',
   writingTask1PromptId: '', writingTask2PromptId: '', readingMinutes: '60', writingMinutes: '60', totalMinutes: '150',
+  webExplanationMode: 'with_result', postTestCaptureRequired: true,
 };
 
 export function ExamCreateForm({ readings, listenings, prompts, cohorts, disabled, onCreate, onError }: Props) {
   const [form, setForm] = useState(INITIAL);
   const task1 = prompts.filter((row) => String(row.task_type || '').startsWith('task1'));
   const task2 = prompts.filter((row) => row.task_type === 'task2');
-  const set = (key: keyof typeof INITIAL, value: string) => setForm((current) => ({ ...current, [key]: value }));
+  const set = <K extends keyof typeof INITIAL>(key: K, value: (typeof INITIAL)[K]) => setForm((current) => ({ ...current, [key]: value }));
   const paperCount = [form.listeningTestId, form.readingTestId, form.writingTask1PromptId, form.writingTask2PromptId].filter(Boolean).length;
 
   const submit = async (event: FormEvent) => {
@@ -59,6 +60,8 @@ export function ExamCreateForm({ readings, listenings, prompts, cohorts, disable
             <label><span>Reading · phút</span><input type="number" min="1" value={form.readingMinutes} onChange={(event) => set('readingMinutes', event.target.value)} /></label>
             <label><span>Writing · phút</span><input type="number" min="1" value={form.writingMinutes} onChange={(event) => set('writingMinutes', event.target.value)} /></label>
             <label><span>Tổng thời gian ước tính</span><input type="number" min="1" value={form.totalMinutes} onChange={(event) => set('totalMinutes', event.target.value)} /></label>
+            <label><span>Web explanation</span><select value={form.webExplanationMode} onChange={(event) => set('webExplanationMode', event.target.value)}><option value="with_result">Theo lúc admin trả kết quả</option><option value="admin_release">Duyệt explanation riêng</option><option value="disabled">Không hiện</option></select></label>
+            <label><input type="checkbox" checked={form.postTestCaptureRequired} onChange={(event) => set('postTestCaptureRequired', event.target.checked)} /> Thu confidence trước khi trả kết quả</label>
           </div></fieldset>
         </div>
         <aside className="mex-create-aside"><p className="aop-section-label">Bước tiếp theo</p><h3>Lưu thành bản nháp</h3><p>Đề chưa hiển thị cho học viên. Sau khi rà soát, publish để giao đề và mở phòng thi.</p><dl><div><dt>Hình thức</dt><dd>{form.examMode === 'retake' ? 'Test lại cá nhân' : 'Thi theo lớp'}</dd></div><div><dt>Nội dung</dt><dd>{paperCount ? `${paperCount} mục đã chọn` : 'Chưa chọn'}</dd></div><div><dt>Ước tính</dt><dd>{form.totalMinutes || '—'} phút</dd></div></dl><button className="adm-btn-primary" type="submit" disabled={disabled}>{disabled ? 'Đang tạo…' : 'Lưu đề nháp'}</button><p className="mex-help">Bạn vẫn có thể rà soát trước khi publish.</p></aside>

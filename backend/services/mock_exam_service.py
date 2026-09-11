@@ -2019,6 +2019,8 @@ _EXAM_WRITABLE = {
     "total_minutes", "reading_minutes", "writing_minutes",
     "open_from", "open_until", "cohort_id",
     "review_sla_days", "status",
+    "web_explanation_mode", "web_explanation_content_version",
+    "post_test_capture_required",
 }
 
 
@@ -2113,6 +2115,22 @@ def _exam_content_readiness_issues(
                 issues.append("Reading chưa được publish")
             if row.get("test_type") != "full":
                 issues.append("Reading phải là đề full test")
+
+    # Cambridge item-level serving gates are additive: legacy papers have no
+    # rows and keep the old readiness contract; imported papers with a known
+    # matcher/audio defect cannot enter an auto-scored mock.
+    from services import mock_correction_service
+    for skill, column, label in (
+        ("listening", "listening_test_id", "Listening"),
+        ("reading", "reading_test_id", "Reading"),
+    ):
+        test_id = exam.get(column)
+        if skill in wanted and test_id:
+            blockers = mock_correction_service.scored_paper_blockers(
+                skill, test_id, db=supabase_admin
+            )
+            if blockers:
+                issues.append(f"{label} còn câu bị khóa khỏi chấm điểm ({blockers[0]})")
 
     if "writing" in wanted:
         for label, column, expected in (
@@ -2444,6 +2462,7 @@ def _grade_and_finalize_listening(attempt_id: str) -> None:
     paper, just with blank score/band fields, rather than leaving it stuck
     `in_progress` forever."""
     from services import listening_test_grader as grader
+    from services import mock_correction_service
 
     attempt_res = supabase_admin.table("listening_test_attempts").select(
         "*",
@@ -2467,6 +2486,9 @@ def _grade_and_finalize_listening(attempt_id: str) -> None:
             if section_ids else []
         )
         answer_key = grader.collect_answer_key(ex_rows or [])
+        answer_key = mock_correction_service.apply_scoring_overrides(
+            "listening", test_id, answer_key
+        )
         result = grader.grade_attempt(attempt.get("answers") or [], answer_key)
         update.update({
             "score":           result["score"],
@@ -2489,6 +2511,7 @@ def _grade_and_finalize_reading(attempt_id: str) -> None:
     autosave rows, since there is no live request body to fall back on).
     Same always-submitted guarantee as the Listening sibling above."""
     from services import reading_test_grader as grader
+    from services import mock_correction_service
 
     attempt_res = supabase_admin.table("reading_test_attempts").select(
         "*",
@@ -2518,6 +2541,9 @@ def _grade_and_finalize_reading(attempt_id: str) -> None:
             if passage_order_by_id else []
         )
         answer_key = grader.collect_answer_key(q_rows or [], passage_order_by_id)
+        answer_key = mock_correction_service.apply_scoring_overrides(
+            "reading", test_uuid, answer_key
+        )
         persisted = (
             supabase_admin.table("reading_attempt_answers")
             .select("q_num,user_answer").eq("attempt_id", attempt_id).execute().data or []

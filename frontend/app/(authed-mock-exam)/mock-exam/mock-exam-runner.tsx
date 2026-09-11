@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+import { MockPostTestCapture, type CaptureEnvelope } from '@/components/mock-post-test-capture';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { coreOperationRequest } from '@/lib/core-operation-intent.mjs';
 import {
@@ -42,6 +43,10 @@ type Section = 'listening' | 'reading' | 'writing';
 type ConnectionState = null | 'offline' | 'submitting' | 'submit_failed';
 type SaveCue = 'idle' | 'saving' | 'saved' | 'failed';
 type Layout = 'left' | 'right' | 'top' | 'bottom';
+type PendingCapture = {
+  section: 'reading' | 'listening';
+  envelope: CaptureEnvelope;
+};
 
 interface MockState {
   sitting: {
@@ -655,6 +660,7 @@ export function MockExamRunner() {
   const [openingSpeaking, setOpeningSpeaking] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [flushedCollectionKey, setFlushedCollectionKey] = useState<string | null>(null);
+  const [pendingCapture, setPendingCapture] = useState<PendingCapture | null>(null);
   const stateRef = useRef<MockState | null>(null);
   const stateReadGenerationRef = useRef(0);
   const bootRef = useRef(0);
@@ -675,6 +681,7 @@ export function MockExamRunner() {
   const integrityRef = useRef<Record<string, number> | null>(null);
   const hiddenAtRef = useRef<number | null>(null);
   const currentSittingRef = useRef<string | null>(null);
+  const captureResolveRef = useRef<(() => void) | null>(null);
 
   stateRef.current = state;
   const view = state ? mockExamView(state) : 'loading';
@@ -943,6 +950,20 @@ export function MockExamRunner() {
     );
   }, []);
 
+  const requestPostTestCapture = useCallback((section: 'reading' | 'listening', envelope: CaptureEnvelope) => (
+    new Promise<void>((resolve) => {
+      captureResolveRef.current = resolve;
+      setPendingCapture({ section, envelope });
+    })
+  ), []);
+
+  const completePostTestCapture = useCallback(() => {
+    const resolve = captureResolveRef.current;
+    captureResolveRef.current = null;
+    setPendingCapture(null);
+    resolve?.();
+  }, []);
+
   useEffect(() => {
     if (!collectionKey || !pendingCollectionSection || !awaitingCollectionFlush) return undefined;
     let disposed = false;
@@ -1005,6 +1026,9 @@ export function MockExamRunner() {
       acknowledged: (reply: any) => reply?.attempt_id === attemptId || (reply?.received === true && reply?.sealed === true),
     }, async (headers: Record<string, string>) => {
       const domainAck = await window.api.postWith(domainPath, body, headers);
+      if (domainAck?.post_test_capture_required) {
+        await requestPostTestCapture(section, domainAck as CaptureEnvelope);
+      }
       // Keep the domain hint pending until the parent also acknowledges the
       // collection. A failed second step must retry the same two-step intent.
       await window.api.post(
@@ -1013,7 +1037,7 @@ export function MockExamRunner() {
       );
       return domainAck;
     });
-  }, [flushEmbed, loadState, user?.id]);
+  }, [flushEmbed, loadState, requestPostTestCapture, user?.id]);
 
   const submitSection = useCallback(async (section: Section, attempt = 0) => {
     if (submittingRef.current && attempt === 0) return;
@@ -1160,6 +1184,13 @@ export function MockExamRunner() {
   }
   if (view === 'submitted') return <SubmittedCard state={state} onSpeaking={startSpeaking} openingSpeaking={openingSpeaking} />;
   if (view === 'released') return <MockExamRunnerLoading />;
+  if (pendingCapture) return <MockPostTestCapture
+    skill={pendingCapture.section}
+    envelope={pendingCapture.envelope}
+    context="mock"
+    completionLabel="Lưu tự đánh giá và nộp phần thi"
+    onComplete={completePostTestCapture}
+  />;
 
   return (
     <main className="me-test-shell">

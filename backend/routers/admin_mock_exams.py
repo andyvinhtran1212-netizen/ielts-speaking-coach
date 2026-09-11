@@ -56,6 +56,11 @@ class ExamCreate(BaseModel):
     open_until: str | None = None
     cohort_id: str | None = None
     review_sla_days: int | None = None
+    web_explanation_mode: str = Field(
+        default="with_result", pattern=r"^(disabled|with_result|admin_release)$"
+    )
+    web_explanation_content_version: str | None = None
+    post_test_capture_required: bool = True
 
 
 class ExamPatch(BaseModel):
@@ -74,6 +79,11 @@ class ExamPatch(BaseModel):
     cohort_id: str | None = None
     review_sla_days: int | None = None
     status: str | None = None      # draft | published | archived
+    web_explanation_mode: str | None = Field(
+        default=None, pattern=r"^(disabled|with_result|admin_release)$"
+    )
+    web_explanation_content_version: str | None = None
+    post_test_capture_required: bool | None = None
 
 
 class AssignRow(BaseModel):

@@ -12,6 +12,7 @@ import {
 } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { WebExplanationPanel } from '@/components/web-explanation-panel';
 import {
   listeningBandLabel,
   listeningReviewBackTarget,
@@ -177,9 +178,10 @@ function QuestionCard({ item, expanded, preview, attemptId, onToggle, onLocate }
   const cardRef = useRef<HTMLElement | null>(null);
   const topRef = useRef<HTMLDivElement | null>(null);
   const solution = item.solution || {};
+  const webExplanation = item.web_explanation_object;
   const vocab = bulletRows(solution.vocab_focus || solution.vocab);
   const hasSolutionDetail = Boolean(solution.translation_vi || vocab.length || solution.paraphrase
-    || solution.why_correct || solution.script || solution.trap);
+    || solution.why_correct || solution.script || solution.trap || webExplanation);
   const win = item.audio_window;
   const timestamp = win
     ? `${win.section ? `${win.section} · ` : ''}${clock(win.start)}–${clock(win.end)}`
@@ -217,7 +219,7 @@ function QuestionCard({ item, expanded, preview, attemptId, onToggle, onLocate }
     {item.prompt ? <div className="lr-card__prompt">{inlineNodes(item.prompt)}</div> : null}
     <div className="lr-card__answers">
       {!preview ? <div className="lr-card__ans is-user"><span>Bạn:</span> <code>{item.user_answer || '—'}</code></div> : null}
-      <div className="lr-card__ans is-correct"><span>Đáp án:</span> <code>{item.expected || '—'}</code></div>
+      <div className="lr-card__ans is-correct"><span>Đáp án:</span> <code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.expected || '—'}</code></div>
     </div>
     {win ? <div className="lr-card__tsrow"><button type="button" className="lr-card__ts" onClick={onLocate}>🔊 {timestamp}</button></div> : null}
     <div className="lr-card__detail" hidden={!expanded}>
@@ -228,6 +230,7 @@ function QuestionCard({ item, expanded, preview, attemptId, onToggle, onLocate }
         <SolutionSection label="Vì sao đúng">{solution.why_correct ? <WhyCorrect value={solution.why_correct} /> : null}</SolutionSection>
         <SolutionSection label="Script" className="lr-sol__sec--script">{solution.script ? <p><ScriptBlock value={solution.script} /></p> : null}</SolutionSection>
         <SolutionSection label="Bẫy" className="lr-sol__sec--trap">{solution.trap ? <p>{inlineNodes(solution.trap)}</p> : null}</SolutionSection>
+        {webExplanation ? <WebExplanationPanel object={webExplanation} skill="listening" /> : null}
       </> : <p className="lr-sol__empty">Chưa có lời giải chi tiết.</p>}
     </div>
   </article>;

@@ -21,10 +21,11 @@ import {
 } from '@/lib/reading-exam-controller.mjs';
 import { corePlayerUrl } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { MockPostTestCapture } from '@/components/mock-post-test-capture';
 
 type AnswerMap = Map<number, string>;
 type SaveState = Map<number, 'pending' | 'retrying' | 'failed'>;
-type ExamPhase = 'loading' | 'error' | 'prestart' | 'inprogress' | 'submitting' | 'results' | 'sealed';
+type ExamPhase = 'loading' | 'error' | 'prestart' | 'inprogress' | 'submitting' | 'capture' | 'results' | 'sealed';
 
 type Passage = {
   id?: string;
@@ -964,6 +965,11 @@ export function ReadingExamSession() {
         if (!params?.mockEmbed) hook.showSealedAndReturn('reading');
         return;
       }
+      if (response?.post_test_capture_required) {
+        setResult(response);
+        setPhase('capture');
+        return;
+      }
       setResult(response);
       setPhase('results');
     } catch (caught: any) {
@@ -1081,6 +1087,14 @@ export function ReadingExamSession() {
     anonId={anonCapability() || null}
     from={params?.from || null}
     sittingId={params?.sittingId || null}
+  />;
+  if (phase === 'capture' && result) return <MockPostTestCapture
+    skill="reading"
+    envelope={result}
+    onComplete={(payload) => {
+      if (payload?.result) { setResult(payload.result); setPhase('results'); }
+      else setPhase('sealed');
+    }}
   />;
 
   return (

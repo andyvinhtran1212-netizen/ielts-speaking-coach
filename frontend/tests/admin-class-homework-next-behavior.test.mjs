@@ -91,6 +91,26 @@ describe('admin class homework model — canonical truth', () => {
     assert.deepEqual(normalizeCatalog({ items: [{ id: 'r1', title: 'R', status: 'published', exam_only: false }] }, 'exam', 'reading')[0].ready, true);
   });
 
+  test('keeps protected Cambridge papers assignable only through controlled practice', () => {
+    const options = normalizeCatalog({ items: [
+      { id: 'cam-r', title: 'Cambridge 18 Test 1', status: 'published', exam_only: true },
+    ] }, 'exam', 'reading');
+    assert.equal(options[0].ready, true);
+    assert.equal(options[0].exam_only, true);
+    const base = {
+      ...homeworkDraft(), skill: 'reading', title: 'Practice 1', contentId: 'cam-r',
+      webExplanationMode: 'immediate_after_capture',
+    };
+    assert.equal(validateHomeworkDraft(base, options).ok, false);
+    const controlled = validateHomeworkDraft(
+      { ...base, deliveryMode: 'assigned_practice' }, options,
+    );
+    assert.equal(controlled.ok, true);
+    assert.equal(controlled.body.delivery_mode, 'assigned_practice');
+    assert.equal(controlled.body.web_explanation_mode, 'immediate_after_capture');
+    assert.equal(controlled.body.post_test_capture_required, true);
+  });
+
   test('normalizes paginated action-log details without claiming failed reads are empty', () => {
     const log = normalizeActionLog({ actions: [{ action: 'due_change', created_at: '2026-08-12T00:00:00Z', details: { flips: { to_late: 2 } } }], has_more: true, next_before: 'cursor' });
     assert.equal(log.actions.length, 1);
