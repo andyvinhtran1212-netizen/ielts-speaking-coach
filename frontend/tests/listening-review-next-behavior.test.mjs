@@ -24,6 +24,7 @@ const LEGACY_HTML = read('public', 'pages', 'listening-review.html');
 const LEGACY_JS = read('public', 'js', 'listening-review.js');
 const PLAYER = read('public', 'js', 'listening-test-player.js');
 const MOCK = read('app', '(authed-mock-result)', 'mock', 'result', 'mock-result-behavior.tsx');
+const WEB_PANEL = read('components', 'web-explanation-panel.tsx');
 
 const fixture = (overrides = {}) => ({
   attempt_id: 'attempt-1',
@@ -144,6 +145,10 @@ describe('Listening review native controller contract', () => {
     assert.match(CLIENT, /AverFeedback\?\.attachCardFlag/);
     assert.match(CLIENT, /AverFeedback\?\.mountSurvey/);
     assert.match(CLIENT, /hasAudio:\s*true/);
+    assert.match(CLIENT, /webExplanation && expanded[\s\S]{0,120}\? <WebExplanationPanel/);
+    assert.match(CLIENT, /: hasSolutionDetail \? <>[\s\S]{0,160}<SolutionSection label="Dịch đoạn chứa đáp án"/);
+    assert.match(WEB_PANEL, /candidate_skill_codes/);
+    assert.match(WEB_PANEL, /same_source_repair/);
   });
 
   test('keeps an expandable fallback when a submitted item has no authored solution', () => {
@@ -158,6 +163,7 @@ describe('Listening review route ownership and rollback', () => {
     assert.match(PAGE, /Chữa bài Listening/);
     assert.match(LAYOUT, /listening-review\.css/);
     assert.match(LAYOUT, /listening-review-next\.css/);
+    assert.match(LAYOUT, /web-explanation-panel\.css/);
     assert.match(LAYOUT, /audio-player\.js/);
     assert.match(LAYOUT, /feedback-widgets\.js/);
     assert.match(LAYOUT, /utilityLayer=\{false\}/);

@@ -4428,6 +4428,10 @@ _AUDIO_READY_OR = (
     "and(full_audio_storage_path.not.is.null,full_audio_storage_path.neq.),"
     "and(assembled_audio_storage_path.not.is.null,assembled_audio_storage_path.neq.)"
 )
+_AUDIO_READY_PUBLIC_OR = (
+    "and(exam_only.eq.false,or(" + _AUDIO_READY_OR + ")),"
+    + "and(public_practice_enabled.eq.true,or(" + _AUDIO_READY_OR + "))"
+)
 
 # Columns needed to judge readiness (below). Kept next to the rule so the two
 # cannot drift.
@@ -4523,7 +4527,9 @@ async def listening_overview(authorization: str | None = Header(default=None)):
     await _require_auth(authorization)
 
     from services import mock_exam_service
+    from services import mock_correction_service
     reserved = mock_exam_service.reserved_test_ids("listening")
+    reserved = mock_correction_service.non_public_reserved_ids("listening", reserved)
 
     tests: dict[str, int] = {}
     for kind in ("full", "mini", "drill", "practice"):
@@ -4532,8 +4538,7 @@ async def listening_overview(authorization: str | None = Header(default=None)):
             .select("id", count="exact")
             .eq("status", "published")
             .eq("test_type", kind)
-            .eq("exam_only", False)
-            .or_(_AUDIO_READY_OR)
+            .or_(_AUDIO_READY_PUBLIC_OR)
             .limit(1)
         )
         if reserved:
@@ -4576,8 +4581,7 @@ async def listening_overview(authorization: str | None = Header(default=None)):
             .select("metadata")
             .eq("status", "published")
             .eq("test_type", "practice")
-            .eq("exam_only", False)
-            .or_(_AUDIO_READY_OR)
+            .or_(_AUDIO_READY_PUBLIC_OR)
             .order("id")
             .limit(2000)
         )
@@ -4640,7 +4644,7 @@ async def list_published_listening_tests(
         # last-page. It also broke the /overview invariant — the tile counts
         # over the whole filtered set, so a no-audio row inside page 1 made the
         # badge disagree with the page. Same predicate, evaluated in one place.
-        .or_(_AUDIO_READY_OR)
+        .or_(_AUDIO_READY_PUBLIC_OR)
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
     )
@@ -4656,11 +4660,12 @@ async def list_published_listening_tests(
     # Reserved for a mock exam — never in the practice list (mig 170). The
     # PERMANENT flag: unlike reserved_test_ids below it survives the exam being
     # archived, which used to republish the paper to the next cohort.
-    q = q.eq("exam_only", False)
     # Kept alongside it: a test assigned to a live exam by an admin who did not
     # tick the flag is still hidden, immediately, with no backfill needed.
     from services import mock_exam_service
+    from services import mock_correction_service
     _reserved = mock_exam_service.reserved_test_ids("listening")
+    _reserved = mock_correction_service.non_public_reserved_ids("listening", _reserved)
     if _reserved:
         q = q.not_.in_("id", list(_reserved))
     res = q.execute()
@@ -4731,7 +4736,9 @@ async def list_published_listening_tests(
     }
 
 
-def _assert_listening_exam_content_allowed(test: dict, user_id) -> None:
+def _assert_listening_exam_content_allowed(
+    test: dict, user_id, class_item: str | None = None, *, allow_public: bool = True
+) -> None:
     """A test reserved for mock exams is served ONLY to a student sitting one.
 
     Hiding it from the browse list is not enough — a direct link went straight
@@ -4745,6 +4752,13 @@ def _assert_listening_exam_content_allowed(test: dict, user_id) -> None:
     """
     if not test.get("exam_only"):
         return
+    from services import mock_correction_service
+    if allow_public and test.get("public_practice_enabled"):
+        return
+    if mock_correction_service.class_item_entitles_exam_only(
+        user_id, class_item, skill="listening", test_id=test.get("id")
+    ):
+        return
     from services import mock_exam_service
     if not mock_exam_service.user_may_open_exam_content(user_id, "listening", test.get("id")):
         raise HTTPException(404, "Test bundle not found or not published")
@@ -4753,6 +4767,7 @@ def _assert_listening_exam_content_allowed(test: dict, user_id) -> None:
 @user_router.get("/tests/{test_id}")
 async def get_published_listening_test(
     test_id: uuid.UUID,
+    class_item: str | None = None,
     authorization: str | None = Header(default=None),
 ):
     """Fetch a published test bundle for the student player.
@@ -4778,7 +4793,7 @@ async def get_published_listening_test(
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
-    _assert_listening_exam_content_allowed(test, _user.get("id"))
+    _assert_listening_exam_content_allowed(test, _user.get("id"), class_item)
 
     audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
     if not audio_url:
@@ -4957,7 +4972,7 @@ async def get_listening_test_dictation(
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
-    _assert_listening_exam_content_allowed(test, _user.get("id"))
+    _assert_listening_exam_content_allowed(test, _user.get("id"), allow_public=False)
 
     audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
     if not audio_url:
@@ -5088,7 +5103,7 @@ def _published_test_for_dictation(test_id: str, user_id=None) -> dict:
     )
     if not res.data:
         raise HTTPException(404, "Test bundle not found or not published")
-    _assert_listening_exam_content_allowed(res.data[0], user_id)
+    _assert_listening_exam_content_allowed(res.data[0], user_id, allow_public=False)
     return res.data[0]
 
 
@@ -6220,7 +6235,8 @@ async def start_listening_test_attempt(
     # Verify the test is published + has audio.
     test_res = (
         supabase_admin.table("listening_tests")
-        .select("id,status,exam_only,full_audio_storage_path,assembled_audio_storage_path")
+        .select("id,status,exam_only,public_practice_enabled,full_audio_storage_path,"
+                "assembled_audio_storage_path")
         .eq("id", test_id)
         .limit(1)
         .execute()
@@ -6228,7 +6244,7 @@ async def start_listening_test_attempt(
     if not test_res.data or test_res.data[0].get("status") != "published":
         raise HTTPException(404, "Test bundle not found or not published")
     test_row = test_res.data[0]
-    _assert_listening_exam_content_allowed(test_row, user.get("id"))
+    _assert_listening_exam_content_allowed(test_row, user.get("id"), class_item)
     if not (test_row.get("full_audio_storage_path")
             or test_row.get("assembled_audio_storage_path")):
         raise HTTPException(422, "Test chưa có audio sẵn sàng.")
@@ -6426,7 +6442,16 @@ async def patch_listening_test_attempt_answer(
         # race, and the honest answer is that the edit did not land.
         require_resume_active(attempt)
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
-    return {"attempt_id": attempt_id, "answer_count": count}
+    from services import mock_correction_service
+    performance_event_recorded = mock_correction_service.record_answer_commit(
+        "listening", attempt_id, attempt.get("user_id"), body.q_num,
+        body.user_answer or "",
+    )
+    return {
+        "attempt_id": attempt_id,
+        "answer_count": count,
+        "performance_event_recorded": performance_event_recorded,
+    }
 
 
 def _attempt_test_type(attempt: dict) -> str:
@@ -6701,7 +6726,16 @@ async def submit_listening_test_attempt(
         # committed sealed submit must return the same opaque receipt; normal
         # attempts keep the historical 422 and never expose a second result.
         if _mock_sealed(attempt):
-            return {"received": True, "sitting_id": attempt["sitting_id"], "sealed": True}
+            receipt = {
+                "received": True, "sitting_id": attempt["sitting_id"], "sealed": True
+            }
+            from services import mock_correction_service
+            capture = mock_correction_service.capture_required_envelope(
+                "listening", attempt, attempt.get("grading_details") or []
+            )
+            if capture:
+                receipt.update(capture)
+            return receipt
         raise HTTPException(422, "Attempt đã submit rồi — không thể submit lại.")
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt status không hợp lệ.")
@@ -6726,6 +6760,10 @@ async def submit_listening_test_attempt(
         .execute()
     )
     answer_key = grader.collect_answer_key(ex_res.data or [])
+    from services import mock_correction_service
+    answer_key = mock_correction_service.apply_scoring_overrides(
+        "listening", test_id, answer_key
+    )
 
     result = grader.grade_attempt(attempt.get("answers") or [], answer_key)
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -6752,10 +6790,35 @@ async def submit_listening_test_attempt(
         raise HTTPException(409, "Attempt đã thay đổi; hãy tải lại trạng thái.")
 
     note_persisted_exam_result(finalized.data[0], expected_questions=answer_key)
+    submitted_attempt = {
+        **attempt,
+        "status": "submitted",
+        "score": result["score"],
+        "grading_details": result["per_question"],
+        "trap_analytics": result["trap_analytics"],
+        "band_estimate": result["band_estimate"],
+        "submitted_at": now_iso,
+    }
+    performance_finalized = mock_correction_service.finalize_item_observations(
+        "listening", submitted_attempt, result["per_question"]
+    )
     # Sealed 4-skill mock: grade + persist above (the admin's draft), but never
     # expose the score to the student until the sitting is released.
     if _mock_sealed(attempt):
-        return {"received": True, "sitting_id": attempt["sitting_id"], "sealed": True}
+        receipt = {"received": True, "sitting_id": attempt["sitting_id"], "sealed": True}
+        capture = mock_correction_service.capture_required_envelope(
+            "listening", submitted_attempt, result["per_question"]
+        )
+        if capture:
+            receipt.update(capture)
+        return receipt
+
+    capture = mock_correction_service.capture_required_envelope(
+        "listening", submitted_attempt, result["per_question"]
+    )
+    if capture:
+        capture["performance_finalized"] = performance_finalized
+        return capture
 
     return {
         "attempt_id":        attempt_id,
@@ -6765,6 +6828,7 @@ async def submit_listening_test_attempt(
         "section_breakdown": result["section_breakdown"],
         "trap_analytics":    result["trap_analytics"],
         "per_question":      result["per_question"],
+        "performance_finalized": performance_finalized,
     }
 
 
@@ -6911,6 +6975,11 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
             "solution":      solutions_by_q.get(q) or {},
         })
 
+    from services import mock_correction_service
+    web_access = mock_correction_service.attach_web_explanations(
+        "listening", attempt, review, admin_preview=bool(attempt.get("_admin_preview"))
+    )
+
     return {
         "attempt_id":      attempt_id,
         "test_id":         test_row.get("test_id"),
@@ -6927,6 +6996,7 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
         "band_conversion": meta.get("band_conversion") or [],
         "sections":        sections,
         "review":          review,
+        "web_explanation_access": web_access,
     }
 
 @user_router.get("/tests/attempts/{attempt_id}/review")
@@ -6965,5 +7035,14 @@ async def get_listening_test_attempt_review(
     if not is_admin and _mock_sealed(attempt):
         raise HTTPException(
             403, "Kết quả đang chờ giám khảo duyệt — chưa thể xem chữa bài.")
+
+    if not is_admin:
+        from services import mock_correction_service
+        if mock_correction_service.capture_required_envelope(
+            "listening", attempt, attempt.get("grading_details") or []
+        ):
+            raise HTTPException(
+                409, "Hãy hoàn tất confidence trước khi xem đáp án và chữa bài."
+            )
 
     return _assemble_listening_review(attempt, attempt_id)

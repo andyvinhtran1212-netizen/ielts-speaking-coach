@@ -150,6 +150,8 @@ def list_exam_content(kind: Optional[str] = None,
         cols = "id,title,course_level,exam_only"
         cols += f",{code_col}" if code_col else ""
         cols += ",status" if k != "writing" else ",is_active"
+        if k in ("reading", "listening"):
+            cols += ",public_practice_enabled,web_explanation_mode"
         try:
             rows = _paged(
                 lambda t=table, c=cols: supabase_admin.table(t).select(c).order("id")
@@ -181,6 +183,8 @@ def list_exam_content(kind: Optional[str] = None,
                 "status":       r.get("status") or
                                 ("published" if r.get("is_active") else "archived"),
                 "exam_only":    bool(r.get("exam_only")),
+                "public_practice_enabled": bool(r.get("public_practice_enabled")),
+                "web_explanation_mode": r.get("web_explanation_mode"),
                 "course_level": r.get("course_level"),
                 "cohort_ids":   cids,
             })

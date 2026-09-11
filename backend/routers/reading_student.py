@@ -188,7 +188,8 @@ def _resolve_share(test_id_or_token: str, *, by_token: bool) -> dict:
                 # off this row, and a column the query never fetched is always
                 # None — the gate silently passed everything through
                 # (Codex review, PR #862).
-                "total_questions,band_target,status,updated_at,metadata,exam_only")
+                "total_questions,band_target,status,updated_at,metadata,exam_only,"
+                "public_practice_enabled")
             .eq("metadata->share->>token", test_id_or_token)
             .eq("status", "published")
             .limit(1)
@@ -544,7 +545,8 @@ def _fetch_published_test(test_id: str) -> dict:
                 # off this row, and a column the query never fetched is always
                 # None — the gate silently passed everything through
                 # (Codex review, PR #862).
-                "total_questions,band_target,status,updated_at,metadata,exam_only")
+                "total_questions,band_target,status,updated_at,metadata,exam_only,"
+                "public_practice_enabled")
         .eq("test_id", test_id)
         .eq("status", "published")
         .limit(1)
@@ -572,7 +574,7 @@ def _require_test_unlocked(test: dict, password: str | None) -> None:
         raise HTTPException(403, "Bài thi đang khoá — cần nhập đúng mật khẩu để truy cập.")
 
 
-def _assert_exam_content_allowed(test: dict, user_id) -> None:
+def _assert_exam_content_allowed(test: dict, user_id, class_item: str | None = None) -> None:
     """A test reserved for mock exams is served ONLY to a student sitting one.
 
     Hiding it from the browse list is not enough — a direct link (a bookmark, a
@@ -586,18 +588,25 @@ def _assert_exam_content_allowed(test: dict, user_id) -> None:
     """
     if not test.get("exam_only"):
         return
+    from services import mock_correction_service
+    if test.get("public_practice_enabled"):
+        return
+    if mock_correction_service.class_item_entitles_exam_only(
+        user_id, class_item, skill="reading", test_id=test.get("id")
+    ):
+        return
     from services import mock_exam_service
     if not mock_exam_service.user_may_open_exam_content(user_id, "reading", test.get("id")):
         raise HTTPException(404, "Không tìm thấy đề đọc này.")
 
 
 def _build_reading_test_detail(test_id: str, password: str | None = None,
-                               user_id=None) -> dict:
+                               user_id=None, class_item: str | None = None) -> dict:
     """Return the student-safe L3 test bundle with answer keys stripped.
     Enforces the lock gate (F1) then drops the raw metadata (never leak the
     password to the client)."""
     test = dict(_fetch_published_test(test_id))
-    _assert_exam_content_allowed(test, user_id)
+    _assert_exam_content_allowed(test, user_id, class_item)
     _require_test_unlocked(test, password)
     locked = bool(((test.get("metadata") or {}).get("access") or {}).get("locked"))
     test.pop("metadata", None)
@@ -831,11 +840,13 @@ async def list_reading_tests(
     # Reserved for a mock exam — never in the practice browse (mig 170). This is
     # the PERMANENT flag: unlike reserved_test_ids below it survives the exam
     # being archived, which used to republish the paper to the next cohort.
-    q = q.eq("exam_only", False)
+    q = q.or_("exam_only.eq.false,public_practice_enabled.eq.true")
     # Kept alongside it: a test assigned to a live exam by an admin who did not
     # tick the flag is still hidden, immediately, with no backfill needed.
     from services import mock_exam_service
+    from services import mock_correction_service
     _reserved = mock_exam_service.reserved_test_ids("reading")
+    _reserved = mock_correction_service.non_public_reserved_ids("reading", _reserved)
     if _reserved:
         q = q.not_.in_("id", list(_reserved))
     res = q.execute()
@@ -881,7 +892,9 @@ async def boot_reading_test(
     ``in_progress`` as either the existing resume payload or ``null``.
     """
     user = await _require_auth(authorization)
-    test = _build_reading_test_detail(test_id, x_reading_password, user["id"])
+    test = _build_reading_test_detail(
+        test_id, x_reading_password, user["id"], class_item=class_item
+    )
     in_progress = _fetch_in_progress_payload(
         user["id"], test_id, test, raise_on_missing=False, class_item=class_item
     )
@@ -1093,7 +1106,7 @@ async def start_reading_test_attempt(
     # ownership rather than exam entitlement — so a blank submit then hands back
     # the passages, expected answers and solutions (Codex adversarial review,
     # 2026-07-26).
-    _assert_exam_content_allowed(test, user["id"])
+    _assert_exam_content_allowed(test, user["id"], class_item)
     _require_test_unlocked(test, x_reading_password)   # F1 gate on start too
     test_uuid = test["id"]
 
@@ -1277,7 +1290,14 @@ async def submit_reading_test_attempt(
         if sitting_id:
             from services import mock_exam_service
             if mock_exam_service.is_sealed(sitting_id):
-                return {"received": True, "sitting_id": sitting_id, "sealed": True}
+                receipt = {"received": True, "sitting_id": sitting_id, "sealed": True}
+                from services import mock_correction_service
+                capture = mock_correction_service.capture_required_envelope(
+                    "reading", attempt, attempt.get("grading_details") or []
+                )
+                if capture:
+                    receipt.update(capture)
+                return receipt
         raise HTTPException(422, "Attempt đã submit rồi — không thể submit lại.")
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt status không hợp lệ.")
@@ -1346,6 +1366,10 @@ async def submit_reading_test_attempt(
         .execute()
     )
     answer_key = grader.collect_answer_key(q_res.data or [], passage_order_by_id)
+    from services import mock_correction_service
+    answer_key = mock_correction_service.apply_scoring_overrides(
+        "reading", test_uuid, answer_key
+    )
 
     # Sprint 20.9 D3 — gather authoritative answers from reading_attempt_answers
     # (where PATCH /answers has been atomically upserting per (attempt, q_num)
@@ -1402,6 +1426,19 @@ async def submit_reading_test_attempt(
         raise HTTPException(409, "Attempt đã thay đổi; hãy tải lại trạng thái.")
 
     note_persisted_exam_result(finalized.data[0], expected_questions=answer_key)
+    submitted_attempt = {
+        **attempt,
+        "status": "submitted",
+        "answers": user_answers,
+        "score": result["score"],
+        "grading_details": result["per_question"],
+        "skill_breakdown": result["skill_breakdown"],
+        "band_estimate": result["band_estimate"],
+        "submitted_at": submitted_at,
+    }
+    performance_finalized = mock_correction_service.finalize_item_observations(
+        "reading", submitted_attempt, result["per_question"]
+    )
     # Sealed 4-skill mock: this attempt belongs to a sitting whose scores are
     # withheld until an admin releases results. We STILL grade + persist above
     # (that's the draft the admin reviews) — we just never expose the score to
@@ -1410,7 +1447,20 @@ async def submit_reading_test_attempt(
     if sitting_id:
         from services import mock_exam_service
         if mock_exam_service.is_sealed(sitting_id):
-            return {"received": True, "sitting_id": sitting_id, "sealed": True}
+            receipt = {"received": True, "sitting_id": sitting_id, "sealed": True}
+            capture = mock_correction_service.capture_required_envelope(
+                "reading", submitted_attempt, result["per_question"]
+            )
+            if capture:
+                receipt.update(capture)
+            return receipt
+
+    capture = mock_correction_service.capture_required_envelope(
+        "reading", submitted_attempt, result["per_question"]
+    )
+    if capture:
+        capture["performance_finalized"] = performance_finalized
+        return capture
 
     return {
         "attempt_id":         attempt_id,
@@ -1421,6 +1471,7 @@ async def submit_reading_test_attempt(
         "skill_breakdown":    result["skill_breakdown"],
         "by_part":            result["by_part"],
         "time_spent_seconds": max(0, elapsed_seconds),
+        "performance_finalized": performance_finalized,
     }
 
 
@@ -1520,6 +1571,11 @@ def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
         if g.get("correct"):
             bucket["correct"] += 1
 
+    from services import mock_correction_service
+    web_access = mock_correction_service.attach_web_explanations(
+        "reading", attempt, review, admin_preview=bool(attempt.get("_admin_preview"))
+    )
+
     return {
         "attempt_id":       attempt_id,
         "status":           attempt.get("status"),
@@ -1532,6 +1588,7 @@ def _assemble_reading_review(attempt: dict, attempt_id) -> dict:
         "by_part":          by_part,
         "passages":         passages,
         "review":           review,
+        "web_explanation_access": web_access,
     }
 
 @router.get("/test/attempts/{attempt_id}/review")
@@ -1585,6 +1642,15 @@ async def review_reading_test_attempt(
         if mock_exam_service.is_sealed(sitting_id):
             raise HTTPException(
                 403, "Kết quả đang chờ giám khảo duyệt — chưa thể xem chữa bài.")
+
+    if not is_admin:
+        from services import mock_correction_service
+        if mock_correction_service.capture_required_envelope(
+            "reading", attempt, attempt.get("grading_details") or []
+        ):
+            raise HTTPException(
+                409, "Hãy hoàn tất confidence trước khi xem đáp án và chữa bài."
+            )
 
     return _assemble_reading_review(attempt, attempt_id)
 
@@ -1668,6 +1734,12 @@ async def patch_reading_test_attempt_answer(
             raise HTTPException(410, "Attempt đã hết thời gian tiếp tục.") from exc
         raise
 
+    from services import mock_correction_service
+    performance_event_recorded = mock_correction_service.record_answer_commit(
+        "reading", attempt_id, attempt.get("user_id"), body.q_num,
+        body.user_answer or "",
+    )
+
     # Echo a small ack with the persisted-row count for the test surface to
     # verify state. We don't echo the whole answers array — the client
     # already knows its own input and the GET /attempts/in-progress route
@@ -1682,6 +1754,7 @@ async def patch_reading_test_attempt_answer(
         "attempt_id": attempt_id,
         "q_num":      body.q_num,
         "answered":   getattr(count_res, "count", None) or 0,
+        "performance_event_recorded": performance_event_recorded,
     }
 
 

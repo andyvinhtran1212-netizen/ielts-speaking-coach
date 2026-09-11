@@ -19,6 +19,7 @@ type Exam = {
   id: string; code: string; title: string; status: string; examMode: string; isOpen: boolean; activeSection: string;
   cohortId: string | null; listeningTestId: string | null; readingTestId: string | null;
   writingTask1PromptId: string | null; writingTask2PromptId: string | null;
+  webExplanationMode: string; webExplanationsReleasedAt: string | null;
 };
 type Picker = { id: string; title?: string; test_id?: string; task_type?: string; name?: string };
 type Progress = { activeSection: string; sections: Record<string, { submitted: number; total: number }> };
@@ -188,6 +189,16 @@ export function AdminMockExams() {
     await mutate(`${exam.id}:open`, () => window.api.post<unknown>(`/admin/mock-exams/${encodeURIComponent(exam.id)}/open`, { is_open: next }), next ? `Đã mở kỳ ${exam.code}.` : `Đã đóng kỳ ${exam.code}.`, () => examsRef.current.some((row) => row.id === exam.id && row.isOpen === next));
   };
 
+  const releaseWebExplanations = async (exam: Exam) => {
+    if (!window.confirm(`Cho học viên của “${exam.code}” xem web explanation sau khi kết quả đã được công bố?`)) return;
+    await mutate(
+      `${exam.id}:explanations`,
+      () => window.api.patch(`/admin/mock-corrections/mock-exams/${encodeURIComponent(exam.id)}`, { release_now: true }),
+      `Đã duyệt web explanation cho ${exam.code}.`,
+      () => examsRef.current.some((row) => row.id === exam.id && Boolean(row.webExplanationsReleasedAt)),
+    );
+  };
+
   const advance = async (exam: Exam, current: string, snapshot: Progress) => {
     const next = nextExamSection(exam, current);
     if (!next) return;
@@ -202,7 +213,7 @@ export function AdminMockExams() {
 
   return (
     <main className="mex-shell">
-      <header className="mex-hero"><div><p className="mex-kicker">Mock Test · Soạn & giao đề</p><h1>Quản lý đề thi</h1><p>Tạo bản nháp, gắn nội dung, giao đúng lớp và chuyển đề sang phòng thi live.</p></div><a className="adm-btn-secondary" href="/admin/mock-tests">Trung tâm vận hành</a></header>
+      <header className="mex-hero"><div><p className="mex-kicker">Mock Test · Soạn & giao đề</p><h1>Quản lý đề thi</h1><p>Tạo bản nháp, gắn nội dung, giao đúng lớp và chuyển đề sang phòng thi live.</p></div><div className="mex-card-actions"><a className="adm-btn-secondary" href="/admin/mock-exams/corrections">Correction performance</a><a className="adm-btn-secondary" href="/admin/mock-tests">Trung tâm vận hành</a></div></header>
       <section className="mex-overview" aria-label="Tổng quan quản lý đề"><div><span>Tổng đề</span><strong>{exams.length}</strong></div><div><span>Đang soạn</span><strong>{examCounts.drafts}</strong></div><div><span>Đã publish</span><strong>{examCounts.published}</strong></div><div className={examCounts.open ? 'is-live' : ''}><span>Phòng đang mở</span><strong>{examCounts.open}</strong></div><div><span>Đề test lại</span><strong>{examCounts.retakes}</strong></div></section>
       <nav className="aop-workflow" aria-label="Quy trình vận hành đề thi"><div className="aop-workflow__step is-current"><b>01</b><span><strong>Soạn đề</strong><small>Nội dung & thời lượng</small></span></div><div className="aop-workflow__step is-current"><b>02</b><span><strong>Giao đề</strong><small>Publish & gán lớp</small></span></div><div className="aop-workflow__step"><b>03</b><span><strong>Phòng live</strong><small>Mở phần & theo dõi</small></span></div><div className="aop-workflow__step"><b>04</b><span><strong>Thu bài</strong><small>Sweep & đối chiếu</small></span></div><div className="aop-workflow__step"><b>05</b><span><strong>Chấm nháp</strong><small>Nhận hồ sơ & chốt band</small></span></div><div className="aop-workflow__step"><b>06</b><span><strong>Trả kết quả</strong><small>Công bố canonical</small></span></div></nav>
       {notice && <div className={`mex-alert is-${notice.kind}`} role={notice.kind === 'success' ? 'status' : 'alert'}>{notice.message}</div>}
@@ -239,6 +250,7 @@ export function AdminMockExams() {
                 {exam.status === 'published' && <a className="adm-btn-secondary" href={`/admin/mock-tests?tab=live&exam_id=${encodeURIComponent(exam.id)}`}>Phòng thi trực tiếp</a>}
               </>}
               <a className="adm-btn-secondary" href={`/admin/mock-tests?tab=review&exam_id=${encodeURIComponent(exam.id)}`}>Duyệt bài</a>
+              {exam.webExplanationMode === 'admin_release' && !exam.webExplanationsReleasedAt ? <button className="adm-btn-secondary" type="button" onClick={() => void releaseWebExplanations(exam)} disabled={busy}>Duyệt web explanation</button> : null}
             </div>
           </article>;
         })}</div>}

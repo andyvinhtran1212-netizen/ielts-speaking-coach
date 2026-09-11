@@ -114,6 +114,7 @@ export function homeworkDraft(at = new Date()) {
     kind: 'daily', skill: 'speaking', title: '', contentId: '', mode: 'practice', part: '1',
     questionMode: 'random', questionIds: [], dueDate: defaultVietnamDueDate(at), dueTime: '19:00',
     dueDays: '7', instructions: '', recipientScope: 'class', studentIds: [], passPct: '', retakeSize: '', error: '',
+    deliveryMode: 'standard', webExplanationMode: 'disabled', postTestCaptureRequired: true,
   };
 }
 
@@ -124,6 +125,9 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
   const selected = (Array.isArray(catalog) ? catalog : []).find((item) => item.id === contentId);
   if (!contentId || !selected) return { ok: false, error: 'Chọn nội dung bài tập để tiếp tục.' };
   if (!selected.ready || selected.already_given) return { ok: false, error: selected.reason || 'Nội dung này chưa giao được.' };
+  if (selected.exam_only && draft.deliveryMode !== 'assigned_practice') {
+    return { ok: false, error: 'Đề trong kho admin cần chọn “Giao luyện tập có kiểm soát”.' };
+  }
   if (draft.recipientScope === 'subset' && !draft.studentIds?.length) return { ok: false, error: 'Chọn ít nhất một học viên nhận bài.' };
   if (draft.kind === 'lesson') {
     const dueDays = Number(draft.dueDays);
@@ -181,6 +185,11 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
       if (draft.passPct !== '') body.pass_pct = Number(draft.passPct);
       if (draft.retakeSize !== '') body.retake_size = Number(draft.retakeSize);
     }
+    if (draft.skill === 'reading' || draft.skill === 'listening') {
+      body.delivery_mode = draft.deliveryMode;
+      body.web_explanation_mode = draft.webExplanationMode;
+      body.post_test_capture_required = draft.postTestCaptureRequired !== false;
+    }
   }
   return { ok: true, body };
 }
@@ -193,14 +202,16 @@ export function normalizeCatalog(value, kind, requestedSkill = '') {
     const row = object(item);
     const id = text(row.id);
     if (!id) return null;
-    const ready = kind === 'exam' ? row.status === 'published' && row.exam_only !== true : row.ready === true;
+    const ready = kind === 'exam' ? row.status === 'published' : row.ready === true;
     const already = row.already_given === true;
     let reason = null;
     if (already) reason = 'Đã giao cho lớp này';
     else if (!ready) reason = row.missing_audio ? `Thiếu audio cho ${count(row.missing_audio)} câu` : 'Chưa có nội dung sẵn sàng';
+    else if (kind === 'exam' && row.exam_only === true) reason = 'Kho đề admin';
     return {
       id, title: text(row.title) || 'Nội dung chưa đặt tên', code: nullableText(row.code),
-      part: finite(row.part), lesson_no: finite(row.lesson_no), ready, already_given: already, reason,
+      part: finite(row.part), lesson_no: finite(row.lesson_no), ready, already_given: already,
+      reason, exam_only: row.exam_only === true,
     };
   }).filter(Boolean);
 }

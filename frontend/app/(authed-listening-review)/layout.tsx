@@ -12,6 +12,7 @@ export default function ListeningReviewLayout({ children }: { children: ReactNod
         '/css/listening-review.css',
         '/css/feedback.css',
         '/css/listening-review-next.css',
+        '/css/web-explanation-panel.css',
       ]}
       extraScripts={<RouteScriptChain scripts={[
         { src: '/js/components/audio-player.js', type: 'module' },

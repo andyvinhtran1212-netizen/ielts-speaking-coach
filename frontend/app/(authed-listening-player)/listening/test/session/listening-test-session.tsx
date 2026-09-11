@@ -21,8 +21,9 @@ import {
   normalizeListeningTest,
 } from '@/lib/listening-test-controller.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
+import { MockPostTestCapture } from '@/components/mock-post-test-capture';
 
-type ListeningPhase = 'loading' | 'error' | 'prestart' | 'inprogress' | 'submitting' | 'results' | 'sealed';
+type ListeningPhase = 'loading' | 'error' | 'prestart' | 'inprogress' | 'submitting' | 'capture' | 'results' | 'sealed';
 type AnswerMap = Map<number, string>;
 type SaveMap = Map<number, 'pending' | 'retrying' | 'failed'>;
 type Attempt = { attempt_id: string; started_at: string; answers?: any[]; renderer_affinity?: 'legacy' | 'next' | null };
@@ -299,9 +300,13 @@ function Exercise({ exercise, answers, saveStates, onAnswer }: {
   else if (['mcq_letter_label', 'plan_label'].includes(kind)) content = <SelectTemplate payload={payload} questions={questions} answers={answers} onAnswer={onAnswer} plan />;
   else content = <QuestionRows questions={questions} answers={answers} onAnswer={onAnswer} />;
   const affected = questions.map((question: any) => Number(question.q_num)).filter((qNum: number) => saveStates.has(qNum));
+  const supportingVisual = !['mcq_letter_label', 'plan_label'].includes(kind)
+    ? String(payload.map_image_url || '')
+    : '';
   return <section className="ielts-question-block" data-template-kind={kind}>
     {questions.length ? <div className="ielts-block-header">{first === last ? `Question ${first}` : `Questions ${first}–${last}`}</div> : null}
     {payload.instruction || payload.instructions ? <div className="ielts-instruction"><p><InlineText text={payload.instruction || payload.instructions} /></p></div> : null}
+    {supportingVisual ? <figure className="listening-next-supporting-visual"><img className="ielts-map-rendered" src={supportingVisual} alt={`Visual for questions ${first}${first === last ? '' : ` to ${last}`}`} /></figure> : null}
     {content}
     {affected.length ? <small className="listening-next-exercise-save" role="status">Câu {affected.join(', ')} chưa lưu xong.</small> : null}
   </section>;
@@ -413,7 +418,9 @@ export function ListeningTestSession() {
     const ready = await whenGlobalReady(() => !!window.api?.get, 'window.api (Listening test)');
     if (!ready) throw new Error('Không thể kết nối lớp dữ liệu.');
     const [testPayload, resumePayload] = await Promise.all([
-      window.api.get(`/api/listening/tests/${encodeURIComponent(params.testId)}`),
+      window.api.get(withQuery(`/api/listening/tests/${encodeURIComponent(params.testId)}`, [
+        ['class_item', params.classItem],
+      ])),
       window.api.get(resumePath(params)),
     ]);
     const normalizedTest = normalizeListeningTest(testPayload);
@@ -587,6 +594,9 @@ export function ListeningTestSession() {
         if (!params?.mockEmbed) hook.showSealedAndReturn('listening');
         return;
       }
+      if (response?.post_test_capture_required) {
+        setResult(response); setPhase('capture'); return;
+      }
       setResult(response); setPhase('results');
     } catch (caught: any) { setError(`Không nộp được bài Listening. ${caught?.message || ''}`); setPhase('error'); }
   }, [attempt, params?.mockEmbed, phase, user?.id]);
@@ -649,7 +659,9 @@ export function ListeningTestSession() {
     setAudioRetrying(true);
     try {
       const refreshed = normalizeListeningTest(await window.api.get(
-        `/api/listening/tests/${encodeURIComponent(params.testId)}`,
+        withQuery(`/api/listening/tests/${encodeURIComponent(params.testId)}`, [
+          ['class_item', params.classItem],
+        ]),
       ));
       const offset = params.sittingId || !Number.isFinite(mediaOffset)
         ? await resolveAudioOffset(attempt, refreshed)
@@ -728,6 +740,14 @@ export function ListeningTestSession() {
   }, [phase]);
 
   if (phase === 'results' && testData) return <ResultView result={result} attempt={attempt} test={testData} from={params?.from || null} sittingId={params?.sittingId || null} />;
+  if (phase === 'capture' && result) return <MockPostTestCapture
+    skill="listening"
+    envelope={result}
+    onComplete={(payload) => {
+      if (payload?.result) { setResult(payload.result); setPhase('results'); }
+      else setPhase('sealed');
+    }}
+  />;
 
   const activeSectionData = sections.find((section: any) => Number(section.section_num) === activeSection);
   const activeSectionQuestions = questionsForSection(activeSectionData);

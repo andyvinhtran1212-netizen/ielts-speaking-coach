@@ -237,6 +237,8 @@ describe('native Listening test route contract', () => {
     assert.match(page, /function MatchingMatrixTemplate/);
     assert.match(page, /kind === 'matching'.*MatchingMatrixTemplate/);
     assert.match(page, /\['mcq_letter_label', 'plan_label'\].*SelectTemplate/);
+    assert.match(page, /supportingVisual.*payload\.map_image_url/s);
+    assert.match(page, /listening-next-supporting-visual/);
     assert.match(page, /FormTemplate/);
     assert.match(page, /TableTemplate/);
     assert.match(page, /NotesTemplate/);

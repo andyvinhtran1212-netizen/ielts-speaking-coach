@@ -95,6 +95,10 @@ from routers.mock_exams import router as mock_exams_router
 from routers.admin_exam_content import router as admin_exam_content_router
 from routers.admin_mock_exams import router as admin_mock_exams_router
 from routers.admin_mock_reviews import router as admin_mock_reviews_router
+from routers.mock_corrections import (
+    router as mock_corrections_router,
+    admin_router as admin_mock_corrections_router,
+)
 
 # Configure logging to emit INFO+ to stdout (Railway captures stdout).
 # Sprint 6.6: backend never called basicConfig before, so Python defaulted
@@ -288,6 +292,8 @@ app.include_router(mock_exams_router)
 app.include_router(admin_exam_content_router)
 app.include_router(admin_mock_exams_router)
 app.include_router(admin_mock_reviews_router)
+app.include_router(mock_corrections_router)
+app.include_router(admin_mock_corrections_router)
 app.include_router(health_router)
 app.include_router(dashboard_router)
 app.include_router(student_home_router)

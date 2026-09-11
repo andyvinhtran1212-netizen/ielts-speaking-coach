@@ -18,6 +18,7 @@ const ROOT = path.dirname(FRONTEND);
 const read = (file) => readFileSync(path.join(ROOT, file), 'utf8');
 const CLIENT = read('frontend/app/(reading-review)/reading/review/reading-review-workspace.tsx');
 const LAYOUT = read('frontend/app/(reading-review)/layout.tsx');
+const WEB_PANEL = read('frontend/components/web-explanation-panel.tsx');
 const WRITE_FLOW = read('frontend/tooling/write-flows/reading-review-microcheck.mjs');
 
 function payload(overrides = {}) {
@@ -136,6 +137,12 @@ describe('native Reading review route contract', () => {
     assert.match(CLIENT, /function LegacySteps/);
     assert.match(CLIENT, /ref\.title[\s\S]{0,100}String\(ref\.title\)/);
     assert.match(CLIENT, /Câu \$\{item\.q_num\}.*xem trước/);
+    assert.match(CLIENT, /!webExplanation \? <>[\s\S]{0,240}<SolutionSection label="Các bước ra đáp án"/);
+    assert.match(CLIENT, /webExplanation && expanded \? <WebExplanationPanel/);
+    assert.match(WEB_PANEL, /Chữa theo bằng chứng, không chỉ xem đáp án/);
+    assert.match(WEB_PANEL, /Chốt bằng chứng của em/);
+    assert.match(WEB_PANEL, /Mở lời giải đầy đủ/);
+    assert.match(LAYOUT, /web-explanation-panel\.css/);
   });
 
   test('starts with incorrect answers and reveals a filtered card from the palette', () => {

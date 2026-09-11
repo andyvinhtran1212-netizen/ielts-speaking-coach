@@ -26,7 +26,10 @@ import type {
   QuestionOption,
 } from './admin-class-homework-types';
 
-type ConfirmState = { kind: 'delete'; assignment: ClassAssignment } | null;
+type ConfirmState =
+  | { kind: 'delete'; assignment: ClassAssignment }
+  | { kind: 'release-explanations'; assignment: ClassAssignment }
+  | null;
 type BackfillState = { assignment: ClassAssignment; studentIds: string[]; error: string } | null;
 
 const SKILL_LABEL = { speaking: 'Speaking', reading: 'Reading', listening: 'Listening', course: 'Bài tập theo buổi' };
@@ -225,6 +228,10 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
 
   const summary = useMemo(() => assignmentSummary(assignments || []), [assignments]);
   const visible = useMemo(() => selectAssignments(assignments || [], { search, status }) as ClassAssignment[], [assignments, search, status]);
+  const pendingExplanationAssignments = useMemo(() => (assignments || []).filter((assignment) => {
+    const policy = (assignment.content_config as { correction_policy?: { web_explanation_mode?: string; released_at?: string } }).correction_policy;
+    return policy?.web_explanation_mode === 'admin_release' && !policy.released_at;
+  }), [assignments]);
 
   useEffect(() => {
     if (!openAssignmentId || !assignments || !onOpenSubmissions) return;
@@ -262,6 +269,18 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
     try {
       await window.api.patch(`/admin/cohorts/${encodeURIComponent(cohortId)}/assignments/${encodeURIComponent(assignment.id)}`, { status: next });
       await canonicalMutation(next === 'archived' ? 'Đã đóng bài. Học viên không còn thấy bài này.' : 'Đã mở lại bài giao.');
+    } catch (caught) { setBanner({ kind: 'error', text: messageOf(caught) }); }
+    finally { setBusy(false); }
+  };
+
+  const releaseClassExplanations = async () => {
+    if (!confirm || confirm.kind !== 'release-explanations' || busy) return;
+    const assignment = confirm.assignment;
+    setConfirm(null);
+    setBusy(true); setBanner(null);
+    try {
+      await window.api.patch(`/admin/mock-corrections/class-assignments/${encodeURIComponent(assignment.id)}`, { release_now: true });
+      await canonicalMutation('Đã duyệt web explanation cho bài giao.');
     } catch (caught) { setBanner({ kind: 'error', text: messageOf(caught) }); }
     finally { setBusy(false); }
   };
@@ -378,6 +397,7 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
     <section id="acx-panel-homework" className="acd-workspace ach-workspace" role="tabpanel" aria-labelledby="acx-tab-homework">
       <div className="acx-section-head"><div><p className="acd-eyebrow">Công việc của lớp</p><h2>Bài tập</h2><p>Theo dõi hạn, phạm vi người nhận và tình hình nộp từ sổ cái chuẩn. Hạn được đặt theo giờ Việt Nam.</p></div><div className="ach-section-actions"><a className="adm-btn-secondary" href={assignmentHref({}, { cohortId })}>Giao Writing cho lớp</a><button className="adm-btn-primary" type="button" onClick={() => setEditor(homeworkDraft() as HomeworkDraft)} disabled={busy}>Giao bài lớp</button></div></div>
       <StatusBanner banner={banner} />
+      {pendingExplanationAssignments.length ? <section className="acd-warning"><strong>Đang chờ duyệt web explanation</strong><div className="ach-section-actions">{pendingExplanationAssignments.map((assignment) => <button className="adm-btn-secondary adm-btn-sm" type="button" key={assignment.id} disabled={busy} onClick={() => setConfirm({ kind: 'release-explanations', assignment })}>{assignment.title}</button>)}</div></section> : null}
       {reconcileFailed && <div className="acd-warning" role="alert">Chưa đối chiếu được một số bài đã nộp; các con số bên dưới có thể còn thiếu. Tải lại để thử đối chiếu lại.</div>}
       {error && <div className={assignments ? 'acd-warning' : 'acd-state is-error'} role="alert"><strong>Không đọc được danh sách bài giao</strong><span>{error}{assignments ? ' Danh sách dưới đây là ảnh chụp trước đó.' : ''}</span><button className="adm-btn-secondary" type="button" onClick={() => void loadAssignments()} disabled={loading}>Thử lại</button></div>}
       <div className="acd-kpis" aria-label="Tóm tắt bài tập"><div className="acd-kpi"><span>Đang mở</span><strong>{assignments ? summary.open : '—'}</strong></div><div className="acd-kpi"><span>Sắp đến hạn</span><strong>{assignments ? summary.dueSoon : '—'}</strong></div><div className="acd-kpi"><span>Đã đóng</span><strong>{assignments ? summary.closed : '—'}</strong></div></div>
@@ -392,6 +412,7 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
           {editor?.kind === 'daily' && <Field label="Kỹ năng"><select value={editor.skill} onChange={(event) => setEditor({ ...editor, skill: event.target.value as HomeworkDraft['skill'], contentId: '', questionIds: [], error: '' })}><option value="speaking">Speaking</option><option value="reading">Reading</option><option value="listening">Listening</option><option value="course">Bài tập theo buổi</option></select></Field>}
           {editor?.skill === 'speaking' && editor.kind === 'daily' && <div className="acx-form-row"><Field label="Kiểu luyện"><select value={editor.mode} onChange={(event) => setEditor({ ...editor, mode: event.target.value as HomeworkDraft['mode'], error: '' })}><option value="practice">Luyện tập</option><option value="test_part">Luyện từng Part</option></select></Field><Field label="Part"><select value={editor.part} onChange={(event) => setEditor({ ...editor, part: event.target.value as HomeworkDraft['part'], contentId: '', questionIds: [], error: '' })}><option value="1">Part 1</option><option value="2">Part 2</option><option value="3">Part 3</option></select></Field></div>}
           <Field label={editor?.kind === 'lesson' ? 'Bộ đề của buổi' : editor?.skill === 'course' ? 'Bộ bài tập' : editor?.skill === 'speaking' ? 'Chủ đề' : 'Đề'} hint={catalogError || undefined}><select value={editor?.contentId || ''} onChange={(event) => editor && setEditor({ ...editor, contentId: event.target.value, questionIds: [], error: '' })} disabled={catalogLoading || Boolean(catalogError)}><option value="">{catalogLoading ? 'Đang tải…' : 'Chọn nội dung'}</option>{catalog.map((item) => <option key={item.id} value={item.id} disabled={!item.ready || item.already_given}>{item.lesson_no != null ? `Buổi ${item.lesson_no} · ` : ''}{item.code ? `${item.code} · ` : ''}{item.title}{item.reason ? ` · ${item.reason}` : ''}</option>)}</select></Field>
+          {(editor?.skill === 'reading' || editor?.skill === 'listening') && <><div className="acx-form-row"><Field label="Cách phân phối"><select value={editor.deliveryMode} onChange={(event) => setEditor({ ...editor, deliveryMode: event.target.value as HomeworkDraft['deliveryMode'], error: '' })}><option value="standard">Đề luyện trong thư viện</option><option value="assigned_practice">Giao luyện tập có kiểm soát từ kho admin</option></select></Field><Field label="Trả phần chữa bài"><select value={editor.webExplanationMode} onChange={(event) => setEditor({ ...editor, webExplanationMode: event.target.value as HomeworkDraft['webExplanationMode'], error: '' })}><option value="disabled">Không hiện web explanation</option><option value="immediate_after_capture">Hiện ngay sau tự đánh giá</option><option value="admin_release">Chờ admin duyệt</option></select></Field></div><label><input type="checkbox" checked={editor.postTestCaptureRequired} onChange={(event) => setEditor({ ...editor, postTestCaptureRequired: event.target.checked, error: '' })} /> Thu confidence 1–5 trước khi hiện đáp án và explanation</label></>}
           <Field label="Tên bài giao"><input required maxLength={300} value={editor?.title || ''} onChange={(event) => editor && setEditor({ ...editor, title: event.target.value, error: '' })} /></Field>
           {(editor?.kind === 'lesson' || editor?.skill === 'speaking') && <div className="ach-kind" role="radiogroup" aria-label="Cách chọn câu"><label><input type="radio" name="ach-question-mode" checked={editor.questionMode === 'random'} onChange={() => setEditor({ ...editor, questionMode: 'random', questionIds: [], error: '' })} />{editor.kind === 'lesson' ? 'Giao cả bộ' : 'Web bốc ngẫu nhiên'}</label><label><input type="radio" name="ach-question-mode" checked={editor.questionMode === 'manual'} onChange={() => setEditor({ ...editor, questionMode: 'manual', questionIds: [], error: '' })} />Tôi tự chọn</label></div>}
           {editor?.questionMode === 'manual' && (editor.kind === 'lesson' || editor.skill === 'speaking') && editor.contentId && <div className="ach-question-list" aria-label="Chọn câu hỏi">{questionsLoading ? <p>Đang tải câu hỏi…</p> : questions.map((question) => {
@@ -416,7 +437,16 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
         {backfill?.assignment.recipient_scope === 'subset' && <div className="ach-recipient-list">{members.map((member) => <label key={member.student_id}><input type="checkbox" checked={backfill.studentIds.includes(member.student_id)} onChange={() => setBackfill({ ...backfill, studentIds: backfill.studentIds.includes(member.student_id) ? backfill.studentIds.filter((id) => id !== member.student_id) : [...backfill.studentIds, member.student_id], error: '' })} /><span>{member.name}</span>{!member.user_id && <small>chưa kích hoạt</small>}</label>)}</div>}{backfill?.error && <div className="acd-inline-error" role="alert">{backfill.error}</div>}
       </Dialog>
 
-      <Dialog open={Boolean(confirm)} title="Xoá bài giao?" description={<>Xoá <strong>{confirm?.assignment.title}</strong>. Nút này chỉ được hiện khi sổ chưa ghi nhận bài nộp; backend vẫn kiểm lại trong transaction.</>} busy={busy} onClose={() => setConfirm(null)} actions={<><button className="adm-btn-secondary" type="button" onClick={() => setConfirm(null)} disabled={busy}>Hủy</button><button className="adm-btn-primary" type="button" onClick={() => void deleteAssignment()} disabled={busy}>Xoá bài giao</button></>} />
+      <Dialog
+        open={Boolean(confirm)}
+        title={confirm?.kind === 'release-explanations' ? 'Duyệt web explanation?' : 'Xoá bài giao?'}
+        description={confirm?.kind === 'release-explanations'
+          ? <>Cho học viên xem web explanation của <strong>{confirm.assignment.title}</strong>. Thao tác được ghi vào nhật ký phát hành.</>
+          : <>Xoá <strong>{confirm?.assignment.title}</strong>. Nút này chỉ được hiện khi sổ chưa ghi nhận bài nộp; backend vẫn kiểm lại trong transaction.</>}
+        busy={busy}
+        onClose={() => setConfirm(null)}
+        actions={<><button className="adm-btn-secondary" type="button" onClick={() => setConfirm(null)} disabled={busy}>Hủy</button>{confirm?.kind === 'release-explanations' ? <button className="adm-btn-primary" type="button" onClick={() => void releaseClassExplanations()} disabled={busy}>Duyệt explanation</button> : <button className="adm-btn-primary" type="button" onClick={() => void deleteAssignment()} disabled={busy}>Xoá bài giao</button>}</>}
+      />
     </section>
   );
 }

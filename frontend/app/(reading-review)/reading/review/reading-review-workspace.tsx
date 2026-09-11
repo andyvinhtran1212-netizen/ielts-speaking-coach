@@ -11,6 +11,7 @@ import {
 } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { WebExplanationPanel } from '@/components/web-explanation-panel';
 import {
   grammarKnowledgeHref,
   normalizeReadingReview,
@@ -219,13 +220,14 @@ function QuestionCard({ item, expanded, preview, attemptId, anonId, onToggle, on
   const cardRef = useRef<HTMLElement | null>(null);
   const topRef = useRef<HTMLDivElement | null>(null);
   const solution = item.solution || {};
+  const webExplanation = item.web_explanation_object;
   const structured = hasStructuredStepper(item.stepper);
   const authoredDistractors = Array.isArray(item.stepper?.distractors)
     ? item.stepper.distractors.filter((row: any) => row?.option && row?.why_wrong_vi)
     : [];
   const hasRich = structured || Boolean(solution.steps || solution.source_excerpt
     || solution.vocab?.length || solution.paraphrase || authoredDistractors.length
-    || solution.trap_analysis || solution.tips || item.explanation);
+    || solution.trap_analysis || solution.tips || item.explanation || webExplanation);
 
   useEffect(() => {
     if (preview || !attemptId || !cardRef.current || !topRef.current) return;
@@ -286,9 +288,10 @@ function QuestionCard({ item, expanded, preview, attemptId, anonId, onToggle, on
     {prompt ? <p className="rr-card__prompt">{prompt}</p> : null}
     <div className="rr-card__answers">
       {!preview ? <div className="rr-card__ans is-user"><span>Bạn trả lời</span><code>{item.user_answer || '—'}</code></div> : null}
-      <div className="rr-card__ans is-correct"><span>Đáp án</span><code>{item.expected || '—'}</code></div>
+      <div className="rr-card__ans is-correct"><span>Đáp án</span><code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.expected || '—'}</code></div>
     </div>
     {hasRich ? <div className="rr-card__detail" hidden={!expanded}>
+      {!webExplanation ? <>
       <SolutionSection label="Các bước ra đáp án" className="rr-sol__sec--steps">
         {structured
           ? <StructuredStepper
@@ -326,6 +329,8 @@ function QuestionCard({ item, expanded, preview, attemptId, anonId, onToggle, on
       {!structured && !solution.steps && item.explanation
         ? <SolutionSection label="Lời giải"><p>{proseNodes(item.explanation)}</p></SolutionSection>
         : null}
+      </> : null}
+      {webExplanation && expanded ? <WebExplanationPanel object={webExplanation} skill="reading" attemptId={attemptId} questionNumber={Number(item.q_num)} persistenceEnabled={!preview && Boolean(attemptId)} /> : null}
     </div> : null}
   </article>;
 }

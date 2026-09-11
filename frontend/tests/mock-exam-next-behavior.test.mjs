@@ -61,6 +61,9 @@ describe('/mock-exam native runner ownership', () => {
     const submit = RUNNER.split('const doSubmit')[1].split('const submitSection')[0];
     assert.ok(submit.indexOf('await flushEmbed(section)') < submit.indexOf('const domainPath'));
     assert.ok(submit.indexOf('const domainPath') < submit.indexOf('/sections/${section}/submit'));
+    assert.match(submit, /await requestPostTestCapture\(section, domainResponse as CaptureEnvelope\)/);
+    assert.match(RUNNER, /MockPostTestCapture/);
+    assert.match(RUNNER, /Lưu tự đánh giá và nộp phần thi/);
     assert.match(LISTENING_PLAYER, /event\.source !== window\.parent/);
     assert.match(READING_PLAYER, /event\.source !== window\.parent/);
     assert.match(RUNNER, /awaitingCollectionFlush[\s\S]*renderedSection/);

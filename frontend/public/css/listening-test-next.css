@@ -63,6 +63,8 @@
 .listening-next-shell .ielts-plan-container { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(240px, .75fr); gap: 24px; align-items: start; }
 .listening-next-shell .ielts-plan-image { margin: 0; }
 .listening-next-shell .ielts-map-rendered { max-height: 520px; border-radius: 0; }
+.listening-next-supporting-visual { margin: 0 0 20px; text-align: center; }
+.listening-next-supporting-visual .ielts-map-rendered { display: block; margin-inline: auto; }
 
 /* Choice tasks retain radio/checkbox affordances instead of text-gap styling. */
 .listening-next-shell .ielts-mcq-question { margin: 18px 0 28px; }

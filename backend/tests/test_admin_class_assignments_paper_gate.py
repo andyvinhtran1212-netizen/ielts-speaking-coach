@@ -56,10 +56,12 @@ def _db(paper):
     return db
 
 
-def _body(skill="reading"):
-    return mod.AssignmentCreate(
+def _body(skill="reading", **over):
+    payload = dict(
         skill=skill, title="Bài tập đọc", content_id="uuid-1", due_date="2026-08-10",
     )
+    payload.update(over)
+    return mod.AssignmentCreate(**payload)
 
 
 def _playable(**over):
@@ -71,14 +73,15 @@ def _playable(**over):
     return row
 
 
-async def _create(paper, skill="reading"):
+async def _create(paper, skill="reading", **body_overrides):
     with patch.object(mod, "require_admin", AsyncMock(return_value={"id": "adm"})), \
          patch.object(mod, "_require_cohort", lambda _c: None), \
          patch.object(mod, "supabase_admin", _db(paper)), \
+         patch("services.mock_correction_service.assert_scored_paper_ready", lambda *_a, **_k: None), \
          patch.object(mod, "create_class_assignment",
                       lambda *a, **k: {"assignment": {"id": "a1"}, "student_count": 3,
                                        "unactivated_count": 0}):
-        return await mod.create_assignment("c1", _body(skill), None)
+        return await mod.create_assignment("c1", _body(skill, **body_overrides), None)
 
 
 @pytest.mark.asyncio
@@ -90,12 +93,28 @@ async def test_an_ordinary_published_paper_can_be_given():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("skill", ["reading", "listening"])
-async def test_a_paper_reserved_for_mock_sittings_is_refused(skill):
+async def test_a_paper_reserved_for_mock_sittings_needs_controlled_practice(skill):
     with pytest.raises(Exception) as exc:
         await _create({"id": "uuid-1", "title": "Cam 18 Test 1",
                        "status": "published", "exam_only": True}, skill)
     assert getattr(exc.value, "status_code", None) == 400
-    assert "thi thử" in str(getattr(exc.value, "detail", ""))
+    assert "kho kỳ thi" in str(getattr(exc.value, "detail", ""))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("skill", ["reading", "listening"])
+async def test_a_reserved_paper_can_be_given_with_item_scoped_entitlement(skill):
+    paper = {"id": "uuid-1", "title": "Cam 18 Test 1", "status": "published",
+             "exam_only": True}
+    if skill == "listening":
+        paper["assembled_audio_storage_path"] = "cam18/test1.mp3"
+        paper["full_audio_storage_path"] = None
+    out = await _create(
+        paper, skill,
+        delivery_mode="assigned_practice",
+        web_explanation_mode="immediate_after_capture",
+    )
+    assert out["student_count"] == 3
 
 
 @pytest.mark.asyncio

@@ -75,14 +75,14 @@ def _call(**kwargs):
 def test_mini_only_filter():
     rec = _call(test_type="mini")
     assert ("eq", "test_type", "mini") in rec
-    assert not any(t[0] == "or" for t in rec)
+    assert ("or", "exam_only.eq.false,public_practice_enabled.eq.true") in rec
 
 
 def test_full_excludes_mini():
     rec = _call(test_type="full")
     assert ("eq", "test_type", "full") in rec
     assert ("eq", "test_type", "mini") not in rec
-    assert not any(t[0] == "or" for t in rec)
+    assert ("or", "exam_only.eq.false,public_practice_enabled.eq.true") in rec
 
 
 def test_default_behaves_as_full():

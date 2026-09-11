@@ -34,6 +34,8 @@ export function normalizeExam(raw) {
     totalMinutes: Number.isFinite(Number(raw.total_minutes)) ? Number(raw.total_minutes) : null,
     readingMinutes: Number.isFinite(Number(raw.reading_minutes)) ? Number(raw.reading_minutes) : null,
     writingMinutes: Number.isFinite(Number(raw.writing_minutes)) ? Number(raw.writing_minutes) : null,
+    webExplanationMode: TEXT(raw.web_explanation_mode) || 'with_result',
+    webExplanationsReleasedAt: TEXT(raw.web_explanations_released_at) || null,
   };
 }
 
@@ -112,6 +114,9 @@ export function buildExamCreatePayload(form) {
       writing_task1_prompt_id: TEXT(form?.writingTask1PromptId) || null,
       writing_task2_prompt_id: TEXT(form?.writingTask2PromptId) || null,
       cohort_id: cohortId || null,
+      web_explanation_mode: ['disabled', 'with_result', 'admin_release'].includes(TEXT(form?.webExplanationMode))
+        ? TEXT(form.webExplanationMode) : 'with_result',
+      post_test_capture_required: form?.postTestCaptureRequired !== false,
     },
   };
 }
@@ -202,6 +207,8 @@ export function normalizeExamContent(raw) {
       courseLevel: TEXT(row.course_level),
       cohortIds: Array.isArray(row.cohort_ids) ? row.cohort_ids.map(String) : [],
       examOnly: row.exam_only === true,
+      publicPracticeEnabled: row.public_practice_enabled === true,
+      webExplanationMode: TEXT(row.web_explanation_mode) || 'disabled',
     }];
   });
   return {

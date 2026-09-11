@@ -9,6 +9,7 @@ type Cohort = { id: string; name?: string };
 type ContentRow = {
   id: string; kind: 'reading' | 'listening' | 'writing'; code: string; title: string; status: string;
   courseLevel: string; cohortIds: string[]; examOnly: boolean;
+  publicPracticeEnabled: boolean; webExplanationMode: string;
 };
 type Props = { accountId: string; cohorts: Cohort[] };
 const KIND_LABEL = { reading: 'Reading', listening: 'Listening', writing: 'Writing' };
@@ -115,6 +116,22 @@ export function ExamContentLibrary({ accountId, cohorts }: Props) {
     finally { setBusyKey(''); }
   };
 
+  const togglePublicPractice = async (row: ContentRow) => {
+    if (row.kind === 'writing') return;
+    const enable = !row.publicPracticeEnabled;
+    if (enable && !window.confirm(`Công khai “${row.code || row.title}” cho học viên tự luyện và trả kết quả ngay sau bước confidence?`)) return;
+    const key = `${row.kind}:${row.id}:public`;
+    setBusyKey(key); setError(null);
+    try {
+      await window.api.patch(`/admin/mock-corrections/public-tests/${row.kind}/${encodeURIComponent(row.id)}`, {
+        public_practice_enabled: enable,
+        web_explanation_mode: enable ? 'immediate_after_capture' : row.webExplanationMode,
+      });
+      await load();
+    } catch (caught) { setError(messageOf(caught)); await load(); }
+    finally { setBusyKey(''); }
+  };
+
   return (
     <section className="mex-card mex-content">
       <div className="mex-section-head"><div><p className="mex-kicker">Exam library</p><h2>Đề kỳ thi · cấp khóa & lớp</h2></div><button className="adm-btn-secondary" type="button" onClick={() => void load()} disabled={loading}>Tải lại</button></div>
@@ -134,7 +151,7 @@ export function ExamContentLibrary({ accountId, cohorts }: Props) {
       <div className="mex-table-wrap">
         {loading && !rows.length ? <p role="status">Đang tải kho đề…</p> : !visible.length ? <p>Không có đề khớp bộ lọc.</p> : <table className="mex-table"><thead><tr><th>Kỹ năng</th><th>Mã / tiêu đề</th><th>Trạng thái</th><th>Cấp khóa</th><th>Lớp</th><th>Thao tác</th></tr></thead><tbody>{visible.map((row) => {
           const prefix = `${row.kind}:${row.id}`;
-          return <tr key={prefix}><td>{KIND_LABEL[row.kind]}</td><td><strong>{row.code || '—'}</strong><small>{row.title}</small></td><td><span className="mex-pill">{row.status || '—'}</span></td><td><input aria-label={`Cấp khóa ${row.code || row.title}`} defaultValue={row.courseLevel} key={`${prefix}:${row.courseLevel}`} onBlur={(event) => { const input = event.currentTarget; if (input.value.trim() !== row.courseLevel) void saveLevel(row, input.value).then((confirmed) => { if (!confirmed) input.value = row.courseLevel; }); }} disabled={busyKey === `${prefix}:level`} /></td><td><div className="mex-chip-list">{row.cohortIds.length ? row.cohortIds.map((id) => <span key={id}>{cohortName(id)}</span>) : <em>Chưa gán</em>}</div></td><td><div className="mex-inline-actions"><button className="adm-btn-secondary" type="button" onClick={() => openCohorts(row)}>Sửa lớp</button>{row.examOnly ? <button className="adm-btn-secondary" type="button" onClick={() => void release(row)} disabled={busyKey === `${prefix}:release`}>Trả về thư viện</button> : <span>Đang ở thư viện</span>}</div></td></tr>;
+          return <tr key={prefix}><td>{KIND_LABEL[row.kind]}</td><td><strong>{row.code || '—'}</strong><small>{row.title}</small></td><td><span className="mex-pill">{row.status || '—'}</span>{row.publicPracticeEnabled ? <small>Public practice · trả ngay</small> : null}</td><td><input aria-label={`Cấp khóa ${row.code || row.title}`} defaultValue={row.courseLevel} key={`${prefix}:${row.courseLevel}`} onBlur={(event) => { const input = event.currentTarget; if (input.value.trim() !== row.courseLevel) void saveLevel(row, input.value).then((confirmed) => { if (!confirmed) input.value = row.courseLevel; }); }} disabled={busyKey === `${prefix}:level`} /></td><td><div className="mex-chip-list">{row.cohortIds.length ? row.cohortIds.map((id) => <span key={id}>{cohortName(id)}</span>) : <em>Chưa gán</em>}</div></td><td><div className="mex-inline-actions"><button className="adm-btn-secondary" type="button" onClick={() => openCohorts(row)}>Sửa lớp</button>{row.kind !== 'writing' ? <button className="adm-btn-secondary" type="button" onClick={() => void togglePublicPractice(row)} disabled={busyKey === `${prefix}:public`}>{row.publicPracticeEnabled ? 'Tắt public practice' : 'Bật public practice'}</button> : null}{row.examOnly ? <button className="adm-btn-secondary" type="button" onClick={() => void release(row)} disabled={busyKey === `${prefix}:release`}>Trả về thư viện</button> : <span>Đang ở thư viện</span>}</div></td></tr>;
         })}</tbody></table>}
       </div>
       {cohortEditor && <div className="mex-dialog-backdrop" role="presentation"><section className="mex-dialog is-small" role="dialog" aria-modal="true" aria-labelledby="mex-cohort-title"><div className="mex-dialog-head"><div><p className="mex-kicker">Replace set</p><h2 id="mex-cohort-title">Lớp dùng đề · {cohortEditor.code || cohortEditor.title}</h2></div><button className="adm-btn-secondary" type="button" onClick={() => setCohortEditor(null)}>Đóng</button></div><p className="mex-help">Lựa chọn này thay thế toàn bộ tập lớp hiện tại.</p><div className="mex-cohort-list">{cohorts.map((row) => <label key={row.id}><input type="checkbox" checked={cohortDraft.includes(row.id)} onChange={(event) => setCohortDraft((current) => event.target.checked ? [...new Set([...current, row.id])] : current.filter((id) => id !== row.id))} /><span>{row.name || row.id}</span></label>)}</div><div className="mex-dialog-actions"><button className="adm-btn-primary" type="button" onClick={() => void saveCohorts()} disabled={busyKey.endsWith(':cohorts')}>{busyKey.endsWith(':cohorts') ? 'Đang lưu…' : 'Lưu toàn bộ lớp'}</button></div></section></div>}

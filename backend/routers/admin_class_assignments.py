@@ -149,6 +149,15 @@ class AssignmentCreate(BaseModel):
     # vào sẽ bị bỏ — chốt nằm trong giao dịch, không phải ở tầng này.
     student_ids:  Optional[list[str]] = None
     retake_size:  Optional[int] = Field(default=None, ge=5, le=100)
+    # Reading/Listening papers from the protected exam warehouse may be given
+    # explicitly as assigned practice. This grants only this class item; it does
+    # not publish the paper to the normal practice library.
+    delivery_mode: Literal["standard", "assigned_practice"] = "standard"
+    web_explanation_mode: Literal[
+        "disabled", "immediate_after_capture", "admin_release"
+    ] = "disabled"
+    post_test_capture_required: bool = True
+    web_explanation_content_version: Optional[str] = None
 
     @model_validator(mode="after")
     def _check_kind(self):
@@ -2155,15 +2164,23 @@ async def create_assignment(
             raise HTTPException(404, "Không tìm thấy đề này.")
         if (rows[0].get("status") or "") != "published":
             raise HTTPException(400, "Đề này chưa xuất bản — hãy xuất bản trước khi giao.")
-        if rows[0].get("exam_only"):
+        if rows[0].get("exam_only") and body.delivery_mode != "assigned_practice":
             # Reserved for mock sittings (mig 170): the student endpoints answer
             # 404 to anyone without one. Published is not the same as openable,
             # and the ledger would count the class as owing a paper none of them
             # can reach. Most of the Cambridge library is flagged this way.
             raise HTTPException(
                 400,
-                "Đề này dành riêng cho kỳ thi thử — không giao làm bài tập lớp được.",
+                "Đề này ở kho kỳ thi. Hãy chọn chế độ giao luyện tập có kiểm soát.",
             )
+        if body.delivery_mode == "assigned_practice":
+            from services import mock_correction_service
+            try:
+                mock_correction_service.assert_scored_paper_ready(
+                    body.skill, rows[0]["id"], db=supabase_admin
+                )
+            except mock_correction_service.CorrectionError as exc:
+                raise HTTPException(400, str(exc)) from exc
         if body.skill == "listening" and not (
             rows[0].get("assembled_audio_storage_path")
             or rows[0].get("full_audio_storage_path")
@@ -2173,7 +2190,15 @@ async def create_assignment(
                 "Đề nghe này chưa có audio sẵn sàng — không giao được.",
             )
         content_id = body.content_id
-        content_config = {"test_title": rows[0].get("title")}
+        content_config = {
+            "test_title": rows[0].get("title"),
+            "delivery_mode": body.delivery_mode,
+            "correction_policy": {
+                "web_explanation_mode": body.web_explanation_mode,
+                "post_test_capture_required": body.post_test_capture_required,
+                "content_version": body.web_explanation_content_version,
+            },
+        }
 
     try:
         result = create_class_assignment(
