@@ -692,6 +692,18 @@ def record_correction_event(
     if int(question_number) not in (access.get("items") or {}):
         raise NotFoundError("Không tìm thấy web explanation cho câu hỏi này.")
     normalized = _validate_correction_payload(event_name, payload)
+    selection = normalized.get("evidence_selection") or {}
+    if skill == "reading" and selection.get("kind") == "reading_text":
+        expected_passage = next((
+            row.get("passage_order")
+            for row in (attempt.get("grading_details") or [])
+            if (row.get("q_num") == int(question_number)
+                or row.get("question_number") == int(question_number))
+        ), None)
+        if (isinstance(expected_passage, int) and not isinstance(expected_passage, bool)
+                and expected_passage > 0
+                and selection.get("passage_order") != expected_passage):
+            raise PolicyError("Bằng chứng Reading không thuộc passage của câu hỏi này.")
     try:
         result = supabase_admin.rpc("fn_record_mock_correction_event", {
             "p_event_id": str(event_id),

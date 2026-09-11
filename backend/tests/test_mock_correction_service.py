@@ -409,3 +409,31 @@ def test_structured_evidence_rejects_boolean_reading_positions():
             pass
         else:
             raise AssertionError(f"boolean {field} was accepted")
+
+
+def test_reading_event_rejects_evidence_from_another_passage(monkeypatch):
+    monkeypatch.setattr(svc, "fetch_owned_submitted_attempt", lambda *_: {
+        "id": "attempt-1", "test_id": "test-1", "status": "submitted",
+        "grading_details": [{"q_num": 7, "passage_order": 1}],
+    })
+    monkeypatch.setattr(svc, "explanation_access", lambda *_: {
+        "allowed": True, "items": {7: {"object_id": "cambridge-item"}},
+    })
+
+    try:
+        svc.record_correction_event(
+            "reading", "attempt-1", "learner-1", 7,
+            event_id="00000000-0000-0000-0000-000000000007",
+            event_name="evidence_attempt_submitted",
+            payload={
+                "evidence_response": "Passage 2, đoạn 1: selected evidence",
+                "evidence_selection": {
+                    "kind": "reading_text", "passage_order": 2,
+                    "paragraph_index": 1, "selected_text": "selected evidence",
+                },
+            },
+        )
+    except svc.PolicyError as exc:
+        assert "không thuộc passage" in str(exc)
+    else:
+        raise AssertionError("cross-passage Reading evidence was accepted")
