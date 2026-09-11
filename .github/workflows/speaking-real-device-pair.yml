@@ -40,7 +40,7 @@ jobs:
           node-version: '24'
 
       - name: Download Safari artifact from its exact workflow run
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: gate-e-speaking-real-device-safari-desktop-${{ inputs.safari_run_id }}-1
           path: test-results/safari
@@ -48,7 +48,7 @@ jobs:
           run-id: ${{ inputs.safari_run_id }}
 
       - name: Download iOS artifact from its exact workflow run
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: gate-e-speaking-real-device-ios-safari-${{ inputs.ios_run_id }}-1
           path: test-results/ios

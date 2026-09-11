@@ -59,7 +59,7 @@ jobs:
     # can still produce the fail-closed ledger and evidence artifacts below.
     timeout-minutes: 190
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         timeout-minutes: 3
         with:
           # This workflow validates staging. Scheduled workflows execute from
@@ -69,7 +69,7 @@ jobs:
           fetch-depth: 1
 
       - name: Checkout trusted Gate E auditor
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         timeout-minutes: 3
         with:
           ref: main
@@ -90,7 +90,7 @@ jobs:
 
       - name: Restore previous Gate E streak state
         id: restore_gate_e_streak
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         timeout-minutes: 3
         with:
           path: ${{ runner.temp }}/gate-e-streak-state
@@ -298,7 +298,7 @@ jobs:
 
       - name: Save Gate E streak state
         if: always() && steps.streak_ledger.outcome == 'success'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         timeout-minutes: 3
         with:
           path: ${{ runner.temp }}/gate-e-streak-state
@@ -317,7 +317,7 @@ jobs:
 
       - name: Upload device-matrix evidence
         if: always() && steps.matrix_evidence.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         timeout-minutes: 3
         with:
           name: gate-e-device-matrix-${{ github.run_id }}-${{ github.run_attempt }}
@@ -329,7 +329,7 @@ jobs:
 
       - name: Upload live-staging core-player failure evidence
         if: always() && steps.live_staging_failure_evidence.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         timeout-minutes: 3
         with:
           name: gate-e-live-staging-failure-${{ github.run_id }}-${{ github.run_attempt }}
@@ -391,7 +391,7 @@ jobs:
 
       - name: Upload staging provenance
         if: always() && steps.staging_provenance.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         timeout-minutes: 2
         with:
           name: gate-e-staging-provenance-${{ github.run_id }}-${{ github.run_attempt }}
@@ -401,7 +401,7 @@ jobs:
 
       - name: Upload streak ledger evidence
         if: always() && steps.streak_bundle.outcome == 'success' && steps.streak_ledger.outputs.clean == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         timeout-minutes: 2
         with:
           name: gate-e-streak-ledger-${{ github.run_id }}-${{ github.run_attempt }}
@@ -411,7 +411,7 @@ jobs:
 
       - name: Upload verifiable streak reset evidence
         if: always() && steps.streak_bundle.outcome == 'success' && steps.streak_ledger.outputs.clean != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         timeout-minutes: 2
         with:
           name: gate-e-streak-reset-${{ github.run_id }}-${{ github.run_attempt }}
@@ -421,7 +421,7 @@ jobs:
 
       - name: Upload incomplete streak reset ledger
         if: always() && steps.streak_ledger.outcome == 'success' && steps.streak_bundle.outcome == 'failure'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         timeout-minutes: 2
         with:
           name: gate-e-streak-reset-${{ github.run_id }}-${{ github.run_attempt }}
@@ -430,7 +430,7 @@ jobs:
           retention-days: 30
 
       # Synthetic data only + short retention (plan B29).
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: failure()
         timeout-minutes: 5
         with:

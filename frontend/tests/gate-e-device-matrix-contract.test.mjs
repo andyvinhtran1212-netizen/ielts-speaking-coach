@@ -159,7 +159,7 @@ describe('Gate E device matrix is pinned and bounded', () => {
     assert.match(WORKFLOW, /id: staging_e2e/);
     assert.match(WORKFLOW, /steps\.staging_e2e\.outcome/);
     assert.match(workflowCode, /name: Write versioned device-matrix metadata\n\s+id: matrix_evidence\n\s+if: always\(\)/);
-    assert.match(evidenceUploadCode, /^      - name: Upload device-matrix evidence\n\s+if: always\(\) && steps\.matrix_evidence\.outcome == 'success'\n\s+uses: actions\/upload-artifact@v4/);
+    assert.match(evidenceUploadCode, /^      - name: Upload device-matrix evidence\n\s+if: always\(\) && steps\.matrix_evidence\.outcome == 'success'\n\s+uses: actions\/upload-artifact@v6/);
     assert.match(evidenceUploadCode, /gate-e-device-matrix-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}/);
     assert.match(evidenceUploadCode, /^\s*if-no-files-found:\s*error\s*$/m);
     assert.match(stagingJobCode, /^\s*timeout-minutes:\s*190\s*$/m);
