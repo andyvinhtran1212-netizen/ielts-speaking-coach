@@ -28,6 +28,7 @@ await page.route('**/*', async (route) => {
 
 await page.goto(`${BASE}/admin/writing/tips?task_type=task_2&q=safe`, { waitUntil: 'domcontentloaded' }); await page.getByRole('heading', { name: 'Mẹo viết', exact: true }).waitFor();
 check('admin gate và URL filter gọi canonical list', requests.some((r) => r.path === '/auth/me') && requests.some((r) => r.path === '/admin/writing/tips' && new URLSearchParams(r.query).get('task_type') === 'task_2'));
+await page.getByRole('heading', { name: dangerous, exact: true }).waitFor();
 check('hostile title render như text', await page.locator('.awt-card h3').evaluateAll((nodes, expected) => nodes.some((node) => node.textContent === expected) && !nodes.some((node) => node.querySelector('img')), dangerous) && await page.evaluate(() => window.__tipsXss !== 1));
 await page.getByRole('button', { name: 'Thêm nội dung' }).click(); const dialog = page.getByRole('dialog', { name: 'Tạo nội dung mới' });
 const fields = dialog.locator('input'); await fields.nth(0).fill('Response lost tip'); await fields.nth(1).fill('response-lost-tip'); await dialog.locator('textarea').fill('# Saved once'); await dialog.getByRole('button', { name: 'Lưu & đối chiếu' }).click();
