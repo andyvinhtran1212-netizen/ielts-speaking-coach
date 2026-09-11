@@ -10,6 +10,14 @@ IELTS Speaking Coach **began** as a web app for IELTS **Speaking** preparation a
 - Grading and session-persistence flows must not fail silently.
 - Grammar Wiki metadata must be internally consistent. Stale links must not exist.
 
+### Release flow
+
+- Create normal work from `origin/staging` and open the PR against `staging`.
+- Wait for the merged staging SHA to pass integrated CI and live Staging E2E.
+- Release production only through a `staging` → `main` promotion PR. Direct feature PRs to `main` are rejected by CI.
+- Database migrations go to staging first, then production under the advisory lock before dependent code is promoted.
+- Full procedure: `docs/STAGING_FIRST_RELEASE_FLOW.md`.
+
 ### Product direction (pivot — 2026-06-27)
 - **Scope is no longer Speaking-only.** Writing is now first-class; Reading/Listening follow. Build out **both Speaking and Writing** content (grammar articles, exercises, sample answers).
 - This **supersedes the "FREEZE non-Speaking content" gate** in `docs/GRAMMAR_HANDOFF_consolidated_2026-06-27.md` §I.3, which was written for the Speaking-only era. Grammar Wiki articles targeting Writing (e.g. Task 1 / Task 2 grammar) are valid, intended content — not scope-creep.

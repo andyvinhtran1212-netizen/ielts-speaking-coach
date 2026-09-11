@@ -1,6 +1,7 @@
 # Staging E2E (plan §11.3 — "staging-e2e", the real-backend suite; the PR-time
-# fixture smoke stays in backend-tests.yml). Gate E is manual after Gate F
-# closure; the lightweight production drift monitor remains daily. NOT PR-blocking:
+# fixture smoke stays in backend-tests.yml). Gate E runs for every staging
+# release and remains manually dispatchable; the lightweight production drift
+# monitor remains daily. NOT PR-blocking for feature PRs:
 # it exercises live staging infrastructure and must never gate unrelated PRs.
 #
 # Required repo secrets:
@@ -23,6 +24,8 @@ on:
     # Keep the rollback-pin monitor alive without running the retired Gate E
     # rollout suite. Scheduled workflows run from the default branch (main).
     - cron: "11 1 * * *"
+  push:
+    branches: [staging]
   # Gate E v20 passed and Gate F was closed by owner exception on 2026-09-11.
   # Keep the live suite available for release diagnostics without continuing
   # the four-runs-per-day rollout evidence schedule indefinitely.
@@ -31,8 +34,9 @@ on:
 jobs:
   staging-e2e:
     # The workflow-level daily trigger exists only for production-release-drift.
-    # Gate E itself runs solely when an operator dispatches it.
-    if: github.event_name == 'workflow_dispatch'
+    # Gate E itself runs for a staging release or an operator dispatch, never
+    # for the lightweight daily schedule.
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     # AUDIT F4: staging is a SHARED live environment (shared smoke identities,
     # environment-global kill-switch flips). Two simultaneous runs corrupt
     # each other's state, so runs are QUEUED, never concurrent.

@@ -33,6 +33,15 @@ You are an **AUDITOR first, BUILDER second**.
 - **Keep admin fixes operationally truthful.** Admin must see canonical backend state, not optimistic or stale frontend state.
 - **Avoid speculative refactors.** Do not redesign APIs, schemas, or services unless that is the stated task.
 
+### Staging-first release flow
+
+- Start normal feature, fix and content branches from `origin/staging`; their PR base is `staging`, never `main`.
+- A push to `staging` deploys the stable pre-production environment and runs integrated CI plus live Staging E2E on that exact SHA.
+- Production receives only a promotion PR with head `staging` and base `main`. Never merge the same feature independently into both branches.
+- The required `Staging promotion gate` must confirm that the staging head has not moved and that exact-SHA integrated checks and live Staging E2E passed.
+- Apply migrations to staging before staging verification, then to production with the advisory-locked runner before promoting code that requires them.
+- See `docs/STAGING_FIRST_RELEASE_FLOW.md` for the operational runbook and emergency path.
+
 ---
 
 ## Audit / remediation workflow

@@ -16,7 +16,7 @@ name: Typecheck + OpenAPI drift
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, staging]
 
 jobs:
   typecheck:
