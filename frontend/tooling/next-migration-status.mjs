@@ -74,6 +74,16 @@ function walkFiles(root, accept, prefix = '') {
   return files;
 }
 
+function walkSymlinks(root, prefix = '') {
+  const links = [];
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isSymbolicLink()) links.push(relative);
+    else if (entry.isDirectory()) links.push(...walkSymlinks(path.join(root, entry.name), relative));
+  }
+  return links;
+}
+
 export function appPageRoute(relativeFile) {
   const normalized = String(relativeFile || '').replaceAll('\\', '/');
   if (!/(^|\/)page\.(tsx|ts)$/.test(normalized)) return null;
@@ -135,6 +145,10 @@ export function collectNextMigrationStatus(
   const publicHtmlPaths = walkFiles(path.join(frontendRoot, 'public'), (name) => name.endsWith('.html'))
     .map((relative) => `/${relative}`)
     .sort();
+  const publicSymlinkPaths = walkSymlinks(path.join(frontendRoot, 'public'))
+    .map((relative) => `/${relative}`)
+    .sort();
+  const artifactsRetired = publicHtmlPaths.length === 0 && publicSymlinkPaths.length === 0;
   const configSource = readFileSync(path.join(frontendRoot, 'next.config.ts'), 'utf8');
   const redirects = redirectSourcesFromConfig(configSource);
   const retirementRedirectsInstalled = retirementRedirectsInstalledFromConfig(configSource);
@@ -175,7 +189,7 @@ export function collectNextMigrationStatus(
     {
       redirectsInstalled: retirementRedirectsInstalled,
       redirectsPermanent: retirementRedirectsPermanent,
-      artifactsRetired: publicHtmlPaths.length === 0,
+      artifactsRetired,
     },
   );
   const blockers = [];
@@ -190,6 +204,11 @@ export function collectNextMigrationStatus(
     code: 'legacy-retirement-unregistered-html',
     count: unregisteredHtml.length,
     paths: unregisteredHtml,
+  });
+  if (publicSymlinkPaths.length) blockers.push({
+    code: 'public-symlink-present',
+    count: publicSymlinkPaths.length,
+    paths: publicSymlinkPaths,
   });
   if (retirementRedirectsInstalled && retirementRedirectsPermanent === null) blockers.push({
     code: 'legacy-retirement-redirect-permanence-unproven',
@@ -227,7 +246,8 @@ export function collectNextMigrationStatus(
     },
     legacyHtml: {
       total: publicHtmlPaths.length,
-      retired: publicHtmlPaths.length === 0,
+      retired: artifactsRetired,
+      publicSymlinkPaths,
       compatibilityRedirected: legacyHtml.redirected.length + legacyHtml.clientRedirected.length,
       serverRedirected: legacyHtml.redirected.length,
       clientRedirectStubs: legacyHtml.clientRedirected.length,

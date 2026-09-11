@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -147,6 +147,7 @@ test('repository report is internally consistent and cannot overclaim completion
   assert.equal(report.appPages.source, report.appPages.product + report.appPages.excluded.length);
   assert.equal(report.legacyHtml.total, report.legacyHtml.compatibilityRedirected + report.legacyHtml.directlyRenderable);
   assert.equal(report.legacyHtml.retired, true);
+  assert.deepEqual(report.legacyHtml.publicSymlinkPaths, []);
   assert.equal(report.legacyHtml.serverRedirected, report.legacyHtml.total);
   assert.deepEqual(report.legacyHtml.clientRedirectStubPaths, []);
   assert.equal(report.legacyHtml.directlyRenderable, 0);
@@ -219,6 +220,21 @@ test('retired HTML cannot erase the redirect or replacement denominator', (t) =>
   assert.equal(retired.legacyReplacement.total, 129);
   assert.equal(retired.legacyReplacement.nextRoutePresent, 129);
   assert.ok(retired.legacyReplacement.entries.every((entry) => entry.deletionState === 'retired'));
+
+  symlinkSync(
+    path.join(frontend, 'tests', 'fixtures', 'legacy-html-retired'),
+    path.join(fixture, 'public', 'legacy'),
+  );
+  const linkedArchive = collectNextMigrationStatus(fixture);
+  assert.equal(linkedArchive.legacyHtml.retired, false);
+  assert.deepEqual(linkedArchive.legacyHtml.publicSymlinkPaths, ['/legacy']);
+  assert.ok(linkedArchive.blockers.some((row) => row.code === 'public-symlink-present'
+    && row.paths.includes('/legacy')));
+  assert.equal(linkedArchive.staticCutoverReady, false);
+  assert.ok(linkedArchive.legacyReplacement.entries.every((entry) => (
+    entry.deletionState === 'blocked-deletion-review'
+  )));
+  rmSync(path.join(fixture, 'public', 'legacy'));
 
   // Partial retirement must not shrink identity coverage either. This input
   // is a disposable source fixture, not a change to public repository files.

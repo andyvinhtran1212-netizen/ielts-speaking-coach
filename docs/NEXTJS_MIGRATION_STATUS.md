@@ -20,7 +20,9 @@ the exception closes the remaining hold without relabeling waived soak as PASS.
 - **Historical HTML is test data, not deployable fallback.** CI preloads a
   narrow filesystem adapter that redirects only missing `public/*.html` reads
   to the archive. A separate retirement guard scans the actual `public/` tree
-  and fails if any HTML returns.
+  and fails if any HTML or symlink returns. Run source-contract tests locally
+  through `cd frontend && node tooling/run-contract-tests.mjs` so the same
+  adapter is loaded.
 - **JS/MJS/CSS are retained.** These files remain shared Next runtime, archived
   fixture or compatibility dependencies. Their presence does not constitute a
   legacy page renderer and is not a Gate F blocker.

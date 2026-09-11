@@ -7,7 +7,7 @@ name: Legacy HTML retirement guard
 on:
   pull_request:
     paths:
-      - 'frontend/public/**/*.html'
+      - 'frontend/public/**'
       - '.github/workflows/legacy-freeze.yml'
   push:
     branches: [main]
@@ -28,6 +28,11 @@ jobs:
       - name: Xác nhận public không chứa HTML
         shell: bash
         run: |
+          mapfile -t PUBLIC_SYMLINKS < <(find frontend/public -type l -print | sort)
+          if ((${#PUBLIC_SYMLINKS[@]})); then
+            printf '::error::Gate F regression: public symlink could expose retired artifacts: %s\n' "${PUBLIC_SYMLINKS[*]}"
+            exit 1
+          fi
           mapfile -t HTML_FILES < <(find frontend/public -type f -name '*.html' -print | sort)
           if ((${#HTML_FILES[@]})); then
             printf '::error::Gate F regression: deployable Legacy HTML returned: %s\n' "${HTML_FILES[*]}"

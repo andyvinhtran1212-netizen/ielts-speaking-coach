@@ -55,6 +55,15 @@ test('physical Legacy renderers are retired while their URL contract remains fro
   assertFrozenLegacyArtifactSet(LEGACY_RETIREMENT_PATHS);
 });
 
+test('retirement workflow rejects every public symlink and runs for any public-tree change', () => {
+  const workflow = readFileSync(
+    path.join(FRONTEND, '..', '.github', 'workflows', 'legacy-freeze.yml'),
+    'utf8',
+  );
+  assert.match(workflow, /- 'frontend\/public\/\*\*'/);
+  assert.match(workflow, /find frontend\/public -type l -print/);
+});
+
 test('explicit URL manifest preserves all 139 pre-refactor redirect rules byte for byte', () => {
   const independentRules = buildLegacyRetirementRedirects();
   assert.deepEqual(independentRules, redirects);

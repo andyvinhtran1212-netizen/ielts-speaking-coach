@@ -20,7 +20,8 @@ ownership boundary.
   redirects.
 - Made `/admin/access-codes` a permanent canonical redirect to
   `/admin/users?tab=codes`.
-- Replaced the old “no new HTML” freeze with a zero-HTML public-tree guard.
+- Replaced the old “no new HTML” freeze with a zero-HTML, zero-symlink
+  public-tree guard.
 - Retained the historical HTML only as non-deployable test fixtures. The CI
   loader remaps missing public HTML reads to the archive so prior source-level
   regression contracts remain executable.
@@ -36,8 +37,10 @@ The exception does not waive structural correctness:
 2. `node tooling/next-migration-status.mjs --assert-static-complete` reports
    129/129 replacement owners, 5/5 Next admissions, zero collisions and green
    static cutover.
-3. The full frontend `node:test` contract suite passes using the archived-source
-   loader.
+3. `cd frontend && node tooling/run-contract-tests.mjs` passes the full frontend
+   `node:test` contract suite using the archived-source loader. Focused runs
+   append paths, for example
+   `node tooling/run-contract-tests.mjs tests/admin-classes-progress.test.mjs`.
 4. `next build` completes and emits all current application routes.
 5. CI blocks any future deployable HTML reintroduction.
 

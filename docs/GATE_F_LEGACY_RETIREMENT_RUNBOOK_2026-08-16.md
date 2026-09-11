@@ -185,7 +185,7 @@ soak đều đóng; xóa artifact vẫn là batch sau đó.
 
 ## Verification hiện tại
 
-- `node --test tests/legacy-retirement-beacon.test.mjs tests/next-migration-status.test.mjs`
+- `node tooling/run-contract-tests.mjs tests/legacy-retirement-beacon.test.mjs tests/next-migration-status.test.mjs`
 - `node tooling/next-migration-status.mjs --json`
 - Full frontend contract suite, typecheck và production build.
 
