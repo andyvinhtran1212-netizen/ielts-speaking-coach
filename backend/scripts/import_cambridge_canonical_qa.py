@@ -527,18 +527,47 @@ def _guard_destination(db, plans: list[PackagePlan], *, supabase_url: str,
             )
 
 
-def commit_plan(plans: list[PackagePlan], *, confirmed_ref: str) -> None:
+def _assert_hidden_visibility(plans: list[PackagePlan]) -> None:
+    expected = {
+        "status": "draft",
+        "exam_only": True,
+        "public_practice_enabled": False,
+        "web_explanation_mode": "disabled",
+    }
+    for plan in plans:
+        for skill, row in (
+            ("reading", plan.reading_test),
+            ("listening", plan.listening_test),
+        ):
+            mismatches = {
+                field: row.get(field)
+                for field, value in expected.items()
+                if row.get(field) != value
+            }
+            if mismatches:
+                raise ValidationError(
+                    f"{plan.source_id} {skill}: visibility không còn hidden: {mismatches}"
+                )
+
+
+def commit_plan(
+    plans: list[PackagePlan], *, confirmed_ref: str,
+    allow_production_hidden: bool = False,
+) -> None:
     from config import settings
     from database import supabase_admin
 
     # Some one-off staging env files predate ENVIRONMENT and therefore retain
-    # Settings' "development" default.  The exact project-ref confirmation is
-    # the authoritative destination guard; an explicit production label is
-    # still always rejected.
-    if str(settings.ENVIRONMENT).lower() == "production":
+    # Settings' "development" default. The exact project-ref confirmation is
+    # always required; an explicit production label additionally requires the
+    # hidden-only override and the field assertions below.
+    if (str(settings.ENVIRONMENT).lower() == "production"
+            and not allow_production_hidden):
         raise ValidationError(
-            f"Từ chối production; ENVIRONMENT={settings.ENVIRONMENT!r}"
+            "Từ chối production nếu thiếu --allow-production-hidden; "
+            f"ENVIRONMENT={settings.ENVIRONMENT!r}"
         )
+    _assert_hidden_visibility(plans)
     _guard_destination(
         supabase_admin, plans, supabase_url=settings.SUPABASE_URL,
         confirmed_ref=confirmed_ref,
@@ -607,6 +636,12 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Required on commit; must exactly match the destination Supabase project ref.",
     )
+    parser.add_argument(
+        "--allow-production-hidden",
+        action="store_true",
+        help=("Permit a production commit only when every generated paper remains "
+              "draft, exam-only, non-public and explanation-disabled."),
+    )
     return parser.parse_args()
 
 
@@ -624,7 +659,11 @@ def main() -> int:
         summary = report(plans)
         print(json.dumps(summary, ensure_ascii=False, indent=2))
         if args.commit:
-            commit_plan(plans, confirmed_ref=args.confirm_supabase_ref)
+            commit_plan(
+                plans,
+                confirmed_ref=args.confirm_supabase_ref,
+                allow_production_hidden=args.allow_production_hidden,
+            )
             print("COMMIT COMPLETE — canonical papers remain hidden internal QA")
         else:
             print("DRY-RUN ONLY — no database or storage writes")

@@ -12,11 +12,13 @@ import argparse
 import copy
 import hashlib
 import json
+import os
 import re
 import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
+from urllib.parse import urlparse
 
 BACKEND = Path(__file__).resolve().parents[1]
 if str(BACKEND) not in sys.path:
@@ -315,24 +317,43 @@ def _chunks(rows: list[dict], size: int = 100) -> Iterable[list[dict]]:
 
 
 def _bind_test_ids(rows: list[dict], db, *, allow_unbound_internal_qa: bool = False) -> None:
-    reading = db.table("reading_tests").select("id,test_id").execute().data or []
-    listening = db.table("listening_tests").select("id,test_id").execute().data or []
+    visibility_columns = (
+        "id,test_id,status,exam_only,public_practice_enabled,web_explanation_mode"
+    )
+    reading = db.table("reading_tests").select(visibility_columns).execute().data or []
+    listening = db.table("listening_tests").select(visibility_columns).execute().data or []
     by_skill = {
-        "reading": {str(row.get("test_id")): row.get("id") for row in reading},
-        "listening": {str(row.get("test_id")): row.get("id") for row in listening},
+        "reading": {str(row.get("test_id")): row for row in reading},
+        "listening": {str(row.get("test_id")): row for row in listening},
     }
     missing: set[str] = set()
     for row in rows:
         prefix = "ILR-RDG-CAM" if row["skill"] == "reading" else "ILR-LIS-CAM"
         expected = f"{prefix}-B{row['book_number']}-T{row['test_number']}"
-        test_id = by_skill[row["skill"]].get(expected)
-        if not test_id:
+        parent = by_skill[row["skill"]].get(expected)
+        if not parent:
             missing.add(expected)
             if allow_unbound_internal_qa:
                 row["binding_status"] = "UNBOUND_INTERNAL_QA"
                 row["serving_status"] = "INTERNAL_QA_UNBOUND"
             continue
-        row[f"{row['skill']}_test_id"] = test_id
+        visibility = {
+            "status": parent.get("status"),
+            "exam_only": parent.get("exam_only"),
+            "public_practice_enabled": parent.get("public_practice_enabled"),
+            "web_explanation_mode": parent.get("web_explanation_mode"),
+        }
+        expected_visibility = {
+            "status": "draft",
+            "exam_only": True,
+            "public_practice_enabled": False,
+            "web_explanation_mode": "disabled",
+        }
+        if visibility != expected_visibility:
+            raise ImportValidationError(
+                f"{expected}: parent không còn bị khóa an toàn: {visibility}"
+            )
+        row[f"{row['skill']}_test_id"] = parent["id"]
         row["binding_status"] = "BOUND"
     if missing and not allow_unbound_internal_qa:
         raise ImportValidationError(
@@ -351,8 +372,24 @@ def commit_rows(
     imported_by: str | None = None,
     *,
     allow_unbound_internal_qa: bool = False,
+    allow_production_hidden: bool = False,
+    confirmed_ref: str = "",
 ) -> None:
+    from config import settings
     from database import supabase_admin
+
+    if os.getenv("ENVIRONMENT", "").strip().lower() == "production" and not allow_production_hidden:
+        raise ImportValidationError(
+            "Production commit cần --allow-production-hidden; importer vẫn kiểm tra "
+            "exam_only=true, public_practice_enabled=false và web_explanation_mode=disabled."
+        )
+    hostname = (urlparse(settings.SUPABASE_URL).hostname or "").lower()
+    actual_ref = hostname.split(".", 1)[0]
+    if not confirmed_ref or actual_ref != confirmed_ref.lower():
+        raise ImportValidationError(
+            f"Destination confirmation mismatch: URL ref={actual_ref!r}, "
+            f"--confirm-supabase-ref={confirmed_ref!r}"
+        )
 
     _bind_test_ids(
         rows, supabase_admin,
@@ -428,6 +465,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--commit", action="store_true",
                         help="Write the validated version to Supabase")
     parser.add_argument(
+        "--allow-production-hidden",
+        action="store_true",
+        help=("Allow a production commit only when every canonical parent is "
+              "exam-only, non-public and has web explanations disabled."),
+    )
+    parser.add_argument(
+        "--confirm-supabase-ref",
+        default="",
+        help="Required on commit; must exactly match the destination Supabase project ref.",
+    )
+    parser.add_argument(
         "--allow-unbound-internal-qa",
         action="store_true",
         help=("Allow inventory-only import when canonical papers are absent. "
@@ -448,6 +496,8 @@ def main() -> int:
     commit_rows(
         rows, args.imported_by,
         allow_unbound_internal_qa=args.allow_unbound_internal_qa,
+        allow_production_hidden=args.allow_production_hidden,
+        confirmed_ref=args.confirm_supabase_ref,
     )
     print(f"Đã import và kích hoạt version {report['content_version']} ({len(rows)} objects).")
     return 0
