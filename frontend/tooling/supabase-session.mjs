@@ -73,4 +73,6 @@ export async function signIn({ supabaseUrl, anonKey, email, password, timeoutMs 
  * localStorage dùng chung cả origin, nên trên máy dùng chung thì nợ của người
  * khác không được phát lại). Chép tay hai nơi là hai nơi trôi khỏi nhau.
  */
-export const FAKE_USER_ID = '00000000-0000-0000-0000-000000000000';
+// Keep fixture identities faithful to Supabase's RFC 4122 UUID contract.
+// Durable/idempotent clients intentionally reject the old all-zero placeholder.
+export const FAKE_USER_ID = '00000000-0000-4000-8000-000000000000';

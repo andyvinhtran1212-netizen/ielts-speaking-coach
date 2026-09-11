@@ -17,7 +17,7 @@
 //
 //   node tooling/verify-write-flows.mjs <base> [tên-luồng…]
 import { chromium } from 'playwright';
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,6 +38,18 @@ const fakeSession = JSON.stringify({
   expires_at: Math.floor(Date.now() / 1000) + 3600,
   user: { id: FAKE_USER_ID, email: 'flow@local' },
 });
+
+async function launchChromium(options = {}) {
+  try {
+    return await chromium.launch(options);
+  } catch (error) {
+    const localChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+    if (process.platform === 'darwin' && existsSync(localChrome)) {
+      return chromium.launch({ ...options, executablePath: localChrome });
+    }
+    throw error;
+  }
+}
 
 /** Thực thi một bước khai báo. Giữ tập lệnh NHỎ — bản khai phải đọc được. */
 async function step(page, s, observed) {
@@ -216,6 +228,17 @@ async function runFlow(browser, flow) {
       } catch (_) {}
     }, Object.entries(flow.initSessionStorage));
   }
+  // Một số contract idempotency yêu cầu server echo đúng UUID do client sinh.
+  // Ghim nguồn UUID ở tầng browser fixture để bản khai vẫn có thể mô tả chính
+  // xác URL/write kế tiếp; chỉ giá trị RFC 4122 đã qua validateFlow được dùng.
+  if (flow.randomUUID) {
+    await ctx.addInitScript((uuid) => {
+      Object.defineProperty(globalThis.crypto, 'randomUUID', {
+        configurable: true,
+        value: () => uuid,
+      });
+    }, flow.randomUUID);
+  }
 
   const page = await ctx.newPage();
 
@@ -365,12 +388,12 @@ if (!files.length) {
 //
 // Nên: trình duyệt thường cho 16 luồng, trình duyệt có-media dựng LƯỜI, chỉ khi
 // gặp luồng đầu tiên khai `fakeMedia`.
-const browser = await chromium.launch();
+const browser = await launchChromium();
 let mediaBrowser = null;
 async function browserFor(flow) {
   if (!flow.fakeMedia) return browser;
   if (!mediaBrowser) {
-    mediaBrowser = await chromium.launch({
+    mediaBrowser = await launchChromium({
       args: [
         '--use-fake-device-for-media-stream',
         '--use-fake-ui-for-media-stream',

@@ -27,6 +27,10 @@ export default {
   name: 'speaking — bắt đầu luyện theo chủ đề',
   route: '/speaking',
   legacyRoute: '/pages/speaking.html',
+  // The durable create protocol requires the server to acknowledge the exact
+  // client-minted id. Keep this browser manifest deterministic so its later
+  // renderer-affinity write and final URL remain exact, not regex approximations.
+  randomUUID: SESSION_ID,
 
   canned: [
     [/\/auth\/me$/, { __delayMs: 2500, __body: { id: 'u1', display_name: 'Học Viên', permissions: ['all'] } }],
