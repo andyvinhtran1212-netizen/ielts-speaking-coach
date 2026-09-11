@@ -78,15 +78,24 @@ class _Query:
         return _Not(self)
 
     def or_(self, expr):
-        # Only the audio-ready shape is used:
-        #   and(<col>.not.is.null,<col>.neq.),and(<col2>.not.is.null,<col2>.neq.)
-        # "either path present AND non-blank" — which is exactly `any(r.get(c))`,
-        # since both None and "" are falsy. Parsed strictly so a change to the
-        # real expression cannot silently keep passing here.
+        # Public catalogue visibility is:
+        #   audio-ready AND (not exam-only OR explicitly public).
+        # The real query repeats the audio predicate under both visibility
+        # branches so PostgREST can evaluate it before pagination.
         cols = re.findall(r"and\((\w+)\.not\.is\.null,\1\.neq\.\)", expr)
-        assert cols and len(cols) == expr.count("and("), \
+        expected = (
+            "and(exam_only.eq.false,or(" in expr
+            and "and(public_practice_enabled.eq.true,or(" in expr
+            and cols == ["full_audio_storage_path", "assembled_audio_storage_path",
+                         "full_audio_storage_path", "assembled_audio_storage_path"]
+        )
+        assert expected, \
             f"unsupported or_ clause: {expr}"
-        self._preds.append(lambda r, cs=tuple(cols): any(r.get(c) for c in cs))
+        self._preds.append(
+            lambda r: bool(r.get("full_audio_storage_path")
+                           or r.get("assembled_audio_storage_path"))
+            and (not r.get("exam_only") or bool(r.get("public_practice_enabled")))
+        )
         return self
 
     def order(self, *_a, **_k):
