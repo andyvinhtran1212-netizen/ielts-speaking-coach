@@ -659,10 +659,14 @@ def _validate_correction_payload(event_name: str, payload: dict) -> dict:
         normalized["next_action"] = required_text("next_action", 1000)
         if "evidence_selection" in normalized:
             normalized["evidence_selection"] = evidence_selection()
-        for key in ("error_mechanism_code", "next_action_code"):
+        code_patterns = {
+            "error_mechanism_code": r"(?:[a-z0-9][a-z0-9_\-]*|[RL]\d{2}-[A-Z0-9][A-Z0-9_\-]*)",
+            "next_action_code": r"[a-z0-9][a-z0-9_\-]*",
+        }
+        for key, pattern in code_patterns.items():
             if key in normalized:
                 value = str(normalized.get(key) or "").strip()
-                if not value or len(value) > 80 or not re.fullmatch(r"[a-z0-9_\-]+", value):
+                if not value or len(value) > 80 or not re.fullmatch(pattern, value):
                     raise PolicyError(f"{key} không hợp lệ.")
                 normalized[key] = value
     return normalized

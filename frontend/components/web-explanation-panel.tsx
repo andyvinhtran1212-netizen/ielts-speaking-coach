@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { answerOptions } from '@/lib/web-explanation-model.mjs';
 
 type Skill = 'reading' | 'listening';
 type EventName = 'correction_result_seen' | 'evidence_attempt_submitted'
@@ -182,23 +183,6 @@ function evidenceRows(value: unknown): EvidenceRow[] {
   }).filter((row) => row.location || row.quote || row.relation || row.timestamp);
 }
 
-function answerOptions(object: any): Array<[string, string]> {
-  const options = object?.item?.options;
-  if (options && typeof options === 'object' && !Array.isArray(options)) {
-    return Object.entries(options).map(([key, value]) => [key, clean(value)]);
-  }
-  if (Array.isArray(options)) {
-    return options.map((value, index) => {
-      if (value && typeof value === 'object') {
-        const row = value as Record<string, unknown>;
-        return [clean(row.value || row.id || row.key || index + 1), clean(row.label || row.text || row.value)];
-      }
-      return [clean(value), clean(value)];
-    });
-  }
-  return [];
-}
-
 function candidateErrorOptions(object: any): Array<[string, string]> {
   const codes = Array.isArray(object?.remediation?.candidate_error_subtypes)
     ? object.remediation.candidate_error_subtypes.map(clean).filter(Boolean) : [];
@@ -247,7 +231,10 @@ export function WebExplanationPanel({
     const source = evidenceRows(explanation.source_evidence);
     return source.length ? source : evidenceRows(explanation.evidence_location_or_audio_anchor);
   }, [explanation.evidence_location_or_audio_anchor, explanation.source_evidence]);
-  const choices = useMemo(() => answerOptions(object), [object]);
+  const choices = useMemo(
+    () => answerOptions(object, clean) as Array<[string, string]>,
+    [object],
+  );
   const errorChoices = useMemo(() => candidateErrorOptions(object), [object]);
   const [localEvidence, setLocalEvidence] = useState<EvidenceSelection | null>(evidenceSelection);
   const [correctedAnswer, setCorrectedAnswer] = useState('');
