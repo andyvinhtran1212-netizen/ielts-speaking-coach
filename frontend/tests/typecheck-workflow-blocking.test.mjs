@@ -34,8 +34,8 @@ describe('Gate D — TypeScript/OpenAPI workflow fails closed', () => {
     assert.doesNotMatch(WORKFLOW, /git diff[\s\S]{0,160}\|\||::warning::frontend\/types\/api\.d\.ts/);
   });
 
-  test('runs on pull requests and the merged main branch', () => {
+  test('runs on pull requests and both integrated release branches', () => {
     assert.match(WORKFLOW, /^\s{2}pull_request:\s*$/m);
-    assert.match(WORKFLOW, /^\s{2}push:\s*\n\s{4}branches:\s*\[main\]/m);
+    assert.match(WORKFLOW, /^\s{2}push:\s*\n\s{4}branches:\s*\[main, staging\]/m);
   });
 });

@@ -1,0 +1,124 @@
+name: Staging promotion gate
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+  pull-requests: read
+
+jobs:
+  staging-promotion:
+    name: Staging promotion gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Require the repository staging branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$HEAD_REF" != "staging" ] || [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+            echo "::error::Production accepts only a promotion PR from this repository's staging branch. Retarget the feature PR to staging first."
+            exit 1
+          fi
+
+          STAGING_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/staging" --jq '.object.sha')
+          if [ "$STAGING_SHA" != "$HEAD_SHA" ]; then
+            echo "::error::The promotion PR head is stale: PR=$HEAD_SHA staging=$STAGING_SHA. Update the PR before promotion."
+            exit 1
+          fi
+
+      - name: Require green integrated staging evidence for the exact SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          REQUIRED_WORKFLOWS=(
+            "backend-tests.yml|Backend (pytest + anchor drift)|Frontend (node --test)"
+            "typecheck.yml|TypeScript strict + legacy JSDoc|api.d.ts ↔ OpenAPI drift"
+            "route-manifest.yml|Build + verify routes-manifest ownership"
+            "legacy-freeze.yml|Public không chứa HTML legacy"
+          )
+
+          for ATTEMPT in $(seq 1 80); do
+            STAGING_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/staging" --jq '.object.sha')
+            if [ "$STAGING_SHA" != "$HEAD_SHA" ]; then
+              echo "::error::Staging advanced while this promotion was waiting: PR=$HEAD_SHA staging=$STAGING_SHA."
+              exit 1
+            fi
+
+            PENDING=0
+            for SPEC in "${REQUIRED_WORKFLOWS[@]}"; do
+              IFS='|' read -r -a PARTS <<<"$SPEC"
+              WORKFLOW=${PARTS[0]}
+              RUNS=$(gh api \
+                "repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW/runs?branch=staging&event=push&per_page=100")
+              RUN=$(jq -r --arg sha "$HEAD_SHA" \
+                '[.workflow_runs[] | select(.head_sha == $sha)] | first | if . == null then "missing::" else ((.id | tostring) + ":" + .status + ":" + (.conclusion // "")) end' \
+                <<<"$RUNS")
+              IFS=: read -r RUN_ID RUN_STATUS RUN_CONCLUSION <<<"$RUN"
+              if [ "$RUN_STATUS" = "completed" ]; then
+                if [ "$RUN_CONCLUSION" != "success" ]; then
+                  echo "::error::Integrated staging workflow '$WORKFLOW' run $RUN_ID concluded $RUN_CONCLUSION for $HEAD_SHA"
+                  exit 1
+                fi
+                JOBS=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100")
+                for ((INDEX = 1; INDEX < ${#PARTS[@]}; INDEX++)); do
+                  REQUIRED_JOB=${PARTS[$INDEX]}
+                  JOB_CONCLUSION=$(jq -r --arg name "$REQUIRED_JOB" \
+                    '[.jobs[] | select(.name == $name)] | last | .conclusion // "missing"' \
+                    <<<"$JOBS")
+                  if [ "$JOB_CONCLUSION" != "success" ]; then
+                    echo "::error::Integrated staging workflow '$WORKFLOW' job '$REQUIRED_JOB' was $JOB_CONCLUSION"
+                    exit 1
+                  fi
+                done
+              elif [ "$RUN_STATUS" = "queued" ] || [ "$RUN_STATUS" = "in_progress" ] || [ "$RUN_ID" = "missing" ]; then
+                PENDING=1
+              else
+                echo "::error::Unexpected staging workflow state '$RUN' for '$WORKFLOW' at $HEAD_SHA"
+                exit 1
+              fi
+            done
+
+            RUNS=$(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/workflows/staging-e2e.yml/runs?branch=staging&event=push&per_page=100")
+            RUN=$(jq -r --arg sha "$HEAD_SHA" \
+              '[.workflow_runs[] | select(.head_sha == $sha)] | first | if . == null then "missing::" else ((.id | tostring) + ":" + .status + ":" + (.conclusion // "")) end' \
+              <<<"$RUNS")
+            IFS=: read -r RUN_ID RUN_STATUS RUN_CONCLUSION <<<"$RUN"
+            if [ "$RUN_STATUS" = "completed" ]; then
+              if [ "$RUN_CONCLUSION" != "success" ]; then
+                echo "::error::Staging E2E run $RUN_ID concluded $RUN_CONCLUSION for $HEAD_SHA"
+                exit 1
+              fi
+              E2E_JOB=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" \
+                --jq '[.jobs[] | select(.name == "staging-e2e")] | last | .conclusion // "missing"')
+              if [ "$E2E_JOB" != "success" ]; then
+                echo "::error::Staging E2E workflow was green but its staging-e2e job was $E2E_JOB"
+                exit 1
+              fi
+            elif [ "$RUN_STATUS" = "queued" ] || [ "$RUN_STATUS" = "in_progress" ] || [ "$RUN_ID" = "missing" ]; then
+              PENDING=1
+            else
+              echo "::error::Unexpected Staging E2E state '$RUN' for $HEAD_SHA"
+              exit 1
+            fi
+
+            if [ "$PENDING" -eq 0 ]; then
+              echo "Exact staging release $HEAD_SHA passed integrated CI and live Staging E2E."
+              exit 0
+            fi
+            echo "Waiting for exact-SHA staging evidence ($ATTEMPT/80)..."
+            sleep 15
+          done
+
+          echo "::error::Timed out waiting for integrated staging evidence for $HEAD_SHA"
+          exit 1

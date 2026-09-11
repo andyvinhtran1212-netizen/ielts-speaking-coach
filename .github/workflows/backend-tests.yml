@@ -26,11 +26,11 @@ name: Tests
 
 on:
   # SAU KHI MERGE, KHÔNG lọc đường dẫn. Bộ lọc dưới đây trả lời câu «PR này có
-  # đáng chạy test không»; ở đây câu hỏi khác hẳn: «main sau khi hợp nhất còn
-  # xanh không». Hai PR có thể xanh riêng lẻ rồi hợp lại thành đỏ, và không bộ
+  # đáng chạy test không»; ở đây câu hỏi khác hẳn: «nhánh tích hợp sau khi hợp
+  # nhất còn xanh không». Hai PR có thể xanh riêng lẻ rồi hợp lại thành đỏ, và không bộ
   # lọc đường dẫn nào nhìn thấy điều đó. Xem chú thích dài hơn ở `parity-gate.yml`.
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
     paths:
       - 'backend/**'
@@ -50,6 +50,9 @@ on:
       # `route-ledger-matches-app.test.mjs` đọc sổ này; thiếu dòng đây thì một PR
       # chỉ sửa sổ sẽ không chạy chốt đang canh chính nó.
       - 'docs/ROUTE_LEDGER.md'
+      # `staging-first-release-flow.test.mjs` locks the production promotion
+      # contract to this runbook, so a docs-only policy change must run it.
+      - 'docs/STAGING_FIRST_RELEASE_FLOW.md'
       # `parity-core.test.mjs` đọc tài liệu này để xác nhận mỗi route nằm ngoài
       # parity đều có lý do ghi lại.
       - 'docs/PARITY_WRITING_PAIR_2026-08-05.md'
