@@ -1,4 +1,17 @@
+import pytest
+
 from scripts import import_cambridge_web_explanations as importer
+
+
+def _hidden_parent(row_id, test_id):
+    return {
+        "id": row_id,
+        "test_id": test_id,
+        "status": "draft",
+        "exam_only": True,
+        "public_practice_enabled": False,
+        "web_explanation_mode": "disabled",
+    }
 
 
 class _Result:
@@ -55,9 +68,29 @@ def test_bound_import_keeps_fail_loud_missing_paper_contract():
 def test_existing_papers_bind_without_internal_qa_override():
     rows = _rows()
     importer._bind_test_ids(rows, _Db(
-        reading=[{"id": "reading-uuid", "test_id": "ILR-RDG-CAM-B13-T1"}],
-        listening=[{"id": "listening-uuid", "test_id": "ILR-LIS-CAM-B13-T1"}],
+        reading=[_hidden_parent("reading-uuid", "ILR-RDG-CAM-B13-T1")],
+        listening=[_hidden_parent("listening-uuid", "ILR-LIS-CAM-B13-T1")],
     ))
     assert rows[0]["reading_test_id"] == "reading-uuid"
     assert rows[1]["listening_test_id"] == "listening-uuid"
     assert all(row["binding_status"] == "BOUND" for row in rows)
+
+
+def test_binding_rejects_parent_that_is_public_or_explanation_enabled():
+    reading = _hidden_parent("reading-uuid", "ILR-RDG-CAM-B13-T1")
+    reading["public_practice_enabled"] = True
+    try:
+        importer._bind_test_ids(_rows(), _Db(
+            reading=[reading],
+            listening=[_hidden_parent("listening-uuid", "ILR-LIS-CAM-B13-T1")],
+        ))
+    except importer.ImportValidationError as exc:
+        assert "không còn bị khóa an toàn" in str(exc)
+    else:
+        raise AssertionError("import accepted a public Cambridge parent")
+
+
+def test_production_commit_requires_explicit_hidden_ack(monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    with pytest.raises(importer.ImportValidationError, match="allow-production-hidden"):
+        importer.commit_rows(_rows())
