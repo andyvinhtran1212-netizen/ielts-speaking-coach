@@ -5,9 +5,13 @@ import { existsSync } from 'node:fs';
 import { storageKey } from './supabase-session.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
+const OPERATION_HINTS = process.argv.includes('--operation-hints');
+if (OPERATION_HINTS && !['localhost', '127.0.0.1', '[::1]'].includes(new URL(BASE).hostname)) {
+  throw new Error('Operation-hint fixtures require a local Next server');
+}
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
 const TEST_ID = '11111111-1111-4111-8111-111111111100';
-const USER_ID = '00000000-0000-0000-0000-000000000055';
+const USER_ID = '00000000-0000-4000-8000-000000000055';
 const session = JSON.stringify({
   access_token: 'practice-run-not-a-real-token', refresh_token: 'x', token_type: 'bearer',
   expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600,
@@ -38,7 +42,7 @@ const check = (name, ok, detail = '') => {
 const cors = {
   'access-control-allow-origin': BASE,
   'access-control-allow-methods': 'GET,POST,OPTIONS',
-  'access-control-allow-headers': 'authorization,content-type,x-request-id',
+  'access-control-allow-headers': 'authorization,content-type,x-request-id,x-core-operation-id',
 };
 const json = (body, status = 200) => ({ status, contentType: 'application/json', headers: cors, body: JSON.stringify(body) });
 
@@ -51,7 +55,7 @@ async function launch() {
 }
 
 async function authedPage(browser, { viewport = { width: 1280, height: 900 }, windowsFail = false, openAttempt = null } = {}) {
-  const context = await browser.newContext({ viewport });
+  const context = await browser.newContext({ viewport, serviceWorkers: 'block' });
   await context.addInitScript(([key, value]) => {
     try { localStorage.setItem(key, value); } catch (_) {}
   }, [storageKey(SB), session]);
@@ -60,13 +64,17 @@ async function authedPage(browser, { viewport = { width: 1280, height: 900 }, wi
   const egress = [];
   const state = {
     startCommitted: Boolean(openAttempt), startPosts: 0, submitPosts: 0,
-    attemptId: openAttempt || 'attempt-1', submitted: false, firstAnswers: new Map(), checks: [],
+    attemptId: openAttempt || 'attempt-1', submitted: false, firstAnswers: new Map(), checks: [], hints: [],
   };
   page.on('pageerror', (error) => errors.push(String(error)));
   page.on('dialog', async (dialog) => dialog.dismiss());
   await page.route('**/*', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
+    if (OPERATION_HINTS && url.origin === new URL(BASE).origin && url.pathname === '/js/runtime-config.js') {
+      return route.fulfill({ status: 200, contentType: 'application/javascript', body:
+        'window.__AVER_RUNTIME_CONFIG__ = Object.freeze({apiBase:"https://api.practice-run.invalid",coreOperationCorrelationEnabled:true});' });
+    }
     if (request.url().startsWith(BASE)) return route.continue();
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
     if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(request.url())) return route.continue();
@@ -88,6 +96,7 @@ async function authedPage(browser, { viewport = { width: 1280, height: 900 }, wi
       } : null }));
     }
     if (request.method() === 'POST' && url.pathname === `/api/listening/tests/${TEST_ID}/attempts`) {
+      state.hints.push({ kind: 'start', id: request.headers()['x-core-operation-id'] });
       state.startPosts += 1; state.startCommitted = true;
       return route.abort('failed'); // committed, HTTP ACK lost
     }
@@ -95,6 +104,7 @@ async function authedPage(browser, { viewport = { width: 1280, height: 900 }, wi
     if (request.method() === 'POST' && checkMatch) {
       const body = request.postDataJSON();
       state.checks.push(body);
+      state.hints.push({ kind: body.reveal ? 'reveal' : 'check', id: request.headers()['x-core-operation-id'] });
       const qNum = Number(body.q_num);
       if (body.reveal) return route.fulfill(json({
         q_num: qNum, correct: false, canonical_correct: false, recorded: false,
@@ -117,6 +127,7 @@ async function authedPage(browser, { viewport = { width: 1280, height: 900 }, wi
     }
     const submitMatch = /^\/api\/listening\/tests\/attempts\/([^/]+)\/submit$/.exec(url.pathname);
     if (request.method() === 'POST' && submitMatch) {
+      state.hints.push({ kind: 'submit', id: request.headers()['x-core-operation-id'] });
       state.submitPosts += 1; state.submitted = true;
       return route.abort('failed'); // grading persisted, HTTP ACK lost
     }
@@ -141,6 +152,15 @@ const browser = await launch();
 
 const signedOut = await browser.newContext({ viewport: { width: 375, height: 812 } });
 const signedOutPage = await signedOut.newPage();
+// Signed-out probe also stays fixture-only for backend/auth requests.
+await signedOutPage.route('**/*', route => {
+  const url = new URL(route.request().url());
+  if (url.origin === new URL(BASE).origin
+      || ['unpkg.com', 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'].includes(url.hostname)) {
+    return route.continue();
+  }
+  return route.fulfill(json({}));
+});
 await signedOutPage.goto(`${BASE}/listening/practice-run?id=${TEST_ID}`, { waitUntil: 'domcontentloaded' });
 await signedOutPage.waitForURL('**/login');
 check('signed-out route fails closed to native login', new URL(signedOutPage.url()).pathname === '/login');
@@ -189,6 +209,23 @@ check('submit ACK loss reconciles owner attempt and never resubmits', run.state.
 check('summary preserves canonical first-answer score',
   run.state.firstAnswers.get(1) === 'ninety' && run.state.firstAnswers.get(2) === 'A'
     && await run.page.getByText(/Điểm chỉ dùng câu trả lời đầu tiên/).isVisible());
+if (OPERATION_HINTS) {
+  const checks = run.state.hints.filter(row => row.kind === 'check');
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  check('enabled start/check/submit send UUID hints through the real API helper',
+    ['start', 'check', 'submit'].every(kind => run.state.hints.some(row => row.kind === kind))
+      && run.state.hints.filter(row => row.kind !== 'reveal').every(row => uuid.test(row.id || '')));
+  check('lost check ACK reuses its hint; a new answer/question rotates it',
+    checks.length === 4 && checks[0].id === checks[1].id
+      && new Set([checks[0].id, checks[2].id, checks[3].id]).size === 3);
+  check('reveal has no answer-submission hint',
+    run.state.hints.some(row => row.kind === 'reveal')
+      && run.state.hints.filter(row => row.kind === 'reveal').every(row => !row.id));
+  check('canonical start/submit reconciliation and check ACKs clear pending metadata',
+    await run.page.evaluate(() => !Object.keys(sessionStorage).some(key => key.startsWith('aver:core-operation:v1:'))));
+} else {
+  check('default flag-off run adds no operation hint', run.state.hints.every(row => !row.id));
+}
 check('main flow has no production egress or browser error', run.egress.length === 0 && run.errors.length === 0, run.egress[0] || run.errors[0] || '');
 await run.context.close();
 
@@ -201,6 +238,26 @@ check('optional practice-window failure degrades to whole audio without starting
 check('mobile workspace stays inside the viewport', await mobile.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
 check('mobile fallback has no production egress or browser error', mobile.egress.length === 0 && mobile.errors.length === 0, mobile.egress[0] || mobile.errors[0] || '');
 await mobile.context.close();
+
+if (OPERATION_HINTS) {
+  const restored = await authedPage(browser);
+  await restored.page.goto(`${BASE}/listening/practice-run?id=${TEST_ID}`, { waitUntil: 'domcontentloaded' });
+  await restored.page.getByLabel('Câu trả lời câu 1').fill('ninety');
+  await restored.page.getByRole('button', { name: 'Kiểm tra' }).click();
+  await restored.page.getByRole('button', { name: 'Thử chấm lại đúng câu trả lời này' }).waitFor();
+  const originalHint = restored.state.hints.find(row => row.kind === 'check')?.id;
+  await restored.page.reload({ waitUntil: 'domcontentloaded' });
+  await restored.page.getByLabel('Câu trả lời câu 1').waitFor();
+  const checks = restored.state.hints.filter(row => row.kind === 'check');
+  check('reload restores the committed first answer with its pending hint, without another start',
+    Boolean(originalHint) && restored.state.startPosts === 1 && checks.length === 2
+      && checks[1].id === originalHint && restored.state.firstAnswers.get(1) === 'ninety'
+      && restored.state.checks.every(row => row.user_answer === 'ninety'));
+  check('restored canonical check clears pending metadata without browser errors or production egress',
+    restored.errors.length === 0 && restored.egress.length === 0
+      && await restored.page.evaluate(() => !Object.keys(sessionStorage).some(key => key.startsWith('aver:core-operation:v1:'))));
+  await restored.context.close();
+}
 
 await browser.close();
 const failed = results.filter((result) => !result.ok);

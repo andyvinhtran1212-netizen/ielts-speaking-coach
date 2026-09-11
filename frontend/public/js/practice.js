@@ -670,6 +670,16 @@
       : null;
   }
 
+  async function _completeSpeakingSession(sessionId) {
+    var nativeSubmission = _getNativeSubmission();
+    if (nativeSubmission && typeof nativeSubmission.complete === 'function') {
+      return nativeSubmission.complete(sessionId);
+    }
+    // Existing legacy callers keep their original transport. Next supplies the
+    // explicit adapter; no global api.patch interception or forced migration.
+    return window.api.patch('/sessions/' + sessionId + '/complete', {});
+  }
+
   function _normalizeSubmissionResult(data) {
     if (!(data && data._reconciled && data._persisted_response)) return data;
     var row = data._persisted_response;
@@ -4013,7 +4023,7 @@
     // Complete ALL part sessions best-effort (fire and forget).
     var toComplete = _ftAllSessionIds.length > 0 ? _ftAllSessionIds : [_sessionId];
     toComplete.forEach(function (sid) {
-      window.api.patch('/sessions/' + sid + '/complete', {}).catch(function (err) {
+      _completeSpeakingSession(sid).catch(function (err) {
         // B1: a failed /complete means that part's band never aggregates. Log
         // it (was a no-op catch) and count it so it isn't invisible.
         console.warn('[practice] session complete failed', sid, err);
@@ -5191,7 +5201,7 @@
     // re-record can still acquire a fresh controller session.
     _releaseRecorderResources();
     try {
-      await window.api.patch('/sessions/' + sessionId + '/complete', {});
+      await _completeSpeakingSession(sessionId);
     } catch (err) {
       if (!_playerActive || generation !== _playerGeneration) return;
       _sheetSubmitting = false;
@@ -5274,7 +5284,7 @@
     _feedbackAudioIsBlob = false;
 
     try {
-      await window.api.patch('/sessions/' + sessionId + '/complete', {});
+      await _completeSpeakingSession(sessionId);
     } catch (err) {
       if (!_playerActive || generation !== _playerGeneration) return;
       console.warn('[practice] session complete failed:', err.message);

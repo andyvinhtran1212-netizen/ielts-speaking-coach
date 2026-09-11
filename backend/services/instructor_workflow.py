@@ -41,6 +41,7 @@ from typing import Iterable, Optional
 from uuid import UUID
 
 from database import supabase_admin
+from services.core_writing_observation import note_writing_mutation
 from models.instructor_review import (
     InstructorQueueItem,
     InstructorReview,
@@ -312,6 +313,10 @@ def deliver(
             )
     else:
         delivered = _row_to_review(review_response.data[0])
+
+    # Claimed/identity-filtered review write (or validated identical replay)
+    # established; later essay/stamp writes may still fail independently.
+    note_writing_mutation(str(delivered.essay_id))
 
     # Step 2: mirror student-facing note + flip essay status. Note
     # mirrored only when explicitly provided — None means "no note",

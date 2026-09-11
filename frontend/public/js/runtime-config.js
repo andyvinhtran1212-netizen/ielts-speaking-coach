@@ -8,5 +8,7 @@ window.__AVER_RUNTIME_CONFIG__ = Object.freeze({
   "supabaseUrl": null,
   "supabaseAnonKey": null,
   "release": null,
-  "gitRef": null
+  "gitRef": null,
+  "coreOperationCorrelationEnabled": false,
+  "writingAdmissionEnabled": false
 });

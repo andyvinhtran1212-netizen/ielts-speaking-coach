@@ -65,6 +65,11 @@ const config = {
   ...(process.env.AVER_SUPABASE_ANON_KEY ? { supabaseAnonKey: process.env.AVER_SUPABASE_ANON_KEY } : {}),
   release: process.env.VERCEL_GIT_COMMIT_SHA || null,
   gitRef: process.env.VERCEL_GIT_COMMIT_REF || null,
+  // Opt-in only after backend CORS/schema rollout and privacy/load verification.
+  coreOperationCorrelationEnabled: process.env.AVER_CORE_OPERATION_CORRELATION_ENABLED === 'true',
+  // Separate strict admission protocol; requires 247–250, capture enrollment
+  // and backend flag. Never infer activation from optional observation flags.
+  writingAdmissionEnabled: process.env.AVER_WRITING_ADMISSION_ENABLED === 'true',
 };
 
 if (vercelEnv && vercelEnv !== 'production') {

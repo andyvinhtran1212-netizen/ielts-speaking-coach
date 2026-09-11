@@ -32,6 +32,8 @@ from models.instructor_review import (
 )
 from routers.admin import require_admin
 from services import instructor_workflow
+from services.core_attempt_outcomes import observe_writing_batch
+from services.core_writing_observation import observe_writing_partial_failure
 from services.instructor_workflow import (
     ConflictError,
     NotFoundError,
@@ -127,6 +129,7 @@ async def release_review(
 
 
 @router.post("/reviews/{review_id}/deliver", response_model=InstructorReview)
+@observe_writing_partial_failure
 async def deliver_review(
     review_id: UUID,
     payload: DeliverRequest,
@@ -137,7 +140,7 @@ async def deliver_review(
     with `-instructor`. 403 if not the current claimant."""
     admin = await require_admin(authorization)
     try:
-        return instructor_workflow.deliver(
+        result = instructor_workflow.deliver(
             review_id,
             UUID(admin["id"]),
             instructor_note=payload.instructor_note,
@@ -146,3 +149,5 @@ async def deliver_review(
         raise HTTPException(403, str(e))
     except NotFoundError as e:
         raise HTTPException(404, str(e))
+    await observe_writing_batch([str(result.essay_id)])
+    return result

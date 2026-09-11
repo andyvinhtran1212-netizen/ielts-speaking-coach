@@ -55,6 +55,25 @@ describe('committed default', () => {
 });
 
 describe('generator environment resolution', () => {
+  test('Writing admission has its own explicit default-OFF flag', () => {
+    for (const flag of ['', 'false', '1', 'TRUE', 'true']) {
+      const { status, content } = runGenerator({ AVER_WRITING_ADMISSION_ENABLED: flag });
+      assert.equal(status, 0);
+      assert.ok(content.includes('"writingAdmissionEnabled": ' + (flag === 'true')));
+    }
+    const { content } = runGenerator({ AVER_CORE_OPERATION_CORRELATION_ENABLED: 'true' });
+    assert.match(content, /"writingAdmissionEnabled": false/);
+  });
+  test('core-operation correlation is disabled unless explicitly opted in', () => {
+    for (const flag of ['', 'false', '1', 'TRUE']) {
+      const { status, content } = runGenerator({ AVER_CORE_OPERATION_CORRELATION_ENABLED: flag });
+      assert.equal(status, 0);
+      assert.match(content, /"coreOperationCorrelationEnabled": false/);
+    }
+    const { status, content } = runGenerator({ AVER_CORE_OPERATION_CORRELATION_ENABLED: 'true' });
+    assert.equal(status, 0);
+    assert.match(content, /"coreOperationCorrelationEnabled": true/);
+  });
   test('VERCEL_ENV=preview resolves to staging with zero production origins', () => {
     const { status, content } = runGenerator({ VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'staging' });
     assert.equal(status, 0);

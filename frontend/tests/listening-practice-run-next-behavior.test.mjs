@@ -41,7 +41,8 @@ describe('/listening/practice-run native ownership', () => {
 
   test('resumes before destructive start and reconciles an ambiguous start ACK', () => {
     const ensure = PLAYER.split('const ensureAttempt')[1].split('const submitWithReconciliation')[0];
-    assert.ok(ensure.indexOf('readOpenAttempt') < ensure.indexOf('/attempts`, {}'));
+    assert.ok(ensure.indexOf('readOpenAttempt') >= 0);
+    assert.ok(ensure.indexOf('readOpenAttempt') < ensure.indexOf('coreOperationRequest'));
     assert.match(ensure, /catch \(startError\)[\s\S]*readOpenAttempt/);
     assert.match(ensure, /practice-run-start-uncertain/);
     assert.match(PLAYER, /không tự tạo lại để tránh xoá tiến độ/i);

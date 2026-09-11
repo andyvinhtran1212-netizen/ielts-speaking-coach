@@ -36,6 +36,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from config import settings
 from database import supabase_admin
+from services.core_attempt_observation import (
+    admit_start, bind_owned_attempt, note_abandoned_dictation_attempt, note_abandoned_exam_attempts, note_persisted_exam_result, observe_operation,
+)
 from services.class_assignment_service import (
     DeadlinePassedError,
     ItemNotFoundError,
@@ -5249,6 +5252,7 @@ async def get_in_progress_dictation_attempt(
 
 
 @user_router.post("/tests/{test_id}/dictation/attempts")
+@observe_operation("listening_dictation", "start", correlate_by=("test_id", "section_num", "body"))
 async def start_dictation_attempt(
     test_id: str,
     section_num: int = Query(ge=1),
@@ -5262,15 +5266,27 @@ async def start_dictation_attempt(
         user["id"], test_id, section_num,
     )
     if previous and is_resume_active(previous):
+        bind_owned_attempt(previous)
         return {**_dictation_attempt_response(previous), "created": False}
+    admit_start()
     if previous:
         # Preserve every answer row, but retire the expired parent from the
         # partial one-active index before creating a fresh attempt. This stays
         # on POST; the GET resume lookup above remains strictly read-only.
-        supabase_admin.table("dictation_attempts").update({
-            "status": "abandoned",
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("id", previous["id"]).eq("status", "in_progress").execute()
+        previous_id = previous["id"]
+        abandoned_result = None
+        try:
+            abandoned_result = supabase_admin.table("dictation_attempts").update({
+                "status": "abandoned",
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("id", previous_id).eq("status", "in_progress").execute()
+        finally:
+            # A missing acknowledgement leaves commit state unknown. Record
+            # only a diagnostic gap, then preserve the original exception.
+            note_abandoned_dictation_attempt(
+                abandoned_result, attempt_id=previous_id, test_id=test_id,
+                user_id=user["id"], section_num=section_num,
+            )
 
     units_snapshot = _dictation_section_units_snapshot(test_id, section_num)
     now = datetime.now(timezone.utc).isoformat()
@@ -5300,7 +5316,9 @@ async def start_dictation_attempt(
         existing = _find_in_progress_dictation_attempt(user["id"], test_id, section_num)
         if not existing:
             raise HTTPException(409, "Không thể xác định lượt chép chính tả đang mở.")
+        bind_owned_attempt(existing)
         return {**_dictation_attempt_response(existing), "created": False}
+    bind_owned_attempt(payload, started=True)
     return {
         **_dictation_attempt_response(payload),
         "renderer_affinity": None if affinity_aware else "legacy",
@@ -5343,6 +5361,7 @@ async def claim_dictation_attempt_renderer_affinity(
 
 
 @user_router.post("/tests/dictation/attempts/{attempt_id}/sentences/{sentence_idx}")
+@observe_operation("listening_dictation", "save", correlate_by=("attempt_id", "sentence_idx", "body"))
 async def grade_and_save_dictation_attempt_sentence(
     attempt_id: uuid.UUID,
     sentence_idx: int,
@@ -5356,6 +5375,7 @@ async def grade_and_save_dictation_attempt_sentence(
     attempt = _dictation_attempt_or_404(
         str(attempt_id), user["id"], require_in_progress=True,
     )
+    bind_owned_attempt(attempt)
     _published_test_for_dictation(attempt["test_id"], user.get("id"))
     units = attempt.get("units_snapshot") or []
     if not units:
@@ -5480,6 +5500,7 @@ def _mark_dictation_attempt_completed(row: dict, user_id: str) -> None:
 
 
 @user_router.post("/tests/dictation/session")
+@observe_operation("listening_dictation", "submit", correlate_by=("body",))
 async def submit_listening_dictation_session(
     body: DictationSessionRequest,
     authorization: str | None = Header(default=None),
@@ -5501,6 +5522,8 @@ async def submit_listening_dictation_session(
         if existing:
             _assert_dictation_request_replay(existing, body, fingerprint)
             _mark_dictation_attempt_completed(existing, user["id"])
+            if existing.get("attempt_id"):
+                bind_owned_attempt({"id": existing["attempt_id"], "user_id": user["id"]})
             return _dictation_session_response(existing)
 
     attempt = None
@@ -5509,10 +5532,12 @@ async def submit_listening_dictation_session(
         if existing:
             _assert_dictation_request_replay(existing, body, fingerprint)
             _mark_dictation_attempt_completed(existing, user["id"])
+            bind_owned_attempt({"id": existing.get("attempt_id"), "user_id": user["id"]})
             return _dictation_session_response(existing)
         attempt = _dictation_attempt_or_404(
             str(body.attempt_id), user["id"], require_in_progress=True,
         )
+        bind_owned_attempt(attempt)
         if attempt.get("status") != "in_progress":
             raise HTTPException(409, "Lượt chép chính tả này đã kết thúc.")
         _assert_dictation_attempt_submission(attempt, body)
@@ -6175,6 +6200,7 @@ async def get_in_progress_listening_attempt(
 
 
 @user_router.post("/tests/{test_id}/attempts")
+@observe_operation("listening_test", "start", correlate_by=("test_id", "body", "class_item"))
 async def start_listening_test_attempt(
     test_id: str,
     body: _ListeningAttemptStartRequest | None = None,
@@ -6222,8 +6248,9 @@ async def start_listening_test_attempt(
         except (ItemNotFoundError, TaskMismatchError) as exc:
             raise HTTPException(400, str(exc))
 
+    admit_start()
     # Abandon any open attempts for this (user, test).
-    (
+    abandoned_result = (
         supabase_admin.table("listening_test_attempts")
         .update({"status": "abandoned"})
         .eq("user_id", user["id"])
@@ -6231,6 +6258,7 @@ async def start_listening_test_attempt(
         .eq("status", "in_progress")
         .execute()
     )
+    note_abandoned_exam_attempts(abandoned_result, test_id=test_id, user_id=user["id"])
 
     attempt_id = str(uuid.uuid4())
     started_at = datetime.now(timezone.utc).isoformat()
@@ -6256,6 +6284,7 @@ async def start_listening_test_attempt(
         .insert(payload)
         .execute()
     )
+    bind_owned_attempt(payload, started=True)
     return {
         "attempt_id": attempt_id,
         "status": "in_progress",
@@ -6349,6 +6378,7 @@ def _mock_sealed(attempt: dict) -> bool:
 
 
 @user_router.patch("/tests/attempts/{attempt_id}/answers")
+@observe_operation("listening_test", "save", correlate_by=("attempt_id", "body"))
 async def patch_listening_test_attempt_answer(
     attempt_id: str,
     body: TestAttemptAnswerPatchRequest,
@@ -6367,6 +6397,7 @@ async def patch_listening_test_attempt_answer(
     """
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])   # ownership gate
+    bind_owned_attempt(attempt)
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
     require_resume_active(attempt)
@@ -6491,6 +6522,7 @@ async def get_practice_audio_windows(
 
 
 @user_router.post("/tests/attempts/{attempt_id}/check")
+@observe_operation("listening_test", "grade", correlate_by=("attempt_id", "body"))
 async def check_listening_practice_answer(
     attempt_id: str,
     body: PracticeCheckRequest,
@@ -6526,6 +6558,10 @@ async def check_listening_practice_answer(
 
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])       # ownership gate
+    if not body.reveal:
+        # A per-question grade is an operation, never a new attempt or final
+        # result. Reveal is read-only and must not claim mutation evidence.
+        bind_owned_attempt(attempt)
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể chấm thêm.")
     require_resume_active(attempt)
@@ -6566,7 +6602,9 @@ async def check_listening_practice_answer(
             # grade for an answer that was never stored.
             require_resume_active(attempt)
             raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể chấm thêm.")
-        recorded = bool(wrote)
+        if type(wrote) is not bool:
+            raise HTTPException(503, "Chưa xác minh được đáp án đã lưu. Hãy thử lại.")
+        recorded = wrote
         if recorded:
             prior = {"q_num": body.q_num, "user_answer": body.user_answer}
         elif prior is None:
@@ -6580,6 +6618,12 @@ async def check_listening_practice_answer(
             )
             stored = list((fresh.data[0].get("answers") if fresh.data else None) or [])
             prior = next((a for a in stored if a.get("q_num") == body.q_num), None)
+            if prior is None:
+                # FALSE also covers a lost conditional UPDATE when the attempt
+                # was submitted concurrently, not only a rival answer. Without
+                # a canonical answer, neither a successful check nor its
+                # canonical correctness can be asserted.
+                raise HTTPException(409, "Bài làm vừa thay đổi. Hãy tải lại để kiểm tra đáp án đã lưu.")
 
     def _grade(ans_text: str) -> bool:
         merged = [a for a in stored if a.get("q_num") != body.q_num]
@@ -6636,6 +6680,7 @@ async def check_listening_practice_answer(
 
 
 @user_router.post("/tests/attempts/{attempt_id}/submit")
+@observe_operation("listening_test", "submit", correlate_by=("attempt_id",))
 async def submit_listening_test_attempt(
     attempt_id: str,
     authorization: str | None = Header(default=None),
@@ -6650,6 +6695,7 @@ async def submit_listening_test_attempt(
 
     user = await _require_auth(authorization)
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])
+    bind_owned_attempt(attempt)
     if attempt.get("status") == "submitted":
         # Lost-ACK reconciliation for the 4-skill mock parent. Retrying a
         # committed sealed submit must return the same opaque receipt; normal
@@ -6705,6 +6751,7 @@ async def submit_listening_test_attempt(
             require_resume_active(fresh)
         raise HTTPException(409, "Attempt đã thay đổi; hãy tải lại trạng thái.")
 
+    note_persisted_exam_result(finalized.data[0], expected_questions=answer_key)
     # Sealed 4-skill mock: grade + persist above (the admin's draft), but never
     # expose the score to the student until the sitting is released.
     if _mock_sealed(attempt):

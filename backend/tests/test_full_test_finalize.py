@@ -114,6 +114,18 @@ def test_all_graded_completes_without_failed(patched):
     assert _failed_ids(rec) == [], "no session should be analysis_failed when all graded"
 
 
+def test_outcome_observation_runs_after_all_canonical_writes(patched, monkeypatch):
+    rec, completed = patched
+    seen = []
+    async def observe(ids):
+        assert completed == [_OK]
+        assert _failed_ids(rec) == [_BAD]
+        seen.extend(ids)
+    monkeypatch.setattr(sessions_module, "observe_speaking_background", observe)
+    _run(sessions_module._bg_finalize_full_test([_OK, _BAD]))
+    assert seen == [_OK, _BAD]
+
+
 class _CoverageResult:
     def __init__(self, data):
         self.data = data

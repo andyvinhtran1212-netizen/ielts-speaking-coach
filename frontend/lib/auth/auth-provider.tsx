@@ -25,6 +25,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { clearCoreOperationIntents } from '@/lib/core-operation-intent.mjs';
 
 export type AuthStatus = 'initial-loading' | 'signed-in' | 'signed-out';
 
@@ -74,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // cross-tab storage sync, chrome sign-out) funnels through here, so a null
   // session can only ever move us to signed-out — the fail-closed direction.
   const applySession = useCallback((session: any | null) => {
+    try { clearCoreOperationIntents(window.sessionStorage, session?.user?.id || null); } catch { /* auth must proceed */ }
     if (session && session.user) {
       setUser({ id: session.user.id, email: session.user.email ?? null });
       setStatus('signed-in');

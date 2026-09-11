@@ -43,6 +43,9 @@ from pydantic import BaseModel, Field
 
 from config import settings
 from database import supabase_admin
+from services.core_attempt_observation import (
+    admit_start, bind_owned_attempt, note_abandoned_exam_attempts, note_persisted_exam_result, observe_operation,
+)
 from services.class_assignment_service import (
     DeadlinePassedError,
     ItemNotFoundError,
@@ -951,6 +954,7 @@ class _ReadingAttemptRendererAffinityRequest(BaseModel):
 
 
 @router.post("/test/share/{share_token}/attempts")
+@observe_operation("reading_exam", "start", correlate_by=("share_token", "body"))
 async def start_shared_reading_test_attempt(
     share_token: str,
     request: Request,
@@ -974,14 +978,16 @@ async def start_shared_reading_test_attempt(
     share = ((test.get("metadata") or {}).get("share") or {})
 
     anon_id = x_reading_anon or _gen_anon_id()
+    admit_start()
     # Maintain one active anonymous attempt per (anon_id, test): abandon any
     # open one this session held (mirror of the authed invariant, anon-scoped).
-    (
+    abandoned_result = (
         supabase_admin.table("reading_test_attempts")
         .update({"status": "abandoned"})
         .eq("anon_id", anon_id).eq("test_id", test_uuid).eq("status", "in_progress")
         .execute()
     )
+    note_abandoned_exam_attempts(abandoned_result, test_id=test_uuid, anon_id=anon_id)
     attempt_id = str(_uuid.uuid4())
     started_at = datetime.now(timezone.utc).isoformat()
     expires_at = resume_expires_at(started_at)
@@ -1001,6 +1007,7 @@ async def start_shared_reading_test_attempt(
     if affinity_aware:
         payload["renderer_affinity"] = None
     supabase_admin.table("reading_test_attempts").insert(payload).execute()
+    bind_owned_attempt(payload, started=True)
     return {
         "attempt_id":         attempt_id,
         "anon_id":            anon_id,             # client MUST keep this (ownership)
@@ -1024,7 +1031,7 @@ def _abandon_open_attempts(user_id: str, test_uuid: str) -> None:
     race where two starts both observe no in-progress row, the unique
     index rejects the second INSERT and the router retries (see
     `start_reading_test_attempt`)."""
-    (
+    abandoned_result = (
         supabase_admin.table("reading_test_attempts")
         .update({"status": "abandoned"})
         .eq("user_id", user_id)
@@ -1032,6 +1039,7 @@ def _abandon_open_attempts(user_id: str, test_uuid: str) -> None:
         .eq("status", "in_progress")
         .execute()
     )
+    note_abandoned_exam_attempts(abandoned_result, test_id=test_uuid, user_id=user_id)
 
 
 # Sprint 20.9 D2 — the partial unique index in mig 088 surfaces collisions as
@@ -1056,6 +1064,7 @@ def _is_unique_violation(exc: Exception) -> bool:
 
 
 @router.post("/test/{test_id}/attempts")
+@observe_operation("reading_exam", "start", correlate_by=("test_id", "body", "class_item"))
 async def start_reading_test_attempt(
     test_id: str,
     body: _ReadingAttemptStartRequest | None = None,
@@ -1099,6 +1108,7 @@ async def start_reading_test_attempt(
         except (ItemNotFoundError, TaskMismatchError) as exc:
             raise HTTPException(400, str(exc))
 
+    admit_start()
     last_exc: Exception | None = None
     for _retry in range(_START_RETRY_MAX):
         _abandon_open_attempts(user["id"], test_uuid)
@@ -1134,6 +1144,7 @@ async def start_reading_test_attempt(
                 continue
             raise
 
+        bind_owned_attempt(payload, started=True)
         return {
             "attempt_id":         attempt_id,
             "test_id":            test_id,
@@ -1232,6 +1243,7 @@ class _SubmitRequest(BaseModel):
 
 
 @router.post("/test/attempts/{attempt_id}/submit")
+@observe_operation("reading_exam", "submit", correlate_by=("attempt_id", "body"))
 async def submit_reading_test_attempt(
     attempt_id: str,
     body: _SubmitRequest,
@@ -1254,6 +1266,7 @@ async def submit_reading_test_attempt(
 
     user = await _optional_auth(authorization)
     attempt = _fetch_attempt_owned(attempt_id, user, x_reading_anon)
+    bind_owned_attempt(attempt)
     if attempt.get("status") == "submitted":
         # A mock parent retries this exact request when the first response is
         # lost. The grading write already committed, so returning the same
@@ -1388,6 +1401,7 @@ async def submit_reading_test_attempt(
             require_resume_active(fresh)
         raise HTTPException(409, "Attempt đã thay đổi; hãy tải lại trạng thái.")
 
+    note_persisted_exam_result(finalized.data[0], expected_questions=answer_key)
     # Sealed 4-skill mock: this attempt belongs to a sitting whose scores are
     # withheld until an admin releases results. We STILL grade + persist above
     # (that's the draft the admin reviews) — we just never expose the score to
@@ -1604,6 +1618,7 @@ class _AnswerPatchItem(BaseModel):
 
 
 @router.patch("/test/attempts/{attempt_id}/answers")
+@observe_operation("reading_exam", "save", correlate_by=("attempt_id", "body"))
 async def patch_reading_test_attempt_answer(
     attempt_id: str,
     body: _AnswerPatchItem,
@@ -1631,6 +1646,7 @@ async def patch_reading_test_attempt_answer(
 
     user = await _optional_auth(authorization)
     attempt = _fetch_attempt_owned(attempt_id, user, x_reading_anon)
+    bind_owned_attempt(attempt)
     if attempt.get("status") != "in_progress":
         raise HTTPException(422, "Attempt đã submit hoặc abandoned — không thể edit.")
     require_resume_active(attempt)

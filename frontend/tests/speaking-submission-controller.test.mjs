@@ -286,7 +286,7 @@ describe('Next Speaking submission integration', () => {
     assert.match(BOOT, /PracticeSubmission\?\.submit/);
     assert.match(BOOT, /native submission/);
     assert.match(BOOT, /api\?\.uploadWith/);
-    assert.match(API, /uploadWith: function \(path, fd, opts\)/);
+    assert.match(API, /uploadWith: function \(path, fd, opts, hdrs\)/);
   });
 
   test('practice, test_full and sheet all use the shared transport', () => {

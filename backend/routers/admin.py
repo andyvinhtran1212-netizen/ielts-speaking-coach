@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from config import settings
 from database import supabase_admin
 from services.class_assignment_service import sync_class_item_score
+from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, observe_operation
 from services.class_membership_service import active_memberships_for_students, add_student
 from services import admin_dashboard
 from services.recording_audio import attach_playback_urls, recording_path
@@ -3783,6 +3784,7 @@ async def _run_regrade_response(
 # ── POST /admin/responses/{response_id}/regrade ───────────────────────────────
 
 @router.post("/responses/{response_id}/regrade")
+@observe_operation("speaking", "grade")
 async def admin_regrade_response(
     response_id: str,
     authorization: str | None = Header(default=None),
@@ -3809,7 +3811,7 @@ async def admin_regrade_response(
     # Load session
     s_res = (
         supabase_admin.table("sessions")
-        .select("id, part, mode, user_id")
+        .select("id, part, mode, user_id, full_test_attempt_id, renderer_affinity")
         .eq("id", resp["session_id"])
         .limit(1)
         .execute()
@@ -3829,6 +3831,7 @@ async def admin_regrade_response(
     if not q_res.data:
         raise HTTPException(404, "Câu hỏi không tồn tại")
     question_text = q_res.data[0]["question_text"]
+    bind_owned_attempt(session)
 
     session_id = resp["session_id"]
     logger.info("[admin/regrade-response] response=%s session=%s by=%s", response_id, session_id, admin_email)
@@ -3891,6 +3894,7 @@ async def admin_regrade_response(
 # ── POST /admin/sessions/{session_id}/regrade ─────────────────────────────────
 
 @router.post("/sessions/{session_id}/regrade")
+@observe_operation("speaking", "grade")
 async def admin_regrade_session(
     session_id: str,
     force: bool = Query(default=False, description="force=true: regrade ALL responses; force=false (default): repair only failed/missing responses"),
@@ -3914,7 +3918,7 @@ async def admin_regrade_session(
     # Load session
     s_res = (
         supabase_admin.table("sessions")
-        .select("id, part, mode, user_id, status")
+        .select("id, part, mode, user_id, status, full_test_attempt_id, renderer_affinity")
         .eq("id", session_id)
         .limit(1)
         .execute()
@@ -3922,6 +3926,7 @@ async def admin_regrade_session(
     if not s_res.data:
         raise HTTPException(404, "Session không tồn tại")
     session = s_res.data[0]
+    bind_owned_attempt(session)
 
     # Load questions
     q_res = (
@@ -4029,6 +4034,9 @@ async def admin_regrade_session(
     except Exception:
         supabase_admin.table("sessions").update(session_update).eq("id", session_id).execute()
 
+    if partial_failure:
+        note_operation_failure()
+
     return {
         "ok":               not partial_failure,
         "partial_failure":  partial_failure,
@@ -4048,6 +4056,7 @@ async def admin_regrade_session(
 # ── POST /admin/sessions/{session_id}/rebuild-summary ─────────────────────────
 
 @router.post("/sessions/{session_id}/rebuild-summary")
+@observe_operation("speaking", "finalize")
 async def admin_rebuild_summary(
     session_id: str,
     p2_id: str | None = Query(default=None, description="Part 2 session ID (for test_full)"),
@@ -4067,7 +4076,7 @@ async def admin_rebuild_summary(
     # Verify sessions exist
     s_res = (
         supabase_admin.table("sessions")
-        .select("id, user_id, mode, part, status, full_test_attempt_id")
+        .select("id, user_id, mode, part, status, full_test_attempt_id, renderer_affinity")
         .in_("id", all_ids)
         .execute()
     )
@@ -4100,6 +4109,7 @@ async def admin_rebuild_summary(
             raise HTTPException(409, "Ba session không thuộc cùng một Full Test canonical")
 
     logger.info("[admin/rebuild-summary] sessions=%s by=%s", all_ids, admin_email)
+    bind_owned_attempt(next(row for row in found_rows if row["id"] == session_id))
 
     now = datetime.now(timezone.utc).isoformat()
     results = []
@@ -4156,6 +4166,8 @@ async def admin_rebuild_summary(
 
         results.append({"session_id": sid, "ok": True, **bands})
 
+    if any(not row["ok"] for row in results):
+        note_operation_failure()
     return {"ok": True, "sessions": results}
 
 

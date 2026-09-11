@@ -32,6 +32,7 @@ from services.band_rounding import ielts_round
 from services.pron_calibration import pron_band
 from services import fluency_signals
 from services.db_async import aexecute
+from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, note_owned_speaking_audio, observe_operation
 from routers.auth import get_supabase_user
 from services.whisper import transcribe_from_bytes
 from services import claude_grader
@@ -448,6 +449,7 @@ def _apply_off_topic_penalty(grading: dict, verdict, is_practice: bool) -> bool:
 # ── POST /sessions/{session_id}/responses ─────────────────────────────────────
 
 @router.post("/sessions/{session_id}/responses")
+@observe_operation("speaking", "grade", correlate_audio=True)
 async def grade_response_endpoint(
     session_id:  str,
     question_id: str       = Form(..., description="UUID of the question being answered"),
@@ -471,8 +473,8 @@ async def grade_response_endpoint(
             s_res = await aexecute(
                 lambda db: db.table("sessions")
                 .select(
-                    "id, part, topic, status, mode, sitting_id, "
-                    "started_at, resume_expires_at"
+                    "id, user_id, part, topic, status, mode, sitting_id, "
+                    "started_at, resume_expires_at, full_test_attempt_id, renderer_affinity"
                 )
                 .eq("id", session_id)
                 .eq("user_id", user_id)
@@ -505,6 +507,7 @@ async def grade_response_endpoint(
             raise HTTPException(404, "Câu hỏi không tồn tại trong session này")
 
         question_text: str = q_res.data[0]["question_text"]
+        bind_owned_attempt(session)
 
         # ── Daily grading rate-limit (B5 / Mục 5) ─────────────────────────────
         # The pipeline below runs Whisper + Claude on every call; cap per-user/day
@@ -537,6 +540,8 @@ async def grade_response_endpoint(
         step = "whisper"
         ext      = _guess_ext(audio_file.filename, audio_file.content_type)
         filename = f"audio{ext}"
+        await note_owned_speaking_audio(session_id=session_id, question_id=question_id,
+                                       audio_bytes=audio_bytes, extension=ext, content_type=audio_file.content_type)
         logger.info("[grading] gọi Whisper STT (from bytes, %d B)...", file_size)
 
         try:
@@ -1190,6 +1195,7 @@ async def grade_response_endpoint(
 
         if not grading:
             # Audio + transcript saved; AI grading unavailable — tell the frontend
+            note_operation_failure()
             return {
                 "_stub":               True,
                 "_error":              "AI grading is temporarily unavailable. Your recording and transcript were saved.",

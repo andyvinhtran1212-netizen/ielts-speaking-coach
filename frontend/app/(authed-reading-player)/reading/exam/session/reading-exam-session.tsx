@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { anonymousReadingScope, coreOperationRequest } from '@/lib/core-operation-intent.mjs';
 import {
   answersFromRows,
   claimReadingAttemptRenderer,
@@ -813,13 +814,19 @@ export function ReadingExamSession() {
   const saveAnswer = useCallback(async (qNum: number, value: string, options: { keepalive?: boolean; signal?: AbortSignal }) => {
     if (!attempt) return null;
     const path = `/api/reading/test/attempts/${encodeURIComponent(attempt.attempt_id)}/answers`;
-    return window.api.patchWith(
+    const body = { q_num: qNum, user_answer: value };
+    const accessHeaders = params?.share ? anonHeaders() : undefined;
+    return coreOperationRequest({
+      accountId: params?.share ? null : user?.id, method: 'PATCH', path, input: body, slot: String(qNum),
+      anonymousScope: params?.share ? anonymousReadingScope({ shareToken: params.share, capability: accessHeaders?.['X-Reading-Anon'] }) : null,
+      acknowledged: (reply: any) => reply?.attempt_id === attempt.attempt_id && reply?.q_num === qNum,
+    }, (headers: Record<string, string>) => window.api.patchWith(
       path,
-      { q_num: qNum, user_answer: value },
-      params?.share ? anonHeaders() : undefined,
+      body,
+      { ...accessHeaders, ...headers },
       { noRedirect: true, keepalive: !!options.keepalive, signal: options.signal },
-    );
-  }, [anonHeaders, attempt, params?.share]);
+    ));
+  }, [anonHeaders, attempt, params?.share, user?.id]);
 
   useEffect(() => {
     coordinatorRef.current?.dispose?.();
@@ -871,21 +878,31 @@ export function ReadingExamSession() {
     try {
       let response: any;
       if (params.share) {
-        response = await window.api.postWith(
-          `/api/reading/test/share/${encodeURIComponent(params.share)}/attempts`,
+        const path = `/api/reading/test/share/${encodeURIComponent(params.share)}/attempts`;
+        const accessHeaders = anonHeaders();
+        response = await coreOperationRequest({
+          accountId: null, method: 'POST', path, input: READING_RENDERER_AFFINITY_PROTOCOL, fresh: resumeAvailable,
+          anonymousScope: anonymousReadingScope({ shareToken: params.share, capability: accessHeaders?.['X-Reading-Anon'], starting: true }),
+          acknowledged: (reply: any) => typeof reply?.attempt_id === 'string' && typeof reply?.anon_id === 'string',
+        }, (headers: Record<string, string>) => window.api.postWith(
+          path,
           READING_RENDERER_AFFINITY_PROTOCOL,
-          anonHeaders(),
+          { ...accessHeaders, ...headers },
           { noRedirect: true },
-        );
+        ));
         if (response?.anon_id) {
           try { localStorage.setItem(`reading-anon:${params.share}`, response.anon_id); } catch {}
         }
       } else {
-        response = await window.api.postWith(
-          queryWithClassItem(`/api/reading/test/${encodeURIComponent(test.test_id)}/attempts`, params.classItem),
+        const path = queryWithClassItem(`/api/reading/test/${encodeURIComponent(test.test_id)}/attempts`, params.classItem);
+        response = await coreOperationRequest({
+          accountId: user?.id, method: 'POST', path, input: READING_RENDERER_AFFINITY_PROTOCOL, fresh: resumeAvailable,
+          acknowledged: (reply: any) => typeof reply?.attempt_id === 'string' && !!reply.attempt_id,
+        }, (headers: Record<string, string>) => window.api.postWith(
+          path,
           READING_RENDERER_AFFINITY_PROTOCOL,
-          passwordHeaders(),
-        );
+          { ...passwordHeaders(), ...headers },
+        ));
       }
       if (!await claimAttempt(String(response.attempt_id))) return;
       const nextAttempt = {
@@ -898,7 +915,7 @@ export function ReadingExamSession() {
       setError(`Không bắt đầu được bài thi. ${caught?.message || ''}`);
       setPhase('error');
     }
-  }, [anonHeaders, claimAttempt, enterAttempt, params, passwordHeaders, test]);
+  }, [anonHeaders, claimAttempt, enterAttempt, params, passwordHeaders, test, resumeAvailable, user?.id]);
 
   useEffect(() => {
     if (phase !== 'prestart' || !params?.mockEmbed || autoEnteredMockRef.current) return;
@@ -933,9 +950,14 @@ export function ReadingExamSession() {
       await coordinatorRef.current?.flush?.();
       const body = { answers: [...answersRef.current].map(([q_num, user_answer]) => ({ q_num, user_answer })) };
       const path = `/api/reading/test/attempts/${encodeURIComponent(attempt.attempt_id)}/submit`;
-      const response = params?.share
-        ? await window.api.postWith(path, body, anonHeaders(), { noRedirect: true })
-        : await window.api.post(path, body);
+      const accessHeaders = params?.share ? anonHeaders() : undefined;
+      const response = await coreOperationRequest({
+        accountId: params?.share ? null : user?.id, method: 'POST', path, input: body,
+        anonymousScope: params?.share ? anonymousReadingScope({ shareToken: params.share, capability: accessHeaders?.['X-Reading-Anon'] }) : null,
+        acknowledged: (reply: any) => reply?.attempt_id === attempt.attempt_id || (reply?.received === true && reply?.sealed === true),
+      }, (headers: Record<string, string>) => window.api.postWith(
+        path, body, { ...accessHeaders, ...headers }, { noRedirect: !!params?.share },
+      ));
       const hook = (window as any).MockHook;
       if (hook?.isSealedResponse?.(response)) {
         setPhase('sealed');
@@ -948,7 +970,7 @@ export function ReadingExamSession() {
       setError(`Không nộp được bài. ${caught?.message || ''}`);
       setPhase('error');
     }
-  }, [anonHeaders, attempt, params?.mockEmbed, params?.share, phase]);
+  }, [anonHeaders, attempt, params?.mockEmbed, params?.share, phase, user?.id]);
 
   useEffect(() => {
     if (!params?.mockEmbed) return undefined;

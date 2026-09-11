@@ -13,6 +13,7 @@ import {
 import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { coreOperationRequest } from '@/lib/core-operation-intent.mjs';
 import {
   MOCK_LIVE_STATUSES,
   MOCK_SECTION_LABELS,
@@ -998,12 +999,21 @@ export function MockExamRunner() {
     const domainPath = section === 'reading'
       ? `/api/reading/test/attempts/${encodeURIComponent(attemptId)}/submit`
       : `/api/listening/tests/attempts/${encodeURIComponent(attemptId)}/submit`;
-    await window.api.post(domainPath, section === 'reading' ? { answers: [] } : {});
-    await window.api.post(
-      `/api/mock-exams/sittings/${encodeURIComponent(sittingId)}/sections/${section}/submit`,
-      {},
-    );
-  }, [flushEmbed, loadState]);
+    const body = section === 'reading' ? { answers: [] } : {};
+    await coreOperationRequest({
+      accountId: user?.id, method: 'POST', path: domainPath, input: { body, sitting_id: sittingId, section },
+      acknowledged: (reply: any) => reply?.attempt_id === attemptId || (reply?.received === true && reply?.sealed === true),
+    }, async (headers: Record<string, string>) => {
+      const domainAck = await window.api.postWith(domainPath, body, headers);
+      // Keep the domain hint pending until the parent also acknowledges the
+      // collection. A failed second step must retry the same two-step intent.
+      await window.api.post(
+        `/api/mock-exams/sittings/${encodeURIComponent(sittingId)}/sections/${section}/submit`,
+        {},
+      );
+      return domainAck;
+    });
+  }, [flushEmbed, loadState, user?.id]);
 
   const submitSection = useCallback(async (section: Section, attempt = 0) => {
     if (submittingRef.current && attempt === 0) return;

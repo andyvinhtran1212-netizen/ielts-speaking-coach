@@ -21,6 +21,18 @@ class Settings(BaseSettings):
     READING_ANON_SALT: str = ""
 
     # Feature flags
+    # Private outcome-evidence foundation. Requires migration 240 and explicit
+    # rollout/coverage verification; never enabled implicitly by a code deploy.
+    CORE_ATTEMPT_EVIDENCE_ENABLED: bool = False
+    # Separate write-path rollout; verify migration 241/schema cache before use.
+    SPEAKING_CREATION_RECEIPT_ENABLED: bool = False
+    # Separate durable admission protocol, local foundation only (migration 247).
+    # Does not enroll old routes or enable itself with diagnostic evidence.
+    CORE_ADMISSION_LEDGER_ENABLED: bool = False
+    # Separately retain owned reads/execution/fencing of existing admissions
+    # while new preparation is disabled. No new command or baseline clock.
+    CORE_ADMISSION_RECOVERY_ENABLED: bool = False
+
     # Writing prompt-bank (R1): public-read library browse on the student
     # dashboard. Default off until the prompts are launch-ready; flip to true
     # via env to expose the "Kho đề" tab + the /api/writing/prompt-bank data.

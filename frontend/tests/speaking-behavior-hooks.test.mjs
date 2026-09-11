@@ -186,6 +186,7 @@ describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
     const PROVIDERS = new Map([
       ['CueCardDetector', '/js/cue-card-detector.js'],
       ['api', '/js/api.js'],
+      ['getSupabase', '/js/api.js'],
       ['RetentionWarning', '/js/retention-warning.js'],
       ['Chart', 'chart.js@4.5.1'],
     ]);

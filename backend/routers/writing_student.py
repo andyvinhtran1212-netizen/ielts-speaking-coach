@@ -33,14 +33,16 @@ from email.utils import format_datetime
 from typing import Literal, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Query, Request, UploadFile
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Query, Request, Response, UploadFile
+from pydantic import BaseModel, ConfigDict, Field
 
 from config import settings
 from database import supabase_admin
+from services.core_attempt_observation import bind_owned_attempt, observe_operation
 from routers.auth import get_supabase_user
 from services.public_cache import cacheable_json
 from services import essay_service
+from services import core_admission
 from services.access_code_permissions import (
     get_user_access_code_permissions,
     has_writing_permission,
@@ -1339,6 +1341,7 @@ async def claim_writing_assignment_renderer_affinity(
 
 
 @router.patch("/my-assignments/{assignment_id}/draft")
+@observe_operation("writing_assignment", "save", correlate_by=("assignment_id", "body"))
 async def upsert_my_draft(
     assignment_id: UUID,
     body: DraftUpsert,
@@ -1358,6 +1361,7 @@ async def upsert_my_draft(
     """
     student_id = student["id"]
     assignment = _resolve_active_assignment(student_id, str(assignment_id))
+    bind_owned_attempt(assignment)
 
     if assignment["status"] not in _ACTIVE_ASSIGNMENT_STATES:
         raise HTTPException(
@@ -1428,6 +1432,7 @@ async def upsert_my_draft(
 
 
 @router.post("/my-assignments/{assignment_id}/submit")
+@observe_operation("writing_assignment", "submit", correlate_by=("assignment_id", "body"))
 async def submit_my_assignment(
     assignment_id: UUID,
     body: SubmitEssay,
@@ -1476,6 +1481,7 @@ async def submit_my_assignment(
 
     assignment = _resolve_active_assignment(student_id, str(assignment_id))
 
+    bind_owned_attempt(assignment)
     replay = _replay_committed_submission(
         assignment,
         request_id=body.request_id,
@@ -1852,7 +1858,220 @@ class PasteLog(BaseModel):
     blocked:    bool = False
 
 
+class WritingAdmissionPrepare(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    protocol: Literal["admission-v1"]
+    launch_nonce: UUID
+
+
+class WritingAdmissionExecute(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    protocol: Literal["admission-v1"]
+    generation: int = Field(strict=True, ge=0)
+
+
+class WritingAdmissionReconcile(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    protocol: Literal["admission-v1"]
+
+
+class WritingBaselineEnter(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    protocol: Literal["baseline-v1"]
+    launch_nonce: UUID
+    allow_start: bool = Field(default=False, strict=True)
+
+
+class WritingAdmissionTimer(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    is_timed: bool
+    time_limit_minutes: int | None
+    started_at: datetime | None
+    expires_at: datetime | None
+    time_remaining_seconds: int | None
+    is_expired: bool
+    status: Literal["pending", "in_progress", "submitted", "graded", "delivered"]
+    auto_submitted: bool
+
+
+class WritingAdmissionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    command: core_admission.CommandStatus
+    assignment_id: UUID
+    started: bool
+    timer: WritingAdmissionTimer
+
+
+class WritingEntryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["eligible", "admitted", "baseline_untracked", "baseline_unclaimed", "terminal", "blocked"]
+    assignment_id: UUID
+    started: bool
+    timer: WritingAdmissionTimer
+
+
+class WritingAdmissionLookupResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    found: bool
+    admission: WritingAdmissionResponse | None
+
+
+def _writing_admission_http_error(error: Exception) -> HTTPException:
+    # Fixed messages only. Never expose SQL text, ownership hints or raw payloads.
+    choices = {
+        core_admission.AdmissionDisabled: (404, "Chức năng chưa được bật."),
+        core_admission.AdmissionNotFound: (404, "Không tìm thấy lượt bắt đầu bài."),
+        core_admission.AdmissionExpired: (410, "Lệnh bắt đầu hoặc phiên soạn bài đã hết hạn. Bản nháp vẫn được giữ."),
+        core_admission.AdmissionBaselineConflict: (409, "Bài đã có hoạt động trước đó; không tạo lại lượt bắt đầu."),
+        core_admission.AdmissionConflict: (409, "Lệnh bắt đầu đã đổi trạng thái. Vui lòng kiểm tra lại bài."),
+        core_admission.AdmissionInvalid: (422, "Lệnh bắt đầu không hợp lệ."),
+        core_admission.AdmissionStartRequired: (409, "Bấm Bắt đầu ở thẻ bài tập để xác nhận mở bài."),
+    }
+    code, detail = choices.get(type(error), (503, "Chưa xác nhận được lượt bắt đầu. Kiểm tra trạng thái trước khi thử lại."))
+    return HTTPException(code, detail, headers={"Cache-Control": "private, no-store"})
+
+
+_WRITING_ADMISSION_ERRORS = (core_admission.AdmissionDisabled, core_admission.AdmissionNotFound,
+    core_admission.AdmissionExpired, core_admission.AdmissionBaselineConflict,
+    core_admission.AdmissionConflict, core_admission.AdmissionInvalid,
+    core_admission.AdmissionEpochUnavailable, core_admission.AdmissionUncertain,
+    core_admission.AdmissionStartRequired)
+
+
+def _writing_admission_payload(result: core_admission.WritingAdmissionResult) -> dict:
+    row = result.assignment.model_dump(mode="json")
+    timer = _compute_timer_state(row)
+    timer.update(status=row["status"], auto_submitted=row["auto_submitted"])
+    return {"command": result.command.model_dump(mode="json"), "assignment_id": row["id"],
+        "started": row["started_at"] is not None, "timer": timer}
+
+
+def _writing_entry_payload(result: core_admission.WritingEntryResult) -> dict:
+    row = result.assignment.model_dump(mode="json")
+    timer = _compute_timer_state(row)
+    timer.update(status=row["status"], auto_submitted=row["auto_submitted"])
+    return {"kind": result.kind, "assignment_id": row["id"],
+        "started": row["started_at"] is not None, "timer": timer}
+
+
+@router.get("/my-assignments/{assignment_id}/entry", response_model=WritingEntryResponse)
+async def get_my_writing_entry(assignment_id: UUID, response: Response,
+                              student: dict = Depends(require_writing_permission)):
+    """Owned classification hint; reading cannot start or enroll an assignment."""
+    response.headers["Cache-Control"] = "private, no-store"
+    try:
+        core_admission.require_admission_access("fn_get_writing_entry")
+        result = await core_admission.get_writing_entry(UUID(student["user_id"]), UUID(student["id"]), assignment_id)
+        if result is None:
+            raise core_admission.AdmissionNotFound()
+    except _WRITING_ADMISSION_ERRORS as error:
+        raise _writing_admission_http_error(error) from None
+    return _writing_entry_payload(result)
+
+
+@router.post("/my-assignments/{assignment_id}/baseline-entry", response_model=WritingEntryResponse)
+async def enter_my_writing_baseline(assignment_id: UUID, body: WritingBaselineEnter, response: Response,
+                                   student: dict = Depends(require_writing_permission)):
+    """Revalidate baseline under locks; never adopt it into an eligible episode."""
+    response.headers["Cache-Control"] = "private, no-store"
+    try:
+        core_admission.require_admission_access("fn_enter_writing_baseline", {"p_allow_start": body.allow_start})
+        result = await core_admission.enter_writing_baseline(UUID(student["user_id"]), UUID(student["id"]),
+            assignment_id, body.launch_nonce, body.allow_start)
+    except _WRITING_ADMISSION_ERRORS as error:
+        raise _writing_admission_http_error(error) from None
+    return _writing_entry_payload(result)
+
+
+@router.get("/my-assignments/{assignment_id}/admission-intents/{launch_nonce}", response_model=WritingAdmissionLookupResponse)
+async def find_my_writing_admission(assignment_id: UUID, launch_nonce: UUID, response: Response,
+                                  student: dict = Depends(require_writing_permission)):
+    """Read an owned command by the original nonce, without preparing/executing."""
+    response.headers["Cache-Control"] = "private, no-store"
+    try:
+        core_admission.require_admission_access("fn_find_writing_admission")
+        result = await core_admission.find_writing_admission(UUID(student["user_id"]), UUID(student["id"]),
+            assignment_id, launch_nonce)
+    except _WRITING_ADMISSION_ERRORS as error:
+        raise _writing_admission_http_error(error) from None
+    return {"found": result is not None, "admission": _writing_admission_payload(result) if result is not None else None}
+
+
+@router.post("/my-assignments/{assignment_id}/admissions", response_model=WritingAdmissionResponse)
+async def prepare_my_writing_admission(
+    assignment_id: UUID, body: WritingAdmissionPrepare, response: Response,
+    student: dict = Depends(require_writing_permission),
+):
+    """Validate owned prospective work before recording a start/resume command.
+
+    Reusing the nonce recovers the durable command, never a fresh timer. The
+    existing JWT→student→Writing-entitlement dependency authenticates each call.
+    """
+    response.headers["Cache-Control"] = "private, no-store"
+    try:
+        core_admission.require_admission_access("fn_prepare_writing_admission")
+        result = await core_admission.prepare_writing_admission(
+            UUID(student["user_id"]), UUID(student["id"]), assignment_id, body.launch_nonce)
+    except _WRITING_ADMISSION_ERRORS as error:
+        raise _writing_admission_http_error(error) from None
+    return _writing_admission_payload(result)
+
+
+@router.post("/my-assignments/{assignment_id}/admissions/{command_id}/execute", response_model=WritingAdmissionResponse)
+async def execute_my_writing_admission(
+    assignment_id: UUID, command_id: UUID, body: WritingAdmissionExecute, response: Response,
+    student: dict = Depends(require_writing_permission),
+):
+    """Execute an owned prepared command; never mints one or falls back to /start.
+
+    Auth is the existing JWT→student→Writing-entitlement dependency. Preparation
+    uses the separately validated prospective source path above.
+    """
+    response.headers["Cache-Control"] = "private, no-store"
+    try:
+        core_admission.require_admission_access("fn_execute_writing_admission")
+        result = await core_admission.execute_writing_admission(
+            UUID(student["user_id"]), UUID(student["id"]), assignment_id, command_id, body.generation)
+    except _WRITING_ADMISSION_ERRORS as error:
+        raise _writing_admission_http_error(error) from None
+    return _writing_admission_payload(result)
+
+
+@router.post("/my-assignments/{assignment_id}/admissions/{command_id}/reconcile", response_model=WritingAdmissionResponse)
+async def reconcile_my_writing_admission(
+    assignment_id: UUID, command_id: UUID, body: WritingAdmissionReconcile, response: Response,
+    student: dict = Depends(require_writing_permission),
+):
+    """Owned bounded recovery; no client clock/policy or new start is accepted."""
+    response.headers["Cache-Control"] = "private, no-store"
+    try:
+        core_admission.require_admission_access("fn_reconcile_writing_admission")
+        result = await core_admission.reconcile_writing_admission(
+            UUID(student["user_id"]), UUID(student["id"]), assignment_id, command_id)
+    except _WRITING_ADMISSION_ERRORS as error:
+        raise _writing_admission_http_error(error) from None
+    return _writing_admission_payload(result)
+
+
+@router.get("/my-assignments/{assignment_id}/admissions/{command_id}", response_model=WritingAdmissionResponse)
+async def get_my_writing_admission(
+    assignment_id: UUID, command_id: UUID, response: Response,
+    student: dict = Depends(require_writing_permission),
+):
+    response.headers["Cache-Control"] = "private, no-store"
+    try:
+        core_admission.require_admission_access("fn_get_writing_admission")
+        result = await core_admission.get_writing_admission(
+            UUID(student["user_id"]), UUID(student["id"]), assignment_id, command_id)
+        if result is None:
+            raise core_admission.AdmissionNotFound()
+    except _WRITING_ADMISSION_ERRORS as error:
+        raise _writing_admission_http_error(error) from None
+    return _writing_admission_payload(result)
+
+
 @router.post("/my-assignments/{assignment_id}/start")
+@observe_operation("writing_assignment", "start", correlate_by=("assignment_id",))
 async def start_assignment(
     assignment_id: UUID,
     student: dict = Depends(require_writing_permission),
@@ -1891,6 +2110,8 @@ async def start_assignment(
         raise HTTPException(404, "Assignment không tìm thấy")
     row = r.data[0]
 
+    bind_owned_attempt({**row, "id": str(assignment_id), "student_id": student_id})
+    evidence_new_start = row.get("status") == "pending" and not row.get("started_at")
     # Past `in_progress` means the row has been handed to the grader
     # (or already delivered). Re-starting it would silently reset
     # the audit trail; bounce with 409 so the frontend can show the
@@ -1911,15 +2132,19 @@ async def start_assignment(
     if update_payload:
         transition_observed_at = datetime.now(timezone.utc).isoformat()
         try:
-            transition = (
+            transition_query = (
                 supabase_admin.table("writing_assignments")
                 .update(update_payload)
                 .eq("id", str(assignment_id))
                 .eq("student_id", student_id)
                 .in_("status", list(_ACTIVE_ASSIGNMENT_STATES))
                 .gt("renderer_affinity_expires_at", transition_observed_at)
-                .execute()
             )
+            if "started_at" in update_payload:
+                # A competing native/baseline/legacy start may have committed
+                # since our SELECT. Never overwrite its first canonical clock.
+                transition_query = transition_query.is_("started_at", "null")
+            transition = transition_query.execute()
         except Exception as exc:
             logger.warning(
                 "[writing-student] start stamp failed assignment=%s: %s",
@@ -1931,8 +2156,8 @@ async def start_assignment(
             fresh = (
                 supabase_admin.table("writing_assignments")
                 .select(
-                    "status, renderer_affinity, renderer_affinity_claimed_at, "
-                    "renderer_affinity_expires_at"
+                    "status, is_timed, time_limit_minutes, started_at, auto_submitted, "
+                    "renderer_affinity, renderer_affinity_claimed_at, renderer_affinity_expires_at"
                 )
                 .eq("id", str(assignment_id))
                 .eq("student_id", student_id)
@@ -1943,14 +2168,18 @@ async def start_assignment(
                 raise HTTPException(404, "Assignment không tìm thấy")
             if fresh.data[0].get("status") in _ACTIVE_ASSIGNMENT_STATES:
                 _require_writing_renderer_lease(fresh.data[0])
-            raise HTTPException(409, "Bài viết đã đổi trạng thái. Vui lòng tải lại.")
-
-        # Reflect the committed patch on the local row so the timer state we
-        # return matches what the DB will return on the next read.
-        row.update(update_payload)
+            if fresh.data[0].get("status") != "in_progress" or not fresh.data[0].get("started_at"):
+                raise HTTPException(409, "Bài viết đã đổi trạng thái. Vui lòng tải lại.")
+            row = fresh.data[0]
+            evidence_new_start = False
+        else:
+            # Use the returned canonical row, not a timestamp calculated from
+            # our earlier snapshot. Server-side triggers may also change it.
+            row.update(transition.data[0])
 
     _refresh_writing_renderer_lease(str(assignment_id), student_id)
 
+    bind_owned_attempt({**row, "id": str(assignment_id), "student_id": student_id}, started=evidence_new_start)
     timer = _compute_timer_state(row)
     timer["status"]         = row["status"]
     timer["auto_submitted"] = bool(row.get("auto_submitted"))
