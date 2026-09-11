@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
@@ -59,3 +62,30 @@ def test_deterministic_ids_are_stable_and_domain_separated():
     assert importer._uuid("cambridge-13-test-1:reading:test") != importer._uuid(
         "cambridge-13-test-1:listening:test"
     )
+
+
+def test_production_hidden_guard_rejects_any_visibility_drift():
+    hidden = {
+        "status": "draft",
+        "exam_only": True,
+        "public_practice_enabled": False,
+        "web_explanation_mode": "disabled",
+    }
+    plan = SimpleNamespace(
+        source_id="cambridge-13-test-1",
+        reading_test=dict(hidden),
+        listening_test=dict(hidden),
+    )
+    importer._assert_hidden_visibility([plan])
+
+    plan.listening_test["public_practice_enabled"] = True
+    with pytest.raises(importer.ValidationError, match="visibility không còn hidden"):
+        importer._assert_hidden_visibility([plan])
+
+
+def test_production_commit_requires_explicit_hidden_override(monkeypatch):
+    from config import settings
+
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    with pytest.raises(importer.ValidationError, match="--allow-production-hidden"):
+        importer.commit_plan([], confirmed_ref="production-ref")
