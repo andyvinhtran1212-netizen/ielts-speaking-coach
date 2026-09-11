@@ -35,7 +35,7 @@ const MUST_RUN_ON_MAIN = [
   { tệp: 'backend-tests.yml', dấuHiệu: /pytest/ },
   { tệp: 'route-manifest.yml', dấuHiệu: /npm run build/ },
   { tệp: 'e2e.yml', dấuHiệu: /playwright test/ },
-  { tệp: 'legacy-freeze.yml', dấuHiệu: /--diff-filter=A/ },
+  { tệp: 'legacy-freeze.yml', dấuHiệu: /find frontend\/public -type f -name '\*\.html'/ },
   { tệp: 'typecheck.yml', dấuHiệu: /npx tsc --noEmit/ },
 ];
 

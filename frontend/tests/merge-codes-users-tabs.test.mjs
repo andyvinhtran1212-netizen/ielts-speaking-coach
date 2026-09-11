@@ -111,7 +111,7 @@ describe('merge-codes PR-3 — single entry (redirect + nav)', () => {
     const r = (vercel.redirects || []).find((x) => x.source === '/admin/access-codes');
     assert.ok(r, 'missing /admin/access-codes redirect');
     assert.equal(r.destination, '/admin/users?tab=codes');
-    assert.equal(r.permanent, false, 'native pilot alias must stay rollback-safe');
+    assert.equal(r.permanent, true, 'retired alias must remain canonical and cache-stable');
   });
   test('the old access-codes page path also redirects to the codes tab', () => {
     const r = (vercel.redirects || []).find((x) => x.source === '/pages/admin/access-codes/index.html');

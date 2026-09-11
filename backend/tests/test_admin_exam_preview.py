@@ -183,7 +183,15 @@ def _css(name: str) -> str:
 
 
 def _html(name: str) -> str:
-    return (BACKEND.parent / "frontend" / "public" / "pages" / name).read_text(encoding="utf-8")
+    return (
+        BACKEND.parent
+        / "frontend"
+        / "tests"
+        / "fixtures"
+        / "legacy-html-retired"
+        / "pages"
+        / name
+    ).read_text(encoding="utf-8")
 
 
 def test_both_pages_consume_the_preview_flag():

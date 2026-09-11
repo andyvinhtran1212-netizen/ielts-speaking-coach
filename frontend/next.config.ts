@@ -18,21 +18,12 @@ import {
   LEGACY_RETIREMENT_PATHS,
 } from './tooling/gate-f-retirement-redirects.mjs';
 
-// Owner-authorized hard flip (2026-09-09): permanently redirect Legacy URLs.
-// Gate E 20/20 and the remaining soak were explicitly waived for this release;
-// see docs/NEXTJS_MIGRATION_STATUS.md. This does not certify either gate passed.
-// Keep the hash-pinned artifacts on disk; cached 308s limit redirect rollback.
+// Owner-authorized Gate F closure (2026-09-11): Legacy renderers are physically
+// retired. Their frozen URL identities remain permanent redirects because
+// browsers may cache 308s and existing bookmarks must keep resolving.
 const LEGACY_RETIREMENT_REDIRECTS_PERMANENT = true;
-// Gate E still proves N/N-1 persistence and recovery while Gate F blocks every
-// public Legacy URL. Its deterministic Playwright servers may expose the
-// frozen rollback artifacts locally, but a Vercel build must never accept that
-// escape hatch. Live staging/production therefore always keep the redirects.
-const GATE_E_LOCAL_LEGACY_FIXTURES = (
-  process.env.GATE_E_LEGACY_FIXTURES === 'local-build-only'
-  && process.env.VERCEL !== '1'
-);
 const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
-  // URL compatibility survives any later, separately approved HTML retirement.
+  // URL compatibility is independent of the retired physical files.
   LEGACY_RETIREMENT_PATHS,
   { permanent: LEGACY_RETIREMENT_REDIRECTS_PERMANENT },
 );
@@ -59,45 +50,30 @@ const nextConfig: NextConfig = {
         // app/(marketing)/page.tsx. The old `/` → /index.html rewrite is
         // REMOVED in the same change (route-ownership check enforces this
         // atomicity — leaving it here would shadow the app route). Legacy
-        // /index.html stays on disk as a rollback artifact and is intercepted
-        // by the generated Gate F manifest while redirect soak is active.
+        // Historical /index.html remains covered by the Gate F URL manifest.
         // Legacy-owned clean URLs (from vercel.json, unchanged shapes).
         // PILOT 2 CUTOVER (prep): `/grammar/:category/:slug` is now the Next
         // app route app/(public-content)/grammar/[category]/[slug]. The legacy
         // rewrite is REMOVED atomically (route-ownership check enforces it).
-        // Legacy /pages/grammar-article.html stays on disk as a rollback
-        // artifact. The Gate F manifest translates its category/slug query
-        // identity into the canonical dynamic App Router path.
+        // The Gate F manifest translates the retired grammar article URL's
+        // category/slug identity into the canonical dynamic App Router path.
         // `/writing/dashboard` KHÔNG còn ở đây: nay là route Next
         // (`app/(authed-writing)/writing/dashboard/`). Gỡ dòng rewrite và thêm
         // route PHẢI cùng một commit — cổng route-ownership chặn trạng thái nửa
         // vời, vì một URL không thể vừa là route vừa là rewrite sang legacy.
-        // `/pages/writing-dashboard.html` remains on disk for rollback; the
-        // Gate F manifest intercepts its public URL during redirect soak.
+        // The retired writing dashboard URL remains in the redirect manifest.
         // `/admin/writing/prompts` is now owned by the native Next route;
-        // direct `/pages/admin/writing/prompts.html` remains the rollback page.
-        // `/admin/writing/tips` is native; direct legacy HTML stays available
-        // at `/pages/admin/writing/tips.html` for rollback.
-        // `/admin/writing/cohorts` is native; direct legacy HTML stays
-        // available at `/pages/admin/writing/cohorts.html` for rollback.
-        // `/admin/writing/regrade-requests` is native; direct legacy HTML stays
-        // available at `/pages/admin/writing/regrade-requests.html` for rollback.
-        // `/admin/writing/assignments` is native; direct legacy HTML stays
-        // available at `/pages/admin/writing/assignments.html` for rollback.
-        // `/admin/writing/instructor-queue` is native; direct legacy HTML stays
-        // available at `/pages/admin/writing/instructor-queue.html` for rollback.
+        // Historical direct writing URLs remain redirect-only compatibility IDs.
         // CUTOVER 2026-08-05 — `/home` nay là ROUTE NEXT
         // (`app/(authed-home)/home/`), không còn rewrite sang bản legacy.
         // Gỡ dòng này PHẢI đi cùng commit đổi route: cổng route-ownership chặn
         // trạng thái nửa vời ("app route /home is SHADOWED by config source
         // /home") — đã thấy nó báo đúng khi tôi đổi route trước, gỡ rewrite sau.
-        // `/pages/home.html` remains on disk for rollback but is intercepted
-        // before public-file serving during Gate F redirect soak.
+        // Historical `/pages/home.html` remains redirect-only compatibility.
         // CUTOVER 2026-08-05 — `/speaking` nay là ROUTE NEXT
         // (`app/(authed-speaking)/speaking/`), không còn rewrite sang legacy.
         // Gỡ dòng này PHẢI đi cùng commit đổi route: cổng route-ownership chặn
-        // trạng thái nửa vời. `/pages/speaking.html` remains a rollback file
-        // but its public URL is intercepted throughout redirect soak.
+        // trạng thái nửa vời. `/pages/speaking.html` remains redirect-only.
       ],
       afterFiles: [],
       fallback: [],
@@ -111,7 +87,7 @@ const nextConfig: NextConfig = {
       // frozen HTML artifact can render while this release is active. Keep the
       // generated manifest as the single owner of those sources; duplicate
       // literal rules could compile into contradictory route behavior.
-      ...(GATE_E_LOCAL_LEGACY_FIXTURES ? [] : LEGACY_RETIREMENT_REDIRECTS),
+      ...LEGACY_RETIREMENT_REDIRECTS,
       { source: '/pages/dashboard.html', destination: '/pages/speaking.html', permanent: true },
       { source: '/pages/my-vocabulary.html', destination: '/pages/vocabulary.html', permanent: true },
       { source: '/pages/admin-writing.html', destination: '/pages/admin/writing/index.html', permanent: true },
@@ -126,10 +102,8 @@ const nextConfig: NextConfig = {
       { source: '/pages/admin-listening-gist.html', destination: '/pages/admin/listening/gist.html', permanent: true },
       { source: '/pages/admin-listening-tf.html', destination: '/pages/admin/listening/tf.html', permanent: true },
       { source: '/pages/admin-listening-mcq.html', destination: '/pages/admin/listening/mcq.html', permanent: true },
-      // Native Users pilot owns the clean access-code alias. Temporary on
-      // purpose: reverting the pilot must make this alias safe to repoint to
-      // the public rollback artifact without a browser-cached 308 stranding it.
-      { source: '/admin/access-codes', destination: '/admin/users?tab=codes', permanent: false },
+      // Canonical clean alias; no Legacy rollback renderer remains.
+      { source: '/admin/access-codes', destination: '/admin/users?tab=codes', permanent: true },
     ];
   },
 

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Machine-readable static inventory for the final Next.js cutover.
 //
-// This intentionally does not claim that Gate D/E/F operational evidence is
-// complete. It freezes the code-side exit criteria that can be derived from
+// This reports code-side retirement truth. Historical operational evidence
+// and any owner-approved exception remain documented separately. It freezes
+// the exit criteria that can be derived from
 // the repository: product App Router pages, legacy HTML files that are still
 // directly renderable, route ownership collisions and core-player admission.
 import { readdirSync, readFileSync } from 'node:fs';
@@ -73,6 +74,16 @@ function walkFiles(root, accept, prefix = '') {
   return files;
 }
 
+function walkSymlinks(root, prefix = '') {
+  const links = [];
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isSymbolicLink()) links.push(relative);
+    else if (entry.isDirectory()) links.push(...walkSymlinks(path.join(root, entry.name), relative));
+  }
+  return links;
+}
+
 export function appPageRoute(relativeFile) {
   const normalized = String(relativeFile || '').replaceAll('\\', '/');
   if (!/(^|\/)page\.(tsx|ts)$/.test(normalized)) return null;
@@ -134,6 +145,10 @@ export function collectNextMigrationStatus(
   const publicHtmlPaths = walkFiles(path.join(frontendRoot, 'public'), (name) => name.endsWith('.html'))
     .map((relative) => `/${relative}`)
     .sort();
+  const publicSymlinkPaths = walkSymlinks(path.join(frontendRoot, 'public'))
+    .map((relative) => `/${relative}`)
+    .sort();
+  const artifactsRetired = publicHtmlPaths.length === 0 && publicSymlinkPaths.length === 0;
   const configSource = readFileSync(path.join(frontendRoot, 'next.config.ts'), 'utf8');
   const redirects = redirectSourcesFromConfig(configSource);
   const retirementRedirectsInstalled = retirementRedirectsInstalledFromConfig(configSource);
@@ -171,7 +186,11 @@ export function collectNextMigrationStatus(
   const legacyReplacement = buildLegacyReplacementInventory(
     replacementPaths,
     productAppPages,
-    { redirectsInstalled: retirementRedirectsInstalled, redirectsPermanent: retirementRedirectsPermanent },
+    {
+      redirectsInstalled: retirementRedirectsInstalled,
+      redirectsPermanent: retirementRedirectsPermanent,
+      artifactsRetired,
+    },
   );
   const blockers = [];
   // A claimed client-side redirect is not authority to add a new HTML URL.
@@ -185,6 +204,11 @@ export function collectNextMigrationStatus(
     code: 'legacy-retirement-unregistered-html',
     count: unregisteredHtml.length,
     paths: unregisteredHtml,
+  });
+  if (publicSymlinkPaths.length) blockers.push({
+    code: 'public-symlink-present',
+    count: publicSymlinkPaths.length,
+    paths: publicSymlinkPaths,
   });
   if (retirementRedirectsInstalled && retirementRedirectsPermanent === null) blockers.push({
     code: 'legacy-retirement-redirect-permanence-unproven',
@@ -212,9 +236,9 @@ export function collectNextMigrationStatus(
   if (ownership.collisions.length) blockers.push({ code: 'route-ownership-collision', count: ownership.collisions.length, details: ownership.collisions });
 
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     scope: 'static-code-cutover',
-    scopeNote: 'Gate D/E/F operational evidence is tracked separately and remains required before declaring the migration complete.',
+    scopeNote: 'Static Gate F truth only; historical evidence and owner-approved exceptions are documented separately.',
     appPages: {
       source: sourceAppPages.length,
       product: productAppPages.length,
@@ -222,6 +246,8 @@ export function collectNextMigrationStatus(
     },
     legacyHtml: {
       total: publicHtmlPaths.length,
+      retired: artifactsRetired,
+      publicSymlinkPaths,
       compatibilityRedirected: legacyHtml.redirected.length + legacyHtml.clientRedirected.length,
       serverRedirected: legacyHtml.redirected.length,
       clientRedirectStubs: legacyHtml.clientRedirected.length,
