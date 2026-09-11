@@ -287,6 +287,73 @@ def test_correction_event_uses_rpc_canonical_state(monkeypatch):
     assert captured["params"]["p_payload"]["evidence_response"] == "Passage 1, paragraph 2"
 
 
+def test_canonical_reading_and_listening_error_codes_reach_correction_rpc(monkeypatch):
+    class Result:
+        data = {"state": "CORRECTION_OUTPUT_SUBMITTED", "sequence_no": 5, "replayed": False}
+
+    class Rpc:
+        def execute(self):
+            return Result()
+
+    captured = []
+
+    class Db:
+        def rpc(self, name, params):
+            captured.append({"name": name, "params": params})
+            return Rpc()
+
+    monkeypatch.setattr(svc, "supabase_admin", Db())
+    monkeypatch.setattr(svc, "fetch_owned_submitted_attempt", lambda *_: {
+        "id": "attempt-1", "test_id": "test-1", "status": "submitted",
+    })
+    monkeypatch.setattr(svc, "explanation_access", lambda *_: {
+        "allowed": True, "items": {7: {"object_id": "cambridge-item"}},
+    })
+
+    for index, (skill, code) in enumerate((
+        ("reading", "R11-COPY_ERROR"),
+        ("listening", "L07-MISSED_CORRECTION"),
+    ), start=1):
+        result = svc.record_correction_event(
+            skill, "attempt-1", "learner-1", 7,
+            event_id=f"00000000-0000-0000-0000-{index:012d}",
+            event_name="correction_output_submitted",
+            payload={
+                "corrected_answer": "A",
+                "evidence_response": "Nguồn đã chọn",
+                "error_mechanism": "Nguyên nhân",
+                "error_mechanism_code": code,
+                "next_action": "Hành động tiếp theo",
+                "next_action_code": "check_form",
+            },
+        )
+        assert result["state"] == "CORRECTION_OUTPUT_SUBMITTED"
+
+    assert [row["params"]["p_payload"]["error_mechanism_code"] for row in captured] == [
+        "R11-COPY_ERROR", "L07-MISSED_CORRECTION",
+    ]
+
+
+def test_correction_codes_still_reject_mixed_or_unsafe_formats():
+    base = {
+        "corrected_answer": "A",
+        "evidence_response": "Nguồn đã chọn",
+        "error_mechanism": "Nguyên nhân",
+        "next_action": "Hành động tiếp theo",
+        "next_action_code": "check_form",
+    }
+    for code in ("r11-COPY_ERROR", "R11 COPY ERROR", "<script>"):
+        try:
+            svc._validate_correction_payload(
+                "correction_output_submitted",
+                {**base, "error_mechanism_code": code},
+            )
+        except svc.PolicyError:
+            pass
+        else:
+            raise AssertionError(f"unsafe correction code was accepted: {code}")
+
+
 def test_correction_hint_requires_known_reveal_level():
     try:
         svc._validate_correction_payload("hint_revealed", {"hint_type": "answer"})
@@ -294,3 +361,51 @@ def test_correction_hint_requires_known_reveal_level():
         assert "hint_type" in str(exc)
     else:
         raise AssertionError("unknown hint reveal level was accepted")
+
+
+def test_structured_reading_evidence_is_normalized_for_runtime_analytics():
+    payload = svc._validate_correction_payload("evidence_attempt_submitted", {
+        "evidence_response": "Passage 2, đoạn 4: selected evidence",
+        "evidence_selection": {
+            "kind": "reading_text",
+            "passage_order": 2,
+            "paragraph_index": 4,
+            "selected_text": "  selected evidence  ",
+        },
+    })
+    assert payload["evidence_selection"] == {
+        "kind": "reading_text",
+        "passage_order": 2,
+        "paragraph_index": 4,
+        "selected_text": "selected evidence",
+    }
+
+
+def test_structured_evidence_rejects_invalid_audio_positions():
+    try:
+        svc._validate_correction_payload("evidence_attempt_submitted", {
+            "evidence_response": "Mốc audio lỗi",
+            "evidence_selection": {"kind": "audio_timestamp", "seconds": -1},
+        })
+    except svc.PolicyError as exc:
+        assert "audio" in str(exc)
+    else:
+        raise AssertionError("invalid audio evidence was accepted")
+
+
+def test_structured_evidence_rejects_boolean_reading_positions():
+    for field in ("passage_order", "paragraph_index"):
+        evidence = {
+            "kind": "reading_text", "passage_order": 1,
+            "paragraph_index": 2, "selected_text": "selected evidence",
+        }
+        evidence[field] = True
+        try:
+            svc._validate_correction_payload("evidence_attempt_submitted", {
+                "evidence_response": "Passage 1, đoạn 2: selected evidence",
+                "evidence_selection": evidence,
+            })
+        except svc.PolicyError:
+            pass
+        else:
+            raise AssertionError(f"boolean {field} was accepted")

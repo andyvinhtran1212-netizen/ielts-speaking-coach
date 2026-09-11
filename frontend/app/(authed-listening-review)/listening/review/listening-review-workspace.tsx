@@ -26,7 +26,7 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 type Phase = 'loading' | 'ready' | 'empty' | 'error';
 type Filter = 'wrong' | 'all' | 'correct';
-type AudioPlayerElement = HTMLElement & { seekTo?(seconds: number): void };
+type AudioPlayerElement = HTMLElement & { seekTo?(seconds: number): void; getCurrentTime?(): number };
 
 const K_LABELS: Record<string, string> = {
   K1: 'Nghe số / ngày / đánh vần (numbers, dates, spelling, prices, phone)',
@@ -167,13 +167,14 @@ function FeedbackCardBridge({ cardRef, topRef, item, attemptId, preview }: {
   return null;
 }
 
-function QuestionCard({ item, expanded, preview, attemptId, onToggle, onLocate }: {
+function QuestionCard({ item, expanded, preview, attemptId, onToggle, onLocate, getAudioPosition }: {
   item: any;
   expanded: boolean;
   preview: boolean;
   attemptId: string | null;
   onToggle(): void;
   onLocate(): void;
+  getAudioPosition(): number | null;
 }) {
   const cardRef = useRef<HTMLElement | null>(null);
   const topRef = useRef<HTMLDivElement | null>(null);
@@ -224,7 +225,16 @@ function QuestionCard({ item, expanded, preview, attemptId, onToggle, onLocate }
     {win ? <div className="lr-card__tsrow"><button type="button" className="lr-card__ts" onClick={onLocate}>🔊 {timestamp}</button></div> : null}
     <div className="lr-card__detail" hidden={!expanded}>
       {webExplanation && expanded
-        ? <WebExplanationPanel object={webExplanation} skill="listening" attemptId={attemptId} questionNumber={Number(item.q_num)} persistenceEnabled={!preview && Boolean(attemptId)} />
+        ? <WebExplanationPanel
+            object={webExplanation}
+            skill="listening"
+            attemptId={attemptId}
+            questionNumber={Number(item.q_num)}
+            persistenceEnabled={!preview && Boolean(attemptId)}
+            onReplayAudio={onLocate}
+            getAudioPosition={getAudioPosition}
+            correctionRequired={!item.correct}
+          />
         : hasSolutionDetail ? <>
         <SolutionSection label="Dịch đoạn chứa đáp án">{solution.translation_vi ? <p>{inlineNodes(solution.translation_vi)}</p> : null}</SolutionSection>
         <SolutionSection label="Từ vựng">{vocab.length ? <ul className="lr-sol__bullets">{vocab.map((row) => <li key={row}>{inlineNodes(row)}</li>)}</ul> : null}</SolutionSection>
@@ -450,6 +460,10 @@ export function ListeningReviewWorkspace() {
                 return next;
               })}
               onLocate={() => locate(item)}
+              getAudioPosition={() => {
+                const seconds = audioRef.current?.getCurrentTime?.();
+                return Number.isFinite(seconds) ? Number(seconds) : null;
+              }}
               key={item.q_num}
             />)}
           </div>

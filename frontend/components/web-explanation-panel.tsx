@@ -1,11 +1,25 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { answerOptions } from '@/lib/web-explanation-model.mjs';
 
 type Skill = 'reading' | 'listening';
 type EventName = 'correction_result_seen' | 'evidence_attempt_submitted'
   | 'hint_revealed'
   | 'full_explanation_opened' | 'correction_output_submitted';
+
+export type EvidenceSelection = {
+  kind: 'reading_text' | 'audio_timestamp' | 'not_found';
+  response: string;
+  locator: Record<string, unknown>;
+};
+
+type EvidenceRow = {
+  location: string;
+  quote: string;
+  relation: string;
+  timestamp: string;
+};
 
 const STATE_STAGE: Record<string, number> = {
   RESULT_ONLY: 0, EVIDENCE_ATTEMPTED: 1, LOCATION_HINT_SEEN: 2,
@@ -19,36 +33,222 @@ const EVENT_STAGE: Record<EventName, number> = {
   full_explanation_opened: 4, correction_output_submitted: 5,
 };
 
-function lines(value: unknown) {
-  if (Array.isArray(value)) return value.map(String).filter(Boolean);
-  return String(value ?? '').split(/\n+|\s+·\s+/).map((row) => row.trim()).filter(Boolean);
+const ERROR_LABELS: Record<string, string> = {
+  answer_form: 'Sai dạng đáp án hoặc cách ghi',
+  word_limit: 'Không tuân thủ giới hạn từ',
+  grammar_fit: 'Chưa kiểm tra ngữ pháp quanh chỗ trống',
+  paraphrase_miss: 'Bỏ lỡ paraphrase',
+  author_view_vs_fact: 'Nhầm quan điểm tác giả với sự kiện',
+  contradiction_vs_absence: 'Nhầm mâu thuẫn với không có thông tin',
+  detail_as_main_idea: 'Chọn chi tiết thay cho ý chính',
+  diagram_reference: 'Đọc sai điểm tham chiếu trên sơ đồ',
+  distractor_capture: 'Bị phương án nhiễu dẫn hướng',
+  first_mention: 'Chốt theo thông tin được nhắc đầu tiên',
+  grammar_fit_only: 'Chỉ dựa vào ngữ pháp, chưa kiểm tra nghĩa',
+  keyword_matching: 'Ghép từ khóa mà chưa kiểm tra ý',
+  logic_relationship: 'Nhầm quan hệ logic',
+  mentioned_not_answer: 'Chọn chi tiết được nhắc nhưng không trả lời câu hỏi',
+  missed_self_correction: 'Bỏ lỡ chỗ người nói tự sửa',
+  number_or_name_decoding: 'Nghe sai số hoặc tên riêng',
+  option_load: 'Quá tải khi theo dõi nhiều phương án',
+  orientation_loss: 'Mất phương hướng trên bản đồ/sơ đồ',
+  over_inference: 'Suy luận vượt quá bằng chứng',
+  paragraph_function: 'Hiểu sai chức năng của đoạn',
+  partial_match: 'Chỉ khớp một phần thông tin',
+  partial_set: 'Chọn thiếu hoặc thừa phương án trong nhóm',
+  partial_truth: 'Phương án chỉ đúng một phần',
+  plural_or_number_agreement: 'Sai số ít/số nhiều',
+  polarity_flip: 'Bỏ lỡ từ phủ định hoặc đảo chiều ý',
+  position_tracking: 'Mất vị trí đang nghe',
+  reference_chain: 'Theo sai từ tham chiếu',
+  repeated_information: 'Nhầm thông tin được lặp lại',
+  scope_or_modifier: 'Bỏ sót từ giới hạn phạm vi',
+  sequence_tracking: 'Theo sai thứ tự thông tin',
+  sound_decoding: 'Không giải mã được cụm âm',
+  spatial_language: 'Hiểu sai ngôn ngữ chỉ vị trí',
+  spatial_orientation: 'Định hướng sai trên bản đồ',
+  speaker_attribution: 'Gán ý cho nhầm người nói',
+  word_boundary: 'Tách ranh giới từ sai khi nghe',
+  wrong_attribution: 'Gán nguyên nhân hoặc quan điểm sai đối tượng',
+  wrong_search_zone: 'Tìm bằng chứng sai vùng',
+  inference: 'Suy luận chưa đủ căn cứ',
+  spelling: 'Sai chính tả',
+  lost_audio_position: 'Mất vị trí trong audio',
+  could_not_hear: 'Không nghe rõ cụm quyết định',
+  other: 'Chưa xác định rõ nguyên nhân',
+};
+
+const NEXT_ACTIONS: Record<Skill, Array<[string, string]>> = {
+  reading: [
+    ['locate_first', 'Định vị câu chứa từ khóa trước khi chọn'],
+    ['compare_claim', 'So từng phần của claim với bằng chứng'],
+    ['check_paraphrase', 'Gạch cặp paraphrase quyết định'],
+    ['check_form', 'Kiểm tra giới hạn từ và dạng ngữ pháp'],
+  ],
+  listening: [
+    ['follow_cue', 'Bám cue/signpost trước chỗ cần nghe'],
+    ['wait_correction', 'Chờ người nói chốt sau self-correction'],
+    ['note_chunk', 'Ghi lại đúng cụm nghe được rồi mới chọn'],
+    ['check_form', 'Kiểm tra chính tả và dạng đáp án'],
+  ],
+};
+
+const INTERNAL_LABELS: Record<string, string> = {
+  distractor_drop: 'phương án nhiễu',
+  mcq_distractor_drop: 'phương án nhiễu trong trắc nghiệm',
+  paraphrase_t0: 'paraphrase gần mặt chữ',
+  paraphrase_t1: 'paraphrase đổi cách diễn đạt',
+  paraphrase_t2: 'paraphrase đổi cấu trúc hoặc ý',
+  paraphrase_t3: 'paraphrase cần suy luận',
+  polarity_flip: 'đảo nghĩa khẳng định / phủ định',
+  map_double_constraint: 'hai điều kiện vị trí',
+  plural_spelling: 'số nhiều hoặc chính tả',
+  number_magnitude: 'độ lớn của số',
+  name_spelling: 'đánh vần tên riêng',
+  number_correction: 'số được người nói sửa lại',
+  self_correction: 'người nói tự sửa',
+  synonym_chain: 'chuỗi từ đồng nghĩa',
+  definition_vs_example: 'nhầm định nghĩa với ví dụ',
+  lever_stacked: 'nhiều dấu hiệu cùng quyết định',
+  hedged_hypothesis: 'ý kiến có mức độ dè dặt',
+};
+
+function clean(value: unknown) {
+  let text = String(value ?? '').replace(/```/g, '');
+  for (const [code, label] of Object.entries(INTERNAL_LABELS)) {
+    text = text.replaceAll(`\`${code}\``, label);
+  }
+  return text
+    .replace(/\*\*Re-listen anchor:\*\*/gi, '**Mốc nghe lại:**')
+    .replace(/\bspeaker\s+/gi, 'người nói ')
+    .replace(/\s+---+\s*$/g, '')
+    .trim();
 }
 
-export function WebExplanationPanel({ object, skill, attemptId, questionNumber, persistenceEnabled = true }: {
+function inlineNodes(value: unknown): ReactNode[] {
+  return clean(value).split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*\n]+\*)/g).filter(Boolean)
+    .map((part, index) => {
+      if (part.startsWith('`') && part.endsWith('`')) {
+        return <code className="wex-code" key={`${index}-${part}`}>{part.slice(1, -1)}</code>;
+      }
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={`${index}-${part}`}>{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith('*') && part.endsWith('*')) {
+        return <em key={`${index}-${part}`}>{part.slice(1, -1)}</em>;
+      }
+      return <span key={`${index}-${part}`}>{part}</span>;
+    });
+}
+
+function proseRows(value: unknown) {
+  return clean(value).split(/\n+|\s+·\s+/).map((row) => row.trim().replace(/^[-•]\s*/, '')).filter(Boolean);
+}
+
+function Prose({ value }: { value: unknown }) {
+  const rows = proseRows(value);
+  if (!rows.length) return null;
+  return rows.length === 1
+    ? <p>{inlineNodes(rows[0])}</p>
+    : <ul className="wex-list">{rows.map((row, index) => <li key={`${index}-${row}`}>{inlineNodes(row)}</li>)}</ul>;
+}
+
+function clock(raw: number) {
+  const seconds = Math.max(0, Math.floor(raw || 0));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+function readableTimestamp(value: unknown) {
+  const raw = clean(value);
+  const match = raw.match(/^(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)s?$/i);
+  return match ? `${clock(Number(match[1]))}–${clock(Number(match[2]))}` : raw;
+}
+
+function evidenceRows(value: unknown): EvidenceRow[] {
+  const values = Array.isArray(value) ? value : value ? [value] : [];
+  return values.map((row) => {
+    if (row && typeof row === 'object') {
+      const item = row as Record<string, unknown>;
+      const start = Number(item.start_seconds);
+      const end = Number(item.end_seconds);
+      return {
+        location: clean(item.location).replace(/;\s*[^;]*(?:\.md|\.json)\b.*$/i, ''),
+        quote: clean(item.quote),
+        relation: /token containment|authored_solution|deterministic/i.test(clean(item.relation)) ? '' : clean(item.relation),
+        timestamp: readableTimestamp(item.timestamp) || (Number.isFinite(start) && Number.isFinite(end)
+          ? `${clock(start)}–${clock(end)}` : ''),
+      };
+    }
+    return { location: clean(row), quote: '', relation: '', timestamp: '' };
+  }).filter((row) => row.location || row.quote || row.relation || row.timestamp);
+}
+
+function candidateErrorOptions(object: any): Array<[string, string]> {
+  const codes = Array.isArray(object?.remediation?.candidate_error_subtypes)
+    ? object.remediation.candidate_error_subtypes.map(clean).filter(Boolean) : [];
+  const seen = new Set<string>();
+  return [...codes, 'other'].filter((code) => {
+    if (seen.has(code)) return false;
+    seen.add(code); return true;
+  }).map((code) => [code, ERROR_LABELS[code] || code.replace(/_/g, ' ')]);
+}
+
+function EvidenceCards({ rows }: { rows: EvidenceRow[] }) {
+  if (!rows.length) return <p>Chưa có vị trí nguồn đã duyệt.</p>;
+  return <div className="wex-evidence-cards">{rows.map((row, index) => <article className="wex-evidence" key={`${index}-${row.location}-${row.timestamp}`}>
+    <div className="wex-evidence__meta">{row.timestamp ? <span>🔊 {row.timestamp}</span> : null}{row.location ? <span>📍 {row.location}</span> : null}</div>
+    {row.quote ? <blockquote>{inlineNodes(row.quote)}</blockquote> : null}
+    {row.relation ? <p className="wex-evidence__relation">{inlineNodes(row.relation)}</p> : null}
+  </article>)}</div>;
+}
+
+export function WebExplanationPanel({
+  object,
+  skill,
+  attemptId,
+  questionNumber,
+  persistenceEnabled = true,
+  evidenceSelection = null,
+  onStartReadingSelection,
+  onReplayAudio,
+  getAudioPosition,
+  correctionRequired = true,
+}: {
   object: any;
   skill: Skill;
   attemptId: string | null;
   questionNumber: number;
   persistenceEnabled?: boolean;
+  evidenceSelection?: EvidenceSelection | null;
+  onStartReadingSelection?: () => void;
+  onReplayAudio?: () => void;
+  getAudioPosition?: () => number | null;
+  correctionRequired?: boolean;
 }) {
   const explanation = object?.explanation || {};
-  const remediation = object?.remediation || {};
   const repair = object?.correction_flow?.same_source_repair || {};
-  const evidenceRows = lines(explanation.source_evidence).length
-    ? explanation.source_evidence
-    : lines(explanation.evidence_location_or_audio_anchor);
-  const [evidenceAttempt, setEvidenceAttempt] = useState('');
+  const sourceRows = useMemo(() => {
+    const source = evidenceRows(explanation.source_evidence);
+    return source.length ? source : evidenceRows(explanation.evidence_location_or_audio_anchor);
+  }, [explanation.evidence_location_or_audio_anchor, explanation.source_evidence]);
+  const choices = useMemo(
+    () => answerOptions(object, clean) as Array<[string, string]>,
+    [object],
+  );
+  const errorChoices = useMemo(() => candidateErrorOptions(object), [object]);
+  const [localEvidence, setLocalEvidence] = useState<EvidenceSelection | null>(evidenceSelection);
   const [correctedAnswer, setCorrectedAnswer] = useState('');
   const [errorMechanism, setErrorMechanism] = useState('');
   const [nextAction, setNextAction] = useState('');
-  const [stage, setStage] = useState(0);
+  const [stage, setStage] = useState(correctionRequired ? 0 : 4);
   const [busy, setBusy] = useState<EventName | ''>('');
   const [error, setError] = useState('');
   const eventIds = useRef<Partial<Record<EventName, string>>>({});
-  const candidateSkills = Array.isArray(remediation.candidate_skill_codes)
-    ? remediation.candidate_skill_codes.filter((row: any) => row?.code)
-    : [];
   const canPersist = persistenceEnabled && Boolean(attemptId) && Number.isInteger(questionNumber);
+
+  useEffect(() => {
+    if (stage === 0 && evidenceSelection) setLocalEvidence(evidenceSelection);
+  }, [evidenceSelection, stage]);
 
   const record = useCallback(async (eventName: EventName, payload: Record<string, unknown> = {}) => {
     if (!canPersist) {
@@ -63,11 +263,15 @@ export function WebExplanationPanel({ object, skill, attemptId, questionNumber, 
     try {
       const response = await window.api.post<{ state?: string; evidence_response?: string | null }>(
         `/api/mock-corrections/${skill}/attempts/${encodeURIComponent(attemptId || '')}/items/${questionNumber}/events`,
-        { event_id: eventId, event_name: eventName, client_occurred_at: new Date().toISOString(), client_version: 'web-review/1.0', payload },
+        { event_id: eventId, event_name: eventName, client_occurred_at: new Date().toISOString(), client_version: 'web-review/1.1', payload },
       );
       if (!response?.state || STATE_STAGE[response.state] === undefined) throw new Error('Backend không trả lại correction state hợp lệ.');
       setStage(STATE_STAGE[response.state]);
-      if (response.evidence_response) setEvidenceAttempt(response.evidence_response);
+      if (response.evidence_response) {
+        setLocalEvidence((current) => current || {
+          kind: 'not_found', response: response.evidence_response!, locator: { kind: 'restored' },
+        });
+      }
       delete eventIds.current[eventName];
       return true;
     } catch (caught) {
@@ -78,61 +282,115 @@ export function WebExplanationPanel({ object, skill, attemptId, questionNumber, 
     }
   }, [attemptId, canPersist, questionNumber, skill]);
 
-  useEffect(() => { void record('correction_result_seen'); }, [record]);
+  useEffect(() => {
+    if (correctionRequired) void record('correction_result_seen');
+  }, [correctionRequired, record]);
 
-  return <section className="wex-panel" aria-label="Phương hướng sửa bài mới">
+  const markAudioPosition = () => {
+    const seconds = getAudioPosition?.();
+    if (seconds == null || !Number.isFinite(seconds)) {
+      setError('Hãy phát audio và dừng tại cụm quyết định trước khi đánh dấu.');
+      return;
+    }
+    setError('');
+    setLocalEvidence({
+      kind: 'audio_timestamp',
+      response: `Mốc audio ${clock(seconds)}`,
+      locator: { kind: 'audio_timestamp', seconds: Number(seconds.toFixed(2)) },
+    });
+  };
+
+  const submitEvidence = () => {
+    if (!localEvidence) return;
+    void record('evidence_attempt_submitted', {
+      evidence_response: localEvidence.response,
+      evidence_selection: localEvidence.locator,
+    });
+  };
+
+  const markNotFound = () => setLocalEvidence({
+    kind: 'not_found',
+    response: 'Chưa xác định được bằng chứng trước gợi ý.',
+    locator: { kind: 'not_found' },
+  });
+
+  const submitCorrection = () => {
+    if (!localEvidence) return;
+    const errorLabel = errorChoices.find(([code]) => code === errorMechanism)?.[1] || errorMechanism;
+    const actionLabel = NEXT_ACTIONS[skill].find(([code]) => code === nextAction)?.[1] || nextAction;
+    void record('correction_output_submitted', {
+      corrected_answer: correctedAnswer,
+      evidence_response: localEvidence.response,
+      evidence_selection: localEvidence.locator,
+      error_mechanism: errorLabel,
+      error_mechanism_code: errorMechanism,
+      next_action: actionLabel,
+      next_action_code: nextAction,
+    });
+  };
+
+  return <section className="wex-panel" aria-label="Phương hướng sửa bài">
     <header className="wex-panel__head">
-      <div><span>WEB EXPLANATION</span><h3>Chữa theo bằng chứng, không chỉ xem đáp án</h3></div>
-      <small>{skill === 'reading' ? 'Reading' : 'Listening'} · {stage >= 5 ? 'đã nộp correction output' : 'đang lưu tiến trình'}</small>
+      <div><span>{correctionRequired ? 'CHỮA BÀI TƯƠNG TÁC' : 'ĐỐI CHIẾU NHANH'}</span><h3>{correctionRequired ? 'Tìm bằng chứng, thử lại, rồi mới mở lời giải' : 'Bạn đã làm đúng — xem vì sao đáp án khớp'}</h3></div>
+      <small>{skill === 'reading' ? 'Reading' : 'Listening'} · {!correctionRequired ? 'câu đúng' : stage >= 5 ? 'đã lưu bài sửa' : `bước ${Math.min(stage + 1, 5)}/5`}</small>
     </header>
 
-    {error ? <div className="wex-alert" role="alert"><span>{error}</span><button type="button" onClick={() => void record('correction_result_seen')} disabled={Boolean(busy)}>Thử kết nối lại</button></div> : null}
+    {error ? <div className="wex-alert" role="alert"><span>{error}</span><button type="button" onClick={() => setError('')}>Đóng</button></div> : null}
 
-    <div className="wex-stage">
-      <strong>1. Tự chỉ ra bằng chứng trước</strong>
-      <p>{skill === 'reading'
-        ? 'Ghi đoạn, câu hoặc cụm từ em đã dựa vào khi chọn đáp án.'
-        : 'Ghi vị trí audio hoặc cụm em nghe được khi chọn đáp án.'}</p>
-      <textarea
-        rows={2}
-        maxLength={2000}
-        value={evidenceAttempt}
-        onChange={(event) => setEvidenceAttempt(event.target.value)}
-        placeholder={skill === 'reading' ? 'Ví dụ: Passage 2, đoạn 4…' : 'Ví dụ: khoảng 12:30, người nữ nói…'}
-        disabled={stage > 0 || Boolean(busy)}
-      />
-      {stage === 0 ? <button type="button" disabled={!evidenceAttempt.trim() || Boolean(busy)} onClick={() => void record('evidence_attempt_submitted', { evidence_response: evidenceAttempt })}>{busy === 'evidence_attempt_submitted' ? 'Đang lưu…' : 'Chốt bằng chứng của em'}</button> : null}
-      {stage === 1 ? <button type="button" disabled={Boolean(busy)} onClick={() => void record('hint_revealed', { hint_type: 'location' })}>{busy === 'hint_revealed' ? 'Đang lưu…' : 'Xem vị trí nguồn'}</button> : null}
+    {correctionRequired ? <><div className={`wex-stage${stage === 0 ? ' is-current' : ''}`}>
+      <div className="wex-stage__title"><span>1</span><strong>Tự tìm bằng chứng</strong></div>
+      {stage === 0 ? <>
+        <p>{skill === 'reading'
+          ? 'Bôi chọn 1–3 câu trong bài đọc. Hệ thống sẽ lưu vị trí và đoạn bạn chọn, không cần gõ lại.'
+          : 'Nghe lại đoạn của câu này, dừng tại cụm quyết định rồi đánh dấu mốc đang nghe.'}</p>
+        <div className="wex-evidence-actions">
+          {skill === 'reading'
+            ? <button type="button" className="av-button av-button-secondary" onClick={onStartReadingSelection}>Bôi chọn trong bài đọc</button>
+            : <><button type="button" className="av-button av-button-secondary" onClick={onReplayAudio}>Nghe đoạn câu này</button><button type="button" className="av-button av-button-secondary" onClick={markAudioPosition}>Đánh dấu mốc đang nghe</button></>}
+          <button type="button" className="av-button av-button-tertiary" onClick={markNotFound}>Tôi chưa tìm được</button>
+        </div>
+        {localEvidence ? <div className="wex-selection" role="status"><span>Bằng chứng bạn chọn</span><p>{localEvidence.response}</p></div> : null}
+        <button type="button" className="av-button av-button-primary" disabled={!localEvidence || Boolean(busy)} onClick={submitEvidence}>{busy === 'evidence_attempt_submitted' ? 'Đang lưu…' : 'Chốt và tiếp tục'}</button>
+      </> : <p className="wex-stage__done">✓ Đã ghi nhận bằng chứng trước khi xem gợi ý.</p>}
     </div>
 
-    {stage >= 2 ? <div className="wex-stage">
-      <strong>2. Đối chiếu vị trí nguồn</strong>
-      {Array.isArray(evidenceRows) ? <ul>{evidenceRows.map((row: any, index: number) => <li key={`${index}-${String(row?.location || row)}`}>{String(row?.location || row?.quote || row)}</li>)}</ul> : <p>{String(evidenceRows || '')}</p>}
-      {stage === 2 ? <button type="button" disabled={Boolean(busy)} onClick={() => void record('hint_revealed', { hint_type: 'decisive' })}>{busy === 'hint_revealed' ? 'Đang lưu…' : 'Xem chữ/cụm quyết định'}</button> : null}
+    {stage >= 1 ? <div className={`wex-stage${stage === 1 ? ' is-current' : ''}`}>
+      <div className="wex-stage__title"><span>2</span><strong>Kiểm tra đúng vùng nguồn</strong></div>
+      {stage === 1
+        ? <><p>Chỉ mở vị trí tổng quát; đáp án và cụm quyết định vẫn được giữ kín.</p><button type="button" className="av-button av-button-primary" disabled={Boolean(busy)} onClick={() => void record('hint_revealed', { hint_type: 'location' })}>{busy === 'hint_revealed' ? 'Đang lưu…' : 'Xem vị trí nguồn'}</button></>
+        : <EvidenceCards rows={sourceRows.map((row) => ({ ...row, quote: '', relation: '' }))} />}
     </div> : null}
 
-    {stage >= 3 ? <div className="wex-stage">
-      <strong>3. Chữ hoặc paraphrase quyết định</strong>
-      <p>{String(explanation.decisive_word_or_paraphrase || explanation.paraphrase || 'Chưa có gợi ý quyết định.')}</p>
-      {stage === 3 ? <button type="button" disabled={Boolean(busy)} onClick={() => void record('full_explanation_opened')}>{busy === 'full_explanation_opened' ? 'Đang lưu…' : 'Mở lời giải đầy đủ'}</button> : null}
+    {stage >= 2 ? <div className={`wex-stage${stage === 2 ? ' is-current' : ''}`}>
+      <div className="wex-stage__title"><span>3</span><strong>Nhận ra chữ hoặc paraphrase quyết định</strong></div>
+      {stage === 2 ? <button type="button" className="av-button av-button-primary" disabled={Boolean(busy)} onClick={() => void record('hint_revealed', { hint_type: 'decisive' })}>{busy === 'hint_revealed' ? 'Đang lưu…' : 'Mở gợi ý quyết định'}</button> : <Prose value={explanation.decisive_word_or_paraphrase || explanation.paraphrase || 'Chưa có gợi ý quyết định.'} />}
     </div> : null}
 
-    {stage >= 4 ? <div className="wex-stage wex-stage--full">
-      <strong>4. Hiểu cơ chế và sửa lại</strong>
-      {explanation.answer_summary ? <div><b>Đáp án chuẩn</b><p>{String(explanation.answer_summary)}</p></div> : null}
-      {explanation.why_correct ? <div><b>Vì sao đúng</b><p>{String(explanation.why_correct)}</p></div> : null}
-      {explanation.why_other_answers_fail ? <div><b>Vì sao phương án khác sai</b><p>{String(explanation.why_other_answers_fail)}</p></div> : null}
-      {explanation.trap ? <div><b>Bẫy cần tránh</b><p>{String(explanation.trap)}</p></div> : null}
-      {explanation.strategy_note ? <div><b>Chiến lược lần sau</b><p>{String(explanation.strategy_note)}</p></div> : null}
-      {stage < 5 ? <div className="wex-output">
-        <b>Correction output của em</b>
-        <label><span>Đáp án sau khi sửa</span><textarea rows={2} maxLength={2000} value={correctedAnswer} onChange={(event) => setCorrectedAnswer(event.target.value)} /></label>
-        <label><span>Cơ chế khiến em sai</span><textarea rows={2} maxLength={1000} value={errorMechanism} onChange={(event) => setErrorMechanism(event.target.value)} /></label>
-        <label><span>Lần sau em sẽ làm gì khác?</span><textarea rows={2} maxLength={1000} value={nextAction} onChange={(event) => setNextAction(event.target.value)} /></label>
-        <button type="button" disabled={Boolean(busy) || !correctedAnswer.trim() || !evidenceAttempt.trim() || !errorMechanism.trim() || !nextAction.trim()} onClick={() => void record('correction_output_submitted', { corrected_answer: correctedAnswer, evidence_response: evidenceAttempt, error_mechanism: errorMechanism, next_action: nextAction })}>{busy === 'correction_output_submitted' ? 'Đang lưu…' : 'Nộp correction output'}</button>
-      </div> : <p className="wex-complete" role="status">Đã lưu correction output. Đây chưa phải mastery; hệ thống vẫn cần bài sửa cùng nguồn và transfer/retest.</p>}
-      {repair.prompt_vi ? <div className="wex-repair"><b>Bài sửa trên chính nguồn này</b><p>{String(repair.prompt_vi)}</p>{repair.pass_rule ? <small>Điều kiện đạt: {String(repair.pass_rule)}</small> : null}</div> : null}
-      {candidateSkills.length ? <div className="wex-candidates"><b>Giả thuyết kỹ năng cần kiểm tra thêm</b><ul>{candidateSkills.map((row: any) => <li key={row.code}><code>{String(row.code)}</code> {String(row.name || '')}</li>)}</ul></div> : null}
+    {stage >= 3 ? <div className={`wex-stage${stage === 3 ? ' is-current' : ''}`}>
+      <div className="wex-stage__title"><span>4</span><strong>Thử lại trước khi xem lời giải</strong></div>
+      <p>Chốt lại đáp án trong đầu hoặc trên giấy. Khi sẵn sàng, mở lời giải để đối chiếu.</p>
+      {stage === 3 ? <button type="button" className="av-button av-button-primary" disabled={Boolean(busy)} onClick={() => void record('full_explanation_opened')}>{busy === 'full_explanation_opened' ? 'Đang lưu…' : 'Mở lời giải đầy đủ'}</button> : null}
+    </div> : null}</> : null}
+
+    {stage >= 4 ? <div className="wex-stage wex-stage--full is-current">
+      <div className="wex-stage__title"><span>{correctionRequired ? '5' : '✓'}</span><strong>{correctionRequired ? 'Đối chiếu và tạo bài sửa ngắn' : 'Đối chiếu lời giải'}</strong></div>
+      <div className="wex-answer"><span>Đáp án chuẩn</span><Prose value={explanation.answer_summary || object?.item?.answer?.canonical} /></div>
+      <details open><summary>Bằng chứng nguồn</summary><EvidenceCards rows={sourceRows} />{explanation.script_extract ? <blockquote className="wex-script">{inlineNodes(explanation.script_extract)}</blockquote> : null}</details>
+      {explanation.why_correct || explanation.decision_path ? <details open><summary>Vì sao đúng</summary><Prose value={explanation.why_correct || explanation.decision_path} /></details> : null}
+      {explanation.why_other_answers_fail ? <details><summary>Vì sao phương án khác sai</summary><Prose value={explanation.why_other_answers_fail} /></details> : null}
+      {explanation.paraphrase ? <details><summary>Paraphrase</summary><Prose value={explanation.paraphrase} /></details> : null}
+      {explanation.trap ? <details><summary>Bẫy cần tránh</summary><Prose value={explanation.trap} /></details> : null}
+      {explanation.vocabulary || explanation.marking_note ? <details><summary>Từ vựng và lưu ý chấm</summary><Prose value={explanation.vocabulary} /><Prose value={explanation.marking_note} /></details> : null}
+      {!correctionRequired ? <p className="wex-complete" role="status">✓ Bạn đã làm đúng câu này. Chỉ cần đối chiếu bằng chứng; hệ thống không yêu cầu nhập thêm bài sửa.</p> : stage < 5 ? <div className="wex-output">
+        <div><b>Bài sửa của bạn</b><small>Bằng chứng đã được điền từ bước 1; bạn chỉ cần chốt ba lựa chọn ngắn.</small></div>
+        <label><span>Đáp án sau khi sửa</span>{choices.length
+          ? <select value={correctedAnswer} onChange={(event) => setCorrectedAnswer(event.target.value)}><option value="">Chọn đáp án</option>{choices.map(([value, label]) => <option value={value} key={value}>{value}. {label}</option>)}</select>
+          : <input maxLength={2000} value={correctedAnswer} onChange={(event) => setCorrectedAnswer(event.target.value)} placeholder="Nhập đáp án ngắn" />}</label>
+        <label><span>Mình sai chủ yếu vì</span><select value={errorMechanism} onChange={(event) => setErrorMechanism(event.target.value)}><option value="">Chọn một lý do</option>{errorChoices.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+        <label><span>Lần sau mình sẽ</span><select value={nextAction} onChange={(event) => setNextAction(event.target.value)}><option value="">Chọn một hành động</option>{NEXT_ACTIONS[skill].map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+        <button type="button" className="av-button av-button-primary" disabled={Boolean(busy) || !correctedAnswer.trim() || !localEvidence || !errorMechanism || !nextAction} onClick={submitCorrection}>{busy === 'correction_output_submitted' ? 'Đang lưu…' : 'Lưu bài sửa'}</button>
+      </div> : <p className="wex-complete" role="status">✓ Đã lưu bài sửa. Mở lời giải chưa đồng nghĩa đã thành thạo; hệ thống sẽ dùng bài sửa và lần luyện sau để kiểm tra tiến bộ.</p>}
+      {repair.prompt_vi ? <div className="wex-repair"><b>Bài kiểm tra hiểu ngay trên nguồn này</b><Prose value={repair.prompt_vi} />{repair.pass_rule ? <small>Điều kiện đạt: {clean(repair.pass_rule)}</small> : null}</div> : null}
     </div> : null}
   </section>;
 }

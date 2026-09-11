@@ -11,7 +11,7 @@ import {
 } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
-import { WebExplanationPanel } from '@/components/web-explanation-panel';
+import { WebExplanationPanel, type EvidenceSelection } from '@/components/web-explanation-panel';
 import {
   grammarKnowledgeHref,
   normalizeReadingReview,
@@ -208,14 +208,16 @@ function LegacySteps({ value }: { value: unknown }) {
   return <p>{proseNodes(value)}</p>;
 }
 
-function QuestionCard({ item, expanded, preview, attemptId, anonId, onToggle, onLocate }: {
+function QuestionCard({ item, expanded, preview, attemptId, anonId, evidenceSelection, onToggle, onLocate, onStartEvidenceSelection }: {
   item: any;
   expanded: boolean;
   preview: boolean;
   attemptId: string | null;
   anonId: string | null;
+  evidenceSelection: EvidenceSelection | null;
   onToggle(): void;
   onLocate(excerpt: string): void;
+  onStartEvidenceSelection(): void;
 }) {
   const cardRef = useRef<HTMLElement | null>(null);
   const topRef = useRef<HTMLDivElement | null>(null);
@@ -330,16 +332,27 @@ function QuestionCard({ item, expanded, preview, attemptId, anonId, onToggle, on
         ? <SolutionSection label="Lời giải"><p>{proseNodes(item.explanation)}</p></SolutionSection>
         : null}
       </> : null}
-      {webExplanation && expanded ? <WebExplanationPanel object={webExplanation} skill="reading" attemptId={attemptId} questionNumber={Number(item.q_num)} persistenceEnabled={!preview && Boolean(attemptId)} /> : null}
+      {webExplanation && expanded ? <WebExplanationPanel
+        object={webExplanation}
+        skill="reading"
+        attemptId={attemptId}
+        questionNumber={Number(item.q_num)}
+        persistenceEnabled={!preview && Boolean(attemptId)}
+        evidenceSelection={evidenceSelection}
+        onStartReadingSelection={onStartEvidenceSelection}
+        correctionRequired={!item.correct}
+      /> : null}
     </div> : null}
   </article>;
 }
 
-function PassagePane({ passage, mode, highlight, onMode }: {
+function PassagePane({ passage, mode, highlight, evidenceQuestion, onMode, onEvidenceSelection }: {
   passage: any;
   mode: PassageMode;
   highlight: string | null;
+  evidenceQuestion: number | null;
   onMode(mode: PassageMode): void;
+  onEvidenceSelection(selection: EvidenceSelection): void;
 }) {
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const html = useMarkdown(passage?.body_markdown || '');
@@ -363,19 +376,44 @@ function PassagePane({ passage, mode, highlight, onMode }: {
     first?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [highlight, html, mode, passage?.passage_order]);
 
-  return <section className="exam-passage" id="rr-passage-pane" aria-label="Đoạn văn">
+  const captureSelection = () => {
+    if (evidenceQuestion === null || mode !== 'original' || !bodyRef.current) return;
+    const selection = window.getSelection();
+    const selectedText = String(selection?.toString() || '').replace(/\s+/g, ' ').trim();
+    const anchor = selection?.anchorNode instanceof Element
+      ? selection.anchorNode : selection?.anchorNode?.parentElement;
+    const focus = selection?.focusNode instanceof Element
+      ? selection.focusNode : selection?.focusNode?.parentElement;
+    if (!selectedText || selectedText.length < 8 || selectedText.length > 800
+        || !anchor || !focus || !bodyRef.current.contains(anchor) || !bodyRef.current.contains(focus)) return;
+    const block = anchor.closest('p, li, td, h1, h2, h3, h4');
+    const blocks = [...bodyRef.current.querySelectorAll('p, li, td, h1, h2, h3, h4')];
+    const blockIndex = block ? blocks.indexOf(block) : -1;
+    const paragraph = blockIndex >= 0 ? blockIndex + 1 : null;
+    onEvidenceSelection({
+      kind: 'reading_text',
+      response: `Passage ${passage?.passage_order || 1}${paragraph ? `, đoạn ${paragraph}` : ''}: “${selectedText}”`,
+      locator: {
+        kind: 'reading_text', passage_order: passage?.passage_order || 1,
+        paragraph_index: paragraph, selected_text: selectedText,
+      },
+    });
+  };
+
+  return <section className={`exam-passage${evidenceQuestion !== null ? ' rr-evidence-mode' : ''}`} id="rr-passage-pane" aria-label="Đoạn văn">
     <div className="rr-passage-toggle" role="group" aria-label="Hiển thị đoạn văn">
       <button type="button" className={`rr-passage-toggle__btn${mode === 'original' ? ' is-active' : ''}`} aria-pressed={mode === 'original'} onClick={() => onMode('original')}>Văn bản gốc</button>
       <button type="button" className={`rr-passage-toggle__btn${mode === 'translation' ? ' is-active' : ''}`} aria-pressed={mode === 'translation'} onClick={() => onMode('translation')}>Bài dịch</button>
     </div>
     <h2 className="rr-passage__title">{passage?.title || `Phần ${passage?.passage_order || 1}`}</h2>
+    {evidenceQuestion !== null ? <div className="rr-evidence-instruction" role="status">Câu {evidenceQuestion}: bôi chọn 1–3 câu làm bằng chứng. Thả chuột để lưu lựa chọn.</div> : null}
     {mode === 'translation' ? <div ref={bodyRef} className="rr-passage__body md-body">
       {String(passage?.translation_vi || '').trim()
         ? String(passage.translation_vi).split(/\n\s*\n/).filter(Boolean).map((paragraph, index) => <p key={`${index}-${paragraph}`}>{paragraph.trim()}</p>)
         : <p className="rr-passage__notrans">Chưa có bản dịch cho phần này.</p>}
     </div> : html
-      ? <div ref={bodyRef} className="rr-passage__body md-body" dangerouslySetInnerHTML={{ __html: html }} />
-      : <div ref={bodyRef} className="rr-passage__body md-body">{passage?.body_markdown || ''}</div>}
+      ? <div ref={bodyRef} className="rr-passage__body md-body" onMouseUp={captureSelection} dangerouslySetInnerHTML={{ __html: html }} />
+      : <div ref={bodyRef} className="rr-passage__body md-body" onMouseUp={captureSelection}>{passage?.body_markdown || ''}</div>}
   </section>;
 }
 
@@ -389,6 +427,8 @@ export function ReadingReviewWorkspace() {
   const [currentQuestion, setCurrentQuestion] = useState<number | null>(null);
   const [mode, setMode] = useState<PassageMode>('original');
   const [highlight, setHighlight] = useState<string | null>(null);
+  const [evidenceQuestion, setEvidenceQuestion] = useState<number | null>(null);
+  const [evidenceSelections, setEvidenceSelections] = useState<Record<number, EvidenceSelection>>({});
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
   const [filter, setFilter] = useState<ReviewFilter>('all');
   const surveyRef = useRef<HTMLDivElement | null>(null);
@@ -433,6 +473,8 @@ export function ReadingReviewWorkspace() {
     setSnapshot(null);
     setExpanded(new Set());
     setHighlight(null);
+    setEvidenceQuestion(null);
+    setEvidenceSelections({});
     setError('');
     setPhase('loading');
 
@@ -561,7 +603,19 @@ export function ReadingReviewWorkspace() {
 
     {phase === 'ready' && data ? <>
       <main className="exam-split">
-        <PassagePane passage={passage} mode={mode} highlight={highlight} onMode={(next) => { setMode(next); setHighlight(null); }} />
+        <PassagePane
+          passage={passage}
+          mode={mode}
+          highlight={highlight}
+          evidenceQuestion={evidenceQuestion}
+          onMode={(next) => { setMode(next); setHighlight(null); }}
+          onEvidenceSelection={(selection) => {
+            if (evidenceQuestion === null) return;
+            setEvidenceSelections((previous) => ({ ...previous, [evidenceQuestion]: selection }));
+            setHighlight(selection.response.replace(/^.*?:\s*[“"]|[”"]$/g, ''));
+            setEvidenceQuestion(null);
+          }}
+        />
         <div className="exam-divider" aria-hidden="true" />
         <section className="exam-questions rr-review" aria-label="Chữa từng câu">
           <header className="rr-review-header">
@@ -592,12 +646,20 @@ export function ReadingReviewWorkspace() {
             preview={data.preview}
             attemptId={data.attemptId}
             anonId={params?.anonId || null}
+            evidenceSelection={evidenceSelections[item.q_num] || null}
             onToggle={() => setExpanded((previous) => {
               const next = new Set(previous);
               if (next.has(item.q_num)) next.delete(item.q_num); else next.add(item.q_num);
               return next;
             })}
             onLocate={locate}
+            onStartEvidenceSelection={() => {
+              setCurrentQuestion(item.q_num);
+              setCurrentPart(item.passage_order);
+              setMode('original');
+              setHighlight(null);
+              setEvidenceQuestion(item.q_num);
+            }}
             key={item.q_num}
           />) : <p className="exam-review-empty">Không có câu nào trong bộ lọc này ở Passage {currentPart}.</p>}</div>
         </section>

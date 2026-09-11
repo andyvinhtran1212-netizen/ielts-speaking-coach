@@ -15,6 +15,8 @@ const LISTENING_PLAYER = read('app', '(authed-listening-player)', 'listening', '
 const READING_PLAYER = read('app', '(authed-reading-player)', 'reading', 'exam', 'session', 'reading-exam-session.tsx');
 const LEGACY_RUNNER = read('public', 'js', 'mock-exam-runner.js');
 const LEGACY_READING = read('public', 'js', 'reading-exam.js');
+const POST_CAPTURE = read('components', 'mock-post-test-capture.tsx');
+const POST_CAPTURE_CSS = read('public', 'css', 'mock-post-test-capture.css');
 
 describe('/mock-exam native runner ownership', () => {
   test('owns the App Router surface without booting the legacy runner', () => {
@@ -132,5 +134,15 @@ describe('/mock-exam native runner ownership', () => {
     assert.match(CSS, /@media \(max-width: 860px\)/);
     assert.doesNotMatch(CSS, /#[0-9a-fA-F]{3,8}\b/);
     assert.match(WORKFLOW, /verify-mock-exam-flow\.mjs/);
+  });
+
+  test('collects confidence quickly without affecting the score', () => {
+    assert.match(POST_CAPTURE, /CONFIDENCE\.map[\s\S]*<button/);
+    assert.match(POST_CAPTURE, /Dữ liệu này không ảnh hưởng điểm/);
+    assert.match(POST_CAPTURE, /Chưa biết vì sao/);
+    assert.match(POST_CAPTURE, /không bắt buộc · tối đa 2/);
+    assert.doesNotMatch(POST_CAPTURE, /<select/);
+    assert.match(POST_CAPTURE_CSS, /grid-template-columns: repeat\(5/);
+    assert.match(LAYOUT, /mock-post-test-capture\.css/);
   });
 });

@@ -10,14 +10,24 @@ export type CaptureEnvelope = {
 };
 
 const ATTRIBUTIONS = [
-  ['SA_GUESSED', 'Em đã đoán'],
+  ['SA_GUESSED', 'Đã đoán'],
   ['SA_DID_NOT_KNOW_WORD', 'Không biết từ'],
   ['SA_COULD_NOT_LOCATE', 'Không tìm được vị trí thông tin'],
+  ['SA_DID_NOT_PARSE_SENTENCE', 'Không phân tích được câu'],
   ['SA_MISSED_PARAPHRASE', 'Bỏ lỡ paraphrase'],
+  ['SA_CHOSE_MENTIONED_DISTRACTOR', 'Chọn thông tin nhiễu được nhắc tới'],
   ['SA_LOST_AUDIO_POSITION', 'Mất vị trí trong audio'],
   ['SA_COULD_NOT_HEAR_CHUNK', 'Không nghe rõ cụm từ'],
+  ['SA_FORGOT_BEFORE_ANSWERING', 'Nghe được nhưng quên trước khi trả lời'],
   ['SA_ANSWER_FORM_OR_SPELLING', 'Sai dạng từ / chính tả'],
   ['SA_RAN_OUT_OF_TIME', 'Hết thời gian'],
+  ['SA_CHANGED_FROM_RIGHT_TO_WRONG', 'Đổi từ đáp án đúng sang sai'],
+  ['SA_TECHNICAL_PROBLEM', 'Có sự cố kỹ thuật'],
+  ['SA_OTHER', 'Chưa biết vì sao'],
+] as const;
+
+const CONFIDENCE = [
+  [1, 'Đoán'], [2, 'Rất không chắc'], [3, 'Phân vân'], [4, 'Khá chắc'], [5, 'Có bằng chứng'],
 ] as const;
 
 export function MockPostTestCapture({
@@ -73,27 +83,31 @@ export function MockPostTestCapture({
     } finally { setBusy(false); }
   };
 
-  return <main className="exam-result-shell">
-    <section className="exam-result-card" style={{ maxWidth: 1040, margin: '32px auto' }}>
+  return <main className="exam-result-shell post-capture-shell">
+    <section className="exam-result-card post-capture-card">
       <p className="exam-result-eyebrow">{context === 'mock' ? 'TRƯỚC KHI NỘP PHẦN THI' : 'TRƯỚC KHI XEM KẾT QUẢ'}</p>
       <h1>Tự đánh giá mức chắc chắn</h1>
-      <p>Chọn mức 1–5 cho từng câu. Bước này giúp giáo viên phân biệt kiến thức thật với câu đoán; đáp án, điểm và giải thích vẫn đang được giữ kín.</p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
-        {questions.map((q) => <fieldset key={q.question_number} style={{ border: '1px solid #d8ddd9', borderRadius: 12, padding: 12 }}>
+      <p>Chạm một mức cho từng câu. Dữ liệu này không ảnh hưởng điểm; nó giúp phát hiện câu đoán đúng và lỗi hiểu sai nhưng rất chắc chắn.</p>
+      <div className="post-capture-legend" aria-label="Ý nghĩa mức chắc chắn"><span><b>1</b> Đoán</span><span><b>3</b> Phân vân</span><span><b>5</b> Chắc chắn và có bằng chứng</span></div>
+      <div className="post-capture-grid">
+        {questions.map((q) => <fieldset key={q.question_number} className="post-capture-item">
           <legend><strong>Câu {q.question_number}</strong>{q.blank ? ' · bỏ trống' : ''}</legend>
-          <label>Mức chắc chắn
-            <select value={confidence[q.question_number] || ''} onChange={(event) => setConfidence((old) => ({ ...old, [q.question_number]: Number(event.target.value) }))}>
-              <option value="">Chọn 1–5</option>
-              <option value="1">1 · Đoán hoàn toàn</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5 · Rất chắc</option>
-            </select>
-          </label>
+          <div className="post-capture-scale" role="group" aria-label={`Mức chắc chắn câu ${q.question_number}`}>{CONFIDENCE.map(([value, label]) => <button
+            type="button"
+            className={confidence[q.question_number] === value ? 'is-selected' : ''}
+            aria-pressed={confidence[q.question_number] === value}
+            aria-label={`${value}: ${label}`}
+            title={label}
+            onClick={() => setConfidence((old) => ({ ...old, [q.question_number]: value }))}
+            key={value}
+          >{value}</button>)}</div>
           {(q.blank || (confidence[q.question_number] && confidence[q.question_number] <= 2)) ? <details>
-            <summary>Vì sao em chưa chắc? (tối đa 2)</summary>
-            {ATTRIBUTIONS.map(([code, label]) => <label key={code} style={{ display: 'block' }}><input type="checkbox" checked={(attribution[q.question_number] || []).includes(code)} onChange={() => toggleAttribution(q.question_number, code)} /> {label}</label>)}
+            <summary>Vì sao bạn chưa chắc? <small>không bắt buộc · tối đa 2</small></summary>
+            <div className="post-capture-reasons">{ATTRIBUTIONS.map(([code, label]) => <label key={code}><input type="checkbox" checked={(attribution[q.question_number] || []).includes(code)} onChange={() => toggleAttribution(q.question_number, code)} /> <span>{label}</span></label>)}</div>
           </details> : null}
         </fieldset>)}
       </div>
-      {error ? <p role="alert">{error}</p> : null}
+      {error ? <p className="post-capture-error" role="alert">{error}</p> : null}
       <button className="exam-btn exam-btn--primary" type="button" disabled={Boolean(missing) || busy} onClick={() => void submit()}>
         {busy ? 'Đang lưu…' : missing ? `Còn ${missing} câu chưa chọn` : completionLabel}
       </button>
