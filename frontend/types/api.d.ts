@@ -11011,6 +11011,176 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mock-corrections/{skill}/attempts/{attempt_id}/post-test-capture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Post Test Capture */
+        post: operations["submit_post_test_capture_api_mock_corrections__skill__attempts__attempt_id__post_test_capture_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/mock-corrections/{skill}/attempts/{attempt_id}/items/{question_number}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Correction Event */
+        post: operations["submit_correction_event_api_mock_corrections__skill__attempts__attempt_id__items__question_number__events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-corrections/class-assignments/{assignment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Class Policy */
+        patch: operations["patch_class_policy_admin_mock_corrections_class_assignments__assignment_id__patch"];
+        trace?: never;
+    };
+    "/admin/mock-corrections/mock-exams/{exam_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Mock Policy */
+        patch: operations["patch_mock_policy_admin_mock_corrections_mock_exams__exam_id__patch"];
+        trace?: never;
+    };
+    "/admin/mock-corrections/public-tests/{skill}/{test_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Public Policy */
+        patch: operations["patch_public_policy_admin_mock_corrections_public_tests__skill___test_id__patch"];
+        trace?: never;
+    };
+    "/admin/mock-corrections/content-versions/{content_version}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Content Version */
+        post: operations["approve_content_version_admin_mock_corrections_content_versions__content_version__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-corrections/content-versions/{content_version}/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Content Version Health */
+        get: operations["content_version_health_admin_mock_corrections_content_versions__content_version__health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-corrections/content-health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** All Content Health */
+        get: operations["all_content_health_admin_mock_corrections_content_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-corrections/items/{item_attempt_id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Item Timeline */
+        get: operations["item_timeline_admin_mock_corrections_items__item_attempt_id__timeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/mock-corrections/performance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Performance Summary */
+        get: operations["performance_summary_admin_mock_corrections_performance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -12000,6 +12170,20 @@ export interface components {
             /** Flags */
             flags?: "writing_grading_without_active_job"[];
         };
+        /** CaptureBody */
+        CaptureBody: {
+            /** Items */
+            items?: components["schemas"]["CaptureItem"][];
+        };
+        /** CaptureItem */
+        CaptureItem: {
+            /** Question Number */
+            question_number: number;
+            /** Confidence */
+            confidence: number;
+            /** Self Attribution */
+            self_attribution?: string[];
+        };
         /** ClaimRendererAffinityBody */
         ClaimRendererAffinityBody: {
             /**
@@ -12098,10 +12282,46 @@ export interface components {
             /** Grammaticalrange */
             grammaticalRange: number;
         };
+        /** ContentApprovalBody */
+        ContentApprovalBody: {
+            /**
+             * Rights Approved
+             * @default false
+             */
+            rights_approved: boolean;
+            /**
+             * Editorial Approved
+             * @default false
+             */
+            editorial_approved: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
         /** ContextLinksRequest */
         ContextLinksRequest: {
             /** Terms */
             terms: string[];
+        };
+        /** CorrectionEventBody */
+        CorrectionEventBody: {
+            /**
+             * Event Id
+             * Format: uuid
+             */
+            event_id: string;
+            /**
+             * Event Name
+             * @enum {string}
+             */
+            event_name: "correction_result_seen" | "evidence_attempt_submitted" | "hint_revealed" | "full_explanation_opened" | "correction_output_submitted";
+            /** Client Occurred At */
+            client_occurred_at?: string | null;
+            /** Client Version */
+            client_version?: string | null;
+            /** Payload */
+            payload?: {
+                [key: string]: unknown;
+            };
         };
         /** CourseCreate */
         CourseCreate: {
@@ -12592,6 +12812,18 @@ export interface components {
             cohort_id?: string | null;
             /** Review Sla Days */
             review_sla_days?: number | null;
+            /**
+             * Web Explanation Mode
+             * @default with_result
+             */
+            web_explanation_mode: string;
+            /** Web Explanation Content Version */
+            web_explanation_content_version?: string | null;
+            /**
+             * Post Test Capture Required
+             * @default true
+             */
+            post_test_capture_required: boolean;
         };
         /** ExamPatch */
         ExamPatch: {
@@ -12627,6 +12859,12 @@ export interface components {
             review_sla_days?: number | null;
             /** Status */
             status?: string | null;
+            /** Web Explanation Mode */
+            web_explanation_mode?: string | null;
+            /** Web Explanation Content Version */
+            web_explanation_content_version?: string | null;
+            /** Post Test Capture Required */
+            post_test_capture_required?: boolean | null;
         };
         /** FanOutBody */
         FanOutBody: {
@@ -13455,6 +13693,20 @@ export interface components {
             /** Answers */
             answers?: components["schemas"]["MicrocheckAnswer"][];
         };
+        /** MockPolicyPatch */
+        MockPolicyPatch: {
+            /** Web Explanation Mode */
+            web_explanation_mode?: ("disabled" | "with_result" | "admin_release") | null;
+            /** Content Version */
+            content_version?: string | null;
+            /** Post Test Capture Required */
+            post_test_capture_required?: boolean | null;
+            /**
+             * Release Now
+             * @default false
+             */
+            release_now: boolean;
+        };
         /** ObservationCounts */
         ObservationCounts: {
             /**
@@ -13681,6 +13933,20 @@ export interface components {
              */
             reveal: boolean;
         };
+        /** PracticePolicyPatch */
+        PracticePolicyPatch: {
+            /** Web Explanation Mode */
+            web_explanation_mode?: ("disabled" | "immediate_after_capture" | "admin_release") | null;
+            /** Content Version */
+            content_version?: string | null;
+            /** Post Test Capture Required */
+            post_test_capture_required?: boolean | null;
+            /**
+             * Release Now
+             * @default false
+             */
+            release_now: boolean;
+        };
         /** PreviewRequest */
         PreviewRequest: {
             /** Filter Config */
@@ -13847,6 +14113,20 @@ export interface components {
              * @description Dành riêng cho kỳ thi thử — ẩn khỏi ngân hàng đề của học viên (mig 170)
              */
             exam_only?: boolean | null;
+        };
+        /** PublicPolicyPatch */
+        PublicPolicyPatch: {
+            /** Public Practice Enabled */
+            public_practice_enabled?: boolean | null;
+            /** Web Explanation Mode */
+            web_explanation_mode?: ("disabled" | "immediate_after_capture" | "admin_release") | null;
+            /** Content Version */
+            content_version?: string | null;
+            /**
+             * Release Now
+             * @default false
+             */
+            release_now: boolean;
         };
         /**
          * QuestionEditRequest
@@ -14828,6 +15108,25 @@ export interface components {
             student_ids?: string[] | null;
             /** Retake Size */
             retake_size?: number | null;
+            /**
+             * Delivery Mode
+             * @default standard
+             * @enum {string}
+             */
+            delivery_mode: "standard" | "assigned_practice";
+            /**
+             * Web Explanation Mode
+             * @default disabled
+             * @enum {string}
+             */
+            web_explanation_mode: "disabled" | "immediate_after_capture" | "admin_release";
+            /**
+             * Post Test Capture Required
+             * @default true
+             */
+            post_test_capture_required: boolean;
+            /** Web Explanation Content Version */
+            web_explanation_content_version?: string | null;
         };
         /** AssignBody */
         routers__admin_mock_exams__AssignBody: {
@@ -26584,7 +26883,9 @@ export interface operations {
     };
     get_published_listening_test_api_listening_tests__test_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                class_item?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -33231,6 +33532,365 @@ export interface operations {
                 "application/json": components["schemas"]["ReleaseBody"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_post_test_capture_api_mock_corrections__skill__attempts__attempt_id__post_test_capture_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                skill: "reading" | "listening";
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaptureBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_correction_event_api_mock_corrections__skill__attempts__attempt_id__items__question_number__events_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                skill: "reading" | "listening";
+                attempt_id: string;
+                question_number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CorrectionEventBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_class_policy_admin_mock_corrections_class_assignments__assignment_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                assignment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PracticePolicyPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_mock_policy_admin_mock_corrections_mock_exams__exam_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                exam_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MockPolicyPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_public_policy_admin_mock_corrections_public_tests__skill___test_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                skill: "reading" | "listening";
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicPolicyPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_content_version_admin_mock_corrections_content_versions__content_version__approve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                content_version: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentApprovalBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    content_version_health_admin_mock_corrections_content_versions__content_version__health_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                content_version: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    all_content_health_admin_mock_corrections_content_health_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    item_timeline_admin_mock_corrections_items__item_attempt_id__timeline_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                item_attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    performance_summary_admin_mock_corrections_performance_get: {
+        parameters: {
+            query?: {
+                learner_id?: string | null;
+                skill?: ("reading" | "listening") | null;
+                class_assignment_id?: string | null;
+                mock_exam_id?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
