@@ -20,7 +20,7 @@ const CLIENT = read('app', '(authed-listening-review)', 'listening', 'review', '
 const LAYOUT = read('app', '(authed-listening-review)', 'layout.tsx');
 const PAGE = read('app', '(authed-listening-review)', 'listening', 'review', 'page.tsx');
 const NEXT_CSS = read('public', 'css', 'listening-review-next.css');
-const LEGACY_HTML = read('public', 'pages', 'listening-review.html');
+const LEGACY_HTML = read('tests', 'fixtures', 'legacy-html-retired', 'pages', 'listening-review.html');
 const LEGACY_JS = read('public', 'js', 'listening-review.js');
 const PLAYER = read('public', 'js', 'listening-test-player.js');
 const MOCK = read('app', '(authed-mock-result)', 'mock', 'result', 'mock-result-behavior.tsx');
@@ -153,7 +153,9 @@ describe('Listening review native controller contract', () => {
     assert.match(CLIENT, /hasAudio:\s*true/);
     assert.match(CLIENT, /webExplanation && expanded[\s\S]{0,120}\? <WebExplanationPanel/);
     assert.match(CLIENT, /: hasSolutionDetail \? <>[\s\S]{0,160}<SolutionSection label="Dịch đoạn chứa đáp án"/);
-    assert.match(WEB_PANEL, /candidate_skill_codes/);
+    assert.doesNotMatch(WEB_PANEL, /candidate_skill_codes/);
+    assert.match(WEB_PANEL, /Đánh dấu mốc đang nghe/);
+    assert.match(CLIENT, /getCurrentTime\?\(\)/);
     assert.match(WEB_PANEL, /same_source_repair/);
   });
 
@@ -184,7 +186,7 @@ describe('Listening review route ownership and rollback', () => {
     assert.doesNotMatch(MOCK, /\/pages\/listening-review\.html\?attempt_id=/);
   });
 
-  test('legacy HTML/JS remain intact as explicit rollback and parity targets', () => {
+  test('retired legacy HTML fixture and JS remain explicit parity targets', () => {
     assert.match(LEGACY_HTML, /id="lr-transcript-pane"/);
     assert.match(LEGACY_HTML, /src="\/js\/listening-review\.js"/);
     assert.match(LEGACY_JS, /\/api\/listening\/tests\/attempts\//);

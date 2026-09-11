@@ -193,7 +193,8 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
     if (draft.skill === 'reading' || draft.skill === 'listening') {
       body.delivery_mode = draft.deliveryMode;
       body.web_explanation_mode = draft.webExplanationMode;
-      body.post_test_capture_required = draft.postTestCaptureRequired !== false;
+      body.post_test_capture_required = draft.webExplanationMode !== 'disabled'
+        && draft.postTestCaptureRequired !== false;
     }
   }
   return { ok: true, body };

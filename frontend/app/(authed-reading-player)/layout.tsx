@@ -11,6 +11,7 @@ export default function ReadingPlayerLayout({ children }: { children: ReactNode 
         '/css/reading-exam.css',
         '/css/reading-exam-next.css',
         '/css/exam-result-next.css',
+        '/css/mock-post-test-capture.css',
       ]}
       extraScripts={<RouteScriptChain scripts={[
         { src: 'https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js' },

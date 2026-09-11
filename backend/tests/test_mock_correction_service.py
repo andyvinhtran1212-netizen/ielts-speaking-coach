@@ -294,3 +294,51 @@ def test_correction_hint_requires_known_reveal_level():
         assert "hint_type" in str(exc)
     else:
         raise AssertionError("unknown hint reveal level was accepted")
+
+
+def test_structured_reading_evidence_is_normalized_for_runtime_analytics():
+    payload = svc._validate_correction_payload("evidence_attempt_submitted", {
+        "evidence_response": "Passage 2, đoạn 4: selected evidence",
+        "evidence_selection": {
+            "kind": "reading_text",
+            "passage_order": 2,
+            "paragraph_index": 4,
+            "selected_text": "  selected evidence  ",
+        },
+    })
+    assert payload["evidence_selection"] == {
+        "kind": "reading_text",
+        "passage_order": 2,
+        "paragraph_index": 4,
+        "selected_text": "selected evidence",
+    }
+
+
+def test_structured_evidence_rejects_invalid_audio_positions():
+    try:
+        svc._validate_correction_payload("evidence_attempt_submitted", {
+            "evidence_response": "Mốc audio lỗi",
+            "evidence_selection": {"kind": "audio_timestamp", "seconds": -1},
+        })
+    except svc.PolicyError as exc:
+        assert "audio" in str(exc)
+    else:
+        raise AssertionError("invalid audio evidence was accepted")
+
+
+def test_structured_evidence_rejects_boolean_reading_positions():
+    for field in ("passage_order", "paragraph_index"):
+        evidence = {
+            "kind": "reading_text", "passage_order": 1,
+            "paragraph_index": 2, "selected_text": "selected evidence",
+        }
+        evidence[field] = True
+        try:
+            svc._validate_correction_payload("evidence_attempt_submitted", {
+                "evidence_response": "Passage 1, đoạn 2: selected evidence",
+                "evidence_selection": evidence,
+            })
+        except svc.PolicyError:
+            pass
+        else:
+            raise AssertionError(f"boolean {field} was accepted")

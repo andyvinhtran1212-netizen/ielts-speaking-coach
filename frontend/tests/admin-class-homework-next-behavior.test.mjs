@@ -113,6 +113,16 @@ describe('admin class homework model — canonical truth', () => {
     assert.equal(controlled.body.post_test_capture_required, true);
   });
 
+  test('does not collect a no-op confidence gate when interactive explanations are disabled', () => {
+    const catalog = [{ id: 'public-r', title: 'Reading practice', ready: true, already_given: false }];
+    const result = validateHomeworkDraft({
+      ...homeworkDraft(), skill: 'reading', title: 'Practice', contentId: 'public-r',
+      webExplanationMode: 'disabled', postTestCaptureRequired: true,
+    }, catalog);
+    assert.equal(result.ok, true);
+    assert.equal(result.body.post_test_capture_required, false);
+  });
+
   test('fails closed for protected papers outside the class and locked immediate explanations', () => {
     const outside = normalizeCatalog({ items: [{
       id: 'cam-r', title: 'Cambridge 18', status: 'published', exam_only: true,
@@ -154,6 +164,14 @@ describe('admin class homework — integration contracts', () => {
     assert.doesNotMatch(UI, /pages\/admin\/classes\/index\.html\?cohort_id|markingHref/);
     assert.match(SUBMISSIONS, /artifact_kind === 'reading_attempt'/);
     assert.match(SUBMISSIONS, /artifact_kind === 'listening_attempt'/);
+  });
+
+  test('explains protected delivery, explanation timing and confidence in outcome language', () => {
+    assert.match(UI, /Đề đã mở trong thư viện chung/);
+    assert.match(UI, /Chỉ học viên được giao/);
+    assert.match(UI, /Tự mở sau tự đánh giá ngắn/);
+    assert.match(UI, /Điểm và đáp án thường không bị giữ/);
+    assert.match(UI, /Không ảnh hưởng điểm/);
   });
 
   test('never exposes destructive delete when progress is unknown', () => {
