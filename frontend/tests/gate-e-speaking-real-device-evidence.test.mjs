@@ -302,8 +302,8 @@ describe('Speaking real-device workflow contract', () => {
     assert.match(WORKFLOW, /Upload validated evidence[\s\S]*if: always\(\)[\s\S]*retention-days: 90/);
     assert.match(PAIR_WORKFLOW, /Require trusted main workflow revision/);
     assert.match(PAIR_WORKFLOW, /ref: \$\{\{ github\.sha \}\}/);
-    assert.match(PAIR_WORKFLOW, /actions\/download-artifact@v5[\s\S]*run-id: \$\{\{ inputs\.safari_run_id \}\}/);
-    assert.match(PAIR_WORKFLOW, /actions\/download-artifact@v5[\s\S]*run-id: \$\{\{ inputs\.ios_run_id \}\}/);
+    assert.match(PAIR_WORKFLOW, /actions\/download-artifact@v7[\s\S]*run-id: \$\{\{ inputs\.safari_run_id \}\}/);
+    assert.match(PAIR_WORKFLOW, /actions\/download-artifact@v7[\s\S]*run-id: \$\{\{ inputs\.ios_run_id \}\}/);
     assert.match(PAIR_WORKFLOW, /GITHUB_TOKEN: \$\{\{ github\.token \}\}/);
     assert.match(DOC, /không đổi\s+`route_ready` hoặc `admit_new`/);
     assert.match(DOC, /cùng\s+(?:một\s+)?`source_sha`/);
