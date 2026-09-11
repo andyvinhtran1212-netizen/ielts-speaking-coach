@@ -35,6 +35,11 @@ export type CatalogOption = {
   already_given: boolean;
   reason: string | null;
   exam_only: boolean;
+  cohort_ids: string[];
+  explanation_ready: boolean;
+  explanation_state: string;
+  explanation_count: number | null;
+  explanation_ready_count: number | null;
 };
 
 export type QuestionOption = {

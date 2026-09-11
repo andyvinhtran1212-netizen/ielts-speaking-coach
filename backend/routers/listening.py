@@ -40,6 +40,7 @@ from services.core_attempt_observation import (
     admit_start, bind_owned_attempt, note_abandoned_dictation_attempt, note_abandoned_exam_attempts, note_persisted_exam_result, observe_operation,
 )
 from services.class_assignment_service import (
+    active_exam_assignment_references,
     DeadlinePassedError,
     ItemNotFoundError,
     TaskMismatchError,
@@ -1399,6 +1400,7 @@ async def admin_patch_listening_content(
     if not existing.data:
         raise HTTPException(404, "Listening content not found")
     current = existing.data[0]
+
     fields = body.model_fields_set
     expected_updated_at = (body.expected_updated_at or "").strip() or None
     if expected_updated_at and not _same_timestamp(current.get("updated_at"), expected_updated_at):
@@ -2507,6 +2509,19 @@ async def admin_patch_listening_test_status(
         raise HTTPException(404, "Test bundle not found")
     current = existing.data[0]
 
+    if new_status != "published" and (current.get("status") or "") == "published":
+        active_gives = active_exam_assignment_references(
+            supabase_admin, "listening", test_id,
+        )
+        if active_gives:
+            names = ", ".join(
+                str(row.get("title") or row["id"]) for row in active_gives[:3]
+            )
+            raise HTTPException(
+                409,
+                f"Đề đang được giao trong bài còn nhận nộp: {names}. Hãy đóng bài giao trước.",
+            )
+
     # Sprint 13.4.3 publish gate.
     if new_status == "published":
         allowed, reason = listening_audio.can_publish(current)
@@ -2547,6 +2562,16 @@ async def admin_delete_listening_test(
     )
     if not existing.data:
         raise HTTPException(404, "Test bundle not found")
+
+    active_gives = active_exam_assignment_references(
+        supabase_admin, "listening", test_id,
+    )
+    if active_gives:
+        names = ", ".join(str(row.get("title") or row["id"]) for row in active_gives[:3])
+        raise HTTPException(
+            409,
+            f"Đề đang được giao trong bài còn nhận nộp: {names}. Hãy đóng bài giao trước.",
+        )
 
     # Archive the parent.
     (
@@ -2603,6 +2628,16 @@ async def admin_hard_delete_listening_test(
     if not test_row.data:
         raise HTTPException(404, "Test bundle not found")
     test = test_row.data[0]
+
+    active_gives = active_exam_assignment_references(
+        supabase_admin, "listening", test_id,
+    )
+    if active_gives:
+        names = ", ".join(str(row.get("title") or row["id"]) for row in active_gives[:3])
+        raise HTTPException(
+            409,
+            f"Đề đang được giao trong bài còn nhận nộp: {names}. Hãy đóng bài giao trước.",
+        )
 
     content_rows = (
         supabase_admin.table("listening_content")

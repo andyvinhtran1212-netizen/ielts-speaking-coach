@@ -128,6 +128,11 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
   if (selected.exam_only && draft.deliveryMode !== 'assigned_practice') {
     return { ok: false, error: 'Đề trong kho admin cần chọn “Giao luyện tập có kiểm soát”.' };
   }
+  if (['reading', 'listening'].includes(draft.skill)
+      && draft.webExplanationMode === 'immediate_after_capture'
+      && selected.explanation_ready !== true) {
+    return { ok: false, error: 'Web explanation chưa đủ 40/40 câu qua rights, editorial và serving gate.' };
+  }
   if (draft.recipientScope === 'subset' && !draft.studentIds?.length) return { ok: false, error: 'Chọn ít nhất một học viên nhận bài.' };
   if (draft.kind === 'lesson') {
     const dueDays = Number(draft.dueDays);
@@ -194,7 +199,7 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
   return { ok: true, body };
 }
 
-export function normalizeCatalog(value, kind, requestedSkill = '') {
+export function normalizeCatalog(value, kind, requestedSkill = '', requestedCohortId = '') {
   const payload = object(value);
   if (!Array.isArray(payload.items)) return null;
   if (kind === 'exam' && Array.isArray(payload.failed_kinds) && payload.failed_kinds.includes(requestedSkill)) return null;
@@ -202,16 +207,25 @@ export function normalizeCatalog(value, kind, requestedSkill = '') {
     const row = object(item);
     const id = text(row.id);
     if (!id) return null;
-    const ready = kind === 'exam' ? row.status === 'published' : row.ready === true;
+    const cohortIds = Array.isArray(row.cohort_ids) ? row.cohort_ids.map(text).filter(Boolean) : [];
+    const scopeBlocked = kind === 'exam' && Boolean(requestedCohortId)
+      && ((row.exam_only === true && cohortIds.length === 0)
+        || (cohortIds.length > 0 && !cohortIds.includes(requestedCohortId)));
+    const ready = kind === 'exam' ? row.status === 'published' && !scopeBlocked : row.ready === true;
     const already = row.already_given === true;
     let reason = null;
     if (already) reason = 'Đã giao cho lớp này';
-    else if (!ready) reason = row.missing_audio ? `Thiếu audio cho ${count(row.missing_audio)} câu` : 'Chưa có nội dung sẵn sàng';
+    else if (scopeBlocked) reason = 'Chưa gán cho lớp này trong kho đề';
+    else if (!ready) reason = row.missing_audio ? `Thiếu audio cho ${count(row.missing_audio)} câu` : 'Đề đang draft hoặc chưa sẵn sàng';
     else if (kind === 'exam' && row.exam_only === true) reason = 'Kho đề admin';
     return {
       id, title: text(row.title) || 'Nội dung chưa đặt tên', code: nullableText(row.code),
       part: finite(row.part), lesson_no: finite(row.lesson_no), ready, already_given: already,
-      reason, exam_only: row.exam_only === true,
+      reason, exam_only: row.exam_only === true, cohort_ids: cohortIds,
+      explanation_ready: row.web_explanation_ready === true,
+      explanation_state: text(row.web_explanation_state) || 'unknown',
+      explanation_count: row.web_explanation_count == null ? null : count(row.web_explanation_count),
+      explanation_ready_count: row.web_explanation_ready_count == null ? null : count(row.web_explanation_ready_count),
     };
   }).filter(Boolean);
 }

@@ -93,6 +93,8 @@
     full: { href: '/reading/test', label: '← Thư viện' },
     mini: { href: '/reading/mini-test', label: '← Mini tests' },
     mock: { href: '/mock/result', label: '← Kết quả thi thử' },
+    'my-class': { href: '/my-class', label: '← Lớp học của tôi' },
+    admin: { href: '/admin/classes', label: '← Quản lý lớp' },
   };
   function wireBack() {
     var q = new URLSearchParams(window.location.search);

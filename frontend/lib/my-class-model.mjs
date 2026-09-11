@@ -243,6 +243,9 @@ export function assignmentAction(row) {
       && (row.submittedAt || (row.isMissing && row.state !== 'assigned'))) {
     return { kind: 'review', label: 'Xem lại bài' };
   }
+  if (['reading', 'listening'].includes(row?.assignment?.skill) && row.submittedAt) {
+    return { kind: 'review', label: 'Xem kết quả & chữa bài' };
+  }
   if (!row?.isMissing && !row?.submittedAt) {
     return { kind: 'start', label: awaitingWriting(row) ? 'Tiếp tục bài' : 'Làm bài' };
   }
@@ -320,6 +323,15 @@ export function normalizeClassStartResponse(value, expectedItemId) {
   if (!row || textOf(row.item_id) !== expectedItemId || !textOf(row.assignment_id)) return null;
   const skill = textOf(row.skill);
   if (!SKILLS.has(skill)) return null;
+
+  const reviewAttemptId = textOf(row.review_attempt_id);
+  if (reviewAttemptId && ['reading', 'listening'].includes(skill)) {
+    const path = skill === 'reading' ? '/reading/review' : '/listening/review';
+    return {
+      kind: 'review',
+      url: `${path}?attempt_id=${encodeURIComponent(reviewAttemptId)}&from=my-class`,
+    };
+  }
 
   const resultSessionId = textOf(row.result_session_id);
   if (resultSessionId && skill === 'speaking') {
