@@ -3,13 +3,14 @@
 ## Decision status
 
 Implementation is isolated on `codex/cambridge-mock-correction-v1` in a dedicated
-worktree. No migration, content import, public-practice flag, explanation release,
-deploy, commit, or push has been performed against production.
+worktree rebased onto Gate F. Migrations 245, 246 and 257 and the content import
+have been applied only to the staging/internal-QA database. No production write,
+public-practice flag, explanation release, deploy, or push has been performed.
 
-Migration `245_cambridge_mock_correction_foundation.sql` deliberately follows the
-active Gate-F manifest worktree's reserved migrations 240–244. The overlapping
-Reading/Listening route changes must be rebased after Gate F lands; merging while
-that worktree is still active would create avoidable conflicts.
+Migration `245_cambridge_mock_correction_foundation.sql` deliberately follows
+Gate F migrations 240–244. Migration 257 adds the durable per-item event state
+machine and upgrades already-migrated environments to the explicit unbound QA
+inventory state.
 
 ## Source and spec audit
 
@@ -67,34 +68,58 @@ attempt rows are not deleted or rewritten.
 - Native Reading/Listening review pages render the new object only when attached
   by the backend. The learner moves through evidence attempt → source location →
   decisive clue → full explanation/repair direction. The canonical answer is
-  hidden in the UI until the full-explanation stage.
+  hidden in the UI until the full-explanation stage, and legacy explanation
+  sections are suppressed whenever the staged object is present.
+- Every learner reveal/correction action is persisted idempotently in an
+  append-only event ledger. The database RPC validates ownership, submitted
+  attempt status, item binding, payload shape and transition order, then returns
+  canonical correction state for reload recovery.
 - Admin release actions are audited. Changing into admin-release mode or changing
   content version clears stale release timestamps and requires fresh approval.
 - Item evidence records first/final answer, revisions, correctness, confidence,
   high-confidence errors, and controlled self-attribution. An admin endpoint can
   aggregate these signals by learner, skill, class assignment, or mock exam.
+- The native admin correction dashboard adds content-health gates, accuracy,
+  confidence, high-confidence wrong items, revision rate, wrong-item correction
+  completion, correction funnel, per-item state and event timeline.
+
+## Internal-QA import status
+
+- Content version: `cambridge-web-explanations/2026-09-10-v1`.
+- Imported/current: 2,880 / 2,880 objects.
+- Canonical Cambridge parents present in QA: 0 Reading and 0 Listening papers.
+- Therefore all 2,880 rows are `UNBOUND_INTERNAL_QA`, have zero test FK links,
+  and use serving status `INTERNAL_QA_UNBOUND`.
+- Rights remain `BLOCKED_PENDING_RIGHTS_REVIEW`; editorial remains
+  `GENERATED_REQUIRES_EDITORIAL_REVIEW`.
+- Approval rejects any version containing an unbound object. Direct anon/auth
+  table privileges are revoked and deny-all RLS remains enabled.
 
 ## Verification completed
 
-- Importer dry-run: 72 files, 2,880 objects, 2,880 eligible, 0 blocked, 9
-  adjudications; no database writes.
-- Backend targeted regression: 462 passed, including the release-gate coverage.
-- Post-repair checks: 61 matcher/access tests and 2 mock force-collect tests passed.
-- Frontend targeted behavior/model tests: 84 passed.
+- Importer dry-run and QA import: 72 files, 2,880 objects, 18 question types and
+  9 adjudications.
+- Backend selected regression: passed, including release gates, event
+  persistence, result reconciliation and core-attempt evidence.
+- Frontend full Node regression: passed (9,230 tests).
 - TypeScript typecheck: passed.
-- Next.js production build: passed; 136 pages generated.
-- Python compile and `git diff --check`: passed.
+- Next.js production build: passed; 137 pages generated, including
+  `/admin/mock-exams/corrections`.
+- Migration SQL executed successfully on internal QA; repeat execution of 257
+  confirmed its upgrade path is idempotent.
+- `git diff --check`: passed.
 
 ## Required decisions before production
 
-1. Wait for the Gate-F 240–244 worktree to land, then rebase and re-run the
-   overlapping Reading/Listening tests.
-2. Confirm whether the next operation should be an internal-QA import only, or a
-   full production release. Internal import keeps rights/editorial and every
-   learner visibility gate blocked.
+1. Seed the 72 canonical Cambridge Reading/Listening paper rows into an isolated
+   QA scope, then rerun the importer to replace `UNBOUND_INTERNAL_QA` with real
+   test FK bindings. Do not synthesize placeholder parent papers.
+2. Deploy the backend/frontend branch to an internal environment before UI/event
+   end-to-end testing; the current operation intentionally migrated/imported data
+   only and did not deploy application code.
 3. Provide explicit rights approval and editorial approval before any learner-
    visible web explanation release. The current source metadata is not evidence
    of either approval.
-4. Apply migration 246 with the foundation release to repair the canonical Q07
-   matcher/template. Q11 needs no audio replacement; its release override records
-   the corrected timebase adjudication.
+4. When the canonical C15 T4 Reading parent is seeded, rerun migration 246 (or its
+   scoped repair) so Q07 requires both words. Q11 needs no audio replacement; its
+   release override records the corrected timebase adjudication.

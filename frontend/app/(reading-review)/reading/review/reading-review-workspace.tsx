@@ -291,6 +291,7 @@ function QuestionCard({ item, expanded, preview, attemptId, anonId, onToggle, on
       <div className="rr-card__ans is-correct"><span>Đáp án</span><code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.expected || '—'}</code></div>
     </div>
     {hasRich ? <div className="rr-card__detail" hidden={!expanded}>
+      {!webExplanation ? <>
       <SolutionSection label="Các bước ra đáp án" className="rr-sol__sec--steps">
         {structured
           ? <StructuredStepper
@@ -328,7 +329,8 @@ function QuestionCard({ item, expanded, preview, attemptId, anonId, onToggle, on
       {!structured && !solution.steps && item.explanation
         ? <SolutionSection label="Lời giải"><p>{proseNodes(item.explanation)}</p></SolutionSection>
         : null}
-      {webExplanation ? <WebExplanationPanel object={webExplanation} skill="reading" /> : null}
+      </> : null}
+      {webExplanation && expanded ? <WebExplanationPanel object={webExplanation} skill="reading" attemptId={attemptId} questionNumber={Number(item.q_num)} persistenceEnabled={!preview && Boolean(attemptId)} /> : null}
     </div> : null}
   </article>;
 }

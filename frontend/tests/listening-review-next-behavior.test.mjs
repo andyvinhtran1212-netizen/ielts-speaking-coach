@@ -145,7 +145,8 @@ describe('Listening review native controller contract', () => {
     assert.match(CLIENT, /AverFeedback\?\.attachCardFlag/);
     assert.match(CLIENT, /AverFeedback\?\.mountSurvey/);
     assert.match(CLIENT, /hasAudio:\s*true/);
-    assert.match(CLIENT, /webExplanation \? <WebExplanationPanel/);
+    assert.match(CLIENT, /webExplanation && expanded[\s\S]{0,120}\? <WebExplanationPanel/);
+    assert.match(CLIENT, /: hasSolutionDetail \? <>[\s\S]{0,160}<SolutionSection label="Dịch đoạn chứa đáp án"/);
     assert.match(WEB_PANEL, /candidate_skill_codes/);
     assert.match(WEB_PANEL, /same_source_repair/);
   });

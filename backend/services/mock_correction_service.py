@@ -32,6 +32,26 @@ SELF_ATTRIBUTION_CODES = {
 READY_RIGHTS = {"APPROVED", "RIGHTS_APPROVED"}
 READY_EDITORIAL = {"APPROVED", "EDITORIAL_APPROVED"}
 AUTO_SERVABLE = {"ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES"}
+CORRECTION_EVENT_NAMES = {
+    "correction_result_seen",
+    "evidence_attempt_submitted",
+    "hint_revealed",
+    "full_explanation_opened",
+    "correction_output_submitted",
+}
+CORRECTION_STATE_RANK = {
+    "RESULT_ONLY": 0,
+    "EVIDENCE_ATTEMPTED": 1,
+    "LOCATION_HINT_SEEN": 2,
+    "DECISIVE_HINT_SEEN": 3,
+    "FULL_EXPLANATION_SEEN": 4,
+    "CORRECTION_OUTPUT_SUBMITTED": 5,
+    "CORRECTION_VERIFIED": 6,
+    "TRANSFER_PASSED": 7,
+    "RETEST_SCHEDULED": 8,
+    "MASTERED": 9,
+    "REOPENED": 0,
+}
 
 
 class CorrectionError(Exception):
@@ -47,6 +67,10 @@ class PolicyError(CorrectionError):
 
 
 class CaptureConflictError(CorrectionError):
+    pass
+
+
+class EventConflictError(CorrectionError):
     pass
 
 
@@ -569,6 +593,81 @@ def record_post_test_capture(
     return {"capture": inserted[0], "attempt": attempt, "replayed": False}
 
 
+def _validate_correction_payload(event_name: str, payload: dict) -> dict:
+    if event_name not in CORRECTION_EVENT_NAMES:
+        raise PolicyError("Correction event không hợp lệ.")
+    if not isinstance(payload, dict):
+        raise PolicyError("Payload correction event phải là object.")
+
+    normalized = dict(payload)
+
+    def required_text(key: str, limit: int) -> str:
+        value = str(normalized.get(key) or "").strip()
+        if not value or len(value) > limit:
+            raise PolicyError(f"Trường {key} bắt buộc và không được vượt quá {limit} ký tự.")
+        return value
+
+    if event_name == "evidence_attempt_submitted":
+        normalized["evidence_response"] = required_text("evidence_response", 2000)
+    elif event_name == "hint_revealed":
+        if normalized.get("hint_type") not in {"location", "decisive"}:
+            raise PolicyError("hint_type phải là location hoặc decisive.")
+    elif event_name == "correction_output_submitted":
+        normalized["corrected_answer"] = required_text("corrected_answer", 2000)
+        normalized["evidence_response"] = required_text("evidence_response", 2000)
+        normalized["error_mechanism"] = required_text("error_mechanism", 1000)
+        normalized["next_action"] = required_text("next_action", 1000)
+    return normalized
+
+
+def record_correction_event(
+    skill: str,
+    attempt_id: str,
+    learner_id: str,
+    question_number: int,
+    *,
+    event_id: str,
+    event_name: str,
+    payload: dict,
+    client_occurred_at: str | None = None,
+    client_version: str | None = None,
+) -> dict:
+    """Persist one learner action through the DB-owned correction state machine."""
+    attempt = fetch_owned_submitted_attempt(skill, attempt_id, learner_id)
+    access = explanation_access(skill, attempt)
+    if not access or not access.get("allowed"):
+        raise PolicyError("Web explanation chưa được admin cho phép hiển thị cho lượt làm này.")
+    if int(question_number) not in (access.get("items") or {}):
+        raise NotFoundError("Không tìm thấy web explanation cho câu hỏi này.")
+    normalized = _validate_correction_payload(event_name, payload)
+    try:
+        result = supabase_admin.rpc("fn_record_mock_correction_event", {
+            "p_event_id": str(event_id),
+            "p_skill": skill,
+            "p_attempt_id": str(attempt_id),
+            "p_learner_id": str(learner_id),
+            "p_question_number": int(question_number),
+            "p_event_name": event_name,
+            "p_payload": normalized,
+            "p_client_occurred_at": client_occurred_at,
+            "p_client_version": client_version,
+        }).execute().data
+    except Exception as exc:  # noqa: BLE001 — translate stable DB contract errors
+        message = str(exc)
+        if "event_id_conflict" in message or "23505" in message:
+            raise EventConflictError("Event id đã được dùng cho một nội dung khác.") from exc
+        if "transition_requires" in message:
+            raise PolicyError("Thứ tự mở gợi ý không hợp lệ; hãy tiếp tục từ bước đã lưu.") from exc
+        if "item_not_found" in message or "P0002" in message:
+            raise NotFoundError("Không tìm thấy item đã nộp để ghi tiến trình sửa bài.") from exc
+        if "evidence_required" in message or "output_incomplete" in message:
+            raise PolicyError("Nội dung sửa bài chưa đầy đủ hoặc vượt giới hạn.") from exc
+        raise CorrectionError("Không ghi được tiến trình sửa bài.") from exc
+    if not isinstance(result, dict) or not result.get("state"):
+        raise CorrectionError("Backend không trả lại correction state canonical.")
+    return result
+
+
 def result_payload(skill: str, attempt: dict) -> dict:
     grading = attempt.get("grading_details") or []
     payload = {
@@ -751,11 +850,22 @@ def approve_content_version(
     editorial_approved: bool,
     reason: str | None = None,
 ) -> dict:
-    before_rows = (supabase_admin.table("web_explanation_objects")
-                   .select("id,rights_status,editorial_status")
-                   .eq("content_version", content_version).execute().data) or []
+    before_rows: list[dict] = []
+    start = 0
+    while True:
+        page = (supabase_admin.table("web_explanation_objects")
+                .select("id,rights_status,editorial_status,binding_status")
+                .eq("content_version", content_version)
+                .range(start, start + 999).execute().data) or []
+        before_rows.extend(page)
+        if len(page) < 1000:
+            break
+        start += 1000
     if len(before_rows) != 2880:
         raise PolicyError("Chỉ duyệt collection hoàn chỉnh 2.880 objects.")
+    unbound = [row for row in before_rows if row.get("binding_status") != "BOUND"]
+    if unbound:
+        raise PolicyError("Không thể duyệt collection còn object UNBOUND_INTERNAL_QA.")
     update: dict[str, Any] = {}
     if rights_approved:
         update["rights_status"] = "APPROVED"
@@ -775,6 +885,88 @@ def approve_content_version(
     _log_release("content_version", content_version, "content_gate_approved",
                  before, after, actor_id, reason)
     return {"content_version": content_version, "updated": len(before_rows), **update}
+
+
+def content_health(content_version: str | None = None) -> dict:
+    """Return complete, paginated release-gate counts for admin QA."""
+    rows: list[dict] = []
+    start = 0
+    while True:
+        query = supabase_admin.table("web_explanation_objects").select(
+            "content_version,skill,rights_status,editorial_status,serving_status,"
+            "binding_status,is_current"
+        )
+        if content_version:
+            query = query.eq("content_version", content_version)
+        page = query.range(start, start + 999).execute().data or []
+        rows.extend(page)
+        if len(page) < 1000:
+            break
+        start += 1000
+
+    counts: dict[str, int] = {}
+    versions: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        key = "/".join(str(row.get(name)) for name in (
+            "skill", "rights_status", "editorial_status", "serving_status"
+        ))
+        counts[key] = counts.get(key, 0) + 1
+        version = str(row.get("content_version") or "unknown")
+        bucket = versions.setdefault(version, {
+            "object_count": 0,
+            "current_count": 0,
+            "rights_blocked": 0,
+            "editorial_blocked": 0,
+            "serving_blocked": 0,
+            "unbound_internal_qa": 0,
+        })
+        bucket["object_count"] += 1
+        bucket["current_count"] += int(bool(row.get("is_current")))
+        bucket["rights_blocked"] += int(row.get("rights_status") not in READY_RIGHTS)
+        bucket["editorial_blocked"] += int(row.get("editorial_status") not in READY_EDITORIAL)
+        bucket["serving_blocked"] += int(row.get("serving_status") not in AUTO_SERVABLE)
+        bucket["unbound_internal_qa"] += int(row.get("binding_status") == "UNBOUND_INTERNAL_QA")
+    return {
+        "content_version": content_version,
+        "object_count": len(rows),
+        "counts": counts,
+        "versions": versions,
+    }
+
+
+def _rows_by_ids(table: str, select: str, column: str, values: list[str]) -> list[dict]:
+    rows: list[dict] = []
+    for index in range(0, len(values), 200):
+        rows.extend((supabase_admin.table(table).select(select)
+                     .in_(column, values[index:index + 200]).execute().data) or [])
+    return rows
+
+
+def admin_item_timeline(item_attempt_id: str) -> dict:
+    item = _one("mock_item_attempts", item_attempt_id)
+    if not item:
+        raise NotFoundError("Không tìm thấy item attempt.")
+    sessions = (supabase_admin.table("mock_correction_sessions").select("*")
+                .eq("item_attempt_id", item_attempt_id).limit(1).execute().data) or []
+    events = (supabase_admin.table("mock_runtime_events").select(
+        "event_id,event_name,schema_version,sequence_no,client_occurred_at,"
+        "server_received_at,client_version,payload"
+    ).eq("item_attempt_id", item_attempt_id)
+              .order("sequence_no").order("server_received_at").limit(500).execute().data) or []
+    objects = []
+    if item.get("object_id"):
+        objects = (supabase_admin.table("web_explanation_objects").select(
+            "object_id,content_version,source_test_key,skill,book_number,test_number,"
+            "question_number,audit_verdict,rights_status,editorial_status,serving_status,is_current"
+        ).eq("object_id", item["object_id"]).eq("is_current", True)
+                   .limit(1).execute().data) or []
+    return {
+        "item": item,
+        "correction": sessions[0] if sessions else None,
+        "content": objects[0] if objects else None,
+        "events": events,
+        "events_truncated": len(events) == 500,
+    }
 
 
 def admin_performance_summary(
@@ -851,6 +1043,33 @@ def admin_performance_summary(
     high_confidence_errors = [row for row in scored
                               if not row.get("is_correct")
                               and int(row.get("post_test_confidence") or 0) >= 4]
+    item_ids = [str(row["id"]) for row in rows]
+    sessions = _rows_by_ids(
+        "mock_correction_sessions",
+        "id,item_attempt_id,state,last_sequence_no,updated_at",
+        "item_attempt_id",
+        item_ids,
+    ) if item_ids else []
+    session_by_item = {str(row["item_attempt_id"]): row for row in sessions}
+    for row in rows:
+        session = session_by_item.get(str(row["id"]))
+        row["correction_state"] = session.get("state") if session else None
+        row["correction_updated_at"] = session.get("updated_at") if session else None
+        row["correction_event_count"] = int(session.get("last_sequence_no") or 0) if session else 0
+
+    def reached(rank: int) -> int:
+        return sum(
+            1 for session in sessions
+            if CORRECTION_STATE_RANK.get(str(session.get("state")), 0) >= rank
+        )
+
+    wrong_items = [row for row in scored if not row.get("is_correct")]
+    wrong_item_ids = {str(row["id"]) for row in wrong_items}
+    correction_output_items = sum(
+        1 for session in sessions
+        if str(session.get("item_attempt_id")) in wrong_item_ids
+        and CORRECTION_STATE_RANK.get(str(session.get("state")), 0) >= 5
+    )
     return {
         "filters": {
             "learner_id": learner_id,
@@ -871,6 +1090,21 @@ def admin_performance_summary(
                                    if confidences else None),
             "high_confidence_errors": len(high_confidence_errors),
             "self_attribution_counts": dict(sorted(attributions.items())),
+            "wrong_items": len(wrong_items),
+            "correction_output_items": correction_output_items,
+            "correction_completion_rate": (
+                round(correction_output_items / len(wrong_items), 4) if wrong_items else None
+            ),
+            "correction_funnel": {
+                "result_seen": len(sessions),
+                "evidence_attempted": reached(1),
+                "location_hint_seen": reached(2),
+                "decisive_hint_seen": reached(3),
+                "full_explanation_seen": reached(4),
+                "correction_output_submitted": correction_output_items,
+                "correction_verified": reached(6),
+                "transfer_passed": reached(7),
+            },
         },
         "items": rows,
     }

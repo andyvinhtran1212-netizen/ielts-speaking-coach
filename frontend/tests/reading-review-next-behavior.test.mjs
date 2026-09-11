@@ -137,7 +137,8 @@ describe('native Reading review route contract', () => {
     assert.match(CLIENT, /function LegacySteps/);
     assert.match(CLIENT, /ref\.title[\s\S]{0,100}String\(ref\.title\)/);
     assert.match(CLIENT, /Câu \$\{item\.q_num\}.*xem trước/);
-    assert.match(CLIENT, /webExplanation \? <WebExplanationPanel/);
+    assert.match(CLIENT, /!webExplanation \? <>[\s\S]{0,240}<SolutionSection label="Các bước ra đáp án"/);
+    assert.match(CLIENT, /webExplanation && expanded \? <WebExplanationPanel/);
     assert.match(WEB_PANEL, /Chữa theo bằng chứng, không chỉ xem đáp án/);
     assert.match(WEB_PANEL, /Chốt bằng chứng của em/);
     assert.match(WEB_PANEL, /Mở lời giải đầy đủ/);

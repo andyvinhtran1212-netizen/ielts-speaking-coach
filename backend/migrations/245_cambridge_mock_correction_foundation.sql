@@ -9,6 +9,8 @@
 --
 -- Additive and idempotent. No existing question, answer or attempt is rewritten.
 -- Migrations 240–244 are reserved by the active Gate-F manifest worktree.
+-- Rollback: drop only the new tables/columns/functions before any QA observations
+-- exist; after event capture begins this migration is intentionally forward-only.
 -- ============================================================================
 
 BEGIN;
@@ -30,6 +32,9 @@ CREATE TABLE IF NOT EXISTS web_explanation_objects (
     rights_status       TEXT NOT NULL,
     editorial_status    TEXT NOT NULL,
     serving_status      TEXT NOT NULL,
+    binding_status      TEXT NOT NULL DEFAULT 'BOUND' CHECK (
+        binding_status IN ('BOUND', 'UNBOUND_INTERNAL_QA')
+    ),
     is_current          BOOLEAN NOT NULL DEFAULT FALSE,
     import_batch_id     UUID NOT NULL DEFAULT gen_random_uuid(),
     imported_by         UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -40,9 +45,14 @@ CREATE TABLE IF NOT EXISTS web_explanation_objects (
         object_id ~ '^cambridge-(1[3-9]|20|21)-test-[1-4]-(reading|listening)-q[0-9]{2}$'
     ),
     CONSTRAINT web_explanation_test_link CHECK (
-        (skill = 'reading' AND reading_test_id IS NOT NULL AND listening_test_id IS NULL)
+        (binding_status = 'UNBOUND_INTERNAL_QA'
+            AND reading_test_id IS NULL AND listening_test_id IS NULL)
         OR
-        (skill = 'listening' AND listening_test_id IS NOT NULL AND reading_test_id IS NULL)
+        (binding_status = 'BOUND' AND skill = 'reading'
+            AND reading_test_id IS NOT NULL AND listening_test_id IS NULL)
+        OR
+        (binding_status = 'BOUND' AND skill = 'listening'
+            AND listening_test_id IS NOT NULL AND reading_test_id IS NULL)
     )
 );
 
@@ -426,6 +436,16 @@ BEGIN
     END LOOP;
 END $$;
 
+REVOKE ALL ON TABLE
+    web_explanation_objects,
+    mock_item_attempts,
+    mock_post_test_captures,
+    mock_runtime_events,
+    mock_correction_sessions,
+    mock_error_hypotheses,
+    mock_correction_release_events
+FROM PUBLIC, anon, authenticated;
+
 GRANT ALL ON TABLE
     web_explanation_objects,
     mock_item_attempts,
@@ -444,5 +464,7 @@ REVOKE ALL ON FUNCTION fn_activate_web_explanation_version(TEXT, INTEGER)
     FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION fn_activate_web_explanation_version(TEXT, INTEGER)
     TO service_role;
+
+NOTIFY pgrst, 'reload schema';
 
 COMMIT;

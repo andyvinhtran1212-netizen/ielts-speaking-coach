@@ -1025,9 +1025,11 @@ export function MockExamRunner() {
       accountId: user?.id, method: 'POST', path: domainPath, input: { body, sitting_id: sittingId, section },
       acknowledged: (reply: any) => reply?.attempt_id === attemptId || (reply?.received === true && reply?.sealed === true),
     }, async (headers: Record<string, string>) => {
-      const domainAck = await window.api.postWith(domainPath, body, headers);
-      if (domainAck?.post_test_capture_required) {
-        await requestPostTestCapture(section, domainAck as CaptureEnvelope);
+      const domainResponse = await window.api.postWith<Partial<CaptureEnvelope> & {
+        attempt_id?: string; received?: boolean; sealed?: boolean;
+      }>(domainPath, body, headers);
+      if (domainResponse?.post_test_capture_required) {
+        await requestPostTestCapture(section, domainResponse as CaptureEnvelope);
       }
       // Keep the domain hint pending until the parent also acknowledges the
       // collection. A failed second step must retry the same two-step intent.
@@ -1035,7 +1037,7 @@ export function MockExamRunner() {
         `/api/mock-exams/sittings/${encodeURIComponent(sittingId)}/sections/${section}/submit`,
         {},
       );
-      return domainAck;
+      return domainResponse;
     });
   }, [flushEmbed, loadState, requestPostTestCapture, user?.id]);
 

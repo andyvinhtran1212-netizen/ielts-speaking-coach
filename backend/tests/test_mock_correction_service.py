@@ -162,3 +162,113 @@ def test_performance_summary_rejects_ambiguous_scope():
         assert "một scope" in str(exc)
     else:
         raise AssertionError("ambiguous admin performance scope was accepted")
+
+
+def test_correction_completion_counts_only_wrong_items(monkeypatch):
+    item_rows = [
+        {"id": "wrong-1", "learner_id": "u1", "skill": "reading",
+         "reading_attempt_id": "a1", "listening_attempt_id": None,
+         "object_id": "q1", "question_number": 1, "revision_count": 0,
+         "post_test_confidence": 3, "pre_reveal_self_attribution": [],
+         "is_correct": False, "score_awarded": 0, "submitted_at": "2026-09-11"},
+        {"id": "correct-1", "learner_id": "u1", "skill": "reading",
+         "reading_attempt_id": "a1", "listening_attempt_id": None,
+         "object_id": "q2", "question_number": 2, "revision_count": 0,
+         "post_test_confidence": 3, "pre_reveal_self_attribution": [],
+         "is_correct": True, "score_awarded": 1, "submitted_at": "2026-09-11"},
+    ]
+
+    class Result:
+        data = item_rows
+
+    class Query:
+        def select(self, *_args): return self
+        def eq(self, *_args): return self
+        def order(self, *_args, **_kwargs): return self
+        def limit(self, *_args): return self
+        def execute(self): return Result()
+
+    class Db:
+        def table(self, name):
+            assert name == "mock_item_attempts"
+            return Query()
+
+    monkeypatch.setattr(svc, "supabase_admin", Db())
+    monkeypatch.setattr(svc, "_rows_by_ids", lambda *_args: [
+        {"id": "s1", "item_attempt_id": "wrong-1",
+         "state": "CORRECTION_OUTPUT_SUBMITTED", "last_sequence_no": 6,
+         "updated_at": "2026-09-11"},
+        {"id": "s2", "item_attempt_id": "correct-1",
+         "state": "CORRECTION_OUTPUT_SUBMITTED", "last_sequence_no": 6,
+         "updated_at": "2026-09-11"},
+    ])
+
+    summary = svc.admin_performance_summary(skill="reading")["summary"]
+
+    assert summary["wrong_items"] == 1
+    assert summary["correction_output_items"] == 1
+    assert summary["correction_completion_rate"] == 1.0
+
+
+def test_correction_event_fails_closed_when_explanation_is_hidden(monkeypatch):
+    monkeypatch.setattr(svc, "fetch_owned_submitted_attempt", lambda *_: {
+        "id": "attempt-1", "test_id": "test-1", "status": "submitted",
+    })
+    monkeypatch.setattr(svc, "explanation_access", lambda *_: {
+        "allowed": False, "reason": "content_release_gates_blocked", "items": {},
+    })
+
+    try:
+        svc.record_correction_event(
+            "reading", "attempt-1", "learner-1", 7,
+            event_id="00000000-0000-0000-0000-000000000001",
+            event_name="correction_result_seen", payload={},
+        )
+    except svc.PolicyError as exc:
+        assert "admin" in str(exc)
+    else:
+        raise AssertionError("hidden explanation accepted a learner event")
+
+
+def test_correction_event_uses_rpc_canonical_state(monkeypatch):
+    class Result:
+        data = {"state": "EVIDENCE_ATTEMPTED", "sequence_no": 1, "replayed": False}
+
+    class Rpc:
+        def execute(self):
+            return Result()
+
+    captured = {}
+
+    class Db:
+        def rpc(self, name, params):
+            captured.update({"name": name, "params": params})
+            return Rpc()
+
+    monkeypatch.setattr(svc, "supabase_admin", Db())
+    monkeypatch.setattr(svc, "fetch_owned_submitted_attempt", lambda *_: {
+        "id": "attempt-1", "test_id": "test-1", "status": "submitted",
+    })
+    monkeypatch.setattr(svc, "explanation_access", lambda *_: {
+        "allowed": True, "items": {7: {"object_id": "cambridge-15-test-4-reading-q07"}},
+    })
+
+    result = svc.record_correction_event(
+        "reading", "attempt-1", "learner-1", 7,
+        event_id="00000000-0000-0000-0000-000000000001",
+        event_name="evidence_attempt_submitted",
+        payload={"evidence_response": "  Passage 1, paragraph 2  "},
+    )
+
+    assert result["state"] == "EVIDENCE_ATTEMPTED"
+    assert captured["name"] == "fn_record_mock_correction_event"
+    assert captured["params"]["p_payload"]["evidence_response"] == "Passage 1, paragraph 2"
+
+
+def test_correction_hint_requires_known_reveal_level():
+    try:
+        svc._validate_correction_payload("hint_revealed", {"hint_type": "answer"})
+    except svc.PolicyError as exc:
+        assert "hint_type" in str(exc)
+    else:
+        raise AssertionError("unknown hint reveal level was accepted")

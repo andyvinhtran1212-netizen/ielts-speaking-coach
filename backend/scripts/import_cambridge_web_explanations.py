@@ -314,7 +314,7 @@ def _chunks(rows: list[dict], size: int = 100) -> Iterable[list[dict]]:
         yield rows[start:start + size]
 
 
-def _bind_test_ids(rows: list[dict], db) -> None:
+def _bind_test_ids(rows: list[dict], db, *, allow_unbound_internal_qa: bool = False) -> None:
     reading = db.table("reading_tests").select("id,test_id").execute().data or []
     listening = db.table("listening_tests").select("id,test_id").execute().data or []
     by_skill = {
@@ -328,29 +328,55 @@ def _bind_test_ids(rows: list[dict], db) -> None:
         test_id = by_skill[row["skill"]].get(expected)
         if not test_id:
             missing.add(expected)
+            if allow_unbound_internal_qa:
+                row["binding_status"] = "UNBOUND_INTERNAL_QA"
+                row["serving_status"] = "INTERNAL_QA_UNBOUND"
             continue
         row[f"{row['skill']}_test_id"] = test_id
-    if missing:
+        row["binding_status"] = "BOUND"
+    if missing and not allow_unbound_internal_qa:
         raise ImportValidationError(
             "Không map được test production: " + ", ".join(sorted(missing))
         )
+    if missing:
+        print(
+            f"INTERNAL QA — {len(missing)} paper chưa có canonical row; "
+            "objects sẽ UNBOUND và không thể serve.",
+            file=sys.stderr,
+        )
 
 
-def commit_rows(rows: list[dict], imported_by: str | None = None) -> None:
+def commit_rows(
+    rows: list[dict],
+    imported_by: str | None = None,
+    *,
+    allow_unbound_internal_qa: bool = False,
+) -> None:
     from database import supabase_admin
 
-    _bind_test_ids(rows, supabase_admin)
+    _bind_test_ids(
+        rows, supabase_admin,
+        allow_unbound_internal_qa=allow_unbound_internal_qa,
+    )
     if imported_by:
         for row in rows:
             row["imported_by"] = imported_by
 
     version = rows[0]["content_version"]
-    existing = (
-        supabase_admin.table("web_explanation_objects")
-        .select("object_id,source_hash")
-        .eq("content_version", version)
-        .execute().data or []
-    )
+    existing: list[dict] = []
+    start = 0
+    while True:
+        page = (
+            supabase_admin.table("web_explanation_objects")
+            .select("object_id,source_hash,binding_status")
+            .eq("content_version", version)
+            .range(start, start + 999)
+            .execute().data or []
+        )
+        existing.extend(page)
+        if len(page) < 1000:
+            break
+        start += 1000
     existing_hash = {row["object_id"]: row["source_hash"] for row in existing}
     drift = [row["object_id"] for row in rows
              if row["object_id"] in existing_hash
@@ -360,6 +386,23 @@ def commit_rows(rows: list[dict], imported_by: str | None = None) -> None:
             "Content version đã tồn tại nhưng hash khác; tạo version mới: "
             + ", ".join(drift[:10])
         )
+
+    # Re-running after canonical papers arrive upgrades QA inventory rows from
+    # unbound to bound without mutating the versioned explanation payload.
+    incoming_by_id = {row["object_id"]: row for row in rows}
+    for existing_row in existing:
+        incoming = incoming_by_id.get(existing_row["object_id"])
+        if (incoming and existing_row.get("binding_status") == "UNBOUND_INTERNAL_QA"
+                and incoming.get("binding_status") == "BOUND"):
+            update = {
+                "binding_status": "BOUND",
+                "serving_status": incoming["serving_status"],
+                "reading_test_id": incoming.get("reading_test_id"),
+                "listening_test_id": incoming.get("listening_test_id"),
+            }
+            supabase_admin.table("web_explanation_objects").update(update).eq(
+                "object_id", incoming["object_id"],
+            ).eq("content_version", version).execute()
 
     missing = [row for row in rows if row["object_id"] not in existing_hash]
     for batch in _chunks(missing):
@@ -383,6 +426,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--commit", action="store_true",
                         help="Write the validated version to Supabase")
+    parser.add_argument(
+        "--allow-unbound-internal-qa",
+        action="store_true",
+        help=("Allow inventory-only import when canonical papers are absent. "
+              "Rows are marked UNBOUND_INTERNAL_QA and cannot be served."),
+    )
     parser.add_argument("--imported-by", default=None,
                         help="Optional admin user UUID for provenance")
     return parser.parse_args()
@@ -395,7 +444,10 @@ def main() -> int:
     if not args.commit:
         print("DRY RUN — không ghi database. Dùng --commit sau khi migration 245 đã được áp dụng.")
         return 0
-    commit_rows(rows, args.imported_by)
+    commit_rows(
+        rows, args.imported_by,
+        allow_unbound_internal_qa=args.allow_unbound_internal_qa,
+    )
     print(f"Đã import và kích hoạt version {report['content_version']} ({len(rows)} objects).")
     return 0
 

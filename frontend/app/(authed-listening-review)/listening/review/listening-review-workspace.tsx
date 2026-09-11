@@ -223,14 +223,15 @@ function QuestionCard({ item, expanded, preview, attemptId, onToggle, onLocate }
     </div>
     {win ? <div className="lr-card__tsrow"><button type="button" className="lr-card__ts" onClick={onLocate}>🔊 {timestamp}</button></div> : null}
     <div className="lr-card__detail" hidden={!expanded}>
-      {hasSolutionDetail ? <>
+      {webExplanation && expanded
+        ? <WebExplanationPanel object={webExplanation} skill="listening" attemptId={attemptId} questionNumber={Number(item.q_num)} persistenceEnabled={!preview && Boolean(attemptId)} />
+        : hasSolutionDetail ? <>
         <SolutionSection label="Dịch đoạn chứa đáp án">{solution.translation_vi ? <p>{inlineNodes(solution.translation_vi)}</p> : null}</SolutionSection>
         <SolutionSection label="Từ vựng">{vocab.length ? <ul className="lr-sol__bullets">{vocab.map((row) => <li key={row}>{inlineNodes(row)}</li>)}</ul> : null}</SolutionSection>
         <SolutionSection label="Paraphrase">{solution.paraphrase ? <p>{inlineNodes(solution.paraphrase)}</p> : null}</SolutionSection>
         <SolutionSection label="Vì sao đúng">{solution.why_correct ? <WhyCorrect value={solution.why_correct} /> : null}</SolutionSection>
         <SolutionSection label="Script" className="lr-sol__sec--script">{solution.script ? <p><ScriptBlock value={solution.script} /></p> : null}</SolutionSection>
         <SolutionSection label="Bẫy" className="lr-sol__sec--trap">{solution.trap ? <p>{inlineNodes(solution.trap)}</p> : null}</SolutionSection>
-        {webExplanation ? <WebExplanationPanel object={webExplanation} skill="listening" /> : null}
       </> : <p className="lr-sol__empty">Chưa có lời giải chi tiết.</p>}
     </div>
   </article>;

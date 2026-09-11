@@ -6,12 +6,13 @@ paper, score and historical attempts untouched.
 """
 from __future__ import annotations
 
-from typing import Literal
+from datetime import datetime
+from typing import Any, Literal
+from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from database import supabase_admin
 from routers.admin import require_admin
 from routers.auth import get_supabase_user
 from services import mock_correction_service as svc
@@ -61,10 +62,26 @@ class ContentApprovalBody(BaseModel):
     reason: str | None = Field(default=None, max_length=1000)
 
 
+class CorrectionEventBody(BaseModel):
+    event_id: UUID
+    event_name: Literal[
+        "correction_result_seen",
+        "evidence_attempt_submitted",
+        "hint_revealed",
+        "full_explanation_opened",
+        "correction_output_submitted",
+    ]
+    client_occurred_at: datetime | None = None
+    client_version: str | None = Field(default=None, max_length=120)
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
 def _service_error(exc: Exception) -> HTTPException:
     if isinstance(exc, svc.NotFoundError):
         return HTTPException(404, str(exc))
     if isinstance(exc, svc.CaptureConflictError):
+        return HTTPException(409, str(exc))
+    if isinstance(exc, svc.EventConflictError):
         return HTTPException(409, str(exc))
     if isinstance(exc, svc.PolicyError):
         return HTTPException(422, str(exc))
@@ -94,6 +111,32 @@ async def submit_post_test_capture(
             "result": svc.learner_result_payload(skill, attempt),
             "web_explanation_access": svc.public_access_metadata(access),
         }
+    except svc.CorrectionError as exc:
+        raise _service_error(exc) from exc
+
+
+@router.post("/{skill}/attempts/{attempt_id}/items/{question_number}/events")
+async def submit_correction_event(
+    skill: Literal["reading", "listening"],
+    attempt_id: str,
+    question_number: int,
+    body: CorrectionEventBody,
+    authorization: str | None = Header(default=None),
+):
+    user = await get_supabase_user(authorization)
+    try:
+        return svc.record_correction_event(
+            skill,
+            attempt_id,
+            user["id"],
+            question_number,
+            event_id=str(body.event_id),
+            event_name=body.event_name,
+            payload=body.payload,
+            client_occurred_at=(body.client_occurred_at.isoformat()
+                                if body.client_occurred_at else None),
+            client_version=body.client_version,
+        )
     except svc.CorrectionError as exc:
         raise _service_error(exc) from exc
 
@@ -172,16 +215,25 @@ async def content_version_health(
     authorization: str | None = Header(default=None),
 ):
     await require_admin(authorization)
-    rows = (supabase_admin.table("web_explanation_objects")
-            .select("skill,rights_status,editorial_status,serving_status")
-            .eq("content_version", content_version).execute().data) or []
-    counts: dict[str, int] = {}
-    for row in rows:
-        key = "/".join(str(row.get(k)) for k in (
-            "skill", "rights_status", "editorial_status", "serving_status"
-        ))
-        counts[key] = counts.get(key, 0) + 1
-    return {"content_version": content_version, "object_count": len(rows), "counts": counts}
+    return svc.content_health(content_version)
+
+
+@admin_router.get("/content-health")
+async def all_content_health(authorization: str | None = Header(default=None)):
+    await require_admin(authorization)
+    return svc.content_health()
+
+
+@admin_router.get("/items/{item_attempt_id}/timeline")
+async def item_timeline(
+    item_attempt_id: str,
+    authorization: str | None = Header(default=None),
+):
+    await require_admin(authorization)
+    try:
+        return svc.admin_item_timeline(item_attempt_id)
+    except svc.CorrectionError as exc:
+        raise _service_error(exc) from exc
 
 
 @admin_router.get("/performance")

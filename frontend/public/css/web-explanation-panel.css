@@ -1,5 +1,5 @@
 .wex-panel {
-  margin-top: var(--av-space-5);
+  margin-top: calc(var(--av-space-4) + var(--av-space-1));
   border: 1px solid var(--av-border-default);
   border-radius: var(--av-radius-lg);
   background: var(--av-surface-sunken);
@@ -49,6 +49,28 @@
   background: var(--av-surface-card);
 }
 
+.wex-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--av-space-3);
+  padding: var(--av-space-3) var(--av-space-4);
+  border-bottom: 1px solid var(--av-error);
+  color: var(--av-error);
+  background: var(--av-error-soft);
+}
+
+.wex-alert button {
+  flex: 0 0 auto;
+  border: 1px solid currentColor;
+  border-radius: var(--av-radius-md);
+  padding: var(--av-space-1) var(--av-space-2);
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
 .wex-stage button {
   padding: var(--av-space-2) var(--av-space-3);
   border: 0;
@@ -67,6 +89,34 @@
 
 .wex-stage--full > div + div {
   margin-top: var(--av-space-3);
+}
+
+.wex-output {
+  display: grid;
+  gap: var(--av-space-3);
+  padding: var(--av-space-3);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-md);
+  background: var(--av-surface-card);
+}
+
+.wex-output label,
+.wex-output label span {
+  display: grid;
+  gap: var(--av-space-1);
+}
+
+.wex-output label span {
+  color: var(--av-text-secondary);
+  font-weight: 700;
+}
+
+.wex-output textarea { margin: 0; }
+
+.wex-complete {
+  padding: var(--av-space-3);
+  border-left: 3px solid var(--av-success);
+  background: var(--av-surface-card);
 }
 
 .wex-repair {
