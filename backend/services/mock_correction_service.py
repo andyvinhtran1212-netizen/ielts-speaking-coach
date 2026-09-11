@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any, Iterable
 from uuid import uuid4
@@ -614,8 +615,40 @@ def _validate_correction_payload(event_name: str, payload: dict) -> dict:
             raise PolicyError(f"Trường {key} bắt buộc và không được vượt quá {limit} ký tự.")
         return value
 
+    def evidence_selection() -> dict:
+        raw = normalized.get("evidence_selection")
+        if raw is None:
+            return {}
+        if not isinstance(raw, dict):
+            raise PolicyError("evidence_selection phải là object.")
+        kind = str(raw.get("kind") or "")
+        if kind == "reading_text":
+            selected = str(raw.get("selected_text") or "").strip()
+            passage = raw.get("passage_order")
+            paragraph = raw.get("paragraph_index")
+            if (not 8 <= len(selected) <= 800 or not isinstance(passage, int)
+                    or isinstance(passage, bool) or passage < 1):
+                raise PolicyError("Vùng evidence Reading không hợp lệ.")
+            if paragraph is not None and (not isinstance(paragraph, int)
+                                          or isinstance(paragraph, bool) or paragraph < 1):
+                raise PolicyError("Vị trí đoạn Reading không hợp lệ.")
+            return {
+                "kind": kind, "passage_order": passage,
+                "paragraph_index": paragraph, "selected_text": selected,
+            }
+        if kind == "audio_timestamp":
+            seconds = raw.get("seconds")
+            if not isinstance(seconds, (int, float)) or isinstance(seconds, bool) or not 0 <= seconds <= 21600:
+                raise PolicyError("Mốc audio evidence không hợp lệ.")
+            return {"kind": kind, "seconds": round(float(seconds), 2)}
+        if kind in {"not_found", "restored"}:
+            return {"kind": kind}
+        raise PolicyError("Loại evidence_selection không hợp lệ.")
+
     if event_name == "evidence_attempt_submitted":
         normalized["evidence_response"] = required_text("evidence_response", 2000)
+        if "evidence_selection" in normalized:
+            normalized["evidence_selection"] = evidence_selection()
     elif event_name == "hint_revealed":
         if normalized.get("hint_type") not in {"location", "decisive"}:
             raise PolicyError("hint_type phải là location hoặc decisive.")
@@ -624,6 +657,18 @@ def _validate_correction_payload(event_name: str, payload: dict) -> dict:
         normalized["evidence_response"] = required_text("evidence_response", 2000)
         normalized["error_mechanism"] = required_text("error_mechanism", 1000)
         normalized["next_action"] = required_text("next_action", 1000)
+        if "evidence_selection" in normalized:
+            normalized["evidence_selection"] = evidence_selection()
+        code_patterns = {
+            "error_mechanism_code": r"(?:[a-z0-9][a-z0-9_\-]*|[RL]\d{2}-[A-Z0-9][A-Z0-9_\-]*)",
+            "next_action_code": r"[a-z0-9][a-z0-9_\-]*",
+        }
+        for key, pattern in code_patterns.items():
+            if key in normalized:
+                value = str(normalized.get(key) or "").strip()
+                if not value or len(value) > 80 or not re.fullmatch(pattern, value):
+                    raise PolicyError(f"{key} không hợp lệ.")
+                normalized[key] = value
     return normalized
 
 
@@ -647,6 +692,18 @@ def record_correction_event(
     if int(question_number) not in (access.get("items") or {}):
         raise NotFoundError("Không tìm thấy web explanation cho câu hỏi này.")
     normalized = _validate_correction_payload(event_name, payload)
+    selection = normalized.get("evidence_selection") or {}
+    if skill == "reading" and selection.get("kind") == "reading_text":
+        expected_passage = next((
+            row.get("passage_order")
+            for row in (attempt.get("grading_details") or [])
+            if (row.get("q_num") == int(question_number)
+                or row.get("question_number") == int(question_number))
+        ), None)
+        if (isinstance(expected_passage, int) and not isinstance(expected_passage, bool)
+                and expected_passage > 0
+                and selection.get("passage_order") != expected_passage):
+            raise PolicyError("Bằng chứng Reading không thuộc passage của câu hỏi này.")
     try:
         result = supabase_admin.rpc("fn_record_mock_correction_event", {
             "p_event_id": str(event_id),

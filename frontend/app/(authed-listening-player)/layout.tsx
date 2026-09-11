@@ -13,6 +13,7 @@ export default function ListeningPlayerLayout({ children }: { children: ReactNod
         '/css/listening-test-ui.css',
         '/css/listening-test-next.css',
         '/css/exam-result-next.css',
+        '/css/mock-post-test-capture.css',
       ]}
       extraScripts={<Script src="/js/mock-exam-hook.js" strategy="afterInteractive" />}
       utilityLayer={false}

@@ -32,6 +32,19 @@ export function readingReviewBackTarget(params) {
   return { href: '/reading/test', label: '← Thư viện' };
 }
 
+/** Accept selected text only while it still belongs to the question's passage. */
+export function readingEvidenceMatchesTarget(target, currentPassageOrder, selection) {
+  const questionNumber = target?.questionNumber;
+  const passageOrder = target?.passageOrder;
+  const selectedPassageOrder = selection?.locator?.passage_order;
+  return Number.isInteger(questionNumber)
+    && Number.isInteger(passageOrder)
+    && currentPassageOrder === passageOrder
+    && selection?.kind === 'reading_text'
+    && selection?.locator?.kind === 'reading_text'
+    && selectedPassageOrder === passageOrder;
+}
+
 /**
  * Fail closed on a malformed answer-key payload. A partially rendered review
  * can tell a learner that a missing answer is the canonical answer, so invalid

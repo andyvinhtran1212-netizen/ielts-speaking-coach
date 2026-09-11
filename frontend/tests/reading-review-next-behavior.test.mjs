@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   grammarKnowledgeHref,
   normalizeReadingReview,
+  readingEvidenceMatchesTarget,
   readingReviewBackTarget,
   readingReviewParams,
   readingReviewPrompt,
@@ -17,6 +18,7 @@ const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ROOT = path.dirname(FRONTEND);
 const read = (file) => readFileSync(path.join(ROOT, file), 'utf8');
 const CLIENT = read('frontend/app/(reading-review)/reading/review/reading-review-workspace.tsx');
+const LISTENING_CLIENT = read('frontend/app/(authed-listening-review)/listening/review/listening-review-workspace.tsx');
 const LAYOUT = read('frontend/app/(reading-review)/layout.tsx');
 const WEB_PANEL = read('frontend/components/web-explanation-panel.tsx');
 const WRITE_FLOW = read('frontend/tooling/write-flows/reading-review-microcheck.mjs');
@@ -104,6 +106,23 @@ describe('native Reading review model', () => {
     assert.equal(grammarKnowledgeHref({ type: 'grammar', category: 'articles', slug: 'a-an', anchor: 'rules' }), '/grammar/articles/a-an#rules');
     assert.equal(grammarKnowledgeHref({ type: 'skill', slug: 'scan' }), null);
   });
+
+  test('rejects evidence when the learner navigates away from its originating passage', () => {
+    const target = { questionNumber: 7, passageOrder: 1 };
+    const selection = {
+      kind: 'reading_text',
+      locator: { kind: 'reading_text', passage_order: 1, selected_text: 'source evidence' },
+    };
+    assert.equal(readingEvidenceMatchesTarget(target, 1, selection), true);
+    assert.equal(readingEvidenceMatchesTarget(target, 2, {
+      ...selection,
+      locator: { ...selection.locator, passage_order: 2 },
+    }), false);
+    assert.equal(readingEvidenceMatchesTarget(target, 1, {
+      ...selection,
+      locator: { ...selection.locator, passage_order: 2 },
+    }), false);
+  });
 });
 
 describe('native Reading review route contract', () => {
@@ -145,9 +164,21 @@ describe('native Reading review route contract', () => {
     assert.match(CLIENT, /Câu \$\{item\.q_num\}.*xem trước/);
     assert.match(CLIENT, /!webExplanation \? <>[\s\S]{0,240}<SolutionSection label="Các bước ra đáp án"/);
     assert.match(CLIENT, /webExplanation && expanded \? <WebExplanationPanel/);
-    assert.match(WEB_PANEL, /Chữa theo bằng chứng, không chỉ xem đáp án/);
-    assert.match(WEB_PANEL, /Chốt bằng chứng của em/);
+    assert.match(WEB_PANEL, /Tìm bằng chứng, thử lại, rồi mới mở lời giải/);
+    assert.match(WEB_PANEL, /Bôi chọn trong bài đọc/);
+    assert.match(WEB_PANEL, /evidence_selection/);
+    assert.match(CLIENT, /onMouseUp=\{captureSelection\}/);
+    assert.match(CLIENT, /selected_text: selectedText/);
+    assert.match(CLIENT, /setEvidenceTarget\(null\);[\s\S]{0,100}setCurrentPart\(item\.passage_order\)/);
+    assert.match(CLIENT, /readingEvidenceMatchesTarget\(target, currentPart, selection\)/);
     assert.match(WEB_PANEL, /Mở lời giải đầy đủ/);
+    assert.match(WEB_PANEL, /correctionRequired \? <>/);
+    assert.match(WEB_PANEL, /ĐỐI CHIẾU NHANH/);
+    assert.doesNotMatch(WEB_PANEL, /candidate_skill_codes/);
+    assert.match(WEB_PANEL, /Mốc nghe lại/);
+    assert.match(WEB_PANEL, /readableTimestamp/);
+    assert.match(LISTENING_CLIENT, /getCurrentTime\?\(\)/);
+    assert.match(LISTENING_CLIENT, /onReplayAudio=\{onLocate\}/);
     assert.match(LAYOUT, /web-explanation-panel\.css/);
   });
 

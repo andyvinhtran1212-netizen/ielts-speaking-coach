@@ -33,6 +33,23 @@
 .ach-kind label { min-height: 44px; padding: var(--av-space-2) var(--av-space-3); border: 1px solid transparent; border-radius: calc(var(--av-radius-lg) - 4px); color: var(--av-text-secondary); font-size: var(--av-fs-sm); font-weight: var(--av-fw-semibold); display: flex; align-items: center; gap: var(--av-space-2); cursor: pointer; }
 .ach-kind label:has(input:checked) { border-color: var(--av-primary-border); background: var(--av-primary-soft); color: var(--av-primary); box-shadow: var(--av-shadow-sm); }
 .ach-kind input { accent-color: var(--av-primary); }
+.ach-correction-policy { display: grid; gap: var(--av-space-4); }
+.ach-policy-group { display: grid; gap: var(--av-space-2); margin: 0; padding: var(--av-space-3); border: 1px solid var(--av-border-default); border-radius: var(--av-radius-lg); background: var(--av-surface-sunken); }
+.ach-policy-group legend { padding: 0 var(--av-space-1); color: var(--av-text-primary); font-size: var(--av-fs-sm); font-weight: var(--av-fw-bold); }
+.ach-policy-card,
+.ach-confidence-option { display: flex; align-items: flex-start; gap: var(--av-space-3); min-height: 44px; box-sizing: border-box; padding: var(--av-space-3); border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md); background: var(--av-surface-card); color: var(--av-text-primary); cursor: pointer; }
+.ach-policy-card:has(input:checked),
+.ach-confidence-option:has(input:checked) { border-color: var(--av-primary-border); background: var(--av-primary-soft); box-shadow: var(--av-shadow-sm); }
+.ach-policy-card input,
+.ach-confidence-option input { flex: 0 0 auto; margin-top: 3px; accent-color: var(--av-primary); }
+.ach-policy-card > span,
+.ach-confidence-option > span { display: grid; gap: var(--av-space-1); }
+.ach-policy-card small,
+.ach-confidence-option small { color: var(--av-text-secondary); font-weight: var(--av-fw-regular); line-height: var(--av-lh-normal); }
+.ach-policy-card.is-disabled,
+.ach-confidence-option.is-disabled { opacity: .55; cursor: not-allowed; }
+.ach-policy-summary { padding: var(--av-space-3); border-left: 3px solid var(--av-primary); border-radius: var(--av-radius-md); background: var(--av-primary-soft); color: var(--av-text-secondary); font-size: var(--av-fs-sm); line-height: var(--av-lh-normal); }
+.ach-policy-summary b { color: var(--av-text-primary); }
 
 .ach-question-list,
 .ach-recipient-list { max-height: 270px; padding: var(--av-space-2); border: 1px solid var(--av-border-default); border-radius: var(--av-radius-md); background: var(--av-surface-sunken); display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
