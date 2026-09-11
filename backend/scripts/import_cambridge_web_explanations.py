@@ -368,7 +368,7 @@ def commit_rows(
     while True:
         page = (
             supabase_admin.table("web_explanation_objects")
-            .select("object_id,source_hash,binding_status")
+            .select("object_id,source_hash,binding_status,is_current")
             .eq("content_version", version)
             .range(start, start + 999)
             .execute().data or []
@@ -390,19 +390,20 @@ def commit_rows(
     # Re-running after canonical papers arrive upgrades QA inventory rows from
     # unbound to bound without mutating the versioned explanation payload.
     incoming_by_id = {row["object_id"]: row for row in rows}
+    upgrades: list[dict] = []
     for existing_row in existing:
         incoming = incoming_by_id.get(existing_row["object_id"])
         if (incoming and existing_row.get("binding_status") == "UNBOUND_INTERNAL_QA"
                 and incoming.get("binding_status") == "BOUND"):
-            update = {
-                "binding_status": "BOUND",
-                "serving_status": incoming["serving_status"],
-                "reading_test_id": incoming.get("reading_test_id"),
-                "listening_test_id": incoming.get("listening_test_id"),
-            }
-            supabase_admin.table("web_explanation_objects").update(update).eq(
-                "object_id", incoming["object_id"],
-            ).eq("content_version", version).execute()
+            # Preserve active-version state throughout a resume.  Upserting the
+            # complete, hash-verified row in batches avoids 2,880 sequential
+            # PATCH round-trips while retaining the composite identity.
+            incoming["is_current"] = bool(existing_row.get("is_current"))
+            upgrades.append(incoming)
+    for batch in _chunks(upgrades):
+        supabase_admin.table("web_explanation_objects").upsert(
+            batch, on_conflict="object_id,content_version",
+        ).execute()
 
     missing = [row for row in rows if row["object_id"] not in existing_hash]
     for batch in _chunks(missing):
