@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { answerOptions } from '@/lib/web-explanation-model.mjs';
+import { answerOptions, candidateErrorOptions } from '@/lib/web-explanation-model.mjs';
 
 type Skill = 'reading' | 'listening';
 type EventName = 'correction_result_seen' | 'evidence_attempt_submitted'
@@ -31,51 +31,6 @@ const EVENT_STAGE: Record<EventName, number> = {
   correction_result_seen: 0, evidence_attempt_submitted: 1,
   hint_revealed: 2,
   full_explanation_opened: 4, correction_output_submitted: 5,
-};
-
-const ERROR_LABELS: Record<string, string> = {
-  answer_form: 'Sai dạng đáp án hoặc cách ghi',
-  word_limit: 'Không tuân thủ giới hạn từ',
-  grammar_fit: 'Chưa kiểm tra ngữ pháp quanh chỗ trống',
-  paraphrase_miss: 'Bỏ lỡ paraphrase',
-  author_view_vs_fact: 'Nhầm quan điểm tác giả với sự kiện',
-  contradiction_vs_absence: 'Nhầm mâu thuẫn với không có thông tin',
-  detail_as_main_idea: 'Chọn chi tiết thay cho ý chính',
-  diagram_reference: 'Đọc sai điểm tham chiếu trên sơ đồ',
-  distractor_capture: 'Bị phương án nhiễu dẫn hướng',
-  first_mention: 'Chốt theo thông tin được nhắc đầu tiên',
-  grammar_fit_only: 'Chỉ dựa vào ngữ pháp, chưa kiểm tra nghĩa',
-  keyword_matching: 'Ghép từ khóa mà chưa kiểm tra ý',
-  logic_relationship: 'Nhầm quan hệ logic',
-  mentioned_not_answer: 'Chọn chi tiết được nhắc nhưng không trả lời câu hỏi',
-  missed_self_correction: 'Bỏ lỡ chỗ người nói tự sửa',
-  number_or_name_decoding: 'Nghe sai số hoặc tên riêng',
-  option_load: 'Quá tải khi theo dõi nhiều phương án',
-  orientation_loss: 'Mất phương hướng trên bản đồ/sơ đồ',
-  over_inference: 'Suy luận vượt quá bằng chứng',
-  paragraph_function: 'Hiểu sai chức năng của đoạn',
-  partial_match: 'Chỉ khớp một phần thông tin',
-  partial_set: 'Chọn thiếu hoặc thừa phương án trong nhóm',
-  partial_truth: 'Phương án chỉ đúng một phần',
-  plural_or_number_agreement: 'Sai số ít/số nhiều',
-  polarity_flip: 'Bỏ lỡ từ phủ định hoặc đảo chiều ý',
-  position_tracking: 'Mất vị trí đang nghe',
-  reference_chain: 'Theo sai từ tham chiếu',
-  repeated_information: 'Nhầm thông tin được lặp lại',
-  scope_or_modifier: 'Bỏ sót từ giới hạn phạm vi',
-  sequence_tracking: 'Theo sai thứ tự thông tin',
-  sound_decoding: 'Không giải mã được cụm âm',
-  spatial_language: 'Hiểu sai ngôn ngữ chỉ vị trí',
-  spatial_orientation: 'Định hướng sai trên bản đồ',
-  speaker_attribution: 'Gán ý cho nhầm người nói',
-  word_boundary: 'Tách ranh giới từ sai khi nghe',
-  wrong_attribution: 'Gán nguyên nhân hoặc quan điểm sai đối tượng',
-  wrong_search_zone: 'Tìm bằng chứng sai vùng',
-  inference: 'Suy luận chưa đủ căn cứ',
-  spelling: 'Sai chính tả',
-  lost_audio_position: 'Mất vị trí trong audio',
-  could_not_hear: 'Không nghe rõ cụm quyết định',
-  other: 'Chưa xác định rõ nguyên nhân',
 };
 
 const NEXT_ACTIONS: Record<Skill, Array<[string, string]>> = {
@@ -183,16 +138,6 @@ function evidenceRows(value: unknown): EvidenceRow[] {
   }).filter((row) => row.location || row.quote || row.relation || row.timestamp);
 }
 
-function candidateErrorOptions(object: any): Array<[string, string]> {
-  const codes = Array.isArray(object?.remediation?.candidate_error_subtypes)
-    ? object.remediation.candidate_error_subtypes.map(clean).filter(Boolean) : [];
-  const seen = new Set<string>();
-  return [...codes, 'other'].filter((code) => {
-    if (seen.has(code)) return false;
-    seen.add(code); return true;
-  }).map((code) => [code, ERROR_LABELS[code] || code.replace(/_/g, ' ')]);
-}
-
 function EvidenceCards({ rows }: { rows: EvidenceRow[] }) {
   if (!rows.length) return <p>Chưa có vị trí nguồn đã duyệt.</p>;
   return <div className="wex-evidence-cards">{rows.map((row, index) => <article className="wex-evidence" key={`${index}-${row.location}-${row.timestamp}`}>
@@ -235,7 +180,10 @@ export function WebExplanationPanel({
     () => answerOptions(object, clean) as Array<[string, string]>,
     [object],
   );
-  const errorChoices = useMemo(() => candidateErrorOptions(object), [object]);
+  const errorChoices = useMemo(
+    () => candidateErrorOptions(object, clean) as Array<[string, string]>,
+    [object],
+  );
   const [localEvidence, setLocalEvidence] = useState<EvidenceSelection | null>(evidenceSelection);
   const [correctedAnswer, setCorrectedAnswer] = useState('');
   const [errorMechanism, setErrorMechanism] = useState('');

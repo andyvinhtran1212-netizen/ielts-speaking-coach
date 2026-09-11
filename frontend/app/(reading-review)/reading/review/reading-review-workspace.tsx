@@ -15,6 +15,7 @@ import { WebExplanationPanel, type EvidenceSelection } from '@/components/web-ex
 import {
   grammarKnowledgeHref,
   normalizeReadingReview,
+  readingEvidenceMatchesTarget,
   readingReviewBackTarget,
   readingReviewParams,
   readingReviewPrompt,
@@ -27,6 +28,7 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 type Phase = 'loading' | 'ready' | 'empty' | 'error';
 type PassageMode = 'original' | 'translation';
 type ReviewFilter = 'wrong' | 'all' | 'correct';
+type EvidenceTarget = { questionNumber: number; passageOrder: number };
 
 const SKILL_LABELS: Record<string, string> = {
   skimming: 'Đọc lướt ý chính',
@@ -427,7 +429,7 @@ export function ReadingReviewWorkspace() {
   const [currentQuestion, setCurrentQuestion] = useState<number | null>(null);
   const [mode, setMode] = useState<PassageMode>('original');
   const [highlight, setHighlight] = useState<string | null>(null);
-  const [evidenceQuestion, setEvidenceQuestion] = useState<number | null>(null);
+  const [evidenceTarget, setEvidenceTarget] = useState<EvidenceTarget | null>(null);
   const [evidenceSelections, setEvidenceSelections] = useState<Record<number, EvidenceSelection>>({});
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
   const [filter, setFilter] = useState<ReviewFilter>('all');
@@ -473,7 +475,7 @@ export function ReadingReviewWorkspace() {
     setSnapshot(null);
     setExpanded(new Set());
     setHighlight(null);
-    setEvidenceQuestion(null);
+    setEvidenceTarget(null);
     setEvidenceSelections({});
     setError('');
     setPhase('loading');
@@ -564,6 +566,7 @@ export function ReadingReviewWorkspace() {
 
   const selectQuestion = useCallback((item: any) => {
     if (filter !== 'all' && ((filter === 'wrong') === item.correct)) setFilter('all');
+    setEvidenceTarget(null);
     setCurrentPart(item.passage_order);
     setCurrentQuestion(item.q_num);
     setHighlight(null);
@@ -607,13 +610,18 @@ export function ReadingReviewWorkspace() {
           passage={passage}
           mode={mode}
           highlight={highlight}
-          evidenceQuestion={evidenceQuestion}
+          evidenceQuestion={evidenceTarget?.passageOrder === currentPart
+            ? evidenceTarget.questionNumber : null}
           onMode={(next) => { setMode(next); setHighlight(null); }}
           onEvidenceSelection={(selection) => {
-            if (evidenceQuestion === null) return;
-            setEvidenceSelections((previous) => ({ ...previous, [evidenceQuestion]: selection }));
+            const target = evidenceTarget;
+            if (!target || !readingEvidenceMatchesTarget(target, currentPart, selection)) {
+              setEvidenceTarget(null);
+              return;
+            }
+            setEvidenceSelections((previous) => ({ ...previous, [target.questionNumber]: selection }));
             setHighlight(selection.response.replace(/^.*?:\s*[“"]|[”"]$/g, ''));
-            setEvidenceQuestion(null);
+            setEvidenceTarget(null);
           }}
         />
         <div className="exam-divider" aria-hidden="true" />
@@ -658,7 +666,10 @@ export function ReadingReviewWorkspace() {
               setCurrentPart(item.passage_order);
               setMode('original');
               setHighlight(null);
-              setEvidenceQuestion(item.q_num);
+              setEvidenceTarget({
+                questionNumber: Number(item.q_num),
+                passageOrder: Number(item.passage_order),
+              });
             }}
             key={item.q_num}
           />) : <p className="exam-review-empty">Không có câu nào trong bộ lọc này ở Passage {currentPart}.</p>}</div>

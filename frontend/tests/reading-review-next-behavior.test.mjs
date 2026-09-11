@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   grammarKnowledgeHref,
   normalizeReadingReview,
+  readingEvidenceMatchesTarget,
   readingReviewBackTarget,
   readingReviewParams,
   readingReviewPrompt,
@@ -105,6 +106,23 @@ describe('native Reading review model', () => {
     assert.equal(grammarKnowledgeHref({ type: 'grammar', category: 'articles', slug: 'a-an', anchor: 'rules' }), '/grammar/articles/a-an#rules');
     assert.equal(grammarKnowledgeHref({ type: 'skill', slug: 'scan' }), null);
   });
+
+  test('rejects evidence when the learner navigates away from its originating passage', () => {
+    const target = { questionNumber: 7, passageOrder: 1 };
+    const selection = {
+      kind: 'reading_text',
+      locator: { kind: 'reading_text', passage_order: 1, selected_text: 'source evidence' },
+    };
+    assert.equal(readingEvidenceMatchesTarget(target, 1, selection), true);
+    assert.equal(readingEvidenceMatchesTarget(target, 2, {
+      ...selection,
+      locator: { ...selection.locator, passage_order: 2 },
+    }), false);
+    assert.equal(readingEvidenceMatchesTarget(target, 1, {
+      ...selection,
+      locator: { ...selection.locator, passage_order: 2 },
+    }), false);
+  });
 });
 
 describe('native Reading review route contract', () => {
@@ -151,6 +169,8 @@ describe('native Reading review route contract', () => {
     assert.match(WEB_PANEL, /evidence_selection/);
     assert.match(CLIENT, /onMouseUp=\{captureSelection\}/);
     assert.match(CLIENT, /selected_text: selectedText/);
+    assert.match(CLIENT, /setEvidenceTarget\(null\);[\s\S]{0,100}setCurrentPart\(item\.passage_order\)/);
+    assert.match(CLIENT, /readingEvidenceMatchesTarget\(target, currentPart, selection\)/);
     assert.match(WEB_PANEL, /Mở lời giải đầy đủ/);
     assert.match(WEB_PANEL, /correctionRequired \? <>/);
     assert.match(WEB_PANEL, /ĐỐI CHIẾU NHANH/);
