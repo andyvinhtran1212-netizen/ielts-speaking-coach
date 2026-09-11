@@ -54,6 +54,9 @@ The exception does not waive structural correctness:
   cache HTTP 308 responses.
 - Historical Gate E/Gate F records keep their original PASS, incomplete or
   waived status and must not be relabeled from this decision.
+- The temporary staging Gate E and high-frequency G2 rollout schedules are
+  retired after closure; both workflows remain manually dispatchable for
+  diagnostics. Normal PR/main regression checks remain enabled.
 
 ## Scope boundary
 

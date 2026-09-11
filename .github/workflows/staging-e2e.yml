@@ -1,5 +1,5 @@
 # Staging E2E (plan §11.3 — "staging-e2e", the real-backend suite; the PR-time
-# fixture smoke stays in backend-tests.yml). Four times daily + manual. NOT
+# fixture smoke stays in backend-tests.yml). Manual after Gate F closure. NOT
 # PR-blocking:
 # it exercises live staging infrastructure and must never gate unrelated PRs.
 #
@@ -19,15 +19,9 @@ permissions:
   actions: read
 
 on:
-  schedule:
-    # GitHub Actions cron is deliberate: this job runs a Playwright browser
-    # suite, which Vercel Cron Jobs (URL-invoking functions) cannot host.
-    # Space the four evidence runs six hours apart so the shared staging
-    # identities never overlap: 03:30, 09:30, 15:30 and 21:30 Asia/Ho_Chi_Minh.
-    - cron: "30 2,8,14,20 * * *"
-  # Dispatch manual evidence runs with `--ref main`. The job still checks out
-  # and tests `staging` below, while keeping the streak cache in the same
-  # default-branch scope as scheduled runs.
+  # Gate E v20 passed and Gate F was closed by owner exception on 2026-09-11.
+  # Keep the live suite available for release diagnostics without continuing
+  # the four-runs-per-day rollout evidence schedule indefinitely.
   workflow_dispatch:
 
 jobs:
