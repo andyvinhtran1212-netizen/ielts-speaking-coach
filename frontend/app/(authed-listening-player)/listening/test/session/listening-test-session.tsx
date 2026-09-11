@@ -300,9 +300,13 @@ function Exercise({ exercise, answers, saveStates, onAnswer }: {
   else if (['mcq_letter_label', 'plan_label'].includes(kind)) content = <SelectTemplate payload={payload} questions={questions} answers={answers} onAnswer={onAnswer} plan />;
   else content = <QuestionRows questions={questions} answers={answers} onAnswer={onAnswer} />;
   const affected = questions.map((question: any) => Number(question.q_num)).filter((qNum: number) => saveStates.has(qNum));
+  const supportingVisual = !['mcq_letter_label', 'plan_label'].includes(kind)
+    ? String(payload.map_image_url || '')
+    : '';
   return <section className="ielts-question-block" data-template-kind={kind}>
     {questions.length ? <div className="ielts-block-header">{first === last ? `Question ${first}` : `Questions ${first}–${last}`}</div> : null}
     {payload.instruction || payload.instructions ? <div className="ielts-instruction"><p><InlineText text={payload.instruction || payload.instructions} /></p></div> : null}
+    {supportingVisual ? <figure className="listening-next-supporting-visual"><img className="ielts-map-rendered" src={supportingVisual} alt={`Visual for questions ${first}${first === last ? '' : ` to ${last}`}`} /></figure> : null}
     {content}
     {affected.length ? <small className="listening-next-exercise-save" role="status">Câu {affected.join(', ')} chưa lưu xong.</small> : null}
   </section>;
