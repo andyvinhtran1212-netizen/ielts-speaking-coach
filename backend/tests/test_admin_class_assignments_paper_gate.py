@@ -22,6 +22,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from routers import admin_class_assignments as mod
+from services import mock_correction_service
 
 
 class _Resp:
@@ -48,11 +49,19 @@ class _Table:
         return _Resp(self._rows)
 
 
-def _db(paper):
+def _db(paper, *, skill="reading", mapped=True):
     rows = [paper] if paper else []
     db = type("DB", (), {})()
-    db.table = lambda name: _Table(rows if name in ("reading_tests", "listening_tests")
-                                   else [{"id": "c1"}])
+    def table(name):
+        if name in ("reading_tests", "listening_tests"):
+            return _Table(rows)
+        if name == "exam_content_cohorts":
+            return _Table([{
+                "content_kind": skill,
+                "content_id": "uuid-1", "cohort_id": "c1",
+            }] if mapped else [])
+        return _Table([{"id": "c1"}])
+    db.table = table
     return db
 
 
@@ -73,11 +82,21 @@ def _playable(**over):
     return row
 
 
-async def _create(paper, skill="reading", **body_overrides):
+async def _create(
+    paper, skill="reading", *, mapped=True, explanation_ready=True, **body_overrides,
+):
+    def explanation_guard(*_args, **_kwargs):
+        if not explanation_ready:
+            raise mock_correction_service.CorrectionError(
+                "Web explanation chưa đủ 40/40 câu qua release gate."
+            )
+        return "v1"
+
     with patch.object(mod, "require_admin", AsyncMock(return_value={"id": "adm"})), \
          patch.object(mod, "_require_cohort", lambda _c: None), \
-         patch.object(mod, "supabase_admin", _db(paper)), \
+         patch.object(mod, "supabase_admin", _db(paper, skill=skill, mapped=mapped)), \
          patch("services.mock_correction_service.assert_scored_paper_ready", lambda *_a, **_k: None), \
+         patch("services.mock_correction_service.assert_explanation_content_ready", explanation_guard), \
          patch.object(mod, "create_class_assignment",
                       lambda *a, **k: {"assignment": {"id": "a1"}, "student_count": 3,
                                        "unactivated_count": 0}):
@@ -115,6 +134,52 @@ async def test_a_reserved_paper_can_be_given_with_item_scoped_entitlement(skill)
         web_explanation_mode="immediate_after_capture",
     )
     assert out["student_count"] == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("skill", ["reading", "listening"])
+@pytest.mark.parametrize("delivery_mode", ["standard", "assigned_practice"])
+async def test_immediate_explanations_require_40_of_40_for_every_delivery_mode(
+    skill, delivery_mode,
+):
+    paper = _playable() if skill == "listening" else {
+        "id": "uuid-1", "title": "Đề đọc", "status": "published", "exam_only": False,
+    }
+    with pytest.raises(Exception) as exc:
+        await _create(
+            paper,
+            skill,
+            explanation_ready=False,
+            delivery_mode=delivery_mode,
+            web_explanation_mode="immediate_after_capture",
+        )
+    assert getattr(exc.value, "status_code", None) == 400
+    assert "40/40" in str(getattr(exc.value, "detail", ""))
+
+    out = await _create(
+        paper,
+        skill,
+        explanation_ready=True,
+        delivery_mode=delivery_mode,
+        web_explanation_mode="immediate_after_capture",
+    )
+    assert out["student_count"] == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("skill", ["reading", "listening"])
+async def test_a_reserved_paper_must_be_mapped_to_the_target_class(skill):
+    paper = {"id": "uuid-1", "title": "Cam 18 Test 1", "status": "published",
+             "exam_only": True}
+    if skill == "listening":
+        paper["assembled_audio_storage_path"] = "cam18/test1.mp3"
+        paper["full_audio_storage_path"] = None
+    with pytest.raises(Exception) as exc:
+        await _create(
+            paper, skill, mapped=False, delivery_mode="assigned_practice",
+        )
+    assert getattr(exc.value, "status_code", None) == 400
+    assert "chưa được gán cho lớp" in str(getattr(exc.value, "detail", ""))
 
 
 @pytest.mark.asyncio

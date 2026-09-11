@@ -48,6 +48,28 @@ def test_web_object_is_attached_only_after_release_gate(monkeypatch):
     assert review[0]["web_explanation_object"]["object_id"] == "q1"
 
 
+def test_class_release_cannot_bypass_global_content_gates(monkeypatch):
+    monkeypatch.setattr(svc, "_one", lambda *_a, **_k: {
+        "id": "assignment-1", "skill": "reading", "content_id": "paper-1",
+        "content_config": {"correction_policy": {
+            "web_explanation_mode": "admin_release",
+        }},
+    })
+    monkeypatch.setattr(
+        svc,
+        "assert_explanation_content_ready",
+        lambda *_a, **_k: (_ for _ in ()).throw(svc.PolicyError("rights blocked")),
+    )
+    try:
+        svc.update_class_assignment_policy(
+            "assignment-1", {"release_now": True}, "admin-1",
+        )
+    except svc.PolicyError as exc:
+        assert "rights blocked" in str(exc)
+    else:
+        raise AssertionError("class release bypassed the global explanation gates")
+
+
 def test_explanation_release_is_atomic_at_paper_level(monkeypatch):
     rows = [{
         "object_id": f"q{i:02d}",

@@ -421,7 +421,7 @@ describe('workflow and provenance contract', () => {
     assert.match(WORKFLOW, /EVIDENCE_GIT_REF: \$\{\{ steps\.source_revision\.outputs\.ref \}\}/);
     assert.match(
       WORKFLOW,
-      /name: Capture staging release provenance[\s\S]*?GATE_E_SOURCE_SHA: \$\{\{ steps\.source_revision\.outputs\.sha \}\}[\s\S]*?capture-gate-e-staging-provenance\.mjs/,
+      /name: Capture staging release provenance[\s\S]*?GATE_E_SOURCE_SHA: \$\{\{ steps\.source_revision\.outputs\.sha \}\}[\s\S]*?GATE_E_PROVENANCE_REQUIRED: 'true'[\s\S]*?capture-gate-e-staging-provenance\.mjs/,
     );
     assert.match(CAPTURE, /if \(!shaPattern\.test\(sourceSha\)\) throw new Error\('source-sha-invalid'\)/);
     for (const tool of [
@@ -474,8 +474,8 @@ describe('workflow and provenance contract', () => {
 
     assert.match(WORKFLOW, /^  schedule:\n(?:\s*#.*\n)*\s+- cron: "11 1 \* \* \*"/m,
       'the rollback-pin monitor must keep an automated daily trigger');
-    assert.match(gateJob, /^    if: github\.event_name == 'workflow_dispatch'$/m,
-      'a scheduled run must skip the retired Gate E staging suite');
+    assert.match(gateJob, /^    if: github\.event_name == 'workflow_dispatch' \|\| github\.event_name == 'push'$/m,
+      'staging releases and manual diagnostics run E2E while the daily schedule skips it');
     assert.match(driftJob, /^    if: github\.ref == 'refs\/heads\/main'$/m,
       'the scheduled default-branch run must compare production with main HEAD');
   });

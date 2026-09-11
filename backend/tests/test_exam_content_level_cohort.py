@@ -306,6 +306,28 @@ def test_filters(db):
     assert svc.list_exam_content(cohort_id="nope")["items"] == []
 
 
+def test_exam_catalog_surfaces_paper_level_explanation_readiness(db):
+    _seed_three(db)
+    db.t["web_explanation_objects"] = [{
+        "reading_test_id": "r1", "listening_test_id": None, "is_current": True,
+        "rights_status": "APPROVED", "editorial_status": "APPROVED",
+        "serving_status": "ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES",
+    } for _ in range(40)]
+    rows = {row["kind"]: row for row in svc.list_exam_content()["items"]}
+    assert rows["reading"]["web_explanation_ready"] is True
+    assert rows["reading"]["web_explanation_ready_count"] == 40
+    assert rows["reading"]["web_explanation_state"] == "ready"
+    assert rows["listening"]["web_explanation_state"] == "none"
+
+    db.t["web_explanation_objects"][0]["editorial_status"] = (
+        "GENERATED_REQUIRES_EDITORIAL_REVIEW"
+    )
+    row = {item["kind"]: item for item in svc.list_exam_content()["items"]}["reading"]
+    assert row["web_explanation_ready"] is False
+    assert row["web_explanation_ready_count"] == 39
+    assert row["web_explanation_state"] == "blocked"
+
+
 def test_one_broken_library_does_not_blank_the_whole_screen(db, monkeypatch):
     """An admin looking at 3 libraries should still see 2 when one errors —
     returning nothing reads as "there are no papers", which is worse."""

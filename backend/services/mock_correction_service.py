@@ -219,6 +219,13 @@ def assert_scored_paper_ready(skill: str, test_id: str, *, db=None) -> None:
         )
 
 
+def assert_explanation_content_ready(
+    skill: str, test_id: str, version: str | None = None,
+) -> str:
+    """Public guard for policies that promise explanations can be revealed."""
+    return _assert_public_content_ready(skill, test_id, version)
+
+
 def apply_scoring_overrides(skill: str, test_id: str, answer_key: list[dict]) -> list[dict]:
     """Overlay only human-adjudicated matcher variants on the runtime key."""
     overrides: dict[int, dict] = {}
@@ -720,7 +727,9 @@ def _log_release(scope_type: str, scope_id: str, action: str, before: dict,
 
 
 def update_class_assignment_policy(assignment_id: str, patch: dict, actor_id: str) -> dict:
-    assignment = _one("class_assignments", assignment_id, "id,skill,content_config")
+    assignment = _one(
+        "class_assignments", assignment_id, "id,skill,content_id,content_config",
+    )
     if not assignment:
         raise NotFoundError("Không tìm thấy bài giao.")
     if assignment.get("skill") not in SKILLS:
@@ -732,6 +741,14 @@ def update_class_assignment_policy(assignment_id: str, patch: dict, actor_id: st
     if mode not in PRACTICE_EXPLANATION_MODES:
         raise PolicyError("Chế độ explanation của bài luyện không hợp lệ.")
     if patch.get("release_now"):
+        if mode != "admin_release":
+            raise PolicyError("Chỉ phát tay explanation ở chế độ chờ admin duyệt.")
+        version = assert_explanation_content_ready(
+            assignment["skill"],
+            assignment.get("content_id"),
+            after.get("content_version"),
+        )
+        after["content_version"] = version
         after["released_at"] = _now_iso()
         after["released_by"] = actor_id
     elif mode == "admin_release" and (

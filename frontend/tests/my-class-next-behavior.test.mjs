@@ -189,6 +189,43 @@ describe('assignment start contract', () => {
     });
   });
 
+  test('submitted Reading and Listening remain actionable from My Class', () => {
+    for (const skill of ['reading', 'listening']) {
+      const normalized = normalizeMyClassResponse(payload({
+        assignments: [assignment({
+          state: 'submitted', submitted_at: '2026-08-19T18:23:55Z', score: 7,
+          assignment: { ...assignment().assignment, skill },
+        })],
+        progress: { total: 1, submitted: 1, todo: 0, missing: 0, late: 0, on_time_pct: 100 },
+      }));
+      assert.deepEqual(assignmentAction(normalized.assignments[0]), {
+        kind: 'review', label: 'Xem kết quả & chữa bài',
+      });
+    }
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'reading',
+      review_attempt_id: 'read/1',
+    }, 'item-1'), {
+      kind: 'review', url: '/reading/review?attempt_id=read%2F1&from=my-class',
+    });
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'listening',
+      review_attempt_id: 'listen/1',
+    }, 'item-1'), {
+      kind: 'review', url: '/listening/review?attempt_id=listen%2F1&from=my-class',
+    });
+  });
+
+  test('Reading and Listening review pages preserve class return paths', () => {
+    const readingReview = readFileSync(new URL('../public/js/reading-review.js', import.meta.url), 'utf8');
+    const listeningReview = readFileSync(new URL('../public/js/listening-review.js', import.meta.url), 'utf8');
+
+    for (const source of [readingReview, listeningReview]) {
+      assert.match(source, /'my-class':\s*\{\s*href:\s*'\/my-class'/);
+      assert.match(source, /admin:\s*\{\s*href:\s*'\/admin\/classes'/);
+    }
+  });
+
   test('completed Speaking sessions go to canonical result, never a historical player', () => {
     assert.deepEqual(normalizeClassStartResponse({
       item_id: 'item-1', assignment_id: 'a', skill: 'speaking',

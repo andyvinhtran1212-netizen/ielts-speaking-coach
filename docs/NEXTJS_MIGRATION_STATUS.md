@@ -26,10 +26,16 @@ the exception closes the remaining hold without relabeling waived soak as PASS.
 - **JS/MJS/CSS are retained.** These files remain shared Next runtime, archived
   fixture or compatibility dependencies. Their presence does not constitute a
   legacy page renderer and is not a Gate F blocker.
-- **Rollout cron is retired.** The four-times-daily staging Gate E suite and
-  the high-frequency G2 authenticated probe are manual-only after closure.
-  PR/main regression gates, the daily parity safety check and the lightweight
-  daily production release-drift monitor remain active.
+- **Rollout cron is retired.** The four-times-daily staging Gate E schedule and
+  the high-frequency G2 authenticated probe remain retired after closure.
+  The live suite now runs once for each merged `staging` release (and remains
+  manually dispatchable), making staging an exact-SHA production promotion
+  gate. PR regression gates and the lightweight daily production release-drift
+  monitor remain active.
+- **Releases are staging-first.** Normal work starts from and targets `staging`.
+  Production accepts only a `staging` → `main` promotion PR after exact-SHA
+  integrated CI and live Staging E2E pass. See
+  [the release runbook](STAGING_FIRST_RELEASE_FLOW.md).
 - **First-party workflow actions use Node 24 runtimes.** Legacy Node 20 majors
   were removed from active and manually dispatchable workflows, with a source
   contract preventing their accidental reintroduction.

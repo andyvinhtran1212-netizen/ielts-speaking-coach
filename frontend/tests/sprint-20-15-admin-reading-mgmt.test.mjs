@@ -146,10 +146,15 @@ describe('Sprint 20.15 — backend admin endpoints', () => {
   test('admin DELETE /tests/{test_id} branches on attempt count (Lesson 9)', () => {
     // 0 attempts → hard delete; >0 → soft `archived`. Cascade-wiping
     // student attempts would be the Lesson-9 "shortcut workaround"
-    // the sprint explicitly refused.
+    // the sprint explicitly refused. A live class assignment must be rejected
+    // before either withdrawal branch can run.
     assert.match(
       router,
-      /admin_delete_reading_test[\s\S]{0,2000}attempt_count\s*>\s*0[\s\S]{0,400}status['"]:\s*['"]archived['"]/,
+      /admin_delete_reading_test[\s\S]{0,1800}active_exam_assignment_references/,
+    );
+    assert.match(
+      router,
+      /admin_delete_reading_test[\s\S]{0,2600}attempt_count\s*>\s*0[\s\S]{0,400}status['"]:\s*['"]archived['"]/,
     );
     assert.match(
       router,

@@ -1,4 +1,4 @@
-const ORIGINS = new Set(['full', 'mini', 'drill', 'practice', 'mock']);
+const ORIGINS = new Set(['full', 'mini', 'drill', 'practice', 'mock', 'my-class', 'admin']);
 
 const text = (value) => String(value ?? '').trim();
 const finiteNumber = (value) => {
@@ -21,6 +21,8 @@ export function listeningReviewBackTarget(params) {
   if (params?.from === 'mini') return { href: '/listening/mini-test', label: '← Mini tests' };
   if (params?.from === 'drill') return { href: '/listening/skills', label: '← Luyện kĩ năng' };
   if (params?.from === 'practice') return { href: '/listening/practice', label: '← Luyện nhanh' };
+  if (params?.from === 'my-class') return { href: '/my-class', label: '← Lớp học của tôi' };
+  if (params?.from === 'admin') return { href: '/admin/classes', label: '← Quản lý lớp' };
   if (params?.from === 'mock' && params?.sittingId) {
     return {
       href: `/mock/result?sitting=${encodeURIComponent(params.sittingId)}`,

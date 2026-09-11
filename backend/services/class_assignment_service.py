@@ -894,6 +894,22 @@ def is_accepting_submissions(assignment: Dict[str, Any], *,
     return (now or datetime.now(timezone.utc)) <= parsed
 
 
+def active_exam_assignment_references(
+    db, skill: str, content_id: str, *, now: Optional[datetime] = None,
+) -> List[Dict[str, Any]]:
+    """Return class gives that would break if an exam paper were withdrawn."""
+    if skill not in ("reading", "listening"):
+        raise ValueError("skill must be reading or listening")
+    rows = _paged(
+        db,
+        "class_assignments",
+        "id,title,status,publish_at,due_at",
+        lambda q: q.eq("skill", skill).eq("content_id", str(content_id)),
+    )
+    at = now or datetime.now(timezone.utc)
+    return [row for row in rows if is_accepting_submissions(row, now=at)]
+
+
 def validate_class_item_for_session(
     db,
     user_id: str,
