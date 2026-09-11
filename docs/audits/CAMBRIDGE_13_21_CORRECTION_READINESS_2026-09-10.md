@@ -5,7 +5,9 @@
 Implementation is isolated on `codex/cambridge-mock-correction-v1` in a dedicated
 worktree rebased onto Gate F. Migrations 245, 246 and 257 and the content import
 have been applied only to the staging/internal-QA database. No production write,
-public-practice flag, explanation release, deploy, or push has been performed.
+public-practice flag, explanation release, or shared staging backend deploy has
+been performed. The implementation is pushed only to a draft PR and a Vercel
+Preview; neither action makes the hidden QA papers learner-visible.
 
 Migration `245_cambridge_mock_correction_foundation.sql` deliberately follows
 Gate F migrations 240–244. Migration 257 adds the durable per-item event state
@@ -87,13 +89,17 @@ attempt rows are not deleted or rewritten.
 
 - Content version: `cambridge-web-explanations/2026-09-10-v1`.
 - Imported/current: 2,880 / 2,880 objects.
-- Canonical Cambridge parents present in QA: 0 Reading and 0 Listening papers.
-- Therefore all 2,880 rows are `UNBOUND_INTERNAL_QA`, have zero test FK links,
-  and use serving status `INTERNAL_QA_UNBOUND`.
+- Canonical Cambridge parents present in QA: 36 Reading and 36 Listening papers,
+  with 40 questions per skill paper and no broken explanation foreign keys.
+- All 2,880 rows are bound to their canonical hidden paper/question identities,
+  are current, and use serving status `ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES`.
 - Rights remain `BLOCKED_PENDING_RIGHTS_REVIEW`; editorial remains
   `GENERATED_REQUIRES_EDITORIAL_REVIEW`.
-- Approval rejects any version containing an unbound object. Direct anon/auth
-  table privileges are revoked and deny-all RLS remains enabled.
+- Every parent is still `draft`, `exam_only=true`,
+  `public_practice_enabled=false`, and `web_explanation_mode=disabled`.
+- Private storage contains 36 Listening audio files, 14 Listening visual assets,
+  and 2 Reading visual assets. Direct anon/auth table privileges are revoked and
+  deny-all RLS remains enabled.
 
 ## Verification completed
 
@@ -105,21 +111,24 @@ attempt rows are not deleted or rewritten.
 - TypeScript typecheck: passed.
 - Next.js production build: passed; 137 pages generated, including
   `/admin/mock-exams/corrections`.
+- The native Listening player now renders all 14 imported Listening visuals:
+  ten map/plan assets through the plan renderer and four supporting flowcharts
+  through the generic signed-asset path. The focused controller suite passed
+  22/22 after this correction.
 - Migration SQL executed successfully on internal QA; repeat execution of 257
   confirmed its upgrade path is idempotent.
 - `git diff --check`: passed.
 
-## Required decisions before production
+## Required decisions before learner release
 
-1. Seed the 72 canonical Cambridge Reading/Listening paper rows into an isolated
-   QA scope, then rerun the importer to replace `UNBOUND_INTERNAL_QA` with real
-   test FK bindings. Do not synthesize placeholder parent papers.
-2. Deploy the backend/frontend branch to an internal environment before UI/event
-   end-to-end testing; the current operation intentionally migrated/imported data
-   only and did not deploy application code.
-3. Provide explicit rights approval and editorial approval before any learner-
+1. Deploy the backend branch to an isolated internal environment before live
+   UI/event end-to-end testing. The Vercel Preview exists, but the shared Railway
+   staging service has deliberately not been advanced by this workstream.
+2. Provide explicit rights approval and editorial approval before any learner-
    visible web explanation release. The current source metadata is not evidence
    of either approval.
-4. When the canonical C15 T4 Reading parent is seeded, rerun migration 246 (or its
-   scoped repair) so Q07 requires both words. Q11 needs no audio replacement; its
-   release override records the corrected timebase adjudication.
+3. Keep item/paper release disabled until internal QA validates the admin release
+   controls and the practice-immediate versus mock-admin-release result paths.
+   C15 T4 Reading Q07 is already repaired in the canonical parent; C19 T2
+   Listening Q11 needs no audio replacement and retains its corrected timebase
+   adjudication.
