@@ -28,7 +28,8 @@ the exception closes the remaining hold without relabeling waived soak as PASS.
   legacy page renderer and is not a Gate F blocker.
 - **Rollout cron is retired.** The four-times-daily staging Gate E suite and
   the high-frequency G2 authenticated probe are manual-only after closure.
-  PR/main regression gates and the daily parity safety check remain active.
+  PR/main regression gates, the daily parity safety check and the lightweight
+  daily production release-drift monitor remain active.
 - **Historical Gate E v20: PASS 20/20**, source `17159ba0`, final
   [run 34337714920](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/34337714920).
   Its [original manifest](audits/GATE_E_V20_COMPLETED_MANIFEST_2026-09-09.json)

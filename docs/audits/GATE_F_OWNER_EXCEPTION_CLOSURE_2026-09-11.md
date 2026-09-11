@@ -56,7 +56,8 @@ The exception does not waive structural correctness:
   waived status and must not be relabeled from this decision.
 - The temporary staging Gate E and high-frequency G2 rollout schedules are
   retired after closure; both workflows remain manually dispatchable for
-  diagnostics. Normal PR/main regression checks remain enabled.
+  diagnostics. Normal PR/main regression checks and the daily production
+  release-drift monitor remain enabled.
 
 ## Scope boundary
 

@@ -1,6 +1,6 @@
 # Staging E2E (plan §11.3 — "staging-e2e", the real-backend suite; the PR-time
-# fixture smoke stays in backend-tests.yml). Manual after Gate F closure. NOT
-# PR-blocking:
+# fixture smoke stays in backend-tests.yml). Gate E is manual after Gate F
+# closure; the lightweight production drift monitor remains daily. NOT PR-blocking:
 # it exercises live staging infrastructure and must never gate unrelated PRs.
 #
 # Required repo secrets:
@@ -19,6 +19,10 @@ permissions:
   actions: read
 
 on:
+  schedule:
+    # Keep the rollback-pin monitor alive without running the retired Gate E
+    # rollout suite. Scheduled workflows run from the default branch (main).
+    - cron: "11 1 * * *"
   # Gate E v20 passed and Gate F was closed by owner exception on 2026-09-11.
   # Keep the live suite available for release diagnostics without continuing
   # the four-runs-per-day rollout evidence schedule indefinitely.
@@ -26,6 +30,9 @@ on:
 
 jobs:
   staging-e2e:
+    # The workflow-level daily trigger exists only for production-release-drift.
+    # Gate E itself runs solely when an operator dispatches it.
+    if: github.event_name == 'workflow_dispatch'
     # AUDIT F4: staging is a SHARED live environment (shared smoke identities,
     # environment-global kill-switch flips). Two simultaneous runs corrupt
     # each other's state, so runs are QUEUED, never concurrent.
@@ -435,7 +442,7 @@ jobs:
   # docs/GATE_B_EVIDENCE_2026-07-13.md): an Instant Rollback leaves the
   # project pinned and silently stops auto-promotion; six merges once built
   # Ready production deployments that never received the domain. This job
-  # fails the nightly whenever production is not serving main HEAD.
+  # fails the daily check whenever production is not serving main HEAD.
   production-release-drift:
     runs-on: ubuntu-latest
     timeout-minutes: 5
