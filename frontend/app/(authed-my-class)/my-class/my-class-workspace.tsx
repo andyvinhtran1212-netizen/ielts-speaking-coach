@@ -80,6 +80,7 @@ type StartTarget =
   | { kind: 'stable-player'; url: string }
   | { kind: 'admission'; url: string }
   | { kind: 'result'; url: string }
+  | { kind: 'review'; url: string }
   | { kind: 'create-speaking'; body: {
       mode: string; part: number; topic: string; class_assignment_item_id: string;
     } };
@@ -572,7 +573,7 @@ export function MyClassWorkspace() {
         window.location.assign(target.url);
         return;
       }
-      if (target.kind === 'result') {
+      if (target.kind === 'result' || target.kind === 'review') {
         router.push(target.url);
         return;
       }

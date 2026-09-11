@@ -13,6 +13,7 @@ import logging
 from typing import Iterable, Optional
 
 from database import supabase_admin
+from services.mock_correction_service import AUTO_SERVABLE, READY_EDITORIAL, READY_RIGHTS
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +130,69 @@ def cohorts_for(kind: str, content_ids: Iterable[str]) -> dict:
     return out
 
 
+def explanation_readiness_for(kind: str, content_ids: Iterable[str]) -> dict:
+    """Per-paper release readiness, fetched in batches for the admin picker."""
+    ids = [str(value) for value in (content_ids or []) if value]
+    if kind not in ("reading", "listening"):
+        return {}
+    out = {
+        value: {
+            "web_explanation_count": 0,
+            "web_explanation_ready_count": 0,
+            "web_explanation_ready": False,
+            "web_explanation_state": "none",
+        }
+        for value in ids
+    }
+    fk = f"{kind}_test_id"
+    try:
+        for index in range(0, len(ids), _ID_CHUNK):
+            chunk = ids[index:index + _ID_CHUNK]
+            rows = _paged(
+                lambda c=chunk: supabase_admin.table("web_explanation_objects")
+                .select(
+                    f"{fk},rights_status,editorial_status,serving_status"
+                )
+                .eq("is_current", True)
+                .in_(fk, c)
+                .order(fk)
+            )
+            for row in rows:
+                paper_id = str(row.get(fk) or "")
+                if paper_id not in out:
+                    continue
+                bucket = out[paper_id]
+                bucket["web_explanation_count"] += 1
+                if (row.get("rights_status") in READY_RIGHTS
+                        and row.get("editorial_status") in READY_EDITORIAL
+                        and row.get("serving_status") in AUTO_SERVABLE):
+                    bucket["web_explanation_ready_count"] += 1
+    except Exception:  # catalog stays usable, but never claims readiness
+        logger.exception("[exam-content] explanation readiness failed for %s", kind)
+        return {
+            value: {
+                "web_explanation_count": None,
+                "web_explanation_ready_count": None,
+                "web_explanation_ready": None,
+                "web_explanation_state": "unknown",
+            }
+            for value in ids
+        }
+    for bucket in out.values():
+        total = bucket["web_explanation_count"]
+        ready = bucket["web_explanation_ready_count"]
+        bucket["web_explanation_ready"] = total == 40 and ready == 40
+        if total == 0:
+            bucket["web_explanation_state"] = "none"
+        elif total != 40:
+            bucket["web_explanation_state"] = "incomplete"
+        elif ready != 40:
+            bucket["web_explanation_state"] = "blocked"
+        else:
+            bucket["web_explanation_state"] = "ready"
+    return out
+
+
 def list_exam_content(kind: Optional[str] = None,
                       course_level: Optional[str] = None,
                       cohort_id: Optional[str] = None,
@@ -169,10 +233,12 @@ def list_exam_content(kind: Optional[str] = None,
         if exam_only is not None:
             rows = [r for r in rows if bool(r.get("exam_only")) is exam_only]
         by_content = cohorts_for(k, [r["id"] for r in rows])
+        explanation_by_content = explanation_readiness_for(k, [r["id"] for r in rows])
         for r in rows:
             cids = by_content.get(str(r["id"]), [])
             if cohort_id and str(cohort_id) not in cids:
                 continue
+            explanation = explanation_by_content.get(str(r["id"]), {})
             out.append({
                 "kind":         k,
                 "id":           r["id"],
@@ -187,6 +253,7 @@ def list_exam_content(kind: Optional[str] = None,
                 "web_explanation_mode": r.get("web_explanation_mode"),
                 "course_level": r.get("course_level"),
                 "cohort_ids":   cids,
+                **explanation,
             })
     out.sort(key=lambda r: (r["kind"], (r["code"] or r["title"] or "").lower()))
     return {"items": out, "failed_kinds": failed}

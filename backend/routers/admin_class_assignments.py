@@ -239,6 +239,29 @@ def _require_cohort(cohort_id: str) -> None:
         raise HTTPException(404, "Không tìm thấy lớp")
 
 
+def _assert_exam_content_scoped_to_cohort(
+    kind: str, content_id: str, cohort_id: str, *, exam_only: bool,
+) -> None:
+    """Enforce intended-class mappings at the canonical assignment write."""
+    try:
+        rows = (
+            supabase_admin.table("exam_content_cohorts")
+            .select("cohort_id")
+            .eq("content_kind", kind)
+            .eq("content_id", str(content_id))
+            .execute().data
+        ) or []
+    except Exception as exc:
+        # Protected papers fail closed when their assignment scope is unknown.
+        raise HTTPException(503, "Chưa kiểm tra được lớp được phép dùng đề này.") from exc
+    allowed = {str(row.get("cohort_id")) for row in rows if row.get("cohort_id")}
+    # Ordinary unscoped library papers preserve their shared-pool behaviour.
+    # exam_only content always needs an explicit class mapping; once any paper
+    # has mappings it may only be given to those classes.
+    if (exam_only and not allowed) or (allowed and str(cohort_id) not in allowed):
+        raise HTTPException(400, "Đề chưa được gán cho lớp này trong kho đề kỳ thi.")
+
+
 @router.get("/{cohort_id}/assignments")
 async def list_assignments(
     cohort_id: str,
@@ -2164,6 +2187,12 @@ async def create_assignment(
             raise HTTPException(404, "Không tìm thấy đề này.")
         if (rows[0].get("status") or "") != "published":
             raise HTTPException(400, "Đề này chưa xuất bản — hãy xuất bản trước khi giao.")
+        _assert_exam_content_scoped_to_cohort(
+            body.skill,
+            rows[0]["id"],
+            cohort_id,
+            exam_only=bool(rows[0].get("exam_only")),
+        )
         if rows[0].get("exam_only") and body.delivery_mode != "assigned_practice":
             # Reserved for mock sittings (mig 170): the student endpoints answer
             # 404 to anyone without one. Published is not the same as openable,
@@ -2173,14 +2202,20 @@ async def create_assignment(
                 400,
                 "Đề này ở kho kỳ thi. Hãy chọn chế độ giao luyện tập có kiểm soát.",
             )
-        if body.delivery_mode == "assigned_practice":
-            from services import mock_correction_service
-            try:
+        from services import mock_correction_service
+        try:
+            if body.delivery_mode == "assigned_practice":
                 mock_correction_service.assert_scored_paper_ready(
                     body.skill, rows[0]["id"], db=supabase_admin
                 )
-            except mock_correction_service.CorrectionError as exc:
-                raise HTTPException(400, str(exc)) from exc
+            if body.web_explanation_mode == "immediate_after_capture":
+                mock_correction_service.assert_explanation_content_ready(
+                    body.skill,
+                    rows[0]["id"],
+                    body.web_explanation_content_version,
+                )
+        except mock_correction_service.CorrectionError as exc:
+            raise HTTPException(400, str(exc)) from exc
         if body.skill == "listening" and not (
             rows[0].get("assembled_audio_storage_path")
             or rows[0].get("full_audio_storage_path")

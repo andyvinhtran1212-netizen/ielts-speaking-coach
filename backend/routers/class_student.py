@@ -432,19 +432,6 @@ async def start_assignment(
             response["renderer_affinity"] = existing["renderer_affinity"]
         return response
 
-    # A submitted course item reopens in a read-only review lane. Keep this
-    # before the deadline gate: expiry blocks a new attempt, not access to the
-    # learner's persisted result. `review_only` prevents the runner from
-    # creating another quiz session.
-    if assignment.get("skill") == "course" and item.get("submitted_at"):
-        return {
-            "item_id":       item_id,
-            "assignment_id": assignment["id"],
-            "skill":         "course",
-            "bank_id":       assignment.get("content_id"),
-            "review_only":   True,
-        }
-
     # Bài theo buổi ĐÃ NỘP mở lại ở lane chỉ-đọc. Đặt trước cổng deadline giống
     # Speaking: hết hạn chặn lượt làm mới, không xoá quyền xem kết quả đã lưu.
     # `review_only` đi tới runner để nó tuyệt đối không dựng quiz session mới.
@@ -457,12 +444,32 @@ async def start_assignment(
             "review_only":   True,
         }
 
+    # Reading/Listening đã nộp phải mở lại ĐÚNG attempt đã đóng sổ. Đây là
+    # đường học viên quay lại chữa bài sau khi rời màn kết quả, và đặc biệt là
+    # sau khi admin phát explanation ở chế độ `admin_release`. Đặt trước cổng
+    # deadline và trước kiểm tra trạng thái đề: hết hạn hoặc hạ đề khỏi kho chỉ
+    # chặn lượt MỚI, không được xoá quyền đọc kết quả đã lưu.
+    skill = assignment.get("skill")
+    if skill in ("reading", "listening") and item.get("submitted_at"):
+        expected_kind = f"{skill}_attempt"
+        attempt_id = item.get("artifact_id")
+        if item.get("artifact_kind") != expected_kind or not attempt_id:
+            raise HTTPException(
+                409,
+                "Bài đã nộp nhưng chưa đối chiếu được kết quả. Hãy tải lại trang.",
+            )
+        return {
+            "item_id":           item_id,
+            "assignment_id":     assignment["id"],
+            "skill":             skill,
+            "review_attempt_id": str(attempt_id),
+        }
+
     # 409, not 404: the task exists and is theirs — it simply lapsed. Saying "not
     # found" would read as a bug to a student looking straight at it on the list.
     if not is_accepting_submissions(assignment):
         raise HTTPException(409, "Đã quá hạn nộp — bài tập này không còn nhận bài.")
 
-    skill = assignment.get("skill")
     if skill not in ("speaking", "reading", "listening", "course"):
         raise HTTPException(400, "Bài tập này chưa hỗ trợ mở trực tiếp.")
 

@@ -409,6 +409,29 @@ async def test_the_link_carries_the_item_id(skill, content):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "skill,content,artifact_kind,attempt_id",
+    [
+        ("reading", "uuid-abc", "reading_attempt", "read-attempt-1"),
+        ("listening", "uuid-xyz", "listening_attempt", "listen-attempt-1"),
+    ],
+)
+async def test_submitted_test_homework_reopens_the_persisted_review(
+    skill, content, artifact_kind, attempt_id,
+):
+    tables = {"class_assignment_items": [{
+        "id": "item-1", "student_id": "s1", "assignment_id": "a1",
+        "state": "submitted", "submitted_at": NOW.isoformat(),
+        "artifact_kind": artifact_kind, "artifact_id": attempt_id,
+    }]}
+    out = await _start(_start_db(skill=skill, content_id=content, tables=tables))
+    assert out == {
+        "item_id": "item-1", "assignment_id": "a1", "skill": skill,
+        "review_attempt_id": attempt_id,
+    }
+
+
+@pytest.mark.asyncio
 async def test_a_reading_paper_that_vanished_says_so_instead_of_a_dead_link():
     db = _start_db(skill="reading", content_id="uuid-gone", tables={"reading_tests": []})
     with pytest.raises(Exception) as exc:

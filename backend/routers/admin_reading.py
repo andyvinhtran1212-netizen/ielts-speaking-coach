@@ -33,6 +33,7 @@ from fastapi import APIRouter, File, Header, HTTPException, Query, UploadFile
 
 from database import supabase_admin
 from routers.admin import require_admin
+from services.class_assignment_service import active_exam_assignment_references
 from services.content_import_service import (
     FrontmatterError,
     _split_frontmatter,
@@ -814,6 +815,16 @@ async def admin_delete_reading_test(
     await require_admin(authorization)
     test = _fetch_admin_test_or_404(test_id)
     test_uuid = test["id"]
+
+    active_gives = active_exam_assignment_references(
+        supabase_admin, "reading", test_uuid,
+    )
+    if active_gives:
+        names = ", ".join(str(row.get("title") or row["id"]) for row in active_gives[:3])
+        raise HTTPException(
+            409,
+            f"Đề đang được giao trong bài còn nhận nộp: {names}. Hãy đóng bài giao trước.",
+        )
 
     # Count attempt rows. We use a head-style count so we don't haul
     # the rows themselves into memory; a single int back from supabase

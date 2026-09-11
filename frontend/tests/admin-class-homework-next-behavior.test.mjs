@@ -93,8 +93,10 @@ describe('admin class homework model — canonical truth', () => {
 
   test('keeps protected Cambridge papers assignable only through controlled practice', () => {
     const options = normalizeCatalog({ items: [
-      { id: 'cam-r', title: 'Cambridge 18 Test 1', status: 'published', exam_only: true },
-    ] }, 'exam', 'reading');
+      { id: 'cam-r', title: 'Cambridge 18 Test 1', status: 'published', exam_only: true,
+        cohort_ids: ['class-5'], web_explanation_ready: true, web_explanation_state: 'ready',
+        web_explanation_count: 40, web_explanation_ready_count: 40 },
+    ] }, 'exam', 'reading', 'class-5');
     assert.equal(options[0].ready, true);
     assert.equal(options[0].exam_only, true);
     const base = {
@@ -109,6 +111,26 @@ describe('admin class homework model — canonical truth', () => {
     assert.equal(controlled.body.delivery_mode, 'assigned_practice');
     assert.equal(controlled.body.web_explanation_mode, 'immediate_after_capture');
     assert.equal(controlled.body.post_test_capture_required, true);
+  });
+
+  test('fails closed for protected papers outside the class and locked immediate explanations', () => {
+    const outside = normalizeCatalog({ items: [{
+      id: 'cam-r', title: 'Cambridge 18', status: 'published', exam_only: true,
+      cohort_ids: ['another-class'], web_explanation_state: 'blocked',
+      web_explanation_count: 40, web_explanation_ready_count: 0,
+    }] }, 'exam', 'reading', 'class-5')[0];
+    assert.equal(outside.ready, false);
+    assert.equal(outside.reason, 'Chưa gán cho lớp này trong kho đề');
+
+    const locked = normalizeCatalog({ items: [{
+      id: 'cam-r', title: 'Cambridge 18', status: 'published', exam_only: true,
+      cohort_ids: ['class-5'], web_explanation_state: 'blocked',
+      web_explanation_count: 40, web_explanation_ready_count: 0,
+    }] }, 'exam', 'reading', 'class-5');
+    const draft = { ...homeworkDraft(), skill: 'reading', title: 'Practice', contentId: 'cam-r',
+      deliveryMode: 'assigned_practice', webExplanationMode: 'immediate_after_capture' };
+    assert.equal(validateHomeworkDraft(draft, locked).ok, false);
+    assert.equal(validateHomeworkDraft({ ...draft, webExplanationMode: 'admin_release' }, locked).ok, true);
   });
 
   test('normalizes paginated action-log details without claiming failed reads are empty', () => {
@@ -130,6 +152,8 @@ describe('admin class homework — integration contracts', () => {
     assert.match(UI, /onOpenSubmissions\?\.\(assignment\)/);
     assert.match(SUBMISSIONS, /\/assignments\/\$\{encodeURIComponent\(assignment\.id\)\}\/tally/);
     assert.doesNotMatch(UI, /pages\/admin\/classes\/index\.html\?cohort_id|markingHref/);
+    assert.match(SUBMISSIONS, /artifact_kind === 'reading_attempt'/);
+    assert.match(SUBMISSIONS, /artifact_kind === 'listening_attempt'/);
   });
 
   test('never exposes destructive delete when progress is unknown', () => {
