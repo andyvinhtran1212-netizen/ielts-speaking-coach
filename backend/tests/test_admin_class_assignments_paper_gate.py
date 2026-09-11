@@ -22,6 +22,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from routers import admin_class_assignments as mod
+from services import mock_correction_service
 
 
 class _Resp:
@@ -81,12 +82,21 @@ def _playable(**over):
     return row
 
 
-async def _create(paper, skill="reading", *, mapped=True, **body_overrides):
+async def _create(
+    paper, skill="reading", *, mapped=True, explanation_ready=True, **body_overrides,
+):
+    def explanation_guard(*_args, **_kwargs):
+        if not explanation_ready:
+            raise mock_correction_service.CorrectionError(
+                "Web explanation chưa đủ 40/40 câu qua release gate."
+            )
+        return "v1"
+
     with patch.object(mod, "require_admin", AsyncMock(return_value={"id": "adm"})), \
          patch.object(mod, "_require_cohort", lambda _c: None), \
          patch.object(mod, "supabase_admin", _db(paper, skill=skill, mapped=mapped)), \
          patch("services.mock_correction_service.assert_scored_paper_ready", lambda *_a, **_k: None), \
-         patch("services.mock_correction_service.assert_explanation_content_ready", lambda *_a, **_k: "v1"), \
+         patch("services.mock_correction_service.assert_explanation_content_ready", explanation_guard), \
          patch.object(mod, "create_class_assignment",
                       lambda *a, **k: {"assignment": {"id": "a1"}, "student_count": 3,
                                        "unactivated_count": 0}):
@@ -121,6 +131,36 @@ async def test_a_reserved_paper_can_be_given_with_item_scoped_entitlement(skill)
     out = await _create(
         paper, skill,
         delivery_mode="assigned_practice",
+        web_explanation_mode="immediate_after_capture",
+    )
+    assert out["student_count"] == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("skill", ["reading", "listening"])
+@pytest.mark.parametrize("delivery_mode", ["standard", "assigned_practice"])
+async def test_immediate_explanations_require_40_of_40_for_every_delivery_mode(
+    skill, delivery_mode,
+):
+    paper = _playable() if skill == "listening" else {
+        "id": "uuid-1", "title": "Đề đọc", "status": "published", "exam_only": False,
+    }
+    with pytest.raises(Exception) as exc:
+        await _create(
+            paper,
+            skill,
+            explanation_ready=False,
+            delivery_mode=delivery_mode,
+            web_explanation_mode="immediate_after_capture",
+        )
+    assert getattr(exc.value, "status_code", None) == 400
+    assert "40/40" in str(getattr(exc.value, "detail", ""))
+
+    out = await _create(
+        paper,
+        skill,
+        explanation_ready=True,
+        delivery_mode=delivery_mode,
         web_explanation_mode="immediate_after_capture",
     )
     assert out["student_count"] == 3

@@ -2202,20 +2202,20 @@ async def create_assignment(
                 400,
                 "Đề này ở kho kỳ thi. Hãy chọn chế độ giao luyện tập có kiểm soát.",
             )
-        if body.delivery_mode == "assigned_practice":
-            from services import mock_correction_service
-            try:
+        from services import mock_correction_service
+        try:
+            if body.delivery_mode == "assigned_practice":
                 mock_correction_service.assert_scored_paper_ready(
                     body.skill, rows[0]["id"], db=supabase_admin
                 )
-                if body.web_explanation_mode == "immediate_after_capture":
-                    mock_correction_service.assert_explanation_content_ready(
-                        body.skill,
-                        rows[0]["id"],
-                        body.web_explanation_content_version,
-                    )
-            except mock_correction_service.CorrectionError as exc:
-                raise HTTPException(400, str(exc)) from exc
+            if body.web_explanation_mode == "immediate_after_capture":
+                mock_correction_service.assert_explanation_content_ready(
+                    body.skill,
+                    rows[0]["id"],
+                    body.web_explanation_content_version,
+                )
+        except mock_correction_service.CorrectionError as exc:
+            raise HTTPException(400, str(exc)) from exc
         if body.skill == "listening" and not (
             rows[0].get("assembled_audio_storage_path")
             or rows[0].get("full_audio_storage_path")
