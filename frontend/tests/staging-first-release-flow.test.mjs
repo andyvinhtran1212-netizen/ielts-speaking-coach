@@ -9,6 +9,7 @@ const read = (relative) => readFileSync(path.join(ROOT, relative), 'utf8');
 const PROMOTION = read('.github/workflows/staging-promotion-gate.yml');
 const STAGING_E2E = read('.github/workflows/staging-e2e.yml');
 const RELEASE_SMOKE = read('.github/workflows/staging-release-smoke.yml');
+const PRODUCTION_DRIFT = read('.github/workflows/production-release-drift.yml');
 const BACKEND = read('.github/workflows/backend-tests.yml');
 const TYPECHECK = read('.github/workflows/typecheck.yml');
 const ROUTES = read('.github/workflows/route-manifest.yml');
@@ -79,5 +80,14 @@ describe('staging-first production release contract', () => {
     assert.match(RUNBOOK, /head `staging`\s+and base `main`/);
     assert.match(AGENT_RULES, /PR base is `staging`, never `main`/);
     assert.match(AGENT_RULES, /head `staging` and base `main`/);
+  });
+
+  test('production drift compares the serving release with repository main', () => {
+    assert.match(PRODUCTION_DRIFT, /^  schedule:\n    - cron:/m);
+    assert.match(PRODUCTION_DRIFT, /^  workflow_dispatch:$/m);
+    assert.match(PRODUCTION_DRIFT, /git\/ref\/heads\/main/);
+    assert.match(PRODUCTION_DRIFT, /runtime-config\.js/);
+    assert.match(PRODUCTION_DRIFT, /SERVING.*!=.*MAIN_SHA/s);
+    assert.doesNotMatch(PRODUCTION_DRIFT, /GITHUB_SHA/);
   });
 });
