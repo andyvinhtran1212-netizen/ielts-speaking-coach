@@ -255,6 +255,33 @@ def test_admin_summary_separates_near_pass_from_hand_in_receipt():
     assert out["flags"] == [], "gần đạt là outcome, không phải cảnh báo admin"
 
 
+def test_course_assignment_action_fails_safe_for_a_malformed_legacy_ledger():
+    assignment = {
+        "status": "published",
+        "publish_at": None,
+        "due_at": "2999-01-01T00:00:00+00:00",
+        "content_config": {"pass_pct": 80},
+    }
+    item = {"passed_at": None, "mastery": {"attempts": {"bad": "shape"}}}
+    assert qs.course_assignment_action(item, assignment) == "start"
+
+
+def test_completed_pass_is_terminal_even_if_legacy_receipt_is_missing():
+    assignment = {
+        "status": "published", "publish_at": None,
+        "due_at": "2999-01-01T00:00:00+00:00",
+        "content_config": {"pass_pct": 80},
+    }
+    item = {
+        "passed_at": "2026-08-20T00:00:00+00:00", "submitted_at": None,
+        "mastery": {"attempts": [{"completed": True, "pct": 90,
+                                    "next_action": "passed"}]},
+    }
+    assert qs.course_assignment_action(
+        item, assignment, writing_expected=True,
+    ) == "review"
+
+
 def test_admin_summary_uses_required_sections_for_the_denominator():
     item = {"passed_at": None, "mastery": {"attempts": [{
         "completed": False, "pct": None,

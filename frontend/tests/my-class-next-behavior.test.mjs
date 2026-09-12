@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 import {
   assignmentAction,
+  courseNeedsAction,
   nextDue,
   normalizeClassStartResponse,
   normalizeMyClassResponse,
@@ -187,6 +188,56 @@ describe('assignment start contract', () => {
     }, 'item-1'), {
       kind: 'course', bankId: 'bank-1', itemId: 'item-1', reviewOnly: true,
     });
+  });
+
+  test('an incomplete submitted course item stays in the work queue after extension', () => {
+    const normalized = normalizeMyClassResponse(payload({
+      assignments: [assignment({
+        state: 'graded', submitted_at: '2026-08-19T18:23:55Z',
+        course_action: 'continue',
+      })],
+      progress: { total: 1, submitted: 0, todo: 1, missing: 0, late: 0, on_time_pct: null },
+    }));
+    const row = normalized.assignments[0];
+    assert.equal(courseNeedsAction(row), true);
+    assert.equal(normalized.progress.todo, 1);
+    assert.deepEqual(normalized.warnings, []);
+    assert.deepEqual(assignmentAction(row), { kind: 'start', label: 'Tiếp tục bài' });
+    assert.equal(nextDue([row])?.row.itemId, 'item-1');
+  });
+
+  test('failed course results expose the exact canonical retry action', () => {
+    for (const [courseAction, label] of [
+      ['retake', 'Bắt đầu revision'],
+      ['retry_full', 'Làm lại toàn bộ'],
+    ]) {
+      const normalized = normalizeMyClassResponse(payload({
+        assignments: [assignment({
+          submitted_at: '2026-08-19T18:23:55Z', score: 78,
+          course_action: courseAction,
+        })],
+        progress: { total: 1, submitted: 0, todo: 1, missing: 0, late: 0, on_time_pct: null },
+      }));
+      assert.deepEqual(assignmentAction(normalized.assignments[0]), {
+        kind: 'start', label,
+      });
+    }
+  });
+
+  test('unknown course actions fail the strict assignment boundary', () => {
+    const normalized = normalizeMyClassResponse(payload({
+      assignments: [assignment({ course_action: 'invented' })],
+    }));
+    assert.equal(normalized.assignments, null);
+    assert.ok(normalized.warnings.includes('assignments_contract'));
+  });
+
+  test('active course navigation always carries the canonical class item', () => {
+    const source = readFileSync(new URL(
+      '../app/(authed-my-class)/my-class/my-class-workspace.tsx', import.meta.url,
+    ), 'utf8');
+    assert.match(source, /const item = `&class_item=\$\{encodeURIComponent\(target\.itemId\)\}`/);
+    assert.doesNotMatch(source, /target\.reviewOnly \? `&class_item=/);
   });
 
   test('submitted Reading and Listening remain actionable from My Class', () => {

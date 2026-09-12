@@ -361,6 +361,51 @@ def _recorded_next_action(attempt: dict | None, pass_pct: int) -> str | None:
     )
 
 
+def course_assignment_action(
+    item: dict | None,
+    assignment: dict | None,
+    *,
+    now: datetime | None = None,
+    writing_expected: bool | None = None,
+) -> str:
+    """Return the learner action for one assigned course item.
+
+    ``submitted_at`` records that a hand-in happened; it is not a permanent
+    write lock. A completed-but-failed attempt may still require a short
+    revision or a new full session, and an incomplete multi-section attempt may
+    still owe Reading/Writing/Listening/Pronunciation. Extending ``due_at``
+    must therefore reopen those actions without erasing the original hand-in.
+    """
+    item = item or {}
+    assignment = assignment or {}
+    # Legacy mixed banks could stamp ``passed_at`` after the quiz while the
+    # separate writing hand-in was still absent. The class page already names
+    # that state as awaiting Writing; do not turn the same row read-only here.
+    pending_legacy_writing = bool(
+        item.get("passed_at") and writing_expected is True
+        and not item.get("submitted_at")
+    )
+    if item.get("passed_at") and not pending_legacy_writing:
+        return "review"
+    if not is_accepting_submissions(assignment, now=now):
+        return "review"
+
+    mastery = item.get("mastery") or {}
+    attempts = mastery.get("attempts") or []
+    latest = (attempts[-1]
+              if isinstance(attempts, list) and attempts
+              and isinstance(attempts[-1], dict) else None)
+    if not latest:
+        return "continue" if pending_legacy_writing else "start"
+    if not latest.get("completed", latest.get("pct") is not None):
+        return "continue"
+
+    action = _recorded_next_action(latest, mastery_config(assignment)["pass_pct"])
+    if action in {"retake", "retry_full"}:
+        return action
+    return "review" if action == "passed" else "continue"
+
+
 def _full_retry_boundary(attempts: list[dict], pass_pct: int) -> datetime | None:
     """Newest full-retry cutoff, preserved until the assignment passes.
 
@@ -745,7 +790,7 @@ def get_bank_for_play(
                    .select("passed_at, mastery")
                    .eq("id", item["id"]).limit(1).execute().data) or []
             asg = (supabase_admin.table("class_assignments")
-                   .select("id, content_config")
+                   .select("id, status, publish_at, due_at, content_config")
                    .eq("id", item["assignment_id"]).limit(1).execute().data) or []
             assignment = asg[0] if asg else {}
             cfg = mastery_config(assignment)
@@ -763,9 +808,18 @@ def get_bank_for_play(
                     if amount > 0:
                         section_counts[key] = amount
             it = row[0] if row else {}
-            att = ((it.get("mastery") or {}).get("attempts")) or []
+            effective_item = {**item, **it}
+            raw_attempts = ((it.get("mastery") or {}).get("attempts")) or []
+            att = raw_attempts if isinstance(raw_attempts, list) else []
             latest_sections = ((att[-1].get("sections") or {})
                                if att and isinstance(att[-1], dict) else {})
+            learner_action = course_assignment_action(
+                effective_item, assignment,
+                writing_expected=(bank_has_writing(bank_id)
+                                  if effective_item.get("passed_at")
+                                  and not effective_item.get("submitted_at")
+                                  else None),
+            )
             mastery_state = {
                 # id MỤC bài giao — runner khoá trạng thái localStorage vào nó:
                 # em chuyển lớp rồi được giao lại CÙNG bank ở lớp mới là một
@@ -784,11 +838,13 @@ def get_bank_for_play(
                 # Hình dạng ĐÃ GIAO, để đầu bài không đếm một section vừa được
                 # thêm vào bank live như thể học viên cũ cũng phải làm nó.
                 **({"section_counts": section_counts} if section_counts else {}),
-                "due_at": item.get("due_at"),
-                # A submitted assignment reopens read-only. Never create a new
-                # quiz session merely because the learner chose "Xem kết quả".
-                "review_only": bool(item.get("submitted_at")),
-                "accepting": bool(item.get("accepting")),
+                "due_at": assignment.get("due_at"),
+                # A passed/closed assignment reopens read-only. A failed or
+                # incomplete submission stays writable while the deadline is
+                # accepting, even though its first hand-in timestamp is kept.
+                "review_only": learner_action == "review",
+                "accepting": bool(is_accepting_submissions(assignment)),
+                "course_action": learner_action,
             }
         except Exception as exc:  # noqa: BLE001
             logger.warning("[quiz] mastery state read failed bank=%s: %s", bank_id, exc)
