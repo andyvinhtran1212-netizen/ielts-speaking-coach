@@ -1,5 +1,13 @@
 # ADR-013 — Early-stage rollout profile (thay soak-dài-freeze cho route low-traffic)
 
+> **Hồ sơ lịch sử — superseded ngày 2026-09-12.** ADR này mô tả cơ chế rollout
+> trong giai đoạn migration. Các chỉ dẫn chạy parity/G1 và đường dẫn tooling bên
+> dưới không còn hiệu lực sau Gate F. Kiểm thử vận hành hiện hành dùng
+> `.github/workflows/next-native-browser.yml` và
+> `.github/workflows/staging-release-smoke.yml`; phát hành dùng exact-SHA qua
+> `.github/workflows/staging-promotion-gate.yml`. Nội dung cũ được giữ nguyên
+> để bảo toàn lịch sử quyết định và evidence.
+
 **Status:** ACCEPTED 2026-07-25 (chủ dự án ratify) · Sửa: §12.3, ADR-007 §6, B36, DEBT-2026-07-22-H
 · **SỬA ĐỔI A2 — ACCEPTED 2026-08-04**: cửa sổ quan sát BỎ HẲN kể cả khi có mẫu đầy đủ; G2 đổi sang phủ-chế-độ-hỏng. Đọc mục A2 cuối trang.
 · **SỬA ĐỔI A1 — ACCEPTED 2026-08-03 (chủ dự án ratify)** — thay cửa sổ-thời-gian bằng cổng-bằng-chứng cho route low/zero-traffic; **đọc mục A1 ở cuối trang trước khi áp bất kỳ điều kiện PASS nào ở thân bài**

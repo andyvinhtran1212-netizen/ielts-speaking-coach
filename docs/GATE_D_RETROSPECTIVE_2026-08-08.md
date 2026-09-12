@@ -1,5 +1,10 @@
 # Gate D retrospective — 2026-08-08
 
+> **Hồ sơ lịch sử — superseded ngày 2026-09-12.** Các tham chiếu tới parity
+> manifest/tooling bên dưới chỉ mô tả evidence của migration và không còn là
+> hướng dẫn vận hành. Coverage hiện hành nằm ở
+> `.github/workflows/next-native-browser.yml`.
+
 **Trạng thái:** CHƯA ĐÓNG. Đây là sổ bằng chứng hồi tố sau quyết định owner
 "GO TOÀN BỘ" ở Gate C, không phải tuyên bố Gate D đã pass.
 
