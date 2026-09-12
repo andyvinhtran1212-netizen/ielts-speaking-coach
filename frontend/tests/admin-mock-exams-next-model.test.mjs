@@ -18,6 +18,7 @@ import {
   normalizeProgress,
   normalizeRetestSummary,
   retakeServableSkills,
+  vietnamDateIn,
 } from '../lib/admin-mock-exams-model.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -97,6 +98,11 @@ describe('Admin Mock Exams native model', () => {
     assert.equal(localDateTimeIn(1, new Date(2026, 0, 1, 8, 5).getTime()), '2026-01-02T08:05');
     assert.equal(localToIso('not-a-date'), null);
     assert.match(localToIso('2026-01-02T08:05'), /^2026-01-02T/);
+  });
+
+  test('defaults assignment dates from the Vietnam calendar day', () => {
+    const justAfterVietnamMidnight = Date.parse('2026-08-02T17:30:00Z');
+    assert.equal(vietnamDateIn(7, justAfterVietnamMidnight), '2026-08-10');
   });
 });
 

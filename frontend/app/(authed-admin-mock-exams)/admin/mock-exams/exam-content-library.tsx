@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { messageOf } from '@/components/admin-directory-ui';
-import { filterContentByLevel, normalizeExamContent } from '@/lib/admin-mock-exams-model.mjs';
+import { filterContentByLevel, normalizeExamContent, vietnamDateIn } from '@/lib/admin-mock-exams-model.mjs';
 
 type Cohort = { id: string; name?: string };
 type ContentRow = {
@@ -32,9 +32,7 @@ export function ExamContentLibrary({ accountId, cohorts }: Props) {
   const [cohortDraft, setCohortDraft] = useState<string[]>([]);
   const [assignmentEditor, setAssignmentEditor] = useState<ContentRow | null>(null);
   const [assignmentCohort, setAssignmentCohort] = useState('');
-  const [assignmentDueDate, setAssignmentDueDate] = useState(() => {
-    const date = new Date(); date.setDate(date.getDate() + 7); return date.toISOString().slice(0, 10);
-  });
+  const [assignmentDueDate, setAssignmentDueDate] = useState(() => vietnamDateIn(7));
   const [statusEditor, setStatusEditor] = useState<{ row: ContentRow; status: 'draft' | 'published' } | null>(null);
   const requestRef = useRef(0);
   const accountRef = useRef(accountId);

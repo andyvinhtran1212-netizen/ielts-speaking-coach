@@ -97,6 +97,10 @@ async def set_status(
         raise HTTPException(422, str(e))
     except svc.ActiveAssignmentError as e:
         raise HTTPException(409, str(e))
+    except svc.ActiveMockExamError as e:
+        raise HTTPException(409, str(e))
+    except svc.LifecycleLookupError as e:
+        raise HTTPException(503, str(e))
     except ValueError as e:
         raise HTTPException(422, str(e))
     except LookupError as e:

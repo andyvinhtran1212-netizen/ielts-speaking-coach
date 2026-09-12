@@ -238,6 +238,15 @@ export function localDateTimeIn(days, now = Date.now()) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+export function vietnamDateIn(days, now = Date.now()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date(now)).filter(({ type }) => type !== 'literal').map(({ type, value }) => [type, value]));
+  const date = new Date(`${parts.year}-${parts.month}-${parts.day}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + Math.trunc(Number(days) || 0));
+  return date.toISOString().slice(0, 10);
+}
+
 export function localToIso(value) {
   const text = TEXT(value);
   if (!text) return null;

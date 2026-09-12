@@ -44,6 +44,14 @@ class ActiveAssignmentError(ValueError):
     """A published paper still belongs to an active class assignment."""
 
 
+class ActiveMockExamError(ValueError):
+    """A published paper is still referenced by a non-archived mock exam."""
+
+
+class LifecycleLookupError(RuntimeError):
+    """A lifecycle dependency could not be checked safely."""
+
+
 def _assert_kind(kind: str) -> tuple:
     try:
         return _KINDS[kind]
@@ -136,6 +144,23 @@ def set_status(kind: str, content_id: str, status: str) -> dict:
             names = ", ".join(str(item.get("title") or item["id"]) for item in active[:3])
             raise ActiveAssignmentError(
                 f"Đề đang được giao trong bài còn nhận nộp: {names}. Hãy đóng bài giao trước."
+            )
+        # A mock exam owns the same paper by direct FK, independently of class
+        # homework. Depublishing it would leave the exam pointing at content the
+        # student player is no longer allowed to serve. Archived exams are
+        # intentionally ignored by live_exams_using().
+        from services import mock_exam_service
+        try:
+            live_exams = mock_exam_service.live_exams_using(kind, content_id)
+        except mock_exam_service.MockExamError as exc:
+            raise LifecycleLookupError(str(exc)) from exc
+        if live_exams:
+            names = ", ".join(
+                str(item.get("code") or item["id"]) for item in live_exams[:3]
+            )
+            raise ActiveMockExamError(
+                f"Đề đang được dùng trong mock test chưa lưu trữ: {names}. "
+                "Hãy lưu trữ hoặc đổi đề của mock test trước."
             )
 
     if next_status == "published":
