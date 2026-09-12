@@ -483,9 +483,12 @@ export function CourseBehavior() {
               : `Làm bài nghe (${listening.count} câu)`)
             + '</button>' : '';
         const pronunciationMore = pronunciationSection && pronunciationReady
-          && pronunciation.exists && !pronunciationDone
+          && pronunciation.exists
           ? '<button class="av-button av-button-secondary" id="cx-pronunciation-open" type="button">'
-            + `Luyện phát âm (${pronunciation.count} câu)</button>` : '';
+            + (pronunciation.completed ? 'Xem kết quả phát âm'
+              : pronunciationDone ? `Tiếp tục luyện phát âm (${pronunciation.count} câu)`
+                : `Luyện phát âm (${pronunciation.count} câu)`)
+            + '</button>' : '';
         // XEM LẠI BÀI CHỈ MỞ SAU KHI ĐÃ ĐẠT.
         //
         // Màn này phát ra đáp án đúng của từng câu kèm lời giải, mà kỳ kiểm tra
