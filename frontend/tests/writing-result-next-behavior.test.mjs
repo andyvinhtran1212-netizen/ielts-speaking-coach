@@ -13,6 +13,7 @@ import {
   selectWritingTips,
   writingBandLabel,
 } from '../lib/writing-result-model.mjs';
+import { canonicalNextRouteForLegacy } from '../tooling/legacy-url-mapping.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -20,14 +21,15 @@ const PAGE = read('app', '(authed-writing-result)', 'writing', 'result', 'page.t
 const LAYOUT = read('app', '(authed-writing-result)', 'layout.tsx');
 const BEHAVIOR = read('app', '(authed-writing-result)', 'writing', 'result', 'writing-result-behavior.tsx');
 const CONFIG = read('next.config.ts');
-const PAIRS = JSON.parse(read('tooling', 'parity-pairs-authed.json'));
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/writing/result — native Next ownership', () => {
-  test('owns the canonical route atomically and keeps rollback HTML', () => {
+  test('owns the canonical route atomically and keeps an archived predecessor', () => {
     assert.match(PAGE, /WritingResultBehavior/);
     assert.doesNotMatch(CONFIG, /source:\s*['"]\/writing\/result['"]/);
-    assert.ok(existsSync(join(ROOT, 'public', 'pages', 'writing-result.html')));
+    assert.ok(existsSync(join(
+      ROOT, 'tests', 'fixtures', 'legacy-html-retired', 'pages', 'writing-result.html',
+    )));
   });
 
   test('keeps the legacy stylesheet order without the Tailwind reset', () => {
@@ -98,14 +100,8 @@ describe('/writing/result — native Next ownership', () => {
     assert.match(BEHAVIOR, /essay_\$\{essayId\}\.docx/);
   });
 
-  test('registers parity and makes route-specific changes trigger the gate', () => {
-    const pair = PAIRS.find((candidate) => candidate.name === 'writing-result');
-    assert.deepEqual([pair?.legacy, pair?.next], ['/pages/writing-result.html', '/writing/result']);
-    assert.deepEqual(
-      pair.allow.map((entry) => `${entry.kind}:${entry.value}`).sort(),
-      ['component-missing:header', 'component-missing:main', 'component-missing:nav'],
-    );
-    assert.ok(pair.allow.every((entry) => entry.reason.length > 40));
+  test('keeps the compatibility URL and route-specific browser gate wired', () => {
+    assert.equal(canonicalNextRouteForLegacy('/pages/writing-result.html'), '/writing/result');
     assert.match(WORKFLOW, /frontend\/app\/\(authed-writing-result\)\/\*\*/);
     assert.match(WORKFLOW, /writing-result/);
   });

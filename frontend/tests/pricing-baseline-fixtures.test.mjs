@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, copyFileSync, rmSync, symlinkSync, existsSync }
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readPricingFixture, verifyPricingFixture } from './fixtures/gate-f-pricing/loader.mjs';
+import { readPricingFixture, verifyPricingFixture } from './fixtures/pricing-baseline/loader.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const execFileAsync = promisify(execFile);
@@ -46,11 +46,11 @@ test('both dedicated Pricing suites pass in an isolated checkout without public 
   const sources = [
     'frontend/tests/pricing-next-behavior.test.mjs',
     'frontend/tests/pricing-redesign.test.mjs',
-    'frontend/tests/fixtures/gate-f-pricing/loader.mjs',
-    'frontend/tests/fixtures/gate-f-pricing/manifest.json',
-    'frontend/tests/fixtures/gate-f-pricing/pricing.html',
-    'frontend/tests/fixtures/gate-f-pricing/pricing.css',
-    'frontend/tests/fixtures/gate-f-pricing/index.html',
+    'frontend/tests/fixtures/pricing-baseline/loader.mjs',
+    'frontend/tests/fixtures/pricing-baseline/manifest.json',
+    'frontend/tests/fixtures/pricing-baseline/pricing.html',
+    'frontend/tests/fixtures/pricing-baseline/pricing.css',
+    'frontend/tests/fixtures/pricing-baseline/index.html',
     'frontend/app/(marketing)/pricing/page.tsx',
     'frontend/app/(marketing)/page.tsx',
     'frontend/tooling/verify-pricing-redirect-flow.mjs',

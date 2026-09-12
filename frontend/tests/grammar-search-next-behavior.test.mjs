@@ -3,19 +3,20 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { canonicalNextRouteForLegacy } from '../tooling/legacy-url-mapping.mjs';
 
 const FRONTEND = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const GRAMMAR = path.join(FRONTEND, 'app', '(public-content)', 'grammar');
 const PAGE = readFileSync(path.join(GRAMMAR, 'search', 'page.tsx'), 'utf8');
 const API = readFileSync(path.join(FRONTEND, 'lib', 'grammar-api.ts'), 'utf8');
 const CARDS = readFileSync(path.join(GRAMMAR, 'grammar-cards.tsx'), 'utf8');
-const LEGACY = path.join(FRONTEND, 'public', 'pages', 'grammar-search.html');
+const LEGACY = path.join(
+  FRONTEND, 'tests', 'fixtures', 'legacy-html-retired', 'pages', 'grammar-search.html',
+);
 const LEDGER = readFileSync(path.join(FRONTEND, '../docs/ROUTE_LEDGER.md'), 'utf8');
-const PARITY = readFileSync(path.join(FRONTEND, 'tooling', 'parity-diff.mjs'), 'utf8');
-const PARITY_CORE = readFileSync(path.join(FRONTEND, 'tooling', 'parity-core.mjs'), 'utf8');
 
 describe('/grammar/search native ownership', () => {
-  test('route Next tồn tại còn rollback legacy vẫn phục vụ độc lập', () => {
+  test('route Next tồn tại và archived predecessor vẫn kiểm được', () => {
     assert.ok(existsSync(path.join(GRAMMAR, 'search', 'page.tsx')));
     assert.ok(existsSync(LEGACY));
     assert.match(LEDGER, /`\/grammar\/search`[^\n]+app\/\(public-content\)\/grammar\/search\/page\.tsx[^\n]+CUTOVER/);
@@ -49,10 +50,8 @@ describe('/grammar/search native ownership', () => {
     assert.ok(!CARDS.includes('dangerouslySetInnerHTML'));
   });
 
-  test('link kết quả dùng article URL sạch và parity chạy cùng query thật', () => {
+  test('link kết quả và URL tương thích đều trỏ tới owner sạch', () => {
     assert.match(CARDS, /href=\{articleUrl\(article\.category, article\.slug\)\}/);
-    assert.match(PARITY, /name: 'grammar-search'[\s\S]*legacy: '\/pages\/grammar-search\.html\?q=tenses'[\s\S]*next: '\/grammar\/search\?q=tenses'/);
-    assert.match(PARITY, /GET \/api\/grammar\/search\?q=tenses/);
-    assert.match(PARITY_CORE, /path === '\/pages\/grammar-search\.html'\) path = '\/grammar\/search'/);
+    assert.equal(canonicalNextRouteForLegacy('/pages/grammar-search.html'), '/grammar/search');
   });
 });

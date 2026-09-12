@@ -260,7 +260,7 @@ function dependencies(file, seen = new Set()) {
   //     không dấu chấm như `'public'`, vì ngữ cảnh đã nói rõ đó là đường dẫn;
   //   · chuỗi ở bất kỳ đâu NHƯNG phải có `/` hoặc phần mở rộng.
   // Chấp nhận mọi chuỗi trần ở mọi nơi thì quá lỏng: `'components'` ở
-  // parity-core.mjs:151 chỉ là tên TRƯỜNG trong một danh sách, còn `'commission'`
+  // Một chuỗi như `'components'` có thể chỉ là tên TRƯỜNG, còn `'commission'`
   // và `'data'` trong test lại trùng tên hai thư mục gốc của repo — cả ba đều
   // thành phụ thuộc giả và bắt người bảo trì thêm glob vô nghĩa.
   const cands = new Set();

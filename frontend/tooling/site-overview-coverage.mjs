@@ -1,9 +1,9 @@
 // Documentation sentinel, not a compiled routing or runtime-parity verifier.
 import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import { appPageRoute, NON_PRODUCT_APP_PAGE_ROUTES } from './next-migration-status.mjs';
-import { LEGACY_RETIREMENT_PATHS } from './gate-f-legacy-paths.mjs';
-import { canonicalNextRouteForLegacy } from './gate-f-route-replacement-inventory.mjs';
+import { appPageRoute, NON_PRODUCT_APP_PAGE_ROUTES } from './app-route-inventory.mjs';
+import { LEGACY_RETIREMENT_PATHS } from './legacy-url-paths.mjs';
+import { canonicalNextRouteForLegacy } from './legacy-url-mapping.mjs';
 
 export function collectOverviewPages(frontendRoot) {
   if (!existsSync(path.join(frontendRoot, 'app'))) throw new Error('App Router directory missing: ' + frontendRoot);

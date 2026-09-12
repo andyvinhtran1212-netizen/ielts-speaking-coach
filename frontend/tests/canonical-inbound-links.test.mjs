@@ -1,4 +1,4 @@
-/** Gate F: canonical product links must not bypass native route ownership. */
+/** Canonical product links must not bypass native route ownership. */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -10,7 +10,7 @@ const REPO = join(FRONTEND, '..');
 const readFrontend = (...parts) => readFileSync(join(FRONTEND, ...parts), 'utf8');
 const readRepo = (...parts) => readFileSync(join(REPO, ...parts), 'utf8');
 
-describe('Gate F canonical inbound links', () => {
+describe('canonical inbound links', () => {
   test('backend-owned activity and Home CTAs target native owners', () => {
     const overview = readRepo('backend', 'routers', 'admin_overview.py');
     const home = readRepo('backend', 'services', 'student_home_aggregator.py');

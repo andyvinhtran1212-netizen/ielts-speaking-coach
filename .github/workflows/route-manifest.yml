@@ -50,9 +50,9 @@ on:
       - 'frontend/next.config.ts'
       # These helpers are imported by next.config and therefore own compiled
       # production redirects just as directly as next.config itself.
-      - 'frontend/tooling/gate-f-retirement-redirects.mjs'
-      - 'frontend/tooling/gate-f-legacy-paths.mjs'
-      - 'frontend/tooling/gate-f-route-replacement-inventory.mjs'
+      - 'frontend/tooling/legacy-url-redirects.mjs'
+      - 'frontend/tooling/legacy-url-paths.mjs'
+      - 'frontend/tooling/legacy-url-mapping.mjs'
       - 'frontend/tsconfig.json'
       - 'frontend/tooling/route-ownership-check.mjs'
       - 'frontend/tooling/legacy-browser-scan.mjs'

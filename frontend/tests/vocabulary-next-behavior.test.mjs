@@ -2,6 +2,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { canonicalNextRouteForLegacy } from '../tooling/legacy-url-mapping.mjs';
 
 const ROOT = join(import.meta.dirname, '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -9,7 +10,6 @@ const PAGE = read('app', '(public-content)', 'vocabulary', 'page.tsx');
 const CLIENT = read('app', '(public-content)', 'vocabulary', 'vocabulary-wiki.tsx');
 const API = read('lib', 'vocabulary-api.ts');
 const LAYOUT = read('app', '(public-content)', 'layout.tsx');
-const PARITY = read('tooling', 'parity-diff.mjs');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/vocabulary native public wiki', () => {
@@ -48,11 +48,9 @@ describe('/vocabulary native public wiki', () => {
     assert.match(CLIENT, /\(!showDetail && !desktopDetailVisible\)/);
   });
 
-  test('legacy card stylesheet remains before Tailwind and public parity covers both widths', () => {
+  test('card stylesheet remains before Tailwind and native browser coverage is wired', () => {
     assert.ok(LAYOUT.indexOf('/css/vocab-wiki.css') < LAYOUT.indexOf('/css/tailwind.build.css'));
-    assert.match(PARITY, /name: 'vocabulary-wiki'/);
-    assert.match(PARITY, /legacy: '\/vocabulary\.html\?cat=technology&slug=cutting-edge'/);
-    assert.match(PARITY, /next: '\/vocabulary\?cat=technology&slug=cutting-edge'/);
+    assert.equal(canonicalNextRouteForLegacy('/vocabulary.html'), '/vocabulary');
     assert.match(WORKFLOW, /frontend\/app\/\(public-content\)\/vocabulary\/\*\*/);
     assert.match(WORKFLOW, /Kiểm luồng Vocabulary Wiki native[\s\S]*?verify-vocabulary-wiki-flow\.mjs/);
   });

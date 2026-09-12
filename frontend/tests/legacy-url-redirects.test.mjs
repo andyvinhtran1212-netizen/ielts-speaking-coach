@@ -13,15 +13,14 @@ import {
   buildLegacyRetirementRedirects,
   LEGACY_RETIREMENT_PATHS,
   RETIREMENT_ARTIFACT_SET,
-} from '../tooling/gate-f-retirement-redirects.mjs';
-import { appPageRoute, collectNextMigrationStatus } from '../tooling/next-migration-status.mjs';
+} from '../tooling/legacy-url-redirects.mjs';
+import { appPageRoute } from '../tooling/app-route-inventory.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 // URL compatibility survives physical retirement, as in next.config.ts.
 // The independent physical-file freeze is asserted inside its own test below.
 const paths = LEGACY_RETIREMENT_PATHS;
 const redirects = buildLegacyRetirementRedirects(paths);
-const soakRedirects = buildLegacyRetirementRedirects(paths, { permanent: false });
 const nextConfig = readFileSync(path.join(FRONTEND, 'next.config.ts'), 'utf8');
 
 function appRoutes(root, prefix = '') {
@@ -80,10 +79,10 @@ test('manifest-only edits trigger compiled-route CI', () => {
   const workflowRoot = path.join(FRONTEND, '..', '.github', 'workflows');
   const affected = readdirSync(workflowRoot).filter((name) => /\.ya?ml$/.test(name))
     .map((name) => ({ name, source: readFileSync(path.join(workflowRoot, name), 'utf8') }))
-    .filter(({ source }) => /- 'frontend\/tooling\/gate-f-retirement-redirects\.mjs'/.test(source));
+    .filter(({ source }) => /- 'frontend\/tooling\/legacy-url-redirects\.mjs'/.test(source));
   assert.ok(affected.some(({ name }) => name === 'route-manifest.yml'));
   for (const { name: workflowName, source } of affected) {
-    assert.match(source, /- 'frontend\/tooling\/gate-f-legacy-paths\.mjs'/, workflowName);
+    assert.match(source, /- 'frontend\/tooling\/legacy-url-paths\.mjs'/, workflowName);
   }
 });
 
@@ -112,24 +111,12 @@ test('actual Next config produces all redirects without reading a public tree', 
 });
 
 test('every Legacy HTML source is permanently intercepted before public serving', () => {
-  const status = collectNextMigrationStatus();
-  assert.equal(status.legacyRetirementRedirects.installed, true);
-  assert.equal(status.legacyRetirementRedirects.permanent, true);
   const sources = new Set(redirects.map((entry) => entry.source));
   assert.equal(sources.size, paths.length);
   assert.deepEqual([...sources].sort(), paths);
   assert.ok(redirects.every((entry) => entry.permanent === true));
   assert.ok(redirects.every((entry) => !entry.destination.endsWith('.html')));
   assert.ok(redirects.every((entry) => !entry.destination.includes('[')));
-});
-
-test('redirect soak can intercept the same frozen manifest without browser-cached permanence', () => {
-  assert.equal(soakRedirects.length, redirects.length);
-  assert.deepEqual(
-    soakRedirects.map(({ source, destination, has }) => ({ source, destination, has })),
-    redirects.map(({ source, destination, has }) => ({ source, destination, has })),
-  );
-  assert.ok(soakRedirects.every((entry) => entry.permanent === false));
 });
 
 test('retired renderer redirects cannot be disabled by a local escape hatch', () => {

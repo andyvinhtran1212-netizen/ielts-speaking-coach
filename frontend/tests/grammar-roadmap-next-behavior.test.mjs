@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { canonicalNextRouteForLegacy } from '../tooling/legacy-url-mapping.mjs';
 
 const FRONTEND = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const GRAMMAR = path.join(FRONTEND, 'app', '(public-content)', 'grammar');
@@ -11,14 +12,14 @@ const PAGE = readFileSync(PAGE_PATH, 'utf8');
 const PERSONAL = readFileSync(path.join(GRAMMAR, 'roadmap', 'personal-roadmap.tsx'), 'utf8');
 const API = readFileSync(path.join(FRONTEND, 'lib', 'grammar-api.ts'), 'utf8');
 const LEDGER = readFileSync(path.join(FRONTEND, '../docs/ROUTE_LEDGER.md'), 'utf8');
-const PARITY = readFileSync(path.join(FRONTEND, 'tooling', 'parity-diff.mjs'), 'utf8');
-const CORE = readFileSync(path.join(FRONTEND, 'tooling', 'parity-core.mjs'), 'utf8');
 const WORKFLOW = readFileSync(path.join(FRONTEND, '../.github/workflows/next-native-browser.yml'), 'utf8');
 
 describe('/grammar/roadmap mixed ownership', () => {
-  test('route Next tồn tại, ledger nói đúng hai mode và legacy vẫn rollback', () => {
+  test('route Next tồn tại, ledger nói đúng hai mode và predecessor được archived', () => {
     assert.ok(existsSync(PAGE_PATH));
-    assert.ok(existsSync(path.join(FRONTEND, 'public', 'pages', 'grammar-roadmap.html')));
+    assert.ok(existsSync(path.join(
+      FRONTEND, 'tests', 'fixtures', 'legacy-html-retired', 'pages', 'grammar-roadmap.html',
+    )));
     assert.match(LEDGER, /`\/grammar\/roadmap`[^\n]+CUTOVER[^\n]+Mixed: public khi có `slug`, Student khi không có/);
   });
 
@@ -44,17 +45,16 @@ describe('/grammar/roadmap mixed ownership', () => {
     assert.match(WORKFLOW, /verify-grammar-roadmap-personal-flow\.mjs/);
   });
 
-  test('entry points và parity dùng URL canonical sạch', () => {
+  test('entry points và URL tương thích dùng owner canonical sạch', () => {
     for (const file of [
       path.join(GRAMMAR, 'page.tsx'),
-      path.join(FRONTEND, 'public', 'grammar.html'),
-      path.join(FRONTEND, 'public', 'pages', 'exam.html'),
+      path.join(FRONTEND, 'tests', 'fixtures', 'legacy-html-retired', 'grammar.html'),
+      path.join(FRONTEND, 'tests', 'fixtures', 'legacy-html-retired', 'pages', 'exam.html'),
       path.join(FRONTEND, 'public', 'js', 'kp-result-widget.js'),
       path.join(FRONTEND, 'app', '(authed-session-result)', 'result', 'session-result-behavior.tsx'),
     ]) {
       assert.doesNotMatch(readFileSync(file, 'utf8'), /pages\/grammar-roadmap\.html/);
     }
-    assert.match(PARITY, /name: 'grammar-roadmap'[\s\S]*legacy: '\/pages\/grammar-roadmap\.html\?slug=tenses'[\s\S]*next: '\/grammar\/roadmap\?slug=tenses'/);
-    assert.match(CORE, /path === '\/pages\/grammar-roadmap\.html'\) path = '\/grammar\/roadmap'/);
+    assert.equal(canonicalNextRouteForLegacy('/pages/grammar-roadmap.html'), '/grammar/roadmap');
   });
 });

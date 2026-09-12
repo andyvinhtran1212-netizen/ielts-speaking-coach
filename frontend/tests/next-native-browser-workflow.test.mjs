@@ -1,12 +1,16 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const WORKFLOW = readFileSync(
   path.join(ROOT, '.github', 'workflows', 'next-native-browser.yml'),
+  'utf8',
+);
+const RESPONSIVE_RUNNER = readFileSync(
+  path.join(ROOT, 'frontend', 'tooling', 'verify-next-responsive-flow.mjs'),
   'utf8',
 );
 
@@ -52,6 +56,12 @@ describe('permanent Next-native browser regression workflow', () => {
       .map((match) => match[1]);
     assert.ok(invoked.length >= 90, `expected at least 90 browser verifiers, got ${invoked.length}`);
     assert.equal(new Set(invoked).size, invoked.length, 'browser verifiers must not run twice');
+    for (const verifier of invoked) {
+      assert.ok(
+        existsSync(path.join(ROOT, 'frontend', 'tooling', verifier)),
+        `workflow calls missing verifier ${verifier}`,
+      );
+    }
     for (const required of [
       'verify-speaking-flow.mjs',
       'verify-reading-test-flow.mjs',
@@ -72,6 +82,33 @@ describe('permanent Next-native browser regression workflow', () => {
     assert.match(WORKFLOW, /verify-onboarding-flow\.mjs[^\n]+--next-only/);
     assert.match(WORKFLOW, /verify-admin-feedback-flow\.mjs[^\n]+--next-only/);
     assert.doesNotMatch(WORKFLOW, /parity-diff|steps\.gate_f|WF_LEGACY|PROBE_EMAIL|legacy ↔ Next/);
+  });
+
+  test('measures every responsive route at desktop and phone widths before deciding', () => {
+    assert.match(RESPONSIVE_RUNNER, /name: 'desktop', width: 1280, height: 900/);
+    assert.match(RESPONSIVE_RUNNER, /name: 'phone', width: 375, height: 812/);
+    assert.match(RESPONSIVE_RUNNER, /document\.body\.scrollWidth/);
+    assert.match(RESPONSIVE_RUNNER, /document\.documentElement\.scrollWidth/);
+
+    const viewportLoop = RESPONSIVE_RUNNER.indexOf('for (const viewport of VIEWPORTS)');
+    const routeLoop = RESPONSIVE_RUNNER.indexOf('for (const route of ROUTES)');
+    const finalDecision = RESPONSIVE_RUNNER.lastIndexOf('if (failures.length)');
+    assert.ok(viewportLoop >= 0 && routeLoop > viewportLoop);
+    assert.ok(finalDecision > routeLoop);
+    assert.doesNotMatch(
+      RESPONSIVE_RUNNER.slice(viewportLoop, finalDecision),
+      /process\.exit(?:Code)?\s*=/,
+    );
+    assert.match(RESPONSIVE_RUNNER.slice(finalDecision), /process\.exitCode = 1/);
+  });
+
+  test('detects production egress while the isolated endpoint is active', () => {
+    const isolatedApi = WORKFLOW.indexOf('AVER_API_BASE: http://127.0.0.1:3999');
+    const build = WORKFLOW.indexOf('run: npm run build');
+    assert.ok(isolatedApi >= 0 && build > isolatedApi);
+    assert.match(RESPONSIVE_RUNNER, /page\.on\('request'/);
+    assert.match(RESPONSIVE_RUNNER, /PRODUCTION_MARKERS\.some/);
+    assert.match(RESPONSIVE_RUNNER, /failures\.push\(`\$\{viewport\.name\}: production egress/);
   });
 
   test('always stops its local server and preserves failure evidence', () => {

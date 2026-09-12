@@ -74,13 +74,13 @@ describe('vỏ Speaking — trung thực với bản legacy', () => {
     const s = visibleText(SHELL, { jsx: true });
     assert.ok(l.size >= 100, `legacy phải có ~108 đoạn chữ, đếm được ${l.size} — regex hỏng?`);
     assert.deepEqual([...l].filter((x) => !s.has(x)), [],
-      'thiếu chữ ⇒ cổng parity sẽ báo line-missing khi cặp được thêm ở PR hành vi');
+      'thiếu chữ trong shell Next so với baseline đã lưu');
   });
 
   test('vỏ KHÔNG mang handler nội tuyến (chúng thuộc tầng hành vi)', () => {
     // Bản legacy có 27 handler nội tuyến; đo được 0/27 cái ĐIỀU HƯỚNG, mà
-    // `hrefFromInlineHandler` (parity-core.mjs) chỉ trích điều hướng — nên cổng
-    // parity mù với cả 27. Chúng sẽ được gắn bằng listener theo id ở PR hành vi,
+    // phép quét điều hướng cũ chỉ trích navigation nên mù với cả 27 handler.
+    // Chúng sẽ được gắn bằng listener theo id ở PR hành vi,
     // giống khuôn `home-behavior.tsx`. Để lẫn vào vỏ là trộn hai loại lỗi.
     const inline = [...SHELL.matchAll(/\son[a-z]+=/gi)].map((m) => m[0].trim());
     assert.deepEqual(inline, [], 'handler nội tuyến phải nằm ở tầng hành vi');

@@ -1,30 +1,26 @@
 #!/usr/bin/env node
-// Machine-readable static inventory for the final Next.js cutover.
+// Machine-readable permanent release invariants for the Next.js application.
 //
 // This reports code-side retirement truth. Historical operational evidence
 // and any owner-approved exception remain documented separately. It freezes
-// the exit criteria that can be derived from
-// the repository: product App Router pages, legacy HTML files that are still
+// the exit criteria that can be derived from the repository: product App
+// Router pages, legacy HTML files that are still
 // directly renderable, route ownership collisions and core-player admission.
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { CORE_PLAYER_AFFINITY_POLICY } from '../lib/core-player-affinity.mjs';
-import { buildLegacyReplacementInventory } from './gate-f-route-replacement-inventory.mjs';
+import { appPageRoute, NON_PRODUCT_APP_PAGE_ROUTES } from './app-route-inventory.mjs';
+import { buildLegacyReplacementInventory } from './legacy-url-mapping.mjs';
 import {
   buildLegacyRetirementRedirects,
   LEGACY_RETIREMENT_PATHS,
   RETIREMENT_ARTIFACT_SET,
-} from './gate-f-retirement-redirects.mjs';
+} from './legacy-url-redirects.mjs';
 import { findCollisions } from './route-ownership-check.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-
-export const NON_PRODUCT_APP_PAGE_ROUTES = Object.freeze([
-  '/next-probe',
-  '/recorder-spike',
-]);
 
 export const LEGACY_RETIREMENT_BEACON = '/js/legacy-retirement-beacon.js';
 export const RUNTIME_CONFIG_SCRIPT = 'runtime-config.js';
@@ -32,10 +28,9 @@ export const CLIENT_REDIRECT_STUB_MARKER = 'name="aver-legacy-artifact" content=
 
 export function retirementRedirectsInstalledFromConfig(source) {
   const config = String(source || '');
-  const redirectSpread = String.raw`\.\.\.(?:LEGACY_RETIREMENT_REDIRECTS|\(GATE_E_LOCAL_LEGACY_FIXTURES\s*\?\s*\[\]\s*:\s*LEGACY_RETIREMENT_REDIRECTS\))`;
-  return /from '\.\/tooling\/gate-f-retirement-redirects\.mjs'/.test(config)
+  return /from '\.\/tooling\/legacy-url-redirects\.mjs'/.test(config)
     && /const LEGACY_RETIREMENT_REDIRECTS\s*=\s*buildLegacyRetirementRedirects\(/.test(config)
-    && new RegExp(String.raw`return \[[\s\S]*${redirectSpread}`).test(config);
+    && /return \[[\s\S]*\.\.\.LEGACY_RETIREMENT_REDIRECTS/.test(config);
 }
 
 export function retirementRedirectsPermanentFromConfig(source) {
@@ -45,23 +40,8 @@ export function retirementRedirectsPermanentFromConfig(source) {
   );
   if (!call) return null;
 
-  const literal = call[1].match(/\bpermanent\s*:\s*(true|false)\b/);
-  if (literal) return literal[1] === 'true';
-
-  const reference = call[1].match(/\bpermanent\s*:\s*([A-Za-z_$][\w$]*)\b/);
-  if (reference) {
-    const declaration = config.match(new RegExp(
-      `const\\s+${reference[1]}\\s*=\\s*(true|false)\\s*;`,
-    ));
-    return declaration ? declaration[1] === 'true' : null;
-  }
-
-  // The helper's supported default is permanent=true. A second-argument
-  // expression could override it beyond what this static audit can prove, so
-  // fail closed instead of reporting a rollback-safe 307 by assumption.
-  const hasOptionsExpression = /,\s*(?!\{)[A-Za-z_$][\w$]*\s*$/.test(call[1]);
-  if (hasOptionsExpression) return null;
-  return true;
+  const argument = call[1].replace(/\s/g, '').replace(/,$/, '');
+  return argument === 'LEGACY_RETIREMENT_PATHS' ? true : null;
 }
 
 function walkFiles(root, accept, prefix = '') {
@@ -82,17 +62,6 @@ function walkSymlinks(root, prefix = '') {
     else if (entry.isDirectory()) links.push(...walkSymlinks(path.join(root, entry.name), relative));
   }
   return links;
-}
-
-export function appPageRoute(relativeFile) {
-  const normalized = String(relativeFile || '').replaceAll('\\', '/');
-  if (!/(^|\/)page\.(tsx|ts)$/.test(normalized)) return null;
-  const segments = normalized.split('/').slice(0, -1);
-  if (segments.some((segment) => segment.startsWith('_'))) return null;
-  const routeSegments = segments.filter((segment) => (
-    !segment.startsWith('@') && !(segment.startsWith('(') && segment.endsWith(')'))
-  ));
-  return `/${routeSegments.join('/')}`;
 }
 
 export function redirectSourcesFromConfig(source) {
@@ -132,7 +101,7 @@ export function summarizeCorePlayers(policy = CORE_PLAYER_AFFINITY_POLICY) {
   };
 }
 
-export function collectNextMigrationStatus(
+export function collectReleaseInvariants(
   frontendRoot = FRONTEND,
   { corePlayerPolicy = CORE_PLAYER_AFFINITY_POLICY } = {},
 ) {
@@ -154,10 +123,8 @@ export function collectNextMigrationStatus(
   const retirementRedirectsInstalled = retirementRedirectsInstalledFromConfig(configSource);
   const retirementRedirectsPermanent = retirementRedirectsPermanentFromConfig(configSource);
   const retirementRedirectRules = retirementRedirectsInstalled
-    && retirementRedirectsPermanent !== null
-    ? buildLegacyRetirementRedirects(LEGACY_RETIREMENT_PATHS, {
-      permanent: retirementRedirectsPermanent,
-    })
+    && retirementRedirectsPermanent === true
+    ? buildLegacyRetirementRedirects(LEGACY_RETIREMENT_PATHS)
     : [];
   for (const redirect of retirementRedirectRules) {
     redirects.set(redirect.source, {
@@ -237,8 +204,8 @@ export function collectNextMigrationStatus(
 
   return {
     schemaVersion: 6,
-    scope: 'static-code-cutover',
-    scopeNote: 'Static Gate F truth only; historical evidence and owner-approved exceptions are documented separately.',
+    scope: 'permanent-release-invariants',
+    scopeNote: 'Repository release truth; historical evidence remains documented separately.',
     appPages: {
       source: sourceAppPages.length,
       product: productAppPages.length,
@@ -269,21 +236,21 @@ export function collectNextMigrationStatus(
     },
     corePlayers,
     routeOwnershipCollisions: ownership.collisions,
-    gateFObservationReady: telemetryMissingPaths.length === 0,
-    staticCutoverReady: blockers.length === 0,
+    retirementObservationReady: telemetryMissingPaths.length === 0,
+    releaseReady: blockers.length === 0,
     blockers,
   };
 }
 
 function printHuman(report) {
-  console.log('Next.js migration static inventory');
+  console.log('Next.js permanent release invariants');
   console.log(`  App Router product pages: ${report.appPages.product} (${report.appPages.source} source; ${report.appPages.excluded.length} non-product excluded)`);
   console.log(`  Legacy HTML: ${report.legacyHtml.total} total; ${report.legacyHtml.serverRedirected} server-redirected; ${report.legacyHtml.clientRedirectStubs} client redirect stubs; ${report.legacyHtml.directlyRenderable} still directly renderable`);
-  console.log(`  Gate F telemetry: ${report.legacyHtml.telemetryInstrumented}/${report.legacyHtml.directlyRenderable} renderable legacy pages instrumented`);
+  console.log(`  Retirement telemetry: ${report.legacyHtml.telemetryInstrumented}/${report.legacyHtml.directlyRenderable} renderable legacy pages instrumented`);
   console.log(`  Legacy replacements: ${report.legacyReplacement.nextRoutePresent}/${report.legacyReplacement.total} retirement-scope paths have an App Router owner`);
   console.log(`  Core players: ${report.corePlayers.nextReady}/${report.corePlayers.total} Next routes ready; ${report.corePlayers.admittedToNext}/${report.corePlayers.total} admitting new sessions to Next`);
   console.log(`  Route ownership collisions: ${report.routeOwnershipCollisions.length}`);
-  console.log(`  Static cutover ready: ${report.staticCutoverReady ? 'YES' : 'NO'}`);
+  console.log(`  Release ready: ${report.releaseReady ? 'YES' : 'NO'}`);
   if (report.blockers.length) {
     console.log('  Blockers:');
     for (const blocker of report.blockers) console.log(`    - ${blocker.code}: ${blocker.count}`);
@@ -292,8 +259,8 @@ function printHuman(report) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const report = collectNextMigrationStatus();
+  const report = collectReleaseInvariants();
   if (process.argv.includes('--json')) console.log(JSON.stringify(report, null, 2));
   else printHuman(report);
-  if (process.argv.includes('--assert-static-complete') && !report.staticCutoverReady) process.exitCode = 1;
+  if (process.argv.includes('--assert-release-ready') && !report.releaseReady) process.exitCode = 1;
 }

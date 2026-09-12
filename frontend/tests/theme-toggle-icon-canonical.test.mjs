@@ -32,7 +32,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { readPricingFixture } from './fixtures/gate-f-pricing/loader.mjs';
+import { readPricingFixture } from './fixtures/pricing-baseline/loader.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '..', '..');

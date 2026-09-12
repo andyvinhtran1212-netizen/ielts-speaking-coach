@@ -13,6 +13,7 @@ import {
   readAdminGradeQueue,
   selectKeyedAdminState,
 } from '../lib/admin-writing-grade-model.mjs';
+import { canonicalNextRouteForLegacy } from '../tooling/legacy-url-mapping.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -21,9 +22,10 @@ const LAYOUT = read('app', '(authed-admin-writing-grade)', 'layout.tsx');
 const BEHAVIOR = read('app', '(authed-admin-writing-grade)', 'admin', 'writing', 'grade', 'writing-grade-behavior.tsx');
 const GATE = read('components', 'admin-access-gate.tsx');
 const SHELL = read('components', 'authed-shell.tsx');
-const LEGACY = read('pages', 'admin', 'writing', 'grade.html');
+const LEGACY = read(
+  'tests', 'fixtures', 'legacy-html-retired', 'pages', 'admin', 'writing', 'grade.html',
+);
 const CONFIG = read('next.config.ts');
-const PAIRS = JSON.parse(read('tooling', 'parity-pairs-authed.json'));
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const WRITE_FLOW_NAMES = [
   'admin-writing-grade-save-deliver.mjs',
@@ -35,10 +37,12 @@ const WRITE_FLOW_NAMES = [
 ];
 
 describe('/admin/writing/grade — native ownership + admin boundary', () => {
-  test('owns the canonical route and keeps rollback HTML', () => {
+  test('owns the canonical route and keeps an archived predecessor', () => {
     assert.match(PAGE, /AdminWritingGradeBehavior/);
     assert.doesNotMatch(CONFIG, /source:\s*['"]\/admin\/writing\/grade['"]/);
-    assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'writing', 'grade.html')));
+    assert.ok(existsSync(join(
+      ROOT, 'tests', 'fixtures', 'legacy-html-retired', 'pages', 'admin', 'writing', 'grade.html',
+    )));
   });
 
   test('uses the canonical admin shell with the measured legacy cascade', () => {
@@ -117,11 +121,11 @@ describe('/admin/writing/grade — state + persistence contract', () => {
     assert.match(BEHAVIOR, /setTimeout\(\(\) => URL\.revokeObjectURL\(url\), 1000\)/);
   });
 
-  test('registers denied-state parity without overstating grading coverage', () => {
-    const pair = PAIRS.find((candidate) => candidate.name === 'admin-writing-grade-denied');
-    assert.deepEqual([pair?.legacy, pair?.next], ['/pages/admin/writing/grade.html', '/admin/writing/grade']);
-    assert.match(pair.note, /không có role admin/);
-    assert.match(pair.note, /browser write-flow/);
+  test('keeps the compatibility URL and denied-state browser coverage wired', () => {
+    assert.equal(
+      canonicalNextRouteForLegacy('/pages/admin/writing/grade.html'),
+      '/admin/writing/grade',
+    );
     assert.match(WORKFLOW, /authed-admin-writing-grade/);
   });
 

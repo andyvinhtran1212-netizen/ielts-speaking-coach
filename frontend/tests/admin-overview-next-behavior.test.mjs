@@ -17,7 +17,7 @@ import {
 import {
   buildLegacyRetirementRedirects,
   LEGACY_RETIREMENT_PATHS,
-} from '../tooling/gate-f-retirement-redirects.mjs';
+} from '../tooling/legacy-url-redirects.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -29,18 +29,16 @@ const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const BROWSER_FLOW = read('tooling', 'verify-admin-overview-flow.mjs');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const ADMIN_STUB = read('public', 'admin.html');
-const RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
-  LEGACY_RETIREMENT_PATHS,
-  { permanent: false },
-);
+const ADMIN_STUB = read('tests', 'fixtures', 'legacy-html-retired', 'admin.html');
+const RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(LEGACY_RETIREMENT_PATHS);
 
 describe('/admin — native overview ownership', () => {
   test('owns the canonical route behind the backend-owned admin gate', () => {
     assert.match(PAGE, /function AdminOverviewPage/);
     assert.match(PAGE, /<AdminAccessGate>/);
     assert.match(PAGE, /<aver-admin-chrome active="overview">/);
-    assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'index.html')));
+    assert.ok(existsSync(join(ROOT, 'tests', 'fixtures', 'legacy-html-retired',
+      'pages', 'admin', 'index.html')));
     assert.match(CHROME, /section: 'overview'[^\n]+href: '\/admin'/);
     assert.match(CHROME, /<a href="\/admin" class="brand">/);
     assert.doesNotMatch(CHROME, /href: '\/pages\/admin\/index\.html'/);
@@ -48,7 +46,7 @@ describe('/admin — native overview ownership', () => {
     assert.ok(RETIREMENT_REDIRECTS.some((entry) => (
       entry.source === '/pages/admin/dashboard/index.html'
         && entry.destination === '/admin'
-        && entry.permanent === false
+        && entry.permanent === true
     )));
   });
 
