@@ -99,7 +99,8 @@ async def _create(
          patch("services.mock_correction_service.assert_explanation_content_ready", explanation_guard), \
          patch.object(mod, "create_class_assignment",
                       lambda *a, **k: {"assignment": {"id": "a1"}, "student_count": 3,
-                                       "unactivated_count": 0}):
+                                       "unactivated_count": 0,
+                                       "exam_scope_kind": k.get("exam_scope_kind")}):
         return await mod.create_assignment("c1", _body(skill, **body_overrides), None)
 
 
@@ -184,18 +185,17 @@ async def test_immediate_explanations_require_40_of_40_for_every_delivery_mode(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("skill", ["reading", "listening"])
-async def test_a_reserved_paper_must_be_mapped_to_the_target_class(skill):
+async def test_an_unmapped_reserved_paper_gets_scope_in_the_assignment_transaction(skill):
     paper = {"id": "uuid-1", "title": "Cam 18 Test 1", "status": "published",
              "exam_only": True}
     if skill == "listening":
         paper["assembled_audio_storage_path"] = "cam18/test1.mp3"
         paper["full_audio_storage_path"] = None
-    with pytest.raises(Exception) as exc:
-        await _create(
-            paper, skill, mapped=False, delivery_mode="assigned_practice",
-        )
-    assert getattr(exc.value, "status_code", None) == 400
-    assert "chưa được gán cho lớp" in str(getattr(exc.value, "detail", ""))
+    out = await _create(
+        paper, skill, mapped=False, delivery_mode="assigned_practice",
+    )
+    assert out["student_count"] == 3
+    assert out["exam_scope_kind"] == skill
 
 
 @pytest.mark.asyncio
