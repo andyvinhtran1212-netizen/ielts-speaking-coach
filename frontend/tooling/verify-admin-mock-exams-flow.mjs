@@ -88,7 +88,7 @@ await page.route('**/*', async (route) => {
     assignments = body.assignments.map((row) => ({ ...row, student_name: 'Nguyễn An' }));
     return json({ assigned: ['student-1'], skipped: [], locked: [], refresh_failed: [] });
   }
-  if (path === '/admin/exam-content') return json({ items: [{ id: 'reading-uuid', kind: 'reading', code: 'READ-PAPER', title: 'Reading paper', status: 'published', course_level: contentCourseLevel, cohort_ids: contentCohortIds, exam_only: true, is_public: contentIsPublic, mock_exams: [{ id: 'source-1', code: 'SOURCE-1', title: 'Đề gốc lớp C1', status: 'published' }] }], levels: ['C1', 'C2'], failed_kinds: [] });
+  if (path === '/admin/exam-content') return json({ items: [{ id: 'reading-uuid', kind: 'reading', code: 'READ-PAPER', title: 'Reading paper', status: 'published', course_level: contentCourseLevel, cohort_ids: contentCohortIds, exam_only: true, is_public: contentIsPublic, publish_ready: true, readiness_reason: null, mock_exams: [{ id: 'source-1', code: 'SOURCE-1', title: 'Đề gốc lớp C1', status: 'published' }] }], levels: ['C1', 'C2'], failed_kinds: [] });
   if (path === '/admin/exam-content/reading/reading-uuid/level' && method === 'PATCH') { contentCourseLevel = body.course_level; return json({ ok: true }); }
   if (path === '/admin/exam-content/reading/reading-uuid/cohorts' && method === 'PATCH') { contentCohortIds = body.cohort_ids; return json({ ok: true }); }
   if (path === '/admin/exam-content/reading/reading-uuid/visibility' && method === 'PATCH') { contentIsPublic = body.is_public; return json({ id: 'reading-uuid', kind: 'reading', is_public: contentIsPublic }); }
