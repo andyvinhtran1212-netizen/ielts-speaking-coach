@@ -74,6 +74,14 @@ function clean(value: unknown) {
     text = text.replaceAll(`\`${code}\``, label);
   }
   return text
+    .normalize('NFC')
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/(^|\n)#{1,6}\s+/g, '$1')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&quot;/gi, '"')
+    .replace(/&amp;/gi, '&')
     .replace(/\*\*Re-listen anchor:\*\*/gi, '**Mốc nghe lại:**')
     .replace(/\bspeaker\s+/gi, 'người nói ')
     .replace(/\s+---+\s*$/g, '')
@@ -141,7 +149,7 @@ function evidenceRows(value: unknown): EvidenceRow[] {
 function EvidenceCards({ rows }: { rows: EvidenceRow[] }) {
   if (!rows.length) return <p>Chưa có vị trí nguồn đã duyệt.</p>;
   return <div className="wex-evidence-cards">{rows.map((row, index) => <article className="wex-evidence" key={`${index}-${row.location}-${row.timestamp}`}>
-    <div className="wex-evidence__meta">{row.timestamp ? <span>🔊 {row.timestamp}</span> : null}{row.location ? <span>📍 {row.location}</span> : null}</div>
+    <div className="wex-evidence__meta">{row.timestamp ? <span><b>Audio</b>{row.timestamp}</span> : null}{row.location ? <span><b>Nguồn</b>{row.location}</span> : null}</div>
     {row.quote ? <blockquote>{inlineNodes(row.quote)}</blockquote> : null}
     {row.relation ? <p className="wex-evidence__relation">{inlineNodes(row.relation)}</p> : null}
   </article>)}</div>;
@@ -279,13 +287,21 @@ export function WebExplanationPanel({
 
   return <section className="wex-panel" aria-label="Phương hướng sửa bài">
     <header className="wex-panel__head">
-      <div><span>{correctionRequired ? 'CHỮA BÀI TƯƠNG TÁC' : 'ĐỐI CHIẾU NHANH'}</span><h3>{correctionRequired ? 'Tìm bằng chứng, thử lại, rồi mới mở lời giải' : 'Bạn đã làm đúng — xem vì sao đáp án khớp'}</h3></div>
-      <small>{skill === 'reading' ? 'Reading' : 'Listening'} · {!correctionRequired ? 'câu đúng' : stage >= 5 ? 'đã lưu bài sửa' : `bước ${Math.min(stage + 1, 5)}/5`}</small>
+      <div><span>{correctionRequired ? 'CHỮA BÀI CÓ HƯỚNG DẪN' : 'ĐỐI CHIẾU NHANH'}</span><h3>{correctionRequired ? 'Tìm bằng chứng, thử lại, rồi mới mở lời giải' : 'Bạn đã làm đúng — xem vì sao đáp án khớp'}</h3></div>
+      <small>{skill === 'reading' ? 'Reading' : 'Listening'} · {!correctionRequired ? 'câu đúng' : stage >= 5 ? 'đã lưu bài sửa' : `bước ${Math.min(stage + 1, 5)} trên 5`}</small>
     </header>
+
+    {correctionRequired ? <ol className="wex-progress" aria-label="Tiến trình sửa bài">
+      {['Bằng chứng', 'Đúng vùng', 'Từ quyết định', 'Thử lại', 'Đối chiếu'].map((label, index) => <li
+        className={`${stage === index ? 'is-current' : ''}${stage > index ? ' is-complete' : ''}`.trim()}
+        aria-current={stage === index ? 'step' : undefined}
+        key={label}
+      ><span>{stage > index ? '✓' : index + 1}</span><small>{label}</small></li>)}
+    </ol> : null}
 
     {error ? <div className="wex-alert" role="alert"><span>{error}</span><button type="button" onClick={() => setError('')}>Đóng</button></div> : null}
 
-    {correctionRequired ? <><div className={`wex-stage${stage === 0 ? ' is-current' : ''}`}>
+    {correctionRequired ? <><div className={`wex-stage${stage === 0 ? ' is-current' : ' is-complete'}`} aria-current={stage === 0 ? 'step' : undefined}>
       <div className="wex-stage__title"><span>1</span><strong>Tự tìm bằng chứng</strong></div>
       {stage === 0 ? <>
         <p>{skill === 'reading'
@@ -299,28 +315,28 @@ export function WebExplanationPanel({
         </div>
         {localEvidence ? <div className="wex-selection" role="status"><span>Bằng chứng bạn chọn</span><p>{localEvidence.response}</p></div> : null}
         <button type="button" className="av-button av-button-primary" disabled={!localEvidence || Boolean(busy)} onClick={submitEvidence}>{busy === 'evidence_attempt_submitted' ? 'Đang lưu…' : 'Chốt và tiếp tục'}</button>
-      </> : <p className="wex-stage__done">✓ Đã ghi nhận bằng chứng trước khi xem gợi ý.</p>}
+      </> : <div className="wex-stage__done"><span>Đã ghi nhận trước khi mở gợi ý</span>{localEvidence ? <q>{localEvidence.response}</q> : null}</div>}
     </div>
 
-    {stage >= 1 ? <div className={`wex-stage${stage === 1 ? ' is-current' : ''}`}>
+    {stage >= 1 ? <div className={`wex-stage${stage === 1 ? ' is-current' : ' is-complete'}`} aria-current={stage === 1 ? 'step' : undefined}>
       <div className="wex-stage__title"><span>2</span><strong>Kiểm tra đúng vùng nguồn</strong></div>
       {stage === 1
         ? <><p>Chỉ mở vị trí tổng quát; đáp án và cụm quyết định vẫn được giữ kín.</p><button type="button" className="av-button av-button-primary" disabled={Boolean(busy)} onClick={() => void record('hint_revealed', { hint_type: 'location' })}>{busy === 'hint_revealed' ? 'Đang lưu…' : 'Xem vị trí nguồn'}</button></>
         : <EvidenceCards rows={sourceRows.map((row) => ({ ...row, quote: '', relation: '' }))} />}
     </div> : null}
 
-    {stage >= 2 ? <div className={`wex-stage${stage === 2 ? ' is-current' : ''}`}>
+    {stage >= 2 ? <div className={`wex-stage${stage === 2 ? ' is-current' : ' is-complete'}`} aria-current={stage === 2 ? 'step' : undefined}>
       <div className="wex-stage__title"><span>3</span><strong>Nhận ra chữ hoặc paraphrase quyết định</strong></div>
       {stage === 2 ? <button type="button" className="av-button av-button-primary" disabled={Boolean(busy)} onClick={() => void record('hint_revealed', { hint_type: 'decisive' })}>{busy === 'hint_revealed' ? 'Đang lưu…' : 'Mở gợi ý quyết định'}</button> : <Prose value={explanation.decisive_word_or_paraphrase || explanation.paraphrase || 'Chưa có gợi ý quyết định.'} />}
     </div> : null}
 
-    {stage >= 3 ? <div className={`wex-stage${stage === 3 ? ' is-current' : ''}`}>
+    {stage >= 3 ? <div className={`wex-stage${stage === 3 ? ' is-current' : ' is-complete'}`} aria-current={stage === 3 ? 'step' : undefined}>
       <div className="wex-stage__title"><span>4</span><strong>Thử lại trước khi xem lời giải</strong></div>
       <p>Chốt lại đáp án trong đầu hoặc trên giấy. Khi sẵn sàng, mở lời giải để đối chiếu.</p>
-      {stage === 3 ? <button type="button" className="av-button av-button-primary" disabled={Boolean(busy)} onClick={() => void record('full_explanation_opened')}>{busy === 'full_explanation_opened' ? 'Đang lưu…' : 'Mở lời giải đầy đủ'}</button> : null}
+      {stage === 3 ? <button type="button" className="av-button av-button-primary" disabled={Boolean(busy)} onClick={() => void record('full_explanation_opened')}>{busy === 'full_explanation_opened' ? 'Đang lưu…' : 'Mở lời giải đầy đủ'}</button> : <p className="wex-stage__done">Đã thử lại trước khi đối chiếu đáp án.</p>}
     </div> : null}</> : null}
 
-    {stage >= 4 ? <div className="wex-stage wex-stage--full is-current">
+    {stage >= 4 ? <div className="wex-stage wex-stage--full is-current" aria-current="step">
       <div className="wex-stage__title"><span>{correctionRequired ? '5' : '✓'}</span><strong>{correctionRequired ? 'Đối chiếu và tạo bài sửa ngắn' : 'Đối chiếu lời giải'}</strong></div>
       <div className="wex-answer"><span>Đáp án chuẩn</span><Prose value={explanation.answer_summary || object?.item?.answer?.canonical} /></div>
       <details open><summary>Bằng chứng nguồn</summary><EvidenceCards rows={sourceRows} />{explanation.script_extract ? <blockquote className="wex-script">{inlineNodes(explanation.script_extract)}</blockquote> : null}</details>
@@ -334,8 +350,8 @@ export function WebExplanationPanel({
         <label><span>Đáp án sau khi sửa</span>{choices.length
           ? <select value={correctedAnswer} onChange={(event) => setCorrectedAnswer(event.target.value)}><option value="">Chọn đáp án</option>{choices.map(([value, label]) => <option value={value} key={value}>{value}. {label}</option>)}</select>
           : <input maxLength={2000} value={correctedAnswer} onChange={(event) => setCorrectedAnswer(event.target.value)} placeholder="Nhập đáp án ngắn" />}</label>
-        <label><span>Mình sai chủ yếu vì</span><select value={errorMechanism} onChange={(event) => setErrorMechanism(event.target.value)}><option value="">Chọn một lý do</option>{errorChoices.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-        <label><span>Lần sau mình sẽ</span><select value={nextAction} onChange={(event) => setNextAction(event.target.value)}><option value="">Chọn một hành động</option>{NEXT_ACTIONS[skill].map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+        <label><span>Bạn sai chủ yếu vì</span><select value={errorMechanism} onChange={(event) => setErrorMechanism(event.target.value)}><option value="">Chọn một lý do</option>{errorChoices.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+        <label><span>Lần sau bạn sẽ</span><select value={nextAction} onChange={(event) => setNextAction(event.target.value)}><option value="">Chọn một hành động</option>{NEXT_ACTIONS[skill].map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
         <button type="button" className="av-button av-button-primary" disabled={Boolean(busy) || !correctedAnswer.trim() || !localEvidence || !errorMechanism || !nextAction} onClick={submitCorrection}>{busy === 'correction_output_submitted' ? 'Đang lưu…' : 'Lưu bài sửa'}</button>
       </div> : <p className="wex-complete" role="status">✓ Đã lưu bài sửa. Mở lời giải chưa đồng nghĩa đã thành thạo; hệ thống sẽ dùng bài sửa và lần luyện sau để kiểm tra tiến bộ.</p>}
       {repair.prompt_vi ? <div className="wex-repair"><b>Bài kiểm tra hiểu ngay trên nguồn này</b><Prose value={repair.prompt_vi} />{repair.pass_rule ? <small>Điều kiện đạt: {clean(repair.pass_rule)}</small> : null}</div> : null}
