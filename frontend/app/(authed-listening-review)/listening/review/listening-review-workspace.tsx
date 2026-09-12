@@ -167,9 +167,10 @@ function FeedbackCardBridge({ cardRef, topRef, item, attemptId, preview }: {
   return null;
 }
 
-function QuestionCard({ item, expanded, preview, attemptId, onToggle, onLocate, getAudioPosition }: {
+function QuestionCard({ item, expanded, selected, preview, attemptId, onToggle, onLocate, getAudioPosition }: {
   item: any;
   expanded: boolean;
+  selected: boolean;
   preview: boolean;
   attemptId: string | null;
   onToggle(): void;
@@ -178,6 +179,7 @@ function QuestionCard({ item, expanded, preview, attemptId, onToggle, onLocate, 
 }) {
   const cardRef = useRef<HTMLElement | null>(null);
   const topRef = useRef<HTMLDivElement | null>(null);
+  const flagRef = useRef<HTMLDivElement | null>(null);
   const solution = item.solution || {};
   const webExplanation = item.web_explanation_object;
   const vocab = bulletRows(solution.vocab_focus || solution.vocab);
@@ -197,32 +199,36 @@ function QuestionCard({ item, expanded, preview, attemptId, onToggle, onLocate, 
   return <article
     ref={cardRef}
     id={`listening-review-q-${item.q_num}`}
-    className={`lr-card ${item.correct ? 'is-correct' : 'is-incorrect'}${expanded ? ' is-open' : ''}`}
+    className={`lr-card ${item.correct ? 'is-correct' : 'is-incorrect'}${expanded ? ' is-open' : ''}${selected ? ' is-current' : ''}`}
     data-q={item.q_num}
     data-correct={item.correct ? 'true' : 'false'}
+    aria-current={selected ? 'true' : undefined}
   >
-    <FeedbackCardBridge cardRef={cardRef} topRef={topRef} item={item} attemptId={attemptId} preview={preview} />
-    <div
-      ref={topRef}
-      className="lr-card__top"
-      role="button"
-      tabIndex={0}
-      aria-expanded={expanded}
-      onClick={(event) => {
-        if (!(event.target as HTMLElement).closest('button, a')) onToggle();
-      }}
-      onKeyDown={keyToggle}
-    >
-      <span className="lr-card__num">Câu {item.q_num}</span>
-      {!preview ? <span className="lr-card__verdict">{item.correct ? '✓ Đúng' : '✗ Sai'}</span> : null}
-      <span className="lr-card__toggle">{expanded ? 'Ẩn lời giải' : 'Xem lời giải'} ▸</span>
+    <FeedbackCardBridge cardRef={cardRef} topRef={flagRef} item={item} attemptId={attemptId} preview={preview} />
+    <div className="lr-card__toolbar">
+      <div
+        ref={topRef}
+        className="lr-card__top"
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        onClick={(event) => {
+          if (!(event.target as HTMLElement).closest('button, a')) onToggle();
+        }}
+        onKeyDown={keyToggle}
+      >
+        <span className="lr-card__num">Câu {item.q_num}</span>
+        {!preview ? <span className="lr-card__verdict">{item.correct ? '✓ Đúng' : '✗ Sai'}</span> : null}
+        <span className="lr-card__toggle">{expanded ? 'Ẩn lời giải' : 'Xem lời giải'} ▸</span>
+      </div>
+      <div ref={flagRef} className="lr-card__flag" />
     </div>
     {item.prompt ? <div className="lr-card__prompt">{inlineNodes(item.prompt)}</div> : null}
     <div className="lr-card__answers">
       {!preview ? <div className="lr-card__ans is-user"><span>Bạn:</span> <code>{item.user_answer || '—'}</code></div> : null}
       <div className="lr-card__ans is-correct"><span>Đáp án:</span> <code>{webExplanation ? 'Mở theo các bước sửa bài bên dưới' : item.expected || '—'}</code></div>
     </div>
-    {win ? <div className="lr-card__tsrow"><button type="button" className="lr-card__ts" onClick={onLocate}>🔊 {timestamp}</button></div> : null}
+    {win ? <div className="lr-card__tsrow"><button type="button" className="lr-card__ts" onClick={onLocate}><span aria-hidden="true">▶</span> Nghe đoạn {timestamp}</button></div> : null}
     <div className="lr-card__detail" hidden={!expanded}>
       {webExplanation && expanded
         ? <WebExplanationPanel
@@ -425,7 +431,7 @@ export function ListeningReviewWorkspace() {
       <div className="lr-topbar__left"><a className="lr-back" href={back.href}>{back.label}</a><span className="lr-test-label">{data?.title || 'Chữa bài'}</span></div>
       <div className="lr-topbar__right">
         {data?.preview ? <p className="lr-preview-banner" role="status">XEM TRƯỚC — chưa ai làm bài này. Ô trả lời để trống và không có điểm; đáp án + giải thích là thật.</p> : null}
-        {data && !data.preview ? <div className="lr-summary" aria-live="polite"><span>{listeningBandLabel(data)}</span><span>Đúng {data.score}/{data.maxScore}</span></div> : null}
+        {data && !data.preview ? <div className="lr-summary" aria-live="polite"><span><small>Ước tính</small>{listeningBandLabel(data)}</span><span><small>Kết quả</small>{data.score}/{data.maxScore} câu</span></div> : null}
       </div>
     </header>
 
@@ -438,7 +444,7 @@ export function ListeningReviewWorkspace() {
         <TranscriptPane sections={data.sections} activeSection={activeSection} activeAnchor={activeAnchor} onSection={(section) => { setActiveSection(section); setActiveAnchor(null); }} />
         <div className="exam-divider" aria-hidden="true" />
         <section className="exam-questions lr-review-pane" aria-label="Chữa từng câu">
-          <header className="lr-review-header"><div><p className="lr-review-header__eyebrow">KIỂM TRA ĐÁP ÁN</p><h1>Chữa từng câu</h1><p className="lr-review-header__copy">
+          <header className="lr-review-header"><div><p className="lr-review-header__eyebrow">BÀN CHỮA BÀI</p><h1>Nghe lại, nhận ra tín hiệu</h1><p className="lr-review-header__copy">
             {data.preview
               ? `${data.review.length} câu trong đề · Xem đáp án, transcript và lời giải trước khi xuất bản.`
               : `${wrongCount} câu cần xem lại · ${data.review.length - wrongCount} câu đúng. ${wrongCount ? 'Bắt đầu từ các câu sai, nghe lại rồi mở lời giải.' : 'Bạn đã trả lời đúng toàn bộ bài này.'}`}
@@ -446,19 +452,22 @@ export function ListeningReviewWorkspace() {
             ['wrong', 'Cần xem lại'], ['all', 'Tất cả'], ['correct', 'Đúng'],
           ] as [Filter, string][]).map(([value, label]) => <button type="button" className={`lr-filter__button${filter === value ? ' is-active' : ''}`} aria-pressed={filter === value} onClick={() => setFilter(value)} key={value}>{label}</button>)}</div> : null}</header>
           <div className="lr-review">
-            {!data.preview ? <div className="exam-review-guide" aria-label="Cách chữa bài hiệu quả"><span><b>1</b>Nghe lại đúng đoạn</span><span><b>2</b>Đối chiếu transcript</span><span><b>3</b>Phân tích paraphrase</span></div> : null}
-            {skills.length && filter !== 'correct' && !data.preview ? <section className="lr-skills-panel" aria-label="Kĩ năng cần luyện"><h3 className="lr-skills-panel__title">🎯 Kĩ năng cần luyện</h3><p className="lr-skills-panel__sub">Tổng hợp từ các câu sai — ưu tiên luyện kĩ năng xuất hiện nhiều nhất.</p><div className="lr-skills-panel__chips">{skills.map((skill) => <span className="lr-skill-chip" title={skill.label} key={skill.code}><span className="lr-skill-chip__code">{skill.code}</span>{skill.label}<span className="lr-skill-chip__count">×{skill.count}</span></span>)}</div><a className="lr-skills-panel__cta" href="/listening">Luyện nghe thêm →</a></section> : null}
-            <div ref={surveyRef} />
+            {!data.preview ? <div className="exam-review-guide" aria-label="Cách chữa bài hiệu quả"><span><b>1</b><span><small>Nghe</small>Đúng đoạn đáp án</span></span><span><b>2</b><span><small>Đối chiếu</small>Transcript và tín hiệu</span></span><span><b>3</b><span><small>Rút kinh nghiệm</small>Paraphrase và bẫy</span></span></div> : null}
+            {skills.length && filter !== 'correct' && !data.preview ? <section className="lr-skills-panel" aria-label="Kĩ năng cần luyện"><div><p className="lr-skills-panel__eyebrow">TỪ CÁC CÂU SAI</p><h3 className="lr-skills-panel__title">Kĩ năng cần luyện</h3><p className="lr-skills-panel__sub">Ưu tiên kĩ năng xuất hiện nhiều nhất trong bài này.</p></div><div className="lr-skills-panel__chips">{skills.map((skill) => <span className="lr-skill-chip" title={skill.label} key={skill.code}><span className="lr-skill-chip__code">{skill.code}</span><span className="lr-skill-chip__label">{skill.label}</span><span className="lr-skill-chip__count">×{skill.count}</span></span>)}</div><a className="lr-skills-panel__cta" href="/listening">Luyện nghe thêm →</a></section> : null}
             {visibleItems.map((item: any) => <QuestionCard
               item={item}
               expanded={expanded.has(item.q_num)}
+              selected={currentQuestion === item.q_num}
               preview={data.preview}
               attemptId={data.attemptId}
-              onToggle={() => setExpanded((previous) => {
-                const next = new Set(previous);
-                if (next.has(item.q_num)) next.delete(item.q_num); else next.add(item.q_num);
-                return next;
-              })}
+              onToggle={() => {
+                setCurrentQuestion(item.q_num);
+                setExpanded((previous) => {
+                  const next = new Set(previous);
+                  if (next.has(item.q_num)) next.delete(item.q_num); else next.add(item.q_num);
+                  return next;
+                });
+              }}
               onLocate={() => locate(item)}
               getAudioPosition={() => {
                 const seconds = audioRef.current?.getCurrentTime?.();
@@ -466,6 +475,8 @@ export function ListeningReviewWorkspace() {
               }}
               key={item.q_num}
             />)}
+            {!visibleItems.length ? <p className="exam-review-empty">Không có câu nào trong bộ lọc này.</p> : null}
+            <div className="lr-review-feedback" ref={surveyRef} />
           </div>
         </section>
       </main>

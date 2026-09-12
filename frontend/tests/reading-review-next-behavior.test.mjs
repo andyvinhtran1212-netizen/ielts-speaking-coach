@@ -21,6 +21,8 @@ const CLIENT = read('frontend/app/(reading-review)/reading/review/reading-review
 const LISTENING_CLIENT = read('frontend/app/(authed-listening-review)/listening/review/listening-review-workspace.tsx');
 const LAYOUT = read('frontend/app/(reading-review)/layout.tsx');
 const WEB_PANEL = read('frontend/components/web-explanation-panel.tsx');
+const NEXT_CSS = read('frontend/public/css/reading-review-next.css');
+const WEB_PANEL_CSS = read('frontend/public/css/web-explanation-panel.css');
 const WRITE_FLOW = read('frontend/tooling/write-flows/reading-review-microcheck.mjs');
 
 function payload(overrides = {}) {
@@ -152,7 +154,7 @@ describe('native Reading review route contract', () => {
 
   test('preserves review affordances rather than shipping a score-only port', () => {
     for (const signal of [
-      'Bài dịch', 'Locate trong bài đọc', 'Phân tích đáp án nhiễu',
+      'Bài dịch', 'Đến đoạn này trong bài đọc', 'Phân tích đáp án nhiễu',
       'microcheck-answers', 'AverFeedback.mountSurvey', 'AverFeedback.attachCardFlag',
       'adminTestId', 'XEM TRƯỚC',
     ]) assert.ok(CLIENT.includes(signal), signal);
@@ -197,5 +199,17 @@ describe('native Reading review route contract', () => {
     assert.match(CLIENT, /data-mc/);
     assert.match(CLIENT, /data-letter=\{letter\}/);
     assert.match(CLIENT, /if \(answer \|\| !enabled\) return/);
+  });
+
+  test('ships a theme-safe correction desk with visible progress and accessible targets', () => {
+    assert.match(CLIENT, /BÀN CHỮA BÀI/);
+    assert.match(CLIENT, /selected=\{currentQuestion === item\.q_num\}/);
+    assert.match(WEB_PANEL, /className="wex-progress"/);
+    assert.match(WEB_PANEL, /aria-current=\{stage === index \? 'step'/);
+    assert.match(NEXT_CSS, /--exam-surface-page:\s*var\(--av-surface-page\)/);
+    assert.match(NEXT_CSS, /\.rr-nav-q\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px/s);
+    assert.match(NEXT_CSS, /@media \(prefers-reduced-motion: reduce\)/);
+    assert.doesNotMatch(NEXT_CSS, /#[0-9a-fA-F]{3,8}\b|(?:color|background(?:-color)?):\s*(?:white|black)\b/);
+    assert.doesNotMatch(WEB_PANEL_CSS, /#[0-9a-fA-F]{3,8}\b|(?:color|background(?:-color)?):\s*(?:white|black)\b/);
   });
 });

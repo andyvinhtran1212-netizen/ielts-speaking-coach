@@ -50,7 +50,7 @@ const STEP_LABELS: Record<string, string> = {
   confirm: 'Chốt đáp án',
 };
 
-const KP_ICONS: Record<string, string> = { grammar: '📘', vocab: '📗', skill: '🎯' };
+const KP_ICONS: Record<string, string> = { grammar: 'G', vocab: 'V', skill: 'K' };
 
 function statusOf(error: unknown) {
   return Number((error as { status?: unknown })?.status || 0);
@@ -141,7 +141,7 @@ function Microcheck({ value, refs, enabled, disabledNote }: {
     }
   };
   return <div className="rr-microcheck" data-mc>
-    <p className="rr-microcheck__prompt">🧩 {String(value.prompt)}</p>
+    <p className="rr-microcheck__prompt"><span>Kiểm tra nhanh</span>{String(value.prompt)}</p>
     {options.map((option: any, index: number) => {
       const letter = String.fromCharCode(65 + index);
       const selected = answer === letter;
@@ -210,9 +210,10 @@ function LegacySteps({ value }: { value: unknown }) {
   return <p>{proseNodes(value)}</p>;
 }
 
-function QuestionCard({ item, expanded, preview, attemptId, anonId, evidenceSelection, onToggle, onLocate, onStartEvidenceSelection }: {
+function QuestionCard({ item, expanded, selected, preview, attemptId, anonId, evidenceSelection, onToggle, onLocate, onStartEvidenceSelection }: {
   item: any;
   expanded: boolean;
+  selected: boolean;
   preview: boolean;
   attemptId: string | null;
   anonId: string | null;
@@ -223,6 +224,7 @@ function QuestionCard({ item, expanded, preview, attemptId, anonId, evidenceSele
 }) {
   const cardRef = useRef<HTMLElement | null>(null);
   const topRef = useRef<HTMLDivElement | null>(null);
+  const flagRef = useRef<HTMLDivElement | null>(null);
   const solution = item.solution || {};
   const webExplanation = item.web_explanation_object;
   const structured = hasStructuredStepper(item.stepper);
@@ -234,16 +236,16 @@ function QuestionCard({ item, expanded, preview, attemptId, anonId, evidenceSele
     || solution.trap_analysis || solution.tips || item.explanation || webExplanation);
 
   useEffect(() => {
-    if (preview || !attemptId || !cardRef.current || !topRef.current) return;
+    if (preview || !attemptId || !cardRef.current || !flagRef.current) return;
     let disposed = false;
     void whenGlobalReady(
       () => typeof (window as any).AverFeedback?.attachCardFlag === 'function',
       'AverFeedback (Reading review card)',
     ).then((ready) => {
-      if (!disposed && ready && cardRef.current && topRef.current) {
+      if (!disposed && ready && cardRef.current && flagRef.current) {
         (window as any).AverFeedback.attachCardFlag({
           card: cardRef.current,
-          top: topRef.current,
+          top: flagRef.current,
           skill: 'reading',
           attemptId,
           qNum: item.q_num,
@@ -267,27 +269,31 @@ function QuestionCard({ item, expanded, preview, attemptId, anonId, evidenceSele
   return <article
     ref={cardRef}
     id={`reading-review-q-${item.q_num}`}
-    className={`rr-card ${item.correct ? 'is-correct' : 'is-incorrect'}${expanded ? ' is-open' : ''}`}
+    className={`rr-card ${item.correct ? 'is-correct' : 'is-incorrect'}${expanded ? ' is-open' : ''}${selected ? ' is-current' : ''}`}
     data-q={item.q_num}
+    aria-current={selected ? 'true' : undefined}
   >
-    <div
-      ref={topRef}
-      className="rr-card__top"
-      role={hasRich ? 'button' : undefined}
-      tabIndex={hasRich ? 0 : undefined}
-      aria-expanded={hasRich ? expanded : undefined}
-      onClick={(event) => {
-        if (hasRich && !(event.target as HTMLElement).closest('button, a')) onToggle();
-      }}
-      onKeyDown={toggleFromKeyboard}
-    >
-      <span className="rr-card__num">Câu {item.q_num}</span>
-      {!preview ? <span className="rr-card__verdict">{item.correct ? '✓ Đúng' : '✗ Sai'}</span> : null}
-      <span className="rr-card__tag">{tags}</span>
-      {hasRich ? <span className="rr-card__toggle">
-        <span className="rr-card__toggle-text">{expanded ? 'Ẩn lời giải' : 'Xem lời giải'}</span>
-        <span className="rr-card__chevron" aria-hidden="true">▸</span>
-      </span> : null}
+    <div className="rr-card__toolbar">
+      <div
+        ref={topRef}
+        className="rr-card__top"
+        role={hasRich ? 'button' : undefined}
+        tabIndex={hasRich ? 0 : undefined}
+        aria-expanded={hasRich ? expanded : undefined}
+        onClick={(event) => {
+          if (hasRich && !(event.target as HTMLElement).closest('button, a')) onToggle();
+        }}
+        onKeyDown={toggleFromKeyboard}
+      >
+        <span className="rr-card__num">Câu {item.q_num}</span>
+        {!preview ? <span className="rr-card__verdict">{item.correct ? '✓ Đúng' : '✗ Sai'}</span> : null}
+        <span className="rr-card__tag">{tags}</span>
+        {hasRich ? <span className="rr-card__toggle">
+          <span className="rr-card__toggle-text">{expanded ? 'Ẩn lời giải' : 'Xem lời giải'}</span>
+          <span className="rr-card__chevron" aria-hidden="true">▸</span>
+        </span> : null}
+      </div>
+      <div ref={flagRef} className="rr-card__flag" />
     </div>
     {prompt ? <p className="rr-card__prompt">{prompt}</p> : null}
     <div className="rr-card__answers">
@@ -311,7 +317,7 @@ function QuestionCard({ item, expanded, preview, attemptId, anonId, evidenceSele
       </SolutionSection>
       <SolutionSection label="Trích đoạn nguồn" className="rr-sol__sec--quote">
         {solution.source_excerpt ? <><blockquote>{proseNodes(solution.source_excerpt)}</blockquote>
-          <button type="button" className="rr-locate-btn" onClick={() => onLocate(String(solution.source_excerpt))}>📍 Locate trong bài đọc</button></> : null}
+          <button type="button" className="rr-locate-btn" onClick={() => onLocate(String(solution.source_excerpt))}>Đến đoạn này trong bài đọc</button></> : null}
       </SolutionSection>
       <SolutionSection label="Từ vựng" className="rr-sol__sec--vocab">
         {Array.isArray(solution.vocab) && solution.vocab.length ? <VocabList rows={solution.vocab} /> : null}
@@ -327,7 +333,7 @@ function QuestionCard({ item, expanded, preview, attemptId, anonId, evidenceSele
       <SolutionSection label="Phân tích bẫy & kỹ năng" className="rr-sol__sec--trap">
         {solution.trap_analysis ? <ul className="rr-sol__bullets">{splitReviewProse(solution.trap_analysis).map((row: string, index: number) => <li key={`${index}-${row}`}>{proseNodes(row)}</li>)}</ul> : null}
       </SolutionSection>
-      <SolutionSection label="💡 Mẹo làm bài" className="rr-sol__sec--tip">
+      <SolutionSection label="Mẹo làm bài" className="rr-sol__sec--tip">
         {solution.tips ? <ul className="rr-sol__bullets">{splitReviewProse(solution.tips).map((row: string, index: number) => <li key={`${index}-${row}`}>{proseNodes(row)}</li>)}</ul> : null}
       </SolutionSection>
       {!structured && !solution.steps && item.explanation
@@ -589,8 +595,8 @@ export function ReadingReviewWorkspace() {
       <div className="rr-topbar__right">
         {data?.preview ? <p className="rr-preview-banner" role="status">XEM TRƯỚC — chưa ai làm bài này. Ô trả lời để trống và không có điểm; đáp án + giải thích là thật.</p> : null}
         {data && !data.preview ? <div className="rr-topbar-summary" aria-live="polite">
-          <span className="rr-topbar-summary__band">Band {data.bandEstimate ?? '—'}</span>
-          <span className="rr-topbar-summary__score">Đúng {data.score ?? '—'}/{data.maxScore}</span>
+          <span className="rr-topbar-summary__band"><small>Ước tính</small>Band {data.bandEstimate ?? '—'}</span>
+          <span className="rr-topbar-summary__score"><small>Kết quả</small>{data.score ?? '—'}/{data.maxScore} câu</span>
         </div> : null}
         {skills.length ? <div className="rr-skills" aria-label="Phân bố kỹ năng">{skills.map((skill: any) => <span
           className={`rr-skill-chip ${skill.percent >= 75 ? 'is-strong' : skill.percent >= 50 ? 'is-mid' : 'is-weak'}`}
@@ -627,7 +633,7 @@ export function ReadingReviewWorkspace() {
         <div className="exam-divider" aria-hidden="true" />
         <section className="exam-questions rr-review" aria-label="Chữa từng câu">
           <header className="rr-review-header">
-            <div><p className="rr-review-header__eyebrow">KIỂM TRA ĐÁP ÁN</p><h1>Chữa từng câu</h1><p className="rr-review-header__copy">{data.preview
+            <div><p className="rr-review-header__eyebrow">BÀN CHỮA BÀI</p><h1>Hiểu lỗi, sửa đúng cách</h1><p className="rr-review-header__copy">{data.preview
               ? `${data.review.length} câu trong đề · Xem đáp án, trích đoạn nguồn và lời giải trước khi xuất bản.`
               : `${wrongCount} câu cần xem lại · ${data.review.length - wrongCount} câu đúng. ${wrongCount ? 'Bắt đầu từ câu sai, tự định vị bằng chứng rồi mới mở lời giải.' : 'Bạn đã trả lời đúng toàn bộ bài này.'}`}</p></div>
             {!data.preview ? <div className="rr-filter" role="group" aria-label="Lọc kết quả câu hỏi">{([
@@ -646,20 +652,23 @@ export function ReadingReviewWorkspace() {
               if (allOpen) setHighlight(null);
             }}>{currentItems.length > 0 && currentItems.every((item: any) => expanded.has(item.q_num)) ? 'Thu gọn tất cả' : 'Mở tất cả'}</button>
           </div>
-          {!data.preview ? <div className="exam-review-guide" aria-label="Cách chữa bài hiệu quả"><span><b>1</b>Tự tìm bằng chứng</span><span><b>2</b>So đáp án</span><span><b>3</b>Phân tích bẫy</span></div> : null}
-          <div ref={surveyRef} />
+          {!data.preview ? <div className="exam-review-guide" aria-label="Cách chữa bài hiệu quả"><span><b>1</b><span><small>Quan sát</small>Tự tìm bằng chứng</span></span><span><b>2</b><span><small>Đối chiếu</small>So đáp án</span></span><span><b>3</b><span><small>Rút kinh nghiệm</small>Phân tích bẫy</span></span></div> : null}
           <div className="rr-cards">{currentItems.length ? currentItems.map((item: any) => <QuestionCard
             item={item}
             expanded={expanded.has(item.q_num)}
+            selected={currentQuestion === item.q_num}
             preview={data.preview}
             attemptId={data.attemptId}
             anonId={params?.anonId || null}
             evidenceSelection={evidenceSelections[item.q_num] || null}
-            onToggle={() => setExpanded((previous) => {
-              const next = new Set(previous);
-              if (next.has(item.q_num)) next.delete(item.q_num); else next.add(item.q_num);
-              return next;
-            })}
+            onToggle={() => {
+              setCurrentQuestion(item.q_num);
+              setExpanded((previous) => {
+                const next = new Set(previous);
+                if (next.has(item.q_num)) next.delete(item.q_num); else next.add(item.q_num);
+                return next;
+              });
+            }}
             onLocate={locate}
             onStartEvidenceSelection={() => {
               setCurrentQuestion(item.q_num);
@@ -673,6 +682,7 @@ export function ReadingReviewWorkspace() {
             }}
             key={item.q_num}
           />) : <p className="exam-review-empty">Không có câu nào trong bộ lọc này ở Passage {currentPart}.</p>}</div>
+          <div className="rr-review-feedback" ref={surveyRef} />
         </section>
       </main>
       <footer className="exam-palette" role="navigation" aria-label="Chọn câu để chữa">

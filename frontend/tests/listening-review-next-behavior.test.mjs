@@ -25,6 +25,7 @@ const LEGACY_JS = read('public', 'js', 'listening-review.js');
 const PLAYER = read('public', 'js', 'listening-test-player.js');
 const MOCK = read('app', '(authed-mock-result)', 'mock', 'result', 'mock-result-behavior.tsx');
 const WEB_PANEL = read('components', 'web-explanation-panel.tsx');
+const WEB_PANEL_CSS = read('public', 'css', 'web-explanation-panel.css');
 
 const fixture = (overrides = {}) => ({
   attempt_id: 'attempt-1',
@@ -133,9 +134,9 @@ describe('Listening review native controller contract', () => {
     assert.match(CLIENT, /setFilter\(normalized\.preview \? 'all' : \(wrong \? 'wrong' : 'all'\)\)/);
     assert.match(CLIENT, /if \(filter !== 'all'[\s\S]{0,100}setFilter\('all'\)/);
     assert.match(CLIENT, /filter === 'wrong' \? !item\.correct/);
-    assert.match(CLIENT, /Nghe lại đúng đoạn/);
-    assert.match(CLIENT, /Đối chiếu transcript/);
-    assert.match(CLIENT, /Phân tích paraphrase/);
+    assert.match(CLIENT, /Nghe đoạn/);
+    assert.match(CLIENT, /Transcript và tín hiệu/);
+    assert.match(CLIENT, /Paraphrase và bẫy/);
   });
 
   test('real audio window drives full-track seek and transcript anchor highlight', () => {
@@ -177,6 +178,17 @@ describe('Listening review route ownership and rollback', () => {
     assert.match(LAYOUT, /utilityLayer=\{false\}/);
     assert.match(LAYOUT, /chrome="none"/);
     assert.doesNotMatch(NEXT_CSS, /#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  test('ships a theme-safe correction desk with visible focus and touch targets', () => {
+    assert.match(CLIENT, /BÀN CHỮA BÀI/);
+    assert.match(CLIENT, /selected=\{currentQuestion === item\.q_num\}/);
+    assert.match(WEB_PANEL, /className="wex-progress"/);
+    assert.match(NEXT_CSS, /--exam-surface-page:\s*var\(--av-surface-page\)/);
+    assert.match(NEXT_CSS, /\.lr-nav-q\s*\{[^}]*min-width:\s*44px;[^}]*height:\s*44px/s);
+    assert.match(NEXT_CSS, /@media \(prefers-reduced-motion: reduce\)/);
+    assert.doesNotMatch(NEXT_CSS, /#[0-9a-fA-F]{3,8}\b|(?:color|background(?:-color)?):\s*(?:white|black)\b/);
+    assert.doesNotMatch(WEB_PANEL_CSS, /#[0-9a-fA-F]{3,8}\b|(?:color|background(?:-color)?):\s*(?:white|black)\b/);
   });
 
   test('all completion/result entry points now use the clean native URL', () => {
