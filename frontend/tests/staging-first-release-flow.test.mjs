@@ -31,6 +31,7 @@ describe('staging-first production release contract', () => {
     assert.match(RELEASE_SMOKE, /RELEASE_PROVENANCE_REQUIRED: 'true'/);
     assert.match(RELEASE_SMOKE, /capture-staging-release-provenance\.mjs/);
     assert.doesNotMatch(RELEASE_SMOKE, /Gate E|GATE_E_STREAK|gate-e-streak/);
+    assert.doesNotMatch(RELEASE_SMOKE, /^\s+queue:/m);
   });
 
   test('main accepts only the repository staging head', () => {

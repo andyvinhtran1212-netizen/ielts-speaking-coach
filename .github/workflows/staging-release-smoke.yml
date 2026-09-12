@@ -17,7 +17,6 @@ jobs:
     concurrency:
       group: staging-e2e-shared-env
       cancel-in-progress: false
-      queue: max
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
