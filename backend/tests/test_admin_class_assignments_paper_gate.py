@@ -85,22 +85,21 @@ def _playable(**over):
 async def _create(
     paper, skill="reading", *, mapped=True, explanation_ready=True, **body_overrides,
 ):
-    def explanation_guard(*_args, **_kwargs):
-        if not explanation_ready:
-            raise mock_correction_service.CorrectionError(
-                "Web explanation chưa đủ 40/40 câu qua release gate."
+    def atomic_assignment(*_args, **kwargs):
+        policy = (kwargs.get("content_config") or {}).get("correction_policy") or {}
+        if policy.get("web_explanation_mode") != "disabled" and not explanation_ready:
+            raise mod.ExplanationApprovalError(
+                "Chỉ bật web explanation khi đề có đủ đúng 40 objects từ Q1 đến Q40."
             )
-        return "v1"
+        return {"assignment": {"id": "a1"}, "student_count": 3,
+                "unactivated_count": 0,
+                "exam_scope_kind": kwargs.get("exam_scope_kind")}
 
     with patch.object(mod, "require_admin", AsyncMock(return_value={"id": "adm"})), \
          patch.object(mod, "_require_cohort", lambda _c: None), \
          patch.object(mod, "supabase_admin", _db(paper, skill=skill, mapped=mapped)), \
          patch("services.mock_correction_service.assert_scored_paper_ready", lambda *_a, **_k: None), \
-         patch("services.mock_correction_service.assert_explanation_content_ready", explanation_guard), \
-         patch.object(mod, "create_class_assignment",
-                      lambda *a, **k: {"assignment": {"id": "a1"}, "student_count": 3,
-                                       "unactivated_count": 0,
-                                       "exam_scope_kind": k.get("exam_scope_kind")}):
+         patch.object(mod, "create_class_assignment", atomic_assignment):
         return await mod.create_assignment("c1", _body(skill, **body_overrides), None)
 
 
@@ -156,8 +155,9 @@ async def test_a_reserved_paper_can_be_given_with_item_scoped_entitlement(skill)
 @pytest.mark.asyncio
 @pytest.mark.parametrize("skill", ["reading", "listening"])
 @pytest.mark.parametrize("delivery_mode", ["standard", "assigned_practice"])
-async def test_immediate_explanations_require_40_of_40_for_every_delivery_mode(
-    skill, delivery_mode,
+@pytest.mark.parametrize("explanation_mode", ["immediate_after_capture", "admin_release"])
+async def test_enabling_explanations_approves_and_requires_40_of_40_for_every_delivery_mode(
+    skill, delivery_mode, explanation_mode,
 ):
     paper = _playable() if skill == "listening" else {
         "id": "uuid-1", "title": "Đề đọc", "status": "published", "exam_only": False,
@@ -168,17 +168,17 @@ async def test_immediate_explanations_require_40_of_40_for_every_delivery_mode(
             skill,
             explanation_ready=False,
             delivery_mode=delivery_mode,
-            web_explanation_mode="immediate_after_capture",
+            web_explanation_mode=explanation_mode,
         )
     assert getattr(exc.value, "status_code", None) == 400
-    assert "40/40" in str(getattr(exc.value, "detail", ""))
+    assert "40 objects" in str(getattr(exc.value, "detail", ""))
 
     out = await _create(
         paper,
         skill,
         explanation_ready=True,
         delivery_mode=delivery_mode,
-        web_explanation_mode="immediate_after_capture",
+        web_explanation_mode=explanation_mode,
     )
     assert out["student_count"] == 3
 
@@ -230,7 +230,8 @@ async def test_a_listening_paper_with_no_audio_is_refused():
     owed-but-unopenable trap as exam_only."""
     with pytest.raises(Exception) as exc:
         await _create(_playable(assembled_audio_storage_path=None,
-                                full_audio_storage_path=None), "listening")
+                                full_audio_storage_path=None), "listening",
+                      web_explanation_mode="immediate_after_capture")
     assert getattr(exc.value, "status_code", None) == 400
     assert "audio" in str(getattr(exc.value, "detail", "")).lower()
 

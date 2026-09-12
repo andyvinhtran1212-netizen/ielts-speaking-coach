@@ -187,6 +187,7 @@ class FakeSupabase:
     def __init__(self):
         self.tables: dict[str, list[dict]] = {}
         self.lock = threading.Lock()
+        self.mock_explanation_scope_error = None
 
     def table(self, name):
         return _Query(self, name)
@@ -255,6 +256,36 @@ class FakeSupabase:
                    for r in self.tables.get("mock_exam_assignments", [])):
                 return _RpcResult(None)
             row["exam_mode"] = mode
+            return _RpcResult(dict(row))
+        if name == "fn_update_mock_exam_with_explanation_approval":
+            if self.mock_explanation_scope_error:
+                raise RuntimeError(self.mock_explanation_scope_error)
+            row = next(
+                (r for r in self.tables.get("mock_exams", [])
+                 if str(r.get("id")) == str(params["p_exam_id"])),
+                None,
+            )
+            if row is None:
+                raise RuntimeError("mock_exam_not_found")
+            patch = dict(params.get("p_patch") or {})
+            for kind in ("reading", "listening"):
+                visibility = f"{kind}_is_public"
+                paper_id = row.get(f"{kind}_test_id")
+                if visibility in patch and paper_id:
+                    paper = next(
+                        (item for item in self.tables.get(f"{kind}_tests", [])
+                         if str(item.get("id")) == str(paper_id)),
+                        None,
+                    )
+                    if paper is None:
+                        raise RuntimeError(f"mock_{kind}_visibility_update_failed")
+                    paper.update({
+                        "is_public": bool(patch[visibility]),
+                        "exam_only": False,
+                    })
+                patch.pop(visibility, None)
+            row.update(patch)
+            row["updated_at"] = datetime.now(timezone.utc).isoformat()
             return _RpcResult(dict(row))
         raise AssertionError(f"unexpected rpc: {name}")
 
@@ -333,6 +364,49 @@ def _seed_exam(fake, *, cohort_id=None, open_from=None, open_until=None,
 
 
 # ── canonical content readiness gates ─────────────────────────────────
+
+
+def test_mock_explanation_enable_uses_one_atomic_scope_rpc(monkeypatch, svc):
+    calls = []
+
+    class Call:
+        def execute(self):
+            return _Response({
+                "id": "mock-1", "web_explanation_mode": "with_result",
+                "web_explanation_content_version": "v1",
+            })
+
+    monkeypatch.setattr(svc, "supabase_admin", type("DB", (), {
+        "rpc": staticmethod(lambda name, args: calls.append((name, args)) or Call()),
+    })())
+
+    result = svc._update_mock_with_explanation_approval(
+        "mock-1",
+        {"web_explanation_mode": "with_result", "reading_test_id": "reading-1"},
+        "admin-1",
+    )
+
+    assert result["web_explanation_content_version"] == "v1"
+    assert calls == [("fn_update_mock_exam_with_explanation_approval", {
+        "p_exam_id": "mock-1",
+        "p_patch": {
+            "web_explanation_mode": "with_result",
+            "reading_test_id": "reading-1",
+        },
+        "p_actor_id": "admin-1",
+    })]
+
+
+def test_mock_atomic_scope_rpc_failure_is_reported_without_fallback(fake_db, svc):
+    exam = _seed_exam(fake_db)
+    fake_db.mock_explanation_scope_error = "web_explanation_serving_blocked:q40"
+
+    with pytest.raises(ValueError, match="q40"):
+        svc.admin_update_exam(
+            exam["id"], {"web_explanation_mode": "with_result"}, "admin-1",
+        )
+
+    assert fake_db.rows("mock_exams")[0].get("web_explanation_mode") is None
 
 
 def test_publish_refuses_listening_without_playable_audio(fake_db, svc):

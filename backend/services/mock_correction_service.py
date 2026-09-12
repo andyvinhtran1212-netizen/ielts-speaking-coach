@@ -227,6 +227,51 @@ def assert_explanation_content_ready(
     return _assert_public_content_ready(skill, test_id, version)
 
 
+def approve_paper_explanations(
+    skill: str,
+    test_id: str,
+    actor_id: str,
+    *,
+    version: str | None = None,
+    reason: str | None = None,
+) -> str:
+    """Treat an admin's enable action as approval of one complete paper.
+
+    Exposure is still controlled independently by the class/mock/public policy.
+    This only turns the selected paper's current 40-object set into approved
+    content after the technical serving gate has passed.
+    """
+    if skill not in SKILLS:
+        raise PolicyError(f"Kỹ năng không hỗ trợ web explanation: {skill}.")
+    try:
+        result = supabase_admin.rpc("fn_approve_web_explanation_paper", {
+            "p_skill": skill,
+            "p_test_id": str(test_id),
+            "p_actor_id": str(actor_id),
+            "p_content_version": version,
+            "p_reason": reason,
+        }).execute().data
+    except Exception as exc:
+        message = str(exc)
+        if "web_explanation_paper_requires_q01_q40" in message:
+            raise PolicyError(
+                "Chỉ bật web explanation khi đề có đủ đúng 40 objects từ Q1 đến Q40."
+            ) from exc
+        if "web_explanation_content_version_unavailable" in message:
+            raise PolicyError(
+                "Không tìm thấy một content version hiện hành duy nhất cho đề."
+            ) from exc
+        if "web_explanation_serving_blocked:" in message:
+            object_id = message.split("web_explanation_serving_blocked:", 1)[1].split()[0]
+            raise PolicyError(
+                f"Đề còn item chưa qua matcher/serving gate: {object_id}"
+            ) from exc
+        raise CorrectionError("Không duyệt được web explanation của đề.") from exc
+    if not isinstance(result, dict) or not result.get("content_version"):
+        raise CorrectionError("Database không trả lại content version đã duyệt.")
+    return str(result["content_version"])
+
+
 def apply_scoring_overrides(skill: str, test_id: str, answer_key: list[dict]) -> list[dict]:
     """Overlay only human-adjudicated matcher variants on the runtime key."""
     overrides: dict[int, dict] = {}
@@ -784,81 +829,67 @@ def _log_release(scope_type: str, scope_id: str, action: str, before: dict,
 
 
 def update_class_assignment_policy(assignment_id: str, patch: dict, actor_id: str) -> dict:
-    assignment = _one(
-        "class_assignments", assignment_id, "id,skill,content_id,content_config",
-    )
-    if not assignment:
-        raise NotFoundError("Không tìm thấy bài giao.")
-    if assignment.get("skill") not in SKILLS:
-        raise PolicyError("Correction policy chỉ áp dụng cho Reading/Listening.")
-    config = dict(assignment.get("content_config") or {})
-    before = dict(config.get("correction_policy") or {})
-    after = {**before, **patch}
-    mode = after.get("web_explanation_mode", "disabled")
-    if mode not in PRACTICE_EXPLANATION_MODES:
-        raise PolicyError("Chế độ explanation của bài luyện không hợp lệ.")
-    if patch.get("release_now"):
-        if mode != "admin_release":
-            raise PolicyError("Chỉ phát tay explanation ở chế độ chờ admin duyệt.")
-        version = assert_explanation_content_ready(
-            assignment["skill"],
-            assignment.get("content_id"),
-            after.get("content_version"),
-        )
-        after["content_version"] = version
-        after["released_at"] = _now_iso()
-        after["released_by"] = actor_id
-    elif mode == "admin_release" and (
-        before.get("web_explanation_mode") != "admin_release"
-        or before.get("content_version") != after.get("content_version")
-    ):
-        # Entering admin-release mode, or selecting a new version, requires a
-        # fresh explicit approval. Never carry a stale release timestamp.
-        after.pop("released_at", None)
-        after.pop("released_by", None)
-    after.pop("release_now", None)
-    config["correction_policy"] = after
-    rows = (supabase_admin.table("class_assignments").update({"content_config": config})
-            .eq("id", assignment_id).execute().data) or []
-    if not rows:
-        raise CorrectionError("Không cập nhật được chính sách chữa bài.")
-    _log_release("class_assignment", assignment_id, "policy_updated", before, after, actor_id)
-    return rows[0]
+    try:
+        result = supabase_admin.rpc(
+            "fn_update_class_assignment_explanation_policy",
+            {
+                "p_assignment_id": str(assignment_id),
+                "p_patch": patch,
+                "p_actor_id": str(actor_id),
+            },
+        ).execute().data
+    except Exception as exc:  # noqa: BLE001 — translate stable RPC markers
+        message = str(exc)
+        if "class_assignment_not_found" in message:
+            raise NotFoundError("Không tìm thấy bài giao.") from exc
+        if "unsupported_class_explanation_skill" in message:
+            raise PolicyError(
+                "Correction policy chỉ áp dụng cho Reading/Listening."
+            ) from exc
+        if "invalid_class_explanation_mode" in message:
+            raise PolicyError("Chế độ explanation của bài luyện không hợp lệ.") from exc
+        if "class_release_requires_admin_release_mode" in message:
+            raise PolicyError(
+                "Chỉ phát tay explanation ở chế độ chờ admin duyệt."
+            ) from exc
+        if "web_explanation_paper_requires_q01_q40" in message:
+            raise PolicyError(
+                "Chỉ bật web explanation khi đề có đủ đúng 40 objects từ Q1 đến Q40."
+            ) from exc
+        if "web_explanation_content_version_unavailable" in message:
+            raise PolicyError(
+                "Không tìm thấy một content version hiện hành duy nhất cho đề."
+            ) from exc
+        if "web_explanation_serving_blocked:" in message:
+            object_id = message.split("web_explanation_serving_blocked:", 1)[1].split()[0]
+            raise PolicyError(
+                f"Đề còn item chưa qua matcher/serving gate: {object_id}"
+            ) from exc
+        raise CorrectionError("Không cập nhật được chính sách chữa bài.") from exc
+    if not isinstance(result, dict) or not result.get("id"):
+        raise CorrectionError("Database không trả lại bài giao đã cập nhật.")
+    return result
 
 
 def update_mock_exam_policy(exam_id: str, patch: dict, actor_id: str) -> dict:
-    exam = _one("mock_exams", exam_id)
-    if not exam:
-        raise NotFoundError("Không tìm thấy mock exam.")
-    mode = patch.get("web_explanation_mode", exam.get("web_explanation_mode") or "with_result")
-    if mode not in MOCK_EXPLANATION_MODES:
+    mode = patch.get("web_explanation_mode")
+    if mode is not None and mode not in MOCK_EXPLANATION_MODES:
         raise PolicyError("Chế độ explanation của mock exam không hợp lệ.")
-    before = {
-        "web_explanation_mode": exam.get("web_explanation_mode"),
-        "web_explanations_released_at": exam.get("web_explanations_released_at"),
-        "web_explanation_content_version": exam.get("web_explanation_content_version"),
-        "post_test_capture_required": exam.get("post_test_capture_required"),
-    }
     update = {k: v for k, v in patch.items() if k in {
         "web_explanation_mode", "web_explanation_content_version", "post_test_capture_required",
+        "release_now",
     }}
-    if patch.get("release_now"):
-        update["web_explanations_released_at"] = _now_iso()
-        update["web_explanations_released_by"] = actor_id
-    elif mode == "admin_release" and (
-        before.get("web_explanation_mode") != "admin_release"
-        or update.get("web_explanation_content_version", before.get("web_explanation_content_version"))
-        != before.get("web_explanation_content_version")
-    ):
-        update["web_explanations_released_at"] = None
-        update["web_explanations_released_by"] = None
-    rows = (supabase_admin.table("mock_exams").update(update)
-            .eq("id", exam_id).execute().data) or []
-    if not rows:
-        raise CorrectionError("Không cập nhật được chính sách mock exam.")
-    after = {k: rows[0].get(k) for k in before}
-    _log_release("mock_exam", exam_id, "policy_updated", before, after, actor_id)
-    return rows[0]
+    from services import mock_exam_service
+    try:
+        return mock_exam_service._update_mock_with_explanation_approval(
+            exam_id, update, actor_id,
+        )
+    except mock_exam_service.NotFoundError as exc:
+        raise NotFoundError("Không tìm thấy mock exam.") from exc
+    except ValueError as exc:
+        raise PolicyError(str(exc)) from exc
+    except mock_exam_service.MockExamError as exc:
+        raise CorrectionError(str(exc)) from exc
 
 
 def _assert_public_content_ready(skill: str, test_id: str, version: str | None) -> str:
@@ -879,41 +910,56 @@ def _assert_public_content_ready(skill: str, test_id: str, version: str | None) 
 
 
 def update_public_test_policy(skill: str, test_id: str, patch: dict, actor_id: str) -> dict:
-    test = _one(_test_table(skill), test_id)
-    if not test:
-        raise NotFoundError("Không tìm thấy đề.")
-    mode = patch.get("web_explanation_mode", test.get("web_explanation_mode") or "disabled")
-    if mode not in PRACTICE_EXPLANATION_MODES:
+    if skill not in SKILLS:
+        raise PolicyError(f"Kỹ năng không hỗ trợ web explanation: {skill}.")
+    mode = patch.get("web_explanation_mode")
+    if mode is not None and mode not in PRACTICE_EXPLANATION_MODES:
         raise PolicyError("Chế độ explanation public không hợp lệ.")
-    version = patch.get("web_explanation_content_version") or test.get("web_explanation_content_version")
-    if patch.get("public_practice_enabled"):
-        version = _assert_public_content_ready(skill, test_id, version)
-    before = {k: test.get(k) for k in (
-        "public_practice_enabled", "web_explanation_mode",
-        "web_explanations_released_at", "web_explanation_content_version",
-    )}
     update = {k: v for k, v in patch.items() if k in {
-        "public_practice_enabled", "web_explanation_mode", "web_explanation_content_version",
+        "is_public", "public_practice_enabled", "web_explanation_mode",
+        "web_explanation_content_version", "release_now",
     }}
-    if version:
-        update["web_explanation_content_version"] = version
-    if patch.get("release_now"):
-        update["web_explanations_released_at"] = _now_iso()
-        update["web_explanations_released_by"] = actor_id
-    elif mode == "admin_release" and (
-        before.get("web_explanation_mode") != "admin_release"
-        or update.get("web_explanation_content_version", before.get("web_explanation_content_version"))
-        != before.get("web_explanation_content_version")
-    ):
-        update["web_explanations_released_at"] = None
-        update["web_explanations_released_by"] = None
-    rows = (supabase_admin.table(_test_table(skill)).update(update)
-            .eq("id", test_id).execute().data) or []
-    if not rows:
-        raise CorrectionError("Không cập nhật được chính sách public practice.")
-    after = {k: rows[0].get(k) for k in before}
-    _log_release(f"{skill}_test", test_id, "public_policy_updated", before, after, actor_id)
-    return rows[0]
+    try:
+        result = supabase_admin.rpc(
+            "fn_update_public_test_explanation_policy",
+            {
+                "p_skill": skill,
+                "p_test_id": str(test_id),
+                "p_patch": update,
+                "p_actor_id": str(actor_id),
+            },
+        ).execute().data
+    except Exception as exc:  # noqa: BLE001 — translate stable RPC markers
+        message = str(exc)
+        if "public_test_not_found" in message:
+            raise NotFoundError("Không tìm thấy đề.") from exc
+        if "unsupported_public_explanation_skill" in message:
+            raise PolicyError(
+                "Correction policy chỉ áp dụng cho Reading/Listening."
+            ) from exc
+        if "invalid_public_explanation_mode" in message:
+            raise PolicyError("Chế độ explanation public không hợp lệ.") from exc
+        if "web_explanation_paper_requires_q01_q40" in message:
+            raise PolicyError(
+                "Chỉ bật web explanation khi đề có đủ đúng 40 objects từ Q1 đến Q40."
+            ) from exc
+        if "web_explanation_content_version_unavailable" in message:
+            raise PolicyError(
+                "Không tìm thấy một content version hiện hành duy nhất cho đề."
+            ) from exc
+        if "web_explanation_serving_blocked:" in message:
+            object_id = message.split(
+                "web_explanation_serving_blocked:", 1
+            )[1].split()[0]
+            raise PolicyError(
+                f"Đề còn item chưa qua matcher/serving gate: {object_id}"
+            ) from exc
+        raise CorrectionError(
+            "Không cập nhật được chính sách public practice."
+        ) from exc
+    if not isinstance(result, dict) or not result.get("id"):
+        raise CorrectionError("Database không trả lại đề đã cập nhật.")
+    return result
 
 
 def approve_content_version(

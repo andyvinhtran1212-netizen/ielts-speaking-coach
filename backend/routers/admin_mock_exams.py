@@ -201,12 +201,12 @@ async def create_exam(body: ExamCreate, authorization: str | None = Header(defau
 async def update_exam(
     exam_id: str, body: ExamPatch, authorization: str | None = Header(default=None),
 ):
-    await require_admin(authorization)
+    admin = await require_admin(authorization)
     patch = body.model_dump(exclude_none=True)
     if body.status is not None and body.status not in ("draft", "published", "archived"):
         raise HTTPException(400, "status không hợp lệ.")
     try:
-        return svc.admin_update_exam(exam_id, patch)
+        return svc.admin_update_exam(exam_id, patch, admin["id"])
     except svc.NotFoundError as e:
         raise HTTPException(404, str(e))
     except ValueError as e:

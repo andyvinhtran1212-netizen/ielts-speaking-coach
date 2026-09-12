@@ -14199,6 +14199,8 @@ export interface components {
         };
         /** PublicPolicyPatch */
         PublicPolicyPatch: {
+            /** Is Public */
+            is_public?: boolean | null;
             /** Public Practice Enabled */
             public_practice_enabled?: boolean | null;
             /** Web Explanation Mode */

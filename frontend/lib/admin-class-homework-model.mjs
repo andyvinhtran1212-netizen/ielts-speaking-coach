@@ -128,11 +128,6 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
   if (selected.exam_only && draft.deliveryMode !== 'assigned_practice') {
     return { ok: false, error: 'Đề trong kho admin cần chọn “Giao luyện tập có kiểm soát”.' };
   }
-  if (['reading', 'listening'].includes(draft.skill)
-      && draft.webExplanationMode === 'immediate_after_capture'
-      && selected.explanation_ready !== true) {
-    return { ok: false, error: 'Web explanation chưa đủ 40/40 câu qua rights, editorial và serving gate.' };
-  }
   if (draft.recipientScope === 'subset' && !draft.studentIds?.length) return { ok: false, error: 'Chọn ít nhất một học viên nhận bài.' };
   if (draft.kind === 'lesson') {
     const dueDays = Number(draft.dueDays);
