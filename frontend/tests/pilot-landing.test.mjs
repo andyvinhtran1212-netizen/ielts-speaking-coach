@@ -77,8 +77,14 @@ test('landing waits for runtime-config before selecting an API environment', () 
   const behavior = readFileSync(BEHAVIOR, 'utf8');
   const chain = readFileSync(SCRIPT_CHAIN, 'utf8');
   assert.match(chain, /aver:runtime-config-ready/);
+  assert.match(chain, /aver:runtime-config-failed/);
   assert.match(chain, /src === '\/js\/runtime-config\.js'/);
   assert.match(behavior, /addEventListener\('aver:runtime-config-ready'/);
+  assert.match(behavior, /'aver:runtime-config-failed'/);
+  assert.match(behavior, /hostname === 'averlearning\.com'/);
+  assert.match(behavior, /hostname === 'www\.averlearning\.com'/);
+  assert.match(behavior, /return null;/);
+  assert.match(behavior, /removeEventListener\('aver:runtime-config-failed'/);
   assert.match(behavior, /if \(window\.__AVER_RUNTIME_CONFIG__\)/);
   assert.ok(
     behavior.indexOf('const rc = window.__AVER_RUNTIME_CONFIG__')

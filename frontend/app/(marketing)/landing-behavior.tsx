@@ -61,14 +61,21 @@ export function LandingBehavior() {
 
     // RouteScriptChain loads runtime-config after hydration. Do not fall back
     // to production while that script is still in flight on staging.
-    function loadEnvironmentData() {
+    function fallbackApiBase(hostname: string) {
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'http://localhost:8000';
+      }
+      if (hostname === 'averlearning.com' || hostname === 'www.averlearning.com') {
+        return 'https://ielts-speaking-coach-production.up.railway.app';
+      }
+      return null;
+    }
+
+    function loadEnvironmentData(allowKnownHostFallback = false) {
       const rc = window.__AVER_RUNTIME_CONFIG__;
-      if (!rc) return;
-      const apiBase =
-        rc.apiBase ||
-        (location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-          ? 'http://localhost:8000'
-          : 'https://ielts-speaking-coach-production.up.railway.app');
+      const apiBase = rc?.apiBase ||
+        (allowKnownHostFallback ? fallbackApiBase(location.hostname) : null);
+      if (!apiBase) return;
 
       fetch(apiBase + '/api/public-stats')
         .then((r) => (r.ok ? r.json() : null))
@@ -96,7 +103,7 @@ export function LandingBehavior() {
               path: location.pathname,
               referrer: document.referrer || '',
               implementation: 'next',
-              release: rc.release || null,
+              release: rc?.release || null,
             },
           }),
         }).catch(() => {
@@ -107,15 +114,31 @@ export function LandingBehavior() {
       }
     }
 
+    function handleRuntimeConfigReady() {
+      window.removeEventListener('aver:runtime-config-failed', handleRuntimeConfigFailure);
+      loadEnvironmentData();
+    }
+
+    function handleRuntimeConfigFailure() {
+      window.removeEventListener('aver:runtime-config-ready', handleRuntimeConfigReady);
+      loadEnvironmentData(true);
+    }
+
     if (window.__AVER_RUNTIME_CONFIG__) {
       loadEnvironmentData();
     } else {
-      window.addEventListener('aver:runtime-config-ready', loadEnvironmentData, { once: true });
+      window.addEventListener('aver:runtime-config-ready', handleRuntimeConfigReady, { once: true });
+      window.addEventListener(
+        'aver:runtime-config-failed',
+        handleRuntimeConfigFailure,
+        { once: true },
+      );
     }
 
     return () => {
       window.removeEventListener('load', hydrateIcons);
-      window.removeEventListener('aver:runtime-config-ready', loadEnvironmentData);
+      window.removeEventListener('aver:runtime-config-ready', handleRuntimeConfigReady);
+      window.removeEventListener('aver:runtime-config-failed', handleRuntimeConfigFailure);
     };
   }, []);
 

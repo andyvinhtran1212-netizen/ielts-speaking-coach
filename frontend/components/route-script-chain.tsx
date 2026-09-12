@@ -24,6 +24,14 @@ function reportLoadFailure(src: string) {
   console.error(message);
 }
 
+function reportScriptFailure(src: string) {
+  if (src === '/js/runtime-config.js') {
+    window.dispatchEvent(new CustomEvent('aver:runtime-config-failed', {
+      detail: { src },
+    }));
+  }
+}
+
 function reportScriptReady(src: string) {
   if (src === '/js/runtime-config.js') {
     window.dispatchEvent(new Event('aver:runtime-config-ready'));
@@ -60,6 +68,7 @@ function RouteScriptStep({
         }}
         onError={() => {
           reportLoadFailure(script.src);
+          reportScriptFailure(script.src);
           if (script.continueOnError) setReady(true);
         }}
       />
