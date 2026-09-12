@@ -136,12 +136,13 @@ await page.route('**/*', async (route) => {
 });
 
 await page.goto(`${BASE}/listening/review?attempt_id=${ATTEMPT_ID}&from=mini`, { waitUntil: 'domcontentloaded' });
-await page.getByRole('heading', { name: 'Chữa từng câu' }).waitFor();
+await page.getByRole('heading', { name: 'Nghe lại, nhận ra tín hiệu' }).waitFor();
 check('reads the canonical attempt once and preserves the mini-test return',
   reviewReads[0] === ATTEMPT_ID
     && await page.getByRole('link', { name: '← Mini tests' }).getAttribute('href') === '/listening/mini-test');
+const summaryText = (await page.locator('.lr-summary span').allInnerTexts()).join('|');
 check('canonical score, band and weakness summary render',
-  (await page.locator('.lr-summary span').allInnerTexts()).join('|') === 'Band 5.5|Đúng 1/2'
+  summaryText.includes('Band 5.5') && summaryText.includes('1/2 câu')
     && (await page.getByRole('region', { name: 'Kĩ năng cần luyện' }).innerText()).includes('K2'));
 check('wrong-answer focus is the student default',
   await page.locator('.lr-card').count() === 1
@@ -153,7 +154,7 @@ check('authored hostile prompt is rendered as text',
 await page.locator('audio-player').evaluate((node) => {
   node.seekTo = (seconds) => { window.__listeningReviewSeek = seconds; };
 });
-await page.getByRole('button', { name: /Section 2 · 0:12–0:18/ }).click();
+await page.getByRole('button', { name: /Nghe đoạn Section 2 · 0:12–0:18/ }).click();
 check('timestamp uses the real audio window and synchronizes transcript',
   await page.evaluate(() => window.__listeningReviewSeek) === 12.5
     && await page.getByRole('tab', { name: 'Section 2' }).getAttribute('aria-selected') === 'true'
