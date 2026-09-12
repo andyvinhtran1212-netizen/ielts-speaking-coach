@@ -47,8 +47,6 @@ on:
       - 'docs/SITE_OVERVIEW.md'
       # Runtime-config and cutover-boundary contracts still cite the canonical plan.
       - 'docs/FE_NEXTJS_MIGRATION_MASTER_PLAN_2026-07-12.md'
-      # Retained while the historical parity self-test remains in the suite.
-      - 'docs/PARITY_WRITING_PAIR_2026-08-05.md'
       # `route-ledger-matches-app.test.mjs` đọc sổ này; thiếu dòng đây thì một PR
       # chỉ sửa sổ sẽ không chạy chốt đang canh chính nó.
       - 'docs/ROUTE_LEDGER.md'
