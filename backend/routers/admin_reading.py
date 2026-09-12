@@ -106,6 +106,9 @@ def _normalise_l3_test_row(r: dict) -> dict:
         "skill_focus":      summary,
         "topic_tags":       [],
         "exam_only":        bool(r.get("exam_only")),
+        "is_public":        (bool(r.get("is_public"))
+                             if "is_public" in r
+                             else not bool(r.get("exam_only"))),
         "updated_at":       r.get("updated_at"),
         "created_at":       r.get("created_at"),
         # reading-access-tracking F1 — surface lock state for the admin row
@@ -144,7 +147,7 @@ def _l3_test_rows(status: str | None, last_index: int) -> tuple[list[dict], int]
             .select(
                 "id,test_id,title,module,time_limit_minutes,passage_count,"
                 "total_questions,band_target,status,updated_at,created_at,metadata,"
-                "exam_only",
+                "exam_only,is_public",
                 count="exact",
             )
             .order("updated_at", desc=True, nullsfirst=False)
@@ -201,10 +204,9 @@ async def list_reading_content(
             supabase_admin.table("reading_tests")
             .select(
                 "id,test_id,title,module,time_limit_minutes,passage_count,"
-                # exam_only: the admin list renders the reserve/release button, and a
-            # button that cannot see the current state renders the wrong label.
+                # Visibility drives the public/hidden control in the admin list.
             "total_questions,band_target,status,updated_at,created_at,metadata,"
-            "exam_only",
+            "exam_only,is_public",
                 count="exact",
             )
             .order("updated_at", desc=True, nullsfirst=False)
@@ -929,6 +931,28 @@ async def admin_set_reading_exam_only(
     if not resp.data:
         raise HTTPException(404, f"Không tìm thấy đề đọc '{test_id}'.")
     return {"test_id": test_id, "exam_only": value}
+
+
+@router.patch("/tests/{test_id}/visibility")
+async def admin_set_reading_visibility(
+    test_id: str,
+    body: dict,
+    authorization: str | None = Header(default=None),
+):
+    """Set public visibility independently from mock/class assignment."""
+    await require_admin(authorization)
+    if "is_public" not in body:
+        raise HTTPException(422, "Thiếu is_public.")
+    value = bool(body.get("is_public"))
+    resp = (
+        supabase_admin.table("reading_tests")
+        .update({"is_public": value, "exam_only": False})
+        .eq("test_id", test_id)
+        .execute()
+    )
+    if not resp.data:
+        raise HTTPException(404, f"Không tìm thấy đề đọc '{test_id}'.")
+    return {"test_id": test_id, "is_public": value}
 
 
 @router.post("/tests/{test_id}/lock")

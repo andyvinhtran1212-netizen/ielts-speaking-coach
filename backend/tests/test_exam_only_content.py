@@ -26,6 +26,7 @@ import re
 from pathlib import Path
 
 import pytest
+from fastapi import HTTPException
 
 import services.mock_exam_service as svc_mod
 
@@ -211,8 +212,8 @@ def _src(rel: str) -> str:
 
 
 def test_the_three_browse_lists_filter_the_flag():
-    assert 'exam_only.eq.false,public_practice_enabled.eq.true' in _src("routers/reading_student.py")
-    assert 'public_practice_enabled.eq.true' in _src("routers/listening.py")
+    assert '.eq("is_public", True)' in _src("routers/reading_student.py")
+    assert '.eq("is_public", True)' in _src("routers/listening.py")
     assert '.eq("exam_only", False)' in _src("routers/writing_student.py")
 
 
@@ -225,7 +226,7 @@ def test_reading_detail_and_share_are_gated():
     # …and the anonymous share route refuses outright: no user, no sitting, so
     # there is nothing that could entitle it
     share = src[src.index("async def boot_shared_reading_test("):]
-    assert 'if test.get("exam_only"):' in share[:900]
+    assert 'if not _test_is_public(test):' in share[:900]
 
 
 def test_reading_detail_receives_the_caller():
@@ -248,6 +249,52 @@ def test_listening_detail_dictation_and_attempt_start_are_gated():
         seg = src[src.index(fn):]
         seg = seg[:seg.index("\n@")] if "\n@" in seg else seg
         assert "_assert_listening_exam_content_allowed(" in seg, f"{fn} not gated"
+
+
+def test_hidden_listening_canonical_flag_beats_legacy_public_practice(monkeypatch):
+    """Migration 258 preserves public_practice_enabled on dual-use rows, but an
+    explicit admin hide must close ordinary detail and attempt-start access."""
+    from routers import listening
+    from services import mock_correction_service, mock_exam_service
+
+    monkeypatch.setattr(
+        mock_correction_service, "class_item_entitles_exam_only",
+        lambda *_a, **_k: False,
+    )
+    monkeypatch.setattr(
+        mock_exam_service, "user_may_open_exam_content",
+        lambda *_a, **_k: False,
+    )
+    with pytest.raises(HTTPException) as exc:
+        listening._assert_listening_exam_content_allowed({
+            "id": "lt1",
+            "exam_only": True,
+            "is_public": False,
+            "public_practice_enabled": True,
+        }, "user-1")
+    assert exc.value.status_code == 404
+
+
+@pytest.mark.parametrize("entitlement", ["class", "mock"])
+def test_hidden_listening_still_allows_explicit_entitlements(monkeypatch, entitlement):
+    """Hiding from the web must not break assigned class work or mock sittings."""
+    from routers import listening
+    from services import mock_correction_service, mock_exam_service
+
+    monkeypatch.setattr(
+        mock_correction_service, "class_item_entitles_exam_only",
+        lambda *_a, **_k: entitlement == "class",
+    )
+    monkeypatch.setattr(
+        mock_exam_service, "user_may_open_exam_content",
+        lambda *_a, **_k: entitlement == "mock",
+    )
+    listening._assert_listening_exam_content_allowed({
+        "id": "lt1",
+        "exam_only": True,
+        "is_public": False,
+        "public_practice_enabled": True,
+    }, "user-1", "class-item-1")
 
 
 def test_the_attempt_start_query_actually_selects_the_flag():
@@ -298,6 +345,25 @@ def test_the_backfill_does_not_touch_unrelated_practice_content():
     assert "test_type" not in _backfill_statements()
 
 
+def test_public_visibility_migration_preserves_all_current_public_paths():
+    sql = (BACKEND / "migrations" / "258_test_public_visibility.sql").read_text(
+        encoding="utf-8",
+    )
+    for table in ("reading_tests", "listening_tests"):
+        assert re.search(
+            rf"ALTER TABLE {table}\s+ADD COLUMN IF NOT EXISTS is_public BOOLEAN", sql,
+        )
+        assert re.search(
+            rf"UPDATE {table}\s+SET is_public = NOT COALESCE\(exam_only, false\)\s+"
+            r"OR COALESCE\(public_practice_enabled, false\)\s+WHERE is_public IS NULL",
+            sql,
+        )
+        assert re.search(
+            rf"ALTER TABLE {table}\s+ALTER COLUMN is_public SET DEFAULT true,\s+"
+            r"ALTER COLUMN is_public SET NOT NULL", sql,
+        )
+
+
 def test_the_reverse_is_written_down():
     """The backfill is the only part that changes what students see, so undoing
     it must not require re-deriving anything."""
@@ -343,7 +409,7 @@ class _RecordingDB:
         return _Resp([{"id": "e1"}])
 
 
-def test_creating_an_exam_reserves_every_paper_it_uses(monkeypatch):
+def test_creating_an_exam_only_auto_reserves_writing_prompts(monkeypatch):
     db = _RecordingDB()
     monkeypatch.setattr(svc_mod, "supabase_admin", db)
     svc_mod.admin_create_exam({
@@ -353,7 +419,6 @@ def test_creating_an_exam_reserves_every_paper_it_uses(monkeypatch):
     }, created_by="admin")
     reserved = {(t, e[1]) for t, p, e in db.updates if p == {"exam_only": True}}
     assert reserved == {
-        ("reading_tests", "rt1"), ("listening_tests", "lt1"),
         ("writing_prompts", "wp1"), ("writing_prompts", "wp2"),
     }
 
@@ -467,8 +532,8 @@ def test_starting_a_shared_reading_attempt_is_gated():
     src = _src("routers/reading_student.py")
     seg = src[src.index("async def start_shared_reading_test_attempt("):]
     seg = seg[:seg.index("\n@")]
-    assert 'if test.get("exam_only"):' in seg
-    assert seg.index('exam_only') < seg.index(".insert(")
+    assert 'if not _test_is_public(test):' in seg
+    assert seg.index('_test_is_public') < seg.index(".insert(")
 
 
 def test_every_dictation_route_goes_through_the_one_gated_loader():

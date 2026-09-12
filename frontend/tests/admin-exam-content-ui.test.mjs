@@ -65,6 +65,18 @@ describe('sửa lớp phản ánh đúng việc máy chủ làm', () => {
   });
 });
 
+describe('visibility phản ánh đúng nguồn sự thật', () => {
+  test('Reading và Listening mở public qua endpoint canonical', () => {
+    assert.match(JS, /'\/admin\/exam-content\/'/);
+    assert.match(JS, /\{ is_public: true \}/);
+  });
+
+  test('Writing giữ contract exam_only riêng', () => {
+    assert.match(JS, /k\.kind === 'writing'/);
+    assert.match(JS, /\{ exam_only: false \}/);
+  });
+});
+
 describe('an toàn hiển thị', () => {
   test('mọi giá trị từ máy chủ đều đi qua escape', () => {
     // Titles and codes are admin-authored content rendered into innerHTML.

@@ -78,23 +78,16 @@ class _Query:
         return _Not(self)
 
     def or_(self, expr):
-        # Public catalogue visibility is:
-        #   audio-ready AND (not exam-only OR explicitly public).
-        # The real query repeats the audio predicate under both visibility
-        # branches so PostgREST can evaluate it before pagination.
+        # Visibility is applied with eq(); this expression keeps audio-ready
+        # public rows before pagination.
         cols = re.findall(r"and\((\w+)\.not\.is\.null,\1\.neq\.\)", expr)
-        expected = (
-            "and(exam_only.eq.false,or(" in expr
-            and "and(public_practice_enabled.eq.true,or(" in expr
-            and cols == ["full_audio_storage_path", "assembled_audio_storage_path",
-                         "full_audio_storage_path", "assembled_audio_storage_path"]
-        )
+        expected = cols == ["full_audio_storage_path", "assembled_audio_storage_path"]
         assert expected, \
             f"unsupported or_ clause: {expr}"
         self._preds.append(
             lambda r: bool(r.get("full_audio_storage_path")
                            or r.get("assembled_audio_storage_path"))
-            and (not r.get("exam_only") or bool(r.get("public_practice_enabled")))
+            and r.get("is_public") is True
         )
         return self
 
@@ -133,6 +126,7 @@ def _test_row(i, kind, **over):
     row = {
         "id": f"t{i}", "test_id": f"ILR-{i}", "title": f"Test {i}",
         "test_type": kind, "status": "published", "exam_only": False,
+        "is_public": True,
         "full_audio_storage_path": f"a/{i}.mp3",
         "assembled_audio_storage_path": None,
         "created_at": f"2026-01-{i:02d}", "metadata": {},
@@ -150,7 +144,7 @@ def _dataset():
         + [_test_row(i, "drill") for i in range(9, 11)]                   # 2 drill
         # Excluded by each of the four filters, one row apiece:
         + [_test_row(20, "full", status="draft")]
-        + [_test_row(21, "full", exam_only=True)]
+        + [_test_row(21, "full", exam_only=True, is_public=False)]
         + [_test_row(22, "full", full_audio_storage_path=None)]           # no audio
         + [_test_row(23, "full")]                                         # reserved
         # Assembled-only audio still counts (the list endpoint accepts either).
@@ -210,9 +204,9 @@ def _patched(fn):
 
 def test_overview_counts_published_audio_ready_tests():
     out = _patched(lambda m: _run(m.listening_overview(authorization="Bearer x")))
-    # full: 5 valid; the draft / exam_only / no-audio / reserved rows drop out.
+    # full: 5 base + one public mock paper; draft/private/no-audio drop out.
     # mini: 3 + the assembled-only row.
-    assert out["tests"] == {"full": 5, "mini": 4, "drill": 2, "practice": 0}
+    assert out["tests"] == {"full": 6, "mini": 4, "drill": 2, "practice": 0}
 
 
 def test_overview_counts_only_published_exercises_on_published_content():
@@ -307,15 +301,14 @@ def test_a_no_audio_row_early_in_the_order_does_not_shorten_the_page():
     assert all(i["id"] != "t30" for i in page["items"])
 
 
-def test_reserved_exam_papers_are_excluded():
-    """A paper held for a mock exam is invisible to the practice library, so
-    it must not inflate the tile either."""
+def test_mock_assignment_does_not_hide_a_public_paper():
+    """Mock membership and public visibility are independent dimensions."""
     def without_reserved(m):
         import services.mock_exam_service as mes
         with patch.object(mes, "reserved_test_ids", lambda _s: set()):
             return _run(m.listening_overview(authorization="Bearer x"))["tests"]["full"]
 
-    assert _patched(without_reserved) == 6, "the reserved row reappears when unreserved"
+    assert _patched(without_reserved) == 6
 
 
 def test_published_content_ids_pages_past_the_1000_row_cap():
@@ -345,8 +338,8 @@ def test_blank_audio_path_is_not_audio_ready(tmp_path=None):
         listed = _run(mod.list_published_listening_tests(
             test_type="full", limit=100, offset=0, authorization="Bearer x"))
 
-    assert ov["tests"]["full"] == 5, "a blank path is not audio"
-    assert len(listed["items"]) == 5
+    assert ov["tests"]["full"] == 6, "a blank path is not audio"
+    assert len(listed["items"]) == 6
     assert all(i["id"] != "t31" for i in listed["items"])
 
 
@@ -426,7 +419,7 @@ def test_other_libraries_ignore_practice_group():
         return _run(m.list_published_listening_tests(
             test_type="full", practice_group="trap",
             limit=100, offset=0, authorization="Bearer x"))
-    assert len(_with(_practice_dataset(), go)["items"]) == 5
+    assert len(_with(_practice_dataset(), go)["items"]) == 6
 
 
 def test_practice_is_a_valid_test_type():
@@ -437,7 +430,7 @@ def test_practice_is_a_valid_test_type():
     _with(_practice_dataset(), go)          # must not raise 422
 
 
-def test_practice_tab_counts_exclude_reserved_papers():
+def test_practice_tab_counts_include_public_mock_papers():
     """A paper held for a mock exam is invisible to both `tests['practice']`
     and the list endpoint; the tab count has to agree or a tab advertises a
     paper its own list refuses to return."""
@@ -455,7 +448,7 @@ def test_practice_tab_counts_exclude_reserved_papers():
             test_type="practice", practice_group="trap",
             limit=100, offset=0, authorization="Bearer x"))
 
-    assert ov["practice_groups"]["trap"] == len(listed["items"]) == 2
+    assert ov["practice_groups"]["trap"] == len(listed["items"]) == 3
 
 
 def test_admin_list_hides_the_practice_bank_by_default():

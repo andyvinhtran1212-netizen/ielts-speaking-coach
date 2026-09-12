@@ -10,7 +10,7 @@ const results = [];
 const check = (name, ok, detail = '') => { results.push({ name, ok, detail }); console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`); };
 async function launch() { try { return await chromium.launch(); } catch (error) { const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; if (process.platform === 'darwin' && existsSync(chrome)) return chromium.launch({ executablePath: chrome }); throw error; } }
 
-const item = { id: 'uuid-r1', slug: 'AVR-READ-001', library: 'l3_test', title: 'Academic Test 1', status: 'published', difficulty_level: 'academic', skill_focus: '60 phút · 40 câu', topic_tags: [], exam_only: false, locked: false, share_active: false, share_expires_at: null, updated_at: '2026-08-13T08:00:00Z', created_at: '2026-08-12T08:00:00Z' };
+const item = { id: 'uuid-r1', slug: 'AVR-READ-001', library: 'l3_test', title: 'Academic Test 1', status: 'published', difficulty_level: 'academic', skill_focus: '60 phút · 40 câu', topic_tags: [], exam_only: false, is_public: true, locked: false, share_active: false, share_expires_at: null, updated_at: '2026-08-13T08:00:00Z', created_at: '2026-08-12T08:00:00Z' };
 const list = () => ({ items: [item], total: 1, limit: 25, offset: 0 });
 const browser = await launch();
 const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -33,7 +33,7 @@ await page.route('**/*', async (route) => {
     if (parsed.searchParams.has('identity')) return json({ items: [item], total: 1, limit, offset });
     return json({ ...list(), limit, offset, items: offset ? [] : [item] });
   }
-  if (parsed.pathname.endsWith('/exam-only') && method === 'POST') { item.exam_only = true; return json({ test_id: item.slug, exam_only: true }); }
+  if (parsed.pathname.endsWith('/visibility') && method === 'PATCH') { item.is_public = request.postDataJSON()?.is_public === true; return json({ test_id: item.slug, is_public: item.is_public }); }
   if (parsed.pathname.endsWith('/lock') && method === 'POST') return json({ test_id: item.slug, locked: true, password: 'LOCK-ONLY-42' });
   if (parsed.pathname.endsWith('/share') && method === 'POST') return json({ test_id: item.slug, share: { token: 'share-only-token', expires_at: '2026-08-20T00:00:00Z' } });
   return json({});
@@ -42,17 +42,17 @@ await page.route('**/*', async (route) => {
 await page.goto(`${BASE}/admin/reading/content`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Thư viện nội dung Reading', exact: true }).waitFor();
 await page.getByText('Academic Test 1', { exact: true }).waitFor();
-await page.getByRole('button', { name: 'Dành cho kỳ thi' }).waitFor();
+await page.getByRole('button', { name: 'Ẩn khỏi web' }).waitFor();
 check('backend-owned admin gate chạy', requests.some((value) => value.startsWith('GET /auth/me')));
 check('canonical list đọc page 25', requests.includes('GET /admin/reading/content?limit=25&offset=0'));
-check('row và action L3 render đúng', await page.getByText('Academic Test 1', { exact: true }).count() === 1 && await page.getByRole('button', { name: 'Dành cho kỳ thi' }).count() === 1);
+check('row và action L3 render đúng', await page.getByText('Academic Test 1', { exact: true }).count() === 1 && await page.getByRole('button', { name: 'Ẩn khỏi web' }).count() === 1);
 check('preview dùng canonical native route', (await page.getByRole('link', { name: 'Xem trước' }).getAttribute('href'))?.startsWith('/admin/reading/preview?test_id=') === true);
 check('mobile card-table không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && getComputedStyle(document.querySelector('.arc-table thead')).display === 'none'));
 
-await page.getByRole('button', { name: 'Dành cho kỳ thi' }).click();
+await page.getByRole('button', { name: 'Ẩn khỏi web' }).click();
 await page.getByRole('dialog').getByRole('button', { name: 'Xác nhận' }).click();
-await page.getByText('Đã giữ riêng đề cho kỳ thi.', { exact: true }).waitFor();
-check('mutation exam-only đúng endpoint', writes.includes('POST /admin/reading/content/tests/AVR-READ-001/exam-only'));
+await page.getByText('Đã ẩn đề khỏi kho tự luyện.', { exact: true }).waitFor();
+check('mutation visibility đúng endpoint', writes.includes('PATCH /admin/reading/content/tests/AVR-READ-001/visibility'));
 check('sau write có canonical readback riêng rồi reload', requests.filter((value) => value.startsWith('GET /admin/reading/content?')).length >= 3);
 
 failCanonicalReadback = true;

@@ -59,6 +59,9 @@ describe('Admin Mock Exams native model', () => {
     assert.equal(retake.ok, true);
     assert.equal(retake.value.cohort_id, null);
     assert.equal(retake.value.total_minutes, 150);
+    const visible = buildExamCreatePayload({ code: 'R2', title: 'Visible', examMode: 'retake', readingTestId: 'r1', readingIsPublic: true });
+    assert.equal(visible.value.reading_is_public, true);
+    assert.equal(visible.value.listening_is_public, null);
   });
 
   test('normalizes progress, assignments and retest candidates', () => {
@@ -75,7 +78,7 @@ describe('Admin Mock Exams native model', () => {
   test('normalizes cross-library content and preserves explicit empty-level filter', () => {
     const result = normalizeExamContent({
       items: [
-        { id: 'r1', kind: 'reading', code: 'R1', course_level: 'C1', cohort_ids: ['c1'], exam_only: true },
+        { id: 'r1', kind: 'reading', code: 'R1', course_level: 'C1', cohort_ids: ['c1'], exam_only: true, is_public: false, mock_exams: [{ id: 'm1', code: 'M1', status: 'draft' }] },
         { id: 'w1', kind: 'writing', title: 'Task', course_level: '', cohort_ids: [], exam_only: false },
         { id: '', kind: 'listening' },
       ],
@@ -83,6 +86,8 @@ describe('Admin Mock Exams native model', () => {
     });
     assert.equal(result.rows.length, 2);
     assert.deepEqual(result.failedKinds, ['listening']);
+    assert.equal(result.rows[0].isPublic, false);
+    assert.equal(result.rows[0].mockExams[0].code, 'M1');
     assert.deepEqual(filterContentByLevel(result.rows, '').map((row) => row.id), ['w1']);
     assert.equal(filterContentByLevel(result.rows, null).length, 2);
   });
@@ -105,7 +110,7 @@ describe('/admin/mock-exams native ownership and mutation truth', () => {
   test('forces canonical reconciliation and preserves irreversible guards', () => {
     for (const token of ['loadExams(false, true)', 'loadExams(true, true)', 'chưa xác nhận được trạng thái backend', 'from_section: current', 'active === \'not_started\'', 'Thu bài và chuyển phần tại Phòng thi trực tiếp', 'document.visibilityState', '15_000', 'Không có snapshot tiến độ; thao tác chuyển phần đã bị khóa']) assert.ok(COMPONENT.includes(token), token);
     for (const token of ['open_until: until', 'retakeServableSkills', 'mergeRetestCandidates', 'refresh_failed', 'assignmentRequestRef', 'assignmentError', 'Không xác nhận được assignment sau khi ghi']) assert.ok(ASSIGN.includes(token), token);
-    for (const token of ['/admin/exam-content', 'failedKinds', 'cohort_ids: cohortDraft', 'exam_only: false', 'input.value = row.courseLevel']) assert.ok(CONTENT.includes(token), token);
+    for (const token of ['/admin/exam-content', 'failedKinds', 'cohort_ids: cohortDraft', 'is_public: next', 'Giao cho lớp', 'input.value = row.courseLevel']) assert.ok(CONTENT.includes(token), token);
     assert.doesNotMatch(`${COMPONENT}\n${ASSIGN}\n${CONTENT}`, /dangerouslySetInnerHTML|http:\/\/localhost:8000|railway\.app/);
   });
 

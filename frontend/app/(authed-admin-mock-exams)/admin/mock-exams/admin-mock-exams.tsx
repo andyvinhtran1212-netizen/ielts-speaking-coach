@@ -21,7 +21,7 @@ type Exam = {
   writingTask1PromptId: string | null; writingTask2PromptId: string | null;
   webExplanationMode: string; webExplanationsReleasedAt: string | null;
 };
-type Picker = { id: string; title?: string; test_id?: string; task_type?: string; name?: string };
+type Picker = { id: string; title?: string; test_id?: string; task_type?: string; name?: string; is_public?: boolean };
 type Progress = { activeSection: string; sections: Record<string, { submitted: number; total: number }> };
 type Notice = { kind: 'success' | 'error' | 'warning'; message: string };
 
@@ -179,7 +179,7 @@ export function AdminMockExams() {
   };
 
   const publish = async (exam: Exam) => {
-    if (!window.confirm(`Publish đề “${exam.code}”? Nội dung được chọn sẽ được đánh dấu exam-only.`)) return;
+    if (!window.confirm(`Publish đề “${exam.code}”? Trạng thái công khai của Reading/Listening giữ nguyên như đã chọn.`)) return;
     await mutate(`${exam.id}:publish`, () => window.api.patch<unknown>(`/admin/mock-exams/${encodeURIComponent(exam.id)}`, { status: 'published' }), `Đã publish ${exam.code}.`, () => examsRef.current.some((row) => row.id === exam.id && row.status === 'published'));
   };
 

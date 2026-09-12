@@ -11,6 +11,9 @@ const errors = [];
 const results = [];
 let assignments = [];
 let failAssignmentLookup = true;
+let contentCourseLevel = 'C1';
+let contentCohortIds = ['class-1'];
+let contentIsPublic = false;
 let exams = [
   { id: 'source-1', code: 'SOURCE-1', title: 'Đề gốc lớp C1', status: 'published', exam_mode: 'sequential', is_open: false, active_section: 'not_started', cohort_id: 'class-1', listening_test_id: 'lis-1', reading_test_id: 'read-1', writing_task1_prompt_id: 'w1', writing_task2_prompt_id: 'w2' },
   { id: 'draft-1', code: 'DRAFT-1', title: 'Đề nháp', status: 'draft', exam_mode: 'sequential', is_open: false, active_section: 'not_started', cohort_id: 'class-1', listening_test_id: 'lis-1', reading_test_id: 'read-1' },
@@ -85,9 +88,11 @@ await page.route('**/*', async (route) => {
     assignments = body.assignments.map((row) => ({ ...row, student_name: 'Nguyễn An' }));
     return json({ assigned: ['student-1'], skipped: [], locked: [], refresh_failed: [] });
   }
-  if (path === '/admin/exam-content') return json({ items: [{ id: 'reading-uuid', kind: 'reading', code: 'READ-PAPER', title: 'Reading paper', status: 'published', course_level: 'C1', cohort_ids: ['class-1'], exam_only: true }], levels: ['C1'], failed_kinds: [] });
-  if (/^\/admin\/exam-content\/reading\/reading-uuid\/(level|cohorts)$/.test(path) && method === 'PATCH') return json({ ok: true });
-  if (path === '/admin/reading/content/tests/READ-PAPER/exam-only' && method === 'POST') return json({ test_id: 'READ-PAPER', exam_only: false });
+  if (path === '/admin/exam-content') return json({ items: [{ id: 'reading-uuid', kind: 'reading', code: 'READ-PAPER', title: 'Reading paper', status: 'published', course_level: contentCourseLevel, cohort_ids: contentCohortIds, exam_only: true, is_public: contentIsPublic, mock_exams: [{ id: 'source-1', code: 'SOURCE-1', title: 'Đề gốc lớp C1', status: 'published' }] }], levels: ['C1', 'C2'], failed_kinds: [] });
+  if (path === '/admin/exam-content/reading/reading-uuid/level' && method === 'PATCH') { contentCourseLevel = body.course_level; return json({ ok: true }); }
+  if (path === '/admin/exam-content/reading/reading-uuid/cohorts' && method === 'PATCH') { contentCohortIds = body.cohort_ids; return json({ ok: true }); }
+  if (path === '/admin/exam-content/reading/reading-uuid/visibility' && method === 'PATCH') { contentIsPublic = body.is_public; return json({ id: 'reading-uuid', kind: 'reading', is_public: contentIsPublic }); }
+  if (path === '/admin/cohorts/class-2/assignments' && method === 'POST') return json({ id: 'class-assignment-1', ...body });
   return json({ detail: `unhandled fixture ${method} ${path}` }, 500);
 });
 
@@ -154,7 +159,7 @@ await levelInput.fill('C2');
 await levelInput.blur();
 const levelResponse = await levelMutation;
 await levelReload;
-await page.getByRole('button', { name: 'Sửa lớp' }).click();
+await page.getByRole('button', { name: 'Phạm vi lớp' }).click();
 await page.getByText('Lựa chọn này thay thế toàn bộ tập lớp hiện tại.').waitFor();
 await page.getByRole('dialog').getByRole('checkbox', { name: 'IELTS C2', exact: true }).check();
 const cohortsMutation = page.waitForResponse((response) => response.request().method() === 'PATCH' && new URL(response.url()).pathname === '/admin/exam-content/reading/reading-uuid/cohorts');
@@ -163,12 +168,22 @@ await page.getByRole('button', { name: 'Lưu toàn bộ lớp' }).click();
 const cohortsResponse = await cohortsMutation;
 await cohortsReload;
 await page.getByRole('dialog').waitFor({ state: 'hidden' });
-const releaseMutation = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === '/admin/reading/content/tests/READ-PAPER/exam-only');
-const releaseReload = page.waitForResponse((response) => response.request().method() === 'GET' && new URL(response.url()).pathname === '/admin/exam-content');
-await page.getByRole('button', { name: 'Trả về thư viện' }).click();
-const releaseResponse = await releaseMutation;
-await releaseReload;
-check('exam-content dùng đúng level/cohort replacement và reading release identity', levelResponse.ok() && cohortsResponse.ok() && releaseResponse.ok() && requests.some((item) => item.path.endsWith('/level') && item.body?.course_level === 'C2') && requests.some((item) => item.path.endsWith('/cohorts') && item.body?.cohort_ids?.includes('class-2')) && requests.some((item) => item.path === '/admin/reading/content/tests/READ-PAPER/exam-only'));
+const visibilityMutation = page.waitForResponse((response) => response.request().method() === 'PATCH' && new URL(response.url()).pathname === '/admin/exam-content/reading/reading-uuid/visibility');
+const visibilityReload = page.waitForResponse((response) => response.request().method() === 'GET' && new URL(response.url()).pathname === '/admin/exam-content');
+await page.getByRole('button', { name: 'Mở công khai' }).click();
+const visibilityResponse = await visibilityMutation;
+await visibilityReload;
+
+await page.getByRole('button', { name: 'Giao cho lớp' }).click();
+const assignmentDialog = page.getByRole('dialog');
+await assignmentDialog.getByLabel('Lớp').selectOption('class-2');
+const classAssignmentMutation = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === '/admin/cohorts/class-2/assignments');
+const assignmentReload = page.waitForResponse((response) => response.request().method() === 'GET' && new URL(response.url()).pathname === '/admin/exam-content');
+await assignmentDialog.getByRole('button', { name: 'Giao cho cả lớp' }).click();
+const classAssignmentResponse = await classAssignmentMutation;
+await assignmentReload;
+const classAssignmentRequest = requests.find((item) => item.method === 'POST' && item.path === '/admin/cohorts/class-2/assignments');
+check('exam-content cập nhật level, phạm vi, visibility và giao lớp độc lập', levelResponse.ok() && cohortsResponse.ok() && visibilityResponse.ok() && classAssignmentResponse.ok() && requests.some((item) => item.path.endsWith('/level') && item.body?.course_level === 'C2') && requests.some((item) => item.path.endsWith('/cohorts') && item.body?.cohort_ids?.includes('class-2')) && requests.some((item) => item.path.endsWith('/visibility') && item.body?.is_public === true) && classAssignmentRequest?.body?.content_id === 'reading-uuid' && classAssignmentRequest?.body?.delivery_mode === 'assigned_practice');
 
 await page.setViewportSize({ width: 390, height: 844 });
 const mobile = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth, control: parseFloat(getComputedStyle(document.querySelector('.mex-form-grid input')).minHeight) }));

@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 
 import { buildExamCreatePayload } from '@/lib/admin-mock-exams-model.mjs';
 
-type Picker = { id: string; title?: string; test_id?: string; task_type?: string; name?: string };
+type Picker = { id: string; title?: string; test_id?: string; task_type?: string; name?: string; is_public?: boolean };
 type Props = {
   readings: Picker[];
   listenings: Picker[];
@@ -17,6 +17,7 @@ type Props = {
 
 const INITIAL = {
   code: '', title: '', examMode: 'sequential', cohortId: '', listeningTestId: '', readingTestId: '',
+  listeningIsPublic: false, readingIsPublic: false,
   writingTask1PromptId: '', writingTask2PromptId: '', readingMinutes: '60', writingMinutes: '60', totalMinutes: '150',
   webExplanationMode: 'with_result', postTestCaptureRequired: true,
 };
@@ -36,6 +37,15 @@ export function ExamCreateForm({ readings, listenings, prompts, cohorts, disable
   };
 
   const option = (row: Picker) => row.title || row.name || row.test_id || row.id;
+  const selectPaper = (skill: 'listening' | 'reading', id: string) => {
+    const source = skill === 'listening' ? listenings : readings;
+    const selected = source.find((row) => row.id === id);
+    setForm((current) => ({
+      ...current,
+      [`${skill}TestId`]: id,
+      [`${skill}IsPublic`]: selected?.is_public === true,
+    }));
+  };
   return (
     <form className="mex-card mex-create" onSubmit={submit}>
       <div className="mex-section-head">
@@ -51,8 +61,8 @@ export function ExamCreateForm({ readings, listenings, prompts, cohorts, disable
             <label><span>Lớp {form.examMode === 'sequential' ? '*' : ''}</span><select value={form.cohortId} onChange={(event) => set('cohortId', event.target.value)} disabled={form.examMode === 'retake'}><option value="">{form.examMode === 'retake' ? 'Gán theo học viên sau khi publish' : 'Chọn lớp tham gia'}</option>{cohorts.map((row) => <option key={row.id} value={row.id}>{option(row)}</option>)}</select></label>
           </div></fieldset>
           <fieldset className="mex-form-step"><legend><b>2</b><span><strong>Chọn nội dung thi</strong><small>Chỉ hiển thị nội dung đã publish</small></span></legend><div className="mex-form-grid is-two">
-            <label><span>Listening</span><select value={form.listeningTestId} onChange={(event) => set('listeningTestId', event.target.value)}><option value="">Không dùng</option>{listenings.map((row) => <option key={row.id} value={row.id}>{option(row)}</option>)}</select></label>
-            <label><span>Reading</span><select value={form.readingTestId} onChange={(event) => set('readingTestId', event.target.value)}><option value="">Không dùng</option>{readings.map((row) => <option key={row.id} value={row.id}>{option(row)}{row.test_id ? ` · ${row.test_id}` : ''}</option>)}</select></label>
+            <label><span>Listening</span><select value={form.listeningTestId} onChange={(event) => selectPaper('listening', event.target.value)}><option value="">Không dùng</option>{listenings.map((row) => <option key={row.id} value={row.id}>{option(row)}</option>)}</select>{form.listeningTestId && <small><input type="checkbox" checked={form.listeningIsPublic} onChange={(event) => set('listeningIsPublic', event.target.checked)} /> Hiện đề Listening công khai</small>}</label>
+            <label><span>Reading</span><select value={form.readingTestId} onChange={(event) => selectPaper('reading', event.target.value)}><option value="">Không dùng</option>{readings.map((row) => <option key={row.id} value={row.id}>{option(row)}{row.test_id ? ` · ${row.test_id}` : ''}</option>)}</select>{form.readingTestId && <small><input type="checkbox" checked={form.readingIsPublic} onChange={(event) => set('readingIsPublic', event.target.checked)} /> Hiện đề Reading công khai</small>}</label>
             <label><span>Writing Task 1</span><select value={form.writingTask1PromptId} onChange={(event) => set('writingTask1PromptId', event.target.value)}><option value="">Không dùng</option>{(task1.length ? task1 : prompts).map((row) => <option key={row.id} value={row.id}>{option(row)}{row.task_type ? ` · ${row.task_type}` : ''}</option>)}</select></label>
             <label><span>Writing Task 2</span><select value={form.writingTask2PromptId} onChange={(event) => set('writingTask2PromptId', event.target.value)}><option value="">Không dùng</option>{(task2.length ? task2 : prompts).map((row) => <option key={row.id} value={row.id}>{option(row)}{row.task_type ? ` · ${row.task_type}` : ''}</option>)}</select></label>
           </div></fieldset>

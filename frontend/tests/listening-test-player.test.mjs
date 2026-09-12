@@ -131,10 +131,8 @@ describe('Sprint 13.5 — player JS contract', () => {
   });
 
   it('loads the test via GET /api/listening/tests/{id}', () => {
-    assert.match(
-      JS,
-      /window\.api\.get\(`\/api\/listening\/tests\/\$\{encodeURIComponent\(testId\)\}`/,
-    );
+    assert.match(JS, /`\/api\/listening\/tests\/\$\{encodeURIComponent\(testId\)\}`/);
+    assert.match(JS, /classItem \? `\?class_item=\$\{encodeURIComponent\(classItem\)\}`/);
   });
 
   it('creates an attempt via POST /api/listening/tests/{id}/attempts', () => {

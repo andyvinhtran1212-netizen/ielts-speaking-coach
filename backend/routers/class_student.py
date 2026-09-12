@@ -69,6 +69,14 @@ def _paged_items(apply_filters) -> list:
 router = APIRouter(prefix="/api/class", tags=["class-student"])
 
 
+def _paper_is_public(row: dict) -> bool:
+    """Use the canonical visibility flag, with the pre-migration fallback."""
+    if "is_public" in row:
+        return bool(row.get("is_public"))
+    return (bool(row.get("public_practice_enabled"))
+            or not bool(row.get("exam_only")))
+
+
 def _existing_speaking_session(item_id: str, user_id: str) -> Optional[Dict[str, Any]]:
     """Phiên Speaking đã dựng cho mục bài giao này, nếu có.
 
@@ -533,13 +541,13 @@ async def start_assignment(
     if skill == "listening":
         rows = (
             supabase_admin.table("listening_tests")
-            .select("id, status, exam_only, full_audio_storage_path, "
-                    "assembled_audio_storage_path")
+            .select("id, status, exam_only, is_public, public_practice_enabled, "
+                    "full_audio_storage_path, assembled_audio_storage_path")
             .eq("id", test_uuid).limit(1).execute().data
         ) or []
         if not rows or (rows[0].get("status") or "") != "published":
             raise HTTPException(409, "Đề nghe của bài tập này hiện không mở được.")
-        if (rows[0].get("exam_only")
+        if (not _paper_is_public(rows[0])
                 and cfg.get("delivery_mode") != "assigned_practice"):
             raise HTTPException(409, "Đề nghe của bài tập này hiện không mở được.")
         if not (rows[0].get("assembled_audio_storage_path")
@@ -557,14 +565,16 @@ async def start_assignment(
         # ledger keeps the UUID because that is what the hand-in is matched on;
         # the link has to carry the code or the paper opens to a 404.
         row = (
-            supabase_admin.table("reading_tests").select("test_id, status, exam_only")
+            supabase_admin.table("reading_tests").select(
+                "test_id, status, exam_only, is_public, public_practice_enabled"
+            )
             .eq("id", test_uuid).limit(1).execute().data
         ) or []
         code = (row[0].get("test_id") if row else None)
         if not code:
             raise HTTPException(404, "Không tìm thấy đề đọc của bài tập này.")
         if ((row[0].get("status") or "") != "published"
-                or (row[0].get("exam_only")
+                or (not _paper_is_public(row[0])
                     and cfg.get("delivery_mode") != "assigned_practice")):
             raise HTTPException(409, "Đề đọc của bài tập này hiện không mở được.")
         player_surface = "reading_exam"

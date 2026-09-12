@@ -130,6 +130,7 @@
       + '<th>Kỹ năng</th><th>Mã / Tiêu đề</th><th>Trạng thái</th>'
       + '<th>Cấp khoá</th><th>Lớp</th><th></th></tr></thead><tbody>'
       + rows.map(function (r) {
+        var isPublic = r.kind === 'writing' ? !r.exam_only : Boolean(r.is_public);
         return '<tr data-kind="' + esc(r.kind) + '" data-id="' + esc(r.id) + '">'
           + '<td>' + esc(KIND_LABEL[r.kind] || r.kind) + '</td>'
           + '<td>' + (r.code ? '<code>' + esc(r.code) + '</code> ' : '') + esc(r.title || '') + '</td>'
@@ -140,12 +141,11 @@
               return '<span class="me-chip">' + esc(cohortName(c)) + '</span>';
             }).join(' ') + '</td>'
           + '<td><button type="button" class="av-btn ec-edit">Sửa lớp</button> '
-          // Unchecking "chỉ đề dành cho kỳ thi" loads library rows too. Labelling
-          // those "Trả về thư viện" tells the admin they are reserved when they
-          // are not, and confirms an operation that changes nothing.
-          +     (r.exam_only
-                  ? '<button type="button" class="av-btn ec-release">Trả về thư viện</button>'
-                  : '<span class="me-muted">Đang ở thư viện</span>') + '</td>'
+          // Reading/Listening use canonical is_public; Writing retains its
+          // legacy exam_only contract until it gains an independent flag.
+          +     (!isPublic
+                  ? '<button type="button" class="av-btn ec-release">Mở công khai</button>'
+                  : '<span class="me-muted">Đang công khai</span>') + '</td>'
           + '</tr>';
       }).join('') + '</tbody></table>';
 
@@ -212,12 +212,8 @@
   }
 
 
-  // Hand a paper back to the student library. Refused server-side (409) while a
-  // non-archived exam still binds it — NOT pre-checked here, because a second
-  // copy of that rule in the browser is the copy that goes stale.
+  // Open a paper publicly without changing its mock/class associations.
   var RELEASE_URL = {
-    reading:   function (id) { return '/admin/reading/content/tests/' + encodeURIComponent(id) + '/exam-only'; },
-    listening: function (id) { return '/admin/listening/tests/' + encodeURIComponent(id); },
     writing:   function (id) { return '/admin/writing/prompts/' + encodeURIComponent(id); },
   };
 
@@ -228,22 +224,21 @@
       if (_rows[i].kind === k.kind && String(_rows[i].id) === String(k.id)) row = _rows[i];
     }
     if (!window.confirm(
-      'Trả "' + ((row && (row.code || row.title)) || k.id) + '" về thư viện luyện tập?\n\n'
-      + 'Học viên sẽ luyện được đề này. Nếu nó từng dùng cho một kỳ thi ĐÃ LƯU TRỮ, '
-      + 'khoá sau có thể luyện đúng đề khoá trước vừa thi.')) return;
+      'Mở "' + ((row && (row.code || row.title)) || k.id) + '" công khai trên web?\n\n'
+      + 'Mọi học viên sẽ thấy và tự luyện được đề này. Việc gán mock test hoặc lớp học không đổi.')) return;
     try {
-      // Reading is keyed by its human test_id everywhere on its admin surface;
-      // the other two take the UUID.
-      var idForUrl = (k.kind === 'reading' && row && row.code) ? row.code : k.id;
-      if (k.kind === 'reading') {
-        await window.api.post(RELEASE_URL.reading(idForUrl), { exam_only: false });
+      if (k.kind === 'writing') {
+        await window.api.patch(RELEASE_URL.writing(k.id), { exam_only: false });
       } else {
-        await window.api.patch(RELEASE_URL[k.kind](idForUrl), { exam_only: false });
+        await window.api.patch(
+          '/admin/exam-content/' + encodeURIComponent(k.kind) + '/'
+            + encodeURIComponent(k.id) + '/visibility',
+          { is_public: true });
       }
-      if (window.toast) toast('Đã trả về thư viện.');
+      if (window.toast) toast('Đã mở công khai.');
       load();
     } catch (e) {
-      if (window.toast) toast('Không trả về được: ' + (e && e.message ? e.message : e));
+      if (window.toast) toast('Không mở công khai được: ' + (e && e.message ? e.message : e));
     }
   }
 

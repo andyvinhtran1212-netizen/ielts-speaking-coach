@@ -178,6 +178,7 @@ def _reading_rows(source_id: str, package: dict[str, Any]) -> tuple[dict, list, 
         },
         "status": "draft",
         "exam_only": True,
+        "is_public": False,
         "public_practice_enabled": False,
         "web_explanation_mode": "disabled",
     }
@@ -359,6 +360,7 @@ def _listening_rows(source_id: str, package: dict[str, Any], timings: dict[str, 
         "audio_assembly_mode": "full_premixed",
         "test_type": "full",
         "exam_only": True,
+        "is_public": False,
         "public_practice_enabled": False,
         "web_explanation_mode": "disabled",
     }
@@ -531,6 +533,7 @@ def _assert_hidden_visibility(plans: list[PackagePlan]) -> None:
     expected = {
         "status": "draft",
         "exam_only": True,
+        "is_public": False,
         "public_practice_enabled": False,
         "web_explanation_mode": "disabled",
     }
@@ -616,7 +619,7 @@ def report(plans: list[PackagePlan]) -> dict[str, Any]:
         ),
         "audio_files": len(plans),
         "referenced_assets": sum(len(p.assets) for p in plans),
-        "visibility": {"status": "draft", "exam_only": True,
+        "visibility": {"status": "draft", "exam_only": True, "is_public": False,
                        "public_practice_enabled": False,
                        "web_explanation_mode": "disabled"},
     }

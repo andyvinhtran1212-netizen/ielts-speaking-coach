@@ -8392,6 +8392,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/reading/content/tests/{test_id}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Admin Set Reading Visibility
+         * @description Set public visibility independently from mock/class assignment.
+         */
+        patch: operations["admin_set_reading_visibility_admin_reading_content_tests__test_id__visibility_patch"];
+        trace?: never;
+    };
     "/admin/reading/content/tests/{test_id}/lock": {
         parameters: {
             query?: never;
@@ -10280,6 +10300,23 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/admin/exam-content/{kind}/{content_id}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Set Public Visibility */
+        patch: operations["set_public_visibility_admin_exam_content__kind___content_id__visibility_patch"];
         trace?: never;
     };
     "/admin/exam-content/{kind}/{content_id}/level": {
@@ -12790,6 +12827,10 @@ export interface components {
             listening_test_id?: string | null;
             /** Reading Test Id */
             reading_test_id?: string | null;
+            /** Listening Is Public */
+            listening_is_public?: boolean | null;
+            /** Reading Is Public */
+            reading_is_public?: boolean | null;
             /** Writing Task1 Prompt Id */
             writing_task1_prompt_id?: string | null;
             /** Writing Task2 Prompt Id */
@@ -13659,6 +13700,8 @@ export interface components {
             } | null;
             /** Exam Only */
             exam_only?: boolean | null;
+            /** Is Public */
+            is_public?: boolean | null;
         };
         /** ListeningTestStatusPatchRequest */
         ListeningTestStatusPatchRequest: {
@@ -14704,6 +14747,11 @@ export interface components {
             viewed_from: string;
             /** Session Id */
             session_id?: string | null;
+        };
+        /** VisibilityBody */
+        VisibilityBody: {
+            /** Is Public */
+            is_public: boolean;
         };
         /** VocabFPReportRequest */
         VocabFPReportRequest: {
@@ -29042,6 +29090,45 @@ export interface operations {
             };
         };
     };
+    admin_set_reading_visibility_admin_reading_content_tests__test_id__visibility_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     admin_lock_reading_test_admin_reading_content_tests__test_id__lock_post: {
         parameters: {
             query?: never;
@@ -32299,6 +32386,7 @@ export interface operations {
                 course_level?: string | null;
                 cohort_id?: string | null;
                 exam_only?: boolean | null;
+                is_public?: boolean | null;
             };
             header?: {
                 authorization?: string | null;
@@ -32307,6 +32395,44 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_public_visibility_admin_exam_content__kind___content_id__visibility_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                kind: string;
+                content_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisibilityBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

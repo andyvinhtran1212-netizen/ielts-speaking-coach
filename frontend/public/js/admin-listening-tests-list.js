@@ -71,7 +71,7 @@ function init() {
     const b = e.target.closest('.tl-status-btn');
     if (!b) return;
     // Two kinds of button share the class; dispatch on which data-* they carry.
-    if (b.dataset.examOnly !== undefined) return setExamOnly(b);
+    if (b.dataset.isPublic !== undefined) return setVisibility(b);
     changeStatus(b.dataset.id, b.dataset.status);
   });
 
@@ -157,38 +157,31 @@ function renderRows(items) {
 function statusActions(t) {
   const btn = (status, label) =>
     `<button type="button" class="tl-status-btn" data-id="${escapeHtml(t.id)}" data-status="${status}">${label}</button>`;
-  // Reserve for a mock exam / hand back to the student library. Rendered for
-  // every status: an admin stages a paper for a future exam long before it is
-  // published, and that is exactly the pre-assignment window the flag exists for.
-  const reserve = `<button type="button" class="tl-status-btn" data-exam-only="${t.exam_only ? '0' : '1'}" `
+  // Public visibility is independent from mock/class assignment. The rollback
+  // UI writes the same canonical flag as the native admin surface.
+  const visibility = `<button type="button" class="tl-status-btn" data-is-public="${t.is_public ? '0' : '1'}" `
     + `data-id="${escapeHtml(t.id)}" data-code="${escapeHtml(t.test_id || t.id)}">`
-    + (t.exam_only ? 'Trả về thư viện' : 'Chuyển sang đề kỳ thi') + '</button>';
-  if (t.status === 'draft')     return btn('published', 'Publish') + btn('archived', 'Archive') + reserve;
-  if (t.status === 'published') return btn('archived', 'Archive') + reserve;
-  if (t.status === 'archived')  return btn('draft', 'Khôi phục') + reserve;
-  return reserve;
+    + (t.is_public ? 'Ẩn khỏi web' : 'Mở công khai') + '</button>';
+  if (t.status === 'draft')     return btn('published', 'Publish') + btn('archived', 'Archive') + visibility;
+  if (t.status === 'published') return btn('archived', 'Archive') + visibility;
+  if (t.status === 'archived')  return btn('draft', 'Khôi phục') + visibility;
+  return visibility;
 }
 
 
 
-// Reserve a paper for mock exams, or hand it back to the student library.
-//
-// The RELEASE direction is refused server-side when a non-archived exam still
-// binds the test. Deliberately NOT pre-checked here: duplicating the rule in the
-// browser is how the two drift, and the browser's copy is the one that cannot be
-// trusted. We just surface the 409.
-async function setExamOnly(btn) {
-  const next = btn.dataset.examOnly === '1';
+// Toggle canonical public visibility without changing mock/class relationships.
+async function setVisibility(btn) {
+  const next = btn.dataset.isPublic === '1';
   const code = btn.dataset.code || btn.dataset.id;
   const msg = next
-    ? `Chuyển "${code}" thành đề kỳ thi?\n\nĐề sẽ BIẾN MẤT khỏi thư viện luyện tập của học viên.`
-    : `Trả "${code}" về thư viện luyện tập?\n\nHọc viên sẽ luyện được đề này. `
-      + 'Nếu đề từng dùng cho một kỳ thi ĐÃ LƯU TRỮ, khoá sau có thể luyện đúng đề khoá trước vừa thi.';
+    ? `Mở "${code}" công khai trên web?\n\nMọi học viên sẽ thấy và tự luyện được đề này.`
+    : `Ẩn "${code}" khỏi web?\n\nĐề vẫn dùng được trong mock test và bài giao lớp.`;
   if (!window.confirm(msg)) return;
   hideError();
   try {
     await window.api.patch(`/admin/listening/tests/${encodeURIComponent(btn.dataset.id)}`,
-                           { exam_only: next });
+                           { is_public: next });
     fetchTests();   // refetch canonical state — no optimistic divergence
   } catch (e) {
     showError(e.message || 'Không đổi được.');
