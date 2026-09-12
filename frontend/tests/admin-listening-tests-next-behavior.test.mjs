@@ -16,7 +16,7 @@ const CONTENT = read('app', '(authed-admin-listening)', 'admin', 'listening', 'a
 const CSS = read('public', 'css', 'admin-listening-tests-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 
-const testRow = (patch = {}) => ({ id: 't1', test_id: 'ILR-LIS-1', title: '<script>', status: 'draft', test_type: 'full', exam_only: false, section_count: 4, audio_ready_count: 3, band_target: 7, accent_profile: ['UK'], ...patch });
+const testRow = (patch = {}) => ({ id: 't1', test_id: 'ILR-LIS-1', title: '<script>', status: 'draft', test_type: 'full', exam_only: false, is_public: true, section_count: 4, audio_ready_count: 3, band_target: 7, accent_profile: ['UK'], ...patch });
 
 test('test filters round-trip through the clean URL', () => {
   assert.deepEqual(normalizeListeningTestFilters({ status: 'bad', type: 'bad', search: '  ILR  ', page: '0' }), { status: 'all', type: 'all', search: 'ILR', page: 1 });
@@ -35,10 +35,10 @@ test('list normalizer preserves backend total and surfaces malformed rows', () =
 });
 
 test('mutation readback validates identity and exact canonical field', () => {
-  const raw = { id: 't1', status: 'published', exam_only: true };
-  assert.deepEqual(normalizeListeningTestMutationReadback(raw, 't1', { status: 'published', examOnly: true }), { id: 't1', status: 'published', examOnly: true });
+  const raw = { id: 't1', status: 'published', exam_only: true, is_public: false };
+  assert.deepEqual(normalizeListeningTestMutationReadback(raw, 't1', { status: 'published', isPublic: false }), { id: 't1', status: 'published', examOnly: true, isPublic: false });
   assert.equal(normalizeListeningTestMutationReadback(raw, 'other', { status: 'published' }), null);
-  assert.equal(normalizeListeningTestMutationReadback(raw, 't1', { examOnly: false }), null);
+  assert.equal(normalizeListeningTestMutationReadback(raw, 't1', { isPublic: true }), null);
 });
 
 test('native inventory is admin-gated and links to the native detail owner', () => {
@@ -63,8 +63,8 @@ test('writes require dialog and exact GET readback without optimistic row mutati
 });
 
 test('responsive UI exposes exam boundary, focus and reduced motion', () => {
-  assert.match(CLIENT, /exam_only=true/);
-  assert.match(CLIENT, /Backend có thể từ chối/);
+  assert.match(CLIENT, /is_public: target\.isPublic/);
+  assert.match(CLIENT, /Vẫn có thể gán mock test hoặc giao riêng cho lớp/);
   assert.match(CSS, /@media\(max-width:700px\)/);
   assert.match(CSS, /:focus-visible/);
   assert.match(CSS, /prefers-reduced-motion:reduce/);

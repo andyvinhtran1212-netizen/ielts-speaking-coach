@@ -103,7 +103,7 @@ describe('/admin/mock-exams native ownership and mutation truth', () => {
   test('owns the clean route while preserving a named rollback target', () => {
     assert.match(PAGE, /AdminAccessGate/);
     assert.match(PAGE, /embed=\{embed \? '' : undefined\}/);
-    assert.equal(existsSync(join(ROOT, 'public', 'pages', 'admin', 'mock-exams', 'index.html')), false);
+    assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'mock-exams', 'index.html')));
     assert.match(LEDGER, /`\/admin\/mock-exams`[^\n]+authed-admin-mock-exams[^\n]+native React ownership/);
   });
 
