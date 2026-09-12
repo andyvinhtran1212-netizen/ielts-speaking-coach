@@ -26,6 +26,7 @@ import re
 from pathlib import Path
 
 import pytest
+from fastapi import HTTPException
 
 import services.mock_exam_service as svc_mod
 
@@ -248,6 +249,52 @@ def test_listening_detail_dictation_and_attempt_start_are_gated():
         seg = src[src.index(fn):]
         seg = seg[:seg.index("\n@")] if "\n@" in seg else seg
         assert "_assert_listening_exam_content_allowed(" in seg, f"{fn} not gated"
+
+
+def test_hidden_listening_canonical_flag_beats_legacy_public_practice(monkeypatch):
+    """Migration 258 preserves public_practice_enabled on dual-use rows, but an
+    explicit admin hide must close ordinary detail and attempt-start access."""
+    from routers import listening
+    from services import mock_correction_service, mock_exam_service
+
+    monkeypatch.setattr(
+        mock_correction_service, "class_item_entitles_exam_only",
+        lambda *_a, **_k: False,
+    )
+    monkeypatch.setattr(
+        mock_exam_service, "user_may_open_exam_content",
+        lambda *_a, **_k: False,
+    )
+    with pytest.raises(HTTPException) as exc:
+        listening._assert_listening_exam_content_allowed({
+            "id": "lt1",
+            "exam_only": True,
+            "is_public": False,
+            "public_practice_enabled": True,
+        }, "user-1")
+    assert exc.value.status_code == 404
+
+
+@pytest.mark.parametrize("entitlement", ["class", "mock"])
+def test_hidden_listening_still_allows_explicit_entitlements(monkeypatch, entitlement):
+    """Hiding from the web must not break assigned class work or mock sittings."""
+    from routers import listening
+    from services import mock_correction_service, mock_exam_service
+
+    monkeypatch.setattr(
+        mock_correction_service, "class_item_entitles_exam_only",
+        lambda *_a, **_k: entitlement == "class",
+    )
+    monkeypatch.setattr(
+        mock_exam_service, "user_may_open_exam_content",
+        lambda *_a, **_k: entitlement == "mock",
+    )
+    listening._assert_listening_exam_content_allowed({
+        "id": "lt1",
+        "exam_only": True,
+        "is_public": False,
+        "public_practice_enabled": True,
+    }, "user-1", "class-item-1")
 
 
 def test_the_attempt_start_query_actually_selects_the_flag():
