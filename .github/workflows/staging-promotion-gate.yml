@@ -45,7 +45,6 @@ jobs:
             "typecheck.yml|TypeScript strict + legacy JSDoc|api.d.ts ↔ OpenAPI drift"
             "route-manifest.yml|Build + verify routes-manifest ownership"
             "legacy-freeze.yml|Public không chứa HTML legacy"
-            "staging-release-smoke.yml|Staging release smoke"
           )
 
           for ATTEMPT in $(seq 1 80); do
@@ -104,6 +103,12 @@ jobs:
                 --jq '[.jobs[] | select(.name == "staging-e2e")] | last | .conclusion // "missing"')
               if [ "$E2E_JOB" != "success" ]; then
                 echo "::error::Staging E2E workflow was green but its staging-e2e job was $E2E_JOB"
+                exit 1
+              fi
+              RELEASE_SMOKE_JOB=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" \
+                --jq '[.jobs[] | select(.name == "release-smoke / Staging release smoke")] | last | .conclusion // "missing"')
+              if [ "$RELEASE_SMOKE_JOB" != "success" ]; then
+                echo "::error::Staging E2E workflow was green but its permanent release smoke was $RELEASE_SMOKE_JOB"
                 exit 1
               fi
             elif [ "$RUN_STATUS" = "pending" ] || [ "$RUN_STATUS" = "queued" ] || [ "$RUN_STATUS" = "in_progress" ] || [ "$RUN_ID" = "missing" ]; then
