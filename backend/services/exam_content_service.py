@@ -107,6 +107,14 @@ def publication_readiness(kind: str, row: dict) -> tuple[bool, Optional[str]]:
     if kind == "reading":
         passages = int(row.get("passage_count") or 0)
         questions = int(row.get("total_questions") or 0)
+        test_type = str(row.get("test_type") or "full")
+        if test_type == "mini":
+            if passages != 1 or questions < 1:
+                return False, (
+                    f"Reading Mini test cần đúng 1 passage và có câu hỏi; hiện có "
+                    f"{passages} passages, {questions} câu."
+                )
+            return True, None
         if passages != 3 or questions != 40:
             return False, (
                 f"Đề Reading cần đủ 3 passages và 40 câu; hiện có "
@@ -357,7 +365,7 @@ def list_exam_content(kind: Optional[str] = None,
         if k in ("reading", "listening"):
             cols += ",public_practice_enabled,web_explanation_mode"
         if k == "reading":
-            cols += ",passage_count,total_questions"
+            cols += ",test_type,passage_count,total_questions"
         if k == "listening":
             cols += ",audio_assembly_mode,full_audio_storage_path,assembled_audio_storage_path"
         try:
