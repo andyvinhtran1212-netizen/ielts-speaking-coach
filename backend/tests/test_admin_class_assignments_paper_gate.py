@@ -111,6 +111,22 @@ async def test_an_ordinary_published_paper_can_be_given():
 
 
 @pytest.mark.asyncio
+async def test_an_explicitly_hidden_paper_needs_controlled_practice():
+    with pytest.raises(Exception) as exc:
+        await _create({
+            "id": "uuid-1", "title": "Đề riêng", "status": "published",
+            "exam_only": False, "is_public": False,
+        })
+    assert getattr(exc.value, "status_code", None) == 400
+
+    out = await _create({
+        "id": "uuid-1", "title": "Đề riêng", "status": "published",
+        "exam_only": False, "is_public": False,
+    }, delivery_mode="assigned_practice")
+    assert out["student_count"] == 3
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("skill", ["reading", "listening"])
 async def test_a_paper_reserved_for_mock_sittings_needs_controlled_practice(skill):
     with pytest.raises(Exception) as exc:

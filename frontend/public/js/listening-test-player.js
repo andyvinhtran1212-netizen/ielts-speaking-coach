@@ -264,7 +264,11 @@ function fmtTime(secs) {
 async function loadTest(testId) {
   showState('loading');
   try {
-    const test = await window.api.get(`/api/listening/tests/${encodeURIComponent(testId)}`);
+    const classItem = classItemFromUrl();
+    const test = await window.api.get(
+      `/api/listening/tests/${encodeURIComponent(testId)}`
+        + (classItem ? `?class_item=${encodeURIComponent(classItem)}` : ''),
+    );
     STATE.testId = testId;
     STATE.test   = test;
     computeTestShape(test);            // sets sectionCount / totalQuestions / qToSection / firstSection

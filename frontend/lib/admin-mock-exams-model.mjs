@@ -111,6 +111,8 @@ export function buildExamCreatePayload(form) {
       writing_minutes: positiveInteger(form?.writingMinutes, 60),
       listening_test_id: TEXT(form?.listeningTestId) || null,
       reading_test_id: TEXT(form?.readingTestId) || null,
+      listening_is_public: form?.listeningTestId ? form?.listeningIsPublic === true : null,
+      reading_is_public: form?.readingTestId ? form?.readingIsPublic === true : null,
       writing_task1_prompt_id: TEXT(form?.writingTask1PromptId) || null,
       writing_task2_prompt_id: TEXT(form?.writingTask2PromptId) || null,
       cohort_id: cohortId || null,
@@ -207,6 +209,11 @@ export function normalizeExamContent(raw) {
       courseLevel: TEXT(row.course_level),
       cohortIds: Array.isArray(row.cohort_ids) ? row.cohort_ids.map(String) : [],
       examOnly: row.exam_only === true,
+      isPublic: row.is_public === true,
+      mockExams: Array.isArray(row.mock_exams) ? row.mock_exams.flatMap((item) => {
+        if (!item || typeof item !== 'object' || !TEXT(item.id)) return [];
+        return [{ id: TEXT(item.id), code: TEXT(item.code), title: TEXT(item.title), status: TEXT(item.status) }];
+      }) : [],
       publicPracticeEnabled: row.public_practice_enabled === true,
       webExplanationMode: TEXT(row.web_explanation_mode) || 'disabled',
     }];

@@ -189,7 +189,7 @@ def _resolve_share(test_id_or_token: str, *, by_token: bool) -> dict:
                 # None — the gate silently passed everything through
                 # (Codex review, PR #862).
                 "total_questions,band_target,status,updated_at,metadata,exam_only,"
-                "public_practice_enabled")
+                "is_public,public_practice_enabled")
             .eq("metadata->share->>token", test_id_or_token)
             .eq("status", "published")
             .limit(1)
@@ -546,7 +546,7 @@ def _fetch_published_test(test_id: str) -> dict:
                 # None — the gate silently passed everything through
                 # (Codex review, PR #862).
                 "total_questions,band_target,status,updated_at,metadata,exam_only,"
-                "public_practice_enabled")
+                "is_public,public_practice_enabled")
         .eq("test_id", test_id)
         .eq("status", "published")
         .limit(1)
@@ -574,6 +574,13 @@ def _require_test_unlocked(test: dict, password: str | None) -> None:
         raise HTTPException(403, "Bài thi đang khoá — cần nhập đúng mật khẩu để truy cập.")
 
 
+def _test_is_public(test: dict) -> bool:
+    """Canonical visibility, with a deploy-order fallback for old rows/fakes."""
+    if "is_public" in test:
+        return bool(test.get("is_public"))
+    return bool(test.get("public_practice_enabled")) or not bool(test.get("exam_only"))
+
+
 def _assert_exam_content_allowed(test: dict, user_id, class_item: str | None = None) -> None:
     """A test reserved for mock exams is served ONLY to a student sitting one.
 
@@ -586,11 +593,9 @@ def _assert_exam_content_allowed(test: dict, user_id, class_item: str | None = N
     404, not 403: to anyone without a sitting the paper does not exist, and
     saying "forbidden" would confirm the test id is real.
     """
-    if not test.get("exam_only"):
+    if _test_is_public(test):
         return
     from services import mock_correction_service
-    if test.get("public_practice_enabled"):
-        return
     if mock_correction_service.class_item_entitles_exam_only(
         user_id, class_item, skill="reading", test_id=test.get("id")
     ):
@@ -837,18 +842,8 @@ async def list_reading_tests(
         q = q.eq("test_type", "mini")
     else:
         q = q.eq("test_type", "full")
-    # Reserved for a mock exam — never in the practice browse (mig 170). This is
-    # the PERMANENT flag: unlike reserved_test_ids below it survives the exam
-    # being archived, which used to republish the paper to the next cohort.
-    q = q.or_("exam_only.eq.false,public_practice_enabled.eq.true")
-    # Kept alongside it: a test assigned to a live exam by an admin who did not
-    # tick the flag is still hidden, immediately, with no backfill needed.
-    from services import mock_exam_service
-    from services import mock_correction_service
-    _reserved = mock_exam_service.reserved_test_ids("reading")
-    _reserved = mock_correction_service.non_public_reserved_ids("reading", _reserved)
-    if _reserved:
-        q = q.not_.in_("id", list(_reserved))
+    # Visibility is an explicit admin choice, independent from mock/class use.
+    q = q.eq("is_public", True)
     res = q.execute()
     return {
         "items":  res.data or [],
@@ -931,7 +926,7 @@ async def boot_shared_reading_test(
     student-safe bundle (lock bypassed), and — if the caller already holds an
     anon_id for an in-progress attempt on this test — the resume payload."""
     test = _resolve_share(share_token, by_token=True)
-    if test.get("exam_only"):
+    if not _test_is_public(test):
         # A share link is by definition anonymous, so there is no sitting to
         # check — a mock-exam paper can never be entitled through this route.
         # An admin who reserved a test after minting a link must not have that
@@ -980,7 +975,7 @@ async def start_shared_reading_test_attempt(
     creates an attempt with user_id NULL. Returns attempt_id + anon_id."""
     import uuid as _uuid
     test = _resolve_share(share_token, by_token=True)
-    if test.get("exam_only"):
+    if not _test_is_public(test):
         # Share links are anonymous by definition, so there is no sitting that
         # could entitle this. Gating the share BOOT alone left the start route
         # open: a token minted before the paper was reserved could still create

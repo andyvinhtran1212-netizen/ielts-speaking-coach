@@ -67,6 +67,24 @@ def set_course_level(kind: str, content_id: str, level: Optional[str]) -> dict:
     return resp.data[0]
 
 
+def set_public_visibility(kind: str, content_id: str, is_public: bool) -> dict:
+    """Set self-practice visibility for one Reading/Listening test."""
+    table, _ = _assert_kind(kind)
+    if kind == "writing":
+        raise UnknownKindError(
+            "Public visibility hiện chỉ áp dụng cho đề Reading/Listening."
+        )
+    resp = supabase_admin.table(table).update({
+        "is_public": bool(is_public),
+        # Compatibility cut-over: class assignment must not be rejected by
+        # clients that still understand the legacy exam_only flag.
+        "exam_only": False,
+    }).eq("id", str(content_id)).execute()
+    if not resp.data:
+        raise LookupError(f"Không tìm thấy nội dung {kind}/{content_id}.")
+    return resp.data[0]
+
+
 def _assert_content_exists(kind: str, content_id: str) -> None:
     """The join table deliberately has no FK on content_id (it points into one of
     three tables), so nothing else stops a stale UUID being "assigned" and the
@@ -193,10 +211,38 @@ def explanation_readiness_for(kind: str, content_ids: Iterable[str]) -> dict:
     return out
 
 
+def _mock_refs_for(kind: str, content_ids: Iterable[str]) -> dict:
+    """content_id -> mock exams currently referencing it (batched)."""
+    ids = [str(value) for value in (content_ids or []) if value]
+    out: dict[str, list[dict]] = {value: [] for value in ids}
+    column = {
+        "reading": "reading_test_id",
+        "listening": "listening_test_id",
+    }.get(kind)
+    if not ids or not column:
+        return out
+    rows = _paged(
+        lambda: supabase_admin.table("mock_exams")
+        .select(f"id,code,title,status,{column}")
+        .in_(column, ids).order("created_at", desc=True)
+    )
+    for row in rows:
+        content_id = str(row.get(column) or "")
+        if content_id in out:
+            out[content_id].append({
+                "id": row.get("id"),
+                "code": row.get("code"),
+                "title": row.get("title"),
+                "status": row.get("status"),
+            })
+    return out
+
+
 def list_exam_content(kind: Optional[str] = None,
                       course_level: Optional[str] = None,
                       cohort_id: Optional[str] = None,
-                      exam_only: Optional[bool] = None) -> list[dict]:
+                      exam_only: Optional[bool] = None,
+                      is_public: Optional[bool] = None) -> dict:
     """The admin "Đề kỳ thi" screen: papers across all three libraries, with
     their level and classes, filterable.
 
@@ -212,6 +258,8 @@ def list_exam_content(kind: Optional[str] = None,
     for k in kinds:
         table, code_col = _KINDS[k]
         cols = "id,title,course_level,exam_only"
+        if k in ("reading", "listening"):
+            cols += ",is_public"
         cols += f",{code_col}" if code_col else ""
         cols += ",status" if k != "writing" else ",is_active"
         if k in ("reading", "listening"):
@@ -232,8 +280,15 @@ def list_exam_content(kind: Optional[str] = None,
             rows = [r for r in rows if (r.get("course_level") or "") == course_level]
         if exam_only is not None:
             rows = [r for r in rows if bool(r.get("exam_only")) is exam_only]
+        if is_public is not None:
+            rows = [
+                r for r in rows
+                if k in ("reading", "listening")
+                and bool(r.get("is_public", not bool(r.get("exam_only")))) is is_public
+            ]
         by_content = cohorts_for(k, [r["id"] for r in rows])
         explanation_by_content = explanation_readiness_for(k, [r["id"] for r in rows])
+        mock_refs = _mock_refs_for(k, [r["id"] for r in rows])
         for r in rows:
             cids = by_content.get(str(r["id"]), [])
             if cohort_id and str(cohort_id) not in cids:
@@ -249,10 +304,14 @@ def list_exam_content(kind: Optional[str] = None,
                 "status":       r.get("status") or
                                 ("published" if r.get("is_active") else "archived"),
                 "exam_only":    bool(r.get("exam_only")),
+                "is_public":    (bool(r.get("is_public"))
+                                 if "is_public" in r
+                                 else not bool(r.get("exam_only"))),
                 "public_practice_enabled": bool(r.get("public_practice_enabled")),
                 "web_explanation_mode": r.get("web_explanation_mode"),
                 "course_level": r.get("course_level"),
                 "cohort_ids":   cids,
+                "mock_exams":   mock_refs.get(str(r["id"]), []),
                 **explanation,
             })
     out.sort(key=lambda r: (r["kind"], (r["code"] or r["title"] or "").lower()))

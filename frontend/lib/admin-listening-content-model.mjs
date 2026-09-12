@@ -84,6 +84,7 @@ export function normalizeListeningTestItem(raw) {
     sectionCount,
     audioReadyCount,
     examOnly: value.exam_only,
+    isPublic: typeof value.is_public === 'boolean' ? value.is_public : !value.exam_only,
     createdAt: nullableText(value.created_at),
     updatedAt: nullableText(value.updated_at),
   };
@@ -117,7 +118,9 @@ export function normalizeListeningTestMutationReadback(raw, expectedId, expected
   if (!value || textOf(value.id) !== expectedId || !STATUSES.has(textOf(value.status)) || typeof value.exam_only !== 'boolean') return null;
   if (expected.status && value.status !== expected.status) return null;
   if (expected.examOnly !== undefined && value.exam_only !== expected.examOnly) return null;
-  return { id: expectedId, status: value.status, examOnly: value.exam_only };
+  const isPublic = typeof value.is_public === 'boolean' ? value.is_public : !value.exam_only;
+  if (expected.isPublic !== undefined && isPublic !== expected.isPublic) return null;
+  return { id: expectedId, status: value.status, examOnly: value.exam_only, isPublic };
 }
 
 export function normalizeListeningContentItem(raw) {

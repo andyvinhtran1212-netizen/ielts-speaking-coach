@@ -269,11 +269,11 @@ def test_cohorts_for_answers_for_every_id_asked_about(db):
 def _seed_three(db):
     db.t["reading_tests"] = [
         {"id": "r1", "test_id": "R-01", "title": "R one", "status": "published",
-         "exam_only": True, "course_level": "C2"},
+         "exam_only": True, "is_public": False, "course_level": "C2"},
     ]
     db.t["listening_tests"] = [
         {"id": "l1", "test_id": "L-01", "title": "L one", "status": "published",
-         "exam_only": False, "course_level": "C4"},
+         "exam_only": False, "is_public": True, "course_level": "C4"},
     ]
     db.t["writing_prompts"] = [
         {"id": "w1", "title": "W one", "is_active": True,
@@ -302,8 +302,32 @@ def test_filters(db):
     svc.set_cohorts("reading", "r1", ["c1"])
     assert {r["kind"] for r in svc.list_exam_content(course_level="C2")["items"]} == {"reading", "writing"}
     assert {r["kind"] for r in svc.list_exam_content(exam_only=False)["items"]} == {"listening"}
+    assert {r["kind"] for r in svc.list_exam_content(is_public=True)["items"]} == {"listening"}
+    assert {r["kind"] for r in svc.list_exam_content(is_public=False)["items"]} == {"reading"}
     assert [r["id"] for r in svc.list_exam_content(cohort_id="c1")["items"]] == ["r1"]
     assert svc.list_exam_content(cohort_id="nope")["items"] == []
+
+
+def test_visibility_write_is_targeted_and_independent(db):
+    _seed_three(db)
+    row = svc.set_public_visibility("reading", "r1", True)
+    assert row["is_public"] is True
+    assert row["exam_only"] is False
+    assert db.t["listening_tests"][0]["is_public"] is True
+
+
+def test_list_surfaces_mock_usage_without_changing_visibility(db):
+    _seed_three(db)
+    db.t["mock_exams"] = [{
+        "id": "m1", "code": "MOCK-1", "title": "Mock one",
+        "status": "published", "reading_test_id": "r1",
+    }]
+    row = svc.list_exam_content(kind="reading")["items"][0]
+    assert row["is_public"] is False
+    assert row["mock_exams"] == [{
+        "id": "m1", "code": "MOCK-1", "title": "Mock one",
+        "status": "published",
+    }]
 
 
 def test_exam_catalog_surfaces_paper_level_explanation_readiness(db):
@@ -402,7 +426,7 @@ def test_the_reverse_is_written_down():
 
 def test_every_route_is_admin_only():
     src = (BACKEND / "routers" / "admin_exam_content.py").read_text(encoding="utf-8")
-    assert src.count("require_admin(authorization)") == 3
+    assert src.count("require_admin(authorization)") == 4
 
 
 def test_the_router_is_registered():

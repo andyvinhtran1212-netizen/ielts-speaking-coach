@@ -30,6 +30,7 @@ export function normalizeReadingContentItem(raw) {
     skillFocus: nullableText(value.skill_focus),
     topicTags: Array.isArray(value.topic_tags) ? value.topic_tags.map(textOf).filter(Boolean) : [],
     examOnly: Boolean(value.exam_only),
+    isPublic: typeof value.is_public === 'boolean' ? value.is_public : !Boolean(value.exam_only),
     locked: Boolean(value.locked),
     shareActive: Boolean(value.share_active),
     shareExpiresAt: nullableText(value.share_expires_at),
@@ -112,6 +113,11 @@ export function readingPreviewRows(parsed, bundleSummary = null) {
 export function normalizeExamOnlyAck(raw, testId, expected) {
   const value = objectOf(raw);
   return value && textOf(value.test_id) === testId && value.exam_only === expected;
+}
+
+export function normalizeReadingVisibilityAck(raw, testId, expected) {
+  const value = objectOf(raw);
+  return value && textOf(value.test_id) === testId && value.is_public === expected;
 }
 
 export function normalizeLockAck(raw, testId, expected) {

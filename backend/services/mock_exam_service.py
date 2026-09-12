@@ -2031,10 +2031,9 @@ def admin_list_exams() -> list[dict]:
     return resp.data or []
 
 
-# Content columns on mock_exams → (table, is-a-list-of-prompts).
-_EXAM_CONTENT_COLS = (
-    ("reading_test_id",          "reading_tests"),
-    ("listening_test_id",        "listening_tests"),
+# Writing prompts retain the sealed-paper behavior from migration 170. Reading
+# and Listening visibility is now an explicit, independent choice (mig 258).
+_SEALED_WRITING_CONTENT_COLS = (
     ("writing_task1_prompt_id",  "writing_prompts"),
     ("writing_task2_prompt_id",  "writing_prompts"),
 )
@@ -2179,18 +2178,8 @@ def _require_exam_content_ready(
 
 
 def _reserve_exam_content(row: dict) -> None:
-    """Flag every test/prompt this exam uses as exam_only (mig 170).
-
-    The admin can tick the flag at upload, but the moment that actually matters
-    is this one: the content is now a live exam paper, and nobody should have to
-    remember a checkbox for it to stop being practisable. Doing it here also
-    makes the flag survive the exam being archived — the hole in
-    reserved_test_ids() that republished last cohort's paper to the next one.
-
-    Best-effort: never let a bookkeeping write fail exam creation. The dynamic
-    reserved_test_ids() filter still hides live-exam content meanwhile.
-    """
-    for col, table in _EXAM_CONTENT_COLS:
+    """Best-effort legacy seal for Writing prompts only."""
+    for col, table in _SEALED_WRITING_CONTENT_COLS:
         value = row.get(col)
         if not value:
             continue
@@ -2200,6 +2189,53 @@ def _reserve_exam_content(row: dict) -> None:
             ).execute()
         except Exception:  # noqa: BLE001
             logger.warning("[mock-exam] could not reserve %s=%s in %s", col, value, table)
+
+
+def _apply_test_visibility(exam_row: dict, payload: dict) -> None:
+    """Apply explicit R/L visibility, restoring earlier writes on failure."""
+    specs = (
+        ("reading_test_id", "reading_is_public", "reading_tests"),
+        ("listening_test_id", "listening_is_public", "listening_tests"),
+    )
+    snapshots: list[tuple[str, str, dict]] = []
+    try:
+        for id_field, visibility_field, table in specs:
+            content_id = exam_row.get(id_field)
+            if not content_id or payload.get(visibility_field) is None:
+                continue
+            before = (
+                supabase_admin.table(table).select("id,is_public,exam_only")
+                .eq("id", str(content_id)).limit(1).execute().data or []
+            )
+            if not before:
+                raise MockExamError(f"Không tìm thấy đề đã chọn: {content_id}.")
+            snapshots.append((table, str(content_id), {
+                "is_public": bool(before[0].get("is_public")),
+                "exam_only": bool(before[0].get("exam_only")),
+            }))
+            changed = (
+                supabase_admin.table(table).update({
+                    "is_public": bool(payload[visibility_field]),
+                    "exam_only": False,
+                }).eq("id", str(content_id)).execute().data or []
+            )
+            if not changed:
+                raise MockExamError(
+                    f"Không cập nhật được visibility cho đề {content_id}."
+                )
+    except Exception as exc:
+        for table, content_id, old in reversed(snapshots):
+            try:
+                supabase_admin.table(table).update(old).eq("id", content_id).execute()
+            except Exception:  # noqa: BLE001
+                logger.exception(
+                    "[mock-exam] visibility rollback failed %s/%s", table, content_id,
+                )
+        if isinstance(exc, MockExamError):
+            raise
+        raise MockExamError(
+            "Không cập nhật được trạng thái public của đề; mock test chưa được tạo."
+        ) from exc
 
 
 def admin_create_exam(payload: dict, created_by: str) -> dict:
@@ -2215,6 +2251,19 @@ def admin_create_exam(payload: dict, created_by: str) -> dict:
         raise
     if not inserted.data:
         raise MockExamError("Không tạo được mock exam.")
+    try:
+        _apply_test_visibility(inserted.data[0], payload)
+    except Exception:
+        try:
+            supabase_admin.table("mock_exams").delete().eq(
+                "id", str(inserted.data[0]["id"]),
+            ).execute()
+        except Exception:  # noqa: BLE001
+            logger.exception(
+                "[mock-exam] create rollback failed exam=%s",
+                inserted.data[0].get("id"),
+            )
+        raise
     _reserve_exam_content(inserted.data[0])
     return inserted.data[0]
 
@@ -4290,7 +4339,8 @@ def admin_available_reading_tests() -> list[dict]:
         supabase_admin.table("reading_tests")
         .select(
             "id,test_id,title,module,time_limit_minutes,passage_count,"
-            "total_questions,band_target,metadata",
+            "total_questions,band_target,metadata,is_public,exam_only,"
+            "public_practice_enabled",
         )
         .eq("status", "published")
         # Mig 158 — test_type là cột thật (NOT NULL, full|mini); mini mới
