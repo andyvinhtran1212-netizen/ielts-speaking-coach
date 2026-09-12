@@ -70,7 +70,7 @@ export function ExamCreateForm({ readings, listenings, prompts, cohorts, disable
             <label><span>Reading · phút</span><input type="number" min="1" value={form.readingMinutes} onChange={(event) => set('readingMinutes', event.target.value)} /></label>
             <label><span>Writing · phút</span><input type="number" min="1" value={form.writingMinutes} onChange={(event) => set('writingMinutes', event.target.value)} /></label>
             <label><span>Tổng thời gian ước tính</span><input type="number" min="1" value={form.totalMinutes} onChange={(event) => set('totalMinutes', event.target.value)} /></label>
-            <label><span>Web explanation</span><select value={form.webExplanationMode} onChange={(event) => set('webExplanationMode', event.target.value)}><option value="with_result">Theo lúc admin trả kết quả</option><option value="admin_release">Duyệt explanation riêng</option><option value="disabled">Không hiện</option></select></label>
+            <label><span>Web explanation</span><select value={form.webExplanationMode} onChange={(event) => set('webExplanationMode', event.target.value)}><option value="with_result">Theo lúc admin trả kết quả</option><option value="admin_release">Admin mở sau</option><option value="disabled">Không hiện</option></select><small>Bật lời giải đồng thời xác nhận duyệt 40 objects của từng đề Reading/Listening đã chọn.</small></label>
             <label><input type="checkbox" checked={form.postTestCaptureRequired} onChange={(event) => set('postTestCaptureRequired', event.target.checked)} /> Thu confidence trước khi trả kết quả</label>
           </div></fieldset>
         </div>

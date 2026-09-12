@@ -2191,57 +2191,51 @@ def _reserve_exam_content(row: dict) -> None:
             logger.warning("[mock-exam] could not reserve %s=%s in %s", col, value, table)
 
 
-def _apply_test_visibility(exam_row: dict, payload: dict) -> None:
-    """Apply explicit R/L visibility, restoring earlier writes on failure."""
-    specs = (
-        ("reading_test_id", "reading_is_public", "reading_tests"),
-        ("listening_test_id", "listening_is_public", "listening_tests"),
-    )
-    snapshots: list[tuple[str, str, dict]] = []
+def _update_mock_with_explanation_approval(
+    exam_id: str, patch: dict, actor_id: str,
+) -> dict:
+    """Apply a mock patch and every requested paper approval atomically."""
     try:
-        for id_field, visibility_field, table in specs:
-            content_id = exam_row.get(id_field)
-            if not content_id or payload.get(visibility_field) is None:
-                continue
-            before = (
-                supabase_admin.table(table).select("id,is_public,exam_only")
-                .eq("id", str(content_id)).limit(1).execute().data or []
-            )
-            if not before:
-                raise MockExamError(f"Không tìm thấy đề đã chọn: {content_id}.")
-            snapshots.append((table, str(content_id), {
-                "is_public": bool(before[0].get("is_public")),
-                "exam_only": bool(before[0].get("exam_only")),
-            }))
-            changed = (
-                supabase_admin.table(table).update({
-                    "is_public": bool(payload[visibility_field]),
-                    "exam_only": False,
-                }).eq("id", str(content_id)).execute().data or []
-            )
-            if not changed:
-                raise MockExamError(
-                    f"Không cập nhật được visibility cho đề {content_id}."
-                )
-    except Exception as exc:
-        for table, content_id, old in reversed(snapshots):
-            try:
-                supabase_admin.table(table).update(old).eq("id", content_id).execute()
-            except Exception:  # noqa: BLE001
-                logger.exception(
-                    "[mock-exam] visibility rollback failed %s/%s", table, content_id,
-                )
-        if isinstance(exc, MockExamError):
-            raise
-        raise MockExamError(
-            "Không cập nhật được trạng thái public của đề; mock test chưa được tạo."
-        ) from exc
+        result = supabase_admin.rpc(
+            "fn_update_mock_exam_with_explanation_approval",
+            {
+                "p_exam_id": str(exam_id),
+                "p_patch": patch,
+                "p_actor_id": str(actor_id),
+            },
+        ).execute().data
+    except Exception as exc:  # noqa: BLE001 — translate stable RPC markers
+        message = str(exc)
+        if "web_explanation_paper_requires_q01_q40" in message:
+            raise ValueError(
+                "Chỉ bật web explanation khi từng đề có đủ đúng 40 objects từ Q1 đến Q40."
+            ) from exc
+        if "web_explanation_content_version_unavailable" in message:
+            raise ValueError(
+                "Các đề trong mock test không có cùng một content version hiện hành."
+            ) from exc
+        if "web_explanation_serving_blocked:" in message:
+            object_id = message.split("web_explanation_serving_blocked:", 1)[1].split()[0]
+            raise ValueError(
+                f"Đề còn item chưa qua matcher/serving gate: {object_id}"
+            ) from exc
+        if "mock_exam_not_found" in message:
+            raise NotFoundError(f"Mock exam {exam_id} không tồn tại.") from exc
+        raise ValueError("Không lưu được mock exam và quyết định duyệt lời giải.") from exc
+    if not isinstance(result, dict) or not result.get("id"):
+        raise MockExamError("Database không trả lại mock exam đã cập nhật.")
+    return result
 
 
 def admin_create_exam(payload: dict, created_by: str) -> dict:
     row = {k: v for k, v in payload.items() if k in _EXAM_WRITABLE}
     if not row.get("code") or not row.get("title"):
         raise ValueError("code và title là bắt buộc.")
+    desired_mode = row.get("web_explanation_mode") or "with_result"
+    # The row is invisible to learners while draft, but storing an enabled mode
+    # before approval would still create false canonical state if the next RPC
+    # fails. Start disabled, then atomically approve + enable below.
+    row["web_explanation_mode"] = "disabled"
     row["created_by"] = str(created_by)
     try:
         inserted = supabase_admin.table("mock_exams").insert(row).execute()
@@ -2252,7 +2246,18 @@ def admin_create_exam(payload: dict, created_by: str) -> dict:
     if not inserted.data:
         raise MockExamError("Không tạo được mock exam.")
     try:
-        _apply_test_visibility(inserted.data[0], payload)
+        scope_patch = {
+            "web_explanation_mode": desired_mode,
+            "web_explanation_content_version": payload.get(
+                "web_explanation_content_version"
+            ),
+        }
+        for field in ("reading_is_public", "listening_is_public"):
+            if payload.get(field) is not None:
+                scope_patch[field] = payload[field]
+        inserted.data[0] = _update_mock_with_explanation_approval(
+            str(inserted.data[0]["id"]), scope_patch, str(created_by),
+        )
     except Exception:
         try:
             supabase_admin.table("mock_exams").delete().eq(
@@ -2268,7 +2273,7 @@ def admin_create_exam(payload: dict, created_by: str) -> dict:
     return inserted.data[0]
 
 
-def admin_update_exam(exam_id: str, patch: dict) -> dict:
+def admin_update_exam(exam_id: str, patch: dict, actor_id: str | None = None) -> dict:
     upd = {k: v for k, v in patch.items() if k in _EXAM_WRITABLE}
     if not upd:
         raise ValueError("Không có trường hợp lệ để cập nhật.")
@@ -2355,6 +2360,14 @@ def admin_update_exam(exam_id: str, patch: dict) -> dict:
             upd.pop("exam_mode")     # a no-op write, not a mode change
             if not upd:
                 return current       # nothing left to write
+    explanation_fields = {
+        "web_explanation_mode", "web_explanation_content_version",
+        "listening_test_id", "reading_test_id",
+    }
+    if actor_id and explanation_fields.intersection(upd):
+        row = _update_mock_with_explanation_approval(exam_id, upd, actor_id)
+        _reserve_exam_content(row)
+        return row
     resp = supabase_admin.table("mock_exams").update(upd).eq(
         "id", str(exam_id),
     ).execute()

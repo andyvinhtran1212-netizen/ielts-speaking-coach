@@ -123,7 +123,7 @@ describe('admin class homework model — canonical truth', () => {
     assert.equal(result.body.post_test_capture_required, false);
   });
 
-  test('lets one class-assignment action establish scope while explanations stay gated', () => {
+  test('lets one class-assignment action establish scope and submit admin explanation approval', () => {
     const outside = normalizeCatalog({ items: [{
       id: 'cam-r', title: 'Cambridge 18', status: 'published', exam_only: true,
       cohort_ids: ['another-class'], web_explanation_state: 'blocked',
@@ -144,7 +144,7 @@ describe('admin class homework model — canonical truth', () => {
     }] }, 'exam', 'reading', 'class-5');
     const draft = { ...homeworkDraft(), skill: 'reading', title: 'Practice', contentId: 'cam-r',
       deliveryMode: 'assigned_practice', webExplanationMode: 'immediate_after_capture' };
-    assert.equal(validateHomeworkDraft(draft, locked).ok, false);
+    assert.equal(validateHomeworkDraft(draft, locked).ok, true);
     assert.equal(validateHomeworkDraft({ ...draft, webExplanationMode: 'admin_release' }, locked).ok, true);
   });
 
@@ -183,6 +183,8 @@ describe('admin class homework — integration contracts', () => {
     assert.match(UI, /Tự mở sau tự đánh giá ngắn/);
     assert.match(UI, /Điểm và đáp án thường không bị giữ/);
     assert.match(UI, /Không ảnh hưởng điểm/);
+    assert.match(UI, /Bật lựa chọn này đồng thời xác nhận duyệt 40 lời giải của đề/);
+    assert.doesNotMatch(UI, /disabled=\{Boolean\(selectedCatalogItem && !selectedCatalogItem\.explanation_ready\)\}/);
   });
 
   test('never exposes destructive delete when progress is unknown', () => {

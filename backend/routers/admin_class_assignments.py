@@ -48,6 +48,7 @@ from services.class_assignment_service import (
     CLASS_TZ,
     DueChangeRefused,
     EmptyRosterError,
+    ExplanationApprovalError,
     AssignmentNotFoundError,
     ReturnNotPossible,
     SubsetNeedsStudentsError,
@@ -2184,12 +2185,6 @@ async def create_assignment(
                 mock_correction_service.assert_scored_paper_ready(
                     body.skill, rows[0]["id"], db=supabase_admin
                 )
-            if body.web_explanation_mode == "immediate_after_capture":
-                mock_correction_service.assert_explanation_content_ready(
-                    body.skill,
-                    rows[0]["id"],
-                    body.web_explanation_content_version,
-                )
         except mock_correction_service.CorrectionError as exc:
             raise HTTPException(400, str(exc)) from exc
         if body.skill == "listening" and not (
@@ -2233,6 +2228,10 @@ async def create_assignment(
         )
     except EmptyRosterError as exc:
         # Raised BEFORE anything is inserted, so no orphan give is left behind.
+        raise HTTPException(400, str(exc))
+    except ExplanationApprovalError as exc:
+        # The approval, scope and assignment are one RPC transaction, so this
+        # response also guarantees no explanation state or audit event changed.
         raise HTTPException(400, str(exc))
     except Exception as exc:
         raise HTTPException(500, f"Lỗi khi giao bài: {exc}")

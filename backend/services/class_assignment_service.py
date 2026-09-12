@@ -158,7 +158,7 @@ def create_class_assignment(
     """Create one give and its per-student rows, atomically.
 
     Goes through fn_create_class_assignment (migration 179), or its scoped exam
-    wrapper (migration 259), rather than separate inserts. As multiple
+    wrapper (migrations 259/260), rather than separate inserts. As multiple
     PostgREST calls, a later failure could leave either a PUBLISHED give with no
     recipients or a warehouse scope with no give — both look canonical after a
     reload even though the requested operation failed.
@@ -198,9 +198,9 @@ def create_class_assignment(
             "p_student_ids":    None if student_ids is None else list(student_ids),
         }
         if exam_scope_kind:
-            # Migration 259 inserts the Reading/Listening class scope and calls
-            # the existing assignment fan-out inside ONE database transaction.
-            # If the fan-out fails, the scope insert rolls back with it.
+            # Migration 260 approves an enabled Reading/Listening explanation,
+            # inserts the class scope and calls the assignment fan-out inside
+            # ONE database transaction. Any later failure rolls all of it back.
             rows = db.rpc("fn_create_scoped_exam_class_assignment", {
                 **params,
                 "p_scope_kind": exam_scope_kind,
@@ -210,6 +210,21 @@ def create_class_assignment(
     except Exception as exc:
         if "empty_roster" in str(exc):
             raise EmptyRosterError("Lớp này chưa có học viên nào để giao bài.")
+        if "web_explanation_paper_requires_q01_q40" in str(exc):
+            raise ExplanationApprovalError(
+                "Chỉ bật web explanation khi đề có đủ đúng 40 objects từ Q1 đến Q40."
+            ) from exc
+        if "web_explanation_content_version_unavailable" in str(exc):
+            raise ExplanationApprovalError(
+                "Không tìm thấy một content version hiện hành duy nhất cho đề."
+            ) from exc
+        if "web_explanation_serving_blocked:" in str(exc):
+            object_id = str(exc).split(
+                "web_explanation_serving_blocked:", 1,
+            )[1].split()[0]
+            raise ExplanationApprovalError(
+                f"Đề còn item chưa qua matcher/serving gate: {object_id}"
+            ) from exc
         raise
 
     if not rows:
@@ -828,6 +843,10 @@ class AssignmentNotFoundError(Exception):
 
 class EmptyRosterError(Exception):
     """The class has no students, so the give would reach nobody."""
+
+
+class ExplanationApprovalError(Exception):
+    """The atomic class give rejected its requested explanation approval."""
 
 
 class LedgerWriteError(Exception):

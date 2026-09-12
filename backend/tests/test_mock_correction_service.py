@@ -1,4 +1,12 @@
+from pathlib import Path
+
 from services import mock_correction_service as svc
+
+
+PAPER_APPROVAL_SQL = (
+    Path(__file__).resolve().parents[1]
+    / "migrations/260_approve_web_explanation_paper.sql"
+).read_text()
 
 
 def test_capture_happens_before_correctness_is_revealed(monkeypatch):
@@ -48,26 +56,112 @@ def test_web_object_is_attached_only_after_release_gate(monkeypatch):
     assert review[0]["web_explanation_object"]["object_id"] == "q1"
 
 
-def test_class_release_cannot_bypass_global_content_gates(monkeypatch):
-    monkeypatch.setattr(svc, "_one", lambda *_a, **_k: {
-        "id": "assignment-1", "skill": "reading", "content_id": "paper-1",
-        "content_config": {"correction_policy": {
-            "web_explanation_mode": "admin_release",
-        }},
-    })
-    monkeypatch.setattr(
-        svc,
-        "assert_explanation_content_ready",
-        lambda *_a, **_k: (_ for _ in ()).throw(svc.PolicyError("rights blocked")),
-    )
+def test_class_release_requires_paper_approval_to_complete(monkeypatch):
+    class Call:
+        def execute(self):
+            raise RuntimeError("web_explanation_serving_blocked:q40")
+
+    monkeypatch.setattr(svc, "supabase_admin", type("DB", (), {
+        "rpc": staticmethod(lambda *_args, **_kwargs: Call()),
+    })())
     try:
         svc.update_class_assignment_policy(
             "assignment-1", {"release_now": True}, "admin-1",
         )
     except svc.PolicyError as exc:
-        assert "rights blocked" in str(exc)
+        assert "q40" in str(exc)
     else:
-        raise AssertionError("class release bypassed the global explanation gates")
+        raise AssertionError("class release bypassed paper approval")
+
+
+def test_admin_enable_approves_exactly_one_complete_paper(monkeypatch):
+    calls = []
+
+    class Call:
+        def execute(self):
+            return type("Resp", (), {"data": {
+                "content_version": "v1", "object_count": 40, "approved_now": True,
+            }})()
+
+    monkeypatch.setattr(svc, "supabase_admin", type("DB", (), {
+        "rpc": staticmethod(lambda name, args: calls.append((name, args)) or Call()),
+    })())
+
+    version = svc.approve_paper_explanations(
+        "reading", "paper-1", "admin-1", reason="enabled_for_class:c1",
+    )
+
+    assert version == "v1"
+    assert calls == [("fn_approve_web_explanation_paper", {
+        "p_skill": "reading",
+        "p_test_id": "paper-1",
+        "p_actor_id": "admin-1",
+        "p_content_version": None,
+        "p_reason": "enabled_for_class:c1",
+    })]
+
+
+def test_admin_enable_refuses_incomplete_or_unservable_paper(monkeypatch):
+    class Call:
+        error = "web_explanation_paper_requires_q01_q40"
+        def execute(self): raise RuntimeError(self.error)
+
+    call = Call()
+    monkeypatch.setattr(svc, "supabase_admin", type("DB", (), {
+        "rpc": staticmethod(lambda *_args, **_kwargs: call),
+    })())
+    try:
+        svc.approve_paper_explanations("reading", "paper-1", "admin-1")
+    except svc.PolicyError as exc:
+        assert "Q1 đến Q40" in str(exc)
+    else:
+        raise AssertionError("incomplete paper was approved")
+
+    call.error = "web_explanation_serving_blocked:q40"
+    try:
+        svc.approve_paper_explanations("reading", "paper-1", "admin-1")
+    except svc.PolicyError as exc:
+        assert "q40" in str(exc)
+    else:
+        raise AssertionError("unservable paper was approved")
+
+
+def test_paper_approval_rpc_keeps_technical_gate_and_service_role_boundary():
+    sql = PAPER_APPROVAL_SQL
+    assert "v_object_count <> 40" in sql
+    assert "v_question_count <> 40" in sql
+    assert "serving_status <> 'ELIGIBLE_AFTER_GLOBAL_RELEASE_GATES'" in sql
+    assert "FOR UPDATE" in sql
+    assert "SET rights_status = 'APPROVED'" in sql
+    assert "editorial_status = 'APPROVED'" in sql
+    assert "SET serving_status" not in sql
+    assert "SECURITY DEFINER" in sql
+    assert "SET search_path = public, pg_temp" in sql
+    assert ") FROM PUBLIC, anon, authenticated;" in sql
+    assert ") TO service_role;" in sql
+
+
+def test_scope_writes_and_paper_approvals_share_database_transactions():
+    class_body = PAPER_APPROVAL_SQL.split(
+        "CREATE OR REPLACE FUNCTION public.fn_create_scoped_exam_class_assignment", 1,
+    )[1].split("COMMENT ON FUNCTION public.fn_create_scoped_exam_class_assignment", 1)[0]
+    assert "fn_approve_web_explanation_paper" in class_body
+    assert "INSERT INTO public.exam_content_cohorts" in class_body
+    assert "public.fn_create_class_assignment" in class_body
+    assert class_body.index("fn_approve_web_explanation_paper") < class_body.index(
+        "public.fn_create_class_assignment"
+    )
+
+    mock_body = PAPER_APPROVAL_SQL.split(
+        "CREATE OR REPLACE FUNCTION public.fn_update_mock_exam_with_explanation_approval", 1,
+    )[1].split(
+        "REVOKE ALL ON FUNCTION public.fn_update_mock_exam_with_explanation_approval", 1,
+    )[0]
+    assert mock_body.count("fn_approve_web_explanation_paper") == 2
+    assert "UPDATE public.mock_exams AS m" in mock_body
+    assert mock_body.rindex("fn_approve_web_explanation_paper") < mock_body.index(
+        "UPDATE public.mock_exams AS m"
+    )
 
 
 def test_explanation_release_is_atomic_at_paper_level(monkeypatch):
