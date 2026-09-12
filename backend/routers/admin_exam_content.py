@@ -114,19 +114,3 @@ async def set_cohorts(
         raise HTTPException(422, str(e))
     except LookupError as e:
         raise HTTPException(404, str(e))
-
-
-@router.post("/{kind}/{content_id}/cohorts/{cohort_id}")
-async def add_cohort(
-    kind: str, content_id: str, cohort_id: str,
-    authorization: str | None = Header(default=None),
-):
-    """Thêm một lớp mà không thay thế các lớp đã gán trong kho đề."""
-    admin = await require_admin(authorization)
-    try:
-        return svc.add_cohort(kind, content_id, cohort_id,
-                              created_by=admin.get("id"))
-    except svc.UnknownKindError as e:
-        raise HTTPException(422, str(e))
-    except LookupError as e:
-        raise HTTPException(404, str(e))

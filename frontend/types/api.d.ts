@@ -10362,26 +10362,6 @@ export interface paths {
         patch: operations["set_cohorts_admin_exam_content__kind___content_id__cohorts_patch"];
         trace?: never;
     };
-    "/admin/exam-content/{kind}/{content_id}/cohorts/{cohort_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Add Cohort
-         * @description Thêm một lớp mà không thay thế các lớp đã gán trong kho đề.
-         */
-        post: operations["add_cohort_admin_exam_content__kind___content_id__cohorts__cohort_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/admin/mock-exams": {
         parameters: {
             query?: never;
@@ -32529,41 +32509,6 @@ export interface operations {
                 "application/json": components["schemas"]["CohortsBody"];
             };
         };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    add_cohort_admin_exam_content__kind___content_id__cohorts__cohort_id__post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                kind: string;
-                content_id: string;
-                cohort_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

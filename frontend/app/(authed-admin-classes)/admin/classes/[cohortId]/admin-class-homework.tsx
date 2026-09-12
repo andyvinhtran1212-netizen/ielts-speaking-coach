@@ -258,18 +258,6 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
     if (!validation.ok || !validation.body) { setEditor({ ...editor, error: validation.error || 'Bài giao không hợp lệ.' }); return; }
     setBusy(true);
     try {
-      if ((editor.skill === 'reading' || editor.skill === 'listening')
-          && selectedCatalogItem
-          && !selectedCatalogItem.cohort_ids.includes(cohortId)) {
-        // The backend deliberately fails closed for protected papers outside
-        // their warehouse scope. Establish the same scope here that the
-        // central “Giao cho lớp” action creates, so the teacher chooses the
-        // class once instead of visiting two screens for the same decision.
-        await window.api.post(
-          `/admin/exam-content/${encodeURIComponent(editor.skill)}/${encodeURIComponent(selectedCatalogItem.id)}/cohorts/${encodeURIComponent(cohortId)}`,
-          {},
-        );
-      }
       const result = await window.api.post<{ student_count?: number; unactivated_count?: number }>(`/admin/cohorts/${encodeURIComponent(cohortId)}/assignments`, validation.body);
       closeEditor();
       const base = `Đã giao bài cho ${result?.student_count || 0} học viên.`;

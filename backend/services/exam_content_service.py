@@ -128,28 +128,6 @@ def set_cohorts(kind: str, content_id: str, cohort_ids: Iterable[str],
     }
 
 
-def add_cohort(kind: str, content_id: str, cohort_id: str, *, created_by=None) -> dict:
-    """Add one class scope without replacing scopes another admin may have set.
-
-    The class homework screen expresses a delta ("also allow this class"), not
-    the complete set rendered by the central warehouse.  A conflict-safe upsert
-    keeps retries idempotent and avoids a stale read-modify-write overwriting a
-    concurrent warehouse edit.
-    """
-    _assert_kind(kind)
-    _assert_content_exists(kind, content_id)
-    cohort = str(cohort_id)
-    rows = supabase_admin.table("exam_content_cohorts").upsert({
-        "content_kind": kind,
-        "content_id": str(content_id),
-        "cohort_id": cohort,
-        "created_by": str(created_by) if created_by else None,
-    }, on_conflict="content_kind,content_id,cohort_id",
-       ignore_duplicates=True).execute().data or []
-    logger.info("[exam-content] %s/%s thêm phạm vi lớp %s", kind, content_id, cohort)
-    return {"added": bool(rows), "cohort_id": cohort}
-
-
 def cohorts_for(kind: str, content_ids: Iterable[str]) -> dict:
     """content_id → [cohort_id]. ONE batched lookup, not one per row: this feeds
     a list screen, and a per-row query there is an N+1 on every page load."""

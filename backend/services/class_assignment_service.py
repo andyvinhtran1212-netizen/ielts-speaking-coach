@@ -153,20 +153,21 @@ def create_class_assignment(
     publish_at: Optional[str] = None,
     kind: str = "daily",
     student_ids: Optional[List[str]] = None,
+    exam_scope_kind: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Create one give and its per-student rows, atomically.
 
-    Goes through fn_create_class_assignment (migration 179) rather than two
-    inserts. As two PostgREST calls the parent committed first, so a failure
-    fanning out left a PUBLISHED give with zero or partial recipients — after a
-    reload indistinguishable from a real 0/N assignment, with the students who
-    never got a row reading as students who did not do the work.
+    Goes through fn_create_class_assignment (migration 179), or its scoped exam
+    wrapper (migration 259), rather than separate inserts. As multiple
+    PostgREST calls, a later failure could leave either a PUBLISHED give with no
+    recipients or a warehouse scope with no give — both look canonical after a
+    reload even though the requested operation failed.
 
     Raises EmptyRosterError for a class with no students; the function checks
     that inside the same transaction, so nothing is left behind either way.
     """
     try:
-        rows = db.rpc("fn_create_class_assignment", {
+        params = {
             "p_cohort_id":      cohort_id,
             "p_skill":          skill,
             "p_title":          title,
@@ -195,7 +196,17 @@ def create_class_assignment(
             # ấy nằm trong SQL để nó đúng cả khi có người gọi RPC bằng đường
             # khác.
             "p_student_ids":    None if student_ids is None else list(student_ids),
-        }).execute().data or []
+        }
+        if exam_scope_kind:
+            # Migration 259 inserts the Reading/Listening class scope and calls
+            # the existing assignment fan-out inside ONE database transaction.
+            # If the fan-out fails, the scope insert rolls back with it.
+            rows = db.rpc("fn_create_scoped_exam_class_assignment", {
+                **params,
+                "p_scope_kind": exam_scope_kind,
+            }).execute().data or []
+        else:
+            rows = db.rpc("fn_create_class_assignment", params).execute().data or []
     except Exception as exc:
         if "empty_roster" in str(exc):
             raise EmptyRosterError("Lớp này chưa có học viên nào để giao bài.")

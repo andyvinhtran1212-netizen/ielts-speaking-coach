@@ -171,13 +171,10 @@ describe('admin class homework — integration contracts', () => {
     assert.match(SUBMISSIONS, /artifact_kind === 'listening_attempt'/);
   });
 
-  test('establishes Reading/Listening warehouse scope before the protected assignment write', () => {
-    const scopeWrite = UI.indexOf('/admin/exam-content/${encodeURIComponent(editor.skill)}/${encodeURIComponent(selectedCatalogItem.id)}/cohorts/${encodeURIComponent(cohortId)}');
-    const assignmentWrite = UI.indexOf('/admin/cohorts/${encodeURIComponent(cohortId)}/assignments', scopeWrite);
-    assert.ok(scopeWrite >= 0, 'missing canonical warehouse-scope write');
-    assert.ok(assignmentWrite > scopeWrite, 'assignment must follow the scope write required by the backend gate');
-    assert.doesNotMatch(UI, /cohort_ids: \[\.\.\.new Set/,
-      'a stale full-set write could remove another admin’s concurrent scope change');
+  test('leaves Reading/Listening scope + assignment atomicity to one backend write', () => {
+    assert.match(UI, /\/admin\/cohorts\/\$\{encodeURIComponent\(cohortId\)\}\/assignments/);
+    assert.doesNotMatch(UI, /\/admin\/exam-content\/.*\/cohorts/,
+      'a separate scope write can survive when assignment creation fails');
   });
 
   test('explains protected delivery, explanation timing and confidence in outcome language', () => {

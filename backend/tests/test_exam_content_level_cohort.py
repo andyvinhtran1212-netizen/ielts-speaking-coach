@@ -45,12 +45,6 @@ class _Q:
         self.op, self.payload = "insert", p
         return self
 
-    def upsert(self, p, *, on_conflict="", ignore_duplicates=False, **_kwargs):
-        self.op, self.payload = "upsert", p
-        self.on_conflict = on_conflict
-        self.ignore_duplicates = ignore_duplicates
-        return self
-
     def delete(self):
         self.op = "delete"
         return self
@@ -91,23 +85,6 @@ class _Q:
                 it.setdefault("id", f"row-{len(rows)+1}")
                 rows.append(it)
             return _Resp(items)
-        if self.op == "upsert":
-            items = self.payload if isinstance(self.payload, list) else [self.payload]
-            affected = []
-            keys = [key for key in self.on_conflict.split(",") if key]
-            for item in items:
-                existing = next((row for row in rows
-                                 if all(str(row.get(key)) == str(item.get(key)) for key in keys)), None)
-                if existing is not None:
-                    if not self.ignore_duplicates:
-                        existing.update(item)
-                        affected.append(existing)
-                    continue
-                value = dict(item)
-                value.setdefault("id", f"row-{len(rows)+1}")
-                rows.append(value)
-                affected.append(value)
-            return _Resp(affected)
         hit = [r for r in rows if self._match(r)]
         if self.op == "update":
             for r in hit:
@@ -245,18 +222,6 @@ def test_re_sending_the_same_set_changes_nothing(db):
     out = svc.set_cohorts("reading", "r1", ["c1"])
     assert out == {"added": [], "removed": 0, "cohort_ids": ["c1"]}
     assert db.t["exam_content_cohorts"] == before
-
-
-def test_adding_one_class_preserves_existing_scopes_and_is_idempotent(db):
-    db.t["reading_tests"] = [{"id": "r1"}]
-    svc.set_cohorts("reading", "r1", ["c1"])
-    assert svc.add_cohort("reading", "r1", "c2", created_by="admin") == {
-        "added": True, "cohort_id": "c2",
-    }
-    assert svc.add_cohort("reading", "r1", "c2", created_by="admin") == {
-        "added": False, "cohort_id": "c2",
-    }
-    assert svc.cohorts_for("reading", ["r1"])["r1"] == ["c1", "c2"]
 
 
 def test_the_replacement_is_one_statement_not_two_calls(db):
@@ -484,7 +449,7 @@ def test_the_reverse_is_written_down():
 
 def test_every_route_is_admin_only():
     src = (BACKEND / "routers" / "admin_exam_content.py").read_text(encoding="utf-8")
-    assert src.count("require_admin(authorization)") == 5
+    assert src.count("require_admin(authorization)") == 4
 
 
 def test_the_router_is_registered():
@@ -504,14 +469,6 @@ def test_replacing_the_cohort_set_is_not_a_post():
     assert '@router.post("/{kind}/{content_id}/cohorts")' not in src
     seg = src[src.index("async def set_cohorts("):]
     assert "Thay TOÀN BỘ" in seg[:600]
-
-
-def test_single_class_scope_has_an_additive_endpoint():
-    src = (BACKEND / "routers" / "admin_exam_content.py").read_text(encoding="utf-8")
-    assert '@router.post("/{kind}/{content_id}/cohorts/{cohort_id}")' in src
-    seg = src[src.index("async def add_cohort("):]
-    assert "svc.add_cohort" in seg[:700]
-    assert "require_admin(authorization)" in seg[:700]
 
 
 def test_the_verb_used_by_the_page_is_in_the_cors_allowlist():
