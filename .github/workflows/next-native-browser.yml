@@ -659,9 +659,9 @@ on:
       - 'frontend/public/css/**'
       - 'frontend/public/js/**'
       - 'frontend/tooling/verify-*.mjs'
+      - 'frontend/tooling/next-native-fixture-api.mjs'
       - 'frontend/tests/**'
       - 'backend/**'
-      - '.github/workflows/next-native-browser.yml'
   push:
     branches: [main, staging]
   schedule:
@@ -679,7 +679,8 @@ concurrency:
 # never read or write staging/production as an accidental fallback.
 env:
   TEST_PORT: '3000'
-  AVER_API_BASE: http://127.0.0.1:9
+  AVER_API_BASE: http://127.0.0.1:3999
+  NEXT_NATIVE_FIXTURE_PORT: '3999'
   AVER_SUPABASE_URL: https://example.supabase.co
   AVER_SUPABASE_ANON_KEY: test-anon-key
   AVER_ENVIRONMENT: test
@@ -710,6 +711,18 @@ jobs:
 
       - name: Cài Chromium cho Playwright
         run: npx playwright install --with-deps chromium
+
+      - name: Khởi động fixture API cho Server Components
+        run: |
+          node tooling/next-native-fixture-api.mjs > /tmp/next-native-fixture-api.log 2>&1 &
+          echo $! > /tmp/next-native-fixture-api.pid
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$NEXT_NATIVE_FIXTURE_PORT/health" || true)
+            if [ "$code" = "200" ]; then echo "Fixture API sẵn sàng sau ${i}s"; exit 0; fi
+            sleep 1
+          done
+          cat /tmp/next-native-fixture-api.log
+          exit 1
 
       - name: Khởi động Next
         run: |
@@ -1186,8 +1199,12 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: next-native-browser-log-${{ github.run_id }}
-          path: /tmp/next-native-browser.log
+          path: |
+            /tmp/next-native-browser.log
+            /tmp/next-native-fixture-api.log
 
       - name: Dừng Next
         if: ${{ always() }}
-        run: kill "$(cat /tmp/next-native-browser.pid)" 2>/dev/null || true
+        run: |
+          kill "$(cat /tmp/next-native-browser.pid)" 2>/dev/null || true
+          kill "$(cat /tmp/next-native-fixture-api.pid)" 2>/dev/null || true

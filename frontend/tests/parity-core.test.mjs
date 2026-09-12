@@ -501,7 +501,8 @@ describe('formatReport', () => {
 describe('cổng Next-native browser trong CI', () => {
   test('endpoint test cô lập mọi fallback khỏi staging và production', () => {
     assert.match(GATE_ACTIVE, /TEST_PORT:\s*'3000'/);
-    assert.match(GATE_ACTIVE, /AVER_API_BASE: http:\/\/127\.0\.0\.1:9/);
+    assert.match(GATE_ACTIVE, /AVER_API_BASE: http:\/\/127\.0\.0\.1:3999/);
+    assert.match(GATE_ACTIVE, /node tooling\/next-native-fixture-api\.mjs/);
     assert.match(GATE_ACTIVE, /AVER_SUPABASE_URL: https:\/\/example\.supabase\.co/);
     assert.doesNotMatch(GATE_ACTIVE, /ielts-speaking-coach-production|huwsmtubwulikhlmcirx/);
   });
@@ -566,7 +567,7 @@ describe('cổng Next-native browser trong CI', () => {
   });
 
   test('khóa endpoint test và phát hiện production egress TRƯỚC khi duyệt đạt', () => {
-    const isolatedApi = GATE_ACTIVE.indexOf('AVER_API_BASE: http://127.0.0.1:9');
+    const isolatedApi = GATE_ACTIVE.indexOf('AVER_API_BASE: http://127.0.0.1:3999');
     const build = GATE_ACTIVE.indexOf('run: npm run build');
     assert.ok(isolatedApi >= 0 && build > isolatedApi,
       'endpoint cô lập phải được đặt trước khi build/start browser');

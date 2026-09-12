@@ -17,14 +17,20 @@ describe('permanent Next-native browser regression workflow', () => {
     assert.match(WORKFLOW, /^  push:\n    branches: \[main, staging\]$/m);
     assert.match(WORKFLOW, /^  schedule:$/m);
     assert.match(WORKFLOW, /^  workflow_dispatch:$/m);
-    assert.match(WORKFLOW, /- '\.github\/workflows\/next-native-browser\.yml'/);
+    assert.equal(
+      [...WORKFLOW.matchAll(/- '\.github\/workflows\/next-native-browser\.yml'/g)].length,
+      1,
+      'workflow self-trigger must be declared exactly once',
+    );
     assert.doesNotMatch(WORKFLOW, /\.github\/workflows\/parity-gate\.yml/);
   });
 
   test('builds and starts the production Next server in an isolated environment', () => {
     assert.match(WORKFLOW, /run: npm run build/);
     assert.match(WORKFLOW, /npx next start -p "\$TEST_PORT"/);
-    assert.match(WORKFLOW, /AVER_API_BASE: http:\/\/127\.0\.0\.1:9/);
+    assert.match(WORKFLOW, /AVER_API_BASE: http:\/\/127\.0\.0\.1:3999/);
+    assert.match(WORKFLOW, /node tooling\/next-native-fixture-api\.mjs/);
+    assert.match(WORKFLOW, /http:\/\/127\.0\.0\.1:\$NEXT_NATIVE_FIXTURE_PORT\/health/);
     assert.match(WORKFLOW, /AVER_SUPABASE_URL: https:\/\/example\.supabase\.co/);
     assert.doesNotMatch(WORKFLOW, /ielts-speaking-coach-production|huwsmtubwulikhlmcirx/);
   });
@@ -70,5 +76,7 @@ describe('permanent Next-native browser regression workflow', () => {
   test('always stops its local server and preserves failure evidence', () => {
     assert.match(WORKFLOW, /name: Nộp log server khi lỗi\n\s+if: \$\{\{ failure\(\) \}\}/);
     assert.match(WORKFLOW, /name: Dừng Next\n\s+if: \$\{\{ always\(\) \}\}/);
+    assert.match(WORKFLOW, /next-native-fixture-api\.log/);
+    assert.match(WORKFLOW, /kill "\$\(cat \/tmp\/next-native-fixture-api\.pid\)"/);
   });
 });
