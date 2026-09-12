@@ -24,6 +24,12 @@ function reportLoadFailure(src: string) {
   console.error(message);
 }
 
+function reportScriptReady(src: string) {
+  if (src === '/js/runtime-config.js') {
+    window.dispatchEvent(new Event('aver:runtime-config-ready'));
+  }
+}
+
 function RouteScriptStep({
   index,
   scripts,
@@ -48,7 +54,10 @@ function RouteScriptStep({
         src={script.src}
         type={script.type}
         strategy="afterInteractive"
-        onReady={() => setReady(true)}
+        onReady={() => {
+          reportScriptReady(script.src);
+          setReady(true);
+        }}
         onError={() => {
           reportLoadFailure(script.src);
           if (script.continueOnError) setReady(true);
