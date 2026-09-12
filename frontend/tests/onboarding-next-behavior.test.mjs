@@ -12,7 +12,7 @@ const MODEL = read('lib', 'onboarding-model.mjs');
 const CSS = read('public', 'css', 'onboarding.css');
 const LEGACY = read('public', 'onboarding.html');
 const LOGIN_MODEL = read('lib', 'login-model.mjs');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/onboarding native account setup', () => {
   test('owns an authenticated noindex route with canonical student chrome', () => {

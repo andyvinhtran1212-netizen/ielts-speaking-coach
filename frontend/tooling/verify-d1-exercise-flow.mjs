@@ -3,7 +3,12 @@ import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const BASE = process.argv[2] || 'http://localhost:3012';
-const API = 'http://localhost:8000';
+const api = new URL(process.env.AVER_API_BASE || 'http://127.0.0.1:3999');
+if (api.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(api.hostname)
+    || api.username || api.password || api.pathname !== '/' || api.search || api.hash) {
+  throw new Error('AVER_API_BASE must be an explicit local fixture origin');
+}
+const API = api.origin;
 const USER = '00000000-0000-4000-8000-000000000201';
 const FOREIGN_USER = '00000000-0000-4000-8000-000000000208';
 const SESSION = '00000000-0000-4000-8000-000000000202';

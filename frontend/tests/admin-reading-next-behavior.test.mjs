@@ -15,7 +15,7 @@ const ROLLBACK_OVERVIEW = read('public', 'pages', 'admin', 'index.html');
 const ROLLBACK_CONTROLLER = read('public', 'js', 'admin-overview.js');
 const CONFIG = read('next.config.ts');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/admin/reading native operations hub', () => {
   test('owns the canonical route while retaining both legacy child workspaces', () => {

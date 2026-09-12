@@ -10,7 +10,7 @@ const PAGE = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'quiz-analyti
 const CLIENT = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'quiz-analytics', 'admin-vocab-quiz-analytics.tsx');
 const HUB = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'page.tsx');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('Admin Vocabulary quiz analytics native ownership', () => {
   test('owns the clean route and retains rollback HTML', () => {

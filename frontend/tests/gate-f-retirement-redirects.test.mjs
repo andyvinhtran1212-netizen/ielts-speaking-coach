@@ -76,13 +76,12 @@ test('explicit URL manifest preserves all 139 pre-refactor redirect rules byte f
   assert.doesNotMatch(nextConfig, /discoverLegacyHtmlPaths|readdirSync/);
 });
 
-test('manifest-only edits trigger both compiled-route and parity CI', () => {
+test('manifest-only edits trigger compiled-route CI', () => {
   const workflowRoot = path.join(FRONTEND, '..', '.github', 'workflows');
   const affected = readdirSync(workflowRoot).filter((name) => /\.ya?ml$/.test(name))
     .map((name) => ({ name, source: readFileSync(path.join(workflowRoot, name), 'utf8') }))
     .filter(({ source }) => /- 'frontend\/tooling\/gate-f-retirement-redirects\.mjs'/.test(source));
   assert.ok(affected.some(({ name }) => name === 'route-manifest.yml'));
-  assert.ok(affected.some(({ name }) => name === 'parity-gate.yml'));
   for (const { name: workflowName, source } of affected) {
     assert.match(source, /- 'frontend\/tooling\/gate-f-legacy-paths\.mjs'/, workflowName);
   }
@@ -138,23 +137,6 @@ test('retired renderer redirects cannot be disabled by a local escape hatch', ()
   assert.match(nextConfig, /\.\.\.LEGACY_RETIREMENT_REDIRECTS/);
   const config = readFileSync(path.join(FRONTEND, 'playwright.speaking-regression.config.js'), 'utf8');
   assert.doesNotMatch(config, /GATE_E_LEGACY_FIXTURES|fixtures\/gate-e-legacy/);
-});
-
-test('G1 changes phase explicitly: runtime redirects replace unreachable Legacy parity', () => {
-  const workflow = readFileSync(
-    path.join(FRONTEND, '..', '.github', 'workflows', 'parity-gate.yml'),
-    'utf8',
-  );
-  assert.match(workflow, /id: gate_f/);
-  assert.match(workflow, /collectNextMigrationStatus\(\)\.legacyRetirementRedirects/);
-  assert.match(workflow, /redirect_installed=' \+ String\(gate\.installed\)/);
-  assert.match(workflow, /permanent=' \+ String\(gate\.permanent\)/);
-  assert.match(workflow, /name: Kiểm Gate F redirect manifest ở runtime/);
-  const phaseGuard = String.raw`\n\s+if: steps\.gate_f\.outputs\.redirect_installed != 'true'`;
-  assert.match(workflow, new RegExp(`name: Kiểm vế legacy phục vụ được VÀ gọi được backend${phaseGuard}`));
-  assert.match(workflow, new RegExp(`name: Chọn phạm vi theo tệp đã sửa${phaseGuard}`));
-  assert.match(workflow, new RegExp(`name: Chạy cổng parity \\(desktop \\+ điện thoại\\)${phaseGuard}`));
-  assert.match(workflow, new RegExp(`name: Cổng đường-ghi \\(vế legacy — cùng bản khai\\)${phaseGuard}`));
 });
 
 test('advisory E2E always runs the Next-native Speaking regression', () => {

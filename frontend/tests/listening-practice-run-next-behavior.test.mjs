@@ -11,7 +11,7 @@ const PAGE = read('app', '(authed-listening-practice-run)', 'listening', 'practi
 const LAYOUT = read('app', '(authed-listening-practice-run)', 'layout.tsx');
 const LIBRARY = read('app', '(authed-listening)', 'listening', 'practice', 'listening-practice-behavior.tsx');
 const CSS = read('public', 'css', 'listening-practice-run-next.css');
-const PARITY = read('..', '.github', 'workflows', 'parity-gate.yml');
+const PARITY = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/listening/practice-run native ownership', () => {
   test('owns an authenticated App Router page with the audio dependency', () => {

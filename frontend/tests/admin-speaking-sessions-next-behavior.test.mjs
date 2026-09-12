@@ -22,7 +22,7 @@ const LAYOUT = read('app', '(authed-admin-speaking-sessions)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-speaking-sessions-next.css');
 const HUB = read('app', '(authed-admin-speaking)', 'admin', 'speaking', 'page.tsx');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const CONFIG = read('next.config.ts');
 
 const row = { id: 's1', user_id: 'u1', user_email: 'student@example.test', user_lookup_failed: false, mode: 'test_part', part: 2, topic: 'Home', status: 'completed', started_at: '2026-08-12T00:00:00Z', completed_at: null, overall_band: 6.5, band_fc: 6, band_lr: 6.5, band_gra: 6, band_p: 7, error_code: null, error_message: null, failed_step: null, last_error_at: null };

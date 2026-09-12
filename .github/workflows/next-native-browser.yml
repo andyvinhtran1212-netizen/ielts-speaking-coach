@@ -1,54 +1,11 @@
-# G1 của ADR-013-A1 — cổng parity legacy ↔ Next, chạy trong CI.
-#
-# Trước workflow này, cổng parity chỉ chạy khi có người NHỚ chạy tay. Một cổng
-# phụ thuộc trí nhớ thì không phải cổng — và ADR-013-A1 đã ghi "gác G1 trong CI"
-# là việc phải làm.
-#
-# VÌ SAO DỰNG CẢ HAI VẾ NGAY TRONG RUNNER, KHÔNG DÙNG PREVIEW VERCEL:
-#   · Preview của Vercel bị khoá SSO — `curl` chỉ nhận lại trang đăng nhập, nên
-#     không so được (đã đo).
-#   · `next start` phục vụ CẢ hai vế: route Next (`/grammar`) và tệp tĩnh legacy
-#     trong `public/` (`/grammar.html`). Một tiến trình, không cần deploy.
-#   · Trang legacy gọi backend theo `runtime-config.js`, mà `_RC.apiBase` thắng
-#     heuristic hostname (`js/api.js:55-60`). Đặt `AVER_API_BASE` là cả hai vế
-#     cùng trỏ backend production. Đã đo: backend cho phép CORS từ
-#     `http://localhost:3000`.
-#
-# Bộ so CHỈ ĐỌC: nó chặn mọi phương thức ghi và in ra danh sách đã chặn.
-
-# Không dùng Vercel Cron dù công cụ gợi ý: job này BUILD Next rồi LÁI Chromium
-# trong runner. Vercel Cron chỉ gọi một HTTP endpoint trong deployment — không
-# build được, không chạy trình duyệt được, và lại phụ thuộc vào chính deployment
-# đang được đo.
-
-name: Parity gate (G1)
+name: Next-native browser regression
 
 on:
-  # BỘ LỌC CHỈ LIỆT KÊ NHỮNG GÌ G1 THẬT SỰ SO ĐƯỢC.
-  #
-  # G1 cần CẢ HAI bản còn được phục vụ. Kiểm trên production:
-  #   /index.html         → 307 sang `/`  ⇒ bản legacy của trang chủ ĐÃ GỠ khi
-  #                         cutover pilot 1 ⇒ không còn gì để so
-  #   /pages/profile.html → 307 sang `/profile` ⇒ tương tự, và route này còn cần
-  #                         đăng nhập nên bản ẩn danh không so được
-  # Cả hai ca trên đều bị chốt `same-final-url` từ chối — đã đo.
-  #
-  # Trước bản này bộ lọc bắt cả `frontend/app/**`, nên một PR sửa `/` hay
-  # `/profile` sẽ kích hoạt job rồi BÁO XANH mà chưa từng mở route đã sửa. Cổng
-  # tự cấp phép còn tệ hơn không có cổng.
-  #
-  # HỆ QUẢ CẦN NHỚ: giá trị của G1 là HỮU HẠN theo từng route — nó chỉ tồn tại
-  # từ lúc dựng bản Next tới lúc gỡ bản legacy. Sau khi gỡ legacy, route đó
-  # được che bởi test + G2 + rollback, không còn parity nữa.
   pull_request:
     paths:
       - 'frontend/app/(public-content)/**'
-      # Pricing pre-launch không có cặp ảnh hợp lệ vì cả hai vế cùng redirect
-      # về `/`; job vẫn phải chạy verifier HTTP riêng ở cuối.
       - 'frontend/app/(marketing)/pricing/**'
       - 'frontend/tooling/verify-pricing-redirect-flow.mjs'
-      # Public auth entry has a signed-out parity pair plus a fixture-backed
-      # callback/activation verifier. Keep the rollback HTML in the trigger.
       - 'frontend/app/(public-auth)/**'
       - 'frontend/lib/login-model.mjs'
       - 'frontend/public/login.html'
@@ -58,7 +15,6 @@ on:
       - 'frontend/tests/login-next-behavior.test.mjs'
       - 'frontend/tests/login-next-model.test.mjs'
       - 'frontend/tooling/verify-login-flow.mjs'
-      # Authenticated account-setup owner and its rollback artifact.
       - 'frontend/app/(authed-onboarding)/**'
       - 'frontend/lib/onboarding-model.mjs'
       - 'frontend/public/onboarding.html'
@@ -68,63 +24,28 @@ on:
       - 'frontend/tooling/verify-onboarding-flow.mjs'
       - 'frontend/public/pages/grammar-exercises.html'
       - 'frontend/public/js/grammar-exercises.js'
-      # Vế CẦN ĐĂNG NHẬP (cặp `/pages/home.html` ↔ `/home`).
-      # Thiếu những dòng này thì một PR sửa đúng trang authed sẽ KHÔNG kích hoạt
-      # job, và cổng authed chỉ chạy khi có người nhớ dispatch tay — tức lại là
-      # "cổng phụ thuộc trí nhớ" mà chính đầu tệp này đã bác bỏ. (Codex bắt ở
-      # PR #930; kiểm lại đúng: lần chạy authed trước đó là do dispatch tay.)
-      # CHỈ các group có cặp trong parity-pairs-authed. KHÔNG thêm `(authed)`: nó chứa `/profile`, mà
-      # `/pages/profile.html` đã 307 sang `/profile` khi cutover pilot 3 ⇒
-      # không còn vế legacy để so. Bắt nó vào đây là để job chạy rồi BÁO XANH
-      # mà chưa từng mở route đã sửa. Có test chặn đúng chuyện đó
-      # (`parity-core.test.mjs` → "bộ lọc KHÔNG bắt route mà G1 không so được"),
-      # và nó đã bắt tôi khi tôi thêm nhầm.
       - 'frontend/app/(authed-home)/**'
-      # Vế Speaking (cặp `/pages/speaking.html` ↔ `/speaking`). Thêm
-      # CÙNG LÚC với cặp parity — thêm cặp mà quên glob là dựng đúng một cổng
-      # không bao giờ tự kích hoạt, y hệt phát hiện của Codex trên PR #930.
       - 'frontend/app/(authed-speaking)/**'
-      # Speaking core dark route — stable URL, admission vẫn Legacy. Cặp parity
-      # hiện chỉ ghim nhánh thiếu session_id; live player evidence thuộc Gate E.
       - 'frontend/app/(authed-practice)/**'
       - 'frontend/public/pages/speaking.html'
       - 'frontend/public/css/speaking.css'
       - 'frontend/public/js/cue-card-detector.js'
       - 'frontend/public/js/format.js'
       - 'frontend/public/js/retention-warning.js'
-      # Persistence controller là mã CHUNG của cặp practice: Next bundle import
-      # trực tiếp, còn Legacy nạp runtime module. Ghim riêng ba tệp thay vì
-      # `public/**` để một thay đổi admin không kích hoạt cổng parity vô nghĩa.
       - 'frontend/public/js/speaking-full-test-controller.mjs'
       - 'frontend/public/js/speaking-submission-controller.mjs'
       - 'frontend/public/js/speaking-legacy-runtime.mjs'
-      # CẢ hai cây mã dùng chung, không ghim từng tệp. Job này chạy `npm run
-      # build`, nên BẤT KỲ component/lib nào cũng có thể lọt vào chunk của trang
-      # đang so — thêm một shared component mới mà quên bổ sung glob thì cổng
-      # không chạy cho đúng PR ấy (Codex bắt ở #946 vòng 3).
-      # Việc khoanh theo NHÓM ROUTE ở dưới vẫn giữ nguyên: đổi một route không
-      # đổi DOM route khác, còn mã dùng chung thì đổi được bất kỳ trang nào.
       - 'frontend/lib/**'
       - 'frontend/components/**'
       - 'frontend/public/pages/home.html'
       - 'frontend/public/js/home.js'
       - 'frontend/public/js/home-mock-tiles.js'
-      # CSS có mặt vì G1 so theo BỀ RỘNG: một khối ẩn/hiện lệch breakpoint là
-      # khác biệt thật mà chỉ lượt 375 bắt được.
       - 'frontend/public/css/home.css'
       - 'frontend/public/css/mock-hub.css'
-      # Vế Bài viết (cặp `/pages/writing-dashboard.html` ↔ `/writing/dashboard`).
-      # Ba dòng này CỐ Ý nằm trong khối authed: `parity-core.test.mjs` cắt đúng
-      # khối này và đòi MỌI glob trong đó phải được regex chọn-phạm-vi authed
-      # bắt. Đặt ra ngoài thì glob vẫn kích hoạt job nhưng job chạy lượt
-      # `categories` và KHÔNG BAO GIỜ mở cặp writing — đúng lỗi Codex bắt ở #937,
-      # và không chốt nào nổ. Trong khối thì máy canh thay cho trí nhớ.
       - 'frontend/app/(authed-writing)/**'
+      - 'frontend/tooling/verify-writing-admission-flow.mjs'
       - 'frontend/public/pages/writing-dashboard.html'
       - 'frontend/public/css/writing-dashboard.css'
-      # Vế kết quả Writing: legacy rollback page ↔ native React route. Các
-      # renderer/highlight/lightbox là mã chạy chung nên đổi chúng cũng phải
-      # chạy lại parity + write-flow yêu cầu chấm lại.
       - 'frontend/app/(authed-writing-result)/**'
       - 'frontend/public/pages/writing-result.html'
       - 'frontend/public/css/writing-result.css'
@@ -136,8 +57,6 @@ on:
       - 'frontend/public/js/writing-highlight.js'
       - 'frontend/public/js/image-lightbox.js'
       - 'frontend/public/js/markdown.js'
-      # Admin Writing Grade: G1 ghim fail-closed role guard; browser write-flow
-      # riêng ghim workspace + mutation vì probe parity không có role admin.
       - 'frontend/app/(authed-admin-writing-grade)/**'
       - 'frontend/public/pages/admin/writing/grade.html'
       - 'frontend/public/css/admin-writing.css'
@@ -146,14 +65,9 @@ on:
       - 'frontend/public/js/writing-admin.js'
       - 'frontend/public/js/toast.js'
       - 'frontend/public/js/components/aver-admin-chrome.js'
-      # Vế Reading (cặp `/pages/reading-vocab.html` ↔ `/reading/vocab`). Nhóm
-      # trang chỉ-đọc KHÔNG có tệp hành vi riêng — cả hai vế nạp CHÍNH
-      # `public/js/reading-vocab.js`, nên tệp đó cũng phải kích hoạt cổng.
       - 'frontend/app/(authed-reading)/**'
       - 'frontend/app/(authed-listening)/**'
       - 'frontend/app/(authed-listening-practice-run)/**'
-      # Nhóm chỉ-đọc dùng CHÍNH module legacy cho cả hai vế, nên tệp JS đó cũng
-      # phải kích hoạt cổng — nó là mã CHUNG chứ không phải mã của riêng vế nào.
       - 'frontend/public/pages/reading-vocab.html'
       - 'frontend/public/pages/reading-vocab-passage.html'
       - 'frontend/public/pages/reading-skill.html'
@@ -167,11 +81,6 @@ on:
       - 'frontend/public/js/components/reading-questions.js'
       - 'frontend/public/js/components/reading-passage-panes.js'
       - 'frontend/public/css/listening.css'
-      # Tách từ khối <style> nội tuyến của `listening-tests.html`; CẢ HAI vế
-      # cùng link nó, nên nó là mã CHUNG và phải kích hoạt cổng. Bộ dò tĩnh
-      # `workflow-path-coverage.test.mjs` KHÔNG thấy được lớp này — CSS do
-      # trình duyệt nạp lúc chạy, không script nào nêu tên (đúng giới hạn đã
-      # ghi ở #946). Codex bắt ở #953.
       - 'frontend/public/css/listening-tests.css'
       - 'frontend/public/css/listening-mini-test.css'
       - 'frontend/public/css/listening-skills.css'
@@ -179,16 +88,9 @@ on:
       - 'frontend/public/css/listening-practice-run-next.css'
       - 'frontend/public/css/listening-browse.css'
       - 'frontend/public/css/listening-analytics.css'
-      # CSS NỀN mà `AuthedShell` nạp cho MỌI trang được so — và trang legacy
-      # cũng nạp đúng ba tệp này. Đổi chúng là đổi cả 13 cặp cùng lúc, nên
-      # thiếu ở đây thì một PR sửa design-system chạy được mà không so gì.
-      # `tailwind.build.css` còn là phụ thuộc riêng của 3 trang Listening mới
-      # (review cục bộ bắt ở #957); hai tệp kia là điểm mù có sẵn từ trước.
       - 'frontend/public/css/tailwind.build.css'
       - 'frontend/public/css/aver-design/tokens.css'
       - 'frontend/public/css/aver-design/components.css'
-      # Hai trang vocab dùng khuôn `mount()`; mỗi trang một route-group riêng
-      # vì hai tệp CSS định nghĩa lại cùng selector với giá trị khác nhau.
       - 'frontend/app/(authed-exercises)/**'
       - 'frontend/app/(authed-flashcards)/**'
       - 'frontend/public/pages/exercises.html'
@@ -198,8 +100,6 @@ on:
       - 'frontend/public/css/ds.css'
       - 'frontend/public/js/vocab-modules/**'
       - 'frontend/app/(authed-vocab-exam)/**'
-      # Multi-source standalone exam player: live G1 covers the published-list
-      # pair; fixture browser covers detail/submit/review and failure states.
       - 'frontend/app/(authed-exam)/**'
       - 'frontend/lib/exam-player-model.mjs'
       - 'frontend/public/pages/exam.html'
@@ -209,8 +109,6 @@ on:
       - 'frontend/tests/exam-player-next-behavior.test.mjs'
       - 'frontend/tests/exam-player-next-model.test.mjs'
       - 'frontend/tooling/verify-exam-flow.mjs'
-      # Trang Thi thử Full Test — port sang Next; JS/CSS vừa tách khỏi mã inline
-      # nên CẢ HAI VẾ nạp chung tệp, cổng parity so được nội dung thật.
       - 'frontend/app/(authed-full-test)/**'
       - 'frontend/app/(authed-mock-exam)/**'
       - 'frontend/lib/mock-exam-model.mjs'
@@ -252,13 +150,7 @@ on:
       - 'frontend/public/pages/vocab-exam.html'
       - 'frontend/public/css/vocab-exam.css'
       - 'frontend/public/js/vocab-exam.js'
-      # Thí điểm nhóm CÓ-GHI: bản khai hợp đồng ghi của bài nghe trắc nghiệm
-      # chạy trên VẾ LEGACY (chưa có route Next). Sửa trang hay module của nó
-      # phải chạy lại cổng ghi.
       - 'frontend/public/js/error-reporter.js'
-      # Phụ thuộc CHUNG của mọi cặp, review cục bộ #958 chỉ ra còn sót:
-      # `app/layout.tsx` là root layout của TẤT CẢ route Next; bộ sinh
-      # runtime-config quyết định mọi vế trỏ backend nào.
       - 'frontend/app/layout.tsx'
       - 'frontend/tooling/generate-runtime-config.mjs'
       - 'frontend/public/pages/listening.html'
@@ -272,8 +164,6 @@ on:
       - 'frontend/public/js/reading-test.js'
       - 'frontend/public/js/reading-mini-test.js'
       - 'frontend/public/js/listening-tests-list.js'
-      # `listening-tests-list.js` IMPORT helper này (dòng 21). Bỏ sót thì một PR
-      # chỉ sửa helper sẽ không chạy parity, dù nó đổi hành vi cả hai vế.
       - 'frontend/public/js/listening-list-paging.js'
       - 'frontend/public/js/listening-mini-test.js'
       - 'frontend/public/js/listening-skills.js'
@@ -284,12 +174,8 @@ on:
       - 'frontend/public/pages/listening-practice-run.html'
       - 'frontend/public/pages/listening-practice.html'
       - 'frontend/tooling/supabase-session.mjs'
-      - 'frontend/tooling/parity-pairs-authed.json'
       - 'frontend/lib/backend.ts'
       - 'frontend/lib/grammar-api.ts'
-      # Listening review has no stable production attempt for a useful parity
-      # pair. Keep it outside the authed-pair block above: these paths trigger
-      # the hermetic browser verifier, not a secret-backed empty parity run.
       - 'frontend/app/(authed-listening-review)/**'
       - 'frontend/lib/listening-review-model.mjs'
       - 'frontend/public/pages/listening-review.html'
@@ -297,22 +183,14 @@ on:
       - 'frontend/public/css/listening-review.css'
       - 'frontend/public/css/listening-review-next.css'
       - 'frontend/tests/listening-review-next-behavior.test.mjs'
-      # Admin Overview không có cặp parity đáng tin cậy: cả hai vế cần role
-      # admin. Nó có browser read-flow với phiên/backend giả ở dưới, nên group
-      # + CSS kích hoạt job nhưng CỐ Ý nằm ngoài khối glob authed phía trên.
       - 'frontend/app/(authed-admin-overview)/**'
       - 'frontend/public/css/admin-overview.css'
       - 'frontend/public/js/admin-overview.js'
       - 'backend/routers/admin_overview.py'
       - 'backend/tests/test_admin_overview.py'
-      # System admin có role gate + verifier fixture-backed riêng. Đổi page,
-      # layout hoặc CSS phải chạy lại chính các browser contract đó.
       - 'frontend/app/(authed-admin-system)/**'
       - 'frontend/public/css/admin-alerts-next.css'
       - 'frontend/public/css/admin-ai-usage-next.css'
-      # Instructor oversight và workspace có role gate + browser contract riêng.
-      # Probe G1 không có role instructor, nên các route này chạy fixture verifier
-      # thay vì mở một cặp visual parity không quan sát được dữ liệu thật.
       - 'frontend/app/(authed-admin-instructors)/**'
       - 'frontend/lib/admin-instructors-model.mjs'
       - 'frontend/public/css/admin-instructors-next.css'
@@ -340,33 +218,22 @@ on:
       - 'backend/services/instructor_workflow.py'
       - 'backend/tests/test_instructor_workflow.py'
       - 'backend/tests/test_instructor_routes_isolation.py'
-      # User/activity usage has an admin gate and fixture-backed read contract.
-      # Route, model, responsive table and canonical access-code/overview links
-      # must all rerun the same verifier.
       - 'frontend/app/(authed-admin-usage)/**'
       - 'frontend/lib/admin-usage-model.mjs'
       - 'frontend/public/css/admin-usage-next.css'
-      # Foot-traffic has truthful complete/partial/unavailable semantics and a
-      # fixture-backed browser contract for filters, stale data and responsive UI.
       - 'frontend/app/(authed-admin-foot-traffic)/**'
       - 'frontend/lib/admin-foot-traffic-model.mjs'
       - 'frontend/public/css/admin-foot-traffic-next.css'
-      # Feedback inbox mutates resolution state and must reconcile from the
-      # canonical GET. Fixture also pins URL filters and degraded read truth.
       - 'frontend/app/(authed-admin-feedback)/**'
       - 'frontend/lib/admin-feedback-model.mjs'
       - 'frontend/public/css/admin-feedback-next.css'
       - 'frontend/public/pages/admin/feedback/index.html'
       - 'frontend/public/js/admin-feedback.js'
-      # Reading attempts has a frozen snapshot + complete/partial/unavailable
-      # contract and a fixture-backed native + rollback browser verifier.
       - 'frontend/app/(authed-admin-reading-attempts)/**'
       - 'frontend/lib/admin-reading-attempts-model.mjs'
       - 'frontend/public/css/admin-reading-attempts-next.css'
       - 'frontend/public/pages/admin/dashboard/reading-attempts.html'
       - 'frontend/public/js/admin-reading-attempts.js'
-      # Reading hub, content manager and paper QA preview own clean routes.
-      # Direct HTML files remain explicit rollback targets.
       - 'frontend/app/(authed-admin-reading)/**'
       - 'frontend/public/css/admin-reading-hub-next.css'
       - 'frontend/app/(authed-admin-reading-content)/**'
@@ -380,7 +247,6 @@ on:
       - 'frontend/tooling/verify-admin-reading-flow.mjs'
       - 'frontend/tooling/verify-admin-reading-content-flow.mjs'
       - 'frontend/tooling/verify-admin-reading-preview-flow.mjs'
-      # Listening inventory owns the clean route; direct HTML stays rollback.
       - 'frontend/app/(authed-admin-listening)/**'
       - 'frontend/lib/admin-listening-content-model.mjs'
       - 'frontend/lib/admin-listening-content-editor-model.mjs'
@@ -488,9 +354,6 @@ on:
       - 'frontend/public/js/admin-listening-audit-detail.js'
       - 'frontend/tooling/verify-admin-listening-audit-detail-flow.mjs'
       - 'frontend/tests/admin-listening-audit-detail-next-behavior.test.mjs'
-      # Vocabulary hub, Stats, Topics, Quick-Check Quiz, D1 Curation and Lemma Overrides are native. The
-      # fixture pins backend-owned admin auth, exact payload/ACK shapes,
-      # mutation locks and canonical GET readback; rollback HTML stays live.
       - 'frontend/app/(authed-admin-vocab)/**'
       - 'frontend/lib/admin-vocab-stats-model.mjs'
       - 'frontend/lib/admin-vocab-curation-model.mjs'
@@ -516,8 +379,6 @@ on:
       - 'frontend/tests/admin-vocab-quiz-analytics-next-model.test.mjs'
       - 'frontend/tests/admin-vocab-topics-quiz-next-behavior.test.mjs'
       - 'frontend/tests/admin-vocab-topics-quiz-next-model.test.mjs'
-      # Grammar hub is a native, read-only routing surface. Its fixture-backed
-      # browser contract pins admin auth, destination truth and responsive UI.
       - 'frontend/app/(authed-admin-grammar)/**'
       - 'frontend/public/css/aver-design/admin-components.css'
       - 'frontend/public/css/aver-design/admin-buttons.css'
@@ -525,8 +386,6 @@ on:
       - 'frontend/public/css/admin-grammar-hub-next.css'
       - 'frontend/public/pages/admin/grammar/index.html'
       - 'frontend/public/pages/admin/index.html'
-      # Speaking hub, Sessions and Topics are native. Sessions/Topics have
-      # fixture-backed mutation verifiers; direct HTML stays as rollback.
       - 'frontend/app/(authed-admin-speaking)/**'
       - 'frontend/app/(authed-admin-speaking-sessions)/**'
       - 'frontend/app/(authed-admin-speaking-topics)/**'
@@ -543,8 +402,6 @@ on:
       - 'frontend/tooling/verify-admin-speaking-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-sessions-flow.mjs'
       - 'frontend/tooling/verify-admin-speaking-topics-flow.mjs'
-      # Mock Tests cockpit owns orchestration; Manage, Live/Pacing and
-      # Reviews/Report are native while direct HTML remains rollback evidence.
       - 'frontend/app/(authed-admin-mock-tests)/**'
       - 'frontend/lib/admin-mock-tests-model.mjs'
       - 'frontend/public/css/admin-mock-tests-next.css'
@@ -579,8 +436,6 @@ on:
       - 'frontend/tooling/verify-admin-mock-reviews-flow.mjs'
       - 'frontend/tests/admin-mock-reviews-next-model.test.mjs'
       - 'frontend/tests/admin-mock-reviews-next-behavior.test.mjs'
-      # Writing hub is a native, read-only workflow map. Direct HTML remains
-      # rollback; the fixture pins admin auth, destination truth and layout.
       - 'frontend/app/(authed-admin-writing)/**'
       - 'frontend/app/(authed-admin-writing-queue)/**'
       - 'frontend/app/(authed-admin-writing-status)/**'
@@ -644,9 +499,6 @@ on:
       - 'frontend/public/css/admin-writing-tips-next.css'
       - 'frontend/public/pages/admin/writing/tips.html'
       - 'frontend/tooling/verify-admin-writing-tips-flow.mjs'
-      # Grammar Articles owns the clean inventory route and retains a direct
-      # legacy rollback. Backend status fields prevent analytics outages from
-      # masquerading as zero engagement.
       - 'backend/routers/admin.py'
       - 'backend/tests/test_admin_grammar.py'
       - 'frontend/app/(authed-admin-grammar-articles)/**'
@@ -654,34 +506,24 @@ on:
       - 'frontend/public/css/admin-grammar-articles-next.css'
       - 'frontend/public/pages/admin/grammar/articles.html'
       - 'frontend/public/js/admin-grammar-articles.js'
-      # Grammar Analytics distinguishes complete data from unavailable sources,
-      # paginates canonical rows and defines recent activity without inventing events.
       - 'frontend/app/(authed-admin-grammar-analytics)/**'
       - 'frontend/lib/admin-grammar-analytics-model.mjs'
       - 'frontend/public/css/admin-grammar-analytics-next.css'
       - 'frontend/public/pages/admin/grammar/analytics.html'
       - 'frontend/public/js/admin-grammar-analytics.js'
       - 'frontend/tooling/verify-admin-grammar-analytics-flow.mjs'
-      # Grammar Recommendation lab mirrors production draft suppression and
-      # anchor routing without persisting synthetic recommendations.
       - 'frontend/app/(authed-admin-grammar-recommend)/**'
       - 'frontend/lib/admin-grammar-recommend-model.mjs'
       - 'frontend/public/css/admin-grammar-recommend-next.css'
       - 'frontend/public/pages/admin/grammar/recommend-test.html'
       - 'frontend/public/js/admin-grammar-recommend.js'
       - 'frontend/tooling/verify-admin-grammar-recommend-flow.mjs'
-      # Error-log admin có role gate + mutations triage fixture-backed riêng;
-      # không thể dùng snapshot parity bằng tài khoản thường.
       - 'frontend/app/(authed-admin-error-logs)/**'
       - 'frontend/lib/admin-error-logs-model.mjs'
       - 'frontend/public/css/admin-error-logs-next.css'
-      # Users + Access Codes có 8 mutation vận hành và admin-only role gate;
-      # browser contract fixture-backed riêng kiểm canonical reload/invariants.
       - 'frontend/app/(authed-admin-users)/**'
       - 'frontend/lib/admin-users-model.mjs'
       - 'frontend/public/css/admin-users-next.css'
-      # Class directory có rollup/course truth + CRUD/soft archive; browser
-      # fixture kiểm failure states, orphan course preservation và reload chuẩn.
       - 'frontend/app/(authed-admin-classes)/**'
       - 'frontend/app/(authed-admin-students)/**'
       - 'frontend/lib/admin-class-detail-model.mjs'
@@ -703,8 +545,6 @@ on:
       - 'frontend/public/js/grammar.js'
       - 'frontend/public/pages/grammar-article.html'
       - 'frontend/tooling/verify-grammar-roadmap-personal-flow.mjs'
-      # Public Vocabulary Wiki owns server bootstrap plus client-side
-      # master/detail interactions; legacy HTML remains the parity/rollback leg.
       - 'frontend/app/(public-content)/vocabulary/**'
       - 'frontend/lib/vocabulary-api.ts'
       - 'frontend/lib/vocabulary-model.mjs'
@@ -714,15 +554,9 @@ on:
       - 'frontend/public/css/vocab-wiki.css'
       - 'frontend/tooling/verify-vocabulary-wiki-flow.mjs'
       - 'frontend/public/js/components/aver-chrome.js'
-      # `aver-chrome.js` IMPORT ba tệp này (dòng 48-50). Chrome có mặt trên MỌI
-      # trang được so, nên đổi chúng là đổi cả 10 cặp — mà thiếu ở đây thì PR
-      # sửa chúng không chạy cổng lần nào (review CỤC BỘ bắt ở #955).
       - 'frontend/public/js/theme-toggle.js'
       - 'frontend/public/js/user-pill.js'
       - 'frontend/public/js/components/perf-hints.js'
-      - 'frontend/tooling/parity-core.mjs'
-      - 'frontend/tooling/parity-diff.mjs'
-      # Sửa chính bộ kiểm luồng phải chạy lại nó.
       - 'frontend/tooling/verify-speaking-flow.mjs'
       - 'frontend/tooling/verify-shared-runtime-client-navigation.mjs'
       - 'frontend/tooling/verify-reading-vocab-flow.mjs'
@@ -778,15 +612,9 @@ on:
       - 'frontend/tooling/verify-admin-class-submissions-flow.mjs'
       - 'frontend/tooling/verify-admin-class-student-work-flow.mjs'
       - 'frontend/tooling/verify-admin-students-flow.mjs'
-      # Sửa lõi cổng ghi hoặc bất kỳ bản khai luồng nào phải chạy lại cổng đó.
       - 'frontend/tooling/verify-write-flows.mjs'
       - 'frontend/tooling/write-flow-core.mjs'
       - 'frontend/tooling/write-flows/**'
-      # ── Trang có GHI mà CHƯA có cặp parity ────────────────────────────────
-      # Các tệp dưới đây là rollback của bốn route native `listening-dictation`
-      # / `-mcq` / `-tf` / `-gist`. Chúng vẫn có đường ghi nên tiếp tục kích hoạt cổng write-flow;
-      # route Next được kiểm bằng runner fixture riêng (không có content UUID
-      # production ổn định để lập một cặp parity tĩnh trung thực).
       - 'frontend/public/css/listening-standalone-next.css'
       - 'frontend/public/pages/listening-mcq.html'
       - 'frontend/public/js/listening-mcq.js'
@@ -796,27 +624,11 @@ on:
       - 'frontend/public/js/listening-gist.js'
       - 'frontend/public/pages/listening-dictation.html'
       - 'frontend/public/js/listening-dictation.js'
-      # Trang nạp ba tệp này lúc chạy; `listening-mcq.js` KHÔNG import chúng nên
-      # bộ dò tĩnh mù (review cục bộ #961). `feedback-widgets.js` và
-      # `error-reporter.js` còn tự phát request GHI, nên chúng phải kích hoạt
-      # cổng ghi chứ không chỉ cổng parity.
       - 'frontend/public/js/components/audio-player.js'
       - 'frontend/public/js/feedback-widgets.js'
-      # Luồng góp ý bấm `.fb-flag-btn` rồi thao tác trong popup — cả hai do
-      # `feedback.css` tạo hình. Thiếu tệp này thì PR chỉ sửa CSS đó không chạy
-      # cổng ghi, dù nó đủ sức làm nút không bấm được (bot bắt ở #962 vòng 3).
       - 'frontend/public/css/feedback.css'
-      # Listening core dark route chưa thuộc cặp parity tĩnh: browser runner
-      # riêng bên dưới kiểm start → autosave → reload/resume → submit trên mã
-      # React thật, còn admission vẫn Legacy cho tới Gate E.
       - 'frontend/app/(authed-listening-player)/**'
       - 'frontend/public/css/listening-test-next.css'
-      # ── Bài thi Đọc ──────────────────────────────────────────────────────
-      # `reading-exam` cũng chưa có cặp parity, nên nằm cùng khối này. Trang nạp
-      # 5 tệp dưới lúc chạy mà `reading-exam.js` KHÔNG import chúng, nên bộ dò
-      # tĩnh mù: `markdown.js` dựng thân đoạn đọc, `mock-exam-hook.js` quyết định
-      # nhánh nộp khi bài nằm trong đề thi thử, `runtime-config.js` quyết định
-      # gọi máy chủ nào — sửa bất kỳ tệp nào cũng đủ làm hỏng đường ghi.
       - 'frontend/public/pages/reading-exam.html'
       - 'frontend/public/js/reading-exam.js'
       - 'frontend/public/js/markdown.js'
@@ -824,111 +636,59 @@ on:
       - 'frontend/public/js/runtime-config.js'
       - 'frontend/public/css/reading-exam.css'
       - 'frontend/public/css/reading-exam-mockup.css'
-      # ── Trang luyện Speaking ─────────────────────────────────────────────
-      # Cũng chưa có cặp parity, nên nằm cùng khối này. Đây là trang mang đường
-      # ghi ĐẮT GIÁ NHẤT của sản phẩm: bản thu của học viên chỉ tồn tại trong bộ
-      # nhớ trang cho tới khi `POST /sessions/{id}/responses` nhận được. Trước
-      # PR này, sửa `practice.js` KHÔNG chạy cổng ghi lần nào.
       - 'frontend/public/pages/practice.html'
       - 'frontend/public/js/practice.js'
       - 'frontend/public/js/pronunciation-drilldown.js'
       - 'frontend/public/css/practice.css'
       - 'frontend/public/css/speaking-assignment.css'
-      # `practice.html` nạp thẳng tệp này (dòng 644) và nó giữ đường THỬ LẠI của
-      # bản nộp mock speaking — sửa riêng nó mà không chạy cổng ghi là bỏ trống
-      # đúng đường cứu bài (codex cục bộ #980).
       - 'frontend/public/js/speaking-debt.js'
-      # ── Trang chữa bài Đọc ───────────────────────────────────────────────
-      # Cũng chưa có cặp parity. Đường ghi của nó nuôi BẢN ĐỒ THÀNH THẠO, tức
-      # kiểu hỏng duy nhất mà học viên không bao giờ nhìn thấy hậu quả.
-      # `glossary-popover.js` nạp lúc chạy mà `reading-review.js` không import,
-      # nên bộ dò tĩnh mù với nó.
       - 'frontend/public/pages/reading-review.html'
       - 'frontend/public/js/reading-review.js'
       - 'frontend/public/js/components/glossary-popover.js'
       - 'frontend/public/css/reading-review.css'
       - 'frontend/public/css/markdown.css'
-      # Mã DÙNG CHUNG dựng request: đổi cách `api.post/patch` được tạo là đổi
-      # MỌI đường ghi của mọi trang, nên nó phải kích hoạt cổng ghi. Thiếu dòng
-      # này thì một PR sửa `api.js` merge được mà chỉ qua test tĩnh
-      # (Codex bắt ở PR #944).
       - 'frontend/public/js/api.js'
       - 'frontend/public/js/analytics-beacon.js'
-      - 'frontend/public/js/legacy-retirement-beacon.js'
-      # Gate F pins the URL manifest independently of physical HTML artifacts.
-      # Both routing inputs and the retained parity fixtures need coverage.
       - 'frontend/public/**/*.html'
       - 'frontend/next.config.ts'
-      - 'frontend/tooling/gate-f-retirement-redirects.mjs'
-      - 'frontend/tooling/gate-f-legacy-paths.mjs'
-      - 'frontend/tooling/gate-f-route-replacement-inventory.mjs'
       - 'frontend/package-lock.json'
-      # `package.json` quyết định script nào chạy và dải phiên bản nào được cài;
-      # `tsconfig.json` định nghĩa bí danh `@/*` — đổi ánh xạ đó là đổi mã được
-      # gộp vào bundle. Ghim mỗi lock-file là chưa đủ (Codex bắt ở #946 vòng 4).
       - 'frontend/package.json'
       - 'frontend/tsconfig.json'
-      - '.github/workflows/parity-gate.yml'
-  # SAU KHI MERGE. Cổng theo PR chỉ chứng minh «nhánh này so với main LÚC ĐÓ»;
-  # nó KHÔNG chứng minh main sau khi hợp nhất. Ngày 2026-08-07 chín PR chồng
-  # nhau lên main liên tiếp, mỗi PR đều xanh, mà trạng thái hợp nhất không cổng
-  # nào chạm tới — phải dispatch tay mới biết main lành. Main deploy thẳng ra
-  # production, nên đó là khoảng trống ngay trước mặt người dùng.
-  #
-  # KHÔNG khai `paths:` ở đây. Bộ lọc đường dẫn hợp lý cho PR (tiết kiệm lượt
-  # chạy khi nhánh không đụng gì liên quan), nhưng ở đây câu hỏi là «main còn
-  # lành không» — và câu đó không phụ thuộc vào việc lần merge NÀY đụng tệp nào.
+      - '.github/workflows/next-native-browser.yml'
+      - 'frontend/app/**'
+      - 'frontend/public/css/**'
+      - 'frontend/public/js/**'
+      - 'frontend/tooling/verify-*.mjs'
+      - 'frontend/tooling/next-native-fixture-api.mjs'
+      - 'frontend/tests/**'
+      - 'backend/**'
   push:
-    branches: [main]
-  # Bộ ĐẦY ĐỦ chạy hằng đêm — nhưng đọc là BEST-EFFORT, không phải bảo đảm.
-  # Đo 2026-08-04: cron này CHƯA TỪNG CHẠY lần nào, và cron `*/15` của G2 bị
-  # GitHub giãn ra trung vị 84 phút (khai 15). Lịch trên GitHub Actions là
-  # best-effort thật sự. Lớp bảo vệ THẬT của G1 là cổng theo PR ở dưới; đêm chỉ
-  # là phần thêm. Đừng viết tài liệu nào dựa vào việc cron này chạy đúng giờ.
+    branches: [main, staging]
   schedule:
-    - cron: "41 2 * * *"
+    - cron: '41 2 * * *'
   workflow_dispatch:
-    inputs:
-      scope:
-        description: "categories (nhanh) · full (gồm mọi trang bài viết) · authed (trang cần đăng nhập)"
-        default: categories
-        type: choice
-        options: [categories, full, authed]
 
 permissions:
   contents: read
 
 concurrency:
-  # PHẢI có `event_name` trong group. Trước đây group chỉ theo `github.ref`, mà
-  # push lên main, lịch đêm và dispatch tay đều mang `refs/heads/main` — nên một
-  # lần dispatch `scope=categories` sẽ HUỶ lượt post-merge đang chạy `full +
-  # authed`, rồi báo xanh. Commit đó vĩnh viễn không được lượt nào kiểm đủ, và
-  # bảng check thì trông y hệt lúc kiểm đủ.
-  #
-  # Giữa hai lần PUSH thì vẫn huỷ lượt cũ, và đó là cố ý: chỉ tip hiện tại mới
-  # là thứ đang chạy trên production. Hệ quả phải nói thẳng — trong một chuỗi
-  # merge dày, các commit ở giữa KHÔNG được kiểm riêng; thứ được bảo đảm là
-  # «main lành ở tip mới nhất», không phải «mỗi commit đều lành».
-  group: parity-gate-${{ github.ref }}-${{ github.event_name }}
+  group: next-native-browser-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
+# A verifier that misses one of its mocked requests must fail locally; it must
+# never read or write staging/production as an accidental fallback.
 env:
-  # Cả hai vế cùng trỏ backend production. `prebuild` sinh `runtime-config.js`
-  # từ đúng biến này, nên vế legacy chạy trên localhost vẫn gọi đúng backend.
-  AVER_API_BASE: https://ielts-speaking-coach-production.up.railway.app
-  AVER_SUPABASE_URL: https://huwsmtubwulikhlmcirx.supabase.co
-  AVER_SUPABASE_ANON_KEY: sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao
-  AVER_ENVIRONMENT: production
-  # CỔNG KHÔNG TUỲ Ý. Backend chỉ cho CORS từ đúng vài origin (`main.py:118`):
-  # localhost:3000 · 127.0.0.1:3000 · localhost:5500 · 127.0.0.1:5500. Chạy ở
-  # cổng khác thì vế legacy KHÔNG fetch được, trang hiện "Lỗi: Failed to fetch",
-  # và nếu không ai để ý thì bộ so vẫn chạy trên một nền tham chiếu rác. Đã đo
-  # đúng ca đó: cổng 3300 ⇒ 938 `line-extra` toàn mức thấp + 26 `baseline-suspect`.
-  PARITY_PORT: '3000'
+  TEST_PORT: '3000'
+  AVER_API_BASE: http://127.0.0.1:3999
+  NEXT_NATIVE_FIXTURE_PORT: '3999'
+  AVER_SUPABASE_URL: https://example.supabase.co
+  AVER_SUPABASE_ANON_KEY: test-anon-key
+  AVER_ENVIRONMENT: test
+  SUPABASE_URL: https://example.supabase.co
 
 jobs:
-  parity:
-    name: G1 parity legacy ↔ Next
+  browser-regression:
+    name: Next-native browser regression
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -936,9 +696,6 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v5
-        with:
-          # Cần lịch sử để so diff với nhánh gốc mà chọn phạm vi.
-          fetch-depth: 0
 
       - uses: actions/setup-node@v5
         with:
@@ -949,269 +706,74 @@ jobs:
       - name: Cài phụ thuộc
         run: npm ci
 
-      - name: Build (prebuild sinh runtime-config trỏ backend production)
+      - name: Build Next với endpoint test cô lập
         run: npm run build
 
       - name: Cài Chromium cho Playwright
         run: npx playwright install --with-deps chromium
 
+      - name: Khởi động fixture API cho Server Components
+        run: |
+          node tooling/next-native-fixture-api.mjs > /tmp/next-native-fixture-api.log 2>&1 &
+          echo $! > /tmp/next-native-fixture-api.pid
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$NEXT_NATIVE_FIXTURE_PORT/health" || true)
+            if [ "$code" = "200" ]; then echo "Fixture API sẵn sàng sau ${i}s"; exit 0; fi
+            sleep 1
+          done
+          cat /tmp/next-native-fixture-api.log
+          exit 1
+
       - name: Khởi động Next
         run: |
-          npx next start -p "$PARITY_PORT" > /tmp/next.log 2>&1 &
-          echo $! > /tmp/next.pid
+          npx next start -p "$TEST_PORT" > /tmp/next-native-browser.log 2>&1 &
+          echo $! > /tmp/next-native-browser.pid
           for i in $(seq 1 40); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PARITY_PORT/grammar" || true)
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$TEST_PORT/grammar" || true)
             if [ "$code" = "200" ]; then echo "Next sẵn sàng sau ${i}s"; exit 0; fi
             sleep 1
           done
-          echo "Next KHÔNG khởi động được (cổng bận?):"; tail -40 /tmp/next.log; exit 1
+          tail -40 /tmp/next-native-browser.log
+          exit 1
 
-      # G1 chỉ có nghĩa khi vế Legacy còn render trực tiếp. Gate F thay đổi
-      # contract: URL Legacy vẫn tồn tại nhưng phải bị redirect trước static
-      # file serving. Phát hiện phase từ report canonical để không biến một
-      # redirect đúng thành parity đỏ, đồng thời không skip im lặng.
-      - name: Phát hiện phase Gate F redirect
-        id: gate_f
-        run: |
-          node --input-type=module -e "
-            import { collectNextMigrationStatus } from './tooling/next-migration-status.mjs';
-            const gate = collectNextMigrationStatus().legacyRetirementRedirects;
-            console.log('redirect_installed=' + String(gate.installed));
-            console.log('permanent=' + String(gate.permanent));
-          " >> "$GITHUB_OUTPUT"
-
-      - name: Kiểm Gate F redirect manifest ở runtime
-        if: steps.gate_f.outputs.redirect_installed == 'true'
-        run: |
-          EXPECTED=307
-          [ "${{ steps.gate_f.outputs.permanent }}" = "true" ] && EXPECTED=308
-
-          assert_redirect() {
-            local source="$1" expected_location="$2"
-            local headers code location
-            headers=$(curl -sS -o /dev/null -D - "http://localhost:$PARITY_PORT$source" | tr -d '\r')
-            code=$(printf '%s\n' "$headers" | awk 'NR == 1 { print $2 }')
-            location=$(printf '%s\n' "$headers" | awk 'tolower($1) == "location:" { print $2; exit }')
-            [ "$code" = "$EXPECTED" ] || {
-              echo "$source trả $code, cần $EXPECTED"; exit 1;
-            }
-            [ "$location" = "$expected_location" ] || {
-              echo "$source redirect tới $location, cần $expected_location"; exit 1;
-            }
-          }
-
-          assert_redirect '/index.html' '/'
-          assert_redirect '/pages/profile.html' '/profile'
-          assert_redirect '/pages/grammar-article.html?category=articles&slug=a-an-the' '/grammar/articles/a-an-the?category=articles&slug=a-an-the'
-          assert_redirect '/pages/admin/classes/index.html?tab=students' '/admin/students?tab=students'
-          echo "Gate F runtime redirect manifest OK ($EXPECTED)."
-
-      # Chốt chặn hạ tầng: nếu vế legacy không gọi được backend thì mọi so sánh
-      # sau đó vô giá trị — bản Next sẽ chỉ toàn "thừa" (mức thấp) và cả bảng
-      # xanh. Bộ so có `baseline-suspect` cho việc này, nhưng kiểm sớm ở đây thì
-      # thông báo dễ hiểu hơn nhiều so với một bảng lệch dài.
-      - name: Kiểm vế legacy phục vụ được VÀ gọi được backend
-        if: steps.gate_f.outputs.redirect_installed != 'true'
-        run: |
-          code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:$PARITY_PORT/grammar.html")
-          [ "$code" = "200" ] || { echo "legacy /grammar.html trả $code"; exit 1; }
-          # Trang trả 200 KHÔNG chứng minh nó fetch được — legacy render phía
-          # client, fetch hỏng thì trang vẫn 200 và chỉ hiện "Lỗi: Failed to
-          # fetch". Kiểm thẳng preflight CORS từ đúng origin sẽ dùng.
-          allow=$(curl -s -o /dev/null -D- -X OPTIONS "$AVER_API_BASE/api/grammar/home" \
-            -H "Origin: http://localhost:$PARITY_PORT" \
-            -H "Access-Control-Request-Method: GET" | tr -d '\r' \
-            | grep -i '^access-control-allow-origin' || true)
-          if [ -z "$allow" ]; then
-            echo "CORS KHÔNG cho phép http://localhost:$PARITY_PORT."
-            echo "Backend chỉ cho vài origin cố định (backend/main.py:118)."
-            echo "Đổi PARITY_PORT về một cổng có trong allowlist, ĐỪNG chạy tiếp:"
-            echo "nền so sẽ hỏng và bảng kết quả sẽ vô nghĩa."
-            exit 1
-          fi
-          echo "CORS OK: $allow"
-
-      # PHẠM VI PHẢI THEO NỘI DUNG PR, không phải một hằng số.
-      # PR sửa bộ render bài viết (`[category]/[slug]/**`) mà chỉ chạy
-      # `--categories-only` thì lần chạy CHẶN-MERGE không hề mở một trang bài
-      # nào; lịch đêm chỉ phát hiện SAU khi đã merge. Ca đó phải chạy bộ đầy đủ.
-      - name: Chọn phạm vi theo tệp đã sửa
-        if: steps.gate_f.outputs.redirect_installed != 'true'
-        id: scope
-        run: |
-          if [ -n "${{ inputs.scope }}" ]; then
-            echo "scope=${{ inputs.scope }}" >> "$GITHUB_OUTPUT"; exit 0
-          fi
-          # `schedule` và `push` (main) KHÔNG có nhánh gốc để so diff — không suy
-          # ra phạm vi được, nên chạy TẤT CẢ. Cả hai đều phải đặt `authed=true`:
-          # bản cũ `exit 0` ngay sau khi đặt `scope=full`, để cờ authed RỖNG, nên
-          # lịch đêm chưa bao giờ so 21 cặp cần-đăng-nhập — tức phần lớn trang
-          # học viên chỉ được so trong PR chứ chưa lần nào trên main.
-          case "${{ github.event_name }}" in
-            schedule|push)
-              echo "sự kiện ${{ github.event_name }} ⇒ chạy full + authed"
-              echo "scope=full" >> "$GITHUB_OUTPUT"
-              echo "authed=true" >> "$GITHUB_OUTPUT"
-              exit 0 ;;
-          esac
-          BASE="origin/${{ github.base_ref }}"
-          CHANGED=$(git diff --name-only "$BASE"...HEAD || true)
-          echo "tệp đã sửa:"; echo "$CHANGED" | sed 's/^/  /'
-          if echo "$CHANGED" | grep -qE 'frontend/app/\(public-content\)/grammar/\[category\]/\[slug\]/|frontend/tooling/parity-|frontend/lib/|frontend/components/|frontend/public/pages/grammar-article\.html'; then
-            echo "→ đụng bộ render BÀI VIẾT hoặc tầng dùng chung ⇒ phạm vi FULL"
-            echo "scope=full" >> "$GITHUB_OUTPUT"
-          else
-            echo "→ phạm vi categories (trang chủ + thư mục)"
-            echo "scope=categories" >> "$GITHUB_OUTPUT"
-          fi
-
-          # Vế authed là CỜ RIÊNG, không phải một giá trị của `scope`. Lý do:
-          # một PR có thể đụng CẢ khu grammar lẫn trang authed; nếu ép chọn một
-          # thì vế kia âm thầm không được so — đúng kiểu "cổng tự cấp phép" mà
-          # đầu tệp này cảnh báo.
-          if echo "$CHANGED" | grep -qE 'frontend/app/\((authed-home|authed-speaking|authed-practice|authed-writing|authed-writing-result|authed-admin-writing-grade|authed-reading|authed-listening|authed-listening-practice-run|authed-exercises|authed-flashcards|authed-vocab-exam|authed-exam|authed-full-test|authed-mock-exam|authed-vocab-practice|authed-quiz-player|authed-speaking-result|authed-quiz-progress|authed-mock-result|authed-vocabulary-hub)\)/|frontend/public/pages/speaking\.html|frontend/public/pages/practice\.html|frontend/public/pages/admin/writing/grade\.html|frontend/public/css/(speaking|practice|speaking-assignment|quiz-player|exam-player-next|mock-exam-next|admin-writing|admin-writing-grade|aver-design/admin-surface)\.css|frontend/public/js/(cue-card-detector|format|practice|pronunciation-drilldown|retention-warning|speaking-debt|writing-admin|toast)\.js|frontend/public/js/speaking-(full-test-controller|submission-controller|legacy-runtime)\.mjs|frontend/lib/|frontend/components/|frontend/public/js/(analytics-beacon|legacy-retirement-beacon|api|exam-player|kp-stepper|feedback-widgets|home-mock-tiles|runtime-config|theme-toggle|user-pill)\.js|frontend/public/js/components/(audio-player|aver-chrome|aver-admin-chrome|glossary-popover|perf-hints|reading-questions|reading-passage-panes)\.js|frontend/public/pages/home\.html|frontend/public/js/home\.js|frontend/public/css/(feedback|home|mock-hub|writing-dashboard|writing-result|writing-renderers|writing-highlight|image-lightbox|markdown)\.css|frontend/public/pages/(exam|exercises|flashcards|vocab-exam|full-test|mock-exam|vocab-practice|quiz|speaking-result|quiz-progress|mock-result|vocabulary|writing-dashboard|writing-result|reading-vocab|reading-vocab-passage|reading-skill|reading-skill-exercise|reading-test|reading-mini-test|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-practice-run|listening-browse|listening-analytics)\.html|frontend/public/js/(reading-vocab|reading-vocab-passage|reading-skill|reading-skill-exercise|reading-test|reading-mini-test|listening-tests-list|listening-list-paging|listening-mini-test|listening-skills|listening-practice|listening-practice-run|listening-landing|listening-browse|listening-analytics|writing-renderers|writing-highlight|image-lightbox|markdown)\.js|frontend/public/css/(reading-vocab|listening|listening-tests|listening-mini-test|listening-skills|listening-practice|listening-practice-run-next|listening-browse|listening-analytics)\.css|frontend/public/css/(tailwind\.build|ds|exercises|flashcards|vocab-exam|full-test|vocab-practice|speaking-result|quiz-progress|mock-result|vocabulary|aver-design/tokens|aver-design/components)\.css|frontend/public/js/vocab-modules/|frontend/public/js/(vocab-exam|full-test|mock-exam-runner|vocab-practice|speaking-result|quiz-progress|mock-result|vocab-landing|error-reporter)\.js|frontend/tests/(exam-player|quiz-player|mock-exam)-next-(behavior|model)\.test\.mjs|frontend/tooling/(verify-exam-flow\.mjs|verify-quiz-flow\.mjs|verify-listening-practice-run-flow\.mjs|verify-mock-exam-flow\.mjs|supabase-session\.mjs|parity-pairs-authed\.json|parity-core\.mjs|parity-diff\.mjs|generate-runtime-config\.mjs)|frontend/app/layout\.tsx'; then
-            echo "→ có đụng vế CẦN ĐĂNG NHẬP ⇒ chạy thêm lượt authed"
-            echo "authed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "authed=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      # HAI BỀ RỘNG. Lượt 1280 mù hoàn toàn với hồi quy theo breakpoint — đã
-      # chứng minh bằng thí nghiệm: gài `hidden sm:block` vào đoạn mô tả hero
-      # của bản Next rồi so ⇒ 1280px cho 0 phát hiện, 375px bắt được
-      # `line-missing: Tra cứu nhanh, học theo roadmap…`.
-      #
-      # Lỗi H1 dính chữ (#907) bắt được ở 1280 chỉ vì nó TÌNH CỜ cũng là khác
-      # biệt văn bản; một khối ẩn/hiện lệch nhau theo breakpoint thì không.
-      #
-      # Chạy CẢ HAI rồi mới thoát, để báo cáo hiện đủ hai bề rộng thay vì dừng
-      # ở cái đỏ đầu tiên.
-      - name: Chạy cổng parity (desktop + điện thoại)
-        if: steps.gate_f.outputs.redirect_installed != 'true'
-        env:
-          PROBE_EMAIL: ${{ secrets.PROBE_EMAIL }}
-          PROBE_PASSWORD: ${{ secrets.PROBE_PASSWORD }}
-        run: |
-          SCOPE="${{ steps.scope.outputs.scope }}"
-          AUTHED="${{ steps.scope.outputs.authed }}"
-
-          # Danh sách LƯỢT phải chạy. `authed` so trang CẦN ĐĂNG NHẬP; giữ nó
-          # thành lượt riêng vì nó cần secret và chỉ so được TRẠNG THÁI RỖNG
-          # (tài khoản probe không có dữ liệu học tập) — gộp vào lượt thường sẽ
-          # khiến người đọc báo cáo tưởng đã phủ cả dữ liệu.
-          if [ "$SCOPE" = "authed" ]; then
-            RUNS="authed"                    # dispatch tay, chỉ muốn authed
-          else
-            RUNS="$SCOPE"
-            [ "$AUTHED" = "true" ] && RUNS="$RUNS authed"
-          fi
-          echo "các lượt sẽ chạy: $RUNS"
-
-          case " $RUNS " in *" authed "*)
-            if [ -z "$PROBE_EMAIL" ] || [ -z "$PROBE_PASSWORD" ]; then
-              echo "::error::Cần so vế authed nhưng THIẾU secret PROBE_EMAIL/PROBE_PASSWORD."
-              echo "Không bỏ qua âm thầm: bỏ qua ở đây thì cổng báo xanh mà chưa từng mở trang."
-              exit 1
-            fi ;;
-          esac
-
-          FAIL=0
-          INFRA=0
-          for S in $RUNS; do
-            case "$S" in
-              authed) ARGS="--auth --pairs tooling/parity-pairs-authed.json" ;;
-              full)   ARGS="--expand-grammar" ;;
-              *)      ARGS="--expand-grammar --categories-only" ;;
-            esac
-            for VP in 1280x900 375x812; do
-              echo "════════ lượt $S · bề rộng $VP ════════"
-              # `|| RC=$?` thay vì bật/tắt `set -e`: bước này chạy dưới `bash -e`,
-              # và đụng vào trạng thái đó sẽ đổi hành vi của mọi lệnh phía sau.
-              RC=0
-              node tooling/parity-diff.mjs --base "http://localhost:$PARITY_PORT" \
-                $ARGS --viewport "$VP" --concurrency 3 --json "out/parity-$S-$VP.json" || RC=$?
-              # PHÂN BIỆT HAI LOẠI ĐỎ. Mã 3 = không gọi được backend, tức bộ so
-              # KHÔNG kết luận gì về parity. Gộp nó vào FAIL sẽ hiện ra như «bản
-              # Next lệch bản legacy» — một lời khẳng định chưa đo được, và vài
-              # lần như thế là người ta bắt đầu bỏ qua cổng này.
-              case "$RC" in
-                0) ;;
-                3) INFRA=1
-                   echo "::warning::lượt $S/$VP KHÔNG kết luận được: backend không gọi được" ;;
-                # 4 = VỪA lệch parity VỪA hỏng hạ tầng. Phải đặt CẢ HAI cờ: gộp
-                # nó vào 3 sẽ in ra thông điệp «không phải phát hiện parity»
-                # trong khi báo cáo đang chứa cặp lệch thật.
-                4) INFRA=1; FAIL=1
-                   echo "::warning::lượt $S/$VP: có cặp lệch THẬT và có cặp không gọi được backend" ;;
-                *) FAIL=1 ;;
-              esac
-            done
-          done
-          if [ "$INFRA" = "1" ]; then
-            echo "::error::Cổng parity không chạy xong được vì backend không gọi được (mã 3)."
-            echo "Đây KHÔNG phải phát hiện về parity. Kiểm backend production rồi chạy lại."
-          fi
-          # Vẫn đỏ khi hạ tầng hỏng — bỏ qua trong im lặng thì lần merge kế tiếp
-          # đi qua một cổng chưa từng chạy. Đỏ, nhưng đỏ ĐÚNG LÝ DO.
-          #
-          # Dạng `if` tường minh thay cho `A || B && C`. Đo thật thì dạng kia
-          # KHÔNG sai ở đây (bash không kích hoạt `-e` cho lệnh nằm giữa danh
-          # sách `||`/`&&`), nhưng nó đọc như «hoặc A, hoặc B-rồi-C» trong khi
-          # thực chất là `(A || B) && C`, và trạng thái thoát của nó phụ thuộc
-          # vào lệnh nào được chạy sau cùng. Ở một dòng quyết định cổng đỏ hay
-          # xanh, thứ cần là đọc phát hiểu ngay.
-          if [ "$FAIL" = "1" ] || [ "$INFRA" = "1" ]; then
-            exit 1
-          fi
-          exit 0
-
-      # Cổng parity so TRẠNG THÁI TĨNH — nó không bấm gì, nên không phân biệt
-      # được "nút có nhãn đúng" với "nút LÀM ĐÚNG VIỆC". Ba lỗi lọt qua trong
-      # đợt port `/speaking` đều thuộc loại đó (listener gắn vào id không tồn
-      # tại; thiếu `cue-card-detector.js`; biểu đồ không chờ Chart.js) — build
-      # xanh, test xanh, nút không làm gì.
-      #
-      # Bước này đi HẾT luồng tạo phiên trong trình duyệt thật, chặn mạng và trả
-      # dữ liệu sẵn: không cần secret, không ghi vào đâu cả. Nó KHÔNG thay thế
-      # `tests/staging-e2e/speaking-start-flow.spec.js` (bản đó chứng minh phiên
-      # được tạo THẬT ở backend) — nó chỉ chứng minh phía trình duyệt gửi đúng,
-      # nhưng đó lại là phần mà cổng parity mù hoàn toàn.
-      # KHÔNG gác sau `authed`: bước này dùng phiên GIẢ và chặn mạng, nó không
-      # cần secret nào. Bản đầu tôi gác nó và chính PR thêm nó đã KHÔNG chạy nó
-      # (`authed` false vì chỉ sửa workflow + tooling) — đúng lớp lỗi Codex bắt
-      # hai lần: chốt tồn tại mà không bao giờ nổ. Chạy mỗi khi job chạy.
       - name: Kiểm boundary Pricing pre-launch
-        run: node tooling/verify-pricing-redirect-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-pricing-redirect-flow.mjs "http://localhost:$TEST_PORT"
 
       # Login needs interaction evidence beyond the signed-out parity frame:
       # implicit callback cleanup, backend-canonical activation truth and the
       # lost-ACK reconciliation path are all exercised with a fake backend.
       - name: Kiểm luồng Login/Auth native
-        run: node tooling/verify-login-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-login-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng Onboarding native
-        run: node tooling/verify-onboarding-flow.mjs "http://localhost:$PARITY_PORT" ${{ steps.gate_f.outputs.redirect_installed == 'true' && '--next-only' || '' }}
+        run: node tooling/verify-onboarding-flow.mjs "http://localhost:$TEST_PORT" --next-only
 
       # Player Quiz có state ghi thích ứng; cặp parity tĩnh chỉ phủ nhánh thiếu
       # bank. Fixture này chứng minh answer/advance locks, retry outbox,
       # non-destructive review, reset reconcile và summary ngay trong browser.
       - name: Kiểm luồng Quiz native
-        run: node tooling/verify-quiz-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-quiz-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng Exam player native
-        run: node tooling/verify-exam-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-exam-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/mock-exam` điều phối clock chung, iframe L/R và Writing autosave.
       # Parity tĩnh chỉ thấy nhánh thiếu identity; fixture này khóa create
       # reconciliation, retake assignment, flush order và final-submit lost ACK.
       - name: Kiểm luồng Mock Exam runner native
-        run: node tooling/verify-mock-exam-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-mock-exam-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm luồng Writing learner native
+        run: node tooling/verify-writing-admission-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng tạo phiên (Speaking)
-        run: node tooling/verify-speaking-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-speaking-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm bootstrap qua App Router client navigation
-        run: node tooling/verify-shared-runtime-client-navigation.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-shared-runtime-client-navigation.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm layout Next ở desktop và điện thoại
+        run: node tooling/verify-next-responsive-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/reading/vocab` đã chuyển request/filter/state sang React. Cổng parity
       # chỉ chụp một trạng thái tĩnh nên không chứng minh được malformed payload,
@@ -1219,408 +781,411 @@ jobs:
       # phiên + backend giả và chặn toàn bộ request; không cần secret, không ghi
       # vào dữ liệu nào.
       - name: Kiểm luồng Reading Vocab native
-        run: node tooling/verify-reading-vocab-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-reading-vocab-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/grammar/roadmap?slug=` được G1 public parity phủ; mode không slug là
       # private/account-keyed nên cần fixture riêng để kiểm auth, lỗi-vs-rỗng,
       # authored-text escaping và responsive layout mà không ghi production.
       - name: Kiểm luồng Grammar Roadmap cá nhân native
-        run: node tooling/verify-grammar-roadmap-personal-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-grammar-roadmap-personal-flow.mjs "http://localhost:$TEST_PORT"
 
       # Public parity khóa nội dung ban đầu; fixture browser này khóa các hành
       # vi sau hydrate: filter, compound deep-link, feedback và mobile sheet.
       - name: Kiểm luồng Vocabulary Wiki native
-        run: node tooling/verify-vocabulary-wiki-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-vocabulary-wiki-flow.mjs "http://localhost:$TEST_PORT"
+
+      - name: Kiểm luồng D1 Exercise native
+        run: node tooling/verify-d1-exercise-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/reading/skill` cũng sở hữu request/filter/state bằng React. Chạy độc
       # lập để bắt canonical total, nhóm kỹ năng, response filter cũ và reset.
       - name: Kiểm luồng Reading Skill native
-        run: node tooling/verify-reading-skill-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-reading-skill-flow.mjs "http://localhost:$TEST_PORT"
 
       # Hai detail route dùng chung một workspace React. Runner này ghim
       # answer-key fail-close, bốn loại control L1/L2, retry/sync lock,
       # tabs/dialog keyboard, feedback flag và mobile containment.
       - name: Kiểm luồng Reading Detail native
-        run: node tooling/verify-reading-detail-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-reading-detail-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/reading/test` sở hữu filter/card/state bằng React; kiểm canonical
       # total, test_type=full, reset và response cũ ngay trên production build.
       - name: Kiểm luồng Reading Full Test native
-        run: node tooling/verify-reading-test-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-reading-test-flow.mjs "http://localhost:$TEST_PORT"
 
       # Mini Test có default và thống kê duration riêng; runner này ngăn nó
       # trượt về default Full Test khi phần behavior được đổi.
       - name: Kiểm luồng Reading Mini Test native
-        run: node tooling/verify-reading-mini-test-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-reading-mini-test-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/listening/tests` phân biệt activity attempt với submitted attempt.
       # Runner browser khóa lại filter, trạng thái card, CTA và escaping thật.
       - name: Kiểm luồng Listening Full Tests native
-        run: node tooling/verify-listening-tests-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-listening-tests-flow.mjs "http://localhost:$TEST_PORT"
 
       # Mini Tests có score không cố định và completion dựa trên submitted.
       - name: Kiểm luồng Listening Mini Test native
-        run: node tooling/verify-listening-mini-test-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-listening-mini-test-flow.mjs "http://localhost:$TEST_PORT"
 
       # Skill Drills có nav 11 dạng, ladder L/T và completion theo submitted.
       - name: Kiểm luồng Listening Skills native
-        run: node tooling/verify-listening-skills-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-listening-skills-flow.mjs "http://localhost:$TEST_PORT"
 
       # Luyện nhanh có overview-driven tabs, cache theo tab và hash selection.
       - name: Kiểm luồng Listening Practice native
-        run: node tooling/verify-listening-practice-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-listening-practice-flow.mjs "http://localhost:$TEST_PORT"
 
       # Runner Luyện nhanh ghim resume-before-start, first-answer scoring,
       # two-miss reveal, exact check retry và submit reconciliation.
       - name: Kiểm luồng Listening Practice runner native
-        run: node tooling/verify-listening-practice-run-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-listening-practice-run-flow.mjs "http://localhost:$TEST_PORT"
 
       # Landing dùng overview để quyết định card nào có đích chạy thật.
       - name: Kiểm luồng Listening Landing native
-        run: node tooling/verify-listening-landing-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-listening-landing-flow.mjs "http://localhost:$TEST_PORT"
 
       # Browse khóa filter contract và chỉ mở exercise modes backend xác nhận.
       - name: Kiểm luồng Listening Browse native
-        run: node tooling/verify-listening-browse-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-listening-browse-flow.mjs "http://localhost:$TEST_PORT"
 
       # Ba exercise lẻ dùng chung contract đọc/ghi nhưng khác payload. Runner
       # fixture kiểm cả MCQ, T/F và Gist trên mã React thật, gồm answer-leak,
       # identity, submit, reset, lỗi thân thiện và mobile containment.
       - name: Kiểm luồng Listening exercises native
-        run: node tooling/verify-listening-standalone-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-listening-standalone-flow.mjs "http://localhost:$TEST_PORT"
 
       # Standalone Dictation uses content_id and per-segment writes; it is not
       # the test-linked core player below. The fixture pins transcript secrecy,
       # clipped iteration, retry truth, completion and soft-navigation reset.
       - name: Kiểm luồng Listening standalone Dictation native
-        run: node tooling/verify-listening-standalone-dictation-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-listening-standalone-dictation-flow.mjs "http://localhost:$TEST_PORT"
 
       # Analytics khóa range contract, weighted denominators và trạng thái
       # recent/empty/error trên browser thật.
       - name: Kiểm luồng Listening Analytics native
-        run: node tooling/verify-listening-analytics-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-listening-analytics-flow.mjs "http://localhost:$TEST_PORT"
 
       # Core player không thể so bằng snapshot tĩnh: canonical attempt chỉ lộ
       # khi bấm, reload và submit. Runner dùng phiên/backend giả, không ghi dữ
       # liệu thật và fail nếu partial save vẫn cho phép finalization.
       - name: Kiểm luồng Listening Test native
-        run: node tooling/verify-listening-test-session-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-listening-test-session-flow.mjs "http://localhost:$TEST_PORT"
 
       # Review has no deterministic production attempt for static parity.
       # This hermetic fixture pins submitted/auth gates, preview neutrality,
       # filters, transcript/audio sync, escaping and responsive containment.
       - name: Kiểm luồng Listening Review native
-        run: node tooling/verify-listening-review-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-listening-review-flow.mjs "http://localhost:$TEST_PORT"
 
       # Dictation player owns multi-section practice and a durable completion
       # receipt. The fixture commits then drops the POST acknowledgement and
       # requires exact request-id GET reconciliation before success is shown.
       - name: Kiểm luồng Listening Dictation native
-        run: node tooling/verify-listening-dictation-session-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-listening-dictation-session-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin` cần role admin nên snapshot parity bằng probe thường không thể
       # chứng minh dashboard thật. Runner này fixture `/auth/me` + ba read API,
       # kiểm race/refresh/escaping/responsive và fail nếu có mutation nghiệp vụ.
       - name: Kiểm luồng Admin Overview native
-        run: node tooling/verify-admin-overview-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-overview-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/error-logs` có cả read dashboard và mutations dismiss/undo/test.
       # Runner fixture backend, kiểm canonical reload + rollback metrics và cấm
       # mọi đường ghi ngoài contract, không chạm dữ liệu thật.
       - name: Kiểm luồng Admin Error Logs native
-        run: node tooling/verify-admin-error-logs-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-error-logs-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/system/alerts` là read-only operational triage. Runner ghim
       # canonical dedupe/partial identity, scope URL, escaping và cấm mutation.
       - name: Kiểm luồng Admin Alerts native
-        run: node tooling/verify-admin-alerts-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-alerts-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/system/ai-usage` là read-only cost report. Runner ghim period,
       # service lạ, safety cap/truncation, escaping và cấm mutation.
       - name: Kiểm luồng Admin AI Usage native
-        run: node tooling/verify-admin-ai-usage-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-ai-usage-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/instructors` là read-only ownership/cost oversight. Runner ghim
       # metric regrade khác nhau, sanctioned impersonation URL và responsive UI.
       - name: Kiểm luồng Admin Instructors native
-        run: node tooling/verify-admin-instructors-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-instructors-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/instructor` dùng role-aware fixture thay cho G1 probe không có role.
       # Runner ghim owner scope, impersonation, canonical reload và responsive UI.
       - name: Kiểm luồng Instructor Dashboard native
-        run: node tooling/verify-instructor-dashboard-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-instructor-dashboard-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/instructor/compare` dùng role-aware fixture và mutation readback giả.
       # Runner ghim full-feedback preview, owner scope, impersonation và no-replay.
       - name: Kiểm luồng Instructor Compare native
-        run: node tooling/verify-instructor-compare-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-instructor-compare-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng Instructor Grade native
-        run: node tooling/verify-instructor-grade-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-instructor-grade-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/usage` là read-only user/code rollup. Runner ghim metric bị lỗi
       # vẫn là unknown, code drill-down, URL filters, escaping và responsive UI.
       - name: Kiểm luồng Admin Usage native
-        run: node tooling/verify-admin-usage-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-usage-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/foot-traffic` is read-only analytics. Fixture pins inclusive
       # date filters, exact route, partial/unavailable truth and responsive UI.
       - name: Kiểm luồng Admin Foot Traffic native
-        run: node tooling/verify-admin-foot-traffic-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-foot-traffic-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/feedback` has a canonical status mutation. The fixture proves
       # URL filtering, hostile-content escaping, degraded states and GET
       # readback after each PATCH without touching production data.
       - name: Kiểm luồng Admin Feedback native
-        run: node tooling/verify-admin-feedback-flow.mjs "http://localhost:$PARITY_PORT" ${{ steps.gate_f.outputs.redirect_installed == 'true' && '--next-only' || '' }}
+        run: node tooling/verify-admin-feedback-flow.mjs "http://localhost:$TEST_PORT" --next-only
 
       - name: Kiểm luồng Admin Reading Attempts native + rollback
-        run: node tooling/verify-admin-reading-attempts-flow.mjs "http://localhost:$PARITY_PORT" ${{ steps.gate_f.outputs.redirect_installed == 'true' && '--next-only' || '' }}
+        run: node tooling/verify-admin-reading-attempts-flow.mjs "http://localhost:$TEST_PORT" --next-only
 
       # `/admin/reading` is the read-only routing hub. Fixture pins role gate,
       # truthful native/legacy destinations and responsive visual containment.
       - name: Kiểm luồng Admin Reading hub native
-        run: node tooling/verify-admin-reading-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-reading-flow.mjs "http://localhost:$TEST_PORT"
 
       # Content manager mutates canonical Reading data. Fixture pins dry-run
       # structure, route ownership, responsive table and GET readback after write.
       - name: Kiểm luồng Admin Reading content native
-        run: node tooling/verify-admin-reading-content-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-reading-content-flow.mjs "http://localhost:$TEST_PORT"
 
       # Paper QA exposes answer keys and mutates shared diagram images. Fixture
       # pins block ownership, sanitized Markdown and canonical readback after write.
       - name: Kiểm luồng Admin Reading preview native
-        run: node tooling/verify-admin-reading-preview-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-reading-preview-flow.mjs "http://localhost:$TEST_PORT"
 
       # Listening inventory is read-only. Fixture pins filter URL, canonical
       # paging, per-row exercise partial failures and responsive containment.
       - name: Kiểm luồng Admin Listening content native
-        run: node tooling/verify-admin-listening-content-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-listening-content-flow.mjs "http://localhost:$TEST_PORT"
 
       # Content detail separates metadata/exercise reads, confirms publication
       # changes and reconciles every write through the canonical content GET.
       - name: Kiểm luồng Admin Listening content detail native
-        run: node tooling/verify-admin-listening-content-detail-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-listening-content-detail-flow.mjs "http://localhost:$TEST_PORT"
 
       # Metadata editor sends only deltas, uses an atomic version token and
       # concludes success only after exact canonical GET reconciliation.
       - name: Kiểm luồng Admin Listening content editor native
-        run: node tooling/verify-admin-listening-content-editor-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-listening-content-editor-flow.mjs "http://localhost:$TEST_PORT"
 
       # Test inventory mutates publication and exam-only visibility. Fixture
       # pins URL filters, stale-ACK rejection and exact GET + list readback.
       - name: Kiểm luồng Admin Listening tests native
-        run: node tooling/verify-admin-listening-tests-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-listening-tests-flow.mjs "http://localhost:$TEST_PORT"
 
       # Test detail owns audio/map/publication/delete mutations. Fixture pins
       # stale-ACK rejection, mode rollback, cascade archive and typed hard delete.
       - name: Kiểm luồng Admin Listening test detail native
-        run: node tooling/verify-admin-listening-test-detail-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-listening-test-detail-flow.mjs "http://localhost:$TEST_PORT"
 
       # Attempt inventory is read-only but association truth is operationally
       # sensitive. Fixture pins canonical filters, lookup-failure visibility,
       # exact detail identity, pagination and responsive containment.
       - name: Kiểm luồng Admin Listening attempts native
-        run: node tooling/verify-admin-listening-attempts-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-listening-attempts-flow.mjs "http://localhost:$TEST_PORT"
 
       # Dictation reports are read-only but aggregate scope and learner
       # association truth are operationally sensitive. The fixture pins
       # stale-response rejection, full-scope aggregate, exact session detail,
       # independent failure states, pagination and responsive containment.
       - name: Kiểm luồng Admin Listening dictation native
-        run: node tooling/verify-admin-listening-dictation-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-listening-dictation-flow.mjs "http://localhost:$TEST_PORT"
 
       # Segment authoring mutates exact Dictation blocks. The fixture pins
       # multi-block identity, version conflicts, durable receipts, canonical
       # GET reconciliation, the public audio-time API and responsive containment.
       - name: Kiểm luồng Admin Listening segments native
-        run: node tooling/verify-admin-listening-segments-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-listening-segments-flow.mjs "http://localhost:$TEST_PORT"
 
       # Gist authoring mutates exact rubric blocks. The fixture pins strict
       # keywords, version conflicts, durable receipts and canonical readback.
       - name: Kiểm luồng Admin Listening Gist native
-        run: node tooling/verify-admin-listening-gist-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-listening-gist-flow.mjs "http://localhost:$TEST_PORT"
 
       # True/False authoring mutates exact answer-key blocks. The fixture pins
       # T/F/NG ground truth, version conflicts, durable receipts and readback.
       - name: Kiểm luồng Admin Listening True False native
-        run: node tooling/verify-admin-listening-true-false-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-listening-true-false-flow.mjs "http://localhost:$TEST_PORT"
 
       # MCQ authoring mutates exact answer-key blocks. The fixture pins four
       # option truth, version conflicts, receipts, focus stability and readback.
       - name: Kiểm luồng Admin Listening MCQ native
-        run: node tooling/verify-admin-listening-mcq-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-listening-mcq-flow.mjs "http://localhost:$TEST_PORT"
 
       # Full-test import is a four-file write boundary. The fixture pins SHA-256
       # invalidation, duplicate fail-closed behavior, upload progress, durable
       # receipts, GET-only ambiguity reconciliation and publication readback.
       - name: Kiểm luồng Admin Listening full-test import native
-        run: node tooling/verify-admin-listening-fulltest-import-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-listening-fulltest-import-flow.mjs "http://localhost:$TEST_PORT"
 
       # Skill-drill import is a client-side batch write boundary. The fixture
       # pins deterministic grouping, duplicate locks, sequential receipts,
       # upload progress and GET-only ambiguity reconciliation.
       - name: Kiểm luồng Admin Listening skill-drill import native
-        run: node tooling/verify-admin-listening-drill-import-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-listening-drill-import-flow.mjs "http://localhost:$TEST_PORT"
 
       # Quality audit distinguishes live structural evidence, persisted full
       # audit and lookup failure across the complete paginated test inventory.
       - name: Kiểm luồng Admin Listening quality audit native
-        run: node tooling/verify-admin-listening-audit-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-listening-audit-flow.mjs "http://localhost:$TEST_PORT"
 
       # The detail workspace is a versioned repair boundary. The fixture pins
       # exact section audio, canonical readback, paid-run receipts and triage.
       - name: Kiểm luồng Admin Listening audit detail native
-        run: node tooling/verify-admin-listening-audit-detail-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-listening-audit-detail-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/grammar` is a read-only content-operations hub. The fixture
       # proves backend role gating, canonical destinations and mobile/desktop UI.
       - name: Kiểm luồng Admin Grammar hub native
-        run: node tooling/verify-admin-grammar-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-grammar-flow.mjs "http://localhost:$TEST_PORT"
 
       # Vocabulary Stats, D1 and Lemma contain admin mutations. The fixture
       # asserts exact bodies, in-flight locks and canonical GET readbacks.
       - name: Kiểm luồng Admin Vocabulary native
-        run: node tooling/verify-admin-vocab-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-vocab-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng Admin Speaking hub native
-        run: node tooling/verify-admin-speaking-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-speaking-flow.mjs "http://localhost:$TEST_PORT"
 
       # Sessions mutates grading and summary state. The fixture pins URL/deep
       # links, stale-request suppression, accessible confirmations, partial
       # failure truth and canonical GET readback after every write.
       - name: Kiểm luồng Admin Speaking Sessions native
-        run: node tooling/verify-admin-speaking-sessions-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-speaking-sessions-flow.mjs "http://localhost:$TEST_PORT"
 
       # Topics mutates topic/question libraries and AI rotation. The fixture
       # pins safe missing-only semantics, exact payloads and canonical readback.
       - name: Kiểm luồng Admin Speaking Topics native
-        run: node tooling/verify-admin-speaking-topics-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-speaking-topics-flow.mjs "http://localhost:$TEST_PORT"
 
       - name: Kiểm luồng Admin Writing hub native
-        run: node tooling/verify-admin-writing-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-writing-flow.mjs "http://localhost:$TEST_PORT"
 
       # Queue mutates reviewed and Mock essay state. Fixture pins exact ACKs,
       # canonical readback, stale snapshots, hostile data and responsive cards.
       - name: Kiểm luồng Admin Writing Queue native
-        run: node tooling/verify-admin-writing-queue-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-writing-queue-flow.mjs "http://localhost:$TEST_PORT"
 
       # Status is a read-only per-essay job monitor. The fixture pins exact
       # identity, sequential polling, stale snapshot truth, terminal hops,
       # embedded Mock flags, hostile retry data and responsive layout.
       - name: Kiểm luồng Admin Writing Status native
-        run: node tooling/verify-admin-writing-status-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-writing-status-flow.mjs "http://localhost:$TEST_PORT"
 
       # Prompts mutates content, storage images, archive and answer-key state.
       # The fixture pins exact ACKs, canonical readback and mobile layout.
       - name: Kiểm luồng Admin Writing Prompts native
-        run: node tooling/verify-admin-writing-prompts-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-writing-prompts-flow.mjs "http://localhost:$TEST_PORT"
 
       # Regrade Requests mutates essay visibility and request lifecycle. The
       # fixture pins exact ACKs, atomic state, readback retry and mobile layout.
       - name: Kiểm luồng Admin Writing Regrade Requests native
-        run: node tooling/verify-admin-writing-regrade-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-writing-regrade-flow.mjs "http://localhost:$TEST_PORT"
 
       # Assignments fan-out can duplicate hundreds of writes when a client
       # retries POST after a readback failure. This fixture pins immutable
       # receipts, GET-only reconciliation and source-specific picker errors.
       - name: Kiểm luồng Admin Writing Assignments native
-        run: node tooling/verify-admin-writing-assignments-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-writing-assignments-flow.mjs "http://localhost:$TEST_PORT"
 
       # Cohorts is a read-only operational matrix. The fixture pins repeated
       # prompt gives, canonical essay links, stale truth and mobile containment.
       - name: Kiểm luồng Admin Writing Cohorts native
-        run: node tooling/verify-admin-writing-cohorts-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-writing-cohorts-flow.mjs "http://localhost:$TEST_PORT"
 
       # Instructor Queue mutates ownership. The fixture pins edited-lane
       # visibility, exact ACK + canonical readback, ambiguous response
       # reconciliation without POST replay, embed flags and mobile containment.
       - name: Kiểm luồng Admin Writing Instructor Queue native
-        run: node tooling/verify-admin-writing-instructor-queue-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-writing-instructor-queue-flow.mjs "http://localhost:$TEST_PORT"
 
       # Writing Tips combines CRUD with dry-run→commit Markdown import. The
       # fixture pins sanitized preview, exact ACK + canonical readback,
       # account-keyed receipts, no mutation replay and responsive containment.
       - name: Kiểm luồng Admin Writing Tips native
-        run: node tooling/verify-admin-writing-tips-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-writing-tips-flow.mjs "http://localhost:$TEST_PORT"
 
       # Independent grading has no idempotency key. The fixture pins exact
       # ACK redirect, definitive 4xx recovery, ambiguous-write receipt/no retry,
       # extraction/upload contracts and responsive containment.
       - name: Kiểm luồng Admin Writing New native
-        run: node tooling/verify-admin-writing-new-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-writing-new-flow.mjs "http://localhost:$TEST_PORT"
 
       # Native Mock Test orchestration is read-only. This fixture pins the
       # backend-owned role gate, canonical selection, draft-live safety,
       # shareable tabs, exact child identity and mobile containment.
       - name: Kiểm luồng Admin Mock Tests native
-        run: node tooling/verify-admin-mock-tests-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-mock-tests-flow.mjs "http://localhost:$TEST_PORT"
 
       # Native definition workspace exercises canonical exam/progress reads,
       # guarded sequential writes, retake assignment and content-library truth.
       - name: Kiểm luồng Admin Mock Exams native
-        run: node tooling/verify-admin-mock-exams-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-mock-exams-flow.mjs "http://localhost:$TEST_PORT"
 
       # Native invigilator operations keep irreversible controls canonical;
       # pacing remains read-only and states its timestamp limits explicitly.
       - name: Kiểm luồng Admin Mock Live và Pacing native
-        run: node tooling/verify-admin-mock-live-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-mock-live-flow.mjs "http://localhost:$TEST_PORT"
 
       # Native review console pins lookup failure truth, per-skill review,
       # canonical mutation readbacks, release confirmation and report bands.
       - name: Kiểm luồng Admin Mock Reviews và Report native
-        run: node tooling/verify-admin-mock-reviews-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-mock-reviews-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/grammar/articles` is a read-only Markdown inventory. The fixture
       # pins URL filters, analytics availability, sandboxed previews and layout.
       - name: Kiểm luồng Admin Grammar Articles native
-        run: node tooling/verify-admin-grammar-articles-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-grammar-articles-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/grammar/analytics` is read-only canonical aggregation. The fixture
       # pins URL windows, stale snapshots, degraded sources and responsive tables.
       - name: Kiểm luồng Admin Grammar Analytics native
-        run: node tooling/verify-admin-grammar-analytics-flow.mjs "http://localhost:$PARITY_PORT" ${{ steps.gate_f.outputs.redirect_installed == 'true' && '--next-only' || '' }}
+        run: node tooling/verify-admin-grammar-analytics-flow.mjs "http://localhost:$TEST_PORT" --next-only
 
       - name: Kiểm luồng Admin Grammar Recommendation lab native
-        run: node tooling/verify-admin-grammar-recommend-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-grammar-recommend-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/users` gộp users + access-code lifecycle. Runner fixture backend
       # và buộc mọi mutation phải được reconcile bằng GET canonical trước khi
       # UI báo thành công; không chạm dữ liệu thật.
       - name: Kiểm luồng Admin Users native
-        run: node tooling/verify-admin-users-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-users-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/classes` là directory có mutation. Runner chứng minh mọi write
       # được canonical reload, rollup/course lookup lỗi không bị bịa thành 0/rỗng,
       # và edit lớp có course mồ côi không âm thầm tháo liên kết.
       - name: Kiểm luồng Admin Classes native
-        run: node tooling/verify-admin-classes-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-classes-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/classes/[cohortId]` có ba nguồn độc lập và mutations roster/
       # lesson. Fixture ghim partial failure, nullable clears, chuyển lớp và
       # canonical reload; homework/marking được kiểm bằng hai runner kế tiếp.
       - name: Kiểm luồng Admin Class Detail native
-        run: node tooling/verify-admin-class-detail-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-class-detail-flow.mjs "http://localhost:$TEST_PORT"
 
       # Assignment lifecycle là boundary ghi riêng: fixture ghim subset/class,
       # mastery config, backfill, compare-and-confirm hạn và canonical reload.
       - name: Kiểm luồng Admin Class Homework native
-        run: node tooling/verify-admin-class-homework-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-class-homework-flow.mjs "http://localhost:$TEST_PORT"
 
       # Tally/effort/bài từng em là các mặt đọc khác nhau của cùng sổ bài giao;
       # runner còn ghim trả bài phải reload canonical tally và audit status.
       - name: Kiểm luồng Admin Class Submissions native
-        run: node tooling/verify-admin-class-submissions-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-class-submissions-flow.mjs "http://localhost:$TEST_PORT"
 
       # Từ một học viên, runner đọc lịch sử xuyên bài giao, chỉ mở artifact có
       # bằng chứng và quay lại đúng hồ sơ sau khi xem bài từng em.
       - name: Kiểm luồng Admin Class Student Work native
-        run: node tooling/verify-admin-class-student-work-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-class-student-work-flow.mjs "http://localhost:$TEST_PORT"
 
       # `/admin/students` có search, CSV và mutation roster. Fixture ghim
       # canonical reload, nullable clears, partial profile failure và cấm hard delete.
       - name: Kiểm luồng Admin Students native
-        run: node tooling/verify-admin-students-flow.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-admin-students-flow.mjs "http://localhost:$TEST_PORT"
 
       # CỔNG ĐƯỜNG-GHI. Bổ sung cho bước trên chứ không thay thế: bước kia
       # kiểm MỘT luồng đi hết đường (bấm → gửi → điều hướng), bước này kiểm
@@ -1630,30 +1195,19 @@ jobs:
       #
       # Không cần secret, không ghi vào đâu (mạng bị chặn, dữ liệu trả sẵn).
       - name: Cổng đường-ghi
-        run: node tooling/verify-write-flows.mjs "http://localhost:$PARITY_PORT"
+        run: node tooling/verify-write-flows.mjs "http://localhost:$TEST_PORT"
 
-      # CÙNG bản khai, chạy trên vế LEGACY. Đây là thứ biến bản khai từ "test
-      # của bản Next" thành HỢP ĐỒNG: nếu chỉ chạy vế Next thì bản khai chỉ mô
-      # tả đúng thứ vừa được viết, và một đường ghi bị bỏ sót lúc port sẽ bỏ sót
-      # y hệt ở cả hai nơi. Bắt nó xanh trên trang legacy nghĩa là nó mô tả hành
-      # vi CÓ THẬT, đo được, trước khi bản Next tồn tại.
-      #
-      # Chỉ chạy các luồng CÓ khai `legacyRoute`; luồng của trang chỉ-có-Next sẽ
-      # rơi về `route` và bước này thành trùng lặp vô hại.
-      - name: Cổng đường-ghi (vế legacy — cùng bản khai)
-        if: steps.gate_f.outputs.redirect_installed != 'true'
-        env:
-          WF_LEGACY: '1'
-        run: node tooling/verify-write-flows.mjs "http://localhost:$PARITY_PORT"
-
-      - name: Nộp báo cáo
-        if: ${{ always() }}
+      - name: Nộp log server khi lỗi
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v6
         with:
-          name: parity-report-${{ github.run_id }}
-          path: frontend/out/parity-*.json
-          if-no-files-found: warn
+          name: next-native-browser-log-${{ github.run_id }}
+          path: |
+            /tmp/next-native-browser.log
+            /tmp/next-native-fixture-api.log
 
       - name: Dừng Next
         if: ${{ always() }}
-        run: kill "$(cat /tmp/next.pid)" 2>/dev/null || true
+        run: |
+          kill "$(cat /tmp/next-native-browser.pid)" 2>/dev/null || true
+          kill "$(cat /tmp/next-native-fixture-api.pid)" 2>/dev/null || true

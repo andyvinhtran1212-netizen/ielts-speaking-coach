@@ -21,7 +21,7 @@ const LAYOUT = read('app', '(authed-writing-result)', 'layout.tsx');
 const BEHAVIOR = read('app', '(authed-writing-result)', 'writing', 'result', 'writing-result-behavior.tsx');
 const CONFIG = read('next.config.ts');
 const PAIRS = JSON.parse(read('tooling', 'parity-pairs-authed.json'));
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/writing/result — native Next ownership', () => {
   test('owns the canonical route atomically and keeps rollback HTML', () => {

@@ -15,7 +15,7 @@ const PAGE_PATH = path.join(FRONTEND, 'app', '(marketing)', 'pricing', 'page.tsx
 const PAGE = readFileSync(PAGE_PATH, 'utf8');
 const NEXT_LANDING = readFileSync(path.join(FRONTEND, 'app', '(marketing)', 'page.tsx'), 'utf8');
 const LEDGER = readFileSync(path.join(FRONTEND, '../docs/ROUTE_LEDGER.md'), 'utf8');
-const WORKFLOW = readFileSync(path.join(FRONTEND, '../.github/workflows/parity-gate.yml'), 'utf8');
+const WORKFLOW = readFileSync(path.join(FRONTEND, '../.github/workflows/next-native-browser.yml'), 'utf8');
 const VERIFY_PRICING = path.join(FRONTEND, 'tooling', 'verify-pricing-redirect-flow.mjs');
 const execFileAsync = promisify(execFile);
 

@@ -14,7 +14,7 @@ const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
 const ROLLBACK_OVERVIEW = read('public', 'pages', 'admin', 'index.html');
 const CONFIG = read('next.config.ts');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/admin/grammar native hub', () => {
   test('owns the canonical route while preserving a direct rollback artifact', () => {

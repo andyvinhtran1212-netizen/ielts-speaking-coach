@@ -179,7 +179,7 @@ function nextBuildInputs() {
   // Siêu dữ liệu của bản dựng cũng là đầu vào thật, không chỉ mã nguồn:
   // `package.json` quyết định script nào chạy và phiên bản gói nào được cài,
   // còn `tsconfig.json` định nghĩa CHÍNH bí danh `@/*` mà hàm này dựa vào để
-  // suy ra gốc mã dùng chung. `parity-gate.yml` ghim `package-lock.json` nhưng
+  // suy ra gốc mã dùng chung. `next-native-browser.yml` ghim `package-lock.json` nhưng
   // bỏ cả hai tệp kia, nên một PR chỉ đổi script hoặc đổi ánh xạ bí danh sẽ đổi
   // thứ được dựng mà không kích hoạt cổng (Codex bắt ở #946 vòng 4).
   for (const meta of ['package.json', 'tsconfig.json', 'next.config.ts']) {
@@ -291,7 +291,7 @@ describe('workflow — tệp được CHẠY phải nằm trong paths', () => {
     assert.ok(workflows.length >= 3,
       `chỉ đọc được ${workflows.length} workflow có paths — bộ đọc hỏng?`);
     const names = workflows.map((w) => w.name);
-    for (const must of ['backend-tests.yml', 'parity-gate.yml']) {
+    for (const must of ['backend-tests.yml', 'next-native-browser.yml']) {
       assert.ok(names.includes(must), `mất ${must} khỏi danh sách`);
     }
   });
@@ -301,8 +301,9 @@ describe('workflow — tệp được CHẠY phải nằm trong paths', () => {
     const bt = workflows.find((w) => w.name === 'backend-tests.yml');
     assert.ok(executedFiles(bt.src).length > 50,
       'backend-tests chạy cả thư mục frontend/tests — phải thấy hàng chục tệp');
-    const pg = workflows.find((w) => w.name === 'parity-gate.yml');
-    assert.ok(executedFiles(pg.src).length >= 2, 'parity-gate gọi ít nhất 2 script');
+    const browser = workflows.find((w) => w.name === 'next-native-browser.yml');
+    assert.ok(executedFiles(browser.src).length >= 2,
+      'Next-native browser workflow phải gọi nhiều verifier');
   });
 
   for (const w of workflows) {
@@ -338,7 +339,7 @@ describe('workflow — tệp được CHẠY phải nằm trong paths', () => {
     // nhưng nạp bằng `readdirSync` nên không nêu tên tệp nào — cơ chế chuỗi ở
     // trên không tự thấy phụ thuộc đó. Nếu workflow chạy nó chỉ ghim chính nó
     // (`- '.github/workflows/backend-tests.yml'`), thì một PR sửa `paths` của
-    // `parity-gate.yml` sẽ merge mà KHÔNG chạy đúng cái chốt canh `paths`.
+    // `next-native-browser.yml` sẽ merge mà KHÔNG chạy đúng cái chốt canh `paths`.
     // Tìm workflow theo HÀNH VI — workflow nào thực sự chạy CHÍNH TỆP NÀY — chứ
     // không theo chữ `node --test` xuất hiện trong src: chuỗi đó còn nằm trong
     // chú thích của `e2e.yml` và `route-manifest.yml`, nên bản dò-theo-chữ chỉ
@@ -347,7 +348,7 @@ describe('workflow — tệp được CHẠY phải nằm trong paths', () => {
     const runner = workflows.find((w) => executedFiles(w.src).includes(self));
     assert.ok(runner, 'không workflow nào thực sự chạy tệp test này — nó vô dụng');
     const res = runner.paths.map(globToRe);
-    for (const other of ['.github/workflows/parity-gate.yml',
+    for (const other of ['.github/workflows/next-native-browser.yml',
                          '.github/workflows/route-manifest.yml']) {
       assert.ok(res.some((re) => re.test(other)),
         `${runner.name} không chạy khi ${other} đổi — thêm '.github/workflows/**'`);

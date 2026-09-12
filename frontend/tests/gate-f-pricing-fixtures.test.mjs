@@ -55,7 +55,7 @@ test('both dedicated Pricing suites pass in an isolated checkout without public 
     'frontend/app/(marketing)/page.tsx',
     'frontend/tooling/verify-pricing-redirect-flow.mjs',
     'docs/ROUTE_LEDGER.md',
-    '.github/workflows/parity-gate.yml',
+    '.github/workflows/next-native-browser.yml',
   ];
   try {
     for (const source of sources) {

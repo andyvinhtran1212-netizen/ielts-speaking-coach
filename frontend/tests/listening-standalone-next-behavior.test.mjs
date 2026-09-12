@@ -16,7 +16,7 @@ const CLIENT = read('app', '(authed-listening)', 'listening', '(standalone-exerc
 const LAYOUT = read('app', '(authed-listening)', 'listening', '(standalone-exercises)', 'layout.tsx');
 const BROWSE = read('app', '(authed-listening)', 'listening', 'browse', 'listening-browse-behavior.tsx');
 const CSS = read('public', 'css', 'listening-standalone-next.css');
-const PARITY = read('..', '.github', 'workflows', 'parity-gate.yml');
+const PARITY = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 const content = { id: 'content-1', title: 'Fixture', audio_signed_url: 'https://audio.test/a.mp3', audio_duration_seconds: 65 };
 const envelope = (exercise_type, payload) => ({ exercises: [{ id: `exercise-${exercise_type}`, content_id: 'content-1', exercise_type, payload }] });

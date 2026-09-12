@@ -23,7 +23,7 @@ const CSS = read('public', 'css', 'admin-students-next.css');
 const CLASSES = read('app', '(authed-admin-classes)', 'admin', 'classes', 'admin-classes-directory.tsx');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const BROWSER = read('tooling', 'verify-admin-students-flow.mjs');
 const MODEL = read('lib', 'admin-students-model.mjs');
 

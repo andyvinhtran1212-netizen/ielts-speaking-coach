@@ -21,7 +21,7 @@ const VIEW = readFileSync(join(ROOT, 'app', '(authed-instructor-grade)', 'instru
 const LAYOUT = readFileSync(join(ROOT, 'app', '(authed-instructor-grade)', 'layout.tsx'), 'utf8');
 const DASHBOARD_MODEL = readFileSync(join(ROOT, 'lib', 'instructor-dashboard-model.mjs'), 'utf8');
 const COMPARE_MODEL = readFileSync(join(ROOT, 'lib', 'instructor-compare-model.mjs'), 'utf8');
-const WORKFLOW = readFileSync(join(ROOT, '..', '.github', 'workflows', 'parity-gate.yml'), 'utf8');
+const WORKFLOW = readFileSync(join(ROOT, '..', '.github', 'workflows', 'next-native-browser.yml'), 'utf8');
 
 function essay() {
   return {

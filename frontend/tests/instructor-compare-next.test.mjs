@@ -17,7 +17,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PAGE = readFileSync(join(ROOT, 'app', '(authed-instructor-compare)', 'instructor', 'compare', 'page.tsx'), 'utf8');
 const VIEW = readFileSync(join(ROOT, 'app', '(authed-instructor-compare)', 'instructor', 'compare', 'instructor-compare.tsx'), 'utf8');
 const LAYOUT = readFileSync(join(ROOT, 'app', '(authed-instructor-compare)', 'layout.tsx'), 'utf8');
-const PARITY_WORKFLOW = readFileSync(join(ROOT, '..', '.github', 'workflows', 'parity-gate.yml'), 'utf8');
+const PARITY_WORKFLOW = readFileSync(join(ROOT, '..', '.github', 'workflows', 'next-native-browser.yml'), 'utf8');
 
 function feedback(version, bands) {
   return {

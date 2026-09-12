@@ -16,7 +16,7 @@ const BEHAVIOR = read(
 const LEGACY_HTML = read('public', 'pages', 'listening-analytics.html');
 const LEGACY_JS = read('public', 'js', 'listening-analytics.js');
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
-const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/listening/analytics — native React behavior', () => {
   test('removes legacy injection and delegates range/data state to React', () => {

@@ -23,7 +23,7 @@ const CSS = read('public', 'css', 'admin-error-logs-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const BROWSER_FLOW = read('tooling', 'verify-admin-error-logs-flow.mjs');
 
 describe('/admin/error-logs — native ownership', () => {

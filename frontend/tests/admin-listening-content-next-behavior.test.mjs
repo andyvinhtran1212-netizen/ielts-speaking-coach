@@ -17,7 +17,7 @@ const LAYOUT = read('app', '(authed-admin-listening)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-listening-content-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 
 test('normalizes URL filters and produces stable clean-route links', () => {
