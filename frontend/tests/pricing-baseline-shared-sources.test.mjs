@@ -17,7 +17,7 @@ const SUITES = ['anti-flash-iife-canonical', 'theme-toggle-icon-canonical', 'b8-
 const SOURCES = [
   ...SUITES,
   ...['loader.mjs', 'manifest.json', 'pricing.html']
-    .map((name) => `frontend/tests/fixtures/gate-f-pricing/${name}`),
+    .map((name) => `frontend/tests/fixtures/pricing-baseline/${name}`),
   ...['home', 'speaking', 'practice', 'result', 'writing-dashboard', 'writing-result',
     'full-test-result', 'vocabulary', 'flashcards', 'exercises', 'profile',
     'grammar-roadmap', 'grammar-article', 'grammar-search', 'grammar-compare']
@@ -43,8 +43,8 @@ test('shared suites pass without public Pricing but each still rejects a non-Pri
       copyFileSync(path.join(ROOT, source), target);
     }
     for (const absent of ['frontend/public', 'frontend/pricing.html', 'frontend/css/pricing.css',
-      'frontend/tests/fixtures/gate-f-pricing/index.html',
-      'frontend/tests/fixtures/gate-f-pricing/pricing.css']) {
+      'frontend/tests/fixtures/pricing-baseline/index.html',
+      'frontend/tests/fixtures/pricing-baseline/pricing.css']) {
       assert.equal(existsSync(path.join(root, absent)), false, `${absent} must not exist`);
     }
     // No worker state, NODE_OPTIONS, credentials, node_modules or source symlinks.

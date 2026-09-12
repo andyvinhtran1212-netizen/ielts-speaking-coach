@@ -1,10 +1,5 @@
-// Gate F route-replacement inventory.
-//
-// This is deliberately narrower than the final deletion checklist: it proves
-// that every directly renderable Legacy HTML path has a canonical App Router
-// destination before redirects or file deletion can be reviewed. Observation,
-// replacement-test disposition, asset reachability and redirect installation
-// remain separate Gate F evidence.
+// Durable mapping from retired HTML URLs to their canonical App Router owners.
+// This is runtime compatibility data, not migration evidence.
 
 const EXACT_REPLACEMENTS = Object.freeze({
   '/pages/admin/access-codes/index.html': '/admin/users',
@@ -88,14 +83,10 @@ export function buildLegacyReplacementInventory(
       owner: replacementOwner(nextPath),
       nextRoutePresent,
       redirectState: redirectsInstalled
-        ? (redirectsPermanent ? 'installed-permanent' : 'installed-redirect-soak')
-        : 'not-installed-gate-f-blocked',
+        ? (redirectsPermanent ? 'installed-permanent' : 'installed-temporary')
+        : 'not-installed',
       deletionState: nextRoutePresent
-        ? (artifactsRetired
-          ? 'retired'
-          : redirectsInstalled
-          ? (redirectsPermanent ? 'blocked-deletion-review' : 'blocked-redirect-soak-and-deletion-review')
-          : 'blocked-observation-and-deletion-review')
+        ? (artifactsRetired ? 'retired' : 'blocked-release-safety-review')
         : 'blocked-missing-next-route',
     };
   });

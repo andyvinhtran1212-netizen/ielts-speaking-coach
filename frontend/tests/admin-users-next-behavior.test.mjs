@@ -17,7 +17,7 @@ import {
 import {
   buildLegacyRetirementRedirects,
   LEGACY_RETIREMENT_PATHS,
-} from '../tooling/gate-f-retirement-redirects.mjs';
+} from '../tooling/legacy-url-redirects.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -34,16 +34,14 @@ const NEXT_CONFIG = read('next.config.ts');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const BROWSER = read('tooling', 'verify-admin-users-flow.mjs');
-const RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
-  LEGACY_RETIREMENT_PATHS,
-  { permanent: false },
-);
+const RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(LEGACY_RETIREMENT_PATHS);
 
 describe('/admin/users — native ownership', () => {
-  test('uses the backend admin gate and retains rollback artifacts', () => {
+  test('uses the backend admin gate and retains a non-deployable historical fixture', () => {
     assert.match(PAGE, /<AdminAccessGate>/);
     assert.match(PAGE, /<aver-admin-chrome active="users">/);
-    assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'users', 'index.html')));
+    assert.ok(existsSync(join(ROOT, 'tests', 'fixtures', 'legacy-html-retired',
+      'pages', 'admin', 'users', 'index.html')));
     assert.ok(existsSync(join(ROOT, 'public', 'js', 'admin-users.js')));
     assert.ok(existsSync(join(ROOT, 'public', 'js', 'admin-access-codes.js')));
     assert.match(CHROME, /section: 'users'[^\n]+href: '\/admin\/users'/);
@@ -55,7 +53,7 @@ describe('/admin/users — native ownership', () => {
     assert.ok(RETIREMENT_REDIRECTS.some((entry) => (
       entry.source === '/pages/admin/access-codes/index.html'
         && entry.destination === '/admin/users?tab=codes'
-        && entry.permanent === false
+        && entry.permanent === true
     )));
     assert.equal((OVERVIEW.match(/href="\/admin\/users/g) || []).length, 4);
   });

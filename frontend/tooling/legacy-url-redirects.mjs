@@ -1,4 +1,4 @@
-// Final Gate F redirect plan for every frozen Legacy HTML artifact.
+// Permanent redirect plan for every retired HTML URL.
 //
 // The artifact set is hash-pinned so adding/removing/renaming a Legacy page
 // cannot silently change production routing. Dynamic detail pages translate
@@ -6,8 +6,8 @@
 // falls back to the nearest safe index instead of rendering Legacy HTML.
 import { createHash } from 'node:crypto';
 
-import { canonicalNextRouteForLegacy } from './gate-f-route-replacement-inventory.mjs';
-import { LEGACY_RETIREMENT_PATHS } from './gate-f-legacy-paths.mjs';
+import { canonicalNextRouteForLegacy } from './legacy-url-mapping.mjs';
+import { LEGACY_RETIREMENT_PATHS } from './legacy-url-paths.mjs';
 
 export { LEGACY_RETIREMENT_PATHS };
 
@@ -91,7 +91,6 @@ export function assertFrozenLegacyArtifactSet(paths) {
 
 export function buildLegacyRetirementRedirects(
   paths = LEGACY_RETIREMENT_PATHS,
-  { permanent = true } = {},
 ) {
   const frozenPaths = assertFrozenLegacyArtifactSet(paths);
   return frozenPaths.flatMap((source) => {
@@ -101,7 +100,7 @@ export function buildLegacyRetirementRedirects(
         {
           source,
           destination: dynamic.destination,
-          permanent,
+          permanent: true,
           has: dynamic.query.map(({ key, parameter }) => ({
             type: 'query',
             key,
@@ -116,11 +115,11 @@ export function buildLegacyRetirementRedirects(
         rules.push({
           source,
           destination: '/admin/students',
-          permanent,
+          permanent: true,
           has: [{ type: 'query', key: 'tab', value: 'students' }],
         });
       }
-      rules.push({ source, destination: dynamic.fallback, permanent });
+      rules.push({ source, destination: dynamic.fallback, permanent: true });
       return rules;
     }
 
@@ -129,6 +128,6 @@ export function buildLegacyRetirementRedirects(
     if (!destination || destination.includes('[') || destination.endsWith('.html')) {
       throw new Error(`legacy-retirement-destination-invalid:${source}:${destination}`);
     }
-    return [{ source, destination, permanent }];
+    return [{ source, destination, permanent: true }];
   });
 }

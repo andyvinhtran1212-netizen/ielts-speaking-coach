@@ -3,23 +3,17 @@
 // VÌ SAO: nhãn tab, mục lịch sử và tên bookmark đều lấy từ đây. Lệch thì người
 // dùng cutover xong thấy tab đổi tên — thay đổi nhìn thấy được mà không ai chủ ý.
 //
-// Cổng parity CÓ phát hiện chuyện này, nhưng ở mức CẢNH BÁO (`! [title-mismatch]`),
-// nên nó trôi qua nhiều PR: `/home` và `/speaking` mang lệch "Aver Learning" vs
-// "AverLearning" (thiếu dấu cách) từ đợt pilot, và tôi đã đọc đúng dòng cảnh báo
-// đó trong log rồi bỏ qua vì tưởng là nhiễu có sẵn. Bot bắt lại ở #960 qua một
-// trang khác, và quét cơ học thì ra BA chỗ chứ không phải một.
-//
-// Chốt này biến cảnh báo thành lỗi ĐỎ, và quét MỌI cặp thay vì cặp đang sửa.
+// Chốt này so trực tiếp với archive không deploy để nhãn tab/bookmark ổn định.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { canonicalNextRouteForLegacy } from '../tooling/legacy-url-mapping.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const APP = path.join(ROOT, 'frontend/app');
-const pairs = JSON.parse(
-  readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
+const ARCHIVE = path.join(ROOT, 'frontend/tests/fixtures/legacy-html-retired');
 
 /** Mọi `page.tsx` dưới `app/`, kèm URL route (bỏ các đoạn route-group). */
 function routeIndex(dir = APP, out = new Map()) {
@@ -37,9 +31,45 @@ function routeIndex(dir = APP, out = new Map()) {
 }
 
 const ROUTES = routeIndex();
+const TITLE_BASELINE_PATHS = Object.freeze([
+  '/pages/home.html',
+  '/pages/speaking.html',
+  '/pages/practice.html',
+  '/pages/reading-vocab.html',
+  '/pages/reading-vocab-passage.html',
+  '/pages/reading-skill.html',
+  '/pages/reading-skill-exercise.html',
+  '/pages/reading-test.html',
+  '/pages/reading-mini-test.html',
+  '/pages/listening-tests.html',
+  '/pages/listening-mini-test.html',
+  '/pages/listening-skills.html',
+  '/pages/listening-practice.html',
+  '/pages/listening-practice-run.html',
+  '/pages/listening.html',
+  '/pages/listening-browse.html',
+  '/pages/listening-analytics.html',
+  '/pages/flashcards.html',
+  '/pages/exercises.html',
+  '/pages/vocab-exam.html',
+  '/pages/exam.html',
+  '/pages/full-test.html',
+  '/pages/mock-exam.html',
+  '/pages/vocab-practice.html',
+  '/pages/speaking-result.html',
+  '/pages/quiz-progress.html',
+  '/pages/quiz.html',
+  '/pages/mock-result.html',
+  '/pages/vocabulary.html',
+  '/pages/writing-result.html',
+  '/pages/admin/writing/grade.html',
+]);
+const pairs = TITLE_BASELINE_PATHS
+  .map((legacy) => ({ legacy, next: canonicalNextRouteForLegacy(legacy) }))
+  .filter(({ legacy, next }) => next && existsSync(path.join(ARCHIVE, legacy.slice(1))));
 
 function pathnameOf(url) {
-  return new URL(url, 'https://parity.invalid').pathname;
+  return new URL(url, 'https://routes.invalid').pathname;
 }
 
 function routeFile(url) {
@@ -58,10 +88,10 @@ function routeFile(url) {
   return null;
 }
 
-describe('metadata.title khớp <title> của bản legacy', () => {
-  test('đọc được cặp parity và cây route', () => {
+describe('metadata.title khớp <title> của archived predecessor', () => {
+  test('đọc được URL manifest, archive và cây route', () => {
     // Một trong hai rỗng ⇒ khẳng định dưới thành xanh-rỗng.
-    assert.ok(pairs.length >= 10, `chỉ thấy ${pairs.length} cặp parity`);
+    assert.equal(pairs.length, TITLE_BASELINE_PATHS.length);
     assert.ok(ROUTES.size >= 10, `chỉ thấy ${ROUTES.size} route`);
   });
 
@@ -75,7 +105,7 @@ describe('metadata.title khớp <title> của bản legacy', () => {
       if (!m) { bad.push(`${p.next}: page.tsx không khai metadata.title`); continue; }
 
       const html = readFileSync(
-        path.join(ROOT, 'frontend/public' + pathnameOf(p.legacy)),
+        path.join(ARCHIVE, pathnameOf(p.legacy).slice(1)),
         'utf8',
       );
       const t = /<title>([^<]*)<\/title>/.exec(html);
@@ -86,7 +116,6 @@ describe('metadata.title khớp <title> của bản legacy', () => {
       }
     }
     assert.deepEqual(bad.sort(), [],
-      'nhãn tab/lịch sử/bookmark sẽ đổi sau cutover — parity chỉ CẢNH BÁO chuyện này '
-      + 'nên nó trôi qua nhiều PR; ở đây nó là lỗi đỏ');
+      'nhãn tab/lịch sử/bookmark đã lệch khỏi predecessor được lưu trong archive');
   });
 });

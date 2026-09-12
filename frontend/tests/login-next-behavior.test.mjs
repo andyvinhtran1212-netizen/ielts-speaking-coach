@@ -2,6 +2,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { canonicalNextRouteForLegacy } from '../tooling/legacy-url-mapping.mjs';
 
 const ROOT = join(import.meta.dirname, '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -10,11 +11,9 @@ const BEHAVIOR = read('app', '(public-auth)', 'login', 'login-behavior.tsx');
 const LAYOUT = read('app', '(public-auth)', 'layout.tsx');
 const RUNTIME_BOUNDARY = read('components', 'supabase-runtime-boundary.tsx');
 const CSS = read('public', 'css', 'login-next.css');
-const LEGACY = read('public', 'login.html');
+const LEGACY = read('tests', 'fixtures', 'legacy-html-retired', 'login.html');
 const PRACTICE = read('public', 'js', 'practice.js');
 const EXAM_PLAYER = read('public', 'js', 'exam-player.js');
-const PARITY = read('tooling', 'parity-diff.mjs');
-const PARITY_CORE = read('tooling', 'parity-core.mjs');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/login native auth entry', () => {
@@ -27,11 +26,10 @@ describe('/login native auth entry', () => {
     assert.match(CSS, /@media \(prefers-reduced-motion: reduce\)/);
   });
 
-  test('keeps rollback parity and CI interaction evidence wired to the route', () => {
+  test('keeps the archived presentation baseline and native browser evidence wired', () => {
     assert.match(LEGACY, /<h1 class="lx-form-heading">Bắt đầu luyện tập<\/h1>/);
     assert.match(LEGACY, /<h2 class="lx-headline">/);
-    assert.match(PARITY, /name: 'login'[\s\S]*legacy: '\/login\.html'[\s\S]*next: '\/login'/);
-    assert.match(PARITY_CORE, /path === '\/login\.html'\) path = '\/login'/);
+    assert.equal(canonicalNextRouteForLegacy('/login.html'), '/login');
     assert.match(WORKFLOW, /frontend\/app\/\(public-auth\)\/\*\*/);
     assert.match(WORKFLOW, /Kiểm luồng Login\/Auth native[\s\S]*verify-login-flow\.mjs/);
   });

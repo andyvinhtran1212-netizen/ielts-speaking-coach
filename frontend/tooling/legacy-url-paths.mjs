@@ -1,4 +1,4 @@
-// Permanent redirect sources are URL compatibility contracts, not files to scan.
+// Permanent redirect sources are URL compatibility contracts, not migration state.
 // Frozen from release 17159ba0 (129 paths). Keep these URLs after HTML retirement.
 // Physical rollback/test artifacts are inventoried separately; this list grants
 // no permission to remove them. The builder validates its existing count/hash.

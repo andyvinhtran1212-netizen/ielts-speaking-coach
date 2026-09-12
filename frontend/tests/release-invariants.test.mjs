@@ -6,19 +6,19 @@ import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 
 import {
-  appPageRoute,
   classifyLegacyHtml,
-  collectNextMigrationStatus,
+  collectReleaseInvariants,
   redirectSourcesFromConfig,
   retirementRedirectsInstalledFromConfig,
   retirementRedirectsPermanentFromConfig,
   summarizeCorePlayers,
-} from '../tooling/next-migration-status.mjs';
+} from '../tooling/release-invariants.mjs';
+import { appPageRoute } from '../tooling/app-route-inventory.mjs';
 import {
   buildLegacyReplacementInventory,
   canonicalNextRouteForLegacy,
-} from '../tooling/gate-f-route-replacement-inventory.mjs';
-import { LEGACY_RETIREMENT_PATHS } from '../tooling/gate-f-retirement-redirects.mjs';
+} from '../tooling/legacy-url-mapping.mjs';
+import { LEGACY_RETIREMENT_PATHS } from '../tooling/legacy-url-redirects.mjs';
 
 test('derives App Router page paths without counting route groups or private folders', () => {
   assert.equal(appPageRoute('(marketing)/page.tsx'), '/');
@@ -49,48 +49,33 @@ test('only treats actual Next redirects as compatibility redirects', () => {
 
 test('only recognizes the generated retirement manifest when config wires all three steps', () => {
   const complete = `
-    import { buildLegacyRetirementRedirects } from './tooling/gate-f-retirement-redirects.mjs';
-    const LEGACY_RETIREMENT_REDIRECTS_PERMANENT = false;
+    import { buildLegacyRetirementRedirects } from './tooling/legacy-url-redirects.mjs';
     const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
-      paths,
-      { permanent: LEGACY_RETIREMENT_REDIRECTS_PERMANENT },
+      LEGACY_RETIREMENT_PATHS,
     );
     async function redirects() { return [...LEGACY_RETIREMENT_REDIRECTS]; }
   `;
   assert.equal(retirementRedirectsInstalledFromConfig(complete), true);
-  assert.equal(retirementRedirectsInstalledFromConfig(
-    complete.replace(
-      '...LEGACY_RETIREMENT_REDIRECTS',
-      '...(GATE_E_LOCAL_LEGACY_FIXTURES ? [] : LEGACY_RETIREMENT_REDIRECTS)',
-    ),
-  ), true);
-  assert.equal(retirementRedirectsPermanentFromConfig(complete), false);
-  assert.equal(retirementRedirectsPermanentFromConfig(
-    complete.replace('PERMANENT = false', 'PERMANENT = true'),
-  ), true);
+  assert.equal(retirementRedirectsPermanentFromConfig(complete), true);
   assert.equal(retirementRedirectsPermanentFromConfig(`
-    const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(paths);
-  `), true);
-  assert.equal(retirementRedirectsPermanentFromConfig(`
-    const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(paths, options);
+    const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
+      LEGACY_RETIREMENT_PATHS,
+      options,
+    );
   `), null);
   assert.equal(retirementRedirectsPermanentFromConfig(`
     const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
       paths,
-      { permanent: resolveRedirectMode() },
     );
   `), null);
   assert.equal(retirementRedirectsInstalledFromConfig(
-    '// ...LEGACY_RETIREMENT_REDIRECTS from gate-f-retirement-redirects.mjs',
+    '// ...LEGACY_RETIREMENT_REDIRECTS from legacy-url-redirects.mjs',
   ), false);
   assert.equal(retirementRedirectsInstalledFromConfig(
     complete.replace('...LEGACY_RETIREMENT_REDIRECTS', '// omitted'),
   ), false);
   assert.equal(retirementRedirectsInstalledFromConfig(
-    complete.replace(
-      '...LEGACY_RETIREMENT_REDIRECTS',
-      '...(arbitraryFlag ? [] : LEGACY_RETIREMENT_REDIRECTS)',
-    ),
+    complete.replace('...LEGACY_RETIREMENT_REDIRECTS', '...(flag ? [] : LEGACY_RETIREMENT_REDIRECTS)'),
   ), false);
   assert.equal(retirementRedirectsInstalledFromConfig(
     complete.replace(
@@ -142,7 +127,7 @@ test('replacement inventory fails closed when an App Router owner is absent', ()
 });
 
 test('repository report is internally consistent and cannot overclaim completion', () => {
-  const report = collectNextMigrationStatus();
+  const report = collectReleaseInvariants();
   assert.equal(report.schemaVersion, 6);
   assert.equal(report.appPages.source, report.appPages.product + report.appPages.excluded.length);
   assert.equal(report.legacyHtml.total, report.legacyHtml.compatibilityRedirected + report.legacyHtml.directlyRenderable);
@@ -153,9 +138,9 @@ test('repository report is internally consistent and cannot overclaim completion
   assert.equal(report.legacyHtml.directlyRenderable, 0);
   assert.equal(report.legacyHtml.telemetryInstrumented, report.legacyHtml.directlyRenderable);
   assert.deepEqual(report.legacyHtml.telemetryMissingPaths, []);
-  assert.equal(report.gateFObservationReady, true);
+  assert.equal(report.retirementObservationReady, true);
   // Historical URLs still need owners after their physical artifacts retire.
-  // The physical freeze is enforced separately in gate-f-retirement-redirects.
+  // The physical freeze is enforced independently by legacy-url-redirects.
   assert.equal(report.legacyReplacement.total, LEGACY_RETIREMENT_PATHS.length);
   assert.equal(report.legacyReplacement.nextRoutePresent, LEGACY_RETIREMENT_PATHS.length);
   assert.deepEqual(report.legacyReplacement.entries.map((entry) => entry.legacyPath).sort(),
@@ -178,10 +163,10 @@ test('repository report is internally consistent and cannot overclaim completion
     rules: 139,
     sourcePaths: 129,
   });
-  assert.equal(report.staticCutoverReady, true);
+  assert.equal(report.releaseReady, true);
   assert.deepEqual(report.blockers, []);
   assert.ok(!report.blockers.some((blocker) => blocker.code === 'core-admission-still-legacy'));
-  assert.match(report.scopeNote, /owner-approved exceptions/i);
+  assert.match(report.scopeNote, /historical evidence remains documented separately/i);
 });
 
 test('retirement redirects compose with all-Next admission to close static cutover', () => {
@@ -195,12 +180,12 @@ test('retirement redirects compose with all-Next admission to close static cutov
     admit_new: 'next',
     next: { path: `/native/${surface}`, route_ready: true },
   }])) };
-  const report = collectNextMigrationStatus(undefined, {
+  const report = collectReleaseInvariants(undefined, {
     corePlayerPolicy: allNextPolicy,
   });
   assert.equal(report.corePlayers.admittedToNext, report.corePlayers.total);
   assert.equal(report.legacyHtml.directlyRenderable, 0);
-  assert.equal(report.staticCutoverReady, true);
+  assert.equal(report.releaseReady, true);
   assert.deepEqual(report.blockers, []);
 });
 
@@ -213,7 +198,7 @@ test('retired HTML cannot erase the redirect or replacement denominator', (t) =>
   mkdirSync(path.join(fixture, 'public'));
 
   // A simulated empty public HTML tree, not deletion of repository artifacts.
-  const retired = collectNextMigrationStatus(fixture);
+  const retired = collectReleaseInvariants(fixture);
   assert.equal(retired.legacyHtml.total, 0);
   assert.equal(retired.legacyRetirementRedirects.sourcePaths, 129);
   assert.equal(retired.legacyRetirementRedirects.rules, 139);
@@ -225,28 +210,28 @@ test('retired HTML cannot erase the redirect or replacement denominator', (t) =>
     path.join(frontend, 'tests', 'fixtures', 'legacy-html-retired'),
     path.join(fixture, 'public', 'legacy'),
   );
-  const linkedArchive = collectNextMigrationStatus(fixture);
+  const linkedArchive = collectReleaseInvariants(fixture);
   assert.equal(linkedArchive.legacyHtml.retired, false);
   assert.deepEqual(linkedArchive.legacyHtml.publicSymlinkPaths, ['/legacy']);
   assert.ok(linkedArchive.blockers.some((row) => row.code === 'public-symlink-present'
     && row.paths.includes('/legacy')));
-  assert.equal(linkedArchive.staticCutoverReady, false);
+  assert.equal(linkedArchive.releaseReady, false);
   assert.ok(linkedArchive.legacyReplacement.entries.every((entry) => (
-    entry.deletionState === 'blocked-deletion-review'
+    entry.deletionState === 'blocked-release-safety-review'
   )));
   rmSync(path.join(fixture, 'public', 'legacy'));
 
   // Partial retirement must not shrink identity coverage either. This input
   // is a disposable source fixture, not a change to public repository files.
   writeFileSync(path.join(fixture, 'public', 'pricing.html'), '<h1>Historical</h1>');
-  const partial = collectNextMigrationStatus(fixture);
+  const partial = collectReleaseInvariants(fixture);
   assert.equal(partial.legacyHtml.total, 1);
   assert.deepEqual(partial.legacyHtml.serverRedirectedPaths, ['/pricing.html']);
   assert.equal(partial.legacyRetirementRedirects.sourcePaths, 129);
   assert.equal(partial.legacyReplacement.total, 129);
   assert.equal(partial.legacyReplacement.nextRoutePresent, 129);
   assert.ok(partial.legacyReplacement.entries.every((entry) => (
-    entry.deletionState === 'blocked-deletion-review'
+    entry.deletionState === 'blocked-release-safety-review'
   )));
   const withoutDeletionState = (entries) => entries.map(({ deletionState: _state, ...entry }) => entry);
   assert.deepEqual(
@@ -256,24 +241,24 @@ test('retired HTML cannot erase the redirect or replacement denominator', (t) =>
   rmSync(path.join(fixture, 'public', 'pricing.html'));
 
   rmSync(path.join(fixture, 'app', '(authed-home)', 'home', 'page.tsx'));
-  const missingOwner = collectNextMigrationStatus(fixture);
+  const missingOwner = collectReleaseInvariants(fixture);
   assert.equal(missingOwner.legacyReplacement.total, 129);
   assert.ok(missingOwner.legacyReplacement.missingNextRoutes.some((row) => row.nextPath === '/home'));
   assert.equal(missingOwner.legacyReplacement.nextRoutePresent, 128);
   assert.equal(missingOwner.legacyReplacement.entries.find((row) => row.nextPath === '/home')
     .deletionState, 'blocked-missing-next-route');
-  assert.equal(missingOwner.staticCutoverReady, false);
+  assert.equal(missingOwner.releaseReady, false);
 
   writeFileSync(path.join(fixture, 'public', 'unexpected.html'), '<h1>Unowned</h1>');
-  const extraHtml = collectNextMigrationStatus(fixture);
+  const extraHtml = collectReleaseInvariants(fixture);
   assert.ok(extraHtml.blockers.some((row) => row.code === 'legacy-html-renderable'
     && row.paths.includes('/unexpected.html')));
 
   writeFileSync(path.join(fixture, 'public', 'unexpected.html'),
     '<meta name="aver-legacy-artifact" content="redirect-stub">');
-  const claimedStub = collectNextMigrationStatus(fixture);
+  const claimedStub = collectReleaseInvariants(fixture);
   assert.equal(claimedStub.legacyHtml.directlyRenderable, 0);
   assert.ok(claimedStub.blockers.some((row) => row.code === 'legacy-retirement-unregistered-html'
     && row.paths.includes('/unexpected.html')));
-  assert.equal(claimedStub.staticCutoverReady, false);
+  assert.equal(claimedStub.releaseReady, false);
 });

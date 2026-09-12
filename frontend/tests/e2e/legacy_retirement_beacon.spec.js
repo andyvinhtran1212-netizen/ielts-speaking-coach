@@ -1,10 +1,10 @@
 const { test, expect } = require('@playwright/test');
 
-test('every renderable legacy path emits isolated Gate F evidence in a browser', async ({ page }) => {
+test('every renderable retired path emits isolated retirement evidence in a browser', async ({ page }) => {
   test.setTimeout(120_000);
-  const { collectNextMigrationStatus } = await import('../../tooling/next-migration-status.mjs');
-  const report = collectNextMigrationStatus();
-  expect(report.gateFObservationReady).toBe(true);
+  const { collectReleaseInvariants } = await import('../../tooling/release-invariants.mjs');
+  const report = collectReleaseInvariants();
+  expect(report.retirementObservationReady).toBe(true);
 
   // Once server redirects are installed, browser observation moves to the
   // redirect runtime gate. This static server deliberately cannot reproduce
