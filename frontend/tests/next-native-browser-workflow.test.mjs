@@ -58,6 +58,7 @@ describe('permanent Next-native browser regression workflow', () => {
       'verify-listening-test-session-flow.mjs',
       'verify-mock-exam-flow.mjs',
       'verify-writing-admission-flow.mjs',
+      'verify-d1-exercise-flow.mjs',
       'verify-next-responsive-flow.mjs',
       'verify-admin-classes-flow.mjs',
       'verify-admin-writing-flow.mjs',
