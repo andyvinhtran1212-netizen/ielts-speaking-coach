@@ -10,7 +10,7 @@ import {
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..'); const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
 const PAGE = read('app', '(authed-admin-writing-tips)', 'admin', 'writing', 'tips', 'page.tsx'); const COMPONENT = read('app', '(authed-admin-writing-tips)', 'admin', 'writing', 'tips', 'admin-writing-tips.tsx'); const LAYOUT = read('app', '(authed-admin-writing-tips)', 'layout.tsx'); const CSS = read('public', 'css', 'admin-writing-tips-next.css');
-const CONFIG = read('next.config.ts'); const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js'); const HUB = read('app', '(authed-admin-writing)', 'admin', 'writing', 'page.tsx'); const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md'); const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const CONFIG = read('next.config.ts'); const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js'); const HUB = read('app', '(authed-admin-writing)', 'admin', 'writing', 'page.tsx'); const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md'); const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const VERIFIER = read('tooling', 'verify-admin-writing-tips-flow.mjs');
 const raw = { id: 't1', title: '<img onerror=x>', slug: 'intro-task-2', body_markdown: '# Body', task_type: 'task_2', content_type: 'tip', category: 'ideas', published: false, display_order: 3, type_data: {}, created_at: '2026-08-13T00:00:00Z', updated_at: '2026-08-13T00:00:00Z' };
 

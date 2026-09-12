@@ -7,7 +7,7 @@ name: E2E modal smoke (advisory)
 # Runs in parallel with the Backend + Frontend (node --test) jobs.
 
 on:
-  # Sau khi merge — xem chú thích cùng chủ đề ở `parity-gate.yml`.
+  # Sau khi merge — xem chú thích cùng chủ đề ở `next-native-browser.yml`.
   push:
     branches: [main]
   pull_request:

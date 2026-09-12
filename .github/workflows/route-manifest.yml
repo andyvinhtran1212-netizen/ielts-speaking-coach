@@ -19,7 +19,7 @@ name: Build checks (route manifest + sàn trình duyệt)
 
 on:
   # Sau khi merge vào nhánh tích hợp hoặc production — xem chú thích cùng chủ đề
-  # ở `parity-gate.yml`. Job này DỰNG bản build, nên nó là chỗ duy nhất bắt được
+  # ở `next-native-browser.yml`. Job này DỰNG bản build, nên nó là chỗ duy nhất bắt được
   # ca «hai PR cùng xanh, hợp lại thì build hỏng».
   push:
     branches: [main, staging]

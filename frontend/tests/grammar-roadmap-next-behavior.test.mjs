@@ -13,7 +13,7 @@ const API = readFileSync(path.join(FRONTEND, 'lib', 'grammar-api.ts'), 'utf8');
 const LEDGER = readFileSync(path.join(FRONTEND, '../docs/ROUTE_LEDGER.md'), 'utf8');
 const PARITY = readFileSync(path.join(FRONTEND, 'tooling', 'parity-diff.mjs'), 'utf8');
 const CORE = readFileSync(path.join(FRONTEND, 'tooling', 'parity-core.mjs'), 'utf8');
-const WORKFLOW = readFileSync(path.join(FRONTEND, '../.github/workflows/parity-gate.yml'), 'utf8');
+const WORKFLOW = readFileSync(path.join(FRONTEND, '../.github/workflows/next-native-browser.yml'), 'utf8');
 
 describe('/grammar/roadmap mixed ownership', () => {
   test('route Next tồn tại, ledger nói đúng hai mode và legacy vẫn rollback', () => {

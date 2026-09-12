@@ -23,7 +23,7 @@ const CSS = read('public', 'css', 'admin-instructors-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const WORKSPACE = read('public', 'pages', 'instructor', 'index.html');
 const CONFIG = read('next.config.ts');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/admin/instructors native route contract', () => {
   test('owns the canonical route behind the backend-owned admin gate', () => {

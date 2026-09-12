@@ -21,7 +21,7 @@ const CSS = read('public', 'css', 'admin-mock-tests-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 const rows = [
   { id: 'd1', code: 'DRAFT', title: 'Đề nháp', status: 'draft', is_open: false, active_section: 'not_started', exam_mode: 'sequential' },

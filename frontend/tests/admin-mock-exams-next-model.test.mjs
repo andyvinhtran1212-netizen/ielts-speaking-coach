@@ -29,7 +29,7 @@ const ASSIGN = read('app', '(authed-admin-mock-exams)', 'admin', 'mock-exams', '
 const CONTENT = read('app', '(authed-admin-mock-exams)', 'admin', 'mock-exams', 'exam-content-library.tsx');
 const CSS = read('public', 'css', 'admin-mock-exams-next.css');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 const examRaw = {
   id: 'exam-1', code: 'M1', title: 'Mock 1', status: 'published', exam_mode: 'sequential',

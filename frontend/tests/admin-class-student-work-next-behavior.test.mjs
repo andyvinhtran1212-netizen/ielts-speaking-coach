@@ -15,7 +15,7 @@ const DIALOG = read('components', 'admin-directory-ui.tsx');
 const LAYOUT = read('app', '(authed-admin-classes)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-class-student-work-next.css');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const BROWSER = read('tooling', 'verify-admin-class-student-work-flow.mjs');
 
 describe('admin class student work model', () => {

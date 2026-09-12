@@ -23,7 +23,7 @@ const SUBMISSIONS = read('app', '(authed-admin-classes)', 'admin', 'classes', '[
 const CSS = read('public', 'css', 'admin-class-homework-next.css');
 const LAYOUT = read('app', '(authed-admin-classes)', 'layout.tsx');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 const catalog = [{ id: 'bank-1', title: 'Grammar 2', ready: true, already_given: false }];
 

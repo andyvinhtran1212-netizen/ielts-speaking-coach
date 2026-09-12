@@ -24,7 +24,7 @@ const SHELL = read('components', 'authed-shell.tsx');
 const LEGACY = read('pages', 'admin', 'writing', 'grade.html');
 const CONFIG = read('next.config.ts');
 const PAIRS = JSON.parse(read('tooling', 'parity-pairs-authed.json'));
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const WRITE_FLOW_NAMES = [
   'admin-writing-grade-save-deliver.mjs',
   'admin-writing-grade-revoke.mjs',

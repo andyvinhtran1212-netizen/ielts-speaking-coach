@@ -10,7 +10,7 @@ const CLIENT = read('app', '(public-content)', 'vocabulary', 'vocabulary-wiki.ts
 const API = read('lib', 'vocabulary-api.ts');
 const LAYOUT = read('app', '(public-content)', 'layout.tsx');
 const PARITY = read('tooling', 'parity-diff.mjs');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/vocabulary native public wiki', () => {
   test('route is public PPR and loads canonical server data', () => {

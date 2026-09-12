@@ -15,7 +15,7 @@ const PRACTICE = read('public', 'js', 'practice.js');
 const EXAM_PLAYER = read('public', 'js', 'exam-player.js');
 const PARITY = read('tooling', 'parity-diff.mjs');
 const PARITY_CORE = read('tooling', 'parity-core.mjs');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/login native auth entry', () => {
   test('owns a public noindex route with the established login design language', () => {

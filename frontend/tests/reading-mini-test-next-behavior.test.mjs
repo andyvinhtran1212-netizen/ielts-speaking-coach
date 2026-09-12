@@ -14,7 +14,7 @@ const BEHAVIOR = read(
 );
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
 const BROWSER_FLOW = read('tooling', 'verify-reading-mini-test-flow.mjs');
-const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const LEGACY = read('public', 'pages', 'reading-mini-test.html');
 
 describe('/reading/mini-test — native React behavior', () => {

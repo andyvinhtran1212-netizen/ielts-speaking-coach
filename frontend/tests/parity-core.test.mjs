@@ -22,9 +22,10 @@ import {
 } from '../tooling/parity-core.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const GATE = readFileSync(path.join(ROOT, '.github', 'workflows', 'parity-gate.yml'), 'utf8');
+const GATE = readFileSync(path.join(ROOT, '.github', 'workflows', 'next-native-browser.yml'), 'utf8');
 const GATE_ACTIVE = GATE.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
-const BACKEND_MAIN = readFileSync(path.join(ROOT, 'backend', 'main.py'), 'utf8');
+const RESPONSIVE_RUNNER = readFileSync(
+  path.join(ROOT, 'frontend', 'tooling', 'verify-next-responsive-flow.mjs'), 'utf8');
 
 const RUNNER = readFileSync(
   path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'tooling', 'parity-diff.mjs'),
@@ -497,26 +498,24 @@ describe('formatReport', () => {
   });
 });
 
-describe('cổng parity trong CI (review #914)', () => {
-  test('PARITY_PORT phải nằm trong allowlist CORS của backend', () => {
-    // Bất biến LIÊN TỆP, và là ca đã cắn thật: chạy ở cổng ngoài allowlist thì
-    // vế legacy không fetch được, trang hiện "Lỗi: Failed to fetch", và bảng
-    // kết quả thành 938 `line-extra` toàn mức thấp ⇒ cổng XANH trên nền rác.
-    const port = (/PARITY_PORT:\s*'(\d+)'/.exec(GATE_ACTIVE) || [])[1];
-    assert.ok(port, 'workflow phải khai PARITY_PORT');
-    const allowed = [...BACKEND_MAIN.matchAll(/"http:\/\/(?:localhost|127\.0\.0\.1):(\d+)"/g)]
-      .map((m) => m[1]);
-    assert.ok(allowed.length, 'không đọc được allowlist trong backend/main.py');
-    assert.ok(allowed.includes(port),
-      `PARITY_PORT=${port} không có trong allowlist CORS ${JSON.stringify([...new Set(allowed)])}`);
+describe('cổng Next-native browser trong CI', () => {
+  test('endpoint test cô lập mọi fallback khỏi staging và production', () => {
+    assert.match(GATE_ACTIVE, /TEST_PORT:\s*'3000'/);
+    assert.match(GATE_ACTIVE, /AVER_API_BASE: http:\/\/127\.0\.0\.1:9/);
+    assert.match(GATE_ACTIVE, /AVER_SUPABASE_URL: https:\/\/example\.supabase\.co/);
+    assert.doesNotMatch(GATE_ACTIVE, /ielts-speaking-coach-production|huwsmtubwulikhlmcirx/);
   });
 
   test('bộ lọc KHÔNG bắt route mà G1 không so được', () => {
     // `/` và `/profile`: bản legacy đã bị gỡ (đo được `/index.html` → 307 sang
     // `/`), nên không còn gì để so. Bắt `frontend/app/**` nghĩa là PR sửa hai
     // route đó vẫn kích hoạt job rồi BÁO XANH mà chưa mở route đã sửa.
-    assert.ok(!/- 'frontend\/app\/\*\*'/.test(GATE_ACTIVE),
-      'bộ lọc rộng = cổng tự cấp phép cho route nó không so');
+    // Sau migration, workflow chạy TOÀN BỘ verifier Next trong mỗi lượt nên
+    // glob rộng không còn tạo ra một lượt parity rỗng theo route.
+    assert.match(GATE_ACTIVE, /- 'frontend\/app\/\*\*'/,
+      'mọi route Next phải kích hoạt toàn bộ browser regression suite');
+    assert.doesNotMatch(GATE_ACTIVE, /steps\.scope|grep -qE|parity-diff/,
+      'không được quay lại chọn một subset theo inventory legacy');
     // CẬP NHẬT 2026-08-05 — LÝ DO đổi, khẳng định thì KHÔNG.
     // Trước: "route cần đăng nhập nằm ngoài tầm G1". Nay authed-G1 đã có (tiêm
     // phiên Supabase vào trình duyệt) và `/home` ĐƯỢC so qua cặp trong
@@ -536,64 +535,45 @@ describe('cổng parity trong CI (review #914)', () => {
   });
 
   test('PR đụng bộ render BÀI VIẾT phải chạy phạm vi đầy đủ', () => {
-    // `--categories-only` không mở trang bài nào; nếu PR sửa bộ render bài mà
-    // vẫn chạy phạm vi hẹp thì lần chạy CHẶN-MERGE không phủ chỗ đã sửa, và
-    // lịch đêm chỉ báo SAU khi đã merge.
-    assert.match(GATE_ACTIVE, /steps\.scope\.outputs\.scope/,
-      'phạm vi phải suy từ tệp đã sửa, không phải hằng số');
-    assert.match(GATE_ACTIVE, /\[category\]\\\/\\\[slug\\\]|category.*slug/,
-      'quy tắc chọn phạm vi phải nhắc tới đường dẫn bài viết');
-    assert.match(GATE_ACTIVE, /scope=full/);
+    // Cổng mới không chọn subset: mọi lần kích hoạt đều chạy trọn bộ verifier.
+    assert.match(GATE_ACTIVE, /- 'frontend\/app\/\(public-content\)\/\*\*'/);
+    assert.match(GATE_ACTIVE, /- 'frontend\/app\/\*\*'/);
+    assert.match(GATE_ACTIVE, /- 'frontend\/tests\/\*\*'/);
+    assert.match(GATE_ACTIVE, /run: node tooling\/verify-grammar-roadmap-personal-flow\.mjs/);
+    assert.match(GATE_ACTIVE, /run: node tooling\/verify-vocabulary-wiki-flow\.mjs/);
+    assert.doesNotMatch(GATE_ACTIVE, /categories-only|steps\.scope|scope=full/,
+      'không được quay lại cổng chọn subset theo inventory legacy');
   });
 
   test('cổng phải quét CẢ bề rộng điện thoại', () => {
-    // Chứng minh bằng thí nghiệm, không phải suy đoán: gài `hidden sm:block`
-    // vào đoạn mô tả hero của bản Next ⇒ lượt 1280px cho 0 phát hiện, lượt
-    // 375px bắt được `line-missing`. Bỏ lượt 375 là bỏ cả lớp hồi quy đó.
-    assert.match(GATE_ACTIVE, /for VP in 1280x900 375x812/,
-      'phải chạy cả hai bề rộng');
-    assert.match(GATE_ACTIVE, /--viewport "\$VP"/);
+    assert.match(GATE_ACTIVE, /run: node tooling\/verify-next-responsive-flow\.mjs/);
+    assert.match(RESPONSIVE_RUNNER, /name: 'desktop', width: 1280, height: 900/);
+    assert.match(RESPONSIVE_RUNNER, /name: 'phone', width: 375, height: 812/);
+    assert.match(RESPONSIVE_RUNNER, /document\.body\.scrollWidth/);
+    assert.match(RESPONSIVE_RUNNER, /document\.documentElement\.scrollWidth/);
 
-    // Và phải chạy HẾT rồi mới thoát, không dừng ở cái đỏ đầu tiên.
-    //
-    // Ghim TÍNH CHẤT, không ghim nguyên văn. Bản trước khẳng định
-    // `/\|\| FAIL=1[\s\S]*exit \$FAIL/` — tức ghim đúng một cách viết. Khi
-    // thân vòng lặp đổi (thêm phân loại mã thoát 3 cho ca hạ tầng), chốt đỏ dù
-    // tính chất nó canh vẫn nguyên vẹn. Chốt ghim cách viết thì mỗi lần sửa mã
-    // là một lần phải sửa chốt, và người ta học cách nới chốt cho hết đỏ.
-    const lines = GATE_ACTIVE.split('\n');
-    const i = lines.findIndex((l) => /for VP in 1280x900 375x812/.test(l));
-    assert.ok(i > 0, 'không tìm thấy vòng lặp bề rộng');
-    // Đếm `for`/`done` để tìm ĐÚNG điểm đóng, không tin thụt lề: bash không coi
-    // thụt lề có nghĩa, nên một vòng lặp LỒNG đóng bằng `done` thụt 12 dấu cách
-    // sẽ bị chọn nhầm, và phần thân sau đó — kể cả một `exit` nằm trong vòng
-    // `VP` — không được quét (codex bắt ở #999).
-    let sâu = 1;
-    let j = -1;
-    for (let k = i + 1; k < lines.length; k += 1) {
-      if (/^\s*(for|while|until)\b/.test(lines[k])) sâu += 1;
-      else if (/^\s*done\b/.test(lines[k])) {
-        sâu -= 1;
-        if (sâu === 0) { j = k; break; }
-      }
-    }
-    assert.ok(j > i, 'không tìm thấy điểm kết thúc vòng lặp bề rộng');
-
-    const thân = lines.slice(i + 1, j);
-    assert.deepEqual(thân.filter((l) => /^\s*exit\b/.test(l)), [],
-      'không được thoát GIỮA vòng lặp — làm thế là bỏ các bề rộng còn lại');
-
-    // Sau vòng lặp phải có đường thoát đỏ, và nó phải phụ thuộc vào cờ tích luỹ
-    // chứ không phải mã thoát của lần chạy cuối cùng.
-    const sau = lines.slice(j).join('\n');
-    assert.match(sau, /exit 1/, 'phải có đường thoát đỏ sau khi chạy hết');
-    assert.match(sau, /\$FAIL|\$INFRA/,
-      'đường thoát phải đọc cờ tích luỹ, không phải mã của lượt cuối');
+    const viewportLoop = RESPONSIVE_RUNNER.indexOf('for (const viewport of VIEWPORTS)');
+    const routeLoop = RESPONSIVE_RUNNER.indexOf('for (const route of ROUTES)');
+    const finalDecision = RESPONSIVE_RUNNER.lastIndexOf('if (failures.length)');
+    assert.ok(viewportLoop >= 0 && routeLoop > viewportLoop,
+      'mỗi route phải được đo trong từng viewport');
+    assert.ok(finalDecision > routeLoop,
+      'chỉ được quyết định pass/fail sau khi đo xong mọi route và viewport');
+    assert.doesNotMatch(RESPONSIVE_RUNNER.slice(viewportLoop, finalDecision),
+      /process\.exit(?:Code)?\s*=/,
+      'không được thoát sớm giữa vòng quét');
+    assert.match(RESPONSIVE_RUNNER.slice(finalDecision), /process\.exitCode = 1/);
   });
 
-  test('có chốt CORS chạy TRƯỚC khi so', () => {
-    assert.match(GATE_ACTIVE, /Access-Control-Request-Method/,
-      'trang trả 200 không chứng minh nó fetch được — phải kiểm preflight');
+  test('khóa endpoint test và phát hiện production egress TRƯỚC khi duyệt đạt', () => {
+    const isolatedApi = GATE_ACTIVE.indexOf('AVER_API_BASE: http://127.0.0.1:9');
+    const build = GATE_ACTIVE.indexOf('run: npm run build');
+    assert.ok(isolatedApi >= 0 && build > isolatedApi,
+      'endpoint cô lập phải được đặt trước khi build/start browser');
+    assert.match(RESPONSIVE_RUNNER, /page\.on\('request'/);
+    assert.match(RESPONSIVE_RUNNER, /PRODUCTION_MARKERS\.some/);
+    assert.match(RESPONSIVE_RUNNER, /failures\.push\(`\$\{viewport\.name\}: production egress/,
+      'request ra production phải làm browser gate đỏ');
   });
 });
 
@@ -728,7 +708,7 @@ test('route đã cutover mà KHÔNG có cặp parity phải được khai báo',
   }
 });
 
-test('mã DÙNG CHUNG luôn leo lên phạm vi full', () => {
+test('mã DÙNG CHUNG luôn kích hoạt phạm vi Next-native đầy đủ', () => {
   // Codex bắt ở PR #946 vòng 5, và đó là hệ quả của chính việc nới glob ở PR
   // đó: `paths` có `frontend/lib/**` nên job KHỞI ĐỘNG khi đổi
   // `lib/when-global-ready.mjs`, nhưng bộ chọn phạm vi lúc ấy chỉ leo lên
@@ -738,22 +718,30 @@ test('mã DÙNG CHUNG luôn leo lên phạm vi full', () => {
   //
   // Cùng họ với #937 (glob có, regex không bắt) và #930 (thiếu glob). Ba lần
   // cùng một hình dạng nên chốt bằng máy, đừng chốt bằng trí nhớ.
-  const rxs = [...GATE.matchAll(/grep -qE '([^']+)'/g)].map((m) => m[1]);
-  assert.equal(rxs.length, 2, 'kỳ vọng đúng 2 regex: full và authed');
-  const fullRe = new RegExp(rxs[0]);
+  const pullRequestPaths = GATE.slice(
+    GATE.indexOf('  pull_request:'),
+    GATE.indexOf('\n  push:'),
+  );
+  const configuredPaths = new Set(
+    [...pullRequestPaths.matchAll(/^\s+- '([^']+)'/gm)].map((m) => m[1]));
 
   // Mã dùng chung có thể nuôi BẤT KỲ trang nào đang so, kể cả trang bài viết.
-  for (const shared of ['frontend/lib/when-global-ready.mjs',
-                        'frontend/lib/backend.ts',
-                        'frontend/components/authed-shell.tsx']) {
-    assert.ok(fullRe.test(shared),
-      `«${shared}» là mã dùng chung mà không leo lên full ⇒ cặp bài viết bị bỏ qua`);
+  for (const [shared, trigger] of [
+    ['frontend/lib/when-global-ready.mjs', 'frontend/lib/**'],
+    ['frontend/lib/backend.ts', 'frontend/lib/**'],
+    ['frontend/components/authed-shell.tsx', 'frontend/components/**'],
+  ]) {
+    assert.ok(existsSync(path.join(ROOT, shared)), `không tìm thấy mã dùng chung «${shared}»`);
+    assert.ok(configuredPaths.has(trigger),
+      `«${shared}» không được trigger rộng ${trigger} phủ ⇒ browser gate không chạy`);
   }
 
-  // Chiều ngược: đổi một trang riêng lẻ KHÔNG được kéo cả bộ full lên vô cớ —
-  // nếu không thì việc khoanh phạm vi mất hết ý nghĩa và mọi PR đều chạy full.
-  assert.ok(!fullRe.test('frontend/app/(authed-speaking)/speaking/page.tsx'),
-    'trang riêng lẻ không được tự leo lên full');
+  // Không còn selector `full`/`authed`: cả mã dùng chung lẫn một route riêng
+  // đều chạy cùng bộ verifier, nên không thể khởi động job rồi bỏ qua surface.
+  assert.ok(configuredPaths.has('frontend/app/**'));
+  assert.match(GATE_ACTIVE, /run: node tooling\/verify-writing-admission-flow\.mjs/,
+    'bộ đầy đủ phải giữ cả surface Writing từng bị selector bỏ qua');
+  assert.doesNotMatch(GATE_ACTIVE, /grep -qE|categories-only|steps\.scope|scope=full/);
 });
 
 test('regex authed KHÔNG mở lượt cho trang không có cặp parity', () => {
@@ -769,6 +757,23 @@ test('regex authed KHÔNG mở lượt cho trang không có cặp parity', () =>
   // TRONG tài liệu loại trừ, nếu không thì "chưa có cặp" và "quên mất cặp"
   // trông giống hệt nhau.
   const rxs = [...GATE.matchAll(/grep -qE '([^']+)'/g)].map((m) => m[1]);
+  if (rxs.length === 0) {
+    assert.doesNotMatch(GATE_ACTIVE, /parity-pairs|PROBE_|AUTHED|--auth/,
+      'workflow Next-native không được phụ thuộc cặp legacy hoặc secret thật');
+    const verifierSteps = GATE_ACTIVE.split(/\n\s+- name:/)
+      .filter((step) => /run: node tooling\/verify-/.test(step));
+    assert.ok(verifierSteps.length >= 89,
+      `browser suite bị thu hẹp: chỉ còn ${verifierSteps.length} verifier`);
+    assert.deepEqual(verifierSteps.filter((step) => /^\s*if:/m.test(step)), [],
+      'verifier không được bị selector route/subset bỏ qua');
+    for (const step of verifierSteps) {
+      const script = /run: node (tooling\/verify-[^\s]+)/.exec(step)?.[1];
+      assert.ok(script, 'không đọc được đường dẫn verifier');
+      assert.ok(existsSync(path.join(ROOT, 'frontend', script)),
+        `workflow gọi verifier không tồn tại: ${script}`);
+    }
+    return;
+  }
   assert.equal(rxs.length, 2, 'kỳ vọng đúng 2 regex: full và authed');
 
   // Rút danh sách tên trang từ nhánh `pages/(a|b|c)\.html` của regex authed.
@@ -790,7 +795,7 @@ test('regex authed KHÔNG mở lượt cho trang không có cặp parity', () =>
     + 'hoặc bỏ trang khỏi regex, hoặc ghi lý do loại trừ vào tài liệu');
 });
 
-test('MỌI glob authed trong `paths` đều được regex chọn phạm vi bắt', () => {
+test('MỌI glob route và dependency đều kích hoạt browser suite đầy đủ', () => {
   // Codex bắt ở PR #937: tôi thêm `cue-card-detector.js` vào `paths` mà quên
   // regex. Hệ quả tinh vi — một PR CHỈ sửa tệp đó vẫn khởi động job, nhưng
   // `AUTHED` là false nên nó chạy mỗi lượt `categories` và **không bao giờ mở
@@ -799,9 +804,19 @@ test('MỌI glob authed trong `paths` đều được regex chọn phạm vi b�
   // Đây là cùng một họ với phát hiện trên PR #930 (thiếu glob) — nên chốt luôn
   // cả hai chiều bằng máy thay vì đọc bằng mắt.
   const yml = GATE;
-  const rxs = [...yml.matchAll(/grep -qE '([^']+)'/g)].map((m) => m[1]);
-  assert.equal(rxs.length, 2, 'kỳ vọng đúng 2 regex: full và authed');
-  const authedRe = new RegExp(rxs[1]);
+  const pullRequestPaths = yml.slice(
+    yml.indexOf('  pull_request:'),
+    yml.indexOf('\n  push:'),
+  );
+  const configuredPaths = [...pullRequestPaths.matchAll(/^\s+- '([^']+)'/gm)]
+    .map((match) => match[1]);
+  const isTriggered = (candidate) => configuredPaths.some((configuredPath) => {
+    if (configuredPath.endsWith('/**')) {
+      const prefix = configuredPath.slice(0, -3);
+      return candidate === prefix || candidate.startsWith(`${prefix}/`);
+    }
+    return configuredPath === candidate;
+  });
 
   const block = yml.slice(
     yml.indexOf("      - 'frontend/app/(authed-home)/**'"),
@@ -809,9 +824,9 @@ test('MỌI glob authed trong `paths` đều được regex chọn phạm vi b�
   const globs = [...block.matchAll(/- '([^']+)'/g)].map((m) => m[1]);
   assert.ok(globs.length >= 10, `kỳ vọng nhiều glob authed, thấy ${globs.length}`);
 
-  const missed = globs.filter((g) => !authedRe.test(g.replace('/**', '/x.tsx')));
+  const missed = globs.filter((g) => !isTriggered(g.replace('/**', '/x.tsx')));
   assert.deepEqual(missed, [],
-    'glob nằm trong paths mà regex không bắt ⇒ job chạy nhưng KHÔNG mở cặp authed');
+    'route có trong inventory nhưng không được path filter nào kích hoạt');
 
   // Phép cắt ở trên CHỈ phủ khối glob theo-trang. Mã DÙNG CHUNG (api.js, chrome
   // và các tệp chrome import) nằm ngoài khối đó, nên `missed` không bao giờ thấy
@@ -823,8 +838,8 @@ test('MỌI glob authed trong `paths` đều được regex chọn phạm vi b�
                         'frontend/public/js/theme-toggle.js',
                         'frontend/public/js/user-pill.js',
                         'frontend/public/js/components/perf-hints.js']) {
-    assert.ok(authedRe.test(shared),
-      `«${shared}» là mã dùng chung của mọi trang authed — phải mở lượt authed`);
+    assert.ok(isTriggered(shared),
+      `«${shared}» là mã dùng chung của mọi trang — phải kích hoạt browser suite`);
     assert.ok(yml.includes(`- '${shared}'`),
       `«${shared}» phải có trong \`paths\`, nếu không job không khởi động`);
   }
@@ -836,22 +851,25 @@ test('MỌI glob authed trong `paths` đều được regex chọn phạm vi b�
   // thực sự nạp tệp vừa đổi. Dựng dependency từ chính các legacy page
   // trong inventory để file mới cùng họ tự động bị chặn, không phải
   // chờ thêm một hand-pinned sentinel.
-  const pullRequestPaths = yml.slice(
-    yml.indexOf('  pull_request:'),
-    yml.indexOf('\n  push:'),
-  );
-  const configuredPaths = [...pullRequestPaths.matchAll(/^\s+- '([^']+)'/gm)]
-    .map((match) => match[1]);
   const missingPathPrefixes = configuredPaths.filter((configuredPath) => {
-    const prefix = configuredPath.split(/[*?[]/, 1)[0].replace(/\/$/, '');
-    return !prefix || !existsSync(path.join(ROOT, prefix));
+    const literalPrefix = configuredPath.split(/[*?[]/, 1)[0];
+    const prefix = literalPrefix.endsWith('/')
+      ? literalPrefix.replace(/\/$/, '')
+      : path.dirname(literalPrefix);
+    if (prefix && existsSync(path.join(ROOT, prefix))) return false;
+    if (configuredPath.startsWith('frontend/public/') && !/[*?[]/.test(configuredPath)) {
+      const retiredFixture = path.join(
+        ROOT,
+        'frontend/tests/fixtures/legacy-html-retired',
+        configuredPath.slice('frontend/public/'.length),
+      );
+      return !existsSync(retiredFixture);
+    }
+    return true;
   });
   assert.deepEqual(missingPathPrefixes, [],
-    'path filter trỏ vào prefix không tồn tại ⇒ GitHub không bao giờ khởi động gate');
+    'path filter không có source hiện hành hoặc fixture legacy frozen tương ứng');
 
-  const exactTrackedPaths = new Set(
-    configuredPaths.filter((configuredPath) => !/[*?[]/.test(configuredPath)),
-  );
   const pairs = JSON.parse(
     readFileSync(path.join(ROOT, 'frontend/tooling/parity-pairs-authed.json'), 'utf8'));
   const loadedLocalDependencies = new Set();
@@ -879,23 +897,22 @@ test('MỌI glob authed trong `paths` đều được regex chọn phạm vi b�
     }
   }
   const untrackedDependencies = [...loadedLocalDependencies]
-    .filter((dependency) => !exactTrackedPaths.has(dependency))
+    .filter((dependency) => !isTriggered(dependency))
     .sort();
   assert.deepEqual(untrackedDependencies, [],
-    'script/stylesheet local được authed pair nạp nhưng không có trong paths '
-    + '⇒ PR chỉ sửa dependency đó không khởi động parity gate');
+    'script/stylesheet local được fixture nạp nhưng không có path filter phủ '
+    + '⇒ PR chỉ sửa dependency đó không khởi động browser gate');
 
   const uncoveredDependencies = [...loadedLocalDependencies]
-    .filter((dependency) => !authedRe.test(dependency))
+    .filter((dependency) => !isTriggered(dependency))
     .sort();
   assert.deepEqual(uncoveredDependencies, [],
-    'dependency khai tường minh trong paths và được authed pair nạp, nhưng '
-    + 'selector không bật authed=true ⇒ job xanh mà không so trang chịu ảnh hưởng');
+    'dependency được trang nạp nhưng không kích hoạt browser suite');
 
-  // Chiều ngược: đường dẫn của khu công khai KHÔNG được kích hoạt lượt authed.
-  for (const neg of ['frontend/app/(public-content)/grammar/page.tsx',
-                     'frontend/public/js/grammar.js']) {
-    assert.ok(!authedRe.test(neg), `«${neg}» không được kích hoạt lượt authed`);
+  // Không còn lượt authed riêng: route công khai cũng phải chạy cùng suite.
+  for (const publicPath of ['frontend/app/(public-content)/grammar/page.tsx',
+                            'frontend/public/js/grammar.js']) {
+    assert.ok(isTriggered(publicPath), `«${publicPath}» phải kích hoạt browser suite`);
   }
 });
 

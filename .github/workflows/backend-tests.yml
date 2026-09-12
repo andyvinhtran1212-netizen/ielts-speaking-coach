@@ -28,7 +28,7 @@ on:
   # SAU KHI MERGE, KHÔNG lọc đường dẫn. Bộ lọc dưới đây trả lời câu «PR này có
   # đáng chạy test không»; ở đây câu hỏi khác hẳn: «nhánh tích hợp sau khi hợp
   # nhất còn xanh không». Hai PR có thể xanh riêng lẻ rồi hợp lại thành đỏ, và không bộ
-  # lọc đường dẫn nào nhìn thấy điều đó. Xem chú thích dài hơn ở `parity-gate.yml`.
+  # lọc đường dẫn nào nhìn thấy điều đó. Xem chú thích dài hơn ở `next-native-browser.yml`.
   push:
     branches: [main, staging]
   pull_request:
@@ -60,7 +60,7 @@ on:
       - 'docs/clusters/20_x/**'
       # TOÀN BỘ thư mục workflow, không riêng tệp này: `workflow-path-coverage.
       # test.mjs` chạy trong job frontend dưới đây và đọc MỌI workflow. Nếu chỉ
-      # ghim `backend-tests.yml` thì một PR sửa `paths` của `parity-gate.yml` sẽ
+      # ghim `backend-tests.yml` thì một PR sửa `paths` của `next-native-browser.yml` sẽ
       # không chạy đúng cái chốt đang canh `paths` — tức là chốt chống-"chốt-
       # không-tự-nổ" lại tự dính chính lỗi đó. Nó không tự phát hiện được vì nó
       # nạp workflow bằng `readdirSync`, không nêu tên tệp nào.
