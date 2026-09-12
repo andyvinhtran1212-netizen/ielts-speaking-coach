@@ -56,6 +56,14 @@ describe('reading-exam.js forwards the class item', () => {
 });
 
 describe('listening-test-player.js forwards the class item', () => {
+  test('every caller uses the defined URL helper', () => {
+    assert.doesNotMatch(
+      LISTENING,
+      /\bclassItemFromUrl\(/,
+      'an unqualified helper typo leaves the Legacy player stuck on loading',
+    );
+  });
+
   test('it reads class_item off the URL', () => {
     assert.match(LISTENING, /get\('class_item'\)/);
   });
