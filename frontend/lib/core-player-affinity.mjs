@@ -30,7 +30,7 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
       admit_new: 'next',
       identity_query_any_of: Object.freeze(['test_id', 'share']),
       allowed_query: Object.freeze([
-        'test_id', 'share', 'sitting_id', 'mock_embed', 'from', 'class_item',
+        'test_id', 'share', 'sitting_id', 'mock_embed', 'admin_preview', 'from', 'class_item',
       ]),
       legacy: Object.freeze({ path: '/pages/reading-exam.html', route_ready: true }),
       // Native App Router owns fresh attempts. The stable Legacy path remains
@@ -45,7 +45,7 @@ export const CORE_PLAYER_AFFINITY_POLICY = Object.freeze({
       // attempts to Next while claimed attempts stay sticky.
       admit_new: 'next',
       identity_query_any_of: Object.freeze(['id']),
-      allowed_query: Object.freeze(['id', 'sitting_id', 'mock_embed', 'from', 'class_item']),
+      allowed_query: Object.freeze(['id', 'sitting_id', 'mock_embed', 'admin_preview', 'from', 'class_item']),
       legacy: Object.freeze({ path: '/pages/listening-test.html', route_ready: true }),
       // Native App Router owns fresh attempts. The stable Legacy path remains
       // available only for attempts that claimed it before cutover.

@@ -4790,6 +4790,95 @@ def _assert_listening_exam_content_allowed(
         raise HTTPException(404, "Test bundle not found or not published")
 
 
+def _assemble_listening_player_payload(test: dict) -> dict:
+    """Build the student-safe player contract for public and admin preview."""
+    from services import listening_test_grader as grader
+
+    test_id = str(test["id"])
+    audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
+    if not audio_url:
+        raise HTTPException(422, "Test chưa có audio sẵn sàng — vui lòng quay lại sau.")
+
+    section_rows = (
+        supabase_admin.table("listening_content")
+        .select("id,section_num,title,transcript,metadata")
+        .eq("test_id", test_id).order("section_num").execute().data or []
+    )
+    section_ids = [section["id"] for section in section_rows]
+    exercises_res = (
+        supabase_admin.table("listening_exercises")
+        .select("id,content_id,exercise_type,payload,order_num")
+        .in_("content_id", section_ids).order("order_num").execute()
+        if section_ids else None
+    )
+    exercises = grader.strip_answer_keys([
+        exercise for exercise in ((exercises_res.data if exercises_res else []) or [])
+        if not _is_standalone_authoring_exercise(exercise)
+    ])
+    for exercise in exercises:
+        payload = exercise.get("payload") or {}
+        is_plan = (
+            payload.get("variant") == "mcq_letter_label"
+            or payload.get("template_kind") == "plan_label"
+        )
+        storage_path = payload.get("map_image_storage_path")
+        signed_url = _sign_map_image_url(storage_path, expires_in=7200) if storage_path else None
+        if is_plan or signed_url:
+            payload = dict(payload)
+            if signed_url:
+                payload["map_image_url"] = signed_url
+            if is_plan:
+                payload.pop("map_description", None)
+                payload.pop("map_image_custom_prompt", None)
+                if isinstance(payload.get("metadata"), dict):
+                    payload["metadata"] = dict(payload["metadata"])
+                    payload["metadata"].pop("map_description", None)
+                    payload["metadata"].pop("map_image_custom_prompt", None)
+            exercise["payload"] = payload
+
+    by_content: dict[str, list[dict]] = {}
+    for exercise in exercises:
+        by_content.setdefault(exercise["content_id"], []).append(exercise)
+    sections = []
+    for section in section_rows:
+        metadata = section.get("metadata") or {}
+        sections.append({
+            "section_num": section.get("section_num"),
+            "title": section.get("title"),
+            "narrator_intro": metadata.get("narrator_intro"),
+            "context": metadata.get("context"),
+            "exercises": by_content.get(section["id"], []),
+        })
+    return {
+        "id": test["id"],
+        "test_id": test.get("test_id"),
+        "title": test.get("title"),
+        "test_type": test.get("test_type"),
+        "themes": test.get("themes") or {},
+        "audio_url": audio_url,
+        "audio_storage_path": audio_path,
+        "audio_duration_seconds": audio_duration,
+        "cue_points": test.get("cue_points") or [],
+        "sections": sections,
+    }
+
+
+@admin_router.get("/tests/{test_id}/player-preview")
+async def admin_listening_player_preview(
+    test_id: uuid.UUID,
+    authorization: str | None = Header(default=None),
+):
+    """Render any lifecycle state with the exact student player contract."""
+    await require_admin(authorization)
+    rows = (
+        supabase_admin.table("listening_tests").select("*")
+        .eq("id", str(test_id)).limit(1).execute().data or []
+    )
+    if not rows:
+        raise HTTPException(404, "Test bundle not found")
+    return _assemble_listening_player_payload(rows[0])
+
+
 @user_router.get("/tests/{test_id}")
 async def get_published_listening_test(
     test_id: uuid.UUID,
@@ -4803,8 +4892,6 @@ async def get_published_listening_test(
     exercises **with answer keys stripped** (security: students must
     never see the answer key on this endpoint).
     """
-    from services import listening_test_grader as grader
-
     _user = await _require_auth(authorization)
     test_id = str(test_id)
 
@@ -4820,107 +4907,7 @@ async def get_published_listening_test(
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
     _assert_listening_exam_content_allowed(test, _user.get("id"), class_item)
-
-    audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
-    if not audio_url:
-        raise HTTPException(
-            422,
-            "Test chưa có audio sẵn sàng — vui lòng quay lại sau.",
-        )
-
-    sec_res = (
-        supabase_admin.table("listening_content")
-        .select("id,section_num,title,transcript,metadata")
-        .eq("test_id", test_id)
-        .order("section_num")
-        .execute()
-    )
-    section_rows = sec_res.data or []
-    section_ids = [s["id"] for s in section_rows]
-
-    ex_res = (
-        supabase_admin.table("listening_exercises")
-        .select("id,content_id,exercise_type,payload,order_num")
-        .in_("content_id", section_ids)
-        .order("order_num")
-        .execute() if section_ids else None
-    )
-    exercises_raw = [
-        exercise for exercise in ((ex_res.data if ex_res else []) or [])
-        if not _is_standalone_authoring_exercise(exercise)
-    ]
-    # Sprint 13.5 security guard — strip answer keys.
-    exercises_safe = grader.strip_answer_keys(exercises_raw)
-    # Sprint 13.5.6 — inject a fresh 2h signed URL for any plan-label
-    # exercise that has a generated map image. The student endpoint is
-    # the only place that mints this URL; the admin preview path mints
-    # via /exercises/{id}/map-image/signed-url. Keeps the payload
-    # otherwise unchanged so the renderer sees the same shape.
-    # Sprint 13.5.8 — also strip `map_description` from the student
-    # response (and from `payload.metadata`) for every plan-label
-    # exercise. The description is admin-only metadata (AI image
-    # prompt input); leaking it gives the student the answer key in
-    # prose. Defense-in-depth: the frontend renderer also ignores it.
-    for ex in exercises_safe:
-        payload = ex.get("payload") or {}
-        variant = payload.get("variant")
-        template_kind = payload.get("template_kind")
-        is_plan_label = (
-            variant == "mcq_letter_label"
-            or template_kind == "plan_label"
-        )
-        storage_path = payload.get("map_image_storage_path")
-        signed_url = (
-            _sign_map_image_url(storage_path, expires_in=7200)
-            if storage_path else None
-        )
-        if is_plan_label or signed_url:
-            payload = dict(payload)
-            if signed_url:
-                payload["map_image_url"] = signed_url
-            if is_plan_label:
-                payload.pop("map_description", None)
-                # Sprint 13.5.9 — also strip the curated AI prompt; it
-                # describes the answer layout explicitly (letter
-                # positions, room semantics) and would hand the student
-                # the answer key in prose if leaked.
-                payload.pop("map_image_custom_prompt", None)
-                if isinstance(payload.get("metadata"), dict):
-                    payload["metadata"] = dict(payload["metadata"])
-                    payload["metadata"].pop("map_description", None)
-                    payload["metadata"].pop("map_image_custom_prompt", None)
-            ex["payload"] = payload
-    by_content: dict[str, list[dict]] = {}
-    for ex in exercises_safe:
-        by_content.setdefault(ex["content_id"], []).append(ex)
-
-    sections_out: list[dict] = []
-    for s in section_rows:
-        meta = s.get("metadata") or {}
-        sections_out.append({
-            "section_num":    s.get("section_num"),
-            "title":          s.get("title"),
-            "narrator_intro": meta.get("narrator_intro"),
-            "context":        meta.get("context"),
-            "exercises":      by_content.get(s["id"], []),
-        })
-
-    return {
-        "id":                     test["id"],
-        "test_id":                test.get("test_id"),
-        "title":                  test.get("title"),
-        # Surface test_type so the student player can relax the single-shot
-        # audio constraint for mini + drill (practice), while full tests keep
-        # the Cambridge no-seek/no-pause behaviour. Mig 157: real column,
-        # NOT NULL — the frontend's NULL→'full' fallback is now vestigial.
-        "test_type":              test.get("test_type"),
-        "themes":                 test.get("themes") or {},
-        "audio_url":              audio_url,
-        "audio_storage_path":     audio_path,
-        "audio_duration_seconds": audio_duration,
-        "cue_points":             test.get("cue_points") or [],
-        "sections":               sections_out,
-    }
+    return _assemble_listening_player_payload(test)
 
 
 # ── Test-linked dictation (chép chính tả) ────────────────────────────

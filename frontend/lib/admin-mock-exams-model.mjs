@@ -216,6 +216,8 @@ export function normalizeExamContent(raw) {
       }) : [],
       publicPracticeEnabled: row.public_practice_enabled === true,
       webExplanationMode: TEXT(row.web_explanation_mode) || 'disabled',
+      publishReady: row.publish_ready === true,
+      readinessReason: TEXT(row.readiness_reason),
     }];
   });
   return {

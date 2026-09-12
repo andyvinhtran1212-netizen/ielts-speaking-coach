@@ -37,6 +37,10 @@ class VisibilityBody(BaseModel):
     is_public: bool
 
 
+class StatusBody(BaseModel):
+    status: str = Field(min_length=1, max_length=20)
+
+
 @router.get("")
 async def list_exam_content(
     kind: Optional[str] = Query(default=None),
@@ -76,6 +80,28 @@ async def set_public_visibility(
     except LookupError as e:
         raise HTTPException(404, str(e))
     return {"id": row.get("id"), "is_public": bool(row.get("is_public"))}
+
+
+@router.patch("/{kind}/{content_id}/status")
+async def set_status(
+    kind: str, content_id: str, body: StatusBody,
+    authorization: str | None = Header(default=None),
+):
+    """Publish/archive from the one admin catalog used to assign papers."""
+    await require_admin(authorization)
+    try:
+        row = svc.set_status(kind, content_id, body.status)
+    except svc.UnknownKindError as e:
+        raise HTTPException(422, str(e))
+    except svc.ContentNotReadyError as e:
+        raise HTTPException(422, str(e))
+    except svc.ActiveAssignmentError as e:
+        raise HTTPException(409, str(e))
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except LookupError as e:
+        raise HTTPException(404, str(e))
+    return {"id": row.get("id"), "status": row.get("status")}
 
 
 @router.patch("/{kind}/{content_id}/level")

@@ -11,6 +11,7 @@ type ContentRow = {
   courseLevel: string; cohortIds: string[]; examOnly: boolean; isPublic: boolean;
   mockExams: Array<{ id: string; code: string; title: string; status: string }>;
   publicPracticeEnabled: boolean; webExplanationMode: string;
+  publishReady: boolean; readinessReason: string;
 };
 type Props = { accountId: string; cohorts: Cohort[] };
 const KIND_LABEL = { reading: 'Reading', listening: 'Listening', writing: 'Writing' };
@@ -34,6 +35,7 @@ export function ExamContentLibrary({ accountId, cohorts }: Props) {
   const [assignmentDueDate, setAssignmentDueDate] = useState(() => {
     const date = new Date(); date.setDate(date.getDate() + 7); return date.toISOString().slice(0, 10);
   });
+  const [statusEditor, setStatusEditor] = useState<{ row: ContentRow; status: 'draft' | 'published' } | null>(null);
   const requestRef = useRef(0);
   const accountRef = useRef(accountId);
   accountRef.current = accountId;
@@ -118,6 +120,26 @@ export function ExamContentLibrary({ accountId, cohorts }: Props) {
     finally { setBusyKey(''); }
   };
 
+  const saveStatus = async () => {
+    if (!statusEditor) return;
+    const { row, status } = statusEditor;
+    const key = `${row.kind}:${row.id}:status`;
+    setBusyKey(key); setError(null);
+    try {
+      await window.api.patch(`/admin/exam-content/${encodeURIComponent(row.kind)}/${encodeURIComponent(row.id)}/status`, { status });
+      setStatusEditor(null);
+      await load();
+    } catch (caught) { setError(messageOf(caught)); await load(); }
+    finally { setBusyKey(''); }
+  };
+
+  const examPreviewHref = (row: ContentRow) => row.kind === 'reading'
+    ? `/reading/exam/session?test_id=${encodeURIComponent(row.code)}&admin_preview=1`
+    : `/listening/test/session?id=${encodeURIComponent(row.id)}&admin_preview=1`;
+  const reviewPreviewHref = (row: ContentRow) => row.kind === 'reading'
+    ? `/reading/review?admin_test_id=${encodeURIComponent(row.code)}`
+    : `/listening/review?admin_test_id=${encodeURIComponent(row.id)}`;
+
   const openAssignment = (row: ContentRow) => {
     setAssignmentEditor(row);
     setAssignmentCohort(row.cohortIds[0] || cohorts[0]?.id || '');
@@ -128,12 +150,6 @@ export function ExamContentLibrary({ accountId, cohorts }: Props) {
     const key = `${row.kind}:${row.id}:assignment`;
     setBusyKey(key); setError(null);
     try {
-      if (!row.cohortIds.includes(assignmentCohort)) {
-        await window.api.patch(
-          `/admin/exam-content/${encodeURIComponent(row.kind)}/${encodeURIComponent(row.id)}/cohorts`,
-          { cohort_ids: [...row.cohortIds, assignmentCohort] },
-        );
-      }
       await window.api.post(`/admin/cohorts/${encodeURIComponent(assignmentCohort)}/assignments`, {
         skill: row.kind,
         kind: 'daily',
@@ -152,9 +168,9 @@ export function ExamContentLibrary({ accountId, cohorts }: Props) {
   };
 
   return (
-    <section className="mex-card mex-content">
-      <div className="mex-section-head"><div><p className="mex-kicker">Test library</p><h2>Kho đề · public, mock test & lớp học</h2></div><button className="adm-btn-secondary" type="button" onClick={() => void load()} disabled={loading}>Tải lại</button></div>
-      <p className="mex-help">Một đề có thể công khai hoặc ẩn trên web, đồng thời được dùng trong nhiều mock test và giao riêng cho lớp.</p>
+    <section className="mex-card mex-content" id="test-library">
+      <div className="mex-section-head"><div><p className="mex-kicker">Quản lý tập trung</p><h2>Kho đề · duyệt, publish và giao bài</h2></div><button className="adm-btn-secondary" type="button" onClick={() => void load()} disabled={loading}>Tải lại</button></div>
+      <p className="mex-help">Kiểm tra đề bằng đúng giao diện học viên, xem chữa bài, publish, mở public và giao lớp tại một nơi. Khi giao bài, hệ thống tự thêm lớp vào phạm vi đề.</p>
       <div className="mex-toolbar">
         <label><span>Kỹ năng</span><select value={kind} onChange={(event) => setKind(event.target.value)}><option value="">Tất cả</option><option value="reading">Reading</option><option value="listening">Listening</option><option value="writing">Writing</option></select></label>
         <label><span>Cấp khóa</span><select value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}><option value="">Tất cả</option>{levels.map((level) => <option key={level} value={level}>{level}</option>)}</select></label>
@@ -168,13 +184,16 @@ export function ExamContentLibrary({ accountId, cohorts }: Props) {
         {tabLevels.map((level) => <button type="button" key={level || '__empty__'} className={levelTab === level ? 'is-active' : ''} onClick={() => setLevelTab(level)}>{level || 'Chưa đặt'} <small>{rows.filter((row) => row.courseLevel === level).length}</small></button>)}
       </div>
       <div className="mex-table-wrap">
-        {loading && !rows.length ? <p role="status">Đang tải kho đề…</p> : !visible.length ? <p>Không có đề khớp bộ lọc.</p> : <table className="mex-table"><thead><tr><th>Kỹ năng</th><th>Mã / tiêu đề</th><th>Hiển thị</th><th>Mock test</th><th>Cấp khóa</th><th>Lớp</th><th>Thao tác</th></tr></thead><tbody>{visible.map((row) => {
+        {loading && !rows.length ? <p role="status">Đang tải kho đề…</p> : !visible.length ? <p>Không có đề khớp bộ lọc.</p> : <table className="mex-table"><thead><tr><th>Kỹ năng</th><th>Mã / tiêu đề</th><th>Sẵn sàng</th><th>Hiển thị web</th><th>Mock test</th><th>Cấp khóa</th><th>Lớp</th><th>Thao tác</th></tr></thead><tbody>{visible.map((row) => {
           const prefix = `${row.kind}:${row.id}`;
-          return <tr key={prefix}><td>{KIND_LABEL[row.kind]}</td><td><strong>{row.code || '—'}</strong><small>{row.title}</small></td><td><span className={`mex-pill ${row.isPublic ? 'is-open' : ''}`}>{row.kind === 'writing' ? row.status || '—' : row.isPublic ? 'Công khai' : 'Đang ẩn'}</span>{row.publicPracticeEnabled ? <small>Có web explanation</small> : null}</td><td><div className="mex-chip-list">{row.mockExams.length ? row.mockExams.map((exam) => <span key={exam.id}>{exam.code || exam.title}</span>) : <em>Chưa gán</em>}</div></td><td><input aria-label={`Cấp khóa ${row.code || row.title}`} defaultValue={row.courseLevel} key={`${prefix}:${row.courseLevel}`} onBlur={(event) => { const input = event.currentTarget; if (input.value.trim() !== row.courseLevel) void saveLevel(row, input.value).then((confirmed) => { if (!confirmed) input.value = row.courseLevel; }); }} disabled={busyKey === `${prefix}:level`} /></td><td><div className="mex-chip-list">{row.cohortIds.length ? row.cohortIds.map((id) => <span key={id}>{cohortName(id)}</span>) : <em>Chưa gán</em>}</div></td><td><div className="mex-inline-actions"><button className="adm-btn-secondary" type="button" onClick={() => openCohorts(row)}>Phạm vi lớp</button>{row.kind !== 'writing' && <><button className="adm-btn-secondary" type="button" onClick={() => void toggleVisibility(row)} disabled={busyKey === `${prefix}:visibility`}>{row.isPublic ? 'Ẩn khỏi web' : 'Mở công khai'}</button><button className="adm-btn-secondary" type="button" onClick={() => openAssignment(row)}>Giao cho lớp</button></>}</div></td></tr>;
+          const assignBlocked = row.status !== 'published' || !row.publishReady;
+          const assignReason = row.status !== 'published' ? 'Publish đề trước khi giao lớp.' : row.readinessReason;
+          return <tr key={prefix}><td>{KIND_LABEL[row.kind]}</td><td><strong>{row.code || '—'}</strong><small>{row.title}</small></td><td><span className={`mex-pill is-${row.status}`}>{row.status === 'published' ? 'Đã publish' : row.status === 'draft' ? 'Bản nháp' : row.status}</span>{row.kind !== 'writing' && row.status !== 'published' && row.publishReady ? <small className="mex-ready-copy">Đủ điều kiện publish</small> : null}{row.kind !== 'writing' && !row.publishReady ? <small className="mex-blocked-copy">{row.readinessReason || 'Đề chưa sẵn sàng.'}</small> : null}</td><td><span className={`mex-pill ${row.isPublic ? 'is-open' : ''}`}>{row.kind === 'writing' ? '—' : row.isPublic ? row.status === 'published' ? 'Công khai' : 'Public sau publish' : 'Đang ẩn'}</span>{row.publicPracticeEnabled ? <small>Có web explanation</small> : null}</td><td><div className="mex-chip-list">{row.mockExams.length ? row.mockExams.map((exam) => <span key={exam.id}>{exam.code || exam.title}</span>) : <em>Chưa gán</em>}</div></td><td><input aria-label={`Cấp khóa ${row.code || row.title}`} defaultValue={row.courseLevel} key={`${prefix}:${row.courseLevel}`} onBlur={(event) => { const input = event.currentTarget; if (input.value.trim() !== row.courseLevel) void saveLevel(row, input.value).then((confirmed) => { if (!confirmed) input.value = row.courseLevel; }); }} disabled={busyKey === `${prefix}:level`} /></td><td><div className="mex-chip-list">{row.cohortIds.length ? row.cohortIds.map((id) => <span key={id}>{cohortName(id)}</span>) : <em>Chưa gán</em>}</div></td><td><div className="mex-inline-actions">{row.kind !== 'writing' ? <><a className="adm-btn-secondary" href={examPreviewHref(row)} target="_blank" rel="noreferrer">Thi thử</a><a className="adm-btn-secondary" href={reviewPreviewHref(row)} target="_blank" rel="noreferrer">Xem chữa bài</a>{!row.publishReady ? <a className="adm-btn-secondary" href={row.kind === 'reading' ? `/admin/reading/preview?test_id=${encodeURIComponent(row.code)}` : `/admin/listening/tests/${encodeURIComponent(row.id)}`}>{row.kind === 'reading' ? 'Kiểm tra cấu trúc' : 'Chuẩn bị audio'}</a> : null}{row.status !== 'published' ? <button className="adm-btn-primary" type="button" onClick={() => setStatusEditor({ row, status: 'published' })} disabled={!row.publishReady || busyKey === `${prefix}:status`} title={!row.publishReady ? row.readinessReason : undefined}>Publish</button> : <button className="adm-btn-secondary" type="button" onClick={() => setStatusEditor({ row, status: 'draft' })} disabled={busyKey === `${prefix}:status`}>Về draft</button>}<button className="adm-btn-secondary" type="button" onClick={() => void toggleVisibility(row)} disabled={busyKey === `${prefix}:visibility`}>{row.isPublic ? 'Ẩn khỏi web' : 'Mở public'}</button><button className="adm-btn-secondary" type="button" onClick={() => openAssignment(row)} disabled={assignBlocked} title={assignBlocked ? assignReason : undefined}>Giao cho lớp</button><button className="adm-btn-secondary" type="button" onClick={() => openCohorts(row)}>Phạm vi lớp</button></> : <span>Quản lý trong thư viện Writing</span>}</div></td></tr>;
         })}</tbody></table>}
       </div>
       {cohortEditor && <div className="mex-dialog-backdrop" role="presentation"><section className="mex-dialog is-small" role="dialog" aria-modal="true" aria-labelledby="mex-cohort-title"><div className="mex-dialog-head"><div><p className="mex-kicker">Replace set</p><h2 id="mex-cohort-title">Lớp dùng đề · {cohortEditor.code || cohortEditor.title}</h2></div><button className="adm-btn-secondary" type="button" onClick={() => setCohortEditor(null)}>Đóng</button></div><p className="mex-help">Lựa chọn này thay thế toàn bộ tập lớp hiện tại.</p><div className="mex-cohort-list">{cohorts.map((row) => <label key={row.id}><input type="checkbox" checked={cohortDraft.includes(row.id)} onChange={(event) => setCohortDraft((current) => event.target.checked ? [...new Set([...current, row.id])] : current.filter((id) => id !== row.id))} /><span>{row.name || row.id}</span></label>)}</div><div className="mex-dialog-actions"><button className="adm-btn-primary" type="button" onClick={() => void saveCohorts()} disabled={busyKey.endsWith(':cohorts')}>{busyKey.endsWith(':cohorts') ? 'Đang lưu…' : 'Lưu toàn bộ lớp'}</button></div></section></div>}
       {assignmentEditor && <div className="mex-dialog-backdrop" role="presentation"><section className="mex-dialog is-small" role="dialog" aria-modal="true" aria-labelledby="mex-assignment-title"><div className="mex-dialog-head"><div><p className="mex-kicker">Giao bài</p><h2 id="mex-assignment-title">{assignmentEditor.code || assignmentEditor.title}</h2></div><button className="adm-btn-secondary" type="button" onClick={() => setAssignmentEditor(null)}>Đóng</button></div><div className="mex-form-grid"><label><span>Lớp</span><select value={assignmentCohort} onChange={(event) => setAssignmentCohort(event.target.value)}><option value="">Chọn lớp</option>{cohorts.map((row) => <option key={row.id} value={row.id}>{row.name || row.id}</option>)}</select></label><label><span>Hạn nộp</span><input type="date" value={assignmentDueDate} onChange={(event) => setAssignmentDueDate(event.target.value)} /></label></div><p className="mex-help">Đề được giao có kiểm soát; trạng thái công khai trên web không đổi.</p><div className="mex-dialog-actions"><button className="adm-btn-primary" type="button" onClick={() => void assignToClass()} disabled={!assignmentCohort || busyKey.endsWith(':assignment')}>{busyKey.endsWith(':assignment') ? 'Đang giao…' : 'Giao cho cả lớp'}</button></div></section></div>}
+      {statusEditor && <div className="mex-dialog-backdrop" role="presentation"><section className="mex-dialog is-small" role="dialog" aria-modal="true" aria-labelledby="mex-status-title"><div className="mex-dialog-head"><div><p className="mex-kicker">Trạng thái đề</p><h2 id="mex-status-title">{statusEditor.status === 'published' ? 'Publish' : 'Đưa về draft'} · {statusEditor.row.code || statusEditor.row.title}</h2></div><button className="adm-btn-secondary" type="button" onClick={() => setStatusEditor(null)}>Đóng</button></div><p className="mex-help">{statusEditor.status === 'published' ? 'Sau khi publish, đề mới có thể giao cho lớp. Trạng thái public vẫn được quản lý riêng.' : 'Đề sẽ không thể giao mới. Nếu còn bài giao đang nhận nộp, hệ thống sẽ chặn thao tác này.'}</p><div className="mex-dialog-actions"><button className="adm-btn-primary" type="button" onClick={() => void saveStatus()} disabled={busyKey.endsWith(':status')}>{busyKey.endsWith(':status') ? 'Đang lưu…' : 'Xác nhận'}</button></div></section></div>}
     </section>
   );
 }

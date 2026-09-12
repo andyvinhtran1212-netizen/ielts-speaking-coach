@@ -1482,3 +1482,4 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
     grid-column: 1 / -1;
   }
 }
+.exam-admin-preview{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--av-border-default);background:var(--av-surface-sunken);color:var(--av-text-primary);font-size:13px}.exam-admin-preview>span:not(.exam-admin-preview__actions){flex:1;color:var(--av-text-secondary)}.exam-admin-preview__actions{display:flex;gap:8px}.exam-admin-preview .exam-btn{min-height:40px;text-decoration:none}@media(max-width:700px){.exam-admin-preview{align-items:flex-start;flex-direction:column}.exam-admin-preview__actions{width:100%;flex-wrap:wrap}}

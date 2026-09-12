@@ -417,12 +417,14 @@ export function ListeningTestSession() {
     if (!params) return;
     const ready = await whenGlobalReady(() => !!window.api?.get, 'window.api (Listening test)');
     if (!ready) throw new Error('Không thể kết nối lớp dữ liệu.');
-    const [testPayload, resumePayload] = await Promise.all([
-      window.api.get(withQuery(`/api/listening/tests/${encodeURIComponent(params.testId)}`, [
-        ['class_item', params.classItem],
-      ])),
-      window.api.get(resumePath(params)),
-    ]);
+    const [testPayload, resumePayload] = params.adminPreview
+      ? [await window.api.get(`/admin/listening/tests/${encodeURIComponent(params.testId)}/player-preview`), null]
+      : await Promise.all([
+        window.api.get(withQuery(`/api/listening/tests/${encodeURIComponent(params.testId)}`, [
+          ['class_item', params.classItem],
+        ])),
+        window.api.get(resumePath(params)),
+      ]);
     const normalizedTest = normalizeListeningTest(testPayload);
     const normalizedAttempt = normalizeListeningResume(resumePayload);
     const firstSection = Number(normalizedTest.sections[0]?.section_num || 1);
@@ -430,6 +432,12 @@ export function ListeningTestSession() {
     setTestData(normalizedTest);
     setActiveSection(firstSection);
     setCurrentQuestion(firstQuestion || null);
+    if (params.adminPreview) {
+      answersRef.current = new Map(); setAnswers(new Map()); setAttempt(null); setResumeAvailable(false);
+      setAudioPromptOpen(!isPracticeListeningTest(normalizedTest));
+      setPhase('inprogress');
+      return;
+    }
     if (normalizedAttempt) {
       const affinity = await claimNextRenderer(normalizedAttempt.attempt_id);
       if (!affinity) return;
@@ -654,17 +662,17 @@ export function ListeningTestSession() {
   }, [startAudio]);
 
   const retryAudio = useCallback(async () => {
-    if (!params || !attempt || audioRetrying) return;
+    if (!params || (!attempt && !params.adminPreview) || audioRetrying) return;
     const mediaOffset = Number(audioRef.current?.currentTime);
     setAudioRetrying(true);
     try {
-      const refreshed = normalizeListeningTest(await window.api.get(
-        withQuery(`/api/listening/tests/${encodeURIComponent(params.testId)}`, [
+      const refreshed = normalizeListeningTest(await window.api.get(params.adminPreview
+        ? `/admin/listening/tests/${encodeURIComponent(params.testId)}/player-preview`
+        : withQuery(`/api/listening/tests/${encodeURIComponent(params.testId)}`, [
           ['class_item', params.classItem],
-        ]),
-      ));
-      const offset = params.sittingId || !Number.isFinite(mediaOffset)
-        ? await resolveAudioOffset(attempt, refreshed)
+        ])));
+      const offset = params.adminPreview ? 0 : params.sittingId || !Number.isFinite(mediaOffset)
+        ? await resolveAudioOffset(attempt!, refreshed)
         : Math.max(0, mediaOffset);
       audioRef.current?.pause();
       setPlaying(false);
@@ -695,7 +703,7 @@ export function ListeningTestSession() {
   const unsavedFailed = [...saveStates.values()].filter((state) => state === 'failed').length;
   const unsavedRetrying = [...saveStates.values()].filter((state) => state === 'retrying').length;
   const unsavedPending = [...saveStates.values()].filter((state) => state === 'pending').length;
-  const backHref = listeningLibraryHref(params?.from, params?.sittingId);
+  const backHref = params?.adminPreview ? '/admin/mock-exams#test-library' : listeningLibraryHref(params?.from, params?.sittingId);
 
   const jumpToQuestion = useCallback((qNum: number) => {
     const target = allQuestions.find(({ question }: any) => Number(question.q_num) === qNum);
@@ -756,7 +764,7 @@ export function ListeningTestSession() {
     <a className="vh" href="#listening-paper">Skip to test content</a>
     <header className="exam-topbar listening-next-topbar" role="banner">
       <div className="exam-topbar__left">
-        <div className="exam-topbar__candidate">Aver Learning <b>{user?.email || 'Candidate'}</b></div>
+        <div className="exam-topbar__candidate">Aver Learning <b>{params?.adminPreview ? 'Admin preview' : user?.email || 'Candidate'}</b></div>
         <div className="exam-topbar__section">IELTS Listening Practice · {testData?.title || 'Listening Test'}</div>
       </div>
       <div className="listening-next-audio-state" aria-live="polite" hidden={!['inprogress', 'submitting'].includes(phase)}>
@@ -782,6 +790,7 @@ export function ListeningTestSession() {
         </div>
       </section> : null}
       {['inprogress', 'submitting'].includes(phase) && testData ? <>
+        {params?.adminPreview ? <aside className="listening-admin-preview" role="status"><strong>Bản duyệt admin</strong><span>Đây là đúng giao diện thi của học viên. Câu trả lời chỉ nằm trong tab này; hệ thống không tạo attempt và không lưu kết quả.</span><span className="listening-admin-preview__actions"><a className="ft-control-btn ghost" href={`/listening/review?admin_test_id=${encodeURIComponent(testData.id)}`}>Xem chữa bài</a><a className="ft-control-btn ghost" href={backHref}>Về kho đề</a></span></aside> : null}
         <section className="listening-next-part-strip" aria-label={`Part ${activeSection}`}>
           <strong>Part {activeSection}</strong><span>{activeSectionQuestions.length ? `Listen and answer questions ${activeSectionQuestions[0]?.q_num}–${activeSectionQuestions.at(-1)?.q_num}.` : 'Listen and answer the questions.'}</span>
         </section>
@@ -836,12 +845,12 @@ export function ListeningTestSession() {
           })}</div>
           {saveStates.size ? <p className="ft-unsaved-note" role="status">{unsavedPending ? `Đang lưu ${unsavedPending} câu. ` : ''}{unsavedRetrying ? `Đang thử lưu lại ${unsavedRetrying} câu. ` : ''}{unsavedFailed ? `${unsavedFailed} câu chưa lưu được lên máy chủ.` : 'Đừng đóng tab tới khi lưu xong.'}{unsavedFailed ? <button className="ft-unsaved-retry" type="button" onClick={() => coordinatorRef.current?.retryFailed?.()}>Thử lại</button> : null}</p> : null}
           {submitBlocked ? <p className="ft-nothing-saved" role="alert">{submitBlocked}</p> : null}
-          <div className="listening-next-submit-row"><button className="listening-next-nav-btn" type="button" disabled={currentQuestion === Number(allQuestions[0]?.question?.q_num)} onClick={() => moveQuestion(-1)}>‹ Previous</button><label className="listening-next-review"><input type="checkbox" checked={currentQuestion != null && reviewQuestions.has(currentQuestion)} disabled={currentQuestion == null} onChange={() => { if (currentQuestion == null) return; setReviewQuestions((previous) => { const next = new Set(previous); if (next.has(currentQuestion)) next.delete(currentQuestion); else next.add(currentQuestion); return next; }); }} /> Review</label><button className="listening-next-nav-btn" type="button" disabled={currentQuestion === Number(allQuestions.at(-1)?.question?.q_num)} onClick={() => moveQuestion(1)}>Next ›</button>{!params?.mockEmbed ? <button className="btn-submit-final" id="btn-submit" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(true)}>{phase === 'submitting' ? 'Đang chấm…' : 'Submit answers'}</button> : null}</div>
+          <div className="listening-next-submit-row"><button className="listening-next-nav-btn" type="button" disabled={currentQuestion === Number(allQuestions[0]?.question?.q_num)} onClick={() => moveQuestion(-1)}>‹ Previous</button><label className="listening-next-review"><input type="checkbox" checked={currentQuestion != null && reviewQuestions.has(currentQuestion)} disabled={currentQuestion == null} onChange={() => { if (currentQuestion == null) return; setReviewQuestions((previous) => { const next = new Set(previous); if (next.has(currentQuestion)) next.delete(currentQuestion); else next.add(currentQuestion); return next; }); }} /> Review</label><button className="listening-next-nav-btn" type="button" disabled={currentQuestion === Number(allQuestions.at(-1)?.question?.q_num)} onClick={() => moveQuestion(1)}>Next ›</button>{params?.adminPreview ? <a className="btn-submit-final" href={`/listening/review?admin_test_id=${encodeURIComponent(testData.id)}`}>Xem chữa bài</a> : !params?.mockEmbed ? <button className="btn-submit-final" id="btn-submit" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(true)}>{phase === 'submitting' ? 'Đang chấm…' : 'Submit answers'}</button> : null}</div>
         </footer>
       </> : null}
       {phase === 'sealed' ? <section className="ft-prestart"><p>Đã thu bài Listening. Đang chờ kỳ thi chuyển bước tiếp theo…</p></section> : null}
     </main>
     {audioPromptOpen ? <div className="listening-next-modal listening-next-audio-prompt" role="dialog" aria-modal="true" aria-labelledby="listening-audio-title"><div className="listening-next-modal-backdrop" /><section className="listening-next-modal-panel"><div className="listening-next-audio-icon" aria-hidden="true">◉</div><h2 id="listening-audio-title">Check your headphones</h2><p>When you press Play, the recording starts immediately. You cannot pause, rewind or play it again.</p><button className="ft-control-btn" type="button" autoFocus onClick={() => void startAudio()}>▶ Play</button></section></div> : null}
-    {submitOpen ? <div className="listening-next-modal" role="dialog" aria-modal="true" aria-labelledby="listening-submit-title"><button className="listening-next-modal-backdrop" aria-label="Đóng" type="button" onClick={() => setSubmitOpen(false)} /><section className="listening-next-modal-panel"><h2 id="listening-submit-title">Nộp bài?</h2><p>{answers.size < total ? `Bạn còn ${total - answers.size}/${total} câu chưa trả lời.` : `Bạn đã trả lời tất cả ${total} câu.`}</p><div className="listening-next-actions"><button className="ft-control-btn ghost" type="button" onClick={() => setSubmitOpen(false)}>Quay lại làm tiếp</button><button className="ft-control-btn" type="button" onClick={() => void submit()}>Nộp bài</button></div></section></div> : null}
+    {submitOpen && !params?.adminPreview ? <div className="listening-next-modal" role="dialog" aria-modal="true" aria-labelledby="listening-submit-title"><button className="listening-next-modal-backdrop" aria-label="Đóng" type="button" onClick={() => setSubmitOpen(false)} /><section className="listening-next-modal-panel"><h2 id="listening-submit-title">Nộp bài?</h2><p>{answers.size < total ? `Bạn còn ${total - answers.size}/${total} câu chưa trả lời.` : `Bạn đã trả lời tất cả ${total} câu.`}</p><div className="listening-next-actions"><button className="ft-control-btn ghost" type="button" onClick={() => setSubmitOpen(false)}>Quay lại làm tiếp</button><button className="ft-control-btn" type="button" onClick={() => void submit()}>Nộp bài</button></div></section></div> : null}
   </>;
 }
