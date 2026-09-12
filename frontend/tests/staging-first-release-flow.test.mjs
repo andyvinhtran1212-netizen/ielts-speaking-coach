@@ -7,7 +7,6 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = (relative) => readFileSync(path.join(ROOT, relative), 'utf8');
 const PROMOTION = read('.github/workflows/staging-promotion-gate.yml');
-const STAGING_E2E = read('.github/workflows/staging-e2e.yml');
 const RELEASE_SMOKE = read('.github/workflows/staging-release-smoke.yml');
 const PRODUCTION_DRIFT = read('.github/workflows/production-release-drift.yml');
 const BACKEND = read('.github/workflows/backend-tests.yml');
@@ -19,12 +18,8 @@ const AGENT_RULES = read('AGENTS.md');
 
 describe('staging-first production release contract', () => {
   test('every staging merge runs exact-release integration gates', () => {
-    assert.match(STAGING_E2E, /^  push:\n    branches: \[staging\]$/m);
-    assert.match(RELEASE_SMOKE, /^  workflow_call:$/m);
-    assert.match(
-      STAGING_E2E,
-      /^    if: github\.event_name == 'workflow_dispatch' \|\| github\.event_name == 'push'$/m,
-    );
+    assert.match(RELEASE_SMOKE, /^  push:\n    branches: \[staging\]$/m);
+    assert.match(RELEASE_SMOKE, /^  workflow_dispatch:$/m);
     for (const workflow of [BACKEND, TYPECHECK, ROUTES, FREEZE]) {
       assert.match(workflow, /^  push:\n    branches: \[main, staging\]$/m);
     }
@@ -33,12 +28,9 @@ describe('staging-first production release contract', () => {
     assert.match(RELEASE_SMOKE, /capture-staging-release-provenance\.mjs/);
     assert.doesNotMatch(RELEASE_SMOKE, /Gate E|GATE_E_STREAK|gate-e-streak/);
     assert.doesNotMatch(RELEASE_SMOKE, /^\s+queue:/m);
-    assert.match(RELEASE_SMOKE, /ref: \$\{\{ inputs\.release_source_sha \}\}/);
+    assert.match(RELEASE_SMOKE, /ref: \$\{\{ github\.event_name == 'push' && github\.sha \|\| 'staging' \}\}/);
     assert.match(RELEASE_SMOKE, /SOURCE_SHA.*!=.*EXPECTED_SHA/s);
-    assert.match(STAGING_E2E, /group: \$\{\{ github\.event_name == 'schedule'.*production-release-drift.*staging-e2e-shared-env/);
-    assert.match(STAGING_E2E, /^    outputs:\n      source_sha: \$\{\{ steps\.source_revision\.outputs\.sha \}\}$/m);
-    assert.match(STAGING_E2E, /^  release-smoke:\n[\s\S]*?needs: staging-e2e\n[\s\S]*?uses: \.\/\.github\/workflows\/staging-release-smoke\.yml/m);
-    assert.match(STAGING_E2E, /release_source_sha: \$\{\{ needs\.staging-e2e\.outputs\.source_sha \}\}/);
+    assert.match(RELEASE_SMOKE, /^concurrency:\n  group: staging-release-smoke\n  cancel-in-progress: false$/m);
     const preDeploy = RELEASE_SMOKE.indexOf('Wait for exact frontend and backend staging release');
     const browserSuite = RELEASE_SMOKE.indexOf('Run live staging release smoke');
     const postDeploy = RELEASE_SMOKE.indexOf('Verify exact frontend and backend staging release');
@@ -56,12 +48,13 @@ describe('staging-first production release contract', () => {
     assert.match(PROMOTION, /STAGING_SHA.*!= "\$HEAD_SHA"/s);
   });
 
-  test('promotion requires all integrated checks and a non-skipped E2E job on the same SHA', () => {
+  test('promotion requires all integrated checks and the permanent smoke on the same SHA', () => {
     for (const workflow of [
       'backend-tests.yml',
       'typecheck.yml',
       'route-manifest.yml',
       'legacy-freeze.yml',
+      'staging-release-smoke.yml',
     ]) {
       assert.ok(PROMOTION.includes(`"${workflow}|`), `missing integrated workflow: ${workflow}`);
     }
@@ -72,6 +65,7 @@ describe('staging-first production release contract', () => {
       'api.d.ts ↔ OpenAPI drift',
       'Build + verify routes-manifest ownership',
       'Public không chứa HTML legacy',
+      'Staging release smoke',
     ]) {
       assert.ok(PROMOTION.includes(check), `missing promotion check: ${check}`);
     }
@@ -82,15 +76,12 @@ describe('staging-first production release contract', () => {
     assert.match(PROMOTION, /event=push/);
     assert.doesNotMatch(PROMOTION, /gh api[\s\S]{0,300}--jq --arg/,
       '`--arg` belongs to jq, not gh api');
-    assert.match(PROMOTION, /select\(\.name == "staging-e2e"\)/);
-    assert.match(PROMOTION, /E2E_JOB.*!= "success"/s);
-    assert.match(PROMOTION, /select\(\.name == "release-smoke \/ Staging release smoke"\)/);
-    assert.match(PROMOTION, /RELEASE_SMOKE_JOB.*!= "success"/s);
     assert.equal(
       (PROMOTION.match(/\[ "\$RUN_STATUS" = "pending" \]/g) || []).length,
-      2,
-      'both integrated-workflow and Staging E2E polling must wait through GitHub pending state',
+      1,
+      'integrated workflow polling must wait through GitHub pending state',
     );
+    assert.doesNotMatch(PROMOTION, /staging-e2e\.yml|release-smoke \/ Staging release smoke/);
   });
 
   test('operator and agent documentation prohibit direct feature releases to main', () => {
