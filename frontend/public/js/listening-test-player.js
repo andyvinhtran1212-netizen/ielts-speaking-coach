@@ -264,7 +264,7 @@ function fmtTime(secs) {
 async function loadTest(testId) {
   showState('loading');
   try {
-    const classItem = classItemFromUrl();
+    const classItem = getClassItemFromUrl();
     const test = await window.api.get(
       `/api/listening/tests/${encodeURIComponent(testId)}`
         + (classItem ? `?class_item=${encodeURIComponent(classItem)}` : ''),
