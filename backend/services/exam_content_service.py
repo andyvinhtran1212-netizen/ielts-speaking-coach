@@ -221,20 +221,22 @@ def _mock_refs_for(kind: str, content_ids: Iterable[str]) -> dict:
     }.get(kind)
     if not ids or not column:
         return out
-    rows = _paged(
-        lambda: supabase_admin.table("mock_exams")
-        .select(f"id,code,title,status,{column}")
-        .in_(column, ids).order("created_at", desc=True)
-    )
-    for row in rows:
-        content_id = str(row.get(column) or "")
-        if content_id in out:
-            out[content_id].append({
-                "id": row.get("id"),
-                "code": row.get("code"),
-                "title": row.get("title"),
-                "status": row.get("status"),
-            })
+    for index in range(0, len(ids), _ID_CHUNK):
+        chunk = ids[index:index + _ID_CHUNK]
+        rows = _paged(
+            lambda c=chunk: supabase_admin.table("mock_exams")
+            .select(f"id,code,title,status,{column}")
+            .in_(column, c).order("created_at", desc=True)
+        )
+        for row in rows:
+            content_id = str(row.get(column) or "")
+            if content_id in out:
+                out[content_id].append({
+                    "id": row.get("id"),
+                    "code": row.get("code"),
+                    "title": row.get("title"),
+                    "status": row.get("status"),
+                })
     return out
 
 

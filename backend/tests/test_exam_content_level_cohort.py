@@ -330,6 +330,29 @@ def test_list_surfaces_mock_usage_without_changing_visibility(db):
     }]
 
 
+def test_mock_reference_lookup_chunks_ids_and_merges_every_result(db, monkeypatch):
+    monkeypatch.setattr(svc, "_ID_CHUNK", 2)
+    ids = [f"r{i}" for i in range(5)]
+    db.t["mock_exams"] = [{
+        "id": f"m{i}", "code": f"MOCK-{i}", "title": f"Mock {i}",
+        "status": "published", "reading_test_id": paper_id,
+    } for i, paper_id in enumerate(ids)]
+    chunks = []
+
+    def paged(build_query):
+        query = build_query()
+        chunks.append(query.ins[0][1])
+        return query.execute().data
+
+    monkeypatch.setattr(svc, "_paged", paged)
+    refs = svc._mock_refs_for("reading", ids)
+
+    assert chunks == [["r0", "r1"], ["r2", "r3"], ["r4"]]
+    assert {paper_id: rows[0]["id"] for paper_id, rows in refs.items()} == {
+        f"r{i}": f"m{i}" for i in range(5)
+    }
+
+
 def test_exam_catalog_surfaces_paper_level_explanation_readiness(db):
     _seed_three(db)
     db.t["web_explanation_objects"] = [{

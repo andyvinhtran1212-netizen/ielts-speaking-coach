@@ -457,6 +457,30 @@ async def test_a_reading_paper_that_closed_after_being_given_says_so(patch_row, 
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("skill", ["reading", "listening"])
+async def test_legacy_exam_paper_explicitly_public_remains_openable(skill):
+    """Migration 258 intentionally preserves exam_only on dual-use papers."""
+    if skill == "reading":
+        tables = {"reading_tests": [{
+            "id": "uuid-abc", "test_id": "CAM19-T3", "status": "published",
+            "exam_only": True, "is_public": True,
+            "public_practice_enabled": True,
+        }]}
+    else:
+        tables = {"listening_tests": [{
+            "id": "uuid-abc", "status": "published", "exam_only": True,
+            "is_public": True, "public_practice_enabled": True,
+            "assembled_audio_storage_path": "a/b.mp3",
+            "full_audio_storage_path": None,
+        }]}
+
+    out = await _start(_start_db(skill=skill, content_id="uuid-abc", tables=tables))
+
+    assert out["skill"] == skill
+    assert out["player_query"]["class_item"] == "item-1"
+
+
+@pytest.mark.asyncio
 async def test_a_listening_paper_that_lost_its_audio_says_so():
     """Replacing section audio clears the assembled path; the row stays
     published while the player answers 422."""
