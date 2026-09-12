@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
 from pydub import AudioSegment
+from pydub.generators import Sine
 
 from services import course_pronunciation as cp
 from scripts.setup_course_pronunciation import _load
@@ -73,6 +75,34 @@ def test_invalid_browser_audio_fails_before_any_azure_call(monkeypatch):
     assert "câu 1" in caught.value.message
 
 
+def _wav(audio: AudioSegment) -> bytes:
+    output = io.BytesIO()
+    audio.export(output, format="wav")
+    return output.getvalue()
+
+
+def test_silent_browser_audio_is_rejected_before_any_azure_call(monkeypatch):
+    silence = _wav(AudioSegment.silent(duration=1_000, frame_rate=16_000))
+    monkeypatch.setattr(cp.azure_pronunciation, "_convert_to_wav", lambda data: data)
+    with pytest.raises(cp.CoursePronunciationError) as caught:
+        cp._decode_recording(
+            cp.Recording("S1", silence, "audio/wav"),
+            {"id": "S1", "order": 1, "text": "The air is cleaner."},
+        )
+    assert caught.value.status_code == 422
+    assert "Không nghe thấy giọng nói" in caught.value.message
+
+
+def test_quiet_but_audible_browser_audio_is_accepted(monkeypatch):
+    quiet_tone = _wav(Sine(440).to_audio_segment(duration=1_000).apply_gain(-45))
+    monkeypatch.setattr(cp.azure_pronunciation, "_convert_to_wav", lambda data: data)
+    decoded = cp._decode_recording(
+        cp.Recording("S1", quiet_tone, "audio/wav"),
+        {"id": "S1", "order": 1, "text": "The air is cleaner."},
+    )
+    assert len(decoded.audio) == 1_000
+
+
 def test_batching_also_respects_short_audio_limit():
     batches = cp._pack_batches([
         _decoded(1, duration_ms=13_800),
@@ -130,6 +160,25 @@ async def test_course_batches_use_strict_british_reading_without_prosody_addon(m
     assert calls[0]["reference_text"] == (
         "The air is cleaner. The metro is reliable."
     )
+
+
+def test_all_empty_azure_batches_are_rejected_instead_of_saved_as_zero():
+    silent_success = {
+        "pronunciation_score": 0,
+        "words": [{"word": "The", "accuracy_score": 0, "error_type": "Omission"}],
+        "raw_payload": {"RecognitionStatus": "Success", "DisplayText": "."},
+    }
+    with pytest.raises(cp.CoursePronunciationError) as caught:
+        cp._require_detected_speech([silent_success, silent_success])
+    assert caught.value.status_code == 422
+    assert "Không nghe thấy giọng nói" in caught.value.message
+
+
+def test_actual_recognized_word_passes_provider_speech_guard():
+    cp._require_detected_speech([{
+        "words": [{"word": "cleaner", "accuracy_score": 31, "error_type": "Mispronunciation"}],
+        "raw_payload": {"RecognitionStatus": "Success", "DisplayText": ""},
+    }])
 
 
 def test_migration_keeps_results_service_role_only_and_preserves_history():

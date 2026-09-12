@@ -34,6 +34,7 @@ MAX_BATCH_MS = 28_000
 MAX_SENTENCES_PER_BATCH = 3
 SENTENCE_GAP_MS = 450
 WEAK_WORD_THRESHOLD = 70.0
+MIN_AUDIBLE_PEAK_DBFS = -60.0
 
 _WORD_RE = re.compile(r"[A-Za-z]+(?:['’][A-Za-z]+)?")
 
@@ -203,6 +204,12 @@ def _decode_recording(recording: Recording, sentence: dict) -> DecodedRecording:
         raise CoursePronunciationError(
             422, f"Bản ghi câu {sentence.get('order')} dài quá 28 giây. Hãy thu lại ngắn hơn."
         )
+    if audio.rms <= 1 or audio.max_dBFS <= MIN_AUDIBLE_PEAK_DBFS:
+        raise CoursePronunciationError(
+            422,
+            f"Không nghe thấy giọng nói trong bản ghi câu {sentence.get('order')}. "
+            "Hãy kiểm tra micro và thu lại câu này.",
+        )
     return DecodedRecording(sentence=sentence, audio=audio)
 
 
@@ -349,6 +356,27 @@ async def _grade_batches(
     return list(await asyncio.gather(*(one(batch) for batch in batches)))
 
 
+def _provider_detected_speech(provider: dict) -> bool:
+    """Reject Azure's successful-but-empty response instead of saving a false 0."""
+    raw = provider.get("raw_payload") or {}
+    if _tokens(str(raw.get("DisplayText") or "")):
+        return True
+    for word in provider.get("words") or []:
+        if (_tokens(str(word.get("word") or ""))
+                and word.get("error_type") != "Omission"):
+            return True
+    return False
+
+
+def _require_detected_speech(providers: list[dict]) -> None:
+    if providers and not any(_provider_detected_speech(provider) for provider in providers):
+        raise CoursePronunciationError(
+            422,
+            "Không nghe thấy giọng nói trong các bản ghi. "
+            "Hãy kiểm tra micro, thu lại rồi nộp lại.",
+        )
+
+
 def _existing_by_client(client_id: str, user_id: str) -> dict | None:
     try:
         rows = (
@@ -467,6 +495,7 @@ async def submit(
 
     try:
         providers = await _grade_batches(batches, locale=str(exercise["locale"]))
+        _require_detected_speech(providers)
         sentence_results = []
         for batch, provider in zip(batches, providers):
             sentence_results.extend(_align_sentence_results(batch, provider))
@@ -510,15 +539,27 @@ async def submit(
             raise RuntimeError("submission update returned no row")
         public = _public_attempt(rows[0]) or {}
     except Exception as exc:  # noqa: BLE001
-        logger.exception("[course-pronunciation] grading failed submission=%s", saved.get("id"))
+        no_speech = isinstance(exc, CoursePronunciationError)
+        if no_speech:
+            logger.warning("[course-pronunciation] no speech submission=%s", saved.get("id"))
+        else:
+            logger.exception(
+                "[course-pronunciation] grading failed submission=%s", saved.get("id")
+            )
+        error_message = (
+            exc.message if no_speech
+            else "Chưa chấm được audio. Có thể gửi lại cùng lượt mà không cần thu lại."
+        )
         try:
             supabase_admin.table("course_pronunciation_submissions").update({
                 "status": "failed",
-                "error_message": "Chưa chấm được audio. Có thể gửi lại cùng lượt mà không cần thu lại.",
+                "error_message": error_message,
                 "updated_at": _now(),
             }).eq("id", saved["id"]).eq("user_id", user_id).execute()
         except Exception as persist_exc:  # noqa: BLE001
             logger.warning("[course-pronunciation] failed-state write failed: %s", persist_exc)
+        if no_speech:
+            raise
         raise CoursePronunciationError(502, "Dịch vụ chấm phát âm tạm thời chưa phản hồi") from exc
 
     # Kết quả Azure đã lưu là bất biến. Lỗi cập nhật checklist không được đổi
