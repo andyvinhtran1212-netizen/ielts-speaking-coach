@@ -162,11 +162,18 @@ class _RPC:
         self.db, self.name, self.params = db, name, params
 
     def execute(self):
-        if self.name == "fn_create_class_assignment":
+        if self.name in ("fn_create_class_assignment",
+                          "fn_create_scoped_exam_class_assignment"):
             students = [s for s in self.db.tables.get("students", [])
                         if s.get("cohort_id") == self.params["p_cohort_id"]]
             if not students:
                 raise RuntimeError('empty_roster')
+            if self.name == "fn_create_scoped_exam_class_assignment":
+                self.db.store.setdefault("exam_content_cohorts", []).append({
+                    "content_kind": self.params["p_scope_kind"],
+                    "content_id": self.params["p_content_id"],
+                    "cohort_id": self.params["p_cohort_id"],
+                })
             row = {"id": "asg-new", **{k[2:]: v for k, v in self.params.items()}}
             self.db.store.setdefault("class_assignments", []).append(row)
             self.db.store.setdefault("class_assignment_items", []).extend(
@@ -358,6 +365,33 @@ def test_empty_roster_creates_nothing_at_all():
     with pytest.raises(EmptyRosterError):
         create_class_assignment(db, cohort_id=COHORT, skill="speaking", title="x")
     assert db.store.get("class_assignments") is None, "an orphan give was inserted"
+    assert db.store.get("class_assignment_items") is None
+
+
+def test_exam_scope_and_assignment_succeed_together():
+    db = _DB({"students": _students(1), "class_assignments": [],
+              "class_assignment_items": [], "exam_content_cohorts": []})
+    out = create_class_assignment(
+        db, cohort_id=COHORT, skill="reading", title="Reading",
+        content_id="paper-1", exam_scope_kind="reading",
+    )
+    assert out["student_count"] == 1
+    assert db.store["exam_content_cohorts"] == [{
+        "content_kind": "reading", "content_id": "paper-1", "cohort_id": COHORT,
+    }]
+    assert len(db.store["class_assignments"]) == 1
+
+
+def test_empty_roster_rolls_back_exam_scope_too():
+    db = _DB({"students": [], "class_assignments": [],
+              "class_assignment_items": [], "exam_content_cohorts": []})
+    with pytest.raises(EmptyRosterError):
+        create_class_assignment(
+            db, cohort_id=COHORT, skill="listening", title="Listening",
+            content_id="paper-1", exam_scope_kind="listening",
+        )
+    assert db.store.get("exam_content_cohorts") is None
+    assert db.store.get("class_assignments") is None
     assert db.store.get("class_assignment_items") is None
 
 
