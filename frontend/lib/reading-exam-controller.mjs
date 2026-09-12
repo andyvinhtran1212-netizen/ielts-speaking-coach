@@ -28,6 +28,7 @@ export function readingExamParams(search) {
     from: (params.get('from') || '').trim() || null,
     sittingId: (params.get('sitting_id') || '').trim() || null,
     mockEmbed: params.get('mock_embed') === '1',
+    adminPreview: params.get('admin_preview') === '1',
   });
 }
 
@@ -41,6 +42,7 @@ export function readingPlayerQuery(params) {
     ...(params.share ? { share: params.share } : {}),
     ...(params.sittingId ? { sitting_id: params.sittingId } : {}),
     ...(params.mockEmbed ? { mock_embed: '1' } : {}),
+    ...(params.adminPreview ? { admin_preview: '1' } : {}),
     ...(params.from ? { from: params.from } : {}),
     ...(params.classItem ? { class_item: params.classItem } : {}),
   };

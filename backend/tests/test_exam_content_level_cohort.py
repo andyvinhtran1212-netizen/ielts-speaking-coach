@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 import services.exam_content_service as svc
+from services import mock_exam_service
 
 BACKEND = Path(__file__).resolve().parents[1]
 
@@ -32,6 +33,7 @@ class _Q:
         self.op = "select"
         self.payload = None
         self.eqs: list = []
+        self.neqs: list = []
         self.ins: list = []
 
     def select(self, *_a, **_k):
@@ -53,6 +55,10 @@ class _Q:
         self.eqs.append((c, v))
         return self
 
+    def neq(self, c, v):
+        self.neqs.append((c, v))
+        return self
+
     def in_(self, c, vs):
         self.ins.append((c, [str(x) for x in vs]))
         return self
@@ -70,6 +76,9 @@ class _Q:
     def _match(self, r):
         for c, v in self.eqs:
             if str(r.get(c)) != str(v):
+                return False
+        for c, v in self.neqs:
+            if str(r.get(c)) == str(v):
                 return False
         for c, vs in self.ins:
             if str(r.get(c)) not in vs:
@@ -182,6 +191,96 @@ def test_a_missing_row_is_reported_not_silently_ignored(db):
         svc.set_course_level("reading", "nope", "C2")
 
 
+def test_central_publish_gate_publishes_ready_reading(db):
+    db.t["reading_tests"] = [{
+        "id": "r1", "status": "draft", "passage_count": 3, "total_questions": 40,
+    }]
+    assert svc.set_status("reading", "r1", "published")["status"] == "published"
+
+
+def test_central_publish_gate_publishes_ready_reading_mini(db):
+    db.t["reading_tests"] = [{
+        "id": "r-mini", "status": "draft", "test_type": "mini",
+        "passage_count": 1, "total_questions": 7,
+    }]
+    assert svc.set_status("reading", "r-mini", "published")["status"] == "published"
+
+
+def test_reading_mini_without_questions_is_not_publishable(db):
+    db.t["reading_tests"] = [{
+        "id": "r-mini", "status": "draft", "test_type": "mini",
+        "passage_count": 1, "total_questions": 0,
+    }]
+    with pytest.raises(svc.ContentNotReadyError, match="1 passage và có câu hỏi"):
+        svc.set_status("reading", "r-mini", "published")
+
+
+def test_incomplete_reading_has_an_actionable_publish_reason(db):
+    db.t["reading_tests"] = [{
+        "id": "r1", "status": "draft", "passage_count": 2, "total_questions": 28,
+    }]
+    with pytest.raises(svc.ContentNotReadyError, match="3 passages và 40 câu"):
+        svc.set_status("reading", "r1", "published")
+
+
+def test_central_publish_gate_explains_missing_listening_audio(db):
+    db.t["listening_tests"] = [{
+        "id": "l1", "status": "draft", "audio_assembly_mode": "full_premixed",
+        "full_audio_storage_path": None,
+    }]
+    with pytest.raises(svc.ContentNotReadyError, match="full_audio_storage_path"):
+        svc.set_status("listening", "l1", "published")
+
+
+def test_ready_listening_can_be_published_from_the_catalog(db):
+    db.t["listening_tests"] = [{
+        "id": "l1", "status": "draft", "audio_assembly_mode": "full_premixed",
+        "full_audio_storage_path": "full/test.mp3",
+    }]
+    assert svc.set_status("listening", "l1", "published")["status"] == "published"
+
+
+def test_published_paper_with_active_assignment_cannot_return_to_draft(db, monkeypatch):
+    db.t["reading_tests"] = [{
+        "id": "r1", "status": "published", "passage_count": 3, "total_questions": 40,
+    }]
+    monkeypatch.setattr(svc, "active_exam_assignment_references", lambda *_a: [{
+        "id": "give-1", "title": "Bài kiểm tra tuần 4",
+    }])
+    with pytest.raises(svc.ActiveAssignmentError, match="Bài kiểm tra tuần 4"):
+        svc.set_status("reading", "r1", "draft")
+
+
+def test_published_paper_in_live_mock_exam_cannot_leave_published(db, monkeypatch):
+    db.t["reading_tests"] = [{
+        "id": "r1", "status": "published", "passage_count": 3, "total_questions": 40,
+    }]
+    db.t["mock_exams"] = [
+        {"id": "m-draft", "code": "MOCK-DRAFT", "status": "draft", "reading_test_id": "r1"},
+        {"id": "m-live", "code": "MOCK-LIVE", "status": "published", "reading_test_id": "r1"},
+        {"id": "m-old", "code": "MOCK-OLD", "status": "archived", "reading_test_id": "r1"},
+    ]
+    monkeypatch.setattr(svc, "active_exam_assignment_references", lambda *_a: [])
+    monkeypatch.setattr(mock_exam_service, "supabase_admin", db)
+
+    for next_status in ("draft", "archived"):
+        with pytest.raises(svc.ActiveMockExamError, match="MOCK-DRAFT, MOCK-LIVE"):
+            svc.set_status("reading", "r1", next_status)
+
+
+def test_archived_mock_exam_does_not_block_depublishing_paper(db, monkeypatch):
+    db.t["reading_tests"] = [{
+        "id": "r1", "status": "published", "passage_count": 3, "total_questions": 40,
+    }]
+    db.t["mock_exams"] = [
+        {"id": "m-old", "code": "MOCK-OLD", "status": "archived", "reading_test_id": "r1"},
+    ]
+    monkeypatch.setattr(svc, "active_exam_assignment_references", lambda *_a: [])
+    monkeypatch.setattr(mock_exam_service, "supabase_admin", db)
+
+    assert svc.set_status("reading", "r1", "draft")["status"] == "draft"
+
+
 def test_known_levels_are_derived_from_the_data(db):
     """The column is free text on purpose — a CHECK would need a migration per
     new course — so the suggestion list must never be hard-coded."""
@@ -269,7 +368,8 @@ def test_cohorts_for_answers_for_every_id_asked_about(db):
 def _seed_three(db):
     db.t["reading_tests"] = [
         {"id": "r1", "test_id": "R-01", "title": "R one", "status": "published",
-         "exam_only": True, "is_public": False, "course_level": "C2"},
+         "exam_only": True, "is_public": False, "course_level": "C2",
+         "test_type": "full", "passage_count": 3, "total_questions": 40},
     ]
     db.t["listening_tests"] = [
         {"id": "l1", "test_id": "L-01", "title": "L one", "status": "published",
@@ -285,6 +385,18 @@ def test_one_screen_covers_all_three_libraries(db):
     _seed_three(db)
     kinds = {r["kind"] for r in svc.list_exam_content()["items"]}
     assert kinds == {"reading", "listening", "writing"}
+
+
+def test_catalog_marks_a_valid_reading_mini_ready_to_assign(db):
+    db.t["reading_tests"] = [{
+        "id": "r-mini", "test_id": "R-MINI-01", "title": "Mini one",
+        "status": "published", "exam_only": False, "is_public": True,
+        "course_level": "C1", "test_type": "mini",
+        "passage_count": 1, "total_questions": 11,
+    }]
+    row = svc.list_exam_content(kind="reading")["items"][0]
+    assert row["publish_ready"] is True
+    assert row["readiness_reason"] is None
 
 
 def test_writing_status_is_normalised_so_one_column_serves_three(db):
@@ -449,7 +561,7 @@ def test_the_reverse_is_written_down():
 
 def test_every_route_is_admin_only():
     src = (BACKEND / "routers" / "admin_exam_content.py").read_text(encoding="utf-8")
-    assert src.count("require_admin(authorization)") == 4
+    assert src.count("require_admin(authorization)") == 5
 
 
 def test_the_router_is_registered():

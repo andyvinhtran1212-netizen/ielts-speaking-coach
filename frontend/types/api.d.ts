@@ -8112,6 +8112,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/listening/tests/{test_id}/player-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Listening Player Preview
+         * @description Render any lifecycle state with the exact student player contract.
+         */
+        get: operations["admin_listening_player_preview_admin_listening_tests__test_id__player_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/listening/dictation-reports": {
         parameters: {
             query?: never;
@@ -10317,6 +10337,26 @@ export interface paths {
         head?: never;
         /** Set Public Visibility */
         patch: operations["set_public_visibility_admin_exam_content__kind___content_id__visibility_patch"];
+        trace?: never;
+    };
+    "/admin/exam-content/{kind}/{content_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Set Status
+         * @description Publish/archive from the one admin catalog used to assign papers.
+         */
+        patch: operations["set_status_admin_exam_content__kind___content_id__status_patch"];
         trace?: never;
     };
     "/admin/exam-content/{kind}/{content_id}/level": {
@@ -14467,6 +14507,11 @@ export interface components {
              * @default 10
              */
             size: number;
+        };
+        /** StatusBody */
+        StatusBody: {
+            /** Status */
+            status: string;
         };
         /** StatusIn */
         StatusIn: {
@@ -28698,6 +28743,39 @@ export interface operations {
             };
         };
     };
+    admin_listening_player_preview_admin_listening_tests__test_id__player_preview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     admin_list_dictation_reports_admin_listening_dictation_reports_get: {
         parameters: {
             query?: {
@@ -32431,6 +32509,44 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["VisibilityBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_status_admin_exam_content__kind___content_id__status_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                kind: string;
+                content_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusBody"];
             };
         };
         responses: {

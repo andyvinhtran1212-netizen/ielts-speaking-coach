@@ -524,6 +524,26 @@ def test_get_test_detail_strips_answer_keys(monkeypatch):
             assert ex["payload"].get("questions")
 
 
+def test_admin_player_preview_reuses_safe_player_shape_for_draft(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake, status="draft")
+    _seed_sections_with_exercises(fake, test["id"])
+
+    async def _admin(_authorization):
+        return {"id": "admin-1"}
+
+    monkeypatch.setattr(listening_router, "require_admin", _admin)
+    out = _run(listening_router.admin_listening_player_preview(
+        test_id=test["id"], authorization=authz,
+    ))
+    assert out["id"] == test["id"]
+    assert len(out["sections"]) == 4
+    assert all(
+        "answers" not in exercise["payload"]
+        for section in out["sections"] for exercise in section["exercises"]
+    )
+
+
 def test_get_test_detail_excludes_standalone_mcq_from_imported_section(monkeypatch):
     fake, authz = _patch(monkeypatch)
     test = _seed_test(fake)

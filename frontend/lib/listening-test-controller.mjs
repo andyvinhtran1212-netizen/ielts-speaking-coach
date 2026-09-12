@@ -123,6 +123,7 @@ export function listeningTestParams(search) {
     from: (params.get('from') || '').trim() || null,
     sittingId: (params.get('sitting_id') || '').trim() || null,
     mockEmbed: params.get('mock_embed') === '1',
+    adminPreview: params.get('admin_preview') === '1',
   });
 }
 
@@ -171,7 +172,7 @@ export function normalizeListeningResume(payload) {
 export function listeningRendererHref(renderer, search) {
   const source = new URLSearchParams(search || '');
   const query = {};
-  for (const key of ['id', 'sitting_id', 'mock_embed', 'from', 'class_item']) {
+  for (const key of ['id', 'sitting_id', 'mock_embed', 'admin_preview', 'from', 'class_item']) {
     const value = source.get(key);
     if (value) query[key] = value;
   }

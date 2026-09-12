@@ -248,10 +248,14 @@ describe('cổng hoàn thành bài nhiều phần', () => {
     assert.match(SRC, /sectionRows\.filter/);
   });
 
-  test('phần tự luận và phát âm chỉ mở làm khi chưa hoàn thành', () => {
-    for (const key of ['writingDone', 'pronunciationDone']) {
-      assert.match(SRC, new RegExp(`!${key}`));
-    }
+  test('phần tự luận chỉ mở làm khi chưa hoàn thành', () => {
+    assert.match(SRC, /!writingDone/);
+  });
+
+  test('phát âm luôn có lối vào để xem kết quả hoặc tiếp tục lượt luyện lại', () => {
+    assert.doesNotMatch(SRC, /pronunciation\.exists && !pronunciationDone/);
+    assert.match(SRC, /pronunciation\.completed \? 'Xem kết quả phát âm'/);
+    assert.match(SRC, /pronunciationDone \? `Tiếp tục luyện phát âm/);
   });
 
   test('phần đọc và nghe đã hoàn thành vẫn có hành động xem lại', () => {

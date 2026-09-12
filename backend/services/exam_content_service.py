@@ -13,6 +13,7 @@ import logging
 from typing import Iterable, Optional
 
 from database import supabase_admin
+from services.class_assignment_service import active_exam_assignment_references
 from services.mock_correction_service import AUTO_SERVABLE, READY_EDITORIAL, READY_RIGHTS
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,22 @@ _ID_CHUNK = 100
 
 class UnknownKindError(ValueError):
     """content_kind is not one of reading/listening/writing."""
+
+
+class ContentNotReadyError(ValueError):
+    """The paper cannot move to published yet."""
+
+
+class ActiveAssignmentError(ValueError):
+    """A published paper still belongs to an active class assignment."""
+
+
+class ActiveMockExamError(ValueError):
+    """A published paper is still referenced by a non-archived mock exam."""
+
+
+class LifecycleLookupError(RuntimeError):
+    """A lifecycle dependency could not be checked safely."""
 
 
 def _assert_kind(kind: str) -> tuple:
@@ -83,6 +100,87 @@ def set_public_visibility(kind: str, content_id: str, is_public: bool) -> dict:
     if not resp.data:
         raise LookupError(f"Không tìm thấy nội dung {kind}/{content_id}.")
     return resp.data[0]
+
+
+def publication_readiness(kind: str, row: dict) -> tuple[bool, Optional[str]]:
+    """Return the canonical publish gate used by both the API and catalog."""
+    if kind == "reading":
+        passages = int(row.get("passage_count") or 0)
+        questions = int(row.get("total_questions") or 0)
+        test_type = str(row.get("test_type") or "full")
+        if test_type == "mini":
+            if passages != 1 or questions < 1:
+                return False, (
+                    f"Reading Mini test cần đúng 1 passage và có câu hỏi; hiện có "
+                    f"{passages} passages, {questions} câu."
+                )
+            return True, None
+        if passages != 3 or questions != 40:
+            return False, (
+                f"Đề Reading cần đủ 3 passages và 40 câu; hiện có "
+                f"{passages} passages, {questions} câu."
+            )
+        return True, None
+    if kind == "listening":
+        from services import listening_audio
+        return listening_audio.can_publish(row)
+    return False, "Publish đề hiện chỉ áp dụng cho Reading/Listening."
+
+
+def set_status(kind: str, content_id: str, status: str) -> dict:
+    """Change a paper lifecycle state from the centralized exam catalog."""
+    table, _ = _assert_kind(kind)
+    if kind == "writing":
+        raise UnknownKindError("Publish đề hiện chỉ áp dụng cho Reading/Listening.")
+    next_status = (status or "").strip().lower()
+    if next_status not in {"draft", "published", "archived"}:
+        raise ValueError("status phải là draft, published hoặc archived.")
+
+    rows = (
+        supabase_admin.table(table).select("*").eq("id", str(content_id))
+        .limit(1).execute().data or []
+    )
+    if not rows:
+        raise LookupError(f"Không tìm thấy nội dung {kind}/{content_id}.")
+    current = rows[0]
+
+    if next_status != "published" and current.get("status") == "published":
+        active = active_exam_assignment_references(
+            supabase_admin, kind, str(content_id),
+        )
+        if active:
+            names = ", ".join(str(item.get("title") or item["id"]) for item in active[:3])
+            raise ActiveAssignmentError(
+                f"Đề đang được giao trong bài còn nhận nộp: {names}. Hãy đóng bài giao trước."
+            )
+        # A mock exam owns the same paper by direct FK, independently of class
+        # homework. Depublishing it would leave the exam pointing at content the
+        # student player is no longer allowed to serve. Archived exams are
+        # intentionally ignored by live_exams_using().
+        from services import mock_exam_service
+        try:
+            live_exams = mock_exam_service.live_exams_using(kind, content_id)
+        except mock_exam_service.MockExamError as exc:
+            raise LifecycleLookupError(str(exc)) from exc
+        if live_exams:
+            names = ", ".join(
+                str(item.get("code") or item["id"]) for item in live_exams[:3]
+            )
+            raise ActiveMockExamError(
+                f"Đề đang được dùng trong mock test chưa lưu trữ: {names}. "
+                "Hãy lưu trữ hoặc đổi đề của mock test trước."
+            )
+
+    if next_status == "published":
+        ready, reason = publication_readiness(kind, current)
+        if not ready:
+            raise ContentNotReadyError(reason or "Đề chưa sẵn sàng để publish.")
+
+    updated = (
+        supabase_admin.table(table).update({"status": next_status})
+        .eq("id", str(content_id)).execute().data or []
+    )
+    return updated[0] if updated else {**current, "status": next_status}
 
 
 def _assert_content_exists(kind: str, content_id: str) -> None:
@@ -266,6 +364,10 @@ def list_exam_content(kind: Optional[str] = None,
         cols += ",status" if k != "writing" else ",is_active"
         if k in ("reading", "listening"):
             cols += ",public_practice_enabled,web_explanation_mode"
+        if k == "reading":
+            cols += ",test_type,passage_count,total_questions"
+        if k == "listening":
+            cols += ",audio_assembly_mode,full_audio_storage_path,assembled_audio_storage_path"
         try:
             rows = _paged(
                 lambda t=table, c=cols: supabase_admin.table(t).select(c).order("id")
@@ -296,6 +398,7 @@ def list_exam_content(kind: Optional[str] = None,
             if cohort_id and str(cohort_id) not in cids:
                 continue
             explanation = explanation_by_content.get(str(r["id"]), {})
+            publish_ready, readiness_reason = publication_readiness(k, r)
             out.append({
                 "kind":         k,
                 "id":           r["id"],
@@ -314,6 +417,8 @@ def list_exam_content(kind: Optional[str] = None,
                 "course_level": r.get("course_level"),
                 "cohort_ids":   cids,
                 "mock_exams":   mock_refs.get(str(r["id"]), []),
+                "publish_ready": publish_ready,
+                "readiness_reason": readiness_reason,
                 **explanation,
             })
     out.sort(key=lambda r: (r["kind"], (r["code"] or r["title"] or "").lower()))

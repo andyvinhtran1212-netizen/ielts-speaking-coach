@@ -29,17 +29,17 @@ const read = (file) => readFileSync(path.join(ROOT, file), 'utf8');
 
 describe('native Reading exam controller', () => {
   test('parses the stable player identity and preserves mock/class context', () => {
-    assert.deepEqual(readingExamParams('?test_id=RD-1&class_item=homework-1&sitting_id=s1&mock_embed=1'), {
+    assert.deepEqual(readingExamParams('?test_id=RD-1&class_item=homework-1&sitting_id=s1&mock_embed=1&admin_preview=1'), {
       testId: 'RD-1', share: null, classItem: 'homework-1', from: null,
-      sittingId: 's1', mockEmbed: true,
+      sittingId: 's1', mockEmbed: true, adminPreview: true,
     });
     assert.equal(readingExamParams('?share=abc').share, 'abc');
     assert.throws(() => readingExamParams('?from=full'), /missing-reading-exam-identity/);
     assert.deepEqual(readingPlayerQuery(readingExamParams(
-      '?test_id=RD-1&class_item=homework-1&sitting_id=s1&mock_embed=1&from=mock',
+      '?test_id=RD-1&class_item=homework-1&sitting_id=s1&mock_embed=1&admin_preview=1&from=mock',
     )), {
       test_id: 'RD-1', class_item: 'homework-1', sitting_id: 's1',
-      mock_embed: '1', from: 'mock',
+      mock_embed: '1', admin_preview: '1', from: 'mock',
     });
   });
 
@@ -301,6 +301,12 @@ describe('native Reading exam route contract', () => {
     assert.match(page, /READING_RENDERER_AFFINITY_PROTOCOL/);
     assert.equal(READING_RENDERER_AFFINITY_PROTOCOL.renderer_affinity_protocol, 'claim-v1');
     assert.match(page, /\[\.\.\.answersRef\.current\]\.map/);
+  });
+
+  test('admin preview reuses the player without creating an attempt', () => {
+    assert.match(page, /\/admin\/reading\/content\/tests\/\$\{encodeURIComponent\(params\.testId!\)\}/);
+    assert.match(page, /normalizeReadingBoot\(\{ test: adminTest, in_progress: null \}/);
+    assert.match(page, /Bản duyệt admin/);
   });
 
   test('legacy and Next players claim before entering and redirect on mismatch', () => {
