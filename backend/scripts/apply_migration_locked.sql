@@ -1,7 +1,6 @@
 \set ON_ERROR_STOP on
 
--- Shared with reconcile_prod_gate_e_migrations.py. This is a session-level
--- lock rather than a transaction lock because several historical migrations
+-- This is a session-level lock rather than a transaction lock because several historical migrations
 -- intentionally contain their own transactions or CREATE INDEX CONCURRENTLY.
 SELECT pg_advisory_lock(173204, 1) AS migration_lock_acquired \gset
 
