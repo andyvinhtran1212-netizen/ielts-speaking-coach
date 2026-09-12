@@ -14,6 +14,8 @@ let failAssignmentLookup = true;
 let contentCourseLevel = 'C1';
 let contentCohortIds = ['class-1'];
 let contentIsPublic = false;
+let contentPublicPracticeEnabled = false;
+let contentWebExplanationMode = 'disabled';
 let exams = [
   { id: 'source-1', code: 'SOURCE-1', title: 'Đề gốc lớp C1', status: 'published', exam_mode: 'sequential', is_open: false, active_section: 'not_started', cohort_id: 'class-1', listening_test_id: 'lis-1', reading_test_id: 'read-1', writing_task1_prompt_id: 'w1', writing_task2_prompt_id: 'w2' },
   { id: 'draft-1', code: 'DRAFT-1', title: 'Đề nháp', status: 'draft', exam_mode: 'sequential', is_open: false, active_section: 'not_started', cohort_id: 'class-1', listening_test_id: 'lis-1', reading_test_id: 'read-1' },
@@ -88,9 +90,14 @@ await page.route('**/*', async (route) => {
     assignments = body.assignments.map((row) => ({ ...row, student_name: 'Nguyễn An' }));
     return json({ assigned: ['student-1'], skipped: [], locked: [], refresh_failed: [] });
   }
-  if (path === '/admin/exam-content') return json({ items: [{ id: 'reading-uuid', kind: 'reading', code: 'READ-PAPER', title: 'Reading paper', status: 'published', course_level: contentCourseLevel, cohort_ids: contentCohortIds, exam_only: true, is_public: contentIsPublic, publish_ready: true, readiness_reason: null, mock_exams: [{ id: 'source-1', code: 'SOURCE-1', title: 'Đề gốc lớp C1', status: 'published' }] }], levels: ['C1', 'C2'], failed_kinds: [] });
+  if (path === '/admin/exam-content') return json({ items: [{ id: 'reading-uuid', kind: 'reading', code: 'READ-PAPER', title: 'Reading paper', status: 'published', course_level: contentCourseLevel, cohort_ids: contentCohortIds, exam_only: true, is_public: contentIsPublic, public_practice_enabled: contentPublicPracticeEnabled, web_explanation_mode: contentWebExplanationMode, web_explanation_ready: false, web_explanation_state: 'blocked', web_explanation_count: 40, web_explanation_ready_count: 0, publish_ready: true, readiness_reason: null, mock_exams: [{ id: 'source-1', code: 'SOURCE-1', title: 'Đề gốc lớp C1', status: 'published' }] }], levels: ['C1', 'C2'], failed_kinds: [] });
   if (path === '/admin/exam-content/reading/reading-uuid/level' && method === 'PATCH') { contentCourseLevel = body.course_level; return json({ ok: true }); }
   if (path === '/admin/exam-content/reading/reading-uuid/cohorts' && method === 'PATCH') { contentCohortIds = body.cohort_ids; return json({ ok: true }); }
+  if (path === '/admin/mock-corrections/public-tests/reading/reading-uuid' && method === 'PATCH') {
+    contentPublicPracticeEnabled = body.public_practice_enabled;
+    contentWebExplanationMode = body.web_explanation_mode || contentWebExplanationMode;
+    return json({ id: 'reading-uuid', public_practice_enabled: contentPublicPracticeEnabled, web_explanation_mode: contentWebExplanationMode });
+  }
   if (path === '/admin/exam-content/reading/reading-uuid/visibility' && method === 'PATCH') { contentIsPublic = body.is_public; return json({ id: 'reading-uuid', kind: 'reading', is_public: contentIsPublic }); }
   if (path === '/admin/cohorts/class-2/assignments' && method === 'POST') return json({ id: 'class-assignment-1', ...body });
   return json({ detail: `unhandled fixture ${method} ${path}` }, 500);
@@ -169,8 +176,13 @@ const cohortsResponse = await cohortsMutation;
 await cohortsReload;
 await page.getByRole('dialog').waitFor({ state: 'hidden' });
 const visibilityMutation = page.waitForResponse((response) => response.request().method() === 'PATCH' && new URL(response.url()).pathname === '/admin/exam-content/reading/reading-uuid/visibility');
+const explanationPolicyMutation = page.waitForResponse((response) => response.request().method() === 'PATCH' && new URL(response.url()).pathname === '/admin/mock-corrections/public-tests/reading/reading-uuid');
 const visibilityReload = page.waitForResponse((response) => response.request().method() === 'GET' && new URL(response.url()).pathname === '/admin/exam-content');
 await page.getByRole('button', { name: 'Mở công khai' }).click();
+const visibilityDialog = page.getByRole('dialog');
+await visibilityDialog.getByLabel('Web explanation').selectOption('immediate_after_capture');
+await visibilityDialog.getByRole('button', { name: 'Mở công khai' }).click();
+const explanationPolicyResponse = await explanationPolicyMutation;
 const visibilityResponse = await visibilityMutation;
 await visibilityReload;
 
@@ -183,7 +195,7 @@ await assignmentDialog.getByRole('button', { name: 'Giao cho cả lớp' }).clic
 const classAssignmentResponse = await classAssignmentMutation;
 await assignmentReload;
 const classAssignmentRequest = requests.find((item) => item.method === 'POST' && item.path === '/admin/cohorts/class-2/assignments');
-check('exam-content cập nhật level, phạm vi, visibility và giao lớp độc lập', levelResponse.ok() && cohortsResponse.ok() && visibilityResponse.ok() && classAssignmentResponse.ok() && requests.some((item) => item.path.endsWith('/level') && item.body?.course_level === 'C2') && requests.some((item) => item.path.endsWith('/cohorts') && item.body?.cohort_ids?.includes('class-2')) && requests.some((item) => item.path.endsWith('/visibility') && item.body?.is_public === true) && classAssignmentRequest?.body?.content_id === 'reading-uuid' && classAssignmentRequest?.body?.delivery_mode === 'assigned_practice');
+check('exam-content cập nhật level, phạm vi, visibility và giao lớp độc lập', levelResponse.ok() && cohortsResponse.ok() && explanationPolicyResponse.ok() && visibilityResponse.ok() && classAssignmentResponse.ok() && requests.some((item) => item.path.endsWith('/level') && item.body?.course_level === 'C2') && requests.some((item) => item.path.endsWith('/cohorts') && item.body?.cohort_ids?.includes('class-2')) && requests.some((item) => item.path.endsWith('/public-tests/reading/reading-uuid') && item.body?.web_explanation_mode === 'immediate_after_capture' && item.body?.public_practice_enabled === true) && requests.some((item) => item.path.endsWith('/visibility') && item.body?.is_public === true) && classAssignmentRequest?.body?.content_id === 'reading-uuid' && classAssignmentRequest?.body?.delivery_mode === 'assigned_practice');
 
 await page.setViewportSize({ width: 390, height: 844 });
 const mobile = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth, control: parseFloat(getComputedStyle(document.querySelector('.mex-form-grid input')).minHeight) }));

@@ -216,6 +216,10 @@ export function normalizeExamContent(raw) {
       }) : [],
       publicPracticeEnabled: row.public_practice_enabled === true,
       webExplanationMode: TEXT(row.web_explanation_mode) || 'disabled',
+      webExplanationReady: row.web_explanation_ready === true,
+      webExplanationState: TEXT(row.web_explanation_state) || 'unknown',
+      webExplanationCount: row.web_explanation_count == null ? null : Math.max(0, Number(row.web_explanation_count) || 0),
+      webExplanationReadyCount: row.web_explanation_ready_count == null ? null : Math.max(0, Number(row.web_explanation_ready_count) || 0),
       publishReady: row.publish_ready === true,
       readinessReason: TEXT(row.readiness_reason),
     }];

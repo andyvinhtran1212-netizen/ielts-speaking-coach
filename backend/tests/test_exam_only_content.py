@@ -383,6 +383,7 @@ class _RecordingDB:
     def __init__(self):
         self.updates = []
         self._pending = None
+        self._inserted_row = None
 
     def table(self, name):
         self._pending = name
@@ -397,6 +398,11 @@ class _RecordingDB:
         self._insert = True
         return self
 
+    def rpc(self, name, params):
+        assert name == "fn_update_mock_exam_with_explanation_approval"
+        self._rpc_params = params
+        return self
+
     def eq(self, c, v):
         self._eq = (c, v)
         return self
@@ -404,7 +410,14 @@ class _RecordingDB:
     def execute(self):
         if getattr(self, "_insert", False):
             self._insert = False
-            return _Resp([dict(self._payload, id="e1")])
+            self._inserted_row = dict(self._payload, id="e1")
+            return _Resp([self._inserted_row])
+        if hasattr(self, "_rpc_params"):
+            params = self._rpc_params
+            del self._rpc_params
+            assert params["p_exam_id"] == "e1"
+            self._inserted_row.update(params["p_patch"])
+            return _Resp(dict(self._inserted_row))
         self.updates.append((self._pending, self._payload, getattr(self, "_eq", None)))
         return _Resp([{"id": "e1"}])
 
@@ -435,9 +448,8 @@ def test_reserving_never_breaks_exam_creation(monkeypatch):
     dynamic reserved_test_ids() filter still hides live-exam content meanwhile."""
     class _Broken(_RecordingDB):
         def execute(self):
-            if getattr(self, "_insert", False):
-                self._insert = False
-                return _Resp([{"id": "e1", "reading_test_id": "rt1"}])
+            if getattr(self, "_insert", False) or hasattr(self, "_rpc_params"):
+                return super().execute()
             raise RuntimeError("postgrest down")
 
     monkeypatch.setattr(svc_mod, "supabase_admin", _Broken())
