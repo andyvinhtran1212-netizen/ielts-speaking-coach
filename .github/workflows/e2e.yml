@@ -36,11 +36,6 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      - name: Verify Speaking Gate E matrix pins
-        run: node tooling/verify-gate-e-speaking-device-matrix.mjs
-        env:
-          GATE_E_RUNNER_IMAGE: ubuntu24.04-x64
-
       - name: Cache Playwright browsers
         uses: actions/cache@v5
         with:
@@ -60,44 +55,20 @@ jobs:
       - name: Run modal smoke tests
         run: npx playwright test
 
-      # The PR advisory suite normally exercises the on-disk N-1 Speaking
-      # renderer through its public URL. Gate F intentionally makes that URL
-      # unreachable before static serving. Keep the frozen cross-version test
-      # in the trusted staging Gate E workflow; do not mutate its pinned file
-      # or pretend it still ran against this redirect build.
-      - name: Detect Gate F redirect phase
-        id: gate_f
+      - name: Run Next-native Speaking browser regression
+        id: speaking_regression
         if: always()
-        run: |
-          node --input-type=module -e "
-            import { collectNextMigrationStatus } from './tooling/next-migration-status.mjs';
-            const gate = collectNextMigrationStatus().legacyRetirementRedirects;
-            console.log('redirect_installed=' + String(gate.installed));
-          " >> "$GITHUB_OUTPUT"
+        run: npm run test:e2e:speaking-regression
 
-      - name: Run Speaking Gate E native fixtures
-        id: speaking_gate_e
-        if: ${{ always() && steps.gate_f.outputs.redirect_installed != 'true' }}
-        env:
-          GATE_E_REQUIRE_AFFINITY: 'true'
-        run: npm run test:e2e:gate-e
-
-      - name: Preserve Gate E frozen-suite boundary during redirect soak
-        if: ${{ always() && steps.gate_f.outputs.redirect_installed == 'true' }}
-        run: |
-          echo 'Gate E cross-version fixtures remain active on the frozen staging release.'
-          echo 'This PR job does not claim or upload Gate E evidence for an unreachable Legacy renderer.'
-
-      - name: Upload Speaking Gate E device-matrix evidence
-        if: ${{ always() && steps.gate_f.outputs.redirect_installed != 'true' }}
+      - name: Upload Speaking browser regression evidence
+        if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: gate-e-speaking-device-matrix-${{ github.run_id }}-${{ github.run_attempt }}
+          name: speaking-browser-regression-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            frontend/test-results/gate-e-speaking-device-matrix-results.json
-            frontend/tooling/gate-e-speaking-device-matrix.json
+            frontend/test-results/speaking-regression-results.json
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 14
 
       - name: Upload report on failure
         if: failure()

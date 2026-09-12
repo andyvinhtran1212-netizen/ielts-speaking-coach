@@ -30,31 +30,13 @@ migration is `232`.
   `077_responses_unique_session_question.sql`, `124_questions_unique_session_part_order.sql`).
 - Functions pin `SET search_path = public, pg_temp` (hardening — see 108/113).
 
-## Production Gate E ledger reconciliation (173–204 only)
+## Historical production ledger reconciliation (173–204)
 
-Production was audited with the durable effects of a specific subset of
-173–202 already present outside `_schema_migrations`, while 197, 199 and 203
-were recorded normally. Do **not** use `--baseline` and do not run the standard
-forward loop against that drifted ledger: it would replay superseded history
-before reaching the repair.
-
-Use the dedicated fail-closed procedure instead:
-
-```bash
-# Read-only plan first.
-DRY_RUN=1 python backend/scripts/reconcile_prod_gate_e_migrations.py "$DATABASE_URL"
-
-# Explicit production authorization after reviewing the plan.
-ALLOW_PROD=1 python backend/scripts/reconcile_prod_gate_e_migrations.py "$DATABASE_URL"
-```
-
-The procedure has a fixed audited manifest; it applies migration 204 first,
-runs `verify_prod_gate_e_reconcile.sql`, records only the audited missing rows,
-and then invokes the normal runner in dry-run mode. It refuses to finish if any
-file in 173–204 would still replay. A second invocation is a read-only no-op.
-The reconciler and `apply_migrations.sh` share a PostgreSQL advisory lock;
-the forward runner re-checks every previously missing ledger row after it owns
-that lock, so a stale pre-lock snapshot cannot replay reconciled history.
+The one-time production drift was reconciled and verified during the Next.js
+migration. Its dedicated reconciler has been retired; do not replay or baseline
+this historical range. Normal forward migrations continue through the shared
+advisory-locked runner below. The completed audit remains in `docs/` as history,
+not as an operational procedure.
 
 ## Staging Next.js ledger reconciliation (215–221 only)
 

@@ -7,12 +7,13 @@ permissions:
   contents: read
 
 on:
-  workflow_call:
-    inputs:
-      release_source_sha:
-        description: Exact staging push SHA already validated by the caller
-        required: true
-        type: string
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+concurrency:
+  group: staging-release-smoke
+  cancel-in-progress: false
 
 jobs:
   release-smoke:
@@ -24,17 +25,17 @@ jobs:
         uses: actions/checkout@v5
         timeout-minutes: 3
         with:
-          ref: ${{ inputs.release_source_sha }}
+          ref: ${{ github.event_name == 'push' && github.sha || 'staging' }}
           fetch-depth: 1
 
       - name: Capture tested source revision
         id: source_revision
         timeout-minutes: 1
         env:
-          EXPECTED_SHA: ${{ inputs.release_source_sha }}
+          EXPECTED_SHA: ${{ github.event_name == 'push' && github.sha || '' }}
         run: |
           SOURCE_SHA=$(git rev-parse HEAD)
-          if [ "$SOURCE_SHA" != "$EXPECTED_SHA" ]; then
+          if [ -n "$EXPECTED_SHA" ] && [ "$SOURCE_SHA" != "$EXPECTED_SHA" ]; then
             echo "::error::Checkout drifted from the triggering push: checkout=$SOURCE_SHA expected=$EXPECTED_SHA"
             exit 1
           fi
@@ -92,7 +93,6 @@ jobs:
           STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
           RELEASE_SOURCE_SHA: ${{ steps.source_revision.outputs.sha }}
-          GATE_E_SOURCE_SHA: ${{ steps.source_revision.outputs.sha }}
         run: npm run test:e2e:staging
 
       - name: Verify exact frontend and backend staging release

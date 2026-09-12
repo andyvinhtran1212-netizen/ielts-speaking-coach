@@ -16,7 +16,7 @@ export const CORE_CUTOVER_SURFACES = Object.freeze([
 
 export const CORE_CUTOVER_FILE_ALLOWLIST = Object.freeze(new Set([
   'frontend/lib/core-player-affinity.mjs',
-  'frontend/tests/gate-e-active-session-affinity.test.mjs',
+  'frontend/tests/core-player-affinity.test.mjs',
   'frontend/tests/listening-dictation-next-behavior.test.mjs',
   'frontend/tests/listening-test-native-controller.test.mjs',
   'frontend/tests/next-migration-status.test.mjs',

@@ -12,11 +12,10 @@
 // @ts-check
 const { defineConfig, devices } = require('@playwright/test');
 
-// Gate E matrix foundation. The full mutation-heavy staging suite still runs
+// Permanent compatibility matrix. The full mutation-heavy staging suite runs
 // exactly once because it drives shared identities and environment-global
 // kill switches. A bounded browser seam spec runs on each synthetic engine /
-// viewport. WebKit is useful compatibility evidence, but is NOT represented as
-// real Safari/iOS evidence (see docs/GATE_E_DEVICE_MATRIX_2026-08-09.md).
+// viewport. WebKit is compatibility evidence, not real Safari/iOS evidence.
 const MATRIX_SPEC = '**/device-matrix.spec.js';
 
 module.exports = defineConfig({
@@ -30,11 +29,7 @@ module.exports = defineConfig({
   // worker. Kill-switch flips (pilot-4 drill) are similarly environment-global.
   workers: 1,
   timeout: 45_000,
-  // AUDIT F4: retries are FORBIDDEN — the Gate A streak contract (master
-  // plan §Gate A) says any retry resets the streak, so a run that only
-  // passes on retry must fail loudly, not count as green. retries: 0 makes
-  // pass-on-retry impossible by construction (nothing to audit after the
-  // fact — flaky = red).
+  // A run that only passes on retry is not a trustworthy release smoke.
   retries: 0,
   reporter: process.env.CI
     ? [

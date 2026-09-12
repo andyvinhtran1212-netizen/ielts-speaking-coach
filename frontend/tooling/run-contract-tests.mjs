@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Canonical local runner for source-contract tests after Legacy HTML retirement.
 // It uses the current Node executable so local and CI callers preload the same
-// narrow archived-HTML adapter without changing the Gate E-frozen package file.
+// narrow archived-HTML adapter while remaining contracts are migrated.
 import { spawnSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import path from 'node:path';

@@ -136,15 +136,8 @@ test('redirect soak can intercept the same frozen manifest without browser-cache
 test('retired renderer redirects cannot be disabled by a local escape hatch', () => {
   assert.doesNotMatch(nextConfig, /GATE_E_LEGACY_FIXTURES|GATE_E_LOCAL_LEGACY_FIXTURES/);
   assert.match(nextConfig, /\.\.\.LEGACY_RETIREMENT_REDIRECTS/);
-  for (const configName of [
-    'playwright.gate-e.config.js',
-    'playwright.gate-e-reading.config.js',
-    'playwright.gate-e-listening.config.js',
-    'playwright.gate-e-writing.config.js',
-  ]) {
-    const config = readFileSync(path.join(FRONTEND, configName), 'utf8');
-    assert.doesNotMatch(config, /GATE_E_LEGACY_FIXTURES: 'local-build-only'/, configName);
-  }
+  const config = readFileSync(path.join(FRONTEND, 'playwright.speaking-regression.config.js'), 'utf8');
+  assert.doesNotMatch(config, /GATE_E_LEGACY_FIXTURES|fixtures\/gate-e-legacy/);
 });
 
 test('G1 changes phase explicitly: runtime redirects replace unreachable Legacy parity', () => {
@@ -164,15 +157,14 @@ test('G1 changes phase explicitly: runtime redirects replace unreachable Legacy 
   assert.match(workflow, new RegExp(`name: Cổng đường-ghi \\(vế legacy — cùng bản khai\\)${phaseGuard}`));
 });
 
-test('advisory E2E does not mutate or overclaim the frozen Gate E suite during redirect soak', () => {
+test('advisory E2E always runs the Next-native Speaking regression', () => {
   const workflow = readFileSync(
     path.join(FRONTEND, '..', '.github', 'workflows', 'e2e.yml'),
     'utf8',
   );
-  assert.match(workflow, /name: Detect Gate F redirect phase\n\s+id: gate_f\n\s+if: always\(\)/);
-  assert.match(workflow, /name: Run Speaking Gate E native fixtures\n\s+id: speaking_gate_e\n\s+if: \$\{\{ always\(\) && steps\.gate_f\.outputs\.redirect_installed != 'true' \}\}/);
-  assert.match(workflow, /name: Preserve Gate E frozen-suite boundary during redirect soak/);
-  assert.match(workflow, /name: Upload Speaking Gate E device-matrix evidence\n\s+if: \$\{\{ always\(\) && steps\.gate_f\.outputs\.redirect_installed != 'true' \}\}/);
+  assert.match(workflow, /name: Run Next-native Speaking browser regression\n\s+id: speaking_regression\n\s+if: always\(\)/);
+  assert.match(workflow, /run: npm run test:e2e:speaking-regression/);
+  assert.doesNotMatch(workflow, /Gate E|GATE_E|gate-e|coexistence/);
 });
 
 test('every redirect destination resolves to a real App Router owner', () => {
