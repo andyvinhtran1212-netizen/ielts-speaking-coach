@@ -112,16 +112,17 @@ describe('Phase B — publish/archive on the tests list (replaces manual SQL)', 
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     const fn = new Function('escapeHtml', m[0] + '\nreturn statusActions;')(esc);
     const labels = (t) => (fn(t).match(/>([^<]+)<\/button>/g) || []).map((x) => x.replace(/[><]|\/button/g, '').trim());
-    // The reserve/release button rides alongside the status buttons on EVERY
-    // status — an admin stages a paper for a future exam long before publishing,
-    // which is exactly the pre-assignment window the flag exists for.
-    const RESERVE = 'Chuyển sang đề kỳ thi';
-    assert.deepEqual(labels({ id: 'a', status: 'draft' }),     ['Publish', 'Archive', RESERVE]);
-    assert.deepEqual(labels({ id: 'a', status: 'published' }), ['Archive', RESERVE]);
-    assert.deepEqual(labels({ id: 'a', status: 'archived' }),  ['Khôi phục', RESERVE]);
-    // …and it flips to the release label once the paper is reserved.
-    assert.deepEqual(labels({ id: 'a', status: 'published', exam_only: true }),
-                     ['Archive', 'Trả về thư viện']);
+    // Canonical visibility rides alongside status on every row and is
+    // independent from whether a mock test or class references the paper.
+    const OPEN = 'Mở công khai';
+    assert.deepEqual(labels({ id: 'a', status: 'draft', is_public: false }),
+                     ['Publish', 'Archive', OPEN]);
+    assert.deepEqual(labels({ id: 'a', status: 'published', is_public: false }),
+                     ['Archive', OPEN]);
+    assert.deepEqual(labels({ id: 'a', status: 'archived', is_public: false }),
+                     ['Khôi phục', OPEN]);
+    assert.deepEqual(labels({ id: 'a', status: 'published', is_public: true }),
+                     ['Archive', 'Ẩn khỏi web']);
     assert.match(fn({ id: 'x"y', status: 'draft' }), /data-id="x&quot;y"/);   // XSS-safe id
   });
   test('changeStatus PATCHes /tests/{id}/status then REFETCHES (no optimistic state)', () => {
