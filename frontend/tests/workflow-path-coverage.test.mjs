@@ -97,7 +97,7 @@ function readPaths(src) {
  * Tệp mà các bước `run:` thực sự chạy, trả về đường dẫn TƯƠNG ĐỐI SO VỚI REPO.
  *
  * Đường dẫn trong YAML được viết theo `working-directory` của từng bước
- * (parity-gate chạy từ `frontend/`, backend-tests chạy từ gốc). Thay vì phân tích
+ * (một số browser jobs chạy từ `frontend/`, backend-tests chạy từ gốc). Thay vì phân tích
  * YAML để biết thư mục nào, cứ thử vài gốc ứng viên và lấy cái CÓ THẬT — vừa
  * ngắn vừa không sai khi một workflow trộn nhiều working-directory.
  */
