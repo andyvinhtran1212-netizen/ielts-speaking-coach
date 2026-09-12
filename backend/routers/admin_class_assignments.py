@@ -2173,7 +2173,7 @@ async def create_assignment(
         # unpublished or deleted test hands students a task that opens to an
         # error, and the ledger would still count them as owing it.
         table = _TEST_SKILLS[body.skill]
-        cols = "id, title, status, exam_only"
+        cols = "id, title, status, exam_only, is_public, public_practice_enabled"
         if body.skill == "listening":
             # Published is not the same as playable: a test whose assembled
             # audio was cleared (section audio replaced) still reads published,
@@ -2187,17 +2187,22 @@ async def create_assignment(
             raise HTTPException(404, "Không tìm thấy đề này.")
         if (rows[0].get("status") or "") != "published":
             raise HTTPException(400, "Đề này chưa xuất bản — hãy xuất bản trước khi giao.")
+        private_paper = (
+            not bool(rows[0].get("is_public"))
+            if "is_public" in rows[0]
+            else bool(rows[0].get("exam_only"))
+            and not bool(rows[0].get("public_practice_enabled"))
+        )
         _assert_exam_content_scoped_to_cohort(
             body.skill,
             rows[0]["id"],
             cohort_id,
-            exam_only=bool(rows[0].get("exam_only")),
+            exam_only=private_paper,
         )
-        if rows[0].get("exam_only") and body.delivery_mode != "assigned_practice":
-            # Reserved for mock sittings (mig 170): the student endpoints answer
-            # 404 to anyone without one. Published is not the same as openable,
-            # and the ledger would count the class as owing a paper none of them
-            # can reach. Most of the Cambridge library is flagged this way.
+        if private_paper and body.delivery_mode != "assigned_practice":
+            # Private papers answer 404 without an item-scoped entitlement.
+            # Published is not the same as openable, and the ledger would count
+            # the class as owing a paper none of them can reach.
             raise HTTPException(
                 400,
                 "Đề này ở kho kỳ thi. Hãy chọn chế độ giao luyện tập có kiểm soát.",

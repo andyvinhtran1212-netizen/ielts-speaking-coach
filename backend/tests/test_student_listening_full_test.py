@@ -401,6 +401,7 @@ def _seed_test(fake, **overrides):
         # thiếu khoá thì .eq("exam_only", False) không khớp và bài test xanh/đỏ
         # vì lý do sai, không phải vì hành vi.
         "exam_only":                    False,
+        "is_public":                    True,
         "created_at":                   "2026-05-21T00:00:00Z",
     }
     row.update(overrides)

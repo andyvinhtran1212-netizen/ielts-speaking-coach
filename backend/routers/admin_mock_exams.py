@@ -46,6 +46,8 @@ class ExamCreate(BaseModel):
     exam_mode: str = Field(default="sequential", pattern=r"^(sequential|retake)$")
     listening_test_id: str | None = None
     reading_test_id: str | None = None
+    listening_is_public: bool | None = None
+    reading_is_public: bool | None = None
     writing_task1_prompt_id: str | None = None
     writing_task2_prompt_id: str | None = None
     speaking_topic_set: dict = Field(default_factory=dict)

@@ -2175,6 +2175,8 @@ class ListeningTestPatchRequest(BaseModel):
     themes:         Optional[dict[str, str]]   = None
     # Dành riêng cho kỳ thi thử — ẩn khỏi thư viện học viên (mig 170).
     exam_only:      Optional[bool]              = None
+    # Canonical self-practice visibility (mig 258), independent of mock/class.
+    is_public:      Optional[bool]              = None
 
 
 class ListeningTestStatusPatchRequest(BaseModel):
@@ -2441,6 +2443,10 @@ async def admin_patch_listening_test(
             except mock_exam_service.MockExamError as e:
                 raise HTTPException(503, str(e))
         update["exam_only"] = bool(body.exam_only)
+
+    if body.is_public is not None:
+        update["is_public"] = bool(body.is_public)
+        update["exam_only"] = False
 
     if body.version is not None:
         update["version"] = body.version.strip() or "1.0"
@@ -4463,11 +4469,6 @@ _AUDIO_READY_OR = (
     "and(full_audio_storage_path.not.is.null,full_audio_storage_path.neq.),"
     "and(assembled_audio_storage_path.not.is.null,assembled_audio_storage_path.neq.)"
 )
-_AUDIO_READY_PUBLIC_OR = (
-    "and(exam_only.eq.false,or(" + _AUDIO_READY_OR + ")),"
-    + "and(public_practice_enabled.eq.true,or(" + _AUDIO_READY_OR + "))"
-)
-
 # Columns needed to judge readiness (below). Kept next to the rule so the two
 # cannot drift.
 _EXERCISE_READY_COLS = "content_id,exercise_type,segments,payload"
@@ -4561,11 +4562,6 @@ async def listening_overview(authorization: str | None = Header(default=None)):
     """
     await _require_auth(authorization)
 
-    from services import mock_exam_service
-    from services import mock_correction_service
-    reserved = mock_exam_service.reserved_test_ids("listening")
-    reserved = mock_correction_service.non_public_reserved_ids("listening", reserved)
-
     tests: dict[str, int] = {}
     for kind in ("full", "mini", "drill", "practice"):
         q = (
@@ -4573,11 +4569,10 @@ async def listening_overview(authorization: str | None = Header(default=None)):
             .select("id", count="exact")
             .eq("status", "published")
             .eq("test_type", kind)
-            .or_(_AUDIO_READY_PUBLIC_OR)
+            .eq("is_public", True)
+            .or_(_AUDIO_READY_OR)
             .limit(1)
         )
-        if reserved:
-            q = q.not_.in_("id", list(reserved))
         tests[kind] = getattr(q.execute(), "count", None) or 0
 
     content_ids = set(_published_content_ids())
@@ -4616,15 +4611,11 @@ async def listening_overview(authorization: str | None = Header(default=None)):
             .select("metadata")
             .eq("status", "published")
             .eq("test_type", "practice")
-            .or_(_AUDIO_READY_PUBLIC_OR)
+            .eq("is_public", True)
+            .or_(_AUDIO_READY_OR)
             .order("id")
             .limit(2000)
         )
-        # Same reserved-paper exclusion as the count above and the list
-        # endpoint. Without it a tab advertises a paper its own list refuses to
-        # return — the count-vs-list gap, one level down.
-        if reserved:
-            pgq = pgq.not_.in_("id", list(reserved))
         pg = pgq.execute()
         for row in pg.data or []:
             g = ((row.get("metadata") or {}).get("practice_group") or "").strip()
@@ -4679,7 +4670,8 @@ async def list_published_listening_tests(
         # last-page. It also broke the /overview invariant — the tile counts
         # over the whole filtered set, so a no-audio row inside page 1 made the
         # badge disagree with the page. Same predicate, evaluated in one place.
-        .or_(_AUDIO_READY_PUBLIC_OR)
+        .eq("is_public", True)
+        .or_(_AUDIO_READY_OR)
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
     )
@@ -4692,17 +4684,6 @@ async def list_published_listening_tests(
     # paged result would shed rows and shorten pages).
     if test_type == "practice" and isinstance(practice_group, str) and practice_group:
         q = q.eq("metadata->>practice_group", practice_group)
-    # Reserved for a mock exam — never in the practice list (mig 170). The
-    # PERMANENT flag: unlike reserved_test_ids below it survives the exam being
-    # archived, which used to republish the paper to the next cohort.
-    # Kept alongside it: a test assigned to a live exam by an admin who did not
-    # tick the flag is still hidden, immediately, with no backfill needed.
-    from services import mock_exam_service
-    from services import mock_correction_service
-    _reserved = mock_exam_service.reserved_test_ids("listening")
-    _reserved = mock_correction_service.non_public_reserved_ids("listening", _reserved)
-    if _reserved:
-        q = q.not_.in_("id", list(_reserved))
     res = q.execute()
     # Audio-readiness is already applied in SQL above; this repeat is a cheap
     # backstop so a row could never reach a student with no file to play, even
@@ -4771,6 +4752,13 @@ async def list_published_listening_tests(
     }
 
 
+def _listening_test_is_public(test: dict) -> bool:
+    """Canonical visibility, with a deploy-order fallback for old rows/fakes."""
+    if "is_public" in test:
+        return bool(test.get("is_public"))
+    return bool(test.get("public_practice_enabled")) or not bool(test.get("exam_only"))
+
+
 def _assert_listening_exam_content_allowed(
     test: dict, user_id, class_item: str | None = None, *, allow_public: bool = True
 ) -> None:
@@ -4785,7 +4773,7 @@ def _assert_listening_exam_content_allowed(
     404, not 403: to anyone without a sitting the paper does not exist, and
     "forbidden" would confirm the test id is real.
     """
-    if not test.get("exam_only"):
+    if _listening_test_is_public(test):
         return
     from services import mock_correction_service
     if allow_public and test.get("public_practice_enabled"):
@@ -5133,7 +5121,7 @@ def _published_test_for_dictation(test_id: str, user_id=None) -> dict:
     """
     res = (
         supabase_admin.table("listening_tests")
-        .select("id,test_id,title,status,exam_only")
+        .select("id,test_id,title,status,exam_only,is_public,public_practice_enabled")
         .eq("id", test_id).eq("status", "published").limit(1).execute()
     )
     if not res.data:
@@ -6270,7 +6258,7 @@ async def start_listening_test_attempt(
     # Verify the test is published + has audio.
     test_res = (
         supabase_admin.table("listening_tests")
-        .select("id,status,exam_only,public_practice_enabled,full_audio_storage_path,"
+        .select("id,status,exam_only,is_public,public_practice_enabled,full_audio_storage_path,"
                 "assembled_audio_storage_path")
         .eq("id", test_id)
         .limit(1)

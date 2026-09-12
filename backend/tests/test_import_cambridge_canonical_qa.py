@@ -68,6 +68,7 @@ def test_production_hidden_guard_rejects_any_visibility_drift():
     hidden = {
         "status": "draft",
         "exam_only": True,
+        "is_public": False,
         "public_practice_enabled": False,
         "web_explanation_mode": "disabled",
     }
@@ -79,6 +80,11 @@ def test_production_hidden_guard_rejects_any_visibility_drift():
     importer._assert_hidden_visibility([plan])
 
     plan.listening_test["public_practice_enabled"] = True
+    with pytest.raises(importer.ValidationError, match="visibility không còn hidden"):
+        importer._assert_hidden_visibility([plan])
+
+    plan.listening_test["public_practice_enabled"] = False
+    plan.reading_test["is_public"] = True
     with pytest.raises(importer.ValidationError, match="visibility không còn hidden"):
         importer._assert_hidden_visibility([plan])
 

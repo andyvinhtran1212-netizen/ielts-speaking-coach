@@ -33,18 +33,25 @@ class CohortsBody(BaseModel):
     cohort_ids: list[str] = Field(default_factory=list, max_length=200)
 
 
+class VisibilityBody(BaseModel):
+    is_public: bool
+
+
 @router.get("")
 async def list_exam_content(
     kind: Optional[str] = Query(default=None),
     course_level: Optional[str] = Query(default=None),
     cohort_id: Optional[str] = Query(default=None),
     exam_only: Optional[bool] = Query(default=None),
+    is_public: Optional[bool] = Query(default=None),
     authorization: str | None = Header(default=None),
 ):
     """Papers across all three libraries with level + classes, filterable."""
     await require_admin(authorization)
     try:
-        res = svc.list_exam_content(kind, course_level, cohort_id, exam_only)
+        res = svc.list_exam_content(
+            kind, course_level, cohort_id, exam_only, is_public,
+        )
         return {
             "items":  res["items"],
             # Named so the screen can say "Listening không tải được" instead of
@@ -54,6 +61,21 @@ async def list_exam_content(
         }
     except svc.UnknownKindError as e:
         raise HTTPException(422, str(e))
+
+
+@router.patch("/{kind}/{content_id}/visibility")
+async def set_public_visibility(
+    kind: str, content_id: str, body: VisibilityBody,
+    authorization: str | None = Header(default=None),
+):
+    await require_admin(authorization)
+    try:
+        row = svc.set_public_visibility(kind, content_id, body.is_public)
+    except svc.UnknownKindError as e:
+        raise HTTPException(422, str(e))
+    except LookupError as e:
+        raise HTTPException(404, str(e))
+    return {"id": row.get("id"), "is_public": bool(row.get("is_public"))}
 
 
 @router.patch("/{kind}/{content_id}/level")

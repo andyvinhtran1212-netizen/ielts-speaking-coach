@@ -4,9 +4,9 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
-  canonicalReadingShareUrl, normalizeDeleteAck, normalizeExamOnlyAck,
+  canonicalReadingShareUrl, normalizeDeleteAck,
   normalizeLockAck, normalizeReadingContentList, normalizeReadingImport,
-  normalizeShareAck, readingPreviewRows,
+  normalizeReadingVisibilityAck, normalizeShareAck, readingPreviewRows,
 } from '../lib/admin-reading-content-model.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
@@ -31,7 +31,7 @@ test('normalizes canonical list and rejects envelope drift', () => {
 test('pins dry-run/commit identities and mutation ACKs', () => {
   assert.ok(normalizeReadingImport({ dry_run: true, parsed_data: { slug: 'x' }, validation_errors: [], warnings: [] }, true));
   assert.equal(normalizeReadingImport({ dry_run: false, parsed_data: {}, validation_errors: [] }, true), null);
-  assert.equal(normalizeExamOnlyAck({ test_id: 'T1', exam_only: true }, 'T1', true), true);
+  assert.equal(normalizeReadingVisibilityAck({ test_id: 'T1', is_public: true }, 'T1', true), true);
   assert.deepEqual(normalizeLockAck({ test_id: 'T1', locked: true, password: 'ABCD-1234' }, 'T1', true), { locked: true, password: 'ABCD-1234' });
   assert.equal(normalizeLockAck({ test_id: 'T1', locked: true, password: null }, 'T1', true), null);
   assert.deepEqual(normalizeShareAck({ test_id: 'T1', share: { token: 'secret', expires_at: '2026-08-20T00:00:00Z' } }, 'T1'), { token: 'secret', expiresAt: '2026-08-20T00:00:00Z' });
@@ -48,7 +48,7 @@ test('native route preserves admin gate, contracts, rollback and responsive layo
   assert.match(PAGE, /active="reading" subsection="content"/);
   assert.match(PAGE, /AdminAccessGate/);
   assert.match(LAYOUT, /admin-reading-content-next\.css/);
-  for (const contract of ['dry_run=true', 'dry_run=false', 'import-bundle', '/exam-only', '/lock', '/share', 'findCanonical']) assert.match(CLIENT, new RegExp(contract.replace('/', '\\/')));
+  for (const contract of ['dry_run=true', 'dry_run=false', 'import-bundle', '/visibility', '/lock', '/share', 'findCanonical']) assert.match(CLIENT, new RegExp(contract.replace('/', '\\/')));
   assert.match(CLIENT, /readingPreviewHref\(row\.slug\)/);
   assert.match(CLIENT, /`\/reading\/vocab\/\$\{encodeURIComponent\(row\.slug\)\}`/);
   assert.match(CLIENT, /`\/reading\/skill\/\$\{encodeURIComponent\(row\.slug\)\}`/);

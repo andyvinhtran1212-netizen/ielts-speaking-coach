@@ -209,8 +209,9 @@ export function normalizeCatalog(value, kind, requestedSkill = '', requestedCoho
     const id = text(row.id);
     if (!id) return null;
     const cohortIds = Array.isArray(row.cohort_ids) ? row.cohort_ids.map(text).filter(Boolean) : [];
+    const privatePaper = row.is_public === false || (row.is_public == null && row.exam_only === true);
     const scopeBlocked = kind === 'exam' && Boolean(requestedCohortId)
-      && ((row.exam_only === true && cohortIds.length === 0)
+      && ((privatePaper && cohortIds.length === 0)
         || (cohortIds.length > 0 && !cohortIds.includes(requestedCohortId)));
     const ready = kind === 'exam' ? row.status === 'published' && !scopeBlocked : row.ready === true;
     const already = row.already_given === true;
@@ -218,11 +219,11 @@ export function normalizeCatalog(value, kind, requestedSkill = '', requestedCoho
     if (already) reason = 'Đã giao cho lớp này';
     else if (scopeBlocked) reason = 'Chưa gán cho lớp này trong kho đề';
     else if (!ready) reason = row.missing_audio ? `Thiếu audio cho ${count(row.missing_audio)} câu` : 'Đề đang draft hoặc chưa sẵn sàng';
-    else if (kind === 'exam' && row.exam_only === true) reason = 'Kho đề admin';
+    else if (kind === 'exam' && privatePaper) reason = 'Kho đề admin';
     return {
       id, title: text(row.title) || 'Nội dung chưa đặt tên', code: nullableText(row.code),
       part: finite(row.part), lesson_no: finite(row.lesson_no), ready, already_given: already,
-      reason, exam_only: row.exam_only === true, cohort_ids: cohortIds,
+      reason, exam_only: privatePaper, is_public: !privatePaper, cohort_ids: cohortIds,
       explanation_ready: row.web_explanation_ready === true,
       explanation_state: text(row.web_explanation_state) || 'unknown',
       explanation_count: row.web_explanation_count == null ? null : count(row.web_explanation_count),
