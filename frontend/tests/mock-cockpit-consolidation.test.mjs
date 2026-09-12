@@ -93,52 +93,52 @@ describe('chrome nhúng — không lộ tiêu đề lần hai', () => {
 });
 
 describe('nút chuyển đề 2 chiều', () => {
-  const LIBRARIES = [
-    ['js/admin-reading.js', 'toggle-exam-only'],
-    ['js/admin-listening-tests-list.js', 'data-exam-only'],
-    ['pages/admin/writing/prompts.html', "data-action=\"exam-only\""],
+  const PUBLIC_LIBRARIES = [
+    ['js/admin-reading.js', 'toggle-visibility'],
+    ['js/admin-listening-tests-list.js', 'data-is-public'],
   ];
 
-  test('cả ba thư viện đều có nút', () => {
-    for (const [rel, marker] of LIBRARIES) {
+  test('Reading/Listening rollback dùng visibility canonical', () => {
+    for (const [rel, marker] of PUBLIC_LIBRARIES) {
       const src = pub(...rel.split('/'));
       assert.ok(src.includes(marker), rel);
-      assert.match(src, /Chuyển sang đề kỳ thi/, rel);
-      assert.match(src, /Trả về thư viện/, rel);
+      assert.match(src, /Ẩn khỏi web/, rel);
+      assert.match(src, /Mở công khai/, rel);
+      assert.match(src, /is_public: next/, rel);
+      assert.doesNotMatch(src, /\{ exam_only: next \}/, rel);
     }
   });
 
-  test('nhãn phản ánh trạng thái hiện tại, không cố định', () => {
-    // A button that cannot see exam_only renders the wrong label — and the
-    // admin then clicks the opposite of what they wanted.
-    for (const [rel] of LIBRARIES) {
-      const src = pub(...rel.split('/'));
-      assert.match(src, /exam_only \?/, rel);
-    }
+  test('Writing vẫn dùng contract exam_only riêng', () => {
+    const src = pub('pages', 'admin', 'writing', 'prompts.html');
+    assert.match(src, /data-action="exam-only"/);
+    assert.match(src, /exam_only \?/);
+    assert.match(src, /Chuyển sang đề kỳ thi/);
+    assert.match(src, /Trả về thư viện/);
   });
 
-  test('chiều TRẢ VỀ có xác nhận nói rõ hậu quả', () => {
-    for (const [rel] of LIBRARIES) {
+  test('xác nhận nói rõ visibility độc lập với mock/lớp', () => {
+    for (const [rel] of PUBLIC_LIBRARIES) {
       const src = pub(...rel.split('/'));
-      assert.match(src, /ĐÃ LƯU TRỮ/, `${rel}: must warn about the archived-exam case`);
+      assert.match(src, /mock test/);
+      assert.match(src, /bài giao lớp/);
     }
-    assert.match(EXAM_CONTENT, /ĐÃ LƯU TRỮ/);
+    assert.match(EXAM_CONTENT, /Việc gán mock test hoặc lớp học không đổi/);
   });
 
   test('KHÔNG chép luật chặn sang trình duyệt', () => {
-    // The server refuses a release while a live exam binds the paper. A second
-    // copy of that rule here is the copy that goes stale.
-    for (const [rel] of LIBRARIES) {
+    for (const [rel] of PUBLIC_LIBRARIES) {
       const src = pub(...rel.split('/'));
       assert.doesNotMatch(src, /status\s*!==\s*'archived'/, rel);
     }
   });
 
-  test('bảng Đề kỳ thi có nút trả về, định tuyến đúng theo loại', () => {
+  test('bảng Đề kỳ thi mở public qua endpoint canonical', () => {
     assert.match(EXAM_CONTENT, /ec-release/);
-    // Reading is keyed by its human test_id across its admin surface; the other
-    // two take the UUID.
-    assert.match(EXAM_CONTENT, /k\.kind === 'reading' && row && row\.code/);
+    assert.match(EXAM_CONTENT, /'\/admin\/exam-content\/'/);
+    assert.match(EXAM_CONTENT, /\{ is_public: true \}/);
+    assert.match(EXAM_CONTENT, /k\.kind === 'writing'/);
+    assert.match(EXAM_CONTENT, /\{ exam_only: false \}/);
   });
 });
 
@@ -286,11 +286,10 @@ describe('vỏ cockpit — thiết kế lại (Giai đoạn 4)', () => {
     assert.match(EXAM_CONTENT, /var ALL_TABS = '__all__';/);
   });
 
-  test('nhãn nút theo exam_only THẬT của hàng, không cố định', () => {
-    // Unchecking the filter loads library rows too; labelling those "Trả về thư
-    // viện" says they are reserved when they are not.
-    assert.match(EXAM_CONTENT, /r\.exam_only\s*\n?\s*\?\s*'<button[^']*ec-release/);
-    assert.match(EXAM_CONTENT, /Đang ở thư viện/);
+  test('nhãn nút theo visibility THẬT của từng loại', () => {
+    assert.match(EXAM_CONTENT, /r\.kind === 'writing' \? !r\.exam_only : Boolean\(r\.is_public\)/);
+    assert.match(EXAM_CONTENT, /!isPublic/);
+    assert.match(EXAM_CONTENT, /Đang công khai/);
   });
 
   test('không còn số ma nào cho chiều cao', () => {

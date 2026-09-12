@@ -4776,7 +4776,10 @@ def _assert_listening_exam_content_allowed(
     if _listening_test_is_public(test):
         return
     from services import mock_correction_service
-    if allow_public and test.get("public_practice_enabled"):
+    # public_practice_enabled is deploy-order compatibility only. Once the
+    # canonical column is present, an explicit is_public=false must win.
+    if (allow_public and "is_public" not in test
+            and test.get("public_practice_enabled")):
         return
     if mock_correction_service.class_item_entitles_exam_only(
         user_id, class_item, skill="listening", test_id=test.get("id")
