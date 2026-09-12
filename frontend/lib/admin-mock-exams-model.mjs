@@ -216,6 +216,8 @@ export function normalizeExamContent(raw) {
       }) : [],
       publicPracticeEnabled: row.public_practice_enabled === true,
       webExplanationMode: TEXT(row.web_explanation_mode) || 'disabled',
+      publishReady: row.publish_ready === true,
+      readinessReason: TEXT(row.readiness_reason),
     }];
   });
   return {
@@ -234,6 +236,15 @@ export function localDateTimeIn(days, now = Date.now()) {
   const date = new Date(now + days * 86_400_000);
   const pad = (value) => String(value).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+export function vietnamDateIn(days, now = Date.now()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date(now)).filter(({ type }) => type !== 'literal').map(({ type, value }) => [type, value]));
+  const date = new Date(`${parts.year}-${parts.month}-${parts.day}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + Math.trunc(Number(days) || 0));
+  return date.toISOString().slice(0, 10);
 }
 
 export function localToIso(value) {

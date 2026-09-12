@@ -731,6 +731,18 @@ export function ReadingExamSession() {
     if (!params) return;
     const ready = await whenGlobalReady(() => !!window.api?.getWith, 'window.api (Reading exam)');
     if (!ready) throw new Error('Không thể kết nối lớp dữ liệu.');
+    if (params.adminPreview) {
+      const adminTest = await window.api.get<any>(
+        `/admin/reading/content/tests/${encodeURIComponent(params.testId!)}`,
+      );
+      const normalized = normalizeReadingBoot({ test: adminTest, in_progress: null }, params.testId) as { test: ReadingTest; inProgress: null };
+      setTest(normalized.test);
+      setCurrentPart(Number(normalized.test.passages[0]?.passage_order || 1));
+      setCurrentQuestion(Number(normalized.test.questions[0]?.q_num || 1));
+      answersRef.current = new Map(); setAnswers(new Map()); setAttempt(null); setResumeAvailable(false);
+      setPhase('inprogress');
+      return;
+    }
     const path = params.share
       ? `/api/reading/test/share/${encodeURIComponent(params.share)}/boot`
       : queryWithClassItem(`/api/reading/test/${encodeURIComponent(params.testId!)}/boot`, params.classItem);
@@ -1026,7 +1038,7 @@ export function ReadingExamSession() {
   const unsavedRetrying = [...saveStates.values()].filter((state) => state === 'retrying').length;
   const unsavedPending = [...saveStates.values()].filter((state) => state === 'pending').length;
   const total = test?.total_questions || test?.questions.length || 0;
-  const backHref = readingLibraryHref(params?.from, params?.sittingId);
+  const backHref = params?.adminPreview ? '/admin/mock-exams#test-library' : readingLibraryHref(params?.from, params?.sittingId);
 
   const jumpToQuestion = (qNum: number) => {
     const target = (test?.questions || []).find((question) => question.q_num === qNum);
@@ -1102,10 +1114,10 @@ export function ReadingExamSession() {
       <a className="vh" href="#exam-questions">Skip to test content</a>
       <header className="exam-topbar" role="banner">
         <div className="exam-topbar__left">
-          <div className="exam-topbar__candidate">Aver Learning <b>{user?.email || (params?.share ? 'Guest candidate' : 'Candidate')}</b></div>
+          <div className="exam-topbar__candidate">Aver Learning <b>{params?.adminPreview ? 'Admin preview' : user?.email || (params?.share ? 'Guest candidate' : 'Candidate')}</b></div>
           <div className="exam-topbar__section">IELTS Reading Practice · {test?.title || 'Reading Test'}</div>
         </div>
-        <div className="exam-timer-wrap" hidden={!['inprogress', 'submitting'].includes(phase) || !!params?.mockEmbed}>
+        <div className="exam-timer-wrap" hidden={!['inprogress', 'submitting'].includes(phase) || !!params?.mockEmbed || !!params?.adminPreview}>
           <div className="exam-timer" data-state={remaining <= 300 ? 'critical' : remaining <= 600 ? 'warning' : 'normal'} role="timer" aria-live="off">{formatTime(remaining)}</div>
           <div className="exam-timer__label">time remaining</div>
         </div>
@@ -1145,6 +1157,7 @@ export function ReadingExamSession() {
         </div>
       </main> : null}
       {['inprogress', 'submitting'].includes(phase) && test ? <>
+        {params?.adminPreview ? <aside className="exam-admin-preview" role="status"><strong>Bản duyệt admin</strong><span>Đây là đúng giao diện thi của học viên. Câu trả lời chỉ nằm trong tab này; hệ thống không tạo attempt và không lưu kết quả.</span><span className="exam-admin-preview__actions"><a className="exam-btn" href={`/reading/review?admin_test_id=${encodeURIComponent(test.test_id)}`}>Xem chữa bài</a><a className="exam-btn" href={backHref}>Về kho đề</a></span></aside> : null}
         <section className="reading-next-part-strip" aria-label={`Part ${currentPart}`}>
           <strong>Part {currentPart}</strong>
           <span>{questions.length ? `Read the text and answer questions ${questions[0].q_num}–${questions.at(-1)?.q_num}.` : 'Read the text and answer the questions.'}</span>
@@ -1222,13 +1235,13 @@ export function ReadingExamSession() {
               <button className="exam-palette__nav-btn" type="button" disabled={currentQuestion === test.questions[0]?.q_num} onClick={() => moveQuestion(-1)}>← Previous</button>
               <button className="exam-palette__nav-btn" type="button" disabled={currentQuestion === test.questions.at(-1)?.q_num} onClick={() => moveQuestion(1)}>Next →</button>
             </div>
-            {!params?.mockEmbed ? <button className="exam-btn exam-btn--primary" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(true)}>{phase === 'submitting' ? 'Đang nộp…' : 'Submit'}</button> : null}
+            {params?.adminPreview ? <a className="exam-btn exam-btn--primary" href={`/reading/review?admin_test_id=${encodeURIComponent(test.test_id)}`}>Xem chữa bài</a> : !params?.mockEmbed ? <button className="exam-btn exam-btn--primary" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(true)}>{phase === 'submitting' ? 'Đang nộp…' : 'Submit'}</button> : null}
           </div>
         </footer>
       </> : null}
       {phase === 'sealed' ? <main className="exam-state-shell reading-next-state"><p className="exam-state-msg">Đã thu bài Reading. Đang chờ kỳ thi chuyển bước tiếp theo…</p></main> : null}
 
-      {submitOpen ? <div className="exam-modal" role="dialog" aria-modal="true" aria-labelledby="reading-next-submit-title">
+      {submitOpen && !params?.adminPreview ? <div className="exam-modal" role="dialog" aria-modal="true" aria-labelledby="reading-next-submit-title">
         <div className="exam-modal__backdrop" onClick={() => setSubmitOpen(false)} />
         <div className="exam-modal__panel reading-next-submit-panel">
           <h2 id="reading-next-submit-title">Nộp bài?</h2>

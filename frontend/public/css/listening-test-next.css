@@ -149,3 +149,4 @@
   .listening-next-nav-btn { flex: 1; }
 }
 @media (prefers-reduced-motion: reduce) { .listening-next-shell *, .listening-next-modal * { scroll-behavior: auto; transition: none; } }
+.listening-admin-preview{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--av-border-default);background:var(--av-surface-sunken);color:var(--av-text-primary);font-size:13px}.listening-admin-preview>span:not(.listening-admin-preview__actions){flex:1;color:var(--av-text-secondary)}.listening-admin-preview__actions{display:flex;gap:8px}.listening-admin-preview a{text-decoration:none}@media(max-width:700px){.listening-admin-preview{align-items:flex-start;flex-direction:column}.listening-admin-preview__actions{width:100%;flex-wrap:wrap}}

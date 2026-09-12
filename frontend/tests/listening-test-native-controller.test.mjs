@@ -44,8 +44,8 @@ function testBundle() {
 
 describe('native Listening test controller', () => {
   test('parses stable identity and preserves class/mock context', () => {
-    assert.deepEqual(listeningTestParams('?id=LIS-1&class_item=h1&sitting_id=s1&mock_embed=1&from=mini'), {
-      testId: 'LIS-1', classItem: 'h1', from: 'mini', sittingId: 's1', mockEmbed: true,
+    assert.deepEqual(listeningTestParams('?id=LIS-1&class_item=h1&sitting_id=s1&mock_embed=1&admin_preview=1&from=mini'), {
+      testId: 'LIS-1', classItem: 'h1', from: 'mini', sittingId: 's1', mockEmbed: true, adminPreview: true,
     });
     assert.throws(() => listeningTestParams('?from=full'), /missing-listening-test-identity/);
   });
@@ -87,6 +87,10 @@ describe('native Listening test controller', () => {
     assert.equal(
       listeningRendererHref('next', '?id=t1&sitting_id=s1&mock_embed=1'),
       '/listening/test/session?id=t1&sitting_id=s1&mock_embed=1',
+    );
+    assert.equal(
+      listeningRendererHref('next', '?id=t1&admin_preview=1&ignored=x'),
+      '/listening/test/session?id=t1&admin_preview=1',
     );
   });
 
@@ -288,6 +292,12 @@ describe('native Listening test route contract', () => {
     assert.match(page, /window\.location\.replace\(listeningRendererHref/);
   });
 
+  test('admin preview reuses the player payload without creating an attempt', () => {
+    assert.match(page, /\/admin\/listening\/tests\/\$\{encodeURIComponent\(params\.testId\)\}\/player-preview/);
+    assert.match(page, /setAttempt\(null\)/);
+    assert.match(page, /Bản duyệt admin/);
+  });
+
   test('preserves mock sealing, canonical resume and submit safety', () => {
     assert.match(page, /hook\.attach\('listening', nextAttempt\.attempt_id\)/);
     assert.match(page, /hook\?\.isSealedResponse/);
@@ -316,7 +326,7 @@ describe('native Listening test route contract', () => {
     assert.match(page, /normalizeListeningTest\(await window\.api\.get/);
     assert.match(page, /const mediaOffset = Number\(audioRef\.current\?\.currentTime\)/);
     assert.match(page, /params\.sittingId \|\| !Number\.isFinite\(mediaOffset\)/);
-    assert.match(page, /await resolveAudioOffset\(attempt, refreshed\)/);
+    assert.match(page, /await resolveAudioOffset\(attempt!, refreshed\)/);
     assert.match(page, /Math\.max\(0, mediaOffset\)/);
     assert.match(page, /hook\?\.sectionElapsedSeconds/);
     assert.match(page, /setAudioReloadKey\(\(value\) => value \+ 1\)/);
