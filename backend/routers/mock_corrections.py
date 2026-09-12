@@ -48,6 +48,7 @@ class MockPolicyPatch(BaseModel):
 
 
 class PublicPolicyPatch(BaseModel):
+    is_public: bool | None = None
     public_practice_enabled: bool | None = None
     web_explanation_mode: Literal[
         "disabled", "immediate_after_capture", "admin_release"

@@ -7,6 +7,10 @@ PAPER_APPROVAL_SQL = (
     Path(__file__).resolve().parents[1]
     / "migrations/260_approve_web_explanation_paper.sql"
 ).read_text()
+PUBLIC_POLICY_SQL = (
+    Path(__file__).resolve().parents[1]
+    / "migrations/261_atomic_public_explanation_policy.sql"
+).read_text()
 
 
 def test_capture_happens_before_correctness_is_revealed(monkeypatch):
@@ -162,6 +166,58 @@ def test_scope_writes_and_paper_approvals_share_database_transactions():
     assert mock_body.rindex("fn_approve_web_explanation_paper") < mock_body.index(
         "UPDATE public.mock_exams AS m"
     )
+
+
+def test_public_policy_and_paper_approval_share_one_database_transaction():
+    sql = PUBLIC_POLICY_SQL
+    assert "fn_approve_web_explanation_paper" in sql
+    assert "UPDATE public.reading_tests AS t" in sql
+    assert "UPDATE public.listening_tests AS t" in sql
+    assert "'public_policy_updated'" in sql
+    assert "SET is_public" in sql
+    assert sql.count("exam_only = CASE") == 2
+    assert sql.count("WHEN v_patch ? 'is_public' THEN FALSE") == 2
+    assert sql.index("fn_approve_web_explanation_paper") < sql.index(
+        "UPDATE public.reading_tests AS t"
+    )
+    assert "SECURITY DEFINER" in sql
+    assert ") FROM PUBLIC, anon, authenticated;" in sql
+    assert ") TO service_role;" in sql
+
+
+def test_public_policy_uses_only_the_atomic_rpc(monkeypatch):
+    calls = []
+
+    class Call:
+        def execute(self):
+            return type("Resp", (), {"data": {
+                "id": "paper-1",
+                "is_public": True,
+                "public_practice_enabled": True,
+                "web_explanation_mode": "immediate_after_capture",
+            }})()
+
+    monkeypatch.setattr(svc, "supabase_admin", type("DB", (), {
+        "rpc": staticmethod(lambda name, args: calls.append((name, args)) or Call()),
+    })())
+
+    row = svc.update_public_test_policy("reading", "paper-1", {
+        "is_public": True,
+        "public_practice_enabled": True,
+        "web_explanation_mode": "immediate_after_capture",
+    }, "admin-1")
+
+    assert row["is_public"] is True
+    assert calls == [("fn_update_public_test_explanation_policy", {
+        "p_skill": "reading",
+        "p_test_id": "paper-1",
+        "p_patch": {
+            "is_public": True,
+            "public_practice_enabled": True,
+            "web_explanation_mode": "immediate_after_capture",
+        },
+        "p_actor_id": "admin-1",
+    })]
 
 
 def test_explanation_release_is_atomic_at_paper_level(monkeypatch):

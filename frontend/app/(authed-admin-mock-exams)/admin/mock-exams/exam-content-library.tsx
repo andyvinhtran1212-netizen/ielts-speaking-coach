@@ -129,13 +129,15 @@ export function ExamContentLibrary({ accountId, cohorts }: Props) {
     try {
       if (isPublic) {
         await window.api.patch<unknown>(`/admin/mock-corrections/public-tests/${encodeURIComponent(row.kind)}/${encodeURIComponent(row.id)}`, {
+          is_public: true,
           public_practice_enabled: webExplanationMode !== 'disabled',
           web_explanation_mode: webExplanationMode,
         });
-        await window.api.patch<unknown>(`/admin/exam-content/${encodeURIComponent(row.kind)}/${encodeURIComponent(row.id)}/visibility`, { is_public: true });
       } else {
-        await window.api.patch<unknown>(`/admin/exam-content/${encodeURIComponent(row.kind)}/${encodeURIComponent(row.id)}/visibility`, { is_public: false });
-        await window.api.patch<unknown>(`/admin/mock-corrections/public-tests/${encodeURIComponent(row.kind)}/${encodeURIComponent(row.id)}`, { public_practice_enabled: false });
+        await window.api.patch<unknown>(`/admin/mock-corrections/public-tests/${encodeURIComponent(row.kind)}/${encodeURIComponent(row.id)}`, {
+          is_public: false,
+          public_practice_enabled: false,
+        });
       }
       setVisibilityEditor(null);
       await load();
