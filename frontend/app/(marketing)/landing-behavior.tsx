@@ -59,55 +59,87 @@ export function LandingBehavior() {
       return n + '+';
     }
 
-    // Environment-aware API base (js/runtime-config.js) — the old
-    // vercel.json rewrite hardcoded production for every environment.
-    const rc = window.__AVER_RUNTIME_CONFIG__ || {};
-    const apiBase =
-      rc.apiBase ||
-      (location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-        ? 'http://localhost:8000'
-        : 'https://ielts-speaking-coach-production.up.railway.app');
-
-    fetch(apiBase + '/api/public-stats')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!data) return;
-        document.querySelectorAll('[data-stat]').forEach((el) => {
-          const key = el.getAttribute('data-stat');
-          if (key && key in data && data[key] != null) {
-            el.textContent = formatNum(data[key]);
-          }
-        });
-      })
-      .catch(() => {
-        // Silently fail if stats endpoint is unavailable
-      });
-
-    // ─── ADR-012 PAGE-VIEW BEACON (implementation-tagged) ──────
-    // The lean marketing page doesn't load api.js/analytics-beacon.js, so
-    // this is a raw-fetch equivalent (same /api/analytics/events contract,
-    // anonymous → user_id=NULL) that gives the cutover dashboard a
-    // page-view denominator for the migrated landing, tagged next + release.
-    // Fire-and-forget; tracking must never affect the page (Pattern #29).
-    try {
-      fetch(apiBase + '/api/analytics/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          event_name: 'page_view',
-          event_data: {
-            path: location.pathname,
-            referrer: document.referrer || '',
-            implementation: 'next',
-            release: rc.release || null,
-          },
-        }),
-      }).catch(() => {
-        // Silently fail — a beacon must never surface to the user
-      });
-    } catch {
-      // never affect the page
+    // RouteScriptChain loads runtime-config after hydration. Do not fall back
+    // to production while that script is still in flight on staging.
+    function fallbackApiBase(hostname: string) {
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'http://localhost:8000';
+      }
+      if (hostname === 'averlearning.com' || hostname === 'www.averlearning.com') {
+        return 'https://ielts-speaking-coach-production.up.railway.app';
+      }
+      return null;
     }
+
+    function loadEnvironmentData(allowKnownHostFallback = false) {
+      const rc = window.__AVER_RUNTIME_CONFIG__;
+      const apiBase = rc?.apiBase ||
+        (allowKnownHostFallback ? fallbackApiBase(location.hostname) : null);
+      if (!apiBase) return;
+
+      fetch(apiBase + '/api/public-stats')
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (!data) return;
+          document.querySelectorAll('[data-stat]').forEach((el) => {
+            const key = el.getAttribute('data-stat');
+            if (key && key in data && data[key] != null) {
+              el.textContent = formatNum(data[key]);
+            }
+          });
+        })
+        .catch(() => {
+          // Silently fail if stats endpoint is unavailable
+        });
+
+      // ─── ADR-012 PAGE-VIEW BEACON (implementation-tagged) ──────
+      try {
+        fetch(apiBase + '/api/analytics/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_name: 'page_view',
+            event_data: {
+              path: location.pathname,
+              referrer: document.referrer || '',
+              implementation: 'next',
+              release: rc?.release || null,
+            },
+          }),
+        }).catch(() => {
+          // Silently fail — a beacon must never surface to the user
+        });
+      } catch {
+        // never affect the page
+      }
+    }
+
+    function handleRuntimeConfigReady() {
+      window.removeEventListener('aver:runtime-config-failed', handleRuntimeConfigFailure);
+      loadEnvironmentData();
+    }
+
+    function handleRuntimeConfigFailure() {
+      window.removeEventListener('aver:runtime-config-ready', handleRuntimeConfigReady);
+      loadEnvironmentData(true);
+    }
+
+    if (window.__AVER_RUNTIME_CONFIG__) {
+      loadEnvironmentData();
+    } else {
+      window.addEventListener('aver:runtime-config-ready', handleRuntimeConfigReady, { once: true });
+      window.addEventListener(
+        'aver:runtime-config-failed',
+        handleRuntimeConfigFailure,
+        { once: true },
+      );
+    }
+
+    return () => {
+      window.removeEventListener('load', hydrateIcons);
+      window.removeEventListener('aver:runtime-config-ready', handleRuntimeConfigReady);
+      window.removeEventListener('aver:runtime-config-failed', handleRuntimeConfigFailure);
+    };
   }, []);
 
   return null;

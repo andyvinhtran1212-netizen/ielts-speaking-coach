@@ -1,4 +1,4 @@
-"""Security contract for the staging-only Gate E session cleanup seam."""
+"""Security contract for the staging-only release-smoke cleanup seam."""
 
 from __future__ import annotations
 
@@ -117,7 +117,7 @@ def _session(**overrides):
     row = {
         "id": "session-1",
         "user_id": "student-1",
-        "topic": "Gate E live failure injection",
+        "topic": "Staging live failure injection",
         "sitting_id": None,
         "class_assignment_item_id": None,
     }

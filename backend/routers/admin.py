@@ -53,6 +53,7 @@ _STAGING_E2E_SUPABASE_HOST = "zjphffoujxkpltixsbzj.supabase.co"
 _STAGING_E2E_EMAIL_SUFFIX = "@staging-e2e.averlearning.com"
 _STAGING_E2E_AUDIO_BUCKET = "audio-responses"
 _STAGING_E2E_TOPICS = frozenset({
+    "Staging live failure injection",
     "Gate E live failure injection",
     "Work and career",
 })
@@ -711,7 +712,7 @@ async def admin_cleanup_e2e_session(
     session_id: str,
     authorization: str | None = Header(default=None),
 ):
-    """Delete one synthetic Gate E session from the certified staging DB.
+    """Delete one synthetic release-smoke session from the certified staging DB.
 
     This deliberately is not a general session-delete API. It requires an
     admin, refuses every non-staging runtime/project, and only accepts an
@@ -741,7 +742,7 @@ async def admin_cleanup_e2e_session(
     if session.get("sitting_id") or session.get("class_assignment_item_id"):
         raise HTTPException(403, "Session có liên kết nghiệp vụ, không được cleanup")
     if not _is_staging_e2e_topic(session.get("topic")):
-        raise HTTPException(403, "Session không thuộc Gate E")
+        raise HTTPException(403, "Session không thuộc staging E2E")
 
     try:
         owner_result = (

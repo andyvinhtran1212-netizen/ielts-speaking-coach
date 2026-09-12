@@ -15,6 +15,7 @@ const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const PAGE = path.join(FRONTEND, 'app', '(marketing)', 'page.tsx');
 const BEHAVIOR = path.join(FRONTEND, 'app', '(marketing)', 'landing-behavior.tsx');
 const LAYOUT = path.join(FRONTEND, 'app', '(marketing)', 'layout.tsx');
+const SCRIPT_CHAIN = path.join(FRONTEND, 'components', 'route-script-chain.tsx');
 const SOAK_REDIRECTS = buildLegacyRetirementRedirects(
   LEGACY_RETIREMENT_PATHS,
   { permanent: false },
@@ -49,10 +50,6 @@ test('parity: các marker nội dung chính của index.html có mặt trong pag
   }
 });
 
-test('legacy index.html còn nguyên (dark launch không chạm canonical)', () => {
-  assert.ok(existsSync(path.join(FRONTEND, 'public', 'index.html')));
-});
-
 test('CUTOVER: `/` is the Next app route; the legacy `/`→/index.html rewrite is GONE', () => {
   const cfg = readFileSync(path.join(FRONTEND, 'next.config.ts'), 'utf8');
   assert.ok(!cfg.includes("{ source: '/', destination: '/index.html' }"),
@@ -74,4 +71,24 @@ test('ADR-012: migrated landing emits implementation=next telemetry (observabili
   assert.match(behavior, /\/api\/analytics\/events/, 'landing must emit a page_view beacon');
   assert.match(behavior, /implementation: 'next'/, 'beacon must tag implementation=next for the ADR-012 dashboard');
   assert.match(behavior, /event_name: 'page_view'/);
+});
+
+test('landing waits for runtime-config before selecting an API environment', () => {
+  const behavior = readFileSync(BEHAVIOR, 'utf8');
+  const chain = readFileSync(SCRIPT_CHAIN, 'utf8');
+  assert.match(chain, /aver:runtime-config-ready/);
+  assert.match(chain, /aver:runtime-config-failed/);
+  assert.match(chain, /src === '\/js\/runtime-config\.js'/);
+  assert.match(behavior, /addEventListener\('aver:runtime-config-ready'/);
+  assert.match(behavior, /'aver:runtime-config-failed'/);
+  assert.match(behavior, /hostname === 'averlearning\.com'/);
+  assert.match(behavior, /hostname === 'www\.averlearning\.com'/);
+  assert.match(behavior, /return null;/);
+  assert.match(behavior, /removeEventListener\('aver:runtime-config-failed'/);
+  assert.match(behavior, /if \(window\.__AVER_RUNTIME_CONFIG__\)/);
+  assert.ok(
+    behavior.indexOf('const rc = window.__AVER_RUNTIME_CONFIG__')
+      < behavior.indexOf("fetch(apiBase + '/api/public-stats')"),
+    'the environment config must exist before any landing API request',
+  );
 });
