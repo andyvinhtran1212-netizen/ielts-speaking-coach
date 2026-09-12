@@ -94,6 +94,7 @@ await page.route('**/*', async (route) => {
   if (path === '/admin/exam-content/reading/reading-uuid/level' && method === 'PATCH') { contentCourseLevel = body.course_level; return json({ ok: true }); }
   if (path === '/admin/exam-content/reading/reading-uuid/cohorts' && method === 'PATCH') { contentCohortIds = body.cohort_ids; return json({ ok: true }); }
   if (path === '/admin/mock-corrections/public-tests/reading/reading-uuid' && method === 'PATCH') {
+    contentIsPublic = body.is_public;
     contentPublicPracticeEnabled = body.public_practice_enabled;
     contentWebExplanationMode = body.web_explanation_mode || contentWebExplanationMode;
     return json({ id: 'reading-uuid', public_practice_enabled: contentPublicPracticeEnabled, web_explanation_mode: contentWebExplanationMode });
@@ -175,7 +176,6 @@ await page.getByRole('button', { name: 'Lưu toàn bộ lớp' }).click();
 const cohortsResponse = await cohortsMutation;
 await cohortsReload;
 await page.getByRole('dialog').waitFor({ state: 'hidden' });
-const visibilityMutation = page.waitForResponse((response) => response.request().method() === 'PATCH' && new URL(response.url()).pathname === '/admin/exam-content/reading/reading-uuid/visibility');
 const explanationPolicyMutation = page.waitForResponse((response) => response.request().method() === 'PATCH' && new URL(response.url()).pathname === '/admin/mock-corrections/public-tests/reading/reading-uuid');
 const visibilityReload = page.waitForResponse((response) => response.request().method() === 'GET' && new URL(response.url()).pathname === '/admin/exam-content');
 await page.getByRole('button', { name: 'Mở công khai' }).click();
@@ -183,7 +183,6 @@ const visibilityDialog = page.getByRole('dialog');
 await visibilityDialog.getByLabel('Web explanation').selectOption('immediate_after_capture');
 await visibilityDialog.getByRole('button', { name: 'Mở công khai' }).click();
 const explanationPolicyResponse = await explanationPolicyMutation;
-const visibilityResponse = await visibilityMutation;
 await visibilityReload;
 
 await page.getByRole('button', { name: 'Giao cho lớp' }).click();
@@ -195,7 +194,7 @@ await assignmentDialog.getByRole('button', { name: 'Giao cho cả lớp' }).clic
 const classAssignmentResponse = await classAssignmentMutation;
 await assignmentReload;
 const classAssignmentRequest = requests.find((item) => item.method === 'POST' && item.path === '/admin/cohorts/class-2/assignments');
-check('exam-content cập nhật level, phạm vi, visibility và giao lớp độc lập', levelResponse.ok() && cohortsResponse.ok() && explanationPolicyResponse.ok() && visibilityResponse.ok() && classAssignmentResponse.ok() && requests.some((item) => item.path.endsWith('/level') && item.body?.course_level === 'C2') && requests.some((item) => item.path.endsWith('/cohorts') && item.body?.cohort_ids?.includes('class-2')) && requests.some((item) => item.path.endsWith('/public-tests/reading/reading-uuid') && item.body?.web_explanation_mode === 'immediate_after_capture' && item.body?.public_practice_enabled === true) && requests.some((item) => item.path.endsWith('/visibility') && item.body?.is_public === true) && classAssignmentRequest?.body?.content_id === 'reading-uuid' && classAssignmentRequest?.body?.delivery_mode === 'assigned_practice');
+check('exam-content cập nhật level, phạm vi, visibility và giao lớp độc lập', levelResponse.ok() && cohortsResponse.ok() && explanationPolicyResponse.ok() && classAssignmentResponse.ok() && requests.some((item) => item.path.endsWith('/level') && item.body?.course_level === 'C2') && requests.some((item) => item.path.endsWith('/cohorts') && item.body?.cohort_ids?.includes('class-2')) && requests.some((item) => item.path.endsWith('/public-tests/reading/reading-uuid') && item.body?.is_public === true && item.body?.web_explanation_mode === 'immediate_after_capture' && item.body?.public_practice_enabled === true) && !requests.some((item) => item.path.endsWith('/visibility') && item.method === 'PATCH') && classAssignmentRequest?.body?.content_id === 'reading-uuid' && classAssignmentRequest?.body?.delivery_mode === 'assigned_practice');
 
 await page.setViewportSize({ width: 390, height: 844 });
 const mobile = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth, control: parseFloat(getComputedStyle(document.querySelector('.mex-form-grid input')).minHeight) }));

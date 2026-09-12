@@ -910,52 +910,56 @@ def _assert_public_content_ready(skill: str, test_id: str, version: str | None) 
 
 
 def update_public_test_policy(skill: str, test_id: str, patch: dict, actor_id: str) -> dict:
-    test = _one(_test_table(skill), test_id)
-    if not test:
-        raise NotFoundError("Không tìm thấy đề.")
-    mode = patch.get("web_explanation_mode", test.get("web_explanation_mode") or "disabled")
-    if mode not in PRACTICE_EXPLANATION_MODES:
+    if skill not in SKILLS:
+        raise PolicyError(f"Kỹ năng không hỗ trợ web explanation: {skill}.")
+    mode = patch.get("web_explanation_mode")
+    if mode is not None and mode not in PRACTICE_EXPLANATION_MODES:
         raise PolicyError("Chế độ explanation public không hợp lệ.")
-    version = patch.get("web_explanation_content_version") or test.get("web_explanation_content_version")
-    enabling_explanations = mode != "disabled" and (
-        "web_explanation_mode" in patch
-        or patch.get("public_practice_enabled") is True
-        or patch.get("release_now") is True
-    )
-    if enabling_explanations:
-        version = approve_paper_explanations(
-            skill,
-            test_id,
-            actor_id,
-            version=version,
-            reason="enabled_for_public_practice",
-        )
-    before = {k: test.get(k) for k in (
-        "public_practice_enabled", "web_explanation_mode",
-        "web_explanations_released_at", "web_explanation_content_version",
-    )}
     update = {k: v for k, v in patch.items() if k in {
-        "public_practice_enabled", "web_explanation_mode", "web_explanation_content_version",
+        "is_public", "public_practice_enabled", "web_explanation_mode",
+        "web_explanation_content_version", "release_now",
     }}
-    if version:
-        update["web_explanation_content_version"] = version
-    if patch.get("release_now"):
-        update["web_explanations_released_at"] = _now_iso()
-        update["web_explanations_released_by"] = actor_id
-    elif mode == "admin_release" and (
-        before.get("web_explanation_mode") != "admin_release"
-        or update.get("web_explanation_content_version", before.get("web_explanation_content_version"))
-        != before.get("web_explanation_content_version")
-    ):
-        update["web_explanations_released_at"] = None
-        update["web_explanations_released_by"] = None
-    rows = (supabase_admin.table(_test_table(skill)).update(update)
-            .eq("id", test_id).execute().data) or []
-    if not rows:
-        raise CorrectionError("Không cập nhật được chính sách public practice.")
-    after = {k: rows[0].get(k) for k in before}
-    _log_release(f"{skill}_test", test_id, "public_policy_updated", before, after, actor_id)
-    return rows[0]
+    try:
+        result = supabase_admin.rpc(
+            "fn_update_public_test_explanation_policy",
+            {
+                "p_skill": skill,
+                "p_test_id": str(test_id),
+                "p_patch": update,
+                "p_actor_id": str(actor_id),
+            },
+        ).execute().data
+    except Exception as exc:  # noqa: BLE001 — translate stable RPC markers
+        message = str(exc)
+        if "public_test_not_found" in message:
+            raise NotFoundError("Không tìm thấy đề.") from exc
+        if "unsupported_public_explanation_skill" in message:
+            raise PolicyError(
+                "Correction policy chỉ áp dụng cho Reading/Listening."
+            ) from exc
+        if "invalid_public_explanation_mode" in message:
+            raise PolicyError("Chế độ explanation public không hợp lệ.") from exc
+        if "web_explanation_paper_requires_q01_q40" in message:
+            raise PolicyError(
+                "Chỉ bật web explanation khi đề có đủ đúng 40 objects từ Q1 đến Q40."
+            ) from exc
+        if "web_explanation_content_version_unavailable" in message:
+            raise PolicyError(
+                "Không tìm thấy một content version hiện hành duy nhất cho đề."
+            ) from exc
+        if "web_explanation_serving_blocked:" in message:
+            object_id = message.split(
+                "web_explanation_serving_blocked:", 1
+            )[1].split()[0]
+            raise PolicyError(
+                f"Đề còn item chưa qua matcher/serving gate: {object_id}"
+            ) from exc
+        raise CorrectionError(
+            "Không cập nhật được chính sách public practice."
+        ) from exc
+    if not isinstance(result, dict) or not result.get("id"):
+        raise CorrectionError("Database không trả lại đề đã cập nhật.")
+    return result
 
 
 def approve_content_version(
