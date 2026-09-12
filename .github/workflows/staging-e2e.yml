@@ -31,31 +31,28 @@ on:
   # the four-runs-per-day rollout evidence schedule indefinitely.
   workflow_dispatch:
 
+# Serialize the complete legacy-audit -> permanent-smoke chain. Keeping the
+# lock at workflow scope prevents the next staging push from starting Gate E
+# while the preceding release smoke still owns the shared synthetic accounts.
+concurrency:
+  group: ${{ github.event_name == 'schedule' && format('production-release-drift-{0}', github.run_id) || 'staging-e2e-shared-env' }}
+  cancel-in-progress: false
+
 jobs:
   staging-e2e:
     # The workflow-level daily trigger exists only for production-release-drift.
     # Gate E itself runs for a staging release or an operator dispatch, never
     # for the lightweight daily schedule.
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    outputs:
+      source_sha: ${{ steps.source_revision.outputs.sha }}
     # AUDIT F4: staging is a SHARED live environment (shared smoke identities,
-    # environment-global kill-switch flips). Two simultaneous runs corrupt
-    # each other's state, so runs are QUEUED, never concurrent.
-    # - JOB-scoped (not workflow-scoped, review #760): production-release-
-    #   drift below only reads the production runtime marker and touches no
-    #   shared staging state — it must not wait behind a long E2E run.
-    # - queue: max (review #760): the default queue keeps ONE pending run and
-    #   CANCELS it when another queues — a nightly + manual dispatch overlap
-    #   would silently drop a streak run. Every queued run must execute.
-    # - cancel-in-progress stays false: a streak run must finish, not be
-    #   half-killed.
+    # environment-global kill-switch flips). The workflow-level lock above
+    # serializes this audit together with the permanent release smoke below.
     # Known residual (documented, needs a repo secret to close): all runs
     # share the `smoke` namespace — per-run namespaces (staging_seed.py
     # --ns run-<id>) require the staging Supabase SERVICE key as a CI
     # secret; until then this concurrency gate is the isolation mechanism.
-    concurrency:
-      group: staging-e2e-shared-env
-      cancel-in-progress: false
-      queue: max
     runs-on: ubuntu-24.04
     # Every step below has its own timeout. Their deliberately conservative
     # total is 159 minutes even though the streak/reset uploads are mutually
@@ -445,6 +442,14 @@ jobs:
           name: staging-e2e-report
           path: frontend/playwright-report
           retention-days: 7
+
+  release-smoke:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    needs: staging-e2e
+    uses: ./.github/workflows/staging-release-smoke.yml
+    with:
+      release_source_sha: ${{ needs.staging-e2e.outputs.source_sha }}
+    secrets: inherit
 
   # Rollback-pin drift monitor (Gate B re-drill lesson, 2026-07-13 — see
   # docs/GATE_B_EVIDENCE_2026-07-13.md): an Instant Rollback leaves the

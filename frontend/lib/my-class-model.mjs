@@ -6,6 +6,7 @@ import {
 
 const SKILLS = new Set(['speaking', 'writing', 'reading', 'listening', 'course']);
 const PLAYER_SURFACES = new Set(['speaking', 'reading_exam', 'listening_test']);
+const COURSE_ACTIONS = new Set(['start', 'continue', 'retake', 'retry_full', 'review']);
 
 function objectOf(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
@@ -111,6 +112,15 @@ function normalizeAssignment(value) {
   const passedAt = timestamp(row.passed_at);
   const score = row.score == null ? null : finiteNumber(row.score);
   const cfg = objectOf(assignment.content_config) || {};
+  const rawCourseAction = textOf(row.course_action);
+  const courseAction = skill === 'course'
+    ? COURSE_ACTIONS.has(rawCourseAction)
+      ? rawCourseAction
+      : submittedAt ? 'review' : 'start'
+    : null;
+  if (row.course_action != null && skill === 'course' && !COURSE_ACTIONS.has(rawCourseAction)) {
+    return null;
+  }
   if (!itemId || !assignmentId || !title || !SKILLS.has(skill) || dueAt === undefined
       || submittedAt === undefined || passedAt === undefined || score === null && row.score != null
       || typeof row.is_late !== 'boolean' || typeof row.is_missing !== 'boolean'
@@ -126,6 +136,7 @@ function normalizeAssignment(value) {
     submittedAt,
     score,
     passedAt,
+    courseAction,
     writingExpected: row.writing_expected,
     isLate: row.is_late,
     isMissing: row.is_missing,
@@ -170,8 +181,8 @@ function normalizeProgress(value) {
 
 function progressMatchesAssignments(progress, assignments) {
   if (!progress) return false;
-  const submitted = assignments.filter((row) => row.submittedAt).length;
-  const late = assignments.filter((row) => row.isLate).length;
+  const submitted = assignments.filter((row) => row.submittedAt && !courseNeedsAction(row)).length;
+  const late = assignments.filter((row) => row.isLate && !courseNeedsAction(row)).length;
   const missing = assignments.filter((row) => row.isMissing).length;
   const onTimePct = submitted ? Math.round((submitted - late) / submitted * 100) : null;
   return progress.total === assignments.length
@@ -234,10 +245,25 @@ export function awaitingWriting(row) {
     && row.writingExpected === true && Boolean(row.passedAt) && !row.submittedAt;
 }
 
+export function courseNeedsAction(row) {
+  return row?.assignment?.skill === 'course'
+    && ['start', 'continue', 'retake', 'retry_full'].includes(row.courseAction);
+}
+
 /** One canonical action decision for both current and history groups. */
 export function assignmentAction(row) {
-  if (row?.assignment?.skill === 'course' && row.submittedAt) {
-    return { kind: 'review', label: 'Xem kết quả' };
+  if (row?.assignment?.skill === 'course') {
+    const labels = {
+      start: 'Làm bài',
+      continue: 'Tiếp tục bài',
+      retake: 'Bắt đầu revision',
+      retry_full: 'Làm lại toàn bộ',
+      review: 'Xem kết quả',
+    };
+    const action = row.courseAction || (row.submittedAt ? 'review' : 'start');
+    return labels[action]
+      ? { kind: action === 'review' ? 'review' : 'start', label: labels[action] }
+      : null;
   }
   if (row?.assignment?.skill === 'speaking'
       && (row.submittedAt || (row.isMissing && row.state !== 'assigned'))) {
@@ -278,7 +304,8 @@ export function remainingLabel(milliseconds) {
 
 export function nextDue(assignments) {
   return (assignments || [])
-    .filter((row) => !row.submittedAt && row.assignment.dueAt && !row.isMissing)
+    .filter((row) => (!row.submittedAt || courseNeedsAction(row))
+      && row.assignment.dueAt && !row.isMissing)
     .map((row) => ({ row, at: Date.parse(row.assignment.dueAt) }))
     .filter((entry) => Number.isFinite(entry.at))
     .sort((left, right) => left.at - right.at)[0] || null;

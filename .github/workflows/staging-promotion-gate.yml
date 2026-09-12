@@ -80,7 +80,7 @@ jobs:
                     exit 1
                   fi
                 done
-              elif [ "$RUN_STATUS" = "queued" ] || [ "$RUN_STATUS" = "in_progress" ] || [ "$RUN_ID" = "missing" ]; then
+              elif [ "$RUN_STATUS" = "pending" ] || [ "$RUN_STATUS" = "queued" ] || [ "$RUN_STATUS" = "in_progress" ] || [ "$RUN_ID" = "missing" ]; then
                 PENDING=1
               else
                 echo "::error::Unexpected staging workflow state '$RUN' for '$WORKFLOW' at $HEAD_SHA"
@@ -105,7 +105,13 @@ jobs:
                 echo "::error::Staging E2E workflow was green but its staging-e2e job was $E2E_JOB"
                 exit 1
               fi
-            elif [ "$RUN_STATUS" = "queued" ] || [ "$RUN_STATUS" = "in_progress" ] || [ "$RUN_ID" = "missing" ]; then
+              RELEASE_SMOKE_JOB=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" \
+                --jq '[.jobs[] | select(.name == "release-smoke / Staging release smoke")] | last | .conclusion // "missing"')
+              if [ "$RELEASE_SMOKE_JOB" != "success" ]; then
+                echo "::error::Staging E2E workflow was green but its permanent release smoke was $RELEASE_SMOKE_JOB"
+                exit 1
+              fi
+            elif [ "$RUN_STATUS" = "pending" ] || [ "$RUN_STATUS" = "queued" ] || [ "$RUN_STATUS" = "in_progress" ] || [ "$RUN_ID" = "missing" ]; then
               PENDING=1
             else
               echo "::error::Unexpected Staging E2E state '$RUN' for $HEAD_SHA"

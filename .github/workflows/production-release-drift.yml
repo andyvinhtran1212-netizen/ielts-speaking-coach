@@ -1,0 +1,36 @@
+name: Production release drift
+
+# Permanent operational monitor. It compares the production runtime marker
+# with the repository's current main head, so manual runs are correct even
+# when dispatched from a non-main ref.
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    - cron: "11 1 * * *"
+  workflow_dispatch:
+
+jobs:
+  production-release-drift:
+    name: Production release drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Production serves current main HEAD
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          MAIN_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          SERVING=$(curl -sL --max-time 20 https://www.averlearning.com/js/runtime-config.js \
+            | grep -o '"release": *"[a-f0-9]\{40\}"' | grep -o '[a-f0-9]\{40\}' | head -1)
+          echo "serving=$SERVING main=$MAIN_SHA"
+          if [ -z "$SERVING" ]; then
+            echo "::error::Cannot read the production release marker"
+            exit 1
+          fi
+          if [ "$SERVING" != "$MAIN_SHA" ]; then
+            echo "::error::PRODUCTION RELEASE DRIFT - production serves $SERVING but main is $MAIN_SHA. Check whether Vercel production is rollback-pinned."
+            exit 1
+          fi

@@ -8,6 +8,8 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const read = (relative) => readFileSync(path.join(ROOT, relative), 'utf8');
 const PROMOTION = read('.github/workflows/staging-promotion-gate.yml');
 const STAGING_E2E = read('.github/workflows/staging-e2e.yml');
+const RELEASE_SMOKE = read('.github/workflows/staging-release-smoke.yml');
+const PRODUCTION_DRIFT = read('.github/workflows/production-release-drift.yml');
 const BACKEND = read('.github/workflows/backend-tests.yml');
 const TYPECHECK = read('.github/workflows/typecheck.yml');
 const ROUTES = read('.github/workflows/route-manifest.yml');
@@ -18,6 +20,7 @@ const AGENT_RULES = read('AGENTS.md');
 describe('staging-first production release contract', () => {
   test('every staging merge runs exact-release integration gates', () => {
     assert.match(STAGING_E2E, /^  push:\n    branches: \[staging\]$/m);
+    assert.match(RELEASE_SMOKE, /^  workflow_call:$/m);
     assert.match(
       STAGING_E2E,
       /^    if: github\.event_name == 'workflow_dispatch' \|\| github\.event_name == 'push'$/m,
@@ -25,6 +28,24 @@ describe('staging-first production release contract', () => {
     for (const workflow of [BACKEND, TYPECHECK, ROUTES, FREEZE]) {
       assert.match(workflow, /^  push:\n    branches: \[main, staging\]$/m);
     }
+    assert.match(RELEASE_SMOKE, /run: npm run test:e2e:staging/);
+    assert.match(RELEASE_SMOKE, /RELEASE_PROVENANCE_REQUIRED: 'true'/);
+    assert.match(RELEASE_SMOKE, /capture-staging-release-provenance\.mjs/);
+    assert.doesNotMatch(RELEASE_SMOKE, /Gate E|GATE_E_STREAK|gate-e-streak/);
+    assert.doesNotMatch(RELEASE_SMOKE, /^\s+queue:/m);
+    assert.match(RELEASE_SMOKE, /ref: \$\{\{ inputs\.release_source_sha \}\}/);
+    assert.match(RELEASE_SMOKE, /SOURCE_SHA.*!=.*EXPECTED_SHA/s);
+    assert.match(STAGING_E2E, /group: \$\{\{ github\.event_name == 'schedule'.*production-release-drift.*staging-e2e-shared-env/);
+    assert.match(STAGING_E2E, /^    outputs:\n      source_sha: \$\{\{ steps\.source_revision\.outputs\.sha \}\}$/m);
+    assert.match(STAGING_E2E, /^  release-smoke:\n[\s\S]*?needs: staging-e2e\n[\s\S]*?uses: \.\/\.github\/workflows\/staging-release-smoke\.yml/m);
+    assert.match(STAGING_E2E, /release_source_sha: \$\{\{ needs\.staging-e2e\.outputs\.source_sha \}\}/);
+    const preDeploy = RELEASE_SMOKE.indexOf('Wait for exact frontend and backend staging release');
+    const browserSuite = RELEASE_SMOKE.indexOf('Run live staging release smoke');
+    const postDeploy = RELEASE_SMOKE.indexOf('Verify exact frontend and backend staging release');
+    assert.ok(preDeploy > -1 && preDeploy < browserSuite,
+      'exact frontend/backend deployment must be proven before browser tests');
+    assert.ok(postDeploy > browserSuite,
+      'exact frontend/backend deployment must be rechecked after browser tests');
   });
 
   test('main accepts only the repository staging head', () => {
@@ -63,6 +84,13 @@ describe('staging-first production release contract', () => {
       '`--arg` belongs to jq, not gh api');
     assert.match(PROMOTION, /select\(\.name == "staging-e2e"\)/);
     assert.match(PROMOTION, /E2E_JOB.*!= "success"/s);
+    assert.match(PROMOTION, /select\(\.name == "release-smoke \/ Staging release smoke"\)/);
+    assert.match(PROMOTION, /RELEASE_SMOKE_JOB.*!= "success"/s);
+    assert.equal(
+      (PROMOTION.match(/\[ "\$RUN_STATUS" = "pending" \]/g) || []).length,
+      2,
+      'both integrated-workflow and Staging E2E polling must wait through GitHub pending state',
+    );
   });
 
   test('operator and agent documentation prohibit direct feature releases to main', () => {
@@ -70,5 +98,14 @@ describe('staging-first production release contract', () => {
     assert.match(RUNBOOK, /head `staging`\s+and base `main`/);
     assert.match(AGENT_RULES, /PR base is `staging`, never `main`/);
     assert.match(AGENT_RULES, /head `staging` and base `main`/);
+  });
+
+  test('production drift compares the serving release with repository main', () => {
+    assert.match(PRODUCTION_DRIFT, /^  schedule:\n    - cron:/m);
+    assert.match(PRODUCTION_DRIFT, /^  workflow_dispatch:$/m);
+    assert.match(PRODUCTION_DRIFT, /git\/ref\/heads\/main/);
+    assert.match(PRODUCTION_DRIFT, /runtime-config\.js/);
+    assert.match(PRODUCTION_DRIFT, /SERVING.*!=.*MAIN_SHA/s);
+    assert.doesNotMatch(PRODUCTION_DRIFT, /GITHUB_SHA/);
   });
 });

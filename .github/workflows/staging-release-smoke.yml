@@ -1,0 +1,130 @@
+name: Staging release smoke
+
+# Permanent release validation for the shared staging environment. Production
+# promotion consumes this successful push run for the exact staging SHA.
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      release_source_sha:
+        description: Exact staging push SHA already validated by the caller
+        required: true
+        type: string
+
+jobs:
+  release-smoke:
+    name: Staging release smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout staging release
+        uses: actions/checkout@v5
+        timeout-minutes: 3
+        with:
+          ref: ${{ inputs.release_source_sha }}
+          fetch-depth: 1
+
+      - name: Capture tested source revision
+        id: source_revision
+        timeout-minutes: 1
+        env:
+          EXPECTED_SHA: ${{ inputs.release_source_sha }}
+        run: |
+          SOURCE_SHA=$(git rev-parse HEAD)
+          if [ "$SOURCE_SHA" != "$EXPECTED_SHA" ]; then
+            echo "::error::Checkout drifted from the triggering push: checkout=$SOURCE_SHA expected=$EXPECTED_SHA"
+            exit 1
+          fi
+          echo "sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        timeout-minutes: 3
+        with:
+          node-version: "24"
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        timeout-minutes: 5
+        run: npm ci
+
+      - name: Install release-smoke browsers
+        working-directory: frontend
+        timeout-minutes: 15
+        run: |
+          test -f /etc/apt/apt-mirrors.txt
+          printf '%s\n' 'https://archive.ubuntu.com/ubuntu' \
+            | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          printf '%s\n' \
+            'Acquire::Retries "2";' \
+            'Acquire::http::Timeout "15";' \
+            'Acquire::https::Timeout "15";' \
+            | sudo tee /etc/apt/apt.conf.d/99-staging-release-smoke-network >/dev/null
+          npx playwright install --with-deps chromium webkit
+
+      - name: Wait for exact frontend and backend staging release
+        working-directory: frontend
+        timeout-minutes: 12
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          RELEASE_SOURCE_SHA: ${{ steps.source_revision.outputs.sha }}
+          RELEASE_PROVENANCE_REQUIRED: 'true'
+        run: |
+          for ATTEMPT in $(seq 1 60); do
+            if node tooling/capture-staging-release-provenance.mjs; then
+              exit 0
+            fi
+            echo "Waiting for exact frontend/backend release ($ATTEMPT/60)..."
+            sleep 10
+          done
+          echo "::error::Timed out waiting for exact frontend/backend staging release"
+          exit 1
+
+      - name: Run live staging release smoke
+        id: release_smoke
+        working-directory: frontend
+        timeout-minutes: 20
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          RELEASE_SOURCE_SHA: ${{ steps.source_revision.outputs.sha }}
+          GATE_E_SOURCE_SHA: ${{ steps.source_revision.outputs.sha }}
+        run: npm run test:e2e:staging
+
+      - name: Verify exact frontend and backend staging release
+        id: staging_provenance
+        if: always()
+        working-directory: frontend
+        timeout-minutes: 3
+        env:
+          STAGING_BYPASS: ${{ secrets.STAGING_PROTECTION_BYPASS }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          RELEASE_SOURCE_SHA: ${{ steps.source_revision.outputs.sha }}
+          RELEASE_PROVENANCE_REQUIRED: 'true'
+        run: node tooling/capture-staging-release-provenance.mjs
+
+      - name: Upload staging release evidence
+        if: always() && steps.staging_provenance.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        timeout-minutes: 2
+        with:
+          name: staging-release-provenance-${{ github.run_id }}-${{ github.run_attempt }}
+          path: frontend/test-results/staging-release-provenance.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload browser report on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        timeout-minutes: 3
+        with:
+          name: staging-release-smoke-report-${{ github.run_id }}
+          path: |
+            frontend/playwright-report
+            frontend/test-results/staging-e2e-results.json
+          if-no-files-found: warn
+          retention-days: 7
