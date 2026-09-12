@@ -35,8 +35,10 @@ describe('staging-first production release contract', () => {
     assert.doesNotMatch(RELEASE_SMOKE, /^\s+queue:/m);
     assert.match(RELEASE_SMOKE, /ref: \$\{\{ inputs\.release_source_sha \}\}/);
     assert.match(RELEASE_SMOKE, /SOURCE_SHA.*!=.*EXPECTED_SHA/s);
-    assert.match(STAGING_E2E, /^concurrency:\n  group: staging-e2e-shared-env\n  cancel-in-progress: false$/m);
+    assert.match(STAGING_E2E, /group: \$\{\{ github\.event_name == 'schedule'.*production-release-drift.*staging-e2e-shared-env/);
+    assert.match(STAGING_E2E, /^    outputs:\n      source_sha: \$\{\{ steps\.source_revision\.outputs\.sha \}\}$/m);
     assert.match(STAGING_E2E, /^  release-smoke:\n[\s\S]*?needs: staging-e2e\n[\s\S]*?uses: \.\/\.github\/workflows\/staging-release-smoke\.yml/m);
+    assert.match(STAGING_E2E, /release_source_sha: \$\{\{ needs\.staging-e2e\.outputs\.source_sha \}\}/);
     const preDeploy = RELEASE_SMOKE.indexOf('Wait for exact frontend and backend staging release');
     const browserSuite = RELEASE_SMOKE.indexOf('Run live staging release smoke');
     const postDeploy = RELEASE_SMOKE.indexOf('Verify exact frontend and backend staging release');

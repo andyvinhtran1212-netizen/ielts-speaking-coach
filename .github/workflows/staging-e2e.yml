@@ -35,7 +35,7 @@ on:
 # lock at workflow scope prevents the next staging push from starting Gate E
 # while the preceding release smoke still owns the shared synthetic accounts.
 concurrency:
-  group: staging-e2e-shared-env
+  group: ${{ github.event_name == 'schedule' && format('production-release-drift-{0}', github.run_id) || 'staging-e2e-shared-env' }}
   cancel-in-progress: false
 
 jobs:
@@ -44,6 +44,8 @@ jobs:
     # Gate E itself runs for a staging release or an operator dispatch, never
     # for the lightweight daily schedule.
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    outputs:
+      source_sha: ${{ steps.source_revision.outputs.sha }}
     # AUDIT F4: staging is a SHARED live environment (shared smoke identities,
     # environment-global kill-switch flips). The workflow-level lock above
     # serializes this audit together with the permanent release smoke below.
@@ -446,7 +448,7 @@ jobs:
     needs: staging-e2e
     uses: ./.github/workflows/staging-release-smoke.yml
     with:
-      release_source_sha: ${{ github.sha }}
+      release_source_sha: ${{ needs.staging-e2e.outputs.source_sha }}
     secrets: inherit
 
   # Rollback-pin drift monitor (Gate B re-drill lesson, 2026-07-13 — see
