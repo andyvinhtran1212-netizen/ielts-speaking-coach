@@ -213,12 +213,15 @@ export function normalizeCatalog(value, kind, requestedSkill = '', requestedCoho
     const scopeBlocked = kind === 'exam' && Boolean(requestedCohortId)
       && ((privatePaper && cohortIds.length === 0)
         || (cohortIds.length > 0 && !cohortIds.includes(requestedCohortId)));
-    const ready = kind === 'exam' ? row.status === 'published' && !scopeBlocked : row.ready === true;
+    // The class-assignment screen already names the target class. Keep the
+    // backend scope gate, but let the submit flow establish that scope through
+    // the canonical /cohorts endpoint instead of forcing a second screen first.
+    const ready = kind === 'exam' ? row.status === 'published' : row.ready === true;
     const already = row.already_given === true;
     let reason = null;
     if (already) reason = 'Đã giao cho lớp này';
-    else if (scopeBlocked) reason = 'Chưa gán cho lớp này trong kho đề';
     else if (!ready) reason = row.missing_audio ? `Thiếu audio cho ${count(row.missing_audio)} câu` : 'Đề đang draft hoặc chưa sẵn sàng';
+    else if (scopeBlocked) reason = 'Sẽ gán phạm vi lớp khi giao';
     else if (kind === 'exam' && privatePaper) reason = 'Kho đề admin';
     return {
       id, title: text(row.title) || 'Nội dung chưa đặt tên', code: nullableText(row.code),

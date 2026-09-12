@@ -123,14 +123,19 @@ describe('admin class homework model — canonical truth', () => {
     assert.equal(result.body.post_test_capture_required, false);
   });
 
-  test('fails closed for protected papers outside the class and locked immediate explanations', () => {
+  test('lets one class-assignment action establish scope while explanations stay gated', () => {
     const outside = normalizeCatalog({ items: [{
       id: 'cam-r', title: 'Cambridge 18', status: 'published', exam_only: true,
       cohort_ids: ['another-class'], web_explanation_state: 'blocked',
       web_explanation_count: 40, web_explanation_ready_count: 0,
     }] }, 'exam', 'reading', 'class-5')[0];
-    assert.equal(outside.ready, false);
-    assert.equal(outside.reason, 'Chưa gán cho lớp này trong kho đề');
+    assert.equal(outside.ready, true);
+    assert.equal(outside.reason, 'Sẽ gán phạm vi lớp khi giao');
+    const draftPaper = normalizeCatalog({ items: [{
+      id: 'draft-r', title: 'Draft', status: 'draft', exam_only: true, cohort_ids: [],
+    }] }, 'exam', 'reading', 'class-5')[0];
+    assert.equal(draftPaper.ready, false);
+    assert.equal(draftPaper.reason, 'Đề đang draft hoặc chưa sẵn sàng');
 
     const locked = normalizeCatalog({ items: [{
       id: 'cam-r', title: 'Cambridge 18', status: 'published', exam_only: true,
@@ -164,6 +169,15 @@ describe('admin class homework — integration contracts', () => {
     assert.doesNotMatch(UI, /pages\/admin\/classes\/index\.html\?cohort_id|markingHref/);
     assert.match(SUBMISSIONS, /artifact_kind === 'reading_attempt'/);
     assert.match(SUBMISSIONS, /artifact_kind === 'listening_attempt'/);
+  });
+
+  test('establishes Reading/Listening warehouse scope before the protected assignment write', () => {
+    const scopeWrite = UI.indexOf('/admin/exam-content/${encodeURIComponent(editor.skill)}/${encodeURIComponent(selectedCatalogItem.id)}/cohorts/${encodeURIComponent(cohortId)}');
+    const assignmentWrite = UI.indexOf('/admin/cohorts/${encodeURIComponent(cohortId)}/assignments', scopeWrite);
+    assert.ok(scopeWrite >= 0, 'missing canonical warehouse-scope write');
+    assert.ok(assignmentWrite > scopeWrite, 'assignment must follow the scope write required by the backend gate');
+    assert.doesNotMatch(UI, /cohort_ids: \[\.\.\.new Set/,
+      'a stale full-set write could remove another admin’s concurrent scope change');
   });
 
   test('explains protected delivery, explanation timing and confidence in outcome language', () => {
