@@ -29,8 +29,11 @@ from fastapi import APIRouter, Header, HTTPException
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
-from services.quiz_service import bank_has_writing
-from services.quiz_service import reconcile_course_items
+from services.quiz_service import (
+    bank_has_writing,
+    course_assignment_action,
+    reconcile_course_items,
+)
 from services.class_assignment_service import (
     _ID_CHUNK,
     is_accepting_submissions,
@@ -48,6 +51,7 @@ logger = logging.getLogger(__name__)
 # Caps HISTORY only. Outstanding work is never capped — see my_assignments().
 _MAX_HISTORY = 200
 _PAGE = 1000
+_COURSE_WORK_ACTIONS = {"start", "continue", "retake", "retry_full"}
 
 
 def _paged_items(apply_filters) -> list:
@@ -182,6 +186,14 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime,
     is_late = bool(submitted_at and due and datetime.fromisoformat(submitted_at) > due)
     is_missing = bool(not submitted_at and due and due < now)
 
+    writing_expected = (
+        bank_has_writing(assignment.get("content_id"), memo=writing_memo)
+        if assignment.get("skill") == "course" else False
+    )
+    course_action = (course_assignment_action(
+        item, assignment, now=now, writing_expected=writing_expected,
+    ) if assignment.get("skill") == "course" else None)
+
     return {
         "item_id":      item["id"],
         "state":        item["state"],
@@ -190,13 +202,15 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime,
         # Cổng thuộc bài (chỉ bài course có): trang lớp hiện "85% · đã đạt"
         # thay vì "Band 85.0" — một con số không tồn tại trên thang IELTS.
         "passed_at":    item.get("passed_at"),
+        # Canonical learner action. ``submitted_at`` alone cannot decide this:
+        # a failed or incomplete course hand-in becomes writable again when the
+        # teacher extends its deadline, while a passed/closed item stays review.
+        "course_action": course_action,
         # Bộ đề này CÓ phần tự luận không — trang không được SUY từ
         # `passed_at && !submitted_at`: một lượt ghi sổ hỏng (best-effort) ở bộ
         # đề KHÔNG có tự luận cũng cho ra đúng hình dạng ấy, và học viên đọc
         # thành "còn phần tự luận" cho một phần không tồn tại (codex cục bộ).
-        "writing_expected": (
-            bank_has_writing(assignment.get("content_id"), memo=writing_memo)
-            if assignment.get("skill") == "course" else False),
+        "writing_expected": writing_expected,
         "is_late":      is_late,
         "is_missing":   is_missing,
         "assignment": {
@@ -249,14 +263,49 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
         .execute().data
     ) or []
 
-    items = outstanding + history
+    # A submitted course item can become work again when its deadline is
+    # extended. Fetch those rows through the accepting course assignments,
+    # independently of the 200-row terminal-history cap; otherwise an older
+    # failed Revision silently disappears behind newer hand-ins.
+    course_assignments = _paged_items_of(
+        "class_assignments",
+        lambda q: (q.in_("cohort_id", cohort_ids).eq("skill", "course")
+                   .eq("status", "published")),
+    ) if cohort_ids else []
+    accepting_course_by_id = {
+        row["id"]: row for row in course_assignments
+        if row.get("skill") == "course" and is_accepting_submissions(row, now=now)
+    }
+    submitted_course: list[Dict[str, Any]] = []
+    course_ids = list(accepting_course_by_id)
+    for chunk in (course_ids[i:i + _ID_CHUNK]
+                  for i in range(0, len(course_ids), _ID_CHUNK)):
+        submitted_course.extend(_paged_items(
+            lambda q, ids=chunk: (
+                q.eq("student_id", student["id"])
+                .in_("assignment_id", ids)
+                .not_.is_("submitted_at", "null")
+            )
+        ))
+
+    capped_item_ids = {row["id"] for row in outstanding + history}
+    items_by_id = {row["id"]: row for row in outstanding + history}
+    for row in submitted_course:
+        if (row.get("submitted_at")
+                and row.get("assignment_id") in accepting_course_by_id):
+            items_by_id.setdefault(row["id"], row)
+    items = list(items_by_id.values())
+
     if not items:
         return [], False
 
     if not cohort_ids:
         return [], False
     a_ids = list({i["assignment_id"] for i in items})
-    by_id: Dict[str, Dict[str, Any]] = {}
+    by_id: Dict[str, Dict[str, Any]] = {
+        assignment_id: accepting_course_by_id[assignment_id]
+        for assignment_id in a_ids if assignment_id in accepting_course_by_id
+    }
     for chunk in (a_ids[i:i + _ID_CHUNK] for i in range(0, len(a_ids), _ID_CHUNK)):
         for a in ((supabase_admin.table("class_assignments")
                    .select("*")
@@ -313,6 +362,9 @@ def _visible_assignments(student: Dict[str, Any], now: datetime,
     writing_memo: Dict[str, bool | None] = {}
     out = [_decorate(i, by_id[i["assignment_id"]], now, writing_memo)
            for i in items if i["assignment_id"] in by_id]
+    out = [row for row in out
+           if row["item_id"] in capped_item_ids
+           or row.get("course_action") in _COURSE_WORK_ACTIONS]
     # ``None`` khác hẳn ``False``: truy vấn hình dạng bộ đề hỏng, chứ không phải
     # đã chứng minh bộ đề không có phần viết. Giữ danh sách dùng được nhưng bật
     # cùng cờ stale mà hai đường vá sổ dùng, để học viên không coi nhãn tạm thời
@@ -440,10 +492,21 @@ async def start_assignment(
             response["renderer_affinity"] = existing["renderer_affinity"]
         return response
 
-    # Bài theo buổi ĐÃ NỘP mở lại ở lane chỉ-đọc. Đặt trước cổng deadline giống
-    # Speaking: hết hạn chặn lượt làm mới, không xoá quyền xem kết quả đã lưu.
-    # `review_only` đi tới runner để nó tuyệt đối không dựng quiz session mới.
-    if assignment.get("skill") == "course" and item.get("submitted_at"):
+    writing_expected = (
+        bank_has_writing(assignment.get("content_id"))
+        if (assignment.get("skill") == "course" and item.get("passed_at")
+            and not item.get("submitted_at")) else None
+    )
+    course_action = (course_assignment_action(
+        item, assignment, writing_expected=writing_expected,
+    ) if assignment.get("skill") == "course" else None)
+
+    # Bài course đã đạt hoặc đã đóng hạn mở lại ở lane chỉ-đọc. Một dấu nộp cũ
+    # không tự biến thành khoá: nếu bài chưa đạt/chưa đủ phần và hạn vừa được nới,
+    # ``course_action`` giữ đường làm tiếp/revision/full retry mở.
+    if (assignment.get("skill") == "course"
+            and course_action == "review"
+            and (item.get("submitted_at") or item.get("passed_at"))):
         return {
             "item_id":       item_id,
             "assignment_id": assignment["id"],
@@ -503,6 +566,7 @@ async def start_assignment(
             "assignment_id": assignment["id"],
             "skill":         skill,
             "bank_id":       assignment.get("content_id"),
+            "course_action": course_action,
         }
 
     if skill == "speaking":
@@ -722,13 +786,17 @@ def _progress_summary(assignments: list) -> Dict[str, Any]:
     """Counts for the header strip.
 
     `missing` is work whose deadline has passed with nothing submitted — the
-    number worth acting on. Everything not yet due is `todo`, deliberately kept
-    apart: a learner who sees "5 quá hạn" when nothing is actually late stops
-    believing the number.
+    number worth acting on. A course hand-in reopened for remaining sections or
+    retry moves back to `todo`; its preserved receipt must not make Home claim
+    there is no work left. Everything else not yet due is also `todo`.
     """
     total = len(assignments)
-    submitted = sum(1 for a in assignments if a["submitted_at"])
-    late = sum(1 for a in assignments if a["is_late"])
+    submitted = sum(1 for a in assignments
+                    if a["submitted_at"]
+                    and a.get("course_action") not in _COURSE_WORK_ACTIONS)
+    late = sum(1 for a in assignments
+               if a["is_late"]
+               and a.get("course_action") not in _COURSE_WORK_ACTIONS)
     missing = sum(1 for a in assignments if a["is_missing"])
     return {
         "total":     total,

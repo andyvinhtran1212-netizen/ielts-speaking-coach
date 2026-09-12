@@ -60,6 +60,16 @@ def test_progress_counts_match_the_rendered_list():
     assert p["todo"] == 1, "todo must exclude both submitted and overdue work"
 
 
+def test_progress_counts_reopened_course_hand_ins_as_work_to_do():
+    row = _assignment(submitted=True)
+    row["assignment"]["skill"] = "course"
+    row["course_action"] = "retake"
+    assert mod._progress_summary([row]) == {
+        "total": 1, "submitted": 0, "todo": 1, "missing": 0,
+        "late": 0, "on_time_pct": None,
+    }
+
+
 def test_on_time_percentage_is_over_hand_ins_not_over_everything():
     """Dividing by `total` would drag punctuality down for work that is not even
     due yet — a student who has submitted everything on time so far would see
@@ -85,6 +95,25 @@ def test_empty_list_is_all_zeros_and_no_percentage():
     p = mod._progress_summary([])
     assert (p["total"], p["submitted"], p["missing"], p["todo"]) == (0, 0, 0, 0)
     assert p["on_time_pct"] is None
+
+
+def test_decorated_course_item_exposes_incomplete_work_after_deadline_extension():
+    assignment = {
+        "id": "a-course", "cohort_id": "c1", "title": "Grammar 05",
+        "skill": "course", "status": "published", "publish_at": None,
+        "due_at": (NOW + timedelta(hours=2)).isoformat(),
+        "content_id": "bank-grammar-05", "content_config": {"pass_pct": 80},
+    }
+    item = {
+        "id": "i-course", "state": "graded", "passed_at": None,
+        "submitted_at": (NOW - timedelta(hours=1)).isoformat(), "score": None,
+        "mastery": {"attempts": [{"completed": False, "pct": None,
+                                    "sections": {"quiz": {"completed": True}}}]},
+    }
+    with patch.object(mod, "bank_has_writing", return_value=False):
+        out = mod._decorate(item, assignment, NOW)
+    assert out["course_action"] == "continue"
+    assert out["submitted_at"] == item["submitted_at"], "biên nhận cũ phải được giữ"
 
 
 # ── không thuộc lớp nào là câu trả lời bình thường ──────────────────────
@@ -644,3 +673,57 @@ async def test_a_real_zero_writing_shape_does_not_mark_homework_stale():
     out = await _course_homework_with_shape(False)
     assert out["assignments"][0]["writing_expected"] is False
     assert "homework_stale" not in out
+
+
+def test_actionable_submitted_course_item_is_not_lost_behind_history_cap():
+    history = [{
+        "id": f"recent-{index}", "assignment_id": "a-speaking",
+        "student_id": "s1", "state": "submitted",
+        "submitted_at": (NOW - timedelta(minutes=index)).isoformat(),
+        "passed_at": None, "score": 6.5,
+    } for index in range(mod._MAX_HISTORY)]
+    old_course = {
+        "id": "old-course", "assignment_id": "a-course", "student_id": "s1",
+        "state": "graded", "submitted_at": "2025-01-01T00:00:00+00:00",
+        "passed_at": None, "score": 78,
+        "mastery": {"attempts": [{"completed": True, "pct": 78,
+                                    "next_action": "retake"}]},
+    }
+    old_passed = {
+        **old_course, "id": "old-passed", "score": 90,
+        "passed_at": "2025-01-01T00:00:00+00:00",
+        "mastery": {"attempts": [{"completed": True, "pct": 90,
+                                    "next_action": "passed"}]},
+    }
+    assignments = [{
+        "id": "a-speaking", "cohort_id": "c1", "skill": "speaking",
+        "status": "published", "publish_at": None, "due_at": None,
+        "content_config": {}, "title": "Speaking history",
+    }, {
+        "id": "a-course", "cohort_id": "c1", "skill": "course",
+        "status": "published", "publish_at": None,
+        "due_at": (NOW + timedelta(hours=2)).isoformat(),
+        "content_id": "bank-revision", "content_config": {"pass_pct": 80},
+        "title": "Revision cũ",
+    }]
+    db = type("DB", (), {})()
+    db.table = lambda name: _Table(
+        history if name == "class_assignment_items" else assignments, False,
+    )
+    with patch.object(mod, "supabase_admin", db), \
+         patch.object(mod, "_paged_items", side_effect=[[], [old_course, old_passed]]), \
+         patch.object(mod, "_paged_items_of", return_value=[assignments[1]]), \
+         patch.object(mod, "_reread_items",
+                      return_value=history + [old_course, old_passed]), \
+         patch.object(mod, "reconcile_test_attempts", return_value=0), \
+         patch.object(mod, "reconcile_course_items", return_value=0), \
+         patch.object(mod, "bank_has_writing", return_value=False):
+        out, stale = mod._visible_assignments(
+            {"id": "s1", "cohort_id": "c1"}, NOW, ["c1"],
+        )
+    assert stale is False
+    assert len(out) == mod._MAX_HISTORY + 1
+    reopened = next(row for row in out if row["item_id"] == "old-course")
+    assert reopened["course_action"] == "retake"
+    assert all(row["item_id"] != "old-passed" for row in out), \
+        "terminal course history beyond the cap must stay capped"

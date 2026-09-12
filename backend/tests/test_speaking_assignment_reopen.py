@@ -164,6 +164,77 @@ async def test_submitted_course_reopens_as_read_only_after_deadline():
 
 
 @pytest.mark.asyncio
+async def test_submitted_incomplete_course_reopens_for_work_after_deadline_extension():
+    item = {
+        **_ITEM,
+        "submitted_at": "2026-08-19T18:23:55+00:00",
+        "mastery": {"attempts": [{"phase": "run", "completed": False,
+                                    "sections": {"quiz": {"completed": True}}}]},
+    }
+    assignment = _assignment(
+        skill="course", content_id="bank-grammar-05",
+        content_config={"pass_pct": 75},
+    )
+    out, _ = await _start(sessions=[], assignment=assignment, item=item)
+    assert out == {
+        "item_id": "it1", "assignment_id": "a1", "skill": "course",
+        "bank_id": "bank-grammar-05", "course_action": "continue",
+    }
+
+
+@pytest.mark.asyncio
+async def test_legacy_quiz_pass_with_pending_writing_stays_writable():
+    item = {
+        **_ITEM,
+        "submitted_at": None,
+        "passed_at": "2026-08-19T18:23:55+00:00",
+        "mastery": {"attempts": []},
+    }
+    assignment = _assignment(
+        skill="course", content_id="bank-mixed", content_config={"pass_pct": 75},
+    )
+    with patch.object(mod, "bank_has_writing", return_value=True):
+        out, _ = await _start(sessions=[], assignment=assignment, item=item)
+    assert out["course_action"] == "continue"
+    assert "review_only" not in out
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("pct", "next_action"), [(78, "retake"), (55, "retry_full")])
+async def test_submitted_failed_course_reopens_required_retry_while_accepting(
+    pct, next_action,
+):
+    item = {
+        **_ITEM,
+        "submitted_at": "2026-08-19T18:23:55+00:00",
+        "mastery": {"attempts": [{"phase": "run", "pct": pct,
+                                    "next_action": next_action}]},
+    }
+    assignment = _assignment(
+        skill="course", content_id="bank-revision", content_config={"pass_pct": 80},
+    )
+    out, _ = await _start(sessions=[], assignment=assignment, item=item)
+    assert out["course_action"] == next_action
+    assert "review_only" not in out
+
+
+@pytest.mark.asyncio
+async def test_passed_course_stays_read_only_while_deadline_is_open():
+    item = {
+        **_ITEM,
+        "submitted_at": "2026-08-19T18:23:55+00:00",
+        "passed_at": "2026-08-19T18:23:55+00:00",
+        "mastery": {"attempts": [{"phase": "run", "pct": 90,
+                                    "next_action": "passed"}]},
+    }
+    assignment = _assignment(
+        skill="course", content_id="bank-grammar-05", content_config={"pass_pct": 75},
+    )
+    out, _ = await _start(sessions=[], assignment=assignment, item=item)
+    assert out["review_only"] is True
+
+
+@pytest.mark.asyncio
 async def test_unsubmitted_course_remains_closed_after_deadline():
     assignment = _assignment(
         skill="course", content_id="bank-grammar-05", content_config={},

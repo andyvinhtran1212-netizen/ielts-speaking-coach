@@ -12,6 +12,7 @@ import {
   assignmentAction,
   assignmentSubtitle,
   awaitingWriting,
+  courseNeedsAction,
   isKnownPlayerSurface,
   nextDue,
   normalizeClassStartResponse,
@@ -27,6 +28,7 @@ type Assignment = {
   submittedAt: string | null;
   score: number | null;
   passedAt: string | null;
+  courseAction: 'start' | 'continue' | 'retake' | 'retry_full' | 'review' | null;
   writingExpected: boolean | null;
   isLate: boolean;
   isMissing: boolean;
@@ -153,9 +155,17 @@ function TaskCard({
 }: { row: Assignment; starting: boolean; onStart: (row: Assignment) => void }) {
   const partial = awaitingWriting(row);
   const action = assignmentAction(row);
-  const state = row.submittedAt ? 'done' : row.isMissing ? 'missing' : 'todo';
-  const stateLabel = row.submittedAt ? (row.isLate ? 'Đã nộp trễ' : 'Đã nộp')
-    : row.isMissing ? 'Đã quá hạn' : partial ? 'Còn phần tự luận' : 'Cần hoàn thành';
+  const needsCourseAction = courseNeedsAction(row);
+  const state = row.submittedAt && !needsCourseAction
+    ? 'done' : row.isMissing ? 'missing' : 'todo';
+  const courseStateLabel: Record<string, string> = {
+    start: 'Cần hoàn thành', continue: 'Chưa hoàn tất', retake: 'Chưa đạt · cần revision',
+    retry_full: 'Chưa đạt · làm lại toàn bộ',
+  };
+  const stateLabel = needsCourseAction && courseStateLabel[row.courseAction || '']
+    ? courseStateLabel[row.courseAction || '']
+    : row.submittedAt ? (row.isLate ? 'Đã nộp trễ' : 'Đã nộp')
+      : row.isMissing ? 'Đã quá hạn' : partial ? 'Còn phần tự luận' : 'Cần hoàn thành';
   const subtitle = assignmentSubtitle(row);
 
   return (
@@ -169,7 +179,8 @@ function TaskCard({
         <p className="mc-item-title">{row.assignment.title}</p>
         {subtitle && <p className="mc-item-sub">{subtitle}</p>}
         <p className={`mc-item-sub${row.isMissing ? ' is-alarm' : ''}`}>
-          {row.submittedAt ? submittedCopy(row) : (
+          {row.submittedAt ? <>{submittedCopy(row)}{needsCourseAction
+            ? ` · ${dueLabel(row.assignment.dueAt)}` : ''}</> : (
             <>
               {partial && <><span className="mc-partial">Chưa hoàn tất — còn phần tự luận</span> · </>}
               {dueLabel(row.assignment.dueAt)}{row.isMissing ? ' · quá hạn' : ''}
@@ -315,8 +326,9 @@ function ReadyView({
   const due = assignments ? nextDue(assignments) : null;
   const left = due ? due.at - now : 0;
   const missing = assignments?.filter((row) => row.isMissing) || [];
-  const todo = assignments?.filter((row) => !row.submittedAt && !row.isMissing) || [];
-  const done = assignments?.filter((row) => row.submittedAt) || [];
+  const todo = assignments?.filter((row) => (!row.submittedAt || courseNeedsAction(row))
+    && !row.isMissing) || [];
+  const done = assignments?.filter((row) => row.submittedAt && !courseNeedsAction(row)) || [];
   const course = selectedClass?.course || (snapshot.classes.length === 1 ? snapshot.classInfo?.course : null);
   const warnings = snapshot.warnings.map((key: string) => WARNING_COPY[key] || `Một phần dữ liệu chưa sẵn sàng (${key}).`);
   if (refreshError) warnings.push(refreshError);
@@ -380,7 +392,7 @@ function ReadyView({
             disabled={startingItem === due.row.itemId}
             onClick={() => onStart(due.row)}
           >
-            {startingItem === due.row.itemId ? 'Đang mở…' : 'Làm bài'}
+            {startingItem === due.row.itemId ? 'Đang mở…' : assignmentAction(due.row)?.label || 'Làm bài'}
           </button>
         </section>
       )}
@@ -541,7 +553,7 @@ export function MyClassWorkspace() {
       if (!target) throw new Error('Máy chủ không trả điểm đến hợp lệ cho bài này.');
       if (target.kind === 'course') {
         const view = target.reviewOnly ? '&view=writing' : '';
-        const item = target.reviewOnly ? `&class_item=${encodeURIComponent(target.itemId)}` : '';
+        const item = `&class_item=${encodeURIComponent(target.itemId)}`;
         window.location.assign(`/course-exercises?bank=${encodeURIComponent(target.bankId)}${view}${item}`);
         return;
       }

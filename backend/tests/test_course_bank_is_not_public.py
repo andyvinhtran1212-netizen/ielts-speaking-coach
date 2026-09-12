@@ -207,6 +207,30 @@ def test_submitted_expired_item_is_pinned_and_exposes_only_completed_snapshot_se
     assert out["mastery"]["section_counts"] == {"quiz": 1}
 
 
+def test_submitted_incomplete_item_is_writable_again_while_deadline_accepts():
+    db = _db(
+        quiz_banks=[_COURSE_BANK],
+        quiz_questions=[{"id": "q1", "bank_id": "bank-course", "order": 0,
+                         "type": "mcq", "item_key": "x"}],
+        class_assignments=[{**_LIVE_ASG, "content_config": {"pass_pct": 75}}],
+        students=[_STUDENT],
+        class_assignment_items=[{
+            "id": "it-1", "assignment_id": "asg-1", "student_id": "st-1",
+            "submitted_at": "2026-08-19T18:23:55+00:00", "passed_at": None,
+            "mastery": {"attempts": [{"phase": "run", "completed": False,
+                                        "sections": {"quiz": {"completed": True}}}]},
+        }],
+    )
+    with patch.object(mod, "supabase_admin", db), \
+         patch.object(mod, "_word_cards_for", lambda *_a, **_k: []), \
+         patch.object(mod, "_attach_article_urls", lambda *_a, **_k: None), \
+         patch.object(mod, "_resolve_question_audio", lambda *_a, **_k: None):
+        out = mod.get_bank_for_play(
+            "bank-course", user_id="u1", assignment_item_id="it-1")
+    assert out["mastery"]["review_only"] is False
+    assert out["mastery"]["course_action"] == "continue"
+
+
 def test_ANOTHER_students_assignment_does_not_open_it():
     """Bài giao của bạn cùng lớp không phải bài giao của em ấy.
 

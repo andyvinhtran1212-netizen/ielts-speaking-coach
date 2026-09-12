@@ -984,12 +984,16 @@ def test_outstanding_student_work_is_never_capped():
     # /me build the same list; the assertion follows the logic, not the route.
     assert "_paged_items" in src, "outstanding items must be fetched in full, paged"
     assert '_MAX_HISTORY' in src
-    # The cap must apply to the SUBMITTED branch only.
-    hist = src[src.index("history = ("):src.index("items = outstanding + history")]
+    # The cap applies to terminal submitted history. Submitted course work that
+    # can reopen is fetched separately, then only writable rows escape the cap.
+    hist = src[src.index("history = ("):src.index("course_assignments =")]
     assert 'not_.is_("submitted_at", "null")' in hist
     assert "_MAX_HISTORY" in hist
     outstanding = src[src.index("outstanding = _paged_items"):src.index("history = (")]
     assert "limit" not in outstanding.lower()
+    assert "submitted_course" in src
+    assert "capped_item_ids" in src
+    assert "_COURSE_WORK_ACTIONS" in src
 
 
 # ── vòng 8 ──────────────────────────────────────────────────────────────
