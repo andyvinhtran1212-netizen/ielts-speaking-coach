@@ -73,6 +73,11 @@ describe('staging-first production release contract', () => {
       '`--arg` belongs to jq, not gh api');
     assert.match(PROMOTION, /select\(\.name == "staging-e2e"\)/);
     assert.match(PROMOTION, /E2E_JOB.*!= "success"/s);
+    assert.equal(
+      (PROMOTION.match(/\[ "\$RUN_STATUS" = "pending" \]/g) || []).length,
+      2,
+      'both integrated-workflow and Staging E2E polling must wait through GitHub pending state',
+    );
   });
 
   test('operator and agent documentation prohibit direct feature releases to main', () => {
