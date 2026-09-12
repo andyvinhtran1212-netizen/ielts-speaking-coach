@@ -8,6 +8,7 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const read = (relative) => readFileSync(path.join(ROOT, relative), 'utf8');
 const PROMOTION = read('.github/workflows/staging-promotion-gate.yml');
 const STAGING_E2E = read('.github/workflows/staging-e2e.yml');
+const RELEASE_SMOKE = read('.github/workflows/staging-release-smoke.yml');
 const BACKEND = read('.github/workflows/backend-tests.yml');
 const TYPECHECK = read('.github/workflows/typecheck.yml');
 const ROUTES = read('.github/workflows/route-manifest.yml');
@@ -18,6 +19,7 @@ const AGENT_RULES = read('AGENTS.md');
 describe('staging-first production release contract', () => {
   test('every staging merge runs exact-release integration gates', () => {
     assert.match(STAGING_E2E, /^  push:\n    branches: \[staging\]$/m);
+    assert.match(RELEASE_SMOKE, /^  push:\n    branches: \[staging\]$/m);
     assert.match(
       STAGING_E2E,
       /^    if: github\.event_name == 'workflow_dispatch' \|\| github\.event_name == 'push'$/m,
@@ -25,6 +27,10 @@ describe('staging-first production release contract', () => {
     for (const workflow of [BACKEND, TYPECHECK, ROUTES, FREEZE]) {
       assert.match(workflow, /^  push:\n    branches: \[main, staging\]$/m);
     }
+    assert.match(RELEASE_SMOKE, /run: npm run test:e2e:staging/);
+    assert.match(RELEASE_SMOKE, /RELEASE_PROVENANCE_REQUIRED: 'true'/);
+    assert.match(RELEASE_SMOKE, /capture-staging-release-provenance\.mjs/);
+    assert.doesNotMatch(RELEASE_SMOKE, /Gate E|GATE_E_STREAK|gate-e-streak/);
   });
 
   test('main accepts only the repository staging head', () => {
@@ -41,6 +47,7 @@ describe('staging-first production release contract', () => {
       'typecheck.yml',
       'route-manifest.yml',
       'legacy-freeze.yml',
+      'staging-release-smoke.yml',
     ]) {
       assert.ok(PROMOTION.includes(`"${workflow}|`), `missing integrated workflow: ${workflow}`);
     }
@@ -51,6 +58,7 @@ describe('staging-first production release contract', () => {
       'api.d.ts ↔ OpenAPI drift',
       'Build + verify routes-manifest ownership',
       'Public không chứa HTML legacy',
+      'Staging release smoke',
     ]) {
       assert.ok(PROMOTION.includes(check), `missing promotion check: ${check}`);
     }

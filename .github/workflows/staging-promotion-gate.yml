@@ -45,6 +45,7 @@ jobs:
             "typecheck.yml|TypeScript strict + legacy JSDoc|api.d.ts ↔ OpenAPI drift"
             "route-manifest.yml|Build + verify routes-manifest ownership"
             "legacy-freeze.yml|Public không chứa HTML legacy"
+            "staging-release-smoke.yml|Staging release smoke"
           )
 
           for ATTEMPT in $(seq 1 80); do
