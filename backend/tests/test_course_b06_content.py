@@ -10,22 +10,19 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTENT = ROOT / "data" / "course_pronunciation" / "C1-B06.json"
 
 
-def test_b06_has_the_requested_twelve_renumbered_kokoro_sentences():
+def test_b06_has_fifteen_medium_length_kokoro_sentences():
     data, content_hash = _load(CONTENT)
     assert data["bank_code"] == "C1-B06"
     assert data["locale"] == "en-GB"
     assert (data["voice_engine"], data["voice"]) == ("kokoro", "bf_emma")
-    assert [row["order"] for row in data["sentences"]] == list(range(1, 13))
+    assert [row["order"] for row in data["sentences"]] == list(range(1, 16))
     assert [row["id"] for row in data["sentences"]] == [
-        f"C1-B06-PRON-{number:02d}" for number in range(1, 13)
+        f"C1-B06-PRON-V2-{number:02d}" for number in range(1, 16)
     ]
-    assert data["sentences"][0]["text"] == (
-        "My uncle works at a small clinic near the market."
-    )
-    assert data["sentences"][-1]["text"] == (
-        "Owing to rising fuel prices, many young workers in the city now choose "
-        "cheaper motorbikes."
-    )
+    word_counts = [len(row["text"].split()) for row in data["sentences"]]
+    assert min(word_counts) >= 11
+    assert max(word_counts) <= 18
+    assert 13 <= sum(word_counts) / len(word_counts) <= 16
     assert len(content_hash) == 64
 
 
@@ -42,4 +39,5 @@ def test_import_requirement_and_registered_set_use_the_same_content_hash():
             for sentence in data["sentences"]
         ],
     })
+    assert requirement["sentence_count"] == 15
     assert requirement["content_hash"] == registered_hash
