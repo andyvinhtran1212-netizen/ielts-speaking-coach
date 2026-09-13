@@ -19,6 +19,8 @@ test('all Next responses carry the permanent security header baseline', () => {
   ]) assert.match(CONFIG, new RegExp(`key: '${header}'`));
   assert.match(CONFIG, /frame-ancestors 'none'/);
   assert.match(CONFIG, /object-src 'none'/);
+  assert.match(CONFIG, /AVER_ENVIRONMENT !== 'test'/);
+  assert.match(CONFIG, /\['127\.0\.0\.1', 'localhost'\]\.includes\(api\.hostname\)/);
   assert.doesNotMatch(CONFIG, /cdn\.jsdelivr\.net|unpkg\.com/);
 });
 

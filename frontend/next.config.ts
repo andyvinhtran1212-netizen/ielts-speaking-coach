@@ -12,6 +12,19 @@ const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
   LEGACY_RETIREMENT_PATHS,
 );
 
+function localTestApiOrigin() {
+  if (process.env.AVER_ENVIRONMENT !== 'test' || !process.env.AVER_API_BASE) return '';
+  try {
+    const api = new URL(process.env.AVER_API_BASE);
+    if (api.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(api.hostname)) return '';
+    return ` ${api.origin}`;
+  } catch {
+    return '';
+  }
+}
+
+const LOCAL_TEST_API_ORIGIN = localTestApiOrigin();
+
 const nextConfig: NextConfig = {
   // A stray lockfile in the developer HOME makes Next infer the wrong
   // workspace root (breaks the TypeScript step with "id must be a string").
@@ -107,7 +120,7 @@ const nextConfig: NextConfig = {
           { key: 'Permissions-Policy', value: 'camera=(), geolocation=(), payment=(), usb=()' },
           {
             key: 'Content-Security-Policy',
-            value: `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: wss:; form-action 'self'`,
+            value: `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: wss:${LOCAL_TEST_API_ORIGIN}; form-action 'self'`,
           },
         ],
       },
