@@ -64,6 +64,8 @@ let refreshRetryExpected = false;
 let refreshRetrySeen = false;
 let resolveRefresh401;
 const refresh401Started = new Promise((resolve) => { resolveRefresh401 = resolve; });
+let resolveRefreshTokenInstalled;
+const refreshTokenInstalled = new Promise((resolve) => { resolveRefreshTokenInstalled = resolve; });
 let resolveRefreshRetry;
 const refreshRetryObserved = new Promise((resolve) => { resolveRefreshRetry = resolve; });
 let generationRaceArmed = false;
@@ -131,7 +133,7 @@ await context.route('**/*', async (route) => {
       refresh401Armed = false;
       refreshRetryExpected = true;
       resolveRefresh401();
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await refreshTokenInstalled;
       return json({ detail: 'Old token expired' }, 401);
     }
     if (refreshRetryExpected && request.headers().authorization === 'Bearer refreshed-token') {
@@ -527,6 +529,7 @@ await page.evaluate(([userId]) => {
     user: { id: userId, email: 'd1@local' },
   });
 }, [USER]);
+resolveRefreshTokenInstalled();
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
 await Promise.race([refreshRetryObserved, page.waitForTimeout(2_000)]);
 check('401 token cũ retry một lần bằng token refresh cùng account',
