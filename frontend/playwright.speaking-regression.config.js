@@ -32,7 +32,13 @@ module.exports = defineConfig({
     // local project, and reusing it would let this suite test the wrong app.
     url: 'http://localhost:3210/practice/session',
     // Legacy HTML is fulfilled by the browser harness from checked test snapshots.
-    env: { PORT: '3210' },
+    env: {
+      PORT: '3210',
+      AVER_ENVIRONMENT: 'test',
+      AVER_API_BASE: 'http://localhost:8000',
+      AVER_SUPABASE_URL: 'https://example.supabase.co',
+      AVER_SUPABASE_ANON_KEY: 'speaking-regression-test-key',
+    },
     reuseExistingServer: false,
     timeout: 180_000,
   },

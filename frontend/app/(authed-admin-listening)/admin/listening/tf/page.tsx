@@ -5,7 +5,6 @@ import { Suspense } from 'react';
 import { AdminAccessGate } from '@/components/admin-access-gate';
 import HydratedSignal from '@/components/hydrated-signal';
 import LegacyModule from '@/components/legacy-module';
-import { watchdogScript } from '@/lib/watchdog-script';
 
 import { AdminListeningTrueFalse } from './admin-listening-true-false';
 
@@ -21,8 +20,6 @@ async function TrueFalseRoute({ searchParams }: { searchParams: Promise<{ conten
   return <>
     <HydratedSignal />
     <LegacyModule src="/js/components/audio-player.js" />
-    {/* Preserve exact content identity when the native watchdog rolls back. */}
-    <script dangerouslySetInnerHTML={{ __html: watchdogScript('/pages/admin/listening/tf.html') }} />
     <aver-admin-chrome active="listening" subsection="tf"><AdminAccessGate><AdminListeningTrueFalse contentId={contentId} requestedExerciseId={String(query.exercise_id || '').trim() || null} /></AdminAccessGate></aver-admin-chrome>
   </>;
 }

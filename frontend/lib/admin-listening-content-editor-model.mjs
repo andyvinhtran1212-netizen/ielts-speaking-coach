@@ -163,4 +163,3 @@ export function normalizePendingListeningContentEdit(raw, account, contentId) {
 
 export const listeningContentEditorHref = (contentId) => `/admin/listening/content/${encodeURIComponent(contentId)}/edit`;
 export const listeningContentDetailHref = (contentId) => `/admin/listening/content/${encodeURIComponent(contentId)}`;
-export const listeningContentEditorRollbackHref = (contentId) => `/pages/admin/listening/content-meta.html?id=${encodeURIComponent(contentId)}`;

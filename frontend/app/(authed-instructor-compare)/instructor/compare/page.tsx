@@ -5,6 +5,7 @@ import { InstructorCompare } from './instructor-compare';
 
 export const metadata: Metadata = {
   title: 'So sánh và ghép phiên bản · Aver Learning',
+  robots: { index: false, follow: false },
 };
 
 export default function InstructorComparePage() {

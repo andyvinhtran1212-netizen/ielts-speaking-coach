@@ -1,6 +1,6 @@
 // Local rendered-browser contract, NOT staging E2E or Gate E evidence.
 // Real Next page, API helper, storage, modal and autosave. Supabase SDK/auth and
-// backend are fixtures; CDN libraries are inert (Markdown's safe fallback).
+// backend are fixtures; local vendor libraries are inert (Markdown's safe fallback).
 // No credentials, remote writes, live provider requests or production flags.
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
@@ -35,11 +35,11 @@ const sdk = `window.supabase={createClient:()=>({auth:{
   getSession:async()=>({data:{session:${JSON.stringify(session)}}}),
   onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})
 }})};`;
-const cdns = new Map([
-  ['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js', sdk],
-  ['https://unpkg.com/lucide@1.17.0', 'window.lucide={createIcons(){}};'],
-  ['https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js', '/* fixture: safe plaintext fallback */'],
-  ['https://cdn.jsdelivr.net/npm/dompurify@3.4.8/dist/purify.min.js', '/* fixture: safe plaintext fallback */'],
+const vendorFixtures = new Map([
+  [new URL('/vendor/supabase.js', base).href, sdk],
+  [new URL('/vendor/lucide.min.js', base).href, 'window.lucide={createIcons(){}};'],
+  [new URL('/vendor/marked.min.js', base).href, '/* fixture: safe plaintext fallback */'],
+  [new URL('/vendor/purify.min.js', base).href, '/* fixture: safe plaintext fallback */'],
 ]);
 
 async function launch() {
@@ -87,7 +87,7 @@ async function fixture(browser, options = {}) {
           || url.pathname === '/__nextjs_font/geist-latin.woff2'
           || url.pathname === '/favicon.ico')) return route.continue();
     }
-    if (cdns.has(url.href)) return route.fulfill({ contentType: 'application/javascript', body: cdns.get(url.href) });
+    if (vendorFixtures.has(url.href)) return route.fulfill({ contentType: 'application/javascript', body: vendorFixtures.get(url.href) });
     if (url.origin === 'https://fonts.googleapis.com') return route.fulfill({ contentType: 'text/css', body: '' });
     if (url.origin === API) {
       if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });

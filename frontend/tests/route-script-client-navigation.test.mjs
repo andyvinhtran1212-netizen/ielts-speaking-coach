@@ -17,7 +17,7 @@ const ROUTE_SCRIPTS = [
   [
     'app/(authed-speaking)/layout.tsx',
     [
-      'https://cdn.jsdelivr.net/npm/chart.js@4.5.1',
+      '/vendor/chart.umd.min.js',
       '/js/format.js',
       '/js/cue-card-detector.js',
       '/js/retention-warning.js',

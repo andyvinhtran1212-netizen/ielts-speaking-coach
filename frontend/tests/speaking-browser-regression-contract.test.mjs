@@ -17,6 +17,8 @@ test('Speaking browser regression uses a production build and bundled Chromium w
   assert.match(config, /command:\s*'npm run build && npm run start'/);
   assert.match(config, /use:\s*\{ browserName: 'chromium' \}/);
   assert.doesNotMatch(config, /channel:\s*'chrome'/);
+  assert.match(config, /AVER_ENVIRONMENT:\s*'test'/);
+  assert.match(config, /AVER_API_BASE:\s*'http:\/\/localhost:8000'/);
   assert.equal(pkg.scripts['test:e2e:speaking-regression'], 'playwright test -c playwright.speaking-regression.config.js');
 });
 
@@ -33,15 +35,12 @@ test('Speaking browser regression has a dedicated HTML report plus traces and sc
   assert.match(workflow, /if-no-files-found:\s*error/);
 });
 
-test('Speaking fixtures mock only pinned dependencies and use canonical attempt identity', () => {
-  assert.match(harness, /const SUPABASE_CDN = 'https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2\.107\.0\/dist\/umd\/supabase\.min\.js'/);
-  assert.match(harness, /const SUPABASE_LEGACY_CDN = 'https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2\.107\.0'/);
-  assert.match(harness, /const LUCIDE_CDN = 'https:\/\/unpkg\.com\/lucide@1\.17\.0'/);
-  assert.match(harness, /page\.route\(SUPABASE_CDN/);
-  assert.match(harness, /page\.route\(SUPABASE_LEGACY_CDN/);
-  assert.match(harness, /page\.route\(LUCIDE_CDN/);
-  assert.doesNotMatch(harness, /cdn\.jsdelivr\.net\/\*\*/);
-  assert.doesNotMatch(harness, /unpkg\.com\/\*\*/);
+test('Speaking fixtures mock only pinned same-origin runtimes and use canonical attempt identity', () => {
+  assert.match(harness, /const SUPABASE_RUNTIME = `\$\{ORIGIN\}\/vendor\/supabase\.js`/);
+  assert.match(harness, /const LUCIDE_RUNTIME = `\$\{ORIGIN\}\/vendor\/lucide\.min\.js`/);
+  assert.match(harness, /page\.route\(SUPABASE_RUNTIME/);
+  assert.match(harness, /page\.route\(LUCIDE_RUNTIME/);
+  assert.doesNotMatch(harness, /SUPABASE_LEGACY_CDN|cdn\.jsdelivr\.net|unpkg\.com/);
   assert.match(spec, /full_test_attempt_id/);
   assert.match(recoverySpec, /full_test_attempt_id/);
   assert.doesNotMatch(spec, /full_test_chain_id/);

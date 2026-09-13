@@ -333,6 +333,11 @@ body.ds-canvas::after {
   50%       { box-shadow: 0 0 0 16px rgba(239,68,68,0); }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .ds-fadein,
+  .ds-rec-ring { animation: none; }
+}
+
 /* ── Empty state ───────────────────────────────────────────────────────────── */
 .ds-empty {
   text-align: center;

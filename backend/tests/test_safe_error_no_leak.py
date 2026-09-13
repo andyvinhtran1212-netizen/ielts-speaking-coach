@@ -58,6 +58,31 @@ def test_safe_detail_passes_through_structured_5xx():
     assert safe_detail(500, d) is d   # already safe → untouched
 
 
+def test_error_context_uses_route_template_and_redacts_sensitive_query():
+    import main
+    request = Request({
+        "type": "http", "method": "GET", "path": "/api/reading/test/share/secret/boot",
+        "query_string": b"token=top-secret&view=compact", "headers": [],
+        "route": type("Route", (), {"path": "/api/reading/test/share/{share_token}/boot"})(),
+    })
+    path, query = main._safe_error_request_context(request)
+    assert path == "/api/reading/test/share/{share_token}/boot"
+    assert "secret" not in path
+    assert query == {"token": "[redacted]", "view": "compact"}
+
+
+def test_error_context_never_falls_back_to_a_concrete_unmatched_path():
+    import main
+    request = Request({
+        "type": "http", "method": "GET", "path": "/unmatched/bearer-secret",
+        "query_string": b"", "headers": [],
+    })
+    path, query = main._safe_error_request_context(request)
+    assert path == "<unmatched-route>"
+    assert "bearer-secret" not in path
+    assert query is None
+
+
 # ── the REAL central handler in main.py ──────────────────────────────────────
 
 def test_http_handler_sanitizes_5xx_leak():

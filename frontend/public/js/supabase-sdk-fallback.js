@@ -1,7 +1,7 @@
 /**
- * Recover the shared Next shells when their frozen primary Supabase CDN pin
- * fails.  The promise lets api.js queue initSupabase() without creating a
- * second GoTrue client; if Gate E has already fulfilled the primary script,
+ * Recover the shared Next shells when their pinned local Supabase bundle
+ * fails to load on the first request. The promise lets api.js queue
+ * initSupabase() without creating a second GoTrue client; if the primary script
  * this resolves immediately and performs no network request.
  */
 (function () {
@@ -20,7 +20,9 @@
 
   /** @type {any} */ (window).__AVER_SUPABASE_SDK_READY__ = new Promise(function (resolve, reject) {
     var script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.91.0/dist/umd/supabase.min.js';
+    // A distinct query makes the browser retry the same build-owned asset
+    // without reopening a third-party script origin in the CSP.
+    script.src = '/vendor/supabase.js?fallback=1';
     script.async = true;
     script.onload = function () {
       if (sdkReady()) resolve(true);

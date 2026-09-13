@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   buildListeningContentPatch, listeningContentDetailHref, listeningContentDraft,
-  listeningContentEditorHref, listeningContentEditorRollbackHref,
+  listeningContentEditorHref,
   listeningContentPatchMatches, normalizeListeningContentEditor,
   normalizePendingListeningContentEdit, parseListeningTopicTags,
   validateListeningContentDraft,
@@ -84,7 +84,6 @@ describe('Admin Listening content editor model', () => {
   test('owns stable native, detail and rollback links', () => {
     assert.equal(listeningContentEditorHref('a/b'), '/admin/listening/content/a%2Fb/edit');
     assert.equal(listeningContentDetailHref('a/b'), '/admin/listening/content/a%2Fb');
-    assert.equal(listeningContentEditorRollbackHref('a/b'), '/pages/admin/listening/content-meta.html?id=a%2Fb');
   });
 });
 

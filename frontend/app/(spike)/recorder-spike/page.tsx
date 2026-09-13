@@ -4,6 +4,7 @@
 // assert the cleanup contract (mic released, no zombie recorder) — the exact
 // React-lifecycle risk this spike measures.
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 
 import { SpikeHarness } from './spike-harness';
 
@@ -13,5 +14,6 @@ export const metadata: Metadata = {
 };
 
 export default function RecorderSpikePage() {
+  if (process.env.VERCEL_ENV === 'production' || process.env.VERCEL_GIT_COMMIT_REF === 'main') notFound();
   return <SpikeHarness />;
 }

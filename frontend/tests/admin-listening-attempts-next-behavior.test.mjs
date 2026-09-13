@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   formatListeningAttemptDuration, listeningAttemptsHref,
-  listeningAttemptsRollbackHref, normalizeListeningAttemptDetail,
+  normalizeListeningAttemptDetail,
   normalizeListeningAttemptFilters, normalizeListeningAttemptList,
 } from '../lib/admin-listening-attempts-model.mjs';
 
@@ -36,7 +36,6 @@ describe('Admin Listening attempts model', () => {
   test('normalizes URL filters and owns stable native/rollback hrefs', () => {
     assert.deepEqual(normalizeListeningAttemptFilters({ user: ' a@b.com ', type: 'evil', status: 'submitted', page: '2', attempt: 'a1' }), { user: 'a@b.com', test: '', type: 'all', status: 'submitted', page: 2, attempt: 'a1' });
     assert.equal(listeningAttemptsHref({ user: 'a@b.com', test: 'ILR 1', type: 'full', status: 'submitted', page: 2, attempt: 'a1' }), '/admin/listening/attempts?user=a%40b.com&test=ILR+1&type=full&status=submitted&page=2&attempt=a1');
-    assert.equal(listeningAttemptsRollbackHref({ user: 'a@b.com', attempt: 'a1' }), '/pages/admin/listening/attempts.html?user=a%40b.com');
   });
 
   test('preserves canonical total while counting malformed rows', () => {
@@ -111,7 +110,7 @@ describe('native route ownership and operational behavior', () => {
   test('native route is linked from sidebar and overview while rollback remains explicit', () => {
     assert.match(CHROME, /slug: 'attempts',\s+label: 'Lượt làm bài',\s+href: '\/admin\/listening\/attempts'/);
     assert.match(OVERVIEW, /"link":\s+"\/admin\/listening\/attempts"/);
-    assert.match(CLIENT, /listeningAttemptsRollbackHref/);
+    assert.doesNotMatch(CLIENT, /listeningAttemptsRollbackHref|HTML rollback/);
   });
 
   test('layout loads route-scoped stylesheet and UI has real labeled controls', () => {

@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 
 import { AdminAccessGate } from '@/components/admin-access-gate';
 import HydratedSignal from '@/components/hydrated-signal';
-import { watchdogScript } from '@/lib/watchdog-script';
 
 import { AdminListeningDrillImport } from './admin-listening-drill-import';
 
@@ -15,7 +14,6 @@ export const metadata: Metadata = {
 export default function AdminListeningDrillImportPage() {
   return <>
     <HydratedSignal />
-    <script dangerouslySetInnerHTML={{ __html: watchdogScript('/pages/admin/listening/import-drills.html') }} />
     <aver-admin-chrome active="listening" subsection="tests">
       <AdminAccessGate><AdminListeningDrillImport /></AdminAccessGate>
     </aver-admin-chrome>

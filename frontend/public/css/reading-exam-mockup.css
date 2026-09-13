@@ -456,6 +456,10 @@
   }
   .exam-split { grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; }
   .exam-passage { border-right: 0; border-bottom: 1px solid var(--exam-border-default); }
+  .exam-palette__grid { grid-auto-columns: 44px; gap: 6px; }
+  .exam-palette__q { width: 44px; height: 44px; }
+  .exam-palette__nav-btn,
+  .exam-palette .btn-submit-final { min-height: 44px; }
 }
 @media (min-width: 901px) { .exam-mobile-notice { display: none; } }
 

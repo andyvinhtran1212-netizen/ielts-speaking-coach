@@ -5,6 +5,7 @@ import { InstructorGrade } from './instructor-grade';
 
 export const metadata: Metadata = {
   title: 'Chấm bài Writing · Aver Learning',
+  robots: { index: false, follow: false },
 };
 
 export default function InstructorGradePage() {

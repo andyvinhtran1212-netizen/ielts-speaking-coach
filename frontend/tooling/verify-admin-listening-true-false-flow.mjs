@@ -79,7 +79,7 @@ await page.route('**/*', async (route) => {
 await page.goto(`${BASE}/admin/listening/tf?content_id=${contentId}`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Soạn nhận định T / F / NG theo bằng chứng' }).waitFor();
 check('route đọc exact content và đầy đủ T/F blocks', contentReads >= 1 && blockReads >= 1 && await page.locator('#altf-block option').count() === 3, `${contentReads} content GET · ${blockReads} block GET`);
-check('mặc định chọn order 1 và giữ rollback exact identity', await page.locator('#altf-block').inputValue() === 'exercise-1' && await page.getByRole('link', { name: /HTML rollback/ }).getAttribute('href') === `/pages/admin/listening/tf.html?content_id=${contentId}&exercise_id=exercise-1`);
+check('mặc định chọn order 1 và không còn HTML escape', await page.locator('#altf-block').inputValue() === 'exercise-1' && await page.getByRole('link', { name: /HTML rollback/ }).count() === 0);
 check('UI nêu đúng T/F/NG và điều kiện đạt 100%', await page.getByText(/Audio không đủ dữ kiện/).count() === 3 && await page.getByText(/đúng 100% nhận định/).count() === 1);
 
 const secondStatement = await page.locator('#altf-text-1').inputValue();

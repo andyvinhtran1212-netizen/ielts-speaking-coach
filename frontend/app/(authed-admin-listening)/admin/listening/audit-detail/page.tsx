@@ -5,7 +5,6 @@ import { redirect } from 'next/navigation';
 import { AdminAccessGate } from '@/components/admin-access-gate';
 import HydratedSignal from '@/components/hydrated-signal';
 import LegacyModule from '@/components/legacy-module';
-import { watchdogScript } from '@/lib/watchdog-script';
 
 import { AdminListeningAuditDetail } from './admin-listening-audit-detail';
 
@@ -26,7 +25,6 @@ async function AuditDetailRoute({ searchParams }: { searchParams: Promise<{ id?:
 export default function AdminListeningAuditDetailPage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
   return <>
     <HydratedSignal />
-    <script dangerouslySetInnerHTML={{ __html: watchdogScript('/pages/admin/listening/audit-detail.html') }} />
     <LegacyModule src="/js/components/audio-player.js" />
     <Suspense fallback={<main className="alqad-shell"><div className="alqad-state" role="status">Đang mở audit workspace…</div></main>}>
       <AuditDetailRoute searchParams={searchParams} />

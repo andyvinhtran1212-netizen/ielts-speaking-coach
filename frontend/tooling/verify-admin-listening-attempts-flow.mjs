@@ -54,7 +54,7 @@ check('hostile title được React escape', await page.locator('script').filter
 check('malformed row không làm mất canonical total', await page.getByText(/Đã loại 1 dòng/).count() === 1 && await page.getByText(/75 lượt/).count() >= 1);
 check('join failure hiện cảnh báo và không giả thành ô trống', await page.getByText('Lookup association thất bại', { exact: true }).count() === 1 && await page.getByText('⚠ Lookup failed', { exact: true }).count() >= 1);
 check('sidebar trỏ route native', await page.evaluate(() => [...(document.querySelector('aver-admin-chrome')?.shadowRoot?.querySelectorAll('a') || [])].find((link) => link.textContent?.includes('Lượt làm bài'))?.getAttribute('href') === '/admin/listening/attempts'));
-check('rollback giữ bộ lọc học viên được legacy hỗ trợ', await page.getByRole('link', { name: /Mở bản HTML rollback/ }).getAttribute('href') === '/pages/admin/listening/attempts.html?user=learner%40example.com');
+check('danh sách không còn escape sang HTML đã retire', await page.getByRole('link', { name: /HTML rollback/ }).count() === 0);
 check('mobile cards không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.ala-table thead')).display === 'none' && document.documentElement.scrollWidth <= innerWidth));
 
 await page.getByRole('button', { name: 'Xem từng câu' }).click();

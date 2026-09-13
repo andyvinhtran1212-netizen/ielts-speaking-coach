@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 
 _DEFAULT_MODEL = "gemini-2.5-flash"
+_SDK_TIMEOUT_SECONDS = 45.0
 
 # Andy 2026-05-22 — pinned right here so a future google-api-core
 # rename surfaces in the diff next to the classification.
@@ -122,7 +123,9 @@ class GeminiProvider(AbstractGradingProvider):
         )
 
         try:
-            response = await self._model.generate_content_async(prompt)
+            response = await self._model.generate_content_async(
+                prompt, request_options={"timeout": _SDK_TIMEOUT_SECONDS},
+            )
         except _NON_RETRYABLE_EXCEPTIONS as exc:
             raise NonRetryableError(
                 provider=self.provider_name,

@@ -577,7 +577,7 @@ describe('Sprint 7.11 — <aver-chrome> Web Component contract', () => {
     assert.match(component, /<span class="avatar" id="user-avatar">/);
     assert.match(component, /<span id="user-pill-name">/);
     assert.match(component, /class="user-menu-dropdown" role="menu" hidden/);
-    assert.match(component, /href="\/pages\/profile\.html"[^>]*role="menuitem">Hồ sơ/);
+    assert.match(component, /href="\/profile"[^>]*role="menuitem">Hồ sơ/);
     assert.match(component, /id="user-menu-logout"[^>]*role="menuitem">Đăng xuất/);
   });
 

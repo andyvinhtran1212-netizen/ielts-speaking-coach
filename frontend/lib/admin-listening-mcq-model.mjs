@@ -238,7 +238,3 @@ export function listeningMcqHref(contentId, exerciseId = null) {
   if (exerciseId) params.set('exercise_id', exerciseId);
   return `/admin/listening/mcq?${params.toString()}`;
 }
-
-export function listeningMcqRollbackHref(contentId) {
-  return `/pages/admin/listening/mcq.html?content_id=${encodeURIComponent(contentId)}`;
-}

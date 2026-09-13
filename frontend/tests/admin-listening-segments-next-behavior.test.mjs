@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   assignListeningAlignmentTimestamps, assignListeningProportionalTimestamps,
   buildListeningSegmentOperation, findListeningSegmentOperationMatch,
-  formatListeningSegmentTime, listeningSegmentsHref, listeningSegmentsRollbackHref,
+  formatListeningSegmentTime, listeningSegmentsHref,
   MAX_LISTENING_SEGMENTS, normalizeListeningDictationBlocks, normalizeListeningSegmentContent,
   normalizePendingListeningSegmentSave, parseListeningSegmentTime,
   splitListeningTranscript, validateListeningSegments,
@@ -143,7 +143,6 @@ describe('Admin Listening segments canonical model', () => {
     assert.deepEqual(normalizePendingListeningSegmentSave(pending, 'admin-1', 'content-1'), pending);
     assert.equal(normalizePendingListeningSegmentSave(pending, 'admin-2', 'content-1'), null);
     assert.equal(listeningSegmentsHref('a/b', 'x/y'), '/admin/listening/segments?content_id=a%2Fb&exercise_id=x%2Fy');
-    assert.equal(listeningSegmentsRollbackHref('a/b'), '/pages/admin/listening/segments.html?content_id=a%2Fb');
   });
 });
 describe('native segments route and persistence contract', () => {
@@ -154,8 +153,7 @@ describe('native segments route and persistence contract', () => {
     assert.match(PAGE, /if \(!contentId\) redirect\('\/admin\/listening'\)/);
     assert.match(PAGE, /<HydratedSignal \/>/);
     assert.match(PAGE, /<LegacyModule src="\/js\/components\/audio-player\.js" \/>/);
-    assert.match(PAGE, /watchdogScript\('\/pages\/admin\/listening\/segments\.html'\)/);
-    assert.match(PAGE, /watchdogScript intentionally appends the current search\/hash/);
+    assert.doesNotMatch(PAGE, /watchdogScript|segments\.html/);
     assert.doesNotMatch(PAGE, /<script type="module"/);
     assert.doesNotMatch(CHROME, /slug: 'segments'/);
     assert.match(LIST, /\/admin\/listening\/segments\?content_id=/);

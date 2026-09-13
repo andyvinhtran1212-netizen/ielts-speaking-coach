@@ -12,6 +12,33 @@ const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
   LEGACY_RETIREMENT_PATHS,
 );
 
+function localTestApiOrigin() {
+  if (process.env.AVER_ENVIRONMENT !== 'test' || !process.env.AVER_API_BASE) return '';
+  try {
+    const api = new URL(process.env.AVER_API_BASE);
+    if (api.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(api.hostname)) return '';
+    return ` ${api.origin}`;
+  } catch {
+    return '';
+  }
+}
+
+const LOCAL_TEST_API_ORIGIN = localTestApiOrigin();
+const CONTENT_SECURITY_POLICY = `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: wss:${LOCAL_TEST_API_ORIGIN}; form-action 'self'`;
+const SAME_ORIGIN_FRAME_POLICY = CONTENT_SECURITY_POLICY.replace(
+  "frame-ancestors 'none'",
+  "frame-ancestors 'self'",
+);
+const EMBEDDABLE_SAME_ORIGIN_ROUTES = [
+  '/core-player/launch',
+  '/listening/test/session',
+  '/reading/exam/session',
+  '/admin/mock-exams',
+  '/admin/mock-live',
+  '/admin/mock-reviews',
+  '/admin/writing/queue',
+] as const;
+
 const nextConfig: NextConfig = {
   // A stray lockfile in the developer HOME makes Next infer the wrong
   // workspace root (breaks the TypeScript step with "id must be a string").
@@ -99,23 +126,43 @@ const nextConfig: NextConfig = {
     //     and /favicon.svg — the only local asset locations.
     return [
       {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), geolocation=(), payment=(), usb=()' },
+          {
+            key: 'Content-Security-Policy',
+            value: CONTENT_SECURITY_POLICY,
+          },
+        ],
+      },
+      ...EMBEDDABLE_SAME_ORIGIN_ROUTES.map((source) => ({
+        source,
+        headers: [
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy', value: SAME_ORIGIN_FRAME_POLICY },
+        ],
+      })),
+      {
         source: '/js/:path*',
-        headers: [{ key: 'Cache-Control', value: 'public, max-age=300, must-revalidate' }],
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' }],
       },
       {
         // AUDIT F5 (2026-07-14): runtime-config.js is the release/environment
         // PROVENANCE MARKER — telemetry release tags, post-cutover and
         // rollback verification, and the nightly drift monitor all read it.
-        // Under the generic /js/* 300s rule a browser/CDN could serve a
-        // 5-minute-stale marker, silently mis-tagging telemetry and lying to
-        // rollback verification. It must always be revalidated. Placed AFTER
+        // Even under the generic /js/* revalidation rule, runtime-config must
+        // never be reused without validation because stale release tags would
+        // mis-label telemetry. It must always be no-store. Placed AFTER
         // /js/:path* — for the same header key, the LAST matching rule wins.
         source: '/js/runtime-config.js',
         headers: [{ key: 'Cache-Control', value: 'no-store, max-age=0' }],
       },
       {
         source: '/css/:path*',
-        headers: [{ key: 'Cache-Control', value: 'public, max-age=300, must-revalidate' }],
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' }],
       },
       {
         source: '/assets/:path*',

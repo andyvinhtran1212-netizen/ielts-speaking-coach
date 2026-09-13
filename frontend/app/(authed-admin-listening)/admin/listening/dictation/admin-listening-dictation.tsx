@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import {
-  dictationReportsHref, dictationReportsRollbackHref,
+  dictationReportsHref,
   formatDictationDuration, formatDictationReportDate,
   normalizeDictationAggregate, normalizeDictationReportDetail,
   normalizeDictationReportFilters, normalizeDictationReportList,
@@ -163,7 +163,6 @@ export function AdminListeningDictation() {
     </section>
 
     {filters.session && <ReportDetail state={detail} expectedKey={`${profile.id}:${filters.session}`} headingRef={detailHeading} onClose={closeDetail} />}
-    <a className="alc-rollback" href={dictationReportsRollbackHref(filters)}>Mở bản HTML rollback{filters.user ? ' · giữ bộ lọc học viên' : ''} ↗</a>
   </main>;
 }
 

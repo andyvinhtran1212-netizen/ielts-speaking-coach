@@ -65,6 +65,8 @@ GRADING_PROVIDER_ORDER: tuple[str, ...] = (
 RETRY_ATTEMPTS_PER_PROVIDER = 1
 INITIAL_BACKOFF_SECONDS = 1.0
 JITTER_RATIO = 0.25
+PROVIDER_ATTEMPT_TIMEOUT_SECONDS = 45.0
+TOTAL_GRADING_TIMEOUT_SECONDS = 120.0
 
 
 class GradingOrchestrator:
@@ -92,6 +94,8 @@ class GradingOrchestrator:
         session_id: str | None = None,
         order: Sequence[str] = DEFAULT_PROVIDER_ORDER,
         sleep: callable = asyncio.sleep,   # injectable for tests
+        attempt_timeout_seconds: float = PROVIDER_ATTEMPT_TIMEOUT_SECONDS,
+        total_timeout_seconds: float = TOTAL_GRADING_TIMEOUT_SECONDS,
     ) -> tuple[str, list[FallbackEvent]]:
         """Walk `order`; return ``(raw_text, events)`` on first success.
 
@@ -99,6 +103,7 @@ class GradingOrchestrator:
         list) if every provider in `order` exhausts its retries.
         """
         events: list[FallbackEvent] = []
+        deadline = time.monotonic() + total_timeout_seconds
 
         for provider_name in order:
             provider = self._providers.get(provider_name)
@@ -118,14 +123,51 @@ class GradingOrchestrator:
                 continue
 
             for attempt in range(RETRY_ATTEMPTS_PER_PROVIDER + 1):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    events.append(FallbackEvent(
+                        provider=provider_name,
+                        attempt=attempt,
+                        outcome="retryable_error",
+                        latency_ms=0,
+                        error_status="total_timeout",
+                        error_type="TimeoutError",
+                    ))
+                    raise AllProvidersFailedError(events=events)
                 start = time.monotonic()
                 try:
-                    raw = await provider.invoke(
-                        system_prompt,
-                        user_message,
-                        user_id=user_id,
-                        session_id=session_id,
+                    async with asyncio.timeout(min(attempt_timeout_seconds, remaining)):
+                        raw = await provider.invoke(
+                            system_prompt,
+                            user_message,
+                            user_id=user_id,
+                            session_id=session_id,
+                        )
+                except TimeoutError as exc:
+                    events.append(FallbackEvent(
+                        provider=provider_name,
+                        attempt=attempt,
+                        outcome="retryable_error",
+                        latency_ms=int((time.monotonic() - start) * 1000),
+                        error_status="timeout",
+                        error_type=type(exc).__name__,
+                    ))
+                    if attempt < RETRY_ATTEMPTS_PER_PROVIDER:
+                        backoff = INITIAL_BACKOFF_SECONDS * (2 ** attempt)
+                        jitter = backoff * JITTER_RATIO * (random.random() * 2 - 1)
+                        delay = min(max(0.0, backoff + jitter), max(0.0, deadline - time.monotonic()))
+                        logger.info(
+                            "[orchestrator] %s exceeded %.1fs — backoff %.2fs (attempt %d/%d)",
+                            provider_name, min(attempt_timeout_seconds, remaining), delay,
+                            attempt + 1, RETRY_ATTEMPTS_PER_PROVIDER,
+                        )
+                        await sleep(delay)
+                        continue
+                    logger.info(
+                        "[orchestrator] %s timeout budget exhausted — escalating",
+                        provider_name,
                     )
+                    break
                 except NonRetryableError as exc:
                     events.append(FallbackEvent(
                         provider=provider_name,
@@ -158,7 +200,7 @@ class GradingOrchestrator:
                             provider_name, exc.status, delay,
                             attempt + 1, RETRY_ATTEMPTS_PER_PROVIDER,
                         )
-                        await sleep(delay)
+                        await sleep(min(delay, max(0.0, deadline - time.monotonic())))
                         continue
                     logger.info(
                         "[orchestrator] %s Retryable budget exhausted — escalating",

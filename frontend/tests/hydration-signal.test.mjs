@@ -98,13 +98,10 @@ describe('trang Next nạp module legacy phải chờ React báo hydrate xong', 
       const tên = rel(f);
       if (!/<HydratedSignal\s*\/>/.test(s)) xấu.push(`${tên}: không render <HydratedSignal />`);
       // Hai khuôn: trang MOUNT nội tuyến tự đọc cờ; trang `<LegacyModule>` uỷ
-      // việc chờ cho component (useEffect) nên chỉ cần có component + watchdog.
+      // việc chờ cho component (useEffect).
       const uỷ = /<LegacyModule\s/.test(s);
       if (!uỷ && !/__averHydrated/.test(s)) xấu.push(`${tên}: không đọc cờ __averHydrated`);
       if (!uỷ && !/aver:hydrated/.test(s)) xấu.push(`${tên}: không nghe sự kiện aver:hydrated`);
-      // ĐƯỜNG LUI cũng là một phần hợp đồng: thiếu nó thì một lần chunk React
-      // hỏng là trang treo vĩnh viễn — bản vá đổi lỗi #418 lấy lỗi treo.
-      if (!/watchdogScript\(/.test(s)) xấu.push(`${tên}: thiếu watchdogScript()`);
     }
     assert.deepEqual(xấu.sort(), [],
       'module legacy chạy trước khi React hydrate ⇒ React vứt HTML máy chủ ⇒ trang trắng');

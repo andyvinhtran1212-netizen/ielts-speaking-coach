@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 # to the classification, not buried in adapter logic.
 _RETRYABLE_STATUS_CODES: frozenset[int] = frozenset({429, 500, 502, 503, 504, 529})
 _NON_RETRYABLE_STATUS_CODES: frozenset[int] = frozenset({400, 401, 403, 404, 422})
+_SDK_TIMEOUT_SECONDS = 45.0
 
 
 class ClaudeProvider(AbstractGradingProvider):
@@ -58,7 +59,11 @@ class ClaudeProvider(AbstractGradingProvider):
                 raise RuntimeError(
                     f"{self.provider_name}: ANTHROPIC_API_KEY chưa được cấu hình."
                 )
-            client = anthropic.AsyncAnthropic(api_key=api_key)
+            # The orchestrator owns retries/fallback; prevent hidden SDK retry
+            # time from outliving the per-provider budget.
+            client = anthropic.AsyncAnthropic(
+                api_key=api_key, timeout=_SDK_TIMEOUT_SECONDS, max_retries=0,
+            )
         self._client = client
         self._max_tokens = max_tokens
         self._temperature = temperature

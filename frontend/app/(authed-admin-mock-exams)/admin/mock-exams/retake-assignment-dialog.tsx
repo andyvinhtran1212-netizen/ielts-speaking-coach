@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { messageOf } from '@/components/admin-directory-ui';
+import { useDialogFocus } from '@/lib/use-dialog-focus';
 import {
   localDateTimeIn,
   localToIso,
@@ -48,9 +49,13 @@ export function RetakeAssignmentDialog({ exam, exams, cohorts, onClose, onChange
   const [warning, setWarning] = useState<string | null>(null);
   const assignmentRequestRef = useRef(0);
   const candidateRequestRef = useRef(0);
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
   const servable = useMemo(() => retakeServableSkills(exam), [exam]);
   const cohortNames = useMemo(() => new Map(cohorts.map((row) => [row.id, row.name || row.id])), [cohorts]);
   const sources = exams.filter((row) => row.id !== exam.id && row.status === 'published');
+
+  useDialogFocus({ open: true, busy, onClose, dialogRef, initialFocusRef: closeRef });
 
   const loadAssignments = async () => {
     const request = ++assignmentRequestRef.current;
@@ -172,8 +177,8 @@ export function RetakeAssignmentDialog({ exam, exams, cohorts, onClose, onChange
 
   return (
     <div className="mex-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
-      <section className="mex-dialog" role="dialog" aria-modal="true" aria-labelledby="mex-assign-title">
-        <div className="mex-dialog-head"><div><p className="mex-kicker">Retake assignment</p><h2 id="mex-assign-title">Gán test lại · {exam.code}</h2></div><button className="adm-btn-secondary" type="button" onClick={onClose} disabled={busy}>Đóng</button></div>
+      <section ref={dialogRef} className="mex-dialog" role="dialog" aria-modal="true" aria-labelledby="mex-assign-title" tabIndex={-1}>
+        <div className="mex-dialog-head"><div><p className="mex-kicker">Retake assignment</p><h2 id="mex-assign-title">Gán test lại · {exam.code}</h2></div><button ref={closeRef} className="adm-btn-secondary" type="button" onClick={onClose} disabled={busy}>Đóng</button></div>
         {error && <div className="mex-alert is-error" role="alert">{error}</div>}
         {warning && <div className="mex-alert is-warning" role="alert">{warning}</div>}
         <div className="mex-dialog-grid">

@@ -60,7 +60,7 @@ const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
 
 const SUPABASE_RUNTIME_SCRIPTS = [
   {
-    src: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js',
+    src: '/vendor/supabase.js',
     continueOnError: true,
   },
   { src: '/js/supabase-sdk-fallback.js' },
@@ -170,7 +170,7 @@ export function AuthedShell({
       {/* Next Script executes on hard load and App Router client navigation.
           Lucide is independent; auth/API globals below remain strictly
           ordered and fail closed before route-specific scripts are exposed. */}
-      <Script src="https://unpkg.com/lucide@1.17.0" strategy="afterInteractive" />
+      <Script src="/vendor/lucide.min.js" strategy="afterInteractive" />
       <SupabaseRuntimeBoundary
         scripts={SUPABASE_RUNTIME_SCRIPTS}
         supabaseUrl={SUPABASE_URL}

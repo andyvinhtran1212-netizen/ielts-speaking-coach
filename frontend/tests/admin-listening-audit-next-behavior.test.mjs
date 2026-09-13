@@ -8,7 +8,6 @@ import {
   classifyListeningAudit,
   filterListeningAuditRows,
   listeningAuditDetailHref,
-  listeningAuditDetailRollbackHref,
   listeningAuditHref,
   normalizeListeningAuditFilters,
   normalizeListeningAuditInventoryPage,
@@ -51,7 +50,6 @@ describe('audit model rejects incomplete truth', () => {
   it('normalizes shareable filters and encodes rollback identities', () => {
     assert.deepEqual(normalizeListeningAuditFilters({ search: ' CAM 20 ', type: 'drill', health: 'lookup', saved: 'fixed' }), { search: 'CAM 20', type: 'drill', health: 'lookup', saved: 'fixed' });
     assert.equal(listeningAuditHref({ search: 'A&B', health: 'error' }), '/admin/listening/audit?search=A%26B&health=error');
-    assert.equal(listeningAuditDetailRollbackHref('uuid/x'), '/pages/admin/listening/audit-detail.html?id=uuid%2Fx');
     assert.equal(listeningAuditDetailHref('uuid/x'), '/admin/listening/audit-detail?id=uuid%2Fx');
   });
 
@@ -109,10 +107,10 @@ describe('audit model rejects incomplete truth', () => {
 });
 
 describe('native audit dashboard contracts', () => {
-  it('owns the clean route with explicit HTML watchdog rollback', () => {
+  it('owns the clean route without an HTML rollback escape', () => {
     assert.match(page, /AdminListeningAudit/);
-    assert.match(page, /watchdogScript\('\/pages\/admin\/listening\/audit\.html'\)/);
-    assert.match(component, /href="\/pages\/admin\/listening\/audit\.html"/);
+    assert.doesNotMatch(page, /watchdogScript|audit\.html/);
+    assert.doesNotMatch(component, /\/pages\/admin\/listening\/audit\.html/);
     assert.match(component, /listeningAuditDetailHref/);
   });
 

@@ -9,7 +9,6 @@ import {
   findListeningMcqOperationMatch,
   listeningMcqDraft,
   listeningMcqHref,
-  listeningMcqRollbackHref,
   MAX_MCQ_OPTION_LENGTH,
   MAX_MCQ_QUESTIONS,
   MAX_MCQ_STEM_LENGTH,
@@ -151,7 +150,6 @@ describe('Admin Listening MCQ canonical model', () => {
     assert.deepEqual(normalizePendingListeningMcqSave(pending, 'admin-1', 'content-1'), pending);
     assert.equal(normalizePendingListeningMcqSave(pending, 'admin-2', 'content-1'), null);
     assert.equal(listeningMcqHref('a/b', 'x/y'), '/admin/listening/mcq?content_id=a%2Fb&exercise_id=x%2Fy');
-    assert.equal(listeningMcqRollbackHref('a/b'), '/pages/admin/listening/mcq.html?content_id=a%2Fb');
   });
 });
 
@@ -163,7 +161,7 @@ describe('native MCQ route and persistence contract', () => {
     assert.match(PAGE, /if \(!contentId\) redirect\('\/admin\/listening'\)/);
     assert.match(PAGE, /<HydratedSignal \/>/);
     assert.match(PAGE, /<LegacyModule src="\/js\/components\/audio-player\.js" \/>/);
-    assert.match(PAGE, /watchdogScript\('\/pages\/admin\/listening\/mcq\.html'\)/);
+    assert.doesNotMatch(PAGE, /watchdogScript|mcq\.html/);
     assert.doesNotMatch(CHROME, /slug: 'mcq'/);
     assert.match(LIST, /\/admin\/listening\/mcq\?content_id=/);
     assert.match(DETAIL, /`\/admin\/listening\/mcq\?content_id=/);
@@ -202,7 +200,7 @@ describe('native MCQ route and persistence contract', () => {
     assert.match(CLIENT, /MCQ block thuộc kho đề/);
     assert.match(CLIENT, /const importerOwned = Boolean\(collection\?\.importedCount\)/);
     assert.match(CLIENT, /Không thể tạo MCQ standalone/);
-    assert.match(CLIENT, /!collection\.importedCount && <a className="alc-rollback"/);
+    assert.doesNotMatch(CLIENT, /alc-rollback|\/pages\/admin\/listening\/mcq\.html/);
     assert.match(CLIENT, /answerIdx: null/);
     assert.match(CLIENT, /text: messageOf\(caught\)/);
     assert.doesNotMatch(CLIENT, /\b(?:window\.)?(?:alert|confirm)\s*\(/i);

@@ -77,6 +77,16 @@ const STYLE = /* css */ `
   --admin-header-h: 68px;
 }
 
+.skip-link {
+  position: fixed; top: var(--av-space-2); left: var(--av-space-2); z-index: var(--av-z-toast);
+  min-height: var(--av-control-min-height);
+  display: inline-flex; align-items: center;
+  padding: 0 var(--av-space-4); border-radius: var(--av-radius-md);
+  color: var(--av-text-on-primary); background: var(--av-primary); font-weight: var(--av-fw-bold);
+  transform: translateY(-160%); transition: transform var(--av-duration-fast) var(--av-easing-default);
+}
+.skip-link:focus { transform: translateY(0); }
+
 *, *::before, *::after { box-sizing: border-box; }
 
 *:focus-visible {
@@ -391,7 +401,7 @@ const STYLE = /* css */ `
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sidebar { transition: none; }
+  .sidebar, .skip-link { transition: none; }
 }
 `;
 
@@ -628,6 +638,7 @@ function renderSidebar(active, subsection) {
 
 function buildTemplate(active, subsection) {
   return /* html */ `
+<a class="skip-link" href="#admin-main-content">Bỏ qua điều hướng quản trị</a>
 <div class="admin-header">
   <button class="hamburger" id="hamburger" type="button" aria-label="Mở menu quản trị"
           aria-controls="sidebar" aria-expanded="false">
@@ -672,7 +683,7 @@ function buildTemplate(active, subsection) {
     </button>
     ${renderSidebar(active, subsection)}
   </aside>
-  <main class="content">
+  <main class="content" id="admin-main-content" tabindex="-1">
     <slot></slot>
   </main>
 </div>

@@ -12,3 +12,4 @@ next-env.d.ts
 # tsconfig has "incremental": true — tsc drops *.tsbuildinfo next to the
 # config; build artifact, never commit (audit F8).
 *.tsbuildinfo
+public/vendor/

@@ -64,6 +64,10 @@ let refreshRetryExpected = false;
 let refreshRetrySeen = false;
 let resolveRefresh401;
 const refresh401Started = new Promise((resolve) => { resolveRefresh401 = resolve; });
+let resolveRefreshTokenInstalled;
+const refreshTokenInstalled = new Promise((resolve) => { resolveRefreshTokenInstalled = resolve; });
+let resolveRefreshRetry;
+const refreshRetryObserved = new Promise((resolve) => { resolveRefreshRetry = resolve; });
 let generationRaceArmed = false;
 let generationOldAttemptSeen = false;
 let resolveGenerationOldAttempt;
@@ -110,7 +114,7 @@ window.supabase = { createClient: function () { return { auth: {
 await context.route('**/*', async (route) => {
   const request = route.request();
   const url = new URL(request.url());
-  if (url.hostname === 'cdn.jsdelivr.net' && url.pathname.includes('supabase')) {
+  if (url.origin === BASE && url.pathname === '/vendor/supabase.js') {
     return route.fulfill({ status: 200, contentType: 'application/javascript', body: supabaseStub });
   }
   if (/fonts\.(googleapis|gstatic)\.com/.test(url.hostname) || url.hostname === 'unpkg.com') return route.abort();
@@ -129,12 +133,13 @@ await context.route('**/*', async (route) => {
       refresh401Armed = false;
       refreshRetryExpected = true;
       resolveRefresh401();
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await refreshTokenInstalled;
       return json({ detail: 'Old token expired' }, 401);
     }
     if (refreshRetryExpected && request.headers().authorization === 'Bearer refreshed-token') {
       refreshRetryExpected = false;
       refreshRetrySeen = true;
+      resolveRefreshRetry();
     }
     if (bootstrap401Armed && request.headers().authorization === 'Bearer fixture-token') {
       bootstrap401Armed = false;
@@ -524,7 +529,9 @@ await page.evaluate(([userId]) => {
     user: { id: userId, email: 'd1@local' },
   });
 }, [USER]);
+resolveRefreshTokenInstalled();
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
+await Promise.race([refreshRetryObserved, page.waitForTimeout(2_000)]);
 check('401 token cũ retry một lần bằng token refresh cùng account',
   refreshRetrySeen && new URL(page.url()).pathname === '/d1-exercise');
 

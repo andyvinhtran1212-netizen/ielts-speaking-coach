@@ -50,11 +50,11 @@ export async function renderCharts(sessions: any[]) {
   // và chưa kịp gán `lastSessions`, nên KHÔNG đường nào cứu được: người dùng có
   // dữ liệu hợp lệ mà biểu đồ không bao giờ hiện, cho tới lần fetch sau hoặc
   // một cú lật theme. Đúng lớp lỗi mất-tính-năng-chập-chờn của pilot 2 — chỉ
-  // xảy ra khi CDN chậm hơn `/api/dashboard/init`, nên chạy thử thường không
+  // xảy ra khi runtime Chart.js chậm hơn `/api/dashboard/init`, nên chạy thử thường không
   // thấy. (Codex bắt ở PR #938.)
   lastSessions = sessions;
 
-  // Chart.js nạp `defer` từ CDN ⇒ CHỜ có hạn giờ thay vì kiểm một lần rồi bỏ.
+  // Chart.js nạp `defer` ⇒ CHỜ có hạn giờ thay vì kiểm một lần rồi bỏ.
   // Quá hạn thì `whenGlobalReady` tự báo lên telemetry và ta thoát IM LẶNG —
   // KHÔNG dựng khối rỗng, vì khối rỗng nói "bạn chưa có dữ liệu", một câu SAI
   // khi thật ra chỉ là thư viện chưa tới.

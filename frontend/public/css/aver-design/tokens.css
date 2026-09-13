@@ -130,6 +130,9 @@
   --av-radius-2xl:  24px;
   --av-radius-pill: 999px;
 
+  /* Minimum interactive target shared by buttons, links and icon controls. */
+  --av-control-min-height: 44px;
+
   /* Motion — three durations + one default easing */
   --av-duration-fast: 150ms;
   --av-duration-base: 250ms;
@@ -222,8 +225,9 @@
   /* Text — deep navy scale */
   --av-text-primary:    rgba(15, 23, 42, 0.92);
   --av-text-secondary:  rgba(15, 23, 42, 0.68);
-  --av-text-muted:      rgba(15, 23, 42, 0.50);
-  --av-text-faint:      rgba(15, 23, 42, 0.32);
+  /* Operational labels use these tokens at 12–14px; keep both AA-readable. */
+  --av-text-muted:      rgba(15, 23, 42, 0.64);
+  --av-text-faint:      rgba(15, 23, 42, 0.58);
   --av-text-on-primary: #FFFFFF;
   --av-text-inverse:    #FAFAF9;
 
@@ -312,8 +316,8 @@
   /* Text — warm white scale */
   --av-text-primary:    rgba(241, 245, 249, 0.95);
   --av-text-secondary:  rgba(241, 245, 249, 0.72);
-  --av-text-muted:      rgba(241, 245, 249, 0.55);
-  --av-text-faint:      rgba(241, 245, 249, 0.32);
+  --av-text-muted:      rgba(241, 245, 249, 0.68);
+  --av-text-faint:      rgba(241, 245, 249, 0.60);
   --av-text-on-primary: #0A1628;     /* dark text on bright teal button */
   --av-text-inverse:    #15273D;
 
@@ -377,8 +381,8 @@
 
     --av-text-primary:    rgba(241, 245, 249, 0.95);
     --av-text-secondary:  rgba(241, 245, 249, 0.72);
-    --av-text-muted:      rgba(241, 245, 249, 0.55);
-    --av-text-faint:      rgba(241, 245, 249, 0.32);
+    --av-text-muted:      rgba(241, 245, 249, 0.68);
+    --av-text-faint:      rgba(241, 245, 249, 0.60);
     --av-text-on-primary: #0A1628;
     --av-text-inverse:    #15273D;
 

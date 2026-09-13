@@ -15,16 +15,17 @@ const sharedBootSurfaces = [
 test('every shared Next shell loads recovery before api.js initialization', () => {
   for (const relative of sharedBootSurfaces) {
     const source = read(relative);
-    const primary = source.indexOf('@supabase/supabase-js@2.107.0');
+    const primary = source.indexOf('/vendor/supabase.js');
     const fallback = source.indexOf('/js/supabase-sdk-fallback.js');
     const api = source.indexOf('/js/api.js');
     assert.ok(primary >= 0 && primary < fallback && fallback < api, relative);
   }
 });
 
-test('fallback uses a published npm release and never creates a client itself', () => {
+test('fallback retries the build-owned bundle and never creates a client itself', () => {
   const source = read('public/js/supabase-sdk-fallback.js');
-  assert.match(source, /@supabase\/supabase-js@2\.91\.0\/dist\/umd\/supabase\.min\.js/);
+  assert.match(source, /\/vendor\/supabase\.js\?fallback=1/);
+  assert.doesNotMatch(source, /https?:\/\//);
   assert.match(source, /__AVER_SUPABASE_SDK_READY__/);
   assert.ok(!source.includes('createClient('), 'api.js must remain the sole client owner');
 });
