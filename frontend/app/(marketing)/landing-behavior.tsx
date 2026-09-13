@@ -125,7 +125,10 @@ export function LandingBehavior() {
     }
 
     if (window.__AVER_RUNTIME_CONFIG__) {
-      loadEnvironmentData();
+      // The committed/local runtime config is intentionally an object with a
+      // null apiBase. Fall back only for the explicitly known local/production
+      // hosts; fallbackApiBase keeps unknown preview hosts fail-closed.
+      loadEnvironmentData(true);
     } else {
       window.addEventListener('aver:runtime-config-ready', handleRuntimeConfigReady, { once: true });
       window.addEventListener(
