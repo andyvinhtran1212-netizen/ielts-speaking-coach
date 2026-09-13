@@ -64,6 +64,8 @@ let refreshRetryExpected = false;
 let refreshRetrySeen = false;
 let resolveRefresh401;
 const refresh401Started = new Promise((resolve) => { resolveRefresh401 = resolve; });
+let resolveRefreshRetry;
+const refreshRetryObserved = new Promise((resolve) => { resolveRefreshRetry = resolve; });
 let generationRaceArmed = false;
 let generationOldAttemptSeen = false;
 let resolveGenerationOldAttempt;
@@ -135,6 +137,7 @@ await context.route('**/*', async (route) => {
     if (refreshRetryExpected && request.headers().authorization === 'Bearer refreshed-token') {
       refreshRetryExpected = false;
       refreshRetrySeen = true;
+      resolveRefreshRetry();
     }
     if (bootstrap401Armed && request.headers().authorization === 'Bearer fixture-token') {
       bootstrap401Armed = false;
@@ -525,6 +528,7 @@ await page.evaluate(([userId]) => {
   });
 }, [USER]);
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
+await Promise.race([refreshRetryObserved, page.waitForTimeout(2_000)]);
 check('401 token cũ retry một lần bằng token refresh cùng account',
   refreshRetrySeen && new URL(page.url()).pathname === '/d1-exercise');
 
