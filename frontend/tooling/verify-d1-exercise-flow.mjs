@@ -524,11 +524,11 @@ await refresh401Started;
 await page.evaluate(([userId]) => {
   window.__d1CurrentUser = userId;
   window.__d1AccessToken = 'refreshed-token';
-  window.__d1AuthCallback?.('TOKEN_REFRESHED', {
-    access_token: 'refreshed-token',
-    user: { id: userId, email: 'd1@local' },
-  });
 }, [USER]);
+// Supabase has already committed the refreshed session by the time the
+// original request receives 401. Account-change callbacks are covered by the
+// adjacent generation tests; emitting one here would add an unrelated React
+// lifecycle race to the request retry contract.
 resolveRefreshTokenInstalled();
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
 await Promise.race([refreshRetryObserved, page.waitForTimeout(2_000)]);
