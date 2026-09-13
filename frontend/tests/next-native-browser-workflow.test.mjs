@@ -85,6 +85,7 @@ describe('permanent Next-native browser regression workflow', () => {
   test('keeps the D1 old-token retry independent from auth lifecycle races', () => {
     assert.match(D1_RUNNER, /const refreshTokenInstalled = new Promise/);
     assert.match(D1_RUNNER, /await refreshTokenInstalled;[\s\S]{0,100}Old token expired/);
+    assert.match(D1_RUNNER, /refresh401Armed[\s\S]{0,180}request\.headers\(\)\['x-request-id'\]/);
     const retryScenario = D1_RUNNER.slice(
       D1_RUNNER.lastIndexOf('refresh401Armed = true;'),
       D1_RUNNER.indexOf('generationRaceArmed = true;'),

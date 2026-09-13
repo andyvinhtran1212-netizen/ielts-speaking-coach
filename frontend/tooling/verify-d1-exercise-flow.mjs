@@ -129,7 +129,9 @@ await context.route('**/*', async (route) => {
   if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers, body: '' });
   const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', headers, body: JSON.stringify(body) });
   if (url.pathname === '/auth/me') {
-    if (refresh401Armed && request.headers().authorization === 'Bearer fixture-token') {
+    if (refresh401Armed
+      && request.headers().authorization === 'Bearer fixture-token'
+      && request.headers()['x-request-id']) {
       refresh401Armed = false;
       refreshRetryExpected = true;
       resolveRefresh401();
