@@ -170,8 +170,8 @@ test('hard delete uses typed confirmation and exact cascade ACK', () => {
   assert.match(CLIENT, /Xóa test, sections, exercises, attempts/);
 });
 
-test('UI retains rollback identity and responsive/accessibility boundaries', () => {
-  assert.match(CLIENT, /\/pages\/admin\/listening\/tests-detail\.html\?id=\$\{encodeURIComponent\(current\.id\)\}/);
+test('UI has no rollback escape and retains responsive/accessibility boundaries', () => {
+  assert.doesNotMatch(CLIENT, /\/pages\/admin\/listening\/tests-detail\.html/);
   assert.match(CLIENT, /role="region" aria-label="Cue points" tabIndex=\{0\}/);
   assert.match(CLIENT, /role=\{banner\.kind === 'error' \? 'alert' : 'status'\}/);
   assert.match(CSS, /@media\(max-width:760px\)/);

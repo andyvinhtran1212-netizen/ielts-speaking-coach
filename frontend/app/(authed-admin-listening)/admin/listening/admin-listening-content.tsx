@@ -122,7 +122,6 @@ export function AdminListeningContent() {
       })}</tbody></table></div>}
       {current && current.total > PAGE_SIZE && <nav className="alc-pagination" aria-label="Phân trang nội dung"><button type="button" disabled={loading || filters.page === 1} onClick={() => router.push(listeningContentListHref(filters.status, filters.page - 1))}>← Trước</button><span>Trang {filters.page}/{maxPage} · {current.total} nội dung</span><button type="button" disabled={loading || offset + PAGE_SIZE >= current.total} onClick={() => router.push(listeningContentListHref(filters.status, filters.page + 1))}>Sau →</button></nav>}
     </section>
-    <a className="alc-rollback" href="/pages/admin/listening/index.html">Mở bản HTML rollback ↗</a>
   </main>;
 }
 

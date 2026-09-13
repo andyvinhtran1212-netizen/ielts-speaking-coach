@@ -8,7 +8,7 @@ import { useAdminProfile } from '@/components/admin-access-gate';
 import {
   LISTENING_ATTEMPT_STATUS_LABEL, LISTENING_ATTEMPT_TYPE_LABEL,
   formatListeningAttemptDate, formatListeningAttemptDuration,
-  listeningAttemptsHref, listeningAttemptsRollbackHref,
+  listeningAttemptsHref,
   normalizeListeningAttemptDetail, normalizeListeningAttemptFilters,
   normalizeListeningAttemptList,
 } from '@/lib/admin-listening-attempts-model.mjs';
@@ -142,7 +142,6 @@ export function AdminListeningAttempts() {
     </section>
 
     {filters.attempt && <AttemptDetail state={detail} expectedKey={`${profile.id}:${filters.attempt}`} headingRef={detailHeading} onClose={closeDetail} />}
-    <a className="alc-rollback" href={listeningAttemptsRollbackHref(filters)}>Mở bản HTML rollback{filters.user ? ' · giữ bộ lọc học viên' : ''} ↗</a>
   </main>;
 }
 

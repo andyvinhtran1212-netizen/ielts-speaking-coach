@@ -50,7 +50,7 @@ test('native inventory is admin-gated and links to the native detail owner', () 
   assert.doesNotMatch(CLIENT, /tests-detail\.html\?id=/);
   assert.match(CLIENT, /\/admin\/listening\/tests\/\$\{encodeURIComponent\(row\.id\)\}#sections/);
   assert.doesNotMatch(CLIENT, /listening\/index\.html\?test_id=/);
-  assert.match(CLIENT, /tests\.html">Mở bản HTML rollback/);
+  assert.doesNotMatch(CLIENT, /tests\.html|HTML rollback/);
 });
 
 test('writes require dialog and exact GET readback without optimistic row mutation', () => {

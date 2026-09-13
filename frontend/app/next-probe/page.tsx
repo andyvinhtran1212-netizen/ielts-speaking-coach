@@ -1,7 +1,14 @@
-// Dark-launch probe (plan Phase 1 Gate B: "một dark-launch Next route có thể
-// deploy mà không ảnh hưởng legacy root"). Namespaced route — no canonical
-// URL is owned by Next yet. Server Component, static, zero data access.
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+
+export const metadata: Metadata = {
+  title: 'Next runtime probe',
+  robots: { index: false, follow: false },
+};
+
+// Kept for staging device/E2E diagnostics, never exposed by a production build.
 export default function NextProbePage() {
+  if (process.env.VERCEL_ENV === 'production' || process.env.VERCEL_GIT_COMMIT_REF === 'main') notFound();
   return (
     <main style={{ fontFamily: 'monospace', padding: '2rem' }}>
       <h1>next-probe</h1>

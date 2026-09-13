@@ -5,7 +5,6 @@ import { Suspense } from 'react';
 import { AdminAccessGate } from '@/components/admin-access-gate';
 import HydratedSignal from '@/components/hydrated-signal';
 import LegacyModule from '@/components/legacy-module';
-import { watchdogScript } from '@/lib/watchdog-script';
 
 import { AdminListeningSegments } from './admin-listening-segments';
 
@@ -21,8 +20,6 @@ async function SegmentsRoute({ searchParams }: { searchParams: Promise<{ content
   return <>
     <HydratedSignal />
     <LegacyModule src="/js/components/audio-player.js" />
-    {/* watchdogScript intentionally appends the current search/hash, preserving content_id. */}
-    <script dangerouslySetInnerHTML={{ __html: watchdogScript('/pages/admin/listening/segments.html') }} />
     <aver-admin-chrome active="listening" subsection="segments"><AdminAccessGate><AdminListeningSegments contentId={contentId} requestedExerciseId={String(query.exercise_id || '').trim() || null} /></AdminAccessGate></aver-admin-chrome>
   </>;
 }

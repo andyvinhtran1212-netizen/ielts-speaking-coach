@@ -62,8 +62,8 @@ test('render polling is bounded and cleaned up', () => {
   assert.match(CLIENT, /window\.clearTimeout\(pollTimer\.current\)/);
 });
 
-test('detail UI keeps rollback/editors and responsive accessible dialog', () => {
-  assert.match(CLIENT, /content-detail\.html\?id=/);
+test('detail UI keeps native editors and responsive accessible dialog', () => {
+  assert.doesNotMatch(CLIENT, /content-detail\.html\?id=/);
   assert.match(CLIENT, /\/admin\/listening\/content\/\$\{encodeURIComponent\(current\.id\)\}\/edit/);
   assert.match(CLIENT, /item\.type === 'dictation' \? `\/admin\/listening\/segments\?content_id=/);
   assert.match(CLIENT, /item\.type === 'true_false' \? `\/admin\/listening\/tf\?content_id=/);

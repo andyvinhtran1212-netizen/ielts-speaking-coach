@@ -11,7 +11,7 @@
 // lucide@1.17.0 TỰ thay mọi `[data-lucide]` bằng `<svg>` ngay khi script nạp xong
 // — KHÔNG qua `window.lucide.createIcons()`. Nên bỏ lời gọi trong layout là vô ích;
 // chừng nào còn `data-lucide` trong cây React thì còn đua với hydrate React: nếu
-// lucide (defer, CDN) thắng, React quay lại thấy `<svg>` ở chỗ nó vừa dựng `<i>`
+// lucide (defer) thắng, React quay lại thấy `<svg>` ở chỗ nó vừa dựng `<i>`
 // → Minified React error #418, cả cây bị dựng lại phía client. `suppressHydrationWarning`
 // KHÔNG cứu được: nó chỉ che khác biệt thuộc-tính/text, không che việc con bị đổi
 // hẳn loại thẻ. SVG dưới đây chép NGUYÊN VĂN cái lucide@1.17.0 sinh ra, chỉ BỎ

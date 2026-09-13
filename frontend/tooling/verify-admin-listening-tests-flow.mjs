@@ -53,7 +53,7 @@ await page.getByText('ILR-LIS-001', { exact: true }).waitFor();
 check('admin gate và query canonical chạy', listReads === 1 && listQueries[0].includes('status=all') && listQueries[0].includes('test_type=all'));
 check('hostile title được React escape', await page.locator('script').filter({ hasText: 'Test' }).count() === 0 && await page.getByText('Test <script>', { exact: true }).count() === 1);
 check('malformed row bị báo, total backend được giữ', await page.getByText(/Đã loại 1 dòng/).count() === 1 && await page.getByText(/24 test/).count() >= 1);
-check('scope công khai và rollback hiển thị rõ', await page.getByText('Công khai trên web', { exact: true }).count() >= 1 && await page.getByRole('link', { name: 'Mở bản HTML rollback ↗' }).getAttribute('href') === '/pages/admin/listening/tests.html');
+check('scope công khai hiển thị rõ và không còn HTML escape', await page.getByText('Công khai trên web', { exact: true }).count() >= 1 && await page.getByRole('link', { name: /HTML rollback/ }).count() === 0);
 check('Sections đi tới native detail anchor', await page.getByRole('link', { name: 'Sections', exact: true }).getAttribute('href') === '/admin/listening/tests/t1#sections');
 check('sidebar giữ route native', await page.evaluate(() => [...(document.querySelector('aver-admin-chrome')?.shadowRoot?.querySelectorAll('a') || [])].find((link) => link.textContent?.includes('Cambridge tests'))?.getAttribute('href') === '/admin/listening/tests'));
 check('mobile cards không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.alt-table thead')).display === 'none' && document.documentElement.scrollWidth <= innerWidth));

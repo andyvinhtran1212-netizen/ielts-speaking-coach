@@ -188,7 +188,7 @@ describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
       ['api', '/js/api.js'],
       ['getSupabase', '/js/api.js'],
       ['RetentionWarning', '/js/retention-warning.js'],
-      ['Chart', 'chart.js@4.5.1'],
+      ['Chart', '/vendor/chart.umd.min.js'],
     ]);
     const used = new Set([...BEHAVIOR.matchAll(/\(window as any\)\.(\w+)/g)].map((m) => m[1]));
     assert.ok(used.size >= 2, `phải thấy vài global, chỉ thấy ${used.size} — regex hỏng?`);
@@ -197,8 +197,9 @@ describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
       assert.ok(src, `global «${g}» chưa khai nguồn — thêm vào PROVIDERS kèm tệp cung cấp`);
       assert.ok(loaded.includes(src),
         `hành vi dùng window.${g} nhưng layout/khung không nạp ${src}`);
+      const legacyProvider = g === 'Chart' ? 'chart.js@4.5.1' : src.replace('/js/', 'js/');
       assert.ok(readFileSync(path.join(FRONTEND, 'public/pages/speaking.html'), 'utf8')
-        .includes(src.replace('/js/', 'js/')),
+        .includes(legacyProvider),
         `trang legacy không nạp ${src} — kiểm lại giả định`);
     }
   });
@@ -208,7 +209,7 @@ describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
       readFileSync(path.join(FRONTEND, 'app/(authed-speaking)/layout.tsx'), 'utf8'));
     assert.match(layout, /import Script from ['"]next\/script['"]/);
     for (const src of [
-      'https://cdn.jsdelivr.net/npm/chart.js@4.5.1',
+      '/vendor/chart.umd.min.js',
       '/js/format.js',
       '/js/cue-card-detector.js',
       '/js/retention-warning.js',

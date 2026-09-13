@@ -8,7 +8,12 @@
 //      production-origin requests across the whole journey.
 // @ts-check
 const { test, expect } = require('@playwright/test');
-const { primeBypassCookie, BYPASS_HEADERS, PRODUCTION_ORIGINS } = require('./helpers');
+const {
+  primeBypassCookie,
+  BYPASS_HEADERS,
+  PRODUCTION_ORIGINS,
+  isVercelToolbarCspNoise,
+} = require('./helpers');
 
 test.beforeEach(async ({ context, baseURL }) => {
   await primeBypassCookie(context, baseURL);
@@ -89,7 +94,8 @@ test('navigation seam: Next → redirected legacy alias → Next keeps query/has
   // 4) Journey-wide invariants.
   expect(prodRequests, `production egress during seam: ${prodRequests.join(', ')}`).toEqual([]);
   const realErrors = consoleErrors.filter(
-    (e) => !/favicon|fonts\.gstatic|net::ERR_FAILED/i.test(e), // known cross-origin font noise under bypass-cookie priming
+    (e) => !/favicon|fonts\.gstatic|net::ERR_FAILED/i.test(e)
+      && !isVercelToolbarCspNoise(e), // Vercel staging injects this before request interception; strict CSP must keep blocking it
   );
   expect(realErrors, `console errors during seam: ${realErrors.join(' | ')}`).toEqual([]);
 });

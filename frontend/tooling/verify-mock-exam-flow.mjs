@@ -275,7 +275,15 @@ await signedOut.close();
 
 const waiting = await fixturePage(browser, mockState(), { createLostAck: true });
 await waiting.page.goto(`${BASE}/mock-exam?code=${CODE}`, { waitUntil: 'domcontentloaded' });
-await waiting.page.getByRole('heading', { name: /Thi thử: Mock <script>alert\(1\)<\/script>/ }).waitFor();
+try {
+  await waiting.page.getByRole('heading', { name: /Thi thử: Mock <script>alert\(1\)<\/script>/ }).waitFor();
+} catch (error) {
+  const state = await waiting.page.evaluate(() => ({
+    url: location.href,
+    body: document.body.innerText.slice(0, 500),
+  }));
+  throw new Error(`Mock waiting room did not open: ${JSON.stringify(state)}; js=${waiting.errors.join('|')}; egress=${waiting.egress.join('|')}`, { cause: error });
+}
 check('lost create ACK retries the idempotent open-sitting endpoint', waiting.state.creates === 2 && waiting.state.stateGets >= 1);
 check('sequential sitting stays in the invigilator-controlled waiting room',
   await waiting.page.getByText(/Đang chờ giám thị bắt đầu/).isVisible()

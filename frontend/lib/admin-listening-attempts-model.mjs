@@ -52,13 +52,6 @@ export function listeningAttemptsHref(input = {}) {
   return `/admin/listening/attempts${query.size ? `?${query}` : ''}`;
 }
 
-export function listeningAttemptsRollbackHref(input = {}) {
-  const filters = normalizeListeningAttemptFilters(input);
-  const query = new URLSearchParams();
-  if (filters.user) query.set('user', filters.user);
-  return `/pages/admin/listening/attempts.html${query.size ? `?${query}` : ''}`;
-}
-
 function normalizeLookupState(value) {
   const raw = Array.isArray(value?.association_lookup_failures)
     ? value.association_lookup_failures.map(textOf).filter(Boolean)

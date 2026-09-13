@@ -83,6 +83,16 @@ const STYLE = /* css */ `
   font-family: var(--av-font-sans);
 }
 
+.skip-link {
+  position: fixed; top: var(--av-space-2); left: var(--av-space-2); z-index: var(--av-z-toast);
+  min-height: var(--av-control-min-height);
+  display: inline-flex; align-items: center;
+  padding: 0 var(--av-space-4); border-radius: var(--av-radius-md);
+  color: var(--av-text-on-primary); background: var(--av-primary); font-weight: var(--av-fw-bold);
+  transform: translateY(-160%); transition: transform var(--av-duration-fast) var(--av-easing-default);
+}
+.skip-link:focus { transform: translateY(0); }
+
 /* ── Theme toggle ─────────────────────────────────────────────── */
 
 .av-theme-toggle .icon-sun  { display: none; }
@@ -317,9 +327,14 @@ const STYLE = /* css */ `
   .nav-links span { flex: 0 0 auto; }
   .topnav-right { margin-left: auto; }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .skip-link { transition: none; }
+}
 `;
 
 const TEMPLATE = /* html */ `
+<a class="skip-link" href="#aver-main-content">Bỏ qua điều hướng</a>
 <div class="topnav-wrap">
   <nav class="topnav" aria-label="Primary">
     <a href="/home" class="brand">Aver<span class="dot">.</span>Learning</a>
@@ -353,11 +368,11 @@ const TEMPLATE = /* html */ `
           <span id="user-pill-name">…</span>
         </button>
         <div class="user-menu-dropdown" role="menu" hidden>
-          <a href="/pages/profile.html" class="user-menu-item" role="menuitem">Hồ sơ</a>
+          <a href="/profile" class="user-menu-item" role="menuitem">Hồ sơ</a>
           <!-- W-6b: role-gated (instructor/admin) link to the instructor area.
                setRole() un-hides it ONLY for instructor/admin (default-hidden =
                mirrors the backend require_instructor guard). -->
-          <a href="/pages/instructor/index.html" class="user-menu-item"
+          <a href="/instructor" class="user-menu-item"
              id="instructor-link" role="menuitem" hidden>Trang giảng viên</a>
           <button type="button" class="user-menu-item user-menu-item--danger"
                   id="user-menu-logout" role="menuitem">Đăng xuất</button>
@@ -418,10 +433,25 @@ export class AverChrome extends HTMLElement {
     }
     this._applyRole();   // re-apply any role set before the element upgraded
     this._bindToggle();
+    this._bindSkipLink();
     this._bindDropdown();
     this._bindLogout();
     this._schedulePopulate();
     this._injectSpeculationRules();
+  }
+
+  _bindSkipLink() {
+    const link = this.shadowRoot && this.shadowRoot.querySelector('.skip-link');
+    if (!link) return;
+    link.addEventListener('click', (event) => {
+      const main = document.querySelector('main');
+      if (!main) return;
+      event.preventDefault();
+      if (!main.id) main.id = 'aver-main-content';
+      if (!main.hasAttribute('tabindex')) main.setAttribute('tabindex', '-1');
+      main.focus({ preventScroll: true });
+      main.scrollIntoView({ block: 'start' });
+    });
   }
 
   /**
@@ -751,7 +781,7 @@ export class AverChrome extends HTMLElement {
         bubbles: true,
         composed: true,
       }));
-      window.location.href = '/index.html';
+      window.location.href = '/';
     }, signal ? { signal } : undefined);
   }
 

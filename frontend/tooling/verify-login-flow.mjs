@@ -65,7 +65,7 @@ window.supabase = {
   await context.route('**/*', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
-    if (url.hostname === 'cdn.jsdelivr.net' && url.pathname.includes('supabase-js')) {
+    if (url.origin === BASE && url.pathname === '/vendor/supabase.js') {
       return route.fulfill({ status: 200, contentType: 'application/javascript', body: supabaseStub });
     }
     if (/fonts\.(googleapis|gstatic)\.com/.test(url.hostname)) return route.abort();
@@ -170,7 +170,16 @@ const inactive = await fixture({
   activationDelayMs: 150,
 });
 await inactive.page.goto(`${BASE}/login#access_token=fixture`, { waitUntil: 'domcontentloaded' });
-await inactive.page.getByRole('dialog', { name: 'Kích hoạt tài khoản' }).waitFor();
+try {
+  await inactive.page.getByRole('dialog', { name: 'Kích hoạt tài khoản' }).waitFor();
+} catch (error) {
+  const state = await inactive.page.evaluate(() => ({
+    url: location.href,
+    busy: document.querySelector('.lx-loading')?.textContent?.trim() || '',
+    error: document.querySelector('.lx-error')?.textContent?.trim() || '',
+  }));
+  throw new Error(`Activation dialog did not open: ${JSON.stringify(state)}; js=${inactive.errors.join('|')}`, { cause: error });
+}
 const codeInput = inactive.page.getByLabel('Access Code');
 await codeInput.focus();
 await inactive.page.keyboard.press('Shift+Tab');

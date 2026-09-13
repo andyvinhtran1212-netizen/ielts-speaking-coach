@@ -109,7 +109,7 @@ remediation pass landed before this section was finalised.
     tests/test_vocab_guards.py tests/test_grammar_smoke.py \
     tests/test_rls_vocab_integration.py -q
   ```
-- [ ] Page parity: `bash backend/scripts/verify_page_parity.sh`.
+- [ ] Next/fixture contracts: `cd frontend && node tooling/run-contract-tests.mjs`.
 - [ ] PR approved.
 
 ### B.2 Database (production Supabase)
@@ -208,9 +208,9 @@ data is the user's own vocab — losing it is bad form).
   ```bash
   cd backend && ../backend/venv/bin/python -m pytest tests/test_d1_e2e.py tests/test_rate_limit.py tests/test_admin_exercise_review.py tests/test_vocab_guards.py tests/test_grammar_smoke.py -q
   ```
-- [ ] Page parity green:
+- [ ] Next/fixture contracts green:
   ```bash
-  bash backend/scripts/verify_page_parity.sh
+  cd frontend && node tooling/run-contract-tests.mjs
   ```
 - [ ] Code review approved on PR (no merge to main without it)
 
@@ -339,9 +339,9 @@ step gates real exposure.
   set -a; source backend/.env.staging.test
   python3 -m pytest backend/tests/test_stack_rls.py -v
   ```
-- [ ] Page parity green:
+- [ ] Next/fixture contracts green:
   ```bash
-  bash backend/scripts/verify_page_parity.sh
+  cd frontend && node tooling/run-contract-tests.mjs
   ```
 - [ ] PR approved (no merge to main without it)
 
@@ -455,7 +455,7 @@ gate — this rolls out alongside the existing FLASHCARD_ENABLED flag.
   set -a; source backend/.env.staging.test
   pytest backend/tests/test_stack_rls.py -v
   ```
-- [ ] Page parity green
+- [ ] Next/fixture contracts green: `cd frontend && node tooling/run-contract-tests.mjs`
 
 ## RC.2 Database (production Supabase)
 

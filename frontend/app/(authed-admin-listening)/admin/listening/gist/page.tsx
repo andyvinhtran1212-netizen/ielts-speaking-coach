@@ -5,7 +5,6 @@ import { Suspense } from 'react';
 import { AdminAccessGate } from '@/components/admin-access-gate';
 import HydratedSignal from '@/components/hydrated-signal';
 import LegacyModule from '@/components/legacy-module';
-import { watchdogScript } from '@/lib/watchdog-script';
 
 import { AdminListeningGist } from './admin-listening-gist';
 
@@ -21,8 +20,6 @@ async function GistRoute({ searchParams }: { searchParams: Promise<{ content_id?
   return <>
     <HydratedSignal />
     <LegacyModule src="/js/components/audio-player.js" />
-    {/* watchdogScript appends the current search/hash, preserving exact content identity. */}
-    <script dangerouslySetInnerHTML={{ __html: watchdogScript('/pages/admin/listening/gist.html') }} />
     <aver-admin-chrome active="listening" subsection="gist"><AdminAccessGate><AdminListeningGist contentId={contentId} requestedExerciseId={String(query.exercise_id || '').trim() || null} /></AdminAccessGate></aver-admin-chrome>
   </>;
 }

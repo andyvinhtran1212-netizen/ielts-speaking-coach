@@ -8,12 +8,14 @@ Endpoints
 POST /api/analytics/events   → record a named event with optional payload
 """
 
+import json
 import logging
+import math
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Header
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
@@ -24,9 +26,55 @@ router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
 
 class AnalyticsEventPayload(BaseModel):
-    event_name: str
-    event_data: dict = {}
-    session_id: str | None = None
+    """Small, non-sensitive telemetry envelope.
+
+    This endpoint is intentionally anonymous, so validation is the primary
+    protection before the service-role insert.  Keep the envelope bounded and
+    reject unknown top-level fields instead of accepting arbitrary JSON.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    event_name: str = Field(min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9_.:-]+$")
+    event_data: dict = Field(default_factory=dict)
+    session_id: str | None = Field(default=None, max_length=128)
+
+    @field_validator("event_data")
+    @classmethod
+    def bounded_event_data(cls, value: dict) -> dict:
+        nodes = 0
+
+        def visit(item, depth=0):
+            nonlocal nodes
+            nodes += 1
+            if depth > 5 or nodes > 128:
+                raise ValueError("event_data exceeds structural limits")
+            if isinstance(item, dict):
+                clean = {}
+                for key, child in item.items():
+                    key = str(key)
+                    if len(key) > 64:
+                        raise ValueError("event_data key is too long")
+                    clean[key] = visit(child, depth + 1)
+                return clean
+            if isinstance(item, list):
+                return [visit(child, depth + 1) for child in item]
+            if isinstance(item, str) and len(item) > 1024:
+                raise ValueError("event_data string is too long")
+            if isinstance(item, float) and not math.isfinite(item):
+                raise ValueError("event_data number must be finite")
+            if not isinstance(item, (str, int, float, bool, type(None))):
+                raise ValueError("event_data contains an unsupported value")
+            return item
+
+        clean = visit(value)
+        try:
+            encoded_size = len(json.dumps(clean, ensure_ascii=False).encode("utf-8"))
+        except (TypeError, UnicodeError) as exc:
+            raise ValueError("event_data must be valid JSON") from exc
+        if encoded_size > 8192:
+            raise ValueError("event_data exceeds 8 KB")
+        return clean
 
 
 async def _attribute_user(authorization: str | None) -> str | None:

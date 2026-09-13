@@ -4,6 +4,24 @@ The frontend migration is complete under the owner-approved Gate F exception
 recorded below. Historical evidence remains preserved with its original status;
 the exception closes the remaining hold without relabeling waived soak as PASS.
 
+## Post-migration product audit — 2026-09-13
+
+The repository remains fully Next-owned: 137 App Router build routes compile,
+`frontend/public/` contains no HTML renderer, and the permanent staging smoke,
+exact-SHA promotion, production release-drift, Next-native browser tests and
+legacy-freeze controls remain active.
+
+The audit removed dead Admin Listening rollback/watchdog exits, added branded
+404/error boundaries, moved browser runtime dependencies to pinned build-owned
+assets, tightened response security/cache headers, added missing noindex and
+production diagnostic-route guards, and closed keyboard/touch/reduced-motion
+gaps on core exam flows. Backend hardening bounded public analytics ingestion,
+redacted sensitive error context and added provider/total grading deadlines.
+
+Database ledger drift found in later, default-off feature migrations is tracked
+separately in `backend/migrations/README.md`; it is not a reopened Next.js gate
+and must not be hidden with a baseline operation.
+
 ## Current checkpoint — 2026-09-11
 
 - **Gate F: CLOSED by owner exception.** All 129 deployable HTML renderers were

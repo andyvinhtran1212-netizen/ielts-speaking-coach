@@ -24,7 +24,9 @@ from services.grading_orchestrator import (        # noqa: E402
     GradingOrchestrator,
     INITIAL_BACKOFF_SECONDS,
     JITTER_RATIO,
+    PROVIDER_ATTEMPT_TIMEOUT_SECONDS,
     RETRY_ATTEMPTS_PER_PROVIDER,
+    TOTAL_GRADING_TIMEOUT_SECONDS,
 )
 from services.grading_providers.base import AbstractGradingProvider  # noqa: E402
 from services.grading_providers.errors import (    # noqa: E402
@@ -91,6 +93,11 @@ def test_backoff_constants_match_lock_l4():
     """L4 — 1 s initial backoff, ±25 % jitter."""
     assert INITIAL_BACKOFF_SECONDS == 1.0
     assert JITTER_RATIO == 0.25
+
+
+def test_provider_and_total_deadlines_are_explicit():
+    assert PROVIDER_ATTEMPT_TIMEOUT_SECONDS == 45.0
+    assert TOTAL_GRADING_TIMEOUT_SECONDS == 120.0
 
 
 # ── Happy paths ──────────────────────────────────────────────────────────────
@@ -222,6 +229,23 @@ async def test_all_providers_fail_raises_with_full_event_log():
         "claude_haiku", "gemini", "claude_sonnet",
     }
     assert all(e.outcome == "retryable_error" for e in events)
+
+
+@pytest.mark.asyncio
+async def test_hung_provider_is_cancelled_and_recorded_as_retryable_timeout():
+    class HungProvider(AbstractGradingProvider):
+        provider_name = "claude_haiku"
+
+        async def invoke(self, *_args, **_kwargs):
+            await __import__("asyncio").Event().wait()
+
+    orch = GradingOrchestrator({"claude_haiku": HungProvider()})
+    with pytest.raises(AllProvidersFailedError) as excinfo:
+        await orch.invoke(
+            "sys", "user", order=("claude_haiku",), sleep=_noop_sleep,
+            attempt_timeout_seconds=0.01, total_timeout_seconds=0.1,
+        )
+    assert [event.error_status for event in excinfo.value.events] == ["timeout", "timeout"]
 
 
 # ── L9: missing provider degrades cleanly ────────────────────────────────────

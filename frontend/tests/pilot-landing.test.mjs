@@ -33,7 +33,7 @@ test('layout giữ legacy chrome: OAuth recovery + anti-flash + 4 stylesheet + r
     assert.ok(layout.includes(css), `missing legacy stylesheet ${css}`);
   }
   assert.match(layout, /runtime-config\.js/);
-  assert.match(layout, /lucide@1\.17\.0/, 'CDN pin must match legacy');
+  assert.match(layout, /\/vendor\/lucide\.min\.js/, 'build-owned icon bundle must be loaded');
 });
 
 test('parity: các marker nội dung chính của index.html có mặt trong page.tsx', () => {

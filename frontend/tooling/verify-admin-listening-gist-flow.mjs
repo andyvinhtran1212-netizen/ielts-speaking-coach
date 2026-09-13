@@ -70,7 +70,7 @@ await page.route('**/*', async (route) => {
 await page.goto(`${BASE}/admin/listening/gist?content_id=${contentId}`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Soạn rubric Gist có thể kiểm chứng' }).waitFor();
 check('route đọc exact content và đầy đủ Gist blocks', contentReads >= 1 && blockReads >= 1 && await page.locator('#alge-block option').count() === 3, `${contentReads} content GET · ${blockReads} block GET`);
-check('mặc định chọn order 1 và giữ rollback exact identity', await page.locator('#alge-block').inputValue() === 'exercise-1' && await page.getByRole('link', { name: /HTML rollback/ }).getAttribute('href') === `/pages/admin/listening/gist.html?content_id=${contentId}`);
+check('mặc định chọn order 1 và không còn HTML escape', await page.locator('#alge-block').inputValue() === 'exercise-1' && await page.getByRole('link', { name: /HTML rollback/ }).count() === 0);
 check('UI nêu đúng semantic, fallback và ngưỡng đạt', await page.getByText(/giới hạn tối đa 60 điểm/).count() === 1 && await page.getByText(/đạt khi điểm cuối cùng từ 80 trở lên/).count() === 1);
 
 await page.locator('#alge-block').selectOption('exercise-3');

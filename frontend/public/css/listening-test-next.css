@@ -134,6 +134,10 @@
   .listening-next-palette { position: static; }
   .listening-next-shell .ft-audio-error { align-items: stretch; flex-direction: column; }
   .listening-next-submit-row .btn-submit-final { width: 100%; }
+  .listening-next-palette .progress-square { width: 44px; min-height: 44px; font-size: 12px; }
+  .listening-next-palette-label,
+  .listening-next-nav-btn,
+  .listening-next-palette .btn-submit-final { min-height: 44px; }
 }
 @media (max-width: 480px) {
   .listening-next-shell { width: min(100% - 20px, 1040px); padding-top: 16px; }

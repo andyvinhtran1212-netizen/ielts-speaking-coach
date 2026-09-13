@@ -105,14 +105,14 @@ test('requires mutation ACK identity and exact upload path', () => {
   assert.equal(normalizeReadingImageDeleteAck({ question_id: 'q2', deleted: 'yes' }, 'q2'), null);
 });
 
-test('native route owns QA while retaining explicit rollback and student-like preview', () => {
+test('native route owns QA without a retired HTML rollback and retains student-like preview', () => {
   assert.equal(readingPreviewHref('T 1'), '/admin/reading/preview?test_id=T%201');
   assert.equal(readingPreviewHref('T 1', 21), '/admin/reading/preview?test_id=T%201#q21');
   assert.match(PAGE, /<AdminAccessGate>/);
   assert.match(PAGE, /active="reading" subsection="content"/);
   assert.match(LAYOUT, /admin-reading-preview-next\.css/);
   assert.match(LAYOUT, /markdown\.js/);
-  assert.match(CLIENT, /\/pages\/admin\/reading\/preview\.html\?test_id=/);
+  assert.doesNotMatch(CLIENT, /\/pages\/admin\/reading\/preview\.html/);
   assert.match(CLIENT, /\/reading\/review\?admin_test_id=/);
   assert.match(CONTENT, /readingPreviewHref\(row\.slug\)/);
   assert.match(FEEDBACK_MODEL, /return readingPreviewHref\(item\.testId, item\.questionNumber\)/);

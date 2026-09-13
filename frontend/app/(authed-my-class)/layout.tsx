@@ -10,8 +10,8 @@ export default function MyClassLayout({ children }: { children: ReactNode }) {
       utilityLayer={false}
       extraScripts={<RouteScriptChain scripts={[
         { src: '/js/toast.js' },
-        { src: 'https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js' },
-        { src: 'https://cdn.jsdelivr.net/npm/dompurify@3.4.8/dist/purify.min.js' },
+        { src: '/vendor/marked.min.js' },
+        { src: '/vendor/purify.min.js' },
         { src: '/js/markdown.js' },
       ]} />}
     >

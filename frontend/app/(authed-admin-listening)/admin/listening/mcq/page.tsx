@@ -5,7 +5,6 @@ import { Suspense } from 'react';
 import { AdminAccessGate } from '@/components/admin-access-gate';
 import HydratedSignal from '@/components/hydrated-signal';
 import LegacyModule from '@/components/legacy-module';
-import { watchdogScript } from '@/lib/watchdog-script';
 
 import { AdminListeningMcq } from './admin-listening-mcq';
 
@@ -21,7 +20,6 @@ async function McqRoute({ searchParams }: { searchParams: Promise<{ content_id?:
   return <>
     <HydratedSignal />
     <LegacyModule src="/js/components/audio-player.js" />
-    <script dangerouslySetInnerHTML={{ __html: watchdogScript('/pages/admin/listening/mcq.html') }} />
     <aver-admin-chrome active="listening" subsection="mcq">
       <AdminAccessGate>
         <AdminListeningMcq contentId={contentId} requestedExerciseId={String(query.exercise_id || '').trim() || null} />

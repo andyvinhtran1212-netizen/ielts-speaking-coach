@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNod
 import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { useDialogFocus } from '@/lib/use-dialog-focus';
 import {
   WRITING_TASK_LABELS,
   classifyWritingResult,
@@ -171,9 +172,16 @@ function WritingResultReady({ view, essayId }: { view: Extract<ResultView, { kin
   const [downloading, setDownloading] = useState(false);
   const essayRef = useRef<HTMLPreElement>(null);
   const regradeSendingRef = useRef(false);
+  const regradeDialogRef = useRef<HTMLDivElement>(null);
+  const regradeReasonRef = useRef<HTMLTextAreaElement>(null);
+  const tipDialogRef = useRef<HTMLDivElement>(null);
+  const tipCloseRef = useRef<HTMLButtonElement>(null);
   const hasInstructorNote = Boolean(instructorNote?.trim());
   const hideScores = Boolean(essay.hide_subbands);
   const tier = String(essay.grading_tier || 'standard').toLowerCase();
+
+  useDialogFocus({ open: regradeModal, busy: regradeSending, onClose: () => setRegradeModal(false), dialogRef: regradeDialogRef, initialFocusRef: regradeReasonRef });
+  useDialogFocus({ open: Boolean(selectedTip), onClose: () => setSelectedTip(null), dialogRef: tipDialogRef, initialFocusRef: tipCloseRef });
 
   const sectionValue = (sectionKey: string) => {
     const dataKey = (window as any).WritingRenderers?.SECTION_KEYS?.[sectionKey];
@@ -306,16 +314,6 @@ function WritingResultReady({ view, essayId }: { view: Extract<ResultView, { kin
     return <Section sectionKey={key} title={title} value={value} hidden={shouldHide(key, value)} />;
   };
 
-  useEffect(() => {
-    const closeModals = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      setRegradeModal(false);
-      setSelectedTip(null);
-    };
-    document.addEventListener('keydown', closeModals);
-    return () => document.removeEventListener('keydown', closeModals);
-  }, []);
-
   return (
     <>
       <div id="state-ready">
@@ -397,8 +395,8 @@ function WritingResultReady({ view, essayId }: { view: Extract<ResultView, { kin
         {tips.length ? <section id="tips-reco" className="tips-reco"><header className="section-header"><h2>💡 Mẹo viết liên quan</h2></header><div id="tips-reco-list" className="tips-reco__list">{tips.map((tip) => <button type="button" className="tips-reco__card" data-tip-id={tip.id} key={tip.id} onClick={() => setSelectedTip(tip)}><span className="tips-reco__card-title">{tip.title || '(Mẹo viết)'}</span><span className="tips-reco__card-preview">{writingTipPreview(tip.body_markdown)}</span></button>)}</div></section> : null}
       </div>
 
-      {regradeModal ? <div id="regrade-modal" className="wr-modal" role="dialog" aria-modal="true" aria-labelledby="regrade-modal-title"><div id="regrade-modal-backdrop" className="wr-modal__backdrop" onClick={() => setRegradeModal(false)} /><div className="wr-modal__panel"><h2 id="regrade-modal-title" className="wr-modal__title">Yêu cầu chấm lại</h2><p className="wr-modal__hint">Có gì chưa hài lòng với bài chấm? Em nêu rõ lý do để giảng viên xem lại (50–500 ký tự).</p><p className="wr-modal__hint">Giảng viên sẽ xem lại yêu cầu — có thể chấm lại bằng AI hoặc chấm tay, thường trong vài ngày. Sau khi chấm lại, band có thể <strong>tăng, giữ nguyên, hoặc giảm</strong>.</p><textarea id="regrade-reason" autoFocus className="wr-modal__textarea" rows={5} maxLength={500} placeholder="VD: Em nghĩ phần Task Response chưa được đánh giá đúng vì…" value={reason} onChange={(event) => setReason(event.target.value)} /><div className="wr-modal__meta"><span id="regrade-count">{reason.length}</span> / 500 · tối thiểu 50</div>{regradeError ? <div id="regrade-error" className="wr-modal__error">{regradeError}</div> : null}<div className="wr-modal__actions"><button id="regrade-cancel" type="button" className="btn-icon" onClick={() => setRegradeModal(false)}>Hủy</button><button id="regrade-submit" type="button" className="btn-icon btn-icon--primary" disabled={reason.trim().length < 50 || regradeSending} onClick={submitRegrade}>Gửi yêu cầu</button></div></div></div> : null}
-      {selectedTip ? <div id="tip-reco-modal" className="wr-modal" role="dialog" aria-modal="true" aria-labelledby="tip-reco-title"><div id="tip-reco-backdrop" className="wr-modal__backdrop" onClick={() => setSelectedTip(null)} /><div className="wr-modal__panel wr-modal__panel--wide"><button id="tip-reco-close" type="button" className="wr-modal__close" aria-label="Đóng" onClick={() => setSelectedTip(null)}>✕</button><h2 id="tip-reco-title" className="wr-modal__title">{selectedTip.title || ''}</h2><div id="tip-reco-body" className="md-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedTip.body_markdown || '') }} /></div></div> : null}
+      {regradeModal ? <div id="regrade-modal" className="wr-modal" role="dialog" aria-modal="true" aria-labelledby="regrade-modal-title"><div id="regrade-modal-backdrop" className="wr-modal__backdrop" onClick={() => { if (!regradeSending) setRegradeModal(false); }} /><div ref={regradeDialogRef} className="wr-modal__panel" tabIndex={-1}><h2 id="regrade-modal-title" className="wr-modal__title">Yêu cầu chấm lại</h2><p className="wr-modal__hint">Có gì chưa hài lòng với bài chấm? Em nêu rõ lý do để giảng viên xem lại (50–500 ký tự).</p><p className="wr-modal__hint">Giảng viên sẽ xem lại yêu cầu — có thể chấm lại bằng AI hoặc chấm tay, thường trong vài ngày. Sau khi chấm lại, band có thể <strong>tăng, giữ nguyên, hoặc giảm</strong>.</p><textarea ref={regradeReasonRef} id="regrade-reason" className="wr-modal__textarea" rows={5} maxLength={500} placeholder="VD: Em nghĩ phần Task Response chưa được đánh giá đúng vì…" value={reason} onChange={(event) => setReason(event.target.value)} /><div className="wr-modal__meta"><span id="regrade-count">{reason.length}</span> / 500 · tối thiểu 50</div>{regradeError ? <div id="regrade-error" className="wr-modal__error">{regradeError}</div> : null}<div className="wr-modal__actions"><button id="regrade-cancel" type="button" className="btn-icon" disabled={regradeSending} onClick={() => setRegradeModal(false)}>Hủy</button><button id="regrade-submit" type="button" className="btn-icon btn-icon--primary" disabled={reason.trim().length < 50 || regradeSending} onClick={submitRegrade}>Gửi yêu cầu</button></div></div></div> : null}
+      {selectedTip ? <div id="tip-reco-modal" className="wr-modal" role="dialog" aria-modal="true" aria-labelledby="tip-reco-title"><div id="tip-reco-backdrop" className="wr-modal__backdrop" onClick={() => setSelectedTip(null)} /><div ref={tipDialogRef} className="wr-modal__panel wr-modal__panel--wide" tabIndex={-1}><button ref={tipCloseRef} id="tip-reco-close" type="button" className="wr-modal__close" aria-label="Đóng" onClick={() => setSelectedTip(null)}>✕</button><h2 id="tip-reco-title" className="wr-modal__title">{selectedTip.title || ''}</h2><div id="tip-reco-body" className="md-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedTip.body_markdown || '') }} /></div></div> : null}
     </>
   );
 }

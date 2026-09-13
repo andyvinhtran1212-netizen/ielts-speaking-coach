@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { useDialogFocus } from '@/lib/use-dialog-focus';
 import { coreOperationRequest } from '@/lib/core-operation-intent.mjs';
 import {
   createListeningSaveCoordinator,
@@ -385,6 +386,13 @@ export function ListeningTestSession() {
   const collectionFrozenRef = useRef(false);
   const bootKeyRef = useRef<string | null>(null);
   const autoEnteredMockRef = useRef(false);
+  const audioDialogRef = useRef<HTMLElement>(null);
+  const audioPlayRef = useRef<HTMLButtonElement>(null);
+  const submitDialogRef = useRef<HTMLElement>(null);
+  const submitCancelRef = useRef<HTMLButtonElement>(null);
+
+  useDialogFocus({ open: audioPromptOpen, busy: true, onClose: () => {}, dialogRef: audioDialogRef, initialFocusRef: audioPlayRef });
+  useDialogFocus({ open: submitOpen, busy: phase === 'submitting', onClose: () => setSubmitOpen(false), dialogRef: submitDialogRef, initialFocusRef: submitCancelRef });
 
   useEffect(() => { answersRef.current = answers; }, [answers]);
   useEffect(() => {
@@ -850,7 +858,7 @@ export function ListeningTestSession() {
       </> : null}
       {phase === 'sealed' ? <section className="ft-prestart"><p>Đã thu bài Listening. Đang chờ kỳ thi chuyển bước tiếp theo…</p></section> : null}
     </main>
-    {audioPromptOpen ? <div className="listening-next-modal listening-next-audio-prompt" role="dialog" aria-modal="true" aria-labelledby="listening-audio-title"><div className="listening-next-modal-backdrop" /><section className="listening-next-modal-panel"><div className="listening-next-audio-icon" aria-hidden="true">◉</div><h2 id="listening-audio-title">Check your headphones</h2><p>When you press Play, the recording starts immediately. You cannot pause, rewind or play it again.</p><button className="ft-control-btn" type="button" autoFocus onClick={() => void startAudio()}>▶ Play</button></section></div> : null}
-    {submitOpen && !params?.adminPreview ? <div className="listening-next-modal" role="dialog" aria-modal="true" aria-labelledby="listening-submit-title"><button className="listening-next-modal-backdrop" aria-label="Đóng" type="button" onClick={() => setSubmitOpen(false)} /><section className="listening-next-modal-panel"><h2 id="listening-submit-title">Nộp bài?</h2><p>{answers.size < total ? `Bạn còn ${total - answers.size}/${total} câu chưa trả lời.` : `Bạn đã trả lời tất cả ${total} câu.`}</p><div className="listening-next-actions"><button className="ft-control-btn ghost" type="button" onClick={() => setSubmitOpen(false)}>Quay lại làm tiếp</button><button className="ft-control-btn" type="button" onClick={() => void submit()}>Nộp bài</button></div></section></div> : null}
+    {audioPromptOpen ? <div className="listening-next-modal listening-next-audio-prompt" role="dialog" aria-modal="true" aria-labelledby="listening-audio-title"><div className="listening-next-modal-backdrop" /><section ref={audioDialogRef} className="listening-next-modal-panel" tabIndex={-1}><div className="listening-next-audio-icon" aria-hidden="true">◉</div><h2 id="listening-audio-title">Check your headphones</h2><p>When you press Play, the recording starts immediately. You cannot pause, rewind or play it again.</p><button ref={audioPlayRef} className="ft-control-btn" type="button" onClick={() => void startAudio()}>▶ Play</button></section></div> : null}
+    {submitOpen && !params?.adminPreview ? <div className="listening-next-modal" role="dialog" aria-modal="true" aria-labelledby="listening-submit-title"><button className="listening-next-modal-backdrop" aria-label="Đóng" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(false)} /><section ref={submitDialogRef} className="listening-next-modal-panel" tabIndex={-1}><h2 id="listening-submit-title">Nộp bài?</h2><p>{answers.size < total ? `Bạn còn ${total - answers.size}/${total} câu chưa trả lời.` : `Bạn đã trả lời tất cả ${total} câu.`}</p><div className="listening-next-actions"><button ref={submitCancelRef} className="ft-control-btn ghost" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(false)}>Quay lại làm tiếp</button><button className="ft-control-btn" type="button" disabled={phase === 'submitting'} onClick={() => void submit()}>Nộp bài</button></div></section></div> : null}
   </>;
 }

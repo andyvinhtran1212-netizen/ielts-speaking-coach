@@ -84,7 +84,7 @@ test('derives audio truth and formats durations without inventing zero', () => {
   assert.equal(formatListeningDuration(61.2), '1:01');
 });
 
-test('owns /admin/listening with backend role guard and explicit rollback', () => {
+test('owns /admin/listening with backend role guard and no rollback escape', () => {
   assert.match(PAGE, /<AdminAccessGate>/);
   assert.match(PAGE, /active="listening" subsection="content"/);
   assert.match(LAYOUT, /chrome="admin"/);
@@ -92,7 +92,7 @@ test('owns /admin/listening with backend role guard and explicit rollback', () =
   assert.match(CLIENT, /\/admin\/listening\/content\?\$\{query\}/);
   assert.match(CLIENT, /\/admin\/listening\/exercises\?content_id=/);
   assert.match(CLIENT, /\/admin\/listening\/tests\/\$\{encodeURIComponent\(testId\)\}/);
-  assert.match(CLIENT, /\/pages\/admin\/listening\/index\.html/);
+  assert.doesNotMatch(CLIENT, /\/pages\/admin\/listening\/index\.html/);
   assert.doesNotMatch(CLIENT, /window\.api\.(post|patch|delete|upload)/);
   assert.match(CHROME, /section: 'listening', label: 'Listening', href: '\/admin\/listening'/);
   assert.match(OVERVIEW, /listening: '\/admin\/listening'/);

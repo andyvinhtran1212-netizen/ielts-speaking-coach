@@ -64,7 +64,7 @@ check('malformed row/trend bị báo nhưng total backend được giữ', await
 check('lookup failure hiện rõ, không giả thành association rỗng', await page.getByText('Lookup học viên thất bại', { exact: true }).count() === 1 && await page.getByText('⚠ Lookup failed', { exact: true }).count() === 1);
 check('accuracy có chữ đi kèm, không chỉ dựa vào màu', await page.getByText('Cao', { exact: true }).count() >= 1 && await page.getByText('Đang cải thiện', { exact: true }).count() >= 1);
 check('sidebar trỏ route native', await page.evaluate(() => [...(document.querySelector('aver-admin-chrome')?.shadowRoot?.querySelectorAll('a') || [])].find((link) => link.textContent?.includes('Báo cáo chép chính tả'))?.getAttribute('href') === '/admin/listening/dictation'));
-check('rollback giữ filter học viên legacy hỗ trợ', await page.getByRole('link', { name: /Mở bản HTML rollback/ }).getAttribute('href') === '/pages/admin/listening/dictation-reports.html?user=learner%40example.com');
+check('báo cáo không còn escape sang HTML đã retire', await page.getByRole('link', { name: /HTML rollback/ }).count() === 0);
 check('mobile list không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.aldict-table thead')).display === 'none' && document.documentElement.scrollWidth <= innerWidth));
 
 await page.getByRole('button', { name: 'Xem từng câu' }).click();

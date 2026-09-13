@@ -31,13 +31,6 @@ export function dictationReportsHref(input = {}) {
   return `/admin/listening/dictation${query.size ? `?${query}` : ''}`;
 }
 
-export function dictationReportsRollbackHref(input = {}) {
-  const filters = normalizeDictationReportFilters(input);
-  const query = new URLSearchParams();
-  if (filters.user) query.set('user', filters.user);
-  return `/pages/admin/listening/dictation-reports.html${query.size ? `?${query}` : ''}`;
-}
-
 function normalizeLookupState(value) {
   const raw = Array.isArray(value?.association_lookup_failures)
     ? value.association_lookup_failures.map(textOf).filter(Boolean)

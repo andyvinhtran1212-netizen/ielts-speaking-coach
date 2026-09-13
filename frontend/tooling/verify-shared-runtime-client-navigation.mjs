@@ -73,10 +73,10 @@ page.on('pageerror', (error) => pageErrors.push(String(error)));
 await context.route('**/*', async (route) => {
   const request = route.request();
   const url = new URL(request.url());
-  if (url.origin === BASE) return route.continue();
-  if (url.hostname === 'cdn.jsdelivr.net' && url.pathname.includes('supabase-js')) {
+  if (url.origin === BASE && url.pathname === '/vendor/supabase.js') {
     return route.fulfill({ status: 200, contentType: 'application/javascript', body: supabaseStub });
   }
+  if (url.origin === BASE) return route.continue();
   if (/fonts\.(googleapis|gstatic)\.com/.test(url.hostname) || url.hostname === 'unpkg.com') {
     return route.abort();
   }

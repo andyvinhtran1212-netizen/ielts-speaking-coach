@@ -520,6 +520,16 @@
 .fade-up-4 { animation-delay: 0.28s; }
 .fade-up-5 { animation-delay: 0.36s; }
 
+@media (prefers-reduced-motion: reduce) {
+  .spinner,
+  .fade-up,
+  .fade-up-1,
+  .fade-up-2,
+  .fade-up-3,
+  .fade-up-4,
+  .fade-up-5 { animation: none; }
+}
+
 .ftr-toast {
   position: fixed;
   right: var(--av-space-4);

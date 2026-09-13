@@ -81,7 +81,7 @@ describe('vocab card — flag / report control', () => {
   });
 
   test('public layout loads Supabase/api before the client reports and browser proves one write', () => {
-    assert.match(LAYOUT, /@supabase\/supabase-js@/);
+    assert.match(LAYOUT, /\/vendor\/supabase\.js/);
     assert.match(LAYOUT, /<SupabaseRuntimeBoundary/);
     assert.match(RUNTIME_BOUNDARY, /init\(supabaseUrl, supabaseAnonKey\)/);
     assert.ok(LAYOUT.indexOf('/js/supabase-sdk-fallback.js') < LAYOUT.indexOf('/js/api.js'));

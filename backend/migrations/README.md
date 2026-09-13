@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-08-25 the highest is `231`, so the next new
-migration is `232`.
+sequence is dense. As of 2026-09-13 the highest is `261`, so the next new
+migration is `262`.
 
 ## Conventions
 
@@ -29,6 +29,22 @@ migration is `232`.
   and a no-op dedup step before adding a UNIQUE index (see
   `077_responses_unique_session_question.sql`, `124_questions_unique_session_part_order.sql`).
 - Functions pin `SET search_path = public, pg_temp` (hardening — see 108/113).
+
+## Hosted ledger status (audited 2026-09-13)
+
+The Next.js renderer migration is complete, but that does **not** make later
+feature migrations interchangeable with renderer migration evidence. A
+read-only audit found these repository files absent from the hosted ledgers:
+
+- staging: `240–257`, `259–260`;
+- production: `233–244`, `247–256`.
+
+Some later ledger rows and schema objects already exist, so neither `--baseline`
+nor an unreviewed replay is safe. Keep rollout flags such as
+`CORE_ATTEMPT_EVIDENCE_ENABLED` and `CORE_ADMISSION_LEDGER_ENABLED` off until
+each missing file has been verified against its exact postconditions and then
+recorded/applied under the shared advisory lock. Migration 233 is data-scoped
+and must be reviewed separately from additive schema migrations.
 
 ## Historical production ledger reconciliation (173–204)
 
@@ -38,14 +54,16 @@ this historical range. Normal forward migrations continue through the shared
 advisory-locked runner below. The completed audit remains in `docs/` as history,
 not as an operational procedure.
 
-## Staging Next.js ledger reconciliation (215–221 only)
+## Historical staging Next.js ledger reconciliation (215–221)
 
 Staging received the durable renderer-affinity contracts before their ledger
 rows were consistently recorded. Do **not** replay the range or use
 `--baseline`: migration 217's one-time backfill would now misclassify a fresh
 claim-v1 Speaking session whose affinity is legitimately still `NULL`.
 
-Use the staging-pinned, fail-closed procedure instead:
+This reconciliation is complete. The commands below are retained only to
+explain the historical evidence and must not be used as a general-purpose
+forward runner:
 
 ```bash
 # Read-only contract verification and exact ledger plan.
@@ -61,9 +79,9 @@ the final 215–221 schema/function/ACL/RLS/trigger contracts, and records only
 215–218 plus 220–221. It shares the forward runner's advisory lock and finishes
 with the standard migration dry-run; no migration in 215–221 may remain pending.
 
-## Production forward scope 213–225
+## Historical production forward scope 213–225
 
-Production applies this range only through the standard locked forward runner.
+Production applied this range through the standard locked forward runner.
 Migration 222 is safe to encounter when its two tables already exist outside
 the ledger: its table/index/RLS statements are idempotent, and the production
 verifier pins the complete table fingerprints. Migration 223 must still revoke
@@ -104,7 +122,7 @@ read-only transaction. It proves the exact 213–225 ledger range, Mock
 collection columns/constraints, affinity functions/tables/policies/triggers,
 pronunciation table fingerprints, RLS/table grants and the TTL/lease contract.
 
-## Forward scope 226–229
+## Historical forward scope 226–229
 
 Migrations 226–229 were originally authored on `main` with prefixes 216–219
 while the long-lived Next.js staging branch already owned those numbers for
@@ -117,12 +135,12 @@ creating two meanings for one ledger row:
 - 229 codifies the quiz RPC and Writing view hardening already present on the
   hosted databases.
 
-Apply them through the normal advisory-locked forward runner. All four are
+All four were applied through the normal advisory-locked forward runner. They are
 additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–231
+## Forward scope 230–261
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -133,6 +151,20 @@ prefixes.
   to sections that actually exist and prevents later bank edits from changing
   an assignment under learners' feet.
 
-Both migrations are transactional and idempotent. Apply them through the
-normal advisory-locked forward runner; do not run a data-deleting reset to
-repair legacy course scores.
+Migrations 230–232 preserve full-course attempt history and reconcile legacy
+course weights. Migration 233 is the one data-scoped exception described
+above. Migrations 234–239 add optional curated vocabulary; 240–244 add optional
+core attempt evidence; 245–246 add the active Mock/Cambridge correction
+foundation; 247–256 add optional core admission and Writing provenance; and
+257–261 add active correction persistence, public visibility and atomic
+assignment/explanation policy contracts.
+
+The only current candidates for ledger-only reconciliation are production 233
+and staging 245, 246, 257, 259 and 260, each after an exact transactional
+postcondition verifier. Never replay 233/246 data DML, and never replay 259 by
+itself because 260 replaces its scoped-assignment wrapper. Schema-absent
+optional groups require an explicit retain-and-apply or retire decision.
+
+Apply any genuinely pending file only through the advisory-locked forward
+runner after exact postcondition review. Do not run a data-deleting reset or
+use `--baseline` to silence hosted drift.

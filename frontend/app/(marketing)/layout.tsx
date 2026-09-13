@@ -66,7 +66,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
       <link rel="stylesheet" href="/css/tailwind.build.css" />
 
       {/* App Router navigation does not execute raw nested-layout scripts. */}
-      <Script src="https://unpkg.com/lucide@1.17.0" strategy="afterInteractive" />
+      <Script src="/vendor/lucide.min.js" strategy="afterInteractive" />
       <RouteScriptChain scripts={MARKETING_RUNTIME_SCRIPTS} />
 
       {children}

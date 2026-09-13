@@ -106,6 +106,10 @@
 }
 @keyframes result-spin { to { transform: rotate(360deg); } }
 
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+}
+
 
 /* ── Card surface (used by meta + strength/improve cards) ────────── */
 

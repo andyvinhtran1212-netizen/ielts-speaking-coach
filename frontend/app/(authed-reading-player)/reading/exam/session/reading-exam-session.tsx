@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { useDialogFocus } from '@/lib/use-dialog-focus';
 import { anonymousReadingScope, coreOperationRequest } from '@/lib/core-operation-intent.mjs';
 import {
   answersFromRows,
@@ -668,6 +669,13 @@ export function ReadingExamSession() {
   const autoEnteredMockRef = useRef(false);
   const selectedRangeRef = useRef<Range | null>(null);
   const highlightRangesRef = useRef<Range[]>([]);
+  const submitDialogRef = useRef<HTMLDivElement>(null);
+  const submitCancelRef = useRef<HTMLButtonElement>(null);
+  const helpDialogRef = useRef<HTMLDivElement>(null);
+  const helpCloseRef = useRef<HTMLButtonElement>(null);
+
+  useDialogFocus({ open: submitOpen, busy: phase === 'submitting', onClose: () => setSubmitOpen(false), dialogRef: submitDialogRef, initialFocusRef: submitCancelRef });
+  useDialogFocus({ open: helpOpen, onClose: () => setHelpOpen(false), dialogRef: helpDialogRef, initialFocusRef: helpCloseRef });
 
   useEffect(() => { answersRef.current = answers; }, [answers]);
 
@@ -1242,19 +1250,19 @@ export function ReadingExamSession() {
       {phase === 'sealed' ? <main className="exam-state-shell reading-next-state"><p className="exam-state-msg">Đã thu bài Reading. Đang chờ kỳ thi chuyển bước tiếp theo…</p></main> : null}
 
       {submitOpen && !params?.adminPreview ? <div className="exam-modal" role="dialog" aria-modal="true" aria-labelledby="reading-next-submit-title">
-        <div className="exam-modal__backdrop" onClick={() => setSubmitOpen(false)} />
-        <div className="exam-modal__panel reading-next-submit-panel">
+        <div className="exam-modal__backdrop" onClick={() => { if (phase !== 'submitting') setSubmitOpen(false); }} />
+        <div ref={submitDialogRef} className="exam-modal__panel reading-next-submit-panel" tabIndex={-1}>
           <h2 id="reading-next-submit-title">Nộp bài?</h2>
           <p>{answers.size < total ? `Bạn còn ${total - answers.size}/${total} câu chưa trả lời.` : `Bạn đã trả lời tất cả ${total} câu.`}</p>
-          <div className="exam-modal__actions"><button className="exam-btn" type="button" onClick={() => setSubmitOpen(false)}>Quay lại làm tiếp</button><button className="exam-btn exam-btn--primary" type="button" onClick={() => void submit()}>Nộp bài</button></div>
+          <div className="exam-modal__actions"><button ref={submitCancelRef} className="exam-btn" type="button" disabled={phase === 'submitting'} onClick={() => setSubmitOpen(false)}>Quay lại làm tiếp</button><button className="exam-btn exam-btn--primary" type="button" disabled={phase === 'submitting'} onClick={() => void submit()}>Nộp bài</button></div>
         </div>
       </div> : null}
       {helpOpen ? <div className="exam-modal" role="dialog" aria-modal="true" aria-labelledby="reading-next-help-title">
         <div className="exam-modal__backdrop" onClick={() => setHelpOpen(false)} />
-        <div className="exam-modal__panel reading-next-submit-panel">
+        <div ref={helpDialogRef} className="exam-modal__panel reading-next-submit-panel" tabIndex={-1}>
           <h2 id="reading-next-help-title">Reading test help</h2>
           <ul className="reading-next-help-list"><li>Use the divider to balance the passage and question panes.</li><li>Select text in the passage or questions to highlight it for this attempt.</li><li>Choose a question number to move between parts.</li><li>Mark Review to turn that question into a circle in the bottom bar.</li><li>Options changes text size and colour theme without affecting your answers.</li></ul>
-          <div className="exam-modal__actions"><button className="exam-btn exam-btn--primary" type="button" onClick={() => setHelpOpen(false)}>Close help</button></div>
+          <div className="exam-modal__actions"><button ref={helpCloseRef} className="exam-btn exam-btn--primary" type="button" onClick={() => setHelpOpen(false)}>Close help</button></div>
         </div>
       </div> : null}
     </>

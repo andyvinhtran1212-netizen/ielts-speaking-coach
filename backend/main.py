@@ -430,6 +430,33 @@ def _bounded_traceback(trace: str, limit: int = 5000) -> str:
     return trace[:head_size] + marker + trace[-tail_size:]
 
 
+_SENSITIVE_QUERY_KEYS = {
+    "access_token", "api_key", "authorization", "code", "password",
+    "refresh_token", "secret", "share_token", "token",
+}
+
+
+def _safe_error_request_context(request: Request) -> tuple[str, dict | None]:
+    """Return a route template and redacted query values for diagnostics.
+
+    Capability values can be embedded in path parameters (for example Reading
+    share links).  Logging the resolved URL would turn the error table and
+    process log into a second credential store, so prefer Starlette's route
+    template and never persist raw path parameter values.
+    """
+    route = request.scope.get("route")
+    # An exception raised before routing has no trustworthy template. Do not
+    # fall back to the concrete path: it may itself be a bearer capability.
+    route_template = getattr(route, "path", None) or "<unmatched-route>"
+    query = None
+    if request.query_params:
+        query = {
+            key: "[redacted]" if key.lower() in _SENSITIVE_QUERY_KEYS else value[:256]
+            for key, value in request.query_params.items()
+        }
+    return str(route_template)[:500], query
+
+
 # Catch-all: ensures any unhandled exception still returns JSON + CORS headers
 # (without this, Starlette's raw 500 page can strip CORS headers). Sprint
 # 12.3 extended this to capture the exception into the error_logs table
@@ -442,19 +469,20 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     import uuid as _uuid
 
     request_id = getattr(request.state, "request_id", None) or str(_uuid.uuid4())
+    safe_path, safe_query = _safe_error_request_context(request)
     logger.error("[error] Unhandled exception on %s (req=%s): %s",
-                 request.url, request_id, exc)
+                 safe_path, request_id, exc)
 
     payload = {
         "level":      "error",
         "source":     "backend",
         "message":    (str(exc) or exc.__class__.__name__)[:1000],
         "stack":      _bounded_traceback(_traceback.format_exc()),
-        "url":        str(request.url.path)[:500],
+        "url":        safe_path,
         "request_id": request_id,
         "extra": {
             "method": request.method,
-            "query":  dict(request.query_params) if request.query_params else None,
+            "query":  safe_query,
         },
     }
     try:

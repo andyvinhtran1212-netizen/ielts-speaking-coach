@@ -1,0 +1,82 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--av-space-8) var(--av-space-4);
+  color: var(--av-text-primary);
+  background: var(--av-surface-page);
+  font-family: var(--av-font-sans);
+}
+
+.card {
+  width: min(100%, var(--av-width-read));
+  padding: var(--av-space-12);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-2xl);
+  background: var(--av-surface-card);
+  box-shadow: var(--av-shadow-xl);
+}
+
+.eyebrow {
+  margin: 0 0 var(--av-space-3);
+  color: var(--av-primary);
+  font-size: var(--av-fs-xs);
+  font-weight: var(--av-fw-bold);
+  letter-spacing: var(--av-tracking-widest);
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--av-font-display);
+  font-size: var(--av-fs-hub-title);
+  line-height: var(--av-lh-tight);
+  letter-spacing: var(--av-tracking-tight);
+}
+
+.copy {
+  max-width: 52ch;
+  margin: var(--av-space-4) 0 0;
+  color: var(--av-text-secondary);
+  font-size: var(--av-fs-base);
+  line-height: var(--av-lh-relaxed);
+}
+
+.reference {
+  margin: var(--av-space-4) 0 0;
+  color: var(--av-text-muted);
+  font-size: var(--av-fs-sm);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--av-space-3);
+  margin-top: var(--av-space-8);
+}
+
+.primary,
+.secondary {
+  min-height: var(--av-control-min-height);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--av-space-4);
+  border: 1px solid transparent;
+  border-radius: var(--av-radius-lg);
+  font: inherit;
+  font-weight: var(--av-fw-bold);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.primary { color: var(--av-text-on-primary); background: var(--av-primary); }
+.primary:hover { background: var(--av-primary-hover); }
+.secondary { color: var(--av-text-primary); border-color: var(--av-border-default); background: var(--av-surface-card); }
+.secondary:hover { color: var(--av-primary); border-color: var(--av-primary-border); background: var(--av-primary-soft); }
+.primary:focus-visible,
+.secondary:focus-visible { outline: 2px solid var(--av-border-focus); outline-offset: 2px; box-shadow: var(--av-shadow-focus); }
+
+@media (max-width: 640px) {
+  .card { padding: var(--av-space-8) var(--av-space-6); }
+}

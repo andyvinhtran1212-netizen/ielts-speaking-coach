@@ -42,14 +42,21 @@ def _run(coro):
 # ── /health ──────────────────────────────────────────────────────────────────
 
 
-def test_health_basic_returns_ok():
+def test_health_basic_returns_ok(monkeypatch):
     """GET /health is unconditional — no DB, no env probes."""
+    monkeypatch.setenv("APP_VERSION", "2026.09.13")
     out = _run(health_module.health_basic())
     assert out["status"] == "ok"
     assert "timestamp" in out and out["timestamp"]
-    assert "version" in out
+    assert out["version"] == "2026.09.13"
     assert "release" not in out
     assert "git_branch" not in out
+
+
+def test_health_basic_has_next_default_version(monkeypatch):
+    monkeypatch.delenv("APP_VERSION", raising=False)
+    out = _run(health_module.health_basic())
+    assert out["version"] == "next"
 
 
 def test_health_runtime_exposes_admin_release_branch_only(monkeypatch):

@@ -61,6 +61,10 @@
 
 .wh-popover[hidden] { display: none; }
 
+@media (prefers-reduced-motion: reduce) {
+  .wh-popover { animation: none; }
+}
+
 .wh-popover.wh-type-grammar     { --wh-accent: var(--av-warning); }
 .wh-popover.wh-type-spelling    { --wh-accent: var(--av-error); }
 .wh-popover.wh-type-lexical     { --wh-accent: var(--av-info); }

@@ -95,7 +95,7 @@ await page.getByRole('heading', { name: 'C19-T1', exact: true }).waitFor();
 check('admin gate và independent canonical reads chạy', detailReads >= 1 && audioReads >= 1);
 check('hostile title/section được React escape', await page.locator('script').filter({ hasText: 'alert' }).count() === 0 && await page.getByText('Test <script>alert(1)</script>', { exact: true }).count() === 1 && await page.getByText('Section <img onerror=alert(1)>', { exact: true }).count() >= 1);
 check('map signing failure không bị diễn giải thành thiếu hình', await page.getByText(/Có storage record nhưng không mở được preview/).count() === 1 && await page.getByText('Manual upload', { exact: true }).count() === 1);
-check('rollback giữ đúng identity', await page.getByRole('link', { name: 'Mở bản HTML rollback ↗' }).getAttribute('href') === '/pages/admin/listening/tests-detail.html?id=t1');
+check('test detail không còn escape sang HTML đã retire', await page.getByRole('link', { name: /HTML rollback/ }).count() === 0);
 check('mobile detail không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 
 await page.getByRole('button', { name: 'Render & assemble' }).click();

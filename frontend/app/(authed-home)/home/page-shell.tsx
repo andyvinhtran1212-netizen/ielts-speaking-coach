@@ -101,7 +101,7 @@ export function HomeShell() {
             // script nạp xong — KHÔNG qua `window.lucide.createIcons()` (bọc hàm
             // đó lại và đếm: 0 lần gọi, mà thẻ <i> vẫn biến mất). Nên bỏ lời gọi
             // trong layout là vô ích; chừng nào còn `data-lucide` trong cây React
-            // thì còn đua với hydrate: nếu lucide (defer, CDN) thắng, React quay
+            // thì còn đua với hydrate: nếu lucide (defer) thắng, React quay
             // lại thấy <svg> ở chỗ nó vừa dựng <i> → Minified React error #418,
             // cả cây bị dựng lại phía client.
             //
