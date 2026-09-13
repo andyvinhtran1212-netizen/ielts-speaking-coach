@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import {
   buildLegacyRetirementRedirects,
   LEGACY_RETIREMENT_PATHS,
-} from '../tooling/gate-f-retirement-redirects.mjs';
+} from '../tooling/legacy-url-redirects.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const DIR = path.join(FRONTEND, 'app', '(authed)', 'profile');
@@ -104,20 +104,18 @@ test('pilot-4 mutation: double-submit lock + canonical reconcile + ambiguous-com
     'PATCH /auth/profile must sit behind the ADR-010 kill switch (first require_flag adoption)');
 });
 
-test('GATE F SOAK: canonical /profile owns the route and legacy profile is temporarily intercepted', () => {
+test('canonical /profile owns the route and permanently intercepts its retired HTML URL', () => {
   // profile page.tsx now lives directly under (authed) → route `/profile`
   assert.ok(readFileSync(path.join(DIR, 'page.tsx'), 'utf8').length > 0, 'profile route at canonical path');
-  const redirects = buildLegacyRetirementRedirects(
-    LEGACY_RETIREMENT_PATHS,
-    { permanent: false },
-  );
+  const redirects = buildLegacyRetirementRedirects(LEGACY_RETIREMENT_PATHS);
   assert.ok(redirects.some((entry) => (
     entry.source === '/pages/profile.html'
       && entry.destination === '/profile'
-      && entry.permanent === false
-  )), 'Gate F soak must intercept the legacy profile path with a temporary redirect');
-  assert.ok(readFileSync(path.join(FRONTEND, 'public', 'pages', 'profile.html'), 'utf8').length > 0,
-    'rollback artifact must remain on disk throughout redirect soak');
+      && entry.permanent === true
+  )), 'retired profile URL must remain permanently intercepted');
+  assert.ok(readFileSync(path.join(FRONTEND, 'tests', 'fixtures', 'legacy-html-retired',
+    'pages', 'profile.html'), 'utf8').length > 0,
+  'historical profile source must remain available only as a non-deployable test fixture');
 });
 
 // ── AUDIT F6 (2026-07-14): ADR-011 §2 thực thi ĐÚNG như đã tuyên bố ────

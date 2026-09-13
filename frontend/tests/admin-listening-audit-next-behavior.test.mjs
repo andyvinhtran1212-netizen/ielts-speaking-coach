@@ -23,7 +23,7 @@ const component = read('app/(authed-admin-listening)/admin/listening/audit/admin
 const backend = read('../backend/routers/listening.py');
 const page = read('app/(authed-admin-listening)/admin/listening/audit/page.tsx');
 const css = read('public/css/admin-listening-audit-next.css');
-const workflow = read('../.github/workflows/parity-gate.yml');
+const workflow = read('../.github/workflows/next-native-browser.yml');
 
 const testRow = (id = 'test-1', testId = 'ILR-LIS-001') => ({
   id, test_id: testId, title: `Title ${testId}`, status: 'published', test_type: 'full', exam_only: false,

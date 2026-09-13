@@ -8,12 +8,9 @@
 -- Gate E chưa tồn tại và đóng lỗ hổng TRUNCATE của nhật ký append-only. Không
 -- migration lịch sử nào được replay mù.
 --
--- QUAN TRỌNG: production không được chạy file này qua forward runner thông
--- thường khi ledger 173–203 còn lệch. Dùng procedure fail-closed:
---   DRY_RUN=1 python backend/scripts/reconcile_prod_gate_e_migrations.py "$DATABASE_URL"
---   ALLOW_PROD=1 python backend/scripts/reconcile_prod_gate_e_migrations.py "$DATABASE_URL"
--- Procedure chạy 204 trước, audit final state, rồi mới ghi đúng manifest lịch
--- sử đã kiểm; tuyệt đối không dùng `apply_migrations.sh --baseline` ở đây.
+-- QUAN TRỌNG: đây là migration lịch sử đã được đối soát và ghi ledger. Tool
+-- reconcile một lần đã retire; tuyệt đối không replay hoặc baseline riêng file
+-- này. Mọi migration mới đi qua forward runner có advisory lock.
 
 BEGIN;
 

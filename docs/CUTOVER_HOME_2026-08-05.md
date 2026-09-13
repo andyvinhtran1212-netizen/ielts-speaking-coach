@@ -1,5 +1,10 @@
 # Cutover `/home` — trang chủ học viên
 
+> **Hồ sơ lịch sử — superseded ngày 2026-09-12.** Các tham chiếu tới parity
+> tooling bên dưới ghi lại cơ chế tại thời điểm cutover, không phải hướng dẫn
+> hiện hành. Coverage thay thế nằm ở
+> `.github/workflows/next-native-browser.yml`.
+
 **Ngày:** 2026-08-05 · **Route canonical:** `/home` (Next)
 **Đây là cutover ĐẦU TIÊN của một trang CẦN ĐĂNG NHẬP có bằng chứng parity.**
 

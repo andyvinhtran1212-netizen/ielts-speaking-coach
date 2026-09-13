@@ -35,6 +35,21 @@ test('zero production egress while loading the landing page', async ({ page }) =
     .toEqual([]);
 });
 
+test('runtime-config failure stays fail-closed on staging', async ({ page }) => {
+  /** @type {string[]} */
+  const offenders = [];
+  page.on('request', (req) => {
+    if (PRODUCTION_ORIGINS.some((origin) => req.url().includes(origin))) {
+      offenders.push(req.url());
+    }
+  });
+  await page.route('**/js/runtime-config.js', (route) => route.abort('failed'));
+
+  await page.goto('/', { waitUntil: 'networkidle' });
+  expect(offenders, `runtime-config fallback reached production: ${offenders.join(', ')}`)
+    .toEqual([]);
+});
+
 test('landing stats are answered by the STAGING API', async ({ page }) => {
   const statsResponse = page.waitForResponse(
     (res) => res.url().includes('/api/public-stats'),

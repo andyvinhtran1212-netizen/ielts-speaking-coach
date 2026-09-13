@@ -1,11 +1,9 @@
 // Đăng nhập Supabase + dựng bản ghi phiên để TIÊM vào trình duyệt.
 //
-// VÌ SAO CÓ FILE NÀY: hai công cụ cùng cần đăng nhập bằng tài khoản probe —
-// `authed-probe.mjs` (G2) gọi API bằng Bearer, và `parity-diff.mjs` (G1) cần
-// một PHIÊN THẬT trong trình duyệt để so được trang cần đăng nhập. Hai bản
-// đăng nhập riêng là hai chỗ để trôi khỏi nhau.
+// VÌ SAO CÓ FILE NÀY: các probe xác thực và browser verifier cần cùng một cách
+// dựng phiên Supabase. Hai bản đăng nhập riêng là hai chỗ để trôi khỏi nhau.
 //
-// VÌ SAO G1 CẦN CÁI NÀY: đo 2026-08-05 — `pages/home.html` có auth gate cuối
+// Bối cảnh lịch sử: đo 2026-08-05 — `pages/home.html` có auth gate cuối
 // trang (`window.location.href = '../login.html'`), nên trình duyệt ẩn danh
 // KHÔNG BAO GIỜ dừng lại ở đó: sau khi JS chạy, URL là `/login.html`. G1 vì
 // vậy cho `/home` con số không, không phải "chỉ so được vỏ". Mọi trang lưu

@@ -28,7 +28,7 @@ const CONFIG = read('next.config.ts');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const HUB = read('app', '(authed-admin-writing)', 'admin', 'writing', 'page.tsx');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 const raw = {
   id: 'p1', task_type: 'task1_academic', title: '<img onerror=x>',

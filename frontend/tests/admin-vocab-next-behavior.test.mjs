@@ -13,7 +13,7 @@ const LAYOUT = read('app', '(authed-admin-vocab)', 'layout.tsx');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
 const LEGACY_HUB = read('public', 'pages', 'admin', 'vocab', 'index.html');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('Admin Vocabulary native ownership', () => {
   test('owns clean hub and stats routes while retaining rollback HTML', () => {

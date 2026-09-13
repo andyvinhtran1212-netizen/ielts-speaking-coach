@@ -20,7 +20,7 @@ const PAGE = read('app', '(authed-admin-feedback)', 'admin', 'feedback', 'page.t
 const LAYOUT = read('app', '(authed-admin-feedback)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-feedback-next.css');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const VERCEL = read('vercel.json');
 const VERIFIER = read('tooling', 'verify-admin-feedback-flow.mjs');
 

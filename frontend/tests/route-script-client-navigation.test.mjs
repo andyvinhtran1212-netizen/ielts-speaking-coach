@@ -68,7 +68,10 @@ describe('ordered route dependencies use the sequential client loader', () => {
     assert.match(chainSource, /^['"]use client['"];?/);
     assert.match(chainSource, /import Script from ['"]next\/script['"]/);
     assert.match(chainSource, /strategy="afterInteractive"/);
-    assert.match(chainSource, /onReady=\{\(\) => setReady\(true\)\}/);
+    assert.match(
+      chainSource,
+      /onReady=\{\(\) => \{[\s\S]*?reportScriptReady\(script\.src\);[\s\S]*?setReady\(true\);/,
+    );
     assert.match(chainSource, /ready && index \+ 1 < scripts\.length/);
     assert.match(chainSource, /type: 'route_script_load_failed'/);
   });

@@ -13,7 +13,7 @@ const BEHAVIOR = read(
   'app', '(authed-listening)', 'listening', 'skills', 'listening-skills-behavior.tsx',
 );
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
-const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/listening/skills — native React behavior', () => {
   test('removes legacy injection and lets React own the complete dynamic surface', () => {

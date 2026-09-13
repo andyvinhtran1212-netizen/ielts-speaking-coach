@@ -1,5 +1,13 @@
 # Vì sao cặp parity `writing` KHÔNG có trong `parity-pairs-authed.json`
 
+> **Hồ sơ lịch sử — superseded ngày 2026-09-12.** Migration Next đã hoàn tất;
+> parity engine, pair manifest và workflow G1 nêu bên dưới đã được gỡ. Không
+> thực hiện lại các chỉ dẫn vận hành trong tài liệu này. Coverage hiện hành nằm
+> ở `.github/workflows/next-native-browser.yml`; release safety nằm ở
+> `staging-release-smoke.yml`, `staging-promotion-gate.yml`,
+> `production-release-drift.yml` và `legacy-freeze.yml`. Phần còn lại được giữ
+> nguyên để làm evidence cho quyết định tại thời điểm cutover.
+
 Ngày 2026-08-05 · liên quan PR #950 (`/writing/dashboard` lên Next)
 
 ## Chuyện gì xảy ra

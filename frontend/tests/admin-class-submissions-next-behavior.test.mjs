@@ -13,7 +13,7 @@ const DETAIL = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohor
 const HOMEWORK = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx');
 const CSS = read('public', 'css', 'admin-class-submissions-next.css');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const BROWSER = read('tooling', 'verify-admin-class-submissions-flow.mjs');
 
 describe('admin class submissions model', () => {

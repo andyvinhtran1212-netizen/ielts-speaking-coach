@@ -14,7 +14,7 @@ const BEHAVIOR = read(
 );
 const LEGACY = read('public', 'js', 'listening-practice.js');
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
-const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/listening/practice — native React behavior', () => {
   test('removes legacy injection and delegates the state machine to React', () => {

@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { collectOverviewPages, inspectOverview } from '../tooling/site-overview-coverage.mjs';
-import { canonicalNextRouteForLegacy } from '../tooling/gate-f-route-replacement-inventory.mjs';
+import { canonicalNextRouteForLegacy } from '../tooling/legacy-url-mapping.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const doc = readFileSync(path.join(REPO, 'docs/SITE_OVERVIEW.md'), 'utf8');

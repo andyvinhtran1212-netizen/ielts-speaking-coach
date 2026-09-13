@@ -12,7 +12,7 @@ const LEMMA_PAGE = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'lemmas
 const LEMMA = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'lemmas', 'admin-vocab-lemmas.tsx');
 const HUB = read('app', '(authed-admin-vocab)', 'admin', 'vocab', 'page.tsx');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('Admin Vocabulary D1 + Lemma native ownership', () => {
   test('owns both clean routes and retains rollback HTML', () => {

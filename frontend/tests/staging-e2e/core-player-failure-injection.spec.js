@@ -1,6 +1,6 @@
-// Gate E live-staging evidence for the highest-risk Speaking mutation.
+// Permanent live-staging regression for the highest-risk Speaking mutation.
 //
-// Unlike the deterministic Gate E fixture matrices, this test drives the
+// Unlike deterministic browser fixtures, this test drives the
 // deployed App Router route, Railway staging and staging Supabase. The upload
 // is allowed to commit, then its response is deliberately reset. The native
 // controller must reconcile the canonical response and must not replay POST.
@@ -22,7 +22,7 @@ const ROUTE = '/practice/session';
 const EVIDENCE_PATH = path.join(
   process.cwd(),
   'test-results',
-  'gate-e-live-staging-failure-injection.json',
+  'staging-core-player-failure-injection.json',
 );
 const SHA_PATTERN = /^[a-f0-9]{40}$/;
 let createdSessionId;
@@ -81,8 +81,8 @@ test('live staging: response commits before reset and Next reconciles without re
   baseURL,
 }) => {
   test.setTimeout(120_000);
-  const sourceSha = process.env.GATE_E_SOURCE_SHA || '';
-  expect(sourceSha, 'GATE_E_SOURCE_SHA must pin the tested staging release').toMatch(SHA_PATTERN);
+  const sourceSha = process.env.RELEASE_SOURCE_SHA || '';
+  expect(sourceSha, 'RELEASE_SOURCE_SHA must pin the tested staging release').toMatch(SHA_PATTERN);
   expect(new URL(baseURL).origin).toBe('https://staging.averlearning.com');
 
   const session = await installStudentSession(context, request, baseURL);
@@ -94,7 +94,7 @@ test('live staging: response commits before reset and Next reconciles without re
     data: {
       mode: 'practice',
       part: 1,
-      topic: 'Gate E live failure injection',
+      topic: 'Staging live failure injection',
       renderer_affinity_protocol: 'claim-v1',
     },
   });
@@ -189,7 +189,7 @@ test('live staging: response commits before reset and Next reconciles without re
 
   const evidence = {
     schema_version: 1,
-    evidence_id: 'gate-e-live-staging-speaking-ambiguous-commit-v1',
+    evidence_id: 'staging-speaking-ambiguous-commit-v1',
     captured_at: new Date().toISOString(),
     source_sha: sourceSha,
     git_ref: 'staging',
@@ -212,7 +212,7 @@ test('live staging: response commits before reset and Next reconciles without re
   mkdirSync(path.dirname(EVIDENCE_PATH), { recursive: true });
   writeFileSync(EVIDENCE_PATH, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
   console.log(
-    `[gate-e-live] committed + reconciled ${sessionId}/${questionId}; `
+    `[staging-smoke] committed + reconciled ${sessionId}/${questionId}; `
       + 'evidence captured before deterministic staging cleanup',
   );
 });

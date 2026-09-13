@@ -23,7 +23,7 @@ const CSS = read('public', 'css', 'admin-speaking-topics-next.css');
 const LEGACY = read('public', 'pages', 'admin', 'speaking', 'topics.html');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const HUB = read('app', '(authed-admin-speaking)', 'admin', 'speaking', 'page.tsx');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 
 describe('admin Speaking Topics model', () => {

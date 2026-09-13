@@ -24,7 +24,7 @@ const LEGACY_QUEUE = read('public', 'js', 'admin-writing-queue.js');
 const LEGACY_NEW = read('public', 'pages', 'admin', 'writing', 'new.html');
 const CONFIG = read('next.config.ts');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 const raw = {
   essay_id: 'e1', status: 'grading', error_message: null, eta_seconds: 120,

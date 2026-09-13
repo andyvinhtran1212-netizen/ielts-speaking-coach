@@ -1,11 +1,11 @@
-// Gate E automated device-matrix foundation. This bounded browser journey is
+// Permanent staging smoke device matrix. This bounded browser journey is
 // intentionally repeated on Chromium desktop, WebKit desktop and WebKit with
 // an iPhone viewport. WebKit emulation is NOT real Safari/iOS evidence; the
-// versioned real-device requirements stay pending in the matrix manifest.
+// synthetic compatibility coverage, not real Safari/iOS certification.
 // @ts-check
 const { test, expect } = require('@playwright/test');
 const { PRODUCTION_ORIGINS, primeBypassCookie } = require('./helpers');
-const { automated_projects: automatedProjects } = require('../../tooling/gate-e-device-matrix.json');
+const { automated_projects: automatedProjects } = require('../../tooling/staging-device-matrix.json');
 
 const MATRIX_PROJECTS = new Set(
   automatedProjects
@@ -41,9 +41,9 @@ test('Next → redirected legacy alias → Next seam keeps origin storage and ne
   await page.evaluate(() => localStorage.setItem('av-theme', 'dark'));
 
   await page.evaluate(() => {
-    window.location.assign('/grammar.html?from=gate-e-matrix#main');
+    window.location.assign('/grammar.html?from=staging-matrix#main');
   });
-  await page.waitForURL('**/grammar?from=gate-e-matrix#main');
+  await page.waitForURL('**/grammar?from=staging-matrix#main');
   await expect(page.locator('body')).toContainText('IELTS Grammar Reference');
   await expect(page.locator('aver-chrome')).toBeAttached();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');

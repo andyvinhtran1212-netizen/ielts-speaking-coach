@@ -1,5 +1,5 @@
 // Fixture-backed browser verification for the authenticated half of the mixed
-// `/grammar/roadmap` route. Public `?slug=` is covered by parity-diff.
+// `/grammar/roadmap` route. Public route behavior is covered by source contracts.
 import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';

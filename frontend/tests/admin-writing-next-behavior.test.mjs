@@ -17,7 +17,7 @@ const LEGACY_CHILDREN = ['assignments.html', 'new.html', 'grade.html', 'tips.htm
   .map((name) => read('public', 'pages', 'admin', 'writing', name));
 const CONFIG = read('next.config.ts');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/admin/writing native operations hub', () => {
   test('owns the canonical route and preserves direct rollback HTML', () => {

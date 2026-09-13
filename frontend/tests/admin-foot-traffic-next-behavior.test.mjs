@@ -18,7 +18,7 @@ const PAGE = read('app', '(authed-admin-foot-traffic)', 'admin', 'foot-traffic',
 const LAYOUT = read('app', '(authed-admin-foot-traffic)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-foot-traffic-next.css');
 const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const VERCEL = read('vercel.json');
 
 describe('/admin/foot-traffic native contract', () => {

@@ -15,7 +15,6 @@ import {
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const readFrontend = (...parts) => readFileSync(path.join(FRONTEND, ...parts), 'utf8');
 const LEGACY_RUNTIME = readFrontend('public', 'js', 'practice.js');
-const PARITY_PAIRS = JSON.parse(readFrontend('tooling', 'parity-pairs-authed.json'));
 const NEXT_BOOT = readFrontend(
   'app', '(authed-practice)', 'practice', 'session', 'practice-session-boot.tsx',
 );
@@ -276,7 +275,7 @@ describe('native Speaking session bootstrap contract', () => {
     ]);
   });
 
-  test('Next owns auth and data loading while legacy pages retain their bootstrap', () => {
+  test('Next owns auth and data loading while the shared player runtime receives its bootstrap', () => {
     assert.match(NEXT_BOOT, /const \{ status, user \} = useAuth\(\)/);
     assert.match(NEXT_BOOT, /loadPracticeBootstrap\(/);
     assert.match(NEXT_BOOT, /PracticeApp\.init\(bootstrap\)/);
@@ -295,7 +294,7 @@ describe('native Speaking session bootstrap contract', () => {
     assert.match(LEGACY_RUNTIME, /questions = bootstrap\.questions\.slice\(\)/);
   });
 
-  test('valid player init preloads Grammar metadata; only missing-session parity skips it', () => {
+  test('valid player init preloads Grammar metadata before the Next handoff', () => {
     const initStart = LEGACY_RUNTIME.indexOf('async function init(bootstrap)');
     const initEnd = LEGACY_RUNTIME.indexOf('// ── PDF Export', initStart);
     const body = LEGACY_RUNTIME.slice(initStart, initEnd);
@@ -304,12 +303,5 @@ describe('native Speaking session bootstrap contract', () => {
     assert.ok(grammarAt !== -1 && handoffAt !== -1 && grammarAt < handoffAt,
       'every valid PracticeApp.init call must schedule Grammar metadata before handoff');
 
-    const pair = PARITY_PAIRS.find((candidate) => candidate.name === 'speaking-practice-dark');
-    assert.deepEqual(pair.allow, [{
-      kind: 'api-missing',
-      value: 'GET /api/grammar/categories',
-      reason: 'Cặp này cố ý không có session_id. Next fail trước PracticeApp.init nên không tải metadata Grammar vô ích; với bootstrap hợp lệ, init vẫn gọi _fetchGrArticleIndex trước khi dựng feedback.',
-    }]);
-    assert.match(pair.note, /THIẾU session_id/);
   });
 });

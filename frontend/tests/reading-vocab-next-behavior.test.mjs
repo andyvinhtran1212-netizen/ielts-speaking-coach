@@ -14,7 +14,7 @@ const BEHAVIOR = read(
 );
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
 const BROWSER_FLOW = read('tooling', 'verify-reading-vocab-flow.mjs');
-const PARITY_WORKFLOW = readFileSync(join(ROOT, '..', '.github', 'workflows', 'parity-gate.yml'), 'utf8');
+const PARITY_WORKFLOW = readFileSync(join(ROOT, '..', '.github', 'workflows', 'next-native-browser.yml'), 'utf8');
 const LEGACY_BEHAVIOR = read('public', 'js', 'reading-vocab.js');
 
 describe('/reading/vocab — native React behavior', () => {

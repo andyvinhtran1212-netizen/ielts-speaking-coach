@@ -28,7 +28,7 @@ const PAGE = read('app', '(authed-admin-listening)', 'admin', 'listening', 'impo
 const LAYOUT = read('app', '(authed-admin-listening)', 'layout.tsx');
 const TESTS = read('app', '(authed-admin-listening)', 'admin', 'listening', 'tests', 'admin-listening-tests.tsx');
 const CSS = read('public', 'css', 'admin-listening-fulltest-import-next.css');
-const WORKFLOW = readFileSync(join(here, '..', '..', '.github', 'workflows', 'parity-gate.yml'), 'utf8');
+const WORKFLOW = readFileSync(join(here, '..', '..', '.github', 'workflows', 'next-native-browser.yml'), 'utf8');
 const LEDGER = readFileSync(join(here, '..', '..', 'docs', 'ROUTE_LEDGER.md'), 'utf8');
 
 const file = (name, size = 100) => ({ name, size });

@@ -26,7 +26,7 @@ const MODEL = read('lib', 'admin-classes-model.mjs');
 const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const LEGACY = read('public', 'pages', 'admin', 'classes', 'index.html');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const BROWSER = read('tooling', 'verify-admin-classes-flow.mjs');
 
 describe('/admin/classes — native directory ownership', () => {

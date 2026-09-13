@@ -29,7 +29,7 @@ const LAYOUT = read('app', '(authed-admin-listening)', 'layout.tsx');
 const TESTS = read('app', '(authed-admin-listening)', 'admin', 'listening', 'tests', 'admin-listening-tests.tsx');
 const CSS = read('public', 'css', 'admin-listening-drill-import-next.css');
 const LEDGER = readFileSync(join(__dirname, '..', '..', 'docs', 'ROUTE_LEDGER.md'), 'utf8');
-const WORKFLOW = readFileSync(join(__dirname, '..', '..', '.github', 'workflows', 'parity-gate.yml'), 'utf8');
+const WORKFLOW = readFileSync(join(__dirname, '..', '..', '.github', 'workflows', 'next-native-browser.yml'), 'utf8');
 
 const file = (name, webkitRelativePath = '', size = 100) => ({ name, webkitRelativePath, size });
 const id = 'ILR-LIS-DRL-MCQ-L2-T1';

@@ -446,7 +446,7 @@ export interface paths {
         post?: never;
         /**
          * Admin Cleanup E2E Session
-         * @description Delete one synthetic Gate E session from the certified staging DB.
+         * @description Delete one synthetic release-smoke session from the certified staging DB.
          *
          *     This deliberately is not a general session-delete API. It requires an
          *     admin, refuses every non-staging runtime/project, and only accepts an

@@ -15,7 +15,7 @@ const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview
 const ROLLBACK_OVERVIEW = read('public', 'pages', 'admin', 'index.html');
 const CONFIG = read('next.config.ts');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/admin/speaking native operations hub', () => {
   test('owns the canonical route and preserves direct rollback HTML', () => {

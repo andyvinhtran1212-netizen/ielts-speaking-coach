@@ -35,7 +35,7 @@
 
 import { test, describe, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { readPricingFixture } from './fixtures/gate-f-pricing/loader.mjs';
+import { readPricingFixture } from './fixtures/pricing-baseline/loader.mjs';
 
 
 let html;

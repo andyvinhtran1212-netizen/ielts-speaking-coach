@@ -7,9 +7,8 @@
 // non-blocking. Phải dispatch tay mới biết main lành.
 //
 // Main deploy THẲNG ra production, nên khoảng trống đó nằm ngay trước mặt người
-// dùng. Lịch đêm không lấp được: chú thích trong `parity-gate.yml` ghi rõ cron
-// ấy CHƯA TỪNG CHẠY lần nào (đo 2026-08-04), và cron `*/15` của G2 bị GitHub
-// giãn ra trung vị 84 phút. Lịch trên GitHub Actions là best-effort thật sự.
+// dùng. Lịch đêm không lấp được vì lịch GitHub Actions là best-effort và có thể
+// chạy trễ; cổng quan trọng vẫn phải chạy trực tiếp trên push vào main.
 //
 // PHẠM VI CÓ Ý THỨC: chốt chỉ khẳng định workflow CÓ đường kích hoạt khi đẩy
 // lên main. Nó KHÔNG khẳng định workflow đó kiểm đúng thứ cần kiểm — chuyện ấy
@@ -31,7 +30,7 @@ const WF_DIR = path.join(ROOT, '.github/workflows');
 // canh cái tên chứ không canh việc. Đây không phải giả định: cả tệp này ra đời
 // vì một cổng «có tồn tại» mà không chạy.
 const MUST_RUN_ON_MAIN = [
-  { tệp: 'parity-gate.yml', dấuHiệu: /node tooling\/parity-diff\.mjs/ },
+  { tệp: 'next-native-browser.yml', dấuHiệu: /node tooling\/verify-speaking-flow\.mjs/ },
   { tệp: 'backend-tests.yml', dấuHiệu: /pytest/ },
   { tệp: 'route-manifest.yml', dấuHiệu: /npm run build/ },
   { tệp: 'e2e.yml', dấuHiệu: /playwright test/ },

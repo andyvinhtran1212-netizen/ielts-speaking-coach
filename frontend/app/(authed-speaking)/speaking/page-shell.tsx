@@ -7,9 +7,8 @@
 // có 89 id riêng biệt; đổi tên bất kỳ chỗ nào là hỏng cả hai bản.
 //
 // HANDLER NỘI TUYẾN ĐÃ BỎ RA — CÓ CHỦ Ý. Bản legacy có 27 handler nội tuyến
-// (`onclick="openTopicModal()"` …). Đo được: **0/27 cái điều hướng**, mà
-// `hrefFromInlineHandler` (parity-core.mjs:118) chỉ trích điều hướng — nên cổng
-// parity MÙ với cả 27. Chúng thuần là hành vi, sẽ gắn bằng listener theo id ở
+// (`onclick="openTopicModal()"` …). Đo được: **0/27 cái điều hướng**; chúng
+// thuần là hành vi, nên phải được gắn bằng listener theo id ở
 // PR hành vi, giống khuôn `home-behavior.tsx`. Danh sách đầy đủ nằm trong mô tả
 // PR để không cái nào rơi mất.
 //

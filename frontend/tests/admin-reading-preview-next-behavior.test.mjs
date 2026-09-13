@@ -17,7 +17,7 @@ const LAYOUT = read('app', '(authed-admin-reading-preview)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-reading-preview-next.css');
 const CONTENT = read('app', '(authed-admin-reading-content)', 'admin', 'reading', 'content', 'admin-reading-content.tsx');
 const FEEDBACK_MODEL = read('lib', 'admin-feedback-model.mjs');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 const payload = (overrides = {}) => ({
   id: 'uuid-t1', test_id: 'T 1', title: 'Reading paper', module: 'academic',

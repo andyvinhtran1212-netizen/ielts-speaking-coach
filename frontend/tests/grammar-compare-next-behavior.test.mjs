@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { canonicalNextRouteForLegacy } from '../tooling/legacy-url-mapping.mjs';
 
 const FRONTEND = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const GRAMMAR = path.join(FRONTEND, 'app', '(public-content)', 'grammar');
@@ -11,13 +12,13 @@ const PAGE = readFileSync(PAGE_PATH, 'utf8');
 const API = readFileSync(path.join(FRONTEND, 'lib', 'grammar-api.ts'), 'utf8');
 const SHELL = readFileSync(path.join(GRAMMAR, '[category]', '[slug]', 'page-shell.tsx'), 'utf8');
 const LEGACY_JS = readFileSync(path.join(FRONTEND, 'public', 'js', 'grammar.js'), 'utf8');
-const LEGACY = path.join(FRONTEND, 'public', 'pages', 'grammar-compare.html');
+const LEGACY = path.join(
+  FRONTEND, 'tests', 'fixtures', 'legacy-html-retired', 'pages', 'grammar-compare.html',
+);
 const LEDGER = readFileSync(path.join(FRONTEND, '../docs/ROUTE_LEDGER.md'), 'utf8');
-const PARITY = readFileSync(path.join(FRONTEND, 'tooling', 'parity-diff.mjs'), 'utf8');
-const PARITY_CORE = readFileSync(path.join(FRONTEND, 'tooling', 'parity-core.mjs'), 'utf8');
 
 describe('/grammar/compare native ownership', () => {
-  test('route Next tồn tại còn rollback legacy vẫn phục vụ độc lập', () => {
+  test('route Next tồn tại và archived predecessor vẫn kiểm được', () => {
     assert.ok(existsSync(PAGE_PATH));
     assert.ok(existsSync(LEGACY));
     assert.match(LEDGER, /`\/grammar\/compare`[^\n]+app\/\(public-content\)\/grammar\/compare\/page\.tsx[^\n]+CUTOVER/);
@@ -49,9 +50,7 @@ describe('/grammar/compare native ownership', () => {
     assert.doesNotMatch(SHELL, /pages\/grammar-compare\.html/);
   });
 
-  test('parity chạy cùng fixture backend thật và ánh xạ rollback URL', () => {
-    assert.match(PARITY, /name: 'grammar-compare'[\s\S]*legacy: '\/pages\/grammar-compare\.html\?slug=past-perfect-vs-past-simple'[\s\S]*next: '\/grammar\/compare\?slug=past-perfect-vs-past-simple'/);
-    assert.match(PARITY, /GET \/api\/grammar\/compare\/past-perfect-vs-past-simple/);
-    assert.match(PARITY_CORE, /path === '\/pages\/grammar-compare\.html'\) path = '\/grammar\/compare'/);
+  test('retired URL maps to the canonical compare owner', () => {
+    assert.equal(canonicalNextRouteForLegacy('/pages/grammar-compare.html'), '/grammar/compare');
   });
 });

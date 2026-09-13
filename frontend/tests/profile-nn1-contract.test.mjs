@@ -1,12 +1,10 @@
 // N/N−1 consumer contract — profile mutation pilot (ADR-009, Pilot Entry
-// checklist). Pins that the LEGACY profile client (public/pages/profile.html)
+// checklist). Pins the historical Legacy profile client fixture
 // and the NEXT profile client (app/(authed)/profile/profile-behavior.tsx) are
 // INTERCHANGEABLE consumers of the SAME /auth/profile contract, and that the
 // backend accepts/returns everything BOTH need. That is what makes the profile
-// cutover rollback-safe: after a frontend rollback (Next → legacy) the legacy
-// client still works against backend HEAD, and a backend rollback (N → N−1)
-// still serves the Next client — because neither side sends/reads anything the
-// other (or the backend) doesn't.
+// contract as a compatibility baseline: neither client sends or reads anything
+// outside the backend contract.
 //
 // The LIVE half — running each client's exact payload against the staging
 // backend HEAD — is tests/staging-e2e/nn1-profile-consumer.spec.js.
@@ -19,13 +17,13 @@ import { fileURLToPath } from 'node:url';
 import {
   buildLegacyRetirementRedirects,
   LEGACY_RETIREMENT_PATHS,
-} from '../tooling/gate-f-retirement-redirects.mjs';
+} from '../tooling/legacy-url-redirects.mjs';
 
 const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const REPO = path.dirname(FRONTEND);
 const read = (...p) => readFileSync(path.join(...p), 'utf8');
 
-const LEGACY = read(FRONTEND, 'public', 'pages', 'profile.html');
+const LEGACY = read(FRONTEND, 'tests', 'fixtures', 'legacy-html-retired', 'pages', 'profile.html');
 const NEXT = read(FRONTEND, 'app', '(authed)', 'profile', 'profile-behavior.tsx');
 const BACKEND = read(REPO, 'backend', 'routers', 'auth.py');
 
@@ -90,18 +88,12 @@ test('every field the clients READ is returned by the backend GET (no-removal �
   }
 });
 
-test('Gate F redirect soak preserves the N/N-1 legacy consumer as a rollback artifact', () => {
-  // Rollback safety during redirect soak comes from keeping the tested Legacy
-  // consumer in the deployment artifact and reverting the routing release.
-  // While the soak release is active, the public path must never render it.
-  const redirects = buildLegacyRetirementRedirects(
-    LEGACY_RETIREMENT_PATHS,
-    { permanent: false },
-  );
+test('permanent redirect preserves the historical N/N-1 contract fixture off the deploy path', () => {
+  const redirects = buildLegacyRetirementRedirects(LEGACY_RETIREMENT_PATHS);
   assert.ok(redirects.some((entry) => (
     entry.source === '/pages/profile.html'
       && entry.destination === '/profile'
-      && entry.permanent === false
-  )), 'legacy profile path must be intercepted during Gate F redirect soak');
-  assert.ok(LEGACY.length > 0, 'legacy profile consumer must remain available for deployment rollback');
+      && entry.permanent === true
+  )), 'retired profile path must remain permanently intercepted');
+  assert.ok(LEGACY.length > 0, 'historical profile source must remain available to contract tests');
 });

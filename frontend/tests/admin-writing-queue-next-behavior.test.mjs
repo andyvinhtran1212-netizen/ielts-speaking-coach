@@ -29,7 +29,7 @@ const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const MOCK = read('public', 'js', 'admin-mock-tests.js');
 const CONFIG = read('next.config.ts');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 const row = { id: 'e1', student_id: 's1', student_full_name: '<img onerror=x>', student_code: 'A01', task_type: 'task2', status: 'reviewed', analysis_level: 3, selected_model: 'gemini-2.5-pro', word_count: 280, created_at: '2026-08-13T00:00:00Z', deadline: '2026-08-12T00:00:00Z', band: 6.5, task1_image_missing: false };
 

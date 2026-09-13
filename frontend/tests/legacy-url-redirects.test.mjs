@@ -1,0 +1,185 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { createRequire } from 'node:module';
+import { runInNewContext } from 'node:vm';
+import ts from 'typescript';
+import { readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { test } from 'node:test';
+
+import {
+  assertFrozenLegacyArtifactSet,
+  buildLegacyRetirementRedirects,
+  LEGACY_RETIREMENT_PATHS,
+  RETIREMENT_ARTIFACT_SET,
+} from '../tooling/legacy-url-redirects.mjs';
+import { appPageRoute } from '../tooling/app-route-inventory.mjs';
+
+const FRONTEND = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+// URL compatibility survives physical retirement, as in next.config.ts.
+// The independent physical-file freeze is asserted inside its own test below.
+const paths = LEGACY_RETIREMENT_PATHS;
+const redirects = buildLegacyRetirementRedirects(paths);
+const nextConfig = readFileSync(path.join(FRONTEND, 'next.config.ts'), 'utf8');
+
+function appRoutes(root, prefix = '') {
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) return appRoutes(path.join(root, entry.name), relative);
+    const route = appPageRoute(relative);
+    return route ? [route] : [];
+  });
+}
+
+test('retirement plan is pinned to the exact frozen Legacy artifact set', () => {
+  assert.ok(Object.isFrozen(LEGACY_RETIREMENT_PATHS));
+  assert.equal(new Set(LEGACY_RETIREMENT_PATHS).size, LEGACY_RETIREMENT_PATHS.length);
+  assert.equal(paths.length, RETIREMENT_ARTIFACT_SET.count);
+  assert.deepEqual(assertFrozenLegacyArtifactSet(paths), paths);
+  assert.throws(
+    () => assertFrozenLegacyArtifactSet(paths.slice(1)),
+    /legacy-retirement-artifact-count-drift/,
+  );
+  assert.throws(
+    () => assertFrozenLegacyArtifactSet([...paths.slice(1), '/swapped.html']),
+    /legacy-retirement-artifact-set-drift/,
+  );
+});
+
+test('physical Legacy renderers are retired while their URL contract remains frozen', () => {
+  const physicalPaths = readdirSync(path.join(FRONTEND, 'public'), { recursive: true })
+    .filter((entry) => String(entry).endsWith('.html'));
+  assert.deepEqual(physicalPaths, []);
+  assertFrozenLegacyArtifactSet(LEGACY_RETIREMENT_PATHS);
+});
+
+test('retirement workflow rejects every public symlink and runs for any public-tree change', () => {
+  const workflow = readFileSync(
+    path.join(FRONTEND, '..', '.github', 'workflows', 'legacy-freeze.yml'),
+    'utf8',
+  );
+  assert.match(workflow, /- 'frontend\/public\/\*\*'/);
+  assert.match(workflow, /find frontend\/public -type l -print/);
+});
+
+test('explicit URL manifest preserves all 139 pre-refactor redirect rules byte for byte', () => {
+  const independentRules = buildLegacyRetirementRedirects();
+  assert.deepEqual(independentRules, redirects);
+  assert.equal(independentRules.length, 139);
+  // Captured from main 17159ba0 before this refactor: includes rule order,
+  // destinations, permanence and all query conditions, not only URL count.
+  assert.equal(createHash('sha256').update(JSON.stringify(independentRules)).digest('hex'),
+    '75544da36a6d78745a719e5b6d81c5b1212657726b37be38daa844882a2f02c5');
+  assert.match(nextConfig, /buildLegacyRetirementRedirects\([\s\S]*?LEGACY_RETIREMENT_PATHS,/);
+  assert.doesNotMatch(nextConfig, /discoverLegacyHtmlPaths|readdirSync/);
+});
+
+test('manifest-only edits trigger compiled-route CI', () => {
+  const workflowRoot = path.join(FRONTEND, '..', '.github', 'workflows');
+  const affected = readdirSync(workflowRoot).filter((name) => /\.ya?ml$/.test(name))
+    .map((name) => ({ name, source: readFileSync(path.join(workflowRoot, name), 'utf8') }))
+    .filter(({ source }) => /- 'frontend\/tooling\/legacy-url-redirects\.mjs'/.test(source));
+  assert.ok(affected.some(({ name }) => name === 'route-manifest.yml'));
+  for (const { name: workflowName, source } of affected) {
+    assert.match(source, /- 'frontend\/tooling\/legacy-url-paths\.mjs'/, workflowName);
+  }
+});
+
+test('actual Next config produces all redirects without reading a public tree', async () => {
+  const compiled = ts.transpileModule(nextConfig, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true,
+    },
+  }).outputText;
+  async function evaluate(env) {
+    const mod = { exports: {} };
+    runInNewContext(compiled, {
+      module: mod, exports: mod.exports,
+      require: createRequire(path.join(FRONTEND, 'next.config.ts')),
+      // Any accidental public-directory scan fails. Redirect generation owns
+      // the frozen URL contract without depending on retired renderer files.
+      __dirname: path.join(FRONTEND, 'nonexistent-config-fixture'),
+      process: { env: { NODE_ENV: 'production', ...env } },
+    });
+    return mod.exports.default.redirects();
+  }
+  const deployed = await evaluate({ VERCEL: '1' });
+  assert.deepEqual(JSON.parse(JSON.stringify(deployed.slice(0, 139))), redirects);
+  const local = await evaluate({});
+  assert.deepEqual(JSON.parse(JSON.stringify(local.slice(0, 139))), redirects);
+});
+
+test('every Legacy HTML source is permanently intercepted before public serving', () => {
+  const sources = new Set(redirects.map((entry) => entry.source));
+  assert.equal(sources.size, paths.length);
+  assert.deepEqual([...sources].sort(), paths);
+  assert.ok(redirects.every((entry) => entry.permanent === true));
+  assert.ok(redirects.every((entry) => !entry.destination.endsWith('.html')));
+  assert.ok(redirects.every((entry) => !entry.destination.includes('[')));
+});
+
+test('retired renderer redirects cannot be disabled by a local escape hatch', () => {
+  assert.doesNotMatch(nextConfig, /GATE_E_LEGACY_FIXTURES|GATE_E_LOCAL_LEGACY_FIXTURES/);
+  assert.match(nextConfig, /\.\.\.LEGACY_RETIREMENT_REDIRECTS/);
+  const config = readFileSync(path.join(FRONTEND, 'playwright.speaking-regression.config.js'), 'utf8');
+  assert.doesNotMatch(config, /GATE_E_LEGACY_FIXTURES|fixtures\/gate-e-legacy/);
+});
+
+test('advisory E2E always runs the Next-native Speaking regression', () => {
+  const workflow = readFileSync(
+    path.join(FRONTEND, '..', '.github', 'workflows', 'e2e.yml'),
+    'utf8',
+  );
+  assert.match(workflow, /name: Run Next-native Speaking browser regression\n\s+id: speaking_regression\n\s+if: always\(\)/);
+  assert.match(workflow, /run: npm run test:e2e:speaking-regression/);
+  assert.doesNotMatch(workflow, /Gate E|GATE_E|gate-e|coexistence/);
+});
+
+test('every redirect destination resolves to a real App Router owner', () => {
+  const owners = new Set(appRoutes(path.join(FRONTEND, 'app')));
+  for (const redirect of redirects) {
+    const pathname = redirect.destination.split('?')[0]
+      .replace(/:([^/]+)/g, '[$1]');
+    assert.ok(owners.has(pathname), `${redirect.source} redirects to missing ${pathname}`);
+  }
+  assert.ok(redirects.some((entry) => (
+    entry.source === '/pages/admin/access-codes/index.html'
+      && entry.destination === '/admin/users?tab=codes'
+  )));
+});
+
+test('eight dynamic detail routes translate query identity and fail safe to an index', () => {
+  const dynamic = redirects.filter((entry) => (
+    Array.isArray(entry.has)
+      && entry.has.some(({ value }) => String(value).includes('?<'))
+  ));
+  assert.equal(dynamic.length, 8);
+  for (const rule of dynamic) {
+    assert.ok(rule.has.length >= 1);
+    assert.ok(rule.has.every(({ type, key, value }) => (
+      type === 'query' && key && /^\(\?<[^>]+>\[\^\/\]\+\)$/.test(value)
+    )));
+    assert.ok(redirects.some((fallback) => (
+      fallback.source === rule.source && !fallback.has && fallback.destination !== rule.destination
+    )));
+  }
+  const grammar = dynamic.find((entry) => entry.source === '/pages/grammar-article.html');
+  assert.equal(grammar.destination, '/grammar/:category/:slug');
+  assert.deepEqual(grammar.has.map(({ key }) => key), ['category', 'slug']);
+
+  for (const source of [
+    '/pages/admin/classes/index.html',
+    '/pages/admin/cohorts/index.html',
+  ]) {
+    const cohort = dynamic.find((entry) => entry.source === source);
+    assert.equal(cohort.destination, '/admin/classes/:cohortId');
+    assert.deepEqual(cohort.has.map(({ key }) => key), ['cohort_id']);
+    assert.ok(redirects.some((entry) => (
+      entry.source === source
+        && entry.destination === '/admin/students'
+        && entry.has?.[0]?.key === 'tab'
+        && entry.has[0].value === 'students'
+    )));
+  }
+});

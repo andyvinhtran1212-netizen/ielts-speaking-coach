@@ -21,6 +21,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { canonicalNextRouteForLegacy } from '../tooling/legacy-url-mapping.mjs';
 
 const FRONTEND = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -142,17 +143,7 @@ describe('cutover /home — điều hướng canonical', () => {
   });
 
   test('route Next tồn tại đúng chỗ', () => {
-    // Đổi tên thư mục route mà quên sửa cặp parity thì cổng authed so nhầm một
-    // URL 404 và vẫn có thể báo "xanh" theo kiểu vô nghĩa.
-    const pairs = JSON.parse(readFileSync(
-      path.join(FRONTEND, 'tooling/parity-pairs-authed.json'), 'utf8'));
-    const home = pairs.find((p) => p.name === 'home');
-    assert.ok(home, 'cặp parity "home" phải còn');
-    assert.equal(home.next, '/home');
-    assert.equal(home.legacy, '/pages/home.html');
-    assert.deepEqual(home.allow || [], [],
-      'behavior đã port xong — không còn lý do miễn trừ mục nào');
-
+    assert.equal(canonicalNextRouteForLegacy('/pages/home.html'), '/home');
     assert.ok(statSync(path.join(FRONTEND, 'app/(authed-home)/home/page.tsx')).isFile());
   });
 

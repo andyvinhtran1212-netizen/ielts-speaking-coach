@@ -23,7 +23,7 @@ const LEGACY_HUB = read('public', 'pages', 'admin', 'grammar', 'index.html');
 const LEGACY_CLIENT = read('public', 'js', 'admin-grammar-articles.js');
 const CONFIG = read('next.config.ts');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 const fixture = {
   total: 1,

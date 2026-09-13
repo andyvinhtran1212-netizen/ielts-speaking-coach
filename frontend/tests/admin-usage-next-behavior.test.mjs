@@ -22,7 +22,7 @@ const LAYOUT = read('app', '(authed-admin-usage)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-usage-next.css');
 const CODES = read('app', '(authed-admin-users)', 'admin', 'users', 'admin-access-codes-panel.tsx');
 const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
-const WORKFLOW = read('..', '.github', 'workflows', 'parity-gate.yml');
+const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 describe('/admin/usage native contract', () => {
   test('owns the route behind backend-owned admin auth and remains read-only', () => {

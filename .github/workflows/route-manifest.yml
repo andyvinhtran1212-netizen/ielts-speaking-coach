@@ -19,7 +19,7 @@ name: Build checks (route manifest + sàn trình duyệt)
 
 on:
   # Sau khi merge vào nhánh tích hợp hoặc production — xem chú thích cùng chủ đề
-  # ở `parity-gate.yml`. Job này DỰNG bản build, nên nó là chỗ duy nhất bắt được
+  # ở `next-native-browser.yml`. Job này DỰNG bản build, nên nó là chỗ duy nhất bắt được
   # ca «hai PR cùng xanh, hợp lại thì build hỏng».
   push:
     branches: [main, staging]
@@ -50,9 +50,9 @@ on:
       - 'frontend/next.config.ts'
       # These helpers are imported by next.config and therefore own compiled
       # production redirects just as directly as next.config itself.
-      - 'frontend/tooling/gate-f-retirement-redirects.mjs'
-      - 'frontend/tooling/gate-f-legacy-paths.mjs'
-      - 'frontend/tooling/gate-f-route-replacement-inventory.mjs'
+      - 'frontend/tooling/legacy-url-redirects.mjs'
+      - 'frontend/tooling/legacy-url-paths.mjs'
+      - 'frontend/tooling/legacy-url-mapping.mjs'
       - 'frontend/tsconfig.json'
       - 'frontend/tooling/route-ownership-check.mjs'
       - 'frontend/tooling/legacy-browser-scan.mjs'

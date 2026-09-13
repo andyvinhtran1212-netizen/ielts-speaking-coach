@@ -22,9 +22,8 @@ const LAYOUT = readFrontend('app', '(authed-practice)', 'layout.tsx');
 const RUNTIME_SCRIPTS = readFrontend(
   'app', '(authed-practice)', 'practice-runtime-scripts.tsx',
 );
-const PAIRS = JSON.parse(readFrontend('tooling', 'parity-pairs-authed.json'));
 const DOC = readRoot('docs', 'GATE_E_SPEAKING_CORE_2026-08-09.md');
-const PARITY_GATE = readRoot('.github', 'workflows', 'parity-gate.yml');
+const BROWSER_GATE = readRoot('.github', 'workflows', 'next-native-browser.yml');
 
 const LUCIDE_1_17_ICON_SIGNATURES = {
   'chevron-left': ['d="m15 18-6-6 6-6"'],
@@ -199,22 +198,15 @@ describe('/practice/session stable Next implementation route', () => {
     assert.match(DOC, /forward rollback run `32047774312` đã pass/);
   });
 
-  test('parity inventory includes the missing-session branch with an honest limitation', () => {
-    const pair = PAIRS.find((item) => item.name === 'speaking-practice-dark');
-    assert.equal(pair.legacy, '/pages/practice.html');
-    assert.equal(pair.next, '/practice/session');
-    assert.ok(pair.note.includes('THIẾU session_id'));
-    assert.ok(pair.note.includes('không chứng minh'));
+  test('Next browser regression owns the stable practice route', () => {
+    assert.match(BROWSER_GATE, /- 'frontend\/app\/\(authed-practice\)\/\*\*'/);
+    assert.match(BROWSER_GATE, /run: node tooling\/verify-speaking-flow\.mjs/);
   });
 
-  test('speaking-debt-only changes activate the authed parity pair', () => {
-    const selectors = [...PARITY_GATE.matchAll(/grep -qE '([^']+)'/g)]
-      .map((match) => match[1]);
-    assert.equal(selectors.length, 2, 'expected full and authed scope selectors');
-    const changed = 'frontend/public/js/speaking-debt.js';
-    assert.match(PARITY_GATE, /- 'frontend\/public\/js\/speaking-debt\.js'/,
+  test('speaking-debt-only changes activate the Next browser regression', () => {
+    assert.match(BROWSER_GATE, /- 'frontend\/public\/js\/speaking-debt\.js'/,
       'the workflow must start when only the debt retry path changes');
-    assert.equal(new RegExp(selectors[1]).test(changed), true,
-      'the exact changed filename must set authed=true, not run unrelated public parity only');
+    assert.match(BROWSER_GATE, /run: node tooling\/verify-speaking-flow\.mjs/);
+    assert.doesNotMatch(BROWSER_GATE, /parity-diff|steps\.gate_f|WF_LEGACY/);
   });
 });

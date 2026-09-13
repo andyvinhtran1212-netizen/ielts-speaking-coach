@@ -16,7 +16,7 @@ const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
 const CLIENT = read('app', '(authed-listening)', 'listening', '(standalone-exercises)', 'dictation', 'listening-standalone-dictation.tsx');
 const BROWSE = read('app', '(authed-listening)', 'listening', 'browse', 'listening-browse-behavior.tsx');
 const CSS = read('public', 'css', 'listening-standalone-next.css');
-const GATE = read('..', '.github', 'workflows', 'parity-gate.yml');
+const GATE = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
 const boot = () => ({
   content: {

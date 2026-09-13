@@ -1,5 +1,10 @@
 # Cutover `/grammar` — trang chủ Grammar Wiki
 
+> **Hồ sơ lịch sử — superseded ngày 2026-09-12.** Các tham chiếu tới parity
+> tooling bên dưới ghi lại cơ chế tại thời điểm cutover, không phải hướng dẫn
+> hiện hành. Coverage thay thế nằm ở
+> `.github/workflows/next-native-browser.yml`.
+
 **Ngày:** 2026-08-03 · **Route canonical:** `/grammar` (Next)
 **Đây là cutover ĐẦU TIÊN chạy theo ADR-013-A1** — bằng chứng là cổng, không
 phải cửa sổ thời gian.

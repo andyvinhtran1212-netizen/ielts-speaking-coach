@@ -1,31 +1,15 @@
-// Source of truth for same-application routing during coexistence (ADR-002).
-// Ported 1:1 from the old frontend/vercel.json on 2026-07-13 (Phase 1 —
-// mechanical move); vercel.json now only pins the framework preset.
-//
-// PHASES (ADR-002 requires each rule to name its phase):
-//   * legacy clean-URL rewrites live in `beforeFiles` ON PURPOSE: they win
-//     over any future app route, so cutting a route over to Next REQUIRES
-//     removing its rewrite in the same change (atomic ownership transfer —
-//     plan §8.2); the route-ownership check turns a forgotten removal into
-//     a build failure instead of a silent shadow.
-//   * `/` → /index.html is beforeFiles: the app directory must never own
-//     the root until the root migrates (plan §8.1).
+// Canonical Next routing configuration. Historical HTML URLs remain permanent
+// redirects so existing bookmarks continue to resolve.
 import path from 'node:path';
 import type { NextConfig } from 'next';
 
 import {
   buildLegacyRetirementRedirects,
   LEGACY_RETIREMENT_PATHS,
-} from './tooling/gate-f-retirement-redirects.mjs';
+} from './tooling/legacy-url-redirects.mjs';
 
-// Owner-authorized Gate F closure (2026-09-11): Legacy renderers are physically
-// retired. Their frozen URL identities remain permanent redirects because
-// browsers may cache 308s and existing bookmarks must keep resolving.
-const LEGACY_RETIREMENT_REDIRECTS_PERMANENT = true;
 const LEGACY_RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(
-  // URL compatibility is independent of the retired physical files.
   LEGACY_RETIREMENT_PATHS,
-  { permanent: LEGACY_RETIREMENT_REDIRECTS_PERMANENT },
 );
 
 const nextConfig: NextConfig = {
@@ -83,8 +67,7 @@ const nextConfig: NextConfig = {
   async redirects() {
     // Permanent legacy-path consolidation — ported 1:1 from vercel.json.
     return [
-      // GATE F HARD FLIP: permanent redirects run before public-file serving, so no
-      // frozen HTML artifact can render while this release is active. Keep the
+      // Permanent redirects run before public-file serving. Keep the
       // generated manifest as the single owner of those sources; duplicate
       // literal rules could compile into contradictory route behavior.
       ...LEGACY_RETIREMENT_REDIRECTS,
