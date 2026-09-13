@@ -7,65 +7,20 @@
   "voice": "bf_emma",
   "playback_rates": [0.85, 1.0],
   "sentences": [
-    {
-      "id": "C1-B06-PRON-01",
-      "order": 1,
-      "text": "My uncle works at a small clinic near the market."
-    },
-    {
-      "id": "C1-B06-PRON-02",
-      "order": 2,
-      "text": "Crowds of visitors wait at the temple gate in the heavy afternoon heat every single day."
-    },
-    {
-      "id": "C1-B06-PRON-03",
-      "order": 3,
-      "text": "Seafood restaurants line the road on the eastern side of the island near Nha Trang."
-    },
-    {
-      "id": "C1-B06-PRON-04",
-      "order": 4,
-      "text": "Office workers in the tall new buildings near the lake start work at eight every morning."
-    },
-    {
-      "id": "C1-B06-PRON-05",
-      "order": 5,
-      "text": "Air quality in Hanoi becomes much worse in the winter months of December and January."
-    },
-    {
-      "id": "C1-B06-PRON-06",
-      "order": 6,
-      "text": "The city’s council announces its new transport plan on the first Friday of every month."
-    },
-    {
-      "id": "C1-B06-PRON-07",
-      "order": 7,
-      "text": "Every morning, thousands of factory workers travel to the industrial park by bus or motorbike."
-    },
-    {
-      "id": "C1-B06-PRON-08",
-      "order": 8,
-      "text": "Heavy lorries carry sand and stone along the narrow village road towards the city centre."
-    },
-    {
-      "id": "C1-B06-PRON-09",
-      "order": 9,
-      "text": "Visitors walk through the museum’s three floors and its quiet garden in about two hours."
-    },
-    {
-      "id": "C1-B06-PRON-10",
-      "order": 10,
-      "text": "Because of heavy rain last week, farmers in the delta lost part of their harvest."
-    },
-    {
-      "id": "C1-B06-PRON-11",
-      "order": 11,
-      "text": "In spite of its small size, my home town offers plenty of cheap accommodation for tourists."
-    },
-    {
-      "id": "C1-B06-PRON-12",
-      "order": 12,
-      "text": "Owing to rising fuel prices, many young workers in the city now choose cheaper motorbikes."
-    }
+    {"id": "C1-B06-PRON-V2-01", "order": 1, "text": "Owing to a shortage of teachers, some village schools open late."},
+    {"id": "C1-B06-PRON-V2-02", "order": 2, "text": "A small coffee shop beside the lake opens at six every morning."},
+    {"id": "C1-B06-PRON-V2-03", "order": 3, "text": "Because of the city’s rapid growth, house prices rise every single year in every district."},
+    {"id": "C1-B06-PRON-V2-04", "order": 4, "text": "Many small shops close while the owners take a lunch break."},
+    {"id": "C1-B06-PRON-V2-05", "order": 5, "text": "Seafood restaurants line the road on the eastern side of the island near Nha Trang."},
+    {"id": "C1-B06-PRON-V2-06", "order": 6, "text": "The old wooden houses in the quiet streets of Hoi An attract thousands of foreign visitors."},
+    {"id": "C1-B06-PRON-V2-07", "order": 7, "text": "Heavy lorries carry sand and stone along the narrow village road towards the city centre."},
+    {"id": "C1-B06-PRON-V2-08", "order": 8, "text": "Despite the high cost of petrol, most families in this city still use private cars."},
+    {"id": "C1-B06-PRON-V2-09", "order": 9, "text": "A tall fence runs along the eastern side of the school."},
+    {"id": "C1-B06-PRON-V2-10", "order": 10, "text": "In spite of its small size, my home town offers plenty of cheap accommodation for tourists."},
+    {"id": "C1-B06-PRON-V2-11", "order": 11, "text": "Air quality in Hanoi becomes much worse in the winter months of December and January."},
+    {"id": "C1-B06-PRON-V2-12", "order": 12, "text": "Crowds of visitors wait at the temple gate in the heavy afternoon heat every single day."},
+    {"id": "C1-B06-PRON-V2-13", "order": 13, "text": "The city’s council announces its new transport plan on the first Friday of every month."},
+    {"id": "C1-B06-PRON-V2-14", "order": 14, "text": "Because of heavy rain last week, farmers in the delta lost part of their harvest."},
+    {"id": "C1-B06-PRON-V2-15", "order": 15, "text": "Office workers in the tall new buildings near the lake start work at eight every morning."}
   ]
 }

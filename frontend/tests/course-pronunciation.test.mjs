@@ -195,6 +195,44 @@ test('a completed result with the same cached client id clears the uploaded draf
 });
 
 
+test('a versioned sentence set removes V1 drafts once without deleting V2 drafts', async () => {
+  browserShell();
+  const versionedExercise = {
+    ...exercise,
+    bank_id: 'bank-06',
+    sentences: Array.from({ length: 15 }, (_value, index) => ({
+      id: `C1-B06-PRON-V2-${String(index + 1).padStart(2, '0')}`,
+      order: index + 1,
+      text: `Medium length pronunciation sentence number ${index + 1}.`,
+      audio_url: `https://audio/${index + 1}.mp3`,
+    })),
+  };
+  const oldBlob = new Blob(['old-v1'], { type: 'audio/webm' });
+  const draftStore = memoryDraftStore([
+    ['u1:bank-06:attempt:active', true],
+    ['u1:bank-06:attempt:client-id', 'v1-client-id'],
+    ['u1:bank-06:C1-B06-PRON-01', oldBlob],
+    ['u1:bank-06:C1-B06-PRON-12', oldBlob],
+  ]);
+  const api = { get: async () => ({ exercise: versionedExercise, latest_attempt: null }) };
+
+  const firstV2Page = createPronunciation({ api, userId: 'u1', draftStore });
+  await firstV2Page.load('bank-06');
+  assert.match(firstV2Page.render(), /0<small>\/15 đã thu/);
+  assert.equal(draftStore.values.has('u1:bank-06:C1-B06-PRON-01'), false);
+  assert.equal(draftStore.values.has('u1:bank-06:C1-B06-PRON-12'), false);
+  assert.equal(draftStore.values.get('u1:bank-06:attempt:client-id'),
+    '11111111-1111-4111-8111-111111111111');
+
+  const v2Key = 'u1:bank-06:C1-B06-PRON-V2-01';
+  await draftStore.put(v2Key, new Blob(['new-v2'], { type: 'audio/webm' }));
+  const reloadedV2Page = createPronunciation({ api, userId: 'u1', draftStore });
+  await reloadedV2Page.load('bank-06');
+  assert.match(reloadedV2Page.render(), /1<small>\/15 đã thu/);
+  assert.equal(draftStore.values.has(v2Key), true);
+});
+
+
 test('leaving while microphone permission is pending stops the late stream', async () => {
   browserShell();
   let allowMicrophone;

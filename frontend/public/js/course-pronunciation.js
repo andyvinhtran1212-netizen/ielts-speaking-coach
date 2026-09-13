@@ -9,6 +9,8 @@ const esc = (value) => String(value == null ? '' : value)
 const DB_NAME = 'aver-course-pronunciation';
 const DB_VERSION = 1;
 const STORE = 'recordings';
+const MAX_VERSIONED_SENTENCES = 20;
+const VERSIONED_SENTENCE_ID = /^(.*)-V(\d+)-(\d+)$/;
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -128,6 +130,37 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
     ...sentences().map((sentence) => cacheKey(sentence.id)),
     attemptKey('active'), attemptKey('client-id'),
   ];
+
+  function draftMigration() {
+    const parsed = sentences().map((sentence) =>
+      VERSIONED_SENTENCE_ID.exec(String(sentence.id || '')));
+    if (!parsed.length || parsed.some((match) => !match)) return null;
+    const prefix = parsed[0][1];
+    const version = Number(parsed[0][2]);
+    if (version < 2 || parsed.some((match) => match[1] !== prefix
+        || Number(match[2]) !== version)) return null;
+    const legacyIds = [];
+    for (let oldVersion = 1; oldVersion < version; oldVersion += 1) {
+      for (let order = 1; order <= MAX_VERSIONED_SENTENCES; order += 1) {
+        const suffix = String(order).padStart(2, '0');
+        legacyIds.push(oldVersion === 1
+          ? `${prefix}-${suffix}` : `${prefix}-V${oldVersion}-${suffix}`);
+      }
+    }
+    return {
+      marker: attemptKey(`migration:${prefix}-V${version}`),
+      obsoleteKeys: legacyIds.map(cacheKey),
+    };
+  }
+
+  async function migrateDraftCache() {
+    const migration = draftMigration();
+    if (!migration || await draftStore.get(migration.marker) === true) return;
+    await draftStore.delete([
+      ...migration.obsoleteKeys, attemptKey('active'), attemptKey('client-id'),
+    ]);
+    await draftStore.put(migration.marker, true);
+  }
 
   function setBlob(id, blob) {
     const old = objectUrls.get(id);
@@ -383,6 +416,7 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
       activeTimer.reset();
       speed = Number(exercise?.playback_rates?.[0] || 0.85);
       if (exercise) {
+        await migrateDraftCache();
         const [cachedActive, cachedClientId] = await Promise.all([
           draftStore.get(attemptKey('active')),
           draftStore.get(attemptKey('client-id')),
