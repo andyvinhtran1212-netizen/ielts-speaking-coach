@@ -13,6 +13,10 @@ const RESPONSIVE_RUNNER = readFileSync(
   path.join(ROOT, 'frontend', 'tooling', 'verify-next-responsive-flow.mjs'),
   'utf8',
 );
+const D1_RUNNER = readFileSync(
+  path.join(ROOT, 'frontend', 'tooling', 'verify-d1-exercise-flow.mjs'),
+  'utf8',
+);
 
 describe('permanent Next-native browser regression workflow', () => {
   test('runs for pull requests and both integration branches', () => {
@@ -76,6 +80,19 @@ describe('permanent Next-native browser regression workflow', () => {
     ]) {
       assert.ok(invoked.includes(required), `missing critical verifier ${required}`);
     }
+  });
+
+  test('keeps the D1 old-token retry independent from auth lifecycle races', () => {
+    assert.match(D1_RUNNER, /const refreshTokenInstalled = new Promise/);
+    assert.match(D1_RUNNER, /await refreshTokenInstalled;[\s\S]{0,100}Old token expired/);
+    assert.match(D1_RUNNER, /refresh401Armed[\s\S]{0,180}request\.headers\(\)\['x-request-id'\]/);
+    const retryScenario = D1_RUNNER.slice(
+      D1_RUNNER.lastIndexOf('refresh401Armed = true;'),
+      D1_RUNNER.indexOf('generationRaceArmed = true;'),
+    );
+    assert.match(retryScenario, /window\.__d1AccessToken = 'refreshed-token'/);
+    assert.match(retryScenario, /resolveRefreshTokenInstalled\(\)/);
+    assert.doesNotMatch(retryScenario, /__d1AuthCallback/);
   });
 
   test('is Next-only and cannot silently retain a migration phase', () => {

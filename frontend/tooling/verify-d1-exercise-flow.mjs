@@ -129,7 +129,9 @@ await context.route('**/*', async (route) => {
   if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers, body: '' });
   const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', headers, body: JSON.stringify(body) });
   if (url.pathname === '/auth/me') {
-    if (refresh401Armed && request.headers().authorization === 'Bearer fixture-token') {
+    if (refresh401Armed
+      && request.headers().authorization === 'Bearer fixture-token'
+      && request.headers()['x-request-id']) {
       refresh401Armed = false;
       refreshRetryExpected = true;
       resolveRefresh401();
@@ -524,11 +526,11 @@ await refresh401Started;
 await page.evaluate(([userId]) => {
   window.__d1CurrentUser = userId;
   window.__d1AccessToken = 'refreshed-token';
-  window.__d1AuthCallback?.('TOKEN_REFRESHED', {
-    access_token: 'refreshed-token',
-    user: { id: userId, email: 'd1@local' },
-  });
 }, [USER]);
+// Supabase has already committed the refreshed session by the time the
+// original request receives 401. Account-change callbacks are covered by the
+// adjacent generation tests; emitting one here would add an unrelated React
+// lifecycle race to the request retry contract.
 resolveRefreshTokenInstalled();
 await page.getByRole('button', { name: 'Bắt đầu phiên mới' }).waitFor();
 await Promise.race([refreshRetryObserved, page.waitForTimeout(2_000)]);
