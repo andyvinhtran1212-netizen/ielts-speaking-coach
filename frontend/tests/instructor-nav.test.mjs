@@ -26,7 +26,7 @@ describe('W-6b — instructor nav item (aver-chrome)', () => {
     const tag = m[0];
     assert.match(tag, /\bhidden\b/, 'hidden by default (role-gated)');
     // W-6b: now a REAL link to the instructor area (no longer a placeholder).
-    assert.match(tag, /href="\/pages\/instructor\/index\.html"/, 'links to the instructor area');
+    assert.match(tag, /href="\/instructor"/, 'links to the instructor area');
   });
 
   it('setRole un-hides ONLY for instructor or admin', () => {
