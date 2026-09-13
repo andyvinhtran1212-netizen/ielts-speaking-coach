@@ -17,6 +17,8 @@ test('Speaking browser regression uses a production build and bundled Chromium w
   assert.match(config, /command:\s*'npm run build && npm run start'/);
   assert.match(config, /use:\s*\{ browserName: 'chromium' \}/);
   assert.doesNotMatch(config, /channel:\s*'chrome'/);
+  assert.match(config, /AVER_ENVIRONMENT:\s*'test'/);
+  assert.match(config, /AVER_API_BASE:\s*'http:\/\/localhost:8000'/);
   assert.equal(pkg.scripts['test:e2e:speaking-regression'], 'playwright test -c playwright.speaking-regression.config.js');
 });
 
