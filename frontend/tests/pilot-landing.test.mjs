@@ -88,6 +88,11 @@ test('landing waits for runtime-config before selecting an API environment', () 
     /if \(window\.__AVER_RUNTIME_CONFIG__\) \{\s*[\s\S]*?loadEnvironmentData\(true\);/,
     'an empty generated config must retain the known-host localhost/production fallback',
   );
+  assert.match(
+    behavior,
+    /function handleRuntimeConfigReady\(\) \{[\s\S]*?loadEnvironmentData\(true\);\s*\}/,
+    'an empty config delivered by the ready event must retain the same known-host fallback',
+  );
   assert.ok(
     behavior.indexOf('const rc = window.__AVER_RUNTIME_CONFIG__')
       < behavior.indexOf("fetch(apiBase + '/api/public-stats')"),

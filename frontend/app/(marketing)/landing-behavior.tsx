@@ -116,7 +116,9 @@ export function LandingBehavior() {
 
     function handleRuntimeConfigReady() {
       window.removeEventListener('aver:runtime-config-failed', handleRuntimeConfigFailure);
-      loadEnvironmentData();
+      // A successfully loaded local config can intentionally have apiBase=null.
+      // Known-host fallback is still safe because unknown previews resolve null.
+      loadEnvironmentData(true);
     }
 
     function handleRuntimeConfigFailure() {
