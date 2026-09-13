@@ -156,9 +156,21 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
   async function migrateDraftCache() {
     const migration = draftMigration();
     if (!migration || await draftStore.get(migration.marker) === true) return;
-    await draftStore.delete([
-      ...migration.obsoleteKeys, attemptKey('active'), attemptKey('client-id'),
-    ]);
+    const obsoleteValues = await Promise.all(
+      migration.obsoleteKeys.map((key) => draftStore.get(key)),
+    );
+    const currentValues = await Promise.all(
+      sentences().map((sentence) => draftStore.get(cacheKey(sentence.id))),
+    );
+    const hasObsoleteRecording = obsoleteValues.some((value) =>
+      value instanceof Blob && value.size > 0);
+    const hasCurrentRecording = currentValues.some((value) =>
+      value instanceof Blob && value.size > 0);
+    const keys = [...migration.obsoleteKeys];
+    if (hasObsoleteRecording && !hasCurrentRecording) {
+      keys.push(attemptKey('active'), attemptKey('client-id'));
+    }
+    await draftStore.delete(keys);
     await draftStore.put(migration.marker, true);
   }
 

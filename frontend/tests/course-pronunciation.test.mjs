@@ -233,6 +233,69 @@ test('a versioned sentence set removes V1 drafts once without deleting V2 drafts
 });
 
 
+test('a V2 migration preserves client id when reconciling a completed V2 draft', async () => {
+  browserShell();
+  const clientId = 'completed-v2-client';
+  const versionedExercise = {
+    ...exercise,
+    sentences: exercise.sentences.map((sentence, index) => ({
+      ...sentence, id: `C1-B05-PRON-V2-${String(index + 1).padStart(2, '0')}`,
+    })),
+  };
+  const firstId = versionedExercise.sentences[0].id;
+  const draftStore = memoryDraftStore([
+    ['u1:bank-05:attempt:active', true],
+    ['u1:bank-05:attempt:client-id', clientId],
+    [`u1:bank-05:${firstId}`, new Blob(['uploaded-v2'], { type: 'audio/webm' })],
+  ]);
+  const api = { get: async () => ({ exercise: versionedExercise, latest_attempt: {
+    client_id: clientId, status: 'completed', pronunciation_score: 88,
+    results: { sentences: [] },
+  } }) };
+
+  const pronunciation = createPronunciation({ api, userId: 'u1', draftStore });
+  await pronunciation.load('bank-05');
+  assert.match(pronunciation.render(), /Kết quả phát âm/);
+  assert.equal(draftStore.values.has(`u1:bank-05:${firstId}`), false);
+  assert.equal(draftStore.values.has('u1:bank-05:attempt:active'), false);
+  assert.equal(draftStore.values.has('u1:bank-05:attempt:client-id'), false);
+});
+
+
+test('completed V2 reconciliation wins when V1 and V2 recordings coexist', async () => {
+  browserShell();
+  const clientId = 'completed-mixed-client';
+  const versionedExercise = {
+    ...exercise,
+    sentences: exercise.sentences.map((sentence, index) => ({
+      ...sentence, id: `C1-B05-PRON-V2-${String(index + 1).padStart(2, '0')}`,
+    })),
+  };
+  const currentKeys = versionedExercise.sentences.map((sentence) =>
+    `u1:bank-05:${sentence.id}`);
+  const draftStore = memoryDraftStore([
+    ['u1:bank-05:attempt:active', true],
+    ['u1:bank-05:attempt:client-id', clientId],
+    ['u1:bank-05:C1-B05-PRON-01', new Blob(['stale-v1'], { type: 'audio/webm' })],
+    ...currentKeys.map((key, index) => [
+      key, new Blob([`uploaded-v2-${index}`], { type: 'audio/webm' }),
+    ]),
+  ]);
+  const api = { get: async () => ({ exercise: versionedExercise, latest_attempt: {
+    client_id: clientId, status: 'completed', pronunciation_score: 91,
+    results: { sentences: [] },
+  } }) };
+
+  const pronunciation = createPronunciation({ api, userId: 'u1', draftStore });
+  await pronunciation.load('bank-05');
+  assert.match(pronunciation.render(), /Kết quả phát âm/);
+  assert.equal(draftStore.values.has('u1:bank-05:C1-B05-PRON-01'), false);
+  currentKeys.forEach((key) => assert.equal(draftStore.values.has(key), false));
+  assert.equal(draftStore.values.has('u1:bank-05:attempt:active'), false);
+  assert.equal(draftStore.values.has('u1:bank-05:attempt:client-id'), false);
+});
+
+
 test('leaving while microphone permission is pending stops the late stream', async () => {
   browserShell();
   let allowMicrophone;
