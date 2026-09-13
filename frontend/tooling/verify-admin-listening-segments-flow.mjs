@@ -75,7 +75,7 @@ await page.route('**/*', async (route) => {
 await page.goto(`${BASE}/admin/listening/segments?content_id=${contentId}`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Phân câu và khóa timestamp' }).waitFor();
 check('route đọc exact content và đầy đủ Dictation blocks', contentReads >= 1 && blockReads >= 1 && await page.locator('#alse-block option').count() === 3, `${contentReads} content GET · ${blockReads} block GET`);
-check('mặc định chọn order 1 và giữ rollback exact identity', await page.locator('#alse-block').inputValue() === 'exercise-1' && await page.getByRole('link', { name: /HTML rollback/ }).getAttribute('href') === `/pages/admin/listening/segments.html?content_id=${contentId}`);
+check('mặc định chọn order 1 và không còn HTML escape', await page.locator('#alse-block').inputValue() === 'exercise-1' && await page.getByRole('link', { name: /HTML rollback/ }).count() === 0);
 check('audio player dùng public current-time contract', await page.locator('audio-player').evaluate((node) => typeof node.getCurrentTime === 'function'));
 
 await page.locator('#alse-block').selectOption('exercise-3');

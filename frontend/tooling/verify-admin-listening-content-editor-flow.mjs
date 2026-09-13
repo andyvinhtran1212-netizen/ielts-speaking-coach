@@ -62,7 +62,7 @@ await page.goto(`${BASE}/admin/listening/content/${contentId}/edit`, { waitUntil
 await page.getByRole('heading', { name: 'Sửa metadata', exact: true }).waitFor();
 check('route admin đọc exact content identity', contentReads >= 1 && page.url().endsWith(`/admin/listening/content/${contentId}/edit`), `${contentReads} GET`);
 check('nullable CEFR và section không bị bịa mặc định', await page.locator('#alme-cefr').inputValue() === '' && await page.locator('#alme-section').inputValue() === '');
-check('rollback giữ exact identity legacy', await page.getByRole('link', { name: /Mở bản HTML rollback/ }).getAttribute('href') === `/pages/admin/listening/content-meta.html?id=${contentId}`);
+check('editor không còn escape sang HTML đã retire', await page.getByRole('link', { name: /HTML rollback/ }).count() === 0);
 
 await page.locator('#alme-title').fill('Updated title');
 await page.locator('#alme-tags').fill('Travel, travel, Work, Education');

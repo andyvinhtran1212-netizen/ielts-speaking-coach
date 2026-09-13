@@ -55,7 +55,7 @@ await page.goto(`${BASE}/admin/listening/content/c1`, { waitUntil: 'domcontentlo
 await page.getByRole('heading', { name: 'Detail <script>', exact: true }).waitFor();
 check('admin gate và identity GET đúng', contentReads === 1 && await page.getByText('c1', { exact: true }).count() >= 1);
 check('hostile title và transcript được React escape', await page.locator('script').filter({ hasText: 'Detail' }).count() === 0 && await page.locator('img').count() === 0 && await page.getByText('Hostile <img onerror=alert(1)> stays text.', { exact: true }).count() === 1);
-check('detail giữ rollback identity', await page.getByRole('link', { name: 'Mở bản HTML rollback ↗' }).getAttribute('href') === '/pages/admin/listening/content-detail.html?id=c1');
+check('detail không còn escape sang HTML đã retire', await page.getByRole('link', { name: /HTML rollback/ }).count() === 0);
 check('mobile detail không tràn ngang', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 
 await page.getByRole('button', { name: 'Đã phát hành', exact: true }).click();

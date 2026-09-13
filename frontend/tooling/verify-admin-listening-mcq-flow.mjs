@@ -97,7 +97,7 @@ check('route đọc exact content và đầy đủ MCQ blocks', contentReads >= 
 check('mặc định chọn order 1 và tách block importer khỏi editor standalone',
   await page.locator('#almc-block').inputValue() === 'exercise-1'
   && await page.getByText('1 MCQ block thuộc kho đề', { exact: true }).count() === 0
-  && await page.getByRole('link', { name: /HTML rollback/ }).count() === 1
+  && await page.getByRole('link', { name: /HTML rollback/ }).count() === 0
   && !(await page.locator('#almc-stem-0').isDisabled()));
 check('UI nêu bốn lựa chọn, một answer key và điều kiện đạt 100%', await page.getByText(/Một câu, bốn lựa chọn, một answer key/).count() === 1 && await page.getByText(/đúng 100% câu hỏi/).count() === 1);
 
