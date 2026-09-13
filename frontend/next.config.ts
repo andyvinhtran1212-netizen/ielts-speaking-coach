@@ -24,6 +24,20 @@ function localTestApiOrigin() {
 }
 
 const LOCAL_TEST_API_ORIGIN = localTestApiOrigin();
+const CONTENT_SECURITY_POLICY = `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: wss:${LOCAL_TEST_API_ORIGIN}; form-action 'self'`;
+const SAME_ORIGIN_FRAME_POLICY = CONTENT_SECURITY_POLICY.replace(
+  "frame-ancestors 'none'",
+  "frame-ancestors 'self'",
+);
+const EMBEDDABLE_SAME_ORIGIN_ROUTES = [
+  '/core-player/launch',
+  '/listening/test/session',
+  '/reading/exam/session',
+  '/admin/mock-exams',
+  '/admin/mock-live',
+  '/admin/mock-reviews',
+  '/admin/writing/queue',
+] as const;
 
 const nextConfig: NextConfig = {
   // A stray lockfile in the developer HOME makes Next infer the wrong
@@ -120,10 +134,17 @@ const nextConfig: NextConfig = {
           { key: 'Permissions-Policy', value: 'camera=(), geolocation=(), payment=(), usb=()' },
           {
             key: 'Content-Security-Policy',
-            value: `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: wss:${LOCAL_TEST_API_ORIGIN}; form-action 'self'`,
+            value: CONTENT_SECURITY_POLICY,
           },
         ],
       },
+      ...EMBEDDABLE_SAME_ORIGIN_ROUTES.map((source) => ({
+        source,
+        headers: [
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy', value: SAME_ORIGIN_FRAME_POLICY },
+        ],
+      })),
       {
         source: '/js/:path*',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' }],

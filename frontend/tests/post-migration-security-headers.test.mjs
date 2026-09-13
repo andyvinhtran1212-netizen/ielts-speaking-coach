@@ -24,6 +24,21 @@ test('all Next responses carry the permanent security header baseline', () => {
   assert.doesNotMatch(CONFIG, /cdn\.jsdelivr\.net|unpkg\.com/);
 });
 
+test('only the known exam workspaces can be framed by the same origin', () => {
+  for (const route of [
+    '/core-player/launch',
+    '/listening/test/session',
+    '/reading/exam/session',
+    '/admin/mock-exams',
+    '/admin/mock-live',
+    '/admin/mock-reviews',
+    '/admin/writing/queue',
+  ]) assert.match(CONFIG, new RegExp(`'${route.replaceAll('/', '\\/')}'`));
+  assert.match(CONFIG, /EMBEDDABLE_SAME_ORIGIN_ROUTES\.map/);
+  assert.match(CONFIG, /value: 'SAMEORIGIN'/);
+  assert.match(CONFIG, /"frame-ancestors 'self'"/);
+});
+
 test('mutable stable-name css and js always revalidate after a deploy', () => {
   const stableAssetRules = [...CONFIG.matchAll(
     /source:\s*'\/(?:js|css)\/:path\*'[\s\S]*?Cache-Control'[\s\S]*?value:\s*'([^']+)'/g,
