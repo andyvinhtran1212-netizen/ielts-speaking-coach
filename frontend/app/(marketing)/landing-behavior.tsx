@@ -116,7 +116,9 @@ export function LandingBehavior() {
 
     function handleRuntimeConfigReady() {
       window.removeEventListener('aver:runtime-config-failed', handleRuntimeConfigFailure);
-      loadEnvironmentData();
+      // A successfully loaded local config can intentionally have apiBase=null.
+      // Known-host fallback is still safe because unknown previews resolve null.
+      loadEnvironmentData(true);
     }
 
     function handleRuntimeConfigFailure() {
@@ -125,7 +127,10 @@ export function LandingBehavior() {
     }
 
     if (window.__AVER_RUNTIME_CONFIG__) {
-      loadEnvironmentData();
+      // The committed/local runtime config is intentionally an object with a
+      // null apiBase. Fall back only for the explicitly known local/production
+      // hosts; fallbackApiBase keeps unknown preview hosts fail-closed.
+      loadEnvironmentData(true);
     } else {
       window.addEventListener('aver:runtime-config-ready', handleRuntimeConfigReady, { once: true });
       window.addEventListener(
