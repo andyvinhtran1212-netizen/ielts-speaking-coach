@@ -37,6 +37,12 @@ const TOOLBAR_TAG = 'vercel-live-feedback';
 const TOOLBAR_SCRIPT_PATTERN = 'https://vercel.live/_next-live/**';
 const toolbarScopedContexts = new WeakSet();
 
+/** Ignore only the CSP report emitted for Vercel's staging-only toolbar. */
+function isVercelToolbarCspNoise(message) {
+  return message.includes("https://vercel.live/_next-live/feedback/feedback.js")
+    && message.includes('violates the following Content Security Policy directive');
+}
+
 /** Runs before page scripts and synchronously rejects Vercel's injected node. */
 function suppressInjectedVercelToolbar(tagName) {
   document.querySelectorAll(tagName).forEach((node) => node.remove());
@@ -98,6 +104,7 @@ module.exports = {
   TOOLBAR_HEADER,
   TOOLBAR_SCRIPT_PATTERN,
   TOOLBAR_TAG,
+  isVercelToolbarCspNoise,
   installToolbarSkip,
   primeBypassCookie,
 };

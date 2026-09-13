@@ -9,6 +9,7 @@ const {
   TOOLBAR_SCRIPT_PATTERN,
   TOOLBAR_TAG,
   buildBypassHeaders,
+  isVercelToolbarCspNoise,
   installToolbarSkip,
   primeBypassCookie,
 } = require('./staging-e2e/helpers.js');
@@ -34,6 +35,18 @@ function fakeContext() {
 }
 
 describe('Vercel Toolbar automation isolation', () => {
+  test('recognizes only the staging toolbar CSP report as platform noise', () => {
+    assert.equal(isVercelToolbarCspNoise(
+      "Loading the script 'https://vercel.live/_next-live/feedback/feedback.js' violates the following Content Security Policy directive: \"script-src 'self'\".",
+    ), true);
+    assert.equal(isVercelToolbarCspNoise(
+      "Loading the script 'https://evil.example/app.js' violates the following Content Security Policy directive.",
+    ), false);
+    assert.equal(isVercelToolbarCspNoise(
+      'Application error from https://vercel.live/_next-live/feedback/feedback.js',
+    ), false);
+  });
+
   test('keeps cookie-minting redirects out of direct no-follow probes', () => {
     assert.deepEqual(buildBypassHeaders('fixture-secret'), {
       'x-vercel-protection-bypass': 'fixture-secret',
