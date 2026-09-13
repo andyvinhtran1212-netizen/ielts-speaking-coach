@@ -103,7 +103,7 @@ async def health_basic() -> dict:
     return {
         "status": "ok",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "version": "phase-d-wave-2",
+        "version": os.environ.get("APP_VERSION", "next"),
     }
 
 

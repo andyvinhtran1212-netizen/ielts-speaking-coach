@@ -9,6 +9,7 @@ unique / anonymous / top pages sorted / daily, batched, graceful, admin-guarded)
 import asyncio
 
 import pytest
+from pydantic import ValidationError
 
 from routers import analytics as analytics_module
 from routers import admin as admin_module
@@ -64,6 +65,30 @@ def test_event_attribution_never_raises_on_bad_token(monkeypatch):
     out = _run(analytics_module.record_event(_payload(), authorization="Bearer bad"))
     assert out == {"ok": True}                       # tracking never fails the request
     assert stub.inserted[0]["user_id"] is None        # degrades to anonymous
+
+
+def test_event_payload_is_bounded_and_rejects_unknown_fields():
+    with pytest.raises(ValidationError):
+        analytics_module.AnalyticsEventPayload(event_name="bad event", event_data={})
+    with pytest.raises(ValidationError):
+        analytics_module.AnalyticsEventPayload(
+            event_name="page_view", event_data={"value": "x" * 1025},
+        )
+    with pytest.raises(ValidationError):
+        analytics_module.AnalyticsEventPayload(
+            event_name="page_view", event_data={}, unexpected="ignored-before",
+        )
+    with pytest.raises(ValidationError):
+        analytics_module.AnalyticsEventPayload(
+            event_name="page_view", event_data={"duration": float("nan")},
+        )
+
+
+def test_event_payload_uses_independent_default_dicts():
+    first = analytics_module.AnalyticsEventPayload(event_name="page_view")
+    second = analytics_module.AnalyticsEventPayload(event_name="page_view")
+    first.event_data["path"] = "/one"
+    assert second.event_data == {}
 
 
 # ── GET /admin/analytics/foot-traffic — aggregation ──────────────────────────────

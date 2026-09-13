@@ -11735,15 +11735,19 @@ export interface components {
              */
             from_section: string;
         };
-        /** AnalyticsEventPayload */
+        /**
+         * AnalyticsEventPayload
+         * @description Small, non-sensitive telemetry envelope.
+         *
+         *     This endpoint is intentionally anonymous, so validation is the primary
+         *     protection before the service-role insert.  Keep the envelope bounded and
+         *     reject unknown top-level fields instead of accepting arbitrary JSON.
+         */
         AnalyticsEventPayload: {
             /** Event Name */
             event_name: string;
-            /**
-             * Event Data
-             * @default {}
-             */
-            event_data: {
+            /** Event Data */
+            event_data?: {
                 [key: string]: unknown;
             };
             /** Session Id */

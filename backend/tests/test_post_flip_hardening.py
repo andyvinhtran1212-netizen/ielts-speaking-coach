@@ -128,6 +128,10 @@ def safety_app(**limits):
     async def log(request: Request):
         await request.json()
         return {'received': True}
+    @app.post('/api/analytics/events')
+    async def analytics(request: Request):
+        await request.json()
+        return {'received': True}
     return app
 
 
@@ -135,6 +139,21 @@ def test_upload_size_rejected_and_normal_form_survives_new_parser():
     client = TestClient(safety_app(upload_limit=1024))
     assert client.post('/upload', files={'file': ('sample.webm', b'abc', 'audio/webm')}).json() == {'bytes': 3}
     assert client.post('/upload', files={'file': ('sample.webm', b'x' * 1025)}).status_code == 413
+
+
+def test_anonymous_analytics_has_body_and_worker_rate_limits():
+    client = TestClient(safety_app(analytics_limit=32, analytics_per_minute=2))
+    assert client.post('/api/analytics/events', json={'x': 1}).status_code == 200
+    assert client.post('/api/analytics/events', json={'x': 2}).status_code == 200
+    limited = client.post('/api/analytics/events', json={'x': 3})
+    assert limited.status_code == 429
+    assert limited.headers['retry-after'] == '60'
+
+    oversized = TestClient(safety_app(analytics_limit=8)).post(
+        '/api/analytics/events', content=b'{"value":12345}',
+        headers={'content-type': 'application/json'},
+    )
+    assert oversized.status_code == 413
 
 
 def test_fulltest_aggregate_accepts_all_four_files_at_route_limits():

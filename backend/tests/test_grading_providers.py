@@ -167,6 +167,17 @@ async def test_claude_success_returns_text_and_logs_usage(monkeypatch):
     assert logged[0]["output_tokens"] == 20
 
 
+def test_claude_factory_sets_deadline_and_disables_hidden_retries(monkeypatch):
+    from services.grading_providers.claude import ClaudeHaikuProvider, _SDK_TIMEOUT_SECONDS
+
+    factory = MagicMock(return_value=MagicMock())
+    monkeypatch.setattr("services.grading_providers.claude.anthropic.AsyncAnthropic", factory)
+    ClaudeHaikuProvider(api_key="fake")
+    factory.assert_called_once_with(
+        api_key="fake", timeout=_SDK_TIMEOUT_SECONDS, max_retries=0,
+    )
+
+
 @pytest.mark.asyncio
 async def test_claude_empty_body_is_non_retryable():
     """Empty `response.content` from the SDK means malformed output

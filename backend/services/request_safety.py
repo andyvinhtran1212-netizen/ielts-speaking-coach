@@ -13,6 +13,7 @@ from starlette.responses import JSONResponse
 class RequestSafetyMiddleware:
     def __init__(self, app, *, upload_limit=64 * 1024 * 1024,
                  log_limit=64 * 1024, log_per_minute=600,
+                 analytics_limit=16 * 1024, analytics_per_minute=300,
                  fulltest_upload_limit=68 * 1024 * 1024):
         self.app = app
         self.upload_limit = upload_limit
@@ -22,25 +23,38 @@ class RequestSafetyMiddleware:
         self.fulltest_upload_limit = fulltest_upload_limit
         self.log_limit = log_limit
         self.log_per_minute = log_per_minute
+        self.analytics_limit = analytics_limit
+        self.analytics_per_minute = analytics_per_minute
         self._log_times = deque()
+        self._analytics_times = deque()
 
     async def __call__(self, scope, receive, send):
         if scope['type'] != 'http':
             return await self.app(scope, receive, send)
         headers = dict(scope.get('headers', []))
         is_log = scope.get('method') == 'POST' and scope.get('path', '').rstrip('/') == '/api/error-logs'
+        is_analytics = (scope.get('method') == 'POST'
+                        and scope.get('path', '').rstrip('/') == '/api/analytics/events')
         multipart = headers.get(b'content-type', b'').lower().startswith(b'multipart/form-data')
-        if not is_log and not multipart:
+        if not is_log and not is_analytics and not multipart:
             return await self.app(scope, receive, send)
-        if is_log:
+
+        def rate_limited(times, budget):
             now = time.monotonic()
-            while self._log_times and self._log_times[0] <= now - 60:
-                self._log_times.popleft()
-            if len(self._log_times) >= self.log_per_minute:
-                return await JSONResponse({'detail': 'Logging rate limit reached'}, 429,
-                                          headers={'Retry-After': '60'})(scope, receive, send)
-            self._log_times.append(now)
-        limit = self.log_limit if is_log else self.upload_limit
+            while times and times[0] <= now - 60:
+                times.popleft()
+            if len(times) >= budget:
+                return True
+            times.append(now)
+            return False
+
+        if is_log and rate_limited(self._log_times, self.log_per_minute):
+            return await JSONResponse({'detail': 'Logging rate limit reached'}, 429,
+                                      headers={'Retry-After': '60'})(scope, receive, send)
+        if is_analytics and rate_limited(self._analytics_times, self.analytics_per_minute):
+            return await JSONResponse({'detail': 'Analytics rate limit reached'}, 429,
+                                      headers={'Retry-After': '60'})(scope, receive, send)
+        limit = self.log_limit if is_log else self.analytics_limit if is_analytics else self.upload_limit
         if (multipart and scope.get('method') == 'POST'
                 and scope.get('path', '').rstrip('/') == '/admin/listening/import-fulltest/commit'):
             limit = self.fulltest_upload_limit

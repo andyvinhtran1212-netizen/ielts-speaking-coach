@@ -43,6 +43,8 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
+_STT_TIMEOUT_SECONDS = 120.0
+
 
 def _stt_model() -> str:
     """The configured STT model (audit 2026-07-02, finding #5). Default whisper-1."""
@@ -111,7 +113,7 @@ def _get_client() -> AsyncOpenAI:
                 "OPENAI_API_KEY chưa được cấu hình. "
                 "Thêm OPENAI_API_KEY=sk-... vào file .env."
             )
-        _client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        _client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, timeout=_STT_TIMEOUT_SECONDS)
     return _client
 
 
