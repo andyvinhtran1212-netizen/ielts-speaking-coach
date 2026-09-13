@@ -35,7 +35,7 @@ describe('/login native auth entry', () => {
   });
 
   test('keeps one shared Supabase client and the implicit callback contract', () => {
-    assert.match(LAYOUT, /supabase-js@2\.107\.0\/dist\/umd\/supabase\.min\.js/);
+    assert.match(LAYOUT, /\/vendor\/supabase\.js/);
     assert.match(LAYOUT, /\/js\/supabase-sdk-fallback\.js/);
     assert.match(LAYOUT, /<SupabaseRuntimeBoundary/);
     assert.match(RUNTIME_BOUNDARY, /init\(supabaseUrl, supabaseAnonKey\)/);

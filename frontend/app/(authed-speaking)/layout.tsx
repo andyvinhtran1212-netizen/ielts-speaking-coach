@@ -34,11 +34,11 @@ export default function AuthedSpeakingLayout({ children }: { children: ReactNode
               `cue-card-detector.js` đòi `window.api.post`. Khung chung nạp
               api.js trước hydration ở hard load; khi client-navigation vào
               route thì khung và api đã tồn tại. */}
-          {/* Chart.js — cùng pin CDN với bản legacy (chart.js@4.5.1). Chỉ trang
+          {/* Chart.js — cùng phiên bản pin với bản legacy (chart.js@4.5.1). Chỉ trang
               này dùng, nên KHÔNG đưa vào khung dùng chung. Thư viện thuần, không
               tự gọi API lúc nạp. */}
           <Script
-            src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"
+            src="/vendor/chart.umd.min.js"
             strategy="afterInteractive"
           />
           <Script src="/js/format.js" strategy="afterInteractive" />

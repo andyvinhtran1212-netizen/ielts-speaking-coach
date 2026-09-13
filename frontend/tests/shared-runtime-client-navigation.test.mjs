@@ -49,7 +49,7 @@ describe('shared runtime survives App Router client navigation', () => {
     for (const parts of FOUNDATIONAL_LAYOUTS.slice(0, 3)) {
       const source = read(...parts);
       const ordered = [
-        '@supabase/supabase-js@2.107.0',
+        '/vendor/supabase.js',
         '/js/supabase-sdk-fallback.js',
         '/js/runtime-config.js',
         '/js/error-reporter.js',
@@ -70,7 +70,7 @@ describe('shared runtime survives App Router client navigation', () => {
     assert.match(ROUTE_CHAIN, /if \(script\.continueOnError\) setReady\(true\)/);
     for (const parts of FOUNDATIONAL_LAYOUTS.slice(0, 3)) {
       const source = read(...parts);
-      assert.match(source, /supabase\.min\.js'[\s\S]{0,80}continueOnError: true/);
+      assert.match(source, /\/vendor\/supabase\.js'[\s\S]{0,80}continueOnError: true/);
       assert.match(source, /error-reporter\.js', continueOnError: true/);
     }
   });

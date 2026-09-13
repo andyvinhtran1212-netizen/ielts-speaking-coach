@@ -168,7 +168,7 @@ export function AdminListeningAudit() {
   return <main className="alqa-shell">
     <header className="alqa-hero">
       <div><p className="alc-eyebrow">Listening · Quality operations</p><h1>Audit chất lượng toàn bộ kho test</h1><p>Đọc nhanh cấu trúc và audio hiện tại cho từng test, đồng thời giữ riêng kết quả full audit đã lưu. Lookup failure không bao giờ bị diễn giải thành “sạch”.</p></div>
-      <div className="alqa-hero__actions"><a className="adm-btn-secondary" href="/admin/listening/tests">Kho test</a><a className="adm-btn-secondary" href="/pages/admin/listening/audit.html">HTML rollback ↗</a></div>
+      <div className="alqa-hero__actions"><a className="adm-btn-secondary" href="/admin/listening/tests">Kho test</a></div>
     </header>
 
     <section className="alqa-boundary" aria-labelledby="alqa-boundary-title">

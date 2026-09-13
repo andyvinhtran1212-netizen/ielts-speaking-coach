@@ -118,13 +118,13 @@ describe('Admin Listening full-test import canonical model', () => {
 });
 
 describe('native route, write boundary and responsive contract', () => {
-  test('owns the clean route, keeps explicit rollback and updates the tests inventory CTA', () => {
+  test('owns the clean route without rollback and updates the tests inventory CTA', () => {
     assert.match(PAGE, /<AdminAccessGate>/);
     assert.match(PAGE, /<HydratedSignal \/>/);
-    assert.match(PAGE, /watchdogScript\('\/pages\/admin\/listening\/import-fulltest\.html'\)/);
+    assert.doesNotMatch(PAGE, /watchdogScript|import-fulltest\.html/);
     assert.match(PAGE, /subsection="tests"/);
     assert.match(TESTS, /href="\/admin\/listening\/import-fulltest"/);
-    assert.match(CLIENT, /href="\/pages\/admin\/listening\/import-fulltest\.html"/);
+    assert.doesNotMatch(CLIENT, /\/pages\/admin\/listening\/import-fulltest\.html/);
     assert.match(LEDGER, /`\/admin\/listening\/import-fulltest`[^\n]+native React ownership/);
   });
 

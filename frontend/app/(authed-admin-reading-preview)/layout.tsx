@@ -19,8 +19,8 @@ export default function AdminReadingPreviewLayout({ children }: { children: Reac
       '/css/admin-reading-preview-next.css',
     ]}
     extraScripts={<RouteScriptChain scripts={[
-      { src: 'https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js' },
-      { src: 'https://cdn.jsdelivr.net/npm/dompurify@3.4.8/dist/purify.min.js' },
+      { src: '/vendor/marked.min.js' },
+      { src: '/vendor/purify.min.js' },
       { src: '/js/markdown.js' },
     ]} />}
   >{children}</AuthedShell>;

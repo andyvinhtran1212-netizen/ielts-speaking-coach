@@ -281,4 +281,3 @@ export const listeningSegmentsHref = (contentId, exerciseId = null) => {
   if (exerciseId) query.set('exercise_id', exerciseId);
   return `/admin/listening/segments?${query}`;
 };
-export const listeningSegmentsRollbackHref = (contentId) => `/pages/admin/listening/segments.html?content_id=${encodeURIComponent(contentId)}`;

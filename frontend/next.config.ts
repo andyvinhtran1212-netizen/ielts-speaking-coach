@@ -99,23 +99,36 @@ const nextConfig: NextConfig = {
     //     and /favicon.svg — the only local asset locations.
     return [
       {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), geolocation=(), payment=(), usb=()' },
+          {
+            key: 'Content-Security-Policy',
+            value: `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''}; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https: wss:; form-action 'self'`,
+          },
+        ],
+      },
+      {
         source: '/js/:path*',
-        headers: [{ key: 'Cache-Control', value: 'public, max-age=300, must-revalidate' }],
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' }],
       },
       {
         // AUDIT F5 (2026-07-14): runtime-config.js is the release/environment
         // PROVENANCE MARKER — telemetry release tags, post-cutover and
         // rollback verification, and the nightly drift monitor all read it.
-        // Under the generic /js/* 300s rule a browser/CDN could serve a
-        // 5-minute-stale marker, silently mis-tagging telemetry and lying to
-        // rollback verification. It must always be revalidated. Placed AFTER
+        // Even under the generic /js/* revalidation rule, runtime-config must
+        // never be reused without validation because stale release tags would
+        // mis-label telemetry. It must always be no-store. Placed AFTER
         // /js/:path* — for the same header key, the LAST matching rule wins.
         source: '/js/runtime-config.js',
         headers: [{ key: 'Cache-Control', value: 'no-store, max-age=0' }],
       },
       {
         source: '/css/:path*',
-        headers: [{ key: 'Cache-Control', value: 'public, max-age=300, must-revalidate' }],
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' }],
       },
       {
         source: '/assets/:path*',

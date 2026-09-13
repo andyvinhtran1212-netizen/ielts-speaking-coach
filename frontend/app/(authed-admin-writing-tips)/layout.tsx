@@ -7,8 +7,8 @@ export default function AdminWritingTipsLayout({ children }: { children: ReactNo
     { href: '/css/aver-design/admin-surface.css', dataAverAdminSurface: true },
     '/css/aver-design/admin-components.css', '/css/aver-design/admin-buttons.css', '/css/aver-design/admin-status.css', '/css/markdown.css', '/css/admin-writing-tips-next.css',
   ]} extraScripts={<RouteScriptChain scripts={[
-    { src: 'https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js' },
-    { src: 'https://cdn.jsdelivr.net/npm/dompurify@3.4.8/dist/purify.min.js' },
+    { src: '/vendor/marked.min.js' },
+    { src: '/vendor/purify.min.js' },
     { src: '/js/markdown.js' },
   ]} />}>{children}</AuthedShell>;
 }

@@ -716,7 +716,7 @@ export function SpeakingShell() {
           </div>
         </div>
 
-        {/* ─── SCRIPTS: order matters — supabase CDN → api.js → inline ── */}
+        {/* ─── SCRIPTS: order matters — Supabase runtime → api.js → inline ── */}
 
 
 
@@ -740,7 +740,7 @@ export function SpeakingShell() {
                sạch sau. Chốt chặn tests/no-lucide-in-react-tree.test.mjs chính
                là thứ bắt được chỗ này. */}
         {/* Renders any <i data-lucide="..."> elements in the page. The
-             Lucide CDN script is loaded with `defer` in <head>, so the
+             Lucide script is loaded with `defer` in <head>, so the
              global `lucide` may or may not be present by the time this
              runs — the listener is the safe fallback. */}
 

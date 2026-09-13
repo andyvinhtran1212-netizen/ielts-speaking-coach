@@ -31,7 +31,7 @@ const SUPABASE_URL = 'https://huwsmtubwulikhlmcirx.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
 const SUPABASE_RUNTIME_SCRIPTS = [
   {
-    src: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js',
+    src: '/vendor/supabase.js',
     continueOnError: true,
   },
   { src: '/js/supabase-sdk-fallback.js' },

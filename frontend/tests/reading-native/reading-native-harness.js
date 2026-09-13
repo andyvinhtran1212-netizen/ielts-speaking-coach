@@ -4,8 +4,10 @@ const API = 'http://localhost:8000';
 const ORIGIN = 'http://localhost:3211';
 const OWNER = '00000000-0000-4000-8000-0000000000bb';
 const ATTEMPT = '11111111-1111-4111-8111-111111111111';
-const SUPABASE_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.107.0/dist/umd/supabase.min.js';
-const LUCIDE_CDN = 'https://unpkg.com/lucide@1.17.0';
+const SUPABASE_RUNTIME = `${ORIGIN}/vendor/supabase.js`;
+const LUCIDE_RUNTIME = `${ORIGIN}/vendor/lucide.min.js`;
+const MARKED_RUNTIME = `${ORIGIN}/vendor/marked.min.js`;
+const DOMPURIFY_RUNTIME = `${ORIGIN}/vendor/purify.min.js`;
 
 const cors = {
   'access-control-allow-origin': ORIGIN,
@@ -82,17 +84,17 @@ async function installReadingHarness(page, {
     };
   }, { owner: OWNER, signedIn });
 
-  await page.route(SUPABASE_CDN, (route) => route.fulfill({
+  await page.route(SUPABASE_RUNTIME, (route) => route.fulfill({
     contentType: 'application/javascript',
     body: `window.supabase={createClient:function(){return{auth:{getSession:async function(){return{data:{session:window.__READING_NATIVE_SESSION__}}},onAuthStateChange:function(callback){var listeners=window.__READING_NATIVE_AUTH_LISTENERS__;listeners.push(callback);return{data:{subscription:{unsubscribe:function(){var index=listeners.indexOf(callback);if(index>=0)listeners.splice(index,1)}}}}},signOut:async function(){return{error:null}}}}}};`,
   }));
-  await page.route(LUCIDE_CDN, (route) => route.fulfill({
+  await page.route(LUCIDE_RUNTIME, (route) => route.fulfill({
     contentType: 'application/javascript', body: 'window.lucide={createIcons:function(){}};',
   }));
-  await page.route('https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js', (route) => route.fulfill({
+  await page.route(MARKED_RUNTIME, (route) => route.fulfill({
     contentType: 'application/javascript', body: 'window.marked={parse:function(s){return "<p>"+s+"</p>"}};',
   }));
-  await page.route('https://cdn.jsdelivr.net/npm/dompurify@3.4.8/dist/purify.min.js', (route) => route.fulfill({
+  await page.route(DOMPURIFY_RUNTIME, (route) => route.fulfill({
     contentType: 'application/javascript', body: 'window.DOMPurify={sanitize:function(s){return s}};',
   }));
   await page.route('https://fonts.googleapis.com/**', (route) => route.abort());

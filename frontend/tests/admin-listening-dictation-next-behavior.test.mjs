@@ -5,7 +5,7 @@ import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
-  dictationReportsHref, dictationReportsRollbackHref, formatDictationDuration,
+  dictationReportsHref, formatDictationDuration,
   normalizeDictationAggregate, normalizeDictationReportDetail,
   normalizeDictationReportFilters, normalizeDictationReportList,
 } from '../lib/admin-listening-dictation-model.mjs';
@@ -33,7 +33,6 @@ describe('Admin Listening dictation model', () => {
   test('filters round-trip through the native URL and rollback keeps supported user filter', () => {
     assert.deepEqual(normalizeDictationReportFilters({ user: ' a@b.com ', test: ' C19 ', page: '0', session: ' s1 ' }), { user: 'a@b.com', test: 'C19', page: 1, session: 's1' });
     assert.equal(dictationReportsHref({ user: 'a@b.com', test: 'C19 T1', page: 2, session: 's1' }), '/admin/listening/dictation?user=a%40b.com&test=C19+T1&page=2&session=s1');
-    assert.equal(dictationReportsRollbackHref({ user: 'a@b.com', test: 'ignored' }), '/pages/admin/listening/dictation-reports.html?user=a%40b.com');
   });
 
   test('list preserves backend total, excludes malformed rows and exposes lookup truth', () => {
@@ -97,7 +96,7 @@ describe('native route ownership and operational behavior', () => {
   test('navigation enters the native route while rollback stays explicit', () => {
     assert.match(CHROME, /slug: 'dictation-reports',\s+label: 'Báo cáo chép chính tả',\s+href: '\/admin\/listening\/dictation'/);
     assert.match(OVERVIEW, /"link":\s+"\/admin\/listening\/dictation"/);
-    assert.match(CLIENT, /dictationReportsRollbackHref/);
+    assert.doesNotMatch(CLIENT, /dictationReportsRollbackHref|HTML rollback/);
     assert.match(CLIENT, /href="\/admin\/feedback"/);
   });
 

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   buildListeningTrueFalseOperation, findListeningTrueFalseOperationMatch,
-  listeningTrueFalseHref, listeningTrueFalseRollbackHref, MAX_TF_STATEMENTS,
+  listeningTrueFalseHref, MAX_TF_STATEMENTS,
   MAX_TF_STATEMENT_LENGTH,
   normalizeListeningTrueFalseBlocks, normalizeListeningTrueFalseContent,
   normalizePendingListeningTrueFalseSave, validateListeningTrueFalseDraft,
@@ -102,7 +102,6 @@ describe('Admin Listening True/False canonical model', () => {
     assert.deepEqual(normalizePendingListeningTrueFalseSave(pending, 'admin-1', 'content-1'), pending);
     assert.equal(normalizePendingListeningTrueFalseSave(pending, 'admin-2', 'content-1'), null);
     assert.equal(listeningTrueFalseHref('a/b', 'x/y'), '/admin/listening/tf?content_id=a%2Fb&exercise_id=x%2Fy');
-    assert.equal(listeningTrueFalseRollbackHref('a/b', 'x/y'), '/pages/admin/listening/tf.html?content_id=a%2Fb&exercise_id=x%2Fy');
   });
 });
 
@@ -114,7 +113,7 @@ describe('native True/False route and persistence contract', () => {
     assert.match(PAGE, /if \(!contentId\) redirect\('\/admin\/listening'\)/);
     assert.match(PAGE, /<HydratedSignal \/>/);
     assert.match(PAGE, /<LegacyModule src="\/js\/components\/audio-player\.js" \/>/);
-    assert.match(PAGE, /watchdogScript\('\/pages\/admin\/listening\/tf\.html'\)/);
+    assert.doesNotMatch(PAGE, /watchdogScript|tf\.html/);
     assert.doesNotMatch(CHROME, /slug: 'tf'/);
     assert.match(LIST, /\/admin\/listening\/tf\?content_id=/);
     assert.match(DETAIL, /item\.type === 'true_false' \? `\/admin\/listening\/tf\?content_id=/);
@@ -147,7 +146,7 @@ describe('native True/False route and persistence contract', () => {
     assert.match(MIGRATION, /CREATE UNIQUE INDEX IF NOT EXISTS idx_listening_exercises_single_published_standalone/);
     assert.match(MIGRATION, /WHERE status = 'published'/);
     assert.match(MIGRATION, /exercise_type IN \('gist', 'true_false', 'mcq'\)/);
-    assert.match(CLIENT, /listeningTrueFalseRollbackHref\(contentId, baseline\?\.id \|\| null\)/);
+    assert.doesNotMatch(CLIENT, /listeningTrueFalseRollbackHref|HTML rollback/);
     assert.match(read('public', 'js', 'admin-listening-tf.js'), /getExerciseIdFromUrl[\s\S]+exercises\.find[\s\S]+expected_updated_at/);
   });
 

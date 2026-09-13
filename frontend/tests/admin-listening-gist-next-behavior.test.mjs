@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   addListeningGistKeywords, buildListeningGistOperation, findListeningGistOperationMatch,
-  listeningGistHref, listeningGistRollbackHref, MAX_GIST_KEYWORDS,
+  listeningGistHref, MAX_GIST_KEYWORDS,
   MAX_GIST_PROMPT_LENGTH,
   normalizeListeningGistBlocks, normalizeListeningGistContent, normalizePendingListeningGistSave,
   validateListeningGistDraft,
@@ -101,7 +101,6 @@ describe('Admin Listening Gist canonical model', () => {
     assert.deepEqual(normalizePendingListeningGistSave(pending, 'admin-1', 'content-1'), pending);
     assert.equal(normalizePendingListeningGistSave(pending, 'admin-2', 'content-1'), null);
     assert.equal(listeningGistHref('a/b', 'x/y'), '/admin/listening/gist?content_id=a%2Fb&exercise_id=x%2Fy');
-    assert.equal(listeningGistRollbackHref('a/b'), '/pages/admin/listening/gist.html?content_id=a%2Fb');
   });
 });
 
@@ -113,7 +112,7 @@ describe('native Gist route and persistence contract', () => {
     assert.match(PAGE, /if \(!contentId\) redirect\('\/admin\/listening'\)/);
     assert.match(PAGE, /<HydratedSignal \/>/);
     assert.match(PAGE, /<LegacyModule src="\/js\/components\/audio-player\.js" \/>/);
-    assert.match(PAGE, /watchdogScript\('\/pages\/admin\/listening\/gist\.html'\)/);
+    assert.doesNotMatch(PAGE, /watchdogScript|gist\.html/);
     assert.doesNotMatch(CHROME, /slug: 'gist'/);
     assert.match(LIST, /\/admin\/listening\/gist\?content_id=/);
     assert.match(DETAIL, /item\.type === 'gist' \? `\/admin\/listening\/gist\?content_id=/);

@@ -53,7 +53,7 @@ describe('native Reading detail workspace', () => {
   });
 
   test('renders sanitized Markdown and accessible tab/dialog interactions', () => {
-    assert.match(ASSETS, /marked@12\.0\.2/); assert.match(ASSETS, /dompurify@3\.4\.8/);
+    assert.match(ASSETS, /\/vendor\/marked\.min\.js/); assert.match(ASSETS, /\/vendor\/purify\.min\.js/);
     assert.match(VOCAB, /<ReadingDetailAssets/); assert.match(SKILL, /<ReadingDetailAssets/);
     assert.match(BEHAVIOR, /window\.renderMarkdown!\(detail\.bodyMarkdown, \{ breaks: false \}\)/);
     assert.match(BEHAVIOR, /role="tablist"/); assert.match(BEHAVIOR, /aria-controls=/);

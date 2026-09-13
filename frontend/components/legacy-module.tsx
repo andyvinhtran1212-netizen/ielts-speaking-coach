@@ -18,10 +18,9 @@
 // có gì để hoãn. Nên phải hoãn chính việc NẠP: chèn thẻ script trong
 // `useEffect`, tức sau pha commit của hydrate.
 //
-// ĐƯỜNG LUI, và đây là phần dễ quên: nếu chunk React hỏng hẳn thì `useEffect`
-// không chạy, script không được chèn, và trang đứng im VĨNH VIỄN — trong khi
-// bản cũ (thẻ script tĩnh) vẫn chạy được. Đổi một lỗi #418 lấy một lỗi treo là
-// không chấp nhận được, nên `watchdogScript()` dưới đây chạy NGOÀI React.
+// Nhóm tương thích này chỉ còn phục vụ các route Next đang dần thuần hoá hành
+// vi phía client. HTML rollback/watchdog đã được nghỉ hưu sau hard flip; lỗi
+// hydrate nay đi qua error boundary chung thay vì điều hướng về renderer cũ.
 import { useEffect } from 'react';
 
 export default function LegacyModule({ src }: { src: string }) {

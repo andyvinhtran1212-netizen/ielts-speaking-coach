@@ -154,12 +154,12 @@ describe('dry-run, ACK and canonical contracts', () => {
 });
 
 describe('native route, queue boundary and responsive contract', () => {
-  test('owns the clean route, preserves explicit rollback and updates the tests CTA', () => {
+  test('owns the clean route without rollback and updates the tests CTA', () => {
     assert.match(PAGE, /<AdminAccessGate>/);
-    assert.match(PAGE, /watchdogScript\('\/pages\/admin\/listening\/import-drills\.html'\)/);
+    assert.doesNotMatch(PAGE, /watchdogScript|import-drills\.html/);
     assert.match(PAGE, /subsection="tests"/);
     assert.match(TESTS, /href="\/admin\/listening\/import-drills"/);
-    assert.match(CLIENT, /href="\/pages\/admin\/listening\/import-drills\.html"/);
+    assert.doesNotMatch(CLIENT, /\/pages\/admin\/listening\/import-drills\.html/);
     assert.match(LEDGER, /`\/admin\/listening\/import-drills`[^\n]+native React ownership/);
   });
 

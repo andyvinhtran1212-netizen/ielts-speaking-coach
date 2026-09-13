@@ -182,5 +182,3 @@ export const listeningGistHref = (contentId, exerciseId = null) => {
   if (exerciseId) query.set('exercise_id', exerciseId);
   return `/admin/listening/gist?${query}`;
 };
-
-export const listeningGistRollbackHref = (contentId) => `/pages/admin/listening/gist.html?content_id=${encodeURIComponent(contentId)}`;
