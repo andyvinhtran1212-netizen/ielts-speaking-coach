@@ -50,6 +50,7 @@ def test_all_twenty_lessons_have_exactly_fifteen_medium_length_sentences():
 
         lesson_texts = {row["text"] for row in sentences}
         assert len(lesson_texts) == 15
+        assert all(not re.search(r"\d", text) for text in lesson_texts)
         assert all_texts.isdisjoint(lesson_texts)
         all_texts.update(lesson_texts)
 
