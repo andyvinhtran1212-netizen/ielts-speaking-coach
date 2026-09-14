@@ -50,4 +50,3 @@ test('the public landing is native SVG and does not opt back into the UMD bundle
     assert.match(read('app', '(marketing)', 'page.tsx'), new RegExp(`lucide-\\$\\{name\\}|name="${icon}"`));
   }
 });
-

@@ -56,4 +56,3 @@ test('Next route stays bounded and tags vocabulary reads at the shared cache lay
   assert.match(backend, /cacheTag\(tag\)/);
   assert.match(backend, /public:vocabulary/);
 });
-

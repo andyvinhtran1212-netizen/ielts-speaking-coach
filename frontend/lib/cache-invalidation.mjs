@@ -52,4 +52,3 @@ export function verifyCacheInvalidation({ rawBody, signature, secret, nowSeconds
 
   return { ok: true, tags: payload.tags };
 }
-

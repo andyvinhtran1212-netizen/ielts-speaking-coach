@@ -61,4 +61,3 @@ def invalidate_public_cache(tags: list[str]) -> bool:
 
 def invalidate_vocabulary_cache() -> bool:
     return invalidate_public_cache([VOCABULARY_CACHE_TAG])
-

@@ -52,4 +52,3 @@ def test_network_failure_is_fail_soft_and_does_not_leak_response_body(caplog):
          patch.object(cache.httpx, "post", side_effect=error):
         assert cache.invalidate_vocabulary_cache() is False
     assert "private upstream detail" not in caplog.text
-
