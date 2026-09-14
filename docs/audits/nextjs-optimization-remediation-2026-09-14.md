@@ -58,8 +58,16 @@ fixtures are not deployable application routes.
   and the shared admin-denied action. `next/link` occurrences increased from 7
   to 75, while same-line raw internal anchors decreased from 208 to 171. Browser
   proof confirms the document, shared Supabase client, telemetry and history
-  survive soft navigation. Generated HTML inside the Grammar article shell and
-  operational/admin route groups remain for later bounded batches.
+  survive soft navigation. Wave B2 gives both `aver-chrome` and
+  `aver-admin-chrome` a root App Router navigation owner without rewriting their
+  Shadow DOM implementations: ordinary same-origin clicks use `router.push`,
+  hover/focus prefetches, while modified clicks, downloads, external targets and
+  in-page hashes retain browser semantics. A production browser run proves both
+  student and admin chrome can cross route groups without losing the document,
+  shared Supabase singleton or telemetry owner. Generated HTML inside the Grammar
+  article shell and route-specific operational `window.location` transitions
+  remain bounded compatibility debt; exam launches and downloads must continue
+  to be classified before conversion.
 
 ### NXT-03 — Browser runtime bridge bypasses module typing/tree-shaking
 
@@ -123,7 +131,15 @@ fixtures are not deployable application routes.
   and hooks; keep backend persistence/finalization contracts unchanged.
 - **Verification:** reducer tests, component interaction tests and existing browser
   flows for save/resume/submit/review/account-switch.
-- **Status:** queued for Waves D–E.
+- **Status:** revalidated and narrowed. Reading, Listening, mock runner and
+  session-result already delegate their critical state transitions to tested
+  pure controllers/models; their remaining size is primarily the renderer for
+  many IELTS question shapes. Splitting those files by LOC alone would move code
+  without reducing shipped behavior or regression risk, so that original audit
+  signal is rejected as a blanket refactor. Writing dashboard and course
+  behavior remain genuine migration-era DOM ports. Refactor those two only with
+  a behavioral contract, interaction coverage and measured bundle/render impact;
+  preserve the existing persistence and finalization paths.
 
 ### NXT-06 — CSS/font/icon delivery remains layout-link based
 
@@ -195,6 +211,79 @@ fixtures are not deployable application routes.
   collector on App routes with one root `useReportWebVitals` integration while
   retaining the backend envelope and the original document pathname across
   soft navigation. React interaction coverage remains queued.
+
+## Current Next.js adoption verdict
+
+The application now uses Next.js as more than a route-for-route HTML host. A
+production build owns 141 App Router routes with Cache Components enabled and
+uses Partial Prerendering where request-time state is genuinely required. Public
+Vocabulary and Grammar reads have Server Component owners, the browser has one
+bundled Supabase singleton, shared student/admin navigation stays inside the App
+Router, fonts and metadata are native, Web Vitals use Next's hook, and mutable
+Vocabulary content has a tagged invalidation design.
+
+Adoption is therefore **substantial but not yet optimal** in four bounded areas:
+
+1. Only Vocabulary and public Grammar currently consume generated OpenAPI types;
+   authenticated/admin domains still rely on the compatibility API bridge.
+2. Writing dashboard and course behavior remain imperative parity ports. The
+   large Reading/Listening/mock renderers are not automatically defects because
+   their state machines are already extracted and tested.
+3. The app has root error/not-found ownership but only one route-level loading
+   boundary, so slower uncached workspaces do not consistently expose streaming
+   feedback.
+4. Browser journey coverage is meaningful, but the unit-test pyramid is still
+   dominated by source-shape assertions rather than rendered React interaction.
+
+## Prioritized remaining roadmap
+
+### P0 — Prove the new cache contract in staging
+
+- Configure the revalidation secret/URL, mutate one Vocabulary record through
+  the canonical admin path, and prove the following Server Component read sees
+  it without waiting for TTL.
+- Record webhook failure telemetry and verify canonical writes remain successful
+  when revalidation is unavailable.
+
+### P1 — Type the authenticated spine before individual screens
+
+- Give `/auth/me`, session identity and shared admin list envelopes concrete
+  FastAPI response models; generate types and introduce one adapter per domain.
+- Migrate callers away from `window.api` only after each adapter has runtime
+  normalization and account-switch tests. Do not attempt a repository-wide
+  replacement.
+
+### P1 — Add streaming UX where latency is real
+
+- Measure request latency first, then add segment `loading.tsx`/Suspense
+  boundaries to the slow public catalogue and admin data workspaces. Preserve
+  current client-only pages where a server boundary cannot reveal useful UI
+  earlier.
+- Verify keyboard focus, back/forward behavior and skeleton layout stability in
+  desktop/mobile browser runs.
+
+### P2 — Retire the two remaining high-risk parity ports
+
+- Extract state/persistence models from Writing dashboard and course behavior,
+  then split views only at stable interaction boundaries.
+- Lock autosave, resume, submit, account switch and stale-response behavior with
+  rendered interaction tests before removing their global/DOM bridge code.
+
+### P2 — Establish a measured React test layer
+
+- Add a small Vitest/Testing Library harness for newly extracted interactive
+  units. Keep source-contract tests only for build-time ownership invariants;
+  do not mechanically rewrite the existing 9,000+ passing assertions.
+- Gate future client refactors on observable behavior and browser flows, not LOC
+  or client-component counts alone.
+
+### P3 — Continue compatibility retirement by evidence
+
+- Convert generated Grammar internal links and classified operational/admin
+  transitions in route-sized batches. Preserve downloads, external navigation,
+  auth exits and exam-affinity launches as explicit hard-navigation cases.
+- Remove legacy JS/CSS only after the public consumer inventory reaches zero and
+  computed-style/network snapshots prove the replacement.
 
 ## Explicitly rejected false positives
 

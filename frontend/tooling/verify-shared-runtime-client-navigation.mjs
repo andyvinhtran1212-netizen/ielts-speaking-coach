@@ -108,7 +108,13 @@ await context.route('**/*', async (route) => {
     return json({ ok: true });
   }
   if (request.method() === 'GET' && url.pathname === '/auth/me') {
-    return json({ id: userId, display_name: 'Runtime Fixture', permissions: ['all'] });
+    return json({
+      id: userId,
+      email: 'runtime@example.test',
+      display_name: 'Runtime Fixture',
+      role: 'admin',
+      permissions: ['all'],
+    });
   }
   if (request.method() === 'GET' && url.pathname === `/sessions/${sessionId}`) return json(session);
   if (request.method() === 'GET' && url.pathname === `/sessions/${sessionId}/audio-urls`) return json([]);
@@ -191,6 +197,12 @@ check('page_view ghi đủ hai pathname và không ghi trùng',
   JSON.stringify(analyticsPaths));
 check('không có lỗi JavaScript chưa bắt', pageErrors.length === 0, pageErrors[0] || '');
 
+await page.evaluate(() => { window.__chromeNavigationSentinel = 'survived'; });
+await page.locator('aver-chrome a[href="/grammar"]').first().click();
+await page.waitForURL(`${BASE}/grammar`);
+check('student chrome dùng App Router qua Shadow DOM',
+  await page.evaluate(() => window.__chromeNavigationSentinel) === 'survived');
+
 const publicPage = await context.newPage();
 const publicErrors = [];
 publicPage.on('pageerror', (error) => publicErrors.push(String(error)));
@@ -207,6 +219,19 @@ await publicPage.waitForURL(`${BASE}/`);
 check('back/forward giữ đúng URL sau soft navigation public', await publicPage.evaluate(() => window.__publicNavigationSentinel) === 'survived');
 check('soft navigation public không phát sinh lỗi JavaScript', publicErrors.length === 0, publicErrors[0] || '');
 await publicPage.close();
+
+const adminPage = await context.newPage();
+const adminErrors = [];
+adminPage.on('pageerror', (error) => adminErrors.push(String(error)));
+await adminPage.goto(`${BASE}/admin`, { waitUntil: 'domcontentloaded' });
+await adminPage.locator('aver-admin-chrome a[href="/admin/users"]').first().waitFor();
+await adminPage.evaluate(() => { window.__adminNavigationSentinel = 'survived'; });
+await adminPage.locator('aver-admin-chrome a[href="/admin/users"]').first().click();
+await adminPage.waitForURL(`${BASE}/admin/users`);
+check('admin chrome dùng App Router qua Shadow DOM',
+  await adminPage.evaluate(() => window.__adminNavigationSentinel) === 'survived');
+check('soft navigation admin không phát sinh lỗi JavaScript', adminErrors.length === 0, adminErrors[0] || '');
+await adminPage.close();
 await page.close();
 await waitFor(() => vitals.some((metric) => metric.metric_name === 'LCP'));
 const initialLcp = vitals.find((metric) => metric.metric_name === 'LCP');
