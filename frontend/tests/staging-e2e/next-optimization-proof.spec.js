@@ -1,11 +1,10 @@
 // Live staging proof for the two external-only Next.js optimization gates.
 // This spec never targets production. Its one canonical write creates a unique
-// Vocabulary probe under an existing topic and removes that exact row in finally.
+// Vocabulary probe under an isolated topic and removes both exact rows in finally.
 // @ts-check
 
 const https = require('node:https');
 const { test, expect } = require('@playwright/test');
-const { selectCanonicalVocabularyTopic } = require('../../tooling/staging-vocabulary-topic.cjs');
 
 const {
   BYPASS_HEADERS,
@@ -64,9 +63,15 @@ test.describe.serial('Next optimization live staging evidence', () => {
     const adminToken = await signIn(request, 'admin');
     const suffix = `${(process.env.RELEASE_SOURCE_SHA || 'manual').slice(0, 10)}-${Date.now().toString(36)}`;
     const slug = `e2e-cache-${suffix}`.toLowerCase();
+    const category = `e2e-cache-topic-${suffix}`.toLowerCase();
     const originalHeadword = `CacheProbeA${suffix.replace(/[^a-z0-9]/gi, '')}`;
     const updatedHeadword = `CacheProbeB${suffix.replace(/[^a-z0-9]/gi, '')}`;
+    const publicUrl = `${STAGING_ORIGIN}/vocabulary?cat=${encodeURIComponent(category)}&slug=${encodeURIComponent(slug)}`;
+    const markdown = `---\nheadword: "${originalHeadword}"\nslug: "${slug}"\ncategory: "${category}"\nlevel: "B2"\npart_of_speech: "noun"\npronunciation: "/keɪʃ/"\nsource: "staging-e2e"\n---\n\n**Đầu dò cache staging có thể xóa an toàn.**\n`;
     let createdId = '';
+    let createdTopicId = '';
+    let importAttempted = false;
+    let topicCreateAttempted = false;
     let probeWasCreated = false;
 
     const findProbeId = async () => {
@@ -82,17 +87,30 @@ test.describe.serial('Next optimization live staging evidence', () => {
       return '';
     };
 
-    try {
-      const topics = await request.get(`${STAGING_API}/admin/content-topics?skill_area=vocab`, {
+    const findProbeTopicId = async () => {
+      const response = await request.get(`${STAGING_API}/admin/content-topics?skill_area=vocab`, {
         headers: auth(adminToken),
       });
-      expect(topics.status()).toBe(200);
-      const topicRows = await topics.json();
-      const existingTopic = selectCanonicalVocabularyTopic(topicRows);
-      expect(existingTopic, 'staging must retain at least one canonical Vocabulary topic').toBeTruthy();
-      const category = existingTopic.slug;
-      const publicUrl = `${STAGING_ORIGIN}/vocabulary?cat=${encodeURIComponent(category)}&slug=${encodeURIComponent(slug)}`;
-      const markdown = `---\nheadword: "${originalHeadword}"\nslug: "${slug}"\ncategory: "${category}"\nlevel: "B2"\npart_of_speech: "noun"\npronunciation: "/keɪʃ/"\nsource: "staging-e2e"\n---\n\n**Đầu dò cache staging có thể xóa an toàn.**\n`;
+      if (!response.ok()) return '';
+      return (await response.json()).find((topic) => topic.slug === category)?.id || '';
+    };
+
+    try {
+      topicCreateAttempted = true;
+      const topicCreated = await request.post(`${STAGING_API}/admin/content-topics`, {
+        headers: auth(adminToken),
+        data: {
+          title: `Staging cache proof ${suffix}`,
+          slug: category,
+          skill_area: 'vocab',
+          is_published: true,
+        },
+      });
+      const topicBody = await topicCreated.json();
+      if (topicCreated.status() === 201 && topicBody?.id) createdTopicId = topicBody.id;
+      expect(topicCreated.status()).toBe(201);
+      expect(topicBody.slug).toBe(category);
+      expect(createdTopicId).toBeTruthy();
 
       const before = await request.get(
         `${STAGING_API}/admin/vocabulary?q=${encodeURIComponent(originalHeadword)}&limit=10&offset=0`,
@@ -101,6 +119,7 @@ test.describe.serial('Next optimization live staging evidence', () => {
       expect(before.status()).toBe(200);
       expect((await before.json()).words).toEqual([]);
 
+      importAttempted = true;
       const imported = await request.post(`${STAGING_API}/admin/vocabulary/import?dry_run=false`, {
         headers: auth(adminToken),
         multipart: {
@@ -153,16 +172,35 @@ test.describe.serial('Next optimization live staging evidence', () => {
         intervals: [500, 1_000, 2_000],
       }).toEqual({ status: 200, hasNew: true, hasOld: false });
     } finally {
-      if (probeWasCreated && !createdId) createdId = await findProbeId();
-      if (probeWasCreated) expect(createdId, 'created probe must remain discoverable for cleanup').toBeTruthy();
-      if (createdId) {
-        const removed = await request.delete(
-          `${STAGING_API}/admin/vocabulary/${encodeURIComponent(createdId)}`,
-          { headers: auth(adminToken) },
-        );
-        expect(removed.status()).toBe(200);
-        expect((await removed.json()).id).toBe(createdId);
+      const cleanupFailures = [];
+      try {
+        if (importAttempted && !createdId) createdId = await findProbeId();
+        if (probeWasCreated) expect(createdId, 'created probe must remain discoverable for cleanup').toBeTruthy();
+        if (createdId) {
+          const removed = await request.delete(
+            `${STAGING_API}/admin/vocabulary/${encodeURIComponent(createdId)}`,
+            { headers: auth(adminToken) },
+          );
+          expect(removed.status()).toBe(200);
+          expect((await removed.json()).id).toBe(createdId);
+        }
+      } catch (error) {
+        cleanupFailures.push(error);
       }
+      try {
+        if (topicCreateAttempted && !createdTopicId) createdTopicId = await findProbeTopicId();
+        if (createdTopicId) {
+          const removedTopic = await request.delete(
+            `${STAGING_API}/admin/content-topics/${encodeURIComponent(createdTopicId)}`,
+            { headers: auth(adminToken) },
+          );
+          expect(removedTopic.status()).toBe(200);
+          expect((await removedTopic.json()).id).toBe(createdTopicId);
+        }
+      } catch (error) {
+        cleanupFailures.push(error);
+      }
+      if (cleanupFailures.length) throw new AggregateError(cleanupFailures, 'staging cache proof cleanup failed');
     }
   });
 });
