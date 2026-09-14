@@ -139,6 +139,18 @@ A local or protected rehearsal recording may be discarded by the learner.
 Recording, transcript generation and playback do not create an IELTS score.
 Grading is available only when a separate teacher assignment exists.
 
+The learner-facing presentation turns the authored sentence-upgrade material
+into a short rehearsal flow instead of a long document:
+
+- show `choose a situation -> speak naturally -> compare the ladder` as the
+  three-step instruction;
+- expose every authored example through a compact situation navigator;
+- render Band 6 as the baseline, Band 7 as the practical target and Band 8 as
+  an optional extension, with the named language technique separated from the
+  example sentence;
+- never hide examples through an arbitrary UI slice or imply that Band 8
+  complexity is required for completion.
+
 ### 4.3 Controlled rewrite
 
 Sentence transformation and grammar rewrite remain lesson exercises. They may
@@ -161,6 +173,15 @@ T01–T30 each require the matching structured Reading lesson from
   in which the lesson vocabulary is encountered.
 - Reading answers are automatically checked, but the result is practice
   evidence only; it is not an IELTS band score.
+- On desktop, passage and question panes share a bounded workspace and scroll
+  independently so the learner can keep evidence in view while answering.
+- On narrow screens, a `Bài đọc / Câu hỏi` switch replaces the squeezed
+  two-column view; each pane retains its own scroll position.
+- Consecutive questions are grouped by question type. Shared material such as
+  a summary used by questions 5–8 is rendered once with one answer control per
+  question, rather than repeated four times.
+- The question pane shows answered progress, while answer checking remains at
+  the end of the pane and does not reveal private solution data early.
 
 ### 5.2 Listening
 
