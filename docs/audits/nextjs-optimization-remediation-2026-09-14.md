@@ -123,8 +123,15 @@ fixtures are not deployable application routes.
   specialized transport but consume the same `AuthMeWire` contract. Malformed
   boolean permission/feature fields fail closed. The shared admin gate,
   onboarding, instructor and Vocabulary feature admission no longer declare
-  ad-hoc `/auth/me` shapes. Session/admin domain envelopes and the remaining
-  API-boundary casts are intentionally queued for bounded waves.
+  ad-hoc `/auth/me` shapes. Wave C5 models the learner Speaking session spine:
+  history preserves its legacy-list/paginated union, stats/detail/audio reads
+  expose concrete schemas, and the native history/result surfaces consume one
+  generated adapter. Runtime validation rejects malformed pagination, numeric
+  bands, nested identities and the canonical sealed/lookup-failure decisions
+  instead of rendering them as empty data. Backend coverage passed 86/86,
+  frontend contracts 9,074/9,074, the production build generated all 141 routes
+  and the Speaking browser journey passed 22/22. Shared admin envelopes and the
+  remaining API-boundary casts are intentionally queued for bounded waves.
 
 ### NXT-05 — Large imperative Client Components remain parity ports
 
@@ -232,9 +239,9 @@ Vocabulary content has a tagged invalidation design.
 
 Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 
-1. Vocabulary, public Grammar and the shared auth spine consume generated
-   OpenAPI types; session/admin domains still rely on the compatibility API
-   bridge.
+1. Vocabulary, public Grammar, the shared auth spine and learner Speaking
+   session reads consume generated OpenAPI types; shared admin domains still
+   rely substantially on the compatibility API bridge.
 2. Writing dashboard and course behavior remain imperative parity ports. The
    large Reading/Listening/mock renderers are not automatically defects because
    their state machines are already extracted and tested.
@@ -256,9 +263,9 @@ Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 
 ### P1 — Continue from the typed authenticated spine into shared domains
 
-- Give session identity and shared admin list envelopes concrete FastAPI response
-  models; generate types and introduce one adapter per domain. The auth identity
-  and profile contracts are complete in Wave C4.
+- Continue from the completed auth (Wave C4) and learner session (Wave C5)
+  contracts into shared admin list/detail envelopes. Generate types and
+  introduce one adapter per bounded admin domain.
 - Migrate callers away from `window.api` only after each adapter has runtime
   normalization and account-switch tests. Do not attempt a repository-wide
   replacement.

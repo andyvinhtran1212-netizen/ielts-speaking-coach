@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { getSessionAudioUrls, getSessionDetail } from '@/lib/session-api';
 import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import {
   bandClass,
@@ -1257,9 +1258,8 @@ export function SessionResultBehavior() {
       }
 
       try {
-        const encodedId = encodeURIComponent(sessionId);
         const [session, categories] = await Promise.all([
-          window.api.getWith<any>(`/sessions/${encodedId}`, {}, { signal: controller.signal }),
+          getSessionDetail(sessionId, controller.signal),
           fetch(`${window.api.base || ''}/api/grammar/categories`, { signal: controller.signal })
             .then((response) => response.ok ? response.json() : null)
             .catch((caught) => {
@@ -1285,10 +1285,7 @@ export function SessionResultBehavior() {
 
         let audioItems: any[] = [];
         try {
-          const audio = await window.api.getWith<any[]>(
-            `/sessions/${encodedId}/audio-urls`, {}, { signal: controller.signal },
-          );
-          audioItems = Array.isArray(audio) ? audio : [];
+          audioItems = await getSessionAudioUrls(sessionId, controller.signal);
         } catch (caught) {
           if (isAbort(caught)) throw caught;
           console.warn('[result] audio lookup unavailable; using authenticated session playback links');

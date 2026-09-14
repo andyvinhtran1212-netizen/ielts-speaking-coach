@@ -22,3 +22,21 @@ export function getBrowserJson<Path extends ApiGetPath>(
     signal ? { signal } : undefined,
   );
 }
+
+/**
+ * Variant for OpenAPI paths containing parameters.
+ *
+ * ``contractPath`` exists only to bind the generated response type; ``endpoint``
+ * is the concrete, encoded URL sent through the same authenticated transport.
+ */
+export function getBrowserJsonAt<Path extends ApiGetPath>(
+  _contractPath: Path,
+  endpoint: string,
+  signal?: AbortSignal,
+): Promise<ApiGetJson<Path>> {
+  return window.api.getWith<ApiGetJson<Path>>(
+    endpoint,
+    undefined,
+    signal ? { signal } : undefined,
+  );
+}

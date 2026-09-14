@@ -14891,6 +14891,293 @@ export interface components {
              */
             task2_text: string;
         };
+        /** SessionAudioUrl */
+        SessionAudioUrl: {
+            /** Response Id */
+            response_id: string;
+            /** Question Id */
+            question_id: string;
+            /** Url */
+            url: string;
+            /** Expires In */
+            expires_in: number;
+        };
+        /** SessionClassTask */
+        SessionClassTask: {
+            /** Item Id */
+            item_id: string;
+            /** Title */
+            title: string | null;
+            /** Due At */
+            due_at: string | null;
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Accepting */
+            accepting: boolean;
+        };
+        /** SessionDetailResponse */
+        SessionDetailResponse: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id?: string | null;
+            /** Mode */
+            mode: string;
+            /** Part */
+            part: number;
+            /** Topic */
+            topic: string;
+            /** Status */
+            status: string;
+            /** Started At */
+            started_at: string;
+            /** Overall Band */
+            overall_band?: number | null;
+            /** Band Fc */
+            band_fc?: number | null;
+            /** Band Lr */
+            band_lr?: number | null;
+            /** Band Gra */
+            band_gra?: number | null;
+            /** Band P */
+            band_p?: number | null;
+            /** Sitting Id */
+            sitting_id?: string | null;
+            /** Full Test Attempt Id */
+            full_test_attempt_id?: string | null;
+            /** Class Assignment Item Id */
+            class_assignment_item_id?: string | null;
+            /** Renderer Affinity */
+            renderer_affinity?: string | null;
+            /** Last Accessed At */
+            last_accessed_at?: string | null;
+            /** Audio Purged At */
+            audio_purged_at?: string | null;
+            /** Content Purged At */
+            content_purged_at?: string | null;
+            retention: components["schemas"]["SessionRetention"];
+            /** Session Id */
+            session_id: string;
+            /** Questions */
+            questions: components["schemas"]["SessionQuestion"][];
+            /** Responses */
+            responses: components["schemas"]["SessionResponse"][];
+            /** Response Receipts */
+            response_receipts: components["schemas"]["SessionResponseReceipt"][];
+            /** Question Lookup Failed */
+            question_lookup_failed: boolean;
+            /** Response Lookup Failed */
+            response_lookup_failed: boolean;
+            /** Results Sealed */
+            results_sealed: boolean;
+            class_task?: components["schemas"]["SessionClassTask"] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** SessionPageResponse */
+        SessionPageResponse: {
+            /** Sessions */
+            sessions: components["schemas"]["SessionRow"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total Pages */
+            total_pages: number;
+        };
+        /** SessionQuestion */
+        SessionQuestion: {
+            /** Id */
+            id: string;
+            /** Session Id */
+            session_id?: string | null;
+            /** Part */
+            part?: number | null;
+            /** Order Num */
+            order_num?: number | null;
+            /**
+             * Question Text
+             * @default
+             */
+            question_text: string;
+            /** Subtopic */
+            subtopic?: string | null;
+            /** Cue Card Bullets */
+            cue_card_bullets?: string[] | null;
+            /** Cue Card Reflection */
+            cue_card_reflection?: string | null;
+            /** Listen Only */
+            listen_only?: boolean | null;
+            /** Audio Url */
+            audio_url?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** SessionResponse */
+        SessionResponse: {
+            /** Id */
+            id: string;
+            /** Session Id */
+            session_id?: string | null;
+            /** Question Id */
+            question_id: string;
+            /** Transcript */
+            transcript?: string | null;
+            /** Feedback */
+            feedback?: {
+                [key: string]: unknown;
+            } | string | null;
+            /** Overall Band */
+            overall_band?: number | null;
+            /** Final Band P */
+            final_band_p?: number | null;
+            /** Final Overall Band */
+            final_overall_band?: number | null;
+            /** Grading Status */
+            grading_status?: string | null;
+            /** Stt Status */
+            stt_status?: string | null;
+            /** Persisted At */
+            persisted_at?: string | null;
+            /** Duration Seconds */
+            duration_seconds?: number | null;
+            /** Audio Url */
+            audio_url?: string | null;
+            /** Audio Playback Url */
+            audio_playback_url?: string | null;
+            /**
+             * Audio Available
+             * @default false
+             */
+            audio_available: boolean;
+            /**
+             * Audio Lookup Failed
+             * @default false
+             */
+            audio_lookup_failed: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /** SessionResponseReceipt */
+        SessionResponseReceipt: {
+            /** Id */
+            id: string;
+            /** Question Id */
+            question_id: string;
+            /** Persisted At */
+            persisted_at: string | null;
+        };
+        /** SessionRetention */
+        SessionRetention: {
+            /** Days Until Audio Purge */
+            days_until_audio_purge: number | null;
+            /** Days Until Content Purge */
+            days_until_content_purge: number | null;
+            /** Is Audio Purged */
+            is_audio_purged: boolean;
+            /** Is Content Purged */
+            is_content_purged: boolean;
+            /** Is Hidden */
+            is_hidden: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /** SessionRow */
+        SessionRow: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id?: string | null;
+            /** Mode */
+            mode: string;
+            /** Part */
+            part: number;
+            /** Topic */
+            topic: string;
+            /** Status */
+            status: string;
+            /** Started At */
+            started_at: string;
+            /** Overall Band */
+            overall_band?: number | null;
+            /** Band Fc */
+            band_fc?: number | null;
+            /** Band Lr */
+            band_lr?: number | null;
+            /** Band Gra */
+            band_gra?: number | null;
+            /** Band P */
+            band_p?: number | null;
+            /** Sitting Id */
+            sitting_id?: string | null;
+            /** Full Test Attempt Id */
+            full_test_attempt_id?: string | null;
+            /** Class Assignment Item Id */
+            class_assignment_item_id?: string | null;
+            /** Renderer Affinity */
+            renderer_affinity?: string | null;
+            /** Last Accessed At */
+            last_accessed_at?: string | null;
+            /** Audio Purged At */
+            audio_purged_at?: string | null;
+            /** Content Purged At */
+            content_purged_at?: string | null;
+            retention: components["schemas"]["SessionRetention"];
+        } & {
+            [key: string]: unknown;
+        };
+        /** SessionStatsResponse */
+        SessionStatsResponse: {
+            /** Sessions */
+            sessions: components["schemas"]["SessionStatsRow"][];
+            summary: components["schemas"]["SessionStatsSummary"];
+        };
+        /** SessionStatsRow */
+        SessionStatsRow: {
+            /** Id */
+            id: string;
+            /** Started At */
+            started_at: string;
+            /** Mode */
+            mode: string;
+            /** Part */
+            part: number;
+            /** Topic */
+            topic: string;
+            /** Band Fc */
+            band_fc?: number | null;
+            /** Band Lr */
+            band_lr?: number | null;
+            /** Band Gra */
+            band_gra?: number | null;
+            /** Band P */
+            band_p?: number | null;
+            /** Overall Band */
+            overall_band?: number | null;
+            /** Status */
+            status: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** SessionStatsSummary */
+        SessionStatsSummary: {
+            /** Total Sessions */
+            total_sessions: number;
+            /** Avg Band 30D */
+            avg_band_30d: number | null;
+            /** Current Streak */
+            current_streak: number;
+            /** Last Topic */
+            last_topic: string | null;
+            /** Last Part */
+            last_part: number | null;
+            /** Last Mode */
+            last_mode: string | null;
+            /** Last Session At */
+            last_session_at: string | null;
+        };
         /** SpeakingAssessmentBody */
         SpeakingAssessmentBody: {
             /** Bands */
@@ -16028,7 +16315,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SessionRow"][] | components["schemas"]["SessionPageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -16096,7 +16383,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SessionStatsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -16166,7 +16453,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SessionDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -16199,7 +16486,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SessionAudioUrl"][];
                 };
             };
             /** @description Validation Error */
