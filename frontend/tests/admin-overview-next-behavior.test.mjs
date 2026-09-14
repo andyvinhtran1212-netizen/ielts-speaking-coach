@@ -23,6 +23,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
 const PAGE = read('app', '(authed-admin-overview)', 'admin', 'page.tsx');
 const BEHAVIOR = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
+const API = read('lib', 'admin-overview-api.ts');
+const OPENAPI = read('types', 'api.d.ts');
 const LAYOUT = read('app', '(authed-admin-overview)', 'layout.tsx');
 const CSS = read('public', 'css', 'admin-overview.css');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
@@ -74,11 +76,18 @@ describe('/admin — native overview ownership', () => {
 
 describe('/admin — lifecycle and contract behavior', () => {
   test('loads all three canonical read endpoints with a stale-response guard', () => {
-    assert.match(BEHAVIOR, /\/admin\/dashboard\/overview\?visitors_window=/);
-    assert.match(BEHAVIOR, /\/admin\/dashboard\/trends\?days=/);
-    assert.match(BEHAVIOR, /window\.api\.get<unknown>\('\/admin\/overview'\)/);
+    assert.match(API, /getBrowserJson\('\/admin\/dashboard\/overview', query\)/);
+    assert.match(API, /getBrowserJson\('\/admin\/dashboard\/trends', query\)/);
+    assert.match(API, /getBrowserJson\('\/admin\/overview'\)/);
+    assert.match(BEHAVIOR, /getAdminDashboardOverview\(days\)/);
+    assert.match(BEHAVIOR, /getAdminDashboardTrends\(days\)/);
+    assert.match(BEHAVIOR, /getAdminContentOverview\(\)/);
+    assert.doesNotMatch(BEHAVIOR, /window\.api/);
+    assert.match(OPENAPI, /"application\/json": components\["schemas"\]\["DashboardOverviewOut"\]/);
+    assert.match(OPENAPI, /"application\/json": components\["schemas"\]\["DashboardTrendsOut"\]/);
+    assert.match(OPENAPI, /"application\/json": components\["schemas"\]\["AdminOverviewOut"\]/);
     assert.doesNotMatch(BEHAVIOR, /Promise\.allSettled/);
-    assert.match(BEHAVIOR, /const opsRequest = window\.api\.get/);
+    assert.match(BEHAVIOR, /const opsRequest = getAdminDashboardOverview/);
     assert.match(BEHAVIOR, /void trendsRequest\s*\.then/);
     assert.match(BEHAVIOR, /requestId !== opsSequence\.current/);
     assert.match(BEHAVIOR, /requestId !== contentSequence\.current/);
@@ -117,6 +126,8 @@ describe('/admin — lifecycle and contract behavior', () => {
     assert.match(BEHAVIOR, /role="tabpanel"/);
     assert.match(BEHAVIOR, /aria-labelledby=\{`trend-tab-/);
     assert.match(BEHAVIOR, /disabled=\{anyLoading\}/);
+    assert.match(BEHAVIOR, /import Link from 'next\/link'/);
+    assert.doesNotMatch(BEHAVIOR, /<a[^>]*href=/);
   });
 
   test('gates the fixture-backed browser flow in CI', () => {

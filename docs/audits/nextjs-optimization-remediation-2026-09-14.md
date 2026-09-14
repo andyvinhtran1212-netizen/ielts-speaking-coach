@@ -67,7 +67,12 @@ fixtures are not deployable application routes.
   shared Supabase singleton or telemetry owner. Generated HTML inside the Grammar
   article shell and route-specific operational `window.location` transitions
   remain bounded compatibility debt; exam launches and downloads must continue
-  to be classified before conversion.
+  to be classified before conversion. Wave B3 converts the complete Admin
+  Overview surface—metric drill-downs, attention cards, skill hubs, recent
+  activity and utility links—to App Router navigation. Exact literal internal
+  anchors across `frontend/app/**/*.tsx` decrease from 171 to 161. A production
+  browser fixture proves `/admin` → AI Usage keeps the same document while
+  preserving the selected time window and canonical request.
 
 ### NXT-03 — Browser runtime bridge bypasses module typing/tree-shaking
 
@@ -141,8 +146,15 @@ fixtures are not deployable application routes.
   readback, Full Test sibling rebuilding, unsafe audio and hostile text. During
   validation, two apparent backend duplicates were rejected as truncated-output
   artifacts and one stale rollback assertion was corrected to the post-Gate-F
-  truth: archived HTML is a fixture, not a deployable route. Remaining admin
-  domains and API-boundary casts are intentionally queued for bounded waves.
+  truth: archived HTML is a fixture, not a deployable route. Wave C7 closes the
+  cross-module Admin Overview read boundary: all three dashboard endpoints now
+  publish strict Pydantic response models, generated OpenAPI exposes their full
+  nested schemas, and the React dashboard reads them through one typed adapter
+  instead of `window.api`. Backend route coverage passes 42/42 and the browser
+  fixture passes 24/24, including stale-response suppression, partial loading,
+  unsafe activity links, responsive containment and soft navigation. Remaining
+  admin domains and API-boundary casts are intentionally queued for bounded
+  waves.
 
 ### NXT-05 — Large imperative Client Components remain parity ports
 
@@ -293,9 +305,10 @@ Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 
 ### P1 — Continue from the typed authenticated spine into shared domains
 
-- Continue from the completed auth (Wave C4), learner session (Wave C5) and
-  admin Speaking (Wave C6) contracts into the next high-value admin list/detail
-  envelope. Generate types and introduce one adapter per bounded admin domain.
+- Continue from the completed auth (Wave C4), learner session (Wave C5), admin
+  Speaking (Wave C6) and Admin Overview (Wave C7) contracts into the next
+  high-value admin list/detail envelope. Generate types and introduce one
+  adapter per bounded admin domain.
 - Migrate callers away from `window.api` only after each adapter has runtime
   normalization and account-switch tests. Do not attempt a repository-wide
   replacement.

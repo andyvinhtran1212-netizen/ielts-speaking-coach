@@ -207,7 +207,11 @@ def test_trends_route_sets_cache_header(monkeypatch):
     monkeypatch.setattr(admin_module, "require_admin", _ok)
     monkeypatch.setattr(
         admin_dashboard, "compute_dashboard_trends",
-        lambda days=30: {"days": days, "series": {}, "computed_at": "x"},
+        lambda days=30: {
+            "days": days,
+            "series": {"visitors": [], "practices": [], "tokens": []},
+            "computed_at": "2026-09-14T00:00:00+00:00",
+        },
     )
     resp = _run(admin_module.dashboard_trends(authorization="x", days=7))
     assert resp.headers.get("Cache-Control") == "max-age=300"

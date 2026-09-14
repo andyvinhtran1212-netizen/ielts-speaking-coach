@@ -1,8 +1,14 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
+import {
+  getAdminContentOverview,
+  getAdminDashboardOverview,
+  getAdminDashboardTrends,
+} from '@/lib/admin-overview-api';
 import {
   chartPoints,
   finiteNumber,
@@ -157,7 +163,7 @@ function MetricCard({
       </div>
       {children}
       {series && <div className="db-card__spark"><Sparkline values={series} /></div>}
-      <a className="db-card__link" href={href}>Xem chi tiết →</a>
+      <Link className="db-card__link" href={href}>Xem chi tiết →</Link>
     </article>
   );
 }
@@ -174,11 +180,11 @@ const SKILL_LINKS = {
 function SkillCard({ name, children }: { name: keyof typeof SKILL_LINKS; children: React.ReactNode }) {
   const labels = { speaking: 'Speaking', writing: 'Writing', reading: 'Reading', listening: 'Listening', vocab: 'Vocab', grammar: 'Grammar' };
   return (
-    <a href={SKILL_LINKS[name]} className="admin-hub-card" data-skill={name}>
+    <Link href={SKILL_LINKS[name]} className="admin-hub-card" data-skill={name}>
       <h3>{labels[name]}</h3>
       <div className="skill-stats">{children}</div>
       <div className="meta"><span className="adm-status-pill is-live">LIVE</span></div>
-    </a>
+    </Link>
   );
 }
 
@@ -228,7 +234,7 @@ function ActivityFeed({ data, error }: { data: any[]; error: string | null }) {
         );
         const key = `${String(row.timestamp)}-${String(row.user_id || '')}-${index}`;
         return link
-          ? <a className="activity-row" href={link} key={key}>{content}</a>
+          ? <Link className="activity-row" href={link} key={key}>{content}</Link>
           : <div className="activity-row is-static" key={key}>{content}</div>;
       })}
     </div>
@@ -262,8 +268,8 @@ export function AdminOverview() {
     setOpsError(null);
     setTrendsLoading(true);
     if (scope === 'windowed') setTrends(null);
-    const opsRequest = window.api.get<unknown>(`/admin/dashboard/overview?visitors_window=${days}`);
-    const trendsRequest = window.api.get<unknown>(`/admin/dashboard/trends?days=${days}`);
+    const opsRequest = getAdminDashboardOverview(days);
+    const trendsRequest = getAdminDashboardTrends(days);
 
     void trendsRequest
       .then((value) => {
@@ -295,7 +301,7 @@ export function AdminOverview() {
     setContentLoading(true);
     setOverviewError(null);
     try {
-      const value = await window.api.get<unknown>('/admin/overview');
+      const value = await getAdminContentOverview();
       if (requestId !== contentSequence.current) return;
       setOverview(normalizeOverviewPayload(value));
       lastContentAt.current = Date.now();
@@ -412,20 +418,20 @@ export function AdminOverview() {
       <section className="db-block" aria-labelledby="attention-title">
         <h2 className="db-section-title" id="attention-title">Cần chú ý</h2>
         <div className="db-attention">
-          <a className="db-attn-card" href="/admin/error-logs">
+          <Link className="db-attn-card" href="/admin/error-logs">
             <span className="db-attn-card__count">{formatInteger(ops?.attention?.errorsUndismissed)}</span>
             <span className="db-attn-card__body">
               <span className="db-attn-card__label">Lỗi chưa xử lý</span>
               <span className="db-attn-card__sub">error_logs chưa dismiss</span>
             </span>
-          </a>
-          <a className="db-attn-card" href="/admin/writing/instructor-queue">
+          </Link>
+          <Link className="db-attn-card" href="/admin/writing/instructor-queue">
             <span className="db-attn-card__count">{formatInteger(ops?.attention?.writingPending)}</span>
             <span className="db-attn-card__body">
               <span className="db-attn-card__label">Bài viết chờ chấm</span>
               <span className="db-attn-card__sub">writing_essays chưa trả kết quả</span>
             </span>
-          </a>
+          </Link>
         </div>
       </section>
 
@@ -542,16 +548,16 @@ export function AdminOverview() {
             <span className="value">{formatInteger(students.active_7d)}</span>
             <span className="delta">{finiteNumber(students.active_30d) == null ? '—' : `${formatInteger(students.active_30d)} trong 30 ngày`}</span>
           </div>
-          <a className={`stat-tile is-clickable${Number(errors.undismissed || 0) > 0 ? ' is-warning' : ''}`} href="/admin/error-logs">
+          <Link className={`stat-tile is-clickable${Number(errors.undismissed || 0) > 0 ? ' is-warning' : ''}`} href="/admin/error-logs">
             <span className="label">Lỗi chưa xử lý</span>
             <span className="value">{formatInteger(errors.undismissed)}</span>
             <span className="delta">{finiteNumber(errors.last_24h) == null ? '—' : `${formatInteger(errors.last_24h)} trong 24h qua`}</span>
-          </a>
-          <a className="stat-tile is-clickable" href="/admin/users?tab=codes">
+          </Link>
+          <Link className="stat-tile is-clickable" href="/admin/users?tab=codes">
             <span className="label">Mã đang dùng</span>
             <span className="value">{formatInteger(accessCodes.active)}</span>
             <span className="delta">Đại trà {formatInteger(codeMix.mass || 0)} · Trực tiếp {formatInteger(codeMix.direct || 0)} · NV {formatInteger(codeMix.staff || 0)}</span>
-          </a>
+          </Link>
         </section>
 
         <div>
@@ -583,11 +589,11 @@ export function AdminOverview() {
               <SkillStat label="Tổng" value={skills.vocab?.words_total} />
             </SkillCard>
             <SkillCard name="grammar"><SkillStat label="Đề xuất 7d" value={skills.grammar?.articles_viewed_7d} /></SkillCard>
-            <a href="/admin/mock-tests" className="admin-hub-card">
+            <Link href="/admin/mock-tests" className="admin-hub-card">
               <h3>Thi thử (Mock Test) — 4 kỹ năng</h3>
               <div className="skill-stats"><div><span className="stat-label">Quản lý đề · phòng thi trực tiếp · duyệt bài · chấm Writing — trong một khu</span></div></div>
               <div className="meta"><span className="adm-status-pill is-live">LIVE</span></div>
-            </a>
+            </Link>
           </section>
         </div>
 
@@ -603,12 +609,12 @@ export function AdminOverview() {
         <div>
           <h2 className="ov-section-title">Truy cập + Hệ thống</h2>
           <div className="placeholder-row">
-            <a href="/admin/students">Học viên · LIVE</a>
-            <a href="/admin/users">Tất cả người dùng · LIVE</a>
-            <a href="/admin/system">Hệ thống · LIVE</a>
-            <a href="/admin/dashboard/reading-attempts">Reading — Lượt làm bài · LIVE</a>
-            <a href="/admin/classes">Lớp &amp; Học viên · LIVE</a>
-            <a href="/admin/usage">Hoạt động người dùng</a>
+            <Link href="/admin/students">Học viên · LIVE</Link>
+            <Link href="/admin/users">Tất cả người dùng · LIVE</Link>
+            <Link href="/admin/system">Hệ thống · LIVE</Link>
+            <Link href="/admin/dashboard/reading-attempts">Reading — Lượt làm bài · LIVE</Link>
+            <Link href="/admin/classes">Lớp &amp; Học viên · LIVE</Link>
+            <Link href="/admin/usage">Hoạt động người dùng</Link>
           </div>
         </div>
       </section>

@@ -11595,6 +11595,12 @@ export interface components {
             /** Association Lookup Failed */
             association_lookup_failed?: boolean | null;
         };
+        /** AccessCodeOverviewOut */
+        AccessCodeOverviewOut: {
+            /** Active */
+            active: number;
+            by_type: components["schemas"]["AccessCodeTypeOverviewOut"];
+        };
         /** AccessCodeQuota */
         AccessCodeQuota: {
             /** Used */
@@ -11605,6 +11611,15 @@ export interface components {
             remaining?: number | null;
             /** Limit Type */
             limit_type: string;
+        };
+        /** AccessCodeTypeOverviewOut */
+        AccessCodeTypeOverviewOut: {
+            /** Mass */
+            mass: number;
+            /** Direct */
+            direct: number;
+            /** Staff */
+            staff: number;
         };
         /** ActivateRequest */
         ActivateRequest: {
@@ -11632,6 +11647,15 @@ export interface components {
             ids: string[];
             /** Action */
             action: string;
+        };
+        /** AdminErrorOverviewOut */
+        AdminErrorOverviewOut: {
+            /** Undismissed */
+            undismissed: number;
+            /** Last 24H */
+            last_24h: number;
+            /** Last 7D */
+            last_7d: number;
         };
         /** AdminFeedbackGroupOut */
         AdminFeedbackGroupOut: {
@@ -11736,6 +11760,20 @@ export interface components {
              */
             count: number;
         };
+        /** AdminOverviewOut */
+        AdminOverviewOut: {
+            students: components["schemas"]["AdminStudentsOverviewOut"];
+            skills: components["schemas"]["AdminSkillsOverviewOut"];
+            errors: components["schemas"]["AdminErrorOverviewOut"];
+            access_codes: components["schemas"]["AccessCodeOverviewOut"];
+            /** Recent Activity */
+            recent_activity: components["schemas"]["RecentAdminActivityOut"][];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+        };
         /** AdminPatchExerciseRequest */
         AdminPatchExerciseRequest: {
             /** Content Payload */
@@ -11791,6 +11829,15 @@ export interface components {
             band_gra: number | null;
             /** Band P */
             band_p: number | null;
+        };
+        /** AdminSkillsOverviewOut */
+        AdminSkillsOverviewOut: {
+            speaking: components["schemas"]["SpeakingOverviewOut"];
+            writing: components["schemas"]["WritingOverviewOut"];
+            listening: components["schemas"]["ListeningOverviewOut"];
+            reading: components["schemas"]["ReadingOverviewOut"];
+            vocab: components["schemas"]["VocabularyOverviewOut"];
+            grammar: components["schemas"]["GrammarOverviewOut"];
         };
         /** AdminSpeakingSessionDetail */
         AdminSpeakingSessionDetail: {
@@ -11913,6 +11960,17 @@ export interface components {
             pdf_status?: string | null;
         } & {
             [key: string]: unknown;
+        };
+        /** AdminStudentsOverviewOut */
+        AdminStudentsOverviewOut: {
+            /** Total */
+            total: number;
+            /** Active 7D */
+            active_7d: number;
+            /** Active 30D */
+            active_30d: number;
+            /** By Cohort */
+            by_cohort: components["schemas"]["CohortStudentCountOut"][];
         };
         /** AdminSummaryRebuildItem */
         AdminSummaryRebuildItem: {
@@ -12658,6 +12716,15 @@ export interface components {
             /** Course Id */
             course_id?: string | null;
         };
+        /** CohortStudentCountOut */
+        CohortStudentCountOut: {
+            /** Cohort Id */
+            cohort_id?: string | null;
+            /** Cohort Name */
+            cohort_name?: string | null;
+            /** Count */
+            count: number;
+        };
         /** CohortsBody */
         CohortsBody: {
             /** Cohort Ids */
@@ -13006,6 +13073,89 @@ export interface components {
             hint?: string | null;
             /** Is Active */
             is_active?: boolean | null;
+        };
+        /** DashboardAttentionOut */
+        DashboardAttentionOut: {
+            /** Errors Undismissed */
+            errors_undismissed?: number | null;
+            /** Writing Pending */
+            writing_pending?: number | null;
+        };
+        /** DashboardOverviewOut */
+        DashboardOverviewOut: {
+            /** Total Users */
+            total_users?: number | null;
+            /** Active Codes */
+            active_codes?: number | null;
+            distinct_visitors: components["schemas"]["DashboardVisitorsOut"];
+            /** Total Practices */
+            total_practices?: number | null;
+            /** Grading Minutes */
+            grading_minutes?: number | null;
+            tokens_called: components["schemas"]["DashboardWindowMetricOut"];
+            attention: components["schemas"]["DashboardAttentionOut"];
+            /**
+             * Computed At
+             * Format: date-time
+             */
+            computed_at: string;
+        };
+        /** DashboardTrendPointOut */
+        DashboardTrendPointOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Value */
+            value: number;
+        };
+        /** DashboardTrendSeriesOut */
+        DashboardTrendSeriesOut: {
+            /** Visitors */
+            visitors: components["schemas"]["DashboardTrendPointOut"][];
+            /** Practices */
+            practices: components["schemas"]["DashboardTrendPointOut"][];
+            /** Tokens */
+            tokens: components["schemas"]["DashboardTrendPointOut"][];
+        };
+        /** DashboardTrendsOut */
+        DashboardTrendsOut: {
+            /**
+             * Days
+             * @enum {integer}
+             */
+            days: 7 | 30 | 90;
+            series: components["schemas"]["DashboardTrendSeriesOut"];
+            /**
+             * Computed At
+             * Format: date-time
+             */
+            computed_at: string;
+        };
+        /** DashboardVisitorsOut */
+        DashboardVisitorsOut: {
+            /** Count */
+            count?: number | null;
+            /**
+             * Window Days
+             * @enum {integer}
+             */
+            window_days: 7 | 30 | 90;
+            /** Authenticated */
+            authenticated?: number | null;
+            /** Anonymous */
+            anonymous?: number | null;
+        };
+        /** DashboardWindowMetricOut */
+        DashboardWindowMetricOut: {
+            /** Count */
+            count?: number | null;
+            /**
+             * Window Days
+             * @enum {integer}
+             */
+            window_days: 7 | 30 | 90;
         };
         /**
          * DeliverRequest
@@ -13819,6 +13969,11 @@ export interface components {
             /** Total Categories */
             total_categories: number;
         };
+        /** GrammarOverviewOut */
+        GrammarOverviewOut: {
+            /** Articles Viewed 7D */
+            articles_viewed_7d: number;
+        };
         /** GrammarRecommendPayload */
         GrammarRecommendPayload: {
             /** Issue */
@@ -14342,6 +14497,21 @@ export interface components {
              * @default false
              */
             expected_absent: boolean;
+        };
+        /** ListeningOverviewOut */
+        ListeningOverviewOut: {
+            /** Attempts Total */
+            attempts_total: number;
+            /** Attempts 7D */
+            attempts_7d: number;
+            /** Avg Score 7D */
+            avg_score_7d?: number | null;
+            /** Content Count */
+            content_count: number;
+            /** Dictation Total */
+            dictation_total: number;
+            /** Dictation 7D */
+            dictation_7d: number;
         };
         /** ListeningTestDictationGradeRequest */
         ListeningTestDictationGradeRequest: {
@@ -14949,6 +15119,15 @@ export interface components {
             /** Count */
             count: number;
         };
+        /** ReadingOverviewOut */
+        ReadingOverviewOut: {
+            /** Attempts Total */
+            attempts_total: number;
+            /** Attempts 7D */
+            attempts_7d: number;
+            /** Avg Score 7D */
+            avg_score_7d?: number | null;
+        };
         /** ReadingPerTestOut */
         ReadingPerTestOut: {
             /** Test Id */
@@ -15010,6 +15189,29 @@ export interface components {
             to_user_id: string;
             /** Reason */
             reason?: string | null;
+        };
+        /** RecentAdminActivityOut */
+        RecentAdminActivityOut: {
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+            /** User Id */
+            user_id?: string | null;
+            /**
+             * User Email
+             * @default
+             */
+            user_email: string;
+            /** Skill */
+            skill: string;
+            /** Action */
+            action: string;
+            /** Score */
+            score?: number | string | null;
+            /** Link */
+            link: string;
         };
         /** RecommendationOpenRequest */
         RecommendationOpenRequest: {
@@ -15399,6 +15601,15 @@ export interface components {
         SpeakingBody: {
             /** Session Ids */
             session_ids?: string[];
+        };
+        /** SpeakingOverviewOut */
+        SpeakingOverviewOut: {
+            /** Sessions Total */
+            sessions_total: number;
+            /** Sessions 7D */
+            sessions_7d: number;
+            /** Avg Band 7D */
+            avg_band_7d?: number | null;
         };
         /** StartGradingRequest */
         StartGradingRequest: {
@@ -15869,6 +16080,13 @@ export interface components {
             /** Limit */
             limit: number;
         };
+        /** VocabularyOverviewOut */
+        VocabularyOverviewOut: {
+            /** Words Total */
+            words_total: number;
+            /** Due Review Today */
+            due_review_today: number;
+        };
         /** VoidBody */
         VoidBody: {
             /**
@@ -16015,6 +16233,15 @@ export interface components {
             /** Started */
             started: boolean;
             timer: components["schemas"]["WritingAdmissionTimer"];
+        };
+        /** WritingOverviewOut */
+        WritingOverviewOut: {
+            /** Essays Total */
+            essays_total: number;
+            /** Essays 7D */
+            essays_7d: number;
+            /** Feedback Pending */
+            feedback_pending: number;
         };
         /** _AnswerPatchItem */
         _AnswerPatchItem: {
@@ -17397,7 +17624,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DashboardOverviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -17430,7 +17657,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DashboardTrendsOut"];
                 };
             };
             /** @description Validation Error */
@@ -20813,7 +21040,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminOverviewOut"];
                 };
             };
             /** @description Validation Error */

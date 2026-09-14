@@ -32,6 +32,7 @@ from models.admin_speaking import (
     AdminSpeakingSessionRow,
     AdminSummaryRebuildResponse,
 )
+from models.admin_overview import DashboardOverviewOut, DashboardTrendsOut
 from database import supabase_admin
 from services.class_assignment_service import sync_class_item_score
 from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, observe_operation
@@ -1768,7 +1769,7 @@ async def foot_traffic(
 
 # ── Sprint 18.2 — GET /admin/dashboard/overview (ops metrics) ────────────────────
 
-@router.get("/dashboard/overview")
+@router.get("/dashboard/overview", response_model=DashboardOverviewOut)
 async def dashboard_overview(
     authorization: str | None = Header(default=None),
     visitors_window: int = 30,
@@ -1783,7 +1784,7 @@ async def dashboard_overview(
 
 # ── admin-dashboard-redesign — GET /admin/dashboard/trends (daily series) ─────
 
-@router.get("/dashboard/trends")
+@router.get("/dashboard/trends", response_model=DashboardTrendsOut)
 async def dashboard_trends(
     authorization: str | None = Header(default=None),
     days: int = 30,
@@ -1793,8 +1794,13 @@ async def dashboard_trends(
     bounded fetch, no migration. Cache-Control: 300s (admin has manual refresh);
     Pattern #29 — a per-series outage yields a zero-filled series, never a 500."""
     await require_admin(authorization)
-    body = admin_dashboard.compute_dashboard_trends(days=days)
-    return JSONResponse(content=body, headers={"Cache-Control": "max-age=300"})
+    body = DashboardTrendsOut.model_validate(
+        admin_dashboard.compute_dashboard_trends(days=days)
+    )
+    return JSONResponse(
+        content=body.model_dump(mode="json"),
+        headers={"Cache-Control": "max-age=300"},
+    )
 
 
 # ── reading-access-tracking C — GET /admin/dashboard/reading-attempts ─────────
