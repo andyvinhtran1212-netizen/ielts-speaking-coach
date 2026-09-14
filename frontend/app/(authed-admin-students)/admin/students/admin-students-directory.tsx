@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { getAdminCohorts } from '@/lib/admin-cohorts-api';
+import { getAdminStudents } from '@/lib/admin-students-api';
 import { Dialog, Field, messageOf, StatusBanner } from '@/components/admin-directory-ui';
 import { assignmentHref } from '@/lib/admin-writing-assignments-model.mjs';
 import {
@@ -138,8 +139,7 @@ export function AdminStudentsDirectory() {
     if (!silent) setLoading(true);
     setLoadError(null);
     try {
-      const path = `/admin/students?limit=${LIMIT}${search ? `&search=${encodeURIComponent(search)}` : ''}`;
-      const rows = normalizeStudentsPayload(await window.api.get<unknown>(path)) as Student[];
+      const rows = normalizeStudentsPayload(await getAdminStudents({ limit: LIMIT, search: search || undefined })) as Student[];
       if (requestId !== requestSequence.current) return false;
       setStudents(rows);
       setSelected(new Set());

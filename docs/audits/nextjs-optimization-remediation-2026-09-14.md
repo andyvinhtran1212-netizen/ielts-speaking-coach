@@ -27,11 +27,11 @@ fixtures are not deployable application routes.
 - Literal internal anchors in `frontend/app/**/*.tsx` fell from 208 to 138. The
   remainder is not a zero-count target: active-exam exits, downloads, external
   targets and affinity-sensitive launches retain hard browser navigation.
-- Ten application modules now derive wire shapes from generated OpenAPI types.
+- Eleven application modules now derive wire shapes from generated OpenAPI types.
   `window.api` is still referenced by 129 TS/TSX modules, but that file count is
   not a completion metric: several migrated screens keep the bridge only for
   mutations while their high-volume reads already use typed adapters.
-- The full frontend contract suite passes 9,085/9,085; the rendered React suite
+- The full frontend contract suite passes 9,088/9,088; the rendered React suite
   passes 3/3; the current cohort response/service slice passes 18/18. Production
   build and TypeScript checks pass.
 - A backend-less local build logs one handled `ECONNREFUSED` while prerendering
@@ -194,7 +194,14 @@ fixtures are not deployable application routes.
   the smaller picker response via `response_model_exclude_unset`. Five native
   consumers—Users, Students, Classes, Writing Queue and Mock Exams—now share the
   generated adapter. Backend model/service tests pass 18/18, consumer contracts
-  55/55 and their five browser journeys 87/87. No mutation path changed.
+  55/55 and their five browser journeys 87/87. No mutation path changed. Wave
+  C10 types the high-volume `/admin/students` list while deliberately leaving
+  create/edit/import, bulk assignment and profile-detail reads on their existing
+  compatibility paths. The strict response publishes membership and cohort
+  lookup failures as canonical truth rather than allowing them to disappear at
+  serialization. Backend route/service/model coverage passes 40/40, focused
+  frontend contracts 11/11, the production build emits 141 routes and the full
+  Admin Students browser journey passes 18/18.
 
 ### NXT-05 — Large imperative Client Components remain parity ports
 
@@ -321,9 +328,10 @@ Vocabulary content has a tagged invalidation design.
 Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 
 1. Vocabulary, public Grammar, the shared auth spine, learner Speaking sessions,
-   admin Speaking operations, Admin Overview, Admin Users/access codes and the
-   shared cohort picker/rollup consume generated OpenAPI types. Other admin
-   domains still rely substantially on the compatibility API bridge.
+   admin Speaking operations, Admin Overview, Admin Users/access codes, the
+   shared cohort picker/rollup and the Admin Students directory consume
+   generated OpenAPI types. Other admin domains still rely substantially on the
+   compatibility API bridge.
 2. Large renderers still preserve some imperative parity code, but measured
    route bundles are small and their critical state machines/write paths are
    extracted and tested. Remaining conversions are maintainability work, not a

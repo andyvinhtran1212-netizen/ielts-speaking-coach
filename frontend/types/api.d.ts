@@ -12002,6 +12002,64 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** AdminStudentCohortOut */
+        AdminStudentCohortOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name?: string | null;
+            /** Is Primary */
+            is_primary: boolean;
+        };
+        /** AdminStudentDirectoryRowOut */
+        AdminStudentDirectoryRowOut: {
+            /** Id */
+            id: string;
+            /** Student Code */
+            student_code: string;
+            /** Full Name */
+            full_name: string;
+            /** Target Band */
+            target_band?: number | null;
+            /** Target Date */
+            target_date?: string | null;
+            /** Persona Notes */
+            persona_notes?: string | null;
+            /** Current Band Estimate */
+            current_band_estimate?: number | null;
+            /** User Id */
+            user_id?: string | null;
+            /** Created By */
+            created_by?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Flag Count */
+            flag_count: number;
+            /** Last Flagged At */
+            last_flagged_at?: string | null;
+            /** Is Under Review */
+            is_under_review: boolean;
+            /** Instructor Id */
+            instructor_id?: string | null;
+            /** Cohort Id */
+            cohort_id?: string | null;
+            /** Cohorts */
+            cohorts: components["schemas"]["AdminStudentCohortOut"][];
+            /** Cohort Name */
+            cohort_name?: string | null;
+            /** Cohort Lookup Failed */
+            cohort_lookup_failed: boolean;
+            /** Membership Lookup Failed */
+            membership_lookup_failed: boolean;
+        };
         /** AdminStudentsOverviewOut */
         AdminStudentsOverviewOut: {
             /** Total */
@@ -24139,7 +24197,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminStudentDirectoryRowOut"][];
                 };
             };
             /** @description Validation Error */
