@@ -35,10 +35,11 @@ test('Speaking browser regression has a dedicated HTML report plus traces and sc
   assert.match(workflow, /if-no-files-found:\s*error/);
 });
 
-test('Speaking fixtures mock only pinned same-origin runtimes and use canonical attempt identity', () => {
-  assert.match(harness, /const SUPABASE_RUNTIME = `\$\{ORIGIN\}\/vendor\/supabase\.js`/);
+test('Speaking fixtures inject the bundled ESM auth client and use canonical attempt identity', () => {
+  assert.match(harness, /window\.__AVER_SUPABASE_CLIENT__\s*=\s*\{/);
+  assert.match(harness, /getSession:\s*async function \(\)/);
+  assert.doesNotMatch(harness, /SUPABASE_RUNTIME|page\.route\(SUPABASE_RUNTIME/);
   assert.match(harness, /const LUCIDE_RUNTIME = `\$\{ORIGIN\}\/vendor\/lucide\.min\.js`/);
-  assert.match(harness, /page\.route\(SUPABASE_RUNTIME/);
   assert.match(harness, /page\.route\(LUCIDE_RUNTIME/);
   assert.doesNotMatch(harness, /SUPABASE_LEGACY_CDN|cdn\.jsdelivr\.net|unpkg\.com/);
   assert.match(spec, /full_test_attempt_id/);

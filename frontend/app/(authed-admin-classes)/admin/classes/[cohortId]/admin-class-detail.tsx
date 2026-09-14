@@ -1,8 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import Link from 'next/link';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
+import { getAdminCourses } from '@/lib/admin-courses-api';
 import { Dialog, Field, messageOf, StatusBanner } from '@/components/admin-directory-ui';
 import {
   latestSkillActivity,
@@ -144,7 +146,7 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
     setCoursesError(null);
     const [rosterResult, courseResult] = await Promise.allSettled([
       window.api.get<unknown>(`/admin/cohorts/${encodeURIComponent(cohortId)}/members`),
-      window.api.get<unknown>('/admin/courses'),
+      getAdminCourses(),
     ]);
     if (requestId !== overviewSequence.current) return false;
     let canonical = true;
@@ -491,14 +493,14 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
 
   if (!roster && rosterError) return (
     <main className="acd-shell">
-      <a className="acx-back" href="/admin/classes">← Quay lại danh sách lớp</a>
+      <Link className="acx-back" href="/admin/classes">← Quay lại danh sách lớp</Link>
       <EmptyState title="Không mở được lớp" text={rosterError} action={<button className="adm-btn-secondary" type="button" onClick={() => void loadOverview()}>Thử lại</button>} />
     </main>
   );
 
   return (
     <main className="acd-shell acx-shell">
-      <nav className="acx-breadcrumb" aria-label="Đường dẫn"><a href="/admin/classes">Lớp & Học viên</a><span>/</span><strong aria-current="page">{roster?.cohort.name}</strong></nav>
+      <nav className="acx-breadcrumb" aria-label="Đường dẫn"><Link href="/admin/classes">Lớp & Học viên</Link><span>/</span><strong aria-current="page">{roster?.cohort.name}</strong></nav>
 
       <header className="acx-hero">
         <div>

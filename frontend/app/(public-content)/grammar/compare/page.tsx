@@ -1,17 +1,16 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
-import { getCompare } from '@/lib/grammar-api';
+import { getCompare, type GrammarCompareWire } from '@/lib/grammar-api';
 import {
   articleUrl,
   CategoryBadge,
   LevelBadge,
-  type Article,
 } from '../grammar-cards';
 
-type CompareArticle = Article & { html?: string };
-type CompareData = { slug: string; left: CompareArticle; right: CompareArticle };
+type CompareArticle = GrammarCompareWire['left'];
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 function querySlug(params: Record<string, string | string[] | undefined>) {
@@ -20,10 +19,10 @@ function querySlug(params: Record<string, string | string[] | undefined>) {
 
 export async function generateMetadata({ searchParams }: { searchParams: SearchParams }): Promise<Metadata> {
   const slug = querySlug(await searchParams);
-  if (!slug) return { title: 'So sánh — Grammar Wiki — IELTS Speaking Coach' };
-  const data = await getCompare(slug) as CompareData | null;
+  if (!slug) return { title: 'So sánh — Grammar Wiki — IELTS Speaking Coach', robots: { index: false, follow: true } };
+  const data = await getCompare(slug);
   if (!data) notFound();
-  return { title: `${data.left.title} vs ${data.right.title} — Grammar Wiki` };
+  return { title: `${data.left.title} vs ${data.right.title} — Grammar Wiki`, robots: { index: false, follow: true } };
 }
 
 function CompareSkeleton() {
@@ -56,12 +55,12 @@ function CompareColumn({ article, id }: { article: CompareArticle; id: string })
       {article.summary ? (
         <p className="text-sm text-white/55 mb-4 leading-relaxed">{article.summary}</p>
       ) : null}
-      <a
+      <Link
         href={articleUrl(article.category, article.slug)}
         className="inline-flex items-center gap-1.5 text-sm text-teal-light hover:underline mb-6"
       >
         Đọc bài đầy đủ →
-      </a>
+      </Link>
       {/* Nội dung này là HTML Markdown đã biên soạn từ GrammarContentService;
           legacy cũng render nguyên `article.html`. Text metadata phía trên vẫn
           do React escape, không mở rộng trust boundary sang dữ liệu khác. */}
@@ -84,7 +83,7 @@ async function CompareBody({ searchParams }: { searchParams: SearchParams }) {
   const slug = querySlug(await searchParams);
   if (!slug) return <MissingSlug />;
 
-  const data = await getCompare(slug) as CompareData | null;
+  const data = await getCompare(slug);
   if (!data) notFound();
 
   return (
@@ -117,7 +116,7 @@ export default function GrammarComparePage({ searchParams }: { searchParams: Sea
       >
         <div className="av-w-page h-12 flex items-center">
           <div id="breadcrumb" className="flex items-center text-sm text-white/40 flex-wrap gap-0">
-            <a href="/grammar" className="hover:text-teal-light transition-colors">Grammar Wiki</a>
+            <Link href="/grammar" className="hover:text-teal-light transition-colors">Grammar Wiki</Link>
             <span className="mx-2 text-white/20">›</span>
             <span className="text-white/80">So sánh</span>
           </div>

@@ -13,11 +13,19 @@
 // nằm SAU `Suspense`. Đây không phải lựa chọn thẩm mỹ — `searchParams` không
 // được phép đọc bên trong `use cache`, mà mọi loader nội dung đều `use cache`.
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { notFound, redirect } from 'next/navigation';
 
-import { getHome, getGroups, getCategory } from '../../../lib/grammar-api';
+import {
+  getHome,
+  getGroups,
+  getCategory,
+  type GrammarCategoryWire,
+  type GrammarGroupsWire,
+  type GrammarHomeWire,
+} from '../../../lib/grammar-api';
 import { CategoryCards, FeaturedCards, GroupCards } from './grammar-cards';
 import { SearchBox } from './search-box';
 import { GrammarLearningDashboard, GrammarModeSwitcher } from './grammar-home-mode';
@@ -28,6 +36,7 @@ export const metadata: Metadata = {
   title: 'Grammar Wiki — Aver Learning',
   description:
     'Tra cứu ngữ pháp IELTS theo hệ thống: các nhóm chủ đề, lộ trình học, và bài viết áp dụng vào Speaking & Writing.',
+  alternates: { canonical: '/grammar' },
 };
 
 async function GroupCountLink() {
@@ -90,8 +99,8 @@ function Hero() {
         >
           <GroupCountLink />
         </Suspense>
-        <a href="/grammar/search?q=ielts" className="btn-cta btn-outline">Grammar cho IELTS</a>
-        <a href="/grammar/exercises" className="btn-cta btn-outline">Bài tập Grammar</a>
+        <Link href="/grammar/search?q=ielts" className="btn-cta btn-outline">Grammar cho IELTS</Link>
+        <Link href="/grammar/exercises" className="btn-cta btn-outline">Bài tập Grammar</Link>
       </div>
     </div>
   );
@@ -113,7 +122,13 @@ function BodySkeleton() {
   );
 }
 
-function HomeContent({ home, groups }: { home: any; groups: any[] }) {
+function HomeContent({
+  home,
+  groups,
+}: {
+  home: GrammarHomeWire | null;
+  groups: GrammarGroupsWire;
+}) {
   return (
     <div id="home-content" className="ds-fadein">
       <GrammarModeSwitcher
@@ -124,20 +139,20 @@ function HomeContent({ home, groups }: { home: any; groups: any[] }) {
         </>}
         learning={<>
           <section className="mb-10"><p className="section-head">Không học lại từ đầu — học đúng chỗ cần</p><GrammarLearningDashboard /></section>
-          <section className="gw-learning-actions"><a href="/grammar/roadmap"><span>01</span><strong>Lộ trình</strong><small>Xem thứ tự nền tảng → điểm yếu</small></a><a href="/grammar/exercises"><span>02</span><strong>Bài luyện</strong><small>Lọc theo chủ đề và trình độ</small></a><a href="/grammar/search?q=ielts"><span>03</span><strong>IELTS transfer</strong><small>Tìm bài dùng cho kỹ năng cụ thể</small></a></section>
+          <section className="gw-learning-actions"><Link href="/grammar/roadmap"><span>01</span><strong>Lộ trình</strong><small>Xem thứ tự nền tảng → điểm yếu</small></Link><Link href="/grammar/exercises"><span>02</span><strong>Bài luyện</strong><small>Lọc theo chủ đề và trình độ</small></Link><Link href="/grammar/search?q=ielts"><span>03</span><strong>IELTS transfer</strong><small>Tìm bài dùng cho kỹ năng cụ thể</small></Link></section>
         </>}
       />
     </div>
   );
 }
 
-function CategoryView({ slug, data }: { slug: string; data: any }) {
+function CategoryView({ slug, data }: { slug: string; data: GrammarCategoryWire }) {
   return (
     <div id="category-view" className="ds-fadein">
       <div className="mb-6 flex items-center gap-3">
-        <a href="/grammar" className="text-white/40 hover:text-white/70 text-sm transition-colors">
+        <Link href="/grammar" className="text-white/40 hover:text-white/70 text-sm transition-colors">
           ← Grammar Wiki
-        </a>
+        </Link>
         <h2 id="category-view-title" className="text-xl font-bold text-white capitalize">
           {data?.title || slug.replace(/-/g, ' ')}
         </h2>
@@ -179,7 +194,7 @@ async function GrammarBody({ searchParams }: { searchParams: Promise<Record<stri
   // Hai lần fetch song song — legacy cũng vậy; tuần tự sẽ cộng dồn độ trễ vào
   // đúng phần đang stream.
   const [home, groups] = await Promise.all([getHome(), getGroups()]);
-  return <HomeContent home={home} groups={Array.isArray(groups) ? groups : []} />;
+  return <HomeContent home={home} groups={groups || []} />;
 }
 
 export default function GrammarHomePage({

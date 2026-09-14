@@ -1,7 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import { getCurrentUser } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -42,7 +44,7 @@ function UnitCard({ unit, reason, badge, recommendationId }: { unit: UnitSummary
   const href = `/vocabulary/learn/${encodeURIComponent(unit.unit_slug)}`
     + (recommendationId ? `?recommendation=${encodeURIComponent(recommendationId)}` : '');
   return (
-    <a className="vc-unit-card" href={href}>
+    <Link className="vc-unit-card" href={href}>
       <div className="vc-unit-meta">
         <span>{badge || unit.target_level}</span>
         <span>{unit.estimated_minutes ? `${unit.estimated_minutes} phút` : 'Learning unit'}</span>
@@ -50,7 +52,7 @@ function UnitCard({ unit, reason, badge, recommendationId }: { unit: UnitSummary
       <h3>{unit.title_vi || unit.display_headword}</h3>
       <p>{reason || unit.learning_goal_vi}</p>
       <strong>Học để dùng <span aria-hidden="true">→</span></strong>
-    </a>
+    </Link>
   );
 }
 
@@ -73,9 +75,7 @@ export function VocabCuratedHome() {
       const ready = await whenGlobalReady(() => !!window.api?.getWith, 'window.api (vocab curated)');
       if (!ready || disposed) return;
       try {
-        const me = await window.api.getWith<{ vocab_curated_enabled?: unknown }>(
-          '/auth/me', undefined, { signal: controller.signal },
-        );
+        const me = await getCurrentUser(controller.signal);
         if (disposed) return;
         if (me?.vocab_curated_enabled !== true) {
           setState({ kind: 'locked' });
@@ -107,7 +107,7 @@ export function VocabCuratedHome() {
     <section className="vc-state">
       <h2>Chưa mở cho tài khoản này</h2>
       <p>Vocab Curated đang được thử nghiệm theo nhóm nhỏ để bảo đảm chất lượng nội dung và đo hiệu quả học thật.</p>
-      <a className="av-button av-button-primary" href="/vocabulary/hub">Quay lại Vocabulary</a>
+      <Link className="av-button av-button-primary" href="/vocabulary/hub">Quay lại Vocabulary</Link>
     </section>
   );
   if (state.kind === 'error') return <section className="vc-state is-error" role="alert">{state.message}</section>;
@@ -143,7 +143,7 @@ export function VocabCuratedHome() {
             <article className="vc-path" key={path.id}>
               <span>{path.target_level} · {path.units.length} units</span>
               <h3>{path.title_vi}</h3><p>{path.description_vi}</p>
-              <ol>{path.units.slice(0, 4).map((item) => <li key={item.unit.id}><a href={`/vocabulary/learn/${encodeURIComponent(item.unit.unit_slug)}`}>{item.unit.display_headword}</a></li>)}</ol>
+              <ol>{path.units.slice(0, 4).map((item) => <li key={item.unit.id}><Link href={`/vocabulary/learn/${encodeURIComponent(item.unit.unit_slug)}`}>{item.unit.display_headword}</Link></li>)}</ol>
             </article>
           ))}</div>
         </section>

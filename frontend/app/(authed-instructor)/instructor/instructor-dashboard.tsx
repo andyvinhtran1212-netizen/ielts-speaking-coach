@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
+import { getAuthorizationIdentity } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
   assignmentTone,
@@ -140,7 +141,7 @@ export function InstructorDashboard() {
       try {
         const ready = await whenGlobalReady(() => typeof window.api?.get === 'function', 'window.api (instructor)');
         if (!ready) throw new Error('Không tải được công cụ kết nối. Hãy tải lại trang.');
-        const normalizedProfile = normalizeInstructorProfile(await window.api.get<unknown>('/auth/me'));
+        const normalizedProfile = normalizeInstructorProfile(await getAuthorizationIdentity());
         if (!normalizedProfile) throw new Error('Không xác nhận được vai trò tài khoản.');
         if (requestId !== sequence.current) return;
         if (!['instructor', 'admin'].includes(normalizedProfile.role)) {

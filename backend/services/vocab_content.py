@@ -452,6 +452,53 @@ class VocabContentService:
         the 'my vocab' wiki flat listing / client-side search source."""
         return [self._summary(a) for a in self._curated_articles]
 
+    def get_directory(
+        self,
+        *,
+        category: str = "",
+        query: str = "",
+        offset: int = 0,
+        limit: int = 60,
+    ) -> dict:
+        """Return a lean, paged catalogue for the public Vocabulary Wiki.
+
+        ``get_categories()`` intentionally keeps its historical embedded article
+        lists because the learner hub and older clients still consume that
+        contract.  The native Next browse surface does not need to serialize the
+        complete catalogue into its RSC payload, though, so it reads this
+        additive contract instead.
+        """
+        categories = [
+            {
+                "slug": item["slug"],
+                "title": item["title"],
+                "article_count": item["article_count"],
+            }
+            for item in self.all_categories
+        ]
+        summaries = [
+            article
+            for item in self.all_categories
+            for article in item["articles"]
+        ]
+        if category:
+            summaries = [item for item in summaries if item["category"] == category]
+        needle = query.strip().casefold()
+        if needle:
+            summaries = [
+                item for item in summaries
+                if needle in item["headword"].casefold()
+                or needle in item.get("gloss_vi", "").casefold()
+            ]
+        total = len(summaries)
+        return {
+            "categories": categories,
+            "items": summaries[offset:offset + limit],
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+        }
+
     def get_article(self, category: str, slug: str) -> Optional[dict]:
         # Disambiguate by (category, slug): the same slug can exist in multiple
         # categories, so a slug-only lookup could return the wrong card (or miss

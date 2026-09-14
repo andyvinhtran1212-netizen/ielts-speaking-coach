@@ -33,10 +33,28 @@ const fakeSession = JSON.stringify({
 
 /** Dữ liệu trả sẵn cho từng endpoint — đủ để trang dựng xong, không hơn. */
 const CANNED = [
-  [/\/auth\/me$/, { id: 'u1', display_name: 'Học Viên', permissions: ['all'] }],
+  [/\/auth\/me$/, {
+    id: '00000000-0000-4000-8000-000000000001',
+    email: 'flow@local',
+    display_name: 'Học Viên',
+    avatar_url: null,
+    role: 'user',
+    is_active: true,
+    permissions: ['all'],
+    onboarding_completed: true,
+    target_band: 7,
+    exam_date: null,
+    self_level: 'intermediate',
+    preferred_topics: [],
+    vocab_bank_enabled: true,
+    d1_enabled: true,
+    d3_enabled: true,
+    flashcard_enabled: true,
+    vocab_curated_enabled: true,
+  }],
   [/\/topics\?part=/, [{ title: 'Chủ đề mẫu', category: 'Daily life' }]],
   [/\/api\/dashboard\/init$/, { summary: { total_sessions: 0 }, sessions: [] }],
-  [/\/sessions\?/, { sessions: [], total: 0, total_pages: 0, page: 1 }],
+  [/\/sessions\?/, { sessions: [], total: 0, total_pages: 0, page: 1, page_size: 20 }],
   [/\/api\/grammar\/dashboard-data$/, {}],
   [/\/api\/mock-exams\/my-sittings$/, { sittings: [] }],
   [/\/api\/flashcards\/due\/count$/, { count: 0 }],
@@ -120,6 +138,9 @@ await page.route('**/*', async (route) => {
 
 const errs = [];
 page.on('pageerror', (e) => errs.push(String(e)));
+page.on('console', (message) => {
+  if (message.type() === 'error') errs.push(message.text());
+});
 
 // LÀM CHẬM lời gọi API để mô phỏng mạng thật. Bản đầu trả ngay lập tức và
 // chờ 2.5s trước khi bấm — nên nó BỎ LỌT lỗi "listener gắn sau khi /auth/me
@@ -162,7 +183,7 @@ check('nút start bị khoá trong lúc chờ API',
 releaseApiScript();
 await page.waitForTimeout(1500);
 check('bấm đôi trước API chỉ gửi một POST /sessions', sessionPostCount === 1,
-  `${sessionPostCount} POST /sessions`);
+  `${sessionPostCount} POST /sessions${errs.length ? `; ${errs.join(' | ')}` : ''}`);
 check('request bấm sớm giữ đúng topic và Part đã chọn',
   !!sessionPost && sessionPost.mode === 'practice'
     && sessionPost.part === 2 && sessionPost.topic === earlyTopic,

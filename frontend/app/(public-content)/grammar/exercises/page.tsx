@@ -3,11 +3,14 @@
 // Behavior đã được port sang React trong `grammar-exercises-behavior.tsx`;
 // route công khai không còn inject module legacy hay phụ thuộc DOMContentLoaded.
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 import { GrammarExercisesBehavior } from './grammar-exercises-behavior';
 
 export const metadata: Metadata = {
   title: 'Bài tập Grammar — Aver Learning',
+  description: 'Chọn bài tập Grammar theo chủ đề và trình độ để luyện đúng điểm cần cải thiện.',
+  alternates: { canonical: '/grammar/exercises' },
 };
 
 export default function GrammarExercisesPage() {
@@ -19,7 +22,7 @@ export default function GrammarExercisesPage() {
       <main className="av-w-page py-8">
         <header className="mb-8">
           <nav className="text-sm text-white/40 mb-3">
-            <a href="/grammar" className="hover:text-white/70">Grammar Wiki</a>{' '}
+            <Link href="/grammar" className="hover:text-white/70">Grammar Wiki</Link>{' '}
             <span className="mx-1">/</span>{' '}
             <span className="text-white/60">Bài tập</span>
           </nav>

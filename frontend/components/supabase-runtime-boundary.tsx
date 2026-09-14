@@ -9,11 +9,17 @@ import {
 
 import {
   RouteScriptChain,
-  type RouteScriptSpec,
 } from '@/components/route-script-chain';
+import {
+  exposeLegacySupabaseClient,
+  getBrowserSupabase,
+} from '@/lib/supabase-browser';
 
-const CLIENT_READY_TIMEOUT_MS = 10_000;
-const CLIENT_POLL_INTERVAL_MS = 50;
+const PRE_CLIENT_SCRIPTS = [
+  { src: '/js/runtime-config.js' },
+  { src: '/js/error-reporter.js', continueOnError: true },
+] as const;
+const API_BRIDGE_SCRIPTS = [{ src: '/js/api.js' }] as const;
 
 function reportRuntimeFailure(message: string, error?: unknown) {
   try {
@@ -32,68 +38,59 @@ function reportRuntimeFailure(message: string, error?: unknown) {
 }
 
 /**
- * Loads the browser auth/API runtime in dependency order on hard loads and
- * App Router client navigation. Dependent route scripts remain unavailable
- * until api.js has created the single shared Supabase client.
+ * Loads runtime config, creates the one bundled ESM Supabase client, then lets
+ * api.js adopt it for routes that still use the compatibility transport.
+ * Dependent scripts stay unavailable until that identity check succeeds.
  */
 export function SupabaseRuntimeBoundary({
-  scripts,
   supabaseUrl,
   supabaseAnonKey,
   children,
 }: {
-  scripts: readonly RouteScriptSpec[];
   supabaseUrl: string;
   supabaseAnonKey: string;
   children?: ReactNode;
 }) {
-  const [scriptsReady, setScriptsReady] = useState(false);
+  const [bootstrapReady, setBootstrapReady] = useState(false);
+  const [clientReady, setClientReady] = useState(false);
   const [runtimeReady, setRuntimeReady] = useState(false);
-  const markScriptsReady = useCallback(() => setScriptsReady(true), []);
+  const markBootstrapReady = useCallback(() => setBootstrapReady(true), []);
+  const markBridgeReady = useCallback(() => {
+    try {
+      const init = window.initSupabase;
+      const expected = window.__AVER_SUPABASE_CLIENT__;
+      if (typeof init !== 'function' || !expected) {
+        reportRuntimeFailure('Supabase compatibility bridge is unavailable after api.js loaded.');
+        return;
+      }
+      const adopted = init(supabaseUrl, supabaseAnonKey);
+      if (adopted !== expected || window.getSupabase?.() !== expected) {
+        reportRuntimeFailure('Supabase compatibility bridge did not adopt the ESM client.');
+        return;
+      }
+      setRuntimeReady(true);
+    } catch (error) {
+      reportRuntimeFailure('Supabase compatibility bridge initialization failed.', error);
+    }
+  }, [supabaseAnonKey, supabaseUrl]);
 
   useEffect(() => {
-    if (!scriptsReady) return undefined;
-
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const startedAt = performance.now();
-
-    const finishWhenClientExists = () => {
-      if (cancelled) return;
-      const getClient = (window as any).getSupabase;
-      const client = typeof getClient === 'function' ? getClient() : null;
-      if (client) {
-        setRuntimeReady(true);
-        return;
-      }
-      if (performance.now() - startedAt >= CLIENT_READY_TIMEOUT_MS) {
-        reportRuntimeFailure('Supabase runtime did not become ready before timeout.');
-        return;
-      }
-      timer = setTimeout(finishWhenClientExists, CLIENT_POLL_INTERVAL_MS);
-    };
-
+    if (!bootstrapReady) return;
     try {
-      const init = (window as any).initSupabase;
-      if (typeof init !== 'function') {
-        reportRuntimeFailure('initSupabase is unavailable after api.js loaded.');
-        return undefined;
-      }
-      init(supabaseUrl, supabaseAnonKey);
-      finishWhenClientExists();
+      const client = getBrowserSupabase(supabaseUrl, supabaseAnonKey);
+      exposeLegacySupabaseClient(client);
+      setClientReady(true);
     } catch (error) {
-      reportRuntimeFailure('Supabase runtime initialization failed.', error);
+      reportRuntimeFailure('Supabase ESM client initialization failed.', error);
     }
-
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, [scriptsReady, supabaseAnonKey, supabaseUrl]);
+  }, [bootstrapReady, supabaseAnonKey, supabaseUrl]);
 
   return (
     <>
-      <RouteScriptChain scripts={scripts} onComplete={markScriptsReady} />
+      <RouteScriptChain scripts={PRE_CLIENT_SCRIPTS} onComplete={markBootstrapReady} />
+      {clientReady && (
+        <RouteScriptChain scripts={API_BRIDGE_SCRIPTS} onComplete={markBridgeReady} />
+      )}
       {runtimeReady ? children : null}
     </>
   );

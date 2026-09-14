@@ -7,6 +7,12 @@ class Settings(BaseSettings):
     APP_NAME: str = "IELTS Speaking Coach"
     ENVIRONMENT: str = "development"
 
+    # Signed backend → Next cache invalidation. The admin vocabulary routes
+    # mutate runtime DB content while Next caches public reads. Configure both
+    # values per environment; absent values make the notifier a safe no-op.
+    NEXT_CACHE_REVALIDATION_URL: str = ""
+    AVER_CACHE_REVALIDATION_SECRET: str = ""
+
     # Supabase
     SUPABASE_URL: str = ""
     SUPABASE_ANON_KEY: str = ""

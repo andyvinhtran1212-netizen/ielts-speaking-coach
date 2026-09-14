@@ -216,8 +216,8 @@ class TestCohortCreate:
 class TestCohortList:
     def test_list_returns_active_by_default_when_filter_passed(self, client, fake_db):
         fake_db.tables["cohorts"] = [
-            {"id": "c1", "name": "A", "is_active": True,  "created_at": "2026-01-01T00:00:00Z"},
-            {"id": "c2", "name": "B", "is_active": False, "created_at": "2026-01-02T00:00:00Z"},
+            {"id": "c1", "name": "A", "is_active": True,  "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z"},
+            {"id": "c2", "name": "B", "is_active": False, "created_at": "2026-01-02T00:00:00Z", "updated_at": "2026-01-02T00:00:00Z"},
         ]
         r = client.get("/admin/cohorts?is_active=true", headers=_ADMIN_AUTH)
         assert r.status_code == 200
@@ -226,8 +226,8 @@ class TestCohortList:
 
     def test_list_returns_archived_when_requested(self, client, fake_db):
         fake_db.tables["cohorts"] = [
-            {"id": "c1", "name": "A", "is_active": True,  "created_at": "2026-01-01T00:00:00Z"},
-            {"id": "c2", "name": "B", "is_active": False, "created_at": "2026-01-02T00:00:00Z"},
+            {"id": "c1", "name": "A", "is_active": True,  "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z"},
+            {"id": "c2", "name": "B", "is_active": False, "created_at": "2026-01-02T00:00:00Z", "updated_at": "2026-01-02T00:00:00Z"},
         ]
         r = client.get("/admin/cohorts?is_active=false", headers=_ADMIN_AUTH)
         assert r.status_code == 200
@@ -236,8 +236,8 @@ class TestCohortList:
 
     def test_list_returns_all_when_filter_omitted(self, client, fake_db):
         fake_db.tables["cohorts"] = [
-            {"id": "c1", "name": "A", "is_active": True,  "created_at": "2026-01-01T00:00:00Z"},
-            {"id": "c2", "name": "B", "is_active": False, "created_at": "2026-01-02T00:00:00Z"},
+            {"id": "c1", "name": "A", "is_active": True,  "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z"},
+            {"id": "c2", "name": "B", "is_active": False, "created_at": "2026-01-02T00:00:00Z", "updated_at": "2026-01-02T00:00:00Z"},
         ]
         r = client.get("/admin/cohorts", headers=_ADMIN_AUTH)
         assert r.status_code == 200

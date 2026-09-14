@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 interface ReadingMiniTestShellProps {
@@ -16,7 +17,7 @@ export function ReadingMiniTestShell({
       <main className="rv-shell">
         <header className="rv-header rv-header--mini">
           <div className="rv-header__copy">
-            <a className="rv-back" href="/home">← Trang chủ</a>
+            <Link className="rv-back" href="/home">← Trang chủ</Link>
             <p className="rv-kicker">READING LAB · MINI TEST</p>
             <h1>Một đoạn văn, <span>một phiên luyện tập trung.</span></h1>
             <p className="subtitle">Mỗi đề tập trung vào một đoạn văn và dùng cùng giao diện chữa bài như Full Test. Thời lượng hiển thị theo cấu hình của từng đề.</p>
@@ -30,9 +31,9 @@ export function ReadingMiniTestShell({
 
         {/* Library switcher: Vocab ↔ Skill ↔ Full Test ↔ Mini Test. Changed /pages/reading-vocab.html → /reading/vocab */}
         <nav className="rv-libnav" aria-label="Reading libraries">
-          <a className="rv-libnav__link" href="/reading/vocab">Vocab Reading</a>
-          <a className="rv-libnav__link" href="/reading/skill">Skill Practice</a>
-          <a className="rv-libnav__link" href="/reading/test">Full Tests</a>
+          <Link className="rv-libnav__link" href="/reading/vocab">Vocab Reading</Link>
+          <Link className="rv-libnav__link" href="/reading/skill">Skill Practice</Link>
+          <Link className="rv-libnav__link" href="/reading/test">Full Tests</Link>
           <a className="rv-libnav__link is-active" aria-current="page">Mini Tests</a>
         </nav>
 

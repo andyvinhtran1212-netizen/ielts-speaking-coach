@@ -52,7 +52,7 @@ export function writingQueueFetchKey(filters) {
   return `${normalized.lane}\u0000${normalized.cohortId}`;
 }
 
-export function writingQueueApiPath(filters) {
+export function writingQueueApiQuery(filters) {
   const normalized = normalizeWritingQueueFilters({
     status: filters?.lane === 'mock' ? undefined : filters?.lane,
     mocklane: filters?.lane === 'mock',
@@ -61,7 +61,11 @@ export function writingQueueApiPath(filters) {
   const params = new URLSearchParams({ limit: '200', mock: normalized.lane === 'mock' ? 'true' : 'false' });
   if (!['all', 'mock'].includes(normalized.lane)) params.set('status', normalized.lane);
   if (normalized.cohortId) params.set('cohort_id', normalized.cohortId);
-  return `/admin/writing/essays?${params}`;
+  return params;
+}
+
+export function writingQueueApiPath(filters) {
+  return `/admin/writing/essays?${writingQueueApiQuery(filters)}`;
 }
 
 export function normalizeWritingQueueRow(raw) {

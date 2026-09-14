@@ -12,7 +12,11 @@
 // ranh giới đó chính là hợp đồng (B25).
 import 'server-only';
 
-import { cacheLife } from 'next/cache';
+import { cacheLife, cacheTag } from 'next/cache';
+
+const PUBLIC_CACHE_TAGS = [
+  ['/api/vocabulary/', 'public:vocabulary'],
+] as const;
 
 /**
  * Base URL của backend, cùng quy tắc với bộ sinh runtime-config (ADR-006):
@@ -48,6 +52,9 @@ export const PUBLIC_CONTENT_LIFE = { stale: 3600, revalidate: 3600, expire: 8640
 export async function getPublicJson<T = unknown>(path: string): Promise<T | null> {
   'use cache';
   cacheLife(PUBLIC_CONTENT_LIFE);
+  for (const [prefix, tag] of PUBLIC_CACHE_TAGS) {
+    if (path.startsWith(prefix)) cacheTag(tag);
+  }
 
   const res = await fetch(`${API_BASE}${path}`, {
     signal: AbortSignal.timeout(ABORT_MS),

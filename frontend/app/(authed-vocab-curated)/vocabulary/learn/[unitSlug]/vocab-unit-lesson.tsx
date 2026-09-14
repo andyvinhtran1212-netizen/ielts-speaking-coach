@@ -1,8 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+import { getCurrentUser } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -146,7 +148,7 @@ export function VocabUnitLesson({ unitSlug }: { unitSlug: string }) {
       if (!ready || disposed) return;
       try {
         const [me, payload] = await Promise.all([
-          window.api.getWith<{ vocab_curated_enabled?: unknown }>('/auth/me', undefined, { signal: controller.signal }),
+          getCurrentUser(controller.signal),
           window.api.getWith<UnitPayload>(`/api/vocabulary/units/${encodeURIComponent(unitSlug)}`, undefined, { signal: controller.signal }),
         ]);
         if (disposed) return;
@@ -167,7 +169,7 @@ export function VocabUnitLesson({ unitSlug }: { unitSlug: string }) {
     return () => { disposed = true; controller.abort(); };
   }, [accountKey, recommendationId, status, unitSlug]);
 
-  if (error) return <section className="vc-state is-error" role="alert"><h1>Chưa thể mở bài học</h1><p>{error}</p><a className="av-button av-button-primary" href="/vocabulary/learn">Quay lại</a></section>;
+  if (error) return <section className="vc-state is-error" role="alert"><h1>Chưa thể mở bài học</h1><p>{error}</p><Link className="av-button av-button-primary" href="/vocabulary/learn">Quay lại</Link></section>;
   if (!unit) return <section className="vc-state" aria-live="polite">Đang tải learning unit…</section>;
   const content = unit.content || {};
   return <div className="vc-lesson">

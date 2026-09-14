@@ -45,43 +45,32 @@ describe('shared runtime survives App Router client navigation', () => {
     }
   });
 
-  test('Supabase shells load fallback/config/reporter/api in order', () => {
+  test('Supabase shells delegate the shared runtime to one client boundary', () => {
     for (const parts of FOUNDATIONAL_LAYOUTS.slice(0, 3)) {
       const source = read(...parts);
-      const ordered = [
-        '/vendor/supabase.js',
-        '/js/supabase-sdk-fallback.js',
-        '/js/runtime-config.js',
-        '/js/error-reporter.js',
-        '/js/api.js',
-      ];
-      let previous = -1;
-      for (const marker of ordered) {
-        const current = source.indexOf(marker);
-        assert.ok(current > previous, `${parts.join('/')} runtime order: ${marker}`);
-        previous = current;
-      }
       assert.match(source, /<SupabaseRuntimeBoundary/);
+      assert.doesNotMatch(source, /\/vendor\/supabase\.js|supabase-sdk-fallback\.js/);
     }
+    const config = RUNTIME_BOUNDARY.indexOf('/js/runtime-config.js');
+    const reporter = RUNTIME_BOUNDARY.indexOf('/js/error-reporter.js');
+    const api = RUNTIME_BOUNDARY.indexOf('/js/api.js');
+    assert.ok(config >= 0 && config < reporter && reporter < api);
   });
 
-  test('optional primary/reporter failures do not strand required fallback and API', () => {
+  test('optional reporter failure does not strand the required API bridge', () => {
     assert.match(ROUTE_CHAIN, /continueOnError\?: boolean/);
     assert.match(ROUTE_CHAIN, /if \(script\.continueOnError\) setReady\(true\)/);
-    for (const parts of FOUNDATIONAL_LAYOUTS.slice(0, 3)) {
-      const source = read(...parts);
-      assert.match(source, /\/vendor\/supabase\.js'[\s\S]{0,80}continueOnError: true/);
-      assert.match(source, /error-reporter\.js', continueOnError: true/);
-    }
+    assert.match(RUNTIME_BOUNDARY, /error-reporter\.js', continueOnError: true/);
   });
 
   test('dependent scripts wait for the one shared Supabase client', () => {
     assert.match(RUNTIME_BOUNDARY, /^['"]use client['"];?/);
-    assert.match(RUNTIME_BOUNDARY, /<RouteScriptChain scripts=\{scripts\} onComplete=\{markScriptsReady\} \/>/);
+    assert.match(RUNTIME_BOUNDARY, /getBrowserSupabase\(supabaseUrl, supabaseAnonKey\)/);
+    assert.match(RUNTIME_BOUNDARY, /exposeLegacySupabaseClient\(client\)/);
+    assert.match(RUNTIME_BOUNDARY, /clientReady && \([\s\S]*scripts=\{API_BRIDGE_SCRIPTS\}/);
     assert.match(RUNTIME_BOUNDARY, /init\(supabaseUrl, supabaseAnonKey\)/);
-    assert.match(RUNTIME_BOUNDARY, /typeof getClient === 'function' \? getClient\(\) : null/);
+    assert.match(RUNTIME_BOUNDARY, /adopted !== expected \|\| window\.getSupabase\?\.\(\) !== expected/);
     assert.match(RUNTIME_BOUNDARY, /runtimeReady \? children : null/);
-    assert.match(RUNTIME_BOUNDARY, /CLIENT_READY_TIMEOUT_MS = 10_000/);
   });
 
   test('body classes have a client-navigation owner and stale cleanup guard', () => {

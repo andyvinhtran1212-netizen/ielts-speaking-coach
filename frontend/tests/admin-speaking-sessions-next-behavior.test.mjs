@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -70,10 +70,14 @@ describe('Speaking Sessions native model', () => {
 });
 
 describe('/admin/speaking/sessions native ownership and UX contract', () => {
-  test('owns clean route while preserving direct rollback page', () => {
+  test('owns clean route without redeploying the retired rollback page', () => {
     assert.match(PAGE, /function AdminSpeakingSessionsPage/);
     assert.doesNotMatch(CONFIG, /source:\s*['"]\/admin\/speaking\/sessions['"]/);
-    assert.ok(existsSync(join(ROOT, 'public', 'pages', 'admin', 'speaking', 'sessions.html')));
+    assert.throws(
+      () => lstatSync(join(ROOT, 'public', 'pages', 'admin', 'speaking', 'sessions.html')),
+      { code: 'ENOENT' },
+    );
+    assert.ok(existsSync(join(ROOT, 'tests', 'fixtures', 'legacy-html-retired', 'pages', 'admin', 'speaking', 'sessions.html')));
     assert.match(HUB, /href: '\/admin\/speaking\/sessions'/);
     assert.match(CHROME, /slug: 'sessions'[^\n]+href: '\/admin\/speaking\/sessions'/);
   });

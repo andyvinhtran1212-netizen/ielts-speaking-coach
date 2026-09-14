@@ -29,7 +29,8 @@ describe('/grammar/roadmap mixed ownership', () => {
     assert.match(PAGE, /await getRoadmap\(slug\)/);
     assert.match(PAGE, /if \(!data\) notFound\(\)/);
     assert.equal((PAGE.match(/normalizePublicRoadmap\(data\)/g) || []).length, 2);
-    assert.match(API, /getPublicJson\(`\/api\/grammar\/roadmap\/\$\{encodeURIComponent\(slug\)\}`\)/);
+    assert.match(API, /getPublicJson<GrammarRoadmapWire>\(`\/api\/grammar\/roadmap\/\$\{encodeURIComponent\(slug\)\}`\)/);
+    assert.match(API, /GrammarRoadmapWire = ApiGetJson<'\/api\/grammar\/roadmap\/\{slug\}'>/);
     assert.match(API, /export const getRoadmap = cache\(fetchRoadmap\)/);
   });
 

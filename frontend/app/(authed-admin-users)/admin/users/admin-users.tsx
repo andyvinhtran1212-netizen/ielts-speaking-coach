@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
+import { getAdminCohorts } from '@/lib/admin-cohorts-api';
 import { normalizeCohortsPayload } from '@/lib/admin-users-model.mjs';
 
 import { AdminAccessCodesPanel } from './admin-access-codes-panel';
@@ -23,7 +24,7 @@ export function AdminUsers({ initialTab }: { initialTab: Tab }) {
     const requestId = ++cohortSequence.current;
     setCohortsError(null);
     try {
-      const payload = normalizeCohortsPayload(await window.api.get<unknown>('/admin/cohorts?is_active=true')) as AdminCohort[];
+      const payload = normalizeCohortsPayload(await getAdminCohorts({ isActive: true })) as AdminCohort[];
       if (requestId === cohortSequence.current) setCohorts(payload);
     } catch (caught) {
       if (requestId === cohortSequence.current) {

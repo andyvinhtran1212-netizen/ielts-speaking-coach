@@ -17,6 +17,7 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
+from models.cohorts import AdminCohortListOut
 from routers.admin import require_admin, _aggregate_usage_for_users, _issue_code_and_assign
 from services.class_service import list_cohorts_basic, list_cohorts_with_rollup
 from services.cohort_progress_aggregator import cohort_progress
@@ -48,7 +49,11 @@ class CohortPatchRequest(BaseModel):
     course_id: str | None = None
 
 
-@router.get("")
+@router.get(
+    "",
+    response_model=AdminCohortListOut,
+    response_model_exclude_unset=True,
+)
 async def list_cohorts(
     is_active: bool | None = None,
     course_id: str | None = None,

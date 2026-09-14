@@ -13,6 +13,7 @@ export default function AuthedWritingLayout({ children }: { children: ReactNode 
     <AuthedShell
       // Thứ tự y như bản legacy: writing-dashboard trước markdown.
       pageStylesheets={['/css/writing-dashboard.css', '/css/markdown.css']}
+      lucideRuntime
       extraScripts={
         <>
           {/* Ba script bản legacy nạp mà khung dùng chung không có, dùng để

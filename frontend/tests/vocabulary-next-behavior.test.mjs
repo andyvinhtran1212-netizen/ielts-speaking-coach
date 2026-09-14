@@ -9,8 +9,13 @@ const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
 const PAGE = read('app', '(public-content)', 'vocabulary', 'page.tsx');
 const CLIENT = read('app', '(public-content)', 'vocabulary', 'vocabulary-wiki.tsx');
 const API = read('lib', 'vocabulary-api.ts');
+const BROWSER_API = read('lib', 'browser-api.ts');
+const CONTRACT = read('lib', 'openapi-contract.ts');
+const TYPES = read('lib', 'vocabulary-types.ts');
 const LAYOUT = read('app', '(public-content)', 'layout.tsx');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
+const FIXTURE_API = read('tooling', 'next-native-fixture-api.mjs');
+const BROWSER = read('tooling', 'verify-vocabulary-wiki-flow.mjs');
 
 describe('/vocabulary native public wiki', () => {
   test('route is public PPR and loads canonical server data', () => {
@@ -18,19 +23,35 @@ describe('/vocabulary native public wiki', () => {
     assert.match(PAGE, /import \{ connection \} from 'next\/server'/);
     assert.match(PAGE, /await connection\(\);/);
     assert.match(PAGE, /getVocabularyCategories\(\)/);
+    assert.match(PAGE, /getVocabularyDirectory\(\{ category: requestedCategory \}\)/);
     assert.match(PAGE, /getVocabularyArticle\(selected\.category, selected\.slug\)/);
     assert.match(API, /getPublicJson\('\/api\/vocabulary\/categories'\)/);
+    assert.match(API, /getPublicJson<VocabularyDirectoryWire>\(`\/api\/vocabulary\/directory\?\$\{params\.toString\(\)\}`\)/);
+    assert.match(TYPES, /ApiGetJson<'\/api\/vocabulary\/directory'>/);
+    assert.match(CONTRACT, /export type ApiGetJson<Path extends ApiGetPath>/);
+    assert.match(BROWSER_API, /window\.api\.getWith<ApiGetJson<Path>>/);
+    assert.match(BROWSER_API, /searchParamsSuffix\(query\)/);
+    assert.doesNotMatch(BROWSER_API, /query\?\.size/);
+    assert.match(CLIENT, /getBrowserJson\('\/api\/vocabulary\/directory', params, controller\.signal\)/);
     assert.match(API, /\/api\/vocabulary\/articles\/\$\{encodeURIComponent\(category\)\}\/\$\{encodeURIComponent\(slug\)\}/);
     assert.doesNotMatch(PAGE, /AuthProvider|login\.html|vocabulary\.js/);
   });
 
   test('React owns compound identity, filters, clean deep links and stale-request abort', () => {
     assert.match(CLIENT, /vocabularyKey\(word\.category, word\.slug\)/);
-    assert.match(CLIENT, /word\.glossVi\.toLocaleLowerCase/);
+    assert.match(CLIENT, /params\.set\('q', query\.trim\(\)\)/);
     assert.match(CLIENT, /requestRef\.current\?\.abort\(\)/);
     assert.match(CLIENT, /new AbortController\(\)/);
+    assert.equal(
+      [...CLIENT.matchAll(/controller\.signal\.aborted \|\| \(caught instanceof DOMException/g)].length,
+      3,
+      'aborted directory/detail requests must never publish stale error state',
+    );
     assert.match(CLIENT, /normalizeVocabularyArticle\(payload, word\.category, word\.slug\)/);
     assert.match(CLIENT, /replaceState\(null, '', `\/vocabulary\?cat=/);
+    assert.match(CLIENT, /normalizeVocabularyDirectory\(payload\)/);
+    assert.match(CLIENT, /offset: String\(directory\.items\.length\)/);
+    assert.match(CLIENT, /Xem thêm \(\$\{directory\.total - directory\.items\.length\}\)/);
     assert.match(CLIENT, /setShowDetail\(false\)/);
     assert.match(CLIENT, /<button type="button" className="vmd-row-main"/);
     assert.doesNotMatch(CLIENT, /className={`vmd-row[^\n]*[\s\S]{0,120}role="button"/);
@@ -53,6 +74,8 @@ describe('/vocabulary native public wiki', () => {
     assert.equal(canonicalNextRouteForLegacy('/vocabulary.html'), '/vocabulary');
     assert.match(WORKFLOW, /frontend\/app\/\(public-content\)\/vocabulary\/\*\*/);
     assert.match(WORKFLOW, /Kiểm luồng Vocabulary Wiki native[\s\S]*?verify-vocabulary-wiki-flow\.mjs/);
+    assert.match(FIXTURE_API, /url\.pathname === '\/api\/vocabulary\/directory'/);
+    assert.match(BROWSER, /danh mục chỉ hydrate batch đầu rồi tải thêm theo nhu cầu/);
   });
 
   test('auth-aware chrome and learner/admin entry points use the clean owner URL', () => {

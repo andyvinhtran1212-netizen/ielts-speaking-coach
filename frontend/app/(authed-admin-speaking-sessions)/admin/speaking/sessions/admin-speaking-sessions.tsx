@@ -6,6 +6,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Dialog, Field, messageOf, StatusBanner } from '@/components/admin-directory-ui';
 import { useAdminProfile } from '@/components/admin-access-gate';
 import {
+  getAdminSpeakingSessionDetail,
+  getAdminSpeakingSessions,
+  rebuildAdminSpeakingSummary,
+  regradeAdminSpeakingResponse,
+  regradeAdminSpeakingSession,
+} from '@/lib/admin-speaking-sessions-api';
+import {
   normalizeResponseRegrade,
   normalizeSessionRegrade,
   normalizeSpeakingSessionDetail,
@@ -156,7 +163,7 @@ export function AdminSpeakingSessions() {
         if (/^[0-9a-f-]{36}$/i.test(target.email)) query.set('user_id', target.email);
         else query.set('user_email', target.email);
       }
-      const normalized = normalizeSpeakingSessionList(await window.api.get<unknown>(`/admin/sessions?${query}`)) as { rows: SpeakingSessionRow[]; malformedCount: number; returnedCount: number } | null;
+      const normalized = normalizeSpeakingSessionList(await getAdminSpeakingSessions(query)) as { rows: SpeakingSessionRow[]; malformedCount: number; returnedCount: number } | null;
       if (requestId !== listSequence.current || profileId.current !== account) return false;
       if (!normalized) throw new Error('Danh sách session không đúng định dạng.');
       const targetKey = `${account}\u0000${speakingSessionFilterKey(target)}`;
@@ -180,7 +187,7 @@ export function AdminSpeakingSessions() {
     const requestId = ++detailSequence.current;
     setDetailLoading(true); setDetailError(null);
     try {
-      const normalized = normalizeSpeakingSessionDetail(await window.api.get<unknown>(`/admin/sessions/${encodeURIComponent(sessionId)}`), sessionId) as SpeakingSessionDetail | null;
+      const normalized = normalizeSpeakingSessionDetail(await getAdminSpeakingSessionDetail(sessionId), sessionId) as SpeakingSessionDetail | null;
       if (requestId !== detailSequence.current || profileId.current !== account) return false;
       if (!normalized) throw new Error('Chi tiết session không đúng định dạng.');
       setDetail(normalized); return true;
@@ -214,22 +221,24 @@ export function AdminSpeakingSessions() {
       let successText = '';
       let partialResult = false;
       if (action.kind === 'response') {
-        const result = normalizeResponseRegrade(await window.api.post<unknown>(`/admin/responses/${encodeURIComponent(action.responseId)}/regrade`, {}), action.responseId, action.sessionId);
+        const result = normalizeResponseRegrade(await regradeAdminSpeakingResponse(action.responseId), action.responseId, action.sessionId);
         if (!result) throw new Error('Máy chủ không xác nhận đúng response đã chấm lại.');
         partialResult = !result.sessionUpdated || result.remainingFailed > 0;
         successText = partialResult
           ? `Đã chấm lại câu nhưng session còn ${result.remainingFailed} response lỗi hoặc thiếu band.`
           : `Đã chấm lại câu${result.reTranscribed ? ' và tạo transcript mới' : ''}.`;
       } else if (action.kind === 'repair' || action.kind === 'force') {
-        const suffix = action.kind === 'force' ? '?force=true' : '';
-        const result = normalizeSessionRegrade(await window.api.post<unknown>(`/admin/sessions/${encodeURIComponent(action.sessionId)}/regrade${suffix}`, {}), action.sessionId);
+        const result = normalizeSessionRegrade(await regradeAdminSpeakingSession(action.sessionId, action.kind === 'force'), action.sessionId);
         if (!result) throw new Error('Máy chủ không xác nhận đúng session đã chấm lại.');
         partialResult = result.partialFailure || !result.ok;
         successText = partialResult ? `Regrade chỉ hoàn tất một phần: ${result.regraded} thành công, ${result.failed} lỗi.` : `Đã chấm lại ${result.regraded} câu; giữ nguyên ${result.skipped} câu.`;
       } else {
         const ids = [action.sessionId, action.full ? action.p2Id : null, action.full ? action.p3Id : null].filter(Boolean) as string[];
-        const query = new URLSearchParams(); if (action.full && action.p2Id) query.set('p2_id', action.p2Id); if (action.full && action.p3Id) query.set('p3_id', action.p3Id);
-        const result = normalizeSummaryRebuild(await window.api.post<unknown>(`/admin/sessions/${encodeURIComponent(action.sessionId)}/rebuild-summary${query.size ? `?${query}` : ''}`, {}), ids);
+        const result = normalizeSummaryRebuild(await rebuildAdminSpeakingSummary(
+          action.sessionId,
+          action.full ? action.p2Id : null,
+          action.full ? action.p3Id : null,
+        ), ids);
         if (!result) throw new Error('Máy chủ không xác nhận đủ các session đã tổng hợp.');
         const failed = result.filter((item: { ok: boolean }) => !item.ok).length;
         partialResult = failed > 0;

@@ -4,7 +4,6 @@ const API = 'http://localhost:8000';
 const ORIGIN = 'http://localhost:3210';
 const OWNER = '00000000-0000-4000-8000-0000000000aa';
 const SID = '11111111-1111-4111-8111-111111111101';
-const SUPABASE_RUNTIME = `${ORIGIN}/vendor/supabase.js`;
 const LUCIDE_RUNTIME = `${ORIGIN}/vendor/lucide.min.js`;
 
 const AUTH_SESSION = {
@@ -39,29 +38,23 @@ async function installHarness(page, {
 
   await page.addInitScript(({ authSession, storage }) => {
     window.__SPEAKING_REGRESSION_AUTH_SESSION__ = authSession;
+    // The App Router owns one bundled ESM client now. Install the complete
+    // fixture before hydration so the production singleton adopts it instead
+    // of creating a real GoTrue client and redirecting the test to /login.
+    window.__AVER_SUPABASE_CLIENT__ = {
+      auth: {
+        getSession: async function () { return { data: { session: authSession } }; },
+        onAuthStateChange: function () {
+          return { data: { subscription: { unsubscribe: function () {} } } };
+        },
+        signOut: async function () { return { error: null }; },
+      },
+    };
     for (const [key, value] of Object.entries(storage)) {
       window.sessionStorage.setItem(key, String(value));
     }
   }, { authSession: AUTH_SESSION, storage: initStorage });
 
-  // Replace only local vendor transport. AuthProvider and api.js still create and share
-  // the same single client that production uses.
-  const fulfillSupabase = (route) => route.fulfill({
-    contentType: 'application/javascript',
-    body: `window.supabase = {
-      createClient: function () {
-        var session = window.__SPEAKING_REGRESSION_AUTH_SESSION__;
-        return { auth: {
-          getSession: async function () { return { data: { session: session } }; },
-          onAuthStateChange: function () {
-            return { data: { subscription: { unsubscribe: function () {} } } };
-          },
-          signOut: async function () { return { error: null }; }
-        } };
-      }
-    };`,
-  });
-  await page.route(SUPABASE_RUNTIME, fulfillSupabase);
   await page.route(LUCIDE_RUNTIME, (route) => route.fulfill({
     contentType: 'application/javascript',
     body: 'window.lucide = { createIcons: function () {} };',

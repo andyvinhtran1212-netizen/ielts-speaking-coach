@@ -1,8 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import Link from 'next/link';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
+import { getAdminCohorts } from '@/lib/admin-cohorts-api';
+import { getAdminCourses } from '@/lib/admin-courses-api';
 import { Dialog, Field, messageOf, StatusBanner } from '@/components/admin-directory-ui';
 import {
   cohortDraft,
@@ -69,8 +72,8 @@ export function AdminClassesDirectory() {
     setLoadError(null);
     setCoursesError(null);
     const [cohortResult, courseResult] = await Promise.allSettled([
-      window.api.get<unknown>('/admin/cohorts?with_rollup=true'),
-      window.api.get<unknown>('/admin/courses'),
+      getAdminCohorts({ withRollup: true }),
+      getAdminCourses(),
     ]);
     if (requestId !== sequence.current) return false;
     let canonical = true;
@@ -180,8 +183,8 @@ export function AdminClassesDirectory() {
       </header>
 
       <nav className="acd-tabs" aria-label="Lớp và học viên">
-        <a className="is-active" href="/admin/classes" aria-current="page"><span>Lớp</span><small>Danh mục · sĩ số · trạng thái</small></a>
-        <a href="/admin/students"><span>Học viên</span><small>Hồ sơ · xếp lớp · nhập CSV</small></a>
+        <Link className="is-active" href="/admin/classes" aria-current="page"><span>Lớp</span><small>Danh mục · sĩ số · trạng thái</small></Link>
+        <Link href="/admin/students"><span>Học viên</span><small>Hồ sơ · xếp lớp · nhập CSV</small></Link>
       </nav>
 
       <section className="acd-kpis" aria-label="Tổng quan lớp học">
@@ -226,13 +229,13 @@ export function AdminClassesDirectory() {
             <table className="acd-table">
               <thead><tr><th>Lớp học</th><th>Khóa học</th><th>Sĩ số</th><th>Tiền tố mã</th><th>Trạng thái</th><th><span className="sr-only">Thao tác</span></th></tr></thead>
               <tbody>{rows.map((cohort) => <tr key={cohort.id}>
-                <td><div className="acd-class-cell"><a href={`/admin/classes/${encodeURIComponent(cohort.id)}`}>{cohort.name}</a>{cohort.description && <span>{cohort.description}</span>}</div></td>
+                <td><div className="acd-class-cell"><Link href={`/admin/classes/${encodeURIComponent(cohort.id)}`}>{cohort.name}</Link>{cohort.description && <span>{cohort.description}</span>}</div></td>
                 <td><CourseCell cohort={cohort} lookupFailed={payload.course_lookup_failed} /></td>
                 <td><RosterCell cohort={cohort} /></td>
                 <td><code>{cohort.code_prefix || '—'}</code></td>
                 <td><span className={`adm-status-pill ${cohort.is_active ? 'is-active' : 'is-archived'}`}>{cohort.is_active ? 'Đang hoạt động' : 'Đã lưu trữ'}</span></td>
                 <td><div className="acd-actions">
-                  <a className="adm-btn-secondary adm-btn-sm" href={`/admin/classes/${encodeURIComponent(cohort.id)}`}>Mở lớp</a>
+                  <Link className="adm-btn-secondary adm-btn-sm" href={`/admin/classes/${encodeURIComponent(cohort.id)}`}>Mở lớp</Link>
                   <button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setDraft(cohortDraft(cohort) as CohortDraft)} disabled={mutationBusy}>Sửa</button>
                   <button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setConfirm({ cohort, nextActive: !cohort.is_active })} disabled={mutationBusy}>{cohort.is_active ? 'Lưu trữ' : 'Khôi phục'}</button>
                 </div></td>

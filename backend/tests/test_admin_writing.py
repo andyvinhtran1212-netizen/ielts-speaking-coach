@@ -33,6 +33,28 @@ _ESSAY_ID   = "00000000-0000-0000-0000-000000000002"
 _JOB_ID     = "00000000-0000-0000-0000-000000000003"
 
 
+def _queue_row(*, status: str = "graded", student_full_name: str = "Nguyễn A") -> dict:
+    return {
+        "id": _ESSAY_ID,
+        "student_id": _STUDENT_ID,
+        "task_type": "task2",
+        "status": status,
+        "analysis_level": 3,
+        "selected_model": "gemini-2.5-pro",
+        "word_count": 280,
+        "created_at": "2026-05-01T00:00:00Z",
+        "delivered_at": None,
+        "error_message": None,
+        "sitting_id": None,
+        "grading_skipped_at": None,
+        "student_full_name": student_full_name,
+        "student_code": "S001",
+        "band": 7.0,
+        "deadline": None,
+        "task1_image_missing": False,
+    }
+
+
 
 # PATCH .../feedback ends by calling mock_review_workflow.sync_writing_band_for_essay
 # as a best-effort side effect. That module holds its OWN `from database import
@@ -321,7 +343,7 @@ def test_create_essay_returns_202_with_eta_and_schedules_bg_task():
 
 
 def test_list_essays_passes_filters():
-    rows = [{"id": _ESSAY_ID, "status": "graded"}]
+    rows = [_queue_row()]
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_writing.essay_service.list_essays",
@@ -355,7 +377,7 @@ def test_list_essays_passes_mock_filter():
 
 
 def test_list_essays_passes_cohort_id():
-    rows = [{"id": _ESSAY_ID, "status": "reviewed", "student_full_name": "Nguyễn A"}]
+    rows = [_queue_row(status="reviewed")]
     cohort = "00000000-0000-0000-0000-0000000000c0"
     with patch("routers.admin_writing.require_admin",
                new=AsyncMock(return_value=_ADMIN_USER)), \

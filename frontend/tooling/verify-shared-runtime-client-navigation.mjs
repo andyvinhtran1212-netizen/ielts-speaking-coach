@@ -4,9 +4,11 @@ import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
+const API = 'https://api.shared-runtime.invalid';
 const sessionId = '00000000-0000-4000-8000-000000000711';
 const userId = '00000000-0000-4000-8000-000000000712';
 const analyticsPaths = [];
+const vitals = [];
 const results = [];
 
 const check = (name, ok, detail = '') => {
@@ -54,18 +56,17 @@ const session = {
 
 const supabaseStub = `
 window.__fixtureSupabaseCreates = window.__fixtureSupabaseCreates || 0;
-window.supabase = { createClient: function () {
-  window.__fixtureSupabaseCreates += 1;
-  window.__fixtureSupabaseClient = window.__fixtureSupabaseClient || { marker: 'shared-client', auth: {
+window.__fixtureSupabaseCreates += 1;
+window.__fixtureSupabaseClient = window.__fixtureSupabaseClient || { marker: 'shared-client', auth: {
     getSession: async function () { return { data: { session: { access_token: 'fixture-token', user: { id: '${userId}', email: 'runtime@example.test' } } }, error: null }; },
     onAuthStateChange: function () { return { data: { subscription: { unsubscribe: function () {} } } }; },
     signOut: async function () { return { error: null }; }
   } };
-  return window.__fixtureSupabaseClient;
-} };`;
+window.__AVER_SUPABASE_CLIENT__ = window.__fixtureSupabaseClient;`;
 
 const browser = await launch();
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+await context.addInitScript({ content: supabaseStub });
 const page = await context.newPage();
 const pageErrors = [];
 page.on('pageerror', (error) => pageErrors.push(String(error)));
@@ -73,10 +74,16 @@ page.on('pageerror', (error) => pageErrors.push(String(error)));
 await context.route('**/*', async (route) => {
   const request = route.request();
   const url = new URL(request.url());
-  if (url.origin === BASE && url.pathname === '/vendor/supabase.js') {
-    return route.fulfill({ status: 200, contentType: 'application/javascript', body: supabaseStub });
+  if (url.origin === BASE) {
+    if (url.pathname === '/js/runtime-config.js') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/javascript',
+        body: `window.__AVER_RUNTIME_CONFIG__=Object.freeze({apiBase:${JSON.stringify(API)}});`,
+      });
+    }
+    return route.continue();
   }
-  if (url.origin === BASE) return route.continue();
   if (/fonts\.(googleapis|gstatic)\.com/.test(url.hostname) || url.hostname === 'unpkg.com') {
     return route.abort();
   }
@@ -97,10 +104,29 @@ await context.route('**/*', async (route) => {
   if (request.method() === 'POST' && url.pathname === '/api/analytics/events') {
     const payload = request.postDataJSON();
     if (payload?.event_name === 'page_view') analyticsPaths.push(payload.event_data?.path);
+    if (payload?.event_name === 'web_vitals') vitals.push(payload.event_data);
     return json({ ok: true });
   }
   if (request.method() === 'GET' && url.pathname === '/auth/me') {
-    return json({ id: userId, display_name: 'Runtime Fixture', permissions: ['all'] });
+    return json({
+      id: userId,
+      email: 'runtime@example.test',
+      display_name: 'Runtime Fixture',
+      avatar_url: null,
+      role: 'admin',
+      is_active: true,
+      permissions: ['all'],
+      onboarding_completed: true,
+      target_band: null,
+      exam_date: null,
+      self_level: null,
+      preferred_topics: [],
+      vocab_bank_enabled: true,
+      d1_enabled: true,
+      d3_enabled: true,
+      flashcard_enabled: true,
+      vocab_curated_enabled: true,
+    });
   }
   if (request.method() === 'GET' && url.pathname === `/sessions/${sessionId}`) return json(session);
   if (request.method() === 'GET' && url.pathname === `/sessions/${sessionId}/audio-urls`) return json([]);
@@ -115,6 +141,35 @@ await context.route('**/*', async (route) => {
   }
   if (url.pathname === '/api/error-logs') return json({ ok: true });
   return json({});
+});
+
+// A manual local production build bakes localhost:8000 into the server-owned
+// web-vitals prop. Register the loopback target explicitly: Chromium may apply
+// private-network routing before the catch-all fixture sees it.
+await context.route('http://localhost:8000/api/analytics/events', async (route) => {
+  if (route.request().method() === 'OPTIONS') {
+    return route.fulfill({
+      status: 204,
+      headers: {
+        'access-control-allow-origin': BASE,
+        'access-control-allow-methods': 'POST,OPTIONS',
+        'access-control-allow-headers': 'content-type',
+      },
+      body: '',
+    });
+  }
+  const payload = route.request().postDataJSON();
+  if (payload?.event_name === 'web_vitals') vitals.push(payload.event_data);
+  return route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    headers: {
+      'access-control-allow-origin': BASE,
+      'access-control-allow-methods': 'POST,OPTIONS',
+      'access-control-allow-headers': 'content-type',
+    },
+    body: '{"ok":true}',
+  });
 });
 
 try {
@@ -153,6 +208,71 @@ check('page_view ghi đủ hai pathname và không ghi trùng',
     && analyticsPaths.filter((path) => path === '/speaking').length === 1,
   JSON.stringify(analyticsPaths));
 check('không có lỗi JavaScript chưa bắt', pageErrors.length === 0, pageErrors[0] || '');
+
+await page.evaluate(() => { window.__chromeNavigationSentinel = 'survived'; });
+await page.locator('aver-chrome a[href="/grammar"]').first().click();
+await page.waitForURL(`${BASE}/grammar`);
+check('student chrome dùng App Router qua Shadow DOM',
+  await page.evaluate(() => window.__chromeNavigationSentinel) === 'survived');
+
+const libraryPage = await context.newPage();
+const libraryErrors = [];
+libraryPage.on('pageerror', (error) => libraryErrors.push(String(error)));
+await libraryPage.goto(`${BASE}/reading/vocab`, { waitUntil: 'domcontentloaded' });
+await libraryPage.locator('.rv-libnav').waitFor();
+await libraryPage.evaluate(() => { window.__libraryNavigationSentinel = 'survived'; });
+await libraryPage.getByRole('link', { name: 'Skill Practice', exact: true }).click();
+await libraryPage.waitForURL(`${BASE}/reading/skill`);
+check('Reading library switcher dùng App Router',
+  await libraryPage.evaluate(() => window.__libraryNavigationSentinel) === 'survived');
+
+await libraryPage.goto(`${BASE}/listening/practice`, { waitUntil: 'domcontentloaded' });
+await libraryPage.getByRole('link', { name: /Mở kho bài nghe/ }).waitFor();
+await libraryPage.evaluate(() => { window.__libraryNavigationSentinel = 'survived'; });
+await libraryPage.getByRole('link', { name: /Mở kho bài nghe/ }).click();
+await libraryPage.waitForURL(`${BASE}/listening/browse`);
+check('Listening hub CTA dùng App Router',
+  await libraryPage.evaluate(() => window.__libraryNavigationSentinel) === 'survived');
+check('soft navigation thư viện không phát sinh lỗi JavaScript',
+  libraryErrors.length === 0, libraryErrors[0] || '');
+await libraryPage.close();
+
+const publicPage = await context.newPage();
+const publicErrors = [];
+publicPage.on('pageerror', (error) => publicErrors.push(String(error)));
+await publicPage.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+await publicPage.getByRole('link', { name: 'Đăng nhập', exact: true }).first().waitFor();
+await publicPage.evaluate(() => { window.__publicNavigationSentinel = 'survived'; });
+await publicPage.getByRole('link', { name: 'Đăng nhập', exact: true }).first().click();
+await publicPage.waitForURL(`${BASE}/login`);
+await publicPage.getByRole('heading', { name: 'Bắt đầu luyện tập' }).waitFor();
+const publicSentinel = await publicPage.evaluate(() => window.__publicNavigationSentinel);
+check('CTA public dùng App Router thay vì nạp lại document', publicSentinel === 'survived');
+await publicPage.goBack();
+await publicPage.waitForURL(`${BASE}/`);
+check('back/forward giữ đúng URL sau soft navigation public', await publicPage.evaluate(() => window.__publicNavigationSentinel) === 'survived');
+check('soft navigation public không phát sinh lỗi JavaScript', publicErrors.length === 0, publicErrors[0] || '');
+await publicPage.close();
+
+const adminPage = await context.newPage();
+const adminErrors = [];
+adminPage.on('pageerror', (error) => adminErrors.push(String(error)));
+await adminPage.goto(`${BASE}/admin`, { waitUntil: 'domcontentloaded' });
+await adminPage.locator('aver-admin-chrome a[href="/admin/users"]').first().waitFor();
+await adminPage.evaluate(() => { window.__adminNavigationSentinel = 'survived'; });
+await adminPage.locator('aver-admin-chrome a[href="/admin/users"]').first().click();
+await adminPage.waitForURL(`${BASE}/admin/users`);
+check('admin chrome dùng App Router qua Shadow DOM',
+  await adminPage.evaluate(() => window.__adminNavigationSentinel) === 'survived');
+check('soft navigation admin không phát sinh lỗi JavaScript', adminErrors.length === 0, adminErrors[0] || '');
+await adminPage.close();
+await page.close();
+await waitFor(() => vitals.some((metric) => metric.metric_name === 'LCP'));
+const initialLcp = vitals.find((metric) => metric.metric_name === 'LCP');
+check('native LCP giữ pathname của document đầu sau soft navigation',
+  initialLcp?.path === '/result' && typeof initialLcp?.lcp === 'number'
+    && initialLcp?.implementation === 'next',
+  JSON.stringify(initialLcp || vitals));
 } finally {
   await browser.close();
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { getCurrentUser } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
   buildOnboardingPayload,
@@ -46,7 +47,7 @@ function messageOf(error: unknown, fallback: string) {
 async function readCanonicalProfile(expectedAccount: string) {
   const ready = await whenGlobalReady(() => Boolean(window.api?.get), 'window.api (onboarding)');
   if (!ready) throw new Error('Không thể kết nối tới máy chủ. Vui lòng tải lại trang.');
-  const raw = await window.api.get<unknown>('/auth/me');
+  const raw = await getCurrentUser();
   const profile = normalizeOnboardingProfile(raw) as CanonicalProfile | null;
   if (!profile || profile.id !== expectedAccount) {
     throw new Error('Trạng thái tài khoản trả về không đúng định dạng.');

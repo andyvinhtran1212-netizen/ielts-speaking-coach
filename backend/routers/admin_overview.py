@@ -41,6 +41,7 @@ from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import JSONResponse
 
 from database import supabase_admin
+from models.admin_overview import AdminOverviewOut
 from routers.admin import require_admin
 from services.class_membership_service import active_memberships_for_students
 
@@ -207,7 +208,7 @@ def _bucket_students_by_cohort(students: list[dict], cohort_name_by_id: dict[str
 # ── Endpoint ──────────────────────────────────────────────────────────
 
 
-@router.get("/admin/overview")
+@router.get("/admin/overview", response_model=AdminOverviewOut)
 async def get_admin_overview(authorization: str | None = Header(default=None)):
     """Cross-module dashboard aggregator. Admin only. Cache-Control: 300s."""
     await require_admin(authorization)
@@ -597,7 +598,8 @@ async def get_admin_overview(authorization: str | None = Header(default=None)):
         "generated_at":    now.isoformat(),
     }
 
+    response = AdminOverviewOut.model_validate(body)
     return JSONResponse(
-        content=body,
+        content=response.model_dump(mode="json"),
         headers={"Cache-Control": f"max-age={_CACHE_MAX_AGE_SECONDS}"},
     )

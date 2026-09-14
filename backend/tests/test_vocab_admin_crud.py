@@ -87,7 +87,8 @@ def test_patch_updates_field_and_reloads():
     reload = MagicMock()
     with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_vocab.supabase_admin", db), \
-         patch("routers.admin_vocab.vocab_service.reload", reload):
+         patch("routers.admin_vocab.vocab_service.reload", reload), \
+         patch("routers.admin_vocab.invalidate_vocabulary_cache") as invalidate:
         r = _client().patch(f"/admin/vocabulary/{_ID}", json={"gloss_vi": "Tổng thể, toàn diện"}, headers=_ADMIN_AUTH)
     assert r.status_code == 200
     # only the sent field is written (partial update) ...
@@ -95,6 +96,7 @@ def test_patch_updates_field_and_reloads():
     assert sent == {"gloss_vi": "Tổng thể, toàn diện"}
     assert "slug" not in sent and "headword" not in sent
     reload.assert_called_once()      # G1 — public grid reflects the edit
+    invalidate.assert_called_once()  # Next's tagged public read is expired too
 
 
 def test_patch_headword_does_not_touch_slug():
@@ -125,11 +127,13 @@ def test_delete_removes_and_reloads():
     reload = MagicMock()
     with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_vocab.supabase_admin", db), \
-         patch("routers.admin_vocab.vocab_service.reload", reload):
+         patch("routers.admin_vocab.vocab_service.reload", reload), \
+         patch("routers.admin_vocab.invalidate_vocabulary_cache") as invalidate:
         r = _client().delete(f"/admin/vocabulary/{_ID}", headers=_ADMIN_AUTH)
     assert r.status_code == 200 and r.json()["id"] == _ID
     db.table.return_value.delete.assert_called()
     reload.assert_called_once()
+    invalidate.assert_called_once()
 
 
 def test_delete_404_when_missing():
@@ -176,7 +180,8 @@ def test_bulk_delete_removes_many_and_reloads_once():
     reload = MagicMock()
     with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("routers.admin_vocab.supabase_admin", db), \
-         patch("routers.admin_vocab.vocab_service.reload", reload):
+         patch("routers.admin_vocab.vocab_service.reload", reload), \
+         patch("routers.admin_vocab.invalidate_vocabulary_cache") as invalidate:
         r = _client().post("/admin/vocabulary/bulk-delete", json={"ids": [_ID, _ID2]}, headers=_ADMIN_AUTH)
     assert r.status_code == 200, r.text
     body = r.json()
@@ -185,6 +190,18 @@ def test_bulk_delete_removes_many_and_reloads_once():
     db.table.return_value.delete.assert_called_once()      # one query, not a loop
     db.table.return_value.in_.assert_called_once_with("id", [_ID, _ID2])
     reload.assert_called_once()                              # G1 — one reload for the batch
+    invalidate.assert_called_once()
+
+
+def test_patch_does_not_invalidate_next_when_local_reload_fails():
+    db = MagicMock(); db.table.return_value = _chain([_ROW])
+    with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
+         patch("routers.admin_vocab.supabase_admin", db), \
+         patch("routers.admin_vocab.vocab_service.reload", side_effect=RuntimeError("reload failed")), \
+         patch("routers.admin_vocab.invalidate_vocabulary_cache") as invalidate:
+        r = _client().patch(f"/admin/vocabulary/{_ID}", json={"gloss_vi": "Mới"}, headers=_ADMIN_AUTH)
+    assert r.status_code == 200
+    invalidate.assert_not_called()
 
 
 def test_bulk_delete_reports_not_found_without_500():

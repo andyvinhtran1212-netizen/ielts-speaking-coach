@@ -1,5 +1,6 @@
 // Markup tĩnh của trang Skill Practice. `<aver-chrome>` do `page.tsx` dựng;
 // behavior React sở hữu bộ lọc, request và các trạng thái động bên dưới.
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 interface ReadingSkillShellProps {
@@ -18,7 +19,7 @@ export function ReadingSkillShell({
       <main className="rv-shell">
         <header className="rv-header rv-header--skill">
           <div className="rv-header__copy">
-            <a className="rv-back" href="/home">← Trang chủ</a>
+            <Link className="rv-back" href="/home">← Trang chủ</Link>
             <p className="rv-kicker">READING LAB · SKILLS</p>
             <h1>Luyện từng kỹ năng, <span>đọc nhanh và chính xác hơn.</span></h1>
             <p className="subtitle">Tập trung vào một mục tiêu mỗi lần — skimming, scanning, main idea, inference và các dạng câu hỏi IELTS thường gặp.</p>
@@ -32,10 +33,10 @@ export function ReadingSkillShell({
 
         {/* Library switcher: L1 ↔ L2 ↔ L3 (Sprint 20.6 adds the Full Test entry). Changed /pages/reading-vocab.html → /reading/vocab */}
         <nav className="rv-libnav" aria-label="Reading libraries">
-          <a className="rv-libnav__link" href="/reading/vocab">Vocab Reading</a>
+          <Link className="rv-libnav__link" href="/reading/vocab">Vocab Reading</Link>
           <a className="rv-libnav__link is-active" aria-current="page">Skill Practice</a>
-          <a className="rv-libnav__link" href="/reading/test">Full Tests</a>
-          <a className="rv-libnav__link" href="/reading/mini-test">Mini Tests</a>
+          <Link className="rv-libnav__link" href="/reading/test">Full Tests</Link>
+          <Link className="rv-libnav__link" href="/reading/mini-test">Mini Tests</Link>
         </nav>
 
         {children}

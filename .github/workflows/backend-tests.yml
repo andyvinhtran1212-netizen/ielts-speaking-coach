@@ -187,3 +187,9 @@ jobs:
           node --import ./frontend/tests/fixtures/legacy-html-retired/loader.mjs --test \
             frontend/tests/*.test.mjs \
             frontend/tests/*.test.js
+
+      # Small rendered interaction layer for shared React state/focus/keyboard
+      # behavior. Page-level product journeys remain in next-native-browser.yml.
+      - name: Run React component interaction tests
+        working-directory: frontend
+        run: npm run test:react

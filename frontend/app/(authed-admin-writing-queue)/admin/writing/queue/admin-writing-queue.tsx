@@ -1,9 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
+import { getAdminCohorts } from '@/lib/admin-cohorts-api';
+import { getAdminWritingQueue } from '@/lib/admin-writing-queue-api';
 import { Dialog, messageOf, StatusBanner } from '@/components/admin-directory-ui';
 import {
   isWritingEssayOverdue,
@@ -14,7 +17,7 @@ import {
   normalizeWritingQueueFilters,
   normalizeWritingQueueList,
   writingMockMinimum,
-  writingQueueApiPath,
+  writingQueueApiQuery,
   writingQueueDestination,
   writingQueueFetchKey,
   writingQueueSearch,
@@ -114,7 +117,7 @@ export function AdminWritingQueue() {
     if (!silent && isCurrentView()) setLoading(true);
     if (isCurrentView()) setLoadError(null);
     try {
-      const normalized = normalizeWritingQueueList(await window.api.get<unknown>(writingQueueApiPath(target))) as { rows: QueueRow[]; malformedCount: number; returnedCount: number } | null;
+      const normalized = normalizeWritingQueueList(await getAdminWritingQueue(writingQueueApiQuery(target))) as { rows: QueueRow[]; malformedCount: number; returnedCount: number } | null;
       if (requestId !== queueSequences.current.get(key) || profileId.current !== account) return null;
       if (!normalized) throw new Error('Danh sách bài viết không đúng định dạng.');
       if (isCurrentView()) {
@@ -135,7 +138,7 @@ export function AdminWritingQueue() {
     const requestId = ++cohortSequence.current;
     setCohortError(null);
     try {
-      const normalized = normalizeWritingQueueCohorts(await window.api.get<unknown>('/admin/cohorts?is_active=true')) as { rows: QueueCohort[]; malformedCount: number } | null;
+      const normalized = normalizeWritingQueueCohorts(await getAdminCohorts({ isActive: true })) as { rows: QueueCohort[]; malformedCount: number } | null;
       if (requestId !== cohortSequence.current || profileId.current !== account) return;
       if (!normalized) throw new Error('Danh sách lớp không đúng định dạng.');
       setCohortSnapshot({ account, rows: normalized.rows, malformed: normalized.malformedCount });
@@ -281,7 +284,7 @@ export function AdminWritingQueue() {
   return <main className={`awq-shell${filters.embed ? ' is-embedded' : ''}`}>
     {!filters.embed && <header className="awq-header">
       <div><p className="awq-eyebrow">Writing · Quality control</p><h1>Hàng chờ chấm</h1><p>Điều phối từng bài từ AI grading đến review và phát hành — không trộn bài Mock vào hàng thường.</p></div>
-      <a className="awq-hub-link" href="/admin/writing">Writing workspace <span aria-hidden="true">↗</span></a>
+      <Link className="awq-hub-link" href="/admin/writing">Writing workspace <span aria-hidden="true">↗</span></Link>
     </header>}
 
     <StatusBanner banner={banner} />

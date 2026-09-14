@@ -3,46 +3,13 @@
  * Transcribes legacy grammar-article.html body structure verbatim,
  * SSR-filling only the runtime data that grammar.js would inject.
  */
+import Link from 'next/link';
+import type { GrammarArticleWire } from '@/lib/grammar-api';
 
-export interface GrammarArticle {
-  slug: string;
-  category: string;
-  title: string;
-  summary?: string;
-  level?: string;
-  status?: 'published' | 'updating' | 'planned';
-  reading_time?: number;
-  word_count?: number;
-  last_updated?: string;
-  html?: string;
-  toc?: TOCItem[];
-  related_pages?: RelatedPage[];
-  compare_with?: string[];
-  next_articles?: ArticleLink[];
-  prev_article?: ArticleLink | null;
-  next_article?: ArticleLink | null;
-  [key: string]: any; // Loose typing per spec
-}
-
-export interface TOCItem {
-  id: string;
-  name: string;
-  depth?: number;
-}
-
-export interface RelatedPage {
-  slug: string;
-  category: string;
-  title: string;
-  [key: string]: any;
-}
-
-export interface ArticleLink {
-  slug: string;
-  category: string;
-  title: string;
-  [key: string]: any;
-}
+export type GrammarArticle = GrammarArticleWire;
+type TOCItem = GrammarArticle['toc'][number];
+type RelatedPage = GrammarArticle['related_pages'][number];
+type ArticleLink = GrammarArticle['next_articles'][number];
 
 function escapeHtml(str: string | null | undefined): string {
   if (!str) return '';
@@ -330,12 +297,12 @@ export function ArticleShell({ article }: { article: GrammarArticle }) {
           <p className="text-sm text-white/70 leading-snug">
             Luyện IELTS Speaking với AI — nhận feedback ngay lập tức
           </p>
-          <a
+          <Link
             href="/login"
             className="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-teal text-white hover:bg-teal-light transition-colors whitespace-nowrap"
           >
             Dùng thử miễn phí →
-          </a>
+          </Link>
         </div>
       </div>
 
@@ -366,12 +333,12 @@ export function ArticleShell({ article }: { article: GrammarArticle }) {
             Muốn biết mình có dùng đúng trong IELTS Speaking không? Thử luyện với AI để nhận feedback ngay.
           </p>
           <div className="flex flex-col gap-2">
-            <a
+            <Link
               href="/login"
               className="block w-full py-2.5 rounded-xl text-sm font-semibold bg-teal text-white hover:bg-teal-light transition-colors"
             >
               Luyện Speaking ngay
-            </a>
+            </Link>
             <button
               id="guest-modal-dismiss"
               className="block w-full py-2.5 rounded-xl text-sm text-white/40 hover:text-white/70 transition-colors"

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+import { getAuthorizationIdentity } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
   INSTRUCTOR_CRITERION_LABELS,
@@ -154,7 +155,7 @@ export function InstructorCompare() {
           'window.api + WritingRenderers (instructor compare)',
         );
         if (!ready) throw new Error('Không tải được công cụ kết nối. Hãy tải lại trang.');
-        const profile = normalizeInstructorProfile(await window.api.get<unknown>('/auth/me'));
+        const profile = normalizeInstructorProfile(await getAuthorizationIdentity());
         if (!profile) throw new Error('Không xác nhận được vai trò tài khoản.');
         if (requestId !== sequence.current || user.id !== accountRef.current) return;
         if (!['instructor', 'admin'].includes(profile.role)) {

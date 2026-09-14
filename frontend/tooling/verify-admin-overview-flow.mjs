@@ -12,6 +12,12 @@ import { storageKey } from './supabase-session.mjs';
 const BASE = process.argv[2] || 'http://localhost:3011';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
 const ROUTE = '/admin';
+const cors = {
+  'access-control-allow-origin': BASE,
+  'access-control-allow-headers': 'authorization, content-type, x-request-id',
+  'access-control-allow-methods': 'GET, HEAD, OPTIONS',
+  'access-control-allow-private-network': 'true',
+};
 const fakeSession = JSON.stringify({
   access_token: 'admin-overview-flow-not-a-real-token',
   refresh_token: 'x',
@@ -40,14 +46,14 @@ async function launchChromium() {
 }
 
 const overviewPayload = {
-  students: { total: 13, active_7d: 8, active_30d: 11 },
-  errors: { undismissed: 4, last_24h: 2 },
+  students: { total: 13, active_7d: 8, active_30d: 11, by_cohort: [] },
+  errors: { undismissed: 4, last_24h: 2, last_7d: 3 },
   access_codes: { active: 9, by_type: { mass: 4, direct: 3, staff: 2 } },
   skills: {
     speaking: { sessions_7d: 6, sessions_total: 60, avg_band_7d: 6.5 },
     writing: { essays_7d: 5, essays_total: 50, feedback_pending: 2 },
     reading: { attempts_7d: 8, attempts_total: 80, avg_score_7d: 0.8 },
-    listening: { attempts_7d: 7, attempts_total: 70, avg_score_7d: 0.75, dictation_7d: 3 },
+    listening: { attempts_7d: 7, attempts_total: 70, content_count: 6, avg_score_7d: 0.75, dictation_total: 9, dictation_7d: 3 },
     vocab: { due_review_today: 12, words_total: 120 },
     grammar: { articles_viewed_7d: 15 },
   },
@@ -83,13 +89,15 @@ const opsPayload = (days) => ({
   computed_at: '2026-08-12T01:02:03Z',
 });
 
+const fixtureDate = (index) => new Date(Date.UTC(2026, 0, index + 1)).toISOString().slice(0, 10);
 const trendsPayload = (days) => ({
   days,
   series: {
-    visitors: Array.from({ length: days }, (_, index) => ({ value: index + 1 })),
-    practices: Array.from({ length: days }, (_, index) => ({ value: (index % 5) + 1 })),
-    tokens: Array.from({ length: days }, (_, index) => ({ value: (index + 1) * 100 })),
+    visitors: Array.from({ length: days }, (_, index) => ({ date: fixtureDate(index), value: index + 1 })),
+    practices: Array.from({ length: days }, (_, index) => ({ date: fixtureDate(index), value: (index % 5) + 1 })),
+    tokens: Array.from({ length: days }, (_, index) => ({ date: fixtureDate(index), value: (index + 1) * 100 })),
   },
+  computed_at: '2026-08-12T01:02:03Z',
 });
 
 const browser = await launchChromium();
@@ -100,9 +108,12 @@ await context.addInitScript(([key, value]) => {
 
 const page = await context.newPage();
 const pageErrors = [];
+const requestFailures = [];
+const preflightRequests = [];
 const requests = [];
 const unexpectedWrites = [];
 page.on('pageerror', (error) => pageErrors.push(String(error)));
+page.on('requestfailed', (request) => requestFailures.push(`${request.method()} ${request.url()} — ${request.failure()?.errorText || 'failed'}`));
 
 let releaseSeven;
 let sevenStartedResolve;
@@ -117,24 +128,34 @@ await page.route('**/*', async (route) => {
   const request = route.request();
   const url = request.url();
   const method = request.method();
-  if (url.startsWith(BASE) || url.startsWith('data:')) return route.continue();
+  const parsed = new URL(url);
+  const fixtureApiRequest = parsed.pathname === '/auth/me'
+    || parsed.pathname === '/admin/overview'
+    || parsed.pathname === '/admin/ai-usage'
+    || parsed.pathname === '/admin/dashboard/overview'
+    || parsed.pathname === '/admin/dashboard/trends';
+  if ((url.startsWith(BASE) && !fixtureApiRequest) || url.startsWith('data:')) return route.continue();
   if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(url)) return route.continue();
 
-  const parsed = new URL(url);
+  if (method === 'OPTIONS') {
+    preflightRequests.push({ url, requested: request.headers()['access-control-request-headers'] || '' });
+    return route.fulfill({ status: 204, headers: cors });
+  }
   requests.push({ method, path: parsed.pathname, search: parsed.search });
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && !['/api/analytics/events', '/api/error-logs'].includes(parsed.pathname)) {
     unexpectedWrites.push(`${method} ${parsed.pathname}`);
   }
 
   if (parsed.pathname === '/auth/me') {
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: '00000000-0000-0000-0000-000000000093', email: 'admin-overview@local', role: 'admin' }) });
+    return route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ id: '00000000-0000-0000-0000-000000000093', email: 'admin-overview@local', role: 'admin' }) });
   }
   if (parsed.pathname === '/admin/overview') {
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(overviewPayload) });
+    return route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify(overviewPayload) });
   }
   if (parsed.pathname === '/admin/ai-usage') {
     return route.fulfill({
       status: 200,
+      headers: cors,
       contentType: 'application/json',
       body: JSON.stringify({
         overall: { calls: 1, cost_usd: 0.01, by_service: { claude: { calls: 1, cost_usd: 0.01 } } },
@@ -149,7 +170,7 @@ await page.route('**/*', async (route) => {
       sevenStartedResolve();
       await sevenRelease;
     }
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(opsPayload(days)) }).catch(() => {});
+    return route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify(opsPayload(days)) }).catch(() => {});
   }
   if (parsed.pathname === '/admin/dashboard/trends') {
     const days = Number(parsed.searchParams.get('days')) || 30;
@@ -157,9 +178,9 @@ await page.route('**/*', async (route) => {
       thirtyTrendsStartedResolve();
       await neverResolve;
     }
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(trendsPayload(days)) });
+    return route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify(trendsPayload(days)) });
   }
-  return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+  return route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: '{}' });
 });
 
 await page.goto(BASE + ROUTE, { waitUntil: 'domcontentloaded' });
@@ -169,6 +190,9 @@ try {
   console.error('  URL khi dashboard không sẵn sàng:', page.url());
   console.error('  Nội dung hiện tại:', (await page.locator('body').innerText().catch(() => '')).slice(0, 800));
   console.error('  Lỗi JS:', pageErrors.join(' | '));
+  console.error('  Request ngoài app:', requests.slice(0, 12));
+  console.error('  Preflight:', preflightRequests.slice(0, 12));
+  console.error('  Request lỗi:', requestFailures.join(' | '));
   throw error;
 }
 await page.getByText('100', { exact: true }).first().waitFor({ state: 'visible' });
@@ -274,6 +298,7 @@ check('mobile không tràn ngang', mobileGeometry.scroll === mobileGeometry.clie
 check('dashboard không phát mutation nghiệp vụ', unexpectedWrites.length === 0, unexpectedWrites.join(', '));
 
 await page.getByRole('tab', { name: 'Vận hành' }).click();
+await page.evaluate(() => { window.__adminOverviewDocumentSentinel = 'alive'; });
 // The destination heading can render before its API effect runs.
 await Promise.all([
   page.waitForResponse((response) => {
@@ -287,6 +312,8 @@ await page.getByRole('heading', { name: 'Chi phí AI', exact: true }).waitFor({ 
 check('drill-down mở native AI Usage với period và request canonical',
   page.url().endsWith('/admin/system/ai-usage?days=30')
     && requests.some((request) => request.path === '/admin/ai-usage' && request.search === '?days=30'));
+check('dashboard dùng App Router soft navigation thay vì reload tài liệu',
+  await page.evaluate(() => window.__adminOverviewDocumentSentinel === 'alive'));
 check('không có lỗi JS chưa bắt', pageErrors.length === 0, pageErrors[0] || '');
 
 await browser.close();

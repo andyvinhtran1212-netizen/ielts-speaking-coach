@@ -29,16 +29,6 @@ const themeScript = `
 
 const SUPABASE_URL = 'https://huwsmtubwulikhlmcirx.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
-const SUPABASE_RUNTIME_SCRIPTS = [
-  {
-    src: '/vendor/supabase.js',
-    continueOnError: true,
-  },
-  { src: '/js/supabase-sdk-fallback.js' },
-  { src: '/js/runtime-config.js' },
-  { src: '/js/error-reporter.js', continueOnError: true },
-  { src: '/js/api.js' },
-] as const;
 
 export default function PublicContentLayout({ children }: { children: ReactNode }) {
   return (
@@ -47,18 +37,6 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
       <script
         dangerouslySetInnerHTML={{ __html: themeScript }}
         suppressHydrationWarning
-      />
-
-      {/* Font preconnects */}
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      {/* Same families, same URL as the legacy grammar pages (public/pages/
-          grammar-article.html): grammar-wiki.css reaches every family through
-          --av-font-sans/-mono/-serif since DEBT-2026-07-24-J step (b), so this
-          layout must download Plus Jakarta + JetBrains, not DM Sans. */}
-      <link
-        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Lora:wght@400;600;700&display=swap"
-        rel="stylesheet"
       />
 
       {/* Stylesheets: tokens → components → ds → content CSS → tailwind (last for cascade) */}
@@ -70,13 +48,11 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
       <link rel="stylesheet" href="/css/tailwind.build.css" />
 
       <SupabaseRuntimeBoundary
-        scripts={SUPABASE_RUNTIME_SCRIPTS}
         supabaseUrl={SUPABASE_URL}
         supabaseAnonKey={SUPABASE_ANON}
       >
         <Script type="module" src="/js/components/aver-chrome.js" strategy="afterInteractive" />
         <NextPageViewBeacon />
-        <Script src="/js/rum-vitals.js" strategy="afterInteractive" />
       </SupabaseRuntimeBoundary>
 
       {/* grammar-wiki.css scopes overrides under body.av-page (e.g.

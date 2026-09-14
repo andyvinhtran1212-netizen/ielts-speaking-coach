@@ -38,7 +38,7 @@ describe('/vocabulary/hub — native React ownership', () => {
   test('loads canonical stats and feature flags in parallel with honest states', () => {
     assert.match(BEHAVIOR, /Promise\.allSettled\(\[/);
     assert.match(BEHAVIOR, /'\/api\/student\/home-summary'/);
-    assert.match(BEHAVIOR, /'\/auth\/me'/);
+    assert.match(BEHAVIOR, /getCurrentUser\(controller\.signal\)/);
     assert.match(BEHAVIOR, /words_learned/);
     assert.match(BEHAVIOR, /quiz_words_missed/);
     assert.match(BEHAVIOR, /quiz_sessions/);

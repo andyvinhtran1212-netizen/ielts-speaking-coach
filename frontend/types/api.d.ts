@@ -5310,6 +5310,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vocabulary/directory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Directory
+         * @description Lean, paged catalogue for the native public Vocabulary Wiki.
+         *
+         *     The historical categories endpoint remains unchanged for existing clients;
+         *     this contract prevents the Next route from embedding every word summary in
+         *     the initial RSC payload.
+         */
+        get: operations["get_directory_api_vocabulary_directory_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vocabulary/categories/{category}/cards": {
         parameters: {
             query?: never;
@@ -11571,6 +11595,12 @@ export interface components {
             /** Association Lookup Failed */
             association_lookup_failed?: boolean | null;
         };
+        /** AccessCodeOverviewOut */
+        AccessCodeOverviewOut: {
+            /** Active */
+            active: number;
+            by_type: components["schemas"]["AccessCodeTypeOverviewOut"];
+        };
         /** AccessCodeQuota */
         AccessCodeQuota: {
             /** Used */
@@ -11581,6 +11611,15 @@ export interface components {
             remaining?: number | null;
             /** Limit Type */
             limit_type: string;
+        };
+        /** AccessCodeTypeOverviewOut */
+        AccessCodeTypeOverviewOut: {
+            /** Mass */
+            mass: number;
+            /** Direct */
+            direct: number;
+            /** Staff */
+            staff: number;
         };
         /** ActivateRequest */
         ActivateRequest: {
@@ -11608,6 +11647,88 @@ export interface components {
             ids: string[];
             /** Action */
             action: string;
+        };
+        /** AdminCohortListOut */
+        AdminCohortListOut: {
+            /** Cohorts */
+            cohorts: components["schemas"]["AdminCohortOut"][];
+            /** Rollup Failed */
+            rollup_failed?: boolean | null;
+            /** Course Lookup Failed */
+            course_lookup_failed?: boolean | null;
+        };
+        /** AdminCohortOut */
+        AdminCohortOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Code Prefix */
+            code_prefix?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Is Active */
+            is_active: boolean;
+            /** Created By */
+            created_by?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Course Id */
+            course_id?: string | null;
+            course?: components["schemas"]["CohortCourseOut"] | null;
+            /** Member Count */
+            member_count?: number | null;
+            /** Unactivated Count */
+            unactivated_count?: number | null;
+        };
+        /** AdminCourseListOut */
+        AdminCourseListOut: {
+            /** Courses */
+            courses: components["schemas"]["AdminCourseOut"][];
+        };
+        /** AdminCourseOut */
+        AdminCourseOut: {
+            /** Id */
+            id: string;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /** Sort Order */
+            sort_order: number;
+            /** Is Active */
+            is_active: boolean;
+            /** Created By */
+            created_by?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** AdminErrorOverviewOut */
+        AdminErrorOverviewOut: {
+            /** Undismissed */
+            undismissed: number;
+            /** Last 24H */
+            last_24h: number;
+            /** Last 7D */
+            last_7d: number;
         };
         /** AdminFeedbackGroupOut */
         AdminFeedbackGroupOut: {
@@ -11712,12 +11833,402 @@ export interface components {
              */
             count: number;
         };
+        /** AdminOverviewOut */
+        AdminOverviewOut: {
+            students: components["schemas"]["AdminStudentsOverviewOut"];
+            skills: components["schemas"]["AdminSkillsOverviewOut"];
+            errors: components["schemas"]["AdminErrorOverviewOut"];
+            access_codes: components["schemas"]["AccessCodeOverviewOut"];
+            /** Recent Activity */
+            recent_activity: components["schemas"]["RecentAdminActivityOut"][];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+        };
         /** AdminPatchExerciseRequest */
         AdminPatchExerciseRequest: {
             /** Content Payload */
             content_payload?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** AdminResponseRegradeResponse */
+        AdminResponseRegradeResponse: {
+            /**
+             * Ok
+             * @constant
+             */
+            ok: true;
+            /** Response Id */
+            response_id: string;
+            /** Session Id */
+            session_id: string;
+            /** Overall Band */
+            overall_band: number | null;
+            /** Re Transcribed */
+            re_transcribed: boolean;
+            /** Session Updated */
+            session_updated: boolean;
+            /** Remaining Failed */
+            remaining_failed: number;
+            /** Session Band */
+            session_band: number | null;
+        };
+        /** AdminSessionRegradeResponse */
+        AdminSessionRegradeResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Partial Failure */
+            partial_failure: boolean;
+            /** Session Id */
+            session_id: string;
+            /** Regraded */
+            regraded: number;
+            /** Skipped */
+            skipped: number;
+            /** Failed */
+            failed: number;
+            /** Failed Details */
+            failed_details: string[];
+            /** Overall Band */
+            overall_band: number | null;
+            /** Band Fc */
+            band_fc: number | null;
+            /** Band Lr */
+            band_lr: number | null;
+            /** Band Gra */
+            band_gra: number | null;
+            /** Band P */
+            band_p: number | null;
+        };
+        /** AdminSkillsOverviewOut */
+        AdminSkillsOverviewOut: {
+            speaking: components["schemas"]["SpeakingOverviewOut"];
+            writing: components["schemas"]["WritingOverviewOut"];
+            listening: components["schemas"]["ListeningOverviewOut"];
+            reading: components["schemas"]["ReadingOverviewOut"];
+            vocab: components["schemas"]["VocabularyOverviewOut"];
+            grammar: components["schemas"]["GrammarOverviewOut"];
+        };
+        /** AdminSpeakingSessionDetail */
+        AdminSpeakingSessionDetail: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id?: string | null;
+            /**
+             * User Email
+             * @default
+             */
+            user_email: string;
+            /**
+             * User Lookup Failed
+             * @default false
+             */
+            user_lookup_failed: boolean;
+            /** Mode */
+            mode?: string | null;
+            /** Part */
+            part?: number | null;
+            /** Topic */
+            topic?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Overall Band */
+            overall_band?: number | null;
+            /** Band Fc */
+            band_fc?: number | null;
+            /** Band Lr */
+            band_lr?: number | null;
+            /** Band Gra */
+            band_gra?: number | null;
+            /** Band P */
+            band_p?: number | null;
+            /** Error Code */
+            error_code?: string | null;
+            /** Error Message */
+            error_message?: string | null;
+            /** Failed Step */
+            failed_step?: string | null;
+            /** Last Error At */
+            last_error_at?: string | null;
+            /** Pdf Status */
+            pdf_status?: string | null;
+            /** Session Id */
+            session_id: string;
+            /** User Display Name */
+            user_display_name?: string | null;
+            /** P1 Session Id */
+            p1_session_id: string | null;
+            /** P2 Session Id */
+            p2_session_id: string | null;
+            /** P3 Session Id */
+            p3_session_id: string | null;
+            /** Full Test Siblings Lookup Failed */
+            full_test_siblings_lookup_failed: boolean;
+            /** Questions Lookup Failed */
+            questions_lookup_failed: boolean;
+            /** Responses Lookup Failed */
+            responses_lookup_failed: boolean;
+            /** Questions */
+            questions: components["schemas"]["SessionQuestion"][];
+            /** Responses */
+            responses: components["schemas"]["SessionResponse"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /** AdminSpeakingSessionRow */
+        AdminSpeakingSessionRow: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id?: string | null;
+            /**
+             * User Email
+             * @default
+             */
+            user_email: string;
+            /**
+             * User Lookup Failed
+             * @default false
+             */
+            user_lookup_failed: boolean;
+            /** Mode */
+            mode?: string | null;
+            /** Part */
+            part?: number | null;
+            /** Topic */
+            topic?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Overall Band */
+            overall_band?: number | null;
+            /** Band Fc */
+            band_fc?: number | null;
+            /** Band Lr */
+            band_lr?: number | null;
+            /** Band Gra */
+            band_gra?: number | null;
+            /** Band P */
+            band_p?: number | null;
+            /** Error Code */
+            error_code?: string | null;
+            /** Error Message */
+            error_message?: string | null;
+            /** Failed Step */
+            failed_step?: string | null;
+            /** Last Error At */
+            last_error_at?: string | null;
+            /** Pdf Status */
+            pdf_status?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** AdminStudentCohortOut */
+        AdminStudentCohortOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name?: string | null;
+            /** Is Primary */
+            is_primary: boolean;
+        };
+        /** AdminStudentDirectoryRowOut */
+        AdminStudentDirectoryRowOut: {
+            /** Id */
+            id: string;
+            /** Student Code */
+            student_code: string;
+            /** Full Name */
+            full_name: string;
+            /** Target Band */
+            target_band?: number | null;
+            /** Target Date */
+            target_date?: string | null;
+            /** Persona Notes */
+            persona_notes?: string | null;
+            /** Current Band Estimate */
+            current_band_estimate?: number | null;
+            /** User Id */
+            user_id?: string | null;
+            /** Created By */
+            created_by?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Flag Count */
+            flag_count: number;
+            /** Last Flagged At */
+            last_flagged_at?: string | null;
+            /** Is Under Review */
+            is_under_review: boolean;
+            /** Instructor Id */
+            instructor_id?: string | null;
+            /** Cohort Id */
+            cohort_id?: string | null;
+            /** Cohorts */
+            cohorts: components["schemas"]["AdminStudentCohortOut"][];
+            /** Cohort Name */
+            cohort_name?: string | null;
+            /** Cohort Lookup Failed */
+            cohort_lookup_failed: boolean;
+            /** Membership Lookup Failed */
+            membership_lookup_failed: boolean;
+        };
+        /** AdminStudentsOverviewOut */
+        AdminStudentsOverviewOut: {
+            /** Total */
+            total: number;
+            /** Active 7D */
+            active_7d: number;
+            /** Active 30D */
+            active_30d: number;
+            /** By Cohort */
+            by_cohort: components["schemas"]["CohortStudentCountOut"][];
+        };
+        /** AdminSummaryRebuildItem */
+        AdminSummaryRebuildItem: {
+            /** Session Id */
+            session_id: string;
+            /** Ok */
+            ok: boolean;
+            /** Error */
+            error?: string | null;
+            /** Overall Band */
+            overall_band?: number | null;
+            /** Band Fc */
+            band_fc?: number | null;
+            /** Band Lr */
+            band_lr?: number | null;
+            /** Band Gra */
+            band_gra?: number | null;
+            /** Band P */
+            band_p?: number | null;
+        };
+        /** AdminSummaryRebuildResponse */
+        AdminSummaryRebuildResponse: {
+            /**
+             * Ok
+             * @constant
+             */
+            ok: true;
+            /** Sessions */
+            sessions: components["schemas"]["AdminSummaryRebuildItem"][];
+        };
+        /** AdminUserCodeSummaryOut */
+        AdminUserCodeSummaryOut: {
+            /** Codes */
+            codes: components["schemas"]["AdminUserCodeSummaryRowOut"][];
+            /** Code Count */
+            code_count: number;
+            /** Code Type */
+            code_type?: string | null;
+            /** Permissions */
+            permissions: string[];
+            /** Has Active Code */
+            has_active_code: boolean;
+        };
+        /** AdminUserCodeSummaryRowOut */
+        AdminUserCodeSummaryRowOut: {
+            /** Id */
+            id: string;
+            /** Code */
+            code?: string | null;
+            /** Code Type */
+            code_type?: string | null;
+            /** Permissions */
+            permissions?: string[];
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Created At */
+            created_at?: string | null;
+        };
+        /** AdminUserDirectoryRowOut */
+        AdminUserDirectoryRowOut: {
+            /** Id */
+            id: string;
+            /** Email */
+            email?: string | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Role */
+            role?: ("user" | "student" | "instructor" | "admin") | null;
+            /** Sessions Today */
+            sessions_today: number;
+            /** Cohort Name */
+            cohort_name?: string | null;
+            /** Cohort Names */
+            cohort_names: string[];
+            /** Cohort Lookup Failed */
+            cohort_lookup_failed: boolean;
+            code_summary: components["schemas"]["AdminUserCodeSummaryOut"];
+        };
+        /** AdminWritingQueueRowOut */
+        AdminWritingQueueRowOut: {
+            /** Id */
+            id: string;
+            /** Student Id */
+            student_id: string;
+            /**
+             * Task Type
+             * @enum {string}
+             */
+            task_type: "task1_academic" | "task1_general" | "task2";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "grading" | "graded" | "reviewed" | "delivered" | "failed";
+            /** Analysis Level */
+            analysis_level: number;
+            /** Selected Model */
+            selected_model: string;
+            /** Word Count */
+            word_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Delivered At */
+            delivered_at?: string | null;
+            /** Error Message */
+            error_message?: string | null;
+            /** Sitting Id */
+            sitting_id?: string | null;
+            /** Grading Skipped At */
+            grading_skipped_at?: string | null;
+            /** Student Full Name */
+            student_full_name?: string | null;
+            /** Student Code */
+            student_code?: string | null;
+            /** Band */
+            band?: number | null;
+            /** Deadline */
+            deadline?: string | null;
+            /** Task1 Image Missing */
+            task1_image_missing: boolean;
         };
         /**
          * AdvanceBody
@@ -11914,6 +12425,129 @@ export interface components {
             resolved_indexes?: number[] | null;
             /** Expected Updated At */
             expected_updated_at: string;
+        };
+        /** AuthActivateResponse */
+        AuthActivateResponse: {
+            /** Success */
+            success: boolean;
+            /** Message */
+            message: string;
+        };
+        /** AuthActiveStatusResponse */
+        AuthActiveStatusResponse: {
+            /** Is Active */
+            is_active: boolean;
+        };
+        /** AuthMeResponse */
+        AuthMeResponse: {
+            /** Id */
+            id: string;
+            /** Email */
+            email: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** Avatar Url */
+            avatar_url: string | null;
+            /** Role */
+            role: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Permissions */
+            permissions: string[];
+            /** Onboarding Completed */
+            onboarding_completed: boolean;
+            /** Target Band */
+            target_band: number | null;
+            /** Exam Date */
+            exam_date: string | null;
+            /** Self Level */
+            self_level: string | null;
+            /** Preferred Topics */
+            preferred_topics: string[];
+            /** Vocab Bank Enabled */
+            vocab_bank_enabled: boolean;
+            /** D1 Enabled */
+            d1_enabled: boolean;
+            /** D3 Enabled */
+            d3_enabled: boolean;
+            /** Flashcard Enabled */
+            flashcard_enabled: boolean;
+            /** Vocab Curated Enabled */
+            vocab_curated_enabled: boolean;
+        };
+        /** AuthProfileResponse */
+        AuthProfileResponse: {
+            /** Id */
+            id: string;
+            /** Email */
+            email: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** Avatar Url */
+            avatar_url: string | null;
+            /** Role */
+            role: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Onboarding Completed */
+            onboarding_completed: boolean;
+            /** Target Band */
+            target_band: number | null;
+            /** Exam Date */
+            exam_date: string | null;
+            /** Self Level */
+            self_level: string | null;
+            /** Preferred Topics */
+            preferred_topics: string[];
+            /** Timezone */
+            timezone: string;
+            /** Weekly Goal */
+            weekly_goal: number;
+            /** Notification Email */
+            notification_email: boolean;
+            /** Joined At */
+            joined_at: string | null;
+            stats: components["schemas"]["AuthProfileStats"];
+        };
+        /** AuthProfileStats */
+        AuthProfileStats: {
+            /** Total Sessions */
+            total_sessions: number;
+            /** Avg Band */
+            avg_band: number | null;
+            /** Joined At */
+            joined_at: string | null;
+        };
+        /** AuthProfileUpdateResponse */
+        AuthProfileUpdateResponse: {
+            /** Id */
+            id: string;
+            /** Email */
+            email: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** Avatar Url */
+            avatar_url: string | null;
+            /** Role */
+            role: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Onboarding Completed */
+            onboarding_completed: boolean;
+            /** Target Band */
+            target_band: number | null;
+            /** Exam Date */
+            exam_date: string | null;
+            /** Self Level */
+            self_level: string | null;
+            /** Preferred Topics */
+            preferred_topics: string[];
+            /** Timezone */
+            timezone: string;
+            /** Weekly Goal */
+            weekly_goal: number;
+            /** Notification Email */
+            notification_email: boolean;
         };
         /**
          * BackfillBody
@@ -12287,6 +12921,19 @@ export interface components {
             /** Grants Role */
             grants_role?: string | null;
         };
+        /** CohortCourseOut */
+        CohortCourseOut: {
+            /** Id */
+            id: string;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Sort Order */
+            sort_order: number;
+            /** Is Active */
+            is_active: boolean;
+        };
         /** CohortCreateRequest */
         CohortCreateRequest: {
             /** Name */
@@ -12310,6 +12957,15 @@ export interface components {
             is_active?: boolean | null;
             /** Course Id */
             course_id?: string | null;
+        };
+        /** CohortStudentCountOut */
+        CohortStudentCountOut: {
+            /** Cohort Id */
+            cohort_id?: string | null;
+            /** Cohort Name */
+            cohort_name?: string | null;
+            /** Count */
+            count: number;
         };
         /** CohortsBody */
         CohortsBody: {
@@ -12659,6 +13315,89 @@ export interface components {
             hint?: string | null;
             /** Is Active */
             is_active?: boolean | null;
+        };
+        /** DashboardAttentionOut */
+        DashboardAttentionOut: {
+            /** Errors Undismissed */
+            errors_undismissed?: number | null;
+            /** Writing Pending */
+            writing_pending?: number | null;
+        };
+        /** DashboardOverviewOut */
+        DashboardOverviewOut: {
+            /** Total Users */
+            total_users?: number | null;
+            /** Active Codes */
+            active_codes?: number | null;
+            distinct_visitors: components["schemas"]["DashboardVisitorsOut"];
+            /** Total Practices */
+            total_practices?: number | null;
+            /** Grading Minutes */
+            grading_minutes?: number | null;
+            tokens_called: components["schemas"]["DashboardWindowMetricOut"];
+            attention: components["schemas"]["DashboardAttentionOut"];
+            /**
+             * Computed At
+             * Format: date-time
+             */
+            computed_at: string;
+        };
+        /** DashboardTrendPointOut */
+        DashboardTrendPointOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Value */
+            value: number;
+        };
+        /** DashboardTrendSeriesOut */
+        DashboardTrendSeriesOut: {
+            /** Visitors */
+            visitors: components["schemas"]["DashboardTrendPointOut"][];
+            /** Practices */
+            practices: components["schemas"]["DashboardTrendPointOut"][];
+            /** Tokens */
+            tokens: components["schemas"]["DashboardTrendPointOut"][];
+        };
+        /** DashboardTrendsOut */
+        DashboardTrendsOut: {
+            /**
+             * Days
+             * @enum {integer}
+             */
+            days: 7 | 30 | 90;
+            series: components["schemas"]["DashboardTrendSeriesOut"];
+            /**
+             * Computed At
+             * Format: date-time
+             */
+            computed_at: string;
+        };
+        /** DashboardVisitorsOut */
+        DashboardVisitorsOut: {
+            /** Count */
+            count?: number | null;
+            /**
+             * Window Days
+             * @enum {integer}
+             */
+            window_days: 7 | 30 | 90;
+            /** Authenticated */
+            authenticated?: number | null;
+            /** Anonymous */
+            anonymous?: number | null;
+        };
+        /** DashboardWindowMetricOut */
+        DashboardWindowMetricOut: {
+            /** Count */
+            count?: number | null;
+            /**
+             * Window Days
+             * @enum {integer}
+             */
+            window_days: 7 | 30 | 90;
         };
         /**
          * DeliverRequest
@@ -13276,10 +14015,305 @@ export interface components {
              */
             note: string;
         };
+        /** GrammarAnchor */
+        GrammarAnchor: {
+            /** Id */
+            id: string;
+            /** Location */
+            location: string;
+            /** Type */
+            type: string;
+        };
+        /**
+         * GrammarArticleDocument
+         * @description Canonical article route after related/next slugs have been resolved.
+         */
+        GrammarArticleDocument: {
+            /** Slug */
+            slug: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /** Level */
+            level: string;
+            /** Difficulty */
+            difficulty: string;
+            /** Band Relevance */
+            band_relevance: string[];
+            /** Speaking Relevance */
+            speaking_relevance: string;
+            /** Writing Relevance */
+            writing_relevance: string;
+            /** Pathways */
+            pathways: string[];
+            /** Common Error Tags */
+            common_error_tags: string[];
+            /** Tags */
+            tags: string[];
+            /** Order */
+            order: number;
+            /** Reading Time */
+            reading_time: number;
+            /** Last Updated */
+            last_updated: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "complete" | "updating" | "draft";
+            /** Html */
+            html: string;
+            /** Word Count */
+            word_count: number;
+            /** Toc */
+            toc: components["schemas"]["GrammarTocItem"][];
+            /** Anchors */
+            anchors: components["schemas"]["GrammarAnchor"][];
+            /** Learning Blocks */
+            learning_blocks: {
+                [key: string]: unknown;
+            }[];
+            /** Prerequisites */
+            prerequisites: string[];
+            /** Compare With */
+            compare_with: string[];
+            /** Related Pages */
+            related_pages: components["schemas"]["GrammarArticleRef"][];
+            /** Next Articles */
+            next_articles: components["schemas"]["GrammarArticleRef"][];
+            prev_article?: components["schemas"]["GrammarArticleSummary"] | null;
+            next_article?: components["schemas"]["GrammarArticleSummary"] | null;
+        };
+        /** GrammarArticleRef */
+        GrammarArticleRef: {
+            /** Slug */
+            slug: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+        };
+        /** GrammarArticleSummary */
+        GrammarArticleSummary: {
+            /** Slug */
+            slug: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /** Level */
+            level: string;
+            /** Difficulty */
+            difficulty: string;
+            /** Band Relevance */
+            band_relevance: string[];
+            /** Speaking Relevance */
+            speaking_relevance: string;
+            /** Writing Relevance */
+            writing_relevance: string;
+            /** Pathways */
+            pathways: string[];
+            /** Common Error Tags */
+            common_error_tags: string[];
+            /** Tags */
+            tags: string[];
+            /** Order */
+            order: number;
+            /** Reading Time */
+            reading_time: number;
+            /** Last Updated */
+            last_updated: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "complete" | "updating" | "draft";
+            /** Next Articles */
+            next_articles: string[];
+        };
+        /** GrammarCategoryResponse */
+        GrammarCategoryResponse: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Articles */
+            articles: components["schemas"]["GrammarArticleSummary"][];
+        };
+        /** GrammarCategorySummary */
+        GrammarCategorySummary: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Article Count */
+            article_count: number;
+            /** Articles */
+            articles: components["schemas"]["GrammarArticleSummary"][];
+        };
+        /** GrammarCompareResponse */
+        GrammarCompareResponse: {
+            /** Slug */
+            slug: string;
+            left: components["schemas"]["GrammarSourceArticleDocument"];
+            right: components["schemas"]["GrammarSourceArticleDocument"];
+        };
+        /** GrammarGroup */
+        GrammarGroup: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Color */
+            color: string;
+            /** Article Count */
+            article_count: number;
+            /** Complete Count */
+            complete_count: number;
+            /** Articles */
+            articles: components["schemas"]["GrammarGroupArticle"][];
+        };
+        /** GrammarGroupArticle */
+        GrammarGroupArticle: {
+            /** Slug */
+            slug: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+            /** Level */
+            level: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "complete" | "updating" | "draft" | "planned";
+            /** Reading Time */
+            reading_time: number | null;
+            /** Summary */
+            summary: string;
+        };
+        /** GrammarHomeResponse */
+        GrammarHomeResponse: {
+            /** Categories */
+            categories: components["schemas"]["GrammarCategorySummary"][];
+            /** Featured Articles */
+            featured_articles: components["schemas"]["GrammarArticleSummary"][];
+            /** Total Articles */
+            total_articles: number;
+            /** Total Categories */
+            total_categories: number;
+        };
+        /** GrammarOverviewOut */
+        GrammarOverviewOut: {
+            /** Articles Viewed 7D */
+            articles_viewed_7d: number;
+        };
         /** GrammarRecommendPayload */
         GrammarRecommendPayload: {
             /** Issue */
             issue: string;
+        };
+        /** GrammarSearchResult */
+        GrammarSearchResult: {
+            /** Slug */
+            slug: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /** Level */
+            level: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "complete" | "updating" | "draft";
+            /** Reading Time */
+            reading_time: number;
+            /** Speaking Relevance */
+            speaking_relevance: string;
+            /** Writing Relevance */
+            writing_relevance: string;
+        };
+        /**
+         * GrammarSourceArticleDocument
+         * @description Source document embedded by the compare route before link resolution.
+         */
+        GrammarSourceArticleDocument: {
+            /** Slug */
+            slug: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /** Level */
+            level: string;
+            /** Difficulty */
+            difficulty: string;
+            /** Band Relevance */
+            band_relevance: string[];
+            /** Speaking Relevance */
+            speaking_relevance: string;
+            /** Writing Relevance */
+            writing_relevance: string;
+            /** Pathways */
+            pathways: string[];
+            /** Common Error Tags */
+            common_error_tags: string[];
+            /** Tags */
+            tags: string[];
+            /** Order */
+            order: number;
+            /** Reading Time */
+            reading_time: number;
+            /** Last Updated */
+            last_updated: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "complete" | "updating" | "draft";
+            /** Html */
+            html: string;
+            /** Word Count */
+            word_count: number;
+            /** Toc */
+            toc: components["schemas"]["GrammarTocItem"][];
+            /** Anchors */
+            anchors: components["schemas"]["GrammarAnchor"][];
+            /** Learning Blocks */
+            learning_blocks: {
+                [key: string]: unknown;
+            }[];
+            /** Prerequisites */
+            prerequisites: string[];
+            /** Compare With */
+            compare_with: string[];
+            /** Related Pages */
+            related_pages: string[];
+            /** Next Articles */
+            next_articles: string[];
+        };
+        /** GrammarTocItem */
+        GrammarTocItem: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Depth */
+            depth: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -13705,6 +14739,21 @@ export interface components {
              * @default false
              */
             expected_absent: boolean;
+        };
+        /** ListeningOverviewOut */
+        ListeningOverviewOut: {
+            /** Attempts Total */
+            attempts_total: number;
+            /** Attempts 7D */
+            attempts_7d: number;
+            /** Avg Score 7D */
+            avg_score_7d?: number | null;
+            /** Content Count */
+            content_count: number;
+            /** Dictation Total */
+            dictation_total: number;
+            /** Dictation 7D */
+            dictation_7d: number;
         };
         /** ListeningTestDictationGradeRequest */
         ListeningTestDictationGradeRequest: {
@@ -14312,6 +15361,15 @@ export interface components {
             /** Count */
             count: number;
         };
+        /** ReadingOverviewOut */
+        ReadingOverviewOut: {
+            /** Attempts Total */
+            attempts_total: number;
+            /** Attempts 7D */
+            attempts_7d: number;
+            /** Avg Score 7D */
+            avg_score_7d?: number | null;
+        };
         /** ReadingPerTestOut */
         ReadingPerTestOut: {
             /** Test Id */
@@ -14373,6 +15431,29 @@ export interface components {
             to_user_id: string;
             /** Reason */
             reason?: string | null;
+        };
+        /** RecentAdminActivityOut */
+        RecentAdminActivityOut: {
+            /**
+             * Timestamp
+             * Format: date-time
+             */
+            timestamp: string;
+            /** User Id */
+            user_id?: string | null;
+            /**
+             * User Email
+             * @default
+             */
+            user_email: string;
+            /** Skill */
+            skill: string;
+            /** Action */
+            action: string;
+            /** Score */
+            score?: number | string | null;
+            /** Link */
+            link: string;
         };
         /** RecommendationOpenRequest */
         RecommendationOpenRequest: {
@@ -14454,6 +15535,293 @@ export interface components {
              */
             task2_text: string;
         };
+        /** SessionAudioUrl */
+        SessionAudioUrl: {
+            /** Response Id */
+            response_id: string;
+            /** Question Id */
+            question_id: string;
+            /** Url */
+            url: string;
+            /** Expires In */
+            expires_in: number;
+        };
+        /** SessionClassTask */
+        SessionClassTask: {
+            /** Item Id */
+            item_id: string;
+            /** Title */
+            title: string | null;
+            /** Due At */
+            due_at: string | null;
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Accepting */
+            accepting: boolean;
+        };
+        /** SessionDetailResponse */
+        SessionDetailResponse: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id?: string | null;
+            /** Mode */
+            mode: string;
+            /** Part */
+            part: number;
+            /** Topic */
+            topic: string;
+            /** Status */
+            status: string;
+            /** Started At */
+            started_at: string;
+            /** Overall Band */
+            overall_band?: number | null;
+            /** Band Fc */
+            band_fc?: number | null;
+            /** Band Lr */
+            band_lr?: number | null;
+            /** Band Gra */
+            band_gra?: number | null;
+            /** Band P */
+            band_p?: number | null;
+            /** Sitting Id */
+            sitting_id?: string | null;
+            /** Full Test Attempt Id */
+            full_test_attempt_id?: string | null;
+            /** Class Assignment Item Id */
+            class_assignment_item_id?: string | null;
+            /** Renderer Affinity */
+            renderer_affinity?: string | null;
+            /** Last Accessed At */
+            last_accessed_at?: string | null;
+            /** Audio Purged At */
+            audio_purged_at?: string | null;
+            /** Content Purged At */
+            content_purged_at?: string | null;
+            retention: components["schemas"]["SessionRetention"];
+            /** Session Id */
+            session_id: string;
+            /** Questions */
+            questions: components["schemas"]["SessionQuestion"][];
+            /** Responses */
+            responses: components["schemas"]["SessionResponse"][];
+            /** Response Receipts */
+            response_receipts: components["schemas"]["SessionResponseReceipt"][];
+            /** Question Lookup Failed */
+            question_lookup_failed: boolean;
+            /** Response Lookup Failed */
+            response_lookup_failed: boolean;
+            /** Results Sealed */
+            results_sealed: boolean;
+            class_task?: components["schemas"]["SessionClassTask"] | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** SessionPageResponse */
+        SessionPageResponse: {
+            /** Sessions */
+            sessions: components["schemas"]["SessionRow"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total Pages */
+            total_pages: number;
+        };
+        /** SessionQuestion */
+        SessionQuestion: {
+            /** Id */
+            id: string;
+            /** Session Id */
+            session_id?: string | null;
+            /** Part */
+            part?: number | null;
+            /** Order Num */
+            order_num?: number | null;
+            /**
+             * Question Text
+             * @default
+             */
+            question_text: string;
+            /** Subtopic */
+            subtopic?: string | null;
+            /** Cue Card Bullets */
+            cue_card_bullets?: string[] | null;
+            /** Cue Card Reflection */
+            cue_card_reflection?: string | null;
+            /** Listen Only */
+            listen_only?: boolean | null;
+            /** Audio Url */
+            audio_url?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** SessionResponse */
+        SessionResponse: {
+            /** Id */
+            id: string;
+            /** Session Id */
+            session_id?: string | null;
+            /** Question Id */
+            question_id: string;
+            /** Transcript */
+            transcript?: string | null;
+            /** Feedback */
+            feedback?: {
+                [key: string]: unknown;
+            } | string | null;
+            /** Overall Band */
+            overall_band?: number | null;
+            /** Final Band P */
+            final_band_p?: number | null;
+            /** Final Overall Band */
+            final_overall_band?: number | null;
+            /** Grading Status */
+            grading_status?: string | null;
+            /** Stt Status */
+            stt_status?: string | null;
+            /** Persisted At */
+            persisted_at?: string | null;
+            /** Duration Seconds */
+            duration_seconds?: number | null;
+            /** Audio Url */
+            audio_url?: string | null;
+            /** Audio Playback Url */
+            audio_playback_url?: string | null;
+            /**
+             * Audio Available
+             * @default false
+             */
+            audio_available: boolean;
+            /**
+             * Audio Lookup Failed
+             * @default false
+             */
+            audio_lookup_failed: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /** SessionResponseReceipt */
+        SessionResponseReceipt: {
+            /** Id */
+            id: string;
+            /** Question Id */
+            question_id: string;
+            /** Persisted At */
+            persisted_at: string | null;
+        };
+        /** SessionRetention */
+        SessionRetention: {
+            /** Days Until Audio Purge */
+            days_until_audio_purge: number | null;
+            /** Days Until Content Purge */
+            days_until_content_purge: number | null;
+            /** Is Audio Purged */
+            is_audio_purged: boolean;
+            /** Is Content Purged */
+            is_content_purged: boolean;
+            /** Is Hidden */
+            is_hidden: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /** SessionRow */
+        SessionRow: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id?: string | null;
+            /** Mode */
+            mode: string;
+            /** Part */
+            part: number;
+            /** Topic */
+            topic: string;
+            /** Status */
+            status: string;
+            /** Started At */
+            started_at: string;
+            /** Overall Band */
+            overall_band?: number | null;
+            /** Band Fc */
+            band_fc?: number | null;
+            /** Band Lr */
+            band_lr?: number | null;
+            /** Band Gra */
+            band_gra?: number | null;
+            /** Band P */
+            band_p?: number | null;
+            /** Sitting Id */
+            sitting_id?: string | null;
+            /** Full Test Attempt Id */
+            full_test_attempt_id?: string | null;
+            /** Class Assignment Item Id */
+            class_assignment_item_id?: string | null;
+            /** Renderer Affinity */
+            renderer_affinity?: string | null;
+            /** Last Accessed At */
+            last_accessed_at?: string | null;
+            /** Audio Purged At */
+            audio_purged_at?: string | null;
+            /** Content Purged At */
+            content_purged_at?: string | null;
+            retention: components["schemas"]["SessionRetention"];
+        } & {
+            [key: string]: unknown;
+        };
+        /** SessionStatsResponse */
+        SessionStatsResponse: {
+            /** Sessions */
+            sessions: components["schemas"]["SessionStatsRow"][];
+            summary: components["schemas"]["SessionStatsSummary"];
+        };
+        /** SessionStatsRow */
+        SessionStatsRow: {
+            /** Id */
+            id: string;
+            /** Started At */
+            started_at: string;
+            /** Mode */
+            mode: string;
+            /** Part */
+            part: number;
+            /** Topic */
+            topic: string;
+            /** Band Fc */
+            band_fc?: number | null;
+            /** Band Lr */
+            band_lr?: number | null;
+            /** Band Gra */
+            band_gra?: number | null;
+            /** Band P */
+            band_p?: number | null;
+            /** Overall Band */
+            overall_band?: number | null;
+            /** Status */
+            status: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** SessionStatsSummary */
+        SessionStatsSummary: {
+            /** Total Sessions */
+            total_sessions: number;
+            /** Avg Band 30D */
+            avg_band_30d: number | null;
+            /** Current Streak */
+            current_streak: number;
+            /** Last Topic */
+            last_topic: string | null;
+            /** Last Part */
+            last_part: number | null;
+            /** Last Mode */
+            last_mode: string | null;
+            /** Last Session At */
+            last_session_at: string | null;
+        };
         /** SpeakingAssessmentBody */
         SpeakingAssessmentBody: {
             /** Bands */
@@ -14475,6 +15843,15 @@ export interface components {
         SpeakingBody: {
             /** Session Ids */
             session_ids?: string[];
+        };
+        /** SpeakingOverviewOut */
+        SpeakingOverviewOut: {
+            /** Sessions Total */
+            sessions_total: number;
+            /** Sessions 7D */
+            sessions_7d: number;
+            /** Avg Band 7D */
+            avg_band_7d?: number | null;
         };
         /** StartGradingRequest */
         StartGradingRequest: {
@@ -14902,6 +16279,56 @@ export interface components {
             /** Mastered */
             mastered: boolean;
         };
+        /** VocabularyDirectoryCategory */
+        VocabularyDirectoryCategory: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Article Count */
+            article_count: number;
+        };
+        /** VocabularyDirectoryItem */
+        VocabularyDirectoryItem: {
+            /** Slug */
+            slug: string;
+            /** Category */
+            category: string;
+            /** Headword */
+            headword: string;
+            /** Level */
+            level: string;
+            /** Part Of Speech */
+            part_of_speech: string;
+            /** Pronunciation */
+            pronunciation: string;
+            /** Gloss Vi */
+            gloss_vi: string;
+            /** Audio Headword */
+            audio_headword: string;
+            /** N Collocations */
+            n_collocations: number;
+        };
+        /** VocabularyDirectoryResponse */
+        VocabularyDirectoryResponse: {
+            /** Categories */
+            categories: components["schemas"]["VocabularyDirectoryCategory"][];
+            /** Items */
+            items: components["schemas"]["VocabularyDirectoryItem"][];
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
+        };
+        /** VocabularyOverviewOut */
+        VocabularyOverviewOut: {
+            /** Words Total */
+            words_total: number;
+            /** Due Review Today */
+            due_review_today: number;
+        };
         /** VoidBody */
         VoidBody: {
             /**
@@ -15048,6 +16475,15 @@ export interface components {
             /** Started */
             started: boolean;
             timer: components["schemas"]["WritingAdmissionTimer"];
+        };
+        /** WritingOverviewOut */
+        WritingOverviewOut: {
+            /** Essays Total */
+            essays_total: number;
+            /** Essays 7D */
+            essays_7d: number;
+            /** Feedback Pending */
+            feedback_pending: number;
         };
         /** _AnswerPatchItem */
         _AnswerPatchItem: {
@@ -15366,7 +16802,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AuthMeResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15397,7 +16833,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AuthActiveStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15428,7 +16864,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AuthProfileResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15463,7 +16899,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AuthProfileUpdateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15498,7 +16934,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AuthActivateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15548,7 +16984,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SessionRow"][] | components["schemas"]["SessionPageResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15616,7 +17052,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SessionStatsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15686,7 +17122,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SessionDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15719,7 +17155,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SessionAudioUrl"][];
                 };
             };
             /** @description Validation Error */
@@ -16167,7 +17603,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminUserDirectoryRowOut"][];
                 };
             };
             /** @description Validation Error */
@@ -16430,7 +17866,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DashboardOverviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -16463,7 +17899,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["DashboardTrendsOut"];
                 };
             };
             /** @description Validation Error */
@@ -17361,7 +18797,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminSpeakingSessionRow"][];
                 };
             };
             /** @description Validation Error */
@@ -17394,7 +18830,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminSpeakingSessionDetail"];
                 };
             };
             /** @description Validation Error */
@@ -17460,7 +18896,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminResponseRegradeResponse"];
                 };
             };
             /** @description Validation Error */
@@ -17496,7 +18932,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminSessionRegradeResponse"];
                 };
             };
             /** @description Validation Error */
@@ -17534,7 +18970,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminSummaryRebuildResponse"];
                 };
             };
             /** @description Validation Error */
@@ -18157,7 +19593,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminCohortListOut"];
                 };
             };
             /** @description Validation Error */
@@ -18503,7 +19939,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminCourseListOut"];
                 };
             };
             /** @description Validation Error */
@@ -19846,7 +21282,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminOverviewOut"];
                 };
             };
             /** @description Validation Error */
@@ -19884,7 +21320,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminWritingQueueRowOut"][];
                 };
             };
             /** @description Validation Error */
@@ -22839,7 +24275,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminStudentDirectoryRowOut"][];
                 };
             };
             /** @description Validation Error */
@@ -23905,7 +25341,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarHomeResponse"];
                 };
             };
         };
@@ -23925,7 +25361,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarCategorySummary"][];
                 };
             };
         };
@@ -23947,7 +25383,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarCategoryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -23979,7 +25415,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarArticleDocument"];
                 };
             };
             /** @description Validation Error */
@@ -24010,7 +25446,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarCategoryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -24041,7 +25477,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarCompareResponse"];
                 };
             };
             /** @description Validation Error */
@@ -24073,7 +25509,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarSearchResult"][];
                 };
             };
             /** @description Validation Error */
@@ -24135,7 +25571,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarGroup"][];
                 };
             };
         };
@@ -24383,6 +25819,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_directory_api_vocabulary_directory_get: {
+        parameters: {
+            query?: {
+                category?: string;
+                q?: string;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabularyDirectoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

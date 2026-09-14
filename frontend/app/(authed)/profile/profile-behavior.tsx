@@ -14,6 +14,7 @@
 // so a stale reconcile can never render over a newer user.
 import { useEffect, useRef } from 'react';
 
+import type { AuthMeWire } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 
 // api.js is deferred; effects can run before it. Same readiness pattern the
@@ -255,7 +256,9 @@ export function ProfileBehavior() {
         console.error('Could not load profile:', err?.message);
         // Fallback: try /auth/me (verbatim legacy fallback shape)
         try {
-          const me = await api.getWith('/auth/me', null, { signal: controller.signal });
+          const me = await api.getWith(
+            '/auth/me', null, { signal: controller.signal },
+          ) as AuthMeWire;
           if (disposed) return;
           if (me) {
             renderProfile(Object.assign({ stats: {} }, me));

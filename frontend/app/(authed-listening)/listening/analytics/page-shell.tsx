@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 export function ListeningAnalyticsShell({ children }: { children: ReactNode }) {
@@ -5,7 +6,7 @@ export function ListeningAnalyticsShell({ children }: { children: ReactNode }) {
     <main className="shell analytics-shell">
       <header className="subpage-header">
         <div className="subpage-header__lhs">
-          <a className="subpage-header__back" href="/listening"><span aria-hidden="true">←</span><span>Listening</span></a>
+          <Link className="subpage-header__back" href="/listening"><span aria-hidden="true">←</span><span>Listening</span></Link>
         </div>
       </header>
       <section className="analytics-hero">
@@ -14,7 +15,7 @@ export function ListeningAnalyticsShell({ children }: { children: ReactNode }) {
           <h1>Biết điểm yếu để luyện đúng bài</h1>
           <p>Đọc xu hướng, xem mức hoàn thành và bắt đầu ngay với dạng bài đang kéo điểm xuống.</p>
         </div>
-        <a href="/listening/practice">Luyện ngay <span aria-hidden="true">→</span></a>
+        <Link href="/listening/practice">Luyện ngay <span aria-hidden="true">→</span></Link>
       </section>
       {children}
     </main>

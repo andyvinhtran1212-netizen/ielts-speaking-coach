@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Suspense } from 'react';
 
 import { VocabUnitLesson } from './vocab-unit-lesson';
@@ -15,7 +16,7 @@ async function VocabUnitRoute({ params }: { params: Promise<{ unitSlug: string }
       {/* @ts-ignore custom element được đăng ký bởi AuthedShell. */}
       <aver-chrome active="vocabulary" />
       <main className="vc-shell">
-        <header className="vc-topbar"><a href="/vocabulary/learn">← Vocab Curated</a><a href="/vocabulary">Reference Wiki</a></header>
+        <header className="vc-topbar"><Link href="/vocabulary/learn">← Vocab Curated</Link><Link href="/vocabulary">Reference Wiki</Link></header>
         <VocabUnitLesson unitSlug={unitSlug} />
       </main>
     </>
