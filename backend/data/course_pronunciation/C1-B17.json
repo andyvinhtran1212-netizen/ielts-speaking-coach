@@ -1,0 +1,108 @@
+{
+  "bank_code": "C1-B17",
+  "requirement_id": "TM20-B17-PHAT-AM",
+  "role": "bài luyện phát âm — nghe và nhắc lại",
+  "title": "Phát âm & Shadowing — Mệnh đề trạng ngữ",
+  "locale": "en-GB",
+  "provider": "azure",
+  "voice_engine": "kokoro",
+  "voice": "bf_emma",
+  "playback_rates": [
+    0.85,
+    1.0
+  ],
+  "source_document": "Giao-trinh-ngu-phap-nen-IELTS_20-buoi-v2.docx",
+  "selection_seed": 20260914,
+  "sentences": [
+    {
+      "id": "C1-B17-PRON-V1-01",
+      "order": 1,
+      "source_section": "time clause",
+      "text": "As soon as the results are released, the university will inform all candidates."
+    },
+    {
+      "id": "C1-B17-PRON-V1-02",
+      "order": 2,
+      "source_section": "cause clause",
+      "text": "Because carbon emissions keep rising, global temperatures are climbing steadily."
+    },
+    {
+      "id": "C1-B17-PRON-V1-03",
+      "order": 3,
+      "source_section": "concession clause",
+      "text": "Although renewable energy is expensive to install, it is far cheaper to run."
+    },
+    {
+      "id": "C1-B17-PRON-V1-04",
+      "order": 4,
+      "source_section": "purpose clause",
+      "text": "The government lowered import taxes so that small businesses could compete."
+    },
+    {
+      "id": "C1-B17-PRON-V1-05",
+      "order": 5,
+      "source_section": "condition clause",
+      "text": "Unless the funding is approved, the hospital project will be postponed."
+    },
+    {
+      "id": "C1-B17-PRON-V1-06",
+      "order": 6,
+      "source_section": "result clause",
+      "text": "The course was so demanding that a third of the students dropped out."
+    },
+    {
+      "id": "C1-B17-PRON-V1-07",
+      "order": 7,
+      "source_section": "time clause",
+      "text": "Traffic in the centre eased after the council raised parking fees."
+    },
+    {
+      "id": "C1-B17-PRON-V1-08",
+      "order": 8,
+      "source_section": "contrast clause",
+      "text": "While the north of the country is heavily industrial, the south remains largely agricultural."
+    },
+    {
+      "id": "C1-B17-PRON-V1-09",
+      "order": 9,
+      "source_section": "concession clause",
+      "text": "Many commuters keep driving even though the new bus route is faster."
+    },
+    {
+      "id": "C1-B17-PRON-V1-10",
+      "order": 10,
+      "source_section": "result clause",
+      "text": "It was such a wet summer that three districts flooded twice."
+    },
+    {
+      "id": "C1-B17-PRON-V1-11",
+      "order": 11,
+      "source_section": "concession",
+      "text": "Even though the fee rose sharply, enrolment held steady."
+    },
+    {
+      "id": "C1-B17-PRON-V1-12",
+      "order": 12,
+      "source_section": "contrast whereas",
+      "text": "The north is industrial, whereas the south remains agricultural."
+    },
+    {
+      "id": "C1-B17-PRON-V1-13",
+      "order": 13,
+      "source_section": "contrast while",
+      "text": "While the north is industrial, the south remains agricultural."
+    },
+    {
+      "id": "C1-B17-PRON-V1-14",
+      "order": 14,
+      "source_section": "result clause",
+      "text": "There were so many applicants that the office extended the deadline."
+    },
+    {
+      "id": "C1-B17-PRON-V1-15",
+      "order": 15,
+      "source_section": "future time clause",
+      "text": "The office will close once the last form has been processed."
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "bank_code": "C1-B16",
+  "requirement_id": "TM20-B16-PHAT-AM",
+  "role": "bài luyện phát âm — nghe và nhắc lại",
+  "title": "Phát âm & Shadowing — Mệnh đề tính từ",
+  "locale": "en-GB",
+  "provider": "azure",
+  "voice_engine": "kokoro",
+  "voice": "bf_emma",
+  "playback_rates": [
+    0.85,
+    1.0
+  ],
+  "source_document": "Giao-trinh-ngu-phap-nen-IELTS_20-buoi-v2.docx",
+  "selection_seed": 20260914,
+  "sentences": [
+    {
+      "id": "C1-B16-PRON-V1-01",
+      "order": 1,
+      "source_section": "relative subject",
+      "text": "Students who study in a second language often need extra support in the first term."
+    },
+    {
+      "id": "C1-B16-PRON-V1-02",
+      "order": 2,
+      "source_section": "relative object",
+      "text": "The scheme that the council introduced last year has cut city-centre traffic by a fifth."
+    },
+    {
+      "id": "C1-B16-PRON-V1-03",
+      "order": 3,
+      "source_section": "non-defining relative",
+      "text": "Hanoi, which has more than eight million residents, is expanding faster than its infrastructure."
+    },
+    {
+      "id": "C1-B16-PRON-V1-04",
+      "order": 4,
+      "source_section": "relative subject",
+      "text": "Employers increasingly value graduates who can work in a team."
+    },
+    {
+      "id": "C1-B16-PRON-V1-05",
+      "order": 5,
+      "source_section": "omitted object pronoun",
+      "text": "The report the ministry published in March contains three warnings about air quality."
+    },
+    {
+      "id": "C1-B16-PRON-V1-06",
+      "order": 6,
+      "source_section": "non-defining relative",
+      "text": "My grandmother, who left school at fourteen, taught herself three languages."
+    },
+    {
+      "id": "C1-B16-PRON-V1-07",
+      "order": 7,
+      "source_section": "relative where",
+      "text": "The district where flooding is worst has received almost no investment."
+    },
+    {
+      "id": "C1-B16-PRON-V1-08",
+      "order": 8,
+      "source_section": "relative when",
+      "text": "Twenty twenty was the year when many companies first allowed staff to work from home."
+    },
+    {
+      "id": "C1-B16-PRON-V1-09",
+      "order": 9,
+      "source_section": "relative object",
+      "text": "The engineer whom the university appointed has published widely on flood defences."
+    },
+    {
+      "id": "C1-B16-PRON-V1-10",
+      "order": 10,
+      "source_section": "relative subject",
+      "text": "Countries that rely on a single export are vulnerable to sudden price shocks."
+    },
+    {
+      "id": "C1-B16-PRON-V1-11",
+      "order": 11,
+      "source_section": "relative subject",
+      "text": "People who live in glass houses shouldn't throw stones."
+    },
+    {
+      "id": "C1-B16-PRON-V1-12",
+      "order": 12,
+      "source_section": "relative object",
+      "text": "Jack is a man whom I trust completely."
+    },
+    {
+      "id": "C1-B16-PRON-V1-13",
+      "order": 13,
+      "source_section": "relative where",
+      "text": "This is the factory where my father works."
+    },
+    {
+      "id": "C1-B16-PRON-V1-14",
+      "order": 14,
+      "source_section": "relative with stranded preposition",
+      "text": "This is the factory that my father works at."
+    },
+    {
+      "id": "C1-B16-PRON-V1-15",
+      "order": 15,
+      "source_section": "sentential relative",
+      "text": "The metro opened ahead of schedule, which surprised local residents."
+    }
+  ]
+}

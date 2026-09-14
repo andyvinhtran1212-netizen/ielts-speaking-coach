@@ -1,27 +1,108 @@
 {
   "bank_code": "C1-B07",
-  "title": "Phát âm & Shadowing — Cụm động từ và đọc thì",
+  "requirement_id": "TM20-B07-PHAT-AM",
+  "role": "bài luyện phát âm — nghe và nhắc lại",
+  "title": "Phát âm & Shadowing — Đọc cụm động từ và đọc thì",
   "locale": "en-GB",
   "provider": "azure",
   "voice_engine": "kokoro",
   "voice": "bf_emma",
-  "playback_rates": [0.85, 1.0],
+  "playback_rates": [
+    0.85,
+    1.0
+  ],
+  "source_document": "Giao-trinh-ngu-phap-nen-IELTS_20-buoi-v2.docx",
+  "selection_seed": 20260914,
   "sentences": [
-    {"id": "C1-B07-PRON-01", "order": 1, "text": "The number of tourists fell during the long rainy season last year."},
-    {"id": "C1-B07-PRON-02", "order": 2, "text": "Traffic in the capital city increased sharply after 2010, and the situation still worries many local residents."},
-    {"id": "C1-B07-PRON-03", "order": 3, "text": "Local factories in this province produce cheap plastic goods for the whole southern region every single year."},
-    {"id": "C1-B07-PRON-04", "order": 4, "text": "The old bus service between these two small mountain towns disappeared completely in the early years of this century."},
-    {"id": "C1-B07-PRON-05", "order": 5, "text": "Vietnamese universities now offer many short practical courses to international students from all over Asia every year."},
-    {"id": "C1-B07-PRON-06", "order": 6, "text": "The new metro line will carry thousands of passengers every single day."},
-    {"id": "C1-B07-PRON-07", "order": 7, "text": "Electricity demand in the capital city rose sharply during the cold winter months at the end of last year."},
-    {"id": "C1-B07-PRON-08", "order": 8, "text": "Electric buses will replace older diesel vehicles in most large Vietnamese cities within the next ten years."},
-    {"id": "C1-B07-PRON-09", "order": 9, "text": "The government announced a new recycling programme for all coastal provinces at the start of this year."},
-    {"id": "C1-B07-PRON-10", "order": 10, "text": "Online courses offer busy adult learners a cheap and flexible route into higher education across the whole country."},
-    {"id": "C1-B07-PRON-11", "order": 11, "text": "Volunteers from the local university are collecting plastic waste along the river bank every weekend this month."},
-    {"id": "C1-B07-PRON-12", "order": 12, "text": "My parents were living in a small fishing village near Nha Trang at that very difficult time."},
-    {"id": "C1-B07-PRON-13", "order": 13, "text": "More and more young Vietnamese people are choosing practical careers in technology and modern engineering every year."},
-    {"id": "C1-B07-PRON-14", "order": 14, "text": "The city council is planting hundreds of new trees on both sides of the main southern road."},
-    {"id": "C1-B07-PRON-15", "order": 15, "text": "The national museum has attracted far more foreign visitors since the opening of the new metro line."},
-    {"id": "C1-B07-PRON-16", "order": 16, "text": "Several coastal provinces had suffered serious flood damage long before the government approved the new sea wall."}
+    {
+      "id": "C1-B07-PRON-V2-01",
+      "order": 1,
+      "source_section": "present simple",
+      "text": "Air pollution affects millions of city residents every year."
+    },
+    {
+      "id": "C1-B07-PRON-V2-02",
+      "order": 2,
+      "source_section": "present continuous",
+      "text": "The government is building a new metro line in this city."
+    },
+    {
+      "id": "C1-B07-PRON-V2-03",
+      "order": 3,
+      "source_section": "present perfect",
+      "text": "Enrolment in vocational courses has risen sharply since twenty twenty."
+    },
+    {
+      "id": "C1-B07-PRON-V2-04",
+      "order": 4,
+      "source_section": "present perfect continuous",
+      "text": "Researchers have been monitoring the river for eight months."
+    },
+    {
+      "id": "C1-B07-PRON-V2-05",
+      "order": 5,
+      "source_section": "past simple",
+      "text": "My previous company closed its branch in Da Nang last year."
+    },
+    {
+      "id": "C1-B07-PRON-V2-06",
+      "order": 6,
+      "source_section": "past continuous and past simple",
+      "text": "Commuters were queuing at the bus stop when the storm broke."
+    },
+    {
+      "id": "C1-B07-PRON-V2-07",
+      "order": 7,
+      "source_section": "past perfect",
+      "text": "The city had banned plastic bags before the new law took effect."
+    },
+    {
+      "id": "C1-B07-PRON-V2-08",
+      "order": 8,
+      "source_section": "future simple",
+      "text": "Fuel prices will rise again next quarter."
+    },
+    {
+      "id": "C1-B07-PRON-V2-09",
+      "order": 9,
+      "source_section": "stative verb",
+      "text": "This box contains all the exam papers."
+    },
+    {
+      "id": "C1-B07-PRON-V2-10",
+      "order": 10,
+      "source_section": "be as main verb",
+      "text": "The new library is a quiet place for students."
+    },
+    {
+      "id": "C1-B07-PRON-V2-11",
+      "order": 11,
+      "source_section": "present perfect",
+      "text": "She has lived in Hanoi for three years."
+    },
+    {
+      "id": "C1-B07-PRON-V2-12",
+      "order": 12,
+      "source_section": "two clause tenses",
+      "text": "While the committee was discussing the budget, the power went out."
+    },
+    {
+      "id": "C1-B07-PRON-V2-13",
+      "order": 13,
+      "source_section": "two clause tenses",
+      "text": "The power went out when the committee was discussing the budget."
+    },
+    {
+      "id": "C1-B07-PRON-V2-14",
+      "order": 14,
+      "source_section": "stative verbs",
+      "text": "I know this rule, and the box contains all the files."
+    },
+    {
+      "id": "C1-B07-PRON-V2-15",
+      "order": 15,
+      "source_section": "future timetable",
+      "text": "The night train to Sapa leaves at nine every evening."
+    }
   ]
 }
