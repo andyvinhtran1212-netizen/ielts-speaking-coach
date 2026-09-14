@@ -11743,6 +11743,206 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /** AdminResponseRegradeResponse */
+        AdminResponseRegradeResponse: {
+            /**
+             * Ok
+             * @constant
+             */
+            ok: true;
+            /** Response Id */
+            response_id: string;
+            /** Session Id */
+            session_id: string;
+            /** Overall Band */
+            overall_band: number | null;
+            /** Re Transcribed */
+            re_transcribed: boolean;
+            /** Session Updated */
+            session_updated: boolean;
+            /** Remaining Failed */
+            remaining_failed: number;
+            /** Session Band */
+            session_band: number | null;
+        };
+        /** AdminSessionRegradeResponse */
+        AdminSessionRegradeResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Partial Failure */
+            partial_failure: boolean;
+            /** Session Id */
+            session_id: string;
+            /** Regraded */
+            regraded: number;
+            /** Skipped */
+            skipped: number;
+            /** Failed */
+            failed: number;
+            /** Failed Details */
+            failed_details: string[];
+            /** Overall Band */
+            overall_band: number | null;
+            /** Band Fc */
+            band_fc: number | null;
+            /** Band Lr */
+            band_lr: number | null;
+            /** Band Gra */
+            band_gra: number | null;
+            /** Band P */
+            band_p: number | null;
+        };
+        /** AdminSpeakingSessionDetail */
+        AdminSpeakingSessionDetail: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id?: string | null;
+            /**
+             * User Email
+             * @default
+             */
+            user_email: string;
+            /**
+             * User Lookup Failed
+             * @default false
+             */
+            user_lookup_failed: boolean;
+            /** Mode */
+            mode?: string | null;
+            /** Part */
+            part?: number | null;
+            /** Topic */
+            topic?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Overall Band */
+            overall_band?: number | null;
+            /** Band Fc */
+            band_fc?: number | null;
+            /** Band Lr */
+            band_lr?: number | null;
+            /** Band Gra */
+            band_gra?: number | null;
+            /** Band P */
+            band_p?: number | null;
+            /** Error Code */
+            error_code?: string | null;
+            /** Error Message */
+            error_message?: string | null;
+            /** Failed Step */
+            failed_step?: string | null;
+            /** Last Error At */
+            last_error_at?: string | null;
+            /** Pdf Status */
+            pdf_status?: string | null;
+            /** Session Id */
+            session_id: string;
+            /** User Display Name */
+            user_display_name?: string | null;
+            /** P1 Session Id */
+            p1_session_id: string | null;
+            /** P2 Session Id */
+            p2_session_id: string | null;
+            /** P3 Session Id */
+            p3_session_id: string | null;
+            /** Full Test Siblings Lookup Failed */
+            full_test_siblings_lookup_failed: boolean;
+            /** Questions Lookup Failed */
+            questions_lookup_failed: boolean;
+            /** Responses Lookup Failed */
+            responses_lookup_failed: boolean;
+            /** Questions */
+            questions: components["schemas"]["SessionQuestion"][];
+            /** Responses */
+            responses: components["schemas"]["SessionResponse"][];
+        } & {
+            [key: string]: unknown;
+        };
+        /** AdminSpeakingSessionRow */
+        AdminSpeakingSessionRow: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id?: string | null;
+            /**
+             * User Email
+             * @default
+             */
+            user_email: string;
+            /**
+             * User Lookup Failed
+             * @default false
+             */
+            user_lookup_failed: boolean;
+            /** Mode */
+            mode?: string | null;
+            /** Part */
+            part?: number | null;
+            /** Topic */
+            topic?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Overall Band */
+            overall_band?: number | null;
+            /** Band Fc */
+            band_fc?: number | null;
+            /** Band Lr */
+            band_lr?: number | null;
+            /** Band Gra */
+            band_gra?: number | null;
+            /** Band P */
+            band_p?: number | null;
+            /** Error Code */
+            error_code?: string | null;
+            /** Error Message */
+            error_message?: string | null;
+            /** Failed Step */
+            failed_step?: string | null;
+            /** Last Error At */
+            last_error_at?: string | null;
+            /** Pdf Status */
+            pdf_status?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** AdminSummaryRebuildItem */
+        AdminSummaryRebuildItem: {
+            /** Session Id */
+            session_id: string;
+            /** Ok */
+            ok: boolean;
+            /** Error */
+            error?: string | null;
+            /** Overall Band */
+            overall_band?: number | null;
+            /** Band Fc */
+            band_fc?: number | null;
+            /** Band Lr */
+            band_lr?: number | null;
+            /** Band Gra */
+            band_gra?: number | null;
+            /** Band P */
+            band_p?: number | null;
+        };
+        /** AdminSummaryRebuildResponse */
+        AdminSummaryRebuildResponse: {
+            /**
+             * Ok
+             * @constant
+             */
+            ok: true;
+            /** Sessions */
+            sessions: components["schemas"]["AdminSummaryRebuildItem"][];
+        };
         /**
          * AdvanceBody
          * @description The section the admin's screen was showing when they clicked.
@@ -18128,7 +18328,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminSpeakingSessionRow"][];
                 };
             };
             /** @description Validation Error */
@@ -18161,7 +18361,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminSpeakingSessionDetail"];
                 };
             };
             /** @description Validation Error */
@@ -18227,7 +18427,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminResponseRegradeResponse"];
                 };
             };
             /** @description Validation Error */
@@ -18263,7 +18463,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminSessionRegradeResponse"];
                 };
             };
             /** @description Validation Error */
@@ -18301,7 +18501,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminSummaryRebuildResponse"];
                 };
             };
             /** @description Validation Error */

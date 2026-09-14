@@ -1,6 +1,6 @@
 import 'client-only';
 
-import type { ApiGetJson, ApiGetPath } from '@/lib/openapi-contract';
+import type { ApiGetJson, ApiGetPath, ApiPostJson, ApiPostPath } from '@/lib/openapi-contract';
 
 /**
  * Typed adapter over the migration-era browser transport.
@@ -39,4 +39,13 @@ export function getBrowserJsonAt<Path extends ApiGetPath>(
     undefined,
     signal ? { signal } : undefined,
   );
+}
+
+/** Typed POST response for a concrete URL bound to an OpenAPI path template. */
+export function postBrowserJsonAt<Path extends ApiPostPath>(
+  _contractPath: Path,
+  endpoint: string,
+  body: unknown = {},
+): Promise<ApiPostJson<Path>> {
+  return window.api.post<ApiPostJson<Path>>(endpoint, body);
 }

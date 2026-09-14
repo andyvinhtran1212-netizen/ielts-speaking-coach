@@ -25,6 +25,13 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from config import settings
+from models.admin_speaking import (
+    AdminResponseRegradeResponse,
+    AdminSessionRegradeResponse,
+    AdminSpeakingSessionDetail,
+    AdminSpeakingSessionRow,
+    AdminSummaryRebuildResponse,
+)
 from database import supabase_admin
 from services.class_assignment_service import sync_class_item_score
 from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, observe_operation
@@ -3180,7 +3187,7 @@ async def get_ai_usage(
 
 # ── GET /admin/sessions ────────────────────────────────────────────────────────
 
-@router.get("/sessions")
+@router.get("/sessions", response_model=list[AdminSpeakingSessionRow])
 async def admin_list_sessions(
     authorization: str | None = Header(default=None),
     user_id:    str | None = None,
@@ -3288,7 +3295,7 @@ async def admin_list_sessions(
 
 # ── GET /admin/sessions/{session_id} ──────────────────────────────────────────
 
-@router.get("/sessions/{session_id}")
+@router.get("/sessions/{session_id}", response_model=AdminSpeakingSessionDetail)
 async def admin_get_session(
     session_id: str,
     authorization: str | None = Header(default=None),
@@ -3784,7 +3791,7 @@ async def _run_regrade_response(
 
 # ── POST /admin/responses/{response_id}/regrade ───────────────────────────────
 
-@router.post("/responses/{response_id}/regrade")
+@router.post("/responses/{response_id}/regrade", response_model=AdminResponseRegradeResponse)
 @observe_operation("speaking", "grade")
 async def admin_regrade_response(
     response_id: str,
@@ -3894,7 +3901,7 @@ async def admin_regrade_response(
 
 # ── POST /admin/sessions/{session_id}/regrade ─────────────────────────────────
 
-@router.post("/sessions/{session_id}/regrade")
+@router.post("/sessions/{session_id}/regrade", response_model=AdminSessionRegradeResponse)
 @observe_operation("speaking", "grade")
 async def admin_regrade_session(
     session_id: str,
@@ -4056,7 +4063,7 @@ async def admin_regrade_session(
 
 # ── POST /admin/sessions/{session_id}/rebuild-summary ─────────────────────────
 
-@router.post("/sessions/{session_id}/rebuild-summary")
+@router.post("/sessions/{session_id}/rebuild-summary", response_model=AdminSummaryRebuildResponse)
 @observe_operation("speaking", "finalize")
 async def admin_rebuild_summary(
     session_id: str,

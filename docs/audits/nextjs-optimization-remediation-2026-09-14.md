@@ -130,8 +130,19 @@ fixtures are not deployable application routes.
   bands, nested identities and the canonical sealed/lookup-failure decisions
   instead of rendering them as empty data. Backend coverage passed 86/86,
   frontend contracts 9,074/9,074, the production build generated all 141 routes
-  and the Speaking browser journey passed 22/22. Shared admin envelopes and the
-  remaining API-boundary casts are intentionally queued for bounded waves.
+  and the Speaking browser journey passed 22/22. Wave C6 then closes the first
+  bounded admin domain: the Speaking sessions list/detail, response regrade,
+  session regrade and summary rebuild endpoints now publish concrete FastAPI
+  response models and are consumed through one generated-type adapter. The
+  existing runtime model remains the fail-closed normalization boundary, so the
+  wire typing does not make malformed data appear valid. Backend coverage passed
+  55/55, frontend contracts 9,076/9,076, the production build generated all 141
+  routes and the native admin journey passed 12/12, including partial-failure
+  readback, Full Test sibling rebuilding, unsafe audio and hostile text. During
+  validation, two apparent backend duplicates were rejected as truncated-output
+  artifacts and one stale rollback assertion was corrected to the post-Gate-F
+  truth: archived HTML is a fixture, not a deployable route. Remaining admin
+  domains and API-boundary casts are intentionally queued for bounded waves.
 
 ### NXT-05 — Large imperative Client Components remain parity ports
 
@@ -239,9 +250,9 @@ Vocabulary content has a tagged invalidation design.
 
 Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 
-1. Vocabulary, public Grammar, the shared auth spine and learner Speaking
-   session reads consume generated OpenAPI types; shared admin domains still
-   rely substantially on the compatibility API bridge.
+1. Vocabulary, public Grammar, the shared auth spine, learner Speaking sessions
+   and admin Speaking session operations consume generated OpenAPI types; other
+   admin domains still rely substantially on the compatibility API bridge.
 2. Writing dashboard and course behavior remain imperative parity ports. The
    large Reading/Listening/mock renderers are not automatically defects because
    their state machines are already extracted and tested.
@@ -263,9 +274,9 @@ Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 
 ### P1 — Continue from the typed authenticated spine into shared domains
 
-- Continue from the completed auth (Wave C4) and learner session (Wave C5)
-  contracts into shared admin list/detail envelopes. Generate types and
-  introduce one adapter per bounded admin domain.
+- Continue from the completed auth (Wave C4), learner session (Wave C5) and
+  admin Speaking (Wave C6) contracts into the next high-value admin list/detail
+  envelope. Generate types and introduce one adapter per bounded admin domain.
 - Migrate callers away from `window.api` only after each adapter has runtime
   normalization and account-switch tests. Do not attempt a repository-wide
   replacement.
