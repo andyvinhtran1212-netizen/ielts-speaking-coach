@@ -194,7 +194,7 @@ describe('native MCQ route and persistence contract', () => {
     assert.match(CLIENT, /aria-label=\{`Xóa câu/);
     assert.match(CLIENT, /aria-disabled=\{index === 0\} disabled=\{locked\}/);
     assert.match(CLIENT, /aria-live="polite"/);
-    assert.match(CLIENT, /beforeunload/);
+    assert.match(CLIENT, /registerNavigationGuard/);
     assert.match(CLIENT, /<Dialog open=\{confirm !== null\}/);
     assert.match(CLIENT, /className="alc-banner is-error" role="alert"/);
     assert.match(CLIENT, /MCQ block thuộc kho đề/);

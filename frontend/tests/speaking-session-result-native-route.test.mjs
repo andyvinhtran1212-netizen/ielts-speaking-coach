@@ -31,7 +31,7 @@ describe('/result — native React ownership', () => {
   });
 
   test('reads one canonical session snapshot and never races a second questions endpoint', () => {
-    assert.match(BEHAVIOR, /window\.api\.getWith<any>\(`\/sessions\/\$\{encodedId\}`/);
+    assert.match(BEHAVIOR, /getSessionDetail\(sessionId, controller\.signal\)/);
     assert.doesNotMatch(BEHAVIOR, /\/sessions\/\$\{encodedId\}\/questions|\/questions`/);
     assert.match(BEHAVIOR, /session\?\.question_lookup_failed === true/);
     assert.match(BEHAVIOR, /session\?\.response_lookup_failed === true/);

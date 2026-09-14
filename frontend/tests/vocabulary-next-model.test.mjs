@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   normalizeVocabularyArticle,
   normalizeVocabularyCategories,
+  normalizeVocabularyDirectory,
   resolveVocabularySelection,
   vocabularyKey,
 } from '../lib/vocabulary-model.mjs';
@@ -58,5 +59,37 @@ describe('Vocabulary Wiki canonical payload', () => {
     assert.equal(resolveVocabularySelection(words, '', 'balance'), null);
     assert.equal(resolveVocabularySelection(words, '', 'deadline'), words[2]);
     assert.equal(resolveVocabularySelection(words, 'health', ''), words[0]);
+  });
+
+  test('paged directory validates category ownership and page accounting', () => {
+    const directory = normalizeVocabularyDirectory({
+      categories: [{ slug: 'health', title: 'Health', article_count: 2 }],
+      items: [{ slug: 'balance', category: 'health', headword: 'Balance', gloss_vi: 'cân bằng' }],
+      total: 2,
+      offset: 0,
+      limit: 1,
+    });
+    assert.equal(directory.categories[0].articleCount, 2);
+    assert.equal(directory.items[0].glossVi, 'cân bằng');
+    assert.equal(directory.total, 2);
+
+    assert.throws(() => normalizeVocabularyDirectory({
+      categories: [{ slug: 'health', title: 'Health', article_count: 1 }],
+      items: [{ slug: 'deadline', category: 'work', headword: 'Deadline' }],
+      total: 1, offset: 0, limit: 1,
+    }), /owner/);
+    assert.throws(() => normalizeVocabularyDirectory({
+      categories: [], items: [], total: 0, offset: 0, limit: 0,
+    }), /page/);
+    assert.doesNotThrow(() => normalizeVocabularyDirectory({
+      categories: [], items: [], total: 0, offset: 20, limit: 10,
+    }));
+    assert.throws(() => normalizeVocabularyDirectory({
+      categories: [
+        { slug: 'health', title: 'Health', article_count: 1 },
+        { slug: 'health', title: 'Health again', article_count: 1 },
+      ],
+      items: [], total: 0, offset: 0, limit: 1,
+    }), /duplicate/);
   });
 });

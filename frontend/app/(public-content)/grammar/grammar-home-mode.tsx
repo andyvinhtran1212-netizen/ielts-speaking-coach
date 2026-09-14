@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
@@ -45,7 +46,7 @@ function ArticleList({ title, items, empty }: { title: string; items?: Dashboard
     <section className="gw-learning-card">
       <h3>{title}</h3>
       {items?.length ? <ul>{items.slice(0, 4).map((item) => (
-        <li key={item.slug}><a href={articleUrl(item.category, item.slug)}>{item.title}<span>→</span></a></li>
+        <li key={item.slug}><Link href={articleUrl(item.category, item.slug)}>{item.title}<span>→</span></Link></li>
       ))}</ul> : <p>{empty}</p>}
     </section>
   );
@@ -78,7 +79,7 @@ export function GrammarLearningDashboard() {
     <div className="gw-personal-empty">
       <span className="gw-personal-orbit" aria-hidden="true">◎</span>
       <div><h3>Mở lộ trình cá nhân</h3><p>Đăng nhập để tiếp tục bài vừa đọc, xem bài đã lưu và ưu tiên đúng điểm ngữ pháp còn yếu.</p></div>
-      <a href="/login.html">Đăng nhập →</a>
+      <Link href="/login">Đăng nhập →</Link>
     </div>
   );
   if (state === 'error') return <p className="gw-state-card">Không tải được dữ liệu cá nhân. Nội dung Grammar Wiki vẫn có thể tra cứu bình thường.</p>;
@@ -89,7 +90,7 @@ export function GrammarLearningDashboard() {
       <section className="gw-next-step">
         <div><span className="gw-lab-eyebrow">Bước tiếp theo</span><h3>{nextNodes[0]?.title || 'Làm một bài kiểm tra để dựng lộ trình'}</h3>
           <p>{nextNodes[0] ? (nextNodes[0].is_weak ? 'Điểm yếu được phát hiện từ kết quả luyện tập.' : 'Nền tảng cần củng cố trước điểm yếu tiếp theo.') : 'Hệ thống chỉ cá nhân hóa khi có evidence thật từ bài luyện.'}</p></div>
-        <a href={nextNodes[0] ? articleUrl(nextNodes[0].category, nextNodes[0].slug) : '/grammar/exercises'}>{nextNodes[0] ? 'Học tiếp →' : 'Chọn bài luyện →'}</a>
+        <Link href={nextNodes[0] ? articleUrl(nextNodes[0].category, nextNodes[0].slug) : '/grammar/exercises'}>{nextNodes[0] ? 'Học tiếp →' : 'Chọn bài luyện →'}</Link>
       </section>
       <div className="gw-learning-grid">
         <ArticleList title="Vừa xem" items={dashboard.recently_viewed} empty="Chưa có lịch sử đọc." />

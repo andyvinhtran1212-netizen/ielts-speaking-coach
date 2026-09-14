@@ -35,9 +35,9 @@ describe('/login native auth entry', () => {
   });
 
   test('keeps one shared Supabase client and the implicit callback contract', () => {
-    assert.match(LAYOUT, /\/vendor\/supabase\.js/);
-    assert.match(LAYOUT, /\/js\/supabase-sdk-fallback\.js/);
     assert.match(LAYOUT, /<SupabaseRuntimeBoundary/);
+    assert.doesNotMatch(LAYOUT, /\/vendor\/supabase\.js|supabase-sdk-fallback\.js/);
+    assert.match(RUNTIME_BOUNDARY, /getBrowserSupabase\(supabaseUrl, supabaseAnonKey\)/);
     assert.match(RUNTIME_BOUNDARY, /init\(supabaseUrl, supabaseAnonKey\)/);
     assert.match(BEHAVIOR, /const fragment = new URLSearchParams\(window\.location\.hash\.replace/);
     assert.match(BEHAVIOR, /'error_description'/);
@@ -57,7 +57,7 @@ describe('/login native auth entry', () => {
 
   test('routes only from strict canonical /auth/me truth', () => {
     assert.match(BEHAVIOR, /fetch\(`\$\{window\.api\.base\}\/auth\/me`/);
-    assert.match(BEHAVIOR, /normalizeLoginProfile\(payload\)/);
+    assert.match(BEHAVIOR, /normalizeLoginProfile\(payload(?: as AuthMeWire)?\)/);
     assert.match(BEHAVIOR, /loginDestination\(profile\)/);
     assert.match(BEHAVIOR, /window\.location\.replace\(destination\)/);
     assert.doesNotMatch(BEHAVIOR, /data\.is_active|data\.onboarding_completed/);

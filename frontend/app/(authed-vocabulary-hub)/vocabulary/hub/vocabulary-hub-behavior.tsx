@@ -3,6 +3,7 @@
 // Native React behavior cho hub từ vựng học viên. Backend tiếp tục là nguồn
 // thật cho thống kê và feature flags; state được khóa theo user.id để account
 // switch không ló dữ liệu của phiên trước.
+import Link from 'next/link';
 import {
   useCallback,
   useEffect,
@@ -12,6 +13,7 @@ import {
 } from 'react';
 
 import { VocabModuleMount } from '@/components/vocab-module-mount';
+import { getCurrentUser } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -42,12 +44,6 @@ interface FeatureFlags {
   flashcardEnabled: boolean;
   d1Enabled: boolean;
   vocabCuratedEnabled: boolean;
-}
-
-interface AuthMePayload {
-  flashcard_enabled?: unknown;
-  d1_enabled?: unknown;
-  vocab_curated_enabled?: unknown;
 }
 
 interface VocabCategory {
@@ -200,22 +196,18 @@ function ModeCard({
   icon: ReactNode;
   onOpen?: (event: MouseEvent<HTMLAnchorElement>, mode: HubMode) => void;
 }) {
-  return (
-    <a
-      href={href}
-      className="mode-card"
-      data-mode={mode}
-      aria-label={label}
-      onClick={mode && onOpen ? (event) => onOpen(event, mode) : undefined}
-    >
+  const content = <>
       <div className="head">
         <div className="icon">{icon}</div>
         <span className="arrow" aria-hidden="true">→</span>
       </div>
       <h3>{title}</h3>
       <p className="lede">{description}</p>
-    </a>
-  );
+    </>;
+  if (mode && onOpen) {
+    return <a href={href} className="mode-card" data-mode={mode} aria-label={label} onClick={(event) => onOpen(event, mode)}>{content}</a>;
+  }
+  return <Link href={href} className="mode-card" aria-label={label}>{content}</Link>;
 }
 
 function TopicsPanel({ accountKey, shouldLoad }: { accountKey: string; shouldLoad: boolean }) {
@@ -291,9 +283,9 @@ function TopicsPanel({ accountKey, shouldLoad }: { accountKey: string; shouldLoa
       <div className="vtc-panel-head">
         <h2 className="vtc-panel-title">Chủ đề từ vựng</h2>
         <p className="vtc-panel-sub">Chọn chủ đề để khám phá từ vựng theo ngữ cảnh IELTS.</p>
-        <a className="vtc-progress-link" href="/quiz/progress?skill_area=vocab">
+        <Link className="vtc-progress-link" href="/quiz/progress?skill_area=vocab">
           📊 Tiến độ luyện tập →
-        </a>
+        </Link>
       </div>
       <div className="vocab-topics-grid">
         {visibleCategories.map(({ category, count, slug }) => {
@@ -314,9 +306,9 @@ function TopicsPanel({ accountKey, shouldLoad }: { accountKey: string; shouldLoa
                 </span>
               </div>
               <div className="vtc-actions">
-                <a className="vtc-act vtc-act--browse" href={`/vocabulary?cat=${encodedSlug}`}>Khám phá</a>
-                <a className="vtc-act vtc-act--study" href={`/flashcard-study?stack=wiki:${encodedSlug}`}>🃏 Flashcards</a>
-                <a className="vtc-act vtc-act--ex" href={practiceHref}>✍️ Luyện tập</a>
+                <Link className="vtc-act vtc-act--browse" href={`/vocabulary?cat=${encodedSlug}`}>Khám phá</Link>
+                <Link className="vtc-act vtc-act--study" href={`/flashcard-study?stack=wiki:${encodedSlug}`}>🃏 Flashcards</Link>
+                <Link className="vtc-act vtc-act--ex" href={practiceHref}>✍️ Luyện tập</Link>
               </div>
             </article>
           );
@@ -390,11 +382,7 @@ export function VocabularyHubBehavior() {
           undefined,
           { signal: controller.signal },
         ),
-        window.api.getWith<AuthMePayload>(
-          '/auth/me',
-          undefined,
-          { signal: controller.signal },
-        ),
+        getCurrentUser(controller.signal),
       ]);
 
       if (disposed) return;

@@ -35,8 +35,19 @@ _STUDENT_ROW = {
     "target_date": None,
     "persona_notes": None,
     "current_band_estimate": None,
+    "user_id": None,
     "created_at": "2026-05-01T00:00:00Z",
+    "updated_at": "2026-05-01T00:00:00Z",
     "created_by": _ADMIN_USER["id"],
+    "flag_count": 0,
+    "last_flagged_at": None,
+    "is_under_review": False,
+    "instructor_id": None,
+    "cohort_id": None,
+    "cohorts": [],
+    "cohort_name": None,
+    "cohort_lookup_failed": False,
+    "membership_lookup_failed": False,
 }
 
 

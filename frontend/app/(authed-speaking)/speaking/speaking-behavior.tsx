@@ -23,6 +23,7 @@
 //      đổi sang toast là thay đổi ngoài phạm vi port.
 import { useEffect } from 'react';
 
+import type { AuthMeWire } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { admitCorePlayer } from '@/lib/core-player-affinity.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
@@ -783,7 +784,7 @@ export function SpeakingBehavior() {
       // thật. Người không có quyền bấm được nút trong vài trăm ms đầu thì cũng
       // chỉ nhận 403 — khác hẳn với việc người CÓ quyền bấm mà không có gì xảy ra.
       try {
-        const user = await api.get('/auth/me');
+        const user = await api.get('/auth/me') as AuthMeWire;
         if (st.dead) return;
         renderUser(user || {}, api, st);
       } catch {

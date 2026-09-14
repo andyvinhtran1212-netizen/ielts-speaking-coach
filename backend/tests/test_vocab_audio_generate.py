@@ -90,12 +90,14 @@ def test_generate_job_stamps_both_and_finalizes():
     with patch("routers.admin_vocab.tts_audio.get_or_create_audio_sync",
                return_value=("https://x/clip.mp3", True)), \
          patch("routers.admin_vocab.supabase_admin", db), \
-         patch("routers.admin_vocab._reload_safe") as reload:
+         patch("routers.admin_vocab._reload_safe", return_value=True) as reload, \
+         patch("routers.admin_vocab.invalidate_vocabulary_cache") as invalidate:
         av._generate_audio_job(rows, "elevenlabs", "both")
     payload = db.table.return_value.update.call_args[0][0]
     assert payload["audio_headword"] and payload["audio_example"]
     assert payload["audio_status"] == "final"
     reload.assert_called_once()
+    invalidate.assert_called_once()
 
 
 def test_generate_job_headword_only_scope():

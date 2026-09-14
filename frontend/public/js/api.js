@@ -9,7 +9,11 @@
 // `tsc --noEmit` never emits. Delete tsconfig.json and this becomes inert.
 
 (function () {
-  var _sb = null;
+  // App Router owns the canonical ESM client and injects it before this
+  // compatibility bridge loads. Retired HTML fixtures still take the UMD path
+  // in initSupabase(), so the bridge remains rollback-safe while Next routes no
+  // longer download or execute a second SDK runtime.
+  var _sb = /** @type {any} */ (window).__AVER_SUPABASE_CLIENT__ || null;
 
   // ── Shared HTML escaper (audit 2026-07-03 C4) ─────────────────────────────
   // Canonical window.WC.escapeHtml — the single source every page-script uses
@@ -55,6 +59,11 @@
     // Nếu lần đầu NÉM (ví dụ gọi không đối số khi `_RC` chưa cấu hình) thì `_sb`
     // vẫn rỗng và lần gọi sau có đối số thật vẫn dựng được client.
     if (_sb) return _sb;
+    var injected = /** @type {any} */ (window).__AVER_SUPABASE_CLIENT__;
+    if (injected) {
+      _sb = injected;
+      return _sb;
+    }
     if (!window.supabase || typeof window.supabase.createClient !== 'function') {
       var sdkReady = /** @type {any} */ (window).__AVER_SUPABASE_SDK_READY__;
       if (sdkReady && typeof sdkReady.then === 'function') {

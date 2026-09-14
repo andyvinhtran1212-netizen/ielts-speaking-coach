@@ -6,6 +6,7 @@ All routes are public (no auth required).
 Endpoints
 ---------
 GET /api/vocabulary/categories               → 6 categories with article lists
+GET /api/vocabulary/directory                → lean paged public catalogue
 GET /api/vocabulary/articles                 → flat list of all article summaries
 GET /api/vocabulary/articles/{cat}/{slug}    → full article detail
 GET /api/vocabulary/search?q=...            → simple headword prefix match
@@ -15,6 +16,7 @@ from datetime import timezone
 from email.utils import format_datetime
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
+from pydantic import BaseModel, Field
 
 from services.public_cache import cacheable_json, content_last_modified
 from services.vocab_content import CATEGORIES_FILE, CONTENT_DIR, vocab_service
@@ -22,6 +24,32 @@ from services.vocab_content import CATEGORIES_FILE, CONTENT_DIR, vocab_service
 router = APIRouter(prefix="/api/vocabulary", tags=["vocabulary"])
 # Fallback cache key for the markdown source (files have no per-row timestamp).
 _PUBLIC_LAST_MODIFIED = content_last_modified(CONTENT_DIR, CATEGORIES_FILE)
+
+
+class VocabularyDirectoryCategory(BaseModel):
+    slug: str
+    title: str
+    article_count: int = Field(ge=0)
+
+
+class VocabularyDirectoryItem(BaseModel):
+    slug: str
+    category: str
+    headword: str
+    level: str
+    part_of_speech: str
+    pronunciation: str
+    gloss_vi: str
+    audio_headword: str
+    n_collocations: int = Field(ge=0)
+
+
+class VocabularyDirectoryResponse(BaseModel):
+    categories: list[VocabularyDirectoryCategory]
+    items: list[VocabularyDirectoryItem]
+    total: int = Field(ge=0)
+    offset: int = Field(ge=0)
+    limit: int = Field(ge=1, le=100)
 
 
 def _last_modified() -> str:
@@ -49,6 +77,32 @@ async def get_categories(request: Request) -> Response:
     """Return all vocab categories with article summaries."""
     return cacheable_json(
         vocab_service.get_categories(),
+        request,
+        last_modified=_last_modified(),
+    )
+
+
+@router.get("/directory", response_model=VocabularyDirectoryResponse)
+async def get_directory(
+    request: Request,
+    category: str = Query(default="", max_length=120),
+    q: str = Query(default="", max_length=160),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=60, ge=1, le=100),
+) -> Response:
+    """Lean, paged catalogue for the native public Vocabulary Wiki.
+
+    The historical categories endpoint remains unchanged for existing clients;
+    this contract prevents the Next route from embedding every word summary in
+    the initial RSC payload.
+    """
+    return cacheable_json(
+        vocab_service.get_directory(
+            category=category.strip(),
+            query=q.strip(),
+            offset=offset,
+            limit=limit,
+        ),
         request,
         last_modified=_last_modified(),
     )

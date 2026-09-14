@@ -81,10 +81,10 @@ describe('vocab card — flag / report control', () => {
   });
 
   test('public layout loads Supabase/api before the client reports and browser proves one write', () => {
-    assert.match(LAYOUT, /\/vendor\/supabase\.js/);
     assert.match(LAYOUT, /<SupabaseRuntimeBoundary/);
+    assert.doesNotMatch(LAYOUT, /\/vendor\/supabase\.js|supabase-sdk-fallback\.js/);
+    assert.match(RUNTIME_BOUNDARY, /getBrowserSupabase\(supabaseUrl, supabaseAnonKey\)/);
     assert.match(RUNTIME_BOUNDARY, /init\(supabaseUrl, supabaseAnonKey\)/);
-    assert.ok(LAYOUT.indexOf('/js/supabase-sdk-fallback.js') < LAYOUT.indexOf('/js/api.js'));
     assert.match(BROWSER, /báo lỗi gửi canonical anonymous feedback/);
   });
 });

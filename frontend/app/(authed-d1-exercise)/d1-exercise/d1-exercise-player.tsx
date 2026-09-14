@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import type { AuthMeWire } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import {
   firstUnansweredIndex,
@@ -281,7 +282,7 @@ export function D1ExercisePlayer() {
     (async () => {
       const ready = await whenGlobalReady(() => !!window.api?.get, 'window.api (D1 exercise)');
       if (!ready || disposed) throw new Error('Không tải được thành phần kết nối.');
-      const me = await requestForAccount(expectedAccount, '/auth/me', ownsGeneration);
+      const me = await requestForAccount(expectedAccount, '/auth/me', ownsGeneration) as AuthMeWire;
       if (!ownsGeneration()) return;
       if (me?.d1_enabled !== true) {
         setPhase('disabled');

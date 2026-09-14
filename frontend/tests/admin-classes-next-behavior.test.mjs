@@ -40,8 +40,8 @@ describe('/admin/classes — native directory ownership', () => {
   });
 
   test('loads canonical rollup and all courses, then reloads after every mutation', () => {
-    assert.match(DIRECTORY, /'\/admin\/cohorts\?with_rollup=true'/);
-    assert.match(DIRECTORY, /'\/admin\/courses'/);
+    assert.match(DIRECTORY, /getAdminCohorts\(\{ withRollup: true \}\)/);
+    assert.match(DIRECTORY, /getAdminCourses\(\)/);
     assert.doesNotMatch(DIRECTORY, /\/admin\/courses\?is_active=true/);
     assert.match(DIRECTORY, /await action\(\);[\s\S]+await loadDirectory\(true\)/);
     assert.match(DIRECTORY, /await window\.api\.(?:patch|post)[\s\S]+await loadDirectory\(true\)/);

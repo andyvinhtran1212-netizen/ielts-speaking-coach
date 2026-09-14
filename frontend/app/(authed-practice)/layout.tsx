@@ -15,6 +15,7 @@ export default function AuthedPracticeLayout({ children }: { children: ReactNode
     <AuthedShell
       pageStylesheets={['/css/practice.css', '/css/speaking-assignment.css']}
       bodyClass="av-page font-sans antialiased min-h-screen flex flex-col"
+      lucideRuntime
       extraScripts={
         /* Raw script tags do not execute when this layout is entered through
            App Router navigation. The client loader preserves source order on

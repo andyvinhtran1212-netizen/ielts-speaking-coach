@@ -202,7 +202,7 @@ describe('native segments route and persistence contract', () => {
     assert.match(PLAYER, /getCurrentTime\(\)/);
     assert.match(CLIENT, /audioRef\.current\?\.getCurrentTime/);
     assert.doesNotMatch(CLIENT, /\._audio/);
-    assert.match(CLIENT, /beforeunload/);
+    assert.match(CLIENT, /registerNavigationGuard/);
     assert.match(CLIENT, /if \(leaving\.current\) return/);
     assert.match(CLIENT, /aria-label=\{`Đánh dấu start câu/);
     assert.match(CLIENT, /sentences\.length > MAX_LISTENING_SEGMENTS/);

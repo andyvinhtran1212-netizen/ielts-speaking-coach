@@ -14,6 +14,7 @@
 import { useEffect, useRef } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { getSessionHistory } from '@/lib/session-api';
 import { destroyCharts, observeThemeFlip, renderCharts } from './speaking-charts';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 import {
@@ -179,7 +180,7 @@ function renderHistoryFilterInfo(total: number, filtered: boolean) {
   }
 }
 
-async function loadHistory(api: any, st: HistoryState, dead: () => boolean) {
+async function loadHistory(st: HistoryState, dead: () => boolean) {
   const params = new URLSearchParams();
   const filtered = historyHasActiveFilters(st);
   if (filtered) {
@@ -191,9 +192,16 @@ async function loadHistory(api: any, st: HistoryState, dead: () => boolean) {
   params.set('page', String(st.page));
   params.set('page_size', String(st.page_size));
 
-  let data: any;
   try {
-    data = await api.get('/sessions?' + params.toString());
+    const data = await getSessionHistory(params);
+    if (dead()) return;
+    const sessions = Array.isArray(data) ? data : data.sessions;
+    const total = Array.isArray(data) ? sessions.length : data.total;
+    const totalPages = Array.isArray(data) ? 0 : data.total_pages;
+    const currentPage = Array.isArray(data) ? 1 : data.page;
+    renderHistory(sessions, total, st);
+    renderHistoryPagination(currentPage, totalPages);
+    renderHistoryFilterInfo(total, filtered);
   } catch (err: any) {
     console.warn('Could not load sessions:', err && err.message);
     // Lỗi tải KHÔNG đồng nghĩa “chưa có session”. Hiện trạng thái lỗi riêng để
@@ -208,14 +216,6 @@ async function loadHistory(api: any, st: HistoryState, dead: () => boolean) {
     renderHistoryFilterInfo(0, filtered);
     return;
   }
-  if (dead()) return;
-  const sessions = Array.isArray(data) ? data : (data.sessions || []);
-  const total = Array.isArray(data) ? sessions.length : (data.total || 0);
-  const totalPages = Array.isArray(data) ? 0 : (data.total_pages || 0);
-  const currentPage = Array.isArray(data) ? 1 : (data.page || 1);
-  renderHistory(sessions, total, st);
-  renderHistoryPagination(currentPage, totalPages);
-  renderHistoryFilterInfo(total, filtered);
 }
 
 // ── Dashboard ngữ pháp ──────────────────────────────────────────────────────
@@ -423,7 +423,7 @@ export function SpeakingStats() {
         if (!dead) renderStats({});
       }
 
-      await loadHistory(api, st, isDead);
+      await loadHistory(st, isDead);
 
       // ── Lọc + phân trang ────────────────────────────────────────────────
       on($('hf-apply'), 'click', () => {
@@ -432,7 +432,7 @@ export function SpeakingStats() {
         st.date_from = ($('hf-date-from') as HTMLInputElement | null)?.value || '';
         st.date_to = ($('hf-date-to') as HTMLInputElement | null)?.value || '';
         st.page = 1;
-        loadHistory(api, st, isDead);
+        loadHistory(st, isDead);
       });
       on($('hf-clear'), 'click', () => {
         for (const id of ['hf-search', 'hf-date-from', 'hf-date-to']) {
@@ -442,13 +442,13 @@ export function SpeakingStats() {
         const sort = $('hf-sort') as HTMLSelectElement | null;
         if (sort) sort.value = 'newest';
         Object.assign(st, { search: '', sort: 'newest', date_from: '', date_to: '', page: 1 });
-        loadHistory(api, st, isDead);
+        loadHistory(st, isDead);
       });
       on($('history-pagination'), 'click', (e: any) => {
         const btn = e.target?.closest?.('button[data-page]');
         if (!btn) return;
         st.page = Number(btn.dataset.page) || 1;
-        loadHistory(api, st, isDead);
+        loadHistory(st, isDead);
       });
     })();
 

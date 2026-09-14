@@ -30,7 +30,8 @@ describe('/grammar/compare native ownership', () => {
     assert.match(PAGE, /async function CompareBody[\s\S]*await searchParams/);
     assert.match(PAGE, /await getCompare\(slug\)/);
     assert.ok(!PAGE.includes('fetch('));
-    assert.match(API, /getPublicJson\(`\/api\/grammar\/compare\/\$\{encodeURIComponent\(slug\)\}`\)/);
+    assert.match(API, /getPublicJson<GrammarCompareWire>\(`\/api\/grammar\/compare\/\$\{encodeURIComponent\(slug\)\}`\)/);
+    assert.match(API, /GrammarCompareWire = ApiGetJson<'\/api\/grammar\/compare\/\{slug\}'>/);
     assert.match(API, /export const getCompare = cache\(fetchCompare\)/);
   });
 

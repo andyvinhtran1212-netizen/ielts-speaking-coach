@@ -35,6 +35,8 @@ function stripComments(src) {
 
 const SHELL = stripComments(
   readFileSync(path.join(FRONTEND, 'components/authed-shell.tsx'), 'utf8'));
+const RUNTIME_BOUNDARY = stripComments(
+  readFileSync(path.join(FRONTEND, 'components/supabase-runtime-boundary.tsx'), 'utf8'));
 
 /** Mọi layout của route-group cần đăng nhập. */
 function authedLayouts() {
@@ -89,7 +91,8 @@ describe('AuthedShell — khung dùng chung cho route cần đăng nhập', () =
     // Script `defer` chạy theo THỨ TỰ TÀI LIỆU. Đặt reporter sau api.js nghĩa là
     // một lỗi trong api.js xảy ra khi listener chưa gắn — đúng khoảng mù mà
     // review #887 đã đóng.
-    assert.ok(SHELL.indexOf('/js/error-reporter.js') < SHELL.indexOf('/js/api.js'),
+    assert.ok(RUNTIME_BOUNDARY.indexOf('/js/error-reporter.js')
+      < RUNTIME_BOUNDARY.indexOf('/js/api.js'),
       'reporter phải đứng trước api.js');
   });
 

@@ -31,13 +31,6 @@ const PUBLIC = path.join(FRONTEND, 'public');
 // (FE migration coexistence), so they are subject to the same font contract.
 const APP = path.join(FRONTEND, 'app');
 
-// The only families the system sanctions, and the token each is reached by.
-const SANCTIONED = {
-  'Plus Jakarta Sans': '--av-font-sans / --av-font-display',
-  'JetBrains Mono': '--av-font-mono',
-  Lora: '--av-font-serif (long-form reading only)',
-};
-
 // Families still present in not-yet-migrated corners. Every entry is debt.
 // DEBT-2026-07-24-J step (c) empties the vocab rows; the ds.css row is the
 // tail of the separate --ds-* → --av-* migration.
@@ -85,15 +78,15 @@ function walk(dir, exts, out = []) {
 describe('font-system ratchet (DEBT-2026-07-24-J)', () => {
   test('the three sanctioned families each have a token', () => {
     const tokens = readFileSync(path.join(CSS_DIR, 'aver-design/tokens.css'), 'utf8');
-    assert.match(tokens, /--av-font-sans:\s*'Plus Jakarta Sans'/);
-    assert.match(tokens, /--av-font-mono:\s*'JetBrains Mono'/);
-    assert.match(tokens, /--av-font-serif:\s*'Lora'/);
+    assert.match(tokens, /--av-font-sans:\s*var\(--font-plus-jakarta,\s*'Plus Jakarta Sans'\)/);
+    assert.match(tokens, /--av-font-mono:\s*var\(--font-jetbrains-mono,\s*'JetBrains Mono'\)/);
+    assert.match(tokens, /--av-font-serif:\s*var\(--font-lora,\s*'Lora'\)/);
     // The serif is deliberately NOT the display font — display stays sans so a
     // page cannot drift into serif chrome.
-    assert.match(tokens, /--av-font-display:\s*'Plus Jakarta Sans'/);
+    assert.match(tokens, /--av-font-display:\s*var\(--font-plus-jakarta,\s*'Plus Jakarta Sans'\)/);
   });
 
-  test('no CSS file names a font family outside the allowed set', () => {
+  test('page CSS reaches canonical families through tokens, never literals', () => {
     const violations = [];
     for (const file of walk(CSS_DIR, ['.css'])) {
       const rel = path.relative(CSS_DIR, file);
@@ -101,13 +94,13 @@ describe('font-system ratchet (DEBT-2026-07-24-J)', () => {
       if (rel === 'aver-design/tokens.css') continue;                 // defines them
       const allowed = ALLOWED_LITERALS[path.basename(rel)] || [];
       for (const fam of namedFamilies(readFileSync(file, 'utf8'))) {
-        if (fam in SANCTIONED || allowed.includes(fam)) continue;
+        if (allowed.includes(fam)) continue;
         violations.push(`css/${rel}: '${fam}'`);
       }
     }
     assert.deepEqual(
       violations, [],
-      '\nUnsanctioned font family in page CSS — reach for var(--av-font-sans|mono|serif).\n'
+      '\nLiteral font family in page CSS — reach for var(--av-font-sans|mono|serif).\n'
       + 'If a corner genuinely still needs a literal, add it to ALLOWED_LITERALS with the\n'
       + 'debt item that will remove it — do not widen SANCTIONED.\n',
     );
@@ -141,10 +134,13 @@ describe('font-system ratchet (DEBT-2026-07-24-J)', () => {
       const html = readFileSync(file, 'utf8');
       if (!/css\/grammar-wiki\.css/.test(html)) continue;
       const base = path.relative(FRONTEND, file);
-      assert.match(html, /family=Plus\+Jakarta\+Sans/,
-        `${base} loads grammar-wiki.css (which uses --av-font-sans) but never links Plus Jakarta`);
-      assert.match(html, /family=JetBrains\+Mono/,
-        `${base} uses --av-font-mono but never links JetBrains Mono`);
+      const owner = file.startsWith(APP)
+        ? readFileSync(path.join(APP, 'layout.tsx'), 'utf8')
+        : html;
+      assert.match(owner, file.startsWith(APP) ? /Plus_Jakarta_Sans/ : /family=Plus\+Jakarta\+Sans/,
+        `${base} loads grammar-wiki.css but its document never loads Plus Jakarta`);
+      assert.match(owner, file.startsWith(APP) ? /JetBrains_Mono/ : /family=JetBrains\+Mono/,
+        `${base} uses --av-font-mono but its document never loads JetBrains Mono`);
     }
   });
 });

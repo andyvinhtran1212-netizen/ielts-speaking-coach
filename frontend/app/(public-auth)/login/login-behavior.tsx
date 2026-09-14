@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
+import type { AuthMeWire } from '@/lib/auth-api';
 import { loginDestination, normalizeAccessCode, normalizeLoginProfile } from '@/lib/login-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -50,7 +51,7 @@ async function canonicalProfile(token: string) {
       ? payload.detail
       : 'Không thể kiểm tra trạng thái tài khoản.');
   }
-  const profile = normalizeLoginProfile(payload) as LoginProfile | null;
+  const profile = normalizeLoginProfile(payload as AuthMeWire) as LoginProfile | null;
   if (!profile) throw new Error('Trạng thái tài khoản trả về không đúng định dạng.');
   return profile;
 }

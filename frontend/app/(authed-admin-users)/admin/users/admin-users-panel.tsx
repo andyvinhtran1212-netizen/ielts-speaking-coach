@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { getAdminUsers } from '@/lib/admin-users-api';
 import { normalizeUsersPayload, selectUsers, validateCodeDraft } from '@/lib/admin-users-model.mjs';
 
 import type { AdminCohort, AdminUser, Banner, SortState } from './admin-user-types';
@@ -62,7 +63,7 @@ export function AdminUsersPanel({ profileId, cohorts, cohortsError }: {
     if (!silent) setLoading(true);
     setLoadError(null);
     try {
-      const payload = normalizeUsersPayload(await window.api.get<unknown>('/admin/users')) as AdminUser[];
+      const payload = normalizeUsersPayload(await getAdminUsers()) as AdminUser[];
       if (requestId !== sequence.current) return false;
       setUsers(payload);
       return true;

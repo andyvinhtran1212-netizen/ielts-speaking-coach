@@ -7,7 +7,7 @@ body.av-page {
   background:
     radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--av-primary) 8%, transparent), transparent 26rem),
     var(--av-surface-page);
-  font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--av-font-sans);
 }
 
 .ic-shell { min-height: 100vh; }

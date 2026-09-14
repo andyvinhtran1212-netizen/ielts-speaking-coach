@@ -147,7 +147,7 @@ describe('native Gist route and persistence contract', () => {
     assert.match(CLIENT, /đạt khi điểm cuối cùng từ 80 trở lên/);
     assert.match(CLIENT, /aria-invalid=\{Boolean\(errors\.promptText\)\}/);
     assert.match(CLIENT, /aria-label=\{`Xóa từ khóa/);
-    assert.match(CLIENT, /beforeunload/);
+    assert.match(CLIENT, /registerNavigationGuard/);
     assert.match(CLIENT, /<Dialog open=\{confirm !== null\}/);
     assert.match(CLIENT, /<fieldset className="alge-status-options">/);
     assert.doesNotMatch(CLIENT, /\b(?:window\.)?(?:alert|confirm)\s*\(/i);

@@ -21,6 +21,15 @@ from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 
 from database import supabase_admin
+from models.grammar_content import (
+    GrammarArticleDocument,
+    GrammarCategoryResponse,
+    GrammarCategorySummary,
+    GrammarCompareResponse,
+    GrammarGroup,
+    GrammarHomeResponse,
+    GrammarSearchResult,
+)
 from routers.auth import get_supabase_user
 from services.grammar_content import CONTENT_DIR, GROUPS_FILE, MAPPING_FILE, grammar_service
 from services.public_cache import cacheable_json, content_last_modified
@@ -34,7 +43,7 @@ router = APIRouter(prefix="/api/grammar", tags=["grammar"])
 _PUBLIC_LAST_MODIFIED = content_last_modified(CONTENT_DIR, GROUPS_FILE, MAPPING_FILE)
 
 
-@router.get("/home")
+@router.get("/home", response_model=GrammarHomeResponse)
 async def get_home(request: Request) -> Response:
     """Return homepage data: all categories and up to 6 featured articles."""
     return cacheable_json(
@@ -44,7 +53,7 @@ async def get_home(request: Request) -> Response:
     )
 
 
-@router.get("/categories")
+@router.get("/categories", response_model=list[GrammarCategorySummary])
 async def get_categories(request: Request) -> Response:
     """Return all categories with their article summaries."""
     return cacheable_json(
@@ -54,7 +63,7 @@ async def get_categories(request: Request) -> Response:
     )
 
 
-@router.get("/category/{slug}")
+@router.get("/category/{slug}", response_model=GrammarCategoryResponse)
 async def get_category(slug: str, request: Request) -> Response:
     """Return all article summaries for a specific category."""
     data = grammar_service.get_category(slug)
@@ -63,7 +72,7 @@ async def get_category(slug: str, request: Request) -> Response:
     return cacheable_json(data, request, last_modified=_PUBLIC_LAST_MODIFIED)
 
 
-@router.get("/article/{category}/{slug}")
+@router.get("/article/{category}/{slug}", response_model=GrammarArticleDocument)
 async def get_article(category: str, slug: str, request: Request) -> Response:
     """
     Return the full article: HTML body, TOC, band scores metadata,
@@ -78,7 +87,7 @@ async def get_article(category: str, slug: str, request: Request) -> Response:
     return cacheable_json(data, request, last_modified=_PUBLIC_LAST_MODIFIED)
 
 
-@router.get("/roadmap/{slug}")
+@router.get("/roadmap/{slug}", response_model=GrammarCategoryResponse)
 async def get_roadmap(slug: str, request: Request) -> Response:
     """
     Return the ordered article list for a category as a learning roadmap.
@@ -90,7 +99,7 @@ async def get_roadmap(slug: str, request: Request) -> Response:
     return cacheable_json(data, request, last_modified=_PUBLIC_LAST_MODIFIED)
 
 
-@router.get("/compare/{slug}")
+@router.get("/compare/{slug}", response_model=GrammarCompareResponse)
 async def get_compare(slug: str, request: Request) -> Response:
     """
     Return two articles side-by-side for comparison.
@@ -103,7 +112,7 @@ async def get_compare(slug: str, request: Request) -> Response:
     return cacheable_json(data, request, last_modified=_PUBLIC_LAST_MODIFIED)
 
 
-@router.get("/search")
+@router.get("/search", response_model=list[GrammarSearchResult])
 async def search(
     request: Request,
     q: str = Query("", description="Search query (min 2 chars)"),
@@ -148,7 +157,7 @@ async def mark_recommendation_clicked(
     return {"ok": True}
 
 
-@router.get("/groups")
+@router.get("/groups", response_model=list[GrammarGroup])
 async def get_groups(request: Request) -> Response:
     """
     Return the conceptual topic groups with enriched article lists.

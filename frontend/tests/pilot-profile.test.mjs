@@ -16,6 +16,7 @@ const DIR = path.join(FRONTEND, 'app', '(authed)', 'profile');
 const PROVIDER = readFileSync(path.join(FRONTEND, 'lib', 'auth', 'auth-provider.tsx'), 'utf8');
 const LAYOUT = readFileSync(path.join(FRONTEND, 'app', '(authed)', 'layout.tsx'), 'utf8');
 const SHELL_COMPONENT = readFileSync(path.join(FRONTEND, 'components', 'authed-shell.tsx'), 'utf8');
+const RUNTIME_BOUNDARY = readFileSync(path.join(FRONTEND, 'components', 'supabase-runtime-boundary.tsx'), 'utf8');
 const PAGE = readFileSync(path.join(DIR, 'page.tsx'), 'utf8');
 const SHELL = readFileSync(path.join(DIR, 'page-shell.tsx'), 'utf8');
 const BEHAVIOR = readFileSync(path.join(DIR, 'profile-behavior.tsx'), 'utf8');
@@ -50,7 +51,7 @@ test('layout: legacy head parity + body classes pre-paint, không render <body>'
     // `components/authed-shell.tsx` (dùng chung với `(authed-home)` và các route
     // cần đăng nhập sau này). Bất biến GIỮ NGUYÊN — chỉ là phải đọc cả khung,
     // nếu không test kiểm sai tầng rồi báo đỏ một thay đổi vô hại.
-    const EFFECTIVE = LAYOUT + SHELL_COMPONENT;
+    const EFFECTIVE = LAYOUT + SHELL_COMPONENT + RUNTIME_BOUNDARY;
     assert.ok(!stripComments(EFFECTIVE).includes('<body'), 'nested layout must not render <body> (root layout owns it)');
     assert.match(EFFECTIVE, /av-page font-sans min-h-screen/, 'exact legacy profile.html body classes');
     // `/css/profile.css` PHẢI ở layout, không nhét vào khung dùng chung: nó là

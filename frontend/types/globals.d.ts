@@ -30,7 +30,18 @@ interface Window {
   api: AverApi;
   WC?: AverWC;
   supabase: any;
-  initSupabase(url: string, anonKey: string): void;
+  __AVER_RUNTIME_CONFIG__?: {
+    environment?: string | null;
+    apiBase?: string | null;
+    supabaseUrl?: string | null;
+    supabaseAnonKey?: string | null;
+    release?: string | null;
+    gitRef?: string | null;
+    coreOperationCorrelationEnabled?: boolean;
+    writingAdmissionEnabled?: boolean;
+  };
+  __AVER_SUPABASE_CLIENT__?: unknown;
+  initSupabase(url: string, anonKey: string): unknown;
   getSupabase(): unknown;
   showToast(message: string, kind?: string, opts?: unknown): void;
   WritingRenderers?: {

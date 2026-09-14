@@ -3,12 +3,34 @@ import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
+const API = 'https://api.onboarding-fixture.invalid';
 const NEXT_ONLY = process.argv.includes('--next-only');
 const results = [];
 const check = (name, ok, detail = '') => {
   results.push({ name, ok, detail });
   console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`);
 };
+
+const authMe = (overrides = {}) => ({
+  id: 'user-1',
+  email: 'learner@example.com',
+  display_name: 'Learner',
+  avatar_url: null,
+  role: 'user',
+  is_active: true,
+  permissions: ['practice_single'],
+  onboarding_completed: false,
+  target_band: null,
+  exam_date: null,
+  self_level: null,
+  preferred_topics: [],
+  vocab_bank_enabled: false,
+  d1_enabled: false,
+  d3_enabled: false,
+  flashcard_enabled: false,
+  vocab_curated_enabled: false,
+  ...overrides,
+});
 
 async function launch() {
   try { return await chromium.launch(); } catch (error) {
@@ -35,9 +57,7 @@ async function fixture({
   const writes = [];
   let canonical = { ...profile };
   const supabaseStub = `
-window.supabase = {
-  createClient: function () {
-    return { auth: {
+window.__AVER_SUPABASE_CLIENT__ = { auth: {
       getSession: async function () {
         return { data: { session: ${session ? "{ access_token: 'fixture-token', user: { id: 'user-1', email: 'learner@example.com' } }" : 'null'} }, error: null };
       },
@@ -45,24 +65,34 @@ window.supabase = {
         return { data: { subscription: { unsubscribe: function () {} } } };
       },
       signOut: async function () { return { error: null }; }
-    } };
-  }
-};`;
+    } };`;
+
+  await context.addInitScript({ content: supabaseStub });
 
   await context.route('**/*', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
-    if (url.origin === BASE && url.pathname === '/vendor/supabase.js') {
-      return route.fulfill({ status: 200, contentType: 'application/javascript', body: supabaseStub });
-    }
     if (/fonts\.(googleapis|gstatic)\.com/.test(url.hostname) || url.hostname === 'unpkg.com') return route.abort();
     if (url.origin === BASE) {
+      if (url.pathname === '/js/runtime-config.js') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/javascript',
+          body: `window.__AVER_RUNTIME_CONFIG__=Object.freeze({apiBase:${JSON.stringify(API)}});`,
+        });
+      }
       if (request.isNavigationRequest() && ['/home', '/login'].includes(url.pathname)) {
         return route.fulfill({ status: 200, contentType: 'text/html', body: `<title>destination</title><h1>${url.pathname}</h1>` });
       }
       return route.continue();
     }
-    const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(body) });
+    const cors = {
+      'access-control-allow-origin': BASE,
+      'access-control-allow-methods': 'GET,PATCH,OPTIONS',
+      'access-control-allow-headers': 'authorization,content-type,x-request-id',
+    };
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors, body: '' });
+    const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', headers: cors, body: JSON.stringify(body) });
     if (request.method() === 'GET' && url.pathname === '/auth/me') {
       reads.push(url.pathname);
       return json(canonical);
@@ -91,7 +121,7 @@ check('không có session thì fail closed về canonical /login', signedOut.rea
 await signedOut.context.close();
 
 const inactive = await fixture({
-  profile: { id: 'user-1', is_active: false, onboarding_completed: false },
+  profile: authMe({ is_active: false }),
 });
 await inactive.page.goto(`${BASE}/onboarding`, { waitUntil: 'domcontentloaded' });
 await inactive.page.waitForURL('**/login');
@@ -136,7 +166,7 @@ async function wizardSnapshot(page) {
 
 async function runParityLeg(path, legacy) {
   const leg = await fixture({
-    profile: { id: 'user-1', is_active: true, onboarding_completed: false },
+    profile: authMe(),
     viewport: { width: 390, height: 844 },
   });
   await leg.page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' });
@@ -201,7 +231,7 @@ if (!NEXT_ONLY) {
 }
 
 const wizard = await fixture({
-  profile: { id: 'user-1', is_active: true, onboarding_completed: false },
+  profile: authMe(),
   ambiguousPatch: true,
   patchDelayMs: 150,
   viewport: { width: 390, height: 844 },
@@ -250,7 +280,7 @@ check('wizard không có lỗi JavaScript', wizard.errors.length === 0, wizard.e
 await wizard.context.close();
 
 const completed = await fixture({
-  profile: { id: 'user-1', is_active: true, onboarding_completed: true },
+  profile: authMe({ onboarding_completed: true }),
 });
 await completed.page.goto(`${BASE}/onboarding`, { waitUntil: 'domcontentloaded' });
 await completed.page.waitForURL('**/home');

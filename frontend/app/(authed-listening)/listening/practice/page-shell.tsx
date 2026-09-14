@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 export function ListeningPracticeShell({ children }: { children: ReactNode }) {
@@ -5,7 +6,7 @@ export function ListeningPracticeShell({ children }: { children: ReactNode }) {
     <main className="shell lp-shell">
       <header className="subpage-header">
         <div className="subpage-header__lhs">
-          <a className="subpage-header__back" href="/listening"><span aria-hidden="true">←</span><span>Listening</span></a>
+          <Link className="subpage-header__back" href="/listening"><span aria-hidden="true">←</span><span>Listening</span></Link>
         </div>
       </header>
       <section className="lp-hero">
@@ -14,7 +15,7 @@ export function ListeningPracticeShell({ children }: { children: ReactNode }) {
           <h1>Chọn đúng kỹ năng bạn cần cải thiện</h1>
           <p>Bài ngắn 30–90 giây, tập trung vào một loại bẫy hoặc một ngữ cảnh cụ thể. Làm ít nhưng sửa đúng điểm yếu.</p>
         </div>
-        <a href="/listening/browse">Mở kho bài nghe <span aria-hidden="true">→</span></a>
+        <Link href="/listening/browse">Mở kho bài nghe <span aria-hidden="true">→</span></Link>
       </section>
       {children}
     </main>

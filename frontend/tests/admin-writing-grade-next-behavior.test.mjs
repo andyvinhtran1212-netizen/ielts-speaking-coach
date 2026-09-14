@@ -62,7 +62,7 @@ describe('/admin/writing/grade — native ownership + admin boundary', () => {
   test('fails closed through account-keyed /auth/me role truth', () => {
     assert.match(GATE, /status === 'signed-out'/);
     assert.match(GATE, /window\.location\.replace\('\/login'\)/);
-    assert.match(GATE, /window\.api\.get<AdminProfile>\('\/auth\/me'\)/);
+    assert.match(GATE, /const profile = await getAuthorizationIdentity\(\)/);
     assert.match(GATE, /profile\?\.role === 'admin'/);
     assert.match(GATE, /selectKeyedAdminState\(accessState, accountKey\)/);
     assert.match(GATE, /phase: 'denied'/);
@@ -75,7 +75,7 @@ describe('/admin/writing/grade — state + persistence contract', () => {
     assert.match(BEHAVIOR, /WritingRenderers\?\.SECTION_RENDERERS/);
     assert.match(BEHAVIOR, /parseAdminGradeDraft/);
     assert.match(BEHAVIOR, /dirty: true/);
-    assert.match(BEHAVIOR, /beforeunload/);
+    assert.match(BEHAVIOR, /registerNavigationGuard/);
   });
 
   test('keeps canonical read/save/note/render/export endpoints', () => {

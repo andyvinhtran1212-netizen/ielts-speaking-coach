@@ -28,14 +28,7 @@ import { fileURLToPath } from 'node:url';
 const APP = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
 
 // Ngoại lệ phải kèm LÝ DO. Không thêm dòng mới vào đây chỉ để test xanh.
-const EXCEPTIONS = new Map([
-  ['(marketing)/page.tsx',
-   'Trang chủ — pilot 1, ĐÃ cutover và đang chạy production. Đo 3/3 sạch dưới ' +
-   '`repro-418.mjs --slow-react` nên KHÔNG phải lỗi đang xảy ra; chưa rõ vì sao ' +
-   'nó thoát trong khi /home thì dính. Cố ý không đụng vào một route ' +
-   'đang sống chỉ để dọn dẹp — chuyển sang SVG nhúng khi nào sửa trang này vì ' +
-   'việc khác.'],
-]);
+const EXCEPTIONS = new Map();
 
 function walk(dir, out = []) {
   for (const e of readdirSync(dir)) {

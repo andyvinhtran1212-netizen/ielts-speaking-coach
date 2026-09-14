@@ -2,7 +2,12 @@
 // no auth, no cookies/headers reads (keeps the public tree static), no
 // providers until the first real migrated route needs them.
 import type { Metadata } from 'next';
+import { JetBrains_Mono, Lora, Plus_Jakarta_Sans } from 'next/font/google';
 import type { ReactNode } from 'react';
+
+import { ChromeNavigationBridge } from '@/components/chrome-navigation-bridge';
+import { NextWebVitals } from '@/components/next-web-vitals';
+import { API_BASE } from '@/lib/backend';
 
 // Thẻ chia sẻ (fan page → web). Facebook/Zalo/LinkedIn đọc og:*; thiếu
 // og:image thì thẻ preview về dạng text nhỏ, CTR thấp hơn hẳn thẻ ảnh lớn.
@@ -32,6 +37,8 @@ export const metadata: Metadata = {
   // localhost/VERCEL_URL — tức preview trên Facebook trỏ vào deployment
   // preview thay vì domain thật.
   metadataBase: new URL('https://averlearning.com'),
+  applicationName: 'Aver Learning',
+  manifest: '/manifest.webmanifest',
   title: 'averlearning',
   description:
     '6 kỹ năng IELTS — Speaking, Writing, Reading, Listening, Grammar và Từ vựng — trên một nền tảng. Phản hồi chi tiết theo từng tiêu chí sau mỗi buổi luyện.',
@@ -58,6 +65,23 @@ export const metadata: Metadata = {
 // runtime-config) là phép thử phân biệt: khác nhau ⇒ asset rời bị cache cũ.
 const DOC_RELEASE = process.env.VERCEL_GIT_COMMIT_SHA || null;
 
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ['latin', 'vietnamese'],
+  display: 'swap',
+  variable: '--font-plus-jakarta',
+});
+const jetBrainsMono = JetBrains_Mono({
+  subsets: ['latin', 'vietnamese'],
+  display: 'swap',
+  variable: '--font-jetbrains-mono',
+});
+const lora = Lora({
+  subsets: ['latin', 'vietnamese'],
+  display: 'swap',
+  preload: false,
+  variable: '--font-lora',
+});
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   // suppressHydrationWarning: route-group layouts mutate <html>/<body>
   // attributes BEFORE hydration by design (anti-flash [data-theme] IIFE,
@@ -65,8 +89,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   // flag those as mismatches; it never patches attributes anyway. Standard
   // next-themes pattern.
   return (
-    <html lang="vi" data-release={DOC_RELEASE ?? undefined} suppressHydrationWarning>
-      <body suppressHydrationWarning>{children}</body>
+    <html
+      lang="vi"
+      data-release={DOC_RELEASE ?? undefined}
+      className={`${plusJakarta.variable} ${jetBrainsMono.variable} ${lora.variable}`}
+      suppressHydrationWarning
+    >
+      <body suppressHydrationWarning>
+        <NextWebVitals apiBase={API_BASE} release={DOC_RELEASE} />
+        <ChromeNavigationBridge />
+        {children}
+      </body>
     </html>
   );
 }

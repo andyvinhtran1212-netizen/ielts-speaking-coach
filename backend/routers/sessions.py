@@ -10,6 +10,13 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Header, Query
 from pydantic import BaseModel, field_validator
 
+from models.session_contracts import (
+    SessionAudioUrl,
+    SessionDetailResponse,
+    SessionListResponse,
+    SessionStatsResponse,
+)
+
 from config import settings
 from database import supabase_admin
 from services.core_attempt_observation import (
@@ -778,7 +785,7 @@ _SORT_FIELD = {
 }
 
 
-@router.get("")
+@router.get("", response_model=SessionListResponse)
 async def list_sessions(
     authorization: str | None = Header(default=None),
     status: Optional[str] = Query(default=None, description="Lọc theo status: in_progress | completed"),
@@ -895,7 +902,7 @@ async def list_sessions(
 
 # ── GET /sessions/stats ────────────────────────────────────────────────────────
 
-@router.get("/stats")
+@router.get("/stats", response_model=SessionStatsResponse)
 async def get_session_stats(
     limit: int = Query(default=10, ge=1, le=100),
     authorization: str | None = Header(default=None),
@@ -1039,7 +1046,7 @@ async def claim_renderer_affinity(
         raise HTTPException(500, "Session chưa có renderer hợp lệ")
     return {"session_id": str(session_id), "renderer_affinity": affinity}
 
-@router.get("/{session_id}")
+@router.get("/{session_id}", response_model=SessionDetailResponse)
 async def get_session(
     session_id: str,
     background_tasks: BackgroundTasks,
@@ -1202,7 +1209,7 @@ def _class_task_state(session: dict) -> dict | None:
 
 # ── GET /sessions/{session_id}/audio-urls ─────────────────────────────────────
 
-@router.get("/{session_id}/audio-urls")
+@router.get("/{session_id}/audio-urls", response_model=list[SessionAudioUrl])
 async def get_session_audio_urls(
     session_id: str,
     authorization: str | None = Header(default=None),

@@ -33,7 +33,8 @@ test('layout giữ legacy chrome: OAuth recovery + anti-flash + 4 stylesheet + r
     assert.ok(layout.includes(css), `missing legacy stylesheet ${css}`);
   }
   assert.match(layout, /runtime-config\.js/);
-  assert.match(layout, /\/vendor\/lucide\.min\.js/, 'build-owned icon bundle must be loaded');
+  assert.doesNotMatch(layout, /lucide\.min\.js/, 'landing icons render as stable server SVG');
+  assert.doesNotMatch(readFileSync(PAGE, 'utf8'), /data-lucide/, 'Lucide must not mutate the React tree');
 });
 
 test('parity: các marker nội dung chính của index.html có mặt trong page.tsx', () => {

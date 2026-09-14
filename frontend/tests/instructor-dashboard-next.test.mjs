@@ -92,7 +92,7 @@ describe('/instructor native route contracts', () => {
   });
 
   test('uses canonical role truth and all seven owner-scoped reads', () => {
-    assert.match(VIEW, /window\.api\.get<unknown>\('\/auth\/me'\)/);
+    assert.match(VIEW, /normalizeInstructorProfile\(await getAuthorizationIdentity\(\)\)/);
     for (const path of ['cohorts', 'students', 'prompts', 'codes', 'assignments', 'reviews/queue']) {
       assert.match(VIEW, new RegExp(`'/instructor/${path.replace('/', '\\/')}'`));
     }

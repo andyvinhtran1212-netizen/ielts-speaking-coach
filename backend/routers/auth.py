@@ -10,6 +10,13 @@ import httpx
 
 from config import settings
 from database import supabase_admin
+from models.auth import (
+    AuthActivateResponse,
+    AuthActiveStatusResponse,
+    AuthMeResponse,
+    AuthProfileResponse,
+    AuthProfileUpdateResponse,
+)
 from services.server_timing import record_stage
 from services.feature_flags import is_flashcard_enabled
 from services import runtime_flags
@@ -164,7 +171,7 @@ async def get_supabase_user(authorization: str | None):
 
 # ── GET /auth/me ──────────────────────────────────────────────────────────────
 
-@router.get("/me")
+@router.get("/me", response_model=AuthMeResponse)
 async def get_me(response: Response, authorization: str | None = Header(default=None)):
     # FE migration pilot 3 (authenticated read) entry checklist: effective
     # private responses must be uncacheable by ANY cache layer between the
@@ -256,7 +263,7 @@ async def get_me(response: Response, authorization: str | None = Header(default=
 
 # ── GET /auth/check-active ────────────────────────────────────────────────────
 
-@router.get("/check-active")
+@router.get("/check-active", response_model=AuthActiveStatusResponse)
 async def check_active(authorization: str | None = Header(default=None)):
     auth_user = await get_supabase_user(authorization)
     user_id = auth_user["id"]
@@ -280,7 +287,7 @@ async def check_active(authorization: str | None = Header(default=None)):
 
 # ── GET /auth/profile ─────────────────────────────────────────────────────────
 
-@router.get("/profile")
+@router.get("/profile", response_model=AuthProfileResponse)
 async def get_profile(response: Response, authorization: str | None = Header(default=None)):
     """Return the full user profile including extended fields from migration 013."""
     # Pilot-3 checklist: private response — never shared-cacheable (see /me).
@@ -373,7 +380,7 @@ def _rate_limit_activate(user_id: str) -> None:
     _activate_attempts[user_id] = window
 
 
-@router.post("/activate")
+@router.post("/activate", response_model=AuthActivateResponse)
 async def activate_account(
     payload: ActivateRequest,
     authorization: str | None = Header(default=None),
@@ -749,7 +756,11 @@ async def activate_account(
 # admin flip via PATCH /admin/runtime-flags/profile_update is live within one
 # 15 s cache window on every instance, killing the mutation for BOTH stacks
 # at the backend seam. Disabled → 503 {"code": "feature_disabled", ...}.
-@router.patch("/profile", dependencies=[Depends(require_flag("profile_update"))])
+@router.patch(
+    "/profile",
+    response_model=AuthProfileUpdateResponse,
+    dependencies=[Depends(require_flag("profile_update"))],
+)
 async def update_profile(
     payload: ProfileUpdate,
     response: Response,

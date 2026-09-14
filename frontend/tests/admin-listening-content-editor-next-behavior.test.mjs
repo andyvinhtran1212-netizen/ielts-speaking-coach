@@ -118,7 +118,7 @@ describe('native route behavior and design contract', () => {
     assert.match(CLIENT, /Không thể tạo biên nhận an toàn/);
     assert.doesNotMatch(CLIENT, /memoryReceipts/);
     assert.match(CLIENT, /account\.current !== operation\.account/);
-    assert.match(CLIENT, /beforeunload/);
+    assert.match(CLIENT, /registerNavigationGuard/);
     assert.match(CLIENT, /<Dialog open=\{confirm !== null\}/);
     assert.doesNotMatch(CLIENT, /alert\(/);
   });

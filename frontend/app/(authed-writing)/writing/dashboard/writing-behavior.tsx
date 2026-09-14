@@ -31,7 +31,7 @@
 // window.WC?.escapeHtml, window.lucide được cung cấp bởi các script mà layout
 // nạp. Không import, không gọi initSupabase() — AuthedShell đã làm rồi.
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { coreOperationHeaders, coreOperationRequest } from '@/lib/core-operation-intent.mjs';
@@ -41,6 +41,7 @@ import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 /** Trạng thái toàn trang — giữ trong object để cleanup dứt điểm. */
 type ModalState = {
+  page: PageState;
   assignmentId: string | null;
   accountId: string | null;
   autoSaveTimer: NodeJS.Timeout | null;
@@ -70,46 +71,27 @@ type PageState = {
 
 type ListenerRegistrar = (el: Element | Document | null, ev: string, fn: any) => void;
 
-// MỘT thực thể duy nhất cho mỗi loại trạng thái, đặt ở phạm vi module — y như
-// bản legacy (`modalState` là biến toàn cục của trang).
-//
-// VÌ SAO KHÔNG TẠO TRONG effect: bản đầu của bản port này tạo `ms` lúc mount
-// (listener đóng gói nó) NHƯNG `openSubmitModal()` lại tự tạo một `ms` MỚI mang
-// `assignmentId`. Hai object khác nhau ⇒ nút Lưu/Nộp, tự lưu và nhật ký dán đều
-// dừng ngay ở `if (!ms.assignmentId) return` — học viên không lưu và không nộp
-// được gì. `loadEssays()` dính y hệt với `ps`: nó ghi danh sách bài vào một `ps`
-// vứt đi, nên bấm bộ lọc là màn hình nhảy về trạng thái rỗng.
-//
-// Codex bắt cả hai ở #950. Cổng ghi cũng bắt được — nhưng CHỈ SAU KHI tôi phát
-// hiện phép đo trước đó chạy nhầm vào một `next-server` cũ còn sót trên cổng
-// 3011, tức nó đang đo chính trang legacy và báo xanh.
-const modalState: ModalState = {
-  assignmentId: null,
-  accountId: null,
-  autoSaveTimer: null,
-  countdownInterval: null,
-  allowSoftCheck: false,
-  returnFocus: null,
-  dead: false,
-  openGeneration: 0,
-  workspaceReady: false,
-  admission: null,
-};
+// One runtime object per mounted Next page. Earlier parity work correctly made
+// every listener share one object, but kept that object at module scope. A
+// module singleton can outlive an unmount/remount (or a second React root) and
+// leak timers/assignment identity into the new lifecycle. useRef below owns
+// this factory result while all helpers still receive the same object.
+function createPageState(): PageState {
+  return {
+    allEssays: [], currentFilter: 'all', allTips: [], tipsLoaded: false,
+    tipFilter: 'all', tipTypeFilter: 'all', allPrompts: [], pbRendered: false,
+    pbFilter: 'all', writingPermitted: true, dead: false, generation: 0,
+  };
+}
 
-const pageState: PageState = {
-  allEssays: [],
-  currentFilter: 'all',
-  allTips: [],
-  tipsLoaded: false,
-  tipFilter: 'all',
-  tipTypeFilter: 'all',
-  allPrompts: [],
-  pbRendered: false,
-  pbFilter: 'all',
-  writingPermitted: true,
-  dead: false,
-  generation: 0,
-};
+function createModalState(page: PageState): ModalState {
+  return {
+    page,
+    assignmentId: null, accountId: null, autoSaveTimer: null,
+    countdownInterval: null, allowSoftCheck: false, returnFocus: null,
+    dead: false, openGeneration: 0, workspaceReady: false, admission: null,
+  };
+}
 
 /** Status mapping (Sprint 19.1A): 6 backend states → 4 UI states. */
 const STATUS_CONFIG: Record<string, { text: string; pill: string; clickable: boolean }> = {
@@ -278,7 +260,7 @@ async function reconcileSubmission(receipt: any, api: any): Promise<any | null> 
   }
 }
 
-async function reconcilePendingSubmissions(accountId: string, api: any) {
+async function reconcilePendingSubmissions(accountId: string, api: any, ms: ModalState) {
   const helper = (window as any).WritingSubmitReceipt;
   const pending = helper?.list(accountId) || [];
   let confirmed = 0;
@@ -294,7 +276,7 @@ async function reconcilePendingSubmissions(accountId: string, api: any) {
       // Preserve ambiguous receipts and surface one truthful warning below.
     }
   }
-  if (modalState.accountId !== accountId) return;
+  if (ms.accountId !== accountId) return;
   if (confirmed > 0 || superseded > 0) {
     showSubmissionNotice(
       confirmed > 0 ? 'success' : 'warning',
@@ -302,7 +284,7 @@ async function reconcilePendingSubmissions(accountId: string, api: any) {
         ? 'Đã đối chiếu: bài viết của em đã được nộp thành công.'
         : 'Bài đã được nộp ở một tab khác. Danh sách đã được đồng bộ lại.'
     );
-    await Promise.all([loadAssignments(api), loadEssays(api)]);
+    await Promise.all([loadAssignments(api, ms), loadEssays(api, ms)]);
   } else if (pending.length > 0) {
     showSubmissionNotice(
       'warning',
@@ -882,7 +864,7 @@ function buildAssignmentCardHtml(a: any): string {
   );
 }
 
-function renderAssignments(assignments: any[]) {
+function renderAssignments(assignments: any[], ms: ModalState) {
   const list = $('assignments-list');
   const empty = $('assignments-empty');
 
@@ -921,18 +903,18 @@ function renderAssignments(assignments: any[]) {
         const card = btn.closest('.assignment-card');
         if (!card) return;
         const assignmentId = card.getAttribute('data-assignment-id');
-        if (assignmentId && modalState.accountId) {
+        if (assignmentId && ms.accountId) {
           try {
             if (shouldUseWritingAdmission({
               enabled: (window as any).__AVER_RUNTIME_CONFIG__?.writingAdmissionEnabled === true,
-              getStorage: () => window.sessionStorage, accountId: modalState.accountId, assignmentId,
+              getStorage: () => window.sessionStorage, accountId: ms.accountId, assignmentId,
             })) {
               // Explicit click authorizes creating/reusing an intent. Direct
               // URL loads below only recover an already persisted intent.
               const address = new URL(window.location.href);
               address.searchParams.set('assignment_id', assignmentId);
               window.history.replaceState(null, '', address);
-              void openSubmitModal(assignmentId, window as any, (window as any).api);
+              void openSubmitModal(assignmentId, window as any, (window as any).api, ms);
               return;
             }
           } catch (error: any) {
@@ -1241,7 +1223,7 @@ async function submitFromModal(ms: ModalState, force: boolean) {
     }
 
     closeModal(ms);
-    await Promise.all([loadAssignments((window as any).api), loadEssays((window as any).api)]);
+    await Promise.all([loadAssignments((window as any).api, ms), loadEssays((window as any).api, ms)]);
   } catch (err: any) {
     if (!isCurrent()) return;
     let ack = null;
@@ -1250,12 +1232,12 @@ async function submitFromModal(ms: ModalState, force: boolean) {
     if (ack) {
       showSubmissionNotice('success', 'Đã đối chiếu: bài viết của em đã được nộp thành công.');
       closeModal(ms);
-      await Promise.all([loadAssignments((window as any).api), loadEssays((window as any).api)]);
+      await Promise.all([loadAssignments((window as any).api, ms), loadEssays((window as any).api, ms)]);
     } else if (statusCode(err) === 409) {
       helper.remove(accountId, assignmentId);
       showSubmissionNotice('warning', 'Bài đã đổi trạng thái hoặc được nộp ở tab khác. Danh sách đã được đồng bộ lại.');
       closeModal(ms);
-      await Promise.all([loadAssignments((window as any).api), loadEssays((window as any).api)]);
+      await Promise.all([loadAssignments((window as any).api, ms), loadEssays((window as any).api, ms)]);
     } else if (isDefinitiveSubmitRejection(err)) {
       helper.remove(accountId, assignmentId);
       showSubmissionNotice('error', 'Không nộp được bài: ' + ((err && err.message) || 'yêu cầu bị từ chối'));
@@ -1428,10 +1410,13 @@ function writingAdmissionController(ms: ModalState, api: any) {
   return ms.admission;
 }
 
-async function openSubmitModal(assignmentId: string, win: any, api: any, allowCreateAdmission = true) {
-  // GHI VÀO thực thể dùng chung, không tạo cái mới: mọi listener (Lưu, Nộp, tự
-  // lưu, dán) đã đóng gói đúng object này từ lúc mount.
-  const ms = modalState;
+async function openSubmitModal(
+  assignmentId: string,
+  win: any,
+  api: any,
+  ms: ModalState,
+  allowCreateAdmission = true,
+) {
   if (ms.assignmentId !== assignmentId) {
     ms.admission?.dispose();
     ms.admission = null;
@@ -1467,7 +1452,7 @@ async function openSubmitModal(assignmentId: string, win: any, api: any, allowCr
       if (ack) {
         showSubmissionNotice('success', 'Đã đối chiếu: bài viết của em đã được nộp thành công.');
         closeModal(ms);
-        await Promise.all([loadAssignments(api), loadEssays(api)]);
+        await Promise.all([loadAssignments(api, ms), loadEssays(api, ms)]);
         return;
       }
     }
@@ -1500,7 +1485,7 @@ async function openSubmitModal(assignmentId: string, win: any, api: any, allowCr
     if (admission && ['submitted', 'graded', 'delivered'].includes(startResult?.timer?.status)) {
       showSubmissionNotice('success', 'Bài đã được nộp. Danh sách đã được đồng bộ lại; không mở lại trình soạn bài.');
       closeModal(ms);
-      await Promise.all([loadAssignments(api), loadEssays(api)]);
+      await Promise.all([loadAssignments(api, ms), loadEssays(api, ms)]);
       return;
     }
     const data = await api.get(
@@ -1521,7 +1506,7 @@ async function openSubmitModal(assignmentId: string, win: any, api: any, allowCr
     } else if (statusCode(err) === 409) {
       (window as any).WritingSubmitReceipt?.remove(accountId, assignmentId);
       showSubmissionNotice('warning', 'Bài đã được nộp ở một tab khác. Danh sách đã được đồng bộ lại.');
-      await Promise.all([loadAssignments(api), loadEssays(api)]);
+      await Promise.all([loadAssignments(api, ms), loadEssays(api, ms)]);
     } else {
       alert('Không tải được bài: ' + ((err && err.message) || 'không xác định'));
     }
@@ -1529,8 +1514,8 @@ async function openSubmitModal(assignmentId: string, win: any, api: any, allowCr
   }
 }
 
-async function loadAssignments(api: any) {
-  const ps = pageState;
+async function loadAssignments(api: any, ms: ModalState) {
+  const ps = ms.page;
   const generation = ps.generation;
   try {
     const data = await api.get('/api/writing/my-assignments');
@@ -1544,7 +1529,7 @@ async function loadAssignments(api: any) {
     if (countEl) countEl.textContent = active.length ? '(' + active.length + ')' : '';
 
     renderDeadlines(active);
-    renderAssignments(active);
+    renderAssignments(active, ms);
   } catch (err: any) {
     if (ps.dead || ps.generation !== generation) return;
     const list = $('assignments-list');
@@ -1557,8 +1542,8 @@ async function loadAssignments(api: any) {
   }
 }
 
-async function loadEssays(api: any) {
-  const ps = pageState;
+async function loadEssays(api: any, ms: ModalState) {
+  const ps = ms.page;
   const generation = ps.generation;
   try {
     const data = await api.get('/api/writing/my-essays');
@@ -1650,6 +1635,11 @@ const LOGIN_URL = '/login';
 
 export function WritingBehavior() {
   const { status, user } = useAuth();
+  const modalStateRef = useRef<ModalState | null>(null);
+  if (!modalStateRef.current) {
+    modalStateRef.current = createModalState(createPageState());
+  }
+  const lifecycle = modalStateRef.current;
 
   // Cổng fail-closed (ADR-011) — dùng replace() để nút Back không dựng lại trang
   // riêng tư từ lịch sử. Bản legacy tương ứng: kiểm `getSession()` rồi đá về
@@ -1670,7 +1660,7 @@ export function WritingBehavior() {
     if (status !== 'signed-in' || !user?.id) return;
     try { clearWritingAdmissionIntents(window.sessionStorage, user.id); } catch { /* server still verifies ownership */ }
 
-    const ps = pageState;
+    const ps = lifecycle.page;
     const generation = ps.generation + 1;
     ps.generation = generation;
     ps.dead = false;
@@ -1694,9 +1684,9 @@ export function WritingBehavior() {
     hide('assignments-empty');
     hide('essays-empty');
 
-    // Modal state dùng chung (khai ở phạm vi module). `dead` phải đặt lại ở
-    // mỗi lần mount vì object sống lâu hơn component.
-    const ms = modalState;
+    // Every listener and async callback in this mount shares the same
+    // component-owned lifecycle object.
+    const ms = lifecycle;
     ms.dead = false;
     ms.accountId = user.id;
 
@@ -1797,10 +1787,10 @@ export function WritingBehavior() {
       });
 
       // ASYNC LOADS (now that listeners are attached)
-      await Promise.all([loadAssignments(api), loadEssays(api)]);
+      await Promise.all([loadAssignments(api, ms), loadEssays(api, ms)]);
       if (!isCurrent()) return;
       hideSubmissionNotice();
-      if (ms.accountId) await reconcilePendingSubmissions(ms.accountId, api);
+      if (ms.accountId) await reconcilePendingSubmissions(ms.accountId, api, ms);
       if (!isCurrent()) return;
       await applyWritingPermissionGating(api, isCurrent);
       if (!isCurrent()) return;
@@ -1808,7 +1798,7 @@ export function WritingBehavior() {
       if (requestedAssignment) {
         // Reload may recover a saved intent; URL presence alone must not mint
         // a new strict-admission nonce without an explicit learner action.
-        await openSubmitModal(requestedAssignment, window as any, api, false);
+        await openSubmitModal(requestedAssignment, window as any, api, ms, false);
         if (!isCurrent()) return;
       }
       await loadPromptBank(api, ps);

@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'frontend/app/(public-content)/**'
+      - 'frontend/app/(marketing)/page.tsx'
+      - 'frontend/app/(authed-vocab-curated)/**'
       - 'frontend/app/(marketing)/pricing/**'
       - 'frontend/tooling/verify-pricing-redirect-flow.mjs'
       - 'frontend/app/(public-auth)/**'

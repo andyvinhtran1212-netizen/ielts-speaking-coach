@@ -1,16 +1,14 @@
 'use client';
 
+import Link from 'next/link';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
+import { getAuthorizationIdentity, type AuthRoleIdentity } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { selectKeyedAdminState } from '@/lib/admin-writing-grade-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
-export interface AdminProfile {
-  id: string;
-  email?: string | null;
-  role: string;
-}
+export type AdminProfile = AuthRoleIdentity;
 
 type AccessValue =
   | { phase: 'loading' }
@@ -67,7 +65,7 @@ export function AdminAccessGate({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const profile = await window.api.get<AdminProfile>('/auth/me');
+        const profile = await getAuthorizationIdentity();
         if (dead) return;
         setAccessState({
           key: accountKey,
@@ -90,7 +88,7 @@ export function AdminAccessGate({ children }: { children: ReactNode }) {
     return <div id="state-loading" className="adm-access-state adm-access-state--loading" role="status"><p className="adm-access-state__message aw-state-loading__text">Đang kiểm tra quyền truy cập…</p></div>;
   }
   if (access.phase === 'denied') {
-    return <div id="state-denied" className="adm-access-state" role="alert"><h2 className="adm-access-state__title aw-state-denied__title">🔒 Admin Access Required</h2><a href="/home" className="adm-access-state__action aw-state-denied__back">← Quay lại trang chủ</a></div>;
+    return <div id="state-denied" className="adm-access-state" role="alert"><h2 className="adm-access-state__title aw-state-denied__title">🔒 Admin Access Required</h2><Link href="/home" className="adm-access-state__action aw-state-denied__back">← Quay lại trang chủ</Link></div>;
   }
   if (access.phase === 'error') {
     return <div id="state-error" className="adm-access-state" role="alert"><h2 className="adm-access-state__title aw-state-denied__title">Không xác minh được quyền</h2><p className="adm-access-state__message">{access.message}</p><button className="adm-access-state__action adm-access-state__button" type="button" onClick={() => window.location.reload()}>Tải lại</button></div>;

@@ -15,6 +15,7 @@ from uuid import UUID
 from fastapi import APIRouter, File, Header, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field
 
+from models.admin_students import AdminStudentDirectoryRowOut
 from routers.admin import require_admin
 from services import student_service
 
@@ -82,7 +83,7 @@ async def import_students_csv(
     )
 
 
-@router.get("")
+@router.get("", response_model=list[AdminStudentDirectoryRowOut])
 async def list_students(
     search: Optional[str] = Query(default=None, max_length=128),
     limit:  int           = Query(default=50, ge=1, le=200),

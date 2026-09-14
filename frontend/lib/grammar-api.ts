@@ -8,42 +8,51 @@ import 'server-only';
 
 import { cache } from 'react';
 import { getPublicJson } from './backend';
+import type { ApiGetJson } from './openapi-contract';
+
+export type GrammarHomeWire = ApiGetJson<'/api/grammar/home'>;
+export type GrammarCategoryWire = ApiGetJson<'/api/grammar/category/{slug}'>;
+export type GrammarArticleWire = ApiGetJson<'/api/grammar/article/{category}/{slug}'>;
+export type GrammarSearchWire = ApiGetJson<'/api/grammar/search'>;
+export type GrammarCompareWire = ApiGetJson<'/api/grammar/compare/{slug}'>;
+export type GrammarRoadmapWire = ApiGetJson<'/api/grammar/roadmap/{slug}'>;
+export type GrammarGroupsWire = ApiGetJson<'/api/grammar/groups'>;
 
 /** Bài viết theo `category/slug`; `null` = không có bài (route sẽ notFound). */
-async function fetchArticle(category: string, slug: string): Promise<any | null> {
-  return getPublicJson(
+async function fetchArticle(category: string, slug: string): Promise<GrammarArticleWire | null> {
+  return getPublicJson<GrammarArticleWire>(
     `/api/grammar/article/${encodeURIComponent(category)}/${encodeURIComponent(slug)}`,
   );
 }
 
 /** Dữ liệu trang chủ Grammar: toàn bộ category + tối đa 6 bài nổi bật. */
-async function fetchHome(): Promise<any | null> {
-  return getPublicJson('/api/grammar/home');
+async function fetchHome(): Promise<GrammarHomeWire | null> {
+  return getPublicJson<GrammarHomeWire>('/api/grammar/home');
 }
 
 /** Các nhóm chủ đề + trạng thái từng bài trong nhóm. */
-async function fetchGroups(): Promise<any | null> {
-  return getPublicJson('/api/grammar/groups');
+async function fetchGroups(): Promise<GrammarGroupsWire | null> {
+  return getPublicJson<GrammarGroupsWire>('/api/grammar/groups');
 }
 
 /** Một thư mục + danh sách bài của nó (chế độ `?category=` của trang chủ). */
-async function fetchCategory(slug: string): Promise<any | null> {
-  return getPublicJson(`/api/grammar/category/${encodeURIComponent(slug)}`);
+async function fetchCategory(slug: string): Promise<GrammarCategoryWire | null> {
+  return getPublicJson<GrammarCategoryWire>(`/api/grammar/category/${encodeURIComponent(slug)}`);
 }
 
 /** Tìm tối đa 20 bài theo hợp đồng public `/api/grammar/search`. */
-async function fetchSearch(query: string): Promise<any[] | null> {
-  return getPublicJson(`/api/grammar/search?q=${encodeURIComponent(query)}`);
+async function fetchSearch(query: string): Promise<GrammarSearchWire | null> {
+  return getPublicJson<GrammarSearchWire>(`/api/grammar/search?q=${encodeURIComponent(query)}`);
 }
 
 /** Hai bài viết đầy đủ cho route so sánh `<left>-vs-<right>`. */
-async function fetchCompare(slug: string): Promise<any | null> {
-  return getPublicJson(`/api/grammar/compare/${encodeURIComponent(slug)}`);
+async function fetchCompare(slug: string): Promise<GrammarCompareWire | null> {
+  return getPublicJson<GrammarCompareWire>(`/api/grammar/compare/${encodeURIComponent(slug)}`);
 }
 
 /** Lộ trình bài viết của một category công khai. */
-async function fetchRoadmap(slug: string): Promise<any | null> {
-  return getPublicJson(`/api/grammar/roadmap/${encodeURIComponent(slug)}`);
+async function fetchRoadmap(slug: string): Promise<GrammarRoadmapWire | null> {
+  return getPublicJson<GrammarRoadmapWire>(`/api/grammar/roadmap/${encodeURIComponent(slug)}`);
 }
 
 // React `cache()`: generateMetadata và thân trang dùng CHUNG một lần fetch cho

@@ -2,55 +2,33 @@
 
 import { useEffect } from 'react';
 
-declare global {
-  interface Window {
-    __AVER_RUNTIME_CONFIG__?: {
-      apiBase?: string;
-      release?: string;
-    };
-    lucide?: {
-      createIcons?: () => void;
-    };
-  }
-}
-
 export function LandingBehavior() {
   useEffect(() => {
-    // ─── LUCIDE HYDRATION + THEME TOGGLE BINDING ─────────────────
-    function hydrateIcons() {
-      if (window.lucide && typeof window.lucide.createIcons === 'function') {
-        window.lucide.createIcons();
+    // ─── THEME TOGGLE BINDING ────────────────────────────────────
+    let themeButton: Element | null = null;
+    function handleThemeToggle() {
+      const current = document.documentElement.getAttribute('data-theme') || 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try {
+        localStorage.setItem('av-theme', next);
+      } catch (e) {
+        // Silently fail if localStorage is unavailable
       }
     }
 
     function bindToggleButton() {
       const btn = document.querySelector('.av-theme-toggle');
       if (!btn) return;
-
-      btn.addEventListener('click', function () {
-        const current =
-          document.documentElement.getAttribute('data-theme') || 'light';
-        const next = current === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', next);
-        try {
-          localStorage.setItem('av-theme', next);
-        } catch (e) {
-          // Silently fail if localStorage is unavailable
-        }
-      });
+      themeButton = btn;
+      btn.addEventListener('click', handleThemeToggle);
     }
 
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function () {
-        hydrateIcons();
-        bindToggleButton();
-      });
+      document.addEventListener('DOMContentLoaded', bindToggleButton, { once: true });
     } else {
-      hydrateIcons();
       bindToggleButton();
     }
-
-    window.addEventListener('load', hydrateIcons);
 
     // ─── PUBLIC STATS LOADER ────────────────────────────────────
     function formatNum(n: any) {
@@ -141,7 +119,8 @@ export function LandingBehavior() {
     }
 
     return () => {
-      window.removeEventListener('load', hydrateIcons);
+      document.removeEventListener('DOMContentLoaded', bindToggleButton);
+      themeButton?.removeEventListener('click', handleThemeToggle);
       window.removeEventListener('aver:runtime-config-ready', handleRuntimeConfigReady);
       window.removeEventListener('aver:runtime-config-failed', handleRuntimeConfigFailure);
     };

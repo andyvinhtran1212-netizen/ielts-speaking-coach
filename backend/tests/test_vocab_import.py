@@ -303,13 +303,15 @@ def test_endpoint_dry_run_no_write_no_reload():
     reload = MagicMock()
     with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("services.vocab_import.supabase_admin", db), \
-         patch("routers.admin_vocab.vocab_service.reload", reload):
+         patch("routers.admin_vocab.vocab_service.reload", reload), \
+         patch("routers.admin_vocab.invalidate_vocabulary_cache") as invalidate:
         r = _upload(_WORD_MD, "?dry_run=true", _ADMIN_AUTH)
     assert r.status_code == 200
     body = r.json()
     assert body["dry_run"] is True
     assert body["committed_ids"] == []
     reload.assert_not_called()
+    invalidate.assert_not_called()
 
 
 def test_endpoint_commit_writes_and_reloads_G1():
@@ -317,7 +319,8 @@ def test_endpoint_commit_writes_and_reloads_G1():
     reload = MagicMock()
     with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("services.vocab_import.supabase_admin", db), \
-         patch("routers.admin_vocab.vocab_service.reload", reload):
+         patch("routers.admin_vocab.vocab_service.reload", reload), \
+         patch("routers.admin_vocab.invalidate_vocabulary_cache") as invalidate:
         r = _upload(_WORD_MD, "?dry_run=false", _ADMIN_AUTH)
     assert r.status_code == 200
     body = r.json()
@@ -325,6 +328,7 @@ def test_endpoint_commit_writes_and_reloads_G1():
     assert body["committed_ids"] == ["cutting-edge"]
     db.table.return_value.insert.assert_called_once()
     reload.assert_called_once()           # G1 — index rebuilt so the word is live
+    invalidate.assert_called_once()
 
 
 def test_endpoint_validation_error_no_reload():
@@ -610,13 +614,15 @@ def test_endpoint_multiblock_commits_all_and_reloads():
     files = {"file": ("lesson.md", text.encode("utf-8"), "text/markdown")}
     with patch("routers.admin_vocab.require_admin", new=AsyncMock(return_value=_ADMIN_USER)), \
          patch("services.vocab_import.supabase_admin", db), \
-         patch("routers.admin_vocab.vocab_service.reload", reload):
+         patch("routers.admin_vocab.vocab_service.reload", reload), \
+         patch("routers.admin_vocab.invalidate_vocabulary_cache") as invalidate:
         r = TestClient(app).post("/admin/vocabulary/import?dry_run=false", files=files, headers=_ADMIN_AUTH)
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["committed_ids"] == ["holistic", "sedentary", "epidemic"]
     assert body["summary"]["created"] == 3
     reload.assert_called_once()
+    invalidate.assert_called_once()
 
 
 # ── Category-runtime (Slice-A): normalize + DB-driven categories + auto-title ──

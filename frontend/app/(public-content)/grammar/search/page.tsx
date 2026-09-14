@@ -1,17 +1,19 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Suspense } from 'react';
 
-import { getSearch } from '@/lib/grammar-api';
-import { SearchResultCards, type Article } from '../grammar-cards';
+import { getSearch, type GrammarSearchWire } from '@/lib/grammar-api';
+import { SearchResultCards } from '../grammar-cards';
 import { SearchBox } from '../search-box';
 
 export const metadata: Metadata = {
   title: 'Tìm kiếm — Grammar Wiki — IELTS Speaking Coach',
+  robots: { index: false, follow: true },
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-function matchesUse(article: Article, use: string) {
+function matchesUse(article: GrammarSearchWire[number], use: string) {
   if (!use) return true;
   if (use === 'speaking') return article.speaking_relevance === 'high';
   if (use === 'writing') return article.writing_relevance === 'high' || article.category === 'grammar-for-writing';
@@ -42,7 +44,7 @@ async function SearchResults({ searchParams }: { searchParams: SearchParams }) {
   const use = typeof params.use === 'string' && ['speaking', 'writing', 'reading'].includes(params.use)
     ? params.use : '';
   const results = query ? await getSearch(query) : [];
-  const articles = (Array.isArray(results) ? results as Article[] : []).filter((article) => {
+  const articles: GrammarSearchWire = (results || []).filter((article) => {
     const levelMatches = !level || article.level?.toLowerCase() === level;
     return levelMatches && matchesUse(article, use);
   });
@@ -70,7 +72,7 @@ async function SearchResults({ searchParams }: { searchParams: SearchParams }) {
             </select>
           </label>
           <button type="submit" className="gw-filter-reset">Áp dụng</button>
-          {(level || use) ? <a className="gw-filter-reset" href={`/grammar/search?q=${encodeURIComponent(query)}`}>Xóa bộ lọc</a> : null}
+          {(level || use) ? <Link className="gw-filter-reset" href={`/grammar/search?q=${encodeURIComponent(query)}`}>Xóa bộ lọc</Link> : null}
         </form>
       </div>
 
@@ -107,7 +109,7 @@ export default function GrammarSearchPage({ searchParams }: { searchParams: Sear
       >
         <div className="av-w-page h-12 flex items-center">
           <div id="breadcrumb" className="flex items-center text-sm text-white/40 flex-wrap gap-0">
-            <a href="/grammar" className="hover:text-teal-light transition-colors">Grammar Wiki</a>
+            <Link href="/grammar" className="hover:text-teal-light transition-colors">Grammar Wiki</Link>
             <span className="mx-2 text-white/20">›</span>
             <span className="text-white/80">Tìm kiếm</span>
           </div>

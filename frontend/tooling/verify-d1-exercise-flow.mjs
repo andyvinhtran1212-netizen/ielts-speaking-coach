@@ -88,7 +88,7 @@ let resolveFinal401;
 const final401Started = new Promise((resolve) => { resolveFinal401 = resolve; });
 
 const supabaseStub = `
-window.supabase = { createClient: function () { return { auth: {
+window.__AVER_SUPABASE_CLIENT__ = { auth: {
   getSession: async function () {
     var call = Number(sessionStorage.getItem('d1-auth-session-calls') || '0') + 1;
     sessionStorage.setItem('d1-auth-session-calls', String(call));
@@ -109,14 +109,13 @@ window.supabase = { createClient: function () { return { auth: {
   },
   onAuthStateChange: function (callback) { window.__d1AuthCallback = callback; return { data: { subscription: { unsubscribe: function () {} } } }; },
   signOut: async function () { return { error: null }; }
-} }; } };`;
+} };`;
+
+await context.addInitScript({ content: supabaseStub });
 
 await context.route('**/*', async (route) => {
   const request = route.request();
   const url = new URL(request.url());
-  if (url.origin === BASE && url.pathname === '/vendor/supabase.js') {
-    return route.fulfill({ status: 200, contentType: 'application/javascript', body: supabaseStub });
-  }
   if (/fonts\.(googleapis|gstatic)\.com/.test(url.hostname) || url.hostname === 'unpkg.com') return route.abort();
   if (url.origin === BASE) return route.continue();
   if (url.origin !== API) return route.abort();
