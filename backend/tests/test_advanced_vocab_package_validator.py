@@ -358,6 +358,27 @@ def test_warning_prevents_publish_ready_without_invalidating_schema(tmp_path: Pa
     assert {i.code for i in report.warnings} == {"AUDIO_NOT_APPROVED", "COMMON_ERROR_MISSING"}
 
 
+def test_nonapproved_source_needs_auditable_owner_approval(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    lesson["media"]["audio"][0]["source_release_status"] = "REVIEW_REQUIRED"
+    lesson["provenance"]["content_checksum"] = _checksum_without(
+        lesson, "provenance", "content_checksum"
+    )
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+    manifest_path = tmp_path / "course-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["lessons"][0]["content_checksum"] = lesson["provenance"]["content_checksum"]
+    manifest["package_checksum"] = _checksum_without(manifest, "package_checksum")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+
+    assert "MEDIA_APPROVAL_MISSING" in _codes(report)
+    assert _codes(report) == {"MEDIA_APPROVAL_MISSING"}
+
+
 def test_listening_source_rejects_distractor_explanations_as_duplicate_options(tmp_path: Path):
     for number in range(1, 31):
         options = [

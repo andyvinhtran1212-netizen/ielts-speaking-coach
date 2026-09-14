@@ -24,7 +24,12 @@ from docx.table import Table, _Cell
 from docx.text.paragraph import Paragraph
 
 
-CONVERTER_VERSION = "2.0.0"
+CONVERTER_VERSION = "2.1.0"
+DEFAULT_COMMON_ERROR_OVERRIDES = (
+    Path(__file__).resolve().parent.parent
+    / "data"
+    / "advanced_vocab_common_error_overrides.json"
+)
 CORE_TOPIC_CODES = tuple(f"T{i:02d}" for i in range(1, 31))
 FRONTMATTER_SEPARATOR_RE = re.compile(r"^---\s*$", re.MULTILINE)
 PART_RE = re.compile(r"\bPART\s*([0-8])\b", re.IGNORECASE)
@@ -451,7 +456,87 @@ def _source_paths(source_root: Path, topic_code: str) -> BuildPaths:
     return paths
 
 
-def _load_vocab(paths: BuildPaths, lesson_id: str) -> tuple[list[dict[str, Any]], dict[str, str]]:
+def load_common_error_overrides(path: str | Path) -> tuple[dict[str, str], dict[str, Any]]:
+    """Load the versioned supplement without mutating shared course sources."""
+    source = Path(path).expanduser().resolve()
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    rows = payload.get("items") if isinstance(payload, dict) else None
+    if not isinstance(rows, list):
+        raise ValueError(f"common_error overlay must contain an items array: {source}")
+    overrides: dict[str, str] = {}
+    for index, row in enumerate(rows, start=1):
+        if not isinstance(row, dict):
+            raise ValueError(f"common_error overlay item {index} is not an object")
+        key = str(row.get("lesson_lexeme_id") or "").strip()
+        value = str(row.get("common_error") or "").strip()
+        if not key or not value:
+            raise ValueError(f"common_error overlay item {index} needs id and text")
+        if key in overrides:
+            raise ValueError(f"Duplicate common_error overlay key: {key}")
+        overrides[key] = value
+    metadata = {
+        "override_id": str(payload.get("override_id") or source.stem),
+        "schema_version": str(payload.get("schema_version") or "1.0.0"),
+        "checksum": _sha256_file(source),
+        "item_count": len(overrides),
+    }
+    return overrides, metadata
+
+
+def load_vocab_audio_bundle(path: str | Path) -> tuple[Path, dict[str, Any]]:
+    """Read and integrity-check a Kokoro audio bundle before package assembly."""
+    root = Path(path).expanduser().resolve()
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("engine") != "kokoro":
+        raise ValueError(f"Unsupported vocabulary audio engine in {manifest_path}")
+    cards = manifest.get("cards")
+    clips = manifest.get("clips")
+    if not isinstance(cards, dict) or not isinstance(clips, dict):
+        raise ValueError(f"Invalid vocabulary audio bundle: {manifest_path}")
+    expected_bundle_checksum = str(manifest.get("bundle_checksum") or "")
+    manifest_without_checksum = dict(manifest)
+    manifest_without_checksum.pop("bundle_checksum", None)
+    if expected_bundle_checksum != _sha256_bytes(_canonical_json(manifest_without_checksum)):
+        raise ValueError(f"Vocabulary audio bundle checksum mismatch: {manifest_path}")
+    for clip_id, clip in clips.items():
+        if not isinstance(clip, dict):
+            raise ValueError(f"Invalid audio clip metadata: {clip_id}")
+        clip_path = (root / str(clip.get("path") or "")).resolve()
+        try:
+            clip_path.relative_to(root)
+        except ValueError as exc:
+            raise ValueError(f"Unsafe vocabulary audio path: {clip_path}") from exc
+        expected_path = (root / "clips" / f"{clip_id}.mp3").resolve()
+        if clip_path != expected_path:
+            raise ValueError(
+                f"Vocabulary audio path/key mismatch for {clip_id}: {clip_path}"
+            )
+        if not clip_path.is_file():
+            raise FileNotFoundError(f"Vocabulary audio clip missing: {clip_path}")
+        if _sha256_file(clip_path) != clip.get("checksum"):
+            raise ValueError(f"Vocabulary audio checksum mismatch: {clip_path}")
+    for lesson_lexeme_id, card in cards.items():
+        if not isinstance(card, dict):
+            raise ValueError(f"Invalid vocabulary audio card: {lesson_lexeme_id}")
+        for role in ("headword", "example"):
+            ref = card.get(role)
+            clip_id = ref.get("clip_id") if isinstance(ref, dict) else None
+            checksum = ref.get("checksum") if isinstance(ref, dict) else None
+            if clip_id not in clips or checksum != clips[clip_id].get("checksum"):
+                raise ValueError(
+                    f"Invalid {role} audio reference for {lesson_lexeme_id}"
+                )
+    return root, manifest
+
+
+def _load_vocab(
+    paths: BuildPaths,
+    lesson_id: str,
+    common_error_overrides: dict[str, str] | None = None,
+    audio_manifest: dict[str, Any] | None = None,
+    applied_override_ids: set[str] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, str]]:
     vocabulary: list[dict[str, Any]] = []
     headword_ids: dict[str, str] = {}
     for path in paths.vocab_cards:
@@ -460,18 +545,64 @@ def _load_vocab(paths: BuildPaths, lesson_id: str) -> tuple[list[dict[str, Any]]
             if not headword:
                 raise ValueError(f"Vocabulary card without headword in {path}")
             lexeme_id = _lexeme_id(headword)
+            lesson_lexeme_id = f"{lesson_id}__{lexeme_id}"
             card = dict(metadata)
             card.update({
                 "lexeme_id": lexeme_id,
-                "lesson_lexeme_id": f"{lesson_id}__{lexeme_id}",
+                "lesson_lexeme_id": lesson_lexeme_id,
                 "mastery_target": "productive",
                 "body_markdown": body,
             })
+            if not str(card.get("common_error") or "").strip():
+                override = (common_error_overrides or {}).get(lesson_lexeme_id)
+                if override:
+                    card["common_error"] = override
+                    card["common_error_source"] = "versioned_overlay"
+                    if applied_override_ids is not None:
+                        applied_override_ids.add(lesson_lexeme_id)
+            if audio_manifest is not None:
+                audio_card = (audio_manifest.get("cards") or {}).get(lesson_lexeme_id)
+                if not isinstance(audio_card, dict):
+                    raise ValueError(f"Vocabulary audio missing for {lesson_lexeme_id}")
+                headword_audio = audio_card.get("headword")
+                example_audio = audio_card.get("example")
+                if not isinstance(headword_audio, dict) or not isinstance(example_audio, dict):
+                    raise ValueError(f"Headword/example audio incomplete for {lesson_lexeme_id}")
+                clips = audio_manifest.get("clips") or {}
+                rendered_headword = clips.get(headword_audio.get("clip_id"), {})
+                rendered_example = clips.get(example_audio.get("clip_id"), {})
+                if rendered_headword.get("text") != headword:
+                    raise ValueError(f"Stale headword audio for {lesson_lexeme_id}")
+                if rendered_example.get("text") != str(card.get("example") or "").strip():
+                    raise ValueError(f"Stale example audio for {lesson_lexeme_id}")
+                card.update({
+                    "audio_headword": f"assets/vocab-audio/{headword_audio['clip_id']}.mp3",
+                    "audio_example": f"assets/vocab-audio/{example_audio['clip_id']}.mp3",
+                    "audio_status": "final",
+                    "audio_provenance": {
+                        "engine": audio_manifest["engine"],
+                        "model_tag": audio_manifest["model_tag"],
+                        "voice": audio_manifest["voice"],
+                        "headword_checksum": headword_audio["checksum"],
+                        "example_checksum": example_audio["checksum"],
+                    },
+                })
             vocabulary.append(card)
             headword_ids[headword.casefold()] = lexeme_id
     if len(vocabulary) != 24:
         raise ValueError(f"{lesson_id} requires 24 vocabulary cards, found {len(vocabulary)}")
     return vocabulary, headword_ids
+
+
+def collect_core_vocabulary_cards(source_root: str | Path) -> list[dict[str, Any]]:
+    """Return the 720 canonical core cards in stable lesson/source order."""
+    source = Path(source_root).expanduser().resolve()
+    cards: list[dict[str, Any]] = []
+    for topic_code in CORE_TOPIC_CODES:
+        lesson_id = f"ADV-{topic_code}"
+        vocabulary, _headword_ids = _load_vocab(_source_paths(source, topic_code), lesson_id)
+        cards.extend(vocabulary)
+    return cards
 
 
 def _load_quiz(path: Path, lesson_id: str,
@@ -523,26 +654,59 @@ def _extract_objectives(part_0: dict[str, Any]) -> list[str]:
     return objectives
 
 
-def _audio_metadata(paths: BuildPaths) -> tuple[dict[str, Any], dict[str, Any], str]:
+def _audio_metadata(
+    paths: BuildPaths,
+    media_approval_ref: str | None,
+) -> tuple[dict[str, Any], dict[str, Any], str, dict[str, Any] | None]:
     manifest = json.loads((paths.audio_dir / "manifest.json").read_text(encoding="utf-8"))
     timings = json.loads((paths.audio_dir / "timings.json").read_text(encoding="utf-8"))
     release_status = str(manifest.get("release_status") or "REVIEW_REQUIRED").upper()
-    package_status = "approved" if release_status == "APPROVED" else "rendered_review_required"
-    return manifest, timings, package_status
+    if media_approval_ref:
+        package_status = "approved"
+        approval = {
+            "decision": "approved",
+            "authority": "content_owner",
+            "approval_ref": media_approval_ref,
+            "source_release_status": release_status,
+            "acknowledged_source_blockers": manifest.get("release_blockers") or [],
+        }
+    else:
+        package_status = (
+            "approved" if release_status == "APPROVED" else "rendered_review_required"
+        )
+        approval = None
+    return manifest, timings, package_status, approval
 
 
-def _build_lesson(paths: BuildPaths, topic_code: str,
-                  output_root: Path) -> dict[str, Any]:
+def _build_lesson(
+    paths: BuildPaths,
+    topic_code: str,
+    output_root: Path,
+    *,
+    common_error_overrides: dict[str, str],
+    common_error_metadata: dict[str, Any],
+    applied_override_ids: set[str],
+    vocab_audio_manifest: dict[str, Any] | None,
+    media_approval_ref: str | None,
+) -> dict[str, Any]:
     lesson_id = f"ADV-{topic_code}"
     topic_blocks = extract_docx_blocks(paths.topic_docx)
     sections = split_topic_sections(topic_blocks)
     for part in range(9):
         _section(sections, f"part_{part}")
     assessment = split_assessment(extract_docx_blocks(paths.assessment_docx))
-    vocabulary, headword_ids = _load_vocab(paths, lesson_id)
+    vocabulary, headword_ids = _load_vocab(
+        paths,
+        lesson_id,
+        common_error_overrides,
+        vocab_audio_manifest,
+        applied_override_ids,
+    )
     adaptive_quiz = _load_quiz(paths.quickcheck, lesson_id, headword_ids)
     listening_source = json.loads(paths.listening_json.read_text(encoding="utf-8"))
-    audio_manifest, timings, audio_status = _audio_metadata(paths)
+    audio_manifest, timings, audio_status, media_approval = _audio_metadata(
+        paths, media_approval_ref
+    )
     listening = sanitize_listening_source(listening_source, timings)
 
     quiz_header = adaptive_quiz["config"]
@@ -556,6 +720,10 @@ def _build_lesson(paths: BuildPaths, topic_code: str,
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source_asset, destination)
         illustration_refs.append(f"assets/wt1/{source_asset.name}")
+    if audio_status == "approved":
+        destination = lesson_dir / "assets" / "audio" / "full_test.mp3"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(paths.audio_dir / "full_test.mp3", destination)
 
     source_files = {
         "topic_docx": _relative(paths.topic_docx, paths.source_root),
@@ -583,14 +751,20 @@ def _build_lesson(paths: BuildPaths, topic_code: str,
         _relative(path, paths.source_root): _sha256_file(path)
         for path in checksum_paths
     }
+    artifact_checksums = audio_manifest.get("artifact_sha256")
+    manifest_audio_checksum = (
+        artifact_checksums.get("full_test.mp3")
+        if isinstance(artifact_checksums, dict)
+        else artifact_checksums
+    )
     full_audio_checksum = str(
-        audio_manifest.get("artifact_sha256")
+        manifest_audio_checksum
         or timings.get("full_audio_sha256")
         or source_checksums[source_files["listening_audio"]]
     )
     lesson: dict[str, Any] = {
         "schema_version": "2.0.0",
-        "package_version": "2.0.0",
+        "package_version": "2.1.0",
         "package_type": "advanced_vocabulary_lesson",
         "lesson_id": lesson_id,
         "course_id": "ADV-VOCAB",
@@ -700,8 +874,19 @@ def _build_lesson(paths: BuildPaths, topic_code: str,
                 "source_path": source_files["listening_audio"],
                 "duration_seconds": audio_manifest.get("full_test_duration_seconds"),
                 "checksum": full_audio_checksum,
-                "qc_status": "passed" if audio_status == "approved" else "pending",
-                "release_blockers": audio_manifest.get("release_blockers") or [],
+                "qc_status": (
+                    "content_owner_approved"
+                    if media_approval is not None
+                    else ("passed" if audio_status == "approved" else "pending")
+                ),
+                "release_blockers": [] if audio_status == "approved" else (
+                    audio_manifest.get("release_blockers") or []
+                ),
+                "source_release_status": str(
+                    audio_manifest.get("release_status") or "REVIEW_REQUIRED"
+                ).upper(),
+                "source_release_blockers": audio_manifest.get("release_blockers") or [],
+                "approval": media_approval,
             }],
         },
         "runtime_contract": {
@@ -714,6 +899,9 @@ def _build_lesson(paths: BuildPaths, topic_code: str,
         "provenance": {
             "converter_version": CONVERTER_VERSION,
             "source_checksums": source_checksums,
+            "content_supplements": {
+                "common_errors": common_error_metadata,
+            },
         },
     }
     lesson["provenance"]["content_checksum"] = _sha256_bytes(_canonical_json(lesson))
@@ -760,14 +948,59 @@ def _build_review(source_root: Path, review_number: int) -> dict[str, Any]:
     return review
 
 
-def _build_package_contents(source: Path, output: Path,
-                            spec_path: str | Path | None) -> Path:
+def _build_package_contents(
+    source: Path,
+    output: Path,
+    spec_path: str | Path | None,
+    common_error_overrides_path: str | Path,
+    vocab_audio_bundle_path: str | Path | None,
+    media_approval_ref: str | None,
+) -> Path:
+    common_error_overrides, common_error_metadata = load_common_error_overrides(
+        common_error_overrides_path
+    )
+    applied_override_ids: set[str] = set()
+    vocab_audio_manifest: dict[str, Any] | None = None
+    if vocab_audio_bundle_path is not None:
+        audio_root, vocab_audio_manifest = load_vocab_audio_bundle(vocab_audio_bundle_path)
+        destination = output / "assets" / "vocab-audio"
+        shutil.copytree(audio_root / "clips", destination)
+
     lessons: list[dict[str, Any]] = []
     for topic_code in CORE_TOPIC_CODES:
-        lesson = _build_lesson(_source_paths(source, topic_code), topic_code, output)
+        lesson = _build_lesson(
+            _source_paths(source, topic_code),
+            topic_code,
+            output,
+            common_error_overrides=common_error_overrides,
+            common_error_metadata=common_error_metadata,
+            applied_override_ids=applied_override_ids,
+            vocab_audio_manifest=vocab_audio_manifest,
+            media_approval_ref=media_approval_ref,
+        )
         lesson_path = output / "lessons" / lesson["lesson_id"] / "lesson.json"
         _write_json(lesson_path, lesson)
         lessons.append(lesson)
+
+    unused_overrides = set(common_error_overrides) - applied_override_ids
+    if unused_overrides:
+        raise ValueError(
+            "common_error overlay contains keys that did not fill blank source fields: "
+            + ", ".join(sorted(unused_overrides))
+        )
+    if vocab_audio_manifest is not None:
+        lesson_card_ids = {
+            str(card["lesson_lexeme_id"])
+            for lesson in lessons
+            for card in lesson["vocabulary"]
+        }
+        bundle_card_ids = set(vocab_audio_manifest["cards"])
+        if lesson_card_ids != bundle_card_ids:
+            raise ValueError(
+                "Vocabulary audio bundle card set does not match core-30 source; "
+                f"missing={sorted(lesson_card_ids - bundle_card_ids)}, "
+                f"extra={sorted(bundle_card_ids - lesson_card_ids)}"
+            )
 
     reviews: list[dict[str, Any]] = []
     for review_number in range(1, 7):
@@ -777,13 +1010,29 @@ def _build_package_contents(source: Path, output: Path,
 
     manifest = {
         "schema_version": "2.0.0",
-        "package_version": "2.0.0",
+        "package_version": "2.1.0",
         "course_id": "ADV-VOCAB",
         "title": "Advanced Vocabulary Self-paced Course",
         "audience": "assigned_only",
         "lesson_count": 30,
         "review_count": 6,
         "converter_version": CONVERTER_VERSION,
+        "content_supplements": {
+            "common_errors": common_error_metadata,
+            "vocabulary_audio": ({
+                "engine": vocab_audio_manifest["engine"],
+                "model_tag": vocab_audio_manifest["model_tag"],
+                "voice": vocab_audio_manifest["voice"],
+                "card_count": vocab_audio_manifest["card_count"],
+                "clip_count": vocab_audio_manifest["clip_count"],
+                "bundle_checksum": vocab_audio_manifest["bundle_checksum"],
+            } if vocab_audio_manifest is not None else None),
+        },
+        "media_approval": ({
+            "authority": "content_owner",
+            "approval_ref": media_approval_ref,
+            "scope": "core-30-listening-media",
+        } if media_approval_ref else None),
         "lessons": [
             {
                 "lesson_id": lesson["lesson_id"],
@@ -817,8 +1066,15 @@ def _build_package_contents(source: Path, output: Path,
     return output
 
 
-def build_package(source_root: str | Path, output_root: str | Path,
-                  spec_path: str | Path | None = None) -> Path:
+def build_package(
+    source_root: str | Path,
+    output_root: str | Path,
+    spec_path: str | Path | None = None,
+    *,
+    common_error_overrides_path: str | Path = DEFAULT_COMMON_ERROR_OVERRIDES,
+    vocab_audio_bundle_path: str | Path | None = None,
+    media_approval_ref: str | None = None,
+) -> Path:
     """Build core-30 atomically and refuse to overwrite an existing output."""
     source = Path(source_root).expanduser().resolve()
     output = Path(output_root).expanduser().resolve()
@@ -834,7 +1090,14 @@ def build_package(source_root: str | Path, output_root: str | Path,
         dir=output.parent,
     ))
     try:
-        _build_package_contents(source, staging, spec_path)
+        _build_package_contents(
+            source,
+            staging,
+            spec_path,
+            common_error_overrides_path,
+            vocab_audio_bundle_path,
+            media_approval_ref,
+        )
         staging.rename(output)
     except Exception:
         shutil.rmtree(staging)

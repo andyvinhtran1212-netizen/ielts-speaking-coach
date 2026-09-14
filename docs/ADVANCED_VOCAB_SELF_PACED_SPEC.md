@@ -253,6 +253,8 @@ Import never automatically publishes content.
 - lesson IDs, activity IDs, item IDs and lesson-lexeme IDs are unique;
 - every lesson has exactly 24 vocabulary entries;
 - all referenced lexemes and relative asset paths are valid;
+- every vocabulary card in the publishable core package has Kokoro audio for
+  both the headword and its example, with file checksums;
 - every MCQ has unique option keys and one valid answer;
 - activity policies are explicit;
 - Writing Insight is non-submittable, ungraded and reference-only;
@@ -272,8 +274,17 @@ Import never automatically publishes content.
 - immutable version and checksum.
 
 Missing `common_error`, missing citation metadata, pending media and human-QA
-requirements must appear as warnings or blockers. They must never disappear
-behind a single green `PASS` label.
+requirements must appear as warnings or blockers. A content-owner approval can
+resolve a media warning only when the package keeps the original source status,
+the original blockers and an explicit approval reference as immutable audit
+metadata; approval must never rewrite the source manifest into a false state.
+
+The core-30 remediation layer is versioned separately from the shared source
+folder. It may fill only blank `common_error` fields and must reject unknown or
+unused override keys. The current overlay contains 88 lesson-card entries.
+Vocabulary audio is generated locally with Kokoro (`bf_emma`) into a
+content-addressed bundle. Identical text/voice/model inputs share one clip; every
+card still exposes separate `audio_headword` and `audio_example` references.
 
 ## 11. Acceptance scenarios
 
@@ -305,3 +316,20 @@ behind a single green `PASS` label.
 6. Pilot with a small assigned cohort before importing all 30 lessons.
 7. Add public catalog/self-enrolment only after assignment-led analytics are
    stable.
+
+## 13. Reproducible core-30 build
+
+Generate the content-addressed Kokoro bundle first, then assemble a new package:
+
+```bash
+cd backend
+python scripts/generate_advanced_vocab_audio.py SOURCE_ROOT NEW_AUDIO_BUNDLE --voice bf_emma
+python scripts/build_advanced_vocab_package.py SOURCE_ROOT NEW_PACKAGE \
+  --vocab-audio-bundle NEW_AUDIO_BUNDLE \
+  --media-approval-ref CONTENT_OWNER_APPROVAL_REF
+python scripts/validate_advanced_vocab_package.py NEW_PACKAGE
+```
+
+Both generators refuse to overwrite an existing destination. The media approval
+reference is required to turn source `REVIEW_REQUIRED` Listening files into
+learner-playable package assets; the source status and blockers remain recorded.

@@ -108,6 +108,14 @@ def _canonical_checksum(value: dict[str, Any]) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _checksum_without(value: dict[str, Any], *field_path: str) -> str:
     clone = json.loads(json.dumps(value, ensure_ascii=False))
     parent: Any = clone
@@ -383,8 +391,13 @@ def _validate_provenance(lesson: dict[str, Any], path: Path,
                        f"Invalid source checksum entry for {source_name!r}.")
 
 
-def _validate_lesson(lesson: dict[str, Any], path: Path,
-                     report: ValidationReport) -> None:
+def _validate_lesson(
+    lesson: dict[str, Any],
+    path: Path,
+    report: ValidationReport,
+    *,
+    vocab_audio_required: bool = False,
+) -> None:
     lesson_id = str(lesson.get("lesson_id") or "")
     expected = path.parent.name
     if lesson_id != expected:
@@ -444,6 +457,33 @@ def _validate_lesson(lesson: dict[str, Any], path: Path,
             report.add("warning", "AUDIO_NOT_APPROVED", path,
                        f"Audio {audio.get('audio_id') or '?'} is {status}; learner "
                        "playback is blocked.")
+        if status == "approved":
+            source_status = str(audio.get("source_release_status") or "").upper()
+            approval = audio.get("approval")
+            if source_status and source_status != "APPROVED" and not isinstance(approval, dict):
+                report.add(
+                    "error", "MEDIA_APPROVAL_MISSING", path,
+                    "Approved media with a non-approved source status needs an auditable "
+                    "content-owner approval record.",
+                )
+            expected_path = str(audio.get("expected_audio_path") or "").strip()
+            checksum = str(audio.get("checksum") or "").strip()
+            if expected_path:
+                asset = (path.parent / expected_path).resolve()
+                try:
+                    asset.relative_to(path.parent.resolve())
+                except ValueError:
+                    report.add("error", "MEDIA_PATH_UNSAFE", path, expected_path)
+                else:
+                    if not asset.is_file():
+                        report.add("error", "MEDIA_FILE_MISSING", asset,
+                                   "Approved Listening media is not packaged.")
+                    elif not SHA256_RE.fullmatch(checksum):
+                        report.add("error", "MEDIA_CHECKSUM_INVALID", path,
+                                   "Approved Listening media needs a SHA-256 checksum.")
+                    elif _sha256_file(asset) != checksum:
+                        report.add("error", "MEDIA_CHECKSUM_MISMATCH", asset,
+                                   "Listening media bytes do not match lesson metadata.")
 
     for vocab in vocabulary if isinstance(vocabulary, list) else []:
         if not str(vocab.get("common_error") or "").strip():
@@ -451,6 +491,36 @@ def _validate_lesson(lesson: dict[str, Any], path: Path,
                        "Lexeme "
                        f"{vocab.get('lexeme_id') or vocab.get('headword') or '?'} "
                        "lacks common_error.")
+        if vocab_audio_required:
+            for field, checksum_field in (
+                ("audio_headword", "headword_checksum"),
+                ("audio_example", "example_checksum"),
+            ):
+                relative = str(vocab.get(field) or "").strip()
+                provenance = vocab.get("audio_provenance")
+                checksum = (
+                    str(provenance.get(checksum_field) or "")
+                    if isinstance(provenance, dict) else ""
+                )
+                if not relative:
+                    report.add("error", "VOCAB_AUDIO_MISSING", path,
+                               f"{vocab.get('lesson_lexeme_id')} lacks {field}.")
+                    continue
+                asset = (path.parents[2] / relative).resolve()
+                try:
+                    asset.relative_to(path.parents[2].resolve())
+                except ValueError:
+                    report.add("error", "VOCAB_AUDIO_PATH_UNSAFE", path, relative)
+                    continue
+                if not asset.is_file():
+                    report.add("error", "VOCAB_AUDIO_FILE_MISSING", asset,
+                               f"Referenced by {vocab.get('lesson_lexeme_id')}.")
+                elif not SHA256_RE.fullmatch(checksum):
+                    report.add("error", "VOCAB_AUDIO_CHECKSUM_INVALID", path,
+                               f"{vocab.get('lesson_lexeme_id')} lacks {checksum_field}.")
+                elif _sha256_file(asset) != checksum:
+                    report.add("error", "VOCAB_AUDIO_CHECKSUM_MISMATCH", asset,
+                               f"Referenced by {vocab.get('lesson_lexeme_id')}.")
 
 
 def validate_package(package_path: str | Path) -> ValidationReport:
@@ -460,6 +530,11 @@ def validate_package(package_path: str | Path) -> ValidationReport:
     if manifest is None:
         return report
     _validate_manifest(root, manifest, report)
+
+    supplements = manifest.get("content_supplements")
+    vocab_audio_required = bool(
+        isinstance(supplements, dict) and supplements.get("vocabulary_audio")
+    )
 
     ids = _manifest_lesson_ids(manifest)
     manifest_lessons = manifest.get("lessons") or []
@@ -474,7 +549,9 @@ def validate_package(package_path: str | Path) -> ValidationReport:
         if lesson is None:
             continue
         report.checked_lessons += 1
-        _validate_lesson(lesson, path, report)
+        _validate_lesson(
+            lesson, path, report, vocab_audio_required=vocab_audio_required
+        )
         manifest_row = next(
             (row for row in lesson_rows if isinstance(row, dict)
              and row.get("lesson_id") == lesson_id),
