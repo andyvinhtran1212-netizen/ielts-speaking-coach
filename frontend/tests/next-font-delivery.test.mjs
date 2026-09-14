@@ -36,3 +36,14 @@ test('legacy documents retain a real fallback when next/font variables are absen
   assert.match(tokens, /var\(--font-jetbrains-mono,\s*'JetBrains Mono'\)/);
   assert.match(tokens, /var\(--font-lora,\s*'Lora'\)/);
 });
+
+test('font utilities and display token resolve through next/font variables', () => {
+  const tailwind = read('tailwind.config.cjs');
+  const generated = read('public', 'css', 'tailwind.build.css');
+  const tokens = read('public', 'css', 'aver-design', 'tokens.css');
+  assert.match(tailwind, /sans:\s*\["var\(--font-plus-jakarta, 'Plus Jakarta Sans'\)"/);
+  assert.match(tailwind, /mono:\s*\["var\(--font-jetbrains-mono, 'JetBrains Mono'\)"/);
+  assert.match(generated, /\.font-sans\{font-family:var\(--font-plus-jakarta,"Plus Jakarta Sans"\)/);
+  assert.match(generated, /\.font-mono\{font-family:var\(--font-jetbrains-mono,"JetBrains Mono"\)/);
+  assert.match(tokens, /--av-font-display:\s*var\(--font-plus-jakarta,\s*'Plus Jakarta Sans'\)/);
+});

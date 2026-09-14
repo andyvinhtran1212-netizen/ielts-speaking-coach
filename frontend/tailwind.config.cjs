@@ -24,8 +24,8 @@ module.exports = {
         teal: { DEFAULT: '#0F766E', light: '#14b8a6', dark: '#0d5f58' },
       },
       fontFamily: {
-        sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui'],
-        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+        sans: ["var(--font-plus-jakarta, 'Plus Jakarta Sans')", 'ui-sans-serif', 'system-ui'],
+        mono: ["var(--font-jetbrains-mono, 'JetBrains Mono')", 'ui-monospace', 'monospace'],
       },
     },
   },
