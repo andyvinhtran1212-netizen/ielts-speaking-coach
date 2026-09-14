@@ -2,15 +2,6 @@
 
 import { useEffect } from 'react';
 
-declare global {
-  interface Window {
-    __AVER_RUNTIME_CONFIG__?: {
-      apiBase?: string;
-      release?: string;
-    };
-  }
-}
-
 export function LandingBehavior() {
   useEffect(() => {
     // ─── THEME TOGGLE BINDING ────────────────────────────────────

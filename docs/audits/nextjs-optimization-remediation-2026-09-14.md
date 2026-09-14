@@ -76,9 +76,17 @@ fixtures are not deployable application routes.
 - **Verification:** no duplicate GoTrue client, refresh/logout/account-switch
   browser tests, bundle analyzer comparison, public-script consumer inventory.
 - **Status:** Wave C1 introduced an imported, OpenAPI-typed browser GET adapter
-  and moved Vocabulary directory reads behind it. The adapter deliberately
-  retains `api.js` for auth, correlation and 401 parity; Supabase ESM ownership
-  and removal of the global bridge remain queued by domain.
+  and moved Vocabulary directory reads behind it. Wave C2 establishes one
+  bundled ESM Supabase singleton for every Next shell; the compatibility
+  `api.js` bridge adopts that exact client for domains not migrated yet. All 74
+  authenticated route groups plus public auth/content no longer request the
+  Supabase UMD bundle or its migration fallback. Browser proofs cover login,
+  quiz, exam exit, onboarding, Writing admission and client navigation without
+  duplicating the GoTrue client. This is primarily an ownership, typing and CSP
+  improvement—not a byte win: the measured shared ESM chunk is about 60.2 KiB
+  gzip versus 51.4 KiB for the former UMD bundle (plus its small fallback).
+  `window.api` remains the deliberate compatibility boundary and should retire
+  incrementally through typed domain adapters.
 
 ### NXT-04 — OpenAPI contract is generated but not consumed
 

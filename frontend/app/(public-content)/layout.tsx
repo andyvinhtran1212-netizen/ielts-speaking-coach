@@ -29,16 +29,6 @@ const themeScript = `
 
 const SUPABASE_URL = 'https://huwsmtubwulikhlmcirx.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_hvevBST9lgIWRd5ITHtUpA_SYjiX6Ao';
-const SUPABASE_RUNTIME_SCRIPTS = [
-  {
-    src: '/vendor/supabase.js',
-    continueOnError: true,
-  },
-  { src: '/js/supabase-sdk-fallback.js' },
-  { src: '/js/runtime-config.js' },
-  { src: '/js/error-reporter.js', continueOnError: true },
-  { src: '/js/api.js' },
-] as const;
 
 export default function PublicContentLayout({ children }: { children: ReactNode }) {
   return (
@@ -58,7 +48,6 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
       <link rel="stylesheet" href="/css/tailwind.build.css" />
 
       <SupabaseRuntimeBoundary
-        scripts={SUPABASE_RUNTIME_SCRIPTS}
         supabaseUrl={SUPABASE_URL}
         supabaseAnonKey={SUPABASE_ANON}
       >

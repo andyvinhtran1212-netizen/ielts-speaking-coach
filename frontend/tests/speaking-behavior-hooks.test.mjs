@@ -180,7 +180,9 @@ describe('hành vi Speaking — mọi móc DOM đều có thật', () => {
       readFileSync(path.join(FRONTEND, 'app/(authed-speaking)/layout.tsx'), 'utf8'));
     const shell = stripComments(
       readFileSync(path.join(FRONTEND, 'components/authed-shell.tsx'), 'utf8'));
-    const loaded = layout + shell;
+    const runtimeBoundary = stripComments(
+      readFileSync(path.join(FRONTEND, 'components/supabase-runtime-boundary.tsx'), 'utf8'));
+    const loaded = layout + shell + runtimeBoundary;
 
     // global → tệp cung cấp nó (đọc từ chính trang legacy để không chép tay)
     const PROVIDERS = new Map([

@@ -31,12 +31,11 @@ const cors = { 'access-control-allow-origin': base.origin,
 const json = (value, status = 200) => ({ status, headers: cors,
   contentType: 'application/json', body: JSON.stringify(value) });
 const session = { access_token: TOKEN, user: { id: USER, email: 'learner@fixture.invalid' } };
-const sdk = `window.supabase={createClient:()=>({auth:{
+const sdk = `window.__AVER_SUPABASE_CLIENT__={auth:{
   getSession:async()=>({data:{session:${JSON.stringify(session)}}}),
   onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})
-}})};`;
+}};`;
 const vendorFixtures = new Map([
-  [new URL('/vendor/supabase.js', base).href, sdk],
   [new URL('/vendor/lucide.min.js', base).href, 'window.lucide={createIcons(){}};'],
   [new URL('/vendor/marked.min.js', base).href, '/* fixture: safe plaintext fallback */'],
   [new URL('/vendor/purify.min.js', base).href, '/* fixture: safe plaintext fallback */'],
@@ -52,6 +51,7 @@ async function launch() {
 
 async function fixture(browser, options = {}) {
   const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1366, height: 900 } });
+  await context.addInitScript({ content: sdk });
   const state = { enabled: options.enabled !== false, phase: 'accepted', startedAt: options.startedAt || null,
     executeBefore: new Date(Date.now() + 120000).toISOString(), draft: options.initialDraft || '', prepares: [],
     executes: [], reconciles: [], baselineEntries: [], nonceReads: [], acceptedNonce: null, classifications: 0, reads: 0, legacy: 0, saves: 0, calls: [], unexpected: [], errors: [], secondDrafts: [], submissions: [] };

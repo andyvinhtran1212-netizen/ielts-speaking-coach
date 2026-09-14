@@ -18,6 +18,7 @@ const DASH = read('pages', 'writing-dashboard.html');
 const AUTHED_SHELL = read('components', 'authed-shell.tsx');
 const PUBLIC_CONTENT_LAYOUT = read('app', '(public-content)', 'layout.tsx');
 const PAGE_VIEW_BRIDGE = read('components', 'next-page-view-beacon.tsx');
+const SUPABASE_BOUNDARY = read('components', 'supabase-runtime-boundary.tsx');
 
 // page → expected analytics-beacon.js src (path style matched per page)
 const BEACON_PAGES = [
@@ -49,9 +50,15 @@ describe('PR-2 — page_view beacon installed on native route families', () => {
     ['public grammar layout', PUBLIC_CONTENT_LAYOUT],
   ]) {
     it(`${label} exposes page-view telemetry only after api.js`, () => {
-      const apiIdx = source.indexOf("src: '/js/api.js'");
+      const reporterIdx = SUPABASE_BOUNDARY.indexOf("src: '/js/error-reporter.js'");
+      const apiIdx = SUPABASE_BOUNDARY.indexOf("src: '/js/api.js'");
+      const boundaryIdx = source.indexOf('<SupabaseRuntimeBoundary');
       const beaconIdx = source.indexOf('<NextPageViewBeacon />');
-      assert.ok(apiIdx !== -1 && apiIdx < beaconIdx, `${label}: beacon must follow api.js`);
+      const boundaryCloseIdx = source.indexOf('</SupabaseRuntimeBoundary>');
+      assert.ok(reporterIdx !== -1 && reporterIdx < apiIdx,
+        'shared boundary must load reporter before api.js');
+      assert.ok(boundaryIdx !== -1 && boundaryIdx < beaconIdx && beaconIdx < boundaryCloseIdx,
+        `${label}: boundary must withhold the beacon until api.js is ready`);
     });
   }
 

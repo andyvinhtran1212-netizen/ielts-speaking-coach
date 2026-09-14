@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
+const API = 'https://api.exam-fixture.invalid';
 const results = [];
 const check = (name, ok, detail = '') => {
   results.push({ name, ok, detail });
@@ -50,20 +51,26 @@ async function fixture({ signedIn = true, malformedList = false, failReviewOnce 
   const microchecks = [];
   let reviewReads = 0;
   const supabaseStub = `
-window.supabase = { createClient: function () { return { auth: {
+window.__AVER_SUPABASE_CLIENT__ = { auth: {
   getSession: async function () { return { data: { session: ${signedIn ? `{ access_token: 'fixture-token', user: { id: 'exam-user', email: 'exam@example.com' } }` : 'null'} }, error: null }; },
   onAuthStateChange: function () { return { data: { subscription: { unsubscribe: function () {} } } }; },
   signOut: async function () { return { error: null }; }
-} }; } };`;
+} };`;
+
+  await context.addInitScript({ content: supabaseStub });
 
   await context.route('**/*', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
-    if (url.origin === BASE && url.pathname === '/vendor/supabase.js') {
-      return route.fulfill({ status: 200, contentType: 'application/javascript', body: supabaseStub });
-    }
     if (/fonts\.(googleapis|gstatic)\.com/.test(url.hostname) || url.hostname === 'unpkg.com') return route.abort();
     if (url.origin === BASE) {
+      if (url.pathname === '/js/runtime-config.js') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/javascript',
+          body: `window.__AVER_RUNTIME_CONFIG__=Object.freeze({apiBase:${JSON.stringify(API)}});`,
+        });
+      }
       if (request.isNavigationRequest() && url.pathname === '/login') {
         return route.fulfill({ status: 200, contentType: 'text/html', body: '<title>login</title><h1>Login</h1>' });
       }

@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
+const API = 'https://api.onboarding-fixture.invalid';
 const NEXT_ONLY = process.argv.includes('--next-only');
 const results = [];
 const check = (name, ok, detail = '') => {
@@ -35,9 +36,7 @@ async function fixture({
   const writes = [];
   let canonical = { ...profile };
   const supabaseStub = `
-window.supabase = {
-  createClient: function () {
-    return { auth: {
+window.__AVER_SUPABASE_CLIENT__ = { auth: {
       getSession: async function () {
         return { data: { session: ${session ? "{ access_token: 'fixture-token', user: { id: 'user-1', email: 'learner@example.com' } }" : 'null'} }, error: null };
       },
@@ -45,24 +44,34 @@ window.supabase = {
         return { data: { subscription: { unsubscribe: function () {} } } };
       },
       signOut: async function () { return { error: null }; }
-    } };
-  }
-};`;
+    } };`;
+
+  await context.addInitScript({ content: supabaseStub });
 
   await context.route('**/*', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
-    if (url.origin === BASE && url.pathname === '/vendor/supabase.js') {
-      return route.fulfill({ status: 200, contentType: 'application/javascript', body: supabaseStub });
-    }
     if (/fonts\.(googleapis|gstatic)\.com/.test(url.hostname) || url.hostname === 'unpkg.com') return route.abort();
     if (url.origin === BASE) {
+      if (url.pathname === '/js/runtime-config.js') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/javascript',
+          body: `window.__AVER_RUNTIME_CONFIG__=Object.freeze({apiBase:${JSON.stringify(API)}});`,
+        });
+      }
       if (request.isNavigationRequest() && ['/home', '/login'].includes(url.pathname)) {
         return route.fulfill({ status: 200, contentType: 'text/html', body: `<title>destination</title><h1>${url.pathname}</h1>` });
       }
       return route.continue();
     }
-    const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(body) });
+    const cors = {
+      'access-control-allow-origin': BASE,
+      'access-control-allow-methods': 'GET,PATCH,OPTIONS',
+      'access-control-allow-headers': 'authorization,content-type,x-request-id',
+    };
+    if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors, body: '' });
+    const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', headers: cors, body: JSON.stringify(body) });
     if (request.method() === 'GET' && url.pathname === '/auth/me') {
       reads.push(url.pathname);
       return json(canonical);

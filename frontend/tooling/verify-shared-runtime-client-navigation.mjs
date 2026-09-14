@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
+const API = 'https://api.shared-runtime.invalid';
 const sessionId = '00000000-0000-4000-8000-000000000711';
 const userId = '00000000-0000-4000-8000-000000000712';
 const analyticsPaths = [];
@@ -55,18 +56,17 @@ const session = {
 
 const supabaseStub = `
 window.__fixtureSupabaseCreates = window.__fixtureSupabaseCreates || 0;
-window.supabase = { createClient: function () {
-  window.__fixtureSupabaseCreates += 1;
-  window.__fixtureSupabaseClient = window.__fixtureSupabaseClient || { marker: 'shared-client', auth: {
+window.__fixtureSupabaseCreates += 1;
+window.__fixtureSupabaseClient = window.__fixtureSupabaseClient || { marker: 'shared-client', auth: {
     getSession: async function () { return { data: { session: { access_token: 'fixture-token', user: { id: '${userId}', email: 'runtime@example.test' } } }, error: null }; },
     onAuthStateChange: function () { return { data: { subscription: { unsubscribe: function () {} } } }; },
     signOut: async function () { return { error: null }; }
   } };
-  return window.__fixtureSupabaseClient;
-} };`;
+window.__AVER_SUPABASE_CLIENT__ = window.__fixtureSupabaseClient;`;
 
 const browser = await launch();
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+await context.addInitScript({ content: supabaseStub });
 const page = await context.newPage();
 const pageErrors = [];
 page.on('pageerror', (error) => pageErrors.push(String(error)));
@@ -74,10 +74,16 @@ page.on('pageerror', (error) => pageErrors.push(String(error)));
 await context.route('**/*', async (route) => {
   const request = route.request();
   const url = new URL(request.url());
-  if (url.origin === BASE && url.pathname === '/vendor/supabase.js') {
-    return route.fulfill({ status: 200, contentType: 'application/javascript', body: supabaseStub });
+  if (url.origin === BASE) {
+    if (url.pathname === '/js/runtime-config.js') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/javascript',
+        body: `window.__AVER_RUNTIME_CONFIG__=Object.freeze({apiBase:${JSON.stringify(API)}});`,
+      });
+    }
+    return route.continue();
   }
-  if (url.origin === BASE) return route.continue();
   if (/fonts\.(googleapis|gstatic)\.com/.test(url.hostname) || url.hostname === 'unpkg.com') {
     return route.abort();
   }
@@ -117,6 +123,35 @@ await context.route('**/*', async (route) => {
   }
   if (url.pathname === '/api/error-logs') return json({ ok: true });
   return json({});
+});
+
+// A manual local production build bakes localhost:8000 into the server-owned
+// web-vitals prop. Register the loopback target explicitly: Chromium may apply
+// private-network routing before the catch-all fixture sees it.
+await context.route('http://localhost:8000/api/analytics/events', async (route) => {
+  if (route.request().method() === 'OPTIONS') {
+    return route.fulfill({
+      status: 204,
+      headers: {
+        'access-control-allow-origin': BASE,
+        'access-control-allow-methods': 'POST,OPTIONS',
+        'access-control-allow-headers': 'content-type',
+      },
+      body: '',
+    });
+  }
+  const payload = route.request().postDataJSON();
+  if (payload?.event_name === 'web_vitals') vitals.push(payload.event_data);
+  return route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    headers: {
+      'access-control-allow-origin': BASE,
+      'access-control-allow-methods': 'POST,OPTIONS',
+      'access-control-allow-headers': 'content-type',
+    },
+    body: '{"ok":true}',
+  });
 });
 
 try {
@@ -160,11 +195,11 @@ const publicPage = await context.newPage();
 const publicErrors = [];
 publicPage.on('pageerror', (error) => publicErrors.push(String(error)));
 await publicPage.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
-await publicPage.getByRole('link', { name: 'Grammar Wiki', exact: true }).first().waitFor();
+await publicPage.getByRole('link', { name: 'Đăng nhập', exact: true }).first().waitFor();
 await publicPage.evaluate(() => { window.__publicNavigationSentinel = 'survived'; });
-await publicPage.getByRole('link', { name: 'Grammar Wiki', exact: true }).first().click();
-await publicPage.waitForURL(`${BASE}/grammar`);
-await publicPage.getByRole('heading', { name: /Học ngữ pháp như một/ }).waitFor();
+await publicPage.getByRole('link', { name: 'Đăng nhập', exact: true }).first().click();
+await publicPage.waitForURL(`${BASE}/login`);
+await publicPage.getByRole('heading', { name: 'Bắt đầu luyện tập' }).waitFor();
 const publicSentinel = await publicPage.evaluate(() => window.__publicNavigationSentinel);
 check('CTA public dùng App Router thay vì nạp lại document', publicSentinel === 'survived');
 await publicPage.goBack();

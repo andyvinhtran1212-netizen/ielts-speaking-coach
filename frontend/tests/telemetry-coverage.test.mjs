@@ -34,6 +34,7 @@ const APP = path.join(__dirname, '..', 'app');
 const PAGES = path.join(__dirname, '..', 'public', 'pages');
 const ROOT_LAYOUT = readFileSync(path.join(APP, 'layout.tsx'), 'utf8');
 const NATIVE_VITALS = readFileSync(path.join(APP, '..', 'components', 'next-web-vitals.tsx'), 'utf8');
+const SUPABASE_BOUNDARY = readFileSync(path.join(APP, '..', 'components', 'supabase-runtime-boundary.tsx'), 'utf8');
 
 /**
  * Có THẺ SCRIPT thật trỏ tới file đó không — không phải "cái tên có xuất hiện
@@ -166,7 +167,13 @@ describe('phủ telemetry (DEBT-2026-07-31-O)', () => {
   };
 
   const reporterFirst = (src, label) => {
-    const iReporter = declarationIndex(src, 'error-reporter\\.js');
+    // Native layouts render their route scripts AS CHILDREN of the shared
+    // boundary. The boundary completes reporter → api before it exposes those
+    // children, so textual import concatenation is not document order.
+    const ordered = src.includes('<SupabaseRuntimeBoundary')
+      ? `${SUPABASE_BOUNDARY}\n${src}`
+      : src;
+    const iReporter = declarationIndex(ordered, 'error-reporter\\.js');
     assert.ok(iReporter !== -1, `${label}: không thấy khai báo error-reporter`);
     // Mọi script trong hàng đợi defer — kể cả MODULE (module defer mặc định) —
     // chạy theo thứ tự tài liệu, nên bất cứ cái nào đứng trước reporter đều có
@@ -176,7 +183,7 @@ describe('phủ telemetry (DEBT-2026-07-31-O)', () => {
       ['\\/api\\.js', 'lỗi trong api.js'],
       ['aver-chrome\\.js', 'lỗi lúc đánh giá module chrome'],
     ]) {
-      const i = declarationIndex(src, file);
+      const i = declarationIndex(ordered, file);
       if (i === -1) continue;
       assert.ok(iReporter < i,
         `${label}: error-reporter phải đứng TRƯỚC ${file.replace(/\\/g, '')} — nếu không, ${why}`
