@@ -42,9 +42,11 @@ converter version must produce the same runtime IDs and content checksum.
 
 ## 3. Curriculum shape
 
-The 30 lessons are grouped into six five-topic clusters. Each cluster ends in
-one interleaved review. A lesson exposes a large item bank, but a learner sees
-only an adaptive subset.
+The 30 lessons retain the six thematic source clusters (`C1`–`C6`). Review
+checkpoints are a separate sequence: `R01` occurs after `T05`, through `R06`
+after `T30`. Their source configs use cumulative lesson eligibility while each
+checkpoint samples an interleaved subset. A lesson exposes a large item bank,
+but a learner sees only an adaptive subset.
 
 ```text
 Assignment card

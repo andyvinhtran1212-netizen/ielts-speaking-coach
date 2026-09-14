@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -23,8 +24,20 @@ def _activity(aid: str, activity_type: str, **extra):
     return value
 
 
+def _checksum_without(value: dict, *field_path: str) -> str:
+    clone = json.loads(json.dumps(value, ensure_ascii=False))
+    parent = clone
+    for key in field_path[:-1]:
+        parent = parent[key]
+    parent.pop(field_path[-1], None)
+    payload = json.dumps(
+        clone, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _lesson(lesson_id: str) -> dict:
-    return {
+    lesson = {
         "lesson_id": lesson_id,
         "vocabulary": [
             {"lexeme_id": f"{lesson_id}-lex-{i}",
@@ -71,24 +84,61 @@ def _lesson(lesson_id: str) -> dict:
         },
         "provenance": {
             "converter_version": "1.0.0",
-            "content_checksum": "a" * 64,
             "source_checksums": {f"source/{lesson_id}.docx": "b" * 64},
         },
         "media": {"audio": [{"audio_id": f"{lesson_id}-audio", "status": "approved"}]},
     }
+    lesson["provenance"]["content_checksum"] = _checksum_without(
+        lesson, "provenance", "content_checksum"
+    )
+    return lesson
 
 
 def _write_package(root: Path, ids=CORE_LESSON_IDS) -> None:
-    manifest = {
-        "course_id": "ADV-VOCAB",
-        "audience": "assigned_only",
-        "lessons": [{"lesson_id": lesson_id} for lesson_id in ids],
-    }
-    (root / "course-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    lesson_rows = []
     for lesson_id in ids:
         folder = root / "lessons" / lesson_id
         folder.mkdir(parents=True)
-        (folder / "lesson.json").write_text(json.dumps(_lesson(lesson_id)), encoding="utf-8")
+        lesson = _lesson(lesson_id)
+        (folder / "lesson.json").write_text(json.dumps(lesson), encoding="utf-8")
+        lesson_rows.append({
+            "lesson_id": lesson_id,
+            "content_checksum": lesson["provenance"]["content_checksum"],
+        })
+
+    review_rows = []
+    for number in range(1, 7):
+        review_id = f"R{number:02d}"
+        review = {
+            "review_id": review_id,
+            "review_of_lessons": [f"T{i:02d}" for i in range(1, number * 5 + 1)],
+            "items": [{
+                "item_id": f"ADV-{review_id}__q1",
+                "type": "mcq",
+                "answer": 0,
+                "options": ["One", "Two"],
+            }],
+            "provenance": {},
+        }
+        review["provenance"]["content_checksum"] = _checksum_without(
+            review, "provenance", "content_checksum"
+        )
+        folder = root / "reviews"
+        folder.mkdir(exist_ok=True)
+        (folder / f"{review_id}.json").write_text(json.dumps(review), encoding="utf-8")
+        review_rows.append({
+            "review_id": review_id,
+            "content_checksum": review["provenance"]["content_checksum"],
+        })
+
+    manifest = {
+        "course_id": "ADV-VOCAB",
+        "audience": "assigned_only",
+        "lessons": lesson_rows,
+        "reviews": review_rows,
+    }
+    manifest["package_checksum"] = _checksum_without(manifest, "package_checksum")
+    (root / "course-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
 
 def _codes(report) -> set[str]:
@@ -234,6 +284,28 @@ def test_lesson_requires_reproducible_provenance(tmp_path: Path):
     assert "PROVENANCE_MISSING" in _codes(report)
 
 
+def test_modified_lesson_fails_checksum_validation(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    lesson["title"] = "Changed after build"
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+    assert "CONTENT_CHECKSUM_MISMATCH" in _codes(report)
+
+
+def test_review_scope_is_cumulative_at_each_checkpoint(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "reviews" / "R02.json"
+    review = json.loads(path.read_text())
+    review["review_of_lessons"] = ["T06", "T07", "T08", "T09", "T10"]
+    path.write_text(json.dumps(review), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+    assert "REVIEW_LESSON_SCOPE" in _codes(report)
+
+
 def test_malformed_object_fields_report_errors_instead_of_crashing(tmp_path: Path):
     _write_package(tmp_path)
     path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
@@ -267,7 +339,18 @@ def test_warning_prevents_publish_ready_without_invalidating_schema(tmp_path: Pa
     lesson = json.loads(path.read_text())
     lesson["media"]["audio"][0]["status"] = "rendered_review_required"
     lesson["vocabulary"][0]["common_error"] = ""
+    lesson["provenance"]["content_checksum"] = _checksum_without(
+        lesson, "provenance", "content_checksum"
+    )
     path.write_text(json.dumps(lesson), encoding="utf-8")
+    manifest_path = tmp_path / "course-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest_lesson = next(
+        row for row in manifest["lessons"] if row["lesson_id"] == "ADV-T01"
+    )
+    manifest_lesson["content_checksum"] = lesson["provenance"]["content_checksum"]
+    manifest["package_checksum"] = _checksum_without(manifest, "package_checksum")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
     report = validate_package(tmp_path)
     assert report.schema_valid is True

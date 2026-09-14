@@ -10,6 +10,7 @@ The first-release contract is documented in
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from collections import Counter
@@ -20,6 +21,8 @@ from typing import Any, Iterable
 
 CORE_LESSON_IDS = tuple(f"ADV-T{i:02d}" for i in range(1, 31))
 CORE_LESSON_SET = frozenset(CORE_LESSON_IDS)
+CORE_REVIEW_IDS = tuple(f"R{i:02d}" for i in range(1, 7))
+CORE_REVIEW_SET = frozenset(CORE_REVIEW_IDS)
 ALLOWED_INPUTS = frozenset({"choice", "text", "boolean", "syllable", "match"})
 ALLOWED_ACTIVITY_POLICIES = {
     "interaction_policy": frozenset({
@@ -95,11 +98,38 @@ def _read_json(path: Path, report: ValidationReport) -> dict[str, Any] | None:
     return value
 
 
+def _canonical_checksum(value: dict[str, Any]) -> str:
+    payload = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _checksum_without(value: dict[str, Any], *field_path: str) -> str:
+    clone = json.loads(json.dumps(value, ensure_ascii=False))
+    parent: Any = clone
+    for key in field_path[:-1]:
+        parent = parent.get(key) if isinstance(parent, dict) else None
+    if isinstance(parent, dict):
+        parent.pop(field_path[-1], None)
+    return _canonical_checksum(clone)
+
+
 def _manifest_lesson_ids(manifest: dict[str, Any]) -> list[str]:
     rows = manifest.get("lessons") or []
     if not isinstance(rows, list):
         return []
     return [str(row.get("lesson_id") or "") for row in rows if isinstance(row, dict)]
+
+
+def _manifest_review_ids(manifest: dict[str, Any]) -> list[str]:
+    rows = manifest.get("reviews") or []
+    if not isinstance(rows, list):
+        return []
+    return [str(row.get("review_id") or "") for row in rows if isinstance(row, dict)]
 
 
 def _object_field(parent: dict[str, Any], key: str, path: Path,
@@ -160,6 +190,19 @@ def _validate_manifest(root: Path, manifest: dict[str, Any], report: ValidationR
     if audience != "assigned_only":
         report.add("error", "AUDIENCE_POLICY", root / "course-manifest.json",
                    "Release 1 manifest must declare audience='assigned_only'.")
+
+    review_ids = _manifest_review_ids(manifest)
+    if set(review_ids) != CORE_REVIEW_SET or len(review_ids) != 6:
+        report.add("error", "CORE_REVIEW_SET", root / "course-manifest.json",
+                   "Release 1 manifest must contain exactly R01-R06 once each.")
+
+    package_checksum = str(manifest.get("package_checksum") or "")
+    if not SHA256_RE.fullmatch(package_checksum):
+        report.add("error", "PACKAGE_CHECKSUM_INVALID", root / "course-manifest.json",
+                   "Manifest package_checksum must be a SHA-256 hex digest.")
+    elif package_checksum != _checksum_without(manifest, "package_checksum"):
+        report.add("error", "PACKAGE_CHECKSUM_MISMATCH", root / "course-manifest.json",
+                   "Manifest content no longer matches package_checksum.")
 
 
 def _validate_mcq_options(lesson: dict[str, Any], path: Path,
@@ -326,6 +369,9 @@ def _validate_provenance(lesson: dict[str, Any], path: Path,
     if not SHA256_RE.fullmatch(content_checksum):
         report.add("error", "CONTENT_CHECKSUM_INVALID", path,
                    "provenance.content_checksum must be a SHA-256 hex digest.")
+    elif content_checksum != _checksum_without(lesson, "provenance", "content_checksum"):
+        report.add("error", "CONTENT_CHECKSUM_MISMATCH", path,
+                   "Lesson content no longer matches provenance.content_checksum.")
     source_checksums = provenance.get("source_checksums")
     if not isinstance(source_checksums, dict) or not source_checksums:
         report.add("error", "SOURCE_CHECKSUMS_MISSING", path,
@@ -416,6 +462,8 @@ def validate_package(package_path: str | Path) -> ValidationReport:
     _validate_manifest(root, manifest, report)
 
     ids = _manifest_lesson_ids(manifest)
+    manifest_lessons = manifest.get("lessons") or []
+    lesson_rows = manifest_lessons if isinstance(manifest_lessons, list) else []
     for lesson_id in ids:
         if not re.fullmatch(r"ADV-T\d{2}", lesson_id):
             report.add("error", "LESSON_ID_FORMAT", root / "course-manifest.json",
@@ -427,6 +475,64 @@ def validate_package(package_path: str | Path) -> ValidationReport:
             continue
         report.checked_lessons += 1
         _validate_lesson(lesson, path, report)
+        manifest_row = next(
+            (row for row in lesson_rows if isinstance(row, dict)
+             and row.get("lesson_id") == lesson_id),
+            {},
+        )
+        lesson_provenance = lesson.get("provenance")
+        lesson_checksum = (
+            lesson_provenance.get("content_checksum")
+            if isinstance(lesson_provenance, dict) else None
+        )
+        if manifest_row.get("content_checksum") != lesson_checksum:
+            report.add("error", "MANIFEST_LESSON_CHECKSUM_MISMATCH", path,
+                       "Manifest lesson checksum does not match the lesson file.")
+
+    manifest_reviews = manifest.get("reviews") or []
+    review_rows = manifest_reviews if isinstance(manifest_reviews, list) else []
+    for review_id in _manifest_review_ids(manifest):
+        if not re.fullmatch(r"R\d{2}", review_id):
+            report.add("error", "REVIEW_ID_FORMAT", root / "course-manifest.json",
+                       f"Invalid review ID format: {review_id!r}.")
+            continue
+        path = root / "reviews" / f"{review_id}.json"
+        review = _read_json(path, report)
+        if review is None:
+            continue
+        if str(review.get("review_id") or "") != review_id:
+            report.add("error", "REVIEW_PATH_ID_MISMATCH", path,
+                       f"review_id does not match manifest ID {review_id}.")
+        items = _validate_unique_ids(
+            review.get("items"), ("item_id",), path, report, "REVIEW_ITEM",
+        )
+        if not items:
+            report.add("error", "REVIEW_ITEMS_MISSING", path,
+                       f"{review_id} must contain at least one review item.")
+        _validate_mcq_options({"items": items}, path, report)
+        expected_lessons = [f"T{i:02d}" for i in range(1, int(review_id[1:]) * 5 + 1)]
+        if review.get("review_of_lessons") != expected_lessons:
+            report.add("error", "REVIEW_LESSON_SCOPE", path,
+                       f"{review_id} must have cumulative scope through "
+                       f"T{len(expected_lessons):02d}.")
+        provenance_value = review.get("provenance")
+        provenance = provenance_value if isinstance(provenance_value, dict) else {}
+        review_checksum = str(provenance.get("content_checksum") or "")
+        if not SHA256_RE.fullmatch(review_checksum):
+            report.add("error", "REVIEW_CHECKSUM_INVALID", path,
+                       "Review provenance.content_checksum must be SHA-256.")
+        elif review_checksum != _checksum_without(review, "provenance", "content_checksum"):
+            report.add("error", "REVIEW_CHECKSUM_MISMATCH", path,
+                       "Review content no longer matches provenance.content_checksum.")
+
+        manifest_row = next(
+            (row for row in review_rows if isinstance(row, dict)
+             and row.get("review_id") == review_id),
+            {},
+        )
+        if manifest_row.get("content_checksum") != review_checksum:
+            report.add("error", "MANIFEST_REVIEW_CHECKSUM_MISMATCH", path,
+                       "Manifest review checksum does not match the review file.")
 
     generated_dirs = {p.name for p in (root / "lessons").glob("ADV-T*") if p.is_dir()}
     unreferenced = sorted(generated_dirs - set(ids))

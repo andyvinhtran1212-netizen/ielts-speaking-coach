@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+"""Build a deterministic core-30 Advanced Vocabulary package from source."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+_BACKEND = Path(__file__).resolve().parent.parent
+if str(_BACKEND) not in sys.path:
+    sys.path.insert(0, str(_BACKEND))
+
+from services.advanced_vocab_package_builder import build_package  # noqa: E402
+from services.advanced_vocab_package_validator import validate_package  # noqa: E402
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("source", help="Canonical Vocab course root")
+    parser.add_argument("output", help="New output directory; must not exist")
+    parser.add_argument(
+        "--spec",
+        default=str(_BACKEND.parent / "docs" / "ADVANCED_VOCAB_SELF_PACED_SPEC.md"),
+        help="Approved contract copied into the package.",
+    )
+    args = parser.parse_args()
+
+    output = build_package(args.source, args.output, args.spec)
+    report = validate_package(output)
+    report_path = output / "QA_REPORT.json"
+    report_path.write_text(
+        json.dumps(report.to_dict(), ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    print(json.dumps({
+        "output": str(output),
+        "qa_report": str(report_path),
+        **report.to_dict(),
+    }, ensure_ascii=False))
+    return 0 if report.schema_valid else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
