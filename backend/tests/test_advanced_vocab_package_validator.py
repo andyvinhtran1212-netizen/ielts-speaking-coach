@@ -82,6 +82,27 @@ def _lesson(lesson_id: str) -> dict:
             ),
             _activity(
                 f"{lesson_id}-writing", "writing_reference",
+                content={
+                    "tasks": {
+                        "task_1": {
+                            "illustrations": ["assets/wt1/topic.svg", "assets/wt1/topic.png"],
+                            "model_answers": [
+                                {"band": "7.0", "blocks": [{"text": "Model 7"}]},
+                                {"band": "8.0", "blocks": [{"text": "Model 8"}]},
+                            ],
+                        },
+                        "task_2": {
+                            "idea_sections": [
+                                {"heading": f"Idea {i}", "blocks": []}
+                                for i in range(1, 13)
+                            ],
+                            "model_answers": [
+                                {"band": "7.0", "blocks": [{"text": "Model 7"}]},
+                                {"band": "8.0", "blocks": [{"text": "Model 8"}]},
+                            ],
+                        },
+                    }
+                },
                 interaction_policy="read_only", grading_policy="none",
                 completion_policy="reference_only", reveal_policy="always",
                 submittable=False, teacher_assignment_required_for_grading=True,
@@ -202,6 +223,25 @@ def test_each_core_lesson_requires_one_writing_reference(tmp_path: Path):
 
     report = validate_package(tmp_path)
     assert "WRITING_ACTIVITY_COUNT" in _codes(report)
+
+
+def test_writing_reference_requires_models_artwork_and_idea_bank(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    writing = next(a for a in lesson["activities"] if a["activity_type"] == "writing_reference")
+    tasks = writing["content"]["tasks"]
+    tasks["task_1"]["model_answers"] = [{"band": "7.0", "blocks": []}]
+    tasks["task_1"]["illustrations"] = ["assets/wt1/topic.svg"]
+    tasks["task_2"]["idea_sections"] = tasks["task_2"]["idea_sections"][:11]
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+    assert {
+        "WRITING_MODEL_REFERENCES_INCOMPLETE",
+        "WRITING_TASK1_ARTWORK_INCOMPLETE",
+        "WRITING_TASK2_IDEAS_INCOMPLETE",
+    } <= _codes(report)
 
 
 def test_speaking_is_never_graded_by_default(tmp_path: Path):

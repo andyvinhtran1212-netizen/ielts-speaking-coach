@@ -142,7 +142,7 @@ def _section(section_id: str, headings: list[tuple[str, str]]) -> dict:
     return {"section_id": section_id, "title": section_id, "blocks": blocks}
 
 
-def test_writing_reference_excludes_full_model_essays():
+def test_writing_reference_fallback_excludes_full_model_essays():
     sections = [
         _section("part_3", [("Main Ideas Bank", "Fallback ideas")]),
         _section("part_7", [
@@ -167,6 +167,69 @@ def test_writing_reference_excludes_full_model_essays():
     assert "Full Task 1 model" not in rendered
     assert "Full Task 2 model" not in rendered
     assert reference["annotated_examples"] == []
+
+
+def test_writing_reference_uses_question_banks_models_ideas_and_artwork():
+    sections = [
+        _section("part_3", [("Main Ideas Bank", "Fallback ideas")]),
+        _section("part_7", [("(a) Đề bài", "Legacy Task 1 prompt")]),
+        _section("part_8", [("(1) Đề bài", "Legacy Task 2 prompt")]),
+    ]
+    wt1 = [
+        {"type": "heading", "text": "T01 — FAMILY · [LINE]", "level": 1},
+        {"type": "heading", "text": "ĐỀ BÀI (Question)", "level": 2},
+        {"type": "paragraph", "text": "Task 1 bank prompt"},
+        {"type": "heading", "text": "BẢNG SỐ LIỆU GỐC", "level": 2},
+        {"type": "table", "rows": [["Year", "Value"], ["2020", "38%"]]},
+        {"type": "heading", "text": "BÀI MẪU BAND 7.0", "level": 2},
+        {"type": "paragraph", "text": "Full Task 1 Band 7 reference"},
+        {"type": "heading", "text": "BÀI MẪU BAND 8.0", "level": 2},
+        {"type": "paragraph", "text": "Full Task 1 Band 8 reference"},
+        {"type": "heading", "text": "Khác biệt Band 7 → Band 8", "level": 2},
+        {"type": "paragraph", "text": "Task 1 comparison"},
+    ]
+    wt2 = [
+        {"type": "heading", "text": "T01 — FAMILY · [DISCUSSION]", "level": 2},
+        {"type": "paragraph", "text": "ĐỀ BÀI (Question)"},
+        {"type": "table", "rows": [["Task 2 bank prompt"]]},
+        {"type": "paragraph", "text": "BÀI MẪU BAND 7.0"},
+        {"type": "paragraph", "text": "Full Task 2 Band 7 reference"},
+        {"type": "paragraph", "text": "BÀI MẪU BAND 8.0"},
+        {"type": "paragraph", "text": "Full Task 2 Band 8 reference"},
+        {"type": "paragraph", "text": "▸ Khác biệt Band 7 → Band 8"},
+        {"type": "paragraph", "text": "Task 2 comparison"},
+    ]
+    ideas = [{"type": "heading", "text": "T01 — FAMILY", "level": 1}]
+    for index in range(1, 13):
+        ideas.extend([
+            {"type": "heading", "text": f"{index}. Idea angle", "level": 2},
+            {"type": "paragraph", "text": f"Idea {index}"},
+        ])
+    ideas.extend([
+        {"type": "heading", "text": "★ WORD BANK", "level": 2},
+        {"type": "paragraph", "text": "close-knit family"},
+    ])
+
+    reference = build_writing_reference(
+        sections,
+        topic_code="T01",
+        wt1_bank_blocks=wt1,
+        wt2_bank_blocks=wt2,
+        wt2_idea_blocks=ideas,
+        illustration_refs=["assets/wt1/T01_Family.svg", "assets/wt1/T01_Family.png"],
+    )
+
+    assert reference["excluded_content"] == []
+    assert reference["model_answers_visibility"] == "collapsed_reference"
+    assert reference["tasks"]["task_1"]["task_type"] == "LINE"
+    assert len(reference["tasks"]["task_1"]["model_answers"]) == 2
+    assert reference["tasks"]["task_1"]["illustrations"] == [
+        "assets/wt1/T01_Family.svg", "assets/wt1/T01_Family.png",
+    ]
+    assert len(reference["tasks"]["task_2"]["idea_sections"]) == 12
+    rendered = json.dumps(reference, ensure_ascii=False)
+    assert "Full Task 1 Band 8 reference" in rendered
+    assert "Full Task 2 Band 8 reference" in rendered
 
 
 def test_assessment_is_split_into_self_check_prompts_and_solutions():

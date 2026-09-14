@@ -308,6 +308,35 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             report.add("error", "WRITING_BOUNDARY_VIOLATION", path,
                        "Writing Insight must be non-submittable, ungraded, reference-only, "
                        "and require a teacher assignment for grading.")
+        if is_core_lesson:
+            content = activity.get("content") or {}
+            tasks = content.get("tasks") if isinstance(content, dict) else None
+            task_1 = tasks.get("task_1") if isinstance(tasks, dict) else None
+            task_2 = tasks.get("task_2") if isinstance(tasks, dict) else None
+            if not isinstance(task_1, dict) or not isinstance(task_2, dict):
+                report.add("error", "WRITING_REFERENCE_TASKS_MISSING", path,
+                           "Writing Insight must contain Task 1 and Task 2 references.")
+                continue
+            for task_name, task in (("Task 1", task_1), ("Task 2", task_2)):
+                models = task.get("model_answers")
+                bands = {
+                    str(model.get("band") or "")
+                    for model in models if isinstance(model, dict)
+                } if isinstance(models, list) else set()
+                if bands != {"7.0", "8.0"}:
+                    report.add("error", "WRITING_MODEL_REFERENCES_INCOMPLETE", path,
+                               f"{task_name} needs authored Band 7.0 and Band 8.0 references.")
+            illustration_exts = {
+                Path(str(ref)).suffix.lower()
+                for ref in task_1.get("illustrations") or []
+            }
+            if not {".svg", ".png"} <= illustration_exts:
+                report.add("error", "WRITING_TASK1_ARTWORK_INCOMPLETE", path,
+                           "Task 1 needs both SVG and PNG illustration references.")
+            idea_sections = task_2.get("idea_sections")
+            if not isinstance(idea_sections, list) or len(idea_sections) < 12:
+                report.add("error", "WRITING_TASK2_IDEAS_INCOMPLETE", path,
+                           "Task 2 needs all 12 authored idea-bank sections.")
 
     if is_core_lesson and len(speaking) != 1:
         report.add("error", "SPEAKING_ACTIVITY_COUNT", path,

@@ -12,6 +12,7 @@ import re
 import shutil
 import tempfile
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -24,7 +25,7 @@ from docx.table import Table, _Cell
 from docx.text.paragraph import Paragraph
 
 
-CONVERTER_VERSION = "2.2.0"
+CONVERTER_VERSION = "2.3.0"
 DEFAULT_COMMON_ERROR_OVERRIDES = (
     Path(__file__).resolve().parent.parent
     / "data"
@@ -60,6 +61,9 @@ class BuildPaths:
     listening_json: Path
     audio_dir: Path
     wt1_assets: tuple[Path, ...]
+    wt1_question_bank: Path
+    wt2_question_bank: Path
+    wt2_idea_bank: Path
 
 
 def _canonical_json(value: Any) -> bytes:
@@ -190,6 +194,12 @@ def extract_docx_blocks(path: Path) -> list[dict[str, Any]]:
     return blocks
 
 
+@lru_cache(maxsize=4)
+def _extract_shared_docx_blocks(path: Path) -> tuple[dict[str, Any], ...]:
+    """Parse shared course-wide banks once per package build process."""
+    return tuple(extract_docx_blocks(path))
+
+
 def split_topic_sections(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     sections: list[dict[str, Any]] = []
     current = {"section_id": "preface", "title": "Preface", "blocks": []}
@@ -236,7 +246,96 @@ def _matching_groups(section: dict[str, Any], patterns: tuple[str, ...]) -> list
     ]
 
 
-def build_writing_reference(sections: list[dict[str, Any]]) -> dict[str, Any]:
+def _writing_topic_slice(
+    blocks: list[dict[str, Any]], topic_code: str,
+) -> tuple[str, list[dict[str, Any]]]:
+    """Return one Txx entry from a shared Writing bank."""
+    topic_pattern = re.compile(rf"^{re.escape(topic_code)}\b", re.IGNORECASE)
+    any_topic_pattern = re.compile(r"^T\d{2}\b", re.IGNORECASE)
+    title = ""
+    selected: list[dict[str, Any]] = []
+    collecting = False
+    for block in blocks:
+        text = str(block.get("text") or "").strip()
+        is_topic = block.get("type") == "heading" and any_topic_pattern.search(text)
+        if is_topic and topic_pattern.search(text):
+            title = text
+            collecting = True
+            continue
+        if collecting and is_topic:
+            break
+        if collecting:
+            selected.append(block)
+    if not title or not selected:
+        raise ValueError(f"Writing bank entry missing for {topic_code}")
+    return title, selected
+
+
+def _writing_question_bank_entry(
+    blocks: list[dict[str, Any]], topic_code: str,
+) -> dict[str, Any]:
+    title, topic_blocks = _writing_topic_slice(blocks, topic_code)
+    buckets: dict[str, list[dict[str, Any]]] = {
+        "prompt": [], "source_data": [], "chart_placeholder": [],
+        "model_7": [], "model_8": [], "band_comparison": [],
+    }
+    current: str | None = None
+    for block in topic_blocks:
+        text = str(block.get("text") or "").strip()
+        if re.match(r"^ĐỀ BÀI", text, re.IGNORECASE):
+            current = "prompt"
+        elif re.match(r"^BẢNG SỐ LIỆU", text, re.IGNORECASE):
+            current = "source_data"
+        elif re.match(r"^BIỂU ĐỒ", text, re.IGNORECASE):
+            current = "chart_placeholder"
+        elif re.match(r"^BÀI (?:LUẬN )?MẪU BAND\s*7", text, re.IGNORECASE):
+            current = "model_7"
+        elif re.match(r"^BÀI (?:LUẬN )?MẪU BAND\s*8", text, re.IGNORECASE):
+            current = "model_8"
+        elif re.match(r"^▸?\s*Khác biệt Band", text, re.IGNORECASE):
+            current = "band_comparison"
+        elif current is not None:
+            buckets[current].append(block)
+    if not buckets["prompt"] or not buckets["model_7"] or not buckets["model_8"]:
+        raise ValueError(f"Writing question bank entry incomplete for {topic_code}")
+    task_match = re.search(r"\[([^]]+)\]", title)
+    return {
+        "title": title,
+        "task_type": task_match.group(1) if task_match else None,
+        "prompt": buckets["prompt"],
+        "source_data": buckets["source_data"],
+        "model_answers": [
+            {"band": "7.0", "blocks": buckets["model_7"]},
+            {"band": "8.0", "blocks": buckets["model_8"]},
+        ],
+        "band_comparison": buckets["band_comparison"],
+    }
+
+
+def _writing_idea_bank_entry(
+    blocks: list[dict[str, Any]], topic_code: str,
+) -> dict[str, Any]:
+    title, topic_blocks = _writing_topic_slice(blocks, topic_code)
+    groups = _heading_groups({"blocks": topic_blocks})
+    word_bank = [group for group in groups if "WORD BANK" in str(group["heading"]).upper()]
+    idea_sections = [group for group in groups if group not in word_bank]
+    if len(idea_sections) < 12:
+        raise ValueError(
+            f"Writing idea bank entry for {topic_code} needs 12 sections; "
+            f"found {len(idea_sections)}"
+        )
+    return {"title": title, "idea_sections": idea_sections, "word_bank": word_bank}
+
+
+def build_writing_reference(
+    sections: list[dict[str, Any]],
+    *,
+    topic_code: str | None = None,
+    wt1_bank_blocks: list[dict[str, Any]] | None = None,
+    wt2_bank_blocks: list[dict[str, Any]] | None = None,
+    wt2_idea_blocks: list[dict[str, Any]] | None = None,
+    illustration_refs: list[str] | None = None,
+) -> dict[str, Any]:
     """Build learner reference material without essay/model-answer submission UI."""
     part_3 = _section(sections, "part_3")
     part_7 = _section(sections, "part_7")
@@ -268,7 +367,7 @@ def build_writing_reference(sections: list[dict[str, Any]]) -> dict[str, Any]:
     idea_map = _matching_groups(part_8, (r"ý tưởng", r"brainstorm"))
     if not idea_map:
         idea_map = [{"heading": part_3["title"], "blocks": part_3["blocks"]}]
-    return {
+    reference = {
         "purpose": "prompt_analysis_and_ideas_reference_only",
         "prompt": prompt,
         "prompt_analysis": prompt_analysis,
@@ -279,6 +378,23 @@ def build_writing_reference(sections: list[dict[str, Any]]) -> dict[str, Any]:
         "common_traps": _matching_groups(part_7, (r"chiến lược", r"trap")),
         "excluded_content": ["band_7_model_essay", "band_8_model_essay"],
     }
+    bank_inputs = (wt1_bank_blocks, wt2_bank_blocks, wt2_idea_blocks)
+    if topic_code and all(bank is not None for bank in bank_inputs):
+        task_1 = _writing_question_bank_entry(wt1_bank_blocks or [], topic_code)
+        task_2 = _writing_question_bank_entry(wt2_bank_blocks or [], topic_code)
+        idea_bank = _writing_idea_bank_entry(wt2_idea_blocks or [], topic_code)
+        task_1["illustrations"] = list(illustration_refs or [])
+        task_2.update({
+            "idea_bank_title": idea_bank["title"],
+            "idea_sections": idea_bank["idea_sections"],
+            "word_bank": idea_bank["word_bank"],
+        })
+        reference.update({
+            "tasks": {"task_1": task_1, "task_2": task_2},
+            "model_answers_visibility": "collapsed_reference",
+            "excluded_content": [],
+        })
+    return reference
 
 
 def split_assessment(blocks: list[dict[str, Any]]) -> dict[str, Any]:
@@ -484,6 +600,7 @@ def _source_paths(source_root: Path, topic_code: str) -> BuildPaths:
     wt1_assets = tuple(sorted((source_root / "Advanced/06_WT1_Illustrations").glob(
         f"{topic_code}_*.*"
     )))
+    writing_root = source_root / "Advanced/03_Writing"
     paths = BuildPaths(
         source_root=source_root,
         topic_docx=topic_matches[0],
@@ -494,6 +611,9 @@ def _source_paths(source_root: Path, topic_code: str) -> BuildPaths:
         listening_json=listening_json,
         audio_dir=audio_dir,
         wt1_assets=wt1_assets,
+        wt1_question_bank=writing_root / "WT1_Question_Bank_Advanced.docx",
+        wt2_question_bank=writing_root / "WT2_Question_Bank_Advanced.docx",
+        wt2_idea_bank=writing_root / "WT2_Idea_Bank_Advanced.docx",
     )
     required = (
         paths.topic_docx,
@@ -505,6 +625,9 @@ def _source_paths(source_root: Path, topic_code: str) -> BuildPaths:
         paths.audio_dir / "manifest.json",
         paths.audio_dir / "timings.json",
         paths.audio_dir / "full_test.mp3",
+        paths.wt1_question_bank,
+        paths.wt2_question_bank,
+        paths.wt2_idea_bank,
     )
     missing = [path for path in required if not path.is_file()]
     if missing:
@@ -800,6 +923,9 @@ def _build_lesson(
         "listening_timings": _relative(paths.audio_dir / "timings.json", paths.source_root),
         "listening_audio": _relative(paths.audio_dir / "full_test.mp3", paths.source_root),
         "wt1_illustrations": [_relative(path, paths.source_root) for path in paths.wt1_assets],
+        "wt1_question_bank": _relative(paths.wt1_question_bank, paths.source_root),
+        "wt2_question_bank": _relative(paths.wt2_question_bank, paths.source_root),
+        "wt2_idea_bank": _relative(paths.wt2_idea_bank, paths.source_root),
     }
     checksum_paths = (
         paths.topic_docx,
@@ -812,6 +938,9 @@ def _build_lesson(
         paths.audio_dir / "timings.json",
         paths.audio_dir / "full_test.mp3",
         *paths.wt1_assets,
+        paths.wt1_question_bank,
+        paths.wt2_question_bank,
+        paths.wt2_idea_bank,
     )
     source_checksums = {
         _relative(path, paths.source_root): _sha256_file(path)
@@ -830,7 +959,7 @@ def _build_lesson(
     )
     lesson: dict[str, Any] = {
         "schema_version": "2.0.0",
-        "package_version": "2.2.0",
+        "package_version": "2.3.0",
         "package_type": "advanced_vocabulary_lesson",
         "lesson_id": lesson_id,
         "course_id": "ADV-VOCAB",
@@ -919,7 +1048,14 @@ def _build_lesson(
                 "reveal_policy": "always",
                 "submittable": False,
                 "teacher_assignment_required_for_grading": True,
-                "content": build_writing_reference(sections),
+                "content": build_writing_reference(
+                    sections,
+                    topic_code=topic_code,
+                    wt1_bank_blocks=list(_extract_shared_docx_blocks(paths.wt1_question_bank)),
+                    wt2_bank_blocks=list(_extract_shared_docx_blocks(paths.wt2_question_bank)),
+                    wt2_idea_blocks=list(_extract_shared_docx_blocks(paths.wt2_idea_bank)),
+                    illustration_refs=illustration_refs,
+                ),
             },
             {
                 "activity_id": f"{lesson_id}__speaking_practice",
@@ -1086,7 +1222,7 @@ def _build_package_contents(
 
     manifest = {
         "schema_version": "2.0.0",
-        "package_version": "2.2.0",
+        "package_version": "2.3.0",
         "course_id": "ADV-VOCAB",
         "title": "Advanced Vocabulary Self-paced Course",
         "audience": "assigned_only",

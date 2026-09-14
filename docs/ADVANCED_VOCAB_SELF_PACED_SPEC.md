@@ -106,7 +106,23 @@ Required contract:
     "outline": [],
     "useful_language": [],
     "annotated_examples": [],
-    "common_traps": []
+    "common_traps": [],
+    "tasks": {
+      "task_1": {
+        "prompt": [],
+        "source_data": [],
+        "illustrations": [],
+        "model_answers": [],
+        "band_comparison": []
+      },
+      "task_2": {
+        "prompt": [],
+        "idea_sections": [],
+        "word_bank": [],
+        "model_answers": [],
+        "band_comparison": []
+      }
+    }
   }
 }
 ```
@@ -119,6 +135,16 @@ If a related teacher assignment exists, the lesson may show a separate link:
 `Mở bài Writing giáo viên đã giao`. The link targets the existing assignment;
 it does not embed the submission in the lesson and does not change lesson
 completion.
+
+The canonical Writing references come from
+`Advanced/03_Writing/WT1_Question_Bank_Advanced.docx`,
+`WT2_Question_Bank_Advanced.docx` and `WT2_Idea_Bank_Advanced.docx`.
+Each topic may expose the authored Band 7 and Band 8 model answers as collapsed,
+read-only reference panels. Their labels describe the source material; they do
+not constitute a learner score or a promise that copying Band 8 complexity will
+improve a submission. Task 1 uses the matching SVG illustration as the primary
+chart, with the rendered PNG retained as a fallback. Both assets remain tied to
+the source checksums.
 
 ### 4.2 Speaking Lab
 
