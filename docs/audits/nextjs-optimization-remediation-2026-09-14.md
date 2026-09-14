@@ -256,9 +256,8 @@ Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 2. Writing dashboard and course behavior remain imperative parity ports. The
    large Reading/Listening/mock renderers are not automatically defects because
    their state machines are already extracted and tested.
-3. The app has root error/not-found ownership but only one route-level loading
-   boundary, so slower uncached workspaces do not consistently expose streaming
-   feedback.
+3. The app has broad inline Suspense coverage and explicit client read states,
+   but the uncached Grammar article route still uses a blank segment fallback.
 4. Browser journey coverage is meaningful, but the unit-test pyramid is still
    dominated by source-shape assertions rather than rendered React interaction.
 
@@ -283,12 +282,21 @@ Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 
 ### P1 — Add streaming UX where latency is real
 
-- Measure request latency first, then add segment `loading.tsx`/Suspense
-  boundaries to the slow public catalogue and admin data workspaces. Preserve
-  current client-only pages where a server boundary cannot reveal useful UI
-  earlier.
-- Verify keyboard focus, back/forward behavior and skeleton layout stability in
-  desktop/mobile browser runs.
+- Revalidation found that the public catalogue already streams its canonical
+  Server Component read, while more than 30 query/param workspaces have inline
+  Suspense fallbacks and client-fetched admin pages expose explicit auth/data
+  read states. Adding segment files to those client pages would not reveal their
+  canonical data earlier and is rejected as a false-positive optimization.
+- Replace the one real blank state—the uncached Grammar article segment—with a
+  stable article/TOC skeleton, then verify the status announcement and layout on
+  desktop/mobile. Add more boundaries only when production latency evidence
+  identifies a server-owned route with an unrepresented wait.
+- **Status:** completed locally in Wave G. The segment now streams an accessible
+  article/TOC skeleton instead of a blank document. A delayed canonical fixture
+  proved the fallback at 390×844 and 1440×900 with no horizontal overflow,
+  a hidden mobile TOC rail and a 760px desktop reading column (8/8 browser
+  checks). TypeScript, all 9,078 frontend contracts and the 141-route production
+  build pass. No client-only admin route received a cosmetic segment fallback.
 
 ### P2 — Retire the two remaining high-risk parity ports
 

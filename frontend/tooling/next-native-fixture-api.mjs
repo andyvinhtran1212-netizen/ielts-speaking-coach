@@ -5,6 +5,7 @@ import { createServer } from 'node:http';
 
 const HOST = '127.0.0.1';
 const PORT = Number.parseInt(process.env.NEXT_NATIVE_FIXTURE_PORT || '3999', 10);
+const GRAMMAR_DELAY_MS = Math.max(0, Number.parseInt(process.env.NEXT_NATIVE_GRAMMAR_DELAY_MS || '0', 10) || 0);
 
 const summaries = [
   { slug: 'academic-growth', category: 'education', headword: 'academic growth', level: 'B2', part_of_speech: 'noun phrase', pronunciation: '', gloss_vi: 'sự tiến bộ học thuật', audio_headword: '' },
@@ -70,7 +71,40 @@ function article(category, slug) {
   };
 }
 
-const server = createServer((request, response) => {
+function grammarArticle(category, slug) {
+  if (category !== 'tenses' || slug !== 'present-simple') return null;
+  return {
+    slug,
+    category,
+    title: 'Present Simple',
+    summary: 'Fixture article for streamed loading verification.',
+    level: 'A2',
+    difficulty: 'beginner',
+    band_relevance: ['5.0+'],
+    speaking_relevance: 'Use it for habits and facts.',
+    writing_relevance: 'Use it for general statements.',
+    pathways: ['foundation'],
+    common_error_tags: [],
+    tags: ['tenses'],
+    order: 1,
+    reading_time: 4,
+    last_updated: '2026-09-14',
+    status: 'complete',
+    html: '<h2 id="overview">Overview</h2><p>The present simple describes habits and facts.</p>',
+    word_count: 12,
+    toc: [{ id: 'overview', name: 'Overview', depth: 2 }],
+    anchors: [{ id: 'overview', location: 'Overview', type: 'heading' }],
+    learning_blocks: [],
+    prerequisites: [],
+    compare_with: [],
+    related_pages: [],
+    next_articles: [],
+    prev_article: null,
+    next_article: null,
+  };
+}
+
+const server = createServer(async (request, response) => {
   const url = new URL(request.url || '/', `http://${HOST}:${PORT}`);
   response.setHeader('content-type', 'application/json; charset=utf-8');
   response.setHeader('cache-control', 'no-store');
@@ -90,6 +124,13 @@ const server = createServer((request, response) => {
   const match = url.pathname.match(/^\/api\/vocabulary\/articles\/([^/]+)\/([^/]+)$/);
   if (request.method === 'GET' && match) {
     const value = article(decodeURIComponent(match[1]), decodeURIComponent(match[2]));
+    response.writeHead(value ? 200 : 404).end(JSON.stringify(value || { detail: 'Not found' }));
+    return;
+  }
+  const grammarMatch = url.pathname.match(/^\/api\/grammar\/article\/([^/]+)\/([^/]+)$/);
+  if (request.method === 'GET' && grammarMatch) {
+    const value = grammarArticle(decodeURIComponent(grammarMatch[1]), decodeURIComponent(grammarMatch[2]));
+    if (GRAMMAR_DELAY_MS) await new Promise((resolve) => setTimeout(resolve, GRAMMAR_DELAY_MS));
     response.writeHead(value ? 200 : 404).end(JSON.stringify(value || { detail: 'Not found' }));
     return;
   }
