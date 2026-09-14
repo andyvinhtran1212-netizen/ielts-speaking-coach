@@ -42,14 +42,14 @@ def test_b05_content_has_exactly_fifteen_ordered_british_shadowing_sentences():
     assert data["playback_rates"] == [0.85, 1.0]
     assert [row["order"] for row in data["sentences"]] == list(range(1, 16))
     assert [row["id"] for row in data["sentences"]] == [
-        f"C1-B05-PRON-V2-{order:02d}" for order in range(1, 16)
+        f"C1-B05-PRON-V3-{order:02d}" for order in range(1, 16)
     ]
     assert len({row["id"] for row in data["sentences"]}) == 15
     assert data["sentences"][0]["text"] == (
-        "The old wooden bridge in our small village is narrower than the new concrete one."
+        "Air quality in rural areas is much better than that in industrial zones."
     )
     assert data["sentences"][-1]["text"] == (
-        "My grandfather’s old radio still works better than the cheap new one from the market."
+        "The bikes made in Vietnam are more expensive than the bikes from China."
     )
 
 

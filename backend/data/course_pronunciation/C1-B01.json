@@ -1,0 +1,108 @@
+{
+  "bank_code": "C1-B01",
+  "requirement_id": "TM20-B01-PHAT-AM",
+  "role": "bài luyện phát âm — nghe và nhắc lại",
+  "title": "Phát âm & Shadowing — Bộ khung câu",
+  "locale": "en-GB",
+  "provider": "azure",
+  "voice_engine": "kokoro",
+  "voice": "bf_emma",
+  "playback_rates": [
+    0.85,
+    1.0
+  ],
+  "source_document": "Giao-trinh-ngu-phap-nen-IELTS_20-buoi-v2.docx",
+  "selection_seed": 20260914,
+  "sentences": [
+    {
+      "id": "C1-B01-PRON-V1-01",
+      "order": 1,
+      "source_section": "SV/SVO",
+      "text": "The researchers published their findings in a journal."
+    },
+    {
+      "id": "C1-B01-PRON-V1-02",
+      "order": 2,
+      "source_section": "SVC",
+      "text": "He became a successful entrepreneur after graduation."
+    },
+    {
+      "id": "C1-B01-PRON-V1-03",
+      "order": 3,
+      "source_section": "SVOO",
+      "text": "I bought my mother a beautiful bouquet of flowers."
+    },
+    {
+      "id": "C1-B01-PRON-V1-04",
+      "order": 4,
+      "source_section": "word form",
+      "text": "The government announced a new regulation last week."
+    },
+    {
+      "id": "C1-B01-PRON-V1-05",
+      "order": 5,
+      "source_section": "sentence expansion",
+      "text": "Air quality is a serious problem for the city."
+    },
+    {
+      "id": "C1-B01-PRON-V1-06",
+      "order": 6,
+      "source_section": "sentence expansion",
+      "text": "The tall man ran quickly along the beach."
+    },
+    {
+      "id": "C1-B01-PRON-V1-07",
+      "order": 7,
+      "source_section": "sentence expansion",
+      "text": "The small children played happily in the park."
+    },
+    {
+      "id": "C1-B01-PRON-V1-08",
+      "order": 8,
+      "source_section": "SVOO",
+      "text": "Traffic congestion costs the city millions of dollars."
+    },
+    {
+      "id": "C1-B01-PRON-V1-09",
+      "order": 9,
+      "source_section": "SVOC",
+      "text": "The new policy made local residents angry."
+    },
+    {
+      "id": "C1-B01-PRON-V1-10",
+      "order": 10,
+      "source_section": "SV",
+      "text": "Sea levels rise slowly along the coast."
+    },
+    {
+      "id": "C1-B01-PRON-V1-11",
+      "order": 11,
+      "source_section": "SVOC",
+      "text": "The company found the new software efficient."
+    },
+    {
+      "id": "C1-B01-PRON-V1-12",
+      "order": 12,
+      "source_section": "sentence expansion",
+      "text": "The diligent student studied very hard in the library."
+    },
+    {
+      "id": "C1-B01-PRON-V1-13",
+      "order": 13,
+      "source_section": "SV",
+      "text": "Housing prices rose sharply in big cities."
+    },
+    {
+      "id": "C1-B01-PRON-V1-14",
+      "order": 14,
+      "source_section": "SVOO",
+      "text": "My company gives new staff a free lunch."
+    },
+    {
+      "id": "C1-B01-PRON-V1-15",
+      "order": 15,
+      "source_section": "SVOC",
+      "text": "They elected him president of the club."
+    }
+  ]
+}

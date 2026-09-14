@@ -1,0 +1,108 @@
+{
+  "bank_code": "C1-B03",
+  "requirement_id": "TM20-B03-PHAT-AM",
+  "role": "bài luyện phát âm — nghe và nhắc lại",
+  "title": "Phát âm & Shadowing — Mạo từ, định từ và đại từ",
+  "locale": "en-GB",
+  "provider": "azure",
+  "voice_engine": "kokoro",
+  "voice": "bf_emma",
+  "playback_rates": [
+    0.85,
+    1.0
+  ],
+  "source_document": "Giao-trinh-ngu-phap-nen-IELTS_20-buoi-v2.docx",
+  "selection_seed": 20260914,
+  "sentences": [
+    {
+      "id": "C1-B03-PRON-V1-01",
+      "order": 1,
+      "source_section": "the and zero article",
+      "text": "The government invests heavily in public transport."
+    },
+    {
+      "id": "C1-B03-PRON-V1-02",
+      "order": 2,
+      "source_section": "the with postmodification",
+      "text": "The number of international students rose sharply after 2010."
+    },
+    {
+      "id": "C1-B03-PRON-V1-03",
+      "order": 3,
+      "source_section": "the plus adjective",
+      "text": "The elderly often struggle with new technology."
+    },
+    {
+      "id": "C1-B03-PRON-V1-04",
+      "order": 4,
+      "source_section": "a and an",
+      "text": "She works as an engineer for a company in Hanoi."
+    },
+    {
+      "id": "C1-B03-PRON-V1-05",
+      "order": 5,
+      "source_section": "zero and definite articles",
+      "text": "Pollution in the Mekong Delta is now a serious problem."
+    },
+    {
+      "id": "C1-B03-PRON-V1-06",
+      "order": 6,
+      "source_section": "superlative article",
+      "text": "Education is the most powerful tool for reducing poverty."
+    },
+    {
+      "id": "C1-B03-PRON-V1-07",
+      "order": 7,
+      "source_section": "fixed transport expression",
+      "text": "I take the bus to work, but the bus I take is always crowded."
+    },
+    {
+      "id": "C1-B03-PRON-V1-08",
+      "order": 8,
+      "source_section": "zero article for general nouns",
+      "text": "Research shows that children learn languages quickly."
+    },
+    {
+      "id": "C1-B03-PRON-V1-09",
+      "order": 9,
+      "source_section": "article before one",
+      "text": "The solution to traffic congestion is not an easy one."
+    },
+    {
+      "id": "C1-B03-PRON-V1-10",
+      "order": 10,
+      "source_section": "definite and indefinite articles",
+      "text": "The unemployment rate fell to the lowest level in a decade."
+    },
+    {
+      "id": "C1-B03-PRON-V1-11",
+      "order": 11,
+      "source_section": "the with of phrase",
+      "text": "The problem of air pollution is very serious in my city."
+    },
+    {
+      "id": "C1-B03-PRON-V1-12",
+      "order": 12,
+      "source_section": "possessive determiner",
+      "text": "Their office is on the third floor."
+    },
+    {
+      "id": "C1-B03-PRON-V1-13",
+      "order": 13,
+      "source_section": "a and zero article",
+      "text": "She is a university student and she goes to school by bus."
+    },
+    {
+      "id": "C1-B03-PRON-V1-14",
+      "order": 14,
+      "source_section": "proper noun and articles",
+      "text": "We visited Vietnam last year and stayed at a hotel near the beach."
+    },
+    {
+      "id": "C1-B03-PRON-V1-15",
+      "order": 15,
+      "source_section": "determiners in context",
+      "text": "The dogs in my street bark all night."
+    }
+  ]
+}
