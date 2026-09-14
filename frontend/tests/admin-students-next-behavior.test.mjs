@@ -38,7 +38,7 @@ describe('/admin/students — native directory ownership', () => {
 
   test('loads canonical contracts and reconciles every write', () => {
     assert.match(DIRECTORY, /\/admin\/students\?limit=\$\{LIMIT\}/);
-    assert.match(DIRECTORY, /'\/admin\/cohorts\?is_active=true'/);
+    assert.match(DIRECTORY, /getAdminCohorts\(\{ isActive: true \}\)/);
     assert.match(DIRECTORY, /await canonicalReload/);
     assert.match(DIRECTORY, /\/students\/bulk/);
     assert.match(DIRECTORY, /setSelected\(new Set\(\)\);\s*setBulkCohort\(''\);\s*await canonicalReload/);

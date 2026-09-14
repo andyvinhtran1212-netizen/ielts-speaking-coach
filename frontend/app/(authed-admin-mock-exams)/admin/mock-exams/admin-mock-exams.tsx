@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
+import { getAdminCohorts } from '@/lib/admin-cohorts-api';
 import { messageOf } from '@/components/admin-directory-ui';
 import {
   nextExamSection,
@@ -98,13 +99,13 @@ export function AdminMockExams() {
     setExams([]); setProgress({}); setNotice(null); setExamContractWarning(null); setPickerWarning(null); setAssignmentExam(null);
     (async () => {
       const specs = [
-        ['Reading', '/admin/mock-exams/reading-tests', ['items', 'tests'], setReadings],
-        ['Listening', '/admin/listening/tests?limit=100&status=published&test_type=exam', ['items', 'tests'], setListenings],
-        ['Writing', '/admin/writing/prompts', ['items', 'prompts'], setPrompts],
-        ['Lớp', '/admin/cohorts?is_active=true', ['items', 'cohorts'], setCohorts],
+        ['Reading', () => window.api.get<unknown>('/admin/mock-exams/reading-tests'), ['items', 'tests'], setReadings],
+        ['Listening', () => window.api.get<unknown>('/admin/listening/tests?limit=100&status=published&test_type=exam'), ['items', 'tests'], setListenings],
+        ['Writing', () => window.api.get<unknown>('/admin/writing/prompts'), ['items', 'prompts'], setPrompts],
+        ['Lớp', () => getAdminCohorts({ isActive: true }), ['items', 'cohorts'], setCohorts],
       ] as const;
-      const results = await Promise.allSettled(specs.map(async ([label, path, keys, setter]) => {
-        const rows = normalizePickerList(await window.api.get<unknown>(path), [...keys]);
+      const results = await Promise.allSettled(specs.map(async ([label, load, keys, setter]) => {
+        const rows = normalizePickerList(await load(), [...keys]);
         if (!rows) throw new Error(`${label} sai contract`);
         return { label, rows: rows as Picker[], setter };
       }));

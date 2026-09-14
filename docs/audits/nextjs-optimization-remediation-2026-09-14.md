@@ -19,6 +19,30 @@ fixtures are not deployable application routes.
 - Only one route-level `loading.tsx`; global, route and not-found boundaries exist.
 - 520 frontend unit tests, of which 477 inspect source text; no TSX component test.
 
+## Revalidated local evidence after remediation
+
+- Next 16.3.4 with Cache Components builds all 141 App Router routes; the route
+  manifest includes static, Partial Prerendered and request-time routes instead
+  of forcing one rendering mode across the product.
+- Literal internal anchors in `frontend/app/**/*.tsx` fell from 208 to 138. The
+  remainder is not a zero-count target: active-exam exits, downloads, external
+  targets and affinity-sensitive launches retain hard browser navigation.
+- Ten application modules now derive wire shapes from generated OpenAPI types.
+  `window.api` is still referenced by 129 TS/TSX modules, but that file count is
+  not a completion metric: several migrated screens keep the bridge only for
+  mutations while their high-volume reads already use typed adapters.
+- The full frontend contract suite passes 9,085/9,085; the rendered React suite
+  passes 3/3; the current cohort response/service slice passes 18/18. Production
+  build and TypeScript checks pass.
+- A backend-less local build logs one handled `ECONNREFUSED` while prerendering
+  public data, then successfully emits all 141 routes. This is expected from the
+  streaming/error-boundary design locally, but staging still has to prove the
+  real compressed Vocabulary payload and content-triggered cache refresh.
+- Zero `next/image` imports and only one segment `loading.tsx` are not defects by
+  themselves. The current product has many client-fetched authenticated states,
+  inline Suspense boundaries and media/test surfaces where blanket conversion
+  would add indirection without improving the user-visible critical path.
+
 ## Finding register and execution order
 
 ### NXT-01 — Vocabulary catalogue over-serialization
@@ -165,7 +189,12 @@ fixtures are not deployable application routes.
   generated-type adapter. Cohorts remain on the compatibility bridge until its
   picker/rollup union is modeled without response-field stripping. Backend
   contract coverage passes 17/17, frontend source coverage 16/16 and the full
-  mutation/reconciliation browser journey 28/28.
+  mutation/reconciliation browser journey 28/28. Wave C9 then models the shared
+  `/admin/cohorts` picker/rollup union as one strict superset while preserving
+  the smaller picker response via `response_model_exclude_unset`. Five native
+  consumers—Users, Students, Classes, Writing Queue and Mock Exams—now share the
+  generated adapter. Backend model/service tests pass 18/18, consumer contracts
+  55/55 and their five browser journeys 87/87. No mutation path changed.
 
 ### NXT-05 — Large imperative Client Components remain parity ports
 
@@ -291,9 +320,10 @@ Vocabulary content has a tagged invalidation design.
 
 Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 
-1. Vocabulary, public Grammar, the shared auth spine, learner Speaking sessions
-   and admin Speaking session operations consume generated OpenAPI types; other
-   admin domains still rely substantially on the compatibility API bridge.
+1. Vocabulary, public Grammar, the shared auth spine, learner Speaking sessions,
+   admin Speaking operations, Admin Overview, Admin Users/access codes and the
+   shared cohort picker/rollup consume generated OpenAPI types. Other admin
+   domains still rely substantially on the compatibility API bridge.
 2. Large renderers still preserve some imperative parity code, but measured
    route bundles are small and their critical state machines/write paths are
    extracted and tested. Remaining conversions are maintainability work, not a
@@ -323,8 +353,9 @@ Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 - Migrate callers away from `window.api` only after each adapter has runtime
   normalization and account-switch tests. Do not attempt a repository-wide
   replacement.
-- Next candidate: model the `/admin/cohorts` picker/rollup union as a superset,
-  then move the shared class picker without stripping rollup-only fields.
+- Next candidate: use the same bounded pattern for a domain whose backend read
+  shape is already stable; do not type dynamic mutation paths merely to reduce
+  the compatibility-bridge count.
 
 ### P1 — Add streaming UX where latency is real
 

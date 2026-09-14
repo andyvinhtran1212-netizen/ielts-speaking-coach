@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
+import { getAdminCohorts } from '@/lib/admin-cohorts-api';
 import { Dialog, messageOf, StatusBanner } from '@/components/admin-directory-ui';
 import {
   isWritingEssayOverdue,
@@ -135,7 +136,7 @@ export function AdminWritingQueue() {
     const requestId = ++cohortSequence.current;
     setCohortError(null);
     try {
-      const normalized = normalizeWritingQueueCohorts(await window.api.get<unknown>('/admin/cohorts?is_active=true')) as { rows: QueueCohort[]; malformedCount: number } | null;
+      const normalized = normalizeWritingQueueCohorts(await getAdminCohorts({ isActive: true })) as { rows: QueueCohort[]; malformedCount: number } | null;
       if (requestId !== cohortSequence.current || profileId.current !== account) return;
       if (!normalized) throw new Error('Danh sách lớp không đúng định dạng.');
       setCohortSnapshot({ account, rows: normalized.rows, malformed: normalized.malformedCount });

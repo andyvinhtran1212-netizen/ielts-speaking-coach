@@ -11648,6 +11648,47 @@ export interface components {
             /** Action */
             action: string;
         };
+        /** AdminCohortListOut */
+        AdminCohortListOut: {
+            /** Cohorts */
+            cohorts: components["schemas"]["AdminCohortOut"][];
+            /** Rollup Failed */
+            rollup_failed?: boolean | null;
+            /** Course Lookup Failed */
+            course_lookup_failed?: boolean | null;
+        };
+        /** AdminCohortOut */
+        AdminCohortOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Code Prefix */
+            code_prefix?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Is Active */
+            is_active: boolean;
+            /** Created By */
+            created_by?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Course Id */
+            course_id?: string | null;
+            course?: components["schemas"]["CohortCourseOut"] | null;
+            /** Member Count */
+            member_count?: number | null;
+            /** Unactivated Count */
+            unactivated_count?: number | null;
+        };
         /** AdminErrorOverviewOut */
         AdminErrorOverviewOut: {
             /** Undismissed */
@@ -12743,6 +12784,19 @@ export interface components {
             count: number;
             /** Grants Role */
             grants_role?: string | null;
+        };
+        /** CohortCourseOut */
+        CohortCourseOut: {
+            /** Id */
+            id: string;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Sort Order */
+            sort_order: number;
+            /** Is Active */
+            is_active: boolean;
         };
         /** CohortCreateRequest */
         CohortCreateRequest: {
@@ -19403,7 +19457,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminCohortListOut"];
                 };
             };
             /** @description Validation Error */

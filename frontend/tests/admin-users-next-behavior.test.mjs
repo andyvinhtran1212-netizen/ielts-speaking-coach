@@ -84,7 +84,7 @@ describe('/admin/users — canonical behavior', () => {
     assert.match(API, /getBrowserJson\('\/admin\/users'\)/);
     assert.match(API, /getBrowserJson\('\/admin\/access-codes'\)/);
     assert.match(USERS, /getAdminUsers\(\)/);
-    assert.match(SHELL, /\/admin\/cohorts\?is_active=true/);
+    assert.match(SHELL, /getAdminCohorts\(\{ isActive: true \}\)/);
     assert.match(CODES, /getAdminAccessCodes\(\)/);
     assert.match(OPENAPI, /"application\/json": components\["schemas"\]\["AdminUserDirectoryRowOut"\]\[\]/);
     assert.doesNotMatch(USERS, /window\.api\.get/);

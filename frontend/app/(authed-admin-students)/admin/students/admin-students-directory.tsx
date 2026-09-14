@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
+import { getAdminCohorts } from '@/lib/admin-cohorts-api';
 import { Dialog, Field, messageOf, StatusBanner } from '@/components/admin-directory-ui';
 import { assignmentHref } from '@/lib/admin-writing-assignments-model.mjs';
 import {
@@ -156,7 +157,7 @@ export function AdminStudentsDirectory() {
   const loadCohorts = useCallback(async () => {
     setCohortError(null);
     try {
-      setCohorts(normalizeCohortPicker(await window.api.get<unknown>('/admin/cohorts?is_active=true')) as CohortOption[]);
+      setCohorts(normalizeCohortPicker(await getAdminCohorts({ isActive: true })) as CohortOption[]);
       return true;
     } catch (caught) {
       setCohortError(messageOf(caught));
