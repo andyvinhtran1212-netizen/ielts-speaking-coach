@@ -55,6 +55,21 @@ def _lesson(lesson_id: str) -> dict:
         "activities": [
             _activity(f"{lesson_id}-learn", "adaptive_practice"),
             _activity(
+                f"{lesson_id}-reading", "reading_lab",
+                content={
+                    "passages": [{"paragraph": "A", "text": "Passage"}],
+                    "questions": [
+                        {"question_number": i, "question_type": "Summary Completion",
+                         "stem": f"Question {i}", "options": []}
+                        for i in range(1, 14)
+                    ],
+                    "solutions": {
+                        str(i): {"answer": f"answer-{i}", "evidence": "Evidence"}
+                        for i in range(1, 14)
+                    },
+                },
+            ),
+            _activity(
                 f"{lesson_id}-listening", "listening_lab",
                 content={
                     "questions": [
@@ -331,6 +346,23 @@ def test_listening_requires_six_questions_and_approved_media(tmp_path: Path):
     report = validate_package(tmp_path)
     assert "LISTENING_QUESTION_COUNT" in _codes(report)
     assert "LISTENING_MEDIA_NOT_APPROVED" in {i.code for i in report.warnings}
+
+
+def test_reading_requires_thirteen_questions_and_no_answer_leak(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    reading = next(a for a in lesson["activities"] if a["activity_type"] == "reading_lab")
+    reading["content"]["questions"] = reading["content"]["questions"][:12]
+    reading["content"]["solutions"] = {
+        key: value for key, value in reading["content"]["solutions"].items()
+        if int(key) <= 12
+    }
+    reading["content"]["questions"][0]["answer"] = "leaked"
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+    assert {"READING_QUESTION_COUNT", "READING_ANSWER_LEAK"} <= _codes(report)
 
 
 def test_warning_prevents_publish_ready_without_invalidating_schema(tmp_path: Path):

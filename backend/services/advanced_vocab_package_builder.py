@@ -24,7 +24,7 @@ from docx.table import Table, _Cell
 from docx.text.paragraph import Paragraph
 
 
-CONVERTER_VERSION = "2.1.0"
+CONVERTER_VERSION = "2.2.0"
 DEFAULT_COMMON_ERROR_OVERRIDES = (
     Path(__file__).resolve().parent.parent
     / "data"
@@ -56,6 +56,7 @@ class BuildPaths:
     assessment_docx: Path
     vocab_cards: tuple[Path, ...]
     quickcheck: Path
+    reading_json: Path
     listening_json: Path
     audio_dir: Path
     wt1_assets: tuple[Path, ...]
@@ -298,6 +299,53 @@ def split_assessment(blocks: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def sanitize_reading_source(source: dict[str, Any]) -> dict[str, Any]:
+    """Split the authored Reading lesson into learner material and solutions."""
+    passages = [dict(passage) for passage in source.get("passages") or []]
+    questions: list[dict[str, Any]] = []
+    solutions: dict[str, dict[str, Any]] = {}
+    seen: set[str] = set()
+
+    for source_item in source.get("items") or []:
+        if not isinstance(source_item, dict):
+            raise ValueError("Reading item must be an object")
+        qnum = str(source_item.get("question_number") or "")
+        if not qnum or qnum in seen:
+            raise ValueError(f"Reading item has missing/duplicate question_number={qnum!r}")
+        seen.add(qnum)
+        question = {
+            key: value
+            for key, value in source_item.items()
+            if key not in {
+                "answer", "answer_code", "answer_label", "evidence",
+                "distractor_analysis", "trap_analysis",
+            }
+        }
+        questions.append(question)
+        solutions[qnum] = {
+            key: source_item.get(key)
+            for key in (
+                "answer", "answer_code", "answer_label", "evidence",
+                "distractor_analysis", "trap_analysis",
+            )
+            if source_item.get(key) is not None
+        }
+
+    if not passages or not questions:
+        raise ValueError("Reading source must contain passages and questions")
+    return {
+        "test_id": source.get("test_id"),
+        "title": source.get("title"),
+        "module": source.get("module"),
+        "target_band": source.get("target_band"),
+        "passages": passages,
+        "question_material": list(source.get("question_material") or []),
+        "questions": questions,
+        "solutions": solutions,
+        "solutions_visibility": "after_attempt",
+    }
+
+
 def sanitize_listening_source(
     source: dict[str, Any],
     timings: dict[str, Any],
@@ -419,6 +467,12 @@ def _source_paths(source_root: Path, topic_code: str) -> BuildPaths:
         for group in "ABC"
     )
     quickcheck = source_root / "Vocab_Quiz/Advanced_banks" / f"{topic_code}_QuickCheck.md"
+    reading_json = (
+        source_root
+        / "_CORRECTED/Advanced/03_Listening_Reading_v2/Reading_Lessons_Web"
+        / "Source_JSON"
+        / f"VOC-ADV-RDG-LSN-{topic_code}.json"
+    )
     listening_root = (
         source_root
         / "_CORRECTED/Advanced/03_Listening_Reading_v2/Listening_Lessons_Web"
@@ -436,6 +490,7 @@ def _source_paths(source_root: Path, topic_code: str) -> BuildPaths:
         assessment_docx=assessment,
         vocab_cards=vocab_cards,
         quickcheck=quickcheck,
+        reading_json=reading_json,
         listening_json=listening_json,
         audio_dir=audio_dir,
         wt1_assets=wt1_assets,
@@ -445,6 +500,7 @@ def _source_paths(source_root: Path, topic_code: str) -> BuildPaths:
         paths.assessment_docx,
         *paths.vocab_cards,
         paths.quickcheck,
+        paths.reading_json,
         paths.listening_json,
         paths.audio_dir / "manifest.json",
         paths.audio_dir / "timings.json",
@@ -650,7 +706,13 @@ def _extract_objectives(part_0: dict[str, Any]) -> list[str]:
         if collecting and block.get("type") == "heading":
             break
         if collecting and block.get("type") in {"list_item", "paragraph"} and text:
-            objectives.append(text)
+            if re.search(r"\b(?:writing|essay|bài luận)\b", text, re.IGNORECASE):
+                text = (
+                    "Phân tích đề Writing và tham khảo ý tưởng, dàn bài, "
+                    "ngôn ngữ hữu ích trước khi làm assignment do giáo viên giao"
+                )
+            if text not in objectives:
+                objectives.append(text)
     return objectives
 
 
@@ -703,6 +765,8 @@ def _build_lesson(
         applied_override_ids,
     )
     adaptive_quiz = _load_quiz(paths.quickcheck, lesson_id, headword_ids)
+    reading_source = json.loads(paths.reading_json.read_text(encoding="utf-8"))
+    reading = sanitize_reading_source(reading_source)
     listening_source = json.loads(paths.listening_json.read_text(encoding="utf-8"))
     audio_manifest, timings, audio_status, media_approval = _audio_metadata(
         paths, media_approval_ref
@@ -730,6 +794,7 @@ def _build_lesson(
         "assessment_docx": _relative(paths.assessment_docx, paths.source_root),
         "card_markdown": [_relative(path, paths.source_root) for path in paths.vocab_cards],
         "quickcheck_markdown": _relative(paths.quickcheck, paths.source_root),
+        "reading_json": _relative(paths.reading_json, paths.source_root),
         "listening_json": _relative(paths.listening_json, paths.source_root),
         "listening_manifest": _relative(paths.audio_dir / "manifest.json", paths.source_root),
         "listening_timings": _relative(paths.audio_dir / "timings.json", paths.source_root),
@@ -741,6 +806,7 @@ def _build_lesson(
         paths.assessment_docx,
         *paths.vocab_cards,
         paths.quickcheck,
+        paths.reading_json,
         paths.listening_json,
         paths.audio_dir / "manifest.json",
         paths.audio_dir / "timings.json",
@@ -764,7 +830,7 @@ def _build_lesson(
     )
     lesson: dict[str, Any] = {
         "schema_version": "2.0.0",
-        "package_version": "2.1.0",
+        "package_version": "2.2.0",
         "package_type": "advanced_vocabulary_lesson",
         "lesson_id": lesson_id,
         "course_id": "ADV-VOCAB",
@@ -779,10 +845,11 @@ def _build_lesson(
         "level": {"cefr": "C1-C2", "ielts_target": "7.0-8.0"},
         "delivery": {
             "mode": "self_study",
-            "estimated_core_minutes": 60,
+            "estimated_core_minutes": 80,
             "resume_supported": True,
             "required_stages": [
-                "vocabulary", "adaptive_practice", "controlled_rewrite", "listening",
+                "vocabulary", "adaptive_practice", "reading", "controlled_rewrite",
+                "listening",
             ],
             "retention_stage": "review_d7",
         },
@@ -823,6 +890,15 @@ def _build_lesson(
                 "reveal_policy": "after_attempt",
                 "submittable": False,
                 "content": assessment,
+            },
+            {
+                "activity_id": f"{lesson_id}__reading",
+                "activity_type": "reading_lab",
+                "interaction_policy": "auto_graded",
+                "grading_policy": "automatic",
+                "completion_policy": "required",
+                "reveal_policy": "after_attempt",
+                "content": reading,
             },
             {
                 "activity_id": f"{lesson_id}__listening",
@@ -1010,7 +1086,7 @@ def _build_package_contents(
 
     manifest = {
         "schema_version": "2.0.0",
-        "package_version": "2.1.0",
+        "package_version": "2.2.0",
         "course_id": "ADV-VOCAB",
         "title": "Advanced Vocabulary Self-paced Course",
         "audience": "assigned_only",

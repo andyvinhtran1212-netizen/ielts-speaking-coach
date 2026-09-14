@@ -6,12 +6,57 @@ from pathlib import Path
 import pytest
 
 from services.advanced_vocab_package_builder import (
+    _extract_objectives,
     build_package,
     build_writing_reference,
     parse_frontmatter_records,
+    sanitize_reading_source,
     sanitize_listening_source,
     split_assessment,
 )
+
+
+def test_reading_sanitizer_keeps_passage_and_hides_answers():
+    source = {
+        "test_id": "VOC-ADV-RDG-LSN-T01",
+        "title": "Reading lesson",
+        "passages": [{"paragraph": "A", "text": "Learner passage"}],
+        "question_material": ["Choose the correct answer."],
+        "items": [{
+            "question_number": 1,
+            "question_type": "MCQ",
+            "stem": "What is the purpose?",
+            "options": [{"letter": "A", "text": "One"}, {"letter": "B", "text": "Two"}],
+            "answer": "B",
+            "evidence": "Private evidence",
+            "trap_analysis": "Private trap",
+        }],
+    }
+
+    content = sanitize_reading_source(source)
+
+    assert content["passages"][0]["text"] == "Learner passage"
+    assert "answer" not in content["questions"][0]
+    assert "evidence" not in content["questions"][0]
+    assert content["solutions"]["1"] == {
+        "answer": "B", "evidence": "Private evidence", "trap_analysis": "Private trap",
+    }
+
+
+def test_writing_objectives_are_normalized_to_reference_only():
+    part = {"blocks": [
+        {"type": "heading", "text": "0.1 Can-do"},
+        {"type": "list_item", "text": "Viết model essay Band 8"},
+        {"type": "list_item", "text": "Áp dụng hedging trong Writing Task 2 essays"},
+        {"type": "list_item", "text": "Dùng 24 từ trong ngữ cảnh"},
+    ]}
+
+    objectives = _extract_objectives(part)
+
+    assert objectives == [
+        "Phân tích đề Writing và tham khảo ý tưởng, dàn bài, ngôn ngữ hữu ích trước khi làm assignment do giáo viên giao",
+        "Dùng 24 từ trong ngữ cảnh",
+    ]
 
 
 def test_parse_repeated_frontmatter_records(tmp_path: Path):

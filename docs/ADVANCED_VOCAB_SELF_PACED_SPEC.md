@@ -53,6 +53,8 @@ Assignment card
   -> entry check
   -> three vocabulary micro-sets
   -> adaptive controlled practice
+  -> topic-linked Reading attempt
+  -> evidence-based Reading correction
   -> Listening attempt
   -> evidence-based Listening correction
   -> grammar / controlled rewrite
@@ -143,7 +145,24 @@ Sentence transformation and grammar rewrite remain lesson exercises. They may
 be `self_check` or `auto_graded`, but they are not Writing submissions and must
 not enter `course_writing_submissions` or `writing_essays`.
 
-## 5. Listening contract
+## 5. Reading and Listening contracts
+
+### 5.1 Reading
+
+T01–T30 each require the matching structured Reading lesson from
+`Reading_Lessons_Web/Source_JSON`.
+
+- The learner sees the full topic-linked passage and all 13–14 questions in
+  the canonical source; the converter must not pad or truncate a lesson to
+  force a uniform count.
+- Answers, evidence, trap analysis and distractor analysis are separated from
+  the learner question objects and revealed only after an attempt.
+- Reading is required Day-0 practice because it supplies the extended context
+  in which the lesson vocabulary is encountered.
+- Reading answers are automatically checked, but the result is practice
+  evidence only; it is not an IELTS band score.
+
+### 5.2 Listening
 
 T01–T30 each require one structured Listening object with six questions.
 

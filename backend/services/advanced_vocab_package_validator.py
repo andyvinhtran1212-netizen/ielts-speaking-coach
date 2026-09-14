@@ -41,6 +41,7 @@ NON_READY_AUDIO = frozenset({
 WRITING_ACTIVITY_TYPE = "writing_reference"
 SPEAKING_ACTIVITY_TYPE = "speaking_practice"
 LISTENING_ACTIVITY_TYPE = "listening_lab"
+READING_ACTIVITY_TYPE = "reading_lab"
 SHA256_RE = re.compile(r"[0-9a-f]{64}", re.IGNORECASE)
 
 
@@ -262,6 +263,7 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
     writing = []
     speaking = []
     listening = []
+    reading = []
     for activity in activities:
         aid = str(activity.get("activity_id") or "")
         if not aid:
@@ -285,6 +287,8 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             speaking.append(activity)
         if activity.get("activity_type") == LISTENING_ACTIVITY_TYPE:
             listening.append(activity)
+        if activity.get("activity_type") == READING_ACTIVITY_TYPE:
+            reading.append(activity)
 
     is_core_lesson = str(lesson.get("lesson_id") or "") in CORE_LESSON_SET
     if is_core_lesson and len(writing) != 1:
@@ -321,6 +325,42 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                        "ungraded by default.")
 
     if is_core_lesson:
+        if len(reading) != 1:
+            report.add("error", "READING_ACTIVITY_COUNT", path,
+                       f"Each core lesson needs exactly one Reading Lab; found {len(reading)}.")
+        for activity in reading:
+            content = activity.get("content") or {}
+            passages = content.get("passages") if isinstance(content, dict) else None
+            questions = content.get("questions") if isinstance(content, dict) else None
+            solutions = content.get("solutions") if isinstance(content, dict) else None
+            passage_count = len(passages) if isinstance(passages, list) else 0
+            question_count = len(questions) if isinstance(questions, list) else 0
+            if passage_count == 0:
+                report.add("error", "READING_PASSAGE_MISSING", path,
+                           "Reading Lab must contain at least one passage paragraph.")
+            if question_count not in {13, 14}:
+                report.add("error", "READING_QUESTION_COUNT", path,
+                           f"Reading Lab must contain 13 or 14 questions; found {question_count}.")
+            question_ids = {
+                str(question.get("question_number") or "")
+                for question in questions if isinstance(question, dict)
+            } if isinstance(questions, list) else set()
+            solution_ids = set(solutions) if isinstance(solutions, dict) else set()
+            if question_ids != solution_ids:
+                report.add("error", "READING_SOLUTION_COUNT", path,
+                           "Reading solutions must map one-to-one to learner question IDs.")
+            for qnum, solution in solutions.items() if isinstance(solutions, dict) else []:
+                if not isinstance(solution, dict) or not str(solution.get("answer") or "").strip():
+                    report.add("error", "READING_SOLUTION_INVALID", path,
+                               f"Reading question {qnum or '?'} needs a private answer.")
+            for question in questions if isinstance(questions, list) else []:
+                leaked = {"answer", "answer_code", "answer_label", "evidence",
+                          "distractor_analysis", "trap_analysis"} & set(question)
+                if leaked:
+                    report.add("error", "READING_ANSWER_LEAK", path,
+                               "Reading learner question exposes private fields: "
+                               + ", ".join(sorted(leaked)))
+
         if len(listening) != 1:
             report.add("error", "LISTENING_ACTIVITY_COUNT", path,
                        f"Each core lesson needs exactly one Listening Lab; found {len(listening)}.")
