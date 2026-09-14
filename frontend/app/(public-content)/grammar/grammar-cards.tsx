@@ -10,34 +10,18 @@
 // (search, roadmap, compare, exercises) dùng lại chính các thẻ này.
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import type {
+  GrammarGroupsWire,
+  GrammarHomeWire,
+  GrammarSearchWire,
+} from '@/lib/grammar-api';
 
-export type Article = {
-  slug: string;
-  title: string;
-  category: string;
-  level?: string;
-  status?: string;
-  summary?: string;
-  reading_time?: number;
-  speaking_relevance?: string;
-  writing_relevance?: string;
-};
-
-export type Category = {
-  slug: string;
-  title: string;
-  article_count: number;
-  articles?: Article[];
-};
-
-export type Group = {
-  title: string;
-  description?: string;
-  color?: string;
-  complete_count: number;
-  article_count: number;
-  articles?: Article[];
-};
+export type Article =
+  | GrammarHomeWire['featured_articles'][number]
+  | GrammarSearchWire[number]
+  | GrammarGroupsWire[number]['articles'][number];
+export type Category = GrammarHomeWire['categories'][number];
+export type Group = GrammarGroupsWire[number];
 
 const GROUP_ARTICLE_PREVIEW = 5;
 

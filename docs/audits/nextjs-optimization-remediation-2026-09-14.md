@@ -99,10 +99,16 @@ fixtures are not deployable application routes.
   adapters with runtime normalization, and prohibit new API-boundary `any`.
 - **Verification:** typecheck fixtures for request/response drift and domain route
   tests; track API-boundary casts separately from the global count.
-- **Status:** Wave C1 now derives the Vocabulary directory wire payload directly
-  from generated OpenAPI `paths`, uses it for server and browser reads, and adds
-  a compile-time assertion that fails if FastAPI returns to an unmodeled
-  response. Other domains and the remaining API-boundary casts are queued.
+- **Status:** Wave C1 derives the Vocabulary directory wire payload directly
+  from generated OpenAPI `paths`. Wave C3 extends that contract to all seven
+  public Grammar read families: home/category/article/search/compare/roadmap/
+  groups now expose concrete FastAPI response models, and their Server
+  Components consume the generated types instead of handwritten `any` shapes.
+  Validation runs every live Markdown-derived article through Pydantic and
+  caught one real pre-existing drift (`complete` in canonical content versus
+  `published` in the former page-shell interface). The generated declaration
+  remains a CI drift gate. Authenticated/admin domains and the remaining
+  API-boundary casts are intentionally queued for bounded domain waves.
 
 ### NXT-05 — Large imperative Client Components remain parity ports
 

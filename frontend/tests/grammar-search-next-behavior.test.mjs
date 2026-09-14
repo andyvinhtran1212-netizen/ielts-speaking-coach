@@ -27,7 +27,8 @@ describe('/grammar/search native ownership', () => {
     assert.match(PAGE, /async function SearchResults[\s\S]*await searchParams/);
     assert.match(PAGE, /await getSearch\(query\)/);
     assert.ok(!PAGE.includes('fetch('));
-    assert.match(API, /getPublicJson\(`\/api\/grammar\/search\?q=\$\{encodeURIComponent\(query\)\}`\)/);
+    assert.match(API, /getPublicJson<GrammarSearchWire>\(`\/api\/grammar\/search\?q=\$\{encodeURIComponent\(query\)\}`\)/);
+    assert.match(API, /GrammarSearchWire = ApiGetJson<'\/api\/grammar\/search'>/);
     assert.match(API, /export const getSearch = cache\(fetchSearch\)/);
   });
 

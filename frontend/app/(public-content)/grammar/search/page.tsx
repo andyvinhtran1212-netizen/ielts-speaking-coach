@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
 
-import { getSearch } from '@/lib/grammar-api';
-import { SearchResultCards, type Article } from '../grammar-cards';
+import { getSearch, type GrammarSearchWire } from '@/lib/grammar-api';
+import { SearchResultCards } from '../grammar-cards';
 import { SearchBox } from '../search-box';
 
 export const metadata: Metadata = {
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-function matchesUse(article: Article, use: string) {
+function matchesUse(article: GrammarSearchWire[number], use: string) {
   if (!use) return true;
   if (use === 'speaking') return article.speaking_relevance === 'high';
   if (use === 'writing') return article.writing_relevance === 'high' || article.category === 'grammar-for-writing';
@@ -44,7 +44,7 @@ async function SearchResults({ searchParams }: { searchParams: SearchParams }) {
   const use = typeof params.use === 'string' && ['speaking', 'writing', 'reading'].includes(params.use)
     ? params.use : '';
   const results = query ? await getSearch(query) : [];
-  const articles = (Array.isArray(results) ? results as Article[] : []).filter((article) => {
+  const articles: GrammarSearchWire = (results || []).filter((article) => {
     const levelMatches = !level || article.level?.toLowerCase() === level;
     return levelMatches && matchesUse(article, use);
   });

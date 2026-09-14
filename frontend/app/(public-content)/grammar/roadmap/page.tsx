@@ -3,12 +3,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
-import { getRoadmap } from '@/lib/grammar-api';
+import { getRoadmap, type GrammarRoadmapWire } from '@/lib/grammar-api';
 import { normalizePublicRoadmap } from '@/lib/public-roadmap-model.mjs';
 import { articleUrl, LevelBadge, UpdatingBadge, type Article } from '../grammar-cards';
 import { PersonalRoadmap } from './personal-roadmap';
 
-type RoadmapData = { slug?: string; title?: string; articles?: Article[] };
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 function querySlug(params: Record<string, string | string[] | undefined>) {
@@ -18,7 +17,7 @@ function querySlug(params: Record<string, string | string[] | undefined>) {
 export async function generateMetadata({ searchParams }: { searchParams: SearchParams }): Promise<Metadata> {
   const slug = querySlug(await searchParams);
   if (!slug) return { title: 'Lộ trình của bạn — Grammar Wiki', robots: { index: false, follow: true } };
-  const data = await getRoadmap(slug) as RoadmapData | null;
+  const data = await getRoadmap(slug);
   if (!data) notFound();
   const roadmap = normalizePublicRoadmap(data) as { title: string };
   return { title: `${roadmap.title} — Lộ trình học — Grammar Wiki`, robots: { index: false, follow: true } };
@@ -95,7 +94,7 @@ function RoadmapSteps({ articles }: { articles: Article[] }) {
 async function RoadmapBody({ searchParams }: { searchParams: SearchParams }) {
   const slug = querySlug(await searchParams);
   if (!slug) return <PersonalRoadmap />;
-  const data = await getRoadmap(slug) as RoadmapData | null;
+  const data: GrammarRoadmapWire | null = await getRoadmap(slug);
   if (!data) notFound();
   const roadmap = normalizePublicRoadmap(data) as { title: string; articles: Article[] };
   const { articles, title } = roadmap;

@@ -4,46 +4,12 @@
  * SSR-filling only the runtime data that grammar.js would inject.
  */
 import Link from 'next/link';
+import type { GrammarArticleWire } from '@/lib/grammar-api';
 
-export interface GrammarArticle {
-  slug: string;
-  category: string;
-  title: string;
-  summary?: string;
-  level?: string;
-  status?: 'published' | 'updating' | 'planned';
-  reading_time?: number;
-  word_count?: number;
-  last_updated?: string;
-  html?: string;
-  toc?: TOCItem[];
-  related_pages?: RelatedPage[];
-  compare_with?: string[];
-  next_articles?: ArticleLink[];
-  prev_article?: ArticleLink | null;
-  next_article?: ArticleLink | null;
-  [key: string]: any; // Loose typing per spec
-}
-
-export interface TOCItem {
-  id: string;
-  name: string;
-  depth?: number;
-}
-
-export interface RelatedPage {
-  slug: string;
-  category: string;
-  title: string;
-  [key: string]: any;
-}
-
-export interface ArticleLink {
-  slug: string;
-  category: string;
-  title: string;
-  [key: string]: any;
-}
+export type GrammarArticle = GrammarArticleWire;
+type TOCItem = GrammarArticle['toc'][number];
+type RelatedPage = GrammarArticle['related_pages'][number];
+type ArticleLink = GrammarArticle['next_articles'][number];
 
 function escapeHtml(str: string | null | undefined): string {
   if (!str) return '';

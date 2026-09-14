@@ -18,7 +18,14 @@ import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { notFound, redirect } from 'next/navigation';
 
-import { getHome, getGroups, getCategory } from '../../../lib/grammar-api';
+import {
+  getHome,
+  getGroups,
+  getCategory,
+  type GrammarCategoryWire,
+  type GrammarGroupsWire,
+  type GrammarHomeWire,
+} from '../../../lib/grammar-api';
 import { CategoryCards, FeaturedCards, GroupCards } from './grammar-cards';
 import { SearchBox } from './search-box';
 import { GrammarLearningDashboard, GrammarModeSwitcher } from './grammar-home-mode';
@@ -115,7 +122,13 @@ function BodySkeleton() {
   );
 }
 
-function HomeContent({ home, groups }: { home: any; groups: any[] }) {
+function HomeContent({
+  home,
+  groups,
+}: {
+  home: GrammarHomeWire | null;
+  groups: GrammarGroupsWire;
+}) {
   return (
     <div id="home-content" className="ds-fadein">
       <GrammarModeSwitcher
@@ -133,7 +146,7 @@ function HomeContent({ home, groups }: { home: any; groups: any[] }) {
   );
 }
 
-function CategoryView({ slug, data }: { slug: string; data: any }) {
+function CategoryView({ slug, data }: { slug: string; data: GrammarCategoryWire }) {
   return (
     <div id="category-view" className="ds-fadein">
       <div className="mb-6 flex items-center gap-3">
@@ -181,7 +194,7 @@ async function GrammarBody({ searchParams }: { searchParams: Promise<Record<stri
   // Hai lần fetch song song — legacy cũng vậy; tuần tự sẽ cộng dồn độ trễ vào
   // đúng phần đang stream.
   const [home, groups] = await Promise.all([getHome(), getGroups()]);
-  return <HomeContent home={home} groups={Array.isArray(groups) ? groups : []} />;
+  return <HomeContent home={home} groups={groups || []} />;
 }
 
 export default function GrammarHomePage({

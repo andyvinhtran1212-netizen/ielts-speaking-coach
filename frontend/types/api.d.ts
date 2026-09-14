@@ -13300,10 +13300,300 @@ export interface components {
              */
             note: string;
         };
+        /** GrammarAnchor */
+        GrammarAnchor: {
+            /** Id */
+            id: string;
+            /** Location */
+            location: string;
+            /** Type */
+            type: string;
+        };
+        /**
+         * GrammarArticleDocument
+         * @description Canonical article route after related/next slugs have been resolved.
+         */
+        GrammarArticleDocument: {
+            /** Slug */
+            slug: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /** Level */
+            level: string;
+            /** Difficulty */
+            difficulty: string;
+            /** Band Relevance */
+            band_relevance: string[];
+            /** Speaking Relevance */
+            speaking_relevance: string;
+            /** Writing Relevance */
+            writing_relevance: string;
+            /** Pathways */
+            pathways: string[];
+            /** Common Error Tags */
+            common_error_tags: string[];
+            /** Tags */
+            tags: string[];
+            /** Order */
+            order: number;
+            /** Reading Time */
+            reading_time: number;
+            /** Last Updated */
+            last_updated: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "complete" | "updating" | "draft";
+            /** Html */
+            html: string;
+            /** Word Count */
+            word_count: number;
+            /** Toc */
+            toc: components["schemas"]["GrammarTocItem"][];
+            /** Anchors */
+            anchors: components["schemas"]["GrammarAnchor"][];
+            /** Learning Blocks */
+            learning_blocks: {
+                [key: string]: unknown;
+            }[];
+            /** Prerequisites */
+            prerequisites: string[];
+            /** Compare With */
+            compare_with: string[];
+            /** Related Pages */
+            related_pages: components["schemas"]["GrammarArticleRef"][];
+            /** Next Articles */
+            next_articles: components["schemas"]["GrammarArticleRef"][];
+            prev_article?: components["schemas"]["GrammarArticleSummary"] | null;
+            next_article?: components["schemas"]["GrammarArticleSummary"] | null;
+        };
+        /** GrammarArticleRef */
+        GrammarArticleRef: {
+            /** Slug */
+            slug: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+        };
+        /** GrammarArticleSummary */
+        GrammarArticleSummary: {
+            /** Slug */
+            slug: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /** Level */
+            level: string;
+            /** Difficulty */
+            difficulty: string;
+            /** Band Relevance */
+            band_relevance: string[];
+            /** Speaking Relevance */
+            speaking_relevance: string;
+            /** Writing Relevance */
+            writing_relevance: string;
+            /** Pathways */
+            pathways: string[];
+            /** Common Error Tags */
+            common_error_tags: string[];
+            /** Tags */
+            tags: string[];
+            /** Order */
+            order: number;
+            /** Reading Time */
+            reading_time: number;
+            /** Last Updated */
+            last_updated: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "complete" | "updating" | "draft";
+            /** Next Articles */
+            next_articles: string[];
+        };
+        /** GrammarCategoryResponse */
+        GrammarCategoryResponse: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Articles */
+            articles: components["schemas"]["GrammarArticleSummary"][];
+        };
+        /** GrammarCategorySummary */
+        GrammarCategorySummary: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Article Count */
+            article_count: number;
+            /** Articles */
+            articles: components["schemas"]["GrammarArticleSummary"][];
+        };
+        /** GrammarCompareResponse */
+        GrammarCompareResponse: {
+            /** Slug */
+            slug: string;
+            left: components["schemas"]["GrammarSourceArticleDocument"];
+            right: components["schemas"]["GrammarSourceArticleDocument"];
+        };
+        /** GrammarGroup */
+        GrammarGroup: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Color */
+            color: string;
+            /** Article Count */
+            article_count: number;
+            /** Complete Count */
+            complete_count: number;
+            /** Articles */
+            articles: components["schemas"]["GrammarGroupArticle"][];
+        };
+        /** GrammarGroupArticle */
+        GrammarGroupArticle: {
+            /** Slug */
+            slug: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+            /** Level */
+            level: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "complete" | "updating" | "draft" | "planned";
+            /** Reading Time */
+            reading_time: number | null;
+            /** Summary */
+            summary: string;
+        };
+        /** GrammarHomeResponse */
+        GrammarHomeResponse: {
+            /** Categories */
+            categories: components["schemas"]["GrammarCategorySummary"][];
+            /** Featured Articles */
+            featured_articles: components["schemas"]["GrammarArticleSummary"][];
+            /** Total Articles */
+            total_articles: number;
+            /** Total Categories */
+            total_categories: number;
+        };
         /** GrammarRecommendPayload */
         GrammarRecommendPayload: {
             /** Issue */
             issue: string;
+        };
+        /** GrammarSearchResult */
+        GrammarSearchResult: {
+            /** Slug */
+            slug: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /** Level */
+            level: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "complete" | "updating" | "draft";
+            /** Reading Time */
+            reading_time: number;
+            /** Speaking Relevance */
+            speaking_relevance: string;
+            /** Writing Relevance */
+            writing_relevance: string;
+        };
+        /**
+         * GrammarSourceArticleDocument
+         * @description Source document embedded by the compare route before link resolution.
+         */
+        GrammarSourceArticleDocument: {
+            /** Slug */
+            slug: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /** Level */
+            level: string;
+            /** Difficulty */
+            difficulty: string;
+            /** Band Relevance */
+            band_relevance: string[];
+            /** Speaking Relevance */
+            speaking_relevance: string;
+            /** Writing Relevance */
+            writing_relevance: string;
+            /** Pathways */
+            pathways: string[];
+            /** Common Error Tags */
+            common_error_tags: string[];
+            /** Tags */
+            tags: string[];
+            /** Order */
+            order: number;
+            /** Reading Time */
+            reading_time: number;
+            /** Last Updated */
+            last_updated: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "complete" | "updating" | "draft";
+            /** Html */
+            html: string;
+            /** Word Count */
+            word_count: number;
+            /** Toc */
+            toc: components["schemas"]["GrammarTocItem"][];
+            /** Anchors */
+            anchors: components["schemas"]["GrammarAnchor"][];
+            /** Learning Blocks */
+            learning_blocks: {
+                [key: string]: unknown;
+            }[];
+            /** Prerequisites */
+            prerequisites: string[];
+            /** Compare With */
+            compare_with: string[];
+            /** Related Pages */
+            related_pages: string[];
+            /** Next Articles */
+            next_articles: string[];
+        };
+        /** GrammarTocItem */
+        GrammarTocItem: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Depth */
+            depth: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -23972,7 +24262,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarHomeResponse"];
                 };
             };
         };
@@ -23992,7 +24282,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarCategorySummary"][];
                 };
             };
         };
@@ -24014,7 +24304,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarCategoryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -24046,7 +24336,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarArticleDocument"];
                 };
             };
             /** @description Validation Error */
@@ -24077,7 +24367,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarCategoryResponse"];
                 };
             };
             /** @description Validation Error */
@@ -24108,7 +24398,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarCompareResponse"];
                 };
             };
             /** @description Validation Error */
@@ -24140,7 +24430,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarSearchResult"][];
                 };
             };
             /** @description Validation Error */
@@ -24202,7 +24492,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarGroup"][];
                 };
             };
         };
