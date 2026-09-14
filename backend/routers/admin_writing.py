@@ -22,6 +22,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
+from models.admin_writing_queue import AdminWritingQueueRowOut
 from models.writing_feedback import WritingFeedback
 from routers.admin import require_admin
 from services import essay_service, instructor_workflow
@@ -360,7 +361,7 @@ async def start_grading(
     return {"essay_id": essay_id, **job_info, "status": "queued"}
 
 
-@router.get("/essays")
+@router.get("/essays", response_model=list[AdminWritingQueueRowOut])
 async def list_essays(
     status: Optional[str]      = Query(default=None, max_length=32),
     student_id: Optional[UUID] = Query(default=None),

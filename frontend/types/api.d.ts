@@ -12184,6 +12184,52 @@ export interface components {
             cohort_lookup_failed: boolean;
             code_summary: components["schemas"]["AdminUserCodeSummaryOut"];
         };
+        /** AdminWritingQueueRowOut */
+        AdminWritingQueueRowOut: {
+            /** Id */
+            id: string;
+            /** Student Id */
+            student_id: string;
+            /**
+             * Task Type
+             * @enum {string}
+             */
+            task_type: "task1_academic" | "task1_general" | "task2";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "grading" | "graded" | "reviewed" | "delivered" | "failed";
+            /** Analysis Level */
+            analysis_level: number;
+            /** Selected Model */
+            selected_model: string;
+            /** Word Count */
+            word_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Delivered At */
+            delivered_at?: string | null;
+            /** Error Message */
+            error_message?: string | null;
+            /** Sitting Id */
+            sitting_id?: string | null;
+            /** Grading Skipped At */
+            grading_skipped_at?: string | null;
+            /** Student Full Name */
+            student_full_name?: string | null;
+            /** Student Code */
+            student_code?: string | null;
+            /** Band */
+            band?: number | null;
+            /** Deadline */
+            deadline?: string | null;
+            /** Task1 Image Missing */
+            task1_image_missing: boolean;
+        };
         /**
          * AdvanceBody
          * @description The section the admin's screen was showing when they clicked.
@@ -21274,7 +21320,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminWritingQueueRowOut"][];
                 };
             };
             /** @description Validation Error */

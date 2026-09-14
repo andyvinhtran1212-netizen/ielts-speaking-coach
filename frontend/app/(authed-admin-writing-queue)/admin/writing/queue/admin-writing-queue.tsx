@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { getAdminCohorts } from '@/lib/admin-cohorts-api';
+import { getAdminWritingQueue } from '@/lib/admin-writing-queue-api';
 import { Dialog, messageOf, StatusBanner } from '@/components/admin-directory-ui';
 import {
   isWritingEssayOverdue,
@@ -15,7 +16,7 @@ import {
   normalizeWritingQueueFilters,
   normalizeWritingQueueList,
   writingMockMinimum,
-  writingQueueApiPath,
+  writingQueueApiQuery,
   writingQueueDestination,
   writingQueueFetchKey,
   writingQueueSearch,
@@ -115,7 +116,7 @@ export function AdminWritingQueue() {
     if (!silent && isCurrentView()) setLoading(true);
     if (isCurrentView()) setLoadError(null);
     try {
-      const normalized = normalizeWritingQueueList(await window.api.get<unknown>(writingQueueApiPath(target))) as { rows: QueueRow[]; malformedCount: number; returnedCount: number } | null;
+      const normalized = normalizeWritingQueueList(await getAdminWritingQueue(writingQueueApiQuery(target))) as { rows: QueueRow[]; malformedCount: number; returnedCount: number } | null;
       if (requestId !== queueSequences.current.get(key) || profileId.current !== account) return null;
       if (!normalized) throw new Error('Danh sách bài viết không đúng định dạng.');
       if (isCurrentView()) {

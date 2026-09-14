@@ -27,11 +27,11 @@ fixtures are not deployable application routes.
 - Literal internal anchors in `frontend/app/**/*.tsx` fell from 208 to 138. The
   remainder is not a zero-count target: active-exam exits, downloads, external
   targets and affinity-sensitive launches retain hard browser navigation.
-- Twelve application modules now derive wire shapes from generated OpenAPI types.
+- Thirteen application modules now derive wire shapes from generated OpenAPI types.
   `window.api` is still referenced by 129 TS/TSX modules, but that file count is
   not a completion metric: several migrated screens keep the bridge only for
   mutations while their high-volume reads already use typed adapters.
-- The full frontend contract suite passes 9,091/9,091; the rendered React suite
+- The full frontend contract suite passes 9,094/9,094; the rendered React suite
   passes 3/3; the current cohort response/service slice passes 18/18. Production
   build and TypeScript checks pass.
 - A backend-less local build logs one handled `ECONNREFUSED` while prerendering
@@ -207,6 +207,12 @@ fixtures are not deployable application routes.
   Create/update course and cohort mutations stay on the compatibility bridge.
   Backend contract/rollup coverage passes 18/18, focused frontend contracts
   25/25, both browser journeys 43/43 and the build still emits 141 routes.
+  Wave C12 models the projected `/admin/writing/essays` queue rows and moves the
+  native Writing Queue list read behind one generated adapter and its existing
+  canonical query builder. Detail, polling and grading/delivery writes are
+  unchanged. Backend route/model coverage passes 73/73 plus 8/8 focused service
+  and ownership tests; focused frontend contracts pass 10/10, the browser
+  journey passes 12/12 and the build emits all 141 routes.
 
 ### NXT-05 — Large imperative Client Components remain parity ports
 
@@ -334,9 +340,9 @@ Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 
 1. Vocabulary, public Grammar, the shared auth spine, learner Speaking sessions,
    admin Speaking operations, Admin Overview, Admin Users/access codes, the
-   shared cohort/course pickers, the Admin Students directory and both Classes
-   surfaces consume generated OpenAPI types. Other admin domains still rely
-   substantially on the compatibility API bridge.
+   shared cohort/course pickers, the Admin Students directory, both Classes
+   surfaces and the Writing Queue list consume generated OpenAPI types. Other
+   admin domains still rely substantially on the compatibility API bridge.
 2. Large renderers still preserve some imperative parity code, but measured
    route bundles are small and their critical state machines/write paths are
    extracted and tested. Remaining conversions are maintainability work, not a
@@ -369,6 +375,16 @@ Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 - Next candidate: use the same bounded pattern for a domain whose backend read
   shape is already stable; do not type dynamic mutation paths merely to reduce
   the compatibility-bridge count.
+- **Post-C12 stop condition:** the next highest-count consumers are Writing
+  Assignments (8 ad-hoc reads), Mock Reviews (7), Mock Exams (5), Class
+  Submissions (5) and Class Detail/Homework (multi-source operational reads).
+  Each couples several detail, polling or mutation contracts and already has a
+  domain normalizer/browser journey. They are feature-sized migrations, not a
+  safe shared-read cleanup. Schedule each with the next product change in that
+  domain; do not enlarge this audit branch to make the raw bridge count look
+  smaller. The remaining inventory is 139 `window.api.get<unknown>` calls and
+  226 bridge mutations/uploads across App TSX, both tracked as compatibility
+  debt rather than an audit-completion gate.
 
 ### P1 — Add streaming UX where latency is real
 
