@@ -5,6 +5,7 @@
 
 const https = require('node:https');
 const { test, expect } = require('@playwright/test');
+const { selectCanonicalVocabularyTopic } = require('../../tooling/staging-vocabulary-topic.cjs');
 
 const {
   BYPASS_HEADERS,
@@ -87,9 +88,7 @@ test.describe.serial('Next optimization live staging evidence', () => {
       });
       expect(topics.status()).toBe(200);
       const topicRows = await topics.json();
-      const existingTopic = topicRows.find(
-        (topic) => topic.is_published !== false && typeof topic.slug === 'string' && topic.slug,
-      ) || topicRows.find((topic) => typeof topic.slug === 'string' && topic.slug);
+      const existingTopic = selectCanonicalVocabularyTopic(topicRows);
       expect(existingTopic, 'staging must retain at least one canonical Vocabulary topic').toBeTruthy();
       const category = existingTopic.slug;
       const publicUrl = `${STAGING_ORIGIN}/vocabulary?cat=${encodeURIComponent(category)}&slug=${encodeURIComponent(slug)}`;

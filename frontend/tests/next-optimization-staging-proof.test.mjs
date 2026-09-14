@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 
 const FRONTEND = join(import.meta.dirname, '..');
 const SPEC = readFileSync(join(FRONTEND, 'tests', 'staging-e2e', 'next-optimization-proof.spec.js'), 'utf8');
+const require = createRequire(import.meta.url);
+const { selectCanonicalVocabularyTopic } = require('../tooling/staging-vocabulary-topic.cjs');
 
 describe('Next optimization staging proof safety', () => {
   test('measures raw compressed HTML against the explicit 60 KiB budget', () => {
@@ -15,6 +18,15 @@ describe('Next optimization staging proof safety', () => {
   });
 
   test('warms one exact cache key before PATCH and polls the same URL', () => {
+    assert.deepEqual(
+      selectCanonicalVocabularyTopic([
+        { slug: 'business_finance', is_published: true },
+        { slug: 'work-and-careers', is_published: true },
+        { slug: 'travel', is_published: false },
+      ]),
+      { slug: 'work-and-careers', is_published: true },
+    );
+    assert.equal(selectCanonicalVocabularyTopic([{ slug: 'Work & Careers', is_published: true }]), null);
     assert.match(SPEC, /const category = existingTopic\.slug/);
     assert.match(SPEC, /const publicUrl = `\$\{STAGING_ORIGIN\}\/vocabulary\?cat=\$\{encodeURIComponent\(category\)\}&slug=/);
     assert.match(SPEC, /expect\(await warmed\.text\(\)\)\.toContain\(originalHeadword\)/);
