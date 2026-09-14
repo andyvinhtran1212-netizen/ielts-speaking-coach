@@ -376,6 +376,13 @@ Adoption is therefore **substantial but not yet optimal** in four bounded areas:
   same URL for tagged-cache refresh and deletes the exact created id in `finally`.
   A source contract rejects production hosts, bulk deletion and missing cleanup.
   The live result remains pending deployment of this branch to staging.
+- **Configuration evidence (2026-09-14):** read-only Vercel inspection reports no
+  environment variables for `ielts-speaking-coach`, and the local staging env
+  has neither `NEXT_CACHE_REVALIDATION_URL` nor
+  `AVER_CACHE_REVALIDATION_SECRET`. Before the live proof, configure the same
+  random secret in the staging Vercel and Railway services and point Railway at
+  `https://staging.averlearning.com/api/cache/revalidate`. Never reuse the
+  production secret or route staging invalidation to the production origin.
 
 ### P1 — Continue from the typed authenticated spine into shared domains
 
