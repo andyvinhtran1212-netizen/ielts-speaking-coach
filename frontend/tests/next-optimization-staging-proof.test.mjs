@@ -15,7 +15,8 @@ describe('Next optimization staging proof safety', () => {
   });
 
   test('warms one exact cache key before PATCH and polls the same URL', () => {
-    assert.match(SPEC, /const publicUrl = `\$\{STAGING_ORIGIN\}\/vocabulary\?cat=technology&slug=/);
+    assert.match(SPEC, /const category = existingTopic\.slug/);
+    assert.match(SPEC, /const publicUrl = `\$\{STAGING_ORIGIN\}\/vocabulary\?cat=\$\{encodeURIComponent\(category\)\}&slug=/);
     assert.match(SPEC, /expect\(await warmed\.text\(\)\)\.toContain\(originalHeadword\)/);
     assert.match(SPEC, /request\.patch\(`\$\{STAGING_API\}\/admin\/vocabulary\/\$\{encodeURIComponent\(createdId\)\}`/);
     assert.match(SPEC, /expect\.poll/);
@@ -31,7 +32,7 @@ describe('Next optimization staging proof safety', () => {
     assert.match(SPEC, /finally \{/);
     assert.match(SPEC, /if \(probeWasCreated && !createdId\) createdId = await findProbeId\(\)/);
     assert.match(SPEC, /admin\/content-topics\?skill_area=vocab/);
-    assert.match(SPEC, /topic\.slug === 'technology'/);
+    assert.match(SPEC, /staging must retain at least one canonical Vocabulary topic/);
     assert.match(SPEC, /request\.delete\(/);
     assert.match(SPEC, /encodeURIComponent\(createdId\)/);
     assert.doesNotMatch(SPEC, /bulk-delete|all=true/);

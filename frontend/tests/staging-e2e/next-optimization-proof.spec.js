@@ -65,7 +65,6 @@ test.describe.serial('Next optimization live staging evidence', () => {
     const slug = `e2e-cache-${suffix}`.toLowerCase();
     const originalHeadword = `CacheProbeA${suffix.replace(/[^a-z0-9]/gi, '')}`;
     const updatedHeadword = `CacheProbeB${suffix.replace(/[^a-z0-9]/gi, '')}`;
-    const publicUrl = `${STAGING_ORIGIN}/vocabulary?cat=technology&slug=${encodeURIComponent(slug)}`;
     let createdId = '';
     let probeWasCreated = false;
 
@@ -82,14 +81,19 @@ test.describe.serial('Next optimization live staging evidence', () => {
       return '';
     };
 
-    const markdown = `---\nheadword: "${originalHeadword}"\nslug: "${slug}"\ncategory: "technology"\nlevel: "B2"\npart_of_speech: "noun"\npronunciation: "/keɪʃ/"\nsource: "staging-e2e"\n---\n\n**Đầu dò cache staging có thể xóa an toàn.**\n`;
-
     try {
       const topics = await request.get(`${STAGING_API}/admin/content-topics?skill_area=vocab`, {
         headers: auth(adminToken),
       });
       expect(topics.status()).toBe(200);
-      expect((await topics.json()).some((topic) => topic.slug === 'technology')).toBe(true);
+      const topicRows = await topics.json();
+      const existingTopic = topicRows.find(
+        (topic) => topic.is_published !== false && typeof topic.slug === 'string' && topic.slug,
+      ) || topicRows.find((topic) => typeof topic.slug === 'string' && topic.slug);
+      expect(existingTopic, 'staging must retain at least one canonical Vocabulary topic').toBeTruthy();
+      const category = existingTopic.slug;
+      const publicUrl = `${STAGING_ORIGIN}/vocabulary?cat=${encodeURIComponent(category)}&slug=${encodeURIComponent(slug)}`;
+      const markdown = `---\nheadword: "${originalHeadword}"\nslug: "${slug}"\ncategory: "${category}"\nlevel: "B2"\npart_of_speech: "noun"\npronunciation: "/keɪʃ/"\nsource: "staging-e2e"\n---\n\n**Đầu dò cache staging có thể xóa an toàn.**\n`;
 
       const before = await request.get(
         `${STAGING_API}/admin/vocabulary?q=${encodeURIComponent(originalHeadword)}&limit=10&offset=0`,
