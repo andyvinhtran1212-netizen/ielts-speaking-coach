@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+import { getCurrentUser } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -147,7 +148,7 @@ export function VocabUnitLesson({ unitSlug }: { unitSlug: string }) {
       if (!ready || disposed) return;
       try {
         const [me, payload] = await Promise.all([
-          window.api.getWith<{ vocab_curated_enabled?: unknown }>('/auth/me', undefined, { signal: controller.signal }),
+          getCurrentUser(controller.signal),
           window.api.getWith<UnitPayload>(`/api/vocabulary/units/${encodeURIComponent(unitSlug)}`, undefined, { signal: controller.signal }),
         ]);
         if (disposed) return;

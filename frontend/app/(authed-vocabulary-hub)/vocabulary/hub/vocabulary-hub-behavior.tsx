@@ -13,6 +13,7 @@ import {
 } from 'react';
 
 import { VocabModuleMount } from '@/components/vocab-module-mount';
+import { getCurrentUser } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -43,12 +44,6 @@ interface FeatureFlags {
   flashcardEnabled: boolean;
   d1Enabled: boolean;
   vocabCuratedEnabled: boolean;
-}
-
-interface AuthMePayload {
-  flashcard_enabled?: unknown;
-  d1_enabled?: unknown;
-  vocab_curated_enabled?: unknown;
 }
 
 interface VocabCategory {
@@ -387,11 +382,7 @@ export function VocabularyHubBehavior() {
           undefined,
           { signal: controller.signal },
         ),
-        window.api.getWith<AuthMePayload>(
-          '/auth/me',
-          undefined,
-          { signal: controller.signal },
-        ),
+        getCurrentUser(controller.signal),
       ]);
 
       if (disposed) return;

@@ -112,8 +112,20 @@ await context.route('**/*', async (route) => {
       id: userId,
       email: 'runtime@example.test',
       display_name: 'Runtime Fixture',
+      avatar_url: null,
       role: 'admin',
+      is_active: true,
       permissions: ['all'],
+      onboarding_completed: true,
+      target_band: null,
+      exam_date: null,
+      self_level: null,
+      preferred_topics: [],
+      vocab_bank_enabled: true,
+      d1_enabled: true,
+      d3_enabled: true,
+      flashcard_enabled: true,
+      vocab_curated_enabled: true,
     });
   }
   if (request.method() === 'GET' && url.pathname === `/sessions/${sessionId}`) return json(session);

@@ -57,7 +57,7 @@ describe('/login native auth entry', () => {
 
   test('routes only from strict canonical /auth/me truth', () => {
     assert.match(BEHAVIOR, /fetch\(`\$\{window\.api\.base\}\/auth\/me`/);
-    assert.match(BEHAVIOR, /normalizeLoginProfile\(payload\)/);
+    assert.match(BEHAVIOR, /normalizeLoginProfile\(payload(?: as AuthMeWire)?\)/);
     assert.match(BEHAVIOR, /loginDestination\(profile\)/);
     assert.match(BEHAVIOR, /window\.location\.replace\(destination\)/);
     assert.doesNotMatch(BEHAVIOR, /data\.is_active|data\.onboarding_completed/);

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import { getCurrentUser } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -74,9 +75,7 @@ export function VocabCuratedHome() {
       const ready = await whenGlobalReady(() => !!window.api?.getWith, 'window.api (vocab curated)');
       if (!ready || disposed) return;
       try {
-        const me = await window.api.getWith<{ vocab_curated_enabled?: unknown }>(
-          '/auth/me', undefined, { signal: controller.signal },
-        );
+        const me = await getCurrentUser(controller.signal);
         if (disposed) return;
         if (me?.vocab_curated_enabled !== true) {
           setState({ kind: 'locked' });

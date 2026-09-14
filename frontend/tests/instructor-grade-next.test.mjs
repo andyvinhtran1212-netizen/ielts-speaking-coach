@@ -107,7 +107,7 @@ describe('/instructor/grade native route contracts', () => {
     const roleGuard = VIEW.indexOf("['instructor', 'admin'].includes(profile.role)");
     const ownerRead = VIEW.indexOf('const next = await readCanonical(query.essayId');
     assert.ok(roleGuard >= 0 && ownerRead > roleGuard);
-    assert.match(VIEW, /normalizeInstructorProfile\(await window\.api\.get<unknown>\('\/auth\/me'\)\)/);
+    assert.match(VIEW, /normalizeInstructorProfile\(await getAuthorizationIdentity\(\)\)/);
     assert.match(VIEW, /profile\.role === 'admin' \? query\.requestedInstructor : null/);
     assert.match(VIEW, /instructorApiPath\(`\/instructor\/essays\/\$\{encodeURIComponent\(id\)\}`/);
   });

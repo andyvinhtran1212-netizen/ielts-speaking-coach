@@ -115,8 +115,16 @@ fixtures are not deployable application routes.
   Validation runs every live Markdown-derived article through Pydantic and
   caught one real pre-existing drift (`complete` in canonical content versus
   `published` in the former page-shell interface). The generated declaration
-  remains a CI drift gate. Authenticated/admin domains and the remaining
-  API-boundary casts are intentionally queued for bounded domain waves.
+  remains a CI drift gate. Wave C4 models the complete auth identity/profile
+  surface (`/auth/me`, `/auth/profile`, `/auth/check-active`, activation and
+  profile update) at the FastAPI boundary. Standard browser consumers now use
+  one generated-type adapter with runtime-normalized full-profile and minimal
+  authorization projections; bootstrap/account-fenced flows retain their
+  specialized transport but consume the same `AuthMeWire` contract. Malformed
+  boolean permission/feature fields fail closed. The shared admin gate,
+  onboarding, instructor and Vocabulary feature admission no longer declare
+  ad-hoc `/auth/me` shapes. Session/admin domain envelopes and the remaining
+  API-boundary casts are intentionally queued for bounded waves.
 
 ### NXT-05 — Large imperative Client Components remain parity ports
 
@@ -224,8 +232,9 @@ Vocabulary content has a tagged invalidation design.
 
 Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 
-1. Only Vocabulary and public Grammar currently consume generated OpenAPI types;
-   authenticated/admin domains still rely on the compatibility API bridge.
+1. Vocabulary, public Grammar and the shared auth spine consume generated
+   OpenAPI types; session/admin domains still rely on the compatibility API
+   bridge.
 2. Writing dashboard and course behavior remain imperative parity ports. The
    large Reading/Listening/mock renderers are not automatically defects because
    their state machines are already extracted and tested.
@@ -245,10 +254,11 @@ Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 - Record webhook failure telemetry and verify canonical writes remain successful
   when revalidation is unavailable.
 
-### P1 — Type the authenticated spine before individual screens
+### P1 — Continue from the typed authenticated spine into shared domains
 
-- Give `/auth/me`, session identity and shared admin list envelopes concrete
-  FastAPI response models; generate types and introduce one adapter per domain.
+- Give session identity and shared admin list envelopes concrete FastAPI response
+  models; generate types and introduce one adapter per domain. The auth identity
+  and profile contracts are complete in Wave C4.
 - Migrate callers away from `window.api` only after each adapter has runtime
   normalization and account-switch tests. Do not attempt a repository-wide
   replacement.

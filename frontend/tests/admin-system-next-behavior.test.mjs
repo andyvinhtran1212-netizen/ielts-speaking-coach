@@ -42,7 +42,7 @@ describe('/admin/system — native read-only admin pilot', () => {
 
   test('fails closed on backend-owned admin truth with utility-independent states', () => {
     assert.match(PAGE, /<AdminAccessGate>/);
-    assert.match(GATE, /window\.api\.get<AdminProfile>\('\/auth\/me'\)/);
+    assert.match(GATE, /const profile = await getAuthorizationIdentity\(\)/);
     assert.match(GATE, /profile\?\.role === 'admin'/);
     assert.match(GATE, /selectKeyedAdminState\(accessState, accountKey\)/);
     assert.match(GATE, /adm-access-state/);

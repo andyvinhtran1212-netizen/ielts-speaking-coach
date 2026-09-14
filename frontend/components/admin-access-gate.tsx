@@ -3,15 +3,12 @@
 import Link from 'next/link';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
+import { getAuthorizationIdentity, type AuthRoleIdentity } from '@/lib/auth-api';
 import { useAuth } from '@/lib/auth/auth-provider';
 import { selectKeyedAdminState } from '@/lib/admin-writing-grade-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
-export interface AdminProfile {
-  id: string;
-  email?: string | null;
-  role: string;
-}
+export type AdminProfile = AuthRoleIdentity;
 
 type AccessValue =
   | { phase: 'loading' }
@@ -68,7 +65,7 @@ export function AdminAccessGate({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const profile = await window.api.get<AdminProfile>('/auth/me');
+        const profile = await getAuthorizationIdentity();
         if (dead) return;
         setAccessState({
           key: accountKey,

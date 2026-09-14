@@ -11939,6 +11939,129 @@ export interface components {
             /** Expected Updated At */
             expected_updated_at: string;
         };
+        /** AuthActivateResponse */
+        AuthActivateResponse: {
+            /** Success */
+            success: boolean;
+            /** Message */
+            message: string;
+        };
+        /** AuthActiveStatusResponse */
+        AuthActiveStatusResponse: {
+            /** Is Active */
+            is_active: boolean;
+        };
+        /** AuthMeResponse */
+        AuthMeResponse: {
+            /** Id */
+            id: string;
+            /** Email */
+            email: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** Avatar Url */
+            avatar_url: string | null;
+            /** Role */
+            role: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Permissions */
+            permissions: string[];
+            /** Onboarding Completed */
+            onboarding_completed: boolean;
+            /** Target Band */
+            target_band: number | null;
+            /** Exam Date */
+            exam_date: string | null;
+            /** Self Level */
+            self_level: string | null;
+            /** Preferred Topics */
+            preferred_topics: string[];
+            /** Vocab Bank Enabled */
+            vocab_bank_enabled: boolean;
+            /** D1 Enabled */
+            d1_enabled: boolean;
+            /** D3 Enabled */
+            d3_enabled: boolean;
+            /** Flashcard Enabled */
+            flashcard_enabled: boolean;
+            /** Vocab Curated Enabled */
+            vocab_curated_enabled: boolean;
+        };
+        /** AuthProfileResponse */
+        AuthProfileResponse: {
+            /** Id */
+            id: string;
+            /** Email */
+            email: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** Avatar Url */
+            avatar_url: string | null;
+            /** Role */
+            role: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Onboarding Completed */
+            onboarding_completed: boolean;
+            /** Target Band */
+            target_band: number | null;
+            /** Exam Date */
+            exam_date: string | null;
+            /** Self Level */
+            self_level: string | null;
+            /** Preferred Topics */
+            preferred_topics: string[];
+            /** Timezone */
+            timezone: string;
+            /** Weekly Goal */
+            weekly_goal: number;
+            /** Notification Email */
+            notification_email: boolean;
+            /** Joined At */
+            joined_at: string | null;
+            stats: components["schemas"]["AuthProfileStats"];
+        };
+        /** AuthProfileStats */
+        AuthProfileStats: {
+            /** Total Sessions */
+            total_sessions: number;
+            /** Avg Band */
+            avg_band: number | null;
+            /** Joined At */
+            joined_at: string | null;
+        };
+        /** AuthProfileUpdateResponse */
+        AuthProfileUpdateResponse: {
+            /** Id */
+            id: string;
+            /** Email */
+            email: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** Avatar Url */
+            avatar_url: string | null;
+            /** Role */
+            role: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Onboarding Completed */
+            onboarding_completed: boolean;
+            /** Target Band */
+            target_band: number | null;
+            /** Exam Date */
+            exam_date: string | null;
+            /** Self Level */
+            self_level: string | null;
+            /** Preferred Topics */
+            preferred_topics: string[];
+            /** Timezone */
+            timezone: string;
+            /** Weekly Goal */
+            weekly_goal: number;
+            /** Notification Email */
+            notification_email: boolean;
+        };
         /**
          * BackfillBody
          * @description Bỏ trống = mọi em đang trong lớp mà chưa có dòng.
@@ -15723,7 +15846,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AuthMeResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15754,7 +15877,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AuthActiveStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15785,7 +15908,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AuthProfileResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15820,7 +15943,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AuthProfileUpdateResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15855,7 +15978,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AuthActivateResponse"];
                 };
             };
             /** @description Validation Error */

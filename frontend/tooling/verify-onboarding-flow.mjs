@@ -11,6 +11,27 @@ const check = (name, ok, detail = '') => {
   console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`);
 };
 
+const authMe = (overrides = {}) => ({
+  id: 'user-1',
+  email: 'learner@example.com',
+  display_name: 'Learner',
+  avatar_url: null,
+  role: 'user',
+  is_active: true,
+  permissions: ['practice_single'],
+  onboarding_completed: false,
+  target_band: null,
+  exam_date: null,
+  self_level: null,
+  preferred_topics: [],
+  vocab_bank_enabled: false,
+  d1_enabled: false,
+  d3_enabled: false,
+  flashcard_enabled: false,
+  vocab_curated_enabled: false,
+  ...overrides,
+});
+
 async function launch() {
   try { return await chromium.launch(); } catch (error) {
     const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -100,7 +121,7 @@ check('không có session thì fail closed về canonical /login', signedOut.rea
 await signedOut.context.close();
 
 const inactive = await fixture({
-  profile: { id: 'user-1', is_active: false, onboarding_completed: false },
+  profile: authMe({ is_active: false }),
 });
 await inactive.page.goto(`${BASE}/onboarding`, { waitUntil: 'domcontentloaded' });
 await inactive.page.waitForURL('**/login');
@@ -145,7 +166,7 @@ async function wizardSnapshot(page) {
 
 async function runParityLeg(path, legacy) {
   const leg = await fixture({
-    profile: { id: 'user-1', is_active: true, onboarding_completed: false },
+    profile: authMe(),
     viewport: { width: 390, height: 844 },
   });
   await leg.page.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' });
@@ -210,7 +231,7 @@ if (!NEXT_ONLY) {
 }
 
 const wizard = await fixture({
-  profile: { id: 'user-1', is_active: true, onboarding_completed: false },
+  profile: authMe(),
   ambiguousPatch: true,
   patchDelayMs: 150,
   viewport: { width: 390, height: 844 },
@@ -259,7 +280,7 @@ check('wizard không có lỗi JavaScript', wizard.errors.length === 0, wizard.e
 await wizard.context.close();
 
 const completed = await fixture({
-  profile: { id: 'user-1', is_active: true, onboarding_completed: true },
+  profile: authMe({ onboarding_completed: true }),
 });
 await completed.page.goto(`${BASE}/onboarding`, { waitUntil: 'domcontentloaded' });
 await completed.page.waitForURL('**/home');
