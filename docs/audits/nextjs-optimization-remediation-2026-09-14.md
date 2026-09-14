@@ -128,16 +128,27 @@ fixtures are not deployable application routes.
 ### NXT-07 — Public cache has TTL but no content-triggered invalidation
 
 - **Root cause:** `getPublicJson()` applies `use cache`/`cacheLife`, but no
-  `cacheTag` or authenticated invalidation path connects canonical FastAPI
-  content commits to Next's cache.
+  `cacheTag` or authenticated invalidation path connected canonical FastAPI
+  runtime content commits to Next's cache. Validation narrowed this to
+  Vocabulary: Grammar Wiki is repository-authored and its admin surface is
+  intentionally read-only, so a content deployment naturally gets a new cache.
 - **Severity:** Medium.
-- **Impacted code:** `frontend/lib/backend.ts:getPublicJson`, grammar/vocabulary
-  mutations in FastAPI, new Next invalidation route.
+- **Impacted code:** `frontend/lib/backend.ts:getPublicJson`, Vocabulary admin
+  mutations in FastAPI and the new Next invalidation route.
 - **Minimal fix:** deterministic public-content tags plus an HMAC-protected
   invalidation webhook called only after canonical commits. TTL remains fallback.
-- **Verification:** mutate staging content, invalidate, prove the next request
-  reflects canonical data; reject missing/invalid signatures and unknown tags.
-- **Status:** queued for Wave F; requires staging secret configuration.
+- **Verification:** signed-envelope tests cover exact-body HMAC, stale requests,
+  forged signatures, unknown/duplicate tags and size bounds; backend tests cover
+  fail-soft notification and post-reload scheduling; full frontend contract
+  suite and production build cover the compiled route. A local production-server
+  smoke returned 200 for a valid envelope, 401 for a forged signature and 400
+  for stale/unknown-tag requests. On staging, mutate one word and prove a
+  subsequent revalidation refresh reflects canonical data.
+- **Status:** Wave F implementation complete locally. Vocabulary server reads
+  carry `public:vocabulary`; successful import/edit/delete/bulk-delete/audio
+  writes notify an HMAC-protected, allow-listed Route Handler. Grammar was
+  deliberately excluded after false-positive validation. Staging configuration
+  and live mutation proof remain pending PR/deploy authorization.
 
 ### NXT-08 — Quality gates under-cover React behavior and web metadata
 

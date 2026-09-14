@@ -34,6 +34,7 @@ from config import settings
 from database import supabase_admin
 from routers.admin import require_admin
 from services import tts_audio
+from services.public_cache_invalidation import invalidate_vocabulary_cache
 from services.vocab_content import vocab_service
 from services.vocab_import import import_vocab_file
 
@@ -42,13 +43,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin/vocabulary", tags=["admin-vocabulary-content"])
 
 
-def _reload_safe() -> None:
+def _reload_safe() -> bool:
     """G1 — rebuild the in-memory grid after a write so the public /vocabulary
     grid + article reflect it without a restart. Never fail the write on a hiccup."""
     try:
         vocab_service.reload()
+        return True
     except Exception as exc:  # noqa: BLE001
         logger.error("[vocab] reload after write failed: %s", exc)
+        return False
+
+
+def _reload_and_invalidate(background_tasks: BackgroundTasks) -> None:
+    """Expose canonical DB writes locally first, then expire Next in background."""
+    if _reload_safe():
+        background_tasks.add_task(invalidate_vocabulary_cache)
 
 
 class VocabUpdate(BaseModel):
@@ -99,6 +108,7 @@ class GenerateAudioRequest(BaseModel):
 
 @router.post("/import")
 async def import_vocab_word(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     dry_run: bool = Query(default=True),
     authorization: str | None = Header(None),
@@ -122,7 +132,7 @@ async def import_vocab_word(
     # G1 — after a real commit, rebuild the in-memory index so the words are live
     # immediately (no restart). reload() re-reads vocab_cards (the source of truth).
     if result["committed_ids"] and not result["dry_run"]:
-        _reload_safe()
+        _reload_and_invalidate(background_tasks)
 
     return result
 
@@ -179,6 +189,7 @@ async def get_vocab(vocab_id: UUID, authorization: str | None = Header(None)):
 async def update_vocab(
     vocab_id: UUID,
     body:     VocabUpdate,
+    background_tasks: BackgroundTasks,
     authorization: str | None = Header(None),
 ):
     """Partial update by stable id (editing the headword does NOT move the slug —
@@ -200,24 +211,32 @@ async def update_vocab(
         raise HTTPException(500, "Không cập nhật được từ vựng.")
     if not res.data:
         raise HTTPException(404, "Không tìm thấy từ vựng.")
-    _reload_safe()   # G1 — public grid/article reflect the edit without a restart
+    _reload_and_invalidate(background_tasks)
     return res.data[0]
 
 
 @router.delete("/{vocab_id}")
-async def delete_vocab(vocab_id: UUID, authorization: str | None = Header(None)):
+async def delete_vocab(
+    vocab_id: UUID,
+    background_tasks: BackgroundTasks,
+    authorization: str | None = Header(None),
+):
     """Hard delete one word. NOTE: a seed word that still exists in content_vocab/**
     will reappear if the migrate-in script is re-run — flagged for the operator."""
     await require_admin(authorization)
     res = supabase_admin.table("vocab_cards").delete().eq("id", str(vocab_id)).execute()
     if not res.data:
         raise HTTPException(404, "Không tìm thấy từ vựng.")
-    _reload_safe()
+    _reload_and_invalidate(background_tasks)
     return {"message": "Đã xóa từ vựng", "id": str(vocab_id)}
 
 
 @router.post("/bulk-delete")
-async def bulk_delete_vocab(body: BulkDeleteRequest, authorization: str | None = Header(None)):
+async def bulk_delete_vocab(
+    body: BulkDeleteRequest,
+    background_tasks: BackgroundTasks,
+    authorization: str | None = Header(None),
+):
     """Hard-delete many words by id in ONE query → ONE reload (G1). Returns the
     deleted count + any ids that weren't found (idempotent-ish; never 500s on a
     stale id). The FE shows the selected words + a counted confirm before calling,
@@ -230,7 +249,8 @@ async def bulk_delete_vocab(body: BulkDeleteRequest, authorization: str | None =
     deleted = res.data or []
     deleted_ids = {str(r.get("id")) for r in deleted}
     not_found = [i for i in ids if i not in deleted_ids]
-    _reload_safe()                       # G1 — public grid/article reflect the removals
+    if deleted_ids:
+        _reload_and_invalidate(background_tasks)
     return {"deleted_count": len(deleted_ids), "not_found": not_found}
 
 
@@ -273,7 +293,8 @@ def _generate_audio_job(rows: list, engine: str, scope: str, skip_existing: bool
             logger.error("[vocab] generate-audio failed slug=%s engine=%s: %s", slug, engine, exc)
     logger.info("[vocab] generate-audio done engine=%s scope=%s gen=%d skip=%d stamped=%d errors=%d",
                 engine, scope, gen, skip, stamped, errors)
-    _reload_safe()
+    if stamped and _reload_safe():
+        invalidate_vocabulary_cache()
 
 
 @router.post("/generate-audio")

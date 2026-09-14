@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next';
 
 const PRIVATE_PREFIXES = [
   '/admin',
+  '/api',
   '/core-player',
   '/course-exercises',
   '/d1-exercise',
