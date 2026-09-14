@@ -515,7 +515,7 @@ describe('Next Speaking Full Test integration', () => {
     assert.match(BRIDGE, /api\.getWith\([\s\S]*?noRedirect: true/);
     assert.match(BRIDGE, /encodeURIComponent\(sessionId\)/);
     assert.match(BRIDGE, /controller\.hasUnsavedAudio\(\)/);
-    assert.match(BRIDGE, /beforeunload/);
+    assert.match(BRIDGE, /registerNavigationGuard/);
     assert.match(BRIDGE, /controller\.destroy\(\)/);
   });
 

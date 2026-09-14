@@ -23,7 +23,9 @@ describe('/vocabulary native public wiki', () => {
     assert.match(PAGE, /import \{ connection \} from 'next\/server'/);
     assert.match(PAGE, /await connection\(\);/);
     assert.match(PAGE, /getVocabularyCategories\(\)/);
-    assert.match(PAGE, /getVocabularyDirectory\(\{ category: requestedCategory \}\)/);
+    assert.match(PAGE, /getVocabularyDirectory\(\{ category: effectiveCategory \}\)/);
+    assert.match(PAGE, /!directory\.categories\.some\(\(category\) => category\.slug === effectiveCategory\)/);
+    assert.match(PAGE, /effectiveCategory = ''[\s\S]*?getVocabularyDirectory\(\)/);
     assert.match(PAGE, /getVocabularyArticle\(selected\.category, selected\.slug\)/);
     assert.match(API, /getPublicJson\('\/api\/vocabulary\/categories'\)/);
     assert.match(API, /getPublicJson<VocabularyDirectoryWire>\(`\/api\/vocabulary\/directory\?\$\{params\.toString\(\)\}`\)/);

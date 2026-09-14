@@ -159,7 +159,7 @@ describe('native True/False route and persistence contract', () => {
     assert.match(CLIENT, /aria-disabled=\{index === 0\} disabled=\{locked\}/);
     assert.match(CLIENT, /aria-disabled=\{index === draft\.length - 1\} disabled=\{locked\}/);
     assert.match(CLIENT, /setReorderNotice/);
-    assert.match(CLIENT, /beforeunload/);
+    assert.match(CLIENT, /registerNavigationGuard/);
     assert.match(CLIENT, /<Dialog open=\{confirm !== null\}/);
     assert.match(CLIENT, /<fieldset className="altf-answer-options"[^>]*>/);
     assert.doesNotMatch(CLIENT, /\b(?:window\.)?(?:alert|confirm)\s*\(/i);

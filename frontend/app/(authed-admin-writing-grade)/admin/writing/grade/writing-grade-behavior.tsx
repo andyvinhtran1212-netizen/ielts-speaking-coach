@@ -11,6 +11,7 @@ import {
 import { useSearchParams } from 'next/navigation';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
+import { registerNavigationGuard } from '@/lib/navigation-guard';
 import {
   ADMIN_GRADE_SECTIONS,
   ADMIN_GRADE_TABS,
@@ -348,8 +349,7 @@ export function AdminWritingGradeBehavior() {
       if (!workspace?.dirty) return;
       event.preventDefault(); event.returnValue = '';
     };
-    window.addEventListener('beforeunload', beforeUnload);
-    return () => window.removeEventListener('beforeunload', beforeUnload);
+    return registerNavigationGuard(beforeUnload);
   }, [workspace?.dirty]);
 
   const updateWorkspace = useCallback((updater: (current: GradeWorkspace) => GradeWorkspace) => {

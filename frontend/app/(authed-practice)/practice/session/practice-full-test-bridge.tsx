@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { coreOperationRequest } from '@/lib/core-operation-intent.mjs';
+import { registerNavigationGuard } from '@/lib/navigation-guard';
 import { SpeakingFullTestController } from '../../../../public/js/speaking-full-test-controller.mjs';
 
 export function PracticeFullTestBridge() {
@@ -45,9 +46,9 @@ export function PracticeFullTestBridge() {
     };
 
     win.PracticeFullTest = controller;
-    win.addEventListener('beforeunload', warnBeforeUnload);
+    const releaseNavigationGuard = registerNavigationGuard(warnBeforeUnload);
     return () => {
-      win.removeEventListener('beforeunload', warnBeforeUnload);
+      releaseNavigationGuard();
       controller.destroy();
       if (win.PracticeFullTest === controller) delete win.PracticeFullTest;
     };

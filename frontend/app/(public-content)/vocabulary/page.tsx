@@ -28,18 +28,24 @@ async function VocabularyBody({ searchParams }: { searchParams: SearchParams }) 
   const params = await searchParams;
   const requestedCategory = queryText(params.cat);
   const requestedSlug = queryText(params.slug);
-  const directoryPayload = await getVocabularyDirectory({ category: requestedCategory });
-  const directory = normalizeVocabularyDirectory(directoryPayload) as VocabularyDirectory;
+  let effectiveCategory = requestedCategory;
+  let directoryPayload = await getVocabularyDirectory({ category: effectiveCategory });
+  let directory = normalizeVocabularyDirectory(directoryPayload) as VocabularyDirectory;
+  if (effectiveCategory && !directory.categories.some((category) => category.slug === effectiveCategory)) {
+    effectiveCategory = '';
+    directoryPayload = await getVocabularyDirectory();
+    directory = normalizeVocabularyDirectory(directoryPayload) as VocabularyDirectory;
+  }
 
   // Canonical links always carry the compound category + slug identity. Keep
   // the historical slug-only fallback server-side so that compatibility does
   // not force the complete catalogue into the client RSC payload.
-  let selected = requestedCategory && requestedSlug
-    ? { category: requestedCategory, slug: requestedSlug }
+  let selected = effectiveCategory && requestedSlug
+    ? { category: effectiveCategory, slug: requestedSlug }
     : !requestedSlug
       ? directory.items[0] ?? null
       : null;
-  if (!requestedCategory && requestedSlug) {
+  if (!effectiveCategory && requestedSlug) {
     const categories = normalizeVocabularyCategories(await getVocabularyCategories());
     selected = resolveVocabularySelection(
       categories.flatMap((category) => category.articles),
@@ -53,7 +59,7 @@ async function VocabularyBody({ searchParams }: { searchParams: SearchParams }) 
   const initialArticle = articlePayload && selected
     ? normalizeVocabularyArticle(articlePayload, selected.category, selected.slug) as VocabularyArticle
     : null;
-  return <VocabularyWiki directory={directory} initialArticle={initialArticle} initialCategory={requestedCategory} initialSlug={requestedSlug} />;
+  return <VocabularyWiki directory={directory} initialArticle={initialArticle} initialCategory={effectiveCategory} initialSlug={requestedSlug} />;
 }
 
 function VocabularySkeleton() {

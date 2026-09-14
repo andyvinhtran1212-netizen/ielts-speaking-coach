@@ -259,6 +259,31 @@ const adminErrors = [];
 adminPage.on('pageerror', (error) => adminErrors.push(String(error)));
 await adminPage.goto(`${BASE}/admin`, { waitUntil: 'domcontentloaded' });
 await adminPage.locator('aver-admin-chrome a[href="/admin/users"]').first().waitFor();
+await adminPage.evaluate(() => {
+  window.__adminGuardCalls = 0;
+  window.__adminUnsavedGuard = (event) => {
+    window.__adminGuardCalls += 1;
+    event.preventDefault();
+    event.returnValue = '';
+  };
+  window.addEventListener('beforeunload', window.__adminUnsavedGuard);
+  window.addEventListener('aver:navigation-guard', window.__adminUnsavedGuard);
+  window.__adminNativeClickBlocker = (event) => event.preventDefault();
+  document.querySelector('aver-admin-chrome').shadowRoot.addEventListener('click', window.__adminNativeClickBlocker);
+});
+await adminPage.locator('aver-admin-chrome a[href="/admin/users"]').first().click();
+await adminPage.waitForTimeout(100);
+check('admin chrome giữ cảnh báo trước khi rời trang có dữ liệu chưa lưu',
+  new URL(adminPage.url()).pathname === '/admin'
+    && await adminPage.evaluate(() => window.__adminGuardCalls) > 0);
+await adminPage.evaluate(() => {
+  window.removeEventListener('beforeunload', window.__adminUnsavedGuard);
+  window.removeEventListener('aver:navigation-guard', window.__adminUnsavedGuard);
+  document.querySelector('aver-admin-chrome').shadowRoot.removeEventListener('click', window.__adminNativeClickBlocker);
+  delete window.__adminUnsavedGuard;
+  delete window.__adminNativeClickBlocker;
+  delete window.__adminGuardCalls;
+});
 await adminPage.evaluate(() => { window.__adminNavigationSentinel = 'survived'; });
 await adminPage.locator('aver-admin-chrome a[href="/admin/users"]').first().click();
 await adminPage.waitForURL(`${BASE}/admin/users`);
