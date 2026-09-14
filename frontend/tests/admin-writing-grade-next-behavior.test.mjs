@@ -75,7 +75,7 @@ describe('/admin/writing/grade — state + persistence contract', () => {
     assert.match(BEHAVIOR, /WritingRenderers\?\.SECTION_RENDERERS/);
     assert.match(BEHAVIOR, /parseAdminGradeDraft/);
     assert.match(BEHAVIOR, /dirty: true/);
-    assert.match(BEHAVIOR, /beforeunload/);
+    assert.match(BEHAVIOR, /registerNavigationGuard/);
   });
 
   test('keeps canonical read/save/note/render/export endpoints', () => {
