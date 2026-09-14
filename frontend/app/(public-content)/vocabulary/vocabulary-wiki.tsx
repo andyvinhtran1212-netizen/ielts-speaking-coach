@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
+import { getBrowserJson } from '@/lib/browser-api';
 import { normalizeVocabularyArticle, normalizeVocabularyDirectory, vocabularyKey } from '@/lib/vocabulary-model.mjs';
 import type { VocabularyArticle as Article, VocabularyDirectory, VocabularyWord as Word } from '@/lib/vocabulary-types';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
@@ -238,7 +239,7 @@ export function VocabularyWiki({ directory: initialDirectory, initialArticle, in
           const params = new URLSearchParams({ offset: '0', limit: String(initialDirectory.limit) });
           if (category) params.set('category', category);
           if (query.trim()) params.set('q', query.trim());
-          const payload = await window.api.getWith(`/api/vocabulary/directory?${params.toString()}`, undefined, { signal: controller.signal });
+          const payload = await getBrowserJson('/api/vocabulary/directory', params, controller.signal);
           if (controller.signal.aborted) return;
           setDirectory(normalizeVocabularyDirectory(payload) as VocabularyDirectory);
           setDirectoryStatus('ready');
@@ -342,7 +343,7 @@ export function VocabularyWiki({ directory: initialDirectory, initialArticle, in
       });
       if (category) params.set('category', category);
       if (query.trim()) params.set('q', query.trim());
-      const payload = await window.api.getWith(`/api/vocabulary/directory?${params.toString()}`, undefined, { signal: controller.signal });
+      const payload = await getBrowserJson('/api/vocabulary/directory', params, controller.signal);
       if (controller.signal.aborted) return;
       const nextPage = normalizeVocabularyDirectory(payload) as VocabularyDirectory;
       setDirectory((current) => ({

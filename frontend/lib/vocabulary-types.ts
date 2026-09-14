@@ -1,3 +1,7 @@
+import type { ApiGetJson } from '@/lib/openapi-contract';
+
+export type VocabularyDirectoryWire = ApiGetJson<'/api/vocabulary/directory'>;
+
 export type VocabularyWord = {
   slug: string;
   category: string;

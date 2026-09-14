@@ -75,7 +75,10 @@ fixtures are not deployable application routes.
   pages. Remove a script only after dependency inventory reaches zero.
 - **Verification:** no duplicate GoTrue client, refresh/logout/account-switch
   browser tests, bundle analyzer comparison, public-script consumer inventory.
-- **Status:** queued for Waves C–D.
+- **Status:** Wave C1 introduced an imported, OpenAPI-typed browser GET adapter
+  and moved Vocabulary directory reads behind it. The adapter deliberately
+  retains `api.js` for auth, correlation and 401 parity; Supabase ESM ownership
+  and removal of the global bridge remain queued by domain.
 
 ### NXT-04 — OpenAPI contract is generated but not consumed
 
@@ -88,7 +91,10 @@ fixtures are not deployable application routes.
   adapters with runtime normalization, and prohibit new API-boundary `any`.
 - **Verification:** typecheck fixtures for request/response drift and domain route
   tests; track API-boundary casts separately from the global count.
-- **Status:** queued for Wave C.
+- **Status:** Wave C1 now derives the Vocabulary directory wire payload directly
+  from generated OpenAPI `paths`, uses it for server and browser reads, and adds
+  a compile-time assertion that fails if FastAPI returns to an unmodeled
+  response. Other domains and the remaining API-boundary casts are queued.
 
 ### NXT-05 — Large imperative Client Components remain parity ports
 
