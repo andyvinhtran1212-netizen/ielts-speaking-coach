@@ -2,9 +2,10 @@
   "name": "ielts-frontend-e2e",
   "version": "0.0.0",
   "private": true,
-  "description": "Playwright browser smoke tests (F4). Bounded to frontend/tests/e2e/ — do NOT import @playwright elsewhere; the rest of the frontend stays zero-dependency.",
+  "description": "Next.js frontend with node contract tests, bounded React interaction tests, and Playwright browser journeys.",
   "scripts": {
     "test:e2e": "playwright test",
+    "test:react": "node node_modules/vitest/vitest.mjs run",
     "test:e2e:speaking-regression": "playwright test -c playwright.speaking-regression.config.js",
     "build:css:setup": "npm --prefix tooling/css ci",
     "build:css": "npm run build:css:plusjakarta && npm run build:css:inter",
@@ -20,11 +21,15 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
+    "@testing-library/react": "16.3.0",
     "@types/node": "^24.10.4",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "jsdom": "26.1.0",
     "openapi-typescript": "7.13.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite": "7.3.6",
+    "vitest": "4.1.11"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.107.0",

@@ -246,7 +246,15 @@ fixtures are not deployable application routes.
   for all three metadata endpoints. Wave D2 replaces the approximate legacy
   collector on App routes with one root `useReportWebVitals` integration while
   retaining the backend envelope and the original document pathname across
-  soft navigation. React interaction coverage remains queued.
+  soft navigation. Wave I revalidated the test inventory: the original claim of
+  “no rendered TSX test” was too broad because the Speaking feedback suite
+  already renders React markup and page-level Playwright journeys exercise live
+  React routes. The real missing layer was fast state/focus/keyboard interaction
+  coverage. A bounded Vitest + Testing Library harness now locks the shared admin
+  dialog's focus trap, dismissal/busy contract and focus restoration, plus the
+  Grammar mode switcher's roving-tab and panel semantics. All three component
+  interactions pass and CI runs them independently from source contracts and
+  page-level browser journeys.
 
 ## Current Next.js adoption verdict
 
@@ -267,10 +275,11 @@ Adoption is therefore **substantial but not yet optimal** in four bounded areas:
    route bundles are small and their critical state machines/write paths are
    extracted and tested. Remaining conversions are maintainability work, not a
    current correctness or performance blocker.
-3. The app has broad inline Suspense coverage and explicit client read states,
-   but the uncached Grammar article route still uses a blank segment fallback.
-4. Browser journey coverage is meaningful, but the unit-test pyramid is still
-   dominated by source-shape assertions rather than rendered React interaction.
+3. The app has broad inline Suspense coverage and explicit client read states;
+   the one confirmed blank Grammar article wait now streams a stable skeleton.
+4. Browser journey coverage is meaningful and the new bounded component layer
+   covers shared React interaction primitives. Historical source contracts still
+   dominate the raw count, but mechanically rewriting them has no product value.
 
 ## Prioritized remaining roadmap
 
@@ -321,11 +330,12 @@ Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 
 ### P2 — Establish a measured React test layer
 
-- Add a small Vitest/Testing Library harness for newly extracted interactive
-  units. Keep source-contract tests only for build-time ownership invariants;
-  do not mechanically rewrite the existing 9,000+ passing assertions.
-- Gate future client refactors on observable behavior and browser flows, not LOC
-  or client-component counts alone.
+- **Status:** completed locally in Wave I. Vitest + Testing Library cover three
+  rendered interactions across the shared admin dialog and public Grammar mode
+  switcher; `backend-tests.yml` runs the suite on every PR.
+- Keep source-contract tests only for build-time ownership invariants and add
+  rendered tests alongside future shared interactive primitives. Do not
+  mechanically rewrite the existing 9,000+ passing assertions.
 
 ### P3 — Continue compatibility retirement by evidence
 
