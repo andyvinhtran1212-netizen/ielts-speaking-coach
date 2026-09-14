@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { getAdminCohorts } from '@/lib/admin-cohorts-api';
+import { getAdminCourses } from '@/lib/admin-courses-api';
 import { Dialog, Field, messageOf, StatusBanner } from '@/components/admin-directory-ui';
 import {
   cohortDraft,
@@ -71,7 +72,7 @@ export function AdminClassesDirectory() {
     setCoursesError(null);
     const [cohortResult, courseResult] = await Promise.allSettled([
       getAdminCohorts({ withRollup: true }),
-      window.api.get<unknown>('/admin/courses'),
+      getAdminCourses(),
     ]);
     if (requestId !== sequence.current) return false;
     let canonical = true;

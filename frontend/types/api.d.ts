@@ -11689,6 +11689,38 @@ export interface components {
             /** Unactivated Count */
             unactivated_count?: number | null;
         };
+        /** AdminCourseListOut */
+        AdminCourseListOut: {
+            /** Courses */
+            courses: components["schemas"]["AdminCourseOut"][];
+        };
+        /** AdminCourseOut */
+        AdminCourseOut: {
+            /** Id */
+            id: string;
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /** Sort Order */
+            sort_order: number;
+            /** Is Active */
+            is_active: boolean;
+            /** Created By */
+            created_by?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** AdminErrorOverviewOut */
         AdminErrorOverviewOut: {
             /** Undismissed */
@@ -19861,7 +19893,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminCourseListOut"];
                 };
             };
             /** @description Validation Error */

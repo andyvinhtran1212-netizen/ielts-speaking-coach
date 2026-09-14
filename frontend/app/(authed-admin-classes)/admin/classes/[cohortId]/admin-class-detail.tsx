@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
+import { getAdminCourses } from '@/lib/admin-courses-api';
 import { Dialog, Field, messageOf, StatusBanner } from '@/components/admin-directory-ui';
 import {
   latestSkillActivity,
@@ -144,7 +145,7 @@ export function AdminClassDetail({ cohortId }: { cohortId: string }) {
     setCoursesError(null);
     const [rosterResult, courseResult] = await Promise.allSettled([
       window.api.get<unknown>(`/admin/cohorts/${encodeURIComponent(cohortId)}/members`),
-      window.api.get<unknown>('/admin/courses'),
+      getAdminCourses(),
     ]);
     if (requestId !== overviewSequence.current) return false;
     let canonical = true;

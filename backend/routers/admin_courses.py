@@ -20,6 +20,7 @@ from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
+from models.admin_courses import AdminCourseListOut
 from routers.admin import require_admin
 
 router = APIRouter(prefix="/admin/courses", tags=["admin", "courses"])
@@ -40,7 +41,7 @@ class CoursePatch(BaseModel):
     is_active:   bool | None = None
 
 
-@router.get("")
+@router.get("", response_model=AdminCourseListOut)
 async def list_courses(
     is_active: bool | None = Query(default=None),
     authorization: str | None = Header(default=None),
