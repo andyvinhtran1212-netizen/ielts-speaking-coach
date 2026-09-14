@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
@@ -29,11 +30,11 @@ function Breadcrumb({ slug, title }: { slug?: string; title?: string }) {
       style={{ background: 'var(--av-surface-sunken)', backdropFilter: 'blur(12px)' }}>
       <div className="av-w-page h-12 flex items-center">
         <div id="breadcrumb" className="flex items-center text-sm text-white/40 flex-wrap gap-0">
-          <a href="/grammar" className="hover:text-teal-light transition-colors">Grammar Wiki</a>
+          <Link href="/grammar" className="hover:text-teal-light transition-colors">Grammar Wiki</Link>
           {slug ? (
             <>
               <span className="mx-2 text-white/20">›</span>
-              <a href={`/grammar?category=${encodeURIComponent(slug)}`} className="hover:text-teal-light transition-colors capitalize">{title || slug.replace(/-/g, ' ')}</a>
+              <Link href={`/grammar?category=${encodeURIComponent(slug)}`} className="hover:text-teal-light transition-colors capitalize">{title || slug.replace(/-/g, ' ')}</Link>
             </>
           ) : null}
           <span className="mx-2 text-white/20">›</span>
@@ -78,9 +79,9 @@ function RoadmapSteps({ articles }: { articles: Article[] }) {
               </div>
               <p className="text-sm text-white/50 mb-3 leading-relaxed">{article.summary || ''}</p>
               <div className="flex items-center gap-3">
-                <a href={articleUrl(article.category, article.slug)} className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg ${updating ? 'bg-white/5 text-white/30 cursor-default' : 'bg-teal/15 text-teal-light hover:bg-teal/25'} text-sm font-medium transition-colors`}>
+                <Link href={articleUrl(article.category, article.slug)} className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg ${updating ? 'bg-white/5 text-white/30 cursor-default' : 'bg-teal/15 text-teal-light hover:bg-teal/25'} text-sm font-medium transition-colors`}>
                   {updating ? 'Sắp ra mắt' : 'Học ngay →'}
-                </a>
+                </Link>
                 <span className="text-xs text-white/25">{article.reading_time || 1} phút</span>
               </div>
             </div>
@@ -109,7 +110,7 @@ async function RoadmapBody({ searchParams }: { searchParams: SearchParams }) {
         </div>
         <div id="roadmap-steps" className="mb-10"><RoadmapSteps articles={articles} /></div>
         <div className="border-t border-white/6 pt-6">
-          <a id="roadmap-cat-link" href={`/grammar?category=${encodeURIComponent(slug)}`} className="text-sm text-teal-light hover:underline">Xem tất cả bài {title} →</a>
+          <Link id="roadmap-cat-link" href={`/grammar?category=${encodeURIComponent(slug)}`} className="text-sm text-teal-light hover:underline">Xem tất cả bài {title} →</Link>
         </div>
       </main>
     </>

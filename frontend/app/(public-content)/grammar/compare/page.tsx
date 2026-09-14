@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
@@ -56,12 +57,12 @@ function CompareColumn({ article, id }: { article: CompareArticle; id: string })
       {article.summary ? (
         <p className="text-sm text-white/55 mb-4 leading-relaxed">{article.summary}</p>
       ) : null}
-      <a
+      <Link
         href={articleUrl(article.category, article.slug)}
         className="inline-flex items-center gap-1.5 text-sm text-teal-light hover:underline mb-6"
       >
         Đọc bài đầy đủ →
-      </a>
+      </Link>
       {/* Nội dung này là HTML Markdown đã biên soạn từ GrammarContentService;
           legacy cũng render nguyên `article.html`. Text metadata phía trên vẫn
           do React escape, không mở rộng trust boundary sang dữ liệu khác. */}
@@ -117,7 +118,7 @@ export default function GrammarComparePage({ searchParams }: { searchParams: Sea
       >
         <div className="av-w-page h-12 flex items-center">
           <div id="breadcrumb" className="flex items-center text-sm text-white/40 flex-wrap gap-0">
-            <a href="/grammar" className="hover:text-teal-light transition-colors">Grammar Wiki</a>
+            <Link href="/grammar" className="hover:text-teal-light transition-colors">Grammar Wiki</Link>
             <span className="mx-2 text-white/20">›</span>
             <span className="text-white/80">So sánh</span>
           </div>

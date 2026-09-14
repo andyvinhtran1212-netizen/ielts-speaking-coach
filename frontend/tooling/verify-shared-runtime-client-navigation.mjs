@@ -153,6 +153,23 @@ check('page_view ghi đủ hai pathname và không ghi trùng',
     && analyticsPaths.filter((path) => path === '/speaking').length === 1,
   JSON.stringify(analyticsPaths));
 check('không có lỗi JavaScript chưa bắt', pageErrors.length === 0, pageErrors[0] || '');
+
+const publicPage = await context.newPage();
+const publicErrors = [];
+publicPage.on('pageerror', (error) => publicErrors.push(String(error)));
+await publicPage.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+await publicPage.getByRole('link', { name: 'Grammar Wiki', exact: true }).first().waitFor();
+await publicPage.evaluate(() => { window.__publicNavigationSentinel = 'survived'; });
+await publicPage.getByRole('link', { name: 'Grammar Wiki', exact: true }).first().click();
+await publicPage.waitForURL(`${BASE}/grammar`);
+await publicPage.getByRole('heading', { name: /Học ngữ pháp như một/ }).waitFor();
+const publicSentinel = await publicPage.evaluate(() => window.__publicNavigationSentinel);
+check('CTA public dùng App Router thay vì nạp lại document', publicSentinel === 'survived');
+await publicPage.goBack();
+await publicPage.waitForURL(`${BASE}/`);
+check('back/forward giữ đúng URL sau soft navigation public', await publicPage.evaluate(() => window.__publicNavigationSentinel) === 'survived');
+check('soft navigation public không phát sinh lỗi JavaScript', publicErrors.length === 0, publicErrors[0] || '');
+await publicPage.close();
 } finally {
   await browser.close();
 }

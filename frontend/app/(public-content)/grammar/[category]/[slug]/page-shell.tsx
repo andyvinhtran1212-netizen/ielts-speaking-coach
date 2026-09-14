@@ -3,6 +3,7 @@
  * Transcribes legacy grammar-article.html body structure verbatim,
  * SSR-filling only the runtime data that grammar.js would inject.
  */
+import Link from 'next/link';
 
 export interface GrammarArticle {
   slug: string;
@@ -330,12 +331,12 @@ export function ArticleShell({ article }: { article: GrammarArticle }) {
           <p className="text-sm text-white/70 leading-snug">
             Luyện IELTS Speaking với AI — nhận feedback ngay lập tức
           </p>
-          <a
+          <Link
             href="/login"
             className="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-teal text-white hover:bg-teal-light transition-colors whitespace-nowrap"
           >
             Dùng thử miễn phí →
-          </a>
+          </Link>
         </div>
       </div>
 
@@ -366,12 +367,12 @@ export function ArticleShell({ article }: { article: GrammarArticle }) {
             Muốn biết mình có dùng đúng trong IELTS Speaking không? Thử luyện với AI để nhận feedback ngay.
           </p>
           <div className="flex flex-col gap-2">
-            <a
+            <Link
               href="/login"
               className="block w-full py-2.5 rounded-xl text-sm font-semibold bg-teal text-white hover:bg-teal-light transition-colors"
             >
               Luyện Speaking ngay
-            </a>
+            </Link>
             <button
               id="guest-modal-dismiss"
               className="block w-full py-2.5 rounded-xl text-sm text-white/40 hover:text-white/70 transition-colors"

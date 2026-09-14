@@ -50,11 +50,16 @@ fixtures are not deployable application routes.
   chrome, student hubs and admin workspaces. Auth logout, downloads, cross-origin
   targets and affinity-sensitive exam launches are explicit hard-navigation
   exceptions.
-- **Minimal fix:** introduce one typed internal-navigation primitive, then migrate
-  route groups in bounded batches; do not perform regex replacement.
+- **Minimal fix:** use Next's typed `Link`/router primitives directly, then
+  migrate route groups in bounded batches; do not perform regex replacement.
 - **Verification:** source inventory decreases, browser history/back-forward and
   auth-provider mount remain stable, exam launch/return contracts remain green.
-- **Status:** queued for Wave B.
+- **Status:** Wave B1 complete for landing, public Grammar, Vocabulary learning
+  and the shared admin-denied action. `next/link` occurrences increased from 7
+  to 75, while same-line raw internal anchors decreased from 208 to 171. Browser
+  proof confirms the document, shared Supabase client, telemetry and history
+  survive soft navigation. Generated HTML inside the Grammar article shell and
+  operational/admin route groups remain for later bounded batches.
 
 ### NXT-03 — Browser runtime bridge bypasses module typing/tree-shaking
 

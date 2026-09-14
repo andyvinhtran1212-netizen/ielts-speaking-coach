@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Suspense } from 'react';
 
 import { getSearch } from '@/lib/grammar-api';
@@ -70,7 +71,7 @@ async function SearchResults({ searchParams }: { searchParams: SearchParams }) {
             </select>
           </label>
           <button type="submit" className="gw-filter-reset">Áp dụng</button>
-          {(level || use) ? <a className="gw-filter-reset" href={`/grammar/search?q=${encodeURIComponent(query)}`}>Xóa bộ lọc</a> : null}
+          {(level || use) ? <Link className="gw-filter-reset" href={`/grammar/search?q=${encodeURIComponent(query)}`}>Xóa bộ lọc</Link> : null}
         </form>
       </div>
 
@@ -107,7 +108,7 @@ export default function GrammarSearchPage({ searchParams }: { searchParams: Sear
       >
         <div className="av-w-page h-12 flex items-center">
           <div id="breadcrumb" className="flex items-center text-sm text-white/40 flex-wrap gap-0">
-            <a href="/grammar" className="hover:text-teal-light transition-colors">Grammar Wiki</a>
+            <Link href="/grammar" className="hover:text-teal-light transition-colors">Grammar Wiki</Link>
             <span className="mx-2 text-white/20">›</span>
             <span className="text-white/80">Tìm kiếm</span>
           </div>

@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import Link from 'next/link';
 import { LandingBehavior } from './landing-behavior';
 
 export const metadata: Metadata = {
@@ -27,9 +28,9 @@ export default function LandingPreviewPage() {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-8">
-            <a href="/grammar" className="ix-nav-link text-sm font-medium pb-1">
+            <Link href="/grammar" className="ix-nav-link text-sm font-medium pb-1">
               Grammar Wiki
-            </a>
+            </Link>
             <a href="#features" className="ix-nav-link text-sm font-medium pb-1">
               Tính năng
             </a>
@@ -37,13 +38,13 @@ export default function LandingPreviewPage() {
 
           {/* CTA buttons */}
           <div className="flex items-center gap-3">
-            <a
+            <Link
               href="/login"
               className="ix-nav-signin hidden sm:inline-flex text-sm font-medium px-3 py-2"
             >
               Đăng nhập
-            </a>
-            <a
+            </Link>
+            <Link
               href="/login"
               className="ix-nav-cta inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-lg"
             >
@@ -61,7 +62,7 @@ export default function LandingPreviewPage() {
                   d="M13 7l5 5m0 0l-5 5m5-5H6"
                 />
               </svg>
-            </a>
+            </Link>
             <button
               className="av-theme-toggle"
               type="button"
@@ -109,7 +110,7 @@ export default function LandingPreviewPage() {
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4">
-                <a
+                <Link
                   href="/login"
                   className="ix-cta-light inline-flex items-center justify-center gap-2 font-bold px-6 py-3.5 rounded-xl text-base"
                 >
@@ -127,7 +128,7 @@ export default function LandingPreviewPage() {
                       d="M13 7l5 5m0 0l-5 5m5-5H6"
                     />
                   </svg>
-                </a>
+                </Link>
                 <a
                   href="#how-it-works"
                   className="ix-cta-ghost inline-flex items-center justify-center gap-2 font-semibold px-6 py-3.5 rounded-xl text-base"
@@ -325,7 +326,7 @@ export default function LandingPreviewPage() {
                 <li>Chấm 4 tiêu chí: FC · LR · GRA · P</li>
                 <li>Lịch sử band và tiến độ theo tuần</li>
               </ul>
-              <a href="/login" className="ix-skill-card__cta">
+              <Link href="/login" className="ix-skill-card__cta">
                 Bắt đầu luyện Speaking
                 <svg
                   className="w-4 h-4"
@@ -340,7 +341,7 @@ export default function LandingPreviewPage() {
                     d="M13 7l5 5m0 0l-5 5m5-5H6"
                   />
                 </svg>
-              </a>
+              </Link>
             </article>
 
             {/* Writing */}
@@ -363,7 +364,7 @@ export default function LandingPreviewPage() {
                 <li>Chấm 4 tiêu chí IELTS chuẩn</li>
                 <li>Feedback từng câu, không chung chung</li>
               </ul>
-              <a href="/login" className="ix-skill-card__cta">
+              <Link href="/login" className="ix-skill-card__cta">
                 Bắt đầu luyện Writing
                 <svg
                   className="w-4 h-4"
@@ -378,7 +379,7 @@ export default function LandingPreviewPage() {
                     d="M13 7l5 5m0 0l-5 5m5-5H6"
                   />
                 </svg>
-              </a>
+              </Link>
             </article>
 
             {/* Reading */}
@@ -397,7 +398,7 @@ export default function LandingPreviewPage() {
                 <li>True/False, Matching, Fill-in</li>
                 <li>Phân tích chiến lược đọc hiểu</li>
               </ul>
-              <a href="/login" className="ix-skill-card__cta">
+              <Link href="/login" className="ix-skill-card__cta">
                 Bắt đầu luyện Reading
                 <svg
                   className="w-4 h-4"
@@ -412,7 +413,7 @@ export default function LandingPreviewPage() {
                     d="M13 7l5 5m0 0l-5 5m5-5H6"
                   />
                 </svg>
-              </a>
+              </Link>
             </article>
 
             {/* Listening */}
@@ -431,7 +432,7 @@ export default function LandingPreviewPage() {
                 <li>Dictation và note-taking</li>
                 <li>Phân tích bẫy đáp án phổ biến</li>
               </ul>
-              <a href="/login" className="ix-skill-card__cta">
+              <Link href="/login" className="ix-skill-card__cta">
                 Bắt đầu luyện Listening
                 <svg
                   className="w-4 h-4"
@@ -446,7 +447,7 @@ export default function LandingPreviewPage() {
                     d="M13 7l5 5m0 0l-5 5m5-5H6"
                   />
                 </svg>
-              </a>
+              </Link>
             </article>
 
             {/* Vocabulary */}
@@ -465,7 +466,7 @@ export default function LandingPreviewPage() {
                 <li>Tự lưu từ "used well" sau buổi Speaking</li>
                 <li>Exercises ôn tập theo chủ đề</li>
               </ul>
-              <a href="/login" className="ix-skill-card__cta">
+              <Link href="/login" className="ix-skill-card__cta">
                 Khám phá từ vựng
                 <svg
                   className="w-4 h-4"
@@ -480,7 +481,7 @@ export default function LandingPreviewPage() {
                     d="M13 7l5 5m0 0l-5 5m5-5H6"
                   />
                 </svg>
-              </a>
+              </Link>
             </article>
 
             {/* Grammar Wiki */}
@@ -499,7 +500,7 @@ export default function LandingPreviewPage() {
                 <li>Articles tra cứu cho Speaking &amp; Writing</li>
                 <li>So sánh các cấu trúc dễ nhầm</li>
               </ul>
-              <a href="/grammar" className="ix-skill-card__cta">
+              <Link href="/grammar" className="ix-skill-card__cta">
                 Mở Grammar Wiki
                 <svg
                   className="w-4 h-4"
@@ -514,7 +515,7 @@ export default function LandingPreviewPage() {
                     d="M13 7l5 5m0 0l-5 5m5-5H6"
                   />
                 </svg>
-              </a>
+              </Link>
             </article>
           </div>
         </div>
@@ -746,9 +747,9 @@ export default function LandingPreviewPage() {
                   Full Test mode
                 </li>
               </ul>
-              <a href="/login" className="ix-price-card__cta block text-center font-bold py-3 rounded-xl">
+              <Link href="/login" className="ix-price-card__cta block text-center font-bold py-3 rounded-xl">
                 Bắt đầu miễn phí
-              </a>
+              </Link>
             </div>
 
             {/* Student tier (popular) */}
@@ -852,9 +853,9 @@ export default function LandingPreviewPage() {
                   Grammar Wiki đầy đủ
                 </li>
               </ul>
-              <a href="/login" className="ix-price-card__cta ix-price-card__cta--popular block text-center font-bold py-3 rounded-xl">
+              <Link href="/login" className="ix-price-card__cta ix-price-card__cta--popular block text-center font-bold py-3 rounded-xl">
                 Chọn gói này
-              </a>
+              </Link>
             </div>
 
             {/* Intensive tier */}
@@ -939,17 +940,17 @@ export default function LandingPreviewPage() {
                   Ưu tiên hỗ trợ kỹ thuật
                 </li>
               </ul>
-              <a href="/login" className="ix-price-card__cta block text-center font-bold py-3 rounded-xl">
+              <Link href="/login" className="ix-price-card__cta block text-center font-bold py-3 rounded-xl">
                 Chọn gói này
-              </a>
+              </Link>
             </div>
           </div>
 
           <p className="ix-price-note text-center mt-8 text-sm">
             Giá hiển thị là dự kiến — xem chi tiết tại{' '}
-            <a href="/pricing" className="ix-price-note__link underline underline-offset-2">
+            <Link href="/pricing" className="ix-price-note__link underline underline-offset-2">
               trang bảng giá
-            </a>
+            </Link>
             .
           </p>
         </div>
@@ -1109,7 +1110,7 @@ export default function LandingPreviewPage() {
             code từ lớp/trung tâm để bắt đầu.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a
+            <Link
               href="/login"
               className="ix-cta-light inline-flex items-center justify-center gap-2 font-bold px-8 py-4 rounded-xl text-lg"
             >
@@ -1127,13 +1128,13 @@ export default function LandingPreviewPage() {
                   d="M13 7l5 5m0 0l-5 5m5-5H6"
                 />
               </svg>
-            </a>
-            <a
+            </Link>
+            <Link
               href="/login"
               className="ix-cta-ghost inline-flex items-center justify-center gap-2 font-semibold px-8 py-4 rounded-xl text-lg"
             >
               Đăng nhập
-            </a>
+            </Link>
           </div>
         </div>
       </section>
@@ -1182,9 +1183,9 @@ export default function LandingPreviewPage() {
                   </a>
                 </li>
                 <li>
-                  <a href="/grammar" className="ix-footer__link text-sm">
+                  <Link href="/grammar" className="ix-footer__link text-sm">
                     Grammar Wiki
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -1195,19 +1196,19 @@ export default function LandingPreviewPage() {
               </p>
               <ul className="space-y-2.5">
                 <li>
-                  <a href="/login" className="ix-footer__link text-sm">
+                  <Link href="/login" className="ix-footer__link text-sm">
                     Đăng nhập
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="/login" className="ix-footer__link text-sm">
+                  <Link href="/login" className="ix-footer__link text-sm">
                     Đăng ký
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a href="/home" className="ix-footer__link text-sm">
+                  <Link href="/home" className="ix-footer__link text-sm">
                     Trang chủ
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { AuthProvider, useAuth } from '@/lib/auth/auth-provider';
@@ -24,7 +25,7 @@ function Breadcrumb() {
       style={{ background: 'var(--av-surface-sunken)', backdropFilter: 'blur(12px)' }}>
       <div className="av-w-page h-12 flex items-center">
         <div id="breadcrumb" className="flex items-center text-sm text-white/40 flex-wrap gap-0">
-          <a href="/grammar" className="hover:text-teal-light transition-colors">Grammar Wiki</a>
+          <Link href="/grammar" className="hover:text-teal-light transition-colors">Grammar Wiki</Link>
           <span className="mx-2 text-white/20">›</span>
           <span className="text-white/80">Lộ trình</span>
         </div>
@@ -40,7 +41,7 @@ function EmptyRoadmap() {
       <p style={{ color: 'var(--av-text-muted)', fontSize: 'var(--av-fs-sm)', marginBottom: 'var(--av-space-6)' }}>
         Làm bài luyện tập để hệ thống phát hiện điểm ngữ pháp cần củng cố — lộ trình sẽ tự dựng theo điểm yếu của bạn.
       </p>
-      <a href="/speaking" className="btn-primary">Bắt đầu luyện tập</a>
+      <Link href="/speaking" className="btn-primary">Bắt đầu luyện tập</Link>
     </div>
   );
 }
@@ -129,14 +130,14 @@ function PersonalRoadmapBody() {
             );
             const shared = { display: 'flex', alignItems: 'center', gap: 'var(--av-space-4)', padding: 'var(--av-space-4)', marginBottom: 'var(--av-space-3)', border: '1px solid var(--av-border-default)', borderLeft: `3px solid ${style.color}`, borderRadius: 'var(--av-radius-lg)', background: 'var(--av-surface-card)', textDecoration: 'none' } as const;
             return node.category ? (
-              <a className="kp-node" style={shared} href={`/grammar/${encodeURIComponent(node.category)}/${encodeURIComponent(node.slug)}`} key={node.slug}>{content}</a>
+              <Link className="kp-node" style={shared} href={`/grammar/${encodeURIComponent(node.category)}/${encodeURIComponent(node.slug)}`} key={node.slug}>{content}</Link>
             ) : (
               <div className="kp-node" style={shared} key={node.slug}>{content}</div>
             );
           })}
         </div>
         <div className="border-t border-white/6 pt-6">
-          <a id="roadmap-cat-link" href="/grammar" className="text-sm text-teal-light hover:underline">Xem toàn bộ Grammar Wiki →</a>
+          <Link id="roadmap-cat-link" href="/grammar" className="text-sm text-teal-light hover:underline">Xem toàn bộ Grammar Wiki →</Link>
         </div>
       </main>
     </>

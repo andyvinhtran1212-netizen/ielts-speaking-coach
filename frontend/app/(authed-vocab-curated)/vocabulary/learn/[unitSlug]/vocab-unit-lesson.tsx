@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 
@@ -167,7 +168,7 @@ export function VocabUnitLesson({ unitSlug }: { unitSlug: string }) {
     return () => { disposed = true; controller.abort(); };
   }, [accountKey, recommendationId, status, unitSlug]);
 
-  if (error) return <section className="vc-state is-error" role="alert"><h1>Chưa thể mở bài học</h1><p>{error}</p><a className="av-button av-button-primary" href="/vocabulary/learn">Quay lại</a></section>;
+  if (error) return <section className="vc-state is-error" role="alert"><h1>Chưa thể mở bài học</h1><p>{error}</p><Link className="av-button av-button-primary" href="/vocabulary/learn">Quay lại</Link></section>;
   if (!unit) return <section className="vc-state" aria-live="polite">Đang tải learning unit…</section>;
   const content = unit.content || {};
   return <div className="vc-lesson">

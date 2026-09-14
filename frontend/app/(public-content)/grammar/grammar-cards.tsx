@@ -8,6 +8,7 @@
 //
 // Đây cũng là mảnh dùng chung đầu tiên của Phase 3: 4 trang Grammar còn lại
 // (search, roadmap, compare, exercises) dùng lại chính các thẻ này.
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 export type Article = {
@@ -117,7 +118,7 @@ export function FeaturedCards({ articles }: { articles?: Article[] }) {
   return (
     <>
       {list.map((a) => (
-        <a
+        <Link
           key={`${a.category}/${a.slug}`}
           href={articleUrl(a.category, a.slug)}
           className="block p-4 rounded-xl border border-white/8 bg-white/[0.03] hover:border-teal/40 hover:bg-teal/[0.07] transition-all duration-200"
@@ -131,7 +132,7 @@ export function FeaturedCards({ articles }: { articles?: Article[] }) {
             <span>{a.category}</span>
             <span>{a.reading_time || 1} phút</span>
           </div>
-        </a>
+        </Link>
       ))}
     </>
   );
@@ -148,9 +149,9 @@ export function SearchResultCards({ articles, query }: { articles?: Article[]; q
         </p>
         <p className="text-white/30 text-sm">
           Thử từ khóa khác:{' '}
-          <a href="/grammar/search?q=present+perfect" className="text-teal-light hover:underline">present perfect</a>,{' '}
-          <a href="/grammar/search?q=conditionals" className="text-teal-light hover:underline">conditionals</a>,{' '}
-          <a href="/grammar/search?q=passive" className="text-teal-light hover:underline">passive voice</a>
+          <Link href="/grammar/search?q=present+perfect" className="text-teal-light hover:underline">present perfect</Link>,{' '}
+          <Link href="/grammar/search?q=conditionals" className="text-teal-light hover:underline">conditionals</Link>,{' '}
+          <Link href="/grammar/search?q=passive" className="text-teal-light hover:underline">passive voice</Link>
         </p>
       </div>
     );
@@ -159,7 +160,7 @@ export function SearchResultCards({ articles, query }: { articles?: Article[]; q
   return (
     <>
       {list.map((article) => (
-        <a
+        <Link
           key={`${article.category}/${article.slug}`}
           href={articleUrl(article.category, article.slug)}
           className="block p-4 rounded-xl border border-white/8 bg-white/[0.03] hover:border-teal/40 hover:bg-teal/[0.07] transition-all duration-200"
@@ -173,7 +174,7 @@ export function SearchResultCards({ articles, query }: { articles?: Article[]; q
             <CategoryBadge category={article.category} />
             <span className="text-xs text-white/25">{article.reading_time || 1} phút</span>
           </div>
-        </a>
+        </Link>
       ))}
     </>
   );
@@ -191,7 +192,7 @@ export function CategoryCards({ categories }: { categories?: Category[] }) {
     <>
       {list.map((cat) => (
         <div key={cat.slug} className="cat-card group block p-5 rounded-2xl border border-white/8 bg-white/[0.03]">
-          <a href={`/grammar?category=${encodeURIComponent(cat.slug)}`} className="flex items-center gap-3 mb-3">
+          <Link href={`/grammar?category=${encodeURIComponent(cat.slug)}`} className="flex items-center gap-3 mb-3">
             <div className="w-9 h-9 rounded-xl bg-teal/15 flex items-center justify-center flex-shrink-0">
               <BookIcon className="w-5 h-5 text-teal-light" />
             </div>
@@ -199,7 +200,7 @@ export function CategoryCards({ categories }: { categories?: Category[] }) {
               <h3 className="font-semibold text-white group-hover:text-teal-light transition-colors">{cat.title}</h3>
               <p className="text-xs text-white/40">{cat.article_count} bài</p>
             </div>
-          </a>
+          </Link>
           {cat.articles?.length ? (
             <ul className="space-y-1">
               {cat.articles
@@ -210,7 +211,7 @@ export function CategoryCards({ categories }: { categories?: Category[] }) {
                     {a.status === 'updating' ? (
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-400/70 inline-block mr-1 flex-shrink-0" />
                     ) : null}
-                    <a href={articleUrl(a.category, a.slug)}>{a.title}</a>
+                    <Link href={articleUrl(a.category, a.slug)}>{a.title}</Link>
                   </li>
                 ))}
             </ul>
@@ -237,12 +238,12 @@ function GroupArticleRow({ article, color }: { article: Article; color: string }
     return (
       <div className="group-article-row flex items-center gap-2 px-2 py-1">
         <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#fbbf24' }} />
-        <a
+        <Link
           href={articleUrl(article.category, article.slug)}
           className="text-sm text-white/55 hover:text-white/85 transition-colors flex-1 truncate"
         >
           {article.title}
-        </a>
+        </Link>
         <span
           className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0"
           style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }}
@@ -255,12 +256,12 @@ function GroupArticleRow({ article, color }: { article: Article; color: string }
   return (
     <div className="group-article-row flex items-center gap-2 px-2 py-1">
       <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
-      <a
+      <Link
         href={articleUrl(article.category, article.slug)}
         className="text-sm text-white/65 hover:text-white/90 transition-colors flex-1 truncate"
       >
         {article.title}
-      </a>
+      </Link>
     </div>
   );
 }

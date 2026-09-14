@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 import { VocabCuratedHome } from './vocab-curated-home';
 
@@ -14,8 +15,8 @@ export default function VocabCuratedPage() {
       <aver-chrome active="vocabulary" />
       <main className="vc-shell">
         <header className="vc-topbar">
-          <a href="/vocabulary/hub">← Vocabulary</a>
-          <a href="/vocabulary">Reference Wiki</a>
+          <Link href="/vocabulary/hub">← Vocabulary</Link>
+          <Link href="/vocabulary">Reference Wiki</Link>
         </header>
         <section className="vc-hero" aria-labelledby="vc-title">
           <p className="vc-eyebrow">Vocab Curated</p>
