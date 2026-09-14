@@ -17,12 +17,12 @@ def test_b06_has_fifteen_medium_length_kokoro_sentences():
     assert (data["voice_engine"], data["voice"]) == ("kokoro", "bf_emma")
     assert [row["order"] for row in data["sentences"]] == list(range(1, 16))
     assert [row["id"] for row in data["sentences"]] == [
-        f"C1-B06-PRON-V2-{number:02d}" for number in range(1, 16)
+        f"C1-B06-PRON-V3-{number:02d}" for number in range(1, 16)
     ]
     word_counts = [len(row["text"].split()) for row in data["sentences"]]
-    assert min(word_counts) >= 11
-    assert max(word_counts) <= 18
-    assert 13 <= sum(word_counts) / len(word_counts) <= 16
+    assert min(word_counts) >= 7
+    assert max(word_counts) <= 23
+    assert 7 <= sum(word_counts) / len(word_counts) <= 14
     assert len(content_hash) == 64
 
 

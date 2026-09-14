@@ -1,26 +1,108 @@
 {
   "bank_code": "C1-B06",
-  "title": "Phát âm & Shadowing — Giới từ và cụm danh từ",
+  "requirement_id": "TM20-B06-PHAT-AM",
+  "role": "bài luyện phát âm — nghe và nhắc lại",
+  "title": "Phát âm & Shadowing — Giới từ và nở cụm danh từ",
   "locale": "en-GB",
   "provider": "azure",
   "voice_engine": "kokoro",
   "voice": "bf_emma",
-  "playback_rates": [0.85, 1.0],
+  "playback_rates": [
+    0.85,
+    1.0
+  ],
+  "source_document": "Giao-trinh-ngu-phap-nen-IELTS_20-buoi-v2.docx",
+  "selection_seed": 20260914,
   "sentences": [
-    {"id": "C1-B06-PRON-V2-01", "order": 1, "text": "Owing to a shortage of teachers, some village schools open late."},
-    {"id": "C1-B06-PRON-V2-02", "order": 2, "text": "A small coffee shop beside the lake opens at six every morning."},
-    {"id": "C1-B06-PRON-V2-03", "order": 3, "text": "Because of the city’s rapid growth, house prices rise every single year in every district."},
-    {"id": "C1-B06-PRON-V2-04", "order": 4, "text": "Many small shops close while the owners take a lunch break."},
-    {"id": "C1-B06-PRON-V2-05", "order": 5, "text": "Seafood restaurants line the road on the eastern side of the island near Nha Trang."},
-    {"id": "C1-B06-PRON-V2-06", "order": 6, "text": "The old wooden houses in the quiet streets of Hoi An attract thousands of foreign visitors."},
-    {"id": "C1-B06-PRON-V2-07", "order": 7, "text": "Heavy lorries carry sand and stone along the narrow village road towards the city centre."},
-    {"id": "C1-B06-PRON-V2-08", "order": 8, "text": "Despite the high cost of petrol, most families in this city still use private cars."},
-    {"id": "C1-B06-PRON-V2-09", "order": 9, "text": "A tall fence runs along the eastern side of the school."},
-    {"id": "C1-B06-PRON-V2-10", "order": 10, "text": "In spite of its small size, my home town offers plenty of cheap accommodation for tourists."},
-    {"id": "C1-B06-PRON-V2-11", "order": 11, "text": "Air quality in Hanoi becomes much worse in the winter months of December and January."},
-    {"id": "C1-B06-PRON-V2-12", "order": 12, "text": "Crowds of visitors wait at the temple gate in the heavy afternoon heat every single day."},
-    {"id": "C1-B06-PRON-V2-13", "order": 13, "text": "The city’s council announces its new transport plan on the first Friday of every month."},
-    {"id": "C1-B06-PRON-V2-14", "order": 14, "text": "Because of heavy rain last week, farmers in the delta lost part of their harvest."},
-    {"id": "C1-B06-PRON-V2-15", "order": 15, "text": "Office workers in the tall new buildings near the lake start work at eight every morning."}
+    {
+      "id": "C1-B06-PRON-V3-01",
+      "order": 1,
+      "source_section": "place at",
+      "text": "The bus stops at the dock every morning."
+    },
+    {
+      "id": "C1-B06-PRON-V3-02",
+      "order": 2,
+      "source_section": "place on and noun modifier",
+      "text": "There is a picture on the wall of my office."
+    },
+    {
+      "id": "C1-B06-PRON-V3-03",
+      "order": 3,
+      "source_section": "place on",
+      "text": "I see three bookstores on this street."
+    },
+    {
+      "id": "C1-B06-PRON-V3-04",
+      "order": 4,
+      "source_section": "noun postmodifier",
+      "text": "The students in my class prefer quiet places."
+    },
+    {
+      "id": "C1-B06-PRON-V3-05",
+      "order": 5,
+      "source_section": "time in",
+      "text": "I do most of my work in the morning."
+    },
+    {
+      "id": "C1-B06-PRON-V3-06",
+      "order": 6,
+      "source_section": "time on",
+      "text": "The accident happens on the morning of June twentieth."
+    },
+    {
+      "id": "C1-B06-PRON-V3-07",
+      "order": 7,
+      "source_section": "movement along",
+      "text": "There are many beautiful villas along the beach."
+    },
+    {
+      "id": "C1-B06-PRON-V3-08",
+      "order": 8,
+      "source_section": "during",
+      "text": "The students learn ten new words during the journey."
+    },
+    {
+      "id": "C1-B06-PRON-V3-09",
+      "order": 9,
+      "source_section": "logical preposition",
+      "text": "In addition to the high fares, the buses are often late."
+    },
+    {
+      "id": "C1-B06-PRON-V3-10",
+      "order": 10,
+      "source_section": "means through",
+      "text": "Many workers get promotion through hard work."
+    },
+    {
+      "id": "C1-B06-PRON-V3-11",
+      "order": 11,
+      "source_section": "movement to and at",
+      "text": "The bus goes to the station and stops at the main gate."
+    },
+    {
+      "id": "C1-B06-PRON-V3-12",
+      "order": 12,
+      "source_section": "logical despite",
+      "text": "Despite the high cost, many families buy cars."
+    },
+    {
+      "id": "C1-B06-PRON-V3-13",
+      "order": 13,
+      "source_section": "noun postmodifier",
+      "text": "The café on the corner serves great coffee."
+    },
+    {
+      "id": "C1-B06-PRON-V3-14",
+      "order": 14,
+      "source_section": "verb modifier",
+      "text": "The café serves great coffee in the morning."
+    },
+    {
+      "id": "C1-B06-PRON-V3-15",
+      "order": 15,
+      "source_section": "fronted time phrase",
+      "text": "In the early morning, the streets are almost empty."
+    }
   ]
 }

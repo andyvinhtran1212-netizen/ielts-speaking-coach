@@ -1,0 +1,108 @@
+{
+  "bank_code": "C1-B19",
+  "requirement_id": "TM20-B19-PHAT-AM",
+  "role": "bài luyện phát âm — nghe và nhắc lại",
+  "title": "Phát âm & Shadowing — Rút gọn mệnh đề",
+  "locale": "en-GB",
+  "provider": "azure",
+  "voice_engine": "kokoro",
+  "voice": "bf_emma",
+  "playback_rates": [
+    0.85,
+    1.0
+  ],
+  "source_document": "Giao-trinh-ngu-phap-nen-IELTS_20-buoi-v2.docx",
+  "selection_seed": 20260914,
+  "sentences": [
+    {
+      "id": "C1-B19-PRON-V1-01",
+      "order": 1,
+      "source_section": "reduced passive relative",
+      "text": "The policy introduced in twenty eighteen has reduced emissions."
+    },
+    {
+      "id": "C1-B19-PRON-V1-02",
+      "order": 2,
+      "source_section": "reduced active relative",
+      "text": "Students studying abroad often struggle in the first term."
+    },
+    {
+      "id": "C1-B19-PRON-V1-03",
+      "order": 3,
+      "source_section": "reduced passive relative",
+      "text": "The city, located on a flood plain, floods every autumn."
+    },
+    {
+      "id": "C1-B19-PRON-V1-04",
+      "order": 4,
+      "source_section": "reduced passive relative",
+      "text": "Companies listed on the stock exchange must publish accounts."
+    },
+    {
+      "id": "C1-B19-PRON-V1-05",
+      "order": 5,
+      "source_section": "to infinitive reduction",
+      "text": "This is an issue to address immediately."
+    },
+    {
+      "id": "C1-B19-PRON-V1-06",
+      "order": 6,
+      "source_section": "perfect participle",
+      "text": "Having finished the survey, he wrote the report."
+    },
+    {
+      "id": "C1-B19-PRON-V1-07",
+      "order": 7,
+      "source_section": "negative participle",
+      "text": "Not knowing the deadline, she submitted her essay late."
+    },
+    {
+      "id": "C1-B19-PRON-V1-08",
+      "order": 8,
+      "source_section": "participial clause",
+      "text": "Driving through the mountains, we found the scenery breathtaking."
+    },
+    {
+      "id": "C1-B19-PRON-V1-09",
+      "order": 9,
+      "source_section": "retained conjunction",
+      "text": "Since moving to the city, she has spent two hours a day commuting."
+    },
+    {
+      "id": "C1-B19-PRON-V1-10",
+      "order": 10,
+      "source_section": "wh plus infinitive",
+      "text": "The council has not decided how to fund the project."
+    },
+    {
+      "id": "C1-B19-PRON-V1-11",
+      "order": 11,
+      "source_section": "reduced active relative",
+      "text": "The man wanting to see you is waiting outside."
+    },
+    {
+      "id": "C1-B19-PRON-V1-12",
+      "order": 12,
+      "source_section": "reduced passive relative",
+      "text": "The report published last week shows a decline."
+    },
+    {
+      "id": "C1-B19-PRON-V1-13",
+      "order": 13,
+      "source_section": "to infinitive reduction",
+      "text": "I'm glad because I have something to look forward to."
+    },
+    {
+      "id": "C1-B19-PRON-V1-14",
+      "order": 14,
+      "source_section": "adjective phrase reduction",
+      "text": "The boy, unusually tall for his age, wants to be a wrestler."
+    },
+    {
+      "id": "C1-B19-PRON-V1-15",
+      "order": 15,
+      "source_section": "multiple reductions",
+      "text": "The government, having promised that emissions will fall, has not explained how to meet the target."
+    }
+  ]
+}

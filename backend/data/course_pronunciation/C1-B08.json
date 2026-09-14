@@ -1,0 +1,108 @@
+{
+  "bank_code": "C1-B08",
+  "requirement_id": "TM20-B08-PHAT-AM",
+  "role": "bài luyện phát âm — nghe và nhắc lại",
+  "title": "Phát âm & Shadowing — Chọn thì, hoàn thành và tương lai",
+  "locale": "en-GB",
+  "provider": "azure",
+  "voice_engine": "kokoro",
+  "voice": "bf_emma",
+  "playback_rates": [
+    0.85,
+    1.0
+  ],
+  "source_document": "Giao-trinh-ngu-phap-nen-IELTS_20-buoi-v2.docx",
+  "selection_seed": 20260914,
+  "sentences": [
+    {
+      "id": "C1-B08-PRON-V2-01",
+      "order": 1,
+      "source_section": "present perfect",
+      "text": "The city has invested heavily in public transport since twenty eighteen."
+    },
+    {
+      "id": "C1-B08-PRON-V2-02",
+      "order": 2,
+      "source_section": "present perfect result",
+      "text": "Online learning has changed higher education completely."
+    },
+    {
+      "id": "C1-B08-PRON-V2-03",
+      "order": 3,
+      "source_section": "past perfect",
+      "text": "By the time the delegation arrived, the committee had already approved the plan."
+    },
+    {
+      "id": "C1-B08-PRON-V2-04",
+      "order": 4,
+      "source_section": "past simple",
+      "text": "Last summer, we travelled to three countries."
+    },
+    {
+      "id": "C1-B08-PRON-V2-05",
+      "order": 5,
+      "source_section": "present perfect result",
+      "text": "Recycling rates have improved recently, but they are still low."
+    },
+    {
+      "id": "C1-B08-PRON-V2-06",
+      "order": 6,
+      "source_section": "will prediction",
+      "text": "I think global demand for energy will rise sharply."
+    },
+    {
+      "id": "C1-B08-PRON-V2-07",
+      "order": 7,
+      "source_section": "going to intention",
+      "text": "The government is going to invest heavily in renewable energy."
+    },
+    {
+      "id": "C1-B08-PRON-V2-08",
+      "order": 8,
+      "source_section": "going to evidence",
+      "text": "Look at the graph — youth unemployment is going to overtake the national average."
+    },
+    {
+      "id": "C1-B08-PRON-V2-09",
+      "order": 9,
+      "source_section": "present continuous arrangement",
+      "text": "We are meeting the head of department tomorrow morning."
+    },
+    {
+      "id": "C1-B08-PRON-V2-10",
+      "order": 10,
+      "source_section": "future time clause",
+      "text": "Air quality will not improve until the city restricts private cars."
+    },
+    {
+      "id": "C1-B08-PRON-V2-11",
+      "order": 11,
+      "source_section": "past perfect",
+      "text": "I had finished the report before he arrived."
+    },
+    {
+      "id": "C1-B08-PRON-V2-12",
+      "order": 12,
+      "source_section": "past perfect",
+      "text": "They had lived there for ten years before the move."
+    },
+    {
+      "id": "C1-B08-PRON-V2-13",
+      "order": 13,
+      "source_section": "scheduled future",
+      "text": "The new metro line opens on the first of September."
+    },
+    {
+      "id": "C1-B08-PRON-V2-14",
+      "order": 14,
+      "source_section": "future time clause",
+      "text": "As soon as the data arrives, I will analyse it."
+    },
+    {
+      "id": "C1-B08-PRON-V2-15",
+      "order": 15,
+      "source_section": "future time clause",
+      "text": "We will not start until everyone is here."
+    }
+  ]
+}

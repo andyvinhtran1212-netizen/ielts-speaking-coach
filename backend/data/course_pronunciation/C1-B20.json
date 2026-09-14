@@ -1,0 +1,108 @@
+{
+  "bank_code": "C1-B20",
+  "requirement_id": "TM20-B20-PHAT-AM",
+  "role": "bài luyện phát âm — nghe và nhắc lại",
+  "title": "Phát âm & Shadowing — Liên kết cấp độ đoạn",
+  "locale": "en-GB",
+  "provider": "azure",
+  "voice_engine": "kokoro",
+  "voice": "bf_emma",
+  "playback_rates": [
+    0.85,
+    1.0
+  ],
+  "source_document": "Giao-trinh-ngu-phap-nen-IELTS_20-buoi-v2.docx",
+  "selection_seed": 20260914,
+  "sentences": [
+    {
+      "id": "C1-B20-PRON-V1-01",
+      "order": 1,
+      "source_section": "conjunctive adverb contrast",
+      "text": "The city centre is crowded. However, many people still enjoy living there."
+    },
+    {
+      "id": "C1-B20-PRON-V1-02",
+      "order": 2,
+      "source_section": "conjunctive adverb contrast",
+      "text": "High-income earners pay more taxes. Conversely, low-income households receive more subsidies."
+    },
+    {
+      "id": "C1-B20-PRON-V1-03",
+      "order": 3,
+      "source_section": "conjunctive adverb addition",
+      "text": "Recycling saves energy. Furthermore, it reduces the volume of waste sent to landfills."
+    },
+    {
+      "id": "C1-B20-PRON-V1-04",
+      "order": 4,
+      "source_section": "conjunctive adverb result",
+      "text": "Many factories have closed. Consequently, the local unemployment rate has risen."
+    },
+    {
+      "id": "C1-B20-PRON-V1-05",
+      "order": 5,
+      "source_section": "conjunctive adverb clarification",
+      "text": "We need to protect the ocean. Specifically, governments should ban single-use plastics."
+    },
+    {
+      "id": "C1-B20-PRON-V1-06",
+      "order": 6,
+      "source_section": "conjunctive adverb sequence",
+      "text": "Researchers collected the samples in twenty nineteen. Subsequently, the results were analysed by an independent panel."
+    },
+    {
+      "id": "C1-B20-PRON-V1-07",
+      "order": 7,
+      "source_section": "reference",
+      "text": "Online learning has expanded rapidly. This trend has forced universities to redesign their courses."
+    },
+    {
+      "id": "C1-B20-PRON-V1-08",
+      "order": 8,
+      "source_section": "substitution",
+      "text": "Some cities have banned petrol motorbikes; others are planning to do so within a decade."
+    },
+    {
+      "id": "C1-B20-PRON-V1-09",
+      "order": 9,
+      "source_section": "lexical chain",
+      "text": "Private cars now dominate the city's roads. This mode of transport consumes far more space per passenger than buses."
+    },
+    {
+      "id": "C1-B20-PRON-V1-10",
+      "order": 10,
+      "source_section": "ellipsis",
+      "text": "Cycling is cheaper than driving, and far cleaner."
+    },
+    {
+      "id": "C1-B20-PRON-V1-11",
+      "order": 11,
+      "source_section": "example adverb",
+      "text": "Modern technology has many benefits. For example, smartphones allow us to study anywhere."
+    },
+    {
+      "id": "C1-B20-PRON-V1-12",
+      "order": 12,
+      "source_section": "substitution",
+      "text": "Some cities have banned petrol motorbikes. Others are planning to do so."
+    },
+    {
+      "id": "C1-B20-PRON-V1-13",
+      "order": 13,
+      "source_section": "nominalisation",
+      "text": "Urban expansion led to the disappearance of farmland."
+    },
+    {
+      "id": "C1-B20-PRON-V1-14",
+      "order": 14,
+      "source_section": "nominalisation unpacking",
+      "text": "Companies train their staff regularly, which increases productivity."
+    },
+    {
+      "id": "C1-B20-PRON-V1-15",
+      "order": 15,
+      "source_section": "nominalisation",
+      "text": "The introduction of a congestion charge reduced traffic."
+    }
+  ]
+}

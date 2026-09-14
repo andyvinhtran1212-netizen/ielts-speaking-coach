@@ -1,0 +1,108 @@
+{
+  "bank_code": "C1-B15",
+  "requirement_id": "TM20-B15-PHAT-AM",
+  "role": "bài luyện phát âm — nghe và nhắc lại",
+  "title": "Phát âm & Shadowing — Câu ghép, liên từ và dấu câu",
+  "locale": "en-GB",
+  "provider": "azure",
+  "voice_engine": "kokoro",
+  "voice": "bf_emma",
+  "playback_rates": [
+    0.85,
+    1.0
+  ],
+  "source_document": "Giao-trinh-ngu-phap-nen-IELTS_20-buoi-v2.docx",
+  "selection_seed": 20260914,
+  "sentences": [
+    {
+      "id": "C1-B15-PRON-V1-01",
+      "order": 1,
+      "source_section": "FANBOYS but",
+      "text": "Public transport in the city is cheap, but it is often overcrowded."
+    },
+    {
+      "id": "C1-B15-PRON-V1-02",
+      "order": 2,
+      "source_section": "FANBOYS and",
+      "text": "The scheme cut emissions, and it also reduced noise levels along the ring road."
+    },
+    {
+      "id": "C1-B15-PRON-V1-03",
+      "order": 3,
+      "source_section": "FANBOYS so",
+      "text": "Many graduates cannot find work in the capital, so they return to their home towns."
+    },
+    {
+      "id": "C1-B15-PRON-V1-04",
+      "order": 4,
+      "source_section": "FANBOYS for",
+      "text": "The council raised parking fees, for the city centre was becoming impassable."
+    },
+    {
+      "id": "C1-B15-PRON-V1-05",
+      "order": 5,
+      "source_section": "FANBOYS yet",
+      "text": "The pilot project was expensive, yet it delivered very little measurable benefit."
+    },
+    {
+      "id": "C1-B15-PRON-V1-06",
+      "order": 6,
+      "source_section": "correlative either or",
+      "text": "Either governments subsidise renewable energy, or consumers will keep burning coal."
+    },
+    {
+      "id": "C1-B15-PRON-V1-07",
+      "order": 7,
+      "source_section": "correlative neither nor",
+      "text": "Neither the survey nor the interviews revealed a clear preference among commuters."
+    },
+    {
+      "id": "C1-B15-PRON-V1-08",
+      "order": 8,
+      "source_section": "parallel list",
+      "text": "The new curriculum aims to develop critical thinking, teamwork, and digital literacy."
+    },
+    {
+      "id": "C1-B15-PRON-V1-09",
+      "order": 9,
+      "source_section": "semicolon",
+      "text": "Air quality in the industrial zone worsened; hospital admissions rose in the same period."
+    },
+    {
+      "id": "C1-B15-PRON-V1-10",
+      "order": 10,
+      "source_section": "conjunctive adverb",
+      "text": "The experiment failed; however, the team learned a great deal from it."
+    },
+    {
+      "id": "C1-B15-PRON-V1-11",
+      "order": 11,
+      "source_section": "correlative not only",
+      "text": "The food was not only expensive but also poorly prepared."
+    },
+    {
+      "id": "C1-B15-PRON-V1-12",
+      "order": 12,
+      "source_section": "parallel alternatives",
+      "text": "Students must either hand in the essay or present it orally."
+    },
+    {
+      "id": "C1-B15-PRON-V1-13",
+      "order": 13,
+      "source_section": "parallel adjectives",
+      "text": "The new stadium is modern, spacious, and well connected."
+    },
+    {
+      "id": "C1-B15-PRON-V1-14",
+      "order": 14,
+      "source_section": "fronted phrase punctuation",
+      "text": "In the last ten years, the city has doubled in size."
+    },
+    {
+      "id": "C1-B15-PRON-V1-15",
+      "order": 15,
+      "source_section": "compound complex sentence",
+      "text": "The metro opened in twenty twenty-four, bus routes were redesigned, and fares fell by a fifth."
+    }
+  ]
+}

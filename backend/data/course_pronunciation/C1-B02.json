@@ -1,0 +1,108 @@
+{
+  "bank_code": "C1-B02",
+  "requirement_id": "TM20-B02-PHAT-AM",
+  "role": "bài luyện phát âm — nghe và nhắc lại",
+  "title": "Phát âm & Shadowing — Danh từ và lượng từ",
+  "locale": "en-GB",
+  "provider": "azure",
+  "voice_engine": "kokoro",
+  "voice": "bf_emma",
+  "playback_rates": [
+    0.85,
+    1.0
+  ],
+  "source_document": "Giao-trinh-ngu-phap-nen-IELTS_20-buoi-v2.docx",
+  "selection_seed": 20260914,
+  "sentences": [
+    {
+      "id": "C1-B02-PRON-V1-01",
+      "order": 1,
+      "source_section": "uncountable nouns",
+      "text": "There is a lot of evidence for this theory."
+    },
+    {
+      "id": "C1-B02-PRON-V1-02",
+      "order": 2,
+      "source_section": "any with uncountable nouns",
+      "text": "The plan went ahead without any public consultation."
+    },
+    {
+      "id": "C1-B02-PRON-V1-03",
+      "order": 3,
+      "source_section": "fewer with count nouns",
+      "text": "Fewer people travel by train in this province."
+    },
+    {
+      "id": "C1-B02-PRON-V1-04",
+      "order": 4,
+      "source_section": "uncountable nouns",
+      "text": "My teacher gave me a lot of useful advice."
+    },
+    {
+      "id": "C1-B02-PRON-V1-05",
+      "order": 5,
+      "source_section": "counting units",
+      "text": "We bought three new pieces of furniture for the office."
+    },
+    {
+      "id": "C1-B02-PRON-V1-06",
+      "order": 6,
+      "source_section": "uncountable agreement",
+      "text": "The information in this report is very detailed."
+    },
+    {
+      "id": "C1-B02-PRON-V1-07",
+      "order": 7,
+      "source_section": "plural spelling",
+      "text": "Big cities face many difficulties every day."
+    },
+    {
+      "id": "C1-B02-PRON-V1-08",
+      "order": 8,
+      "source_section": "special uncountable noun",
+      "text": "The news about the flood was very worrying."
+    },
+    {
+      "id": "C1-B02-PRON-V1-09",
+      "order": 9,
+      "source_section": "few",
+      "text": "Few people cycle to work here, and the roads are always full of cars."
+    },
+    {
+      "id": "C1-B02-PRON-V1-10",
+      "order": 10,
+      "source_section": "a few",
+      "text": "A few colleagues cycle to work, and they arrive earlier than the rest of us."
+    },
+    {
+      "id": "C1-B02-PRON-V1-11",
+      "order": 11,
+      "source_section": "little",
+      "text": "I have little free time, and my evening class starts next week."
+    },
+    {
+      "id": "C1-B02-PRON-V1-12",
+      "order": 12,
+      "source_section": "a little",
+      "text": "I have a little free time at the weekend, so I practise writing."
+    },
+    {
+      "id": "C1-B02-PRON-V1-13",
+      "order": 13,
+      "source_section": "mixed countability",
+      "text": "Traffic in my city is heavy every morning, and a lot of drivers lose an hour a day."
+    },
+    {
+      "id": "C1-B02-PRON-V1-14",
+      "order": 14,
+      "source_section": "amount of",
+      "text": "A large amount of pollution comes from old motorbikes."
+    },
+    {
+      "id": "C1-B02-PRON-V1-15",
+      "order": 15,
+      "source_section": "some with uncountable nouns",
+      "text": "Most households still burn some rubbish in the yard."
+    }
+  ]
+}
