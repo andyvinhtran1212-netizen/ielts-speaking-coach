@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
@@ -283,7 +284,7 @@ export function AdminWritingQueue() {
   return <main className={`awq-shell${filters.embed ? ' is-embedded' : ''}`}>
     {!filters.embed && <header className="awq-header">
       <div><p className="awq-eyebrow">Writing · Quality control</p><h1>Hàng chờ chấm</h1><p>Điều phối từng bài từ AI grading đến review và phát hành — không trộn bài Mock vào hàng thường.</p></div>
-      <a className="awq-hub-link" href="/admin/writing">Writing workspace <span aria-hidden="true">↗</span></a>
+      <Link className="awq-hub-link" href="/admin/writing">Writing workspace <span aria-hidden="true">↗</span></Link>
     </header>}
 
     <StatusBanner banner={banner} />

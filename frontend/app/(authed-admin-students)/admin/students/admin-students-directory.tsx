@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import Link from 'next/link';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { getAdminCohorts } from '@/lib/admin-cohorts-api';
@@ -64,8 +65,8 @@ function ProfileDialog({ profile, onClose }: { profile: ProfileState | null; onC
       description={subtitle}
       onClose={onClose}
       actions={<>
-        {profile && <a className="adm-btn-secondary" href={assignmentHref({}, { studentId: profile.id })} aria-label={`Giao bài Writing cho ${title}`}>Giao bài Writing</a>}
-        {profile && <a className="adm-btn-secondary" href={`/admin/writing/new?student_id=${encodeURIComponent(profile.id)}`} aria-label={`Gửi bài chấm cho ${title}`}>Gửi bài chấm</a>}
+        {profile && <Link className="adm-btn-secondary" href={assignmentHref({}, { studentId: profile.id })} aria-label={`Giao bài Writing cho ${title}`}>Giao bài Writing</Link>}
+        {profile && <Link className="adm-btn-secondary" href={`/admin/writing/new?student_id=${encodeURIComponent(profile.id)}`} aria-label={`Gửi bài chấm cho ${title}`}>Gửi bài chấm</Link>}
         <button className="adm-btn-primary" type="button" onClick={onClose}>Đóng</button>
       </>}
     >
@@ -87,7 +88,7 @@ function ProfileDialog({ profile, onClose }: { profile: ProfileState | null; onC
         <div className="asd-profile__columns">
           <section><h3>Bài viết gần đây</h3><ul>{essays.length ? essays.map((item, index) => {
             const essay = record(item); const band = bandFromEssay(essay);
-            return <li key={String(essay.id || index)}><a href={`/admin/writing/grade?essay_id=${encodeURIComponent(String(essay.id || ''))}`}>{dateLabel(essay.created_at)} · {band == null ? String(essay.status || '—') : `Band ${String(band)}`}</a>{essay.is_flagged ? <small>Đã gắn cờ</small> : null}</li>;
+            return <li key={String(essay.id || index)}><Link href={`/admin/writing/grade?essay_id=${encodeURIComponent(String(essay.id || ''))}`}>{dateLabel(essay.created_at)} · {band == null ? String(essay.status || '—') : `Band ${String(band)}`}</Link>{essay.is_flagged ? <small>Đã gắn cờ</small> : null}</li>;
           }) : <li>Chưa có bài viết.</li>}</ul></section>
           <section><h3>Bài đã giao</h3><ul>{assignments.length ? assignments.map((item, index) => {
             const assignment = record(item); const prompt = record(assignment.writing_prompts);
@@ -102,7 +103,7 @@ function ProfileDialog({ profile, onClose }: { profile: ProfileState | null; onC
         </div> : <p className="asd-muted">Không đọc được dữ liệu listening.</p>}</section>
         <section><h3>Lịch sử nộp bài</h3><ul className="asd-history">{history.length ? history.map((item, index) => {
           const row = record(item);
-          return <li key={String(row.id || index)}><a href={`/admin/writing/grade?essay_id=${encodeURIComponent(String(row.id || ''))}`}>{dateLabel(row.created_at)} · {String(row.task_type || '—')}</a><small>{String(row.status || '—')}</small></li>;
+          return <li key={String(row.id || index)}><Link href={`/admin/writing/grade?essay_id=${encodeURIComponent(String(row.id || ''))}`}>{dateLabel(row.created_at)} · {String(row.task_type || '—')}</Link><small>{String(row.status || '—')}</small></li>;
         }) : <li>Chưa có bài nộp.</li>}</ul></section>
       </div> : null}
     </Dialog>
@@ -256,8 +257,8 @@ export function AdminStudentsDirectory() {
     </div></header>
 
     <nav className="acd-tabs" aria-label="Lớp và học viên">
-      <a href="/admin/classes"><span>Lớp</span><small>Danh mục · sĩ số · trạng thái</small></a>
-      <a className="is-active" href="/admin/students" aria-current="page"><span>Học viên</span><small>Hồ sơ · xếp lớp · nhập CSV</small></a>
+      <Link href="/admin/classes"><span>Lớp</span><small>Danh mục · sĩ số · trạng thái</small></Link>
+      <Link className="is-active" href="/admin/students" aria-current="page"><span>Học viên</span><small>Hồ sơ · xếp lớp · nhập CSV</small></Link>
     </nav>
 
     <section className="acd-kpis" aria-label="Tổng quan học viên">
@@ -280,7 +281,7 @@ export function AdminStudentsDirectory() {
       {!loadError && !loading && !students.length ? <div className="acd-state"><strong>{debouncedQuery ? 'Không có học viên khớp tìm kiếm' : 'Chưa có học viên nào'}</strong><span>{debouncedQuery ? 'Thử tên hoặc mã khác.' : 'Thêm hồ sơ đầu tiên hoặc import CSV.'}</span></div> : null}
       {(students.length > 0) ? <div className="acd-table-scroll"><table className="acd-table asd-table"><thead><tr><th className="asd-check"><input type="checkbox" aria-label="Chọn tất cả học viên trong kết quả" checked={allSelected} onChange={toggleAll} disabled={busy} /></th><th>Học viên</th><th>Lớp</th><th>Tài khoản</th><th>Mục tiêu</th><th><span className="sr-only">Thao tác</span></th></tr></thead><tbody>{students.map((student) => {
         const cohort = cohortTruth(student);
-        return <tr key={student.id}><td className="asd-check"><input type="checkbox" aria-label={`Chọn ${student.full_name}`} checked={selected.has(student.id)} onChange={() => toggleOne(student.id)} disabled={busy} /></td><td className="asd-student-cell"><button className="asd-student-name" type="button" onClick={() => void openProfile(student)}><strong>{student.full_name}</strong><code>{student.student_code}</code></button></td><td className="asd-cohort-cell">{student.cohorts.length ? <div className="asd-cohort-list" aria-label={`Các lớp của ${student.full_name}`}>{student.cohorts.map((item) => <span className="adm-chip" key={item.id}>{item.name || 'Không đọc được tên lớp'}</span>)}{student.membership_lookup_failed || student.cohort_lookup_failed ? <span className="asd-cohort-warning">⚠ lookup failed</span> : null}</div> : <span className={`asd-cohort is-${cohort.kind}`}>{cohort.label}</span>}</td><td className="asd-account-cell"><span className={`adm-status-pill ${student.user_id ? 'is-active' : 'is-archived'}`}>{student.user_id ? 'Đã kích hoạt' : 'Chưa kích hoạt'}</span></td><td className="asd-goal-cell"><div className="asd-goal"><strong>{formatBandGoal(student)}</strong>{student.target_date && <span>{dateLabel(student.target_date)}</span>}</div></td><td><div className="acd-actions"><a className="adm-btn-secondary adm-btn-sm" href={assignmentHref({}, { studentId: student.id })} aria-label={`Giao bài Writing cho ${student.full_name}`}>Giao bài Writing</a><a className="adm-btn-secondary adm-btn-sm" href={`/admin/writing/new?student_id=${encodeURIComponent(student.id)}`} aria-label={`Gửi bài chấm cho ${student.full_name}`}>Gửi bài chấm</a><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setDraft(studentDraft(student) as StudentDraft)} aria-label={`Sửa hồ sơ ${student.full_name}`} disabled={busy}>Sửa</button></div></td></tr>;
+        return <tr key={student.id}><td className="asd-check"><input type="checkbox" aria-label={`Chọn ${student.full_name}`} checked={selected.has(student.id)} onChange={() => toggleOne(student.id)} disabled={busy} /></td><td className="asd-student-cell"><button className="asd-student-name" type="button" onClick={() => void openProfile(student)}><strong>{student.full_name}</strong><code>{student.student_code}</code></button></td><td className="asd-cohort-cell">{student.cohorts.length ? <div className="asd-cohort-list" aria-label={`Các lớp của ${student.full_name}`}>{student.cohorts.map((item) => <span className="adm-chip" key={item.id}>{item.name || 'Không đọc được tên lớp'}</span>)}{student.membership_lookup_failed || student.cohort_lookup_failed ? <span className="asd-cohort-warning">⚠ lookup failed</span> : null}</div> : <span className={`asd-cohort is-${cohort.kind}`}>{cohort.label}</span>}</td><td className="asd-account-cell"><span className={`adm-status-pill ${student.user_id ? 'is-active' : 'is-archived'}`}>{student.user_id ? 'Đã kích hoạt' : 'Chưa kích hoạt'}</span></td><td className="asd-goal-cell"><div className="asd-goal"><strong>{formatBandGoal(student)}</strong>{student.target_date && <span>{dateLabel(student.target_date)}</span>}</div></td><td><div className="acd-actions"><Link className="adm-btn-secondary adm-btn-sm" href={assignmentHref({}, { studentId: student.id })} aria-label={`Giao bài Writing cho ${student.full_name}`}>Giao bài Writing</Link><Link className="adm-btn-secondary adm-btn-sm" href={`/admin/writing/new?student_id=${encodeURIComponent(student.id)}`} aria-label={`Gửi bài chấm cho ${student.full_name}`}>Gửi bài chấm</Link><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setDraft(studentDraft(student) as StudentDraft)} aria-label={`Sửa hồ sơ ${student.full_name}`} disabled={busy}>Sửa</button></div></td></tr>;
       })}</tbody></table></div> : null}
     </section>
 

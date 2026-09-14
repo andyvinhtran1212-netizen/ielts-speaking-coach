@@ -24,14 +24,14 @@ fixtures are not deployable application routes.
 - Next 16.3.4 with Cache Components builds all 141 App Router routes; the route
   manifest includes static, Partial Prerendered and request-time routes instead
   of forcing one rendering mode across the product.
-- Literal internal anchors in `frontend/app/**/*.tsx` fell from 208 to 138. The
+- Literal internal anchors in `frontend/app/**/*.tsx` fell from 208 to 131. The
   remainder is not a zero-count target: active-exam exits, downloads, external
   targets and affinity-sensitive launches retain hard browser navigation.
 - Thirteen application modules now derive wire shapes from generated OpenAPI types.
   `window.api` is still referenced by 129 TS/TSX modules, but that file count is
   not a completion metric: several migrated screens keep the bridge only for
   mutations while their high-volume reads already use typed adapters.
-- The full frontend contract suite passes 9,094/9,094; the rendered React suite
+- The full frontend contract suite passes 9,097/9,097; the rendered React suite
   passes 3/3; the current cohort response/service slice passes 18/18. Production
   build and TypeScript checks pass.
 - A backend-less local build logs one handled `ECONNREFUSED` while prerendering
@@ -102,6 +102,13 @@ fixtures are not deployable application routes.
   links and receipt recovery remain hard by design. Shared-runtime browser proof
   passes 15/15: Reading and Listening route changes retain the document,
   Supabase singleton, route-owned body classes and telemetry without JS errors.
+  Wave B5 converts ordinary directory navigation across Admin Classes, Class
+  Detail, Students and the Writing Queue while retaining lesson attachments as
+  real download-capable anchors. The literal-anchor inventory falls to 131.
+  Canonical source tests pass 46/46 and four fixture-backed browser journeys pass
+  73/73, including truthful reload-after-write, responsive containment and no
+  unexpected writes or JavaScript errors. Remaining anchors still require
+  route-by-route classification; zero anchors is not an optimization target.
 
 ### NXT-03 — Browser runtime bridge bypasses module typing/tree-shaking
 
