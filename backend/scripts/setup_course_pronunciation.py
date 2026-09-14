@@ -34,7 +34,10 @@ def _load(path: Path) -> tuple[dict, str]:
         raise SystemExit(f"Không đọc được {path}: {exc}") from exc
     if not isinstance(data, dict):
         raise SystemExit("Gói phát âm phải là một JSON object.")
-    required = ("bank_code", "title", "locale", "provider", "voice_engine", "voice")
+    required = (
+        "bank_code", "requirement_id", "role", "title", "locale", "provider",
+        "voice_engine", "voice",
+    )
     missing = [key for key in required if not str(data.get(key) or "").strip()]
     if missing:
         raise SystemExit(f"Thiếu trường bắt buộc: {', '.join(missing)}")
@@ -70,7 +73,7 @@ def _bank(code: str, supabase_admin) -> dict:
     try:
         rows = (
             supabase_admin.table("quiz_banks")
-            .select("id, code, skill_area, lesson_no")
+            .select("id, code, skill_area, lesson_no, meta")
             .eq("code", code)
             .eq("skill_area", "course")
             .limit(1)
@@ -85,36 +88,20 @@ def _bank(code: str, supabase_admin) -> dict:
     return rows[0]
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--file",
-        default="data/course_pronunciation/C1-B05.json",
-        help="JSON gói phát âm (mặc định B05 của Course 1).",
-    )
-    parser.add_argument("--commit", action="store_true", help="Sinh audio và ghi thật.")
-    args = parser.parse_args()
+def _requirement(data: dict, content_hash: str) -> dict:
+    """Build the bank-level contract consumed by the course assignment API."""
+    return {
+        "id": data["requirement_id"],
+        "role": data["role"],
+        "locale": data["locale"],
+        "voice_engine": data["voice_engine"],
+        "voice": data["voice"],
+        "sentence_count": len(data["sentences"]),
+        "content_hash": content_hash,
+    }
 
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    path = Path(args.file)
-    data, content_hash = _load(path)
-    logger.info(
-        "%s · %d câu · %s · %s/%s · hash %s",
-        data["bank_code"], len(data["sentences"]), data["locale"],
-        data["voice_engine"], data["voice"], content_hash[:12],
-    )
-    if not args.commit:
-        for sentence in data["sentences"]:
-            logger.info("%02d  %s", sentence["order"], sentence["text"])
-        logger.info("THỬ KHÔ — thêm --commit để render/cache và đăng ký bộ câu.")
-        return 0
 
-    # Credentials and the heavy Kokoro/Storage dependency are intentionally
-    # loaded only for a real write.  Dry-run must work on a clean review machine
-    # and must not create a Supabase client as a side effect of validation.
-    from database import supabase_admin
-    from services import tts_audio
-
+def _register(data: dict, content_hash: str, supabase_admin, tts_audio) -> None:
     bank = _bank(str(data["bank_code"]), supabase_admin)
     prepared = []
     for sentence in data["sentences"]:
@@ -125,7 +112,11 @@ def main() -> int:
             sentence["text"], data["voice"], data["voice_engine"]
         )
         prepared.append({**sentence, "audio_storage_path": storage_path})
-        logger.info("%02d  %s  %s", sentence["order"], "render" if rendered else "cache", storage_path)
+        logger.info(
+            "%s %02d  %s  %s",
+            data["bank_code"], sentence["order"],
+            "render" if rendered else "cache", storage_path,
+        )
 
     payload = {
         "bank_id": bank["id"],
@@ -151,7 +142,60 @@ def main() -> int:
         raise SystemExit(f"Audio đã cache nhưng chưa đăng ký được bộ câu: {exc}") from exc
     if not rows:
         raise SystemExit("Upsert bộ câu không trả về dữ liệu.")
+    bank_meta = {
+        **(bank.get("meta") or {}),
+        "pronunciation_requirement": _requirement(data, content_hash),
+    }
+    try:
+        supabase_admin.table("quiz_banks").update({"meta": bank_meta}).eq(
+            "id", bank["id"]
+        ).execute()
+    except Exception as exc:  # noqa: BLE001
+        raise SystemExit(
+            "Bộ câu đã đăng ký nhưng chưa gắn được yêu cầu phát âm vào bank: "
+            f"{exc}"
+        ) from exc
     logger.info("Đã đăng ký %s cho bank %s (%s).", rows[0]["id"], bank["code"], bank["id"])
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--file",
+        action="append",
+        help="JSON gói phát âm; có thể lặp lại để xử lý một mẻ (mặc định B05).",
+    )
+    parser.add_argument("--commit", action="store_true", help="Sinh audio và ghi thật.")
+    args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    paths = [Path(value) for value in (args.file or [
+        "data/course_pronunciation/C1-B05.json"
+    ])]
+    packages = []
+    for path in paths:
+        data, content_hash = _load(path)
+        packages.append((data, content_hash))
+        logger.info(
+            "%s · %d câu · %s · %s/%s · hash %s",
+            data["bank_code"], len(data["sentences"]), data["locale"],
+            data["voice_engine"], data["voice"], content_hash[:12],
+        )
+    if not args.commit:
+        for data, _content_hash in packages:
+            for sentence in data["sentences"]:
+                logger.info("%s %02d  %s", data["bank_code"], sentence["order"], sentence["text"])
+        logger.info("THỬ KHÔ — thêm --commit để render/cache và đăng ký bộ câu.")
+        return 0
+
+    # Credentials and the heavy Kokoro/Storage dependency are intentionally
+    # loaded only for a real write.  Dry-run must work on a clean review machine
+    # and must not create a Supabase client as a side effect of validation.
+    from database import supabase_admin
+    from services import tts_audio
+
+    for data, content_hash in packages:
+        _register(data, content_hash, supabase_admin, tts_audio)
     return 0
 
 

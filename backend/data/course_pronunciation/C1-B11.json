@@ -1,0 +1,108 @@
+{
+  "bank_code": "C1-B11",
+  "requirement_id": "TM20-B11-PHAT-AM",
+  "role": "bài luyện phát âm — nghe và nhắc lại",
+  "title": "Phát âm & Shadowing — Modal: bắt buộc, khả năng và dự đoán",
+  "locale": "en-GB",
+  "provider": "azure",
+  "voice_engine": "kokoro",
+  "voice": "bf_emma",
+  "playback_rates": [
+    0.85,
+    1.0
+  ],
+  "source_document": "Giao-trinh-ngu-phap-nen-IELTS_20-buoi-v2.docx",
+  "selection_seed": 20260914,
+  "sentences": [
+    {
+      "id": "C1-B11-PRON-V2-01",
+      "order": 1,
+      "source_section": "obligation",
+      "text": "Applicants must submit their documents before the deadline."
+    },
+    {
+      "id": "C1-B11-PRON-V2-02",
+      "order": 2,
+      "source_section": "deduction",
+      "text": "The office must be closed today; nobody has answered the phone."
+    },
+    {
+      "id": "C1-B11-PRON-V2-03",
+      "order": 3,
+      "source_section": "advice",
+      "text": "Cities should invest more in cycle lanes."
+    },
+    {
+      "id": "C1-B11-PRON-V2-04",
+      "order": 4,
+      "source_section": "prediction",
+      "text": "The new line should open before the end of next year."
+    },
+    {
+      "id": "C1-B11-PRON-V2-05",
+      "order": 5,
+      "source_section": "possibility",
+      "text": "Heavy rain may delay the afternoon flights."
+    },
+    {
+      "id": "C1-B11-PRON-V2-06",
+      "order": 6,
+      "source_section": "permission",
+      "text": "Students may leave the hall after the announcement."
+    },
+    {
+      "id": "C1-B11-PRON-V2-07",
+      "order": 7,
+      "source_section": "possibility",
+      "text": "Sea levels could rise faster than current models predict."
+    },
+    {
+      "id": "C1-B11-PRON-V2-08",
+      "order": 8,
+      "source_section": "negative deduction",
+      "text": "The data can't be accurate; the totals do not match."
+    },
+    {
+      "id": "C1-B11-PRON-V2-09",
+      "order": 9,
+      "source_section": "hedging",
+      "text": "Large cities tend to grow faster than rural districts."
+    },
+    {
+      "id": "C1-B11-PRON-V2-10",
+      "order": 10,
+      "source_section": "hedging",
+      "text": "Remote work is likely to remain common after 2030."
+    },
+    {
+      "id": "C1-B11-PRON-V2-11",
+      "order": 11,
+      "source_section": "future prediction",
+      "text": "The population will definitely exceed ten million by 2035."
+    },
+    {
+      "id": "C1-B11-PRON-V2-12",
+      "order": 12,
+      "source_section": "hedging",
+      "text": "Higher tuition fees may discourage low-income applicants."
+    },
+    {
+      "id": "C1-B11-PRON-V2-13",
+      "order": 13,
+      "source_section": "hedging",
+      "text": "In most cases, private cars cost more than public transport."
+    },
+    {
+      "id": "C1-B11-PRON-V2-14",
+      "order": 14,
+      "source_section": "past permission",
+      "text": "Students were allowed to leave the hall after the announcement."
+    },
+    {
+      "id": "C1-B11-PRON-V2-15",
+      "order": 15,
+      "source_section": "future ability",
+      "text": "They will be able to finish the project by June."
+    }
+  ]
+}

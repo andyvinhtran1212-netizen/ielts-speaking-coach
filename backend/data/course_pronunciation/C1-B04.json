@@ -1,0 +1,108 @@
+{
+  "bank_code": "C1-B04",
+  "requirement_id": "TM20-B04-PHAT-AM",
+  "role": "bài luyện phát âm — nghe và nhắc lại",
+  "title": "Phát âm & Shadowing — Tính từ và trạng từ",
+  "locale": "en-GB",
+  "provider": "azure",
+  "voice_engine": "kokoro",
+  "voice": "bf_emma",
+  "playback_rates": [
+    0.85,
+    1.0
+  ],
+  "source_document": "Giao-trinh-ngu-phap-nen-IELTS_20-buoi-v2.docx",
+  "selection_seed": 20260914,
+  "sentences": [
+    {
+      "id": "C1-B04-PRON-V1-01",
+      "order": 1,
+      "source_section": "attributive adjectives",
+      "text": "The diligent students complete the difficult project on time."
+    },
+    {
+      "id": "C1-B04-PRON-V1-02",
+      "order": 2,
+      "source_section": "predicative adjectives",
+      "text": "The new library in my district is spacious."
+    },
+    {
+      "id": "C1-B04-PRON-V1-03",
+      "order": 3,
+      "source_section": "object complement",
+      "text": "Heavy rain makes the narrow streets dangerous."
+    },
+    {
+      "id": "C1-B04-PRON-V1-04",
+      "order": 4,
+      "source_section": "adjective order",
+      "text": "My father drives a reliable second-hand car."
+    },
+    {
+      "id": "C1-B04-PRON-V1-05",
+      "order": 5,
+      "source_section": "manner adverb",
+      "text": "Air pollution in Hanoi rises sharply in winter."
+    },
+    {
+      "id": "C1-B04-PRON-V1-06",
+      "order": 6,
+      "source_section": "frequency adverb",
+      "text": "Public transport in this city rarely runs on time."
+    },
+    {
+      "id": "C1-B04-PRON-V1-07",
+      "order": 7,
+      "source_section": "manner adverb",
+      "text": "Students today rely heavily on their smartphones."
+    },
+    {
+      "id": "C1-B04-PRON-V1-08",
+      "order": 8,
+      "source_section": "degree and manner",
+      "text": "Doctors in public hospitals work extremely hard."
+    },
+    {
+      "id": "C1-B04-PRON-V1-09",
+      "order": 9,
+      "source_section": "fronted place adverb",
+      "text": "Outside, the traffic moves slowly all day."
+    },
+    {
+      "id": "C1-B04-PRON-V1-10",
+      "order": 10,
+      "source_section": "degree with adjective",
+      "text": "The office is extremely noisy after four o'clock."
+    },
+    {
+      "id": "C1-B04-PRON-V1-11",
+      "order": 11,
+      "source_section": "adjective and modifiers",
+      "text": "The modern library is spacious. It has a reading room and many comfortable chairs."
+    },
+    {
+      "id": "C1-B04-PRON-V1-12",
+      "order": 12,
+      "source_section": "frequency adverb",
+      "text": "I rarely take a lunch break, and I am always tired by five."
+    },
+    {
+      "id": "C1-B04-PRON-V1-13",
+      "order": 13,
+      "source_section": "irregular adjective",
+      "text": "She is not well — she has a cold."
+    },
+    {
+      "id": "C1-B04-PRON-V1-14",
+      "order": 14,
+      "source_section": "manner adverb",
+      "text": "She sings beautifully at the theatre every Friday."
+    },
+    {
+      "id": "C1-B04-PRON-V1-15",
+      "order": 15,
+      "source_section": "manner adverb",
+      "text": "My father drives the car carefully when it rains."
+    }
+  ]
+}

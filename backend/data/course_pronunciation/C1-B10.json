@@ -1,5 +1,7 @@
 {
   "bank_code": "C1-B10",
+  "requirement_id": "TM20-B10-PHAT-AM",
+  "role": "bài luyện phát âm — nghe và nhắc lại",
   "title": "Phát âm & Shadowing — Câu bị động",
   "locale": "en-GB",
   "provider": "azure",
@@ -9,81 +11,98 @@
     0.85,
     1.0
   ],
+  "source_document": "Giao-trinh-ngu-phap-nen-IELTS_20-buoi-v2.docx",
+  "selection_seed": 20260914,
   "sentences": [
     {
-      "id": "C1-B10-PRON-01",
+      "id": "C1-B10-PRON-V2-01",
       "order": 1,
-      "text": "Most of the rubbish on this beach is collected by a small group of local volunteers every Sunday."
+      "source_section": "present simple passive",
+      "text": "Millions of tonnes of plastic are dumped into the ocean every year."
     },
     {
-      "id": "C1-B10-PRON-02",
+      "id": "C1-B10-PRON-V2-02",
       "order": 2,
-      "text": "The old wooden bridge was replaced by a wide concrete structure at the start of this year."
+      "source_section": "past simple passive",
+      "text": "The new metro line was completed three years behind schedule."
     },
     {
-      "id": "C1-B10-PRON-03",
+      "id": "C1-B10-PRON-V2-03",
       "order": 3,
-      "text": "Thousands of young trees were planted along both sides of this new sandy coastal road last spring."
+      "source_section": "continuous passive",
+      "text": "Public transport in this district is being upgraded at the moment."
     },
     {
-      "id": "C1-B10-PRON-04",
+      "id": "C1-B10-PRON-V2-04",
       "order": 4,
-      "text": "The results of the national survey will be published in a special government report early next spring."
+      "source_section": "present perfect passive",
+      "text": "Free school meals have been provided to low-income families since 2019."
     },
     {
-      "id": "C1-B10-PRON-05",
+      "id": "C1-B10-PRON-V2-05",
       "order": 5,
-      "text": "Three additional waste sites are being built on the outskirts of the city."
+      "source_section": "future passive",
+      "text": "The proposal will be reviewed by the city council next month."
     },
     {
-      "id": "C1-B10-PRON-06",
+      "id": "C1-B10-PRON-V2-06",
       "order": 6,
-      "text": "Plastic bags are still used in almost every small local market today."
+      "source_section": "agentless passive",
+      "text": "The survey was conducted among 1,200 office workers in Hanoi."
     },
     {
-      "id": "C1-B10-PRON-07",
+      "id": "C1-B10-PRON-V2-07",
       "order": 7,
-      "text": "The old library building was closed for serious safety reasons last year."
+      "source_section": "process passive",
+      "text": "Coffee beans are dried, roasted and then ground before packaging."
     },
     {
-      "id": "C1-B10-PRON-08",
+      "id": "C1-B10-PRON-V2-08",
       "order": 8,
-      "text": "Several old wooden houses were destroyed in the heavy floods last September."
+      "source_section": "SVOO passive",
+      "text": "Students are taught critical thinking from an early age in Finland."
     },
     {
-      "id": "C1-B10-PRON-09",
+      "id": "C1-B10-PRON-V2-09",
       "order": 9,
-      "text": "Young children are taught basic road safety in every local primary school."
+      "source_section": "SVOO passive",
+      "text": "All participants were given a written consent form."
     },
     {
-      "id": "C1-B10-PRON-10",
+      "id": "C1-B10-PRON-V2-10",
       "order": 10,
-      "text": "Students are taught critical thinking from an early age in state schools across most of northern Europe."
+      "source_section": "mixed passive tenses",
+      "text": "The old market has been demolished, and a car park is being built on the site."
     },
     {
-      "id": "C1-B10-PRON-11",
+      "id": "C1-B10-PRON-V2-11",
       "order": 11,
-      "text": "All of the participants were given a written consent form before the first group interview last March."
+      "source_section": "agentless passive",
+      "text": "My phone was stolen on the bus."
     },
     {
-      "id": "C1-B10-PRON-12",
+      "id": "C1-B10-PRON-V2-12",
       "order": 12,
-      "text": "A large modern library was built for the students of this technical college only three years ago."
+      "source_section": "habitual passive",
+      "text": "The house is painted every three years."
     },
     {
-      "id": "C1-B10-PRON-13",
+      "id": "C1-B10-PRON-V2-13",
       "order": 13,
-      "text": "A quiet study room was found for the exchange students last term."
+      "source_section": "continuous passive",
+      "text": "Two new pumping stations are being installed near the river mouth."
     },
     {
-      "id": "C1-B10-PRON-14",
+      "id": "C1-B10-PRON-V2-14",
       "order": 14,
-      "text": "The experienced young doctor was appointed director of the district hospital at the early age of thirty-five."
+      "source_section": "present perfect passive",
+      "text": "Free tablets have been provided to every primary school in the district."
     },
     {
-      "id": "C1-B10-PRON-15",
+      "id": "C1-B10-PRON-V2-15",
       "order": 15,
-      "text": "My cousin was elected class monitor at her secondary school last September."
+      "source_section": "past simple passive",
+      "text": "This bridge was built by the government in 1998."
     }
   ]
 }

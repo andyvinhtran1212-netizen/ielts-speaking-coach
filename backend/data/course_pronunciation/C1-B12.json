@@ -1,0 +1,108 @@
+{
+  "bank_code": "C1-B12",
+  "requirement_id": "TM20-B12-PHAT-AM",
+  "role": "bài luyện phát âm — nghe và nhắc lại",
+  "title": "Phát âm & Shadowing — Câu điều kiện",
+  "locale": "en-GB",
+  "provider": "azure",
+  "voice_engine": "kokoro",
+  "voice": "bf_emma",
+  "playback_rates": [
+    0.85,
+    1.0
+  ],
+  "source_document": "Giao-trinh-ngu-phap-nen-IELTS_20-buoi-v2.docx",
+  "selection_seed": 20260914,
+  "sentences": [
+    {
+      "id": "C1-B12-PRON-V1-01",
+      "order": 1,
+      "source_section": "zero conditional",
+      "text": "If water reaches zero degrees Celsius, it freezes."
+    },
+    {
+      "id": "C1-B12-PRON-V1-02",
+      "order": 2,
+      "source_section": "zero conditional",
+      "text": "If you press this red button, the machine starts a self-check."
+    },
+    {
+      "id": "C1-B12-PRON-V1-03",
+      "order": 3,
+      "source_section": "first conditional",
+      "text": "If governments invest more in public transport, congestion will decrease."
+    },
+    {
+      "id": "C1-B12-PRON-V1-04",
+      "order": 4,
+      "source_section": "first conditional",
+      "text": "If the polar ice caps melt, coastal cities will lose large areas of land."
+    },
+    {
+      "id": "C1-B12-PRON-V1-05",
+      "order": 5,
+      "source_section": "second conditional",
+      "text": "If renewable energy were cheaper, more households would install solar panels."
+    },
+    {
+      "id": "C1-B12-PRON-V1-06",
+      "order": 6,
+      "source_section": "second conditional",
+      "text": "If the conference fee were lower, more graduate students would attend."
+    },
+    {
+      "id": "C1-B12-PRON-V1-07",
+      "order": 7,
+      "source_section": "unless",
+      "text": "Unless students receive proper feedback, they will repeat the same mistakes."
+    },
+    {
+      "id": "C1-B12-PRON-V1-08",
+      "order": 8,
+      "source_section": "provided that",
+      "text": "Provided that funding continues, the research team will finish by 2030."
+    },
+    {
+      "id": "C1-B12-PRON-V1-09",
+      "order": 9,
+      "source_section": "second conditional",
+      "text": "If our district had a park, children would not play in the street."
+    },
+    {
+      "id": "C1-B12-PRON-V1-10",
+      "order": 10,
+      "source_section": "in case",
+      "text": "Commuters should leave early in case the tunnel is closed again."
+    },
+    {
+      "id": "C1-B12-PRON-V1-11",
+      "order": 11,
+      "source_section": "if versus when",
+      "text": "If the council approves the plan, work will begin in March."
+    },
+    {
+      "id": "C1-B12-PRON-V1-12",
+      "order": 12,
+      "source_section": "unless",
+      "text": "Unless the council approves the plan, work will not begin."
+    },
+    {
+      "id": "C1-B12-PRON-V1-13",
+      "order": 13,
+      "source_section": "if versus when",
+      "text": "When the council approves the plan, work will begin in March."
+    },
+    {
+      "id": "C1-B12-PRON-V1-14",
+      "order": 14,
+      "source_section": "even if",
+      "text": "Even if the policy were introduced tomorrow, the effects would not appear for a decade."
+    },
+    {
+      "id": "C1-B12-PRON-V1-15",
+      "order": 15,
+      "source_section": "even though",
+      "text": "Even though the policy was introduced last year, the effects have not appeared."
+    }
+  ]
+}

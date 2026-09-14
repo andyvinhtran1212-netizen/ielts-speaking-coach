@@ -1,26 +1,108 @@
 {
   "bank_code": "C1-B09",
-  "title": "Phát âm & Shadowing — Hoà hợp Chủ ngữ–Động từ",
+  "requirement_id": "TM20-B09-PHAT-AM",
+  "role": "bài luyện phát âm — nghe và nhắc lại",
+  "title": "Phát âm & Shadowing — Hoà hợp chủ ngữ – động từ",
   "locale": "en-GB",
   "provider": "azure",
   "voice_engine": "kokoro",
   "voice": "bf_emma",
-  "playback_rates": [0.85, 1.0],
+  "playback_rates": [
+    0.85,
+    1.0
+  ],
+  "source_document": "Giao-trinh-ngu-phap-nen-IELTS_20-buoi-v2.docx",
+  "selection_seed": 20260914,
   "sentences": [
-    {"id": "C1-B09-PRON-01", "order": 1, "text": "The advice of experienced teachers is extremely useful for new international students at this large public university."},
-    {"id": "C1-B09-PRON-02", "order": 2, "text": "The children of these migrant workers attend a small primary school near the large industrial park outside town."},
-    {"id": "C1-B09-PRON-03", "order": 3, "text": "The students in the small classroom upstairs are very quiet this morning."},
-    {"id": "C1-B09-PRON-04", "order": 4, "text": "Fifty per cent of the land in this district belongs to small farmers."},
-    {"id": "C1-B09-PRON-05", "order": 5, "text": "Twenty per cent of the workers at this factory live in rented flats."},
-    {"id": "C1-B09-PRON-06", "order": 6, "text": "Most of the electricity in this northern region comes from coal-fired power stations near the Chinese border."},
-    {"id": "C1-B09-PRON-07", "order": 7, "text": "Physics remains a very demanding subject for many first-year engineering students at this large technical university in Hanoi."},
-    {"id": "C1-B09-PRON-08", "order": 8, "text": "The United States has a very large and very mixed population today."},
-    {"id": "C1-B09-PRON-09", "order": 9, "text": "Economics is now a very popular subject at most Vietnamese universities."},
-    {"id": "C1-B09-PRON-10", "order": 10, "text": "Either of these two routes takes about forty minutes by local bus."},
-    {"id": "C1-B09-PRON-11", "order": 11, "text": "Each of the participants receives a short questionnaire before the first interview."},
-    {"id": "C1-B09-PRON-12", "order": 12, "text": "The staff at this small clinic work long hours every single week."},
-    {"id": "C1-B09-PRON-13", "order": 13, "text": "The police are investigating the cause of the accident near the bridge."},
-    {"id": "C1-B09-PRON-14", "order": 14, "text": "There have been significant improvements in air quality since the ban on old diesel motorbikes last year."},
-    {"id": "C1-B09-PRON-15", "order": 15, "text": "There was a serious accident on the coastal road yesterday evening near Hue."}
+    {
+      "id": "C1-B09-PRON-V2-01",
+      "order": 1,
+      "source_section": "the number",
+      "text": "The number of private vehicles in major cities has doubled since 2010."
+    },
+    {
+      "id": "C1-B09-PRON-V2-02",
+      "order": 2,
+      "source_section": "a number of",
+      "text": "A number of environmental policies have failed because of weak enforcement."
+    },
+    {
+      "id": "C1-B09-PRON-V2-03",
+      "order": 3,
+      "source_section": "most of uncountable",
+      "text": "Most of the electricity in this region is generated from coal."
+    },
+    {
+      "id": "C1-B09-PRON-V2-04",
+      "order": 4,
+      "source_section": "most of plural",
+      "text": "Most of the households in this district rely on groundwater."
+    },
+    {
+      "id": "C1-B09-PRON-V2-05",
+      "order": 5,
+      "source_section": "head noun agreement",
+      "text": "The quality of public services in rural areas remains poor."
+    },
+    {
+      "id": "C1-B09-PRON-V2-06",
+      "order": 6,
+      "source_section": "each of",
+      "text": "Each of the participants was given a questionnaire."
+    },
+    {
+      "id": "C1-B09-PRON-V2-07",
+      "order": 7,
+      "source_section": "plural only noun",
+      "text": "The police are investigating the cause of the accident."
+    },
+    {
+      "id": "C1-B09-PRON-V2-08",
+      "order": 8,
+      "source_section": "percentage",
+      "text": "Twenty per cent of the national budget goes to education."
+    },
+    {
+      "id": "C1-B09-PRON-V2-09",
+      "order": 9,
+      "source_section": "there have been",
+      "text": "There have been significant improvements in air quality since the ban."
+    },
+    {
+      "id": "C1-B09-PRON-V2-10",
+      "order": 10,
+      "source_section": "statistics meanings",
+      "text": "Statistics on youth unemployment are published every quarter, but statistics is a demanding subject at university."
+    },
+    {
+      "id": "C1-B09-PRON-V2-11",
+      "order": 11,
+      "source_section": "long subject",
+      "text": "The teacher of these two classes is very strict."
+    },
+    {
+      "id": "C1-B09-PRON-V2-12",
+      "order": 12,
+      "source_section": "a number of",
+      "text": "A number of tourists are waiting outside."
+    },
+    {
+      "id": "C1-B09-PRON-V2-13",
+      "order": 13,
+      "source_section": "collective noun",
+      "text": "The staff is well trained, but they are unhappy about their pay."
+    },
+    {
+      "id": "C1-B09-PRON-V2-14",
+      "order": 14,
+      "source_section": "and subjects",
+      "text": "The manager and the accountant are in the meeting."
+    },
+    {
+      "id": "C1-B09-PRON-V2-15",
+      "order": 15,
+      "source_section": "as well as",
+      "text": "The manager, as well as his assistants, is attending."
+    }
   ]
 }
