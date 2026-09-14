@@ -112,7 +112,16 @@ await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
 await page.getByText('Không thể tạo biên nhận an toàn', { exact: true }).waitFor();
 check('sessionStorage hỏng thì chặn trước PATCH và giữ form sửa được', patchBodies.length === patchCountBeforeStorageFailure && !(await page.locator('#alme-title').isDisabled()));
 
-check('mobile không tràn ngang và action có touch target', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && parseFloat(getComputedStyle(document.querySelector('.alme-actions .adm-btn-primary')).minHeight) >= 44));
+const mobileMetrics = await page.evaluate(() => ({
+  scrollWidth: document.documentElement.scrollWidth,
+  viewportWidth: innerWidth,
+  primaryMinHeight: parseFloat(getComputedStyle(document.querySelector('.alme-actions .adm-btn-primary')).minHeight),
+}));
+check(
+  'mobile không tràn ngang và action có touch target',
+  mobileMetrics.scrollWidth <= mobileMetrics.viewportWidth && mobileMetrics.primaryMinHeight >= 44,
+  JSON.stringify(mobileMetrics),
+);
 await page.setViewportSize({ width: 1440, height: 900 });
 check('desktop dùng layout editor hai cột', await page.evaluate(() => getComputedStyle(document.querySelector('.alme-layout')).gridTemplateColumns.split(' ').length >= 2));
 check('không có lỗi JS', errors.length === 0, errors.join(' | '));
