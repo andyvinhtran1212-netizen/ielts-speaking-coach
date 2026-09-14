@@ -76,6 +76,7 @@ export function AuthedShell({
   tailwindLayer = utilityLayer,
   chrome = 'student',
   authGated = true,
+  lucideRuntime = false,
   bodyClass = 'av-page font-sans min-h-screen',
   children,
 }: {
@@ -119,6 +120,11 @@ export function AuthedShell({
    */
   authGated?: boolean;
   /**
+   * Load the 402 KB DOM-mutation runtime only for remaining legacy consumers.
+   * Native React trees render stable SVG and must leave this disabled.
+   */
+  lucideRuntime?: boolean;
+  /**
    * Class gắn vào `<body>`. Mặc định giữ nguyên chuỗi cũ để ba trang đã port
    * không đổi. Trang legacy có body class KHÁC NHAU (`reading-vocab` chỉ có
    * `av-page`, `speaking` có tận sáu class) nên nó phải là tham số; ghi cứng
@@ -134,15 +140,6 @@ export function AuthedShell({
           disagree with an authenticated native page. */}
       {authGated && <meta name="aver-auth-gated" content="1" />}
       <script dangerouslySetInnerHTML={{ __html: ANTI_FLASH }} suppressHydrationWarning />
-
-      {/* Font preconnects + faces — bộ của trang cần đăng nhập, KHÔNG phải bộ
-          của khu nội dung công khai */}
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
-        rel="stylesheet"
-      />
 
       {/* Cascade của Aver Design System (tokens trước components trước CSS
           trang; Tailwind tĩnh CUỐI CÙNG để utilities/.hidden thắng — P0-3 C-3.4) */}
@@ -170,7 +167,7 @@ export function AuthedShell({
       {/* Next Script executes on hard load and App Router client navigation.
           Lucide is independent; auth/API globals below remain strictly
           ordered and fail closed before route-specific scripts are exposed. */}
-      <Script src="/vendor/lucide.min.js" strategy="afterInteractive" />
+      {lucideRuntime && <Script src="/vendor/lucide.min.js" strategy="afterInteractive" />}
       <SupabaseRuntimeBoundary
         scripts={SUPABASE_RUNTIME_SCRIPTS}
         supabaseUrl={SUPABASE_URL}

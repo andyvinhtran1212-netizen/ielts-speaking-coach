@@ -123,7 +123,18 @@ fixtures are not deployable application routes.
   snapshots. Preserve untouched legacy assets.
 - **Verification:** light/dark desktop/mobile screenshots, computed-style parity,
   no missing runtime consumers, bundle/network budgets.
-- **Status:** queued for Wave E.
+- **Status:** Wave E implementation complete locally for the validated delivery
+  debt. The root now self-hosts the three sanctioned variable fonts through
+  `next/font`; runtime Google Fonts requests are gone and Lora is not preloaded
+  outside long-form use. The 402,312-byte Lucide DOM runtime was removed from
+  the landing and changed from global to explicit opt-in: only the two remaining
+  legacy consumers (`/practice/session` and `/writing/dashboard`) load it, so
+  72/74 authenticated route groups no longer pay that request. Server-rendered
+  landing SVGs keep the same 24px computed geometry and eliminate the hydration
+  mutation exception. Browser proof observed zero Google Fonts and zero Lucide
+  requests on `/`, with fonts served from `/_next/static/media`. Link-based CSS
+  ordering remains intentionally intact: validation confirmed it encodes real
+  Tailwind/reset cascade compatibility, not a standalone performance bug.
 
 ### NXT-07 — Public cache has TTL but no content-triggered invalidation
 

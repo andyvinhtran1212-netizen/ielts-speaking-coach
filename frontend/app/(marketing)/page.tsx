@@ -1,5 +1,6 @@
-import { Metadata } from 'next';
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { LandingBehavior } from './landing-behavior';
 
 export const metadata: Metadata = {
@@ -8,6 +9,27 @@ export const metadata: Metadata = {
     '6 kỹ năng IELTS — Speaking, Writing, Reading, Listening, Grammar và Từ vựng — trên một nền tảng. Phản hồi chi tiết theo từng tiêu chí sau mỗi buổi luyện.',
   alternates: { canonical: '/' },
 };
+
+type SkillIconName = 'mic' | 'pencil-line' | 'book-marked' | 'headphones' | 'library' | 'book-open';
+
+function SkillIcon({ name }: { name: SkillIconName }) {
+  const paths = {
+    mic: <><path d="M12 19v3" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><rect x="9" y="2" width="6" height="13" rx="3" /></>,
+    'pencil-line': <><path d="M13 21h8" /><path d="m15 5 4 4" /><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /></>,
+    'book-marked': <><path d="M10 2v8l3-3 3 3V2" /><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20" /></>,
+    headphones: <path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3" />,
+    library: <><path d="m16 6 4 14" /><path d="M12 6v14" /><path d="M8 8v12" /><path d="M4 4v16" /></>,
+    'book-open': <><path d="M12 7v14" /><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" /></>,
+  } satisfies Record<SkillIconName, ReactNode>;
+
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+      strokeLinejoin="round" aria-hidden="true" className={`lucide lucide-${name}`}>
+      {paths[name]}
+    </svg>
+  );
+}
 
 export default function LandingPreviewPage() {
   return (
@@ -314,7 +336,7 @@ export default function LandingPreviewPage() {
             {/* Speaking */}
             <article className="ix-skill-card" data-skill="speaking">
               <div className="ix-skill-card__icon">
-                <i data-lucide="mic" />
+                <SkillIcon name="mic" />
               </div>
               <p className="ix-skill-card__eyebrow">AI Coach realtime</p>
               <h3 className="ix-skill-card__title">Speaking</h3>
@@ -352,7 +374,7 @@ export default function LandingPreviewPage() {
             >
               <span className="ix-skill-card__badge">Nổi bật</span>
               <div className="ix-skill-card__icon">
-                <i data-lucide="pencil-line" />
+                <SkillIcon name="pencil-line" />
               </div>
               <p className="ix-skill-card__eyebrow">AI Grader Gemini</p>
               <h3 className="ix-skill-card__title">Writing</h3>
@@ -386,7 +408,7 @@ export default function LandingPreviewPage() {
             {/* Reading */}
             <article className="ix-skill-card" data-skill="reading">
               <div className="ix-skill-card__icon">
-                <i data-lucide="book-marked" />
+                <SkillIcon name="book-marked" />
               </div>
               <p className="ix-skill-card__eyebrow">Bài đọc chính hãng IELTS</p>
               <h3 className="ix-skill-card__title">Reading</h3>
@@ -420,7 +442,7 @@ export default function LandingPreviewPage() {
             {/* Listening */}
             <article className="ix-skill-card" data-skill="listening">
               <div className="ix-skill-card__icon">
-                <i data-lucide="headphones" />
+                <SkillIcon name="headphones" />
               </div>
               <p className="ix-skill-card__eyebrow">Audio thực tế IELTS</p>
               <h3 className="ix-skill-card__title">Listening</h3>
@@ -454,7 +476,7 @@ export default function LandingPreviewPage() {
             {/* Vocabulary */}
             <article className="ix-skill-card" data-skill="vocabulary">
               <div className="ix-skill-card__icon">
-                <i data-lucide="library" />
+                <SkillIcon name="library" />
               </div>
               <p className="ix-skill-card__eyebrow">SRS thông minh</p>
               <h3 className="ix-skill-card__title">Từ vựng</h3>
@@ -488,7 +510,7 @@ export default function LandingPreviewPage() {
             {/* Grammar Wiki */}
             <article className="ix-skill-card" data-skill="grammar">
               <div className="ix-skill-card__icon">
-                <i data-lucide="book-open" />
+                <SkillIcon name="book-open" />
               </div>
               <p className="ix-skill-card__eyebrow">Roadmap · Articles</p>
               <h3 className="ix-skill-card__title">Grammar Wiki</h3>

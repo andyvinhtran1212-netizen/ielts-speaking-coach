@@ -33,8 +33,8 @@
      per frontend-design skill). Plus Jakarta Sans is geometric-humanist
      with strong Vietnamese diacritic rendering. JetBrains Mono carries
      numerics (band scores, streak counts) where mono alignment matters. */
-  --av-font-sans:    'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --av-font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --av-font-sans:    var(--font-plus-jakarta, 'Plus Jakarta Sans'), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --av-font-mono:    var(--font-jetbrains-mono, 'JetBrains Mono'), ui-monospace, 'SF Mono', Menlo, monospace;
   --av-font-display: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   /* DEBT-2026-07-24-J — the ONE sanctioned serif. Decision 2026-07-25: the
    * system allows a single controlled serif, and it is Lora, used ONLY for
@@ -43,7 +43,7 @@
    * page cannot drift into serif chrome. Anything reaching for a different
    * serif (Fraunces, Georgia by hand, …) is drift — that is what the four
    * parallel font systems came from. */
-  --av-font-serif:   'Lora', Georgia, 'Times New Roman', serif;
+  --av-font-serif:   var(--font-lora, 'Lora'), Georgia, 'Times New Roman', serif;
 
   /* Type scale — 16px base, 1.125 ratio (tightened for compact app UI) */
   --av-fs-xs:   0.75rem;     /* 12px */

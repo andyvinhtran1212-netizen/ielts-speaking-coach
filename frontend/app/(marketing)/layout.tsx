@@ -3,7 +3,6 @@
 // (the root layout owns them); stylesheet <link> tags render here and React
 // hoists them into <head>.
 import type { ReactNode } from 'react';
-import Script from 'next/script';
 
 import { RouteScriptChain } from '@/components/route-script-chain';
 
@@ -53,19 +52,12 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
 
       {/* Legacy stylesheets — SAME deployed URLs as every legacy page (byte
           reuse + shared HTTP cache); React hoists these links into <head>. */}
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
-        rel="stylesheet"
-      />
       <link rel="stylesheet" href="/css/aver-design/tokens.css" />
       <link rel="stylesheet" href="/css/aver-design/components.css" />
       <link rel="stylesheet" href="/css/index.css" />
       <link rel="stylesheet" href="/css/tailwind.build.css" />
 
       {/* App Router navigation does not execute raw nested-layout scripts. */}
-      <Script src="/vendor/lucide.min.js" strategy="afterInteractive" />
       <RouteScriptChain scripts={MARKETING_RUNTIME_SCRIPTS} />
 
       {children}

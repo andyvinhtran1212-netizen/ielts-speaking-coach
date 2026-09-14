@@ -85,9 +85,9 @@ function walk(dir, exts, out = []) {
 describe('font-system ratchet (DEBT-2026-07-24-J)', () => {
   test('the three sanctioned families each have a token', () => {
     const tokens = readFileSync(path.join(CSS_DIR, 'aver-design/tokens.css'), 'utf8');
-    assert.match(tokens, /--av-font-sans:\s*'Plus Jakarta Sans'/);
-    assert.match(tokens, /--av-font-mono:\s*'JetBrains Mono'/);
-    assert.match(tokens, /--av-font-serif:\s*'Lora'/);
+    assert.match(tokens, /--av-font-sans:\s*var\(--font-plus-jakarta,\s*'Plus Jakarta Sans'\)/);
+    assert.match(tokens, /--av-font-mono:\s*var\(--font-jetbrains-mono,\s*'JetBrains Mono'\)/);
+    assert.match(tokens, /--av-font-serif:\s*var\(--font-lora,\s*'Lora'\)/);
     // The serif is deliberately NOT the display font — display stays sans so a
     // page cannot drift into serif chrome.
     assert.match(tokens, /--av-font-display:\s*'Plus Jakarta Sans'/);
@@ -141,10 +141,13 @@ describe('font-system ratchet (DEBT-2026-07-24-J)', () => {
       const html = readFileSync(file, 'utf8');
       if (!/css\/grammar-wiki\.css/.test(html)) continue;
       const base = path.relative(FRONTEND, file);
-      assert.match(html, /family=Plus\+Jakarta\+Sans/,
-        `${base} loads grammar-wiki.css (which uses --av-font-sans) but never links Plus Jakarta`);
-      assert.match(html, /family=JetBrains\+Mono/,
-        `${base} uses --av-font-mono but never links JetBrains Mono`);
+      const owner = file.startsWith(APP)
+        ? readFileSync(path.join(APP, 'layout.tsx'), 'utf8')
+        : html;
+      assert.match(owner, file.startsWith(APP) ? /Plus_Jakarta_Sans/ : /family=Plus\+Jakarta\+Sans/,
+        `${base} loads grammar-wiki.css but its document never loads Plus Jakarta`);
+      assert.match(owner, file.startsWith(APP) ? /JetBrains_Mono/ : /family=JetBrains\+Mono/,
+        `${base} uses --av-font-mono but its document never loads JetBrains Mono`);
     }
   });
 });

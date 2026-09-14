@@ -2,6 +2,7 @@
 // no auth, no cookies/headers reads (keeps the public tree static), no
 // providers until the first real migrated route needs them.
 import type { Metadata } from 'next';
+import { JetBrains_Mono, Lora, Plus_Jakarta_Sans } from 'next/font/google';
 import type { ReactNode } from 'react';
 
 import { NextWebVitals } from '@/components/next-web-vitals';
@@ -63,6 +64,23 @@ export const metadata: Metadata = {
 // runtime-config) là phép thử phân biệt: khác nhau ⇒ asset rời bị cache cũ.
 const DOC_RELEASE = process.env.VERCEL_GIT_COMMIT_SHA || null;
 
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ['latin', 'vietnamese'],
+  display: 'swap',
+  variable: '--font-plus-jakarta',
+});
+const jetBrainsMono = JetBrains_Mono({
+  subsets: ['latin', 'vietnamese'],
+  display: 'swap',
+  variable: '--font-jetbrains-mono',
+});
+const lora = Lora({
+  subsets: ['latin', 'vietnamese'],
+  display: 'swap',
+  preload: false,
+  variable: '--font-lora',
+});
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   // suppressHydrationWarning: route-group layouts mutate <html>/<body>
   // attributes BEFORE hydration by design (anti-flash [data-theme] IIFE,
@@ -70,7 +88,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   // flag those as mismatches; it never patches attributes anyway. Standard
   // next-themes pattern.
   return (
-    <html lang="vi" data-release={DOC_RELEASE ?? undefined} suppressHydrationWarning>
+    <html
+      lang="vi"
+      data-release={DOC_RELEASE ?? undefined}
+      className={`${plusJakarta.variable} ${jetBrainsMono.variable} ${lora.variable}`}
+      suppressHydrationWarning
+    >
       <body suppressHydrationWarning>
         <NextWebVitals apiBase={API_BASE} release={DOC_RELEASE} />
         {children}
