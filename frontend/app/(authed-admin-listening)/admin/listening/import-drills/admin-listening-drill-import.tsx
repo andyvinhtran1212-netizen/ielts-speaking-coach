@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { Dialog } from '@/components/admin-directory-ui';
+import { registerNavigationGuard } from '@/lib/navigation-guard';
 import {
   buildDrillImportReceipt,
   drillDescriptorFingerprint,
@@ -160,8 +161,7 @@ export function AdminListeningDrillImport() {
   useEffect(() => {
     if (!busy) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
+    return registerNavigationGuard(warn);
   }, [busy]);
 
   const updateBundle = (testId: string, change: Partial<Bundle>) => {

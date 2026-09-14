@@ -143,6 +143,25 @@ await mobile.locator('.va-card').waitFor();
 await waitForCount(() => vocabularyViews().length, mobileBefore + 1);
 check('mobile chỉ phát lượt xem sau khi mở thẻ', mobileSilent && vocabularyViews().length === mobileBefore + 1, `${vocabularyViews().length - mobileBefore} mobile views`);
 await mobile.close();
+
+const staleCategoryPage = await context.newPage();
+staleCategoryPage.on('pageerror', (error) => errors.push(String(error)));
+await staleCategoryPage.goto(`${BASE}/vocabulary?cat=retired-category`, { waitUntil: 'domcontentloaded' });
+await staleCategoryPage.getByRole('heading', { name: 'Từ vựng theo chủ đề', exact: true }).waitFor();
+await staleCategoryPage.locator('.vmd-row').first().waitFor();
+check('category cũ tự rơi về danh mục đầy đủ',
+  await staleCategoryPage.locator('.vmd-row').count() === 60
+    && await staleCategoryPage.getByRole('button', { name: /^Tất cả/ }).getAttribute('aria-pressed') === 'true');
+await staleCategoryPage.close();
+
+const staleDeepLinkPage = await context.newPage();
+staleDeepLinkPage.on('pageerror', (error) => errors.push(String(error)));
+await staleDeepLinkPage.goto(`${BASE}/vocabulary?cat=retired-category&slug=lifelong-learning`, { waitUntil: 'domcontentloaded' });
+await staleDeepLinkPage.getByRole('heading', { name: 'lifelong learning', exact: true }).waitFor();
+check('deep link có category cũ vẫn resolve slug duy nhất',
+  await staleDeepLinkPage.locator('.va-card').count() === 1);
+await staleDeepLinkPage.close();
+
 check('không có lỗi JS', errors.length === 0, errors.join(' | '));
 
 await browser.close();

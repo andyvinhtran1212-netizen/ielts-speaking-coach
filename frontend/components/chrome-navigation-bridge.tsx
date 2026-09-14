@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
+import { navigationGuardBlocks } from '@/lib/navigation-guard';
+
 const CHROME_SELECTOR = 'aver-chrome, aver-admin-chrome';
 
 function eventAnchor(event: Event): HTMLAnchorElement | null {
@@ -56,6 +58,9 @@ export function ChromeNavigationBridge() {
         if (!anchor) return;
         const url = internalDestination(anchor);
         if (!url) return;
+        // Guarded pages keep the native click so beforeunload can present the
+        // browser confirmation and retain state when the user cancels.
+        if (navigationGuardBlocks()) return;
         event.preventDefault();
         const href = `${url.pathname}${url.search}${url.hash}`;
         if (href !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { Dialog } from '@/components/admin-directory-ui';
+import { registerNavigationGuard } from '@/lib/navigation-guard';
 import {
   assignListeningAlignmentTimestamps, assignListeningProportionalTimestamps,
   buildListeningSegmentOperation, findListeningSegmentOperationMatch,
@@ -123,8 +124,7 @@ export function AdminListeningSegments({ contentId, requestedExerciseId }: { con
   useEffect(() => {
     if (!dirty && !pending) return;
     const warn = (event: BeforeUnloadEvent) => { if (leaving.current) return; event.preventDefault(); event.returnValue = ''; };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
+    return registerNavigationGuard(warn);
   }, [dirty, pending]);
 
   const parseTranscript = () => {
