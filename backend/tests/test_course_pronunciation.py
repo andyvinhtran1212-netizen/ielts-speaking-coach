@@ -137,6 +137,22 @@ def test_sentence_feedback_marks_omissions_and_weak_words():
     assert rows[1]["accuracy_score"] == 87.7
 
 
+def test_spelled_out_temperature_aligns_with_azure_words():
+    text = "If water reaches zero degrees Celsius, it freezes."
+    words = [
+        {"word": word, "accuracy_score": 90, "error_type": "None", "phonemes": []}
+        for word in ("If", "water", "reaches", "zero", "degrees", "Celsius", "it", "freezes")
+    ]
+
+    rows = cp._align_sentence_results([_decoded(1, text=text)], {"words": words})
+
+    assert rows[0]["completeness_score"] == 100.0
+    assert [word["word"] for word in rows[0]["words"]] == [
+        word["word"] for word in words
+    ]
+    assert "insertions" not in rows[0]
+
+
 @pytest.mark.asyncio
 async def test_course_batches_use_strict_british_reading_without_prosody_addon(monkeypatch):
     calls = []
