@@ -137,11 +137,33 @@ def test_sentence_feedback_marks_omissions_and_weak_words():
     assert rows[1]["accuracy_score"] == 87.7
 
 
-def test_spelled_out_temperature_aligns_with_azure_words():
-    text = "If water reaches zero degrees Celsius, it freezes."
+@pytest.mark.parametrize(
+    ("text", "spoken_words"),
+    [
+        (
+            "If water reaches zero degrees Celsius, it freezes.",
+            (
+                "If", "water", "reaches", "zero", "degrees", "Celsius", "it",
+                "freezes",
+            ),
+        ),
+        (
+            "The number rose sharply after twenty ten.",
+            ("The", "number", "rose", "sharply", "after", "twenty", "ten"),
+        ),
+        (
+            "The survey included one thousand two hundred workers.",
+            (
+                "The", "survey", "included", "one", "thousand", "two", "hundred",
+                "workers",
+            ),
+        ),
+    ],
+)
+def test_spelled_out_numeric_prompts_align_with_azure_words(text, spoken_words):
     words = [
         {"word": word, "accuracy_score": 90, "error_type": "None", "phonemes": []}
-        for word in ("If", "water", "reaches", "zero", "degrees", "Celsius", "it", "freezes")
+        for word in spoken_words
     ]
 
     rows = cp._align_sentence_results([_decoded(1, text=text)], {"words": words})
