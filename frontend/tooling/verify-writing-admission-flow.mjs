@@ -76,6 +76,10 @@ async function fixture(browser, options = {}) {
       prompt_text: 'Discuss the benefits of learning.', prompt_image_url: null } });
   await context.route('**/*', async route => {
     const request = route.request(), url = new URL(request.url()), method = request.method();
+    const isLocalBuildTelemetry = url.origin === 'http://127.0.0.1:3999'
+      && method === 'POST'
+      && ['/api/analytics/events', '/api/error-logs'].includes(url.pathname);
+    if (isLocalBuildTelemetry) return route.fulfill({ status: 204, headers: cors });
     if (url.origin === base.origin) {
       if (url.pathname === '/js/runtime-config.js') return route.fulfill({ contentType: 'application/javascript',
         body: 'window.__AVER_RUNTIME_CONFIG__=Object.freeze(' + JSON.stringify({ apiBase: API,

@@ -63,7 +63,9 @@ function loadReportFlow(env) {
   }
   const body = SRC.slice(open + 1, close)
     .replace(/catch \(err: any\)/g, 'catch (err)')
-    .replace(/bankId!/g, 'bankId');
+    .replace(/bankId!/g, 'bankId')
+    .replace(/courseApi/g, 'api')
+    .replace(/<\{\s*stale\?: boolean\s*\}>/g, '');
   const factory = new Function(
     '$', 'setActiveSection', 'CR', 'api', 'bankId', 'runner',
     'requestedItem', 'lastVerdict', 'esc',
@@ -189,6 +191,14 @@ describe('kết luận gọi đúng lượt đã giúp học viên đạt', () =
 });
 
 describe('cổng hoàn thành bài nhiều phần', () => {
+  test('bootstrap is cancelled and pending progress flushes on a Next unmount', () => {
+    assert.match(SRC, /let disposed = false/);
+    assert.match(SRC, /if \(disposed\) return;/);
+    assert.match(SRC, /disposed = true;/);
+    assert.match(SRC, /if \(bootedFor\.current === user\.id\) bootedFor\.current = null/);
+    assert.match(SRC, /if \(onLeave\) onLeave\(\)/);
+  });
+
   test('dòng mô tả đếm đủ mọi câu thay vì chỉ nói có một bài đọc/nghe', () => {
     const body = functionBody('renderTitleMeta');
     const titleMeta = { textContent: '' };
@@ -295,7 +305,7 @@ describe('cổng hoàn thành bài nhiều phần', () => {
 
   test('làm lại full mở attempt canonical rồi reset mọi phần', () => {
     const body = functionBody('restartFullFlow');
-    assert.match(body, /api\.post\('\/api\/quiz\/course\/full-retry'/);
+    assert.match(body, /courseApi\.post\('\/api\/quiz\/course\/full-retry'/);
     assert.match(body, /reading\.beginAttempt\(attemptNo\)/);
     assert.match(body, /listening\.beginAttempt\(attemptNo\)/);
     assert.match(body, /writing\.load\(bankId/);

@@ -162,10 +162,20 @@ fixtures are not deployable application routes.
   pure controllers/models; their remaining size is primarily the renderer for
   many IELTS question shapes. Splitting those files by LOC alone would move code
   without reducing shipped behavior or regression risk, so that original audit
-  signal is rejected as a blanket refactor. Writing dashboard and course
-  behavior remain genuine migration-era DOM ports. Refactor those two only with
-  a behavioral contract, interaction coverage and measured bundle/render impact;
-  preserve the existing persistence and finalization paths.
+  signal is rejected as a blanket refactor. Wave H measured the two remaining
+  candidates rather than assuming line count equals client cost: Writing ships
+  about 16.7 KiB gzip of route-specific behavior and Course about 9.4 KiB gzip.
+  Their critical admission/receipt and session/mastery decisions already live in
+  executable models and write-flow gates. The bounded lifecycle debt was real:
+  Writing's mutable page/modal state lived at module scope and Course maintained
+  a second readiness poller. Writing now owns one isolated runtime via `useRef`
+  per mounted page/account. Course uses the shared bounded readiness primitive,
+  cancels a pending bootstrap on unmount and flushes queued progress/drafts when
+  a Next soft navigation unmounts the client island without `pagehide`. The
+  executable Writing harness proves independent runtime objects; 352 focused
+  contracts, 27 Writing browser scenarios and the Course ten-write verdict flow
+  all pass. A wholesale JSX rewrite is therefore not justified without a new
+  measured product need.
 
 ### NXT-06 — CSS/font/icon delivery remains layout-link based
 
@@ -253,9 +263,10 @@ Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 1. Vocabulary, public Grammar, the shared auth spine, learner Speaking sessions
    and admin Speaking session operations consume generated OpenAPI types; other
    admin domains still rely substantially on the compatibility API bridge.
-2. Writing dashboard and course behavior remain imperative parity ports. The
-   large Reading/Listening/mock renderers are not automatically defects because
-   their state machines are already extracted and tested.
+2. Large renderers still preserve some imperative parity code, but measured
+   route bundles are small and their critical state machines/write paths are
+   extracted and tested. Remaining conversions are maintainability work, not a
+   current correctness or performance blocker.
 3. The app has broad inline Suspense coverage and explicit client read states,
    but the uncached Grammar article route still uses a blank segment fallback.
 4. Browser journey coverage is meaningful, but the unit-test pyramid is still
@@ -300,10 +311,13 @@ Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 
 ### P2 — Retire the two remaining high-risk parity ports
 
-- Extract state/persistence models from Writing dashboard and course behavior,
-  then split views only at stable interaction boundaries.
-- Lock autosave, resume, submit, account switch and stale-response behavior with
-  rendered interaction tests before removing their global/DOM bridge code.
+- **Status:** bounded risk retired in Wave H. Writing no longer shares mutable
+  lifecycle state at module scope; Course no longer owns an ad-hoc readiness
+  timer. Autosave, resume, submit, account/assignment fencing, stale report
+  recovery and verdict aggregation remain locked by executable/browser tests.
+- Further JSX view extraction should happen only alongside a feature touching a
+  stable interaction boundary and must demonstrate a render, bundle or ownership
+  improvement. It is not an audit-completion prerequisite by line count alone.
 
 ### P2 — Establish a measured React test layer
 

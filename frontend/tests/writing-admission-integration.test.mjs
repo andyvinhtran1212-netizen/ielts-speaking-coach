@@ -51,6 +51,7 @@ function harness(enabled) {
   h.nodes = {};
   h.submittedText = [];
   vm.runInNewContext(compiled + `
+    const fixtureModalState = createModalState(createPageState());
     exports.renderWorkspace = renderModal;
     exports.saveDraft = saveDraft;
     showTimerToast = () => {};
@@ -60,10 +61,11 @@ function harness(enabled) {
     showSubmissionNotice = (kind, message) => fixture.notices.push({ kind, message });
     loadAssignments = async () => { fixture.refreshes++; };
     loadEssays = async () => { fixture.refreshes++; };
-    exports.entry = openSubmitModal;
-    exports.modal = modalState;
+    exports.entry = (assignmentId, win, api, allow) => openSubmitModal(assignmentId, win, api, fixtureModalState, allow);
+    exports.modal = fixtureModalState;
+    exports.makeState = () => createModalState(createPageState());
     buildAssignmentCardHtml = () => '';
-    exports.renderCards = renderAssignments;
+    exports.renderCards = (assignments) => renderAssignments(assignments, fixtureModalState);
   `, { exports, require: path => path === '@/lib/writing-admission.mjs' ? admission
       : path === '@/lib/core-operation-intent.mjs' ? { coreOperationRequest: (input, send) => send({}) } : {},
     window: h.window, document: { activeElement: null, getElementById: id => id === 'assignments-list' ? h.list ?? null : h.nodes[id] ?? null }, HTMLElement: class {},
@@ -73,11 +75,24 @@ function harness(enabled) {
   exports.modal.accountId = h.account;
   h.open = (allow = true) => exports.entry(h.assignment, h.window, h.api, allow);
   h.modal = exports.modal;
+  h.makeState = exports.makeState;
   h.save = () => exports.saveDraft(h.modal);
   h.renderWorkspace = (data, timer) => exports.renderWorkspace(data, h.modal, timer);
   h.renderCards = () => exports.renderCards([{ id: h.assignment }]);
   return h;
 }
+
+test('Writing dashboard runtime state is isolated per mounted React page', () => {
+  const h = harness(false);
+  const first = h.makeState();
+  const second = h.makeState();
+  first.accountId = 'learner-a';
+  first.assignmentId = 'assignment-a';
+  first.page.allEssays.push({ id: 'essay-a' });
+  assert.equal(second.accountId, null);
+  assert.equal(second.assignmentId, null);
+  assert.equal(second.page.allEssays.length, 0);
+});
 
 test('actual default-OFF modal preserves claim → legacy start → detail', async () => {
   const h = harness(false); await h.open();

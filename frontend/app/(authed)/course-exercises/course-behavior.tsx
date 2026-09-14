@@ -14,21 +14,7 @@
 import { useEffect, useRef } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
-
-const API_READY_TIMEOUT_MS = 10_000;
-
-function waitForApi(): Promise<any | null> {
-  return new Promise((resolve) => {
-    const startedAt = performance.now();
-    const tick = () => {
-      const api = (window as any).api;
-      if (api && typeof api.get === 'function') return resolve(api);
-      if (performance.now() - startedAt > API_READY_TIMEOUT_MS) return resolve(null);
-      setTimeout(tick, 50);
-    };
-    tick();
-  });
-}
+import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 export function CourseBehavior() {
   const { status, user } = useAuth();
@@ -42,6 +28,7 @@ export function CourseBehavior() {
     if (bootedFor.current === user.id) return;
     bootedFor.current = user.id;
 
+    let disposed = false;
     let runner: any = null;
     let pronunciation: any = null;
     let pronunciationVisible = false;
@@ -52,7 +39,7 @@ export function CourseBehavior() {
     let pauseSectionTimers: () => void = () => {};
 
     (async () => {
-      const [{ createRunner, splitStem, md, esc, formatCourseExplanation, KEYS, DANG }, CW, RD, LD, PD, CR, api] = await Promise.all([
+      const [{ createRunner, splitStem, md, esc, formatCourseExplanation, KEYS, DANG }, CW, RD, LD, PD, CR, apiReady] = await Promise.all([
         import(/* webpackIgnore: true */ '/js/course-runner.js' as any),
         import(/* webpackIgnore: true */ '/js/course-writing.js' as any),
         import(/* webpackIgnore: true */ '/js/course-reading.js' as any),
@@ -60,8 +47,13 @@ export function CourseBehavior() {
         import(/* webpackIgnore: true */ '/js/course-pronunciation.js' as any),
         // Bộ vẽ báo cáo — CHUNG với mặt đọc của giáo viên.
         import(/* webpackIgnore: true */ '/js/course-report.js' as any),
-        waitForApi(),
+        whenGlobalReady(
+          () => typeof window.api?.get === 'function',
+          'window.api (course exercises)',
+        ),
       ]);
+      if (disposed) return;
+      const api = apiReady ? window.api : null;
 
       const $ = (id: string) => document.getElementById(id);
       function setSaveState(state: 'idle' | 'saving' | 'saved' | 'error', message?: string) {
@@ -92,21 +84,24 @@ export function CourseBehavior() {
       };
 
       if (!api) return fail('Không tải được thành phần kết nối. Hãy tải lại trang.');
+      const courseApi = api;
 
       const bankId = new URLSearchParams(location.search).get('bank');
       const requestedView = new URLSearchParams(location.search).get('view');
       const requestedItem = new URLSearchParams(location.search).get('class_item');
       if (!bankId) return fail('Thiếu mã bài tập trên đường dẫn (?bank=…).');
 
-      runner = createRunner({ api, storage: window.localStorage });
+      runner = createRunner({ api: courseApi, storage: window.localStorage });
       try {
         await runner.load(bankId, {
           reviewOnly: requestedView === 'writing' && Boolean(requestedItem),
           assignmentItemId: requestedItem,
         });
       } catch (err: any) {
+        if (disposed) return;
         return fail('Không mở được bài tập: ' + (err?.message || err));
       }
+      if (disposed) return;
       const title = $('cx-title');
       if (title) title.textContent = runner.bank.title || 'Bài tập theo buổi';
       const titleMeta = $('cx-title-meta');
@@ -155,17 +150,17 @@ export function CourseBehavior() {
       const sectionAssignmentItem = requestedItem || runner.mastery?.item_id || null;
 
       const reading = RD.createReading({
-        api, storage: window.localStorage, userId: user.id,
+        api: courseApi, storage: window.localStorage, userId: user.id,
         assignmentItemId: sectionAssignmentItem,
       });
       reading.load(runner.bank);
       const listening = LD.createListening({
-        api, storage: window.localStorage, userId: user.id,
+        api: courseApi, storage: window.localStorage, userId: user.id,
         assignmentItemId: sectionAssignmentItem,
       });
       listening.load(runner.bank);
       pronunciation = PD.createPronunciation({
-        api, userId: user.id, assignmentItemId: sectionAssignmentItem,
+        api: courseApi, userId: user.id, assignmentItemId: sectionAssignmentItem,
       });
       let pronunciationReady = false;
       const pronunciationLoaded = pronunciation.load(bankId)
@@ -183,7 +178,7 @@ export function CourseBehavior() {
       // khi học viên đã đi hết các chặng, còn một lỗi ở đây không được làm cả
       // bài tập không mở được.
       const writing = CW.createWriting({
-        api, storage: window.localStorage,
+        api: courseApi, storage: window.localStorage,
         // localStorage là bộ nhớ CHUNG của trình duyệt: hai học viên dùng chung
         // một máy mà khoá nháp chỉ theo bank sẽ mở ra bài của nhau.
         userId: user.id,
@@ -610,7 +605,7 @@ export function CourseBehavior() {
           box.innerHTML = '<p class="cx-empty">Đang dựng phần tự review…</p>';
           reportLoad = (async () => {
             try {
-              const d = await api.get('/api/quiz/course/report?bank_id='
+              const d = await courseApi.get<{ stale?: boolean }>('/api/quiz/course/report?bank_id='
                 + encodeURIComponent(bankId!)
                 + (runner.reviewOnly && requestedItem
                   ? '&class_item=' + encodeURIComponent(requestedItem) : ''));
@@ -997,7 +992,7 @@ export function CourseBehavior() {
           reportLoad = null;
           let opened: any;
           try {
-            opened = await api.post('/api/quiz/course/full-retry', {
+            opened = await courseApi.post('/api/quiz/course/full-retry', {
               bank_id: bankId,
               ...(sectionAssignmentItem ? { class_item: sectionAssignmentItem } : {}),
             });
@@ -1051,9 +1046,11 @@ export function CourseBehavior() {
         // course item. Open the persisted marking directly and never enter the
         // quiz mutation flow again.
         await writingLoaded;
+        if (disposed) return;
         renderReviewHub();
       } else if (!runner.total && runner.hasWriting) {
         await writingLoaded;
+        if (disposed) return;
         renderWriting();
       } else if (runner.isStageDone()) renderDone(); else renderQuestion();
 
@@ -1180,8 +1177,17 @@ export function CourseBehavior() {
     })();
 
     return () => {
+      disposed = true;
+      if (bootedFor.current === user.id) bootedFor.current = null;
       pronunciationVisible = false;
       pauseSectionTimers();
+      // A Next soft navigation unmounts this client island without firing
+      // pagehide. Flush through the same path so queued quiz answers and the
+      // writing draft are not stranded until a later browser lifecycle event.
+      try {
+        if (onLeave) onLeave();
+        else if (runner?.leave) runner.leave();
+      } catch { /* lifecycle teardown must continue removing listeners */ }
       if (pronunciation) pronunciation.destroy();
       if (onClick) document.removeEventListener('click', onClick);
       if (onInput) document.removeEventListener('input', onInput);
