@@ -72,7 +72,12 @@ fixtures are not deployable application routes.
   activity and utility links—to App Router navigation. Exact literal internal
   anchors across `frontend/app/**/*.tsx` decrease from 171 to 161. A production
   browser fixture proves `/admin` → AI Usage keeps the same document while
-  preserving the selected time window and canonical request.
+  preserving the selected time window and canonical request. Wave B4 converts
+  the ordinary navigation in all eight Reading/Listening library page shells;
+  the literal-anchor inventory falls again to 138. Active-test exits, download
+  links and receipt recovery remain hard by design. Shared-runtime browser proof
+  passes 15/15: Reading and Listening route changes retain the document,
+  Supabase singleton, route-owned body classes and telemetry without JS errors.
 
 ### NXT-03 — Browser runtime bridge bypasses module typing/tree-shaking
 

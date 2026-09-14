@@ -1,5 +1,6 @@
 // Markup tĩnh của trang Full Tests. `<aver-chrome>` do `page.tsx` dựng;
 // behavior React sở hữu filter, request và các trạng thái động bên dưới.
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 interface ReadingTestShellProps {
@@ -13,7 +14,7 @@ export function ReadingTestShell({ children, totalCount = '—' }: ReadingTestSh
       <main className="rv-shell">
         <header className="rv-header rv-header--test">
           <div className="rv-header__copy">
-            <a className="rv-back" href="/home">← Trang chủ</a>
+            <Link className="rv-back" href="/home">← Trang chủ</Link>
             <p className="rv-kicker">READING LAB · FULL TEST</p>
             <h1>Thi thử trọn bộ, <span>làm quen áp lực phòng thi.</span></h1>
             <p className="subtitle">Mô phỏng bài Academic Reading đầy đủ với giao diện làm bài, đồng hồ, bảng câu hỏi và phần chữa bài sau khi nộp.</p>
@@ -27,10 +28,10 @@ export function ReadingTestShell({ children, totalCount = '—' }: ReadingTestSh
 
         {/* Library switcher: L1 ↔ L2 ↔ L3 (Sprint 20.6 adds the Full Test entry). Changed /pages/reading-vocab.html → /reading/vocab */}
         <nav className="rv-libnav" aria-label="Reading libraries">
-          <a className="rv-libnav__link" href="/reading/vocab">Vocab Reading</a>
-          <a className="rv-libnav__link" href="/reading/skill">Skill Practice</a>
+          <Link className="rv-libnav__link" href="/reading/vocab">Vocab Reading</Link>
+          <Link className="rv-libnav__link" href="/reading/skill">Skill Practice</Link>
           <a className="rv-libnav__link is-active" aria-current="page">Full Tests</a>
-          <a className="rv-libnav__link" href="/reading/mini-test">Mini Tests</a>
+          <Link className="rv-libnav__link" href="/reading/mini-test">Mini Tests</Link>
         </nav>
 
         {children}

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 export function ListeningSkillsShell({
@@ -15,7 +16,7 @@ export function ListeningSkillsShell({
     <div className="shell">
       <main className="ls-shell">
         <header className="ls-header">
-          <a className="ls-back" href="/listening">← Quay lại Listening</a>
+          <Link className="ls-back" href="/listening">← Quay lại Listening</Link>
           <p className="eyebrow">LUYỆN THEO DẠNG CÂU HỎI</p>
           <h1>Chọn đúng kĩ năng, <span className="accent">luyện sâu hơn</span></h1>
           <p className="subtitle">

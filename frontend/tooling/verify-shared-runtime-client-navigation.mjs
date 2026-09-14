@@ -215,6 +215,28 @@ await page.waitForURL(`${BASE}/grammar`);
 check('student chrome dùng App Router qua Shadow DOM',
   await page.evaluate(() => window.__chromeNavigationSentinel) === 'survived');
 
+const libraryPage = await context.newPage();
+const libraryErrors = [];
+libraryPage.on('pageerror', (error) => libraryErrors.push(String(error)));
+await libraryPage.goto(`${BASE}/reading/vocab`, { waitUntil: 'domcontentloaded' });
+await libraryPage.locator('.rv-libnav').waitFor();
+await libraryPage.evaluate(() => { window.__libraryNavigationSentinel = 'survived'; });
+await libraryPage.getByRole('link', { name: 'Skill Practice', exact: true }).click();
+await libraryPage.waitForURL(`${BASE}/reading/skill`);
+check('Reading library switcher dùng App Router',
+  await libraryPage.evaluate(() => window.__libraryNavigationSentinel) === 'survived');
+
+await libraryPage.goto(`${BASE}/listening/practice`, { waitUntil: 'domcontentloaded' });
+await libraryPage.getByRole('link', { name: /Mở kho bài nghe/ }).waitFor();
+await libraryPage.evaluate(() => { window.__libraryNavigationSentinel = 'survived'; });
+await libraryPage.getByRole('link', { name: /Mở kho bài nghe/ }).click();
+await libraryPage.waitForURL(`${BASE}/listening/browse`);
+check('Listening hub CTA dùng App Router',
+  await libraryPage.evaluate(() => window.__libraryNavigationSentinel) === 'survived');
+check('soft navigation thư viện không phát sinh lỗi JavaScript',
+  libraryErrors.length === 0, libraryErrors[0] || '');
+await libraryPage.close();
+
 const publicPage = await context.newPage();
 const publicErrors = [];
 publicPage.on('pageerror', (error) => publicErrors.push(String(error)));
