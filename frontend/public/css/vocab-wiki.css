@@ -250,6 +250,18 @@
 .vmd-chip:hover { border-color: var(--av-vocab-jade); color: var(--av-text-primary); }
 .vmd-chip.is-active { background: var(--av-vocab-jade); border-color: var(--av-vocab-jade); color: var(--av-vocab-jade-ink); }
 .vmd-rows { overflow-y: auto; flex: 1; padding: var(--av-space-2); }
+.vmd-page-state { display: grid; gap: var(--av-space-2); justify-items: center; margin: var(--av-space-3); color: var(--av-error); font-size: 13px; text-align: center; }
+.vmd-page-state button { appearance: none; border: 0; background: transparent; color: var(--av-vocab-jade); font: 600 13px var(--av-font-sans); cursor: pointer; text-decoration: underline; }
+.vmd-page-state button:focus-visible { outline: 2px solid var(--av-vocab-jade); outline-offset: 2px; }
+.vmd-more {
+  display: block; width: calc(100% - var(--av-space-4)); margin: var(--av-space-3) var(--av-space-2);
+  padding: 9px 12px; border: 1px solid var(--av-vocab-jade-line); border-radius: var(--av-radius-md);
+  background: var(--av-vocab-jade-tint); color: var(--av-vocab-jade); font: 600 13px var(--av-font-sans);
+  cursor: pointer;
+}
+.vmd-more:hover:not(:disabled) { border-color: var(--av-vocab-jade); }
+.vmd-more:disabled { cursor: wait; opacity: .65; }
+.vmd-more:focus-visible { outline: 2.5px solid var(--av-vocab-jade); outline-offset: 2px; }
 .vmd-row { display: flex; align-items: center; gap: 10px; padding: 10px 11px;
   border-radius: var(--av-radius-md); transition: background .12s; }
 .vmd-row:hover { background: var(--av-surface-sunken); }

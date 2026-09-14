@@ -5310,6 +5310,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vocabulary/directory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Directory
+         * @description Lean, paged catalogue for the native public Vocabulary Wiki.
+         *
+         *     The historical categories endpoint remains unchanged for existing clients;
+         *     this contract prevents the Next route from embedding every word summary in
+         *     the initial RSC payload.
+         */
+        get: operations["get_directory_api_vocabulary_directory_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vocabulary/categories/{category}/cards": {
         parameters: {
             query?: never;
@@ -14902,6 +14926,49 @@ export interface components {
             /** Mastered */
             mastered: boolean;
         };
+        /** VocabularyDirectoryCategory */
+        VocabularyDirectoryCategory: {
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Article Count */
+            article_count: number;
+        };
+        /** VocabularyDirectoryItem */
+        VocabularyDirectoryItem: {
+            /** Slug */
+            slug: string;
+            /** Category */
+            category: string;
+            /** Headword */
+            headword: string;
+            /** Level */
+            level: string;
+            /** Part Of Speech */
+            part_of_speech: string;
+            /** Pronunciation */
+            pronunciation: string;
+            /** Gloss Vi */
+            gloss_vi: string;
+            /** Audio Headword */
+            audio_headword: string;
+            /** N Collocations */
+            n_collocations: number;
+        };
+        /** VocabularyDirectoryResponse */
+        VocabularyDirectoryResponse: {
+            /** Categories */
+            categories: components["schemas"]["VocabularyDirectoryCategory"][];
+            /** Items */
+            items: components["schemas"]["VocabularyDirectoryItem"][];
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
+        };
         /** VoidBody */
         VoidBody: {
             /**
@@ -24383,6 +24450,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    get_directory_api_vocabulary_directory_get: {
+        parameters: {
+            query?: {
+                category?: string;
+                q?: string;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabularyDirectoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

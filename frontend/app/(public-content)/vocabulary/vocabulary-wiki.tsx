@@ -2,20 +2,10 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
-import { normalizeVocabularyArticle, vocabularyKey } from '@/lib/vocabulary-model.mjs';
+import { normalizeVocabularyArticle, normalizeVocabularyDirectory, vocabularyKey } from '@/lib/vocabulary-model.mjs';
+import type { VocabularyArticle as Article, VocabularyDirectory, VocabularyWord as Word } from '@/lib/vocabulary-types';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
-type Word = {
-  slug: string; category: string; headword: string; level: string; partOfSpeech: string;
-  pronunciation: string; glossVi: string; audioHeadword: string;
-};
-type Category = { slug: string; title: string; articleCount: number; articles: Word[] };
-type Article = Word & {
-  syllables: string; audioExample: string; definitionEn: string; definitionVi: string;
-  example: string; collocations: string[]; synonyms: string[]; antonyms: string[];
-  relatedWords: string[]; wordFamily: string[]; commonError: string; memoryHook: string;
-  register: string; source: string; html: string;
-};
 type DetailState =
   | { key: string; status: 'loading' }
   | { key: string; status: 'error' }
@@ -191,16 +181,19 @@ function ArticleCard({ article, onPlay }: { article: Article; onPlay(audio: stri
   );
 }
 
-export function VocabularyWiki({ categories, initialArticle, initialCategory, initialSlug }: {
-  categories: Category[]; initialArticle: Article | null; initialCategory: string; initialSlug: string;
+export function VocabularyWiki({ directory: initialDirectory, initialArticle, initialCategory, initialSlug }: {
+  directory: VocabularyDirectory; initialArticle: Article | null; initialCategory: string; initialSlug: string;
 }) {
-  const words = useMemo(() => categories.flatMap((category) => category.articles), [categories]);
-  const validInitialCategory = categories.some((category) => category.slug === initialCategory) ? initialCategory : '';
-  const requestedWord = words.find((word) => word.slug === initialSlug && (!initialCategory || word.category === initialCategory));
-  const initialWord = initialArticle || requestedWord || (!initialSlug ? words[0] : null);
+  const validInitialCategory = initialDirectory.categories.some((category) => category.slug === initialCategory) ? initialCategory : '';
+  const requestedWord = initialDirectory.items.find((word) => word.slug === initialSlug && (!initialCategory || word.category === initialCategory));
+  const initialWord = initialArticle || requestedWord || (!initialSlug ? initialDirectory.items[0] : null);
   const initialKey = initialWord ? vocabularyKey(initialWord.category, initialWord.slug) : '';
   const [category, setCategory] = useState(validInitialCategory);
   const [query, setQuery] = useState('');
+  const [directory, setDirectory] = useState(initialDirectory);
+  const categories = directory.categories;
+  const [directoryStatus, setDirectoryStatus] = useState<'ready' | 'loading' | 'error'>('ready');
+  const [directoryRevision, setDirectoryRevision] = useState(0);
   const [showDetail, setShowDetail] = useState(Boolean(initialSlug));
   const [desktopDetailVisible, setDesktopDetailVisible] = useState(false);
   const [detail, setDetail] = useState<DetailState | null>(initialArticle
@@ -209,20 +202,57 @@ export function VocabularyWiki({ categories, initialArticle, initialCategory, in
       ? { key: initialKey || vocabularyKey(initialCategory, initialSlug), status: 'error' }
       : null);
   const requestRef = useRef<AbortController | null>(null);
+  const directoryRequestRef = useRef<AbortController | null>(null);
+  const firstDirectoryEffectRef = useRef(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const analyticsRef = useRef(new Set<string>());
   const selectedKey = detail?.key || initialKey;
-  const visibleWords = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase('vi');
-    return words.filter((word) => (!category || word.category === category)
-      && (!needle || word.headword.toLocaleLowerCase('vi').includes(needle) || word.glossVi.toLocaleLowerCase('vi').includes(needle)));
-  }, [category, query, words]);
+  const words = directory.items;
+  const allWordsCount = useMemo(
+    () => categories.reduce((total, item) => total + item.articleCount, 0),
+    [categories],
+  );
 
   useEffect(() => () => {
     requestRef.current?.abort();
+    directoryRequestRef.current?.abort();
     audioRef.current?.pause();
     window.speechSynthesis?.cancel();
   }, []);
+
+  useEffect(() => {
+    if (firstDirectoryEffectRef.current) {
+      firstDirectoryEffectRef.current = false;
+      return;
+    }
+    const controller = new AbortController();
+    directoryRequestRef.current?.abort();
+    directoryRequestRef.current = controller;
+    setDirectoryStatus('loading');
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const ready = await whenGlobalReady(() => !!window.api?.getWith, 'window.api (vocabulary directory)');
+          if (controller.signal.aborted) return;
+          if (!ready) throw new Error('api-not-ready');
+          const params = new URLSearchParams({ offset: '0', limit: String(initialDirectory.limit) });
+          if (category) params.set('category', category);
+          if (query.trim()) params.set('q', query.trim());
+          const payload = await window.api.getWith(`/api/vocabulary/directory?${params.toString()}`, undefined, { signal: controller.signal });
+          if (controller.signal.aborted) return;
+          setDirectory(normalizeVocabularyDirectory(payload) as VocabularyDirectory);
+          setDirectoryStatus('ready');
+        } catch (caught) {
+          if (controller.signal.aborted || (caught instanceof DOMException && caught.name === 'AbortError')) return;
+          setDirectoryStatus('error');
+        }
+      })();
+    }, 220);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [category, directoryRevision, initialDirectory.limit, query]);
 
   useEffect(() => {
     const media = window.matchMedia('(min-width: 861px)');
@@ -279,7 +309,8 @@ export function VocabularyWiki({ categories, initialArticle, initialCategory, in
     setDetail({ key, status: 'loading' });
     try {
       const ready = await whenGlobalReady(() => !!window.api?.getWith, 'window.api (vocabulary article)');
-      if (!ready || controller.signal.aborted) throw new Error('api-not-ready');
+      if (controller.signal.aborted) return;
+      if (!ready) throw new Error('api-not-ready');
       const payload = await window.api.getWith(
         `/api/vocabulary/articles/${encodeURIComponent(word.category)}/${encodeURIComponent(word.slug)}`,
         undefined,
@@ -290,7 +321,39 @@ export function VocabularyWiki({ categories, initialArticle, initialCategory, in
       setDetail({ key, status: 'ready', article });
       window.history.replaceState(null, '', `/vocabulary?cat=${encodeURIComponent(word.category)}&slug=${encodeURIComponent(word.slug)}`);
     } catch (caught) {
-      if (!(caught instanceof DOMException && caught.name === 'AbortError')) setDetail({ key, status: 'error' });
+      if (controller.signal.aborted || (caught instanceof DOMException && caught.name === 'AbortError')) return;
+      setDetail({ key, status: 'error' });
+    }
+  }
+
+  async function loadMore() {
+    if (directoryStatus !== 'ready' || directory.items.length >= directory.total) return;
+    const controller = new AbortController();
+    directoryRequestRef.current?.abort();
+    directoryRequestRef.current = controller;
+    setDirectoryStatus('loading');
+    try {
+      const ready = await whenGlobalReady(() => !!window.api?.getWith, 'window.api (vocabulary directory page)');
+      if (controller.signal.aborted) return;
+      if (!ready) throw new Error('api-not-ready');
+      const params = new URLSearchParams({
+        offset: String(directory.items.length),
+        limit: String(directory.limit),
+      });
+      if (category) params.set('category', category);
+      if (query.trim()) params.set('q', query.trim());
+      const payload = await window.api.getWith(`/api/vocabulary/directory?${params.toString()}`, undefined, { signal: controller.signal });
+      if (controller.signal.aborted) return;
+      const nextPage = normalizeVocabularyDirectory(payload) as VocabularyDirectory;
+      setDirectory((current) => ({
+        ...nextPage,
+        offset: current.offset,
+        items: [...current.items, ...nextPage.items],
+      }));
+      setDirectoryStatus('ready');
+    } catch (caught) {
+      if (controller.signal.aborted || (caught instanceof DOMException && caught.name === 'AbortError')) return;
+      setDirectoryStatus('error');
     }
   }
 
@@ -300,28 +363,37 @@ export function VocabularyWiki({ categories, initialArticle, initialCategory, in
         <div className="vmd-list-head">
           <span className="va-eyebrow">📚 Vocabulary Wiki</span>
           <h1 className="vmd-title">Từ vựng theo chủ đề</h1>
-          <span className="vmd-count">{visibleWords.length} từ{query || category ? ' (lọc)' : ''}</span>
+          <span className="vmd-count">{directory.total} từ{query || category ? ' (lọc)' : ''}</span>
           <div className="vmd-search">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
             <input type="search" placeholder="Tìm từ…" aria-label="Tìm từ vựng" autoComplete="off" value={query} onChange={(event) => setQuery(event.target.value)} />
           </div>
           <div className="vmd-chips" role="group" aria-label="Lọc theo chủ đề">
-            <button type="button" aria-pressed={!category} className={`vmd-chip${!category ? ' is-active' : ''}`} onClick={() => setCategory('')}>Tất cả <span className="va-mono">{words.length}</span></button>
+            <button type="button" aria-pressed={!category} className={`vmd-chip${!category ? ' is-active' : ''}`} onClick={() => setCategory('')}>Tất cả <span className="va-mono">{allWordsCount}</span></button>
             {categories.filter((item) => item.articleCount).map((item) => <button type="button" aria-pressed={category === item.slug}
               className={`vmd-chip${category === item.slug ? ' is-active' : ''}`} key={item.slug} onClick={() => setCategory(item.slug)}>
               {item.title} <span className="va-mono">{item.articleCount}</span>
             </button>)}
           </div>
         </div>
-        <div className="vmd-rows" aria-label="Danh sách từ">
-          {visibleWords.length ? visibleWords.map((word) => <div className={`vmd-row${selectedKey === vocabularyKey(word.category, word.slug) ? ' active' : ''}`}
+        <div className="vmd-rows" aria-label="Danh sách từ" aria-busy={directoryStatus === 'loading'}>
+          {words.length ? words.map((word) => <div className={`vmd-row${selectedKey === vocabularyKey(word.category, word.slug) ? ' active' : ''}`}
             data-category={word.category} data-slug={word.slug} key={vocabularyKey(word.category, word.slug)}>
             <PlayButton audio={word.audioHeadword} say={word.headword} small onPlay={play} />
             <button type="button" className="vmd-row-main" onClick={() => void selectWord(word)}>
               <span className="vmd-rw">{word.headword}</span><span className="vmd-rmeta">{word.pronunciation}{word.partOfSpeech ? ` · ${word.partOfSpeech}` : ''}</span>
             </button>
             {word.level ? <span className="vmd-rlvl">{word.level}</span> : null}
-          </div>) : <p className="va-empty">Không tìm thấy từ nào.</p>}
+          </div>) : directoryStatus === 'loading'
+            ? <p className="va-empty">Đang tải danh sách…</p>
+            : <p className="va-empty">Không tìm thấy từ nào.</p>}
+          {directoryStatus === 'error' ? <div className="vmd-page-state" role="alert">
+            <span>Không tải được danh sách.</span>
+            <button type="button" onClick={() => setDirectoryRevision((value) => value + 1)}>Thử lại</button>
+          </div> : null}
+          {directoryStatus !== 'error' && directory.items.length < directory.total ? <button type="button" className="vmd-more" disabled={directoryStatus === 'loading'} onClick={() => void loadMore()}>
+            {directoryStatus === 'loading' ? 'Đang tải…' : `Xem thêm (${directory.total - directory.items.length})`}
+          </button> : null}
         </div>
       </aside>
       <section className="vmd-detail" aria-live="polite">

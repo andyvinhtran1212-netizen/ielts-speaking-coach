@@ -22,6 +22,27 @@ export function vocabularyKey(category, slug) {
   return `${category}\u0000${slug}`;
 }
 
+function normalizeVocabularySummary(rawArticle, expectedCategory, label) {
+  const article = objectOf(rawArticle);
+  const articleSlug = textOf(article?.slug);
+  const articleCategory = textOf(article?.category);
+  const headword = textOf(article?.headword);
+  if (!article || !articleSlug || !articleCategory || !headword
+    || (expectedCategory && articleCategory !== expectedCategory)) {
+    throw new Error(`invalid-vocabulary-summary:${label}`);
+  }
+  return {
+    slug: articleSlug,
+    category: articleCategory,
+    headword,
+    level: optionalText(article.level),
+    partOfSpeech: optionalText(article.part_of_speech),
+    pronunciation: optionalText(article.pronunciation),
+    glossVi: optionalText(article.gloss_vi),
+    audioHeadword: optionalText(article.audio_headword),
+  };
+}
+
 export function resolveVocabularySelection(words, requestedCategory, requestedSlug) {
   if (!Array.isArray(words)) throw new Error('invalid-vocabulary-selection');
   if (requestedSlug) {
@@ -45,26 +66,11 @@ export function normalizeVocabularyCategories(value) {
       throw new Error(`invalid-vocabulary-category:${categoryIndex}`);
     }
     const articles = category.articles.map((rawArticle, articleIndex) => {
-      const article = objectOf(rawArticle);
-      const articleSlug = textOf(article?.slug);
-      const articleCategory = textOf(article?.category);
-      const headword = textOf(article?.headword);
-      if (!article || !articleSlug || articleCategory !== slug || !headword) {
-        throw new Error(`invalid-vocabulary-summary:${categoryIndex}:${articleIndex}`);
-      }
-      const key = vocabularyKey(articleCategory, articleSlug);
+      const summary = normalizeVocabularySummary(rawArticle, slug, `${categoryIndex}:${articleIndex}`);
+      const key = vocabularyKey(summary.category, summary.slug);
       if (seen.has(key)) throw new Error(`duplicate-vocabulary-summary:${key}`);
       seen.add(key);
-      return {
-        slug: articleSlug,
-        category: articleCategory,
-        headword,
-        level: optionalText(article.level),
-        partOfSpeech: optionalText(article.part_of_speech),
-        pronunciation: optionalText(article.pronunciation),
-        glossVi: optionalText(article.gloss_vi),
-        audioHeadword: optionalText(article.audio_headword),
-      };
+      return summary;
     });
     const count = category.article_count;
     if (count != null && (!Number.isInteger(count) || count !== articles.length)) {
@@ -72,6 +78,48 @@ export function normalizeVocabularyCategories(value) {
     }
     return { slug, title, articleCount: articles.length, articles };
   });
+}
+
+export function normalizeVocabularyDirectory(value) {
+  const raw = objectOf(value);
+  if (!raw || !Array.isArray(raw.categories) || !Array.isArray(raw.items)) {
+    throw new Error('invalid-vocabulary-directory');
+  }
+  const categories = raw.categories.map((rawCategory, index) => {
+    const category = objectOf(rawCategory);
+    const slug = textOf(category?.slug);
+    const title = textOf(category?.title);
+    const articleCount = category?.article_count;
+    if (!category || !slug || !title || !Number.isInteger(articleCount) || articleCount < 0) {
+      throw new Error(`invalid-vocabulary-directory-category:${index}`);
+    }
+    return { slug, title, articleCount };
+  });
+  const categorySlugs = new Set();
+  for (const category of categories) {
+    if (categorySlugs.has(category.slug)) {
+      throw new Error(`duplicate-vocabulary-directory-category:${category.slug}`);
+    }
+    categorySlugs.add(category.slug);
+  }
+  const items = raw.items.map((item, index) => normalizeVocabularySummary(item, '', `directory:${index}`));
+  const total = raw.total;
+  const offset = raw.offset;
+  const limit = raw.limit;
+  if (![total, offset, limit].every(Number.isInteger)
+    || total < 0 || offset < 0 || limit < 1 || items.length > limit
+    || (offset < total && offset + items.length > total)
+    || (offset >= total && items.length > 0)) {
+    throw new Error('invalid-vocabulary-directory-page');
+  }
+  const keys = new Set();
+  for (const item of items) {
+    if (!categorySlugs.has(item.category)) throw new Error('invalid-vocabulary-directory-owner');
+    const key = vocabularyKey(item.category, item.slug);
+    if (keys.has(key)) throw new Error(`duplicate-vocabulary-directory-item:${key}`);
+    keys.add(key);
+  }
+  return { categories, items, total, offset, limit };
 }
 
 export function normalizeVocabularyArticle(value, expectedCategory, expectedSlug) {

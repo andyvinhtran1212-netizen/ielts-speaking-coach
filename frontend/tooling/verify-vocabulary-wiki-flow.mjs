@@ -19,6 +19,18 @@ const context = await browser.newContext({ viewport: { width: 1280, height: 900 
 const page = await context.newPage();
 const errors = []; const feedback = []; const analytics = []; const articleReads = [];
 const vocabularyViews = () => analytics.filter((event) => event.event_name === 'vocab_wiki_viewed');
+const fixtureRows = [
+  { slug: 'academic-growth', category: 'education', headword: 'academic growth', level: 'B2', part_of_speech: 'noun phrase', pronunciation: '', gloss_vi: 'sự tiến bộ học thuật', audio_headword: '' },
+  { slug: 'lifelong-learning', category: 'education', headword: 'lifelong learning', level: 'B2', part_of_speech: 'noun phrase', pronunciation: '', gloss_vi: 'học tập suốt đời', audio_headword: '' },
+  { slug: 'carbon-footprint', category: 'environment', headword: 'carbon footprint', level: 'B2', part_of_speech: 'noun phrase', pronunciation: '', gloss_vi: 'dấu chân carbon', audio_headword: '' },
+  ...Array.from({ length: 62 }, (_, index) => ({
+    slug: `fixture-word-${index + 1}`,
+    category: index % 2 ? 'environment' : 'education',
+    headword: `fixture word ${String(index + 1).padStart(2, '0')}`,
+    level: 'B1', part_of_speech: 'noun', pronunciation: '',
+    gloss_vi: `mục từ kiểm thử ${index + 1}`, audio_headword: '',
+  })),
+];
 page.on('pageerror', (error) => errors.push(String(error)));
 await context.route('**/*', async (route) => {
   const request = route.request(); const url = request.url();
@@ -26,6 +38,25 @@ await context.route('**/*', async (route) => {
   if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(url)) return route.continue();
   const parsed = new URL(url); const method = request.method();
   const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+  if (method === 'GET' && parsed.pathname === '/api/vocabulary/directory') {
+    const categoryFilter = parsed.searchParams.get('category') || '';
+    const query = (parsed.searchParams.get('q') || '').trim().toLocaleLowerCase('vi');
+    const offset = Number.parseInt(parsed.searchParams.get('offset') || '0', 10);
+    const limit = Number.parseInt(parsed.searchParams.get('limit') || '60', 10);
+    const filteredRows = fixtureRows.filter((item) => (!categoryFilter || item.category === categoryFilter)
+      && (!query || item.headword.toLocaleLowerCase('vi').includes(query)
+        || item.gloss_vi.toLocaleLowerCase('vi').includes(query)));
+    return json({
+      categories: [
+        { slug: 'education', title: 'Education', article_count: 33 },
+        { slug: 'environment', title: 'Environment', article_count: 32 },
+      ],
+      items: filteredRows.slice(offset, offset + limit),
+      total: filteredRows.length,
+      offset,
+      limit,
+    });
+  }
   const match = parsed.pathname.match(/^\/api\/vocabulary\/articles\/([^/]+)\/([^/]+)$/);
   if (method === 'GET' && match) {
     const category = decodeURIComponent(match[1]); const slug = decodeURIComponent(match[2]);
@@ -51,6 +82,7 @@ await context.route('**/*', async (route) => {
 await page.goto(`${BASE}/vocabulary`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Từ vựng theo chủ đề', exact: true }).waitFor();
 await page.locator('.vmd-row').first().waitFor();
+await page.waitForFunction(() => Boolean(window.api?.getWith && window.api?.post));
 const rowCount = await page.locator('.vmd-row').count();
 check('server bootstrap render danh mục và thẻ đầu tiên', rowCount >= 2 && await page.locator('.va-card').count() === 1, `${rowCount} rows`);
 await waitForCount(() => vocabularyViews().length, 1);
@@ -58,9 +90,15 @@ check('desktop default card phát đúng một lượt xem', vocabularyViews().l
 
 const firstHeadword = (await page.locator('.vmd-rw').first().textContent() || '').trim();
 await page.getByRole('searchbox', { name: 'Tìm từ vựng' }).fill(firstHeadword);
+await page.waitForFunction(() => document.querySelectorAll('.vmd-row').length === 1);
 const filtered = await page.locator('.vmd-rw').allTextContents();
-check('lọc headword chạy trong React', filtered.length >= 1 && filtered.every((value) => value.toLocaleLowerCase('vi').includes(firstHeadword.toLocaleLowerCase('vi'))));
+check('lọc headword chạy qua directory contract', filtered.length >= 1 && filtered.every((value) => value.toLocaleLowerCase('vi').includes(firstHeadword.toLocaleLowerCase('vi'))));
 await page.getByRole('searchbox', { name: 'Tìm từ vựng' }).fill('');
+await page.waitForFunction(() => document.querySelectorAll('.vmd-row').length === 60);
+const initialPageCount = await page.locator('.vmd-row').count();
+await page.getByRole('button', { name: /Xem thêm/ }).click();
+await page.waitForFunction(() => document.querySelectorAll('.vmd-row').length === 65);
+check('danh mục chỉ hydrate batch đầu rồi tải thêm theo nhu cầu', initialPageCount === 60 && await page.locator('.vmd-row').count() === 65);
 
 const second = page.locator('.vmd-row').nth(1);
 const category = await second.getAttribute('data-category'); const slug = await second.getAttribute('data-slug');
