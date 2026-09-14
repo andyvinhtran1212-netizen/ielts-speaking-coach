@@ -10,6 +10,7 @@ import { VocabularyWiki } from './vocabulary-wiki';
 export const metadata: Metadata = {
   title: 'Vocabulary Wiki — Aver Learning',
   description: 'Tra cứu từ vựng IELTS theo chủ đề, phát âm, cách dùng, collocation và lỗi thường gặp.',
+  alternates: { canonical: '/vocabulary' },
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;

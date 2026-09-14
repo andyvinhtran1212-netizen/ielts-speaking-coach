@@ -17,11 +17,11 @@ function querySlug(params: Record<string, string | string[] | undefined>) {
 
 export async function generateMetadata({ searchParams }: { searchParams: SearchParams }): Promise<Metadata> {
   const slug = querySlug(await searchParams);
-  if (!slug) return { title: 'Lộ trình của bạn — Grammar Wiki' };
+  if (!slug) return { title: 'Lộ trình của bạn — Grammar Wiki', robots: { index: false, follow: true } };
   const data = await getRoadmap(slug) as RoadmapData | null;
   if (!data) notFound();
   const roadmap = normalizePublicRoadmap(data) as { title: string };
-  return { title: `${roadmap.title} — Lộ trình học — Grammar Wiki` };
+  return { title: `${roadmap.title} — Lộ trình học — Grammar Wiki`, robots: { index: false, follow: true } };
 }
 
 function Breadcrumb({ slug, title }: { slug?: string; title?: string }) {

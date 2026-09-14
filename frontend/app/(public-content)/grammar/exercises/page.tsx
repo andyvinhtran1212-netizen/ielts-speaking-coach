@@ -9,6 +9,8 @@ import { GrammarExercisesBehavior } from './grammar-exercises-behavior';
 
 export const metadata: Metadata = {
   title: 'Bài tập Grammar — Aver Learning',
+  description: 'Chọn bài tập Grammar theo chủ đề và trình độ để luyện đúng điểm cần cải thiện.',
+  alternates: { canonical: '/grammar/exercises' },
 };
 
 export default function GrammarExercisesPage() {

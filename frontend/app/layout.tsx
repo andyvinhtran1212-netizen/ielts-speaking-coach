@@ -32,6 +32,8 @@ export const metadata: Metadata = {
   // localhost/VERCEL_URL — tức preview trên Facebook trỏ vào deployment
   // preview thay vì domain thật.
   metadataBase: new URL('https://averlearning.com'),
+  applicationName: 'Aver Learning',
+  manifest: '/manifest.webmanifest',
   title: 'averlearning',
   description:
     '6 kỹ năng IELTS — Speaking, Writing, Reading, Listening, Grammar và Từ vựng — trên một nền tảng. Phản hồi chi tiết theo từng tiêu chí sau mỗi buổi luyện.',

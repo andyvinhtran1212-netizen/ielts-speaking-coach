@@ -29,6 +29,7 @@ export const metadata: Metadata = {
   title: 'Grammar Wiki — Aver Learning',
   description:
     'Tra cứu ngữ pháp IELTS theo hệ thống: các nhóm chủ đề, lộ trình học, và bài viết áp dụng vào Speaking & Writing.',
+  alternates: { canonical: '/grammar' },
 };
 
 async function GroupCountLink() {

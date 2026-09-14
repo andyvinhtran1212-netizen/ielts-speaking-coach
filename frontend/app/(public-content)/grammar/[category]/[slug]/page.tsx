@@ -43,6 +43,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     description:
       `Học ${article.title} để cải thiện IELTS Speaking và Writing. ` +
       'Ví dụ thực tế, bài tập, và lời giải thích dễ hiểu.',
+    alternates: { canonical: `/grammar/${encodeURIComponent(category)}/${encodeURIComponent(slug)}` },
   };
 }
 

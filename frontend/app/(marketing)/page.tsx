@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: 'averlearning — Luyện IELTS toàn diện cùng AI',
   description:
     '6 kỹ năng IELTS — Speaking, Writing, Reading, Listening, Grammar và Từ vựng — trên một nền tảng. Phản hồi chi tiết theo từng tiêu chí sau mỗi buổi luyện.',
+  alternates: { canonical: '/' },
 };
 
 export default function LandingPreviewPage() {

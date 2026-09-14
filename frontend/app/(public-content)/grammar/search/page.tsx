@@ -8,6 +8,7 @@ import { SearchBox } from '../search-box';
 
 export const metadata: Metadata = {
   title: 'Tìm kiếm — Grammar Wiki — IELTS Speaking Coach',
+  robots: { index: false, follow: true },
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;

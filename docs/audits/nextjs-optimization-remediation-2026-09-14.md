@@ -152,7 +152,11 @@ fixtures are not deployable application routes.
   consumers are removed.
 - **Verification:** real interaction assertions, metadata endpoint checks, vitals
   event schema tests and Preview CSP console audit.
-- **Status:** queued for Waves E–F.
+- **Status:** Wave D adds native `robots.ts`, `sitemap.ts` and `manifest.ts`,
+  canonical identities for public roots/articles, noindex on query workspaces,
+  behavioral sitemap normalization tests, and compiled route-ownership checks
+  for all three metadata endpoints. React interaction coverage and native
+  Web-Vitals collection remain queued.
 
 ## Explicitly rejected false positives
 
