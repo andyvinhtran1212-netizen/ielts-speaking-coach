@@ -99,17 +99,17 @@ test('rum-vitals: apiBase prefers runtime-config before the production fallback 
     'runtime-config must be consulted BEFORE the production Railway fallback');
 });
 
-test('rum-vitals: loaded by all three Next route-group layouts (AUDIT F2)', () => {
-    // Các route-group cần đăng nhập ỦY QUYỀN `<head>` cho
-    // `components/authed-shell.tsx` thay vì tự khai — bất biến KHÔNG đổi (mọi
-    // route-group vẫn phải nạp collector), chỉ chỗ khai là đổi. Nối thêm khung
-    // để test kiểm đúng thứ trình duyệt nhận, thay vì kiểm một tệp.
-    const SHELL_SRC = read('components', 'authed-shell.tsx');
-    for (const group of ['(marketing)', '(public-content)', '(authed)']) {
-      const layout = read('app', group, 'layout.tsx');
-      const effective = /AuthedShell/.test(layout) ? layout + SHELL_SRC : layout;
-      assert.match(effective, /\/js\/rum-vitals\.js/, `${group} layout must load the collector`);
+test('Next root uses the framework Web Vitals hook once; route groups do not duplicate the legacy collector', () => {
+  const root = read('app', 'layout.tsx');
+  const native = read('components', 'next-web-vitals.tsx');
+  assert.match(root, /<NextWebVitals\b/);
+  assert.match(native, /useReportWebVitals\(report\)/);
+
+  const shell = read('components', 'authed-shell.tsx');
+  for (const group of ['(marketing)', '(public-content)', '(public-auth)']) {
+    assert.doesNotMatch(read('app', group, 'layout.tsx'), /\/js\/rum-vitals\.js/);
   }
+  assert.doesNotMatch(shell, /\/js\/rum-vitals\.js/);
 });
 
 // ── AUDIT F1 (2026-07-14): rollback-trigger metrics panel ──────────────

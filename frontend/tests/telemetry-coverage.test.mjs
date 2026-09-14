@@ -5,7 +5,7 @@
  * mặt trên mỗi trang được đo:
  *   · `analytics-beacon.js` → MẪU SỐ (page_view) của error-rate + exposure;
  *   · `error-reporter.js`   → TỬ SỐ (lỗi phía client);
- *   · `rum-vitals.js`       → trigger LCP.
+ *   · `NextWebVitals`       → native Next Core Web Vitals for all App routes.
  *
  * Vì sao vẫn đòi thẻ TƯỜNG MINH dù `aver-chrome.js` có tự chèn error-reporter
  * trong `connectedCallback()`: đường nạp động chỉ tới SAU khi custom element
@@ -32,6 +32,8 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.join(__dirname, '..', 'app');
 const PAGES = path.join(__dirname, '..', 'public', 'pages');
+const ROOT_LAYOUT = readFileSync(path.join(APP, 'layout.tsx'), 'utf8');
+const NATIVE_VITALS = readFileSync(path.join(APP, '..', 'components', 'next-web-vitals.tsx'), 'utf8');
 
 /**
  * Có THẺ SCRIPT thật trỏ tới file đó không — không phải "cái tên có xuất hiện
@@ -145,8 +147,10 @@ describe('phủ telemetry (DEBT-2026-07-31-O)', () => {
         + ' trong cửa sổ quan sát pilot 2');
     });
 
-    test(`${name}: có rum-vitals (trigger LCP)`, () => {
-      assert.ok(loadsScript('rum-vitals.js', src), `${name} thiếu Web Vitals`);
+    test(`${name}: dùng native Next Web Vitals ở root`, () => {
+      assert.match(ROOT_LAYOUT, /<NextWebVitals\b/, 'root layout thiếu NextWebVitals');
+      assert.match(NATIVE_VITALS, /useReportWebVitals\(report\)/, 'collector không dùng hook native của Next');
+      assert.ok(!loadsScript('rum-vitals.js', src), `${name} còn nạp collector legacy trùng lặp`);
     });
   }
 

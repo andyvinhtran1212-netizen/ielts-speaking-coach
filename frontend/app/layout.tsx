@@ -4,6 +4,9 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
+import { NextWebVitals } from '@/components/next-web-vitals';
+import { API_BASE } from '@/lib/backend';
+
 // Thẻ chia sẻ (fan page → web). Facebook/Zalo/LinkedIn đọc og:*; thiếu
 // og:image thì thẻ preview về dạng text nhỏ, CTR thấp hơn hẳn thẻ ảnh lớn.
 //
@@ -68,7 +71,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   // next-themes pattern.
   return (
     <html lang="vi" data-release={DOC_RELEASE ?? undefined} suppressHydrationWarning>
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        <NextWebVitals apiBase={API_BASE} release={DOC_RELEASE} />
+        {children}
+      </body>
     </html>
   );
 }

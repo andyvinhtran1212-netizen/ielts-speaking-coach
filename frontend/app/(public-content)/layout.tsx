@@ -76,7 +76,6 @@ export default function PublicContentLayout({ children }: { children: ReactNode 
       >
         <Script type="module" src="/js/components/aver-chrome.js" strategy="afterInteractive" />
         <NextPageViewBeacon />
-        <Script src="/js/rum-vitals.js" strategy="afterInteractive" />
       </SupabaseRuntimeBoundary>
 
       {/* grammar-wiki.css scopes overrides under body.av-page (e.g.

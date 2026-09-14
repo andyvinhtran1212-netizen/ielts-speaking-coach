@@ -178,7 +178,6 @@ export function AuthedShell({
       >
         {extraScripts}
         <NextPageViewBeacon />
-        <Script src="/js/rum-vitals.js" strategy="afterInteractive" />
         {chrome === 'student' && (
           <Script type="module" src="/js/components/aver-chrome.js" strategy="afterInteractive" />
         )}

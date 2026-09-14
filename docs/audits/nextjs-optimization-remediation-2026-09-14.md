@@ -155,8 +155,10 @@ fixtures are not deployable application routes.
 - **Status:** Wave D adds native `robots.ts`, `sitemap.ts` and `manifest.ts`,
   canonical identities for public roots/articles, noindex on query workspaces,
   behavioral sitemap normalization tests, and compiled route-ownership checks
-  for all three metadata endpoints. React interaction coverage and native
-  Web-Vitals collection remain queued.
+  for all three metadata endpoints. Wave D2 replaces the approximate legacy
+  collector on App routes with one root `useReportWebVitals` integration while
+  retaining the backend envelope and the original document pathname across
+  soft navigation. React interaction coverage remains queued.
 
 ## Explicitly rejected false positives
 

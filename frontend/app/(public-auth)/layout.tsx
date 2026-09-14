@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import Script from 'next/script';
 
 import { NextPageViewBeacon } from '@/components/next-page-view-beacon';
 import { SupabaseRuntimeBoundary } from '@/components/supabase-runtime-boundary';
@@ -52,7 +51,6 @@ export default function PublicAuthLayout({ children }: { children: ReactNode }) 
         supabaseAnonKey={SUPABASE_ANON}
       >
         <NextPageViewBeacon />
-        <Script src="/js/rum-vitals.js" strategy="afterInteractive" />
       </SupabaseRuntimeBoundary>
       {children}
     </>

@@ -7,6 +7,7 @@ const BASE = process.argv[2] || 'http://localhost:3011';
 const sessionId = '00000000-0000-4000-8000-000000000711';
 const userId = '00000000-0000-4000-8000-000000000712';
 const analyticsPaths = [];
+const vitals = [];
 const results = [];
 
 const check = (name, ok, detail = '') => {
@@ -97,6 +98,7 @@ await context.route('**/*', async (route) => {
   if (request.method() === 'POST' && url.pathname === '/api/analytics/events') {
     const payload = request.postDataJSON();
     if (payload?.event_name === 'page_view') analyticsPaths.push(payload.event_data?.path);
+    if (payload?.event_name === 'web_vitals') vitals.push(payload.event_data);
     return json({ ok: true });
   }
   if (request.method() === 'GET' && url.pathname === '/auth/me') {
@@ -170,6 +172,13 @@ await publicPage.waitForURL(`${BASE}/`);
 check('back/forward giữ đúng URL sau soft navigation public', await publicPage.evaluate(() => window.__publicNavigationSentinel) === 'survived');
 check('soft navigation public không phát sinh lỗi JavaScript', publicErrors.length === 0, publicErrors[0] || '');
 await publicPage.close();
+await page.close();
+await waitFor(() => vitals.some((metric) => metric.metric_name === 'LCP'));
+const initialLcp = vitals.find((metric) => metric.metric_name === 'LCP');
+check('native LCP giữ pathname của document đầu sau soft navigation',
+  initialLcp?.path === '/result' && typeof initialLcp?.lcp === 'number'
+    && initialLcp?.implementation === 'next',
+  JSON.stringify(initialLcp || vitals));
 } finally {
   await browser.close();
 }

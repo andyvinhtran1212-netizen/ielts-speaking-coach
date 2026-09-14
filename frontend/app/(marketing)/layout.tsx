@@ -43,7 +43,6 @@ const ANTI_FLASH = `
 const MARKETING_RUNTIME_SCRIPTS = [
   { src: '/js/runtime-config.js' },
   { src: '/js/error-reporter.js', continueOnError: true },
-  { src: '/js/rum-vitals.js', continueOnError: true },
 ] as const;
 
 export default function MarketingLayout({ children }: { children: ReactNode }) {
