@@ -12001,6 +12001,58 @@ export interface components {
             /** Sessions */
             sessions: components["schemas"]["AdminSummaryRebuildItem"][];
         };
+        /** AdminUserCodeSummaryOut */
+        AdminUserCodeSummaryOut: {
+            /** Codes */
+            codes: components["schemas"]["AdminUserCodeSummaryRowOut"][];
+            /** Code Count */
+            code_count: number;
+            /** Code Type */
+            code_type?: string | null;
+            /** Permissions */
+            permissions: string[];
+            /** Has Active Code */
+            has_active_code: boolean;
+        };
+        /** AdminUserCodeSummaryRowOut */
+        AdminUserCodeSummaryRowOut: {
+            /** Id */
+            id: string;
+            /** Code */
+            code?: string | null;
+            /** Code Type */
+            code_type?: string | null;
+            /** Permissions */
+            permissions?: string[];
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Created At */
+            created_at?: string | null;
+        };
+        /** AdminUserDirectoryRowOut */
+        AdminUserDirectoryRowOut: {
+            /** Id */
+            id: string;
+            /** Email */
+            email?: string | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Role */
+            role?: ("user" | "student" | "instructor" | "admin") | null;
+            /** Sessions Today */
+            sessions_today: number;
+            /** Cohort Name */
+            cohort_name?: string | null;
+            /** Cohort Names */
+            cohort_names: string[];
+            /** Cohort Lookup Failed */
+            cohort_lookup_failed: boolean;
+            code_summary: components["schemas"]["AdminUserCodeSummaryOut"];
+        };
         /**
          * AdvanceBody
          * @description The section the admin's screen was showing when they clicked.
@@ -17361,7 +17413,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AdminUserDirectoryRowOut"][];
                 };
             };
             /** @description Validation Error */

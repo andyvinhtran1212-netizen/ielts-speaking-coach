@@ -33,6 +33,7 @@ from models.admin_speaking import (
     AdminSummaryRebuildResponse,
 )
 from models.admin_overview import DashboardOverviewOut, DashboardTrendsOut
+from models.admin_users import AdminUserDirectoryRowOut
 from database import supabase_admin
 from services.class_assignment_service import sync_class_item_score
 from services.core_attempt_observation import bind_owned_attempt, note_operation_failure, observe_operation
@@ -845,7 +846,7 @@ async def admin_set_user_role(
     return {"ok": True, "id": user_id, "role": role}
 
 
-@router.get("/users")
+@router.get("/users", response_model=list[AdminUserDirectoryRowOut])
 async def list_users(authorization: str | None = Header(default=None)):
     """List all users with today's session count appended."""
     await require_admin(authorization)

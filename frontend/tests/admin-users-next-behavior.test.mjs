@@ -34,6 +34,8 @@ const NEXT_CONFIG = read('next.config.ts');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const BROWSER = read('tooling', 'verify-admin-users-flow.mjs');
+const API = read('lib', 'admin-users-api.ts');
+const OPENAPI = read('types', 'api.d.ts');
 const RETIREMENT_REDIRECTS = buildLegacyRetirementRedirects(LEGACY_RETIREMENT_PATHS);
 
 describe('/admin/users — native ownership', () => {
@@ -79,9 +81,14 @@ describe('/admin/users — native ownership', () => {
 
 describe('/admin/users — canonical behavior', () => {
   test('reads users, cohorts and access codes from canonical endpoints', () => {
-    assert.match(USERS, /window\.api\.get<unknown>\('\/admin\/users'\)/);
+    assert.match(API, /getBrowserJson\('\/admin\/users'\)/);
+    assert.match(API, /getBrowserJson\('\/admin\/access-codes'\)/);
+    assert.match(USERS, /getAdminUsers\(\)/);
     assert.match(SHELL, /\/admin\/cohorts\?is_active=true/);
-    assert.match(CODES, /window\.api\.get<unknown>\('\/admin\/access-codes'\)/);
+    assert.match(CODES, /getAdminAccessCodes\(\)/);
+    assert.match(OPENAPI, /"application\/json": components\["schemas"\]\["AdminUserDirectoryRowOut"\]\[\]/);
+    assert.doesNotMatch(USERS, /window\.api\.get/);
+    assert.doesNotMatch(CODES, /window\.api\.get/);
   });
 
   test('preserves every user mutation and reconciles from backend truth', () => {

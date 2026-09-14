@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { getAdminAccessCodes } from '@/lib/admin-users-api';
 import { activeAssignmentCount, normalizeCodesPayload, quotaLabel, selectCodes, validateCodeDraft } from '@/lib/admin-users-model.mjs';
 
 import type { AccessCode, AdminCohort, Banner, SortState } from './admin-user-types';
@@ -71,7 +72,7 @@ export function AdminAccessCodesPanel({ profileId, cohorts, cohortsError }: {
     if (!silent) setLoading(true);
     setLoadError(null);
     try {
-      const payload = normalizeCodesPayload(await window.api.get<unknown>('/admin/access-codes')) as AccessCode[];
+      const payload = normalizeCodesPayload(await getAdminAccessCodes()) as AccessCode[];
       if (requestId !== sequence.current) return false;
       setCodes(payload);
       return true;

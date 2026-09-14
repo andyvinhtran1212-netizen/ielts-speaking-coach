@@ -159,7 +159,13 @@ fixtures are not deployable application routes.
   fixture passes 24/24, including stale-response suppression, partial loading,
   unsafe activity links, responsive containment and soft navigation. Remaining
   admin domains and API-boundary casts are intentionally queued for bounded
-  waves.
+  waves. Wave C8 types the next high-value list envelope: `/admin/users` now
+  exposes a strict nested response model while explicitly admitting the valid
+  legacy `user` role, and both user and access-code lists read through one
+  generated-type adapter. Cohorts remain on the compatibility bridge until its
+  picker/rollup union is modeled without response-field stripping. Backend
+  contract coverage passes 17/17, frontend source coverage 16/16 and the full
+  mutation/reconciliation browser journey 28/28.
 
 ### NXT-05 — Large imperative Client Components remain parity ports
 
@@ -317,6 +323,8 @@ Adoption is therefore **substantial but not yet optimal** in four bounded areas:
 - Migrate callers away from `window.api` only after each adapter has runtime
   normalization and account-switch tests. Do not attempt a repository-wide
   replacement.
+- Next candidate: model the `/admin/cohorts` picker/rollup union as a superset,
+  then move the shared class picker without stripping rollup-only fields.
 
 ### P1 — Add streaming UX where latency is real
 
