@@ -1,6 +1,7 @@
 import 'client-only';
 
 import type { ApiGetJson, ApiGetPath, ApiPostJson, ApiPostPath } from '@/lib/openapi-contract';
+import { searchParamsSuffix } from '@/lib/search-params.mjs';
 
 /**
  * Typed adapter over the migration-era browser transport.
@@ -15,7 +16,7 @@ export function getBrowserJson<Path extends ApiGetPath>(
   query?: URLSearchParams,
   signal?: AbortSignal,
 ): Promise<ApiGetJson<Path>> {
-  const suffix = query?.size ? `?${query.toString()}` : '';
+  const suffix = searchParamsSuffix(query);
   return window.api.getWith<ApiGetJson<Path>>(
     `${endpoint}${suffix}`,
     undefined,

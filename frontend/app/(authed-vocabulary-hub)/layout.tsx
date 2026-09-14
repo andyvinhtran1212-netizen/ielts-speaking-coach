@@ -11,6 +11,7 @@ export default function VocabularyHubLayout({ children }: { children: ReactNode 
   return (
     <AuthedShell
       pageStylesheets={['/css/vocabulary.css', '/css/flashcards.css', '/css/exercises.css']}
+      lucideRuntime
     >
       {children}
     </AuthedShell>

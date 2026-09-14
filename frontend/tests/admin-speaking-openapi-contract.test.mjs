@@ -41,4 +41,6 @@ test('native admin screen consumes one generated domain adapter', () => {
     'rebuildAdminSpeakingSummary',
   ]) assert.match(COMPONENT, new RegExp(`${fn}\\(`));
   assert.doesNotMatch(COMPONENT, /window\.api\.(?:get|post)<unknown>\(`?\/admin\/(?:sessions|responses)/);
+  assert.match(API, /searchParamsSuffix\(query\)/);
+  assert.doesNotMatch(API, /query\.size/);
 });

@@ -2,6 +2,7 @@ import 'client-only';
 
 import { getBrowserJson, getBrowserJsonAt, postBrowserJsonAt } from '@/lib/browser-api';
 import type { ApiGetJson, ApiPostJson } from '@/lib/openapi-contract';
+import { searchParamsSuffix } from '@/lib/search-params.mjs';
 
 export type AdminSpeakingSessionListWire = ApiGetJson<'/admin/sessions'>;
 export type AdminSpeakingSessionDetailWire = ApiGetJson<'/admin/sessions/{session_id}'>;
@@ -45,6 +46,6 @@ export function rebuildAdminSpeakingSummary(
   if (p3Id) query.set('p3_id', p3Id);
   return postBrowserJsonAt(
     '/admin/sessions/{session_id}/rebuild-summary',
-    `/admin/sessions/${encodeURIComponent(sessionId)}/rebuild-summary${query.size ? `?${query}` : ''}`,
+    `/admin/sessions/${encodeURIComponent(sessionId)}/rebuild-summary${searchParamsSuffix(query)}`,
   );
 }

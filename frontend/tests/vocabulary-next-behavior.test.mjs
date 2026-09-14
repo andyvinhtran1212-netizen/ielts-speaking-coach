@@ -30,6 +30,8 @@ describe('/vocabulary native public wiki', () => {
     assert.match(TYPES, /ApiGetJson<'\/api\/vocabulary\/directory'>/);
     assert.match(CONTRACT, /export type ApiGetJson<Path extends ApiGetPath>/);
     assert.match(BROWSER_API, /window\.api\.getWith<ApiGetJson<Path>>/);
+    assert.match(BROWSER_API, /searchParamsSuffix\(query\)/);
+    assert.doesNotMatch(BROWSER_API, /query\?\.size/);
     assert.match(CLIENT, /getBrowserJson\('\/api\/vocabulary\/directory', params, controller\.signal\)/);
     assert.match(API, /\/api\/vocabulary\/articles\/\$\{encodeURIComponent\(category\)\}\/\$\{encodeURIComponent\(slug\)\}/);
     assert.doesNotMatch(PAGE, /AuthProvider|login\.html|vocabulary\.js/);

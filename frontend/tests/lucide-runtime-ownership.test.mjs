@@ -28,7 +28,7 @@ test('AuthedShell makes the heavy Lucide DOM runtime explicit opt-in', () => {
   assert.match(shell, /lucideRuntime && <Script src="\/vendor\/lucide\.min\.js"/);
 });
 
-test('only the two remaining executable consumers opt in to the Lucide global', () => {
+test('only remaining executable consumers opt in to the Lucide global', () => {
   const consumers = walk(path.join(FRONTEND, 'app'))
     .filter((file) => /window\.lucide|\.lucide\.createIcons/.test(executableSource(readFileSync(file, 'utf8'))))
     .map((file) => path.relative(path.join(FRONTEND, 'app'), file));
@@ -38,9 +38,18 @@ test('only the two remaining executable consumers opt in to the Lucide global', 
     .filter((file) => /<AuthedShell[\s\S]*?\blucideRuntime\b/.test(readFileSync(file, 'utf8')))
     .map((file) => path.relative(path.join(FRONTEND, 'app'), file))
     .sort();
-  assert.deepEqual(optedIn, ['(authed-practice)/layout.tsx', '(authed-writing)/layout.tsx']);
+  assert.deepEqual(optedIn, [
+    '(authed-practice)/layout.tsx',
+    '(authed-vocabulary-hub)/layout.tsx',
+    '(authed-writing)/layout.tsx',
+  ]);
   assert.match(read('public', 'js', 'practice.js'), /window\.lucide/,
     'practice remains the second explicit legacy consumer');
+  for (const module of ['flashcards.js', 'exercises.js']) {
+    const source = read('public', 'js', 'vocab-modules', module);
+    assert.match(source, /data-lucide/);
+    assert.match(source, /window\.lucide\.createIcons\(\)/);
+  }
 });
 
 test('the public landing is native SVG and does not opt back into the UMD bundle', () => {
