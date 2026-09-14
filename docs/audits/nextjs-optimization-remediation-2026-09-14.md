@@ -32,7 +32,7 @@ fixtures are not deployable application routes.
   not a completion metric: several migrated screens keep the bridge only for
   mutations while their high-volume reads already use typed adapters.
 - The full frontend contract suite passes 9,097/9,097; the rendered React suite
-  passes 3/3; the full backend suite passes 7,961/7,961 with 308 environment-
+  passes 3/3; the full backend suite passes 7,966/7,966 with 308 environment-
   gated skips. Production build and TypeScript checks pass.
 - A backend-less local build logs one handled `ECONNREFUSED` while prerendering
   public data, then successfully emits all 141 routes. This is expected from the
