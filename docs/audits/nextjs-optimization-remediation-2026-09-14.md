@@ -31,7 +31,7 @@ fixtures are not deployable application routes.
   `window.api` is still referenced by 129 TS/TSX modules, but that file count is
   not a completion metric: several migrated screens keep the bridge only for
   mutations while their high-volume reads already use typed adapters.
-- The full frontend contract suite passes 9,097/9,097; the rendered React suite
+- The full frontend contract suite passes 9,100/9,100; the rendered React suite
   passes 3/3; the full backend suite passes 7,966/7,966 with 308 environment-
   gated skips. Production build and TypeScript checks pass.
 - A backend-less local build logs one handled `ECONNREFUSED` while prerendering
@@ -369,6 +369,13 @@ Adoption is therefore **substantial but not yet optimal** in four bounded areas:
   it without waiting for TTL.
 - Record webhook failure telemetry and verify canonical writes remain successful
   when revalidation is unavailable.
+- **Prepared locally:** `next-optimization-proof.spec.js` is part of the existing
+  one-worker staging release smoke. It measures raw Brotli/gzip bytes against
+  the 60 KiB document budget, then creates one uniquely named probe in the
+  existing `technology` topic, warms its exact public URL, PATCHes it, polls that
+  same URL for tagged-cache refresh and deletes the exact created id in `finally`.
+  A source contract rejects production hosts, bulk deletion and missing cleanup.
+  The live result remains pending deployment of this branch to staging.
 
 ### P1 — Continue from the typed authenticated spine into shared domains
 
