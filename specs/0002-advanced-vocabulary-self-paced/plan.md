@@ -76,12 +76,14 @@
   non-enumerating 404. An incomplete item after deadline returns the stable deadline
   conflict and no lesson payload; a submitted item may reopen only its persisted
   review with `accepting:false` and no mutation controls.
-- Every Advanced Vocabulary evidence transaction locks the parent
-  `class_assignments` row before the `class_assignment_items` row, then evaluates the
-  open-state guard and writes evidence. Archive/republish uses the same transactional
-  assignment-row lock and ordering, so it must serialize with learner mutations: if
-  archive wins no later evidence commits, and if a mutation wins archive waits for
-  that commit before closing access.
+- Every Advanced Vocabulary evidence transaction locks the active
+  `student_cohort_memberships` row, then the parent `class_assignments` row, then the
+  `class_assignment_items` row; only then does it revalidate the open-state guard and
+  write evidence. Membership removal/transfer must update the same membership row,
+  while archive/republish uses the same transactional assignment-row lock and shared
+  ordering. These operations therefore serialize with learner mutations: an access-
+  revocation winner permits no later evidence, while a mutation winner commits before
+  removal/transfer/archive returns and closes access.
 
 ## API contract
 

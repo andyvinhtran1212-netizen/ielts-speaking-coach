@@ -65,9 +65,10 @@ on staging and replacement implementation commits are created from that base.
   tally/detail evidence must show neutral `completed`/Hoàn tất, `latest_pct=null`, no
   score or pass count, and no scored-ledger mismatch immediately and after reload.
 - Archive serialization: pending barrier-controlled database/API races with the
-  assignment-row lock acquired before the item row. Verify mutation-first commits
-  evidence before archive closes access; archive-first rejects the later mutation;
-  immediate and full-reload learner/admin states agree in both orders.
+  active-membership row acquired before assignment and item rows. Verify mutation-
+  first commits evidence before remove/transfer/archive closes access; each revocation-
+  first order rejects the later mutation. Immediate and full-reload learner/admin
+  access and evidence agree for all six orders.
 - Timing truth: pending capped per-question Practice response time and Reading/
   Listening duration persistence, idempotent retry totals, untimed Vocabulary/rewrite
   completion timestamps, and matching learner/admin reload projections without

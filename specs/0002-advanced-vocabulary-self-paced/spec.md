@@ -111,15 +111,17 @@ that prevents answer leakage and gives admins canonical completion evidence.
 - **FR-007:** Database migration and RLS policies isolate learner-owned evidence,
   preserve immutable submission/version history, and support idempotent staged
   deployment before application promotion. The final Listening evidence and
-  assignment finalization must commit atomically under parent-assignment then
-  assignment-item locks;
+  assignment finalization must commit atomically under active-membership, parent-
+  assignment, then assignment-item locks;
   an Advanced-Vocabulary-specific guard permits only attempt 1 and one row per
   item/section regardless of the generic course retry key, identical replay is
   idempotent, different replay conflicts, and complete pilot states that predate the
   trigger are reconciled from canonical evidence. Persistence-time guards reject any
   evidence write before `publish_at` or after membership removal/transfer, archival,
   or deadline expiry. Archive/republish takes the same assignment-row lock so a
-  learner evidence transaction and archival serialize in either commit order.
+  learner evidence transaction and archival serialize in either commit order;
+  removal/transfer updates the same locked membership row and provides the equivalent
+  serialization for roster changes.
 - **FR-008:** Authored lesson JSON and runtime media use immutable content versions
   and verified SHA-256 provenance, including Listening figures and audio, so a
   deployed assignment reopens the same content revision. Assignment creation must
