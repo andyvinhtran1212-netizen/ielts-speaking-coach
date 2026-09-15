@@ -983,6 +983,67 @@ def test_server_reaper_ignores_passed_item_with_concurrent_orphan_session():
     verdict.assert_not_called()
 
 
+def test_server_reaper_preserves_lost_on_time_verdict_with_open_orphan():
+    """A complete tab wins even when another tab is still open at expiry."""
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "update"): [{"id": "orphan-open"}],
+    })
+    completed = {
+        "id": "completed-full-run", "user_id": _USER, "bank_id": _BANK,
+        "class_assignment_item_id": "item-timed", "kind": "run",
+        "created_at": "2026-09-15T01:00:00+00:00",
+        "ended_at": "2026-09-15T01:29:00+00:00", "ended_by": "completed",
+    }
+    orphan = {
+        "id": "orphan-open", "user_id": _USER, "bank_id": _BANK,
+        "class_assignment_item_id": "item-timed", "kind": "run",
+        "created_at": "2026-09-15T01:05:00+00:00",
+        "ended_at": None, "ended_by": None,
+    }
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+        "class_assignment_items": [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+            "submitted_at": None, "passed_at": None, "mastery": None,
+        }],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [completed, orphan],
+    }
+
+    def report(table, *_args, **_kwargs):
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "_course_bank_shape",
+                      return_value=({"q1", "q2"}, 0, True)), \
+         patch.object(quiz_service, "_course_answered_qids",
+                      return_value={"q1", "q2"}) as answered, \
+         patch.object(quiz_service, "course_verdict",
+                      return_value={"passed": True}) as verdict:
+        out = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+
+    assert out == {"examined": 1, "finalized": 1, "failed": 0}
+    answered.assert_called_once_with(["completed-full-run"])
+    closes = [call for call in fake.calls
+              if call["table"] == "quiz_sessions" and call["op"] == "update"]
+    assert len(closes) == 1
+    assert closes[0]["filters"][0] == ("id", "orphan-open")
+    verdict.assert_called_once_with(
+        user_id=_USER, bank_id=_BANK,
+        session_ids=["completed-full-run"],
+        assignment_item_id="item-timed", timed_out=True,
+        _allow_reaper_finalize=True,
+    )
+
+
 def test_server_reaper_repairs_submitted_item_when_verdict_was_lost():
     fake = _FakeSupabase()
     rows = {

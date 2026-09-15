@@ -4627,6 +4627,33 @@ def reap_expired_course_assessments(
                 verdict_sessions = [max(
                     pending_retakes, key=lambda row: row.get("created_at") or "",
                 )]
+            elif not repair_ids:
+                # A lost verdict can coexist with an orphan created by another
+                # tab.  If the completed, on-time run sessions already cover
+                # the whole bank, that is the canonical attempt: including the
+                # orphan after marking it ``time_cap`` would turn a valid
+                # completion into a timeout.  Keep sealing every open session,
+                # but grade only the independently complete on-time subset.
+                on_time_completed = [
+                    row for row in verdict_sessions
+                    if (row.get("kind") or "run") == "run"
+                    and row.get("ended_by") == "completed"
+                    and _at(row.get("ended_at")) is not None
+                    and _at(row.get("ended_at")) <= cutoff
+                ]
+                has_open_orphan = any(
+                    (row.get("kind") or "run") == "run"
+                    and row.get("ended_by") is None
+                    for row in verdict_sessions
+                )
+                if on_time_completed and has_open_orphan:
+                    bank_qids, _, shape_readable = _course_bank_shape(bank_id)
+                    completed_qids = _course_answered_qids([
+                        str(row["id"]) for row in on_time_completed
+                    ])
+                    if (shape_readable and bank_qids and completed_qids is not None
+                            and bank_qids <= completed_qids):
+                        verdict_sessions = on_time_completed
             if len(sessions_to_close) > 40:
                 raise RuntimeError("timed item has no usable session set")
             for session in sessions_to_close:
