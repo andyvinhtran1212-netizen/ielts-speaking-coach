@@ -51,11 +51,13 @@ def _sha256(path: Path) -> str:
 
 
 def _copy(source: Path, target: Path, *, write: bool,
-          checksum: str | None = None) -> None:
+          checksum: str | None = None, immutable: bool = False) -> None:
     _require_file(source)
     source_checksum = _sha256(source)
     if checksum and source_checksum != checksum:
         raise SystemExit(f"Sai checksum source asset: {source}")
+    if immutable and target.is_file() and _sha256(target) != source_checksum:
+        raise SystemExit(f"Không được ghi đè snapshot bất biến: {target}")
     if write:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
@@ -87,19 +89,28 @@ def _listening_figure_source(
 
 def _sync_listening_figure(
     source: Path, course_source: Path | None, lesson_id: str, figure: str,
-    *, write: bool,
+    *, write: bool, content_checksum: str | None = None,
 ) -> Path:
     source_asset = _listening_figure_source(
         source, course_source, lesson_id, figure,
     )
     target = _PUBLIC / lesson_id / "listening" / Path(figure).name
+    if content_checksum:
+        _copy(
+            source_asset,
+            _PUBLIC / "versions" / lesson_id / content_checksum
+            / "listening" / Path(figure).name,
+            write=write,
+            immutable=True,
+        )
     _copy(source_asset, target, write=write)
     return target
 
 
 def _sync_lesson(source_lesson: Path, lesson_id: str, checksum: str, *,
-                 write: bool) -> None:
+                 write: bool) -> str | None:
     target = _CONTENT / f"{lesson_id}.json"
+    previous_checksum = None
     if target.is_file():
         previous = _read(target)
         previous_checksum = str(
@@ -119,6 +130,38 @@ def _sync_lesson(source_lesson: Path, lesson_id: str, checksum: str, *,
         _CONTENT / "versions" / lesson_id / f"{checksum}.json",
         write=write,
     )
+    return previous_checksum
+
+
+def _archive_asset_snapshot(lesson_id: str, checksum: str | None, *,
+                            write: bool) -> None:
+    """Seed the immutable media snapshot before replacing canonical assets."""
+    canonical_root = _PUBLIC / lesson_id
+    if not checksum or not canonical_root.is_dir():
+        return
+    version_root = _PUBLIC / "versions" / lesson_id / checksum
+    for source_asset in canonical_root.rglob("*"):
+        if source_asset.is_file():
+            _copy(
+                source_asset,
+                version_root / source_asset.relative_to(canonical_root),
+                write=write,
+                immutable=True,
+            )
+
+
+def _sync_asset(source: Path, canonical_target: Path, lesson_id: str,
+                content_checksum: str, *, write: bool,
+                checksum: str | None = None) -> Path:
+    relative = canonical_target.relative_to(_PUBLIC / lesson_id)
+    versioned_target = (
+        _PUBLIC / "versions" / lesson_id / content_checksum / relative
+    )
+    _copy(
+        source, versioned_target, write=write, checksum=checksum, immutable=True,
+    )
+    _copy(source, canonical_target, write=write, checksum=checksum)
+    return canonical_target
 
 
 def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dict:
@@ -155,7 +198,10 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
         if len(vocabulary) != 24 or not all(
                 str(word.get("common_error") or "").strip() for word in vocabulary):
             raise SystemExit(f"{lesson_id}: cần 24 từ và common_error cho mọi từ.")
-        _sync_lesson(source_lesson, lesson_id, actual_checksum, write=write)
+        previous_checksum = _sync_lesson(
+            source_lesson, lesson_id, actual_checksum, write=write,
+        )
+        _archive_asset_snapshot(lesson_id, previous_checksum, write=write)
 
         expected_assets: set[str] = set()
         for word in vocabulary:
@@ -166,8 +212,10 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
                 target = _PUBLIC / lesson_id / "vocab" / Path(ref).name
                 checksum_field = ("headword_checksum" if field == "audio_headword"
                                   else "example_checksum")
-                _copy(source_asset, target, write=write,
-                      checksum=provenance.get(checksum_field))
+                _sync_asset(
+                    source_asset, target, lesson_id, actual_checksum, write=write,
+                    checksum=provenance.get(checksum_field),
+                )
                 expected_assets.add(str(target.relative_to(_REPO)))
         listening = source / "lessons" / lesson_id / "assets" / "audio" / "full_test.mp3"
         listening_target = _PUBLIC / lesson_id / "listening" / "full_test.mp3"
@@ -175,8 +223,10 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
             (row for row in (lesson.get("media") or {}).get("audio") or []
              if row.get("role") == "listening_full_test"), {}
         )
-        _copy(listening, listening_target, write=write,
-              checksum=listening_meta.get("checksum"))
+        _sync_asset(
+            listening, listening_target, lesson_id, actual_checksum, write=write,
+            checksum=listening_meta.get("checksum"),
+        )
         expected_assets.add(str(listening_target.relative_to(_REPO)))
         listening_content = next(
             (row.get("content") or {} for row in lesson.get("activities") or []
@@ -189,12 +239,15 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
                 continue
             figure_target = _sync_listening_figure(
                 source, course_source, lesson_id, figure, write=write,
+                content_checksum=actual_checksum,
             )
             expected_assets.add(str(figure_target.relative_to(_REPO)))
         for ref in (lesson.get("media") or {}).get("wt1_illustrations") or []:
             source_asset = source / "lessons" / lesson_id / ref
             target = _PUBLIC / lesson_id / "writing" / Path(ref).name
-            _copy(source_asset, target, write=write)
+            _sync_asset(
+                source_asset, target, lesson_id, actual_checksum, write=write,
+            )
             expected_assets.add(str(target.relative_to(_REPO)))
         actual_assets = {
             str(path.relative_to(_REPO))
@@ -206,6 +259,21 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
             raise SystemExit(
                 f"{lesson_id}: snapshot asset không chính xác; "
                 f"thiếu={missing}, thừa={unexpected}"
+            )
+        version_root = _PUBLIC / "versions" / lesson_id / actual_checksum
+        versioned_assets = {
+            str(path.relative_to(version_root))
+            for path in version_root.rglob("*") if path.is_file()
+        }
+        expected_relative = {
+            str((_REPO / path).relative_to(_PUBLIC / lesson_id))
+            for path in expected_assets
+        }
+        if versioned_assets != expected_relative:
+            raise SystemExit(
+                f"{lesson_id}: snapshot asset versioned không chính xác; "
+                f"thiếu={sorted(expected_relative - versioned_assets)}, "
+                f"thừa={sorted(versioned_assets - expected_relative)}"
             )
         copied_assets += len(expected_assets)
         activities = {row["activity_type"]: row for row in lesson.get("activities") or []}

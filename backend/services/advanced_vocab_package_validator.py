@@ -379,10 +379,16 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             if question_count not in {13, 14}:
                 report.add("error", "READING_QUESTION_COUNT", path,
                            f"Reading Lab must contain 13 or 14 questions; found {question_count}.")
+            reading_question_rows = (
+                questions if isinstance(questions, list) else []
+            )
+            if any(not isinstance(question, dict) for question in reading_question_rows):
+                report.add("error", "READING_QUESTION_ITEM_TYPE", path,
+                           "Every Reading question must be an object.")
             question_id_rows = [
                 str(question.get("question_number") or "")
-                for question in questions if isinstance(question, dict)
-            ] if isinstance(questions, list) else []
+                for question in reading_question_rows if isinstance(question, dict)
+            ]
             if "" in question_id_rows:
                 report.add("error", "READING_QUESTION_ID_MISSING", path,
                            "Every Reading question needs a non-empty question_number.")
@@ -403,7 +409,9 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                 if not isinstance(solution, dict) or not str(solution.get("answer") or "").strip():
                     report.add("error", "READING_SOLUTION_INVALID", path,
                                f"Reading question {qnum or '?'} needs a private answer.")
-            for question in questions if isinstance(questions, list) else []:
+            for question in reading_question_rows:
+                if not isinstance(question, dict):
+                    continue
                 leaked = {"answer", "answer_code", "answer_label", "evidence",
                           "distractor_analysis", "trap_analysis"} & set(question)
                 if leaked:
@@ -422,18 +430,36 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             if count != 6:
                 report.add("error", "LISTENING_QUESTION_COUNT", path,
                            f"Listening Lab must contain exactly six questions; found {count}.")
+            listening_question_rows = (
+                questions if isinstance(questions, list) else []
+            )
+            if any(not isinstance(question, dict) for question in listening_question_rows):
+                report.add("error", "LISTENING_QUESTION_ITEM_TYPE", path,
+                           "Every Listening question must be an object.")
             question_rows = [
-                question for question in questions or [] if isinstance(question, dict)
-            ] if isinstance(questions, list) else []
-            nested_question_rows = [
-                question
+                question for question in listening_question_rows
+                if isinstance(question, dict)
+            ]
+            nested_question_lists = [
+                block.get("questions") or []
                 for section in content.get("sections") or []
                 if isinstance(section, dict)
                 for block in section.get("question_blocks") or []
                 if isinstance(block, dict)
-                for question in block.get("questions") or []
-                if isinstance(question, dict)
             ] if isinstance(content, dict) else []
+            if any(
+                not isinstance(question, dict)
+                for nested_questions in nested_question_lists
+                for question in nested_questions
+            ):
+                report.add("error", "LISTENING_NESTED_QUESTION_ITEM_TYPE", path,
+                           "Every nested Listening question must be an object.")
+            nested_question_rows = [
+                question
+                for nested_questions in nested_question_lists
+                for question in nested_questions
+                if isinstance(question, dict)
+            ]
             for question in [*question_rows, *nested_question_rows]:
                 unexpected = set(question) - LISTENING_LEARNER_QUESTION_FIELDS
                 option_unexpected = {

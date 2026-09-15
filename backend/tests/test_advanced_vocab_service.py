@@ -174,6 +174,62 @@ def test_answer_index_is_canonicalized_and_never_exposed_to_learner():
     assert "answer_index" not in service._safe_question(authored)
 
 
+def test_answer_practice_grades_authored_answer_index(monkeypatch):
+    lesson = deepcopy(_lesson())
+    indexed = {
+        "item_id": "indexed-mcq", "type": "mcq", "prompt": "Pick B",
+        "options": ["A", "B"], "answer_index": 1,
+    }
+    saved_rows = []
+
+    class _Attempts:
+        def __init__(self):
+            self.filters = []
+            self.result = None
+
+        def select(self, *_args): return self
+        def eq(self, key, value):
+            self.filters.append((key, value))
+            return self
+        def limit(self, *_args): return self
+        def insert(self, payload):
+            saved_rows.append(payload)
+            self.result = [payload]
+            return self
+        def execute(self):
+            if self.result is not None:
+                return SimpleNamespace(data=self.result)
+            rows = [
+                row for row in saved_rows
+                if all(str(row.get(key)) == str(value) for key, value in self.filters)
+            ]
+            return SimpleNamespace(data=rows)
+
+    monkeypatch.setattr(service, "_assigned_lesson", lambda **_kwargs: (
+        {"id": "bank-1"}, {"id": "item-1"}, lesson,
+    ))
+    monkeypatch.setattr(service, "_require_stage", lambda *_args: None)
+    monkeypatch.setattr(service, "practice_selection", lambda _lesson: {
+        "practice_1": [indexed], "practice_2": [],
+    })
+    monkeypatch.setattr(service, "_upsert_stage", lambda **_kwargs: None)
+    monkeypatch.setattr(service, "_progress", lambda _item_id: {
+        "completed_stages": ["practice_1"], "required_completed": False,
+    })
+    monkeypatch.setattr(
+        service, "_admin",
+        lambda: type("Admin", (), {"table": lambda _self, _name: _Attempts()})(),
+    )
+
+    result = service.answer_practice(
+        user_id="user-1", bank_id="bank-1", item_id="item-1",
+        stage="practice_1", qid="indexed-mcq", answer=1,
+    )
+
+    assert result["is_correct"] is True
+    assert saved_rows[0]["is_correct"] is True
+
+
 def test_learner_question_projection_never_contains_answer_material():
     source = {
         "item_id": "q1", "prompt": "Question", "answer": 2,
@@ -392,20 +448,24 @@ def test_core30_assets_exist_for_every_card_and_core_media():
     frontend = Path(__file__).resolve().parents[2] / "frontend" / "public"
     for lesson_id in LESSON_IDS:
         lesson = service.load_lesson(lesson_id)
+        checksum = lesson["provenance"]["content_checksum"]
         for word in lesson["vocabulary"]:
             for key in ("audio_headword", "audio_example"):
-                url = service._asset_url(lesson_id, word[key])
+                url = service._asset_url(lesson_id, word[key], checksum)
                 assert url and (frontend / url.lstrip("/")).is_file()
-        assert (frontend / "assets" / "advanced-vocab" / lesson_id
+                assert f"/versions/{lesson_id}/{checksum}/" in url
+        version_root = (frontend / "assets" / "advanced-vocab" / "versions"
+                        / lesson_id / checksum)
+        assert (version_root
                 / "listening" / "full_test.mp3").is_file()
         listening = next(row for row in lesson["activities"]
                          if row["activity_type"] == "listening_lab")["content"]
         for section in listening.get("sections") or []:
             if section.get("figure"):
-                assert (frontend / "assets" / "advanced-vocab" / lesson_id
+                assert (version_root
                         / "listening" / Path(section["figure"]).name).is_file()
         for ref in lesson["media"]["wt1_illustrations"]:
-            assert (frontend / "assets" / "advanced-vocab" / lesson_id
+            assert (version_root
                     / "writing" / Path(ref).name).is_file()
 
 

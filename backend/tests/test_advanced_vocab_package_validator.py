@@ -406,6 +406,25 @@ def test_listening_requires_six_questions_and_approved_media(tmp_path: Path):
     assert "LISTENING_MEDIA_NOT_APPROVED" in {i.code for i in report.warnings}
 
 
+def test_reading_and_listening_reject_non_object_questions(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    reading = next(a for a in lesson["activities"] if a["activity_type"] == "reading_lab")
+    listening = next(
+        a for a in lesson["activities"] if a["activity_type"] == "listening_lab"
+    )
+    reading["content"]["questions"][0] = "not-an-object"
+    listening["content"]["questions"][0] = "not-an-object"
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+
+    assert {
+        "READING_QUESTION_ITEM_TYPE", "LISTENING_QUESTION_ITEM_TYPE",
+    } <= _codes(report)
+
+
 def test_listening_requires_complete_replayable_solution_map(tmp_path: Path):
     _write_package(tmp_path)
     path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
@@ -562,6 +581,32 @@ def test_lesson_sync_retains_checksum_versioned_snapshots(tmp_path: Path, monkey
     assert json.loads((content / "ADV-T01.json").read_text())["title"].endswith("v2")
     assert (content / "versions" / "ADV-T01" / f"{checksum_v1}.json").is_file()
     assert (content / "versions" / "ADV-T01" / f"{checksum_v2}.json").is_file()
+
+
+def test_media_sync_retains_byte_identical_checksum_versions(tmp_path: Path, monkeypatch):
+    public = tmp_path / "public"
+    monkeypatch.setattr(sync_module, "_PUBLIC", public)
+    canonical = public / "ADV-T01" / "listening" / "full_test.mp3"
+    checksum_v1 = "1" * 64
+    checksum_v2 = "2" * 64
+    source_v1 = tmp_path / "v1.mp3"
+    source_v2 = tmp_path / "v2.mp3"
+    source_v1.write_bytes(b"listening-v1")
+    source_v2.write_bytes(b"listening-v2")
+
+    sync_module._sync_asset(
+        source_v1, canonical, "ADV-T01", checksum_v1, write=True,
+    )
+    sync_module._archive_asset_snapshot("ADV-T01", checksum_v1, write=True)
+    sync_module._sync_asset(
+        source_v2, canonical, "ADV-T01", checksum_v2, write=True,
+    )
+
+    assert canonical.read_bytes() == b"listening-v2"
+    assert (public / "versions" / "ADV-T01" / checksum_v1
+            / "listening" / "full_test.mp3").read_bytes() == b"listening-v1"
+    assert (public / "versions" / "ADV-T01" / checksum_v2
+            / "listening" / "full_test.mp3").read_bytes() == b"listening-v2"
 
 def test_reading_requires_thirteen_questions_and_no_answer_leak(tmp_path: Path):
     _write_package(tmp_path)

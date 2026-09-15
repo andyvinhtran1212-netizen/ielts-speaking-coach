@@ -205,23 +205,33 @@ def build_quiz_rows(lesson: dict) -> list[dict]:
     return rows
 
 
-def _asset_url(lesson_id: str, value: str | None) -> str | None:
+def _asset_url(lesson_id: str, value: str | None,
+               content_checksum: str | None = None) -> str | None:
     if not value:
         return None
     name = Path(value).name
+    root = (
+        f"{_PUBLIC_ROOT}/versions/{lesson_id}/{content_checksum}"
+        if content_checksum else f"{_PUBLIC_ROOT}/{lesson_id}"
+    )
     if "vocab-audio" in value:
-        return f"{_PUBLIC_ROOT}/{lesson_id}/vocab/{name}"
+        return f"{root}/vocab/{name}"
     if name == "full_test.mp3":
-        return f"{_PUBLIC_ROOT}/{lesson_id}/listening/full_test.mp3"
+        return f"{root}/listening/full_test.mp3"
     if name.endswith((".svg", ".png")):
-        return f"{_PUBLIC_ROOT}/{lesson_id}/writing/{name}"
+        return f"{root}/writing/{name}"
     return None
 
 
-def _listening_figure_url(lesson_id: str, value: str | None) -> str | None:
+def _listening_figure_url(lesson_id: str, value: str | None,
+                          content_checksum: str | None = None) -> str | None:
     if not value or not Path(value).name.lower().endswith((".svg", ".png")):
         return None
-    return f"{_PUBLIC_ROOT}/{lesson_id}/listening/{Path(value).name}"
+    root = (
+        f"{_PUBLIC_ROOT}/versions/{lesson_id}/{content_checksum}"
+        if content_checksum else f"{_PUBLIC_ROOT}/{lesson_id}"
+    )
+    return f"{root}/listening/{Path(value).name}"
 
 
 def _activity(lesson: dict, activity_type: str) -> dict:
@@ -422,13 +432,20 @@ def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
     selected = practice_selection(lesson)
     progress = _progress(item_id)
     answered = {row["qid"] for row in progress["answers"]}
+    content_checksum = str(
+        (lesson.get("provenance") or {}).get("content_checksum") or ""
+    ) or None
 
     vocabulary = []
     for word in lesson.get("vocabulary") or []:
         safe = dict(word)
         safe.pop("audio_provenance", None)
-        safe["audio_headword"] = _asset_url(lesson["lesson_id"], word.get("audio_headword"))
-        safe["audio_example"] = _asset_url(lesson["lesson_id"], word.get("audio_example"))
+        safe["audio_headword"] = _asset_url(
+            lesson["lesson_id"], word.get("audio_headword"), content_checksum,
+        )
+        safe["audio_example"] = _asset_url(
+            lesson["lesson_id"], word.get("audio_example"), content_checksum,
+        )
         vocabulary.append(safe)
 
     activities: dict[str, Any] = {}
@@ -462,12 +479,14 @@ def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
         for question in authored_listening.get("questions") or []
         if isinstance(question, dict)
     ]
-    listening["audio_url"] = _asset_url(lesson["lesson_id"], "full_test.mp3")
+    listening["audio_url"] = _asset_url(
+        lesson["lesson_id"], "full_test.mp3", content_checksum,
+    )
     listening["sections"] = [
         {
             **_safe_listening_section(section),
             **({"figure_url": figure_url} if (figure_url := _listening_figure_url(
-                lesson["lesson_id"], section.get("figure")
+                lesson["lesson_id"], section.get("figure"), content_checksum,
             )) else {}),
         }
         for section in authored_listening.get("sections") or []
@@ -490,7 +509,8 @@ def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
     writing_tasks = writing_content.get("tasks") or {}
     for task_id, task in writing_tasks.items():
         task["illustrations"] = [
-            _asset_url(lesson["lesson_id"], ref) for ref in task.get("illustrations") or []
+            _asset_url(lesson["lesson_id"], ref, content_checksum)
+            for ref in task.get("illustrations") or []
         ]
         if task_id == "task_1":
             task["prompt_analysis"] = [
@@ -533,6 +553,7 @@ def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
                                           next((word.get("audio_headword")
                                                 for word in lesson.get("vocabulary") or []
                                                 if word.get("lexeme_id") == row.get("lexeme_id")), None),
+                                          content_checksum,
                                       ),
                                   )
                                   for row in rows]
@@ -608,7 +629,7 @@ def _normal(value: Any) -> str:
 
 
 def _correct(item: dict, answer: Any) -> bool:
-    expected = item.get("answer")
+    expected = item.get("answer", item.get("answer_index"))
     if isinstance(expected, int) and not isinstance(expected, bool):
         try:
             return int(answer) == expected
