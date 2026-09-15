@@ -49,11 +49,12 @@ developer or agent which requirements are active and how they map to evidence.
 - **FR-003:** Canonical feature directories and metadata are validated for
   naming, required files, lifecycle state, requirement IDs, and evidence.
 - **FR-004:** A verified or shipped feature cannot retain incomplete required
-  tasks or requirements without final evidence.
+  tasks or requirements without result-specific final evidence.
 - **FR-005:** Pull requests declare a change class and exact requirement
   coverage; feature and high-risk PRs reference a spec approved in the base
-  revision; staging-to-main promotions remain exempt from duplicate feature
-  metadata. SDD-0000 is the one-time bootstrap exception.
+  revision; spec-free changes include problem, expected behavior, scope, and
+  verification; staging-to-main promotions remain exempt from duplicate
+  feature metadata. SDD-0000 is the one-time bootstrap exception.
 - **FR-006:** Spec validation runs inside an existing workflow required by the
   staging promotion gate.
 - **FR-007:** Top-level agent documentation identifies Next.js App Router as the

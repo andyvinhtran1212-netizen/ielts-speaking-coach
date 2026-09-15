@@ -6,9 +6,13 @@
 | --- | --- | --- |
 | FR-001 | Test, query, screenshot, or manual journey | PENDING |
 
-Allowed final results are `PASS`, `MANUAL`, and `N/A`. `MANUAL` must identify
-the reviewer, environment, date, and observable result. `N/A` must include a
-specific non-applicability rationale in the evidence cell.
+Allowed final results are `PASS`, `MANUAL`, and `N/A`. Use this structured
+format for manual evidence:
+
+`reviewer=<name>; environment=<preview/staging/production>; date=YYYY-MM-DD; observed=<observable result>`
+
+For non-applicability, use `rationale=<specific reason>` (at least 12
+characters). A bare status or placeholder is not final evidence.
 
 ## Contract evidence
 

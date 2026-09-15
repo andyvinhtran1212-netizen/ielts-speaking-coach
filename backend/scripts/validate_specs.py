@@ -27,6 +27,10 @@ REQUIREMENT_DECLARATION_RE = re.compile(
     r"^\s*-\s+\*\*(FR-[^\s:*]+):\*\*\s+\S",
     re.MULTILINE,
 )
+REQUIREMENT_WITH_TEXT_RE = re.compile(
+    r"^\s*-\s+\*\*(FR-[^\s:*]+):\*\*\s+(\S.*)$",
+    re.MULTILINE,
+)
 VALID_REQUIREMENT_ID_RE = re.compile(r"^FR-\d{3}$")
 EVIDENCE_ROW_RE = re.compile(
     r"^\|\s*(FR-\d{3})\s*\|\s*(\S(?:.*\S)?)\s*\|\s*([A-Za-z/]+)\s*\|\s*$",
@@ -115,6 +119,44 @@ def _section(text: str, heading: str) -> str:
         re.MULTILINE | re.DOTALL | re.IGNORECASE,
     )
     return match.group("body") if match else ""
+
+
+def _declared_requirements(spec_text: str) -> dict[str, str]:
+    return {
+        requirement: description.strip()
+        for requirement, description in REQUIREMENT_WITH_TEXT_RE.findall(
+            _section(spec_text, "Requirements")
+        )
+        if VALID_REQUIREMENT_ID_RE.fullmatch(requirement)
+    }
+
+
+def _structured_evidence(evidence: str) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for item in evidence.split(";"):
+        key, separator, value = item.partition("=")
+        if separator and key.strip() and value.strip():
+            fields[key.strip().lower()] = value.strip()
+    return fields
+
+
+def _evidence_detail_error(result: str, evidence: str) -> str | None:
+    normalized = result.upper()
+    if normalized == "MANUAL":
+        fields = _structured_evidence(evidence)
+        required = {"reviewer", "environment", "date", "observed"}
+        if not required <= fields.keys() or not re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}", fields.get("date", "")
+        ):
+            return (
+                "MANUAL evidence must use reviewer=...; environment=...; "
+                "date=YYYY-MM-DD; observed=..."
+            )
+    elif normalized == "N/A":
+        fields = _structured_evidence(evidence)
+        if len(fields.get("rationale", "")) < 12:
+            return "N/A evidence must use rationale=<specific reason>"
+    return None
 
 
 def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
@@ -247,10 +289,14 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
         evidence_rows = EVIDENCE_ROW_RE.findall(verification)
         evidence_ids = [requirement for requirement, _, _ in evidence_rows]
         verification_ids = set(evidence_ids)
-        for evidence_id, _, result in evidence_rows:
+        for evidence_id, evidence, result in evidence_rows:
             if result.upper() not in ALLOWED_EVIDENCE_RESULTS:
                 errors.append(
                     f"{feature / 'verification.md'}: {evidence_id} result must be one of {sorted(ALLOWED_EVIDENCE_RESULTS)}"
+                )
+            elif detail_error := _evidence_detail_error(result, evidence):
+                errors.append(
+                    f"{feature / 'verification.md'}: {evidence_id} {detail_error}"
                 )
         for requirement in unique_requirements:
             matching_results = [
@@ -325,6 +371,12 @@ def _requirement_coverage(body: str) -> list[str]:
     )
 
 
+def _meaningful_section(body: str, heading: str) -> bool:
+    section = re.sub(r"<!--.*?-->", "", _section(body, heading), flags=re.DOTALL)
+    section = re.sub(r"^\s*-\s*\[[ xX]\].*$", "", section, flags=re.MULTILINE)
+    return bool(section.strip())
+
+
 def validate_pull_request(
     event: dict[str, Any], known_specs: dict[str, Path], root: Path = REPO_ROOT
 ) -> list[str]:
@@ -352,6 +404,12 @@ def validate_pull_request(
         return errors
 
     requires_spec = change_class in {"feature", "high-risk"}
+    if spec_id == "N/A" and change_class in {"hotfix", "small", "content"}:
+        for heading in ("Problem", "Expected behavior", "Scope", "Verification"):
+            if not _meaningful_section(body, heading):
+                errors.append(
+                    f"pull request: Spec: N/A requires a non-empty '## {heading}' section"
+                )
     if requires_spec and spec_id == "N/A":
         errors.append(f"pull request: change class '{change_class}' requires an approved spec ID")
     if spec_id != "N/A":
@@ -366,6 +424,8 @@ def validate_pull_request(
                     f"pull request: Spec '{spec_id}' must be approved and not superseded"
                 )
             if requires_spec:
+                approved_requirements: dict[str, str] | None = None
+                bootstrap = False
                 if not base_sha:
                     errors.append("pull request: base SHA is required to verify prior spec approval")
                 else:
@@ -387,6 +447,7 @@ def validate_pull_request(
                             f"pull request: Spec '{spec_id}' must be approved in the base revision before implementation"
                         )
                     elif base_spec_text is not None:
+                        approved_requirements = _declared_requirements(base_spec_text)
                         try:
                             base_metadata = yaml.safe_load(
                                 base_spec_text.split("---", 2)[1]
@@ -399,22 +460,30 @@ def validate_pull_request(
                             )
 
                 coverage = _requirement_coverage(body)
-                declared = set(
-                    requirement
-                    for requirement in REQUIREMENT_DECLARATION_RE.findall(
-                        _section(metadata_text, "Requirements")
-                    )
-                    if VALID_REQUIREMENT_ID_RE.fullmatch(requirement)
-                )
+                current_requirements = _declared_requirements(metadata_text)
+                if bootstrap:
+                    approved_requirements = current_requirements
                 if not coverage:
                     errors.append(
                         "pull request: '## Requirement coverage' must list at least one exact FR-NNN"
                     )
                 for requirement in coverage:
-                    if requirement not in declared:
+                    if requirement not in current_requirements:
                         errors.append(
                             f"pull request: requirement coverage references unknown {requirement} for {spec_id}"
                         )
+                    elif approved_requirements is not None:
+                        if requirement not in approved_requirements:
+                            errors.append(
+                                f"pull request: {requirement} was not approved in the base revision for {spec_id}"
+                            )
+                        elif (
+                            current_requirements[requirement]
+                            != approved_requirements[requirement]
+                        ):
+                            errors.append(
+                                f"pull request: {requirement} definition changed after base approval for {spec_id}"
+                            )
     return errors
 
 

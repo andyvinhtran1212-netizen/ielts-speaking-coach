@@ -90,6 +90,7 @@ def _event(
     base: str = "staging",
     head: str = "topic",
     coverage: str = "- FR-001 -> automated test",
+    include_na_details: bool = True,
 ) -> dict:
     base_sha = subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -98,6 +99,14 @@ def _event(
         capture_output=True,
         text=True,
     ).stdout.strip()
+    details = ""
+    if include_na_details:
+        details = (
+            "\n## Problem\n\nCurrent behavior is wrong.\n"
+            "\n## Expected behavior\n\nExpected behavior is explicit.\n"
+            "\n## Scope\n\nOne focused flow.\n"
+            "\n## Verification\n\nAutomated test passed.\n"
+        )
     return {
         "pull_request": {
             "base": {"ref": base, "sha": base_sha},
@@ -105,6 +114,7 @@ def _event(
             "body": (
                 f"Change class: {change_class}\nSpec: {spec}\n\n"
                 f"## Requirement coverage\n\n{coverage}\n"
+                f"{details}"
             ),
         }
     }
@@ -243,7 +253,7 @@ def test_repository_accepts_reasoned_non_applicable_evidence(tmp_path: Path) -> 
     root = _valid_repo(tmp_path)
     (root / "specs/0001-example-feature/verification.md").write_text(
         "## Requirement coverage\n\n"
-        "| FR-001 | No UI surface changes, so browser evidence is not applicable. | N/A |\n",
+        "| FR-001 | rationale=No UI surface changes, so browser evidence is not applicable. | N/A |\n",
         encoding="utf-8",
     )
     errors, _ = validator.validate_repository(root)
@@ -258,6 +268,34 @@ def test_repository_rejects_non_applicable_without_rationale(tmp_path: Path) -> 
     )
     errors, _ = validator.validate_repository(root)
     assert any("no evidence row for FR-001" in error for error in errors)
+
+
+def test_repository_rejects_underspecified_manual_and_na_evidence(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    verification = root / "specs/0001-example-feature/verification.md"
+    verification.write_text(
+        "## Requirement coverage\n\n| FR-001 | x | MANUAL |\n",
+        encoding="utf-8",
+    )
+    manual_errors, _ = validator.validate_repository(root)
+    assert any("MANUAL evidence must use" in error for error in manual_errors)
+    verification.write_text(
+        "## Requirement coverage\n\n| FR-001 | rationale=x | N/A |\n",
+        encoding="utf-8",
+    )
+    na_errors, _ = validator.validate_repository(root)
+    assert any("N/A evidence must use rationale" in error for error in na_errors)
+
+
+def test_repository_accepts_structured_manual_evidence(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    (root / "specs/0001-example-feature/verification.md").write_text(
+        "## Requirement coverage\n\n"
+        "| FR-001 | reviewer=Lan; environment=staging; date=2026-09-15; observed=Flow completed | MANUAL |\n",
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert errors == []
 
 
 def test_repository_rejects_unknown_evidence_result(tmp_path: Path) -> None:
@@ -397,12 +435,79 @@ def test_feature_pr_requires_known_requirement_coverage(tmp_path: Path) -> None:
     assert any("references unknown FR-999" in error for error in unknown)
 
 
+def test_feature_pr_rejects_requirement_added_after_base_approval(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path, status="approved")
+    spec = root / "specs/0001-example-feature/spec.md"
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace(
+            "- **FR-001:** Works.\n",
+            "- **FR-001:** Works.\n- **FR-002:** Added after approval.\n",
+        ),
+        encoding="utf-8",
+    )
+    verification = root / "specs/0001-example-feature/verification.md"
+    verification.write_text(
+        verification.read_text(encoding="utf-8")
+        + "| FR-002 | automated test | PASS |\n",
+        encoding="utf-8",
+    )
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    errors = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            coverage="- FR-002 -> automated test",
+        ),
+        specs,
+        root,
+    )
+    assert any("FR-002 was not approved in the base revision" in error for error in errors)
+
+
+def test_feature_pr_rejects_requirement_definition_changed_after_approval(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path, status="approved")
+    spec = root / "specs/0001-example-feature/spec.md"
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace(
+            "- **FR-001:** Works.", "- **FR-001:** Meaning changed after approval."
+        ),
+        encoding="utf-8",
+    )
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    errors = validator.validate_pull_request(
+        _event(root=root, change_class="feature", spec="FEAT-0001"), specs, root
+    )
+    assert any("FR-001 definition changed after base approval" in error for error in errors)
+
+
 def test_small_pr_may_use_na(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     _, specs = validator.validate_repository(root)
     assert validator.validate_pull_request(
         _event(root=root, change_class="small", spec="N/A"), specs, root
     ) == []
+
+
+def test_spec_free_pr_requires_problem_expected_scope_and_verification(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    _, specs = validator.validate_repository(root)
+    errors = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="small",
+            spec="N/A",
+            include_na_details=False,
+        ),
+        specs,
+        root,
+    )
+    for heading in ("Problem", "Expected behavior", "Scope", "Verification"):
+        assert any(f"'## {heading}'" in error for error in errors)
 
 
 def test_staging_to_main_promotion_is_exempt(tmp_path: Path) -> None:
