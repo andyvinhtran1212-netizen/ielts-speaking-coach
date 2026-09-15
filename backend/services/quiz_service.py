@@ -637,6 +637,7 @@ def list_published_banks(*, skill_area: str | None = None, topic_id: str | None 
 def _assignment_item_for(
     bank_id: str, user_id: str, *, allow_submitted_review: bool = False,
     assignment_item_id: str | None = None,
+    allow_expired_timed_finalize: bool = False,
 ) -> dict | None:
     """Mục bài giao CÒN HIỆU LỰC của học viên này cho bank ấy, hoặc None.
 
@@ -683,9 +684,25 @@ def _assignment_item_for(
         if not rows:
             return None
         owned_by_id = {a["id"]: a for a in owned}
-        eligible = [row for row in rows
-                    if is_accepting_submissions(owned_by_id.get(row.get("assignment_id")) or {})
-                    or (allow_submitted_review and row.get("submitted_at"))]
+        def eligible_for_access(row: dict) -> bool:
+            assignment = owned_by_id.get(row.get("assignment_id")) or {}
+            if is_accepting_submissions(assignment):
+                return True
+            if allow_submitted_review and row.get("submitted_at"):
+                return True
+            # Narrow server-finalisation lane: only an explicitly named item
+            # whose canonical timed window was actually opened may cross a
+            # passed class deadline.  It does not reopen question access.
+            timer = assignment_timer_state(row, assignment)
+            return bool(
+                allow_expired_timed_finalize
+                and assignment_item_id
+                and row.get("opened_at")
+                and timer.get("is_timed")
+                and timer.get("is_expired")
+            )
+
+        eligible = [row for row in rows if eligible_for_access(row)]
         if not eligible:
             return None
         # Carry the deadline already read above to the player. Authorization is
@@ -1439,7 +1456,10 @@ def _ensure_timed_course_session(
     """
     if not item:
         return item, None
-    assignment = {"content_config": item.get("content_config") or {}}
+    assignment = {
+        "content_config": item.get("content_config") or {},
+        "due_at": item.get("due_at"),
+    }
     timer = assignment_timer_state(item, assignment)
     if not timer.get("is_timed"):
         return item, None
@@ -2315,9 +2335,6 @@ def _assert_course_session_accepting(session: dict, ended_by: str = "completed")
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi kiểm tra hạn nộp: {exc}")
     assignment = assignments[0]
-    if assignment.get("skill") == COURSE_AREA \
-            and not is_accepting_submissions(assignment):
-        raise HTTPException(409, "Đã quá hạn nộp — chặng này chưa được chốt.")
     if assignment.get("skill") != COURSE_AREA:
         return
     timer = assignment_timer_state(items[0], assignment)
@@ -2328,7 +2345,14 @@ def _assert_course_session_accepting(session: dict, ended_by: str = "completed")
             raise HTTPException(422, "Bài này không có giới hạn thời gian.")
         if not timer.get("is_expired"):
             raise HTTPException(422, "Đồng hồ máy chủ chưa hết thời gian.")
-    elif timer.get("is_expired"):
+        # A time-cap close is the canonical way to seal work after either timer
+        # boundary, including a class ``due_at`` earlier than the configured
+        # duration.  Refusing it because the assignment is no longer accepting
+        # would leave the item permanently open.
+        return
+    if not is_accepting_submissions(assignment):
+        raise HTTPException(409, "Đã quá hạn nộp — chặng này chưa được chốt.")
+    if timer.get("is_expired"):
         raise HTTPException(409, "Đã hết thời gian làm bài — hãy nộp lượt hết giờ.")
 
 
@@ -3769,20 +3793,21 @@ def course_verdict(
 
     item = (_assignment_item_for(
         bank_id, user_id, assignment_item_id=assignment_item_id,
+        allow_expired_timed_finalize=True,
     ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
     if not item:
         raise HTTPException(404, "Không tìm thấy bài giao còn hiệu lực")
 
     try:
         asg = (supabase_admin.table("class_assignments")
-               .select("id, content_config")
+               .select("id, status, publish_at, due_at, content_config")
                .eq("id", item["assignment_id"]).limit(1).execute().data) or []
         assignment = asg[0] if asg else {}
         cfg = mastery_config(assignment)
 
         rows = (supabase_admin.table("quiz_sessions")
                 .select("id, user_id, bank_id, class_assignment_item_id, kind, ended_by, "
-                        "created_at, duration_sec")
+                        "created_at, ended_at, duration_sec")
                 .in_("id", session_ids).execute().data) or []
 
         cur = (supabase_admin.table("class_assignment_items")
@@ -3818,19 +3843,28 @@ def course_verdict(
     timer = assignment_timer_state(cur, assignment)
     if timer.get("invalid"):
         raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
-    server_timed_out = bool(timer.get("is_timed") and timer.get("is_expired"))
-    if timed_out and not server_timed_out:
+    clock_expired = bool(timer.get("is_timed") and timer.get("is_expired"))
+    if timed_out and not clock_expired:
         raise HTTPException(422, "Đồng hồ máy chủ chưa hết thời gian.")
-    # The client flag is only a hint.  Once the canonical server clock expires,
-    # every verdict is a timeout verdict, including a forged/legacy request that
-    # sends timed_out=false after ending a session just before the boundary.
-    timed_out = server_timed_out
 
     # TỪNG phiên phải là của đúng người, đúng bank, đúng mục, và ĐÃ chốt.
     # Thiếu một phiên (id lạ, của người khác) → từ chối cả lượt chứ không xét
     # phần còn lại: mẫu số thiếu làm điểm ẢO cao lên.
     if len(rows) != len(set(session_ids)):
         raise HTTPException(422, "Có phiên không tồn tại")
+    cutoff = (_at(timer.get("expires_at"))
+              if timer.get("is_timed") and timer.get("expires_at") else None)
+    sessions_finished_on_time = bool(rows) and all(
+        s.get("ended_by") == "completed"
+        and _at(s.get("ended_at")) is not None
+        and (cutoff is None or _at(s.get("ended_at")) <= cutoff)
+        for s in rows
+    )
+    # The client flag is only a hint.  A verdict arriving after expiry must not
+    # erase an attempt that was canonically completed before the cutoff.  For an
+    # unfinished/late attempt the server still forces timeout even when a forged
+    # client sends ``timed_out=false``.
+    timed_out = bool(clock_expired and not sessions_finished_on_time)
     for s in rows:
         if (s.get("user_id") != user_id or s.get("bank_id") != bank_id
                 or s.get("class_assignment_item_id") != item["id"]):
@@ -3877,8 +3911,6 @@ def course_verdict(
     # do dấu thời gian trên máy chủ quyết, nên nộp thêm phiên chỉ có thể kéo về
     # lượt SỚM HƠN, không bao giờ về lượt điểm cao hơn.
     seen: dict = {}
-    cutoff = (_at(timer.get("expires_at"))
-              if timer.get("is_timed") and timer.get("expires_at") else None)
     for a in sorted(att, key=lambda x: x.get("created_at") or ""):
         if cutoff is not None:
             created_at = _at(a.get("created_at"))
@@ -3905,11 +3937,15 @@ def course_verdict(
     if phase == "run":
         expected_graded = len(key)
         missing = len(set(key) - set(seen))
+        if clock_expired and missing:
+            timed_out = True
         if missing and not timed_out:
             raise HTTPException(
                 422, f"Lượt làm thiếu {missing} câu chưa có kết quả trên hệ thống")
     else:
         expected_graded = min(cfg["retake_size"], len(key))
+        if clock_expired and len(seen) < expected_graded:
+            timed_out = True
         if len(seen) < expected_graded and not timed_out:
             raise HTTPException(
                 422, "Bài kiểm tra lại phải đủ "
@@ -4185,6 +4221,137 @@ def course_verdict(
             if not check or not check[0].get("submitted_at"):
                 raise HTTPException(500, "Đã tính điểm nhưng chưa thu được bài; hãy thử lại")
     return payload
+
+
+def reap_expired_course_assessments(
+    grace_seconds: int = 15, *, now: datetime | None = None,
+) -> dict:
+    """Finalize timed Course quizzes whose browser did not submit at zero.
+
+    This is the server-side backstop for a closed tab, power loss, or a lost
+    timeout request. It uses the same canonical verdict path as the learner
+    request, so answer keys, denominators, mastery, and submission state cannot
+    drift between foreground and background completion. Writes are idempotent
+    or CAS-protected, allowing more than one Railway worker to sweep safely.
+    """
+    current = now or datetime.now(timezone.utc)
+    grace = timedelta(seconds=max(0, int(grace_seconds or 0)))
+    result = {"examined": 0, "finalized": 0, "failed": 0}
+    try:
+        assignments = _report_pages(
+            "class_assignments",
+            "id, cohort_id, content_id, skill, status, publish_at, due_at, content_config",
+            lambda q: q.eq("skill", COURSE_AREA).eq("status", "published"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[course-timer-reaper] assignment read failed: %s", exc)
+        return {**result, "failed": 1}
+
+    timed = {
+        row["id"]: row for row in assignments
+        if (row.get("content_config") or {}).get("time_limit_minutes") is not None
+        and row.get("content_id")
+    }
+    if not timed:
+        return result
+
+    items: list[dict] = []
+    try:
+        for ids in _chunks(list(timed)):
+            items.extend(_report_pages(
+                "class_assignment_items",
+                "id, assignment_id, student_id, opened_at, submitted_at, passed_at, mastery, updated_at",
+                lambda q, ids=ids: (
+                    q.in_("assignment_id", ids)
+                    .not_.is_("opened_at", "null")
+                    .is_("submitted_at", "null")
+                ),
+            ))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[course-timer-reaper] item read failed: %s", exc)
+        return {**result, "failed": 1}
+    if not items:
+        return result
+
+    student_ids = sorted({row.get("student_id") for row in items if row.get("student_id")})
+    students: dict[str, str] = {}
+    try:
+        for ids in _chunks(student_ids):
+            students.update({
+                row["id"]: row["user_id"] for row in _report_pages(
+                    "students", "id, user_id", lambda q, ids=ids: q.in_("id", ids),
+                ) if row.get("user_id")
+            })
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[course-timer-reaper] student read failed: %s", exc)
+        return {**result, "failed": 1}
+
+    for item in items:
+        assignment = timed.get(item.get("assignment_id")) or {}
+        timer = assignment_timer_state(item, assignment, now=current)
+        cutoff = _at(timer.get("expires_at"))
+        if (timer.get("invalid") or not timer.get("is_timed")
+                or not timer.get("is_expired") or cutoff is None
+                or current < cutoff + grace):
+            continue
+        result["examined"] += 1
+        user_id = students.get(item.get("student_id"))
+        bank_id = assignment.get("content_id")
+        if not user_id or not bank_id:
+            result["failed"] += 1
+            continue
+        try:
+            sessions = _report_pages(
+                "quiz_sessions",
+                "id, user_id, bank_id, class_assignment_item_id, kind, created_at, "
+                "started_at, ended_at, ended_by, duration_sec",
+                lambda q, item_id=item["id"]: q.eq("class_assignment_item_id", item_id),
+            )
+            sessions = [row for row in sessions
+                        if row.get("user_id") == user_id and row.get("bank_id") == bank_id]
+            # A failed full run may already be recorded before a short retake
+            # starts.  Feeding both phases to ``course_verdict`` is forbidden
+            # (and rightly so), so sweep only sessions not already represented
+            # in the canonical mastery ledger.
+            recorded_ids = {
+                session_id
+                for attempt in ((item.get("mastery") or {}).get("attempts") or [])
+                if isinstance(attempt, dict)
+                for session_id in (attempt.get("sessions") or [])
+            }
+            sessions = [row for row in sessions if row.get("id") not in recorded_ids]
+            if not sessions:
+                continue
+            if len(sessions) > 40:
+                raise RuntimeError("timed item has no usable session set")
+            for session in sessions:
+                if session.get("ended_by") in {"completed", "time_cap"}:
+                    continue
+                started = _at(session.get("started_at") or session.get("created_at"))
+                duration = max(0, int((cutoff - started).total_seconds())) if started else None
+                patch = {"ended_at": cutoff.isoformat(), "ended_by": "time_cap"}
+                if duration is not None:
+                    patch["duration_sec"] = duration
+                update = (supabase_admin.table("quiz_sessions").update(patch)
+                          .eq("id", session["id"]))
+                if session.get("ended_by"):
+                    update = update.eq("ended_by", session["ended_by"])
+                else:
+                    update = update.is_("ended_by", "null")
+                update.execute()
+                session.update(patch)
+            course_verdict(
+                user_id=user_id, bank_id=bank_id,
+                session_ids=[row["id"] for row in sessions],
+                assignment_item_id=item["id"], timed_out=True,
+            )
+            result["finalized"] += 1
+        except Exception as exc:  # noqa: BLE001
+            result["failed"] += 1
+            logger.warning(
+                "[course-timer-reaper] finalize failed item=%s: %s", item.get("id"), exc,
+            )
+    return result
 
 
 # ── Analytics (Pha 5a) ───────────────────────────────────────────────

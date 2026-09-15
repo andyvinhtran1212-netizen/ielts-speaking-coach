@@ -22,13 +22,14 @@ DECLARE
     v_opened_at TIMESTAMPTZ;
     v_submitted_at TIMESTAMPTZ;
     v_config JSONB;
+    v_due_at TIMESTAMPTZ;
     v_limit_text TEXT;
     v_limit_minutes INTEGER;
     v_now TIMESTAMPTZ := clock_timestamp();
     v_session_id UUID;
 BEGIN
-    SELECT cai.opened_at, cai.submitted_at, ca.content_config
-      INTO v_opened_at, v_submitted_at, v_config
+    SELECT cai.opened_at, cai.submitted_at, ca.content_config, ca.due_at
+      INTO v_opened_at, v_submitted_at, v_config, v_due_at
       FROM public.class_assignment_items AS cai
       JOIN public.class_assignments AS ca ON ca.id = cai.assignment_id
       JOIN public.students AS s ON s.id = cai.student_id
@@ -48,6 +49,10 @@ BEGIN
         RAISE EXCEPTION 'timed_course_item_submitted'
             USING ERRCODE = '55000';
     END IF;
+    IF v_due_at IS NOT NULL AND v_due_at <= v_now THEN
+        RAISE EXCEPTION 'timed_course_assignment_expired'
+            USING ERRCODE = '55000';
+    END IF;
 
     v_limit_text := v_config ->> 'time_limit_minutes';
     IF v_limit_text IS NULL OR v_limit_text !~ '^[0-9]+$' THEN
@@ -65,7 +70,10 @@ BEGIN
     -- course-resume, while a direct session-start request may create its next
     -- ordinary stage session after checking that the clock is still live.
     IF v_opened_at IS NOT NULL THEN
-        IF v_opened_at + make_interval(mins => v_limit_minutes) <= v_now THEN
+        IF LEAST(
+            v_opened_at + make_interval(mins => v_limit_minutes),
+            COALESCE(v_due_at, 'infinity'::TIMESTAMPTZ)
+        ) <= v_now THEN
             RAISE EXCEPTION 'timed_course_assignment_expired'
                 USING ERRCODE = '55000';
         END IF;
@@ -96,4 +104,3 @@ GRANT EXECUTE ON FUNCTION public.quiz_start_timed_course_session(UUID, UUID, UUI
 
 COMMENT ON FUNCTION public.quiz_start_timed_course_session(UUID, UUID, UUID, TEXT) IS
 'Atomically anchors a timed Course assignment and inserts its first quiz session before answer-bearing questions are released.';
-

@@ -1166,7 +1166,12 @@ def assignment_timer_state(
             "started_at": None, "expires_at": None,
             "time_remaining_seconds": limit * 60, "is_expired": False,
         }
-    expires = started + timedelta(minutes=limit)
+    configured_expires = started + timedelta(minutes=limit)
+    # A class deadline is an equally canonical boundary.  When a learner opens
+    # a 60-minute assessment ten minutes before ``due_at``, the effective clock
+    # is ten minutes — never an hour that silently extends the assignment.
+    due = _at((assignment or {}).get("due_at"))
+    expires = min(configured_expires, due) if due is not None else configured_expires
     current = now or datetime.now(timezone.utc)
     return {
         "is_timed": True, "time_limit_minutes": limit,

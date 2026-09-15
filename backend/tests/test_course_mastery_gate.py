@@ -454,6 +454,29 @@ def test_expired_server_clock_forces_timeout_and_discards_late_answers_without_f
     assert out["next_action"] == "timed_out"
 
 
+def test_late_verdict_preserves_a_canonically_on_time_completion():
+    """Network delay after an on-time end must not rewrite a pass as timeout."""
+    ss = _sessions(
+        1, ended_by="completed", created_at="2026-09-15T01:00:00+00:00",
+        ended_at="2026-09-15T01:29:59+00:00",
+    )
+    item = {
+        "id": "it-1", "passed_at": None, "submitted_at": None,
+        "opened_at": "2026-09-15T01:00:00+00:00",
+        "mastery": None, "score": None,
+    }
+    attempts = _attempts(ss, _given(10))
+    for attempt in attempts:
+        attempt["created_at"] = "2026-09-15T01:29:58+00:00"
+    out, _ = _verdict(
+        sessions=ss, attempts=attempts, item_row=item,
+        config={"time_limit_minutes": 30}, timed_out=False,
+    )
+    assert out["passed"] is True
+    assert out.get("timed_out") is not True
+    assert out["next_action"] == "passed"
+
+
 def test_timed_out_retake_uses_the_retake_sample_as_denominator():
     ss = _sessions(
         1, kind="retake", ended_by="time_cap",
