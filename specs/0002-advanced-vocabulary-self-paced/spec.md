@@ -139,11 +139,14 @@ that prevents answer leakage and gives admins canonical completion evidence.
   version is imported. An Advanced bank referenced by any assignment or immutable
   version cannot be deleted; admin may unpublish/archive it to prevent new assignment,
   while existing pinned assignments and all evidence remain resolvable. Importing a
-  new bank revision and issuing an assignment must serialize on the same bank-scoped
-  database lock: the import atomically replaces the question rows and switches the
-  bank runtime metadata, while assignment issuance atomically reads that metadata and
-  persists its frozen snapshot. Either commit order therefore yields a wholly old or
-  wholly new revision, never a mixed snapshot/question set.
+  new bank revision, changing its published state, and issuing an assignment must
+  serialize on the same bank-scoped database lock: the import atomically replaces the
+  question rows and switches the bank runtime metadata; publish-state mutation commits
+  before any later issuance can proceed; and assignment issuance atomically reads the
+  metadata, revalidates `is_published` immediately before persistence, and writes its
+  frozen snapshot. Either import/issuance commit order therefore yields a wholly old
+  or wholly new revision, never a mixed snapshot/question set, while unpublish-first
+  rejects issuance and issuance-first completes before unpublish returns.
 - **FR-009:** Starting either Practice stage creates exactly one immutable server-
   selected question set for that assignment item/stage. Repeated starts, response-
   loss recovery, and reload return the original persisted selection rather than

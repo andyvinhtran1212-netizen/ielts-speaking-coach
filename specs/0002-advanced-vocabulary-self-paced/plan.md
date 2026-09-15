@@ -104,12 +104,15 @@
   ordering. These operations therefore serialize with learner mutations: an access-
   revocation winner permits no later evidence, while a mutation winner commits before
   removal/transfer/archive returns and closes access.
-- The importer/version switch and assignment issuance use dedicated database RPC
-  transactions that acquire the same bank-scoped advisory lock. The importer replaces
-  all revision-owned question rows and updates runtime metadata in one transaction;
-  assignment issuance reads that metadata and writes the frozen assignment snapshot
-  in one transaction. Barrier tests force both commit orders and reject every mixed-
-  revision assignment snapshot.
+- The importer/version switch, publish-state mutation, and assignment issuance use
+  dedicated database RPC transactions that acquire the same bank-scoped advisory
+  lock. The importer replaces all revision-owned question rows and updates runtime
+  metadata in one transaction; assignment issuance reads that metadata, revalidates
+  `is_published` immediately before persistence, and writes the frozen assignment
+  snapshot in one transaction. Barrier tests force both import/issuance commit orders
+  and reject every mixed-revision snapshot, then force both unpublish/issuance orders:
+  unpublish-first rejects issuance, while issuance-first completes before the bank is
+  retired and both the assignment list and bank picker agree after reload.
 
 ## API contract
 

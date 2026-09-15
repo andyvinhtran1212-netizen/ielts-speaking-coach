@@ -93,6 +93,9 @@ on staging and replacement implementation commits are created from that base.
   races on the shared bank-scoped lock. Verify import-first creates a wholly new
   frozen snapshot and assignment-first creates a wholly old snapshot; neither order
   may combine metadata, authored payload, or question rows from different revisions.
+  Force both unpublish-versus-assignment orders on the same lock: unpublish-first must
+  make issuance fail its final `is_published` recheck, while issuance-first commits
+  before unpublish returns; the assignment list and bank picker must agree after reload.
 - Timing truth: pending capped per-question Practice response time and Reading/
   Listening duration persistence, idempotent retry totals, untimed Vocabulary/rewrite
   completion timestamps, and matching learner/admin reload projections without
