@@ -305,33 +305,22 @@ def _constitutional_obligations(text: str) -> set[str]:
         prose[match.start() : match.end()] = " " * (match.end() - match.start())
     for paragraph in re.split(r"\n[ \t]*\n", "".join(prose)):
         normalized = re.sub(r"\s+", " ", paragraph).strip()
-        modal_context = re.sub(r"(?P<ticks>`+).*?(?P=ticks)", "", normalized)
-        example_marker = re.match(
-            r"^(?:example\s*:|for example\s*[,.:]|e\.g\.\s*[,.:])",
-            modal_context,
+        marked_example = re.match(
+            r"^example:\s+(?P<ticks>`+).*?(?P=ticks)(?:[.!?])?(?:\s+|$)",
+            normalized,
             re.IGNORECASE,
         )
-        if example_marker:
-            example_body = modal_context[example_marker.end() :]
-            sentence_end = re.search(
-                r"[.!?](?:[\"”’])?(?=\s+[A-Z]|\s*$)", example_body
-            )
-            modal_context = (
-                example_body[sentence_end.end() :].lstrip()
-                if sentence_end
-                else ""
-            )
-        quoted_modal = r"(?:MUST(?: NOT)?|SHOULD(?: NOT)?|MAY(?: NOT)?)"
-        modal_context = re.sub(
-            rf'(?:"\s*{quoted_modal}\s*"|“\s*{quoted_modal}\s*”|‘\s*{quoted_modal}\s*’)',
-            "",
-            modal_context,
+        candidate = (
+            normalized[marked_example.end() :].lstrip()
+            if marked_example
+            else normalized
         )
+        modal_context = re.sub(r"(?P<ticks>`+).*?(?P=ticks)", "", candidate)
         if re.search(
             r"\b(?:MUST(?: NOT)?|SHOULD(?: NOT)?|MAY(?: NOT)?)\b",
             modal_context,
         ):
-            obligations.add(normalized)
+            obligations.add(candidate)
     return obligations
 
 

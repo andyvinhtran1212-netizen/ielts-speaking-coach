@@ -109,8 +109,7 @@ over historical migration or sprint notes.
 - A machine-classified patch clarification MUST append a sentence prefixed
   `Clarification:` without negating, waiving, replacing, or excepting the
   existing obligation; all other obligation edits are classified conservatively.
-- Normative-language examples outside obligation lists MUST begin with
-  `Example:`, `For example,`, or `E.g.,`, or be formatted as code; unmarked
-  prose containing `MUST`, `SHOULD`, or `MAY` participates in versioning. An
-  example marker covers only its first sentence; later sentences are evaluated
-  independently.
+- Normative-language examples outside obligation lists MUST use the standalone
+  form `Example: \`...\`` or a fenced code block. The marker exempts only its
+  inline-code span; any following prose containing `MUST`, `SHOULD`, or `MAY`
+  participates independently in versioning.
