@@ -124,6 +124,40 @@ def test_advanced_vocabulary_syllable_segments_do_not_break_audio_readiness():
     assert cfg["runtime"] == runtime
 
 
+def test_advanced_vocabulary_tally_uses_six_part_evidence_not_generic_quiz(monkeypatch):
+    from services import advanced_vocab_service
+
+    monkeypatch.setattr(advanced_vocab_service, "assignment_results", lambda **_kwargs: {
+        "students": [{
+            "item": {
+                "student_id": "student-1", "opened_at": "2026-09-15T01:00:00Z",
+                "submitted_at": None, "passed_at": None,
+                "artifact_kind": None, "artifact_id": None,
+            },
+            "student": {
+                "user_id": "user-1", "full_name": "Học viên A", "student_code": "HV01",
+            },
+            "stages": [{"stage": "vocabulary", "status": "completed"}],
+            "sections": [],
+            "practice_attempts": [],
+        }],
+    })
+
+    out = adm._advanced_vocab_assignment_tally({
+        "id": "assignment-1", "skill": "course", "title": "Advanced T01",
+        "due_at": None,
+    })
+
+    learner = out["students"][0]
+    assert out["advanced_vocab"] is True and out["score_policy"] == "none"
+    assert learner["course_state"] == "in_progress"
+    assert (learner["sections_done"], learner["sections_total"]) == (1, 6)
+    assert {row["key"] for row in learner["missing_sections"]} == {
+        "practice_1", "practice_2", "reading", "controlled_rewrite", "listening",
+    }
+    assert all(row["key"] != "quiz" for row in learner["missing_sections"])
+
+
 # ── Từ chối ──────────────────────────────────────────────────────────────────
 
 def test_a_bank_from_ANOTHER_course_is_refused():

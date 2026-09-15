@@ -4438,16 +4438,28 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
     lẫn trục vướng — và bỏ sót đúng những em ĐƯỢC GIAO mà chưa mở bài lần nào,
     tức là bỏ sót đúng điều bảng này sinh ra để nói (codex PR 945).
     """
+    # Read the assignment snapshot first.  It is the canonical renderer/data
+    # contract frozen when the teacher issued the task; falling back to a
+    # generic quiz report when this read fails would produce a plausible but
+    # false "untouched" table for Advanced Vocabulary.
+    out: dict = {"students": [], "axes": [], "bank_id": bank_id,
+                 "stages_total": 0, "writing_total": 0, "stale": False,
+                 "idle_cutoff_sec": IDLE_CUTOFF_SEC}
+    try:
+        assignment_rows = (supabase_admin.table("class_assignments")
+                           .select("id, content_config").eq("id", assignment_id)
+                           .limit(1).execute().data) or []
+        assignment = assignment_rows[0] if assignment_rows else {}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] attempt-report assignment metadata failed asg=%s: %s",
+                       assignment_id, exc)
+        out["stale"] = True
+        return out
+    runtime = ((assignment.get("content_config") or {}).get("runtime") or {})
+
     # Dedicated self-paced lessons keep a different evidence ledger and have no
     # overall score. Adapt it to the existing admin effort table without
     # presenting its practice accuracy as a course grade.
-    try:
-        bank_rows = (supabase_admin.table("quiz_banks").select("meta")
-                     .eq("id", bank_id).limit(1).execute().data) or []
-        runtime = (((bank_rows[0] if bank_rows else {}).get("meta") or {})
-                   .get("runtime") or {})
-    except Exception:  # noqa: BLE001
-        runtime = {}
     if runtime.get("kind") == "advanced_vocab":
         from services import advanced_vocab_service
         report = advanced_vocab_service.assignment_results(assignment_id=assignment_id)
@@ -4460,8 +4472,8 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
         students = []
         for row in report["students"]:
             item = row["item"]
-            done = {x.get("stage") for x in row["stages"]}
-            done.update(x.get("section") for x in row["sections"])
+            done = ({x.get("stage") for x in row["stages"]}
+                    | {x.get("section") for x in row["sections"]})
             seconds = sum(int(x.get("response_time_ms") or 0) / 1000
                           for x in row["practice_attempts"])
             seconds += sum(int(x.get("duration_sec") or 0) for x in row["sections"])
@@ -4489,17 +4501,8 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
     # `stale` = có ít nhất một lượt đọc hỏng, nên các con số dưới đây CÓ THỂ
     # thiếu. Im lặng ở đây là vẽ ra một báo cáo trông bình thường mà sai: lượt
     # đang làm dở đọc thành "chưa mở", và trục vướng biến mất sạch.
-    out: dict = {"students": [], "axes": [], "bank_id": bank_id,
-                 "stages_total": 0, "writing_total": 0, "stale": False,
-                 "idle_cutoff_sec": IDLE_CUTOFF_SEC}
-
-    assignment: dict = {}
     required_sections: list[str] = []
     try:
-        assignment_rows = (supabase_admin.table("class_assignments")
-                           .select("id, content_config").eq("id", assignment_id)
-                           .limit(1).execute().data) or []
-        assignment = assignment_rows[0] if assignment_rows else {}
         required_sections = course_required_sections(assignment, bank_id)
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] attempt-report assignment shape failed asg=%s: %s",

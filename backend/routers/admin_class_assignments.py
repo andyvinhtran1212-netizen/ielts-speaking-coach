@@ -1223,6 +1223,92 @@ def _hand_in_status(item: dict, student: dict, due, sealed: bool) -> str:
     return "missing" if sealed else "pending"
 
 
+def _advanced_vocab_assignment_tally(assignment: dict) -> dict:
+    """Project the dedicated six-part ledger into the shared tally contract."""
+    from services import advanced_vocab_service
+
+    report = advanced_vocab_service.assignment_results(
+        assignment_id=str(assignment["id"]),
+    )
+    labels = {
+        "vocabulary": "Từ vựng",
+        "practice_1": "Luyện nhận diện",
+        "practice_2": "Luyện vận dụng",
+        "reading": "Reading",
+        "controlled_rewrite": "Controlled rewrite",
+        "listening": "Listening",
+    }
+    due = _at(assignment.get("due_at"))
+    sealed = bool(due and datetime.now(timezone.utc) > due)
+    rows = []
+    for evidence in report["students"]:
+        item = evidence["item"]
+        student = evidence["student"]
+        completed = {
+            row.get("stage") for row in evidence["stages"]
+            if row.get("status") == "completed"
+        }
+        completed.update(row.get("section") for row in evidence["sections"])
+        started = bool(completed or evidence["practice_attempts"] or item.get("opened_at"))
+        course_state = ("passed" if item.get("submitted_at") else
+                        "in_progress" if started else "untouched")
+        rows.append({
+            "student_id": item.get("student_id"),
+            "name": student.get("full_name") or "",
+            "student_code": student.get("student_code"),
+            "status": _hand_in_status(item, student, due, sealed),
+            "submitted_at": item.get("submitted_at"),
+            "score": None,
+            "flags": [],
+            "flag_level": None,
+            "course_state": course_state,
+            "next_action": (None if course_state == "passed" else
+                            "Tiếp tục bài self-paced" if started else "Mở bài"),
+            "pass_pct": None,
+            "near_pass_pct": None,
+            "sections_done": len(completed),
+            "sections_total": len(labels),
+            "missing_sections": [
+                {"key": key, "label": label}
+                for key, label in labels.items() if key not in completed
+            ],
+            "passed_at": item.get("passed_at"),
+            "retakes": 0,
+            "verdicts": 1 if item.get("submitted_at") else 0,
+            "artifact_kind": item.get("artifact_kind"),
+            "artifact_id": item.get("artifact_id"),
+            "has_writing": False,
+            "writing_expected": False,
+        })
+    order = {"missing": 0, "pending": 1, "no-account": 2,
+             "late": 3, "submitted": 4}
+    rows.sort(key=lambda row: (order.get(row["status"], 9), row["name"].lower()))
+    return {
+        "advanced_vocab": True,
+        "score_policy": "none",
+        "writing_total": 0,
+        "assignment": {
+            "id": assignment["id"], "title": assignment.get("title"),
+            "skill": assignment.get("skill"), "due_at": assignment.get("due_at"),
+        },
+        "sealed": sealed,
+        "students": rows,
+        "counts": {
+            "total": len(rows),
+            "submitted": sum(row["status"] in ("submitted", "late") for row in rows),
+            "late": sum(row["status"] == "late" for row in rows),
+            "missing": sum(row["status"] == "missing" for row in rows),
+            "no_account": sum(row["status"] == "no-account" for row in rows),
+            "flagged": 0,
+            "passed": sum(row["course_state"] == "passed" for row in rows),
+            "near_pass": 0,
+            "retry_full": 0,
+            "in_progress": sum(row["course_state"] == "in_progress" for row in rows),
+            "untouched": sum(row["course_state"] == "untouched" for row in rows),
+        },
+    }
+
+
 @router.get("/{cohort_id}/assignments/{assignment_id}/tally")
 async def assignment_tally(
     cohort_id: str,
@@ -1251,6 +1337,12 @@ async def assignment_tally(
     if not rows:
         raise HTTPException(404, "Không tìm thấy bài giao trong lớp này")
     assignment = rows[0]
+    runtime = ((assignment.get("content_config") or {}).get("runtime") or {})
+    if runtime.get("kind") == "advanced_vocab":
+        # Do not run the generic course reconciler or infer a one-section quiz
+        # from imported practice rows.  This task is complete only when its
+        # dedicated six-part evidence ledger says so.
+        return _advanced_vocab_assignment_tally(assignment)
 
     # Vá sổ trước khi đếm: Reading/Listening không có móc hoàn thành, nên bài đã
     # nộp chỉ vào sổ khi có ai đó đọc. Đây chính là lúc con số sai sẽ bị nhìn.

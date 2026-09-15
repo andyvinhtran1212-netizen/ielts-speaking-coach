@@ -597,7 +597,7 @@ def submit_reading(*, user_id: str, bank_id: str, item_id: str,
 def submit_listening(*, user_id: str, bank_id: str, item_id: str,
                      answers: dict, duration_sec: int = 0) -> dict:
     _, runtime = _runtime(bank_id)
-    item = _owned_item(bank_id, user_id, item_id)
+    _owned_item(bank_id, user_id, item_id)
     _require_stage(item_id, "controlled_rewrite")
     lesson = load_lesson(runtime.get("lesson_id") or "")
     content = _activity(lesson, "listening_lab").get("content") or {}
@@ -606,19 +606,10 @@ def submit_listening(*, user_id: str, bank_id: str, item_id: str,
                              duration_sec=duration_sec, content=content)
     progress = _progress(item_id)
     if progress["required_completed"]:
-        mastery = {
-            "runtime": "advanced_vocab_v1", "lesson_id": lesson["lesson_id"],
-            "completed_stages": progress["completed_stages"],
-            "completion_policy": "required_interactions",
-        }
-        try:
-            rpc_result = _admin().rpc("finalize_advanced_vocab_assignment", {
-                "p_item_id": item_id, "p_user_id": user_id,
-                "p_bank_id": bank_id, "p_mastery": mastery,
-            }).execute().data
-        except Exception as exc:  # noqa: BLE001
-            raise HTTPException(500, "Đã lưu bài nghe nhưng chưa chốt được bài giao") from exc
-        result["assignment"] = {"completed": True, "pct": None, "row": rpc_result}
+        # Migration 263 owns this invariant with an AFTER INSERT trigger.  The
+        # listening row and assignment finalization therefore commit together;
+        # an exception in either operation rolls the whole transaction back.
+        result["assignment"] = {"completed": True, "pct": None}
     result["progress"] = _progress(item_id)
     return result
 

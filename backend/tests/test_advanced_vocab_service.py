@@ -209,10 +209,38 @@ def test_finalizer_is_atomic_and_overall_score_is_null():
                  / "migrations" / "263_advanced_vocab_stage_progress.sql").read_text()
 
     assert "finalize_advanced_vocab_assignment" in migration
+    assert "trg_finalize_advanced_vocab_on_listening" in migration
+    assert "AFTER INSERT ON course_section_submissions" in migration
+    assert "PERFORM finalize_advanced_vocab_assignment" in migration
     assert "COUNT(DISTINCT c.section)" in migration
     assert "controlled_rewrite" in migration
     assert "score = NULL" in migration
     assert "REVOKE ALL ON FUNCTION" in migration
+
+
+def test_listening_completion_does_not_depend_on_a_second_rpc(monkeypatch):
+    class _NoSecondRpc:
+        def rpc(self, *_args, **_kwargs):
+            raise AssertionError("finalization must be atomic with the listening insert")
+
+    monkeypatch.setattr(service, "_admin", lambda: _NoSecondRpc())
+    monkeypatch.setattr(service, "_runtime", lambda _bank: (
+        {"id": "bank-1"}, {"lesson_id": "ADV-T01"},
+    ))
+    monkeypatch.setattr(service, "_owned_item", lambda *_args, **_kwargs: {"id": "item-1"})
+    monkeypatch.setattr(service, "_require_stage", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(service, "_activity", lambda *_args, **_kwargs: {"content": {}})
+    monkeypatch.setattr(service, "_submit_section", lambda **_kwargs: {"section": "listening"})
+    monkeypatch.setattr(service, "_progress", lambda _item: {
+        "required_completed": True,
+        "completed_stages": list(service._REQUIRED_STAGES),
+    })
+
+    out = service.submit_listening(
+        user_id="user-1", bank_id="bank-1", item_id="item-1", answers={"1": "A"},
+    )
+
+    assert out["assignment"] == {"completed": True, "pct": None}
 
 
 def test_admin_results_collects_each_learner_evidence_without_an_overall_score(monkeypatch):

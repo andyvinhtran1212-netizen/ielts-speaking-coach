@@ -10,6 +10,8 @@ from __future__ import annotations
 import inspect
 from unittest.mock import patch
 
+import pytest
+
 from services import quiz_service as qs
 
 
@@ -74,6 +76,31 @@ def test_the_report_never_writes():
 def test_a_read_failure_returns_an_empty_report_not_a_500():
     src = _src()
     assert "except Exception" in src and "return out" in src
+
+
+def test_advanced_runtime_failure_never_falls_back_to_generic_progress():
+    from services import advanced_vocab_service
+
+    class _AdvancedAssignmentDB:
+        class _Query:
+            def select(self, *_args, **_kwargs): return self
+            def eq(self, *_args): return self
+            def limit(self, *_args): return self
+            def execute(self):
+                return type("Resp", (), {"data": [{
+                    "id": "a1",
+                    "content_config": {"runtime": {"kind": "advanced_vocab"}},
+                }]})()
+
+        def table(self, _name): return self._Query()
+
+    with patch.object(qs, "supabase_admin", _AdvancedAssignmentDB()), \
+         patch.object(advanced_vocab_service, "assignment_results",
+                      side_effect=RuntimeError("bank metadata unavailable")), \
+         patch.object(qs, "_report_pages",
+                      side_effect=AssertionError("generic ledger must not be read")):
+        with pytest.raises(RuntimeError, match="metadata unavailable"):
+            qs.course_attempt_report(bank_id="b1", assignment_id="a1")
 
 
 def test_the_axes_carry_both_how_wrong_and_how_slow():

@@ -165,6 +165,107 @@ REVOKE ALL ON FUNCTION finalize_advanced_vocab_assignment(UUID, UUID, UUID, JSON
 GRANT EXECUTE ON FUNCTION finalize_advanced_vocab_assignment(UUID, UUID, UUID, JSONB)
     TO service_role;
 
+-- Listening is the final required interaction.  Finalize from the same
+-- database transaction as its canonical submission so a process/network
+-- failure can never leave Listening persisted while the assignment remains
+-- open.  Generic course listening rows pass through unchanged.
+CREATE OR REPLACE FUNCTION finalize_advanced_vocab_on_listening()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_runtime JSONB;
+    v_lesson_id TEXT;
+    v_mastery JSONB;
+BEGIN
+    IF NEW.section <> 'listening' THEN
+        RETURN NEW;
+    END IF;
+
+    SELECT COALESCE(q.meta -> 'runtime', '{}'::jsonb)
+      INTO v_runtime
+      FROM quiz_banks q
+     WHERE q.id = NEW.bank_id;
+    IF COALESCE(v_runtime ->> 'kind', '') <> 'advanced_vocab' THEN
+        RETURN NEW;
+    END IF;
+
+    v_lesson_id := v_runtime ->> 'lesson_id';
+    v_mastery := jsonb_build_object(
+        'runtime', 'advanced_vocab_v1',
+        'lesson_id', v_lesson_id,
+        'completed_stages', jsonb_build_array(
+            'vocabulary', 'practice_1', 'practice_2', 'reading',
+            'controlled_rewrite', 'listening'
+        ),
+        'completion_policy', 'required_interactions'
+    );
+    PERFORM finalize_advanced_vocab_assignment(
+        NEW.class_assignment_item_id, NEW.user_id, NEW.bank_id, v_mastery
+    );
+    RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION finalize_advanced_vocab_on_listening()
+    FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION finalize_advanced_vocab_on_listening()
+    TO service_role;
+
+DROP TRIGGER IF EXISTS trg_finalize_advanced_vocab_on_listening
+    ON course_section_submissions;
+CREATE TRIGGER trg_finalize_advanced_vocab_on_listening
+    AFTER INSERT ON course_section_submissions
+    FOR EACH ROW EXECUTE FUNCTION finalize_advanced_vocab_on_listening();
+
+-- Repair any complete pilot row produced before the atomic trigger existed.
+UPDATE class_assignment_items i
+   SET state = 'submitted',
+       submitted_at = COALESCE(i.submitted_at, evidence.completed_at),
+       passed_at = COALESCE(i.passed_at, evidence.completed_at),
+       score = NULL,
+       artifact_kind = 'advanced_vocab_progress',
+       artifact_id = i.id,
+       mastery = evidence.mastery,
+       updated_at = NOW()
+  FROM (
+      SELECT i2.id AS item_id,
+             MAX(c.submitted_at) AS completed_at,
+             jsonb_build_object(
+                 'runtime', 'advanced_vocab_v1',
+                 'lesson_id', MAX(q.meta -> 'runtime' ->> 'lesson_id'),
+                 'completed_stages', jsonb_build_array(
+                     'vocabulary', 'practice_1', 'practice_2', 'reading',
+                     'controlled_rewrite', 'listening'
+                 ),
+                 'completion_policy', 'required_interactions'
+             ) AS mastery
+        FROM class_assignment_items i2
+        JOIN class_assignments a ON a.id = i2.assignment_id
+        JOIN quiz_banks q ON q.id = a.content_id
+        JOIN course_section_submissions c
+          ON c.class_assignment_item_id = i2.id
+        WHERE q.meta -> 'runtime' ->> 'kind' = 'advanced_vocab'
+          AND EXISTS (
+              SELECT 1 FROM advanced_vocab_stage_progress p
+               WHERE p.class_assignment_item_id = i2.id
+               GROUP BY p.class_assignment_item_id
+              HAVING COUNT(DISTINCT p.stage) FILTER (
+                  WHERE p.status = 'completed'
+                    AND p.stage IN ('vocabulary', 'practice_1', 'practice_2',
+                                    'controlled_rewrite')
+              ) = 4
+          )
+        GROUP BY i2.id
+       HAVING COUNT(DISTINCT c.section) FILTER (
+           WHERE c.section IN ('reading', 'listening')
+       ) = 2
+  ) evidence
+ WHERE i.id = evidence.item_id
+   AND i.submitted_at IS NULL;
+
 -- The generic assignment-delete RPC predates this ledger.  Protect partial
 -- self-paced work too: otherwise an item with 47 answers but no submitted_at
 -- would still look "unsubmitted" to that RPC and cascade-delete its evidence.
