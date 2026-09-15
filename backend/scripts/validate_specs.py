@@ -289,7 +289,7 @@ def _constitutional_obligations(text: str) -> set[str]:
     obligations: set[str] = set()
     list_matches = list(
         re.finditer(
-            r"^-\s+(?P<body>\S.*?(?:\n {2,}\S.*?)*)\s*(?=\n-\s+|\n##\s+|\Z)",
+            r"^ {0,3}-[ \t]+(?P<body>\S[^\n]*(?:\n {2,}[^\n]*)*)",
             visible,
             re.MULTILINE,
         )
@@ -323,42 +323,6 @@ def _constitutional_obligations(text: str) -> set[str]:
     return obligations
 
 
-def _is_appended_clarification(old: str, new: str) -> bool:
-    normalize = lambda value: re.sub(r"[.!?]+$", "", value.casefold()).strip()
-    old_normalized = normalize(old)
-    new_normalized = normalize(new)
-    modal_pattern = r"\b(?:must not|must|should not|should|may not|may)\b"
-    suffix = new_normalized[len(old_normalized) :].lstrip(" .:—-")
-    clarification = re.fullmatch(r"clarification:\s+(\S.*)", suffix)
-    contradictory = bool(
-        clarification
-        and re.search(
-            r"\b(?:no longer|does not apply|do not apply|not applicable|except|unless|waiv\w*|overrid\w*|replac\w*|remov\w*)\b",
-            clarification.group(1),
-        )
-    )
-    return (
-        len(new_normalized) > len(old_normalized)
-        and new_normalized.startswith(old_normalized)
-        and re.findall(modal_pattern, old_normalized)
-        == re.findall(modal_pattern, new_normalized)
-        and clarification is not None
-        and not contradictory
-    )
-
-
-def _all_appended_clarifications(removed: set[str], added: set[str]) -> bool:
-    if not removed or len(removed) != len(added):
-        return False
-    unmatched = set(added)
-    for old in sorted(removed):
-        matches = [new for new in unmatched if _is_appended_clarification(old, new)]
-        if not matches:
-            return False
-        unmatched.remove(min(matches, key=len))
-    return not unmatched
-
-
 def _expected_constitution_version(
     base_text: str, head_text: str
 ) -> tuple[tuple[int, int, int] | None, tuple[int, int, int] | None, tuple[int, int, int] | None, str]:
@@ -368,11 +332,10 @@ def _expected_constitution_version(
         return base_version, head_version, None, "invalid base"
     removed = _constitutional_obligations(base_text) - _constitutional_obligations(head_text)
     added = _constitutional_obligations(head_text) - _constitutional_obligations(base_text)
-    clarification = _all_appended_clarifications(removed, added)
-    if removed and not clarification:
+    if removed:
         expected = (base_version[0] + 1, 0, 0)
         bump = "major"
-    elif added and not clarification:
+    elif added:
         expected = (base_version[0], base_version[1] + 1, 0)
         bump = "minor"
     else:

@@ -1734,7 +1734,7 @@ def test_constitution_declarative_boundary_removal_requires_major_bump(
     assert any("major version bump to 2.0.0" in error for error in errors)
 
 
-def test_constitution_appended_rule_clarification_accepts_patch_bump(
+def test_constitution_separate_prose_clarification_accepts_patch_bump(
     tmp_path: Path,
 ) -> None:
     root = _valid_repo(tmp_path)
@@ -1750,8 +1750,9 @@ def test_constitution_appended_rule_clarification_accepts_patch_bump(
         constitution.read_text(encoding="utf-8")
         .replace("version: 1.0.0", "version: 1.0.1")
         .replace(
-            "the previous diff.",
-            "the previous diff. Clarification: this comparison occurs during independent review.",
+            "## 8. Scoped parallel work",
+            "Clarification: review comparison occurs during independent review.\n\n"
+            "## 8. Scoped parallel work",
         ),
         encoding="utf-8",
     )
@@ -1767,7 +1768,7 @@ def test_constitution_appended_rule_clarification_accepts_patch_bump(
     assert validator.validate_pull_request(event, specs, root) == []
 
 
-def test_constitution_appended_contradiction_requires_major_bump(
+def test_constitution_optional_rule_edit_requires_major_bump(
     tmp_path: Path,
 ) -> None:
     root = _valid_repo(tmp_path)
@@ -1784,12 +1785,12 @@ def test_constitution_appended_contradiction_requires_major_bump(
         .replace("version: 1.0.0", "version: 1.0.1")
         .replace(
             "the previous diff.",
-            "the previous diff. Clarification: this restriction no longer applies.",
+            "the previous diff. Clarification: compliance is optional.",
         ),
         encoding="utf-8",
     )
     subprocess.run(["git", "add", str(constitution)], cwd=root, check=True)
-    subprocess.run(["git", "commit", "-qm", "contradict review obligation"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "make review optional"], cwd=root, check=True)
     repository_errors, specs = validator.validate_repository(root)
     assert repository_errors == []
     event = _event(root=root, change_class="small", spec="N/A", base_sha=base_sha)

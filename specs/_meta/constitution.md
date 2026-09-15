@@ -106,9 +106,9 @@ over historical migration or sprint notes.
 - Amendments to this constitution require a PR rationale and a semantic version
   change: major for removed/redefined obligations, minor for new obligations,
   patch for clarification.
-- A machine-classified patch clarification MUST append a sentence prefixed
-  `Clarification:` without negating, waiving, replacing, or excepting the
-  existing obligation; all other obligation edits are classified conservatively.
+- A machine-classified patch clarification MUST use separate non-normative prose
+  without changing an existing obligation string. Any obligation-text edit is
+  classified conservatively as major; a new obligation is minor.
 - Normative-language examples outside obligation lists MUST use the standalone
   form `Example: \`...\`` or a fenced code block. The marker exempts only its
   inline-code span; any following prose containing `MUST`, `SHOULD`, or `MAY`
