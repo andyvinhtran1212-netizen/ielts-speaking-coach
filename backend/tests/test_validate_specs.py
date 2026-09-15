@@ -109,14 +109,18 @@ def _event(
     head: str = "topic",
     coverage: str = "- FR-001 -> automated test",
     include_na_details: bool = True,
+    base_sha: str | None = None,
+    head_sha: str | None = None,
 ) -> dict:
-    base_sha = subprocess.run(
+    current_sha = subprocess.run(
         ["git", "rev-parse", "HEAD"],
         cwd=root,
         check=True,
         capture_output=True,
         text=True,
     ).stdout.strip()
+    base_sha = base_sha or current_sha
+    head_sha = head_sha or current_sha
     details = ""
     if include_na_details:
         details = (
@@ -128,7 +132,7 @@ def _event(
     return {
         "pull_request": {
             "base": {"ref": base, "sha": base_sha},
-            "head": {"ref": head},
+            "head": {"ref": head, "sha": head_sha},
             "body": (
                 f"Change class: {change_class}\nSpec: {spec}\n\n"
                 f"## Requirement coverage\n\n{coverage}\n"
@@ -363,6 +367,20 @@ def test_repository_rejects_underspecified_manual_and_na_evidence(tmp_path: Path
     )
     placeholder_errors, _ = validator.validate_repository(root)
     assert any("N/A evidence must use rationale" in error for error in placeholder_errors)
+    verification.write_text(
+        "## Requirement coverage\n\n"
+        "| FR-001 | Test, query, screenshot, or manual journey | PASS |\n",
+        encoding="utf-8",
+    )
+    pass_errors, _ = validator.validate_repository(root)
+    assert any("PASS evidence must identify" in error for error in pass_errors)
+    verification.write_text(
+        "## Requirement coverage\n\n"
+        "| FR-001 | reviewer=<name>; environment=<preview>; date=2026-09-15; observed=<observable result> | MANUAL |\n",
+        encoding="utf-8",
+    )
+    manual_placeholder_errors, _ = validator.validate_repository(root)
+    assert any("MANUAL evidence must use" in error for error in manual_placeholder_errors)
 
 
 def test_repository_accepts_structured_manual_evidence(tmp_path: Path) -> None:
@@ -815,6 +833,43 @@ def test_small_pr_cannot_skip_details_by_citing_existing_spec(tmp_path: Path) ->
     )
     for heading in ("Problem", "Expected behavior", "Scope", "Verification"):
         assert any(f"'## {heading}'" in error for error in errors)
+
+
+def test_migration_path_requires_approved_high_risk_change(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path, status="approved", risk="high")
+    base_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    _write(root / "backend/migrations/999_test.sql", "select 1;\n")
+    subprocess.run(["git", "add", "backend/migrations/999_test.sql"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "add migration"], cwd=root, check=True)
+    _, specs = validator.validate_repository(root)
+
+    small_errors = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="small",
+            spec="N/A",
+            base_sha=base_sha,
+        ),
+        specs,
+        root,
+    )
+    assert any("migration paths require change class 'high-risk'" in error for error in small_errors)
+    assert validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="high-risk",
+            spec="FEAT-0001",
+            base_sha=base_sha,
+        ),
+        specs,
+        root,
+    ) == []
 
 
 def test_staging_to_main_promotion_is_exempt(tmp_path: Path) -> None:

@@ -55,6 +55,7 @@ developer or agent which requirements are active and how they map to evidence.
   revision without mutating its requirements or approved risk, and approved
   high/critical specs require the high-risk change class; spec-free changes
   include problem, expected behavior, scope, and verification;
+  unambiguous migration paths cannot be downgraded through PR metadata;
   staging-to-main promotions remain exempt from duplicate feature metadata.
   SDD-0000 is the one-time bootstrap exception.
 - **FR-006:** Spec validation runs in a dedicated unfiltered workflow required

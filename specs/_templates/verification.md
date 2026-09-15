@@ -7,7 +7,8 @@
 | FR-001 | Test, query, screenshot, or manual journey | PENDING |
 
 Allowed final results are `PASS`, `MANUAL`, and `N/A`. Use this structured
-format for manual evidence:
+format for manual evidence. `PASS` must name a concrete test, query, screenshot,
+or journey; the example text in this template is not evidence.
 
 `reviewer=<name>; environment=<preview/staging/production>; date=YYYY-MM-DD; observed=<observable result>`
 

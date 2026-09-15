@@ -55,6 +55,7 @@ IMPLEMENTABLE_SPEC_STATUSES = {"approved", "implementing", "verified", "shipped"
 ALLOWED_EVIDENCE_RESULTS = {"PENDING", "PASS", "MANUAL", "N/A"}
 REQUIRED_FEATURE_FILES = ("spec.md", "plan.md", "tasks.md", "verification.md")
 HIGH_RISK_REQUIRED_FILES = ("ui-states.md", "rollout.md")
+HIGH_RISK_PATH_RE = re.compile(r"^(?:backend|supabase)/migrations/.*\.sql$")
 LEGACY_SPEC_DIRS = {"general"}
 REQUIRED_FOUNDATION_FILES = (
     "README.md",
@@ -145,7 +146,7 @@ def _placeholder_value(value: str) -> bool:
     normalized = value.strip()
     return not normalized or bool(
         re.fullmatch(
-            r"(?:<[^>\n]+>|placeholder|tbd|todo)",
+            r"(?:<[^>\n]+>|placeholder|tbd|todo|test, query, screenshot, or manual journey)",
             normalized,
             re.IGNORECASE,
         )
@@ -176,13 +177,17 @@ def _evidence_detail_error(result: str, evidence: str) -> str | None:
     if normalized == "MANUAL":
         fields = _structured_evidence(evidence)
         required = {"reviewer", "environment", "date", "observed"}
-        if not required <= fields.keys() or not re.fullmatch(
-            r"\d{4}-\d{2}-\d{2}", fields.get("date", "")
+        if (
+            not required <= fields.keys()
+            or any(_placeholder_value(fields.get(field, "")) for field in required)
+            or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", fields.get("date", ""))
         ):
             return (
                 "MANUAL evidence must use reviewer=...; environment=...; "
                 "date=YYYY-MM-DD; observed=..."
             )
+    elif normalized == "PASS" and _placeholder_value(evidence):
+        return "PASS evidence must identify a concrete test, query, screenshot, or journey"
     elif normalized == "N/A":
         fields = _structured_evidence(evidence)
         rationale = fields.get("rationale", "")
@@ -433,6 +438,27 @@ def _git_show(root: Path, revision: str, path: str) -> tuple[bool, str | None]:
     return True, result.stdout if result.returncode == 0 else None
 
 
+def _git_changed_paths(root: Path, base_sha: str, head_sha: str) -> tuple[bool, list[str]]:
+    for revision in (base_sha, head_sha):
+        check = subprocess.run(
+            ["git", "-C", str(root), "cat-file", "-e", f"{revision}^{{commit}}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if check.returncode != 0:
+            return False, []
+    result = subprocess.run(
+        ["git", "-C", str(root), "diff", "--name-only", base_sha, head_sha],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return False, []
+    return True, [path for path in result.stdout.splitlines() if path]
+
+
 def _requirement_coverage(body: str) -> list[tuple[str, str]]:
     section = re.sub(
         r"<!--.*?-->",
@@ -457,6 +483,7 @@ def validate_pull_request(
     base = str((pull.get("base") or {}).get("ref") or "")
     base_sha = str((pull.get("base") or {}).get("sha") or "")
     head = str((pull.get("head") or {}).get("ref") or "")
+    head_sha = str((pull.get("head") or {}).get("sha") or "")
     if base == "main" and head == "staging":
         return []
 
@@ -472,6 +499,20 @@ def validate_pull_request(
     if not spec_id:
         errors.append("pull request: add 'Spec: N/A' or an existing spec ID")
         return errors
+
+    if not base_sha or not head_sha:
+        errors.append("pull request: base and head SHAs are required to classify changed paths")
+    else:
+        diff_resolved, changed_paths = _git_changed_paths(root, base_sha, head_sha)
+        if not diff_resolved:
+            errors.append("pull request: cannot resolve base/head SHAs to classify changed paths")
+        else:
+            high_risk_paths = sorted(path for path in changed_paths if HIGH_RISK_PATH_RE.fullmatch(path))
+            if high_risk_paths and change_class != "high-risk":
+                errors.append(
+                    "pull request: migration paths require change class 'high-risk': "
+                    + ", ".join(high_risk_paths)
+                )
 
     requires_spec = change_class in {"feature", "high-risk"}
     if change_class in {"hotfix", "small", "content"}:

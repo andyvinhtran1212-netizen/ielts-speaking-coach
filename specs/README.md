@@ -43,7 +43,8 @@ Templates are under [`_templates/`](_templates/).
 
 High-risk includes grading, result persistence, auth/RLS, access-code truth,
 mock/full-test finalization, schema migrations, regrade/rebuild flows, and paid
-AI behavior changes.
+AI behavior changes. Unambiguous migration paths are checked against the Git
+diff and cannot be downgraded through PR metadata.
 
 ## Naming and lifecycle
 

@@ -7,8 +7,8 @@
 | FR-001 | `specs/_meta/constitution.md`; architecture assertions in validator tests | PASS |
 | FR-002 | Six files under `specs/_templates/`; repository validator | PASS |
 | FR-003 | Naming, metadata, non-empty section, ID, and full index consistency validator tests | PASS |
-| FR-004 | Verified-state incomplete-task plus structured MANUAL/N/A evidence tests | PASS |
-| FR-005 | Full base-spec/risk immutability, risk/change-class alignment, exact coverage, spec-free detail, and promotion-exemption tests | PASS |
+| FR-004 | Verified-state incomplete-task plus concrete PASS and structured MANUAL/N/A evidence tests | PASS |
+| FR-005 | Full base-spec/risk immutability, diff-derived migration classification, risk/change-class alignment, exact coverage, spec-free detail, and promotion-exemption tests | PASS |
 | FR-006 | Dedicated `spec-governance.yml`; typecheck check names cannot be shadowed; promotion requires both workflows | PASS |
 | FR-007 | Updated `AGENTS.md` and `CLAUDE.md`; stale-path source scan | PASS |
 | FR-008 | Final diff contains governance, tests, and top-level documentation only | PASS |
