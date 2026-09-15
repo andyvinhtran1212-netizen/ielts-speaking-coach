@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-15 the highest is `268`, so the next new
-migration is `269`.
+sequence is dense. As of 2026-09-15 the highest is `269`, so the next new
+migration is `270`.
 
 ## Conventions
 
@@ -180,6 +180,11 @@ session available for canonical timeout submission.
 Migration 264 closes the remaining authorization race by locking and rechecking
 the published assignment, release/deadline window, and canonical active cohort
 membership inside that same start transaction.
+
+Migrations 265–268 make timed progress/finalization and Course assessment bank
+replacement transactional and history-safe. Migration 269 gives assignment
+creation and bank replacement the same bank-row lock, then verifies an exact
+preflight revision before persisting the assignment's shape snapshot.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

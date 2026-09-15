@@ -4009,13 +4009,14 @@ def course_verdict(
     if not cur:
         raise HTTPException(404, "Không tìm thấy mục bài giao")
     cur = cur[0]
-    if timed_out and cur.get("passed_at"):
-        # Passed is terminal for every timeout writer, including a stale
-        # browser.  The reaper flag is not an authorization boundary here.
-        return _course_terminal_pass_payload(cur, cfg)
     timer = assignment_timer_state(cur, assignment)
     if timer.get("invalid"):
         raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
+    if cur.get("passed_at") and (timed_out or timer.get("is_timed")):
+        # A timed pass is immutable for every writer.  Another on-time tab may
+        # still post a lower completed session set after the winning pass; it
+        # must not append history or replace the admin's latest percentage.
+        return _course_terminal_pass_payload(cur, cfg)
     clock_expired = bool(timer.get("is_timed") and timer.get("is_expired"))
     if timed_out and not clock_expired:
         raise HTTPException(422, "Đồng hồ máy chủ chưa hết thời gian.")
@@ -4147,7 +4148,7 @@ def course_verdict(
     for _cas in range(3):
         # A pass may win the previous CAS after this request's initial read.
         # Repeat the terminal check on every freshly-read canonical row.
-        if timed_out and cur.get("passed_at"):
+        if cur.get("passed_at") and (timed_out or timer.get("is_timed")):
             return _course_terminal_pass_payload(cur, cfg)
         mastery = cur.get("mastery") or {}
         attempts = list(mastery.get("attempts") or [])

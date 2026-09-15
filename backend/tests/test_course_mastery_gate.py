@@ -544,6 +544,36 @@ def test_timeout_from_stale_browser_cannot_append_after_a_pass():
     assert not any(row[0:2] == ("class_assignment_items", "update") for row in log)
 
 
+def test_on_time_low_score_cannot_append_after_a_timed_pass():
+    existing = {
+        "phase": "run", "pct": 100, "next_action": "passed",
+        "at": "2026-09-15T01:20:00+00:00", "sessions": ["winning-session"],
+    }
+    item = {
+        "id": "it-1", "passed_at": "2026-09-15T01:20:00+00:00",
+        "submitted_at": "2026-09-15T01:20:00+00:00",
+        "opened_at": "2026-09-15T01:00:00+00:00", "score": 100,
+        "mastery": {"attempts": [existing]},
+    }
+    sessions = _sessions(
+        1, ended_by="completed", created_at="2026-09-15T01:01:00+00:00",
+        ended_at="2026-09-15T01:10:00+00:00",
+    )
+    attempts = _attempts(sessions, _given(10, wrong=10))
+    for attempt in attempts:
+        attempt["created_at"] = "2026-09-15T01:09:00+00:00"
+
+    out, log = _verdict(
+        sessions=sessions, attempts=attempts, item_row=item,
+        config={"time_limit_minutes": 30}, timed_out=False,
+    )
+
+    assert out["passed"] is True and out["already_passed"] is True
+    assert out["pct"] == 100
+    assert out["history"][-1]["next_action"] == "passed"
+    assert not any(row[0:2] == ("class_assignment_items", "update") for row in log)
+
+
 def test_timeout_rechecks_passed_at_after_losing_the_first_cas():
     initial = {
         "id": "it-1", "passed_at": None, "submitted_at": None,

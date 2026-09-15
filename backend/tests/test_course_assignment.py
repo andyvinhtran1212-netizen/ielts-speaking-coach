@@ -72,8 +72,10 @@ def _body(**over):
     return adm.AssignmentCreate(**kw)
 
 
-def _resolve(db, body=None):
-    with patch.object(adm, "supabase_admin", db):
+def _resolve(db, body=None, revisions=("rev-1", "rev-1")):
+    with patch.object(adm, "supabase_admin", db), \
+         patch.object(adm, "_course_bank_assignment_revision",
+                      side_effect=revisions):
         return adm._resolve_course_bank("co-1", body or _body())
 
 
@@ -96,6 +98,7 @@ def test_a_valid_bank_freezes_weight_shape_without_copying_questions():
         "weight_policy": "hybrid_question_count_v1",
         "section_counts": {"quiz": 1},
         "section_weights": {"quiz": 100.0},
+        "bank_revision": "rev-1",
     }
     assert "questions" not in cfg and "question_ids" not in cfg
 
@@ -103,6 +106,13 @@ def test_a_valid_bank_freezes_weight_shape_without_copying_questions():
 def test_a_timed_course_assignment_freezes_the_limit_in_its_snapshot():
     _bank_id, cfg = _resolve(_full(), _body(time_limit_minutes=135))
     assert cfg["time_limit_minutes"] == 135
+
+
+def test_assignment_preflight_rejects_a_bank_changed_during_shape_read():
+    with pytest.raises(HTTPException) as exc:
+        _resolve(_full(), revisions=("rev-before", "rev-after"))
+    assert exc.value.status_code == 409
+    assert "vừa được cập nhật" in exc.value.detail
 
 
 def test_time_limit_is_course_only_and_bounded():

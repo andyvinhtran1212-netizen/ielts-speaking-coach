@@ -215,6 +215,10 @@ def create_class_assignment(
     except Exception as exc:
         if "empty_roster" in str(exc):
             raise EmptyRosterError("Lớp này chưa có học viên nào để giao bài.")
+        if "course_bank_revision_mismatch" in str(exc):
+            raise CourseBankChangedError(
+                "Bộ bài tập vừa được cập nhật. Hãy tải lại và giao bản mới nhất."
+            ) from exc
         if "web_explanation_paper_requires_q01_q40" in str(exc):
             raise ExplanationApprovalError(
                 "Chỉ bật web explanation khi đề có đủ đúng 40 objects từ Q1 đến Q40."
@@ -848,6 +852,10 @@ class AssignmentNotFoundError(Exception):
 
 class EmptyRosterError(Exception):
     """The class has no students, so the give would reach nobody."""
+
+
+class CourseBankChangedError(Exception):
+    """The Course bank changed between admin preflight and atomic creation."""
 
 
 class ExplanationApprovalError(Exception):
