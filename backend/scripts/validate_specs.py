@@ -306,6 +306,12 @@ def _constitutional_obligations(text: str) -> set[str]:
     for paragraph in re.split(r"\n[ \t]*\n", "".join(prose)):
         normalized = re.sub(r"\s+", " ", paragraph).strip()
         modal_context = re.sub(r"(?P<ticks>`+).*?(?P=ticks)", "", normalized)
+        if re.match(
+            r"^(?:example\s*:|for example\s*[,.:]|e\.g\.\s*[,.:])",
+            modal_context,
+            re.IGNORECASE,
+        ):
+            continue
         quoted_modal = r"(?:MUST(?: NOT)?|SHOULD(?: NOT)?|MAY(?: NOT)?)"
         modal_context = re.sub(
             rf'(?:"\s*{quoted_modal}\s*"|“\s*{quoted_modal}\s*”|‘\s*{quoted_modal}\s*’)',
