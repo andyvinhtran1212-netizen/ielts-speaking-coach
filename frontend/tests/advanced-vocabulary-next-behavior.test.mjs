@@ -3,7 +3,12 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readingSupportLines } from '../lib/advanced-vocabulary-model.mjs';
+import {
+  preserveControlledRewriteResult,
+  preserveInitialListeningResult,
+  preserveReadingResult,
+  readingSupportLines,
+} from '../lib/advanced-vocabulary-model.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -100,6 +105,43 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.match(UI, /completed=\{completed\.has\('listening'\)\}/);
     assert.match(UI, /saved\?\.review \|\| null/);
     assert.match(UI, /saved\?\.review \|\| \(content\.initial_attempt/);
+  });
+
+  test('preserves boundary results when stage navigation remounts each child', () => {
+    const initial = {
+      progress: { completed_stages: ['practice_2'], sections: [] },
+      lesson: { activities: {
+        controlled_rewrite: { content: { prompts: [{ item_id: 'rewrite-01' }] } },
+        listening: { questions: [{ question_number: 1 }] },
+      } },
+    };
+    const readingResponse = {
+      total: 13, correct: 10, pct: 76.92, submitted_at: 'now',
+      answer_results: [{ id: '1', submitted_answer: 'A', is_correct: true }],
+      answers: [{ id: '1', answer: 'A' }],
+    };
+    const afterReading = preserveReadingResult(initial, readingResponse);
+    assert.equal(afterReading.progress.sections[0].review, readingResponse);
+    assert.ok(afterReading.progress.completed_stages.includes('reading'));
+
+    const rewriteResponse = {
+      solutions: [{ type: 'paragraph', text: 'Suggested rewrite' }],
+      progress: { ...afterReading.progress, completed_stages: ['practice_2', 'reading', 'controlled_rewrite'] },
+    };
+    const afterRewrite = preserveControlledRewriteResult(afterReading, rewriteResponse);
+    assert.deepEqual(afterRewrite.lesson.activities.controlled_rewrite.content.solutions, rewriteResponse.solutions);
+
+    const listeningResponse = {
+      requires_guided_retry: true,
+      answer_results: [{ id: '1', submitted_answer: 'B', is_correct: false }],
+      progress: { ...afterRewrite.progress, listening_submitted: true },
+    };
+    const afterListening = preserveInitialListeningResult(afterRewrite, listeningResponse);
+    assert.equal(afterListening.lesson.activities.listening.initial_attempt, listeningResponse);
+    assert.equal(afterListening.progress.listening_submitted, true);
+    assert.match(UI, /preserveReadingResult\(current, response\)/);
+    assert.match(UI, /preserveControlledRewriteResult\(current, response\)/);
+    assert.match(UI, /preserveInitialListeningResult\(current, response\)/);
   });
 
   test('withholds Listening solutions until a persisted guided retry', () => {

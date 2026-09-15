@@ -15,6 +15,66 @@ function normalizeOption(value) {
   return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+function mergeResponseProgress(data, response) {
+  return { ...(data?.progress || {}), ...(response?.progress || {}) };
+}
+
+export function preserveReadingResult(data, response) {
+  const progress = mergeResponseProgress(data, response);
+  const sections = (progress.sections || []).filter((row) => row.section !== 'reading');
+  sections.push({
+    section: 'reading', total: response.total, correct: response.correct,
+    score: response.pct, submitted_at: response.submitted_at, review: response,
+  });
+  return {
+    ...data,
+    progress: {
+      ...progress,
+      sections,
+      completed_stages: Array.from(new Set([
+        ...(progress.completed_stages || []), 'reading',
+      ])),
+    },
+  };
+}
+
+export function preserveControlledRewriteResult(data, response) {
+  return {
+    ...data,
+    progress: mergeResponseProgress(data, response),
+    lesson: {
+      ...data.lesson,
+      activities: {
+        ...data.lesson.activities,
+        controlled_rewrite: {
+          ...data.lesson.activities.controlled_rewrite,
+          content: {
+            ...data.lesson.activities.controlled_rewrite.content,
+            solutions: response.solutions || [],
+          },
+        },
+      },
+    },
+  };
+}
+
+export function preserveInitialListeningResult(data, response) {
+  return {
+    ...data,
+    progress: mergeResponseProgress(data, response),
+    lesson: {
+      ...data.lesson,
+      activities: {
+        ...data.lesson.activities,
+        listening: {
+          ...data.lesson.activities.listening,
+          initial_attempt: response,
+        },
+      },
+    },
+  };
+}
+
 /** Keep shared instructions/banks, but remove material already rendered by a
  * structured question control (question line, repeated stem, or MCQ choices). */
 export function readingSupportLines(content) {

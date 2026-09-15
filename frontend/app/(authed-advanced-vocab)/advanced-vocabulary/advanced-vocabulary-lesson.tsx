@@ -1,7 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { buildSpeakingLadders, readingSupportLines } from '@/lib/advanced-vocabulary-model.mjs';
+import {
+  buildSpeakingLadders,
+  preserveControlledRewriteResult,
+  preserveInitialListeningResult,
+  preserveReadingResult,
+  readingSupportLines,
+} from '@/lib/advanced-vocabulary-model.mjs';
 
 type Json = Record<string, any>;
 type Stage = 'vocabulary' | 'practice_1' | 'practice_2' | 'reading' | 'controlled_rewrite' | 'listening' | 'writing' | 'speaking';
@@ -354,9 +360,9 @@ export function AdvancedVocabularyLesson() {
     {stage === 'vocabulary' && <VocabularyStage data={data} onDone={async (ids) => { const progress = await post('/api/advanced-vocab/vocabulary/complete', { ...base, seen_lexeme_ids: ids }); mergeProgress(progress); setStage('practice_1'); }} />}
     {stage === 'practice_1' && <PracticeStage stage="practice_1" data={data} onAnswer={async (qid, answer, response_time_ms) => { const response = await post('/api/advanced-vocab/practice/answer', { ...base, stage: 'practice_1', qid, answer, response_time_ms }); mergeProgress(response.progress); return response; }} onDone={() => setStage('practice_2')} />}
     {stage === 'practice_2' && <PracticeStage stage="practice_2" data={data} onAnswer={async (qid, answer, response_time_ms) => { const response = await post('/api/advanced-vocab/practice/answer', { ...base, stage: 'practice_2', qid, answer, response_time_ms }); mergeProgress(response.progress); return response; }} onDone={() => setStage('reading')} />}
-    {stage === 'reading' && <ReadingStage content={data.lesson.activities.reading} completed={completed.has('reading')} saved={(data.progress.sections || []).find((row: Json) => row.section === 'reading')} onSubmit={async (answers, duration_sec) => { const response = await post('/api/advanced-vocab/reading', { ...base, answers, duration_sec }); setData((current) => current ? ({ ...current, progress: { ...current.progress, completed_stages: Array.from(new Set([...(current.progress.completed_stages || []), 'reading'])) } }) : current); return response; }} onContinue={() => setStage('controlled_rewrite')} />}
-    {stage === 'controlled_rewrite' && <ControlledRewriteStage activity={data.lesson.activities.controlled_rewrite} completed={completed.has('controlled_rewrite')} onReveal={async (attempted_item_ids) => { const response = await post('/api/advanced-vocab/controlled-rewrite/complete', { ...base, attempted_item_ids }); mergeProgress(response.progress); return response; }} onContinue={() => setStage('listening')} />}
-    {stage === 'listening' && <ListeningStage content={data.lesson.activities.listening} completed={completed.has('listening')} saved={(data.progress.sections || []).find((row: Json) => row.section === 'listening')} onSubmit={async (answers, duration_sec) => { const response = await post('/api/advanced-vocab/listening', { ...base, answers, duration_sec }); if (response.progress) mergeProgress(response.progress); return response; }} onRetry={async (answers) => { const response = await post('/api/advanced-vocab/listening/guided-retry', { ...base, answers }); if (response.progress) mergeProgress(response.progress); return response; }} onContinue={() => setStage('writing')} />}
+    {stage === 'reading' && <ReadingStage content={data.lesson.activities.reading} completed={completed.has('reading')} saved={(data.progress.sections || []).find((row: Json) => row.section === 'reading')} onSubmit={async (answers, duration_sec) => { const response = await post('/api/advanced-vocab/reading', { ...base, answers, duration_sec }); setData((current) => current ? preserveReadingResult(current, response) : current); return response; }} onContinue={() => setStage('controlled_rewrite')} />}
+    {stage === 'controlled_rewrite' && <ControlledRewriteStage activity={data.lesson.activities.controlled_rewrite} completed={completed.has('controlled_rewrite')} onReveal={async (attempted_item_ids) => { const response = await post('/api/advanced-vocab/controlled-rewrite/complete', { ...base, attempted_item_ids }); setData((current) => current ? preserveControlledRewriteResult(current, response) : current); return response; }} onContinue={() => setStage('listening')} />}
+    {stage === 'listening' && <ListeningStage content={data.lesson.activities.listening} completed={completed.has('listening')} saved={(data.progress.sections || []).find((row: Json) => row.section === 'listening')} onSubmit={async (answers, duration_sec) => { const response = await post('/api/advanced-vocab/listening', { ...base, answers, duration_sec }); setData((current) => current ? preserveInitialListeningResult(current, response) : current); return response; }} onRetry={async (answers) => { const response = await post('/api/advanced-vocab/listening/guided-retry', { ...base, answers }); if (response.progress) mergeProgress(response.progress); return response; }} onContinue={() => setStage('writing')} />}
     {stage === 'writing' && <WritingStage activity={data.lesson.activities.writing} />}
     {stage === 'speaking' && <SpeakingStage activity={data.lesson.activities.speaking} />}
   </main>;
