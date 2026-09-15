@@ -463,8 +463,7 @@ def validate_pull_request(
                     f"pull request: high-risk change requires a high or critical risk spec; {spec_id} is {metadata.get('risk')!r}"
                 )
             if (
-                requires_spec
-                and metadata.get("risk") in {"high", "critical"}
+                metadata.get("risk") in {"high", "critical"}
                 and change_class != "high-risk"
             ):
                 errors.append(

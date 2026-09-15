@@ -518,6 +518,23 @@ def test_feature_pr_cannot_raise_approved_risk_or_misclassify_high_spec(
     )
     assert any("requires change class 'high-risk'" in error for error in class_errors)
 
+    for lower_class in ("hotfix", "small", "content"):
+        lower_class_errors = validator.validate_pull_request(
+            _event(root=high_root, change_class=lower_class, spec="FEAT-0001"),
+            high_specs,
+            high_root,
+        )
+        assert any(
+            "requires change class 'high-risk'" in error
+            for error in lower_class_errors
+        )
+
+    assert validator.validate_pull_request(
+        _event(root=high_root, change_class="high-risk", spec="FEAT-0001"),
+        high_specs,
+        high_root,
+    ) == []
+
 
 def test_high_risk_spec_requires_ui_state_and_rollout_artifacts(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path, risk="high")
