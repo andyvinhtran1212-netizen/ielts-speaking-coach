@@ -401,10 +401,58 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
         for activity in listening:
             content = activity.get("content") or {}
             questions = content.get("questions") if isinstance(content, dict) else None
+            solutions = content.get("solutions") if isinstance(content, dict) else None
             count = len(questions) if isinstance(questions, list) else 0
             if count != 6:
                 report.add("error", "LISTENING_QUESTION_COUNT", path,
                            f"Listening Lab must contain exactly six questions; found {count}.")
+            question_rows = [
+                question for question in questions or [] if isinstance(question, dict)
+            ] if isinstance(questions, list) else []
+            question_ids = {
+                str(question.get("question_number") or "") for question in question_rows
+            }
+            solution_ids = {
+                str(question_id) for question_id in solutions
+            } if isinstance(solutions, dict) else set()
+            if question_ids != solution_ids:
+                report.add("error", "LISTENING_SOLUTION_COUNT", path,
+                           "Listening solutions must map one-to-one to learner question IDs.")
+            for question in question_rows:
+                question_id = str(question.get("question_number") or "")
+                solution = solutions.get(question_id) if isinstance(solutions, dict) else None
+                if not isinstance(solution, dict):
+                    continue
+                if not str(solution.get("answer") or "").strip():
+                    report.add("error", "LISTENING_SOLUTION_ANSWER_INVALID", path,
+                               f"Listening question {question_id or '?'} needs a private answer.")
+                if not str(solution.get("evidence") or "").strip():
+                    report.add("error", "LISTENING_SOLUTION_EVIDENCE_INVALID", path,
+                               f"Listening question {question_id or '?'} needs "
+                               "evidence replay text.")
+                timing = solution.get("timing")
+                answer_span = timing.get("answer_span") if isinstance(timing, dict) else None
+                start = answer_span.get("start") if isinstance(answer_span, dict) else None
+                end = answer_span.get("end") if isinstance(answer_span, dict) else None
+                valid_span = (
+                    isinstance(start, (int, float)) and not isinstance(start, bool)
+                    and isinstance(end, (int, float)) and not isinstance(end, bool)
+                    and 0 <= start < end
+                )
+                if not valid_span:
+                    report.add("error", "LISTENING_SOLUTION_SPAN_INVALID", path,
+                               f"Listening question {question_id or '?'} needs "
+                               "a usable answer span.")
+                if str(question.get("question_type") or "").lower() == "mcq":
+                    option_keys = {
+                        str(option.get("key") or option.get("letter") or "").strip()
+                        for option in question.get("options") or []
+                        if isinstance(option, dict)
+                    }
+                    if str(solution.get("answer") or "").strip() not in option_keys:
+                        report.add("error", "LISTENING_MCQ_ANSWER_INVALID", path,
+                                   f"Listening question {question_id or '?'} answer "
+                                   "must match an option key.")
             release_status = str(activity.get("media_release_status") or "missing")
             if release_status != "approved":
                 report.add("warning", "LISTENING_MEDIA_NOT_APPROVED", path,

@@ -73,10 +73,24 @@ def _lesson(lesson_id: str) -> dict:
                 f"{lesson_id}-listening", "listening_lab",
                 content={
                     "questions": [
-                        {"question_number": i, "question_type": "note_completion",
-                         "stem": f"Question {i}", "options": []}
+                        {"question_number": i,
+                         "question_type": "mcq" if i == 4 else "note_completion",
+                         "stem": f"Question {i}",
+                         "options": ([{"letter": "A", "text": "One"},
+                                      {"letter": "B", "text": "Two"}]
+                                     if i == 4 else [])}
                         for i in range(1, 7)
-                    ]
+                    ],
+                    "solutions": {
+                        str(i): {
+                            "answer": "A" if i == 4 else f"answer-{i}",
+                            "evidence": f"Evidence for question {i}",
+                            "timing": {"answer_span": {
+                                "start": i * 10, "end": i * 10 + 2,
+                            }},
+                        }
+                        for i in range(1, 7)
+                    },
                 },
                 media_release_status="approved",
             ),
@@ -386,6 +400,41 @@ def test_listening_requires_six_questions_and_approved_media(tmp_path: Path):
     report = validate_package(tmp_path)
     assert "LISTENING_QUESTION_COUNT" in _codes(report)
     assert "LISTENING_MEDIA_NOT_APPROVED" in {i.code for i in report.warnings}
+
+
+def test_listening_requires_complete_replayable_solution_map(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    listening = next(a for a in lesson["activities"] if a["activity_type"] == "listening_lab")
+    solutions = listening["content"]["solutions"]
+    solutions.pop("1")
+    solutions["2"]["evidence"] = ""
+    solutions["3"]["timing"].pop("answer_span")
+    solutions["5"]["answer"] = ""
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+
+    assert {
+        "LISTENING_SOLUTION_COUNT",
+        "LISTENING_SOLUTION_ANSWER_INVALID",
+        "LISTENING_SOLUTION_EVIDENCE_INVALID",
+        "LISTENING_SOLUTION_SPAN_INVALID",
+    } <= _codes(report)
+
+
+def test_listening_mcq_answer_must_match_an_option_key(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    listening = next(a for a in lesson["activities"] if a["activity_type"] == "listening_lab")
+    listening["content"]["solutions"]["4"]["answer"] = "C"
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+
+    assert "LISTENING_MCQ_ANSWER_INVALID" in _codes(report)
 
 
 def test_reading_requires_thirteen_questions_and_no_answer_leak(tmp_path: Path):
