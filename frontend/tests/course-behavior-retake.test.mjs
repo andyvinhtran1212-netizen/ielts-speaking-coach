@@ -181,6 +181,39 @@ describe('hết giờ trên màn kết quả', () => {
   });
 });
 
+describe('hết giờ đang chờ máy chủ chốt', () => {
+  test('không tuyên bố đã nộp trước khi có ledger và tự tải lại', () => {
+    const done = { hidden: true, innerHTML: '' };
+    let refreshMs = null;
+    let reloads = 0;
+    const factory = new Function(
+      '$', 'setActiveSection', 'window',
+      `let expiryRefreshTimeout = null;
+       let disposed = false;
+       return function renderExpiryPending() {${functionBody('renderExpiryPending')}};`,
+    );
+    const render = factory(
+      (id) => id === 'cx-done' ? done : { hidden: false },
+      () => {},
+      {
+        setTimeout(fn, ms) { refreshMs = ms; fn(); return 1; },
+        location: { reload() { reloads += 1; } },
+      },
+    );
+    render();
+    assert.equal(done.hidden, false);
+    assert.match(done.innerHTML, /đang thu và chốt bài/i);
+    assert.match(done.innerHTML, /chưa được ghi xong/i);
+    assert.doesNotMatch(done.innerHTML, /Bài đã nộp|đã được lưu/i);
+    assert.equal(refreshMs, 5000);
+    assert.equal(reloads, 1);
+    const pending = SRC.indexOf('if (runner.expiryPending)');
+    const review = SRC.indexOf('else if (runner.reviewOnly)', pending);
+    assert.ok(pending !== -1 && review > pending,
+      'lane pending phải đứng trước màn review đã lưu');
+  });
+});
+
 describe('nạp phần tự review', () => {
   test('báo cáo stale không bị cache và cú bấm sau thay bằng bản đầy đủ', async () => {
     const box = {

@@ -37,7 +37,6 @@ def _course(db, code: str) -> dict:
 def _commit_bank(db, *, existing: list[dict], payload: dict,
                  rows: list[dict]) -> tuple[str, object]:
     """Persist questions and metadata without exposing a half-updated bank."""
-    created = not existing
     if existing:
         bank_id = existing[0]["id"]
         written = db.rpc(
@@ -47,26 +46,17 @@ def _commit_bank(db, *, existing: list[dict], payload: dict,
         ).execute().data
         logger.info("Bank đã có → cập nhật nguyên tử %s.", bank_id)
         return bank_id, written
-    else:
-        inserted = db.table("quiz_banks").insert(payload).execute().data or []
-        if not inserted:
-            raise RuntimeError("Tạo bank không trả về id.")
-        bank_id = inserted[0]["id"]
-        logger.info("Đã tạo bank %s.", bank_id)
-
-    try:
-        written = db.rpc(
-            "quiz_replace_questions", {"p_bank_id": bank_id, "p_rows": rows},
-        ).execute().data
-    except Exception:
-        if created:
-            try:
-                db.table("quiz_banks").delete().eq("id", bank_id).execute()
-            except Exception as cleanup_exc:  # noqa: BLE001
-                logger.error("Không dọn được bank mới sau lỗi import: %s", cleanup_exc)
-        raise
-
-    return bank_id, written
+    created_rows = db.rpc(
+        "quiz_create_course_assessment_bank", {
+            "p_payload": payload, "p_rows": rows,
+        },
+    ).execute().data or []
+    if not created_rows:
+        raise RuntimeError("Tạo bank nguyên tử không trả về kết quả.")
+    result = created_rows[0]
+    bank_id = result["bank_id"]
+    logger.info("Đã tạo bank nguyên tử %s.", bank_id)
+    return bank_id, result["written"]
 
 
 def main() -> int:
@@ -139,7 +129,7 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001
         logger.error(
             "Ghi câu hỏi hỏng; metadata bank cũ chưa bị đổi%s: %s",
-            " và bank mới đã được dọn" if not existing else "", exc,
+            "; giao dịch tạo bank mới đã rollback" if not existing else "", exc,
         )
         return 1
     logger.info("Đã ghi %s câu; bank private và sẵn sàng để admin giao.", written)

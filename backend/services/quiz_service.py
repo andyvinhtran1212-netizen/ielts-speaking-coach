@@ -388,27 +388,35 @@ def course_assignment_action(
     )
     if item.get("passed_at") and not pending_legacy_writing:
         return "review"
-    if not is_accepting_submissions(assignment, now=now):
-        return "review"
+    mastery = item.get("mastery") or {}
+    attempts = mastery.get("attempts") or []
+    latest = (attempts[-1]
+              if isinstance(attempts, list) and attempts
+              and isinstance(attempts[-1], dict) else None)
+    latest_action = _recorded_next_action(
+        latest, mastery_config(assignment)["pass_pct"],
+    ) if latest else None
     # A timed Course assignment has a second canonical boundary independent of
     # the class due date.  Once it passes, a previously recorded retake/retry
     # entitlement is read-only: advertising it would offer a button whose
     # session-start request the server must reject.
     timer = assignment_timer_state(item, assignment, now=now)
     if timer.get("is_timed") and timer.get("is_expired"):
+        # A terminal ledger row is persisted truth.  Without one, read-only is
+        # still mandatory but calling the item "submitted" is false: the
+        # background reaper is still responsible for its canonical timeout.
+        return ("review" if latest_action in {
+            "passed", "retake", "retry_full", "timed_out",
+        } else "expired_pending")
+    if not is_accepting_submissions(assignment, now=now):
         return "review"
 
-    mastery = item.get("mastery") or {}
-    attempts = mastery.get("attempts") or []
-    latest = (attempts[-1]
-              if isinstance(attempts, list) and attempts
-              and isinstance(attempts[-1], dict) else None)
     if not latest:
         return "continue" if pending_legacy_writing else "start"
     if not latest.get("completed", latest.get("pct") is not None):
         return "continue"
 
-    action = _recorded_next_action(latest, mastery_config(assignment)["pass_pct"])
+    action = latest_action
     if action in {"retake", "retry_full"}:
         return action
     return "review" if action in {"passed", "timed_out"} else "continue"
@@ -861,7 +869,8 @@ def get_bank_for_play(
                 ),
                 "completed_sections": [],
                 "due_at": item.get("due_at"),
-                "review_only": preflight_action == "review",
+                "review_only": preflight_action in {"review", "expired_pending"},
+                "expiry_pending": preflight_action == "expired_pending",
                 "accepting": bool(item.get("accepting")),
                 "course_action": preflight_action,
                 **preflight_timer,
@@ -928,7 +937,8 @@ def get_bank_for_play(
                 # A passed/closed assignment reopens read-only. A failed or
                 # incomplete submission stays writable while the deadline is
                 # accepting, even though its first hand-in timestamp is kept.
-                "review_only": learner_action == "review",
+                "review_only": learner_action in {"review", "expired_pending"},
+                "expiry_pending": learner_action == "expired_pending",
                 "accepting": bool(is_accepting_submissions(assignment)),
                 "course_action": learner_action,
                 **assignment_timer_state(effective_item, assignment),
@@ -4602,14 +4612,25 @@ def reap_expired_course_assessments(
                     created_at = _at(row.get("created_at"))
                     if created_at is None or created_at <= run_after:
                         continue
-                # ``paused``/legacy ``abandoned`` rows are superseded terminal
-                # history, not current work.  Completed and already-time-capped
-                # rows remain eligible for lost-verdict repair; open rows are
-                # the only rows this sweep may close.
-                if row.get("ended_by") not in {None, "completed", "time_cap"}:
+                # Legacy ``abandoned`` rows are superseded history.  A newest
+                # paused row may still be the only persisted current attempt;
+                # keep it provisionally, then discard it below if a replacement
+                # session exists after it.
+                if row.get("ended_by") not in {None, "completed", "time_cap", "paused"}:
                     continue
                 current_sessions.append(row)
-            sessions = current_sessions
+            sessions = [
+                row for row in current_sessions
+                if row.get("ended_by") != "paused" or not any(
+                    (other.get("kind") or "run") == (row.get("kind") or "run")
+                    and (_at(other.get("created_at")) or datetime.min.replace(
+                        tzinfo=timezone.utc
+                    )) > (_at(row.get("created_at")) or datetime.min.replace(
+                        tzinfo=timezone.utc
+                    ))
+                    for other in current_sessions
+                )
+            ]
             if not sessions:
                 continue
             latest_attempt_at = (

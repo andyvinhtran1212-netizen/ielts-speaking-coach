@@ -37,6 +37,7 @@ export function CourseBehavior() {
     let onInput: ((e: Event) => void) | null = null;
     let onHide: (() => void) | null = null;
     let timerInterval: number | null = null;
+    let expiryRefreshTimeout: number | null = null;
     let pauseSectionTimers: () => void = () => {};
 
     (async () => {
@@ -725,6 +726,26 @@ export function CourseBehavior() {
         window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
       }
 
+      function renderExpiryPending() {
+        setActiveSection(null);
+        const q = $('cx-q'); if (q) q.hidden = true;
+        const next = $('cx-next'); if (next) next.hidden = true;
+        const stageBox = $('cx-stage'); if (stageBox) stageBox.hidden = true;
+        const report = $('cx-report'); if (report) report.hidden = true;
+        const done = $('cx-done');
+        if (!done) return;
+        done.hidden = false;
+        done.innerHTML = '<div class="cx-verdict" data-v="expiry-pending">'
+          + '<div class="cx-verdict__hero"><div>'
+          + '<p class="cx-verdict__eyebrow">Đã hết thời gian</p>'
+          + '<p class="cx-verdict__title">Hệ thống đang thu và chốt bài</p>'
+          + '<p class="cx-verdict__sub">Kết quả chưa được ghi xong. Trang sẽ tự làm mới để hiển thị trạng thái chính thức.</p>'
+          + '</div></div></div>';
+        expiryRefreshTimeout = window.setTimeout(() => {
+          if (!disposed) window.location.reload();
+        }, 5000);
+      }
+
       function renderReading() {
         setActiveSection(reading.revealed ? null : 'reading');
         const listeningBox = $('cx-listening'); if (listeningBox) listeningBox.hidden = true;
@@ -1134,7 +1155,9 @@ export function CourseBehavior() {
       // Bank CHỈ có câu tự luận: không có chặng nào để chạy, và một phiên quiz
       // rỗng sẽ bị cổng xét đạt bác vì bộ đề không có câu trắc nghiệm nào
       // (codex #935). Vào thẳng màn tự luận.
-      if (runner.reviewOnly) {
+      if (runner.expiryPending) {
+        renderExpiryPending();
+      } else if (runner.reviewOnly) {
         // `/start` only emits this destination for a canonically submitted
         // course item. Open the persisted marking directly and never enter the
         // quiz mutation flow again.
@@ -1291,6 +1314,7 @@ export function CourseBehavior() {
       if (onLeave) window.removeEventListener('pagehide', onLeave);
       if (onHide) document.removeEventListener('visibilitychange', onHide);
       if (timerInterval != null) window.clearInterval(timerInterval);
+      if (expiryRefreshTimeout != null) window.clearTimeout(expiryRefreshTimeout);
     };
   }, [status, user?.id]);
 

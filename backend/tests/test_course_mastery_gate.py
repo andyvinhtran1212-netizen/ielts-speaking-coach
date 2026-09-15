@@ -288,6 +288,24 @@ def test_course_assignment_action_closes_retry_when_timer_expires():
     ) == "review"
 
 
+def test_course_assignment_action_reports_unpersisted_timeout_as_pending():
+    assignment = {
+        "status": "published", "publish_at": None,
+        # The class due date may close at the same instant as the personal
+        # timer.  The timed boundary must still win so an empty ledger is not
+        # mislabeled as a persisted submission.
+        "due_at": "2026-09-15T01:30:00+00:00",
+        "content_config": {"pass_pct": 75, "time_limit_minutes": 30},
+    }
+    item = {
+        "passed_at": None, "submitted_at": None,
+        "opened_at": "2026-09-15T01:00:00+00:00", "mastery": None,
+    }
+    assert qs.course_assignment_action(
+        item, assignment, now=qs._at("2026-09-15T01:30:00+00:00"),
+    ) == "expired_pending"
+
+
 def test_completed_pass_is_terminal_even_if_legacy_receipt_is_missing():
     assignment = {
         "status": "published", "publish_at": None,

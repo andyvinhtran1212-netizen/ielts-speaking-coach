@@ -143,6 +143,17 @@ test('review load pins the bank read to the exact assignment item', async () => 
   assert.deepEqual(runner.mastery.completed_sections, ['quiz']);
 });
 
+test('expired bank load preserves pending truth without opening a session', async () => {
+  const api = fakeApi({ questions: [mcq(1)], mastery: {
+    item_id: 'item-pending', review_only: true, expiry_pending: true,
+  } });
+  const runner = createRunner({ api, storage: null });
+  await runner.load('b1', { assignmentItemId: 'item-pending' });
+  assert.equal(runner.reviewOnly, true);
+  assert.equal(runner.expiryPending, true);
+  assert.equal(api.calls.post.filter((call) => call.path === '/api/quiz/sessions').length, 0);
+});
+
 test('uses the server deadline and submits a time-cap verdict', async () => {
   let clock = 1000;
   const mastery = {

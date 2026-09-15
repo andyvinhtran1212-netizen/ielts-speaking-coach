@@ -118,10 +118,22 @@ def test_existing_bank_has_no_second_write_after_atomic_rpc_fails():
     ]
 
 
-def test_new_orphan_bank_is_deleted_when_question_replace_fails():
-    db = _ImportDb(inserted=[{"id": "bank-new"}],
-                   rpc_error=RuntimeError("replace failed"))
+def test_new_bank_and_questions_use_one_atomic_rpc():
+    db = _ImportDb(rpc_result=[{"bank_id": "bank-new", "written": 1}])
+    bank_id, written = _commit_bank(
+        db, existing=[], payload={"title": "new"}, rows=[{"qid": "q1"}],
+    )
+    assert (bank_id, written) == ("bank-new", 1)
+    assert [(name, op) for name, op, _ in db.calls] == [
+        ("quiz_create_course_assessment_bank", "rpc"),
+    ]
+
+
+def test_new_bank_failure_has_no_client_cleanup_or_half_write():
+    db = _ImportDb(rpc_error=RuntimeError("replace failed"))
     with pytest.raises(RuntimeError, match="replace failed"):
         _commit_bank(db, existing=[], payload={"title": "new"},
                      rows=[{"qid": "q1"}])
-    assert ("quiz_banks", "delete", None) in db.calls
+    assert [(name, op) for name, op, _ in db.calls] == [
+        ("quiz_create_course_assessment_bank", "rpc"),
+    ]

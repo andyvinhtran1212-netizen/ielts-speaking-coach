@@ -507,6 +507,16 @@ async def start_assignment(
     # Bài course đã đạt hoặc đã đóng hạn mở lại ở lane chỉ-đọc. Một dấu nộp cũ
     # không tự biến thành khoá: nếu bài chưa đạt/chưa đủ phần và hạn vừa được nới,
     # ``course_action`` giữ đường làm tiếp/revision/full retry mở.
+    if skill == "course" and course_action == "expired_pending":
+        return {
+            "item_id":       item_id,
+            "assignment_id": assignment["id"],
+            "skill":         "course",
+            "bank_id":       assignment.get("content_id"),
+            "review_only":   True,
+            "expiry_pending": True,
+        }
+
     if (skill == "course"
             and course_action == "review"
             and (item.get("submitted_at") or item.get("passed_at"))):

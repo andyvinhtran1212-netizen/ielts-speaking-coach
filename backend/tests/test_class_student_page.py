@@ -389,6 +389,27 @@ async def test_a_listening_task_opens_by_the_row_id():
 
 
 @pytest.mark.asyncio
+async def test_expired_course_timer_without_verdict_opens_pending_lane():
+    tables = {
+        "class_assignment_items": [{
+            "id": "item-1", "student_id": "s1", "assignment_id": "a1",
+            "state": "opened", "opened_at": "2020-01-01T00:00:00+00:00",
+            "submitted_at": None, "passed_at": None, "mastery": None,
+        }],
+        "class_assignments": [{
+            "id": "a1", "cohort_id": "c1", "skill": "course",
+            "status": "published", "content_id": "bank-1",
+            "content_config": {"time_limit_minutes": 30}, "due_at": None,
+        }],
+    }
+    out = await _start(_start_db(skill="course", content_id="bank-1", tables=tables))
+    assert out == {
+        "item_id": "item-1", "assignment_id": "a1", "skill": "course",
+        "bank_id": "bank-1", "review_only": True, "expiry_pending": True,
+    }
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "skill,content,surface,identity_key,identity",
     [

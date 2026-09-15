@@ -211,6 +211,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // Bài đã nộp chỉ được đọc. Cờ này do backend suy từ submitted_at; URL hay
   // localStorage không thể tự bật quyền review.
   let reviewOnly = false;
+  let expiryPending = false;
 
   function fingerprint(list) {
     const s = list.map((q) => q.qid + ':' + q.answer).join('|');
@@ -550,6 +551,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     get runSessionCount() { return runSessions.length; },
     get hasOpenSession() { return Boolean(sessionId) && !sessionEnded; },
     get reviewOnly() { return reviewOnly; },
+    get expiryPending() { return expiryPending; },
     get isTimed() { return Boolean(mastery && mastery.is_timed); },
     get expiresAt() { return (mastery && mastery.expires_at) || null; },
     timeRemainingSeconds() {
@@ -583,6 +585,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // `options.reviewOnly` chỉ làm flow ít quyền hơn (không ghi); quyền đọc
       // vẫn do các endpoint backend kiểm bằng assignment item.
       reviewOnly = Boolean(options.reviewOnly || (r.mastery && r.mastery.review_only));
+      expiryPending = Boolean(r.mastery && r.mastery.expiry_pending);
       retakeNo = Math.max(0, Number((r.mastery && r.mastery.retakes) || 0));
       itemId = (r.mastery && r.mastery.item_id) || null;
       // A first timed bank read creates this session atomically with the timer.

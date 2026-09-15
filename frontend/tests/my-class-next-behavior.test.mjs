@@ -186,7 +186,24 @@ describe('assignment start contract', () => {
       item_id: 'item-1', assignment_id: 'a', skill: 'course',
       bank_id: 'bank-1', review_only: true,
     }, 'item-1'), {
-      kind: 'course', bankId: 'bank-1', itemId: 'item-1', reviewOnly: true,
+      kind: 'course', bankId: 'bank-1', itemId: 'item-1',
+      reviewOnly: true, expiryPending: false,
+    });
+  });
+
+  test('pending expiry remains distinct from a persisted course review', () => {
+    const normalized = normalizeMyClassResponse(payload({
+      assignments: [assignment({ course_action: 'expired_pending' })],
+    }));
+    assert.deepEqual(assignmentAction(normalized.assignments[0]), {
+      kind: 'review', label: 'Đang thu bài',
+    });
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'course',
+      bank_id: 'bank-1', review_only: true, expiry_pending: true,
+    }, 'item-1'), {
+      kind: 'course', bankId: 'bank-1', itemId: 'item-1',
+      reviewOnly: true, expiryPending: true,
     });
   });
 
