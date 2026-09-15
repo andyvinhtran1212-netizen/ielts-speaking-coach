@@ -27,6 +27,12 @@
   against this manifest before generation; package validation cross-checks every
   lesson's embedded provenance and media reference against the same manifest, so an
   input substitution fails before content landing or database import.
+- A database `BEFORE DELETE` guard on `quiz_banks` rejects deletion of an Advanced
+  bank when any class assignment snapshot references it or an immutable content
+  version exists, preventing the existing course-section cascade from erasing
+  evidence. The admin delete route returns a stable 409 and offers unpublish/archive;
+  that action removes the bank from new-assignment selection but existing assignments
+  continue to resolve their frozen runtime/content and canonical results.
 - Learner payloads whitelist public Practice, controlled-rewrite, Reading, and
   Listening fields. Practice answers, accepted variants, explanations, correction
   notes, and other answer-bearing fields remain absent until that individual
@@ -121,9 +127,10 @@ created Writing assignments unchanged.
 Stable failures are: 401 unauthenticated; 403 non-admin on the admin route; 404 wrong
 assignee, inactive/transferred membership, scheduled/not-yet-published, archived/
 unknown item, or non-Advanced bank; 409 `deadline_passed`, unmet predecessor, frozen-
-version mismatch, immutable-answer conflict, or already-submitted different payload;
-422 invalid/missing IDs or required answers; and sanitized 500 persistence/content
-failure. Existing non-Advanced course route schemas and behavior remain unchanged.
+version mismatch, protected-bank deletion, immutable-answer conflict, or already-
+submitted different payload; 422 invalid/missing IDs or required answers; and
+sanitized 500 persistence/content failure. Existing non-Advanced course route schemas
+and behavior remain unchanged.
 
 ## UI and interaction
 

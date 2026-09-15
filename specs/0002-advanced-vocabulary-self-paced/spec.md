@@ -127,7 +127,9 @@ that prevents answer leakage and gives admins canonical completion evidence.
   deployed assignment reopens the same content revision. Assignment creation must
   snapshot the bank runtime metadata into the assignment, and learner, submission,
   resume, and admin-result reads must resolve that snapshot even after a later bank
-  version is imported.
+  version is imported. An Advanced bank referenced by any assignment or immutable
+  version cannot be deleted; admin may unpublish/archive it to prevent new assignment,
+  while existing pinned assignments and all evidence remain resolvable.
 
 ### Required-stage completion evidence
 
@@ -221,6 +223,9 @@ that prevents answer leakage and gives admins canonical completion evidence.
   work exposes no lesson payload.
 - Before `publish_at`, direct learner reads and every mutation expose no lesson
   payload and persist no evidence; the canonical open state begins at the timestamp.
+- Direct or stale-client deletion of an assigned/versioned Advanced bank conflicts
+  before database cascade; unpublishing hides it from new assignment selection but
+  learner/admin reloads of existing pinned work retain the bank and evidence.
 
 ## Success criteria
 

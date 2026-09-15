@@ -59,6 +59,10 @@ on staging and replacement implementation commits are created from that base.
   republish after expiry must remain blocked until an explicit deadline extension.
   Every partial-evidence store must make the homework list render Archive instead of
   Delete both immediately and after reload.
+- Protected bank lifecycle: pending direct/admin deletion after partial and completed
+  Advanced work must return 409 before cascade, preserve every evidence row, and keep
+  learner/admin reloads resolvable from the assignment snapshot. Unpublish/archive
+  must hide the bank from new assignment selection without breaking existing work.
 - Completion projection: pending finalizer evidence that `submitted_at` and
   `passed_at` share the terminal timestamp while `score` stays null, plus the shared
   course-action/My Class Review state immediately and after full reload. Shared admin
@@ -82,6 +86,10 @@ on staging and replacement implementation commits are created from that base.
   assertions (including failed/pending/accepted/reloaded rewrite completion), Reading
   and Listening pre/post-submit assertions, a lost-response/reload boundary between
   Listening attempt 1 and guided retry, and manual staging review.
+- Vocabulary completion: pending interruption before request, during pending, and
+  after server acceptance; exact 24-ID acceptance; partial/malformed 422; stale 409;
+  network/identical retry; focus recovery; and reload reconstruction with no optimistic
+  stage advance.
 - Authorization: pending direct-navigation and reload checks for unauthenticated,
   wrong-assignee, archived-assignment, and authenticated non-admin identities, with
   no protected payload or admin mutation action exposed.
