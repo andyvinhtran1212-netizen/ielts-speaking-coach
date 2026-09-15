@@ -61,14 +61,23 @@ def _paged(table: str, columns: str, apply_filters) -> list[dict]:
         start += _PAGE
 
 
-def _lesson_path(lesson_id: str) -> Path:
+def _lesson_path(lesson_id: str, content_checksum: str | None = None) -> Path:
     if not re.fullmatch(r"ADV-T(?:0[1-9]|[12][0-9]|30)", lesson_id or ""):
         raise HTTPException(404, "Không tìm thấy bài học")
+    if content_checksum is not None:
+        if not re.fullmatch(r"[0-9a-f]{64}", content_checksum, re.IGNORECASE):
+            raise HTTPException(409, "Phiên bản bài học không hợp lệ")
+        return _CONTENT_ROOT / "versions" / lesson_id / f"{content_checksum}.json"
     return _CONTENT_ROOT / f"{lesson_id}.json"
 
 
-def load_lesson(lesson_id: str) -> dict:
-    path = _lesson_path(lesson_id)
+def load_lesson(lesson_id: str, content_checksum: str | None = None) -> dict:
+    path = _lesson_path(lesson_id, content_checksum)
+    if content_checksum is not None and not path.is_file():
+        # Compatibility for assignments issued before versioned snapshots were
+        # introduced. The checksum guard in _assigned_lesson still fails closed
+        # if this canonical file no longer represents the frozen version.
+        path = _lesson_path(lesson_id)
     if not path.is_file():
         raise HTTPException(404, "Bài học chưa được triển khai")
     try:
@@ -111,7 +120,7 @@ def _assigned_lesson(*, bank_id: str, user_id: str, item_id: str,
     expected_checksum = str(frozen.get("content_checksum") or "")
     if frozen.get("kind") != "advanced_vocab" or not lesson_id or not expected_checksum:
         raise HTTPException(409, "Bài giao thiếu phiên bản nội dung Advanced Vocabulary")
-    lesson = load_lesson(lesson_id)
+    lesson = load_lesson(lesson_id, expected_checksum)
     declared_checksum = str(
         (lesson.get("provenance") or {}).get("content_checksum") or ""
     )
@@ -164,7 +173,7 @@ def build_quiz_rows(lesson: dict) -> list[dict]:
     selection = practice_selection(lesson)
     ordered = selection["practice_1"] + selection["practice_2"]
     for order, item in enumerate(ordered, 1):
-        raw_answer = item.get("answer")
+        raw_answer = item.get("answer_index", item.get("answer"))
         answer = raw_answer if isinstance(raw_answer, int) and not isinstance(raw_answer, bool) else None
         accept = item.get("accept") if isinstance(item.get("accept"), list) else None
         if answer is None and not accept and raw_answer not in (None, ""):
@@ -273,7 +282,7 @@ def controlled_rewrite_parts(lesson: dict) -> dict:
 
 def _safe_question(item: dict, *, answered: bool = False,
                    audio_url: str | None = None) -> dict:
-    hidden = {"answer", "accept", "explain", "why_wrong", "note"}
+    hidden = {"answer", "answer_index", "accept", "explain", "why_wrong", "note"}
     safe = {key: value for key, value in item.items() if key not in hidden}
     prompt = str(safe.get("prompt") or "")
     if "{{audio}}" in prompt:

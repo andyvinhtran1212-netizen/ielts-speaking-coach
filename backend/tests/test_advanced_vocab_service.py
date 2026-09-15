@@ -150,6 +150,30 @@ def test_quiz_import_rows_keep_text_keys_out_of_integer_answer_column():
             assert isinstance(row["answer"], int)
 
 
+def test_answer_index_is_canonicalized_and_never_exposed_to_learner():
+    lesson = deepcopy(_lesson())
+    selected = service.practice_selection(lesson)
+    selected_id = next(
+        item["item_id"]
+        for item in selected["practice_1"] + selected["practice_2"]
+        if item.get("options") and len(item["options"]) > 1
+    )
+    authored = next(
+        item for item in lesson["adaptive_quiz"]["items"]
+        if item["item_id"] == selected_id
+    )
+    authored.pop("answer", None)
+    authored["answer_index"] = 1
+
+    imported = next(
+        row for row in service.build_quiz_rows(lesson) if row["qid"] == selected_id
+    )
+
+    assert imported["answer"] == 1
+    assert service._correct(imported, 1) is True
+    assert "answer_index" not in service._safe_question(authored)
+
+
 def test_learner_question_projection_never_contains_answer_material():
     source = {
         "item_id": "q1", "prompt": "Question", "answer": 2,
@@ -181,7 +205,9 @@ def test_assigned_lesson_rejects_live_content_that_differs_from_frozen_snapshot(
             "content_checksum": "checksum-from-earlier-import",
         }},
     })
-    monkeypatch.setattr(service, "load_lesson", lambda _lesson_id: lesson)
+    monkeypatch.setattr(
+        service, "load_lesson", lambda _lesson_id, _checksum=None: lesson,
+    )
 
     with pytest.raises(HTTPException) as exc:
         service._assigned_lesson(
@@ -203,7 +229,9 @@ def test_assigned_lesson_recomputes_checksum_instead_of_trusting_provenance(monk
             "content_checksum": declared,
         }},
     })
-    monkeypatch.setattr(service, "load_lesson", lambda _lesson_id: lesson)
+    monkeypatch.setattr(
+        service, "load_lesson", lambda _lesson_id, _checksum=None: lesson,
+    )
 
     with pytest.raises(HTTPException) as exc:
         service._assigned_lesson(
@@ -212,6 +240,35 @@ def test_assigned_lesson_recomputes_checksum_instead_of_trusting_provenance(monk
 
     assert exc.value.status_code == 409
     assert "không khớp" in exc.value.detail
+
+
+def test_assigned_lesson_reopens_frozen_version_after_canonical_revision(
+        tmp_path, monkeypatch):
+    v1 = deepcopy(_lesson())
+    checksum_v1 = v1["provenance"]["content_checksum"]
+    v2 = deepcopy(v1)
+    v2["title"] = "Revised title"
+    v2["provenance"]["content_checksum"] = service.lesson_content_checksum(v2)
+    root = tmp_path / "advanced_vocab"
+    version = root / "versions" / v1["lesson_id"]
+    version.mkdir(parents=True)
+    (root / f"{v1['lesson_id']}.json").write_text(json.dumps(v2), encoding="utf-8")
+    (version / f"{checksum_v1}.json").write_text(json.dumps(v1), encoding="utf-8")
+    monkeypatch.setattr(service, "_CONTENT_ROOT", root)
+    monkeypatch.setattr(service, "_runtime", lambda _bank: ({"id": "bank-1"}, {}))
+    monkeypatch.setattr(service, "_owned_item", lambda *_args, **_kwargs: {
+        "id": "item-1", "content_config": {"runtime": {
+            "kind": "advanced_vocab", "lesson_id": v1["lesson_id"],
+            "content_checksum": checksum_v1,
+        }},
+    })
+
+    _, _, reopened = service._assigned_lesson(
+        bank_id="bank-1", user_id="user-1", item_id="item-1",
+    )
+
+    assert reopened["title"] == v1["title"]
+    assert reopened["provenance"]["content_checksum"] == checksum_v1
 
 
 def test_server_grader_uses_authored_text_variants_and_integer_choice_keys():
@@ -363,6 +420,8 @@ def test_core30_deploy_manifest_matches_runtime_content():
     for row in payload["lessons"]:
         lesson = service.load_lesson(row["lesson_id"])
         assert row["content_checksum"] == lesson["provenance"]["content_checksum"]
+        frozen = service.load_lesson(row["lesson_id"], row["content_checksum"])
+        assert frozen == lesson
         assert 49 <= row["asset_count"] <= 52
 
 

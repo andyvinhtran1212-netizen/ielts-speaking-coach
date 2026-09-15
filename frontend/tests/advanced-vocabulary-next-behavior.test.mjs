@@ -7,6 +7,7 @@ import {
   preserveControlledRewriteResult,
   preserveInitialListeningResult,
   preserveReadingResult,
+  questionOptionIdentity,
   readingSupportLines,
 } from '../lib/advanced-vocabulary-model.mjs';
 
@@ -55,6 +56,17 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.ok(truthBranch >= 0 && truthBranch < genericOptions);
     assert.ok(opinionBranch >= 0 && opinionBranch < genericOptions);
     assert.match(UI, /\['YES', 'NO', 'NOT GIVEN'\]/);
+  });
+
+  test('submits authored option keys for key-only MCQs', () => {
+    assert.deepEqual(questionOptionIdentity({ key: 'A', text: 'Alpha' }, 0), {
+      answer: 'A', label: 'A. Alpha',
+    });
+    assert.deepEqual(questionOptionIdentity('Alpha', 2), {
+      answer: 2, label: 'Alpha',
+    });
+    assert.match(UI, /questionOptionIdentity\(option, index\)/);
+    assert.match(UI, /onChange\(identity\.answer\)/);
   });
 
   test('keeps passage and questions as independently scrollable reading panes', () => {

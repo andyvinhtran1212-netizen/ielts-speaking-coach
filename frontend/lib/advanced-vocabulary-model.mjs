@@ -19,6 +19,16 @@ function mergeResponseProgress(data, response) {
   return { ...(data?.progress || {}), ...(response?.progress || {}) };
 }
 
+export function questionOptionIdentity(option, index) {
+  if (typeof option === 'string') return { answer: index, label: option };
+  const answer = option?.letter ?? option?.key ?? index;
+  const prefix = option?.letter ?? option?.key;
+  return {
+    answer,
+    label: `${prefix == null ? '' : `${prefix}. `}${option?.text ?? ''}`,
+  };
+}
+
 export function preserveReadingResult(data, response) {
   const progress = mergeResponseProgress(data, response);
   const sections = (progress.sections || []).filter((row) => row.section !== 'reading');

@@ -537,6 +537,32 @@ def test_listening_figure_sync_uses_canonical_source_checksum(
         )
 
 
+def test_lesson_sync_retains_checksum_versioned_snapshots(tmp_path: Path, monkeypatch):
+    content = tmp_path / "content"
+    content.mkdir()
+    monkeypatch.setattr(sync_module, "_CONTENT", content)
+    source_v1 = tmp_path / "v1.json"
+    lesson_v1 = _lesson("ADV-T01")
+    source_v1.write_text(json.dumps(lesson_v1), encoding="utf-8")
+    checksum_v1 = lesson_v1["provenance"]["content_checksum"]
+
+    sync_module._sync_lesson(source_v1, "ADV-T01", checksum_v1, write=True)
+
+    source_v2 = tmp_path / "v2.json"
+    lesson_v2 = json.loads(json.dumps(lesson_v1))
+    lesson_v2["title"] = "Advanced T01 v2"
+    lesson_v2["provenance"]["content_checksum"] = _checksum_without(
+        lesson_v2, "provenance", "content_checksum"
+    )
+    checksum_v2 = lesson_v2["provenance"]["content_checksum"]
+    source_v2.write_text(json.dumps(lesson_v2), encoding="utf-8")
+
+    sync_module._sync_lesson(source_v2, "ADV-T01", checksum_v2, write=True)
+
+    assert json.loads((content / "ADV-T01.json").read_text())["title"].endswith("v2")
+    assert (content / "versions" / "ADV-T01" / f"{checksum_v1}.json").is_file()
+    assert (content / "versions" / "ADV-T01" / f"{checksum_v2}.json").is_file()
+
 def test_reading_requires_thirteen_questions_and_no_answer_leak(tmp_path: Path):
     _write_package(tmp_path)
     path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"

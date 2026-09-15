@@ -22,6 +22,10 @@ by a core assignment marked complete here.
 
 The canonical deploy inventory is
 `backend/content/advanced_vocab/core30-manifest.json`.
+Each canonical lesson also has an immutable snapshot at
+`backend/content/advanced_vocab/versions/{lesson_id}/{content_checksum}.json`.
+Assignments resolve that frozen path first, so a later versioned release cannot
+replace the content needed to reopen work already in progress.
 
 ## Pre-deploy verification
 
@@ -48,8 +52,10 @@ The dry-run is intentionally offline and must report `30/30 lesson hợp lệ`
 without Supabase environment variables. `--course-source` is required when the
 built package omits a referenced Listening figure; the sync resolves exactly
 one source file and verifies that the committed deploy copy has the same
-SHA-256. Do not use `--write` during a deployment; deploy assets must already
-be committed and match the manifest.
+SHA-256. `--write` also archives the previous lesson JSON and writes the new
+lesson under its checksum-versioned path. Do not use `--write` during a
+deployment; deploy assets and version snapshots must already be committed and
+match the manifest.
 
 ## Deployment order
 

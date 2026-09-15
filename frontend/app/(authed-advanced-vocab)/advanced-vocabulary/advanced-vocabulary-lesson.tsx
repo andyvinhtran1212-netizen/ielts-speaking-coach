@@ -6,6 +6,7 @@ import {
   preserveControlledRewriteResult,
   preserveInitialListeningResult,
   preserveReadingResult,
+  questionOptionIdentity,
   readingSupportLines,
 } from '@/lib/advanced-vocabulary-model.mjs';
 
@@ -143,9 +144,8 @@ function QuestionInput({ question, value, onChange, disabled }: { question: Json
   if (/T\/F\/NG/i.test(question.question_type || '')) return <div className="avx-options avx-options--inline">{['TRUE', 'FALSE', 'NOT GIVEN'].map((option) => <label key={option}><input type="radio" disabled={disabled} checked={value === option} onChange={() => onChange(option)} /> <span>{option}</span></label>)}</div>;
   if (/Y\/N\/NG/i.test(question.question_type || '')) return <div className="avx-options avx-options--inline">{['YES', 'NO', 'NOT GIVEN'].map((option) => <label key={option}><input type="radio" disabled={disabled} checked={value === option} onChange={() => onChange(option)} /> <span>{option}</span></label>)}</div>;
   if (question.options?.length) return <div className="avx-options">{question.options.map((option: any, index: number) => {
-    const text = typeof option === 'string' ? option : `${option.letter ? `${option.letter}. ` : ''}${option.text}`;
-    const answer = typeof option === 'string' ? index : (option.letter || index);
-    return <label key={`${answer}-${text}`}><input type="radio" disabled={disabled} checked={String(value) === String(answer)} onChange={() => onChange(answer)} /> <span>{text}</span></label>;
+    const identity = questionOptionIdentity(option, index);
+    return <label key={`${identity.answer}-${identity.label}`}><input type="radio" disabled={disabled} checked={String(value) === String(identity.answer)} onChange={() => onChange(identity.answer)} /> <span>{identity.label}</span></label>;
   })}</div>;
   if (question.input === 'boolean' || question.type === 'boolean') return <div className="avx-options avx-options--inline">{[[true, 'Đúng'], [false, 'Sai']].map(([answer, label]) => <label key={String(answer)}><input type="radio" disabled={disabled} checked={value === answer} onChange={() => onChange(answer)} /> <span>{label as string}</span></label>)}</div>;
   return <input className="av-input" disabled={disabled} value={value ?? ''} onChange={(event) => onChange(event.target.value)} placeholder="Nhập câu trả lời" />;

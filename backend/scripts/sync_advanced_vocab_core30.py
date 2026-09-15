@@ -97,6 +97,30 @@ def _sync_listening_figure(
     return target
 
 
+def _sync_lesson(source_lesson: Path, lesson_id: str, checksum: str, *,
+                 write: bool) -> None:
+    target = _CONTENT / f"{lesson_id}.json"
+    if target.is_file():
+        previous = _read(target)
+        previous_checksum = str(
+            (previous.get("provenance") or {}).get("content_checksum") or ""
+        )
+        if (not previous_checksum
+                or lesson_content_checksum(previous) != previous_checksum):
+            raise SystemExit(f"{lesson_id}: snapshot hiện tại có checksum sai.")
+        _copy(
+            target,
+            _CONTENT / "versions" / lesson_id / f"{previous_checksum}.json",
+            write=write,
+        )
+    _copy(source_lesson, target, write=write)
+    _copy(
+        source_lesson,
+        _CONTENT / "versions" / lesson_id / f"{checksum}.json",
+        write=write,
+    )
+
+
 def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dict:
     manifest = _read(source / "course-manifest.json")
     qa = _read(source / "QA_REPORT.json")
@@ -131,7 +155,7 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
         if len(vocabulary) != 24 or not all(
                 str(word.get("common_error") or "").strip() for word in vocabulary):
             raise SystemExit(f"{lesson_id}: cần 24 từ và common_error cho mọi từ.")
-        _copy(source_lesson, _CONTENT / f"{lesson_id}.json", write=write)
+        _sync_lesson(source_lesson, lesson_id, actual_checksum, write=write)
 
         expected_assets: set[str] = set()
         for word in vocabulary:
