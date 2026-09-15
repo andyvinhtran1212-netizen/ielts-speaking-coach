@@ -715,6 +715,12 @@ def _validate_lesson(
         if input_type not in ALLOWED_INPUTS:
             report.add("error", "QUIZ_INPUT_UNSUPPORTED", path,
                        f"Item {item.get('item_id') or '?'} has unsupported input={input_type!r}.")
+        if input_type == "match" and item.get("lexeme_id"):
+            report.add(
+                "error", "QUIZ_SELECTABLE_MATCH_UNSUPPORTED", path,
+                f"Item {item.get('item_id') or '?'} is a selectable match question, "
+                "which the first-release learner does not support.",
+            )
         if "segments" in item:
             segments = item.get("segments")
             if input_type != "syllable":

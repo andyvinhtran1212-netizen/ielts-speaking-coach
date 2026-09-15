@@ -445,6 +445,40 @@ def test_quiz_segments_are_public_strings_for_syllable_input_only(tmp_path: Path
     assert {"QUIZ_SEGMENTS_INPUT_INVALID", "QUIZ_SEGMENTS_INVALID"} <= _codes(report)
 
 
+def test_scoped_match_question_is_rejected_but_editorial_match_is_retained(
+        tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    lesson["adaptive_quiz"]["items"].extend([
+        {
+            "item_id": "ADV-T01-selectable-match",
+            "lexeme_id": lesson["vocabulary"][0]["lexeme_id"],
+            "type": "matching",
+            "input": "match",
+            "pairs": [{"left": "A", "right": "B"}],
+            "answer": ["B"],
+        },
+        {
+            "item_id": "ADV-T01-editorial-match",
+            "type": "matching",
+            "input": "match",
+            "pairs": [{"left": "A", "right": "B"}],
+            "answer": ["B"],
+        },
+    ])
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+
+    matching_issues = [
+        issue for issue in report.errors
+        if issue.code == "QUIZ_SELECTABLE_MATCH_UNSUPPORTED"
+    ]
+    assert len(matching_issues) == 1
+    assert "selectable-match" in matching_issues[0].message
+
+
 def test_listening_requires_six_questions_and_approved_media(tmp_path: Path):
     _write_package(tmp_path)
     path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"

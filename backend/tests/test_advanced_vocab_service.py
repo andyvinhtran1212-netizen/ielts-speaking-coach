@@ -155,6 +155,27 @@ def test_quiz_import_rows_keep_text_keys_out_of_integer_answer_column():
             assert isinstance(row["answer"], int)
 
 
+def test_practice_selection_never_selects_unrenderable_match_item():
+    lesson = deepcopy(_lesson())
+    lexeme = lesson["vocabulary"][0]["lexeme_id"]
+    pool = lesson["adaptive_quiz"]["items"]
+    lesson["adaptive_quiz"]["items"] = [
+        row for row in pool
+        if row.get("lexeme_id") != lexeme or service._choice(row)
+    ]
+    lesson["adaptive_quiz"]["items"].append({
+        "item_id": "deterministic-match",
+        "lexeme_id": lexeme,
+        "type": "matching",
+        "input": "match",
+        "pairs": [{"left": "A", "right": "B"}],
+        "answer": ["B"],
+    })
+
+    with pytest.raises(ValueError, match="Không có câu phù hợp"):
+        service.practice_selection(lesson)
+
+
 def test_answer_index_is_canonicalized_and_never_exposed_to_learner():
     lesson = deepcopy(_lesson())
     selected = service.practice_selection(lesson)
@@ -272,6 +293,18 @@ def test_learner_question_projection_never_contains_answer_material():
     })
     assert "segments" not in unsafe_segments
     assert "secret" not in json.dumps(unsafe_segments)
+
+
+@pytest.mark.parametrize("activity_type", ["reading_lab", "listening_lab"])
+def test_answer_rows_keeps_solution_map_key_authoritative(activity_type):
+    content = deepcopy(service._activity(_lesson(), activity_type)["content"])
+    qid = str(content["questions"][0]["question_number"])
+    content["solutions"][qid]["id"] = "shadowed-inner-id"
+
+    rows = service._answer_rows(content)
+
+    assert rows[0]["id"] == qid
+    assert all(row["id"] != "shadowed-inner-id" for row in rows)
 
 
 def test_assigned_lesson_rejects_live_content_that_differs_from_frozen_snapshot(monkeypatch):

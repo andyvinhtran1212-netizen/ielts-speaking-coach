@@ -154,7 +154,11 @@ def practice_selection(lesson: dict) -> dict[str, list[dict]]:
         rows = [row for row in pool if row.get("lexeme_id") == lexeme]
         selected.extend([
             _pick([row for row in rows if _choice(row)], f"{lesson['lesson_id']}:{lexeme}:r"),
-            _pick([row for row in rows if not _choice(row)], f"{lesson['lesson_id']}:{lexeme}:p"),
+            _pick(
+                [row for row in rows
+                 if not _choice(row) and row.get("input") != "match"],
+                f"{lesson['lesson_id']}:{lexeme}:p",
+            ),
         ])
     if len(selected) != 48 or len({row.get("item_id") for row in selected}) != 48:
         raise ValueError(
@@ -767,7 +771,7 @@ def _answer_rows(content: dict) -> list[dict]:
     for question in content.get("questions") or []:
         qid = str(question.get("question_number") or question.get("id") or "")
         solution = solutions.get(qid) or {}
-        rows.append({"id": qid, **solution})
+        rows.append({**solution, "id": qid})
     if not rows or any(not row.get("id") or row.get("answer") in (None, "") for row in rows):
         raise HTTPException(500, "Nội dung đáp án của bài chưa hoàn chỉnh")
     return rows
