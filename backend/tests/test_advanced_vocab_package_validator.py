@@ -479,6 +479,47 @@ def test_scoped_match_question_is_rejected_but_editorial_match_is_retained(
     assert "selectable-match" in matching_issues[0].message
 
 
+def test_selectable_items_require_compatible_grading_contracts(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    lexeme = lesson["vocabulary"][0]["lexeme_id"]
+    valid_items = [
+        {
+            "item_id": "ADV-T01-valid-boolean", "lexeme_id": lexeme,
+            "type": "true_false", "input": "boolean", "answer": False,
+        },
+        {
+            "item_id": "ADV-T01-valid-syllable", "lexeme_id": lexeme,
+            "type": "stress", "input": "syllable", "answer": 1,
+            "segments": ["one", "two"],
+        },
+        {
+            "item_id": "ADV-T01-valid-text", "lexeme_id": lexeme,
+            "type": "gap_text", "input": "text", "accept": ["answer"],
+        },
+    ]
+    lesson["adaptive_quiz"]["items"].extend(valid_items)
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    assert validate_package(tmp_path).publish_ready is True
+
+    valid_items[0].pop("answer")
+    valid_items[1]["answer"] = 2
+    valid_items[2]["accept"] = []
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    issues = [
+        issue for issue in validate_package(tmp_path).errors
+        if issue.code == "QUIZ_GRADING_CONTRACT_INVALID"
+    ]
+    assert len(issues) == 3
+    assert all(
+        any(item_id in issue.message for issue in issues)
+        for item_id in ("valid-boolean", "valid-syllable", "valid-text")
+    )
+
+
 def test_listening_requires_six_questions_and_approved_media(tmp_path: Path):
     _write_package(tmp_path)
     path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"

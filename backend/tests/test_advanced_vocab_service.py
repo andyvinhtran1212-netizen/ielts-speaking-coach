@@ -200,6 +200,16 @@ def test_answer_index_is_canonicalized_and_never_exposed_to_learner():
     assert "answer_index" not in service._safe_question(authored)
 
 
+def test_boolean_syllable_and_text_contracts_grade_correctly():
+    assert service._correct({"input": "boolean", "answer": False}, False) is True
+    assert service._correct({
+        "input": "syllable", "answer": 1, "segments": ["one", "two"],
+    }, 1) is True
+    assert service._correct({
+        "input": "text", "accept": ["correct answer"],
+    }, "Correct Answer") is True
+
+
 def test_answer_practice_grades_authored_answer_index(monkeypatch):
     lesson = deepcopy(_lesson())
     indexed = {

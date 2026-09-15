@@ -721,6 +721,61 @@ def _validate_lesson(
                 f"Item {item.get('item_id') or '?'} is a selectable match question, "
                 "which the first-release learner does not support.",
             )
+        if item.get("lexeme_id") and input_type != "match":
+            has_expected = "answer" in item or "answer_index" in item
+            expected = (
+                item.get("answer") if "answer" in item
+                else item.get("answer_index")
+            )
+            grading_valid = True
+            if input_type == "choice":
+                options = item.get("options")
+                if not has_expected or not isinstance(options, list) or len(options) < 2:
+                    grading_valid = False
+                elif isinstance(expected, int) and not isinstance(expected, bool):
+                    grading_valid = 0 <= expected < len(options)
+                else:
+                    option_keys = {
+                        str(option.get("letter") or option.get("key") or index)
+                        if isinstance(option, dict) else str(index)
+                        for index, option in enumerate(options)
+                    }
+                    grading_valid = str(expected) in option_keys
+            elif input_type == "boolean":
+                grading_valid = has_expected and isinstance(expected, bool)
+            elif input_type == "syllable":
+                segments = item.get("segments")
+                grading_valid = (
+                    has_expected
+                    and isinstance(expected, int)
+                    and not isinstance(expected, bool)
+                    and isinstance(segments, list)
+                    and 0 <= expected < len(segments)
+                )
+            elif input_type == "text":
+                accepted = item.get("accept")
+                if isinstance(accepted, list):
+                    grading_valid = bool(accepted) and all(
+                        isinstance(value, str) and bool(value.strip())
+                        for value in accepted
+                    )
+                elif isinstance(expected, list):
+                    grading_valid = bool(expected) and all(
+                        isinstance(value, str) and bool(value.strip())
+                        for value in expected
+                    )
+                else:
+                    grading_valid = (
+                        has_expected
+                        and isinstance(expected, str)
+                        and bool(expected.strip())
+                    )
+            if not grading_valid:
+                report.add(
+                    "error", "QUIZ_GRADING_CONTRACT_INVALID", path,
+                    f"Item {item.get('item_id') or '?'} has no usable "
+                    f"{input_type or 'selectable'} answer contract.",
+                )
         if "segments" in item:
             segments = item.get("segments")
             if input_type != "syllable":
