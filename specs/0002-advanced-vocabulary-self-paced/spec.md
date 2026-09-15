@@ -52,7 +52,8 @@ that prevents answer leakage and gives admins canonical completion evidence.
   the banks remain assignment-only and are not exposed in public discovery.
 - **FR-002:** Each assigned lesson is resumable and completes only after the
   required vocabulary, two practice, Reading, controlled-rewrite, and Listening
-  interactions; opening a page alone never completes a stage.
+  interactions; opening a page alone never completes a stage, and every mutation
+  rechecks active cohort membership and the assignment deadline at persistence time.
 - **FR-003:** The release preserves 24 authored words per lesson, uses the authored
   per-session quiz material, includes all 88 curated common-error supplements,
   and serves checksum-bound headword and example audio for every vocabulary card.
@@ -79,7 +80,8 @@ that prevents answer leakage and gives admins canonical completion evidence.
   an Advanced-Vocabulary-specific guard permits only attempt 1 and one row per
   item/section regardless of the generic course retry key, identical replay is
   idempotent, different replay conflicts, and complete pilot states that predate the
-  trigger are reconciled from canonical evidence.
+  trigger are reconciled from canonical evidence. Persistence-time guards reject any
+  evidence write after membership removal/transfer, archival, or deadline expiry.
 - **FR-008:** Authored lesson JSON and runtime media use immutable content versions
   and verified SHA-256 provenance, including Listening figures and audio, so a
   deployed assignment reopens the same content revision. Assignment creation must
@@ -173,6 +175,10 @@ that prevents answer leakage and gives admins canonical completion evidence.
   hides it from the learner, and a later republish restores the saved progress.
 - Removing an assignment does not make its historical evidence public or reusable.
 - Network or browser interruption resumes from persisted stage state.
+- Membership removal/transfer between any two stages revokes further read/write
+  access without deleting prior evidence. A deadline crossed after page load rejects
+  that stage mutation; submitted work remains review-only, while incomplete expired
+  work exposes no lesson payload.
 
 ## Success criteria
 

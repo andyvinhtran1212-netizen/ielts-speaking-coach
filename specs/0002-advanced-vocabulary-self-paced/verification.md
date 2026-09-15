@@ -39,6 +39,10 @@ on staging and replacement implementation commits are created from that base.
   rows, while a distinct teacher-created Writing assignment remains submittable.
 - Stage ordering: pending out-of-order start/answer calls before every predecessor,
   followed by the accepted in-order journey and canonical reload comparison.
+- Access cutoff races: pending removal and transfer both before first open and between
+  partial stages, plus deadline crossing between page load and every mutation. Each
+  case must reject at persistence time with no subsequent write/reload access;
+  submitted-after-deadline reopens persisted review only with `accepting:false`.
 - Archive lifecycle: pending archive, blocked learner reload, preserved admin reload,
   republish, and learner resume from the original canonical stage. Every partial-
   evidence store must make the homework list render Archive instead of Delete both

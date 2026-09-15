@@ -51,6 +51,15 @@
   archive/retire behavior. Archiving preserves the item and all evidence: admin reload
   continues to show canonical progress, learner routes become unavailable as the kill
   switch requires, and republishing restores learner access at the persisted stage.
+- Every learner read and mutation resolves the assignment item through its assignment,
+  student, and active cohort membership; retaining a historical item after removal or
+  transfer grants no access. Every evidence write, including the final Listening
+  transaction, rechecks published status, active membership, and `due_at` at database
+  persistence time so a page opened before removal/deadline cannot write afterward.
+  Membership/identity mismatch is the canonical non-enumerating 404. An incomplete
+  item after deadline returns the stable deadline conflict and no lesson payload;
+  a submitted item may reopen only its persisted review with `accepting:false` and no
+  mutation controls.
 
 ## API contract
 
@@ -86,10 +95,11 @@ router, and generic submission routes must reject this runtime while leaving tea
 created Writing assignments unchanged.
 
 Stable failures are: 401 unauthenticated; 403 non-admin on the admin route; 404 wrong
-assignee, archived/unknown item, or non-Advanced bank; 409 unmet predecessor, frozen-
-version mismatch, immutable-answer conflict, or already-submitted different payload;
-422 invalid/missing IDs or required answers; and sanitized 500 persistence/content
-failure. Existing non-Advanced course route schemas and behavior remain unchanged.
+assignee, inactive/transferred membership, archived/unknown item, or non-Advanced
+bank; 409 `deadline_passed`, unmet predecessor, frozen-version mismatch, immutable-
+answer conflict, or already-submitted different payload; 422 invalid/missing IDs or
+required answers; and sanitized 500 persistence/content failure. Existing non-
+Advanced course route schemas and behavior remain unchanged.
 
 ## UI and interaction
 
