@@ -444,6 +444,7 @@ def test_timed_bank_read_anchors_clock_and_session_before_releasing_questions():
     )
     assert out["questions"], "không được phát đề nếu bước anchor không hoàn tất"
     assert out["mastery"]["started_at"] == started
+    assert out["mastery"]["initial_session_id"] == "sess-first"
 
 
 # ── Hai cổng cho cùng một bank phải nói CÙNG MỘT CÂU ─────────────────────────

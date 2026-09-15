@@ -585,6 +585,12 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       reviewOnly = Boolean(options.reviewOnly || (r.mastery && r.mastery.review_only));
       retakeNo = Math.max(0, Number((r.mastery && r.mastery.retakes) || 0));
       itemId = (r.mastery && r.mastery.item_id) || null;
+      // A first timed bank read creates this session atomically with the timer.
+      // It belongs to this exact response even when localStorage is stale, so
+      // it is safer than opening a second session after deliberately skipping
+      // the generic resume state for an older bank/item fingerprint.
+      const initialSessionId = (r.mastery && typeof r.mastery.initial_session_id === 'string')
+        ? r.mastery.initial_session_id : null;
       const allQuestions = r.questions || [];
       qs = allQuestions;
       // TỰ LUẬN TÁCH KHỎI VÒNG CHẶNG. Ở phần trắc nghiệm nhịp là hỏi–đáp–giải
@@ -627,6 +633,16 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // Đã nhận một phiên dở từ máy chủ: mở phiên mới ở đây là bỏ rơi chính
       // phiên vừa nhận, tức là tái lập đúng lỗi mồ côi vừa sửa.
       else if (adopted && sessionId) { /* dùng tiếp phiên đang dở */ }
+      // `local === stale` intentionally skips generic resume because those
+      // sessions can belong to an older bank revision/item.  The session id
+      // returned by this bank read was created under the current transactional
+      // authorization and is therefore the one safe canonical exception.
+      else if (initialSessionId) {
+        stage = 0; at = 0; marks = []; runSessions = [];
+        resumedFinal = false; restored = null;
+        sessionId = initialSessionId; sessionEnded = false;
+        sessionFailed = false; stageStartedAt = now();
+      }
       // Timer đã hết: giữ các session máy chủ vừa khôi phục để nộp lượt hết
       // giờ; tuyệt đối không mở thêm một session sau ranh giới canonical.
       else if (this.isTimedOut()) {
@@ -653,9 +669,12 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // Gửi vị trí GỐC của phương án, không phải vị trí hiển thị: ở bài kiểm
       // tra lại đáp án đã trộn, và màn xem lại lỗi sai đọc theo bộ đề gốc.
       queue(q, ok, String(q._perm ? q._perm[picked] : picked));
-      if (pending.length >= BATCH) {
+      if (pending.length >= BATCH || (mastery && mastery.is_timed)) {
         // Nuốt lỗi Ở ĐÂY là đúng (đang giữa chặng, không có gì để nói với học
         // viên), nhưng phải NHỚ lời hứa để `finishStage` chờ được.
+        // Bài có đồng hồ phải đẩy ngay: nếu giữ 1–4 câu cuối ở client cho đủ
+        // batch thì ranh giới máy chủ sẽ tới trước và các câu đã trả lời đúng
+        // hạn ấy bị mất khỏi điểm timeout.
         // NỐI ĐUÔI, không ghi đè promise cũ. Nếu batch 6–10 về trước batch 1–5,
         // chờ riêng batch mới sẽ đóng phiên trong khi nửa đầu còn đang bay.
         inflight = inflight.then(() => flush())

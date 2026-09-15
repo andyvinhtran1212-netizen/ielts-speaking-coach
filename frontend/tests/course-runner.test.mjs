@@ -166,10 +166,36 @@ test('uses the server deadline and submits a time-cap verdict', async () => {
   assert.equal(runner.isTimedOut(), true);
   await runner.finishStage({ endedBy: 'time_cap' });
   await runner.verdict();
-  assert.equal(api.calls.post.filter((call) => call.path.endsWith('/progress')).length, 0,
-    'client must not try to upload queued answers after the canonical deadline');
+  assert.equal(api.calls.post.filter((call) => call.path.endsWith('/progress')).length, 1,
+    'timed answers are sent eagerly instead of waiting for a five-answer batch');
   assert.equal(api.calls.patch.at(-1).body.ended_by, 'time_cap');
   assert.equal(api.calls.post.at(-1).body.timed_out, true);
+});
+
+test('persists a final four-answer timed batch before timeout', async () => {
+  let clock = 1000;
+  const api = fakeApi({
+    questions: Array.from({ length: 4 }, (_, i) => mcq(i)),
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      expires_at: null, time_remaining_seconds: 60,
+    },
+  });
+  const runner = createRunner({ api, storage: null, now: () => clock });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  for (let i = 0; i < 4; i++) {
+    runner.show();
+    runner.answer(0);
+    runner.next();
+  }
+  // Let the eager write start while the canonical window is still open.
+  await Promise.resolve();
+  clock = 61000;
+  await runner.finishStage({ endedBy: 'time_cap' });
+  const saved = api.calls.post
+    .filter((call) => call.path.endsWith('/progress'))
+    .flatMap((call) => call.body.attempts);
+  assert.deepEqual(saved.map((row) => row.qid), ['Q0', 'Q1', 'Q2', 'Q3']);
 });
 
 test('a completed session stays closed when the page timer later expires', async () => {
@@ -214,6 +240,32 @@ test('adopts the empty atomic timer session instead of opening a second one', as
   runner.next();
   await runner.finishStage();
   assert.ok(api.calls.patch.some((call) => call.path.endsWith('/atomic-first')));
+});
+
+test('adopts the response atomic session even when local state is stale', async () => {
+  const storage = memStore();
+  storage.setItem('cx:b1', JSON.stringify({
+    stage: 0, at: 0, marks: [], done: false,
+    runSessions: [], rev: 'old-bank-revision', item: 'item-old',
+  }));
+  const api = fakeApi({
+    questions: [mcq(1)],
+    mastery: {
+      item_id: 'item-new', is_timed: true, time_remaining_seconds: 60,
+      initial_session_id: 'atomic-current',
+    },
+  });
+  const runner = createRunner({ api, storage, now: () => 1000 });
+  await runner.load('b1', { assignmentItemId: 'item-new' });
+  assert.equal(api.calls.get.filter((path) => path.includes('/course-resume')).length, 0,
+    'stale generic resume remains deliberately untrusted');
+  assert.equal(api.calls.post.filter((call) => call.path === '/api/quiz/sessions').length, 0,
+    'the current response already supplied the canonical first session');
+  runner.show();
+  runner.answer(0);
+  runner.next();
+  await runner.finishStage();
+  assert.ok(api.calls.patch.some((call) => call.path.endsWith('/atomic-current')));
 });
 
 function memStore() {

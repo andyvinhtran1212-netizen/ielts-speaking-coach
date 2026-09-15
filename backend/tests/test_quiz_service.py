@@ -257,6 +257,33 @@ def test_timed_bank_keeps_timer_when_optional_mastery_refresh_fails(refresh_resp
     assert out["mastery"]["expires_at"] == "2026-09-15T01:30:00+00:00"
 
 
+def test_timed_bank_question_failure_does_not_start_clock_or_session():
+    """Prepare the answer-bearing payload before claiming a fixed time window."""
+    unopened = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "opened_at": None, "due_at": None, "accepting": True,
+        "passed_at": None, "mastery": None,
+        "content_config": {"time_limit_minutes": 30},
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "code": "C1-MIDTERM", "skill_area": "course",
+            "meta": {},
+        }],
+        ("class_assignment_items", "select"): [],
+        ("quiz_questions", "select"): Exception("question read failed"),
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for_review", return_value=unopened), \
+         patch.object(quiz_service, "_ensure_timed_course_session") as anchor:
+        with pytest.raises(HTTPException) as exc:
+            quiz_service.get_bank_for_play(
+                _BANK, user_id=_USER, assignment_item_id="item-timed",
+            )
+    assert exc.value.status_code == 500
+    anchor.assert_not_called()
+
+
 def test_get_bank_for_play_unpublished_404():
     fake = _FakeSupabase(responses={
         ("quiz_banks", "select"): [{"id": _BANK, "is_published": False}],

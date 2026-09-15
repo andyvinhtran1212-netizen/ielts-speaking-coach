@@ -810,6 +810,9 @@ def get_bank_for_play(
         raise HTTPException(404, "Không tìm thấy bank")
     bank = b[0]
     mastery_state = None
+    course_item = None
+    course_preflight_assignment = None
+    course_preflight_action = None
     if bank.get("skill_area") == COURSE_AREA:
         # BÀI GIAO LÀ CỬA DUY NHẤT. `is_published` KHÔNG áp cho giáo trình: bank
         # theo buổi sống trong kho giáo viên ở trạng thái nháp và không bao giờ
@@ -823,21 +826,20 @@ def get_bank_for_play(
         ) if user_id else None)
         if not item:
             raise HTTPException(404, "Không tìm thấy bank")
-        # Timed assessment questions carry their answer key.  Anchor the clock
-        # and its first session atomically before the question query below can
-        # release that payload.  Submitted items are read-only historical views
-        # and must not start a new timer/session merely because they are opened.
+        # Timed assessment questions carry their answer key.  Authorize first,
+        # but do not start the clock until the complete response is ready: a
+        # failed question/audio read must not consume the learner's fixed time.
+        # The atomic RPC below rechecks this authorization immediately before
+        # the answer-bearing payload is returned.
         preflight_assignment = {
             "status": "published", "publish_at": None,
             "due_at": item.get("due_at"),
             "content_config": item.get("content_config") or {},
         }
         preflight_action = course_assignment_action(item, preflight_assignment)
-        if preflight_action != "review":
-            item, _ = _ensure_timed_course_session(
-                item, user_id=str(user_id), bank_id=bank_id,
-                code=bank.get("code"), allow_expired_existing=True,
-            )
+        course_item = item
+        course_preflight_assignment = preflight_assignment
+        course_preflight_action = preflight_action
         # Timer metadata is part of the required access contract, not an
         # optional badge.  Build it from the item/assignment already authorized
         # above before the best-effort refresh below.  If that refresh fails,
@@ -975,6 +977,26 @@ def get_bank_for_play(
     word_cards = _word_cards_for(bank)
     _attach_article_urls(questions)
     _resolve_question_audio(questions, word_cards)
+
+    # This is the last failure-capable gate before returning a timed Course
+    # bank.  Migration 264 locks and rechecks assignment access, membership and
+    # deadline in the same transaction that starts the clock and creates the
+    # first session.  If any payload-building step above fails, neither write
+    # has happened.  Return that session id as part of the bank contract so a
+    # stale localStorage fingerprint cannot make the runner create a duplicate.
+    if course_item is not None and course_preflight_action != "review":
+        course_item, initial_session_id = _ensure_timed_course_session(
+            course_item, user_id=str(user_id), bank_id=bank_id,
+            code=bank.get("code"), allow_expired_existing=True,
+        )
+        final_timer = assignment_timer_state(
+            course_item, course_preflight_assignment or {},
+        )
+        if final_timer.get("is_timed"):
+            mastery_state = {**(mastery_state or {}), **final_timer}
+            if initial_session_id:
+                mastery_state["initial_session_id"] = initial_session_id
+
     out = {"bank": bank, "questions": questions, "word_cards": word_cards}
     if mastery_state is not None:
         out["mastery"] = mastery_state
