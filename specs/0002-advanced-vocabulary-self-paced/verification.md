@@ -54,7 +54,8 @@ on staging and replacement implementation commits are created from that base.
   no-microphone/no-submission assertion, every required-stage interruption/resume
   state, Practice pre/post-attempt and controlled-rewrite pre/post-completion leakage
   assertions (including failed/pending/accepted/reloaded rewrite completion), Reading
-  and Listening pre/post-submit assertions, and manual staging review.
+  and Listening pre/post-submit assertions, a lost-response/reload boundary between
+  Listening attempt 1 and guided retry, and manual staging review.
 - Authorization: pending direct-navigation and reload checks for unauthenticated,
   wrong-assignee, archived-assignment, and authenticated non-admin identities, with
   no protected payload or admin mutation action exposed.

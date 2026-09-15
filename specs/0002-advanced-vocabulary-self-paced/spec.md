@@ -116,7 +116,9 @@ that prevents answer leakage and gives admins canonical completion evidence.
   incorrect question, after which the server creates exactly one canonical Listening
   section row containing both the frozen initial attempt and retry evidence. Reading
   and Listening store supplied `duration_sec`, capped at 12 hours; retry/resume never
-  replaces the first accepted duration.
+  replaces the first accepted duration. Until retry completes, learner progress
+  reconstructs the persisted initial results and exact initially incorrect question
+  IDs so an interrupted client resumes the guided retry without repeating attempt 1.
 - Repeating an identical completion call returns the existing canonical evidence or
   performs an idempotent upsert. A different answer after an immutable submission,
   or a conflicting concurrent retry, returns a conflict and never overwrites the

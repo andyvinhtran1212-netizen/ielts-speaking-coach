@@ -74,10 +74,16 @@ from those generated operations rather than maintain a parallel wire schema.
 
 `Progress` contains `completed_stages`, persisted stage rows, immutable Practice
 answers, submitted section reviews, `listening_submitted`, and `required_completed`.
-Pre-reveal `LessonView` follows the field projections above; post-reveal answer fields
-exist only in the accepted mutation response and persisted review. Writing and
-Speaking have no submission route in this router, and generic submission routes must
-reject this runtime while leaving teacher-created Writing assignments unchanged.
+After the immutable first Listening attempt but before guided retry, it also contains
+`listening_pending_retry: {initial_answer_results, required_retry_ids}` reconstructed
+from `advanced_vocab_listening_attempts`; this lets a lost response or reload render
+exactly the remaining wrong-question inputs without resubmitting or exposing answers
+for other questions. The field is absent before the first attempt and after the
+canonical Listening section exists. Pre-reveal `LessonView` follows the field
+projections above; post-reveal answer fields exist only in the accepted mutation
+response and persisted review. Writing and Speaking have no submission route in this
+router, and generic submission routes must reject this runtime while leaving teacher-
+created Writing assignments unchanged.
 
 Stable failures are: 401 unauthenticated; 403 non-admin on the admin route; 404 wrong
 assignee, archived/unknown item, or non-Advanced bank; 409 unmet predecessor, frozen-
