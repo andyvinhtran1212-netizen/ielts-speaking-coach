@@ -10,17 +10,19 @@ on staging and replacement implementation commits are created from that base.
 | FR-001 | kind=test; ref=backend/tests/test_advanced_vocab_importer.py | PENDING |
 | FR-002 | kind=test; ref=backend/tests/test_advanced_vocab_service.py | PENDING |
 | FR-003 | kind=test; ref=backend/tests/test_advanced_vocab_audio_builder.py | PENDING |
-| FR-004 | kind=test; ref=backend/tests/test_advanced_vocab_package_validator.py | PENDING |
+| FR-004 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
 | FR-005 | kind=test; ref=frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
 | FR-006 | kind=test; ref=backend/tests/test_advanced_vocab_service.py | PENDING |
 | FR-007 | kind=test; ref=backend/tests/test_advanced_vocab_rls_integration.py | PENDING |
-| FR-008 | kind=test; ref=backend/tests/test_advanced_vocab_package_validator.py | PENDING |
+| FR-008 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py | PENDING |
 
 ## Contract evidence
 
 - OpenAPI/type drift: pending exact implementation SHA CI.
 - Backward compatibility: pending legacy-route isolation, frozen-version tests,
-  and existing course retry/report regression tests.
+  existing course retry/report regression tests, and an integration journey that
+  assigns v1, imports a changed v2 bank, and proves learner, submission, resume, and
+  admin-result reads still use the v1 content and checksum-bound assets.
 
 ## Data evidence
 
@@ -35,7 +37,8 @@ on staging and replacement implementation commits are created from that base.
 - Viewports/themes/input methods: pending Next.js browser regression, explicit
   no-microphone/no-submission assertion, every required-stage interruption/resume
   state, Practice pre/post-attempt and controlled-rewrite pre/post-completion leakage
-  assertions, and manual staging review.
+  assertions (including failed/pending/accepted/reloaded rewrite completion), Reading
+  and Listening pre/post-submit assertions, and manual staging review.
 
 ## Release evidence
 
