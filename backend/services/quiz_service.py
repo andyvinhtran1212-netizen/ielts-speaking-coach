@@ -1125,6 +1125,12 @@ def get_bank_for_play(
             and course_preflight_action not in {"review", "expired_pending"}):
         preflight_kind = ("retake"
                           if course_preflight_action == "retake" else "run")
+        # Question/audio assembly above deliberately happens before the first
+        # clock write.  Tell the browser when this very GET crossed that start
+        # boundary so it does not charge the earlier payload-build time against
+        # the learner.  A concurrently won start is equivalent here: it still
+        # happened after this request's unopened authorization snapshot.
+        timer_started_during_load = not bool(course_item.get("opened_at"))
         course_item, initial_session_id = _ensure_timed_course_session(
             course_item, user_id=str(user_id), bank_id=bank_id,
             code=bank.get("code"), kind=preflight_kind,
@@ -1154,6 +1160,8 @@ def get_bank_for_play(
                 })
             if initial_session_id:
                 mastery_state["initial_session_id"] = initial_session_id
+                if timer_started_during_load:
+                    mastery_state["timer_started_during_load"] = True
 
     out = {"bank": bank, "questions": questions, "word_cards": word_cards}
     if mastery_state is not None:

@@ -223,6 +223,38 @@ test('network latency never extends the authoritative server countdown', async (
   assert.equal(runner.pendingCount, 0);
 });
 
+test('first timed load does not charge payload assembly before the server starts the clock', async () => {
+  let clock = 0;
+  const api = fakeApi({
+    questions: [mcq(1)],
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      sampled_at: '1970-01-01T00:00:05.000Z',
+      started_at: '1970-01-01T00:00:05.000Z',
+      expires_at: '1970-01-01T00:01:05.000Z',
+      time_remaining_seconds: 60,
+      initial_session_id: 'sess-first',
+      timer_started_during_load: true,
+    },
+  });
+  const get = api.get.bind(api);
+  api.get = async (path) => {
+    clock = 5000; // payload assembly completed before the final locked start
+    const response = await get(path);
+    clock = 6000; // response delivery happened after the server sampled at start
+    return response;
+  };
+  const runner = createRunner({ api, storage: null, now: () => clock });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+
+  assert.equal(runner.timeRemainingSeconds(), 60,
+    'pre-start assembly must not make the browser expire before the server');
+  clock = 65999;
+  assert.equal(runner.timeRemainingSeconds(), 1);
+  clock = 66000;
+  assert.equal(runner.isTimedOut(), true);
+});
+
 test('persists a final four-answer timed batch before timeout', async () => {
   let clock = 1000;
   const api = fakeApi({
