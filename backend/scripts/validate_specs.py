@@ -238,10 +238,49 @@ def _valid_iso_date(value: str) -> bool:
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
         return False
     try:
-        calendar_date.fromisoformat(value)
+        parsed = calendar_date.fromisoformat(value)
     except ValueError:
         return False
-    return True
+    return parsed <= calendar_date.today()
+
+
+def _has_populated_ui_state_matrix(text: str) -> bool:
+    expected_header = [
+        "surface",
+        "loading",
+        "empty",
+        "success",
+        "error/retry",
+        "permission",
+        "responsive/theme/a11y",
+    ]
+    rows: list[list[str]] = []
+    for line in _visible_markdown(text).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("|") and stripped.endswith("|"):
+            rows.append([cell.strip() for cell in stripped.strip("|").split("|")])
+    try:
+        header_index = next(
+            index
+            for index, cells in enumerate(rows)
+            if [cell.lower() for cell in cells] == expected_header
+        )
+    except StopIteration:
+        return False
+    placeholders = {"replace surface", "expected behavior", "evidence"}
+    for cells in rows[header_index + 1 :]:
+        if len(cells) != len(expected_header):
+            continue
+        if all(re.fullmatch(r":?-{3,}:?", cell) for cell in cells):
+            continue
+        normalized = [cell.lower() for cell in cells]
+        if (
+            all(cells)
+            and not any(cell in placeholders or _placeholder_value(cell) for cell in normalized)
+            and not all(cell in {"n/a", "na"} for cell in normalized)
+        ):
+            return True
+    return False
 
 
 def _evidence_detail_error(result: str, evidence: str, root: Path) -> str | None:
@@ -401,11 +440,9 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
                         errors.append(
                             f"{feature / filename}: '## {heading}' section must contain meaningful content"
                         )
-            if "| Surface | Loading |" not in _visible_markdown(
-                texts.get("ui-states.md", "")
-            ):
+            if not _has_populated_ui_state_matrix(texts.get("ui-states.md", "")):
                 errors.append(
-                    f"{feature / 'ui-states.md'}: high-risk UI state matrix is missing"
+                    f"{feature / 'ui-states.md'}: high-risk UI state matrix needs a complete surface row"
                 )
 
         for filename, headings in REQUIRED_SECTIONS.items():

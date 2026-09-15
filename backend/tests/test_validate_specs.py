@@ -77,7 +77,7 @@ Test.
             "# UI state matrix\n\n"
             "| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |\n"
             "| --- | --- | --- | --- | --- | --- | --- |\n"
-            "| N/A | N/A | N/A | N/A | N/A | N/A | N/A |\n",
+            "| Admin workflow | Skeleton | No records | Canonical data | Retry notice | Admin only | Desktop/mobile, light/dark, keyboard |\n",
         )
         _write(
             feature / "rollout.md",
@@ -472,7 +472,7 @@ def test_repository_accepts_structured_manual_evidence(tmp_path: Path) -> None:
 def test_manual_evidence_requires_real_calendar_date(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     verification = root / "specs/0001-example-feature/verification.md"
-    for invalid_date in ("2026-99-99", "2026-02-30"):
+    for invalid_date in ("2026-99-99", "2026-02-30", "2099-01-01"):
         verification.write_text(
             "## Requirement coverage\n\n"
             f"| FR-001 | reviewer=Lan; environment=staging; date={invalid_date}; observed=Flow completed | MANUAL |\n",
@@ -483,7 +483,7 @@ def test_manual_evidence_requires_real_calendar_date(tmp_path: Path) -> None:
 
     verification.write_text(
         "## Requirement coverage\n\n"
-        "| FR-001 | reviewer=Lan; environment=staging; date=2028-02-29; observed=Flow completed | MANUAL |\n",
+        "| FR-001 | reviewer=Lan; environment=staging; date=2024-02-29; observed=Flow completed | MANUAL |\n",
         encoding="utf-8",
     )
     errors, _ = validator.validate_repository(root)
@@ -641,7 +641,9 @@ def test_high_risk_pr_requires_base_spec_to_have_high_risk(tmp_path: Path) -> No
     )
     _write(
         feature / "ui-states.md",
-        "| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |\n",
+        "| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |\n"
+        "| --- | --- | --- | --- | --- | --- | --- |\n"
+        "| Admin workflow | Skeleton | No records | Canonical data | Retry | Admin only | Mobile/desktop, themes, keyboard |\n",
     )
     _write(
         feature / "rollout.md",
@@ -673,7 +675,9 @@ def test_feature_pr_cannot_raise_approved_risk_or_misclassify_high_spec(
     )
     _write(
         feature / "ui-states.md",
-        "| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |\n",
+        "| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |\n"
+        "| --- | --- | --- | --- | --- | --- | --- |\n"
+        "| Admin workflow | Skeleton | No records | Canonical data | Retry | Admin only | Mobile/desktop, themes, keyboard |\n",
     )
     _write(
         feature / "rollout.md",
@@ -719,6 +723,29 @@ def test_high_risk_spec_requires_ui_state_and_rollout_artifacts(tmp_path: Path) 
     (root / "specs/0001-example-feature/ui-states.md").unlink()
     errors, _ = validator.validate_repository(root)
     assert any("high-risk feature artifact is required" in error for error in errors)
+
+
+def test_high_risk_ui_state_matrix_requires_complete_surface_row(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path, risk="high")
+    matrix = root / "specs/0001-example-feature/ui-states.md"
+    matrix.write_text(
+        "# UI state matrix\n\n"
+        "| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |\n"
+        "| --- | --- | --- | --- | --- | --- | --- |\n",
+        encoding="utf-8",
+    )
+    header_only_errors, _ = validator.validate_repository(root)
+    assert any("needs a complete surface row" in error for error in header_only_errors)
+
+    matrix.write_text(
+        "# UI state matrix\n\n"
+        "| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |\n"
+        "| --- | --- | --- | --- | --- | --- | --- |\n"
+        "| Learner result | Skeleton | No attempt | Score | Retry | Owner only | Mobile/desktop, both themes, keyboard |\n",
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert errors == []
 
 
 def test_feature_pr_rejects_spec_approved_only_after_base(tmp_path: Path) -> None:
