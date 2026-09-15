@@ -1530,6 +1530,13 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
     _write(root / "docs/fr-one.md", "implementation for FR-001\n")
     subprocess.run(["git", "add", "docs/fr-one.md"], cwd=root, check=True)
     subprocess.run(["git", "commit", "-qm", "implement approved FR-001"], cwd=root, check=True)
+    topic_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
 
     subprocess.run(
         ["git", "checkout", "-qb", "base-add-fr-two", common_sha],
@@ -1578,6 +1585,35 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
         root,
     )
     assert before_merge == []
+
+    subprocess.run(
+        ["git", "checkout", "-qb", "merge-preview", base_sha],
+        cwd=root,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "merge", "--no-ff", "--no-edit", "topic-fr-one"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    merge_preview = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            base_sha=base_sha,
+            head_sha=topic_sha,
+        ),
+        specs,
+        root,
+    )
+    assert merge_preview == []
+
+    subprocess.run(["git", "checkout", "topic-fr-one"], cwd=root, check=True)
 
     subprocess.run(
         ["git", "merge", "--no-ff", "--no-edit", "base-add-fr-two"],

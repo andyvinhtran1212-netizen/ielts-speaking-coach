@@ -970,7 +970,20 @@ def validate_pull_request(
             if requires_spec:
                 coverage_rows = _requirement_coverage(body)
                 coverage = [requirement for requirement, _ in coverage_rows]
-                current_requirements = _declared_requirements(metadata_text)
+                spec_path = str((feature / "spec.md").relative_to(root))
+                checkout = subprocess.run(
+                    ["git", "-C", str(root), "rev-parse", "HEAD"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if checkout.returncode == 0 and checkout.stdout.strip() == head_sha:
+                    topic_spec_text = metadata_text
+                else:
+                    _, head_spec_text = _git_show(root, head_sha, spec_path)
+                    topic_spec_text = head_spec_text or ""
+                current_requirements = _declared_requirements(topic_spec_text)
+                topic_metadata = _frontmatter_mapping(topic_spec_text)
                 approved_requirements: dict[str, str] | None = None
                 bootstrap = False
                 if not merge_base_sha:
@@ -1011,9 +1024,9 @@ def validate_pull_request(
                             errors.append(
                                 f"pull request: Spec '{spec_id}' identity changed after base approval ({base_metadata.get('id')!r} -> {spec_id!r})"
                             )
-                        if metadata.get("risk") != base_metadata.get("risk"):
+                        if topic_metadata.get("risk") != base_metadata.get("risk"):
                             errors.append(
-                                f"pull request: Spec '{spec_id}' risk changed after base approval ({base_metadata.get('risk')!r} -> {metadata.get('risk')!r})"
+                                f"pull request: Spec '{spec_id}' risk changed after base approval ({base_metadata.get('risk')!r} -> {topic_metadata.get('risk')!r})"
                             )
                         if change_class == "high-risk" and base_metadata.get(
                             "risk"
@@ -1022,7 +1035,6 @@ def validate_pull_request(
                                 f"pull request: {spec_id} was not approved as high or critical risk in the base revision"
                             )
                         if not bootstrap:
-                            spec_path = str((feature / "spec.md").relative_to(root))
                             for requirement in sorted(set(coverage)):
                                 description = current_requirements.get(requirement)
                                 if description is None:
@@ -1034,7 +1046,7 @@ def validate_pull_request(
                                     spec_id,
                                     requirement,
                                     description,
-                                    str(metadata.get("risk") or ""),
+                                    str(topic_metadata.get("risk") or ""),
                                 )
                                 if approval_commit is None:
                                     errors.append(
