@@ -63,7 +63,7 @@ function ledgerFor(store) {
 }
 
 function fakeApi({ questions, mastery = null, failSession = false, failProgress = false,
-                  failPatch = false, resume = null, failResume = false,
+                  failPatch = false, resume = null, failResume = false, failTimer = false,
                   sessionTimer = null, ledger = newLedger() } = {}) {
   const calls = { post: [], patch: [], postWith: [], get: [] };
   let n = 0;
@@ -91,6 +91,10 @@ function fakeApi({ questions, mastery = null, failSession = false, failProgress 
     calls,
     async get(path) {
       calls.get.push(path);
+      if (String(path).includes('/course-timer')) {
+        if (failTimer) throw new Error('timer hỏng');
+        return { item_id: myItem(), timer: mastery };
+      }
       if (String(path).includes('/course-resume')) {
         if (failResume) throw new Error('resume hỏng');
         if (resume) return resume;
@@ -206,7 +210,9 @@ test('network latency never extends the authoritative server countdown', async (
   const get = api.get.bind(api);
   api.get = async (path) => {
     const response = await get(path);
-    clock = 5000; // five seconds elapsed before the response reached the UI
+    if (path.includes('/course-timer')) {
+      clock = 5000; // five seconds elapsed before the timer response arrived
+    }
     return response;
   };
   const runner = createRunner({ api, storage: null, now: () => clock });
@@ -236,12 +242,23 @@ test('first timed load does not charge payload assembly before the server starts
   });
   const get = api.get.bind(api);
   api.get = async (path) => {
-    if (path.includes('/course-resume')) {
+    if (path.includes('/course-timer')) {
       const response = await get(path);
-      clock = 7000; // post-start timer sample returned one second later
+      clock = 7000; // independent post-payload sample returned one second later
       return { ...response, timer: {
         is_timed: true,
         sampled_at: '1970-01-01T00:00:06.000Z',
+        started_at: '1970-01-01T00:00:05.000Z',
+        expires_at: '1970-01-01T00:01:05.000Z',
+        time_remaining_seconds: 59,
+      } };
+    }
+    if (path.includes('/course-resume')) {
+      const response = await get(path);
+      clock = 8000;
+      return { ...response, timer: {
+        is_timed: true,
+        sampled_at: '1970-01-01T00:00:07.000Z',
         started_at: '1970-01-01T00:00:05.000Z',
         expires_at: '1970-01-01T00:01:05.000Z',
         time_remaining_seconds: 58,
@@ -255,7 +272,7 @@ test('first timed load does not charge payload assembly before the server starts
   const runner = createRunner({ api, storage: null, now: () => clock });
   await runner.load('b1', { assignmentItemId: 'item-timed' });
 
-  assert.equal(runner.timeRemainingSeconds(), 58,
+  assert.equal(runner.timeRemainingSeconds(), 57,
     'pre-start assembly must not make the browser expire before the server');
   clock = 64999;
   assert.equal(runner.timeRemainingSeconds(), 1);
@@ -518,6 +535,85 @@ test('adopts the response atomic session even when local state is stale', async 
   runner.next();
   await runner.finishStage();
   assert.ok(api.calls.patch.some((call) => call.path.endsWith('/atomic-current')));
+});
+
+test('stale local state still gets a post-payload authoritative timer sample', async () => {
+  let clock = 0;
+  const storage = memStore();
+  storage.setItem('cx:b1', JSON.stringify({
+    stage: 0, at: 0, marks: [], done: false,
+    runSessions: [], rev: 'old-bank-revision', item: 'item-old',
+  }));
+  const api = fakeApi({
+    questions: [mcq(1)],
+    mastery: {
+      item_id: 'item-new', is_timed: true,
+      sampled_at: '1970-01-01T00:00:05.000Z',
+      expires_at: '1970-01-01T00:01:05.000Z',
+      time_remaining_seconds: 60,
+      initial_session_id: 'atomic-current',
+    },
+  });
+  const get = api.get.bind(api);
+  api.get = async (path) => {
+    if (path.includes('/course-timer')) {
+      const response = await get(path);
+      clock = 7000;
+      return { ...response, timer: {
+        is_timed: true,
+        sampled_at: '1970-01-01T00:00:06.000Z',
+        expires_at: '1970-01-01T00:01:05.000Z',
+        time_remaining_seconds: 59,
+      } };
+    }
+    clock = 5000;
+    const response = await get(path);
+    clock = 6000;
+    return response;
+  };
+  const runner = createRunner({ api, storage, now: () => clock });
+  await runner.load('b1', { assignmentItemId: 'item-new' });
+  assert.equal(api.calls.get.filter((path) => path.includes('/course-resume')).length, 0);
+  assert.equal(runner.timeRemainingSeconds(), 58);
+  clock = 64999;
+  assert.equal(runner.timeRemainingSeconds(), 1);
+});
+
+test('failed resume history read retains the independent post-payload timer sample', async () => {
+  let clock = 0;
+  const api = fakeApi({
+    questions: [mcq(1)], failResume: true,
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      sampled_at: '1970-01-01T00:00:05.000Z',
+      expires_at: '1970-01-01T00:01:05.000Z',
+      time_remaining_seconds: 60,
+      initial_session_id: 'atomic-current',
+    },
+  });
+  const get = api.get.bind(api);
+  api.get = async (path) => {
+    if (path.includes('/course-timer')) {
+      const response = await get(path);
+      clock = 7000;
+      return { ...response, timer: {
+        is_timed: true,
+        sampled_at: '1970-01-01T00:00:06.000Z',
+        expires_at: '1970-01-01T00:01:05.000Z',
+        time_remaining_seconds: 59,
+      } };
+    }
+    if (path.includes('/course-resume')) throw new Error('resume hỏng');
+    clock = 5000;
+    const response = await get(path);
+    clock = 6000;
+    return response;
+  };
+  const runner = createRunner({ api, storage: null, now: () => clock });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  assert.equal(runner.timeRemainingSeconds(), 58);
+  clock = 64999;
+  assert.equal(runner.timeRemainingSeconds(), 1);
 });
 
 function memStore() {

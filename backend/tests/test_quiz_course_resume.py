@@ -261,6 +261,29 @@ def test_resume_returns_a_post_payload_authoritative_timer_sample():
     assert sv["timer"]["sampled_at"] is not None
 
 
+def test_lightweight_timer_sample_is_independent_of_session_history():
+    opened = datetime.now(timezone.utc) - timedelta(seconds=5)
+    item = {
+        "id": ITEM, "opened_at": opened.isoformat(), "due_at": None,
+        "content_config": {"time_limit_minutes": 30},
+    }
+    with patch.object(qs, "_bank_meta_or_404",
+                      lambda *_a, **_k: {"skill_area": qs.COURSE_AREA}), \
+            patch.object(qs, "_assignment_item_for", lambda *_a, **_k: item):
+        sample = qs.get_course_timer(user_id=USER, bank_id=BANK,
+                                     assignment_item_id=ITEM)
+
+    assert sample["item_id"] == ITEM
+    assert sample["timer"]["is_timed"] is True
+    assert sample["timer"]["started_at"] == opened.isoformat()
+    assert sample["timer"]["sampled_at"] is not None
+    assert 0 < sample["timer"]["time_remaining_seconds"] <= 1800
+    src = inspect.getsource(qs.get_course_timer)
+    assert 'table("quiz_sessions")' not in src
+    for bad in (".update(", ".insert(", ".upsert(", ".delete("):
+        assert bad not in src
+
+
 def test_a_PAUSED_session_is_not_a_finished_stage():
     """`ended_at` được đặt cả khi tạm dừng. Coi nó là đã chốt nghĩa là gọi một
     chặng bỏ giữa chừng là chặng đã xong — rồi gửi luôn id phiên tạm dừng đi xét

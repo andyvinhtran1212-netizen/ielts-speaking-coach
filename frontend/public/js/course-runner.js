@@ -429,6 +429,21 @@ export function createRunner({
     return false;
   }
 
+  async function refreshCourseTimer() {
+    if (!mastery || !mastery.is_timed) return false;
+    const timerRequestStartedAt = now();
+    let snapshot = null;
+    try {
+      snapshot = await api.get('/api/quiz/banks/' + encodeURIComponent(bank.id)
+        + '/course-timer' + (itemId ? '?class_item=' + encodeURIComponent(itemId) : ''));
+    } catch (e) { return false; }
+    if (!snapshot || (snapshot.item_id || null) !== itemId
+        || !snapshot.timer || !snapshot.timer.is_timed) return false;
+    Object.assign(mastery, snapshot.timer);
+    syncTimer(timerRequestStartedAt);
+    return true;
+  }
+
   function stageQuestions() {
     if (mode === 'retake') return retakeQs;
     return qs.slice(stage * STAGE, stage * STAGE + STAGE);
@@ -690,6 +705,11 @@ export function createRunner({
       legacyRev = fingerprint(allQuestions.filter(function (q) {
         return q.type !== 'writing';
       }));
+      // The clock starts only after the potentially large bank payload has
+      // been assembled. Re-sample it with an independent, lightweight read:
+      // stale local state intentionally skips session adoption, and a failed
+      // resume-history read must not make payload latency end the test early.
+      await refreshCourseTimer();
       const local = restore();
       // Máy chủ là nguồn thật — TRỪ khi chính máy này biết bộ đề vừa bị soạn
       // lại (hoặc bài giao đã đổi mục). Máy chủ không giữ vân tay bộ đề, nên

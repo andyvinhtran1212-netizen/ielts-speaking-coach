@@ -2174,6 +2174,36 @@ def _course_stage_reached(order: list[str], answered_all: set[str],
     return total
 
 
+def get_course_timer(
+    *, user_id: str, bank_id: str, assignment_item_id: str | None = None,
+) -> dict:
+    """Return only the authoritative timer sample for a Course bank.
+
+    The bank payload starts a timed attempt only after its potentially large
+    question payload has been assembled. This small post-payload read lets the
+    browser anchor its countdown without depending on the heavier resume read,
+    which may fail while inspecting session history. It never creates or
+    adopts a session.
+    """
+    timer_sampled_at = datetime.now(timezone.utc)
+    bank = _bank_meta_or_404(
+        bank_id, user_id, assignment_item_id=assignment_item_id,
+    )
+    if bank.get("skill_area") != COURSE_AREA:
+        return {"item_id": None, "timer": None}
+
+    item = (_assignment_item_for(
+        bank_id, user_id, assignment_item_id=assignment_item_id,
+    ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
+    return {
+        "item_id": (item or {}).get("id"),
+        "timer": assignment_timer_state(item, {
+            "content_config": (item or {}).get("content_config") or {},
+            "due_at": (item or {}).get("due_at"),
+        }, now=timer_sampled_at),
+    }
+
+
 def get_course_resume(
     *, user_id: str, bank_id: str, assignment_item_id: str | None = None,
 ) -> dict:
