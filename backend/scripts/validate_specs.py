@@ -177,7 +177,10 @@ def _concrete_locator(value: str) -> bool:
         return False
     return bool(
         re.search(r"https?://\S+", locator, re.IGNORECASE)
-        or re.search(r"(?:^|\s)(?:[\w.-]+/)+[\w./:-]+", locator)
+        or re.search(
+            r"(?:^|\s)(?:\.github|backend|docs|frontend|specs|tooling)/[\w./:-]+",
+            locator,
+        )
         or re.search(r"\b[\w.-]+::[\w.-]+\b", locator)
         or re.match(r"^(?:pytest|npm|node|psql|curl|gh|git)\s+\S+", locator)
         or re.fullmatch(
@@ -513,6 +516,96 @@ def _git_changed_paths(
     return True, merge_base_sha, [path for path in result.stdout.splitlines() if path]
 
 
+def _git_approval_commit(
+    root: Path,
+    base_sha: str,
+    spec_path: str,
+    requirements: dict[str, str],
+    risk: str,
+) -> str | None:
+    history = subprocess.run(
+        ["git", "-C", str(root), "log", "--format=%H", "--reverse", base_sha, "--", spec_path],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if history.returncode != 0:
+        return None
+    for revision in history.stdout.splitlines():
+        _, text = _git_show(root, revision, spec_path)
+        if text is None:
+            continue
+        try:
+            metadata = yaml.safe_load(text.split("---", 2)[1]) or {}
+        except (IndexError, yaml.YAMLError):
+            continue
+        if (
+            metadata.get("status") in IMPLEMENTABLE_SPEC_STATUSES
+            and metadata.get("risk") == risk
+            and _declared_requirements(text) == requirements
+        ):
+            return revision
+    return None
+
+
+def _topic_implementation_before_approval(
+    root: Path, base_sha: str, head_sha: str, approval_commit: str
+) -> tuple[bool, list[str]]:
+    topic_history = subprocess.run(
+        ["git", "-C", str(root), "rev-list", "--reverse", head_sha, "--not", base_sha],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if topic_history.returncode != 0:
+        return False, []
+    offenders: list[str] = []
+    for revision in topic_history.stdout.splitlines():
+        paths = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                "diff-tree",
+                "--no-commit-id",
+                "--name-only",
+                "-r",
+                revision,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if paths.returncode != 0:
+            return False, []
+        implementation_paths = [
+            path
+            for path in paths.stdout.splitlines()
+            if path and not path.startswith("specs/")
+        ]
+        if not implementation_paths:
+            continue
+        ancestry = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                "merge-base",
+                "--is-ancestor",
+                approval_commit,
+                revision,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if ancestry.returncode == 1:
+            offenders.append(revision)
+        elif ancestry.returncode != 0:
+            return False, []
+    return True, offenders
+
+
 def _requirement_coverage(body: str) -> list[tuple[str, str]]:
     section = re.sub(
         r"<!--.*?-->",
@@ -652,6 +745,36 @@ def validate_pull_request(
                             errors.append(
                                 f"pull request: {spec_id} was not approved as high or critical risk in the base revision"
                             )
+                        spec_path = str((feature / "spec.md").relative_to(root))
+                        approval_commit = _git_approval_commit(
+                            root,
+                            base_sha,
+                            spec_path,
+                            _declared_requirements(metadata_text),
+                            str(metadata.get("risk") or ""),
+                        )
+                        if approval_commit is None:
+                            errors.append(
+                                f"pull request: cannot find durable approval commit for Spec '{spec_id}'"
+                            )
+                        else:
+                            ancestry_resolved, offenders = (
+                                _topic_implementation_before_approval(
+                                    root,
+                                    base_sha,
+                                    head_sha,
+                                    approval_commit,
+                                )
+                            )
+                            if not ancestry_resolved:
+                                errors.append(
+                                    f"pull request: cannot verify approval ancestry for Spec '{spec_id}'"
+                                )
+                            elif offenders:
+                                errors.append(
+                                    f"pull request: implementation commits predate approved Spec '{spec_id}': "
+                                    + ", ".join(revision[:12] for revision in offenders)
+                                )
 
                 coverage_rows = _requirement_coverage(body)
                 coverage = [requirement for requirement, _ in coverage_rows]

@@ -396,6 +396,13 @@ def test_repository_rejects_underspecified_manual_and_na_evidence(tmp_path: Path
     assert any("PASS evidence must identify" in error for error in prose_errors)
     verification.write_text(
         "## Requirement coverage\n\n"
+        "| FR-001 | all test/query checks passed | PASS |\n",
+        encoding="utf-8",
+    )
+    slash_prose_errors, _ = validator.validate_repository(root)
+    assert any("PASS evidence must identify" in error for error in slash_prose_errors)
+    verification.write_text(
+        "## Requirement coverage\n\n"
         "| FR-001 | reviewer=<name>; environment=<preview>; date=2026-09-15; observed=<observable result> | MANUAL |\n",
         encoding="utf-8",
     )
@@ -1006,6 +1013,21 @@ def test_prior_approval_must_exist_at_topic_merge_base(tmp_path: Path) -> None:
         root,
     )
     assert any("approved in the base revision before implementation" in error for error in errors)
+
+    merged_head_errors = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0002",
+            base_sha=base_sha,
+        ),
+        specs,
+        root,
+    )
+    assert any(
+        "implementation commits predate approved Spec 'FEAT-0002'" in error
+        for error in merged_head_errors
+    )
 
 
 def test_staging_to_main_promotion_is_exempt(tmp_path: Path) -> None:
