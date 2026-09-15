@@ -101,7 +101,8 @@ def _given(n_q, wrong=0):
 
 
 def _verdict(log=None, *, sessions, questions=None, attempts=None,
-             item_row=None, config=None, item=_ITEM, ids=None, timed_out=False):
+             item_row=None, config=None, item=_ITEM, ids=None, timed_out=False,
+             reaper=False):
     log = [] if log is None else log
     db = _db(
         log,
@@ -113,11 +114,12 @@ def _verdict(log=None, *, sessions, questions=None, attempts=None,
                                              "mastery": None, "score": None}],
     )
     with patch.object(qs, "supabase_admin", db), \
-         patch.object(qs, "_assignment_item_for", lambda b, u: item):
+         patch.object(qs, "_assignment_item_for", lambda b, u, **_kwargs: item):
         return qs.course_verdict(
             user_id="u-1", bank_id="bank-1",
             session_ids=ids if ids is not None else [s["id"] for s in sessions],
             timed_out=timed_out,
+            _allow_reaper_finalize=reaper,
         ), log
 
 
@@ -518,6 +520,25 @@ def test_expired_clock_closes_an_on_time_failed_attempts_retry_action():
     assert out["timed_out"] is False
     assert out["next_action"] == "review"
     assert out["retry_closed"] is True
+
+
+def test_reaper_verdict_cannot_append_timeout_after_a_concurrent_pass():
+    existing = {
+        "phase": "run", "pct": 100, "next_action": "passed",
+        "at": "2026-09-15T01:20:00+00:00", "sessions": ["winning-session"],
+    }
+    item = {
+        "id": "it-1", "passed_at": "2026-09-15T01:20:00+00:00",
+        "submitted_at": "2026-09-15T01:20:00+00:00",
+        "opened_at": "2026-09-15T01:00:00+00:00", "score": 100,
+        "mastery": {"attempts": [existing]},
+    }
+    out, log = _verdict(
+        sessions=_sessions(1, ended_by="time_cap"), item_row=item,
+        config={"time_limit_minutes": 30}, timed_out=True, reaper=True,
+    )
+    assert out == {"passed": True, "already_passed": True}
+    assert not any(row[0:2] == ("class_assignment_items", "update") for row in log)
 
 
 def test_timed_out_retake_uses_the_retake_sample_as_denominator():

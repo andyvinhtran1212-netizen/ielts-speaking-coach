@@ -942,6 +942,47 @@ def test_server_reaper_finalizes_an_expired_open_course_attempt():
     )
 
 
+def test_server_reaper_ignores_passed_item_with_concurrent_orphan_session():
+    """A stale tab cannot append a timeout after the canonical pass."""
+    fake = _FakeSupabase()
+    mastery = {"attempts": [{
+        "phase": "run", "pct": 100, "next_action": "passed",
+        "at": "2026-09-15T01:20:00+00:00", "sessions": ["winning-session"],
+    }]}
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+        "class_assignment_items": [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+            "submitted_at": "2026-09-15T01:20:00+00:00",
+            "passed_at": "2026-09-15T01:20:00+00:00",
+            "score": 100, "mastery": mastery,
+        }],
+    }
+    report_calls = []
+
+    def report(table, *_args, **_kwargs):
+        report_calls.append(table)
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict") as verdict:
+        out = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+    assert out == {"examined": 0, "finalized": 0, "failed": 0}
+    assert report_calls == ["class_assignments", "class_assignment_items"]
+    assert mastery["attempts"][-1]["next_action"] == "passed"
+    assert not any(call["table"] == "quiz_sessions" and call["op"] == "update"
+                   for call in fake.calls)
+    verdict.assert_not_called()
+
+
 def test_server_reaper_repairs_submitted_item_when_verdict_was_lost():
     fake = _FakeSupabase()
     rows = {

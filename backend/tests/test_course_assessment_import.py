@@ -94,22 +94,28 @@ class _ImportDb:
         return Rpc()
 
 
-def test_existing_bank_metadata_changes_only_after_question_replace_succeeds():
+def test_existing_bank_replaces_questions_and_metadata_in_one_rpc():
     db = _ImportDb()
     _commit_bank(db, existing=[{"id": "bank-old"}],
                  payload={"title": "new"}, rows=[{"qid": "q1"}])
     assert [(name, op) for name, op, _ in db.calls] == [
-        ("quiz_replace_questions", "rpc"), ("quiz_banks", "update"),
+        ("quiz_replace_course_assessment_bank", "rpc"),
     ]
+    params = db.calls[0][2]
+    assert params == {
+        "p_bank_id": "bank-old", "p_payload": {"title": "new"},
+        "p_rows": [{"qid": "q1"}],
+    }
 
 
-def test_existing_bank_keeps_metadata_when_question_replace_fails():
+def test_existing_bank_has_no_second_write_after_atomic_rpc_fails():
     db = _ImportDb(rpc_error=RuntimeError("replace failed"))
     with pytest.raises(RuntimeError, match="replace failed"):
         _commit_bank(db, existing=[{"id": "bank-old"}],
                      payload={"title": "new"}, rows=[{"qid": "q1"}])
-    assert not any(name == "quiz_banks" and op == "update"
-                   for name, op, _ in db.calls)
+    assert [(name, op) for name, op, _ in db.calls] == [
+        ("quiz_replace_course_assessment_bank", "rpc"),
+    ]
 
 
 def test_new_orphan_bank_is_deleted_when_question_replace_fails():

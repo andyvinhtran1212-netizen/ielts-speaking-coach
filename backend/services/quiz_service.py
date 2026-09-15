@@ -3971,6 +3971,11 @@ def course_verdict(
     if not cur:
         raise HTTPException(404, "Không tìm thấy mục bài giao")
     cur = cur[0]
+    if _allow_reaper_finalize and cur.get("passed_at"):
+        # The item could pass after the sweep's candidate read but before its
+        # verdict call.  Keep this second guard at the canonical write path so
+        # that race cannot append a timeout after a pass.
+        return {"passed": True, "already_passed": True}
     timer = assignment_timer_state(cur, assignment)
     if timer.get("invalid"):
         raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
@@ -4406,6 +4411,7 @@ def reap_expired_course_assessments(
                 lambda q, ids=ids: (
                     q.in_("assignment_id", ids)
                     .not_.is_("opened_at", "null")
+                    .is_("passed_at", "null")
                 ),
             ))
     except Exception as exc:  # noqa: BLE001
@@ -4416,6 +4422,11 @@ def reap_expired_course_assessments(
 
     candidates: list[tuple[dict, dict, datetime]] = []
     for item in items:
+        # Passing is terminal even if another tab left an unrecorded open
+        # session.  Reaping that orphan would append a later 0% timeout to a
+        # ledger whose canonical item has already passed.
+        if item.get("passed_at"):
+            continue
         assignment = timed.get(item.get("assignment_id")) or {}
         timer = assignment_timer_state(item, assignment, now=current)
         cutoff = _at(timer.get("expires_at"))
@@ -4578,7 +4589,9 @@ def reap_expired_course_assessments(
                 assignment_item_id=item["id"], timed_out=True,
             )
             verdict_kwargs["_allow_reaper_finalize"] = True
-            course_verdict(**verdict_kwargs)
+            verdict = course_verdict(**verdict_kwargs)
+            if verdict.get("already_passed"):
+                continue
             result["finalized"] += 1
         except Exception as exc:  # noqa: BLE001
             result["failed"] += 1

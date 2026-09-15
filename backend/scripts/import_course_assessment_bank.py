@@ -36,10 +36,17 @@ def _course(db, code: str) -> dict:
 
 def _commit_bank(db, *, existing: list[dict], payload: dict,
                  rows: list[dict]) -> tuple[str, object]:
-    """Replace questions first; publish matching metadata only after success."""
+    """Persist questions and metadata without exposing a half-updated bank."""
     created = not existing
     if existing:
         bank_id = existing[0]["id"]
+        written = db.rpc(
+            "quiz_replace_course_assessment_bank", {
+                "p_bank_id": bank_id, "p_payload": payload, "p_rows": rows,
+            },
+        ).execute().data
+        logger.info("Bank đã có → cập nhật nguyên tử %s.", bank_id)
+        return bank_id, written
     else:
         inserted = db.table("quiz_banks").insert(payload).execute().data or []
         if not inserted:
@@ -59,9 +66,6 @@ def _commit_bank(db, *, existing: list[dict], payload: dict,
                 logger.error("Không dọn được bank mới sau lỗi import: %s", cleanup_exc)
         raise
 
-    if existing:
-        db.table("quiz_banks").update(payload).eq("id", bank_id).execute()
-        logger.info("Bank đã có → cập nhật %s.", bank_id)
     return bank_id, written
 
 
