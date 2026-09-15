@@ -97,7 +97,9 @@ on staging and replacement implementation commits are created from that base.
   make issuance fail its final `is_published` recheck, while issuance-first commits
   before unpublish returns. Force both default-import-versus-unpublish orders and prove
   import preserves the locked publication state, so retirement wins in either order;
-  an explicit import publication directive remains an intentional atomic state change.
+  initial import with omission creates an unpublished bank. Verify explicit `published`
+  and `unpublished`, invalid-value 422 with no mutation, and both explicit-directive-
+  versus-retirement orders; the later lock holder's intentional state wins.
   The persisted bank state, assignment list, and bank picker must agree after reload.
 - Admin retirement UI: pending behavior/browser coverage for successful retirement,
   rejected mutation with no optimistic stale state, immediate list/picker agreement,

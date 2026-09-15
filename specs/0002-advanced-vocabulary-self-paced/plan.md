@@ -107,12 +107,16 @@
 - The importer/version switch, publish-state mutation, and assignment issuance use
   dedicated database RPC transactions that acquire the same bank-scoped advisory
   lock. The importer replaces all revision-owned question rows and updates runtime
-  metadata in one transaction and preserves the publication state read under the lock
-  unless the request explicitly directs a publication change. Assignment issuance
+  metadata in one transaction. The multipart import field `publish_state` accepts
+  `preserve`, `published`, or `unpublished` and defaults to `preserve`: an existing
+  bank retains the state read under the lock, a new bank is created unpublished, and
+  an explicit state commits atomically with the revision. Invalid values return 422
+  before mutation. Assignment issuance
   reads that metadata, revalidates `is_published` immediately before persistence, and
   writes the frozen assignment snapshot in one transaction. Barrier tests force both
   import/issuance commit orders and reject every mixed-revision snapshot; both default-
-  import/unpublish orders must retain the admin's retired state; and both unpublish/
+  import/unpublish orders must retain the admin's retired state; explicit directive/
+  unpublish races follow lock order (the later committed state wins); and both unpublish/
   issuance orders prove unpublish-first rejects issuance while issuance-first completes
   before retirement. The assignment list, bank picker, and persisted bank state must
   agree after reload.
@@ -137,6 +141,7 @@ from those generated operations rather than maintain a parallel wire schema.
 | `POST /api/advanced-vocab/listening` | `{bank_id,item_id,answers:{qid:value},duration_sec}` | first-attempt review with `requires_guided_retry`, incomplete assignment state, and canonical `Progress`; a non-retry activity may return final `SectionReview` |
 | `POST /api/advanced-vocab/listening/guided-retry` | `{bank_id,item_id,answers:{wrong_qid:value}}` | final review with initial and retry evidence, `{completed,pct:null}`, and canonical `Progress` |
 | `GET /admin/advanced-vocab/assignments/{assignment_id}/results` | UUID path | `AdminResults`: assignment/bank snapshot, `lesson_id`, `score_policy:none`, six required stages, reference-only markers, and per-student item/stage/practice/section/Listening evidence |
+| `POST /api/admin/quiz/import` | multipart `{file,topic_id?,dry_run?,publish_state?: preserve|published|unpublished}` | import summary; omission preserves an existing bank's locked publication state and leaves a new bank unpublished; invalid `publish_state` returns 422 with no mutation |
 
 `Progress` contains `completed_stages`, persisted stage rows, immutable Practice
 answers, submitted section reviews, `listening_submitted`, and `required_completed`.

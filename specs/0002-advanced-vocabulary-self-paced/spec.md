@@ -144,9 +144,12 @@ that prevents answer leakage and gives admins canonical completion evidence.
   question rows and switches the bank runtime metadata; publish-state mutation commits
   before any later issuance can proceed; and assignment issuance atomically reads the
   metadata, revalidates `is_published` immediately before persistence, and writes its
-  frozen snapshot. An import preserves the publication state observed under that lock
-  unless the import request carries an explicit publication directive, in which case
-  that state change commits atomically with the revision. Either import/issuance commit
+  frozen snapshot. The multipart admin import accepts
+  `publish_state=preserve|published|unpublished` and defaults to `preserve`. Under
+  `preserve`, an existing bank retains the publication state observed under the lock,
+  while a newly created bank starts unpublished. An explicit `published` or
+  `unpublished` directive changes state atomically with the revision; an unknown value
+  returns 422 before mutation. Either import/issuance commit
   order therefore yields a wholly old or wholly new revision, never a mixed snapshot/
   question set; an overlapping default import cannot undo an admin retirement; and
   unpublish-first rejects issuance while issuance-first completes before unpublish
