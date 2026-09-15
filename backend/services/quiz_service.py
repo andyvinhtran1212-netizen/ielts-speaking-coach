@@ -1537,8 +1537,8 @@ def _ensure_timed_course_session(
         return item, None
     if timer.get("invalid"):
         raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
-    if item.get("opened_at"):
-        if timer.get("is_expired") and not allow_expired_existing:
+    if item.get("opened_at") and timer.get("is_expired"):
+        if not allow_expired_existing:
             raise HTTPException(409, "Đã hết thời gian làm bài.")
         return item, None
 
@@ -1601,6 +1601,10 @@ def start_session(
         )
     if kind == "retake":
         _assert_retake_allowed(item)
+        # The timed-start RPC returns an existing open *run* session so
+        # concurrent bank loads can converge.  A revision has its own sampled
+        # identity and must never adopt that full-run session.
+        first_session_id = None
     row = {
         "user_id": user_id, "bank_id": bank_id, "code": bank.get("code"),
         "class_assignment_item_id": (item or {}).get("id"),
@@ -2274,13 +2278,13 @@ def _record_quiz_kp_evidence(user_id: str, bank_id: str, attempt_rows: list[dict
         logger.warning("[quiz] KP evidence recording skipped (non-fatal): %s", e)
 
 
-def _assert_quiz_progress_writable(session: dict) -> None:
-    """Reject writes to closed sessions and Course attempts past their clock."""
+def _assert_quiz_progress_writable(session: dict) -> bool:
+    """Reject closed/expired writes; return True for a timed Course session."""
     if session.get("ended_at") or session.get("ended_by"):
         raise HTTPException(409, "Phiên này đã kết thúc — không thể ghi thêm đáp án.")
     item_id = session.get("class_assignment_item_id")
     if not item_id:
-        return
+        return False
     try:
         items = (supabase_admin.table("class_assignment_items")
                  .select("id, assignment_id, opened_at, submitted_at, passed_at, mastery")
@@ -2299,7 +2303,7 @@ def _assert_quiz_progress_writable(session: dict) -> None:
         raise HTTPException(500, f"Lỗi kiểm tra đồng hồ làm bài: {exc}") from exc
     assignment = assignments[0]
     if assignment.get("skill") != COURSE_AREA:
-        return
+        return False
     timer = assignment_timer_state(items[0], assignment)
     if timer.get("invalid"):
         raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
@@ -2307,13 +2311,14 @@ def _assert_quiz_progress_writable(session: dict) -> None:
         raise HTTPException(409, "Đã hết thời gian làm bài — đáp án này không được ghi.")
     if course_assignment_action(items[0], assignment) == "review":
         raise HTTPException(409, "Bài đã được thu — không thể ghi thêm đáp án.")
+    return bool(timer.get("is_timed"))
 
 
 def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_stats: list[dict]) -> dict:
     """Batch-persist attempts (append) + word_stats (upsert by user+bank+item).
     The client owns the mastery decision; we store its snapshots."""
     session = _owned_session(session_id, user_id)
-    _assert_quiz_progress_writable(session)
+    timed_course = _assert_quiz_progress_writable(session)
     bank_id = session["bank_id"]
 
     attempts = attempts or []
@@ -2335,17 +2340,42 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
         attempt_rows.append(row)
     if attempt_rows:
         try:
-            # Idempotent on client_id (mig 119 unique index) — a retried or
-            # keepalive-on-unload re-send of the same attempts is ignored, so a
-            # pagehide-during-flush double-send never duplicates rows.
-            attempts_resp = supabase_admin.table("quiz_attempts").upsert(
-                attempt_rows, on_conflict="client_id", ignore_duplicates=True
-            ).execute()
+            if timed_course:
+                # Migration 265 chooses one transaction-level server timestamp
+                # for both timer admission and `created_at`.  A request admitted
+                # one instant before cutoff therefore stays scoreable even if
+                # the INSERT finishes one instant afterward.
+                attempts_resp = supabase_admin.rpc(
+                    "quiz_insert_timed_course_attempts", {
+                        "p_session_id": session_id,
+                        "p_user_id": user_id,
+                        "p_attempts": attempt_rows,
+                    },
+                ).execute()
+            else:
+                # Idempotent on client_id (mig 119 unique index) — a retried or
+                # keepalive-on-unload re-send of the same attempts is ignored.
+                attempts_resp = supabase_admin.table("quiz_attempts").upsert(
+                    attempt_rows, on_conflict="client_id", ignore_duplicates=True
+                ).execute()
         except Exception as exc:  # noqa: BLE001
             _log_backend_error(
                 message=f"quiz progress: attempts upsert failed: {exc}",
                 user_id=user_id, url=f"/api/quiz/sessions/{session_id}/progress",
                 extra={"stage": "attempts", "n_attempts": len(attempt_rows)})
+            detail = str(exc)
+            if timed_course and "timed_course_progress_expired" in detail:
+                raise HTTPException(
+                    409, "Đã hết thời gian làm bài — đáp án này không được ghi.",
+                ) from exc
+            if timed_course and "timed_course_progress_not_writable" in detail:
+                raise HTTPException(
+                    409, "Phiên này không còn nhận đáp án.",
+                ) from exc
+            if timed_course and "timed_course_limit_invalid" in detail:
+                raise HTTPException(
+                    409, "Cấu hình thời gian của bài không hợp lệ.",
+                ) from exc
             raise HTTPException(500, f"Lỗi ghi attempts: {exc}")
         # Feed only the NEWLY-inserted attempts into the KP evidence store. With
         # ignore_duplicates the upsert RETURNs just the rows it inserted, so a
@@ -4286,6 +4316,14 @@ def course_verdict(
         required=required, results=(final_attempt.get("sections") or evidence),
         weights=weights, passed_before=bool(cur.get("passed_at")),
     )
+    if (clock_expired and not payload.get("passed")
+            and payload.get("next_action") in {"retake", "retry_full"}):
+        # The attempt itself may have completed on time, so do not falsify its
+        # history as `timed_out`.  The *next* write entitlement has nevertheless
+        # expired; return the same read-only action as course_assignment_action.
+        payload["next_action"] = "review"
+        payload["retry_reason"] = None
+        payload["retry_closed"] = True
     if timed_out and not cur.get("submitted_at"):
         latest = max(rows, key=lambda row: row.get("created_at") or "")
         marked = mark_item_submitted(

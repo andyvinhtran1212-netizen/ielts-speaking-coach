@@ -729,9 +729,10 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
         try {
           await inflight;        // chờ lượt đẩy nền xong rồi mới xét hàng đợi
           if (endedBy === 'time_cap') {
-            // Hết giờ: server từ chối mọi progress write sau ranh giới. Bỏ mẻ
-            // còn nằm ở client; các mẻ đã tới server trước hạn vẫn được verdict
-            // tự đọc và chấm. Cố flush ở đây chỉ làm kẹt quy trình thu bài.
+            // Timed answers đã được xếp flush ngay khi bấm và `inflight` phía
+            // trên chờ ACK của mọi write được server nhận trước cutoff. Phần
+            // còn lại ở đây chỉ là write chưa từng được nhận/đã bị ranh giới
+            // nguyên tử bác; gửi lại sau hạn không thể biến nó thành on-time.
             pending = [];
           } else {
             await flush();

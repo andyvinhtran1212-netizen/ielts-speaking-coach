@@ -680,6 +680,56 @@ def test_timed_course_start_uses_atomic_timer_and_session_rpc():
                    for call in fake.calls)
 
 
+def test_opened_timed_course_reuses_the_canonical_rpc_session():
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_start_timed_course_session"): [{
+            "session_id": _SESS,
+            "timer_started_at": "2026-09-15T10:00:00+00:00",
+        }],
+    })
+    item = {
+        "id": "item-timed", "opened_at": "2026-09-15T10:00:00+00:00",
+        "content_config": {"time_limit_minutes": 720},
+    }
+    with patch.object(quiz_service, "supabase_admin", fake):
+        opened, session_id = quiz_service._ensure_timed_course_session(
+            item, user_id=_USER, bank_id=_BANK, code="C1-MIDTERM",
+        )
+    assert opened["opened_at"] == "2026-09-15T10:00:00+00:00"
+    assert session_id == _SESS
+    assert any(call["table"] == "rpc:quiz_start_timed_course_session"
+               for call in fake.calls)
+
+
+def test_timed_retake_does_not_adopt_an_open_full_run_session():
+    item = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "opened_at": "2026-09-15T10:00:00+00:00",
+        "content_config": {"time_limit_minutes": 720},
+    }
+    new_retake = "66666666-6666-6666-6666-666666666666"
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "insert"): [{"id": new_retake}],
+        ("quiz_word_stats", "select"): [],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_bank_meta_or_404", return_value={
+             "id": _BANK, "code": "C1-MIDTERM", "skill_area": "course",
+         }), \
+         patch.object(quiz_service, "_assignment_item_for", return_value=item), \
+         patch.object(quiz_service, "_ensure_timed_course_session",
+                      return_value=(item, _SESS)), \
+         patch.object(quiz_service, "_assert_retake_allowed"):
+        out = quiz_service.start_session(
+            user_id=_USER, bank_id=_BANK, kind="retake",
+            assignment_item_id="item-timed",
+        )
+    assert out["session_id"] == new_retake
+    inserted = next(call for call in fake.calls
+                    if call["table"] == "quiz_sessions" and call["op"] == "insert")
+    assert inserted["payload"]["kind"] == "retake"
+
+
 def test_session_timer_response_preserves_the_earlier_due_at_boundary():
     fake = _FakeSupabase(responses={
         ("quiz_banks", "select"): [{
@@ -790,6 +840,44 @@ def test_log_progress_rejects_course_answers_after_server_timer_expiry():
     assert error.value.status_code == 409
     assert "hết thời gian" in error.value.detail
     assert not any(call["table"] == "quiz_attempts" for call in fake.calls)
+
+
+def test_timed_course_progress_uses_atomic_admission_timestamp_rpc():
+    attempt = {
+        "client_id": "33333333-3333-3333-3333-333333333333",
+        "item_key": "x", "qid": "q1", "is_correct": True,
+        "answer_given": "0", "response_time_ms": 1250, "attempt_no": 1,
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "select"): [{
+            "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+            "class_assignment_item_id": "item-timed",
+            "ended_at": None, "ended_by": None,
+        }],
+        ("class_assignment_items", "select"): [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "opened_at": "2026-09-15T10:00:00+00:00", "submitted_at": None,
+        }],
+        ("class_assignments", "select"): [{
+            "id": "asg-timed", "skill": "course", "status": "published",
+            "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 720},
+        }],
+        ("rpc", "quiz_insert_timed_course_attempts"): [{
+            **attempt, "created_at": "2026-09-15T10:01:00+00:00",
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.log_progress(
+            user_id=_USER, session_id=_SESS, attempts=[attempt], word_stats=[],
+        )
+    assert out["attempts"] == 1
+    rpc = next(call for call in fake.calls
+               if call["table"] == "rpc:quiz_insert_timed_course_attempts")
+    assert rpc["payload"]["p_session_id"] == _SESS
+    assert rpc["payload"]["p_attempts"][0]["client_id"] == attempt["client_id"]
+    assert not any(call["table"] == "quiz_attempts" and call["op"] == "upsert"
+                   for call in fake.calls)
 
 
 def test_time_cap_can_close_after_an_earlier_assignment_deadline():

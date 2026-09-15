@@ -52,7 +52,7 @@ def test_curated_vocabulary_requires_explicit_feature_opt_in():
 
 def test_active_mock_explanation_and_timed_course_migrations_are_not_policy_skipped():
     policy = _policy()
-    for number in (245, 246, 257, 258, 259, 260, 261, 262, 263, 264):
+    for number in (245, 246, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266):
         assert not any(name.startswith(f"{number}_") for name in policy)
 
 

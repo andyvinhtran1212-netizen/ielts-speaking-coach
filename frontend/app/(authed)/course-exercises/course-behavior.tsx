@@ -550,6 +550,16 @@ export function CourseBehavior() {
           // Đã đạt thì phần chữa bài là bước học tiếp theo, không đứng sau một
           // cú bấm. Nạp sẵn bên dưới nhưng giữ kết luận đạt trong khung nhìn.
           void showReport({ scroll: false });
+        } else if (v.next_action === 'review') {
+          box.innerHTML = '<div class="cx-verdict" data-v="closed">'
+            + '<div class="cx-verdict__hero"><div>'
+            + '<p class="cx-verdict__eyebrow">Đã hết thời gian</p>'
+            + '<p class="cx-verdict__title">Kết quả đã được chốt ở chế độ chỉ xem</p>'
+            + `<p class="cx-verdict__sub">Điểm hiện tại ${v.pct}% · ngưỡng đạt ${v.threshold}%. Không thể mở thêm revision hoặc lượt làm lại sau thời hạn.</p>`
+            + `</div><div class="cx-verdict__score">${v.pct}%</div></div>`
+            + '<div class="cx-verdict__body"><div class="cx-verdict__actions">'
+            + seeReport + more + readMore + listenMore + pronunciationMore
+            + '</div>' + history + '</div></div>';
         } else if (v.next_action === 'retry_full') {
           box.innerHTML = '<div class="cx-verdict" data-v="fail-full">'
             + '<div class="cx-verdict__hero"><div>'

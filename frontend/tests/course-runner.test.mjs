@@ -198,6 +198,50 @@ test('persists a final four-answer timed batch before timeout', async () => {
   assert.deepEqual(saved.map((row) => row.qid), ['Q0', 'Q1', 'Q2', 'Q3']);
 });
 
+test('waits for a progress write admitted before cutoff even if its ACK is late', async () => {
+  let clock = 59000;
+  let releaseAck;
+  const ack = new Promise((resolve) => { releaseAck = resolve; });
+  const api = fakeApi({
+    questions: [mcq(1)],
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      expires_at: null, time_remaining_seconds: 1,
+    },
+  });
+  const post = api.post.bind(api);
+  let progressAccepted = false;
+  api.post = async (path, body) => {
+    const result = await post(path, body);
+    if (path.endsWith('/progress')) {
+      progressAccepted = true;
+      await ack;
+    }
+    return result;
+  };
+  const runner = createRunner({ api, storage: null, now: () => clock });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  runner.show();
+  runner.answer(0);
+  runner.next();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(progressAccepted, true);
+  clock = 61000;
+  let finished = false;
+  const finishing = runner.finishStage({ endedBy: 'time_cap' })
+    .then((result) => { finished = true; return result; });
+  await Promise.resolve();
+  assert.equal(finished, false, 'time-cap finalization must wait for the admitted write');
+  releaseAck();
+  const result = await finishing;
+  assert.equal(result.persisted, true);
+  assert.deepEqual(api.calls.post
+    .filter((call) => call.path.endsWith('/progress'))
+    .flatMap((call) => call.body.attempts)
+    .map((row) => row.qid), ['Q1']);
+});
+
 test('a completed session stays closed when the page timer later expires', async () => {
   let clock = 1000;
   const api = fakeApi({

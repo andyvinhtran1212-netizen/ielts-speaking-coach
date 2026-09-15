@@ -155,6 +155,16 @@ describe('hết giờ trên màn kết quả', () => {
     assert.ok(refresh > close,
       'hết giờ trên màn kết quả phải đọc lại action canonical');
   });
+
+  test('verdict hết hạn hiển thị chỉ-xem, không dựng nút retry', () => {
+    const body = functionBody('renderVerdict');
+    const closed = body.indexOf("v.next_action === 'review'");
+    const retry = body.indexOf("v.next_action === 'retry_full'", closed);
+    const branch = body.slice(closed, retry);
+    assert.ok(closed !== -1 && retry > closed);
+    assert.match(branch, /chế độ chỉ xem/);
+    assert.doesNotMatch(branch, /id="cx-retake"|id="cx-retry-full"/);
+  });
 });
 
 describe('nạp phần tự review', () => {

@@ -496,6 +496,30 @@ def test_late_verdict_preserves_a_canonically_on_time_completion():
     assert out["next_action"] == "passed"
 
 
+def test_expired_clock_closes_an_on_time_failed_attempts_retry_action():
+    """Attempt history stays on-time, but a post-cutoff retry is read-only."""
+    ss = _sessions(
+        1, ended_by="completed", created_at="2026-09-15T01:00:00+00:00",
+        ended_at="2026-09-15T01:29:59+00:00",
+    )
+    item = {
+        "id": "it-1", "passed_at": None, "submitted_at": None,
+        "opened_at": "2026-09-15T01:00:00+00:00",
+        "mastery": None, "score": None,
+    }
+    attempts = _attempts(ss, _given(10, wrong=3))
+    for attempt in attempts:
+        attempt["created_at"] = "2026-09-15T01:29:58+00:00"
+    out, _ = _verdict(
+        sessions=ss, attempts=attempts, item_row=item,
+        config={"time_limit_minutes": 30}, timed_out=False,
+    )
+    assert out["pct"] == 70.0
+    assert out["timed_out"] is False
+    assert out["next_action"] == "review"
+    assert out["retry_closed"] is True
+
+
 def test_timed_out_retake_uses_the_retake_sample_as_denominator():
     ss = _sessions(
         1, kind="retake", ended_by="time_cap",
