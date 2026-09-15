@@ -457,7 +457,7 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
         for unknown in sorted(verification_ids - set(unique_requirements)):
             errors.append(f"{feature / 'verification.md'}: evidence references unknown {unknown}")
 
-        tasks = texts.get("tasks.md", "")
+        tasks = _without_html_comments(texts.get("tasks.md", ""))
         if not re.search(r"^\s*-\s+\[[ xX]\]\s+", tasks, re.MULTILINE):
             errors.append(f"{feature / 'tasks.md'}: declare at least one checkbox task")
         if status in FINAL_STATUSES and re.search(r"^\s*-\s+\[ \]\s+", tasks, re.MULTILINE):
@@ -548,6 +548,7 @@ def _git_approval_commit(
     root: Path,
     base_sha: str,
     spec_path: str,
+    spec_id: str,
     requirements: dict[str, str],
     risk: str,
 ) -> str | None:
@@ -568,7 +569,8 @@ def _git_approval_commit(
         except (IndexError, yaml.YAMLError):
             continue
         if (
-            metadata.get("status") in IMPLEMENTABLE_SPEC_STATUSES
+            metadata.get("id") == spec_id
+            and metadata.get("status") in IMPLEMENTABLE_SPEC_STATUSES
             and metadata.get("risk") == risk
             and _declared_requirements(text) == requirements
         ):
@@ -763,6 +765,10 @@ def validate_pull_request(
                             errors.append(
                                 f"pull request: Spec '{spec_id}' was not approved in the base revision"
                             )
+                        if base_metadata.get("id") != spec_id:
+                            errors.append(
+                                f"pull request: Spec '{spec_id}' identity changed after base approval ({base_metadata.get('id')!r} -> {spec_id!r})"
+                            )
                         if metadata.get("risk") != base_metadata.get("risk"):
                             errors.append(
                                 f"pull request: Spec '{spec_id}' risk changed after base approval ({base_metadata.get('risk')!r} -> {metadata.get('risk')!r})"
@@ -778,6 +784,7 @@ def validate_pull_request(
                             root,
                             base_sha,
                             spec_path,
+                            spec_id,
                             _declared_requirements(metadata_text),
                             str(metadata.get("risk") or ""),
                         )

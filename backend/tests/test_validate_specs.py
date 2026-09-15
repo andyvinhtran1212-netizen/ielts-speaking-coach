@@ -248,6 +248,21 @@ def test_repository_rejects_empty_tasks_artifact(tmp_path: Path) -> None:
     assert any("tasks.md" in error and "checkbox task" in error for error in errors)
 
 
+def test_repository_ignores_commented_tasks(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    tasks = root / "specs/0001-example-feature/tasks.md"
+    tasks.write_text("<!-- - [x] T001 Hidden placeholder. -->\n", encoding="utf-8")
+    hidden_errors, _ = validator.validate_repository(root)
+    assert any("declare at least one checkbox task" in error for error in hidden_errors)
+
+    tasks.write_text(
+        "- [x] T001 Complete.\n<!-- - [ ] T000 Historical task. -->\n",
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert errors == []
+
+
 def test_requirement_may_be_referenced_outside_declaration(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     spec = root / "specs/0001-example-feature/spec.md"
@@ -826,6 +841,44 @@ def test_feature_pr_rejects_requirement_definition_changed_after_approval(
         _event(root=root, change_class="feature", spec="FEAT-0001"), specs, root
     )
     assert any("FR-001 definition changed after base approval" in error for error in errors)
+
+
+def test_feature_pr_rejects_spec_id_changed_after_approval(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path, status="approved")
+    base_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    spec = root / "specs/0001-example-feature/spec.md"
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace("id: FEAT-0001", "id: RENAMED-0001"),
+        encoding="utf-8",
+    )
+    index = root / "specs/README.md"
+    index.write_text(
+        index.read_text(encoding="utf-8").replace("FEAT-0001", "RENAMED-0001"),
+        encoding="utf-8",
+    )
+    _write(root / "docs/implementation.md", "implementation for renamed identity\n")
+    subprocess.run(["git", "add", "specs", "docs/implementation.md"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "rename spec identity and implement"], cwd=root, check=True)
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    errors = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="RENAMED-0001",
+            base_sha=base_sha,
+        ),
+        specs,
+        root,
+    )
+    assert any("identity changed after base approval" in error for error in errors)
+    assert any("cannot find durable approval commit" in error for error in errors)
 
 
 def test_feature_pr_compares_multiline_requirement_definition(tmp_path: Path) -> None:
