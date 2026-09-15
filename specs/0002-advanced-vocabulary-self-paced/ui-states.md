@@ -2,7 +2,7 @@
 
 | Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |
 | --- | --- | --- | --- | --- | --- | --- |
-| Assigned lesson shell | Skeleton preserves stage navigation | Clear unavailable-assignment message | Restores canonical current stage and completion; a submitted item reopened after deadline is persisted-review-only with `accepting:false` | A deadline crossed after load keeps the rejected mutation local, hides lesson content on canonical reload for an incomplete item, focuses a stable expired notice, and links back to My Class | A 401 uses the shared login redirect with a safe return target and exposes no content; an authenticated wrong assignee, inactive/transferred learner, archived assignment, or unknown item receives the same stable 404/unavailable state with focus on its heading and a route back to My Class | Mobile stage drawer, visible focus, dark/light tokens |
+| Assigned lesson shell | Skeleton preserves stage navigation | Clear unavailable-assignment message | Restores canonical current stage and completion; a submitted item reopened after deadline is persisted-review-only with `accepting:false` | A deadline crossed after load keeps the rejected mutation local, hides lesson content on canonical reload for an incomplete item, focuses a stable expired notice, and links back to My Class | A 401 uses the shared login redirect with a safe return target and exposes no content; an authenticated wrong assignee, inactive/transferred learner, scheduled/not-yet-published item, archived assignment, or unknown item receives the same stable 404/unavailable state with focus on its heading and a route back to My Class | Mobile stage drawer, visible focus, dark/light tokens |
 | Vocabulary cards | Audio controls disabled while source resolves | Missing card fails content validation | Headword, meaning, example, common error, and two audio actions render | Individual audio retry does not block reading | Same assignment boundary as shell | Keyboard buttons, labels, reduced motion |
 | Practice 1 and Practice 2 | Question skeleton preserves stage and answered count | Missing/invalid selection fails content validation instead of shortening the gate | One accepted answer locks that question, reveals only its feedback, and advances focus; reload restores canonical answered questions | Validation keeps the current answer; network retry may replay the same answer; a conflicting immutable answer shows a named conflict and reload action | Answers/accepted variants/explanations remain private until that question's accepted attempt | Controls and option groups are keyboard operable, focus reaches the result/next question, and mobile/dark layouts preserve labels and progress |
 | Reading Lab | Passage and question panes retain independent positions | Invalid package is not published | Public passage/questions render and post-submit review appears | Submission errors preserve answers for retry | Solutions hidden until canonical submission | Independent scrolling on desktop, stacked flow on mobile |
@@ -22,6 +22,10 @@ surface contains no recorder, microphone permission request, response textarea, 
 submission control. Direct navigation and canonical reload must cover unauthenticated,
 wrong-assignee, inactive/transferred learner, archived-assignment, and non-admin
 identities; archive must retain the admin evidence while hiding learner access, and
-republish must restore the same stage. Browser time-control must cross the deadline
-between load and every mutation, assert no accepted write, and distinguish incomplete
-expired denial from submitted review-only state.
+republish must restore the same stage while the deadline is open. Browser time-control
+must cross the deadline between load and every mutation, assert no accepted write,
+and distinguish incomplete expired denial from submitted review-only state. It must
+also exercise direct learner reads and every mutation immediately before, exactly at,
+and after `publish_at`, with no payload/evidence before release. Archive/republish
+covers both an open deadline and an expired incomplete item that resumes only after
+an explicit deadline extension.

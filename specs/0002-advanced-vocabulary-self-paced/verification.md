@@ -7,7 +7,7 @@ on staging and replacement implementation commits are created from that base.
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-001 | kind=test; ref=backend/tests/test_advanced_vocab_importer.py | PENDING |
+| FR-001 | kind=test; ref=backend/tests/test_advanced_vocab_importer.py, backend/tests/test_course_assignment.py, backend/tests/test_quiz_service.py, frontend/tests/admin-class-homework-next-behavior.test.mjs | PENDING |
 | FR-002 | kind=test; ref=backend/tests/test_advanced_vocab_service.py | PENDING |
 | FR-003 | kind=test; ref=backend/tests/test_advanced_vocab_audio_builder.py, backend/tests/test_advanced_vocab_package_validator.py, backend/tests/test_advanced_vocab_importer.py | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
@@ -39,14 +39,20 @@ on staging and replacement implementation commits are created from that base.
   rows, while a distinct teacher-created Writing assignment remains submittable.
 - Stage ordering: pending out-of-order start/answer calls before every predecessor,
   followed by the accepted in-order journey and canonical reload comparison.
+- Assignment-only boundary: pending admin API/UI assignment of each Advanced bank
+  with immediate and full-reload state equality, plus unauthenticated/public listing
+  exclusion and generic quiz-play denial before and after assignment.
 - Access cutoff races: pending removal and transfer both before first open and between
-  partial stages, plus deadline crossing between page load and every mutation. Each
-  case must reject at persistence time with no subsequent write/reload access;
-  submitted-after-deadline reopens persisted review only with `accepting:false`.
+  partial stages, direct requests before/at/after `publish_at`, plus deadline crossing
+  between page load and every mutation. Each case must reject at persistence time
+  with no subsequent write/reload access; no scheduled content/evidence exists before
+  release, and submitted-after-deadline reopens persisted review only with
+  `accepting:false`.
 - Archive lifecycle: pending archive, blocked learner reload, preserved admin reload,
-  republish, and learner resume from the original canonical stage. Every partial-
-  evidence store must make the homework list render Archive instead of Delete both
-  immediately and after reload.
+  republish before expiry, and learner resume from the original canonical stage;
+  republish after expiry must remain blocked until an explicit deadline extension.
+  Every partial-evidence store must make the homework list render Archive instead of
+  Delete both immediately and after reload.
 - Timing truth: pending capped per-question Practice response time and Reading/
   Listening duration persistence, idempotent retry totals, untimed Vocabulary/rewrite
   completion timestamps, and matching learner/admin reload projections without
@@ -66,5 +72,7 @@ on staging and replacement implementation commits are created from that base.
 
 ## Release evidence
 
-- Staging SHA and checks: pending implementation merge.
+- Staging SHA and checks: pending implementation merge, exact-SHA integrated CI/live
+  Staging E2E evidence, and an immediately pre-promotion `Staging promotion gate`
+  proving staging HEAD is still that SHA.
 - Production verification: pending staging-to-main promotion.

@@ -50,16 +50,18 @@
   treat that partial evidence as real learner work and offer only the existing
   archive/retire behavior. Archiving preserves the item and all evidence: admin reload
   continues to show canonical progress, learner routes become unavailable as the kill
-  switch requires, and republishing restores learner access at the persisted stage.
+  switch requires, and republishing restores learner access at the persisted stage
+  only if the deadline remains open (otherwise an admin must explicitly extend it).
 - Every learner read and mutation resolves the assignment item through its assignment,
   student, and active cohort membership; retaining a historical item after removal or
   transfer grants no access. Every evidence write, including the final Listening
-  transaction, rechecks published status, active membership, and `due_at` at database
-  persistence time so a page opened before removal/deadline cannot write afterward.
-  Membership/identity mismatch is the canonical non-enumerating 404. An incomplete
-  item after deadline returns the stable deadline conflict and no lesson payload;
-  a submitted item may reopen only its persisted review with `accepting:false` and no
-  mutation controls.
+  transaction, rechecks published status, `publish_at`, active membership, and
+  `due_at` at database persistence time so a page opened before a schedule boundary,
+  removal, or deadline cannot write afterward. Reads use the same canonical open-state
+  check. Membership/identity mismatch and a not-yet-published item use the canonical
+  non-enumerating 404. An incomplete item after deadline returns the stable deadline
+  conflict and no lesson payload; a submitted item may reopen only its persisted
+  review with `accepting:false` and no mutation controls.
 
 ## API contract
 
@@ -95,11 +97,11 @@ router, and generic submission routes must reject this runtime while leaving tea
 created Writing assignments unchanged.
 
 Stable failures are: 401 unauthenticated; 403 non-admin on the admin route; 404 wrong
-assignee, inactive/transferred membership, archived/unknown item, or non-Advanced
-bank; 409 `deadline_passed`, unmet predecessor, frozen-version mismatch, immutable-
-answer conflict, or already-submitted different payload; 422 invalid/missing IDs or
-required answers; and sanitized 500 persistence/content failure. Existing non-
-Advanced course route schemas and behavior remain unchanged.
+assignee, inactive/transferred membership, scheduled/not-yet-published, archived/
+unknown item, or non-Advanced bank; 409 `deadline_passed`, unmet predecessor, frozen-
+version mismatch, immutable-answer conflict, or already-submitted different payload;
+422 invalid/missing IDs or required answers; and sanitized 500 persistence/content
+failure. Existing non-Advanced course route schemas and behavior remain unchanged.
 
 ## UI and interaction
 
@@ -132,12 +134,18 @@ Advanced course route schemas and behavior remain unchanged.
 - Apply the reviewed runtime migration to staging before merging dependent code;
   then run exact-SHA integrated checks, import 30 banks, and
   execute learner/admin smoke before staging-to-main promotion.
+- Immediately before staging-to-main merge, run the repository `Staging promotion
+  gate` and record that staging HEAD is unchanged from the SHA owning both the exact-
+  SHA integrated checks and live Staging E2E evidence.
 - Apply the additive migration in production before code promotion, then import and
   verify the same 30 banks after production smoke.
 - Before rolling back application code, activate the assignment kill switch by
   archiving every active Advanced Vocabulary assignment and verify both the dedicated
   and legacy quiz routes return no learner payload. Only then revert the runtime;
-  retain additive tables and all historical evidence.
+  retain additive tables and all historical evidence. Before any republish, deploy a
+  known-good guarded runtime at a recorded SHA, verify dedicated and legacy-route
+  isolation plus assignment open-state guards on that SHA, repair/import canonical
+  banks, and only then re-enable an assignment whose deadline is open or extended.
 
 ## Verification strategy
 

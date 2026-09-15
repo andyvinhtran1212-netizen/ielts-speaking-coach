@@ -21,11 +21,16 @@
 - Import exactly 30 assignment-only banks and verify 48 rows per bank.
 - Complete one learner journey, reload progress, and compare admin results before
   and after reload; confirm Writing/Speaking produce no default grading.
+- Record the exact staging SHA that owns both integrated CI and live Staging E2E.
 
 ## Production
 
 - Require explicit owner authorization after staging evidence is green.
 - Apply and verify migration 263 before merging staging to main.
+- Immediately before merge, run the repository `Staging promotion gate`; require its
+  recorded staging HEAD to equal the SHA owning both integrated CI and live Staging
+  E2E evidence. Any intervening staging commit invalidates the evidence and restarts
+  the exact-SHA checks.
 - Monitor production deploy/health checks, then import and verify the same 30 banks.
 - Smoke login, assignment open/resume, versioned audio/figure delivery, learner
   completion, and admin result visibility on the stable production domain.
@@ -40,7 +45,11 @@
   additive tables and RLS. Do not delete submissions, attempts, immutable content
   versions, or redemption/history truth.
 - Re-run the idempotent import to repair missing bank/question rows and compare
-  expected 30 banks by code and 48-question counts before re-enabling assignments.
+  expected 30 banks by code and 48-question counts. Deploy and verify a known-good
+  guarded runtime at an exact SHA before re-enabling assignments; throughout recovery,
+  prove both dedicated and legacy learner routes expose no payload. Republish only
+  when `publish_at` has arrived and `due_at` remains open, or after an admin explicitly
+  extends the deadline.
 
 ## Observability
 

@@ -49,11 +49,13 @@ that prevents answer leakage and gives admins canonical completion evidence.
 ## Requirements
 
 - **FR-001:** Admins can assign exactly 30 Advanced Vocabulary core lesson banks;
-  the banks remain assignment-only and are not exposed in public discovery.
+  the banks remain assignment-only and are not exposed in public discovery or served
+  by the generic quiz-player route.
 - **FR-002:** Each assigned lesson is resumable and completes only after the
   required vocabulary, two practice, Reading, controlled-rewrite, and Listening
   interactions; opening a page alone never completes a stage, and every mutation
-  rechecks active cohort membership and the assignment deadline at persistence time.
+  rechecks active cohort membership, `publish_at`, and the assignment deadline at
+  persistence time. Learner reads apply the same canonical open-state gate.
 - **FR-003:** The release preserves 24 authored words per lesson, uses the authored
   per-session quiz material, includes all 88 curated common-error supplements,
   and serves checksum-bound headword and example audio for every vocabulary card.
@@ -72,7 +74,9 @@ that prevents answer leakage and gives admins canonical completion evidence.
   are persisted as canonical backend truth and returned to admins without inventing
   an overall score or wall-clock duration. Any partial evidence prevents assignment-
   item deletion; archiving preserves progress for admins, blocks learner access, and
-  republishing restores learner resume from the same canonical stage.
+  republishing restores learner resume from the same canonical stage only while the
+  deadline remains open. An expired incomplete item requires an explicit deadline
+  extension before resume; a submitted expired item remains review-only.
 - **FR-007:** Database migration and RLS policies isolate learner-owned evidence,
   preserve immutable submission/version history, and support idempotent staged
   deployment before application promotion. The final Listening evidence and
@@ -81,7 +85,8 @@ that prevents answer leakage and gives admins canonical completion evidence.
   item/section regardless of the generic course retry key, identical replay is
   idempotent, different replay conflicts, and complete pilot states that predate the
   trigger are reconciled from canonical evidence. Persistence-time guards reject any
-  evidence write after membership removal/transfer, archival, or deadline expiry.
+  evidence write before `publish_at` or after membership removal/transfer, archival,
+  or deadline expiry.
 - **FR-008:** Authored lesson JSON and runtime media use immutable content versions
   and verified SHA-256 provenance, including Listening figures and audio, so a
   deployed assignment reopens the same content revision. Assignment creation must
@@ -179,6 +184,8 @@ that prevents answer leakage and gives admins canonical completion evidence.
   access without deleting prior evidence. A deadline crossed after page load rejects
   that stage mutation; submitted work remains review-only, while incomplete expired
   work exposes no lesson payload.
+- Before `publish_at`, direct learner reads and every mutation expose no lesson
+  payload and persist no evidence; the canonical open state begins at the timestamp.
 
 ## Success criteria
 
