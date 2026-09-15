@@ -2,7 +2,7 @@
 
 ## Preconditions
 
-- AVOC-0001 is approved on staging before implementation commits.
+- AVOC-0002 is approved on staging before implementation commits.
 - Core-30 content validates with zero errors/warnings and immutable checksums.
 - Migration 263 is additive, idempotent through the advisory-locked runner, and
   compatible with application code before bank import.

@@ -123,3 +123,5 @@ that prevents answer leakage and gives admins canonical completion evidence.
 
 - Public discovery and self-enrolment will be specified as a separate expansion
   after assignment-only production evidence is stable.
+- Approval record: the product owner confirmed the core-30, assignment-only,
+  no-default-grading scope on 2026-09-15 before replacement implementation work.

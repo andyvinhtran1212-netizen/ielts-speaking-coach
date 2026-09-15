@@ -1,5 +1,8 @@
 # Verification
 
+Pre-implementation evidence remains pending until the approved spec is present
+on staging and replacement implementation commits are created from that base.
+
 ## Requirement coverage
 
 | Requirement | Evidence | Result |
