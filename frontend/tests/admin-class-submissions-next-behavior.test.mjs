@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { canReturnSubmission, groupReportQuestions, normalizeAdvancedVocabularyResult, normalizeEffort, normalizeStudentReport, normalizeTally, normalizeWriting } from '../lib/admin-class-submissions-model.mjs';
+import { advancedVocabularyStudentState, canReturnSubmission, groupReportQuestions, normalizeAdvancedVocabularyResult, normalizeEffort, normalizeStudentReport, normalizeTally, normalizeWriting } from '../lib/admin-class-submissions-model.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -66,13 +66,22 @@ describe('admin class submissions model', () => {
         stages: [{ stage: 'vocabulary', status: 'completed' }],
         practice_attempts: [{ stage: 'practice_1', qid: 'q1', answer_given: 'kinship', is_correct: true, response_time_ms: 900 }],
         sections: [{ section: 'reading', total: 13, correct: 11, duration_sec: 420 }],
+        listening_attempts: [{ total: 6, correct: 4, score: 66.67, duration_sec: 180, submitted_at: '2026-09-15T01:00:00Z', answers: { 1: 'Sandhu' } }],
       }],
     });
     assert.equal(out.students[0].practice_attempts[0].answer_given, 'kinship');
     assert.equal(out.students[0].sections[0].correct, 11);
+    assert.equal(out.students[0].listening_attempts[0].correct, 4);
+    assert.deepEqual(out.students[0].listening_attempts[0].answers, { 1: 'Sandhu' });
     assert.equal(out.students[0].required_stages.length, 6);
     assert.deepEqual(out.reference_only, ['writing', 'speaking']);
     assert.equal(normalizeAdvancedVocabularyResult({ kind: 'advanced_vocab', score_policy: 'percent', students: [] }), null);
+    const base = { item: { opened_at: null, submitted_at: null }, stages: [], practice_attempts: [], sections: [], listening_attempts: [] };
+    assert.equal(advancedVocabularyStudentState(base), 'untouched');
+    assert.equal(advancedVocabularyStudentState({ ...base, listening_attempts: [{}] }), 'doing');
+    assert.equal(advancedVocabularyStudentState({ ...base, item: { opened_at: null, submitted_at: '2026-09-15T02:00:00Z' } }), 'done');
+    assert.match(UI, /Listening · lượt đầu \(đang sửa\)/);
+    assert.match(UI, /stateLabel/);
   });
 
   test('preserves class misconception denominators and affected learners', () => {

@@ -9,8 +9,6 @@ runtime questions are replaced through the canonical database RPC.
 from __future__ import annotations
 
 import argparse
-import hashlib
-import json
 import sys
 from pathlib import Path
 
@@ -23,6 +21,7 @@ from services.advanced_vocab_service import (  # noqa: E402
     controlled_rewrite_parts,
     load_lesson,
 )
+from services.advanced_vocab_package_validator import lesson_content_checksum  # noqa: E402
 
 LESSON_IDS = tuple(f"ADV-T{number:02d}" for number in range(1, 31))
 
@@ -35,11 +34,13 @@ def _admin():
 
 
 def _checksum(lesson: dict) -> str:
-    return ((lesson.get("provenance") or {}).get("content_checksum")
-            or hashlib.sha256(json.dumps(
-                lesson, ensure_ascii=False, sort_keys=True,
-                separators=(",", ":"),
-            ).encode("utf-8")).hexdigest())
+    declared = str((lesson.get("provenance") or {}).get("content_checksum") or "")
+    actual = lesson_content_checksum(lesson)
+    if declared != actual:
+        raise SystemExit(
+            f"{lesson.get('lesson_id')}: nội dung không khớp content_checksum."
+        )
+    return actual
 
 
 def lesson_spec(lesson_id: str, *, course_id: str | None = None) -> dict:

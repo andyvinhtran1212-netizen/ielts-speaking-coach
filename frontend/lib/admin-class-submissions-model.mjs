@@ -122,6 +122,15 @@ export function normalizeAdvancedVocabularyResult(value) {
           duration_sec: Math.max(0, finite(section.duration_sec) || 0), submitted_at: nullableText(section.submitted_at),
         };
       }).filter((section) => section.section),
+      listening_attempts: Array.isArray(row.listening_attempts) ? row.listening_attempts.map((value) => {
+        const attempt = object(value);
+        return {
+          total: Math.max(0, finite(attempt.total) || 0),
+          correct: Math.max(0, finite(attempt.correct) || 0), score: finite(attempt.score),
+          duration_sec: Math.max(0, finite(attempt.duration_sec) || 0),
+          submitted_at: nullableText(attempt.submitted_at), answers: object(attempt.answers),
+        };
+      }) : [],
     };
   }).filter(Boolean);
   return {
@@ -130,6 +139,15 @@ export function normalizeAdvancedVocabularyResult(value) {
     reference_only: Array.isArray(payload.reference_only) ? payload.reference_only.map(text).filter(Boolean) : [],
     students,
   };
+}
+
+export function advancedVocabularyStudentState(data) {
+  if (data?.item?.submitted_at) return 'done';
+  const hasEvidence = Boolean(
+    data?.item?.opened_at || data?.stages?.length || data?.practice_attempts?.length ||
+    data?.sections?.length || data?.listening_attempts?.length
+  );
+  return hasEvidence ? 'doing' : 'untouched';
 }
 
 export function normalizeStudentReport(value) {

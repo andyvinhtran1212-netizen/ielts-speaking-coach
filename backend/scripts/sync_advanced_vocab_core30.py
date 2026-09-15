@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import shutil
+import sys
 from pathlib import Path
 
 _BACKEND = Path(__file__).resolve().parent.parent
@@ -19,6 +20,10 @@ _REPO = _BACKEND.parent
 _CONTENT = _BACKEND / "content" / "advanced_vocab"
 _PUBLIC = _REPO / "frontend" / "public" / "assets" / "advanced-vocab"
 _EXPECTED_IDS = tuple(f"ADV-T{number:02d}" for number in range(1, 31))
+if str(_BACKEND) not in sys.path:
+    sys.path.insert(0, str(_BACKEND))
+
+from services.advanced_vocab_package_validator import lesson_content_checksum  # noqa: E402
 
 
 def _read(path: Path) -> dict:
@@ -73,6 +78,12 @@ def sync(source: Path, *, write: bool) -> dict:
         lesson = _read(source_lesson)
         if lesson.get("lesson_id") != lesson_id:
             raise SystemExit(f"Sai lesson_id trong {source_lesson}")
+        declared_checksum = str(
+            (lesson.get("provenance") or {}).get("content_checksum") or ""
+        )
+        actual_checksum = lesson_content_checksum(lesson)
+        if declared_checksum != actual_checksum:
+            raise SystemExit(f"{lesson_id}: nội dung không khớp content_checksum.")
         vocabulary = lesson.get("vocabulary") or []
         if len(vocabulary) != 24 or not all(
                 str(word.get("common_error") or "").strip() for word in vocabulary):
@@ -136,7 +147,7 @@ def sync(source: Path, *, write: bool) -> dict:
         report["lessons"].append({
             "lesson_id": lesson_id,
             "title": lesson.get("title"),
-            "content_checksum": (lesson.get("provenance") or {}).get("content_checksum"),
+            "content_checksum": actual_checksum,
             "vocabulary_count": len(vocabulary),
             "common_error_count": sum(bool(word.get("common_error")) for word in vocabulary),
             "reading_question_count": len(activities["reading_lab"]["content"]["questions"]),

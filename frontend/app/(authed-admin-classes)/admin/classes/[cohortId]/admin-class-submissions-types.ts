@@ -20,7 +20,7 @@ export type AdvancedVocabularyStudentResult = {
   stages: { stage: string; status: string; completed_at: string | null }[];
   practice_attempts: { stage: string; qid: string; answer_given: unknown; is_correct: boolean; response_time_ms: number | null; created_at: string | null }[];
   sections: { section: string; total: number; correct: number; score: number | null; duration_sec: number; submitted_at: string | null }[];
-  listening_attempts?: { total: number; correct: number; score: number | null; duration_sec: number; submitted_at: string | null }[];
+  listening_attempts: { total: number; correct: number; score: number | null; duration_sec: number; submitted_at: string | null; answers: Record<string, unknown> }[];
 };
 export type AdvancedVocabularyResult = {
   kind: 'advanced_vocab'; score_policy: 'none'; lesson_id: string | null;

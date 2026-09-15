@@ -16,6 +16,8 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from services.advanced_vocab_package_validator import lesson_content_checksum
+
 
 _CONTENT_ROOT = Path(__file__).resolve().parent.parent / "content" / "advanced_vocab"
 _PUBLIC_ROOT = "/assets/advanced-vocab"
@@ -110,8 +112,11 @@ def _assigned_lesson(*, bank_id: str, user_id: str, item_id: str,
     if frozen.get("kind") != "advanced_vocab" or not lesson_id or not expected_checksum:
         raise HTTPException(409, "Bài giao thiếu phiên bản nội dung Advanced Vocabulary")
     lesson = load_lesson(lesson_id)
-    actual_checksum = str((lesson.get("provenance") or {}).get("content_checksum") or "")
-    if actual_checksum != expected_checksum:
+    declared_checksum = str(
+        (lesson.get("provenance") or {}).get("content_checksum") or ""
+    )
+    actual_checksum = lesson_content_checksum(lesson)
+    if declared_checksum != actual_checksum or actual_checksum != expected_checksum:
         raise HTTPException(409, "Phiên bản bài giao không khớp nội dung đã triển khai")
     return bank, item, lesson
 

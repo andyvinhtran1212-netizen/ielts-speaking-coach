@@ -127,6 +127,11 @@ def _checksum_without(value: dict[str, Any], *field_path: str) -> str:
     return _canonical_checksum(clone)
 
 
+def lesson_content_checksum(lesson: dict[str, Any]) -> str:
+    """Return the canonical lesson checksum without trusting embedded provenance."""
+    return _checksum_without(lesson, "provenance", "content_checksum")
+
+
 def _manifest_lesson_ids(manifest: dict[str, Any]) -> list[str]:
     rows = manifest.get("lessons") or []
     if not isinstance(rows, list):
@@ -446,7 +451,7 @@ def _validate_provenance(lesson: dict[str, Any], path: Path,
     if not SHA256_RE.fullmatch(content_checksum):
         report.add("error", "CONTENT_CHECKSUM_INVALID", path,
                    "provenance.content_checksum must be a SHA-256 hex digest.")
-    elif content_checksum != _checksum_without(lesson, "provenance", "content_checksum"):
+    elif content_checksum != lesson_content_checksum(lesson):
         report.add("error", "CONTENT_CHECKSUM_MISMATCH", path,
                    "Lesson content no longer matches provenance.content_checksum.")
     source_checksums = provenance.get("source_checksums")

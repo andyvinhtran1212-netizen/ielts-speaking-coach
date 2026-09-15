@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -177,6 +178,28 @@ def test_assigned_lesson_rejects_live_content_that_differs_from_frozen_snapshot(
             "kind": "advanced_vocab",
             "lesson_id": lesson["lesson_id"],
             "content_checksum": "checksum-from-earlier-import",
+        }},
+    })
+    monkeypatch.setattr(service, "load_lesson", lambda _lesson_id: lesson)
+
+    with pytest.raises(HTTPException) as exc:
+        service._assigned_lesson(
+            bank_id="bank-1", user_id="user-1", item_id="item-1",
+        )
+
+    assert exc.value.status_code == 409
+    assert "không khớp" in exc.value.detail
+
+
+def test_assigned_lesson_recomputes_checksum_instead_of_trusting_provenance(monkeypatch):
+    lesson = deepcopy(_lesson())
+    declared = lesson["provenance"]["content_checksum"]
+    lesson["vocabulary"][0]["example"] = "Changed after the assignment was issued."
+    monkeypatch.setattr(service, "_runtime", lambda _bank: ({"id": "bank-1"}, {}))
+    monkeypatch.setattr(service, "_owned_item", lambda *_args, **_kwargs: {
+        "id": "item-1", "content_config": {"runtime": {
+            "kind": "advanced_vocab", "lesson_id": lesson["lesson_id"],
+            "content_checksum": declared,
         }},
     })
     monkeypatch.setattr(service, "load_lesson", lambda _lesson_id: lesson)
