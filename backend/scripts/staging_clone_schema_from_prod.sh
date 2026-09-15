@@ -63,8 +63,41 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authen
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
 SQL
 
-echo "== baselining migration ledger (clone already contains all current migrations)"
-"$ROOT/backend/scripts/apply_migrations.sh" --baseline "$STAGING_URL" | tail -1
+echo "== baselining migration ledger (clone contains production-active migrations)"
+"$ROOT/backend/scripts/apply_migrations.sh" --baseline "$STAGING_URL"
+
+echo "== restoring staging-first Curated Vocabulary schema"
+MIGRATION_FEATURES=curated_vocab \
+  "$ROOT/backend/scripts/apply_migrations.sh" "$STAGING_URL"
+
+echo "== verifying Curated Vocabulary ledger and schema"
+psql "$STAGING_URL" -v ON_ERROR_STOP=1 <<'SQL'
+DO $$
+DECLARE
+  ledger_count integer;
+BEGIN
+  SELECT count(*)
+    INTO ledger_count
+    FROM public._schema_migrations
+   WHERE filename IN (
+     '234_vocab_curated_identity_and_editorial.sql',
+     '235_vocab_curated_tasks_attempts_mastery.sql',
+     '236_vocab_curated_recommendations_and_flags.sql',
+     '237_vocab_curated_speaking_signal_maps.sql',
+     '238_vocab_curated_pilot_metrics.sql',
+     '239_vocab_curated_context_lookups.sql'
+   );
+  IF ledger_count <> 6 THEN
+    RAISE EXCEPTION 'curated vocabulary ledger incomplete: %/6', ledger_count;
+  END IF;
+  PERFORM id FROM public.vocab_learning_units LIMIT 0;
+  PERFORM id FROM public.vocab_unit_tasks LIMIT 0;
+  PERFORM id FROM public.vocab_unit_recommendations LIMIT 0;
+  PERFORM id FROM public.vocab_speaking_signal_maps LIMIT 0;
+  PERFORM id FROM public.vocab_context_lookup_terms LIMIT 0;
+END
+$$;
+SQL
 
 echo "== verify: table count in staging public schema"
 psql "$STAGING_URL" -tAc "select count(*) from information_schema.tables where table_schema='public';"

@@ -1,0 +1,23 @@
+# filename	state	group	reason
+233_recover_bao_quyen_course_retries.sql	retired	-	Production-only recovery is complete; never replay account-scoped DML.
+234_vocab_curated_identity_and_editorial.sql	pending_feature	curated_vocab	Curated Vocabulary remains staging-first until an explicit production release.
+235_vocab_curated_tasks_attempts_mastery.sql	pending_feature	curated_vocab	Curated Vocabulary remains staging-first until an explicit production release.
+236_vocab_curated_recommendations_and_flags.sql	pending_feature	curated_vocab	Curated Vocabulary remains staging-first until an explicit production release.
+237_vocab_curated_speaking_signal_maps.sql	pending_feature	curated_vocab	Curated Vocabulary remains staging-first until an explicit production release.
+238_vocab_curated_pilot_metrics.sql	pending_feature	curated_vocab	Curated Vocabulary remains staging-first until an explicit production release.
+239_vocab_curated_context_lookups.sql	pending_feature	curated_vocab	Curated Vocabulary remains staging-first until an explicit production release.
+240_core_attempt_evidence.sql	retired	-	Gate F evidence capture was waived and closed; runtime flag remains off.
+241_speaking_creation_receipt.sql	retired	-	Gate F evidence capture was waived and closed; runtime flag remains off.
+242_core_attempt_evidence_inspection.sql	retired	-	Gate F evidence capture was waived and closed; runtime flag remains off.
+243_core_exam_result_proofs.sql	retired	-	Gate F evidence capture was waived and closed; runtime flag remains off.
+244_core_operation_correlations.sql	retired	-	Gate F evidence capture was waived and closed; runtime flag remains off.
+247_core_admission_ledger.sql	retired	-	Gate F admission evidence was waived and closed; runtime flag remains off.
+248_writing_admission_execution.sql	retired	-	Gate F admission evidence was waived and closed; runtime flag remains off.
+249_writing_admission_provenance.sql	retired	-	Gate F admission evidence was waived and closed; runtime flag remains off.
+250_writing_admission_preparation.sql	retired	-	Gate F admission evidence was waived and closed; runtime flag remains off.
+251_writing_admission_reconciliation.sql	retired	-	Gate F admission evidence was waived and closed; runtime flag remains off.
+252_writing_baseline_entry.sql	retired	-	Gate F admission evidence was waived and closed; runtime flag remains off.
+253_writing_admission_nonce_lookup.sql	retired	-	Gate F admission evidence was waived and closed; runtime flag remains off.
+254_writing_admission_cohort_snapshot.sql	retired	-	Gate F admission evidence was waived and closed; runtime flag remains off.
+255_writing_cohort_reports.sql	retired	-	Gate F admission evidence was waived and closed; runtime flag remains off.
+256_core_attempt_observation_aggregate.sql	retired	-	Gate F admission evidence was waived and closed; runtime flag remains off.

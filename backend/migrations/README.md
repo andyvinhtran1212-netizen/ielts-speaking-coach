@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-13 the highest is `261`, so the next new
-migration is `262`.
+sequence is dense. As of 2026-09-15 the highest is `262`, so the next new
+migration is `263`.
 
 ## Conventions
 
@@ -30,21 +30,29 @@ migration is `262`.
   `077_responses_unique_session_question.sql`, `124_questions_unique_session_part_order.sql`).
 - Functions pin `SET search_path = public, pg_temp` (hardening — see 108/113).
 
-## Hosted ledger status (audited 2026-09-13)
+## Forward policy and hosted ledger status (closed 2026-09-15)
 
-The Next.js renderer migration is complete, but that does **not** make later
-feature migrations interchangeable with renderer migration evidence. A
-read-only audit found these repository files absent from the hosted ledgers:
+The Next.js renderer migration is complete. The former ledger ambiguity is now
+represented explicitly in `forward-policy.tsv` rather than being left for the
+numeric directory scan to guess:
 
-- staging: `240–257`, `259–260`;
-- production: `233–244`, `247–256`.
+- `233` is a completed production-only recovery and is retired from replay;
+- `234–239` are the independent Curated Vocabulary feature group. Staging has
+  the group; production requires an explicit
+  `MIGRATION_FEATURES=curated_vocab` release;
+- `240–244` and `247–256` are retired Gate F evidence/admission experiments.
+  Their runtime flags remain off and a normal forward run skips them;
+- `245–246` and `257–262` are active Mock/correction/release migrations.
 
-Some later ledger rows and schema objects already exist, so neither `--baseline`
-nor an unreviewed replay is safe. Keep rollout flags such as
-`CORE_ATTEMPT_EVIDENCE_ENABLED` and `CORE_ADMISSION_LEDGER_ENABLED` off until
-each missing file has been verified against its exact postconditions and then
-recorded/applied under the shared advisory lock. Migration 233 is data-scoped
-and must be reviewed separately from additive schema migrations.
+On 2026-09-15, production `233` and staging `245`, `246`, `257`, `259`, `260`
+were fingerprinted against their durable postconditions and recorded under the
+shared advisory lock without replaying schema or data DML. Migration `262`
+repairs the importer drift discovered during that verification and is applied
+normally to both environments.
+
+`DRY_RUN=1` must list only genuinely active pending migrations. A retired or
+pending-feature file is reported as `policy skip`; it is not silently treated as
+an applied ledger row. Do not use `--baseline` to override this policy.
 
 ## Historical production ledger reconciliation (173–204)
 
@@ -140,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–261
+## Forward scope 230–262
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -159,12 +167,12 @@ foundation; 247–256 add optional core admission and Writing provenance; and
 257–261 add active correction persistence, public visibility and atomic
 assignment/explanation policy contracts.
 
-The only current candidates for ledger-only reconciliation are production 233
-and staging 245, 246, 257, 259 and 260, each after an exact transactional
-postcondition verifier. Never replay 233/246 data DML, and never replay 259 by
-itself because 260 replaces its scoped-assignment wrapper. Schema-absent
-optional groups require an explicit retain-and-apply or retire decision.
+Migration 262 restores the structured Cambridge 15 Test 4 Reading Q07
+explanation after the canonical importer had overwritten migration 246's richer
+tips and removed its trap analysis. The importer and migration now share the
+same canonical payload.
 
-Apply any genuinely pending file only through the advisory-locked forward
-runner after exact postcondition review. Do not run a data-deleting reset or
-use `--baseline` to silence hosted drift.
+Apply any genuinely pending active file only through the advisory-locked
+forward runner. Do not run a data-deleting reset or use `--baseline` to silence
+hosted drift. A pending feature group requires its explicit
+`MIGRATION_FEATURES` opt-in after staging validation.
