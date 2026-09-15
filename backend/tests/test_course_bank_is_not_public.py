@@ -354,19 +354,21 @@ def test_an_ARCHIVED_assignment_closes_the_door():
     assert exc.value.status_code == 404
 
 
-def test_archived_timed_item_is_visible_only_to_internal_expiry_finalizer():
-    archived = {
-        **_LIVE_ASG, "status": "archived",
+@pytest.mark.parametrize("status", ["published", "archived"])
+def test_detached_timed_item_is_visible_only_to_internal_expiry_finalizer(status):
+    assignment = {
+        **_LIVE_ASG, "status": status,
         "content_config": {"time_limit_minutes": 30},
     }
     db = _db(
-        class_assignments=[archived], students=[_STUDENT],
+        class_assignments=[assignment], students=[_STUDENT],
         class_assignment_items=[{
             "id": "it-1", "assignment_id": "asg-1", "student_id": "st-1",
             "opened_at": "2020-01-01T00:00:00+00:00",
         }],
     )
-    with patch.object(mod, "supabase_admin", db):
+    with patch.object(mod, "supabase_admin", db), \
+         patch.object(mod, "active_cohort_ids_for_student", return_value=set()):
         assert mod._assignment_item_for(
             "bank-course", "u1", assignment_item_id="it-1",
             allow_expired_timed_finalize=True,
@@ -374,7 +376,7 @@ def test_archived_timed_item_is_visible_only_to_internal_expiry_finalizer():
         item = mod._assignment_item_for(
             "bank-course", "u1", assignment_item_id="it-1",
             allow_expired_timed_finalize=True,
-            allow_archived_timed_finalize=True,
+            allow_reaper_finalize=True,
         )
     assert item and item["id"] == "it-1"
 

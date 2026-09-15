@@ -791,6 +791,7 @@ def test_server_reaper_finalizes_an_expired_open_course_attempt():
     verdict.assert_called_once_with(
         user_id=_USER, bank_id=_BANK, session_ids=[_SESS],
         assignment_item_id="item-timed", timed_out=True,
+        _allow_reaper_finalize=True,
     )
 
 
@@ -864,7 +865,7 @@ def test_server_reaper_finalizes_expired_item_after_assignment_is_archived():
     verdict.assert_called_once_with(
         user_id=_USER, bank_id=_BANK, session_ids=[_SESS],
         assignment_item_id="item-timed", timed_out=True,
-        _allow_archived_timed_finalize=True,
+        _allow_reaper_finalize=True,
     )
 
 

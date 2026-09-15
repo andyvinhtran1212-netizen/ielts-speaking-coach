@@ -645,7 +645,7 @@ def _assignment_item_for(
     bank_id: str, user_id: str, *, allow_submitted_review: bool = False,
     assignment_item_id: str | None = None,
     allow_expired_timed_finalize: bool = False,
-    allow_archived_timed_finalize: bool = False,
+    allow_reaper_finalize: bool = False,
 ) -> dict | None:
     """Mục bài giao CÒN HIỆU LỰC của học viên này cho bank ấy, hoặc None.
 
@@ -678,14 +678,17 @@ def _assignment_item_for(
         }
         owned = [
             a for a in asg
-            if a.get("cohort_id") in cohorts
-            and (
-                is_assignment_open(a)
-                or (
-                    allow_archived_timed_finalize
-                    and assignment_item_id
-                    and a.get("status") == "archived"
-                )
+            if (
+                a.get("cohort_id") in cohorts and is_assignment_open(a)
+            ) or (
+                # The background reaper must finish an already-opened timed
+                # item even if the learner has since left the cohort or the
+                # assignment was archived.  The explicit item id is still
+                # joined below to a students row owned by this user and to an
+                # assignment whose content_id matched ``bank_id`` above.
+                allow_reaper_finalize
+                and assignment_item_id
+                and a.get("status") in {"published", "archived"}
             )
         ]
         if not owned:
@@ -713,7 +716,7 @@ def _assignment_item_for(
             # passed class deadline.  It does not reopen question access.
             timer = assignment_timer_state(row, assignment)
             return bool(
-                (allow_expired_timed_finalize or allow_archived_timed_finalize)
+                (allow_expired_timed_finalize or allow_reaper_finalize)
                 and assignment_item_id
                 and row.get("opened_at")
                 and timer.get("is_timed")
@@ -3788,7 +3791,7 @@ def refresh_course_completion(
 def course_verdict(
     *, user_id: str, bank_id: str, session_ids: list[str],
     assignment_item_id: str | None = None, timed_out: bool = False,
-    _allow_archived_timed_finalize: bool = False,
+    _allow_reaper_finalize: bool = False,
 ) -> dict:
     """Xét ĐẠT/CHƯA ĐẠT bài tập buổi từ chính các phiên server đang giữ.
 
@@ -3820,7 +3823,7 @@ def course_verdict(
     item = (_assignment_item_for(
         bank_id, user_id, assignment_item_id=assignment_item_id,
         allow_expired_timed_finalize=True,
-        allow_archived_timed_finalize=_allow_archived_timed_finalize,
+        allow_reaper_finalize=_allow_reaper_finalize,
     ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
     if not item:
         raise HTTPException(404, "Không tìm thấy bài giao còn hiệu lực")
@@ -4400,8 +4403,7 @@ def reap_expired_course_assessments(
                 session_ids=[row["id"] for row in sessions],
                 assignment_item_id=item["id"], timed_out=True,
             )
-            if assignment.get("status") == "archived":
-                verdict_kwargs["_allow_archived_timed_finalize"] = True
+            verdict_kwargs["_allow_reaper_finalize"] = True
             course_verdict(**verdict_kwargs)
             result["finalized"] += 1
         except Exception as exc:  # noqa: BLE001
