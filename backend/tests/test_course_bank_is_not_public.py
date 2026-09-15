@@ -468,7 +468,7 @@ def test_timed_bank_read_anchors_clock_and_session_before_releasing_questions():
         out = _play(db)
     anchor.assert_called_once_with(
         anchor.call_args.args[0], user_id="u1", bank_id="bank-course",
-        code="C1-B01", allow_expired_existing=True,
+        code="C1-B01", kind="run", allow_expired_existing=True,
     )
     assert out["questions"], "không được phát đề nếu bước anchor không hoàn tất"
     assert out["mastery"]["started_at"] == started
