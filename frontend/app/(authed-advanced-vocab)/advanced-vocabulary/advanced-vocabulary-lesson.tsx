@@ -167,8 +167,8 @@ function PracticeStage({ stage, data, onAnswer, onDone }: { stage: 'practice_1' 
 }
 
 function ReadingStage({ content, completed, saved, onSubmit, onContinue }: { content: Json; completed: boolean; saved?: Json; onSubmit: (answers: Json, seconds: number) => Promise<Json>; onContinue: () => void }) {
-  const [answers, setAnswers] = useState<Json>({});
-  const [result, setResult] = useState<Json | null>(null);
+  const [answers, setAnswers] = useState<Json>(() => Object.fromEntries((saved?.review?.answer_results || []).map((row: Json) => [String(row.id), row.submitted_answer])));
+  const [result, setResult] = useState<Json | null>(() => saved?.review || null);
   const [busy, setBusy] = useState(false);
   const [mobilePane, setMobilePane] = useState<'passage' | 'questions'>('passage');
   const started = useRef(Date.now());
@@ -198,17 +198,42 @@ function ReadingStage({ content, completed, saved, onSubmit, onContinue }: { con
 function ListeningStage({ content, completed, saved, onSubmit, onRetry, onContinue }: { content: Json; completed: boolean; saved?: Json; onSubmit: (answers: Json, seconds: number) => Promise<Json>; onRetry: (answers: Json) => Promise<Json>; onContinue: () => void }) {
   const [answers, setAnswers] = useState<Json>({});
   const [retryAnswers, setRetryAnswers] = useState<Json>({});
-  const [result, setResult] = useState<Json | null>(() => content.initial_attempt ? ({ ...content.initial_attempt, requires_guided_retry: true, assignment: { completed: false } }) : null);
+  const [result, setResult] = useState<Json | null>(() => saved?.review || (content.initial_attempt ? ({ ...content.initial_attempt, requires_guided_retry: true, assignment: { completed: false } }) : null));
   const [busy, setBusy] = useState(false);
   const started = useRef(Date.now());
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const evidenceStopRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    const audio = audioRef.current;
+    return () => {
+      if (audio && evidenceStopRef.current) audio.removeEventListener('timeupdate', evidenceStopRef.current);
+    };
+  }, []);
+  const replayEvidence = (solution: Json) => {
+    const audio = audioRef.current;
+    const start = Number(solution?.timing?.answer_span?.start);
+    const end = Number(solution?.timing?.answer_span?.end);
+    if (!audio || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
+    if (evidenceStopRef.current) audio.removeEventListener('timeupdate', evidenceStopRef.current);
+    const stopAtEnd = () => {
+      if (audio.currentTime < end) return;
+      audio.pause();
+      audio.removeEventListener('timeupdate', stopAtEnd);
+      evidenceStopRef.current = null;
+    };
+    evidenceStopRef.current = stopAtEnd;
+    audio.addEventListener('timeupdate', stopAtEnd);
+    audio.currentTime = start;
+    void audio.play();
+  };
   const submit = async () => { setBusy(true); try { setResult(await onSubmit(answers, Math.round((Date.now() - started.current) / 1000))); } finally { setBusy(false); } };
   const retry = async () => { setBusy(true); try { setResult(await onRetry(retryAnswers)); } finally { setBusy(false); } };
   const retrying = Boolean(result?.requires_guided_retry && !result?.answers);
   const wrongIds = (result?.answer_results || []).filter((row: Json) => !row.is_correct).map((row: Json) => String(row.id));
   return <div className="avx-listening-layout">
-    <div className="avx-audio-dock"><div><span>Academic listening</span><strong>{content.title}</strong></div><audio controls preload="metadata" src={content.audio_url} /></div>
+    <div className="avx-audio-dock"><div><span>Academic listening</span><strong>{content.title}</strong></div><audio ref={audioRef} controls preload="metadata" src={content.audio_url} /></div>
     {(content.sections || []).filter((section: Json) => section.figure_url).map((section: Json) => <figure className="avx-listening-figure" key={section.section_id || section.figure_url}><img src={section.figure_url} alt={`Sơ đồ cho ${section.context || 'bài nghe'}`} /><figcaption>Xem sơ đồ trong khi nghe và dùng các nhãn trên hình cho câu map labelling.</figcaption></figure>)}
-    {completed && !result ? <div className="avx-complete-callout"><strong>Listening đã được lưu</strong><p>{saved ? `${saved.correct}/${saved.total} câu đúng. ` : ''}Bạn vẫn có thể nghe lại audio, nhưng bài đã nộp không bị ghi đè.</p></div> : <div className="avx-listening-questions">{(content.questions || []).map((question: Json) => { const qid = String(question.question_number); const checked = result?.answer_results?.find((row: Json) => row.id === qid); const solution = result?.answers?.find((row: Json) => row.id === qid); const needsRetry = retrying && checked && !checked.is_correct; const shownAnswer = needsRetry ? retryAnswers[qid] : checked?.submitted_answer ?? answers[qid]; return <section className="avx-question-card avx-question-card--compact" key={qid}><p className="avx-kicker">Câu {qid} · {question.question_type}</p><h3>{question.stem}</h3><QuestionInput question={question} value={shownAnswer} disabled={Boolean(result) && !needsRetry} onChange={(value) => needsRetry ? setRetryAnswers((current) => ({ ...current, [qid]: value })) : setAnswers((current) => ({ ...current, [qid]: value }))} />{checked && <div className={`avx-mini-result ${checked.is_correct ? 'is-correct' : 'is-wrong'}`}>{checked.is_correct ? 'Đúng' : retrying ? 'Chưa đúng — nghe lại và sửa câu này trước khi xem đáp án.' : `Đáp án: ${solution?.answer}`}{!retrying && solution?.evidence && <p>{solution.evidence}</p>}</div>}</section>; })}</div>}
+    {completed && !result ? <div className="avx-complete-callout"><strong>Listening đã được lưu</strong><p>{saved ? `${saved.correct}/${saved.total} câu đúng. ` : ''}Bạn vẫn có thể nghe lại audio, nhưng bài đã nộp không bị ghi đè.</p></div> : <div className="avx-listening-questions">{(content.questions || []).map((question: Json) => { const qid = String(question.question_number); const checked = result?.answer_results?.find((row: Json) => row.id === qid); const initialChecked = result?.initial_answer_results?.find((row: Json) => row.id === qid); const solution = result?.answers?.find((row: Json) => row.id === qid); const needsRetry = retrying && checked && !checked.is_correct; const shownAnswer = needsRetry ? retryAnswers[qid] : checked?.submitted_answer ?? answers[qid]; const initialChoice = initialChecked?.submitted_answer ?? checked?.submitted_answer; const distractorRationale = !retrying && initialChecked && !initialChecked.is_correct ? solution?.distractor_rationales?.[initialChoice] : null; const answerSpan = solution?.timing?.answer_span; return <section className="avx-question-card avx-question-card--compact" key={qid}><p className="avx-kicker">Câu {qid} · {question.question_type}</p><h3>{question.stem}</h3><QuestionInput question={question} value={shownAnswer} disabled={Boolean(result) && !needsRetry} onChange={(value) => needsRetry ? setRetryAnswers((current) => ({ ...current, [qid]: value })) : setAnswers((current) => ({ ...current, [qid]: value }))} />{checked && <div className={`avx-mini-result ${checked.is_correct ? 'is-correct' : 'is-wrong'}`}>{checked.is_correct ? 'Đúng' : retrying ? 'Chưa đúng — nghe lại và sửa câu này trước khi xem đáp án.' : `Đáp án: ${solution?.answer}`}{!retrying && solution?.evidence && <p>{solution.evidence}</p>}{distractorRationale && <p className="avx-distractor-rationale"><strong>Vì sao lựa chọn ban đầu chưa đúng:</strong> {distractorRationale}</p>}{!retrying && answerSpan && <button className="av-button av-button-secondary avx-evidence-replay" type="button" onClick={() => replayEvidence(solution)}>Nghe đoạn evidence · {Number(answerSpan.start).toFixed(1)}–{Number(answerSpan.end).toFixed(1)}s</button>}</div>}</section>; })}</div>}
     {!completed && !result && <button className="av-button av-button-primary avx-wide" type="button" disabled={busy || Object.keys(answers).length < content.questions.length} onClick={() => void submit()}>{busy ? 'Đang chấm…' : 'Hoàn tất Listening'}</button>}
     {retrying && <div className="avx-boundary-note"><strong>Guided retry</strong><p>Nghe lại và sửa đủ {wrongIds.length} câu chưa đúng. Đáp án và evidence chỉ hiện sau bước này.</p><button className="av-button av-button-primary avx-wide" type="button" disabled={busy || wrongIds.some((qid: string) => retryAnswers[qid] == null || retryAnswers[qid] === '')} onClick={() => void retry()}>{busy ? 'Đang lưu bước sửa…' : 'Hoàn tất sửa và xem đáp án'}</button></div>}
     {result?.assignment?.completed && <div className="avx-complete-callout"><strong>Đã hoàn tất bài học</strong><p>Kết quả được lưu theo từng tương tác; bài này không có điểm tổng mặc định.</p></div>}

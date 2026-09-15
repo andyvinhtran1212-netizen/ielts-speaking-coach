@@ -49,6 +49,8 @@ body.fcs-page { background: var(--av-surface-page); color: var(--av-text-primary
 .avx-feedback p, .avx-mini-result p { margin: var(--av-space-2) 0 0; }
 .avx-feedback.is-correct, .avx-mini-result.is-correct { color: var(--av-success); border: 1px solid var(--av-border-default); background: var(--av-success-soft); }
 .avx-feedback.is-wrong, .avx-mini-result.is-wrong { color: var(--av-error); border: 1px solid var(--av-border-default); background: var(--av-error-soft); }
+.avx-distractor-rationale { color: var(--av-text-secondary); }
+.avx-evidence-replay { margin-top: var(--av-space-3); }
 .avx-reading-workspace { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr); height: min(72vh, 760px); border: 1px solid var(--av-border-default); border-radius: var(--av-radius-2xl); overflow: hidden; background: var(--av-surface-card); box-shadow: var(--av-shadow-sm); }
 .avx-reading-mobile-tabs { display: none; }
 .avx-reading-pane { min-height: 0; padding: var(--av-space-6); overflow-y: auto; overscroll-behavior: contain; }

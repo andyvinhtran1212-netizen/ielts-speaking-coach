@@ -89,6 +89,8 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.match(UI, /Listening đã được lưu/);
     assert.match(UI, /completed=\{completed\.has\('reading'\)\}/);
     assert.match(UI, /completed=\{completed\.has\('listening'\)\}/);
+    assert.match(UI, /saved\?\.review \|\| null/);
+    assert.match(UI, /saved\?\.review \|\| \(content\.initial_attempt/);
   });
 
   test('withholds Listening solutions until a persisted guided retry', () => {
@@ -96,6 +98,17 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.match(UI, /Guided retry/);
     assert.match(UI, /Đáp án và evidence chỉ hiện sau bước này/);
     assert.match(UI, /result\?\.requires_guided_retry/);
+  });
+
+  test('renders authored Listening evidence controls and the initial distractor rationale', () => {
+    assert.match(UI, /ref=\{audioRef\}/);
+    assert.match(UI, /solution\?\.timing\?\.answer_span\?\.start/);
+    assert.match(UI, /audio\.currentTime = start/);
+    assert.match(UI, /audio\.currentTime < end/);
+    assert.match(UI, /initial_answer_results/);
+    assert.match(UI, /solution\?\.distractor_rationales\?\.\[initialChoice\]/);
+    assert.match(UI, /Vì sao lựa chọn ban đầu chưa đúng/);
+    assert.match(UI, /Nghe đoạn evidence/);
   });
 
   test('requires controlled rewrite self-check without creating a writing submission', () => {

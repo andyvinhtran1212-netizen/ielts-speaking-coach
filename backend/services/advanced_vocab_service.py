@@ -275,7 +275,8 @@ def _attempt_rows(item_id: str) -> list[dict]:
 
 def _section_rows(item_id: str) -> list[dict]:
     return (_admin().table("course_section_submissions")
-            .select("section,total,correct,score,duration_sec,submitted_at")
+            .select("section,total,correct,score,duration_sec,submitted_at,"
+                    "answers,answer_key,content_snapshot")
             .eq("class_assignment_item_id", item_id).execute().data) or []
 
 
@@ -292,6 +293,30 @@ def _progress(item_id: str) -> dict:
     listening_attempt = _listening_attempt(item_id)
     complete = {row["stage"] for row in stages if row.get("status") == "completed"}
     complete.update(row["section"] for row in sections)
+    safe_sections = []
+    for row in sections:
+        initial_answers = row.get("answers") or {}
+        answer_key = row.get("answer_key") or []
+        snapshot = row.get("content_snapshot") or {}
+        guided_retry = (snapshot.get("guided_retry") or {}
+                        if isinstance(snapshot, dict) else {})
+        final_answers = {**initial_answers, **(guided_retry.get("answers") or {})}
+        review = {
+            "answer_results": _answer_results(final_answers, answer_key),
+            "answers": answer_key,
+            "assignment": {"completed": True, "pct": None},
+        }
+        if guided_retry:
+            review["initial_answer_results"] = _answer_results(
+                initial_answers, answer_key,
+            )
+            review["guided_retry"] = guided_retry
+        safe_sections.append({
+            key: row.get(key) for key in (
+                "section", "total", "correct", "score", "duration_sec",
+                "submitted_at",
+            )
+        } | {"review": review})
     return {
         "completed_stages": sorted(complete),
         "stages": stages,
@@ -299,7 +324,10 @@ def _progress(item_id: str) -> dict:
             "stage": row.get("stage"), "qid": row.get("qid"),
             "answer": row.get("answer_given"), "is_correct": row.get("is_correct"),
         } for row in attempts],
-        "sections": sections,
+        # A section row exists only after that section's reveal boundary.  The
+        # review is reconstructed solely from its frozen submission snapshot,
+        # never from the current live lesson (which could have changed).
+        "sections": safe_sections,
         "listening_submitted": listening_attempt is not None,
         "required_completed": all(stage in complete for stage in _REQUIRED_STAGES),
     }
@@ -798,7 +826,9 @@ def complete_listening_guided_retry(*, user_id: str, bank_id: str, item_id: str,
     progress = _progress(item_id)
     return {
         "section": "listening", "guided_retry_completed": True,
-        "answer_results": _answer_results(final_answers, key), "answers": key,
+        "answer_results": _answer_results(final_answers, key),
+        "initial_answer_results": initial_results,
+        "guided_retry": retry_evidence, "answers": key,
         "assignment": {"completed": progress["required_completed"], "pct": None},
         "progress": progress,
     }

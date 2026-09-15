@@ -344,8 +344,55 @@ def test_listening_retry_persists_correction_before_revealing_key(monkeypatch):
 
     assert out["assignment"] == {"completed": True, "pct": None}
     assert out["answers"] == key
+    assert out["initial_answer_results"][0] == {
+        "id": "1", "submitted_answer": "wrong", "is_correct": False,
+    }
     assert inserted[0]["section"] == "listening"
     assert inserted[0]["content_snapshot"]["guided_retry"]["initial_wrong_ids"] == ["1"]
+
+
+def test_progress_restores_frozen_section_review_after_reveal(monkeypatch):
+    reading_key = [{"id": "1", "answer": "A", "evidence": "Paragraph B"}]
+    listening_key = [{
+        "id": "4", "answer": "A", "evidence": "roughly seventy-six per cent",
+        "distractor_rationales": {"C": "Fourteen per cent was a different cohort."},
+        "timing": {"answer_span": {"start": 123.74, "end": 140.86}},
+    }]
+    fake = _Admin({
+        "advanced_vocab_stage_progress": [],
+        "advanced_vocab_question_attempts": [],
+        "advanced_vocab_listening_attempts": [],
+        "course_section_submissions": [
+            {
+                "class_assignment_item_id": "item-1", "section": "reading",
+                "total": 1, "correct": 0, "score": 0, "duration_sec": 60,
+                "submitted_at": "2026-09-15T00:00:00Z",
+                "answers": {"1": "B"}, "answer_key": reading_key,
+                "content_snapshot": {"title": "Frozen reading"},
+            },
+            {
+                "class_assignment_item_id": "item-1", "section": "listening",
+                "total": 1, "correct": 0, "score": 0, "duration_sec": 45,
+                "submitted_at": "2026-09-15T00:02:00Z",
+                "answers": {"4": "C"}, "answer_key": listening_key,
+                "content_snapshot": {"guided_retry": {
+                    "initial_wrong_ids": ["4"], "answers": {"4": "A"},
+                }},
+            },
+        ],
+    })
+    monkeypatch.setattr(service, "_admin", lambda: fake)
+
+    progress = service._progress("item-1")
+    reading = next(row for row in progress["sections"] if row["section"] == "reading")
+    listening = next(row for row in progress["sections"] if row["section"] == "listening")
+
+    assert reading["review"]["answer_results"][0]["submitted_answer"] == "B"
+    assert reading["review"]["answers"] == reading_key
+    assert "answer_key" not in reading and "content_snapshot" not in reading
+    assert listening["review"]["answer_results"][0]["submitted_answer"] == "A"
+    assert listening["review"]["initial_answer_results"][0]["submitted_answer"] == "C"
+    assert listening["review"]["guided_retry"]["initial_wrong_ids"] == ["4"]
 
 
 def test_learner_writing_projection_scopes_analysis_and_outline_per_task(monkeypatch):

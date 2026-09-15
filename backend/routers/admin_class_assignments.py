@@ -2622,6 +2622,15 @@ async def delete_assignment(
             {"p_assignment_id": assignment_id, "p_cohort_id": cohort_id},
         ).execute().data
     except Exception as exc:
+        # Migration 263 protects partial Advanced Vocabulary evidence with a
+        # BEFORE DELETE trigger.  The legacy RPC cannot represent that newer
+        # state as its boolean result, so preserve the public 409 contract
+        # instead of leaking a database-shaped 500 to the admin UI.
+        if "cannot delete assignment item with advanced vocabulary evidence" in str(exc):
+            raise HTTPException(
+                409,
+                "Đã có học viên bắt đầu bài này — không xoá được. Hãy lưu trữ bài giao thay vì xoá.",
+            ) from exc
         raise HTTPException(500, f"Lỗi khi xoá bài giao: {exc}")
 
     if deleted is None:
