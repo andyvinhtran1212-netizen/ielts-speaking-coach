@@ -205,8 +205,12 @@ def _section(text: str, heading: str) -> str:
 
 def _meaningful_section(text: str, heading: str) -> bool:
     section = _section(text, heading)
-    section = re.sub(r"^\s*-\s*\[[ xX]\].*$", "", section, flags=re.MULTILINE)
-    lines = [line.strip() for line in section.splitlines() if line.strip()]
+    section = re.sub(r"^ {0,3}-\s*\[[ xX]\].*$", "", section, flags=re.MULTILINE)
+    lines = [
+        line.strip()
+        for line in section.splitlines()
+        if line.strip() and not re.match(r"^(?: {4}|\t)", line)
+    ]
     return any(
         not _placeholder_value(re.sub(r"^(?:[-*>]\s*)+", "", line).strip())
         for line in lines
@@ -246,14 +250,20 @@ def _validate_foundation(specs: Path, errors: list[str]) -> None:
 
     tasks_path = specs / "_templates/tasks.md"
     if tasks_path.is_file() and not re.search(
-        r"^\s*-\s+\[[ xX]\]\s+", _visible_markdown(_read(tasks_path, errors)), re.MULTILINE
+        r"^ {0,3}-\s+\[[ xX]\]\s+",
+        _visible_markdown(_read(tasks_path, errors)),
+        re.MULTILINE,
     ):
         errors.append(f"{tasks_path}: template must contain at least one checkbox task")
 
     ui_path = specs / "_templates/ui-states.md"
     if ui_path.is_file():
         ui_text = _visible_markdown(_read(ui_path, errors))
-        if "| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |" not in ui_text:
+        if not re.search(
+            r"^ {0,3}\| Surface \| Loading \| Empty \| Success \| Error/retry \| Permission \| Responsive/theme/a11y \|\s*$",
+            ui_text,
+            re.MULTILINE,
+        ):
             errors.append(f"{ui_path}: template must contain the complete UI-state header")
 
 
@@ -274,11 +284,22 @@ def _is_appended_clarification(old: str, new: str) -> bool:
     old_normalized = normalize(old)
     new_normalized = normalize(new)
     modal_pattern = r"\b(?:must not|must|should not|should|may not|may)\b"
+    suffix = new_normalized[len(old_normalized) :].lstrip(" .:—-")
+    clarification = re.fullmatch(r"clarification:\s+(\S.*)", suffix)
+    contradictory = bool(
+        clarification
+        and re.search(
+            r"\b(?:no longer|does not apply|do not apply|not applicable|except|unless|waiv\w*|overrid\w*|replac\w*|remov\w*)\b",
+            clarification.group(1),
+        )
+    )
     return (
         len(new_normalized) > len(old_normalized)
         and new_normalized.startswith(old_normalized)
         and re.findall(modal_pattern, old_normalized)
         == re.findall(modal_pattern, new_normalized)
+        and clarification is not None
+        and not contradictory
     )
 
 
@@ -374,7 +395,7 @@ def _reject_implementable_template_scaffolding(
     template_tasks = {
         _normalized_template_content(item)
         for item in re.findall(
-            r"^\s*-\s+\[[ xX]\]\s+(\S.*?)\s*$",
+            r"^ {0,3}-\s+\[[ xX]\]\s+(\S.*?)\s*$",
             _visible_markdown(_read(specs / "_templates/tasks.md", errors)),
             re.MULTILINE,
         )
@@ -382,7 +403,7 @@ def _reject_implementable_template_scaffolding(
     feature_tasks = {
         _normalized_template_content(item)
         for item in re.findall(
-            r"^\s*-\s+\[[ xX]\]\s+(\S.*?)\s*$",
+            r"^ {0,3}-\s+\[[ xX]\]\s+(\S.*?)\s*$",
             _visible_markdown(texts.get("tasks.md", "")),
             re.MULTILINE,
         )
@@ -423,7 +444,12 @@ def _concrete_locator(value: str, root: Path) -> bool:
         re.IGNORECASE,
     ):
         return True
-    if re.match(r"^(?:pytest|npm|node|psql|curl|gh|git)\s+\S+", locator):
+    if re.match(r"^(?:pytest|npm|node|npx|psql|curl|gh|git)\s+\S+", locator):
+        return True
+    if re.match(
+        r"^(?:\S*/)?python(?:3(?:\.\d+)*)?\s+(?:-m\s+\S+|\S+\.py(?:\s|$))",
+        locator,
+    ):
         return True
 
     path_token = locator.split(maxsplit=1)[0].strip("`").split("::", 1)[0]
@@ -489,6 +515,8 @@ def _has_populated_ui_state_matrix(text: str) -> bool:
     ]
     rows: list[list[str]] = []
     for line in _visible_markdown(text).splitlines():
+        if re.match(r"^(?: {4}|\t)", line):
+            continue
         stripped = line.strip()
         if stripped.startswith("|") and stripped.endswith("|"):
             rows.append([cell.strip() for cell in stripped.strip("|").split("|")])
@@ -536,10 +564,13 @@ def _evidence_detail_error(result: str, evidence: str, root: Path) -> str | None
         if (
             not required <= fields.keys()
             or any(_placeholder_value(fields.get(field, "")) for field in required)
+            or fields.get("environment", "").lower()
+            not in {"preview", "staging", "production"}
             or not _valid_iso_date(fields.get("date", ""))
         ):
             return (
-                "MANUAL evidence must use reviewer=...; environment=...; "
+                "MANUAL evidence must use reviewer=...; "
+                "environment=preview|staging|production; "
                 "date=YYYY-MM-DD; observed=..."
             )
     elif normalized == "PASS" and not _concrete_pass_evidence(evidence, root):
@@ -775,9 +806,9 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
             errors.append(f"{feature / 'verification.md'}: evidence references unknown {unknown}")
 
         tasks = _visible_markdown(texts.get("tasks.md", ""))
-        if not re.search(r"^\s*-\s+\[[ xX]\]\s+", tasks, re.MULTILINE):
+        if not re.search(r"^ {0,3}-\s+\[[ xX]\]\s+", tasks, re.MULTILINE):
             errors.append(f"{feature / 'tasks.md'}: declare at least one checkbox task")
-        if status in FINAL_STATUSES and re.search(r"^\s*-\s+\[ \]\s+", tasks, re.MULTILINE):
+        if status in FINAL_STATUSES and re.search(r"^ {0,3}-\s+\[ \]\s+", tasks, re.MULTILINE):
             errors.append(f"{feature / 'tasks.md'}: final feature still has incomplete required tasks")
 
     for orphan_id in sorted(set(index_rows) - set(seen_ids)):
@@ -1013,7 +1044,7 @@ def _requirement_coverage(body: str) -> list[tuple[str, str]]:
         flags=re.DOTALL,
     )
     return re.findall(
-        r"^\s*[-*]\s+(FR-\d{3})(?!\d)\s*(?:->|:)\s*(.*?)\s*$",
+        r"^ {0,3}[-*]\s+(FR-\d{3})(?!\d)\s*(?:->|:)\s*(.*?)\s*$",
         section,
         re.MULTILINE,
     )

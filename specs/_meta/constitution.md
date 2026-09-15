@@ -106,3 +106,6 @@ over historical migration or sprint notes.
 - Amendments to this constitution require a PR rationale and a semantic version
   change: major for removed/redefined obligations, minor for new obligations,
   patch for clarification.
+- A machine-classified patch clarification MUST append a sentence prefixed
+  `Clarification:` without negating, waiving, replacing, or excepting the
+  existing obligation; all other obligation edits are classified conservatively.

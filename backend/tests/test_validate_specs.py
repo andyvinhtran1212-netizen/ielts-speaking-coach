@@ -203,6 +203,20 @@ def test_repository_rejects_indented_unchecked_task_in_verified_feature(tmp_path
     assert any("incomplete required tasks" in error for error in errors)
 
 
+def test_repository_rejects_code_indented_only_task_but_accepts_nested_task(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path)
+    tasks = root / "specs/0001-example-feature/tasks.md"
+    tasks.write_text("    - [x] T001 Hidden in code.\n", encoding="utf-8")
+    code_errors, _ = validator.validate_repository(root)
+    assert any("declare at least one checkbox task" in error for error in code_errors)
+
+    tasks.write_text("  - [x] T001 Visible nested task.\n", encoding="utf-8")
+    nested_errors, _ = validator.validate_repository(root)
+    assert nested_errors == []
+
+
 def test_repository_rejects_missing_requirement_evidence(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     (root / "specs/0001-example-feature/verification.md").write_text(
@@ -289,6 +303,19 @@ def test_repository_rejects_empty_required_sections(tmp_path: Path) -> None:
     errors, _ = validator.validate_repository(root)
     assert any("plan.md" in error and "Architecture impact" in error and "meaningful content" in error for error in errors)
     assert any("spec.md" in error and "Problem" in error and "meaningful content" in error for error in errors)
+
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace(
+            "## Problem\n<!-- describe the problem -->",
+            "## Problem\n    Hidden indented code.",
+        ),
+        encoding="utf-8",
+    )
+    code_errors, _ = validator.validate_repository(root)
+    assert any(
+        "spec.md" in error and "Problem" in error and "meaningful content" in error
+        for error in code_errors
+    )
 
 
 def test_repository_rejects_empty_tasks_artifact(tmp_path: Path) -> None:
@@ -550,15 +577,27 @@ def test_repository_rejects_underspecified_manual_and_na_evidence(tmp_path: Path
     assert any("MANUAL evidence must use" in error for error in manual_placeholder_errors)
 
 
-def test_repository_accepts_structured_manual_evidence(tmp_path: Path) -> None:
+def test_repository_accepts_only_supported_manual_evidence_environments(
+    tmp_path: Path,
+) -> None:
     root = _valid_repo(tmp_path)
-    (root / "specs/0001-example-feature/verification.md").write_text(
+    verification = root / "specs/0001-example-feature/verification.md"
+    for environment in ("preview", "staging", "production"):
+        verification.write_text(
+            "## Requirement coverage\n\n"
+            f"| FR-001 | reviewer=Lan; environment={environment}; date=2026-09-15; observed=Flow completed | MANUAL |\n",
+            encoding="utf-8",
+        )
+        errors, _ = validator.validate_repository(root)
+        assert errors == []
+
+    verification.write_text(
         "## Requirement coverage\n\n"
-        "| FR-001 | reviewer=Lan; environment=staging; date=2026-09-15; observed=Flow completed | MANUAL |\n",
+        "| FR-001 | reviewer=Lan; environment=moon; date=2026-09-15; observed=Flow completed | MANUAL |\n",
         encoding="utf-8",
     )
     errors, _ = validator.validate_repository(root)
-    assert errors == []
+    assert any("MANUAL evidence must use" in error for error in errors)
 
 
 def test_manual_evidence_requires_real_calendar_date(tmp_path: Path) -> None:
@@ -623,6 +662,34 @@ def test_pass_repository_locator_must_exist(tmp_path: Path) -> None:
     )
     errors, _ = validator.validate_repository(root)
     assert errors == []
+
+
+def test_repository_accepts_documented_python_and_npx_command_evidence(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path)
+    verification = root / "specs/0001-example-feature/verification.md"
+    for command in (
+        "python backend/scripts/validate_specs.py --root .",
+        "python3 -m pytest backend/tests/test_validate_specs.py",
+        "backend/venv/bin/python backend/scripts/validate_specs.py --root .",
+        "npx tsc --noEmit",
+    ):
+        verification.write_text(
+            "## Requirement coverage\n\n"
+            f"| FR-001 | kind=command; ref={command} | PASS |\n",
+            encoding="utf-8",
+        )
+        errors, _ = validator.validate_repository(root)
+        assert errors == []
+
+    verification.write_text(
+        "## Requirement coverage\n\n"
+        "| FR-001 | kind=command; ref=ordinary prose without an executable | PASS |\n",
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert any("PASS evidence must identify" in error for error in errors)
 
 
 def test_repository_rejects_unknown_evidence_result(tmp_path: Path) -> None:
@@ -854,6 +921,16 @@ def test_high_risk_ui_state_matrix_requires_complete_surface_row(tmp_path: Path)
     )
     all_na_errors, _ = validator.validate_repository(root)
     assert any("needs a complete surface row" in error for error in all_na_errors)
+
+    matrix.write_text(
+        "# UI state matrix\n\n"
+        "| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |\n"
+        "| --- | --- | --- | --- | --- | --- | --- |\n"
+        "    | Hidden | Skeleton | Empty | Success | Retry | Admin | Evidence |\n",
+        encoding="utf-8",
+    )
+    indented_errors, _ = validator.validate_repository(root)
+    assert any("needs a complete surface row" in error for error in indented_errors)
 
     matrix.write_text(
         "# UI state matrix\n\n"
@@ -1432,7 +1509,7 @@ def test_constitution_appended_rule_clarification_accepts_patch_bump(
         .replace("version: 1.0.0", "version: 1.0.1")
         .replace(
             "the previous diff.",
-            "the previous diff during independent review.",
+            "the previous diff. Clarification: this comparison occurs during independent review.",
         ),
         encoding="utf-8",
     )
@@ -1446,6 +1523,70 @@ def test_constitution_appended_rule_clarification_accepts_patch_bump(
         "Clarifies when the existing review comparison applies.\n"
     )
     assert validator.validate_pull_request(event, specs, root) == []
+
+
+def test_constitution_appended_contradiction_requires_major_bump(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path)
+    base_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    constitution = root / "specs/_meta/constitution.md"
+    constitution.write_text(
+        constitution.read_text(encoding="utf-8")
+        .replace("version: 1.0.0", "version: 1.0.1")
+        .replace(
+            "the previous diff.",
+            "the previous diff. Clarification: this restriction no longer applies.",
+        ),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", str(constitution)], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "contradict review obligation"], cwd=root, check=True)
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    event = _event(root=root, change_class="small", spec="N/A", base_sha=base_sha)
+    event["pull_request"]["body"] += (
+        "\n## Constitution amendment\n\nAmendment class: patch\n\n"
+        "Claims to clarify the review obligation.\n"
+    )
+    errors = validator.validate_pull_request(event, specs, root)
+    assert any("major version bump to 2.0.0" in error for error in errors)
+
+
+def test_feature_pr_rejects_code_indented_coverage_but_accepts_nested_coverage(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path)
+    _, specs = validator.validate_repository(root)
+    code_errors = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            coverage="    - FR-001 -> backend/tests/test_example.py::test_works",
+        ),
+        specs,
+        root,
+    )
+    assert any("must list at least one exact FR-NNN" in error for error in code_errors)
+
+    nested_errors = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            coverage="  - FR-001 -> backend/tests/test_example.py::test_works",
+        ),
+        specs,
+        root,
+    )
+    assert nested_errors == []
 
 
 def test_migration_path_requires_approved_high_risk_change(tmp_path: Path) -> None:
