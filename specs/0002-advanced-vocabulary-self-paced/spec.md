@@ -72,21 +72,25 @@ that prevents answer leakage and gives admins canonical completion evidence.
 - **FR-006:** Required-stage answers, attempts, guided retry state, completion
   timestamps, and bounded response time/duration where the interaction supplies one
   are persisted as canonical backend truth and returned to admins without inventing
-  an overall score or wall-clock duration. Any partial evidence prevents assignment-
-  item deletion; archiving preserves progress for admins, blocks learner access, and
+  an overall score or wall-clock duration. Terminal completion stamps the existing
+  `passed_at` marker alongside `submitted_at` while leaving `score` null, so the shared
+  course action is Review immediately and after reload. Any partial evidence prevents
+  assignment-item deletion; archiving preserves progress for admins, blocks learner access, and
   republishing restores learner resume from the same canonical stage only while the
   deadline remains open. An expired incomplete item requires an explicit deadline
   extension before resume; a submitted expired item remains review-only.
 - **FR-007:** Database migration and RLS policies isolate learner-owned evidence,
   preserve immutable submission/version history, and support idempotent staged
   deployment before application promotion. The final Listening evidence and
-  assignment finalization must commit atomically under an assignment-item lock;
+  assignment finalization must commit atomically under parent-assignment then
+  assignment-item locks;
   an Advanced-Vocabulary-specific guard permits only attempt 1 and one row per
   item/section regardless of the generic course retry key, identical replay is
   idempotent, different replay conflicts, and complete pilot states that predate the
   trigger are reconciled from canonical evidence. Persistence-time guards reject any
   evidence write before `publish_at` or after membership removal/transfer, archival,
-  or deadline expiry.
+  or deadline expiry. Archive/republish takes the same assignment-row lock so a
+  learner evidence transaction and archival serialize in either commit order.
 - **FR-008:** Authored lesson JSON and runtime media use immutable content versions
   and verified SHA-256 provenance, including Listening figures and audio, so a
   deployed assignment reopens the same content revision. Assignment creation must

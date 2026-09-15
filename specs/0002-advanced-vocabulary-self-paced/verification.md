@@ -12,7 +12,7 @@ on staging and replacement implementation commits are created from that base.
 | FR-003 | kind=test; ref=backend/tests/test_advanced_vocab_audio_builder.py, backend/tests/test_advanced_vocab_package_validator.py, backend/tests/test_advanced_vocab_importer.py | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
 | FR-005 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
-| FR-006 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, frontend/tests/admin-class-homework-next-behavior.test.mjs, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
+| FR-006 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_quiz_service.py, frontend/tests/my-class-next-behavior.test.mjs, frontend/tests/admin-class-homework-next-behavior.test.mjs, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
 | FR-007 | kind=test; ref=backend/tests/test_advanced_vocab_rls_integration.py | PENDING |
 | FR-008 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py | PENDING |
 
@@ -53,6 +53,13 @@ on staging and replacement implementation commits are created from that base.
   republish after expiry must remain blocked until an explicit deadline extension.
   Every partial-evidence store must make the homework list render Archive instead of
   Delete both immediately and after reload.
+- Completion projection: pending finalizer evidence that `submitted_at` and
+  `passed_at` share the terminal timestamp while `score` stays null, plus the shared
+  course-action/My Class Review state immediately and after full reload.
+- Archive serialization: pending barrier-controlled database/API races with the
+  assignment-row lock acquired before the item row. Verify mutation-first commits
+  evidence before archive closes access; archive-first rejects the later mutation;
+  immediate and full-reload learner/admin states agree in both orders.
 - Timing truth: pending capped per-question Practice response time and Reading/
   Listening duration persistence, idempotent retry totals, untimed Vocabulary/rewrite
   completion timestamps, and matching learner/admin reload projections without

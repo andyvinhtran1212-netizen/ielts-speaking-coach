@@ -35,11 +35,15 @@
   a different attempt number. At the application boundary, an identical normalized
   payload resolves to that existing row and a different payload conflicts.
 - The accepted Listening insert invokes one database finalizer in the same
-  transaction and while retaining the assignment-item lock. The finalizer verifies
-  all six canonical evidence sets, reads lesson identity from the assignment runtime
-  snapshot, and stamps submission/mastery with no overall score. Any failed check or
-  injected finalizer error rolls back the Listening section insert and assignment
-  update together; concurrent calls serialize without a second section row.
+  transaction and while retaining the assignment and assignment-item locks. The
+  finalizer verifies all six canonical evidence sets, reads lesson identity from the
+  assignment runtime snapshot, and stamps `submitted_at` and `passed_at` to the same
+  completion timestamp while keeping `score = NULL`. For this no-score runtime,
+  `passed_at` is the existing canonical terminal-completion marker, not a numeric pass
+  verdict; the shared course-action projection must therefore return `review` both
+  immediately and after reload. Any failed check or injected finalizer error rolls
+  back the Listening section insert and assignment update together; concurrent calls
+  serialize without a second section row.
 - Migration 263 performs an idempotent reconciliation of complete pilot items that
   predate the trigger. It derives completion only from all required canonical stage
   and section rows, preserves the earliest existing submission timestamps, and
@@ -62,6 +66,12 @@
   non-enumerating 404. An incomplete item after deadline returns the stable deadline
   conflict and no lesson payload; a submitted item may reopen only its persisted
   review with `accepting:false` and no mutation controls.
+- Every Advanced Vocabulary evidence transaction locks the parent
+  `class_assignments` row before the `class_assignment_items` row, then evaluates the
+  open-state guard and writes evidence. Archive/republish uses the same transactional
+  assignment-row lock and ordering, so it must serialize with learner mutations: if
+  archive wins no later evidence commits, and if a mutation wins archive waits for
+  that commit before closing access.
 
 ## API contract
 

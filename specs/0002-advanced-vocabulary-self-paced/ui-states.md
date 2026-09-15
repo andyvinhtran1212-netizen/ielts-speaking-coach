@@ -11,6 +11,7 @@
 | Writing reference | Reference skeleton only | Explicit source-unavailable state | Analysis and models are scannable and ungraded | Retry reloads reference only | No implicit submission or grading permission | Semantic headings, responsive cards, clear status text |
 | Speaking prompt practice | Prompt skeleton only | Explicit prompts-unavailable state | Optional prompts and sample language render without response capture | Retry reloads prompts; no local audio exists to lose | Never requests microphone permission and exposes no submit or grading action | Keyboard-readable prompt groups, responsive cards, clear ungraded status |
 | Admin assignment/results | Canonical server loading state | Distinguishes no assignment from lookup failure | Assignment and persisted per-stage evidence match reload, including while archived | Mutation failure remains visible and reload-safe | A 401 uses the shared login redirect; an authenticated non-admin receives a stable 403/access-denied state with no learner data or mutation actions and focus on its heading | Tables reflow with accessible labels and focus |
+| My Class action | Shared loading skeleton | No assignment remains empty | Completion projects to Review with `score:null` immediately and after reload | Failed refresh preserves the last canonical action and exposes retry | Same learner ownership boundary as the lesson | Shared focus, responsive, and theme behavior |
 
 Canonical backend records own completion and results. Pending mutations never
 optimistically mark a stage complete; after settle, a reload must render the same
@@ -28,4 +29,6 @@ and distinguish incomplete expired denial from submitted review-only state. It m
 also exercise direct learner reads and every mutation immediately before, exactly at,
 and after `publish_at`, with no payload/evidence before release. Archive/republish
 covers both an open deadline and an expired incomplete item that resumes only after
-an explicit deadline extension.
+an explicit deadline extension. A barrier-controlled UI/API fixture covers both
+mutation-first and archive-first commit orders and proves the reloaded learner/admin
+state matches the winning transaction.
