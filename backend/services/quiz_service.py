@@ -4791,6 +4791,26 @@ def reap_expired_course_assessments(
         if item.get("passed_at"):
             continue
         assignment = timed.get(item.get("assignment_id")) or {}
+        mastery_attempts = [
+            attempt
+            for attempt in ((item.get("mastery") or {}).get("attempts") or [])
+            if isinstance(attempt, dict)
+        ]
+        latest_attempt = mastery_attempts[-1] if mastery_attempts else None
+        latest_action = _recorded_next_action(
+            latest_attempt, mastery_config(assignment)["pass_pct"],
+        )
+        # A timeout ledger plus its submission receipt is terminal. `passed_at`
+        # intentionally remains NULL for a failed timed assessment, so filtering
+        # only on that column makes every future sweep fetch all historical
+        # sessions again. Stop before the student/session batches. A missing
+        # receipt remains eligible for the repair path below, and a later
+        # retake/full-retry generation has a different latest action.
+        if item.get("submitted_at") and latest_attempt and (
+            latest_attempt.get("timed_out") is True
+            or latest_action == "timed_out"
+        ):
+            continue
         timer = assignment_timer_state(item, assignment, now=current)
         cutoff = _at(timer.get("expires_at"))
         if (timer.get("invalid") or not timer.get("is_timed")

@@ -1338,11 +1338,9 @@ def test_server_reaper_seals_pre_verdict_run_orphan_without_replacing_near_pass(
     verdict.assert_not_called()
 
 
-def test_server_reaper_seals_orphan_after_recorded_timeout_without_regrading():
-    """A terminal timeout ledger cannot be replaced by another tab's run."""
-    fake = _FakeSupabase(responses={
-        ("quiz_sessions", "update"): [{"id": "orphan-open"}],
-    })
+def test_server_reaper_skips_settled_timeout_before_session_sweep():
+    """A terminal timeout with its receipt leaves no recurring session work."""
+    fake = _FakeSupabase()
     mastery = {"attempts": [{
         "phase": "run", "pct": 40,
         "next_action": "timed_out", "at": "2026-09-15T01:30:00+00:00",
@@ -1377,20 +1375,28 @@ def test_server_reaper_seals_orphan_after_recorded_timeout_without_regrading():
         ],
     }
 
+    report_calls = []
+
     def report(table, *_args, **_kwargs):
+        report_calls.append(table)
         return [dict(row) for row in rows[table]]
 
     with patch.object(quiz_service, "supabase_admin", fake), \
          patch.object(quiz_service, "_report_pages", side_effect=report), \
          patch.object(quiz_service, "course_verdict") as verdict:
-        out = quiz_service.reap_expired_course_assessments(
+        first = quiz_service.reap_expired_course_assessments(
             15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
         )
-    assert out == {"examined": 1, "finalized": 0, "failed": 0}
-    close = next(call for call in fake.calls
-                 if call["table"] == "quiz_sessions" and call["op"] == "update")
-    assert close["filters"][0] == ("id", "orphan-open")
-    assert close["payload"]["ended_by"] == "time_cap"
+        second = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:32:00+00:00"),
+        )
+    assert first == {"examined": 0, "finalized": 0, "failed": 0}
+    assert second == {"examined": 0, "finalized": 0, "failed": 0}
+    assert report_calls == [
+        "class_assignments", "class_assignment_items",
+        "class_assignments", "class_assignment_items",
+    ]
+    assert not any(call["table"] == "quiz_sessions" for call in fake.calls)
     assert mastery["attempts"][-1]["next_action"] == "timed_out"
     verdict.assert_not_called()
 
@@ -1779,6 +1785,7 @@ def test_server_reaper_uses_only_current_full_retry_generation():
         "class_assignment_items": [{
             "id": "item-timed", "assignment_id": "asg-timed",
             "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+            "submitted_at": "2026-09-15T01:10:00+00:00",
             "mastery": {
                 "attempts": [{
                     "phase": "run", "at": "2026-09-15T01:10:00+00:00",
