@@ -1768,34 +1768,36 @@ def test_constitution_separate_prose_clarification_accepts_patch_bump(
     assert validator.validate_pull_request(event, specs, root) == []
 
 
-def test_constitution_blank_separated_list_continuation_is_obligation_text() -> None:
-    base = """---
+def test_constitution_blank_separated_list_continuations_are_obligation_text() -> None:
+    template = """---
 version: 1.0.0
 ---
 
 - Deployments MUST require approval.
 
-  Approval is mandatory in production.
+{indent}Approval is mandatory in production.
 
 Clarification: approval is recorded in the release log.
 """
-    edited_continuation = base.replace(
-        "Approval is mandatory in production.",
-        "Approval is optional in production.",
-    ).replace("version: 1.0.0", "version: 1.0.1")
-    edited_clarification = base.replace(
-        "approval is recorded in the release log.",
-        "approval is recorded before deployment.",
-    ).replace("version: 1.0.0", "version: 1.0.1")
+    for indent in ("  ", "\t"):
+        base = template.format(indent=indent)
+        edited_continuation = base.replace(
+            "Approval is mandatory in production.",
+            "Approval is optional in production.",
+        ).replace("version: 1.0.0", "version: 1.0.1")
+        edited_clarification = base.replace(
+            "approval is recorded in the release log.",
+            "approval is recorded before deployment.",
+        ).replace("version: 1.0.0", "version: 1.0.1")
 
-    _, _, required, bump = validator._expected_constitution_version(
-        base, edited_continuation
-    )
-    assert (required, bump) == ((2, 0, 0), "major")
-    _, _, required, bump = validator._expected_constitution_version(
-        base, edited_clarification
-    )
-    assert (required, bump) == ((1, 0, 1), "patch")
+        _, _, required, bump = validator._expected_constitution_version(
+            base, edited_continuation
+        )
+        assert (required, bump) == ((2, 0, 0), "major")
+        _, _, required, bump = validator._expected_constitution_version(
+            base, edited_clarification
+        )
+        assert (required, bump) == ((1, 0, 1), "patch")
 
 
 def test_constitution_optional_rule_edit_requires_major_bump(
