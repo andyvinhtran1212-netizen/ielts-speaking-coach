@@ -174,7 +174,7 @@ def _semver(value: Any) -> tuple[int, int, int] | None:
 
 
 def _visible_markdown(text: str) -> str:
-    without_comments = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+    without_comments = re.sub(r"<!--.*?(?:-->|\Z)", "", text, flags=re.DOTALL)
     return re.sub(
         r"^[ \t]*(?P<fence>`{3,}|~{3,})[^\n]*\n.*?(?:^[ \t]*(?P=fence)[ \t]*$|\Z)",
         "",
@@ -265,8 +265,7 @@ def _constitutional_obligations(text: str) -> set[str]:
         re.MULTILINE,
     ):
         obligation = re.sub(r"\s+", " ", match.group("body")).strip()
-        if re.search(r"\bMUST(?:\s+NOT)?\b", obligation):
-            obligations.add(obligation)
+        obligations.add(obligation)
     return obligations
 
 
@@ -408,7 +407,7 @@ def _has_populated_ui_state_matrix(text: str) -> bool:
         if (
             all(cells)
             and not any(cell in placeholders or _placeholder_value(cell) for cell in normalized)
-            and not all(cell in {"n/a", "na"} for cell in normalized)
+            and not all(cell in {"n/a", "na"} for cell in normalized[1:])
         ):
             return True
     return False

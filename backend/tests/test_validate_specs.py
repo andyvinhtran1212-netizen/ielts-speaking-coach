@@ -768,6 +768,16 @@ def test_high_risk_ui_state_matrix_requires_complete_surface_row(tmp_path: Path)
         "# UI state matrix\n\n"
         "| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |\n"
         "| --- | --- | --- | --- | --- | --- | --- |\n"
+        "| Learner result | N/A | N/A | N/A | N/A | N/A | N/A |\n",
+        encoding="utf-8",
+    )
+    all_na_errors, _ = validator.validate_repository(root)
+    assert any("needs a complete surface row" in error for error in all_na_errors)
+
+    matrix.write_text(
+        "# UI state matrix\n\n"
+        "| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |\n"
+        "| --- | --- | --- | --- | --- | --- | --- |\n"
         "| Learner result | Skeleton | No attempt | Score | Retry | Owner only | Mobile/desktop, both themes, keyboard |\n",
         encoding="utf-8",
     )
@@ -894,6 +904,12 @@ def test_pull_request_ignores_metadata_hidden_in_comments(tmp_path: Path) -> Non
     hidden_errors = validator.validate_pull_request(hidden, specs, root)
     assert any("'Change class:' must be one of" in error for error in hidden_errors)
     assert any("add 'Spec: N/A'" in error for error in hidden_errors)
+
+    unclosed = _event(root=root, change_class="small", spec="N/A")
+    unclosed["pull_request"]["body"] = "<!--\n" + unclosed["pull_request"]["body"]
+    unclosed_errors = validator.validate_pull_request(unclosed, specs, root)
+    assert any("'Change class:' must be one of" in error for error in unclosed_errors)
+    assert any("add 'Spec: N/A'" in error for error in unclosed_errors)
 
     inline_options = _event(root=root, change_class="small", spec="N/A")
     inline_options["pull_request"]["body"] = inline_options["pull_request"][
@@ -1221,6 +1237,36 @@ def test_constitution_new_obligation_requires_minor_bump(tmp_path: Path) -> None
     )
     errors = validator.validate_pull_request(event, specs, root)
     assert any("minor version bump to 1.1.0" in error for error in errors)
+
+
+def test_constitution_declarative_boundary_removal_requires_major_bump(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path)
+    base_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    constitution = root / "specs/_meta/constitution.md"
+    constitution.write_text(
+        constitution.read_text(encoding="utf-8")
+        .replace("version: 1.0.0", "version: 1.0.1")
+        .replace("- FastAPI is the only business backend and Railway deployment unit.\n", ""),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", str(constitution)], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "remove backend boundary"], cwd=root, check=True)
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    event = _event(root=root, change_class="small", spec="N/A", base_sha=base_sha)
+    event["pull_request"]["body"] += (
+        "\n## Constitution amendment\n\nRemoves a canonical system boundary.\n"
+    )
+    errors = validator.validate_pull_request(event, specs, root)
+    assert any("major version bump to 2.0.0" in error for error in errors)
 
 
 def test_migration_path_requires_approved_high_risk_change(tmp_path: Path) -> None:
