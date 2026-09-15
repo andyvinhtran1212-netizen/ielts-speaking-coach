@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-15 the highest is `262`, so the next new
-migration is `263`.
+sequence is dense. As of 2026-09-15 the highest is `264`, so the next new
+migration is `265`.
 
 ## Conventions
 
@@ -148,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–263
+## Forward scope 230–264
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -176,6 +176,10 @@ Migration 263 atomically anchors the per-student timer and creates the first
 quiz session before a timed Course bank releases its answer-bearing questions.
 It prevents both pre-start question exposure and a half-started timer with no
 session available for canonical timeout submission.
+
+Migration 264 closes the remaining authorization race by locking and rechecking
+the published assignment, release/deadline window, and canonical active cohort
+membership inside that same start transaction.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

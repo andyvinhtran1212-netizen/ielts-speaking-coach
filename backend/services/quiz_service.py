@@ -832,11 +832,38 @@ def get_bank_for_play(
             "due_at": item.get("due_at"),
             "content_config": item.get("content_config") or {},
         }
-        if course_assignment_action(item, preflight_assignment) != "review":
+        preflight_action = course_assignment_action(item, preflight_assignment)
+        if preflight_action != "review":
             item, _ = _ensure_timed_course_session(
                 item, user_id=str(user_id), bank_id=bank_id,
                 code=bank.get("code"), allow_expired_existing=True,
             )
+        # Timer metadata is part of the required access contract, not an
+        # optional badge.  Build it from the item/assignment already authorized
+        # above before the best-effort refresh below.  If that refresh fails,
+        # the browser must still enforce the same canonical cutoff as writes.
+        preflight_action = course_assignment_action(item, preflight_assignment)
+        preflight_timer = assignment_timer_state(item, preflight_assignment)
+        if preflight_timer.get("is_timed"):
+            preflight_cfg = mastery_config(preflight_assignment)
+            preflight_attempts = ((item.get("mastery") or {}).get("attempts") or [])
+            mastery_state = {
+                "item_id": item["id"],
+                "passed_at": item.get("passed_at"),
+                "threshold": preflight_cfg["pass_pct"],
+                "near_threshold": near_pass_pct(preflight_cfg["pass_pct"]),
+                "retake_size": preflight_cfg["retake_size"],
+                "retakes": sum(
+                    1 for attempt in preflight_attempts
+                    if isinstance(attempt, dict) and attempt.get("phase") == "retake"
+                ),
+                "completed_sections": [],
+                "due_at": item.get("due_at"),
+                "review_only": preflight_action == "review",
+                "accepting": bool(item.get("accepting")),
+                "course_action": preflight_action,
+                **preflight_timer,
+            }
         # Trạng thái cổng thuộc-bài, để trang nói được "đã đạt" ngay khi mở lại
         # thay vì bắt làm lại từ đầu mới biết. Best-effort: đọc hỏng thì trang
         # vẫn chạy, chỉ thiếu tấm huy hiệu.
@@ -847,6 +874,8 @@ def get_bank_for_play(
             asg = (supabase_admin.table("class_assignments")
                    .select("id, status, publish_at, due_at, content_config")
                    .eq("id", item["assignment_id"]).limit(1).execute().data) or []
+            if preflight_timer.get("is_timed") and (not row or not asg):
+                raise RuntimeError("timed mastery refresh returned no canonical row")
             assignment = asg[0] if asg else {}
             cfg = mastery_config(assignment)
             content_config = assignment.get("content_config") or {}
@@ -4371,18 +4400,47 @@ def reap_expired_course_assessments(
             # starts.  Feeding both phases to ``course_verdict`` is forbidden
             # (and rightly so), so sweep only sessions not already represented
             # in the canonical mastery ledger.
-            recorded_ids = {
-                session_id
+            mastery_attempts = [
+                attempt
                 for attempt in ((item.get("mastery") or {}).get("attempts") or [])
                 if isinstance(attempt, dict)
+            ]
+            recorded_ids = {
+                session_id
+                for attempt in mastery_attempts
                 for session_id in (attempt.get("sessions") or [])
             }
             sessions = [row for row in sessions if row.get("id") not in recorded_ids]
             if not sessions:
                 continue
-            if len(sessions) > 40:
+            sessions_to_close = sessions
+            verdict_sessions = sessions
+            pending_retakes = [
+                row for row in sessions if (row.get("kind") or "run") == "retake"
+            ]
+            if pending_retakes:
+                # Match get_course_resume(): only a revision created after the
+                # latest recorded verdict is pending, and among concurrent tabs
+                # the newest one is canonical.  Close all current candidates so
+                # no orphan stays writable, but grade exactly that one session.
+                latest_attempt_at = (
+                    _at(mastery_attempts[-1].get("at")) if mastery_attempts else None
+                )
+                pending_retakes = [
+                    row for row in pending_retakes
+                    if latest_attempt_at is None
+                    or (_at(row.get("created_at")) is not None
+                        and _at(row.get("created_at")) > latest_attempt_at)
+                ]
+                if not pending_retakes:
+                    continue
+                sessions_to_close = pending_retakes
+                verdict_sessions = [max(
+                    pending_retakes, key=lambda row: row.get("created_at") or "",
+                )]
+            if len(sessions_to_close) > 40:
                 raise RuntimeError("timed item has no usable session set")
-            for session in sessions:
+            for session in sessions_to_close:
                 if session.get("ended_by") in {"completed", "time_cap"}:
                     continue
                 started = _at(session.get("started_at") or session.get("created_at"))
@@ -4400,7 +4458,7 @@ def reap_expired_course_assessments(
                 session.update(patch)
             verdict_kwargs = dict(
                 user_id=user_id, bank_id=bank_id,
-                session_ids=[row["id"] for row in sessions],
+                session_ids=[row["id"] for row in verdict_sessions],
                 assignment_item_id=item["id"], timed_out=True,
             )
             verdict_kwargs["_allow_reaper_finalize"] = True
