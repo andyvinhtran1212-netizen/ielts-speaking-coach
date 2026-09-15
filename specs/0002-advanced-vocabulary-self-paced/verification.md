@@ -22,7 +22,9 @@ on staging and replacement implementation commits are created from that base.
 - Backward compatibility: pending legacy-route isolation, frozen-version tests,
   existing course retry/report regression tests, and an integration journey that
   assigns v1, imports a changed v2 bank, and proves learner, submission, resume, and
-  admin-result reads still use the v1 content and checksum-bound assets.
+  admin-result reads still use the v1 content and checksum-bound assets. Rollback
+  rehearsal must archive assignments first and prove both dedicated and legacy routes
+  remain unavailable before and after the runtime revert.
 
 ## Data evidence
 

@@ -32,9 +32,13 @@
 
 ## Rollback and repair
 
-- Roll back application deployment while retaining additive tables and RLS.
-- Disable or remove active lesson assignments to stop learner access; do not delete
-  submissions, attempts, immutable content versions, or redemption/history truth.
+- First archive every active Advanced Vocabulary assignment as the backward-
+  compatible kill switch; verify an assigned learner receives no payload from either
+  the dedicated Advanced Vocabulary route or the legacy quiz route before and during
+  rollback.
+- Only after that verification, roll back application deployment while retaining
+  additive tables and RLS. Do not delete submissions, attempts, immutable content
+  versions, or redemption/history truth.
 - Re-run the idempotent import to repair missing bank/question rows and compare
   expected 30 banks by code and 48-question counts before re-enabling assignments.
 

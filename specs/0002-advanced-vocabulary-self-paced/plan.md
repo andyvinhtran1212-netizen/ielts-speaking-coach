@@ -66,8 +66,12 @@
 - Validate and land the exact inert content snapshot against those checks.
 - Review the runtime candidate, then apply and verify its backward-compatible
   schema/RLS migration on staging before merging code that depends on it.
-- Implement backend canonical persistence and admin result projection.
-- Implement learner/admin UI integration and regression tests.
+- Implement backend canonical persistence and admin result projection together with
+  their service/API, migration/RLS, replay/concurrency, and backend regression tests;
+  do not merge that layer until its exact SHA passes.
+- Implement learner/admin UI integration together with model, behavior, browser,
+  accessibility, responsive, interruption/resume, and reveal-boundary tests; do not
+  merge that layer until its exact SHA passes.
 - Land generated content separately from runtime code so governance and review
   evidence remain tractable.
 
@@ -79,8 +83,10 @@
   execute learner/admin smoke before staging-to-main promotion.
 - Apply the additive migration in production before code promotion, then import and
   verify the same 30 banks after production smoke.
-- Roll back application code without dropping additive tables; disable/remove bank
-  assignments to stop access while preserving historical evidence.
+- Before rolling back application code, activate the assignment kill switch by
+  archiving every active Advanced Vocabulary assignment and verify both the dedicated
+  and legacy quiz routes return no learner payload. Only then revert the runtime;
+  retain additive tables and all historical evidence.
 
 ## Verification strategy
 
