@@ -27,6 +27,32 @@ that prevents answer leakage and gives admins canonical completion evidence.
 - Add the migration, RLS, immutable content/media versions, and staged rollout
   needed for safe deployment.
 
+## Canonical authored source
+
+- The release source is the product-owner-provided Advanced Vocabulary export whose
+  acquisition root for this build is `/Users/trantrongvinh/Downloads/Vocab course`.
+  It is product-owned course material for use in Aver Learning, not third-party public
+  content; the local acquisition path is never deployed or treated as reproducible
+  identity. The selected generated source package is
+  `/Users/trantrongvinh/Downloads/advanced_vocab_core30_package_v5_writing_reference`.
+  Its locked revisions are authored-input-map SHA-256
+  `498a80407e6580c6f04fef6a4a0d34471a3a90eb2bd3ed38d06906e4aa8983b2`,
+  Kokoro bundle SHA-256
+  `c0495ddac3a1c865d6f07963f11534693f024ba9042eea0ab4b737511fb4c166`,
+  and generated package SHA-256
+  `968a9dbf37a97f0f403ad5e00dcf3d8ac6406665b3dedcd3cf4392df46d071b3`.
+- T002 commits `backend/content/advanced_vocab/source-inputs-manifest.json` as the
+  canonical source revision. It records a stable source ID, rights/origin note, every
+  builder-consumed relative path (lesson documents, assessment/quiz Markdown, Reading/
+  Listening JSON, manifests/timings/audio/figures, Writing banks/illustrations, the
+  88-supplement override source, and Kokoro bundle inputs), each SHA-256 and role/
+  lesson mapping, plus a canonical manifest SHA-256 used as `source_revision`.
+  The manifest must reproduce the three locked revision values above.
+- Builder and package validation fail before snapshot/import when any declared source
+  input is missing, substituted, extra within the declared release set, or digest-
+  mismatched. Generated lesson provenance must be a consistent subset of that source
+  manifest; output checksums alone do not substitute for source provenance.
+
 ## Non-goals
 
 - Public catalog discovery, self-enrolment, or a general-audience course launch.
@@ -74,11 +100,14 @@ that prevents answer leakage and gives admins canonical completion evidence.
   are persisted as canonical backend truth and returned to admins without inventing
   an overall score or wall-clock duration. Terminal completion stamps the existing
   `passed_at` marker alongside `submitted_at` while leaving `score` null, so the shared
-  course action is Review immediately and after reload. Any partial evidence prevents
-  assignment-item deletion; archiving preserves progress for admins, blocks learner access, and
-  republishing restores learner resume from the same canonical stage only while the
-  deadline remains open. An expired incomplete item requires an explicit deadline
-  extension before resume; a submitted expired item remains review-only.
+  learner course action is Review immediately and after reload. Shared admin summary
+  and tally paths use a runtime-aware neutral `completed` state (not `passed`), show no
+  score or fabricated pass verdict, and emit no scored-ledger mismatch. Any partial
+  evidence prevents assignment-item deletion; archiving preserves progress for
+  admins, blocks learner access, and republishing restores learner resume from the
+  same canonical stage only while the deadline remains open. An expired incomplete
+  item requires an explicit deadline extension before resume; a submitted expired
+  item remains review-only.
 - **FR-007:** Database migration and RLS policies isolate learner-owned evidence,
   preserve immutable submission/version history, and support idempotent staged
   deployment before application promotion. The final Listening evidence and

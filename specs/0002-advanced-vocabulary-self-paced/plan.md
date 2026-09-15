@@ -20,6 +20,13 @@
   submission, resume, and admin-result read resolves the immutable assignment snapshot
   rather than the bank's current metadata. Re-importing a v2 bank therefore leaves an
   already-issued v1 assignment bound to its v1 JSON and checksum-matched media.
+- The content snapshot includes `source-inputs-manifest.json`, whose canonical digest
+  is the source revision for the owner-provided local export. It maps every consumed
+  authored/supplement/Kokoro/media input path to SHA-256, role, and lesson IDs and
+  records product ownership/use rights. The builder verifies the actual source tree
+  against this manifest before generation; package validation cross-checks every
+  lesson's embedded provenance and media reference against the same manifest, so an
+  input substitution fails before content landing or database import.
 - Learner payloads whitelist public Practice, controlled-rewrite, Reading, and
   Listening fields. Practice answers, accepted variants, explanations, correction
   notes, and other answer-bearing fields remain absent until that individual
@@ -41,9 +48,12 @@
   completion timestamp while keeping `score = NULL`. For this no-score runtime,
   `passed_at` is the existing canonical terminal-completion marker, not a numeric pass
   verdict; the shared course-action projection must therefore return `review` both
-  immediately and after reload. Any failed check or injected finalizer error rolls
-  back the Listening section insert and assignment update together; concurrent calls
-  serialize without a second section row.
+  immediately and after reload. The shared admin summary detects the Advanced runtime
+  snapshot and projects neutral `state=completed`, `latest_pct=null`, no score/pass
+  tally, and no `course_ledger_mismatch`, both in list/tally and detail views. Any
+  failed check or injected finalizer error rolls back the Listening section insert
+  and assignment update together; concurrent calls serialize without a second
+  section row.
 - Migration 263 performs an idempotent reconciliation of complete pilot items that
   predate the trigger. It derives completion only from all required canonical stage
   and section rows, preserves the earliest existing submission timestamps, and
@@ -160,8 +170,8 @@ failure. Existing non-Advanced course route schemas and behavior remain unchange
 ## Verification strategy
 
 - Run focused Advanced Vocabulary backend and frontend suites plus full repository CI.
-- Validate package checksums, immutable version assets, 88 supplements, 720 cards,
-  30 banks, and 1,440 imported practice rows.
+- Validate the source-input manifest/revision, package checksums, immutable version
+  assets, 88 supplements, 720 cards, 30 banks, and 1,440 imported practice rows.
 - Query staging/production schema and RLS policy truth before import.
 - Record exact staging SHA, learner completion journey, admin result reload, and
   production health/smoke outcomes.
