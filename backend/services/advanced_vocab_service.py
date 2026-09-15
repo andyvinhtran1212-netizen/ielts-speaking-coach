@@ -16,7 +16,10 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from services.advanced_vocab_package_validator import lesson_content_checksum
+from services.advanced_vocab_package_validator import (
+    _option_identity,
+    lesson_content_checksum,
+)
 
 
 _CONTENT_ROOT = Path(__file__).resolve().parent.parent / "content" / "advanced_vocab"
@@ -681,21 +684,21 @@ def _normal(value: Any) -> str:
 def _correct(item: dict, answer: Any) -> bool:
     expected = item.get("answer", item.get("answer_index"))
     if isinstance(expected, int) and not isinstance(expected, bool):
+        options = item.get("options")
+        if isinstance(options, list):
+            if not 0 <= expected < len(options):
+                return False
+            expected_option = options[expected]
+            if isinstance(expected_option, dict):
+                option_identity = _option_identity(expected_option, expected)
+                return bool(
+                    _normal(answer)
+                    and _normal(answer) == _normal(option_identity)
+                )
         try:
             return int(answer) == expected
         except (TypeError, ValueError):
-            options = item.get("options")
-            if not isinstance(options, list) or not 0 <= expected < len(options):
-                return False
-            expected_option = options[expected]
-            if not isinstance(expected_option, dict):
-                return False
-            option_key = expected_option.get("letter", expected_option.get("key"))
-            return bool(
-                _normal(answer)
-                and option_key is not None
-                and _normal(answer) == _normal(option_key)
-            )
+            return False
     accepted = item.get("accept") if isinstance(item.get("accept"), list) else None
     if not accepted:
         accepted = expected if isinstance(expected, list) else [expected]

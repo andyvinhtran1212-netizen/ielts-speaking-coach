@@ -212,6 +212,19 @@ def test_boolean_syllable_and_text_contracts_grade_correctly():
     }, "Correct Answer") is True
 
 
+def test_indexed_object_options_grade_the_submitted_identity_before_numeric_index():
+    indexed = {
+        "input": "choice", "answer_index": 1,
+        "options": [
+            {"key": "1", "text": "Incorrect first option"},
+            {"key": "0", "text": "Correct second option"},
+        ],
+    }
+
+    assert service._correct(indexed, "1") is False
+    assert service._correct(indexed, "0") is True
+
+
 def test_answer_practice_grades_authored_answer_index(monkeypatch):
     lesson = deepcopy(_lesson())
     indexed = {
