@@ -11,6 +11,31 @@ function splitTechnique(value) {
   };
 }
 
+function normalizeOption(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/** Keep shared instructions/banks, but remove material already rendered by a
+ * structured question control (question line, repeated stem, or MCQ choices). */
+export function readingSupportLines(content) {
+  const questions = Array.isArray(content?.questions) ? content.questions : [];
+  const questionStems = new Set(questions.map((question) => String(question?.stem || '').trim()));
+  const mcqOptions = questions
+    .filter((question) => /(?:mcq|multiple choice)/i.test(String(question?.question_type || '')))
+    .flatMap((question) => Array.isArray(question?.options) ? question.options : [])
+    .map((option) => normalizeOption(option?.text ?? option))
+    .filter(Boolean);
+  return (Array.isArray(content?.question_material) ? content.question_material : []).filter((line) => {
+    const text = String(line || '').trim();
+    if (!text || questionStems.has(text) || /^\d+[.)]\s/.test(text)) return false;
+    const normalized = normalizeOption(text);
+    const embedded = mcqOptions.filter((option) => normalized.includes(option));
+    if (embedded.length >= 2) return false;
+    if (/^[A-Z][.)]\s/.test(text) && embedded.length === 1) return false;
+    return true;
+  });
+}
+
 /**
  * Normalise the authored Speaking variants used across ADV-T01…ADV-T30.
  * Sources use “Example”, “Sentence”, or bare repeated Band 7 → Band 8 rows.

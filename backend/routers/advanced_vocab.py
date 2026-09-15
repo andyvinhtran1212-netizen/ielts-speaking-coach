@@ -115,6 +115,17 @@ async def submit_listening(body: AdvancedVocabSectionSubmitBody, authorization: 
     )
 
 
+@router.post("/listening/guided-retry")
+async def complete_listening_guided_retry(
+    body: AdvancedVocabSectionSubmitBody, authorization: str | None = Header(None),
+):
+    user = await get_supabase_user(authorization)
+    return advanced_vocab_service.complete_listening_guided_retry(
+        user_id=user["id"], bank_id=body.bank_id, item_id=body.item_id,
+        answers=body.answers,
+    )
+
+
 @admin_router.get("/assignments/{assignment_id}/results")
 async def assignment_results(
     assignment_id: UUID, authorization: str | None = Header(None),

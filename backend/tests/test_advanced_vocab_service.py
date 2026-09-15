@@ -255,6 +255,7 @@ def test_finalizer_is_atomic_and_overall_score_is_null():
     assert "finalize_advanced_vocab_assignment" in migration
     assert "trg_finalize_advanced_vocab_on_listening" in migration
     assert "AFTER INSERT ON course_section_submissions" in migration
+    assert "advanced_vocab_listening_attempts" in migration
     assert "PERFORM finalize_advanced_vocab_assignment" in migration
     assert "COUNT(DISTINCT c.section)" in migration
     assert "controlled_rewrite" in migration
@@ -262,28 +263,113 @@ def test_finalizer_is_atomic_and_overall_score_is_null():
     assert "REVOKE ALL ON FUNCTION" in migration
 
 
-def test_listening_completion_does_not_depend_on_a_second_rpc(monkeypatch):
-    class _NoSecondRpc:
-        def rpc(self, *_args, **_kwargs):
-            raise AssertionError("finalization must be atomic with the listening insert")
+def test_listening_first_attempt_hides_key_until_guided_retry(monkeypatch):
+    inserted = []
 
-    monkeypatch.setattr(service, "_admin", lambda: _NoSecondRpc())
+    class _Insert:
+        def insert(self, payload):
+            inserted.append(payload)
+            return self
+
+        def execute(self):
+            return SimpleNamespace(data=inserted[-1:])
+
+    class _WriteAdmin:
+        def table(self, name):
+            assert name == "advanced_vocab_listening_attempts"
+            return _Insert()
+
+    lesson = _lesson()
     monkeypatch.setattr(service, "_assigned_lesson", lambda **_kwargs: (
-        {"id": "bank-1"}, {"id": "item-1"}, _lesson(),
+        {"id": "bank-1"}, {"id": "item-1"}, lesson,
     ))
     monkeypatch.setattr(service, "_require_stage", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(service, "_activity", lambda *_args, **_kwargs: {"content": {}})
-    monkeypatch.setattr(service, "_submit_section", lambda **_kwargs: {"section": "listening"})
+    monkeypatch.setattr(service, "_listening_attempt", lambda _item: None)
+    monkeypatch.setattr(service, "_admin", lambda: _WriteAdmin())
     monkeypatch.setattr(service, "_progress", lambda _item: {
-        "required_completed": True,
-        "completed_stages": list(service._REQUIRED_STAGES),
+        "required_completed": False, "completed_stages": [],
     })
+    content = service._activity(lesson, "listening_lab")["content"]
+    answers = {qid: solution["answer"] for qid, solution in content["solutions"].items()}
 
     out = service.submit_listening(
-        user_id="user-1", bank_id="bank-1", item_id="item-1", answers={"1": "A"},
+        user_id="user-1", bank_id="bank-1", item_id="item-1", answers=answers,
+    )
+
+    assert out["requires_guided_retry"] is True
+    assert out["assignment"] == {"completed": False, "pct": None}
+    assert "answers" not in out
+    assert inserted[0]["answer_key"]
+
+
+def test_listening_retry_persists_correction_before_revealing_key(monkeypatch):
+    lesson = _lesson()
+    content = service._activity(lesson, "listening_lab")["content"]
+    key = service._answer_rows(content)
+    initial = {row["id"]: row["answer"] for row in key}
+    initial["1"] = "wrong"
+    saved = {
+        "id": "initial-1", "answers": initial, "answer_key": key,
+        "content_snapshot": content, "total": len(key), "correct": len(key) - 1,
+        "score": 83.33, "duration_sec": 300,
+    }
+    inserted = []
+
+    class _CourseSections:
+        def __init__(self): self.rows = []
+        def select(self, *_args): return self
+        def eq(self, *_args): return self
+        def limit(self, *_args): return self
+        def insert(self, payload): inserted.append(payload); return self
+        def execute(self): return SimpleNamespace(data=self.rows)
+
+    class _WriteAdmin:
+        def table(self, name):
+            assert name == "course_section_submissions"
+            return _CourseSections()
+
+    monkeypatch.setattr(service, "_assigned_lesson", lambda **_kwargs: (
+        {"id": "bank-1"}, {"id": "item-1"}, lesson,
+    ))
+    monkeypatch.setattr(service, "_listening_attempt", lambda _item: saved)
+    monkeypatch.setattr(service, "_admin", lambda: _WriteAdmin())
+    monkeypatch.setattr(service, "_progress", lambda _item: {
+        "required_completed": True, "completed_stages": list(service._REQUIRED_STAGES),
+    })
+
+    out = service.complete_listening_guided_retry(
+        user_id="user-1", bank_id="bank-1", item_id="item-1",
+        answers={"1": key[0]["answer"]},
     )
 
     assert out["assignment"] == {"completed": True, "pct": None}
+    assert out["answers"] == key
+    assert inserted[0]["section"] == "listening"
+    assert inserted[0]["content_snapshot"]["guided_retry"]["initial_wrong_ids"] == ["1"]
+
+
+def test_learner_writing_projection_scopes_analysis_and_outline_per_task(monkeypatch):
+    monkeypatch.setattr(service, "_progress", lambda _item: {
+        "completed_stages": [], "stages": [], "answers": [], "sections": [],
+        "listening_submitted": False, "required_completed": False,
+    })
+    for lesson_id in ("ADV-T01", "ADV-T17"):
+        lesson = service.load_lesson(lesson_id)
+        monkeypatch.setattr(service, "_assigned_lesson", lambda **_kwargs: (
+            {"id": "bank-1", "code": f"C4-{lesson_id}", "title": lesson_id},
+            {"id": "item-1"}, lesson,
+        ))
+        writing = service.learner_lesson(
+            user_id="user-1", bank_id="bank-1", item_id="item-1",
+        )["lesson"]["activities"]["writing"]["content"]
+
+        task_1 = writing["tasks"]["task_1"]
+        task_2 = writing["tasks"]["task_2"]
+        assert [row["heading"][:3] for row in task_1["prompt_analysis"]] == ["(g)", "(h)"]
+        assert [row["heading"][:3] for row in task_2["prompt_analysis"]] == ["(9)"]
+        assert task_1["outline"][0]["heading"].startswith("(c)")
+        assert task_2["outline"][0]["heading"].startswith("(4)")
+        assert "prompt_analysis" not in writing and "outline" not in writing
 
 
 def test_admin_results_collects_each_learner_evidence_without_an_overall_score(monkeypatch):

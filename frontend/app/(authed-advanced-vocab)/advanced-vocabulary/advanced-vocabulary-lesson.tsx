@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { buildSpeakingLadders } from '@/lib/advanced-vocabulary-model.mjs';
+import { buildSpeakingLadders, readingSupportLines } from '@/lib/advanced-vocabulary-model.mjs';
 
 type Json = Record<string, any>;
 type Stage = 'vocabulary' | 'practice_1' | 'practice_2' | 'reading' | 'controlled_rewrite' | 'listening' | 'writing' | 'speaking';
@@ -166,14 +166,6 @@ function PracticeStage({ stage, data, onAnswer, onDone }: { stage: 'practice_1' 
   </div>;
 }
 
-function readingSupportLines(content: Json): string[] {
-  const questionStems = new Set((content.questions || []).map((question: Json) => String(question.stem || '').trim()));
-  return (content.question_material || []).filter((line: string) => {
-    const text = String(line || '').trim();
-    return text && !questionStems.has(text) && !/^\d+[.)]\s/.test(text);
-  });
-}
-
 function ReadingStage({ content, completed, saved, onSubmit, onContinue }: { content: Json; completed: boolean; saved?: Json; onSubmit: (answers: Json, seconds: number) => Promise<Json>; onContinue: () => void }) {
   const [answers, setAnswers] = useState<Json>({});
   const [result, setResult] = useState<Json | null>(null);
@@ -203,19 +195,24 @@ function ReadingStage({ content, completed, saved, onSubmit, onContinue }: { con
   </div></>;
 }
 
-function ListeningStage({ content, completed, saved, onSubmit, onContinue }: { content: Json; completed: boolean; saved?: Json; onSubmit: (answers: Json, seconds: number) => Promise<Json>; onContinue: () => void }) {
+function ListeningStage({ content, completed, saved, onSubmit, onRetry, onContinue }: { content: Json; completed: boolean; saved?: Json; onSubmit: (answers: Json, seconds: number) => Promise<Json>; onRetry: (answers: Json) => Promise<Json>; onContinue: () => void }) {
   const [answers, setAnswers] = useState<Json>({});
-  const [result, setResult] = useState<Json | null>(null);
+  const [retryAnswers, setRetryAnswers] = useState<Json>({});
+  const [result, setResult] = useState<Json | null>(() => content.initial_attempt ? ({ ...content.initial_attempt, requires_guided_retry: true, assignment: { completed: false } }) : null);
   const [busy, setBusy] = useState(false);
   const started = useRef(Date.now());
   const submit = async () => { setBusy(true); try { setResult(await onSubmit(answers, Math.round((Date.now() - started.current) / 1000))); } finally { setBusy(false); } };
+  const retry = async () => { setBusy(true); try { setResult(await onRetry(retryAnswers)); } finally { setBusy(false); } };
+  const retrying = Boolean(result?.requires_guided_retry && !result?.answers);
+  const wrongIds = (result?.answer_results || []).filter((row: Json) => !row.is_correct).map((row: Json) => String(row.id));
   return <div className="avx-listening-layout">
     <div className="avx-audio-dock"><div><span>Academic listening</span><strong>{content.title}</strong></div><audio controls preload="metadata" src={content.audio_url} /></div>
     {(content.sections || []).filter((section: Json) => section.figure_url).map((section: Json) => <figure className="avx-listening-figure" key={section.section_id || section.figure_url}><img src={section.figure_url} alt={`Sơ đồ cho ${section.context || 'bài nghe'}`} /><figcaption>Xem sơ đồ trong khi nghe và dùng các nhãn trên hình cho câu map labelling.</figcaption></figure>)}
-    {completed && !result ? <div className="avx-complete-callout"><strong>Listening đã được lưu</strong><p>{saved ? `${saved.correct}/${saved.total} câu đúng. ` : ''}Bạn vẫn có thể nghe lại audio, nhưng bài đã nộp không bị ghi đè.</p></div> : <div className="avx-listening-questions">{(content.questions || []).map((question: Json) => { const qid = String(question.question_number); const checked = result?.answer_results?.find((row: Json) => row.id === qid); const solution = result?.answers?.find((row: Json) => row.id === qid); return <section className="avx-question-card avx-question-card--compact" key={qid}><p className="avx-kicker">Câu {qid} · {question.question_type}</p><h3>{question.stem}</h3><QuestionInput question={question} value={answers[qid]} disabled={!!result} onChange={(value) => setAnswers((current) => ({ ...current, [qid]: value }))} />{checked && <div className={`avx-mini-result ${checked.is_correct ? 'is-correct' : 'is-wrong'}`}>{checked.is_correct ? 'Đúng' : `Đáp án: ${solution?.answer}`}{solution?.evidence && <p>{solution.evidence}</p>}</div>}</section>; })}</div>}
+    {completed && !result ? <div className="avx-complete-callout"><strong>Listening đã được lưu</strong><p>{saved ? `${saved.correct}/${saved.total} câu đúng. ` : ''}Bạn vẫn có thể nghe lại audio, nhưng bài đã nộp không bị ghi đè.</p></div> : <div className="avx-listening-questions">{(content.questions || []).map((question: Json) => { const qid = String(question.question_number); const checked = result?.answer_results?.find((row: Json) => row.id === qid); const solution = result?.answers?.find((row: Json) => row.id === qid); const needsRetry = retrying && checked && !checked.is_correct; const shownAnswer = needsRetry ? retryAnswers[qid] : checked?.submitted_answer ?? answers[qid]; return <section className="avx-question-card avx-question-card--compact" key={qid}><p className="avx-kicker">Câu {qid} · {question.question_type}</p><h3>{question.stem}</h3><QuestionInput question={question} value={shownAnswer} disabled={Boolean(result) && !needsRetry} onChange={(value) => needsRetry ? setRetryAnswers((current) => ({ ...current, [qid]: value })) : setAnswers((current) => ({ ...current, [qid]: value }))} />{checked && <div className={`avx-mini-result ${checked.is_correct ? 'is-correct' : 'is-wrong'}`}>{checked.is_correct ? 'Đúng' : retrying ? 'Chưa đúng — nghe lại và sửa câu này trước khi xem đáp án.' : `Đáp án: ${solution?.answer}`}{!retrying && solution?.evidence && <p>{solution.evidence}</p>}</div>}</section>; })}</div>}
     {!completed && !result && <button className="av-button av-button-primary avx-wide" type="button" disabled={busy || Object.keys(answers).length < content.questions.length} onClick={() => void submit()}>{busy ? 'Đang chấm…' : 'Hoàn tất Listening'}</button>}
+    {retrying && <div className="avx-boundary-note"><strong>Guided retry</strong><p>Nghe lại và sửa đủ {wrongIds.length} câu chưa đúng. Đáp án và evidence chỉ hiện sau bước này.</p><button className="av-button av-button-primary avx-wide" type="button" disabled={busy || wrongIds.some((qid: string) => retryAnswers[qid] == null || retryAnswers[qid] === '')} onClick={() => void retry()}>{busy ? 'Đang lưu bước sửa…' : 'Hoàn tất sửa và xem đáp án'}</button></div>}
     {result?.assignment?.completed && <div className="avx-complete-callout"><strong>Đã hoàn tất bài học</strong><p>Kết quả được lưu theo từng tương tác; bài này không có điểm tổng mặc định.</p></div>}
-    {(completed || result) && <button className="av-button av-button-primary avx-wide" type="button" onClick={onContinue}>Xem Writing Insight →</button>}
+    {(completed || result?.assignment?.completed) && <button className="av-button av-button-primary avx-wide" type="button" onClick={onContinue}>Xem Writing Insight →</button>}
   </div>;
 }
 
@@ -251,9 +248,9 @@ function WritingStage({ activity }: { activity: Json }) {
     <h3>{task.title || (tab === 'task_1' ? 'Task 1' : 'Task 2')}</h3>
     <Blocks blocks={task.prompt} />
     {illustration && <img className="avx-writing-chart" src={illustration} alt="Biểu đồ của đề Writing Task 1" />}
-    <details open><summary>Phân tích đề</summary><BlockSections sections={content.prompt_analysis} /></details>
+    <details open><summary>Phân tích đề</summary><BlockSections sections={task.prompt_analysis} /></details>
     <details open><summary>Ý tưởng để tham khảo</summary><BlockSections sections={tab === 'task_2' ? task.idea_sections : content.idea_map} /></details>
-    <details><summary>Dàn bài gợi ý</summary><BlockSections sections={content.outline} /></details>
+    <details><summary>Dàn bài gợi ý</summary><BlockSections sections={task.outline} /></details>
     {(task.model_answers || []).map((model: Json) => <details key={model.band}><summary>Bài tham khảo Band {model.band}</summary><Blocks blocks={model.blocks} /></details>)}
     {!!task.band_comparison?.length && <details><summary>Phân tích khác biệt Band 7 → 8</summary><Blocks blocks={task.band_comparison} /></details>}
   </div>;
@@ -320,7 +317,7 @@ export function AdvancedVocabularyLesson() {
     {stage === 'practice_2' && <PracticeStage stage="practice_2" data={data} onAnswer={async (qid, answer, response_time_ms) => { const response = await post('/api/advanced-vocab/practice/answer', { ...base, stage: 'practice_2', qid, answer, response_time_ms }); mergeProgress(response.progress); return response; }} onDone={() => setStage('reading')} />}
     {stage === 'reading' && <ReadingStage content={data.lesson.activities.reading} completed={completed.has('reading')} saved={(data.progress.sections || []).find((row: Json) => row.section === 'reading')} onSubmit={async (answers, duration_sec) => { const response = await post('/api/advanced-vocab/reading', { ...base, answers, duration_sec }); setData((current) => current ? ({ ...current, progress: { ...current.progress, completed_stages: Array.from(new Set([...(current.progress.completed_stages || []), 'reading'])) } }) : current); return response; }} onContinue={() => setStage('controlled_rewrite')} />}
     {stage === 'controlled_rewrite' && <ControlledRewriteStage activity={data.lesson.activities.controlled_rewrite} completed={completed.has('controlled_rewrite')} onReveal={async (attempted_item_ids) => { const response = await post('/api/advanced-vocab/controlled-rewrite/complete', { ...base, attempted_item_ids }); mergeProgress(response.progress); return response; }} onContinue={() => setStage('listening')} />}
-    {stage === 'listening' && <ListeningStage content={data.lesson.activities.listening} completed={completed.has('listening')} saved={(data.progress.sections || []).find((row: Json) => row.section === 'listening')} onSubmit={async (answers, duration_sec) => { const response = await post('/api/advanced-vocab/listening', { ...base, answers, duration_sec }); if (response.progress) mergeProgress(response.progress); return response; }} onContinue={() => setStage('writing')} />}
+    {stage === 'listening' && <ListeningStage content={data.lesson.activities.listening} completed={completed.has('listening')} saved={(data.progress.sections || []).find((row: Json) => row.section === 'listening')} onSubmit={async (answers, duration_sec) => { const response = await post('/api/advanced-vocab/listening', { ...base, answers, duration_sec }); if (response.progress) mergeProgress(response.progress); return response; }} onRetry={async (answers) => { const response = await post('/api/advanced-vocab/listening/guided-retry', { ...base, answers }); if (response.progress) mergeProgress(response.progress); return response; }} onContinue={() => setStage('writing')} />}
     {stage === 'writing' && <WritingStage activity={data.lesson.activities.writing} />}
     {stage === 'speaking' && <SpeakingStage activity={data.lesson.activities.speaking} />}
   </main>;

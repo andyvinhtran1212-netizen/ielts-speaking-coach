@@ -4477,7 +4477,11 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
             seconds = sum(int(x.get("response_time_ms") or 0) / 1000
                           for x in row["practice_attempts"])
             seconds += sum(int(x.get("duration_sec") or 0) for x in row["sections"])
-            state = ("done" if item.get("submitted_at") else
+            if not any(x.get("section") == "listening" for x in row["sections"]):
+                seconds += sum(int(x.get("duration_sec") or 0)
+                               for x in row.get("listening_attempts") or [])
+            state = ("no_account" if not row["student"].get("user_id") else
+                     "done" if item.get("submitted_at") else
                      "doing" if done or row["practice_attempts"] or item.get("opened_at")
                      else "untouched")
             students.append({

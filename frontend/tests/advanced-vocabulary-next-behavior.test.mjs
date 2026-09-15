@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readingSupportLines } from '../lib/advanced-vocabulary-model.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -61,8 +62,15 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.match(CSS, /\.avx-reading-pane\.is-mobile-active\s*\{[^}]*display:\s*block/s);
     assert.match(UI, /aria-controls="avx-reading-panel-passage"/);
     assert.match(UI, /role="tabpanel"/);
-    assert.match(UI, /function readingSupportLines/);
-    assert.match(UI, /!questionStems\.has\(text\)/);
+    for (const lesson of LESSONS) {
+      const reading = lesson.activities.find((row) => row.activity_type === 'reading_lab').content;
+      const support = readingSupportLines(reading);
+      const mcqOptions = reading.questions.filter((question) => /MCQ|multiple choice/i.test(question.question_type)).flatMap((question) => question.options || []).map((option) => option.text);
+      assert.ok(!support.some((line) => mcqOptions.filter((option) => line.toLowerCase().includes(option.toLowerCase())).length >= 2));
+    }
+    const t01Support = readingSupportLines(LESSONS[0].activities.find((row) => row.activity_type === 'reading_lab').content);
+    assert.ok(t01Support.some((line) => line.startsWith('List of researchers A.')));
+    assert.ok(t01Support.some((line) => line.startsWith('Box: A.')));
     assert.match(UI, /sharedStem/);
     assert.match(UI, /avx-reading-shared-stem/);
   });
@@ -83,6 +91,13 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.match(UI, /completed=\{completed\.has\('listening'\)\}/);
   });
 
+  test('withholds Listening solutions until a persisted guided retry', () => {
+    assert.match(UI, /listening\/guided-retry/);
+    assert.match(UI, /Guided retry/);
+    assert.match(UI, /Đáp án và evidence chỉ hiện sau bước này/);
+    assert.match(UI, /result\?\.requires_guided_retry/);
+  });
+
   test('requires controlled rewrite self-check without creating a writing submission', () => {
     assert.match(UI, /ControlledRewriteStage/);
     assert.match(UI, /controlled-rewrite\/complete/);
@@ -94,6 +109,9 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.match(UI, /Nội dung tham khảo — không phải nơi nộp bài/);
     assert.match(UI, /Giáo viên cần giao một Writing assignment riêng/);
     assert.match(UI, /không có điểm tổng mặc định/);
+    assert.match(UI, /sections=\{task\.prompt_analysis\}/);
+    assert.match(UI, /sections=\{task\.outline\}/);
+    assert.doesNotMatch(UI, /sections=\{content\.prompt_analysis\}|sections=\{content\.outline\}/);
     assert.doesNotMatch(UI, /<textarea|MediaRecorder|getUserMedia/);
   });
 });

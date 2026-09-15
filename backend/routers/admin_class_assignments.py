@@ -1249,7 +1249,8 @@ def _advanced_vocab_assignment_tally(assignment: dict) -> dict:
             if row.get("status") == "completed"
         }
         completed.update(row.get("section") for row in evidence["sections"])
-        started = bool(completed or evidence["practice_attempts"] or item.get("opened_at"))
+        started = bool(completed or evidence["practice_attempts"]
+                       or evidence.get("listening_attempts") or item.get("opened_at"))
         course_state = ("no_account" if not student.get("user_id") else
                         "passed" if item.get("submitted_at") else
                         "in_progress" if started else "untouched")

@@ -45,13 +45,14 @@ describe('admin class submissions model', () => {
   });
 
   test('normalizes effort without dropping unactivated or untouched students', () => {
-    const out = normalizeEffort({ advanced_vocab: true, score_policy: 'none', students: [{ student_id: 's1', user_id: null, state: 'untouched', stages_done: 0 }, { student_id: 's2', user_id: 'u2', state: 'stalled', stages_done: 2, questions: 4, correct: 2, accuracy: .5 }, { student_id: null, user_id: 'u-gone', state: 'done', stages_done: 8 }], axes: [{ axis: 'Nouns', wrong: 3 }] });
-    assert.deepEqual(out.students.map((row) => row.state), ['untouched', 'stalled', 'done']);
+    const out = normalizeEffort({ advanced_vocab: true, score_policy: 'none', students: [{ student_id: 's1', user_id: null, state: 'no_account', stages_done: 0 }, { student_id: 's2', user_id: 'u2', state: 'stalled', stages_done: 2, questions: 4, correct: 2, accuracy: .5 }, { student_id: null, user_id: 'u-gone', state: 'done', stages_done: 8 }], axes: [{ axis: 'Nouns', wrong: 3 }] });
+    assert.deepEqual(out.students.map((row) => row.state), ['no_account', 'stalled', 'done']);
     assert.equal(out.students[0].user_id, null);
     assert.equal(out.students[2].student_id, null);
     assert.equal(out.axes[0].wrong, 3);
     assert.equal(out.advanced_vocab, true);
     assert.equal(out.score_policy, 'none');
+    assert.match(UI, /no_account: 'Chưa kích hoạt'/);
   });
 
   test('normalizes immutable advanced vocabulary evidence for admin review', () => {

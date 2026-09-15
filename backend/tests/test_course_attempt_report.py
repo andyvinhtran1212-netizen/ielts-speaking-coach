@@ -316,6 +316,36 @@ def test_a_malformed_mastery_row_does_not_crash_the_whole_effort_report():
     assert out["students"][0]["flags"][0]["code"] == "course_summary_unavailable"
 
 
+def test_advanced_vocab_effort_preserves_no_account_state(monkeypatch):
+    from services import advanced_vocab_service
+
+    class _AdvancedAssignmentDB:
+        class _Query:
+            def select(self, *_args): return self
+            def eq(self, *_args): return self
+            def limit(self, *_args): return self
+            def execute(self):
+                return type("Resp", (), {"data": [{
+                    "id": "a1",
+                    "content_config": {"runtime": {"kind": "advanced_vocab"}},
+                }]})()
+        def table(self, _name): return self._Query()
+
+    monkeypatch.setattr(qs, "supabase_admin", _AdvancedAssignmentDB())
+    monkeypatch.setattr(advanced_vocab_service, "assignment_results", lambda **_kwargs: {
+        "students": [{
+            "item": {"student_id": "st1", "opened_at": None, "submitted_at": None},
+            "student": {"user_id": None},
+            "stages": [], "sections": [], "practice_attempts": [],
+        }],
+    })
+
+    out = qs.course_attempt_report(bank_id="b1", assignment_id="a1")
+
+    assert out["students"][0]["state"] == "no_account"
+    assert out["students"][0]["state"] != "untouched"
+
+
 def test_effort_report_counts_completed_legacy_quiz_only_attempt_as_one_of_one():
     out = _run_report_with_pages({
         "class_assignment_items": [{

@@ -279,10 +279,17 @@ def _section_rows(item_id: str) -> list[dict]:
             .eq("class_assignment_item_id", item_id).execute().data) or []
 
 
+def _listening_attempt(item_id: str) -> dict | None:
+    rows = (_admin().table("advanced_vocab_listening_attempts").select("*")
+            .eq("class_assignment_item_id", item_id).limit(1).execute().data) or []
+    return rows[0] if rows else None
+
+
 def _progress(item_id: str) -> dict:
     stages = _stage_rows(item_id)
     attempts = _attempt_rows(item_id)
     sections = _section_rows(item_id)
+    listening_attempt = _listening_attempt(item_id)
     complete = {row["stage"] for row in stages if row.get("status") == "completed"}
     complete.update(row["section"] for row in sections)
     return {
@@ -293,6 +300,7 @@ def _progress(item_id: str) -> dict:
             "answer": row.get("answer_given"), "is_correct": row.get("is_correct"),
         } for row in attempts],
         "sections": sections,
+        "listening_submitted": listening_attempt is not None,
         "required_completed": all(stage in complete for stage in _REQUIRED_STAGES),
     }
 
@@ -339,12 +347,45 @@ def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
         }
         for section in listening.get("sections") or []
     ]
+    if progress["listening_submitted"] and "listening" not in progress["completed_stages"]:
+        saved_listening = _listening_attempt(item_id)
+        if saved_listening:
+            key = saved_listening.get("answer_key") or _answer_rows(
+                _activity(lesson, "listening_lab").get("content") or {}
+            )
+            listening["initial_attempt"] = {
+                "total": int(saved_listening.get("total") or len(key)),
+                "correct": int(saved_listening.get("correct") or 0),
+                "answer_results": _answer_results(saved_listening.get("answers") or {}, key),
+            }
     activities["listening"] = listening
     writing = dict(_activity(lesson, "writing_reference"))
-    for task in ((writing.get("content") or {}).get("tasks") or {}).values():
+    writing_content = writing.get("content") or {}
+    writing_tasks = writing_content.get("tasks") or {}
+    for task_id, task in writing_tasks.items():
         task["illustrations"] = [
             _asset_url(lesson["lesson_id"], ref) for ref in task.get("illustrations") or []
         ]
+        if task_id == "task_1":
+            task["prompt_analysis"] = [
+                row for row in writing_content.get("prompt_analysis") or []
+                if str(row.get("heading") or "").startswith(("(g)", "(h)"))
+            ]
+            task["outline"] = [
+                row for row in writing_content.get("outline") or []
+                if str(row.get("heading") or "").startswith("(c)")
+            ]
+        else:
+            task["prompt_analysis"] = [
+                row for row in writing_content.get("prompt_analysis") or []
+                if str(row.get("heading") or "").startswith("(9)")
+            ]
+            task["outline"] = [
+                row for row in writing_content.get("outline") or []
+                if str(row.get("heading") or "").startswith("(4)")
+            ]
+    writing_content.pop("prompt_analysis", None)
+    writing_content.pop("outline", None)
     activities["writing"] = writing
     activities["speaking"] = _activity(lesson, "speaking_practice")
 
@@ -638,18 +679,129 @@ def submit_listening(*, user_id: str, bank_id: str, item_id: str,
         bank_id=bank_id, user_id=user_id, item_id=item_id,
     )
     _require_stage(item_id, "controlled_rewrite")
-    content = _activity(lesson, "listening_lab").get("content") or {}
-    result = _submit_section(user_id=user_id, bank_id=bank_id, item_id=item_id,
-                             section="listening", answers=answers,
-                             duration_sec=duration_sec, content=content)
-    progress = _progress(item_id)
-    if progress["required_completed"]:
-        # Migration 263 owns this invariant with an AFTER INSERT trigger.  The
-        # listening row and assignment finalization therefore commit together;
-        # an exception in either operation rolls the whole transaction back.
-        result["assignment"] = {"completed": True, "pct": None}
+    activity = _activity(lesson, "listening_lab")
+    content = activity.get("content") or {}
+    if activity.get("reveal_policy") != "after_guided_retry":
+        result = _submit_section(
+            user_id=user_id, bank_id=bank_id, item_id=item_id,
+            section="listening", answers=answers,
+            duration_sec=duration_sec, content=content,
+        )
+        result["progress"] = _progress(item_id)
+        return result
+    key = _answer_rows(content)
+    expected = [row["id"] for row in key]
+    submitted = {qid: str(answers.get(qid, "")).strip() for qid in expected}
+    missing = [qid for qid, value in submitted.items() if not value]
+    if missing:
+        raise HTTPException(422, {
+            "message": f"Còn {len(missing)} câu chưa trả lời", "missing": missing,
+        })
+    existing = _listening_attempt(item_id)
+    if existing:
+        if (existing.get("answers") or {}) != submitted:
+            raise HTTPException(409, "Listening đã nộp lần đầu rồi")
+        saved = existing
+    else:
+        results = _answer_results(submitted, key)
+        correct = sum(1 for row in results if row["is_correct"])
+        payload = {
+            "bank_id": bank_id, "user_id": user_id,
+            "class_assignment_item_id": item_id, "answers": submitted,
+            "answer_key": key, "content_snapshot": content,
+            "total": len(key), "correct": correct,
+            "score": round(correct / len(key) * 100, 2),
+            "duration_sec": max(0, min(int(duration_sec or 0), 12 * 60 * 60)),
+        }
+        try:
+            rows = (_admin().table("advanced_vocab_listening_attempts")
+                    .insert(payload).execute().data) or []
+            saved = rows[0] if rows else payload
+        except Exception as exc:  # noqa: BLE001
+            if "23505" not in str(exc) and "duplicate key" not in str(exc).lower():
+                raise HTTPException(500, "Không lưu được Listening lần đầu") from exc
+            raced = _listening_attempt(item_id)
+            if not raced or (raced.get("answers") or {}) != submitted:
+                raise HTTPException(409, "Listening đã được nộp ở nơi khác") from exc
+            saved = raced
+    result = {
+        "section": "listening", "total": int(saved.get("total") or len(key)),
+        "correct": int(saved.get("correct") or 0), "pct": float(saved.get("score") or 0),
+        "submitted_at": saved.get("submitted_at") or saved.get("created_at"),
+        "answer_results": _answer_results(saved.get("answers") or submitted,
+                                          saved.get("answer_key") or key),
+        "requires_guided_retry": activity.get("reveal_policy") == "after_guided_retry",
+    }
+    result["assignment"] = {"completed": False, "pct": None}
     result["progress"] = _progress(item_id)
     return result
+
+
+def complete_listening_guided_retry(*, user_id: str, bank_id: str, item_id: str,
+                                    answers: dict) -> dict:
+    _, _, lesson = _assigned_lesson(
+        bank_id=bank_id, user_id=user_id, item_id=item_id,
+    )
+    activity = _activity(lesson, "listening_lab")
+    if activity.get("reveal_policy") != "after_guided_retry":
+        raise HTTPException(409, "Bài nghe này không có bước sửa có hướng dẫn")
+    saved = _listening_attempt(item_id)
+    if not saved:
+        raise HTTPException(409, "Hãy nộp Listening lần đầu trước")
+    key = saved.get("answer_key") or _answer_rows(activity.get("content") or {})
+    initial_results = _answer_results(saved.get("answers") or {}, key)
+    wrong_ids = {row["id"] for row in initial_results if not row["is_correct"]}
+    corrected = {qid: str(answers.get(qid, "")).strip() for qid in wrong_ids}
+    missing = sorted(qid for qid, value in corrected.items() if not value)
+    if missing:
+        raise HTTPException(422, {
+            "message": "Hãy sửa đủ các câu chưa đúng trước khi xem đáp án",
+            "missing": missing,
+        })
+    correction_key = [row for row in key if row["id"] in wrong_ids]
+    correction_results = _answer_results(corrected, correction_key)
+    retry_evidence = {
+        "initial_wrong_ids": sorted(wrong_ids),
+        "answers": corrected,
+        "answer_results": correction_results,
+    }
+    payload = {
+        "bank_id": bank_id, "user_id": user_id,
+        "class_assignment_item_id": item_id, "section": "listening",
+        "attempt_no": 1, "answers": saved.get("answers") or {},
+        "answer_key": key,
+        "content_snapshot": {
+            **(saved.get("content_snapshot") or activity.get("content") or {}),
+            "guided_retry": retry_evidence,
+        },
+        "total": int(saved.get("total") or len(key)),
+        "correct": int(saved.get("correct") or 0),
+        "score": float(saved.get("score") or 0),
+        "duration_sec": int(saved.get("duration_sec") or 0),
+    }
+    try:
+        existing = (_admin().table("course_section_submissions").select("*")
+                    .eq("class_assignment_item_id", item_id)
+                    .eq("section", "listening").limit(1).execute().data) or []
+        if existing:
+            evidence = (existing[0].get("content_snapshot") or {}).get("guided_retry") or {}
+            if (evidence.get("answers") or {}) != corrected:
+                raise HTTPException(409, "Bước sửa Listening đã hoàn tất")
+        else:
+            (_admin().table("course_section_submissions").insert(payload).execute())
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        if "23505" not in str(exc) and "duplicate key" not in str(exc).lower():
+            raise HTTPException(500, "Không lưu được bước sửa Listening") from exc
+    final_answers = {**(saved.get("answers") or {}), **corrected}
+    progress = _progress(item_id)
+    return {
+        "section": "listening", "guided_retry_completed": True,
+        "answer_results": _answer_results(final_answers, key), "answers": key,
+        "assignment": {"completed": progress["required_completed"], "pct": None},
+        "progress": progress,
+    }
 
 
 def assignment_results(*, assignment_id: str) -> dict:
@@ -679,6 +831,7 @@ def assignment_results(*, assignment_id: str) -> dict:
     stages: list[dict] = []
     attempts: list[dict] = []
     sections: list[dict] = []
+    listening_attempts: list[dict] = []
     for offset in range(0, len(item_ids), _ID_CHUNK):
         chunk = item_ids[offset:offset + _ID_CHUNK]
         stages += _paged("advanced_vocab_stage_progress", "*",
@@ -688,15 +841,22 @@ def assignment_results(*, assignment_id: str) -> dict:
         sections += _paged("course_section_submissions", "*",
                            lambda q, ids=chunk: q.in_("class_assignment_item_id", ids)
                            .in_("section", ["reading", "listening"]))
+        listening_attempts += _paged(
+            "advanced_vocab_listening_attempts", "*",
+            lambda q, ids=chunk: q.in_("class_assignment_item_id", ids),
+        )
     by_stage: dict[str, list] = {}
     by_attempt: dict[str, list] = {}
     by_section: dict[str, list] = {}
+    by_listening_attempt: dict[str, list] = {}
     for row in stages:
         by_stage.setdefault(row["class_assignment_item_id"], []).append(row)
     for row in attempts:
         by_attempt.setdefault(row["class_assignment_item_id"], []).append(row)
     for row in sections:
         by_section.setdefault(row["class_assignment_item_id"], []).append(row)
+    for row in listening_attempts:
+        by_listening_attempt.setdefault(row["class_assignment_item_id"], []).append(row)
     result_rows = []
     for item in items:
         iid = item["id"]
@@ -707,6 +867,7 @@ def assignment_results(*, assignment_id: str) -> dict:
             "stages": by_stage.get(iid, []),
             "practice_attempts": by_attempt.get(iid, []),
             "sections": by_section.get(iid, []),
+            "listening_attempts": by_listening_attempt.get(iid, []),
         })
     return {
         "kind": "advanced_vocab", "assignment": assignment,

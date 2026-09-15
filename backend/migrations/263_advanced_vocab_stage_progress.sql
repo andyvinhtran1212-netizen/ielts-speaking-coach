@@ -65,14 +65,42 @@ CREATE INDEX IF NOT EXISTS idx_advanced_vocab_attempt_user_bank
 CREATE INDEX IF NOT EXISTS idx_advanced_vocab_attempt_bank
     ON advanced_vocab_question_attempts (bank_id);
 
+-- Listening first attempts live here until the learner completes the authored
+-- guided retry. Only then does the service insert the canonical Listening
+-- section row, whose existing trigger finalizes the assignment atomically.
+CREATE TABLE IF NOT EXISTS advanced_vocab_listening_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    bank_id UUID NOT NULL REFERENCES quiz_banks(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    class_assignment_item_id UUID NOT NULL
+        REFERENCES class_assignment_items(id) ON DELETE CASCADE,
+    answers JSONB NOT NULL CHECK (jsonb_typeof(answers) = 'object'),
+    answer_key JSONB NOT NULL CHECK (jsonb_typeof(answer_key) = 'array'),
+    content_snapshot JSONB NOT NULL CHECK (jsonb_typeof(content_snapshot) = 'object'),
+    total INTEGER NOT NULL CHECK (total > 0),
+    correct INTEGER NOT NULL CHECK (correct BETWEEN 0 AND total),
+    score NUMERIC(5,2) NOT NULL CHECK (score BETWEEN 0 AND 100),
+    duration_sec INTEGER NOT NULL DEFAULT 0 CHECK (duration_sec >= 0),
+    submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (class_assignment_item_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_advanced_vocab_listening_user_bank
+    ON advanced_vocab_listening_attempts (user_id, bank_id, submitted_at DESC);
+
 ALTER TABLE advanced_vocab_stage_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE advanced_vocab_question_attempts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE advanced_vocab_listening_attempts ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.advanced_vocab_stage_progress
     FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.advanced_vocab_question_attempts
     FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE public.advanced_vocab_listening_attempts
+    FROM PUBLIC, anon, authenticated;
 GRANT ALL ON TABLE public.advanced_vocab_stage_progress TO service_role;
 GRANT ALL ON TABLE public.advanced_vocab_question_attempts TO service_role;
+GRANT ALL ON TABLE public.advanced_vocab_listening_attempts TO service_role;
 
 -- Replace the enumerated artifact check without guessing its generated name.
 DO $$
@@ -278,6 +306,8 @@ BEGIN
     IF EXISTS (SELECT 1 FROM advanced_vocab_stage_progress
                 WHERE class_assignment_item_id = OLD.id)
        OR EXISTS (SELECT 1 FROM advanced_vocab_question_attempts
+                   WHERE class_assignment_item_id = OLD.id)
+       OR EXISTS (SELECT 1 FROM advanced_vocab_listening_attempts
                    WHERE class_assignment_item_id = OLD.id) THEN
         RAISE EXCEPTION 'cannot delete assignment item with advanced vocabulary evidence'
             USING ERRCODE = '23503';
