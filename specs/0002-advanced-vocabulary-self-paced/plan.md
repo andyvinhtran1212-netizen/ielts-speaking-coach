@@ -14,8 +14,12 @@
   per-question-attempt, and Listening-attempt tables. It reuses the existing
   `course_section_submissions` table as canonical Reading/Listening evidence and
   extends it idempotently with the Advanced Vocabulary finalization trigger.
-- Quiz-bank metadata pins runtime kind, lesson ID, content checksum, required stages,
-  practice IDs, and the explicit no-score policy.
+- Quiz-bank metadata publishes runtime kind, lesson ID, content checksum, required
+  stages, practice IDs, and the explicit no-score policy. Assignment creation copies
+  that runtime metadata into `class_assignments.content_config.runtime`; every learner,
+  submission, resume, and admin-result read resolves the immutable assignment snapshot
+  rather than the bank's current metadata. Re-importing a v2 bank therefore leaves an
+  already-issued v1 assignment bound to its v1 JSON and checksum-matched media.
 - Learner payloads whitelist public Reading/Listening fields; answer keys are
   attached only to persisted post-submission review evidence.
 - Writing and Speaking contracts explicitly disable default grading/submission.

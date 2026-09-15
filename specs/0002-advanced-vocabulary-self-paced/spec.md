@@ -70,7 +70,37 @@ that prevents answer leakage and gives admins canonical completion evidence.
   deployment before application promotion.
 - **FR-008:** Authored lesson JSON and runtime media use immutable content versions
   and verified SHA-256 provenance, including Listening figures and audio, so a
-  deployed assignment reopens the same content revision.
+  deployed assignment reopens the same content revision. Assignment creation must
+  snapshot the bank runtime metadata into the assignment, and learner, submission,
+  resume, and admin-result reads must resolve that snapshot even after a later bank
+  version is imported.
+
+### Required-stage completion evidence
+
+- **Vocabulary:** the learner sends the complete set of 24 authored `lexeme_id`
+  values; the server rejects a partial set and upserts a completed vocabulary stage
+  with the canonical seen-ID set.
+- **Practice 1 and Practice 2:** the server accepts at most one immutable answer per
+  server-selected question and marks the stage complete only when distinct persisted
+  question attempts cover every selected question (28 and 20 respectively).
+- **Reading:** the learner submits a non-empty answer for every authored Reading
+  question after Practice 2; the server creates exactly one canonical
+  `course_section_submissions` Reading row containing answers, frozen answer key,
+  frozen content, result counts, and duration.
+- **Controlled rewrite:** after Reading, the learner confirms an attempt for all 20
+  server-issued prompt IDs; only then does the server persist the canonical attempted
+  ID set and reveal reference solutions. This is completion evidence, not a graded
+  Writing submission.
+- **Listening:** after controlled rewrite, the learner submits a non-empty first
+  answer for every authored Listening question. When guided retry is required, the
+  first attempt alone is not completion: the learner must submit every initially
+  incorrect question, after which the server creates exactly one canonical Listening
+  section row containing both the frozen initial attempt and retry evidence.
+- Repeating an identical completion call returns the existing canonical evidence or
+  performs an idempotent upsert. A different answer after an immutable submission,
+  or a conflicting concurrent retry, returns a conflict and never overwrites the
+  first accepted evidence. Reload/resume reconstructs completion only from these
+  persisted records; client view state is never completion evidence.
 
 ## Acceptance scenarios
 
