@@ -315,7 +315,14 @@ def _constitutional_list_items(visible: str) -> list[tuple[int, int, str]]:
         index += 1
         while index < len(lines):
             candidate = lines[index].rstrip("\r\n")
-            if re.match(r"^ {0,3}(?:-[ \t]+|##[ \t]+)", candidate):
+            if re.match(
+                r"^ {0,3}(?:#{1,6}(?:[ \t]+|$)|>[ \t]?|[-+*][ \t]+|"
+                r"\d{1,9}[.)][ \t]+)",
+                candidate,
+            ) or re.fullmatch(
+                r" {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})",
+                candidate,
+            ):
                 break
             if not candidate.strip():
                 next_content = index + 1
@@ -969,22 +976,31 @@ def _git_requirement_approval_commit(
     )
     if history.returncode != 0:
         return None
-    for revision in history.stdout.splitlines():
+    approval_commit: str | None = None
+    for revision in reversed(history.stdout.splitlines()):
         _, text = _git_show(root, revision, spec_path)
-        if text is None:
-            continue
-        try:
-            metadata = yaml.safe_load(text.split("---", 2)[1]) or {}
-        except (IndexError, yaml.YAMLError):
-            continue
-        if (
+        metadata: dict[str, Any] = {}
+        if text is not None:
+            try:
+                parsed = yaml.safe_load(text.split("---", 2)[1]) or {}
+                metadata = parsed if isinstance(parsed, dict) else {}
+            except (IndexError, yaml.YAMLError):
+                metadata = {}
+        matches_current_approval = (
             metadata.get("id") == spec_id
             and metadata.get("status") in IMPLEMENTABLE_SPEC_STATUSES
             and metadata.get("risk") == risk
+            and text is not None
             and _declared_requirements(text).get(requirement) == description
-        ):
-            return revision
-    return None
+        )
+        if matches_current_approval:
+            approval_commit = revision
+            continue
+        # The latest uninterrupted run of matching revisions is the current
+        # approval epoch. A withdrawal, identity/risk/definition change, delete,
+        # or malformed revision invalidates every older approval.
+        break
+    return approval_commit
 
 
 def _implementation_units(

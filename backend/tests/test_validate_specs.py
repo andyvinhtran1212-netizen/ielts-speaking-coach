@@ -1812,6 +1812,26 @@ Clarification: approval is recorded in the release log.
         assert (required, bump) == ((1, 0, 1), "patch")
 
 
+def test_constitution_list_items_stop_at_interrupting_markdown_blocks() -> None:
+    template = """---
+version: 1.0.0
+---
+
+- Deployments MUST require approval.
+{block}
+Independent note text.
+"""
+    for block in ("### Notes", "> Notes", "---"):
+        base = template.format(block=block)
+        edited_note = base.replace(
+            "Independent note text.", "Updated independent note text."
+        ).replace("version: 1.0.0", "version: 1.0.1")
+        _, _, required, bump = validator._expected_constitution_version(
+            base, edited_note
+        )
+        assert (required, bump) == ((1, 0, 1), "patch")
+
+
 def test_constitution_optional_rule_edit_requires_major_bump(
     tmp_path: Path,
 ) -> None:
@@ -2182,6 +2202,92 @@ def test_prior_approval_must_exist_at_topic_merge_base(tmp_path: Path) -> None:
         "implementation commits predate approved FEAT-0002 FR-001" in error
         for error in merged_head_errors
     )
+
+
+def test_requirement_approval_uses_latest_uninterrupted_epoch(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path, status="approved")
+    spec_path = "specs/0001-example-feature/spec.md"
+    spec = root / spec_path
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace(
+            "status: approved", "status: draft"
+        ),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", spec_path], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "withdraw approval"], cwd=root, check=True)
+    withdrawn_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    subprocess.run(["git", "checkout", "-qb", "during-withdrawal"], cwd=root, check=True)
+    _write(root / "docs/too-early.md", "implementation during withdrawal\n")
+    subprocess.run(["git", "add", "docs/too-early.md"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "implement while withdrawn"], cwd=root, check=True)
+    too_early_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    subprocess.run(
+        ["git", "checkout", "-qb", "restored-approval", withdrawn_sha],
+        cwd=root,
+        check=True,
+    )
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace("status: draft", "status: approved"),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", spec_path], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "restore approval"], cwd=root, check=True)
+    restored_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    approval_commit = validator._git_requirement_approval_commit(
+        root,
+        restored_sha,
+        spec_path,
+        "FEAT-0001",
+        "FR-001",
+        "Works.",
+        "medium",
+    )
+    assert approval_commit == restored_sha
+    resolved, offenders = validator._topic_implementation_before_approval(
+        root, approval_commit, {(too_early_sha, "docs/too-early.md")}
+    )
+    assert resolved is True
+    assert offenders == [too_early_sha]
+
+    subprocess.run(["git", "checkout", "-qb", "after-restoration"], cwd=root, check=True)
+    _write(root / "docs/after.md", "implementation after restoration\n")
+    subprocess.run(["git", "add", "docs/after.md"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "implement after restoration"], cwd=root, check=True)
+    after_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    resolved, offenders = validator._topic_implementation_before_approval(
+        root, approval_commit, {(after_sha, "docs/after.md")}
+    )
+    assert resolved is True
+    assert offenders == []
 
 
 def test_topic_revision_paths_include_merge_conflict_resolution(
