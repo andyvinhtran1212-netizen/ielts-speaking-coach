@@ -2,7 +2,12 @@
 
 ## What this project is
 
-IELTS Speaking Coach **began** as a web app for IELTS **Speaking** preparation and is **pivoting into a comprehensive IELTS-prep platform covering all four skills (Speaking, Writing, Reading, Listening), on a path toward a full English-learning site** (pivot decided 2026-06-27). The repo name and the most mature flows remain Speaking-centric — users record spoken answers to IELTS-style questions, get AI-scored feedback (Whisper STT + Claude grading), and practice full 3-part tests — but **new content and features should serve all skills, not Speaking only.** The system also includes a Grammar Wiki (skill-agnostic), pronunciation assessment (Azure), a topic library, a Reading module (`backend/content/reading/`), and an admin dashboard.
+IELTS Speaking Coach **began** as a Speaking practice app and is now a
+comprehensive IELTS-prep platform covering Speaking, Writing, Reading, and
+Listening. The production frontend is Next.js 16 App Router on Vercel; FastAPI
+on Railway remains the canonical business backend, with Supabase providing
+PostgreSQL, Auth, and Storage. Legacy HTML exists only as test fixtures and is
+not deployed.
 
 **Most important quality expectations:**
 - Feedback must be truthful and non-misleading. False-positive grammar flags harm user trust.
@@ -29,33 +34,34 @@ IELTS Speaking Coach **began** as a web app for IELTS **Speaking** preparation a
 
 | What | File |
 |------|------|
-| Landing / Login / Activation | `frontend/index.html` |
-| Student home (multi-skill) | `frontend/pages/home.html` (replaced legacy `dashboard.html` in Sprint 5.1; `frontend/vercel.json` 301-redirects the old path → `/pages/speaking.html`) |
-| **Practice page** (main) | `frontend/pages/practice.html` ← real one |
-| Result page | `frontend/pages/result.html` |
-| Full Test result | `frontend/pages/full-test-result.html` |
-| Grammar Wiki home | `frontend/grammar.html` |
-| Grammar article | `frontend/pages/grammar-article.html` |
-| Grammar compare | `frontend/pages/grammar-compare.html` |
-| Grammar roadmap | `frontend/pages/grammar-roadmap.html` |
-| Admin dashboard | `frontend/pages/admin/index.html` (real hub; `frontend/admin.html` is a redirect stub) |
-| Practice JS logic | `frontend/js/practice.js` |
-| API client + Supabase | `frontend/js/api.js` |
+| Landing | `frontend/app/(marketing)/page.tsx` |
+| Login / auth callback | `frontend/app/(public-auth)/login/page.tsx` |
+| Student home | `frontend/app/(authed-home)/home/page.tsx` |
+| Speaking practice session | `frontend/app/(authed-practice)/practice/session/page.tsx` |
+| Speaking result | `frontend/app/(authed-speaking-result)/speaking/result/page.tsx` |
+| Full Test / result | `frontend/app/(authed-full-test)/full-test/page.tsx`, `frontend/app/(authed-full-test-result)/full-test-result/page.tsx` |
+| Grammar Wiki | `frontend/app/(public-content)/grammar/` |
+| Admin dashboard | `frontend/app/(authed-admin-overview)/admin/page.tsx` |
+| Typed browser API | `frontend/lib/browser-api.ts`, `frontend/lib/openapi-contract.ts` |
+| Generated API contract | `frontend/types/api.d.ts` |
 | FastAPI entry point | `backend/main.py` |
 
-`frontend/practice.legacy.html` — old root-level file, kept for reference only. **Do not edit.**
+Retired HTML snapshots live under `frontend/tests/fixtures/legacy-html-retired/`
+and are regression evidence only. Do not reintroduce them into deploy paths.
 
 ---
 
 ## Routing rule
 
-All practice sessions use `session_id`, never `?part=`.
+Speaking practice sessions use the Next route and a canonical `session_id`,
+never a standalone `?part=` route.
 
 ```
-Dashboard → POST /sessions → practice.html?session_id=<uuid>
+Speaking chooser → POST /sessions → /practice/session?session_id=<uuid>
 ```
 
-Never link to `practice.html?part=1`. The practice page will show an error if `session_id` is missing.
+Use `admitCorePlayer('speaking', { session_id })` when admission affinity matters.
+The session route fails visibly when `session_id` is missing.
 
 ---
 
@@ -76,11 +82,16 @@ The frontend always uses the `grading.py` route for submitting recordings.
 
 ## Config / environment
 
-- API base URL is resolved **automatically** in `js/api.js`:
-  - `localhost` or `127.0.0.1` → `http://localhost:8000`
-  - anything else → production Railway URL
-- **Never hardcode `http://localhost:8000`** in HTML inline scripts — use `window.api.base` instead.
-- Supabase is initialised once via `initSupabase(SUPABASE_URL, SUPABASE_ANON)` from `api.js`. Use `getSupabase()` to get the client. Never call `window.supabase.createClient()` directly.
+- Server Components resolve the FastAPI base in `frontend/lib/backend.ts` from
+  `AVER_API_BASE`, Vercel environment, and the local default.
+- Client Components use the shared authenticated `window.api` transport loaded
+  by `frontend/components/supabase-runtime-boundary.tsx`; new typed consumers
+  should bind it through `frontend/lib/browser-api.ts` and generated OpenAPI
+  types.
+- Never hardcode a local or production backend URL inside a route component.
+- Supabase client ownership remains centralized by the runtime boundary. Use
+  the shared auth provider or `getSupabase()` compatibility bridge; do not create
+  an independent browser client.
 
 **Key `.env` values (backend):**
 - `MAX_SESSIONS_PER_USER_PER_DAY` — default is `24` (`config.py`); override in `.env` for local development
@@ -90,9 +101,11 @@ The frontend always uses the `grading.py` route for submitting recordings.
 
 ---
 
-## Frontend state machine (practice page)
+## Frontend state machine (speaking practice)
 
-States controlled by `showState(name)` in `practice.js`:
+The rendered state is owned by `practice-player-lifecycle.mjs` and
+`practice-page-shell.tsx`; `frontend/public/js/practice.js` still coordinates
+the compatibility workflow through the installed controller:
 
 ```
 loading → error
@@ -103,8 +116,9 @@ loading → prep → recording → processing → feedback
                                          prep (next Q)
 ```
 
-Recording has 3 sub-states managed by `_showRecSub(name)`:
-`idle` → `recording` → `recorded`
+Recorder lifecycle is bridged by `practice-recorder-bridge.tsx`. Preserve the
+observable progression and verify the Next shell rather than editing a retired
+HTML document.
 
 ---
 
@@ -135,7 +149,10 @@ When debugging a feedback-quality issue, inspect all five layers in order:
 2. **Post-processing layer** — `_filter_false_article_flags`, recommendation cap, dedup logic in `claude_grader.py`
 3. **Mapping/ranking layer** — how issues are scored, filtered, and prioritized
 4. **Persistence layer** — `_save_grammar_recommendations()` in `grading.py` writes to `grammar_recommendations` table; backend recs are the primary source for the frontend
-5. **Frontend rendering layer** — how `practice.js` / `result.html` display the feedback (backend recs first, keyword-match fallback second)
+5. **Frontend rendering layer** — how `practice-page-shell.tsx`,
+   `session-result-behavior.tsx`, and the live compatibility orchestration in
+   `frontend/public/js/practice.js` display feedback (backend recommendations
+   first, keyword-match fallback second)
 
 A prompt-only fix is insufficient if the real problem is in post-processing or persistence.
 
@@ -144,7 +161,8 @@ When editing Grammar Wiki content or metadata, always check:
 1. **Content body** — accuracy, clarity, IELTS relevance
 2. **Frontmatter metadata** — `category`, `slug`, `related_pages`, `next_articles`, `compare_with`, `prerequisites`, `pathways`
 3. **Progression graph** — do referenced slugs exist as real files?
-4. **Frontend routes/rendering** — does `grammar.js` resolve the category/slug correctly?
+4. **Frontend routes/rendering** — do the App Router grammar pages under
+   `frontend/app/(public-content)/grammar/` resolve category/slug correctly?
 
 ---
 
@@ -166,7 +184,7 @@ When editing Grammar Wiki content or metadata, always check:
 - Modern codes: canonical ownership is in `user_code_assignments` (active rows).
 - Legacy codes: fallback is `access_codes.used_by` — synthesized by both list and detail endpoints when no active assignment row exists.
 - The fallback synthesis condition in the **detail endpoint** is: **no active assignment rows** (not: no rows at all). This matters after a remove-user operation leaves only inactive rows. It also must NOT fire when the assignment lookup itself errored — the detail endpoint now sets `association_lookup_failed: true` in that case (audit 2026-07-03 L5) rather than synthesizing stale ownership.
-- Admin is split out of the old `admin.html` monolith (now a redirect stub) into `frontend/pages/admin/*`; access-code ownership rendering lives in `frontend/js/admin-access-codes.js` (the old `detailToTableShape()` re-render path no longer exists). The frontend refetches the canonical list (`loadCodes()`) after mutations rather than transforming the detail shape in place.
+- Admin production surfaces are Next routes under `frontend/app/(authed-admin-*)/`. Access-code ownership rendering is owned by `admin-access-codes-panel.tsx`; it refetches the canonical list through `loadCodes()` after mutations rather than transforming the detail shape in place.
 - `association_lookup_failed: true` is returned by **both** the list and detail endpoints on DB failure. Render as `⚠ lookup failed`, never as `—`.
 
 ### Practice and result flows
@@ -205,9 +223,10 @@ Keep fixes reviewable. A 5-line diff with a clear explanation is better than a 5
 
 ## Known limitations / tech debt
 
-- Full Test: `full-test-result.html` exists — verify integration completeness before relying on it
-- PDF export: `GET /sessions/{session_id}/export/pdf` — works. Uses ReportLab (`backend/services/pdf_generator.py`), pure Python, zero system deps (`fonts-dejavu-core` installed via `backend/nixpacks.toml` for Vietnamese glyphs). Migrated off WeasyPrint in commit `a1208a2b`; Sprint 16.1 brought PDF content to parity with `result.html` (pronunciation pills, phoneme drill-down, structured grammar)
-- Grammar recommendations: server-side (`grammar_recommendations` table, persisted per practice response); frontend keyword matching in `grammar.js` is fallback only
+- Full Test: the player and result are Next routes; when changing aggregation,
+  verify the complete session chain and persisted finalization contract.
+- PDF export: `GET /sessions/{session_id}/export/pdf` — works. Uses ReportLab (`backend/services/pdf_generator.py`), pure Python, zero system deps (`fonts-dejavu-core` installed via `backend/nixpacks.toml` for Vietnamese glyphs). Migrated off WeasyPrint in commit `a1208a2b`; keep its content aligned with the current Next result surface.
+- Grammar recommendations: server-side (`grammar_recommendations` table, persisted per practice response); frontend keyword matching in `frontend/public/js/practice.js` is fallback only
 - Progress tracking: none — no band trend charts, no weakness tracking across sessions
 - `sessions.tokens_used` column must exist in Supabase for token tracking to work
 - `audio-responses` bucket must be public in Supabase Storage for audio replay to work

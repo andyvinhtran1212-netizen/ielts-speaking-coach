@@ -1,3 +1,12 @@
+## Change metadata
+
+Change class: <!-- hotfix | small | content | feature | high-risk -->
+Spec: <!-- N/A or an existing ID such as FEAT-0001 -->
+
+For `feature` and `high-risk`, link the approved `specs/NNNN-slug/spec.md` and
+list the implemented requirement IDs. Production promotion PRs from `staging`
+to `main` are exempt from repeating feature metadata.
+
 ## Release target
 
 - [ ] Normal feature/fix/content PR: base branch is `staging`.
@@ -6,6 +15,7 @@
 ## Verification
 
 - [ ] Tests for the changed layers are green.
+- [ ] Every applicable `FR-NNN` has automated or recorded manual evidence.
 - [ ] User-visible behavior was checked on the Vercel Preview or stable staging URL.
 - [ ] Database changes, if any, were applied and verified on staging before production.
 - [ ] Inline review comments are resolved.
@@ -13,3 +23,8 @@
 ## Risk and rollback
 
 Describe the affected flows, persisted data, migration ordering and rollback path.
+
+## Requirement coverage
+
+List `FR-NNN -> test/query/manual evidence`, or explain why this change uses
+`Spec: N/A`.
