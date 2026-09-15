@@ -426,6 +426,26 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                     report.add("error", "READING_ANSWER_LEAK", path,
                                "Reading learner question exposes private fields: "
                                + ", ".join(sorted(leaked)))
+                options = question.get("options") or []
+                if not isinstance(options, list) or any(
+                    not isinstance(option, dict) for option in options
+                ):
+                    report.add(
+                        "error", "READING_OPTION_ITEM_TYPE", path,
+                        "Every Reading option must be an object.",
+                    )
+                    continue
+                option_unexpected = sorted({
+                    key
+                    for option in options
+                    for key in set(option) - LISTENING_LEARNER_OPTION_FIELDS
+                })
+                if option_unexpected:
+                    report.add(
+                        "error", "READING_OPTION_FIELD_UNEXPECTED", path,
+                        "Reading options expose non-public fields: "
+                        + ", ".join(option_unexpected),
+                    )
 
         if len(listening) != 1:
             report.add("error", "LISTENING_ACTIVITY_COUNT", path,

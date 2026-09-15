@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { advancedVocabularyStudentState, canReturnSubmission, groupReportQuestions, normalizeAdvancedVocabularyResult, normalizeEffort, normalizeStudentReport, normalizeTally, normalizeWriting } from '../lib/admin-class-submissions-model.mjs';
+import { advancedVocabularyStudentState, canReturnSubmission, findAdvancedVocabularyEvidence, groupReportQuestions, normalizeAdvancedVocabularyResult, normalizeEffort, normalizeStudentReport, normalizeTally, normalizeWriting } from '../lib/admin-class-submissions-model.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -87,6 +87,7 @@ describe('admin class submissions model', () => {
       { id: '1', submitted_answer: 'Sandhu', is_correct: false },
     ]);
     assert.equal(out.students[0].required_stages.length, 6);
+    assert.equal(findAdvancedVocabularyEvidence(out, 's1', null), out.students[0]);
     assert.deepEqual(out.reference_only, ['writing', 'speaking']);
     assert.equal(normalizeAdvancedVocabularyResult({ kind: 'advanced_vocab', score_policy: 'percent', students: [] }), null);
     const base = { item: { opened_at: null, submitted_at: null }, stages: [], practice_attempts: [], sections: [], listening_attempts: [] };
@@ -97,6 +98,22 @@ describe('admin class submissions model', () => {
     assert.match(UI, /Xem đáp án sau self-check/);
     assert.match(UI, /Xem từng câu/);
     assert.match(UI, /stateLabel/);
+  });
+
+  test('opens advanced evidence for a learner who left the cohort', () => {
+    const out = normalizeAdvancedVocabularyResult({
+      kind: 'advanced_vocab', score_policy: 'none', students: [{
+        item: { id: 'i-gone', student_id: 's-gone', submitted_at: null },
+        student: { id: 's-gone', user_id: null },
+        stages: [{ stage: 'vocabulary', status: 'completed' }],
+        practice_attempts: [], sections: [], listening_attempts: [],
+      }],
+    });
+    assert.equal(findAdvancedVocabularyEvidence(out, 's-gone', null)?.item.id, 'i-gone');
+    const advancedBranch = UI.indexOf('if (isAdvancedVocabulary)');
+    const genericUserGuard = UI.indexOf('else if (userId)', advancedBranch);
+    assert.ok(advancedBranch > 0 && genericUserGuard > advancedBranch);
+    assert.match(UI.slice(advancedBranch, genericUserGuard), /findAdvancedVocabularyEvidence\(normalized, studentId, userId\)/);
   });
 
   test('preserves class misconception denominators and affected learners', () => {

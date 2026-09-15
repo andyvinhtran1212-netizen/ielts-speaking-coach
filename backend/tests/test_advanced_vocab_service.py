@@ -376,7 +376,15 @@ def test_section_grader_accepts_authored_codes_and_explicit_slash_variants():
 def test_learner_reading_projection_strips_source_and_correction_evidence(
     monkeypatch, lesson_id,
 ):
-    lesson = service.load_lesson(lesson_id)
+    lesson = deepcopy(service.load_lesson(lesson_id))
+    authored_reading = service._activity(lesson, "reading_lab")["content"]
+    option_question = next(
+        question for question in authored_reading["questions"]
+        if question.get("options")
+    )
+    option_question["options"][0].update({
+        "correct": True, "answer": "private", "evidence": "private",
+    })
     monkeypatch.setattr(service, "_progress", lambda _item: {
         "completed_stages": [], "stages": [], "answers": [], "sections": [],
         "listening_submitted": False, "required_completed": False,
@@ -395,6 +403,9 @@ def test_learner_reading_projection_strips_source_and_correction_evidence(
     assert "source_answer" not in serialized
     assert "source_evidence" not in serialized
     assert "correction_reason" not in serialized
+    assert '"correct"' not in serialized
+    assert '"answer"' not in serialized
+    assert '"evidence"' not in serialized
     assert set().union(*(question.keys() for question in reading["questions"])) == {
         "question_number", "question_type", "stem", "options",
     }

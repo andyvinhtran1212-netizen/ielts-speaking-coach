@@ -658,6 +658,21 @@ def test_reading_question_ids_must_be_unique_and_non_empty(tmp_path: Path):
     } <= _codes(report)
 
 
+def test_reading_rejects_private_option_fields(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    reading = next(a for a in lesson["activities"] if a["activity_type"] == "reading_lab")
+    reading["content"]["questions"][0]["options"] = [{
+        "letter": "A", "text": "Visible", "correct": True, "evidence": "Private",
+    }]
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+
+    assert "READING_OPTION_FIELD_UNEXPECTED" in _codes(report)
+
+
 def test_warning_prevents_publish_ready_without_invalidating_schema(tmp_path: Path):
     _write_package(tmp_path)
     path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"

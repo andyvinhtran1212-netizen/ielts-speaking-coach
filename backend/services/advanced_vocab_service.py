@@ -313,10 +313,18 @@ def _safe_question(item: dict, *, answered: bool = False,
 
 def _safe_reading_question(question: dict) -> dict:
     """Expose only fields needed to answer, never source/correction provenance."""
-    return {
+    safe = {
         key: question.get(key)
-        for key in ("question_number", "question_type", "stem", "options")
+        for key in ("question_number", "question_type", "stem")
     }
+    safe["options"] = [
+        {
+            key: option.get(key)
+            for key in ("key", "letter", "text") if key in option
+        }
+        for option in question.get("options") or [] if isinstance(option, dict)
+    ]
+    return safe
 
 
 def _safe_listening_question(question: dict) -> dict:

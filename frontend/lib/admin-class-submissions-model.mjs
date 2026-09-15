@@ -164,6 +164,16 @@ export function advancedVocabularyStudentState(data) {
   return hasEvidence ? 'doing' : 'untouched';
 }
 
+export function findAdvancedVocabularyEvidence(result, studentId, userId) {
+  const students = Array.isArray(result?.students) ? result.students : [];
+  const normalizedStudentId = nullableText(studentId);
+  const normalizedUserId = nullableText(userId);
+  return students.find((entry) => (
+    (normalizedStudentId && entry?.item?.student_id === normalizedStudentId) ||
+    (normalizedUserId && entry?.student?.user_id === normalizedUserId)
+  )) || null;
+}
+
 export function normalizeStudentReport(value) {
   const payload = object(value);
   if (!Array.isArray(payload.questions) || !Array.isArray(payload.history)) return null;

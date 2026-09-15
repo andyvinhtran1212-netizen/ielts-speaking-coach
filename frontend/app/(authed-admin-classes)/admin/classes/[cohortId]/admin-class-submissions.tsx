@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 
 import { Dialog, messageOf, StatusBanner } from '@/components/admin-directory-ui';
-import { advancedVocabularyStudentState, canReturnSubmission, groupReportQuestions, normalizeAdvancedVocabularyResult, normalizeEffort, normalizeStudentReport, normalizeTally, normalizeWriting } from '@/lib/admin-class-submissions-model.mjs';
+import { advancedVocabularyStudentState, canReturnSubmission, findAdvancedVocabularyEvidence, groupReportQuestions, normalizeAdvancedVocabularyResult, normalizeEffort, normalizeStudentReport, normalizeTally, normalizeWriting } from '@/lib/admin-class-submissions-model.mjs';
 
 import type { Banner } from './admin-class-detail-types';
 import type { AdvancedVocabularyResult, AdvancedVocabularyStudentResult, EffortPayload, StudentReport, SubmissionWorkspaceProps, TallyPayload, TallyStudent, WritingPayload } from './admin-class-submissions-types';
@@ -162,20 +162,18 @@ export function AdminClassSubmissions({ cohortId, assignment, initialStudent = n
       const effortRow = data?.students.find((item) => studentId ? item.student_id === studentId : item.user_id === initialUserId);
       const userId = effortRow?.user_id || initialUserId;
       setSelected({ studentId, userId, name: row.name || (studentId ? memberNames[studentId] : '') || 'Học viên đã rời lớp', hasWriting });
-      if (userId) {
-        if (isAdvancedVocabulary) {
-          try {
-            const normalized = normalizeAdvancedVocabularyResult(await window.api.get<unknown>(`/admin/advanced-vocab/assignments/${encodeURIComponent(assignment.id)}/results`)) as AdvancedVocabularyResult | null;
-            if (requestId !== sequence.current) return;
-            if (!normalized) throw new Error('Bằng chứng Advanced Vocabulary không đúng định dạng.');
-            const evidence = normalized.students.find((entry) => entry.student.user_id === userId || (studentId && entry.item.student_id === studentId));
-            if (!evidence) throw new Error('Không tìm thấy bằng chứng của học viên trong bài giao này.');
-            setAdvancedReport(evidence);
-          } catch (caught) { failures.push(`Không đọc được bằng chứng self-paced: ${messageOf(caught)}`); }
-        } else {
-          try { const normalized = normalizeStudentReport(await window.api.get<unknown>(`/admin/quiz/banks/${encodeURIComponent(bankId)}/students/${encodeURIComponent(userId)}/report?assignment_id=${encodeURIComponent(assignment.id)}`)) as StudentReport | null; if (requestId !== sequence.current) return; if (!normalized) throw new Error('Báo cáo từng câu không đúng định dạng.'); setReport(normalized); }
-          catch (caught) { failures.push(`Không đọc được bài từng câu: ${messageOf(caught)}`); }
-        }
+      if (isAdvancedVocabulary) {
+        try {
+          const normalized = normalizeAdvancedVocabularyResult(await window.api.get<unknown>(`/admin/advanced-vocab/assignments/${encodeURIComponent(assignment.id)}/results`)) as AdvancedVocabularyResult | null;
+          if (requestId !== sequence.current) return;
+          if (!normalized) throw new Error('Bằng chứng Advanced Vocabulary không đúng định dạng.');
+          const evidence = findAdvancedVocabularyEvidence(normalized, studentId, userId) as AdvancedVocabularyStudentResult | null;
+          if (!evidence) throw new Error('Không tìm thấy bằng chứng của học viên trong bài giao này.');
+          setAdvancedReport(evidence);
+        } catch (caught) { failures.push(`Không đọc được bằng chứng self-paced: ${messageOf(caught)}`); }
+      } else if (userId) {
+        try { const normalized = normalizeStudentReport(await window.api.get<unknown>(`/admin/quiz/banks/${encodeURIComponent(bankId)}/students/${encodeURIComponent(userId)}/report?assignment_id=${encodeURIComponent(assignment.id)}`)) as StudentReport | null; if (requestId !== sequence.current) return; if (!normalized) throw new Error('Báo cáo từng câu không đúng định dạng.'); setReport(normalized); }
+        catch (caught) { failures.push(`Không đọc được bài từng câu: ${messageOf(caught)}`); }
       }
     }
     if (requestId === sequence.current) { setError(failures.length ? failures.join(' ') : null); setLoading(false); }
