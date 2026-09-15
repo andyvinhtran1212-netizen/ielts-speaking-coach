@@ -566,7 +566,7 @@ def change_assignment_due_at(
     Cho tới nay không có đường nào trong sản phẩm làm việc này: ngày 07/08 muốn
     dời hạn Grammar 1 phải viết SQL rồi chạy tay trên máy chủ thật.
 
-    Hai chốt, và cả hai đều học từ chính lần chạy tay ấy:
+    Ba chốt, và cả ba đều học từ các đường ghi thật:
 
     · SO SÁNH RỒI ĐỔI. Người gọi phải nêu hạn mà MÀN HÌNH ĐANG HIỆN. Lệnh
       `UPDATE` chỉ nêu id thì nó ghi đè bất kể giá trị đang có — và giữa lúc mở
@@ -578,9 +578,15 @@ def change_assignment_due_at(
       cho tới khi người gọi xác nhận tường minh. Kịch bản chạy tay hôm 07/08
       cũng có đúng chốt này, và nó xanh vì lớp ấy không có ai nộp trễ — chốt
       đúng không phải vì nó im, mà vì nó đã đếm.
+
+    · ĐỒNG HỒ ĐÃ CHẠY THÌ HẠN ĐỨNG YÊN. Với Course có giới hạn thời gian,
+      `due_at` là một nửa của cutoff cá nhân (nửa kia là `opened_at + limit`).
+      Đổi nó sau lúc mở bài làm browser và server có thể kết luận khác nhau.
+      Migration 272 còn giữ chốt này trong database để lần bắt đầu đồng thời
+      với lần đổi hạn không lọt qua khe giữa hai request.
     """
     rows = (db.table("class_assignments")
-            .select("id, cohort_id, due_at, status, title")
+            .select("id, cohort_id, due_at, status, title, skill, content_config")
             .eq("id", assignment_id).limit(1).execute().data) or []
     if not rows or rows[0].get("cohort_id") != cohort_id:
         raise DueChangeRefused("Không tìm thấy bài giao của lớp này.")
@@ -600,10 +606,27 @@ def change_assignment_due_at(
         raise DueChangeRefused("Hạn mới giống hệt hạn đang có — không có gì để đổi.")
 
     submitted: List[str] = []
-    for chunk in _paged(db, "class_assignment_items", "id, submitted_at",
+    opened_count = 0
+    for chunk in _paged(db, "class_assignment_items", "id, submitted_at, opened_at",
                         lambda q: q.eq("assignment_id", assignment_id)):
         if chunk.get("submitted_at"):
             submitted.append(chunk["submitted_at"])
+        if chunk.get("opened_at"):
+            opened_count += 1
+
+    cfg = asg.get("content_config") or {}
+    timed_course = bool(
+        asg.get("skill") == "course"
+        and isinstance(cfg, dict)
+        and cfg.get("time_limit_minutes") is not None
+    )
+    if timed_course and opened_count:
+        raise DueChangeRefused(
+            "Không thể đổi hạn của bài kiểm tra có giới hạn thời gian sau khi "
+            "học viên đã bắt đầu.",
+            {"timed_started": True, "opened_count": opened_count,
+             "current_due_at": old_raw},
+        )
 
     flips = _flips(submitted, old_due, new_due)
     if flips["to_ontime"] or flips["to_late"]:
@@ -637,7 +660,19 @@ def change_assignment_due_at(
     # Nêu hạn CŨ trong điều kiện — 0 dòng nghĩa là tiền đề sai, và đúng lúc ấy
     # phải dừng chứ không ghi tiếp.
     q = q.is_("due_at", "null") if old_raw is None else q.eq("due_at", old_raw)
-    res = q.execute()
+    try:
+        res = q.execute()
+    except Exception as exc:
+        # Preflight phía trên cho thông báo sớm; trigger migration 272 là chốt
+        # chống race nếu một em mở bài ngay sau lần đọc ấy.
+        if "timed_course_due_locked_after_start" in str(exc):
+            raise DueChangeRefused(
+                "Không thể đổi hạn của bài kiểm tra có giới hạn thời gian sau "
+                "khi học viên đã bắt đầu.",
+                {"timed_started": True, "current_due_at": old_raw,
+                 "conflict": True},
+            ) from exc
+        raise
     if not (res.data or []):
         raise DueChangeRefused(
             "Hạn vừa đổi ở nơi khác. Tải lại bảng rồi thử lại.",

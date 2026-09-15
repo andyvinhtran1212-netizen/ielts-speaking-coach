@@ -148,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–271
+## Forward scope 230–272
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -190,6 +190,11 @@ timed Course run/revision session; a bank read may only adopt, while an explicit
 start creates the entitled session before releasing assignment/membership locks.
 Migration 271 gives new Course assessment banks the same transactional import
 guarantee: the bank row and complete question set commit together or not at all.
+
+Migration 272 freezes a timed Course assignment's class deadline after the
+first learner opens it. A marker on the assignment row makes concurrent start
+and due-date writes serialize on one canonical record, preventing the browser
+and server from enforcing different cutoffs.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence
