@@ -4,14 +4,14 @@
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-001 | `specs/_meta/constitution.md`; architecture assertions in validator tests | PASS |
-| FR-002 | Six files under `specs/_templates/`; repository validator | PASS |
-| FR-003 | Naming, metadata, non-empty section, ID, and full index consistency validator tests | PASS |
-| FR-004 | Verified-state incomplete-task plus concrete PASS and structured MANUAL/N/A evidence tests | PASS |
-| FR-005 | Full base-spec/risk immutability, diff-derived migration classification, risk/change-class alignment, exact coverage, spec-free detail, and promotion-exemption tests | PASS |
-| FR-006 | Dedicated `spec-governance.yml`; typecheck check names cannot be shadowed; promotion requires both workflows | PASS |
-| FR-007 | Updated `AGENTS.md` and `CLAUDE.md`; stale-path source scan | PASS |
-| FR-008 | Final diff contains governance, tests, and top-level documentation only | PASS |
+| FR-001 | kind=test; ref=backend/tests/test_validate_specs.py::test_repository_accepts_complete_verified_feature | PASS |
+| FR-002 | kind=check; ref=backend/scripts/validate_specs.py --root . | PASS |
+| FR-003 | kind=test; ref=backend/tests/test_validate_specs.py::test_repository_rejects_stale_active_index_title | PASS |
+| FR-004 | kind=test; ref=backend/tests/test_validate_specs.py::test_repository_rejects_underspecified_manual_and_na_evidence | PASS |
+| FR-005 | kind=test; ref=backend/tests/test_validate_specs.py::test_prior_approval_must_exist_at_topic_merge_base | PASS |
+| FR-006 | kind=test; ref=frontend/tests/staging-first-release-flow.test.mjs | PASS |
+| FR-007 | kind=check; ref=backend/tests/test_validate_specs.py::test_repository_accepts_complete_verified_feature | PASS |
+| FR-008 | kind=command; ref=git diff --check | PASS |
 
 ## Contract evidence
 

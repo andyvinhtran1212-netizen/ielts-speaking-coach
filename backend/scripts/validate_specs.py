@@ -158,26 +158,34 @@ def _concrete_pass_evidence(evidence: str) -> bool:
         return False
     fields = _structured_evidence(evidence)
     if {"kind", "ref"} <= fields.keys():
-        return not _placeholder_value(fields["kind"]) and not _placeholder_value(
-            fields["ref"]
+        return fields["kind"].lower() in {
+            "assertion",
+            "check",
+            "command",
+            "journey",
+            "query",
+            "report",
+            "screenshot",
+            "test",
+        } and _concrete_locator(fields["ref"])
+    return _concrete_locator(evidence)
+
+
+def _concrete_locator(value: str) -> bool:
+    locator = value.strip().strip("`")
+    if _placeholder_value(locator) or "<" in locator or ">" in locator:
+        return False
+    return bool(
+        re.search(r"https?://\S+", locator, re.IGNORECASE)
+        or re.search(r"(?:^|\s)(?:[\w.-]+/)+[\w./:-]+", locator)
+        or re.search(r"\b[\w.-]+::[\w.-]+\b", locator)
+        or re.match(r"^(?:pytest|npm|node|psql|curl|gh|git)\s+\S+", locator)
+        or re.fullmatch(
+            r"(?:report|screenshot|journey):[a-z0-9][\w.-]+",
+            locator,
+            re.IGNORECASE,
         )
-    generic = {
-        "automated",
-        "evidence",
-        "pass",
-        "passed",
-        "test",
-        "tests",
-        "unit",
-        "verified",
-        "verification",
-    }
-    meaningful_tokens = [
-        token
-        for token in re.findall(r"[a-z0-9_./:-]+", evidence.lower())
-        if len(token) >= 4 and token not in generic
-    ]
-    return len(evidence.strip()) >= 12 and bool(meaningful_tokens)
+    )
 
 
 def _declared_requirements(spec_text: str) -> dict[str, str]:
@@ -465,7 +473,9 @@ def _git_show(root: Path, revision: str, path: str) -> tuple[bool, str | None]:
     return True, result.stdout if result.returncode == 0 else None
 
 
-def _git_changed_paths(root: Path, base_sha: str, head_sha: str) -> tuple[bool, list[str]]:
+def _git_changed_paths(
+    root: Path, base_sha: str, head_sha: str
+) -> tuple[bool, str, list[str]]:
     for revision in (base_sha, head_sha):
         check = subprocess.run(
             ["git", "-C", str(root), "cat-file", "-e", f"{revision}^{{commit}}"],
@@ -474,7 +484,7 @@ def _git_changed_paths(root: Path, base_sha: str, head_sha: str) -> tuple[bool, 
             check=False,
         )
         if check.returncode != 0:
-            return False, []
+            return False, "", []
     merge_base = subprocess.run(
         ["git", "-C", str(root), "merge-base", base_sha, head_sha],
         capture_output=True,
@@ -482,7 +492,8 @@ def _git_changed_paths(root: Path, base_sha: str, head_sha: str) -> tuple[bool, 
         check=False,
     )
     if merge_base.returncode != 0 or not merge_base.stdout.strip():
-        return False, []
+        return False, "", []
+    merge_base_sha = merge_base.stdout.strip()
     result = subprocess.run(
         [
             "git",
@@ -490,7 +501,7 @@ def _git_changed_paths(root: Path, base_sha: str, head_sha: str) -> tuple[bool, 
             str(root),
             "diff",
             "--name-only",
-            merge_base.stdout.strip(),
+            merge_base_sha,
             head_sha,
         ],
         capture_output=True,
@@ -498,8 +509,8 @@ def _git_changed_paths(root: Path, base_sha: str, head_sha: str) -> tuple[bool, 
         check=False,
     )
     if result.returncode != 0:
-        return False, []
-    return True, [path for path in result.stdout.splitlines() if path]
+        return False, "", []
+    return True, merge_base_sha, [path for path in result.stdout.splitlines() if path]
 
 
 def _requirement_coverage(body: str) -> list[tuple[str, str]]:
@@ -543,10 +554,13 @@ def validate_pull_request(
         errors.append("pull request: add 'Spec: N/A' or an existing spec ID")
         return errors
 
+    merge_base_sha = ""
     if not base_sha or not head_sha:
         errors.append("pull request: base and head SHAs are required to classify changed paths")
     else:
-        diff_resolved, changed_paths = _git_changed_paths(root, base_sha, head_sha)
+        diff_resolved, merge_base_sha, changed_paths = _git_changed_paths(
+            root, base_sha, head_sha
+        )
         if not diff_resolved:
             errors.append("pull request: cannot resolve base/head SHAs to classify changed paths")
         else:
@@ -594,16 +608,18 @@ def validate_pull_request(
             if requires_spec:
                 approved_requirements: dict[str, str] | None = None
                 bootstrap = False
-                if not base_sha:
-                    errors.append("pull request: base SHA is required to verify prior spec approval")
+                if not merge_base_sha:
+                    errors.append(
+                        "pull request: merge base is required to verify prior spec approval"
+                    )
                 else:
                     revision_exists, base_spec_text = _git_show(
                         root,
-                        base_sha,
+                        merge_base_sha,
                         str((feature / "spec.md").relative_to(root)),
                     )
                     _, base_constitution = _git_show(
-                        root, base_sha, "specs/_meta/constitution.md"
+                        root, merge_base_sha, "specs/_meta/constitution.md"
                     )
                     bootstrap = spec_id == "SDD-0000" and base_constitution is None
                     if not revision_exists:

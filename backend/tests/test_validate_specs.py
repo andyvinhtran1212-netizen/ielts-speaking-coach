@@ -389,6 +389,13 @@ def test_repository_rejects_underspecified_manual_and_na_evidence(tmp_path: Path
     assert any("PASS evidence must identify" in error for error in generic_errors)
     verification.write_text(
         "## Requirement coverage\n\n"
+        "| FR-001 | all automated checks completed | PASS |\n",
+        encoding="utf-8",
+    )
+    prose_errors, _ = validator.validate_repository(root)
+    assert any("PASS evidence must identify" in error for error in prose_errors)
+    verification.write_text(
+        "## Requirement coverage\n\n"
         "| FR-001 | reviewer=<name>; environment=<preview>; date=2026-09-15; observed=<observable result> | MANUAL |\n",
         encoding="utf-8",
     )
@@ -929,6 +936,76 @@ def test_migration_classification_uses_topic_changes_from_merge_base(
         root,
     )
     assert any("backend/migrations/999_topic.sql" in error for error in migration_errors)
+
+
+def test_prior_approval_must_exist_at_topic_merge_base(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path, status="approved")
+    common_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    subprocess.run(["git", "checkout", "-qb", "topic"], cwd=root, check=True)
+    _write(root / "docs/implementation.md", "feature implementation\n")
+    subprocess.run(["git", "add", "docs/implementation.md"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "implement before approval"], cwd=root, check=True)
+    topic_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    subprocess.run(["git", "checkout", "-qb", "base-advance", common_sha], cwd=root, check=True)
+    source = root / "specs/0001-example-feature"
+    target = root / "specs/0002-late-approved"
+    target.mkdir()
+    for path in source.iterdir():
+        target.joinpath(path.name).write_text(
+            path.read_text(encoding="utf-8").replace("FEAT-0001", "FEAT-0002"),
+            encoding="utf-8",
+        )
+    index = root / "specs/README.md"
+    index.write_text(
+        index.read_text(encoding="utf-8")
+        + "| FEAT-0002 | Example | approved | medium | [spec](0002-late-approved/spec.md) |\n",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "specs"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "approve spec after topic diverged"], cwd=root, check=True)
+    base_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    subprocess.run(["git", "checkout", "topic"], cwd=root, check=True)
+    subprocess.run(
+        ["git", "merge", "--no-ff", "--no-edit", "base-advance"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    errors = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0002",
+            base_sha=base_sha,
+            head_sha=topic_sha,
+        ),
+        specs,
+        root,
+    )
+    assert any("approved in the base revision before implementation" in error for error in errors)
 
 
 def test_staging_to_main_promotion_is_exempt(tmp_path: Path) -> None:
