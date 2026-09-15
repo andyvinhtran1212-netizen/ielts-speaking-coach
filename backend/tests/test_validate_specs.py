@@ -278,6 +278,20 @@ def test_repository_ignores_structural_markdown_in_fenced_code(tmp_path: Path) -
     assert any("missing '## Problem'" in error for error in heading_errors)
 
 
+def test_visible_markdown_accepts_longer_closing_fence() -> None:
+    markdown = (
+        "Before.\n"
+        "```text\n"
+        "Change class: high-risk\n"
+        "````\n"
+        "Change class: small\n"
+    )
+    assert validator._visible_markdown(markdown) == "Before.\nChange class: small\n"
+
+    indented_code = "    ```text\n    hidden code, not a fence\n    ```\nAfter.\n"
+    assert validator._visible_markdown(indented_code) == indented_code
+
+
 def test_repository_rejects_empty_required_artifact(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     (root / "specs/0001-example-feature/plan.md").write_text("", encoding="utf-8")
@@ -1129,6 +1143,13 @@ def test_pull_request_ignores_metadata_and_sections_in_fenced_code(
     assert any("'Change class:' must be one of" in error for error in errors)
     assert any("add 'Spec: N/A'" in error for error in errors)
 
+    longer_closer = _event(root=root, change_class="small", spec="N/A")
+    longer_closer["pull_request"]["body"] = (
+        "```text\nChange class: high-risk\nSpec: FEAT-9999\n````\n"
+        + longer_closer["pull_request"]["body"]
+    )
+    assert validator.validate_pull_request(longer_closer, specs, root) == []
+
 
 def test_feature_pr_rejects_requirement_added_after_base_approval(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path, status="approved")
@@ -1456,6 +1477,45 @@ def test_constitution_new_obligation_requires_minor_bump(tmp_path: Path) -> None
     event["pull_request"]["body"] += (
         "\n## Constitution amendment\n\nAmendment class: minor\n\n"
         "Adds an expiry rule for exceptions.\n"
+    )
+    errors = validator.validate_pull_request(event, specs, root)
+    assert any("minor version bump to 1.1.0" in error for error in errors)
+
+
+def test_constitution_standalone_obligation_requires_minor_bump(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path)
+    base_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    constitution = root / "specs/_meta/constitution.md"
+    constitution.write_text(
+        constitution.read_text(encoding="utf-8")
+        .replace("version: 1.0.0", "version: 1.0.1")
+        .replace(
+            "## 9. Staging-first release\n",
+            "## 9. Staging-first release\n\n"
+            "Deployments MUST be manually approved.\n",
+        ),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", str(constitution)], cwd=root, check=True)
+    subprocess.run(
+        ["git", "commit", "-qm", "add standalone constitution obligation"],
+        cwd=root,
+        check=True,
+    )
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    event = _event(root=root, change_class="small", spec="N/A", base_sha=base_sha)
+    event["pull_request"]["body"] += (
+        "\n## Constitution amendment\n\nAmendment class: minor\n\n"
+        "Adds a manual deployment approval rule.\n"
     )
     errors = validator.validate_pull_request(event, specs, root)
     assert any("minor version bump to 1.1.0" in error for error in errors)

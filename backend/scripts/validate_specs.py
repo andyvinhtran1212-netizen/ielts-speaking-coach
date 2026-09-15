@@ -175,12 +175,29 @@ def _semver(value: Any) -> tuple[int, int, int] | None:
 
 def _visible_markdown(text: str) -> str:
     without_comments = re.sub(r"<!--.*?(?:-->|\Z)", "", text, flags=re.DOTALL)
-    return re.sub(
-        r"^[ \t]*(?P<fence>`{3,}|~{3,})[^\n]*\n.*?(?:^[ \t]*(?P=fence)[ \t]*$|\Z)",
-        "",
-        without_comments,
-        flags=re.MULTILINE | re.DOTALL,
-    )
+    visible: list[str] = []
+    fence_character: str | None = None
+    minimum_closing_length = 0
+    for line in without_comments.splitlines(keepends=True):
+        stripped_line = line.rstrip("\r\n")
+        if fence_character is None:
+            opener = re.match(r"^ {0,3}(?P<fence>`{3,}|~{3,})", stripped_line)
+            if opener:
+                fence = opener.group("fence")
+                fence_character = fence[0]
+                minimum_closing_length = len(fence)
+                continue
+            visible.append(line)
+            continue
+
+        closer = re.fullmatch(r" {0,3}(?P<fence>`{3,}|~{3,})[ \t]*", stripped_line)
+        if closer:
+            fence = closer.group("fence")
+            if fence[0] == fence_character and len(fence) >= minimum_closing_length:
+                fence_character = None
+                minimum_closing_length = 0
+
+    return "".join(visible)
 
 
 def _has_heading(text: str, heading: str) -> bool:
@@ -268,14 +285,28 @@ def _validate_foundation(specs: Path, errors: list[str]) -> None:
 
 
 def _constitutional_obligations(text: str) -> set[str]:
+    visible = _visible_markdown(text)
     obligations: set[str] = set()
-    for match in re.finditer(
-        r"^-\s+(?P<body>\S.*?(?:\n {2,}\S.*?)*)\s*(?=\n-\s+|\n##\s+|\Z)",
-        _visible_markdown(text),
-        re.MULTILINE,
-    ):
+    list_matches = list(
+        re.finditer(
+            r"^-\s+(?P<body>\S.*?(?:\n {2,}\S.*?)*)\s*(?=\n-\s+|\n##\s+|\Z)",
+            visible,
+            re.MULTILINE,
+        )
+    )
+    for match in list_matches:
         obligation = re.sub(r"\s+", " ", match.group("body")).strip()
         obligations.add(obligation)
+
+    # Constitution prose is allowed, but normative paragraphs must participate
+    # in semantic-version classification just like list-item obligations.
+    prose = list(visible)
+    for match in list_matches:
+        prose[match.start() : match.end()] = " " * (match.end() - match.start())
+    for paragraph in re.split(r"\n[ \t]*\n", "".join(prose)):
+        normalized = re.sub(r"\s+", " ", paragraph).strip()
+        if re.search(r"\b(?:MUST(?: NOT)?|SHOULD(?: NOT)?|MAY(?: NOT)?)\b", normalized):
+            obligations.add(normalized)
     return obligations
 
 
