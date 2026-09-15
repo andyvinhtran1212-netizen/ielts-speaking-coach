@@ -648,6 +648,60 @@ def test_timeout_rechecks_passed_at_after_losing_the_first_cas():
     mark.assert_not_called()
 
 
+def test_timeout_rechecks_near_pass_phase_after_losing_the_first_cas():
+    """A concurrent near-pass must make this stale run timeout a no-op."""
+    initial = {
+        "id": "it-1", "passed_at": None, "submitted_at": None,
+        "opened_at": "2026-09-15T01:00:00+00:00", "score": None,
+        "mastery": None, "updated_at": "before-near-pass",
+    }
+    winning = {
+        **initial,
+        "submitted_at": "2026-09-15T01:20:00+00:00", "score": 70,
+        "updated_at": "after-near-pass", "mastery": {"attempts": [{
+            "phase": "run", "pct": 70, "completed": True,
+            "next_action": "retake", "at": "2026-09-15T01:20:00+00:00",
+            "sessions": ["near-pass-session"],
+        }]},
+    }
+    state = {"item_selects": 0}
+    log = []
+
+    class _RaceItemTable(_Table):
+        def execute(self):
+            if self._patch is not None:
+                log.append((self._name, "update", self._patch,
+                            [row.get("id") for row in self._rows]))
+                return _Resp([])  # the near-pass writer won this CAS
+            state["item_selects"] += 1
+            return _Resp([initial if state["item_selects"] == 1 else winning])
+
+    tables = {
+        "class_assignments": [{"id": "asg-1", "content_config": {
+            "time_limit_minutes": 30, "pass_pct": 75,
+        }}],
+        "quiz_sessions": _sessions(
+            1, ended_by="time_cap", created_at="2026-09-15T01:00:00+00:00",
+        ),
+        "quiz_questions": _questions(10),
+        "quiz_attempts": [],
+    }
+    db = type("DB", (), {})()
+    db.table = lambda name: (
+        _RaceItemTable(name, [initial], log) if name == "class_assignment_items"
+        else _Table(name, tables.get(name, []), log)
+    )
+    with patch.object(qs, "supabase_admin", db), \
+         patch.object(qs, "_assignment_item_for", lambda b, u, **_kwargs: _ITEM):
+        out = qs.course_verdict(
+            user_id="u-1", bank_id="bank-1", session_ids=["s-0"],
+            timed_out=True, _allow_reaper_finalize=True,
+        )
+    assert out == {"superseded": True, "next_action": "retake"}
+    assert sum(1 for row in log if row[0:2] == (
+        "class_assignment_items", "update")) == 1
+
+
 def test_timed_out_retake_uses_the_retake_sample_as_denominator():
     ss = _sessions(
         1, kind="retake", ended_by="time_cap",

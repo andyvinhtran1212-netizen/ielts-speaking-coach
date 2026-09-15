@@ -257,6 +257,49 @@ def test_timed_bank_keeps_timer_when_optional_mastery_refresh_fails(refresh_resp
     assert out["mastery"]["expires_at"] == "2026-09-15T01:30:00+00:00"
 
 
+def test_timed_near_pass_bank_read_adopts_retake_phase_not_run():
+    mastery = {"attempts": [{
+        "phase": "run", "pct": 70, "completed": True,
+        "next_action": "retake", "at": "2026-09-15T12:20:00+00:00",
+        "sessions": ["completed-run"],
+    }]}
+    anchored = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "opened_at": "2026-09-15T12:00:00+00:00",
+        "due_at": None, "accepting": True, "passed_at": None,
+        # Simulate the near-pass committing after the first authorization read
+        # but before the canonical mastery refresh.
+        "mastery": None, "content_config": {"time_limit_minutes": 720},
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "code": "C1-MIDTERM", "skill_area": "course", "meta": {},
+        }],
+        ("class_assignment_items", "select"): [{
+            "passed_at": None, "mastery": mastery,
+        }],
+        ("class_assignments", "select"): [{
+            "id": "asg-timed", "status": "published", "publish_at": None,
+            "due_at": None,
+            "content_config": {"time_limit_minutes": 720, "pass_pct": 75},
+        }],
+        ("quiz_questions", "select"): [{"qid": "q-1", "type": "mcq"}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for_review",
+                      return_value=anchored), \
+         patch.object(quiz_service, "_ensure_timed_course_session",
+                      return_value=(anchored, None)) as ensure, \
+         patch.object(quiz_service, "_word_cards_for", return_value=[]), \
+         patch.object(quiz_service, "_attach_article_urls"), \
+         patch.object(quiz_service, "_resolve_question_audio"):
+        out = quiz_service.get_bank_for_play(
+            _BANK, user_id=_USER, assignment_item_id="item-timed",
+        )
+    assert out["mastery"]["course_action"] == "retake"
+    assert ensure.call_args.kwargs["kind"] == "retake"
+
+
 def test_timed_bank_question_failure_does_not_start_clock_or_session():
     """Prepare the answer-bearing payload before claiming a fixed time window."""
     unopened = {

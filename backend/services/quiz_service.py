@@ -915,6 +915,13 @@ def get_bank_for_play(
                                   and not effective_item.get("submitted_at")
                                   else None),
             )
+            # The locked timer/session gate runs after this refresh. Carry its
+            # newer phase forward so a near-pass persisted between the first
+            # authorization read and payload assembly adopts `retake`, not the
+            # stale `run` phase.
+            course_item = effective_item
+            course_preflight_assignment = assignment
+            course_preflight_action = learner_action
             mastery_state = {
                 # id MỤC bài giao — runner khoá trạng thái localStorage vào nó:
                 # em chuyển lớp rồi được giao lại CÙNG bank ở lớp mới là một
@@ -995,9 +1002,12 @@ def get_bank_for_play(
     # has happened.  Return that session id as part of the bank contract so a
     # stale localStorage fingerprint cannot make the runner create a duplicate.
     if course_item is not None and course_preflight_action != "review":
+        preflight_kind = ("retake"
+                          if course_preflight_action == "retake" else "run")
         course_item, initial_session_id = _ensure_timed_course_session(
             course_item, user_id=str(user_id), bank_id=bank_id,
-            code=bank.get("code"), allow_expired_existing=True,
+            code=bank.get("code"), kind=preflight_kind,
+            allow_expired_existing=True,
         )
         final_timer = assignment_timer_state(
             course_item, course_preflight_assignment or {},
@@ -4188,6 +4198,21 @@ def course_verdict(
             None,
         )
 
+        prior_action = _recorded_next_action(
+            attempts[-1] if attempts else None, cfg["pass_pct"],
+        )
+        if (phase == "run" and existing_attempt is None
+                and prior_action == "retake"):
+            # A near-pass authorizes only a revision. This check lives inside
+            # every CAS iteration so a near-pass that wins after the reaper's
+            # initial item snapshot still prevents its stale run orphan from
+            # appending a later zero-score timeout.
+            if _allow_reaper_finalize:
+                return {"superseded": True, "next_action": "retake"}
+            raise HTTPException(
+                422, "Lượt gần đạt chỉ được mở bài revision, không mở phiên mới lượt chính.",
+            )
+
         if (existing_attempt and existing_attempt.get("completed") is True
                 and existing_attempt.get("pct") is not None):
             required, evidence, artifacts = _course_completion_evidence(
@@ -4209,8 +4234,6 @@ def course_verdict(
         # của chính nó đang là dòng cuối, không thể dùng nó làm "lượt
         # trước" rồi tự bác lần gọi lại.
         if phase == "retake" and existing_attempt is None:
-            prior_action = _recorded_next_action(
-                attempts[-1] if attempts else None, cfg["pass_pct"])
             if prior_action != "retake":
                 raise HTTPException(
                     422, "Chỉ được kiểm tra lại sau một lượt gần đạt — "
@@ -4739,7 +4762,7 @@ def reap_expired_course_assessments(
             )
             verdict_kwargs["_allow_reaper_finalize"] = True
             verdict = course_verdict(**verdict_kwargs)
-            if verdict.get("already_passed"):
+            if verdict.get("already_passed") or verdict.get("superseded"):
                 continue
             result["finalized"] += 1
         except Exception as exc:  # noqa: BLE001
