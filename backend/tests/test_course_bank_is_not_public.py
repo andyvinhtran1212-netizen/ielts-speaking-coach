@@ -385,6 +385,27 @@ def test_a_LIVE_assignment_still_opens():
         assert _play(_assigned())["bank"]["code"] == "C1-B01"
 
 
+def test_timed_bank_read_anchors_clock_and_session_before_releasing_questions():
+    db = _assigned({"content_config": {"time_limit_minutes": 30}})
+    started = "2026-09-15T10:00:00+00:00"
+    with patch.object(mod, "_ensure_timed_course_session",
+                      return_value=({
+                          "id": "it-1", "assignment_id": "asg-1",
+                          "student_id": "st-1", "opened_at": started,
+                          "content_config": {"time_limit_minutes": 30},
+                      }, "sess-first")) as anchor, \
+         patch.object(mod, "_word_cards_for", lambda *_a, **_k: []), \
+         patch.object(mod, "_attach_article_urls", lambda *_a, **_k: None), \
+         patch.object(mod, "_resolve_question_audio", lambda *_a, **_k: None):
+        out = _play(db)
+    anchor.assert_called_once_with(
+        anchor.call_args.args[0], user_id="u1", bank_id="bank-course",
+        code="C1-B01", allow_expired_existing=True,
+    )
+    assert out["questions"], "không được phát đề nếu bước anchor không hoàn tất"
+    assert out["mastery"]["started_at"] == started
+
+
 # ── Hai cổng cho cùng một bank phải nói CÙNG MỘT CÂU ─────────────────────────
 
 def _started(db, user_id="u1"):

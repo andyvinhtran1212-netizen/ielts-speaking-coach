@@ -148,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–262
+## Forward scope 230–263
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -171,6 +171,11 @@ Migration 262 restores the structured Cambridge 15 Test 4 Reading Q07
 explanation after the canonical importer had overwritten migration 246's richer
 tips and removed its trap analysis. The importer and migration now share the
 same canonical payload.
+
+Migration 263 atomically anchors the per-student timer and creates the first
+quiz session before a timed Course bank releases its answer-bearing questions.
+It prevents both pre-start question exposure and a half-started timer with no
+session available for canonical timeout submission.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

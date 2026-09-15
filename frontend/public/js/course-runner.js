@@ -681,12 +681,21 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
 
       // Tạo phiên có thể hỏng lúc mở bài. Nút "Gửi lại" phải thử mở lại thật,
       // không được gọi mãi một flush không có sessionId rồi bắt làm lại 10 câu.
-      if (!sessionId && sessionFailed && pending.length) await openSession();
+      if (endedBy !== 'time_cap' && !sessionId && sessionFailed && pending.length) {
+        await openSession();
+      }
       let persisted = !sessionFailed;
       if (sessionId && !resumedRetakeFinal) {
         try {
           await inflight;        // chờ lượt đẩy nền xong rồi mới xét hàng đợi
-          await flush();
+          if (endedBy === 'time_cap') {
+            // Hết giờ: server từ chối mọi progress write sau ranh giới. Bỏ mẻ
+            // còn nằm ở client; các mẻ đã tới server trước hạn vẫn được verdict
+            // tự đọc và chấm. Cố flush ở đây chỉ làm kẹt quy trình thu bài.
+            pending = [];
+          } else {
+            await flush();
+          }
           await api.patch('/api/quiz/sessions/' + sessionId, {
             duration_sec: Math.round((now() - stageStartedAt) / 1000),
             total_questions: graded,

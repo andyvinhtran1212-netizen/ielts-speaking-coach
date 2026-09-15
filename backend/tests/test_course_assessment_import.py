@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import copy
+from unittest.mock import MagicMock
 
 import pytest
 
+from scripts.import_course_assessment_bank import _commit_bank
 from services.course_assessment_import import normalize_assessment_rows
 
 
@@ -58,3 +60,62 @@ def test_rejects_wrong_total_and_duplicate_full_items_but_allows_shared_instruct
     second["pa"] = list(reversed(_row()["pa"]))
     with pytest.raises(ValueError, match="trùng nguyên nội dung"):
         normalize_assessment_rows([_row(), second], expected_count=2)
+
+
+class _ImportDb:
+    def __init__(self, *, inserted=None, rpc_result=1, rpc_error=None):
+        self.inserted = inserted or []
+        self.rpc_result = rpc_result
+        self.rpc_error = rpc_error
+        self.calls = []
+
+    def table(self, name):
+        db = self
+        class Query:
+            op = None
+            payload = None
+            def insert(self, payload): self.op = "insert"; self.payload = payload; return self
+            def update(self, payload): self.op = "update"; self.payload = payload; return self
+            def delete(self): self.op = "delete"; return self
+            def eq(self, *_args): return self
+            def execute(self):
+                db.calls.append((name, self.op, self.payload))
+                return MagicMock(data=(db.inserted if self.op == "insert" else []))
+        return Query()
+
+    def rpc(self, name, params):
+        db = self
+        class Rpc:
+            def execute(self):
+                db.calls.append((name, "rpc", params))
+                if db.rpc_error:
+                    raise db.rpc_error
+                return MagicMock(data=db.rpc_result)
+        return Rpc()
+
+
+def test_existing_bank_metadata_changes_only_after_question_replace_succeeds():
+    db = _ImportDb()
+    _commit_bank(db, existing=[{"id": "bank-old"}],
+                 payload={"title": "new"}, rows=[{"qid": "q1"}])
+    assert [(name, op) for name, op, _ in db.calls] == [
+        ("quiz_replace_questions", "rpc"), ("quiz_banks", "update"),
+    ]
+
+
+def test_existing_bank_keeps_metadata_when_question_replace_fails():
+    db = _ImportDb(rpc_error=RuntimeError("replace failed"))
+    with pytest.raises(RuntimeError, match="replace failed"):
+        _commit_bank(db, existing=[{"id": "bank-old"}],
+                     payload={"title": "new"}, rows=[{"qid": "q1"}])
+    assert not any(name == "quiz_banks" and op == "update"
+                   for name, op, _ in db.calls)
+
+
+def test_new_orphan_bank_is_deleted_when_question_replace_fails():
+    db = _ImportDb(inserted=[{"id": "bank-new"}],
+                   rpc_error=RuntimeError("replace failed"))
+    with pytest.raises(RuntimeError, match="replace failed"):
+        _commit_bank(db, existing=[], payload={"title": "new"},
+                     rows=[{"qid": "q1"}])
+    assert ("quiz_banks", "delete", None) in db.calls

@@ -785,6 +785,20 @@ def get_bank_for_play(
         ) if user_id else None)
         if not item:
             raise HTTPException(404, "Không tìm thấy bank")
+        # Timed assessment questions carry their answer key.  Anchor the clock
+        # and its first session atomically before the question query below can
+        # release that payload.  Submitted items are read-only historical views
+        # and must not start a new timer/session merely because they are opened.
+        preflight_assignment = {
+            "status": "published", "publish_at": None,
+            "due_at": item.get("due_at"),
+            "content_config": item.get("content_config") or {},
+        }
+        if course_assignment_action(item, preflight_assignment) != "review":
+            item, _ = _ensure_timed_course_session(
+                item, user_id=str(user_id), bank_id=bank_id,
+                code=bank.get("code"), allow_expired_existing=True,
+            )
         # Trạng thái cổng thuộc-bài, để trang nói được "đã đạt" ngay khi mở lại
         # thay vì bắt làm lại từ đầu mới biết. Best-effort: đọc hỏng thì trang
         # vẫn chạy, chỉ thiếu tấm huy hiệu.
@@ -1407,36 +1421,59 @@ def _assert_retake_allowed(item: dict | None) -> None:
                                  "không thể mở bài kiểm tra lại 20 câu.")
 
 
-def _start_course_assignment_timer(item: dict | None) -> dict | None:
-    """Stamp and read back the immutable first-open anchor for a timed bank."""
+def _ensure_timed_course_session(
+    item: dict | None, *, user_id: str, bank_id: str, code: str | None,
+    allow_expired_existing: bool = False,
+) -> tuple[dict | None, str | None]:
+    """Atomically anchor a timed assignment and create its first quiz session.
+
+    The bank payload contains the answers, so this must complete *before* a timed
+    bank read releases questions.  Migration 263 performs the item update and
+    session insert in one transaction: a failed insert cannot leave a clock with
+    no session that can later be submitted as timed out.
+
+    ``allow_expired_existing`` is used only by the bank read.  Once a learner has
+    already opened the assessment, a reload after expiry may still read it to
+    finalize/review the canonical timed-out attempt; it never creates a new
+    session after the boundary.
+    """
     if not item:
-        return item
+        return item, None
     assignment = {"content_config": item.get("content_config") or {}}
     timer = assignment_timer_state(item, assignment)
     if not timer.get("is_timed"):
-        return item
+        return item, None
     if timer.get("invalid"):
         raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
     if item.get("opened_at"):
-        if timer.get("is_expired"):
+        if timer.get("is_expired") and not allow_expired_existing:
             raise HTTPException(409, "Đã hết thời gian làm bài.")
-        return item
+        return item, None
 
-    opened_at = _now()
     try:
-        (supabase_admin.table("class_assignment_items")
-         .update({"state": "opened", "opened_at": opened_at})
-         .eq("id", item["id"]).is_("opened_at", "null").execute())
-        rows = (supabase_admin.table("class_assignment_items")
-                .select("opened_at, state").eq("id", item["id"])
-                .limit(1).execute().data) or []
+        rows = (supabase_admin.rpc(
+            "quiz_start_timed_course_session", {
+                "p_item_id": item["id"],
+                "p_user_id": user_id,
+                "p_bank_id": bank_id,
+                "p_code": code,
+            },
+        ).execute().data) or []
     except Exception as exc:  # noqa: BLE001
+        detail = str(exc)
+        if "timed_course_assignment_expired" in detail:
+            raise HTTPException(409, "Đã hết thời gian làm bài.") from exc
+        if "timed_course_limit_invalid" in detail:
+            raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.") from exc
         raise HTTPException(
             500, "Chưa khởi động được đồng hồ làm bài. Hãy thử lại.",
         ) from exc
-    if not rows or not rows[0].get("opened_at"):
+    row = rows[0] if rows else {}
+    started_at = row.get("timer_started_at")
+    session_id = row.get("session_id")
+    if not started_at:
         raise HTTPException(500, "Chưa khởi động được đồng hồ làm bài. Hãy thử lại.")
-    return {**item, **rows[0]}
+    return {**item, "opened_at": started_at, "state": "opened"}, session_id
 
 
 def start_session(
@@ -1465,8 +1502,11 @@ def start_session(
         bank_id, user_id, assignment_item_id=assignment_item_id,
     ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
             if bank.get("skill_area") == COURSE_AREA else None)
+    first_session_id = None
     if bank.get("skill_area") == COURSE_AREA:
-        item = _start_course_assignment_timer(item)
+        item, first_session_id = _ensure_timed_course_session(
+            item, user_id=user_id, bank_id=bank_id, code=bank.get("code"),
+        )
     if kind == "retake":
         _assert_retake_allowed(item)
     row = {
@@ -1478,13 +1518,17 @@ def start_session(
     # phiên retake.
     if kind != "run":
         row["kind"] = kind
-    try:
-        res = supabase_admin.table("quiz_sessions").insert(row).execute()
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi tạo session: {exc}")
-    if not res.data:
-        raise HTTPException(500, "Insert session không trả về dòng nào")
-    response = {"session_id": res.data[0]["id"], "resume": resume}
+    if first_session_id:
+        session_id = first_session_id
+    else:
+        try:
+            res = supabase_admin.table("quiz_sessions").insert(row).execute()
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(500, f"Lỗi tạo session: {exc}")
+        if not res.data:
+            raise HTTPException(500, "Insert session không trả về dòng nào")
+        session_id = res.data[0]["id"]
+    response = {"session_id": session_id, "resume": resume}
     if item:
         response["timer"] = assignment_timer_state(
             item, {"content_config": item.get("content_config") or {}},
@@ -2131,10 +2175,46 @@ def _record_quiz_kp_evidence(user_id: str, bank_id: str, attempt_rows: list[dict
         logger.warning("[quiz] KP evidence recording skipped (non-fatal): %s", e)
 
 
+def _assert_quiz_progress_writable(session: dict) -> None:
+    """Reject writes to closed sessions and Course attempts past their clock."""
+    if session.get("ended_at") or session.get("ended_by"):
+        raise HTTPException(409, "Phiên này đã kết thúc — không thể ghi thêm đáp án.")
+    item_id = session.get("class_assignment_item_id")
+    if not item_id:
+        return
+    try:
+        items = (supabase_admin.table("class_assignment_items")
+                 .select("id, assignment_id, opened_at, submitted_at, passed_at, mastery")
+                 .eq("id", item_id).limit(1).execute().data) or []
+        if not items:
+            raise HTTPException(404, "Không tìm thấy mục bài giao")
+        assignments = (supabase_admin.table("class_assignments")
+                       .select("id, skill, status, publish_at, due_at, content_config")
+                       .eq("id", items[0]["assignment_id"])
+                       .limit(1).execute().data) or []
+        if not assignments:
+            raise HTTPException(404, "Không tìm thấy bài giao")
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi kiểm tra đồng hồ làm bài: {exc}") from exc
+    assignment = assignments[0]
+    if assignment.get("skill") != COURSE_AREA:
+        return
+    if course_assignment_action(items[0], assignment) == "review":
+        raise HTTPException(409, "Bài đã được thu — không thể ghi thêm đáp án.")
+    timer = assignment_timer_state(items[0], assignment)
+    if timer.get("invalid"):
+        raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
+    if timer.get("is_timed") and timer.get("is_expired"):
+        raise HTTPException(409, "Đã hết thời gian làm bài — đáp án này không được ghi.")
+
+
 def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_stats: list[dict]) -> dict:
     """Batch-persist attempts (append) + word_stats (upsert by user+bank+item).
     The client owns the mastery decision; we store its snapshots."""
     session = _owned_session(session_id, user_id)
+    _assert_quiz_progress_writable(session)
     bank_id = session["bank_id"]
 
     attempts = attempts or []
@@ -3736,8 +3816,15 @@ def course_verdict(
         raise HTTPException(404, "Không tìm thấy mục bài giao")
     cur = cur[0]
     timer = assignment_timer_state(cur, assignment)
-    if timed_out and not (timer.get("is_timed") and timer.get("is_expired")):
+    if timer.get("invalid"):
+        raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
+    server_timed_out = bool(timer.get("is_timed") and timer.get("is_expired"))
+    if timed_out and not server_timed_out:
         raise HTTPException(422, "Đồng hồ máy chủ chưa hết thời gian.")
+    # The client flag is only a hint.  Once the canonical server clock expires,
+    # every verdict is a timeout verdict, including a forged/legacy request that
+    # sends timed_out=false after ending a session just before the boundary.
+    timed_out = server_timed_out
 
     # TỪNG phiên phải là của đúng người, đúng bank, đúng mục, và ĐÃ chốt.
     # Thiếu một phiên (id lạ, của người khác) → từ chối cả lượt chứ không xét
@@ -3790,11 +3877,8 @@ def course_verdict(
     # do dấu thời gian trên máy chủ quyết, nên nộp thêm phiên chỉ có thể kéo về
     # lượt SỚM HƠN, không bao giờ về lượt điểm cao hơn.
     seen: dict = {}
-    cutoff = None
-    if timed_out and timer.get("expires_at"):
-        cutoff = _at(timer["expires_at"])
-        if cutoff is not None:
-            cutoff += timedelta(seconds=10)
+    cutoff = (_at(timer.get("expires_at"))
+              if timer.get("is_timed") and timer.get("expires_at") else None)
     for a in sorted(att, key=lambda x: x.get("created_at") or ""):
         if cutoff is not None:
             created_at = _at(a.get("created_at"))

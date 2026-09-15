@@ -30,7 +30,7 @@ class _FakeSupabase:
         return _FakeQuery(self, name)
 
     def rpc(self, name, params):
-        return _FakeRpc(self, name)
+        return _FakeRpc(self, name, params)
 
 
 class _FakeStorage:
@@ -46,11 +46,13 @@ class _FakeBucket:
 
 
 class _FakeRpc:
-    def __init__(self, p, name):
-        self._p = p; self._name = name
+    def __init__(self, p, name, params):
+        self._p = p; self._name = name; self._params = params
 
     def execute(self):
         data = self._p.responses.get(("rpc", self._name), [])
+        self._p.calls.append({"table": "rpc:" + self._name, "op": "rpc",
+                              "payload": self._params, "filters": []})
         if isinstance(data, Exception):
             raise data
         return MagicMock(data=data)
@@ -593,6 +595,32 @@ def test_start_session_creates_and_returns_resume():
     assert ins["payload"]["user_id"] == _USER
 
 
+def test_timed_course_start_uses_atomic_timer_and_session_rpc():
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_start_timed_course_session"): [{
+            "session_id": _SESS,
+            "timer_started_at": "2026-09-15T10:00:00+00:00",
+        }],
+    })
+    item = {
+        "id": "item-timed", "opened_at": None,
+        "content_config": {"time_limit_minutes": 30},
+    }
+    with patch.object(quiz_service, "supabase_admin", fake):
+        opened, session_id = quiz_service._ensure_timed_course_session(
+            item, user_id=_USER, bank_id=_BANK, code="C1-MIDTERM",
+        )
+    assert session_id == _SESS
+    assert opened["opened_at"] == "2026-09-15T10:00:00+00:00"
+    rpc = next(call for call in fake.calls if call["op"] == "rpc")
+    assert rpc["payload"] == {
+        "p_item_id": "item-timed", "p_user_id": _USER,
+        "p_bank_id": _BANK, "p_code": "C1-MIDTERM",
+    }
+    assert not any(call["table"] == "quiz_sessions" and call["op"] == "insert"
+                   for call in fake.calls)
+
+
 # ── reset progress ("Làm lại từ đầu") ────────────────────────────────
 
 def test_reset_progress_deletes_word_stats_scoped_to_user_and_bank():
@@ -633,6 +661,52 @@ def test_log_progress_rejects_foreign_session():
         with pytest.raises(HTTPException) as e:
             quiz_service.log_progress(user_id=_USER, session_id=_SESS, attempts=[], word_stats=[])
     assert e.value.status_code == 403
+
+
+def test_log_progress_rejects_an_already_ended_session():
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "select"): [{
+            "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+            "ended_at": "2026-09-15T10:00:00+00:00",
+            "ended_by": "completed",
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as error:
+            quiz_service.log_progress(
+                user_id=_USER, session_id=_SESS,
+                attempts=[{"item_key": "x", "is_correct": True}], word_stats=[],
+            )
+    assert error.value.status_code == 409
+    assert not any(call["table"] == "quiz_attempts" for call in fake.calls)
+
+
+def test_log_progress_rejects_course_answers_after_server_timer_expiry():
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "select"): [{
+            "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+            "class_assignment_item_id": "item-timed",
+            "ended_at": None, "ended_by": None,
+        }],
+        ("class_assignment_items", "select"): [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "opened_at": "2000-01-01T00:00:00+00:00", "submitted_at": None,
+        }],
+        ("class_assignments", "select"): [{
+            "id": "asg-timed", "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as error:
+            quiz_service.log_progress(
+                user_id=_USER, session_id=_SESS,
+                attempts=[{"item_key": "x", "is_correct": True}], word_stats=[],
+            )
+    assert error.value.status_code == 409
+    assert "hết thời gian" in error.value.detail
+    assert not any(call["table"] == "quiz_attempts" for call in fake.calls)
 
 
 def test_log_progress_inserts_attempts_and_upserts_stats():

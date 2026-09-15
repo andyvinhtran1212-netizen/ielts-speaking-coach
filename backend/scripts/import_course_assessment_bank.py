@@ -34,6 +34,37 @@ def _course(db, code: str) -> dict:
     return rows[0]
 
 
+def _commit_bank(db, *, existing: list[dict], payload: dict,
+                 rows: list[dict]) -> tuple[str, object]:
+    """Replace questions first; publish matching metadata only after success."""
+    created = not existing
+    if existing:
+        bank_id = existing[0]["id"]
+    else:
+        inserted = db.table("quiz_banks").insert(payload).execute().data or []
+        if not inserted:
+            raise RuntimeError("Tạo bank không trả về id.")
+        bank_id = inserted[0]["id"]
+        logger.info("Đã tạo bank %s.", bank_id)
+
+    try:
+        written = db.rpc(
+            "quiz_replace_questions", {"p_bank_id": bank_id, "p_rows": rows},
+        ).execute().data
+    except Exception:
+        if created:
+            try:
+                db.table("quiz_banks").delete().eq("id", bank_id).execute()
+            except Exception as cleanup_exc:  # noqa: BLE001
+                logger.error("Không dọn được bank mới sau lỗi import: %s", cleanup_exc)
+        raise
+
+    if existing:
+        db.table("quiz_banks").update(payload).eq("id", bank_id).execute()
+        logger.info("Bank đã có → cập nhật %s.", bank_id)
+    return bank_id, written
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--file", required=True)
@@ -97,23 +128,15 @@ def main() -> int:
             "source_sha256": source_sha256(raw),
         },
     }
-    if existing:
-        bank_id = existing[0]["id"]
-        supabase_admin.table("quiz_banks").update(payload).eq("id", bank_id).execute()
-        logger.info("Bank đã có → cập nhật %s.", bank_id)
-    else:
-        inserted = supabase_admin.table("quiz_banks").insert(payload).execute().data or []
-        if not inserted:
-            raise SystemExit("Tạo bank không trả về id.")
-        bank_id = inserted[0]["id"]
-        logger.info("Đã tạo bank %s.", bank_id)
-
     try:
-        written = supabase_admin.rpc(
-            "quiz_replace_questions", {"p_bank_id": bank_id, "p_rows": rows},
-        ).execute().data
+        bank_id, written = _commit_bank(
+            supabase_admin, existing=existing, payload=payload, rows=rows,
+        )
     except Exception as exc:  # noqa: BLE001
-        logger.error("Ghi câu hỏi hỏng; bank vẫn private: %s", exc)
+        logger.error(
+            "Ghi câu hỏi hỏng; metadata bank cũ chưa bị đổi%s: %s",
+            " và bank mới đã được dọn" if not existing else "", exc,
+        )
         return 1
     logger.info("Đã ghi %s câu; bank private và sẵn sàng để admin giao.", written)
     return 0

@@ -428,6 +428,32 @@ def test_timed_out_run_counts_unanswered_questions_as_wrong_and_closes_item():
     mark.assert_called_once()
 
 
+def test_expired_server_clock_forces_timeout_and_discards_late_answers_without_flag():
+    """A forged timed_out=false cannot turn post-expiry writes into a pass."""
+    ss = _sessions(
+        1, ended_by="completed", created_at="2026-09-15T01:00:00+00:00",
+    )
+    item = {
+        "id": "it-1", "passed_at": None, "submitted_at": None,
+        "opened_at": "2026-09-15T01:00:00+00:00",
+        "mastery": None, "score": None,
+    }
+    attempts = _attempts(ss, _given(10))
+    for index, attempt in enumerate(attempts):
+        attempt["created_at"] = (
+            "2026-09-15T01:29:59+00:00" if index == 0
+            else "2026-09-15T01:30:01+00:00"
+        )
+    with patch.object(qs, "mark_item_submitted", return_value=True):
+        out, _ = _verdict(
+            sessions=ss, attempts=attempts, item_row=item,
+            config={"time_limit_minutes": 30}, timed_out=False,
+        )
+    assert out["timed_out"] is True
+    assert out["pct"] == 10.0
+    assert out["next_action"] == "timed_out"
+
+
 def test_timed_out_retake_uses_the_retake_sample_as_denominator():
     ss = _sessions(
         1, kind="retake", ended_by="time_cap",

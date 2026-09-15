@@ -159,11 +159,15 @@ test('uses the server deadline and submits a time-cap verdict', async () => {
   const runner = createRunner({ api, storage: null, now: () => clock });
   await runner.load('b1', { assignmentItemId: 'item-timed' });
   assert.equal(runner.timeRemainingSeconds(), 60);
+  runner.answer(0);
+  assert.equal(runner.pendingCount, 1);
 
   clock = 61000;
   assert.equal(runner.isTimedOut(), true);
   await runner.finishStage({ endedBy: 'time_cap' });
   await runner.verdict();
+  assert.equal(api.calls.post.filter((call) => call.path.endsWith('/progress')).length, 0,
+    'client must not try to upload queued answers after the canonical deadline');
   assert.equal(api.calls.patch.at(-1).body.ended_by, 'time_cap');
   assert.equal(api.calls.post.at(-1).body.timed_out, true);
 });
