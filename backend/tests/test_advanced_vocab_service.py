@@ -202,15 +202,49 @@ def test_server_grader_uses_authored_text_variants_and_integer_choice_keys():
 
 def test_section_grader_accepts_authored_codes_and_explicit_slash_variants():
     results = service._answer_results(
-        {"10": "G", "3": "5", "wrong": "not-the-answer"},
+        {
+            "10": "G", "3": "5", "or-first": "street",
+            "or-second": "kerb", "wrong": "not-the-answer",
+        },
         [
             {"id": "10", "answer": "embodied", "answer_code": "G"},
             {"id": "3", "answer": "five (sharp) / 5"},
+            {"id": "or-first", "answer": "street (OR kerb)"},
+            {"id": "or-second", "answer": "street (OR kerb)"},
             {"id": "wrong", "answer": "correct"},
         ],
     )
 
-    assert [row["is_correct"] for row in results] == [True, True, False]
+    assert [row["is_correct"] for row in results] == [True, True, True, True, False]
+
+
+def test_learner_reading_projection_strips_source_and_correction_evidence(monkeypatch):
+    lesson = service.load_lesson("ADV-T22")
+    monkeypatch.setattr(service, "_progress", lambda _item: {
+        "completed_stages": [], "stages": [], "answers": [], "sections": [],
+        "listening_submitted": False, "required_completed": False,
+    })
+    monkeypatch.setattr(service, "_assigned_lesson", lambda **_kwargs: (
+        {"id": "bank-1", "code": "C4-ADV-T22", "title": "Advanced T22"},
+        {"id": "item-1"}, lesson,
+    ))
+
+    reading = service.learner_lesson(
+        user_id="user-1", bank_id="bank-1", item_id="item-1",
+    )["lesson"]["activities"]["reading"]
+    serialized = json.dumps(reading)
+
+    assert "solutions" not in reading
+    assert "source_answer" not in serialized
+    assert "source_evidence" not in serialized
+    assert "correction_reason" not in serialized
+    assert set().union(*(question.keys() for question in reading["questions"])) == {
+        "question_number", "question_type", "stem", "options",
+    }
+    authored = service._answer_rows(
+        service._activity(lesson, "reading_lab")["content"],
+    )
+    assert any(row.get("evidence") for row in authored)
 
 
 def test_core30_assets_exist_for_every_card_and_core_media():
@@ -349,6 +383,55 @@ def test_listening_retry_persists_correction_before_revealing_key(monkeypatch):
     }
     assert inserted[0]["section"] == "listening"
     assert inserted[0]["content_snapshot"]["guided_retry"]["initial_wrong_ids"] == ["1"]
+
+
+def test_listening_retry_rejects_a_different_canonical_race_winner(monkeypatch):
+    lesson = _lesson()
+    content = service._activity(lesson, "listening_lab")["content"]
+    key = service._answer_rows(content)
+    initial = {row["id"]: row["answer"] for row in key}
+    initial["1"] = "wrong"
+    saved = {
+        "answers": initial, "answer_key": key, "content_snapshot": content,
+        "total": len(key), "correct": len(key) - 1, "score": 83.33,
+        "duration_sec": 300,
+    }
+    winner = {
+        "content_snapshot": {"guided_retry": {"answers": {"1": "other"}}},
+    }
+
+    class _RacingSections:
+        def __init__(self): self.reads = 0
+        def select(self, *_args): return self
+        def eq(self, *_args): return self
+        def limit(self, *_args): return self
+        def insert(self, _payload): return self
+        def execute(self):
+            self.reads += 1
+            if self.reads == 1:
+                return SimpleNamespace(data=[])
+            if self.reads == 2:
+                raise RuntimeError("23505 duplicate key")
+            return SimpleNamespace(data=[winner])
+
+    sections = _RacingSections()
+    monkeypatch.setattr(service, "_assigned_lesson", lambda **_kwargs: (
+        {"id": "bank-1"}, {"id": "item-1"}, lesson,
+    ))
+    monkeypatch.setattr(service, "_listening_attempt", lambda _item: saved)
+    monkeypatch.setattr(
+        service, "_admin",
+        lambda: type("Admin", (), {"table": lambda _self, _name: sections})(),
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        service.complete_listening_guided_retry(
+            user_id="user-1", bank_id="bank-1", item_id="item-1",
+            answers={"1": key[0]["answer"]},
+        )
+
+    assert exc.value.status_code == 409
+    assert "nơi khác" in exc.value.detail
 
 
 def test_progress_restores_frozen_section_review_after_reveal(monkeypatch):

@@ -261,6 +261,14 @@ def _safe_question(item: dict, *, answered: bool = False,
     return safe
 
 
+def _safe_reading_question(question: dict) -> dict:
+    """Expose only fields needed to answer, never source/correction provenance."""
+    return {
+        key: question.get(key)
+        for key in ("question_number", "question_type", "stem", "options")
+    }
+
+
 def _stage_rows(item_id: str) -> list[dict]:
     return (_admin().table("advanced_vocab_stage_progress")
             .select("stage,status,evidence,completed_at")
@@ -352,6 +360,10 @@ def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
     activities: dict[str, Any] = {}
     reading = dict((_activity(lesson, "reading_lab").get("content") or {}))
     reading.pop("solutions", None)
+    reading["questions"] = [
+        _safe_reading_question(question)
+        for question in reading.get("questions") or []
+    ]
     activities["reading"] = reading
     rewrite = controlled_rewrite_parts(lesson)
     rewrite_completed = "controlled_rewrite" in set(progress["completed_stages"])
@@ -631,6 +643,14 @@ def _answer_results(answers: dict, key: list[dict]) -> list[dict]:
                 values.append(candidate)
                 if isinstance(candidate, str) and "/" in candidate:
                     values.extend(part.strip() for part in candidate.split("/") if part.strip())
+                if isinstance(candidate, str):
+                    parenthesized_or = re.fullmatch(
+                        r"\s*(.+?)\s*\(\s*OR\s+(.+?)\s*\)\s*",
+                        candidate,
+                        flags=re.IGNORECASE,
+                    )
+                    if parenthesized_or:
+                        values.extend(part.strip() for part in parenthesized_or.groups())
         return values
 
     return [{
@@ -807,28 +827,46 @@ def complete_listening_guided_retry(*, user_id: str, bank_id: str, item_id: str,
         "score": float(saved.get("score") or 0),
         "duration_sec": int(saved.get("duration_sec") or 0),
     }
+    canonical: dict | None = None
     try:
         existing = (_admin().table("course_section_submissions").select("*")
                     .eq("class_assignment_item_id", item_id)
                     .eq("section", "listening").limit(1).execute().data) or []
         if existing:
-            evidence = (existing[0].get("content_snapshot") or {}).get("guided_retry") or {}
+            canonical = existing[0]
+            evidence = (canonical.get("content_snapshot") or {}).get("guided_retry") or {}
             if (evidence.get("answers") or {}) != corrected:
                 raise HTTPException(409, "Bước sửa Listening đã hoàn tất")
         else:
-            (_admin().table("course_section_submissions").insert(payload).execute())
+            rows = (_admin().table("course_section_submissions")
+                    .insert(payload).execute().data) or []
+            canonical = rows[0] if rows else payload
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
         if "23505" not in str(exc) and "duplicate key" not in str(exc).lower():
             raise HTTPException(500, "Không lưu được bước sửa Listening") from exc
-    final_answers = {**(saved.get("answers") or {}), **corrected}
+        raced = (_admin().table("course_section_submissions").select("*")
+                 .eq("class_assignment_item_id", item_id)
+                 .eq("section", "listening").limit(1).execute().data) or []
+        if not raced:
+            raise HTTPException(409, "Bước sửa Listening đã hoàn tất ở nơi khác") from exc
+        canonical = raced[0]
+        evidence = (canonical.get("content_snapshot") or {}).get("guided_retry") or {}
+        if (evidence.get("answers") or {}) != corrected:
+            raise HTTPException(409, "Bước sửa Listening đã hoàn tất ở nơi khác") from exc
+    canonical_retry = ((canonical or {}).get("content_snapshot") or {}).get(
+        "guided_retry",
+    ) or retry_evidence
+    final_answers = {
+        **(saved.get("answers") or {}), **(canonical_retry.get("answers") or {}),
+    }
     progress = _progress(item_id)
     return {
         "section": "listening", "guided_retry_completed": True,
         "answer_results": _answer_results(final_answers, key),
         "initial_answer_results": initial_results,
-        "guided_retry": retry_evidence, "answers": key,
+        "guided_retry": canonical_retry, "answers": key,
         "assignment": {"completed": progress["required_completed"], "pct": None},
         "progress": progress,
     }
