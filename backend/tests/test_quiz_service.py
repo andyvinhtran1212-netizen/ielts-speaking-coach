@@ -300,6 +300,49 @@ def test_timed_near_pass_bank_read_adopts_retake_phase_not_run():
     assert ensure.call_args.kwargs["kind"] == "retake"
 
 
+def test_timed_bank_crossing_cutoff_at_final_gate_returns_pending_state():
+    before_cutoff = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "opened_at": "2999-09-15T12:00:00+00:00",
+        "due_at": None, "accepting": True, "passed_at": None,
+        "mastery": None, "content_config": {"time_limit_minutes": 60},
+    }
+    after_cutoff = {
+        **before_cutoff,
+        "opened_at": "2020-09-15T12:00:00+00:00",
+        "due_at": "2020-09-15T12:30:00+00:00",
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "code": "C1-MIDTERM", "skill_area": "course", "meta": {},
+        }],
+        ("class_assignment_items", "select"): [{
+            "passed_at": None, "mastery": None,
+        }],
+        ("class_assignments", "select"): [{
+            "id": "asg-timed", "status": "published", "publish_at": None,
+            "due_at": None, "content_config": {"time_limit_minutes": 60},
+        }],
+        ("quiz_questions", "select"): [{"qid": "q-1", "type": "mcq"}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for_review",
+                      return_value=before_cutoff), \
+         patch.object(quiz_service, "_ensure_timed_course_session",
+                      return_value=(after_cutoff, None)) as ensure, \
+         patch.object(quiz_service, "_word_cards_for", return_value=[]), \
+         patch.object(quiz_service, "_attach_article_urls"), \
+         patch.object(quiz_service, "_resolve_question_audio"):
+        out = quiz_service.get_bank_for_play(
+            _BANK, user_id=_USER, assignment_item_id="item-timed",
+        )
+    ensure.assert_called_once()
+    assert out["mastery"]["review_only"] is True
+    assert out["mastery"]["expiry_pending"] is True
+    assert out["mastery"]["course_action"] == "expired_pending"
+    assert out["mastery"]["expires_at"] == "2020-09-15T12:30:00+00:00"
+
+
 def test_timed_bank_question_failure_does_not_start_clock_or_session():
     """Prepare the answer-bearing payload before claiming a fixed time window."""
     unopened = {
@@ -743,6 +786,44 @@ def test_opened_timed_course_reuses_the_canonical_rpc_session():
     assert session_id == _SESS
     assert any(call["table"] == "rpc:quiz_start_timed_course_session"
                for call in fake.calls)
+
+
+def test_opened_timed_course_rpc_expiry_refreshes_for_read_only_response():
+    refreshed_item = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "opened_at": "2026-09-15T10:00:00+00:00",
+        "submitted_at": None, "passed_at": None, "score": None,
+        "mastery": None, "updated_at": "after-cutoff",
+    }
+    refreshed_item["due_at"] = "2026-09-15T10:30:00+00:00"
+    refreshed_item["content_config"] = {"time_limit_minutes": 60}
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_start_timed_course_session"):
+            Exception("timed_course_assignment_expired"),
+    })
+    item = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "opened_at": "2026-09-15T10:00:00+00:00", "due_at": None,
+        "content_config": {"time_limit_minutes": 60},
+    }
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for_review",
+                      return_value=refreshed_item) as review_gate, \
+         patch.object(quiz_service, "assignment_timer_state", side_effect=[
+             {"is_timed": True, "is_expired": False},
+             {"is_timed": True, "is_expired": True},
+         ]):
+        opened, session_id = quiz_service._ensure_timed_course_session(
+            item, user_id=_USER, bank_id=_BANK, code="C1-MIDTERM",
+            allow_expired_existing=True,
+        )
+    assert session_id is None
+    assert opened["updated_at"] == "after-cutoff"
+    assert opened["due_at"] == "2026-09-15T10:30:00+00:00"
+    assert opened["content_config"] == {"time_limit_minutes": 60}
+    review_gate.assert_called_once_with(
+        _BANK, _USER, assignment_item_id="item-timed",
+    )
 
 
 def test_timed_retake_is_created_by_the_locked_rpc_without_plain_insert():

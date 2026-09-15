@@ -1022,11 +1022,27 @@ def get_bank_for_play(
             code=bank.get("code"), kind=preflight_kind,
             allow_expired_existing=True,
         )
-        final_timer = assignment_timer_state(
-            course_item, course_preflight_assignment or {},
-        )
+        final_assignment = {
+            **(course_preflight_assignment or {}),
+            "due_at": course_item.get("due_at"),
+            "content_config": (course_item.get("content_config")
+                               or (course_preflight_assignment or {}).get(
+                                   "content_config") or {}),
+        }
+        final_timer = assignment_timer_state(course_item, final_assignment)
         if final_timer.get("is_timed"):
             mastery_state = {**(mastery_state or {}), **final_timer}
+            if final_timer.get("is_expired"):
+                final_action = course_assignment_action(
+                    course_item, final_assignment,
+                )
+                mastery_state.update({
+                    "passed_at": course_item.get("passed_at"),
+                    "review_only": True,
+                    "expiry_pending": final_action == "expired_pending",
+                    "accepting": False,
+                    "course_action": final_action,
+                })
             if initial_session_id:
                 mastery_state["initial_session_id"] = initial_session_id
 
@@ -1590,6 +1606,30 @@ def _ensure_timed_course_session(
     except Exception as exc:  # noqa: BLE001
         detail = str(exc)
         if "timed_course_assignment_expired" in detail:
+            if allow_expired_existing and item.get("opened_at"):
+                # The bank GET may begin just before the cutoff and reach this
+                # final locked RPC just after it. Re-read canonical state so the
+                # response renders the now-locked pending/result screen instead
+                # of turning that harmless race into a load error. Reuse the
+                # full review gate so a concurrent archive or cohort transfer
+                # still revokes access.
+                try:
+                    refreshed = _assignment_item_for_review(
+                        bank_id, user_id, assignment_item_id=str(item["id"]),
+                    )
+                    refreshed_assignment = {
+                        "due_at": (refreshed or {}).get("due_at"),
+                        "content_config": (refreshed or {}).get("content_config") or {},
+                    }
+                    if refreshed and assignment_timer_state(
+                        refreshed, refreshed_assignment,
+                    ).get("is_expired"):
+                        return refreshed, None
+                except Exception as refresh_exc:  # noqa: BLE001
+                    logger.warning(
+                        "[quiz] expired timer refresh failed item=%s: %s",
+                        item.get("id"), refresh_exc,
+                    )
             raise HTTPException(409, "Đã hết thời gian làm bài.") from exc
         if "timed_course_limit_invalid" in detail:
             raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.") from exc
@@ -3845,6 +3885,42 @@ def _course_terminal_pass_payload(item: dict, cfg: dict) -> dict:
     return payload
 
 
+def _course_terminal_timeout_payload(item: dict, cfg: dict) -> dict:
+    """Return the canonical timeout without appending a concurrent verdict."""
+    attempts = [row for row in ((item.get("mastery") or {}).get("attempts") or [])
+                if isinstance(row, dict)]
+    attempt = next((row for row in reversed(attempts)
+                    if _recorded_next_action(
+                        row, cfg["pass_pct"],
+                    ) == "timed_out"), None)
+    if attempt is None:
+        raise HTTPException(409, "Không đọc được kết quả hết giờ đã lưu.")
+    sections = {
+        name: value for name, value in (attempt.get("sections") or {}).items()
+        if name in _COURSE_SECTION_LABELS and isinstance(value, dict)
+    }
+    if sections:
+        required = list(sections)
+        results = sections
+        weights = {name: float((value or {}).get("weight") or 0)
+                   for name, value in sections.items()}
+    else:
+        required = ["quiz"]
+        results = {"quiz": {
+            "completed": True, "pct": attempt.get("pct", item.get("score")),
+            "correct": attempt.get("correct"), "total": attempt.get("total"),
+            "duration_sec": int(attempt.get("duration_sec") or 0),
+        }}
+        weights = {"quiz": 100.0}
+    payload = _course_completion_payload(
+        attempt=attempt, attempts=attempts, cfg=cfg, required=required,
+        results=results, weights=weights,
+    )
+    payload["timed_out"] = True
+    payload["superseded"] = True
+    return payload
+
+
 def refresh_course_completion(
     *, user_id: str, bank_id: str, item_id: str,
     assignment_id: str | None = None,
@@ -4214,6 +4290,12 @@ def course_verdict(
         prior_action = _recorded_next_action(
             attempts[-1] if attempts else None, cfg["pass_pct"],
         )
+        if existing_attempt is None and prior_action == "timed_out":
+            # A timeout is terminal. If another browser/reaper wins the CAS
+            # with a different expired session set, return that canonical
+            # verdict instead of appending a second timeout and replacing the
+            # latest score/history.
+            return _course_terminal_timeout_payload(cur, cfg)
         if (phase == "run" and existing_attempt is None
                 and prior_action == "retake"):
             # A near-pass authorizes only a revision. This check lives inside
