@@ -3755,6 +3755,44 @@ def _course_completion_payload(
     }
 
 
+def _course_terminal_pass_payload(item: dict, cfg: dict) -> dict:
+    """Return the canonical pass without letting a stale timeout add history."""
+    attempts = [row for row in ((item.get("mastery") or {}).get("attempts") or [])
+                if isinstance(row, dict)]
+    attempt = next((row for row in reversed(attempts)
+                    if _recorded_next_action(row, cfg["pass_pct"]) == "passed"), None)
+    if attempt is None:
+        attempt = attempts[-1] if attempts else {
+            "phase": "run", "sessions": [], "completed": True,
+            "pct": item.get("score"), "at": item.get("passed_at"),
+            "next_action": "passed", "duration_sec": 0,
+        }
+    sections = {
+        name: value for name, value in (attempt.get("sections") or {}).items()
+        if name in _COURSE_SECTION_LABELS and isinstance(value, dict)
+    }
+    if sections:
+        required = list(sections)
+        results = sections
+        weights = {name: float((value or {}).get("weight") or 0)
+                   for name, value in sections.items()}
+    else:
+        required = ["quiz"]
+        results = {"quiz": {
+            "completed": True, "pct": attempt.get("pct", item.get("score")),
+            "correct": attempt.get("correct"), "total": attempt.get("total"),
+            "duration_sec": int(attempt.get("duration_sec") or 0),
+        }}
+        weights = {"quiz": 100.0}
+    payload = _course_completion_payload(
+        attempt=attempt, attempts=attempts, cfg=cfg, required=required,
+        results=results, weights=weights, passed_before=True,
+    )
+    payload["already_passed"] = True
+    payload["timed_out"] = False
+    return payload
+
+
 def refresh_course_completion(
     *, user_id: str, bank_id: str, item_id: str,
     assignment_id: str | None = None,
@@ -3971,11 +4009,10 @@ def course_verdict(
     if not cur:
         raise HTTPException(404, "Không tìm thấy mục bài giao")
     cur = cur[0]
-    if _allow_reaper_finalize and cur.get("passed_at"):
-        # The item could pass after the sweep's candidate read but before its
-        # verdict call.  Keep this second guard at the canonical write path so
-        # that race cannot append a timeout after a pass.
-        return {"passed": True, "already_passed": True}
+    if timed_out and cur.get("passed_at"):
+        # Passed is terminal for every timeout writer, including a stale
+        # browser.  The reaper flag is not an authorization boundary here.
+        return _course_terminal_pass_payload(cur, cfg)
     timer = assignment_timer_state(cur, assignment)
     if timer.get("invalid"):
         raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
@@ -4001,6 +4038,8 @@ def course_verdict(
     # unfinished/late attempt the server still forces timeout even when a forged
     # client sends ``timed_out=false``.
     timed_out = bool(clock_expired and not sessions_finished_on_time)
+    if timed_out and cur.get("passed_at"):
+        return _course_terminal_pass_payload(cur, cfg)
     for s in rows:
         if (s.get("user_id") != user_id or s.get("bank_id") != bank_id
                 or s.get("class_assignment_item_id") != item["id"]):
@@ -4106,6 +4145,10 @@ def course_verdict(
     # thấy 0 dòng khớp, đọc lại sổ mới rồi gộp lại. Ba vòng là quá đủ cho một
     # người dùng thật; hết vòng vẫn thua → 500, không báo đạt miệng.
     for _cas in range(3):
+        # A pass may win the previous CAS after this request's initial read.
+        # Repeat the terminal check on every freshly-read canonical row.
+        if timed_out and cur.get("passed_at"):
+            return _course_terminal_pass_payload(cur, cfg)
         mastery = cur.get("mastery") or {}
         attempts = list(mastery.get("attempts") or [])
         attempt_no = course_section_attempt_no({"mastery": mastery})
@@ -4501,7 +4544,25 @@ def reap_expired_course_assessments(
                 for attempt in mastery_attempts
                 for session_id in (attempt.get("sessions") or [])
             }
-            sessions = [row for row in sessions if row.get("id") not in recorded_ids]
+            repair_ids: set[str] = set()
+            if not item.get("submitted_at"):
+                repair_attempt = next((
+                    attempt for attempt in reversed(mastery_attempts)
+                    if _recorded_next_action(attempt, mastery_config(
+                        assignment)["pass_pct"]) == "timed_out"
+                ), None)
+                if repair_attempt:
+                    repair_ids = {
+                        str(session_id) for session_id
+                        in (repair_attempt.get("sessions") or []) if session_id
+                    }
+            # If the timeout ledger exists but its submission receipt was lost,
+            # replay exactly that idempotent session set.  Otherwise only new
+            # evidence is eligible, as before.
+            sessions = ([row for row in sessions
+                         if str(row.get("id")) in repair_ids]
+                        if repair_ids else
+                        [row for row in sessions if row.get("id") not in recorded_ids])
             # Mirror ``get_course_resume`` and the verdict gate: after a
             # recorded ``retry_full`` (or an explicit multi-section restart),
             # only sessions from that current generation may participate.
@@ -4532,7 +4593,8 @@ def reap_expired_course_assessments(
             if not sessions:
                 continue
             latest_attempt_at = (
-                _at(mastery_attempts[-1].get("at")) if mastery_attempts else None
+                None if repair_ids else
+                (_at(mastery_attempts[-1].get("at")) if mastery_attempts else None)
             )
             pending_retakes = [
                 row for row in sessions

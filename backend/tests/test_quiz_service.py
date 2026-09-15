@@ -1018,6 +1018,71 @@ def test_server_reaper_repairs_submitted_item_when_verdict_was_lost():
     verdict.assert_called_once()
 
 
+def test_server_reaper_retries_receipt_after_timeout_ledger_was_saved():
+    """A failed mark_item_submitted must not make the next sweep skip forever."""
+    fake = _FakeSupabase()
+    item = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+        "submitted_at": None, "passed_at": None, "mastery": None,
+    }
+    session = {
+        "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+        "class_assignment_item_id": "item-timed", "kind": "run",
+        "created_at": "2026-09-15T01:00:00+00:00",
+        "ended_at": None, "ended_by": None,
+    }
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+        "class_assignment_items": [item],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [session],
+    }
+
+    def report(table, *_args, **_kwargs):
+        return [dict(row) for row in rows[table]]
+
+    calls = 0
+
+    def verdict(**_kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            # Simulate verdict ledger persistence followed by a transient
+            # submission-receipt failure.
+            item["mastery"] = {"attempts": [{
+                "phase": "run", "pct": 0, "timed_out": True,
+                "next_action": "timed_out", "sessions": [_SESS],
+                "at": "2026-09-15T01:30:00+00:00",
+            }]}
+            session.update({
+                "ended_at": "2026-09-15T01:30:00+00:00",
+                "ended_by": "time_cap",
+            })
+            raise HTTPException(500, "receipt write failed")
+        item["submitted_at"] = "2026-09-15T01:31:01+00:00"
+        return {"timed_out": True}
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict", side_effect=verdict) as mocked:
+        first = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+        second = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:32:00+00:00"),
+        )
+    assert first == {"examined": 1, "finalized": 0, "failed": 1}
+    assert second == {"examined": 1, "finalized": 1, "failed": 0}
+    assert mocked.call_count == 2
+    assert mocked.call_args.kwargs["session_ids"] == [_SESS]
+    assert item["submitted_at"] is not None
+
+
 def test_server_reaper_finalizes_expired_item_after_assignment_is_archived():
     fake = _FakeSupabase()
     rows = {

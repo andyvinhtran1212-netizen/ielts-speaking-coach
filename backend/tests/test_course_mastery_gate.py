@@ -522,7 +522,7 @@ def test_expired_clock_closes_an_on_time_failed_attempts_retry_action():
     assert out["retry_closed"] is True
 
 
-def test_reaper_verdict_cannot_append_timeout_after_a_concurrent_pass():
+def test_timeout_from_stale_browser_cannot_append_after_a_pass():
     existing = {
         "phase": "run", "pct": 100, "next_action": "passed",
         "at": "2026-09-15T01:20:00+00:00", "sessions": ["winning-session"],
@@ -535,10 +535,69 @@ def test_reaper_verdict_cannot_append_timeout_after_a_concurrent_pass():
     }
     out, log = _verdict(
         sessions=_sessions(1, ended_by="time_cap"), item_row=item,
-        config={"time_limit_minutes": 30}, timed_out=True, reaper=True,
+        config={"time_limit_minutes": 30}, timed_out=True,
     )
-    assert out == {"passed": True, "already_passed": True}
+    assert out["passed"] is True
+    assert out["next_action"] == "passed"
+    assert out["timed_out"] is False
+    assert out["already_passed"] is True
     assert not any(row[0:2] == ("class_assignment_items", "update") for row in log)
+
+
+def test_timeout_rechecks_passed_at_after_losing_the_first_cas():
+    initial = {
+        "id": "it-1", "passed_at": None, "submitted_at": None,
+        "opened_at": "2026-09-15T01:00:00+00:00", "score": None,
+        "mastery": None, "updated_at": "before-pass",
+    }
+    winning = {
+        **initial, "passed_at": "2026-09-15T01:20:00+00:00",
+        "submitted_at": "2026-09-15T01:20:00+00:00", "score": 100,
+        "updated_at": "after-pass", "mastery": {"attempts": [{
+            "phase": "run", "pct": 100, "next_action": "passed",
+            "at": "2026-09-15T01:20:00+00:00",
+            "sessions": ["winning-session"],
+        }]},
+    }
+    state = {"item_selects": 0}
+    log = []
+
+    class _RaceItemTable(_Table):
+        def execute(self):
+            if self._patch is not None:
+                log.append((self._name, "update", self._patch,
+                            [row.get("id") for row in self._rows]))
+                return _Resp([])  # the passing writer won this CAS
+            state["item_selects"] += 1
+            row = initial if state["item_selects"] == 1 else winning
+            return _Resp([row])
+
+    tables = {
+        "class_assignments": [{"id": "asg-1", "content_config": {
+            "time_limit_minutes": 30,
+        }}],
+        "quiz_sessions": _sessions(1, ended_by="time_cap",
+                                     created_at="2026-09-15T01:00:00+00:00"),
+        "quiz_questions": _questions(10),
+        "quiz_attempts": [],
+    }
+    db = type("DB", (), {})()
+    db.table = lambda name: (
+        _RaceItemTable(name, [initial], log) if name == "class_assignment_items"
+        else _Table(name, tables.get(name, []), log)
+    )
+    with patch.object(qs, "supabase_admin", db), \
+         patch.object(qs, "_assignment_item_for", lambda b, u, **_kwargs: _ITEM), \
+         patch.object(qs, "mark_item_submitted") as mark:
+        out = qs.course_verdict(
+            user_id="u-1", bank_id="bank-1", session_ids=["s-0"],
+            timed_out=True,
+        )
+    assert out["passed"] is True and out["already_passed"] is True
+    assert out["history"][-1]["next_action"] == "passed"
+    assert sum(1 for row in log if row[0:2] == (
+        "class_assignment_items", "update")) == 1
+    mark.assert_not_called()
 
 
 def test_timed_out_retake_uses_the_retake_sample_as_denominator():
