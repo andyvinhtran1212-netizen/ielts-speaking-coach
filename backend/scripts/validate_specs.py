@@ -23,8 +23,8 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FEATURE_DIR_RE = re.compile(r"^(?P<number>\d{4})-[a-z0-9]+(?:-[a-z0-9]+)*$")
 SPEC_ID_RE = re.compile(r"^[A-Z][A-Z0-9]*-(?P<number>\d{4})$")
-REQUIREMENT_DECLARATION_RE = re.compile(
-    r"^\s*-\s+\*\*(FR-[^\s:*]+):\*\*\s+\S",
+REQUIREMENT_MARKER_RE = re.compile(
+    r"^\s*-\s+\*\*(FR-[^\s:*]+):\*\*(?:[ \t]*(.*))?$",
     re.MULTILINE,
 )
 REQUIREMENT_WITH_TEXT_RE = re.compile(
@@ -289,21 +289,24 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
                     errors.append(f"{feature / filename}: missing '## {heading}' section")
 
         requirement_section = _section(texts.get("spec.md", ""), "Requirements")
-        requirements = REQUIREMENT_DECLARATION_RE.findall(requirement_section)
+        requirement_markers = REQUIREMENT_MARKER_RE.findall(requirement_section)
+        requirements: list[str] = []
         malformed_requirements = sorted(
             requirement
-            for requirement in set(requirements)
+            for requirement, _ in set(requirement_markers)
             if not VALID_REQUIREMENT_ID_RE.fullmatch(requirement)
         )
         for requirement in malformed_requirements:
             errors.append(
                 f"{spec_path}: malformed functional requirement {requirement!r}; use FR-NNN"
             )
-        requirements = [
-            requirement
-            for requirement in requirements
-            if VALID_REQUIREMENT_ID_RE.fullmatch(requirement)
-        ]
+        for requirement, description in requirement_markers:
+            if VALID_REQUIREMENT_ID_RE.fullmatch(requirement):
+                requirements.append(requirement)
+                if not description.strip():
+                    errors.append(
+                        f"{spec_path}: functional requirement {requirement} must have an inline description"
+                    )
         unique_requirements = sorted(set(requirements))
         if not unique_requirements:
             errors.append(
@@ -494,12 +497,41 @@ def validate_pull_request(
                             errors.append(
                                 f"pull request: Spec '{spec_id}' was not approved in the base revision"
                             )
+                        if change_class == "high-risk" and base_metadata.get(
+                            "risk"
+                        ) not in {"high", "critical"}:
+                            errors.append(
+                                f"pull request: {spec_id} was not approved as high or critical risk in the base revision"
+                            )
 
                 coverage_rows = _requirement_coverage(body)
                 coverage = [requirement for requirement, _ in coverage_rows]
                 current_requirements = _declared_requirements(metadata_text)
                 if bootstrap:
                     approved_requirements = current_requirements
+                if approved_requirements is not None:
+                    for requirement in sorted(
+                        current_requirements.keys() - approved_requirements.keys()
+                    ):
+                        errors.append(
+                            f"pull request: {requirement} was not approved in the base revision for {spec_id}"
+                        )
+                    for requirement in sorted(
+                        approved_requirements.keys() - current_requirements.keys()
+                    ):
+                        errors.append(
+                            f"pull request: {requirement} was removed after base approval for {spec_id}"
+                        )
+                    for requirement in sorted(
+                        current_requirements.keys() & approved_requirements.keys()
+                    ):
+                        if (
+                            current_requirements[requirement]
+                            != approved_requirements[requirement]
+                        ):
+                            errors.append(
+                                f"pull request: {requirement} definition changed after base approval for {spec_id}"
+                            )
                 if not coverage:
                     errors.append(
                         "pull request: '## Requirement coverage' must list at least one exact FR-NNN"
@@ -522,18 +554,6 @@ def validate_pull_request(
                         errors.append(
                             f"pull request: requirement coverage references unknown {requirement} for {spec_id}"
                         )
-                    elif approved_requirements is not None:
-                        if requirement not in approved_requirements:
-                            errors.append(
-                                f"pull request: {requirement} was not approved in the base revision for {spec_id}"
-                            )
-                        elif (
-                            current_requirements[requirement]
-                            != approved_requirements[requirement]
-                        ):
-                            errors.append(
-                                f"pull request: {requirement} definition changed after base approval for {spec_id}"
-                            )
     return errors
 
 

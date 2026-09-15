@@ -16,7 +16,9 @@ is intentionally excluded from the canonical feature lifecycle.
    remain required if the PR elects to cite an existing spec.
 3. `feature` and `high-risk` changes require a feature directory approved on
    the base branch before implementation starts. Land the approved spec first;
-   do not self-approve it inside the implementation PR.
+   do not self-approve it inside the implementation PR. Adding, removing, or
+   changing a requirement—or raising its risk class—requires a spec approval
+   change on the base branch before the implementation PR.
 4. Refine `spec.md` before implementation details are committed to `plan.md`.
 5. Derive dependency-ordered work in `tasks.md` and map every requirement to
    evidence in `verification.md`.

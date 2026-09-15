@@ -22,7 +22,9 @@ over historical migration or sprint notes.
 
 - `feature` and `high-risk` changes MUST have an approved feature spec on the
   base branch before implementation. A spec cannot be introduced, marked
-  approved, and implemented in the same pull request.
+  approved, and implemented in the same pull request. Approved requirement
+  definitions and risk level are immutable within an implementation PR; revise
+  and approve intent on the base branch first.
 - `SDD-0000` is the one-time bootstrap exception: it may establish this
   constitution only when the base revision does not yet contain the
   constitution. Once landed, the exception cannot recur.

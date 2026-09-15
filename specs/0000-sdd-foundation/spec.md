@@ -52,9 +52,10 @@ developer or agent which requirements are active and how they map to evidence.
   tasks or requirements without result-specific final evidence.
 - **FR-005:** Pull requests declare a change class and exact requirement
   coverage; feature and high-risk PRs reference a spec approved in the base
-  revision; spec-free changes include problem, expected behavior, scope, and
-  verification; staging-to-main promotions remain exempt from duplicate
-  feature metadata. SDD-0000 is the one-time bootstrap exception.
+  revision without mutating its requirements or approved risk; spec-free
+  changes include problem, expected behavior, scope, and verification;
+  staging-to-main promotions remain exempt from duplicate feature metadata.
+  SDD-0000 is the one-time bootstrap exception.
 - **FR-006:** Spec validation runs in a dedicated unfiltered workflow required
   by the staging promotion gate; PR-body edits cannot shadow TypeScript or
   OpenAPI failures on the same SHA.

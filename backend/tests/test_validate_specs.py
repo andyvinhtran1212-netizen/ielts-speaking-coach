@@ -239,6 +239,20 @@ def test_repository_rejects_malformed_requirement_alongside_valid_one(tmp_path: 
     assert any("malformed functional requirement 'FR-1000'" in error for error in errors)
 
 
+def test_repository_rejects_empty_requirement_alongside_valid_one(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    spec = root / "specs/0001-example-feature/spec.md"
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace(
+            "- **FR-001:** Works.\n",
+            "- **FR-001:** Works.\n- **FR-002:**\n",
+        ),
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert any("FR-002 must have an inline description" in error for error in errors)
+
+
 def test_final_evidence_requires_a_final_result_cell(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     (root / "specs/0001-example-feature/verification.md").write_text(
@@ -434,6 +448,36 @@ def test_high_risk_pr_requires_high_or_critical_spec(tmp_path: Path) -> None:
     ) == []
 
 
+def test_high_risk_pr_requires_base_spec_to_have_high_risk(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path, status="approved", risk="low")
+    feature = root / "specs/0001-example-feature"
+    spec = feature / "spec.md"
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace("risk: low", "risk: high"),
+        encoding="utf-8",
+    )
+    index = root / "specs/README.md"
+    index.write_text(
+        index.read_text(encoding="utf-8").replace("| low |", "| high |"),
+        encoding="utf-8",
+    )
+    _write(
+        feature / "ui-states.md",
+        "| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |\n",
+    )
+    _write(
+        feature / "rollout.md",
+        "## Preconditions\nReady.\n## Staging\nVerify.\n## Production\nPromote.\n"
+        "## Rollback and repair\nRevert.\n## Observability\nMonitor.\n",
+    )
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    errors = validator.validate_pull_request(
+        _event(root=root, change_class="high-risk", spec="FEAT-0001"), specs, root
+    )
+    assert any("was not approved as high or critical risk" in error for error in errors)
+
+
 def test_high_risk_spec_requires_ui_state_and_rollout_artifacts(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path, risk="high")
     (root / "specs/0001-example-feature/ui-states.md").unlink()
@@ -580,6 +624,49 @@ def test_feature_pr_compares_multiline_requirement_definition(tmp_path: Path) ->
         _event(root=root, change_class="feature", spec="FEAT-0001"), specs, root
     )
     assert any("FR-001 definition changed after base approval" in error for error in errors)
+
+
+def test_feature_pr_compares_uncovered_requirements_with_base(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path, status="approved")
+    spec = root / "specs/0001-example-feature/spec.md"
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace(
+            "- **FR-001:** Works.",
+            "- **FR-001:** Works.\n- **FR-002:** Second approved requirement.",
+        ),
+        encoding="utf-8",
+    )
+    verification = root / "specs/0001-example-feature/verification.md"
+    verification.write_text(
+        verification.read_text(encoding="utf-8")
+        + "| FR-002 | automated test | PASS |\n",
+        encoding="utf-8",
+    )
+    subprocess.run(
+        ["git", "add", "specs/0001-example-feature/spec.md", "specs/0001-example-feature/verification.md"],
+        cwd=root,
+        check=True,
+    )
+    subprocess.run(["git", "commit", "-qm", "approve second requirement"], cwd=root, check=True)
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace(
+            "Second approved requirement.", "Changed without approval."
+        ),
+        encoding="utf-8",
+    )
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    errors = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            coverage="- FR-001 -> automated test",
+        ),
+        specs,
+        root,
+    )
+    assert any("FR-002 definition changed after base approval" in error for error in errors)
 
 
 def test_small_pr_may_use_na(tmp_path: Path) -> None:
