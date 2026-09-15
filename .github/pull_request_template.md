@@ -13,6 +13,8 @@ feature metadata.
 <!-- Required only when specs/_meta/constitution.md changes. State why the
 obligation change is major/minor/patch; otherwise leave this section empty. -->
 
+Amendment class: <!-- major | minor | patch -->
+
 ## Problem
 
 <!-- What is wrong or missing? Required for hotfix/small/content. -->

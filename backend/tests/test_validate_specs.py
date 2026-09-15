@@ -540,6 +540,22 @@ def test_pass_repository_locator_must_exist(tmp_path: Path) -> None:
         "## Requirement coverage\n\n| FR-001 | scripts/hooks/pre-push | PASS |\n",
         encoding="utf-8",
     )
+    untracked_errors, _ = validator.validate_repository(root)
+    assert any("PASS evidence must identify" in error for error in untracked_errors)
+
+    verification.write_text(
+        "## Requirement coverage\n\n| FR-001 | .git/config | PASS |\n",
+        encoding="utf-8",
+    )
+    git_internal_errors, _ = validator.validate_repository(root)
+    assert any("PASS evidence must identify" in error for error in git_internal_errors)
+
+    subprocess.run(["git", "add", "scripts/hooks/pre-push"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "track evidence helper"], cwd=root, check=True)
+    verification.write_text(
+        "## Requirement coverage\n\n| FR-001 | scripts/hooks/pre-push | PASS |\n",
+        encoding="utf-8",
+    )
     errors, _ = validator.validate_repository(root)
     assert errors == []
 
@@ -891,6 +907,42 @@ def test_feature_pr_requires_known_requirement_coverage(tmp_path: Path) -> None:
         specs,
         root,
     ) == []
+    assert validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            coverage=(
+                "- FR-001 -> reviewer=Lan; environment=staging; "
+                "date=2026-09-15; observed=Flow completed"
+            ),
+        ),
+        specs,
+        root,
+    ) == []
+    assert validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            coverage=(
+                "- FR-001 -> rationale=No runtime behavior is affected by this requirement."
+            ),
+        ),
+        specs,
+        root,
+    ) == []
+    incomplete_manual = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            coverage="- FR-001 -> reviewer=Lan; environment=staging",
+        ),
+        specs,
+        root,
+    )
+    assert any("must identify a concrete test" in error for error in incomplete_manual)
 
 
 def test_pull_request_ignores_metadata_hidden_in_comments(tmp_path: Path) -> None:
@@ -955,6 +1007,8 @@ def test_feature_pr_rejects_requirement_added_after_base_approval(tmp_path: Path
     (root / "backend/tests/test_second.py").write_text(
         "def test_added():\n    assert True\n", encoding="utf-8"
     )
+    subprocess.run(["git", "add", "backend/tests/test_second.py"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "track second test"], cwd=root, check=True)
     repository_errors, specs = validator.validate_repository(root)
     assert repository_errors == []
     errors = validator.validate_pull_request(
@@ -1072,6 +1126,7 @@ def test_feature_pr_compares_uncovered_requirements_with_base(tmp_path: Path) ->
     (root / "backend/tests/test_second.py").write_text(
         "def test_approved():\n    assert True\n", encoding="utf-8"
     )
+    subprocess.run(["git", "add", "backend/tests/test_second.py"], cwd=root, check=True)
     subprocess.run(
         ["git", "add", "specs/0001-example-feature/spec.md", "specs/0001-example-feature/verification.md"],
         cwd=root,
@@ -1122,6 +1177,20 @@ def test_spec_free_pr_requires_problem_expected_scope_and_verification(tmp_path:
     )
     for heading in ("Problem", "Expected behavior", "Scope", "Verification"):
         assert any(f"'## {heading}'" in error for error in errors)
+
+    placeholder_event = _event(root=root, change_class="small", spec="N/A")
+    placeholder_event["pull_request"]["body"] = (
+        "Change class: small\nSpec: N/A\n\n"
+        "## Problem\n\nTBD\n\n"
+        "## Expected behavior\n\nTODO\n\n"
+        "## Scope\n\nplaceholder\n\n"
+        "## Verification\n\nN/A\n"
+    )
+    placeholder_errors = validator.validate_pull_request(
+        placeholder_event, specs, root
+    )
+    for heading in ("Problem", "Expected behavior", "Scope", "Verification"):
+        assert any(f"'## {heading}'" in error for error in placeholder_errors)
 
 
 def test_small_pr_cannot_skip_details_by_citing_existing_spec(tmp_path: Path) -> None:
@@ -1201,10 +1270,20 @@ def test_constitution_amendment_accepts_exact_patch_bump_and_rationale(
     assert repository_errors == []
     event = _event(root=root, change_class="small", spec="N/A", base_sha=base_sha)
     event["pull_request"]["body"] += (
-        "\n## Constitution amendment\n\n"
+        "\n## Constitution amendment\n\nAmendment class: patch\n\n"
         "Clarifies the introduction without changing an engineering obligation.\n"
     )
     assert validator.validate_pull_request(event, specs, root) == []
+    wrong_class = dict(event)
+    wrong_class["pull_request"] = dict(event["pull_request"])
+    wrong_class["pull_request"]["body"] = event["pull_request"]["body"].replace(
+        "Amendment class: patch", "Amendment class: minor"
+    )
+    wrong_class_errors = validator.validate_pull_request(wrong_class, specs, root)
+    assert any(
+        "constitution amendment class must be 'patch'" in error
+        for error in wrong_class_errors
+    )
 
 
 def test_constitution_new_obligation_requires_minor_bump(tmp_path: Path) -> None:
@@ -1233,7 +1312,8 @@ def test_constitution_new_obligation_requires_minor_bump(tmp_path: Path) -> None
     assert repository_errors == []
     event = _event(root=root, change_class="small", spec="N/A", base_sha=base_sha)
     event["pull_request"]["body"] += (
-        "\n## Constitution amendment\n\nAdds an expiry rule for exceptions.\n"
+        "\n## Constitution amendment\n\nAmendment class: minor\n\n"
+        "Adds an expiry rule for exceptions.\n"
     )
     errors = validator.validate_pull_request(event, specs, root)
     assert any("minor version bump to 1.1.0" in error for error in errors)
@@ -1263,10 +1343,44 @@ def test_constitution_declarative_boundary_removal_requires_major_bump(
     assert repository_errors == []
     event = _event(root=root, change_class="small", spec="N/A", base_sha=base_sha)
     event["pull_request"]["body"] += (
-        "\n## Constitution amendment\n\nRemoves a canonical system boundary.\n"
+        "\n## Constitution amendment\n\nAmendment class: major\n\n"
+        "Removes a canonical system boundary.\n"
     )
     errors = validator.validate_pull_request(event, specs, root)
     assert any("major version bump to 2.0.0" in error for error in errors)
+
+
+def test_constitution_appended_rule_clarification_accepts_patch_bump(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path)
+    base_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    constitution = root / "specs/_meta/constitution.md"
+    constitution.write_text(
+        constitution.read_text(encoding="utf-8")
+        .replace("version: 1.0.0", "version: 1.0.1")
+        .replace(
+            "the previous diff.",
+            "the previous diff during independent review.",
+        ),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", str(constitution)], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "clarify review obligation"], cwd=root, check=True)
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    event = _event(root=root, change_class="small", spec="N/A", base_sha=base_sha)
+    event["pull_request"]["body"] += (
+        "\n## Constitution amendment\n\nAmendment class: patch\n\n"
+        "Clarifies when the existing review comparison applies.\n"
+    )
+    assert validator.validate_pull_request(event, specs, root) == []
 
 
 def test_migration_path_requires_approved_high_risk_change(tmp_path: Path) -> None:
@@ -1681,6 +1795,60 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
         root,
     )
     assert after_merge == []
+
+    _write(root / "docs/fr-two.md", "implementation for approved FR-002\n")
+    subprocess.run(["git", "add", "docs/fr-two.md"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "implement approved FR-002"], cwd=root, check=True)
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    incremental = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            base_sha=base_sha,
+            coverage=(
+                "- FR-001 -> docs/fr-one.md\n"
+                "- FR-002 -> docs/fr-two.md"
+            ),
+        ),
+        specs,
+        root,
+    )
+    assert incremental == []
+
+    subprocess.run(
+        ["git", "checkout", "-qb", "fr-two-before-approval", common_sha],
+        cwd=root,
+        check=True,
+    )
+    _write(root / "docs/fr-two-before.md", "implementation before FR-002 approval\n")
+    subprocess.run(["git", "add", "docs/fr-two-before.md"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "implement FR-002 too early"], cwd=root, check=True)
+    subprocess.run(
+        ["git", "merge", "--no-ff", "--no-edit", "base-add-fr-two"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    premature = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            base_sha=base_sha,
+            coverage="- FR-002 -> docs/fr-two-before.md",
+        ),
+        specs,
+        root,
+    )
+    assert any(
+        "implementation commits predate approved FEAT-0001 FR-002" in error
+        for error in premature
+    )
 
 
 def test_staging_to_main_promotion_is_exempt(tmp_path: Path) -> None:

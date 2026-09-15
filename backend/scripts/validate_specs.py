@@ -208,7 +208,7 @@ def _meaningful_section(text: str, heading: str) -> bool:
     section = re.sub(r"^\s*-\s*\[[ xX]\].*$", "", section, flags=re.MULTILINE)
     lines = [line.strip() for line in section.splitlines() if line.strip()]
     return any(
-        not re.fullmatch(r"(?:[-*>]\s*)*<[^>\n]+>[.!]?", line)
+        not _placeholder_value(re.sub(r"^(?:[-*>]\s*)+", "", line).strip())
         for line in lines
     )
 
@@ -269,6 +269,31 @@ def _constitutional_obligations(text: str) -> set[str]:
     return obligations
 
 
+def _is_appended_clarification(old: str, new: str) -> bool:
+    normalize = lambda value: re.sub(r"[.!?]+$", "", value.casefold()).strip()
+    old_normalized = normalize(old)
+    new_normalized = normalize(new)
+    modal_pattern = r"\b(?:must not|must|should not|should|may not|may)\b"
+    return (
+        len(new_normalized) > len(old_normalized)
+        and new_normalized.startswith(old_normalized)
+        and re.findall(modal_pattern, old_normalized)
+        == re.findall(modal_pattern, new_normalized)
+    )
+
+
+def _all_appended_clarifications(removed: set[str], added: set[str]) -> bool:
+    if not removed or len(removed) != len(added):
+        return False
+    unmatched = set(added)
+    for old in sorted(removed):
+        matches = [new for new in unmatched if _is_appended_clarification(old, new)]
+        if not matches:
+            return False
+        unmatched.remove(min(matches, key=len))
+    return not unmatched
+
+
 def _expected_constitution_version(
     base_text: str, head_text: str
 ) -> tuple[tuple[int, int, int] | None, tuple[int, int, int] | None, tuple[int, int, int] | None, str]:
@@ -278,10 +303,11 @@ def _expected_constitution_version(
         return base_version, head_version, None, "invalid base"
     removed = _constitutional_obligations(base_text) - _constitutional_obligations(head_text)
     added = _constitutional_obligations(head_text) - _constitutional_obligations(base_text)
-    if removed:
+    clarification = _all_appended_clarifications(removed, added)
+    if removed and not clarification:
         expected = (base_version[0] + 1, 0, 0)
         bump = "major"
-    elif added:
+    elif added and not clarification:
         expected = (base_version[0], base_version[1] + 1, 0)
         bump = "minor"
     else:
@@ -294,7 +320,7 @@ def _placeholder_value(value: str) -> bool:
     normalized = value.strip()
     return not normalized or bool(
         re.fullmatch(
-            r"(?:<[^>\n]+>|placeholder|tbd|todo|test, query, screenshot, or manual journey)",
+            r"(?:<[^>\n]+>|placeholder|tbd|todo|n/?a|test, query, screenshot, or manual journey)",
             normalized,
             re.IGNORECASE,
         )
@@ -342,7 +368,18 @@ def _concrete_locator(value: str, root: Path) -> bool:
         candidate.relative_to(root.resolve())
     except ValueError:
         return False
-    return candidate.is_file()
+    if not candidate.is_file():
+        return False
+    relative = candidate.relative_to(root.resolve()).as_posix()
+    if relative == ".git" or relative.startswith(".git/"):
+        return False
+    tracked = subprocess.run(
+        ["git", "-C", str(root), "cat-file", "-e", f"HEAD:{relative}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return tracked.returncode == 0
 
 
 def _declared_requirements(spec_text: str) -> dict[str, str]:
@@ -452,9 +489,9 @@ def _evidence_detail_error(result: str, evidence: str, root: Path) -> str | None
 def _concrete_requirement_evidence(evidence: str, root: Path) -> bool:
     fields = _structured_evidence(evidence)
     kind = fields.get("kind", "").lower()
-    if kind == "manual":
+    if kind == "manual" or {"reviewer", "environment", "date", "observed"} & fields.keys():
         return _evidence_detail_error("MANUAL", evidence, root) is None
-    if kind in {"n/a", "na"}:
+    if kind in {"n/a", "na"} or "rationale" in fields:
         return _evidence_detail_error("N/A", evidence, root) is None
     return _concrete_pass_evidence(evidence, root)
 
@@ -790,7 +827,14 @@ def _git_requirement_approval_commit(
 
 
 def _topic_implementation_before_approval(
-    root: Path, base_sha: str, head_sha: str, approval_commit: str
+    root: Path,
+    base_sha: str,
+    head_sha: str,
+    approval_commit: str,
+    spec_path: str,
+    requirement: str,
+    description: str,
+    evidence: str,
 ) -> tuple[bool, list[str]]:
     topic_history = subprocess.run(
         ["git", "-C", str(root), "rev-list", "--reverse", head_sha, "--not", base_sha],
@@ -800,6 +844,13 @@ def _topic_implementation_before_approval(
     )
     if topic_history.returncode != 0:
         return False, []
+    evidence_fields = _structured_evidence(evidence)
+    evidence_locator = evidence_fields.get("ref", evidence)
+    evidence_parts = evidence_locator.strip().strip("`").split(maxsplit=1)
+    evidence_token = evidence_parts[0] if evidence_parts else ""
+    evidence_path = evidence_token.split("::", 1)[0]
+    if Path(evidence_path).is_absolute() or not (root / evidence_path).is_file():
+        evidence_path = ""
     offenders: list[str] = []
     for revision in topic_history.stdout.splitlines():
         paths = subprocess.run(
@@ -825,6 +876,18 @@ def _topic_implementation_before_approval(
             if path and not path.startswith("specs/")
         ]
         if not implementation_paths:
+            continue
+        _, revision_spec = _git_show(root, revision, spec_path)
+        spec_absent = revision_spec is None
+        requirement_active = bool(
+            revision_spec
+            and _declared_requirements(revision_spec).get(requirement) == description
+        )
+        if (
+            not spec_absent
+            and not requirement_active
+            and evidence_path not in implementation_paths
+        ):
             continue
         ancestry = subprocess.run(
             [
@@ -927,7 +990,28 @@ def validate_pull_request(
                         f"a {bump} version bump to {'.'.join(map(str, expected))}; "
                         f"found {'.'.join(map(str, head_version))}"
                     )
-                if not _meaningful_section(body, "Constitution amendment"):
+                amendment = _section(body, "Constitution amendment")
+                amendment_class = (
+                    _body_field(amendment, "Amendment class") or ""
+                ).lower()
+                if amendment_class not in {"major", "minor", "patch"}:
+                    errors.append(
+                        "pull request: constitution amendments require "
+                        "'Amendment class: major|minor|patch'"
+                    )
+                elif amendment_class != bump:
+                    errors.append(
+                        "pull request: constitution amendment class "
+                        f"must be '{bump}', found '{amendment_class}'"
+                    )
+                rationale = re.sub(
+                    r"^\s*Amendment class\s*:.*$", "", amendment, flags=re.MULTILINE | re.IGNORECASE
+                )
+                if not any(
+                    not _placeholder_value(re.sub(r"^(?:[-*>]\s*)+", "", line).strip())
+                    for line in rationale.splitlines()
+                    if line.strip()
+                ):
                     errors.append(
                         "pull request: constitution amendments require a non-empty '## Constitution amendment' rationale"
                     )
@@ -969,6 +1053,7 @@ def validate_pull_request(
             if requires_spec:
                 coverage_rows = _requirement_coverage(body)
                 coverage = [requirement for requirement, _ in coverage_rows]
+                coverage_evidence = dict(coverage_rows)
                 spec_path = str((feature / "spec.md").relative_to(root))
                 checkout = subprocess.run(
                     ["git", "-C", str(root), "rev-parse", "HEAD"],
@@ -1058,6 +1143,10 @@ def validate_pull_request(
                                         base_sha,
                                         head_sha,
                                         approval_commit,
+                                        spec_path,
+                                        requirement,
+                                        description,
+                                        coverage_evidence.get(requirement, ""),
                                     )
                                 )
                                 if not ancestry_resolved:
