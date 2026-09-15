@@ -90,9 +90,12 @@ that prevents answer leakage and gives admins canonical completion evidence.
 - **Vocabulary:** the learner sends the complete set of 24 authored `lexeme_id`
   values; the server rejects a partial set and upserts a completed vocabulary stage
   with the canonical seen-ID set.
-- **Practice 1 and Practice 2:** the server accepts at most one immutable answer per
-  server-selected question and marks the stage complete only when distinct persisted
-  question attempts cover every selected question (28 and 20 respectively).
+- **Practice 1 and Practice 2:** Practice 1 mutations require persisted Vocabulary
+  completion, and Practice 2 mutations require persisted Practice 1 completion; the
+  server rejects out-of-order start and answer calls without writing progress. It
+  accepts at most one immutable answer per server-selected question and marks the
+  stage complete only when distinct persisted question attempts cover every selected
+  question (28 and 20 respectively).
 - **Reading:** the learner submits a non-empty answer for every authored Reading
   question after Practice 2; the server creates exactly one canonical
   `course_section_submissions` Reading row containing answers, frozen answer key,
