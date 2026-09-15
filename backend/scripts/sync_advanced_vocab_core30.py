@@ -50,12 +50,16 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _verify_source_asset(path: Path, checksum: str | None = None) -> None:
+    _require_file(path)
+    if checksum and _sha256(path) != checksum:
+        raise SystemExit(f"Sai checksum source asset: {path}")
+
+
 def _copy(source: Path, target: Path, *, write: bool,
           checksum: str | None = None, immutable: bool = False) -> None:
-    _require_file(source)
+    _verify_source_asset(source, checksum)
     source_checksum = _sha256(source)
-    if checksum and source_checksum != checksum:
-        raise SystemExit(f"Sai checksum source asset: {source}")
     if immutable and target.is_file() and _sha256(target) != source_checksum:
         raise SystemExit(f"Không được ghi đè snapshot bất biến: {target}")
     if write:
@@ -194,6 +198,69 @@ def _sync_writing_asset(source: Path, lesson: dict, lesson_id: str, ref: str,
     )
 
 
+def _prepare_lesson(source: Path, course_source: Path | None,
+                    lesson_id: str) -> dict:
+    """Validate lesson identity and every deploy asset without mutating targets."""
+    source_lesson = source / "lessons" / lesson_id / "lesson.json"
+    lesson = _read(source_lesson)
+    if lesson.get("lesson_id") != lesson_id:
+        raise SystemExit(f"Sai lesson_id trong {source_lesson}")
+    declared_checksum = str(
+        (lesson.get("provenance") or {}).get("content_checksum") or ""
+    )
+    actual_checksum = lesson_content_checksum(lesson)
+    if declared_checksum != actual_checksum:
+        raise SystemExit(f"{lesson_id}: nội dung không khớp content_checksum.")
+    vocabulary = lesson.get("vocabulary") or []
+    if len(vocabulary) != 24 or not all(
+            str(word.get("common_error") or "").strip() for word in vocabulary):
+        raise SystemExit(f"{lesson_id}: cần 24 từ và common_error cho mọi từ.")
+
+    for word in vocabulary:
+        provenance = word.get("audio_provenance") or {}
+        for field in ("audio_headword", "audio_example"):
+            ref = str(word.get(field) or "")
+            checksum_field = ("headword_checksum" if field == "audio_headword"
+                              else "example_checksum")
+            _verify_source_asset(source / ref, provenance.get(checksum_field))
+    listening = source / "lessons" / lesson_id / "assets" / "audio" / "full_test.mp3"
+    listening_meta = next(
+        (row for row in (lesson.get("media") or {}).get("audio") or []
+         if row.get("role") == "listening_full_test"), {}
+    )
+    _verify_source_asset(listening, listening_meta.get("checksum"))
+    listening_content = next(
+        (row.get("content") or {} for row in lesson.get("activities") or []
+         if row.get("activity_type") == "listening_lab"),
+        {},
+    )
+    for section in listening_content.get("sections") or []:
+        figure = str(section.get("figure") or "")
+        if figure:
+            _require_file(_listening_figure_source(
+                source, course_source, lesson_id, figure,
+            ))
+    writing_refs = [
+        str(ref) for ref in (lesson.get("media") or {}).get("wt1_illustrations") or []
+    ]
+    for ref in writing_refs:
+        _verify_source_asset(
+            source / "lessons" / lesson_id / ref,
+            _writing_asset_checksum(lesson, ref),
+        )
+    return {
+        "lesson_id": lesson_id,
+        "source_lesson": source_lesson,
+        "lesson": lesson,
+        "actual_checksum": actual_checksum,
+        "vocabulary": vocabulary,
+        "listening": listening,
+        "listening_meta": listening_meta,
+        "listening_content": listening_content,
+        "writing_refs": writing_refs,
+    }
+
+
 def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dict:
     manifest = _read(source / "course-manifest.json")
     qa = _read(source / "QA_REPORT.json")
@@ -210,24 +277,25 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
     if qa.get("publish_ready") is not True or (qa.get("summary") or {}).get("errors") != 0:
         raise SystemExit("QA_REPORT của source package chưa đạt publish-ready.")
 
+    # Preflight the complete package before the first filesystem mutation.
+    prepared_lessons = [
+        _prepare_lesson(source, course_source, lesson_id)
+        for lesson_id in lesson_ids
+    ]
     report = {"schema_version": 1, "source_package_version": "v5-writing-reference",
-              "lesson_count": 30, "lessons": []}
+              "lesson_count": len(lesson_ids), "lessons": []}
     copied_assets = 0
-    for lesson_id in lesson_ids:
-        source_lesson = source / "lessons" / lesson_id / "lesson.json"
-        lesson = _read(source_lesson)
-        if lesson.get("lesson_id") != lesson_id:
-            raise SystemExit(f"Sai lesson_id trong {source_lesson}")
-        declared_checksum = str(
-            (lesson.get("provenance") or {}).get("content_checksum") or ""
-        )
-        actual_checksum = lesson_content_checksum(lesson)
-        if declared_checksum != actual_checksum:
-            raise SystemExit(f"{lesson_id}: nội dung không khớp content_checksum.")
-        vocabulary = lesson.get("vocabulary") or []
-        if len(vocabulary) != 24 or not all(
-                str(word.get("common_error") or "").strip() for word in vocabulary):
-            raise SystemExit(f"{lesson_id}: cần 24 từ và common_error cho mọi từ.")
+    for prepared in prepared_lessons:
+        lesson_id = prepared["lesson_id"]
+        source_lesson = prepared["source_lesson"]
+        lesson = prepared["lesson"]
+        actual_checksum = prepared["actual_checksum"]
+        vocabulary = prepared["vocabulary"]
+        listening = prepared["listening"]
+        listening_meta = prepared["listening_meta"]
+        listening_content = prepared["listening_content"]
+        writing_refs = prepared["writing_refs"]
+
         previous_checksum = _sync_lesson(
             source_lesson, lesson_id, actual_checksum, write=write,
         )
@@ -247,22 +315,12 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
                     checksum=provenance.get(checksum_field),
                 )
                 expected_assets.add(str(target.relative_to(_REPO)))
-        listening = source / "lessons" / lesson_id / "assets" / "audio" / "full_test.mp3"
         listening_target = _PUBLIC / lesson_id / "listening" / "full_test.mp3"
-        listening_meta = next(
-            (row for row in (lesson.get("media") or {}).get("audio") or []
-             if row.get("role") == "listening_full_test"), {}
-        )
         _sync_asset(
             listening, listening_target, lesson_id, actual_checksum, write=write,
             checksum=listening_meta.get("checksum"),
         )
         expected_assets.add(str(listening_target.relative_to(_REPO)))
-        listening_content = next(
-            (row.get("content") or {} for row in lesson.get("activities") or []
-             if row.get("activity_type") == "listening_lab"),
-            {},
-        )
         for section in listening_content.get("sections") or []:
             figure = str(section.get("figure") or "")
             if not figure:
@@ -272,7 +330,7 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
                 content_checksum=actual_checksum,
             )
             expected_assets.add(str(figure_target.relative_to(_REPO)))
-        for ref in (lesson.get("media") or {}).get("wt1_illustrations") or []:
+        for ref in writing_refs:
             target = _sync_writing_asset(
                 source, lesson, lesson_id, str(ref), actual_checksum, write=write,
             )

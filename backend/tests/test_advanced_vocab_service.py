@@ -264,8 +264,9 @@ def test_answer_practice_grades_authored_answer_index(monkeypatch):
         {"id": "bank-1"}, {"id": "item-1"}, lesson,
     ))
     monkeypatch.setattr(service, "_require_stage", lambda *_args: None)
+    practice_items = [indexed]
     monkeypatch.setattr(service, "practice_selection", lambda _lesson: {
-        "practice_1": [indexed], "practice_2": [],
+        "practice_1": practice_items, "practice_2": [],
     })
     monkeypatch.setattr(service, "_upsert_stage", lambda **_kwargs: None)
     monkeypatch.setattr(service, "_progress", lambda _item_id: {
@@ -284,6 +285,20 @@ def test_answer_practice_grades_authored_answer_index(monkeypatch):
     assert result["is_correct"] is True
     assert saved_rows[0]["is_correct"] is True
     assert service._correct(indexed, "B") is False
+
+    case_sensitive = {
+        "item_id": "case-sensitive-text", "type": "gap_text", "input": "text",
+        "prompt": "Enter the abbreviation.", "accept": ["US"],
+        "case_sensitive": True,
+    }
+    practice_items.append(case_sensitive)
+    wrong_case = service.answer_practice(
+        user_id="user-1", bank_id="bank-1", item_id="item-1",
+        stage="practice_1", qid="case-sensitive-text", answer="us",
+    )
+
+    assert wrong_case["is_correct"] is False
+    assert service._correct({**case_sensitive, "case_sensitive": False}, "us") is True
 
 
 def test_learner_question_projection_never_contains_answer_material():
@@ -529,6 +544,13 @@ def test_learner_listening_projection_whitelists_top_and_nested_questions(
     assert set(nested_safe) == {
         "question_number", "question_type", "stem", "options",
     }
+    assert len(listening["questions"]) == len(authored["questions"])
+    assert all(
+        len(safe_question["options"]) == len(authored_question.get("options") or [])
+        for authored_question, safe_question in zip(
+            authored["questions"], listening["questions"], strict=True,
+        )
+    )
     serialized = json.dumps(listening)
     assert "leaked" not in serialized
     assert "private" not in serialized

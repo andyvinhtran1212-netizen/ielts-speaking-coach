@@ -562,10 +562,18 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             ]
             for question in [*question_rows, *nested_question_rows]:
                 unexpected = set(question) - LISTENING_LEARNER_QUESTION_FIELDS
+                authored_options = question.get("options") or []
+                options = authored_options if isinstance(authored_options, list) else []
+                if not isinstance(authored_options, list) or any(
+                    not isinstance(option, dict) for option in authored_options
+                ):
+                    report.add(
+                        "error", "LISTENING_OPTION_ITEM_TYPE", path,
+                        "Every Listening option must be an object.",
+                    )
                 option_unexpected = {
                     key
-                    for option in question.get("options") or []
-                    if isinstance(option, dict)
+                    for option in options if isinstance(option, dict)
                     for key in set(option) - LISTENING_LEARNER_OPTION_FIELDS
                 }
                 if unexpected or option_unexpected:
@@ -622,9 +630,11 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                                f"Listening question {question_id or '?'} needs "
                                "a usable answer span.")
                 if str(question.get("question_type") or "").lower() == "mcq":
+                    authored_options = question.get("options") or []
+                    options = authored_options if isinstance(authored_options, list) else []
                     option_keys = [
                         str(_option_identity(option, index)).strip()
-                        for index, option in enumerate(question.get("options") or [])
+                        for index, option in enumerate(options)
                         if isinstance(option, dict)
                     ]
                     if not option_keys or any(not key for key in option_keys):

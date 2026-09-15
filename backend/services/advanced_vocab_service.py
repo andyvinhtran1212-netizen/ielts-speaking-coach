@@ -672,16 +672,22 @@ def start_practice(*, user_id: str, bank_id: str, item_id: str, stage: str) -> d
     return _progress(item_id)
 
 
-def _normal(value: Any) -> str:
+def _normal(value: Any, *, case_sensitive: bool = False) -> str:
     # ``False`` is an authored answer in boolean items, not a missing value.
     # Using ``value or ''`` made every expected FALSE impossible to answer.
     text = unicodedata.normalize(
         "NFKC", str(value if value is not None else "")
-    ).casefold().strip()
+    ).strip()
+    if not case_sensitive:
+        text = text.casefold()
     return re.sub(r"[^\w+]+", " ", text, flags=re.UNICODE).strip()
 
 
 def _correct(item: dict, answer: Any) -> bool:
+    case_sensitive = item.get("case_sensitive") is True
+    def normalize(value: Any) -> str:
+        return _normal(value, case_sensitive=case_sensitive)
+
     expected = item.get("answer", item.get("answer_index"))
     if isinstance(expected, int) and not isinstance(expected, bool):
         options = item.get("options")
@@ -692,8 +698,8 @@ def _correct(item: dict, answer: Any) -> bool:
             if isinstance(expected_option, dict):
                 option_identity = _option_identity(expected_option, expected)
                 return bool(
-                    _normal(answer)
-                    and _normal(answer) == _normal(option_identity)
+                    normalize(answer)
+                    and normalize(answer) == normalize(option_identity)
                 )
         try:
             return int(answer) == expected
@@ -702,7 +708,10 @@ def _correct(item: dict, answer: Any) -> bool:
     accepted = item.get("accept") if isinstance(item.get("accept"), list) else None
     if not accepted:
         accepted = expected if isinstance(expected, list) else [expected]
-    return bool(_normal(answer) and any(_normal(answer) == _normal(x) for x in accepted))
+    return bool(
+        normalize(answer)
+        and any(normalize(answer) == normalize(value) for value in accepted)
+    )
 
 
 def answer_practice(*, user_id: str, bank_id: str, item_id: str, stage: str,

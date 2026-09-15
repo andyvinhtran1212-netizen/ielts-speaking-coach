@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -670,6 +671,19 @@ def test_listening_requires_complete_replayable_solution_map(tmp_path: Path):
     } <= _codes(report)
 
 
+def test_listening_rejects_mixed_object_and_string_options(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    listening = next(a for a in lesson["activities"] if a["activity_type"] == "listening_lab")
+    listening["content"]["questions"][3]["options"].append("hidden string option")
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    report = validate_package(tmp_path)
+
+    assert "LISTENING_OPTION_ITEM_TYPE" in _codes(report)
+
+
 def test_listening_mcq_answer_must_match_an_option_key(tmp_path: Path):
     _write_package(tmp_path)
     path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
@@ -894,6 +908,79 @@ def test_writing_asset_sync_rejects_bytes_changed_after_lesson_build(
         sync_module._sync_writing_asset(
             package, lesson, lesson_id, ref, content_checksum, write=write,
         )
+
+
+def test_sync_preflights_assets_before_replacing_lesson_snapshot(
+        tmp_path: Path, monkeypatch):
+    package = tmp_path / "package"
+    lesson_id = "ADV-T01"
+    _write_package(package, ids=(lesson_id,))
+    lesson_path = package / "lessons" / lesson_id / "lesson.json"
+    lesson = json.loads(lesson_path.read_text())
+
+    for index, word in enumerate(lesson["vocabulary"]):
+        audio_provenance = {}
+        for field, checksum_field in (
+            ("audio_headword", "headword_checksum"),
+            ("audio_example", "example_checksum"),
+        ):
+            payload = f"{field}-{index}".encode()
+            ref = f"lessons/{lesson_id}/assets/vocab-audio/{field}-{index}.mp3"
+            asset = package / ref
+            asset.parent.mkdir(parents=True, exist_ok=True)
+            asset.write_bytes(payload)
+            word[field] = ref
+            audio_provenance[checksum_field] = hashlib.sha256(payload).hexdigest()
+        word["audio_provenance"] = audio_provenance
+
+    listening_payload = b"listening"
+    listening_asset = package / "lessons" / lesson_id / "assets/audio/full_test.mp3"
+    listening_asset.parent.mkdir(parents=True, exist_ok=True)
+    listening_asset.write_bytes(listening_payload)
+    lesson["media"]["audio"].append({
+        "audio_id": "listening", "role": "listening_full_test",
+        "status": "approved", "checksum": hashlib.sha256(listening_payload).hexdigest(),
+    })
+
+    writing_refs = ["assets/wt1/topic.svg", "assets/wt1/topic.png"]
+    lesson["media"]["wt1_illustrations"] = writing_refs
+    expected_writing = {ref: f"original-{Path(ref).suffix}".encode() for ref in writing_refs}
+    for ref, payload in expected_writing.items():
+        asset = package / "lessons" / lesson_id / ref
+        asset.parent.mkdir(parents=True, exist_ok=True)
+        asset.write_bytes(payload)
+        lesson["provenance"]["source_checksums"][
+            f"Advanced/06_WT1_Illustrations/{Path(ref).name}"
+        ] = hashlib.sha256(payload).hexdigest()
+    _rewrite_lesson_with_checksums(package, lesson)
+    (package / "QA_REPORT.json").write_text(json.dumps({
+        "publish_ready": True, "summary": {"errors": 0, "warnings": 0},
+    }), encoding="utf-8")
+
+    repo = tmp_path / "repo"
+    content = repo / "backend/content/advanced_vocab"
+    public = repo / "frontend/public/assets/advanced-vocab"
+    monkeypatch.setattr(sync_module, "_EXPECTED_IDS", (lesson_id,))
+    monkeypatch.setattr(sync_module, "_REPO", repo)
+    monkeypatch.setattr(sync_module, "_CONTENT", content)
+    monkeypatch.setattr(sync_module, "_PUBLIC", public)
+    monkeypatch.setattr(sync_module, "validate_package", lambda _source: SimpleNamespace(
+        publish_ready=True, to_dict=lambda: {"summary": {"errors": 0, "warnings": 0}},
+    ))
+
+    broken_svg = package / "lessons" / lesson_id / writing_refs[0]
+    broken_svg.write_bytes(b"tampered-after-build")
+    with pytest.raises(SystemExit, match="Sai checksum source asset"):
+        sync_module.sync(package, write=True)
+    assert not (content / f"{lesson_id}.json").exists()
+
+    broken_svg.write_bytes(expected_writing[writing_refs[0]])
+    sync_module.sync(package, write=True)
+    checksum = lesson["provenance"]["content_checksum"]
+    assert (content / f"{lesson_id}.json").is_file()
+    for ref, payload in expected_writing.items():
+        versioned = public / "versions" / lesson_id / checksum / "writing" / Path(ref).name
+        assert versioned.read_bytes() == payload
 
 def test_reading_requires_thirteen_questions_and_no_answer_leak(tmp_path: Path):
     _write_package(tmp_path)
