@@ -23,6 +23,19 @@
 - Learner payloads whitelist public Reading/Listening fields; answer keys are
   attached only to persisted post-submission review evidence.
 - Writing and Speaking contracts explicitly disable default grading/submission.
+- The unique `(class_assignment_item_id, section)` Listening submission is the
+  finalization idempotency identity. Its insert invokes one database finalizer in
+  the same transaction; the finalizer locks the assignment item, verifies all six
+  canonical evidence sets, reads lesson identity from the assignment runtime
+  snapshot, and stamps submission/mastery with no overall score. Any failed check or
+  injected finalizer error rolls back the Listening section insert and assignment
+  update together. Concurrent calls serialize on the item; an identical payload
+  resolves to the existing row and a different payload conflicts without mutation.
+- Migration 263 performs an idempotent reconciliation of complete pilot items that
+  predate the trigger. It derives completion only from all required canonical stage
+  and section rows, preserves the earliest existing submission timestamps, and
+  leaves partial items resumable. Because all post-migration finalization writes are
+  atomic, this migration reconciliation is the only legacy repair path required.
 
 ## UI and interaction
 

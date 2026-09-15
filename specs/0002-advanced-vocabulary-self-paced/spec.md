@@ -67,7 +67,10 @@ that prevents answer leakage and gives admins canonical completion evidence.
   without inventing an overall score.
 - **FR-007:** Database migration and RLS policies isolate learner-owned evidence,
   preserve immutable submission/version history, and support idempotent staged
-  deployment before application promotion.
+  deployment before application promotion. The final Listening evidence and
+  assignment finalization must commit atomically under an assignment-item lock;
+  identical replay is idempotent, different replay conflicts, and complete pilot
+  states that predate the trigger are reconciled from canonical evidence.
 - **FR-008:** Authored lesson JSON and runtime media use immutable content versions
   and verified SHA-256 provenance, including Listening figures and audio, so a
   deployed assignment reopens the same content revision. Assignment creation must
@@ -138,6 +141,9 @@ that prevents answer leakage and gives admins canonical completion evidence.
 - Malformed activity rows, answer-bearing support objects, missing media, and
   checksum drift fail before import or filesystem mutation.
 - Repeated submissions cannot overwrite canonical first-submission evidence.
+- Finalizer failure rolls back the triggering Listening evidence, concurrent
+  finalizers serialize without duplicate completion, and the migration repair
+  changes only a pilot item that already has all six canonical evidence sets.
 - Removing an assignment does not make its historical evidence public or reusable.
 - Network or browser interruption resumes from persisted stage state.
 

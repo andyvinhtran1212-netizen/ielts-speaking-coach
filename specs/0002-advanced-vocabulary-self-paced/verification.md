@@ -24,7 +24,9 @@ on staging and replacement implementation commits are created from that base.
 
 ## Data evidence
 
-- Migration/schema query: pending staging and production policy inspection.
+- Migration/schema query: pending staging and production policy inspection plus
+  database-backed identical/different replay, concurrent finalizer, injected
+  rollback, and complete-versus-partial pilot reconciliation cases.
 - Immediate state versus full reload: pending learner/admin staging journey.
 
 ## UI evidence
