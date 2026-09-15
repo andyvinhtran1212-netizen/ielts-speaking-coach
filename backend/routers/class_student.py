@@ -31,7 +31,7 @@ from database import supabase_admin
 from routers.auth import get_supabase_user
 from services.quiz_service import (
     bank_has_writing,
-    course_assignment_action,
+    course_assignment_action_with_session_truth,
     reconcile_course_items,
 )
 from services.class_assignment_service import (
@@ -52,7 +52,9 @@ logger = logging.getLogger(__name__)
 # Caps HISTORY only. Outstanding work is never capped — see my_assignments().
 _MAX_HISTORY = 200
 _PAGE = 1000
-_COURSE_WORK_ACTIONS = {"start", "continue", "retake", "retry_full"}
+_COURSE_WORK_ACTIONS = {
+    "start", "continue", "retake", "retry_full", "expired_pending",
+}
 
 
 def _paged_items(apply_filters) -> list:
@@ -191,8 +193,9 @@ def _decorate(item: Dict[str, Any], assignment: Dict[str, Any], now: datetime,
         bank_has_writing(assignment.get("content_id"), memo=writing_memo)
         if assignment.get("skill") == "course" else False
     )
-    course_action = (course_assignment_action(
+    course_action = (course_assignment_action_with_session_truth(
         item, assignment, now=now, writing_expected=writing_expected,
+        bank_id=str(assignment.get("content_id") or ""), db=supabase_admin,
     ) if assignment.get("skill") == "course" else None)
 
     return {
@@ -500,8 +503,10 @@ async def start_assignment(
         if (skill == "course" and item.get("passed_at")
             and not item.get("submitted_at")) else None
     )
-    course_action = (course_assignment_action(
+    course_action = (course_assignment_action_with_session_truth(
         item, assignment, writing_expected=writing_expected,
+        bank_id=str(assignment.get("content_id") or ""),
+        user_id=str(auth_user["id"]), db=supabase_admin,
     ) if skill == "course" else None)
 
     # Bài course đã đạt hoặc đã đóng hạn mở lại ở lane chỉ-đọc. Một dấu nộp cũ

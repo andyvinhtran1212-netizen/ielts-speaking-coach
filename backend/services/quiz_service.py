@@ -433,7 +433,8 @@ def _expired_course_session_is_pending(
     assignment: dict | None,
     *,
     bank_id: str,
-    user_id: str,
+    user_id: str | None = None,
+    db=None,
 ) -> bool:
     """Whether an expired retry generation still lacks a mastery verdict.
 
@@ -468,12 +469,14 @@ def _expired_course_session_is_pending(
         if session_id
     }
     try:
-        rows = (supabase_admin.table("quiz_sessions")
-                .select("id, kind, created_at, ended_at, ended_by")
-                .eq("class_assignment_item_id", item.get("id"))
-                .eq("user_id", user_id)
-                .eq("bank_id", bank_id)
-                .execute().data) or []
+        client = db or supabase_admin
+        query = (client.table("quiz_sessions")
+                 .select("id, kind, created_at, ended_at, ended_by")
+                 .eq("class_assignment_item_id", item.get("id"))
+                 .eq("bank_id", bank_id))
+        if user_id:
+            query = query.eq("user_id", user_id)
+        rows = (query.execute().data) or []
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "[quiz] expired retry session read failed item=%s: %s",
@@ -493,6 +496,35 @@ def _expired_course_session_is_pending(
             continue
         return True
     return False
+
+
+def course_assignment_action_with_session_truth(
+    item: dict | None,
+    assignment: dict | None,
+    *,
+    bank_id: str,
+    user_id: str | None = None,
+    now: datetime | None = None,
+    writing_expected: bool | None = None,
+    db=None,
+) -> str:
+    """Learner action including an unrecorded expired retry generation.
+
+    Every response that drives Course UI must use this wrapper. The pure action
+    policy alone sees only the mastery ledger, whose latest row may be the
+    entitlement for a newer retake/full retry rather than that retry's verdict.
+    """
+    timer = assignment_timer_state(item, assignment, now=now)
+    pending_session = bool(
+        timer.get("is_expired")
+        and _expired_course_session_is_pending(
+            item, assignment, bank_id=bank_id, user_id=user_id, db=db,
+        )
+    )
+    return course_assignment_action(
+        item, assignment, now=now, writing_expected=writing_expected,
+        unrecorded_current_session=pending_session,
+    )
 
 
 def _full_retry_boundary(attempts: list[dict], pass_pct: int) -> datetime | None:
@@ -931,16 +963,8 @@ def get_bank_for_play(
             "content_config": item.get("content_config") or {},
         }
         preflight_timer = assignment_timer_state(item, preflight_assignment)
-        preflight_pending_session = bool(
-            preflight_timer.get("is_expired")
-            and _expired_course_session_is_pending(
-                item, preflight_assignment,
-                bank_id=bank_id, user_id=str(user_id),
-            )
-        )
-        preflight_action = course_assignment_action(
-            item, preflight_assignment,
-            unrecorded_current_session=preflight_pending_session,
+        preflight_action = course_assignment_action_with_session_truth(
+            item, preflight_assignment, bank_id=bank_id, user_id=str(user_id),
         )
         course_item = item
         course_preflight_assignment = preflight_assignment
@@ -1004,20 +1028,12 @@ def get_bank_for_play(
             latest_sections = ((att[-1].get("sections") or {})
                                if att and isinstance(att[-1], dict) else {})
             effective_timer = assignment_timer_state(effective_item, assignment)
-            pending_session = bool(
-                effective_timer.get("is_expired")
-                and _expired_course_session_is_pending(
-                    effective_item, assignment,
-                    bank_id=bank_id, user_id=str(user_id),
-                )
-            )
-            learner_action = course_assignment_action(
-                effective_item, assignment,
+            learner_action = course_assignment_action_with_session_truth(
+                effective_item, assignment, bank_id=bank_id, user_id=str(user_id),
                 writing_expected=(bank_has_writing(bank_id)
                                   if effective_item.get("passed_at")
                                   and not effective_item.get("submitted_at")
                                   else None),
-                unrecorded_current_session=pending_session,
             )
             # The locked timer/session gate runs after this refresh. Carry its
             # newer phase forward so a near-pass persisted between the first
@@ -1125,13 +1141,9 @@ def get_bank_for_play(
         if final_timer.get("is_timed"):
             mastery_state = {**(mastery_state or {}), **final_timer}
             if final_timer.get("is_expired"):
-                final_pending_session = _expired_course_session_is_pending(
+                final_action = course_assignment_action_with_session_truth(
                     course_item, final_assignment,
                     bank_id=bank_id, user_id=str(user_id),
-                )
-                final_action = course_assignment_action(
-                    course_item, final_assignment,
-                    unrecorded_current_session=final_pending_session,
                 )
                 mastery_state.update({
                     "passed_at": course_item.get("passed_at"),
