@@ -20,8 +20,12 @@ over historical migration or sprint notes.
 
 ## 2. Proportional specification
 
-- `feature` and `high-risk` changes MUST have an approved feature spec before
-  implementation.
+- `feature` and `high-risk` changes MUST have an approved feature spec on the
+  base branch before implementation. A spec cannot be introduced, marked
+  approved, and implemented in the same pull request.
+- `SDD-0000` is the one-time bootstrap exception: it may establish this
+  constitution only when the base revision does not yet contain the
+  constitution. Once landed, the exception cannot recur.
 - Hotfixes and small/content changes MAY use `Spec: N/A`, but MUST still state
   the problem, expected behavior, scope, and verification in the PR.
 - Specification depth MUST follow risk; paperwork must not be used to make a

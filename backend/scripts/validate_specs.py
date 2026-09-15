@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -23,9 +24,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 FEATURE_DIR_RE = re.compile(r"^(?P<number>\d{4})-[a-z0-9]+(?:-[a-z0-9]+)*$")
 SPEC_ID_RE = re.compile(r"^[A-Z][A-Z0-9]*-(?P<number>\d{4})$")
 REQUIREMENT_DECLARATION_RE = re.compile(
-    r"^\s*-\s+\*\*(FR-\d{3}):\*\*\s+\S",
+    r"^\s*-\s+\*\*(FR-[^\s:*]+):\*\*\s+\S",
     re.MULTILINE,
 )
+VALID_REQUIREMENT_ID_RE = re.compile(r"^FR-\d{3}$")
 EVIDENCE_ROW_RE = re.compile(
     r"^\|\s*(FR-\d{3})\s*\|\s*(\S(?:.*\S)?)\s*\|\s*([A-Za-z/]+)\s*\|\s*$",
     re.MULTILINE,
@@ -219,6 +221,20 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
 
         requirement_section = _section(texts.get("spec.md", ""), "Requirements")
         requirements = REQUIREMENT_DECLARATION_RE.findall(requirement_section)
+        malformed_requirements = sorted(
+            requirement
+            for requirement in set(requirements)
+            if not VALID_REQUIREMENT_ID_RE.fullmatch(requirement)
+        )
+        for requirement in malformed_requirements:
+            errors.append(
+                f"{spec_path}: malformed functional requirement {requirement!r}; use FR-NNN"
+            )
+        requirements = [
+            requirement
+            for requirement in requirements
+            if VALID_REQUIREMENT_ID_RE.fullmatch(requirement)
+        ]
         unique_requirements = sorted(set(requirements))
         if not unique_requirements:
             errors.append(
@@ -256,9 +272,9 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
             errors.append(f"{feature / 'verification.md'}: evidence references unknown {unknown}")
 
         tasks = texts.get("tasks.md", "")
-        if not re.search(r"^- \[[ xX]\] ", tasks, re.MULTILINE):
+        if not re.search(r"^\s*-\s+\[[ xX]\]\s+", tasks, re.MULTILINE):
             errors.append(f"{feature / 'tasks.md'}: declare at least one checkbox task")
-        if status in FINAL_STATUSES and re.search(r"^- \[ \] ", tasks, re.MULTILINE):
+        if status in FINAL_STATUSES and re.search(r"^\s*-\s+\[ \]\s+", tasks, re.MULTILINE):
             errors.append(f"{feature / 'tasks.md'}: final feature still has incomplete required tasks")
 
     for orphan_id in sorted(set(index_rows) - set(seen_ids)):
@@ -277,12 +293,47 @@ def _body_field(body: str, field: str) -> str | None:
     return value or None
 
 
-def validate_pull_request(event: dict[str, Any], known_specs: dict[str, Path]) -> list[str]:
+def _git_show(root: Path, revision: str, path: str) -> tuple[bool, str | None]:
+    """Return whether the revision exists and text at path when it exists."""
+    revision_check = subprocess.run(
+        ["git", "-C", str(root), "cat-file", "-e", f"{revision}^{{commit}}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if revision_check.returncode != 0:
+        return False, None
+    result = subprocess.run(
+        ["git", "-C", str(root), "show", f"{revision}:{path}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return True, result.stdout if result.returncode == 0 else None
+
+
+def _requirement_coverage(body: str) -> list[str]:
+    section = _section(body, "Requirement coverage")
+    return sorted(
+        set(
+            re.findall(
+                r"^\s*[-*]\s+(FR-\d{3})(?!\d)\s*(?:->|:)",
+                section,
+                re.MULTILINE,
+            )
+        )
+    )
+
+
+def validate_pull_request(
+    event: dict[str, Any], known_specs: dict[str, Path], root: Path = REPO_ROOT
+) -> list[str]:
     pull = event.get("pull_request")
     if not isinstance(pull, dict):
         return []
 
     base = str((pull.get("base") or {}).get("ref") or "")
+    base_sha = str((pull.get("base") or {}).get("sha") or "")
     head = str((pull.get("head") or {}).get("ref") or "")
     if base == "main" and head == "staging":
         return []
@@ -314,6 +365,56 @@ def validate_pull_request(event: dict[str, Any], known_specs: dict[str, Path]) -
                 errors.append(
                     f"pull request: Spec '{spec_id}' must be approved and not superseded"
                 )
+            if requires_spec:
+                if not base_sha:
+                    errors.append("pull request: base SHA is required to verify prior spec approval")
+                else:
+                    revision_exists, base_spec_text = _git_show(
+                        root,
+                        base_sha,
+                        str((feature / "spec.md").relative_to(root)),
+                    )
+                    _, base_constitution = _git_show(
+                        root, base_sha, "specs/_meta/constitution.md"
+                    )
+                    bootstrap = spec_id == "SDD-0000" and base_constitution is None
+                    if not revision_exists:
+                        errors.append(
+                            "pull request: cannot resolve base SHA to verify prior spec approval"
+                        )
+                    elif base_spec_text is None and not bootstrap:
+                        errors.append(
+                            f"pull request: Spec '{spec_id}' must be approved in the base revision before implementation"
+                        )
+                    elif base_spec_text is not None:
+                        try:
+                            base_metadata = yaml.safe_load(
+                                base_spec_text.split("---", 2)[1]
+                            ) or {}
+                        except (IndexError, yaml.YAMLError):
+                            base_metadata = {}
+                        if base_metadata.get("status") not in IMPLEMENTABLE_SPEC_STATUSES:
+                            errors.append(
+                                f"pull request: Spec '{spec_id}' was not approved in the base revision"
+                            )
+
+                coverage = _requirement_coverage(body)
+                declared = set(
+                    requirement
+                    for requirement in REQUIREMENT_DECLARATION_RE.findall(
+                        _section(metadata_text, "Requirements")
+                    )
+                    if VALID_REQUIREMENT_ID_RE.fullmatch(requirement)
+                )
+                if not coverage:
+                    errors.append(
+                        "pull request: '## Requirement coverage' must list at least one exact FR-NNN"
+                    )
+                for requirement in coverage:
+                    if requirement not in declared:
+                        errors.append(
+                            f"pull request: requirement coverage references unknown {requirement} for {spec_id}"
+                        )
     return errors
 
 
@@ -331,7 +432,7 @@ def main() -> int:
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
             errors.append(f"{args.github_event}: cannot parse GitHub event ({exc})")
         else:
-            errors.extend(validate_pull_request(event, known_specs))
+            errors.extend(validate_pull_request(event, known_specs, root))
 
     if errors:
         print("Spec governance failed:", file=sys.stderr)

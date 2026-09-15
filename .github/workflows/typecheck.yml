@@ -26,6 +26,10 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v5
+        with:
+          # PR validation reads the exact base revision to prove the spec was
+          # approved before implementation entered the topic branch.
+          fetch-depth: 2
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'

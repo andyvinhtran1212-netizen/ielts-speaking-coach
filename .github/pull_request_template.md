@@ -3,9 +3,10 @@
 Change class: <!-- hotfix | small | content | feature | high-risk -->
 Spec: <!-- N/A or an existing ID such as FEAT-0001 -->
 
-For `feature` and `high-risk`, link the approved `specs/NNNN-slug/spec.md` and
-list the implemented requirement IDs. Production promotion PRs from `staging`
-to `main` are exempt from repeating feature metadata.
+For `feature` and `high-risk`, link a spec that was already approved on the
+base branch before implementation began, then list the implemented requirement
+IDs. Production promotion PRs from `staging` to `main` are exempt from repeating
+feature metadata.
 
 ## Release target
 

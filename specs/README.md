@@ -13,7 +13,9 @@ is intentionally excluded from the canonical feature lifecycle.
    `feature`, or `high-risk`.
 2. `hotfix`, `small`, and `content` changes may use `Spec: N/A` when the PR body
    states the expected behavior and verification.
-3. `feature` and `high-risk` changes require an approved feature directory.
+3. `feature` and `high-risk` changes require a feature directory approved on
+   the base branch before implementation starts. Land the approved spec first;
+   do not self-approve it inside the implementation PR.
 4. Refine `spec.md` before implementation details are committed to `plan.md`.
 5. Derive dependency-ordered work in `tasks.md` and map every requirement to
    evidence in `verification.md`.
