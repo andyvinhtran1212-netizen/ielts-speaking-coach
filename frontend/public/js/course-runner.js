@@ -149,6 +149,7 @@ export function retakeClone(q, rng) {
 export function createRunner({
   api, storage, now = () => Date.now(),
   schedule = (fn, delay) => setTimeout(fn, delay),
+  onSuperseded = () => {},
 }) {
   let bank = null;
   let mastery = null;
@@ -208,6 +209,7 @@ export function createRunner({
   const eagerRetryDelays = [250, 500, 1000, 2000, 4000];
   let eagerRetryAttempt = 0;
   let eagerRetryScheduled = false;
+  let superseded = false;
 
   const key = () => 'cx:' + (bank && bank.id);
   // Vân tay bộ đề: đổi câu HOẶC đổi đáp án (re-import) đều đổi vân tay. Trạng
@@ -235,6 +237,14 @@ export function createRunner({
     return code === 'timed_course_final_batch_missing'
       || text.includes('timed_course_final_batch_missing')
       || text.includes('Phiên đã đóng trước khi batch đáp án cuối được lưu');
+  }
+
+  function isSupersededTimedProgress(err) {
+    const detail = err && typeof err === 'object' ? err.detail : null;
+    const code = detail && typeof detail === 'object' ? detail.code : null;
+    const text = String((err && err.message) || detail || err || '');
+    return code === 'timed_course_progress_not_entitled'
+      || text.includes('timed_course_progress_not_entitled');
   }
 
   function fingerprint(list) {
@@ -578,6 +588,24 @@ export function createRunner({
       else await api.post(path, body);
       if (!keepalive) eagerRetryAttempt = 0;
     } catch (err) {
+      if (isSupersededTimedProgress(err)) {
+        // Another tab has already moved the assignment to a retake/full-retry
+        // generation. These answers can never become entitled, so retrying
+        // only creates a request loop. Drop the stale batch and ask the host to
+        // refetch the canonical course phase.
+        pending = [];
+        eagerBatch = [];
+        eagerRetryScheduled = false;
+        sessionEnded = true;
+        sessionId = null;
+        const firstSupersededSignal = !superseded;
+        superseded = true;
+        persistError = (err && err.message) ? err.message : String(err || 'Phiên đã được thay thế.');
+        if (firstSupersededSignal) {
+          try { onSuperseded(); } catch (e) { /* the stale session still stays closed */ }
+        }
+        throw err;
+      }
       // Batch eager vẫn do request thường sở hữu; nếu nó hỏng, chính request đó
       // sẽ trả batch về hàng đợi. Chỉ phục hồi phần `queued` mà keepalive đã lấy.
       pending = (keepalive ? queued : batch).concat(pending);
@@ -659,6 +687,7 @@ export function createRunner({
     get hasOpenSession() { return Boolean(sessionId) && !sessionEnded; },
     get reviewOnly() { return reviewOnly; },
     get expiryPending() { return expiryPending; },
+    get superseded() { return superseded; },
     get isTimed() { return Boolean(mastery && mastery.is_timed); },
     get expiresAt() { return (mastery && mastery.expires_at) || null; },
     timeRemainingSeconds() {

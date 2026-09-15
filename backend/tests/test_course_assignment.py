@@ -178,6 +178,25 @@ def test_timer_uses_the_earlier_class_deadline_as_its_cutoff():
     assert expired["is_expired"] is True
 
 
+def test_started_timer_prefers_the_immutable_item_snapshot_over_live_config():
+    state = assignment_timer_state(
+        {
+            "opened_at": "2026-09-15T01:00:00+00:00",
+            "timed_limit_minutes": 60,
+            "timed_expires_at": "2026-09-15T02:00:00+00:00",
+        },
+        {
+            "due_at": "2026-09-15T01:10:00+00:00",
+            "content_config": {"time_limit_minutes": 5},
+        },
+        now=datetime(2026, 9, 15, 1, 30, tzinfo=timezone.utc),
+    )
+    assert state["time_limit_minutes"] == 60
+    assert state["expires_at"] == "2026-09-15T02:00:00+00:00"
+    assert state["time_remaining_seconds"] == 1800
+    assert state["is_expired"] is False
+
+
 # ── Từ chối ──────────────────────────────────────────────────────────────────
 
 def test_a_bank_from_ANOTHER_course_is_refused():

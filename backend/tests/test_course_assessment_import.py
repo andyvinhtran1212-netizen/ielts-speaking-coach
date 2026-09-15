@@ -49,6 +49,13 @@ def test_rejects_a_broken_assessment_before_mapping(mutate):
         normalize_assessment_rows([row], expected_count=1)
 
 
+def test_rejects_internal_markers_inside_wrong_answer_feedback():
+    row = copy.deepcopy(_row())
+    row["bay"][0] = "[C] Bẫy nội bộ không được hiện cho học viên."
+    with pytest.raises(ValueError, match="còn mã nội bộ"):
+        normalize_assessment_rows([row], expected_count=1)
+
+
 def test_rejects_wrong_total_and_duplicate_full_items_but_allows_shared_instructions():
     with pytest.raises(ValueError, match="đúng 2 câu"):
         normalize_assessment_rows([_row()], expected_count=2)

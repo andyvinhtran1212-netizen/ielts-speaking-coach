@@ -411,6 +411,46 @@ test('a transient timed eager 5xx retries before cutoff and needs no late insert
     'the timeout session score reads the same persisted attempt ledger');
 });
 
+test('a superseded timed session stops retrying and refetches the canonical page', async () => {
+  let reloads = 0;
+  const scheduled = [];
+  const api = fakeApi({
+    questions: [mcq(1)],
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      expires_at: null, time_remaining_seconds: 60,
+    },
+  });
+  const post = api.post.bind(api);
+  api.post = async (path, body) => {
+    if (path.endsWith('/progress')) {
+      api.calls.post.push({ path, body });
+      const error = new Error('Lượt làm này đã được thay thế.');
+      error.status = 409;
+      error.detail = { code: 'timed_course_progress_not_entitled' };
+      throw error;
+    }
+    return post(path, body);
+  };
+  const runner = createRunner({
+    api, storage: null,
+    schedule(fn, delay) { scheduled.push({ fn, delay }); },
+    onSuperseded() { reloads += 1; },
+  });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  runner.show();
+  runner.answer(0);
+  runner.next();
+  for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+
+  assert.equal(runner.superseded, true);
+  assert.equal(runner.pendingCount, 0);
+  assert.equal(runner.hasOpenSession, false);
+  assert.equal(reloads, 1, 'the host refetches the canonical course phase once');
+  assert.equal(scheduled.length, 0, 'a terminal entitlement rejection is never retried');
+  assert.equal(api.calls.post.filter((call) => call.path.endsWith('/progress')).length, 1);
+});
+
 test('a failed atomic timeout close keeps the final answers for visible retry', async () => {
   let clock = 59000;
   const api = fakeApi({

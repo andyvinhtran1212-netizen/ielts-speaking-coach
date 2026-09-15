@@ -1180,7 +1180,15 @@ def assignment_timer_state(
     ``content_config`` and the per-student start is the existing ledger fact.
     """
     cfg = (assignment or {}).get("content_config") or {}
-    raw = cfg.get("time_limit_minutes")
+    started = _at((item or {}).get("opened_at"))
+    snapshot_limit = (item or {}).get("timed_limit_minutes")
+    snapshot_expires = _at((item or {}).get("timed_expires_at"))
+    # Migration 280 snapshots the duration and effective cutoff in the same
+    # row transition that sets opened_at. Prefer those immutable values once
+    # the clock has started; the config fallback keeps rolling deploys and
+    # pre-migration fixtures readable until the backfill is visible everywhere.
+    raw = (snapshot_limit if started is not None and snapshot_limit is not None
+           else cfg.get("time_limit_minutes"))
     if raw is None:
         return {
             "is_timed": False, "time_limit_minutes": None,
@@ -1204,7 +1212,6 @@ def assignment_timer_state(
         }
 
     current = now or datetime.now(timezone.utc)
-    started = _at((item or {}).get("opened_at"))
     if started is None:
         return {
             "is_timed": True, "time_limit_minutes": limit,
@@ -1217,7 +1224,9 @@ def assignment_timer_state(
     # a 60-minute assessment ten minutes before ``due_at``, the effective clock
     # is ten minutes — never an hour that silently extends the assignment.
     due = _at((assignment or {}).get("due_at"))
-    expires = min(configured_expires, due) if due is not None else configured_expires
+    expires = snapshot_expires or (
+        min(configured_expires, due) if due is not None else configured_expires
+    )
     return {
         "is_timed": True, "time_limit_minutes": limit,
         "started_at": started.isoformat(), "expires_at": expires.isoformat(),

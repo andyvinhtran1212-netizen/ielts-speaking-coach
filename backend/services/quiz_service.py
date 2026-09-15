@@ -810,7 +810,8 @@ def _assignment_item_for(
         sids = [s["id"] for s in student]
         item_query = (supabase_admin.table("class_assignment_items")
                       .select("id, assignment_id, student_id, submitted_at, "
-                              "passed_at, mastery, updated_at, opened_at")
+                              "passed_at, mastery, updated_at, opened_at, "
+                              "timed_limit_minutes, timed_expires_at")
                       .in_("assignment_id", [a["id"] for a in owned])
                       .in_("student_id", sids))
         if assignment_item_id:
@@ -2528,7 +2529,8 @@ def _assert_quiz_progress_writable(session: dict) -> bool:
         return False
     try:
         items = (supabase_admin.table("class_assignment_items")
-                 .select("id, assignment_id, opened_at, submitted_at, passed_at, mastery")
+                 .select("id, assignment_id, opened_at, timed_limit_minutes, "
+                         "timed_expires_at, submitted_at, passed_at, mastery")
                  .eq("id", item_id).limit(1).execute().data) or []
         if not items:
             raise HTTPException(404, "Không tìm thấy mục bài giao")
@@ -2613,6 +2615,16 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
                 raise HTTPException(
                     409, "Phiên này không còn nhận đáp án.",
                 ) from exc
+            if timed_course and "timed_course_progress_not_entitled" in detail:
+                raise HTTPException(
+                    409, {
+                        "code": "timed_course_progress_not_entitled",
+                        "message": (
+                            "Lượt làm này đã được thay thế ở một cửa sổ khác. "
+                            "Đang tải lại tiến độ mới nhất."
+                        ),
+                    },
+                ) from exc
             if timed_course and "timed_course_limit_invalid" in detail:
                 raise HTTPException(
                     409, "Cấu hình thời gian của bài không hợp lệ.",
@@ -2671,7 +2683,8 @@ def _assert_course_session_accepting(session: dict, ended_by: str = "completed")
         return
     try:
         items = (supabase_admin.table("class_assignment_items")
-                 .select("id, assignment_id, opened_at").eq("id", item_id)
+                 .select("id, assignment_id, opened_at, timed_limit_minutes, "
+                         "timed_expires_at").eq("id", item_id)
                  .limit(1).execute().data) or []
         if not items:
             raise HTTPException(404, "Không tìm thấy mục bài giao")
@@ -4323,7 +4336,8 @@ def course_verdict(
                 .in_("id", session_ids).execute().data) or []
 
         cur = (supabase_admin.table("class_assignment_items")
-               .select("id, passed_at, submitted_at, mastery, score, updated_at, opened_at")
+               .select("id, passed_at, submitted_at, mastery, score, updated_at, "
+                       "opened_at, timed_limit_minutes, timed_expires_at")
                .eq("id", item["id"]).limit(1).execute().data) or []
 
         # Đề GỐC — thước để server tự chấm lại. Câu tự luận không chấm máy nên
@@ -4832,7 +4846,8 @@ def reap_expired_course_assessments(
         for ids in _chunks(list(timed)):
             items.extend(_report_pages(
                 "class_assignment_items",
-                "id, assignment_id, student_id, opened_at, submitted_at, passed_at, mastery, updated_at",
+                "id, assignment_id, student_id, opened_at, timed_limit_minutes, "
+                "timed_expires_at, submitted_at, passed_at, mastery, updated_at",
                 lambda q, ids=ids: (
                     q.in_("assignment_id", ids)
                     .not_.is_("opened_at", "null")

@@ -115,7 +115,13 @@ def normalize_assessment_rows(
             raise ValueError(f"[{qid}] bốn phương án sai phải dùng bốn cơ chế bẫy khác nhau.")
 
         explanation = _required_text(source.get("giai_thich"), "giải thích", qid)
-        learner_visible = " ".join([prompt, *clean_options, explanation])
+        visible_traps = [
+            str(traps[index] or "").strip()
+            for index in range(OPTION_COUNT) if index != answer
+        ]
+        learner_visible = " ".join([
+            prompt, *clean_options, explanation, *visible_traps,
+        ])
         if _INTERNAL_MARKER.search(learner_visible):
             raise ValueError(f"[{qid}] còn mã nội bộ trong nội dung học viên nhìn thấy.")
 

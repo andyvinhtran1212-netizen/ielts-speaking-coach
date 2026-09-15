@@ -107,7 +107,14 @@ export function CourseBehavior() {
       const requestedItem = new URLSearchParams(location.search).get('class_item');
       if (!bankId) return fail('Thiếu mã bài tập trên đường dẫn (?bank=…).');
 
-      runner = createRunner({ api: courseApi, storage: window.localStorage });
+      runner = createRunner({
+        api: courseApi,
+        storage: window.localStorage,
+        onSuperseded() {
+          setSaveState('saving', 'Lượt làm đã đổi · đang tải tiến độ mới nhất…');
+          window.location.reload();
+        },
+      });
       try {
         await runner.load(bankId, {
           reviewOnly: requestedView === 'writing' && Boolean(requestedItem),

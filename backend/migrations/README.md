@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-16 the highest is `279`, so the next new
-migration is `280`.
+sequence is dense. As of 2026-09-16 the highest is `280`, so the next new
+migration is `281`.
 
 ## Conventions
 
@@ -148,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–274
+## Forward scope 230–280
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -225,6 +225,11 @@ Migration 279 makes timed progress admission respect the current retry
 generation under the same item lock. A stale full-run tab can no longer write
 after a near-pass authorizes only a retake, nor can an earlier run cross into a
 new full-retry generation.
+
+Migration 280 snapshots each timed Course item's duration and effective cutoff
+when `opened_at` is first set. It locks later edits to the assignment duration
+and the item snapshot, so the player, progress gate, finalizer, and reaper keep
+one immutable boundary for the whole attempt.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence
