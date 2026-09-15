@@ -114,6 +114,66 @@ def test_malformed_policy_causes_zero_database_invocations(tmp_path):
     assert not marker.exists()
 
 
+def test_unknown_feature_opt_in_causes_zero_database_invocations(tmp_path):
+    marker = tmp_path / "psql-called"
+    fake_psql = tmp_path / "psql"
+    fake_psql.write_text(
+        "#!/usr/bin/env bash\n"
+        "touch \"$PSQL_MARKER\"\n"
+        "exit 99\n",
+        encoding="utf-8",
+    )
+    fake_psql.chmod(0o755)
+    env = os.environ.copy()
+    env.update({
+        "PATH": f"{tmp_path}:{env['PATH']}",
+        "PSQL_MARKER": str(marker),
+        "MIGRATION_FEATURES": "curated_vocb",
+    })
+
+    result = subprocess.run(
+        [str(BACKEND / "scripts" / "apply_migrations.sh"),
+         "postgresql://postgres:secret@staging.example/postgres"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode == 1
+    assert "MIGRATION_FEATURES contains an unknown group: curated_vocb" in result.stderr
+    assert not marker.exists()
+
+
+def test_empty_feature_opt_in_causes_zero_database_invocations(tmp_path):
+    marker = tmp_path / "psql-called"
+    fake_psql = tmp_path / "psql"
+    fake_psql.write_text(
+        "#!/usr/bin/env bash\n"
+        "touch \"$PSQL_MARKER\"\n"
+        "exit 99\n",
+        encoding="utf-8",
+    )
+    fake_psql.chmod(0o755)
+    env = os.environ.copy()
+    env.update({
+        "PATH": f"{tmp_path}:{env['PATH']}",
+        "PSQL_MARKER": str(marker),
+        "MIGRATION_FEATURES": "curated_vocab,,future_group",
+    })
+
+    result = subprocess.run(
+        [str(BACKEND / "scripts" / "apply_migrations.sh"),
+         "postgresql://postgres:secret@staging.example/postgres"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+    assert result.returncode == 1
+    assert "MIGRATION_FEATURES contains an empty or malformed group" in result.stderr
+    assert not marker.exists()
+
+
 def test_staging_clone_restores_and_verifies_the_pending_feature_group():
     assert "MIGRATION_FEATURES=curated_vocab" in STAGING_CLONE
     assert "curated vocabulary ledger incomplete" in STAGING_CLONE

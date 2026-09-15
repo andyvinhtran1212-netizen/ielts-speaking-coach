@@ -65,6 +65,23 @@ if ! awk -F '\t' '
   exit 1
 fi
 
+if [[ -n "${MIGRATION_FEATURES:-}" ]]; then
+  if [[ ! "$MIGRATION_FEATURES" =~ ^[a-z0-9_]+(,[a-z0-9_]+)*$ ]]; then
+    echo "REFUSED: MIGRATION_FEATURES contains an empty or malformed group: $MIGRATION_FEATURES" >&2
+    exit 1
+  fi
+  IFS=',' read -r -a requested_feature_groups <<< "$MIGRATION_FEATURES"
+  for requested_group in "${requested_feature_groups[@]}"; do
+    if ! awk -F '\t' -v group="$requested_group" '
+      $2 == "pending_feature" && $3 == group { found = 1 }
+      END { exit(found ? 0 : 1) }
+    ' "$POLICY_FILE"; then
+      echo "REFUSED: MIGRATION_FEATURES contains an unknown group: $requested_group" >&2
+      exit 1
+    fi
+  done
+fi
+
 psql "$DB_URL" -v ON_ERROR_STOP=1 -q -c \
   "CREATE TABLE IF NOT EXISTS _schema_migrations (filename text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now());"
 
