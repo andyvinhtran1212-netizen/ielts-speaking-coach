@@ -107,12 +107,15 @@
 - The importer/version switch, publish-state mutation, and assignment issuance use
   dedicated database RPC transactions that acquire the same bank-scoped advisory
   lock. The importer replaces all revision-owned question rows and updates runtime
-  metadata in one transaction; assignment issuance reads that metadata, revalidates
-  `is_published` immediately before persistence, and writes the frozen assignment
-  snapshot in one transaction. Barrier tests force both import/issuance commit orders
-  and reject every mixed-revision snapshot, then force both unpublish/issuance orders:
-  unpublish-first rejects issuance, while issuance-first completes before the bank is
-  retired and both the assignment list and bank picker agree after reload.
+  metadata in one transaction and preserves the publication state read under the lock
+  unless the request explicitly directs a publication change. Assignment issuance
+  reads that metadata, revalidates `is_published` immediately before persistence, and
+  writes the frozen assignment snapshot in one transaction. Barrier tests force both
+  import/issuance commit orders and reject every mixed-revision snapshot; both default-
+  import/unpublish orders must retain the admin's retired state; and both unpublish/
+  issuance orders prove unpublish-first rejects issuance while issuance-first completes
+  before retirement. The assignment list, bank picker, and persisted bank state must
+  agree after reload.
 
 ## API contract
 

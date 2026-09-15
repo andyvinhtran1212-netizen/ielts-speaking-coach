@@ -14,7 +14,7 @@ on staging and replacement implementation commits are created from that base.
 | FR-005 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
 | FR-006 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_quiz_service.py, backend/tests/test_course_attempt_report.py, frontend/tests/my-class-next-behavior.test.mjs, frontend/tests/admin-class-homework-next-behavior.test.mjs, frontend/tests/admin-class-student-work-next-behavior.test.mjs, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
 | FR-007 | kind=test; ref=backend/tests/test_advanced_vocab_rls_integration.py | PENDING |
-| FR-008 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py | PENDING |
+| FR-008 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py, backend/tests/test_advanced_vocab_importer.py, frontend/tests/admin-class-homework-next-behavior.test.mjs | PENDING |
 | FR-009 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
 
 ## Contract evidence
@@ -95,7 +95,13 @@ on staging and replacement implementation commits are created from that base.
   may combine metadata, authored payload, or question rows from different revisions.
   Force both unpublish-versus-assignment orders on the same lock: unpublish-first must
   make issuance fail its final `is_published` recheck, while issuance-first commits
-  before unpublish returns; the assignment list and bank picker must agree after reload.
+  before unpublish returns. Force both default-import-versus-unpublish orders and prove
+  import preserves the locked publication state, so retirement wins in either order;
+  an explicit import publication directive remains an intentional atomic state change.
+  The persisted bank state, assignment list, and bank picker must agree after reload.
+- Admin retirement UI: pending behavior/browser coverage for successful retirement,
+  rejected mutation with no optimistic stale state, immediate list/picker agreement,
+  full-reload agreement, and continued access to every existing pinned assignment.
 - Timing truth: pending capped per-question Practice response time and Reading/
   Listening duration persistence, idempotent retry totals, untimed Vocabulary/rewrite
   completion timestamps, and matching learner/admin reload projections without

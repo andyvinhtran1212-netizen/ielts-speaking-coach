@@ -144,9 +144,13 @@ that prevents answer leakage and gives admins canonical completion evidence.
   question rows and switches the bank runtime metadata; publish-state mutation commits
   before any later issuance can proceed; and assignment issuance atomically reads the
   metadata, revalidates `is_published` immediately before persistence, and writes its
-  frozen snapshot. Either import/issuance commit order therefore yields a wholly old
-  or wholly new revision, never a mixed snapshot/question set, while unpublish-first
-  rejects issuance and issuance-first completes before unpublish returns.
+  frozen snapshot. An import preserves the publication state observed under that lock
+  unless the import request carries an explicit publication directive, in which case
+  that state change commits atomically with the revision. Either import/issuance commit
+  order therefore yields a wholly old or wholly new revision, never a mixed snapshot/
+  question set; an overlapping default import cannot undo an admin retirement; and
+  unpublish-first rejects issuance while issuance-first completes before unpublish
+  returns.
 - **FR-009:** Starting either Practice stage creates exactly one immutable server-
   selected question set for that assignment item/stage. Repeated starts, response-
   loss recovery, and reload return the original persisted selection rather than
