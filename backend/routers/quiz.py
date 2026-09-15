@@ -43,6 +43,8 @@ class CourseVerdictBody(BaseModel):
     class_item: str | None = None
     # Các phiên của lượt vừa làm — server tự cộng điểm từ dòng nó giữ.
     session_ids: list[str]
+    # Only honoured when the server-side assignment timer has actually expired.
+    timed_out: bool = False
 
 
 class CourseFullRetryBody(BaseModel):
@@ -286,7 +288,7 @@ async def course_verdict(body: CourseVerdictBody, authorization: str | None = He
     user = await get_supabase_user(authorization)
     return quiz_service.course_verdict(
         user_id=user["id"], bank_id=body.bank_id, session_ids=body.session_ids,
-        assignment_item_id=body.class_item,
+        assignment_item_id=body.class_item, timed_out=body.timed_out,
     )
 
 

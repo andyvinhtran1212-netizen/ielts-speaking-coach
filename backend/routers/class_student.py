@@ -36,6 +36,7 @@ from services.quiz_service import (
 )
 from services.class_assignment_service import (
     _ID_CHUNK,
+    assignment_timer_state,
     is_accepting_submissions,
     is_assignment_open,
     reconcile_test_attempts,
@@ -448,6 +449,8 @@ async def start_assignment(
     if not a_rows or not is_assignment_open(a_rows[0]):
         raise HTTPException(404, "Bài tập không còn mở")
     assignment = a_rows[0]
+    skill = assignment.get("skill")
+    cfg = assignment.get("content_config") or {}
 
     # ── Thứ tự ba cổng dưới đây LÀ MỘT QUYẾT ĐỊNH, không phải ngẫu nhiên ──
     #
@@ -473,7 +476,7 @@ async def start_assignment(
     # nó nằm ở `_record_class_hand_in` (mốc so là giờ phiên hoàn thành) và ở
     # phiếu làm bài (đọc `class_task.accepting` từ chính hàm này).
     existing = _existing_speaking_session(item_id, auth_user["id"]) \
-        if assignment.get("skill") == "speaking" else None
+        if skill == "speaking" else None
     if existing:
         response = {
             "item_id":       item_id,
@@ -494,17 +497,17 @@ async def start_assignment(
 
     writing_expected = (
         bank_has_writing(assignment.get("content_id"))
-        if (assignment.get("skill") == "course" and item.get("passed_at")
+        if (skill == "course" and item.get("passed_at")
             and not item.get("submitted_at")) else None
     )
     course_action = (course_assignment_action(
         item, assignment, writing_expected=writing_expected,
-    ) if assignment.get("skill") == "course" else None)
+    ) if skill == "course" else None)
 
     # Bài course đã đạt hoặc đã đóng hạn mở lại ở lane chỉ-đọc. Một dấu nộp cũ
     # không tự biến thành khoá: nếu bài chưa đạt/chưa đủ phần và hạn vừa được nới,
     # ``course_action`` giữ đường làm tiếp/revision/full retry mở.
-    if (assignment.get("skill") == "course"
+    if (skill == "course"
             and course_action == "review"
             and (item.get("submitted_at") or item.get("passed_at"))):
         return {
@@ -520,7 +523,6 @@ async def start_assignment(
     # sau khi admin phát explanation ở chế độ `admin_release`. Đặt trước cổng
     # deadline và trước kiểm tra trạng thái đề: hết hạn hoặc hạ đề khỏi kho chỉ
     # chặn lượt MỚI, không được xoá quyền đọc kết quả đã lưu.
-    skill = assignment.get("skill")
     if skill in ("reading", "listening") and item.get("submitted_at"):
         expected_kind = f"{skill}_attempt"
         attempt_id = item.get("artifact_id")
@@ -544,18 +546,23 @@ async def start_assignment(
     if skill not in ("speaking", "reading", "listening", "course"):
         raise HTTPException(400, "Bài tập này chưa hỗ trợ mở trực tiếp.")
 
-    if item.get("state") == "assigned":
+    # A timed Course clock starts together with the first canonical quiz
+    # session (quiz_service.start_session).  Starting it on this navigation
+    # endpoint can strand a learner who closes the tab before the player has
+    # created any session to submit at time-out.
+    timed_course = skill == "course" and cfg.get("time_limit_minutes") is not None
+    if item.get("state") == "assigned" and not timed_course:
         try:
             supabase_admin.table("class_assignment_items").update({
                 "state": "opened",
                 "opened_at": datetime.now(timezone.utc).isoformat(),
             }).eq("id", item_id).eq("state", "assigned").execute()
         except Exception as exc:
-            # Cosmetic: never block the student from starting their work.
             logger.warning("[class] could not mark item opened item=%s: %s", item_id, exc)
 
-    cfg = assignment.get("content_config") or {}
-
+    timer = assignment_timer_state(item, assignment)
+    if skill == "course" and timer.get("invalid"):
+        raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
     if skill == "course":
         # Bài tập theo buổi mở thẳng bằng id bank — không có phiên nào phải dựng
         # trước. Chính bài giao này là thứ cho phép `get_bank_for_play` mở bank
@@ -567,6 +574,7 @@ async def start_assignment(
             "skill":         skill,
             "bank_id":       assignment.get("content_id"),
             "course_action": course_action,
+            "timer":         timer,
         }
 
     if skill == "speaking":

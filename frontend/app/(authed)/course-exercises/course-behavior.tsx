@@ -36,6 +36,7 @@ export function CourseBehavior() {
     let onLeave: (() => void) | null = null;
     let onInput: ((e: Event) => void) | null = null;
     let onHide: (() => void) | null = null;
+    let timerInterval: number | null = null;
     let pauseSectionTimers: () => void = () => {};
 
     (async () => {
@@ -503,6 +504,17 @@ export function CourseBehavior() {
           + '</button>';
         const history = CR.renderAttemptHistory(v.history || []);
         const sectionCeiling = v.retry_reason === 'section_ceiling';
+        if (v.timed_out) {
+          box.innerHTML = '<div class="cx-verdict" data-v="timed-out">'
+            + '<div class="cx-verdict__hero"><div>'
+            + '<p class="cx-verdict__eyebrow">Đã hết thời gian</p>'
+            + '<p class="cx-verdict__title">Hệ thống đã thu bài theo phần bạn kịp hoàn thành</p>'
+            + `<p class="cx-verdict__sub">Điểm được tính trên toàn bộ ${runner.total} câu của đề.</p>`
+            + `</div><div class="cx-verdict__score">${v.pct}%</div></div>`
+            + '<div class="cx-verdict__body"><div class="cx-verdict__actions">'
+            + seeReport + '</div>' + history + '</div></div>';
+          return;
+        }
         if (v.completed === false) {
           const finished = sectionRows.filter((row: any) => row.completed).length;
           const total = sectionRows.length;
@@ -1028,6 +1040,56 @@ export function CourseBehavior() {
         return fullRestart;
       }
 
+      let timeoutFlow: Promise<void> | null = null;
+      let timerSubmitted = false;
+      function formatRemaining(seconds: number) {
+        const safe = Math.max(0, Math.floor(seconds));
+        const hours = Math.floor(safe / 3600);
+        const minutes = Math.floor((safe % 3600) / 60);
+        const secs = safe % 60;
+        return hours
+          ? `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+          : `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      }
+
+      function submitAtTimeLimit(): Promise<void> {
+        if (timeoutFlow) return timeoutFlow;
+        timeoutFlow = (async () => {
+          document.querySelectorAll('.cx-opt').forEach((node) => {
+            (node as HTMLButtonElement).disabled = true;
+          });
+          setSaveState('saving', 'Hết giờ · đang thu bài…');
+          const result = await runner.finishStage({ endedBy: 'time_cap' });
+          if (!result.persisted) {
+            setSaveState('error', 'Hết giờ · chưa thu được bài');
+            const error = $('cx-error');
+            if (error) { error.hidden = false; error.textContent = result.error || 'Chưa thu được bài hết giờ. Hãy thử lại.'; }
+            return;
+          }
+          setSaveState('saved', 'Đã thu bài khi hết giờ');
+          timerSubmitted = true;
+          $('cx-q')!.hidden = true;
+          $('cx-next')!.hidden = true;
+          $('cx-done')!.hidden = false;
+          $('cx-done')!.innerHTML = '<div id="cx-verdict"></div>';
+          await renderVerdict();
+        })().finally(() => { timeoutFlow = null; });
+        return timeoutFlow;
+      }
+
+      function updateTimer() {
+        const timer = $('cx-timer');
+        if (!timer || !runner.isTimed || runner.reviewOnly) {
+          if (timer) timer.hidden = true;
+          return;
+        }
+        const remaining = Number(runner.timeRemainingSeconds() || 0);
+        timer.hidden = false;
+        timer.textContent = `⏱ ${formatRemaining(remaining)}`;
+        timer.dataset.urgent = String(remaining <= 5 * 60);
+        if (remaining <= 0 && !timerSubmitted) void submitAtTimeLimit();
+      }
+
       const l = $('cx-loading'); if (l) l.hidden = true;
       if (runner.sessionFailed) {
         setSaveState('error');
@@ -1053,6 +1115,10 @@ export function CourseBehavior() {
         if (disposed) return;
         renderWriting();
       } else if (runner.isStageDone()) renderDone(); else renderQuestion();
+      updateTimer();
+      if (runner.isTimed && !runner.reviewOnly) {
+        timerInterval = window.setInterval(updateTimer, 1000);
+      }
 
       // Uỷ quyền: nội dung được vẽ lại sau mỗi câu, nên gắn tay từng nút sẽ mất
       // ngay ở lần vẽ kế tiếp.
@@ -1193,6 +1259,7 @@ export function CourseBehavior() {
       if (onInput) document.removeEventListener('input', onInput);
       if (onLeave) window.removeEventListener('pagehide', onLeave);
       if (onHide) document.removeEventListener('visibilitychange', onHide);
+      if (timerInterval != null) window.clearInterval(timerInterval);
     };
   }, [status, user?.id]);
 

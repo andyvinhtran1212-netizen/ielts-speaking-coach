@@ -13141,6 +13141,11 @@ export interface components {
             class_item?: string | null;
             /** Session Ids */
             session_ids: string[];
+            /**
+             * Timed Out
+             * @default false
+             */
+            timed_out: boolean;
         };
         /** CourseWritingBody */
         CourseWritingBody: {
@@ -16643,6 +16648,8 @@ export interface components {
             student_ids?: string[] | null;
             /** Retake Size */
             retake_size?: number | null;
+            /** Time Limit Minutes */
+            time_limit_minutes?: number | null;
             /**
              * Delivery Mode
              * @default standard

@@ -101,7 +101,7 @@ def _given(n_q, wrong=0):
 
 
 def _verdict(log=None, *, sessions, questions=None, attempts=None,
-             item_row=None, config=None, item=_ITEM, ids=None):
+             item_row=None, config=None, item=_ITEM, ids=None, timed_out=False):
     log = [] if log is None else log
     db = _db(
         log,
@@ -117,6 +117,7 @@ def _verdict(log=None, *, sessions, questions=None, attempts=None,
         return qs.course_verdict(
             user_id="u-1", bank_id="bank-1",
             session_ids=ids if ids is not None else [s["id"] for s in sessions],
+            timed_out=timed_out,
         ), log
 
 
@@ -400,6 +401,71 @@ def test_run_fail_offers_retake_and_keeps_not_passed():
     patch_ = [e for e in log if e[1] == "update"][0][2]
     assert "passed_at" not in patch_          # chưa đạt thì KHÔNG có mốc đạt
     assert patch_["mastery"]["attempts"][0]["pct"] == 70.0
+
+
+def test_timed_out_run_counts_unanswered_questions_as_wrong_and_closes_item():
+    ss = _sessions(
+        1, ended_by="time_cap", created_at="2026-09-15T01:30:00+00:00",
+    )
+    item = {
+        "id": "it-1", "passed_at": None, "submitted_at": None,
+        "opened_at": "2026-09-15T01:00:00+00:00",
+        "mastery": None, "score": None,
+    }
+    with patch.object(qs, "mark_item_submitted", return_value=True) as mark:
+        attempts = _attempts(ss, _given(4))
+        for attempt in attempts:
+            attempt["created_at"] = "2026-09-15T01:29:00+00:00"
+        out, _ = _verdict(
+            sessions=ss, attempts=attempts, item_row=item,
+            config={"time_limit_minutes": 30}, timed_out=True,
+        )
+    assert out["timed_out"] is True
+    assert out["pct"] == 40.0
+    assert out["next_action"] == "timed_out"
+    quiz = next(row for row in out["sections"] if row["key"] == "quiz")
+    assert quiz["correct"] == 4 and quiz["total"] == 10
+    mark.assert_called_once()
+
+
+def test_timed_out_retake_uses_the_retake_sample_as_denominator():
+    ss = _sessions(
+        1, kind="retake", ended_by="time_cap",
+        created_at="2026-09-15T01:30:00+00:00",
+    )
+    item = {
+        "id": "it-1", "passed_at": None, "submitted_at": None,
+        "opened_at": "2026-09-15T01:00:00+00:00",
+        "mastery": {"attempts": [{
+            "phase": "run", "pct": 70.0, "completed": True,
+            "next_action": "retake", "at": "2026-09-15T01:20:00+00:00",
+        }]},
+        "score": 70.0,
+    }
+    attempts = _attempts(ss, _given(3))
+    for attempt in attempts:
+        attempt["created_at"] = "2026-09-15T01:29:00+00:00"
+    with patch.object(qs, "mark_item_submitted", return_value=True):
+        out, _ = _verdict(
+            sessions=ss, questions=_questions(20), attempts=attempts,
+            item_row=item, config={"time_limit_minutes": 30, "retake_size": 5},
+            timed_out=True,
+        )
+    assert out["timed_out"] is True
+    assert out["pct"] == 60.0
+    assert out["next_action"] == "timed_out"
+
+
+def test_admin_summary_names_a_closed_time_cap_instead_of_in_progress():
+    summary = qs.course_admin_summary(
+        {"mastery": {"attempts": [{
+            "phase": "run", "pct": 40.0, "completed": True,
+            "next_action": "timed_out",
+        }]}},
+        required_sections=["quiz"],
+    )
+    assert summary["state"] == "timed_out"
+    assert summary["next_action"] == "timed_out"
 
 
 def test_threshold_75_sends_65_percent_to_the_20_question_retake():
@@ -1184,7 +1250,8 @@ async def test_router_wires_verdict_through():
             authorization="Bearer x")
     assert out == {"passed": True}
     assert seen == {"user_id": "u-1", "bank_id": "bank-1",
-                    "session_ids": ["s-1"], "assignment_item_id": "it-1"}
+                    "session_ids": ["s-1"], "assignment_item_id": "it-1",
+                    "timed_out": False}
 
 
 # ── Làm lại một chặng KHÔNG được chặn học viên khỏi kết quả ─────────────────

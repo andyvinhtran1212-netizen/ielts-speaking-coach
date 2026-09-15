@@ -24,6 +24,7 @@ from fastapi import HTTPException
 from config import settings
 from services import course_writing_grader
 from services.class_assignment_service import (
+    assignment_timer_state,
     is_accepting_submissions,
     is_assignment_open,
     _at,
@@ -354,7 +355,7 @@ def _recorded_next_action(attempt: dict | None, pass_pct: int) -> str | None:
     if attempt.get("completed") is False or attempt.get("pct") is None:
         return None
     action = attempt.get("next_action")
-    if action in {"passed", "retake", "retry_full"}:
+    if action in {"passed", "retake", "retry_full", "timed_out"}:
         return action
     return course_mastery_next_action(
         float(attempt.get("pct") or 0), pass_pct, attempt.get("sections"),
@@ -403,7 +404,7 @@ def course_assignment_action(
     action = _recorded_next_action(latest, mastery_config(assignment)["pass_pct"])
     if action in {"retake", "retry_full"}:
         return action
-    return "review" if action == "passed" else "continue"
+    return "review" if action in {"passed", "timed_out"} else "continue"
 
 
 def _full_retry_boundary(attempts: list[dict], pass_pct: int) -> datetime | None:
@@ -528,6 +529,8 @@ def course_admin_summary(
         state = "passed"
     elif latest_is_incomplete:
         state = "in_progress"
+    elif action == "timed_out":
+        state = "timed_out"
     elif action == "retake":
         state = "near_pass"
     elif action == "retry_full":
@@ -671,7 +674,7 @@ def _assignment_item_for(
         sids = [s["id"] for s in student]
         item_query = (supabase_admin.table("class_assignment_items")
                       .select("id, assignment_id, student_id, submitted_at, "
-                              "passed_at, mastery, updated_at")
+                              "passed_at, mastery, updated_at, opened_at")
                       .in_("assignment_id", [a["id"] for a in owned])
                       .in_("student_id", sids))
         if assignment_item_id:
@@ -845,6 +848,7 @@ def get_bank_for_play(
                 "review_only": learner_action == "review",
                 "accepting": bool(is_accepting_submissions(assignment)),
                 "course_action": learner_action,
+                **assignment_timer_state(effective_item, assignment),
             }
         except Exception as exc:  # noqa: BLE001
             logger.warning("[quiz] mastery state read failed bank=%s: %s", bank_id, exc)
@@ -1403,6 +1407,38 @@ def _assert_retake_allowed(item: dict | None) -> None:
                                  "không thể mở bài kiểm tra lại 20 câu.")
 
 
+def _start_course_assignment_timer(item: dict | None) -> dict | None:
+    """Stamp and read back the immutable first-open anchor for a timed bank."""
+    if not item:
+        return item
+    assignment = {"content_config": item.get("content_config") or {}}
+    timer = assignment_timer_state(item, assignment)
+    if not timer.get("is_timed"):
+        return item
+    if timer.get("invalid"):
+        raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
+    if item.get("opened_at"):
+        if timer.get("is_expired"):
+            raise HTTPException(409, "Đã hết thời gian làm bài.")
+        return item
+
+    opened_at = _now()
+    try:
+        (supabase_admin.table("class_assignment_items")
+         .update({"state": "opened", "opened_at": opened_at})
+         .eq("id", item["id"]).is_("opened_at", "null").execute())
+        rows = (supabase_admin.table("class_assignment_items")
+                .select("opened_at, state").eq("id", item["id"])
+                .limit(1).execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            500, "Chưa khởi động được đồng hồ làm bài. Hãy thử lại.",
+        ) from exc
+    if not rows or not rows[0].get("opened_at"):
+        raise HTTPException(500, "Chưa khởi động được đồng hồ làm bài. Hãy thử lại.")
+    return {**item, **rows[0]}
+
+
 def start_session(
     *, user_id: str, bank_id: str, kind: str = "run",
     assignment_item_id: str | None = None,
@@ -1429,6 +1465,8 @@ def start_session(
         bank_id, user_id, assignment_item_id=assignment_item_id,
     ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
             if bank.get("skill_area") == COURSE_AREA else None)
+    if bank.get("skill_area") == COURSE_AREA:
+        item = _start_course_assignment_timer(item)
     if kind == "retake":
         _assert_retake_allowed(item)
     row = {
@@ -1446,7 +1484,12 @@ def start_session(
         raise HTTPException(500, f"Lỗi tạo session: {exc}")
     if not res.data:
         raise HTTPException(500, "Insert session không trả về dòng nào")
-    return {"session_id": res.data[0]["id"], "resume": resume}
+    response = {"session_id": res.data[0]["id"], "resume": resume}
+    if item:
+        response["timer"] = assignment_timer_state(
+            item, {"content_config": item.get("content_config") or {}},
+        )
+    return response
 
 
 def get_resume(*, user_id: str, bank_id: str) -> list[dict]:
@@ -2178,7 +2221,7 @@ def _assert_course_session_accepting(session: dict, ended_by: str = "completed")
         return
     try:
         items = (supabase_admin.table("class_assignment_items")
-                 .select("id, assignment_id").eq("id", item_id)
+                 .select("id, assignment_id, opened_at").eq("id", item_id)
                  .limit(1).execute().data) or []
         if not items:
             raise HTTPException(404, "Không tìm thấy mục bài giao")
@@ -2191,9 +2234,22 @@ def _assert_course_session_accepting(session: dict, ended_by: str = "completed")
         raise
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi kiểm tra hạn nộp: {exc}")
-    if assignments[0].get("skill") == COURSE_AREA \
-            and not is_accepting_submissions(assignments[0]):
+    assignment = assignments[0]
+    if assignment.get("skill") == COURSE_AREA \
+            and not is_accepting_submissions(assignment):
         raise HTTPException(409, "Đã quá hạn nộp — chặng này chưa được chốt.")
+    if assignment.get("skill") != COURSE_AREA:
+        return
+    timer = assignment_timer_state(items[0], assignment)
+    if timer.get("invalid"):
+        raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
+    if ended_by == "time_cap":
+        if not timer.get("is_timed"):
+            raise HTTPException(422, "Bài này không có giới hạn thời gian.")
+        if not timer.get("is_expired"):
+            raise HTTPException(422, "Đồng hồ máy chủ chưa hết thời gian.")
+    elif timer.get("is_expired"):
+        raise HTTPException(409, "Đã hết thời gian làm bài — hãy nộp lượt hết giờ.")
 
 
 def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
@@ -3462,6 +3518,7 @@ def _course_completion_payload(
         "sections": sections,
         "duration_sec": int(attempt.get("duration_sec") or 0),
         "history": _course_attempt_history(attempts, cfg["pass_pct"]),
+        "timed_out": attempt.get("timed_out") is True,
     }
 
 
@@ -3601,7 +3658,7 @@ def refresh_course_completion(
 
 def course_verdict(
     *, user_id: str, bank_id: str, session_ids: list[str],
-    assignment_item_id: str | None = None,
+    assignment_item_id: str | None = None, timed_out: bool = False,
 ) -> dict:
     """Xét ĐẠT/CHƯA ĐẠT bài tập buổi từ chính các phiên server đang giữ.
 
@@ -3649,7 +3706,7 @@ def course_verdict(
                 .in_("id", session_ids).execute().data) or []
 
         cur = (supabase_admin.table("class_assignment_items")
-               .select("id, passed_at, submitted_at, mastery, score, updated_at")
+               .select("id, passed_at, submitted_at, mastery, score, updated_at, opened_at")
                .eq("id", item["id"]).limit(1).execute().data) or []
 
         # Đề GỐC — thước để server tự chấm lại. Câu tự luận không chấm máy nên
@@ -3678,6 +3735,9 @@ def course_verdict(
     if not cur:
         raise HTTPException(404, "Không tìm thấy mục bài giao")
     cur = cur[0]
+    timer = assignment_timer_state(cur, assignment)
+    if timed_out and not (timer.get("is_timed") and timer.get("is_expired")):
+        raise HTTPException(422, "Đồng hồ máy chủ chưa hết thời gian.")
 
     # TỪNG phiên phải là của đúng người, đúng bank, đúng mục, và ĐÃ chốt.
     # Thiếu một phiên (id lạ, của người khác) → từ chối cả lượt chứ không xét
@@ -3688,7 +3748,8 @@ def course_verdict(
         if (s.get("user_id") != user_id or s.get("bank_id") != bank_id
                 or s.get("class_assignment_item_id") != item["id"]):
             raise HTTPException(422, "Có phiên không thuộc lượt làm này")
-        if s.get("ended_by") != "completed":
+        allowed_endings = {"completed", "time_cap"} if timed_out else {"completed"}
+        if s.get("ended_by") not in allowed_endings:
             raise HTTPException(422, "Có phiên chưa hoàn thành")
 
     kinds = {s.get("kind") or "run" for s in rows}
@@ -3729,7 +3790,16 @@ def course_verdict(
     # do dấu thời gian trên máy chủ quyết, nên nộp thêm phiên chỉ có thể kéo về
     # lượt SỚM HƠN, không bao giờ về lượt điểm cao hơn.
     seen: dict = {}
+    cutoff = None
+    if timed_out and timer.get("expires_at"):
+        cutoff = _at(timer["expires_at"])
+        if cutoff is not None:
+            cutoff += timedelta(seconds=10)
     for a in sorted(att, key=lambda x: x.get("created_at") or ""):
+        if cutoff is not None:
+            created_at = _at(a.get("created_at"))
+            if created_at is None or created_at > cutoff:
+                continue
         qid = a.get("qid")
         if qid not in key:
             # Một số phiên production đã bị client cũ nhét câu bổ trợ của CHÍNH
@@ -3749,17 +3819,19 @@ def course_verdict(
     # số co lại và điểm ẢO cao lên. Kiểm tra lại thì phải đủ cỡ mẫu đã cấu hình
     # (kẹp theo kho — kho 15 câu thì mẫu 15 là đủ).
     if phase == "run":
+        expected_graded = len(key)
         missing = len(set(key) - set(seen))
-        if missing:
+        if missing and not timed_out:
             raise HTTPException(
                 422, f"Lượt làm thiếu {missing} câu chưa có kết quả trên hệ thống")
     else:
-        need = min(cfg["retake_size"], len(key))
-        if len(seen) < need:
+        expected_graded = min(cfg["retake_size"], len(key))
+        if len(seen) < expected_graded and not timed_out:
             raise HTTPException(
-                422, f"Bài kiểm tra lại phải đủ {need} câu (mới có {len(seen)})")
+                422, "Bài kiểm tra lại phải đủ "
+                     f"{expected_graded} câu (mới có {len(seen)})")
 
-    graded = len(seen)
+    graded = expected_graded if timed_out else len(seen)
     correct = sum(1 for qid, a in seen.items()
                   if grade_attempt(a.get("answer_given"), key[qid].get("answer")) is True)
     pct = round(correct / graded * 100, 1)
@@ -3932,8 +4004,11 @@ def course_verdict(
             candidate = {
                 "phase": phase, "pct": pct, "at": (existing_attempt or {}).get("at") or _now(),
                 "sessions": sess_key,
-                "next_action": mastery_next_action(pct, cfg["pass_pct"]),
+                "next_action": ("timed_out" if timed_out
+                                else mastery_next_action(pct, cfg["pass_pct"])),
             }
+        if timed_out:
+            candidate["timed_out"] = True
 
         if existing_attempt is None:
             attempts.append(candidate)
@@ -3990,6 +4065,18 @@ def course_verdict(
         required=required, results=(final_attempt.get("sections") or evidence),
         weights=weights, passed_before=bool(cur.get("passed_at")),
     )
+    if timed_out and not cur.get("submitted_at"):
+        latest = max(rows, key=lambda row: row.get("created_at") or "")
+        marked = mark_item_submitted(
+            supabase_admin, item_id=item["id"], artifact_kind="quiz_session",
+            artifact_id=latest["id"], score=payload.get("pct"),
+        )
+        if not marked:
+            check = (supabase_admin.table("class_assignment_items")
+                     .select("submitted_at").eq("id", item["id"])
+                     .limit(1).execute().data) or []
+            if not check or not check[0].get("submitted_at"):
+                raise HTTPException(500, "Hết giờ nhưng chưa thu được bài; hãy thử lại")
     # Bank nhiều phần chỉ được thu khi điểm gộp đã đạt. Bank quiz-only giữ
     # nguyên đường chốt cũ để tránh thay đổi contract ngoài phạm vi task.
     if multi_section and payload.get("passed") and not cur.get("submitted_at"):

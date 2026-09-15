@@ -46,6 +46,7 @@ from services.quiz_service import (
 )
 from services.class_assignment_service import (
     CLASS_TZ,
+    MAX_COURSE_TIME_LIMIT_MINUTES,
     DueChangeRefused,
     EmptyRosterError,
     ExplanationApprovalError,
@@ -150,6 +151,11 @@ class AssignmentCreate(BaseModel):
     # vào sẽ bị bỏ — chốt nằm trong giao dịch, không phải ở tầng này.
     student_ids:  Optional[list[str]] = None
     retake_size:  Optional[int] = Field(default=None, ge=5, le=100)
+    # Optional elapsed-time cap for a Course bank.  The clock starts from each
+    # learner's canonical ``class_assignment_items.opened_at``.
+    time_limit_minutes: Optional[int] = Field(
+        default=None, ge=1, le=MAX_COURSE_TIME_LIMIT_MINUTES,
+    )
     # Reading/Listening papers from the protected exam warehouse may be given
     # explicitly as assigned practice. This grants only this class item; it does
     # not publish the paper to the normal practice library.
@@ -175,6 +181,8 @@ class AssignmentCreate(BaseModel):
             if not (self.content_id or "").strip():
                 raise ValueError("Bài tập theo buổi cần chọn một bộ bài tập.")
             return self
+        if self.time_limit_minutes is not None:
+            raise ValueError("Giới hạn thời gian hiện chỉ dùng cho bài Course.")
         if self.kind == "lesson":
             if self.skill != "speaking":
                 raise ValueError(
@@ -752,6 +760,12 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+    if (body.time_limit_minutes is not None
+            and set(weight_snapshot.get("section_counts") or {}) != {"quiz"}):
+        raise HTTPException(
+            400,
+            "Giới hạn thời gian hiện chỉ áp dụng cho bộ trắc nghiệm thuần.",
+        )
 
     dup = (supabase_admin.table("class_assignments").select("id, title")
            .eq("cohort_id", cohort_id).eq("skill", "course")
@@ -777,6 +791,8 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
         cfg["pass_pct"] = body.pass_pct
     if body.retake_size is not None:
         cfg["retake_size"] = body.retake_size
+    if body.time_limit_minutes is not None:
+        cfg["time_limit_minutes"] = body.time_limit_minutes
     return bank["id"], cfg
 
 
@@ -1490,6 +1506,7 @@ async def assignment_tally(
             # làm bài, trong khi lỗi nằm ở phía hệ thống.
             "flagged":   sum(1 for r in out if r["flags"]),
             "passed": sum(1 for r in out if r.get("course_state") == "passed"),
+            "timed_out": sum(1 for r in out if r.get("course_state") == "timed_out"),
             "near_pass": sum(1 for r in out if r.get("course_state") == "near_pass"),
             "retry_full": sum(1 for r in out if r.get("course_state") == "retry_full"),
             "in_progress": sum(1 for r in out if r.get("course_state") == "in_progress"),

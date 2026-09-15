@@ -43,7 +43,7 @@ failure mode the project rules forbid.
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -68,6 +68,11 @@ _PAGE = 1000   # PostgREST's implicit ceiling — see services/class_service.py
 # front of it) rejects the request before pagination ever runs. Same split, same
 # reason, as _ID_CHUNK in services/mock_exam_service.py.
 _ID_CHUNK = 100
+
+# Course assessments may use a per-student elapsed-time limit.  Keep this in
+# step with the quiz session duration ceiling so every allowed limit can be
+# represented by the evidence ledger.
+MAX_COURSE_TIME_LIMIT_MINUTES = 12 * 60
 
 
 def parse_due_time(raw: Optional[str]) -> time:
@@ -1120,6 +1125,55 @@ def _at(value: Optional[str]) -> Optional[datetime]:
         logger.warning("[class] unparseable timestamp %r", value)
         return None
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def assignment_timer_state(
+    item: Optional[Dict[str, Any]], assignment: Optional[Dict[str, Any]],
+    *, now: Optional[datetime] = None,
+) -> Dict[str, Any]:
+    """Derive a Course timer from the assignment snapshot and ``opened_at``.
+
+    The browser never supplies either boundary: the admin's limit is stored in
+    ``content_config`` and the per-student start is the existing ledger fact.
+    """
+    cfg = (assignment or {}).get("content_config") or {}
+    raw = cfg.get("time_limit_minutes")
+    if raw is None:
+        return {
+            "is_timed": False, "time_limit_minutes": None,
+            "started_at": None, "expires_at": None,
+            "time_remaining_seconds": None, "is_expired": False,
+        }
+    if isinstance(raw, bool):
+        limit = 0
+    else:
+        try:
+            limit = int(raw)
+        except (TypeError, ValueError):
+            limit = 0
+    if not 1 <= limit <= MAX_COURSE_TIME_LIMIT_MINUTES:
+        return {
+            "is_timed": True, "time_limit_minutes": limit or None,
+            "started_at": None, "expires_at": None,
+            "time_remaining_seconds": 0, "is_expired": True,
+            "invalid": True,
+        }
+
+    started = _at((item or {}).get("opened_at"))
+    if started is None:
+        return {
+            "is_timed": True, "time_limit_minutes": limit,
+            "started_at": None, "expires_at": None,
+            "time_remaining_seconds": limit * 60, "is_expired": False,
+        }
+    expires = started + timedelta(minutes=limit)
+    current = now or datetime.now(timezone.utc)
+    return {
+        "is_timed": True, "time_limit_minutes": limit,
+        "started_at": started.isoformat(), "expires_at": expires.isoformat(),
+        "time_remaining_seconds": max(0, int((expires - current).total_seconds())),
+        "is_expired": expires <= current,
+    }
 
 
 def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:

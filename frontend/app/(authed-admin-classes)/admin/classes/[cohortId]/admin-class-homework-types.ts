@@ -66,6 +66,7 @@ export type HomeworkDraft = {
   studentIds: string[];
   passPct: string;
   retakeSize: string;
+  timeLimitMinutes: string;
   deliveryMode: 'standard' | 'assigned_practice';
   webExplanationMode: 'disabled' | 'immediate_after_capture' | 'admin_release';
   postTestCaptureRequired: boolean;

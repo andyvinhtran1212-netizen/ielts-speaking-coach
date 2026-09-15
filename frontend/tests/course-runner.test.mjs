@@ -11,8 +11,12 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  createRunner, splitStem, md, esc, isCourseQuizQuestion, STAGE,
+  createRunner, splitStem, md, esc, isCourseQuizQuestion, STAGE, KEYS,
 } from '../js/course-runner.js';
+
+test('renders the fifth assessment choice as E', () => {
+  assert.deepEqual(KEYS, ['A', 'B', 'C', 'D', 'E']);
+});
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -60,7 +64,7 @@ function ledgerFor(store) {
 
 function fakeApi({ questions, mastery = null, failSession = false, failProgress = false,
                   failPatch = false, resume = null, failResume = false,
-                  ledger = newLedger() } = {}) {
+                  sessionTimer = null, ledger = newLedger() } = {}) {
   const calls = { post: [], patch: [], postWith: [], get: [] };
   let n = 0;
   // Máy chủ giả GIỮ SỔ như máy chủ thật: phiên nào đã chốt, phiên nào còn dở và
@@ -105,7 +109,7 @@ function fakeApi({ questions, mastery = null, failSession = false, failProgress 
         if (failSession) throw new Error('mạng hỏng');
         n += 1;
         itemOf.set('sess-' + n, myItem());
-        return { id: 'sess-' + n };
+        return { id: 'sess-' + n, ...(sessionTimer ? { timer: sessionTimer } : {}) };
       }
       if (failProgress) throw new Error('progress hỏng');
       noteAttempts(path, body);
@@ -137,6 +141,31 @@ test('review load pins the bank read to the exact assignment item', async () => 
   await runner.load('b1', { reviewOnly: true, assignmentItemId: 'item-old' });
   assert.equal(api.calls.get[0], '/api/quiz/banks/b1?class_item=item-old');
   assert.deepEqual(runner.mastery.completed_sections, ['quiz']);
+});
+
+test('uses the server deadline and submits a time-cap verdict', async () => {
+  let clock = 1000;
+  const mastery = {
+    item_id: 'item-timed', is_timed: true, time_limit_minutes: 1,
+    expires_at: null, time_remaining_seconds: 60,
+  };
+  const timer = {
+    is_timed: true, time_limit_minutes: 1,
+    // Deliberately unrelated to the injected client wall clock: the runner
+    // must count down from the server snapshot, not trust device clock skew.
+    expires_at: '2050-01-01T00:00:00.000Z', time_remaining_seconds: 60,
+  };
+  const api = fakeApi({ questions: [mcq(1)], mastery, sessionTimer: timer });
+  const runner = createRunner({ api, storage: null, now: () => clock });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  assert.equal(runner.timeRemainingSeconds(), 60);
+
+  clock = 61000;
+  assert.equal(runner.isTimedOut(), true);
+  await runner.finishStage({ endedBy: 'time_cap' });
+  await runner.verdict();
+  assert.equal(api.calls.patch.at(-1).body.ended_by, 'time_cap');
+  assert.equal(api.calls.post.at(-1).body.timed_out, true);
 });
 
 function memStore() {

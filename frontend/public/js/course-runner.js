@@ -31,7 +31,7 @@ export const STAGE = 10;
 // Đẩy lượt làm theo mẻ. Nhỏ hơn thì tốn request; lớn hơn thì mất nhiều khi rớt.
 const BATCH = 5;
 
-export const KEYS = ['A', 'B', 'C', 'D'];
+export const KEYS = ['A', 'B', 'C', 'D', 'E'];
 
 /**
  * Câu thuộc lane Grammar và được tính vào mastery.
@@ -149,6 +149,12 @@ export function retakeClone(q, rng) {
 export function createRunner({ api, storage, now = () => Date.now() }) {
   let bank = null;
   let mastery = null;
+  // Anchor the server's remaining seconds to this page load.  Comparing the
+  // server deadline directly with Date.now() makes a learner's mis-set device
+  // clock end the test early or late; elapsed time from a server snapshot does
+  // not trust that wall clock.
+  let timerSyncedAt = 0;
+  let timerRemainingAtSync = null;
   let qs = [];
   let stage = 0;
   let at = 0;
@@ -414,6 +420,12 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // được hỏi. Một lượt retry production đã bị bỏ đúng 10 câu của một chặng.
   let advancing = null;
 
+  function syncTimer() {
+    const seconds = Number(mastery && mastery.time_remaining_seconds);
+    timerRemainingAtSync = Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
+    timerSyncedAt = now();
+  }
+
   function advanceStage() {
     if (!advancing) advancing = _advanceStage().finally(function () { advancing = null; });
     return advancing;
@@ -429,6 +441,10 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       if (mode === 'retake') body.kind = 'retake';
       const s = await api.post('/api/quiz/sessions', body);
       sessionId = (s && (s.id || s.session_id)) || null;
+      if (s && s.timer && mastery) {
+        Object.assign(mastery, s.timer);
+        syncTimer();
+      }
     } catch (e) {
       sessionId = null;
       persistError = (e && e.message) ? e.message : String(e || 'Không tạo được phiên làm bài.');
@@ -522,6 +538,19 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     get retakeNo() { return retakeNo; },
     get runSessionCount() { return runSessions.length; },
     get reviewOnly() { return reviewOnly; },
+    get isTimed() { return Boolean(mastery && mastery.is_timed); },
+    get expiresAt() { return (mastery && mastery.expires_at) || null; },
+    timeRemainingSeconds() {
+      if (!mastery || !mastery.is_timed) return null;
+      if (Number.isFinite(timerRemainingAtSync)) {
+        const elapsed = Math.max(0, now() - timerSyncedAt) / 1000;
+        return Math.max(0, Math.ceil(timerRemainingAtSync - elapsed));
+      }
+      const expires = Date.parse(mastery.expires_at || '');
+      if (!Number.isFinite(expires)) return Number(mastery.time_remaining_seconds || 0);
+      return Math.max(0, Math.ceil((expires - now()) / 1000));
+    },
+    isTimedOut() { return this.isTimed && this.timeRemainingSeconds() <= 0; },
     stageQuestions,
 
     current() {
@@ -537,6 +566,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       const r = await api.get('/api/quiz/banks/' + encodeURIComponent(bankId) + itemQuery);
       bank = r.bank;
       mastery = r.mastery || null;
+      syncTimer();
       this.mastery = mastery;   // {item_id, passed_at, threshold, near_threshold, retake_size, retakes, due_at}
       // `options.reviewOnly` chỉ làm flow ít quyền hơn (không ghi); quyền đọc
       // vẫn do các endpoint backend kiểm bằng assignment item.
@@ -581,6 +611,9 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // Đã nhận một phiên dở từ máy chủ: mở phiên mới ở đây là bỏ rơi chính
       // phiên vừa nhận, tức là tái lập đúng lỗi mồ côi vừa sửa.
       else if (adopted && sessionId) { /* dùng tiếp phiên đang dở */ }
+      // Timer đã hết: giữ các session máy chủ vừa khôi phục để nộp lượt hết
+      // giờ; tuyệt đối không mở thêm một session sau ranh giới canonical.
+      else if (this.isTimedOut()) { sessionId = null; sessionFailed = false; }
       else if (!resumedFinal) await openSession();
       else { sessionId = null; sessionFailed = false; stageStartedAt = now(); }
       shownAt = now();
@@ -630,7 +663,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
      * Trả `{persisted}` để trang nói đúng sự thật — chốt phiên khi lượt làm còn
      * kẹt sẽ báo với giáo viên rằng chặng đã xong trong khi chi tiết thì thiếu.
      */
-    async finishStage() {
+    async finishStage(options = {}) {
+      const endedBy = options.endedBy === 'time_cap' ? 'time_cap' : 'completed';
       const list = stageQuestions();
       let graded = list.filter(isCourseQuizQuestion).length;
       let right = marks.filter((m) => m === 'right').length;
@@ -658,7 +692,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
             total_questions: graded,
             total_correct: right,
             total_wrong: Math.max(0, graded - right),
-            ended_by: 'completed',
+            ended_by: endedBy,
           });
           // Chỉ phiên ĐÃ CHỐT mới có tên trong lượt xét đạt — server từ chối
           // phiên dang dở, và một phiên hỏng không được kéo cả lượt xuống.
@@ -711,6 +745,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       return api.post('/api/quiz/course/verdict', {
         bank_id: bank.id, session_ids: ids,
         ...(itemId ? { class_item: itemId } : {}),
+        ...(this.isTimedOut() ? { timed_out: true } : {}),
       });
     },
 

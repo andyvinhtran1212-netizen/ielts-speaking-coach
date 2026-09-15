@@ -7,12 +7,14 @@ không có lớp bảo vệ nào phía sau.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
 from fastapi import HTTPException
 
 from routers import admin_class_assignments as adm
+from services.class_assignment_service import assignment_timer_state
 
 
 class _Resp:
@@ -96,6 +98,49 @@ def test_a_valid_bank_freezes_weight_shape_without_copying_questions():
         "section_weights": {"quiz": 100.0},
     }
     assert "questions" not in cfg and "question_ids" not in cfg
+
+
+def test_a_timed_course_assignment_freezes_the_limit_in_its_snapshot():
+    _bank_id, cfg = _resolve(_full(), _body(time_limit_minutes=135))
+    assert cfg["time_limit_minutes"] == 135
+
+
+def test_time_limit_is_course_only_and_bounded():
+    with pytest.raises(ValueError):
+        adm.AssignmentCreate(
+            skill="speaking", title="Speaking", content_id="topic-1",
+            time_limit_minutes=30,
+        )
+    with pytest.raises(ValueError):
+        _body(time_limit_minutes=721)
+
+
+def test_time_limit_is_rejected_for_a_hybrid_course_bank():
+    with pytest.raises(HTTPException) as exc:
+        _resolve(_full(quiz_questions=[
+            {"id": "q1", "bank_id": "bank-1", "type": "mcq"},
+            {"id": "w1", "bank_id": "bank-1", "type": "writing"},
+        ]), _body(time_limit_minutes=30))
+    assert "trắc nghiệm thuần" in exc.value.detail
+
+
+def test_timer_is_derived_from_the_canonical_opened_at():
+    state = assignment_timer_state(
+        {"opened_at": "2026-09-15T01:00:00+00:00"},
+        {"content_config": {"time_limit_minutes": 30}},
+        now=datetime(2026, 9, 15, 1, 29, 1, tzinfo=timezone.utc),
+    )
+    assert state["time_remaining_seconds"] == 59
+    assert state["expires_at"] == "2026-09-15T01:30:00+00:00"
+    assert state["is_expired"] is False
+
+    expired = assignment_timer_state(
+        {"opened_at": "2026-09-15T01:00:00+00:00"},
+        {"content_config": {"time_limit_minutes": 30}},
+        now=datetime(2026, 9, 15, 1, 30, tzinfo=timezone.utc),
+    )
+    assert expired["time_remaining_seconds"] == 0
+    assert expired["is_expired"] is True
 
 
 # ── Từ chối ──────────────────────────────────────────────────────────────────

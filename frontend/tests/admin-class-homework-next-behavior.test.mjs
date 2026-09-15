@@ -62,15 +62,17 @@ describe('admin class homework model — canonical truth', () => {
   });
 
   test('builds exact class/subset payloads and enforces course mastery rules', () => {
-    const draft = { ...homeworkDraft(new Date('2026-08-12T01:00:00Z')), skill: 'course', title: 'Grammar 2', contentId: 'bank-1', recipientScope: 'subset', studentIds: ['s1'], passPct: '75', retakeSize: '20' };
+    const draft = { ...homeworkDraft(new Date('2026-08-12T01:00:00Z')), skill: 'course', title: 'Grammar 2', contentId: 'bank-1', recipientScope: 'subset', studentIds: ['s1'], passPct: '75', retakeSize: '20', timeLimitMinutes: '135' };
     const valid = validateHomeworkDraft(draft, catalog);
     assert.equal(valid.ok, true);
     assert.deepEqual(valid.body.student_ids, ['s1']);
     assert.equal(valid.body.pass_pct, 75);
     assert.equal(valid.body.retake_size, 20);
+    assert.equal(valid.body.time_limit_minutes, 135);
     assert.equal(validateHomeworkDraft({ ...draft, studentIds: [] }, catalog).ok, false);
     assert.equal(validateHomeworkDraft({ ...draft, passPct: '49' }, catalog).ok, false);
     assert.equal(validateHomeworkDraft({ ...draft, retakeSize: '4' }, catalog).ok, false);
+    assert.equal(validateHomeworkDraft({ ...draft, timeLimitMinutes: '721' }, catalog).ok, false);
     assert.equal(validateHomeworkDraft({ ...draft, dueDate: '2026-99-31' }, catalog).ok, false);
     assert.equal(validateHomeworkDraft({ ...draft, dueTime: '25:90' }, catalog).ok, false);
     const whole = validateHomeworkDraft({ ...draft, recipientScope: 'class', studentIds: [] }, catalog);
