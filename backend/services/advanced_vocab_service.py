@@ -292,6 +292,48 @@ def _safe_reading_question(question: dict) -> dict:
     }
 
 
+def _safe_listening_question(question: dict) -> dict:
+    """Project only learner-answerable Listening fields at every nesting level."""
+    safe = {
+        key: question.get(key)
+        for key in ("question_number", "question_type", "stem")
+    }
+    safe["options"] = [
+        {
+            key: option.get(key)
+            for key in ("key", "letter", "text") if key in option
+        }
+        for option in question.get("options") or [] if isinstance(option, dict)
+    ]
+    return safe
+
+
+def _safe_listening_section(section: dict) -> dict:
+    safe = {
+        key: section.get(key)
+        for key in (
+            "audio_intro", "context", "figure", "register", "section_id",
+            "section_number", "speakers",
+        ) if key in section
+    }
+    safe["question_blocks"] = [
+        {
+            **{
+                key: block.get(key)
+                for key in ("block_id", "question_range", "render", "rubric")
+                if key in block
+            },
+            "questions": [
+                _safe_listening_question(question)
+                for question in block.get("questions") or []
+                if isinstance(question, dict)
+            ],
+        }
+        for block in section.get("question_blocks") or [] if isinstance(block, dict)
+    ]
+    return safe
+
+
 def _stage_rows(item_id: str) -> list[dict]:
     return (_admin().table("advanced_vocab_stage_progress")
             .select("stage,status,evidence,completed_at")
@@ -400,18 +442,27 @@ def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
             **({"solutions": rewrite["solutions"]} if rewrite_completed else {}),
         },
     }
-    listening = dict((_activity(lesson, "listening_lab").get("content") or {}))
-    listening.pop("solutions", None)
-    listening.pop("private_support", None)
+    authored_listening = _activity(lesson, "listening_lab").get("content") or {}
+    listening = {
+        key: authored_listening.get(key)
+        for key in ("test_id", "title", "target_band_range", "solutions_visibility")
+        if key in authored_listening
+    }
+    listening["questions"] = [
+        _safe_listening_question(question)
+        for question in authored_listening.get("questions") or []
+        if isinstance(question, dict)
+    ]
     listening["audio_url"] = _asset_url(lesson["lesson_id"], "full_test.mp3")
     listening["sections"] = [
         {
-            **section,
+            **_safe_listening_section(section),
             **({"figure_url": figure_url} if (figure_url := _listening_figure_url(
                 lesson["lesson_id"], section.get("figure")
             )) else {}),
         }
-        for section in listening.get("sections") or []
+        for section in authored_listening.get("sections") or []
+        if isinstance(section, dict)
     ]
     if progress["listening_submitted"] and "listening" not in progress["completed_stages"]:
         saved_listening = _listening_attempt(item_id)

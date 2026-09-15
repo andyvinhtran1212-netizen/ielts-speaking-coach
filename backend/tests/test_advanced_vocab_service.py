@@ -285,6 +285,39 @@ def test_learner_reading_projection_strips_source_and_correction_evidence(
     assert any(row.get("evidence") for row in authored)
 
 
+def test_learner_listening_projection_whitelists_top_and_nested_questions(
+        monkeypatch):
+    lesson = deepcopy(service.load_lesson("ADV-T11"))
+    authored = service._activity(lesson, "listening_lab")["content"]
+    authored["questions"][0].update({
+        "answer": "leaked", "evidence": "private", "transcript": "private",
+    })
+    nested = authored["sections"][0]["question_blocks"][0]["questions"][0]
+    nested.update({"answer": "leaked", "distractor_rationales": ["private"]})
+    monkeypatch.setattr(service, "_progress", lambda _item: {
+        "completed_stages": [], "stages": [], "answers": [], "sections": [],
+        "listening_submitted": False, "required_completed": False,
+    })
+    monkeypatch.setattr(service, "_assigned_lesson", lambda **_kwargs: (
+        {"id": "bank-1", "code": "C4-ADV-T11", "title": "Advanced T11"},
+        {"id": "item-1"}, lesson,
+    ))
+
+    listening = service.learner_lesson(
+        user_id="user-1", bank_id="bank-1", item_id="item-1",
+    )["lesson"]["activities"]["listening"]
+    top = listening["questions"][0]
+    nested_safe = listening["sections"][0]["question_blocks"][0]["questions"][0]
+
+    assert set(top) == {"question_number", "question_type", "stem", "options"}
+    assert set(nested_safe) == {
+        "question_number", "question_type", "stem", "options",
+    }
+    serialized = json.dumps(listening)
+    assert "leaked" not in serialized
+    assert "private" not in serialized
+
+
 def test_core30_learner_reading_material_stops_before_editorial_appendices():
     forbidden = re.compile(
         r"master\s+answer\s+key|answer\s+key|vocabulary\s+profile|"

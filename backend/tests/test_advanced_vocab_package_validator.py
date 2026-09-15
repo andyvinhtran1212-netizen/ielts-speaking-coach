@@ -458,6 +458,31 @@ def test_listening_question_ids_must_be_unique_and_non_empty(tmp_path: Path):
     } <= _codes(report)
 
 
+def test_listening_rejects_private_fields_in_both_question_representations(
+        tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    listening = next(
+        a for a in lesson["activities"] if a["activity_type"] == "listening_lab"
+    )
+    listening["content"]["questions"][0]["answer"] = "leaked"
+    listening["content"]["sections"] = [{
+        "question_blocks": [{
+            "questions": [{
+                "question_number": 2, "question_type": "note_completion",
+                "stem": "Question 2", "options": [],
+                "transcript": "private transcript",
+            }],
+        }],
+    }]
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+
+    assert "LISTENING_ANSWER_LEAK" in _codes(report)
+
+
 def test_sync_revalidates_current_source_instead_of_trusting_stale_qa(tmp_path: Path):
     _write_package(tmp_path)
     (tmp_path / "QA_REPORT.json").write_text(json.dumps({

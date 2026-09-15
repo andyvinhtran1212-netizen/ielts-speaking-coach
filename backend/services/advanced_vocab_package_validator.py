@@ -42,6 +42,10 @@ WRITING_ACTIVITY_TYPE = "writing_reference"
 SPEAKING_ACTIVITY_TYPE = "speaking_practice"
 LISTENING_ACTIVITY_TYPE = "listening_lab"
 READING_ACTIVITY_TYPE = "reading_lab"
+LISTENING_LEARNER_QUESTION_FIELDS = frozenset({
+    "question_number", "question_type", "stem", "options",
+})
+LISTENING_LEARNER_OPTION_FIELDS = frozenset({"key", "letter", "text"})
 SHA256_RE = re.compile(r"[0-9a-f]{64}", re.IGNORECASE)
 
 
@@ -421,6 +425,30 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             question_rows = [
                 question for question in questions or [] if isinstance(question, dict)
             ] if isinstance(questions, list) else []
+            nested_question_rows = [
+                question
+                for section in content.get("sections") or []
+                if isinstance(section, dict)
+                for block in section.get("question_blocks") or []
+                if isinstance(block, dict)
+                for question in block.get("questions") or []
+                if isinstance(question, dict)
+            ] if isinstance(content, dict) else []
+            for question in [*question_rows, *nested_question_rows]:
+                unexpected = set(question) - LISTENING_LEARNER_QUESTION_FIELDS
+                option_unexpected = {
+                    key
+                    for option in question.get("options") or []
+                    if isinstance(option, dict)
+                    for key in set(option) - LISTENING_LEARNER_OPTION_FIELDS
+                }
+                if unexpected or option_unexpected:
+                    leaked = sorted(unexpected | option_unexpected)
+                    report.add(
+                        "error", "LISTENING_ANSWER_LEAK", path,
+                        "Listening learner question exposes non-public fields: "
+                        + ", ".join(leaked),
+                    )
             question_id_rows = [
                 str(question.get("question_number") or "") for question in question_rows
             ]
