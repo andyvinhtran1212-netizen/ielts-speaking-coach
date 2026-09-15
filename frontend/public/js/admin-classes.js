@@ -1466,7 +1466,7 @@ let _tallyTitle = '';
  * Trước đây là hai popup chật. Bảng 14 học viên × 7 cột không sống nổi trong
  * một hộp thoại, và giáo viên phải đóng cái này mới mở được cái kia.
  */
-let _mk = { asg: null, bank: null, title: '', scope: 'class' };
+let _mk = { asg: null, bank: null, title: '', scope: 'class', advanced: false };
 // Mỗi lần mở một bài giao khác (hoặc rời khu) là một THẾ HỆ mới. Mọi lượt gọi
 // mạng của khu này chụp thế hệ lúc bắt đầu và chỉ vẽ nếu nó còn khớp — nếu
 // không, mở bài A (mạng chậm) rồi mở bài B sẽ để bảng của A ghi đè lên B, với
@@ -1495,7 +1495,7 @@ function showMarkTab(name) {
 
 function openMarking(assignmentId, title, bankId) {
   _mkGen += 1;
-  _mk = { asg: assignmentId, bank: bankId || null, title: title || '' };
+  _mk = { asg: assignmentId, bank: bankId || null, title: title || '', advanced: false };
   $('marking-title').textContent = title || 'Nhận bài';
   $('marking-sub').textContent = bankId ? 'Bài tập theo buổi' : '';
   // Tab "Bài từng em" chỉ có nghĩa với bài theo buổi — kỹ năng khác không có
@@ -1531,6 +1531,7 @@ async function renderOneList() {
     return;
   }
   if (gen !== _mkGen) return;
+  _mk.advanced = r.advanced_vocab === true;
   const nameOf = {};
   (_who.members || []).forEach((m) => { if (m.student_id) nameOf[m.student_id] = m.name; });
   list.innerHTML = (r.students || []).map((x) => `<li>
@@ -1557,6 +1558,23 @@ async function openOneReport(userId, name) {
   const gen = _mkGen;
   box.innerHTML = '<p class="adm-hint">Đang dựng báo cáo…</p>';
   try {
+    if (_mk.advanced) {
+      const report = await api.get('/admin/advanced-vocab/assignments/'
+        + encodeURIComponent(_mk.asg) + '/results');
+      if (seq !== _oneSeq || gen !== _mkGen) return;
+      const row = (report.students || []).find((entry) => entry.student
+        && entry.student.user_id === userId);
+      if (!row) throw new Error('Không tìm thấy bằng chứng của học viên trong bài giao này.');
+      const stageNames = { vocabulary: 'Từ vựng', practice_1: 'Luyện nhận diện', practice_2: 'Luyện vận dụng', controlled_rewrite: 'Controlled rewrite', reading: 'Reading', listening: 'Listening' };
+      const stages = (row.stages || []).map((stage) => `<li><strong>${esc(stageNames[stage.stage] || stage.stage)}</strong> · ${esc(stage.completed_at || 'đã hoàn tất')}</li>`).join('');
+      const sections = (row.sections || []).map((section) => `<li><strong>${esc(section.section)}</strong> · ${section.correct}/${section.total} câu · ${section.duration_sec || 0}s</li>`).join('');
+      const attempts = (row.practice_attempts || []).map((attempt) => `<tr><td>${esc(attempt.stage)}</td><td>${esc(attempt.qid)}</td><td>${esc(String(attempt.answer_given ?? ''))}</td><td>${attempt.is_correct ? 'Đúng' : 'Sai'}</td></tr>`).join('');
+      box.innerHTML = '<h4 class="cl-one__name">' + esc(name || '') + '</h4>'
+        + '<div class="adm-banner">Bài self-paced không có điểm tổng. Writing và Speaking chỉ để tham khảo/luyện riêng.</div>'
+        + '<h4>Phần đã hoàn tất</h4><ul>' + stages + sections + '</ul>'
+        + '<h4>Chi tiết luyện tập</h4><table class="adm-table"><thead><tr><th>Phần</th><th>Câu</th><th>Trả lời</th><th>Kết quả</th></tr></thead><tbody>' + attempts + '</tbody></table>';
+      return;
+    }
     if (!_CR) _CR = await import('/js/course-report.js');
     const d = await api.get('/admin/quiz/banks/' + encodeURIComponent(_mk.bank)
       + '/students/' + encodeURIComponent(userId)
@@ -2652,6 +2670,7 @@ async function openEffort(bankId, assignmentId, title) {
       '<div class="adm-banner">Không tải được: ' + esc(err.message || String(err)) + '</div>';
     return;
   }
+  _mk.advanced = r.advanced_vocab === true;
   // Báo cáo chỉ biết `user_id`. Tên nằm ở sĩ số đã nạp — ghép ở đây thay vì bắt
   // backend biết về lớp, vì cùng một bank giao được cho nhiều lớp.
   // Ghép theo HỌC VIÊN, không theo tài khoản: em chưa kích hoạt có `user_id`
@@ -2678,7 +2697,9 @@ async function openEffort(bankId, assignmentId, title) {
     const progress = x.sections_total
       ? `${x.sections_done}/${x.sections_total} phần${missing ? ` · thiếu ${esc(missing)}` : ''}`
       : `${x.stages_done}${r.stages_total ? '/' + r.stages_total : ''} chặng`;
-    const combined = x.combined_pct == null ? '—' : Math.round(x.combined_pct) + '%';
+    const combined = x.combined_pct == null
+      ? (r.advanced_vocab ? 'Không chấm' : '—')
+      : Math.round(x.combined_pct) + '%';
     const minutes = x.attempt_minutes || x.minutes;
     return `<tr>
       <td>${esc(nameOf[x.student_id] || 'Học viên đã rời lớp')}${
@@ -2718,11 +2739,15 @@ async function openEffort(bankId, assignmentId, title) {
 
   $('effort-body').innerHTML = warn
     + '<table class="adm-table"><thead><tr><th>Học viên</th><th>Tình trạng</th>'
-    + '<th>Hoàn thành</th><th>Lượt đã chấm</th><th>Điểm tổng gần nhất</th>'
+    + '<th>Hoàn thành</th><th>'
+    + (r.advanced_vocab ? 'Lượt tương tác' : 'Lượt đã chấm') + '</th><th>'
+    + (r.advanced_vocab ? 'Chính sách điểm' : 'Điểm tổng gần nhất') + '</th>'
     + '<th>Tổng thời gian</th></tr></thead>'
     + '<tbody>' + body + '</tbody></table>'
-    + '<p class="adm-hint">Thời gian cộng từ lúc mỗi phần được mở trong lượt làm, không suy từ '
-    + 'khoảng cách giữa hai timestamp trên máy chủ.</p>'
+    + '<p class="adm-hint">Thời gian cộng từ bằng chứng từng phần, không suy từ '
+    + 'khoảng cách giữa hai timestamp trên máy chủ.'
+    + (r.advanced_vocab ? ' Writing và Speaking là nội dung tham khảo/luyện riêng, không nộp và không chấm mặc định.' : '')
+    + '</p>'
     + axesHtml;
 }
 

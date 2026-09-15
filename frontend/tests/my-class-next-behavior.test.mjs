@@ -190,6 +190,16 @@ describe('assignment start contract', () => {
     });
   });
 
+  test('advanced vocabulary course items keep their dedicated renderer identity', () => {
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-adv', assignment_id: 'asg-adv', skill: 'course',
+      bank_id: 'bank-adv', runtime: 'advanced_vocab',
+    }, 'item-adv'), {
+      kind: 'course', bankId: 'bank-adv', itemId: 'item-adv',
+      reviewOnly: false, advancedVocabulary: true,
+    });
+  });
+
   test('an incomplete submitted course item stays in the work queue after extension', () => {
     const normalized = normalizeMyClassResponse(payload({
       assignments: [assignment({

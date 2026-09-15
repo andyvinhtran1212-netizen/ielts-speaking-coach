@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="720" viewBox="0 0 1240 720" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif">
+<rect width="1240" height="720" fill="#ffffff"/>
+<text x="620.0" y="32" text-anchor="middle" font-size="20" font-weight="800" fill="#1f2937">Global supply-chain network of a Western electronics multinational: 2010 vs 2024</text>
+<text x="620.0" y="54" text-anchor="middle" font-size="13" fill="#4b5563">Squares = manufacturing hubs · Circles = assembly plants · Star = R&amp;D HQ · Arrows = component flows</text>
+<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#64748b"/></marker></defs>
+<rect x="30" y="80" width="590.0" height="560" rx="14" fill="#f7f8f9" stroke="#c3c8ce" stroke-width="2"/>
+<text x="325.0" y="108" text-anchor="middle" font-size="17" font-weight="800" fill="#1f2937">2010 — Offshoring era</text>
+<line x1="431.2" y1="271.0" x2="112.6" y2="177.0" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="0"/>
+<line x1="502.0" y1="327.4" x2="112.6" y2="177.0" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="0"/>
+<line x1="466.6" y1="224.0" x2="207.0" y2="261.6" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="0"/>
+<line x1="384.0" y1="336.8" x2="395.8" y2="506.0" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="0"/>
+<line x1="354.5" y1="421.4" x2="395.8" y2="506.0" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="0"/>
+<line x1="124.4" y1="421.4" x2="112.6" y2="177.0" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="0"/>
+<line x1="431.2" y1="271.0" x2="466.6" y2="224.0" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="0"/>
+<polygon points="112.6,166.0 115.5,173.0 123.1,173.6 117.3,178.5 119.1,185.9 112.6,181.9 106.1,185.9 107.9,178.5 102.1,173.6 109.7,173.0" fill="#d97706" stroke="#78350f" stroke-width="1"/>
+<text x="112.6" y="199.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">California HQ</text>
+<rect x="423.2" y="263.0" width="16" height="16" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.5"/>
+<text x="431.2" y="293.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">Shenzhen</text>
+<rect x="494.0" y="319.4" width="16" height="16" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.5"/>
+<text x="502.0" y="349.4" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">Guangzhou</text>
+<rect x="458.6" y="216.0" width="16" height="16" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.5"/>
+<text x="466.6" y="246.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">Suzhou</text>
+<rect x="376.0" y="328.8" width="16" height="16" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.5"/>
+<text x="384.0" y="358.8" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">Chongqing</text>
+<rect x="346.5" y="413.4" width="16" height="16" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.5"/>
+<text x="354.5" y="443.4" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">Vietnam</text>
+<rect x="116.4" y="413.4" width="16" height="16" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.5"/>
+<text x="124.4" y="443.4" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">Mexico</text>
+<circle cx="395.8" cy="506.0" r="10" fill="#059669" stroke="#064e3b" stroke-width="1.5"/>
+<text x="395.8" y="528.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">Malaysia (assembly)</text>
+<circle cx="207.0" cy="261.6" r="10" fill="#059669" stroke="#064e3b" stroke-width="1.5"/>
+<text x="207.0" y="283.6" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">Poland (assembly)</text>
+<text x="46" y="579" font-size="11.5" fill="#374151">4 of 6 manufacturing hubs concentrated in China</text>
+<text x="46" y="594" font-size="11.5" fill="#374151">Long-haul trans-Pacific flows to USA, Europe, Japan</text>
+<text x="46" y="609" font-size="11.5" fill="#374151">2 assembly plants only: Malaysia, Poland</text>
+<rect x="60" y="650" width="14" height="14" fill="#2563eb"/>
+<text x="80" y="662" font-size="11.5" fill="#1f2937">Manufacturing hub</text>
+<circle cx="225" cy="657" r="8" fill="#059669"/>
+<text x="240" y="662" font-size="11.5" fill="#1f2937">Assembly plant</text>
+<path d="M355,648 l3,8 l8,1 l-6,6 l1.5,8 l-6.5,-4 l-6.5,4 l1.5,-8 l-6,-6 l8,-1 Z" fill="#d97706"/>
+<text x="372" y="662" font-size="11.5" fill="#1f2937">R&amp;D headquarters</text>
+<rect x="640.0" y="80" width="590.0" height="560" rx="14" fill="#f7f8f9" stroke="#c3c8ce" stroke-width="2"/>
+<text x="935.0" y="108" text-anchor="middle" font-size="17" font-weight="800" fill="#1f2937">2024 — Reshoring era</text>
+<line x1="817.0" y1="224.0" x2="722.6" y2="327.4" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="0"/>
+<line x1="722.6" y1="327.4" x2="734.4" y2="421.4" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="0"/>
+<line x1="734.4" y1="421.4" x2="781.6" y2="271.0" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="0"/>
+<line x1="1064.8" y1="261.6" x2="982.2" y2="402.6" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="0"/>
+<line x1="982.2" y1="402.6" x2="1005.8" y2="506.0" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="0"/>
+<line x1="1100.2" y1="214.6" x2="1147.4" y2="421.4" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="0"/>
+<line x1="1100.2" y1="214.6" x2="828.8" y2="271.0" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="0"/>
+<polygon points="722.6,166.0 725.5,173.0 733.1,173.6 727.3,178.5 729.1,185.9 722.6,181.9 716.1,185.9 717.9,178.5 712.1,173.6 719.7,173.0" fill="#d97706" stroke="#78350f" stroke-width="1"/>
+<text x="722.6" y="199.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">California HQ</text>
+<rect x="809.0" y="216.0" width="16" height="16" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.5"/>
+<text x="817.0" y="246.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">Texas (new)</text>
+<rect x="1059.3" y="256.1" width="11" height="11" fill="#93c5fd" stroke="#1e3a8a" stroke-width="1.5"/>
+<text x="1064.8" y="283.6" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">Shenzhen (downsized)</text>
+<rect x="1094.7" y="209.1" width="11" height="11" fill="#93c5fd" stroke="#1e3a8a" stroke-width="1.5"/>
+<text x="1100.2" y="236.6" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">Suzhou (downsized)</text>
+<rect x="974.2" y="394.6" width="16" height="16" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.5"/>
+<text x="982.2" y="424.6" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">Vietnam (expanded)</text>
+<rect x="1139.4" y="413.4" width="16" height="16" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.5"/>
+<text x="1147.4" y="443.4" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">India (new)</text>
+<rect x="726.4" y="413.4" width="16" height="16" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.5"/>
+<text x="734.4" y="443.4" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">Mexico (expanded)</text>
+<circle cx="1005.8" cy="506.0" r="10" fill="#059669" stroke="#064e3b" stroke-width="1.5"/>
+<text x="1005.8" y="528.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">Malaysia (assembly)</text>
+<circle cx="746.2" cy="271.0" r="10" fill="#059669" stroke="#064e3b" stroke-width="1.5"/>
+<text x="746.2" y="293.0" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">Poland (assembly)</text>
+<circle cx="722.6" cy="327.4" r="10" fill="#059669" stroke="#064e3b" stroke-width="1.5"/>
+<text x="722.6" y="349.4" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">Arizona (assembly, new)</text>
+<text x="656.0" y="564" font-size="11.5" fill="#374151">Only 2 (downsized) Chinese hubs remain</text>
+<text x="656.0" y="579" font-size="11.5" fill="#374151">New/expanded hubs: Texas, India, Vietnam, Mexico</text>
+<text x="656.0" y="594" font-size="11.5" fill="#374151">Shorter regional clusters: N. America, SE Asia, EU</text>
+<text x="656.0" y="609" font-size="11.5" fill="#374151">3rd assembly plant added in Arizona</text>
+<rect x="670.0" y="650" width="14" height="14" fill="#2563eb"/>
+<text x="690.0" y="662" font-size="11.5" fill="#1f2937">Manufacturing hub</text>
+<circle cx="835.0" cy="657" r="8" fill="#059669"/>
+<text x="850.0" y="662" font-size="11.5" fill="#1f2937">Assembly plant</text>
+<path d="M965.0,648 l3,8 l8,1 l-6,6 l1.5,8 l-6.5,-4 l-6.5,4 l1.5,-8 l-6,-6 l8,-1 Z" fill="#d97706"/>
+<text x="982.0" y="662" font-size="11.5" fill="#1f2937">R&amp;D headquarters</text>
+<text x="1216" y="712" text-anchor="end" font-size="10.5" font-style="italic" fill="#4b5563">Illustrative data for teaching &#183; IELTS Advanced</text>
+</svg>

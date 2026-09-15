@@ -319,6 +319,18 @@ async def list_assignments(
 _QUESTIONS_PER_PART = {1: 2, 2: 1, 3: 1}
 
 
+def _question_audio_text(question: dict) -> str:
+    """Return authored prompt audio text without assuming a JSON shape.
+
+    Normal course questions use an object; Advanced Vocabulary syllable items
+    legitimately use an array of string segments.
+    """
+    segments = question.get("segments")
+    if not isinstance(segments, dict):
+        return ""
+    return str(segments.get("question_audio_text") or "").strip()
+
+
 def _audio_matches(q: dict, topic_title: str) -> bool:
     """Bản đọc có ĐÚNG là bản đọc của câu hỏi HIỆN TẠI không.
 
@@ -725,7 +737,7 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
 
     missing_question_audio = [
         question for question in questions
-        if str((question.get("segments") or {}).get("question_audio_text") or "").strip()
+        if _question_audio_text(question)
         and not str(question.get("audio_url") or "").strip()
     ]
     if missing_question_audio:
@@ -744,14 +756,21 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
     if requirement and not _pronunciation_set_matches(requirement, pronunciation_sets):
         raise HTTPException(
             400, "Bộ phát âm đang thiếu hoặc không khớp nội dung bắt buộc.")
-    try:
-        weight_snapshot = course_section_weight_snapshot(
-            questions=questions,
-            meta=bank.get("meta"),
-            pronunciation_sets=pronunciation_sets,
-        )
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
+    advanced_runtime = (((bank.get("meta") or {}).get("runtime") or {}).get("kind")
+                        == "advanced_vocab")
+    if advanced_runtime:
+        # The dedicated evidence ledger has no overall grade and therefore no
+        # generic quiz/writing weight contract to freeze into the assignment.
+        weight_snapshot = {}
+    else:
+        try:
+            weight_snapshot = course_section_weight_snapshot(
+                questions=questions,
+                meta=bank.get("meta"),
+                pronunciation_sets=pronunciation_sets,
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
 
     dup = (supabase_admin.table("class_assignments").select("id, title")
            .eq("cohort_id", cohort_id).eq("skill", "course")
@@ -769,13 +788,18 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
         "test_title": bank["title"],
         "lesson_no":  bank.get("lesson_no"),
         "bank_code":  bank.get("code"),
+        # The assignment keeps the renderer/content-version decision that was
+        # true when it was issued.  It must not silently switch player after a
+        # later bank import.
+        **({"runtime": (bank.get("meta") or {}).get("runtime")}
+           if (bank.get("meta") or {}).get("runtime") else {}),
         **weight_snapshot,
     }
     # Cổng thuộc-bài: pass/revision chỉ ghi khi admin đặt. Riêng trọng số luôn
     # chụp ở trên vì luật chấm không được tiến hoá giữa một bài đã giao.
-    if body.pass_pct is not None:
+    if body.pass_pct is not None and not advanced_runtime:
         cfg["pass_pct"] = body.pass_pct
-    if body.retake_size is not None:
+    if body.retake_size is not None and not advanced_runtime:
         cfg["retake_size"] = body.retake_size
     return bank["id"], cfg
 
@@ -800,6 +824,15 @@ async def list_course_banks(
              .order("lesson_no").execute().data) or []
     if not banks:
         return {"items": []}
+    # Numbered banks own the canonical class-session order. Supplementary
+    # Advanced Vocabulary banks intentionally have lesson_no=NULL to avoid the
+    # unique (course_id, lesson_no) slot; keep their T01…T30 order deterministic.
+    banks.sort(key=lambda bank: (
+        bank.get("lesson_no") is None,
+        bank.get("lesson_no") or 0,
+        str((((bank.get("meta") or {}).get("runtime") or {}).get("lesson_id"))
+            or bank.get("code") or ""),
+    ))
 
     given = {
         r["content_id"] for r in (
@@ -818,7 +851,7 @@ async def list_course_banks(
                         lambda q2, c=chunk: q2.in_("bank_id", c)):
             bank_id = q["bank_id"]
             counts[bank_id] = counts.get(bank_id, 0) + 1
-            text = str((q.get("segments") or {}).get("question_audio_text") or "").strip()
+            text = _question_audio_text(q)
             if text:
                 audio_required[bank_id] = audio_required.get(bank_id, 0) + 1
                 if not str(q.get("audio_url") or "").strip():
@@ -852,6 +885,7 @@ async def list_course_banks(
             "pronunciation_required": pronunciation_required,
             "pronunciation_ready":   pronunciation_is_ready,
             "already_given":         bank_id in given,
+            "runtime": ((bank.get("meta") or {}).get("runtime") or {}).get("kind"),
             "ready": (
                 counts.get(bank_id, 0) > 0
                 and missing_audio.get(bank_id, 0) == 0
@@ -1803,6 +1837,10 @@ async def student_work(
             "artifact_id":   it.get("artifact_id"),
             "has_writing":   it["id"] in writing_items,
             "bank_id":       a.get("content_id") if a.get("skill") == "course" else None,
+            # The student-centric drawer can open the same native marking view
+            # as the assignment-centric table. Carry the frozen renderer
+            # identity so it does not fall back to the answer-bearing quiz API.
+            "content_config": a.get("content_config") or {},
         })
     # Mới nhất lên đầu: giáo viên hỏi "gần đây em ấy làm gì". Bài KHÔNG HẠN
     # xuống cuối chứ không lẫn lên đầu.

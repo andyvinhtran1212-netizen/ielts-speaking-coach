@@ -142,7 +142,8 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
     const match = /^(\d{2}):(\d{2})$/.exec(draft.dueTime);
     if (!match || Number(match[1]) > 23 || Number(match[2]) > 59) return { ok: false, error: 'Giờ hạn không hợp lệ.' };
   }
-  if (draft.skill === 'course') {
+  const advancedVocabulary = selected.runtime === 'advanced_vocab';
+  if (draft.skill === 'course' && !advancedVocabulary) {
     const pass = draft.passPct === '' ? null : Number(draft.passPct);
     const retake = draft.retakeSize === '' ? null : Number(draft.retakeSize);
     if (pass != null && (!Number.isInteger(pass) || pass < 50 || pass > 100)) return { ok: false, error: 'Ngưỡng đạt phải trong khoảng 50–100%.' };
@@ -181,7 +182,7 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
       body.part = Number(draft.part);
       body.question_ids = draft.questionMode === 'manual' ? [...draft.questionIds] : null;
     }
-    if (draft.skill === 'course') {
+    if (draft.skill === 'course' && !advancedVocabulary) {
       if (draft.passPct !== '') body.pass_pct = Number(draft.passPct);
       if (draft.retakeSize !== '') body.retake_size = Number(draft.retakeSize);
     }
@@ -226,6 +227,7 @@ export function normalizeCatalog(value, kind, requestedSkill = '', requestedCoho
       explanation_state: text(row.web_explanation_state) || 'unknown',
       explanation_count: row.web_explanation_count == null ? null : count(row.web_explanation_count),
       explanation_ready_count: row.web_explanation_ready_count == null ? null : count(row.web_explanation_ready_count),
+      runtime: nullableText(row.runtime),
     };
   }).filter(Boolean);
 }

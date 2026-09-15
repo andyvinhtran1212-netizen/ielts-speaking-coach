@@ -19,6 +19,7 @@ export type StudentWorkItem = {
   artifact_id: string | null;
   has_writing: boolean;
   bank_id: string | null;
+  content_config: Record<string, unknown>;
 };
 
 export type StudentWorkPayload = {

@@ -389,9 +389,11 @@ export function normalizeClassStartResponse(value, expectedItemId) {
   const bankId = textOf(row.bank_id);
   if (bankId && skill === 'course') {
     if (row.review_only != null && typeof row.review_only !== 'boolean') return null;
+    if (row.runtime != null && !['advanced_vocab'].includes(textOf(row.runtime))) return null;
     return {
       kind: 'course', bankId, itemId: expectedItemId,
       reviewOnly: row.review_only === true,
+      ...(row.runtime === 'advanced_vocab' ? { advancedVocabulary: true } : {}),
     };
   }
 

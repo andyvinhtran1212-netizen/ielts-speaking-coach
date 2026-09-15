@@ -48,7 +48,9 @@ export function normalizeEffort(value) {
   const payload = object(value);
   if (!Array.isArray(payload.students) || !Array.isArray(payload.axes)) return null;
   return {
-    stale: payload.stale === true, stages_total: Math.max(0, finite(payload.stages_total) || 0),
+    stale: payload.stale === true, advanced_vocab: payload.advanced_vocab === true,
+    score_policy: nullableText(payload.score_policy),
+    stages_total: Math.max(0, finite(payload.stages_total) || 0),
     writing_total: Math.max(0, finite(payload.writing_total) || 0),
     students: payload.students.map((item) => {
       const row = object(item);
@@ -78,6 +80,55 @@ export function normalizeEffort(value) {
       const studentSample = Math.max(0, finite(row.student_sample) || 0);
       return { axis: text(row.axis), wrong: Math.max(0, finite(row.wrong) || 0), attempted: Math.max(0, finite(row.attempted) || 0), wrong_rate: finite(row.wrong_rate), affected_students: Math.max(0, finite(row.affected_students) || 0), student_sample: studentSample, affected_rate: finite(row.affected_rate), median_sec: finite(row.median_sec), scope: text(row.scope), sample_low: row.sample_low === true || (studentSample > 0 && studentSample < 3) };
     }).filter((row) => row.axis),
+  };
+}
+
+export function normalizeAdvancedVocabularyResult(value) {
+  const payload = object(value);
+  if (payload.kind !== 'advanced_vocab' || payload.score_policy !== 'none' || !Array.isArray(payload.students)) return null;
+  const requiredStages = Array.isArray(payload.required_stages) ? payload.required_stages.map(text).filter(Boolean) : [];
+  const students = payload.students.map((value) => {
+    const row = object(value);
+    const item = object(row.item);
+    const student = object(row.student);
+    if (!text(item.id) || !Array.isArray(row.stages) || !Array.isArray(row.practice_attempts) || !Array.isArray(row.sections)) return null;
+    return {
+      required_stages: requiredStages,
+      item: {
+        id: text(item.id), student_id: nullableText(item.student_id), state: text(item.state),
+        opened_at: nullableText(item.opened_at), submitted_at: nullableText(item.submitted_at), passed_at: nullableText(item.passed_at),
+      },
+      student: {
+        id: nullableText(student.id), user_id: nullableText(student.user_id),
+        full_name: nullableText(student.full_name), student_code: nullableText(student.student_code),
+      },
+      stages: row.stages.map((value) => {
+        const stage = object(value);
+        return { stage: text(stage.stage), status: text(stage.status), completed_at: nullableText(stage.completed_at) };
+      }).filter((stage) => stage.stage),
+      practice_attempts: row.practice_attempts.map((value) => {
+        const attempt = object(value);
+        return {
+          stage: text(attempt.stage), qid: text(attempt.qid), answer_given: attempt.answer_given,
+          is_correct: attempt.is_correct === true, response_time_ms: finite(attempt.response_time_ms),
+          created_at: nullableText(attempt.created_at),
+        };
+      }).filter((attempt) => attempt.qid),
+      sections: row.sections.map((value) => {
+        const section = object(value);
+        return {
+          section: text(section.section), total: Math.max(0, finite(section.total) || 0),
+          correct: Math.max(0, finite(section.correct) || 0), score: finite(section.score),
+          duration_sec: Math.max(0, finite(section.duration_sec) || 0), submitted_at: nullableText(section.submitted_at),
+        };
+      }).filter((section) => section.section),
+    };
+  }).filter(Boolean);
+  return {
+    kind: 'advanced_vocab', score_policy: 'none', lesson_id: nullableText(payload.lesson_id),
+    required_stages: requiredStages,
+    reference_only: Array.isArray(payload.reference_only) ? payload.reference_only.map(text).filter(Boolean) : [],
+    students,
   };
 }
 

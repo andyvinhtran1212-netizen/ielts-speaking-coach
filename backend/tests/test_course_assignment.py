@@ -98,6 +98,32 @@ def test_a_valid_bank_freezes_weight_shape_without_copying_questions():
     assert "questions" not in cfg and "question_ids" not in cfg
 
 
+def test_advanced_vocabulary_freezes_runtime_and_ignores_grade_controls():
+    runtime = {"kind": "advanced_vocab", "lesson_id": "ADV-T01", "score_policy": "none"}
+    bank = {**_BANK, "meta": {"runtime": runtime}}
+    _, cfg = _resolve(
+        _full(quiz_banks=[bank]),
+        _body(pass_pct=75, retake_size=20),
+    )
+    assert cfg["runtime"] == runtime
+    assert "pass_pct" not in cfg
+    assert "retake_size" not in cfg
+
+
+def test_advanced_vocabulary_syllable_segments_do_not_break_audio_readiness():
+    runtime = {"kind": "advanced_vocab", "lesson_id": "ADV-T01"}
+    bank = {**_BANK, "lesson_no": None, "meta": {"runtime": runtime}}
+    question = {
+        "id": "syllable-1", "bank_id": "bank-1", "type": "syllable",
+        "segments": ["re", "sil", "ience"], "audio_url": None,
+    }
+
+    bank_id, cfg = _resolve(_full(quiz_banks=[bank], quiz_questions=[question]))
+
+    assert bank_id == "bank-1"
+    assert cfg["runtime"] == runtime
+
+
 # ── Từ chối ──────────────────────────────────────────────────────────────────
 
 def test_a_bank_from_ANOTHER_course_is_refused():
@@ -225,6 +251,47 @@ async def test_the_library_separates_ALREADY_GIVEN_from_NOT_YET_LOADED():
     assert by[1]["ready"] is True and by[1]["already_given"] is False
     assert by[2]["already_given"] is True
     assert by[3]["ready"] is False and by[3]["question_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_the_library_exposes_the_advanced_vocabulary_runtime():
+    bank = {**_BANK, "meta": {"runtime": {"kind": "advanced_vocab"}}}
+    db = _db(
+        cohorts=[_COHORT], quiz_banks=[bank],
+        quiz_questions=[{"id": "q1", "bank_id": "bank-1",
+                         "segments": ["ad", "vanced"]}],
+        class_assignments=[],
+    )
+    with patch.object(adm, "supabase_admin", db), \
+         patch.object(adm, "require_admin", new=lambda *_a, **_k: _async({"id": "ad"})):
+        out = await adm.list_course_banks("co-1", authorization="Bearer x")
+    assert out["items"][0]["runtime"] == "advanced_vocab"
+
+
+@pytest.mark.asyncio
+async def test_supplementary_advanced_banks_are_stably_ordered_after_numbered_lessons():
+    def advanced(number):
+        lesson_id = f"ADV-T{number:02d}"
+        return {
+            **_BANK, "id": f"advanced-{number}", "code": f"C4-{lesson_id}",
+            "lesson_no": None, "title": lesson_id,
+            "meta": {"runtime": {"kind": "advanced_vocab", "lesson_id": lesson_id}},
+        }
+
+    banks = [advanced(10), advanced(2), _BANK, advanced(1)]
+    db = _db(
+        cohorts=[_COHORT], quiz_banks=banks,
+        quiz_questions=[{"id": f"q-{bank['id']}", "bank_id": bank["id"]}
+                        for bank in banks],
+        class_assignments=[],
+    )
+    with patch.object(adm, "supabase_admin", db), \
+         patch.object(adm, "require_admin", new=lambda *_a, **_k: _async({"id": "ad"})):
+        out = await adm.list_course_banks("co-1", authorization="Bearer x")
+
+    assert [row["id"] for row in out["items"]] == [
+        "bank-1", "advanced-1", "advanced-2", "advanced-10",
+    ]
 
 
 @pytest.mark.asyncio

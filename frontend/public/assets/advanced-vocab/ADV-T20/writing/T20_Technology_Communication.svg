@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="640" viewBox="0 0 1240 640" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif">
+<rect width="1240" height="640" fill="#ffffff"/>
+<defs><marker id="ah" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#374151"/></marker></defs>
+<text x="620.0" y="34" text-anchor="middle" font-size="20" font-weight="800" fill="#1f2937">Eight-stage digital welfare service-delivery pipeline</text>
+<text x="620.0" y="56" text-anchor="middle" font-size="13" fill="#4b5563">End-to-end processing of a citizen&#8217;s welfare-entitlement application on a national e-government platform</text>
+<rect x="60" y="110" width="250" height="110" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="86" cy="136" r="16" fill="#2563eb"/>
+<text x="86" y="141" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">1</text>
+<text x="112" y="140" font-size="13.5" font-weight="700" fill="#1e293b">Citizen authentication</text>
+<text x="78" y="182" font-size="11.5" fill="#475569">Digital ID + biometric scan</text>
+<rect x="350" y="110" width="250" height="110" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="376" cy="136" r="16" fill="#2563eb"/>
+<text x="376" y="141" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">2</text>
+<text x="402" y="140" font-size="13.5" font-weight="700" fill="#1e293b">Eligibility pre-screening</text>
+<text x="368" y="182" font-size="11.5" fill="#475569">Rules engine checks basic criteria</text>
+<rect x="640" y="110" width="250" height="110" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="666" cy="136" r="16" fill="#2563eb"/>
+<text x="666" y="141" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">3</text>
+<text x="692" y="140" font-size="13.5" font-weight="700" fill="#1e293b">Cross-agency data retrieval</text>
+<text x="658" y="182" font-size="11.5" fill="#475569">Tax, health, civil-registry records</text>
+<rect x="930" y="110" width="250" height="110" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+<circle cx="956" cy="136" r="16" fill="#d97706"/>
+<text x="956" y="141" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">4</text>
+<text x="982" y="140" font-size="13.5" font-weight="700" fill="#1e293b">Algorithmic risk scoring</text>
+<text x="948" y="182" font-size="11.5" fill="#475569">Fraud / means-test risk score</text>
+<rect x="930" y="300" width="250" height="110" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="956" cy="326" r="16" fill="#2563eb"/>
+<text x="956" y="331" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">5</text>
+<text x="982" y="322" font-size="13.5" font-weight="700" fill="#1e293b">Automated decision &amp;</text>
+<text x="982" y="339" font-size="13.5" font-weight="700" fill="#1e293b">calculation</text>
+<text x="948" y="372" font-size="11.5" fill="#475569">Entitlement amount computed</text>
+<rect x="640" y="300" width="250" height="110" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="666" cy="326" r="16" fill="#2563eb"/>
+<text x="666" y="331" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">6</text>
+<text x="692" y="330" font-size="13.5" font-weight="700" fill="#1e293b">Portal notification</text>
+<text x="658" y="372" font-size="11.5" fill="#475569">Outcome sent via secure portal</text>
+<rect x="350" y="300" width="250" height="110" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="376" cy="326" r="16" fill="#2563eb"/>
+<text x="376" y="331" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">7</text>
+<text x="402" y="330" font-size="13.5" font-weight="700" fill="#1e293b">Disbursement</text>
+<text x="368" y="372" font-size="11.5" fill="#475569">Funds to bank account / e-wallet</text>
+<rect x="60" y="300" width="250" height="110" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+<circle cx="86" cy="326" r="16" fill="#2563eb"/>
+<text x="86" y="331" text-anchor="middle" font-size="15" font-weight="800" fill="#fff">8</text>
+<text x="112" y="330" font-size="13.5" font-weight="700" fill="#1e293b">Audit logging</text>
+<text x="78" y="372" font-size="11.5" fill="#475569">Immutable record for governance</text>
+<line x1="310" y1="165.0" x2="350" y2="165.0" stroke="#374151" stroke-width="2.5" marker-end="url(#ah)"/>
+<line x1="600" y1="165.0" x2="640" y2="165.0" stroke="#374151" stroke-width="2.5" marker-end="url(#ah)"/>
+<line x1="890" y1="165.0" x2="930" y2="165.0" stroke="#374151" stroke-width="2.5" marker-end="url(#ah)"/>
+<path d="M1055.0,220 L1055.0,260 L1055.0,260 L1055.0,300" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ah)"/>
+<line x1="930" y1="355.0" x2="890" y2="355.0" stroke="#374151" stroke-width="2.5" marker-end="url(#ah)"/>
+<line x1="640" y1="355.0" x2="600" y2="355.0" stroke="#374151" stroke-width="2.5" marker-end="url(#ah)"/>
+<line x1="350" y1="355.0" x2="310" y2="355.0" stroke="#374151" stroke-width="2.5" marker-end="url(#ah)"/>
+<path d="M1150,110 Q1150,55 1060,55" fill="none" stroke="#d97706" stroke-width="2.2" stroke-dasharray="5 4" marker-end="url(#ah)"/>
+<rect x="950" y="31" width="150" height="26" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+<text x="1025" y="49" text-anchor="middle" font-size="11" font-weight="700" fill="#92400e">4a. Manual caseworker review</text>
+<path d="M950,44 Q960,55 960,110" fill="none" stroke="#d97706" stroke-width="2.2" stroke-dasharray="5 4" marker-end="url(#ah)"/>
+<rect x="60" y="440" width="1120" height="70" rx="10" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="80" y="466" font-size="12.5" font-weight="700" fill="#1e293b">Overall: the pipeline is overwhelmingly automated (Stages 1-3, 5-8), with a single human-review loop (4a) for flagged cases,</text>
+<text x="80" y="488" font-size="12.5" font-weight="700" fill="#1e293b">and it concludes not in payment (Stage 7) but in an accountability stage (Stage 8: audit logging).</text>
+<text x="1216" y="630" text-anchor="end" font-size="10.5" font-style="italic" fill="#4b5563">Illustrative data for teaching &#183; IELTS Advanced</text>
+</svg>

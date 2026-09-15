@@ -249,6 +249,14 @@ def test_the_open_link_carries_what_the_page_needs_to_pick_a_destination():
     assert it["bank_id"] == "bank-1", "bài theo buổi phải kèm kho câu hỏi"
 
 
+def test_the_open_link_keeps_the_frozen_runtime_identity():
+    t = _tables()
+    assignment = next(row for row in t["class_assignments"] if row["id"] == "a-old")
+    assignment["content_config"] = {"runtime": {"kind": "advanced_vocab"}}
+    it = _by_id(_call(t))["a-old"]
+    assert it["content_config"]["runtime"]["kind"] == "advanced_vocab"
+
+
 def test_bank_id_is_only_for_course_tasks():
     """Kèm `bank_id` cho bài Speaking là mời trang mở tab "Bài từng em" trên một
     bài không có câu nào để đọc."""

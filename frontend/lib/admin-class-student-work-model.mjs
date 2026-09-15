@@ -27,6 +27,7 @@ export function normalizeStudentWork(value, expectedStudentId) {
       artifact_id: nullableText(row.artifact_id),
       has_writing: row.has_writing === true,
       bank_id: nullableText(row.bank_id),
+      content_config: object(row.content_config),
     };
   }).filter(Boolean);
   return {

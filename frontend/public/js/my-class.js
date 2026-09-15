@@ -466,6 +466,11 @@ async function startAssignment(itemId, btn) {
     // trước — chính bài giao vừa được xác nhận ở lệnh /start là thứ cho phép
     // trang kia đọc được bank ấy.
     if (r && r.bank_id) {
+      if (r.runtime === 'advanced_vocab') {
+        window.location.href = '/advanced-vocabulary?bank=' + encodeURIComponent(r.bank_id)
+          + '&item=' + encodeURIComponent(r.item_id);
+        return;
+      }
       window.location.href = '/course-exercises?bank=' + encodeURIComponent(r.bank_id)
         + (r.review_only === true
           ? '&view=writing&class_item=' + encodeURIComponent(r.item_id) : '');
