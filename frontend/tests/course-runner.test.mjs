@@ -172,6 +172,24 @@ test('uses the server deadline and submits a time-cap verdict', async () => {
   assert.equal(api.calls.post.at(-1).body.timed_out, true);
 });
 
+test('adopts the empty atomic timer session instead of opening a second one', async () => {
+  const api = fakeApi({
+    questions: [mcq(1)],
+    mastery: { item_id: 'item-timed', is_timed: true, time_remaining_seconds: 60 },
+    resume: {
+      item_id: 'item-timed', session_id: 'atomic-first', answered: [],
+      completed: [], stage: 0, retake: null,
+    },
+  });
+  const runner = createRunner({ api, storage: null, now: () => 1000 });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  assert.equal(api.calls.post.filter((call) => call.path === '/api/quiz/sessions').length, 0);
+  runner.answer(0);
+  runner.next();
+  await runner.finishStage();
+  assert.ok(api.calls.patch.some((call) => call.path.endsWith('/atomic-first')));
+});
+
 function memStore() {
   const m = new Map();
   return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, v), _m: m };

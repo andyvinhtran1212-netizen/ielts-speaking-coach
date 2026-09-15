@@ -381,7 +381,10 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     const list = qs.slice(stage * STAGE, stage * STAGE + STAGE);
     // Phải khớp ĐÚNG TIỀN TỐ của chặng: lệch một câu là đếm sai chỗ đang đứng,
     // và học viên hoặc mất câu hoặc làm lại câu đã làm.
-    const aligned = ans.length > 0 && ans.length <= list.length
+    // The timed bank GET atomically creates an empty first session.  An empty
+    // prefix is aligned too: adopt that canonical session instead of POSTing a
+    // second one and leaving the timer-anchor session orphaned.
+    const aligned = ans.length <= list.length
       && ans.every(function (a, i) { return a && list[i] && a.qid === list[i].qid; });
     if (sv.session_id && aligned) {
       sessionId = sv.session_id;

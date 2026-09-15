@@ -1551,7 +1551,10 @@ def start_session(
     response = {"session_id": session_id, "resume": resume}
     if item:
         response["timer"] = assignment_timer_state(
-            item, {"content_config": item.get("content_config") or {}},
+            item, {
+                "content_config": item.get("content_config") or {},
+                "due_at": item.get("due_at"),
+            },
         )
     return response
 
@@ -2119,11 +2122,15 @@ def get_course_resume(
     # một phiên 5 câu — lấy mới nhất là trả lại 5 rồi bắt em làm lại 3 câu đã làm.
     # Các phiên ấy cùng chặng nên cùng thứ tự câu, lấy phiên dài hơn luôn là một
     # tiền tố hợp lệ.
-    # Phiên rỗng bỏ mặc: chúng vô hại (0 câu, không vào lượt xét).
+    # The timed bank read atomically creates the first empty session before it
+    # releases answer-bearing questions.  That session is not an orphan: when
+    # no session has work yet, return the newest empty open one so the runner
+    # adopts it instead of creating a second session.
     with_work = [r for r in open_rows if by_session.get(r["id"])]
-    if not with_work:
-        return result
-    chosen = max(with_work, key=lambda r: (len(by_session[r["id"]]), r["created_at"]))
+    candidates = with_work or open_rows
+    chosen = max(candidates, key=lambda r: (
+        len(by_session.get(r["id"], [])), r["created_at"],
+    ))
     result["session_id"] = chosen["id"]
     # XẾP THEO THỨ TỰ CHUẨN CỦA BỘ ĐỀ, không theo `created_at`.
     #
@@ -2133,7 +2140,7 @@ def get_course_resume(
     # mới, và bỏ rơi cả phiên có bài. Dữ liệu thật của em Minh Ngoc Võ đúng hình
     # dạng ấy: `B1-07, B1-05, B1-04, B1-03, B1-06` (codex 06/08).
     pos = {q: i for i, q in enumerate(order)}
-    picked = [a for a in by_session[chosen["id"]] if a.get("qid")]
+    picked = [a for a in by_session.get(chosen["id"], []) if a.get("qid")]
     if order:
         picked.sort(key=lambda a: pos.get(a["qid"], len(order)))
     seen_q: set[str] = set()
@@ -4264,7 +4271,6 @@ def reap_expired_course_assessments(
                 lambda q, ids=ids: (
                     q.in_("assignment_id", ids)
                     .not_.is_("opened_at", "null")
-                    .is_("submitted_at", "null")
                 ),
             ))
     except Exception as exc:  # noqa: BLE001

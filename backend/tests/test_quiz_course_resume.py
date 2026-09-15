@@ -75,8 +75,8 @@ def test_the_session_with_the_most_work_wins():
     thường là phiên ít bài nhất. Dữ liệu thật của em ấy: chặng 3 có một phiên 8
     câu và một phiên 5 câu — lấy mới nhất là bắt em làm lại 3 câu đã làm."""
     src = _src()
-    assert "with_work" in src, "phiên rỗng không phải chỗ đang làm dở"
-    assert "max(with_work" in src and "len(by_session" in src, \
+    assert "with_work" in src
+    assert "max(candidates" in src and "len(by_session" in src, \
         "phải chọn phiên NHIỀU BÀI NHẤT, không phải phiên mới nhất"
 
 
@@ -287,6 +287,18 @@ def test_the_answers_come_back_in_the_BANK_ORDER():
         attempts=[{"session_id": "s1", "qid": q, "created_at": "2026-08-06T01:00:00+00:00"}
                   for q in ["q04", "q02", "q00", "q03", "q01"]])
     assert [a["qid"] for a in sv["answered"]] == ["q00", "q01", "q02", "q03", "q04"]
+
+
+def test_an_empty_atomic_timer_session_is_returned_for_adoption():
+    """GET bank created this session before releasing questions; resume must
+    return it even before the first answer, or the runner will create a second
+    session and leave the canonical timer session orphaned."""
+    sv = _resume(
+        sessions=[_sess("atomic-first")],
+        attempts=[],
+    )
+    assert sv["session_id"] == "atomic-first"
+    assert sv["answered"] == []
 
 
 def test_answering_the_same_question_twice_does_not_double_count():
