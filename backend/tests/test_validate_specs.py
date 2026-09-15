@@ -577,6 +577,10 @@ def test_unfiltered_workflow_reruns_when_pr_metadata_is_edited() -> None:
     assert "Spec and PR metadata" in workflow
     assert "github.event.action != 'edited'" in workflow
     assert "fetch-depth: 2" in workflow
+    backend_workflow = (REPO_ROOT / ".github/workflows/backend-tests.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "types: [opened, synchronize, reopened, edited" not in backend_workflow
 
 
 def test_cli_reads_github_event(tmp_path: Path, monkeypatch, capsys) -> None:
