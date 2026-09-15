@@ -138,7 +138,15 @@ function fakeApi({ questions, mastery = null, failSession = false, failProgress 
         const list = answered.get(m[1]) || [];
         const missing = body.attempts.some((a) => !a.client_id
           || !list.some((row) => row.client_id === a.client_id));
-        if (missing) throw new Error('timed_course_final_batch_missing');
+        if (missing) {
+          const error = new Error('Phiên đã đóng trước khi batch đáp án cuối được lưu.');
+          error.status = 409;
+          error.detail = {
+            code: 'timed_course_final_batch_missing',
+            message: error.message,
+          };
+          throw error;
+        }
       }
       if (m && body && body.ended_by && ended.indexOf(m[1]) === -1) ended.push(m[1]);
       return {};
@@ -428,6 +436,44 @@ test('a failed atomic timeout close keeps the final answers for visible retry', 
   assert.equal(result.persisted, false);
   assert.equal(result.retryable, true);
   assert.equal(runner.pendingCount, 1, 'no ACK means the answer must remain retryable');
+});
+
+test('a rejected post-cutoff batch stops retrying and waits for canonical timeout truth', async () => {
+  let clock = 0;
+  const api = fakeApi({
+    questions: [mcq(1)], failProgress: true,
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      expires_at: null, time_remaining_seconds: 1,
+    },
+  });
+  const runner = createRunner({
+    api, storage: null, now: () => clock, schedule() {},
+  });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  runner.show();
+  runner.answer(0);
+  runner.next();
+  for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+  assert.equal(runner.pendingCount, 1);
+
+  clock = 1000;
+  const first = await runner.finishStage({ endedBy: 'time_cap' });
+  assert.equal(first.persisted, false);
+  assert.equal(first.retryable, false);
+  assert.equal(first.expiryPending, true);
+  assert.equal(first.answersOmitted, true);
+  assert.equal(runner.expiryPending, true);
+  assert.equal(runner.hasOpenSession, false);
+  assert.equal(runner.pendingCount, 0,
+    'a verification-only rejection cannot become admissible on a later retry');
+  const patchCount = api.calls.patch.length;
+
+  const second = await runner.finishStage({ endedBy: 'time_cap' });
+  assert.equal(second.persisted, false);
+  assert.equal(second.expiryPending, true);
+  assert.equal(api.calls.patch.length, patchCount,
+    'timer ticks must not repeat the impossible final PATCH');
 });
 
 test('timed eager retry backoff is bounded during a persistent outage', async () => {

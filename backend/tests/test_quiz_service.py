@@ -2099,7 +2099,10 @@ def test_time_cap_terminal_retry_rejects_an_unpersisted_final_batch():
         )
 
     assert exc_info.value.status_code == 409
-    assert "trước khi batch" in exc_info.value.detail
+    assert exc_info.value.detail == {
+        "code": "timed_course_final_batch_missing",
+        "message": "Phiên đã đóng trước khi batch đáp án cuối được lưu.",
+    }
 
 
 @pytest.mark.parametrize(("requested", "winner"), [

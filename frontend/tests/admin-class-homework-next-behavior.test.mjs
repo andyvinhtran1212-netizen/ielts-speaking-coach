@@ -31,7 +31,7 @@ describe('admin class homework model — canonical truth', () => {
   test('keeps unreadable progress unknown and exposes ledger reconciliation failure', () => {
     const payload = normalizeAssignmentsPayload({ reconcile_failed: true, assignments: [
       { id: 'a1', title: 'Bài một', skill: 'course', due_at: null, progress: null },
-      { id: 'a2', title: 'Bài hai', skill: 'speaking', progress: { assigned: '3', submitted: '1', late: 0, missing: 0 } },
+      { id: 'a2', title: 'Bài hai', skill: 'speaking', timed_started_at: '2026-09-15T01:00:00Z', progress: { assigned: '3', submitted: '1', late: 0, missing: 0 } },
       { id: 'a3', title: 'Bài ba', skill: 'listening', progress: {} },
       { id: '', skill: 'course' },
     ] });
@@ -39,8 +39,13 @@ describe('admin class homework model — canonical truth', () => {
     assert.equal(payload.assignments.length, 3);
     assert.equal(payload.assignments[0].progress, null);
     assert.deepEqual(payload.assignments[1].progress, { assigned: 3, submitted: 1, late: 0, missing: 0, no_account: 0 });
+    assert.equal(payload.assignments[1].timed_started_at, '2026-09-15T01:00:00Z');
     assert.equal(payload.assignments[2].progress, null);
     assert.equal(normalizeAssignmentsPayload({ assignments: null }), null);
+  });
+
+  test('started timed assignments expose archive rather than destructive delete', () => {
+    assert.match(UI, /progress\.submitted > 0 \|\| assignment\.timed_started_at/);
   });
 
   test('counts operational states and folds Vietnamese search text', () => {
@@ -190,7 +195,7 @@ describe('admin class homework — integration contracts', () => {
   });
 
   test('never exposes destructive delete when progress is unknown', () => {
-    assert.match(UI, /progress == null \|\| progress\.submitted > 0 \? <button/);
+    assert.match(UI, /progress == null \|\| progress\.submitted > 0 \|\| assignment\.timed_started_at \? <button/);
     assert.match(UI, /backend vẫn kiểm lại trong transaction/);
   });
 

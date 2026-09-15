@@ -48,6 +48,7 @@ export function normalizeAssignmentsPayload(value) {
       content_config: object(row.content_config),
       recipient_scope: row.recipient_scope === 'subset' ? 'subset' : 'class',
       created_at: nullableText(row.created_at),
+      timed_started_at: nullableText(row.timed_started_at),
       progress: rawProgress == null ? null : {
         assigned: count(rawProgress.assigned),
         submitted: count(rawProgress.submitted),

@@ -203,9 +203,8 @@ export function createRunner({
   // cũng chỉ tạo một quiz_attempt.
   let eagerBatch = [];
   // A timed answer is useful only if /progress admits it before the canonical
-  // cutoff. Retry a transient eager failure without waiting for another click,
-  // but cap both frequency and attempts so an outage cannot create an
-  // unbounded request loop.
+  // cutoff. Retry a transient eager failure without waiting for another click;
+  // cap frequency while the canonical admission window itself bounds the loop.
   const eagerRetryDelays = [250, 500, 1000, 2000, 4000];
   let eagerRetryAttempt = 0;
   let eagerRetryScheduled = false;
@@ -227,6 +226,16 @@ export function createRunner({
   // localStorage không thể tự bật quyền review.
   let reviewOnly = false;
   let expiryPending = false;
+  let omittedTimedAnswers = false;
+
+  function isMissingTimedFinalBatch(err) {
+    const detail = err && typeof err === 'object' ? err.detail : null;
+    const code = detail && typeof detail === 'object' ? detail.code : null;
+    const text = String((err && err.message) || detail || err || '');
+    return code === 'timed_course_final_batch_missing'
+      || text.includes('timed_course_final_batch_missing')
+      || text.includes('Phiên đã đóng trước khi batch đáp án cuối được lưu');
+  }
 
   function fingerprint(list) {
     const s = list.map((q) => q.qid + ':' + q.answer).join('|');
@@ -679,6 +688,7 @@ export function createRunner({
       // vẫn do các endpoint backend kiểm bằng assignment item.
       reviewOnly = Boolean(options.reviewOnly || (r.mastery && r.mastery.review_only));
       expiryPending = Boolean(r.mastery && r.mastery.expiry_pending);
+      omittedTimedAnswers = false;
       retakeNo = Math.max(0, Number((r.mastery && r.mastery.retakes) || 0));
       itemId = (r.mastery && r.mastery.item_id) || null;
       // A first timed bank read creates this session atomically with the timer.
@@ -825,7 +835,7 @@ export function createRunner({
       if (endedBy !== 'time_cap' && !sessionId && sessionFailed && pending.length) {
         await openSession();
       }
-      let persisted = !sessionFailed;
+      let persisted = !sessionFailed && !(endedBy === 'time_cap' && expiryPending);
       if (sessionId && !sessionEnded && !resumedRetakeFinal) {
         try {
           await inflight;        // chờ lượt đẩy nền xong rồi mới xét hàng đợi
@@ -853,6 +863,18 @@ export function createRunner({
         } catch (err) {
           persisted = false;
           persistError = (err && err.message) ? err.message : String(err || 'Chưa lưu được chặng.');
+          // Migration 276 is verification-only: these client IDs were never
+          // admitted before cutoff, so no later retry can add them to the
+          // canonical timeout score. Stop the PATCH loop and let the page poll
+          // until the server reaper exposes the authoritative verdict.
+          if (endedBy === 'time_cap' && isMissingTimedFinalBatch(err)) {
+            omittedTimedAnswers = pending.length > 0;
+            pending = [];
+            eagerBatch = [];
+            sessionEnded = true;
+            sessionId = null;
+            expiryPending = true;
+          }
         }
       }
       // Chặng chốt hỏng thì KHÔNG đóng dấu done: sessionId + hàng đợi còn
@@ -862,7 +884,9 @@ export function createRunner({
       save(persisted);
       return {
         right, graded, persisted,
-        retryable: !persisted && !!sessionId,
+        retryable: !persisted && !!sessionId && !expiryPending,
+        expiryPending: endedBy === 'time_cap' && expiryPending,
+        answersOmitted: endedBy === 'time_cap' && omittedTimedAnswers,
         error: persisted ? '' : persistError,
         axes: Object.keys(axes).sort((a, b) => axes[b] - axes[a]).map((a) => ({ axis: a, n: axes[a] })),
         hasMore: mode === 'run' && stage + 1 < this.stageCount,

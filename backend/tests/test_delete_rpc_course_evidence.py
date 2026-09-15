@@ -33,7 +33,7 @@ from pathlib import Path
 import pytest
 
 _MIG = Path(__file__).resolve().parents[1] / "migrations" / \
-    "196_delete_rpc_course_evidence.sql"
+    "278_protect_started_assignment_deletion.sql"
 _DB = os.environ.get("TEST_PG_URL", "postgres://localhost/postgres")
 
 
@@ -70,11 +70,13 @@ CREATE SCHEMA rpc_probe;
 SET search_path = rpc_probe;
 
 CREATE TABLE class_assignments (
-    id UUID PRIMARY KEY, cohort_id UUID NOT NULL);
+    id UUID PRIMARY KEY, cohort_id UUID NOT NULL,
+    timed_started_at TIMESTAMPTZ);
 CREATE TABLE class_assignment_items (
     id UUID PRIMARY KEY,
     assignment_id UUID NOT NULL REFERENCES class_assignments(id) ON DELETE CASCADE,
-    submitted_at TIMESTAMPTZ);
+    submitted_at TIMESTAMPTZ,
+    opened_at TIMESTAMPTZ);
 CREATE TABLE sessions (
     id UUID PRIMARY KEY, status TEXT,
     class_assignment_item_id UUID REFERENCES class_assignment_items(id) ON DELETE SET NULL);
@@ -96,6 +98,12 @@ CREATE TABLE quiz_sessions (
 CREATE TABLE course_writing_submissions (
     id UUID PRIMARY KEY,
     class_assignment_item_id UUID REFERENCES class_assignment_items(id) ON DELETE SET NULL);
+CREATE TABLE course_section_submissions (
+    id UUID PRIMARY KEY,
+    class_assignment_item_id UUID REFERENCES class_assignment_items(id) ON DELETE SET NULL);
+CREATE TABLE course_pronunciation_submissions (
+    id UUID PRIMARY KEY,
+    class_assignment_item_id UUID REFERENCES class_assignment_items(id) ON DELETE SET NULL);
 """
 
 
@@ -110,15 +118,17 @@ def _function_sql() -> str:
     i = src.index("CREATE OR REPLACE FUNCTION")
     j = src.index("$$;", i) + len("$$;")
     body = src[i:j]
-    # Hàm khai `SET search_path = public`; trong ô thử thì lược đồ nằm chỗ khác.
-    return re.sub(r"SET search_path = public", "SET search_path = rpc_probe", body)
+    # Hàm khai/qualify `public`; trong ô thử thì lược đồ nằm chỗ khác.
+    return body.replace("public.", "rpc_probe.").replace(
+        "SET search_path = public", "SET search_path = rpc_probe",
+    )
 
 
 @pytest.fixture()
 def probe():
     _psql(_SCHEMA + _function_sql())
 
-    def _run(*, evidence=None, submitted=False):
+    def _run(*, evidence=None, submitted=False, opened=False, timed_started=False):
         """Dựng một bài giao có ĐÚNG một mục, rồi gọi hàm xoá.
 
         Trả về (kết quả hàm, bài giao còn hay mất).
@@ -126,9 +136,13 @@ def probe():
         a, it = uuid.uuid4(), uuid.uuid4()
         co = uuid.uuid4()
         rows = [
-            f"INSERT INTO rpc_probe.class_assignments VALUES ('{a}','{co}')",
-            f"INSERT INTO rpc_probe.class_assignment_items VALUES ('{it}','{a}',"
-            f"{'NOW()' if submitted else 'NULL'})",
+            "INSERT INTO rpc_probe.class_assignments "
+            f"(id, cohort_id, timed_started_at) VALUES ('{a}','{co}',"
+            f"{'NOW()' if timed_started else 'NULL'})",
+            "INSERT INTO rpc_probe.class_assignment_items "
+            f"(id, assignment_id, submitted_at, opened_at) VALUES ('{it}','{a}',"
+            f"{'NOW()' if submitted else 'NULL'},"
+            f"{'NOW()' if opened else 'NULL'})",
         ]
         if evidence:
             rows.append(evidence.format(item=it, id=uuid.uuid4()))
@@ -173,12 +187,27 @@ def test_a_finished_RETAKE_also_blocks_the_delete(probe):
     assert (got, still) == ("false", True)
 
 
-def test_a_paused_course_session_does_not_block(probe):
-    """Tạm dừng giữa chừng không phải là nộp bài. Chặn cả nó thì một bài giao
-    nhầm không bao giờ xoá được nữa."""
+def test_an_open_course_session_blocks_the_delete(probe):
+    """Phiên chưa chốt vẫn là bài đang làm; xoá sẽ tháo FK và bỏ qua cutoff."""
+    got, still = probe(evidence="INSERT INTO rpc_probe.quiz_sessions VALUES "
+                                "('{id}','run',NULL,'{item}')")
+    assert (got, still) == ("false", True)
+
+
+def test_a_paused_course_session_also_blocks_the_delete(probe):
     got, still = probe(evidence="INSERT INTO rpc_probe.quiz_sessions VALUES "
                                 "('{id}','run','paused','{item}')")
-    assert (got, still) == ("true", False)
+    assert (got, still) == ("false", True)
+
+
+def test_an_opened_timed_item_blocks_even_without_a_session(probe):
+    """Defence in depth for a legacy/partially recovered timed start."""
+    assert probe(opened=True) == ("false", True)
+
+
+def test_the_assignment_timer_marker_blocks_even_without_an_item_marker(probe):
+    """The assignment-level marker serializes delete with concurrent starts."""
+    assert probe(timed_started=True) == ("false", True)
 
 
 def test_the_probe_refuses_a_kind_that_production_cannot_hold(probe):
@@ -215,8 +244,10 @@ def test_the_four_older_kinds_of_evidence_still_block(probe):
 def test_a_stranger_cohort_gets_NULL_not_a_delete(probe):
     """Lớp khác hỏi thì trả NULL để nơi gọi trả 404 — không được xoá hộ."""
     a, it, co = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
-    _psql(f"INSERT INTO rpc_probe.class_assignments VALUES ('{a}','{co}'); "
-          f"INSERT INTO rpc_probe.class_assignment_items VALUES ('{it}','{a}',NULL)")
+    _psql("INSERT INTO rpc_probe.class_assignments (id, cohort_id) "
+          f"VALUES ('{a}','{co}'); "
+          "INSERT INTO rpc_probe.class_assignment_items "
+          f"(id, assignment_id, submitted_at, opened_at) VALUES ('{it}','{a}',NULL,NULL)")
     got = _psql(f"SELECT COALESCE(rpc_probe."
                 f"fn_delete_class_assignment_if_unsubmitted('{a}','{uuid.uuid4()}')"
                 f"::text,'NULL')")

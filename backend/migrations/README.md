@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-16 the highest is `277`, so the next new
-migration is `278`.
+sequence is dense. As of 2026-09-16 the highest is `278`, so the next new
+migration is `279`.
 
 ## Conventions
 
@@ -215,6 +215,11 @@ Migration 277 atomically closes an expired on-time retry entitlement only when
 no retake/full-retry generation exists. It shares the assignment-item row lock
 with timed session creation, then leaves a durable marker so the minute reaper
 does not scan settled historical sessions forever.
+
+Migration 278 makes assignment deletion respect the same timed-attempt truth.
+The locked delete RPC now refuses an assignment once its timer marker or any
+item `opened_at` exists, and treats every attached Course quiz session as
+durable learner work instead of waiting for `ended_by = 'completed'`.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

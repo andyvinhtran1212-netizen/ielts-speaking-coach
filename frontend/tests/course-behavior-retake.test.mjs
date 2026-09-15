@@ -190,7 +190,7 @@ describe('hết giờ đang chờ máy chủ chốt', () => {
       '$', 'setActiveSection', 'window',
       `let expiryRefreshTimeout = null;
        let disposed = false;
-       return function renderExpiryPending() {${functionBody('renderExpiryPending')}};`,
+       return function renderExpiryPending(answersOmitted = false) {${functionBody('renderExpiryPending')}};`,
     );
     const render = factory(
       (id) => id === 'cx-done' ? done : { hidden: false },
@@ -211,6 +211,17 @@ describe('hết giờ đang chờ máy chủ chốt', () => {
     const review = SRC.indexOf('else if (runner.reviewOnly)', pending);
     assert.ok(pending !== -1 && review > pending,
       'lane pending phải đứng trước màn review đã lưu');
+  });
+
+  test('batch bị từ chối sau cutoff chuyển sang polling và nói rõ câu bị bỏ', () => {
+    const timeout = functionBody('submitAtTimeLimit');
+    const pending = timeout.indexOf('if (result.expiryPending)');
+    const genericError = timeout.indexOf("setSaveState('error', 'Hết giờ · chưa thu được bài')");
+    assert.ok(pending !== -1 && genericError > pending,
+      'terminal timeout rejection must leave the resend loop before generic retry UI');
+    assert.match(timeout, /renderExpiryPending\(Boolean\(result\.answersOmitted\)\)/);
+    const render = functionBody('renderExpiryPending');
+    assert.match(render, /chưa kịp được máy chủ nhận trước khi hết giờ nên sẽ không được tính/);
   });
 });
 

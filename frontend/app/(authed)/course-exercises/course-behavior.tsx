@@ -726,7 +726,7 @@ export function CourseBehavior() {
         window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
       }
 
-      function renderExpiryPending() {
+      function renderExpiryPending(answersOmitted = false) {
         setActiveSection(null);
         const q = $('cx-q'); if (q) q.hidden = true;
         const next = $('cx-next'); if (next) next.hidden = true;
@@ -739,7 +739,10 @@ export function CourseBehavior() {
           + '<div class="cx-verdict__hero"><div>'
           + '<p class="cx-verdict__eyebrow">Đã hết thời gian</p>'
           + '<p class="cx-verdict__title">Hệ thống đang thu và chốt bài</p>'
-          + '<p class="cx-verdict__sub">Kết quả chưa được ghi xong. Trang sẽ tự làm mới để hiển thị trạng thái chính thức.</p>'
+          + `<p class="cx-verdict__sub">${answersOmitted
+            ? 'Một số câu trả lời chưa kịp được máy chủ nhận trước khi hết giờ nên sẽ không được tính. '
+              + 'Trang sẽ tự làm mới để hiển thị kết quả chính thức.'
+            : 'Kết quả chưa được ghi xong. Trang sẽ tự làm mới để hiển thị trạng thái chính thức.'}</p>`
           + '</div></div></div>';
         expiryRefreshTimeout = window.setTimeout(() => {
           if (!disposed) window.location.reload();
@@ -1112,6 +1115,19 @@ export function CourseBehavior() {
           if (runner.hasOpenSession) {
             const result = await runner.finishStage({ endedBy: 'time_cap' });
             if (!result.persisted) {
+              if (result.expiryPending) {
+                timerSubmitted = true;
+                setSaveState(
+                  'error',
+                  result.answersOmitted
+                    ? 'Hết giờ · có câu chưa được máy chủ ghi nhận'
+                    : 'Hết giờ · đang chờ kết quả chính thức',
+                );
+                $('cx-q')!.hidden = true;
+                $('cx-next')!.hidden = true;
+                renderExpiryPending(Boolean(result.answersOmitted));
+                return;
+              }
               setSaveState('error', 'Hết giờ · chưa thu được bài');
               const error = $('cx-error');
               if (error) { error.hidden = false; error.textContent = result.error || 'Chưa thu được bài hết giờ. Hãy thử lại.'; }

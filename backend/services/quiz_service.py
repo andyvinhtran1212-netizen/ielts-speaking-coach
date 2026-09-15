@@ -2774,7 +2774,10 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
                 ) from exc
             if "timed_course_final_batch_missing" in detail:
                 raise HTTPException(
-                    409, "Phiên đã đóng trước khi batch đáp án cuối được lưu.",
+                    409, {
+                        "code": "timed_course_final_batch_missing",
+                        "message": "Phiên đã đóng trước khi batch đáp án cuối được lưu.",
+                    },
                 ) from exc
             if "timed_course_limit_invalid" in detail:
                 raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.") from exc

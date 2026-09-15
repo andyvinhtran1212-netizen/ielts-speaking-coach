@@ -17,6 +17,7 @@ export type ClassAssignment = {
   content_config: Record<string, unknown>;
   recipient_scope: 'class' | 'subset';
   created_at: string | null;
+  timed_started_at: string | null;
   progress: AssignmentProgress | null;
 };
 
