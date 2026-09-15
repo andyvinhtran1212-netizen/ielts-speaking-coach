@@ -433,6 +433,12 @@ def test_feature_pr_requires_known_requirement_coverage(tmp_path: Path) -> None:
         root,
     )
     assert any("references unknown FR-999" in error for error in unknown)
+    empty = validator.validate_pull_request(
+        _event(root=root, change_class="feature", spec="FEAT-0001", coverage="- FR-001 ->"),
+        specs,
+        root,
+    )
+    assert any("must include evidence after the arrow" in error for error in empty)
 
 
 def test_feature_pr_rejects_requirement_added_after_base_approval(tmp_path: Path) -> None:
@@ -485,6 +491,32 @@ def test_feature_pr_rejects_requirement_definition_changed_after_approval(
     assert any("FR-001 definition changed after base approval" in error for error in errors)
 
 
+def test_feature_pr_compares_multiline_requirement_definition(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path, status="approved")
+    spec = root / "specs/0001-example-feature/spec.md"
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace(
+            "- **FR-001:** Works.",
+            "- **FR-001:** Works.\n  Approved continuation detail.",
+        ),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "specs/0001-example-feature/spec.md"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "approve multiline requirement"], cwd=root, check=True)
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace(
+            "Approved continuation detail.", "Changed continuation detail."
+        ),
+        encoding="utf-8",
+    )
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    errors = validator.validate_pull_request(
+        _event(root=root, change_class="feature", spec="FEAT-0001"), specs, root
+    )
+    assert any("FR-001 definition changed after base approval" in error for error in errors)
+
+
 def test_small_pr_may_use_na(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     _, specs = validator.validate_repository(root)
@@ -501,6 +533,23 @@ def test_spec_free_pr_requires_problem_expected_scope_and_verification(tmp_path:
             root=root,
             change_class="small",
             spec="N/A",
+            include_na_details=False,
+        ),
+        specs,
+        root,
+    )
+    for heading in ("Problem", "Expected behavior", "Scope", "Verification"):
+        assert any(f"'## {heading}'" in error for error in errors)
+
+
+def test_small_pr_cannot_skip_details_by_citing_existing_spec(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    _, specs = validator.validate_repository(root)
+    errors = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="small",
+            spec="FEAT-0001",
             include_na_details=False,
         ),
         specs,

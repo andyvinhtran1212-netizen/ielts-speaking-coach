@@ -12,7 +12,8 @@ is intentionally excluded from the canonical feature lifecycle.
 1. Classify the change in the pull request as `hotfix`, `small`, `content`,
    `feature`, or `high-risk`.
 2. `hotfix`, `small`, and `content` changes may use `Spec: N/A` when the PR body
-   states the expected behavior and verification.
+   states the problem, expected behavior, scope, and verification. These details
+   remain required if the PR elects to cite an existing spec.
 3. `feature` and `high-risk` changes require a feature directory approved on
    the base branch before implementation starts. Land the approved spec first;
    do not self-approve it inside the implementation PR.

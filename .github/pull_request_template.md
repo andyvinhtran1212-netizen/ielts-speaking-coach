@@ -10,15 +10,15 @@ feature metadata.
 
 ## Problem
 
-<!-- What is wrong or missing? Required when Spec: N/A. -->
+<!-- What is wrong or missing? Required for hotfix/small/content. -->
 
 ## Expected behavior
 
-<!-- What observable behavior should replace it? Required when Spec: N/A. -->
+<!-- What observable behavior should replace it? Required for hotfix/small/content. -->
 
 ## Scope
 
-<!-- Name the affected flows/files and explicit non-goals. Required when Spec: N/A. -->
+<!-- Name affected flows/files and explicit non-goals. Required for hotfix/small/content. -->
 
 ## Release target
 
@@ -27,7 +27,7 @@ feature metadata.
 
 ## Verification
 
-<!-- Add concrete test/query/manual evidence below. Required when Spec: N/A. -->
+<!-- Add concrete test/query/manual evidence below. Required for hotfix/small/content. -->
 
 - [ ] Tests for the changed layers are green.
 - [ ] Every applicable `FR-NNN` has automated or recorded manual evidence.

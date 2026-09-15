@@ -28,8 +28,8 @@ REQUIREMENT_DECLARATION_RE = re.compile(
     re.MULTILINE,
 )
 REQUIREMENT_WITH_TEXT_RE = re.compile(
-    r"^\s*-\s+\*\*(FR-[^\s:*]+):\*\*\s+(\S.*)$",
-    re.MULTILINE,
+    r"^\s*-\s+\*\*(FR-[^\s:*]+):\*\*\s+(\S.*?)(?=^\s*-\s+\*\*FR-[^\s:*]+:\*\*|\Z)",
+    re.MULTILINE | re.DOTALL,
 )
 VALID_REQUIREMENT_ID_RE = re.compile(r"^FR-\d{3}$")
 EVIDENCE_ROW_RE = re.compile(
@@ -123,7 +123,7 @@ def _section(text: str, heading: str) -> str:
 
 def _declared_requirements(spec_text: str) -> dict[str, str]:
     return {
-        requirement: description.strip()
+        requirement: re.sub(r"\s+", " ", description).strip()
         for requirement, description in REQUIREMENT_WITH_TEXT_RE.findall(
             _section(spec_text, "Requirements")
         )
@@ -358,16 +358,12 @@ def _git_show(root: Path, revision: str, path: str) -> tuple[bool, str | None]:
     return True, result.stdout if result.returncode == 0 else None
 
 
-def _requirement_coverage(body: str) -> list[str]:
+def _requirement_coverage(body: str) -> list[tuple[str, str]]:
     section = _section(body, "Requirement coverage")
-    return sorted(
-        set(
-            re.findall(
-                r"^\s*[-*]\s+(FR-\d{3})(?!\d)\s*(?:->|:)",
-                section,
-                re.MULTILINE,
-            )
-        )
+    return re.findall(
+        r"^\s*[-*]\s+(FR-\d{3})(?!\d)\s*(?:->|:)\s*(.*?)\s*$",
+        section,
+        re.MULTILINE,
     )
 
 
@@ -404,11 +400,11 @@ def validate_pull_request(
         return errors
 
     requires_spec = change_class in {"feature", "high-risk"}
-    if spec_id == "N/A" and change_class in {"hotfix", "small", "content"}:
+    if change_class in {"hotfix", "small", "content"}:
         for heading in ("Problem", "Expected behavior", "Scope", "Verification"):
             if not _meaningful_section(body, heading):
                 errors.append(
-                    f"pull request: Spec: N/A requires a non-empty '## {heading}' section"
+                    f"pull request: change class '{change_class}' requires a non-empty '## {heading}' section"
                 )
     if requires_spec and spec_id == "N/A":
         errors.append(f"pull request: change class '{change_class}' requires an approved spec ID")
@@ -459,13 +455,27 @@ def validate_pull_request(
                                 f"pull request: Spec '{spec_id}' was not approved in the base revision"
                             )
 
-                coverage = _requirement_coverage(body)
+                coverage_rows = _requirement_coverage(body)
+                coverage = [requirement for requirement, _ in coverage_rows]
                 current_requirements = _declared_requirements(metadata_text)
                 if bootstrap:
                     approved_requirements = current_requirements
                 if not coverage:
                     errors.append(
                         "pull request: '## Requirement coverage' must list at least one exact FR-NNN"
+                    )
+                for requirement, evidence in coverage_rows:
+                    if not evidence:
+                        errors.append(
+                            f"pull request: requirement coverage for {requirement} must include evidence after the arrow"
+                        )
+                for duplicate in sorted(
+                    requirement
+                    for requirement in set(coverage)
+                    if coverage.count(requirement) > 1
+                ):
+                    errors.append(
+                        f"pull request: duplicate requirement coverage entry for {duplicate}"
                     )
                 for requirement in coverage:
                     if requirement not in current_requirements:
