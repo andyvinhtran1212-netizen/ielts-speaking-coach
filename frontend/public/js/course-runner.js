@@ -314,6 +314,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   async function adoptServerState() {
     if (!qs.length) return false;
     let sv = null;
+    const timerRequestStartedAt = now();
     try {
       sv = await api.get('/api/quiz/banks/' + encodeURIComponent(bank.id) + '/course-resume'
         + (itemId ? '?class_item=' + encodeURIComponent(itemId) : ''));
@@ -321,6 +322,13 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     if (!sv) return false;
     // Mục bài giao khác = lượt của một bài giao khác (chuyển lớp, giao lại).
     if ((sv.item_id || null) !== itemId) return false;
+    // This request starts only after the bank payload has arrived.  Its server
+    // sample is taken at route entry; anchoring it at the local request start
+    // charges the complete sync round trip, but not the pre-start bank build.
+    if (sv.timer && mastery && sv.timer.is_timed) {
+      Object.assign(mastery, sv.timer);
+      syncTimer(timerRequestStartedAt);
+    }
 
     // Revision đang làm (hoặc đã chốt nhưng chưa ghi verdict) thắng trạng thái
     // full session. Mẫu và đáp án được trộn bằng session id nên dựng lại giống
@@ -436,7 +444,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // được hỏi. Một lượt retry production đã bị bỏ đúng 10 câu của một chặng.
   let advancing = null;
 
-  function syncTimer(requestStartedAt, startedDuringLoad) {
+  function syncTimer(requestStartedAt) {
     const seconds = Number(mastery && mastery.time_remaining_seconds);
     const sampled = Date.parse((mastery && mastery.sampled_at) || '');
     const expires = Date.parse((mastery && mastery.expires_at) || '');
@@ -445,16 +453,10 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     timerRemainingAtSync = Number.isFinite(precise)
       ? precise
       : Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
-    // Existing clocks have already been running throughout this request, so
-    // charge the full round trip.  The first bank GET is different: the server
-    // deliberately builds the answer-bearing payload *before* its final locked
-    // start RPC.  Anchoring that fresh allowance at request initiation would
-    // steal all payload-build time and lock the UI before the canonical cutoff.
-    // The server marks exactly that transition; receipt is the first local
-    // instant known not to precede its authoritative sample.
-    timerSyncedAt = startedDuringLoad
-      ? now()
-      : Number.isFinite(requestStartedAt) ? requestStartedAt : now();
+    // The matching server sample happens after request start and before
+    // receipt. Charging the full round trip is conservative and cannot keep
+    // controls writable beyond the canonical cutoff.
+    timerSyncedAt = Number.isFinite(requestStartedAt) ? requestStartedAt : now();
   }
 
   function advanceStage() {
@@ -612,9 +614,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       const r = await api.get('/api/quiz/banks/' + encodeURIComponent(bankId) + itemQuery);
       bank = r.bank;
       mastery = r.mastery || null;
-      syncTimer(timerRequestStartedAt, Boolean(
-        mastery && mastery.timer_started_during_load
-      ));
+      syncTimer(timerRequestStartedAt);
       this.mastery = mastery;   // {item_id, passed_at, threshold, near_threshold, retake_size, retakes, due_at}
       // `options.reviewOnly` chỉ làm flow ít quyền hơn (không ghi); quyền đọc
       // vẫn do các endpoint backend kiểm bằng assignment item.

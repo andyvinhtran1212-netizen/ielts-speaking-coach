@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-16 the highest is `275`, so the next new
-migration is `276`.
+sequence is dense. As of 2026-09-16 the highest is `276`, so the next new
+migration is `277`.
 
 ## Conventions
 
@@ -203,6 +203,13 @@ the same transaction that records the immutable `time_cap` session ending.
 Migration 274 bounds that final-answer envelope to the same 15-second grace
 used by the timeout reaper. It preserves lost-response idempotency while
 preventing the recovery path from becoming an unlimited post-exam write lane.
+
+Migration 275 makes a terminal retry prove that every submitted client ID is
+already present, instead of reporting success after the reaper wins the lock.
+Migration 276 closes the remaining open-session loophole: timeout finalization
+is verification-only, rejects every client ID not admitted before the cutoff,
+and derives score totals from the canonical attempt ledger rather than the
+client summary.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

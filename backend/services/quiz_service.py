@@ -1125,12 +1125,6 @@ def get_bank_for_play(
             and course_preflight_action not in {"review", "expired_pending"}):
         preflight_kind = ("retake"
                           if course_preflight_action == "retake" else "run")
-        # Question/audio assembly above deliberately happens before the first
-        # clock write.  Tell the browser when this very GET crossed that start
-        # boundary so it does not charge the earlier payload-build time against
-        # the learner.  A concurrently won start is equivalent here: it still
-        # happened after this request's unopened authorization snapshot.
-        timer_started_during_load = not bool(course_item.get("opened_at"))
         course_item, initial_session_id = _ensure_timed_course_session(
             course_item, user_id=str(user_id), bank_id=bank_id,
             code=bank.get("code"), kind=preflight_kind,
@@ -1160,8 +1154,6 @@ def get_bank_for_play(
                 })
             if initial_session_id:
                 mastery_state["initial_session_id"] = initial_session_id
-                if timer_started_during_load:
-                    mastery_state["timer_started_during_load"] = True
 
     out = {"bank": bank, "questions": questions, "word_cards": word_cards}
     if mastery_state is not None:
@@ -2209,8 +2201,13 @@ def get_course_resume(
     Chỉ dành cho bank theo buổi; các luồng quiz khác trả rỗng và không đổi hành
     vi. KHÔNG chốt gì cả: phiên chỉ đóng khi học viên bấm nộp.
     """
+    # Sample at the beginning of this post-payload request.  The browser anchors
+    # the returned allowance at its own request start, so all later server work
+    # and response transit are charged without also charging the expensive bank
+    # assembly that deliberately happened before the first timer start.
+    timer_sampled_at = datetime.now(timezone.utc)
     empty = {"session_id": None, "answered": [], "completed": [], "item_id": None,
-             "last_stage": None, "stage": 0, "retake": None}
+             "last_stage": None, "stage": 0, "retake": None, "timer": None}
     bank = _bank_meta_or_404(bank_id, user_id)
     if bank.get("skill_area") != COURSE_AREA:
         return empty
@@ -2220,6 +2217,10 @@ def get_course_resume(
     ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
     item_id = (item or {}).get("id")
     empty["item_id"] = item_id
+    empty["timer"] = assignment_timer_state(item, {
+        "content_config": (item or {}).get("content_config") or {},
+        "due_at": (item or {}).get("due_at"),
+    }, now=timer_sampled_at)
 
     # A score below the near-pass band starts a NEW full attempt. Preserve the
     # newest such boundary until PASS: a near-pass full rerun changes the latest
@@ -2353,7 +2354,8 @@ def get_course_resume(
     result = {"session_id": None, "answered": [], "completed": completed,
               "item_id": item_id, "last_stage": result_last,
               "stage": (_course_stage_reached(order, answered_all)
-                        if usable else len(completed)), "retake": None}
+                        if usable else len(completed)), "retake": None,
+              "timer": empty["timer"]}
     ids = [r["id"] for r in open_rows]
     if pending_retake:
         ids.append(pending_retake["id"])

@@ -440,44 +440,6 @@ def test_timed_bank_question_failure_does_not_start_clock_or_session():
     anchor.assert_not_called()
 
 
-def test_first_timed_bank_marks_clock_as_started_during_this_load():
-    unopened = {
-        "id": "item-timed", "assignment_id": "asg-timed",
-        "opened_at": None, "due_at": None, "accepting": True,
-        "passed_at": None, "mastery": None,
-        "content_config": {"time_limit_minutes": 30},
-    }
-    anchored = {**unopened, "opened_at": "2026-09-15T01:00:00+00:00"}
-    fake = _FakeSupabase(responses={
-        ("quiz_banks", "select"): [{
-            "id": _BANK, "code": "C1-MIDTERM", "skill_area": "course",
-            "meta": {},
-        }],
-        ("class_assignment_items", "select"): [{
-            "passed_at": None, "mastery": None,
-        }],
-        ("class_assignments", "select"): [{
-            "id": "asg-timed", "status": "published", "publish_at": None,
-            "due_at": None, "content_config": {"time_limit_minutes": 30},
-        }],
-        ("quiz_questions", "select"): [{"qid": "q-1", "type": "mcq"}],
-    })
-    with patch.object(quiz_service, "supabase_admin", fake), \
-         patch.object(quiz_service, "_assignment_item_for_review",
-                      return_value=unopened), \
-         patch.object(quiz_service, "_ensure_timed_course_session",
-                      return_value=(anchored, _SESS)), \
-         patch.object(quiz_service, "_word_cards_for", return_value=[]), \
-         patch.object(quiz_service, "_attach_article_urls"), \
-         patch.object(quiz_service, "_resolve_question_audio"):
-        out = quiz_service.get_bank_for_play(
-            _BANK, user_id=_USER, assignment_item_id="item-timed",
-        )
-
-    assert out["mastery"]["initial_session_id"] == _SESS
-    assert out["mastery"]["timer_started_during_load"] is True
-
-
 def test_get_bank_for_play_unpublished_404():
     fake = _FakeSupabase(responses={
         ("quiz_banks", "select"): [{"id": _BANK, "is_published": False}],
@@ -1972,7 +1934,7 @@ def test_end_session_does_not_reclose_an_on_time_completed_session():
                    for call in fake.calls)
 
 
-def test_time_cap_atomically_includes_the_final_pending_attempts():
+def test_time_cap_passes_final_client_ids_to_the_verification_rpc():
     open_session = {
         "id": _SESS, "user_id": _USER, "bank_id": _BANK,
         "class_assignment_item_id": "item-timed",

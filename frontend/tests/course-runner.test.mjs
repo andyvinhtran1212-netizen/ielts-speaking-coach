@@ -234,24 +234,34 @@ test('first timed load does not charge payload assembly before the server starts
       expires_at: '1970-01-01T00:01:05.000Z',
       time_remaining_seconds: 60,
       initial_session_id: 'sess-first',
-      timer_started_during_load: true,
     },
   });
   const get = api.get.bind(api);
   api.get = async (path) => {
+    if (path.includes('/course-resume')) {
+      const response = await get(path);
+      clock = 7000; // post-start timer sample returned one second later
+      return { ...response, timer: {
+        is_timed: true,
+        sampled_at: '1970-01-01T00:00:06.000Z',
+        started_at: '1970-01-01T00:00:05.000Z',
+        expires_at: '1970-01-01T00:01:05.000Z',
+        time_remaining_seconds: 58,
+      } };
+    }
     clock = 5000; // payload assembly completed before the final locked start
     const response = await get(path);
-    clock = 6000; // response delivery happened after the server sampled at start
+    clock = 6000; // initial response arrived after the timer started
     return response;
   };
   const runner = createRunner({ api, storage: null, now: () => clock });
   await runner.load('b1', { assignmentItemId: 'item-timed' });
 
-  assert.equal(runner.timeRemainingSeconds(), 60,
+  assert.equal(runner.timeRemainingSeconds(), 58,
     'pre-start assembly must not make the browser expire before the server');
-  clock = 65999;
+  clock = 64999;
   assert.equal(runner.timeRemainingSeconds(), 1);
-  clock = 66000;
+  clock = 65000;
   assert.equal(runner.isTimedOut(), true);
 });
 

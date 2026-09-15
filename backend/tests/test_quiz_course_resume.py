@@ -10,6 +10,7 @@ những câu đã trả lời nằm lại trong một phiên không bao giờ đ
 from __future__ import annotations
 
 import inspect
+from datetime import datetime, timedelta, timezone
 
 from services import quiz_service as qs
 
@@ -236,6 +237,28 @@ def _sess(sid, *, ended_by=None, created="2026-08-06T01:00:00+00:00", tq=None, t
             "class_assignment_item_id": ITEM, "created_at": created,
             "ended_at": None if ended_by is None else created,
             "ended_by": ended_by, "total_questions": tq, "total_correct": tc}
+
+
+def test_resume_returns_a_post_payload_authoritative_timer_sample():
+    opened = datetime.now(timezone.utc) - timedelta(seconds=5)
+    item = {
+        "id": ITEM, "opened_at": opened.isoformat(), "due_at": None,
+        "content_config": {"time_limit_minutes": 30},
+    }
+    db = _DB({"quiz_sessions": [], "quiz_questions": [
+        {"bank_id": BANK, "qid": "q00", "type": "mcq", "order": 0},
+    ]})
+    with patch.object(qs, "supabase_admin", db), \
+            patch.object(qs, "_bank_meta_or_404",
+                         lambda *_a, **_k: {"skill_area": qs.COURSE_AREA}), \
+            patch.object(qs, "_assignment_item_for", lambda *_a, **_k: item):
+        sv = qs.get_course_resume(user_id=USER, bank_id=BANK)
+
+    assert sv["timer"]["is_timed"] is True
+    assert sv["timer"]["started_at"] == opened.isoformat()
+    assert sv["timer"]["expires_at"] is not None
+    assert 0 < sv["timer"]["time_remaining_seconds"] <= 1800
+    assert sv["timer"]["sampled_at"] is not None
 
 
 def test_a_PAUSED_session_is_not_a_finished_stage():
