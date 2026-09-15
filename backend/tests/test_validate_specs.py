@@ -2139,6 +2139,97 @@ def test_prior_approval_must_exist_at_topic_merge_base(tmp_path: Path) -> None:
     )
 
 
+def test_topic_revision_paths_include_merge_conflict_resolution(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path, status="approved")
+    shared = root / "docs/merge-shared.md"
+    _write(shared, "base\n")
+    subprocess.run(["git", "add", str(shared)], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "add merge base"], cwd=root, check=True)
+    base_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    subprocess.run(["git", "checkout", "-qb", "merge-left"], cwd=root, check=True)
+    shared.write_text("left\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(shared)], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "left implementation"], cwd=root, check=True)
+
+    subprocess.run(
+        ["git", "checkout", "-qb", "merge-right", base_sha], cwd=root, check=True
+    )
+    shared.write_text("right\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(shared)], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "right implementation"], cwd=root, check=True)
+    merge = subprocess.run(
+        ["git", "merge", "--no-ff", "merge-left"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert merge.returncode != 0
+    shared.write_text("resolved\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(shared)], cwd=root, check=True)
+    subprocess.run(
+        ["git", "commit", "-qm", "resolve implementation conflict"],
+        cwd=root,
+        check=True,
+    )
+    merge_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    resolved, revision_paths = validator._topic_revision_paths(
+        root, base_sha, merge_sha
+    )
+    assert resolved is True
+    assert dict(revision_paths)[merge_sha] == {"docs/merge-shared.md"}
+
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    implementation = ",".join(
+        f"{revision[:12]}:{path}"
+        for revision, paths in revision_paths
+        for path in sorted(paths)
+    )
+    covered = _event(
+        root=root,
+        change_class="feature",
+        spec="FEAT-0001",
+        base_sha=base_sha,
+        head_sha=merge_sha,
+        coverage=(
+            "- FR-001 -> kind=check; ref=docs/merge-shared.md; "
+            f"implementation={implementation}"
+        ),
+    )
+    assert validator.validate_pull_request(covered, specs, root) == []
+
+    without_resolution = dict(covered)
+    without_resolution["pull_request"] = dict(covered["pull_request"])
+    without_resolution["pull_request"]["body"] = covered["pull_request"][
+        "body"
+    ].replace(f",{merge_sha[:12]}:docs/merge-shared.md", "")
+    ownership_errors = validator.validate_pull_request(
+        without_resolution, specs, root
+    )
+    assert any(
+        "topic commit/path units lack requirement ownership" in error
+        and merge_sha[:12] in error
+        for error in ownership_errors
+    )
+
+
 def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path, status="approved")
     common_sha = subprocess.run(

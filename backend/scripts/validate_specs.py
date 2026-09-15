@@ -1025,12 +1025,31 @@ def _topic_revision_paths(
         return False, []
     revision_paths: list[tuple[str, set[str]]] = []
     for revision in topic_history.stdout.splitlines():
+        parents = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                "rev-list",
+                "--parents",
+                "-n",
+                "1",
+                revision,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if parents.returncode != 0:
+            return False, []
+        parent_count = max(0, len(parents.stdout.split()) - 1)
         paths = subprocess.run(
             [
                 "git",
                 "-C",
                 str(root),
                 "diff-tree",
+                *(["--cc"] if parent_count > 1 else []),
                 "--no-commit-id",
                 "--name-only",
                 "-r",
