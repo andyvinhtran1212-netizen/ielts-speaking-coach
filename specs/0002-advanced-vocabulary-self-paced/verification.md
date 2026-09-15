@@ -7,7 +7,7 @@ on staging and replacement implementation commits are created from that base.
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-001 | kind=test; ref=backend/tests/test_advanced_vocab_importer.py, backend/tests/test_course_assignment.py, backend/tests/test_quiz_service.py, frontend/tests/admin-class-homework-next-behavior.test.mjs | PENDING |
+| FR-001 | kind=test; ref=backend/tests/test_advanced_vocab_importer.py, backend/tests/test_advanced_vocab_rls_integration.py, backend/tests/test_course_assignment.py, backend/tests/test_quiz_service.py, frontend/tests/admin-class-homework-next-behavior.test.mjs | PENDING |
 | FR-002 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_class_student_page.py, frontend/tests/my-class-next-behavior.test.mjs | PENDING |
 | FR-003 | kind=test; ref=backend/tests/test_advanced_vocab_audio_builder.py, backend/tests/test_advanced_vocab_package_builder.py, backend/tests/test_advanced_vocab_package_validator.py, backend/tests/test_advanced_vocab_importer.py | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
@@ -52,7 +52,11 @@ on staging and replacement implementation commits are created from that base.
   followed by the accepted in-order journey and canonical reload comparison.
 - Assignment-only boundary: pending admin API/UI assignment of each Advanced bank
   with immediate and full-reload state equality, plus unauthenticated/public listing
-  exclusion and generic quiz-play denial before and after assignment.
+  exclusion and generic quiz-play denial before and after assignment. Database-backed
+  tests must query `quiz_banks` directly as anon and authenticated roles after import,
+  observe no Advanced rows/meta, retain ordinary bank reads, and inventory policies to
+  prove no permissive alternate SELECT path; service-role assignment/admin reads must
+  still resolve the Advanced banks.
 - Access cutoff races: pending removal and transfer both before first open and between
   partial stages, direct requests before/at/after `publish_at`, plus deadline crossing
   between page load and every mutation. Each case must reject at persistence time

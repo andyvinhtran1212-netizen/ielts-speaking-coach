@@ -33,6 +33,12 @@
   evidence. The admin delete route returns a stable 409 and offers unpublish/archive;
   that action removes the bank from new-assignment selection but existing assignments
   continue to resolve their frozen runtime/content and canonical results.
+- Migration 263 replaces `quiz_banks_public_read` with a role-equivalent select policy
+  whose predicate excludes `meta.runtime.kind = 'advanced_vocab'`. Because permissive
+  PostgreSQL policies combine with OR, the migration must inventory and test every
+  select policy on this table, leaving no alternate anon/authenticated allow path;
+  service-role backend/admin reads continue to bypass RLS and ordinary bank behavior
+  is preserved.
 - Learner payloads whitelist public Practice, controlled-rewrite, Reading, and
   Listening fields. Practice answers, accepted variants, explanations, correction
   notes, and other answer-bearing fields remain absent until that individual

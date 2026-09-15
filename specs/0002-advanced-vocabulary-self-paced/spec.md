@@ -76,7 +76,9 @@ that prevents answer leakage and gives admins canonical completion evidence.
 
 - **FR-001:** Admins can assign exactly 30 Advanced Vocabulary core lesson banks;
   the banks remain assignment-only and are not exposed in public discovery or served
-  by the generic quiz-player route.
+  by the generic quiz-player route. Anonymous and authenticated Supabase/PostgREST
+  reads must also exclude banks whose runtime kind is `advanced_vocab`; service-role
+  admin/assignment flows retain canonical access.
 - **FR-002:** Each assigned lesson is resumable and completes only after the
   required vocabulary, two practice, Reading, controlled-rewrite, and Listening
   interactions; opening a page alone never completes a stage, and every mutation
@@ -124,7 +126,9 @@ that prevents answer leakage and gives admins canonical completion evidence.
   or deadline expiry. Archive/republish takes the same assignment-row lock so a
   learner evidence transaction and archival serialize in either commit order;
   removal/transfer updates the same locked membership row and provides the equivalent
-  serialization for roster changes.
+  serialization for roster changes. Migration 263 replaces the legacy public
+  `quiz_banks` select policy so direct anon/authenticated reads cannot enumerate the
+  Advanced runtime while ordinary bank visibility remains unchanged.
 - **FR-008:** Authored lesson JSON and runtime media use immutable content versions
   and verified SHA-256 provenance, including Listening figures and audio, so a
   deployed assignment reopens the same content revision. Assignment creation must
