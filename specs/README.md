@@ -61,5 +61,5 @@ draft -> approved -> implementing -> verified -> shipped
 
 | ID | Feature | Status | Risk | Spec |
 | --- | --- | --- | --- | --- |
-| SDD-0000 | Lean spec-driven development foundation | verified | medium | [spec](0000-sdd-foundation/spec.md) |
+| SDD-0000 | Lean spec-driven development foundation | shipped | medium | [spec](0000-sdd-foundation/spec.md) |
 | GRAMMAR-0001 | Timed grammar midterm assessment banks | approved | high | [spec](0001-timed-grammar-midterm-assessments/spec.md) |

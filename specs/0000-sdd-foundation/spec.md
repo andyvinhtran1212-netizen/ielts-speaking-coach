@@ -1,7 +1,7 @@
 ---
 id: SDD-0000
 title: Lean spec-driven development foundation
-status: verified
+status: shipped
 risk: medium
 owner: platform
 ---
