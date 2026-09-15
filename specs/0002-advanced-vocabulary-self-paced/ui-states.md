@@ -29,7 +29,9 @@ and distinguish incomplete expired denial from submitted review-only state. It m
 also exercise direct learner reads and every mutation immediately before, exactly at,
 and after `publish_at`, with no payload/evidence before release. Archive/republish
 covers both an open deadline and an expired incomplete item that resumes only after
-an explicit deadline extension. A barrier-controlled UI/API fixture covers both
+an explicit deadline extension, plus an expired terminal submitted item that can be
+republished without changing `due_at` and remains review-only with `accepting:false`.
+A barrier-controlled UI/API fixture covers both
 mutation-first and archive-first commit orders and proves the reloaded learner/admin
 state matches the winning transaction.
 Vocabulary coverage explicitly interrupts immediately before request, while pending,

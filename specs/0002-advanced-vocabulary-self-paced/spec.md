@@ -112,7 +112,8 @@ that prevents answer leakage and gives admins canonical completion evidence.
   admins, blocks learner access, and republishing restores learner resume from the
   same canonical stage only while the deadline remains open. An expired incomplete
   item requires an explicit deadline extension before resume; a submitted expired
-  item remains review-only. Terminal finalization also sets
+  item may be republished without changing `due_at` because it remains review-only
+  with `accepting:false`. Terminal finalization also sets
   `class_assignment_items.state = 'submitted'` in the same transaction.
 - **FR-007:** Database migration and RLS policies isolate learner-owned evidence,
   preserve immutable submission/version history, and support idempotent staged
@@ -137,7 +138,12 @@ that prevents answer leakage and gives admins canonical completion evidence.
   resume, and admin-result reads must resolve that snapshot even after a later bank
   version is imported. An Advanced bank referenced by any assignment or immutable
   version cannot be deleted; admin may unpublish/archive it to prevent new assignment,
-  while existing pinned assignments and all evidence remain resolvable.
+  while existing pinned assignments and all evidence remain resolvable. Importing a
+  new bank revision and issuing an assignment must serialize on the same bank-scoped
+  database lock: the import atomically replaces the question rows and switches the
+  bank runtime metadata, while assignment issuance atomically reads that metadata and
+  persists its frozen snapshot. Either commit order therefore yields a wholly old or
+  wholly new revision, never a mixed snapshot/question set.
 - **FR-009:** Starting either Practice stage creates exactly one immutable server-
   selected question set for that assignment item/stage. Repeated starts, response-
   loss recovery, and reload return the original persisted selection rather than

@@ -83,7 +83,9 @@
   archive/retire behavior. Archiving preserves the item and all evidence: admin reload
   continues to show canonical progress, learner routes become unavailable as the kill
   switch requires, and republishing restores learner access at the persisted stage
-  only if the deadline remains open (otherwise an admin must explicitly extend it).
+  only if the deadline remains open. An incomplete expired item requires an explicit
+  deadline extension; a terminal submitted item may be republished without changing
+  `due_at` because it can only reopen as persisted review with `accepting:false`.
 - Every learner read and mutation resolves the assignment item through its assignment,
   student, and active cohort membership; retaining a historical item after removal or
   transfer grants no access. Every evidence write, including the final Listening
@@ -102,6 +104,12 @@
   ordering. These operations therefore serialize with learner mutations: an access-
   revocation winner permits no later evidence, while a mutation winner commits before
   removal/transfer/archive returns and closes access.
+- The importer/version switch and assignment issuance use dedicated database RPC
+  transactions that acquire the same bank-scoped advisory lock. The importer replaces
+  all revision-owned question rows and updates runtime metadata in one transaction;
+  assignment issuance reads that metadata and writes the frozen assignment snapshot
+  in one transaction. Barrier tests force both commit orders and reject every mixed-
+  revision assignment snapshot.
 
 ## API contract
 
@@ -194,7 +202,9 @@ map to `/course-exercises` without behavioral change.
   retain additive tables and all historical evidence. Before any republish, deploy a
   known-good guarded runtime at a recorded SHA, verify dedicated and legacy-route
   isolation plus assignment open-state guards on that SHA, repair/import canonical
-  banks, and only then re-enable an assignment whose deadline is open or extended.
+  banks, and only then re-enable an incomplete assignment whose deadline is open or
+  extended, or a terminal submitted assignment that remains review-only without a
+  deadline mutation.
 
 ## Verification strategy
 

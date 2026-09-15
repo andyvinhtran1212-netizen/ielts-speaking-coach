@@ -69,7 +69,9 @@ on staging and replacement implementation commits are created from that base.
   `accepting:false`.
 - Archive lifecycle: pending archive, blocked learner reload, preserved admin reload,
   republish before expiry, and learner resume from the original canonical stage;
-  republish after expiry must remain blocked until an explicit deadline extension.
+  republish after expiry for an incomplete item must remain blocked until an explicit
+  deadline extension, while a terminal submitted item may republish with unchanged
+  `due_at` and only persisted review with `accepting:false`.
   Every partial-evidence store must make the homework list render Archive instead of
   Delete both immediately and after reload.
 - Protected bank lifecycle: pending direct/admin deletion after partial and completed
@@ -87,6 +89,10 @@ on staging and replacement implementation commits are created from that base.
   first commits evidence before remove/transfer/archive closes access; each revocation-
   first order rejects the later mutation. Immediate and full-reload learner/admin
   access and evidence agree for all six orders.
+- Bank snapshot serialization: pending barrier-controlled import-versus-assignment
+  races on the shared bank-scoped lock. Verify import-first creates a wholly new
+  frozen snapshot and assignment-first creates a wholly old snapshot; neither order
+  may combine metadata, authored payload, or question rows from different revisions.
 - Timing truth: pending capped per-question Practice response time and Reading/
   Listening duration persistence, idempotent retry totals, untimed Vocabulary/rewrite
   completion timestamps, and matching learner/admin reload projections without
