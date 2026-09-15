@@ -2443,9 +2443,21 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
         "ended_by": ended_by,
     }
     try:
-        res = supabase_admin.table("quiz_sessions").update(patch).eq("id", session_id).execute()
+        # First terminal write wins.  The early read above avoids ordinary
+        # duplicate work; these predicates close the race between that read
+        # and a concurrent browser/reaper finalization.
+        res = (supabase_admin.table("quiz_sessions").update(patch)
+               .eq("id", session_id)
+               .is_("ended_at", "null")
+               .is_("ended_by", "null")
+               .execute())
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi kết thúc session: {exc}")
+    if not res.data:
+        winner = _owned_session(session_id, user_id)
+        if winner.get("ended_at") or winner.get("ended_by"):
+            return winner
+        raise HTTPException(409, "Phiên này đang được kết thúc — hãy thử lại.")
 
     # CHỐT SỔ BÀI GIAO. Không có bước này thì mục ở lại "opened" vĩnh viễn và
     # bảng của giáo viên báo em ấy chưa nộp — trong khi em ấy vừa làm xong.
@@ -4448,27 +4460,36 @@ def reap_expired_course_assessments(
             sessions = current_sessions
             if not sessions:
                 continue
+            latest_attempt_at = (
+                _at(mastery_attempts[-1].get("at")) if mastery_attempts else None
+            )
+            pending_retakes = [
+                row for row in sessions
+                if (row.get("kind") or "run") == "retake"
+                and (
+                    latest_attempt_at is None
+                    or (_at(row.get("created_at")) is not None
+                        and _at(row.get("created_at")) > latest_attempt_at)
+                )
+            ]
+            # A revision older than the newest recorded verdict has already
+            # been superseded.  Remove it before choosing retake-vs-run;
+            # otherwise its mere presence can hide a valid current full retry.
+            pending_retake_ids = {row.get("id") for row in pending_retakes}
+            sessions = [
+                row for row in sessions
+                if (row.get("kind") or "run") != "retake"
+                or row.get("id") in pending_retake_ids
+            ]
+            if not sessions:
+                continue
             sessions_to_close = sessions
             verdict_sessions = sessions
-            pending_retakes = [
-                row for row in sessions if (row.get("kind") or "run") == "retake"
-            ]
             if pending_retakes:
                 # Match get_course_resume(): only a revision created after the
                 # latest recorded verdict is pending, and among concurrent tabs
                 # the newest one is canonical.  Close all current candidates so
                 # no orphan stays writable, but grade exactly that one session.
-                latest_attempt_at = (
-                    _at(mastery_attempts[-1].get("at")) if mastery_attempts else None
-                )
-                pending_retakes = [
-                    row for row in pending_retakes
-                    if latest_attempt_at is None
-                    or (_at(row.get("created_at")) is not None
-                        and _at(row.get("created_at")) > latest_attempt_at)
-                ]
-                if not pending_retakes:
-                    continue
                 sessions_to_close = pending_retakes
                 verdict_sessions = [max(
                     pending_retakes, key=lambda row: row.get("created_at") or "",

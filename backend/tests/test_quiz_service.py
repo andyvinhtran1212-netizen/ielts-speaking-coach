@@ -1017,6 +1017,14 @@ def test_server_reaper_uses_only_current_full_retry_generation():
         }],
         "students": [{"id": "student-1", "user_id": _USER}],
         "quiz_sessions": [
+            {"id": "superseded-retake-a", "user_id": _USER, "bank_id": _BANK,
+             "class_assignment_item_id": "item-timed", "kind": "retake",
+             "created_at": "2026-09-15T01:05:00+00:00",
+             "ended_at": None, "ended_by": None},
+            {"id": "superseded-retake-b", "user_id": _USER, "bank_id": _BANK,
+             "class_assignment_item_id": "item-timed", "kind": "retake",
+             "created_at": "2026-09-15T01:08:00+00:00",
+             "ended_at": None, "ended_by": None},
             {"id": "stale-open", "user_id": _USER, "bank_id": _BANK,
              "class_assignment_item_id": "item-timed", "kind": "run",
              "created_at": "2026-09-15T01:05:00+00:00",
@@ -1114,6 +1122,8 @@ def test_end_session_computes_accuracy():
     upd = next(c for c in fake.calls if c["table"] == "quiz_sessions" and c["op"] == "update")
     assert upd["payload"]["accuracy"] == 0.8
     assert upd["payload"]["ended_by"] == "completed"
+    assert ("not_is", "ended_at", "null") in upd["filters"]
+    assert ("not_is", "ended_by", "null") in upd["filters"]
 
 
 def test_end_session_defaults_bad_ended_by():
@@ -1143,6 +1153,38 @@ def test_end_session_does_not_reclose_an_on_time_completed_session():
     assert out == canonical
     assert not any(call["table"] == "quiz_sessions" and call["op"] == "update"
                    for call in fake.calls)
+
+
+@pytest.mark.parametrize(("requested", "winner"), [
+    ("completed", "time_cap"),
+    ("time_cap", "completed"),
+])
+def test_end_session_concurrent_terminal_write_preserves_the_winner(requested, winner):
+    open_session = {
+        "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+        "ended_at": None, "ended_by": None,
+    }
+    canonical = {
+        **open_session,
+        "ended_at": "2026-09-15T01:30:00+00:00", "ended_by": winner,
+    }
+    fake = _FakeSupabase(responses={
+        # Empty update representation means the terminal-null CAS lost.
+        ("quiz_sessions", "update"): [],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_owned_session",
+                      side_effect=[open_session, canonical]):
+        out = quiz_service.end_session(
+            user_id=_USER, session_id=_SESS,
+            data={"ended_by": requested, "total_questions": 10},
+        )
+    assert out["ended_by"] == winner
+    updates = [call for call in fake.calls
+               if call["table"] == "quiz_sessions" and call["op"] == "update"]
+    assert len(updates) == 1
+    assert ("not_is", "ended_at", "null") in updates[0]["filters"]
+    assert ("not_is", "ended_by", "null") in updates[0]["filters"]
 
 
 # ── Analytics (Pha 5a) ───────────────────────────────────────────────
