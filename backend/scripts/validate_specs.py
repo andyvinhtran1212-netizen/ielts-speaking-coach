@@ -305,7 +305,12 @@ def _constitutional_obligations(text: str) -> set[str]:
         prose[match.start() : match.end()] = " " * (match.end() - match.start())
     for paragraph in re.split(r"\n[ \t]*\n", "".join(prose)):
         normalized = re.sub(r"\s+", " ", paragraph).strip()
-        if re.search(r"\b(?:MUST(?: NOT)?|SHOULD(?: NOT)?|MAY(?: NOT)?)\b", normalized):
+        modal_context = re.sub(r"(?P<ticks>`+).*?(?P=ticks)", "", normalized)
+        modal_context = re.sub(r'".*?"|“.*?”|‘.*?’', "", modal_context)
+        if re.search(
+            r"\b(?:MUST(?: NOT)?|SHOULD(?: NOT)?|MAY(?: NOT)?)\b",
+            modal_context,
+        ):
             obligations.add(normalized)
     return obligations
 
