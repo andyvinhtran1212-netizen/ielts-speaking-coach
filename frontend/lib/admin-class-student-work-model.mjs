@@ -48,6 +48,10 @@ export function studentWorkAction(item) {
     return { kind: 'external', label: 'Nghe bài', href: `/admin/speaking/sessions?session=${encodeURIComponent(item.artifact_id)}` };
   }
   if (item?.has_writing) return { kind: 'writing', label: 'Xem tự luận' };
-  if (item?.bank_id && item.artifact_id) return { kind: 'report', label: 'Xem từng câu' };
+  const runtime = object(object(item?.content_config).runtime);
+  const hasAdvancedVocabularyEvidence = runtime.kind === 'advanced_vocab' && item?.bank_id;
+  if (item?.bank_id && (item.artifact_id || hasAdvancedVocabularyEvidence)) {
+    return { kind: 'report', label: 'Xem từng câu' };
+  }
   return null;
 }

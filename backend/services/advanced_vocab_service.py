@@ -641,16 +641,28 @@ def _answer_results(answers: dict, key: list[dict]) -> list[dict]:
                 if candidate in (None, ""):
                     continue
                 values.append(candidate)
-                if isinstance(candidate, str) and "/" in candidate:
-                    values.extend(part.strip() for part in candidate.split("/") if part.strip())
                 if isinstance(candidate, str):
-                    parenthesized_or = re.fullmatch(
-                        r"\s*(.+?)\s*\(\s*OR\s+(.+?)\s*\)\s*",
-                        candidate,
-                        flags=re.IGNORECASE,
-                    )
-                    if parenthesized_or:
-                        values.extend(part.strip() for part in parenthesized_or.groups())
+                    for variant in candidate.split("/"):
+                        variant = variant.strip()
+                        if not variant:
+                            continue
+                        values.append(variant)
+                        parenthesized_or = re.fullmatch(
+                            r"(.+?)\s*\(\s*OR\s+(.+?)\s*\)",
+                            variant,
+                            flags=re.IGNORECASE,
+                        )
+                        if parenthesized_or:
+                            values.extend(
+                                part.strip() for part in parenthesized_or.groups()
+                            )
+                            continue
+                        optional = re.fullmatch(r"(.+?)\s*\(([^)]+)\)", variant)
+                        if optional:
+                            base, optional_words = (
+                                part.strip() for part in optional.groups()
+                            )
+                            values.extend([base, f"{base} {optional_words}"])
         return values
 
     return [{

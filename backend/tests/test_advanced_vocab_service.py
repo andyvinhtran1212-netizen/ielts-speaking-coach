@@ -203,19 +203,24 @@ def test_server_grader_uses_authored_text_variants_and_integer_choice_keys():
 def test_section_grader_accepts_authored_codes_and_explicit_slash_variants():
     results = service._answer_results(
         {
-            "10": "G", "3": "5", "or-first": "street",
+            "10": "G", "3": "5", "optional-short": "five",
+            "optional-long": "five sharp", "or-first": "street",
             "or-second": "kerb", "wrong": "not-the-answer",
         },
         [
             {"id": "10", "answer": "embodied", "answer_code": "G"},
             {"id": "3", "answer": "five (sharp) / 5"},
+            {"id": "optional-short", "answer": "five (sharp) / 5"},
+            {"id": "optional-long", "answer": "five (sharp) / 5"},
             {"id": "or-first", "answer": "street (OR kerb)"},
             {"id": "or-second", "answer": "street (OR kerb)"},
             {"id": "wrong", "answer": "correct"},
         ],
     )
 
-    assert [row["is_correct"] for row in results] == [True, True, True, True, False]
+    assert [row["is_correct"] for row in results] == [
+        True, True, True, True, True, True, False,
+    ]
 
 
 def test_learner_reading_projection_strips_source_and_correction_evidence(monkeypatch):
