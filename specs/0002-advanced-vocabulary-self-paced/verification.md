@@ -32,7 +32,8 @@ on staging and replacement implementation commits are created from that base.
 ## UI evidence
 
 - Viewports/themes/input methods: pending Next.js browser regression, explicit
-  no-microphone/no-submission assertion, and manual staging review.
+  no-microphone/no-submission assertion, every required-stage interruption/resume
+  state, Practice pre/post-attempt leakage assertions, and manual staging review.
 
 ## Release evidence
 

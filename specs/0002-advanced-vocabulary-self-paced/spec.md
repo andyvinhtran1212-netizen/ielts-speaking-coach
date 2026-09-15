@@ -57,14 +57,17 @@ that prevents answer leakage and gives admins canonical completion evidence.
   per-session quiz material, includes all 88 curated common-error supplements,
   and serves checksum-bound headword and example audio for every vocabulary card.
 - **FR-004:** Reading and Listening are automatically checked without leaking
-  solutions before submission; Reading text and questions scroll independently,
-  and fixed-choice/MCQ option identities grade consistently.
+  solutions before submission; both Practice stages omit answers, accepted variants,
+  explanations, and correction fields until the corresponding immutable attempt is
+  accepted; Reading text and questions scroll independently, and fixed-choice/MCQ
+  option identities grade consistently.
 - **FR-005:** Writing Task 1/2 and Speaking remain reference or practice content,
   do not capture or submit responses in this runtime, are not graded by default,
   and Writing can be submitted for grading only through a teacher assignment.
 - **FR-006:** Required-stage answers, attempts, guided retry state, duration, and
   completion are persisted as canonical backend truth and returned to admins
-  without inventing an overall score.
+  without inventing an overall score. Any partial evidence prevents assignment-item
+  deletion; archiving preserves progress and reloads identically.
 - **FR-007:** Database migration and RLS policies isolate learner-owned evidence,
   preserve immutable submission/version history, and support idempotent staged
   deployment before application promotion. The final Listening evidence and
@@ -123,10 +126,12 @@ that prevents answer leakage and gives admins canonical completion evidence.
 
 ### Authored answers remain private
 
-- **Given** a Reading or Listening activity before submission
+- **Given** either Practice stage, Reading, or Listening before its reveal boundary
 - **When** the learner API returns its activity payload
-- **Then** solutions, evidence, transcripts, and answer-bearing editorial fields
-  are absent while public prompts and option identifiers remain usable
+- **Then** answers, accepted variants, explanations, correction notes, solutions,
+  evidence, transcripts, and answer-bearing editorial fields are absent while public
+  prompts and option identifiers remain usable; an accepted Practice answer reveals
+  feedback only for that immutable attempt
 
 ### Frozen assignment reopens safely
 
@@ -144,6 +149,8 @@ that prevents answer leakage and gives admins canonical completion evidence.
 - Finalizer failure rolls back the triggering Listening evidence, concurrent
   finalizers serialize without duplicate completion, and the migration repair
   changes only a pilot item that already has all six canonical evidence sets.
+- Admin deletion is rejected after the first partial-progress row in each Advanced
+  Vocabulary evidence store; archive/retire preserves the assignment and every row.
 - Removing an assignment does not make its historical evidence public or reusable.
 - Network or browser interruption resumes from persisted stage state.
 

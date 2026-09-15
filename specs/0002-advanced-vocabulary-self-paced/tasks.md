@@ -6,7 +6,7 @@ is present on the base branch.
 - [ ] T001 Land pure package validation, builder, and immutable source/media checksum tests. `owns: backend/services/advanced_vocab_package_builder.py, backend/services/advanced_vocab_package_validator.py, backend/tests/test_advanced_vocab_package_validator.py`
 - [ ] T002 Validate and land the immutable core-30 content/media snapshot as a content-only change. `depends: T001; owns: backend/content/advanced_vocab/**, frontend/public/assets/advanced-vocab/**`
 - [ ] T003 Review migration 263, apply it to staging, and verify it creates only missing Advanced Vocabulary stores while idempotently extending existing course-section evidence; prove same/different replay behavior, concurrent finalization, transaction rollback on an injected finalizer failure, and scoped repair of complete pre-trigger pilot rows. `depends: T002`
-- [ ] T004 Merge canonical backend assignment, persistence, learner, and admin result flows only after T003 schema verification. `depends: T003`
+- [ ] T004 Merge canonical backend assignment, persistence, learner, and admin result flows only after T003 schema verification, including pre-attempt Practice projection and deletion rejection for every partial-evidence store. `depends: T003`
 - [ ] T005 Implement learner/admin UI states, independent Reading panes, and non-submittable Writing/Speaking reference surfaces. `depends: T004`
 - [ ] T006 Add requirement-linked backend, frontend, browser, and existing course retry/report regression evidence. `depends: T001,T003,T004,T005`
 - [ ] T007 Run independent inline review until clean and record exact-SHA staging evidence. `depends: T006`

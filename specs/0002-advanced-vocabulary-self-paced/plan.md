@@ -20,8 +20,11 @@
   submission, resume, and admin-result read resolves the immutable assignment snapshot
   rather than the bank's current metadata. Re-importing a v2 bank therefore leaves an
   already-issued v1 assignment bound to its v1 JSON and checksum-matched media.
-- Learner payloads whitelist public Reading/Listening fields; answer keys are
-  attached only to persisted post-submission review evidence.
+- Learner payloads whitelist public Practice, Reading, and Listening fields.
+  Practice answers, accepted variants, explanations, correction notes, and other
+  answer-bearing fields remain absent until that individual immutable answer is
+  accepted; Reading/Listening keys are attached only to persisted post-submission
+  review evidence. The generic quiz-player route cannot serve these banks.
 - Writing and Speaking contracts explicitly disable default grading/submission.
 - The unique `(class_assignment_item_id, section)` Listening submission is the
   finalization idempotency identity. Its insert invokes one database finalizer in
@@ -36,6 +39,11 @@
   and section rows, preserves the earliest existing submission timestamps, and
   leaves partial items resumable. Because all post-migration finalization writes are
   atomic, this migration reconciliation is the only legacy repair path required.
+- Any Advanced Vocabulary stage, question-attempt, first-Listening-attempt, or
+  course-section row makes the assignment item non-deletable. The admin surface must
+  treat that partial evidence as real learner work and offer only the existing
+  archive/retire behavior; archiving preserves the item and all evidence, and learner
+  and admin reloads continue to resolve the same progress.
 
 ## UI and interaction
 
