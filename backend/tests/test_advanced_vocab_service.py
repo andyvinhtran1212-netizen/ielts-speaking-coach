@@ -4,6 +4,9 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+from fastapi import HTTPException
+
 from services import advanced_vocab_service as service
 
 LESSON_IDS = tuple(f"ADV-T{number:02d}" for number in range(1, 31))
@@ -165,6 +168,28 @@ def test_learner_question_projection_never_contains_answer_material():
     assert "{{audio}}" not in with_audio["prompt"]
 
 
+def test_assigned_lesson_rejects_live_content_that_differs_from_frozen_snapshot(monkeypatch):
+    lesson = _lesson()
+    monkeypatch.setattr(service, "_runtime", lambda _bank: ({"id": "bank-1"}, {}))
+    monkeypatch.setattr(service, "_owned_item", lambda *_args, **_kwargs: {
+        "id": "item-1",
+        "content_config": {"runtime": {
+            "kind": "advanced_vocab",
+            "lesson_id": lesson["lesson_id"],
+            "content_checksum": "checksum-from-earlier-import",
+        }},
+    })
+    monkeypatch.setattr(service, "load_lesson", lambda _lesson_id: lesson)
+
+    with pytest.raises(HTTPException) as exc:
+        service._assigned_lesson(
+            bank_id="bank-1", user_id="user-1", item_id="item-1",
+        )
+
+    assert exc.value.status_code == 409
+    assert "không khớp" in exc.value.detail
+
+
 def test_server_grader_uses_authored_text_variants_and_integer_choice_keys():
     assert service._correct({"answer": 2, "options": ["A", "B", "C"]}, "2") is True
     assert service._correct({"answer": None, "accept": ["dual-income household"]},
@@ -224,10 +249,9 @@ def test_listening_completion_does_not_depend_on_a_second_rpc(monkeypatch):
             raise AssertionError("finalization must be atomic with the listening insert")
 
     monkeypatch.setattr(service, "_admin", lambda: _NoSecondRpc())
-    monkeypatch.setattr(service, "_runtime", lambda _bank: (
-        {"id": "bank-1"}, {"lesson_id": "ADV-T01"},
+    monkeypatch.setattr(service, "_assigned_lesson", lambda **_kwargs: (
+        {"id": "bank-1"}, {"id": "item-1"}, _lesson(),
     ))
-    monkeypatch.setattr(service, "_owned_item", lambda *_args, **_kwargs: {"id": "item-1"})
     monkeypatch.setattr(service, "_require_stage", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(service, "_activity", lambda *_args, **_kwargs: {"content": {}})
     monkeypatch.setattr(service, "_submit_section", lambda **_kwargs: {"section": "listening"})

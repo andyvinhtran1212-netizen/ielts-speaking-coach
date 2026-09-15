@@ -99,6 +99,23 @@ def _owned_item(bank_id: str, user_id: str, item_id: str, *, review: bool = Fals
     return item
 
 
+def _assigned_lesson(*, bank_id: str, user_id: str, item_id: str,
+                     review: bool = False) -> tuple[dict, dict, dict]:
+    """Resolve content only from the immutable runtime snapshot issued to the learner."""
+    bank, _ = _runtime(bank_id)
+    item = _owned_item(bank_id, user_id, item_id, review=review)
+    frozen = ((item.get("content_config") or {}).get("runtime") or {})
+    lesson_id = str(frozen.get("lesson_id") or "")
+    expected_checksum = str(frozen.get("content_checksum") or "")
+    if frozen.get("kind") != "advanced_vocab" or not lesson_id or not expected_checksum:
+        raise HTTPException(409, "Bài giao thiếu phiên bản nội dung Advanced Vocabulary")
+    lesson = load_lesson(lesson_id)
+    actual_checksum = str((lesson.get("provenance") or {}).get("content_checksum") or "")
+    if actual_checksum != expected_checksum:
+        raise HTTPException(409, "Phiên bản bài giao không khớp nội dung đã triển khai")
+    return bank, item, lesson
+
+
 def _choice(item: dict) -> bool:
     return item.get("input") in ("choice", "boolean", "syllable")
 
@@ -275,12 +292,9 @@ def _progress(item_id: str) -> dict:
 
 
 def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
-    bank, runtime = _runtime(bank_id)
-    item = _owned_item(bank_id, user_id, item_id, review=True)
-    lesson = load_lesson(runtime.get("lesson_id") or "")
-    if runtime.get("content_checksum") and runtime["content_checksum"] != (
-            lesson.get("provenance") or {}).get("content_checksum"):
-        raise HTTPException(409, "Phiên bản bài giao không khớp nội dung đã triển khai")
+    bank, item, lesson = _assigned_lesson(
+        bank_id=bank_id, user_id=user_id, item_id=item_id, review=True,
+    )
     selected = practice_selection(lesson)
     progress = _progress(item_id)
     answered = {row["qid"] for row in progress["answers"]}
@@ -381,9 +395,9 @@ def _upsert_stage(*, bank_id: str, user_id: str, item_id: str,
 
 def complete_vocabulary(*, user_id: str, bank_id: str, item_id: str,
                         seen_lexeme_ids: list[str]) -> dict:
-    _, runtime = _runtime(bank_id)
-    _owned_item(bank_id, user_id, item_id)
-    lesson = load_lesson(runtime.get("lesson_id") or "")
+    _, _, lesson = _assigned_lesson(
+        bank_id=bank_id, user_id=user_id, item_id=item_id,
+    )
     expected = {row["lexeme_id"] for row in lesson.get("vocabulary") or []}
     seen = {str(value) for value in seen_lexeme_ids}
     missing = sorted(expected - seen)
@@ -397,8 +411,7 @@ def complete_vocabulary(*, user_id: str, bank_id: str, item_id: str,
 def start_practice(*, user_id: str, bank_id: str, item_id: str, stage: str) -> dict:
     if stage not in _PRACTICE_COUNTS:
         raise HTTPException(404, "Không tìm thấy phần luyện tập")
-    _runtime(bank_id)
-    _owned_item(bank_id, user_id, item_id)
+    _assigned_lesson(bank_id=bank_id, user_id=user_id, item_id=item_id)
     _require_stage(item_id, "vocabulary" if stage == "practice_1" else "practice_1")
     return _progress(item_id)
 
@@ -427,13 +440,13 @@ def _correct(item: dict, answer: Any) -> bool:
 
 def answer_practice(*, user_id: str, bank_id: str, item_id: str, stage: str,
                     qid: str, answer: Any, response_time_ms: int | None = None) -> dict:
-    _, runtime = _runtime(bank_id)
-    _owned_item(bank_id, user_id, item_id)
+    _, _, lesson = _assigned_lesson(
+        bank_id=bank_id, user_id=user_id, item_id=item_id,
+    )
     prerequisite = "vocabulary" if stage == "practice_1" else "practice_1"
     if stage not in _PRACTICE_COUNTS:
         raise HTTPException(404, "Không tìm thấy phần luyện tập")
     _require_stage(item_id, prerequisite)
-    lesson = load_lesson(runtime.get("lesson_id") or "")
     selected = practice_selection(lesson)[stage]
     item = next((row for row in selected if row.get("item_id") == qid), None)
     if not item:
@@ -489,10 +502,10 @@ def answer_practice(*, user_id: str, bank_id: str, item_id: str, stage: str,
 
 def complete_controlled_rewrite(*, user_id: str, bank_id: str, item_id: str,
                                 attempted_item_ids: list[str]) -> dict:
-    _, runtime = _runtime(bank_id)
-    _owned_item(bank_id, user_id, item_id)
+    _, _, lesson = _assigned_lesson(
+        bank_id=bank_id, user_id=user_id, item_id=item_id,
+    )
     _require_section(item_id, "reading")
-    lesson = load_lesson(runtime.get("lesson_id") or "")
     parts = controlled_rewrite_parts(lesson)
     expected = {row["item_id"] for row in parts["prompts"]}
     attempted = {str(value) for value in attempted_item_ids}
@@ -584,10 +597,10 @@ def _submit_section(*, user_id: str, bank_id: str, item_id: str,
 
 def submit_reading(*, user_id: str, bank_id: str, item_id: str,
                    answers: dict, duration_sec: int = 0) -> dict:
-    _, runtime = _runtime(bank_id)
-    _owned_item(bank_id, user_id, item_id)
+    _, _, lesson = _assigned_lesson(
+        bank_id=bank_id, user_id=user_id, item_id=item_id,
+    )
     _require_stage(item_id, "practice_2")
-    lesson = load_lesson(runtime.get("lesson_id") or "")
     content = _activity(lesson, "reading_lab").get("content") or {}
     return _submit_section(user_id=user_id, bank_id=bank_id, item_id=item_id,
                            section="reading", answers=answers,
@@ -596,10 +609,10 @@ def submit_reading(*, user_id: str, bank_id: str, item_id: str,
 
 def submit_listening(*, user_id: str, bank_id: str, item_id: str,
                      answers: dict, duration_sec: int = 0) -> dict:
-    _, runtime = _runtime(bank_id)
-    _owned_item(bank_id, user_id, item_id)
+    _, _, lesson = _assigned_lesson(
+        bank_id=bank_id, user_id=user_id, item_id=item_id,
+    )
     _require_stage(item_id, "controlled_rewrite")
-    lesson = load_lesson(runtime.get("lesson_id") or "")
     content = _activity(lesson, "listening_lab").get("content") or {}
     result = _submit_section(user_id=user_id, bank_id=bank_id, item_id=item_id,
                              section="listening", answers=answers,
