@@ -131,6 +131,34 @@ def test_final_evidence_requires_a_final_result_cell(tmp_path: Path) -> None:
     assert any("requires PASS or MANUAL evidence" in error for error in errors)
 
 
+def test_evidence_id_must_be_in_requirement_column(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    spec = root / "specs/0001-example-feature/spec.md"
+    spec.write_text(
+        spec.read_text(encoding="utf-8")
+        .replace("- **FR-001:** Works.\n", "- **FR-001:** Works.\n- **FR-002:** Also works.\n"),
+        encoding="utf-8",
+    )
+    (root / "specs/0001-example-feature/verification.md").write_text(
+        "## Requirement coverage\n\n| FR-002 | exercises FR-001 | PASS |\n",
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert any("no evidence row for FR-001" in error for error in errors)
+
+
+def test_repository_rejects_duplicate_evidence_rows(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    (root / "specs/0001-example-feature/verification.md").write_text(
+        "## Requirement coverage\n\n"
+        "| FR-001 | unit | PASS |\n"
+        "| FR-001 | browser | MANUAL |\n",
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert any("duplicate evidence rows for FR-001" in error for error in errors)
+
+
 def test_feature_pr_requires_existing_non_draft_spec(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     _, specs = validator.validate_repository(root)
@@ -141,6 +169,16 @@ def test_feature_pr_requires_existing_non_draft_spec(tmp_path: Path) -> None:
     assert validator.validate_pull_request(
         _event(change_class="feature", spec="FEAT-0001"), specs
     ) == []
+
+
+def test_feature_pr_rejects_superseded_spec(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path, status="superseded")
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    errors = validator.validate_pull_request(
+        _event(change_class="feature", spec="FEAT-0001"), specs
+    )
+    assert any("not superseded" in error for error in errors)
 
 
 def test_small_pr_may_use_na(tmp_path: Path) -> None:

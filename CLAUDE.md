@@ -6,8 +6,9 @@ IELTS Speaking Coach **began** as a Speaking practice app and is now a
 comprehensive IELTS-prep platform covering Speaking, Writing, Reading, and
 Listening. The production frontend is Next.js 16 App Router on Vercel; FastAPI
 on Railway remains the canonical business backend, with Supabase providing
-PostgreSQL, Auth, and Storage. Legacy HTML exists only as test fixtures and is
-not deployed.
+PostgreSQL, Auth, and Storage. Legacy HTML bodies live under test fixtures;
+root-level compatibility aliases are symlinks into that archive and are not
+deployed.
 
 **Most important quality expectations:**
 - Feedback must be truthful and non-misleading. False-positive grammar flags harm user trust.
@@ -47,7 +48,9 @@ not deployed.
 | FastAPI entry point | `backend/main.py` |
 
 Retired HTML snapshots live under `frontend/tests/fixtures/legacy-html-retired/`
-and are regression evidence only. Do not reintroduce them into deploy paths.
+and are regression evidence only. Some `frontend/*.html` and `frontend/pages`
+paths remain as symlinks into that archive for old tests; they are not deploy
+sources. Do not reintroduce them into deploy paths.
 
 ---
 

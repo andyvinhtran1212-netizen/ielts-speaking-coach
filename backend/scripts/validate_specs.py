@@ -22,12 +22,14 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FEATURE_DIR_RE = re.compile(r"^(?P<number>\d{4})-[a-z0-9]+(?:-[a-z0-9]+)*$")
 SPEC_ID_RE = re.compile(r"^[A-Z][A-Z0-9]*-(?P<number>\d{4})$")
-REQUIREMENT_RE = re.compile(r"\bFR-\d{3}\b")
 REQUIREMENT_DECLARATION_RE = re.compile(
     r"^\s*-\s+\*\*(FR-\d{3}):\*\*\s+\S",
     re.MULTILINE,
 )
-FINAL_EVIDENCE_RE = re.compile(r"\|\s*(?:PASS|MANUAL)\s*\|\s*$", re.IGNORECASE)
+EVIDENCE_ROW_RE = re.compile(
+    r"^\|\s*(FR-\d{3})\s*\|.*\|\s*([A-Za-z]+)\s*\|\s*$",
+    re.MULTILINE,
+)
 ALLOWED_STATUSES = {
     "draft",
     "approved",
@@ -39,6 +41,7 @@ ALLOWED_STATUSES = {
 ALLOWED_RISKS = {"low", "medium", "high", "critical"}
 ALLOWED_CHANGE_CLASSES = {"hotfix", "small", "content", "feature", "high-risk"}
 FINAL_STATUSES = {"verified", "shipped"}
+IMPLEMENTABLE_SPEC_STATUSES = {"approved", "implementing", "verified", "shipped"}
 REQUIRED_FEATURE_FILES = ("spec.md", "plan.md", "tasks.md", "verification.md")
 LEGACY_SPEC_DIRS = {"general"}
 REQUIRED_FOUNDATION_FILES = (
@@ -195,14 +198,23 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
             errors.append(f"{spec_path}: functional requirement declarations must be unique")
 
         verification = texts.get("verification.md", "")
-        verification_ids = set(REQUIREMENT_RE.findall(verification))
+        evidence_rows = EVIDENCE_ROW_RE.findall(verification)
+        evidence_ids = [requirement for requirement, _ in evidence_rows]
+        verification_ids = set(evidence_ids)
         for requirement in unique_requirements:
-            matching_lines = [line for line in verification.splitlines() if requirement in line]
-            if not matching_lines:
+            matching_results = [
+                result for evidence_id, result in evidence_rows if evidence_id == requirement
+            ]
+            if not matching_results:
                 errors.append(f"{feature / 'verification.md'}: no evidence row for {requirement}")
-            elif status in FINAL_STATUSES and not any(
-                FINAL_EVIDENCE_RE.search(line) for line in matching_lines
-            ):
+            elif len(matching_results) > 1:
+                errors.append(
+                    f"{feature / 'verification.md'}: duplicate evidence rows for {requirement}"
+                )
+            elif status in FINAL_STATUSES and matching_results[0].upper() not in {
+                "PASS",
+                "MANUAL",
+            }:
                 errors.append(
                     f"{feature / 'verification.md'}: final feature requires PASS or MANUAL evidence for {requirement}"
                 )
@@ -259,8 +271,10 @@ def validate_pull_request(event: dict[str, Any], known_specs: dict[str, Path]) -
         else:
             metadata_text = (feature / "spec.md").read_text(encoding="utf-8")
             metadata = yaml.safe_load(metadata_text.split("---", 2)[1]) or {}
-            if requires_spec and metadata.get("status") == "draft":
-                errors.append(f"pull request: Spec '{spec_id}' is still draft")
+            if requires_spec and metadata.get("status") not in IMPLEMENTABLE_SPEC_STATUSES:
+                errors.append(
+                    f"pull request: Spec '{spec_id}' must be approved and not superseded"
+                )
     return errors
 
 

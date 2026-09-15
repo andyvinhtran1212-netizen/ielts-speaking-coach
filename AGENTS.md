@@ -9,7 +9,8 @@ IELTS Speaking Coach — a web app for IELTS/English speaking practice:
 - AI services: OpenAI Whisper (STT), Anthropic Claude (grading), Google Gemini (question gen), OpenAI TTS, Azure Speech (pronunciation)
 - Grammar Wiki: ~100+ curated Markdown articles, public, no auth required
 - Admin dashboard: user management, access codes, topic library
-- Legacy HTML is retained only under test fixtures and is not deployed.
+- Legacy HTML bodies are retained under test fixtures; root-level compatibility
+  aliases are non-deployed symlinks into that archive.
 
 ---
 
