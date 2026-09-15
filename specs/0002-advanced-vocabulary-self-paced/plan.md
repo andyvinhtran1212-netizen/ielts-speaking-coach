@@ -52,6 +52,39 @@
   continues to show canonical progress, learner routes become unavailable as the kill
   switch requires, and republishing restores learner access at the persisted stage.
 
+## API contract
+
+All learner routes require the bearer-authenticated assignment owner; the admin route
+requires an admin bearer. UUID path/query/body identities are server-validated. Named
+Pydantic request and response models must generate matching operations in
+`frontend/types/api.d.ts`, and the Next.js client must derive its normalization types
+from those generated operations rather than maintain a parallel wire schema.
+
+| Method and route | Request | Success response |
+| --- | --- | --- |
+| `GET /api/advanced-vocab/lessons/{bank_id}?item={item_id}` | UUID path/query | `LessonView`: bank `{id,code,title}`, assignment `{item_id,due_at,accepting,submitted_at,passed_at}`, lesson `{lesson_id,title,topic_code,objectives,vocabulary,practice,activities}`, and canonical `Progress` |
+| `POST /api/advanced-vocab/vocabulary/complete` | `{bank_id,item_id,seen_lexeme_ids[]}` | canonical `Progress` |
+| `POST /api/advanced-vocab/practice/start` | `{bank_id,item_id,stage: practice_1|practice_2}` | canonical `Progress` |
+| `POST /api/advanced-vocab/practice/answer` | `{bank_id,item_id,stage,qid,answer,response_time_ms?}` | `{qid,answer,is_correct,explanation?,note?,completed,progress}` for that accepted immutable answer |
+| `POST /api/advanced-vocab/reading` | `{bank_id,item_id,answers:{qid:value},duration_sec}` | `SectionReview` `{section,total,correct,pct,submitted_at,answer_results,answers}` |
+| `POST /api/advanced-vocab/controlled-rewrite/complete` | `{bank_id,item_id,attempted_item_ids[]}` | `{solutions,progress}` only after canonical completion |
+| `POST /api/advanced-vocab/listening` | `{bank_id,item_id,answers:{qid:value},duration_sec}` | first-attempt review with `requires_guided_retry`, incomplete assignment state, and canonical `Progress`; a non-retry activity may return final `SectionReview` |
+| `POST /api/advanced-vocab/listening/guided-retry` | `{bank_id,item_id,answers:{wrong_qid:value}}` | final review with initial and retry evidence, `{completed,pct:null}`, and canonical `Progress` |
+| `GET /admin/advanced-vocab/assignments/{assignment_id}/results` | UUID path | `AdminResults`: assignment/bank snapshot, `lesson_id`, `score_policy:none`, six required stages, reference-only markers, and per-student item/stage/practice/section/Listening evidence |
+
+`Progress` contains `completed_stages`, persisted stage rows, immutable Practice
+answers, submitted section reviews, `listening_submitted`, and `required_completed`.
+Pre-reveal `LessonView` follows the field projections above; post-reveal answer fields
+exist only in the accepted mutation response and persisted review. Writing and
+Speaking have no submission route in this router, and generic submission routes must
+reject this runtime while leaving teacher-created Writing assignments unchanged.
+
+Stable failures are: 401 unauthenticated; 403 non-admin on the admin route; 404 wrong
+assignee, archived/unknown item, or non-Advanced bank; 409 unmet predecessor, frozen-
+version mismatch, immutable-answer conflict, or already-submitted different payload;
+422 invalid/missing IDs or required answers; and sanitized 500 persistence/content
+failure. Existing non-Advanced course route schemas and behavior remain unchanged.
+
 ## UI and interaction
 
 - The learner route renders vocabulary cards consistent with the existing design
@@ -69,7 +102,8 @@
   schema/RLS migration on staging before merging code that depends on it.
 - Implement backend canonical persistence and admin result projection together with
   their service/API, migration/RLS, replay/concurrency, and backend regression tests;
-  do not merge that layer until its exact SHA passes.
+  generate the OpenAPI declaration and do not merge that layer until its exact SHA and
+  API drift check pass.
 - Implement learner/admin UI integration together with model, behavior, browser,
   accessibility, responsive, interruption/resume, and reveal-boundary tests; do not
   merge that layer until its exact SHA passes.

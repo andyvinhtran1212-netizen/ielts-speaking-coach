@@ -12,13 +12,14 @@ on staging and replacement implementation commits are created from that base.
 | FR-003 | kind=test; ref=backend/tests/test_advanced_vocab_audio_builder.py, backend/tests/test_advanced_vocab_package_validator.py, backend/tests/test_advanced_vocab_importer.py | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
 | FR-005 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
-| FR-006 | kind=test; ref=backend/tests/test_advanced_vocab_service.py | PENDING |
+| FR-006 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, frontend/tests/admin-class-homework-next-behavior.test.mjs, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
 | FR-007 | kind=test; ref=backend/tests/test_advanced_vocab_rls_integration.py | PENDING |
 | FR-008 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py | PENDING |
 
 ## Contract evidence
 
-- OpenAPI/type drift: pending exact implementation SHA CI.
+- OpenAPI/type drift: pending named request/response model generation, Next consumer
+  use of generated operation types, and exact implementation SHA CI.
 - Backward compatibility: pending legacy-route isolation, frozen-version tests,
   existing course retry/report regression tests, and an integration journey that
   assigns v1, imports a changed v2 bank, and proves learner, submission, resume, and
@@ -39,7 +40,13 @@ on staging and replacement implementation commits are created from that base.
 - Stage ordering: pending out-of-order start/answer calls before every predecessor,
   followed by the accepted in-order journey and canonical reload comparison.
 - Archive lifecycle: pending archive, blocked learner reload, preserved admin reload,
-  republish, and learner resume from the original canonical stage.
+  republish, and learner resume from the original canonical stage. Every partial-
+  evidence store must make the homework list render Archive instead of Delete both
+  immediately and after reload.
+- Timing truth: pending capped per-question Practice response time and Reading/
+  Listening duration persistence, idempotent retry totals, untimed Vocabulary/rewrite
+  completion timestamps, and matching learner/admin reload projections without
+  fabricated wall-clock values.
 
 ## UI evidence
 

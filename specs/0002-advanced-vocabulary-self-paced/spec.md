@@ -66,10 +66,11 @@ that prevents answer leakage and gives admins canonical completion evidence.
 - **FR-005:** Writing Task 1/2 and Speaking remain reference or practice content,
   do not capture or submit responses in this runtime, are not graded by default,
   and Writing can be submitted for grading only through a teacher assignment.
-- **FR-006:** Required-stage answers, attempts, guided retry state, duration, and
-  completion are persisted as canonical backend truth and returned to admins
-  without inventing an overall score. Any partial evidence prevents assignment-item
-  deletion; archiving preserves progress for admins, blocks learner access, and
+- **FR-006:** Required-stage answers, attempts, guided retry state, completion
+  timestamps, and bounded response time/duration where the interaction supplies one
+  are persisted as canonical backend truth and returned to admins without inventing
+  an overall score or wall-clock duration. Any partial evidence prevents assignment-
+  item deletion; archiving preserves progress for admins, blocks learner access, and
   republishing restores learner resume from the same canonical stage.
 - **FR-007:** Database migration and RLS policies isolate learner-owned evidence,
   preserve immutable submission/version history, and support idempotent staged
@@ -90,26 +91,32 @@ that prevents answer leakage and gives admins canonical completion evidence.
 
 - **Vocabulary:** the learner sends the complete set of 24 authored `lexeme_id`
   values; the server rejects a partial set and upserts a completed vocabulary stage
-  with the canonical seen-ID set.
+  with the canonical seen-ID set and server completion timestamp. No client-derived
+  duration is recorded for this untimed study stage.
 - **Practice 1 and Practice 2:** Practice 1 mutations require persisted Vocabulary
   completion, and Practice 2 mutations require persisted Practice 1 completion; the
   server rejects out-of-order start and answer calls without writing progress. It
   accepts at most one immutable answer per server-selected question and marks the
   stage complete only when distinct persisted question attempts cover every selected
-  question (28 and 20 respectively).
+  question (28 and 20 respectively). Each accepted answer stores its supplied
+  `response_time_ms`, capped at 12 hours; identical replay does not add time, and the
+  admin stage duration is the sum of those immutable rows.
 - **Reading:** the learner submits a non-empty answer for every authored Reading
   question after Practice 2; the server creates exactly one canonical
   `course_section_submissions` Reading row containing answers, frozen answer key,
   frozen content, result counts, and duration.
 - **Controlled rewrite:** after Reading, the learner confirms an attempt for all 20
   server-issued prompt IDs; only then does the server persist the canonical attempted
-  ID set and reveal reference solutions. This is completion evidence, not a graded
-  Writing submission.
+  ID set and server completion timestamp and reveal reference solutions. This is an
+  untimed completion marker, not a graded Writing submission; no client-derived
+  duration is stored.
 - **Listening:** after controlled rewrite, the learner submits a non-empty first
   answer for every authored Listening question. When guided retry is required, the
   first attempt alone is not completion: the learner must submit every initially
   incorrect question, after which the server creates exactly one canonical Listening
-  section row containing both the frozen initial attempt and retry evidence.
+  section row containing both the frozen initial attempt and retry evidence. Reading
+  and Listening store supplied `duration_sec`, capped at 12 hours; retry/resume never
+  replaces the first accepted duration.
 - Repeating an identical completion call returns the existing canonical evidence or
   performs an idempotent upsert. A different answer after an immutable submission,
   or a conflicting concurrent retry, returns a conflict and never overwrites the
