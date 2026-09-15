@@ -490,8 +490,8 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                 if q_type not in {"mcq", "choice"}:
                     continue
                 option_keys = [
-                    str(option.get("letter") or option.get("key") or "").strip()
-                    for option in options
+                    str(_option_identity(option, index)).strip()
+                    for index, option in enumerate(options)
                 ]
                 if not option_keys or any(not key for key in option_keys):
                     report.add(
@@ -622,12 +622,18 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                                f"Listening question {question_id or '?'} needs "
                                "a usable answer span.")
                 if str(question.get("question_type") or "").lower() == "mcq":
-                    option_keys = {
-                        str(option.get("key") or option.get("letter") or "").strip()
-                        for option in question.get("options") or []
+                    option_keys = [
+                        str(_option_identity(option, index)).strip()
+                        for index, option in enumerate(question.get("options") or [])
                         if isinstance(option, dict)
-                    }
-                    if str(solution.get("answer") or "").strip() not in option_keys:
+                    ]
+                    if not option_keys or any(not key for key in option_keys):
+                        report.add(
+                            "error", "LISTENING_MCQ_OPTION_KEY_INVALID", path,
+                            f"Listening question {question_id or '?'} needs a "
+                            "non-empty learner option identifier.",
+                        )
+                    if str(solution.get("answer") or "").strip() not in set(option_keys):
                         report.add("error", "LISTENING_MCQ_ANSWER_INVALID", path,
                                    f"Listening question {question_id or '?'} answer "
                                    "must match an option key.")

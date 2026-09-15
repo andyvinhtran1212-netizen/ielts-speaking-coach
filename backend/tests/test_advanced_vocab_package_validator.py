@@ -683,6 +683,38 @@ def test_listening_mcq_answer_must_match_an_option_key(tmp_path: Path):
     assert "LISTENING_MCQ_ANSWER_INVALID" in _codes(report)
 
 
+def test_section_mcqs_use_the_learner_letter_key_precedence(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    reading = next(a for a in lesson["activities"] if a["activity_type"] == "reading_lab")
+    reading["content"]["questions"][0].update({
+        "question_type": "mcq",
+        "options": [
+            {"letter": "", "key": "A", "text": "Unanswerable"},
+            {"letter": "B", "key": "Y", "text": "Other"},
+        ],
+    })
+    reading["content"]["solutions"]["1"]["answer"] = "A"
+    listening = next(
+        a for a in lesson["activities"] if a["activity_type"] == "listening_lab"
+    )
+    listening_mcq = listening["content"]["questions"][3]
+    listening_mcq["options"] = [
+        {"letter": "A", "key": "X", "text": "Learner submits A"},
+        {"letter": "B", "key": "Y", "text": "Other"},
+    ]
+    listening["content"]["solutions"]["4"]["answer"] = "X"
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    report = validate_package(tmp_path)
+
+    assert {
+        "READING_MCQ_OPTION_KEY_INVALID",
+        "LISTENING_MCQ_ANSWER_INVALID",
+    } <= _codes(report)
+
+
 def test_listening_question_ids_must_be_unique_and_non_empty(tmp_path: Path):
     _write_package(tmp_path)
     path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
