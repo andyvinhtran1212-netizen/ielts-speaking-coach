@@ -25,15 +25,18 @@ export function readingSupportLines(content) {
     .flatMap((question) => Array.isArray(question?.options) ? question.options : [])
     .map((option) => normalizeOption(option?.text ?? option))
     .filter(Boolean);
-  return (Array.isArray(content?.question_material) ? content.question_material : []).filter((line) => {
+  const safe = [];
+  for (const line of Array.isArray(content?.question_material) ? content.question_material : []) {
     const text = String(line || '').trim();
-    if (!text || questionStems.has(text) || /^\d+[.)]\s/.test(text)) return false;
+    if (/^(?:master\s+answer\s+key|answer\s+key|vocabulary\s+profile|quality\s+checks?|supplement\b|editorial\b)/i.test(text)) break;
+    if (!text || questionStems.has(text) || /^\d+[.)]\s/.test(text)) continue;
     const normalized = normalizeOption(text);
     const embedded = mcqOptions.filter((option) => normalized.includes(option));
-    if (embedded.length >= 2) return false;
-    if (/^[A-Z][.)]\s/.test(text) && embedded.length === 1) return false;
-    return true;
-  });
+    if (embedded.length >= 2) continue;
+    if (/^[A-Z][.)]\s/.test(text) && embedded.length === 1) continue;
+    safe.push(line);
+  }
+  return safe;
 }
 
 /**

@@ -498,6 +498,23 @@ def test_reading_requires_thirteen_questions_and_no_answer_leak(tmp_path: Path):
     assert {"READING_QUESTION_COUNT", "READING_ANSWER_LEAK"} <= _codes(report)
 
 
+def test_reading_question_ids_must_be_unique_and_non_empty(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    reading = next(a for a in lesson["activities"] if a["activity_type"] == "reading_lab")
+    reading["content"]["questions"][0]["question_number"] = ""
+    reading["content"]["questions"][1]["question_number"] = 3
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+
+    assert {
+        "READING_QUESTION_ID_MISSING",
+        "READING_QUESTION_ID_DUPLICATE",
+    } <= _codes(report)
+
+
 def test_warning_prevents_publish_ready_without_invalidating_schema(tmp_path: Path):
     _write_package(tmp_path)
     path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"

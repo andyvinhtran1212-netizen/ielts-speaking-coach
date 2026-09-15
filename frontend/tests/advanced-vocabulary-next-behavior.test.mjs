@@ -67,6 +67,7 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
       const support = readingSupportLines(reading);
       const mcqOptions = reading.questions.filter((question) => /MCQ|multiple choice/i.test(question.question_type)).flatMap((question) => question.options || []).map((option) => option.text);
       assert.ok(!support.some((line) => mcqOptions.filter((option) => line.toLowerCase().includes(option.toLowerCase())).length >= 2));
+      assert.doesNotMatch(support.join('\n'), /master\s+answer\s+key|answer\s+key|vocabulary\s+profile|quality\s+checks?|supplement\b|\b\d+[YNT]\s*\(/i);
     }
     const t01Support = readingSupportLines(LESSONS[0].activities.find((row) => row.activity_type === 'reading_lab').content);
     assert.ok(t01Support.some((line) => line.startsWith('List of researchers A.')));

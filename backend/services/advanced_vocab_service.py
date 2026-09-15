@@ -220,6 +220,24 @@ def _activity(lesson: dict, activity_type: str) -> dict:
                  if a.get("activity_type") == activity_type), {})
 
 
+_READING_EDITORIAL_HEADING = re.compile(
+    r"^(?:master\s+answer\s+key|answer\s+key|vocabulary\s+profile|"
+    r"quality\s+checks?|supplement\b|editorial\b)",
+    flags=re.IGNORECASE,
+)
+
+
+def _safe_reading_material(value: object) -> list[str]:
+    """Expose only the authored exercise material before editorial appendices."""
+    safe: list[str] = []
+    for row in value if isinstance(value, list) else []:
+        text = str(row or "")
+        if _READING_EDITORIAL_HEADING.match(text.strip()):
+            break
+        safe.append(text)
+    return safe
+
+
 def controlled_rewrite_parts(lesson: dict) -> dict:
     activity = _activity(lesson, "controlled_rewrite")
     blocks = list(((activity.get("content") or {}).get("solutions") or []))
@@ -365,6 +383,9 @@ def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
     activities: dict[str, Any] = {}
     reading = dict((_activity(lesson, "reading_lab").get("content") or {}))
     reading.pop("solutions", None)
+    reading["question_material"] = _safe_reading_material(
+        reading.get("question_material")
+    )
     reading["questions"] = [
         _safe_reading_question(question)
         for question in reading.get("questions") or []

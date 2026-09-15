@@ -375,10 +375,22 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             if question_count not in {13, 14}:
                 report.add("error", "READING_QUESTION_COUNT", path,
                            f"Reading Lab must contain 13 or 14 questions; found {question_count}.")
-            question_ids = {
+            question_id_rows = [
                 str(question.get("question_number") or "")
                 for question in questions if isinstance(question, dict)
-            } if isinstance(questions, list) else set()
+            ] if isinstance(questions, list) else []
+            if "" in question_id_rows:
+                report.add("error", "READING_QUESTION_ID_MISSING", path,
+                           "Every Reading question needs a non-empty question_number.")
+            duplicate_ids = sorted(
+                question_id for question_id, occurrences in Counter(question_id_rows).items()
+                if question_id and occurrences > 1
+            )
+            if duplicate_ids:
+                report.add("error", "READING_QUESTION_ID_DUPLICATE", path,
+                           "Reading question IDs must be unique; duplicates: "
+                           + ", ".join(duplicate_ids))
+            question_ids = set(question_id_rows)
             solution_ids = set(solutions) if isinstance(solutions, dict) else set()
             if question_ids != solution_ids:
                 report.add("error", "READING_SOLUTION_COUNT", path,

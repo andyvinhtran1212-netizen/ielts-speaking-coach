@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
@@ -246,8 +247,11 @@ def test_section_grader_accepts_authored_codes_and_explicit_slash_variants():
     ]
 
 
-def test_learner_reading_projection_strips_source_and_correction_evidence(monkeypatch):
-    lesson = service.load_lesson("ADV-T22")
+@pytest.mark.parametrize("lesson_id", ["ADV-T22", "ADV-T23"])
+def test_learner_reading_projection_strips_source_and_correction_evidence(
+    monkeypatch, lesson_id,
+):
+    lesson = service.load_lesson(lesson_id)
     monkeypatch.setattr(service, "_progress", lambda _item: {
         "completed_stages": [], "stages": [], "answers": [], "sections": [],
         "listening_submitted": False, "required_completed": False,
@@ -269,10 +273,29 @@ def test_learner_reading_projection_strips_source_and_correction_evidence(monkey
     assert set().union(*(question.keys() for question in reading["questions"])) == {
         "question_number", "question_type", "stem", "options",
     }
+    if lesson_id == "ADV-T23":
+        assert "Master Answer Key" not in serialized
+        assert "Vocabulary Profile" not in serialized
+        assert "Quality Checks" not in serialized
+        assert "3Y (1, 4, 5)" not in serialized
+        assert "Answer key (Task A)" not in serialized
     authored = service._answer_rows(
         service._activity(lesson, "reading_lab")["content"],
     )
     assert any(row.get("evidence") for row in authored)
+
+
+def test_core30_learner_reading_material_stops_before_editorial_appendices():
+    forbidden = re.compile(
+        r"master\s+answer\s+key|answer\s+key|vocabulary\s+profile|"
+        r"quality\s+checks?|supplement\b|\b\d+[YNT]\s*\(",
+        flags=re.IGNORECASE,
+    )
+    for lesson_id in LESSON_IDS:
+        lesson = service.load_lesson(lesson_id)
+        content = service._activity(lesson, "reading_lab")["content"]
+        safe = service._safe_reading_material(content.get("question_material"))
+        assert not forbidden.search("\n".join(safe)), lesson_id
 
 
 def test_core30_assets_exist_for_every_card_and_core_media():
