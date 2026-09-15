@@ -1545,6 +1545,27 @@ async function renderOneList() {
 /** Báo cáo của MỘT em — dùng lại đúng bộ vẽ học viên đang thấy. */
 let _oneSeq = 0;
 
+function oneReportStale(seq, gen) {
+  return seq !== _oneSeq || gen !== _mkGen;
+}
+
+async function renderAdvancedOneReport(box, userId, name, seq, gen) {
+  const report = await api.get('/admin/advanced-vocab/assignments/'
+    + encodeURIComponent(_mk.asg) + '/results');
+  if (oneReportStale(seq, gen)) return;
+  const row = (report.students || []).find((entry) => entry.student
+    && entry.student.user_id === userId);
+  if (!row) throw new Error('Không tìm thấy bằng chứng của học viên trong bài giao này.');
+  const stageNames = { vocabulary: 'Từ vựng', practice_1: 'Luyện nhận diện', practice_2: 'Luyện vận dụng', controlled_rewrite: 'Controlled rewrite', reading: 'Reading', listening: 'Listening' };
+  const stages = (row.stages || []).map((stage) => `<li><strong>${esc(stageNames[stage.stage] || stage.stage)}</strong> · ${esc(stage.completed_at || 'đã hoàn tất')}</li>`).join('');
+  const sections = (row.sections || []).map((section) => `<li><strong>${esc(section.section)}</strong> · ${section.correct}/${section.total} câu · ${section.duration_sec || 0}s</li>`).join('');
+  const attempts = (row.practice_attempts || []).map((attempt) => `<tr><td>${esc(attempt.stage)}</td><td>${esc(attempt.qid)}</td><td>${esc(String(attempt.answer_given ?? ''))}</td><td>${attempt.is_correct ? 'Đúng' : 'Sai'}</td></tr>`).join('');
+  box.innerHTML = '<h4 class="cl-one__name">' + esc(name || '') + '</h4>'
+    + '<div class="adm-banner">Bài self-paced không có điểm tổng. Writing và Speaking chỉ để tham khảo/luyện riêng.</div>'
+    + '<h4>Phần đã hoàn tất</h4><ul>' + stages + sections + '</ul>'
+    + '<h4>Chi tiết luyện tập</h4><table class="adm-table"><thead><tr><th>Phần</th><th>Câu</th><th>Trả lời</th><th>Kết quả</th></tr></thead><tbody>' + attempts + '</tbody></table>';
+}
+
 async function openOneReport(userId, name) {
   const box = $('one-body');
   // Chỉ vẽ nếu lượt này VẪN là lượt mới nhất. Bấm An rồi Bình lúc mạng chậm:
@@ -1559,20 +1580,7 @@ async function openOneReport(userId, name) {
   box.innerHTML = '<p class="adm-hint">Đang dựng báo cáo…</p>';
   try {
     if (_mk.advanced) {
-      const report = await api.get('/admin/advanced-vocab/assignments/'
-        + encodeURIComponent(_mk.asg) + '/results');
-      if (seq !== _oneSeq || gen !== _mkGen) return;
-      const row = (report.students || []).find((entry) => entry.student
-        && entry.student.user_id === userId);
-      if (!row) throw new Error('Không tìm thấy bằng chứng của học viên trong bài giao này.');
-      const stageNames = { vocabulary: 'Từ vựng', practice_1: 'Luyện nhận diện', practice_2: 'Luyện vận dụng', controlled_rewrite: 'Controlled rewrite', reading: 'Reading', listening: 'Listening' };
-      const stages = (row.stages || []).map((stage) => `<li><strong>${esc(stageNames[stage.stage] || stage.stage)}</strong> · ${esc(stage.completed_at || 'đã hoàn tất')}</li>`).join('');
-      const sections = (row.sections || []).map((section) => `<li><strong>${esc(section.section)}</strong> · ${section.correct}/${section.total} câu · ${section.duration_sec || 0}s</li>`).join('');
-      const attempts = (row.practice_attempts || []).map((attempt) => `<tr><td>${esc(attempt.stage)}</td><td>${esc(attempt.qid)}</td><td>${esc(String(attempt.answer_given ?? ''))}</td><td>${attempt.is_correct ? 'Đúng' : 'Sai'}</td></tr>`).join('');
-      box.innerHTML = '<h4 class="cl-one__name">' + esc(name || '') + '</h4>'
-        + '<div class="adm-banner">Bài self-paced không có điểm tổng. Writing và Speaking chỉ để tham khảo/luyện riêng.</div>'
-        + '<h4>Phần đã hoàn tất</h4><ul>' + stages + sections + '</ul>'
-        + '<h4>Chi tiết luyện tập</h4><table class="adm-table"><thead><tr><th>Phần</th><th>Câu</th><th>Trả lời</th><th>Kết quả</th></tr></thead><tbody>' + attempts + '</tbody></table>';
+      await renderAdvancedOneReport(box, userId, name, seq, gen);
       return;
     }
     if (!_CR) _CR = await import('/js/course-report.js');
@@ -2658,6 +2666,7 @@ const EFFORT_STATE = {
 
 async function openEffort(bankId, assignmentId, title) {
   const gen = _mkGen;
+  const effortTimeHint = 'Thời gian cộng từ lúc mỗi phần được mở trong lượt làm, không suy từ khoảng cách giữa hai timestamp trên máy chủ.';
   $('effort-body').innerHTML = '<p class="adm-hint">Đang tải…</p>';
   let r;
   try {
@@ -2680,6 +2689,7 @@ async function openEffort(bankId, assignmentId, title) {
   (_who.members || []).forEach((m) => {
     if (m.student_id) { nameOf[m.student_id] = m.name; noAcct[m.student_id] = !m.user_id; }
   });
+  const learnerName = (x) => nameOf[x.student_id] || 'Học viên đã rời lớp';
 
   // Đọc hỏng ở lượt ĐẦU TIÊN thì `students` rỗng — và "chưa có ai mở bài" là
   // một câu khẳng định, không phải một chỗ trống. Nói ra sự thiếu TRƯỚC, đừng
@@ -2702,7 +2712,7 @@ async function openEffort(bankId, assignmentId, title) {
       : Math.round(x.combined_pct) + '%';
     const minutes = x.attempt_minutes || x.minutes;
     return `<tr>
-      <td>${esc(nameOf[x.student_id] || 'Học viên đã rời lớp')}${
+      <td>${esc(learnerName(x))}${
         noAcct[x.student_id] ? ' <span class="av-board__na">chưa kích hoạt</span>' : ''}</td>
       <td><span class="cl-effort-state" data-s="${esc(x.state)}">${esc(EFFORT_STATE[x.state] || x.state)}</span></td>
       <td class="cl-effort-num">${progress}</td>
@@ -2744,8 +2754,7 @@ async function openEffort(bankId, assignmentId, title) {
     + (r.advanced_vocab ? 'Chính sách điểm' : 'Điểm tổng gần nhất') + '</th>'
     + '<th>Tổng thời gian</th></tr></thead>'
     + '<tbody>' + body + '</tbody></table>'
-    + '<p class="adm-hint">Thời gian cộng từ bằng chứng từng phần, không suy từ '
-    + 'khoảng cách giữa hai timestamp trên máy chủ.'
+    + '<p class="adm-hint">' + effortTimeHint
     + (r.advanced_vocab ? ' Writing và Speaking là nội dung tham khảo/luyện riêng, không nộp và không chấm mặc định.' : '')
     + '</p>'
     + axesHtml;

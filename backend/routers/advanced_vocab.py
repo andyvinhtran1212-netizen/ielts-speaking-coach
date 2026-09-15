@@ -34,7 +34,7 @@ class PracticeAnswerBody(PracticeStartBody):
     response_time_ms: int | None = Field(default=None, ge=0, le=12 * 60 * 60 * 1000)
 
 
-class SectionSubmitBody(BaseModel):
+class AdvancedVocabSectionSubmitBody(BaseModel):
     bank_id: str
     item_id: str
     answers: dict[str, str] = Field(default_factory=dict, max_length=100)
@@ -86,7 +86,7 @@ async def answer_practice(body: PracticeAnswerBody, authorization: str | None = 
 
 
 @router.post("/reading")
-async def submit_reading(body: SectionSubmitBody, authorization: str | None = Header(None)):
+async def submit_reading(body: AdvancedVocabSectionSubmitBody, authorization: str | None = Header(None)):
     user = await get_supabase_user(authorization)
     return advanced_vocab_service.submit_reading(
         user_id=user["id"], bank_id=body.bank_id, item_id=body.item_id,
@@ -107,7 +107,7 @@ async def complete_controlled_rewrite(
 
 
 @router.post("/listening")
-async def submit_listening(body: SectionSubmitBody, authorization: str | None = Header(None)):
+async def submit_listening(body: AdvancedVocabSectionSubmitBody, authorization: str | None = Header(None)):
     user = await get_supabase_user(authorization)
     return advanced_vocab_service.submit_listening(
         user_id=user["id"], bank_id=body.bank_id, item_id=body.item_id,
