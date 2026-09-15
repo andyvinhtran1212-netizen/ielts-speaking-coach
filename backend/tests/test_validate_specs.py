@@ -353,6 +353,38 @@ def test_repository_rejects_empty_requirement_alongside_valid_one(tmp_path: Path
     assert any("FR-002 must have an inline description" in error for error in errors)
 
 
+def test_repository_rejects_indented_code_requirement(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    spec = root / "specs/0001-example-feature/spec.md"
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace(
+            "- **FR-001:** Works.", "    - **FR-001:** Hidden in a code block."
+        ),
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert any("declare at least one requirement" in error for error in errors)
+
+
+def test_repository_rejects_placeholder_requirement_descriptions(
+    tmp_path: Path,
+) -> None:
+    for index, placeholder in enumerate(("TODO", "TBD", "<behavior>")):
+        root = _valid_repo(tmp_path / str(index))
+        spec = root / "specs/0001-example-feature/spec.md"
+        spec.write_text(
+            spec.read_text(encoding="utf-8").replace(
+                "- **FR-001:** Works.", f"- **FR-001:** {placeholder}"
+            ),
+            encoding="utf-8",
+        )
+        errors, _ = validator.validate_repository(root)
+        assert any(
+            "FR-001 must have an inline description with concrete behavior" in error
+            for error in errors
+        )
+
+
 def test_final_evidence_requires_a_final_result_cell(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     (root / "specs/0001-example-feature/verification.md").write_text(
@@ -1808,8 +1840,8 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
             spec="FEAT-0001",
             base_sha=base_sha,
             coverage=(
-                "- FR-001 -> docs/fr-one.md\n"
-                "- FR-002 -> docs/fr-two.md"
+                "- FR-001 -> kind=test; ref=docs/fr-one.md; implementation=docs/fr-one.md\n"
+                "- FR-002 -> kind=test; ref=docs/fr-two.md; implementation=docs/fr-two.md"
             ),
         ),
         specs,
@@ -1840,7 +1872,10 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
             change_class="feature",
             spec="FEAT-0001",
             base_sha=base_sha,
-            coverage="- FR-002 -> docs/fr-two-before.md",
+            coverage=(
+                "- FR-002 -> kind=test; ref=docs/fr-two-before.md; "
+                "implementation=docs/fr-two-before.md"
+            ),
         ),
         specs,
         root,
@@ -1848,6 +1883,57 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
     assert any(
         "implementation commits predate approved FEAT-0001 FR-002" in error
         for error in premature
+    )
+    alternate_evidence = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            base_sha=base_sha,
+            coverage="- FR-002 -> backend/tests/test_second.py::test_independent",
+        ),
+        specs,
+        root,
+    )
+    assert any(
+        "implementation commits predate approved FEAT-0001 FR-002" in error
+        for error in alternate_evidence
+    )
+    unmatched_mapping = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            base_sha=base_sha,
+            coverage=(
+                "- FR-002 -> kind=test; ref=docs/fr-two-before.md; "
+                "implementation=docs/never-changed.md"
+            ),
+        ),
+        specs,
+        root,
+    )
+    assert any(
+        "implementation commits predate approved FEAT-0001 FR-002" in error
+        for error in unmatched_mapping
+    )
+    invalid_mapping = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            base_sha=base_sha,
+            coverage=(
+                "- FR-002 -> kind=test; ref=docs/fr-two-before.md; "
+                "implementation=../outside.md"
+            ),
+        ),
+        specs,
+        root,
+    )
+    assert any(
+        "implementation commits predate approved FEAT-0001 FR-002" in error
+        for error in invalid_mapping
     )
 
 

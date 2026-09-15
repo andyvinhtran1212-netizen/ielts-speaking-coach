@@ -8,6 +8,10 @@ base branch before implementation began, then list the implemented requirement
 IDs. Production promotion PRs from `staging` to `main` are exempt from repeating
 feature metadata.
 
+For incremental work on requirements approved at different times, use structured
+coverage evidence and map each requirement to its owned implementation paths:
+`kind=test; ref=path/to/test; implementation=path/to/code,path/to/test`.
+
 ## Constitution amendment
 
 <!-- Required only when specs/_meta/constitution.md changes. State why the

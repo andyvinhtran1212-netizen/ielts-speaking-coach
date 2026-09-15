@@ -25,11 +25,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 FEATURE_DIR_RE = re.compile(r"^(?P<number>\d{4})-[a-z0-9]+(?:-[a-z0-9]+)*$")
 SPEC_ID_RE = re.compile(r"^[A-Z][A-Z0-9]*-(?P<number>\d{4})$")
 REQUIREMENT_MARKER_RE = re.compile(
-    r"^\s*-\s+\*\*(FR-[^\s:*]+):\*\*(?:[ \t]*(.*))?$",
+    r"^ {0,3}-\s+\*\*(FR-[^\s:*]+):\*\*(?:[ \t]*(.*))?$",
     re.MULTILINE,
 )
 REQUIREMENT_WITH_TEXT_RE = re.compile(
-    r"^\s*-\s+\*\*(FR-[^\s:*]+):\*\*\s+(\S.*?)(?=^\s*-\s+\*\*FR-[^\s:*]+:\*\*|\Z)",
+    r"^ {0,3}-\s+\*\*(FR-[^\s:*]+):\*\*\s+(\S.*?)(?=^ {0,3}-\s+\*\*FR-[^\s:*]+:\*\*|\Z)",
     re.MULTILINE | re.DOTALL,
 )
 VALID_REQUIREMENT_ID_RE = re.compile(r"^FR-\d{3}$")
@@ -654,9 +654,9 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
         for requirement, description in requirement_markers:
             if VALID_REQUIREMENT_ID_RE.fullmatch(requirement):
                 requirements.append(requirement)
-                if not description.strip():
+                if _placeholder_value(description.strip()):
                     errors.append(
-                        f"{spec_path}: functional requirement {requirement} must have an inline description"
+                        f"{spec_path}: functional requirement {requirement} must have an inline description with concrete behavior"
                     )
         unique_requirements = sorted(set(requirements))
         if not unique_requirements:
@@ -831,9 +831,6 @@ def _topic_implementation_before_approval(
     base_sha: str,
     head_sha: str,
     approval_commit: str,
-    spec_path: str,
-    requirement: str,
-    description: str,
     evidence: str,
 ) -> tuple[bool, list[str]]:
     topic_history = subprocess.run(
@@ -844,14 +841,22 @@ def _topic_implementation_before_approval(
     )
     if topic_history.returncode != 0:
         return False, []
-    evidence_fields = _structured_evidence(evidence)
-    evidence_locator = evidence_fields.get("ref", evidence)
-    evidence_parts = evidence_locator.strip().strip("`").split(maxsplit=1)
-    evidence_token = evidence_parts[0] if evidence_parts else ""
-    evidence_path = evidence_token.split("::", 1)[0]
-    if Path(evidence_path).is_absolute() or not (root / evidence_path).is_file():
-        evidence_path = ""
-    offenders: list[str] = []
+    fields = _structured_evidence(evidence)
+    raw_mapped_paths = {
+        path.strip().strip("`")
+        for path in fields.get("implementation", "").split(",")
+        if path.strip()
+    }
+    mapped_paths = {
+        path
+        for path in raw_mapped_paths
+        if not Path(path).is_absolute()
+        and ".." not in Path(path).parts
+        and not path.startswith("specs/")
+    }
+    if len(mapped_paths) != len(raw_mapped_paths):
+        mapped_paths = set()
+    revision_paths: list[tuple[str, list[str]]] = []
     for revision in topic_history.stdout.splitlines():
         paths = subprocess.run(
             [
@@ -870,24 +875,20 @@ def _topic_implementation_before_approval(
         )
         if paths.returncode != 0:
             return False, []
-        implementation_paths = [
+        changed_paths = [
             path
             for path in paths.stdout.splitlines()
             if path and not path.startswith("specs/")
         ]
-        if not implementation_paths:
-            continue
-        _, revision_spec = _git_show(root, revision, spec_path)
-        spec_absent = revision_spec is None
-        requirement_active = bool(
-            revision_spec
-            and _declared_requirements(revision_spec).get(requirement) == description
-        )
-        if (
-            not spec_absent
-            and not requirement_active
-            and evidence_path not in implementation_paths
-        ):
+        if changed_paths:
+            revision_paths.append((revision, changed_paths))
+    mapping_matches_topic = bool(mapped_paths) and any(
+        not mapped_paths.isdisjoint(changed_paths)
+        for _, changed_paths in revision_paths
+    )
+    offenders: list[str] = []
+    for revision, changed_paths in revision_paths:
+        if mapping_matches_topic and mapped_paths.isdisjoint(changed_paths):
             continue
         ancestry = subprocess.run(
             [
@@ -1143,9 +1144,6 @@ def validate_pull_request(
                                         base_sha,
                                         head_sha,
                                         approval_commit,
-                                        spec_path,
-                                        requirement,
-                                        description,
                                         coverage_evidence.get(requirement, ""),
                                     )
                                 )
