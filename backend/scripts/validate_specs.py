@@ -327,6 +327,72 @@ def _placeholder_value(value: str) -> bool:
     )
 
 
+def _normalized_template_content(value: str) -> str:
+    return re.sub(r"\s+", " ", value).strip().casefold()
+
+
+def _reject_implementable_template_scaffolding(
+    specs: Path,
+    feature: Path,
+    texts: dict[str, str],
+    metadata: dict[str, Any],
+    errors: list[str],
+) -> None:
+    if metadata.get("status") not in IMPLEMENTABLE_SPEC_STATUSES:
+        return
+
+    template_spec = _read(specs / "_templates/spec.md", errors)
+    template_metadata = _frontmatter_mapping(template_spec)
+    if _normalized_template_content(str(metadata.get("title") or "")) == (
+        _normalized_template_content(str(template_metadata.get("title") or ""))
+    ):
+        errors.append(
+            f"{feature / 'spec.md'}: implementable spec still uses the template title"
+        )
+
+    for filename in (*REQUIRED_FEATURE_FILES, *HIGH_RISK_REQUIRED_FILES):
+        feature_text = texts.get(filename)
+        template_path = specs / "_templates" / filename
+        if feature_text is None or not template_path.is_file():
+            continue
+        template_text = _read(template_path, errors)
+        headings = re.findall(
+            r"^##\s+(.+?)\s*$", _visible_markdown(template_text), re.MULTILINE
+        )
+        for heading in headings:
+            template_section = _normalized_template_content(
+                _section(template_text, heading)
+            )
+            feature_section = _normalized_template_content(
+                _section(feature_text, heading)
+            )
+            if template_section and feature_section == template_section:
+                errors.append(
+                    f"{feature / filename}: implementable spec still uses template scaffolding in '## {heading}'"
+                )
+
+    template_tasks = {
+        _normalized_template_content(item)
+        for item in re.findall(
+            r"^\s*-\s+\[[ xX]\]\s+(\S.*?)\s*$",
+            _visible_markdown(_read(specs / "_templates/tasks.md", errors)),
+            re.MULTILINE,
+        )
+    }
+    feature_tasks = {
+        _normalized_template_content(item)
+        for item in re.findall(
+            r"^\s*-\s+\[[ xX]\]\s+(\S.*?)\s*$",
+            _visible_markdown(texts.get("tasks.md", "")),
+            re.MULTILINE,
+        )
+    }
+    if template_tasks & feature_tasks:
+        errors.append(
+            f"{feature / 'tasks.md'}: implementable spec still uses template task scaffolding"
+        )
+
+
 def _concrete_pass_evidence(evidence: str, root: Path) -> bool:
     if _placeholder_value(evidence):
         return False
@@ -629,6 +695,10 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
                     f"{feature / 'ui-states.md'}: high-risk UI state matrix needs a complete surface row or explicit UI impact N/A rationale"
                 )
 
+        _reject_implementable_template_scaffolding(
+            specs, feature, texts, metadata, errors
+        )
+
         for filename, headings in REQUIRED_SECTIONS.items():
             text = texts.get(filename, "")
             for heading in headings:
@@ -826,13 +896,35 @@ def _git_requirement_approval_commit(
     return None
 
 
-def _topic_implementation_before_approval(
+def _implementation_paths(evidence: str) -> tuple[bool, set[str]]:
+    fields = _structured_evidence(evidence)
+    raw_paths = [
+        path.strip().strip("`")
+        for path in fields.get("implementation", "").split(",")
+        if path.strip()
+    ]
+    if not raw_paths:
+        return False, set()
+    mapped_paths: set[str] = set()
+    for raw_path in raw_paths:
+        path = raw_path.removeprefix("./")
+        if (
+            not path
+            or Path(path).is_absolute()
+            or ".." in Path(path).parts
+            or path == "specs"
+            or path.startswith("specs/")
+        ):
+            return False, set()
+        mapped_paths.add(path)
+    return True, mapped_paths
+
+
+def _topic_revision_paths(
     root: Path,
     base_sha: str,
     head_sha: str,
-    approval_commit: str,
-    evidence: str,
-) -> tuple[bool, list[str]]:
+) -> tuple[bool, list[tuple[str, set[str]]]]:
     topic_history = subprocess.run(
         ["git", "-C", str(root), "rev-list", "--reverse", head_sha, "--not", base_sha],
         capture_output=True,
@@ -841,22 +933,7 @@ def _topic_implementation_before_approval(
     )
     if topic_history.returncode != 0:
         return False, []
-    fields = _structured_evidence(evidence)
-    raw_mapped_paths = {
-        path.strip().strip("`")
-        for path in fields.get("implementation", "").split(",")
-        if path.strip()
-    }
-    mapped_paths = {
-        path
-        for path in raw_mapped_paths
-        if not Path(path).is_absolute()
-        and ".." not in Path(path).parts
-        and not path.startswith("specs/")
-    }
-    if len(mapped_paths) != len(raw_mapped_paths):
-        mapped_paths = set()
-    revision_paths: list[tuple[str, list[str]]] = []
+    revision_paths: list[tuple[str, set[str]]] = []
     for revision in topic_history.stdout.splitlines():
         paths = subprocess.run(
             [
@@ -875,20 +952,25 @@ def _topic_implementation_before_approval(
         )
         if paths.returncode != 0:
             return False, []
-        changed_paths = [
+        changed_paths = {
             path
             for path in paths.stdout.splitlines()
             if path and not path.startswith("specs/")
-        ]
+        }
         if changed_paths:
             revision_paths.append((revision, changed_paths))
-    mapping_matches_topic = bool(mapped_paths) and any(
-        not mapped_paths.isdisjoint(changed_paths)
-        for _, changed_paths in revision_paths
-    )
+    return True, revision_paths
+
+
+def _topic_implementation_before_approval(
+    root: Path,
+    approval_commit: str,
+    mapped_paths: set[str],
+    revision_paths: list[tuple[str, set[str]]],
+) -> tuple[bool, list[str]]:
     offenders: list[str] = []
     for revision, changed_paths in revision_paths:
-        if mapping_matches_topic and mapped_paths.isdisjoint(changed_paths):
+        if mapped_paths.isdisjoint(changed_paths):
             continue
         ancestry = subprocess.run(
             [
@@ -1120,6 +1202,52 @@ def validate_pull_request(
                                 f"pull request: {spec_id} was not approved as high or critical risk in the base revision"
                             )
                         if not bootstrap:
+                            history_resolved, revision_paths = _topic_revision_paths(
+                                root, base_sha, head_sha
+                            )
+                            implementation_paths: dict[str, set[str]] = {}
+                            if not history_resolved:
+                                errors.append(
+                                    f"pull request: cannot resolve topic implementation history for {spec_id}"
+                                )
+                            else:
+                                topic_paths = (
+                                    set().union(
+                                        *(paths for _, paths in revision_paths)
+                                    )
+                                    if revision_paths
+                                    else set()
+                                )
+                                for requirement in sorted(set(coverage)):
+                                    mapping_valid, mapped_paths = _implementation_paths(
+                                        coverage_evidence.get(requirement, "")
+                                    )
+                                    if topic_paths and not mapping_valid:
+                                        errors.append(
+                                            f"pull request: requirement coverage for {requirement} must declare valid implementation=path/to/code,path/to/test ownership"
+                                        )
+                                        continue
+                                    unmatched = mapped_paths - topic_paths
+                                    if unmatched:
+                                        errors.append(
+                                            f"pull request: implementation ownership for {requirement} references unchanged topic paths: "
+                                            + ", ".join(sorted(unmatched))
+                                        )
+                                    implementation_paths[requirement] = (
+                                        mapped_paths & topic_paths
+                                    )
+                                owned_paths = (
+                                    set().union(*implementation_paths.values())
+                                    if implementation_paths
+                                    else set()
+                                )
+                                unowned_paths = topic_paths - owned_paths
+                                if unowned_paths:
+                                    errors.append(
+                                        "pull request: topic implementation paths lack requirement ownership: "
+                                        + ", ".join(sorted(unowned_paths))
+                                    )
+
                             for requirement in sorted(set(coverage)):
                                 description = current_requirements.get(requirement)
                                 if description is None:
@@ -1138,13 +1266,17 @@ def validate_pull_request(
                                         f"pull request: cannot find durable approval commit for {spec_id} {requirement}"
                                     )
                                     continue
+                                mapped_paths = implementation_paths.get(
+                                    requirement, set()
+                                )
+                                if not history_resolved or not mapped_paths:
+                                    continue
                                 ancestry_resolved, offenders = (
                                     _topic_implementation_before_approval(
                                         root,
-                                        base_sha,
-                                        head_sha,
                                         approval_commit,
-                                        coverage_evidence.get(requirement, ""),
+                                        mapped_paths,
+                                        revision_paths,
                                     )
                                 )
                                 if not ancestry_resolved:

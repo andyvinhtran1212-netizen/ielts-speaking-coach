@@ -385,6 +385,39 @@ def test_repository_rejects_placeholder_requirement_descriptions(
         )
 
 
+def test_repository_rejects_approved_stock_template_scaffolding(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path, status="approved")
+    feature = root / "specs/0001-example-feature"
+    template_spec = (root / "specs/_templates/spec.md").read_text(encoding="utf-8")
+    (feature / "spec.md").write_text(
+        template_spec.replace("id: FEAT-0000", "id: FEAT-0001").replace(
+            "status: draft", "status: approved"
+        ),
+        encoding="utf-8",
+    )
+    for filename in ("plan.md", "tasks.md", "verification.md"):
+        (feature / filename).write_text(
+            (root / "specs/_templates" / filename).read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+    (root / "specs/README.md").write_text(
+        "# Index\n\n"
+        "| ID | Feature | Status | Risk | Spec |\n"
+        "| --- | --- | --- | --- | --- |\n"
+        "| FEAT-0001 | Replace with a user-centered title | approved | medium | "
+        "[spec](0001-example-feature/spec.md) |\n",
+        encoding="utf-8",
+    )
+
+    errors, _ = validator.validate_repository(root)
+
+    assert any("still uses the template title" in error for error in errors)
+    assert any("template scaffolding in '## Problem'" in error for error in errors)
+    assert any("template task scaffolding" in error for error in errors)
+
+
 def test_final_evidence_requires_a_final_result_cell(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     (root / "specs/0001-example-feature/verification.md").write_text(
@@ -1446,6 +1479,10 @@ def test_migration_path_requires_approved_high_risk_change(tmp_path: Path) -> No
             change_class="high-risk",
             spec="FEAT-0001",
             base_sha=base_sha,
+            coverage=(
+                "- FR-001 -> kind=test; ref=backend/tests/test_example.py::test_works; "
+                "implementation=backend/migrations/999_test.sql"
+            ),
         ),
         specs,
         root,
@@ -1698,6 +1735,10 @@ def test_prior_approval_must_exist_at_topic_merge_base(tmp_path: Path) -> None:
             change_class="feature",
             spec="FEAT-0002",
             base_sha=base_sha,
+            coverage=(
+                "- FR-001 -> kind=test; ref=backend/tests/test_example.py::test_works; "
+                "implementation=docs/implementation.md"
+            ),
         ),
         specs,
         root,
@@ -1772,6 +1813,10 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
             change_class="feature",
             spec="FEAT-0001",
             base_sha=base_sha,
+            coverage=(
+                "- FR-001 -> kind=test; ref=docs/fr-one.md; "
+                "implementation=docs/fr-one.md"
+            ),
         ),
         specs,
         root,
@@ -1799,6 +1844,10 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
             spec="FEAT-0001",
             base_sha=base_sha,
             head_sha=topic_sha,
+            coverage=(
+                "- FR-001 -> kind=test; ref=docs/fr-one.md; "
+                "implementation=docs/fr-one.md"
+            ),
         ),
         specs,
         root,
@@ -1822,6 +1871,10 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
             change_class="feature",
             spec="FEAT-0001",
             base_sha=base_sha,
+            coverage=(
+                "- FR-001 -> kind=test; ref=docs/fr-one.md; "
+                "implementation=docs/fr-one.md"
+            ),
         ),
         specs,
         root,
@@ -1896,7 +1949,7 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
         root,
     )
     assert any(
-        "implementation commits predate approved FEAT-0001 FR-002" in error
+        "coverage for FR-002 must declare valid implementation=" in error
         for error in alternate_evidence
     )
     unmatched_mapping = validator.validate_pull_request(
@@ -1914,7 +1967,7 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
         root,
     )
     assert any(
-        "implementation commits predate approved FEAT-0001 FR-002" in error
+        "ownership for FR-002 references unchanged topic paths" in error
         for error in unmatched_mapping
     )
     invalid_mapping = validator.validate_pull_request(
@@ -1932,8 +1985,31 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
         root,
     )
     assert any(
-        "implementation commits predate approved FEAT-0001 FR-002" in error
+        "coverage for FR-002 must declare valid implementation=" in error
         for error in invalid_mapping
+    )
+
+    _write(root / "docs/decoy-after.md", "unrelated work after approval\n")
+    subprocess.run(["git", "add", "docs/decoy-after.md"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "add post-approval decoy"], cwd=root, check=True)
+    decoy_mapping = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            base_sha=base_sha,
+            coverage=(
+                "- FR-002 -> kind=test; ref=docs/fr-two-before.md; "
+                "implementation=docs/decoy-after.md"
+            ),
+        ),
+        specs,
+        root,
+    )
+    assert any(
+        "topic implementation paths lack requirement ownership: docs/fr-two-before.md"
+        in error
+        for error in decoy_mapping
     )
 
 

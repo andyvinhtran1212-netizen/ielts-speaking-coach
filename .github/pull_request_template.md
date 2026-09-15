@@ -11,6 +11,8 @@ feature metadata.
 For incremental work on requirements approved at different times, use structured
 coverage evidence and map each requirement to its owned implementation paths:
 `kind=test; ref=path/to/test; implementation=path/to/code,path/to/test`.
+Every non-`specs/` path changed by the topic branch must appear in at least one
+covered requirement's `implementation` map.
 
 ## Constitution amendment
 
