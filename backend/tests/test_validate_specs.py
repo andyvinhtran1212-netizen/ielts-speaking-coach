@@ -206,6 +206,26 @@ def test_repository_rejects_empty_required_artifact(tmp_path: Path) -> None:
     assert any("plan.md" in error and "missing '## Architecture impact'" in error for error in errors)
 
 
+def test_repository_rejects_empty_required_sections(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    plan = root / "specs/0001-example-feature/plan.md"
+    plan.write_text(
+        "## Architecture impact\n\n"
+        "## Data and contracts\n\nNone.\n"
+        "## Rollout and rollback\n\nRevert.\n"
+        "## Verification strategy\n\nTest.\n",
+        encoding="utf-8",
+    )
+    spec = root / "specs/0001-example-feature/spec.md"
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace("## Problem\nProblem.", "## Problem\n<!-- describe the problem -->"),
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert any("plan.md" in error and "Architecture impact" in error and "meaningful content" in error for error in errors)
+    assert any("spec.md" in error and "Problem" in error and "meaningful content" in error for error in errors)
+
+
 def test_repository_rejects_empty_tasks_artifact(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     (root / "specs/0001-example-feature/tasks.md").write_text("", encoding="utf-8")
@@ -337,6 +357,12 @@ def test_repository_rejects_underspecified_manual_and_na_evidence(tmp_path: Path
     )
     na_errors, _ = validator.validate_repository(root)
     assert any("N/A evidence must use rationale" in error for error in na_errors)
+    verification.write_text(
+        "## Requirement coverage\n\n| FR-001 | rationale=<specific reason> | N/A |\n",
+        encoding="utf-8",
+    )
+    placeholder_errors, _ = validator.validate_repository(root)
+    assert any("N/A evidence must use rationale" in error for error in placeholder_errors)
 
 
 def test_repository_accepts_structured_manual_evidence(tmp_path: Path) -> None:
@@ -369,6 +395,17 @@ def test_repository_rejects_stale_active_index_status(tmp_path: Path) -> None:
     )
     errors, _ = validator.validate_repository(root)
     assert any("status is 'approved', expected 'verified'" in error for error in errors)
+
+
+def test_repository_rejects_stale_active_index_title(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    spec = root / "specs/0001-example-feature/spec.md"
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace("title: Example", "title: Renamed example"),
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert any("title is 'Example', expected 'Renamed example'" in error for error in errors)
 
 
 def test_repository_rejects_prose_only_index_mention(tmp_path: Path) -> None:
@@ -574,7 +611,7 @@ def test_feature_pr_rejects_spec_self_approved_in_same_change(tmp_path: Path) ->
     index = root / "specs/README.md"
     index.write_text(
         index.read_text(encoding="utf-8")
-        + "| FEAT-0002 | New | verified | medium | [spec](0002-new-feature/spec.md) |\n",
+        + "| FEAT-0002 | Example | verified | medium | [spec](0002-new-feature/spec.md) |\n",
         encoding="utf-8",
     )
     repository_errors, specs = validator.validate_repository(root)
@@ -606,6 +643,17 @@ def test_feature_pr_requires_known_requirement_coverage(tmp_path: Path) -> None:
         root,
     )
     assert any("must include evidence after the arrow" in error for error in empty)
+    commented = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            coverage="<!--\n- FR-001 -> hidden evidence\n-->",
+        ),
+        specs,
+        root,
+    )
+    assert any("must list at least one exact FR-NNN" in error for error in commented)
 
 
 def test_feature_pr_rejects_requirement_added_after_base_approval(tmp_path: Path) -> None:

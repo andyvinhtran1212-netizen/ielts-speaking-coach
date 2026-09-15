@@ -60,4 +60,4 @@ draft -> approved -> implementing -> verified -> shipped
 
 | ID | Feature | Status | Risk | Spec |
 | --- | --- | --- | --- | --- |
-| SDD-0000 | Spec-driven foundation | verified | medium | [spec](0000-sdd-foundation/spec.md) |
+| SDD-0000 | Lean spec-driven development foundation | verified | medium | [spec](0000-sdd-foundation/spec.md) |

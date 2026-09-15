@@ -131,6 +131,27 @@ def _section(text: str, heading: str) -> str:
     return match.group("body") if match else ""
 
 
+def _meaningful_section(text: str, heading: str) -> bool:
+    section = re.sub(r"<!--.*?-->", "", _section(text, heading), flags=re.DOTALL)
+    section = re.sub(r"^\s*-\s*\[[ xX]\].*$", "", section, flags=re.MULTILINE)
+    lines = [line.strip() for line in section.splitlines() if line.strip()]
+    return any(
+        not re.fullmatch(r"(?:[-*>]\s*)*<[^>\n]+>[.!]?", line)
+        for line in lines
+    )
+
+
+def _placeholder_value(value: str) -> bool:
+    normalized = value.strip()
+    return not normalized or bool(
+        re.fullmatch(
+            r"(?:<[^>\n]+>|placeholder|tbd|todo)",
+            normalized,
+            re.IGNORECASE,
+        )
+    )
+
+
 def _declared_requirements(spec_text: str) -> dict[str, str]:
     return {
         requirement: re.sub(r"\s+", " ", description).strip()
@@ -164,7 +185,8 @@ def _evidence_detail_error(result: str, evidence: str) -> str | None:
             )
     elif normalized == "N/A":
         fields = _structured_evidence(evidence)
-        if len(fields.get("rationale", "")) < 12:
+        rationale = fields.get("rationale", "")
+        if len(rationale) < 12 or _placeholder_value(rationale):
             return "N/A evidence must use rationale=<specific reason>"
     return None
 
@@ -180,12 +202,17 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
             errors.append(f"{specs / relative}: required SDD foundation file is missing")
 
     index = _read(specs / "README.md", errors)
-    index_rows: dict[str, tuple[str, str, str]] = {}
-    for index_id, _, index_status, index_risk, index_path in INDEX_ROW_RE.findall(index):
+    index_rows: dict[str, tuple[str, str, str, str]] = {}
+    for index_id, index_title, index_status, index_risk, index_path in INDEX_ROW_RE.findall(index):
         if index_id in index_rows:
             errors.append(f"{specs / 'README.md'}: duplicate active-index row for {index_id}")
             continue
-        index_rows[index_id] = (index_status, index_risk, index_path.removeprefix("./"))
+        index_rows[index_id] = (
+            index_title.strip(),
+            index_status,
+            index_risk,
+            index_path.removeprefix("./"),
+        )
     seen_ids: dict[str, Path] = {}
     feature_dirs = sorted(
         path
@@ -243,8 +270,12 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
             if index_row is None:
                 errors.append(f"{specs / 'README.md'}: active index has no exact row for {spec_id}")
             else:
-                index_status, index_risk, index_path = index_row
+                index_title, index_status, index_risk, index_path = index_row
                 expected_path = f"{feature.name}/spec.md"
+                if index_title != metadata.get("title"):
+                    errors.append(
+                        f"{specs / 'README.md'}: {spec_id} title is {index_title!r}, expected {metadata.get('title')!r}"
+                    )
                 if index_status != metadata.get("status"):
                     errors.append(
                         f"{specs / 'README.md'}: {spec_id} status is {index_status!r}, expected {metadata.get('status')!r}"
@@ -277,6 +308,10 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
                 for heading in headings:
                     if not _has_heading(text, heading):
                         errors.append(f"{feature / filename}: missing '## {heading}' section")
+                    elif not _meaningful_section(text, heading):
+                        errors.append(
+                            f"{feature / filename}: '## {heading}' section must contain meaningful content"
+                        )
             if "| Surface | Loading |" not in texts.get("ui-states.md", ""):
                 errors.append(
                     f"{feature / 'ui-states.md'}: high-risk UI state matrix is missing"
@@ -287,6 +322,10 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
             for heading in headings:
                 if not _has_heading(text, heading):
                     errors.append(f"{feature / filename}: missing '## {heading}' section")
+                elif not _meaningful_section(text, heading):
+                    errors.append(
+                        f"{feature / filename}: '## {heading}' section must contain meaningful content"
+                    )
 
         requirement_section = _section(texts.get("spec.md", ""), "Requirements")
         requirement_markers = REQUIREMENT_MARKER_RE.findall(requirement_section)
@@ -395,18 +434,17 @@ def _git_show(root: Path, revision: str, path: str) -> tuple[bool, str | None]:
 
 
 def _requirement_coverage(body: str) -> list[tuple[str, str]]:
-    section = _section(body, "Requirement coverage")
+    section = re.sub(
+        r"<!--.*?-->",
+        "",
+        _section(body, "Requirement coverage"),
+        flags=re.DOTALL,
+    )
     return re.findall(
         r"^\s*[-*]\s+(FR-\d{3})(?!\d)\s*(?:->|:)\s*(.*?)\s*$",
         section,
         re.MULTILINE,
     )
-
-
-def _meaningful_section(body: str, heading: str) -> bool:
-    section = re.sub(r"<!--.*?-->", "", _section(body, heading), flags=re.DOTALL)
-    section = re.sub(r"^\s*-\s*\[[ xX]\].*$", "", section, flags=re.MULTILINE)
-    return bool(section.strip())
 
 
 def validate_pull_request(
