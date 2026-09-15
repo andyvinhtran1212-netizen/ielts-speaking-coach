@@ -343,6 +343,76 @@ def test_timed_bank_crossing_cutoff_at_final_gate_returns_pending_state():
     assert out["mastery"]["expires_at"] == "2020-09-15T12:30:00+00:00"
 
 
+@pytest.mark.parametrize(("entitlement", "session_kind", "score"), [
+    ("retake", "retake", 70),
+    ("retry_full", "run", 50),
+])
+def test_expired_retry_stays_pending_until_reaper_records_its_verdict(
+    entitlement, session_kind, score,
+):
+    entitled = {
+        "phase": "run", "pct": score, "completed": True,
+        "next_action": entitlement, "at": "2020-09-15T12:20:00+00:00",
+        "sessions": ["completed-run"],
+    }
+    retake_session = {
+        "id": "pending-retry", "kind": session_kind,
+        "created_at": "2020-09-15T12:21:00+00:00",
+        "ended_at": None, "ended_by": None,
+    }
+
+    def load(mastery):
+        anchored = {
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "opened_at": "2020-09-15T12:00:00+00:00",
+            "due_at": None, "accepting": False, "passed_at": None,
+            "mastery": mastery,
+            "content_config": {"time_limit_minutes": 30, "pass_pct": 75},
+        }
+        fake = _FakeSupabase(responses={
+            ("quiz_banks", "select"): [{
+                "id": _BANK, "code": "C1-MIDTERM", "skill_area": "course",
+                "meta": {},
+            }],
+            ("class_assignment_items", "select"): [{
+                "passed_at": None, "mastery": mastery,
+            }],
+            ("class_assignments", "select"): [{
+                "id": "asg-timed", "status": "published", "publish_at": None,
+                "due_at": None,
+                "content_config": {"time_limit_minutes": 30, "pass_pct": 75},
+            }],
+            ("quiz_sessions", "select"): [retake_session],
+            ("quiz_questions", "select"): [{"qid": "q-1", "type": "mcq"}],
+        })
+        with patch.object(quiz_service, "supabase_admin", fake), \
+             patch.object(quiz_service, "_assignment_item_for_review",
+                          return_value=anchored), \
+             patch.object(quiz_service, "_ensure_timed_course_session") as ensure, \
+             patch.object(quiz_service, "_word_cards_for", return_value=[]), \
+             patch.object(quiz_service, "_attach_article_urls"), \
+             patch.object(quiz_service, "_resolve_question_audio"):
+            out = quiz_service.get_bank_for_play(
+                _BANK, user_id=_USER, assignment_item_id="item-timed",
+            )
+        ensure.assert_not_called()
+        return out
+
+    pending = load({"attempts": [entitled]})
+    assert pending["mastery"]["review_only"] is True
+    assert pending["mastery"]["expiry_pending"] is True
+    assert pending["mastery"]["course_action"] == "expired_pending"
+
+    after_reaper = load({"attempts": [entitled, {
+        "phase": session_kind, "pct": 0, "completed": True,
+        "next_action": "timed_out", "at": "2020-09-15T12:30:00+00:00",
+        "sessions": ["pending-retry"],
+    }]})
+    assert after_reaper["mastery"]["review_only"] is True
+    assert after_reaper["mastery"]["expiry_pending"] is False
+    assert after_reaper["mastery"]["course_action"] == "review"
+
+
 def test_timed_bank_question_failure_does_not_start_clock_or_session():
     """Prepare the answer-bearing payload before claiming a fixed time window."""
     unopened = {

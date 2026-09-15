@@ -368,6 +368,7 @@ def course_assignment_action(
     *,
     now: datetime | None = None,
     writing_expected: bool | None = None,
+    unrecorded_current_session: bool = False,
 ) -> str:
     """Return the learner action for one assigned course item.
 
@@ -405,6 +406,11 @@ def course_assignment_action(
         # A terminal ledger row is persisted truth.  Without one, read-only is
         # still mandatory but calling the item "submitted" is false: the
         # background reaper is still responsible for its canonical timeout.
+        # A retake/retry entitlement is only terminal when no newer entitled
+        # session exists outside that ledger; such a session is the current
+        # generation awaiting its own reaper verdict.
+        if unrecorded_current_session:
+            return "expired_pending"
         return ("review" if latest_action in {
             "passed", "retake", "retry_full", "timed_out",
         } else "expired_pending")
@@ -420,6 +426,73 @@ def course_assignment_action(
     if action in {"retake", "retry_full"}:
         return action
     return "review" if action in {"passed", "timed_out"} else "continue"
+
+
+def _expired_course_session_is_pending(
+    item: dict | None,
+    assignment: dict | None,
+    *,
+    bank_id: str,
+    user_id: str,
+) -> bool:
+    """Whether an expired retry generation still lacks a mastery verdict.
+
+    The mastery ledger records the decision that *entitled* a retake/full
+    retry. It does not record the newer session until ``course_verdict`` runs.
+    Treating the entitlement itself as terminal during that gap makes a reload
+    falsely say the result was saved. Session ids and creation time distinguish
+    the newer entitled generation from old concurrent orphans.
+
+    A read failure is conservatively pending: the UI may poll once more, but it
+    must never claim persistence that the canonical store could not prove.
+    """
+    item = item or {}
+    mastery = item.get("mastery") or {}
+    attempts = mastery.get("attempts") or []
+    latest = (attempts[-1]
+              if isinstance(attempts, list) and attempts
+              and isinstance(attempts[-1], dict) else None)
+    action = _recorded_next_action(
+        latest, mastery_config(assignment)["pass_pct"],
+    )
+    expected_kind = {"retake": "retake", "retry_full": "run"}.get(action)
+    if not expected_kind:
+        return False
+
+    latest_at = _at((latest or {}).get("at"))
+    recorded_ids = {
+        str(session_id)
+        for attempt in attempts
+        if isinstance(attempt, dict)
+        for session_id in (attempt.get("sessions") or [])
+        if session_id
+    }
+    try:
+        rows = (supabase_admin.table("quiz_sessions")
+                .select("id, kind, created_at, ended_at, ended_by")
+                .eq("class_assignment_item_id", item.get("id"))
+                .eq("user_id", user_id)
+                .eq("bank_id", bank_id)
+                .execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "[quiz] expired retry session read failed item=%s: %s",
+            item.get("id"), exc,
+        )
+        return True
+
+    for row in rows:
+        if str(row.get("id")) in recorded_ids:
+            continue
+        if (row.get("kind") or "run") != expected_kind:
+            continue
+        created_at = _at(row.get("created_at"))
+        if latest_at is not None and (
+            created_at is None or created_at <= latest_at
+        ):
+            continue
+        return True
+    return False
 
 
 def _full_retry_boundary(attempts: list[dict], pass_pct: int) -> datetime | None:
@@ -857,7 +930,18 @@ def get_bank_for_play(
             "due_at": item.get("due_at"),
             "content_config": item.get("content_config") or {},
         }
-        preflight_action = course_assignment_action(item, preflight_assignment)
+        preflight_timer = assignment_timer_state(item, preflight_assignment)
+        preflight_pending_session = bool(
+            preflight_timer.get("is_expired")
+            and _expired_course_session_is_pending(
+                item, preflight_assignment,
+                bank_id=bank_id, user_id=str(user_id),
+            )
+        )
+        preflight_action = course_assignment_action(
+            item, preflight_assignment,
+            unrecorded_current_session=preflight_pending_session,
+        )
         course_item = item
         course_preflight_assignment = preflight_assignment
         course_preflight_action = preflight_action
@@ -865,8 +949,6 @@ def get_bank_for_play(
         # optional badge.  Build it from the item/assignment already authorized
         # above before the best-effort refresh below.  If that refresh fails,
         # the browser must still enforce the same canonical cutoff as writes.
-        preflight_action = course_assignment_action(item, preflight_assignment)
-        preflight_timer = assignment_timer_state(item, preflight_assignment)
         if preflight_timer.get("is_timed"):
             preflight_cfg = mastery_config(preflight_assignment)
             preflight_attempts = ((item.get("mastery") or {}).get("attempts") or [])
@@ -921,12 +1003,21 @@ def get_bank_for_play(
             att = raw_attempts if isinstance(raw_attempts, list) else []
             latest_sections = ((att[-1].get("sections") or {})
                                if att and isinstance(att[-1], dict) else {})
+            effective_timer = assignment_timer_state(effective_item, assignment)
+            pending_session = bool(
+                effective_timer.get("is_expired")
+                and _expired_course_session_is_pending(
+                    effective_item, assignment,
+                    bank_id=bank_id, user_id=str(user_id),
+                )
+            )
             learner_action = course_assignment_action(
                 effective_item, assignment,
                 writing_expected=(bank_has_writing(bank_id)
                                   if effective_item.get("passed_at")
                                   and not effective_item.get("submitted_at")
                                   else None),
+                unrecorded_current_session=pending_session,
             )
             # The locked timer/session gate runs after this refresh. Carry its
             # newer phase forward so a near-pass persisted between the first
@@ -961,7 +1052,7 @@ def get_bank_for_play(
                 "expiry_pending": learner_action == "expired_pending",
                 "accepting": bool(is_accepting_submissions(assignment)),
                 "course_action": learner_action,
-                **assignment_timer_state(effective_item, assignment),
+                **effective_timer,
             }
         except Exception as exc:  # noqa: BLE001
             logger.warning("[quiz] mastery state read failed bank=%s: %s", bank_id, exc)
@@ -1014,7 +1105,8 @@ def get_bank_for_play(
     # first session.  If any payload-building step above fails, neither write
     # has happened.  Return that session id as part of the bank contract so a
     # stale localStorage fingerprint cannot make the runner create a duplicate.
-    if course_item is not None and course_preflight_action != "review":
+    if (course_item is not None
+            and course_preflight_action not in {"review", "expired_pending"}):
         preflight_kind = ("retake"
                           if course_preflight_action == "retake" else "run")
         course_item, initial_session_id = _ensure_timed_course_session(
@@ -1033,8 +1125,13 @@ def get_bank_for_play(
         if final_timer.get("is_timed"):
             mastery_state = {**(mastery_state or {}), **final_timer}
             if final_timer.get("is_expired"):
+                final_pending_session = _expired_course_session_is_pending(
+                    course_item, final_assignment,
+                    bank_id=bank_id, user_id=str(user_id),
+                )
                 final_action = course_assignment_action(
                     course_item, final_assignment,
+                    unrecorded_current_session=final_pending_session,
                 )
                 mastery_state.update({
                     "passed_at": course_item.get("passed_at"),
