@@ -722,6 +722,18 @@ def _validate_lesson(
                 "which the first-release learner does not support.",
             )
         if item.get("lexeme_id") and input_type != "match":
+            prompt = item.get("prompt")
+            if not isinstance(prompt, str) or not prompt.strip():
+                report.add(
+                    "error", "QUIZ_PROMPT_INVALID", path,
+                    f"Item {item.get('item_id') or '?'} needs a non-empty text prompt.",
+                )
+            if input_type != "choice" and item.get("options"):
+                report.add(
+                    "error", "QUIZ_NON_CHOICE_OPTIONS_INVALID", path,
+                    f"Item {item.get('item_id') or '?'} cannot expose options "
+                    f"for {input_type or 'non-choice'} input.",
+                )
             has_expected = "answer" in item or "answer_index" in item
             expected = (
                 item.get("answer") if "answer" in item

@@ -315,6 +315,7 @@ def _safe_question(item: dict, *, answered: bool = False,
         else:
             safe.pop("segments", None)
     prompt = str(safe.get("prompt") or "")
+    safe["prompt"] = prompt
     if "{{audio}}" in prompt:
         safe["prompt"] = prompt.replace("{{audio}}", "").strip()
         safe["audio_url"] = audio_url

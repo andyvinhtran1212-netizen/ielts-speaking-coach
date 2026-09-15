@@ -202,6 +202,8 @@ def test_answer_index_is_canonicalized_and_never_exposed_to_learner():
 
 def test_boolean_syllable_and_text_contracts_grade_correctly():
     assert service._correct({"input": "boolean", "answer": False}, False) is True
+    assert service._correct({"input": "boolean", "answer": True}, True) is True
+    assert service._correct({"input": "boolean", "answer": True}, False) is False
     assert service._correct({
         "input": "syllable", "answer": 1, "segments": ["one", "two"],
     }, 1) is True
@@ -303,6 +305,8 @@ def test_learner_question_projection_never_contains_answer_material():
     })
     assert "segments" not in unsafe_segments
     assert "secret" not in json.dumps(unsafe_segments)
+    assert service._safe_question({"item_id": "q4", "prompt": 42})["prompt"] == "42"
+    assert service._safe_question({"item_id": "q5"})["prompt"] == ""
 
 
 @pytest.mark.parametrize("activity_type", ["reading_lab", "listening_lab"])

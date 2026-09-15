@@ -488,15 +488,17 @@ def test_selectable_items_require_compatible_grading_contracts(tmp_path: Path):
         {
             "item_id": "ADV-T01-valid-boolean", "lexeme_id": lexeme,
             "type": "true_false", "input": "boolean", "answer": False,
+            "prompt": "True or false?",
         },
         {
             "item_id": "ADV-T01-valid-syllable", "lexeme_id": lexeme,
             "type": "stress", "input": "syllable", "answer": 1,
-            "segments": ["one", "two"],
+            "segments": ["one", "two"], "prompt": "Choose the stress.",
         },
         {
             "item_id": "ADV-T01-valid-text", "lexeme_id": lexeme,
             "type": "gap_text", "input": "text", "accept": ["answer"],
+            "prompt": "Complete the gap.",
         },
     ]
     lesson["adaptive_quiz"]["items"].extend(valid_items)
@@ -518,6 +520,38 @@ def test_selectable_items_require_compatible_grading_contracts(tmp_path: Path):
         any(item_id in issue.message for issue in issues)
         for item_id in ("valid-boolean", "valid-syllable", "valid-text")
     )
+
+
+def test_selectable_prompts_and_non_choice_options_fail_closed(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    lexeme = lesson["vocabulary"][0]["lexeme_id"]
+    lesson["adaptive_quiz"]["items"].extend([
+        {
+            "item_id": "ADV-T01-missing-prompt", "lexeme_id": lexeme,
+            "type": "true_false", "input": "boolean", "answer": True,
+        },
+        {
+            "item_id": "ADV-T01-numeric-prompt", "lexeme_id": lexeme,
+            "type": "gap_text", "input": "text", "accept": ["answer"],
+            "prompt": 42,
+        },
+        {
+            "item_id": "ADV-T01-boolean-options", "lexeme_id": lexeme,
+            "type": "true_false", "input": "boolean", "answer": True,
+            "prompt": "True or false?", "options": ["True", "False"],
+        },
+    ])
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+    prompt_issues = [
+        issue for issue in report.errors if issue.code == "QUIZ_PROMPT_INVALID"
+    ]
+
+    assert len(prompt_issues) == 2
+    assert "QUIZ_NON_CHOICE_OPTIONS_INVALID" in _codes(report)
 
 
 def test_listening_requires_six_questions_and_approved_media(tmp_path: Path):
