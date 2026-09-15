@@ -431,10 +431,19 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // được hỏi. Một lượt retry production đã bị bỏ đúng 10 câu của một chặng.
   let advancing = null;
 
-  function syncTimer() {
+  function syncTimer(requestStartedAt) {
     const seconds = Number(mastery && mastery.time_remaining_seconds);
-    timerRemainingAtSync = Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
-    timerSyncedAt = now();
+    const sampled = Date.parse((mastery && mastery.sampled_at) || '');
+    const expires = Date.parse((mastery && mastery.expires_at) || '');
+    const precise = Number.isFinite(sampled) && Number.isFinite(expires)
+      ? Math.max(0, expires - sampled) / 1000 : null;
+    timerRemainingAtSync = Number.isFinite(precise)
+      ? precise
+      : Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
+    // The server sample happens after request start and before receipt.  Start
+    // spending the returned allowance at request initiation so response
+    // latency can never be added back to the learner's canonical window.
+    timerSyncedAt = Number.isFinite(requestStartedAt) ? requestStartedAt : now();
   }
 
   function advanceStage() {
@@ -447,6 +456,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     sessionEnded = false;
     sessionFailed = false;
     try {
+      const timerRequestStartedAt = now();
       const body = { bank_id: bank.id };
       if (itemId) body.class_item = itemId;
       // Chỉ khai khi khác mặc định — phiên 'run' giữ nguyên hợp đồng cũ.
@@ -455,7 +465,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       sessionId = (s && (s.id || s.session_id)) || null;
       if (s && s.timer && mastery) {
         Object.assign(mastery, s.timer);
-        syncTimer();
+        syncTimer(timerRequestStartedAt);
       }
     } catch (e) {
       sessionId = null;
@@ -577,10 +587,11 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     async load(bankId, options = {}) {
       const itemQuery = options.assignmentItemId
         ? '?class_item=' + encodeURIComponent(options.assignmentItemId) : '';
+      const timerRequestStartedAt = now();
       const r = await api.get('/api/quiz/banks/' + encodeURIComponent(bankId) + itemQuery);
       bank = r.bank;
       mastery = r.mastery || null;
-      syncTimer();
+      syncTimer(timerRequestStartedAt);
       this.mastery = mastery;   // {item_id, passed_at, threshold, near_threshold, retake_size, retakes, due_at}
       // `options.reviewOnly` chỉ làm flow ít quyền hơn (không ghi); quyền đọc
       // vẫn do các endpoint backend kiểm bằng assignment item.
@@ -664,7 +675,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
 
     /** Trả lời một câu trắc nghiệm. */
     answer(picked) {
-      if (answered) return null;
+      if (answered || this.isTimedOut()) return null;
       answered = true;
       const q = this.current();
       const ok = picked === q.answer;

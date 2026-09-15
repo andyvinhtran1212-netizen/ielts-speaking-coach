@@ -4631,7 +4631,20 @@ def reap_expired_course_assessments(
                     for other in current_sessions
                 )
             ]
-            if not sessions:
+            latest_recorded_action = _recorded_next_action(
+                mastery_attempts[-1] if mastery_attempts else None,
+                cfg["pass_pct"],
+            )
+            # A recorded near-pass entitles only a short retake. Any remaining
+            # full-run tab is a concurrent orphan; seal it, but never grade it
+            # as a fresh zero-score timeout that replaces the near-pass ledger.
+            superseded_runs = ([] if latest_recorded_action != "retake" else [
+                row for row in sessions if (row.get("kind") or "run") == "run"
+            ])
+            superseded_run_ids = {row.get("id") for row in superseded_runs}
+            sessions = [row for row in sessions
+                        if row.get("id") not in superseded_run_ids]
+            if not sessions and not superseded_runs:
                 continue
             latest_attempt_at = (
                 None if repair_ids else
@@ -4655,16 +4668,16 @@ def reap_expired_course_assessments(
                 if (row.get("kind") or "run") != "retake"
                 or row.get("id") in pending_retake_ids
             ]
-            if not sessions:
+            if not sessions and not superseded_runs:
                 continue
-            sessions_to_close = sessions
+            sessions_to_close = superseded_runs + sessions
             verdict_sessions = sessions
             if pending_retakes:
                 # Match get_course_resume(): only a revision created after the
                 # latest recorded verdict is pending, and among concurrent tabs
                 # the newest one is canonical.  Close all current candidates so
                 # no orphan stays writable, but grade exactly that one session.
-                sessions_to_close = pending_retakes
+                sessions_to_close = superseded_runs + pending_retakes
                 verdict_sessions = [max(
                     pending_retakes, key=lambda row: row.get("created_at") or "",
                 )]
@@ -4715,6 +4728,10 @@ def reap_expired_course_assessments(
                     update = update.is_("ended_by", "null")
                 update.execute()
                 session.update(patch)
+            if not verdict_sessions:
+                # The canonical near-pass verdict already exists. This sweep
+                # only sealed a stale full-run tab and must not append history.
+                continue
             verdict_kwargs = dict(
                 user_id=user_id, bank_id=bank_id,
                 session_ids=[row["id"] for row in verdict_sessions],

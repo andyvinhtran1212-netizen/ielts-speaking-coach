@@ -183,6 +183,35 @@ test('uses the server deadline and submits a time-cap verdict', async () => {
   assert.equal(api.calls.post.at(-1).body.timed_out, true);
 });
 
+test('network latency never extends the authoritative server countdown', async () => {
+  let clock = 0;
+  const api = fakeApi({
+    questions: [mcq(1)],
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      sampled_at: '1970-01-01T00:00:00.000Z',
+      expires_at: '1970-01-01T00:01:00.000Z',
+      time_remaining_seconds: 60,
+    },
+  });
+  const get = api.get.bind(api);
+  api.get = async (path) => {
+    const response = await get(path);
+    clock = 5000; // five seconds elapsed before the response reached the UI
+    return response;
+  };
+  const runner = createRunner({ api, storage: null, now: () => clock });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  assert.equal(runner.timeRemainingSeconds(), 55);
+  clock = 59999;
+  assert.equal(runner.timeRemainingSeconds(), 1);
+  clock = 60000;
+  assert.equal(runner.isTimedOut(), true);
+  assert.equal(runner.answer(0), null,
+    'runner must reject mutation at the server-sampled cutoff');
+  assert.equal(runner.pendingCount, 0);
+});
+
 test('persists a final four-answer timed batch before timeout', async () => {
   let clock = 1000;
   const api = fakeApi({

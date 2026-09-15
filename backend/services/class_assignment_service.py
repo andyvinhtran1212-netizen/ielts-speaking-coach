@@ -1160,19 +1160,22 @@ def assignment_timer_state(
         except (TypeError, ValueError):
             limit = 0
     if not 1 <= limit <= MAX_COURSE_TIME_LIMIT_MINUTES:
+        current = now or datetime.now(timezone.utc)
         return {
             "is_timed": True, "time_limit_minutes": limit or None,
             "started_at": None, "expires_at": None,
             "time_remaining_seconds": 0, "is_expired": True,
-            "invalid": True,
+            "sampled_at": current.isoformat(), "invalid": True,
         }
 
+    current = now or datetime.now(timezone.utc)
     started = _at((item or {}).get("opened_at"))
     if started is None:
         return {
             "is_timed": True, "time_limit_minutes": limit,
             "started_at": None, "expires_at": None,
             "time_remaining_seconds": limit * 60, "is_expired": False,
+            "sampled_at": current.isoformat(),
         }
     configured_expires = started + timedelta(minutes=limit)
     # A class deadline is an equally canonical boundary.  When a learner opens
@@ -1180,12 +1183,11 @@ def assignment_timer_state(
     # is ten minutes — never an hour that silently extends the assignment.
     due = _at((assignment or {}).get("due_at"))
     expires = min(configured_expires, due) if due is not None else configured_expires
-    current = now or datetime.now(timezone.utc)
     return {
         "is_timed": True, "time_limit_minutes": limit,
         "started_at": started.isoformat(), "expires_at": expires.isoformat(),
         "time_remaining_seconds": max(0, int((expires - current).total_seconds())),
-        "is_expired": expires <= current,
+        "is_expired": expires <= current, "sampled_at": current.isoformat(),
     }
 
 

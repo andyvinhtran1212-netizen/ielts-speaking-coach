@@ -142,6 +142,7 @@ def test_timer_is_derived_from_the_canonical_opened_at():
     )
     assert state["time_remaining_seconds"] == 59
     assert state["expires_at"] == "2026-09-15T01:30:00+00:00"
+    assert state["sampled_at"] == "2026-09-15T01:29:01+00:00"
     assert state["is_expired"] is False
 
     expired = assignment_timer_state(
