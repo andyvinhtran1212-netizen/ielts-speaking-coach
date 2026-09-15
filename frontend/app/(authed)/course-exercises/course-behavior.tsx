@@ -1059,12 +1059,18 @@ export function CourseBehavior() {
             (node as HTMLButtonElement).disabled = true;
           });
           setSaveState('saving', 'Hết giờ · đang thu bài…');
-          const result = await runner.finishStage({ endedBy: 'time_cap' });
-          if (!result.persisted) {
-            setSaveState('error', 'Hết giờ · chưa thu được bài');
-            const error = $('cx-error');
-            if (error) { error.hidden = false; error.textContent = result.error || 'Chưa thu được bài hết giờ. Hãy thử lại.'; }
-            return;
+          // A result screen has already closed its session.  The session id is
+          // still needed for the verdict, but sending a second time-cap PATCH
+          // can race that verdict and must never rewrite the on-time ending.
+          // With no open session, refresh the canonical verdict/action only.
+          if (runner.hasOpenSession) {
+            const result = await runner.finishStage({ endedBy: 'time_cap' });
+            if (!result.persisted) {
+              setSaveState('error', 'Hết giờ · chưa thu được bài');
+              const error = $('cx-error');
+              if (error) { error.hidden = false; error.textContent = result.error || 'Chưa thu được bài hết giờ. Hãy thử lại.'; }
+              return;
+            }
           }
           setSaveState('saved', 'Đã thu bài khi hết giờ');
           timerSubmitted = true;

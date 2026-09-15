@@ -144,6 +144,19 @@ describe('làm kiểm tra lại', () => {
   });
 });
 
+describe('hết giờ trên màn kết quả', () => {
+  test('chỉ chốt time-cap khi session còn mở và luôn làm mới verdict', () => {
+    const body = functionBody('submitAtTimeLimit');
+    const guard = body.indexOf('if (runner.hasOpenSession)');
+    const close = body.indexOf("runner.finishStage({ endedBy: 'time_cap' })");
+    const refresh = body.lastIndexOf('await renderVerdict()');
+    assert.ok(guard !== -1 && close > guard,
+      'không được chốt lại session đã hoàn thành');
+    assert.ok(refresh > close,
+      'hết giờ trên màn kết quả phải đọc lại action canonical');
+  });
+});
+
 describe('nạp phần tự review', () => {
   test('báo cáo stale không bị cache và cú bấm sau thay bằng bản đầy đủ', async () => {
     const box = {

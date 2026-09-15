@@ -996,6 +996,63 @@ def test_server_reaper_selects_newest_pending_retake_across_tabs():
     )
 
 
+def test_server_reaper_uses_only_current_full_retry_generation():
+    fake = _FakeSupabase()
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30, "pass_pct": 75},
+        }],
+        "class_assignment_items": [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+            "mastery": {
+                "attempts": [{
+                    "phase": "run", "at": "2026-09-15T01:10:00+00:00",
+                    "sessions": ["recorded-run"], "next_action": "retry_full",
+                }],
+                "section_attempt_started_at": "2026-09-15T01:15:00+00:00",
+            },
+        }],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [
+            {"id": "stale-open", "user_id": _USER, "bank_id": _BANK,
+             "class_assignment_item_id": "item-timed", "kind": "run",
+             "created_at": "2026-09-15T01:05:00+00:00",
+             "ended_at": None, "ended_by": None},
+            {"id": "superseded-paused", "user_id": _USER, "bank_id": _BANK,
+             "class_assignment_item_id": "item-timed", "kind": "run",
+             "created_at": "2026-09-15T01:18:00+00:00",
+             "ended_at": "2026-09-15T01:19:00+00:00", "ended_by": "paused"},
+            {"id": "current-partial", "user_id": _USER, "bank_id": _BANK,
+             "class_assignment_item_id": "item-timed", "kind": "run",
+             "created_at": "2026-09-15T01:20:00+00:00",
+             "ended_at": None, "ended_by": None},
+        ],
+    }
+
+    def report(table, *_args, **_kwargs):
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict", return_value={"timed_out": True}) as verdict:
+        out = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+    assert out == {"examined": 1, "finalized": 1, "failed": 0}
+    closes = [call for call in fake.calls
+              if call["table"] == "quiz_sessions" and call["op"] == "update"]
+    assert len(closes) == 1
+    assert closes[0]["filters"][0] == ("id", "current-partial")
+    verdict.assert_called_once_with(
+        user_id=_USER, bank_id=_BANK, session_ids=["current-partial"],
+        assignment_item_id="item-timed", timed_out=True,
+        _allow_reaper_finalize=True,
+    )
+
+
 def test_log_progress_inserts_attempts_and_upserts_stats():
     fake = _FakeSupabase(responses=_session_resp())
     attempts = [
@@ -1066,6 +1123,26 @@ def test_end_session_defaults_bad_ended_by():
     upd = next(c for c in fake.calls if c["table"] == "quiz_sessions" and c["op"] == "update")
     assert upd["payload"]["ended_by"] == "completed"
     assert upd["payload"]["accuracy"] is None             # 0 questions → None
+
+
+def test_end_session_does_not_reclose_an_on_time_completed_session():
+    canonical = {
+        "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+        "class_assignment_item_id": "item-timed",
+        "ended_at": "2026-09-15T01:29:59+00:00", "ended_by": "completed",
+        "total_questions": 10, "total_correct": 8,
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "select"): [canonical],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.end_session(
+            user_id=_USER, session_id=_SESS,
+            data={"ended_by": "time_cap", "total_questions": 10, "total_correct": 0},
+        )
+    assert out == canonical
+    assert not any(call["table"] == "quiz_sessions" and call["op"] == "update"
+                   for call in fake.calls)
 
 
 # ── Analytics (Pha 5a) ───────────────────────────────────────────────

@@ -172,6 +172,32 @@ test('uses the server deadline and submits a time-cap verdict', async () => {
   assert.equal(api.calls.post.at(-1).body.timed_out, true);
 });
 
+test('a completed session stays closed when the page timer later expires', async () => {
+  let clock = 1000;
+  const api = fakeApi({
+    questions: [mcq(1)],
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      expires_at: null, time_remaining_seconds: 60,
+    },
+  });
+  const runner = createRunner({ api, storage: null, now: () => clock });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  runner.answer(0);
+  const completed = await runner.finishStage();
+  assert.equal(completed.persisted, true);
+  assert.equal(runner.hasOpenSession, false);
+  assert.equal(api.calls.patch.length, 1);
+  assert.equal(api.calls.patch[0].body.ended_by, 'completed');
+
+  clock = 61000;
+  assert.equal(runner.isTimedOut(), true);
+  const retry = await runner.finishStage({ endedBy: 'time_cap' });
+  assert.equal(retry.persisted, true);
+  assert.equal(api.calls.patch.length, 1,
+    'time-cap refresh must not PATCH an already completed session');
+});
+
 test('adopts the empty atomic timer session instead of opening a second one', async () => {
   const api = fakeApi({
     questions: [mcq(1)],

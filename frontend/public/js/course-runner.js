@@ -160,6 +160,10 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   let at = 0;
   let marks = [];          // 'right' | 'wrong' | 'self'
   let sessionId = null;
+  // Once PATCH /sessions/{id} succeeds this session is immutable history.
+  // Keep the id for verdict/resume identity, but never PATCH it again when the
+  // page timer reaches zero while verdict delivery is still in flight.
+  let sessionEnded = false;
   let pending = [];
   let shownAt = 0;
   let stageStartedAt = 0;
@@ -319,6 +323,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     if (rr && rr.session_id) {
       mode = 'retake';
       sessionId = rr.session_id;
+      sessionEnded = Boolean(rr.completed);
       sessionFailed = false;
       retakeNo += 1;
       const pool = qs.filter((q) => q.type !== 'writing');
@@ -367,6 +372,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // Xong hết các chặng: đứng ở màn kết quả, KHÔNG mở phiên mới.
       stage = stages - 1; at = STAGE; resumedFinal = true;
       sessionId = null; sessionFailed = false;
+      sessionEnded = true;
       // Máy mới (chưa có gì lưu cục bộ) không có `marks`, mà trang tính điểm
       // từ `marks` — nên không giữ lại con số này thì học viên xong cả bài vẫn
       // thấy "0/10 câu đúng" ngay khi mở lại (codex PR 945 vòng 4).
@@ -388,6 +394,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       && ans.every(function (a, i) { return a && list[i] && a.qid === list[i].qid; });
     if (sv.session_id && aligned) {
       sessionId = sv.session_id;
+      sessionEnded = false;
       sessionFailed = false;
       at = ans.length;
       marks = ans.map(function (a) { return a.is_correct ? 'right' : 'wrong'; });
@@ -436,6 +443,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
 
   async function _openSession() {
     sessionId = null;
+    sessionEnded = false;
     sessionFailed = false;
     try {
       const body = { bank_id: bank.id };
@@ -540,6 +548,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     get mode() { return mode; },
     get retakeNo() { return retakeNo; },
     get runSessionCount() { return runSessions.length; },
+    get hasOpenSession() { return Boolean(sessionId) && !sessionEnded; },
     get reviewOnly() { return reviewOnly; },
     get isTimed() { return Boolean(mastery && mastery.is_timed); },
     get expiresAt() { return (mastery && mastery.expires_at) || null; },
@@ -590,7 +599,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // Lane xem kết quả tuyệt đối không khôi phục/chốt/mở phiên. Nếu chạy qua
       // flow thường, một lần bấm "Xem kết quả" có thể đẻ quiz session rỗng.
       if (reviewOnly) {
-        sessionId = null; sessionFailed = false; resumedFinal = false;
+        sessionId = null; sessionEnded = true;
+        sessionFailed = false; resumedFinal = false;
         stageStartedAt = now(); shownAt = now();
         return bank;
       }
@@ -610,15 +620,23 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // Bank CHỈ có tự luận: không có chặng nào để ghi, nên mở phiên quiz ở đây
       // là đẻ ra một phiên rỗng rồi chốt nó bằng 0 câu — và cổng xét đạt sẽ bác
       // cả lượt vì bộ đề không có câu trắc nghiệm nào (codex #935).
-      if (!qs.length) { sessionId = null; sessionFailed = false; stageStartedAt = now(); }
+      if (!qs.length) {
+        sessionId = null; sessionEnded = true;
+        sessionFailed = false; stageStartedAt = now();
+      }
       // Đã nhận một phiên dở từ máy chủ: mở phiên mới ở đây là bỏ rơi chính
       // phiên vừa nhận, tức là tái lập đúng lỗi mồ côi vừa sửa.
       else if (adopted && sessionId) { /* dùng tiếp phiên đang dở */ }
       // Timer đã hết: giữ các session máy chủ vừa khôi phục để nộp lượt hết
       // giờ; tuyệt đối không mở thêm một session sau ranh giới canonical.
-      else if (this.isTimedOut()) { sessionId = null; sessionFailed = false; }
+      else if (this.isTimedOut()) {
+        sessionId = null; sessionEnded = true; sessionFailed = false;
+      }
       else if (!resumedFinal) await openSession();
-      else { sessionId = null; sessionFailed = false; stageStartedAt = now(); }
+      else {
+        sessionId = null; sessionEnded = true;
+        sessionFailed = false; stageStartedAt = now();
+      }
       shownAt = now();
       return bank;
     },
@@ -688,7 +706,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
         await openSession();
       }
       let persisted = !sessionFailed;
-      if (sessionId && !resumedRetakeFinal) {
+      if (sessionId && !sessionEnded && !resumedRetakeFinal) {
         try {
           await inflight;        // chờ lượt đẩy nền xong rồi mới xét hàng đợi
           if (endedBy === 'time_cap') {
@@ -706,6 +724,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
             total_wrong: Math.max(0, graded - right),
             ended_by: endedBy,
           });
+          sessionEnded = true;
           // Chỉ phiên ĐÃ CHỐT mới có tên trong lượt xét đạt — server từ chối
           // phiên dang dở, và một phiên hỏng không được kéo cả lượt xuống.
           if (mode === 'run' && runSessions.indexOf(sessionId) === -1) {
@@ -790,6 +809,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       resumedFinal = false; restored = null;
       resumedRetakeFinal = false;
       sessionId = null; sessionFailed = false; persistError = '';
+      sessionEnded = false;
       save(false);
       await openSession();
       shownAt = now();

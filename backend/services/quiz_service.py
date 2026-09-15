@@ -2416,6 +2416,14 @@ def _assert_course_session_accepting(session: dict, ended_by: str = "completed")
 def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
     """Finalize a session with totals from the client. ended_by ∈ ENDED_BY."""
     session = _owned_session(session_id, user_id)
+    # A completed/paused/time-capped session is immutable history.  In
+    # particular, the browser timer can reach zero while a final verdict is
+    # still in flight; its late ``time_cap`` retry must not replace an on-time
+    # ``completed`` timestamp and turn that attempt into a timeout.  Returning
+    # the canonical row also makes a retry safe when the first PATCH reached
+    # the database but its response was lost.
+    if session.get("ended_at") or session.get("ended_by"):
+        return session
     ended_by = data.get("ended_by")
     if ended_by not in _ENDED_BY:
         ended_by = "completed"
@@ -4411,6 +4419,33 @@ def reap_expired_course_assessments(
                 for session_id in (attempt.get("sessions") or [])
             }
             sessions = [row for row in sessions if row.get("id") not in recorded_ids]
+            # Mirror ``get_course_resume`` and the verdict gate: after a
+            # recorded ``retry_full`` (or an explicit multi-section restart),
+            # only sessions from that current generation may participate.
+            # Otherwise an old orphan can be mixed into the new partial run
+            # forever and every sweep is rejected at the retry boundary.
+            mastery_state = item.get("mastery") or {}
+            cfg = mastery_config(assignment)
+            run_after = _full_retry_boundary(mastery_attempts, cfg["pass_pct"])
+            section_started = _at(mastery_state.get("section_attempt_started_at"))
+            if section_started is not None and (
+                run_after is None or section_started > run_after
+            ):
+                run_after = section_started
+            current_sessions = []
+            for row in sessions:
+                if (row.get("kind") or "run") == "run" and run_after is not None:
+                    created_at = _at(row.get("created_at"))
+                    if created_at is None or created_at <= run_after:
+                        continue
+                # ``paused``/legacy ``abandoned`` rows are superseded terminal
+                # history, not current work.  Completed and already-time-capped
+                # rows remain eligible for lost-verdict repair; open rows are
+                # the only rows this sweep may close.
+                if row.get("ended_by") not in {None, "completed", "time_cap"}:
+                    continue
+                current_sessions.append(row)
+            sessions = current_sessions
             if not sessions:
                 continue
             sessions_to_close = sessions
