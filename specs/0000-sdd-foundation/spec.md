@@ -58,7 +58,8 @@ developer or agent which requirements are active and how they map to evidence.
 - **FR-007:** Top-level agent documentation identifies Next.js App Router as the
   deployed frontend and does not direct work to retired HTML pages.
 - **FR-008:** The foundation is isolated from active product work and changes no
-  runtime, API, database, or deployment behavior.
+  application runtime, API, database, or deployment topology; only repository
+  governance and release validation change.
 
 ## Acceptance scenarios
 

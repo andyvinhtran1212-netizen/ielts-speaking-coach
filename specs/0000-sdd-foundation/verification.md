@@ -9,7 +9,7 @@
 | FR-003 | Naming, metadata, file, section, ID, and index validator tests | PASS |
 | FR-004 | Verified-state incomplete-task and missing-evidence tests | PASS |
 | FR-005 | Feature rejection, small-change allowance, and promotion-exemption tests | PASS |
-| FR-006 | `backend-tests.yml` invokes validator and is already consumed by staging promotion | PASS |
+| FR-006 | `typecheck.yml` invokes validator in an unfiltered lightweight job consumed by staging promotion | PASS |
 | FR-007 | Updated `AGENTS.md` and `CLAUDE.md`; stale-path source scan | PASS |
 | FR-008 | Final diff contains governance, tests, and top-level documentation only | PASS |
 

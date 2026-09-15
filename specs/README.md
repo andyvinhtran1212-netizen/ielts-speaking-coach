@@ -18,8 +18,9 @@ is intentionally excluded from the canonical feature lifecycle.
 5. Derive dependency-ordered work in `tasks.md` and map every requirement to
    evidence in `verification.md`.
 6. A feature may become `verified` or `shipped` only when required tasks are
-   complete and every functional requirement has passing evidence or an
-   explicitly recorded manual verification.
+   complete and every functional requirement has passing evidence, an
+   explicitly recorded manual verification, or a reasoned non-applicability
+   record.
 
 The governing rules are in [`_meta/constitution.md`](_meta/constitution.md).
 Templates are under [`_templates/`](_templates/).

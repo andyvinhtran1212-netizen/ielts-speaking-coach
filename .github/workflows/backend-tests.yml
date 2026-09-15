@@ -56,12 +56,6 @@ on:
       # `staging-first-release-flow.test.mjs` locks the production promotion
       # contract to this runbook, so a docs-only policy change must run it.
       - 'docs/STAGING_FIRST_RELEASE_FLOW.md'
-      # Spec governance is executable policy. A specs-only or top-level agent
-      # guidance PR must run the validator that consumes it.
-      - 'specs/**'
-      - 'AGENTS.md'
-      - 'CLAUDE.md'
-      - '.github/pull_request_template.md'
       - 'docs/brand/assets/**'
       - 'docs/clusters/20_x/**'
       # TOÀN BỘ thư mục workflow, không riêng tệp này: `workflow-path-coverage.
@@ -122,10 +116,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Validate spec governance
-        working-directory: .
-        run: python backend/scripts/validate_specs.py --github-event "$GITHUB_EVENT_PATH"
 
       - name: Run pytest
         working-directory: backend

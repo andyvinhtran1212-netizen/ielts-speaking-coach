@@ -66,7 +66,13 @@ Test.
         feature / "verification.md",
         "# Verification\n\n## Requirement coverage\n\n| FR-001 | unit test | PASS |\n",
     )
-    _write(specs / "README.md", "# Index\n\nFEAT-0001\n")
+    _write(
+        specs / "README.md",
+        "# Index\n\n"
+        "| ID | Feature | Status | Risk | Spec |\n"
+        "| --- | --- | --- | --- | --- |\n"
+        f"| FEAT-0001 | Example | {status} | medium | [spec](0001-example-feature/spec.md) |\n",
+    )
     return root
 
 
@@ -118,6 +124,13 @@ def test_repository_rejects_empty_required_artifact(tmp_path: Path) -> None:
     assert any("plan.md" in error and "missing '## Architecture impact'" in error for error in errors)
 
 
+def test_repository_rejects_empty_tasks_artifact(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    (root / "specs/0001-example-feature/tasks.md").write_text("", encoding="utf-8")
+    errors, _ = validator.validate_repository(root)
+    assert any("tasks.md" in error and "checkbox task" in error for error in errors)
+
+
 def test_requirement_may_be_referenced_outside_declaration(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     spec = root / "specs/0001-example-feature/spec.md"
@@ -137,7 +150,7 @@ def test_final_evidence_requires_a_final_result_cell(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     errors, _ = validator.validate_repository(root)
-    assert any("requires PASS or MANUAL evidence" in error for error in errors)
+    assert any("requires PASS, MANUAL, or reasoned N/A evidence" in error for error in errors)
 
 
 def test_evidence_id_must_be_in_requirement_column(tmp_path: Path) -> None:
@@ -178,6 +191,81 @@ def test_repository_rejects_empty_evidence_cell(tmp_path: Path) -> None:
     assert any("no evidence row for FR-001" in error for error in errors)
 
 
+def test_repository_accepts_reasoned_non_applicable_evidence(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    (root / "specs/0001-example-feature/verification.md").write_text(
+        "## Requirement coverage\n\n"
+        "| FR-001 | No UI surface changes, so browser evidence is not applicable. | N/A |\n",
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert errors == []
+
+
+def test_repository_rejects_non_applicable_without_rationale(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    (root / "specs/0001-example-feature/verification.md").write_text(
+        "## Requirement coverage\n\n| FR-001 | | N/A |\n",
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert any("no evidence row for FR-001" in error for error in errors)
+
+
+def test_repository_rejects_unknown_evidence_result(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path, status="implementing")
+    (root / "specs/0001-example-feature/verification.md").write_text(
+        "## Requirement coverage\n\n| FR-001 | unit test | MAYBE |\n",
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert any("FR-001 result must be one of" in error for error in errors)
+
+
+def test_repository_rejects_stale_active_index_status(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    index = root / "specs/README.md"
+    index.write_text(
+        index.read_text(encoding="utf-8").replace("| verified |", "| approved |"),
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert any("status is 'approved', expected 'verified'" in error for error in errors)
+
+
+def test_repository_rejects_prose_only_index_mention(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    (root / "specs/README.md").write_text(
+        "# Index\n\nFEAT-0001 is discussed here but has no table row.\n",
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert any("active index has no exact row for FEAT-0001" in error for error in errors)
+
+
+def test_repository_rejects_orphan_active_index_row(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    index = root / "specs/README.md"
+    index.write_text(
+        index.read_text(encoding="utf-8")
+        + "| FEAT-0002 | Missing | approved | low | [spec](0002-missing/spec.md) |\n",
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert any("active index references missing spec FEAT-0002" in error for error in errors)
+
+
+def test_repository_rejects_non_string_frontmatter(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    spec = root / "specs/0001-example-feature/spec.md"
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace("owner: product", "owner: [product]"),
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert any("field 'owner' must be a non-empty string" in error for error in errors)
+
+
 def test_feature_pr_requires_existing_non_draft_spec(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     _, specs = validator.validate_repository(root)
@@ -213,14 +301,16 @@ def test_staging_to_main_promotion_is_exempt(tmp_path: Path) -> None:
     assert validator.validate_pull_request(event, specs) == []
 
 
-def test_backend_workflow_reruns_when_pr_metadata_is_edited() -> None:
-    workflow = (REPO_ROOT / ".github/workflows/backend-tests.yml").read_text(
+def test_unfiltered_workflow_reruns_when_pr_metadata_is_edited() -> None:
+    workflow = (REPO_ROOT / ".github/workflows/typecheck.yml").read_text(
         encoding="utf-8"
     )
     match = re.search(r"^\s+types:\s*\[([^]]+)]\s*$", workflow, re.MULTILINE)
     assert match
     activities = {item.strip() for item in match.group(1).split(",")}
     assert {"opened", "synchronize", "reopened", "edited"} <= activities
+    assert "Spec and PR metadata" in workflow
+    assert "github.event.action != 'edited'" in workflow
 
 
 def test_cli_reads_github_event(tmp_path: Path, monkeypatch, capsys) -> None:

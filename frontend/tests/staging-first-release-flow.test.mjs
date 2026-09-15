@@ -63,6 +63,7 @@ describe('staging-first production release contract', () => {
       'Frontend (node --test)',
       'TypeScript strict + legacy JSDoc',
       'api.d.ts ↔ OpenAPI drift',
+      'Spec and PR metadata',
       'Build + verify routes-manifest ownership',
       'Public không chứa HTML legacy',
       'Staging release smoke',

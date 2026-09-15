@@ -6,8 +6,9 @@
 | --- | --- | --- |
 | FR-001 | Test, query, screenshot, or manual journey | PENDING |
 
-Allowed final results are `PASS` and `MANUAL`. `MANUAL` must identify the
-reviewer, environment, date, and observable result.
+Allowed final results are `PASS`, `MANUAL`, and `N/A`. `MANUAL` must identify
+the reviewer, environment, date, and observable result. `N/A` must include a
+specific non-applicability rationale in the evidence cell.
 
 ## Contract evidence
 

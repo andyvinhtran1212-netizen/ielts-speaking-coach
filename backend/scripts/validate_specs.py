@@ -27,7 +27,11 @@ REQUIREMENT_DECLARATION_RE = re.compile(
     re.MULTILINE,
 )
 EVIDENCE_ROW_RE = re.compile(
-    r"^\|\s*(FR-\d{3})\s*\|\s*(\S(?:.*\S)?)\s*\|\s*([A-Za-z]+)\s*\|\s*$",
+    r"^\|\s*(FR-\d{3})\s*\|\s*(\S(?:.*\S)?)\s*\|\s*([A-Za-z/]+)\s*\|\s*$",
+    re.MULTILINE,
+)
+INDEX_ROW_RE = re.compile(
+    r"^\|\s*([A-Z][A-Z0-9]*-\d{4})\s*\|\s*([^|]+?)\s*\|\s*([a-z]+)\s*\|\s*([a-z]+)\s*\|\s*\[[^]]+]\(([^)]+)\)\s*\|\s*$",
     re.MULTILINE,
 )
 ALLOWED_STATUSES = {
@@ -42,6 +46,7 @@ ALLOWED_RISKS = {"low", "medium", "high", "critical"}
 ALLOWED_CHANGE_CLASSES = {"hotfix", "small", "content", "feature", "high-risk"}
 FINAL_STATUSES = {"verified", "shipped"}
 IMPLEMENTABLE_SPEC_STATUSES = {"approved", "implementing", "verified", "shipped"}
+ALLOWED_EVIDENCE_RESULTS = {"PENDING", "PASS", "MANUAL", "N/A"}
 REQUIRED_FEATURE_FILES = ("spec.md", "plan.md", "tasks.md", "verification.md")
 LEGACY_SPEC_DIRS = {"general"}
 REQUIRED_FOUNDATION_FILES = (
@@ -121,6 +126,12 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
             errors.append(f"{specs / relative}: required SDD foundation file is missing")
 
     index = _read(specs / "README.md", errors)
+    index_rows: dict[str, tuple[str, str, str]] = {}
+    for index_id, _, index_status, index_risk, index_path in INDEX_ROW_RE.findall(index):
+        if index_id in index_rows:
+            errors.append(f"{specs / 'README.md'}: duplicate active-index row for {index_id}")
+            continue
+        index_rows[index_id] = (index_status, index_risk, index_path.removeprefix("./"))
     seen_ids: dict[str, Path] = {}
     feature_dirs = sorted(
         path
@@ -155,8 +166,11 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
 
         metadata = _frontmatter(spec_path, texts.get("spec.md", ""), errors)
         for field in ("id", "title", "status", "risk", "owner"):
-            if not metadata.get(field):
-                errors.append(f"{spec_path}: missing required frontmatter field '{field}'")
+            value = metadata.get(field)
+            if not isinstance(value, str) or not value.strip():
+                errors.append(
+                    f"{spec_path}: frontmatter field '{field}' must be a non-empty string"
+                )
 
         spec_id = metadata.get("id")
         if isinstance(spec_id, str):
@@ -171,8 +185,24 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
                 errors.append(f"{spec_path}: duplicate id {spec_id}; first declared by {seen_ids[spec_id]}")
             else:
                 seen_ids[spec_id] = feature
-            if spec_id not in index:
-                errors.append(f"{specs / 'README.md'}: active index does not mention {spec_id}")
+            index_row = index_rows.get(spec_id)
+            if index_row is None:
+                errors.append(f"{specs / 'README.md'}: active index has no exact row for {spec_id}")
+            else:
+                index_status, index_risk, index_path = index_row
+                expected_path = f"{feature.name}/spec.md"
+                if index_status != metadata.get("status"):
+                    errors.append(
+                        f"{specs / 'README.md'}: {spec_id} status is {index_status!r}, expected {metadata.get('status')!r}"
+                    )
+                if index_risk != metadata.get("risk"):
+                    errors.append(
+                        f"{specs / 'README.md'}: {spec_id} risk is {index_risk!r}, expected {metadata.get('risk')!r}"
+                    )
+                if index_path != expected_path:
+                    errors.append(
+                        f"{specs / 'README.md'}: {spec_id} path is {index_path!r}, expected {expected_path!r}"
+                    )
 
         status = metadata.get("status")
         if status not in ALLOWED_STATUSES:
@@ -201,6 +231,11 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
         evidence_rows = EVIDENCE_ROW_RE.findall(verification)
         evidence_ids = [requirement for requirement, _, _ in evidence_rows]
         verification_ids = set(evidence_ids)
+        for evidence_id, _, result in evidence_rows:
+            if result.upper() not in ALLOWED_EVIDENCE_RESULTS:
+                errors.append(
+                    f"{feature / 'verification.md'}: {evidence_id} result must be one of {sorted(ALLOWED_EVIDENCE_RESULTS)}"
+                )
         for requirement in unique_requirements:
             matching_results = [
                 result
@@ -213,21 +248,23 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
                 errors.append(
                     f"{feature / 'verification.md'}: duplicate evidence rows for {requirement}"
                 )
-            elif status in FINAL_STATUSES and matching_results[0].upper() not in {
-                "PASS",
-                "MANUAL",
-            }:
+            elif status in FINAL_STATUSES and matching_results[0].upper() not in ALLOWED_EVIDENCE_RESULTS - {"PENDING"}:
                 errors.append(
-                    f"{feature / 'verification.md'}: final feature requires PASS or MANUAL evidence for {requirement}"
+                    f"{feature / 'verification.md'}: final feature requires PASS, MANUAL, or reasoned N/A evidence for {requirement}"
                 )
         for unknown in sorted(verification_ids - set(unique_requirements)):
             errors.append(f"{feature / 'verification.md'}: evidence references unknown {unknown}")
 
         tasks = texts.get("tasks.md", "")
-        if tasks and not re.search(r"^- \[[ xX]\] ", tasks, re.MULTILINE):
+        if not re.search(r"^- \[[ xX]\] ", tasks, re.MULTILINE):
             errors.append(f"{feature / 'tasks.md'}: declare at least one checkbox task")
         if status in FINAL_STATUSES and re.search(r"^- \[ \] ", tasks, re.MULTILINE):
             errors.append(f"{feature / 'tasks.md'}: final feature still has incomplete required tasks")
+
+    for orphan_id in sorted(set(index_rows) - set(seen_ids)):
+        errors.append(
+            f"{specs / 'README.md'}: active index references missing spec {orphan_id}"
+        )
 
     return errors, seen_ids
 

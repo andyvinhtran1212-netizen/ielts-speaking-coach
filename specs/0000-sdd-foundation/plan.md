@@ -3,13 +3,14 @@
 ## Architecture impact
 
 - Add canonical governance artifacts under `specs/`.
-- Add a read-only Python validator under `backend/scripts/` because the existing
-  required backend workflow already installs Python and PyYAML.
-- Extend the existing PR template and backend workflow rather than adding a
-  detached workflow that production promotion might not consume.
+- Add a read-only Python validator under `backend/scripts/` and run it as a
+  lightweight job in the existing unfiltered typecheck workflow.
+- Extend the existing PR template and promotion-consumed workflow rather than
+  adding a detached workflow that production promotion might not consume.
 - Update only stale architecture pointers in `AGENTS.md` and `CLAUDE.md`.
 
-No runtime module imports or deploy configuration change.
+No application runtime module, API, database, or deployment-topology change.
+The intended release-gate change is limited to requiring spec governance.
 
 ## Data and contracts
 
@@ -30,7 +31,8 @@ No product UI changes. `ui-states.md` is a template for future user-facing work.
 - Governance documents and templates own `specs/**`.
 - Validator and tests own `backend/scripts/validate_specs.py` and
   `backend/tests/test_validate_specs.py`.
-- CI integration owns `.github/workflows/backend-tests.yml` and the PR template.
+- CI integration owns `.github/workflows/typecheck.yml`,
+  `.github/workflows/staging-promotion-gate.yml`, and the PR template.
 - Architecture correction owns only the stale top-level sections of
   `AGENTS.md` and `CLAUDE.md`.
 
