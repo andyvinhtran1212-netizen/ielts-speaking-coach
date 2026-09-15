@@ -478,6 +478,47 @@ def test_high_risk_pr_requires_base_spec_to_have_high_risk(tmp_path: Path) -> No
     assert any("was not approved as high or critical risk" in error for error in errors)
 
 
+def test_feature_pr_cannot_raise_approved_risk_or_misclassify_high_spec(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path / "raised", status="approved", risk="medium")
+    feature = root / "specs/0001-example-feature"
+    spec = feature / "spec.md"
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace("risk: medium", "risk: high"),
+        encoding="utf-8",
+    )
+    index = root / "specs/README.md"
+    index.write_text(
+        index.read_text(encoding="utf-8").replace("| medium |", "| high |"),
+        encoding="utf-8",
+    )
+    _write(
+        feature / "ui-states.md",
+        "| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |\n",
+    )
+    _write(
+        feature / "rollout.md",
+        "## Preconditions\nReady.\n## Staging\nVerify.\n## Production\nPromote.\n"
+        "## Rollback and repair\nRevert.\n## Observability\nMonitor.\n",
+    )
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    raised_errors = validator.validate_pull_request(
+        _event(root=root, change_class="feature", spec="FEAT-0001"), specs, root
+    )
+    assert any("risk changed after base approval" in error for error in raised_errors)
+
+    high_root = _valid_repo(tmp_path / "misclassified", status="approved", risk="high")
+    _, high_specs = validator.validate_repository(high_root)
+    class_errors = validator.validate_pull_request(
+        _event(root=high_root, change_class="feature", spec="FEAT-0001"),
+        high_specs,
+        high_root,
+    )
+    assert any("requires change class 'high-risk'" in error for error in class_errors)
+
+
 def test_high_risk_spec_requires_ui_state_and_rollout_artifacts(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path, risk="high")
     (root / "specs/0001-example-feature/ui-states.md").unlink()

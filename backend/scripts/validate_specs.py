@@ -462,6 +462,14 @@ def validate_pull_request(
                 errors.append(
                     f"pull request: high-risk change requires a high or critical risk spec; {spec_id} is {metadata.get('risk')!r}"
                 )
+            if (
+                requires_spec
+                and metadata.get("risk") in {"high", "critical"}
+                and change_class != "high-risk"
+            ):
+                errors.append(
+                    f"pull request: Spec '{spec_id}' risk {metadata.get('risk')!r} requires change class 'high-risk'"
+                )
             if requires_spec:
                 approved_requirements: dict[str, str] | None = None
                 bootstrap = False
@@ -496,6 +504,10 @@ def validate_pull_request(
                         if base_metadata.get("status") not in IMPLEMENTABLE_SPEC_STATUSES:
                             errors.append(
                                 f"pull request: Spec '{spec_id}' was not approved in the base revision"
+                            )
+                        if metadata.get("risk") != base_metadata.get("risk"):
+                            errors.append(
+                                f"pull request: Spec '{spec_id}' risk changed after base approval ({base_metadata.get('risk')!r} -> {metadata.get('risk')!r})"
                             )
                         if change_class == "high-risk" and base_metadata.get(
                             "risk"
