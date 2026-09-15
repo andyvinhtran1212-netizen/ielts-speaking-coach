@@ -135,6 +135,11 @@ def test_deterministic_practice_uses_one_recognition_and_one_production_per_word
             rows = [row for row in combined if row["lexeme_id"] == word["lexeme_id"]]
             assert len(rows) == 2
             assert {service._choice(row) for row in rows} == {True, False}
+        for stage in (selected["practice_1"], selected["practice_2"]):
+            assert all(
+                service._choice(row) is (index % 2 == 0)
+                for index, row in enumerate(stage)
+            )
         assert service.practice_selection(lesson) == selected
 
 
@@ -234,7 +239,8 @@ def test_learner_question_projection_never_contains_answer_material():
     source = {
         "item_id": "q1", "prompt": "Question", "answer": 2,
         "accept": ["secret"], "explain": "secret", "why_wrong": {"0": "secret"},
-        "note": "secret", "options": ["A", "B", "C"],
+        "note": "secret", "correct_answer": "secret", "solution": "secret",
+        "feedback": "secret", "options": ["A", "B", "C"],
     }
 
     safe = service._safe_question(source)
@@ -248,6 +254,12 @@ def test_learner_question_projection_never_contains_answer_material():
     assert with_audio["prompt"] == "Type the word"
     assert with_audio["audio_url"].endswith("word.mp3")
     assert "{{audio}}" not in with_audio["prompt"]
+
+    safe_option = service._safe_question({
+        "item_id": "q2", "prompt": "Question",
+        "options": [{"key": "A", "text": "Visible", "correct": True}],
+    })
+    assert safe_option["options"] == [{"key": "A", "text": "Visible"}]
 
 
 def test_assigned_lesson_rejects_live_content_that_differs_from_frozen_snapshot(monkeypatch):

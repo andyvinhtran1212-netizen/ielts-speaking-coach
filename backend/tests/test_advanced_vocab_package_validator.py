@@ -392,6 +392,22 @@ def test_malformed_object_fields_report_errors_instead_of_crashing(tmp_path: Pat
     assert "OBJECT_FIELD_INVALID" in _codes(report)
 
 
+def test_quiz_rejects_non_contract_private_fields(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    item = lesson["adaptive_quiz"]["items"][0]
+    item["correct_answer"] = "A"
+    item["options"][0]["feedback"] = "Private explanation"
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+
+    assert {
+        "QUIZ_ITEM_FIELD_UNEXPECTED", "QUIZ_OPTION_FIELD_UNEXPECTED",
+    } <= _codes(report)
+
+
 def test_listening_requires_six_questions_and_approved_media(tmp_path: Path):
     _write_package(tmp_path)
     path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"

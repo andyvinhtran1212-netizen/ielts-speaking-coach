@@ -160,11 +160,10 @@ def practice_selection(lesson: dict) -> dict[str, list[dict]]:
         raise ValueError(
             f"Advanced Vocabulary {lesson.get('lesson_id')} cần đúng 48 câu practice duy nhất"
         )
-    # Interleave so neither stage becomes a single-mode wall of questions.
-    first = selected[::2]
-    second = selected[1::2]
-    stage_1 = first[:14] + second[:14]
-    stage_2 = first[14:] + second[14:]
+    # ``selected`` is already recognition/production pairs per lexeme. Preserve
+    # that alternating order when splitting the 28/20-question stages.
+    stage_1 = selected[:28]
+    stage_2 = selected[28:]
     return {"practice_1": stage_1, "practice_2": stage_2}
 
 
@@ -292,8 +291,17 @@ def controlled_rewrite_parts(lesson: dict) -> dict:
 
 def _safe_question(item: dict, *, answered: bool = False,
                    audio_url: str | None = None) -> dict:
-    hidden = {"answer", "answer_index", "accept", "explain", "why_wrong", "note"}
-    safe = {key: value for key, value in item.items() if key not in hidden}
+    public_fields = {
+        "headword", "hint", "input", "item_id", "lexeme_id", "options",
+        "prompt", "segments", "skill", "subtype", "type", "question_type",
+    }
+    safe = {key: item.get(key) for key in public_fields if key in item}
+    if "options" in safe:
+        safe["options"] = [
+            ({key: option.get(key) for key in ("key", "letter", "text") if key in option}
+             if isinstance(option, dict) else option)
+            for option in safe.get("options") or []
+        ]
     prompt = str(safe.get("prompt") or "")
     if "{{audio}}" in prompt:
         safe["prompt"] = prompt.replace("{{audio}}", "").strip()

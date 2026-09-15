@@ -46,6 +46,14 @@ LISTENING_LEARNER_QUESTION_FIELDS = frozenset({
     "question_number", "question_type", "stem", "options",
 })
 LISTENING_LEARNER_OPTION_FIELDS = frozenset({"key", "letter", "text"})
+QUIZ_AUTHORED_ITEM_FIELDS = frozenset({
+    "accept", "answer", "answer_index", "case_sensitive",
+    "counts_toward_mastery", "explain", "headword", "hint", "input",
+    "item_id", "legacy_id", "lexeme_id", "mask", "note", "options",
+    "pair", "pairs", "points", "prompt", "question_type", "segments",
+    "skill", "subtype", "type", "why_wrong",
+})
+QUIZ_OPTION_FIELDS = frozenset({"key", "letter", "text"})
 SHA256_RE = re.compile(r"[0-9a-f]{64}", re.IGNORECASE)
 
 
@@ -631,6 +639,25 @@ def _validate_lesson(
     items = quiz.get("items") or []
     items = _validate_unique_ids(items, ("item_id",), path, report, "QUIZ")
     for item in items:
+        unexpected = sorted(set(item) - QUIZ_AUTHORED_ITEM_FIELDS)
+        if unexpected:
+            report.add(
+                "error", "QUIZ_ITEM_FIELD_UNEXPECTED", path,
+                f"Item {item.get('item_id') or '?'} has non-contract fields: "
+                + ", ".join(unexpected),
+            )
+        option_unexpected = sorted({
+            key
+            for option in item.get("options") or []
+            if isinstance(option, dict)
+            for key in set(option) - QUIZ_OPTION_FIELDS
+        })
+        if option_unexpected:
+            report.add(
+                "error", "QUIZ_OPTION_FIELD_UNEXPECTED", path,
+                f"Item {item.get('item_id') or '?'} has non-contract option fields: "
+                + ", ".join(option_unexpected),
+            )
         input_type = str(item.get("input") or "")
         if input_type not in ALLOWED_INPUTS:
             report.add("error", "QUIZ_INPUT_UNSUPPORTED", path,
