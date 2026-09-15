@@ -51,10 +51,35 @@ def _lesson(lesson_id: str) -> dict:
             for i in range(24)
         ],
         "adaptive_quiz": {
-            "items": [{"item_id": f"{lesson_id}-q1", "type": "mcq", "input": "choice",
-                       "answer": 0,
-                       "options": [{"key": "A", "text": "One"},
-                                   {"key": "B", "text": "Two"}]}]
+            "items": [
+                {"item_id": f"{lesson_id}-q1", "type": "mcq", "input": "choice",
+                 "answer": 0,
+                 "options": [{"key": "A", "text": "One"},
+                             {"key": "B", "text": "Two"}]},
+                *[
+                    item
+                    for i in range(24)
+                    for item in (
+                        {
+                            "item_id": f"{lesson_id}-lex-{i}-recognition",
+                            "lexeme_id": f"{lesson_id}-lex-{i}",
+                            "type": "mcq", "input": "choice",
+                            "prompt": f"Recognise word {i}.", "answer": 0,
+                            "options": [
+                                {"key": "A", "text": "Correct"},
+                                {"key": "B", "text": "Wrong"},
+                            ],
+                        },
+                        {
+                            "item_id": f"{lesson_id}-lex-{i}-production",
+                            "lexeme_id": f"{lesson_id}-lex-{i}",
+                            "type": "gap_text", "input": "text",
+                            "prompt": f"Produce word {i}.",
+                            "accept": [f"word-{i}"],
+                        },
+                    )
+                ],
+            ]
         },
         "activities": [
             _activity(f"{lesson_id}-learn", "adaptive_practice"),
@@ -554,6 +579,42 @@ def test_selectable_prompts_and_non_choice_options_fail_closed(tmp_path: Path):
     assert "QUIZ_NON_CHOICE_OPTIONS_INVALID" in _codes(report)
 
 
+def test_selectable_inventory_requires_recognition_and_production_per_lexeme(
+        tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    missing_lexeme = lesson["vocabulary"][0]["lexeme_id"]
+    lesson["adaptive_quiz"]["items"] = [
+        item for item in lesson["adaptive_quiz"]["items"]
+        if not (
+            item.get("lexeme_id") == missing_lexeme
+            and item.get("input") == "text"
+        )
+    ]
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    report = validate_package(tmp_path)
+
+    assert "QUIZ_SELECTABLE_INVENTORY_INCOMPLETE" in _codes(report)
+
+
+def test_selectable_choice_rejects_blank_object_option_identity(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    choice = next(
+        item for item in lesson["adaptive_quiz"]["items"]
+        if item.get("lexeme_id") and item.get("input") == "choice"
+    )
+    choice["options"][0] = {"letter": "", "key": "A", "text": "Correct"}
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    report = validate_package(tmp_path)
+
+    assert "QUIZ_OPTION_ID_INVALID" in _codes(report)
+
+
 def test_listening_requires_six_questions_and_approved_media(tmp_path: Path):
     _write_package(tmp_path)
     path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
@@ -817,6 +878,23 @@ def test_reading_rejects_private_option_fields(tmp_path: Path):
     report = validate_package(tmp_path)
 
     assert "READING_OPTION_FIELD_UNEXPECTED" in _codes(report)
+
+
+def test_reading_rejects_unexpected_top_level_and_passage_fields(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    reading = next(a for a in lesson["activities"] if a["activity_type"] == "reading_lab")
+    reading["content"]["answer_key"] = {"1": "private"}
+    reading["content"]["passages"][0]["private_support"] = "private"
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    report = validate_package(tmp_path)
+
+    assert {
+        "READING_CONTENT_FIELD_UNEXPECTED",
+        "READING_PASSAGE_FIELD_UNEXPECTED",
+    } <= _codes(report)
 
 
 @pytest.mark.parametrize("question_count", [13, 14])

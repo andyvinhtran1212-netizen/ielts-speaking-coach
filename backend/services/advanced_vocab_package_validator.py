@@ -42,6 +42,13 @@ WRITING_ACTIVITY_TYPE = "writing_reference"
 SPEAKING_ACTIVITY_TYPE = "speaking_practice"
 LISTENING_ACTIVITY_TYPE = "listening_lab"
 READING_ACTIVITY_TYPE = "reading_lab"
+READING_AUTHORED_CONTENT_FIELDS = frozenset({
+    "module", "passages", "question_material", "questions", "solutions",
+    "solutions_visibility", "target_band", "test_id", "title",
+})
+READING_LEARNER_PASSAGE_FIELDS = frozenset({
+    "paragraph", "passage_number", "text", "title",
+})
 LISTENING_LEARNER_QUESTION_FIELDS = frozenset({
     "question_number", "question_type", "stem", "options",
 })
@@ -55,6 +62,17 @@ QUIZ_AUTHORED_ITEM_FIELDS = frozenset({
 })
 QUIZ_OPTION_FIELDS = frozenset({"key", "letter", "text"})
 SHA256_RE = re.compile(r"[0-9a-f]{64}", re.IGNORECASE)
+
+
+def _option_identity(option: object, index: int) -> object:
+    """Mirror the learner's nullish letter/key/index option precedence."""
+    if not isinstance(option, dict):
+        return index
+    if option.get("letter") is not None:
+        return option.get("letter")
+    if option.get("key") is not None:
+        return option.get("key")
+    return index
 
 
 @dataclass(frozen=True)
@@ -242,12 +260,8 @@ def _validate_mcq_options(lesson: dict[str, Any], path: Path,
         if len(options) < 2:
             report.add("error", "MCQ_OPTION_COUNT", path,
                        f"Question {qid} needs at least two options; found {len(options)}.")
-        keys: list[str] = []
-        for index, option in enumerate(options):
-            if isinstance(option, dict):
-                keys.append(str(option.get("letter") or option.get("key") or index))
-            else:
-                keys.append(str(index))
+        keys = [str(_option_identity(option, index))
+                for index, option in enumerate(options)]
         duplicate_keys = sorted(k for k, n in Counter(keys).items() if n > 1)
         if duplicate_keys:
             report.add("error", "MCQ_DUPLICATE_OPTION_KEY", path,
@@ -376,6 +390,16 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                        f"Each core lesson needs exactly one Reading Lab; found {len(reading)}.")
         for activity in reading:
             content = activity.get("content") or {}
+            if isinstance(content, dict):
+                unexpected_content = sorted(
+                    set(content) - READING_AUTHORED_CONTENT_FIELDS
+                )
+                if unexpected_content:
+                    report.add(
+                        "error", "READING_CONTENT_FIELD_UNEXPECTED", path,
+                        "Reading content exposes non-contract fields: "
+                        + ", ".join(unexpected_content),
+                    )
             passages = content.get("passages") if isinstance(content, dict) else None
             questions = content.get("questions") if isinstance(content, dict) else None
             solutions = content.get("solutions") if isinstance(content, dict) else None
@@ -384,6 +408,21 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             if passage_count == 0:
                 report.add("error", "READING_PASSAGE_MISSING", path,
                            "Reading Lab must contain at least one passage paragraph.")
+            passage_rows = passages if isinstance(passages, list) else []
+            if any(not isinstance(passage, dict) for passage in passage_rows):
+                report.add("error", "READING_PASSAGE_ITEM_TYPE", path,
+                           "Every Reading passage must be an object.")
+            passage_unexpected = sorted({
+                key
+                for passage in passage_rows if isinstance(passage, dict)
+                for key in set(passage) - READING_LEARNER_PASSAGE_FIELDS
+            })
+            if passage_unexpected:
+                report.add(
+                    "error", "READING_PASSAGE_FIELD_UNEXPECTED", path,
+                    "Reading passages expose non-public fields: "
+                    + ", ".join(passage_unexpected),
+                )
             if question_count not in {13, 14}:
                 report.add("error", "READING_QUESTION_COUNT", path,
                            f"Reading Lab must contain 13 or 14 questions; found {question_count}.")
@@ -744,15 +783,22 @@ def _validate_lesson(
                 options = item.get("options")
                 if not has_expected or not isinstance(options, list) or len(options) < 2:
                     grading_valid = False
-                elif isinstance(expected, int) and not isinstance(expected, bool):
-                    grading_valid = 0 <= expected < len(options)
                 else:
-                    option_keys = {
-                        str(option.get("letter") or option.get("key") or index)
-                        if isinstance(option, dict) else str(index)
+                    option_keys = [
+                        str(_option_identity(option, index)).strip()
                         for index, option in enumerate(options)
-                    }
-                    grading_valid = str(expected) in option_keys
+                    ]
+                    if any(not key for key in option_keys):
+                        report.add(
+                            "error", "QUIZ_OPTION_ID_INVALID", path,
+                            f"Item {item.get('item_id') or '?'} needs a non-empty "
+                            "learner option identifier.",
+                        )
+                        grading_valid = False
+                    elif isinstance(expected, int) and not isinstance(expected, bool):
+                        grading_valid = 0 <= expected < len(options)
+                    else:
+                        grading_valid = str(expected) in set(option_keys)
             elif input_type == "boolean":
                 grading_valid = has_expected and isinstance(expected, bool)
             elif input_type == "syllable":
@@ -806,6 +852,31 @@ def _validate_lesson(
         if q_type in {"choice", "mcq"} and not ({"answer", "answer_index"} & item.keys()):
             report.add("error", "MCQ_ANSWER_MISSING", path,
                        f"Item {item.get('item_id') or '?'} needs one valid answer.")
+
+    selectable_by_lexeme = {
+        str(vocab.get("lexeme_id")): [
+            item for item in items
+            if str(item.get("lexeme_id") or "") == str(vocab.get("lexeme_id") or "")
+            and item.get("input") != "match"
+        ]
+        for vocab in vocabulary if vocab.get("lexeme_id")
+    }
+    incomplete_lexemes = []
+    for lexeme_id, scoped_items in selectable_by_lexeme.items():
+        has_recognition = any(
+            item.get("input") in {"choice", "boolean", "syllable"}
+            for item in scoped_items
+        )
+        has_production = any(item.get("input") == "text" for item in scoped_items)
+        if not (has_recognition and has_production):
+            incomplete_lexemes.append(lexeme_id)
+    if incomplete_lexemes:
+        report.add(
+            "error", "QUIZ_SELECTABLE_INVENTORY_INCOMPLETE", path,
+            "Each vocabulary lexeme needs one selectable recognition and one "
+            "selectable production candidate; incomplete: "
+            + ", ".join(incomplete_lexemes),
+        )
 
     _validate_activity_policies(lesson, path, report)
     _validate_mcq_options(lesson, path, report)

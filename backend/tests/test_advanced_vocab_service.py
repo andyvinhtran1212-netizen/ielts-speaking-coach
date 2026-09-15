@@ -437,6 +437,11 @@ def test_learner_reading_projection_strips_source_and_correction_evidence(
 ):
     lesson = deepcopy(service.load_lesson(lesson_id))
     authored_reading = service._activity(lesson, "reading_lab")["content"]
+    authored_reading["answer_key"] = {"1": "private"}
+    authored_reading["private_support"] = "private"
+    authored_reading["passages"][0].update({
+        "answer": "private", "private_support": "private",
+    })
     option_question = next(
         question for question in authored_reading["questions"]
         if question.get("options")
@@ -459,6 +464,9 @@ def test_learner_reading_projection_strips_source_and_correction_evidence(
     serialized = json.dumps(reading)
 
     assert "solutions" not in reading
+    assert "answer_key" not in reading
+    assert "private_support" not in serialized
+    assert "answer" not in reading["passages"][0]
     assert "source_answer" not in serialized
     assert "source_evidence" not in serialized
     assert "correction_reason" not in serialized

@@ -27,6 +27,10 @@ _REQUIRED_STAGES = (
     "controlled_rewrite", "listening",
 )
 _PRACTICE_COUNTS = {"practice_1": 28, "practice_2": 20}
+_READING_PUBLIC_FIELDS = {
+    "module", "solutions_visibility", "target_band", "test_id", "title",
+}
+_READING_PASSAGE_FIELDS = {"paragraph", "passage_number", "text", "title"}
 _PAGE = 1000
 _ID_CHUNK = 200
 
@@ -340,6 +344,14 @@ def _safe_reading_question(question: dict) -> dict:
     return safe
 
 
+def _safe_reading_passage(passage: dict) -> dict:
+    """Project passage copy only through the public Reading contract."""
+    return {
+        key: passage.get(key)
+        for key in _READING_PASSAGE_FIELDS if key in passage
+    }
+
+
 def _safe_listening_question(question: dict) -> dict:
     """Project only learner-answerable Listening fields at every nesting level."""
     safe = {
@@ -478,14 +490,23 @@ def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
         vocabulary.append(safe)
 
     activities: dict[str, Any] = {}
-    reading = dict((_activity(lesson, "reading_lab").get("content") or {}))
-    reading.pop("solutions", None)
+    authored_reading = _activity(lesson, "reading_lab").get("content") or {}
+    reading = {
+        key: authored_reading.get(key)
+        for key in _READING_PUBLIC_FIELDS if key in authored_reading
+    }
+    reading["passages"] = [
+        _safe_reading_passage(passage)
+        for passage in authored_reading.get("passages") or []
+        if isinstance(passage, dict)
+    ]
     reading["question_material"] = _safe_reading_material(
-        reading.get("question_material")
+        authored_reading.get("question_material")
     )
     reading["questions"] = [
         _safe_reading_question(question)
-        for question in reading.get("questions") or []
+        for question in authored_reading.get("questions") or []
+        if isinstance(question, dict)
     ]
     activities["reading"] = reading
     rewrite = controlled_rewrite_parts(lesson)
