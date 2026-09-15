@@ -148,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–272
+## Forward scope 230–274
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -195,6 +195,14 @@ Migration 272 freezes a timed Course assignment's class deadline after the
 first learner opens it. A marker on the assignment row makes concurrent start
 and due-date writes serialize on one canonical record, preventing the browser
 and server from enforcing different cutoffs.
+
+Migration 273 makes the timeout envelope atomic: any final answers restored
+after a transient eager-save failure are inserted at the canonical cutoff in
+the same transaction that records the immutable `time_cap` session ending.
+
+Migration 274 bounds that final-answer envelope to the same 15-second grace
+used by the timeout reaper. It preserves lost-response idempotency while
+preventing the recovery path from becoming an unlimited post-exam write lane.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

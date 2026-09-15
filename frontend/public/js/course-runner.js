@@ -742,22 +742,21 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       if (sessionId && !sessionEnded && !resumedRetakeFinal) {
         try {
           await inflight;        // chờ lượt đẩy nền xong rồi mới xét hàng đợi
-          if (endedBy === 'time_cap') {
-            // Timed answers đã được xếp flush ngay khi bấm và `inflight` phía
-            // trên chờ ACK của mọi write được server nhận trước cutoff. Phần
-            // còn lại ở đây chỉ là write chưa từng được nhận/đã bị ranh giới
-            // nguyên tử bác; gửi lại sau hạn không thể biến nó thành on-time.
-            pending = [];
-          } else {
-            await flush();
-          }
-          await api.patch('/api/quiz/sessions/' + sessionId, {
+          if (endedBy !== 'time_cap') await flush();
+          // Một eager /progress có thể tới máy chủ trước cutoff nhưng trả 5xx
+          // và được `flush()` đặt lại vào pending. Timeout endpoint nhận chính
+          // batch còn lại và ghi attempts + đóng session trong MỘT transaction;
+          // chỉ xoá local sau ACK thành công.
+          const finishPayload = {
             duration_sec: Math.round((now() - stageStartedAt) / 1000),
             total_questions: graded,
             total_correct: right,
             total_wrong: Math.max(0, graded - right),
             ended_by: endedBy,
-          });
+            ...(endedBy === 'time_cap' ? { attempts: pending.slice() } : {}),
+          };
+          await api.patch('/api/quiz/sessions/' + sessionId, finishPayload);
+          if (endedBy === 'time_cap') pending = [];
           sessionEnded = true;
           // Chỉ phiên ĐÃ CHỐT mới có tên trong lượt xét đạt — server từ chối
           // phiên dang dở, và một phiên hỏng không được kéo cả lượt xuống.

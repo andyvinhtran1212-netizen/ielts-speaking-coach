@@ -2571,6 +2571,56 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
     ended_by = data.get("ended_by")
     if ended_by not in _ENDED_BY:
         ended_by = "completed"
+    final_attempts = data.get("attempts") or []
+    if not isinstance(final_attempts, list):
+        raise HTTPException(422, "attempts phải là danh sách.")
+    if len(final_attempts) > _MAX_ATTEMPTS_PER_CALL:
+        raise HTTPException(413, "Batch quá lớn.")
+    if final_attempts and ended_by != "time_cap":
+        raise HTTPException(422, "Chỉ lượt hết giờ mới nhận batch đáp án cuối.")
+
+    if ended_by == "time_cap" and session.get("class_assignment_item_id"):
+        attempt_rows = []
+        for attempt in final_attempts:
+            row = {k: attempt.get(k) for k in _ATTEMPT_FIELDS}
+            if not row.get("item_key") or row.get("is_correct") is None:
+                continue
+            row["is_correct"] = bool(row["is_correct"])
+            row["response_time_ms"] = _coerce_int(row.get("response_time_ms"))
+            row["attempt_no"] = _coerce_int(row.get("attempt_no"))
+            attempt_rows.append(row)
+        summary = {
+            "duration_sec": data.get("duration_sec"),
+            "total_questions": int(data.get("total_questions") or 0),
+            "total_correct": int(data.get("total_correct") or 0),
+            "total_wrong": int(data.get("total_wrong") or 0),
+        }
+        try:
+            rows = (supabase_admin.rpc(
+                "quiz_finalize_timed_course_session", {
+                    "p_session_id": session_id,
+                    "p_user_id": user_id,
+                    "p_attempts": attempt_rows,
+                    "p_summary": summary,
+                },
+            ).execute().data) or []
+        except Exception as exc:  # noqa: BLE001
+            detail = str(exc)
+            if "timed_course_finalize_not_expired" in detail:
+                raise HTTPException(422, "Đồng hồ máy chủ chưa hết thời gian.") from exc
+            if "timed_course_finalize_not_accessible" in detail:
+                raise HTTPException(409, "Phiên này không còn nhận kết quả hết giờ.") from exc
+            if "timed_course_final_batch_expired" in detail:
+                raise HTTPException(
+                    409, "Batch đáp án cuối đến quá trễ để tính vào bài hết giờ.",
+                ) from exc
+            if "timed_course_limit_invalid" in detail:
+                raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.") from exc
+            raise HTTPException(500, "Chưa lưu được batch cuối khi hết giờ.") from exc
+        if not rows:
+            raise HTTPException(500, "Chưa chốt được phiên hết giờ.")
+        return rows[0]
+
     _assert_course_session_accepting(session, ended_by)
     total = int(data.get("total_questions") or 0)
     correct = int(data.get("total_correct") or 0)

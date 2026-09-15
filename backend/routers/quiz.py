@@ -65,6 +65,9 @@ class EndSessionBody(BaseModel):
     words_mastered: int = 0
     words_carried_over: int = 0
     ended_by: str | None = None
+    # Only the timed Course time-cap path consumes this. Migration 273 writes
+    # the final pending answers and closes the session in one transaction.
+    attempts: list[dict] = []
 
 
 @router.get("/banks")

@@ -1857,6 +1857,49 @@ def test_end_session_does_not_reclose_an_on_time_completed_session():
                    for call in fake.calls)
 
 
+def test_time_cap_atomically_includes_the_final_pending_attempts():
+    open_session = {
+        "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+        "class_assignment_item_id": "item-timed",
+        "ended_at": None, "ended_by": None,
+    }
+    canonical = {
+        **open_session,
+        "ended_at": "2026-09-15T01:30:00+00:00", "ended_by": "time_cap",
+        "total_questions": 10, "total_correct": 7,
+    }
+    attempt = {
+        "client_id": "33333333-3333-3333-3333-333333333333",
+        "item_key": "x", "qid": "q-final", "is_correct": True,
+        "answer_given": "4", "response_time_ms": 59_100.8, "attempt_no": 1.0,
+    }
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_finalize_timed_course_session"): [canonical],
+    })
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_owned_session", return_value=open_session):
+        out = quiz_service.end_session(
+            user_id=_USER, session_id=_SESS,
+            data={
+                "ended_by": "time_cap", "duration_sec": 1800,
+                "total_questions": 10, "total_correct": 7, "total_wrong": 3,
+                "attempts": [attempt],
+            },
+        )
+
+    assert out == canonical
+    rpc = next(call for call in fake.calls
+               if call["table"] == "rpc:quiz_finalize_timed_course_session")
+    assert rpc["payload"]["p_session_id"] == _SESS
+    assert rpc["payload"]["p_user_id"] == _USER
+    assert rpc["payload"]["p_attempts"][0]["qid"] == "q-final"
+    assert rpc["payload"]["p_attempts"][0]["response_time_ms"] == 59101
+    assert rpc["payload"]["p_summary"]["total_correct"] == 7
+    assert not any(call["table"] == "quiz_sessions" and call["op"] == "update"
+                   for call in fake.calls)
+
+
 @pytest.mark.parametrize(("requested", "winner"), [
     ("completed", "time_cap"),
     ("time_cap", "completed"),

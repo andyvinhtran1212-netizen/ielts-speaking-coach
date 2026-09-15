@@ -13562,6 +13562,13 @@ export interface components {
             words_carried_over: number;
             /** Ended By */
             ended_by?: string | null;
+            /**
+             * Attempts
+             * @default []
+             */
+            attempts: {
+                [key: string]: unknown;
+            }[];
         };
         /** ErrorReportRequest */
         ErrorReportRequest: {
