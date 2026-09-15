@@ -594,11 +594,16 @@ export function createRunner({
 
   function scheduleTimedEagerRetry() {
     if (!mastery || !mastery.is_timed || eagerRetryScheduled
-        || eagerRetryAttempt >= eagerRetryDelays.length
         || !sessionId || sessionEnded || !pending.length) return;
     const remaining = timerRemainingMilliseconds();
-    if (!(remaining > 0)) return;
-    const configured = eagerRetryDelays[eagerRetryAttempt++];
+    // A request deliberately fired in the last few milliseconds cannot reach
+    // the server before its admission cutoff. Keep retrying at the capped
+    // delay while a useful admission window remains; do not stop merely
+    // because every distinct backoff step has been used once.
+    if (!(remaining > 25)) return;
+    const retryIndex = Math.min(eagerRetryAttempt, eagerRetryDelays.length - 1);
+    const configured = eagerRetryDelays[retryIndex];
+    eagerRetryAttempt = Math.min(eagerRetryAttempt + 1, eagerRetryDelays.length);
     // Leave a small admission margin instead of deliberately firing at the
     // exact boundary.  Very short remaining windows retry immediately once.
     const delay = Math.max(0, Math.min(configured, remaining - 25));

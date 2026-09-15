@@ -4770,6 +4770,25 @@ def course_verdict(
     return payload
 
 
+def _mark_timed_course_retry_closed(item: dict) -> bool:
+    """Persist the fact that an expired retry entitlement had no generation.
+
+    Failed on-time attempts keep ``passed_at`` NULL, so the reaper's broad
+    query continues to find them forever. This marker is written only after a
+    post-cutoff session scan proves that no retake/full-retry generation was
+    started. Migration 277 locks the item and repeats the session-generation
+    proof in the same transaction, so a concurrently committing retake wins
+    instead of being hidden by the marker.
+    """
+    mastery = dict(item.get("mastery") or {})
+    if mastery.get("timed_retry_closed_at"):
+        return True
+    closed = supabase_admin.rpc(
+        "quiz_close_expired_course_retry", {"p_item_id": item["id"]},
+    ).execute().data
+    return closed is True
+
+
 def reap_expired_course_assessments(
     grace_seconds: int = 15, *, now: datetime | None = None,
 ) -> dict:
@@ -4840,6 +4859,10 @@ def reap_expired_course_assessments(
         latest_action = _recorded_next_action(
             latest_attempt, mastery_config(assignment)["pass_pct"],
         )
+        if (item.get("submitted_at") and latest_attempt
+                and latest_action in {"retake", "retry_full"}
+                and (item.get("mastery") or {}).get("timed_retry_closed_at")):
+            continue
         # A timeout ledger plus its submission receipt is terminal. `passed_at`
         # intentionally remains NULL for a failed timed assessment, so filtering
         # only on that column makes every future sweep fetch all historical
@@ -5003,6 +5026,21 @@ def reap_expired_course_assessments(
             sessions = [row for row in sessions
                         if row.get("id") not in superseded_run_ids]
             if not sessions and not superseded_runs:
+                latest_at = (_at(mastery_attempts[-1].get("at"))
+                             if mastery_attempts else None)
+                section_started = _at(
+                    mastery_state.get("section_attempt_started_at"),
+                )
+                full_retry_started = bool(
+                    latest_recorded_action == "retry_full"
+                    and mastery_state.get("section_attempt_pending") is True
+                    and section_started is not None
+                    and (latest_at is None or section_started > latest_at)
+                )
+                if (item.get("submitted_at")
+                        and latest_recorded_action in {"retake", "retry_full"}
+                        and not full_retry_started):
+                    _mark_timed_course_retry_closed(item)
                 continue
             latest_attempt_at = (
                 None if repair_ids else
@@ -5089,6 +5127,9 @@ def reap_expired_course_assessments(
             if not verdict_sessions:
                 # The canonical near-pass verdict already exists. This sweep
                 # only sealed a stale full-run tab and must not append history.
+                if (item.get("submitted_at")
+                        and latest_recorded_action in {"retake", "retry_full"}):
+                    _mark_timed_course_retry_closed(item)
                 continue
             verdict_kwargs = dict(
                 user_id=user_id, bank_id=bank_id,

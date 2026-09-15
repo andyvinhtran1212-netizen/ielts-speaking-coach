@@ -461,10 +461,64 @@ test('timed eager retry backoff is bounded during a persistent outage', async ()
     for (let tick = 0; tick < 5; tick++) await Promise.resolve();
   }
 
-  assert.deepEqual(delays, [250, 500, 1000, 2000, 4000]);
-  assert.equal(api.calls.post.filter((c) => c.path.endsWith('/progress')).length, 6,
-    'one initial request plus five bounded retries');
+  assert.deepEqual(delays.slice(0, 5), [250, 500, 1000, 2000, 4000]);
+  assert.ok(delays.slice(5).every((delay) => delay <= 4000),
+    'retry delay stays capped after the distinct backoff steps are exhausted');
+  assert.ok(delays.length > 5, 'retrying continues while the authoritative window is open');
   assert.equal(runner.pendingCount, 1, 'unacknowledged answer remains visible for recovery');
+});
+
+test('timed eager retry recovers after six consecutive failures before cutoff', async () => {
+  let clock = 0;
+  const scheduled = [];
+  const ledger = newLedger();
+  const api = fakeApi({
+    questions: [mcq(1)], ledger,
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      expires_at: null, time_remaining_seconds: 60,
+    },
+  });
+  const post = api.post.bind(api);
+  let failuresLeft = 6;
+  api.post = async (path, body) => {
+    if (path.endsWith('/progress') && failuresLeft > 0) {
+      failuresLeft -= 1;
+      api.calls.post.push({ path, body });
+      throw new Error('transient 5xx');
+    }
+    return post(path, body);
+  };
+  const runner = createRunner({
+    api, storage: null, now: () => clock,
+    schedule(fn, delay) { scheduled.push({ fn, delay }); },
+  });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  runner.show();
+  runner.answer(0);
+  runner.next();
+  for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+
+  while (scheduled.length && runner.pendingCount) {
+    const job = scheduled.shift();
+    clock += job.delay;
+    job.fn();
+    for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+  }
+
+  assert.equal(failuresLeft, 0);
+  assert.equal(runner.pendingCount, 0);
+  const sent = api.calls.post.filter((call) => call.path.endsWith('/progress'));
+  assert.equal(sent.length, 7, 'six failed sends are followed by one successful retry');
+  assert.equal(new Set(sent.map((call) => call.body.attempts[0].client_id)).size, 1,
+    'every retry preserves the original idempotency key');
+  assert.deepEqual(ledger.answered.get('sess-1').map((row) => row.qid), ['Q1']);
+
+  clock = 60000;
+  const result = await runner.finishStage({ endedBy: 'time_cap' });
+  assert.equal(result.persisted, true);
+  assert.deepEqual(api.calls.patch.at(-1).body.attempts, [],
+    'timeout finalizer only verifies the answer already persisted before cutoff');
 });
 
 test('a completed session stays closed when the page timer later expires', async () => {

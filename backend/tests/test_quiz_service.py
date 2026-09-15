@@ -1285,6 +1285,7 @@ def test_server_reaper_seals_pre_verdict_run_orphan_without_replacing_near_pass(
     """A near-pass permits a retake, never a second old full-run verdict."""
     fake = _FakeSupabase(responses={
         ("quiz_sessions", "update"): [{"id": "orphan-open"}],
+        ("rpc", "quiz_close_expired_course_retry"): True,
     })
     mastery = {"attempts": [{
         "phase": "run", "pct": 70, "completed": True,
@@ -1398,6 +1399,75 @@ def test_server_reaper_skips_settled_timeout_before_session_sweep():
     ]
     assert not any(call["table"] == "quiz_sessions" for call in fake.calls)
     assert mastery["attempts"][-1]["next_action"] == "timed_out"
+    verdict.assert_not_called()
+
+
+@pytest.mark.parametrize("next_action", ["retake", "retry_full"])
+def test_server_reaper_marks_unstarted_expired_retry_closed_before_second_sweep(
+    next_action,
+):
+    """An on-time failure without a new generation incurs one proof scan only."""
+    item = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+        "submitted_at": "2026-09-15T01:20:00+00:00", "passed_at": None,
+        "updated_at": "2026-09-15T01:20:00+00:00",
+        "mastery": {"attempts": [{
+            "phase": "run", "pct": 60, "next_action": next_action,
+            "at": "2026-09-15T01:20:00+00:00", "sessions": ["failed-run"],
+        }]},
+    }
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_close_expired_course_retry"): True,
+    })
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30, "pass_pct": 75},
+        }],
+        "class_assignment_items": [item],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [{
+            "id": "failed-run", "user_id": _USER, "bank_id": _BANK,
+            "class_assignment_item_id": "item-timed", "kind": "run",
+            "created_at": "2026-09-15T01:00:00+00:00",
+            "ended_at": "2026-09-15T01:20:00+00:00", "ended_by": "completed",
+        }],
+    }
+    report_calls = []
+
+    def report(table, *_args, **_kwargs):
+        report_calls.append(table)
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict") as verdict:
+        first = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+        marker = next(call for call in fake.calls
+                      if call["table"] == "rpc:quiz_close_expired_course_retry")
+        # The fake records writes but does not apply them. Reflect the committed
+        # row before the second independent database sweep.
+        item["mastery"] = {
+            **item["mastery"],
+            "timed_retry_closed_at": "2026-09-15T01:30:00+00:00",
+        }
+        second = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:32:00+00:00"),
+        )
+
+    assert first == {"examined": 1, "finalized": 0, "failed": 0}
+    assert second == {"examined": 0, "finalized": 0, "failed": 0}
+    assert report_calls == [
+        "class_assignments", "class_assignment_items", "students", "quiz_sessions",
+        "class_assignments", "class_assignment_items",
+    ]
+    assert item["mastery"]["timed_retry_closed_at"] == \
+        "2026-09-15T01:30:00+00:00"
+    assert marker["payload"] == {"p_item_id": "item-timed"}
     verdict.assert_not_called()
 
 
