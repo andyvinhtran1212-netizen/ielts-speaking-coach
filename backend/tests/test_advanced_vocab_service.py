@@ -182,8 +182,12 @@ def test_answer_index_is_canonicalized_and_never_exposed_to_learner():
 def test_answer_practice_grades_authored_answer_index(monkeypatch):
     lesson = deepcopy(_lesson())
     indexed = {
-        "item_id": "indexed-mcq", "type": "mcq", "prompt": "Pick B",
-        "options": ["A", "B"], "answer_index": 1,
+        "item_id": "indexed-mcq", "type": "mcq", "prompt": "Pick A",
+        "options": [
+            {"key": "A", "text": "Correct"},
+            {"key": "B", "text": "Wrong"},
+        ],
+        "answer_index": 0,
     }
     saved_rows = []
 
@@ -228,11 +232,12 @@ def test_answer_practice_grades_authored_answer_index(monkeypatch):
 
     result = service.answer_practice(
         user_id="user-1", bank_id="bank-1", item_id="item-1",
-        stage="practice_1", qid="indexed-mcq", answer=1,
+        stage="practice_1", qid="indexed-mcq", answer="A",
     )
 
     assert result["is_correct"] is True
     assert saved_rows[0]["is_correct"] is True
+    assert service._correct(indexed, "B") is False
 
 
 def test_learner_question_projection_never_contains_answer_material():

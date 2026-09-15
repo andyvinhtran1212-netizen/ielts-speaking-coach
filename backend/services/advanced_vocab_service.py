@@ -650,7 +650,18 @@ def _correct(item: dict, answer: Any) -> bool:
         try:
             return int(answer) == expected
         except (TypeError, ValueError):
-            return False
+            options = item.get("options")
+            if not isinstance(options, list) or not 0 <= expected < len(options):
+                return False
+            expected_option = options[expected]
+            if not isinstance(expected_option, dict):
+                return False
+            option_key = expected_option.get("letter", expected_option.get("key"))
+            return bool(
+                _normal(answer)
+                and option_key is not None
+                and _normal(answer) == _normal(option_key)
+            )
     accepted = item.get("accept") if isinstance(item.get("accept"), list) else None
     if not accepted:
         accepted = expected if isinstance(expected, list) else [expected]
