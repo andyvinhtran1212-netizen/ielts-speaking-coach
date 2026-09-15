@@ -390,6 +390,13 @@ def course_assignment_action(
         return "review"
     if not is_accepting_submissions(assignment, now=now):
         return "review"
+    # A timed Course assignment has a second canonical boundary independent of
+    # the class due date.  Once it passes, a previously recorded retake/retry
+    # entitlement is read-only: advertising it would offer a button whose
+    # session-start request the server must reject.
+    timer = assignment_timer_state(item, assignment, now=now)
+    if timer.get("is_timed") and timer.get("is_expired"):
+        return "review"
 
     mastery = item.get("mastery") or {}
     attempts = mastery.get("attempts") or []
@@ -638,6 +645,7 @@ def _assignment_item_for(
     bank_id: str, user_id: str, *, allow_submitted_review: bool = False,
     assignment_item_id: str | None = None,
     allow_expired_timed_finalize: bool = False,
+    allow_archived_timed_finalize: bool = False,
 ) -> dict | None:
     """Mục bài giao CÒN HIỆU LỰC của học viên này cho bank ấy, hoặc None.
 
@@ -668,8 +676,18 @@ def _assignment_item_for(
             for row in student
             for cohort_id in active_cohort_ids_for_student(supabase_admin, row)
         }
-        owned = [a for a in asg
-                 if is_assignment_open(a) and a.get("cohort_id") in cohorts]
+        owned = [
+            a for a in asg
+            if a.get("cohort_id") in cohorts
+            and (
+                is_assignment_open(a)
+                or (
+                    allow_archived_timed_finalize
+                    and assignment_item_id
+                    and a.get("status") == "archived"
+                )
+            )
+        ]
         if not owned:
             return None
         sids = [s["id"] for s in student]
@@ -695,7 +713,7 @@ def _assignment_item_for(
             # passed class deadline.  It does not reopen question access.
             timer = assignment_timer_state(row, assignment)
             return bool(
-                allow_expired_timed_finalize
+                (allow_expired_timed_finalize or allow_archived_timed_finalize)
                 and assignment_item_id
                 and row.get("opened_at")
                 and timer.get("is_timed")
@@ -2228,13 +2246,13 @@ def _assert_quiz_progress_writable(session: dict) -> None:
     assignment = assignments[0]
     if assignment.get("skill") != COURSE_AREA:
         return
-    if course_assignment_action(items[0], assignment) == "review":
-        raise HTTPException(409, "Bài đã được thu — không thể ghi thêm đáp án.")
     timer = assignment_timer_state(items[0], assignment)
     if timer.get("invalid"):
         raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
     if timer.get("is_timed") and timer.get("is_expired"):
         raise HTTPException(409, "Đã hết thời gian làm bài — đáp án này không được ghi.")
+    if course_assignment_action(items[0], assignment) == "review":
+        raise HTTPException(409, "Bài đã được thu — không thể ghi thêm đáp án.")
 
 
 def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_stats: list[dict]) -> dict:
@@ -3770,6 +3788,7 @@ def refresh_course_completion(
 def course_verdict(
     *, user_id: str, bank_id: str, session_ids: list[str],
     assignment_item_id: str | None = None, timed_out: bool = False,
+    _allow_archived_timed_finalize: bool = False,
 ) -> dict:
     """Xét ĐẠT/CHƯA ĐẠT bài tập buổi từ chính các phiên server đang giữ.
 
@@ -3801,6 +3820,7 @@ def course_verdict(
     item = (_assignment_item_for(
         bank_id, user_id, assignment_item_id=assignment_item_id,
         allow_expired_timed_finalize=True,
+        allow_archived_timed_finalize=_allow_archived_timed_finalize,
     ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
     if not item:
         raise HTTPException(404, "Không tìm thấy bài giao còn hiệu lực")
@@ -4248,7 +4268,9 @@ def reap_expired_course_assessments(
         assignments = _report_pages(
             "class_assignments",
             "id, cohort_id, content_id, skill, status, publish_at, due_at, content_config",
-            lambda q: q.eq("skill", COURSE_AREA).eq("status", "published"),
+            lambda q: q.eq("skill", COURSE_AREA).in_(
+                "status", ["published", "archived"],
+            ),
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("[course-timer-reaper] assignment read failed: %s", exc)
@@ -4256,7 +4278,8 @@ def reap_expired_course_assessments(
 
     timed = {
         row["id"]: row for row in assignments
-        if (row.get("content_config") or {}).get("time_limit_minutes") is not None
+        if row.get("status") in {"published", "archived"}
+        and (row.get("content_config") or {}).get("time_limit_minutes") is not None
         and row.get("content_id")
     }
     if not timed:
@@ -4279,7 +4302,23 @@ def reap_expired_course_assessments(
     if not items:
         return result
 
-    student_ids = sorted({row.get("student_id") for row in items if row.get("student_id")})
+    candidates: list[tuple[dict, dict, datetime]] = []
+    for item in items:
+        assignment = timed.get(item.get("assignment_id")) or {}
+        timer = assignment_timer_state(item, assignment, now=current)
+        cutoff = _at(timer.get("expires_at"))
+        if (timer.get("invalid") or not timer.get("is_timed")
+                or not timer.get("is_expired") or cutoff is None
+                or current < cutoff + grace):
+            continue
+        result["examined"] += 1
+        candidates.append((item, assignment, cutoff))
+    if not candidates:
+        return result
+
+    student_ids = sorted({
+        item.get("student_id") for item, _, _ in candidates if item.get("student_id")
+    })
     students: dict[str, str] = {}
     try:
         for ids in _chunks(student_ids):
@@ -4292,27 +4331,37 @@ def reap_expired_course_assessments(
         logger.warning("[course-timer-reaper] student read failed: %s", exc)
         return {**result, "failed": 1}
 
-    for item in items:
-        assignment = timed.get(item.get("assignment_id")) or {}
-        timer = assignment_timer_state(item, assignment, now=current)
-        cutoff = _at(timer.get("expires_at"))
-        if (timer.get("invalid") or not timer.get("is_timed")
-                or not timer.get("is_expired") or cutoff is None
-                or current < cutoff + grace):
-            continue
-        result["examined"] += 1
+    # Fetch sessions in bounded batches, then group locally.  A per-item query
+    # makes each historical attempt add another request to every minute-long
+    # sweep, even after its verdict has already been recorded.
+    sessions_by_item: dict[str, list[dict]] = {
+        str(item["id"]): [] for item, _, _ in candidates
+    }
+    try:
+        for ids in _chunks(list(sessions_by_item)):
+            rows = _report_pages(
+                "quiz_sessions",
+                "id, user_id, bank_id, class_assignment_item_id, kind, created_at, "
+                "started_at, ended_at, ended_by, duration_sec",
+                lambda q, ids=ids: q.in_("class_assignment_item_id", ids),
+            )
+            for row in rows:
+                item_id = str(row.get("class_assignment_item_id") or "")
+                if item_id in sessions_by_item:
+                    sessions_by_item[item_id].append(row)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[course-timer-reaper] session read failed: %s", exc)
+        result["failed"] += len(candidates)
+        return result
+
+    for item, assignment, cutoff in candidates:
         user_id = students.get(item.get("student_id"))
         bank_id = assignment.get("content_id")
         if not user_id or not bank_id:
             result["failed"] += 1
             continue
         try:
-            sessions = _report_pages(
-                "quiz_sessions",
-                "id, user_id, bank_id, class_assignment_item_id, kind, created_at, "
-                "started_at, ended_at, ended_by, duration_sec",
-                lambda q, item_id=item["id"]: q.eq("class_assignment_item_id", item_id),
-            )
+            sessions = sessions_by_item.get(str(item["id"]), [])
             sessions = [row for row in sessions
                         if row.get("user_id") == user_id and row.get("bank_id") == bank_id]
             # A failed full run may already be recorded before a short retake
@@ -4346,11 +4395,14 @@ def reap_expired_course_assessments(
                     update = update.is_("ended_by", "null")
                 update.execute()
                 session.update(patch)
-            course_verdict(
+            verdict_kwargs = dict(
                 user_id=user_id, bank_id=bank_id,
                 session_ids=[row["id"] for row in sessions],
                 assignment_item_id=item["id"], timed_out=True,
             )
+            if assignment.get("status") == "archived":
+                verdict_kwargs["_allow_archived_timed_finalize"] = True
+            course_verdict(**verdict_kwargs)
             result["finalized"] += 1
         except Exception as exc:  # noqa: BLE001
             result["failed"] += 1

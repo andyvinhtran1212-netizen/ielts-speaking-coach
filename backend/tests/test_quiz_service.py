@@ -829,6 +829,91 @@ def test_server_reaper_repairs_submitted_item_when_verdict_was_lost():
     verdict.assert_called_once()
 
 
+def test_server_reaper_finalizes_expired_item_after_assignment_is_archived():
+    fake = _FakeSupabase()
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "archived", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+        "class_assignment_items": [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+            "submitted_at": None, "mastery": None,
+        }],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [{
+            "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+            "class_assignment_item_id": "item-timed", "kind": "run",
+            "created_at": "2026-09-15T01:00:00+00:00",
+            "ended_at": None, "ended_by": None,
+        }],
+    }
+
+    def report(table, *_args, **_kwargs):
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict", return_value={"timed_out": True}) as verdict:
+        out = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+    assert out == {"examined": 1, "finalized": 1, "failed": 0}
+    verdict.assert_called_once_with(
+        user_id=_USER, bank_id=_BANK, session_ids=[_SESS],
+        assignment_item_id="item-timed", timed_out=True,
+        _allow_archived_timed_finalize=True,
+    )
+
+
+def test_server_reaper_batches_session_reads_for_multiple_items():
+    fake = _FakeSupabase()
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+        "class_assignment_items": [
+            {"id": "item-1", "assignment_id": "asg-timed", "student_id": "student-1",
+             "opened_at": "2026-09-15T01:00:00+00:00", "mastery": None},
+            {"id": "item-2", "assignment_id": "asg-timed", "student_id": "student-2",
+             "opened_at": "2026-09-15T01:00:00+00:00", "mastery": None},
+        ],
+        "students": [
+            {"id": "student-1", "user_id": _USER},
+            {"id": "student-2", "user_id": _OTHER},
+        ],
+        "quiz_sessions": [
+            {"id": "session-1", "user_id": _USER, "bank_id": _BANK,
+             "class_assignment_item_id": "item-1", "kind": "run",
+             "created_at": "2026-09-15T01:00:00+00:00",
+             "ended_at": "2026-09-15T01:29:00+00:00", "ended_by": "completed"},
+            {"id": "session-2", "user_id": _OTHER, "bank_id": _BANK,
+             "class_assignment_item_id": "item-2", "kind": "run",
+             "created_at": "2026-09-15T01:00:00+00:00",
+             "ended_at": "2026-09-15T01:29:00+00:00", "ended_by": "completed"},
+        ],
+    }
+    report_calls = []
+
+    def report(table, *_args, **_kwargs):
+        report_calls.append(table)
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict", return_value={"passed": False}) as verdict:
+        out = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+    assert out == {"examined": 2, "finalized": 2, "failed": 0}
+    assert report_calls.count("quiz_sessions") == 1
+    assert verdict.call_count == 2
+
+
 def test_log_progress_inserts_attempts_and_upserts_stats():
     fake = _FakeSupabase(responses=_session_resp())
     attempts = [

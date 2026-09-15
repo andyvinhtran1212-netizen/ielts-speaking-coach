@@ -354,6 +354,31 @@ def test_an_ARCHIVED_assignment_closes_the_door():
     assert exc.value.status_code == 404
 
 
+def test_archived_timed_item_is_visible_only_to_internal_expiry_finalizer():
+    archived = {
+        **_LIVE_ASG, "status": "archived",
+        "content_config": {"time_limit_minutes": 30},
+    }
+    db = _db(
+        class_assignments=[archived], students=[_STUDENT],
+        class_assignment_items=[{
+            "id": "it-1", "assignment_id": "asg-1", "student_id": "st-1",
+            "opened_at": "2020-01-01T00:00:00+00:00",
+        }],
+    )
+    with patch.object(mod, "supabase_admin", db):
+        assert mod._assignment_item_for(
+            "bank-course", "u1", assignment_item_id="it-1",
+            allow_expired_timed_finalize=True,
+        ) is None
+        item = mod._assignment_item_for(
+            "bank-course", "u1", assignment_item_id="it-1",
+            allow_expired_timed_finalize=True,
+            allow_archived_timed_finalize=True,
+        )
+    assert item and item["id"] == "it-1"
+
+
 def test_an_assignment_PAST_ITS_DEADLINE_closes_the_door():
     """Đề kèm đáp án. Để mở sau hạn nghĩa là phát đáp án cho bài vừa chốt sổ."""
     with pytest.raises(HTTPException) as exc:

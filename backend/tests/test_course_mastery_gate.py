@@ -267,6 +267,25 @@ def test_course_assignment_action_fails_safe_for_a_malformed_legacy_ledger():
     assert qs.course_assignment_action(item, assignment) == "start"
 
 
+def test_course_assignment_action_closes_retry_when_timer_expires():
+    assignment = {
+        "status": "published", "publish_at": None, "due_at": None,
+        "content_config": {"pass_pct": 75, "time_limit_minutes": 30},
+    }
+    item = {
+        "passed_at": None, "opened_at": "2026-09-15T01:00:00+00:00",
+        "mastery": {"attempts": [{
+            "completed": True, "pct": 70, "next_action": "retake",
+        }]},
+    }
+    assert qs.course_assignment_action(
+        item, assignment, now=qs._at("2026-09-15T01:29:59+00:00"),
+    ) == "retake"
+    assert qs.course_assignment_action(
+        item, assignment, now=qs._at("2026-09-15T01:30:00+00:00"),
+    ) == "review"
+
+
 def test_completed_pass_is_terminal_even_if_legacy_receipt_is_missing():
     assignment = {
         "status": "published", "publish_at": None,
