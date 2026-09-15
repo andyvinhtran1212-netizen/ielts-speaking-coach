@@ -109,7 +109,7 @@ def _event(
     spec: str,
     base: str = "staging",
     head: str = "topic",
-    coverage: str = "- FR-001 -> automated test",
+    coverage: str = "- FR-001 -> backend/tests/test_example.py::test_works",
     include_na_details: bool = True,
     base_sha: str | None = None,
     head_sha: str | None = None,
@@ -212,6 +212,29 @@ def test_repository_ignores_evidence_outside_coverage_section_or_in_comment(
     assert any(
         "no evidence row for FR-001" in error for error in wrapped_section_errors
     )
+
+
+def test_repository_ignores_structural_markdown_in_fenced_code(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    verification = root / "specs/0001-example-feature/verification.md"
+    verification.write_text(
+        "```markdown\n## Requirement coverage\n\n"
+        "| FR-001 | backend/tests/test_example.py::test_works | PASS |\n```\n",
+        encoding="utf-8",
+    )
+    evidence_errors, _ = validator.validate_repository(root)
+    assert any("no evidence row for FR-001" in error for error in evidence_errors)
+
+    spec = root / "specs/0001-example-feature/spec.md"
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace(
+            "## Problem\nProblem.",
+            "```markdown\n## Problem\nProblem.\n```",
+        ),
+        encoding="utf-8",
+    )
+    heading_errors, _ = validator.validate_repository(root)
+    assert any("missing '## Problem'" in error for error in heading_errors)
 
 
 def test_repository_rejects_empty_required_artifact(tmp_path: Path) -> None:
@@ -477,6 +500,13 @@ def test_pass_repository_locator_must_exist(tmp_path: Path) -> None:
     )
     missing_errors, _ = validator.validate_repository(root)
     assert any("PASS evidence must identify" in error for error in missing_errors)
+
+    verification.write_text(
+        "## Requirement coverage\n\n| FR-001 | backend/ | PASS |\n",
+        encoding="utf-8",
+    )
+    directory_errors, _ = validator.validate_repository(root)
+    assert any("PASS evidence must identify" in error for error in directory_errors)
 
     _write(root / "scripts/hooks/pre-push", "#!/bin/sh\n")
     verification.write_text(
@@ -765,6 +795,30 @@ def test_feature_pr_requires_known_requirement_coverage(tmp_path: Path) -> None:
         root,
     )
     assert any("must list at least one exact FR-NNN" in error for error in commented)
+    generic = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            coverage="- FR-001 -> done",
+        ),
+        specs,
+        root,
+    )
+    assert any("must identify a concrete test" in error for error in generic)
+    assert validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            coverage=(
+                "- FR-001 -> kind=manual; reviewer=Lan; environment=staging; "
+                "date=2026-09-15; observed=Flow completed"
+            ),
+        ),
+        specs,
+        root,
+    ) == []
 
 
 def test_pull_request_ignores_metadata_hidden_in_comments(tmp_path: Path) -> None:
@@ -788,6 +842,20 @@ def test_pull_request_ignores_metadata_hidden_in_comments(tmp_path: Path) -> Non
         "Spec: <!-- approved ID or --> N/A",
     )
     assert validator.validate_pull_request(inline_options, specs, root) == []
+
+
+def test_pull_request_ignores_metadata_and_sections_in_fenced_code(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path)
+    _, specs = validator.validate_repository(root)
+    fenced = _event(root=root, change_class="small", spec="N/A")
+    fenced["pull_request"]["body"] = (
+        "```text\n" + fenced["pull_request"]["body"] + "\n```\n"
+    )
+    errors = validator.validate_pull_request(fenced, specs, root)
+    assert any("'Change class:' must be one of" in error for error in errors)
+    assert any("add 'Spec: N/A'" in error for error in errors)
 
 
 def test_feature_pr_rejects_requirement_added_after_base_approval(tmp_path: Path) -> None:

@@ -120,16 +120,28 @@ def _frontmatter(path: Path, text: str, errors: list[str]) -> dict[str, Any]:
     return parsed
 
 
+def _visible_markdown(text: str) -> str:
+    without_comments = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+    return re.sub(
+        r"^[ \t]*(?P<fence>`{3,}|~{3,})[^\n]*\n.*?(?:^[ \t]*(?P=fence)[ \t]*$|\Z)",
+        "",
+        without_comments,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+
+
 def _has_heading(text: str, heading: str) -> bool:
-    return bool(re.search(rf"^##\s+{re.escape(heading)}\s*$", text, re.MULTILINE | re.IGNORECASE))
-
-
-def _without_html_comments(text: str) -> str:
-    return re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+    return bool(
+        re.search(
+            rf"^##\s+{re.escape(heading)}\s*$",
+            _visible_markdown(text),
+            re.MULTILINE | re.IGNORECASE,
+        )
+    )
 
 
 def _section(text: str, heading: str) -> str:
-    text = _without_html_comments(text)
+    text = _visible_markdown(text)
     match = re.search(
         rf"^##\s+{re.escape(heading)}\s*$\n(?P<body>.*?)(?=^##\s+|\Z)",
         text,
@@ -193,14 +205,14 @@ def _concrete_locator(value: str, root: Path) -> bool:
         return True
 
     path_token = locator.split(maxsplit=1)[0].strip("`").split("::", 1)[0]
-    if "/" not in path_token or Path(path_token).is_absolute():
+    if Path(path_token).is_absolute():
         return False
     candidate = (root / path_token).resolve()
     try:
         candidate.relative_to(root.resolve())
     except ValueError:
         return False
-    return candidate.exists()
+    return candidate.is_file()
 
 
 def _declared_requirements(spec_text: str) -> dict[str, str]:
@@ -256,6 +268,16 @@ def _evidence_detail_error(result: str, evidence: str, root: Path) -> str | None
     return None
 
 
+def _concrete_requirement_evidence(evidence: str, root: Path) -> bool:
+    fields = _structured_evidence(evidence)
+    kind = fields.get("kind", "").lower()
+    if kind == "manual":
+        return _evidence_detail_error("MANUAL", evidence, root) is None
+    if kind in {"n/a", "na"}:
+        return _evidence_detail_error("N/A", evidence, root) is None
+    return _concrete_pass_evidence(evidence, root)
+
+
 def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
     errors: list[str] = []
     specs = root / "specs"
@@ -268,7 +290,9 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
 
     index = _read(specs / "README.md", errors)
     index_rows: dict[str, tuple[str, str, str, str]] = {}
-    for index_id, index_title, index_status, index_risk, index_path in INDEX_ROW_RE.findall(index):
+    for index_id, index_title, index_status, index_risk, index_path in INDEX_ROW_RE.findall(
+        _visible_markdown(index)
+    ):
         if index_id in index_rows:
             errors.append(f"{specs / 'README.md'}: duplicate active-index row for {index_id}")
             continue
@@ -377,7 +401,9 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
                         errors.append(
                             f"{feature / filename}: '## {heading}' section must contain meaningful content"
                         )
-            if "| Surface | Loading |" not in texts.get("ui-states.md", ""):
+            if "| Surface | Loading |" not in _visible_markdown(
+                texts.get("ui-states.md", "")
+            ):
                 errors.append(
                     f"{feature / 'ui-states.md'}: high-risk UI state matrix is missing"
                 )
@@ -457,7 +483,7 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
         for unknown in sorted(verification_ids - set(unique_requirements)):
             errors.append(f"{feature / 'verification.md'}: evidence references unknown {unknown}")
 
-        tasks = _without_html_comments(texts.get("tasks.md", ""))
+        tasks = _visible_markdown(texts.get("tasks.md", ""))
         if not re.search(r"^\s*-\s+\[[ xX]\]\s+", tasks, re.MULTILINE):
             errors.append(f"{feature / 'tasks.md'}: declare at least one checkbox task")
         if status in FINAL_STATUSES and re.search(r"^\s*-\s+\[ \]\s+", tasks, re.MULTILINE):
@@ -472,7 +498,7 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
 
 
 def _body_field(body: str, field: str) -> str | None:
-    visible_body = _without_html_comments(body)
+    visible_body = _visible_markdown(body)
     match = re.search(
         rf"^{re.escape(field)}:\s*(.*?)\s*$",
         visible_body,
@@ -847,6 +873,10 @@ def validate_pull_request(
                     if not evidence:
                         errors.append(
                             f"pull request: requirement coverage for {requirement} must include evidence after the arrow"
+                        )
+                    elif not _concrete_requirement_evidence(evidence, root):
+                        errors.append(
+                            f"pull request: requirement coverage for {requirement} must identify a concrete test, query, file, command, or recorded journey"
                         )
                 for duplicate in sorted(
                     requirement
