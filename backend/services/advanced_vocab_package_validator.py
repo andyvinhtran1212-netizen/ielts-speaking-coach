@@ -409,9 +409,21 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             question_rows = [
                 question for question in questions or [] if isinstance(question, dict)
             ] if isinstance(questions, list) else []
-            question_ids = {
+            question_id_rows = [
                 str(question.get("question_number") or "") for question in question_rows
-            }
+            ]
+            if "" in question_id_rows:
+                report.add("error", "LISTENING_QUESTION_ID_MISSING", path,
+                           "Every Listening question needs a non-empty question_number.")
+            duplicate_ids = sorted(
+                question_id for question_id, occurrences in Counter(question_id_rows).items()
+                if question_id and occurrences > 1
+            )
+            if duplicate_ids:
+                report.add("error", "LISTENING_QUESTION_ID_DUPLICATE", path,
+                           "Listening question IDs must be unique; duplicates: "
+                           + ", ".join(duplicate_ids))
+            question_ids = set(question_id_rows)
             solution_ids = {
                 str(question_id) for question_id in solutions
             } if isinstance(solutions, dict) else set()

@@ -23,7 +23,10 @@ _EXPECTED_IDS = tuple(f"ADV-T{number:02d}" for number in range(1, 31))
 if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
 
-from services.advanced_vocab_package_validator import lesson_content_checksum  # noqa: E402
+from services.advanced_vocab_package_validator import (  # noqa: E402
+    lesson_content_checksum,
+    validate_package,
+)
 
 
 def _read(path: Path) -> dict:
@@ -64,6 +67,13 @@ def _copy(source: Path, target: Path, *, write: bool,
 def sync(source: Path, *, write: bool) -> dict:
     manifest = _read(source / "course-manifest.json")
     qa = _read(source / "QA_REPORT.json")
+    current_report = validate_package(source)
+    if not current_report.publish_ready:
+        summary = current_report.to_dict()["summary"]
+        raise SystemExit(
+            "Source package hiện tại không đạt publish-ready: "
+            f"{summary['errors']} error, {summary['warnings']} warning."
+        )
     lesson_ids = tuple(row.get("lesson_id") for row in manifest.get("lessons") or [])
     if lesson_ids != _EXPECTED_IDS:
         raise SystemExit("Manifest phải chứa đúng ADV-T01…ADV-T30 theo thứ tự.")

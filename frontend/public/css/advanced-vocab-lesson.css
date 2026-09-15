@@ -62,6 +62,7 @@ body.fcs-page { background: var(--av-surface-page); color: var(--av-text-primary
 .avx-reading-passage p { margin: 0; color: var(--av-text-secondary); line-height: 1.8; }
 .avx-question-material { margin-bottom: var(--av-space-6); padding: var(--av-space-4); border-radius: var(--av-radius-lg); background: var(--av-border-subtle); }
 .avx-question-material p { margin: 0 0 var(--av-space-2); color: var(--av-text-secondary); font-size: 13px; line-height: 1.55; }
+.avx-reading-diagram { max-width: 100%; margin: 0; overflow-x: auto; color: var(--av-text-secondary); font: 12px/1.45 var(--av-font-mono); white-space: pre; }
 .avx-reading-group { margin-top: var(--av-space-6); border-top: 1px solid var(--av-border-default); }
 .avx-reading-group > header { display: flex; justify-content: space-between; gap: var(--av-space-3); padding: var(--av-space-4) 0; color: var(--av-primary); }
 .avx-reading-group > header span { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }

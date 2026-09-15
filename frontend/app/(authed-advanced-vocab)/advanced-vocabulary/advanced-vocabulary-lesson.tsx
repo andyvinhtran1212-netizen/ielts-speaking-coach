@@ -61,6 +61,20 @@ function InlineText({ text }: { text: string }) {
   return <>{text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((part, index) => part.startsWith('**') && part.endsWith('**') ? <strong key={index}>{part.slice(2, -2)}</strong> : <span key={index}>{part}</span>)}</>;
 }
 
+function ReadingSupportMaterial({ content }: { content: Json }) {
+  const rows: { kind: 'text' | 'diagram'; lines: string[] }[] = [];
+  for (const value of readingSupportLines(content) as string[]) {
+    const line = String(value || '');
+    const isDiagram = /^\s{2,}\S/.test(line) || /[╔╗╚╝╧═─│↑↓←→]/.test(line);
+    const current = rows[rows.length - 1];
+    if (isDiagram && current?.kind === 'diagram') current.lines.push(line);
+    else rows.push({ kind: isDiagram ? 'diagram' : 'text', lines: [line] });
+  }
+  return <div className="avx-question-material">{rows.map((row, index) => row.kind === 'diagram'
+    ? <pre className="avx-reading-diagram" key={index} aria-label="Sơ đồ cho câu hỏi Reading">{row.lines.join('\n')}</pre>
+    : <p key={index}>{row.lines[0]}</p>)}</div>;
+}
+
 function VocabularyStage({ data, onDone }: { data: Json; onDone: (ids: string[]) => Promise<void> }) {
   const words = data.lesson.vocabulary as Json[];
   const [index, setIndex] = useState(0);
@@ -186,7 +200,7 @@ function ReadingStage({ content, completed, saved, onSubmit, onContinue }: { con
   return <><div className="avx-reading-mobile-tabs" role="tablist" aria-label="Chọn vùng Reading"><button id="avx-reading-tab-passage" role="tab" aria-controls="avx-reading-panel-passage" aria-selected={mobilePane === 'passage'} className={mobilePane === 'passage' ? 'is-active' : ''} type="button" onClick={() => setMobilePane('passage')}>Bài đọc</button><button id="avx-reading-tab-questions" role="tab" aria-controls="avx-reading-panel-questions" aria-selected={mobilePane === 'questions'} className={mobilePane === 'questions' ? 'is-active' : ''} type="button" onClick={() => setMobilePane('questions')}>Câu hỏi · {Object.keys(answers).length}/{content.questions?.length || 0}</button></div><div className="avx-reading-workspace">
     <article id="avx-reading-panel-passage" role="tabpanel" aria-labelledby="avx-reading-tab-passage" className={`avx-reading-pane avx-reading-passage ${mobilePane === 'passage' ? 'is-mobile-active' : ''}`}><div className="avx-pane-head"><span>Passage</span><strong>{content.title}</strong></div>{(content.passages || []).map((paragraph: Json) => <section key={paragraph.paragraph}><b>{paragraph.paragraph}</b><p>{paragraph.text}</p></section>)}</article>
     <aside id="avx-reading-panel-questions" role="tabpanel" aria-labelledby="avx-reading-tab-questions" className={`avx-reading-pane avx-reading-questions ${mobilePane === 'questions' ? 'is-mobile-active' : ''}`}><div className="avx-pane-head"><span>Questions</span><strong>{Object.keys(answers).length}/{content.questions?.length || 0}</strong></div>
-      {completed && !result ? <div className="avx-complete-callout"><strong>Reading đã được lưu</strong><p>{saved ? `${saved.correct}/${saved.total} câu đúng. ` : ''}Bài đã nộp được giữ nguyên; bạn không cần làm lại khi mở xem.</p></div> : <><div className="avx-question-material">{readingSupportLines(content).map((line: string, index: number) => <p key={index}>{line}</p>)}</div>
+      {completed && !result ? <div className="avx-complete-callout"><strong>Reading đã được lưu</strong><p>{saved ? `${saved.correct}/${saved.total} câu đúng. ` : ''}Bài đã nộp được giữ nguyên; bạn không cần làm lại khi mở xem.</p></div> : <><ReadingSupportMaterial content={content} />
       {groups.map((group, groupIndex) => { const sharedStem = group.questions.length > 1 && group.questions.every((question) => question.stem === group.questions[0].stem) ? group.questions[0].stem : null; return <section className="avx-reading-group" key={`${groupIndex}-${group.type}`}><header><span>{group.type}</span><b>Câu {group.questions[0].question_number}–{group.questions[group.questions.length - 1].question_number}</b></header>{sharedStem && <p className="avx-reading-shared-stem">{sharedStem}</p>}{group.questions.map((question: Json) => { const qid = String(question.question_number); const checked = result?.answer_results?.find((row: Json) => row.id === qid); const solution = result?.answers?.find((row: Json) => row.id === qid); return <div className="avx-reading-question" key={qid}><p><b>Câu {qid}</b>{!sharedStem && <>. {question.stem}</>}</p><QuestionInput question={question} value={answers[qid]} disabled={!!result} onChange={(value) => setAnswers((current) => ({ ...current, [qid]: value }))} />{checked && <div className={`avx-mini-result ${checked.is_correct ? 'is-correct' : 'is-wrong'}`}>{checked.is_correct ? 'Đúng' : `Đáp án: ${solution?.answer}`}{solution?.evidence && <p>{solution.evidence}</p>}</div>}</div>; })}</section>; })}</>}
       {!completed && !result && <button className="av-button av-button-primary avx-wide" type="button" disabled={busy || Object.keys(answers).length < content.questions.length} onClick={() => void submit()}>{busy ? 'Đang chấm…' : 'Hoàn tất Reading'}</button>}
       {completed && !result && <button className="av-button av-button-primary avx-wide" type="button" onClick={onContinue}>Tiếp tục sang Controlled rewrite →</button>}

@@ -4,6 +4,9 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
+
+from scripts.sync_advanced_vocab_core30 import sync
 from services.advanced_vocab_package_validator import (
     CORE_LESSON_IDS,
     validate_listening_source_directory,
@@ -435,6 +438,47 @@ def test_listening_mcq_answer_must_match_an_option_key(tmp_path: Path):
     report = validate_package(tmp_path)
 
     assert "LISTENING_MCQ_ANSWER_INVALID" in _codes(report)
+
+
+def test_listening_question_ids_must_be_unique_and_non_empty(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    listening = next(a for a in lesson["activities"] if a["activity_type"] == "listening_lab")
+    listening["content"]["questions"][0]["question_number"] = ""
+    listening["content"]["questions"][1]["question_number"] = 3
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+
+    assert {
+        "LISTENING_QUESTION_ID_MISSING",
+        "LISTENING_QUESTION_ID_DUPLICATE",
+    } <= _codes(report)
+
+
+def test_sync_revalidates_current_source_instead_of_trusting_stale_qa(tmp_path: Path):
+    _write_package(tmp_path)
+    (tmp_path / "QA_REPORT.json").write_text(json.dumps({
+        "publish_ready": True,
+        "summary": {"errors": 0, "warnings": 0},
+    }), encoding="utf-8")
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    listening = next(a for a in lesson["activities"] if a["activity_type"] == "listening_lab")
+    listening["content"]["questions"][1]["question_number"] = 1
+    lesson["provenance"]["content_checksum"] = _checksum_without(
+        lesson, "provenance", "content_checksum"
+    )
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+    manifest_path = tmp_path / "course-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["lessons"][0]["content_checksum"] = lesson["provenance"]["content_checksum"]
+    manifest["package_checksum"] = _checksum_without(manifest, "package_checksum")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="hiện tại không đạt publish-ready"):
+        sync(tmp_path, write=False)
 
 
 def test_reading_requires_thirteen_questions_and_no_answer_leak(tmp_path: Path):

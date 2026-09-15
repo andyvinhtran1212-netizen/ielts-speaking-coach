@@ -73,6 +73,14 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.ok(t01Support.some((line) => line.startsWith('Box: A.')));
     assert.match(UI, /sharedStem/);
     assert.match(UI, /avx-reading-shared-stem/);
+    assert.match(UI, /function ReadingSupportMaterial/);
+    assert.match(UI, /<pre className="avx-reading-diagram"/);
+    assert.match(CSS, /\.avx-reading-diagram\s*\{[^}]*overflow-x:\s*auto[^}]*white-space:\s*pre/s);
+    for (const lessonId of ['ADV-T13', 'ADV-T22']) {
+      const lesson = LESSONS.find((row) => row.lesson_id === lessonId);
+      const reading = lesson.activities.find((row) => row.activity_type === 'reading_lab').content;
+      assert.ok(readingSupportLines(reading).some((line) => /^\s{2,}\S/.test(line)));
+    }
   });
 
   test('ships and renders listening figures required by map questions', () => {
