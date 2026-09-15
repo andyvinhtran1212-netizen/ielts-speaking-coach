@@ -26,7 +26,10 @@ def _valid_repo(
     root = tmp_path / "repo"
     specs = root / "specs"
     for relative in validator.REQUIRED_FOUNDATION_FILES:
-        _write(specs / relative)
+        _write(
+            specs / relative,
+            (REPO_ROOT / "specs" / relative).read_text(encoding="utf-8"),
+        )
     feature = specs / "0001-example-feature"
     _write(
         feature / "spec.md",
@@ -149,6 +152,30 @@ def test_repository_accepts_complete_verified_feature(tmp_path: Path) -> None:
     errors, specs = validator.validate_repository(root)
     assert errors == []
     assert set(specs) == {"FEAT-0001"}
+
+
+def test_repository_rejects_empty_or_placeholder_foundation(tmp_path: Path) -> None:
+    constitution_root = _valid_repo(tmp_path / "constitution")
+    constitution = constitution_root / "specs/_meta/constitution.md"
+    constitution.write_text("", encoding="utf-8")
+    constitution_errors, _ = validator.validate_repository(constitution_root)
+    assert any(
+        "constitution.md" in error and "semantic X.Y.Z" in error
+        for error in constitution_errors
+    )
+    assert any(
+        "constitution.md" in error and "Canonical system boundaries" in error
+        for error in constitution_errors
+    )
+
+    template_root = _valid_repo(tmp_path / "template")
+    plan_template = template_root / "specs/_templates/plan.md"
+    plan_template.write_text("placeholder\n", encoding="utf-8")
+    template_errors, _ = validator.validate_repository(template_root)
+    assert any(
+        "_templates/plan.md" in error and "Architecture impact" in error
+        for error in template_errors
+    )
 
 
 def test_repository_ignores_declared_legacy_spec_directory(tmp_path: Path) -> None:
@@ -1096,6 +1123,104 @@ def test_small_pr_cannot_skip_details_by_citing_existing_spec(tmp_path: Path) ->
     )
     for heading in ("Problem", "Expected behavior", "Scope", "Verification"):
         assert any(f"'## {heading}'" in error for error in errors)
+
+
+def test_constitution_amendment_requires_version_bump_and_rationale(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path)
+    base_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    constitution = root / "specs/_meta/constitution.md"
+    constitution.write_text(
+        constitution.read_text(encoding="utf-8").replace(
+            "These rules govern how product intent becomes implementation.",
+            "These rules govern how approved product intent becomes implementation.",
+        ),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", str(constitution)], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "clarify constitution"], cwd=root, check=True)
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+
+    errors = validator.validate_pull_request(
+        _event(root=root, change_class="small", spec="N/A", base_sha=base_sha),
+        specs,
+        root,
+    )
+    assert any("patch version bump to 1.0.1" in error for error in errors)
+    assert any("Constitution amendment" in error and "rationale" in error for error in errors)
+
+
+def test_constitution_amendment_accepts_exact_patch_bump_and_rationale(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path)
+    base_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    constitution = root / "specs/_meta/constitution.md"
+    constitution.write_text(
+        constitution.read_text(encoding="utf-8")
+        .replace("version: 1.0.0", "version: 1.0.1")
+        .replace(
+            "These rules govern how product intent becomes implementation.",
+            "These rules govern how approved product intent becomes implementation.",
+        ),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", str(constitution)], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "clarify constitution"], cwd=root, check=True)
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    event = _event(root=root, change_class="small", spec="N/A", base_sha=base_sha)
+    event["pull_request"]["body"] += (
+        "\n## Constitution amendment\n\n"
+        "Clarifies the introduction without changing an engineering obligation.\n"
+    )
+    assert validator.validate_pull_request(event, specs, root) == []
+
+
+def test_constitution_new_obligation_requires_minor_bump(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    base_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    constitution = root / "specs/_meta/constitution.md"
+    constitution.write_text(
+        constitution.read_text(encoding="utf-8")
+        .replace("version: 1.0.0", "version: 1.0.1")
+        .replace(
+            "- Superseded documents MUST be labeled",
+            "- Governance exceptions MUST name an owner and expiry date.\n"
+            "- Superseded documents MUST be labeled",
+        ),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", str(constitution)], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "add constitution obligation"], cwd=root, check=True)
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    event = _event(root=root, change_class="small", spec="N/A", base_sha=base_sha)
+    event["pull_request"]["body"] += (
+        "\n## Constitution amendment\n\nAdds an expiry rule for exceptions.\n"
+    )
+    errors = validator.validate_pull_request(event, specs, root)
+    assert any("minor version bump to 1.1.0" in error for error in errors)
 
 
 def test_migration_path_requires_approved_high_risk_change(tmp_path: Path) -> None:

@@ -8,6 +8,11 @@ base branch before implementation began, then list the implemented requirement
 IDs. Production promotion PRs from `staging` to `main` are exempt from repeating
 feature metadata.
 
+## Constitution amendment
+
+<!-- Required only when specs/_meta/constitution.md changes. State why the
+obligation change is major/minor/patch; otherwise leave this section empty. -->
+
 ## Problem
 
 <!-- What is wrong or missing? Required for hotfix/small/content. -->

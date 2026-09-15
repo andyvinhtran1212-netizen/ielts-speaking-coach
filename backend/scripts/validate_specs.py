@@ -68,6 +68,42 @@ REQUIRED_FOUNDATION_FILES = (
     "_templates/ui-states.md",
     "_templates/rollout.md",
 )
+CONSTITUTION_SECTIONS = (
+    "1. Canonical system boundaries",
+    "2. Proportional specification",
+    "3. Executable contracts",
+    "4. Data and migration safety",
+    "5. Complete user states",
+    "6. AI quality is behavioral, not only structural",
+    "7. Traceability and convergence",
+    "8. Scoped parallel work",
+    "9. Staging-first release",
+    "10. Documentation lifecycle",
+)
+TEMPLATE_SECTIONS = {
+    "_templates/spec.md": (
+        "Problem",
+        "Scope",
+        "Non-goals",
+        "Requirements",
+        "Acceptance scenarios",
+        "Success criteria",
+    ),
+    "_templates/plan.md": (
+        "Architecture impact",
+        "Data and contracts",
+        "Rollout and rollback",
+        "Verification strategy",
+    ),
+    "_templates/verification.md": ("Requirement coverage",),
+    "_templates/rollout.md": (
+        "Preconditions",
+        "Staging",
+        "Production",
+        "Rollback and repair",
+        "Observability",
+    ),
+}
 REQUIRED_SECTIONS = {
     "spec.md": (
         "Problem",
@@ -120,6 +156,23 @@ def _frontmatter(path: Path, text: str, errors: list[str]) -> dict[str, Any]:
     return parsed
 
 
+def _frontmatter_mapping(text: str) -> dict[str, Any]:
+    try:
+        if not text.startswith("---\n"):
+            return {}
+        parsed = yaml.safe_load(text.split("---", 2)[1])
+    except (IndexError, yaml.YAMLError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _semver(value: Any) -> tuple[int, int, int] | None:
+    if not isinstance(value, str):
+        return None
+    match = re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)", value)
+    return tuple(map(int, match.groups())) if match else None
+
+
 def _visible_markdown(text: str) -> str:
     without_comments = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
     return re.sub(
@@ -158,6 +211,84 @@ def _meaningful_section(text: str, heading: str) -> bool:
         not re.fullmatch(r"(?:[-*>]\s*)*<[^>\n]+>[.!]?", line)
         for line in lines
     )
+
+
+def _validate_foundation(specs: Path, errors: list[str]) -> None:
+    constitution_path = specs / "_meta/constitution.md"
+    if constitution_path.is_file():
+        constitution = _read(constitution_path, errors)
+        metadata = _frontmatter(constitution_path, constitution, errors)
+        if _semver(metadata.get("version")) is None:
+            errors.append(f"{constitution_path}: version must be semantic X.Y.Z")
+        ratified = metadata.get("ratified")
+        if isinstance(ratified, calendar_date):
+            valid_ratified = ratified <= calendar_date.today()
+        else:
+            valid_ratified = isinstance(ratified, str) and _valid_iso_date(ratified)
+        if not valid_ratified:
+            errors.append(
+                f"{constitution_path}: ratified must be a real non-future YYYY-MM-DD date"
+            )
+        for heading in CONSTITUTION_SECTIONS:
+            if not _meaningful_section(constitution, heading):
+                errors.append(
+                    f"{constitution_path}: missing or empty '## {heading}' section"
+                )
+
+    for relative, headings in TEMPLATE_SECTIONS.items():
+        path = specs / relative
+        if not path.is_file():
+            continue
+        text = _read(path, errors)
+        for heading in headings:
+            if not _meaningful_section(text, heading):
+                errors.append(f"{path}: missing or empty '## {heading}' template section")
+
+    tasks_path = specs / "_templates/tasks.md"
+    if tasks_path.is_file() and not re.search(
+        r"^\s*-\s+\[[ xX]\]\s+", _visible_markdown(_read(tasks_path, errors)), re.MULTILINE
+    ):
+        errors.append(f"{tasks_path}: template must contain at least one checkbox task")
+
+    ui_path = specs / "_templates/ui-states.md"
+    if ui_path.is_file():
+        ui_text = _visible_markdown(_read(ui_path, errors))
+        if "| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |" not in ui_text:
+            errors.append(f"{ui_path}: template must contain the complete UI-state header")
+
+
+def _constitutional_obligations(text: str) -> set[str]:
+    obligations: set[str] = set()
+    for match in re.finditer(
+        r"^-\s+(?P<body>\S.*?(?:\n {2,}\S.*?)*)\s*(?=\n-\s+|\n##\s+|\Z)",
+        _visible_markdown(text),
+        re.MULTILINE,
+    ):
+        obligation = re.sub(r"\s+", " ", match.group("body")).strip()
+        if re.search(r"\bMUST(?:\s+NOT)?\b", obligation):
+            obligations.add(obligation)
+    return obligations
+
+
+def _expected_constitution_version(
+    base_text: str, head_text: str
+) -> tuple[tuple[int, int, int] | None, tuple[int, int, int] | None, tuple[int, int, int] | None, str]:
+    base_version = _semver(_frontmatter_mapping(base_text).get("version"))
+    head_version = _semver(_frontmatter_mapping(head_text).get("version"))
+    if base_version is None:
+        return base_version, head_version, None, "invalid base"
+    removed = _constitutional_obligations(base_text) - _constitutional_obligations(head_text)
+    added = _constitutional_obligations(head_text) - _constitutional_obligations(base_text)
+    if removed:
+        expected = (base_version[0] + 1, 0, 0)
+        bump = "major"
+    elif added:
+        expected = (base_version[0], base_version[1] + 1, 0)
+        bump = "minor"
+    else:
+        expected = (base_version[0], base_version[1], base_version[2] + 1)
+        bump = "patch"
+    return base_version, head_version, expected, bump
 
 
 def _placeholder_value(value: str) -> bool:
@@ -338,6 +469,7 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
     for relative in REQUIRED_FOUNDATION_FILES:
         if not (specs / relative).is_file():
             errors.append(f"{specs / relative}: required SDD foundation file is missing")
+    _validate_foundation(specs, errors)
 
     index = _read(specs / "README.md", errors)
     index_rows: dict[str, tuple[str, str, str, str]] = {}
@@ -758,6 +890,7 @@ def validate_pull_request(
         return errors
 
     merge_base_sha = ""
+    changed_paths: list[str] = []
     if not base_sha or not head_sha:
         errors.append("pull request: base and head SHAs are required to classify changed paths")
     else:
@@ -773,6 +906,32 @@ def validate_pull_request(
                     "pull request: migration paths require change class 'high-risk': "
                     + ", ".join(high_risk_paths)
                 )
+
+    constitution_path = "specs/_meta/constitution.md"
+    if constitution_path in changed_paths:
+        _, base_constitution = _git_show(root, base_sha, constitution_path)
+        _, head_constitution = _git_show(root, head_sha, constitution_path)
+        if base_constitution is not None:
+            if head_constitution is None:
+                errors.append("pull request: the engineering constitution cannot be removed")
+            else:
+                base_version, head_version, expected, bump = _expected_constitution_version(
+                    base_constitution, head_constitution
+                )
+                if base_version is None or head_version is None or expected is None:
+                    errors.append(
+                        "pull request: constitution amendments require valid semantic versions"
+                    )
+                elif head_version != expected:
+                    errors.append(
+                        "pull request: constitution amendment requires "
+                        f"a {bump} version bump to {'.'.join(map(str, expected))}; "
+                        f"found {'.'.join(map(str, head_version))}"
+                    )
+                if not _meaningful_section(body, "Constitution amendment"):
+                    errors.append(
+                        "pull request: constitution amendments require a non-empty '## Constitution amendment' rationale"
+                    )
 
     requires_spec = change_class in {"feature", "high-risk"}
     if change_class in {"hotfix", "small", "content"}:
