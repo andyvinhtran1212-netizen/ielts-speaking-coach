@@ -194,6 +194,11 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // để gửi nên không ném, và phiên được chốt như thể mọi thứ đã tới máy chủ.
   // (Chính bộ test của module này bắt được — bắn-rồi-quên là một lời hứa bị bỏ.)
   let inflight = Promise.resolve();
+  // Batch eager đang bay không còn nằm trong `pending`, nhưng request thường có
+  // thể bị trình duyệt huỷ ngay khi pagehide. Giữ chính các row (và client_id)
+  // này để đường keepalive phát lại; backend idempotent nên hai request cùng tới
+  // cũng chỉ tạo một quiz_attempt.
+  let eagerBatch = [];
 
   const key = () => 'cx:' + (bank && bank.id);
   // Vân tay bộ đề: đổi câu HOẶC đổi đáp án (re-import) đều đổi vân tay. Trạng
@@ -513,8 +518,14 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
    * ngay sau đó và ghi một điểm số "đã xong" cho những câu chưa hề tới máy chủ.
    */
   async function flush({ keepalive = false } = {}) {
-    if (!sessionId || !pending.length) return;
-    const batch = pending.splice(0, pending.length);
+    if (!sessionId) return;
+    const queued = pending.splice(0, pending.length);
+    // pagehide phải cứu cả batch thường đang bay lẫn phần chưa gửi. Trước đây
+    // batch đang bay đã bị splice khỏi `pending`, nên leave() nhìn thấy rỗng và
+    // không tạo request keepalive nào.
+    const batch = keepalive ? eagerBatch.concat(queued) : queued;
+    if (!batch.length) return;
+    if (!keepalive) eagerBatch = batch;
     const path = '/api/quiz/sessions/' + sessionId + '/progress';
     const body = { attempts: batch, word_stats: [] };
     try {
@@ -524,8 +535,12 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       if (keepalive && api.postWith) await api.postWith(path, body, null, { keepalive: true });
       else await api.post(path, body);
     } catch (err) {
-      pending = batch.concat(pending);   // trả lại hàng đợi
+      // Batch eager vẫn do request thường sở hữu; nếu nó hỏng, chính request đó
+      // sẽ trả batch về hàng đợi. Chỉ phục hồi phần `queued` mà keepalive đã lấy.
+      pending = (keepalive ? queued : batch).concat(pending);
       throw err;
+    } finally {
+      if (!keepalive && eagerBatch === batch) eagerBatch = [];
     }
   }
 

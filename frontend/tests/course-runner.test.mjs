@@ -81,7 +81,10 @@ function fakeApi({ questions, mastery = null, failSession = false, failProgress 
     const m = /\/sessions\/([^/]+)\/progress$/.exec(String(path));
     if (!m || !body || !Array.isArray(body.attempts)) return;
     const list = answered.get(m[1]) || [];
-    body.attempts.forEach((a) => list.push({ qid: a.qid, is_correct: !!a.is_correct }));
+    body.attempts.forEach((a) => {
+      if (a.client_id && list.some((row) => row.client_id === a.client_id)) return;
+      list.push({ client_id: a.client_id, qid: a.qid, is_correct: !!a.is_correct });
+    });
     answered.set(m[1], list);
   };
   return {
@@ -129,7 +132,10 @@ function fakeApi({ questions, mastery = null, failSession = false, failProgress 
       const m = /\/sessions\/([^/]+)$/.exec(String(path));
       if (m && body && Array.isArray(body.attempts)) {
         const list = answered.get(m[1]) || [];
-        body.attempts.forEach((a) => list.push({ qid: a.qid, is_correct: !!a.is_correct }));
+        body.attempts.forEach((a) => {
+          if (a.client_id && list.some((row) => row.client_id === a.client_id)) return;
+          list.push({ client_id: a.client_id, qid: a.qid, is_correct: !!a.is_correct });
+        });
         answered.set(m[1], list);
       }
       if (m && body && body.ended_by && ended.indexOf(m[1]) === -1) ended.push(m[1]);
@@ -705,6 +711,55 @@ describe('rời trang', () => {
     const { r, api } = await run();
     await r.leave();
     assert.equal(api.calls.postWith.length, 0);
+  });
+
+  test('pagehide phát lại batch timed đang bay bằng keepalive với cùng client id', async () => {
+    let clock = 1000;
+    let rejectNormal;
+    let normalStartedResolve;
+    const normalStarted = new Promise((resolve) => { normalStartedResolve = resolve; });
+    const normalGate = new Promise((_resolve, reject) => { rejectNormal = reject; });
+    const ledger = newLedger();
+    const api = fakeApi({
+      questions: [mcq(1)], ledger,
+      mastery: {
+        item_id: 'item-timed', is_timed: true,
+        expires_at: null, time_remaining_seconds: 60,
+      },
+    });
+    const ordinaryPost = api.post.bind(api);
+    api.post = async (path, body) => {
+      if (!String(path).endsWith('/progress')) return ordinaryPost(path, body);
+      api.calls.post.push({ path, body });
+      normalStartedResolve();
+      return normalGate;
+    };
+
+    const r = createRunner({ api, storage: null, now: () => clock });
+    await r.load('b1', { assignmentItemId: 'item-timed' });
+    r.show(); r.answer(0); r.next();
+    await normalStarted;
+
+    await r.leave();
+    assert.equal(api.calls.postWith.length, 1,
+      'pagehide must not mistake the spliced in-flight batch for an empty queue');
+    assert.equal(api.calls.postWith[0].body.attempts[0].client_id,
+      api.calls.post[1].body.attempts[0].client_id,
+      'the keepalive replay must preserve the idempotency key');
+    assert.deepEqual(ledger.answered.get('sess-1').map((row) => row.qid), ['Q1'],
+      'the keepalive copy reaches the canonical attempt ledger');
+
+    // Mô phỏng request thường bị huỷ cùng document. Nếu trang vẫn sống (bfcache
+    // hoặc test), retry timeout có thể gửi lại cùng client_id mà không nhân đôi.
+    rejectNormal(new Error('document unloaded'));
+    await Promise.resolve();
+    await Promise.resolve();
+    clock = 61000;
+    const result = await r.finishStage({ endedBy: 'time_cap' });
+    assert.equal(result.persisted, true);
+    assert.equal(result.right, 1);
+    assert.equal(ledger.answered.get('sess-1').length, 1,
+      'timeout close keeps one scored attempt after the idempotent replay');
   });
 });
 
