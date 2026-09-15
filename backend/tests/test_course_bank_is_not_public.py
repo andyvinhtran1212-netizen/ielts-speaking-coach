@@ -38,6 +38,14 @@ class _Table:
         self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
         return self
 
+    def is_(self, f, v):
+        # Supabase ``is_(col, "null")`` is the compare-and-set predicate used
+        # when a session is finalized.  Keep this fake honest: a terminal row
+        # must no longer match a second finalization attempt.
+        if v == "null":
+            self._rows = [r for r in self._rows if r.get(f) is None]
+        return self
+
     @property
     def not_(self):
         # `not_.is_(col, "null")` = cột KHÁC NULL. Thiếu nó thì lượt đếm chặng
@@ -72,7 +80,11 @@ class _Table:
         row.setdefault("id", "sess-1")
         self._db.inserted.append(row)
         return _Op(_Resp([row]))
-    def execute(self): return _Resp(self._rows)
+    def execute(self):
+        if hasattr(self, "_patch"):
+            for row in self._rows:
+                row.update(self._patch)
+        return _Resp(self._rows)
 
 
 class _Op:
@@ -83,7 +95,8 @@ class _Op:
 def _db(**tables):
     db = type("DB", (), {})()
     db.inserted = []
-    db.table = lambda n: _Table(tables.get(n, []), db)
+    db._tables = {name: list(rows) for name, rows in tables.items()}
+    db.table = lambda n: _Table(db._tables.get(n, []), db)
     return db
 
 
@@ -525,6 +538,9 @@ def _end(db, *, item_id="it-1", ended_by="completed", total=10, correct=8):
     marked = []
     sess = {"id": "sess-1", "user_id": "u1", "bank_id": "bank-course",
             "class_assignment_item_id": item_id}
+    # `_owned_session` below represents a real database read; keep the backing
+    # table in sync so the atomic terminal update can match the same row.
+    db._tables.setdefault("quiz_sessions", []).append(sess)
     with patch.object(mod, "supabase_admin", db), \
          patch.object(mod, "_owned_session", lambda *_a, **_k: sess), \
          patch.object(mod, "mark_item_submitted",
@@ -566,7 +582,7 @@ def test_a_failure_while_marking_does_NOT_break_ending_the_session():
     sess = {"id": "sess-1", "user_id": "u1", "bank_id": "bank-course",
             "class_assignment_item_id": "it-1"}
     db = _db(
-        quiz_sessions=[],
+        quiz_sessions=[sess],
         class_assignment_items=[{"id": "it-1", "assignment_id": "asg-1"}],
         class_assignments=[_LIVE_ASG],
     )
