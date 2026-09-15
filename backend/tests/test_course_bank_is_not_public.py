@@ -248,6 +248,36 @@ def test_expired_timed_item_without_verdict_exposes_truthful_pending_state():
     assert out["mastery"]["course_action"] == "expired_pending"
 
 
+def test_expired_timed_item_at_assignment_deadline_still_shows_pending_state():
+    """When due_at is the cutoff, reload must not turn pending into a 404."""
+    expired = {
+        **_LIVE_ASG,
+        "due_at": "2020-01-01T00:30:00Z",
+        "content_config": {"time_limit_minutes": 60},
+    }
+    db = _db(
+        quiz_banks=[_COURSE_BANK],
+        quiz_questions=[{"id": "q1", "bank_id": "bank-course", "order": 0,
+                         "type": "mcq", "item_key": "x"}],
+        class_assignments=[expired], students=[_STUDENT],
+        class_assignment_items=[{
+            "id": "it-due-pending", "assignment_id": "asg-1", "student_id": "st-1",
+            "opened_at": "2020-01-01T00:00:00Z", "submitted_at": None,
+            "passed_at": None, "mastery": None,
+        }],
+    )
+    with patch.object(mod, "supabase_admin", db), \
+         patch.object(mod, "_word_cards_for", lambda *_a, **_k: []), \
+         patch.object(mod, "_attach_article_urls", lambda *_a, **_k: None), \
+         patch.object(mod, "_resolve_question_audio", lambda *_a, **_k: None):
+        out = mod.get_bank_for_play(
+            "bank-course", user_id="u1", assignment_item_id="it-due-pending")
+    assert out["mastery"]["review_only"] is True
+    assert out["mastery"]["expiry_pending"] is True
+    assert out["mastery"]["course_action"] == "expired_pending"
+    assert out["mastery"]["expires_at"] == "2020-01-01T00:30:00+00:00"
+
+
 def test_submitted_incomplete_item_is_writable_again_while_deadline_accepts():
     db = _db(
         quiz_banks=[_COURSE_BANK],

@@ -1187,8 +1187,71 @@ def test_server_reaper_seals_pre_verdict_run_orphan_without_replacing_near_pass(
     verdict.assert_not_called()
 
 
-def test_server_reaper_preserves_lost_on_time_verdict_with_open_orphan():
-    """A complete tab wins even when another tab is still open at expiry."""
+def test_server_reaper_seals_orphan_after_recorded_timeout_without_regrading():
+    """A terminal timeout ledger cannot be replaced by another tab's run."""
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "update"): [{"id": "orphan-open"}],
+    })
+    mastery = {"attempts": [{
+        "phase": "run", "pct": 40,
+        "next_action": "timed_out", "at": "2026-09-15T01:30:00+00:00",
+        "sessions": ["timeout-winner"],
+    }]}
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30, "pass_pct": 75},
+        }],
+        "class_assignment_items": [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+            "submitted_at": "2026-09-15T01:30:00+00:00", "passed_at": None,
+            "score": 40, "mastery": mastery,
+        }],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [
+            {
+                "id": "timeout-winner", "user_id": _USER, "bank_id": _BANK,
+                "class_assignment_item_id": "item-timed", "kind": "run",
+                "created_at": "2026-09-15T01:00:00+00:00",
+                "ended_at": "2026-09-15T01:30:00+00:00", "ended_by": "time_cap",
+            },
+            {
+                "id": "orphan-open", "user_id": _USER, "bank_id": _BANK,
+                "class_assignment_item_id": "item-timed", "kind": "run",
+                "created_at": "2026-09-15T01:05:00+00:00",
+                "ended_at": None, "ended_by": None,
+            },
+        ],
+    }
+
+    def report(table, *_args, **_kwargs):
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict") as verdict:
+        out = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+    assert out == {"examined": 1, "finalized": 0, "failed": 0}
+    close = next(call for call in fake.calls
+                 if call["table"] == "quiz_sessions" and call["op"] == "update")
+    assert close["filters"][0] == ("id", "orphan-open")
+    assert close["payload"]["ended_by"] == "time_cap"
+    assert mastery["attempts"][-1]["next_action"] == "timed_out"
+    verdict.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("orphan_ended_by", "orphan_ended_at"),
+    [(None, None), ("paused", "2026-09-15T01:25:00+00:00")],
+)
+def test_server_reaper_preserves_lost_on_time_verdict_with_run_orphan(
+    orphan_ended_by, orphan_ended_at,
+):
+    """A complete tab wins even when another run is open or paused."""
     fake = _FakeSupabase(responses={
         ("quiz_sessions", "update"): [{"id": "orphan-open"}],
     })
@@ -1202,7 +1265,7 @@ def test_server_reaper_preserves_lost_on_time_verdict_with_open_orphan():
         "id": "orphan-open", "user_id": _USER, "bank_id": _BANK,
         "class_assignment_item_id": "item-timed", "kind": "run",
         "created_at": "2026-09-15T01:05:00+00:00",
-        "ended_at": None, "ended_by": None,
+        "ended_at": orphan_ended_at, "ended_by": orphan_ended_by,
     }
     rows = {
         "class_assignments": [{

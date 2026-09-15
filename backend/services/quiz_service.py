@@ -653,6 +653,7 @@ def _assignment_item_for(
     bank_id: str, user_id: str, *, allow_submitted_review: bool = False,
     assignment_item_id: str | None = None,
     allow_expired_timed_finalize: bool = False,
+    allow_expired_timed_review: bool = False,
     allow_reaper_finalize: bool = False,
 ) -> dict | None:
     """Mục bài giao CÒN HIỆU LỰC của học viên này cho bank ấy, hoặc None.
@@ -719,12 +720,13 @@ def _assignment_item_for(
                 return True
             if allow_submitted_review and row.get("submitted_at"):
                 return True
-            # Narrow server-finalisation lane: only an explicitly named item
-            # whose canonical timed window was actually opened may cross a
-            # passed class deadline.  It does not reopen question access.
+            # Narrow timed lane: only an explicitly named item whose canonical
+            # window was actually opened may cross a passed class deadline.
+            # Callers separately choose server finalization or locked review.
             timer = assignment_timer_state(row, assignment)
             return bool(
-                (allow_expired_timed_finalize or allow_reaper_finalize)
+                (allow_expired_timed_finalize or allow_expired_timed_review
+                 or allow_reaper_finalize)
                 and assignment_item_id
                 and row.get("opened_at")
                 and timer.get("is_timed")
@@ -758,15 +760,26 @@ def _has_assignment_for(bank_id: str, user_id: str) -> bool:
 def _assignment_item_for_review(
     bank_id: str, user_id: str, assignment_item_id: str | None = None,
 ) -> dict | None:
-    """Live item first; submitted-after-deadline fallback for read paths only."""
+    """Live item first; narrow read-only fallbacks after the deadline."""
     current = (_assignment_item_for(
         bank_id, user_id, assignment_item_id=assignment_item_id,
     ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
     if current:
         return current
     if assignment_item_id:
-        return _assignment_item_for(
+        submitted = _assignment_item_for(
             bank_id, user_id, allow_submitted_review=True,
+            assignment_item_id=assignment_item_id,
+        )
+        if submitted:
+            return submitted
+        # A timed item whose personal cutoff is the assignment deadline can be
+        # pending server reconciliation while still unsubmitted.  The explicit
+        # item id, active cohort ownership, published assignment, and opened
+        # timer remain mandatory; this only lets the player render the locked
+        # pending state and cannot create a post-cutoff session.
+        return _assignment_item_for(
+            bank_id, user_id, allow_expired_timed_review=True,
             assignment_item_id=assignment_item_id,
         )
     return _assignment_item_for(bank_id, user_id, allow_submitted_review=True)
@@ -4658,12 +4671,20 @@ def reap_expired_course_assessments(
                 mastery_attempts[-1] if mastery_attempts else None,
                 cfg["pass_pct"],
             )
-            # A recorded near-pass entitles only a short retake. Any remaining
-            # full-run tab is a concurrent orphan; seal it, but never grade it
-            # as a fresh zero-score timeout that replaces the near-pass ledger.
-            superseded_runs = ([] if latest_recorded_action != "retake" else [
-                row for row in sessions if (row.get("kind") or "run") == "run"
-            ])
+            # A recorded near-pass entitles only a short retake, so remaining
+            # full-run tabs are concurrent orphans. A recorded timeout is
+            # terminal, so every remaining session is an orphan. Seal those
+            # rows without grading them again; the repair path is excluded so
+            # it can still recreate a lost submission receipt idempotently.
+            superseded_runs = (
+                list(sessions)
+                if latest_recorded_action == "timed_out" and not repair_ids
+                else [
+                    row for row in sessions
+                    if latest_recorded_action == "retake"
+                    and (row.get("kind") or "run") == "run"
+                ]
+            )
             superseded_run_ids = {row.get("id") for row in superseded_runs}
             sessions = [row for row in sessions
                         if row.get("id") not in superseded_run_ids]
@@ -4722,7 +4743,7 @@ def reap_expired_course_assessments(
                 has_superseded_orphan = any(
                     (row.get("kind") or "run") == "run"
                     and row.get("id") not in completed_ids
-                    and row.get("ended_by") in {None, "time_cap"}
+                    and row.get("ended_by") in {None, "time_cap", "paused"}
                     for row in verdict_sessions
                 )
                 if on_time_completed and has_superseded_orphan:
