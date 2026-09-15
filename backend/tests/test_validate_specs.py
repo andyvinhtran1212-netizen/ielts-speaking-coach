@@ -70,6 +70,7 @@ Test.
         "# Verification\n\n## Requirement coverage\n\n"
         "| FR-001 | backend/tests/test_example.py::test_works | PASS |\n",
     )
+    _write(root / "backend/tests/test_example.py", "def test_works():\n    assert True\n")
     if risk in {"high", "critical"}:
         _write(
             feature / "ui-states.md",
@@ -421,6 +422,26 @@ def test_repository_accepts_structured_manual_evidence(tmp_path: Path) -> None:
     assert errors == []
 
 
+def test_pass_repository_locator_must_exist(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    verification = root / "specs/0001-example-feature/verification.md"
+    verification.write_text(
+        "## Requirement coverage\n\n"
+        "| FR-001 | backend/tests/does_not_exist.py | PASS |\n",
+        encoding="utf-8",
+    )
+    missing_errors, _ = validator.validate_repository(root)
+    assert any("PASS evidence must identify" in error for error in missing_errors)
+
+    _write(root / "scripts/hooks/pre-push", "#!/bin/sh\n")
+    verification.write_text(
+        "## Requirement coverage\n\n| FR-001 | scripts/hooks/pre-push | PASS |\n",
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert errors == []
+
+
 def test_repository_rejects_unknown_evidence_result(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path, status="implementing")
     (root / "specs/0001-example-feature/verification.md").write_text(
@@ -717,6 +738,9 @@ def test_feature_pr_rejects_requirement_added_after_base_approval(tmp_path: Path
         + "| FR-002 | backend/tests/test_second.py::test_added | PASS |\n",
         encoding="utf-8",
     )
+    (root / "backend/tests/test_second.py").write_text(
+        "def test_added():\n    assert True\n", encoding="utf-8"
+    )
     repository_errors, specs = validator.validate_repository(root)
     assert repository_errors == []
     errors = validator.validate_pull_request(
@@ -792,6 +816,9 @@ def test_feature_pr_compares_uncovered_requirements_with_base(tmp_path: Path) ->
         verification.read_text(encoding="utf-8")
         + "| FR-002 | backend/tests/test_second.py::test_approved | PASS |\n",
         encoding="utf-8",
+    )
+    (root / "backend/tests/test_second.py").write_text(
+        "def test_approved():\n    assert True\n", encoding="utf-8"
     )
     subprocess.run(
         ["git", "add", "specs/0001-example-feature/spec.md", "specs/0001-example-feature/verification.md"],

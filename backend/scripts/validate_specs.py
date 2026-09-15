@@ -153,7 +153,7 @@ def _placeholder_value(value: str) -> bool:
     )
 
 
-def _concrete_pass_evidence(evidence: str) -> bool:
+def _concrete_pass_evidence(evidence: str, root: Path) -> bool:
     if _placeholder_value(evidence):
         return False
     fields = _structured_evidence(evidence)
@@ -167,28 +167,34 @@ def _concrete_pass_evidence(evidence: str) -> bool:
             "report",
             "screenshot",
             "test",
-        } and _concrete_locator(fields["ref"])
-    return _concrete_locator(evidence)
+        } and _concrete_locator(fields["ref"], root)
+    return _concrete_locator(evidence, root)
 
 
-def _concrete_locator(value: str) -> bool:
+def _concrete_locator(value: str, root: Path) -> bool:
     locator = value.strip().strip("`")
     if _placeholder_value(locator) or "<" in locator or ">" in locator:
         return False
-    return bool(
-        re.search(r"https?://\S+", locator, re.IGNORECASE)
-        or re.search(
-            r"(?:^|\s)(?:\.github|backend|docs|frontend|specs|tooling)/[\w./:-]+",
-            locator,
-        )
-        or re.search(r"\b[\w.-]+::[\w.-]+\b", locator)
-        or re.match(r"^(?:pytest|npm|node|psql|curl|gh|git)\s+\S+", locator)
-        or re.fullmatch(
-            r"(?:report|screenshot|journey):[a-z0-9][\w.-]+",
-            locator,
-            re.IGNORECASE,
-        )
-    )
+    if re.search(r"https?://\S+", locator, re.IGNORECASE):
+        return True
+    if re.fullmatch(
+        r"(?:report|screenshot|journey):[a-z0-9][\w.-]+",
+        locator,
+        re.IGNORECASE,
+    ):
+        return True
+    if re.match(r"^(?:pytest|npm|node|psql|curl|gh|git)\s+\S+", locator):
+        return True
+
+    path_token = locator.split(maxsplit=1)[0].strip("`").split("::", 1)[0]
+    if "/" not in path_token or Path(path_token).is_absolute():
+        return False
+    candidate = (root / path_token).resolve()
+    try:
+        candidate.relative_to(root.resolve())
+    except ValueError:
+        return False
+    return candidate.exists()
 
 
 def _declared_requirements(spec_text: str) -> dict[str, str]:
@@ -210,7 +216,7 @@ def _structured_evidence(evidence: str) -> dict[str, str]:
     return fields
 
 
-def _evidence_detail_error(result: str, evidence: str) -> str | None:
+def _evidence_detail_error(result: str, evidence: str, root: Path) -> str | None:
     normalized = result.upper()
     if normalized == "MANUAL":
         fields = _structured_evidence(evidence)
@@ -224,7 +230,7 @@ def _evidence_detail_error(result: str, evidence: str) -> str | None:
                 "MANUAL evidence must use reviewer=...; environment=...; "
                 "date=YYYY-MM-DD; observed=..."
             )
-    elif normalized == "PASS" and not _concrete_pass_evidence(evidence):
+    elif normalized == "PASS" and not _concrete_pass_evidence(evidence, root):
         return "PASS evidence must identify a concrete test, query, screenshot, or journey"
     elif normalized == "N/A":
         fields = _structured_evidence(evidence)
@@ -412,7 +418,7 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
                 errors.append(
                     f"{feature / 'verification.md'}: {evidence_id} result must be one of {sorted(ALLOWED_EVIDENCE_RESULTS)}"
                 )
-            elif detail_error := _evidence_detail_error(result, evidence):
+            elif detail_error := _evidence_detail_error(result, evidence, root):
                 errors.append(
                     f"{feature / 'verification.md'}: {evidence_id} {detail_error}"
                 )
