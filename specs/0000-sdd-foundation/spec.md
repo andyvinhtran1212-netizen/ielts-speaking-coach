@@ -55,8 +55,9 @@ developer or agent which requirements are active and how they map to evidence.
   revision; spec-free changes include problem, expected behavior, scope, and
   verification; staging-to-main promotions remain exempt from duplicate
   feature metadata. SDD-0000 is the one-time bootstrap exception.
-- **FR-006:** Spec validation runs inside an existing workflow required by the
-  staging promotion gate.
+- **FR-006:** Spec validation runs in a dedicated unfiltered workflow required
+  by the staging promotion gate; PR-body edits cannot shadow TypeScript or
+  OpenAPI failures on the same SHA.
 - **FR-007:** Top-level agent documentation identifies Next.js App Router as the
   deployed frontend and does not direct work to retired HTML pages.
 - **FR-008:** The foundation is isolated from active product work and changes no

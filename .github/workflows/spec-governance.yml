@@ -1,0 +1,26 @@
+name: Spec governance
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+  push:
+    branches: [main, staging]
+
+jobs:
+  spec-governance:
+    name: Spec and PR metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # PR validation reads the exact base revision to prove the spec was
+          # approved before implementation entered the topic branch.
+          fetch-depth: 2
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install spec parser
+        run: pip install 'pyyaml==6.0.3'
+      - name: Validate canonical specs and PR metadata
+        run: python backend/scripts/validate_specs.py --github-event "$GITHUB_EVENT_PATH"

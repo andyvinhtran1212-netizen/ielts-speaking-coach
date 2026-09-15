@@ -20,7 +20,9 @@ def _write(path: Path, text: str = "placeholder\n") -> None:
     path.write_text(text, encoding="utf-8")
 
 
-def _valid_repo(tmp_path: Path, *, status: str = "verified") -> Path:
+def _valid_repo(
+    tmp_path: Path, *, status: str = "verified", risk: str = "medium"
+) -> Path:
     root = tmp_path / "repo"
     specs = root / "specs"
     for relative in validator.REQUIRED_FOUNDATION_FILES:
@@ -32,7 +34,7 @@ def _valid_repo(tmp_path: Path, *, status: str = "verified") -> Path:
 id: FEAT-0001
 title: Example
 status: {status}
-risk: medium
+risk: {risk}
 owner: product
 ---
 
@@ -67,12 +69,28 @@ Test.
         feature / "verification.md",
         "# Verification\n\n## Requirement coverage\n\n| FR-001 | unit test | PASS |\n",
     )
+    if risk in {"high", "critical"}:
+        _write(
+            feature / "ui-states.md",
+            "# UI state matrix\n\n"
+            "| Surface | Loading | Empty | Success | Error/retry | Permission | Responsive/theme/a11y |\n"
+            "| --- | --- | --- | --- | --- | --- | --- |\n"
+            "| N/A | N/A | N/A | N/A | N/A | N/A | N/A |\n",
+        )
+        _write(
+            feature / "rollout.md",
+            "## Preconditions\nReady.\n"
+            "## Staging\nVerify.\n"
+            "## Production\nPromote.\n"
+            "## Rollback and repair\nRevert.\n"
+            "## Observability\nMonitor.\n",
+        )
     _write(
         specs / "README.md",
         "# Index\n\n"
         "| ID | Feature | Status | Risk | Spec |\n"
         "| --- | --- | --- | --- | --- |\n"
-        f"| FEAT-0001 | Example | {status} | medium | [spec](0001-example-feature/spec.md) |\n",
+        f"| FEAT-0001 | Example | {status} | {risk} | [spec](0001-example-feature/spec.md) |\n",
     )
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     subprocess.run(["git", "config", "user.email", "tests@example.com"], cwd=root, check=True)
@@ -159,6 +177,26 @@ def test_repository_rejects_missing_requirement_evidence(tmp_path: Path) -> None
     )
     errors, _ = validator.validate_repository(root)
     assert any("no evidence row for FR-001" in error for error in errors)
+
+
+def test_repository_ignores_evidence_outside_coverage_section_or_in_comment(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path)
+    verification = root / "specs/0001-example-feature/verification.md"
+    verification.write_text(
+        "## Requirement coverage\n\nNo evidence.\n\n"
+        "## Contract evidence\n\n| FR-001 | contract test | PASS |\n",
+        encoding="utf-8",
+    )
+    outside_errors, _ = validator.validate_repository(root)
+    assert any("no evidence row for FR-001" in error for error in outside_errors)
+    verification.write_text(
+        "## Requirement coverage\n\n<!--\n| FR-001 | hidden test | PASS |\n-->\n",
+        encoding="utf-8",
+    )
+    comment_errors, _ = validator.validate_repository(root)
+    assert any("no evidence row for FR-001" in error for error in comment_errors)
 
 
 def test_repository_rejects_empty_required_artifact(tmp_path: Path) -> None:
@@ -376,6 +414,33 @@ def test_feature_pr_rejects_superseded_spec(tmp_path: Path) -> None:
     assert any("not superseded" in error for error in errors)
 
 
+def test_high_risk_pr_requires_high_or_critical_spec(tmp_path: Path) -> None:
+    low_root = _valid_repo(tmp_path / "low", status="approved", risk="low")
+    _, low_specs = validator.validate_repository(low_root)
+    low_errors = validator.validate_pull_request(
+        _event(root=low_root, change_class="high-risk", spec="FEAT-0001"),
+        low_specs,
+        low_root,
+    )
+    assert any("requires a high or critical risk spec" in error for error in low_errors)
+
+    high_root = _valid_repo(tmp_path / "high", status="approved", risk="high")
+    repository_errors, high_specs = validator.validate_repository(high_root)
+    assert repository_errors == []
+    assert validator.validate_pull_request(
+        _event(root=high_root, change_class="high-risk", spec="FEAT-0001"),
+        high_specs,
+        high_root,
+    ) == []
+
+
+def test_high_risk_spec_requires_ui_state_and_rollout_artifacts(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path, risk="high")
+    (root / "specs/0001-example-feature/ui-states.md").unlink()
+    errors, _ = validator.validate_repository(root)
+    assert any("high-risk feature artifact is required" in error for error in errors)
+
+
 def test_feature_pr_rejects_spec_approved_only_after_base(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path, status="draft")
     spec = root / "specs/0001-example-feature/spec.md"
@@ -567,7 +632,7 @@ def test_staging_to_main_promotion_is_exempt(tmp_path: Path) -> None:
 
 
 def test_unfiltered_workflow_reruns_when_pr_metadata_is_edited() -> None:
-    workflow = (REPO_ROOT / ".github/workflows/typecheck.yml").read_text(
+    workflow = (REPO_ROOT / ".github/workflows/spec-governance.yml").read_text(
         encoding="utf-8"
     )
     match = re.search(r"^\s+types:\s*\[([^]]+)]\s*$", workflow, re.MULTILINE)
@@ -575,8 +640,13 @@ def test_unfiltered_workflow_reruns_when_pr_metadata_is_edited() -> None:
     activities = {item.strip() for item in match.group(1).split(",")}
     assert {"opened", "synchronize", "reopened", "edited"} <= activities
     assert "Spec and PR metadata" in workflow
-    assert "github.event.action != 'edited'" in workflow
     assert "fetch-depth: 2" in workflow
+    typecheck_workflow = (REPO_ROOT / ".github/workflows/typecheck.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "edited" not in typecheck_workflow
+    assert "Spec and PR metadata" not in typecheck_workflow
+    assert "github.event.action != 'edited'" not in typecheck_workflow
     backend_workflow = (REPO_ROOT / ".github/workflows/backend-tests.yml").read_text(
         encoding="utf-8"
     )

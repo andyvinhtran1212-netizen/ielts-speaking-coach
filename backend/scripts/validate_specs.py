@@ -54,6 +54,7 @@ FINAL_STATUSES = {"verified", "shipped"}
 IMPLEMENTABLE_SPEC_STATUSES = {"approved", "implementing", "verified", "shipped"}
 ALLOWED_EVIDENCE_RESULTS = {"PENDING", "PASS", "MANUAL", "N/A"}
 REQUIRED_FEATURE_FILES = ("spec.md", "plan.md", "tasks.md", "verification.md")
+HIGH_RISK_REQUIRED_FILES = ("ui-states.md", "rollout.md")
 LEGACY_SPEC_DIRS = {"general"}
 REQUIRED_FOUNDATION_FILES = (
     "README.md",
@@ -81,6 +82,15 @@ REQUIRED_SECTIONS = {
         "Verification strategy",
     ),
     "verification.md": ("Requirement coverage",),
+}
+HIGH_RISK_REQUIRED_SECTIONS = {
+    "rollout.md": (
+        "Preconditions",
+        "Staging",
+        "Production",
+        "Rollback and repair",
+        "Observability",
+    ),
 }
 
 
@@ -255,6 +265,23 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
         if risk not in ALLOWED_RISKS:
             errors.append(f"{spec_path}: risk must be one of {sorted(ALLOWED_RISKS)}")
 
+        if risk in {"high", "critical"}:
+            for filename in HIGH_RISK_REQUIRED_FILES:
+                path = feature / filename
+                if not path.is_file():
+                    errors.append(f"{path}: high-risk feature artifact is required")
+                    continue
+                texts[filename] = _read(path, errors)
+            for filename, headings in HIGH_RISK_REQUIRED_SECTIONS.items():
+                text = texts.get(filename, "")
+                for heading in headings:
+                    if not _has_heading(text, heading):
+                        errors.append(f"{feature / filename}: missing '## {heading}' section")
+            if "| Surface | Loading |" not in texts.get("ui-states.md", ""):
+                errors.append(
+                    f"{feature / 'ui-states.md'}: high-risk UI state matrix is missing"
+                )
+
         for filename, headings in REQUIRED_SECTIONS.items():
             text = texts.get(filename, "")
             for heading in headings:
@@ -286,7 +313,13 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
             errors.append(f"{spec_path}: functional requirement declarations must be unique")
 
         verification = texts.get("verification.md", "")
-        evidence_rows = EVIDENCE_ROW_RE.findall(verification)
+        coverage_section = re.sub(
+            r"<!--.*?-->",
+            "",
+            _section(verification, "Requirement coverage"),
+            flags=re.DOTALL,
+        )
+        evidence_rows = EVIDENCE_ROW_RE.findall(coverage_section)
         evidence_ids = [requirement for requirement, _, _ in evidence_rows]
         verification_ids = set(evidence_ids)
         for evidence_id, evidence, result in evidence_rows:
@@ -418,6 +451,13 @@ def validate_pull_request(
             if requires_spec and metadata.get("status") not in IMPLEMENTABLE_SPEC_STATUSES:
                 errors.append(
                     f"pull request: Spec '{spec_id}' must be approved and not superseded"
+                )
+            if change_class == "high-risk" and metadata.get("risk") not in {
+                "high",
+                "critical",
+            }:
+                errors.append(
+                    f"pull request: high-risk change requires a high or critical risk spec; {spec_id} is {metadata.get('risk')!r}"
                 )
             if requires_spec:
                 approved_requirements: dict[str, str] | None = None

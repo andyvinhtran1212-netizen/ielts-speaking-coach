@@ -10,6 +10,7 @@ const PROMOTION = read('.github/workflows/staging-promotion-gate.yml');
 const RELEASE_SMOKE = read('.github/workflows/staging-release-smoke.yml');
 const PRODUCTION_DRIFT = read('.github/workflows/production-release-drift.yml');
 const BACKEND = read('.github/workflows/backend-tests.yml');
+const SPEC_GOVERNANCE = read('.github/workflows/spec-governance.yml');
 const TYPECHECK = read('.github/workflows/typecheck.yml');
 const ROUTES = read('.github/workflows/route-manifest.yml');
 const FREEZE = read('.github/workflows/legacy-freeze.yml');
@@ -20,7 +21,7 @@ describe('staging-first production release contract', () => {
   test('every staging merge runs exact-release integration gates', () => {
     assert.match(RELEASE_SMOKE, /^  push:\n    branches: \[staging\]$/m);
     assert.match(RELEASE_SMOKE, /^  workflow_dispatch:$/m);
-    for (const workflow of [BACKEND, TYPECHECK, ROUTES, FREEZE]) {
+    for (const workflow of [BACKEND, SPEC_GOVERNANCE, TYPECHECK, ROUTES, FREEZE]) {
       assert.match(workflow, /^  push:\n    branches: \[main, staging\]$/m);
     }
     assert.match(RELEASE_SMOKE, /run: npm run test:e2e:staging/);
@@ -51,6 +52,7 @@ describe('staging-first production release contract', () => {
   test('promotion requires all integrated checks and the permanent smoke on the same SHA', () => {
     for (const workflow of [
       'backend-tests.yml',
+      'spec-governance.yml',
       'typecheck.yml',
       'route-manifest.yml',
       'legacy-freeze.yml',

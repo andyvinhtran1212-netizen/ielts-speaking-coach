@@ -9,7 +9,7 @@
 | FR-003 | Naming, metadata, file, section, ID, and index validator tests | PASS |
 | FR-004 | Verified-state incomplete-task plus structured MANUAL/N/A evidence tests | PASS |
 | FR-005 | Prior-base requirement approval, exact coverage, spec-free detail, and promotion-exemption tests | PASS |
-| FR-006 | `typecheck.yml` invokes validator in an unfiltered lightweight job consumed by staging promotion | PASS |
+| FR-006 | Dedicated `spec-governance.yml`; typecheck check names cannot be shadowed; promotion requires both workflows | PASS |
 | FR-007 | Updated `AGENTS.md` and `CLAUDE.md`; stale-path source scan | PASS |
 | FR-008 | Final diff contains governance, tests, and top-level documentation only | PASS |
 
