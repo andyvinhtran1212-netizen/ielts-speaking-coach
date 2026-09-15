@@ -6,7 +6,9 @@ import {
 
 const SKILLS = new Set(['speaking', 'writing', 'reading', 'listening', 'course']);
 const PLAYER_SURFACES = new Set(['speaking', 'reading_exam', 'listening_test']);
-const COURSE_ACTIONS = new Set(['start', 'continue', 'retake', 'retry_full', 'review']);
+const COURSE_ACTIONS = new Set([
+  'start', 'continue', 'retake', 'retry_full', 'review', 'expired_pending',
+]);
 
 function objectOf(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
@@ -259,10 +261,11 @@ export function assignmentAction(row) {
       retake: 'Bắt đầu revision',
       retry_full: 'Làm lại toàn bộ',
       review: 'Xem kết quả',
+      expired_pending: 'Đang thu bài',
     };
     const action = row.courseAction || (row.submittedAt ? 'review' : 'start');
     return labels[action]
-      ? { kind: action === 'review' ? 'review' : 'start', label: labels[action] }
+      ? { kind: ['review', 'expired_pending'].includes(action) ? 'review' : 'start', label: labels[action] }
       : null;
   }
   if (row?.assignment?.skill === 'speaking'
@@ -392,6 +395,7 @@ export function normalizeClassStartResponse(value, expectedItemId) {
     return {
       kind: 'course', bankId, itemId: expectedItemId,
       reviewOnly: row.review_only === true,
+      expiryPending: row.expiry_pending === true,
     };
   }
 

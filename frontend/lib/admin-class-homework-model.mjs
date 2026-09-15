@@ -48,6 +48,7 @@ export function normalizeAssignmentsPayload(value) {
       content_config: object(row.content_config),
       recipient_scope: row.recipient_scope === 'subset' ? 'subset' : 'class',
       created_at: nullableText(row.created_at),
+      timed_started_at: nullableText(row.timed_started_at),
       progress: rawProgress == null ? null : {
         assigned: count(rawProgress.assigned),
         submitted: count(rawProgress.submitted),
@@ -113,7 +114,7 @@ export function homeworkDraft(at = new Date()) {
   return {
     kind: 'daily', skill: 'speaking', title: '', contentId: '', mode: 'practice', part: '1',
     questionMode: 'random', questionIds: [], dueDate: defaultVietnamDueDate(at), dueTime: '19:00',
-    dueDays: '7', instructions: '', recipientScope: 'class', studentIds: [], passPct: '', retakeSize: '', error: '',
+    dueDays: '7', instructions: '', recipientScope: 'class', studentIds: [], passPct: '', retakeSize: '', timeLimitMinutes: '', error: '',
     deliveryMode: 'standard', webExplanationMode: 'disabled', postTestCaptureRequired: true,
   };
 }
@@ -145,8 +146,10 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
   if (draft.skill === 'course') {
     const pass = draft.passPct === '' ? null : Number(draft.passPct);
     const retake = draft.retakeSize === '' ? null : Number(draft.retakeSize);
+    const timeLimit = draft.timeLimitMinutes === '' ? null : Number(draft.timeLimitMinutes);
     if (pass != null && (!Number.isInteger(pass) || pass < 50 || pass > 100)) return { ok: false, error: 'Ngưỡng đạt phải trong khoảng 50–100%.' };
     if (retake != null && (!Number.isInteger(retake) || retake < 5 || retake > 100)) return { ok: false, error: 'Số câu kiểm tra lại phải trong khoảng 5–100.' };
+    if (timeLimit != null && (!Number.isInteger(timeLimit) || timeLimit < 1 || timeLimit > 720)) return { ok: false, error: 'Thời gian tối đa phải từ 1 đến 720 phút.' };
   }
   if (draft.questionMode === 'manual' && draft.skill === 'speaking' && draft.kind === 'daily') {
     const ready = new Set((Array.isArray(questions) ? questions : []).filter((item) => item.ready).map((item) => item.id));
@@ -184,6 +187,7 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
     if (draft.skill === 'course') {
       if (draft.passPct !== '') body.pass_pct = Number(draft.passPct);
       if (draft.retakeSize !== '') body.retake_size = Number(draft.retakeSize);
+      if (draft.timeLimitMinutes !== '') body.time_limit_minutes = Number(draft.timeLimitMinutes);
     }
     if (draft.skill === 'reading' || draft.skill === 'listening') {
       body.delivery_mode = draft.deliveryMode;

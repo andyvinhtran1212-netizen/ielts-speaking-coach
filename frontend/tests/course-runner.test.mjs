@@ -11,8 +11,12 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  createRunner, splitStem, md, esc, isCourseQuizQuestion, STAGE,
+  createRunner, splitStem, md, esc, isCourseQuizQuestion, STAGE, KEYS,
 } from '../js/course-runner.js';
+
+test('renders the fifth assessment choice as E', () => {
+  assert.deepEqual(KEYS, ['A', 'B', 'C', 'D', 'E']);
+});
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -59,8 +63,8 @@ function ledgerFor(store) {
 }
 
 function fakeApi({ questions, mastery = null, failSession = false, failProgress = false,
-                  failPatch = false, resume = null, failResume = false,
-                  ledger = newLedger() } = {}) {
+                  failPatch = false, resume = null, failResume = false, failTimer = false,
+                  sessionTimer = null, ledger = newLedger() } = {}) {
   const calls = { post: [], patch: [], postWith: [], get: [] };
   let n = 0;
   // Máy chủ giả GIỮ SỔ như máy chủ thật: phiên nào đã chốt, phiên nào còn dở và
@@ -77,13 +81,20 @@ function fakeApi({ questions, mastery = null, failSession = false, failProgress 
     const m = /\/sessions\/([^/]+)\/progress$/.exec(String(path));
     if (!m || !body || !Array.isArray(body.attempts)) return;
     const list = answered.get(m[1]) || [];
-    body.attempts.forEach((a) => list.push({ qid: a.qid, is_correct: !!a.is_correct }));
+    body.attempts.forEach((a) => {
+      if (a.client_id && list.some((row) => row.client_id === a.client_id)) return;
+      list.push({ client_id: a.client_id, qid: a.qid, is_correct: !!a.is_correct });
+    });
     answered.set(m[1], list);
   };
   return {
     calls,
     async get(path) {
       calls.get.push(path);
+      if (String(path).includes('/course-timer')) {
+        if (failTimer) throw new Error('timer hỏng');
+        return { item_id: myItem(), timer: mastery };
+      }
       if (String(path).includes('/course-resume')) {
         if (failResume) throw new Error('resume hỏng');
         if (resume) return resume;
@@ -105,7 +116,7 @@ function fakeApi({ questions, mastery = null, failSession = false, failProgress 
         if (failSession) throw new Error('mạng hỏng');
         n += 1;
         itemOf.set('sess-' + n, myItem());
-        return { id: 'sess-' + n };
+        return { id: 'sess-' + n, ...(sessionTimer ? { timer: sessionTimer } : {}) };
       }
       if (failProgress) throw new Error('progress hỏng');
       noteAttempts(path, body);
@@ -123,6 +134,20 @@ function fakeApi({ questions, mastery = null, failSession = false, failProgress 
       // Chốt phiên = `ended_at` được ghi ⇒ phiên vào danh sách đã-chốt, đúng
       // như `get_course_resume` đọc trên máy chủ.
       const m = /\/sessions\/([^/]+)$/.exec(String(path));
+      if (m && body && body.ended_by === 'time_cap' && Array.isArray(body.attempts)) {
+        const list = answered.get(m[1]) || [];
+        const missing = body.attempts.some((a) => !a.client_id
+          || !list.some((row) => row.client_id === a.client_id));
+        if (missing) {
+          const error = new Error('Phiên đã đóng trước khi batch đáp án cuối được lưu.');
+          error.status = 409;
+          error.detail = {
+            code: 'timed_course_final_batch_missing',
+            message: error.message,
+          };
+          throw error;
+        }
+      }
       if (m && body && body.ended_by && ended.indexOf(m[1]) === -1) ended.push(m[1]);
       return {};
     },
@@ -137,6 +162,558 @@ test('review load pins the bank read to the exact assignment item', async () => 
   await runner.load('b1', { reviewOnly: true, assignmentItemId: 'item-old' });
   assert.equal(api.calls.get[0], '/api/quiz/banks/b1?class_item=item-old');
   assert.deepEqual(runner.mastery.completed_sections, ['quiz']);
+});
+
+test('expired bank load preserves pending truth without opening a session', async () => {
+  const api = fakeApi({ questions: [mcq(1)], mastery: {
+    item_id: 'item-pending', review_only: true, expiry_pending: true,
+  } });
+  const runner = createRunner({ api, storage: null });
+  await runner.load('b1', { assignmentItemId: 'item-pending' });
+  assert.equal(runner.reviewOnly, true);
+  assert.equal(runner.expiryPending, true);
+  assert.equal(api.calls.post.filter((call) => call.path === '/api/quiz/sessions').length, 0);
+});
+
+test('uses the server deadline and submits a time-cap verdict', async () => {
+  let clock = 1000;
+  const mastery = {
+    item_id: 'item-timed', is_timed: true, time_limit_minutes: 1,
+    expires_at: null, time_remaining_seconds: 60,
+  };
+  const timer = {
+    is_timed: true, time_limit_minutes: 1,
+    // Deliberately unrelated to the injected client wall clock: the runner
+    // must count down from the server snapshot, not trust device clock skew.
+    expires_at: '2050-01-01T00:00:00.000Z', time_remaining_seconds: 60,
+  };
+  const api = fakeApi({ questions: [mcq(1)], mastery, sessionTimer: timer });
+  const runner = createRunner({ api, storage: null, now: () => clock });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  assert.equal(runner.timeRemainingSeconds(), 60);
+  runner.answer(0);
+  assert.equal(runner.pendingCount, 1);
+
+  clock = 61000;
+  assert.equal(runner.isTimedOut(), true);
+  await runner.finishStage({ endedBy: 'time_cap' });
+  await runner.verdict();
+  assert.equal(api.calls.post.filter((call) => call.path.endsWith('/progress')).length, 1,
+    'timed answers are sent eagerly instead of waiting for a five-answer batch');
+  assert.equal(api.calls.patch.at(-1).body.ended_by, 'time_cap');
+  assert.equal(api.calls.post.at(-1).body.timed_out, true);
+});
+
+test('network latency never extends the authoritative server countdown', async () => {
+  let clock = 0;
+  const api = fakeApi({
+    questions: [mcq(1)],
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      sampled_at: '1970-01-01T00:00:00.000Z',
+      expires_at: '1970-01-01T00:01:00.000Z',
+      time_remaining_seconds: 60,
+    },
+  });
+  const get = api.get.bind(api);
+  api.get = async (path) => {
+    const response = await get(path);
+    if (path.includes('/course-timer')) {
+      clock = 5000; // five seconds elapsed before the timer response arrived
+    }
+    return response;
+  };
+  const runner = createRunner({ api, storage: null, now: () => clock });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  assert.equal(runner.timeRemainingSeconds(), 55);
+  clock = 59999;
+  assert.equal(runner.timeRemainingSeconds(), 1);
+  clock = 60000;
+  assert.equal(runner.isTimedOut(), true);
+  assert.equal(runner.answer(0), null,
+    'runner must reject mutation at the server-sampled cutoff');
+  assert.equal(runner.pendingCount, 0);
+});
+
+test('first timed load does not charge payload assembly before the server starts the clock', async () => {
+  let clock = 0;
+  const api = fakeApi({
+    questions: [mcq(1)],
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      sampled_at: '1970-01-01T00:00:05.000Z',
+      started_at: '1970-01-01T00:00:05.000Z',
+      expires_at: '1970-01-01T00:01:05.000Z',
+      time_remaining_seconds: 60,
+      initial_session_id: 'sess-first',
+    },
+  });
+  const get = api.get.bind(api);
+  api.get = async (path) => {
+    if (path.includes('/course-timer')) {
+      const response = await get(path);
+      clock = 7000; // independent post-payload sample returned one second later
+      return { ...response, timer: {
+        is_timed: true,
+        sampled_at: '1970-01-01T00:00:06.000Z',
+        started_at: '1970-01-01T00:00:05.000Z',
+        expires_at: '1970-01-01T00:01:05.000Z',
+        time_remaining_seconds: 59,
+      } };
+    }
+    if (path.includes('/course-resume')) {
+      const response = await get(path);
+      clock = 8000;
+      return { ...response, timer: {
+        is_timed: true,
+        sampled_at: '1970-01-01T00:00:07.000Z',
+        started_at: '1970-01-01T00:00:05.000Z',
+        expires_at: '1970-01-01T00:01:05.000Z',
+        time_remaining_seconds: 58,
+      } };
+    }
+    clock = 5000; // payload assembly completed before the final locked start
+    const response = await get(path);
+    clock = 6000; // initial response arrived after the timer started
+    return response;
+  };
+  const runner = createRunner({ api, storage: null, now: () => clock });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+
+  assert.equal(runner.timeRemainingSeconds(), 57,
+    'pre-start assembly must not make the browser expire before the server');
+  clock = 64999;
+  assert.equal(runner.timeRemainingSeconds(), 1);
+  clock = 65000;
+  assert.equal(runner.isTimedOut(), true);
+});
+
+test('persists a final four-answer timed batch before timeout', async () => {
+  let clock = 1000;
+  const api = fakeApi({
+    questions: Array.from({ length: 4 }, (_, i) => mcq(i)),
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      expires_at: null, time_remaining_seconds: 60,
+    },
+  });
+  const runner = createRunner({ api, storage: null, now: () => clock });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  for (let i = 0; i < 4; i++) {
+    runner.show();
+    runner.answer(0);
+    runner.next();
+  }
+  // Let the eager write start while the canonical window is still open.
+  await Promise.resolve();
+  clock = 61000;
+  await runner.finishStage({ endedBy: 'time_cap' });
+  const saved = api.calls.post
+    .filter((call) => call.path.endsWith('/progress'))
+    .flatMap((call) => call.body.attempts);
+  assert.deepEqual(saved.map((row) => row.qid), ['Q0', 'Q1', 'Q2', 'Q3']);
+});
+
+test('waits for a progress write admitted before cutoff even if its ACK is late', async () => {
+  let clock = 59000;
+  let releaseAck;
+  const ack = new Promise((resolve) => { releaseAck = resolve; });
+  const api = fakeApi({
+    questions: [mcq(1)],
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      expires_at: null, time_remaining_seconds: 1,
+    },
+  });
+  const post = api.post.bind(api);
+  let progressAccepted = false;
+  api.post = async (path, body) => {
+    const result = await post(path, body);
+    if (path.endsWith('/progress')) {
+      progressAccepted = true;
+      await ack;
+    }
+    return result;
+  };
+  const runner = createRunner({ api, storage: null, now: () => clock });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  runner.show();
+  runner.answer(0);
+  runner.next();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(progressAccepted, true);
+  clock = 61000;
+  let finished = false;
+  const finishing = runner.finishStage({ endedBy: 'time_cap' })
+    .then((result) => { finished = true; return result; });
+  await Promise.resolve();
+  assert.equal(finished, false, 'time-cap finalization must wait for the admitted write');
+  releaseAck();
+  const result = await finishing;
+  assert.equal(result.persisted, true);
+  assert.deepEqual(api.calls.post
+    .filter((call) => call.path.endsWith('/progress'))
+    .flatMap((call) => call.body.attempts)
+    .map((row) => row.qid), ['Q1']);
+});
+
+test('a transient timed eager 5xx retries before cutoff and needs no late insert', async () => {
+  let clock = 50000;
+  const scheduled = [];
+  const ledger = newLedger();
+  const api = fakeApi({
+    questions: [mcq(1)], ledger,
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      expires_at: null, time_remaining_seconds: 10,
+    },
+  });
+  const post = api.post.bind(api);
+  let failedOnce = false;
+  api.post = async (path, body) => {
+    if (path.endsWith('/progress') && !failedOnce) {
+      failedOnce = true;
+      api.calls.post.push({ path, body });
+      throw new Error('transient 5xx');
+    }
+    return post(path, body);
+  };
+  const runner = createRunner({
+    api, storage: null, now: () => clock,
+    schedule(fn, delay) { scheduled.push({ fn, delay }); },
+  });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  runner.show();
+  runner.answer(0);
+  runner.next();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(runner.pendingCount, 1, 'failed eager batch must return to pending');
+  assert.equal(scheduled.length, 1, 'timed failure must schedule a retry without another answer');
+  assert.equal(scheduled[0].delay, 250, 'first retry uses bounded backoff');
+
+  clock += scheduled[0].delay;
+  scheduled.shift().fn();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(runner.pendingCount, 0, 'retry admitted the answer before cutoff');
+
+  clock = 60000;
+  const result = await runner.finishStage({ endedBy: 'time_cap' });
+
+  assert.equal(result.persisted, true);
+  assert.equal(runner.pendingCount, 0, 'only a successful atomic close clears pending');
+  assert.deepEqual(api.calls.patch.at(-1).body.attempts, [],
+    'timeout finalizer verifies state but never inserts a new late answer');
+  assert.deepEqual(ledger.answered.get('sess-1').map((row) => row.qid), ['Q1'],
+    'the timeout session score reads the same persisted attempt ledger');
+});
+
+test('a failed atomic timeout close keeps the final answers for visible retry', async () => {
+  let clock = 59000;
+  const api = fakeApi({
+    questions: [mcq(1)], failProgress: true, failPatch: true,
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      expires_at: null, time_remaining_seconds: 1,
+    },
+  });
+  const runner = createRunner({
+    api, storage: null, now: () => clock, schedule() {},
+  });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  runner.show();
+  runner.answer(0);
+  runner.next();
+  await Promise.resolve();
+  await Promise.resolve();
+  clock = 60000;
+
+  const result = await runner.finishStage({ endedBy: 'time_cap' });
+
+  assert.equal(result.persisted, false);
+  assert.equal(result.retryable, true);
+  assert.equal(runner.pendingCount, 1, 'no ACK means the answer must remain retryable');
+});
+
+test('a rejected post-cutoff batch stops retrying and waits for canonical timeout truth', async () => {
+  let clock = 0;
+  const api = fakeApi({
+    questions: [mcq(1)], failProgress: true,
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      expires_at: null, time_remaining_seconds: 1,
+    },
+  });
+  const runner = createRunner({
+    api, storage: null, now: () => clock, schedule() {},
+  });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  runner.show();
+  runner.answer(0);
+  runner.next();
+  for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+  assert.equal(runner.pendingCount, 1);
+
+  clock = 1000;
+  const first = await runner.finishStage({ endedBy: 'time_cap' });
+  assert.equal(first.persisted, false);
+  assert.equal(first.retryable, false);
+  assert.equal(first.expiryPending, true);
+  assert.equal(first.answersOmitted, true);
+  assert.equal(runner.expiryPending, true);
+  assert.equal(runner.hasOpenSession, false);
+  assert.equal(runner.pendingCount, 0,
+    'a verification-only rejection cannot become admissible on a later retry');
+  const patchCount = api.calls.patch.length;
+
+  const second = await runner.finishStage({ endedBy: 'time_cap' });
+  assert.equal(second.persisted, false);
+  assert.equal(second.expiryPending, true);
+  assert.equal(api.calls.patch.length, patchCount,
+    'timer ticks must not repeat the impossible final PATCH');
+});
+
+test('timed eager retry backoff is bounded during a persistent outage', async () => {
+  let clock = 0;
+  const scheduled = [];
+  const delays = [];
+  const api = fakeApi({
+    questions: [mcq(1)], failProgress: true,
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      expires_at: null, time_remaining_seconds: 60,
+    },
+  });
+  const runner = createRunner({
+    api, storage: null, now: () => clock,
+    schedule(fn, delay) {
+      delays.push(delay);
+      scheduled.push({ fn, delay });
+    },
+  });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  runner.show();
+  runner.answer(0);
+  runner.next();
+  for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+
+  while (scheduled.length) {
+    const job = scheduled.shift();
+    clock += job.delay;
+    job.fn();
+    for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+  }
+
+  assert.deepEqual(delays.slice(0, 5), [250, 500, 1000, 2000, 4000]);
+  assert.ok(delays.slice(5).every((delay) => delay <= 4000),
+    'retry delay stays capped after the distinct backoff steps are exhausted');
+  assert.ok(delays.length > 5, 'retrying continues while the authoritative window is open');
+  assert.equal(runner.pendingCount, 1, 'unacknowledged answer remains visible for recovery');
+});
+
+test('timed eager retry recovers after six consecutive failures before cutoff', async () => {
+  let clock = 0;
+  const scheduled = [];
+  const ledger = newLedger();
+  const api = fakeApi({
+    questions: [mcq(1)], ledger,
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      expires_at: null, time_remaining_seconds: 60,
+    },
+  });
+  const post = api.post.bind(api);
+  let failuresLeft = 6;
+  api.post = async (path, body) => {
+    if (path.endsWith('/progress') && failuresLeft > 0) {
+      failuresLeft -= 1;
+      api.calls.post.push({ path, body });
+      throw new Error('transient 5xx');
+    }
+    return post(path, body);
+  };
+  const runner = createRunner({
+    api, storage: null, now: () => clock,
+    schedule(fn, delay) { scheduled.push({ fn, delay }); },
+  });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  runner.show();
+  runner.answer(0);
+  runner.next();
+  for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+
+  while (scheduled.length && runner.pendingCount) {
+    const job = scheduled.shift();
+    clock += job.delay;
+    job.fn();
+    for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+  }
+
+  assert.equal(failuresLeft, 0);
+  assert.equal(runner.pendingCount, 0);
+  const sent = api.calls.post.filter((call) => call.path.endsWith('/progress'));
+  assert.equal(sent.length, 7, 'six failed sends are followed by one successful retry');
+  assert.equal(new Set(sent.map((call) => call.body.attempts[0].client_id)).size, 1,
+    'every retry preserves the original idempotency key');
+  assert.deepEqual(ledger.answered.get('sess-1').map((row) => row.qid), ['Q1']);
+
+  clock = 60000;
+  const result = await runner.finishStage({ endedBy: 'time_cap' });
+  assert.equal(result.persisted, true);
+  assert.deepEqual(api.calls.patch.at(-1).body.attempts, [],
+    'timeout finalizer only verifies the answer already persisted before cutoff');
+});
+
+test('a completed session stays closed when the page timer later expires', async () => {
+  let clock = 1000;
+  const api = fakeApi({
+    questions: [mcq(1)],
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      expires_at: null, time_remaining_seconds: 60,
+    },
+  });
+  const runner = createRunner({ api, storage: null, now: () => clock });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  runner.answer(0);
+  const completed = await runner.finishStage();
+  assert.equal(completed.persisted, true);
+  assert.equal(runner.hasOpenSession, false);
+  assert.equal(api.calls.patch.length, 1);
+  assert.equal(api.calls.patch[0].body.ended_by, 'completed');
+
+  clock = 61000;
+  assert.equal(runner.isTimedOut(), true);
+  const retry = await runner.finishStage({ endedBy: 'time_cap' });
+  assert.equal(retry.persisted, true);
+  assert.equal(api.calls.patch.length, 1,
+    'time-cap refresh must not PATCH an already completed session');
+});
+
+test('adopts the empty atomic timer session instead of opening a second one', async () => {
+  const api = fakeApi({
+    questions: [mcq(1)],
+    mastery: { item_id: 'item-timed', is_timed: true, time_remaining_seconds: 60 },
+    resume: {
+      item_id: 'item-timed', session_id: 'atomic-first', answered: [],
+      completed: [], stage: 0, retake: null,
+    },
+  });
+  const runner = createRunner({ api, storage: null, now: () => 1000 });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  assert.equal(api.calls.post.filter((call) => call.path === '/api/quiz/sessions').length, 0);
+  runner.answer(0);
+  runner.next();
+  await runner.finishStage();
+  assert.ok(api.calls.patch.some((call) => call.path.endsWith('/atomic-first')));
+});
+
+test('adopts the response atomic session even when local state is stale', async () => {
+  const storage = memStore();
+  storage.setItem('cx:b1', JSON.stringify({
+    stage: 0, at: 0, marks: [], done: false,
+    runSessions: [], rev: 'old-bank-revision', item: 'item-old',
+  }));
+  const api = fakeApi({
+    questions: [mcq(1)],
+    mastery: {
+      item_id: 'item-new', is_timed: true, time_remaining_seconds: 60,
+      initial_session_id: 'atomic-current',
+    },
+  });
+  const runner = createRunner({ api, storage, now: () => 1000 });
+  await runner.load('b1', { assignmentItemId: 'item-new' });
+  assert.equal(api.calls.get.filter((path) => path.includes('/course-resume')).length, 0,
+    'stale generic resume remains deliberately untrusted');
+  assert.equal(api.calls.post.filter((call) => call.path === '/api/quiz/sessions').length, 0,
+    'the current response already supplied the canonical first session');
+  runner.show();
+  runner.answer(0);
+  runner.next();
+  await runner.finishStage();
+  assert.ok(api.calls.patch.some((call) => call.path.endsWith('/atomic-current')));
+});
+
+test('stale local state still gets a post-payload authoritative timer sample', async () => {
+  let clock = 0;
+  const storage = memStore();
+  storage.setItem('cx:b1', JSON.stringify({
+    stage: 0, at: 0, marks: [], done: false,
+    runSessions: [], rev: 'old-bank-revision', item: 'item-old',
+  }));
+  const api = fakeApi({
+    questions: [mcq(1)],
+    mastery: {
+      item_id: 'item-new', is_timed: true,
+      sampled_at: '1970-01-01T00:00:05.000Z',
+      expires_at: '1970-01-01T00:01:05.000Z',
+      time_remaining_seconds: 60,
+      initial_session_id: 'atomic-current',
+    },
+  });
+  const get = api.get.bind(api);
+  api.get = async (path) => {
+    if (path.includes('/course-timer')) {
+      const response = await get(path);
+      clock = 7000;
+      return { ...response, timer: {
+        is_timed: true,
+        sampled_at: '1970-01-01T00:00:06.000Z',
+        expires_at: '1970-01-01T00:01:05.000Z',
+        time_remaining_seconds: 59,
+      } };
+    }
+    clock = 5000;
+    const response = await get(path);
+    clock = 6000;
+    return response;
+  };
+  const runner = createRunner({ api, storage, now: () => clock });
+  await runner.load('b1', { assignmentItemId: 'item-new' });
+  assert.equal(api.calls.get.filter((path) => path.includes('/course-resume')).length, 0);
+  assert.equal(runner.timeRemainingSeconds(), 58);
+  clock = 64999;
+  assert.equal(runner.timeRemainingSeconds(), 1);
+});
+
+test('failed resume history read retains the independent post-payload timer sample', async () => {
+  let clock = 0;
+  const api = fakeApi({
+    questions: [mcq(1)], failResume: true,
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      sampled_at: '1970-01-01T00:00:05.000Z',
+      expires_at: '1970-01-01T00:01:05.000Z',
+      time_remaining_seconds: 60,
+      initial_session_id: 'atomic-current',
+    },
+  });
+  const get = api.get.bind(api);
+  api.get = async (path) => {
+    if (path.includes('/course-timer')) {
+      const response = await get(path);
+      clock = 7000;
+      return { ...response, timer: {
+        is_timed: true,
+        sampled_at: '1970-01-01T00:00:06.000Z',
+        expires_at: '1970-01-01T00:01:05.000Z',
+        time_remaining_seconds: 59,
+      } };
+    }
+    if (path.includes('/course-resume')) throw new Error('resume hỏng');
+    clock = 5000;
+    const response = await get(path);
+    clock = 6000;
+    return response;
+  };
+  const runner = createRunner({ api, storage: null, now: () => clock });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  assert.equal(runner.timeRemainingSeconds(), 58);
+  clock = 64999;
+  assert.equal(runner.timeRemainingSeconds(), 1);
 });
 
 function memStore() {
@@ -423,6 +1000,55 @@ describe('rời trang', () => {
     const { r, api } = await run();
     await r.leave();
     assert.equal(api.calls.postWith.length, 0);
+  });
+
+  test('pagehide phát lại batch timed đang bay bằng keepalive với cùng client id', async () => {
+    let clock = 1000;
+    let rejectNormal;
+    let normalStartedResolve;
+    const normalStarted = new Promise((resolve) => { normalStartedResolve = resolve; });
+    const normalGate = new Promise((_resolve, reject) => { rejectNormal = reject; });
+    const ledger = newLedger();
+    const api = fakeApi({
+      questions: [mcq(1)], ledger,
+      mastery: {
+        item_id: 'item-timed', is_timed: true,
+        expires_at: null, time_remaining_seconds: 60,
+      },
+    });
+    const ordinaryPost = api.post.bind(api);
+    api.post = async (path, body) => {
+      if (!String(path).endsWith('/progress')) return ordinaryPost(path, body);
+      api.calls.post.push({ path, body });
+      normalStartedResolve();
+      return normalGate;
+    };
+
+    const r = createRunner({ api, storage: null, now: () => clock });
+    await r.load('b1', { assignmentItemId: 'item-timed' });
+    r.show(); r.answer(0); r.next();
+    await normalStarted;
+
+    await r.leave();
+    assert.equal(api.calls.postWith.length, 1,
+      'pagehide must not mistake the spliced in-flight batch for an empty queue');
+    assert.equal(api.calls.postWith[0].body.attempts[0].client_id,
+      api.calls.post[1].body.attempts[0].client_id,
+      'the keepalive replay must preserve the idempotency key');
+    assert.deepEqual(ledger.answered.get('sess-1').map((row) => row.qid), ['Q1'],
+      'the keepalive copy reaches the canonical attempt ledger');
+
+    // Mô phỏng request thường bị huỷ cùng document. Nếu trang vẫn sống (bfcache
+    // hoặc test), retry timeout có thể gửi lại cùng client_id mà không nhân đôi.
+    rejectNormal(new Error('document unloaded'));
+    await Promise.resolve();
+    await Promise.resolve();
+    clock = 61000;
+    const result = await r.finishStage({ endedBy: 'time_cap' });
+    assert.equal(result.persisted, true);
+    assert.equal(result.right, 1);
+    assert.equal(ledger.answered.get('sess-1').length, 1,
+      'timeout close keeps one scored attempt after the idempotent replay');
   });
 });
 

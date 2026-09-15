@@ -30,7 +30,7 @@ class _FakeSupabase:
         return _FakeQuery(self, name)
 
     def rpc(self, name, params):
-        return _FakeRpc(self, name)
+        return _FakeRpc(self, name, params)
 
 
 class _FakeStorage:
@@ -46,11 +46,13 @@ class _FakeBucket:
 
 
 class _FakeRpc:
-    def __init__(self, p, name):
-        self._p = p; self._name = name
+    def __init__(self, p, name, params):
+        self._p = p; self._name = name; self._params = params
 
     def execute(self):
         data = self._p.responses.get(("rpc", self._name), [])
+        self._p.calls.append({"table": "rpc:" + self._name, "op": "rpc",
+                              "payload": self._params, "filters": []})
         if isinstance(data, Exception):
             raise data
         return MagicMock(data=data)
@@ -221,6 +223,221 @@ def test_get_bank_for_play_keeps_audio_url_when_no_card_audio():
     qs = {q["qid"]: q for q in out["questions"]}
     assert qs["v1"]["audio_url"] == "https://cdn/kept.mp3"   # no card → snapshot stands
     assert qs["v2"]["audio_url"] is None                     # no {{audio}} → untouched
+
+
+@pytest.mark.parametrize("refresh_response", [Exception("post-start read failed"), []])
+def test_timed_bank_keeps_timer_when_optional_mastery_refresh_fails(refresh_response):
+    anchored = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "opened_at": "2026-09-15T01:00:00+00:00",
+        "due_at": None, "accepting": True, "passed_at": None,
+        "mastery": None, "content_config": {"time_limit_minutes": 30},
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "code": "C1-MIDTERM", "skill_area": "course",
+            "meta": {},
+        }],
+        ("class_assignment_items", "select"): refresh_response,
+        ("quiz_questions", "select"): [{"qid": "q-1", "type": "mcq"}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for_review", return_value=anchored), \
+         patch.object(quiz_service, "_ensure_timed_course_session",
+                      return_value=(anchored, _SESS)), \
+         patch.object(quiz_service, "_word_cards_for", return_value=[]), \
+         patch.object(quiz_service, "_attach_article_urls"), \
+         patch.object(quiz_service, "_resolve_question_audio"):
+        out = quiz_service.get_bank_for_play(
+            _BANK, user_id=_USER, assignment_item_id="item-timed",
+        )
+    assert out["questions"]
+    assert out["mastery"]["is_timed"] is True
+    assert out["mastery"]["started_at"] == "2026-09-15T01:00:00+00:00"
+    assert out["mastery"]["expires_at"] == "2026-09-15T01:30:00+00:00"
+
+
+def test_timed_near_pass_bank_read_adopts_retake_phase_not_run():
+    mastery = {"attempts": [{
+        "phase": "run", "pct": 70, "completed": True,
+        "next_action": "retake", "at": "2026-09-15T12:20:00+00:00",
+        "sessions": ["completed-run"],
+    }]}
+    anchored = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "opened_at": "2026-09-15T12:00:00+00:00",
+        "due_at": None, "accepting": True, "passed_at": None,
+        # Simulate the near-pass committing after the first authorization read
+        # but before the canonical mastery refresh.
+        "mastery": None, "content_config": {"time_limit_minutes": 720},
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "code": "C1-MIDTERM", "skill_area": "course", "meta": {},
+        }],
+        ("class_assignment_items", "select"): [{
+            "passed_at": None, "mastery": mastery,
+        }],
+        ("class_assignments", "select"): [{
+            "id": "asg-timed", "status": "published", "publish_at": None,
+            "due_at": None,
+            "content_config": {"time_limit_minutes": 720, "pass_pct": 75},
+        }],
+        ("quiz_questions", "select"): [{"qid": "q-1", "type": "mcq"}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for_review",
+                      return_value=anchored), \
+         patch.object(quiz_service, "_ensure_timed_course_session",
+                      return_value=(anchored, None)) as ensure, \
+         patch.object(quiz_service, "_word_cards_for", return_value=[]), \
+         patch.object(quiz_service, "_attach_article_urls"), \
+         patch.object(quiz_service, "_resolve_question_audio"):
+        out = quiz_service.get_bank_for_play(
+            _BANK, user_id=_USER, assignment_item_id="item-timed",
+        )
+    assert out["mastery"]["course_action"] == "retake"
+    assert ensure.call_args.kwargs["kind"] == "retake"
+
+
+def test_timed_bank_crossing_cutoff_at_final_gate_returns_pending_state():
+    before_cutoff = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "opened_at": "2999-09-15T12:00:00+00:00",
+        "due_at": None, "accepting": True, "passed_at": None,
+        "mastery": None, "content_config": {"time_limit_minutes": 60},
+    }
+    after_cutoff = {
+        **before_cutoff,
+        "opened_at": "2020-09-15T12:00:00+00:00",
+        "due_at": "2020-09-15T12:30:00+00:00",
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "code": "C1-MIDTERM", "skill_area": "course", "meta": {},
+        }],
+        ("class_assignment_items", "select"): [{
+            "passed_at": None, "mastery": None,
+        }],
+        ("class_assignments", "select"): [{
+            "id": "asg-timed", "status": "published", "publish_at": None,
+            "due_at": None, "content_config": {"time_limit_minutes": 60},
+        }],
+        ("quiz_questions", "select"): [{"qid": "q-1", "type": "mcq"}],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for_review",
+                      return_value=before_cutoff), \
+         patch.object(quiz_service, "_ensure_timed_course_session",
+                      return_value=(after_cutoff, None)) as ensure, \
+         patch.object(quiz_service, "_word_cards_for", return_value=[]), \
+         patch.object(quiz_service, "_attach_article_urls"), \
+         patch.object(quiz_service, "_resolve_question_audio"):
+        out = quiz_service.get_bank_for_play(
+            _BANK, user_id=_USER, assignment_item_id="item-timed",
+        )
+    ensure.assert_called_once()
+    assert out["mastery"]["review_only"] is True
+    assert out["mastery"]["expiry_pending"] is True
+    assert out["mastery"]["course_action"] == "expired_pending"
+    assert out["mastery"]["expires_at"] == "2020-09-15T12:30:00+00:00"
+
+
+@pytest.mark.parametrize(("entitlement", "session_kind", "score"), [
+    ("retake", "retake", 70),
+    ("retry_full", "run", 50),
+])
+def test_expired_retry_stays_pending_until_reaper_records_its_verdict(
+    entitlement, session_kind, score,
+):
+    entitled = {
+        "phase": "run", "pct": score, "completed": True,
+        "next_action": entitlement, "at": "2020-09-15T12:20:00+00:00",
+        "sessions": ["completed-run"],
+    }
+    retake_session = {
+        "id": "pending-retry", "kind": session_kind,
+        "created_at": "2020-09-15T12:21:00+00:00",
+        "ended_at": None, "ended_by": None,
+    }
+
+    def load(mastery):
+        anchored = {
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "opened_at": "2020-09-15T12:00:00+00:00",
+            "due_at": None, "accepting": False, "passed_at": None,
+            "mastery": mastery,
+            "content_config": {"time_limit_minutes": 30, "pass_pct": 75},
+        }
+        fake = _FakeSupabase(responses={
+            ("quiz_banks", "select"): [{
+                "id": _BANK, "code": "C1-MIDTERM", "skill_area": "course",
+                "meta": {},
+            }],
+            ("class_assignment_items", "select"): [{
+                "passed_at": None, "mastery": mastery,
+            }],
+            ("class_assignments", "select"): [{
+                "id": "asg-timed", "status": "published", "publish_at": None,
+                "due_at": None,
+                "content_config": {"time_limit_minutes": 30, "pass_pct": 75},
+            }],
+            ("quiz_sessions", "select"): [retake_session],
+            ("quiz_questions", "select"): [{"qid": "q-1", "type": "mcq"}],
+        })
+        with patch.object(quiz_service, "supabase_admin", fake), \
+             patch.object(quiz_service, "_assignment_item_for_review",
+                          return_value=anchored), \
+             patch.object(quiz_service, "_ensure_timed_course_session") as ensure, \
+             patch.object(quiz_service, "_word_cards_for", return_value=[]), \
+             patch.object(quiz_service, "_attach_article_urls"), \
+             patch.object(quiz_service, "_resolve_question_audio"):
+            out = quiz_service.get_bank_for_play(
+                _BANK, user_id=_USER, assignment_item_id="item-timed",
+            )
+        ensure.assert_not_called()
+        return out
+
+    pending = load({"attempts": [entitled]})
+    assert pending["mastery"]["review_only"] is True
+    assert pending["mastery"]["expiry_pending"] is True
+    assert pending["mastery"]["course_action"] == "expired_pending"
+
+    after_reaper = load({"attempts": [entitled, {
+        "phase": session_kind, "pct": 0, "completed": True,
+        "next_action": "timed_out", "at": "2020-09-15T12:30:00+00:00",
+        "sessions": ["pending-retry"],
+    }]})
+    assert after_reaper["mastery"]["review_only"] is True
+    assert after_reaper["mastery"]["expiry_pending"] is False
+    assert after_reaper["mastery"]["course_action"] == "review"
+
+
+def test_timed_bank_question_failure_does_not_start_clock_or_session():
+    """Prepare the answer-bearing payload before claiming a fixed time window."""
+    unopened = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "opened_at": None, "due_at": None, "accepting": True,
+        "passed_at": None, "mastery": None,
+        "content_config": {"time_limit_minutes": 30},
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "code": "C1-MIDTERM", "skill_area": "course",
+            "meta": {},
+        }],
+        ("class_assignment_items", "select"): [],
+        ("quiz_questions", "select"): Exception("question read failed"),
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for_review", return_value=unopened), \
+         patch.object(quiz_service, "_ensure_timed_course_session") as anchor:
+        with pytest.raises(HTTPException) as exc:
+            quiz_service.get_bank_for_play(
+                _BANK, user_id=_USER, assignment_item_id="item-timed",
+            )
+    assert exc.value.status_code == 500
+    anchor.assert_not_called()
 
 
 def test_get_bank_for_play_unpublished_404():
@@ -593,6 +810,146 @@ def test_start_session_creates_and_returns_resume():
     assert ins["payload"]["user_id"] == _USER
 
 
+def test_timed_course_start_uses_atomic_timer_and_session_rpc():
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_start_timed_course_session"): [{
+            "session_id": _SESS,
+            "timer_started_at": "2026-09-15T10:00:00+00:00",
+        }],
+    })
+    item = {
+        "id": "item-timed", "opened_at": None,
+        "content_config": {"time_limit_minutes": 30},
+    }
+    with patch.object(quiz_service, "supabase_admin", fake):
+        opened, session_id = quiz_service._ensure_timed_course_session(
+            item, user_id=_USER, bank_id=_BANK, code="C1-MIDTERM",
+        )
+    assert session_id == _SESS
+    assert opened["opened_at"] == "2026-09-15T10:00:00+00:00"
+    rpc = next(call for call in fake.calls if call["op"] == "rpc")
+    assert rpc["payload"] == {
+        "p_item_id": "item-timed", "p_user_id": _USER,
+        "p_bank_id": _BANK, "p_code": "C1-MIDTERM",
+        "p_kind": "run", "p_create_if_missing": False,
+    }
+    assert not any(call["table"] == "quiz_sessions" and call["op"] == "insert"
+                   for call in fake.calls)
+
+
+def test_opened_timed_course_reuses_the_canonical_rpc_session():
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_start_timed_course_session"): [{
+            "session_id": _SESS,
+            "timer_started_at": "2026-09-15T10:00:00+00:00",
+        }],
+    })
+    item = {
+        "id": "item-timed", "opened_at": "2026-09-15T10:00:00+00:00",
+        "content_config": {"time_limit_minutes": 720},
+    }
+    with patch.object(quiz_service, "supabase_admin", fake):
+        opened, session_id = quiz_service._ensure_timed_course_session(
+            item, user_id=_USER, bank_id=_BANK, code="C1-MIDTERM",
+        )
+    assert opened["opened_at"] == "2026-09-15T10:00:00+00:00"
+    assert session_id == _SESS
+    assert any(call["table"] == "rpc:quiz_start_timed_course_session"
+               for call in fake.calls)
+
+
+def test_opened_timed_course_rpc_expiry_refreshes_for_read_only_response():
+    refreshed_item = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "opened_at": "2026-09-15T10:00:00+00:00",
+        "submitted_at": None, "passed_at": None, "score": None,
+        "mastery": None, "updated_at": "after-cutoff",
+    }
+    refreshed_item["due_at"] = "2026-09-15T10:30:00+00:00"
+    refreshed_item["content_config"] = {"time_limit_minutes": 60}
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_start_timed_course_session"):
+            Exception("timed_course_assignment_expired"),
+    })
+    item = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "opened_at": "2026-09-15T10:00:00+00:00", "due_at": None,
+        "content_config": {"time_limit_minutes": 60},
+    }
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for_review",
+                      return_value=refreshed_item) as review_gate, \
+         patch.object(quiz_service, "assignment_timer_state", side_effect=[
+             {"is_timed": True, "is_expired": False},
+             {"is_timed": True, "is_expired": True},
+         ]):
+        opened, session_id = quiz_service._ensure_timed_course_session(
+            item, user_id=_USER, bank_id=_BANK, code="C1-MIDTERM",
+            allow_expired_existing=True,
+        )
+    assert session_id is None
+    assert opened["updated_at"] == "after-cutoff"
+    assert opened["due_at"] == "2026-09-15T10:30:00+00:00"
+    assert opened["content_config"] == {"time_limit_minutes": 60}
+    review_gate.assert_called_once_with(
+        _BANK, _USER, assignment_item_id="item-timed",
+    )
+
+
+def test_timed_retake_is_created_by_the_locked_rpc_without_plain_insert():
+    item = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "opened_at": "2026-09-15T10:00:00+00:00",
+        "content_config": {"time_limit_minutes": 720},
+    }
+    new_retake = "66666666-6666-6666-6666-666666666666"
+    fake = _FakeSupabase(responses={("quiz_word_stats", "select"): []})
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_bank_meta_or_404", return_value={
+             "id": _BANK, "code": "C1-MIDTERM", "skill_area": "course",
+         }), \
+         patch.object(quiz_service, "_assignment_item_for", return_value=item), \
+         patch.object(quiz_service, "_ensure_timed_course_session",
+                      return_value=(item, new_retake)) as ensure, \
+         patch.object(quiz_service, "_assert_retake_allowed") as legacy_gate:
+        out = quiz_service.start_session(
+            user_id=_USER, bank_id=_BANK, kind="retake",
+            assignment_item_id="item-timed",
+        )
+    assert out["session_id"] == new_retake
+    ensure.assert_called_once_with(
+        item, user_id=_USER, bank_id=_BANK, code="C1-MIDTERM",
+        kind="retake", create_if_missing=True,
+    )
+    legacy_gate.assert_not_called()
+    assert not any(call["table"] == "quiz_sessions" and call["op"] == "insert"
+                   for call in fake.calls)
+
+
+def test_session_timer_response_preserves_the_earlier_due_at_boundary():
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "code": "C1-MIDTERM", "skill_area": "course",
+        }],
+        ("quiz_word_stats", "select"): [],
+    })
+    item = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "opened_at": "2026-09-15T01:00:00+00:00",
+        "due_at": "2026-09-15T01:10:00+00:00",
+        "content_config": {"time_limit_minutes": 60},
+    }
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for", return_value=item), \
+         patch.object(quiz_service, "_ensure_timed_course_session",
+                      return_value=(item, _SESS)):
+        out = quiz_service.start_session(
+            user_id=_USER, bank_id=_BANK, assignment_item_id="item-timed",
+        )
+    assert out["session_id"] == _SESS
+    assert out["timer"]["expires_at"] == "2026-09-15T01:10:00+00:00"
+
+
 # ── reset progress ("Làm lại từ đầu") ────────────────────────────────
 
 def test_reset_progress_deletes_word_stats_scoped_to_user_and_bank():
@@ -633,6 +990,924 @@ def test_log_progress_rejects_foreign_session():
         with pytest.raises(HTTPException) as e:
             quiz_service.log_progress(user_id=_USER, session_id=_SESS, attempts=[], word_stats=[])
     assert e.value.status_code == 403
+
+
+def test_log_progress_rejects_an_already_ended_session():
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "select"): [{
+            "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+            "ended_at": "2026-09-15T10:00:00+00:00",
+            "ended_by": "completed",
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as error:
+            quiz_service.log_progress(
+                user_id=_USER, session_id=_SESS,
+                attempts=[{"item_key": "x", "is_correct": True}], word_stats=[],
+            )
+    assert error.value.status_code == 409
+    assert not any(call["table"] == "quiz_attempts" for call in fake.calls)
+
+
+def test_log_progress_rejects_course_answers_after_server_timer_expiry():
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "select"): [{
+            "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+            "class_assignment_item_id": "item-timed",
+            "ended_at": None, "ended_by": None,
+        }],
+        ("class_assignment_items", "select"): [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "opened_at": "2000-01-01T00:00:00+00:00", "submitted_at": None,
+        }],
+        ("class_assignments", "select"): [{
+            "id": "asg-timed", "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as error:
+            quiz_service.log_progress(
+                user_id=_USER, session_id=_SESS,
+                attempts=[{"item_key": "x", "is_correct": True}], word_stats=[],
+            )
+    assert error.value.status_code == 409
+    assert "hết thời gian" in error.value.detail
+    assert not any(call["table"] == "quiz_attempts" for call in fake.calls)
+
+
+def test_timed_course_progress_uses_atomic_admission_timestamp_rpc():
+    attempt = {
+        "client_id": "33333333-3333-3333-3333-333333333333",
+        "item_key": "x", "qid": "q1", "is_correct": True,
+        "answer_given": "0", "response_time_ms": 1250, "attempt_no": 1,
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "select"): [{
+            "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+            "class_assignment_item_id": "item-timed",
+            "ended_at": None, "ended_by": None,
+        }],
+        ("class_assignment_items", "select"): [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "opened_at": "2026-09-15T10:00:00+00:00", "submitted_at": None,
+        }],
+        ("class_assignments", "select"): [{
+            "id": "asg-timed", "skill": "course", "status": "published",
+            "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 720},
+        }],
+        ("rpc", "quiz_insert_timed_course_attempts"): [{
+            **attempt, "created_at": "2026-09-15T10:01:00+00:00",
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.log_progress(
+            user_id=_USER, session_id=_SESS, attempts=[attempt], word_stats=[],
+        )
+    assert out["attempts"] == 1
+    rpc = next(call for call in fake.calls
+               if call["table"] == "rpc:quiz_insert_timed_course_attempts")
+    assert rpc["payload"]["p_session_id"] == _SESS
+    assert rpc["payload"]["p_attempts"][0]["client_id"] == attempt["client_id"]
+    assert not any(call["table"] == "quiz_attempts" and call["op"] == "upsert"
+                   for call in fake.calls)
+
+
+def test_time_cap_can_close_after_an_earlier_assignment_deadline():
+    fake = _FakeSupabase(responses={
+        ("class_assignment_items", "select"): [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "opened_at": "2026-09-15T01:00:00+00:00",
+        }],
+        ("class_assignments", "select"): [{
+            "id": "asg-timed", "skill": "course", "status": "published",
+            "publish_at": None, "due_at": "2026-09-15T01:10:00+00:00",
+            "content_config": {"time_limit_minutes": 60},
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        # The assignment no longer accepts ordinary submissions, but time_cap
+        # must still seal the session at the earlier canonical boundary.
+        quiz_service._assert_course_session_accepting(
+            {"class_assignment_item_id": "item-timed"}, "time_cap",
+        )
+
+
+def test_server_reaper_finalizes_an_expired_open_course_attempt():
+    fake = _FakeSupabase(responses={("quiz_sessions", "update"): [{"id": _SESS}]})
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+        "class_assignment_items": [{
+            "id": "item-timed", "assignment_id": "asg-timed", "student_id": "student-1",
+            "opened_at": "2026-09-15T01:00:00+00:00", "submitted_at": None,
+        }],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [{
+            "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+            "class_assignment_item_id": "item-timed", "kind": "run",
+            "created_at": "2026-09-15T01:00:00+00:00",
+            "ended_at": None, "ended_by": None,
+        }],
+    }
+
+    def report(table, *_args, **_kwargs):
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict", return_value={"timed_out": True}) as verdict:
+        out = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+    assert out == {"examined": 1, "finalized": 1, "failed": 0}
+    close = next(call for call in fake.calls
+                 if call["table"] == "quiz_sessions" and call["op"] == "update")
+    assert close["payload"]["ended_by"] == "time_cap"
+    assert close["payload"]["ended_at"] == "2026-09-15T01:30:00+00:00"
+    verdict.assert_called_once_with(
+        user_id=_USER, bank_id=_BANK, session_ids=[_SESS],
+        assignment_item_id="item-timed", timed_out=True,
+        _allow_reaper_finalize=True,
+    )
+
+
+def test_server_reaper_finalizes_current_paused_course_attempt():
+    """Closing the tab pauses a session; expiry must still settle that work."""
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "update"): [{"id": "paused-current"}],
+    })
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+        "class_assignment_items": [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+            "submitted_at": None, "passed_at": None, "mastery": None,
+        }],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [{
+            "id": "paused-current", "user_id": _USER, "bank_id": _BANK,
+            "class_assignment_item_id": "item-timed", "kind": "run",
+            "created_at": "2026-09-15T01:00:00+00:00",
+            "ended_at": "2026-09-15T01:10:00+00:00", "ended_by": "paused",
+        }],
+    }
+
+    def report(table, *_args, **_kwargs):
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict",
+                      return_value={"timed_out": True}) as verdict:
+        out = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+    assert out == {"examined": 1, "finalized": 1, "failed": 0}
+    close = next(call for call in fake.calls
+                 if call["table"] == "quiz_sessions" and call["op"] == "update")
+    assert close["filters"] == [
+        ("id", "paused-current"), ("ended_by", "paused"),
+    ]
+    assert close["payload"]["ended_by"] == "time_cap"
+    verdict.assert_called_once_with(
+        user_id=_USER, bank_id=_BANK, session_ids=["paused-current"],
+        assignment_item_id="item-timed", timed_out=True,
+        _allow_reaper_finalize=True,
+    )
+
+
+def test_server_reaper_excludes_paused_session_replaced_by_newer_same_kind():
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "update"): [{"id": "current-open"}],
+    })
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+        "class_assignment_items": [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+            "submitted_at": None, "passed_at": None, "mastery": None,
+        }],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [
+            {
+                "id": "superseded-paused", "user_id": _USER, "bank_id": _BANK,
+                "class_assignment_item_id": "item-timed", "kind": "run",
+                "created_at": "2026-09-15T01:00:00+00:00",
+                "ended_at": "2026-09-15T01:10:00+00:00", "ended_by": "paused",
+            },
+            {
+                "id": "current-open", "user_id": _USER, "bank_id": _BANK,
+                "class_assignment_item_id": "item-timed", "kind": "run",
+                "created_at": "2026-09-15T01:20:00+00:00",
+                "ended_at": None, "ended_by": None,
+            },
+        ],
+    }
+
+    def report(table, *_args, **_kwargs):
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict",
+                      return_value={"timed_out": True}) as verdict:
+        out = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+    assert out == {"examined": 1, "finalized": 1, "failed": 0}
+    closes = [call for call in fake.calls
+              if call["table"] == "quiz_sessions" and call["op"] == "update"]
+    assert [call["filters"][0] for call in closes] == [("id", "current-open")]
+    verdict.assert_called_once_with(
+        user_id=_USER, bank_id=_BANK, session_ids=["current-open"],
+        assignment_item_id="item-timed", timed_out=True,
+        _allow_reaper_finalize=True,
+    )
+
+
+def test_server_reaper_ignores_passed_item_with_concurrent_orphan_session():
+    """A stale tab cannot append a timeout after the canonical pass."""
+    fake = _FakeSupabase()
+    mastery = {"attempts": [{
+        "phase": "run", "pct": 100, "next_action": "passed",
+        "at": "2026-09-15T01:20:00+00:00", "sessions": ["winning-session"],
+    }]}
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+        "class_assignment_items": [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+            "submitted_at": "2026-09-15T01:20:00+00:00",
+            "passed_at": "2026-09-15T01:20:00+00:00",
+            "score": 100, "mastery": mastery,
+        }],
+    }
+    report_calls = []
+
+    def report(table, *_args, **_kwargs):
+        report_calls.append(table)
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict") as verdict:
+        out = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+    assert out == {"examined": 0, "finalized": 0, "failed": 0}
+    assert report_calls == ["class_assignments", "class_assignment_items"]
+    assert mastery["attempts"][-1]["next_action"] == "passed"
+    assert not any(call["table"] == "quiz_sessions" and call["op"] == "update"
+                   for call in fake.calls)
+    verdict.assert_not_called()
+
+
+def test_server_reaper_seals_pre_verdict_run_orphan_without_replacing_near_pass():
+    """A near-pass permits a retake, never a second old full-run verdict."""
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "update"): [{"id": "orphan-open"}],
+        ("rpc", "quiz_close_expired_course_retry"): True,
+    })
+    mastery = {"attempts": [{
+        "phase": "run", "pct": 70, "completed": True,
+        "next_action": "retake", "at": "2026-09-15T01:20:00+00:00",
+        "sessions": ["near-pass-run"],
+    }]}
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30, "pass_pct": 75},
+        }],
+        "class_assignment_items": [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+            "submitted_at": "2026-09-15T01:20:00+00:00", "passed_at": None,
+            "mastery": mastery,
+        }],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [
+            {
+                "id": "near-pass-run", "user_id": _USER, "bank_id": _BANK,
+                "class_assignment_item_id": "item-timed", "kind": "run",
+                "created_at": "2026-09-15T01:00:00+00:00",
+                "ended_at": "2026-09-15T01:20:00+00:00", "ended_by": "completed",
+            },
+            {
+                "id": "orphan-open", "user_id": _USER, "bank_id": _BANK,
+                "class_assignment_item_id": "item-timed", "kind": "run",
+                "created_at": "2026-09-15T01:05:00+00:00",
+                "ended_at": None, "ended_by": None,
+            },
+        ],
+    }
+
+    def report(table, *_args, **_kwargs):
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict") as verdict:
+        out = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+    assert out == {"examined": 1, "finalized": 0, "failed": 0}
+    close = next(call for call in fake.calls
+                 if call["table"] == "quiz_sessions" and call["op"] == "update")
+    assert close["filters"][0] == ("id", "orphan-open")
+    assert close["payload"]["ended_by"] == "time_cap"
+    assert mastery["attempts"][-1]["next_action"] == "retake"
+    verdict.assert_not_called()
+
+
+def test_server_reaper_skips_settled_timeout_before_session_sweep():
+    """A terminal timeout with its receipt leaves no recurring session work."""
+    fake = _FakeSupabase()
+    mastery = {"attempts": [{
+        "phase": "run", "pct": 40,
+        "next_action": "timed_out", "at": "2026-09-15T01:30:00+00:00",
+        "sessions": ["timeout-winner"],
+    }]}
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30, "pass_pct": 75},
+        }],
+        "class_assignment_items": [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+            "submitted_at": "2026-09-15T01:30:00+00:00", "passed_at": None,
+            "score": 40, "mastery": mastery,
+        }],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [
+            {
+                "id": "timeout-winner", "user_id": _USER, "bank_id": _BANK,
+                "class_assignment_item_id": "item-timed", "kind": "run",
+                "created_at": "2026-09-15T01:00:00+00:00",
+                "ended_at": "2026-09-15T01:30:00+00:00", "ended_by": "time_cap",
+            },
+            {
+                "id": "orphan-open", "user_id": _USER, "bank_id": _BANK,
+                "class_assignment_item_id": "item-timed", "kind": "run",
+                "created_at": "2026-09-15T01:05:00+00:00",
+                "ended_at": None, "ended_by": None,
+            },
+        ],
+    }
+
+    report_calls = []
+
+    def report(table, *_args, **_kwargs):
+        report_calls.append(table)
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict") as verdict:
+        first = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+        second = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:32:00+00:00"),
+        )
+    assert first == {"examined": 0, "finalized": 0, "failed": 0}
+    assert second == {"examined": 0, "finalized": 0, "failed": 0}
+    assert report_calls == [
+        "class_assignments", "class_assignment_items",
+        "class_assignments", "class_assignment_items",
+    ]
+    assert not any(call["table"] == "quiz_sessions" for call in fake.calls)
+    assert mastery["attempts"][-1]["next_action"] == "timed_out"
+    verdict.assert_not_called()
+
+
+@pytest.mark.parametrize("next_action", ["retake", "retry_full"])
+def test_server_reaper_marks_unstarted_expired_retry_closed_before_second_sweep(
+    next_action,
+):
+    """An on-time failure without a new generation incurs one proof scan only."""
+    item = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+        "submitted_at": "2026-09-15T01:20:00+00:00", "passed_at": None,
+        "updated_at": "2026-09-15T01:20:00+00:00",
+        "mastery": {"attempts": [{
+            "phase": "run", "pct": 60, "next_action": next_action,
+            "at": "2026-09-15T01:20:00+00:00", "sessions": ["failed-run"],
+        }]},
+    }
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_close_expired_course_retry"): True,
+    })
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30, "pass_pct": 75},
+        }],
+        "class_assignment_items": [item],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [{
+            "id": "failed-run", "user_id": _USER, "bank_id": _BANK,
+            "class_assignment_item_id": "item-timed", "kind": "run",
+            "created_at": "2026-09-15T01:00:00+00:00",
+            "ended_at": "2026-09-15T01:20:00+00:00", "ended_by": "completed",
+        }],
+    }
+    report_calls = []
+
+    def report(table, *_args, **_kwargs):
+        report_calls.append(table)
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict") as verdict:
+        first = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+        marker = next(call for call in fake.calls
+                      if call["table"] == "rpc:quiz_close_expired_course_retry")
+        # The fake records writes but does not apply them. Reflect the committed
+        # row before the second independent database sweep.
+        item["mastery"] = {
+            **item["mastery"],
+            "timed_retry_closed_at": "2026-09-15T01:30:00+00:00",
+        }
+        second = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:32:00+00:00"),
+        )
+
+    assert first == {"examined": 1, "finalized": 0, "failed": 0}
+    assert second == {"examined": 0, "finalized": 0, "failed": 0}
+    assert report_calls == [
+        "class_assignments", "class_assignment_items", "students", "quiz_sessions",
+        "class_assignments", "class_assignment_items",
+    ]
+    assert item["mastery"]["timed_retry_closed_at"] == \
+        "2026-09-15T01:30:00+00:00"
+    assert marker["payload"] == {"p_item_id": "item-timed"}
+    verdict.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("orphan_ended_by", "orphan_ended_at"),
+    [(None, None), ("paused", "2026-09-15T01:25:00+00:00")],
+)
+def test_server_reaper_preserves_lost_on_time_verdict_with_run_orphan(
+    orphan_ended_by, orphan_ended_at,
+):
+    """A complete tab wins even when another run is open or paused."""
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "update"): [{"id": "orphan-open"}],
+    })
+    completed = {
+        "id": "completed-full-run", "user_id": _USER, "bank_id": _BANK,
+        "class_assignment_item_id": "item-timed", "kind": "run",
+        "created_at": "2026-09-15T01:00:00+00:00",
+        "ended_at": "2026-09-15T01:29:00+00:00", "ended_by": "completed",
+    }
+    orphan = {
+        "id": "orphan-open", "user_id": _USER, "bank_id": _BANK,
+        "class_assignment_item_id": "item-timed", "kind": "run",
+        "created_at": "2026-09-15T01:05:00+00:00",
+        "ended_at": orphan_ended_at, "ended_by": orphan_ended_by,
+    }
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+        "class_assignment_items": [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+            "submitted_at": None, "passed_at": None, "mastery": None,
+        }],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [completed, orphan],
+    }
+
+    def report(table, *_args, **_kwargs):
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "_course_bank_shape",
+                      return_value=({"q1", "q2"}, 0, True)), \
+         patch.object(quiz_service, "_course_answered_qids",
+                      return_value={"q1", "q2"}) as answered, \
+         patch.object(quiz_service, "course_verdict",
+                      return_value={"passed": True}) as verdict:
+        out = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+
+    assert out == {"examined": 1, "finalized": 1, "failed": 0}
+    answered.assert_called_once_with(["completed-full-run"])
+    closes = [call for call in fake.calls
+              if call["table"] == "quiz_sessions" and call["op"] == "update"]
+    assert len(closes) == 1
+    assert closes[0]["filters"][0] == ("id", "orphan-open")
+    verdict.assert_called_once_with(
+        user_id=_USER, bank_id=_BANK,
+        session_ids=["completed-full-run"],
+        assignment_item_id="item-timed", timed_out=True,
+        _allow_reaper_finalize=True,
+    )
+
+
+def test_server_reaper_preserves_on_time_verdict_after_orphan_was_sealed():
+    """A retry sweep must not mix a sealed orphan into an on-time full run."""
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "update"): [{"id": "orphan-open"}],
+    })
+    completed = {
+        "id": "completed-full-run", "user_id": _USER, "bank_id": _BANK,
+        "class_assignment_item_id": "item-timed", "kind": "run",
+        "created_at": "2026-09-15T01:00:00+00:00",
+        "ended_at": "2026-09-15T01:29:00+00:00", "ended_by": "completed",
+    }
+    orphan = {
+        "id": "orphan-open", "user_id": _USER, "bank_id": _BANK,
+        "class_assignment_item_id": "item-timed", "kind": "run",
+        "created_at": "2026-09-15T01:05:00+00:00",
+        "ended_at": None, "ended_by": None,
+    }
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+        "class_assignment_items": [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+            "submitted_at": None, "passed_at": None, "mastery": None,
+        }],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [completed, orphan],
+    }
+
+    def report(table, *_args, **_kwargs):
+        return [dict(row) for row in rows[table]]
+
+    calls = 0
+
+    def verdict(**kwargs):
+        nonlocal calls
+        calls += 1
+        assert kwargs["session_ids"] == ["completed-full-run"]
+        if calls == 1:
+            # The session close commits before a transient verdict failure.
+            orphan.update({
+                "ended_at": "2026-09-15T01:30:00+00:00",
+                "ended_by": "time_cap",
+            })
+            raise HTTPException(500, "transient verdict failure")
+        return {"passed": True}
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "_course_bank_shape",
+                      return_value=({"q1", "q2"}, 0, True)), \
+         patch.object(quiz_service, "_course_answered_qids",
+                      return_value={"q1", "q2"}), \
+         patch.object(quiz_service, "course_verdict", side_effect=verdict) as mocked:
+        first = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+        second = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:32:00+00:00"),
+        )
+
+    assert first == {"examined": 1, "finalized": 0, "failed": 1}
+    assert second == {"examined": 1, "finalized": 1, "failed": 0}
+    assert mocked.call_count == 2
+    closes = [call for call in fake.calls
+              if call["table"] == "quiz_sessions" and call["op"] == "update"]
+    assert len(closes) == 1
+
+
+def test_server_reaper_repairs_submitted_item_when_verdict_was_lost():
+    fake = _FakeSupabase()
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+        "class_assignment_items": [{
+            "id": "item-timed", "assignment_id": "asg-timed", "student_id": "student-1",
+            "opened_at": "2026-09-15T01:00:00+00:00",
+            "submitted_at": "2026-09-15T01:29:59+00:00", "mastery": None,
+        }],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [{
+            "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+            "class_assignment_item_id": "item-timed", "kind": "run",
+            "created_at": "2026-09-15T01:00:00+00:00",
+            "ended_at": "2026-09-15T01:29:59+00:00", "ended_by": "completed",
+        }],
+    }
+
+    def report(table, *_args, **_kwargs):
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict", return_value={"passed": True}) as verdict:
+        out = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+    assert out == {"examined": 1, "finalized": 1, "failed": 0}
+    verdict.assert_called_once()
+
+
+def test_server_reaper_retries_receipt_after_timeout_ledger_was_saved():
+    """A failed mark_item_submitted must not make the next sweep skip forever."""
+    fake = _FakeSupabase()
+    item = {
+        "id": "item-timed", "assignment_id": "asg-timed",
+        "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+        "submitted_at": None, "passed_at": None, "mastery": None,
+    }
+    session = {
+        "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+        "class_assignment_item_id": "item-timed", "kind": "run",
+        "created_at": "2026-09-15T01:00:00+00:00",
+        "ended_at": None, "ended_by": None,
+    }
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+        "class_assignment_items": [item],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [session],
+    }
+
+    def report(table, *_args, **_kwargs):
+        return [dict(row) for row in rows[table]]
+
+    calls = 0
+
+    def verdict(**_kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            # Simulate verdict ledger persistence followed by a transient
+            # submission-receipt failure.
+            item["mastery"] = {"attempts": [{
+                "phase": "run", "pct": 0, "timed_out": True,
+                "next_action": "timed_out", "sessions": [_SESS],
+                "at": "2026-09-15T01:30:00+00:00",
+            }]}
+            session.update({
+                "ended_at": "2026-09-15T01:30:00+00:00",
+                "ended_by": "time_cap",
+            })
+            raise HTTPException(500, "receipt write failed")
+        item["submitted_at"] = "2026-09-15T01:31:01+00:00"
+        return {"timed_out": True}
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict", side_effect=verdict) as mocked:
+        first = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+        second = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:32:00+00:00"),
+        )
+    assert first == {"examined": 1, "finalized": 0, "failed": 1}
+    assert second == {"examined": 1, "finalized": 1, "failed": 0}
+    assert mocked.call_count == 2
+    assert mocked.call_args.kwargs["session_ids"] == [_SESS]
+    assert item["submitted_at"] is not None
+
+
+def test_server_reaper_finalizes_expired_item_after_assignment_is_archived():
+    fake = _FakeSupabase()
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "archived", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+        "class_assignment_items": [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+            "submitted_at": None, "mastery": None,
+        }],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [{
+            "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+            "class_assignment_item_id": "item-timed", "kind": "run",
+            "created_at": "2026-09-15T01:00:00+00:00",
+            "ended_at": None, "ended_by": None,
+        }],
+    }
+
+    def report(table, *_args, **_kwargs):
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict", return_value={"timed_out": True}) as verdict:
+        out = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+    assert out == {"examined": 1, "finalized": 1, "failed": 0}
+    verdict.assert_called_once_with(
+        user_id=_USER, bank_id=_BANK, session_ids=[_SESS],
+        assignment_item_id="item-timed", timed_out=True,
+        _allow_reaper_finalize=True,
+    )
+
+
+def test_server_reaper_batches_session_reads_for_multiple_items():
+    fake = _FakeSupabase()
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+        "class_assignment_items": [
+            {"id": "item-1", "assignment_id": "asg-timed", "student_id": "student-1",
+             "opened_at": "2026-09-15T01:00:00+00:00", "mastery": None},
+            {"id": "item-2", "assignment_id": "asg-timed", "student_id": "student-2",
+             "opened_at": "2026-09-15T01:00:00+00:00", "mastery": None},
+        ],
+        "students": [
+            {"id": "student-1", "user_id": _USER},
+            {"id": "student-2", "user_id": _OTHER},
+        ],
+        "quiz_sessions": [
+            {"id": "session-1", "user_id": _USER, "bank_id": _BANK,
+             "class_assignment_item_id": "item-1", "kind": "run",
+             "created_at": "2026-09-15T01:00:00+00:00",
+             "ended_at": "2026-09-15T01:29:00+00:00", "ended_by": "completed"},
+            {"id": "session-2", "user_id": _OTHER, "bank_id": _BANK,
+             "class_assignment_item_id": "item-2", "kind": "run",
+             "created_at": "2026-09-15T01:00:00+00:00",
+             "ended_at": "2026-09-15T01:29:00+00:00", "ended_by": "completed"},
+        ],
+    }
+    report_calls = []
+
+    def report(table, *_args, **_kwargs):
+        report_calls.append(table)
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict", return_value={"passed": False}) as verdict:
+        out = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+    assert out == {"examined": 2, "finalized": 2, "failed": 0}
+    assert report_calls.count("quiz_sessions") == 1
+    assert verdict.call_count == 2
+
+
+def test_server_reaper_selects_newest_pending_retake_across_tabs():
+    fake = _FakeSupabase()
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30},
+        }],
+        "class_assignment_items": [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+            "mastery": {"attempts": [{
+                "phase": "run", "at": "2026-09-15T01:10:00+00:00",
+                "sessions": ["run-recorded"], "next_action": "retake",
+            }]},
+        }],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [
+            {"id": "retake-old", "user_id": _USER, "bank_id": _BANK,
+             "class_assignment_item_id": "item-timed", "kind": "retake",
+             "created_at": "2026-09-15T01:20:00+00:00",
+             "ended_at": None, "ended_by": None},
+            {"id": "retake-new", "user_id": _USER, "bank_id": _BANK,
+             "class_assignment_item_id": "item-timed", "kind": "retake",
+             "created_at": "2026-09-15T01:25:00+00:00",
+             "ended_at": None, "ended_by": None},
+        ],
+    }
+
+    def report(table, *_args, **_kwargs):
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict", return_value={"timed_out": True}) as verdict:
+        out = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+    assert out == {"examined": 1, "finalized": 1, "failed": 0}
+    closes = [call for call in fake.calls
+              if call["table"] == "quiz_sessions" and call["op"] == "update"]
+    assert len(closes) == 2
+    verdict.assert_called_once_with(
+        user_id=_USER, bank_id=_BANK, session_ids=["retake-new"],
+        assignment_item_id="item-timed", timed_out=True,
+        _allow_reaper_finalize=True,
+    )
+
+
+def test_server_reaper_uses_only_current_full_retry_generation():
+    fake = _FakeSupabase()
+    rows = {
+        "class_assignments": [{
+            "id": "asg-timed", "content_id": _BANK, "skill": "course",
+            "status": "published", "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 30, "pass_pct": 75},
+        }],
+        "class_assignment_items": [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "student_id": "student-1", "opened_at": "2026-09-15T01:00:00+00:00",
+            "submitted_at": "2026-09-15T01:10:00+00:00",
+            "mastery": {
+                "attempts": [{
+                    "phase": "run", "at": "2026-09-15T01:10:00+00:00",
+                    "sessions": ["recorded-run"], "next_action": "retry_full",
+                }],
+                "section_attempt_started_at": "2026-09-15T01:15:00+00:00",
+            },
+        }],
+        "students": [{"id": "student-1", "user_id": _USER}],
+        "quiz_sessions": [
+            {"id": "superseded-retake-a", "user_id": _USER, "bank_id": _BANK,
+             "class_assignment_item_id": "item-timed", "kind": "retake",
+             "created_at": "2026-09-15T01:05:00+00:00",
+             "ended_at": None, "ended_by": None},
+            {"id": "superseded-retake-b", "user_id": _USER, "bank_id": _BANK,
+             "class_assignment_item_id": "item-timed", "kind": "retake",
+             "created_at": "2026-09-15T01:08:00+00:00",
+             "ended_at": None, "ended_by": None},
+            {"id": "stale-open", "user_id": _USER, "bank_id": _BANK,
+             "class_assignment_item_id": "item-timed", "kind": "run",
+             "created_at": "2026-09-15T01:05:00+00:00",
+             "ended_at": None, "ended_by": None},
+            {"id": "superseded-paused", "user_id": _USER, "bank_id": _BANK,
+             "class_assignment_item_id": "item-timed", "kind": "run",
+             "created_at": "2026-09-15T01:18:00+00:00",
+             "ended_at": "2026-09-15T01:19:00+00:00", "ended_by": "paused"},
+            {"id": "current-partial", "user_id": _USER, "bank_id": _BANK,
+             "class_assignment_item_id": "item-timed", "kind": "run",
+             "created_at": "2026-09-15T01:20:00+00:00",
+             "ended_at": None, "ended_by": None},
+        ],
+    }
+
+    def report(table, *_args, **_kwargs):
+        return [dict(row) for row in rows[table]]
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_report_pages", side_effect=report), \
+         patch.object(quiz_service, "course_verdict", return_value={"timed_out": True}) as verdict:
+        out = quiz_service.reap_expired_course_assessments(
+            15, now=quiz_service._at("2026-09-15T01:31:00+00:00"),
+        )
+    assert out == {"examined": 1, "finalized": 1, "failed": 0}
+    closes = [call for call in fake.calls
+              if call["table"] == "quiz_sessions" and call["op"] == "update"]
+    assert len(closes) == 1
+    assert closes[0]["filters"][0] == ("id", "current-partial")
+    verdict.assert_called_once_with(
+        user_id=_USER, bank_id=_BANK, session_ids=["current-partial"],
+        assignment_item_id="item-timed", timed_out=True,
+        _allow_reaper_finalize=True,
+    )
 
 
 def test_log_progress_inserts_attempts_and_upserts_stats():
@@ -696,6 +1971,8 @@ def test_end_session_computes_accuracy():
     upd = next(c for c in fake.calls if c["table"] == "quiz_sessions" and c["op"] == "update")
     assert upd["payload"]["accuracy"] == 0.8
     assert upd["payload"]["ended_by"] == "completed"
+    assert ("not_is", "ended_at", "null") in upd["filters"]
+    assert ("not_is", "ended_by", "null") in upd["filters"]
 
 
 def test_end_session_defaults_bad_ended_by():
@@ -705,6 +1982,159 @@ def test_end_session_defaults_bad_ended_by():
     upd = next(c for c in fake.calls if c["table"] == "quiz_sessions" and c["op"] == "update")
     assert upd["payload"]["ended_by"] == "completed"
     assert upd["payload"]["accuracy"] is None             # 0 questions → None
+
+
+def test_end_session_does_not_reclose_an_on_time_completed_session():
+    canonical = {
+        "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+        "class_assignment_item_id": "item-timed",
+        "ended_at": "2026-09-15T01:29:59+00:00", "ended_by": "completed",
+        "total_questions": 10, "total_correct": 8,
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "select"): [canonical],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        out = quiz_service.end_session(
+            user_id=_USER, session_id=_SESS,
+            data={"ended_by": "time_cap", "total_questions": 10, "total_correct": 0},
+        )
+    assert out == canonical
+    assert not any(call["table"] == "quiz_sessions" and call["op"] == "update"
+                   for call in fake.calls)
+
+
+def test_time_cap_passes_final_client_ids_to_the_verification_rpc():
+    open_session = {
+        "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+        "class_assignment_item_id": "item-timed",
+        "ended_at": None, "ended_by": None,
+    }
+    canonical = {
+        **open_session,
+        "ended_at": "2026-09-15T01:30:00+00:00", "ended_by": "time_cap",
+        "total_questions": 10, "total_correct": 7,
+    }
+    attempt = {
+        "client_id": "33333333-3333-3333-3333-333333333333",
+        "item_key": "x", "qid": "q-final", "is_correct": True,
+        "answer_given": "4", "response_time_ms": 59_100.8, "attempt_no": 1.0,
+    }
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_finalize_timed_course_session"): [canonical],
+    })
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_owned_session", return_value=open_session):
+        out = quiz_service.end_session(
+            user_id=_USER, session_id=_SESS,
+            data={
+                "ended_by": "time_cap", "duration_sec": 1800,
+                "total_questions": 10, "total_correct": 7, "total_wrong": 3,
+                "attempts": [attempt],
+            },
+        )
+
+    assert out == canonical
+    rpc = next(call for call in fake.calls
+               if call["table"] == "rpc:quiz_finalize_timed_course_session")
+    assert rpc["payload"]["p_session_id"] == _SESS
+    assert rpc["payload"]["p_user_id"] == _USER
+    assert rpc["payload"]["p_attempts"][0]["qid"] == "q-final"
+    assert rpc["payload"]["p_attempts"][0]["response_time_ms"] == 59101
+    assert rpc["payload"]["p_summary"]["total_correct"] == 7
+    assert not any(call["table"] == "quiz_sessions" and call["op"] == "update"
+                   for call in fake.calls)
+
+
+def test_time_cap_terminal_retry_proves_final_attempts_are_persisted():
+    """A reaper-won race must enter the row-locked RPC, not return 200 early."""
+    terminal = {
+        "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+        "class_assignment_item_id": "item-timed",
+        "ended_at": "2026-09-15T01:30:00+00:00", "ended_by": "time_cap",
+    }
+    attempt = {
+        "client_id": "33333333-3333-3333-3333-333333333333",
+        "item_key": "x", "qid": "q-final", "is_correct": True,
+        "answer_given": "4", "response_time_ms": 59_100, "attempt_no": 1,
+    }
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_finalize_timed_course_session"): [terminal],
+    })
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_owned_session", return_value=terminal):
+        out = quiz_service.end_session(
+            user_id=_USER, session_id=_SESS,
+            data={"ended_by": "time_cap", "attempts": [attempt]},
+        )
+
+    assert out == terminal
+    assert any(call["table"] == "rpc:quiz_finalize_timed_course_session"
+               for call in fake.calls)
+
+
+def test_time_cap_terminal_retry_rejects_an_unpersisted_final_batch():
+    terminal = {
+        "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+        "class_assignment_item_id": "item-timed",
+        "ended_at": "2026-09-15T01:30:00+00:00", "ended_by": "time_cap",
+    }
+    attempt = {
+        "client_id": "33333333-3333-3333-3333-333333333333",
+        "item_key": "x", "qid": "q-final", "is_correct": True,
+    }
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_finalize_timed_course_session"):
+            Exception("timed_course_final_batch_missing"),
+    })
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_owned_session", return_value=terminal), \
+         pytest.raises(HTTPException) as exc_info:
+        quiz_service.end_session(
+            user_id=_USER, session_id=_SESS,
+            data={"ended_by": "time_cap", "attempts": [attempt]},
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == {
+        "code": "timed_course_final_batch_missing",
+        "message": "Phiên đã đóng trước khi batch đáp án cuối được lưu.",
+    }
+
+
+@pytest.mark.parametrize(("requested", "winner"), [
+    ("completed", "time_cap"),
+    ("time_cap", "completed"),
+])
+def test_end_session_concurrent_terminal_write_preserves_the_winner(requested, winner):
+    open_session = {
+        "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+        "ended_at": None, "ended_by": None,
+    }
+    canonical = {
+        **open_session,
+        "ended_at": "2026-09-15T01:30:00+00:00", "ended_by": winner,
+    }
+    fake = _FakeSupabase(responses={
+        # Empty update representation means the terminal-null CAS lost.
+        ("quiz_sessions", "update"): [],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_owned_session",
+                      side_effect=[open_session, canonical]):
+        out = quiz_service.end_session(
+            user_id=_USER, session_id=_SESS,
+            data={"ended_by": requested, "total_questions": 10},
+        )
+    assert out["ended_by"] == winner
+    updates = [call for call in fake.calls
+               if call["table"] == "quiz_sessions" and call["op"] == "update"]
+    assert len(updates) == 1
+    assert ("not_is", "ended_at", "null") in updates[0]["filters"]
+    assert ("not_is", "ended_by", "null") in updates[0]["filters"]
 
 
 # ── Analytics (Pha 5a) ───────────────────────────────────────────────

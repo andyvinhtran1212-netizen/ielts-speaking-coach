@@ -140,6 +140,7 @@ function mdBold(text) {
 
 const NEXT_LABEL = {
   passed: 'Đã đạt',
+  timed_out: 'Đã hết giờ',
   retake: 'Revision ngắn',
   retry_full: 'Làm lại toàn bộ',
 };

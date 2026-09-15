@@ -28,8 +28,9 @@ class _Resp:
 
 
 class _Table:
-    def __init__(self, name, rows, log):
+    def __init__(self, name, rows, log, update_error=None):
         self._name, self._rows, self._log = name, rows, log
+        self._update_error = update_error
         self._f, self._patch, self._null = [], None, None
 
     def select(self, *_a, **_k): return self
@@ -55,17 +56,22 @@ class _Table:
             hit = [r for r in hit if r.get(f) == v]
         if self._patch is None:
             return _Resp(hit)
+        if self._name == "class_assignments" and self._update_error:
+            raise RuntimeError(self._update_error)
         for r in hit:
             r.update(self._patch)
         self._log.append((self._name, dict(self._patch), len(hit)))
         return _Resp(hit)
 
 
-def _db(asg, items, log=None):
+def _db(asg, items, log=None, assignment_update_error=None):
     log = [] if log is None else log
     t = {"class_assignments": asg, "class_assignment_items": items}
     db = type("DB", (), {})()
-    db.table = lambda n: _Table(n, t.get(n, []), log)
+    db.table = lambda n: _Table(
+        n, t.get(n, []), log,
+        assignment_update_error if n == "class_assignments" else None,
+    )
     db._log = log
     return db
 
@@ -78,6 +84,10 @@ def _asg(**over):
 def _items(*stamps):
     return [{"id": f"i{n}", "assignment_id": "a1", "submitted_at": s}
             for n, s in enumerate(stamps)]
+
+
+def _timed_asg(**over):
+    return _asg(skill="course", content_config={"time_limit_minutes": 30}, **over)
 
 
 def _change(db, **kw):
@@ -191,6 +201,61 @@ def test_students_who_never_handed_in_are_not_counted_as_rewritten():
     out = _change(_db(_asg(), _items(None, None, "2026-08-07T09:00:00+07:00")))
     assert out["flips"] == {"to_ontime": 0, "to_late": 0}
     assert out["submitted_count"] == 1
+
+
+# ── Hạn của bài có đồng hồ đứng yên sau lần mở đầu tiên ─────────────────────
+
+def test_started_timed_course_deadline_cannot_be_extended():
+    asg = _timed_asg()
+    items = _items(None)
+    items[0]["opened_at"] = "2026-08-07T10:00:00+07:00"
+
+    with pytest.raises(DueChangeRefused, match="đã bắt đầu") as exc:
+        _change(_db(asg, items))
+
+    assert exc.value.payload["timed_started"] is True
+    assert exc.value.payload["opened_count"] == 1
+    assert asg[0]["due_at"] == OLD
+
+
+def test_started_timed_course_deadline_cannot_be_shortened_or_cleared():
+    asg = _timed_asg()
+    items = _items(None, None)
+    items[1]["opened_at"] = "2026-08-07T10:00:00+07:00"
+
+    with pytest.raises(DueChangeRefused, match="đã bắt đầu"):
+        _change(_db(asg, items), new_due_at=None)
+
+    assert asg[0]["due_at"] == OLD
+
+
+def test_unstarted_timed_course_deadline_can_still_change():
+    asg = _timed_asg()
+    out = _change(_db(asg, _items(None)))
+    assert out["due_at"] == NEW
+
+
+def test_opened_non_timed_assignment_keeps_existing_due_change_rules():
+    asg = _asg(skill="course", content_config={"pass_pct": 75})
+    items = _items(None)
+    items[0]["opened_at"] = "2026-08-07T10:00:00+07:00"
+    out = _change(_db(asg, items))
+    assert out["due_at"] == NEW
+
+
+def test_database_race_guard_is_returned_as_a_clear_refusal():
+    asg = _timed_asg()
+    db = _db(
+        asg, _items(None),
+        assignment_update_error="timed_course_due_locked_after_start",
+    )
+
+    with pytest.raises(DueChangeRefused, match="đã bắt đầu") as exc:
+        _change(db)
+
+    assert exc.value.payload["timed_started"] is True
+    assert exc.value.payload["conflict"] is True
+    assert asg[0]["due_at"] == OLD
 
 
 # ── So sánh rồi đổi ─────────────────────────────────────────────────────────

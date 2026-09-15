@@ -659,6 +659,36 @@ async def startup_event():
             settings.RETAKE_REAPER_GRACE_SECONDS,
         )
 
+    # Timed Course assessment backstop. The browser submits at zero for a
+    # responsive UX, but correctness cannot depend on that tab staying alive.
+    # This server loop seals open sessions and records the canonical verdict
+    # after the clock (or earlier class deadline) plus a short race grace.
+    if settings.COURSE_TIMER_REAPER_ENABLED:
+        import asyncio as _asyncio_course_timer
+        from services import quiz_service as _quiz_svc
+
+        async def _course_timer_reaper_loop():
+            while True:
+                await _asyncio_course_timer.sleep(
+                    settings.COURSE_TIMER_REAPER_INTERVAL_SECONDS,
+                )
+                try:
+                    res = await _asyncio_course_timer.to_thread(
+                        _quiz_svc.reap_expired_course_assessments,
+                        settings.COURSE_TIMER_REAPER_GRACE_SECONDS,
+                    )
+                    if res.get("finalized") or res.get("failed"):
+                        logger.info("[course-timer-reaper] sweep %s", res)
+                except Exception:
+                    logger.exception("[course-timer-reaper] sweep failed")
+
+        _asyncio_course_timer.create_task(_course_timer_reaper_loop())
+        logger.info(
+            "[course-timer-reaper] started (interval=%ss, grace=%ss)",
+            settings.COURSE_TIMER_REAPER_INTERVAL_SECONDS,
+            settings.COURSE_TIMER_REAPER_GRACE_SECONDS,
+        )
+
 
 @app.on_event("shutdown")
 async def shutdown_event():

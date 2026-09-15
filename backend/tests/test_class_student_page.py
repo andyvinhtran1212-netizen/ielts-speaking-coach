@@ -116,6 +116,42 @@ def test_decorated_course_item_exposes_incomplete_work_after_deadline_extension(
     assert out["submitted_at"] == item["submitted_at"], "biên nhận cũ phải được giữ"
 
 
+def test_my_class_counts_an_expired_unrecorded_retake_as_pending_not_completed():
+    assignment = {
+        "id": "a-course", "cohort_id": "c1", "title": "Grammar midterm",
+        "skill": "course", "status": "published", "publish_at": None,
+        "due_at": None, "content_id": "bank-1",
+        "content_config": {"time_limit_minutes": 30, "pass_pct": 75},
+    }
+    item = {
+        "id": "item-1", "state": "submitted", "passed_at": None,
+        "opened_at": "2020-01-01T00:00:00+00:00",
+        "submitted_at": "2020-01-01T00:20:00+00:00", "score": 70,
+        "mastery": {"attempts": [{
+            "completed": True, "pct": 70, "next_action": "retake",
+            "at": "2020-01-01T00:20:00+00:00", "sessions": ["run-1"],
+        }]},
+    }
+    db = _start_db(skill="course", content_id="bank-1", tables={
+        "quiz_sessions": [{
+            "id": "retake-pending", "class_assignment_item_id": "item-1",
+            "bank_id": "bank-1", "user_id": "u1", "kind": "retake",
+            "created_at": "2020-01-01T00:21:00+00:00",
+            "ended_at": None, "ended_by": None,
+        }],
+    })
+
+    with patch.object(mod, "supabase_admin", db), \
+         patch.object(mod, "bank_has_writing", return_value=False):
+        row = mod._decorate(item, assignment, NOW)
+
+    assert row["course_action"] == "expired_pending"
+    assert mod._progress_summary([row]) == {
+        "total": 1, "submitted": 0, "todo": 1, "missing": 0,
+        "late": 0, "on_time_pct": None,
+    }
+
+
 # ── không thuộc lớp nào là câu trả lời bình thường ──────────────────────
 
 
@@ -386,6 +422,59 @@ async def test_a_listening_task_opens_by_the_row_id():
     assert out["open_url"].startswith(
         "/core-player/launch?surface=listening_test&id=uuid-xyz"
     )
+
+
+@pytest.mark.asyncio
+async def test_expired_course_timer_without_verdict_opens_pending_lane():
+    tables = {
+        "class_assignment_items": [{
+            "id": "item-1", "student_id": "s1", "assignment_id": "a1",
+            "state": "opened", "opened_at": "2020-01-01T00:00:00+00:00",
+            "submitted_at": None, "passed_at": None, "mastery": None,
+        }],
+        "class_assignments": [{
+            "id": "a1", "cohort_id": "c1", "skill": "course",
+            "status": "published", "content_id": "bank-1",
+            "content_config": {"time_limit_minutes": 30}, "due_at": None,
+        }],
+    }
+    out = await _start(_start_db(skill="course", content_id="bank-1", tables=tables))
+    assert out == {
+        "item_id": "item-1", "assignment_id": "a1", "skill": "course",
+        "bank_id": "bank-1", "review_only": True, "expiry_pending": True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_start_keeps_an_expired_unrecorded_retake_in_the_pending_lane():
+    tables = {
+        "class_assignment_items": [{
+            "id": "item-1", "student_id": "s1", "assignment_id": "a1",
+            "state": "submitted", "opened_at": "2020-01-01T00:00:00+00:00",
+            "submitted_at": "2020-01-01T00:20:00+00:00", "passed_at": None,
+            "mastery": {"attempts": [{
+                "completed": True, "pct": 70, "next_action": "retake",
+                "at": "2020-01-01T00:20:00+00:00", "sessions": ["run-1"],
+            }]},
+        }],
+        "class_assignments": [{
+            "id": "a1", "cohort_id": "c1", "skill": "course",
+            "status": "published", "content_id": "bank-1",
+            "content_config": {"time_limit_minutes": 30, "pass_pct": 75},
+            "due_at": None,
+        }],
+        "quiz_sessions": [{
+            "id": "retake-pending", "class_assignment_item_id": "item-1",
+            "bank_id": "bank-1", "user_id": "u1", "kind": "retake",
+            "created_at": "2020-01-01T00:21:00+00:00",
+            "ended_at": None, "ended_by": None,
+        }],
+    }
+    out = await _start(_start_db(skill="course", content_id="bank-1", tables=tables))
+    assert out == {
+        "item_id": "item-1", "assignment_id": "a1", "skill": "course",
+        "bank_id": "bank-1", "review_only": True, "expiry_pending": True,
+    }
 
 
 @pytest.mark.asyncio

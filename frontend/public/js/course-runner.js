@@ -31,7 +31,7 @@ export const STAGE = 10;
 // Đẩy lượt làm theo mẻ. Nhỏ hơn thì tốn request; lớn hơn thì mất nhiều khi rớt.
 const BATCH = 5;
 
-export const KEYS = ['A', 'B', 'C', 'D'];
+export const KEYS = ['A', 'B', 'C', 'D', 'E'];
 
 /**
  * Câu thuộc lane Grammar và được tính vào mastery.
@@ -146,14 +146,27 @@ export function retakeClone(q, rng) {
   };
 }
 
-export function createRunner({ api, storage, now = () => Date.now() }) {
+export function createRunner({
+  api, storage, now = () => Date.now(),
+  schedule = (fn, delay) => setTimeout(fn, delay),
+}) {
   let bank = null;
   let mastery = null;
+  // Anchor the server's remaining seconds to this page load.  Comparing the
+  // server deadline directly with Date.now() makes a learner's mis-set device
+  // clock end the test early or late; elapsed time from a server snapshot does
+  // not trust that wall clock.
+  let timerSyncedAt = 0;
+  let timerRemainingAtSync = null;
   let qs = [];
   let stage = 0;
   let at = 0;
   let marks = [];          // 'right' | 'wrong' | 'self'
   let sessionId = null;
+  // Once PATCH /sessions/{id} succeeds this session is immutable history.
+  // Keep the id for verdict/resume identity, but never PATCH it again when the
+  // page timer reaches zero while verdict delivery is still in flight.
+  let sessionEnded = false;
   let pending = [];
   let shownAt = 0;
   let stageStartedAt = 0;
@@ -184,6 +197,17 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // để gửi nên không ném, và phiên được chốt như thể mọi thứ đã tới máy chủ.
   // (Chính bộ test của module này bắt được — bắn-rồi-quên là một lời hứa bị bỏ.)
   let inflight = Promise.resolve();
+  // Batch eager đang bay không còn nằm trong `pending`, nhưng request thường có
+  // thể bị trình duyệt huỷ ngay khi pagehide. Giữ chính các row (và client_id)
+  // này để đường keepalive phát lại; backend idempotent nên hai request cùng tới
+  // cũng chỉ tạo một quiz_attempt.
+  let eagerBatch = [];
+  // A timed answer is useful only if /progress admits it before the canonical
+  // cutoff. Retry a transient eager failure without waiting for another click;
+  // cap frequency while the canonical admission window itself bounds the loop.
+  const eagerRetryDelays = [250, 500, 1000, 2000, 4000];
+  let eagerRetryAttempt = 0;
+  let eagerRetryScheduled = false;
 
   const key = () => 'cx:' + (bank && bank.id);
   // Vân tay bộ đề: đổi câu HOẶC đổi đáp án (re-import) đều đổi vân tay. Trạng
@@ -201,6 +225,17 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // Bài đã nộp chỉ được đọc. Cờ này do backend suy từ submitted_at; URL hay
   // localStorage không thể tự bật quyền review.
   let reviewOnly = false;
+  let expiryPending = false;
+  let omittedTimedAnswers = false;
+
+  function isMissingTimedFinalBatch(err) {
+    const detail = err && typeof err === 'object' ? err.detail : null;
+    const code = detail && typeof detail === 'object' ? detail.code : null;
+    const text = String((err && err.message) || detail || err || '');
+    return code === 'timed_course_final_batch_missing'
+      || text.includes('timed_course_final_batch_missing')
+      || text.includes('Phiên đã đóng trước khi batch đáp án cuối được lưu');
+  }
 
   function fingerprint(list) {
     const s = list.map((q) => q.qid + ':' + q.answer).join('|');
@@ -298,6 +333,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   async function adoptServerState() {
     if (!qs.length) return false;
     let sv = null;
+    const timerRequestStartedAt = now();
     try {
       sv = await api.get('/api/quiz/banks/' + encodeURIComponent(bank.id) + '/course-resume'
         + (itemId ? '?class_item=' + encodeURIComponent(itemId) : ''));
@@ -305,6 +341,13 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     if (!sv) return false;
     // Mục bài giao khác = lượt của một bài giao khác (chuyển lớp, giao lại).
     if ((sv.item_id || null) !== itemId) return false;
+    // This request starts only after the bank payload has arrived.  Its server
+    // sample is taken at route entry; anchoring it at the local request start
+    // charges the complete sync round trip, but not the pre-start bank build.
+    if (sv.timer && mastery && sv.timer.is_timed) {
+      Object.assign(mastery, sv.timer);
+      syncTimer(timerRequestStartedAt);
+    }
 
     // Revision đang làm (hoặc đã chốt nhưng chưa ghi verdict) thắng trạng thái
     // full session. Mẫu và đáp án được trộn bằng session id nên dựng lại giống
@@ -313,6 +356,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     if (rr && rr.session_id) {
       mode = 'retake';
       sessionId = rr.session_id;
+      sessionEnded = Boolean(rr.completed);
       sessionFailed = false;
       retakeNo += 1;
       const pool = qs.filter((q) => q.type !== 'writing');
@@ -361,6 +405,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // Xong hết các chặng: đứng ở màn kết quả, KHÔNG mở phiên mới.
       stage = stages - 1; at = STAGE; resumedFinal = true;
       sessionId = null; sessionFailed = false;
+      sessionEnded = true;
       // Máy mới (chưa có gì lưu cục bộ) không có `marks`, mà trang tính điểm
       // từ `marks` — nên không giữ lại con số này thì học viên xong cả bài vẫn
       // thấy "0/10 câu đúng" ngay khi mở lại (codex PR 945 vòng 4).
@@ -375,10 +420,14 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     const list = qs.slice(stage * STAGE, stage * STAGE + STAGE);
     // Phải khớp ĐÚNG TIỀN TỐ của chặng: lệch một câu là đếm sai chỗ đang đứng,
     // và học viên hoặc mất câu hoặc làm lại câu đã làm.
-    const aligned = ans.length > 0 && ans.length <= list.length
+    // The timed bank GET atomically creates an empty first session.  An empty
+    // prefix is aligned too: adopt that canonical session instead of POSTing a
+    // second one and leaving the timer-anchor session orphaned.
+    const aligned = ans.length <= list.length
       && ans.every(function (a, i) { return a && list[i] && a.qid === list[i].qid; });
     if (sv.session_id && aligned) {
       sessionId = sv.session_id;
+      sessionEnded = false;
       sessionFailed = false;
       at = ans.length;
       marks = ans.map(function (a) { return a.is_correct ? 'right' : 'wrong'; });
@@ -387,6 +436,21 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     }
     // Có phiên nhưng bộ đề đã đổi (re-import) — không nhận, mở phiên mới.
     return false;
+  }
+
+  async function refreshCourseTimer() {
+    if (!mastery || !mastery.is_timed) return false;
+    const timerRequestStartedAt = now();
+    let snapshot = null;
+    try {
+      snapshot = await api.get('/api/quiz/banks/' + encodeURIComponent(bank.id)
+        + '/course-timer' + (itemId ? '?class_item=' + encodeURIComponent(itemId) : ''));
+    } catch (e) { return false; }
+    if (!snapshot || (snapshot.item_id || null) !== itemId
+        || !snapshot.timer || !snapshot.timer.is_timed) return false;
+    Object.assign(mastery, snapshot.timer);
+    syncTimer(timerRequestStartedAt);
+    return true;
   }
 
   function stageQuestions() {
@@ -414,6 +478,21 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // được hỏi. Một lượt retry production đã bị bỏ đúng 10 câu của một chặng.
   let advancing = null;
 
+  function syncTimer(requestStartedAt) {
+    const seconds = Number(mastery && mastery.time_remaining_seconds);
+    const sampled = Date.parse((mastery && mastery.sampled_at) || '');
+    const expires = Date.parse((mastery && mastery.expires_at) || '');
+    const precise = Number.isFinite(sampled) && Number.isFinite(expires)
+      ? Math.max(0, expires - sampled) / 1000 : null;
+    timerRemainingAtSync = Number.isFinite(precise)
+      ? precise
+      : Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
+    // The matching server sample happens after request start and before
+    // receipt. Charging the full round trip is conservative and cannot keep
+    // controls writable beyond the canonical cutoff.
+    timerSyncedAt = Number.isFinite(requestStartedAt) ? requestStartedAt : now();
+  }
+
   function advanceStage() {
     if (!advancing) advancing = _advanceStage().finally(function () { advancing = null; });
     return advancing;
@@ -421,14 +500,20 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
 
   async function _openSession() {
     sessionId = null;
+    sessionEnded = false;
     sessionFailed = false;
     try {
+      const timerRequestStartedAt = now();
       const body = { bank_id: bank.id };
       if (itemId) body.class_item = itemId;
       // Chỉ khai khi khác mặc định — phiên 'run' giữ nguyên hợp đồng cũ.
       if (mode === 'retake') body.kind = 'retake';
       const s = await api.post('/api/quiz/sessions', body);
       sessionId = (s && (s.id || s.session_id)) || null;
+      if (s && s.timer && mastery) {
+        Object.assign(mastery, s.timer);
+        syncTimer(timerRequestStartedAt);
+      }
     } catch (e) {
       sessionId = null;
       persistError = (e && e.message) ? e.message : String(e || 'Không tạo được phiên làm bài.');
@@ -475,8 +560,14 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
    * ngay sau đó và ghi một điểm số "đã xong" cho những câu chưa hề tới máy chủ.
    */
   async function flush({ keepalive = false } = {}) {
-    if (!sessionId || !pending.length) return;
-    const batch = pending.splice(0, pending.length);
+    if (!sessionId) return;
+    const queued = pending.splice(0, pending.length);
+    // pagehide phải cứu cả batch thường đang bay lẫn phần chưa gửi. Trước đây
+    // batch đang bay đã bị splice khỏi `pending`, nên leave() nhìn thấy rỗng và
+    // không tạo request keepalive nào.
+    const batch = keepalive ? eagerBatch.concat(queued) : queued;
+    if (!batch.length) return;
+    if (!keepalive) eagerBatch = batch;
     const path = '/api/quiz/sessions/' + sessionId + '/progress';
     const body = { attempts: batch, word_stats: [] };
     try {
@@ -485,10 +576,54 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // một con số thấp hơn thực tế rồi tưởng em ấy bỏ bài.
       if (keepalive && api.postWith) await api.postWith(path, body, null, { keepalive: true });
       else await api.post(path, body);
+      if (!keepalive) eagerRetryAttempt = 0;
     } catch (err) {
-      pending = batch.concat(pending);   // trả lại hàng đợi
+      // Batch eager vẫn do request thường sở hữu; nếu nó hỏng, chính request đó
+      // sẽ trả batch về hàng đợi. Chỉ phục hồi phần `queued` mà keepalive đã lấy.
+      pending = (keepalive ? queued : batch).concat(pending);
+      if (!keepalive) scheduleTimedEagerRetry();
       throw err;
+    } finally {
+      if (!keepalive && eagerBatch === batch) eagerBatch = [];
     }
+  }
+
+  function timerRemainingMilliseconds() {
+    if (!mastery || !mastery.is_timed) return null;
+    if (Number.isFinite(timerRemainingAtSync)) {
+      return Math.max(0,
+        timerRemainingAtSync * 1000 - Math.max(0, now() - timerSyncedAt));
+    }
+    const expires = Date.parse(mastery.expires_at || '');
+    if (!Number.isFinite(expires)) {
+      return Math.max(0, Number(mastery.time_remaining_seconds || 0) * 1000);
+    }
+    return Math.max(0, expires - now());
+  }
+
+  function scheduleTimedEagerRetry() {
+    if (!mastery || !mastery.is_timed || eagerRetryScheduled
+        || !sessionId || sessionEnded || !pending.length) return;
+    const remaining = timerRemainingMilliseconds();
+    // A request deliberately fired in the last few milliseconds cannot reach
+    // the server before its admission cutoff. Keep retrying at the capped
+    // delay while a useful admission window remains; do not stop merely
+    // because every distinct backoff step has been used once.
+    if (!(remaining > 25)) return;
+    const retryIndex = Math.min(eagerRetryAttempt, eagerRetryDelays.length - 1);
+    const configured = eagerRetryDelays[retryIndex];
+    eagerRetryAttempt = Math.min(eagerRetryAttempt + 1, eagerRetryDelays.length);
+    // Leave a small admission margin instead of deliberately firing at the
+    // exact boundary.  Very short remaining windows retry immediately once.
+    const delay = Math.max(0, Math.min(configured, remaining - 25));
+    eagerRetryScheduled = true;
+    schedule(function () {
+      eagerRetryScheduled = false;
+      if (!(timerRemainingMilliseconds() > 0)
+          || !sessionId || sessionEnded || !pending.length) return;
+      inflight = inflight.then(() => flush())
+        .catch(() => { /* flush restored and scheduled the next bounded retry */ });
+    }, delay);
   }
 
   function queue(q, ok, given) {
@@ -521,7 +656,16 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     get mode() { return mode; },
     get retakeNo() { return retakeNo; },
     get runSessionCount() { return runSessions.length; },
+    get hasOpenSession() { return Boolean(sessionId) && !sessionEnded; },
     get reviewOnly() { return reviewOnly; },
+    get expiryPending() { return expiryPending; },
+    get isTimed() { return Boolean(mastery && mastery.is_timed); },
+    get expiresAt() { return (mastery && mastery.expires_at) || null; },
+    timeRemainingSeconds() {
+      if (!mastery || !mastery.is_timed) return null;
+      return Math.ceil(timerRemainingMilliseconds() / 1000);
+    },
+    isTimedOut() { return this.isTimed && this.timeRemainingSeconds() <= 0; },
     stageQuestions,
 
     current() {
@@ -534,15 +678,25 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     async load(bankId, options = {}) {
       const itemQuery = options.assignmentItemId
         ? '?class_item=' + encodeURIComponent(options.assignmentItemId) : '';
+      const timerRequestStartedAt = now();
       const r = await api.get('/api/quiz/banks/' + encodeURIComponent(bankId) + itemQuery);
       bank = r.bank;
       mastery = r.mastery || null;
+      syncTimer(timerRequestStartedAt);
       this.mastery = mastery;   // {item_id, passed_at, threshold, near_threshold, retake_size, retakes, due_at}
       // `options.reviewOnly` chỉ làm flow ít quyền hơn (không ghi); quyền đọc
       // vẫn do các endpoint backend kiểm bằng assignment item.
       reviewOnly = Boolean(options.reviewOnly || (r.mastery && r.mastery.review_only));
+      expiryPending = Boolean(r.mastery && r.mastery.expiry_pending);
+      omittedTimedAnswers = false;
       retakeNo = Math.max(0, Number((r.mastery && r.mastery.retakes) || 0));
       itemId = (r.mastery && r.mastery.item_id) || null;
+      // A first timed bank read creates this session atomically with the timer.
+      // It belongs to this exact response even when localStorage is stale, so
+      // it is safer than opening a second session after deliberately skipping
+      // the generic resume state for an older bank/item fingerprint.
+      const initialSessionId = (r.mastery && typeof r.mastery.initial_session_id === 'string')
+        ? r.mastery.initial_session_id : null;
       const allQuestions = r.questions || [];
       qs = allQuestions;
       // TỰ LUẬN TÁCH KHỎI VÒNG CHẶNG. Ở phần trắc nghiệm nhịp là hỏi–đáp–giải
@@ -557,7 +711,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // Lane xem kết quả tuyệt đối không khôi phục/chốt/mở phiên. Nếu chạy qua
       // flow thường, một lần bấm "Xem kết quả" có thể đẻ quiz session rỗng.
       if (reviewOnly) {
-        sessionId = null; sessionFailed = false; resumedFinal = false;
+        sessionId = null; sessionEnded = true;
+        sessionFailed = false; resumedFinal = false;
         stageStartedAt = now(); shownAt = now();
         return bank;
       }
@@ -565,6 +720,11 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       legacyRev = fingerprint(allQuestions.filter(function (q) {
         return q.type !== 'writing';
       }));
+      // The clock starts only after the potentially large bank payload has
+      // been assembled. Re-sample it with an independent, lightweight read:
+      // stale local state intentionally skips session adoption, and a failed
+      // resume-history read must not make payload latency end the test early.
+      await refreshCourseTimer();
       const local = restore();
       // Máy chủ là nguồn thật — TRỪ khi chính máy này biết bộ đề vừa bị soạn
       // lại (hoặc bài giao đã đổi mục). Máy chủ không giữ vân tay bộ đề, nên
@@ -577,12 +737,33 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // Bank CHỈ có tự luận: không có chặng nào để ghi, nên mở phiên quiz ở đây
       // là đẻ ra một phiên rỗng rồi chốt nó bằng 0 câu — và cổng xét đạt sẽ bác
       // cả lượt vì bộ đề không có câu trắc nghiệm nào (codex #935).
-      if (!qs.length) { sessionId = null; sessionFailed = false; stageStartedAt = now(); }
+      if (!qs.length) {
+        sessionId = null; sessionEnded = true;
+        sessionFailed = false; stageStartedAt = now();
+      }
       // Đã nhận một phiên dở từ máy chủ: mở phiên mới ở đây là bỏ rơi chính
       // phiên vừa nhận, tức là tái lập đúng lỗi mồ côi vừa sửa.
       else if (adopted && sessionId) { /* dùng tiếp phiên đang dở */ }
+      // `local === stale` intentionally skips generic resume because those
+      // sessions can belong to an older bank revision/item.  The session id
+      // returned by this bank read was created under the current transactional
+      // authorization and is therefore the one safe canonical exception.
+      else if (initialSessionId) {
+        stage = 0; at = 0; marks = []; runSessions = [];
+        resumedFinal = false; restored = null;
+        sessionId = initialSessionId; sessionEnded = false;
+        sessionFailed = false; stageStartedAt = now();
+      }
+      // Timer đã hết: giữ các session máy chủ vừa khôi phục để nộp lượt hết
+      // giờ; tuyệt đối không mở thêm một session sau ranh giới canonical.
+      else if (this.isTimedOut()) {
+        sessionId = null; sessionEnded = true; sessionFailed = false;
+      }
       else if (!resumedFinal) await openSession();
-      else { sessionId = null; sessionFailed = false; stageStartedAt = now(); }
+      else {
+        sessionId = null; sessionEnded = true;
+        sessionFailed = false; stageStartedAt = now();
+      }
       shownAt = now();
       return bank;
     },
@@ -591,7 +772,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
 
     /** Trả lời một câu trắc nghiệm. */
     answer(picked) {
-      if (answered) return null;
+      if (answered || this.isTimedOut()) return null;
       answered = true;
       const q = this.current();
       const ok = picked === q.answer;
@@ -599,9 +780,12 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // Gửi vị trí GỐC của phương án, không phải vị trí hiển thị: ở bài kiểm
       // tra lại đáp án đã trộn, và màn xem lại lỗi sai đọc theo bộ đề gốc.
       queue(q, ok, String(q._perm ? q._perm[picked] : picked));
-      if (pending.length >= BATCH) {
+      if (pending.length >= BATCH || (mastery && mastery.is_timed)) {
         // Nuốt lỗi Ở ĐÂY là đúng (đang giữa chặng, không có gì để nói với học
         // viên), nhưng phải NHỚ lời hứa để `finishStage` chờ được.
+        // Bài có đồng hồ phải đẩy ngay: nếu giữ 1–4 câu cuối ở client cho đủ
+        // batch thì ranh giới máy chủ sẽ tới trước và các câu đã trả lời đúng
+        // hạn ấy bị mất khỏi điểm timeout.
         // NỐI ĐUÔI, không ghi đè promise cũ. Nếu batch 6–10 về trước batch 1–5,
         // chờ riêng batch mới sẽ đóng phiên trong khi nửa đầu còn đang bay.
         inflight = inflight.then(() => flush())
@@ -630,7 +814,8 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
      * Trả `{persisted}` để trang nói đúng sự thật — chốt phiên khi lượt làm còn
      * kẹt sẽ báo với giáo viên rằng chặng đã xong trong khi chi tiết thì thiếu.
      */
-    async finishStage() {
+    async finishStage(options = {}) {
+      const endedBy = options.endedBy === 'time_cap' ? 'time_cap' : 'completed';
       const list = stageQuestions();
       let graded = list.filter(isCourseQuizQuestion).length;
       let right = marks.filter((m) => m === 'right').length;
@@ -647,19 +832,28 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
 
       // Tạo phiên có thể hỏng lúc mở bài. Nút "Gửi lại" phải thử mở lại thật,
       // không được gọi mãi một flush không có sessionId rồi bắt làm lại 10 câu.
-      if (!sessionId && sessionFailed && pending.length) await openSession();
-      let persisted = !sessionFailed;
-      if (sessionId && !resumedRetakeFinal) {
+      if (endedBy !== 'time_cap' && !sessionId && sessionFailed && pending.length) {
+        await openSession();
+      }
+      let persisted = !sessionFailed && !(endedBy === 'time_cap' && expiryPending);
+      if (sessionId && !sessionEnded && !resumedRetakeFinal) {
         try {
           await inflight;        // chờ lượt đẩy nền xong rồi mới xét hàng đợi
-          await flush();
-          await api.patch('/api/quiz/sessions/' + sessionId, {
+          if (endedBy !== 'time_cap') await flush();
+          // Batch còn lại chỉ là bằng chứng idempotency: timeout RPC KHÔNG chèn
+          // câu mới sau hạn. Nó chỉ ACK khi mọi client_id đã được /progress
+          // nhận trước cutoff, rồi tự tính điểm từ ledger canonical.
+          const finishPayload = {
             duration_sec: Math.round((now() - stageStartedAt) / 1000),
             total_questions: graded,
             total_correct: right,
             total_wrong: Math.max(0, graded - right),
-            ended_by: 'completed',
-          });
+            ended_by: endedBy,
+            ...(endedBy === 'time_cap' ? { attempts: pending.slice() } : {}),
+          };
+          await api.patch('/api/quiz/sessions/' + sessionId, finishPayload);
+          if (endedBy === 'time_cap') pending = [];
+          sessionEnded = true;
           // Chỉ phiên ĐÃ CHỐT mới có tên trong lượt xét đạt — server từ chối
           // phiên dang dở, và một phiên hỏng không được kéo cả lượt xuống.
           if (mode === 'run' && runSessions.indexOf(sessionId) === -1) {
@@ -669,6 +863,18 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
         } catch (err) {
           persisted = false;
           persistError = (err && err.message) ? err.message : String(err || 'Chưa lưu được chặng.');
+          // Migration 276 is verification-only: these client IDs were never
+          // admitted before cutoff, so no later retry can add them to the
+          // canonical timeout score. Stop the PATCH loop and let the page poll
+          // until the server reaper exposes the authoritative verdict.
+          if (endedBy === 'time_cap' && isMissingTimedFinalBatch(err)) {
+            omittedTimedAnswers = pending.length > 0;
+            pending = [];
+            eagerBatch = [];
+            sessionEnded = true;
+            sessionId = null;
+            expiryPending = true;
+          }
         }
       }
       // Chặng chốt hỏng thì KHÔNG đóng dấu done: sessionId + hàng đợi còn
@@ -678,7 +884,9 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       save(persisted);
       return {
         right, graded, persisted,
-        retryable: !persisted && !!sessionId,
+        retryable: !persisted && !!sessionId && !expiryPending,
+        expiryPending: endedBy === 'time_cap' && expiryPending,
+        answersOmitted: endedBy === 'time_cap' && omittedTimedAnswers,
         error: persisted ? '' : persistError,
         axes: Object.keys(axes).sort((a, b) => axes[b] - axes[a]).map((a) => ({ axis: a, n: axes[a] })),
         hasMore: mode === 'run' && stage + 1 < this.stageCount,
@@ -711,6 +919,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       return api.post('/api/quiz/course/verdict', {
         bank_id: bank.id, session_ids: ids,
         ...(itemId ? { class_item: itemId } : {}),
+        ...(this.isTimedOut() ? { timed_out: true } : {}),
       });
     },
 
@@ -743,6 +952,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       resumedFinal = false; restored = null;
       resumedRetakeFinal = false;
       sessionId = null; sessionFailed = false; persistError = '';
+      sessionEnded = false;
       save(false);
       await openSession();
       shownAt = now();

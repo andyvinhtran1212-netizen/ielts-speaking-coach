@@ -144,6 +144,87 @@ describe('làm kiểm tra lại', () => {
   });
 });
 
+describe('hết giờ trên màn kết quả', () => {
+  test('mẫu số timeout theo đúng full run hoặc revision đã chấm', () => {
+    const total = new Function('runner', 'v', functionBody('timedVerdictTotal'));
+    assert.equal(total({ total: 120 }, { phase: 'run' }), 120);
+    assert.equal(total(
+      { total: 120 },
+      { phase: 'retake', retake_size: 20, sections: [{ key: 'quiz', total: 20 }] },
+    ), 20);
+    assert.equal(total(
+      { total: 12 },
+      { phase: 'retake', retake_size: 20, sections: [] },
+    ), 12, 'bank nhỏ hơn cấu hình revision vẫn dùng đúng mẫu số thật');
+    assert.match(functionBody('renderVerdict'), /timedVerdictTotal\(v\)/);
+  });
+
+  test('chỉ chốt time-cap khi session còn mở và luôn làm mới verdict', () => {
+    const body = functionBody('submitAtTimeLimit');
+    const guard = body.indexOf('if (runner.hasOpenSession)');
+    const close = body.indexOf("runner.finishStage({ endedBy: 'time_cap' })");
+    const refresh = body.lastIndexOf('await renderVerdict()');
+    assert.ok(guard !== -1 && close > guard,
+      'không được chốt lại session đã hoàn thành');
+    assert.ok(refresh > close,
+      'hết giờ trên màn kết quả phải đọc lại action canonical');
+  });
+
+  test('verdict hết hạn hiển thị chỉ-xem, không dựng nút retry', () => {
+    const body = functionBody('renderVerdict');
+    const closed = body.indexOf("v.next_action === 'review'");
+    const retry = body.indexOf("v.next_action === 'retry_full'", closed);
+    const branch = body.slice(closed, retry);
+    assert.ok(closed !== -1 && retry > closed);
+    assert.match(branch, /chế độ chỉ xem/);
+    assert.doesNotMatch(branch, /id="cx-retake"|id="cx-retry-full"/);
+  });
+});
+
+describe('hết giờ đang chờ máy chủ chốt', () => {
+  test('không tuyên bố đã nộp trước khi có ledger và tự tải lại', () => {
+    const done = { hidden: true, innerHTML: '' };
+    let refreshMs = null;
+    let reloads = 0;
+    const factory = new Function(
+      '$', 'setActiveSection', 'window',
+      `let expiryRefreshTimeout = null;
+       let disposed = false;
+       return function renderExpiryPending(answersOmitted = false) {${functionBody('renderExpiryPending')}};`,
+    );
+    const render = factory(
+      (id) => id === 'cx-done' ? done : { hidden: false },
+      () => {},
+      {
+        setTimeout(fn, ms) { refreshMs = ms; fn(); return 1; },
+        location: { reload() { reloads += 1; } },
+      },
+    );
+    render();
+    assert.equal(done.hidden, false);
+    assert.match(done.innerHTML, /đang thu và chốt bài/i);
+    assert.match(done.innerHTML, /chưa được ghi xong/i);
+    assert.doesNotMatch(done.innerHTML, /Bài đã nộp|đã được lưu/i);
+    assert.equal(refreshMs, 5000);
+    assert.equal(reloads, 1);
+    const pending = SRC.indexOf('if (runner.expiryPending)');
+    const review = SRC.indexOf('else if (runner.reviewOnly)', pending);
+    assert.ok(pending !== -1 && review > pending,
+      'lane pending phải đứng trước màn review đã lưu');
+  });
+
+  test('batch bị từ chối sau cutoff chuyển sang polling và nói rõ câu bị bỏ', () => {
+    const timeout = functionBody('submitAtTimeLimit');
+    const pending = timeout.indexOf('if (result.expiryPending)');
+    const genericError = timeout.indexOf("setSaveState('error', 'Hết giờ · chưa thu được bài')");
+    assert.ok(pending !== -1 && genericError > pending,
+      'terminal timeout rejection must leave the resend loop before generic retry UI');
+    assert.match(timeout, /renderExpiryPending\(Boolean\(result\.answersOmitted\)\)/);
+    const render = functionBody('renderExpiryPending');
+    assert.match(render, /chưa kịp được máy chủ nhận trước khi hết giờ nên sẽ không được tính/);
+  });
+});
+
 describe('nạp phần tự review', () => {
   test('báo cáo stale không bị cache và cú bấm sau thay bằng bản đầy đủ', async () => {
     const box = {

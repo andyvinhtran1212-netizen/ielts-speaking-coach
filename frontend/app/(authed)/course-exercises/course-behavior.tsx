@@ -36,6 +36,8 @@ export function CourseBehavior() {
     let onLeave: (() => void) | null = null;
     let onInput: ((e: Event) => void) | null = null;
     let onHide: (() => void) | null = null;
+    let timerInterval: number | null = null;
+    let expiryRefreshTimeout: number | null = null;
     let pauseSectionTimers: () => void = () => {};
 
     (async () => {
@@ -75,6 +77,20 @@ export function CourseBehavior() {
           return ` · đạt ở revision lần ${Math.max(1, Number(v.retakes) || 1)}`;
         }
         return ' · đạt ở full session';
+      }
+
+      function timedVerdictTotal(v: any) {
+        const fullTotal = Math.max(0, Number(runner.total) || 0);
+        if (v?.phase !== 'retake') return fullTotal;
+        let quizSection = null;
+        for (const row of (Array.isArray(v.sections) ? v.sections : [])) {
+          if (row?.key === 'quiz') { quizSection = row; break; }
+        }
+        const sectionTotal = Number(quizSection?.total);
+        if (Number.isFinite(sectionTotal) && sectionTotal > 0) {
+          return Math.min(fullTotal, Math.floor(sectionTotal));
+        }
+        return Math.min(fullTotal, Math.max(1, Number(v.retake_size) || fullTotal));
       }
 
       const fail = (msg: string) => {
@@ -503,6 +519,18 @@ export function CourseBehavior() {
           + '</button>';
         const history = CR.renderAttemptHistory(v.history || []);
         const sectionCeiling = v.retry_reason === 'section_ceiling';
+        if (v.timed_out) {
+          const timedTotal = timedVerdictTotal(v);
+          box.innerHTML = '<div class="cx-verdict" data-v="timed-out">'
+            + '<div class="cx-verdict__hero"><div>'
+            + '<p class="cx-verdict__eyebrow">Đã hết thời gian</p>'
+            + '<p class="cx-verdict__title">Hệ thống đã thu bài theo phần bạn kịp hoàn thành</p>'
+            + `<p class="cx-verdict__sub">Điểm được tính trên toàn bộ ${timedTotal} câu của lượt này.</p>`
+            + `</div><div class="cx-verdict__score">${v.pct}%</div></div>`
+            + '<div class="cx-verdict__body"><div class="cx-verdict__actions">'
+            + seeReport + '</div>' + history + '</div></div>';
+          return;
+        }
         if (v.completed === false) {
           const finished = sectionRows.filter((row: any) => row.completed).length;
           const total = sectionRows.length;
@@ -538,6 +566,16 @@ export function CourseBehavior() {
           // Đã đạt thì phần chữa bài là bước học tiếp theo, không đứng sau một
           // cú bấm. Nạp sẵn bên dưới nhưng giữ kết luận đạt trong khung nhìn.
           void showReport({ scroll: false });
+        } else if (v.next_action === 'review') {
+          box.innerHTML = '<div class="cx-verdict" data-v="closed">'
+            + '<div class="cx-verdict__hero"><div>'
+            + '<p class="cx-verdict__eyebrow">Đã hết thời gian</p>'
+            + '<p class="cx-verdict__title">Kết quả đã được chốt ở chế độ chỉ xem</p>'
+            + `<p class="cx-verdict__sub">Điểm hiện tại ${v.pct}% · ngưỡng đạt ${v.threshold}%. Không thể mở thêm revision hoặc lượt làm lại sau thời hạn.</p>`
+            + `</div><div class="cx-verdict__score">${v.pct}%</div></div>`
+            + '<div class="cx-verdict__body"><div class="cx-verdict__actions">'
+            + seeReport + more + readMore + listenMore + pronunciationMore
+            + '</div>' + history + '</div></div>';
         } else if (v.next_action === 'retry_full') {
           box.innerHTML = '<div class="cx-verdict" data-v="fail-full">'
             + '<div class="cx-verdict__hero"><div>'
@@ -686,6 +724,29 @@ export function CourseBehavior() {
             : '')
           + '</div></div></div>';
         window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+      }
+
+      function renderExpiryPending(answersOmitted = false) {
+        setActiveSection(null);
+        const q = $('cx-q'); if (q) q.hidden = true;
+        const next = $('cx-next'); if (next) next.hidden = true;
+        const stageBox = $('cx-stage'); if (stageBox) stageBox.hidden = true;
+        const report = $('cx-report'); if (report) report.hidden = true;
+        const done = $('cx-done');
+        if (!done) return;
+        done.hidden = false;
+        done.innerHTML = '<div class="cx-verdict" data-v="expiry-pending">'
+          + '<div class="cx-verdict__hero"><div>'
+          + '<p class="cx-verdict__eyebrow">Đã hết thời gian</p>'
+          + '<p class="cx-verdict__title">Hệ thống đang thu và chốt bài</p>'
+          + `<p class="cx-verdict__sub">${answersOmitted
+            ? 'Một số câu trả lời chưa kịp được máy chủ nhận trước khi hết giờ nên sẽ không được tính. '
+              + 'Trang sẽ tự làm mới để hiển thị kết quả chính thức.'
+            : 'Kết quả chưa được ghi xong. Trang sẽ tự làm mới để hiển thị trạng thái chính thức.'}</p>`
+          + '</div></div></div>';
+        expiryRefreshTimeout = window.setTimeout(() => {
+          if (!disposed) window.location.reload();
+        }, 5000);
       }
 
       function renderReading() {
@@ -1028,6 +1089,75 @@ export function CourseBehavior() {
         return fullRestart;
       }
 
+      let timeoutFlow: Promise<void> | null = null;
+      let timerSubmitted = false;
+      function formatRemaining(seconds: number) {
+        const safe = Math.max(0, Math.floor(seconds));
+        const hours = Math.floor(safe / 3600);
+        const minutes = Math.floor((safe % 3600) / 60);
+        const secs = safe % 60;
+        return hours
+          ? `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+          : `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      }
+
+      function submitAtTimeLimit(): Promise<void> {
+        if (timeoutFlow) return timeoutFlow;
+        timeoutFlow = (async () => {
+          document.querySelectorAll('.cx-opt').forEach((node) => {
+            (node as HTMLButtonElement).disabled = true;
+          });
+          setSaveState('saving', 'Hết giờ · đang thu bài…');
+          // A result screen has already closed its session.  The session id is
+          // still needed for the verdict, but sending a second time-cap PATCH
+          // can race that verdict and must never rewrite the on-time ending.
+          // With no open session, refresh the canonical verdict/action only.
+          if (runner.hasOpenSession) {
+            const result = await runner.finishStage({ endedBy: 'time_cap' });
+            if (!result.persisted) {
+              if (result.expiryPending) {
+                timerSubmitted = true;
+                setSaveState(
+                  'error',
+                  result.answersOmitted
+                    ? 'Hết giờ · có câu chưa được máy chủ ghi nhận'
+                    : 'Hết giờ · đang chờ kết quả chính thức',
+                );
+                $('cx-q')!.hidden = true;
+                $('cx-next')!.hidden = true;
+                renderExpiryPending(Boolean(result.answersOmitted));
+                return;
+              }
+              setSaveState('error', 'Hết giờ · chưa thu được bài');
+              const error = $('cx-error');
+              if (error) { error.hidden = false; error.textContent = result.error || 'Chưa thu được bài hết giờ. Hãy thử lại.'; }
+              return;
+            }
+          }
+          setSaveState('saved', 'Đã thu bài khi hết giờ');
+          timerSubmitted = true;
+          $('cx-q')!.hidden = true;
+          $('cx-next')!.hidden = true;
+          $('cx-done')!.hidden = false;
+          $('cx-done')!.innerHTML = '<div id="cx-verdict"></div>';
+          await renderVerdict();
+        })().finally(() => { timeoutFlow = null; });
+        return timeoutFlow;
+      }
+
+      function updateTimer() {
+        const timer = $('cx-timer');
+        if (!timer || !runner.isTimed || runner.reviewOnly) {
+          if (timer) timer.hidden = true;
+          return;
+        }
+        const remaining = Number(runner.timeRemainingSeconds() || 0);
+        timer.hidden = false;
+        timer.textContent = `⏱ ${formatRemaining(remaining)}`;
+        timer.dataset.urgent = String(remaining <= 5 * 60);
+        if (remaining <= 0 && !timerSubmitted) void submitAtTimeLimit();
+      }
+
       const l = $('cx-loading'); if (l) l.hidden = true;
       if (runner.sessionFailed) {
         setSaveState('error');
@@ -1041,7 +1171,9 @@ export function CourseBehavior() {
       // Bank CHỈ có câu tự luận: không có chặng nào để chạy, và một phiên quiz
       // rỗng sẽ bị cổng xét đạt bác vì bộ đề không có câu trắc nghiệm nào
       // (codex #935). Vào thẳng màn tự luận.
-      if (runner.reviewOnly) {
+      if (runner.expiryPending) {
+        renderExpiryPending();
+      } else if (runner.reviewOnly) {
         // `/start` only emits this destination for a canonically submitted
         // course item. Open the persisted marking directly and never enter the
         // quiz mutation flow again.
@@ -1053,6 +1185,10 @@ export function CourseBehavior() {
         if (disposed) return;
         renderWriting();
       } else if (runner.isStageDone()) renderDone(); else renderQuestion();
+      updateTimer();
+      if (runner.isTimed && !runner.reviewOnly) {
+        timerInterval = window.setInterval(updateTimer, 1000);
+      }
 
       // Uỷ quyền: nội dung được vẽ lại sau mỗi câu, nên gắn tay từng nút sẽ mất
       // ngay ở lần vẽ kế tiếp.
@@ -1193,6 +1329,8 @@ export function CourseBehavior() {
       if (onInput) document.removeEventListener('input', onInput);
       if (onLeave) window.removeEventListener('pagehide', onLeave);
       if (onHide) document.removeEventListener('visibilitychange', onHide);
+      if (timerInterval != null) window.clearInterval(timerInterval);
+      if (expiryRefreshTimeout != null) window.clearTimeout(expiryRefreshTimeout);
     };
   }, [status, user?.id]);
 

@@ -7,12 +7,14 @@ không có lớp bảo vệ nào phía sau.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
 from fastapi import HTTPException
 
 from routers import admin_class_assignments as adm
+from services.class_assignment_service import assignment_timer_state
 
 
 class _Resp:
@@ -70,8 +72,10 @@ def _body(**over):
     return adm.AssignmentCreate(**kw)
 
 
-def _resolve(db, body=None):
-    with patch.object(adm, "supabase_admin", db):
+def _resolve(db, body=None, revisions=("rev-1", "rev-1")):
+    with patch.object(adm, "supabase_admin", db), \
+         patch.object(adm, "_course_bank_assignment_revision",
+                      side_effect=revisions):
         return adm._resolve_course_bank("co-1", body or _body())
 
 
@@ -94,8 +98,84 @@ def test_a_valid_bank_freezes_weight_shape_without_copying_questions():
         "weight_policy": "hybrid_question_count_v1",
         "section_counts": {"quiz": 1},
         "section_weights": {"quiz": 100.0},
+        "bank_revision": "rev-1",
     }
     assert "questions" not in cfg and "question_ids" not in cfg
+
+
+def test_a_timed_course_assignment_freezes_the_limit_in_its_snapshot():
+    _bank_id, cfg = _resolve(_full(), _body(time_limit_minutes=135))
+    assert cfg["time_limit_minutes"] == 135
+
+
+def test_assignment_preflight_rejects_a_bank_changed_during_shape_read():
+    with pytest.raises(HTTPException) as exc:
+        _resolve(_full(), revisions=("rev-before", "rev-after"))
+    assert exc.value.status_code == 409
+    assert "vừa được cập nhật" in exc.value.detail
+
+
+def test_time_limit_is_course_only_and_bounded():
+    with pytest.raises(ValueError):
+        adm.AssignmentCreate(
+            skill="speaking", title="Speaking", content_id="topic-1",
+            time_limit_minutes=30,
+        )
+    with pytest.raises(ValueError):
+        _body(time_limit_minutes=721)
+
+
+def test_time_limit_is_rejected_for_a_hybrid_course_bank():
+    with pytest.raises(HTTPException) as exc:
+        _resolve(_full(quiz_questions=[
+            {"id": "q1", "bank_id": "bank-1", "type": "mcq"},
+            {"id": "w1", "bank_id": "bank-1", "type": "writing"},
+        ]), _body(time_limit_minutes=30))
+    assert "trắc nghiệm thuần" in exc.value.detail
+
+
+def test_timer_is_derived_from_the_canonical_opened_at():
+    state = assignment_timer_state(
+        {"opened_at": "2026-09-15T01:00:00+00:00"},
+        {"content_config": {"time_limit_minutes": 30}},
+        now=datetime(2026, 9, 15, 1, 29, 1, tzinfo=timezone.utc),
+    )
+    assert state["time_remaining_seconds"] == 59
+    assert state["expires_at"] == "2026-09-15T01:30:00+00:00"
+    assert state["sampled_at"] == "2026-09-15T01:29:01+00:00"
+    assert state["is_expired"] is False
+
+    expired = assignment_timer_state(
+        {"opened_at": "2026-09-15T01:00:00+00:00"},
+        {"content_config": {"time_limit_minutes": 30}},
+        now=datetime(2026, 9, 15, 1, 30, tzinfo=timezone.utc),
+    )
+    assert expired["time_remaining_seconds"] == 0
+    assert expired["is_expired"] is True
+
+
+def test_timer_uses_the_earlier_class_deadline_as_its_cutoff():
+    state = assignment_timer_state(
+        {"opened_at": "2026-09-15T01:00:00+00:00"},
+        {
+            "due_at": "2026-09-15T01:10:00+00:00",
+            "content_config": {"time_limit_minutes": 60},
+        },
+        now=datetime(2026, 9, 15, 1, 9, 30, tzinfo=timezone.utc),
+    )
+    assert state["expires_at"] == "2026-09-15T01:10:00+00:00"
+    assert state["time_remaining_seconds"] == 30
+    assert state["is_expired"] is False
+
+    expired = assignment_timer_state(
+        {"opened_at": "2026-09-15T01:00:00+00:00"},
+        {
+            "due_at": "2026-09-15T01:10:00+00:00",
+            "content_config": {"time_limit_minutes": 60},
+        },
+        now=datetime(2026, 9, 15, 1, 10, tzinfo=timezone.utc),
+    )
+    assert expired["is_expired"] is True
 
 
 # ── Từ chối ──────────────────────────────────────────────────────────────────

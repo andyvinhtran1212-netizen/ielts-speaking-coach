@@ -9081,6 +9081,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/quiz/banks/{bank_id}/course-timer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Course Timer
+         * @description Authoritative post-payload timer sample; never adopts session state.
+         */
+        get: operations["course_timer_api_quiz_banks__bank_id__course_timer_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/quiz/banks/{bank_id}/course-resume": {
         parameters: {
             query?: never;
@@ -13141,6 +13161,11 @@ export interface components {
             class_item?: string | null;
             /** Session Ids */
             session_ids: string[];
+            /**
+             * Timed Out
+             * @default false
+             */
+            timed_out: boolean;
         };
         /** CourseWritingBody */
         CourseWritingBody: {
@@ -13557,6 +13582,13 @@ export interface components {
             words_carried_over: number;
             /** Ended By */
             ended_by?: string | null;
+            /**
+             * Attempts
+             * @default []
+             */
+            attempts: {
+                [key: string]: unknown;
+            }[];
         };
         /** ErrorReportRequest */
         ErrorReportRequest: {
@@ -16643,6 +16675,8 @@ export interface components {
             student_ids?: string[] | null;
             /** Retake Size */
             retake_size?: number | null;
+            /** Time Limit Minutes */
+            time_limit_minutes?: number | null;
             /**
              * Delivery Mode
              * @default standard
@@ -31833,6 +31867,41 @@ export interface operations {
     resume_api_quiz_banks__bank_id__resume_get: {
         parameters: {
             query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                bank_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    course_timer_api_quiz_banks__bank_id__course_timer_get: {
+        parameters: {
+            query?: {
+                class_item?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };

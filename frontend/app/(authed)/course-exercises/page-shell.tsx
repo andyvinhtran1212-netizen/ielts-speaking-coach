@@ -46,6 +46,7 @@ export function CourseShell() {
             chặng — một thanh trượt liền chỉ nói được "bao nhiêu phần trăm". */}
         <div className="cx-stage" id="cx-stage" hidden>
           <span className="cx-stage__label" id="cx-stage-label"></span>
+          <span className="cx-timer" id="cx-timer" role="timer" hidden></span>
           <span className="cx-stage__ticks" id="cx-stage-ticks" aria-hidden="true"></span>
         </div>
 
