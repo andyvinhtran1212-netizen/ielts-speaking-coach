@@ -4,11 +4,13 @@
 
 IELTS Speaking Coach — a web app for IELTS/English speaking practice:
 - FastAPI backend (Railway.app)
-- Vanilla HTML/JS/CSS frontend (Vercel)
+- Next.js 16 App Router + React/TypeScript frontend (Vercel)
 - Supabase: PostgreSQL + Auth + Storage
 - AI services: OpenAI Whisper (STT), Anthropic Claude (grading), Google Gemini (question gen), OpenAI TTS, Azure Speech (pronunciation)
 - Grammar Wiki: ~100+ curated Markdown articles, public, no auth required
 - Admin dashboard: user management, access codes, topic library
+- Legacy HTML bodies are retained under test fixtures; root-level compatibility
+  aliases are non-deployed symlinks into that archive.
 
 ---
 
@@ -109,7 +111,8 @@ When working in `backend/services/claude_grader.py`:
 
 ## Admin conventions
 
-When working in `backend/routers/admin.py` or `frontend/admin.html`:
+When working in `backend/routers/admin.py` or Next admin routes under
+`frontend/app/(authed-admin-*)/`:
 
 - **Admin UI must reflect canonical backend truth.** If the UI shows a different state than what the database holds, the bug is in the pipeline that reads/transforms the data, not just in the rendering.
 - **Do not make real associations look empty.** A missing user in the USERS column when a code has `used_by` set is a data visibility bug.
@@ -119,7 +122,7 @@ When working in `backend/routers/admin.py` or `frontend/admin.html`:
   - Only `user_code_assignments.is_active` changes on remove.
   - This preserves the "code cannot be reused" invariant.
 - **Fallback synthesization rule:** The detail endpoint (`GET /admin/access-codes/{id}`) must synthesize a `used_by` fallback entry when there are **no active assignment rows** and `used_by` is set — regardless of whether inactive rows exist.
-- **Shape contracts matter.** The list endpoint returns `assigned_users[{name, email, ...}]`. The detail endpoint returns `assignments[{display_name, email, ...}]`. When using detail data to update list state, transform explicitly via a shape-conversion function (currently `detailToTableShape()` in admin.html).
+- **Shape contracts matter.** The list endpoint returns `assigned_users[{name, email, ...}]`. The detail endpoint returns `assignments[{display_name, email, ...}]`. Do not assign one shape to the other; transform explicitly or refetch the canonical list. The current Next access-code panel refetches through `loadCodes()` after mutations.
 - **`association_lookup_failed`** is returned by the list endpoint when the assignment table query fails. Render this as a visible warning (`⚠ lookup failed`), not as `—` (which implies no user). Never silently swallow assignment-fetch failures.
 
 ---
@@ -137,7 +140,7 @@ Treat these as invariants:
 - Grammar Wiki slugs, category/group mapping, related_pages, next_articles, and metadata must stay internally consistent.
 - `access_codes.is_used`, `used_by`, and `used_at` must never be cleared after activation.
 - `user_code_assignments` is the canonical source for admin user-visibility; `access_codes.used_by` is the fallback for codes activated before that table existed.
-- **Grammar recommendations canonical source is the `grammar_recommendations` table** — persisted per-response by `grading.py` (`_save_grammar_recommendations()`), attached by `claude_grader.py` (`_attach_grammar_recommendations()`). The frontend client-side keyword-matching in `grammar.js` is a fallback for cases where backend recs are absent. Do not reintroduce frontend-only recommendation logic that bypasses the backend table.
+- **Grammar recommendations canonical source is the `grammar_recommendations` table** — persisted per-response by `grading.py` (`_save_grammar_recommendations()`), attached by `claude_grader.py` (`_attach_grammar_recommendations()`). The compatibility orchestration in `frontend/public/js/practice.js` may keyword-match only as a fallback when backend recommendations are absent. Do not reintroduce frontend-only recommendation logic that bypasses the backend table.
 - Migrations must exist before code relies on new columns or tables.
 
 ---
@@ -170,6 +173,9 @@ Before claiming a fix is complete:
 - Keep docs aligned with current truth — update CLAUDE.md and this file when conventions change.
 - Do not stack contradictory notes in docs — rewrite outdated sections instead.
 - If a legacy file exists (e.g., `responses.py`, `practice.legacy.html`), do not delete it without a full audit of dependents.
+- Active feature intent belongs under `specs/` and follows
+  `specs/_meta/constitution.md`; historical discovery/audit documents under
+  `docs/` do not override current specs, code, or executable tests.
 
 ---
 
