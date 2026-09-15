@@ -284,27 +284,78 @@ def _validate_foundation(specs: Path, errors: list[str]) -> None:
             errors.append(f"{ui_path}: template must contain the complete UI-state header")
 
 
+def _constitutional_list_items(visible: str) -> list[tuple[int, int, str]]:
+    """Return source spans and text for the constitution's Markdown list items.
+
+    The constitution uses unordered lists for most obligations. A small line
+    scanner is less ambiguous than a growing regex here: it retains wrapped
+    lines plus blank-separated space/tab-indented continuation paragraphs and
+    their CommonMark lazy continuation lines, while stopping before separate
+    prose after a blank line.
+    """
+    lines = visible.splitlines(keepends=True)
+    offsets: list[int] = []
+    offset = 0
+    for line in lines:
+        offsets.append(offset)
+        offset += len(line)
+
+    items: list[tuple[int, int, str]] = []
+    index = 0
+    while index < len(lines):
+        line_text = lines[index].rstrip("\r\n")
+        start_match = re.match(r"^ {0,3}-[ \t]+(?P<body>\S.*)$", line_text)
+        if start_match is None:
+            index += 1
+            continue
+
+        start = offsets[index]
+        end = start + len(lines[index])
+        body_lines = [start_match.group("body")]
+        index += 1
+        while index < len(lines):
+            candidate = lines[index].rstrip("\r\n")
+            if re.match(r"^ {0,3}(?:-[ \t]+|##[ \t]+)", candidate):
+                break
+            if not candidate.strip():
+                next_content = index + 1
+                while next_content < len(lines) and not lines[
+                    next_content
+                ].rstrip("\r\n").strip():
+                    next_content += 1
+                if next_content >= len(lines) or not re.match(
+                    r"^(?: {2,}|\t+)\S",
+                    lines[next_content].rstrip("\r\n"),
+                ):
+                    break
+                body_lines.extend("" for _ in range(index, next_content))
+                index = next_content
+                continue
+
+            # Any non-block line adjacent to the current item paragraph is a
+            # normal wrapped or CommonMark lazy continuation line.
+            body_lines.append(candidate)
+            end = offsets[index] + len(lines[index])
+            index += 1
+
+        items.append((start, end, "\n".join(body_lines)))
+
+    return items
+
+
 def _constitutional_obligations(text: str) -> set[str]:
     visible = _visible_markdown(text)
     obligations: set[str] = set()
-    list_matches = list(
-        re.finditer(
-            r"^ {0,3}-[ \t]+(?P<body>\S[^\n]*"
-            r"(?:(?:\n(?: {2,}|\t+)[^\n]*)|"
-            r"(?:\n(?:[ \t]*\n)+(?: {2,}|\t+)[^\n]*))*)",
-            visible,
-            re.MULTILINE,
-        )
-    )
-    for match in list_matches:
-        obligation = re.sub(r"\s+", " ", match.group("body")).strip()
+    list_items = _constitutional_list_items(visible)
+    for _, _, body in list_items:
+        obligation = re.sub(r"\s+", " ", body).strip()
         obligations.add(obligation)
 
     # Constitution prose is allowed, but normative paragraphs must participate
     # in semantic-version classification just like list-item obligations.
     prose = list(visible)
-    for match in list_matches:
-        prose[match.start() : match.end()] = " " * (match.end() - match.start())
+    for start, end, _ in list_items:
+        prose[start:end] = " " * (end - start)
     for paragraph in re.split(r"\n[ \t]*\n", "".join(prose)):
         normalized = re.sub(r"\s+", " ", paragraph).strip()
         marked_example = re.match(

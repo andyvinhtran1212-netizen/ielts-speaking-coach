@@ -1779,12 +1779,24 @@ version: 1.0.0
 
 Clarification: approval is recorded in the release log.
 """
-    for indent in ("  ", "\t"):
-        base = template.format(indent=indent)
-        edited_continuation = base.replace(
+    for indent, original, replacement in (
+        ("  ", "Approval is mandatory in production.", "Approval is optional in production."),
+        ("\t", "Approval is mandatory in production.", "Approval is optional in production."),
+        (
+            "  ",
             "Approval is mandatory in production.",
-            "Approval is optional in production.",
-        ).replace("version: 1.0.0", "version: 1.0.1")
+            "Approval is mandatory in production and\nremains optional during incidents.",
+        ),
+        (
+            "\t",
+            "Approval is mandatory in production.",
+            "Approval is mandatory in production and\nremains optional during incidents.",
+        ),
+    ):
+        base = template.format(indent=indent)
+        edited_continuation = base.replace(original, replacement).replace(
+            "version: 1.0.0", "version: 1.0.1"
+        )
         edited_clarification = base.replace(
             "approval is recorded in the release log.",
             "approval is recorded before deployment.",
