@@ -2431,6 +2431,159 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/advanced-vocab/lessons/{bank_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lesson */
+        get: operations["lesson_api_advanced_vocab_lessons__bank_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/advanced-vocab/vocabulary/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete Vocabulary */
+        post: operations["complete_vocabulary_api_advanced_vocab_vocabulary_complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/advanced-vocab/practice/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start Practice */
+        post: operations["start_practice_api_advanced_vocab_practice_start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/advanced-vocab/practice/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer Practice */
+        post: operations["answer_practice_api_advanced_vocab_practice_answer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/advanced-vocab/reading": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Reading */
+        post: operations["submit_reading_api_advanced_vocab_reading_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/advanced-vocab/controlled-rewrite/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete Controlled Rewrite */
+        post: operations["complete_controlled_rewrite_api_advanced_vocab_controlled_rewrite_complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/advanced-vocab/listening": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Listening */
+        post: operations["submit_listening_api_advanced_vocab_listening_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/advanced-vocab/listening/guided-retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete Listening Guided Retry */
+        post: operations["complete_listening_guided_retry_api_advanced_vocab_listening_guided_retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/advanced-vocab/assignments/{assignment_id}/results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Assignment Results */
+        get: operations["assignment_results_admin_advanced_vocab_assignments__assignment_id__results_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/error-logs": {
         parameters: {
             query?: never;
@@ -12246,6 +12399,22 @@ export interface components {
              */
             from_section: string;
         };
+        /** AdvancedVocabSectionSubmitBody */
+        AdvancedVocabSectionSubmitBody: {
+            /** Bank Id */
+            bank_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Answers */
+            answers?: {
+                [key: string]: string;
+            };
+            /**
+             * Duration Sec
+             * @default 0
+             */
+            duration_sec: number;
+        };
         /**
          * AnalyticsEventPayload
          * @description Small, non-sensitive telemetry envelope.
@@ -13038,6 +13207,15 @@ export interface components {
         ContextLinksRequest: {
             /** Terms */
             terms: string[];
+        };
+        /** ControlledRewriteCompleteBody */
+        ControlledRewriteCompleteBody: {
+            /** Bank Id */
+            bank_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Attempted Item Ids */
+            attempted_item_ids?: string[];
         };
         /** CorrectionEventBody */
         CorrectionEventBody: {
@@ -15051,6 +15229,21 @@ export interface components {
             /** Category */
             category?: string | null;
         };
+        /** PracticeAnswerBody */
+        PracticeAnswerBody: {
+            /** Bank Id */
+            bank_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Stage */
+            stage: string;
+            /** Qid */
+            qid: string;
+            /** Answer */
+            answer: unknown;
+            /** Response Time Ms */
+            response_time_ms?: number | null;
+        };
         /**
          * PracticeCheckRequest
          * @description One question of a Luyện nhanh run: answer it, or ask to be shown it.
@@ -15082,6 +15275,15 @@ export interface components {
              * @default false
              */
             release_now: boolean;
+        };
+        /** PracticeStartBody */
+        PracticeStartBody: {
+            /** Bank Id */
+            bank_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Stage */
+            stage: string;
         };
         /** PreviewRequest */
         PreviewRequest: {
@@ -16278,6 +16480,15 @@ export interface components {
         VocabUpdateStatusRequest: {
             /** Mastered */
             mastered: boolean;
+        };
+        /** VocabularyCompleteBody */
+        VocabularyCompleteBody: {
+            /** Bank Id */
+            bank_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Seen Lexeme Ids */
+            seen_lexeme_ids?: string[];
         };
         /** VocabularyDirectoryCategory */
         VocabularyDirectoryCategory: {
@@ -20867,6 +21078,319 @@ export interface operations {
                 authorization?: string | null;
             };
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lesson_api_advanced_vocab_lessons__bank_id__get: {
+        parameters: {
+            query: {
+                item: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                bank_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_vocabulary_api_advanced_vocab_vocabulary_complete_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VocabularyCompleteBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_practice_api_advanced_vocab_practice_start_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PracticeStartBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answer_practice_api_advanced_vocab_practice_answer_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PracticeAnswerBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_reading_api_advanced_vocab_reading_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdvancedVocabSectionSubmitBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_controlled_rewrite_api_advanced_vocab_controlled_rewrite_complete_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlledRewriteCompleteBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_listening_api_advanced_vocab_listening_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdvancedVocabSectionSubmitBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_listening_guided_retry_api_advanced_vocab_listening_guided_retry_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdvancedVocabSectionSubmitBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assignment_results_admin_advanced_vocab_assignments__assignment_id__results_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                assignment_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;

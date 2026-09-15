@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-15 the highest is `262`, so the next new
-migration is `263`.
+sequence is dense. As of 2026-09-15 the highest is `263`, so the next new
+migration is `264`.
 
 ## Conventions
 
@@ -148,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–262
+## Forward scope 230–263
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -171,6 +171,11 @@ Migration 262 restores the structured Cambridge 15 Test 4 Reading Q07
 explanation after the canonical importer had overwritten migration 246's richer
 tips and removed its trap analysis. The importer and migration now share the
 same canonical payload.
+
+Migration 263 adds the learner evidence, immutable attempt and atomic
+finalization contracts for the assignment-only Advanced Vocabulary core-30
+runtime. It is additive and must be applied to staging before importing the 30
+lesson banks there, then applied to production before promotion.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

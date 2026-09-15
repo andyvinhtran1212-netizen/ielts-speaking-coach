@@ -40,6 +40,7 @@ export type CatalogOption = {
   explanation_state: string;
   explanation_count: number | null;
   explanation_ready_count: number | null;
+  runtime: string | null;
 };
 
 export type QuestionOption = {

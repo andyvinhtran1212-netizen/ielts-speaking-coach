@@ -91,6 +91,18 @@ describe('admin class homework model — canonical truth', () => {
     assert.deepEqual(normalizeCatalog({ items: [{ id: 'r1', title: 'R', status: 'published', exam_only: false }] }, 'exam', 'reading')[0].ready, true);
   });
 
+  test('keeps self-paced score policy out of the assignment payload', () => {
+    const options = normalizeCatalog({ items: [{ id: 'adv-1', title: 'Advanced T01', ready: true, runtime: 'advanced_vocab' }] }, 'course');
+    assert.equal(options[0].runtime, 'advanced_vocab');
+    const result = validateHomeworkDraft({
+      ...homeworkDraft(), skill: 'course', title: 'T01', contentId: 'adv-1',
+      passPct: '75', retakeSize: '20',
+    }, options);
+    assert.equal(result.ok, true);
+    assert.equal(Object.hasOwn(result.body, 'pass_pct'), false);
+    assert.equal(Object.hasOwn(result.body, 'retake_size'), false);
+  });
+
   test('keeps protected Cambridge papers assignable only through controlled practice', () => {
     const options = normalizeCatalog({ items: [
       { id: 'cam-r', title: 'Cambridge 18 Test 1', status: 'published', exam_only: true,
@@ -185,6 +197,12 @@ describe('admin class homework — integration contracts', () => {
     assert.match(UI, /Không ảnh hưởng điểm/);
     assert.match(UI, /Bật lựa chọn này đồng thời xác nhận duyệt 40 lời giải của đề/);
     assert.doesNotMatch(UI, /disabled=\{Boolean\(selectedCatalogItem && !selectedCatalogItem\.explanation_ready\)\}/);
+  });
+
+  test('makes the self-paced no-grade policy explicit at assignment time', () => {
+    assert.match(UI, /selectedCatalogItem\?\.runtime === 'advanced_vocab'/);
+    assert.match(UI, /Bài self-paced không chấm điểm mặc định/);
+    assert.match(UI, /giáo viên giao bài Writing riêng/);
   });
 
   test('never exposes destructive delete when progress is unknown', () => {

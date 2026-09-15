@@ -782,6 +782,12 @@ def get_bank_for_play(
         ) if user_id else None)
         if not item:
             raise HTTPException(404, "Không tìm thấy bank")
+        # This legacy endpoint returns answer-bearing quiz rows.  The dedicated
+        # Advanced Vocabulary runtime grades one immutable question at a time;
+        # allowing this path would expose all 48 keys in one network response.
+        if (((bank.get("meta") or {}).get("runtime") or {}).get("kind")
+                == "advanced_vocab"):
+            raise HTTPException(409, "Bài này cần mở bằng trình học Advanced Vocabulary")
         # Trạng thái cổng thuộc-bài, để trang nói được "đã đạt" ngay khi mở lại
         # thay vì bắt làm lại từ đầu mới biết. Best-effort: đọc hỏng thì trang
         # vẫn chạy, chỉ thiếu tấm huy hiệu.
@@ -1238,14 +1244,15 @@ def _bank_meta_or_404(
     bank_id: str, user_id: str | None = None, *, allow_submitted_review: bool = False,
     assignment_item_id: str | None = None,
 ) -> dict:
-    """Lightweight published-bank guard: fetch ONLY the bank's own row (id, code,
-    is_published) — no questions, no word_cards. Used by start_session, which just
-    needs `code` + the published check; pulling the full get_bank_for_play there
-    would re-run the questions + whole-topic word_cards queries on every session
-    start (they were already fetched by the player's GET /banks/{id})."""
+    """Lightweight published-bank guard: fetch only bank metadata — never
+    questions or word cards. Runtime metadata also keeps dedicated players out
+    of the generic session/report contract. Used by ``start_session`` to avoid
+    repeating the full player query on every session start."""
     try:
         b = (
-            supabase_admin.table("quiz_banks").select("id, code, is_published, skill_area")
+            supabase_admin.table("quiz_banks").select(
+                "id, code, is_published, skill_area, meta"
+            )
             .eq("id", bank_id).limit(1).execute()
         ).data
     except Exception as exc:  # noqa: BLE001
@@ -1265,6 +1272,15 @@ def _bank_meta_or_404(
         ) if user_id else None)
         if not item:
             raise HTTPException(404, "Không tìm thấy bank")
+        if (((bank.get("meta") or {}).get("runtime") or {}).get("kind")
+                == "advanced_vocab"):
+            # This runtime owns a server-graded, append-only evidence contract.
+            # Reject every generic session/report entry point that shares this
+            # guard so no client can create parallel quiz history or reach the
+            # answer-bearing legacy flow.
+            raise HTTPException(
+                409, "Bài này cần mở bằng trình học Advanced Vocabulary"
+            )
     elif not bank.get("is_published"):
         raise HTTPException(404, "Không tìm thấy bank")
     return bank
@@ -4422,20 +4438,75 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
     lẫn trục vướng — và bỏ sót đúng những em ĐƯỢC GIAO mà chưa mở bài lần nào,
     tức là bỏ sót đúng điều bảng này sinh ra để nói (codex PR 945).
     """
-    # `stale` = có ít nhất một lượt đọc hỏng, nên các con số dưới đây CÓ THỂ
-    # thiếu. Im lặng ở đây là vẽ ra một báo cáo trông bình thường mà sai: lượt
-    # đang làm dở đọc thành "chưa mở", và trục vướng biến mất sạch.
+    # Read the assignment snapshot first.  It is the canonical renderer/data
+    # contract frozen when the teacher issued the task; falling back to a
+    # generic quiz report when this read fails would produce a plausible but
+    # false "untouched" table for Advanced Vocabulary.
     out: dict = {"students": [], "axes": [], "bank_id": bank_id,
                  "stages_total": 0, "writing_total": 0, "stale": False,
                  "idle_cutoff_sec": IDLE_CUTOFF_SEC}
-
-    assignment: dict = {}
-    required_sections: list[str] = []
     try:
         assignment_rows = (supabase_admin.table("class_assignments")
                            .select("id, content_config").eq("id", assignment_id)
                            .limit(1).execute().data) or []
         assignment = assignment_rows[0] if assignment_rows else {}
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[quiz] attempt-report assignment metadata failed asg=%s: %s",
+                       assignment_id, exc)
+        out["stale"] = True
+        return out
+    runtime = ((assignment.get("content_config") or {}).get("runtime") or {})
+
+    # Dedicated self-paced lessons keep a different evidence ledger and have no
+    # overall score. Adapt it to the existing admin effort table without
+    # presenting its practice accuracy as a course grade.
+    if runtime.get("kind") == "advanced_vocab":
+        from services import advanced_vocab_service
+        report = advanced_vocab_service.assignment_results(assignment_id=assignment_id)
+        labels = {
+            "vocabulary": "Từ vựng", "practice_1": "Luyện nhận diện",
+            "practice_2": "Luyện vận dụng", "reading": "Reading",
+            "controlled_rewrite": "Controlled rewrite", "listening": "Listening",
+        }
+        stage_total = len(labels)
+        students = []
+        for row in report["students"]:
+            item = row["item"]
+            done = ({x.get("stage") for x in row["stages"]}
+                    | {x.get("section") for x in row["sections"]})
+            seconds = sum(int(x.get("response_time_ms") or 0) / 1000
+                          for x in row["practice_attempts"])
+            seconds += sum(int(x.get("duration_sec") or 0) for x in row["sections"])
+            if not any(x.get("section") == "listening" for x in row["sections"]):
+                seconds += sum(int(x.get("duration_sec") or 0)
+                               for x in row.get("listening_attempts") or [])
+            state = ("no_account" if not row["student"].get("user_id") else
+                     "done" if item.get("submitted_at") else
+                     "doing" if done or row["practice_attempts"] or item.get("opened_at")
+                     else "untouched")
+            students.append({
+                "student_id": item.get("student_id"),
+                "user_id": row["student"].get("user_id"),
+                "state": state, "stages_done": len(done), "stages_total": stage_total,
+                "sections_done": len(done), "sections_total": stage_total,
+                "missing_sections": [
+                    {"key": key, "label": label} for key, label in labels.items()
+                    if key not in done
+                ],
+                "attempts": len(row["practice_attempts"]), "combined_pct": None,
+                "minutes": round(seconds / 60, 1) if seconds else 0,
+            })
+        return {
+            "advanced_vocab": True, "students": students, "axes": [],
+            "bank_id": bank_id, "stages_total": stage_total, "writing_total": 0,
+            "stale": False, "score_policy": "none",
+        }
+
+    # `stale` = có ít nhất một lượt đọc hỏng, nên các con số dưới đây CÓ THỂ
+    # thiếu. Im lặng ở đây là vẽ ra một báo cáo trông bình thường mà sai: lượt
+    # đang làm dở đọc thành "chưa mở", và trục vướng biến mất sạch.
+    required_sections: list[str] = []
+    try:
         required_sections = course_required_sections(assignment, bank_id)
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] attempt-report assignment shape failed asg=%s: %s",
