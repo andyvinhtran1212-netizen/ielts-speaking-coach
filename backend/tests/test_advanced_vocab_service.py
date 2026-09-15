@@ -478,6 +478,14 @@ def test_section_grader_supports_every_reading_fixed_choice_value(
     assert result[0]["is_correct"] is True
 
 
+def test_activity_lookup_ignores_malformed_non_object_rows():
+    lesson = {"activities": ["invalid", {"activity_type": "reading_lab"}]}
+
+    assert service._activity(lesson, "reading_lab") == {
+        "activity_type": "reading_lab",
+    }
+
+
 @pytest.mark.parametrize("lesson_id", ["ADV-T22", "ADV-T23"])
 def test_learner_reading_projection_strips_source_and_correction_evidence(
     monkeypatch, lesson_id,
@@ -486,6 +494,7 @@ def test_learner_reading_projection_strips_source_and_correction_evidence(
     authored_reading = service._activity(lesson, "reading_lab")["content"]
     authored_reading["answer_key"] = {"1": "private"}
     authored_reading["private_support"] = "private"
+    authored_reading["question_material"].insert(0, {"answer": "secret"})
     authored_reading["passages"][0].update({
         "answer": "private", "private_support": "private",
     })
@@ -513,6 +522,7 @@ def test_learner_reading_projection_strips_source_and_correction_evidence(
     assert "solutions" not in reading
     assert "answer_key" not in reading
     assert "private_support" not in serialized
+    assert "secret" not in serialized
     assert "answer" not in reading["passages"][0]
     assert "source_answer" not in serialized
     assert "source_evidence" not in serialized

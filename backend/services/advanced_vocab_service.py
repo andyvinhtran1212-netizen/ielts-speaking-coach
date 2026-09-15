@@ -246,7 +246,8 @@ def _listening_figure_url(lesson_id: str, value: str | None,
 
 def _activity(lesson: dict, activity_type: str) -> dict:
     return next((a for a in lesson.get("activities") or []
-                 if a.get("activity_type") == activity_type), {})
+                 if isinstance(a, dict)
+                 and a.get("activity_type") == activity_type), {})
 
 
 _READING_EDITORIAL_HEADING = re.compile(
@@ -260,7 +261,9 @@ def _safe_reading_material(value: object) -> list[str]:
     """Expose only the authored exercise material before editorial appendices."""
     safe: list[str] = []
     for row in value if isinstance(value, list) else []:
-        text = str(row or "")
+        if not isinstance(row, str):
+            continue
+        text = row
         if _READING_EDITORIAL_HEADING.match(text.strip()):
             break
         safe.append(text)

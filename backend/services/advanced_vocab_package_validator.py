@@ -297,6 +297,22 @@ def _validate_mcq_options(lesson: dict[str, Any], path: Path,
 
 def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                                 report: ValidationReport) -> None:
+    direct_activities = lesson.get("activities")
+    learning_flow = lesson.get("learning_flow")
+    raw_activities = (
+        direct_activities
+        if isinstance(direct_activities, list)
+        else learning_flow.get("activities")
+        if isinstance(learning_flow, dict)
+        else None
+    )
+    if isinstance(raw_activities, list) and any(
+        not isinstance(activity, dict) for activity in raw_activities
+    ):
+        report.add(
+            "error", "ACTIVITY_ITEM_TYPE", path,
+            "Every entry in the activities array must be an object.",
+        )
     activities = _activities(lesson)
     if not activities:
         report.add("error", "ACTIVITIES_MISSING", path,
@@ -466,6 +482,9 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                         + ", ".join(unexpected_content),
                     )
             passages = content.get("passages") if isinstance(content, dict) else None
+            question_material = (
+                content.get("question_material") if isinstance(content, dict) else None
+            )
             questions = content.get("questions") if isinstance(content, dict) else None
             solutions = content.get("solutions") if isinstance(content, dict) else None
             passage_count = len(passages) if isinstance(passages, list) else 0
@@ -473,6 +492,13 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             if passage_count == 0:
                 report.add("error", "READING_PASSAGE_MISSING", path,
                            "Reading Lab must contain at least one passage paragraph.")
+            if not isinstance(question_material, list) or any(
+                not isinstance(row, str) for row in question_material
+            ):
+                report.add(
+                    "error", "READING_QUESTION_MATERIAL_INVALID", path,
+                    "Reading question_material must be an array of public strings.",
+                )
             passage_rows = passages if isinstance(passages, list) else []
             if any(not isinstance(passage, dict) for passage in passage_rows):
                 report.add("error", "READING_PASSAGE_ITEM_TYPE", path,

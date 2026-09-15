@@ -103,6 +103,7 @@ def _lesson(lesson_id: str) -> dict:
                 f"{lesson_id}-reading", "reading_lab",
                 content={
                     "passages": [{"paragraph": "A", "text": "Passage"}],
+                    "question_material": ["Answer the questions."],
                     "questions": [
                         {"question_number": i, "question_type": "Summary Completion",
                          "stem": f"Question {i}", "options": []}
@@ -404,6 +405,16 @@ def test_activity_policy_values_are_closed_enums(tmp_path: Path):
 
     report = validate_package(tmp_path)
     assert "ACTIVITY_POLICY_INVALID" in _codes(report)
+
+
+def test_non_object_activity_entry_fails_before_runtime_or_import(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    lesson["activities"].insert(0, "not-an-activity-object")
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    assert "ACTIVITY_ITEM_TYPE" in _codes(validate_package(tmp_path))
 
 
 def test_duplicate_mcq_option_keys_fail_closed(tmp_path: Path):
@@ -1134,6 +1145,22 @@ def test_reading_rejects_private_option_fields(tmp_path: Path):
     report = validate_package(tmp_path)
 
     assert "READING_OPTION_FIELD_UNEXPECTED" in _codes(report)
+
+
+def test_reading_question_material_allows_only_public_strings(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    reading = next(
+        activity for activity in lesson["activities"]
+        if activity["activity_type"] == "reading_lab"
+    )
+    reading["content"]["question_material"].append({"answer": "secret"})
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    assert "READING_QUESTION_MATERIAL_INVALID" in _codes(
+        validate_package(tmp_path)
+    )
 
 
 def test_reading_rejects_unexpected_top_level_and_passage_fields(tmp_path: Path):
