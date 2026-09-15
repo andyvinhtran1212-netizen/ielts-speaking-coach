@@ -64,6 +64,10 @@ be committed and match the manifest.
 
    The importer is idempotent and performs a post-write verification. Success
    ends with `HOÀN TẤT + VERIFY: 30 bank` and confirms 48 questions per bank.
+   An unchanged package may be imported again. If a changed lesson checksum is
+   detected after that bank has been assigned, the importer fails closed:
+   publish the revision under a versioned bank/content path so existing frozen
+   assignments remain reopenable.
 4. In Admin → Classes → Bài tập, verify that `C4-ADV-T01` through
    `C4-ADV-T30` appear after the numbered course-session banks. They must show
    the self-paced/no-grade notice and must not show pass-threshold controls.

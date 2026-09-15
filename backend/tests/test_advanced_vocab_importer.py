@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from scripts import import_advanced_vocab_core30 as importer
 
 
@@ -51,3 +53,68 @@ def test_importer_dry_run_is_offline_without_supabase_environment():
 
     assert result.returncode == 0, result.stderr
     assert "THỬ KHÔ: 1/30 lesson hợp lệ" in result.stdout
+
+
+class _Result:
+    def __init__(self, data=None, count=None):
+        self.data = data
+        self.count = count
+
+
+class _Query:
+    def __init__(self, admin, table):
+        self.admin = admin
+        self.table = table
+
+    def select(self, *_args, **_kwargs):
+        return self
+
+    def update(self, _payload):
+        self.admin.writes.append(("update", self.table))
+        return self
+
+    def eq(self, _key, _value):
+        return self
+
+    def limit(self, _value):
+        return self
+
+    def execute(self):
+        if self.table == "quiz_banks":
+            return _Result([self.admin.bank])
+        if self.table == "class_assignments":
+            return _Result([{"id": "assignment-v1"}])
+        return _Result([])
+
+
+class _Admin:
+    def __init__(self):
+        self.bank = {
+            "id": "bank-v1",
+            "meta": {"runtime": {"content_checksum": "checksum-v1"}},
+        }
+        self.writes = []
+
+    def table(self, name):
+        return _Query(self, name)
+
+    def rpc(self, *_args, **_kwargs):
+        self.writes.append(("rpc", "quiz_replace_questions"))
+        return _Query(self, "rpc")
+
+
+def test_importer_rejects_revision_that_would_orphan_frozen_assignment(monkeypatch):
+    admin = _Admin()
+    monkeypatch.setattr(importer, "_admin", lambda: admin)
+    spec = {
+        "payload": {
+            "course_id": "course-c4", "code": "C4-ADV-T01",
+            "meta": {"runtime": {"content_checksum": "checksum-v2"}},
+        },
+        "rows": [{"qid": "q1"}],
+    }
+
+    with pytest.raises(SystemExit, match="bank/content version mới"):
+        importer._upsert_bank(spec)
+
+    assert admin.writes == []

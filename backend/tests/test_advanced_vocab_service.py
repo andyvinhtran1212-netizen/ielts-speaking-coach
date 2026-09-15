@@ -341,6 +341,13 @@ def test_finalizer_is_atomic_and_overall_score_is_null():
     assert "trg_finalize_advanced_vocab_on_listening" in migration
     assert "AFTER INSERT ON course_section_submissions" in migration
     assert "advanced_vocab_listening_attempts" in migration
+    assert (
+        "DROP CONSTRAINT IF EXISTS class_assignment_items_artifact_kind_check"
+        in migration
+    )
+    assert "ILIKE '%artifact_kind%IN%'" not in migration
+    assert "ADD CONSTRAINT class_assignment_items_artifact_pairing" in migration
+    assert "VALIDATE CONSTRAINT class_assignment_items_artifact_pairing" in migration
     assert "PERFORM finalize_advanced_vocab_assignment" in migration
     assert "COUNT(DISTINCT c.section)" in migration
     assert "controlled_rewrite" in migration

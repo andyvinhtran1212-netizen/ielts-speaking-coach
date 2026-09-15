@@ -102,27 +102,30 @@ GRANT ALL ON TABLE public.advanced_vocab_stage_progress TO service_role;
 GRANT ALL ON TABLE public.advanced_vocab_question_attempts TO service_role;
 GRANT ALL ON TABLE public.advanced_vocab_listening_attempts TO service_role;
 
--- Replace the enumerated artifact check without guessing its generated name.
-DO $$
-DECLARE c RECORD;
-BEGIN
-    FOR c IN
-        SELECT conname FROM pg_constraint
-         WHERE conrelid = 'class_assignment_items'::regclass
-           AND contype = 'c'
-           AND pg_get_constraintdef(oid) ILIKE '%artifact_kind%IN%'
-    LOOP
-        EXECUTE format(
-            'ALTER TABLE class_assignment_items DROP CONSTRAINT %I', c.conname
-        );
-    END LOOP;
-END $$;
+-- Migration 189/191 and the original inline column CHECK all converge on this
+-- canonical name. PostgreSQL deparses `IN (...)` as `= ANY (ARRAY[...])`, so
+-- matching pg_get_constraintdef() for the literal word IN is not reliable.
+-- Drop only the enum constraint; the separate artifact pairing check remains.
+ALTER TABLE class_assignment_items
+    DROP CONSTRAINT IF EXISTS class_assignment_items_artifact_kind_check;
 
 ALTER TABLE class_assignment_items
     ADD CONSTRAINT class_assignment_items_artifact_kind_check CHECK (
         artifact_kind IN ('session', 'writing_assignment', 'reading_attempt',
                           'listening_attempt', 'quiz_session', 'course_writing',
                           'advanced_vocab_progress'));
+
+-- Keep the independent kind/id pairing invariant present even on an
+-- environment whose historical reconciliation was only partially applied.
+ALTER TABLE class_assignment_items
+    DROP CONSTRAINT IF EXISTS class_assignment_items_artifact_pairing;
+ALTER TABLE class_assignment_items
+    ADD CONSTRAINT class_assignment_items_artifact_pairing CHECK (
+        (artifact_kind IS NULL AND artifact_id IS NULL)
+        OR (artifact_kind IS NOT NULL AND artifact_id IS NOT NULL)
+    ) NOT VALID;
+ALTER TABLE class_assignment_items
+    VALIDATE CONSTRAINT class_assignment_items_artifact_pairing;
 
 -- Finalization is a single transaction: no partially submitted assignment can
 -- be created between the evidence checks and the ledger update.

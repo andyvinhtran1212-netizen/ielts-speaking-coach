@@ -2,8 +2,9 @@
 """Validate or import all 30 assignment-only Advanced Vocabulary banks.
 
 Dry-run is the default. Add ``--commit`` only after migration 263 is applied.
-The import is idempotent: an existing bank is updated in place and its 48
-runtime questions are replaced through the canonical database RPC.
+The import is idempotent for unchanged content. A content revision is rejected
+once an assignment references that bank so its frozen lesson checksum cannot be
+orphaned; revised lessons require a separately versioned bank/content release.
 """
 
 from __future__ import annotations
@@ -126,11 +127,22 @@ def _course() -> dict:
 
 def _upsert_bank(spec: dict) -> tuple[str, str, int]:
     payload = spec["payload"]
-    existing = (_admin().table("quiz_banks").select("id")
+    existing = (_admin().table("quiz_banks").select("id,meta")
                 .eq("course_id", payload["course_id"])
                 .eq("code", payload["code"]).limit(1).execute().data) or []
     if existing:
         bank_id = existing[0]["id"]
+        current_runtime = (existing[0].get("meta") or {}).get("runtime") or {}
+        requested_runtime = (payload.get("meta") or {}).get("runtime") or {}
+        if (current_runtime.get("content_checksum")
+                != requested_runtime.get("content_checksum")):
+            assignments = (_admin().table("class_assignments").select("id")
+                           .eq("content_id", bank_id).limit(1).execute().data) or []
+            if assignments:
+                raise SystemExit(
+                    f"{payload['code']}: không thể cập nhật nội dung tại chỗ vì "
+                    "đã có assignment; hãy phát hành bank/content version mới."
+                )
         _admin().table("quiz_banks").update(payload).eq("id", bank_id).execute()
         action = "updated"
     else:
