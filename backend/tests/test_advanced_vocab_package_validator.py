@@ -863,6 +863,38 @@ def test_media_sync_retains_byte_identical_checksum_versions(tmp_path: Path, mon
     assert (public / "versions" / "ADV-T01" / checksum_v2
             / "listening" / "full_test.mp3").read_bytes() == b"listening-v2"
 
+
+@pytest.mark.parametrize("extension", ["svg", "png"])
+@pytest.mark.parametrize("write", [False, True])
+def test_writing_asset_sync_rejects_bytes_changed_after_lesson_build(
+        tmp_path: Path, monkeypatch, extension: str, write: bool):
+    package = tmp_path / "package"
+    lesson_id = "ADV-T01"
+    ref = f"assets/wt1/topic.{extension}"
+    source_asset = package / "lessons" / lesson_id / ref
+    source_asset.parent.mkdir(parents=True)
+    original = f"original-{extension}".encode()
+    source_asset.write_bytes(original)
+    lesson = {
+        "lesson_id": lesson_id,
+        "provenance": {"source_checksums": {
+            f"Advanced/06_WT1_Illustrations/topic.{extension}":
+                hashlib.sha256(original).hexdigest(),
+        }},
+    }
+    public = tmp_path / "public"
+    monkeypatch.setattr(sync_module, "_PUBLIC", public)
+    content_checksum = "a" * 64
+    sync_module._sync_writing_asset(
+        package, lesson, lesson_id, ref, content_checksum, write=True,
+    )
+    source_asset.write_bytes(b"tampered-after-build")
+
+    with pytest.raises(SystemExit, match="Sai checksum source asset"):
+        sync_module._sync_writing_asset(
+            package, lesson, lesson_id, ref, content_checksum, write=write,
+        )
+
 def test_reading_requires_thirteen_questions_and_no_answer_leak(tmp_path: Path):
     _write_package(tmp_path)
     path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"

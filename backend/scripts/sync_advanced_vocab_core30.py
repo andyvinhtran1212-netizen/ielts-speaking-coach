@@ -164,6 +164,36 @@ def _sync_asset(source: Path, canonical_target: Path, lesson_id: str,
     return canonical_target
 
 
+def _writing_asset_checksum(lesson: dict, ref: str) -> str:
+    """Bind a packaged Writing illustration to its authored source checksum."""
+    source_checksums = (lesson.get("provenance") or {}).get("source_checksums") or {}
+    asset_name = Path(ref).name
+    matches = []
+    for source_name, checksum in (
+        source_checksums.items() if isinstance(source_checksums, dict) else []
+    ):
+        normalized_name = str(source_name).replace("\\", "/")
+        if ("06_WT1_Illustrations" in normalized_name
+                and Path(normalized_name).name == asset_name):
+            matches.append(str(checksum))
+    if len(matches) != 1:
+        raise SystemExit(
+            f"{lesson.get('lesson_id') or '?'}: cần đúng một checksum source "
+            f"cho Writing asset {asset_name}; tìm thấy {len(matches)}."
+        )
+    return matches[0]
+
+
+def _sync_writing_asset(source: Path, lesson: dict, lesson_id: str, ref: str,
+                        content_checksum: str, *, write: bool) -> Path:
+    source_asset = source / "lessons" / lesson_id / ref
+    target = _PUBLIC / lesson_id / "writing" / Path(ref).name
+    return _sync_asset(
+        source_asset, target, lesson_id, content_checksum, write=write,
+        checksum=_writing_asset_checksum(lesson, ref),
+    )
+
+
 def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dict:
     manifest = _read(source / "course-manifest.json")
     qa = _read(source / "QA_REPORT.json")
@@ -243,10 +273,8 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
             )
             expected_assets.add(str(figure_target.relative_to(_REPO)))
         for ref in (lesson.get("media") or {}).get("wt1_illustrations") or []:
-            source_asset = source / "lessons" / lesson_id / ref
-            target = _PUBLIC / lesson_id / "writing" / Path(ref).name
-            _sync_asset(
-                source_asset, target, lesson_id, actual_checksum, write=write,
+            target = _sync_writing_asset(
+                source, lesson, lesson_id, str(ref), actual_checksum, write=write,
             )
             expected_assets.add(str(target.relative_to(_REPO)))
         actual_assets = {
