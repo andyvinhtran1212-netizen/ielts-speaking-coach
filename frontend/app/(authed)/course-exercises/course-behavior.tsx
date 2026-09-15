@@ -78,6 +78,20 @@ export function CourseBehavior() {
         return ' · đạt ở full session';
       }
 
+      function timedVerdictTotal(v: any) {
+        const fullTotal = Math.max(0, Number(runner.total) || 0);
+        if (v?.phase !== 'retake') return fullTotal;
+        let quizSection = null;
+        for (const row of (Array.isArray(v.sections) ? v.sections : [])) {
+          if (row?.key === 'quiz') { quizSection = row; break; }
+        }
+        const sectionTotal = Number(quizSection?.total);
+        if (Number.isFinite(sectionTotal) && sectionTotal > 0) {
+          return Math.min(fullTotal, Math.floor(sectionTotal));
+        }
+        return Math.min(fullTotal, Math.max(1, Number(v.retake_size) || fullTotal));
+      }
+
       const fail = (msg: string) => {
         const l = $('cx-loading'); if (l) l.hidden = true;
         const e = $('cx-error'); if (e) { e.hidden = false; e.textContent = msg; }
@@ -505,11 +519,12 @@ export function CourseBehavior() {
         const history = CR.renderAttemptHistory(v.history || []);
         const sectionCeiling = v.retry_reason === 'section_ceiling';
         if (v.timed_out) {
+          const timedTotal = timedVerdictTotal(v);
           box.innerHTML = '<div class="cx-verdict" data-v="timed-out">'
             + '<div class="cx-verdict__hero"><div>'
             + '<p class="cx-verdict__eyebrow">Đã hết thời gian</p>'
             + '<p class="cx-verdict__title">Hệ thống đã thu bài theo phần bạn kịp hoàn thành</p>'
-            + `<p class="cx-verdict__sub">Điểm được tính trên toàn bộ ${runner.total} câu của đề.</p>`
+            + `<p class="cx-verdict__sub">Điểm được tính trên toàn bộ ${timedTotal} câu của lượt này.</p>`
             + `</div><div class="cx-verdict__score">${v.pct}%</div></div>`
             + '<div class="cx-verdict__body"><div class="cx-verdict__actions">'
             + seeReport + '</div>' + history + '</div></div>';

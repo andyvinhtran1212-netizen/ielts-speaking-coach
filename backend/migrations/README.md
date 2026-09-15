@@ -148,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–264
+## Forward scope 230–270
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -185,6 +185,9 @@ Migrations 265–268 make timed progress/finalization and Course assessment bank
 replacement transactional and history-safe. Migration 269 gives assignment
 creation and bank replacement the same bank-row lock, then verifies an exact
 preflight revision before persisting the assignment's shape snapshot.
+Migration 270 extends the same locked authorization boundary to every later
+timed Course run/revision session; a bank read may only adopt, while an explicit
+start creates the entitled session before releasing assignment/membership locks.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

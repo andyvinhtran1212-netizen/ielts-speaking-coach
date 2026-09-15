@@ -675,6 +675,7 @@ def test_timed_course_start_uses_atomic_timer_and_session_rpc():
     assert rpc["payload"] == {
         "p_item_id": "item-timed", "p_user_id": _USER,
         "p_bank_id": _BANK, "p_code": "C1-MIDTERM",
+        "p_kind": "run", "p_create_if_missing": False,
     }
     assert not any(call["table"] == "quiz_sessions" and call["op"] == "insert"
                    for call in fake.calls)
@@ -701,33 +702,34 @@ def test_opened_timed_course_reuses_the_canonical_rpc_session():
                for call in fake.calls)
 
 
-def test_timed_retake_does_not_adopt_an_open_full_run_session():
+def test_timed_retake_is_created_by_the_locked_rpc_without_plain_insert():
     item = {
         "id": "item-timed", "assignment_id": "asg-timed",
         "opened_at": "2026-09-15T10:00:00+00:00",
         "content_config": {"time_limit_minutes": 720},
     }
     new_retake = "66666666-6666-6666-6666-666666666666"
-    fake = _FakeSupabase(responses={
-        ("quiz_sessions", "insert"): [{"id": new_retake}],
-        ("quiz_word_stats", "select"): [],
-    })
+    fake = _FakeSupabase(responses={("quiz_word_stats", "select"): []})
     with patch.object(quiz_service, "supabase_admin", fake), \
          patch.object(quiz_service, "_bank_meta_or_404", return_value={
              "id": _BANK, "code": "C1-MIDTERM", "skill_area": "course",
          }), \
          patch.object(quiz_service, "_assignment_item_for", return_value=item), \
          patch.object(quiz_service, "_ensure_timed_course_session",
-                      return_value=(item, _SESS)), \
-         patch.object(quiz_service, "_assert_retake_allowed"):
+                      return_value=(item, new_retake)) as ensure, \
+         patch.object(quiz_service, "_assert_retake_allowed") as legacy_gate:
         out = quiz_service.start_session(
             user_id=_USER, bank_id=_BANK, kind="retake",
             assignment_item_id="item-timed",
         )
     assert out["session_id"] == new_retake
-    inserted = next(call for call in fake.calls
-                    if call["table"] == "quiz_sessions" and call["op"] == "insert")
-    assert inserted["payload"]["kind"] == "retake"
+    ensure.assert_called_once_with(
+        item, user_id=_USER, bank_id=_BANK, code="C1-MIDTERM",
+        kind="retake", create_if_missing=True,
+    )
+    legacy_gate.assert_not_called()
+    assert not any(call["table"] == "quiz_sessions" and call["op"] == "insert"
+                   for call in fake.calls)
 
 
 def test_session_timer_response_preserves_the_earlier_due_at_boundary():

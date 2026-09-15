@@ -1512,6 +1512,7 @@ def _assert_retake_allowed(item: dict | None) -> None:
 
 def _ensure_timed_course_session(
     item: dict | None, *, user_id: str, bank_id: str, code: str | None,
+    kind: str = "run", create_if_missing: bool = False,
     allow_expired_existing: bool = False,
 ) -> tuple[dict | None, str | None]:
     """Atomically anchor a timed assignment and create its first quiz session.
@@ -1549,6 +1550,8 @@ def _ensure_timed_course_session(
                 "p_user_id": user_id,
                 "p_bank_id": bank_id,
                 "p_code": code,
+                "p_kind": kind,
+                "p_create_if_missing": create_if_missing,
             },
         ).execute().data) or []
     except Exception as exc:  # noqa: BLE001
@@ -1557,6 +1560,13 @@ def _ensure_timed_course_session(
             raise HTTPException(409, "Đã hết thời gian làm bài.") from exc
         if "timed_course_limit_invalid" in detail:
             raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.") from exc
+        if "timed_course_item_not_accessible" in detail:
+            raise HTTPException(409, "Bài giao không còn hiệu lực.") from exc
+        if "timed_course_item_passed" in detail:
+            raise HTTPException(409, "Bài này đã đạt, không cần mở lượt mới.") from exc
+        if ("timed_course_session_not_entitled" in detail
+                or "timed_course_session_kind_invalid" in detail):
+            raise HTTPException(422, "Kết quả hiện tại không cho phép mở lượt này.") from exc
         raise HTTPException(
             500, "Chưa khởi động được đồng hồ làm bài. Hãy thử lại.",
         ) from exc
@@ -1596,15 +1606,19 @@ def start_session(
             if bank.get("skill_area") == COURSE_AREA else None)
     first_session_id = None
     if bank.get("skill_area") == COURSE_AREA:
+        timer = assignment_timer_state(item, {
+            "content_config": (item or {}).get("content_config") or {},
+            "due_at": (item or {}).get("due_at"),
+        })
+        timed_course = bool(timer.get("is_timed"))
         item, first_session_id = _ensure_timed_course_session(
             item, user_id=user_id, bank_id=bank_id, code=bank.get("code"),
+            kind=kind, create_if_missing=True,
         )
-    if kind == "retake":
+    else:
+        timed_course = False
+    if kind == "retake" and not timed_course:
         _assert_retake_allowed(item)
-        # The timed-start RPC returns an existing open *run* session so
-        # concurrent bank loads can converge.  A revision has its own sampled
-        # identity and must never adopt that full-run session.
-        first_session_id = None
     row = {
         "user_id": user_id, "bank_id": bank_id, "code": bank.get("code"),
         "class_assignment_item_id": (item or {}).get("id"),
@@ -1616,6 +1630,11 @@ def start_session(
         row["kind"] = kind
     if first_session_id:
         session_id = first_session_id
+    elif timed_course:
+        # An explicit timed start asks the locked RPC to create when no current
+        # session exists.  Falling back to an INSERT here would reopen the race
+        # with archive, membership removal, due_at, and the expiry reaper.
+        raise HTTPException(500, "Chưa tạo được session trong giao dịch đồng hồ.")
     else:
         try:
             res = supabase_admin.table("quiz_sessions").insert(row).execute()

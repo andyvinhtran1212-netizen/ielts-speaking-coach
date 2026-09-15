@@ -145,6 +145,20 @@ describe('làm kiểm tra lại', () => {
 });
 
 describe('hết giờ trên màn kết quả', () => {
+  test('mẫu số timeout theo đúng full run hoặc revision đã chấm', () => {
+    const total = new Function('runner', 'v', functionBody('timedVerdictTotal'));
+    assert.equal(total({ total: 120 }, { phase: 'run' }), 120);
+    assert.equal(total(
+      { total: 120 },
+      { phase: 'retake', retake_size: 20, sections: [{ key: 'quiz', total: 20 }] },
+    ), 20);
+    assert.equal(total(
+      { total: 12 },
+      { phase: 'retake', retake_size: 20, sections: [] },
+    ), 12, 'bank nhỏ hơn cấu hình revision vẫn dùng đúng mẫu số thật');
+    assert.match(functionBody('renderVerdict'), /timedVerdictTotal\(v\)/);
+  });
+
   test('chỉ chốt time-cap khi session còn mở và luôn làm mới verdict', () => {
     const body = functionBody('submitAtTimeLimit');
     const guard = body.indexOf('if (runner.hasOpenSession)');
