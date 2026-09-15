@@ -1559,6 +1559,45 @@ def test_constitution_quoted_modal_explanation_accepts_patch_bump(
     assert validator.validate_pull_request(event, specs, root) == []
 
 
+def test_constitution_quoted_rule_declaration_requires_minor_bump(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path)
+    base_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    constitution = root / "specs/_meta/constitution.md"
+    constitution.write_text(
+        constitution.read_text(encoding="utf-8")
+        .replace("version: 1.0.0", "version: 1.0.1")
+        .replace(
+            "## 9. Staging-first release\n",
+            "## 9. Staging-first release\n\n"
+            'The new policy is “Deployments MUST be manually approved.”\n',
+        ),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", str(constitution)], cwd=root, check=True)
+    subprocess.run(
+        ["git", "commit", "-qm", "add quoted constitution obligation"],
+        cwd=root,
+        check=True,
+    )
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    event = _event(root=root, change_class="small", spec="N/A", base_sha=base_sha)
+    event["pull_request"]["body"] += (
+        "\n## Constitution amendment\n\nAmendment class: minor\n\n"
+        "Adds a quoted manual deployment approval rule.\n"
+    )
+    errors = validator.validate_pull_request(event, specs, root)
+    assert any("minor version bump to 1.1.0" in error for error in errors)
+
+
 def test_constitution_declarative_boundary_removal_requires_major_bump(
     tmp_path: Path,
 ) -> None:
