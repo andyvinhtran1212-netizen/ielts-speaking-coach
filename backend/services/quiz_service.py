@@ -4642,12 +4642,14 @@ def reap_expired_course_assessments(
                     and _at(row.get("ended_at")) is not None
                     and _at(row.get("ended_at")) <= cutoff
                 ]
-                has_open_orphan = any(
+                completed_ids = {row.get("id") for row in on_time_completed}
+                has_superseded_orphan = any(
                     (row.get("kind") or "run") == "run"
-                    and row.get("ended_by") is None
+                    and row.get("id") not in completed_ids
+                    and row.get("ended_by") in {None, "time_cap"}
                     for row in verdict_sessions
                 )
-                if on_time_completed and has_open_orphan:
+                if on_time_completed and has_superseded_orphan:
                     bank_qids, _, shape_readable = _course_bank_shape(bank_id)
                     completed_qids = _course_answered_qids([
                         str(row["id"]) for row in on_time_completed
