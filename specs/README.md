@@ -63,3 +63,4 @@ draft -> approved -> implementing -> verified -> shipped
 | --- | --- | --- | --- | --- |
 | SDD-0000 | Lean spec-driven development foundation | shipped | medium | [spec](0000-sdd-foundation/spec.md) |
 | GRAMMAR-0001 | Timed grammar midterm assessment banks | approved | high | [spec](0001-timed-grammar-midterm-assessments/spec.md) |
+| AVOC-0002 | Advanced Vocabulary self-paced core 30 | approved | high | [spec](0002-advanced-vocabulary-self-paced/spec.md) |
