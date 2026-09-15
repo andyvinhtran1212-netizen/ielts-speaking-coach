@@ -14,6 +14,7 @@ import json
 import re
 import subprocess
 import sys
+from datetime import date as calendar_date
 from pathlib import Path
 from typing import Any
 
@@ -221,6 +222,16 @@ def _structured_evidence(evidence: str) -> dict[str, str]:
     return fields
 
 
+def _valid_iso_date(value: str) -> bool:
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return False
+    try:
+        calendar_date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
 def _evidence_detail_error(result: str, evidence: str, root: Path) -> str | None:
     normalized = result.upper()
     if normalized == "MANUAL":
@@ -229,7 +240,7 @@ def _evidence_detail_error(result: str, evidence: str, root: Path) -> str | None
         if (
             not required <= fields.keys()
             or any(_placeholder_value(fields.get(field, "")) for field in required)
-            or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", fields.get("date", ""))
+            or not _valid_iso_date(fields.get("date", ""))
         ):
             return (
                 "MANUAL evidence must use reviewer=...; environment=...; "
@@ -519,6 +530,7 @@ def _git_changed_paths(
             "-C",
             str(root),
             "diff",
+            "--no-renames",
             "--name-only",
             merge_base_sha,
             head_sha,
@@ -727,10 +739,10 @@ def validate_pull_request(
                         merge_base_sha,
                         str((feature / "spec.md").relative_to(root)),
                     )
-                    _, base_constitution = _git_show(
-                        root, merge_base_sha, "specs/_meta/constitution.md"
+                    _, target_constitution = _git_show(
+                        root, base_sha, "specs/_meta/constitution.md"
                     )
-                    bootstrap = spec_id == "SDD-0000" and base_constitution is None
+                    bootstrap = spec_id == "SDD-0000" and target_constitution is None
                     if not revision_exists:
                         errors.append(
                             "pull request: cannot resolve base SHA to verify prior spec approval"

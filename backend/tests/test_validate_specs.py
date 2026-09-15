@@ -431,6 +431,27 @@ def test_repository_accepts_structured_manual_evidence(tmp_path: Path) -> None:
     assert errors == []
 
 
+def test_manual_evidence_requires_real_calendar_date(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    verification = root / "specs/0001-example-feature/verification.md"
+    for invalid_date in ("2026-99-99", "2026-02-30"):
+        verification.write_text(
+            "## Requirement coverage\n\n"
+            f"| FR-001 | reviewer=Lan; environment=staging; date={invalid_date}; observed=Flow completed | MANUAL |\n",
+            encoding="utf-8",
+        )
+        errors, _ = validator.validate_repository(root)
+        assert any("MANUAL evidence must use" in error for error in errors)
+
+    verification.write_text(
+        "## Requirement coverage\n\n"
+        "| FR-001 | reviewer=Lan; environment=staging; date=2028-02-29; observed=Flow completed | MANUAL |\n",
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert errors == []
+
+
 def test_pass_repository_locator_must_exist(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     verification = root / "specs/0001-example-feature/verification.md"
@@ -1002,6 +1023,131 @@ def test_migration_classification_uses_topic_changes_from_merge_base(
         root,
     )
     assert any("backend/migrations/999_topic.sql" in error for error in migration_errors)
+
+
+def test_migration_rename_classification_preserves_both_paths(tmp_path: Path) -> None:
+    moved_out = _valid_repo(tmp_path / "out")
+    _write(moved_out / "backend/migrations/900_old.sql", "select 1;\n")
+    subprocess.run(["git", "add", "backend/migrations/900_old.sql"], cwd=moved_out, check=True)
+    subprocess.run(["git", "commit", "-qm", "add old migration"], cwd=moved_out, check=True)
+    out_base = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=moved_out,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    (moved_out / "docs").mkdir(exist_ok=True)
+    subprocess.run(
+        ["git", "mv", "backend/migrations/900_old.sql", "docs/900_old.sql"],
+        cwd=moved_out,
+        check=True,
+    )
+    subprocess.run(["git", "commit", "-qm", "move migration out"], cwd=moved_out, check=True)
+    _, out_specs = validator.validate_repository(moved_out)
+    out_errors = validator.validate_pull_request(
+        _event(root=moved_out, change_class="small", spec="N/A", base_sha=out_base),
+        out_specs,
+        moved_out,
+    )
+    assert any("backend/migrations/900_old.sql" in error for error in out_errors)
+
+    moved_in = _valid_repo(tmp_path / "in")
+    _write(moved_in / "docs/901_new.sql", "select 1;\n")
+    subprocess.run(["git", "add", "docs/901_new.sql"], cwd=moved_in, check=True)
+    subprocess.run(["git", "commit", "-qm", "add future migration"], cwd=moved_in, check=True)
+    in_base = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=moved_in,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    (moved_in / "backend/migrations").mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "mv", "docs/901_new.sql", "backend/migrations/901_new.sql"],
+        cwd=moved_in,
+        check=True,
+    )
+    subprocess.run(["git", "commit", "-qm", "move migration in"], cwd=moved_in, check=True)
+    _, in_specs = validator.validate_repository(moved_in)
+    in_errors = validator.validate_pull_request(
+        _event(root=moved_in, change_class="small", spec="N/A", base_sha=in_base),
+        in_specs,
+        moved_in,
+    )
+    assert any("backend/migrations/901_new.sql" in error for error in in_errors)
+
+
+def test_bootstrap_exception_uses_current_target_base(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    constitution = root / "specs/_meta/constitution.md"
+    constitution_text = constitution.read_text(encoding="utf-8")
+    subprocess.run(["git", "rm", "specs/_meta/constitution.md"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "pre-foundation state"], cwd=root, check=True)
+    pre_foundation_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    subprocess.run(["git", "checkout", "-qb", "stale-topic"], cwd=root, check=True)
+    _write(root / "docs/implementation.md", "implementation before foundation\n")
+    subprocess.run(["git", "add", "docs/implementation.md"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "implement on stale topic"], cwd=root, check=True)
+    topic_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    subprocess.run(
+        ["git", "checkout", "-qb", "base-with-foundation", pre_foundation_sha],
+        cwd=root,
+        check=True,
+    )
+    _write(constitution, constitution_text)
+    source = root / "specs/0001-example-feature"
+    target = root / "specs/0000-sdd-foundation"
+    target.mkdir()
+    for path in source.iterdir():
+        target.joinpath(path.name).write_text(
+            path.read_text(encoding="utf-8").replace("FEAT-0001", "SDD-0000"),
+            encoding="utf-8",
+        )
+    index = root / "specs/README.md"
+    index.write_text(
+        index.read_text(encoding="utf-8")
+        + "| SDD-0000 | Example | verified | medium | [spec](0000-sdd-foundation/spec.md) |\n",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "specs"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "land foundation on target"], cwd=root, check=True)
+    base_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    errors = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="SDD-0000",
+            base_sha=base_sha,
+            head_sha=topic_sha,
+        ),
+        specs,
+        root,
+    )
+    assert any("approved in the base revision before implementation" in error for error in errors)
 
 
 def test_prior_approval_must_exist_at_topic_merge_base(tmp_path: Path) -> None:
