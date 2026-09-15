@@ -194,13 +194,14 @@ def test_repository_rejects_unchecked_task_in_verified_feature(tmp_path: Path) -
 
 
 def test_repository_rejects_indented_unchecked_task_in_verified_feature(tmp_path: Path) -> None:
-    root = _valid_repo(tmp_path)
-    (root / "specs/0001-example-feature/tasks.md").write_text(
-        "- [x] T001 Complete.\n  - [ ] T002 Pending.\n",
-        encoding="utf-8",
-    )
-    errors, _ = validator.validate_repository(root)
-    assert any("incomplete required tasks" in error for error in errors)
+    for index, indent in enumerate(("  ", "    ")):
+        root = _valid_repo(tmp_path / f"indent-{index}")
+        (root / "specs/0001-example-feature/tasks.md").write_text(
+            f"- [x] T001 Complete.\n{indent}- [ ] T002 Pending.\n",
+            encoding="utf-8",
+        )
+        errors, _ = validator.validate_repository(root)
+        assert any("incomplete required tasks" in error for error in errors)
 
 
 def test_repository_rejects_code_indented_only_task_but_accepts_nested_task(
@@ -212,7 +213,10 @@ def test_repository_rejects_code_indented_only_task_but_accepts_nested_task(
     code_errors, _ = validator.validate_repository(root)
     assert any("declare at least one checkbox task" in error for error in code_errors)
 
-    tasks.write_text("  - [x] T001 Visible nested task.\n", encoding="utf-8")
+    tasks.write_text(
+        "- [x] T001 Visible parent.\n    - [x] T002 Visible nested task.\n",
+        encoding="utf-8",
+    )
     nested_errors, _ = validator.validate_repository(root)
     assert nested_errors == []
 
@@ -286,7 +290,7 @@ def test_visible_markdown_accepts_longer_closing_fence() -> None:
         "````\n"
         "Change class: small\n"
     )
-    assert validator._visible_markdown(markdown) == "Before.\nChange class: small\n"
+    assert validator._visible_markdown(markdown) == "Before.\n\nChange class: small\n"
 
     indented_code = "    ```text\n    hidden code, not a fence\n    ```\nAfter.\n"
     assert validator._visible_markdown(indented_code) == indented_code
@@ -1821,7 +1825,12 @@ version: 1.0.0
 {block}
 Independent note text.
 """
-    for block in ("### Notes", "> Notes", "---"):
+    for block in (
+        "### Notes",
+        "> Notes",
+        "---",
+        "```text\nHidden example: Deployments MUST never run.\n```",
+    ):
         base = template.format(block=block)
         edited_note = base.replace(
             "Independent note text.", "Updated independent note text."

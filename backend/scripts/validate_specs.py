@@ -186,6 +186,7 @@ def _visible_markdown(text: str) -> str:
                 fence = opener.group("fence")
                 fence_character = fence[0]
                 minimum_closing_length = len(fence)
+                visible.append(line[len(stripped_line) :])
                 continue
             visible.append(line)
             continue
@@ -419,6 +420,47 @@ def _normalized_template_content(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip().casefold()
 
 
+def _markdown_checkbox_tasks(text: str) -> list[tuple[bool, str]]:
+    """Extract rendered checkbox list items without counting indented code."""
+    tasks: list[tuple[bool, str]] = []
+    active_list_indents: list[int] = []
+    after_blank = False
+    for line in _visible_markdown(text).splitlines():
+        if not line.strip():
+            after_blank = True
+            continue
+        list_item = re.match(
+            r"^(?P<indent>[ \t]*)(?:[-+*]|\d{1,9}[.)])[ \t]+(?P<body>\S.*)$",
+            line,
+        )
+        if list_item is None:
+            if after_blank and not line[:1].isspace():
+                active_list_indents = []
+            after_blank = False
+            continue
+
+        indent = len(list_item.group("indent").expandtabs(4))
+        rendered = indent <= 3 or any(
+            parent_indent < indent for parent_indent in active_list_indents
+        )
+        if not rendered:
+            after_blank = False
+            continue
+        active_list_indents = [
+            parent_indent
+            for parent_indent in active_list_indents
+            if parent_indent < indent
+        ]
+        active_list_indents.append(indent)
+        checkbox = re.match(r"^\[(?P<mark>[ xX])]\s+(?P<body>\S.*)$", list_item.group("body"))
+        if checkbox:
+            tasks.append(
+                (checkbox.group("mark").lower() == "x", checkbox.group("body"))
+            )
+        after_blank = False
+    return tasks
+
+
 def _reject_implementable_template_scaffolding(
     specs: Path,
     feature: Path,
@@ -461,19 +503,13 @@ def _reject_implementable_template_scaffolding(
 
     template_tasks = {
         _normalized_template_content(item)
-        for item in re.findall(
-            r"^ {0,3}-\s+\[[ xX]\]\s+(\S.*?)\s*$",
-            _visible_markdown(_read(specs / "_templates/tasks.md", errors)),
-            re.MULTILINE,
+        for _, item in _markdown_checkbox_tasks(
+            _read(specs / "_templates/tasks.md", errors)
         )
     }
     feature_tasks = {
         _normalized_template_content(item)
-        for item in re.findall(
-            r"^ {0,3}-\s+\[[ xX]\]\s+(\S.*?)\s*$",
-            _visible_markdown(texts.get("tasks.md", "")),
-            re.MULTILINE,
-        )
+        for _, item in _markdown_checkbox_tasks(texts.get("tasks.md", ""))
     }
     if template_tasks & feature_tasks:
         errors.append(
@@ -872,10 +908,10 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
         for unknown in sorted(verification_ids - set(unique_requirements)):
             errors.append(f"{feature / 'verification.md'}: evidence references unknown {unknown}")
 
-        tasks = _visible_markdown(texts.get("tasks.md", ""))
-        if not re.search(r"^ {0,3}-\s+\[[ xX]\]\s+", tasks, re.MULTILINE):
+        tasks = _markdown_checkbox_tasks(texts.get("tasks.md", ""))
+        if not tasks:
             errors.append(f"{feature / 'tasks.md'}: declare at least one checkbox task")
-        if status in FINAL_STATUSES and re.search(r"^ {0,3}-\s+\[ \]\s+", tasks, re.MULTILINE):
+        if status in FINAL_STATUSES and any(not checked for checked, _ in tasks):
             errors.append(f"{feature / 'tasks.md'}: final feature still has incomplete required tasks")
 
     for orphan_id in sorted(set(index_rows) - set(seen_ids)):
