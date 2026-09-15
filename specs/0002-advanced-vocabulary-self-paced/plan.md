@@ -10,8 +10,10 @@
 
 ## Data and contracts
 
-- Migration 263 creates stage progress, per-question attempts, Listening attempts,
-  and course-section submissions with uniqueness, immutability, and RLS policies.
+- Migration 263 creates only the Advanced Vocabulary stage-progress,
+  per-question-attempt, and Listening-attempt tables. It reuses the existing
+  `course_section_submissions` table as canonical Reading/Listening evidence and
+  extends it idempotently with the Advanced Vocabulary finalization trigger.
 - Quiz-bank metadata pins runtime kind, lesson ID, content checksum, required stages,
   practice IDs, and the explicit no-score policy.
 - Learner payloads whitelist public Reading/Listening fields; answer keys are
@@ -30,7 +32,9 @@
 ## Work decomposition
 
 - Establish pure package validation and immutable source/media checks first.
-- Apply schema/RLS contracts before importing assignment banks.
+- Validate and land the exact inert content snapshot against those checks.
+- Review the runtime candidate, then apply and verify its backward-compatible
+  schema/RLS migration on staging before merging code that depends on it.
 - Implement backend canonical persistence and admin result projection.
 - Implement learner/admin UI integration and regression tests.
 - Land generated content separately from runtime code so governance and review
@@ -38,8 +42,9 @@
 
 ## Rollout and rollback
 
-- Merge approved spec, then inert authored content, then runtime/migration code.
-- Apply migration to staging, run exact-SHA integrated checks, import 30 banks, and
+- Merge approved spec, validation foundation, then inert authored content.
+- Apply the reviewed runtime migration to staging before merging dependent code;
+  then run exact-SHA integrated checks, import 30 banks, and
   execute learner/admin smoke before staging-to-main promotion.
 - Apply the additive migration in production before code promotion, then import and
   verify the same 30 banks after production smoke.

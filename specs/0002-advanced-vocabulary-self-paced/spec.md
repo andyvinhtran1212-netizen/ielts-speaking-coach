@@ -32,6 +32,8 @@ that prevents answer leakage and gives admins canonical completion evidence.
 - Public catalog discovery, self-enrolment, or a general-audience course launch.
 - Default scoring for the overall lesson, Writing Insight, or Speaking practice.
 - Accepting Writing submissions outside an explicit teacher-created assignment.
+- Capturing or submitting microphone audio from the Advanced Vocabulary Speaking
+  reference; learners use the prompts for unrecorded practice in this release.
 - Expanding beyond the authored T01-T30 core in the first release.
 
 ## Users and journeys
@@ -41,8 +43,8 @@ that prevents answer leakage and gives admins canonical completion evidence.
 - A learner opens an assignment, studies vocabulary, completes the required
   practice, Reading, controlled rewrite, and Listening stages, and resumes from
   persisted progress until completion.
-- A learner reads Writing Task 1/2 analysis and model material or records optional
-  Speaking practice without creating a submission that implies grading.
+- A learner reads Writing Task 1/2 analysis and model material or uses optional
+  Speaking prompts for unrecorded practice without creating a submission.
 
 ## Requirements
 
@@ -58,8 +60,8 @@ that prevents answer leakage and gives admins canonical completion evidence.
   solutions before submission; Reading text and questions scroll independently,
   and fixed-choice/MCQ option identities grade consistently.
 - **FR-005:** Writing Task 1/2 and Speaking remain reference or practice content,
-  are not graded by default, and Writing can be submitted for grading only through
-  a separate teacher assignment.
+  do not capture or submit responses in this runtime, are not graded by default,
+  and Writing can be submitted for grading only through a teacher assignment.
 - **FR-006:** Required-stage answers, attempts, guided retry state, duration, and
   completion are persisted as canonical backend truth and returned to admins
   without inventing an overall score.
@@ -82,7 +84,7 @@ that prevents answer leakage and gives admins canonical completion evidence.
 ### Reference content remains ungraded
 
 - **Given** an assigned lesson containing Writing and Speaking material
-- **When** the learner reads the analysis or records optional Speaking practice
+- **When** the learner reads the analysis or uses the optional Speaking prompts
 - **Then** no Writing submission or grading job is created, and teacher assignment
   remains the prerequisite for graded Writing
 

@@ -10,9 +10,14 @@
 
 ## Staging
 
-- Merge the content-only snapshot, then the high-risk runtime PR to staging.
-- Confirm all integrated workflows pass on the exact staging SHA.
-- Apply/verify migration 263 policies, triggers, indexes, and constraints.
+- Merge the pure validation/versioning foundation first.
+- Validate the exact content/media package with that foundation, record zero
+  errors/warnings and checksum evidence, then merge the inert content snapshot.
+- Complete review of the high-risk runtime candidate, apply migration 263 from
+  that exact candidate to staging, and verify policies, triggers, indexes, and
+  constraints before merging any dependent runtime code.
+- Merge the runtime PR and confirm all integrated workflows pass on the exact
+  resulting staging SHA.
 - Import exactly 30 assignment-only banks and verify 48 rows per bank.
 - Complete one learner journey, reload progress, and compare admin results before
   and after reload; confirm Writing/Speaking produce no default grading.
