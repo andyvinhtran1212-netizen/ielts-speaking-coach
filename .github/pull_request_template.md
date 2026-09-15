@@ -9,10 +9,11 @@ IDs. Production promotion PRs from `staging` to `main` are exempt from repeating
 feature metadata.
 
 For incremental work on requirements approved at different times, use structured
-coverage evidence and map each requirement to its owned implementation paths:
-`kind=test; ref=path/to/test; implementation=path/to/code,path/to/test`.
-Every non-`specs/` path changed by the topic branch must appear in at least one
-covered requirement's `implementation` map.
+coverage evidence and map each requirement to its owned commit/path units:
+`kind=test; ref=path/to/test; implementation=<commit>:path/to/code,<commit>:path/to/test`.
+Use a unique 7–40 character commit SHA. Every non-`specs/` path changed by every
+topic commit must appear in at least one covered requirement's `implementation`
+map.
 
 ## Constitution amendment
 

@@ -896,28 +896,43 @@ def _git_requirement_approval_commit(
     return None
 
 
-def _implementation_paths(evidence: str) -> tuple[bool, set[str]]:
+def _implementation_units(
+    evidence: str,
+    revision_paths: list[tuple[str, set[str]]],
+) -> tuple[bool, set[tuple[str, str]]]:
     fields = _structured_evidence(evidence)
-    raw_paths = [
-        path.strip().strip("`")
-        for path in fields.get("implementation", "").split(",")
-        if path.strip()
+    raw_units = [
+        unit.strip().strip("`")
+        for unit in fields.get("implementation", "").split(",")
+        if unit.strip()
     ]
-    if not raw_paths:
+    if not raw_units:
         return False, set()
-    mapped_paths: set[str] = set()
-    for raw_path in raw_paths:
+    topic_revisions = [revision for revision, _ in revision_paths]
+    mapped_units: set[tuple[str, str]] = set()
+    for raw_unit in raw_units:
+        revision_ref, separator, raw_path = raw_unit.partition(":")
+        revision_ref = revision_ref.strip()
         path = raw_path.removeprefix("./")
         if (
-            not path
+            not separator
+            or not re.fullmatch(r"[0-9a-fA-F]{7,40}", revision_ref)
+            or not path
             or Path(path).is_absolute()
             or ".." in Path(path).parts
             or path == "specs"
             or path.startswith("specs/")
         ):
             return False, set()
-        mapped_paths.add(path)
-    return True, mapped_paths
+        matching_revisions = [
+            revision
+            for revision in topic_revisions
+            if revision.startswith(revision_ref.lower())
+        ]
+        if len(matching_revisions) != 1:
+            return False, set()
+        mapped_units.add((matching_revisions[0], path))
+    return True, mapped_units
 
 
 def _topic_revision_paths(
@@ -965,13 +980,10 @@ def _topic_revision_paths(
 def _topic_implementation_before_approval(
     root: Path,
     approval_commit: str,
-    mapped_paths: set[str],
-    revision_paths: list[tuple[str, set[str]]],
+    mapped_units: set[tuple[str, str]],
 ) -> tuple[bool, list[str]]:
     offenders: list[str] = []
-    for revision, changed_paths in revision_paths:
-        if mapped_paths.isdisjoint(changed_paths):
-            continue
+    for revision in sorted({revision for revision, _ in mapped_units}):
         ancestry = subprocess.run(
             [
                 "git",
@@ -1205,47 +1217,56 @@ def validate_pull_request(
                             history_resolved, revision_paths = _topic_revision_paths(
                                 root, base_sha, head_sha
                             )
-                            implementation_paths: dict[str, set[str]] = {}
+                            implementation_units: dict[
+                                str, set[tuple[str, str]]
+                            ] = {}
                             if not history_resolved:
                                 errors.append(
                                     f"pull request: cannot resolve topic implementation history for {spec_id}"
                                 )
                             else:
-                                topic_paths = (
-                                    set().union(
-                                        *(paths for _, paths in revision_paths)
-                                    )
-                                    if revision_paths
-                                    else set()
-                                )
+                                topic_units = {
+                                    (revision, path)
+                                    for revision, paths in revision_paths
+                                    for path in paths
+                                }
                                 for requirement in sorted(set(coverage)):
-                                    mapping_valid, mapped_paths = _implementation_paths(
-                                        coverage_evidence.get(requirement, "")
+                                    mapping_valid, mapped_units = _implementation_units(
+                                        coverage_evidence.get(requirement, ""),
+                                        revision_paths,
                                     )
-                                    if topic_paths and not mapping_valid:
+                                    if topic_units and not mapping_valid:
                                         errors.append(
-                                            f"pull request: requirement coverage for {requirement} must declare valid implementation=path/to/code,path/to/test ownership"
+                                            f"pull request: requirement coverage for {requirement} must declare valid implementation=commit:path/to/code,commit:path/to/test ownership"
                                         )
                                         continue
-                                    unmatched = mapped_paths - topic_paths
-                                    if unmatched:
+                                    unmatched_units = mapped_units - topic_units
+                                    if unmatched_units:
                                         errors.append(
-                                            f"pull request: implementation ownership for {requirement} references unchanged topic paths: "
-                                            + ", ".join(sorted(unmatched))
+                                            f"pull request: implementation ownership for {requirement} references unchanged commit/path units: "
+                                            + ", ".join(
+                                                f"{revision[:12]}:{path}"
+                                                for revision, path in sorted(
+                                                    unmatched_units
+                                                )
+                                            )
                                         )
-                                    implementation_paths[requirement] = (
-                                        mapped_paths & topic_paths
+                                    implementation_units[requirement] = (
+                                        mapped_units & topic_units
                                     )
-                                owned_paths = (
-                                    set().union(*implementation_paths.values())
-                                    if implementation_paths
+                                owned_units = (
+                                    set().union(*implementation_units.values())
+                                    if implementation_units
                                     else set()
                                 )
-                                unowned_paths = topic_paths - owned_paths
-                                if unowned_paths:
+                                unowned_units = topic_units - owned_units
+                                if unowned_units:
                                     errors.append(
-                                        "pull request: topic implementation paths lack requirement ownership: "
-                                        + ", ".join(sorted(unowned_paths))
+                                        "pull request: topic commit/path units lack requirement ownership: "
+                                        + ", ".join(
+                                            f"{revision[:12]}:{path}"
+                                            for revision, path in sorted(unowned_units)
+                                        )
                                     )
 
                             for requirement in sorted(set(coverage)):
@@ -1266,17 +1287,16 @@ def validate_pull_request(
                                         f"pull request: cannot find durable approval commit for {spec_id} {requirement}"
                                     )
                                     continue
-                                mapped_paths = implementation_paths.get(
+                                mapped_units = implementation_units.get(
                                     requirement, set()
                                 )
-                                if not history_resolved or not mapped_paths:
+                                if not history_resolved or not mapped_units:
                                     continue
                                 ancestry_resolved, offenders = (
                                     _topic_implementation_before_approval(
                                         root,
                                         approval_commit,
-                                        mapped_paths,
-                                        revision_paths,
+                                        mapped_units,
                                     )
                                 )
                                 if not ancestry_resolved:

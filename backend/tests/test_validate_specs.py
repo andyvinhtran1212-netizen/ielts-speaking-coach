@@ -1460,6 +1460,13 @@ def test_migration_path_requires_approved_high_risk_change(tmp_path: Path) -> No
     _write(root / "backend/migrations/999_test.sql", "select 1;\n")
     subprocess.run(["git", "add", "backend/migrations/999_test.sql"], cwd=root, check=True)
     subprocess.run(["git", "commit", "-qm", "add migration"], cwd=root, check=True)
+    migration_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
     _, specs = validator.validate_repository(root)
 
     small_errors = validator.validate_pull_request(
@@ -1481,7 +1488,7 @@ def test_migration_path_requires_approved_high_risk_change(tmp_path: Path) -> No
             base_sha=base_sha,
             coverage=(
                 "- FR-001 -> kind=test; ref=backend/tests/test_example.py::test_works; "
-                "implementation=backend/migrations/999_test.sql"
+                f"implementation={migration_sha[:12]}:backend/migrations/999_test.sql"
             ),
         ),
         specs,
@@ -1737,7 +1744,7 @@ def test_prior_approval_must_exist_at_topic_merge_base(tmp_path: Path) -> None:
             base_sha=base_sha,
             coverage=(
                 "- FR-001 -> kind=test; ref=backend/tests/test_example.py::test_works; "
-                "implementation=docs/implementation.md"
+                f"implementation={topic_sha[:12]}:docs/implementation.md"
             ),
         ),
         specs,
@@ -1815,7 +1822,7 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
             base_sha=base_sha,
             coverage=(
                 "- FR-001 -> kind=test; ref=docs/fr-one.md; "
-                "implementation=docs/fr-one.md"
+                f"implementation={topic_sha[:12]}:docs/fr-one.md"
             ),
         ),
         specs,
@@ -1846,7 +1853,7 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
             head_sha=topic_sha,
             coverage=(
                 "- FR-001 -> kind=test; ref=docs/fr-one.md; "
-                "implementation=docs/fr-one.md"
+                f"implementation={topic_sha[:12]}:docs/fr-one.md"
             ),
         ),
         specs,
@@ -1873,7 +1880,7 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
             base_sha=base_sha,
             coverage=(
                 "- FR-001 -> kind=test; ref=docs/fr-one.md; "
-                "implementation=docs/fr-one.md"
+                f"implementation={topic_sha[:12]}:docs/fr-one.md"
             ),
         ),
         specs,
@@ -1884,6 +1891,13 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
     _write(root / "docs/fr-two.md", "implementation for approved FR-002\n")
     subprocess.run(["git", "add", "docs/fr-two.md"], cwd=root, check=True)
     subprocess.run(["git", "commit", "-qm", "implement approved FR-002"], cwd=root, check=True)
+    fr_two_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
     repository_errors, specs = validator.validate_repository(root)
     assert repository_errors == []
     incremental = validator.validate_pull_request(
@@ -1893,8 +1907,10 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
             spec="FEAT-0001",
             base_sha=base_sha,
             coverage=(
-                "- FR-001 -> kind=test; ref=docs/fr-one.md; implementation=docs/fr-one.md\n"
-                "- FR-002 -> kind=test; ref=docs/fr-two.md; implementation=docs/fr-two.md"
+                "- FR-001 -> kind=test; ref=docs/fr-one.md; "
+                f"implementation={topic_sha[:12]}:docs/fr-one.md\n"
+                "- FR-002 -> kind=test; ref=docs/fr-two.md; "
+                f"implementation={fr_two_sha[:12]}:docs/fr-two.md"
             ),
         ),
         specs,
@@ -1910,6 +1926,13 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
     _write(root / "docs/fr-two-before.md", "implementation before FR-002 approval\n")
     subprocess.run(["git", "add", "docs/fr-two-before.md"], cwd=root, check=True)
     subprocess.run(["git", "commit", "-qm", "implement FR-002 too early"], cwd=root, check=True)
+    premature_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
     subprocess.run(
         ["git", "merge", "--no-ff", "--no-edit", "base-add-fr-two"],
         cwd=root,
@@ -1927,7 +1950,7 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
             base_sha=base_sha,
             coverage=(
                 "- FR-002 -> kind=test; ref=docs/fr-two-before.md; "
-                "implementation=docs/fr-two-before.md"
+                f"implementation={premature_sha[:12]}:docs/fr-two-before.md"
             ),
         ),
         specs,
@@ -1960,14 +1983,14 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
             base_sha=base_sha,
             coverage=(
                 "- FR-002 -> kind=test; ref=docs/fr-two-before.md; "
-                "implementation=docs/never-changed.md"
+                f"implementation={premature_sha[:12]}:docs/never-changed.md"
             ),
         ),
         specs,
         root,
     )
     assert any(
-        "ownership for FR-002 references unchanged topic paths" in error
+        "ownership for FR-002 references unchanged commit/path units" in error
         for error in unmatched_mapping
     )
     invalid_mapping = validator.validate_pull_request(
@@ -1978,7 +2001,7 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
             base_sha=base_sha,
             coverage=(
                 "- FR-002 -> kind=test; ref=docs/fr-two-before.md; "
-                "implementation=../outside.md"
+                f"implementation={premature_sha[:12]}:../outside.md"
             ),
         ),
         specs,
@@ -1988,10 +2011,35 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
         "coverage for FR-002 must declare valid implementation=" in error
         for error in invalid_mapping
     )
+    unknown_commit_mapping = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            base_sha=base_sha,
+            coverage=(
+                "- FR-002 -> kind=test; ref=docs/fr-two-before.md; "
+                "implementation=deadbee:docs/fr-two-before.md"
+            ),
+        ),
+        specs,
+        root,
+    )
+    assert any(
+        "coverage for FR-002 must declare valid implementation=" in error
+        for error in unknown_commit_mapping
+    )
 
     _write(root / "docs/decoy-after.md", "unrelated work after approval\n")
     subprocess.run(["git", "add", "docs/decoy-after.md"], cwd=root, check=True)
     subprocess.run(["git", "commit", "-qm", "add post-approval decoy"], cwd=root, check=True)
+    decoy_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
     decoy_mapping = validator.validate_pull_request(
         _event(
             root=root,
@@ -2000,16 +2048,132 @@ def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) ->
             base_sha=base_sha,
             coverage=(
                 "- FR-002 -> kind=test; ref=docs/fr-two-before.md; "
-                "implementation=docs/decoy-after.md"
+                f"implementation={decoy_sha[:12]}:docs/decoy-after.md"
             ),
         ),
         specs,
         root,
     )
     assert any(
-        "topic implementation paths lack requirement ownership: docs/fr-two-before.md"
-        in error
+        "topic commit/path units lack requirement ownership: "
+        f"{premature_sha[:12]}:docs/fr-two-before.md" in error
         for error in decoy_mapping
+    )
+
+
+def test_approval_chronology_tracks_shared_file_by_commit_path(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path, status="approved")
+    common_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    subprocess.run(["git", "checkout", "-qb", "shared-topic"], cwd=root, check=True)
+    _write(root / "backend/shared.py", "FR_ONE = True\n")
+    subprocess.run(["git", "add", "backend/shared.py"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "implement FR-001 in shared file"], cwd=root, check=True)
+    fr_one_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    subprocess.run(
+        ["git", "checkout", "-qb", "approve-shared-fr-two", common_sha],
+        cwd=root,
+        check=True,
+    )
+    spec = root / "specs/0001-example-feature/spec.md"
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace(
+            "- **FR-001:** Works.\n",
+            "- **FR-001:** Works.\n- **FR-002:** Extends the shared behavior.\n",
+        ),
+        encoding="utf-8",
+    )
+    verification = root / "specs/0001-example-feature/verification.md"
+    verification.write_text(
+        verification.read_text(encoding="utf-8")
+        + "| FR-002 | backend/shared.py | PASS |\n",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "specs"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "approve FR-002"], cwd=root, check=True)
+    base_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    subprocess.run(["git", "checkout", "shared-topic"], cwd=root, check=True)
+    subprocess.run(
+        ["git", "merge", "--no-ff", "--no-edit", "approve-shared-fr-two"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    with (root / "backend/shared.py").open("a", encoding="utf-8") as handle:
+        handle.write("FR_TWO = True\n")
+    subprocess.run(["git", "add", "backend/shared.py"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "implement FR-002 in shared file"], cwd=root, check=True)
+    fr_two_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    valid = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            base_sha=base_sha,
+            coverage=(
+                "- FR-001 -> kind=test; ref=backend/shared.py; "
+                f"implementation={fr_one_sha[:12]}:backend/shared.py\n"
+                "- FR-002 -> kind=test; ref=backend/shared.py; "
+                f"implementation={fr_two_sha[:12]}:backend/shared.py"
+            ),
+        ),
+        specs,
+        root,
+    )
+    assert valid == []
+
+    premature = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            base_sha=base_sha,
+            coverage=(
+                "- FR-001 -> kind=test; ref=backend/shared.py; "
+                f"implementation={fr_one_sha[:12]}:backend/shared.py\n"
+                "- FR-002 -> kind=test; ref=backend/shared.py; "
+                f"implementation={fr_one_sha[:12]}:backend/shared.py,"
+                f"{fr_two_sha[:12]}:backend/shared.py"
+            ),
+        ),
+        specs,
+        root,
+    )
+    assert any(
+        "implementation commits predate approved FEAT-0001 FR-002" in error
+        for error in premature
     )
 
 
