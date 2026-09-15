@@ -8,7 +8,7 @@ on staging and replacement implementation commits are created from that base.
 | Requirement | Evidence | Result |
 | --- | --- | --- |
 | FR-001 | kind=test; ref=backend/tests/test_advanced_vocab_importer.py, backend/tests/test_course_assignment.py, backend/tests/test_quiz_service.py, frontend/tests/admin-class-homework-next-behavior.test.mjs | PENDING |
-| FR-002 | kind=test; ref=backend/tests/test_advanced_vocab_service.py | PENDING |
+| FR-002 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_class_student_page.py, frontend/tests/my-class-next-behavior.test.mjs | PENDING |
 | FR-003 | kind=test; ref=backend/tests/test_advanced_vocab_audio_builder.py, backend/tests/test_advanced_vocab_package_builder.py, backend/tests/test_advanced_vocab_package_validator.py, backend/tests/test_advanced_vocab_importer.py | PENDING |
 | FR-004 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
 | FR-005 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
@@ -26,6 +26,11 @@ on staging and replacement implementation commits are created from that base.
   lesson provenance against the manifest.
 - OpenAPI/type drift: pending named request/response model generation, Next consumer
   use of generated operation types, and exact implementation SHA CI.
+- My Class admission: pending generated start-response discriminator tests proving
+  the frozen Advanced snapshot routes untouched, partial, completed, and reloaded
+  items to the dedicated shell, while ordinary course responses and
+  `/course-exercises` routing remain unchanged. Unknown discriminators must not fall
+  through to either player.
 - Backward compatibility: pending legacy-route isolation, frozen-version tests,
   existing course retry/report regression tests, and an integration journey that
   assigns v1, imports a changed v2 bank, and proves learner, submission, resume, and

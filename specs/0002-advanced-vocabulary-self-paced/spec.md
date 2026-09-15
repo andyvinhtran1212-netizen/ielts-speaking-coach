@@ -81,7 +81,10 @@ that prevents answer leakage and gives admins canonical completion evidence.
   required vocabulary, two practice, Reading, controlled-rewrite, and Listening
   interactions; opening a page alone never completes a stage, and every mutation
   rechecks active cohort membership, `publish_at`, and the assignment deadline at
-  persistence time. Learner reads apply the same canonical open-state gate.
+  persistence time. Learner reads apply the same canonical open-state gate. My Class
+  derives an Advanced runtime discriminator from the frozen assignment snapshot and
+  routes Start, Continue, and Review to the dedicated learner shell; ordinary course
+  assignments retain their current course-exercises route.
 - **FR-003:** The release preserves 24 authored words per lesson, uses the authored
   per-session quiz material, includes all 88 curated common-error supplements,
   and serves checksum-bound headword and example audio for every vocabulary card.

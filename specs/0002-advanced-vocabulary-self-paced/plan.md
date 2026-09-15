@@ -101,6 +101,7 @@ from those generated operations rather than maintain a parallel wire schema.
 
 | Method and route | Request | Success response |
 | --- | --- | --- |
+| `POST /api/class/assignments/{item_id}/start` | UUID path | generated discriminated `ClassAssignmentStart` union; an Advanced snapshot returns `AdvancedVocabularyTarget` `{kind:advanced_vocabulary,item_id,assignment_id,bank_id,course_action,review_only}` while ordinary course responses remain `kind:course` |
 | `GET /api/advanced-vocab/lessons/{bank_id}?item={item_id}` | UUID path/query | `LessonView`: bank `{id,code,title}`, assignment `{item_id,due_at,accepting,submitted_at,passed_at}`, lesson `{lesson_id,title,topic_code,objectives,vocabulary,practice,activities}`, and canonical `Progress` |
 | `POST /api/advanced-vocab/vocabulary/complete` | `{bank_id,item_id,seen_lexeme_ids[]}` | canonical `Progress` |
 | `POST /api/advanced-vocab/practice/start` | `{bank_id,item_id,stage: practice_1|practice_2}` | canonical `Progress` |
@@ -131,6 +132,13 @@ version mismatch, protected-bank deletion, immutable-answer conflict, or already
 submitted different payload; 422 invalid/missing IDs or required answers; and
 sanitized 500 persistence/content failure. Existing non-Advanced course route schemas
 and behavior remain unchanged.
+
+The shared start service derives `kind` only from
+`class_assignments.content_config.runtime`, never the mutable current bank. The My
+Class normalizer consumes the generated discriminated union: Advanced targets map to
+`/advanced-vocabulary?bank={bank_id}&item={item_id}` for Start/Continue and the same
+shell's persisted review state for Review; ordinary `kind:course` targets continue to
+map to `/course-exercises` without behavioral change.
 
 ## UI and interaction
 
