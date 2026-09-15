@@ -200,6 +200,19 @@ def test_server_grader_uses_authored_text_variants_and_integer_choice_keys():
     assert service._correct({"answer": False}, True) is False
 
 
+def test_section_grader_accepts_authored_codes_and_explicit_slash_variants():
+    results = service._answer_results(
+        {"10": "G", "3": "5", "wrong": "not-the-answer"},
+        [
+            {"id": "10", "answer": "embodied", "answer_code": "G"},
+            {"id": "3", "answer": "five (sharp) / 5"},
+            {"id": "wrong", "answer": "correct"},
+        ],
+    )
+
+    assert [row["is_correct"] for row in results] == [True, True, False]
+
+
 def test_core30_assets_exist_for_every_card_and_core_media():
     frontend = Path(__file__).resolve().parents[2] / "frontend" / "public"
     for lesson_id in LESSON_IDS:
@@ -210,6 +223,12 @@ def test_core30_assets_exist_for_every_card_and_core_media():
                 assert url and (frontend / url.lstrip("/")).is_file()
         assert (frontend / "assets" / "advanced-vocab" / lesson_id
                 / "listening" / "full_test.mp3").is_file()
+        listening = next(row for row in lesson["activities"]
+                         if row["activity_type"] == "listening_lab")["content"]
+        for section in listening.get("sections") or []:
+            if section.get("figure"):
+                assert (frontend / "assets" / "advanced-vocab" / lesson_id
+                        / "listening" / Path(section["figure"]).name).is_file()
         for ref in lesson["media"]["wt1_illustrations"]:
             assert (frontend / "assets" / "advanced-vocab" / lesson_id
                     / "writing" / Path(ref).name).is_file()
@@ -222,11 +241,11 @@ def test_core30_deploy_manifest_matches_runtime_content():
 
     assert payload["lesson_count"] == 30
     assert [row["lesson_id"] for row in payload["lessons"]] == list(LESSON_IDS)
-    assert sum(row["asset_count"] for row in payload["lessons"]) == 1523
+    assert sum(row["asset_count"] for row in payload["lessons"]) == 1524
     for row in payload["lessons"]:
         lesson = service.load_lesson(row["lesson_id"])
         assert row["content_checksum"] == lesson["provenance"]["content_checksum"]
-        assert 49 <= row["asset_count"] <= 51
+        assert 49 <= row["asset_count"] <= 52
 
 
 def test_finalizer_is_atomic_and_overall_score_is_null():

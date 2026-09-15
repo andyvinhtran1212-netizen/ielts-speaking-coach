@@ -100,6 +100,21 @@ def sync(source: Path, *, write: bool) -> dict:
         _copy(listening, listening_target, write=write,
               checksum=listening_meta.get("checksum"))
         expected_assets.add(str(listening_target.relative_to(_REPO)))
+        listening_content = next(
+            (row.get("content") or {} for row in lesson.get("activities") or []
+             if row.get("activity_type") == "listening_lab"),
+            {},
+        )
+        for section in listening_content.get("sections") or []:
+            figure = str(section.get("figure") or "")
+            if not figure:
+                continue
+            figure_target = _PUBLIC / lesson_id / "listening" / Path(figure).name
+            # Figures are small source-controlled runtime assets.  A built
+            # package may omit them, so verify the checked-in deploy snapshot
+            # instead of silently dropping a referenced map.
+            _require_file(figure_target)
+            expected_assets.add(str(figure_target.relative_to(_REPO)))
         for ref in (lesson.get("media") or {}).get("wt1_illustrations") or []:
             source_asset = source / "lessons" / lesson_id / ref
             target = _PUBLIC / lesson_id / "writing" / Path(ref).name

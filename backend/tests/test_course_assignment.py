@@ -158,6 +158,34 @@ def test_advanced_vocabulary_tally_uses_six_part_evidence_not_generic_quiz(monke
     assert all(row["key"] != "quiz" for row in learner["missing_sections"])
 
 
+def test_advanced_vocabulary_tally_keeps_no_account_separate_from_untouched(monkeypatch):
+    from services import advanced_vocab_service
+
+    monkeypatch.setattr(advanced_vocab_service, "assignment_results", lambda **_kwargs: {
+        "students": [{
+            "item": {
+                "student_id": "student-1", "opened_at": None,
+                "submitted_at": None, "passed_at": None,
+                "artifact_kind": None, "artifact_id": None,
+            },
+            "student": {
+                "user_id": None, "full_name": "Chưa kích hoạt", "student_code": "HV02",
+            },
+            "stages": [], "sections": [], "practice_attempts": [],
+        }],
+    })
+
+    out = adm._advanced_vocab_assignment_tally({
+        "id": "assignment-1", "skill": "course", "title": "Advanced T01",
+        "due_at": None,
+    })
+
+    assert out["students"][0]["status"] == "no-account"
+    assert out["students"][0]["course_state"] == "no_account"
+    assert out["counts"]["no_account"] == 1
+    assert out["counts"]["untouched"] == 0
+
+
 # ── Từ chối ──────────────────────────────────────────────────────────────────
 
 def test_a_bank_from_ANOTHER_course_is_refused():

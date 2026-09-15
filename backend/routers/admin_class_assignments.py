@@ -1250,7 +1250,8 @@ def _advanced_vocab_assignment_tally(assignment: dict) -> dict:
         }
         completed.update(row.get("section") for row in evidence["sections"])
         started = bool(completed or evidence["practice_attempts"] or item.get("opened_at"))
-        course_state = ("passed" if item.get("submitted_at") else
+        course_state = ("no_account" if not student.get("user_id") else
+                        "passed" if item.get("submitted_at") else
                         "in_progress" if started else "untouched")
         rows.append({
             "student_id": item.get("student_id"),
@@ -1262,7 +1263,7 @@ def _advanced_vocab_assignment_tally(assignment: dict) -> dict:
             "flags": [],
             "flag_level": None,
             "course_state": course_state,
-            "next_action": (None if course_state == "passed" else
+            "next_action": (None if course_state in ("passed", "no_account") else
                             "Tiếp tục bài self-paced" if started else "Mở bài"),
             "pass_pct": None,
             "near_pass_pct": None,

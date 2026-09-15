@@ -204,6 +204,12 @@ def _asset_url(lesson_id: str, value: str | None) -> str | None:
     return None
 
 
+def _listening_figure_url(lesson_id: str, value: str | None) -> str | None:
+    if not value or not Path(value).name.lower().endswith((".svg", ".png")):
+        return None
+    return f"{_PUBLIC_ROOT}/{lesson_id}/listening/{Path(value).name}"
+
+
 def _activity(lesson: dict, activity_type: str) -> dict:
     return next((a for a in lesson.get("activities") or []
                  if a.get("activity_type") == activity_type), {})
@@ -324,6 +330,15 @@ def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
     listening.pop("solutions", None)
     listening.pop("private_support", None)
     listening["audio_url"] = _asset_url(lesson["lesson_id"], "full_test.mp3")
+    listening["sections"] = [
+        {
+            **section,
+            **({"figure_url": figure_url} if (figure_url := _listening_figure_url(
+                lesson["lesson_id"], section.get("figure")
+            )) else {}),
+        }
+        for section in listening.get("sections") or []
+    ]
     activities["listening"] = listening
     writing = dict(_activity(lesson, "writing_reference"))
     for task in ((writing.get("content") or {}).get("tasks") or {}).values():
@@ -536,13 +551,23 @@ def _answer_rows(content: dict) -> list[dict]:
 
 
 def _answer_results(answers: dict, key: list[dict]) -> list[dict]:
+    def accepted_values(row: dict) -> list[Any]:
+        values: list[Any] = []
+        for field in ("answer", "answer_code", "answer_label", "accepted", "alternatives"):
+            value = row.get(field)
+            candidates = value if isinstance(value, list) else [value]
+            for candidate in candidates:
+                if candidate in (None, ""):
+                    continue
+                values.append(candidate)
+                if isinstance(candidate, str) and "/" in candidate:
+                    values.extend(part.strip() for part in candidate.split("/") if part.strip())
+        return values
+
     return [{
         "id": row["id"], "submitted_answer": str(answers.get(row["id"], "")),
         "is_correct": _normal(answers.get(row["id"])) in {
-            _normal(value) for value in (
-                row.get("accepted") if isinstance(row.get("accepted"), list)
-                else [row.get("answer")]
-            )
+            _normal(value) for value in accepted_values(row)
         },
     } for row in key]
 

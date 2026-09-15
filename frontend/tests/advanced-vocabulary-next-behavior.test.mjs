@@ -61,6 +61,18 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.match(CSS, /\.avx-reading-pane\.is-mobile-active\s*\{[^}]*display:\s*block/s);
     assert.match(UI, /aria-controls="avx-reading-panel-passage"/);
     assert.match(UI, /role="tabpanel"/);
+    assert.match(UI, /function readingSupportLines/);
+    assert.match(UI, /!questionStems\.has\(text\)/);
+    assert.match(UI, /sharedStem/);
+    assert.match(UI, /avx-reading-shared-stem/);
+  });
+
+  test('ships and renders listening figures required by map questions', () => {
+    const map = join(ROOT, 'public', 'assets', 'advanced-vocab', 'ADV-T11', 'listening', 'VOC-ADV-LIS-LSN-T11_map.svg');
+    assert.ok(existsSync(map));
+    assert.match(UI, /section\.figure_url/);
+    assert.match(UI, /avx-listening-figure/);
+    assert.match(CSS, /\.avx-listening-figure img/);
   });
 
   test('reopens completed stages without asking the learner to submit again', () => {

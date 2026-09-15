@@ -66,12 +66,16 @@ body.fcs-page { background: var(--av-surface-page); color: var(--av-text-primary
 .avx-reading-group > header b { color: var(--av-text-muted); font-family: var(--av-font-mono); font-size: 11px; }
 .avx-reading-question { padding: calc(var(--av-space-4) + var(--av-space-1)) 0; border-top: 1px solid var(--av-border-subtle); }
 .avx-reading-question > p { margin: 0 0 var(--av-space-3); line-height: 1.6; }
+.avx-reading-shared-stem { margin: 0 0 var(--av-space-3); padding: var(--av-space-4); border-radius: var(--av-radius-lg); color: var(--av-text-secondary); background: var(--av-surface-elevated); line-height: 1.7; }
 .avx-wide { width: 100%; justify-content: center; margin-top: var(--av-space-6); }
 .avx-listening-layout { width: min(100%, 900px); margin-inline: auto; }
 .avx-audio-dock { position: sticky; top: var(--av-space-4); z-index: 4; margin-bottom: var(--av-space-6); padding: var(--av-space-4) var(--av-space-6); border: 1px solid var(--av-primary-border); border-radius: var(--av-radius-xl); background: var(--av-surface-card); box-shadow: var(--av-shadow-md); }
 .avx-audio-dock span { display: block; margin-bottom: 3px; color: var(--av-primary); font-size: 10px; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
 .avx-audio-dock audio { width: min(380px, 50%); }
 .avx-listening-questions { display: grid; gap: var(--av-space-4); }
+.avx-listening-figure { margin: 0 0 var(--av-space-6); padding: var(--av-space-4); border: 1px solid var(--av-border-default); border-radius: var(--av-radius-xl); background: var(--av-surface-card); }
+.avx-listening-figure img { display: block; width: 100%; max-height: 560px; object-fit: contain; }
+.avx-listening-figure figcaption { margin-top: var(--av-space-3); color: var(--av-text-muted); font-size: 12px; line-height: 1.5; }
 .avx-complete-callout, .avx-boundary-note { margin-bottom: var(--av-space-6); padding: var(--av-space-6); border: 1px solid var(--av-primary-border); border-radius: var(--av-radius-xl); background: var(--av-primary-soft); }
 .avx-complete-callout p, .avx-boundary-note p { margin: var(--av-space-2) 0 0; color: var(--av-text-secondary); line-height: 1.6; }
 .avx-reference-card { width: min(100%, 980px); margin-inline: auto; }

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="620" viewBox="0 0 900 620">
+  <rect width="900" height="620" fill="#ffffff"/>
+  <text x="450" y="34" text-anchor="middle" font-family="Arial" font-size="22" font-weight="700">VOC-ADV-LIS-LSN-T11 — CAMPUS MAP</text>
+  <rect x="310" y="185" width="280" height="230" rx="18" fill="#e8f2e8" stroke="#537a53" stroke-width="3"/>
+  <text x="450" y="295" text-anchor="middle" font-family="Arial" font-size="22">CENTRAL QUAD</text>
+  <circle cx="450" cy="345" r="30" fill="#bfe4f2" stroke="#397b99" stroke-width="3"/>
+  <text x="450" y="352" text-anchor="middle" font-family="Arial" font-size="14">Fountain</text>
+  <path d="M450 580 L450 415" stroke="#777" stroke-width="34" opacity=".32"/>
+  <rect x="375" y="548" width="150" height="48" fill="#f3f3f3" stroke="#333" stroke-width="3"/>
+  <text x="450" y="579" text-anchor="middle" font-family="Arial" font-size="24" font-weight="700">H</text>
+  <g font-family="Arial" font-size="30" font-weight="700" text-anchor="middle">
+    <rect x="95" y="175" width="150" height="92" fill="#f7e6c4" stroke="#333" stroke-width="3"/><text x="170" y="230">A</text>
+    <rect x="655" y="215" width="150" height="92" fill="#f7e6c4" stroke="#333" stroke-width="3"/><text x="730" y="270">B</text>
+    <rect x="655" y="105" width="150" height="92" fill="#f7e6c4" stroke="#333" stroke-width="3"/><text x="730" y="160">C</text>
+    <rect x="375" y="65" width="150" height="92" fill="#f7e6c4" stroke="#333" stroke-width="3"/><text x="450" y="120">D</text>
+    <rect x="95" y="395" width="150" height="92" fill="#f7e6c4" stroke="#333" stroke-width="3"/><text x="170" y="450">E</text>
+    <rect x="690" y="18" width="150" height="72" fill="#f7e6c4" stroke="#333" stroke-width="3"/><text x="765" y="64">F</text>
+    <rect x="650" y="430" width="150" height="82" fill="#f7e6c4" stroke="#333" stroke-width="3"/><text x="725" y="480">G</text>
+  </g>
+  <ellipse cx="450" cy="170" rx="120" ry="28" fill="#bfe4f2" stroke="#397b99" stroke-width="3"/>
+  <text x="450" y="176" text-anchor="middle" font-family="Arial" font-size="15">Pond / wooden bridge</text>
+  <text x="450" y="615" text-anchor="middle" font-family="Arial" font-size="15">You are here — main gate, facing the central quad</text>
+</svg>
