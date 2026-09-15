@@ -112,7 +112,8 @@ that prevents answer leakage and gives admins canonical completion evidence.
   admins, blocks learner access, and republishing restores learner resume from the
   same canonical stage only while the deadline remains open. An expired incomplete
   item requires an explicit deadline extension before resume; a submitted expired
-  item remains review-only.
+  item remains review-only. Terminal finalization also sets
+  `class_assignment_items.state = 'submitted'` in the same transaction.
 - **FR-007:** Database migration and RLS policies isolate learner-owned evidence,
   preserve immutable submission/version history, and support idempotent staged
   deployment before application promotion. The final Listening evidence and
@@ -137,6 +138,10 @@ that prevents answer leakage and gives admins canonical completion evidence.
   version is imported. An Advanced bank referenced by any assignment or immutable
   version cannot be deleted; admin may unpublish/archive it to prevent new assignment,
   while existing pinned assignments and all evidence remain resolvable.
+- **FR-009:** Starting either Practice stage creates exactly one immutable server-
+  selected question set for that assignment item/stage. Repeated starts, response-
+  loss recovery, and reload return the original persisted selection rather than
+  conflict or select again; answers and completion accept only IDs from that set.
 
 ### Required-stage completion evidence
 
@@ -218,12 +223,16 @@ that prevents answer leakage and gives admins canonical completion evidence.
 - Repeated submissions cannot overwrite canonical first-submission evidence.
 - Finalizer failure rolls back the triggering Listening evidence, concurrent
   finalizers serialize without duplicate completion, and the migration repair
-  changes only a pilot item that already has all six canonical evidence sets.
+  changes only a pilot item that already has all six canonical evidence sets. Both
+  live finalization and eligible pilot repair atomically set item `state='submitted'`
+  with terminal timestamps, and learner/admin reloads agree.
 - Admin deletion is rejected after the first partial-progress row in each Advanced
   Vocabulary evidence store; archive/retire preserves the assignment and every row,
   hides it from the learner, and a later republish restores the saved progress.
 - Removing an assignment does not make its historical evidence public or reusable.
 - Network or browser interruption resumes from persisted stage state.
+- A Practice start response lost after commit returns the same persisted selection on
+  retry and lesson reload for both Practice 1 and Practice 2.
 - Membership removal/transfer between any two stages revokes further read/write
   access without deleting prior evidence. A deadline crossed after page load rejects
   that stage mutation; submitted work remains review-only, while incomplete expired

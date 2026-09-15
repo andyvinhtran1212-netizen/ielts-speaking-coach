@@ -15,6 +15,7 @@ on staging and replacement implementation commits are created from that base.
 | FR-006 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_quiz_service.py, backend/tests/test_course_attempt_report.py, frontend/tests/my-class-next-behavior.test.mjs, frontend/tests/admin-class-homework-next-behavior.test.mjs, frontend/tests/admin-class-student-work-next-behavior.test.mjs, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
 | FR-007 | kind=test; ref=backend/tests/test_advanced_vocab_rls_integration.py | PENDING |
 | FR-008 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py | PENDING |
+| FR-009 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
 
 ## Contract evidence
 
@@ -50,6 +51,9 @@ on staging and replacement implementation commits are created from that base.
   rows, while a distinct teacher-created Writing assignment remains submittable.
 - Stage ordering: pending out-of-order start/answer calls before every predecessor,
   followed by the accepted in-order journey and canonical reload comparison.
+- Practice start idempotency: pending first start, lost response after commit,
+  identical retry, and lesson reload for Practice 1 and Practice 2; every path must
+  return the same persisted selection, and out-of-selection answer IDs must fail.
 - Assignment-only boundary: pending admin API/UI assignment of each Advanced bank
   with immediate and full-reload state equality, plus unauthenticated/public listing
   exclusion and generic quiz-play denial before and after assignment. Database-backed
@@ -73,7 +77,8 @@ on staging and replacement implementation commits are created from that base.
   learner/admin reloads resolvable from the assignment snapshot. Unpublish/archive
   must hide the bank from new assignment selection without breaking existing work.
 - Completion projection: pending finalizer evidence that `submitted_at` and
-  `passed_at` share the terminal timestamp while `score` stays null, plus the shared
+  `passed_at` share the terminal timestamp and item `state='submitted'` while `score`
+  stays null, plus the shared
   course-action/My Class Review state immediately and after full reload. Shared admin
   tally/detail evidence must show neutral `completed`/Hoàn tất, `latest_pct=null`, no
   score or pass count, and no scored-ledger mismatch immediately and after reload.

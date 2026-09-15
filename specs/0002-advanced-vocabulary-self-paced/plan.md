@@ -65,12 +65,18 @@
   tally, and no `course_ledger_mismatch`, both in list/tally and detail views. Any
   failed check or injected finalizer error rolls back the Listening section insert
   and assignment update together; concurrent calls serialize without a second
-  section row.
+  section row. The atomic assignment update sets `state='submitted'`, `submitted_at`,
+  and `passed_at` to the same terminal timestamp while keeping `score=NULL`.
 - Migration 263 performs an idempotent reconciliation of complete pilot items that
   predate the trigger. It derives completion only from all required canonical stage
-  and section rows, preserves the earliest existing submission timestamps, and
-  leaves partial items resumable. Because all post-migration finalization writes are
-  atomic, this migration reconciliation is the only legacy repair path required.
+  and section rows, writes `state='submitted'` alongside terminal timestamps,
+  preserves the earliest existing submission timestamps, and leaves partial items
+  resumable. Because all post-migration finalization writes are atomic, this migration
+  reconciliation is the only legacy repair path required.
+- Practice start persists one immutable selected-question ID list in the canonical
+  item/stage progress row under the same access locks. A repeated start returns that
+  row and its original public question projection; it never selects again. Lesson
+  reload reconstructs the same set, and answer mutations reject IDs outside it.
 - Any Advanced Vocabulary stage, question-attempt, first-Listening-attempt, or
   course-section row makes the assignment item non-deletable. The admin surface must
   treat that partial evidence as real learner work and offer only the existing
@@ -110,7 +116,7 @@ from those generated operations rather than maintain a parallel wire schema.
 | `POST /api/class/assignments/{item_id}/start` | UUID path | generated discriminated `ClassAssignmentStart` union; an Advanced snapshot returns `AdvancedVocabularyTarget` `{kind:advanced_vocabulary,item_id,assignment_id,bank_id,course_action,review_only}` while ordinary course responses remain `kind:course` |
 | `GET /api/advanced-vocab/lessons/{bank_id}?item={item_id}` | UUID path/query | `LessonView`: bank `{id,code,title}`, assignment `{item_id,due_at,accepting,submitted_at,passed_at}`, lesson `{lesson_id,title,topic_code,objectives,vocabulary,practice,activities}`, and canonical `Progress` |
 | `POST /api/advanced-vocab/vocabulary/complete` | `{bank_id,item_id,seen_lexeme_ids[]}` | canonical `Progress` |
-| `POST /api/advanced-vocab/practice/start` | `{bank_id,item_id,stage: practice_1|practice_2}` | canonical `Progress` |
+| `POST /api/advanced-vocab/practice/start` | `{bank_id,item_id,stage: practice_1|practice_2}` | canonical `Progress` containing the persisted immutable selection and public question projection; identical replay returns the same selection |
 | `POST /api/advanced-vocab/practice/answer` | `{bank_id,item_id,stage,qid,answer,response_time_ms?}` | `{qid,answer,is_correct,explanation?,note?,completed,progress}` for that accepted immutable answer |
 | `POST /api/advanced-vocab/reading` | `{bank_id,item_id,answers:{qid:value},duration_sec}` | `SectionReview` `{section,total,correct,pct,submitted_at,answer_results,answers}` |
 | `POST /api/advanced-vocab/controlled-rewrite/complete` | `{bank_id,item_id,attempted_item_ids[]}` | `{solutions,progress}` only after canonical completion |
