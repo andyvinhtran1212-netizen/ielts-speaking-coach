@@ -289,7 +289,8 @@ def _constitutional_obligations(text: str) -> set[str]:
     obligations: set[str] = set()
     list_matches = list(
         re.finditer(
-            r"^ {0,3}-[ \t]+(?P<body>\S[^\n]*(?:\n {2,}[^\n]*)*)",
+            r"^ {0,3}-[ \t]+(?P<body>\S[^\n]*"
+            r"(?:(?:\n {2,}[^\n]*)|(?:\n(?:[ \t]*\n)+ {2,}[^\n]*))*)",
             visible,
             re.MULTILINE,
         )
