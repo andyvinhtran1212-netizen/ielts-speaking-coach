@@ -47,9 +47,11 @@
 - Re-run the idempotent import to repair missing bank/question rows and compare
   expected 30 banks by code and 48-question counts. Deploy and verify a known-good
   guarded runtime at an exact SHA before re-enabling assignments; throughout recovery,
-  prove both dedicated and legacy learner routes expose no payload. Republish only
-  when `publish_at` has arrived and `due_at` remains open, or after an admin explicitly
-  extends the deadline.
+  prove both dedicated and legacy learner routes expose no payload. Republish an
+  incomplete item only when `publish_at` has arrived and `due_at` remains open, or
+  after an admin explicitly extends the deadline. A terminal submitted item may be
+  republished with unchanged `due_at`, but must remain persisted-review-only with
+  `accepting:false`.
 
 ## Observability
 
