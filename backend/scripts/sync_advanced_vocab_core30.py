@@ -64,7 +64,40 @@ def _copy(source: Path, target: Path, *, write: bool,
         raise SystemExit(f"Snapshot deploy không khớp source: {target}")
 
 
-def sync(source: Path, *, write: bool) -> dict:
+def _listening_figure_source(
+    source: Path, course_source: Path | None, lesson_id: str, figure: str,
+) -> Path:
+    packaged = source / "lessons" / lesson_id / figure
+    if packaged.is_file():
+        return packaged
+    if course_source is None:
+        raise SystemExit(
+            f"{lesson_id}: source package thiếu {figure}; cần --course-source."
+        )
+    matches = [
+        path for path in course_source.rglob(Path(figure).name) if path.is_file()
+    ]
+    if len(matches) != 1:
+        raise SystemExit(
+            f"{lesson_id}: cần đúng một source figure {Path(figure).name}, "
+            f"tìm thấy {len(matches)}."
+        )
+    return matches[0]
+
+
+def _sync_listening_figure(
+    source: Path, course_source: Path | None, lesson_id: str, figure: str,
+    *, write: bool,
+) -> Path:
+    source_asset = _listening_figure_source(
+        source, course_source, lesson_id, figure,
+    )
+    target = _PUBLIC / lesson_id / "listening" / Path(figure).name
+    _copy(source_asset, target, write=write)
+    return target
+
+
+def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dict:
     manifest = _read(source / "course-manifest.json")
     qa = _read(source / "QA_REPORT.json")
     current_report = validate_package(source)
@@ -130,11 +163,9 @@ def sync(source: Path, *, write: bool) -> dict:
             figure = str(section.get("figure") or "")
             if not figure:
                 continue
-            figure_target = _PUBLIC / lesson_id / "listening" / Path(figure).name
-            # Figures are small source-controlled runtime assets.  A built
-            # package may omit them, so verify the checked-in deploy snapshot
-            # instead of silently dropping a referenced map.
-            _require_file(figure_target)
+            figure_target = _sync_listening_figure(
+                source, course_source, lesson_id, figure, write=write,
+            )
             expected_assets.add(str(figure_target.relative_to(_REPO)))
         for ref in (lesson.get("media") or {}).get("wt1_illustrations") or []:
             source_asset = source / "lessons" / lesson_id / ref
@@ -190,9 +221,16 @@ def sync(source: Path, *, write: bool) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument(
+        "--course-source", type=Path,
+        help="Khóa gốc dùng để resolve figure nếu package đã build không chứa asset.",
+    )
     parser.add_argument("--write", action="store_true")
     args = parser.parse_args()
-    sync(args.source.resolve(), write=args.write)
+    sync(
+        args.source.resolve(), write=args.write,
+        course_source=args.course_source.resolve() if args.course_source else None,
+    )
     return 0
 
 

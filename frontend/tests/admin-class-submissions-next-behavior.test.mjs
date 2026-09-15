@@ -65,14 +65,27 @@ describe('admin class submissions model', () => {
         student: { id: 's1', user_id: 'u1', full_name: 'An' },
         stages: [{ stage: 'vocabulary', status: 'completed' }],
         practice_attempts: [{ stage: 'practice_1', qid: 'q1', answer_given: 'kinship', is_correct: true, response_time_ms: 900 }],
-        sections: [{ section: 'reading', total: 13, correct: 11, duration_sec: 420 }],
-        listening_attempts: [{ total: 6, correct: 4, score: 66.67, duration_sec: 180, submitted_at: '2026-09-15T01:00:00Z', answers: { 1: 'Sandhu' } }],
+        sections: [{
+          section: 'reading', total: 13, correct: 11, duration_sec: 420,
+          answer_results: [{ id: '1', submitted_answer: 'B', is_correct: true }],
+        }],
+        listening_attempts: [{
+          total: 6, correct: 4, score: 66.67, duration_sec: 180,
+          submitted_at: '2026-09-15T01:00:00Z', answers: { 1: 'Sandhu' },
+          answer_results: [{ id: '1', submitted_answer: 'Sandhu', is_correct: false }],
+        }],
       }],
     });
     assert.equal(out.students[0].practice_attempts[0].answer_given, 'kinship');
     assert.equal(out.students[0].sections[0].correct, 11);
     assert.equal(out.students[0].listening_attempts[0].correct, 4);
     assert.deepEqual(out.students[0].listening_attempts[0].answers, { 1: 'Sandhu' });
+    assert.deepEqual(out.students[0].sections[0].answer_results, [
+      { id: '1', submitted_answer: 'B', is_correct: true },
+    ]);
+    assert.deepEqual(out.students[0].listening_attempts[0].answer_results, [
+      { id: '1', submitted_answer: 'Sandhu', is_correct: false },
+    ]);
     assert.equal(out.students[0].required_stages.length, 6);
     assert.deepEqual(out.reference_only, ['writing', 'speaking']);
     assert.equal(normalizeAdvancedVocabularyResult({ kind: 'advanced_vocab', score_policy: 'percent', students: [] }), null);
@@ -81,6 +94,8 @@ describe('admin class submissions model', () => {
     assert.equal(advancedVocabularyStudentState({ ...base, listening_attempts: [{}] }), 'doing');
     assert.equal(advancedVocabularyStudentState({ ...base, item: { opened_at: null, submitted_at: '2026-09-15T02:00:00Z' } }), 'done');
     assert.match(UI, /Listening · lượt đầu \(đang sửa\)/);
+    assert.match(UI, /Xem đáp án sau self-check/);
+    assert.match(UI, /Xem từng câu/);
     assert.match(UI, /stateLabel/);
   });
 

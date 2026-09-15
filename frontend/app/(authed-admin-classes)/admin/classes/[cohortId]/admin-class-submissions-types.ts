@@ -13,14 +13,15 @@ export type EffortPayload = { stale: boolean; advanced_vocab: boolean; score_pol
 export type ReportQuestion = { qid: string | null; item_key: string; prompt: string; picked: number | null; picked_text: string | null; answer: number | null; answer_text: string | null; is_correct: boolean; why_wrong: string | null; explain: string | null; seconds: number | null };
 export type StudentReport = { stale: boolean; locked: boolean; threshold: number | null; totals: { answered: number; correct: number; median_sec: number | null; active_sec: number | null; idle_sec: number | null; bank_title: string | null; scope: string }; summary: { pass_pct: number | null; near_pass_pct: number | null; latest_pct: number | null; latest_action: string | null; latest_attempt_number: number | null; baseline_quiz_pct: number | null; baseline_correct: number; baseline_answered: number; latest_sections: SectionResult[] }; history: { number: number; phase: string; session_count: number; pct: number | null; next_action: string; at: string | null; completed: boolean; duration_sec: number; sections: SectionResult[] }[]; questions: ReportQuestion[] };
 export type WritingPayload = { student: { id: string; name: string; code: string | null }; assignment: { id: string; title: string }; submission: null | { clean: number; total: number; model: string | null; graded_at: string | null; items: Record<string, unknown>[] } };
+export type AdvancedVocabularyAnswerResult = { id: string; submitted_answer: unknown; is_correct: boolean };
 export type AdvancedVocabularyStudentResult = {
   required_stages: string[];
   item: { id: string; student_id: string | null; state: string; opened_at: string | null; submitted_at: string | null; passed_at: string | null };
   student: { id: string | null; user_id: string | null; full_name: string | null; student_code: string | null };
   stages: { stage: string; status: string; completed_at: string | null }[];
   practice_attempts: { stage: string; qid: string; answer_given: unknown; is_correct: boolean; response_time_ms: number | null; created_at: string | null }[];
-  sections: { section: string; total: number; correct: number; score: number | null; duration_sec: number; submitted_at: string | null }[];
-  listening_attempts: { total: number; correct: number; score: number | null; duration_sec: number; submitted_at: string | null; answers: Record<string, unknown> }[];
+  sections: { section: string; total: number; correct: number; score: number | null; duration_sec: number; submitted_at: string | null; answer_results: AdvancedVocabularyAnswerResult[]; initial_answer_results: AdvancedVocabularyAnswerResult[] }[];
+  listening_attempts: { total: number; correct: number; score: number | null; duration_sec: number; submitted_at: string | null; answers: Record<string, unknown>; answer_results: AdvancedVocabularyAnswerResult[] }[];
 };
 export type AdvancedVocabularyResult = {
   kind: 'advanced_vocab'; score_policy: 'none'; lesson_id: string | null;

@@ -699,6 +699,22 @@ def _answer_results(answers: dict, key: list[dict]) -> list[dict]:
     } for row in key]
 
 
+def _admin_answer_evidence(row: dict) -> dict:
+    """Attach canonical per-question results to an admin report row."""
+    answers = row.get("answers") or {}
+    answer_key = row.get("answer_key") or []
+    snapshot = row.get("content_snapshot") or {}
+    guided_retry = (
+        snapshot.get("guided_retry") or {} if isinstance(snapshot, dict) else {}
+    )
+    final_answers = {**answers, **(guided_retry.get("answers") or {})}
+    evidence = dict(row)
+    evidence["answer_results"] = _answer_results(final_answers, answer_key)
+    if guided_retry:
+        evidence["initial_answer_results"] = _answer_results(answers, answer_key)
+    return evidence
+
+
 def _submit_section(*, user_id: str, bank_id: str, item_id: str,
                     section: str, answers: dict, duration_sec: int, content: dict) -> dict:
     key = _answer_rows(content)
@@ -972,8 +988,13 @@ def assignment_results(*, assignment_id: str) -> dict:
             "student": {key: student.get(key) for key in ("id", "user_id", "full_name", "student_code")},
             "stages": by_stage.get(iid, []),
             "practice_attempts": by_attempt.get(iid, []),
-            "sections": by_section.get(iid, []),
-            "listening_attempts": by_listening_attempt.get(iid, []),
+            "sections": [
+                _admin_answer_evidence(row) for row in by_section.get(iid, [])
+            ],
+            "listening_attempts": [
+                _admin_answer_evidence(row)
+                for row in by_listening_attempt.get(iid, [])
+            ],
         })
     return {
         "kind": "advanced_vocab", "assignment": assignment,

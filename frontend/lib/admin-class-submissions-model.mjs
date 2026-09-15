@@ -120,6 +120,8 @@ export function normalizeAdvancedVocabularyResult(value) {
           section: text(section.section), total: Math.max(0, finite(section.total) || 0),
           correct: Math.max(0, finite(section.correct) || 0), score: finite(section.score),
           duration_sec: Math.max(0, finite(section.duration_sec) || 0), submitted_at: nullableText(section.submitted_at),
+          answer_results: normalizeAdvancedAnswerResults(section.answer_results),
+          initial_answer_results: normalizeAdvancedAnswerResults(section.initial_answer_results),
         };
       }).filter((section) => section.section),
       listening_attempts: Array.isArray(row.listening_attempts) ? row.listening_attempts.map((value) => {
@@ -129,6 +131,7 @@ export function normalizeAdvancedVocabularyResult(value) {
           correct: Math.max(0, finite(attempt.correct) || 0), score: finite(attempt.score),
           duration_sec: Math.max(0, finite(attempt.duration_sec) || 0),
           submitted_at: nullableText(attempt.submitted_at), answers: object(attempt.answers),
+          answer_results: normalizeAdvancedAnswerResults(attempt.answer_results),
         };
       }) : [],
     };
@@ -139,6 +142,17 @@ export function normalizeAdvancedVocabularyResult(value) {
     reference_only: Array.isArray(payload.reference_only) ? payload.reference_only.map(text).filter(Boolean) : [],
     students,
   };
+}
+
+function normalizeAdvancedAnswerResults(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => {
+    const row = object(entry);
+    return {
+      id: text(row.id), submitted_answer: row.submitted_answer,
+      is_correct: row.is_correct === true,
+    };
+  }).filter((row) => row.id);
 }
 
 export function advancedVocabularyStudentState(data) {

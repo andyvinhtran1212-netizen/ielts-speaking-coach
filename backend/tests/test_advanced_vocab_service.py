@@ -590,11 +590,26 @@ def test_admin_results_collects_each_learner_evidence_without_an_overall_score(m
         "course_section_submissions": [
             {"id": "section-reading", "class_assignment_item_id": "item-1",
              "section": "reading", "correct": 11, "total": 13, "score": 84.62,
-             "duration_sec": 600},
+             "duration_sec": 600, "answers": {"1": "B"},
+             "answer_key": [{"id": "1", "answer": "B"}]},
             {"id": "section-listening", "class_assignment_item_id": "item-1",
              "section": "listening", "correct": 5, "total": 6, "score": 83.33,
-             "duration_sec": 420},
+             "duration_sec": 420, "answers": {"1": "A", "2": "wrong"},
+             "answer_key": [
+                 {"id": "1", "answer": "A"}, {"id": "2", "answer": "C"},
+             ],
+             "content_snapshot": {
+                 "guided_retry": {"answers": {"2": "C"}},
+             }},
         ],
+        "advanced_vocab_listening_attempts": [{
+            "id": "listening-initial", "class_assignment_item_id": "item-1",
+            "answers": {"1": "A", "2": "wrong"},
+            "answer_key": [
+                {"id": "1", "answer": "A"}, {"id": "2", "answer": "C"},
+            ],
+            "correct": 1, "total": 2, "score": 50, "duration_sec": 120,
+        }],
     })
     monkeypatch.setattr(service, "_admin", lambda: fake)
 
@@ -614,3 +629,17 @@ def test_admin_results_collects_each_learner_evidence_without_an_overall_score(m
         "reading", "listening",
     }
     assert row["practice_attempts"][0]["qid"] == "ADV-T01-Q1"
+    reading = next(section for section in row["sections"]
+                   if section["section"] == "reading")
+    listening = next(section for section in row["sections"]
+                     if section["section"] == "listening")
+    assert reading["answer_results"] == [{
+        "id": "1", "submitted_answer": "B", "is_correct": True,
+    }]
+    assert listening["initial_answer_results"][1] == {
+        "id": "2", "submitted_answer": "wrong", "is_correct": False,
+    }
+    assert listening["answer_results"][1] == {
+        "id": "2", "submitted_answer": "C", "is_correct": True,
+    }
+    assert row["listening_attempts"][0]["answer_results"][1]["is_correct"] is False

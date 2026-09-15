@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from scripts import sync_advanced_vocab_core30 as sync_module
 from scripts.sync_advanced_vocab_core30 import sync
 from services.advanced_vocab_package_validator import (
     CORE_LESSON_IDS,
@@ -479,6 +480,36 @@ def test_sync_revalidates_current_source_instead_of_trusting_stale_qa(tmp_path: 
 
     with pytest.raises(SystemExit, match="hiện tại không đạt publish-ready"):
         sync(tmp_path, write=False)
+
+
+def test_listening_figure_sync_uses_canonical_source_checksum(
+        tmp_path: Path, monkeypatch):
+    package = tmp_path / "package"
+    course_source = tmp_path / "course"
+    source_figure = course_source / "Listening_Lessons_Web" / "Figures" / "map.svg"
+    source_figure.parent.mkdir(parents=True)
+    source_figure.write_bytes(b"canonical-v1")
+    public = tmp_path / "public"
+    target = public / "ADV-T11" / "listening" / "map.svg"
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"stale")
+    monkeypatch.setattr(sync_module, "_PUBLIC", public)
+
+    with pytest.raises(SystemExit, match="Snapshot deploy không khớp source"):
+        sync_module._sync_listening_figure(
+            package, course_source, "ADV-T11", "Figures/map.svg", write=False,
+        )
+
+    sync_module._sync_listening_figure(
+        package, course_source, "ADV-T11", "Figures/map.svg", write=True,
+    )
+    assert target.read_bytes() == b"canonical-v1"
+
+    source_figure.write_bytes(b"canonical-v2")
+    with pytest.raises(SystemExit, match="Snapshot deploy không khớp source"):
+        sync_module._sync_listening_figure(
+            package, course_source, "ADV-T11", "Figures/map.svg", write=False,
+        )
 
 
 def test_reading_requires_thirteen_questions_and_no_answer_leak(tmp_path: Path):

@@ -29,7 +29,8 @@ From the repository root:
 
 ```bash
 backend/venv/bin/python backend/scripts/sync_advanced_vocab_core30.py \
-  --source "/absolute/path/to/advanced_vocab_core30_package_v5_writing_reference"
+  --source "/absolute/path/to/advanced_vocab_core30_package_v5_writing_reference" \
+  --course-source "/absolute/path/to/Vocab course"
 
 backend/venv/bin/python backend/scripts/import_advanced_vocab_core30.py
 
@@ -44,8 +45,11 @@ venv/bin/python -m pytest \
 ```
 
 The dry-run is intentionally offline and must report `30/30 lesson hợp lệ`
-without Supabase environment variables. Do not use `--write` during a
-deployment; deploy assets must already be committed and match the manifest.
+without Supabase environment variables. `--course-source` is required when the
+built package omits a referenced Listening figure; the sync resolves exactly
+one source file and verifies that the committed deploy copy has the same
+SHA-256. Do not use `--write` during a deployment; deploy assets must already
+be committed and match the manifest.
 
 ## Deployment order
 
