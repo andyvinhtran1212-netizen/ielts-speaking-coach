@@ -420,6 +420,7 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             for question in reading_question_rows:
                 if not isinstance(question, dict):
                     continue
+                qnum = str(question.get("question_number") or "")
                 leaked = {"answer", "answer_code", "answer_label", "evidence",
                           "distractor_analysis", "trap_analysis"} & set(question)
                 if leaked:
@@ -445,6 +446,38 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                         "error", "READING_OPTION_FIELD_UNEXPECTED", path,
                         "Reading options expose non-public fields: "
                         + ", ".join(option_unexpected),
+                    )
+                q_type = str(question.get("question_type") or "").strip().casefold()
+                if q_type not in {"mcq", "choice"}:
+                    continue
+                option_keys = [
+                    str(option.get("letter") or option.get("key") or "").strip()
+                    for option in options
+                ]
+                if not option_keys or any(not key for key in option_keys):
+                    report.add(
+                        "error", "READING_MCQ_OPTION_KEY_INVALID", path,
+                        f"Reading MCQ {qnum or '?'} needs a non-empty key for every option.",
+                    )
+                duplicate_keys = sorted(
+                    key for key, occurrences in Counter(option_keys).items()
+                    if key and occurrences > 1
+                )
+                if duplicate_keys:
+                    report.add(
+                        "error", "READING_MCQ_OPTION_KEY_DUPLICATE", path,
+                        f"Reading MCQ {qnum or '?'} repeats option keys: "
+                        + ", ".join(duplicate_keys),
+                    )
+                solution = solutions.get(qnum) if isinstance(solutions, dict) else None
+                expected = str(
+                    solution.get("answer") if isinstance(solution, dict) else ""
+                ).strip().casefold()
+                normalized_keys = {key.casefold() for key in option_keys if key}
+                if expected not in normalized_keys:
+                    report.add(
+                        "error", "READING_MCQ_ANSWER_INVALID", path,
+                        f"Reading MCQ {qnum or '?'} answer does not identify an option key.",
                     )
 
         if len(listening) != 1:
@@ -682,6 +715,20 @@ def _validate_lesson(
         if input_type not in ALLOWED_INPUTS:
             report.add("error", "QUIZ_INPUT_UNSUPPORTED", path,
                        f"Item {item.get('item_id') or '?'} has unsupported input={input_type!r}.")
+        if "segments" in item:
+            segments = item.get("segments")
+            if input_type != "syllable":
+                report.add(
+                    "error", "QUIZ_SEGMENTS_INPUT_INVALID", path,
+                    f"Item {item.get('item_id') or '?'} may expose segments only for syllable input.",
+                )
+            if (not isinstance(segments, list) or not segments
+                    or any(not isinstance(segment, str) or not segment.strip()
+                           for segment in segments)):
+                report.add(
+                    "error", "QUIZ_SEGMENTS_INVALID", path,
+                    f"Item {item.get('item_id') or '?'} segments must be non-empty public strings.",
+                )
         q_type = str(item.get("question_type") or item.get("type") or "").lower()
         if q_type in {"choice", "mcq"} and not ({"answer", "answer_index"} & item.keys()):
             report.add("error", "MCQ_ANSWER_MISSING", path,

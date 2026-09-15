@@ -302,6 +302,14 @@ def _safe_question(item: dict, *, answered: bool = False,
              if isinstance(option, dict) else option)
             for option in safe.get("options") or []
         ]
+    if "segments" in safe:
+        segments = safe.get("segments")
+        if isinstance(segments, list):
+            safe["segments"] = [
+                segment for segment in segments if isinstance(segment, str)
+            ]
+        else:
+            safe.pop("segments", None)
     prompt = str(safe.get("prompt") or "")
     if "{{audio}}" in prompt:
         safe["prompt"] = prompt.replace("{{audio}}", "").strip()

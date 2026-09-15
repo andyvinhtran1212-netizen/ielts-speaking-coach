@@ -195,6 +195,23 @@ def _write_package(root: Path, ids=CORE_LESSON_IDS) -> None:
     (root / "course-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
 
+def _rewrite_lesson_with_checksums(root: Path, lesson: dict) -> None:
+    lesson_id = lesson["lesson_id"]
+    lesson["provenance"]["content_checksum"] = _checksum_without(
+        lesson, "provenance", "content_checksum"
+    )
+    path = root / "lessons" / lesson_id / "lesson.json"
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+    manifest_path = root / "course-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest_lesson = next(
+        row for row in manifest["lessons"] if row["lesson_id"] == lesson_id
+    )
+    manifest_lesson["content_checksum"] = lesson["provenance"]["content_checksum"]
+    manifest["package_checksum"] = _checksum_without(manifest, "package_checksum")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+
 def _codes(report) -> set[str]:
     return {issue.code for issue in report.errors}
 
@@ -406,6 +423,26 @@ def test_quiz_rejects_non_contract_private_fields(tmp_path: Path):
     assert {
         "QUIZ_ITEM_FIELD_UNEXPECTED", "QUIZ_OPTION_FIELD_UNEXPECTED",
     } <= _codes(report)
+
+
+def test_quiz_segments_are_public_strings_for_syllable_input_only(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    choice = lesson["adaptive_quiz"]["items"][0]
+    choice["segments"] = ["not", "allowed"]
+    lesson["adaptive_quiz"]["items"].append({
+        "item_id": "ADV-T01-segment-leak",
+        "type": "stress",
+        "input": "syllable",
+        "answer": 0,
+        "segments": {"answer": "secret"},
+    })
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+
+    assert {"QUIZ_SEGMENTS_INPUT_INVALID", "QUIZ_SEGMENTS_INVALID"} <= _codes(report)
 
 
 def test_listening_requires_six_questions_and_approved_media(tmp_path: Path):
@@ -671,6 +708,42 @@ def test_reading_rejects_private_option_fields(tmp_path: Path):
     report = validate_package(tmp_path)
 
     assert "READING_OPTION_FIELD_UNEXPECTED" in _codes(report)
+
+
+@pytest.mark.parametrize("question_count", [13, 14])
+def test_reading_mcq_solution_must_match_unique_option_key(
+        tmp_path: Path, question_count: int):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    reading = next(a for a in lesson["activities"] if a["activity_type"] == "reading_lab")
+    first = reading["content"]["questions"][0]
+    first.update({
+        "question_type": "mcq",
+        "options": [
+            {"key": "A", "text": "Correct"},
+            {"key": "B", "text": "Wrong"},
+        ],
+    })
+    reading["content"]["solutions"]["1"]["answer"] = "A"
+    if question_count == 14:
+        reading["content"]["questions"].append({
+            "question_number": 14,
+            "question_type": "Summary Completion",
+            "stem": "Question 14",
+            "options": [],
+        })
+        reading["content"]["solutions"]["14"] = {
+            "answer": "answer-14", "evidence": "Evidence",
+        }
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    assert validate_package(tmp_path).publish_ready is True
+
+    reading["content"]["solutions"]["1"]["answer"] = "Z"
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    assert "READING_MCQ_ANSWER_INVALID" in _codes(validate_package(tmp_path))
 
 
 def test_warning_prevents_publish_ready_without_invalidating_schema(tmp_path: Path):

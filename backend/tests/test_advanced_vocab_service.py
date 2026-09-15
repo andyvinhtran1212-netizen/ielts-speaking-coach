@@ -266,6 +266,13 @@ def test_learner_question_projection_never_contains_answer_material():
     })
     assert safe_option["options"] == [{"key": "A", "text": "Visible"}]
 
+    unsafe_segments = service._safe_question({
+        "item_id": "q3", "prompt": "Question",
+        "segments": {"answer": "secret"},
+    })
+    assert "segments" not in unsafe_segments
+    assert "secret" not in json.dumps(unsafe_segments)
+
 
 def test_assigned_lesson_rejects_live_content_that_differs_from_frozen_snapshot(monkeypatch):
     lesson = _lesson()
