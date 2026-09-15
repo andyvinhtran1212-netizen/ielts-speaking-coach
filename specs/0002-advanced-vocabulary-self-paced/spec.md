@@ -59,8 +59,10 @@ that prevents answer leakage and gives admins canonical completion evidence.
 - **FR-004:** Reading and Listening are automatically checked without leaking
   solutions before submission; both Practice stages omit answers, accepted variants,
   explanations, and correction fields until the corresponding immutable attempt is
-  accepted; Reading text and questions scroll independently, and fixed-choice/MCQ
-  option identities grade consistently.
+  accepted; controlled rewrite exposes only its prompt IDs/prompts until all 20 are
+  accepted, then returns reference solutions from persisted completion evidence;
+  Reading text and questions scroll independently, and fixed-choice/MCQ option
+  identities grade consistently.
 - **FR-005:** Writing Task 1/2 and Speaking remain reference or practice content,
   do not capture or submit responses in this runtime, are not graded by default,
   and Writing can be submitted for grading only through a teacher assignment.
@@ -72,8 +74,10 @@ that prevents answer leakage and gives admins canonical completion evidence.
   preserve immutable submission/version history, and support idempotent staged
   deployment before application promotion. The final Listening evidence and
   assignment finalization must commit atomically under an assignment-item lock;
-  identical replay is idempotent, different replay conflicts, and complete pilot
-  states that predate the trigger are reconciled from canonical evidence.
+  an Advanced-Vocabulary-specific guard permits only attempt 1 and one row per
+  item/section regardless of the generic course retry key, identical replay is
+  idempotent, different replay conflicts, and complete pilot states that predate the
+  trigger are reconciled from canonical evidence.
 - **FR-008:** Authored lesson JSON and runtime media use immutable content versions
   and verified SHA-256 provenance, including Listening figures and audio, so a
   deployed assignment reopens the same content revision. Assignment creation must
@@ -126,12 +130,14 @@ that prevents answer leakage and gives admins canonical completion evidence.
 
 ### Authored answers remain private
 
-- **Given** either Practice stage, Reading, or Listening before its reveal boundary
+- **Given** either Practice stage, controlled rewrite, Reading, or Listening before
+  its reveal boundary
 - **When** the learner API returns its activity payload
 - **Then** answers, accepted variants, explanations, correction notes, solutions,
-  evidence, transcripts, and answer-bearing editorial fields are absent while public
-  prompts and option identifiers remain usable; an accepted Practice answer reveals
-  feedback only for that immutable attempt
+  evidence, transcripts, rewrite solutions, and answer-bearing editorial fields are
+  absent while public prompts and option identifiers remain usable; an accepted
+  Practice answer reveals feedback only for that immutable attempt, and controlled-
+  rewrite solutions appear only after all 20 prompt IDs are persisted
 
 ### Frozen assignment reopens safely
 

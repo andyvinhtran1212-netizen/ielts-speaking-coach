@@ -20,20 +20,26 @@
   submission, resume, and admin-result read resolves the immutable assignment snapshot
   rather than the bank's current metadata. Re-importing a v2 bank therefore leaves an
   already-issued v1 assignment bound to its v1 JSON and checksum-matched media.
-- Learner payloads whitelist public Practice, Reading, and Listening fields.
-  Practice answers, accepted variants, explanations, correction notes, and other
-  answer-bearing fields remain absent until that individual immutable answer is
-  accepted; Reading/Listening keys are attached only to persisted post-submission
-  review evidence. The generic quiz-player route cannot serve these banks.
+- Learner payloads whitelist public Practice, controlled-rewrite, Reading, and
+  Listening fields. Practice answers, accepted variants, explanations, correction
+  notes, and other answer-bearing fields remain absent until that individual
+  immutable answer is accepted. Controlled rewrite initially exposes prompt IDs and
+  prompts only; its reference solutions are attached only after persisted completion.
+  Reading/Listening keys are attached only to persisted post-submission review
+  evidence. The generic quiz-player route cannot serve these banks.
 - Writing and Speaking contracts explicitly disable default grading/submission.
-- The unique `(class_assignment_item_id, section)` Listening submission is the
-  finalization idempotency identity. Its insert invokes one database finalizer in
-  the same transaction; the finalizer locks the assignment item, verifies all six
-  canonical evidence sets, reads lesson identity from the assignment runtime
+- Advanced Vocabulary adds a database guard independent of the generic course-section
+  retry key `(class_assignment_item_id, attempt_no, section)`. Before a Reading or
+  Listening insert, it locks the assignment item, requires `attempt_no = 1`, and
+  rejects any pre-existing row for the same item/section even if another caller sends
+  a different attempt number. At the application boundary, an identical normalized
+  payload resolves to that existing row and a different payload conflicts.
+- The accepted Listening insert invokes one database finalizer in the same
+  transaction and while retaining the assignment-item lock. The finalizer verifies
+  all six canonical evidence sets, reads lesson identity from the assignment runtime
   snapshot, and stamps submission/mastery with no overall score. Any failed check or
   injected finalizer error rolls back the Listening section insert and assignment
-  update together. Concurrent calls serialize on the item; an identical payload
-  resolves to the existing row and a different payload conflicts without mutation.
+  update together; concurrent calls serialize without a second section row.
 - Migration 263 performs an idempotent reconciliation of complete pilot items that
   predate the trigger. It derives completion only from all required canonical stage
   and section rows, preserves the earliest existing submission timestamps, and

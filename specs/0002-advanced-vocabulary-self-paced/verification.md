@@ -25,15 +25,17 @@ on staging and replacement implementation commits are created from that base.
 ## Data evidence
 
 - Migration/schema query: pending staging and production policy inspection plus
-  database-backed identical/different replay, concurrent finalizer, injected
-  rollback, and complete-versus-partial pilot reconciliation cases.
+  database-backed attempt-number enforcement, cross-attempt duplicate rejection,
+  identical/different replay, concurrent finalizer, injected rollback, and complete-
+  versus-partial pilot reconciliation cases.
 - Immediate state versus full reload: pending learner/admin staging journey.
 
 ## UI evidence
 
 - Viewports/themes/input methods: pending Next.js browser regression, explicit
   no-microphone/no-submission assertion, every required-stage interruption/resume
-  state, Practice pre/post-attempt leakage assertions, and manual staging review.
+  state, Practice pre/post-attempt and controlled-rewrite pre/post-completion leakage
+  assertions, and manual staging review.
 
 ## Release evidence
 
