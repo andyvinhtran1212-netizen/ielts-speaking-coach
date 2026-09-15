@@ -311,7 +311,13 @@ def _section(text: str, heading: str) -> str:
 
 def _meaningful_section(text: str, heading: str) -> bool:
     section = _section(text, heading)
-    section = re.sub(r"^ {0,3}-\s*\[[ xX]\].*$", "", section, flags=re.MULTILINE)
+    # The PR template uses unchecked boxes as prompts, so they must not make an
+    # untouched section look complete. A checked box with substantive text is
+    # user-supplied evidence, however, and is as meaningful as a normal bullet.
+    section = re.sub(r"^ {0,3}-\s*\[ \].*$", "", section, flags=re.MULTILINE)
+    section = re.sub(
+        r"^ {0,3}-\s*\[[xX]\]\s*", "- ", section, flags=re.MULTILINE
+    )
     lines = [
         line.strip()
         for line in section.splitlines()

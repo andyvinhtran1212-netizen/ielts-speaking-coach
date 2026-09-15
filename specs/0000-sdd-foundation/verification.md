@@ -30,5 +30,10 @@
 
 - Local repository validation: PASS.
 - Focused pytest: PASS.
-- Integrated PR/staging evidence: pending the normal GitHub workflow run and
-  will be linked in the pull request rather than fabricated in this file.
+- Staging integration: [PR #1423](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1423)
+  merged as `760cef465a1beacf5accde3a09bbdba3a5d18623`; required staging
+  workflows passed.
+- Production promotion: [PR #1426](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/pull/1426)
+  merged as `1850f944a1b5fb466267279806e8332568f328c2`.
+- Production verification: [release-drift run 34981013757](https://github.com/andyvinhtran1212-netizen/ielts-speaking-coach/actions/runs/34981013757)
+  passed and the frontend runtime marker reported the promoted SHA.
