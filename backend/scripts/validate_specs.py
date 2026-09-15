@@ -27,7 +27,7 @@ REQUIREMENT_DECLARATION_RE = re.compile(
     re.MULTILINE,
 )
 EVIDENCE_ROW_RE = re.compile(
-    r"^\|\s*(FR-\d{3})\s*\|.*\|\s*([A-Za-z]+)\s*\|\s*$",
+    r"^\|\s*(FR-\d{3})\s*\|\s*(\S(?:.*\S)?)\s*\|\s*([A-Za-z]+)\s*\|\s*$",
     re.MULTILINE,
 )
 ALLOWED_STATUSES = {
@@ -184,7 +184,7 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
         for filename, headings in REQUIRED_SECTIONS.items():
             text = texts.get(filename, "")
             for heading in headings:
-                if text and not _has_heading(text, heading):
+                if not _has_heading(text, heading):
                     errors.append(f"{feature / filename}: missing '## {heading}' section")
 
         requirement_section = _section(texts.get("spec.md", ""), "Requirements")
@@ -199,11 +199,13 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
 
         verification = texts.get("verification.md", "")
         evidence_rows = EVIDENCE_ROW_RE.findall(verification)
-        evidence_ids = [requirement for requirement, _ in evidence_rows]
+        evidence_ids = [requirement for requirement, _, _ in evidence_rows]
         verification_ids = set(evidence_ids)
         for requirement in unique_requirements:
             matching_results = [
-                result for evidence_id, result in evidence_rows if evidence_id == requirement
+                result
+                for evidence_id, _, result in evidence_rows
+                if evidence_id == requirement
             ]
             if not matching_results:
                 errors.append(f"{feature / 'verification.md'}: no evidence row for {requirement}")

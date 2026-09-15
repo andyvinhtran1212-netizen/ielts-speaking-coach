@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 from pathlib import Path
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "validate_specs.py"
+REPO_ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location("validate_specs", SCRIPT)
 assert SPEC and SPEC.loader
 validator = importlib.util.module_from_spec(SPEC)
@@ -109,6 +111,13 @@ def test_repository_rejects_missing_requirement_evidence(tmp_path: Path) -> None
     assert any("no evidence row for FR-001" in error for error in errors)
 
 
+def test_repository_rejects_empty_required_artifact(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    (root / "specs/0001-example-feature/plan.md").write_text("", encoding="utf-8")
+    errors, _ = validator.validate_repository(root)
+    assert any("plan.md" in error and "missing '## Architecture impact'" in error for error in errors)
+
+
 def test_requirement_may_be_referenced_outside_declaration(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     spec = root / "specs/0001-example-feature/spec.md"
@@ -159,6 +168,16 @@ def test_repository_rejects_duplicate_evidence_rows(tmp_path: Path) -> None:
     assert any("duplicate evidence rows for FR-001" in error for error in errors)
 
 
+def test_repository_rejects_empty_evidence_cell(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    (root / "specs/0001-example-feature/verification.md").write_text(
+        "## Requirement coverage\n\n| FR-001 | | PASS |\n",
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert any("no evidence row for FR-001" in error for error in errors)
+
+
 def test_feature_pr_requires_existing_non_draft_spec(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     _, specs = validator.validate_repository(root)
@@ -192,6 +211,16 @@ def test_staging_to_main_promotion_is_exempt(tmp_path: Path) -> None:
     _, specs = validator.validate_repository(root)
     event = {"pull_request": {"base": {"ref": "main"}, "head": {"ref": "staging"}}}
     assert validator.validate_pull_request(event, specs) == []
+
+
+def test_backend_workflow_reruns_when_pr_metadata_is_edited() -> None:
+    workflow = (REPO_ROOT / ".github/workflows/backend-tests.yml").read_text(
+        encoding="utf-8"
+    )
+    match = re.search(r"^\s+types:\s*\[([^]]+)]\s*$", workflow, re.MULTILINE)
+    assert match
+    activities = {item.strip() for item in match.group(1).split(",")}
+    assert {"opened", "synchronize", "reopened", "edited"} <= activities
 
 
 def test_cli_reads_github_event(tmp_path: Path, monkeypatch, capsys) -> None:

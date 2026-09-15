@@ -32,6 +32,9 @@ on:
   push:
     branches: [main, staging]
   pull_request:
+    # `edited` reruns PR-metadata validation when Change class / Spec changes;
+    # the other entries preserve GitHub's default pull_request activities.
+    types: [opened, synchronize, reopened, edited, ready_for_review]
     paths:
       - 'backend/**'
       - 'frontend/**'
