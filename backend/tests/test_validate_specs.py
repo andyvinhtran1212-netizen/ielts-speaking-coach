@@ -1420,6 +1420,38 @@ def test_small_pr_may_use_na(tmp_path: Path) -> None:
     ) == []
 
 
+def test_spec_free_pr_accepts_substantive_checked_verification(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path)
+    _, specs = validator.validate_repository(root)
+    checked = _event(root=root, change_class="content", spec="N/A")
+    checked["pull_request"]["body"] = checked["pull_request"]["body"].replace(
+        "## Verification\n\nAutomated test passed.",
+        "## Verification\n\n"
+        "- [x] `backend/scripts/validate_specs.py --root .`: PASS.",
+    )
+    assert validator.validate_pull_request(checked, specs, root) == []
+
+    unchecked = _event(root=root, change_class="content", spec="N/A")
+    unchecked["pull_request"]["body"] = unchecked["pull_request"]["body"].replace(
+        "## Verification\n\nAutomated test passed.",
+        "## Verification\n\n- [ ] Run the validator.",
+    )
+    unchecked_errors = validator.validate_pull_request(unchecked, specs, root)
+    assert any("'## Verification'" in error for error in unchecked_errors)
+
+    placeholder = _event(root=root, change_class="content", spec="N/A")
+    placeholder["pull_request"]["body"] = placeholder["pull_request"][
+        "body"
+    ].replace(
+        "## Verification\n\nAutomated test passed.",
+        "## Verification\n\n- [x] TODO",
+    )
+    placeholder_errors = validator.validate_pull_request(placeholder, specs, root)
+    assert any("'## Verification'" in error for error in placeholder_errors)
+
+
 def test_spec_free_pr_requires_problem_expected_scope_and_verification(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     _, specs = validator.validate_repository(root)
