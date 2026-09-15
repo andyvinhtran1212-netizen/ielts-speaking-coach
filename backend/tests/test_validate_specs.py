@@ -203,6 +203,15 @@ def test_repository_ignores_evidence_outside_coverage_section_or_in_comment(
     )
     comment_errors, _ = validator.validate_repository(root)
     assert any("no evidence row for FR-001" in error for error in comment_errors)
+    verification.write_text(
+        "<!--\n## Requirement coverage\n\n"
+        "| FR-001 | backend/tests/test_example.py::test_works | PASS |\n-->\n",
+        encoding="utf-8",
+    )
+    wrapped_section_errors, _ = validator.validate_repository(root)
+    assert any(
+        "no evidence row for FR-001" in error for error in wrapped_section_errors
+    )
 
 
 def test_repository_rejects_empty_required_artifact(tmp_path: Path) -> None:
@@ -720,6 +729,29 @@ def test_feature_pr_requires_known_requirement_coverage(tmp_path: Path) -> None:
         root,
     )
     assert any("must list at least one exact FR-NNN" in error for error in commented)
+
+
+def test_pull_request_ignores_metadata_hidden_in_comments(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path)
+    _, specs = validator.validate_repository(root)
+    hidden = _event(root=root, change_class="small", spec="N/A")
+    hidden["pull_request"]["body"] = hidden["pull_request"]["body"].replace(
+        "Change class: small\nSpec: N/A",
+        "<!--\nChange class: small\nSpec: N/A\n-->",
+    )
+    hidden_errors = validator.validate_pull_request(hidden, specs, root)
+    assert any("'Change class:' must be one of" in error for error in hidden_errors)
+    assert any("add 'Spec: N/A'" in error for error in hidden_errors)
+
+    inline_options = _event(root=root, change_class="small", spec="N/A")
+    inline_options["pull_request"]["body"] = inline_options["pull_request"][
+        "body"
+    ].replace(
+        "Change class: small\nSpec: N/A",
+        "Change class: <!-- feature | high-risk --> small\n"
+        "Spec: <!-- approved ID or --> N/A",
+    )
+    assert validator.validate_pull_request(inline_options, specs, root) == []
 
 
 def test_feature_pr_rejects_requirement_added_after_base_approval(tmp_path: Path) -> None:

@@ -123,7 +123,12 @@ def _has_heading(text: str, heading: str) -> bool:
     return bool(re.search(rf"^##\s+{re.escape(heading)}\s*$", text, re.MULTILINE | re.IGNORECASE))
 
 
+def _without_html_comments(text: str) -> str:
+    return re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+
+
 def _section(text: str, heading: str) -> str:
+    text = _without_html_comments(text)
     match = re.search(
         rf"^##\s+{re.escape(heading)}\s*$\n(?P<body>.*?)(?=^##\s+|\Z)",
         text,
@@ -133,7 +138,7 @@ def _section(text: str, heading: str) -> str:
 
 
 def _meaningful_section(text: str, heading: str) -> bool:
-    section = re.sub(r"<!--.*?-->", "", _section(text, heading), flags=re.DOTALL)
+    section = _section(text, heading)
     section = re.sub(r"^\s*-\s*\[[ xX]\].*$", "", section, flags=re.MULTILINE)
     lines = [line.strip() for line in section.splitlines() if line.strip()]
     return any(
@@ -456,10 +461,15 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
 
 
 def _body_field(body: str, field: str) -> str | None:
-    match = re.search(rf"^{re.escape(field)}:\s*(.*?)\s*$", body, re.MULTILINE | re.IGNORECASE)
+    visible_body = _without_html_comments(body)
+    match = re.search(
+        rf"^{re.escape(field)}:\s*(.*?)\s*$",
+        visible_body,
+        re.MULTILINE | re.IGNORECASE,
+    )
     if not match:
         return None
-    value = re.sub(r"<!--.*?-->", "", match.group(1)).strip().strip("`")
+    value = match.group(1).strip().strip("`")
     return value or None
 
 
