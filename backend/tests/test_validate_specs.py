@@ -67,7 +67,8 @@ Test.
     _write(feature / "tasks.md", "# Tasks\n\n- [x] T001 Complete.\n")
     _write(
         feature / "verification.md",
-        "# Verification\n\n## Requirement coverage\n\n| FR-001 | unit test | PASS |\n",
+        "# Verification\n\n## Requirement coverage\n\n"
+        "| FR-001 | backend/tests/test_example.py::test_works | PASS |\n",
     )
     if risk in {"high", "critical"}:
         _write(
@@ -374,6 +375,18 @@ def test_repository_rejects_underspecified_manual_and_na_evidence(tmp_path: Path
     )
     pass_errors, _ = validator.validate_repository(root)
     assert any("PASS evidence must identify" in error for error in pass_errors)
+    verification.write_text(
+        "## Requirement coverage\n\n| FR-001 | x | PASS |\n",
+        encoding="utf-8",
+    )
+    token_errors, _ = validator.validate_repository(root)
+    assert any("PASS evidence must identify" in error for error in token_errors)
+    verification.write_text(
+        "## Requirement coverage\n\n| FR-001 | passed | PASS |\n",
+        encoding="utf-8",
+    )
+    generic_errors, _ = validator.validate_repository(root)
+    assert any("PASS evidence must identify" in error for error in generic_errors)
     verification.write_text(
         "## Requirement coverage\n\n"
         "| FR-001 | reviewer=<name>; environment=<preview>; date=2026-09-15; observed=<observable result> | MANUAL |\n",
@@ -687,7 +700,7 @@ def test_feature_pr_rejects_requirement_added_after_base_approval(tmp_path: Path
     verification = root / "specs/0001-example-feature/verification.md"
     verification.write_text(
         verification.read_text(encoding="utf-8")
-        + "| FR-002 | automated test | PASS |\n",
+        + "| FR-002 | backend/tests/test_second.py::test_added | PASS |\n",
         encoding="utf-8",
     )
     repository_errors, specs = validator.validate_repository(root)
@@ -763,7 +776,7 @@ def test_feature_pr_compares_uncovered_requirements_with_base(tmp_path: Path) ->
     verification = root / "specs/0001-example-feature/verification.md"
     verification.write_text(
         verification.read_text(encoding="utf-8")
-        + "| FR-002 | automated test | PASS |\n",
+        + "| FR-002 | backend/tests/test_second.py::test_approved | PASS |\n",
         encoding="utf-8",
     )
     subprocess.run(
@@ -872,6 +885,52 @@ def test_migration_path_requires_approved_high_risk_change(tmp_path: Path) -> No
     ) == []
 
 
+def test_migration_classification_uses_topic_changes_from_merge_base(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path, status="approved", risk="high")
+    common_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    subprocess.run(["git", "checkout", "-qb", "base-advance"], cwd=root, check=True)
+    _write(root / "backend/migrations/998_base_only.sql", "select 1;\n")
+    subprocess.run(["git", "add", "backend/migrations/998_base_only.sql"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "base-only migration"], cwd=root, check=True)
+    base_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    subprocess.run(["git", "checkout", "-qb", "topic", common_sha], cwd=root, check=True)
+    _write(root / "docs/topic.md", "ordinary topic change\n")
+    subprocess.run(["git", "add", "docs/topic.md"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "ordinary topic change"], cwd=root, check=True)
+    _, specs = validator.validate_repository(root)
+    ordinary_errors = validator.validate_pull_request(
+        _event(root=root, change_class="small", spec="N/A", base_sha=base_sha),
+        specs,
+        root,
+    )
+    assert not any("migration paths require" in error for error in ordinary_errors)
+
+    _write(root / "backend/migrations/999_topic.sql", "select 2;\n")
+    subprocess.run(["git", "add", "backend/migrations/999_topic.sql"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "topic migration"], cwd=root, check=True)
+    migration_errors = validator.validate_pull_request(
+        _event(root=root, change_class="small", spec="N/A", base_sha=base_sha),
+        specs,
+        root,
+    )
+    assert any("backend/migrations/999_topic.sql" in error for error in migration_errors)
+
+
 def test_staging_to_main_promotion_is_exempt(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     _, specs = validator.validate_repository(root)
@@ -888,7 +947,7 @@ def test_unfiltered_workflow_reruns_when_pr_metadata_is_edited() -> None:
     activities = {item.strip() for item in match.group(1).split(",")}
     assert {"opened", "synchronize", "reopened", "edited"} <= activities
     assert "Spec and PR metadata" in workflow
-    assert "fetch-depth: 2" in workflow
+    assert "fetch-depth: 0" in workflow
     typecheck_workflow = (REPO_ROOT / ".github/workflows/typecheck.yml").read_text(
         encoding="utf-8"
     )

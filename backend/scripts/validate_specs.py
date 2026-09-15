@@ -153,6 +153,33 @@ def _placeholder_value(value: str) -> bool:
     )
 
 
+def _concrete_pass_evidence(evidence: str) -> bool:
+    if _placeholder_value(evidence):
+        return False
+    fields = _structured_evidence(evidence)
+    if {"kind", "ref"} <= fields.keys():
+        return not _placeholder_value(fields["kind"]) and not _placeholder_value(
+            fields["ref"]
+        )
+    generic = {
+        "automated",
+        "evidence",
+        "pass",
+        "passed",
+        "test",
+        "tests",
+        "unit",
+        "verified",
+        "verification",
+    }
+    meaningful_tokens = [
+        token
+        for token in re.findall(r"[a-z0-9_./:-]+", evidence.lower())
+        if len(token) >= 4 and token not in generic
+    ]
+    return len(evidence.strip()) >= 12 and bool(meaningful_tokens)
+
+
 def _declared_requirements(spec_text: str) -> dict[str, str]:
     return {
         requirement: re.sub(r"\s+", " ", description).strip()
@@ -186,7 +213,7 @@ def _evidence_detail_error(result: str, evidence: str) -> str | None:
                 "MANUAL evidence must use reviewer=...; environment=...; "
                 "date=YYYY-MM-DD; observed=..."
             )
-    elif normalized == "PASS" and _placeholder_value(evidence):
+    elif normalized == "PASS" and not _concrete_pass_evidence(evidence):
         return "PASS evidence must identify a concrete test, query, screenshot, or journey"
     elif normalized == "N/A":
         fields = _structured_evidence(evidence)
@@ -448,8 +475,24 @@ def _git_changed_paths(root: Path, base_sha: str, head_sha: str) -> tuple[bool, 
         )
         if check.returncode != 0:
             return False, []
+    merge_base = subprocess.run(
+        ["git", "-C", str(root), "merge-base", base_sha, head_sha],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if merge_base.returncode != 0 or not merge_base.stdout.strip():
+        return False, []
     result = subprocess.run(
-        ["git", "-C", str(root), "diff", "--name-only", base_sha, head_sha],
+        [
+            "git",
+            "-C",
+            str(root),
+            "diff",
+            "--name-only",
+            merge_base.stdout.strip(),
+            head_sha,
+        ],
         capture_output=True,
         text=True,
         check=False,

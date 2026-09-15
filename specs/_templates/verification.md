@@ -8,7 +8,9 @@
 
 Allowed final results are `PASS`, `MANUAL`, and `N/A`. Use this structured
 format for manual evidence. `PASS` must name a concrete test, query, screenshot,
-or journey; the example text in this template is not evidence.
+or journey; the example text in this template is not evidence. For a compact
+machine-readable locator, use `kind=<test/query/screenshot/journey>; ref=<path,
+command, URL, or report>`.
 
 `reviewer=<name>; environment=<preview/staging/production>; date=YYYY-MM-DD; observed=<observable result>`
 
