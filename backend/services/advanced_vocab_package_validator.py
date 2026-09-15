@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from collections import Counter
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -73,6 +74,13 @@ def _option_identity(option: object, index: int) -> object:
     if option.get("key") is not None:
         return option.get("key")
     return index
+
+
+def _grading_identity(value: object) -> str:
+    text = unicodedata.normalize(
+        "NFKC", str(value if value is not None else "")
+    ).casefold().strip()
+    return re.sub(r"[^\w+]+", " ", text, flags=re.UNICODE).strip()
 
 
 @dataclass(frozen=True)
@@ -262,7 +270,10 @@ def _validate_mcq_options(lesson: dict[str, Any], path: Path,
                        f"Question {qid} needs at least two options; found {len(options)}.")
         keys = [str(_option_identity(option, index))
                 for index, option in enumerate(options)]
-        duplicate_keys = sorted(k for k, n in Counter(keys).items() if n > 1)
+        normalized_keys = [_grading_identity(key) for key in keys]
+        duplicate_keys = sorted(
+            key for key, n in Counter(normalized_keys).items() if n > 1
+        )
         if duplicate_keys:
             report.add("error", "MCQ_DUPLICATE_OPTION_KEY", path,
                        f"Question {qid} repeats option keys: {', '.join(duplicate_keys)}")
@@ -277,7 +288,7 @@ def _validate_mcq_options(lesson: dict[str, Any], path: Path,
             if isinstance(answer, int) and not isinstance(answer, bool):
                 valid_answer = 0 <= answer < len(options)
             else:
-                valid_answer = str(answer) in keys
+                valid_answer = _grading_identity(answer) in normalized_keys
             if not valid_answer:
                 report.add("error", "MCQ_ANSWER_INVALID", path,
                            f"Question {qid} answer={answer!r} does not identify an option.")
@@ -487,6 +498,22 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                         + ", ".join(option_unexpected),
                     )
                 q_type = str(question.get("question_type") or "").strip().casefold()
+                solution = solutions.get(qnum) if isinstance(solutions, dict) else None
+                expected = str(
+                    solution.get("answer") if isinstance(solution, dict) else ""
+                ).strip()
+                fixed_answers = None
+                if re.search(r"\bt\s*/\s*f\s*/\s*ng\b", q_type):
+                    fixed_answers = {"true", "false", "not given"}
+                elif re.search(r"\by\s*/\s*n\s*/\s*ng\b", q_type):
+                    fixed_answers = {"yes", "no", "not given"}
+                if (fixed_answers is not None
+                        and _grading_identity(expected) not in fixed_answers):
+                    report.add(
+                        "error", "READING_FIXED_CHOICE_ANSWER_INVALID", path,
+                        f"Reading question {qnum or '?'} answer is not supported "
+                        f"by {question.get('question_type') or 'fixed-choice'}.",
+                    )
                 if q_type not in {"mcq", "choice"}:
                     continue
                 option_keys = [
@@ -498,8 +525,11 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                         "error", "READING_MCQ_OPTION_KEY_INVALID", path,
                         f"Reading MCQ {qnum or '?'} needs a non-empty key for every option.",
                     )
+                normalized_option_keys = [
+                    _grading_identity(key) for key in option_keys
+                ]
                 duplicate_keys = sorted(
-                    key for key, occurrences in Counter(option_keys).items()
+                    key for key, occurrences in Counter(normalized_option_keys).items()
                     if key and occurrences > 1
                 )
                 if duplicate_keys:
@@ -508,12 +538,10 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                         f"Reading MCQ {qnum or '?'} repeats option keys: "
                         + ", ".join(duplicate_keys),
                     )
-                solution = solutions.get(qnum) if isinstance(solutions, dict) else None
-                expected = str(
-                    solution.get("answer") if isinstance(solution, dict) else ""
-                ).strip().casefold()
-                normalized_keys = {key.casefold() for key in option_keys if key}
-                if expected not in normalized_keys:
+                normalized_keys = {
+                    _grading_identity(key) for key in option_keys if key
+                }
+                if _grading_identity(expected) not in normalized_keys:
                     report.add(
                         "error", "READING_MCQ_ANSWER_INVALID", path,
                         f"Reading MCQ {qnum or '?'} answer does not identify an option key.",
@@ -533,6 +561,16 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             listening_question_rows = (
                 questions if isinstance(questions, list) else []
             )
+            for section in (
+                content.get("sections") or [] if isinstance(content, dict) else []
+            ):
+                if not isinstance(section, dict) or not section.get("figure"):
+                    continue
+                if not SHA256_RE.fullmatch(str(section.get("figure_checksum") or "")):
+                    report.add(
+                        "error", "LISTENING_FIGURE_CHECKSUM_INVALID", path,
+                        f"Listening figure {section.get('figure')} needs a SHA-256 checksum.",
+                    )
             if any(not isinstance(question, dict) for question in listening_question_rows):
                 report.add("error", "LISTENING_QUESTION_ITEM_TYPE", path,
                            "Every Listening question must be an object.")
@@ -643,7 +681,10 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                             f"Listening question {question_id or '?'} needs a "
                             "non-empty learner option identifier.",
                         )
-                    if str(solution.get("answer") or "").strip() not in set(option_keys):
+                    normalized_keys = {
+                        _grading_identity(key) for key in option_keys if key
+                    }
+                    if _grading_identity(solution.get("answer")) not in normalized_keys:
                         report.add("error", "LISTENING_MCQ_ANSWER_INVALID", path,
                                    f"Listening question {question_id or '?'} answer "
                                    "must match an option key.")
@@ -814,7 +855,9 @@ def _validate_lesson(
                     elif isinstance(expected, int) and not isinstance(expected, bool):
                         grading_valid = 0 <= expected < len(options)
                     else:
-                        grading_valid = str(expected) in set(option_keys)
+                        grading_valid = _grading_identity(expected) in {
+                            _grading_identity(key) for key in option_keys
+                        }
             elif input_type == "boolean":
                 grading_valid = has_expected and isinstance(expected, bool)
             elif input_type == "syllable":
@@ -1131,10 +1174,10 @@ def validate_listening_source_directory(
             if str(question.get("question_type") or "").lower() == "mcq":
                 options = question.get("options") or []
                 option_keys = {
-                    str(option.get("letter") or option.get("key") or "")
+                    _grading_identity(option.get("letter") or option.get("key"))
                     for option in options if isinstance(option, dict)
                 }
-                if str(answer.get("answer") or "") not in option_keys:
+                if _grading_identity(answer.get("answer")) not in option_keys:
                     report.add("error", "LISTENING_SOURCE_ANSWER_INVALID", path,
                                f"Question {qnum or '?'} answer does not identify an option.")
     return report

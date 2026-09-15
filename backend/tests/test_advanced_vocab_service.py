@@ -459,6 +459,25 @@ def test_section_grader_accepts_authored_codes_and_explicit_slash_variants():
     ]
 
 
+@pytest.mark.parametrize(
+    ("authored", "submitted"),
+    [
+        ("TRUE", "true"),
+        ("FALSE", "false"),
+        ("NOT GIVEN", "not given"),
+        ("YES", "yes"),
+        ("NO", "no"),
+    ],
+)
+def test_section_grader_supports_every_reading_fixed_choice_value(
+        authored: str, submitted: str):
+    result = service._answer_results(
+        {"1": submitted}, [{"id": "1", "answer": authored}],
+    )
+
+    assert result[0]["is_correct"] is True
+
+
 @pytest.mark.parametrize("lesson_id", ["ADV-T22", "ADV-T23"])
 def test_learner_reading_projection_strips_source_and_correction_evidence(
     monkeypatch, lesson_id,

@@ -94,6 +94,7 @@ def _listening_figure_source(
 def _sync_listening_figure(
     source: Path, course_source: Path | None, lesson_id: str, figure: str,
     *, write: bool, content_checksum: str | None = None,
+    checksum: str | None = None,
 ) -> Path:
     source_asset = _listening_figure_source(
         source, course_source, lesson_id, figure,
@@ -104,10 +105,10 @@ def _sync_listening_figure(
             source_asset,
             _PUBLIC / "versions" / lesson_id / content_checksum
             / "listening" / Path(figure).name,
-            write=write,
+            write=write, checksum=checksum,
             immutable=True,
         )
-    _copy(source_asset, target, write=write)
+    _copy(source_asset, target, write=write, checksum=checksum)
     return target
 
 
@@ -237,9 +238,10 @@ def _prepare_lesson(source: Path, course_source: Path | None,
     for section in listening_content.get("sections") or []:
         figure = str(section.get("figure") or "")
         if figure:
-            _require_file(_listening_figure_source(
-                source, course_source, lesson_id, figure,
-            ))
+            _verify_source_asset(
+                _listening_figure_source(source, course_source, lesson_id, figure),
+                section.get("figure_checksum"),
+            )
     writing_refs = [
         str(ref) for ref in (lesson.get("media") or {}).get("wt1_illustrations") or []
     ]
@@ -328,6 +330,7 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
             figure_target = _sync_listening_figure(
                 source, course_source, lesson_id, figure, write=write,
                 content_checksum=actual_checksum,
+                checksum=section.get("figure_checksum"),
             )
             expected_assets.add(str(figure_target.relative_to(_REPO)))
         for ref in writing_refs:

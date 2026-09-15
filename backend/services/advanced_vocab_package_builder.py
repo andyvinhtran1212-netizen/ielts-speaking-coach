@@ -901,6 +901,19 @@ def _build_lesson(
     cluster_id = paths.topic_docx.parent.name.removeprefix("Cluster_").split("_")[0]
     review_number = (int(topic_code[1:]) - 1) // 5 + 1
     lesson_dir = output_root / "lessons" / lesson_id
+    listening_figure_sources: list[Path] = []
+    for section in listening.get("sections") or []:
+        figure = str(section.get("figure") or "")
+        if not figure:
+            continue
+        source_asset = paths.listening_json.parent.parent / figure
+        if not source_asset.is_file():
+            raise FileNotFoundError(f"Missing Listening figure: {source_asset}")
+        destination = lesson_dir / figure
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source_asset, destination)
+        section["figure_checksum"] = _sha256_file(source_asset)
+        listening_figure_sources.append(source_asset)
     illustration_refs: list[str] = []
     for source_asset in paths.wt1_assets:
         destination = lesson_dir / "assets" / "wt1" / source_asset.name
@@ -922,6 +935,9 @@ def _build_lesson(
         "listening_manifest": _relative(paths.audio_dir / "manifest.json", paths.source_root),
         "listening_timings": _relative(paths.audio_dir / "timings.json", paths.source_root),
         "listening_audio": _relative(paths.audio_dir / "full_test.mp3", paths.source_root),
+        "listening_figures": [
+            _relative(path, paths.source_root) for path in listening_figure_sources
+        ],
         "wt1_illustrations": [_relative(path, paths.source_root) for path in paths.wt1_assets],
         "wt1_question_bank": _relative(paths.wt1_question_bank, paths.source_root),
         "wt2_question_bank": _relative(paths.wt2_question_bank, paths.source_root),
@@ -937,6 +953,7 @@ def _build_lesson(
         paths.audio_dir / "manifest.json",
         paths.audio_dir / "timings.json",
         paths.audio_dir / "full_test.mp3",
+        *listening_figure_sources,
         *paths.wt1_assets,
         paths.wt1_question_bank,
         paths.wt2_question_bank,

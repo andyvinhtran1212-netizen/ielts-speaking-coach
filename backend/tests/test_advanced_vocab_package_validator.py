@@ -355,6 +355,38 @@ def test_duplicate_mcq_option_keys_fail_closed(tmp_path: Path):
     assert "MCQ_DUPLICATE_OPTION_KEY" in _codes(report)
 
 
+def test_option_keys_that_collide_after_grading_normalization_fail_every_section(
+        tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    lesson["adaptive_quiz"]["items"][0]["options"][1]["key"] = "a"
+    reading = next(
+        activity for activity in lesson["activities"]
+        if activity["activity_type"] == "reading_lab"
+    )
+    reading["content"]["questions"][0].update({
+        "question_type": "mcq",
+        "options": [
+            {"key": "A", "text": "First"},
+            {"key": "a", "text": "Second"},
+        ],
+    })
+    reading["content"]["solutions"]["1"]["answer"] = "A"
+    listening = next(
+        activity for activity in lesson["activities"]
+        if activity["activity_type"] == "listening_lab"
+    )
+    listening["content"]["questions"][3]["options"][1]["letter"] = "a"
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    report = validate_package(tmp_path)
+
+    assert sum(
+        issue.code == "MCQ_DUPLICATE_OPTION_KEY" for issue in report.errors
+    ) >= 3
+
+
 def test_mcq_answer_must_identify_an_existing_option(tmp_path: Path):
     _write_package(tmp_path)
     path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
@@ -802,6 +834,7 @@ def test_listening_figure_sync_uses_canonical_source_checksum(
     source_figure = course_source / "Listening_Lessons_Web" / "Figures" / "map.svg"
     source_figure.parent.mkdir(parents=True)
     source_figure.write_bytes(b"canonical-v1")
+    checksum = hashlib.sha256(b"canonical-v1").hexdigest()
     public = tmp_path / "public"
     target = public / "ADV-T11" / "listening" / "map.svg"
     target.parent.mkdir(parents=True)
@@ -811,17 +844,25 @@ def test_listening_figure_sync_uses_canonical_source_checksum(
     with pytest.raises(SystemExit, match="Snapshot deploy không khớp source"):
         sync_module._sync_listening_figure(
             package, course_source, "ADV-T11", "Figures/map.svg", write=False,
+            checksum=checksum,
         )
 
     sync_module._sync_listening_figure(
         package, course_source, "ADV-T11", "Figures/map.svg", write=True,
+        checksum=checksum,
     )
     assert target.read_bytes() == b"canonical-v1"
 
     source_figure.write_bytes(b"canonical-v2")
-    with pytest.raises(SystemExit, match="Snapshot deploy không khớp source"):
+    with pytest.raises(SystemExit, match="Sai checksum source asset"):
         sync_module._sync_listening_figure(
             package, course_source, "ADV-T11", "Figures/map.svg", write=False,
+            checksum=checksum,
+        )
+    with pytest.raises(SystemExit, match="Sai checksum source asset"):
+        sync_module._sync_listening_figure(
+            package, course_source, "ADV-T11", "Figures/map.svg", write=True,
+            checksum=checksum,
         )
 
 
@@ -1082,6 +1123,44 @@ def test_reading_mcq_solution_must_match_unique_option_key(
     _rewrite_lesson_with_checksums(tmp_path, lesson)
 
     assert "READING_MCQ_ANSWER_INVALID" in _codes(validate_package(tmp_path))
+
+
+@pytest.mark.parametrize(
+    ("question_type", "invalid_answer"),
+    [("T/F/NG", "YES"), ("Y/N/NG", "FALSE")],
+)
+def test_reading_fixed_choice_solution_must_use_supported_answer(
+        tmp_path: Path, question_type: str, invalid_answer: str):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    reading = next(
+        activity for activity in lesson["activities"]
+        if activity["activity_type"] == "reading_lab"
+    )
+    reading["content"]["questions"][0]["question_type"] = question_type
+    reading["content"]["solutions"]["1"]["answer"] = invalid_answer
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    assert "READING_FIXED_CHOICE_ANSWER_INVALID" in _codes(
+        validate_package(tmp_path)
+    )
+
+
+def test_listening_figure_requires_checksum(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    listening = next(
+        activity for activity in lesson["activities"]
+        if activity["activity_type"] == "listening_lab"
+    )
+    listening["content"]["sections"] = [{"figure": "Figures/map.svg"}]
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    assert "LISTENING_FIGURE_CHECKSUM_INVALID" in _codes(
+        validate_package(tmp_path)
+    )
 
 
 def test_warning_prevents_publish_ready_without_invalidating_schema(tmp_path: Path):
