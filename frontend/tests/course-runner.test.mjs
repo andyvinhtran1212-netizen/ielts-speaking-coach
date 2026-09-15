@@ -130,13 +130,11 @@ function fakeApi({ questions, mastery = null, failSession = false, failProgress 
       // Chốt phiên = `ended_at` được ghi ⇒ phiên vào danh sách đã-chốt, đúng
       // như `get_course_resume` đọc trên máy chủ.
       const m = /\/sessions\/([^/]+)$/.exec(String(path));
-      if (m && body && Array.isArray(body.attempts)) {
+      if (m && body && body.ended_by === 'time_cap' && Array.isArray(body.attempts)) {
         const list = answered.get(m[1]) || [];
-        body.attempts.forEach((a) => {
-          if (a.client_id && list.some((row) => row.client_id === a.client_id)) return;
-          list.push({ client_id: a.client_id, qid: a.qid, is_correct: !!a.is_correct });
-        });
-        answered.set(m[1], list);
+        const missing = body.attempts.some((a) => !a.client_id
+          || !list.some((row) => row.client_id === a.client_id));
+        if (missing) throw new Error('timed_course_final_batch_missing');
       }
       if (m && body && body.ended_by && ended.indexOf(m[1]) === -1) ended.push(m[1]);
       return {};
@@ -335,14 +333,15 @@ test('waits for a progress write admitted before cutoff even if its ACK is late'
     .map((row) => row.qid), ['Q1']);
 });
 
-test('a transient final eager 5xx is included atomically in the timeout close', async () => {
-  let clock = 59000;
+test('a transient timed eager 5xx retries before cutoff and needs no late insert', async () => {
+  let clock = 50000;
+  const scheduled = [];
   const ledger = newLedger();
   const api = fakeApi({
     questions: [mcq(1)], ledger,
     mastery: {
       item_id: 'item-timed', is_timed: true,
-      expires_at: null, time_remaining_seconds: 1,
+      expires_at: null, time_remaining_seconds: 10,
     },
   });
   const post = api.post.bind(api);
@@ -355,7 +354,10 @@ test('a transient final eager 5xx is included atomically in the timeout close', 
     }
     return post(path, body);
   };
-  const runner = createRunner({ api, storage: null, now: () => clock });
+  const runner = createRunner({
+    api, storage: null, now: () => clock,
+    schedule(fn, delay) { scheduled.push({ fn, delay }); },
+  });
   await runner.load('b1', { assignmentItemId: 'item-timed' });
   runner.show();
   runner.answer(0);
@@ -363,13 +365,23 @@ test('a transient final eager 5xx is included atomically in the timeout close', 
   await Promise.resolve();
   await Promise.resolve();
   assert.equal(runner.pendingCount, 1, 'failed eager batch must return to pending');
+  assert.equal(scheduled.length, 1, 'timed failure must schedule a retry without another answer');
+  assert.equal(scheduled[0].delay, 250, 'first retry uses bounded backoff');
+
+  clock += scheduled[0].delay;
+  scheduled.shift().fn();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(runner.pendingCount, 0, 'retry admitted the answer before cutoff');
 
   clock = 60000;
   const result = await runner.finishStage({ endedBy: 'time_cap' });
 
   assert.equal(result.persisted, true);
   assert.equal(runner.pendingCount, 0, 'only a successful atomic close clears pending');
-  assert.deepEqual(api.calls.patch.at(-1).body.attempts.map((row) => row.qid), ['Q1']);
+  assert.deepEqual(api.calls.patch.at(-1).body.attempts, [],
+    'timeout finalizer verifies state but never inserts a new late answer');
   assert.deepEqual(ledger.answered.get('sess-1').map((row) => row.qid), ['Q1'],
     'the timeout session score reads the same persisted attempt ledger');
 });
@@ -383,7 +395,9 @@ test('a failed atomic timeout close keeps the final answers for visible retry', 
       expires_at: null, time_remaining_seconds: 1,
     },
   });
-  const runner = createRunner({ api, storage: null, now: () => clock });
+  const runner = createRunner({
+    api, storage: null, now: () => clock, schedule() {},
+  });
   await runner.load('b1', { assignmentItemId: 'item-timed' });
   runner.show();
   runner.answer(0);
@@ -397,6 +411,43 @@ test('a failed atomic timeout close keeps the final answers for visible retry', 
   assert.equal(result.persisted, false);
   assert.equal(result.retryable, true);
   assert.equal(runner.pendingCount, 1, 'no ACK means the answer must remain retryable');
+});
+
+test('timed eager retry backoff is bounded during a persistent outage', async () => {
+  let clock = 0;
+  const scheduled = [];
+  const delays = [];
+  const api = fakeApi({
+    questions: [mcq(1)], failProgress: true,
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      expires_at: null, time_remaining_seconds: 60,
+    },
+  });
+  const runner = createRunner({
+    api, storage: null, now: () => clock,
+    schedule(fn, delay) {
+      delays.push(delay);
+      scheduled.push({ fn, delay });
+    },
+  });
+  await runner.load('b1', { assignmentItemId: 'item-timed' });
+  runner.show();
+  runner.answer(0);
+  runner.next();
+  for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+
+  while (scheduled.length) {
+    const job = scheduled.shift();
+    clock += job.delay;
+    job.fn();
+    for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+  }
+
+  assert.deepEqual(delays, [250, 500, 1000, 2000, 4000]);
+  assert.equal(api.calls.post.filter((c) => c.path.endsWith('/progress')).length, 6,
+    'one initial request plus five bounded retries');
+  assert.equal(runner.pendingCount, 1, 'unacknowledged answer remains visible for recovery');
 });
 
 test('a completed session stays closed when the page timer later expires', async () => {

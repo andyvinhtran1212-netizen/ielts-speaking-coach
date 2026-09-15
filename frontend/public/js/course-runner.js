@@ -146,7 +146,10 @@ export function retakeClone(q, rng) {
   };
 }
 
-export function createRunner({ api, storage, now = () => Date.now() }) {
+export function createRunner({
+  api, storage, now = () => Date.now(),
+  schedule = (fn, delay) => setTimeout(fn, delay),
+}) {
   let bank = null;
   let mastery = null;
   // Anchor the server's remaining seconds to this page load.  Comparing the
@@ -199,6 +202,13 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
   // này để đường keepalive phát lại; backend idempotent nên hai request cùng tới
   // cũng chỉ tạo một quiz_attempt.
   let eagerBatch = [];
+  // A timed answer is useful only if /progress admits it before the canonical
+  // cutoff. Retry a transient eager failure without waiting for another click,
+  // but cap both frequency and attempts so an outage cannot create an
+  // unbounded request loop.
+  const eagerRetryDelays = [250, 500, 1000, 2000, 4000];
+  let eagerRetryAttempt = 0;
+  let eagerRetryScheduled = false;
 
   const key = () => 'cx:' + (bank && bank.id);
   // Vân tay bộ đề: đổi câu HOẶC đổi đáp án (re-import) đều đổi vân tay. Trạng
@@ -542,14 +552,49 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
       // một con số thấp hơn thực tế rồi tưởng em ấy bỏ bài.
       if (keepalive && api.postWith) await api.postWith(path, body, null, { keepalive: true });
       else await api.post(path, body);
+      if (!keepalive) eagerRetryAttempt = 0;
     } catch (err) {
       // Batch eager vẫn do request thường sở hữu; nếu nó hỏng, chính request đó
       // sẽ trả batch về hàng đợi. Chỉ phục hồi phần `queued` mà keepalive đã lấy.
       pending = (keepalive ? queued : batch).concat(pending);
+      if (!keepalive) scheduleTimedEagerRetry();
       throw err;
     } finally {
       if (!keepalive && eagerBatch === batch) eagerBatch = [];
     }
+  }
+
+  function timerRemainingMilliseconds() {
+    if (!mastery || !mastery.is_timed) return null;
+    if (Number.isFinite(timerRemainingAtSync)) {
+      return Math.max(0,
+        timerRemainingAtSync * 1000 - Math.max(0, now() - timerSyncedAt));
+    }
+    const expires = Date.parse(mastery.expires_at || '');
+    if (!Number.isFinite(expires)) {
+      return Math.max(0, Number(mastery.time_remaining_seconds || 0) * 1000);
+    }
+    return Math.max(0, expires - now());
+  }
+
+  function scheduleTimedEagerRetry() {
+    if (!mastery || !mastery.is_timed || eagerRetryScheduled
+        || eagerRetryAttempt >= eagerRetryDelays.length
+        || !sessionId || sessionEnded || !pending.length) return;
+    const remaining = timerRemainingMilliseconds();
+    if (!(remaining > 0)) return;
+    const configured = eagerRetryDelays[eagerRetryAttempt++];
+    // Leave a small admission margin instead of deliberately firing at the
+    // exact boundary.  Very short remaining windows retry immediately once.
+    const delay = Math.max(0, Math.min(configured, remaining - 25));
+    eagerRetryScheduled = true;
+    schedule(function () {
+      eagerRetryScheduled = false;
+      if (!(timerRemainingMilliseconds() > 0)
+          || !sessionId || sessionEnded || !pending.length) return;
+      inflight = inflight.then(() => flush())
+        .catch(() => { /* flush restored and scheduled the next bounded retry */ });
+    }, delay);
   }
 
   function queue(q, ok, given) {
@@ -589,13 +634,7 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
     get expiresAt() { return (mastery && mastery.expires_at) || null; },
     timeRemainingSeconds() {
       if (!mastery || !mastery.is_timed) return null;
-      if (Number.isFinite(timerRemainingAtSync)) {
-        const elapsed = Math.max(0, now() - timerSyncedAt) / 1000;
-        return Math.max(0, Math.ceil(timerRemainingAtSync - elapsed));
-      }
-      const expires = Date.parse(mastery.expires_at || '');
-      if (!Number.isFinite(expires)) return Number(mastery.time_remaining_seconds || 0);
-      return Math.max(0, Math.ceil((expires - now()) / 1000));
+      return Math.ceil(timerRemainingMilliseconds() / 1000);
     },
     isTimedOut() { return this.isTimed && this.timeRemainingSeconds() <= 0; },
     stageQuestions,
@@ -766,10 +805,9 @@ export function createRunner({ api, storage, now = () => Date.now() }) {
         try {
           await inflight;        // chờ lượt đẩy nền xong rồi mới xét hàng đợi
           if (endedBy !== 'time_cap') await flush();
-          // Một eager /progress có thể tới máy chủ trước cutoff nhưng trả 5xx
-          // và được `flush()` đặt lại vào pending. Timeout endpoint nhận chính
-          // batch còn lại và ghi attempts + đóng session trong MỘT transaction;
-          // chỉ xoá local sau ACK thành công.
+          // Batch còn lại chỉ là bằng chứng idempotency: timeout RPC KHÔNG chèn
+          // câu mới sau hạn. Nó chỉ ACK khi mọi client_id đã được /progress
+          // nhận trước cutoff, rồi tự tính điểm từ ledger canonical.
           const finishPayload = {
             duration_sec: Math.round((now() - stageStartedAt) / 1000),
             total_questions: graded,
