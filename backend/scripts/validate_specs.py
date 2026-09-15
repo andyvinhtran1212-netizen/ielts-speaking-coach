@@ -173,32 +173,111 @@ def _semver(value: Any) -> tuple[int, int, int] | None:
     return tuple(map(int, match.groups())) if match else None
 
 
-def _visible_markdown(text: str) -> str:
+def _markdown_list_item_columns(
+    line: str, active_content_columns: list[int]
+) -> tuple[int, int, str] | None:
+    """Return a rendered list item's marker/content columns and body."""
+    match = re.match(
+        r"^(?P<indent>[ \t]*)(?P<marker>[-+*]|\d{1,9}[.)])"
+        r"(?P<spacing>[ \t]+)(?P<body>\S.*)$",
+        line.rstrip("\r\n"),
+    )
+    if match is None:
+        return None
+
+    indent = len(match.group("indent").expandtabs(4))
+    rendered = indent <= 3 or any(
+        content <= indent <= content + 3 for content in active_content_columns
+    )
+    if not rendered:
+        return None
+    prefix = match.group("indent") + match.group("marker") + match.group("spacing")
+    content = len(prefix.expandtabs(4))
+    return indent, content, match.group("body")
+
+
+def _visible_markdown_lines(text: str) -> list[tuple[str, int | None, bool]]:
+    """Return visible lines plus explicit boundaries for stripped fenced blocks.
+
+    The optional integer on a fence boundary is the containing list item's
+    content column. It lets list-aware consumers preserve a real parent list
+    across a nested fence while clearing stale context after a top-level fence.
+    """
     without_comments = re.sub(r"<!--.*?(?:-->|\Z)", "", text, flags=re.DOTALL)
-    visible: list[str] = []
+    visible: list[tuple[str, int | None, bool]] = []
+    active_list_content_columns: list[int] = []
+    after_blank = False
     fence_character: str | None = None
     minimum_closing_length = 0
+    fence_container_column: int | None = None
     for line in without_comments.splitlines(keepends=True):
         stripped_line = line.rstrip("\r\n")
+        expanded_line = stripped_line.expandtabs(4)
+        indentation = len(expanded_line) - len(expanded_line.lstrip(" "))
         if fence_character is None:
-            opener = re.match(r"^ {0,3}(?P<fence>`{3,}|~{3,})", stripped_line)
+            top_level_fence = indentation <= 3
+            nested_containers = [
+                content
+                for content in active_list_content_columns
+                if content <= indentation <= content + 3
+            ]
+            fence_container_column = max(nested_containers) if nested_containers else None
+            opener = re.match(r"^(?P<fence>`{3,}|~{3,})", expanded_line.lstrip(" "))
+            if opener is not None and not (top_level_fence or nested_containers):
+                opener = None
             if opener:
                 fence = opener.group("fence")
                 fence_character = fence[0]
                 minimum_closing_length = len(fence)
-                visible.append(line[len(stripped_line) :])
+                if nested_containers:
+                    fence_container_column = max(nested_containers)
+                elif top_level_fence:
+                    fence_container_column = None
+                    active_list_content_columns = []
+                line_ending = line[len(stripped_line) :] or "\n"
+                visible.append((line_ending, fence_container_column, True))
+                after_blank = True
                 continue
-            visible.append(line)
+
+            visible.append((line, None, False))
+            if not stripped_line.strip():
+                after_blank = True
+                continue
+            list_item = _markdown_list_item_columns(
+                stripped_line, active_list_content_columns
+            )
+            if list_item is not None:
+                indent, content, _ = list_item
+                active_list_content_columns = [
+                    column
+                    for column in active_list_content_columns
+                    if column <= indent
+                ]
+                active_list_content_columns.append(content)
+            elif after_blank and not stripped_line[:1].isspace():
+                active_list_content_columns = []
+            after_blank = False
             continue
 
-        closer = re.fullmatch(r" {0,3}(?P<fence>`{3,}|~{3,})[ \t]*", stripped_line)
+        base_column = fence_container_column or 0
+        relative_indentation = indentation - base_column
+        closer = None
+        if 0 <= relative_indentation <= 3:
+            closer = re.fullmatch(
+                r"(?P<fence>`{3,}|~{3,})[ \t]*", expanded_line.lstrip(" ")
+            )
         if closer:
             fence = closer.group("fence")
             if fence[0] == fence_character and len(fence) >= minimum_closing_length:
                 fence_character = None
                 minimum_closing_length = 0
+                fence_container_column = None
 
-    return "".join(visible)
+    return visible
+
+
+def _visible_markdown(text: str) -> str:
+    return "".join(line for line, _, _ in _visible_markdown_lines(text))
 
 
 def _has_heading(text: str, heading: str) -> bool:
@@ -423,36 +502,37 @@ def _normalized_template_content(value: str) -> str:
 def _markdown_checkbox_tasks(text: str) -> list[tuple[bool, str]]:
     """Extract rendered checkbox list items without counting indented code."""
     tasks: list[tuple[bool, str]] = []
-    active_list_indents: list[int] = []
+    active_list_content_columns: list[int] = []
     after_blank = False
-    for line in _visible_markdown(text).splitlines():
+    for raw_line, fence_container, is_fence_boundary in _visible_markdown_lines(text):
+        if is_fence_boundary:
+            if fence_container is None:
+                active_list_content_columns = []
+            else:
+                active_list_content_columns = [
+                    column
+                    for column in active_list_content_columns
+                    if column <= fence_container
+                ]
+            after_blank = True
+            continue
+        line = raw_line.rstrip("\r\n")
         if not line.strip():
             after_blank = True
             continue
-        list_item = re.match(
-            r"^(?P<indent>[ \t]*)(?:[-+*]|\d{1,9}[.)])[ \t]+(?P<body>\S.*)$",
-            line,
-        )
+        list_item = _markdown_list_item_columns(line, active_list_content_columns)
         if list_item is None:
             if after_blank and not line[:1].isspace():
-                active_list_indents = []
+                active_list_content_columns = []
             after_blank = False
             continue
 
-        indent = len(list_item.group("indent").expandtabs(4))
-        rendered = indent <= 3 or any(
-            parent_indent < indent for parent_indent in active_list_indents
-        )
-        if not rendered:
-            after_blank = False
-            continue
-        active_list_indents = [
-            parent_indent
-            for parent_indent in active_list_indents
-            if parent_indent < indent
+        indent, content, body = list_item
+        active_list_content_columns = [
+            column for column in active_list_content_columns if column <= indent
         ]
-        active_list_indents.append(indent)
-        checkbox = re.match(r"^\[(?P<mark>[ xX])]\s+(?P<body>\S.*)$", list_item.group("body"))
+        active_list_content_columns.append(content)
+        checkbox = re.match(r"^\[(?P<mark>[ xX])]\s+(?P<body>\S.*)$", body)
         if checkbox:
             tasks.append(
                 (checkbox.group("mark").lower() == "x", checkbox.group("body"))

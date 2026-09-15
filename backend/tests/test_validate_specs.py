@@ -221,6 +221,56 @@ def test_repository_rejects_code_indented_only_task_but_accepts_nested_task(
     assert nested_errors == []
 
 
+def test_repository_ignores_deep_code_and_code_after_top_level_fence(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path)
+    tasks = root / "specs/0001-example-feature/tasks.md"
+    tasks.write_text(
+        "- [x] T001 Visible parent.\n\n"
+        "        - [ ] example in indented code\n",
+        encoding="utf-8",
+    )
+    deep_code_errors, _ = validator.validate_repository(root)
+    assert deep_code_errors == []
+
+    tasks.write_text(
+        "- [x] T001 Visible parent.\n"
+        "```text\nexample\n```\n"
+        "    - [ ] example in top-level indented code\n",
+        encoding="utf-8",
+    )
+    post_fence_errors, _ = validator.validate_repository(root)
+    assert post_fence_errors == []
+
+
+def test_repository_strips_nested_fences_but_keeps_real_nested_tasks(
+    tmp_path: Path,
+) -> None:
+    root = _valid_repo(tmp_path)
+    tasks = root / "specs/0001-example-feature/tasks.md"
+    tasks.write_text(
+        "- [x] T001 Visible parent.\n"
+        "    ```markdown\n"
+        "    - [ ] example only\n"
+        "    ```\n"
+        "    - [ ] T002 Real nested task.\n",
+        encoding="utf-8",
+    )
+    errors, _ = validator.validate_repository(root)
+    assert any("incomplete required tasks" in error for error in errors)
+
+    tasks.write_text(
+        "- [x] T001 Visible parent.\n"
+        "    ```markdown\n"
+        "    - [ ] example only\n"
+        "    ```\n",
+        encoding="utf-8",
+    )
+    fenced_only_errors, _ = validator.validate_repository(root)
+    assert fenced_only_errors == []
+
+
 def test_repository_rejects_missing_requirement_evidence(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path)
     (root / "specs/0001-example-feature/verification.md").write_text(
@@ -294,6 +344,34 @@ def test_visible_markdown_accepts_longer_closing_fence() -> None:
 
     indented_code = "    ```text\n    hidden code, not a fence\n    ```\nAfter.\n"
     assert validator._visible_markdown(indented_code) == indented_code
+
+    nested_fence = (
+        "- Rule MUST remain visible.\n"
+        "    ```text\n"
+        "    Hidden example MUST not participate.\n"
+        "    ```\n"
+        "After.\n"
+    )
+    assert validator._visible_markdown(nested_fence) == (
+        "- Rule MUST remain visible.\n\nAfter.\n"
+    )
+
+
+def test_constitution_nested_fenced_example_does_not_change_obligations() -> None:
+    base = """---
+version: 1.0.0
+---
+
+- Deployments MUST require approval.
+  ```text
+  Example MUST use the old wording.
+  ```
+"""
+    edited = base.replace("version: 1.0.0", "version: 1.0.1").replace(
+        "old wording", "new wording"
+    )
+    _, _, required, bump = validator._expected_constitution_version(base, edited)
+    assert (required, bump) == ((1, 0, 1), "patch")
 
 
 def test_repository_rejects_empty_required_artifact(tmp_path: Path) -> None:
