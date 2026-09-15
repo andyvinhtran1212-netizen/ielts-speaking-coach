@@ -1900,6 +1900,61 @@ def test_time_cap_atomically_includes_the_final_pending_attempts():
                    for call in fake.calls)
 
 
+def test_time_cap_terminal_retry_proves_final_attempts_are_persisted():
+    """A reaper-won race must enter the row-locked RPC, not return 200 early."""
+    terminal = {
+        "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+        "class_assignment_item_id": "item-timed",
+        "ended_at": "2026-09-15T01:30:00+00:00", "ended_by": "time_cap",
+    }
+    attempt = {
+        "client_id": "33333333-3333-3333-3333-333333333333",
+        "item_key": "x", "qid": "q-final", "is_correct": True,
+        "answer_given": "4", "response_time_ms": 59_100, "attempt_no": 1,
+    }
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_finalize_timed_course_session"): [terminal],
+    })
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_owned_session", return_value=terminal):
+        out = quiz_service.end_session(
+            user_id=_USER, session_id=_SESS,
+            data={"ended_by": "time_cap", "attempts": [attempt]},
+        )
+
+    assert out == terminal
+    assert any(call["table"] == "rpc:quiz_finalize_timed_course_session"
+               for call in fake.calls)
+
+
+def test_time_cap_terminal_retry_rejects_an_unpersisted_final_batch():
+    terminal = {
+        "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+        "class_assignment_item_id": "item-timed",
+        "ended_at": "2026-09-15T01:30:00+00:00", "ended_by": "time_cap",
+    }
+    attempt = {
+        "client_id": "33333333-3333-3333-3333-333333333333",
+        "item_key": "x", "qid": "q-final", "is_correct": True,
+    }
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_finalize_timed_course_session"):
+            Exception("timed_course_final_batch_missing"),
+    })
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_owned_session", return_value=terminal), \
+         pytest.raises(HTTPException) as exc_info:
+        quiz_service.end_session(
+            user_id=_USER, session_id=_SESS,
+            data={"ended_by": "time_cap", "attempts": [attempt]},
+        )
+
+    assert exc_info.value.status_code == 409
+    assert "trước khi batch" in exc_info.value.detail
+
+
 @pytest.mark.parametrize(("requested", "winner"), [
     ("completed", "time_cap"),
     ("time_cap", "completed"),

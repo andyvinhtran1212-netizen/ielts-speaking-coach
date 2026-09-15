@@ -2560,14 +2560,6 @@ def _assert_course_session_accepting(session: dict, ended_by: str = "completed")
 def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
     """Finalize a session with totals from the client. ended_by ∈ ENDED_BY."""
     session = _owned_session(session_id, user_id)
-    # A completed/paused/time-capped session is immutable history.  In
-    # particular, the browser timer can reach zero while a final verdict is
-    # still in flight; its late ``time_cap`` retry must not replace an on-time
-    # ``completed`` timestamp and turn that attempt into a timeout.  Returning
-    # the canonical row also makes a retry safe when the first PATCH reached
-    # the database but its response was lost.
-    if session.get("ended_at") or session.get("ended_by"):
-        return session
     ended_by = data.get("ended_by")
     if ended_by not in _ENDED_BY:
         ended_by = "completed"
@@ -2578,6 +2570,23 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
         raise HTTPException(413, "Batch quá lớn.")
     if final_attempts and ended_by != "time_cap":
         raise HTTPException(422, "Chỉ lượt hết giờ mới nhận batch đáp án cuối.")
+
+    timed_course_final_batch = bool(
+        final_attempts
+        and ended_by == "time_cap"
+        and session.get("class_assignment_item_id")
+    )
+    # A completed/paused/time-capped session is immutable history.  In
+    # particular, the browser timer can reach zero while a final verdict is
+    # still in flight; its late ``time_cap`` retry must not replace an on-time
+    # ``completed`` timestamp and turn that attempt into a timeout. A timed
+    # Course retry carrying attempts is the exception: it must enter the
+    # row-locked RPC, which proves that every client_id already persisted
+    # before returning terminal truth. Otherwise a reaper-won race could make
+    # an unsaved batch look successful to the browser.
+    if ((session.get("ended_at") or session.get("ended_by"))
+            and not timed_course_final_batch):
+        return session
 
     if ended_by == "time_cap" and session.get("class_assignment_item_id"):
         attempt_rows = []
@@ -2613,6 +2622,10 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
             if "timed_course_final_batch_expired" in detail:
                 raise HTTPException(
                     409, "Batch đáp án cuối đến quá trễ để tính vào bài hết giờ.",
+                ) from exc
+            if "timed_course_final_batch_missing" in detail:
+                raise HTTPException(
+                    409, "Phiên đã đóng trước khi batch đáp án cuối được lưu.",
                 ) from exc
             if "timed_course_limit_invalid" in detail:
                 raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.") from exc
