@@ -356,6 +356,19 @@ def test_visible_markdown_accepts_longer_closing_fence() -> None:
         "- Rule MUST remain visible.\n\nAfter.\n"
     )
 
+    invalid_backtick_info = (
+        "```text`invalid\n- [ ] T001 remains visible.\n```\n"
+    )
+    assert "- [ ] T001 remains visible." in validator._visible_markdown(
+        invalid_backtick_info
+    )
+    assert validator._markdown_checkbox_tasks(invalid_backtick_info) == [
+        (False, "T001 remains visible.")
+    ]
+
+    valid_tilde_info = "~~~text`allowed\nhidden\n~~~\nAfter.\n"
+    assert validator._visible_markdown(valid_tilde_info) == "\nAfter.\n"
+
 
 def test_constitution_nested_fenced_example_does_not_change_obligations() -> None:
     base = """---

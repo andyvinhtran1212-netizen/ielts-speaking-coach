@@ -222,8 +222,17 @@ def _visible_markdown_lines(text: str) -> list[tuple[str, int | None, bool]]:
                 if content <= indentation <= content + 3
             ]
             fence_container_column = max(nested_containers) if nested_containers else None
-            opener = re.match(r"^(?P<fence>`{3,}|~{3,})", expanded_line.lstrip(" "))
+            opener = re.fullmatch(
+                r"(?P<fence>`{3,}|~{3,})(?P<info>[^\r\n]*)",
+                expanded_line.lstrip(" "),
+            )
             if opener is not None and not (top_level_fence or nested_containers):
+                opener = None
+            if (
+                opener is not None
+                and opener.group("fence").startswith("`")
+                and "`" in opener.group("info")
+            ):
                 opener = None
             if opener:
                 fence = opener.group("fence")
