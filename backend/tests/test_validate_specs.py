@@ -1521,7 +1521,7 @@ def test_constitution_standalone_obligation_requires_minor_bump(
     assert any("minor version bump to 1.1.0" in error for error in errors)
 
 
-def test_constitution_inline_modal_explanation_accepts_patch_bump(
+def test_constitution_unmarked_inline_modal_participates_in_versioning(
     tmp_path: Path,
 ) -> None:
     root = _valid_repo(tmp_path)
@@ -1553,10 +1553,11 @@ def test_constitution_inline_modal_explanation_accepts_patch_bump(
     assert repository_errors == []
     event = _event(root=root, change_class="small", spec="N/A", base_sha=base_sha)
     event["pull_request"]["body"] += (
-        "\n## Constitution amendment\n\nAmendment class: patch\n\n"
-        "Explains normative terminology without changing an obligation.\n"
+        "\n## Constitution amendment\n\nAmendment class: minor\n\n"
+        "Adds unmarked normative terminology.\n"
     )
-    assert validator.validate_pull_request(event, specs, root) == []
+    errors = validator.validate_pull_request(event, specs, root)
+    assert any("minor version bump to 1.1.0" in error for error in errors)
 
 
 def test_constitution_quoted_rule_declaration_requires_minor_bump(
@@ -1642,6 +1643,7 @@ def test_constitution_marked_example_does_not_hide_following_obligation(
     successors = (
         '“Deployments MUST be manually approved.”',
         "`Deployments` MUST be manually approved.",
+        "Deployments `MUST` be manually approved.",
         "**Deployments** MUST be manually approved.",
     )
     for index, successor in enumerate(successors):

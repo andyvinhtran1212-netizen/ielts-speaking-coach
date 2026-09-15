@@ -315,10 +315,9 @@ def _constitutional_obligations(text: str) -> set[str]:
             if marked_example
             else normalized
         )
-        modal_context = re.sub(r"(?P<ticks>`+).*?(?P=ticks)", "", candidate)
         if re.search(
             r"\b(?:MUST(?: NOT)?|SHOULD(?: NOT)?|MAY(?: NOT)?)\b",
-            modal_context,
+            candidate,
         ):
             obligations.add(candidate)
     return obligations
