@@ -43,6 +43,7 @@ WRITING_ACTIVITY_TYPE = "writing_reference"
 SPEAKING_ACTIVITY_TYPE = "speaking_practice"
 LISTENING_ACTIVITY_TYPE = "listening_lab"
 READING_ACTIVITY_TYPE = "reading_lab"
+CONTROLLED_REWRITE_ACTIVITY_TYPE = "controlled_rewrite"
 READING_AUTHORED_CONTENT_FIELDS = frozenset({
     "module", "passages", "question_material", "questions", "solutions",
     "solutions_visibility", "target_band", "test_id", "title",
@@ -306,6 +307,7 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
     speaking = []
     listening = []
     reading = []
+    controlled_rewrite = []
     for activity in activities:
         aid = str(activity.get("activity_id") or "")
         if not aid:
@@ -331,6 +333,8 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             listening.append(activity)
         if activity.get("activity_type") == READING_ACTIVITY_TYPE:
             reading.append(activity)
+        if activity.get("activity_type") == CONTROLLED_REWRITE_ACTIVITY_TYPE:
+            controlled_rewrite.append(activity)
 
     is_core_lesson = str(lesson.get("lesson_id") or "") in CORE_LESSON_SET
     if is_core_lesson and len(writing) != 1:
@@ -379,6 +383,56 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             if not isinstance(idea_sections, list) or len(idea_sections) < 12:
                 report.add("error", "WRITING_TASK2_IDEAS_INCOMPLETE", path,
                            "Task 2 needs all 12 authored idea-bank sections.")
+
+    if is_core_lesson and len(controlled_rewrite) != 1:
+        report.add(
+            "error", "CONTROLLED_REWRITE_ACTIVITY_COUNT", path,
+            "Each core lesson needs exactly one controlled rewrite activity; "
+            f"found {len(controlled_rewrite)}.",
+        )
+    for activity in controlled_rewrite:
+        valid_policy = (
+            activity.get("interaction_policy") == "self_check"
+            and activity.get("grading_policy") == "self_check"
+            and activity.get("completion_policy") == "required"
+            and activity.get("reveal_policy") == "after_attempt"
+            and activity.get("submittable") is False
+        )
+        if not valid_policy:
+            report.add(
+                "error", "CONTROLLED_REWRITE_POLICY_INVALID", path,
+                "Controlled rewrite must be required, self-check, revealed after "
+                "attempt, and non-submittable.",
+            )
+        content = activity.get("content")
+        blocks = content.get("solutions") if isinstance(content, dict) else None
+        if not isinstance(blocks, list) or any(
+            not isinstance(block, dict) for block in blocks
+        ):
+            report.add(
+                "error", "CONTROLLED_REWRITE_CONTENT_INVALID", path,
+                "Controlled rewrite needs a list of authored solution blocks.",
+            )
+            continue
+        markers = [
+            index for index, block in enumerate(blocks)
+            if re.match(
+                r"^phần\s+a(?:\b|\s|:|—|-)",
+                str(block.get("text") or "").strip(),
+                flags=re.IGNORECASE,
+            )
+        ]
+        prompt_blocks = blocks[:markers[1]] if len(markers) >= 2 else []
+        prompt_count = sum(
+            bool(re.match(r"^\d+\.\s+", str(block.get("text") or "").strip()))
+            for block in prompt_blocks
+        )
+        if len(markers) < 2 or prompt_count != 20:
+            report.add(
+                "error", "CONTROLLED_REWRITE_PROMPTS_INVALID", path,
+                "Controlled rewrite needs two Phần A markers and exactly 20 "
+                f"parsable numbered prompts; found {prompt_count} prompts.",
+            )
 
     if is_core_lesson and len(speaking) != 1:
         report.add("error", "SPEAKING_ACTIVITY_COUNT", path,
