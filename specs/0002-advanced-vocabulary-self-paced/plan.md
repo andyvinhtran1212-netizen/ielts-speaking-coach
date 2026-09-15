@@ -48,8 +48,9 @@
 - Any Advanced Vocabulary stage, question-attempt, first-Listening-attempt, or
   course-section row makes the assignment item non-deletable. The admin surface must
   treat that partial evidence as real learner work and offer only the existing
-  archive/retire behavior; archiving preserves the item and all evidence, and learner
-  and admin reloads continue to resolve the same progress.
+  archive/retire behavior. Archiving preserves the item and all evidence: admin reload
+  continues to show canonical progress, learner routes become unavailable as the kill
+  switch requires, and republishing restores learner access at the persisted stage.
 
 ## UI and interaction
 

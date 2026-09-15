@@ -69,7 +69,8 @@ that prevents answer leakage and gives admins canonical completion evidence.
 - **FR-006:** Required-stage answers, attempts, guided retry state, duration, and
   completion are persisted as canonical backend truth and returned to admins
   without inventing an overall score. Any partial evidence prevents assignment-item
-  deletion; archiving preserves progress and reloads identically.
+  deletion; archiving preserves progress for admins, blocks learner access, and
+  republishing restores learner resume from the same canonical stage.
 - **FR-007:** Database migration and RLS policies isolate learner-owned evidence,
   preserve immutable submission/version history, and support idempotent staged
   deployment before application promotion. The final Listening evidence and
@@ -159,7 +160,8 @@ that prevents answer leakage and gives admins canonical completion evidence.
   finalizers serialize without duplicate completion, and the migration repair
   changes only a pilot item that already has all six canonical evidence sets.
 - Admin deletion is rejected after the first partial-progress row in each Advanced
-  Vocabulary evidence store; archive/retire preserves the assignment and every row.
+  Vocabulary evidence store; archive/retire preserves the assignment and every row,
+  hides it from the learner, and a later republish restores the saved progress.
 - Removing an assignment does not make its historical evidence public or reusable.
 - Network or browser interruption resumes from persisted stage state.
 
