@@ -6,3 +6,7 @@
 
 Record canonical data ownership, mutation pending/settled behavior, focus
 movement, keyboard interaction, and what a reload must show.
+
+For a high-risk change with no user-interface impact, replace the matrix row with:
+
+`UI impact: N/A — <specific reason no UI surface or state is affected>`

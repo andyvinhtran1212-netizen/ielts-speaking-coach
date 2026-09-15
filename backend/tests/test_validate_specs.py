@@ -747,6 +747,14 @@ def test_high_risk_ui_state_matrix_requires_complete_surface_row(tmp_path: Path)
     errors, _ = validator.validate_repository(root)
     assert errors == []
 
+    matrix.write_text(
+        "# UI state matrix\n\n"
+        "UI impact: N/A — Database-only migration with no user interface surface.\n",
+        encoding="utf-8",
+    )
+    non_ui_errors, _ = validator.validate_repository(root)
+    assert non_ui_errors == []
+
 
 def test_feature_pr_rejects_spec_approved_only_after_base(tmp_path: Path) -> None:
     root = _valid_repo(tmp_path, status="draft")
@@ -1378,9 +1386,94 @@ def test_prior_approval_must_exist_at_topic_merge_base(tmp_path: Path) -> None:
         root,
     )
     assert any(
-        "implementation commits predate approved Spec 'FEAT-0002'" in error
+        "implementation commits predate approved FEAT-0002 FR-001" in error
         for error in merged_head_errors
     )
+
+
+def test_approval_chronology_tracks_only_covered_requirements(tmp_path: Path) -> None:
+    root = _valid_repo(tmp_path, status="approved")
+    common_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    subprocess.run(["git", "checkout", "-qb", "topic-fr-one"], cwd=root, check=True)
+    _write(root / "docs/fr-one.md", "implementation for FR-001\n")
+    subprocess.run(["git", "add", "docs/fr-one.md"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "implement approved FR-001"], cwd=root, check=True)
+
+    subprocess.run(
+        ["git", "checkout", "-qb", "base-add-fr-two", common_sha],
+        cwd=root,
+        check=True,
+    )
+    spec = root / "specs/0001-example-feature/spec.md"
+    spec.write_text(
+        spec.read_text(encoding="utf-8").replace(
+            "- **FR-001:** Works.\n",
+            "- **FR-001:** Works.\n- **FR-002:** Independent approved work.\n",
+        ),
+        encoding="utf-8",
+    )
+    verification = root / "specs/0001-example-feature/verification.md"
+    verification.write_text(
+        verification.read_text(encoding="utf-8")
+        + "| FR-002 | backend/tests/test_second.py::test_independent | PASS |\n",
+        encoding="utf-8",
+    )
+    _write(
+        root / "backend/tests/test_second.py",
+        "def test_independent():\n    assert True\n",
+    )
+    subprocess.run(["git", "add", "specs", "backend/tests/test_second.py"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-qm", "approve independent FR-002"], cwd=root, check=True)
+    base_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    subprocess.run(["git", "checkout", "topic-fr-one"], cwd=root, check=True)
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    before_merge = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            base_sha=base_sha,
+        ),
+        specs,
+        root,
+    )
+    assert before_merge == []
+
+    subprocess.run(
+        ["git", "merge", "--no-ff", "--no-edit", "base-add-fr-two"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    repository_errors, specs = validator.validate_repository(root)
+    assert repository_errors == []
+    after_merge = validator.validate_pull_request(
+        _event(
+            root=root,
+            change_class="feature",
+            spec="FEAT-0001",
+            base_sha=base_sha,
+        ),
+        specs,
+        root,
+    )
+    assert after_merge == []
 
 
 def test_staging_to_main_promotion_is_exempt(tmp_path: Path) -> None:

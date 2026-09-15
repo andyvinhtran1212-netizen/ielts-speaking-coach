@@ -283,6 +283,18 @@ def _has_populated_ui_state_matrix(text: str) -> bool:
     return False
 
 
+def _ui_states_not_applicable(text: str) -> bool:
+    match = re.search(
+        r"^UI impact:\s*N/A\s*(?:[-—:]\s*)(.+?)\s*$",
+        _visible_markdown(text),
+        re.MULTILINE | re.IGNORECASE,
+    )
+    if not match:
+        return False
+    rationale = match.group(1).strip()
+    return len(rationale) >= 12 and not _placeholder_value(rationale)
+
+
 def _evidence_detail_error(result: str, evidence: str, root: Path) -> str | None:
     normalized = result.upper()
     if normalized == "MANUAL":
@@ -440,9 +452,13 @@ def validate_repository(root: Path) -> tuple[list[str], dict[str, Path]]:
                         errors.append(
                             f"{feature / filename}: '## {heading}' section must contain meaningful content"
                         )
-            if not _has_populated_ui_state_matrix(texts.get("ui-states.md", "")):
+            ui_states = texts.get("ui-states.md", "")
+            if not (
+                _has_populated_ui_state_matrix(ui_states)
+                or _ui_states_not_applicable(ui_states)
+            ):
                 errors.append(
-                    f"{feature / 'ui-states.md'}: high-risk UI state matrix needs a complete surface row"
+                    f"{feature / 'ui-states.md'}: high-risk UI state matrix needs a complete surface row or explicit UI impact N/A rationale"
                 )
 
         for filename, headings in REQUIRED_SECTIONS.items():
@@ -607,12 +623,13 @@ def _git_changed_paths(
     return True, merge_base_sha, [path for path in result.stdout.splitlines() if path]
 
 
-def _git_approval_commit(
+def _git_requirement_approval_commit(
     root: Path,
     base_sha: str,
     spec_path: str,
     spec_id: str,
-    requirements: dict[str, str],
+    requirement: str,
+    description: str,
     risk: str,
 ) -> str | None:
     history = subprocess.run(
@@ -635,7 +652,7 @@ def _git_approval_commit(
             metadata.get("id") == spec_id
             and metadata.get("status") in IMPLEMENTABLE_SPEC_STATUSES
             and metadata.get("risk") == risk
-            and _declared_requirements(text) == requirements
+            and _declared_requirements(text).get(requirement) == description
         ):
             return revision
     return None
@@ -792,6 +809,9 @@ def validate_pull_request(
                     f"pull request: Spec '{spec_id}' risk {metadata.get('risk')!r} requires change class 'high-risk'"
                 )
             if requires_spec:
+                coverage_rows = _requirement_coverage(body)
+                coverage = [requirement for requirement, _ in coverage_rows]
+                current_requirements = _declared_requirements(metadata_text)
                 approved_requirements: dict[str, str] | None = None
                 bootstrap = False
                 if not merge_base_sha:
@@ -842,41 +862,44 @@ def validate_pull_request(
                             errors.append(
                                 f"pull request: {spec_id} was not approved as high or critical risk in the base revision"
                             )
-                        spec_path = str((feature / "spec.md").relative_to(root))
-                        approval_commit = _git_approval_commit(
-                            root,
-                            base_sha,
-                            spec_path,
-                            spec_id,
-                            _declared_requirements(metadata_text),
-                            str(metadata.get("risk") or ""),
-                        )
-                        if approval_commit is None:
-                            errors.append(
-                                f"pull request: cannot find durable approval commit for Spec '{spec_id}'"
-                            )
-                        else:
-                            ancestry_resolved, offenders = (
-                                _topic_implementation_before_approval(
+                        if not bootstrap:
+                            spec_path = str((feature / "spec.md").relative_to(root))
+                            for requirement in sorted(set(coverage)):
+                                description = current_requirements.get(requirement)
+                                if description is None:
+                                    continue
+                                approval_commit = _git_requirement_approval_commit(
                                     root,
                                     base_sha,
-                                    head_sha,
-                                    approval_commit,
+                                    spec_path,
+                                    spec_id,
+                                    requirement,
+                                    description,
+                                    str(metadata.get("risk") or ""),
                                 )
-                            )
-                            if not ancestry_resolved:
-                                errors.append(
-                                    f"pull request: cannot verify approval ancestry for Spec '{spec_id}'"
+                                if approval_commit is None:
+                                    errors.append(
+                                        f"pull request: cannot find durable approval commit for {spec_id} {requirement}"
+                                    )
+                                    continue
+                                ancestry_resolved, offenders = (
+                                    _topic_implementation_before_approval(
+                                        root,
+                                        base_sha,
+                                        head_sha,
+                                        approval_commit,
+                                    )
                                 )
-                            elif offenders:
-                                errors.append(
-                                    f"pull request: implementation commits predate approved Spec '{spec_id}': "
-                                    + ", ".join(revision[:12] for revision in offenders)
-                                )
+                                if not ancestry_resolved:
+                                    errors.append(
+                                        f"pull request: cannot verify approval ancestry for {spec_id} {requirement}"
+                                    )
+                                elif offenders:
+                                    errors.append(
+                                        f"pull request: implementation commits predate approved {spec_id} {requirement}: "
+                                        + ", ".join(revision[:12] for revision in offenders)
+                                    )
 
-                coverage_rows = _requirement_coverage(body)
-                coverage = [requirement for requirement, _ in coverage_rows]
-                current_requirements = _declared_requirements(metadata_text)
                 if bootstrap:
                     approved_requirements = current_requirements
                 if approved_requirements is not None:
