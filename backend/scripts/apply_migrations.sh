@@ -12,12 +12,17 @@
 #                                                     # (use right after cloning
 #                                                     # production schema)
 #   DRY_RUN=1 ./apply_migrations.sh <DATABASE_URL>    # list what would run
+#   MIGRATION_FEATURES=curated_vocab ./apply_migrations.sh <DATABASE_URL>
+#                                                    # explicitly include one
+#                                                    # pending feature group
 #
 # Safety: refuses the production Supabase project unless ALLOW_PROD=1.
 # Notes (see migrations/README.md):
 #   - 032_rollback.sql reverses 032 and is never part of a forward run.
 #   - 093/094/096 contain CREATE INDEX CONCURRENTLY, so files are NOT wrapped
 #     in a single transaction.
+#   - `migrations/forward-policy.tsv` keeps retired one-off/Gate migrations out
+#     of the queue and requires explicit opt-in for pending feature groups.
 set -euo pipefail
 
 BASELINE=0
@@ -25,10 +30,38 @@ if [[ "${1:-}" == "--baseline" ]]; then BASELINE=1; shift; fi
 DB_URL="${1:?usage: apply_migrations.sh [--baseline] <DATABASE_URL>}"
 MIG_DIR="$(cd "$(dirname "$0")/../migrations" && pwd)"
 LOCKED_APPLIER="$(cd "$(dirname "$0")" && pwd)/apply_migration_locked.sql"
+POLICY_FILE="$MIG_DIR/forward-policy.tsv"
 PROD_REF="huwsmtubwulikhlmcirx"
 
 if [[ "$DB_URL" == *"$PROD_REF"* && "${ALLOW_PROD:-0}" != "1" ]]; then
   echo "REFUSED: target looks like the production project ($PROD_REF). Set ALLOW_PROD=1 to override." >&2
+  exit 1
+fi
+
+if [[ ! -f "$POLICY_FILE" ]]; then
+  echo "REFUSED: missing migration forward policy: $POLICY_FILE" >&2
+  exit 1
+fi
+
+while IFS=$'\t' read -r policy_filename policy_state policy_group policy_reason; do
+  [[ -z "$policy_filename" || "$policy_filename" == \#* ]] && continue
+  if [[ ! -f "$MIG_DIR/$policy_filename" ]]; then
+    echo "REFUSED: migration forward policy references a missing file: $policy_filename" >&2
+    exit 1
+  fi
+done < "$POLICY_FILE"
+
+if ! awk -F '\t' '
+  BEGIN { valid = 1 }
+  /^#/ || NF == 0 { next }
+  NF != 4 { valid = 0; next }
+  seen[$1]++ { valid = 0 }
+  $2 != "retired" && $2 != "pending_feature" { valid = 0 }
+  $2 == "retired" && $3 != "-" { valid = 0 }
+  $2 == "pending_feature" && $3 !~ /^[a-z0-9_]+$/ { valid = 0 }
+  END { exit(valid ? 0 : 1) }
+' "$POLICY_FILE"; then
+  echo "REFUSED: malformed or duplicate migration forward policy" >&2
   exit 1
 fi
 
@@ -43,6 +76,7 @@ is_applied() {
 
 count=0
 skipped=0
+policy_skipped=0
 for f in $(ls "$MIG_DIR"/*.sql | sort); do
   base="$(basename "$f")"
   [[ "$base" == "032_rollback.sql" ]] && continue
@@ -52,6 +86,27 @@ for f in $(ls "$MIG_DIR"/*.sql | sort); do
   if is_applied "$base"; then
     skipped=$((skipped + 1))
     continue
+  fi
+
+  policy="$(awk -F '\t' -v filename="$base" '
+    $1 == filename { print $2 "\t" $3; exit }
+  ' "$POLICY_FILE")"
+  if [[ -n "$policy" ]]; then
+    policy_state="${policy%%$'\t'*}"
+    policy_group="${policy#*$'\t'}"
+    if [[ "$policy_state" == "retired" ]]; then
+      echo "policy skip: $base [retired]"
+      policy_skipped=$((policy_skipped + 1))
+      continue
+    fi
+    case ",${MIGRATION_FEATURES:-}," in
+      *",$policy_group,"*) ;;
+      *)
+        echo "policy skip: $base [pending_feature:$policy_group]"
+        policy_skipped=$((policy_skipped + 1))
+        continue
+        ;;
+    esac
   fi
   # The helper acquires the same PostgreSQL session lock as the production
   # reconciler, then re-checks this exact ledger row under the lock before it
@@ -82,3 +137,4 @@ mode="applied"
 [[ "$BASELINE" == "1" ]] && mode="baselined"
 [[ "${DRY_RUN:-0}" == "1" ]] && mode="would apply"
 echo "$mode: $count · already in ledger: $skipped"
+echo "policy skipped: $policy_skipped"

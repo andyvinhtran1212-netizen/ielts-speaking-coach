@@ -230,7 +230,12 @@ def _reading_rows(source_id: str, package: dict[str, Any]) -> tuple[dict, list, 
                 }
                 payload["solution"] = {
                     "question_text": "Which two parts of the tree were used for medicine? Enter both words; either order is accepted.",
-                    "tips": "Điền đủ hai từ leaves và bark; có thể đảo thứ tự.",
+                    "tips": "Điền đủ hai từ leaves và bark. Có thể đảo thứ tự; chỉ điền một từ thì không được tính điểm.",
+                    "trap_analysis": (
+                        "Đây là hai ô con cùng mang số 7. Từ and nằm cố định giữa hai ô "
+                        "trong bản in, nên hai từ cần nhập là leaves và bark; cả hai đều "
+                        "bắt buộc."
+                    ),
                 }
             if source_id == "cambridge-15-test-4" and qnum == 6:
                 payload.setdefault("template", {})["summary_text"] = (

@@ -95,3 +95,50 @@ def test_production_commit_requires_explicit_hidden_override(monkeypatch):
     monkeypatch.setattr(settings, "ENVIRONMENT", "production")
     with pytest.raises(importer.ValidationError, match="--allow-production-hidden"):
         importer.commit_plan([], confirmed_ref="production-ref")
+
+
+def test_cambridge_15_test_4_q07_repair_survives_reimport():
+    passages = []
+    for passage_number, bounds in enumerate(((1, 14), (15, 27), (28, 40)), start=1):
+        start, end = bounds
+        passage_questions = []
+        for number in range(start, end + 1):
+            text = f"Question {number}"
+            if number == 6:
+                text = "Summary {{6}} {{7}} {{8}}"
+            passage_questions.append(_q(number, text, {}, "gap-fill"))
+        passages.append({
+            "number": passage_number,
+            "questions": passage_questions,
+            "context": "word " * 20,
+        })
+    package = {
+        "reading": {
+            "passages": passages,
+            "answers": [
+                {"number": number, "answer": "placeholder"}
+                for number in range(1, 41)
+            ],
+        }
+    }
+
+    _test, _passages, rows = importer._reading_rows(
+        "cambridge-15-test-4", package
+    )
+    q07 = next(row for row in rows if row["q_num"] == 7)
+
+    assert q07["answer"] == {
+        "answer": "leaves bark",
+        "alternatives": [
+            "bark leaves", "leaves and bark", "bark and leaves",
+            "leaves, bark", "bark, leaves",
+        ],
+    }
+    assert q07["payload"]["solution"] == {
+        "question_text": "Which two parts of the tree were used for medicine? Enter both words; either order is accepted.",
+        "tips": "Điền đủ hai từ leaves và bark. Có thể đảo thứ tự; chỉ điền một từ thì không được tính điểm.",
+        "trap_analysis": (
+            "Đây là hai ô con cùng mang số 7. Từ and nằm cố định giữa hai ô "
+            "trong bản in, nên hai từ cần nhập là leaves và bark; cả hai đều bắt buộc."
+        ),
+    }
