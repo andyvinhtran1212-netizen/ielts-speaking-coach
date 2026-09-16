@@ -9,6 +9,7 @@ import {
   questionOptionIdentity,
   readingSupportLines,
 } from '@/lib/advanced-vocabulary-model.mjs';
+import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 type Json = Record<string, any>;
 type Stage = 'vocabulary' | 'practice_1' | 'practice_2' | 'reading' | 'controlled_rewrite' | 'listening' | 'writing' | 'speaking';
@@ -346,6 +347,8 @@ export function AdvancedVocabularyLesson() {
     const bank = params.get('bank'); const item = params.get('item');
     if (!bank || !item) { setError('Liên kết bài học thiếu bank hoặc item.'); setPhase('error'); return; }
     try {
+      const ready = await whenGlobalReady(() => !!window.api?.get, 'window.api (Advanced Vocabulary)');
+      if (!ready) throw new Error('Chưa thể khởi tạo bài học. Hãy tải lại trang.');
       const payload = await window.api.get<Json>(`/api/advanced-vocab/lessons/${encodeURIComponent(bank)}?item=${encodeURIComponent(item)}`);
       setData(payload);
       const done = new Set(payload.progress.completed_stages || []);

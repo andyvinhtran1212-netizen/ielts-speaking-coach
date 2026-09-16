@@ -143,6 +143,7 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
   });
 
   test('normalizes failures, focuses the error and exposes canonical retry', () => {
+    assert.match(UI, /await whenGlobalReady\(\(\) => !!window\.api\?\.get, 'window\.api \(Advanced Vocabulary\)'\)/);
     assert.match(UI, /errorHeadingRef\.current\?\.focus\(\)/);
     assert.match(UI, /inlineErrorRef\.current\?\.focus\(\)/);
     assert.match(UI, /Tải lại dữ liệu đã lưu/);
