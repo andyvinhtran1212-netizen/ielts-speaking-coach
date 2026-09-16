@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="620" viewBox="0 0 1180 620" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="620" fill="#ffffff"/>
+<text x="590" y="30" text-anchor="middle" font-size="18" font-weight="700" fill="#1e293b">AI deployment investment and enterprise adoption rate, by sector, 2024</text>
+<text x="590" y="52" text-anchor="middle" font-size="12.5" fill="#64748b">Five global sectors: Healthcare, Finance, Manufacturing, Retail, Defence</text>
+
+<text x="285" y="82" text-anchor="middle" font-size="14.5" font-weight="700" fill="#1e293b">Panel A — AI deployment investment (US$bn)</text>
+<line x1="70" y1="500" x2="70" y2="100" stroke="#94a3b8" stroke-width="1.5"/>
+<line x1="70" y1="500" x2="500" y2="500" stroke="#94a3b8" stroke-width="1.5"/>
+<line x1="70" y1="500" x2="500" y2="500" stroke="#e2e8f0" stroke-width="1"/>
+<text x="60" y="504" text-anchor="end" font-size="11" fill="#64748b">0</text>
+<line x1="70" y1="433.3" x2="500" y2="433.3" stroke="#e2e8f0" stroke-width="1"/>
+<text x="60" y="437.3" text-anchor="end" font-size="11" fill="#64748b">10</text>
+<line x1="70" y1="366.7" x2="500" y2="366.7" stroke="#e2e8f0" stroke-width="1"/>
+<text x="60" y="370.7" text-anchor="end" font-size="11" fill="#64748b">20</text>
+<line x1="70" y1="300.0" x2="500" y2="300.0" stroke="#e2e8f0" stroke-width="1"/>
+<text x="60" y="304.0" text-anchor="end" font-size="11" fill="#64748b">30</text>
+<line x1="70" y1="233.3" x2="500" y2="233.3" stroke="#e2e8f0" stroke-width="1"/>
+<text x="60" y="237.3" text-anchor="end" font-size="11" fill="#64748b">40</text>
+<line x1="70" y1="166.7" x2="500" y2="166.7" stroke="#e2e8f0" stroke-width="1"/>
+<text x="60" y="170.7" text-anchor="end" font-size="11" fill="#64748b">50</text>
+<line x1="70" y1="100.0" x2="500" y2="100.0" stroke="#e2e8f0" stroke-width="1"/>
+<text x="60" y="104.0" text-anchor="end" font-size="11" fill="#64748b">60</text>
+<text x="30" y="300" text-anchor="middle" font-size="11" fill="#64748b" transform="rotate(-90 30 300)">US$ billion</text>
+
+<rect x="90" y="246.7" width="52" height="253.3" rx="2" fill="#2563eb"/>
+<text x="116" y="240.7" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">38</text>
+<text x="116" y="518" text-anchor="middle" font-size="11.5" fill="#1e293b">Healthcare</text>
+<rect x="164" y="126.7" width="52" height="373.3" rx="2" fill="#2563eb"/>
+<text x="190" y="120.7" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">56</text>
+<text x="190" y="518" text-anchor="middle" font-size="11.5" fill="#1e293b">Finance</text>
+<rect x="238" y="286.7" width="52" height="213.3" rx="2" fill="#2563eb"/>
+<text x="264" y="280.7" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">32</text>
+<text x="264" y="518" text-anchor="middle" font-size="11.5" fill="#1e293b">Manufact.</text>
+<rect x="312" y="313.3" width="52" height="186.7" rx="2" fill="#2563eb"/>
+<text x="338" y="307.3" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">28</text>
+<text x="338" y="518" text-anchor="middle" font-size="11.5" fill="#1e293b">Retail</text>
+<rect x="386" y="206.7" width="52" height="293.3" rx="2" fill="#2563eb"/>
+<text x="412" y="200.7" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">44</text>
+<text x="412" y="518" text-anchor="middle" font-size="11.5" fill="#1e293b">Defence</text>
+
+<text x="895" y="82" text-anchor="middle" font-size="14.5" font-weight="700" fill="#1e293b">Panel B — Enterprise adoption rate (%)</text>
+<line x1="680" y1="500" x2="680" y2="100" stroke="#94a3b8" stroke-width="1.5"/>
+<line x1="680" y1="500" x2="1110" y2="500" stroke="#94a3b8" stroke-width="1.5"/>
+<line x1="680" y1="500" x2="1110" y2="500" stroke="#e2e8f0" stroke-width="1"/>
+<text x="670" y="504" text-anchor="end" font-size="11" fill="#64748b">0</text>
+<line x1="680" y1="420" x2="1110" y2="420" stroke="#e2e8f0" stroke-width="1"/>
+<text x="670" y="424" text-anchor="end" font-size="11" fill="#64748b">20</text>
+<line x1="680" y1="340" x2="1110" y2="340" stroke="#e2e8f0" stroke-width="1"/>
+<text x="670" y="344" text-anchor="end" font-size="11" fill="#64748b">40</text>
+<line x1="680" y1="260" x2="1110" y2="260" stroke="#e2e8f0" stroke-width="1"/>
+<text x="670" y="264" text-anchor="end" font-size="11" fill="#64748b">60</text>
+<line x1="680" y1="180" x2="1110" y2="180" stroke="#e2e8f0" stroke-width="1"/>
+<text x="670" y="184" text-anchor="end" font-size="11" fill="#64748b">80</text>
+<line x1="680" y1="100" x2="1110" y2="100" stroke="#e2e8f0" stroke-width="1"/>
+<text x="670" y="104" text-anchor="end" font-size="11" fill="#64748b">100</text>
+<text x="640" y="300" text-anchor="middle" font-size="11" fill="#64748b" transform="rotate(-90 640 300)">% of large firms</text>
+
+<rect x="700" y="268" width="52" height="232" rx="2" fill="#dc2626"/>
+<text x="726" y="262" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">58</text>
+<text x="726" y="518" text-anchor="middle" font-size="11.5" fill="#1e293b">Healthcare</text>
+<rect x="774" y="188" width="52" height="312" rx="2" fill="#dc2626"/>
+<text x="800" y="182" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">78</text>
+<text x="800" y="518" text-anchor="middle" font-size="11.5" fill="#1e293b">Finance</text>
+<rect x="848" y="244" width="52" height="256" rx="2" fill="#dc2626"/>
+<text x="874" y="238" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">64</text>
+<text x="874" y="518" text-anchor="middle" font-size="11.5" fill="#1e293b">Manufact.</text>
+<rect x="922" y="252" width="52" height="248" rx="2" fill="#dc2626"/>
+<text x="948" y="246" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">62</text>
+<text x="948" y="518" text-anchor="middle" font-size="11.5" fill="#1e293b">Retail</text>
+<rect x="996" y="292" width="52" height="208" rx="2" fill="#dc2626"/>
+<text x="1022" y="286" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">52</text>
+<text x="1022" y="518" text-anchor="middle" font-size="11.5" fill="#1e293b">Defence</text>
+
+<rect x="90" y="558" width="14" height="14" rx="2" fill="#2563eb"/>
+<text x="110" y="570" font-size="12.5" fill="#1e293b">Panel A — Investment (US$bn)</text>
+<rect x="360" y="558" width="14" height="14" rx="2" fill="#dc2626"/>
+<text x="380" y="570" font-size="12.5" fill="#1e293b">Panel B — Adoption rate (%)</text>
+
+<line x1="590" y1="82" x2="590" y2="530" stroke="#e2e8f0" stroke-width="1.5"/>
+<text x="1160" y="606" text-anchor="end" font-size="10.5" fill="#64748b" font-style="italic">Illustrative data for teaching · IELTS Advanced</text>
+</svg>

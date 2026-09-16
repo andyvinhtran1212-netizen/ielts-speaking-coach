@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="620" viewBox="0 0 1000 620" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+<rect x="0" y="0" width="1000" height="620" fill="#ffffff"/>
+<text x="500.0" y="30" text-anchor="middle" font-size="18" font-weight="700" fill="#1e293b">Global humanitarian aid disbursed by major OECD donors, by sector (%), 2000 vs 2024</text>
+<text x="500.0" y="53" text-anchor="middle" font-size="12.5" fill="#64748b">% of total humanitarian aid (US$ billion)</text>
+<text x="280" y="130" text-anchor="middle" font-size="16" font-weight="700" fill="#1e293b">2000</text>
+<path d="M280,300 L280.0,155.0 A145,145 0 0 1 422.4,327.2 Z" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+<text x="349.3" y="246.7" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">28%</text>
+<path d="M280,300 L422.4,327.2 A145,145 0 0 1 349.9,427.1 Z" fill="#dc2626" stroke="#ffffff" stroke-width="2"/>
+<text x="352.7" y="356.8" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">14%</text>
+<path d="M280,300 L349.9,427.1 A145,145 0 0 1 194.8,417.3 Z" fill="#059669" stroke="#ffffff" stroke-width="2"/>
+<text x="274.4" y="393.7" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">18%</text>
+<path d="M280,300 L194.8,417.3 A145,145 0 0 1 135.3,290.9 Z" fill="#d97706" stroke="#ffffff" stroke-width="2"/>
+<text x="198.7" y="342.3" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">16%</text>
+<path d="M280,300 L135.3,290.9 A145,145 0 0 1 139.6,263.9 Z" fill="#7c3aed" stroke="#ffffff" stroke-width="2"/>
+<text x="191.2" y="289.9" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">3%</text>
+<path d="M280,300 L139.6,263.9 A145,145 0 0 1 202.3,177.6 Z" fill="#0891b2" stroke="#ffffff" stroke-width="2"/>
+<text x="207.3" y="251.2" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">12%</text>
+<path d="M280,300 L202.3,177.6 A145,145 0 0 1 280.0,155.0 Z" fill="#be185d" stroke="#ffffff" stroke-width="2"/>
+<text x="254.9" y="217.7" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">9%</text>
+<text x="720" y="130" text-anchor="middle" font-size="16" font-weight="700" fill="#1e293b">2024</text>
+<path d="M720,300 L720.0,155.0 A145,145 0 0 1 862.4,272.8 Z" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+<text x="777.3" y="234.7" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">22%</text>
+<path d="M720,300 L862.4,272.8 A145,145 0 0 1 756.1,440.4 Z" fill="#dc2626" stroke="#ffffff" stroke-width="2"/>
+<text x="795.9" y="352.2" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">24%</text>
+<path d="M720,300 L756.1,440.4 A145,145 0 0 1 720.0,445.0 Z" fill="#059669" stroke="#ffffff" stroke-width="2"/>
+<text x="731.3" y="393.2" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">4%</text>
+<path d="M720,300 L720.0,445.0 A145,145 0 0 1 627.6,411.7 Z" fill="#d97706" stroke="#ffffff" stroke-width="2"/>
+<text x="689.5" y="388.6" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">11%</text>
+<path d="M720,300 L627.6,411.7 A145,145 0 0 1 579.6,263.9 Z" fill="#7c3aed" stroke="#ffffff" stroke-width="2"/>
+<text x="634.5" y="331.8" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">18%</text>
+<path d="M720,300 L579.6,263.9 A145,145 0 0 1 658.3,168.8 Z" fill="#0891b2" stroke="#ffffff" stroke-width="2"/>
+<text x="650.7" y="246.7" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">14%</text>
+<path d="M720,300 L658.3,168.8 A145,145 0 0 1 720.0,155.0 Z" fill="#be185d" stroke="#ffffff" stroke-width="2"/>
+<text x="700.4" y="216.3" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">7%</text>
+<rect x="40" y="500" width="13" height="13" rx="2" fill="#2563eb"/>
+<text x="58" y="511" font-size="11.5" fill="#1e293b">Emergency food &amp; shelter</text>
+<rect x="40" y="522" width="13" height="13" rx="2" fill="#dc2626"/>
+<text x="58" y="533" font-size="11.5" fill="#1e293b">Health &amp; pandemic response</text>
+<rect x="40" y="544" width="13" height="13" rx="2" fill="#059669"/>
+<text x="58" y="555" font-size="11.5" fill="#1e293b">Infrastructure &amp; water</text>
+<rect x="40" y="566" width="13" height="13" rx="2" fill="#d97706"/>
+<text x="58" y="577" font-size="11.5" fill="#1e293b">Education</text>
+<rect x="360" y="500" width="13" height="13" rx="2" fill="#7c3aed"/>
+<text x="378" y="511" font-size="11.5" fill="#1e293b">Climate adaptation</text>
+<rect x="360" y="522" width="13" height="13" rx="2" fill="#0891b2"/>
+<text x="378" y="533" font-size="11.5" fill="#1e293b">Refugee &amp; displacement assistance</text>
+<rect x="360" y="544" width="13" height="13" rx="2" fill="#be185d"/>
+<text x="378" y="555" font-size="11.5" fill="#1e293b">Governance &amp; anti-corruption</text>
+<text x="976" y="612" text-anchor="end" font-size="10.5" fill="#64748b" font-style="italic">Illustrative data for teaching &#183; IELTS Advanced</text>
+</svg>

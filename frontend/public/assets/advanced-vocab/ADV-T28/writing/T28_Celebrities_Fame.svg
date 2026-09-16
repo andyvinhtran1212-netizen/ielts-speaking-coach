@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="640" viewBox="0 0 1180 640" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+<rect x="0" y="0" width="1180" height="640" fill="#ffffff"/>
+<text x="590.0" y="30" text-anchor="middle" font-size="17" font-weight="700" fill="#1e293b">Celebrity income by revenue stream and tabloid scandal coverage by category, 2023</text>
+
+<svg x="20" y="64" width="562" height="536" viewBox="0 0 562 536">
+<rect x="0" y="0" width="562" height="536" fill="#ffffff"/>
+<text x="281.0" y="24" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">Average annual income of top 100 celebrities</text>
+<text x="281.0" y="42" text-anchor="middle" font-size="12" fill="#64748b">USD millions, 2023 (total USD 85m)</text>
+<line x1="78" y1="450.0" x2="534" y2="450.0" stroke="#e2e8f0" stroke-width="1"/>
+<text x="68" y="454.0" text-anchor="end" font-size="11" fill="#64748b">0</text>
+<line x1="78" y1="376.8" x2="534" y2="376.8" stroke="#e2e8f0" stroke-width="1"/>
+<text x="68" y="380.8" text-anchor="end" font-size="11" fill="#64748b">6</text>
+<line x1="78" y1="303.6" x2="534" y2="303.6" stroke="#e2e8f0" stroke-width="1"/>
+<text x="68" y="307.6" text-anchor="end" font-size="11" fill="#64748b">12</text>
+<line x1="78" y1="230.4" x2="534" y2="230.4" stroke="#e2e8f0" stroke-width="1"/>
+<text x="68" y="234.4" text-anchor="end" font-size="11" fill="#64748b">18</text>
+<line x1="78" y1="157.2" x2="534" y2="157.2" stroke="#e2e8f0" stroke-width="1"/>
+<text x="68" y="161.2" text-anchor="end" font-size="11" fill="#64748b">24</text>
+<line x1="78" y1="84.0" x2="534" y2="84.0" stroke="#e2e8f0" stroke-width="1"/>
+<text x="68" y="88.0" text-anchor="end" font-size="11" fill="#64748b">30</text>
+<line x1="78" y1="84" x2="78" y2="450" stroke="#94a3b8" stroke-width="1.5"/>
+<line x1="78" y1="450" x2="534" y2="450" stroke="#94a3b8" stroke-width="1.5"/>
+
+<rect x="98.2" y="108.4" width="43" height="341.6" rx="2" fill="#2563eb"/>
+<text x="119.7" y="103.4" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">28</text>
+<text x="119.7" y="469" text-anchor="middle" font-size="10.5" fill="#1e293b">Brand</text>
+<text x="119.7" y="482" text-anchor="middle" font-size="10.5" fill="#1e293b">endorsement</text>
+
+<rect x="181.3" y="181.6" width="43" height="268.4" rx="2" fill="#dc2626"/>
+<text x="202.8" y="176.6" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">22</text>
+<text x="202.8" y="469" text-anchor="middle" font-size="10.5" fill="#1e293b">Salaries /</text>
+<text x="202.8" y="482" text-anchor="middle" font-size="10.5" fill="#1e293b">performance fees</text>
+
+<rect x="264.5" y="267.0" width="43" height="183.0" rx="2" fill="#059669"/>
+<text x="286.0" y="262.0" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">15</text>
+<text x="286.0" y="469" text-anchor="middle" font-size="10.5" fill="#1e293b">Royalties</text>
+
+<rect x="347.7" y="315.8" width="43" height="134.2" rx="2" fill="#d97706"/>
+<text x="369.2" y="310.8" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">11</text>
+<text x="369.2" y="469" text-anchor="middle" font-size="10.5" fill="#1e293b">Business</text>
+<text x="369.2" y="482" text-anchor="middle" font-size="10.5" fill="#1e293b">ventures</text>
+
+<rect x="430.8" y="340.2" width="43" height="109.8" rx="2" fill="#7c3aed"/>
+<text x="452.3" y="335.2" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">9</text>
+<text x="452.3" y="469" text-anchor="middle" font-size="10.5" fill="#1e293b">Social-media</text>
+<text x="452.3" y="482" text-anchor="middle" font-size="10.5" fill="#1e293b">monetisation</text>
+
+<text x="281.0" y="518" text-anchor="middle" font-size="11.5" fill="#64748b">Revenue stream</text>
+</svg>
+
+<svg x="598" y="64" width="562" height="536" viewBox="0 0 562 536">
+<rect x="0" y="0" width="562" height="536" fill="#ffffff"/>
+<text x="281.0" y="24" text-anchor="middle" font-size="14" font-weight="700" fill="#1e293b">Tabloid scandal coverage by category</text>
+<text x="281.0" y="42" text-anchor="middle" font-size="12" fill="#64748b">% share of coverage, 2023</text>
+
+<path d="M281.0,320 L281.0,170.0 A150,150 0 0 1 396.6,415.6 Z" fill="#2563eb" stroke="#ffffff" stroke-width="2"/>
+<text x="365.1" y="280.4" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">36%</text>
+<path d="M281.0,320 L396.6,415.6 A150,150 0 0 1 208.7,451.4 Z" fill="#dc2626" stroke="#ffffff" stroke-width="2"/>
+<text x="298.4" y="411.4" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">22%</text>
+<path d="M281.0,320 L208.7,451.4 A150,150 0 0 1 131.3,310.6 Z" fill="#059669" stroke="#ffffff" stroke-width="2"/>
+<text x="199.5" y="364.8" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">18%</text>
+<path d="M281.0,320 L131.3,310.6 A150,150 0 0 1 192.8,198.6 Z" fill="#d97706" stroke="#ffffff" stroke-width="2"/>
+<text x="199.5" y="275.2" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">14%</text>
+<path d="M281.0,320 L192.8,198.6 A150,150 0 0 1 281.0,170.0 Z" fill="#7c3aed" stroke="#ffffff" stroke-width="2"/>
+<text x="252.3" y="231.6" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">10%</text>
+
+<rect x="45.5" y="470" width="14" height="14" rx="2" fill="#2563eb"/>
+<text x="65.5" y="482" font-size="11.5" fill="#1e293b">Relationship / infidelity</text>
+<rect x="243.9" y="470" width="14" height="14" rx="2" fill="#dc2626"/>
+<text x="263.9" y="482" font-size="11.5" fill="#1e293b">Substance abuse</text>
+<rect x="399.9" y="470" width="14" height="14" rx="2" fill="#059669"/>
+<text x="419.9" y="482" font-size="11.5" fill="#1e293b">Financial scandals</text>
+<rect x="45.5" y="497" width="14" height="14" rx="2" fill="#d97706"/>
+<text x="65.5" y="509" font-size="11.5" fill="#1e293b">Legal controversies</text>
+<rect x="225.9" y="497" width="14" height="14" rx="2" fill="#7c3aed"/>
+<text x="245.9" y="509" font-size="11.5" fill="#1e293b">Political controversies</text>
+</svg>
+
+<text x="1166" y="628" text-anchor="end" font-size="10.5" fill="#64748b" font-style="italic">Illustrative data for teaching · IELTS Advanced</text>
+</svg>

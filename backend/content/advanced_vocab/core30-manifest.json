@@ -1,0 +1,308 @@
+{
+  "schema_version": 1,
+  "source_package_version": "v5-writing-reference",
+  "source_revision": "3454bd0ec5db7a040e264ed5a8bb2f3a8e25f168ca588b3cb92ce82884c0826d",
+  "lesson_count": 30,
+  "lessons": [
+    {
+      "lesson_id": "ADV-T01",
+      "title": "Family and Upbringing",
+      "content_checksum": "0d3019f2d3bf8f0b4cbe41ca2f44fc0d8a7410a9ab117aee135e86ea19daf3f6",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 13,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T02",
+      "title": "Education and Schooling",
+      "content_checksum": "9a73d296ae1d79f1eff72592e16ae8d59ca11f894ad48d6b56a828dd9abc242c",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 14,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T03",
+      "title": "Health and Well-being",
+      "content_checksum": "6a91c77b9ac2b37aa7859cba9b4ffa72a8b472e9053c4a4c35c620e528d62b79",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 14,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T04",
+      "title": "Crime and Punishment",
+      "content_checksum": "79d702309092bd0c3194c39677bbe5ce04efa0bc61cecbbfd63a4e770f3b6b79",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 13,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T05",
+      "title": "Culture and Identity",
+      "content_checksum": "b422ff3ed0b542549998530ff5b519a7faea5a2a206a0c479c3dc821ead34803",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 14,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T06",
+      "title": "Psychology and The Human Mind",
+      "content_checksum": "e5633da4db063b58aac801d0409fc6aa875045eef7ef9ab5d2513e4bb7eba018",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 14,
+      "listening_question_count": 6,
+      "asset_count": 50
+    },
+    {
+      "lesson_id": "ADV-T07",
+      "title": "Language and Linguistics",
+      "content_checksum": "e7a20a2c5cf8bb517b52d7629dcd18113092b4d23d5be6006d2291127b18048b",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 14,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T08",
+      "title": "Environment and Climate Change",
+      "content_checksum": "f294d03968df907686c4f3bf2a4d8f8e7f0762c3165f4e661be4fece3eaecd29",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 13,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T09",
+      "title": "Cities and Urban Life",
+      "content_checksum": "87e9f1e8edc899573b608a261debd4cb8aa97ded58d8c1a715a200c4d4d48a82",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 14,
+      "listening_question_count": 6,
+      "asset_count": 50
+    },
+    {
+      "lesson_id": "ADV-T10",
+      "title": "Housing and Architecture",
+      "content_checksum": "8b9293d05dc26a13232f78c02f4e7c700e64184aeca069f21d9b9ad443601292",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 13,
+      "listening_question_count": 6,
+      "asset_count": 50
+    },
+    {
+      "lesson_id": "ADV-T11",
+      "title": "Transport and Travel",
+      "content_checksum": "4df0e94f740f365464046981528ade5778ea52415beec10e6d556bb8aa67b0f9",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 13,
+      "listening_question_count": 6,
+      "asset_count": 52
+    },
+    {
+      "lesson_id": "ADV-T12",
+      "title": "Energy and Resources",
+      "content_checksum": "331c6ffdfbbf7c76f94e1e113a00dc142c951ed4529baa9ecb9f58df21c36494",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 13,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T13",
+      "title": "Water and The Oceans",
+      "content_checksum": "d0564ea33b486deb699985a9277229cee674aa11ff947008ef1c8d541dc3f964",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 14,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T14",
+      "title": "Work and Careers",
+      "content_checksum": "a7beacce5fb2fb93b943ec2d4d20982acc35c28e9c7651891e4b9a08fb3d207e",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 13,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T15",
+      "title": "Business and Corporate Responsibility",
+      "content_checksum": "76991d8b5a47c1e86f37537f85cf7464291027f10b3fb502652fd72ffbb0d4f0",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 13,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T16",
+      "title": "Money and Consumerism",
+      "content_checksum": "f054bfba15dc62b5d3defa5542f655eac9739be582fe4ee5656cdd791dc5921d",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 14,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T17",
+      "title": "Advertising and Media",
+      "content_checksum": "98482cdf8029d1b8e620c69754db676dddab402313751d32fda718163c5f991b",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 14,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T18",
+      "title": "Globalisation and Trade",
+      "content_checksum": "00d506926f353cbd7b1e788fb55a1ef45e51e0741e933b3cd06a870053a72dec",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 13,
+      "listening_question_count": 6,
+      "asset_count": 50
+    },
+    {
+      "lesson_id": "ADV-T19",
+      "title": "International Aid and Law",
+      "content_checksum": "c747022ea4edc651703a0252af0a6696040387d85d73e1cb4da38d27e30b3c52",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 13,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T20",
+      "title": "Technology and Communication",
+      "content_checksum": "0f4aa9e2e32598a297e367c4321f88386604bd81085ccfec4d9e116e8e70e2fd",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 14,
+      "listening_question_count": 6,
+      "asset_count": 50
+    },
+    {
+      "lesson_id": "ADV-T21",
+      "title": "AI and Automation",
+      "content_checksum": "4f9bb1174cf007431b6f83056d4ffd08d0a9f0f2a5b297968f76d8f3c50f1303",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 13,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T22",
+      "title": "Space Exploration",
+      "content_checksum": "ed803b4c571c7ed4a0180bac8ea78b3d85f2aac927bc5c3b03cb357421119272",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 13,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T23",
+      "title": "Genetics and Biotechnology",
+      "content_checksum": "9fac0c0bb458b027ba1abcb31e9e1e85404fb91074cf0b2f61228db833b783ad",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 13,
+      "listening_question_count": 6,
+      "asset_count": 49
+    },
+    {
+      "lesson_id": "ADV-T24",
+      "title": "The Future and Predictions",
+      "content_checksum": "ed78deef4937d1f9712f350c4d44b7d796365dd21aaa2dcba83e28d7dda37b91",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 14,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T25",
+      "title": "Food and Diet",
+      "content_checksum": "922fb661a805016d8d90d5137604a6288df13e347c1fec7c351e8e6870a8c5ba",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 14,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T26",
+      "title": "Sports and Competition",
+      "content_checksum": "1a48819cf2ebdf905f37843a0ed65a41b1bb8dbd96a3dffb588fbe9bb01a2c64",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 14,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T27",
+      "title": "The Arts",
+      "content_checksum": "68030bae280f8e1dfae807f0ed7db30ccb4aad6e758ee74d3c33892611228efd",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 14,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T28",
+      "title": "Celebrities and Fame",
+      "content_checksum": "6d34658e20ad3e870763072a8c8fccc2a85d70397ec83da7b521994af936d8d9",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 14,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T29",
+      "title": "History and The Past",
+      "content_checksum": "72487c68dce2d8ec0ea53dc74f430bde41265f18f900026ae0581fab475d1bc3",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 14,
+      "listening_question_count": 6,
+      "asset_count": 51
+    },
+    {
+      "lesson_id": "ADV-T30",
+      "title": "Fashion and Design",
+      "content_checksum": "4ef49a572154085952912aa55019ebd374e7d2e2c568b261120e0f99285cd635",
+      "vocabulary_count": 24,
+      "common_error_count": 24,
+      "reading_question_count": 14,
+      "listening_question_count": 6,
+      "asset_count": 51
+    }
+  ]
+}
