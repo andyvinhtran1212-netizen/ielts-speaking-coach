@@ -2587,7 +2587,7 @@ def _assert_quiz_progress_writable(session: dict) -> bool:
     # A passed timed attempt is a terminal entitlement change, even when its
     # shared session was closed at the same time.  Return the stable structured
     # conflict so another browser reloads canonical progress instead of retrying.
-    if timer.get("is_timed") and action == "review":
+    if timer.get("is_timed") and (action == "review" or ended):
         raise _timed_course_progress_phase_conflict()
     if ended:
         raise HTTPException(409, "Phiên này đã kết thúc — không thể ghi thêm đáp án.")

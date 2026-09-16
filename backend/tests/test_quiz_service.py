@@ -1216,6 +1216,48 @@ def test_passed_timed_progress_precheck_returns_terminal_phase_conflict(closed):
     assert not any(call["op"] == "rpc" for call in fake.calls)
 
 
+@pytest.mark.parametrize("next_action", ["retake", "retry_full"])
+def test_closed_timed_retry_phase_returns_terminal_conflict(next_action):
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "select"): [{
+            "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+            "class_assignment_item_id": "item-timed",
+            "ended_at": "2999-09-15T10:01:00+00:00",
+            "ended_by": "completed",
+        }],
+        ("class_assignment_items", "select"): [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "opened_at": "2999-09-15T10:00:00+00:00",
+            "submitted_at": "2999-09-15T10:01:00+00:00",
+            "passed_at": None,
+            "mastery": {"attempts": [{
+                "completed": True, "pct": 75,
+                "next_action": next_action,
+            }]},
+        }],
+        ("class_assignments", "select"): [{
+            "id": "asg-timed", "skill": "course", "status": "published",
+            "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 720},
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as error:
+            quiz_service.log_progress(
+                user_id=_USER, session_id=_SESS,
+                attempts=[{
+                    "client_id": "33333333-3333-3333-3333-333333333333",
+                    "item_key": "x", "qid": "q1", "is_correct": True,
+                    "answer_given": "0", "response_time_ms": 1250,
+                    "attempt_no": 1,
+                }],
+                word_stats=[],
+            )
+    assert error.value.status_code == 409
+    assert error.value.detail["code"] == "timed_course_progress_not_entitled"
+    assert not any(call["op"] == "rpc" for call in fake.calls)
+
+
 def test_time_cap_can_close_after_an_earlier_assignment_deadline():
     fake = _FakeSupabase(responses={
         ("class_assignment_items", "select"): [{
