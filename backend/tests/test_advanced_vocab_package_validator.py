@@ -704,6 +704,42 @@ def test_source_manifest_binds_clip_lessons_to_kokoro_cards(tmp_path: Path):
 
     assert "SOURCE_INPUT_LESSONS_MISMATCH" in _codes(report)
 
+
+@pytest.mark.parametrize("cards", [[], "invalid"])
+def test_source_manifest_reports_invalid_kokoro_cards_container(
+        tmp_path: Path, cards: object):
+    audio = tmp_path / "audio"
+    audio.mkdir()
+    audio_manifest_path = audio / "manifest.json"
+    audio_manifest_path.write_text(json.dumps({"cards": cards}), encoding="utf-8")
+    manifest = {
+        "schema_version": "1.0.0",
+        "source_id": "aver-learning-advanced-vocabulary-core30-2026-09-14",
+        "origin": "Product owner",
+        "rights": "Aver Learning product use",
+        "locked_revisions": dict(FIRST_RELEASE_LOCKED_REVISIONS),
+        "release_patterns": {"vocab_audio_bundle": ["manifest.json"]},
+        "inputs": [{
+            "root": "vocab_audio_bundle",
+            "path": "manifest.json",
+            "sha256": hashlib.sha256(audio_manifest_path.read_bytes()).hexdigest(),
+            "role": "vocab_audio_manifest",
+            "lesson_ids": list(CORE_LESSON_IDS),
+        }],
+    }
+    manifest["locked_revisions"]["authored_input_map_sha256"] = (
+        APPROVED_AUTHORED_INPUT_MAP_SHA256
+    )
+    manifest["source_revision"] = source_manifest_revision(manifest)
+    manifest_path = tmp_path / "source-inputs-manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = validate_source_inputs_manifest(
+        manifest_path, roots={"vocab_audio_bundle": audio}
+    )
+
+    assert "VOCAB_AUDIO_CARDS_INVALID" in _codes(report)
+
 def test_source_manifest_rejects_undeclared_release_input(tmp_path: Path):
     manifest, source = _write_source_manifest_fixture(tmp_path)
     (source / "T02.docx").write_bytes(b"undeclared")
@@ -807,6 +843,46 @@ def test_package_rejects_review_source_outside_manifest(tmp_path: Path):
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
     assert "REVIEW_SOURCE_NOT_IN_MANIFEST" in _codes(validate_package(tmp_path))
+
+
+def test_generated_lock_rejects_recertified_review_body_substitution(tmp_path: Path):
+    _write_package(tmp_path)
+    substituted_checksum = "a" * 64
+
+    source_path = tmp_path / "source-inputs-manifest.json"
+    source = json.loads(source_path.read_text())
+    source_review = next(
+        row for row in source["inputs"]
+        if row["root"] == "source" and row["path"] == "source/reviews/R01.md"
+    )
+    source_review["sha256"] = substituted_checksum
+    source["source_revision"] = source_manifest_revision(source)
+    source_path.write_text(json.dumps(source), encoding="utf-8")
+
+    review_path = tmp_path / "reviews/R01.json"
+    review = json.loads(review_path.read_text())
+    review["provenance"]["source_checksum"] = substituted_checksum
+    review["provenance"]["content_checksum"] = _checksum_without(
+        review, "provenance", "content_checksum"
+    )
+    review_path.write_text(json.dumps(review), encoding="utf-8")
+
+    manifest_path = tmp_path / "course-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["source_revision"] = source["source_revision"]
+    manifest["reviews"][0]["content_checksum"] = review["provenance"][
+        "content_checksum"
+    ]
+    manifest["package_checksum"] = _checksum_without(
+        manifest, "package_checksum"
+    )
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+
+    assert "REVIEW_SOURCE_NOT_IN_MANIFEST" not in _codes(report)
+    assert "PACKAGE_CHECKSUM_MISMATCH" not in _codes(report)
+    assert "GENERATED_PACKAGE_REVISION_MISMATCH" in _codes(report)
 
 
 def test_package_rejects_undeclared_kokoro_inputs(tmp_path: Path):

@@ -498,7 +498,14 @@ def validate_source_inputs_manifest(
         if audio_manifest_path is not None and audio_manifest_path.is_file():
             audio_manifest = _read_json(audio_manifest_path, report) or {}
             expected_clip_lessons: dict[str, set[str]] = {}
-            for card_id, card in (audio_manifest.get("cards") or {}).items():
+            cards = audio_manifest.get("cards")
+            if not isinstance(cards, dict):
+                report.add(
+                    "error", "VOCAB_AUDIO_CARDS_INVALID", audio_manifest_path,
+                    "Kokoro manifest cards must be an object keyed by lesson_lexeme_id.",
+                )
+                cards = {}
+            for card_id, card in cards.items():
                 if not isinstance(card, dict):
                     continue
                 lesson_id = str(card_id).split("__", 1)[0]
