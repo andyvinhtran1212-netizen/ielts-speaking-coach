@@ -260,12 +260,12 @@ def test_timed_bank_keeps_timer_when_optional_mastery_refresh_fails(refresh_resp
 def test_timed_near_pass_bank_read_adopts_retake_phase_not_run():
     mastery = {"attempts": [{
         "phase": "run", "pct": 70, "completed": True,
-        "next_action": "retake", "at": "2026-09-15T12:20:00+00:00",
+        "next_action": "retake", "at": "2999-09-15T12:20:00+00:00",
         "sessions": ["completed-run"],
     }]}
     anchored = {
         "id": "item-timed", "assignment_id": "asg-timed",
-        "opened_at": "2026-09-15T12:00:00+00:00",
+        "opened_at": "2999-09-15T12:00:00+00:00",
         "due_at": None, "accepting": True, "passed_at": None,
         # Simulate the near-pass committing after the first authorization read
         # but before the canonical mastery refresh.
@@ -841,18 +841,18 @@ def test_opened_timed_course_reuses_the_canonical_rpc_session():
     fake = _FakeSupabase(responses={
         ("rpc", "quiz_start_timed_course_session"): [{
             "session_id": _SESS,
-            "timer_started_at": "2026-09-15T10:00:00+00:00",
+            "timer_started_at": "2999-09-15T10:00:00+00:00",
         }],
     })
     item = {
-        "id": "item-timed", "opened_at": "2026-09-15T10:00:00+00:00",
+        "id": "item-timed", "opened_at": "2999-09-15T10:00:00+00:00",
         "content_config": {"time_limit_minutes": 720},
     }
     with patch.object(quiz_service, "supabase_admin", fake):
         opened, session_id = quiz_service._ensure_timed_course_session(
             item, user_id=_USER, bank_id=_BANK, code="C1-MIDTERM",
         )
-    assert opened["opened_at"] == "2026-09-15T10:00:00+00:00"
+    assert opened["opened_at"] == "2999-09-15T10:00:00+00:00"
     assert session_id == _SESS
     assert any(call["table"] == "rpc:quiz_start_timed_course_session"
                for call in fake.calls)
@@ -1052,7 +1052,7 @@ def test_timed_course_progress_uses_atomic_admission_timestamp_rpc():
         }],
         ("class_assignment_items", "select"): [{
             "id": "item-timed", "assignment_id": "asg-timed",
-            "opened_at": "2026-09-15T10:00:00+00:00", "submitted_at": None,
+            "opened_at": "2999-09-15T10:00:00+00:00", "submitted_at": None,
         }],
         ("class_assignments", "select"): [{
             "id": "asg-timed", "skill": "course", "status": "published",
@@ -1060,7 +1060,7 @@ def test_timed_course_progress_uses_atomic_admission_timestamp_rpc():
             "content_config": {"time_limit_minutes": 720},
         }],
         ("rpc", "quiz_insert_timed_course_attempts"): [{
-            **attempt, "created_at": "2026-09-15T10:01:00+00:00",
+            **attempt, "created_at": "2999-09-15T10:01:00+00:00",
         }],
     })
     with patch.object(quiz_service, "supabase_admin", fake):
@@ -1090,7 +1090,7 @@ def test_superseded_timed_progress_returns_a_stable_conflict_code():
         }],
         ("class_assignment_items", "select"): [{
             "id": "item-timed", "assignment_id": "asg-timed",
-            "opened_at": "2026-09-15T10:00:00+00:00", "submitted_at": None,
+            "opened_at": "2999-09-15T10:00:00+00:00", "submitted_at": None,
         }],
         ("class_assignments", "select"): [{
             "id": "asg-timed", "skill": "course", "status": "published",
