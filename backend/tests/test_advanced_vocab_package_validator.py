@@ -2155,6 +2155,82 @@ def test_listening_figure_requires_packaged_checksum_matched_bytes(tmp_path: Pat
     )
 
 
+def test_t11_listening_figure_must_match_hub_semantics_and_answer_keys(
+        tmp_path: Path):
+    _write_package(tmp_path)
+    lesson_path = tmp_path / "lessons" / "ADV-T11" / "lesson.json"
+    lesson = json.loads(lesson_path.read_text())
+    listening = next(
+        activity for activity in lesson["activities"]
+        if activity["activity_type"] == "listening_lab"
+    )
+    relative = "source/Figures/VOC-ADV-LIS-LSN-T11_map.svg"
+    figure_ref = "Figures/VOC-ADV-LIS-LSN-T11_map.svg"
+    campus_bytes = b"<svg><text>CAMPUS MAP</text><text>D</text><text>F</text></svg>"
+    campus_checksum = hashlib.sha256(campus_bytes).hexdigest()
+    listening["content"]["sections"] = [{
+        "figure": figure_ref,
+        "figure_checksum": campus_checksum,
+    }]
+    listening["content"]["solutions"]["1"]["answer"] = "D"
+    listening["content"]["solutions"]["2"]["answer"] = "F"
+    lesson["provenance"]["source_checksums"][relative] = campus_checksum
+    figure_path = lesson_path.parent / figure_ref
+    figure_path.parent.mkdir(parents=True)
+    figure_path.write_bytes(campus_bytes)
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    source_manifest_path = tmp_path / "source-inputs-manifest.json"
+    source_manifest = json.loads(source_manifest_path.read_text())
+    source_manifest["release_patterns"]["source"].append("source/Figures/*.svg")
+    source_manifest["inputs"].append({
+        "root": "source",
+        "path": relative,
+        "sha256": campus_checksum,
+        "role": "listening_figure",
+        "lesson_ids": ["ADV-T11"],
+    })
+    source_manifest_path.write_text(json.dumps(source_manifest), encoding="utf-8")
+    _refresh_fixture_locks(tmp_path)
+
+    assert "LISTENING_FIGURE_CONTENT_MISMATCH" in _codes(
+        validate_package(tmp_path)
+    )
+
+    hub_bytes = (
+        b"<svg><text>WESTPORT INTERMODAL HUB</text>"
+        b"<text>CENTRAL ATRIUM</text><text>COACH BAYS</text>"
+        b"<text>INTERCITY RAIL PLATFORMS</text>"
+        b"<text>ELEVATED WALKWAY</text><text>D</text><text>F</text></svg>"
+    )
+    hub_checksum = hashlib.sha256(hub_bytes).hexdigest()
+    figure_path.write_bytes(hub_bytes)
+    listening["content"]["sections"][0]["figure_checksum"] = hub_checksum
+    lesson["provenance"]["source_checksums"][relative] = hub_checksum
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+    source_manifest = json.loads(source_manifest_path.read_text())
+    source_row = next(
+        row for row in source_manifest["inputs"] if row.get("path") == relative
+    )
+    source_row["sha256"] = hub_checksum
+    source_manifest_path.write_text(json.dumps(source_manifest), encoding="utf-8")
+    _refresh_fixture_locks(tmp_path)
+
+    assert validate_package(tmp_path).publish_ready is True
+
+    listening["content"]["solutions"]["2"]["answer"] = "E"
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+    assert "LISTENING_FIGURE_ANSWER_MISMATCH" in _codes(
+        validate_package(tmp_path)
+    )
+
+    listening["content"]["solutions"]["1"] = "D"
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+    malformed_codes = _codes(validate_package(tmp_path))
+    assert "LISTENING_SOLUTION_ITEM_TYPE" in malformed_codes
+    assert "LISTENING_FIGURE_ANSWER_MISMATCH" in malformed_codes
+
+
 def test_warning_prevents_publish_ready_without_invalidating_schema(tmp_path: Path):
     _write_package(tmp_path)
     path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
