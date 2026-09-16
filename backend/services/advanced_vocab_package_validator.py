@@ -68,6 +68,17 @@ SOURCE_MANIFEST_NAME = "source-inputs-manifest.json"
 SOURCE_MANIFEST_ROOTS = frozenset({
     "source", "common_error_overrides", "vocab_audio_bundle",
 })
+FIRST_RELEASE_LOCKED_REVISIONS = {
+    "authored_input_map_sha256": (
+        "498a80407e6580c6f04fef6a4a0d34471a3a90eb2bd3ed38d06906e4aa8983b2"
+    ),
+    "kokoro_bundle_sha256": (
+        "c0495ddac3a1c865d6f07963f11534693f024ba9042eea0ab4b737511fb4c166"
+    ),
+    "generated_package_sha256": (
+        "968a9dbf37a97f0f403ad5e00dcf3d8ac6406665b3dedcd3cf4392df46d071b3"
+    ),
+}
 
 
 def _option_identity(option: object, index: int) -> object:
@@ -195,14 +206,14 @@ def validate_source_inputs_manifest(
                    "Manifest content no longer matches source_revision.")
 
     locked = manifest.get("locked_revisions")
-    for key in (
-        "authored_input_map_sha256", "kokoro_bundle_sha256",
-        "generated_package_sha256",
-    ):
+    for key, expected in FIRST_RELEASE_LOCKED_REVISIONS.items():
         value = locked.get(key) if isinstance(locked, dict) else None
         if not SHA256_RE.fullmatch(str(value or "")):
             report.add("error", "LOCKED_REVISION_INVALID", path,
                        f"locked_revisions.{key} must be SHA-256.")
+        elif value != expected:
+            report.add("error", "LOCKED_REVISION_MISMATCH", path,
+                       f"locked_revisions.{key} does not match AVOC-0002.")
 
     patterns = manifest.get("release_patterns")
     if not isinstance(patterns, dict):
@@ -986,6 +997,7 @@ def _validate_package_source_provenance(
     package_manifest: dict[str, Any],
     source_manifest: dict[str, Any],
     lessons: list[tuple[Path, dict[str, Any]]],
+    reviews: list[tuple[Path, dict[str, Any]]],
     report: ValidationReport,
 ) -> None:
     source_revision = str(source_manifest.get("source_revision") or "")
@@ -1002,6 +1014,64 @@ def _validate_package_source_provenance(
             if declared.get(("source", str(relative))) != str(checksum):
                 report.add("error", "LESSON_SOURCE_NOT_IN_MANIFEST", lesson_path,
                            f"Source provenance is absent or mismatched: {relative}.")
+    for review_path, review in reviews:
+        provenance = review.get("provenance") or {}
+        relative = str(provenance.get("source_path") or "")
+        checksum = str(provenance.get("source_checksum") or "")
+        if not relative or not SHA256_RE.fullmatch(checksum):
+            report.add("error", "REVIEW_SOURCE_PROVENANCE_MISSING", review_path,
+                       "Review needs source_path and source_checksum provenance.")
+        elif declared.get(("source", relative)) != checksum:
+            report.add("error", "REVIEW_SOURCE_NOT_IN_MANIFEST", review_path,
+                       f"Source provenance is absent or mismatched: {relative}.")
+
+    supplements = package_manifest.get("content_supplements")
+    supplements = supplements if isinstance(supplements, dict) else {}
+    common_errors = supplements.get("common_errors")
+    if not isinstance(common_errors, dict):
+        report.add("error", "COMMON_ERROR_SUPPLEMENT_MISSING",
+                   root / "course-manifest.json",
+                   "The first release must declare the 88-item common-error supplement.")
+    else:
+        checksum = str(common_errors.get("checksum") or "")
+        if common_errors.get("item_count") != 88:
+            report.add("error", "COMMON_ERROR_SUPPLEMENT_COUNT",
+                       root / "course-manifest.json",
+                       "The common-error supplement must contain exactly 88 items.")
+        declared_checksums = {
+            digest for (root_name, _relative), digest in declared.items()
+            if root_name == "common_error_overrides"
+        }
+        if not SHA256_RE.fullmatch(checksum) or checksum not in declared_checksums:
+            report.add("error", "COMMON_ERROR_SOURCE_NOT_IN_MANIFEST",
+                       root / "course-manifest.json",
+                       "The common-error checksum must match a declared override input.")
+
+    vocabulary_audio = supplements.get("vocabulary_audio")
+    if not isinstance(vocabulary_audio, dict):
+        report.add("error", "VOCAB_AUDIO_SUPPLEMENT_MISSING",
+                   root / "course-manifest.json",
+                   "The first release must declare the Kokoro vocabulary-audio bundle.")
+    else:
+        if vocabulary_audio.get("engine") != "kokoro":
+            report.add("error", "VOCAB_AUDIO_ENGINE",
+                       root / "course-manifest.json",
+                       "Vocabulary audio must use Kokoro.")
+        if vocabulary_audio.get("card_count") != 720:
+            report.add("error", "VOCAB_AUDIO_CARD_COUNT",
+                       root / "course-manifest.json",
+                       "Vocabulary audio must cover all 720 cards.")
+        locked = source_manifest.get("locked_revisions") or {}
+        if vocabulary_audio.get("bundle_checksum") != locked.get(
+            "kokoro_bundle_sha256"
+        ):
+            report.add("error", "VOCAB_AUDIO_BUNDLE_REVISION_MISMATCH",
+                       root / "course-manifest.json",
+                       "Vocabulary audio must match the locked Kokoro bundle revision.")
+        if not any(root_name == "vocab_audio_bundle" for root_name, _ in declared):
+            report.add("error", "VOCAB_AUDIO_SOURCE_NOT_IN_MANIFEST",
+                       root / "course-manifest.json",
+                       "Kokoro bundle inputs must be declared in the source manifest.")
 
 
 def _validate_lesson(
@@ -1202,8 +1272,17 @@ def _validate_lesson(
     if not isinstance(audio_rows, list):
         report.add("error", "MEDIA_AUDIO_TYPE", path, "media.audio must be an array.")
         audio_rows = []
+    listening_rows = [
+        audio for audio in audio_rows
+        if isinstance(audio, dict) and audio.get("role") == "listening_full_test"
+    ]
+    if len(listening_rows) != 1:
+        report.add("error", "LISTENING_MEDIA_COUNT", path,
+                   "Lesson needs exactly one listening_full_test media row.")
     for audio in audio_rows:
         if not isinstance(audio, dict):
+            report.add("error", "MEDIA_AUDIO_ROW_TYPE", path,
+                       "Every media.audio row must be an object.")
             continue
         status = str(audio.get("status") or "missing")
         if status in NON_READY_AUDIO:
@@ -1221,7 +1300,10 @@ def _validate_lesson(
                 )
             expected_path = str(audio.get("expected_audio_path") or "").strip()
             checksum = str(audio.get("checksum") or "").strip()
-            if expected_path:
+            if audio.get("role") == "listening_full_test" and not expected_path:
+                report.add("error", "MEDIA_PATH_MISSING", path,
+                           "Approved Listening media needs expected_audio_path.")
+            elif expected_path:
                 asset = (path.parent / expected_path).resolve()
                 try:
                     asset.relative_to(path.parent.resolve())
@@ -1231,10 +1313,10 @@ def _validate_lesson(
                     if not asset.is_file():
                         report.add("error", "MEDIA_FILE_MISSING", asset,
                                    "Approved Listening media is not packaged.")
-                    elif not SHA256_RE.fullmatch(checksum):
+                    if not SHA256_RE.fullmatch(checksum):
                         report.add("error", "MEDIA_CHECKSUM_INVALID", path,
                                    "Approved Listening media needs a SHA-256 checksum.")
-                    elif _sha256_file(asset) != checksum:
+                    elif asset.is_file() and _sha256_file(asset) != checksum:
                         report.add("error", "MEDIA_CHECKSUM_MISMATCH", asset,
                                    "Listening media bytes do not match lesson metadata.")
 
@@ -1284,10 +1366,9 @@ def validate_package(package_path: str | Path) -> ValidationReport:
         return report
     _validate_manifest(root, manifest, report)
 
-    supplements = manifest.get("content_supplements")
-    vocab_audio_required = bool(
-        isinstance(supplements, dict) and supplements.get("vocabulary_audio")
-    )
+    # AVOC-0002 FR-003 requires both checksum-bound clips on every core card;
+    # omitting supplement metadata must not disable the per-card validation.
+    vocab_audio_required = True
 
     source_manifest_path = root / SOURCE_MANIFEST_NAME
     source_report = validate_source_inputs_manifest(source_manifest_path)
@@ -1299,6 +1380,7 @@ def validate_package(package_path: str | Path) -> ValidationReport:
     manifest_lessons = manifest.get("lessons") or []
     lesson_rows = manifest_lessons if isinstance(manifest_lessons, list) else []
     loaded_lessons: list[tuple[Path, dict[str, Any]]] = []
+    loaded_reviews: list[tuple[Path, dict[str, Any]]] = []
     for lesson_id in ids:
         if not re.fullmatch(r"ADV-T\d{2}", lesson_id):
             report.add("error", "LESSON_ID_FORMAT", root / "course-manifest.json",
@@ -1338,6 +1420,7 @@ def validate_package(package_path: str | Path) -> ValidationReport:
         review = _read_json(path, report)
         if review is None:
             continue
+        loaded_reviews.append((path, review))
         if str(review.get("review_id") or "") != review_id:
             report.add("error", "REVIEW_PATH_ID_MISMATCH", path,
                        f"review_id does not match manifest ID {review_id}.")
@@ -1379,7 +1462,7 @@ def validate_package(package_path: str | Path) -> ValidationReport:
                    f"Directories not referenced by manifest: {', '.join(unreferenced)}")
     if source_manifest:
         _validate_package_source_provenance(
-            root, manifest, source_manifest, loaded_lessons, report,
+            root, manifest, source_manifest, loaded_lessons, loaded_reviews, report,
         )
     return report
 

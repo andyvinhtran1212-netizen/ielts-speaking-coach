@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from services import advanced_vocab_package_builder as builder_module
 from services.advanced_vocab_package_builder import (
     _extract_objectives,
     build_package,
@@ -15,10 +17,13 @@ from services.advanced_vocab_package_builder import (
     sanitize_listening_source,
     split_assessment,
 )
-from services.advanced_vocab_package_validator import source_manifest_revision
+from services.advanced_vocab_package_validator import (
+    FIRST_RELEASE_LOCKED_REVISIONS,
+    source_manifest_revision,
+)
 
 
-def _source_manifest(root: Path) -> Path:
+def _source_manifest(root: Path, overrides: Path | None = None) -> Path:
     source_file = root / "declared.txt"
     source_file.write_bytes(b"declared")
     manifest = {
@@ -26,11 +31,7 @@ def _source_manifest(root: Path) -> Path:
         "source_id": "builder-fixture",
         "origin": "Product owner",
         "rights": "Aver Learning product use",
-        "locked_revisions": {
-            "authored_input_map_sha256": "1" * 64,
-            "kokoro_bundle_sha256": "2" * 64,
-            "generated_package_sha256": "3" * 64,
-        },
+        "locked_revisions": dict(FIRST_RELEASE_LOCKED_REVISIONS),
         "release_patterns": {"source": ["declared.txt"]},
         "inputs": [{
             "root": "source",
@@ -40,6 +41,15 @@ def _source_manifest(root: Path) -> Path:
             "lesson_ids": [],
         }],
     }
+    if overrides is not None:
+        manifest["release_patterns"]["common_error_overrides"] = [overrides.name]
+        manifest["inputs"].append({
+            "root": "common_error_overrides",
+            "path": overrides.name,
+            "sha256": hashlib.sha256(overrides.read_bytes()).hexdigest(),
+            "role": "common_error_overrides",
+            "lesson_ids": [],
+        })
     manifest["source_revision"] = source_manifest_revision(manifest)
     path = root.parent / "source-inputs-manifest.json"
     path.write_text(json.dumps(manifest), encoding="utf-8")
@@ -290,11 +300,67 @@ def test_failed_build_removes_private_staging_directory(tmp_path: Path):
     source = tmp_path / "source"
     output = tmp_path / "output"
     source.mkdir()
+    overrides = tmp_path / "overrides.json"
+    overrides.write_text('{"items": []}', encoding="utf-8")
+    manifest = _source_manifest(source, overrides)
+
+    with pytest.raises(ValueError, match="Expected one topic DOCX"):
+        build_package(
+            source,
+            output,
+            source_manifest_path=manifest,
+            common_error_overrides_path=overrides,
+        )
+
+    assert not output.exists()
+    assert list(tmp_path.glob(".output.building-*")) == []
+
+
+def test_builder_rejects_consumed_override_missing_from_manifest(tmp_path: Path):
+    source = tmp_path / "source"
+    output = tmp_path / "output"
+    source.mkdir()
     manifest = _source_manifest(source)
     overrides = tmp_path / "overrides.json"
     overrides.write_text('{"items": []}', encoding="utf-8")
 
-    with pytest.raises(ValueError, match="Expected one topic DOCX"):
+    with pytest.raises(ValueError, match="Consumed common_error_overrides inputs"):
+        build_package(
+            source,
+            output,
+            source_manifest_path=manifest,
+            common_error_overrides_path=overrides,
+        )
+
+    assert not output.exists()
+
+
+def test_builder_never_promotes_an_invalid_generated_package(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    source = tmp_path / "source"
+    output = tmp_path / "output"
+    source.mkdir()
+    overrides = tmp_path / "overrides.json"
+    overrides.write_text('{"items": []}', encoding="utf-8")
+    manifest = _source_manifest(source, overrides)
+    monkeypatch.setattr(
+        builder_module,
+        "_build_package_contents",
+        lambda _source, staging, *_args: staging,
+    )
+    monkeypatch.setattr(
+        builder_module,
+        "validate_package",
+        lambda _staging: SimpleNamespace(
+            schema_valid=True,
+            publish_ready=False,
+            errors=[],
+            warnings=[SimpleNamespace(code="AUDIO_NOT_APPROVED",
+                                      message="Listening audio requires approval")],
+        ),
+    )
+
+    with pytest.raises(ValueError, match="Generated package validation failed"):
         build_package(
             source,
             output,

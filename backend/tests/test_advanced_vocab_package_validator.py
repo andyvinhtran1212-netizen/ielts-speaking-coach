@@ -11,11 +11,20 @@ from scripts import sync_advanced_vocab_core30 as sync_module
 from scripts.sync_advanced_vocab_core30 import sync
 from services.advanced_vocab_package_validator import (
     CORE_LESSON_IDS,
+    FIRST_RELEASE_LOCKED_REVISIONS,
     source_manifest_revision,
     validate_source_inputs_manifest,
     validate_listening_source_directory,
     validate_package,
 )
+
+
+HEADWORD_AUDIO_BYTES = b"shared headword clip"
+EXAMPLE_AUDIO_BYTES = b"shared example clip"
+LISTENING_AUDIO_BYTES = b"lesson listening clip"
+HEADWORD_AUDIO_SHA = hashlib.sha256(HEADWORD_AUDIO_BYTES).hexdigest()
+EXAMPLE_AUDIO_SHA = hashlib.sha256(EXAMPLE_AUDIO_BYTES).hexdigest()
+LISTENING_AUDIO_SHA = hashlib.sha256(LISTENING_AUDIO_BYTES).hexdigest()
 
 
 def _activity(aid: str, activity_type: str, **extra):
@@ -50,7 +59,13 @@ def _lesson(lesson_id: str) -> dict:
             {"lexeme_id": f"{lesson_id}-lex-{i}",
              "lesson_lexeme_id": f"{lesson_id}__lex-{i}",
              "headword": f"word-{i}",
-             "common_error": "A precise usage note."}
+             "common_error": "A precise usage note.",
+             "audio_headword": "assets/vocab-audio/headword.mp3",
+             "audio_example": "assets/vocab-audio/example.mp3",
+             "audio_provenance": {
+                 "headword_checksum": HEADWORD_AUDIO_SHA,
+                 "example_checksum": EXAMPLE_AUDIO_SHA,
+             }}
             for i in range(24)
         ],
         "adaptive_quiz": {
@@ -184,7 +199,13 @@ def _lesson(lesson_id: str) -> dict:
             "converter_version": "1.0.0",
             "source_checksums": {f"source/{lesson_id}.docx": "b" * 64},
         },
-        "media": {"audio": [{"audio_id": f"{lesson_id}-audio", "status": "approved"}]},
+        "media": {"audio": [{
+            "audio_id": f"{lesson_id}-audio",
+            "role": "listening_full_test",
+            "status": "approved",
+            "expected_audio_path": "assets/audio/full_test.mp3",
+            "checksum": LISTENING_AUDIO_SHA,
+        }]},
     }
     lesson["provenance"]["content_checksum"] = _checksum_without(
         lesson, "provenance", "content_checksum"
@@ -199,12 +220,12 @@ def _write_package(root: Path, ids=CORE_LESSON_IDS) -> None:
         "source_id": "test-core30-source",
         "origin": "Product-owner-provided fixture",
         "rights": "Test use",
-        "locked_revisions": {
-            "authored_input_map_sha256": "1" * 64,
-            "kokoro_bundle_sha256": "2" * 64,
-            "generated_package_sha256": "3" * 64,
+        "locked_revisions": dict(FIRST_RELEASE_LOCKED_REVISIONS),
+        "release_patterns": {
+            "source": ["source/*.docx", "source/reviews/*.md"],
+            "common_error_overrides": ["advanced_vocab_common_errors.json"],
+            "vocab_audio_bundle": ["manifest.json", "clips/*.mp3"],
         },
-        "release_patterns": {"source": ["source/*.docx"]},
         "inputs": [
             {
                 "root": "source",
@@ -214,16 +235,61 @@ def _write_package(root: Path, ids=CORE_LESSON_IDS) -> None:
                 "lesson_ids": [lesson_id],
             }
             for lesson_id in ids
+        ] + [
+            {
+                "root": "source",
+                "path": f"source/reviews/R{number:02d}.md",
+                "sha256": "d" * 64,
+                "role": "review_markdown",
+                "lesson_ids": [],
+            }
+            for number in range(1, 7)
+        ] + [
+            {
+                "root": "common_error_overrides",
+                "path": "advanced_vocab_common_errors.json",
+                "sha256": "c" * 64,
+                "role": "common_error_overrides",
+                "lesson_ids": [],
+            },
+            {
+                "root": "vocab_audio_bundle",
+                "path": "manifest.json",
+                "sha256": "e" * 64,
+                "role": "kokoro_manifest",
+                "lesson_ids": [],
+            },
+            {
+                "root": "vocab_audio_bundle",
+                "path": "clips/headword.mp3",
+                "sha256": HEADWORD_AUDIO_SHA,
+                "role": "kokoro_clip",
+                "lesson_ids": [],
+            },
+            {
+                "root": "vocab_audio_bundle",
+                "path": "clips/example.mp3",
+                "sha256": EXAMPLE_AUDIO_SHA,
+                "role": "kokoro_clip",
+                "lesson_ids": [],
+            },
         ],
     }
     source_manifest["source_revision"] = source_manifest_revision(source_manifest)
     (root / "source-inputs-manifest.json").write_text(
         json.dumps(source_manifest), encoding="utf-8"
     )
+    audio_root = root / "assets" / "vocab-audio"
+    audio_root.mkdir(parents=True)
+    (audio_root / "headword.mp3").write_bytes(HEADWORD_AUDIO_BYTES)
+    (audio_root / "example.mp3").write_bytes(EXAMPLE_AUDIO_BYTES)
     lesson_rows = []
     for lesson_id in ids:
         folder = root / "lessons" / lesson_id
         folder.mkdir(parents=True)
+        listening_asset = folder / "assets" / "audio" / "full_test.mp3"
+        listening_asset.parent.mkdir(parents=True)
+        listening_asset.write_bytes(LISTENING_AUDIO_BYTES)
         lesson = _lesson(lesson_id)
         (folder / "lesson.json").write_text(json.dumps(lesson), encoding="utf-8")
         lesson_rows.append({
@@ -245,6 +311,10 @@ def _write_package(root: Path, ids=CORE_LESSON_IDS) -> None:
             }],
             "provenance": {},
         }
+        review["provenance"].update({
+            "source_path": f"source/reviews/{review_id}.md",
+            "source_checksum": "d" * 64,
+        })
         review["provenance"]["content_checksum"] = _checksum_without(
             review, "provenance", "content_checksum"
         )
@@ -260,6 +330,20 @@ def _write_package(root: Path, ids=CORE_LESSON_IDS) -> None:
         "course_id": "ADV-VOCAB",
         "audience": "assigned_only",
         "source_revision": source_manifest["source_revision"],
+        "content_supplements": {
+            "common_errors": {
+                "checksum": "c" * 64,
+                "item_count": 88,
+            },
+            "vocabulary_audio": {
+                "engine": "kokoro",
+                "card_count": 720,
+                "clip_count": 1390,
+                "bundle_checksum": FIRST_RELEASE_LOCKED_REVISIONS[
+                    "kokoro_bundle_sha256"
+                ],
+            },
+        },
         "lessons": lesson_rows,
         "reviews": review_rows,
     }
@@ -305,11 +389,7 @@ def _write_source_manifest_fixture(root: Path) -> tuple[Path, Path]:
         "source_id": "source-fixture",
         "origin": "Product owner",
         "rights": "Aver Learning product use",
-        "locked_revisions": {
-            "authored_input_map_sha256": "1" * 64,
-            "kokoro_bundle_sha256": "2" * 64,
-            "generated_package_sha256": "3" * 64,
-        },
+        "locked_revisions": dict(FIRST_RELEASE_LOCKED_REVISIONS),
         "release_patterns": {"source": ["*.docx"]},
         "inputs": [{
             "root": "source",
@@ -350,6 +430,98 @@ def test_source_manifest_rejects_undeclared_release_input(tmp_path: Path):
     report = validate_source_inputs_manifest(manifest, roots={"source": source})
 
     assert "SOURCE_INPUT_UNDECLARED" in _codes(report)
+
+
+def test_source_manifest_rejects_wrong_avoc_locked_revision(tmp_path: Path):
+    manifest_path, source = _write_source_manifest_fixture(tmp_path)
+    manifest = json.loads(manifest_path.read_text())
+    manifest["locked_revisions"]["kokoro_bundle_sha256"] = "f" * 64
+    manifest["source_revision"] = source_manifest_revision(manifest)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = validate_source_inputs_manifest(manifest_path, roots={"source": source})
+
+    assert "LOCKED_REVISION_MISMATCH" in _codes(report)
+
+
+def test_package_requires_locked_supplements(tmp_path: Path):
+    _write_package(tmp_path)
+    lesson_path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(lesson_path.read_text())
+    lesson["vocabulary"][0].pop("audio_headword")
+    lesson["vocabulary"][0].pop("audio_example")
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+    manifest_path = tmp_path / "course-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest.pop("content_supplements")
+    manifest["package_checksum"] = _checksum_without(manifest, "package_checksum")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+
+    assert "COMMON_ERROR_SUPPLEMENT_MISSING" in _codes(report)
+    assert "VOCAB_AUDIO_SUPPLEMENT_MISSING" in _codes(report)
+    assert "VOCAB_AUDIO_MISSING" in _codes(report)
+
+
+def test_package_rejects_review_source_outside_manifest(tmp_path: Path):
+    _write_package(tmp_path)
+    review_path = tmp_path / "reviews" / "R01.json"
+    review = json.loads(review_path.read_text())
+    review["provenance"]["source_checksum"] = "a" * 64
+    review["provenance"]["content_checksum"] = _checksum_without(
+        review, "provenance", "content_checksum"
+    )
+    review_path.write_text(json.dumps(review), encoding="utf-8")
+    manifest_path = tmp_path / "course-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["reviews"][0]["content_checksum"] = review["provenance"][
+        "content_checksum"
+    ]
+    manifest["package_checksum"] = _checksum_without(manifest, "package_checksum")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    assert "REVIEW_SOURCE_NOT_IN_MANIFEST" in _codes(validate_package(tmp_path))
+
+
+def test_package_rejects_undeclared_kokoro_inputs(tmp_path: Path):
+    _write_package(tmp_path)
+    source_path = tmp_path / "source-inputs-manifest.json"
+    source = json.loads(source_path.read_text())
+    source["inputs"] = [
+        row for row in source["inputs"]
+        if row["root"] != "vocab_audio_bundle"
+    ]
+    source["release_patterns"].pop("vocab_audio_bundle")
+    source["source_revision"] = source_manifest_revision(source)
+    source_path.write_text(json.dumps(source), encoding="utf-8")
+    manifest_path = tmp_path / "course-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["source_revision"] = source["source_revision"]
+    manifest["package_checksum"] = _checksum_without(manifest, "package_checksum")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    assert "VOCAB_AUDIO_SOURCE_NOT_IN_MANIFEST" in _codes(
+        validate_package(tmp_path)
+    )
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected_code"),
+    [("path", "MEDIA_PATH_MISSING"), ("file", "MEDIA_FILE_MISSING")],
+)
+def test_package_requires_checksum_bound_listening_asset(
+        tmp_path: Path, mode: str, expected_code: str):
+    _write_package(tmp_path)
+    lesson_path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(lesson_path.read_text())
+    if mode == "path":
+        lesson["media"]["audio"][0].pop("expected_audio_path")
+        _rewrite_lesson_with_checksums(tmp_path, lesson)
+    else:
+        (lesson_path.parent / "assets" / "audio" / "full_test.mp3").unlink()
+
+    assert expected_code in _codes(validate_package(tmp_path))
 
 
 def test_manifest_rejects_t31_to_t33_in_first_release(tmp_path: Path):
@@ -1139,10 +1311,11 @@ def test_sync_preflights_assets_before_replacing_lesson_snapshot(
     listening_asset = package / "lessons" / lesson_id / "assets/audio/full_test.mp3"
     listening_asset.parent.mkdir(parents=True, exist_ok=True)
     listening_asset.write_bytes(listening_payload)
-    lesson["media"]["audio"].append({
+    lesson["media"]["audio"] = [{
         "audio_id": "listening", "role": "listening_full_test",
-        "status": "approved", "checksum": hashlib.sha256(listening_payload).hexdigest(),
-    })
+        "status": "approved", "expected_audio_path": "assets/audio/full_test.mp3",
+        "checksum": hashlib.sha256(listening_payload).hexdigest(),
+    }]
 
     writing_refs = ["assets/wt1/topic.svg", "assets/wt1/topic.png"]
     lesson["media"]["wt1_illustrations"] = writing_refs
@@ -1183,6 +1356,18 @@ def test_sync_preflights_assets_before_replacing_lesson_snapshot(
     for ref, payload in expected_writing.items():
         versioned = public / "versions" / lesson_id / checksum / "writing" / Path(ref).name
         assert versioned.read_bytes() == payload
+
+    canonical_lesson = content / f"{lesson_id}.json"
+    before = canonical_lesson.read_bytes()
+    lesson["title"] = "A newer source revision"
+    _rewrite_lesson_with_checksums(package, lesson)
+    stale_asset = public / lesson_id / "listening" / "obsolete.mp3"
+    stale_asset.write_bytes(b"stale")
+
+    with pytest.raises(SystemExit, match="file thừa trước khi sync"):
+        sync_module.sync(package, write=True)
+
+    assert canonical_lesson.read_bytes() == before
 
 def test_reading_requires_thirteen_questions_and_no_answer_leak(tmp_path: Path):
     _write_package(tmp_path)

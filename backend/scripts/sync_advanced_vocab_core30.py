@@ -129,12 +129,14 @@ def _sync_lesson(source_lesson: Path, lesson_id: str, checksum: str, *,
             target,
             _CONTENT / "versions" / lesson_id / f"{previous_checksum}.json",
             write=write,
+            immutable=True,
         )
     _copy(source_lesson, target, write=write)
     _copy(
         source_lesson,
         _CONTENT / "versions" / lesson_id / f"{checksum}.json",
         write=write,
+        immutable=True,
     )
     return previous_checksum
 
@@ -218,19 +220,32 @@ def _prepare_lesson(source: Path, course_source: Path | None,
             str(word.get("common_error") or "").strip() for word in vocabulary):
         raise SystemExit(f"{lesson_id}: cần 24 từ và common_error cho mọi từ.")
 
+    asset_plan: list[tuple[Path, Path, str | None]] = []
     for word in vocabulary:
         provenance = word.get("audio_provenance") or {}
         for field in ("audio_headword", "audio_example"):
             ref = str(word.get(field) or "")
             checksum_field = ("headword_checksum" if field == "audio_headword"
                               else "example_checksum")
-            _verify_source_asset(source / ref, provenance.get(checksum_field))
+            source_asset = source / ref
+            checksum = provenance.get(checksum_field)
+            _verify_source_asset(source_asset, checksum)
+            asset_plan.append((
+                source_asset,
+                _PUBLIC / lesson_id / "vocab" / Path(ref).name,
+                checksum,
+            ))
     listening = source / "lessons" / lesson_id / "assets" / "audio" / "full_test.mp3"
     listening_meta = next(
         (row for row in (lesson.get("media") or {}).get("audio") or []
          if row.get("role") == "listening_full_test"), {}
     )
     _verify_source_asset(listening, listening_meta.get("checksum"))
+    asset_plan.append((
+        listening,
+        _PUBLIC / lesson_id / "listening" / "full_test.mp3",
+        listening_meta.get("checksum"),
+    ))
     listening_content = next(
         (row.get("content") or {} for row in lesson.get("activities") or []
          if row.get("activity_type") == "listening_lab"),
@@ -239,18 +254,28 @@ def _prepare_lesson(source: Path, course_source: Path | None,
     for section in listening_content.get("sections") or []:
         figure = str(section.get("figure") or "")
         if figure:
-            _verify_source_asset(
-                _listening_figure_source(source, course_source, lesson_id, figure),
-                section.get("figure_checksum"),
+            figure_source = _listening_figure_source(
+                source, course_source, lesson_id, figure,
             )
+            figure_checksum = section.get("figure_checksum")
+            _verify_source_asset(figure_source, figure_checksum)
+            asset_plan.append((
+                figure_source,
+                _PUBLIC / lesson_id / "listening" / Path(figure).name,
+                figure_checksum,
+            ))
     writing_refs = [
         str(ref) for ref in (lesson.get("media") or {}).get("wt1_illustrations") or []
     ]
     for ref in writing_refs:
-        _verify_source_asset(
-            source / "lessons" / lesson_id / ref,
-            _writing_asset_checksum(lesson, ref),
-        )
+        source_asset = source / "lessons" / lesson_id / ref
+        checksum = _writing_asset_checksum(lesson, ref)
+        _verify_source_asset(source_asset, checksum)
+        asset_plan.append((
+            source_asset,
+            _PUBLIC / lesson_id / "writing" / Path(ref).name,
+            checksum,
+        ))
     return {
         "lesson_id": lesson_id,
         "source_lesson": source_lesson,
@@ -261,7 +286,95 @@ def _prepare_lesson(source: Path, course_source: Path | None,
         "listening_meta": listening_meta,
         "listening_content": listening_content,
         "writing_refs": writing_refs,
+        "asset_plan": asset_plan,
     }
+
+
+def _preflight_destinations(prepared_lessons: list[dict]) -> None:
+    """Reject stale/colliding deploy state before the first target mutation."""
+    expected_content = {f"{row['lesson_id']}.json" for row in prepared_lessons}
+    actual_content = {
+        path.name for path in _CONTENT.glob("*.json")
+        if path.name not in {"core30-manifest.json", SOURCE_MANIFEST_NAME}
+    }
+    unexpected_content = sorted(actual_content - expected_content)
+    if unexpected_content:
+        raise SystemExit(
+            "Snapshot content có file thừa trước khi sync: "
+            f"{unexpected_content}"
+        )
+
+    for prepared in prepared_lessons:
+        lesson_id = prepared["lesson_id"]
+        source_lesson = prepared["source_lesson"]
+        new_checksum = prepared["actual_checksum"]
+        canonical_lesson = _CONTENT / f"{lesson_id}.json"
+        previous_checksum: str | None = None
+        if canonical_lesson.is_file():
+            previous = _read(canonical_lesson)
+            previous_checksum = str(
+                (previous.get("provenance") or {}).get("content_checksum") or ""
+            )
+            if (not previous_checksum
+                    or lesson_content_checksum(previous) != previous_checksum):
+                raise SystemExit(f"{lesson_id}: snapshot hiện tại có checksum sai.")
+            previous_version = (
+                _CONTENT / "versions" / lesson_id / f"{previous_checksum}.json"
+            )
+            if (previous_version.is_file()
+                    and _sha256(previous_version) != _sha256(canonical_lesson)):
+                raise SystemExit(
+                    f"Không được ghi đè snapshot bất biến: {previous_version}"
+                )
+        next_version = _CONTENT / "versions" / lesson_id / f"{new_checksum}.json"
+        if next_version.is_file() and _sha256(next_version) != _sha256(source_lesson):
+            raise SystemExit(f"Không được ghi đè snapshot bất biến: {next_version}")
+
+        canonical_root = _PUBLIC / lesson_id
+        expected_targets = {target for _source, target, _checksum in prepared["asset_plan"]}
+        actual_targets = {
+            path for path in canonical_root.rglob("*") if path.is_file()
+        }
+        unexpected_assets = sorted(
+            str(path.relative_to(_REPO)) for path in actual_targets - expected_targets
+        )
+        if unexpected_assets:
+            raise SystemExit(
+                f"{lesson_id}: snapshot asset có file thừa trước khi sync: "
+                f"{unexpected_assets}"
+            )
+
+        next_version_root = _PUBLIC / "versions" / lesson_id / new_checksum
+        expected_relative = {
+            target.relative_to(canonical_root) for target in expected_targets
+        }
+        actual_versioned = {
+            path.relative_to(next_version_root)
+            for path in next_version_root.rglob("*") if path.is_file()
+        }
+        unexpected_versioned = sorted(
+            str(path) for path in actual_versioned - expected_relative
+        )
+        if unexpected_versioned:
+            raise SystemExit(
+                f"{lesson_id}: snapshot asset versioned có file thừa trước khi sync: "
+                f"{unexpected_versioned}"
+            )
+
+        for source_asset, canonical_target, _checksum in prepared["asset_plan"]:
+            relative = canonical_target.relative_to(canonical_root)
+            next_target = next_version_root / relative
+            if next_target.is_file() and _sha256(next_target) != _sha256(source_asset):
+                raise SystemExit(f"Không được ghi đè snapshot bất biến: {next_target}")
+            if previous_checksum and canonical_target.is_file():
+                previous_target = (
+                    _PUBLIC / "versions" / lesson_id / previous_checksum / relative
+                )
+                if (previous_target.is_file()
+                        and _sha256(previous_target) != _sha256(canonical_target)):
+                    raise SystemExit(
+                        f"Không được ghi đè snapshot bất biến: {previous_target}"
+                    )
 
 
 def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dict:
@@ -285,6 +398,7 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
         _prepare_lesson(source, course_source, lesson_id)
         for lesson_id in lesson_ids
     ]
+    _preflight_destinations(prepared_lessons)
     report = {"schema_version": 1, "source_package_version": "v5-writing-reference",
               "source_revision": manifest.get("source_revision"),
               "lesson_count": len(lesson_ids), "lessons": []}

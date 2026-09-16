@@ -25,7 +25,9 @@ from docx.table import Table, _Cell
 from docx.text.paragraph import Paragraph
 
 from services.advanced_vocab_package_validator import (
+    FIRST_RELEASE_LOCKED_REVISIONS,
     SOURCE_MANIFEST_NAME,
+    validate_package,
     validate_source_inputs_manifest,
 )
 
@@ -90,6 +92,43 @@ def _sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _declared_inputs(manifest: dict[str, Any]) -> dict[tuple[str, str], str]:
+    rows = manifest.get("inputs") if isinstance(manifest, dict) else None
+    if not isinstance(rows, list):
+        return {}
+    return {
+        (str(row.get("root") or ""), str(row.get("path") or "")): str(
+            row.get("sha256") or ""
+        )
+        for row in rows if isinstance(row, dict)
+    }
+
+
+def _require_consumed_inputs_declared(
+    manifest: dict[str, Any],
+    root_name: str,
+    root: Path,
+    consumed: Iterable[Path],
+) -> None:
+    """Reject files the builder consumes but the locked manifest does not cover."""
+    declared = _declared_inputs(manifest)
+    root = root.resolve()
+    missing: list[str] = []
+    for path in consumed:
+        resolved = path.resolve()
+        try:
+            relative = resolved.relative_to(root).as_posix()
+        except ValueError as exc:
+            raise ValueError(f"Consumed input escapes {root_name} root: {path}") from exc
+        if path.is_symlink() or declared.get((root_name, relative)) != _sha256_file(resolved):
+            missing.append(relative)
+    if missing:
+        raise ValueError(
+            f"Consumed {root_name} inputs are absent or mismatched in "
+            f"{SOURCE_MANIFEST_NAME}: {', '.join(sorted(missing))}"
+        )
 
 
 def _write_json(path: Path, value: Any) -> None:
@@ -1191,6 +1230,7 @@ def _build_package_contents(
     media_approval_ref: str | None,
     source_manifest_path: Path,
 ) -> Path:
+    source_manifest = json.loads(source_manifest_path.read_text(encoding="utf-8"))
     common_error_overrides, common_error_metadata = load_common_error_overrides(
         common_error_overrides_path
     )
@@ -1198,6 +1238,10 @@ def _build_package_contents(
     vocab_audio_manifest: dict[str, Any] | None = None
     if vocab_audio_bundle_path is not None:
         audio_root, vocab_audio_manifest = load_vocab_audio_bundle(vocab_audio_bundle_path)
+        if vocab_audio_manifest.get("bundle_checksum") != FIRST_RELEASE_LOCKED_REVISIONS[
+            "kokoro_bundle_sha256"
+        ]:
+            raise ValueError("Vocabulary audio bundle does not match AVOC-0002 lock")
         destination = output / "assets" / "vocab-audio"
         shutil.copytree(audio_root / "clips", destination)
 
@@ -1217,7 +1261,6 @@ def _build_package_contents(
         _write_json(lesson_path, lesson)
         lessons.append(lesson)
 
-    source_manifest = json.loads(source_manifest_path.read_text(encoding="utf-8"))
     declared_source = {
         str(row.get("path") or ""): str(row.get("sha256") or "")
         for row in source_manifest.get("inputs") or []
@@ -1258,6 +1301,15 @@ def _build_package_contents(
         review = _build_review(source, review_number)
         _write_json(output / "reviews" / f"R{review_number:02d}.json", review)
         reviews.append(review)
+    for review in reviews:
+        provenance = review.get("provenance") or {}
+        relative = str(provenance.get("source_path") or "")
+        checksum = str(provenance.get("source_checksum") or "")
+        if declared_source.get(relative) != checksum:
+            raise ValueError(
+                "Generated review source provenance is absent or mismatched in "
+                f"{SOURCE_MANIFEST_NAME}: {relative}"
+            )
 
     manifest = {
         "schema_version": "2.0.0",
@@ -1358,6 +1410,28 @@ def build_package(
             f"{issue.code}: {issue.message}" for issue in source_report.errors
         )
         raise ValueError(f"Source input manifest validation failed: {summary}")
+    source_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    override_path = Path(common_error_overrides_path).expanduser().resolve()
+    _require_consumed_inputs_declared(
+        source_manifest,
+        "common_error_overrides",
+        overrides_root,
+        [override_path],
+    )
+    if vocab_audio_bundle_path is not None:
+        audio_root = Path(vocab_audio_bundle_path).expanduser().resolve()
+        clip_root = audio_root / "clips"
+        consumed_audio = [audio_root / "manifest.json"]
+        if clip_root.is_dir():
+            consumed_audio.extend(
+                path for path in clip_root.rglob("*") if path.is_file()
+            )
+        _require_consumed_inputs_declared(
+            source_manifest,
+            "vocab_audio_bundle",
+            audio_root,
+            consumed_audio,
+        )
     output.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(
         prefix=f".{output.name}.building-",
@@ -1373,6 +1447,13 @@ def build_package(
             media_approval_ref,
             manifest_path,
         )
+        package_report = validate_package(staging)
+        if not package_report.publish_ready:
+            summary = "; ".join(
+                f"{issue.code}: {issue.message}"
+                for issue in (*package_report.errors, *package_report.warnings)
+            )
+            raise ValueError(f"Generated package validation failed: {summary}")
         staging.rename(output)
     except Exception:
         shutil.rmtree(staging)
