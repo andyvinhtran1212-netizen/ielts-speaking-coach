@@ -1076,7 +1076,11 @@ def test_timed_course_progress_uses_atomic_admission_timestamp_rpc():
                    for call in fake.calls)
 
 
-def test_superseded_timed_progress_returns_a_stable_conflict_code():
+@pytest.mark.parametrize("rpc_error", [
+    "timed_course_progress_not_entitled",
+    "timed_course_progress_not_writable",
+])
+def test_superseded_timed_progress_returns_a_stable_conflict_code(rpc_error):
     attempt = {
         "client_id": "33333333-3333-3333-3333-333333333333",
         "item_key": "x", "qid": "q1", "is_correct": True,
@@ -1098,7 +1102,7 @@ def test_superseded_timed_progress_returns_a_stable_conflict_code():
             "content_config": {"time_limit_minutes": 720},
         }],
         ("rpc", "quiz_insert_timed_course_attempts"):
-            Exception("timed_course_progress_not_entitled"),
+            Exception(rpc_error),
     })
     with patch.object(quiz_service, "supabase_admin", fake):
         with pytest.raises(HTTPException) as error:
@@ -1108,6 +1112,43 @@ def test_superseded_timed_progress_returns_a_stable_conflict_code():
             )
     assert error.value.status_code == 409
     assert error.value.detail["code"] == "timed_course_progress_not_entitled"
+
+
+def test_passed_timed_progress_precheck_returns_terminal_phase_conflict():
+    fake = _FakeSupabase(responses={
+        ("quiz_sessions", "select"): [{
+            "id": _SESS, "user_id": _USER, "bank_id": _BANK,
+            "class_assignment_item_id": "item-timed",
+            "ended_at": None, "ended_by": None,
+        }],
+        ("class_assignment_items", "select"): [{
+            "id": "item-timed", "assignment_id": "asg-timed",
+            "opened_at": "2999-09-15T10:00:00+00:00",
+            "submitted_at": "2999-09-15T10:01:00+00:00",
+            "passed_at": "2999-09-15T10:01:00+00:00",
+            "mastery": None,
+        }],
+        ("class_assignments", "select"): [{
+            "id": "asg-timed", "skill": "course", "status": "published",
+            "publish_at": None, "due_at": None,
+            "content_config": {"time_limit_minutes": 720},
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as error:
+            quiz_service.log_progress(
+                user_id=_USER, session_id=_SESS,
+                attempts=[{
+                    "client_id": "33333333-3333-3333-3333-333333333333",
+                    "item_key": "x", "qid": "q1", "is_correct": True,
+                    "answer_given": "0", "response_time_ms": 1250,
+                    "attempt_no": 1,
+                }],
+                word_stats=[],
+            )
+    assert error.value.status_code == 409
+    assert error.value.detail["code"] == "timed_course_progress_not_entitled"
+    assert not any(call["op"] == "rpc" for call in fake.calls)
 
 
 def test_time_cap_can_close_after_an_earlier_assignment_deadline():

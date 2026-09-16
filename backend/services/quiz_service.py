@@ -2520,6 +2520,19 @@ def _record_quiz_kp_evidence(user_id: str, bank_id: str, attempt_rows: list[dict
         logger.warning("[quiz] KP evidence recording skipped (non-fatal): %s", e)
 
 
+def _timed_course_progress_phase_conflict() -> HTTPException:
+    """Tell stale runners to stop writing and reload canonical Course truth."""
+    return HTTPException(
+        409, {
+            "code": "timed_course_progress_not_entitled",
+            "message": (
+                "Lượt làm này đã được thay thế ở một cửa sổ khác. "
+                "Đang tải lại tiến độ mới nhất."
+            ),
+        },
+    )
+
+
 def _assert_quiz_progress_writable(session: dict) -> bool:
     """Reject closed/expired writes; return True for a timed Course session."""
     if session.get("ended_at") or session.get("ended_by"):
@@ -2553,6 +2566,8 @@ def _assert_quiz_progress_writable(session: dict) -> bool:
     if timer.get("is_timed") and timer.get("is_expired"):
         raise HTTPException(409, "Đã hết thời gian làm bài — đáp án này không được ghi.")
     if course_assignment_action(items[0], assignment) == "review":
+        if timer.get("is_timed"):
+            raise _timed_course_progress_phase_conflict()
         raise HTTPException(409, "Bài đã được thu — không thể ghi thêm đáp án.")
     return bool(timer.get("is_timed"))
 
@@ -2611,20 +2626,11 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
                 raise HTTPException(
                     409, "Đã hết thời gian làm bài — đáp án này không được ghi.",
                 ) from exc
-            if timed_course and "timed_course_progress_not_writable" in detail:
-                raise HTTPException(
-                    409, "Phiên này không còn nhận đáp án.",
-                ) from exc
-            if timed_course and "timed_course_progress_not_entitled" in detail:
-                raise HTTPException(
-                    409, {
-                        "code": "timed_course_progress_not_entitled",
-                        "message": (
-                            "Lượt làm này đã được thay thế ở một cửa sổ khác. "
-                            "Đang tải lại tiến độ mới nhất."
-                        ),
-                    },
-                ) from exc
+            if timed_course and (
+                "timed_course_progress_not_writable" in detail
+                or "timed_course_progress_not_entitled" in detail
+            ):
+                raise _timed_course_progress_phase_conflict() from exc
             if timed_course and "timed_course_limit_invalid" in detail:
                 raise HTTPException(
                     409, "Cấu hình thời gian của bài không hợp lệ.",
