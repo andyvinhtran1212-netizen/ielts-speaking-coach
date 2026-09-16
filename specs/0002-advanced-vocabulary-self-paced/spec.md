@@ -33,23 +33,27 @@ that prevents answer leakage and gives admins canonical completion evidence.
   acquisition root for this build is `/Users/trantrongvinh/Downloads/Vocab course`.
   It is product-owned course material for use in Aver Learning, not third-party public
   content; the local acquisition path is never deployed or treated as reproducible
-  identity. The selected generated source package is
-  `/Users/trantrongvinh/Downloads/advanced_vocab_core30_package_v5_writing_reference`.
-  Its locked revisions are authored-input-map SHA-256
-  `498a80407e6580c6f04fef6a4a0d34471a3a90eb2bd3ed38d06906e4aa8983b2`,
+  identity. The selected generated source package is the corrected v6 T11-map build
+  derived from that acquisition root. Its locked revisions are authored-input-map
+  SHA-256
+  `2d2750cd7dbe55c19adaf2c8b102a653627f494437546740ea2c4ebbad7591fc`,
   Kokoro bundle SHA-256
   `c0495ddac3a1c865d6f07963f11534693f024ba9042eea0ab4b737511fb4c166`,
   and generated package SHA-256
-  `d1acfdf50fe1741d9156c9e62cbd4084bbd44b57a524909c45d6301503f7fd7b`.
-  This corrected package revision includes the authored T11 Listening map asset and
-  its checksum, keeps Reading editorial evidence fields in the private solution map,
+  `176344b624eaf2edcd8b7407b60338ff3a7b3d4fd3a76be268022a6ba1f85e2e`.
+  This corrected package revision replaces the unrelated campus template previously
+  packaged for T11 with the Westport Intermodal Hub layout required by the audio and
+  keyed locations D (bike-hire dock) and F (left luggage). It keeps Reading editorial
+  evidence fields in the private solution map,
   and keeps all 20 controlled-rewrite exercises in the public prompt payload while
   retaining reference answers in the private solution payload. The earlier v5
   manifest revision `968a…` referenced the figure without the packaged file or
   checksum and exposed those editorial fields in learner questions. The intervening
   `c0b854…` revision matched an answer-key phrase in the assessment introduction and
-  consequently hid all 20 controlled-rewrite exercises as solutions. Neither earlier
-  revision is publish-ready.
+  consequently hid all 20 controlled-rewrite exercises as solutions. The later
+  `d1acfd…` package restored the rewrite prompts but retained a checksum-valid campus
+  map whose semantics did not match T11. None of those earlier revisions is
+  publish-ready.
 - T002 commits `backend/content/advanced_vocab/source-inputs-manifest.json` as the
   canonical source revision. It records a stable source ID, rights/origin note, every
   builder-consumed relative path (lesson documents, assessment/quiz Markdown, Reading/
