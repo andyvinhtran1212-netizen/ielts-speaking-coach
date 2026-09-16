@@ -18,7 +18,9 @@
   constraints before merging any dependent runtime code.
 - Merge the runtime PR and confirm all integrated workflows pass on the exact
   resulting staging SHA.
-- Import exactly 30 assignment-only banks and verify 48 rows per bank.
+- Import exactly 30 assignment-only banks under the Advanced unpublished default,
+  verify 48 rows per bank, then explicitly publish all 30 through the guarded
+  publish-state transaction and confirm the picker/list immediately and after reload.
 - Complete one learner journey, reload progress, and compare admin results before
   and after reload; confirm Writing/Speaking produce no default grading.
 - Record the exact staging SHA that owns both integrated CI and live Staging E2E.
@@ -31,7 +33,9 @@
   recorded staging HEAD to equal the SHA owning both integrated CI and live Staging
   E2E evidence. Any intervening staging commit invalidates the evidence and restarts
   the exact-SHA checks.
-- Monitor production deploy/health checks, then import and verify the same 30 banks.
+- Monitor production deploy/health checks, then import and verify the same 30 banks;
+  explicitly publish them through the guarded transaction and confirm the picker/list
+  immediately and after reload before any assignment journey.
 - Smoke login, assignment open/resume, versioned audio/figure delivery, learner
   completion, and admin result visibility on the stable production domain.
 

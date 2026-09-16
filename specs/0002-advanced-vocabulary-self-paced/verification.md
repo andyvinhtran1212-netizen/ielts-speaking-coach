@@ -14,7 +14,7 @@ on staging and replacement implementation commits are created from that base.
 | FR-005 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
 | FR-006 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_quiz_service.py, backend/tests/test_course_attempt_report.py, frontend/tests/my-class-next-behavior.test.mjs, frontend/tests/admin-class-homework-next-behavior.test.mjs, frontend/tests/admin-class-student-work-next-behavior.test.mjs, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
 | FR-007 | kind=test; ref=backend/tests/test_advanced_vocab_rls_integration.py | PENDING |
-| FR-008 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py, backend/tests/test_advanced_vocab_importer.py, frontend/tests/admin-class-homework-next-behavior.test.mjs | PENDING |
+| FR-008 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py, backend/tests/test_advanced_vocab_importer.py, backend/tests/test_admin_quiz_import.py, frontend/tests/admin-class-homework-next-behavior.test.mjs, frontend/tests/admin-vocab-quiz-import-next-behavior.test.mjs | PENDING |
 | FR-009 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
 
 ## Contract evidence
@@ -97,8 +97,10 @@ on staging and replacement implementation commits are created from that base.
   make issuance fail its final `is_published` recheck, while issuance-first commits
   before unpublish returns. Force both default-import-versus-unpublish orders and prove
   import preserves the locked publication state, so retirement wins in either order;
-  initial import with omission creates an unpublished bank. Verify explicit `published`
-  and `unpublished`, invalid-value 422 with no mutation, and both explicit-directive-
+  initial Advanced import with omission creates an unpublished bank while an ordinary
+  import retains its existing published default. Verify the unchanged route, multipart
+  file plus query-parameter OpenAPI operation, existing dry-run/commit browser flow,
+  explicit `published` and `unpublished`, invalid-value 422 with no mutation, and both explicit-directive-
   versus-retirement orders; the later lock holder's intentional state wins.
   The persisted bank state, assignment list, and bank picker must agree after reload.
 - Admin retirement UI: pending behavior/browser coverage for successful retirement,

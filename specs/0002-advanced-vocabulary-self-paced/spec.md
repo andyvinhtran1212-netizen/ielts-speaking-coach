@@ -144,10 +144,12 @@ that prevents answer leakage and gives admins canonical completion evidence.
   question rows and switches the bank runtime metadata; publish-state mutation commits
   before any later issuance can proceed; and assignment issuance atomically reads the
   metadata, revalidates `is_published` immediately before persistence, and writes its
-  frozen snapshot. The multipart admin import accepts
-  `publish_state=preserve|published|unpublished` and defaults to `preserve`. Under
-  `preserve`, an existing bank retains the publication state observed under the lock,
-  while a newly created bank starts unpublished. An explicit `published` or
+  frozen snapshot. The existing `POST /admin/quiz/import` contract retains multipart
+  `file` and query parameters `topic_id`/`dry_run`; it adds optional query parameter
+  `publish_state=preserve|published|unpublished`, defaulting to `preserve`. Under
+  `preserve`, an existing bank retains the publication state observed under the lock;
+  a newly created Advanced bank starts unpublished, while a new ordinary bank keeps
+  the existing published default. An explicit `published` or
   `unpublished` directive changes state atomically with the revision; an unknown value
   returns 422 before mutation. Either import/issuance commit
   order therefore yields a wholly old or wholly new revision, never a mixed snapshot/
