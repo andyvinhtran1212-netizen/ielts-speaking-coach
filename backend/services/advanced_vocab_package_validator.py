@@ -97,7 +97,7 @@ FIRST_RELEASE_LOCKED_REVISIONS = {
         "c0495ddac3a1c865d6f07963f11534693f024ba9042eea0ab4b737511fb4c166"
     ),
     "generated_package_sha256": (
-        "c0b8548487e6ea3dcf15456bcc9a47114cd1a4442c73fb57bbd2c51a44fdb5fd"
+        "d1acfdf50fe1741d9156c9e62cbd4084bbd44b57a524909c45d6301503f7fd7b"
     ),
 }
 
@@ -864,33 +864,33 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                 "attempt, and non-submittable.",
             )
         content = activity.get("content")
-        blocks = content.get("solutions") if isinstance(content, dict) else None
-        if not isinstance(blocks, list) or any(
-            not isinstance(block, dict) for block in blocks
+        prompts = content.get("prompts") if isinstance(content, dict) else None
+        solutions = content.get("solutions") if isinstance(content, dict) else None
+        if (
+            not isinstance(prompts, list)
+            or not isinstance(solutions, list)
+            or not prompts
+            or not solutions
+            or any(
+                not isinstance(block, dict)
+                or not str(block.get("text") or "").strip()
+                for block in (*prompts, *solutions)
+            )
         ):
             report.add(
                 "error", "CONTROLLED_REWRITE_CONTENT_INVALID", path,
-                "Controlled rewrite needs a list of authored solution blocks.",
+                "Controlled rewrite needs separate authored prompt and solution lists.",
             )
             continue
-        markers = [
-            index for index, block in enumerate(blocks)
-            if re.match(
-                r"^phần\s+a(?:\b|\s|:|—|-)",
-                str(block.get("text") or "").strip(),
-                flags=re.IGNORECASE,
-            )
-        ]
-        prompt_blocks = blocks[:markers[1]] if len(markers) >= 2 else []
         prompt_count = sum(
             bool(re.match(r"^\d+\.\s+", str(block.get("text") or "").strip()))
-            for block in prompt_blocks
+            for block in prompts
         )
-        if len(markers) < 2 or prompt_count != 20:
+        if prompt_count != 20:
             report.add(
                 "error", "CONTROLLED_REWRITE_PROMPTS_INVALID", path,
-                "Controlled rewrite needs two Phần A markers and exactly 20 "
-                f"parsable numbered prompts; found {prompt_count} prompts.",
+                "Controlled rewrite needs exactly 20 public numbered prompts; "
+                f"found {prompt_count} prompts.",
             )
 
     if is_core_lesson and len(speaking) != 1:
