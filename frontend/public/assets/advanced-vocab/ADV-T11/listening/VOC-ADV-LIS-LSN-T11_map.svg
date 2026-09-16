@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="620" viewBox="0 0 900 620">
+  <rect width="900" height="620" fill="#ffffff"/>
+  <text x="450" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#183153">WESTPORT INTERMODAL HUB</text>
+  <text x="450" y="53" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#4b6078">Current post-2024 ground-floor layout · not to scale</text>
+
+  <rect x="105" y="88" width="670" height="510" rx="20" fill="#f7fafc" stroke="#35536f" stroke-width="3"/>
+  <path d="M370 88 H530 V126 H370 Z" fill="#ffffff" stroke="#35536f" stroke-width="3"/>
+  <text x="450" y="107" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#183153">MAIN CONCOURSE ENTRANCE</text>
+  <path d="M450 123 V149" stroke="#183153" stroke-width="3"/>
+  <path d="M442 140 L450 150 L458 140" fill="none" stroke="#183153" stroke-width="3"/>
+  <text x="450" y="168" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#4b6078">You are here, facing the atrium</text>
+
+  <rect x="280" y="177" width="340" height="28" rx="8" fill="#dbe8f3" stroke="#6687a3" stroke-width="2"/>
+  <text x="450" y="196" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#183153">TICKET GATES</text>
+
+  <rect x="345" y="219" width="210" height="58" rx="12" fill="#e5f2ff" stroke="#2f6fa3" stroke-width="3"/>
+  <text x="450" y="242" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#183153">A</text>
+  <text x="450" y="262" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#35536f">TRAM PLATFORMS</text>
+
+  <rect x="255" y="294" width="390" height="118" rx="24" fill="#edf7f4" stroke="#3d7c70" stroke-width="3"/>
+  <text x="450" y="345" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#245d54">CENTRAL ATRIUM</text>
+  <text x="450" y="369" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#3d6f68">open glass roof</text>
+
+  <rect x="122" y="225" width="108" height="82" rx="12" fill="#fff7e8" stroke="#9b6b27" stroke-width="2"/>
+  <text x="176" y="253" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#634516">INFORMATION</text>
+  <text x="176" y="271" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#634516">DESK</text>
+  <rect x="122" y="325" width="108" height="68" rx="12" fill="#f3edff" stroke="#70549a" stroke-width="2"/>
+  <text x="176" y="352" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#4d3477">STAFF LOUNGE</text>
+  <text x="176" y="372" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#70549a">via rear corridor</text>
+
+  <rect x="673" y="216" width="78" height="228" rx="14" fill="#eaf0fb" stroke="#516f9c" stroke-width="3"/>
+  <text x="712" y="268" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#314f78">C</text>
+  <text x="712" y="293" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#314f78">INTERCITY</text>
+  <text x="712" y="311" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#314f78">RAIL</text>
+  <text x="712" y="329" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#314f78">PLATFORMS</text>
+  <path d="M695 350 V420 M714 350 V420 M733 350 V420" stroke="#7990af" stroke-width="4"/>
+
+  <rect x="302" y="427" width="296" height="28" rx="8" fill="#dbe8f3" stroke="#6687a3" stroke-width="2"/>
+  <text x="450" y="446" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#183153">ELEVATED WALKWAY</text>
+
+  <rect x="310" y="469" width="205" height="58" rx="12" fill="#fff0dc" stroke="#a76625" stroke-width="3"/>
+  <text x="412" y="492" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#6b421b">B</text>
+  <text x="412" y="513" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#6b421b">COACH BAYS</text>
+
+  <rect x="548" y="468" width="92" height="58" rx="12" fill="#fff3c9" stroke="#9a7412" stroke-width="3"/>
+  <text x="594" y="505" text-anchor="middle" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#5f4705">D</text>
+  <path d="M640 496 H666" stroke="#9a7412" stroke-width="2" stroke-dasharray="5 4"/>
+
+  <rect x="359" y="552" width="106" height="50" rx="12" fill="#ffe9ef" stroke="#9b4861" stroke-width="3"/>
+  <text x="412" y="585" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#742c43">F</text>
+  <path d="M412 527 V552" stroke="#9b4861" stroke-width="2" stroke-dasharray="5 4"/>
+
+  <rect x="792" y="96" width="88" height="72" rx="12" fill="#e9f7ec" stroke="#4b8159" stroke-width="3"/>
+  <text x="836" y="124" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#2f673d">E</text>
+  <text x="836" y="146" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#2f673d">TAXI RANK</text>
+  <path d="M775 120 H792" stroke="#4b8159" stroke-width="2" stroke-dasharray="5 4"/>
+
+  <path d="M836 178 V207" stroke="#4b6078" stroke-width="2"/>
+  <path d="M830 186 L836 178 L842 186" fill="none" stroke="#4b6078" stroke-width="2"/>
+  <text x="836" y="226" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#4b6078">N</text>
+
+  <text x="112" y="583" font-family="Arial, sans-serif" font-size="12" fill="#4b6078">Letters A-F mark possible locations.</text>
+</svg>

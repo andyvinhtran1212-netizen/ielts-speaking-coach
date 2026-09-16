@@ -20,6 +20,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi import HTTPException
 
 from routers import admin_class_assignments as mod
 from services import mock_correction_service
@@ -291,6 +292,33 @@ async def test_delete_asks_the_locking_rpc_and_nothing_else():
          patch.object(m, "supabase_admin", db):
         await m.delete_assignment("c1", "asg-1", None)
 
+    assert db.calls == ["rpc:fn_delete_class_assignment_if_unsubmitted"]
+
+
+@pytest.mark.asyncio
+async def test_delete_partial_advanced_vocab_evidence_returns_conflict():
+    """The migration-281 evidence trigger is a user-visible conflict, not an
+    unexpected server failure, and the protected rows remain untouched."""
+    from routers import admin_class_assignments as m
+
+    class _GuardedRpcDB:
+        def __init__(self): self.calls = []
+        def rpc(self, fn, _params):
+            self.calls.append(f"rpc:{fn}")
+            return self
+        def execute(self):
+            raise RuntimeError(
+                "23503: cannot delete assignment item with advanced vocabulary evidence"
+            )
+
+    db = _GuardedRpcDB()
+    with patch.object(m, "require_admin", AsyncMock(return_value={"id": "adm"})), \
+         patch.object(m, "supabase_admin", db), \
+         pytest.raises(HTTPException) as exc:
+        await m.delete_assignment("c1", "asg-1", None)
+
+    assert exc.value.status_code == 409
+    assert "không xoá được" in exc.value.detail
     assert db.calls == ["rpc:fn_delete_class_assignment_if_unsubmitted"]
 
 
