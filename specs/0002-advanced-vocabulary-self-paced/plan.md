@@ -10,7 +10,7 @@
 
 ## Data and contracts
 
-- Migration 263 creates only the Advanced Vocabulary stage-progress,
+- Migration 281 creates only the Advanced Vocabulary stage-progress,
   per-question-attempt, and Listening-attempt tables. It reuses the existing
   `course_section_submissions` table as canonical Reading/Listening evidence and
   extends it idempotently with the Advanced Vocabulary finalization trigger.
@@ -33,7 +33,7 @@
   evidence. The admin delete route returns a stable 409 and offers unpublish/archive;
   that action removes the bank from new-assignment selection but existing assignments
   continue to resolve their frozen runtime/content and canonical results.
-- Migration 263 replaces `quiz_banks_public_read` with a role-equivalent select policy
+- Migration 281 replaces `quiz_banks_public_read` with a role-equivalent select policy
   whose predicate excludes `meta.runtime.kind = 'advanced_vocab'`. Because permissive
   PostgreSQL policies combine with OR, the migration must inventory and test every
   select policy on this table, leaving no alternate anon/authenticated allow path;
@@ -67,7 +67,7 @@
   and assignment update together; concurrent calls serialize without a second
   section row. The atomic assignment update sets `state='submitted'`, `submitted_at`,
   and `passed_at` to the same terminal timestamp while keeping `score=NULL`.
-- Migration 263 performs an idempotent reconciliation of complete pilot items that
+- Migration 281 performs an idempotent reconciliation of complete pilot items that
   predate the trigger. It derives completion only from all required canonical stage
   and section rows, writes `state='submitted'` alongside terminal timestamps,
   preserves the earliest existing submission timestamps, and leaves partial items

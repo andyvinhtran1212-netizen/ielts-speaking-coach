@@ -141,7 +141,7 @@ that prevents answer leakage and gives admins canonical completion evidence.
   or deadline expiry. Archive/republish takes the same assignment-row lock so a
   learner evidence transaction and archival serialize in either commit order;
   removal/transfer updates the same locked membership row and provides the equivalent
-  serialization for roster changes. Migration 263 replaces the legacy public
+  serialization for roster changes. Migration 281 replaces the legacy public
   `quiz_banks` select policy so direct anon/authenticated reads cannot enumerate the
   Advanced runtime while ordinary bank visibility remains unchanged.
 - **FR-008:** Authored lesson JSON and runtime media use immutable content versions

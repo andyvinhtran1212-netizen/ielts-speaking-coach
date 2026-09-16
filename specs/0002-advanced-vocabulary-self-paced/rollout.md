@@ -4,7 +4,7 @@
 
 - AVOC-0002 is approved on staging before implementation commits.
 - Core-30 content validates with zero errors/warnings and immutable checksums.
-- Migration 263 is additive, idempotent through the advisory-locked runner, and
+- Migration 281 is additive, idempotent through the advisory-locked runner, and
   compatible with application code before bank import.
 - Staging and production service credentials are loaded only in their scoped run.
 
@@ -13,7 +13,7 @@
 - Merge the pure validation/versioning foundation first.
 - Validate the exact content/media package with that foundation, record zero
   errors/warnings and checksum evidence, then merge the inert content snapshot.
-- Complete review of the high-risk runtime candidate, apply migration 263 from
+- Complete review of the high-risk runtime candidate, apply migration 281 from
   that exact candidate to staging, and verify policies, triggers, indexes, and
   constraints before merging any dependent runtime code.
 - Merge the runtime PR and confirm all integrated workflows pass on the exact
@@ -28,7 +28,7 @@
 ## Production
 
 - Require explicit owner authorization after staging evidence is green.
-- Apply and verify migration 263 before merging staging to main.
+- Apply and verify migration 281 before merging staging to main.
 - Immediately before merge, run the repository `Staging promotion gate`; require its
   recorded staging HEAD to equal the SHA owning both integrated CI and live Staging
   E2E evidence. Any intervening staging commit invalidates the evidence and restarts
