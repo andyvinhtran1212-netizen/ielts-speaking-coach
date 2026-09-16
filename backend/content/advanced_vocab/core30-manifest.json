@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "source_package_version": "v5-writing-reference",
-  "source_revision": "7a5d9a5331cf011367162543e4a40ef3e89e079682607804bfa3d3522df72fff",
+  "source_revision": "ca5aa986c141f6c15362b8d4b3711ba733a5f4ac8200685b2c2f2db0e3cad960",
   "lesson_count": 30,
   "lessons": [
     {
@@ -127,7 +127,7 @@
     {
       "lesson_id": "ADV-T11",
       "title": "Transport and Travel",
-      "content_checksum": "a03819b4c5f8b9a4ed446caa36cbc63bbbe652e4b81b00c752961692fd5b3026",
+      "content_checksum": "ad18d1aee5c819fc02913870f6f02c9fd95b1a95193efba74eb4c074981b92fa",
       "checkpoint_review_id": "R03",
       "checkpoint_review_checksum": "6901f362f718eae3360dd3c361873da3884c32b4118c57298a64b31ff3410bdc",
       "vocabulary_count": 24,

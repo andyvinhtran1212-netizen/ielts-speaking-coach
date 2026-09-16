@@ -2451,7 +2451,7 @@
       "path": "_CORRECTED/Advanced/03_Listening_Reading_v2/Listening_Lessons_Web/Figures/VOC-ADV-LIS-LSN-T11_map.svg",
       "role": "listening_figure",
       "root": "source",
-      "sha256": "cb41ed49e71e2dc8e51efdec44aabcf919efbc3fc6198d5959e239c7c9b5068c"
+      "sha256": "f817ed81305b229e148090565d238bcfb0966a36609d54edf347da19dcf6c84f"
     },
     {
       "lesson_ids": [
@@ -16396,8 +16396,8 @@
     }
   ],
   "locked_revisions": {
-    "authored_input_map_sha256": "498a80407e6580c6f04fef6a4a0d34471a3a90eb2bd3ed38d06906e4aa8983b2",
-    "generated_package_sha256": "d1acfdf50fe1741d9156c9e62cbd4084bbd44b57a524909c45d6301503f7fd7b",
+    "authored_input_map_sha256": "2d2750cd7dbe55c19adaf2c8b102a653627f494437546740ea2c4ebbad7591fc",
+    "generated_package_sha256": "176344b624eaf2edcd8b7407b60338ff3a7b3d4fd3a76be268022a6ba1f85e2e",
     "kokoro_bundle_sha256": "c0495ddac3a1c865d6f07963f11534693f024ba9042eea0ab4b737511fb4c166"
   },
   "origin": "Product-owner-provided Advanced Vocabulary course export",
@@ -16815,5 +16815,5 @@
   "rights": "Product-owned course material for Aver Learning product use",
   "schema_version": "1.0.0",
   "source_id": "aver-learning-advanced-vocabulary-core30-2026-09-14",
-  "source_revision": "7a5d9a5331cf011367162543e4a40ef3e89e079682607804bfa3d3522df72fff"
+  "source_revision": "ca5aa986c141f6c15362b8d4b3711ba733a5f4ac8200685b2c2f2db0e3cad960"
 }
