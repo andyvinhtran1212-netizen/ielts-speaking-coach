@@ -191,6 +191,40 @@ def test_advanced_vocabulary_tally_keeps_no_account_separate_from_untouched(monk
     assert out["counts"]["untouched"] == 0
 
 
+def test_advanced_vocabulary_tally_reports_neutral_completion_not_pass(monkeypatch):
+    from services import advanced_vocab_service
+
+    monkeypatch.setattr(advanced_vocab_service, "assignment_results", lambda **_kwargs: {
+        "students": [{
+            "item": {
+                "student_id": "student-1", "opened_at": "2026-09-15T01:00:00Z",
+                "submitted_at": "2026-09-15T02:00:00Z",
+                "passed_at": "2026-09-15T02:00:00Z",
+                "artifact_kind": "advanced_vocab_progress", "artifact_id": "item-1",
+            },
+            "student": {
+                "user_id": "user-1", "full_name": "Học viên A", "student_code": "HV01",
+            },
+            "stages": [
+                {"stage": stage, "status": "completed"}
+                for stage in ("vocabulary", "practice_1", "practice_2", "controlled_rewrite")
+            ],
+            "sections": [{"section": "reading"}, {"section": "listening"}],
+            "practice_attempts": [],
+        }],
+    })
+
+    out = adm._advanced_vocab_assignment_tally({
+        "id": "assignment-1", "skill": "course", "title": "Advanced T01",
+        "due_at": None,
+    })
+
+    assert out["students"][0]["course_state"] == "completed"
+    assert out["counts"]["completed"] == 1
+    assert "passed" not in out["counts"]
+    assert out["students"][0]["score"] is None
+
+
 def test_a_timed_course_assignment_freezes_the_limit_in_its_snapshot():
     _bank_id, cfg = _resolve(_full(), _body(time_limit_minutes=135))
     assert cfg["time_limit_minutes"] == 135

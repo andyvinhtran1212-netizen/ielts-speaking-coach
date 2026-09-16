@@ -12,7 +12,7 @@ type View = 'tally' | 'effort' | 'student';
 const STATUS = { 'no-account': 'Chưa kích hoạt', missing: 'Không nộp', pending: 'Chưa nộp', late: 'Nộp trễ', submitted: 'Đã nộp' } as Record<string, string>;
 const EFFORT_BASE = { stalled: 'Bỏ dở', completing_sections: 'Còn phần chưa xong', needs_retry: 'Chưa đạt · cần làm lại', doing: 'Đang làm', done: 'Đã đạt', untouched: 'Chưa mở', no_account: 'Chưa kích hoạt' } as Record<string, string>;
 const NEXT = { passed: 'Đã đạt', retake: 'Revision ngắn', retry_full: 'Làm lại toàn bộ' } as Record<string, string>;
-const COURSE_STATE = { passed: 'Đã đạt', timed_out: 'Đã hết giờ', near_pass: 'Gần đạt · Revision', retry_full: 'Làm lại toàn bài', in_progress: 'Đang hoàn thành', untouched: 'Chưa mở', no_account: 'Chưa kích hoạt' } as Record<string, string>;
+const COURSE_STATE = { passed: 'Đã đạt', completed: 'Đã hoàn tất', timed_out: 'Đã hết giờ', near_pass: 'Gần đạt · Revision', retry_full: 'Làm lại toàn bài', in_progress: 'Đang hoàn thành', untouched: 'Chưa mở', no_account: 'Chưa kích hoạt' } as Record<string, string>;
 const ISSUE_KIND = { grammar: 'ngữ pháp', spelling: 'chính tả', mechanics: 'hình thức' } as Record<string, string>;
 
 function formatVietnam(value: string | null) {

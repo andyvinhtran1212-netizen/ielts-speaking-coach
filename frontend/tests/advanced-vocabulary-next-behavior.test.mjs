@@ -99,6 +99,9 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.match(CSS, /\.avx-reading-pane\.is-mobile-active\s*\{[^}]*display:\s*block/s);
     assert.match(UI, /aria-controls="avx-reading-panel-passage"/);
     assert.match(UI, /role="tabpanel"/);
+    assert.match(UI, /event\.key === 'ArrowRight'/);
+    assert.match(UI, /event\.key === 'Home'/);
+    assert.match(UI, /tabIndex=\{mobilePane === 'passage' \? 0 : -1\}/);
     for (const lesson of LESSONS) {
       const reading = lesson.activities.find((row) => row.activity_type === 'reading_lab').content;
       const support = readingSupportLines(reading);
@@ -137,6 +140,14 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.match(UI, /completed=\{completed\.has\('listening'\)\}/);
     assert.match(UI, /saved\?\.review \|\| null/);
     assert.match(UI, /saved\?\.review \|\| \(content\.initial_attempt/);
+  });
+
+  test('normalizes failures, focuses the error and exposes canonical retry', () => {
+    assert.match(UI, /errorHeadingRef\.current\?\.focus\(\)/);
+    assert.match(UI, /inlineErrorRef\.current\?\.focus\(\)/);
+    assert.match(UI, /Tải lại dữ liệu đã lưu/);
+    assert.match(UI, /Không hoàn tất được thao tác/);
+    assert.doesNotMatch(UI, /if \(error instanceof Error\) return error\.message/);
   });
 
   test('preserves boundary results when stage navigation remounts each child', () => {

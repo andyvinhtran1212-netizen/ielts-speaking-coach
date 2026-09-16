@@ -1302,7 +1302,7 @@ def _advanced_vocab_assignment_tally(assignment: dict) -> dict:
         started = bool(completed or evidence["practice_attempts"]
                        or evidence.get("listening_attempts") or item.get("opened_at"))
         course_state = ("no_account" if not student.get("user_id") else
-                        "passed" if item.get("submitted_at") else
+                        "completed" if item.get("submitted_at") else
                         "in_progress" if started else "untouched")
         rows.append({
             "student_id": item.get("student_id"),
@@ -1314,7 +1314,7 @@ def _advanced_vocab_assignment_tally(assignment: dict) -> dict:
             "flags": [],
             "flag_level": None,
             "course_state": course_state,
-            "next_action": (None if course_state in ("passed", "no_account") else
+            "next_action": (None if course_state in ("completed", "no_account") else
                             "Tiếp tục bài self-paced" if started else "Mở bài"),
             "pass_pct": None,
             "near_pass_pct": None,
@@ -1352,7 +1352,7 @@ def _advanced_vocab_assignment_tally(assignment: dict) -> dict:
             "missing": sum(row["status"] == "missing" for row in rows),
             "no_account": sum(row["status"] == "no-account" for row in rows),
             "flagged": 0,
-            "passed": sum(row["course_state"] == "passed" for row in rows),
+            "completed": sum(row["course_state"] == "completed" for row in rows),
             "near_pass": 0,
             "retry_full": 0,
             "in_progress": sum(row["course_state"] == "in_progress" for row in rows),
