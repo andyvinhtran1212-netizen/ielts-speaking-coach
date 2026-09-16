@@ -77,7 +77,10 @@ type ClassSnapshot = {
 type Snapshot = { hasClass: false } | ClassSnapshot | null;
 
 type StartTarget =
-  | { kind: 'course'; bankId: string; itemId: string; reviewOnly: boolean }
+  | {
+      kind: 'course'; bankId: string; itemId: string;
+      reviewOnly: boolean; expiryPending: boolean;
+    }
   | { kind: 'player'; surface: string; query: Record<string, string> }
   | { kind: 'stable-player'; url: string }
   | { kind: 'admission'; url: string }

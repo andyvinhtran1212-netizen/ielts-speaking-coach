@@ -46,6 +46,8 @@ from services.quiz_service import (
 )
 from services.class_assignment_service import (
     CLASS_TZ,
+    MAX_COURSE_TIME_LIMIT_MINUTES,
+    CourseBankChangedError,
     DueChangeRefused,
     EmptyRosterError,
     ExplanationApprovalError,
@@ -150,6 +152,11 @@ class AssignmentCreate(BaseModel):
     # vào sẽ bị bỏ — chốt nằm trong giao dịch, không phải ở tầng này.
     student_ids:  Optional[list[str]] = None
     retake_size:  Optional[int] = Field(default=None, ge=5, le=100)
+    # Optional elapsed-time cap for a Course bank.  The clock starts from each
+    # learner's canonical ``class_assignment_items.opened_at``.
+    time_limit_minutes: Optional[int] = Field(
+        default=None, ge=1, le=MAX_COURSE_TIME_LIMIT_MINUTES,
+    )
     # Reading/Listening papers from the protected exam warehouse may be given
     # explicitly as assigned practice. This grants only this class item; it does
     # not publish the paper to the normal practice library.
@@ -175,6 +182,8 @@ class AssignmentCreate(BaseModel):
             if not (self.content_id or "").strip():
                 raise ValueError("Bài tập theo buổi cần chọn một bộ bài tập.")
             return self
+        if self.time_limit_minutes is not None:
+            raise ValueError("Giới hạn thời gian hiện chỉ dùng cho bài Course.")
         if self.kind == "lesson":
             if self.skill != "speaking":
                 raise ValueError(
@@ -688,6 +697,24 @@ def _pronunciation_set_matches(requirement, sets: list[dict]) -> bool:
     )
 
 
+def _course_bank_assignment_revision(bank_id: str) -> str:
+    """Read the database's canonical token for Course-assignment preflight."""
+    try:
+        data = supabase_admin.rpc(
+            "quiz_course_bank_assignment_revision", {"p_bank_id": bank_id},
+        ).execute().data
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Không đọc được phiên bản bộ bài tập: {exc}")
+    if isinstance(data, list):
+        data = data[0] if data else None
+        if isinstance(data, dict):
+            data = next(iter(data.values()), None)
+    revision = str(data or "").strip()
+    if not revision:
+        raise HTTPException(404, "Không tìm thấy phiên bản bộ bài tập này.")
+    return revision
+
+
 def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str, dict]:
     """Chọn một bộ bài tập theo buổi từ kho của khoá mà lớp thuộc về.
 
@@ -696,6 +723,7 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
     kiện phải kiểm ở đây; không có lớp bảo vệ nào phía sau.
     """
     course_id = _cohort_course_id(cohort_id)
+    revision_before = _course_bank_assignment_revision(body.content_id)
 
     rows = (supabase_admin.table("quiz_banks")
             .select("id, code, title, skill_area, course_id, lesson_no, words_count, meta")
@@ -752,6 +780,12 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+    if (body.time_limit_minutes is not None
+            and set(weight_snapshot.get("section_counts") or {}) != {"quiz"}):
+        raise HTTPException(
+            400,
+            "Giới hạn thời gian hiện chỉ áp dụng cho bộ trắc nghiệm thuần.",
+        )
 
     dup = (supabase_admin.table("class_assignments").select("id, title")
            .eq("cohort_id", cohort_id).eq("skill", "course")
@@ -777,6 +811,17 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
         cfg["pass_pct"] = body.pass_pct
     if body.retake_size is not None:
         cfg["retake_size"] = body.retake_size
+    if body.time_limit_minutes is not None:
+        cfg["time_limit_minutes"] = body.time_limit_minutes
+    revision_after = _course_bank_assignment_revision(bank["id"])
+    if revision_after != revision_before:
+        raise HTTPException(
+            409, "Bộ bài tập vừa được cập nhật. Hãy tải lại và giao bản mới nhất.",
+        )
+    # The atomic creation RPC locks quiz_banks and recomputes this exact token
+    # before inserting.  A replacement between this preflight and that lock is
+    # therefore rejected instead of combining old shape with new questions.
+    cfg["bank_revision"] = revision_after
     return bank["id"], cfg
 
 
@@ -1490,6 +1535,7 @@ async def assignment_tally(
             # làm bài, trong khi lỗi nằm ở phía hệ thống.
             "flagged":   sum(1 for r in out if r["flags"]),
             "passed": sum(1 for r in out if r.get("course_state") == "passed"),
+            "timed_out": sum(1 for r in out if r.get("course_state") == "timed_out"),
             "near_pass": sum(1 for r in out if r.get("course_state") == "near_pass"),
             "retry_full": sum(1 for r in out if r.get("course_state") == "retry_full"),
             "in_progress": sum(1 for r in out if r.get("course_state") == "in_progress"),
@@ -2229,6 +2275,8 @@ async def create_assignment(
     except EmptyRosterError as exc:
         # Raised BEFORE anything is inserted, so no orphan give is left behind.
         raise HTTPException(400, str(exc))
+    except CourseBankChangedError as exc:
+        raise HTTPException(409, str(exc))
     except ExplanationApprovalError as exc:
         # The approval, scope and assignment are one RPC transaction, so this
         # response also guarantees no explanation state or audit event changed.

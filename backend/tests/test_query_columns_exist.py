@@ -62,6 +62,7 @@ _SCHEMA = {
         # thay đổi ĐÚNG. Ghi lại đây để lần sau khỏi đi tra prod.
         "opened_at",
         "passed_at", "mastery",       # mig 189 — cổng thuộc bài
+        "timed_limit_minutes", "timed_expires_at",  # mig 280 — cutoff bất biến
     },
     "topic_questions": {
         "id", "topic_id", "part", "order_num", "question_text", "question_type",

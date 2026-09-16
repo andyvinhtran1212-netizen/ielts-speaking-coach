@@ -9,6 +9,7 @@ and posts progress back here.
   GET   /api/quiz/mistakes?skill_area=           — own wrong answers, by word.
   GET   /api/quiz/banks/{bank_id}               — bank META + questions (+answers).
   GET   /api/quiz/banks/{bank_id}/resume        — carry-over word_stats.
+  GET   /api/quiz/banks/{bank_id}/course-timer — canonical post-payload timer.
   POST  /api/quiz/banks/{bank_id}/reset          — wipe mastery cache, restart the bank.
   POST  /api/quiz/sessions                       — start a session (+resume).
   POST  /api/quiz/sessions/{id}/progress         — batch log attempts + word_stats.
@@ -43,6 +44,8 @@ class CourseVerdictBody(BaseModel):
     class_item: str | None = None
     # Các phiên của lượt vừa làm — server tự cộng điểm từ dòng nó giữ.
     session_ids: list[str]
+    # Only honoured when the server-side assignment timer has actually expired.
+    timed_out: bool = False
 
 
 class CourseFullRetryBody(BaseModel):
@@ -63,6 +66,9 @@ class EndSessionBody(BaseModel):
     words_mastered: int = 0
     words_carried_over: int = 0
     ended_by: str | None = None
+    # Only the timed Course time-cap path consumes this. Migration 273 writes
+    # the final pending answers and closes the session in one transaction.
+    attempts: list[dict] = []
 
 
 @router.get("/banks")
@@ -119,6 +125,19 @@ async def get_bank(
 async def resume(bank_id: UUID, authorization: str | None = Header(None)):
     user = await get_supabase_user(authorization)
     return quiz_service.get_resume(user_id=user["id"], bank_id=str(bank_id))
+
+
+@router.get("/banks/{bank_id}/course-timer")
+async def course_timer(
+    bank_id: UUID, class_item: str | None = None,
+    authorization: str | None = Header(None),
+):
+    """Authoritative post-payload timer sample; never adopts session state."""
+    user = await get_supabase_user(authorization)
+    return quiz_service.get_course_timer(
+        user_id=user["id"], bank_id=str(bank_id),
+        assignment_item_id=class_item,
+    )
 
 
 @router.get("/banks/{bank_id}/course-resume")
@@ -286,7 +305,7 @@ async def course_verdict(body: CourseVerdictBody, authorization: str | None = He
     user = await get_supabase_user(authorization)
     return quiz_service.course_verdict(
         user_id=user["id"], bank_id=body.bank_id, session_ids=body.session_ids,
-        assignment_item_id=body.class_item,
+        assignment_item_id=body.class_item, timed_out=body.timed_out,
     )
 
 

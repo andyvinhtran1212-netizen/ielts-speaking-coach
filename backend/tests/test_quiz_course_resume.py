@@ -10,6 +10,7 @@ những câu đã trả lời nằm lại trong một phiên không bao giờ đ
 from __future__ import annotations
 
 import inspect
+from datetime import datetime, timedelta, timezone
 
 from services import quiz_service as qs
 
@@ -75,8 +76,8 @@ def test_the_session_with_the_most_work_wins():
     thường là phiên ít bài nhất. Dữ liệu thật của em ấy: chặng 3 có một phiên 8
     câu và một phiên 5 câu — lấy mới nhất là bắt em làm lại 3 câu đã làm."""
     src = _src()
-    assert "with_work" in src, "phiên rỗng không phải chỗ đang làm dở"
-    assert "max(with_work" in src and "len(by_session" in src, \
+    assert "with_work" in src
+    assert "max(candidates" in src and "len(by_session" in src, \
         "phải chọn phiên NHIỀU BÀI NHẤT, không phải phiên mới nhất"
 
 
@@ -162,7 +163,7 @@ def test_answers_to_questions_that_no_longer_exist_do_not_inflate_the_stage():
 # lọt hai lỗi thật: coi phiên tạm dừng là đã chốt, và trả câu sai thứ tự. Chốt
 # dưới đây gọi thẳng `get_course_resume` với một cơ sở dữ liệu giả.
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 BANK = "bank-1"
 USER = "u1"
@@ -238,6 +239,78 @@ def _sess(sid, *, ended_by=None, created="2026-08-06T01:00:00+00:00", tq=None, t
             "ended_by": ended_by, "total_questions": tq, "total_correct": tc}
 
 
+def test_resume_returns_a_post_payload_authoritative_timer_sample():
+    opened = datetime.now(timezone.utc) - timedelta(seconds=5)
+    item = {
+        "id": ITEM, "opened_at": opened.isoformat(), "due_at": None,
+        "content_config": {"time_limit_minutes": 30},
+    }
+    db = _DB({"quiz_sessions": [], "quiz_questions": [
+        {"bank_id": BANK, "qid": "q00", "type": "mcq", "order": 0},
+    ]})
+    with patch.object(qs, "supabase_admin", db), \
+            patch.object(qs, "_bank_meta_or_404",
+                         lambda *_a, **_k: {"skill_area": qs.COURSE_AREA}), \
+            patch.object(qs, "_assignment_item_for", lambda *_a, **_k: item):
+        sv = qs.get_course_resume(user_id=USER, bank_id=BANK)
+
+    assert sv["timer"]["is_timed"] is True
+    assert sv["timer"]["started_at"] == opened.isoformat()
+    assert sv["timer"]["expires_at"] is not None
+    assert 0 < sv["timer"]["time_remaining_seconds"] <= 1800
+    assert sv["timer"]["sampled_at"] is not None
+
+
+def test_lightweight_timer_sample_is_independent_of_session_history():
+    opened = datetime.now(timezone.utc) - timedelta(seconds=5)
+    item = {
+        "id": ITEM, "opened_at": opened.isoformat(), "due_at": None,
+        "content_config": {"time_limit_minutes": 30},
+    }
+    with patch.object(qs, "_bank_meta_or_404",
+                      lambda *_a, **_k: {"skill_area": qs.COURSE_AREA}), \
+            patch.object(qs, "_assignment_item_for", lambda *_a, **_k: item):
+        sample = qs.get_course_timer(user_id=USER, bank_id=BANK,
+                                     assignment_item_id=ITEM)
+
+    assert sample["item_id"] == ITEM
+    assert sample["timer"]["is_timed"] is True
+    assert sample["timer"]["started_at"] == opened.isoformat()
+    assert sample["timer"]["sampled_at"] is not None
+    assert 0 < sample["timer"]["time_remaining_seconds"] <= 1800
+    src = inspect.getsource(qs.get_course_timer)
+    assert 'table("quiz_sessions")' not in src
+    for bad in (".update(", ".insert(", ".upsert(", ".delete("):
+        assert bad not in src
+
+
+def test_lightweight_timer_sample_survives_the_assignment_cutoff():
+    opened = datetime.now(timezone.utc) - timedelta(minutes=31)
+    expired = {
+        "id": ITEM, "opened_at": opened.isoformat(),
+        "due_at": (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat(),
+        "content_config": {"time_limit_minutes": 30},
+    }
+    bank_gate = MagicMock(return_value={"skill_area": qs.COURSE_AREA})
+    review_gate = MagicMock(return_value=expired)
+    with patch.object(qs, "_bank_meta_or_404", bank_gate), \
+            patch.object(qs, "_assignment_item_for_review", review_gate), \
+            patch.object(qs, "_assignment_item_for") as live_gate:
+        sample = qs.get_course_timer(user_id=USER, bank_id=BANK,
+                                     assignment_item_id=ITEM)
+
+    bank_gate.assert_called_once_with(
+        BANK, USER, assignment_item_id=ITEM,
+        allow_expired_timed_review=True,
+    )
+    review_gate.assert_called_once_with(BANK, USER, assignment_item_id=ITEM)
+    live_gate.assert_not_called()
+    assert sample["item_id"] == ITEM
+    assert sample["timer"]["is_timed"] is True
+    assert sample["timer"]["is_expired"] is True
+    assert sample["timer"]["time_remaining_seconds"] == 0
+
+
 def test_a_PAUSED_session_is_not_a_finished_stage():
     """`ended_at` được đặt cả khi tạm dừng. Coi nó là đã chốt nghĩa là gọi một
     chặng bỏ giữa chừng là chặng đã xong — rồi gửi luôn id phiên tạm dừng đi xét
@@ -287,6 +360,18 @@ def test_the_answers_come_back_in_the_BANK_ORDER():
         attempts=[{"session_id": "s1", "qid": q, "created_at": "2026-08-06T01:00:00+00:00"}
                   for q in ["q04", "q02", "q00", "q03", "q01"]])
     assert [a["qid"] for a in sv["answered"]] == ["q00", "q01", "q02", "q03", "q04"]
+
+
+def test_an_empty_atomic_timer_session_is_returned_for_adoption():
+    """GET bank created this session before releasing questions; resume must
+    return it even before the first answer, or the runner will create a second
+    session and leave the canonical timer session orphaned."""
+    sv = _resume(
+        sessions=[_sess("atomic-first")],
+        attempts=[],
+    )
+    assert sv["session_id"] == "atomic-first"
+    assert sv["answered"] == []
 
 
 def test_answering_the_same_question_twice_does_not_double_count():

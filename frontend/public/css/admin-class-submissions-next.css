@@ -16,6 +16,7 @@
 .acs-outcomes article { min-height: 104px; padding: var(--av-space-4); border-inline-start: 3px solid var(--av-border-subtle); display: flex; flex-direction: column; justify-content: center; gap: var(--av-space-1); }
 .acs-outcomes article + article { border-left-width: 1px; }
 .acs-outcomes article[data-kind='passed'] { border-inline-start-color: var(--av-success); }
+.acs-outcomes article[data-kind='timeout'] { border-inline-start-color: var(--av-error); }
 .acs-outcomes article[data-kind='near'] { border-inline-start-color: var(--av-primary); }
 .acs-outcomes article[data-kind='retry'] { border-inline-start-color: var(--av-warning); }
 .acs-outcomes strong { color: var(--av-text-primary); font: var(--av-fw-bold) var(--av-fs-2xl)/1 var(--av-font-mono); }

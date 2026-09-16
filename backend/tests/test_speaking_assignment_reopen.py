@@ -179,6 +179,14 @@ async def test_submitted_incomplete_course_reopens_for_work_after_deadline_exten
     assert out == {
         "item_id": "it1", "assignment_id": "a1", "skill": "course",
         "bank_id": "bank-grammar-05", "course_action": "continue",
+        "timer": {
+            "is_timed": False,
+            "time_limit_minutes": None,
+            "started_at": None,
+            "expires_at": None,
+            "time_remaining_seconds": None,
+            "is_expired": False,
+        },
     }
 
 

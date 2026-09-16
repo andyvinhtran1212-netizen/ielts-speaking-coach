@@ -186,8 +186,40 @@ describe('assignment start contract', () => {
       item_id: 'item-1', assignment_id: 'a', skill: 'course',
       bank_id: 'bank-1', review_only: true,
     }, 'item-1'), {
-      kind: 'course', bankId: 'bank-1', itemId: 'item-1', reviewOnly: true,
+      kind: 'course', bankId: 'bank-1', itemId: 'item-1',
+      reviewOnly: true, expiryPending: false,
     });
+  });
+
+  test('pending expiry remains distinct from a persisted course review', () => {
+    const normalized = normalizeMyClassResponse(payload({
+      assignments: [assignment({ course_action: 'expired_pending' })],
+    }));
+    assert.deepEqual(assignmentAction(normalized.assignments[0]), {
+      kind: 'review', label: 'Đang thu bài',
+    });
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-1', assignment_id: 'a', skill: 'course',
+      bank_id: 'bank-1', review_only: true, expiry_pending: true,
+    }, 'item-1'), {
+      kind: 'course', bankId: 'bank-1', itemId: 'item-1',
+      reviewOnly: true, expiryPending: true,
+    });
+  });
+
+  test('submitted expired-pending work stays outstanding without hiding progress', () => {
+    const normalized = normalizeMyClassResponse(payload({
+      assignments: [assignment({
+        state: 'submitted', submitted_at: '2026-08-19T18:23:55Z',
+        course_action: 'expired_pending',
+      })],
+      progress: { total: 1, submitted: 0, todo: 1, missing: 0, late: 0, on_time_pct: null },
+    }));
+    const row = normalized.assignments[0];
+    assert.equal(courseNeedsAction(row), true);
+    assert.equal(normalized.progress.todo, 1);
+    assert.deepEqual(normalized.warnings, []);
+    assert.deepEqual(assignmentAction(row), { kind: 'review', label: 'Đang thu bài' });
   });
 
   test('an incomplete submitted course item stays in the work queue after extension', () => {

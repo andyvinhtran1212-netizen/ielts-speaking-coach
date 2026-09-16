@@ -101,7 +101,8 @@ def _given(n_q, wrong=0):
 
 
 def _verdict(log=None, *, sessions, questions=None, attempts=None,
-             item_row=None, config=None, item=_ITEM, ids=None):
+             item_row=None, config=None, item=_ITEM, ids=None, timed_out=False,
+             reaper=False):
     log = [] if log is None else log
     db = _db(
         log,
@@ -113,10 +114,12 @@ def _verdict(log=None, *, sessions, questions=None, attempts=None,
                                              "mastery": None, "score": None}],
     )
     with patch.object(qs, "supabase_admin", db), \
-         patch.object(qs, "_assignment_item_for", lambda b, u: item):
+         patch.object(qs, "_assignment_item_for", lambda b, u, **_kwargs: item):
         return qs.course_verdict(
             user_id="u-1", bank_id="bank-1",
             session_ids=ids if ids is not None else [s["id"] for s in sessions],
+            timed_out=timed_out,
+            _allow_reaper_finalize=reaper,
         ), log
 
 
@@ -266,6 +269,43 @@ def test_course_assignment_action_fails_safe_for_a_malformed_legacy_ledger():
     assert qs.course_assignment_action(item, assignment) == "start"
 
 
+def test_course_assignment_action_closes_retry_when_timer_expires():
+    assignment = {
+        "status": "published", "publish_at": None, "due_at": None,
+        "content_config": {"pass_pct": 75, "time_limit_minutes": 30},
+    }
+    item = {
+        "passed_at": None, "opened_at": "2026-09-15T01:00:00+00:00",
+        "mastery": {"attempts": [{
+            "completed": True, "pct": 70, "next_action": "retake",
+        }]},
+    }
+    assert qs.course_assignment_action(
+        item, assignment, now=qs._at("2026-09-15T01:29:59+00:00"),
+    ) == "retake"
+    assert qs.course_assignment_action(
+        item, assignment, now=qs._at("2026-09-15T01:30:00+00:00"),
+    ) == "review"
+
+
+def test_course_assignment_action_reports_unpersisted_timeout_as_pending():
+    assignment = {
+        "status": "published", "publish_at": None,
+        # The class due date may close at the same instant as the personal
+        # timer.  The timed boundary must still win so an empty ledger is not
+        # mislabeled as a persisted submission.
+        "due_at": "2026-09-15T01:30:00+00:00",
+        "content_config": {"pass_pct": 75, "time_limit_minutes": 30},
+    }
+    item = {
+        "passed_at": None, "submitted_at": None,
+        "opened_at": "2026-09-15T01:00:00+00:00", "mastery": None,
+    }
+    assert qs.course_assignment_action(
+        item, assignment, now=qs._at("2026-09-15T01:30:00+00:00"),
+    ) == "expired_pending"
+
+
 def test_completed_pass_is_terminal_even_if_legacy_receipt_is_missing():
     assignment = {
         "status": "published", "publish_at": None,
@@ -400,6 +440,377 @@ def test_run_fail_offers_retake_and_keeps_not_passed():
     patch_ = [e for e in log if e[1] == "update"][0][2]
     assert "passed_at" not in patch_          # chưa đạt thì KHÔNG có mốc đạt
     assert patch_["mastery"]["attempts"][0]["pct"] == 70.0
+
+
+def test_timed_out_run_counts_unanswered_questions_as_wrong_and_closes_item():
+    ss = _sessions(
+        1, ended_by="time_cap", created_at="2026-09-15T01:30:00+00:00",
+    )
+    item = {
+        "id": "it-1", "passed_at": None, "submitted_at": None,
+        "opened_at": "2026-09-15T01:00:00+00:00",
+        "mastery": None, "score": None,
+    }
+    with patch.object(qs, "mark_item_submitted", return_value=True) as mark:
+        attempts = _attempts(ss, _given(4))
+        for attempt in attempts:
+            attempt["created_at"] = "2026-09-15T01:29:00+00:00"
+        out, _ = _verdict(
+            sessions=ss, attempts=attempts, item_row=item,
+            config={"time_limit_minutes": 30}, timed_out=True,
+        )
+    assert out["timed_out"] is True
+    assert out["pct"] == 40.0
+    assert out["next_action"] == "timed_out"
+    quiz = next(row for row in out["sections"] if row["key"] == "quiz")
+    assert quiz["correct"] == 4 and quiz["total"] == 10
+    mark.assert_called_once()
+
+
+def test_expired_server_clock_forces_timeout_and_discards_late_answers_without_flag():
+    """A forged timed_out=false cannot turn post-expiry writes into a pass."""
+    ss = _sessions(
+        1, ended_by="completed", created_at="2026-09-15T01:00:00+00:00",
+    )
+    item = {
+        "id": "it-1", "passed_at": None, "submitted_at": None,
+        "opened_at": "2026-09-15T01:00:00+00:00",
+        "mastery": None, "score": None,
+    }
+    attempts = _attempts(ss, _given(10))
+    for index, attempt in enumerate(attempts):
+        attempt["created_at"] = (
+            "2026-09-15T01:29:59+00:00" if index == 0
+            else "2026-09-15T01:30:01+00:00"
+        )
+    with patch.object(qs, "mark_item_submitted", return_value=True):
+        out, _ = _verdict(
+            sessions=ss, attempts=attempts, item_row=item,
+            config={"time_limit_minutes": 30}, timed_out=False,
+        )
+    assert out["timed_out"] is True
+    assert out["pct"] == 10.0
+    assert out["next_action"] == "timed_out"
+
+
+def test_late_verdict_preserves_a_canonically_on_time_completion():
+    """Network delay after an on-time end must not rewrite a pass as timeout."""
+    ss = _sessions(
+        1, ended_by="completed", created_at="2026-09-15T01:00:00+00:00",
+        ended_at="2026-09-15T01:29:59+00:00",
+    )
+    item = {
+        "id": "it-1", "passed_at": None, "submitted_at": None,
+        "opened_at": "2026-09-15T01:00:00+00:00",
+        "mastery": None, "score": None,
+    }
+    attempts = _attempts(ss, _given(10))
+    for attempt in attempts:
+        attempt["created_at"] = "2026-09-15T01:29:58+00:00"
+    out, _ = _verdict(
+        sessions=ss, attempts=attempts, item_row=item,
+        config={"time_limit_minutes": 30}, timed_out=False,
+    )
+    assert out["passed"] is True
+    assert out.get("timed_out") is not True
+    assert out["next_action"] == "passed"
+
+
+def test_expired_clock_closes_an_on_time_failed_attempts_retry_action():
+    """Attempt history stays on-time, but a post-cutoff retry is read-only."""
+    ss = _sessions(
+        1, ended_by="completed", created_at="2026-09-15T01:00:00+00:00",
+        ended_at="2026-09-15T01:29:59+00:00",
+    )
+    item = {
+        "id": "it-1", "passed_at": None, "submitted_at": None,
+        "opened_at": "2026-09-15T01:00:00+00:00",
+        "mastery": None, "score": None,
+    }
+    attempts = _attempts(ss, _given(10, wrong=3))
+    for attempt in attempts:
+        attempt["created_at"] = "2026-09-15T01:29:58+00:00"
+    out, _ = _verdict(
+        sessions=ss, attempts=attempts, item_row=item,
+        config={"time_limit_minutes": 30}, timed_out=False,
+    )
+    assert out["pct"] == 70.0
+    assert out["timed_out"] is False
+    assert out["next_action"] == "review"
+    assert out["retry_closed"] is True
+
+
+def test_timeout_from_stale_browser_cannot_append_after_a_pass():
+    existing = {
+        "phase": "run", "pct": 100, "next_action": "passed",
+        "at": "2026-09-15T01:20:00+00:00", "sessions": ["winning-session"],
+    }
+    item = {
+        "id": "it-1", "passed_at": "2026-09-15T01:20:00+00:00",
+        "submitted_at": "2026-09-15T01:20:00+00:00",
+        "opened_at": "2026-09-15T01:00:00+00:00", "score": 100,
+        "mastery": {"attempts": [existing]},
+    }
+    out, log = _verdict(
+        sessions=_sessions(1, ended_by="time_cap"), item_row=item,
+        config={"time_limit_minutes": 30}, timed_out=True,
+    )
+    assert out["passed"] is True
+    assert out["next_action"] == "passed"
+    assert out["timed_out"] is False
+    assert out["already_passed"] is True
+    assert not any(row[0:2] == ("class_assignment_items", "update") for row in log)
+
+
+def test_on_time_low_score_cannot_append_after_a_timed_pass():
+    existing = {
+        "phase": "run", "pct": 100, "next_action": "passed",
+        "at": "2026-09-15T01:20:00+00:00", "sessions": ["winning-session"],
+    }
+    item = {
+        "id": "it-1", "passed_at": "2026-09-15T01:20:00+00:00",
+        "submitted_at": "2026-09-15T01:20:00+00:00",
+        "opened_at": "2026-09-15T01:00:00+00:00", "score": 100,
+        "mastery": {"attempts": [existing]},
+    }
+    sessions = _sessions(
+        1, ended_by="completed", created_at="2026-09-15T01:01:00+00:00",
+        ended_at="2026-09-15T01:10:00+00:00",
+    )
+    attempts = _attempts(sessions, _given(10, wrong=10))
+    for attempt in attempts:
+        attempt["created_at"] = "2026-09-15T01:09:00+00:00"
+
+    out, log = _verdict(
+        sessions=sessions, attempts=attempts, item_row=item,
+        config={"time_limit_minutes": 30}, timed_out=False,
+    )
+
+    assert out["passed"] is True and out["already_passed"] is True
+    assert out["pct"] == 100
+    assert out["history"][-1]["next_action"] == "passed"
+    assert not any(row[0:2] == ("class_assignment_items", "update") for row in log)
+
+
+def test_timeout_rechecks_passed_at_after_losing_the_first_cas():
+    initial = {
+        "id": "it-1", "passed_at": None, "submitted_at": None,
+        "opened_at": "2026-09-15T01:00:00+00:00", "score": None,
+        "mastery": None, "updated_at": "before-pass",
+    }
+    winning = {
+        **initial, "passed_at": "2026-09-15T01:20:00+00:00",
+        "submitted_at": "2026-09-15T01:20:00+00:00", "score": 100,
+        "updated_at": "after-pass", "mastery": {"attempts": [{
+            "phase": "run", "pct": 100, "next_action": "passed",
+            "at": "2026-09-15T01:20:00+00:00",
+            "sessions": ["winning-session"],
+        }]},
+    }
+    state = {"item_selects": 0}
+    log = []
+
+    class _RaceItemTable(_Table):
+        def execute(self):
+            if self._patch is not None:
+                log.append((self._name, "update", self._patch,
+                            [row.get("id") for row in self._rows]))
+                return _Resp([])  # the passing writer won this CAS
+            state["item_selects"] += 1
+            row = initial if state["item_selects"] == 1 else winning
+            return _Resp([row])
+
+    tables = {
+        "class_assignments": [{"id": "asg-1", "content_config": {
+            "time_limit_minutes": 30,
+        }}],
+        "quiz_sessions": _sessions(1, ended_by="time_cap",
+                                     created_at="2026-09-15T01:00:00+00:00"),
+        "quiz_questions": _questions(10),
+        "quiz_attempts": [],
+    }
+    db = type("DB", (), {})()
+    db.table = lambda name: (
+        _RaceItemTable(name, [initial], log) if name == "class_assignment_items"
+        else _Table(name, tables.get(name, []), log)
+    )
+    with patch.object(qs, "supabase_admin", db), \
+         patch.object(qs, "_assignment_item_for", lambda b, u, **_kwargs: _ITEM), \
+         patch.object(qs, "mark_item_submitted") as mark:
+        out = qs.course_verdict(
+            user_id="u-1", bank_id="bank-1", session_ids=["s-0"],
+            timed_out=True,
+        )
+    assert out["passed"] is True and out["already_passed"] is True
+    assert out["history"][-1]["next_action"] == "passed"
+    assert sum(1 for row in log if row[0:2] == (
+        "class_assignment_items", "update")) == 1
+    mark.assert_not_called()
+
+
+def test_timeout_rechecks_near_pass_phase_after_losing_the_first_cas():
+    """A concurrent near-pass must make this stale run timeout a no-op."""
+    initial = {
+        "id": "it-1", "passed_at": None, "submitted_at": None,
+        "opened_at": "2026-09-15T01:00:00+00:00", "score": None,
+        "mastery": None, "updated_at": "before-near-pass",
+    }
+    winning = {
+        **initial,
+        "submitted_at": "2026-09-15T01:20:00+00:00", "score": 70,
+        "updated_at": "after-near-pass", "mastery": {"attempts": [{
+            "phase": "run", "pct": 70, "completed": True,
+            "next_action": "retake", "at": "2026-09-15T01:20:00+00:00",
+            "sessions": ["near-pass-session"],
+        }]},
+    }
+    state = {"item_selects": 0}
+    log = []
+
+    class _RaceItemTable(_Table):
+        def execute(self):
+            if self._patch is not None:
+                log.append((self._name, "update", self._patch,
+                            [row.get("id") for row in self._rows]))
+                return _Resp([])  # the near-pass writer won this CAS
+            state["item_selects"] += 1
+            return _Resp([initial if state["item_selects"] == 1 else winning])
+
+    tables = {
+        "class_assignments": [{"id": "asg-1", "content_config": {
+            "time_limit_minutes": 30, "pass_pct": 75,
+        }}],
+        "quiz_sessions": _sessions(
+            1, ended_by="time_cap", created_at="2026-09-15T01:00:00+00:00",
+        ),
+        "quiz_questions": _questions(10),
+        "quiz_attempts": [],
+    }
+    db = type("DB", (), {})()
+    db.table = lambda name: (
+        _RaceItemTable(name, [initial], log) if name == "class_assignment_items"
+        else _Table(name, tables.get(name, []), log)
+    )
+    with patch.object(qs, "supabase_admin", db), \
+         patch.object(qs, "_assignment_item_for", lambda b, u, **_kwargs: _ITEM):
+        out = qs.course_verdict(
+            user_id="u-1", bank_id="bank-1", session_ids=["s-0"],
+            timed_out=True, _allow_reaper_finalize=True,
+        )
+    assert out == {"superseded": True, "next_action": "retake"}
+    assert sum(1 for row in log if row[0:2] == (
+        "class_assignment_items", "update")) == 1
+
+
+@pytest.mark.parametrize(
+    ("incoming_session", "winning_session"),
+    [("timeout-a", "timeout-b"), ("timeout-b", "timeout-a")],
+)
+def test_concurrent_timeouts_keep_the_first_canonical_verdict(
+    incoming_session, winning_session,
+):
+    """Different expired session sets cannot append two timeout ledgers."""
+    initial = {
+        "id": "it-1", "passed_at": None, "submitted_at": None,
+        "opened_at": "2026-09-15T01:00:00+00:00", "score": None,
+        "mastery": None, "updated_at": "before-timeout",
+    }
+    winning_attempt = {
+        "phase": "run", "pct": 40, "next_action": "timed_out",
+        "timed_out": True, "at": "2026-09-15T01:30:00+00:00",
+        "sessions": [winning_session],
+    }
+    winning = {
+        **initial,
+        "submitted_at": "2026-09-15T01:30:00+00:00", "score": 40,
+        "updated_at": "after-timeout",
+        "mastery": {"attempts": [winning_attempt]},
+    }
+    state = {"item_selects": 0}
+    log = []
+
+    class _RaceItemTable(_Table):
+        def execute(self):
+            if self._patch is not None:
+                log.append((self._name, "update", self._patch,
+                            [row.get("id") for row in self._rows]))
+                return _Resp([])  # the other timeout writer won this CAS
+            state["item_selects"] += 1
+            return _Resp([initial if state["item_selects"] == 1 else winning])
+
+    incoming = _sessions(
+        1, ended_by="time_cap", created_at="2026-09-15T01:00:00+00:00",
+    )[0]
+    incoming["id"] = incoming_session
+    tables = {
+        "class_assignments": [{"id": "asg-1", "content_config": {
+            "time_limit_minutes": 30, "pass_pct": 75,
+        }}],
+        "quiz_sessions": [incoming],
+        "quiz_questions": _questions(10),
+        "quiz_attempts": [],
+    }
+    db = type("DB", (), {})()
+    db.table = lambda name: (
+        _RaceItemTable(name, [initial], log) if name == "class_assignment_items"
+        else _Table(name, tables.get(name, []), log)
+    )
+    with patch.object(qs, "supabase_admin", db), \
+         patch.object(qs, "_assignment_item_for", lambda b, u, **_kwargs: _ITEM), \
+         patch.object(qs, "mark_item_submitted") as mark:
+        out = qs.course_verdict(
+            user_id="u-1", bank_id="bank-1", session_ids=[incoming_session],
+            timed_out=True, _allow_reaper_finalize=True,
+        )
+    assert out["timed_out"] is True
+    assert out["superseded"] is True
+    assert out["pct"] == 40
+    assert out["history"][-1]["session_count"] == 1
+    assert out["history"][-1]["next_action"] == "timed_out"
+    assert len(out["history"]) == 1
+    assert sum(1 for row in log if row[0:2] == (
+        "class_assignment_items", "update")) == 1
+    mark.assert_not_called()
+
+
+def test_timed_out_retake_uses_the_retake_sample_as_denominator():
+    ss = _sessions(
+        1, kind="retake", ended_by="time_cap",
+        created_at="2026-09-15T01:30:00+00:00",
+    )
+    item = {
+        "id": "it-1", "passed_at": None, "submitted_at": None,
+        "opened_at": "2026-09-15T01:00:00+00:00",
+        "mastery": {"attempts": [{
+            "phase": "run", "pct": 70.0, "completed": True,
+            "next_action": "retake", "at": "2026-09-15T01:20:00+00:00",
+        }]},
+        "score": 70.0,
+    }
+    attempts = _attempts(ss, _given(3))
+    for attempt in attempts:
+        attempt["created_at"] = "2026-09-15T01:29:00+00:00"
+    with patch.object(qs, "mark_item_submitted", return_value=True):
+        out, _ = _verdict(
+            sessions=ss, questions=_questions(20), attempts=attempts,
+            item_row=item, config={"time_limit_minutes": 30, "retake_size": 5},
+            timed_out=True,
+        )
+    assert out["timed_out"] is True
+    assert out["pct"] == 60.0
+    assert out["next_action"] == "timed_out"
+
+
+def test_admin_summary_names_a_closed_time_cap_instead_of_in_progress():
+    summary = qs.course_admin_summary(
+        {"mastery": {"attempts": [{
+            "phase": "run", "pct": 40.0, "completed": True,
+            "next_action": "timed_out",
+        }]}},
+        required_sections=["quiz"],
+    )
+    assert summary["state"] == "timed_out"
+    assert summary["next_action"] == "timed_out"
 
 
 def test_threshold_75_sends_65_percent_to_the_20_question_retake():
@@ -1184,7 +1595,8 @@ async def test_router_wires_verdict_through():
             authorization="Bearer x")
     assert out == {"passed": True}
     assert seen == {"user_id": "u-1", "bank_id": "bank-1",
-                    "session_ids": ["s-1"], "assignment_item_id": "it-1"}
+                    "session_ids": ["s-1"], "assignment_item_id": "it-1",
+                    "timed_out": False}
 
 
 # ── Làm lại một chặng KHÔNG được chặn học viên khỏi kết quả ─────────────────

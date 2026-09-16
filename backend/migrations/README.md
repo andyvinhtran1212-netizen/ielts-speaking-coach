@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-15 the highest is `262`, so the next new
-migration is `263`.
+sequence is dense. As of 2026-09-16 the highest is `280`, so the next new
+migration is `281`.
 
 ## Conventions
 
@@ -148,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–262
+## Forward scope 230–280
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -171,6 +171,65 @@ Migration 262 restores the structured Cambridge 15 Test 4 Reading Q07
 explanation after the canonical importer had overwritten migration 246's richer
 tips and removed its trap analysis. The importer and migration now share the
 same canonical payload.
+
+Migration 263 atomically anchors the per-student timer and creates the first
+quiz session before a timed Course bank releases its answer-bearing questions.
+It prevents both pre-start question exposure and a half-started timer with no
+session available for canonical timeout submission.
+
+Migration 264 closes the remaining authorization race by locking and rechecking
+the published assignment, release/deadline window, and canonical active cohort
+membership inside that same start transaction.
+
+Migrations 265–268 make timed progress/finalization and Course assessment bank
+replacement transactional and history-safe. Migration 269 gives assignment
+creation and bank replacement the same bank-row lock, then verifies an exact
+preflight revision before persisting the assignment's shape snapshot.
+Migration 270 extends the same locked authorization boundary to every later
+timed Course run/revision session; a bank read may only adopt, while an explicit
+start creates the entitled session before releasing assignment/membership locks.
+Migration 271 gives new Course assessment banks the same transactional import
+guarantee: the bank row and complete question set commit together or not at all.
+
+Migration 272 freezes a timed Course assignment's class deadline after the
+first learner opens it. A marker on the assignment row makes concurrent start
+and due-date writes serialize on one canonical record, preventing the browser
+and server from enforcing different cutoffs.
+
+Migration 273 makes the timeout envelope atomic: any final answers restored
+after a transient eager-save failure are inserted at the canonical cutoff in
+the same transaction that records the immutable `time_cap` session ending.
+
+Migration 274 bounds that final-answer envelope to the same 15-second grace
+used by the timeout reaper. It preserves lost-response idempotency while
+preventing the recovery path from becoming an unlimited post-exam write lane.
+
+Migration 275 makes a terminal retry prove that every submitted client ID is
+already present, instead of reporting success after the reaper wins the lock.
+Migration 276 closes the remaining open-session loophole: timeout finalization
+is verification-only, rejects every client ID not admitted before the cutoff,
+and derives score totals from the canonical attempt ledger rather than the
+client summary.
+
+Migration 277 atomically closes an expired on-time retry entitlement only when
+no retake/full-retry generation exists. It shares the assignment-item row lock
+with timed session creation, then leaves a durable marker so the minute reaper
+does not scan settled historical sessions forever.
+
+Migration 278 makes assignment deletion respect the same timed-attempt truth.
+The locked delete RPC now refuses an assignment once its timer marker or any
+item `opened_at` exists, and treats every attached Course quiz session as
+durable learner work instead of waiting for `ended_by = 'completed'`.
+
+Migration 279 makes timed progress admission respect the current retry
+generation under the same item lock. A stale full-run tab can no longer write
+after a near-pass authorizes only a retake, nor can an earlier run cross into a
+new full-retry generation.
+
+Migration 280 snapshots each timed Course item's duration and effective cutoff
+when `opened_at` is first set. It locks later edits to the assignment duration
+and the item snapshot, so the player, progress gate, finalizer, and reaper keep
+one immutable boundary for the whole attempt.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

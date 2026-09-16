@@ -44,6 +44,23 @@
 
 .cx-stage__label strong { color: var(--av-text-primary); }
 
+.cx-timer {
+  flex: 0 0 auto;
+  padding: var(--av-space-1) var(--av-space-3);
+  border: 1px solid var(--av-border-default);
+  border-radius: var(--av-radius-pill);
+  font-family: var(--av-font-mono);
+  font-size: var(--av-fs-sm);
+  font-weight: var(--av-fw-bold);
+  color: var(--av-text-primary);
+  background: var(--av-surface-sunken);
+}
+
+.cx-timer[data-urgent='true'] {
+  border-color: var(--av-error);
+  color: var(--av-error);
+}
+
 /* Một vạch mỗi câu TRONG CHẶNG, đúng thứ tự. Một thanh trượt liền chỉ nói được
    "bao nhiêu phần trăm"; dãy vạch nói thêm "câu nào em đã sai" — và đó mới là
    thứ học viên nhìn lại khi hết chặng. */
@@ -988,7 +1005,7 @@
   top: var(--av-space-3);
   z-index: var(--av-z-raised);
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto auto minmax(0, 1fr);
   margin-bottom: var(--av-space-4);
   padding: var(--av-space-3) var(--av-space-4);
   border: 1px solid var(--av-border-default);

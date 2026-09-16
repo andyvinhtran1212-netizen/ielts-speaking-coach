@@ -24,6 +24,7 @@ from fastapi import HTTPException
 from config import settings
 from services import course_writing_grader
 from services.class_assignment_service import (
+    assignment_timer_state,
     is_accepting_submissions,
     is_assignment_open,
     _at,
@@ -354,7 +355,7 @@ def _recorded_next_action(attempt: dict | None, pass_pct: int) -> str | None:
     if attempt.get("completed") is False or attempt.get("pct") is None:
         return None
     action = attempt.get("next_action")
-    if action in {"passed", "retake", "retry_full"}:
+    if action in {"passed", "retake", "retry_full", "timed_out"}:
         return action
     return course_mastery_next_action(
         float(attempt.get("pct") or 0), pass_pct, attempt.get("sections"),
@@ -367,6 +368,7 @@ def course_assignment_action(
     *,
     now: datetime | None = None,
     writing_expected: bool | None = None,
+    unrecorded_current_session: bool = False,
 ) -> str:
     """Return the learner action for one assigned course item.
 
@@ -387,23 +389,142 @@ def course_assignment_action(
     )
     if item.get("passed_at") and not pending_legacy_writing:
         return "review"
-    if not is_accepting_submissions(assignment, now=now):
-        return "review"
-
     mastery = item.get("mastery") or {}
     attempts = mastery.get("attempts") or []
     latest = (attempts[-1]
               if isinstance(attempts, list) and attempts
               and isinstance(attempts[-1], dict) else None)
+    latest_action = _recorded_next_action(
+        latest, mastery_config(assignment)["pass_pct"],
+    ) if latest else None
+    # A timed Course assignment has a second canonical boundary independent of
+    # the class due date.  Once it passes, a previously recorded retake/retry
+    # entitlement is read-only: advertising it would offer a button whose
+    # session-start request the server must reject.
+    timer = assignment_timer_state(item, assignment, now=now)
+    if timer.get("is_timed") and timer.get("is_expired"):
+        # A terminal ledger row is persisted truth.  Without one, read-only is
+        # still mandatory but calling the item "submitted" is false: the
+        # background reaper is still responsible for its canonical timeout.
+        # A retake/retry entitlement is only terminal when no newer entitled
+        # session exists outside that ledger; such a session is the current
+        # generation awaiting its own reaper verdict.
+        if unrecorded_current_session:
+            return "expired_pending"
+        return ("review" if latest_action in {
+            "passed", "retake", "retry_full", "timed_out",
+        } else "expired_pending")
+    if not is_accepting_submissions(assignment, now=now):
+        return "review"
+
     if not latest:
         return "continue" if pending_legacy_writing else "start"
     if not latest.get("completed", latest.get("pct") is not None):
         return "continue"
 
-    action = _recorded_next_action(latest, mastery_config(assignment)["pass_pct"])
+    action = latest_action
     if action in {"retake", "retry_full"}:
         return action
-    return "review" if action == "passed" else "continue"
+    return "review" if action in {"passed", "timed_out"} else "continue"
+
+
+def _expired_course_session_is_pending(
+    item: dict | None,
+    assignment: dict | None,
+    *,
+    bank_id: str,
+    user_id: str | None = None,
+    db=None,
+) -> bool:
+    """Whether an expired retry generation still lacks a mastery verdict.
+
+    The mastery ledger records the decision that *entitled* a retake/full
+    retry. It does not record the newer session until ``course_verdict`` runs.
+    Treating the entitlement itself as terminal during that gap makes a reload
+    falsely say the result was saved. Session ids and creation time distinguish
+    the newer entitled generation from old concurrent orphans.
+
+    A read failure is conservatively pending: the UI may poll once more, but it
+    must never claim persistence that the canonical store could not prove.
+    """
+    item = item or {}
+    mastery = item.get("mastery") or {}
+    attempts = mastery.get("attempts") or []
+    latest = (attempts[-1]
+              if isinstance(attempts, list) and attempts
+              and isinstance(attempts[-1], dict) else None)
+    action = _recorded_next_action(
+        latest, mastery_config(assignment)["pass_pct"],
+    )
+    expected_kind = {"retake": "retake", "retry_full": "run"}.get(action)
+    if not expected_kind:
+        return False
+
+    latest_at = _at((latest or {}).get("at"))
+    recorded_ids = {
+        str(session_id)
+        for attempt in attempts
+        if isinstance(attempt, dict)
+        for session_id in (attempt.get("sessions") or [])
+        if session_id
+    }
+    try:
+        client = db or supabase_admin
+        query = (client.table("quiz_sessions")
+                 .select("id, kind, created_at, ended_at, ended_by")
+                 .eq("class_assignment_item_id", item.get("id"))
+                 .eq("bank_id", bank_id))
+        if user_id:
+            query = query.eq("user_id", user_id)
+        rows = (query.execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "[quiz] expired retry session read failed item=%s: %s",
+            item.get("id"), exc,
+        )
+        return True
+
+    for row in rows:
+        if str(row.get("id")) in recorded_ids:
+            continue
+        if (row.get("kind") or "run") != expected_kind:
+            continue
+        created_at = _at(row.get("created_at"))
+        if latest_at is not None and (
+            created_at is None or created_at <= latest_at
+        ):
+            continue
+        return True
+    return False
+
+
+def course_assignment_action_with_session_truth(
+    item: dict | None,
+    assignment: dict | None,
+    *,
+    bank_id: str,
+    user_id: str | None = None,
+    now: datetime | None = None,
+    writing_expected: bool | None = None,
+    db=None,
+) -> str:
+    """Learner action including an unrecorded expired retry generation.
+
+    Every response that drives Course UI must use this wrapper. The pure action
+    policy alone sees only the mastery ledger, whose latest row may be the
+    entitlement for a newer retake/full retry rather than that retry's verdict.
+    """
+    timer = assignment_timer_state(item, assignment, now=now)
+    pending_session = bool(
+        timer.get("is_expired")
+        and _expired_course_session_is_pending(
+            item, assignment, bank_id=bank_id, user_id=user_id, db=db,
+        )
+    )
+    return course_assignment_action(
+        item, assignment, now=now, writing_expected=writing_expected,
+        unrecorded_current_session=pending_session,
+    )
 
 
 def _full_retry_boundary(attempts: list[dict], pass_pct: int) -> datetime | None:
@@ -528,6 +649,8 @@ def course_admin_summary(
         state = "passed"
     elif latest_is_incomplete:
         state = "in_progress"
+    elif action == "timed_out":
+        state = "timed_out"
     elif action == "retake":
         state = "near_pass"
     elif action == "retry_full":
@@ -634,6 +757,9 @@ def list_published_banks(*, skill_area: str | None = None, topic_id: str | None 
 def _assignment_item_for(
     bank_id: str, user_id: str, *, allow_submitted_review: bool = False,
     assignment_item_id: str | None = None,
+    allow_expired_timed_finalize: bool = False,
+    allow_expired_timed_review: bool = False,
+    allow_reaper_finalize: bool = False,
 ) -> dict | None:
     """Mục bài giao CÒN HIỆU LỰC của học viên này cho bank ấy, hoặc None.
 
@@ -664,14 +790,28 @@ def _assignment_item_for(
             for row in student
             for cohort_id in active_cohort_ids_for_student(supabase_admin, row)
         }
-        owned = [a for a in asg
-                 if is_assignment_open(a) and a.get("cohort_id") in cohorts]
+        owned = [
+            a for a in asg
+            if (
+                a.get("cohort_id") in cohorts and is_assignment_open(a)
+            ) or (
+                # The background reaper must finish an already-opened timed
+                # item even if the learner has since left the cohort or the
+                # assignment was archived.  The explicit item id is still
+                # joined below to a students row owned by this user and to an
+                # assignment whose content_id matched ``bank_id`` above.
+                allow_reaper_finalize
+                and assignment_item_id
+                and a.get("status") in {"published", "archived"}
+            )
+        ]
         if not owned:
             return None
         sids = [s["id"] for s in student]
         item_query = (supabase_admin.table("class_assignment_items")
                       .select("id, assignment_id, student_id, submitted_at, "
-                              "passed_at, mastery, updated_at")
+                              "passed_at, mastery, updated_at, opened_at, "
+                              "timed_limit_minutes, timed_expires_at")
                       .in_("assignment_id", [a["id"] for a in owned])
                       .in_("student_id", sids))
         if assignment_item_id:
@@ -680,9 +820,26 @@ def _assignment_item_for(
         if not rows:
             return None
         owned_by_id = {a["id"]: a for a in owned}
-        eligible = [row for row in rows
-                    if is_accepting_submissions(owned_by_id.get(row.get("assignment_id")) or {})
-                    or (allow_submitted_review and row.get("submitted_at"))]
+        def eligible_for_access(row: dict) -> bool:
+            assignment = owned_by_id.get(row.get("assignment_id")) or {}
+            if is_accepting_submissions(assignment):
+                return True
+            if allow_submitted_review and row.get("submitted_at"):
+                return True
+            # Narrow timed lane: only an explicitly named item whose canonical
+            # window was actually opened may cross a passed class deadline.
+            # Callers separately choose server finalization or locked review.
+            timer = assignment_timer_state(row, assignment)
+            return bool(
+                (allow_expired_timed_finalize or allow_expired_timed_review
+                 or allow_reaper_finalize)
+                and assignment_item_id
+                and row.get("opened_at")
+                and timer.get("is_timed")
+                and timer.get("is_expired")
+            )
+
+        eligible = [row for row in rows if eligible_for_access(row)]
         if not eligible:
             return None
         # Carry the deadline already read above to the player. Authorization is
@@ -709,15 +866,26 @@ def _has_assignment_for(bank_id: str, user_id: str) -> bool:
 def _assignment_item_for_review(
     bank_id: str, user_id: str, assignment_item_id: str | None = None,
 ) -> dict | None:
-    """Live item first; submitted-after-deadline fallback for read paths only."""
+    """Live item first; narrow read-only fallbacks after the deadline."""
     current = (_assignment_item_for(
         bank_id, user_id, assignment_item_id=assignment_item_id,
     ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
     if current:
         return current
     if assignment_item_id:
-        return _assignment_item_for(
+        submitted = _assignment_item_for(
             bank_id, user_id, allow_submitted_review=True,
+            assignment_item_id=assignment_item_id,
+        )
+        if submitted:
+            return submitted
+        # A timed item whose personal cutoff is the assignment deadline can be
+        # pending server reconciliation while still unsubmitted.  The explicit
+        # item id, active cohort ownership, published assignment, and opened
+        # timer remain mandatory; this only lets the player render the locked
+        # pending state and cannot create a post-cutoff session.
+        return _assignment_item_for(
+            bank_id, user_id, allow_expired_timed_review=True,
             assignment_item_id=assignment_item_id,
         )
     return _assignment_item_for(bank_id, user_id, allow_submitted_review=True)
@@ -769,6 +937,9 @@ def get_bank_for_play(
         raise HTTPException(404, "Không tìm thấy bank")
     bank = b[0]
     mastery_state = None
+    course_item = None
+    course_preflight_assignment = None
+    course_preflight_action = None
     if bank.get("skill_area") == COURSE_AREA:
         # BÀI GIAO LÀ CỬA DUY NHẤT. `is_published` KHÔNG áp cho giáo trình: bank
         # theo buổi sống trong kho giáo viên ở trạng thái nháp và không bao giờ
@@ -782,6 +953,48 @@ def get_bank_for_play(
         ) if user_id else None)
         if not item:
             raise HTTPException(404, "Không tìm thấy bank")
+        # Timed assessment questions carry their answer key.  Authorize first,
+        # but do not start the clock until the complete response is ready: a
+        # failed question/audio read must not consume the learner's fixed time.
+        # The atomic RPC below rechecks this authorization immediately before
+        # the answer-bearing payload is returned.
+        preflight_assignment = {
+            "status": "published", "publish_at": None,
+            "due_at": item.get("due_at"),
+            "content_config": item.get("content_config") or {},
+        }
+        preflight_timer = assignment_timer_state(item, preflight_assignment)
+        preflight_action = course_assignment_action_with_session_truth(
+            item, preflight_assignment, bank_id=bank_id, user_id=str(user_id),
+        )
+        course_item = item
+        course_preflight_assignment = preflight_assignment
+        course_preflight_action = preflight_action
+        # Timer metadata is part of the required access contract, not an
+        # optional badge.  Build it from the item/assignment already authorized
+        # above before the best-effort refresh below.  If that refresh fails,
+        # the browser must still enforce the same canonical cutoff as writes.
+        if preflight_timer.get("is_timed"):
+            preflight_cfg = mastery_config(preflight_assignment)
+            preflight_attempts = ((item.get("mastery") or {}).get("attempts") or [])
+            mastery_state = {
+                "item_id": item["id"],
+                "passed_at": item.get("passed_at"),
+                "threshold": preflight_cfg["pass_pct"],
+                "near_threshold": near_pass_pct(preflight_cfg["pass_pct"]),
+                "retake_size": preflight_cfg["retake_size"],
+                "retakes": sum(
+                    1 for attempt in preflight_attempts
+                    if isinstance(attempt, dict) and attempt.get("phase") == "retake"
+                ),
+                "completed_sections": [],
+                "due_at": item.get("due_at"),
+                "review_only": preflight_action in {"review", "expired_pending"},
+                "expiry_pending": preflight_action == "expired_pending",
+                "accepting": bool(item.get("accepting")),
+                "course_action": preflight_action,
+                **preflight_timer,
+            }
         # Trạng thái cổng thuộc-bài, để trang nói được "đã đạt" ngay khi mở lại
         # thay vì bắt làm lại từ đầu mới biết. Best-effort: đọc hỏng thì trang
         # vẫn chạy, chỉ thiếu tấm huy hiệu.
@@ -792,6 +1005,8 @@ def get_bank_for_play(
             asg = (supabase_admin.table("class_assignments")
                    .select("id, status, publish_at, due_at, content_config")
                    .eq("id", item["assignment_id"]).limit(1).execute().data) or []
+            if preflight_timer.get("is_timed") and (not row or not asg):
+                raise RuntimeError("timed mastery refresh returned no canonical row")
             assignment = asg[0] if asg else {}
             cfg = mastery_config(assignment)
             content_config = assignment.get("content_config") or {}
@@ -813,13 +1028,21 @@ def get_bank_for_play(
             att = raw_attempts if isinstance(raw_attempts, list) else []
             latest_sections = ((att[-1].get("sections") or {})
                                if att and isinstance(att[-1], dict) else {})
-            learner_action = course_assignment_action(
-                effective_item, assignment,
+            effective_timer = assignment_timer_state(effective_item, assignment)
+            learner_action = course_assignment_action_with_session_truth(
+                effective_item, assignment, bank_id=bank_id, user_id=str(user_id),
                 writing_expected=(bank_has_writing(bank_id)
                                   if effective_item.get("passed_at")
                                   and not effective_item.get("submitted_at")
                                   else None),
             )
+            # The locked timer/session gate runs after this refresh. Carry its
+            # newer phase forward so a near-pass persisted between the first
+            # authorization read and payload assembly adopts `retake`, not the
+            # stale `run` phase.
+            course_item = effective_item
+            course_preflight_assignment = assignment
+            course_preflight_action = learner_action
             mastery_state = {
                 # id MỤC bài giao — runner khoá trạng thái localStorage vào nó:
                 # em chuyển lớp rồi được giao lại CÙNG bank ở lớp mới là một
@@ -842,9 +1065,11 @@ def get_bank_for_play(
                 # A passed/closed assignment reopens read-only. A failed or
                 # incomplete submission stays writable while the deadline is
                 # accepting, even though its first hand-in timestamp is kept.
-                "review_only": learner_action == "review",
+                "review_only": learner_action in {"review", "expired_pending"},
+                "expiry_pending": learner_action == "expired_pending",
                 "accepting": bool(is_accepting_submissions(assignment)),
                 "course_action": learner_action,
+                **effective_timer,
             }
         except Exception as exc:  # noqa: BLE001
             logger.warning("[quiz] mastery state read failed bank=%s: %s", bank_id, exc)
@@ -890,6 +1115,47 @@ def get_bank_for_play(
     word_cards = _word_cards_for(bank)
     _attach_article_urls(questions)
     _resolve_question_audio(questions, word_cards)
+
+    # This is the last failure-capable gate before returning a timed Course
+    # bank.  Migration 264 locks and rechecks assignment access, membership and
+    # deadline in the same transaction that starts the clock and creates the
+    # first session.  If any payload-building step above fails, neither write
+    # has happened.  Return that session id as part of the bank contract so a
+    # stale localStorage fingerprint cannot make the runner create a duplicate.
+    if (course_item is not None
+            and course_preflight_action not in {"review", "expired_pending"}):
+        preflight_kind = ("retake"
+                          if course_preflight_action == "retake" else "run")
+        course_item, initial_session_id = _ensure_timed_course_session(
+            course_item, user_id=str(user_id), bank_id=bank_id,
+            code=bank.get("code"), kind=preflight_kind,
+            allow_expired_existing=True,
+        )
+        final_assignment = {
+            **(course_preflight_assignment or {}),
+            "due_at": course_item.get("due_at"),
+            "content_config": (course_item.get("content_config")
+                               or (course_preflight_assignment or {}).get(
+                                   "content_config") or {}),
+        }
+        final_timer = assignment_timer_state(course_item, final_assignment)
+        if final_timer.get("is_timed"):
+            mastery_state = {**(mastery_state or {}), **final_timer}
+            if final_timer.get("is_expired"):
+                final_action = course_assignment_action_with_session_truth(
+                    course_item, final_assignment,
+                    bank_id=bank_id, user_id=str(user_id),
+                )
+                mastery_state.update({
+                    "passed_at": course_item.get("passed_at"),
+                    "review_only": True,
+                    "expiry_pending": final_action == "expired_pending",
+                    "accepting": False,
+                    "course_action": final_action,
+                })
+            if initial_session_id:
+                mastery_state["initial_session_id"] = initial_session_id
+
     out = {"bank": bank, "questions": questions, "word_cards": word_cards}
     if mastery_state is not None:
         out["mastery"] = mastery_state
@@ -1237,6 +1503,7 @@ def course_listening_audio(
 def _bank_meta_or_404(
     bank_id: str, user_id: str | None = None, *, allow_submitted_review: bool = False,
     assignment_item_id: str | None = None,
+    allow_expired_timed_review: bool = False,
 ) -> dict:
     """Lightweight published-bank guard: fetch ONLY the bank's own row (id, code,
     is_published) — no questions, no word_cards. Used by start_session, which just
@@ -1262,6 +1529,7 @@ def _bank_meta_or_404(
         item = (_assignment_item_for(
             bank_id, user_id, allow_submitted_review=allow_submitted_review,
             assignment_item_id=assignment_item_id,
+            allow_expired_timed_review=allow_expired_timed_review,
         ) if user_id else None)
         if not item:
             raise HTTPException(404, "Không tìm thấy bank")
@@ -1403,6 +1671,117 @@ def _assert_retake_allowed(item: dict | None) -> None:
                                  "không thể mở bài kiểm tra lại 20 câu.")
 
 
+def _ensure_timed_course_session(
+    item: dict | None, *, user_id: str, bank_id: str, code: str | None,
+    kind: str = "run", create_if_missing: bool = False,
+    allow_expired_existing: bool = False,
+) -> tuple[dict | None, str | None]:
+    """Atomically anchor a timed assignment and create its first quiz session.
+
+    The bank payload contains the answers, so this must complete *before* a timed
+    bank read releases questions.  Migration 263 performs the item update and
+    session insert in one transaction: a failed insert cannot leave a clock with
+    no session that can later be submitted as timed out.
+
+    ``allow_expired_existing`` is used only by the bank read.  Once a learner has
+    already opened the assessment, a reload after expiry may still read it to
+    finalize/review the canonical timed-out attempt; it never creates a new
+    session after the boundary.
+    """
+    if not item:
+        return item, None
+    assignment = {
+        "content_config": item.get("content_config") or {},
+        "due_at": item.get("due_at"),
+    }
+    timer = assignment_timer_state(item, assignment)
+    if not timer.get("is_timed"):
+        return item, None
+    if timer.get("invalid"):
+        raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
+    if item.get("opened_at") and timer.get("is_expired"):
+        if not allow_expired_existing:
+            raise HTTPException(409, "Đã hết thời gian làm bài.")
+        return item, None
+
+    try:
+        rows = (supabase_admin.rpc(
+            "quiz_start_timed_course_session", {
+                "p_item_id": item["id"],
+                "p_user_id": user_id,
+                "p_bank_id": bank_id,
+                "p_code": code,
+                "p_kind": kind,
+                "p_create_if_missing": create_if_missing,
+            },
+        ).execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        detail = str(exc)
+        if "timed_course_assignment_expired" in detail:
+            if allow_expired_existing and item.get("opened_at"):
+                # The bank GET may begin just before the cutoff and reach this
+                # final locked RPC just after it. Re-read canonical state so the
+                # response renders the now-locked pending/result screen instead
+                # of turning that harmless race into a load error. Reuse the
+                # full review gate so a concurrent archive or cohort transfer
+                # still revokes access.
+                try:
+                    refreshed = _assignment_item_for_review(
+                        bank_id, user_id, assignment_item_id=str(item["id"]),
+                    )
+                    refreshed_assignment = {
+                        "due_at": (refreshed or {}).get("due_at"),
+                        "content_config": (refreshed or {}).get("content_config") or {},
+                    }
+                    if refreshed and assignment_timer_state(
+                        refreshed, refreshed_assignment,
+                    ).get("is_expired"):
+                        return refreshed, None
+                except Exception as refresh_exc:  # noqa: BLE001
+                    logger.warning(
+                        "[quiz] expired timer refresh failed item=%s: %s",
+                        item.get("id"), refresh_exc,
+                    )
+            raise HTTPException(409, "Đã hết thời gian làm bài.") from exc
+        if "timed_course_limit_invalid" in detail:
+            raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.") from exc
+        if "timed_course_item_not_accessible" in detail:
+            raise HTTPException(409, "Bài giao không còn hiệu lực.") from exc
+        if "timed_course_item_passed" in detail:
+            raise HTTPException(409, "Bài này đã đạt, không cần mở lượt mới.") from exc
+        if ("timed_course_session_not_entitled" in detail
+                or "timed_course_session_kind_invalid" in detail):
+            raise HTTPException(422, "Kết quả hiện tại không cho phép mở lượt này.") from exc
+        raise HTTPException(
+            500, "Chưa khởi động được đồng hồ làm bài. Hãy thử lại.",
+        ) from exc
+    row = rows[0] if rows else {}
+    started_at = row.get("timer_started_at")
+    session_id = row.get("session_id")
+    if not started_at:
+        raise HTTPException(500, "Chưa khởi động được đồng hồ làm bài. Hãy thử lại.")
+    # The RPC takes the assignment lock and snapshots the immutable duration and
+    # cutoff.  The preflight ``item`` may have been read before an admin duration
+    # edit or a concurrent first open, so never release questions with that stale
+    # timer.  Re-read the row written under the lock and fail closed if the
+    # canonical snapshot cannot be observed; a reload can safely recover the
+    # already-created session.
+    try:
+        snapshots = (supabase_admin.table("class_assignment_items")
+                     .select("opened_at, timed_limit_minutes, timed_expires_at")
+                     .eq("id", item["id"]).limit(1).execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            500, "Chưa xác nhận được đồng hồ làm bài. Hãy tải lại.",
+        ) from exc
+    snapshot = snapshots[0] if snapshots else {}
+    if (not snapshot.get("opened_at")
+            or snapshot.get("timed_limit_minutes") is None
+            or not snapshot.get("timed_expires_at")):
+        raise HTTPException(500, "Chưa xác nhận được đồng hồ làm bài. Hãy tải lại.")
+    return {**item, **snapshot, "state": "opened"}, session_id
+
+
 def start_session(
     *, user_id: str, bank_id: str, kind: str = "run",
     assignment_item_id: str | None = None,
@@ -1429,7 +1808,20 @@ def start_session(
         bank_id, user_id, assignment_item_id=assignment_item_id,
     ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
             if bank.get("skill_area") == COURSE_AREA else None)
-    if kind == "retake":
+    first_session_id = None
+    if bank.get("skill_area") == COURSE_AREA:
+        timer = assignment_timer_state(item, {
+            "content_config": (item or {}).get("content_config") or {},
+            "due_at": (item or {}).get("due_at"),
+        })
+        timed_course = bool(timer.get("is_timed"))
+        item, first_session_id = _ensure_timed_course_session(
+            item, user_id=user_id, bank_id=bank_id, code=bank.get("code"),
+            kind=kind, create_if_missing=True,
+        )
+    else:
+        timed_course = False
+    if kind == "retake" and not timed_course:
         _assert_retake_allowed(item)
     row = {
         "user_id": user_id, "bank_id": bank_id, "code": bank.get("code"),
@@ -1440,13 +1832,30 @@ def start_session(
     # phiên retake.
     if kind != "run":
         row["kind"] = kind
-    try:
-        res = supabase_admin.table("quiz_sessions").insert(row).execute()
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(500, f"Lỗi tạo session: {exc}")
-    if not res.data:
-        raise HTTPException(500, "Insert session không trả về dòng nào")
-    return {"session_id": res.data[0]["id"], "resume": resume}
+    if first_session_id:
+        session_id = first_session_id
+    elif timed_course:
+        # An explicit timed start asks the locked RPC to create when no current
+        # session exists.  Falling back to an INSERT here would reopen the race
+        # with archive, membership removal, due_at, and the expiry reaper.
+        raise HTTPException(500, "Chưa tạo được session trong giao dịch đồng hồ.")
+    else:
+        try:
+            res = supabase_admin.table("quiz_sessions").insert(row).execute()
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(500, f"Lỗi tạo session: {exc}")
+        if not res.data:
+            raise HTTPException(500, "Insert session không trả về dòng nào")
+        session_id = res.data[0]["id"]
+    response = {"session_id": session_id, "resume": resume}
+    if item:
+        response["timer"] = assignment_timer_state(
+            item, {
+                "content_config": item.get("content_config") or {},
+                "due_at": item.get("due_at"),
+            },
+        )
+    return response
 
 
 def get_resume(*, user_id: str, bank_id: str) -> list[dict]:
@@ -1787,6 +2196,37 @@ def _course_stage_reached(order: list[str], answered_all: set[str],
     return total
 
 
+def get_course_timer(
+    *, user_id: str, bank_id: str, assignment_item_id: str | None = None,
+) -> dict:
+    """Return only the authoritative timer sample for a Course bank.
+
+    The bank payload starts a timed attempt only after its potentially large
+    question payload has been assembled. This small post-payload read lets the
+    browser anchor its countdown without depending on the heavier resume read,
+    which may fail while inspecting session history. It never creates or
+    adopts a session.
+    """
+    timer_sampled_at = datetime.now(timezone.utc)
+    bank = _bank_meta_or_404(
+        bank_id, user_id, assignment_item_id=assignment_item_id,
+        allow_expired_timed_review=bool(assignment_item_id),
+    )
+    if bank.get("skill_area") != COURSE_AREA:
+        return {"item_id": None, "timer": None}
+
+    item = (_assignment_item_for_review(
+        bank_id, user_id, assignment_item_id=assignment_item_id,
+    ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
+    return {
+        "item_id": (item or {}).get("id"),
+        "timer": assignment_timer_state(item, {
+            "content_config": (item or {}).get("content_config") or {},
+            "due_at": (item or {}).get("due_at"),
+        }, now=timer_sampled_at),
+    }
+
+
 def get_course_resume(
     *, user_id: str, bank_id: str, assignment_item_id: str | None = None,
 ) -> dict:
@@ -1814,8 +2254,13 @@ def get_course_resume(
     Chỉ dành cho bank theo buổi; các luồng quiz khác trả rỗng và không đổi hành
     vi. KHÔNG chốt gì cả: phiên chỉ đóng khi học viên bấm nộp.
     """
+    # Sample at the beginning of this post-payload request.  The browser anchors
+    # the returned allowance at its own request start, so all later server work
+    # and response transit are charged without also charging the expensive bank
+    # assembly that deliberately happened before the first timer start.
+    timer_sampled_at = datetime.now(timezone.utc)
     empty = {"session_id": None, "answered": [], "completed": [], "item_id": None,
-             "last_stage": None, "stage": 0, "retake": None}
+             "last_stage": None, "stage": 0, "retake": None, "timer": None}
     bank = _bank_meta_or_404(bank_id, user_id)
     if bank.get("skill_area") != COURSE_AREA:
         return empty
@@ -1825,6 +2270,10 @@ def get_course_resume(
     ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
     item_id = (item or {}).get("id")
     empty["item_id"] = item_id
+    empty["timer"] = assignment_timer_state(item, {
+        "content_config": (item or {}).get("content_config") or {},
+        "due_at": (item or {}).get("due_at"),
+    }, now=timer_sampled_at)
 
     # A score below the near-pass band starts a NEW full attempt. Preserve the
     # newest such boundary until PASS: a near-pass full rerun changes the latest
@@ -1958,7 +2407,8 @@ def get_course_resume(
     result = {"session_id": None, "answered": [], "completed": completed,
               "item_id": item_id, "last_stage": result_last,
               "stage": (_course_stage_reached(order, answered_all)
-                        if usable else len(completed)), "retake": None}
+                        if usable else len(completed)), "retake": None,
+              "timer": empty["timer"]}
     ids = [r["id"] for r in open_rows]
     if pending_retake:
         ids.append(pending_retake["id"])
@@ -2012,11 +2462,15 @@ def get_course_resume(
     # một phiên 5 câu — lấy mới nhất là trả lại 5 rồi bắt em làm lại 3 câu đã làm.
     # Các phiên ấy cùng chặng nên cùng thứ tự câu, lấy phiên dài hơn luôn là một
     # tiền tố hợp lệ.
-    # Phiên rỗng bỏ mặc: chúng vô hại (0 câu, không vào lượt xét).
+    # The timed bank read atomically creates the first empty session before it
+    # releases answer-bearing questions.  That session is not an orphan: when
+    # no session has work yet, return the newest empty open one so the runner
+    # adopts it instead of creating a second session.
     with_work = [r for r in open_rows if by_session.get(r["id"])]
-    if not with_work:
-        return result
-    chosen = max(with_work, key=lambda r: (len(by_session[r["id"]]), r["created_at"]))
+    candidates = with_work or open_rows
+    chosen = max(candidates, key=lambda r: (
+        len(by_session.get(r["id"], [])), r["created_at"],
+    ))
     result["session_id"] = chosen["id"]
     # XẾP THEO THỨ TỰ CHUẨN CỦA BỘ ĐỀ, không theo `created_at`.
     #
@@ -2026,7 +2480,7 @@ def get_course_resume(
     # mới, và bỏ rơi cả phiên có bài. Dữ liệu thật của em Minh Ngoc Võ đúng hình
     # dạng ấy: `B1-07, B1-05, B1-04, B1-03, B1-06` (codex 06/08).
     pos = {q: i for i, q in enumerate(order)}
-    picked = [a for a in by_session[chosen["id"]] if a.get("qid")]
+    picked = [a for a in by_session.get(chosen["id"], []) if a.get("qid")]
     if order:
         picked.sort(key=lambda a: pos.get(a["qid"], len(order)))
     seen_q: set[str] = set()
@@ -2088,10 +2542,72 @@ def _record_quiz_kp_evidence(user_id: str, bank_id: str, attempt_rows: list[dict
         logger.warning("[quiz] KP evidence recording skipped (non-fatal): %s", e)
 
 
+def _timed_course_progress_phase_conflict() -> HTTPException:
+    """Tell stale runners to stop writing and reload canonical Course truth."""
+    return HTTPException(
+        409, {
+            "code": "timed_course_progress_not_entitled",
+            "message": (
+                "Lượt làm này đã được thay thế ở một cửa sổ khác. "
+                "Đang tải lại tiến độ mới nhất."
+            ),
+        },
+    )
+
+
+def _assert_quiz_progress_writable(session: dict) -> bool:
+    """Reject closed/expired writes; return True for a timed Course session."""
+    ended = bool(session.get("ended_at") or session.get("ended_by"))
+    item_id = session.get("class_assignment_item_id")
+    if not item_id:
+        if ended:
+            raise HTTPException(409, "Phiên này đã kết thúc — không thể ghi thêm đáp án.")
+        return False
+    try:
+        items = (supabase_admin.table("class_assignment_items")
+                 .select("id, assignment_id, opened_at, timed_limit_minutes, "
+                         "timed_expires_at, submitted_at, passed_at, mastery")
+                 .eq("id", item_id).limit(1).execute().data) or []
+        if not items:
+            raise HTTPException(404, "Không tìm thấy mục bài giao")
+        assignments = (supabase_admin.table("class_assignments")
+                       .select("id, skill, status, publish_at, due_at, content_config")
+                       .eq("id", items[0]["assignment_id"])
+                       .limit(1).execute().data) or []
+        if not assignments:
+            raise HTTPException(404, "Không tìm thấy bài giao")
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Lỗi kiểm tra đồng hồ làm bài: {exc}") from exc
+    assignment = assignments[0]
+    if assignment.get("skill") != COURSE_AREA:
+        if ended:
+            raise HTTPException(409, "Phiên này đã kết thúc — không thể ghi thêm đáp án.")
+        return False
+    timer = assignment_timer_state(items[0], assignment)
+    action = course_assignment_action(items[0], assignment)
+    # A passed timed attempt is a terminal entitlement change, even when its
+    # shared session was closed at the same time.  Return the stable structured
+    # conflict so another browser reloads canonical progress instead of retrying.
+    if timer.get("is_timed") and (action == "review" or ended):
+        raise _timed_course_progress_phase_conflict()
+    if ended:
+        raise HTTPException(409, "Phiên này đã kết thúc — không thể ghi thêm đáp án.")
+    if timer.get("invalid"):
+        raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
+    if timer.get("is_timed") and timer.get("is_expired"):
+        raise HTTPException(409, "Đã hết thời gian làm bài — đáp án này không được ghi.")
+    if action == "review":
+        raise HTTPException(409, "Bài đã được thu — không thể ghi thêm đáp án.")
+    return bool(timer.get("is_timed"))
+
+
 def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_stats: list[dict]) -> dict:
     """Batch-persist attempts (append) + word_stats (upsert by user+bank+item).
     The client owns the mastery decision; we store its snapshots."""
     session = _owned_session(session_id, user_id)
+    timed_course = _assert_quiz_progress_writable(session)
     bank_id = session["bank_id"]
 
     attempts = attempts or []
@@ -2113,17 +2629,43 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
         attempt_rows.append(row)
     if attempt_rows:
         try:
-            # Idempotent on client_id (mig 119 unique index) — a retried or
-            # keepalive-on-unload re-send of the same attempts is ignored, so a
-            # pagehide-during-flush double-send never duplicates rows.
-            attempts_resp = supabase_admin.table("quiz_attempts").upsert(
-                attempt_rows, on_conflict="client_id", ignore_duplicates=True
-            ).execute()
+            if timed_course:
+                # Migration 265 chooses one transaction-level server timestamp
+                # for both timer admission and `created_at`.  A request admitted
+                # one instant before cutoff therefore stays scoreable even if
+                # the INSERT finishes one instant afterward.
+                attempts_resp = supabase_admin.rpc(
+                    "quiz_insert_timed_course_attempts", {
+                        "p_session_id": session_id,
+                        "p_user_id": user_id,
+                        "p_attempts": attempt_rows,
+                    },
+                ).execute()
+            else:
+                # Idempotent on client_id (mig 119 unique index) — a retried or
+                # keepalive-on-unload re-send of the same attempts is ignored.
+                attempts_resp = supabase_admin.table("quiz_attempts").upsert(
+                    attempt_rows, on_conflict="client_id", ignore_duplicates=True
+                ).execute()
         except Exception as exc:  # noqa: BLE001
             _log_backend_error(
                 message=f"quiz progress: attempts upsert failed: {exc}",
                 user_id=user_id, url=f"/api/quiz/sessions/{session_id}/progress",
                 extra={"stage": "attempts", "n_attempts": len(attempt_rows)})
+            detail = str(exc)
+            if timed_course and "timed_course_progress_expired" in detail:
+                raise HTTPException(
+                    409, "Đã hết thời gian làm bài — đáp án này không được ghi.",
+                ) from exc
+            if timed_course and (
+                "timed_course_progress_not_writable" in detail
+                or "timed_course_progress_not_entitled" in detail
+            ):
+                raise _timed_course_progress_phase_conflict() from exc
+            if timed_course and "timed_course_limit_invalid" in detail:
+                raise HTTPException(
+                    409, "Cấu hình thời gian của bài không hợp lệ.",
+                ) from exc
             raise HTTPException(500, f"Lỗi ghi attempts: {exc}")
         # Feed only the NEWLY-inserted attempts into the KP evidence store. With
         # ignore_duplicates the upsert RETURNs just the rows it inserted, so a
@@ -2178,7 +2720,8 @@ def _assert_course_session_accepting(session: dict, ended_by: str = "completed")
         return
     try:
         items = (supabase_admin.table("class_assignment_items")
-                 .select("id, assignment_id").eq("id", item_id)
+                 .select("id, assignment_id, opened_at, timed_limit_minutes, "
+                         "timed_expires_at").eq("id", item_id)
                  .limit(1).execute().data) or []
         if not items:
             raise HTTPException(404, "Không tìm thấy mục bài giao")
@@ -2191,9 +2734,26 @@ def _assert_course_session_accepting(session: dict, ended_by: str = "completed")
         raise
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi kiểm tra hạn nộp: {exc}")
-    if assignments[0].get("skill") == COURSE_AREA \
-            and not is_accepting_submissions(assignments[0]):
+    assignment = assignments[0]
+    if assignment.get("skill") != COURSE_AREA:
+        return
+    timer = assignment_timer_state(items[0], assignment)
+    if timer.get("invalid"):
+        raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
+    if ended_by == "time_cap":
+        if not timer.get("is_timed"):
+            raise HTTPException(422, "Bài này không có giới hạn thời gian.")
+        if not timer.get("is_expired"):
+            raise HTTPException(422, "Đồng hồ máy chủ chưa hết thời gian.")
+        # A time-cap close is the canonical way to seal work after either timer
+        # boundary, including a class ``due_at`` earlier than the configured
+        # duration.  Refusing it because the assignment is no longer accepting
+        # would leave the item permanently open.
+        return
+    if not is_accepting_submissions(assignment):
         raise HTTPException(409, "Đã quá hạn nộp — chặng này chưa được chốt.")
+    if timer.get("is_expired"):
+        raise HTTPException(409, "Đã hết thời gian làm bài — hãy nộp lượt hết giờ.")
 
 
 def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
@@ -2202,6 +2762,80 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
     ended_by = data.get("ended_by")
     if ended_by not in _ENDED_BY:
         ended_by = "completed"
+    final_attempts = data.get("attempts") or []
+    if not isinstance(final_attempts, list):
+        raise HTTPException(422, "attempts phải là danh sách.")
+    if len(final_attempts) > _MAX_ATTEMPTS_PER_CALL:
+        raise HTTPException(413, "Batch quá lớn.")
+    if final_attempts and ended_by != "time_cap":
+        raise HTTPException(422, "Chỉ lượt hết giờ mới nhận batch đáp án cuối.")
+
+    timed_course_final_batch = bool(
+        final_attempts
+        and ended_by == "time_cap"
+        and session.get("class_assignment_item_id")
+    )
+    # A completed/paused/time-capped session is immutable history.  In
+    # particular, the browser timer can reach zero while a final verdict is
+    # still in flight; its late ``time_cap`` retry must not replace an on-time
+    # ``completed`` timestamp and turn that attempt into a timeout. A timed
+    # Course retry carrying attempts is the exception: it must enter the
+    # row-locked RPC, which proves that every client_id already persisted
+    # before returning terminal truth. Otherwise a reaper-won race could make
+    # an unsaved batch look successful to the browser.
+    if ((session.get("ended_at") or session.get("ended_by"))
+            and not timed_course_final_batch):
+        return session
+
+    if ended_by == "time_cap" and session.get("class_assignment_item_id"):
+        attempt_rows = []
+        for attempt in final_attempts:
+            row = {k: attempt.get(k) for k in _ATTEMPT_FIELDS}
+            if not row.get("item_key") or row.get("is_correct") is None:
+                continue
+            row["is_correct"] = bool(row["is_correct"])
+            row["response_time_ms"] = _coerce_int(row.get("response_time_ms"))
+            row["attempt_no"] = _coerce_int(row.get("attempt_no"))
+            attempt_rows.append(row)
+        summary = {
+            "duration_sec": data.get("duration_sec"),
+            "total_questions": int(data.get("total_questions") or 0),
+            "total_correct": int(data.get("total_correct") or 0),
+            "total_wrong": int(data.get("total_wrong") or 0),
+        }
+        try:
+            rows = (supabase_admin.rpc(
+                "quiz_finalize_timed_course_session", {
+                    "p_session_id": session_id,
+                    "p_user_id": user_id,
+                    "p_attempts": attempt_rows,
+                    "p_summary": summary,
+                },
+            ).execute().data) or []
+        except Exception as exc:  # noqa: BLE001
+            detail = str(exc)
+            if "timed_course_finalize_not_expired" in detail:
+                raise HTTPException(422, "Đồng hồ máy chủ chưa hết thời gian.") from exc
+            if "timed_course_finalize_not_accessible" in detail:
+                raise HTTPException(409, "Phiên này không còn nhận kết quả hết giờ.") from exc
+            if "timed_course_final_batch_expired" in detail:
+                raise HTTPException(
+                    409, "Batch đáp án cuối đến quá trễ để tính vào bài hết giờ.",
+                ) from exc
+            if "timed_course_final_batch_missing" in detail:
+                raise HTTPException(
+                    409, {
+                        "code": "timed_course_final_batch_missing",
+                        "message": "Phiên đã đóng trước khi batch đáp án cuối được lưu.",
+                    },
+                ) from exc
+            if "timed_course_limit_invalid" in detail:
+                raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.") from exc
+            raise HTTPException(500, "Chưa lưu được batch cuối khi hết giờ.") from exc
+        if not rows:
+            raise HTTPException(500, "Chưa chốt được phiên hết giờ.")
+        return rows[0]
+
     _assert_course_session_accepting(session, ended_by)
     total = int(data.get("total_questions") or 0)
     correct = int(data.get("total_correct") or 0)
@@ -2218,9 +2852,21 @@ def end_session(*, user_id: str, session_id: str, data: dict) -> dict:
         "ended_by": ended_by,
     }
     try:
-        res = supabase_admin.table("quiz_sessions").update(patch).eq("id", session_id).execute()
+        # First terminal write wins.  The early read above avoids ordinary
+        # duplicate work; these predicates close the race between that read
+        # and a concurrent browser/reaper finalization.
+        res = (supabase_admin.table("quiz_sessions").update(patch)
+               .eq("id", session_id)
+               .is_("ended_at", "null")
+               .is_("ended_by", "null")
+               .execute())
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Lỗi kết thúc session: {exc}")
+    if not res.data:
+        winner = _owned_session(session_id, user_id)
+        if winner.get("ended_at") or winner.get("ended_by"):
+            return winner
+        raise HTTPException(409, "Phiên này đang được kết thúc — hãy thử lại.")
 
     # CHỐT SỔ BÀI GIAO. Không có bước này thì mục ở lại "opened" vĩnh viễn và
     # bảng của giáo viên báo em ấy chưa nộp — trong khi em ấy vừa làm xong.
@@ -3462,7 +4108,82 @@ def _course_completion_payload(
         "sections": sections,
         "duration_sec": int(attempt.get("duration_sec") or 0),
         "history": _course_attempt_history(attempts, cfg["pass_pct"]),
+        "timed_out": attempt.get("timed_out") is True,
     }
+
+
+def _course_terminal_pass_payload(item: dict, cfg: dict) -> dict:
+    """Return the canonical pass without letting a stale timeout add history."""
+    attempts = [row for row in ((item.get("mastery") or {}).get("attempts") or [])
+                if isinstance(row, dict)]
+    attempt = next((row for row in reversed(attempts)
+                    if _recorded_next_action(row, cfg["pass_pct"]) == "passed"), None)
+    if attempt is None:
+        attempt = attempts[-1] if attempts else {
+            "phase": "run", "sessions": [], "completed": True,
+            "pct": item.get("score"), "at": item.get("passed_at"),
+            "next_action": "passed", "duration_sec": 0,
+        }
+    sections = {
+        name: value for name, value in (attempt.get("sections") or {}).items()
+        if name in _COURSE_SECTION_LABELS and isinstance(value, dict)
+    }
+    if sections:
+        required = list(sections)
+        results = sections
+        weights = {name: float((value or {}).get("weight") or 0)
+                   for name, value in sections.items()}
+    else:
+        required = ["quiz"]
+        results = {"quiz": {
+            "completed": True, "pct": attempt.get("pct", item.get("score")),
+            "correct": attempt.get("correct"), "total": attempt.get("total"),
+            "duration_sec": int(attempt.get("duration_sec") or 0),
+        }}
+        weights = {"quiz": 100.0}
+    payload = _course_completion_payload(
+        attempt=attempt, attempts=attempts, cfg=cfg, required=required,
+        results=results, weights=weights, passed_before=True,
+    )
+    payload["already_passed"] = True
+    payload["timed_out"] = False
+    return payload
+
+
+def _course_terminal_timeout_payload(item: dict, cfg: dict) -> dict:
+    """Return the canonical timeout without appending a concurrent verdict."""
+    attempts = [row for row in ((item.get("mastery") or {}).get("attempts") or [])
+                if isinstance(row, dict)]
+    attempt = next((row for row in reversed(attempts)
+                    if _recorded_next_action(
+                        row, cfg["pass_pct"],
+                    ) == "timed_out"), None)
+    if attempt is None:
+        raise HTTPException(409, "Không đọc được kết quả hết giờ đã lưu.")
+    sections = {
+        name: value for name, value in (attempt.get("sections") or {}).items()
+        if name in _COURSE_SECTION_LABELS and isinstance(value, dict)
+    }
+    if sections:
+        required = list(sections)
+        results = sections
+        weights = {name: float((value or {}).get("weight") or 0)
+                   for name, value in sections.items()}
+    else:
+        required = ["quiz"]
+        results = {"quiz": {
+            "completed": True, "pct": attempt.get("pct", item.get("score")),
+            "correct": attempt.get("correct"), "total": attempt.get("total"),
+            "duration_sec": int(attempt.get("duration_sec") or 0),
+        }}
+        weights = {"quiz": 100.0}
+    payload = _course_completion_payload(
+        attempt=attempt, attempts=attempts, cfg=cfg, required=required,
+        results=results, weights=weights,
+    )
+    payload["timed_out"] = True
+    payload["superseded"] = True
+    return payload
 
 
 def refresh_course_completion(
@@ -3601,7 +4322,8 @@ def refresh_course_completion(
 
 def course_verdict(
     *, user_id: str, bank_id: str, session_ids: list[str],
-    assignment_item_id: str | None = None,
+    assignment_item_id: str | None = None, timed_out: bool = False,
+    _allow_reaper_finalize: bool = False,
 ) -> dict:
     """Xét ĐẠT/CHƯA ĐẠT bài tập buổi từ chính các phiên server đang giữ.
 
@@ -3632,24 +4354,27 @@ def course_verdict(
 
     item = (_assignment_item_for(
         bank_id, user_id, assignment_item_id=assignment_item_id,
+        allow_expired_timed_finalize=True,
+        allow_reaper_finalize=_allow_reaper_finalize,
     ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
     if not item:
         raise HTTPException(404, "Không tìm thấy bài giao còn hiệu lực")
 
     try:
         asg = (supabase_admin.table("class_assignments")
-               .select("id, content_config")
+               .select("id, status, publish_at, due_at, content_config")
                .eq("id", item["assignment_id"]).limit(1).execute().data) or []
         assignment = asg[0] if asg else {}
         cfg = mastery_config(assignment)
 
         rows = (supabase_admin.table("quiz_sessions")
                 .select("id, user_id, bank_id, class_assignment_item_id, kind, ended_by, "
-                        "created_at, duration_sec")
+                        "created_at, ended_at, duration_sec")
                 .in_("id", session_ids).execute().data) or []
 
         cur = (supabase_admin.table("class_assignment_items")
-               .select("id, passed_at, submitted_at, mastery, score, updated_at")
+               .select("id, passed_at, submitted_at, mastery, score, updated_at, "
+                       "opened_at, timed_limit_minutes, timed_expires_at")
                .eq("id", item["id"]).limit(1).execute().data) or []
 
         # Đề GỐC — thước để server tự chấm lại. Câu tự luận không chấm máy nên
@@ -3678,17 +4403,44 @@ def course_verdict(
     if not cur:
         raise HTTPException(404, "Không tìm thấy mục bài giao")
     cur = cur[0]
+    timer = assignment_timer_state(cur, assignment)
+    if timer.get("invalid"):
+        raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
+    if cur.get("passed_at") and (timed_out or timer.get("is_timed")):
+        # A timed pass is immutable for every writer.  Another on-time tab may
+        # still post a lower completed session set after the winning pass; it
+        # must not append history or replace the admin's latest percentage.
+        return _course_terminal_pass_payload(cur, cfg)
+    clock_expired = bool(timer.get("is_timed") and timer.get("is_expired"))
+    if timed_out and not clock_expired:
+        raise HTTPException(422, "Đồng hồ máy chủ chưa hết thời gian.")
 
     # TỪNG phiên phải là của đúng người, đúng bank, đúng mục, và ĐÃ chốt.
     # Thiếu một phiên (id lạ, của người khác) → từ chối cả lượt chứ không xét
     # phần còn lại: mẫu số thiếu làm điểm ẢO cao lên.
     if len(rows) != len(set(session_ids)):
         raise HTTPException(422, "Có phiên không tồn tại")
+    cutoff = (_at(timer.get("expires_at"))
+              if timer.get("is_timed") and timer.get("expires_at") else None)
+    sessions_finished_on_time = bool(rows) and all(
+        s.get("ended_by") == "completed"
+        and _at(s.get("ended_at")) is not None
+        and (cutoff is None or _at(s.get("ended_at")) <= cutoff)
+        for s in rows
+    )
+    # The client flag is only a hint.  A verdict arriving after expiry must not
+    # erase an attempt that was canonically completed before the cutoff.  For an
+    # unfinished/late attempt the server still forces timeout even when a forged
+    # client sends ``timed_out=false``.
+    timed_out = bool(clock_expired and not sessions_finished_on_time)
+    if timed_out and cur.get("passed_at"):
+        return _course_terminal_pass_payload(cur, cfg)
     for s in rows:
         if (s.get("user_id") != user_id or s.get("bank_id") != bank_id
                 or s.get("class_assignment_item_id") != item["id"]):
             raise HTTPException(422, "Có phiên không thuộc lượt làm này")
-        if s.get("ended_by") != "completed":
+        allowed_endings = {"completed", "time_cap"} if timed_out else {"completed"}
+        if s.get("ended_by") not in allowed_endings:
             raise HTTPException(422, "Có phiên chưa hoàn thành")
 
     kinds = {s.get("kind") or "run" for s in rows}
@@ -3730,6 +4482,10 @@ def course_verdict(
     # lượt SỚM HƠN, không bao giờ về lượt điểm cao hơn.
     seen: dict = {}
     for a in sorted(att, key=lambda x: x.get("created_at") or ""):
+        if cutoff is not None:
+            created_at = _at(a.get("created_at"))
+            if created_at is None or created_at > cutoff:
+                continue
         qid = a.get("qid")
         if qid not in key:
             # Một số phiên production đã bị client cũ nhét câu bổ trợ của CHÍNH
@@ -3749,17 +4505,23 @@ def course_verdict(
     # số co lại và điểm ẢO cao lên. Kiểm tra lại thì phải đủ cỡ mẫu đã cấu hình
     # (kẹp theo kho — kho 15 câu thì mẫu 15 là đủ).
     if phase == "run":
+        expected_graded = len(key)
         missing = len(set(key) - set(seen))
-        if missing:
+        if clock_expired and missing:
+            timed_out = True
+        if missing and not timed_out:
             raise HTTPException(
                 422, f"Lượt làm thiếu {missing} câu chưa có kết quả trên hệ thống")
     else:
-        need = min(cfg["retake_size"], len(key))
-        if len(seen) < need:
+        expected_graded = min(cfg["retake_size"], len(key))
+        if clock_expired and len(seen) < expected_graded:
+            timed_out = True
+        if len(seen) < expected_graded and not timed_out:
             raise HTTPException(
-                422, f"Bài kiểm tra lại phải đủ {need} câu (mới có {len(seen)})")
+                422, "Bài kiểm tra lại phải đủ "
+                     f"{expected_graded} câu (mới có {len(seen)})")
 
-    graded = len(seen)
+    graded = expected_graded if timed_out else len(seen)
     correct = sum(1 for qid, a in seen.items()
                   if grade_attempt(a.get("answer_given"), key[qid].get("answer")) is True)
     pct = round(correct / graded * 100, 1)
@@ -3778,6 +4540,10 @@ def course_verdict(
     # thấy 0 dòng khớp, đọc lại sổ mới rồi gộp lại. Ba vòng là quá đủ cho một
     # người dùng thật; hết vòng vẫn thua → 500, không báo đạt miệng.
     for _cas in range(3):
+        # A pass may win the previous CAS after this request's initial read.
+        # Repeat the terminal check on every freshly-read canonical row.
+        if cur.get("passed_at") and (timed_out or timer.get("is_timed")):
+            return _course_terminal_pass_payload(cur, cfg)
         mastery = cur.get("mastery") or {}
         attempts = list(mastery.get("attempts") or [])
         attempt_no = course_section_attempt_no({"mastery": mastery})
@@ -3786,6 +4552,27 @@ def course_verdict(
              if a.get("phase") == phase and a.get("sessions") == sess_key),
             None,
         )
+
+        prior_action = _recorded_next_action(
+            attempts[-1] if attempts else None, cfg["pass_pct"],
+        )
+        if existing_attempt is None and prior_action == "timed_out":
+            # A timeout is terminal. If another browser/reaper wins the CAS
+            # with a different expired session set, return that canonical
+            # verdict instead of appending a second timeout and replacing the
+            # latest score/history.
+            return _course_terminal_timeout_payload(cur, cfg)
+        if (phase == "run" and existing_attempt is None
+                and prior_action == "retake"):
+            # A near-pass authorizes only a revision. This check lives inside
+            # every CAS iteration so a near-pass that wins after the reaper's
+            # initial item snapshot still prevents its stale run orphan from
+            # appending a later zero-score timeout.
+            if _allow_reaper_finalize:
+                return {"superseded": True, "next_action": "retake"}
+            raise HTTPException(
+                422, "Lượt gần đạt chỉ được mở bài revision, không mở phiên mới lượt chính.",
+            )
 
         if (existing_attempt and existing_attempt.get("completed") is True
                 and existing_attempt.get("pct") is not None):
@@ -3808,8 +4595,6 @@ def course_verdict(
         # của chính nó đang là dòng cuối, không thể dùng nó làm "lượt
         # trước" rồi tự bác lần gọi lại.
         if phase == "retake" and existing_attempt is None:
-            prior_action = _recorded_next_action(
-                attempts[-1] if attempts else None, cfg["pass_pct"])
             if prior_action != "retake":
                 raise HTTPException(
                     422, "Chỉ được kiểm tra lại sau một lượt gần đạt — "
@@ -3932,8 +4717,11 @@ def course_verdict(
             candidate = {
                 "phase": phase, "pct": pct, "at": (existing_attempt or {}).get("at") or _now(),
                 "sessions": sess_key,
-                "next_action": mastery_next_action(pct, cfg["pass_pct"]),
+                "next_action": ("timed_out" if timed_out
+                                else mastery_next_action(pct, cfg["pass_pct"])),
             }
+        if timed_out:
+            candidate["timed_out"] = True
 
         if existing_attempt is None:
             attempts.append(candidate)
@@ -3990,6 +4778,26 @@ def course_verdict(
         required=required, results=(final_attempt.get("sections") or evidence),
         weights=weights, passed_before=bool(cur.get("passed_at")),
     )
+    if (clock_expired and not payload.get("passed")
+            and payload.get("next_action") in {"retake", "retry_full"}):
+        # The attempt itself may have completed on time, so do not falsify its
+        # history as `timed_out`.  The *next* write entitlement has nevertheless
+        # expired; return the same read-only action as course_assignment_action.
+        payload["next_action"] = "review"
+        payload["retry_reason"] = None
+        payload["retry_closed"] = True
+    if timed_out and not cur.get("submitted_at"):
+        latest = max(rows, key=lambda row: row.get("created_at") or "")
+        marked = mark_item_submitted(
+            supabase_admin, item_id=item["id"], artifact_kind="quiz_session",
+            artifact_id=latest["id"], score=payload.get("pct"),
+        )
+        if not marked:
+            check = (supabase_admin.table("class_assignment_items")
+                     .select("submitted_at").eq("id", item["id"])
+                     .limit(1).execute().data) or []
+            if not check or not check[0].get("submitted_at"):
+                raise HTTPException(500, "Hết giờ nhưng chưa thu được bài; hãy thử lại")
     # Bank nhiều phần chỉ được thu khi điểm gộp đã đạt. Bank quiz-only giữ
     # nguyên đường chốt cũ để tránh thay đổi contract ngoài phạm vi task.
     if multi_section and payload.get("passed") and not cur.get("submitted_at"):
@@ -4014,6 +4822,386 @@ def course_verdict(
             if not check or not check[0].get("submitted_at"):
                 raise HTTPException(500, "Đã tính điểm nhưng chưa thu được bài; hãy thử lại")
     return payload
+
+
+def _mark_timed_course_retry_closed(item: dict) -> bool:
+    """Persist the fact that an expired retry entitlement had no generation.
+
+    Failed on-time attempts keep ``passed_at`` NULL, so the reaper's broad
+    query continues to find them forever. This marker is written only after a
+    post-cutoff session scan proves that no retake/full-retry generation was
+    started. Migration 277 locks the item and repeats the session-generation
+    proof in the same transaction, so a concurrently committing retake wins
+    instead of being hidden by the marker.
+    """
+    mastery = dict(item.get("mastery") or {})
+    if mastery.get("timed_retry_closed_at"):
+        return True
+    closed = supabase_admin.rpc(
+        "quiz_close_expired_course_retry", {"p_item_id": item["id"]},
+    ).execute().data
+    return closed is True
+
+
+def reap_expired_course_assessments(
+    grace_seconds: int = 15, *, now: datetime | None = None,
+) -> dict:
+    """Finalize timed Course quizzes whose browser did not submit at zero.
+
+    This is the server-side backstop for a closed tab, power loss, or a lost
+    timeout request. It uses the same canonical verdict path as the learner
+    request, so answer keys, denominators, mastery, and submission state cannot
+    drift between foreground and background completion. Writes are idempotent
+    or CAS-protected, allowing more than one Railway worker to sweep safely.
+    """
+    current = now or datetime.now(timezone.utc)
+    grace = timedelta(seconds=max(0, int(grace_seconds or 0)))
+    result = {"examined": 0, "finalized": 0, "failed": 0}
+    try:
+        assignments = _report_pages(
+            "class_assignments",
+            "id, cohort_id, content_id, skill, status, publish_at, due_at, content_config",
+            lambda q: q.eq("skill", COURSE_AREA).in_(
+                "status", ["published", "archived"],
+            ),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[course-timer-reaper] assignment read failed: %s", exc)
+        return {**result, "failed": 1}
+
+    timed = {
+        row["id"]: row for row in assignments
+        if row.get("status") in {"published", "archived"}
+        and (row.get("content_config") or {}).get("time_limit_minutes") is not None
+        and row.get("content_id")
+    }
+    if not timed:
+        return result
+
+    items: list[dict] = []
+    try:
+        for ids in _chunks(list(timed)):
+            items.extend(_report_pages(
+                "class_assignment_items",
+                "id, assignment_id, student_id, opened_at, timed_limit_minutes, "
+                "timed_expires_at, submitted_at, passed_at, mastery, updated_at",
+                lambda q, ids=ids: (
+                    q.in_("assignment_id", ids)
+                    .not_.is_("opened_at", "null")
+                    .is_("passed_at", "null")
+                ),
+            ))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[course-timer-reaper] item read failed: %s", exc)
+        return {**result, "failed": 1}
+    if not items:
+        return result
+
+    candidates: list[tuple[dict, dict, datetime]] = []
+    for item in items:
+        # Passing is terminal even if another tab left an unrecorded open
+        # session.  Reaping that orphan would append a later 0% timeout to a
+        # ledger whose canonical item has already passed.
+        if item.get("passed_at"):
+            continue
+        assignment = timed.get(item.get("assignment_id")) or {}
+        mastery_attempts = [
+            attempt
+            for attempt in ((item.get("mastery") or {}).get("attempts") or [])
+            if isinstance(attempt, dict)
+        ]
+        latest_attempt = mastery_attempts[-1] if mastery_attempts else None
+        latest_action = _recorded_next_action(
+            latest_attempt, mastery_config(assignment)["pass_pct"],
+        )
+        if (item.get("submitted_at") and latest_attempt
+                and latest_action in {"retake", "retry_full"}
+                and (item.get("mastery") or {}).get("timed_retry_closed_at")):
+            continue
+        # A timeout ledger plus its submission receipt is terminal. `passed_at`
+        # intentionally remains NULL for a failed timed assessment, so filtering
+        # only on that column makes every future sweep fetch all historical
+        # sessions again. Stop before the student/session batches. A missing
+        # receipt remains eligible for the repair path below, and a later
+        # retake/full-retry generation has a different latest action.
+        if item.get("submitted_at") and latest_attempt and (
+            latest_attempt.get("timed_out") is True
+            or latest_action == "timed_out"
+        ):
+            continue
+        timer = assignment_timer_state(item, assignment, now=current)
+        cutoff = _at(timer.get("expires_at"))
+        if (timer.get("invalid") or not timer.get("is_timed")
+                or not timer.get("is_expired") or cutoff is None
+                or current < cutoff + grace):
+            continue
+        result["examined"] += 1
+        candidates.append((item, assignment, cutoff))
+    if not candidates:
+        return result
+
+    student_ids = sorted({
+        item.get("student_id") for item, _, _ in candidates if item.get("student_id")
+    })
+    students: dict[str, str] = {}
+    try:
+        for ids in _chunks(student_ids):
+            students.update({
+                row["id"]: row["user_id"] for row in _report_pages(
+                    "students", "id, user_id", lambda q, ids=ids: q.in_("id", ids),
+                ) if row.get("user_id")
+            })
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[course-timer-reaper] student read failed: %s", exc)
+        return {**result, "failed": 1}
+
+    # Fetch sessions in bounded batches, then group locally.  A per-item query
+    # makes each historical attempt add another request to every minute-long
+    # sweep, even after its verdict has already been recorded.
+    sessions_by_item: dict[str, list[dict]] = {
+        str(item["id"]): [] for item, _, _ in candidates
+    }
+    try:
+        for ids in _chunks(list(sessions_by_item)):
+            rows = _report_pages(
+                "quiz_sessions",
+                "id, user_id, bank_id, class_assignment_item_id, kind, created_at, "
+                "started_at, ended_at, ended_by, duration_sec",
+                lambda q, ids=ids: q.in_("class_assignment_item_id", ids),
+            )
+            for row in rows:
+                item_id = str(row.get("class_assignment_item_id") or "")
+                if item_id in sessions_by_item:
+                    sessions_by_item[item_id].append(row)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[course-timer-reaper] session read failed: %s", exc)
+        result["failed"] += len(candidates)
+        return result
+
+    for item, assignment, cutoff in candidates:
+        user_id = students.get(item.get("student_id"))
+        bank_id = assignment.get("content_id")
+        if not user_id or not bank_id:
+            result["failed"] += 1
+            continue
+        try:
+            sessions = sessions_by_item.get(str(item["id"]), [])
+            sessions = [row for row in sessions
+                        if row.get("user_id") == user_id and row.get("bank_id") == bank_id]
+            # A failed full run may already be recorded before a short retake
+            # starts.  Feeding both phases to ``course_verdict`` is forbidden
+            # (and rightly so), so sweep only sessions not already represented
+            # in the canonical mastery ledger.
+            mastery_attempts = [
+                attempt
+                for attempt in ((item.get("mastery") or {}).get("attempts") or [])
+                if isinstance(attempt, dict)
+            ]
+            recorded_ids = {
+                session_id
+                for attempt in mastery_attempts
+                for session_id in (attempt.get("sessions") or [])
+            }
+            repair_ids: set[str] = set()
+            if not item.get("submitted_at"):
+                repair_attempt = next((
+                    attempt for attempt in reversed(mastery_attempts)
+                    if _recorded_next_action(attempt, mastery_config(
+                        assignment)["pass_pct"]) == "timed_out"
+                ), None)
+                if repair_attempt:
+                    repair_ids = {
+                        str(session_id) for session_id
+                        in (repair_attempt.get("sessions") or []) if session_id
+                    }
+            # If the timeout ledger exists but its submission receipt was lost,
+            # replay exactly that idempotent session set.  Otherwise only new
+            # evidence is eligible, as before.
+            sessions = ([row for row in sessions
+                         if str(row.get("id")) in repair_ids]
+                        if repair_ids else
+                        [row for row in sessions if row.get("id") not in recorded_ids])
+            # Mirror ``get_course_resume`` and the verdict gate: after a
+            # recorded ``retry_full`` (or an explicit multi-section restart),
+            # only sessions from that current generation may participate.
+            # Otherwise an old orphan can be mixed into the new partial run
+            # forever and every sweep is rejected at the retry boundary.
+            mastery_state = item.get("mastery") or {}
+            cfg = mastery_config(assignment)
+            run_after = _full_retry_boundary(mastery_attempts, cfg["pass_pct"])
+            section_started = _at(mastery_state.get("section_attempt_started_at"))
+            if section_started is not None and (
+                run_after is None or section_started > run_after
+            ):
+                run_after = section_started
+            current_sessions = []
+            for row in sessions:
+                if (row.get("kind") or "run") == "run" and run_after is not None:
+                    created_at = _at(row.get("created_at"))
+                    if created_at is None or created_at <= run_after:
+                        continue
+                # Legacy ``abandoned`` rows are superseded history.  A newest
+                # paused row may still be the only persisted current attempt;
+                # keep it provisionally, then discard it below if a replacement
+                # session exists after it.
+                if row.get("ended_by") not in {None, "completed", "time_cap", "paused"}:
+                    continue
+                current_sessions.append(row)
+            sessions = [
+                row for row in current_sessions
+                if row.get("ended_by") != "paused" or not any(
+                    (other.get("kind") or "run") == (row.get("kind") or "run")
+                    and (_at(other.get("created_at")) or datetime.min.replace(
+                        tzinfo=timezone.utc
+                    )) > (_at(row.get("created_at")) or datetime.min.replace(
+                        tzinfo=timezone.utc
+                    ))
+                    for other in current_sessions
+                )
+            ]
+            latest_recorded_action = _recorded_next_action(
+                mastery_attempts[-1] if mastery_attempts else None,
+                cfg["pass_pct"],
+            )
+            # A recorded near-pass entitles only a short retake, so remaining
+            # full-run tabs are concurrent orphans. A recorded timeout is
+            # terminal, so every remaining session is an orphan. Seal those
+            # rows without grading them again; the repair path is excluded so
+            # it can still recreate a lost submission receipt idempotently.
+            superseded_runs = (
+                list(sessions)
+                if latest_recorded_action == "timed_out" and not repair_ids
+                else [
+                    row for row in sessions
+                    if latest_recorded_action == "retake"
+                    and (row.get("kind") or "run") == "run"
+                ]
+            )
+            superseded_run_ids = {row.get("id") for row in superseded_runs}
+            sessions = [row for row in sessions
+                        if row.get("id") not in superseded_run_ids]
+            if not sessions and not superseded_runs:
+                latest_at = (_at(mastery_attempts[-1].get("at"))
+                             if mastery_attempts else None)
+                section_started = _at(
+                    mastery_state.get("section_attempt_started_at"),
+                )
+                full_retry_started = bool(
+                    latest_recorded_action == "retry_full"
+                    and mastery_state.get("section_attempt_pending") is True
+                    and section_started is not None
+                    and (latest_at is None or section_started > latest_at)
+                )
+                if (item.get("submitted_at")
+                        and latest_recorded_action in {"retake", "retry_full"}
+                        and not full_retry_started):
+                    _mark_timed_course_retry_closed(item)
+                continue
+            latest_attempt_at = (
+                None if repair_ids else
+                (_at(mastery_attempts[-1].get("at")) if mastery_attempts else None)
+            )
+            pending_retakes = [
+                row for row in sessions
+                if (row.get("kind") or "run") == "retake"
+                and (
+                    latest_attempt_at is None
+                    or (_at(row.get("created_at")) is not None
+                        and _at(row.get("created_at")) > latest_attempt_at)
+                )
+            ]
+            # A revision older than the newest recorded verdict has already
+            # been superseded.  Remove it before choosing retake-vs-run;
+            # otherwise its mere presence can hide a valid current full retry.
+            pending_retake_ids = {row.get("id") for row in pending_retakes}
+            sessions = [
+                row for row in sessions
+                if (row.get("kind") or "run") != "retake"
+                or row.get("id") in pending_retake_ids
+            ]
+            if not sessions and not superseded_runs:
+                continue
+            sessions_to_close = superseded_runs + sessions
+            verdict_sessions = sessions
+            if pending_retakes:
+                # Match get_course_resume(): only a revision created after the
+                # latest recorded verdict is pending, and among concurrent tabs
+                # the newest one is canonical.  Close all current candidates so
+                # no orphan stays writable, but grade exactly that one session.
+                sessions_to_close = superseded_runs + pending_retakes
+                verdict_sessions = [max(
+                    pending_retakes, key=lambda row: row.get("created_at") or "",
+                )]
+            elif not repair_ids:
+                # A lost verdict can coexist with an orphan created by another
+                # tab.  If the completed, on-time run sessions already cover
+                # the whole bank, that is the canonical attempt: including the
+                # orphan after marking it ``time_cap`` would turn a valid
+                # completion into a timeout.  Keep sealing every open session,
+                # but grade only the independently complete on-time subset.
+                on_time_completed = [
+                    row for row in verdict_sessions
+                    if (row.get("kind") or "run") == "run"
+                    and row.get("ended_by") == "completed"
+                    and _at(row.get("ended_at")) is not None
+                    and _at(row.get("ended_at")) <= cutoff
+                ]
+                completed_ids = {row.get("id") for row in on_time_completed}
+                has_superseded_orphan = any(
+                    (row.get("kind") or "run") == "run"
+                    and row.get("id") not in completed_ids
+                    and row.get("ended_by") in {None, "time_cap", "paused"}
+                    for row in verdict_sessions
+                )
+                if on_time_completed and has_superseded_orphan:
+                    bank_qids, _, shape_readable = _course_bank_shape(bank_id)
+                    completed_qids = _course_answered_qids([
+                        str(row["id"]) for row in on_time_completed
+                    ])
+                    if (shape_readable and bank_qids and completed_qids is not None
+                            and bank_qids <= completed_qids):
+                        verdict_sessions = on_time_completed
+            if len(sessions_to_close) > 40:
+                raise RuntimeError("timed item has no usable session set")
+            for session in sessions_to_close:
+                if session.get("ended_by") in {"completed", "time_cap"}:
+                    continue
+                started = _at(session.get("started_at") or session.get("created_at"))
+                duration = max(0, int((cutoff - started).total_seconds())) if started else None
+                patch = {"ended_at": cutoff.isoformat(), "ended_by": "time_cap"}
+                if duration is not None:
+                    patch["duration_sec"] = duration
+                update = (supabase_admin.table("quiz_sessions").update(patch)
+                          .eq("id", session["id"]))
+                if session.get("ended_by"):
+                    update = update.eq("ended_by", session["ended_by"])
+                else:
+                    update = update.is_("ended_by", "null")
+                update.execute()
+                session.update(patch)
+            if not verdict_sessions:
+                # The canonical near-pass verdict already exists. This sweep
+                # only sealed a stale full-run tab and must not append history.
+                if (item.get("submitted_at")
+                        and latest_recorded_action in {"retake", "retry_full"}):
+                    _mark_timed_course_retry_closed(item)
+                continue
+            verdict_kwargs = dict(
+                user_id=user_id, bank_id=bank_id,
+                session_ids=[row["id"] for row in verdict_sessions],
+                assignment_item_id=item["id"], timed_out=True,
+            )
+            verdict_kwargs["_allow_reaper_finalize"] = True
+            verdict = course_verdict(**verdict_kwargs)
+            if verdict.get("already_passed") or verdict.get("superseded"):
+                continue
+            result["finalized"] += 1
+        except Exception as exc:  # noqa: BLE001
+            result["failed"] += 1
+            logger.warning(
+                "[course-timer-reaper] finalize failed item=%s: %s", item.get("id"), exc,
+            )
+    return result
 
 
 # ── Analytics (Pha 5a) ───────────────────────────────────────────────
