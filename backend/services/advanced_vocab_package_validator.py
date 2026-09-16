@@ -96,7 +96,7 @@ FIRST_RELEASE_LOCKED_REVISIONS = {
         "c0495ddac3a1c865d6f07963f11534693f024ba9042eea0ab4b737511fb4c166"
     ),
     "generated_package_sha256": (
-        "968a9dbf37a97f0f403ad5e00dcf3d8ac6406665b3dedcd3cf4392df46d071b3"
+        "c0b8548487e6ea3dcf15456bcc9a47114cd1a4442c73fb57bbd2c51a44fdb5fd"
     ),
 }
 
