@@ -23,6 +23,7 @@ def test_core30_import_payloads_are_complete_assignment_only_banks():
         payload = spec["payload"]
         runtime = payload["meta"]["runtime"]
         assert payload["code"] == f"C4-{lesson_id}"
+        assert payload["source"] == "advanced-vocab-core30-v6-t11-map-locked"
         assert payload["lesson_no"] is None
         assert payload["is_published"] is False
         assert payload["words_count"] == 24

@@ -62,7 +62,11 @@ def _lesson() -> dict:
 
 def test_core30_catalog_has_complete_authored_sections_and_reference_boundaries():
     lessons = [service.load_lesson(lesson_id) for lesson_id in LESSON_IDS]
+    manifest = json.loads(
+        (service._CONTENT_ROOT / "core30-manifest.json").read_text(encoding="utf-8")
+    )
 
+    assert manifest["source_package_version"] == "v6-t11-map-locked"
     assert [lesson["lesson_id"] for lesson in lessons] == list(LESSON_IDS)
     assert sum(len(lesson["vocabulary"]) for lesson in lessons) == 720
     assert sum(len(lesson["adaptive_quiz"]["items"]) for lesson in lessons) == 8090
@@ -455,7 +459,10 @@ def test_assigned_lesson_reopens_frozen_version_after_canonical_revision(
     (root / f"{v1['lesson_id']}.json").write_text(json.dumps(v2), encoding="utf-8")
     (version / f"{checksum_v1}.json").write_text(json.dumps(v1), encoding="utf-8")
     monkeypatch.setattr(service, "_CONTENT_ROOT", root)
-    monkeypatch.setattr(service, "_runtime", lambda _bank: ({"id": "bank-1"}, {}))
+    monkeypatch.setattr(
+        service, "_runtime",
+        lambda _bank: (_ for _ in ()).throw(AssertionError("mutable bank read")),
+    )
     monkeypatch.setattr(service, "_owned_item", lambda *_args, **_kwargs: {
         "id": "item-1", "content_config": {"runtime": {
             "kind": "advanced_vocab", "lesson_id": v1["lesson_id"],
@@ -918,7 +925,10 @@ def test_admin_results_collects_each_learner_evidence_without_an_overall_score(m
     fake = _Admin({
         "class_assignments": [{
             "id": "assignment-1", "skill": "course", "content_id": "bank-1",
-            "title": "Advanced T01", "content_config": {},
+            "title": "Advanced T01", "content_config": {
+                "test_title": "Advanced T01", "bank_code": "C4-ADV-T01",
+                "runtime": {"kind": "advanced_vocab", "lesson_id": "ADV-T01"},
+            },
         }],
         "quiz_banks": [{
             "id": "bank-1", "code": "C4-ADV-T01", "title": "Advanced T01",

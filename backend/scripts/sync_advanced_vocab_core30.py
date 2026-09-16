@@ -572,7 +572,7 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
     ]
     prepared_reviews = _prepare_reviews(source, manifest, prepared_lessons)
     _preflight_destinations(prepared_lessons, prepared_reviews)
-    report = {"schema_version": 2, "source_package_version": "v5-writing-reference",
+    report = {"schema_version": 2, "source_package_version": "v6-t11-map-locked",
               "source_revision": manifest.get("source_revision"),
               "lesson_count": len(lesson_ids), "lessons": [],
               "review_count": len(prepared_reviews), "reviews": []}

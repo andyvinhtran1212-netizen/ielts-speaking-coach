@@ -124,9 +124,9 @@ def _owned_item(bank_id: str, user_id: str, item_id: str, *, review: bool = Fals
 def _assigned_lesson(*, bank_id: str, user_id: str, item_id: str,
                      review: bool = False) -> tuple[dict, dict, dict]:
     """Resolve content only from the immutable runtime snapshot issued to the learner."""
-    bank, _ = _runtime(bank_id)
     item = _owned_item(bank_id, user_id, item_id, review=review)
-    frozen = ((item.get("content_config") or {}).get("runtime") or {})
+    config = item.get("content_config") or {}
+    frozen = (config.get("runtime") or {})
     lesson_id = str(frozen.get("lesson_id") or "")
     expected_checksum = str(frozen.get("content_checksum") or "")
     if frozen.get("kind") != "advanced_vocab" or not lesson_id or not expected_checksum:
@@ -138,6 +138,14 @@ def _assigned_lesson(*, bank_id: str, user_id: str, item_id: str,
     actual_checksum = lesson_content_checksum(lesson)
     if declared_checksum != actual_checksum or actual_checksum != expected_checksum:
         raise HTTPException(409, "Phiên bản bài giao không khớp nội dung đã triển khai")
+    # The assignment snapshot is the canonical identity after issuance.  A
+    # later bank retirement/version switch must not orphan an existing learner
+    # review, so no mutable quiz_banks read participates in content resolution.
+    bank = {
+        "id": bank_id,
+        "code": config.get("bank_code"),
+        "title": config.get("test_title") or lesson.get("title"),
+    }
     return bank, item, lesson
 
 
@@ -1108,7 +1116,15 @@ def assignment_results(*, assignment_id: str) -> dict:
     if assignment.get("skill") != "course":
         raise HTTPException(404, "Không tìm thấy bài giao Advanced Vocabulary")
     bank_id = str(assignment.get("content_id") or "")
-    bank, runtime = _runtime(bank_id)
+    config = assignment.get("content_config") or {}
+    runtime = config.get("runtime") or {}
+    if runtime.get("kind") != "advanced_vocab":
+        raise HTTPException(404, "Không tìm thấy bài giao Advanced Vocabulary")
+    bank = {
+        "id": bank_id,
+        "code": config.get("bank_code"),
+        "title": config.get("test_title") or assignment.get("title"),
+    }
     items = _paged(
         "class_assignment_items",
         "id,student_id,state,opened_at,submitted_at,passed_at,score,mastery",
