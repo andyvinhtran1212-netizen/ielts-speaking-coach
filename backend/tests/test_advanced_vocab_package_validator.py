@@ -1321,7 +1321,9 @@ def test_listening_rejects_private_fields_in_both_question_representations(
     )
     listening["content"]["questions"][0]["answer"] = "leaked"
     listening["content"]["sections"] = [{
+        "answer_key": "private section key",
         "question_blocks": [{
+            "solution": "private block solution",
             "questions": [{
                 "question_number": 2, "question_type": "note_completion",
                 "stem": "Question 2", "options": [],
@@ -1334,6 +1336,12 @@ def test_listening_rejects_private_fields_in_both_question_representations(
     report = validate_package(tmp_path)
 
     assert "LISTENING_ANSWER_LEAK" in _codes(report)
+    leaks = [
+        issue.message for issue in report.errors
+        if issue.code == "LISTENING_ANSWER_LEAK"
+    ]
+    assert any("answer_key" in message for message in leaks)
+    assert any("solution" in message for message in leaks)
 
 
 def test_sync_revalidates_current_source_instead_of_trusting_stale_qa(

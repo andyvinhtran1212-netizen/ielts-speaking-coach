@@ -64,6 +64,17 @@ LISTENING_LEARNER_QUESTION_FIELDS = frozenset({
     "question_number", "question_type", "stem", "options",
 })
 LISTENING_LEARNER_OPTION_FIELDS = frozenset({"key", "letter", "text"})
+LISTENING_LEARNER_SECTION_FIELDS = frozenset({
+    "audio_intro", "context", "figure", "figure_checksum", "question_blocks",
+    "register", "section_id", "section_number", "speakers",
+})
+LISTENING_LEARNER_BLOCK_FIELDS = frozenset({
+    "block_id", "question_range", "questions", "render", "rubric",
+})
+LISTENING_PRIVATE_CONTAINER_FIELDS = frozenset({
+    "accepted_variants", "answer", "answer_key", "answers", "correction",
+    "evidence", "explanation", "solution", "solutions", "transcript",
+})
 QUIZ_AUTHORED_ITEM_FIELDS = frozenset({
     "accept", "answer", "answer_index", "case_sensitive",
     "counts_toward_mastery", "explain", "headword", "hint", "input",
@@ -971,6 +982,43 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                 for question in nested_questions
                 if isinstance(question, dict)
             ]
+            for section in (
+                content.get("sections") or [] if isinstance(content, dict) else []
+            ):
+                if not isinstance(section, dict):
+                    report.add(
+                        "error", "LISTENING_SECTION_ITEM_TYPE", path,
+                        "Every Listening section must be an object.",
+                    )
+                    continue
+                section_unexpected = set(section) - LISTENING_LEARNER_SECTION_FIELDS
+                if section_unexpected:
+                    report.add(
+                        "error", "LISTENING_ANSWER_LEAK", path,
+                        "Listening learner section exposes non-public fields: "
+                        + ", ".join(sorted(section_unexpected)),
+                    )
+                blocks = section.get("question_blocks") or []
+                if not isinstance(blocks, list):
+                    report.add(
+                        "error", "LISTENING_BLOCK_LIST_TYPE", path,
+                        "Listening question_blocks must be an array.",
+                    )
+                    continue
+                for block in blocks:
+                    if not isinstance(block, dict):
+                        report.add(
+                            "error", "LISTENING_BLOCK_ITEM_TYPE", path,
+                            "Every Listening question block must be an object.",
+                        )
+                        continue
+                    block_unexpected = set(block) - LISTENING_LEARNER_BLOCK_FIELDS
+                    if block_unexpected:
+                        report.add(
+                            "error", "LISTENING_ANSWER_LEAK", path,
+                            "Listening learner question block exposes non-public fields: "
+                            + ", ".join(sorted(block_unexpected)),
+                        )
             for question in [*question_rows, *nested_question_rows]:
                 unexpected = set(question) - LISTENING_LEARNER_QUESTION_FIELDS
                 authored_options = question.get("options") or []

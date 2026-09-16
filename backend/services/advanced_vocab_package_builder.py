@@ -26,6 +26,9 @@ from docx.text.paragraph import Paragraph
 
 from services.advanced_vocab_package_validator import (
     FIRST_RELEASE_LOCKED_REVISIONS,
+    LISTENING_LEARNER_BLOCK_FIELDS,
+    LISTENING_LEARNER_SECTION_FIELDS,
+    LISTENING_PRIVATE_CONTAINER_FIELDS,
     READING_LEARNER_QUESTION_FIELDS,
     READING_PRIVATE_QUESTION_FIELDS,
     SOURCE_MANIFEST_NAME,
@@ -518,21 +521,66 @@ def sanitize_listening_source(
     learner_sections: list[dict[str, Any]] = []
     flat_questions: list[dict[str, Any]] = []
     solutions: dict[str, dict[str, Any]] = {}
+    private_editorial_fields: list[dict[str, Any]] = []
     timing_index = timings.get("question_index") or {}
 
     for source_section in source.get("sections") or []:
+        if not isinstance(source_section, dict):
+            raise ValueError("Listening sections must be objects")
+        section_fields = set(source_section) - {"question_blocks"}
+        section_unknown = section_fields - (
+            LISTENING_LEARNER_SECTION_FIELDS | LISTENING_PRIVATE_CONTAINER_FIELDS
+            | {"audio_script"}
+        )
+        if section_unknown:
+            raise ValueError(
+                "Listening section has unknown fields: "
+                + ", ".join(sorted(section_unknown))
+            )
         section = {
             key: value
             for key, value in source_section.items()
-            if key not in {"audio_script", "question_blocks"}
+            if key in LISTENING_LEARNER_SECTION_FIELDS and key != "question_blocks"
         }
+        section_private = {
+            key: source_section[key]
+            for key in sorted(section_fields & LISTENING_PRIVATE_CONTAINER_FIELDS)
+        }
+        if section_private:
+            private_editorial_fields.append({
+                "scope": "section",
+                "section_id": source_section.get("section_id"),
+                "fields": section_private,
+            })
         section["question_blocks"] = []
         for source_block in source_section.get("question_blocks") or []:
+            if not isinstance(source_block, dict):
+                raise ValueError("Listening question blocks must be objects")
+            block_fields = set(source_block) - {"questions", "answers"}
+            block_unknown = block_fields - (
+                LISTENING_LEARNER_BLOCK_FIELDS | LISTENING_PRIVATE_CONTAINER_FIELDS
+            )
+            if block_unknown:
+                raise ValueError(
+                    "Listening question block has unknown fields: "
+                    + ", ".join(sorted(block_unknown))
+                )
             block = {
                 key: value
                 for key, value in source_block.items()
-                if key not in {"answers", "questions"}
+                if key in LISTENING_LEARNER_BLOCK_FIELDS and key != "questions"
             }
+            block_private = {
+                key: source_block[key]
+                for key in sorted(block_fields & LISTENING_PRIVATE_CONTAINER_FIELDS)
+            }
+            if block_private:
+                private_editorial_fields.append({
+                    "scope": "question_block",
+                    "section_id": source_section.get("section_id"),
+                    "block_id": source_block.get("block_id"),
+                    "fields": block_private,
+                })
             answer_by_q: dict[str, dict[str, Any]] = {}
             for answer in source_block.get("answers") or []:
                 if not isinstance(answer, dict):
@@ -596,6 +644,17 @@ def sanitize_listening_source(
             section["question_blocks"].append(block)
         learner_sections.append(section)
 
+    private_support = {
+        "audio_scripts": [
+            section.get("audio_script")
+            for section in source.get("sections") or []
+            if isinstance(section, dict) and section.get("audio_script")
+        ],
+        "visibility": "admin_only",
+    }
+    if private_editorial_fields:
+        private_support["editorial_fields"] = private_editorial_fields
+
     return {
         "test_id": source.get("test_id"),
         "title": source.get("title"),
@@ -604,14 +663,7 @@ def sanitize_listening_source(
         "sections": learner_sections,
         "solutions": solutions,
         "solutions_visibility": "after_guided_retry",
-        "private_support": {
-            "audio_scripts": [
-                section.get("audio_script")
-                for section in source.get("sections") or []
-                if section.get("audio_script")
-            ],
-            "visibility": "admin_only",
-        },
+        "private_support": private_support,
     }
 
 
@@ -726,6 +778,20 @@ def load_vocab_audio_bundle(path: str | Path) -> tuple[Path, dict[str, Any]]:
     manifest_without_checksum.pop("bundle_checksum", None)
     if expected_bundle_checksum != _sha256_bytes(_canonical_json(manifest_without_checksum)):
         raise ValueError(f"Vocabulary audio bundle checksum mismatch: {manifest_path}")
+    clips_root = root / "clips"
+    expected_clip_paths = {f"clips/{clip_id}.mp3" for clip_id in clips}
+    actual_clip_paths = {
+        clip_path.relative_to(root).as_posix()
+        for clip_path in clips_root.rglob("*")
+        if clip_path.is_file() or clip_path.is_symlink()
+    } if clips_root.is_dir() else set()
+    if actual_clip_paths != expected_clip_paths:
+        missing = sorted(expected_clip_paths - actual_clip_paths)
+        extra = sorted(actual_clip_paths - expected_clip_paths)
+        raise ValueError(
+            "Vocabulary audio clip inventory does not match manifest; "
+            f"missing={missing}, extra={extra}"
+        )
     for clip_id, clip in clips.items():
         if not isinstance(clip, dict):
             raise ValueError(f"Invalid audio clip metadata: {clip_id}")

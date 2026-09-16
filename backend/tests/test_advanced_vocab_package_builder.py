@@ -245,6 +245,98 @@ def test_listening_sanitizer_rejects_unexpected_duplicate_options():
         sanitize_listening_source(source, {"question_index": {}})
 
 
+def test_listening_sanitizer_allowlists_containers_and_moves_private_fields():
+    source = {
+        "sections": [{
+            "section_id": "S3",
+            "answer_key": "private section key",
+            "question_blocks": [{
+                "block_id": "B1",
+                "explanation": "private block explanation",
+                "questions": [{
+                    "question_number": 1,
+                    "question_type": "note_completion",
+                    "stem": "Complete the note",
+                    "options": [],
+                }],
+                "answers": [{"qnum": "1", "answer": "term", "evidence": "quote"}],
+            }],
+        }],
+    }
+
+    content = sanitize_listening_source(source, {"question_index": {}})
+
+    assert "answer_key" not in content["sections"][0]
+    assert "explanation" not in content["sections"][0]["question_blocks"][0]
+    assert content["private_support"]["editorial_fields"] == [
+        {
+            "scope": "section", "section_id": "S3",
+            "fields": {"answer_key": "private section key"},
+        },
+        {
+            "scope": "question_block", "section_id": "S3", "block_id": "B1",
+            "fields": {"explanation": "private block explanation"},
+        },
+    ]
+
+
+@pytest.mark.parametrize("scope", ["section", "block"])
+def test_listening_sanitizer_rejects_unknown_container_fields(scope: str):
+    block = {
+        "questions": [{
+            "question_number": 1, "question_type": "note_completion",
+            "stem": "Complete the note", "options": [],
+        }],
+        "answers": [{"qnum": "1", "answer": "term", "evidence": "quote"}],
+    }
+    section = {"question_blocks": [block]}
+    if scope == "section":
+        section["unreviewed_payload"] = "private"
+    else:
+        block["unreviewed_payload"] = "private"
+
+    with pytest.raises(ValueError, match="unknown fields"):
+        sanitize_listening_source({"sections": [section]}, {"question_index": {}})
+
+
+def test_vocab_audio_bundle_rejects_unlisted_clip(tmp_path: Path):
+    clips = tmp_path / "clips"
+    clips.mkdir()
+    clip_bytes = b"approved audio"
+    (clips / "clip-1.mp3").write_bytes(clip_bytes)
+    manifest = {
+        "engine": "kokoro",
+        "cards": {
+            "ADV-T01__lex_word": {
+                "headword": {
+                    "clip_id": "clip-1",
+                    "checksum": hashlib.sha256(clip_bytes).hexdigest(),
+                },
+                "example": {
+                    "clip_id": "clip-1",
+                    "checksum": hashlib.sha256(clip_bytes).hexdigest(),
+                },
+            },
+        },
+        "clips": {
+            "clip-1": {
+                "path": "clips/clip-1.mp3",
+                "checksum": hashlib.sha256(clip_bytes).hexdigest(),
+            },
+        },
+    }
+    manifest["bundle_checksum"] = hashlib.sha256(
+        json.dumps(
+            manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+    ).hexdigest()
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    (clips / "rogue.mp3").write_bytes(b"unapproved")
+
+    with pytest.raises(ValueError, match="clip inventory does not match manifest"):
+        builder_module.load_vocab_audio_bundle(tmp_path)
+
+
 def _section(section_id: str, headings: list[tuple[str, str]]) -> dict:
     blocks = []
     for heading, body in headings:
