@@ -34,6 +34,20 @@ You are an **AUDITOR first, BUILDER second**.
 - **Inspect backend/frontend contract together** for any user-facing bug. The root cause is almost always a shape mismatch, missing flag, or silent failure — not just a rendering issue.
 - **Keep admin fixes operationally truthful.** Admin must see canonical backend state, not optimistic or stale frontend state.
 - **Avoid speculative refactors.** Do not redesign APIs, schemas, or services unless that is the stated task.
+- **Use the smallest implementation that satisfies the request.** A content import must not become a platform redesign. Background workers, retry state machines, new persistence layers, and other material scope expansions require explicit user authorization.
+
+### Scope, review, CI, and usage budget
+
+These limits are a working agreement, not optional guidance:
+
+1. **GitHub CI is a verification gate, not the development loop.** Run targeted tests and the affected full local suites before pushing. Do not push known-broken work merely to discover the next failure in CI.
+2. **Consolidate before pushing.** Read all current review findings, audit the whole affected contract, and address the common root cause in one coherent patch. Do not respond to related comments with a long sequence of one-comment/one-push fixes.
+3. **Three-round mandatory reset.** If actionable findings or relevant CI failures remain after the third review round, stop pushing. Re-read the entire diff, perform a root-cause and scope audit, list all unresolved findings together, run the complete relevant local test set, and only then submit one consolidated revision.
+4. **Five-round hard limit.** A task may not enter a sixth review round. If the fifth round still has actionable findings or relevant failures, stop, report why the design has not converged, and ask the user whether to redesign, reduce scope, or defer. Never continue an open-ended patch/push/review cycle.
+5. **Protect usage.** Avoid redundant CI triggers, duplicate PR update runs, speculative commits, and repeated full browser suites while targeted local checks are still failing. Prefer one well-audited push over several incremental pushes.
+6. **No unauthorized scope growth.** If review reveals that completion now requires materially more architecture than the user requested, pause and obtain approval before implementing that expansion.
+7. **Completion is SHA-specific.** Do not say “green”, “merged”, “promoted”, or “done” unless the final PR head, staging/promotion SHA, and production SHA required by the task have each been checked directly. Historical red runs must be identified as historical; current failures must never be hidden by a later unrelated green run.
+8. **Content/import tasks stay content/import tasks.** If the existing product contract already supports the requested data, validate, import, verify, and stop. Add product code only for a demonstrably missing requirement, and implement the narrowest safe contract.
 
 ### Staging-first release flow
 
