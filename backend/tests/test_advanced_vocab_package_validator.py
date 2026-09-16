@@ -12,6 +12,7 @@ from scripts import sync_advanced_vocab_core30 as sync_module
 from scripts.sync_advanced_vocab_core30 import sync
 from services import advanced_vocab_package_validator as validator_module
 from services.advanced_vocab_package_validator import (
+    APPROVED_AUTHORED_INPUT_MAP_SHA256,
     CORE_LESSON_IDS,
     FIRST_RELEASE_LOCKED_REVISIONS,
     authored_input_map_revision,
@@ -606,6 +607,103 @@ def test_authored_input_lock_uses_owner_approved_path_checksum_map():
     assert authored_input_map_revision(manifest) == expected
 
 
+def test_source_manifest_rejects_recertified_role_and_lesson_metadata(tmp_path: Path):
+    source = tmp_path / "source"
+    relative = (
+        "_CORRECTED/Advanced/01_Topics_Upgraded/Cluster_C1/"
+        "T01_Family_Upbringing_Advanced_Upgraded.docx"
+    )
+    source_file = source / relative
+    source_file.parent.mkdir(parents=True)
+    source_file.write_bytes(b"locked topic")
+    manifest = {
+        "schema_version": "1.0.0",
+        "source_id": "aver-learning-advanced-vocabulary-core30-2026-09-14",
+        "origin": "Product owner",
+        "rights": "Aver Learning product use",
+        "locked_revisions": dict(FIRST_RELEASE_LOCKED_REVISIONS),
+        "release_patterns": {"source": [relative]},
+        "inputs": [{
+            "root": "source",
+            "path": relative,
+            "sha256": hashlib.sha256(b"locked topic").hexdigest(),
+            "role": "reading_source",
+            "lesson_ids": ["ADV-T02"],
+        }],
+    }
+    manifest["locked_revisions"]["authored_input_map_sha256"] = (
+        APPROVED_AUTHORED_INPUT_MAP_SHA256
+    )
+    manifest["source_revision"] = source_manifest_revision(manifest)
+    manifest_path = tmp_path / "source-inputs-manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = validate_source_inputs_manifest(manifest_path, roots={"source": source})
+
+    assert {
+        "SOURCE_INPUT_ROLE_MISMATCH", "SOURCE_INPUT_LESSONS_MISMATCH",
+    } <= _codes(report)
+
+
+def test_source_manifest_binds_clip_lessons_to_kokoro_cards(tmp_path: Path):
+    audio = tmp_path / "audio"
+    clips = audio / "clips"
+    clips.mkdir(parents=True)
+    clip_id = "a" * 64
+    clip_bytes = b"kokoro clip"
+    (clips / f"{clip_id}.mp3").write_bytes(clip_bytes)
+    audio_manifest = {
+        "cards": {
+            "ADV-T01__lexeme": {
+                "headword": {"clip_id": clip_id},
+                "example": {"clip_id": clip_id},
+            },
+        },
+    }
+    (audio / "manifest.json").write_text(
+        json.dumps(audio_manifest), encoding="utf-8"
+    )
+    manifest = {
+        "schema_version": "1.0.0",
+        "source_id": "aver-learning-advanced-vocabulary-core30-2026-09-14",
+        "origin": "Product owner",
+        "rights": "Aver Learning product use",
+        "locked_revisions": dict(FIRST_RELEASE_LOCKED_REVISIONS),
+        "release_patterns": {
+            "vocab_audio_bundle": ["manifest.json", "clips/*.mp3"],
+        },
+        "inputs": [
+            {
+                "root": "vocab_audio_bundle",
+                "path": "manifest.json",
+                "sha256": hashlib.sha256(
+                    (audio / "manifest.json").read_bytes()
+                ).hexdigest(),
+                "role": "vocab_audio_manifest",
+                "lesson_ids": list(CORE_LESSON_IDS),
+            },
+            {
+                "root": "vocab_audio_bundle",
+                "path": f"clips/{clip_id}.mp3",
+                "sha256": hashlib.sha256(clip_bytes).hexdigest(),
+                "role": "vocab_audio_clip",
+                "lesson_ids": ["ADV-T02"],
+            },
+        ],
+    }
+    manifest["locked_revisions"]["authored_input_map_sha256"] = (
+        APPROVED_AUTHORED_INPUT_MAP_SHA256
+    )
+    manifest["source_revision"] = source_manifest_revision(manifest)
+    manifest_path = tmp_path / "source-inputs-manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = validate_source_inputs_manifest(
+        manifest_path, roots={"vocab_audio_bundle": audio}
+    )
+
+    assert "SOURCE_INPUT_LESSONS_MISMATCH" in _codes(report)
+
 def test_source_manifest_rejects_undeclared_release_input(tmp_path: Path):
     manifest, source = _write_source_manifest_fixture(tmp_path)
     (source / "T02.docx").write_bytes(b"undeclared")
@@ -645,6 +743,36 @@ def test_package_requires_locked_supplements(tmp_path: Path):
     assert "COMMON_ERROR_SUPPLEMENT_MISSING" in _codes(report)
     assert "VOCAB_AUDIO_SUPPLEMENT_MISSING" in _codes(report)
     assert "VOCAB_AUDIO_MISSING" in _codes(report)
+
+
+def test_package_binds_clip_lesson_metadata_to_lesson_references(tmp_path: Path):
+    _write_package(tmp_path)
+    source_path = tmp_path / "source-inputs-manifest.json"
+    source = json.loads(source_path.read_text())
+    clip_row = next(
+        row for row in source["inputs"]
+        if row["root"] == "vocab_audio_bundle"
+        and row["path"] == "clips/headword.mp3"
+    )
+    clip_row["lesson_ids"] = ["ADV-T01"]
+    source["source_revision"] = source_manifest_revision(source)
+    source_path.write_text(json.dumps(source), encoding="utf-8")
+
+    manifest_path = tmp_path / "course-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["source_revision"] = source["source_revision"]
+    manifest["package_checksum"] = _checksum_without(
+        manifest, "package_checksum"
+    )
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    approved = source["locked_revisions"]["authored_input_map_sha256"]
+    with patch.object(
+        validator_module, "APPROVED_AUTHORED_INPUT_MAP_SHA256", approved
+    ):
+        report = validate_package(tmp_path)
+
+    assert "VOCAB_AUDIO_INPUT_LESSONS_MISMATCH" in _codes(report)
 
 
 def test_package_lock_rejects_recomputed_generated_artifact(tmp_path: Path):
