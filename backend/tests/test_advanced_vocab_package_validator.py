@@ -22,9 +22,13 @@ from services.advanced_vocab_package_validator import (
 HEADWORD_AUDIO_BYTES = b"shared headword clip"
 EXAMPLE_AUDIO_BYTES = b"shared example clip"
 LISTENING_AUDIO_BYTES = b"lesson listening clip"
+WRITING_SVG_BYTES = b"<svg>writing chart</svg>"
+WRITING_PNG_BYTES = b"writing chart png"
 HEADWORD_AUDIO_SHA = hashlib.sha256(HEADWORD_AUDIO_BYTES).hexdigest()
 EXAMPLE_AUDIO_SHA = hashlib.sha256(EXAMPLE_AUDIO_BYTES).hexdigest()
 LISTENING_AUDIO_SHA = hashlib.sha256(LISTENING_AUDIO_BYTES).hexdigest()
+WRITING_SVG_SHA = hashlib.sha256(WRITING_SVG_BYTES).hexdigest()
+WRITING_PNG_SHA = hashlib.sha256(WRITING_PNG_BYTES).hexdigest()
 
 
 def _activity(aid: str, activity_type: str, **extra):
@@ -63,6 +67,9 @@ def _lesson(lesson_id: str) -> dict:
              "audio_headword": "assets/vocab-audio/headword.mp3",
              "audio_example": "assets/vocab-audio/example.mp3",
              "audio_provenance": {
+                 "engine": "kokoro",
+                 "model_tag": "v1.0",
+                 "voice": "bf_emma",
                  "headword_checksum": HEADWORD_AUDIO_SHA,
                  "example_checksum": EXAMPLE_AUDIO_SHA,
              }}
@@ -197,15 +204,32 @@ def _lesson(lesson_id: str) -> dict:
         },
         "provenance": {
             "converter_version": "1.0.0",
-            "source_checksums": {f"source/{lesson_id}.docx": "b" * 64},
+            "source_checksums": {
+                f"source/{lesson_id}.docx": "b" * 64,
+                f"source/audio/{lesson_id}.mp3": LISTENING_AUDIO_SHA,
+                "source/wt1/topic.svg": WRITING_SVG_SHA,
+                "source/wt1/topic.png": WRITING_PNG_SHA,
+            },
+            "content_supplements": {
+                "common_errors": {
+                    "checksum": "c" * 64,
+                    "item_count": 88,
+                },
+            },
         },
-        "media": {"audio": [{
-            "audio_id": f"{lesson_id}-audio",
-            "role": "listening_full_test",
-            "status": "approved",
-            "expected_audio_path": "assets/audio/full_test.mp3",
-            "checksum": LISTENING_AUDIO_SHA,
-        }]},
+        "media": {
+            "audio": [{
+                "audio_id": f"{lesson_id}-audio",
+                "role": "listening_full_test",
+                "status": "approved",
+                "expected_audio_path": "assets/audio/full_test.mp3",
+                "source_path": f"source/audio/{lesson_id}.mp3",
+                "checksum": LISTENING_AUDIO_SHA,
+            }],
+            "wt1_illustrations": [
+                "assets/wt1/topic.svg", "assets/wt1/topic.png",
+            ],
+        },
     }
     lesson["provenance"]["content_checksum"] = _checksum_without(
         lesson, "provenance", "content_checksum"
@@ -222,7 +246,10 @@ def _write_package(root: Path, ids=CORE_LESSON_IDS) -> None:
         "rights": "Test use",
         "locked_revisions": dict(FIRST_RELEASE_LOCKED_REVISIONS),
         "release_patterns": {
-            "source": ["source/*.docx", "source/reviews/*.md"],
+            "source": [
+                "source/*.docx", "source/audio/*.mp3",
+                "source/reviews/*.md", "source/wt1/*",
+            ],
             "common_error_overrides": ["advanced_vocab_common_errors.json"],
             "vocab_audio_bundle": ["manifest.json", "clips/*.mp3"],
         },
@@ -238,6 +265,15 @@ def _write_package(root: Path, ids=CORE_LESSON_IDS) -> None:
         ] + [
             {
                 "root": "source",
+                "path": f"source/audio/{lesson_id}.mp3",
+                "sha256": LISTENING_AUDIO_SHA,
+                "role": "listening_audio",
+                "lesson_ids": [lesson_id],
+            }
+            for lesson_id in ids
+        ] + [
+            {
+                "root": "source",
                 "path": f"source/reviews/R{number:02d}.md",
                 "sha256": "d" * 64,
                 "role": "review_markdown",
@@ -245,6 +281,20 @@ def _write_package(root: Path, ids=CORE_LESSON_IDS) -> None:
             }
             for number in range(1, 7)
         ] + [
+            {
+                "root": "source",
+                "path": "source/wt1/topic.svg",
+                "sha256": WRITING_SVG_SHA,
+                "role": "writing_task1_illustration",
+                "lesson_ids": list(ids),
+            },
+            {
+                "root": "source",
+                "path": "source/wt1/topic.png",
+                "sha256": WRITING_PNG_SHA,
+                "role": "writing_task1_illustration",
+                "lesson_ids": list(ids),
+            },
             {
                 "root": "common_error_overrides",
                 "path": "advanced_vocab_common_errors.json",
@@ -290,6 +340,10 @@ def _write_package(root: Path, ids=CORE_LESSON_IDS) -> None:
         listening_asset = folder / "assets" / "audio" / "full_test.mp3"
         listening_asset.parent.mkdir(parents=True)
         listening_asset.write_bytes(LISTENING_AUDIO_BYTES)
+        writing_root = folder / "assets" / "wt1"
+        writing_root.mkdir(parents=True)
+        (writing_root / "topic.svg").write_bytes(WRITING_SVG_BYTES)
+        (writing_root / "topic.png").write_bytes(WRITING_PNG_BYTES)
         lesson = _lesson(lesson_id)
         (folder / "lesson.json").write_text(json.dumps(lesson), encoding="utf-8")
         lesson_rows.append({
@@ -337,6 +391,8 @@ def _write_package(root: Path, ids=CORE_LESSON_IDS) -> None:
             },
             "vocabulary_audio": {
                 "engine": "kokoro",
+                "model_tag": "v1.0",
+                "voice": "bf_emma",
                 "card_count": 720,
                 "clip_count": 1390,
                 "bundle_checksum": FIRST_RELEASE_LOCKED_REVISIONS[
@@ -506,6 +562,29 @@ def test_package_rejects_undeclared_kokoro_inputs(tmp_path: Path):
     )
 
 
+def test_package_binds_each_vocab_clip_to_kokoro_manifest_input(tmp_path: Path):
+    _write_package(tmp_path)
+    source_path = tmp_path / "source-inputs-manifest.json"
+    source = json.loads(source_path.read_text())
+    headword = next(
+        row for row in source["inputs"]
+        if row["root"] == "vocab_audio_bundle"
+        and row["path"] == "clips/headword.mp3"
+    )
+    headword["sha256"] = "f" * 64
+    source["source_revision"] = source_manifest_revision(source)
+    source_path.write_text(json.dumps(source), encoding="utf-8")
+    manifest_path = tmp_path / "course-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["source_revision"] = source["source_revision"]
+    manifest["package_checksum"] = _checksum_without(manifest, "package_checksum")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    assert "VOCAB_AUDIO_SOURCE_NOT_IN_MANIFEST" in _codes(
+        validate_package(tmp_path)
+    )
+
+
 @pytest.mark.parametrize(
     ("mode", "expected_code"),
     [("path", "MEDIA_PATH_MISSING"), ("file", "MEDIA_FILE_MISSING")],
@@ -522,6 +601,18 @@ def test_package_requires_checksum_bound_listening_asset(
         (lesson_path.parent / "assets" / "audio" / "full_test.mp3").unlink()
 
     assert expected_code in _codes(validate_package(tmp_path))
+
+
+def test_package_binds_listening_media_to_authored_source_input(tmp_path: Path):
+    _write_package(tmp_path)
+    lesson_path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(lesson_path.read_text())
+    lesson["media"]["audio"][0]["source_path"] = "source/ADV-T01.docx"
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    assert "LISTENING_AUDIO_SOURCE_MISMATCH" in _codes(
+        validate_package(tmp_path)
+    )
 
 
 def test_manifest_rejects_t31_to_t33_in_first_release(tmp_path: Path):
@@ -577,6 +668,18 @@ def test_writing_reference_requires_models_artwork_and_idea_bank(tmp_path: Path)
         "WRITING_TASK1_ARTWORK_INCOMPLETE",
         "WRITING_TASK2_IDEAS_INCOMPLETE",
     } <= _codes(report)
+
+
+def test_writing_artwork_requires_packaged_source_matched_bytes(tmp_path: Path):
+    _write_package(tmp_path)
+    svg = tmp_path / "lessons" / "ADV-T01" / "assets" / "wt1" / "topic.svg"
+    svg.unlink()
+    assert "WRITING_TASK1_ARTWORK_MISSING" in _codes(validate_package(tmp_path))
+
+    svg.write_bytes(b"<svg>substituted chart</svg>")
+    assert "WRITING_TASK1_ARTWORK_SOURCE_MISMATCH" in _codes(
+        validate_package(tmp_path)
+    )
 
 
 def test_speaking_is_never_graded_by_default(tmp_path: Path):
@@ -965,6 +1068,19 @@ def test_selectable_inventory_requires_recognition_and_production_per_lexeme(
     assert "QUIZ_SELECTABLE_INVENTORY_INCOMPLETE" in _codes(report)
 
 
+def test_deterministic_practice_selection_requires_48_unique_questions(
+        tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    lesson["vocabulary"].pop()
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    report = validate_package(tmp_path)
+
+    assert "PRACTICE_SELECTION_COUNT" in _codes(report)
+
+
 def test_selectable_choice_rejects_blank_object_option_identity(tmp_path: Path):
     _write_package(tmp_path)
     path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
@@ -1350,6 +1466,11 @@ def test_sync_preflights_assets_before_replacing_lesson_snapshot(
     assert not (content / f"{lesson_id}.json").exists()
 
     broken_svg.write_bytes(expected_writing[writing_refs[0]])
+    dry_run_report = sync_module.sync(package, write=False)
+    assert dry_run_report["lesson_count"] == 1
+    assert not content.exists()
+    assert not public.exists()
+
     sync_module.sync(package, write=True)
     checksum = lesson["provenance"]["content_checksum"]
     assert (content / f"{lesson_id}.json").is_file()
@@ -1521,6 +1642,57 @@ def test_listening_figure_requires_checksum(tmp_path: Path):
     _rewrite_lesson_with_checksums(tmp_path, lesson)
 
     assert "LISTENING_FIGURE_CHECKSUM_INVALID" in _codes(
+        validate_package(tmp_path)
+    )
+
+
+def test_listening_figure_requires_packaged_checksum_matched_bytes(tmp_path: Path):
+    _write_package(tmp_path)
+    lesson_path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(lesson_path.read_text())
+    listening = next(
+        activity for activity in lesson["activities"]
+        if activity["activity_type"] == "listening_lab"
+    )
+    figure_bytes = b"<svg>locked map</svg>"
+    figure_checksum = hashlib.sha256(figure_bytes).hexdigest()
+    listening["content"]["sections"] = [{
+        "figure": "Figures/map.svg",
+        "figure_checksum": figure_checksum,
+    }]
+    lesson["provenance"]["source_checksums"]["source/Figures/map.svg"] = (
+        figure_checksum
+    )
+    figure_path = lesson_path.parent / "Figures" / "map.svg"
+    figure_path.parent.mkdir(parents=True)
+    figure_path.write_bytes(figure_bytes)
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+    source_manifest_path = tmp_path / "source-inputs-manifest.json"
+    source_manifest = json.loads(source_manifest_path.read_text())
+    source_manifest["release_patterns"]["source"].append("source/Figures/*.svg")
+    source_manifest["inputs"].append({
+        "root": "source",
+        "path": "source/Figures/map.svg",
+        "sha256": figure_checksum,
+        "role": "listening_figure",
+        "lesson_ids": ["ADV-T01"],
+    })
+    source_manifest["source_revision"] = source_manifest_revision(source_manifest)
+    source_manifest_path.write_text(json.dumps(source_manifest), encoding="utf-8")
+    course_manifest_path = tmp_path / "course-manifest.json"
+    course_manifest = json.loads(course_manifest_path.read_text())
+    course_manifest["source_revision"] = source_manifest["source_revision"]
+    course_manifest["package_checksum"] = _checksum_without(
+        course_manifest, "package_checksum"
+    )
+    course_manifest_path.write_text(json.dumps(course_manifest), encoding="utf-8")
+    assert validate_package(tmp_path).publish_ready is True
+
+    figure_path.unlink()
+    assert "LISTENING_FIGURE_MISSING" in _codes(validate_package(tmp_path))
+
+    figure_path.write_bytes(b"<svg>substituted map</svg>")
+    assert "LISTENING_FIGURE_CHECKSUM_MISMATCH" in _codes(
         validate_package(tmp_path)
     )
 

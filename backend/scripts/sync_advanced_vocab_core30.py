@@ -66,6 +66,8 @@ def _copy(source: Path, target: Path, *, write: bool,
     if write:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
+    elif not target.is_file():
+        return
     _require_file(target)
     if _sha256(target) != source_checksum:
         raise SystemExit(f"Snapshot deploy không khớp source: {target}")
@@ -454,11 +456,12 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
                 source, lesson, lesson_id, str(ref), actual_checksum, write=write,
             )
             expected_assets.add(str(target.relative_to(_REPO)))
+        canonical_asset_root = _PUBLIC / lesson_id
         actual_assets = {
             str(path.relative_to(_REPO))
-            for path in (_PUBLIC / lesson_id).rglob("*") if path.is_file()
+            for path in canonical_asset_root.rglob("*") if path.is_file()
         }
-        if actual_assets != expected_assets:
+        if (write or actual_assets) and actual_assets != expected_assets:
             missing = sorted(expected_assets - actual_assets)
             unexpected = sorted(actual_assets - expected_assets)
             raise SystemExit(
@@ -474,7 +477,7 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
             str((_REPO / path).relative_to(_PUBLIC / lesson_id))
             for path in expected_assets
         }
-        if versioned_assets != expected_relative:
+        if (write or versioned_assets) and versioned_assets != expected_relative:
             raise SystemExit(
                 f"{lesson_id}: snapshot asset versioned không chính xác; "
                 f"thiếu={sorted(expected_relative - versioned_assets)}, "
@@ -497,7 +500,7 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
         path.name for path in _CONTENT.glob("*.json")
         if path.name not in {"core30-manifest.json", SOURCE_MANIFEST_NAME}
     }
-    if actual_content != expected_content:
+    if (write or actual_content) and actual_content != expected_content:
         raise SystemExit(
             "Snapshot content phải chứa đúng ADV-T01…ADV-T30; "
             f"thiếu={sorted(expected_content - actual_content)}, "

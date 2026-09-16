@@ -99,6 +99,23 @@ def _grading_identity(value: object) -> str:
     return re.sub(r"[^\w+]+", " ", text, flags=re.UNICODE).strip()
 
 
+def _practice_choice(item: dict[str, Any]) -> bool:
+    return item.get("input") in {"choice", "boolean", "syllable"}
+
+
+def _pick_practice_candidate(
+    candidates: list[dict[str, Any]], seed: str,
+) -> dict[str, Any] | None:
+    if not candidates:
+        return None
+    return min(
+        candidates,
+        key=lambda row: hashlib.sha256(
+            f"{seed}:{row.get('item_id')}".encode("utf-8")
+        ).hexdigest(),
+    )
+
+
 @dataclass(frozen=True)
 class ValidationIssue:
     severity: str
@@ -540,13 +557,51 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                 if bands != {"7.0", "8.0"}:
                     report.add("error", "WRITING_MODEL_REFERENCES_INCOMPLETE", path,
                                f"{task_name} needs authored Band 7.0 and Band 8.0 references.")
+            illustration_refs = [
+                str(ref) for ref in task_1.get("illustrations") or []
+            ]
             illustration_exts = {
-                Path(str(ref)).suffix.lower()
-                for ref in task_1.get("illustrations") or []
+                Path(ref).suffix.lower() for ref in illustration_refs
             }
             if not {".svg", ".png"} <= illustration_exts:
                 report.add("error", "WRITING_TASK1_ARTWORK_INCOMPLETE", path,
                            "Task 1 needs both SVG and PNG illustration references.")
+            media_refs = [
+                str(ref) for ref in (
+                    (lesson.get("media") or {}).get("wt1_illustrations") or []
+                )
+            ]
+            if illustration_refs != media_refs:
+                report.add("error", "WRITING_TASK1_ARTWORK_MEDIA_MISMATCH", path,
+                           "Task 1 illustration refs must match media.wt1_illustrations.")
+            source_checksums = (
+                (lesson.get("provenance") or {}).get("source_checksums") or {}
+            )
+            for ref in illustration_refs:
+                asset = (path.parent / ref).resolve()
+                try:
+                    asset.relative_to(path.parent.resolve())
+                except ValueError:
+                    report.add("error", "WRITING_TASK1_ARTWORK_PATH_UNSAFE", path, ref)
+                    continue
+                if not asset.is_file():
+                    report.add("error", "WRITING_TASK1_ARTWORK_MISSING", asset,
+                               f"Writing illustration referenced by {path.name} is missing.")
+                    continue
+                source_matches = [
+                    str(checksum)
+                    for source_name, checksum in (
+                        source_checksums.items()
+                        if isinstance(source_checksums, dict) else []
+                    )
+                    if Path(str(source_name)).name == Path(ref).name
+                ]
+                asset_checksum = _sha256_file(asset)
+                if source_matches != [asset_checksum]:
+                    report.add(
+                        "error", "WRITING_TASK1_ARTWORK_SOURCE_MISMATCH", asset,
+                        "Writing illustration bytes must match exactly one source input.",
+                    )
             idea_sections = task_2.get("idea_sections")
             if not isinstance(idea_sections, list) or len(idea_sections) < 12:
                 report.add("error", "WRITING_TASK2_IDEAS_INCOMPLETE", path,
@@ -798,10 +853,42 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             ):
                 if not isinstance(section, dict) or not section.get("figure"):
                     continue
-                if not SHA256_RE.fullmatch(str(section.get("figure_checksum") or "")):
+                figure = str(section.get("figure") or "").strip()
+                figure_checksum = str(section.get("figure_checksum") or "")
+                if not SHA256_RE.fullmatch(figure_checksum):
                     report.add(
                         "error", "LISTENING_FIGURE_CHECKSUM_INVALID", path,
-                        f"Listening figure {section.get('figure')} needs a SHA-256 checksum.",
+                        f"Listening figure {figure} needs a SHA-256 checksum.",
+                    )
+                figure_path = (path.parent / figure).resolve()
+                try:
+                    figure_path.relative_to(path.parent.resolve())
+                except ValueError:
+                    report.add("error", "LISTENING_FIGURE_PATH_UNSAFE", path, figure)
+                    continue
+                if not figure_path.is_file():
+                    report.add("error", "LISTENING_FIGURE_MISSING", figure_path,
+                               f"Listening figure referenced by {path.name} is missing.")
+                elif (SHA256_RE.fullmatch(figure_checksum)
+                      and _sha256_file(figure_path) != figure_checksum):
+                    report.add("error", "LISTENING_FIGURE_CHECKSUM_MISMATCH",
+                               figure_path,
+                               "Listening figure bytes do not match lesson metadata.")
+                source_checksums = (
+                    (lesson.get("provenance") or {}).get("source_checksums") or {}
+                )
+                source_matches = [
+                    str(checksum)
+                    for source_name, checksum in (
+                        source_checksums.items()
+                        if isinstance(source_checksums, dict) else []
+                    )
+                    if Path(str(source_name)).name == Path(figure).name
+                ]
+                if source_matches != [figure_checksum]:
+                    report.add(
+                        "error", "LISTENING_FIGURE_SOURCE_MISMATCH", path,
+                        f"Listening figure {figure} must match exactly one source input.",
                     )
             if any(not isinstance(question, dict) for question in listening_question_rows):
                 report.add("error", "LISTENING_QUESTION_ITEM_TYPE", path,
@@ -1006,6 +1093,10 @@ def _validate_package_source_provenance(
                    root / "course-manifest.json",
                    "Package source_revision must match source-inputs-manifest.json.")
     declared = _source_input_map(source_manifest)
+    supplements = package_manifest.get("content_supplements")
+    supplements = supplements if isinstance(supplements, dict) else {}
+    common_errors = supplements.get("common_errors")
+    vocabulary_audio = supplements.get("vocabulary_audio")
     for lesson_path, lesson in lessons:
         checksums = (lesson.get("provenance") or {}).get("source_checksums") or {}
         if not isinstance(checksums, dict):
@@ -1014,6 +1105,60 @@ def _validate_package_source_provenance(
             if declared.get(("source", str(relative))) != str(checksum):
                 report.add("error", "LESSON_SOURCE_NOT_IN_MANIFEST", lesson_path,
                            f"Source provenance is absent or mismatched: {relative}.")
+        lesson_supplements = (
+            (lesson.get("provenance") or {}).get("content_supplements") or {}
+        )
+        lesson_common_errors = (
+            lesson_supplements.get("common_errors")
+            if isinstance(lesson_supplements, dict) else None
+        )
+        if lesson_common_errors != common_errors:
+            report.add("error", "LESSON_COMMON_ERROR_REVISION_MISMATCH", lesson_path,
+                       "Lesson common-error provenance must match the package supplement.")
+        listening_rows = [
+            row for row in ((lesson.get("media") or {}).get("audio") or [])
+            if isinstance(row, dict) and row.get("role") == "listening_full_test"
+        ]
+        for audio in listening_rows:
+            source_path = str(audio.get("source_path") or "")
+            checksum = str(audio.get("checksum") or "")
+            if (not source_path or checksums.get(source_path) != checksum
+                    or declared.get(("source", source_path)) != checksum):
+                report.add(
+                    "error", "LISTENING_AUDIO_SOURCE_MISMATCH", lesson_path,
+                    "Listening media checksum must match its declared authored input.",
+                )
+        for vocab in lesson.get("vocabulary") or []:
+            if not isinstance(vocab, dict):
+                continue
+            audio_provenance = vocab.get("audio_provenance")
+            audio_provenance = (
+                audio_provenance if isinstance(audio_provenance, dict) else {}
+            )
+            if isinstance(vocabulary_audio, dict):
+                for field in ("engine", "model_tag", "voice"):
+                    if audio_provenance.get(field) != vocabulary_audio.get(field):
+                        report.add(
+                            "error", "VOCAB_AUDIO_PROVENANCE_MISMATCH", lesson_path,
+                            f"{vocab.get('lesson_lexeme_id')} {field} does not match "
+                            "the package audio supplement.",
+                        )
+            for ref_field, checksum_field in (
+                ("audio_headword", "headword_checksum"),
+                ("audio_example", "example_checksum"),
+            ):
+                relative = str(vocab.get(ref_field) or "")
+                clip_name = Path(relative).name
+                checksum = str(audio_provenance.get(checksum_field) or "")
+                declared_checksum = declared.get((
+                    "vocab_audio_bundle", f"clips/{clip_name}",
+                ))
+                if not clip_name or declared_checksum != checksum:
+                    report.add(
+                        "error", "VOCAB_AUDIO_SOURCE_NOT_IN_MANIFEST", lesson_path,
+                        f"{vocab.get('lesson_lexeme_id')} {ref_field} is absent or "
+                        "mismatched in the Kokoro input manifest.",
+                    )
     for review_path, review in reviews:
         provenance = review.get("provenance") or {}
         relative = str(provenance.get("source_path") or "")
@@ -1025,9 +1170,6 @@ def _validate_package_source_provenance(
             report.add("error", "REVIEW_SOURCE_NOT_IN_MANIFEST", review_path,
                        f"Source provenance is absent or mismatched: {relative}.")
 
-    supplements = package_manifest.get("content_supplements")
-    supplements = supplements if isinstance(supplements, dict) else {}
-    common_errors = supplements.get("common_errors")
     if not isinstance(common_errors, dict):
         report.add("error", "COMMON_ERROR_SUPPLEMENT_MISSING",
                    root / "course-manifest.json",
@@ -1047,7 +1189,6 @@ def _validate_package_source_provenance(
                        root / "course-manifest.json",
                        "The common-error checksum must match a declared override input.")
 
-    vocabulary_audio = supplements.get("vocabulary_audio")
     if not isinstance(vocabulary_audio, dict):
         report.add("error", "VOCAB_AUDIO_SUPPLEMENT_MISSING",
                    root / "course-manifest.json",
@@ -1057,6 +1198,11 @@ def _validate_package_source_provenance(
             report.add("error", "VOCAB_AUDIO_ENGINE",
                        root / "course-manifest.json",
                        "Vocabulary audio must use Kokoro.")
+        for field in ("model_tag", "voice"):
+            if not str(vocabulary_audio.get(field) or "").strip():
+                report.add("error", "VOCAB_AUDIO_METADATA_MISSING",
+                           root / "course-manifest.json",
+                           f"Vocabulary audio must declare {field}.")
         if vocabulary_audio.get("card_count") != 720:
             report.add("error", "VOCAB_AUDIO_CARD_COUNT",
                        root / "course-manifest.json",
@@ -1068,10 +1214,10 @@ def _validate_package_source_provenance(
             report.add("error", "VOCAB_AUDIO_BUNDLE_REVISION_MISMATCH",
                        root / "course-manifest.json",
                        "Vocabulary audio must match the locked Kokoro bundle revision.")
-        if not any(root_name == "vocab_audio_bundle" for root_name, _ in declared):
+        if ("vocab_audio_bundle", "manifest.json") not in declared:
             report.add("error", "VOCAB_AUDIO_SOURCE_NOT_IN_MANIFEST",
                        root / "course-manifest.json",
-                       "Kokoro bundle inputs must be declared in the source manifest.")
+                       "The Kokoro bundle manifest must be declared as a source input.")
 
 
 def _validate_lesson(
@@ -1247,20 +1393,37 @@ def _validate_lesson(
         for vocab in vocabulary if vocab.get("lexeme_id")
     }
     incomplete_lexemes = []
+    selected_item_ids: list[str] = []
     for lexeme_id, scoped_items in selectable_by_lexeme.items():
-        has_recognition = any(
-            item.get("input") in {"choice", "boolean", "syllable"}
-            for item in scoped_items
+        recognition = _pick_practice_candidate(
+            [item for item in scoped_items if _practice_choice(item)],
+            f"{lesson_id}:{lexeme_id}:r",
         )
-        has_production = any(item.get("input") == "text" for item in scoped_items)
-        if not (has_recognition and has_production):
+        production = _pick_practice_candidate(
+            [item for item in scoped_items if item.get("input") == "text"],
+            f"{lesson_id}:{lexeme_id}:p",
+        )
+        if recognition is None or production is None:
             incomplete_lexemes.append(lexeme_id)
+            continue
+        selected_item_ids.extend([
+            str(recognition.get("item_id") or ""),
+            str(production.get("item_id") or ""),
+        ])
     if incomplete_lexemes:
         report.add(
             "error", "QUIZ_SELECTABLE_INVENTORY_INCOMPLETE", path,
             "Each vocabulary lexeme needs one selectable recognition and one "
             "selectable production candidate; incomplete: "
             + ", ".join(incomplete_lexemes),
+        )
+    if (not incomplete_lexemes
+            and (len(selected_item_ids) != 48
+                 or len(set(selected_item_ids)) != 48)):
+        report.add(
+            "error", "PRACTICE_SELECTION_COUNT", path,
+            "Deterministic practice selection must contain exactly 48 unique "
+            "questions (one recognition and one production per lexeme).",
         )
 
     _validate_activity_policies(lesson, path, report)
