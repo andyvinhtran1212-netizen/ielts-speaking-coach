@@ -89,7 +89,7 @@ SOURCE_MANIFEST_ROOTS = frozenset({
     "source", "common_error_overrides", "vocab_audio_bundle",
 })
 APPROVED_AUTHORED_INPUT_MAP_SHA256 = (
-    "498a80407e6580c6f04fef6a4a0d34471a3a90eb2bd3ed38d06906e4aa8983b2"
+    "2d2750cd7dbe55c19adaf2c8b102a653627f494437546740ea2c4ebbad7591fc"
 )
 FIRST_RELEASE_LOCKED_REVISIONS = {
     "authored_input_map_sha256": APPROVED_AUTHORED_INPUT_MAP_SHA256,
@@ -97,9 +97,18 @@ FIRST_RELEASE_LOCKED_REVISIONS = {
         "c0495ddac3a1c865d6f07963f11534693f024ba9042eea0ab4b737511fb4c166"
     ),
     "generated_package_sha256": (
-        "d1acfdf50fe1741d9156c9e62cbd4084bbd44b57a524909c45d6301503f7fd7b"
+        "176344b624eaf2edcd8b7407b60338ff3a7b3d4fd3a76be268022a6ba1f85e2e"
     ),
 }
+
+T11_FIGURE_REQUIRED_LABELS = (
+    "westport intermodal hub",
+    "central atrium",
+    "coach bays",
+    "intercity",
+    "rail",
+    "elevated walkway",
+)
 
 _ALL_CORE_LESSONS = tuple(CORE_LESSON_IDS)
 _COMMON_ERROR_LESSONS = (
@@ -581,6 +590,34 @@ def review_content_checksum(review: dict[str, Any]) -> str:
     return _checksum_without(review, "provenance", "content_checksum")
 
 
+def _validate_t11_listening_figure(
+    figure_path: Path, path: Path, report: ValidationReport,
+) -> None:
+    """Reject the unrelated campus template formerly packaged for T11."""
+    try:
+        figure_text = figure_path.read_text(encoding="utf-8").casefold()
+    except (OSError, UnicodeDecodeError):
+        report.add(
+            "error", "LISTENING_FIGURE_CONTENT_MISMATCH", figure_path,
+            "T11 Listening figure must be a readable Westport hub SVG.",
+        )
+        return
+    missing = [
+        label for label in T11_FIGURE_REQUIRED_LABELS if label not in figure_text
+    ]
+    has_keyed_labels = all(
+        re.search(rf">\s*{label}\s*<", figure_text)
+        for label in ("d", "f")
+    )
+    if "campus map" in figure_text or missing or not has_keyed_labels:
+        detail = ", ".join(missing) if missing else "D/F keyed locations"
+        report.add(
+            "error", "LISTENING_FIGURE_CONTENT_MISMATCH", path,
+            "T11 figure must depict the Westport hub and expose the keyed "
+            f"locations; missing or invalid: {detail}.",
+        )
+
+
 def _manifest_lesson_ids(manifest: dict[str, Any]) -> list[str]:
     rows = manifest.get("lessons") or []
     if not isinstance(rows, list):
@@ -707,6 +744,7 @@ def _validate_mcq_options(lesson: dict[str, Any], path: Path,
 
 def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                                 report: ValidationReport) -> None:
+    lesson_id = str(lesson.get("lesson_id") or "")
     direct_activities = lesson.get("activities")
     learning_flow = lesson.get("learning_flow")
     raw_activities = (
@@ -1099,9 +1137,10 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             listening_question_rows = (
                 questions if isinstance(questions, list) else []
             )
-            for section in (
+            listening_sections = (
                 content.get("sections") or [] if isinstance(content, dict) else []
-            ):
+            )
+            for section in listening_sections:
                 if not isinstance(section, dict) or not section.get("figure"):
                     continue
                 figure = str(section.get("figure") or "").strip()
@@ -1120,11 +1159,14 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                 if not figure_path.is_file():
                     report.add("error", "LISTENING_FIGURE_MISSING", figure_path,
                                f"Listening figure referenced by {path.name} is missing.")
-                elif (SHA256_RE.fullmatch(figure_checksum)
-                      and _sha256_file(figure_path) != figure_checksum):
-                    report.add("error", "LISTENING_FIGURE_CHECKSUM_MISMATCH",
-                               figure_path,
-                               "Listening figure bytes do not match lesson metadata.")
+                else:
+                    if (SHA256_RE.fullmatch(figure_checksum)
+                            and _sha256_file(figure_path) != figure_checksum):
+                        report.add("error", "LISTENING_FIGURE_CHECKSUM_MISMATCH",
+                                   figure_path,
+                                   "Listening figure bytes do not match lesson metadata.")
+                    if lesson_id == "ADV-T11":
+                        _validate_t11_listening_figure(figure_path, path, report)
                 source_checksums = (
                     (lesson.get("provenance") or {}).get("source_checksums") or {}
                 )
@@ -1140,6 +1182,23 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                     report.add(
                         "error", "LISTENING_FIGURE_SOURCE_MISMATCH", path,
                         f"Listening figure {figure} must match exactly one source input.",
+                    )
+            if (lesson_id == "ADV-T11"
+                    and any(
+                        isinstance(section, dict) and section.get("figure")
+                        for section in listening_sections
+                    )
+                    and isinstance(solutions, dict)):
+                keyed_solutions = tuple(solutions.get(str(number)) for number in (1, 2))
+                keyed_answers = tuple(
+                    str(solution.get("answer") or "").strip()
+                    if isinstance(solution, dict) else ""
+                    for solution in keyed_solutions
+                )
+                if keyed_answers != ("D", "F"):
+                    report.add(
+                        "error", "LISTENING_FIGURE_ANSWER_MISMATCH", path,
+                        "T11 map questions 1-2 must remain keyed to D and F.",
                     )
             if any(not isinstance(question, dict) for question in listening_question_rows):
                 report.add("error", "LISTENING_QUESTION_ITEM_TYPE", path,
@@ -1253,6 +1312,10 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                 question_id = str(question.get("question_number") or "")
                 solution = solutions.get(question_id) if isinstance(solutions, dict) else None
                 if not isinstance(solution, dict):
+                    report.add(
+                        "error", "LISTENING_SOLUTION_ITEM_TYPE", path,
+                        f"Listening solution {question_id or '?'} must be an object.",
+                    )
                     continue
                 if not str(solution.get("answer") or "").strip():
                     report.add("error", "LISTENING_SOLUTION_ANSWER_INVALID", path,
