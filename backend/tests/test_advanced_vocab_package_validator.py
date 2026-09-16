@@ -140,15 +140,22 @@ def _lesson(lesson_id: str) -> dict:
                 interaction_policy="self_check", grading_policy="self_check",
                 completion_policy="required", reveal_policy="after_attempt",
                 submittable=False,
-                content={"solutions": [
-                    {"text": "Phần A: Bài tập"},
-                    *[
-                        {"text": f"{i}. Rewrite sentence {i}."}
-                        for i in range(1, 21)
+                content={
+                    "prompts": [
+                        {"text": "Phần A: Bài tập"},
+                        *[
+                            {"text": f"{i}. Rewrite sentence {i}."}
+                            for i in range(1, 21)
+                        ],
                     ],
-                    {"text": "Phần A: Đáp án"},
-                    {"text": "1. Model answer"},
-                ]},
+                    "solutions": [
+                        {"text": "Phần A: Đáp án"},
+                        *[
+                            {"text": f"{i}. Model answer {i}."}
+                            for i in range(1, 21)
+                        ],
+                    ],
+                },
             ),
             _activity(
                 f"{lesson_id}-reading", "reading_lab",
@@ -1090,16 +1097,29 @@ def test_controlled_rewrite_requires_runtime_policies_and_20_parsable_prompts(
         if activity["activity_type"] == "controlled_rewrite"
     )
     rewrite["interaction_policy"] = "auto_graded"
-    rewrite["content"]["solutions"] = [
-        block for block in rewrite["content"]["solutions"]
-        if block.get("text") != "Phần A: Đáp án"
-    ]
+    rewrite["content"]["prompts"] = rewrite["content"]["prompts"][:-1]
     path.write_text(json.dumps(lesson), encoding="utf-8")
 
     assert {
         "CONTROLLED_REWRITE_POLICY_INVALID",
         "CONTROLLED_REWRITE_PROMPTS_INVALID",
     } <= _codes(validate_package(tmp_path))
+
+
+def test_controlled_rewrite_requires_non_empty_private_solutions(tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    rewrite = next(
+        activity for activity in lesson["activities"]
+        if activity["activity_type"] == "controlled_rewrite"
+    )
+    rewrite["content"]["solutions"] = []
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    assert "CONTROLLED_REWRITE_CONTENT_INVALID" in _codes(
+        validate_package(tmp_path)
+    )
 
 
 def test_activity_policy_values_are_closed_enums(tmp_path: Path):

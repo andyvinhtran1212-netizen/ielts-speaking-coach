@@ -46,7 +46,10 @@ DEFAULT_COMMON_ERROR_OVERRIDES = (
 CORE_TOPIC_CODES = tuple(f"T{i:02d}" for i in range(1, 31))
 FRONTMATTER_SEPARATOR_RE = re.compile(r"^---\s*$", re.MULTILINE)
 PART_RE = re.compile(r"\bPART\s*([0-8])\b", re.IGNORECASE)
-ANSWER_KEY_RE = re.compile(r"ĐÁP\s+ÁN\s+THAM\s+KHẢO|ANSWER\s+KEY", re.IGNORECASE)
+ANSWER_KEY_RE = re.compile(
+    r"^\s*(?:ĐÁP\s+ÁN\s+THAM\s+KHẢO(?:\s*\([^)]*\))?|ANSWER\s+KEY)\s*$",
+    re.IGNORECASE,
+)
 KNOWN_RATIONALE_RE = re.compile(
     r"^(?:Correct|Distractor|Outdated/Rejected|Partial Truth|Overgeneralized|"
     r"Irrelevant Detail)\b",

@@ -439,14 +439,21 @@ def test_writing_reference_uses_question_banks_models_ideas_and_artwork():
 
 def test_assessment_is_split_into_self_check_prompts_and_solutions():
     blocks = [
+        {
+            "type": "paragraph",
+            "text": "20 câu · kèm đáp án tham khảo",
+        },
         {"type": "paragraph", "text": "Rewrite this sentence"},
-        {"type": "paragraph", "text": "ĐÁP ÁN THAM KHẢO (Answer key)"},
+        {"type": "heading", "text": "ĐÁP ÁN THAM KHẢO (Answer key)"},
         {"type": "paragraph", "text": "Suggested rewrite"},
     ]
 
     assessment = split_assessment(blocks)
 
-    assert assessment["prompts"][0]["text"] == "Rewrite this sentence"
+    assert [block["text"] for block in assessment["prompts"]] == [
+        "20 câu · kèm đáp án tham khảo",
+        "Rewrite this sentence",
+    ]
     assert assessment["solutions"][0]["text"] == "Suggested rewrite"
     assert assessment["solutions_visibility"] == "after_attempt"
 
