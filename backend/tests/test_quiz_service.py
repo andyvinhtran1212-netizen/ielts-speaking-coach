@@ -816,6 +816,11 @@ def test_timed_course_start_uses_atomic_timer_and_session_rpc():
             "session_id": _SESS,
             "timer_started_at": "2026-09-15T10:00:00+00:00",
         }],
+        ("class_assignment_items", "select"): [{
+            "opened_at": "2026-09-15T10:00:00+00:00",
+            "timed_limit_minutes": 30,
+            "timed_expires_at": "2026-09-15T10:30:00+00:00",
+        }],
     })
     item = {
         "id": "item-timed", "opened_at": None,
@@ -827,6 +832,8 @@ def test_timed_course_start_uses_atomic_timer_and_session_rpc():
         )
     assert session_id == _SESS
     assert opened["opened_at"] == "2026-09-15T10:00:00+00:00"
+    assert opened["timed_limit_minutes"] == 30
+    assert opened["timed_expires_at"] == "2026-09-15T10:30:00+00:00"
     rpc = next(call for call in fake.calls if call["op"] == "rpc")
     assert rpc["payload"] == {
         "p_item_id": "item-timed", "p_user_id": _USER,
@@ -843,6 +850,11 @@ def test_opened_timed_course_reuses_the_canonical_rpc_session():
             "session_id": _SESS,
             "timer_started_at": "2999-09-15T10:00:00+00:00",
         }],
+        ("class_assignment_items", "select"): [{
+            "opened_at": "2999-09-15T10:00:00+00:00",
+            "timed_limit_minutes": 720,
+            "timed_expires_at": "2999-09-15T22:00:00+00:00",
+        }],
     })
     item = {
         "id": "item-timed", "opened_at": "2999-09-15T10:00:00+00:00",
@@ -856,6 +868,57 @@ def test_opened_timed_course_reuses_the_canonical_rpc_session():
     assert session_id == _SESS
     assert any(call["table"] == "rpc:quiz_start_timed_course_session"
                for call in fake.calls)
+
+
+def test_timed_course_start_returns_the_locked_cutoff_not_stale_preflight():
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_start_timed_course_session"): [{
+            "session_id": _SESS,
+            "timer_started_at": "2026-09-15T10:00:00+00:00",
+        }],
+        ("class_assignment_items", "select"): [{
+            "opened_at": "2026-09-15T10:00:00+00:00",
+            "timed_limit_minutes": 20,
+            "timed_expires_at": "2026-09-15T10:20:00+00:00",
+        }],
+    })
+    stale = {
+        "id": "item-timed", "opened_at": None,
+        "due_at": "2026-09-15T11:00:00+00:00",
+        "content_config": {"time_limit_minutes": 60},
+    }
+    with patch.object(quiz_service, "supabase_admin", fake):
+        opened, _ = quiz_service._ensure_timed_course_session(
+            stale, user_id=_USER, bank_id=_BANK, code="C1-MIDTERM",
+        )
+    timer = quiz_service.assignment_timer_state(opened, {
+        "due_at": stale["due_at"], "content_config": stale["content_config"],
+    })
+    assert timer["time_limit_minutes"] == 20
+    assert timer["expires_at"] == "2026-09-15T10:20:00+00:00"
+
+
+@pytest.mark.parametrize("snapshot_response", [[], Exception("read failed")])
+def test_timed_course_start_fails_closed_when_locked_cutoff_is_unavailable(
+        snapshot_response):
+    fake = _FakeSupabase(responses={
+        ("rpc", "quiz_start_timed_course_session"): [{
+            "session_id": _SESS,
+            "timer_started_at": "2026-09-15T10:00:00+00:00",
+        }],
+        ("class_assignment_items", "select"): snapshot_response,
+    })
+    item = {
+        "id": "item-timed", "opened_at": None,
+        "content_config": {"time_limit_minutes": 30},
+    }
+    with patch.object(quiz_service, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as error:
+            quiz_service._ensure_timed_course_session(
+                item, user_id=_USER, bank_id=_BANK, code="C1-MIDTERM",
+            )
+    assert error.value.status_code == 500
+    assert "xác nhận được đồng hồ" in error.value.detail
 
 
 def test_opened_timed_course_rpc_expiry_refreshes_for_read_only_response():
@@ -1114,12 +1177,14 @@ def test_superseded_timed_progress_returns_a_stable_conflict_code(rpc_error):
     assert error.value.detail["code"] == "timed_course_progress_not_entitled"
 
 
-def test_passed_timed_progress_precheck_returns_terminal_phase_conflict():
+@pytest.mark.parametrize("closed", [False, True])
+def test_passed_timed_progress_precheck_returns_terminal_phase_conflict(closed):
     fake = _FakeSupabase(responses={
         ("quiz_sessions", "select"): [{
             "id": _SESS, "user_id": _USER, "bank_id": _BANK,
             "class_assignment_item_id": "item-timed",
-            "ended_at": None, "ended_by": None,
+            "ended_at": ("2999-09-15T10:01:00+00:00" if closed else None),
+            "ended_by": ("completed" if closed else None),
         }],
         ("class_assignment_items", "select"): [{
             "id": "item-timed", "assignment_id": "asg-timed",

@@ -73,7 +73,9 @@ def normalize_assessment_rows(
             raise ValueError(f"[{qid}] cần đúng {OPTION_COUNT} phương án, hiện có {actual}.")
         clean_options = [_required_text(value, f"phương án {i + 1}", qid)
                          for i, value in enumerate(options)]
-        if len({value.casefold() for value in clean_options}) != OPTION_COUNT:
+        normalized_options = [" ".join(value.split()).casefold()
+                              for value in clean_options]
+        if len(set(normalized_options)) != OPTION_COUNT:
             raise ValueError(f"[{qid}] có phương án trùng nhau.")
         # Repeated instructional prompts such as "Chọn câu đúng" are valid;
         # the assessable item is the prompt plus its answer choices.  Sort the
@@ -81,8 +83,7 @@ def normalize_assessment_rows(
         # a duplicated question.
         item_key = (
             " ".join(prompt.split()).casefold(),
-            tuple(sorted(" ".join(value.split()).casefold()
-                         for value in clean_options)),
+            tuple(sorted(normalized_options)),
         )
         if item_key in seen_items:
             raise ValueError(f"[{qid}] trùng nguyên nội dung với một câu trước.")

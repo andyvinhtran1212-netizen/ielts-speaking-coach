@@ -1758,7 +1758,26 @@ def _ensure_timed_course_session(
     session_id = row.get("session_id")
     if not started_at:
         raise HTTPException(500, "Chưa khởi động được đồng hồ làm bài. Hãy thử lại.")
-    return {**item, "opened_at": started_at, "state": "opened"}, session_id
+    # The RPC takes the assignment lock and snapshots the immutable duration and
+    # cutoff.  The preflight ``item`` may have been read before an admin duration
+    # edit or a concurrent first open, so never release questions with that stale
+    # timer.  Re-read the row written under the lock and fail closed if the
+    # canonical snapshot cannot be observed; a reload can safely recover the
+    # already-created session.
+    try:
+        snapshots = (supabase_admin.table("class_assignment_items")
+                     .select("opened_at, timed_limit_minutes, timed_expires_at")
+                     .eq("id", item["id"]).limit(1).execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            500, "Chưa xác nhận được đồng hồ làm bài. Hãy tải lại.",
+        ) from exc
+    snapshot = snapshots[0] if snapshots else {}
+    if (not snapshot.get("opened_at")
+            or snapshot.get("timed_limit_minutes") is None
+            or not snapshot.get("timed_expires_at")):
+        raise HTTPException(500, "Chưa xác nhận được đồng hồ làm bài. Hãy tải lại.")
+    return {**item, **snapshot, "state": "opened"}, session_id
 
 
 def start_session(
@@ -2535,10 +2554,11 @@ def _timed_course_progress_phase_conflict() -> HTTPException:
 
 def _assert_quiz_progress_writable(session: dict) -> bool:
     """Reject closed/expired writes; return True for a timed Course session."""
-    if session.get("ended_at") or session.get("ended_by"):
-        raise HTTPException(409, "Phiên này đã kết thúc — không thể ghi thêm đáp án.")
+    ended = bool(session.get("ended_at") or session.get("ended_by"))
     item_id = session.get("class_assignment_item_id")
     if not item_id:
+        if ended:
+            raise HTTPException(409, "Phiên này đã kết thúc — không thể ghi thêm đáp án.")
         return False
     try:
         items = (supabase_admin.table("class_assignment_items")
@@ -2559,15 +2579,23 @@ def _assert_quiz_progress_writable(session: dict) -> bool:
         raise HTTPException(500, f"Lỗi kiểm tra đồng hồ làm bài: {exc}") from exc
     assignment = assignments[0]
     if assignment.get("skill") != COURSE_AREA:
+        if ended:
+            raise HTTPException(409, "Phiên này đã kết thúc — không thể ghi thêm đáp án.")
         return False
     timer = assignment_timer_state(items[0], assignment)
+    action = course_assignment_action(items[0], assignment)
+    # A passed timed attempt is a terminal entitlement change, even when its
+    # shared session was closed at the same time.  Return the stable structured
+    # conflict so another browser reloads canonical progress instead of retrying.
+    if timer.get("is_timed") and action == "review":
+        raise _timed_course_progress_phase_conflict()
+    if ended:
+        raise HTTPException(409, "Phiên này đã kết thúc — không thể ghi thêm đáp án.")
     if timer.get("invalid"):
         raise HTTPException(409, "Cấu hình thời gian của bài không hợp lệ.")
     if timer.get("is_timed") and timer.get("is_expired"):
         raise HTTPException(409, "Đã hết thời gian làm bài — đáp án này không được ghi.")
-    if course_assignment_action(items[0], assignment) == "review":
-        if timer.get("is_timed"):
-            raise _timed_course_progress_phase_conflict()
+    if action == "review":
         raise HTTPException(409, "Bài đã được thu — không thể ghi thêm đáp án.")
     return bool(timer.get("is_timed"))
 

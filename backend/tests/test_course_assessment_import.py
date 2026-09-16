@@ -56,6 +56,13 @@ def test_rejects_internal_markers_inside_wrong_answer_feedback():
         normalize_assessment_rows([row], expected_count=1)
 
 
+def test_rejects_choices_that_only_differ_by_internal_whitespace():
+    row = copy.deepcopy(_row())
+    row["pa"] = ["at school", "at  school", "home", "work", "outside"]
+    with pytest.raises(ValueError, match="phương án trùng nhau"):
+        normalize_assessment_rows([row], expected_count=1)
+
+
 def test_rejects_wrong_total_and_duplicate_full_items_but_allows_shared_instructions():
     with pytest.raises(ValueError, match="đúng 2 câu"):
         normalize_assessment_rows([_row()], expected_count=2)
