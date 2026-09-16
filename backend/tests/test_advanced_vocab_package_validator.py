@@ -84,8 +84,10 @@ def _checksum_without(value: dict, *field_path: str) -> str:
 
 
 def _lesson(lesson_id: str) -> dict:
+    checkpoint_review_id = f"R{((int(lesson_id[-2:]) - 1) // 5) + 1:02d}"
     lesson = {
         "lesson_id": lesson_id,
+        "review": {"checkpoint_review_id": checkpoint_review_id},
         "vocabulary": [
             {"lexeme_id": f"{lesson_id}-lex-{i}",
              "lesson_lexeme_id": f"{lesson_id}__lex-{i}",
@@ -1849,6 +1851,22 @@ def test_sync_preflights_assets_before_replacing_lesson_snapshot(
     sync_module.sync(package, write=True)
     checksum = lesson["provenance"]["content_checksum"]
     assert (content / f"{lesson_id}.json").is_file()
+    assert (content / "reviews/R01.json").is_file()
+    core_manifest = json.loads((content / "core30-manifest.json").read_text())
+    assert core_manifest["review_count"] == 6
+    assert core_manifest["lessons"][0]["checkpoint_review_id"] == "R01"
+    assert core_manifest["lessons"][0]["checkpoint_review_checksum"] == (
+        core_manifest["reviews"][0]["content_checksum"]
+    )
+    for review in core_manifest["reviews"]:
+        review_id = review["review_id"]
+        review_checksum = review["content_checksum"]
+        canonical_review = content / "reviews" / f"{review_id}.json"
+        versioned_review = (
+            content / "versions" / "reviews" / review_id
+            / f"{review_checksum}.json"
+        )
+        assert canonical_review.read_bytes() == versioned_review.read_bytes()
     for ref, payload in expected_writing.items():
         versioned = public / "versions" / lesson_id / checksum / "writing" / Path(ref).name
         assert versioned.read_bytes() == payload
@@ -1859,6 +1877,13 @@ def test_sync_preflights_assets_before_replacing_lesson_snapshot(
     with pytest.raises(SystemExit, match="snapshot asset không đầy đủ"):
         sync_module.sync(package, write=False)
     hidden_asset_root.rename(canonical_asset_root)
+
+    canonical_review = content / "reviews/R01.json"
+    hidden_review = content / "reviews/.R01.missing"
+    canonical_review.rename(hidden_review)
+    with pytest.raises(SystemExit, match="Snapshot review không đầy đủ"):
+        sync_module.sync(package, write=False)
+    hidden_review.rename(canonical_review)
 
     canonical_lesson = content / f"{lesson_id}.json"
     before = canonical_lesson.read_bytes()
@@ -1871,6 +1896,41 @@ def test_sync_preflights_assets_before_replacing_lesson_snapshot(
         sync_module.sync(package, write=True)
 
     assert canonical_lesson.read_bytes() == before
+
+
+def test_prepare_reviews_rejects_unresolved_checkpoint_review(tmp_path: Path):
+    package = tmp_path / "package"
+    lesson_id = "ADV-T01"
+    _write_package(package, ids=(lesson_id,))
+    lesson_path = package / "lessons" / lesson_id / "lesson.json"
+    lesson = json.loads(lesson_path.read_text())
+    lesson["review"]["checkpoint_review_id"] = "R02"
+    _rewrite_lesson_with_checksums(package, lesson)
+    manifest = json.loads((package / "course-manifest.json").read_text())
+
+    with pytest.raises(SystemExit, match="checkpoint_review_id phải là R01"):
+        sync_module._prepare_reviews(
+            package, manifest, [{"lesson_id": lesson_id, "lesson": lesson}],
+        )
+
+
+def test_prepare_reviews_rejects_review_checksum_mismatch(tmp_path: Path):
+    package = tmp_path / "package"
+    lesson_id = "ADV-T01"
+    _write_package(package, ids=(lesson_id,))
+    review_path = package / "reviews/R01.json"
+    review = json.loads(review_path.read_text())
+    review["items"][0]["options"][0] = "Tampered"
+    review_path.write_text(json.dumps(review), encoding="utf-8")
+    manifest = json.loads((package / "course-manifest.json").read_text())
+    lesson = json.loads(
+        (package / "lessons" / lesson_id / "lesson.json").read_text()
+    )
+
+    with pytest.raises(SystemExit, match="R01: nội dung không khớp"):
+        sync_module._prepare_reviews(
+            package, manifest, [{"lesson_id": lesson_id, "lesson": lesson}],
+        )
 
 def test_reading_requires_thirteen_questions_and_no_answer_leak(tmp_path: Path):
     _write_package(tmp_path)

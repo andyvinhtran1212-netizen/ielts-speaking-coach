@@ -24,8 +24,10 @@ if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
 
 from services.advanced_vocab_package_validator import (  # noqa: E402
+    CORE_REVIEW_IDS,
     SOURCE_MANIFEST_NAME,
     lesson_content_checksum,
+    review_content_checksum,
     validate_package,
 )
 
@@ -137,6 +139,35 @@ def _sync_lesson(source_lesson: Path, lesson_id: str, checksum: str, *,
     _copy(
         source_lesson,
         _CONTENT / "versions" / lesson_id / f"{checksum}.json",
+        write=write,
+        immutable=True,
+    )
+    return previous_checksum
+
+
+def _sync_review(source_review: Path, review_id: str, checksum: str, *,
+                 write: bool) -> str | None:
+    target = _CONTENT / "reviews" / f"{review_id}.json"
+    previous_checksum = None
+    if target.is_file():
+        previous = _read(target)
+        previous_checksum = str(
+            (previous.get("provenance") or {}).get("content_checksum") or ""
+        )
+        if (not previous_checksum
+                or review_content_checksum(previous) != previous_checksum):
+            raise SystemExit(f"{review_id}: snapshot review hiện tại có checksum sai.")
+        _copy(
+            target,
+            _CONTENT / "versions" / "reviews" / review_id
+            / f"{previous_checksum}.json",
+            write=write,
+            immutable=True,
+        )
+    _copy(source_review, target, write=write)
+    _copy(
+        source_review,
+        _CONTENT / "versions" / "reviews" / review_id / f"{checksum}.json",
         write=write,
         immutable=True,
     )
@@ -292,15 +323,74 @@ def _prepare_lesson(source: Path, course_source: Path | None,
     }
 
 
-def _preflight_destinations(prepared_lessons: list[dict]) -> None:
+def _prepare_reviews(source: Path, manifest: dict,
+                     prepared_lessons: list[dict]) -> list[dict]:
+    review_rows = manifest.get("reviews") or []
+    review_ids = tuple(
+        str(row.get("review_id") or "")
+        for row in review_rows if isinstance(row, dict)
+    )
+    if review_ids != CORE_REVIEW_IDS:
+        raise SystemExit("Manifest phải chứa đúng R01…R06 theo thứ tự.")
+
+    prepared_reviews = []
+    checksums: dict[str, str] = {}
+    for row in review_rows:
+        review_id = str(row["review_id"])
+        source_review = source / "reviews" / f"{review_id}.json"
+        review = _read(source_review)
+        if review.get("review_id") != review_id:
+            raise SystemExit(f"Sai review_id trong {source_review}")
+        declared_checksum = str(
+            (review.get("provenance") or {}).get("content_checksum") or ""
+        )
+        actual_checksum = review_content_checksum(review)
+        if declared_checksum != actual_checksum:
+            raise SystemExit(f"{review_id}: nội dung không khớp content_checksum.")
+        if str(row.get("content_checksum") or "") != actual_checksum:
+            raise SystemExit(f"{review_id}: manifest không khớp content_checksum.")
+        checksums[review_id] = actual_checksum
+        prepared_reviews.append({
+            "review_id": review_id,
+            "source_review": source_review,
+            "review": review,
+            "actual_checksum": actual_checksum,
+        })
+
+    for prepared in prepared_lessons:
+        lesson = prepared["lesson"]
+        lesson_id = prepared["lesson_id"]
+        review_id = str(
+            ((lesson.get("review") or {}).get("checkpoint_review_id")) or ""
+        )
+        expected_review_id = f"R{((int(lesson_id[-2:]) - 1) // 5) + 1:02d}"
+        if review_id != expected_review_id or review_id not in checksums:
+            raise SystemExit(
+                f"{lesson_id}: checkpoint_review_id phải là {expected_review_id}."
+            )
+        prepared["checkpoint_review_id"] = review_id
+        prepared["checkpoint_review_checksum"] = checksums[review_id]
+    return prepared_reviews
+
+
+def _preflight_destinations(prepared_lessons: list[dict],
+                            prepared_reviews: list[dict]) -> None:
     """Reject stale/colliding deploy state before the first target mutation."""
     expected_content = {f"{row['lesson_id']}.json" for row in prepared_lessons}
     actual_content = {
         path.name for path in _CONTENT.glob("*.json")
         if path.name not in {"core30-manifest.json", SOURCE_MANIFEST_NAME}
     }
+    expected_reviews = {
+        f"{row['review_id']}.json" for row in prepared_reviews
+    }
+    review_root = _CONTENT / "reviews"
+    actual_reviews = {
+        path.name for path in review_root.glob("*.json") if path.is_file()
+    }
     deployment_exists = bool(
         actual_content
+        or actual_reviews
         or (_CONTENT / "core30-manifest.json").is_file()
         or (_CONTENT / SOURCE_MANIFEST_NAME).is_file()
         or any(path.is_file() for path in _PUBLIC.rglob("*"))
@@ -311,6 +401,44 @@ def _preflight_destinations(prepared_lessons: list[dict]) -> None:
             f"thiếu={sorted(expected_content - actual_content)}, "
             f"thừa={sorted(actual_content - expected_content)}"
         )
+    if deployment_exists and actual_reviews != expected_reviews:
+        raise SystemExit(
+            "Snapshot review không đầy đủ trước khi sync: "
+            f"thiếu={sorted(expected_reviews - actual_reviews)}, "
+            f"thừa={sorted(actual_reviews - expected_reviews)}"
+        )
+
+    for prepared in prepared_reviews:
+        review_id = prepared["review_id"]
+        source_review = prepared["source_review"]
+        new_checksum = prepared["actual_checksum"]
+        canonical_review = review_root / f"{review_id}.json"
+        if canonical_review.is_file():
+            previous = _read(canonical_review)
+            previous_checksum = str(
+                (previous.get("provenance") or {}).get("content_checksum") or ""
+            )
+            if (not previous_checksum
+                    or review_content_checksum(previous) != previous_checksum):
+                raise SystemExit(
+                    f"{review_id}: snapshot review hiện tại có checksum sai."
+                )
+            previous_version = (
+                _CONTENT / "versions" / "reviews" / review_id
+                / f"{previous_checksum}.json"
+            )
+            if (previous_version.is_file()
+                    and _sha256(previous_version) != _sha256(canonical_review)):
+                raise SystemExit(
+                    f"Không được ghi đè snapshot bất biến: {previous_version}"
+                )
+        next_version = (
+            _CONTENT / "versions" / "reviews" / review_id
+            / f"{new_checksum}.json"
+        )
+        if (next_version.is_file()
+                and _sha256(next_version) != _sha256(source_review)):
+            raise SystemExit(f"Không được ghi đè snapshot bất biến: {next_version}")
 
     for prepared in prepared_lessons:
         lesson_id = prepared["lesson_id"]
@@ -406,10 +534,32 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
         _prepare_lesson(source, course_source, lesson_id)
         for lesson_id in lesson_ids
     ]
-    _preflight_destinations(prepared_lessons)
-    report = {"schema_version": 1, "source_package_version": "v5-writing-reference",
+    prepared_reviews = _prepare_reviews(source, manifest, prepared_lessons)
+    _preflight_destinations(prepared_lessons, prepared_reviews)
+    report = {"schema_version": 2, "source_package_version": "v5-writing-reference",
               "source_revision": manifest.get("source_revision"),
-              "lesson_count": len(lesson_ids), "lessons": []}
+              "lesson_count": len(lesson_ids), "lessons": [],
+              "review_count": len(prepared_reviews), "reviews": []}
+    for prepared in prepared_reviews:
+        review_id = prepared["review_id"]
+        checksum = prepared["actual_checksum"]
+        review = prepared["review"]
+        _sync_review(
+            prepared["source_review"], review_id, checksum, write=write,
+        )
+        report["reviews"].append({
+            "review_id": review_id,
+            "content_checksum": checksum,
+            "review_of_lessons": review.get("review_of_lessons") or [],
+            "item_count": len(review.get("items") or []),
+            "canonical_path": str(
+                (_CONTENT / "reviews" / f"{review_id}.json").relative_to(_REPO)
+            ),
+            "versioned_path": str((
+                _CONTENT / "versions" / "reviews" / review_id
+                / f"{checksum}.json"
+            ).relative_to(_REPO)),
+        })
     copied_assets = 0
     for prepared in prepared_lessons:
         lesson_id = prepared["lesson_id"]
@@ -495,6 +645,8 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
             "lesson_id": lesson_id,
             "title": lesson.get("title"),
             "content_checksum": actual_checksum,
+            "checkpoint_review_id": prepared["checkpoint_review_id"],
+            "checkpoint_review_checksum": prepared["checkpoint_review_checksum"],
             "vocabulary_count": len(vocabulary),
             "common_error_count": sum(bool(word.get("common_error")) for word in vocabulary),
             "reading_question_count": len(activities["reading_lab"]["content"]["questions"]),
@@ -512,6 +664,17 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
             f"thiếu={sorted(expected_content - actual_content)}, "
             f"thừa={sorted(actual_content - expected_content)}"
         )
+    expected_reviews = {f"{review_id}.json" for review_id in CORE_REVIEW_IDS}
+    actual_reviews = {
+        path.name for path in (_CONTENT / "reviews").glob("*.json")
+        if path.is_file()
+    }
+    if (write or actual_reviews) and actual_reviews != expected_reviews:
+        raise SystemExit(
+            "Snapshot review phải chứa đúng R01…R06; "
+            f"thiếu={sorted(expected_reviews - actual_reviews)}, "
+            f"thừa={sorted(actual_reviews - expected_reviews)}"
+        )
     if write:
         _copy(
             source / SOURCE_MANIFEST_NAME,
@@ -523,6 +686,7 @@ def sync(source: Path, *, write: bool, course_source: Path | None = None) -> dic
         )
     print(
         f"OK: {report['lesson_count']} lesson, "
+        f"{report['review_count']} review, "
         f"{sum(row['vocabulary_count'] for row in report['lessons'])} từ, "
         f"{copied_assets} asset runtime{' đã copy' if write else ' đã xác thực'}."
     )

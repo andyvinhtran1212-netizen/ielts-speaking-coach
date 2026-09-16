@@ -576,6 +576,11 @@ def lesson_content_checksum(lesson: dict[str, Any]) -> str:
     return _checksum_without(lesson, "provenance", "content_checksum")
 
 
+def review_content_checksum(review: dict[str, Any]) -> str:
+    """Return the canonical review checksum without trusting embedded provenance."""
+    return _checksum_without(review, "provenance", "content_checksum")
+
+
 def _manifest_lesson_ids(manifest: dict[str, Any]) -> list[str]:
     rows = manifest.get("lessons") or []
     if not isinstance(rows, list):
@@ -1927,7 +1932,7 @@ def validate_package(package_path: str | Path) -> ValidationReport:
         if not SHA256_RE.fullmatch(review_checksum):
             report.add("error", "REVIEW_CHECKSUM_INVALID", path,
                        "Review provenance.content_checksum must be SHA-256.")
-        elif review_checksum != _checksum_without(review, "provenance", "content_checksum"):
+        elif review_checksum != review_content_checksum(review):
             report.add("error", "REVIEW_CHECKSUM_MISMATCH", path,
                        "Review content no longer matches provenance.content_checksum.")
 
