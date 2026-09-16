@@ -40,7 +40,12 @@ that prevents answer leakage and gives admins canonical completion evidence.
   Kokoro bundle SHA-256
   `c0495ddac3a1c865d6f07963f11534693f024ba9042eea0ab4b737511fb4c166`,
   and generated package SHA-256
-  `968a9dbf37a97f0f403ad5e00dcf3d8ac6406665b3dedcd3cf4392df46d071b3`.
+  `c0b8548487e6ea3dcf15456bcc9a47114cd1a4442c73fb57bbd2c51a44fdb5fd`.
+  This corrected package revision includes the authored T11 Listening map asset and
+  its checksum, and keeps Reading editorial evidence fields in the private solution
+  map. The earlier v5 manifest revision `968a…` referenced the figure without the
+  packaged file or checksum and exposed those editorial fields in learner questions,
+  so it is not publish-ready.
 - T002 commits `backend/content/advanced_vocab/source-inputs-manifest.json` as the
   canonical source revision. It records a stable source ID, rights/origin note, every
   builder-consumed relative path (lesson documents, assessment/quiz Markdown, Reading/
