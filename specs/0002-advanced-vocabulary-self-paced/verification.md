@@ -1,30 +1,44 @@
 # Verification
 
-Pre-implementation evidence remains pending until the approved spec is present
-on staging and replacement implementation commits are created from that base.
+Evidence below describes candidate `44d2941f8` and its ancestors. Local/offline
+checks do not substitute for database-backed RLS, staging, or production evidence;
+those gates remain explicitly pending.
+
+## Latest local candidate evidence
+
+| Gate | Evidence | Result |
+| --- | --- | --- |
+| Package builder/provenance/audio validators | 121/121 focused backend tests; includes exact 88-error overlay, immutable source inputs, Kokoro/audio, generated package, and importer contracts | PASS |
+| Committed core-30 snapshot | `backend/scripts/import_advanced_vocab_core30.py` dry-run; 30/30 lessons valid, 24 cards and 48 selected Practice questions per lesson | PASS |
+| Advanced frontend/model contracts | 47/47 tests across Advanced Vocabulary, `whenGlobalReady`, browser-workflow wiring, path coverage, and post-merge gates | PASS |
+| Production frontend artifact | `npm run build`; Next 16 compiled, type-checked, and generated all 142 routes including `/advanced-vocabulary` | PASS |
+| Hermetic learner browser journey | `frontend/tooling/verify-advanced-vocabulary-flow.mjs`; real production build covers keyboard card interaction, 44 px audio target, independent Reading panes, mobile tab keyboard behavior, reference-only Writing/Speaking, and recoverable normalized load error | PASS |
+| Database/RLS/concurrency lifecycle | No database-backed Advanced RLS integration test or exact-SHA staging evidence exists yet | PENDING |
+| Production release | Requires completed database gate, exact-SHA staging evidence, and explicit owner go/no-go | PENDING |
 
 ## Requirement coverage
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-001 | kind=test; ref=backend/tests/test_advanced_vocab_importer.py, backend/tests/test_advanced_vocab_rls_integration.py, backend/tests/test_course_assignment.py, backend/tests/test_quiz_service.py, frontend/tests/admin-class-homework-next-behavior.test.mjs | PENDING |
-| FR-002 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_class_student_page.py, frontend/tests/my-class-next-behavior.test.mjs | PENDING |
-| FR-003 | kind=test; ref=backend/tests/test_advanced_vocab_audio_builder.py, backend/tests/test_advanced_vocab_package_builder.py, backend/tests/test_advanced_vocab_package_validator.py, backend/tests/test_advanced_vocab_importer.py | PENDING |
-| FR-004 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
-| FR-005 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
-| FR-006 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_quiz_service.py, backend/tests/test_course_attempt_report.py, frontend/tests/my-class-next-behavior.test.mjs, frontend/tests/admin-class-homework-next-behavior.test.mjs, frontend/tests/admin-class-student-work-next-behavior.test.mjs, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
-| FR-007 | kind=test; ref=backend/tests/test_advanced_vocab_rls_integration.py | PENDING |
-| FR-008 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py, backend/tests/test_advanced_vocab_importer.py, backend/tests/test_admin_quiz_import.py, frontend/tests/admin-class-homework-next-behavior.test.mjs, frontend/tests/admin-vocab-quiz-import-next-behavior.test.mjs | PENDING |
-| FR-009 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PENDING |
+| FR-001 | kind=test; ref=backend/tests/test_advanced_vocab_importer.py, backend/tests/test_course_assignment.py, backend/tests/test_quiz_service.py, frontend/tests/admin-class-homework-next-behavior.test.mjs; gap=direct anon/authenticated database-policy proof | PARTIAL |
+| FR-002 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_class_student_page.py, frontend/tests/my-class-next-behavior.test.mjs; gap=persistence-time membership/deadline and live reload journey | PARTIAL |
+| FR-003 | kind=test+dry-run; ref=backend/tests/test_advanced_vocab_audio_builder.py, backend/tests/test_advanced_vocab_package_builder.py, backend/tests/test_advanced_vocab_package_validator.py, backend/tests/test_advanced_vocab_importer.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs | PASS (LOCAL) |
+| FR-004 | kind=test+browser; ref=backend/tests/test_advanced_vocab_service.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs, frontend/tooling/verify-advanced-vocabulary-flow.mjs; gap=database-backed pre/post-reveal journey | PARTIAL |
+| FR-005 | kind=test+browser; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs, frontend/tooling/verify-advanced-vocabulary-flow.mjs; gap=direct stale-client rejection plus teacher-Writing persistence proof | PARTIAL |
+| FR-006 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py, backend/tests/test_quiz_service.py, backend/tests/test_course_attempt_report.py, frontend/tests/my-class-next-behavior.test.mjs, frontend/tests/admin-class-homework-next-behavior.test.mjs, frontend/tests/admin-class-student-work-next-behavior.test.mjs, frontend/tests/advanced-vocabulary-next-behavior.test.mjs; gap=atomic terminal state, archive/deadline races, and immediate-versus-reload staging proof | PARTIAL |
+| FR-007 | kind=missing; ref=none; gap=database-backed RLS, trigger, replay, rollback, and concurrency suite | PENDING |
+| FR-008 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py, backend/tests/test_advanced_vocab_importer.py, backend/tests/test_quiz_import.py, frontend/tests/admin-class-homework-next-behavior.test.mjs, frontend/tests/admin-vocab-topics-quiz-next-behavior.test.mjs; gap=bank-lock/delete-guard and v1-assignment/v2-bank database journey | PARTIAL |
+| FR-009 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs; gap=persisted Practice-selection schema and lost-response database proof | PENDING |
 
 ## Contract evidence
 
-- Source provenance: pending committed `source-inputs-manifest.json` with product-owner
-  origin/rights, canonical manifest digest, and complete path/digest/role/lesson mapping
-  for authored, supplement, Kokoro, and media inputs. Builder tests must replace one
-  byte, remove one input, and add one undeclared release input and prove validation
-  fails before any deploy snapshot is written; package tests cross-check embedded
-  lesson provenance against the manifest.
+- Source provenance (local pass): committed `source-inputs-manifest.json` records
+  product-owner origin/rights, canonical locked revisions, and complete
+  path/digest/role/lesson mappings for authored, supplement, Kokoro, and media
+  inputs. Package-validator tests reject missing, byte-substituted, recertified, and
+  undeclared release inputs and cross-check the deploy snapshot. Reproducing the
+  locked package from the mutable Downloads copy is not release evidence; deployment
+  uses the committed immutable snapshot.
 - OpenAPI/type drift: pending named request/response model generation, Next consumer
   use of generated operation types, and exact implementation SHA CI.
 - My Class admission: pending generated start-response discriminator tests proving
