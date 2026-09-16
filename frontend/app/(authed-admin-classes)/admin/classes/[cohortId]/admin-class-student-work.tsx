@@ -20,7 +20,7 @@ function formatVietnam(value: string | null) {
 }
 
 function assignmentFrom(item: StudentWorkItem): SubmissionAssignment {
-  return { id: item.assignment_id, title: item.title, skill: item.skill, status: item.archived ? 'archived' : 'published', due_at: item.due_at, content_id: item.bank_id };
+  return { id: item.assignment_id, title: item.title, skill: item.skill, status: item.archived ? 'archived' : 'published', due_at: item.due_at, content_id: item.bank_id, content_config: item.content_config };
 }
 
 export function AdminClassStudentWork({ cohortId, subject, onClose, onOpenAssignment }: {

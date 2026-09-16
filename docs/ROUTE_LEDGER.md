@@ -21,7 +21,7 @@
 | **Total production HTML files** | 124 | Verified 2026-07-13 |
 | **Canonical route patterns** | ~110 | Normalized from files + vercel.json rules |
 | **Admin routes** | 67 | Includes listening (17), writing (11), vocab (9), other (30) |
-| **Student-facing routes** | 25 | Speaking, writing, reading, listening, vocabulary, profile |
+| **Student-facing routes** | 26 | Speaking, writing, reading, listening, vocabulary, profile |
 | **Public/marketing routes** | 8 | Grammar, pricing, login, onboarding |
 | **Instructor routes** | 3 | Grade, compare, dashboard |
 | **Root-level HTML** | 7 | index, login, admin, grammar, vocabulary, pricing, onboarding |
@@ -241,6 +241,7 @@ Bề mặt hồ sơ/tài khoản. Tách riêng vì rà quyền và rollback đi 
 
 | Route Pattern | Aliases/Redirects | File | Auth | Query Params | Browser Deps | Complexity | Notes |
 |---|---|---|---|---|---|---|---|
+| `/advanced-vocabulary` | — (assignment-only core-30; không có legacy owner) | `app/(authed-advanced-vocab)/advanced-vocabulary/page.tsx` + `advanced-vocabulary-lesson.tsx` | Student with exact class assignment item | required `bank`, `item` | AuthProvider; `/api/advanced-vocab/*`; Kokoro MP3; assignment evidence ledger | XL | Self-paced Advanced Vocabulary ADV-T01…ADV-T30: mỗi bài có 24 flashcards, hai practice stage, Reading cuộn độc lập, controlled rewrite tự đối chiếu, Listening, Writing reference và Speaking ladder/cue card. Hoàn tất cần sáu stage tương tác; không có điểm tổng. Writing/Speaking chỉ tham khảo và không tạo submission. |
 | `/grammar/exercises` | `app/(public-content)/grammar/exercises/page.tsx` — CUTOVER 2026-08-07; native React behavior 2026-08-08 | `pages/grammar-exercises.html` (parity/rollback only) | Public | none | `/api/grammar/exercises`; abort on unmount | M | Grammar quiz launcher; authored bank metadata React-escaped; soft-navigation safe |
 | `/d1-exercise` | `/pages/d1-exercise.html` giữ làm rollback | `app/(authed-d1-exercise)/d1-exercise/page.tsx` — native React behavior 2026-08-16 | Student | `session` (D1 session UUID, optional resume) | AuthProvider; `/auth/me`; `/api/exercises/d1/sessions*`; account-keyed localStorage resume pointer; idempotent attempt ACK gate | M | D1 fill-blank vocabulary player; immutable snapshot, resume, canonical completion summary và local-only wrong-answer revision |
 | `/course-exercises` | — (không có bản legacy) | `app/(authed)/course-exercises/page.tsx` — route CHỈ CÓ ở Next | Student | none | localStorage (theme), Supabase session | M | Bài tập theo giáo trình |

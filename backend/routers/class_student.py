@@ -525,12 +525,15 @@ async def start_assignment(
     if (skill == "course"
             and course_action == "review"
             and (item.get("submitted_at") or item.get("passed_at"))):
+        runtime = ((assignment.get("content_config") or {}).get("runtime") or {})
         return {
             "item_id":       item_id,
             "assignment_id": assignment["id"],
             "skill":         "course",
             "bank_id":       assignment.get("content_id"),
             "review_only":   True,
+            **({"runtime": "advanced_vocab"}
+               if runtime.get("kind") == "advanced_vocab" else {}),
         }
 
     # Reading/Listening đã nộp phải mở lại ĐÚNG attempt đã đóng sổ. Đây là
@@ -583,12 +586,15 @@ async def start_assignment(
         # trước. Chính bài giao này là thứ cho phép `get_bank_for_play` mở bank
         # ấy ra (bank giáo trình không xuất bản và không nằm trong danh sách tự
         # chọn), nên trả id ở đây là đủ và không lộ thêm gì.
+        runtime = (cfg.get("runtime") or {})
         return {
             "item_id":       item_id,
             "assignment_id": assignment["id"],
             "skill":         skill,
             "bank_id":       assignment.get("content_id"),
             "course_action": course_action,
+            **({"runtime": "advanced_vocab"}
+               if runtime.get("kind") == "advanced_vocab" else {}),
             "timer":         timer,
         }
 

@@ -328,6 +328,18 @@ async def list_assignments(
 _QUESTIONS_PER_PART = {1: 2, 2: 1, 3: 1}
 
 
+def _question_audio_text(question: dict) -> str:
+    """Return authored prompt audio text without assuming a JSON shape.
+
+    Normal course questions use an object; Advanced Vocabulary syllable items
+    legitimately use an array of string segments.
+    """
+    segments = question.get("segments")
+    if not isinstance(segments, dict):
+        return ""
+    return str(segments.get("question_audio_text") or "").strip()
+
+
 def _audio_matches(q: dict, topic_title: str) -> bool:
     """Bản đọc có ĐÚNG là bản đọc của câu hỏi HIỆN TẠI không.
 
@@ -753,7 +765,7 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
 
     missing_question_audio = [
         question for question in questions
-        if str((question.get("segments") or {}).get("question_audio_text") or "").strip()
+        if _question_audio_text(question)
         and not str(question.get("audio_url") or "").strip()
     ]
     if missing_question_audio:
@@ -772,20 +784,32 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
     if requirement and not _pronunciation_set_matches(requirement, pronunciation_sets):
         raise HTTPException(
             400, "Bộ phát âm đang thiếu hoặc không khớp nội dung bắt buộc.")
-    try:
-        weight_snapshot = course_section_weight_snapshot(
-            questions=questions,
-            meta=bank.get("meta"),
-            pronunciation_sets=pronunciation_sets,
-        )
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
-    if (body.time_limit_minutes is not None
-            and set(weight_snapshot.get("section_counts") or {}) != {"quiz"}):
-        raise HTTPException(
-            400,
-            "Giới hạn thời gian hiện chỉ áp dụng cho bộ trắc nghiệm thuần.",
-        )
+    advanced_runtime = (((bank.get("meta") or {}).get("runtime") or {}).get("kind")
+                        == "advanced_vocab")
+    if advanced_runtime:
+        # The dedicated evidence ledger has no overall grade and therefore no
+        # generic quiz/writing weight contract to freeze into the assignment.
+        if body.time_limit_minutes is not None:
+            raise HTTPException(
+                400,
+                "Bài Advanced Vocabulary self-paced không dùng giới hạn thời gian.",
+            )
+        weight_snapshot = {}
+    else:
+        try:
+            weight_snapshot = course_section_weight_snapshot(
+                questions=questions,
+                meta=bank.get("meta"),
+                pronunciation_sets=pronunciation_sets,
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        if (body.time_limit_minutes is not None
+                and set(weight_snapshot.get("section_counts") or {}) != {"quiz"}):
+            raise HTTPException(
+                400,
+                "Giới hạn thời gian hiện chỉ áp dụng cho bộ trắc nghiệm thuần.",
+            )
 
     dup = (supabase_admin.table("class_assignments").select("id, title")
            .eq("cohort_id", cohort_id).eq("skill", "course")
@@ -803,13 +827,18 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
         "test_title": bank["title"],
         "lesson_no":  bank.get("lesson_no"),
         "bank_code":  bank.get("code"),
+        # The assignment keeps the renderer/content-version decision that was
+        # true when it was issued.  It must not silently switch player after a
+        # later bank import.
+        **({"runtime": (bank.get("meta") or {}).get("runtime")}
+           if (bank.get("meta") or {}).get("runtime") else {}),
         **weight_snapshot,
     }
     # Cổng thuộc-bài: pass/revision chỉ ghi khi admin đặt. Riêng trọng số luôn
     # chụp ở trên vì luật chấm không được tiến hoá giữa một bài đã giao.
-    if body.pass_pct is not None:
+    if body.pass_pct is not None and not advanced_runtime:
         cfg["pass_pct"] = body.pass_pct
-    if body.retake_size is not None:
+    if body.retake_size is not None and not advanced_runtime:
         cfg["retake_size"] = body.retake_size
     if body.time_limit_minutes is not None:
         cfg["time_limit_minutes"] = body.time_limit_minutes
@@ -845,6 +874,15 @@ async def list_course_banks(
              .order("lesson_no").execute().data) or []
     if not banks:
         return {"items": []}
+    # Numbered banks own the canonical class-session order. Supplementary
+    # Advanced Vocabulary banks intentionally have lesson_no=NULL to avoid the
+    # unique (course_id, lesson_no) slot; keep their T01…T30 order deterministic.
+    banks.sort(key=lambda bank: (
+        bank.get("lesson_no") is None,
+        bank.get("lesson_no") or 0,
+        str((((bank.get("meta") or {}).get("runtime") or {}).get("lesson_id"))
+            or bank.get("code") or ""),
+    ))
 
     given = {
         r["content_id"] for r in (
@@ -863,7 +901,7 @@ async def list_course_banks(
                         lambda q2, c=chunk: q2.in_("bank_id", c)):
             bank_id = q["bank_id"]
             counts[bank_id] = counts.get(bank_id, 0) + 1
-            text = str((q.get("segments") or {}).get("question_audio_text") or "").strip()
+            text = _question_audio_text(q)
             if text:
                 audio_required[bank_id] = audio_required.get(bank_id, 0) + 1
                 if not str(q.get("audio_url") or "").strip():
@@ -897,6 +935,7 @@ async def list_course_banks(
             "pronunciation_required": pronunciation_required,
             "pronunciation_ready":   pronunciation_is_ready,
             "already_given":         bank_id in given,
+            "runtime": ((bank.get("meta") or {}).get("runtime") or {}).get("kind"),
             "ready": (
                 counts.get(bank_id, 0) > 0
                 and missing_audio.get(bank_id, 0) == 0
@@ -1234,6 +1273,94 @@ def _hand_in_status(item: dict, student: dict, due, sealed: bool) -> str:
     return "missing" if sealed else "pending"
 
 
+def _advanced_vocab_assignment_tally(assignment: dict) -> dict:
+    """Project the dedicated six-part ledger into the shared tally contract."""
+    from services import advanced_vocab_service
+
+    report = advanced_vocab_service.assignment_results(
+        assignment_id=str(assignment["id"]),
+    )
+    labels = {
+        "vocabulary": "Từ vựng",
+        "practice_1": "Luyện nhận diện",
+        "practice_2": "Luyện vận dụng",
+        "reading": "Reading",
+        "controlled_rewrite": "Controlled rewrite",
+        "listening": "Listening",
+    }
+    due = _at(assignment.get("due_at"))
+    sealed = bool(due and datetime.now(timezone.utc) > due)
+    rows = []
+    for evidence in report["students"]:
+        item = evidence["item"]
+        student = evidence["student"]
+        completed = {
+            row.get("stage") for row in evidence["stages"]
+            if row.get("status") == "completed"
+        }
+        completed.update(row.get("section") for row in evidence["sections"])
+        started = bool(completed or evidence["practice_attempts"]
+                       or evidence.get("listening_attempts") or item.get("opened_at"))
+        course_state = ("no_account" if not student.get("user_id") else
+                        "passed" if item.get("submitted_at") else
+                        "in_progress" if started else "untouched")
+        rows.append({
+            "student_id": item.get("student_id"),
+            "name": student.get("full_name") or "",
+            "student_code": student.get("student_code"),
+            "status": _hand_in_status(item, student, due, sealed),
+            "submitted_at": item.get("submitted_at"),
+            "score": None,
+            "flags": [],
+            "flag_level": None,
+            "course_state": course_state,
+            "next_action": (None if course_state in ("passed", "no_account") else
+                            "Tiếp tục bài self-paced" if started else "Mở bài"),
+            "pass_pct": None,
+            "near_pass_pct": None,
+            "sections_done": len(completed),
+            "sections_total": len(labels),
+            "missing_sections": [
+                {"key": key, "label": label}
+                for key, label in labels.items() if key not in completed
+            ],
+            "passed_at": item.get("passed_at"),
+            "retakes": 0,
+            "verdicts": 1 if item.get("submitted_at") else 0,
+            "artifact_kind": item.get("artifact_kind"),
+            "artifact_id": item.get("artifact_id"),
+            "has_writing": False,
+            "writing_expected": False,
+        })
+    order = {"missing": 0, "pending": 1, "no-account": 2,
+             "late": 3, "submitted": 4}
+    rows.sort(key=lambda row: (order.get(row["status"], 9), row["name"].lower()))
+    return {
+        "advanced_vocab": True,
+        "score_policy": "none",
+        "writing_total": 0,
+        "assignment": {
+            "id": assignment["id"], "title": assignment.get("title"),
+            "skill": assignment.get("skill"), "due_at": assignment.get("due_at"),
+        },
+        "sealed": sealed,
+        "students": rows,
+        "counts": {
+            "total": len(rows),
+            "submitted": sum(row["status"] in ("submitted", "late") for row in rows),
+            "late": sum(row["status"] == "late" for row in rows),
+            "missing": sum(row["status"] == "missing" for row in rows),
+            "no_account": sum(row["status"] == "no-account" for row in rows),
+            "flagged": 0,
+            "passed": sum(row["course_state"] == "passed" for row in rows),
+            "near_pass": 0,
+            "retry_full": 0,
+            "in_progress": sum(row["course_state"] == "in_progress" for row in rows),
+            "untouched": sum(row["course_state"] == "untouched" for row in rows),
+        },
+    }
+
+
 @router.get("/{cohort_id}/assignments/{assignment_id}/tally")
 async def assignment_tally(
     cohort_id: str,
@@ -1262,6 +1389,12 @@ async def assignment_tally(
     if not rows:
         raise HTTPException(404, "Không tìm thấy bài giao trong lớp này")
     assignment = rows[0]
+    runtime = ((assignment.get("content_config") or {}).get("runtime") or {})
+    if runtime.get("kind") == "advanced_vocab":
+        # Do not run the generic course reconciler or infer a one-section quiz
+        # from imported practice rows.  This task is complete only when its
+        # dedicated six-part evidence ledger says so.
+        return _advanced_vocab_assignment_tally(assignment)
 
     # Vá sổ trước khi đếm: Reading/Listening không có móc hoàn thành, nên bài đã
     # nộp chỉ vào sổ khi có ai đó đọc. Đây chính là lúc con số sai sẽ bị nhìn.
@@ -1849,6 +1982,10 @@ async def student_work(
             "artifact_id":   it.get("artifact_id"),
             "has_writing":   it["id"] in writing_items,
             "bank_id":       a.get("content_id") if a.get("skill") == "course" else None,
+            # The student-centric drawer can open the same native marking view
+            # as the assignment-centric table. Carry the frozen renderer
+            # identity so it does not fall back to the answer-bearing quiz API.
+            "content_config": a.get("content_config") or {},
         })
     # Mới nhất lên đầu: giáo viên hỏi "gần đây em ấy làm gì". Bài KHÔNG HẠN
     # xuống cuối chứ không lẫn lên đầu.
@@ -2538,6 +2675,15 @@ async def delete_assignment(
             {"p_assignment_id": assignment_id, "p_cohort_id": cohort_id},
         ).execute().data
     except Exception as exc:
+        # Migration 263 protects partial Advanced Vocabulary evidence with a
+        # BEFORE DELETE trigger.  The legacy RPC cannot represent that newer
+        # state as its boolean result, so preserve the public 409 contract
+        # instead of leaking a database-shaped 500 to the admin UI.
+        if "cannot delete assignment item with advanced vocabulary evidence" in str(exc):
+            raise HTTPException(
+                409,
+                "Đã có học viên bắt đầu bài này — không xoá được. Hãy lưu trữ bài giao thay vì xoá.",
+            ) from exc
         raise HTTPException(500, f"Lỗi khi xoá bài giao: {exc}")
 
     if deleted is None:

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { canReturnSubmission, groupReportQuestions, normalizeEffort, normalizeStudentReport, normalizeTally, normalizeWriting } from '../lib/admin-class-submissions-model.mjs';
+import { advancedVocabularyStudentState, canReturnSubmission, findAdvancedVocabularyEvidence, groupReportQuestions, normalizeAdvancedVocabularyResult, normalizeEffort, normalizeStudentReport, normalizeTally, normalizeWriting } from '../lib/admin-class-submissions-model.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
@@ -45,11 +45,75 @@ describe('admin class submissions model', () => {
   });
 
   test('normalizes effort without dropping unactivated or untouched students', () => {
-    const out = normalizeEffort({ students: [{ student_id: 's1', user_id: null, state: 'untouched', stages_done: 0 }, { student_id: 's2', user_id: 'u2', state: 'stalled', stages_done: 2, questions: 4, correct: 2, accuracy: .5 }, { student_id: null, user_id: 'u-gone', state: 'done', stages_done: 8 }], axes: [{ axis: 'Nouns', wrong: 3 }] });
-    assert.deepEqual(out.students.map((row) => row.state), ['untouched', 'stalled', 'done']);
+    const out = normalizeEffort({ advanced_vocab: true, score_policy: 'none', students: [{ student_id: 's1', user_id: null, state: 'no_account', stages_done: 0 }, { student_id: 's2', user_id: 'u2', state: 'stalled', stages_done: 2, questions: 4, correct: 2, accuracy: .5 }, { student_id: null, user_id: 'u-gone', state: 'done', stages_done: 8 }], axes: [{ axis: 'Nouns', wrong: 3 }] });
+    assert.deepEqual(out.students.map((row) => row.state), ['no_account', 'stalled', 'done']);
     assert.equal(out.students[0].user_id, null);
     assert.equal(out.students[2].student_id, null);
     assert.equal(out.axes[0].wrong, 3);
+    assert.equal(out.advanced_vocab, true);
+    assert.equal(out.score_policy, 'none');
+    assert.match(UI, /no_account: 'Chưa kích hoạt'/);
+  });
+
+  test('normalizes immutable advanced vocabulary evidence for admin review', () => {
+    const out = normalizeAdvancedVocabularyResult({
+      kind: 'advanced_vocab', score_policy: 'none', lesson_id: 'ADV-T01',
+      required_stages: ['vocabulary', 'practice_1', 'practice_2', 'reading', 'controlled_rewrite', 'listening'],
+      reference_only: ['writing', 'speaking'],
+      students: [{
+        item: { id: 'i1', student_id: 's1', submitted_at: '2026-09-15T00:00:00Z' },
+        student: { id: 's1', user_id: 'u1', full_name: 'An' },
+        stages: [{ stage: 'vocabulary', status: 'completed' }],
+        practice_attempts: [{ stage: 'practice_1', qid: 'q1', answer_given: 'kinship', is_correct: true, response_time_ms: 900 }],
+        sections: [{
+          section: 'reading', total: 13, correct: 11, duration_sec: 420,
+          answer_results: [{ id: '1', submitted_answer: 'B', is_correct: true }],
+        }],
+        listening_attempts: [{
+          total: 6, correct: 4, score: 66.67, duration_sec: 180,
+          submitted_at: '2026-09-15T01:00:00Z', answers: { 1: 'Sandhu' },
+          answer_results: [{ id: '1', submitted_answer: 'Sandhu', is_correct: false }],
+        }],
+      }],
+    });
+    assert.equal(out.students[0].practice_attempts[0].answer_given, 'kinship');
+    assert.equal(out.students[0].sections[0].correct, 11);
+    assert.equal(out.students[0].listening_attempts[0].correct, 4);
+    assert.deepEqual(out.students[0].listening_attempts[0].answers, { 1: 'Sandhu' });
+    assert.deepEqual(out.students[0].sections[0].answer_results, [
+      { id: '1', submitted_answer: 'B', is_correct: true },
+    ]);
+    assert.deepEqual(out.students[0].listening_attempts[0].answer_results, [
+      { id: '1', submitted_answer: 'Sandhu', is_correct: false },
+    ]);
+    assert.equal(out.students[0].required_stages.length, 6);
+    assert.equal(findAdvancedVocabularyEvidence(out, 's1', null), out.students[0]);
+    assert.deepEqual(out.reference_only, ['writing', 'speaking']);
+    assert.equal(normalizeAdvancedVocabularyResult({ kind: 'advanced_vocab', score_policy: 'percent', students: [] }), null);
+    const base = { item: { opened_at: null, submitted_at: null }, stages: [], practice_attempts: [], sections: [], listening_attempts: [] };
+    assert.equal(advancedVocabularyStudentState(base), 'untouched');
+    assert.equal(advancedVocabularyStudentState({ ...base, listening_attempts: [{}] }), 'doing');
+    assert.equal(advancedVocabularyStudentState({ ...base, item: { opened_at: null, submitted_at: '2026-09-15T02:00:00Z' } }), 'done');
+    assert.match(UI, /Listening · lượt đầu \(đang sửa\)/);
+    assert.match(UI, /Xem đáp án sau self-check/);
+    assert.match(UI, /Xem từng câu/);
+    assert.match(UI, /stateLabel/);
+  });
+
+  test('opens advanced evidence for a learner who left the cohort', () => {
+    const out = normalizeAdvancedVocabularyResult({
+      kind: 'advanced_vocab', score_policy: 'none', students: [{
+        item: { id: 'i-gone', student_id: 's-gone', submitted_at: null },
+        student: { id: 's-gone', user_id: null },
+        stages: [{ stage: 'vocabulary', status: 'completed' }],
+        practice_attempts: [], sections: [], listening_attempts: [],
+      }],
+    });
+    assert.equal(findAdvancedVocabularyEvidence(out, 's-gone', null)?.item.id, 'i-gone');
+    const advancedBranch = UI.indexOf('if (isAdvancedVocabulary)');
+    const genericUserGuard = UI.indexOf('else if (userId)', advancedBranch);
+    assert.ok(advancedBranch > 0 && genericUserGuard > advancedBranch);
+    assert.match(UI.slice(advancedBranch, genericUserGuard), /findAdvancedVocabularyEvidence\(normalized, studentId, userId\)/);
   });
 
   test('preserves class misconception denominators and affected learners', () => {
@@ -120,6 +184,7 @@ describe('admin class submissions integration contracts', () => {
     assert.match(UI, /\/students\/\$\{encodeURIComponent\(userId\)\}\/report\?assignment_id=/);
     assert.match(UI, /\/writing\/\$\{encodeURIComponent\(studentId\)\}/);
     assert.match(UI, /\/return\/\$\{encodeURIComponent\(row\.student_id\)\}/);
+    assert.match(UI, /\/admin\/advanced-vocab\/assignments\/\$\{encodeURIComponent\(assignment\.id\)\}\/results/);
     assert.doesNotMatch(HOMEWORK, /Nhận bài · legacy|markingHref/);
   });
 
@@ -140,6 +205,8 @@ describe('admin class submissions integration contracts', () => {
     assert.match(UI, /affected_students/);
     assert.match(UI, /Mẫu nhỏ · chỉ tham khảo/);
     assert.match(UI, /Chưa xác định được các phần bắt buộc/);
+    assert.match(UI, /Không chấm/);
+    assert.match(UI, /Writing và Speaking chỉ là nội dung tham khảo/);
   });
 
   test('deep-links an assignment natively and reloads canonical truth after return', () => {

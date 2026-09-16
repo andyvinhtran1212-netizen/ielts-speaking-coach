@@ -957,6 +957,22 @@ def test_package_requires_checksum_bound_listening_asset(
     assert expected_code in _codes(validate_package(tmp_path))
 
 
+def test_package_requires_exactly_one_listening_media_row_and_matching_bytes(
+        tmp_path: Path):
+    _write_package(tmp_path)
+    lesson_path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(lesson_path.read_text())
+    lesson["media"]["audio"] = []
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+    assert "LISTENING_MEDIA_COUNT" in _codes(validate_package(tmp_path))
+
+    lesson = _lesson("ADV-T01")
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+    audio = lesson_path.parent / "assets" / "audio" / "full_test.mp3"
+    audio.write_bytes(b"tampered listening bytes")
+    assert "MEDIA_CHECKSUM_MISMATCH" in _codes(validate_package(tmp_path))
+
+
 def test_package_binds_listening_media_to_authored_source_input(tmp_path: Path):
     _write_package(tmp_path)
     lesson_path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
@@ -1036,6 +1052,27 @@ def test_writing_artwork_requires_packaged_source_matched_bytes(tmp_path: Path):
     )
 
 
+@pytest.mark.parametrize("inventory", ["task", "media"])
+def test_writing_task1_artwork_must_match_deploy_inventory(
+        tmp_path: Path, inventory: str):
+    _write_package(tmp_path)
+    lesson_path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(lesson_path.read_text())
+    if inventory == "task":
+        writing = next(
+            row for row in lesson["activities"]
+            if row["activity_type"] == "writing_reference"
+        )
+        writing["content"]["tasks"]["task_1"]["illustrations"].pop()
+    else:
+        lesson["media"]["wt1_illustrations"].pop()
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    assert "WRITING_TASK1_ARTWORK_MEDIA_MISMATCH" in _codes(
+        validate_package(tmp_path)
+    )
+
+
 def test_speaking_is_never_graded_by_default(tmp_path: Path):
     _write_package(tmp_path)
     path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
@@ -1085,6 +1122,23 @@ def test_each_core_lesson_requires_exactly_one_controlled_rewrite(tmp_path: Path
     path.write_text(json.dumps(lesson), encoding="utf-8")
 
     assert "CONTROLLED_REWRITE_ACTIVITY_COUNT" in _codes(
+        validate_package(tmp_path)
+    )
+
+
+def test_controlled_rewrite_rejects_answer_bearing_activity_metadata(
+        tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    rewrite = next(
+        activity for activity in lesson["activities"]
+        if activity["activity_type"] == "controlled_rewrite"
+    )
+    rewrite["answer_key"] = {"rewrite-01": "private"}
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    assert "CONTROLLED_REWRITE_PRIVATE_FIELD" in _codes(
         validate_package(tmp_path)
     )
 
@@ -1835,6 +1889,27 @@ def test_sync_preflights_assets_before_replacing_lesson_snapshot(
     monkeypatch.setattr(sync_module, "validate_package", lambda _source: SimpleNamespace(
         publish_ready=True, to_dict=lambda: {"summary": {"errors": 0, "warnings": 0}},
     ))
+
+    listening_asset.write_bytes(b"tampered-after-build")
+    with pytest.raises(SystemExit, match="Sai checksum source asset"):
+        sync_module.sync(package, write=True)
+    assert not (content / f"{lesson_id}.json").exists()
+    listening_asset.write_bytes(listening_payload)
+
+    listening_row = lesson["media"]["audio"].pop()
+    _rewrite_lesson_with_checksums(package, lesson)
+    with pytest.raises(SystemExit, match="đúng một media row listening_full_test"):
+        sync_module.sync(package, write=True)
+    assert not (content / f"{lesson_id}.json").exists()
+    lesson["media"]["audio"] = [listening_row]
+
+    removed_writing_ref = lesson["media"]["wt1_illustrations"].pop()
+    _rewrite_lesson_with_checksums(package, lesson)
+    with pytest.raises(SystemExit, match="không khớp media deploy inventory"):
+        sync_module.sync(package, write=True)
+    assert not (content / f"{lesson_id}.json").exists()
+    lesson["media"]["wt1_illustrations"].append(removed_writing_ref)
+    _rewrite_lesson_with_checksums(package, lesson)
 
     broken_svg = package / "lessons" / lesson_id / writing_refs[0]
     broken_svg.write_bytes(b"tampered-after-build")

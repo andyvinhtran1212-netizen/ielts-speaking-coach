@@ -231,6 +231,12 @@ when `opened_at` is first set. It locks later edits to the assignment duration
 and the item snapshot, so the player, progress gate, finalizer, and reaper keep
 one immutable boundary for the whole attempt.
 
+Migration 281 adds the assignment-only Advanced Vocabulary learner-evidence
+ledger, protected initial Listening attempts, immutable stage/section writes,
+and atomic finalization. Anonymous and authenticated PostgREST roles receive no
+direct bank, solution, or learner-evidence access; the backend service role owns
+all runtime reads and writes. Apply it before importing the 30 core banks.
+
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence
 hosted drift. A pending feature group requires its explicit

@@ -44,6 +44,10 @@ SPEAKING_ACTIVITY_TYPE = "speaking_practice"
 LISTENING_ACTIVITY_TYPE = "listening_lab"
 READING_ACTIVITY_TYPE = "reading_lab"
 CONTROLLED_REWRITE_ACTIVITY_TYPE = "controlled_rewrite"
+CONTROLLED_REWRITE_AUTHORED_FIELDS = frozenset({
+    "activity_id", "activity_type", "completion_policy", "content",
+    "grading_policy", "interaction_policy", "reveal_policy", "submittable",
+})
 READING_AUTHORED_CONTENT_FIELDS = frozenset({
     "module", "passages", "question_material", "questions", "solutions",
     "solutions_visibility", "target_band", "test_id", "title",
@@ -893,6 +897,15 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             f"found {len(controlled_rewrite)}.",
         )
     for activity in controlled_rewrite:
+        unexpected_fields = sorted(
+            set(activity) - CONTROLLED_REWRITE_AUTHORED_FIELDS
+        )
+        if unexpected_fields:
+            report.add(
+                "error", "CONTROLLED_REWRITE_PRIVATE_FIELD", path,
+                "Controlled rewrite has unexpected activity-level fields: "
+                + ", ".join(unexpected_fields),
+            )
         valid_policy = (
             activity.get("interaction_policy") == "self_check"
             and activity.get("grading_policy") == "self_check"

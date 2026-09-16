@@ -25,13 +25,14 @@ describe('admin class student work model', () => {
       homework_stale: true,
       items: [
         { assignment_id: 'a1', title: 'Speaking', skill: 'speaking', status: 'late', score: null, artifact_kind: 'session', artifact_id: 'sess 1' },
-        { assignment_id: 'a2', title: 'Grammar', skill: 'course', status: 'submitted', score: '68', has_writing: true, bank_id: 'bank-1' },
+        { assignment_id: 'a2', title: 'Grammar', skill: 'course', status: 'submitted', score: '68', has_writing: true, bank_id: 'bank-1', content_config: { runtime: { kind: 'advanced_vocab' } } },
         { title: 'Malformed', skill: 'course' },
       ],
     }, 's1');
     assert.equal(out.homework_stale, true);
     assert.equal(out.items[0].score, null);
     assert.equal(out.items[1].score, 68);
+    assert.equal(out.items[1].content_config.runtime.kind, 'advanced_vocab');
     assert.equal(out.discarded_item_count, 1);
   });
 
@@ -40,10 +41,13 @@ describe('admin class student work model', () => {
     assert.equal(normalizeStudentWork({ student: { id: 's1' }, items: null }, 's1'), null);
   });
 
-  test('only returns an action when a real artifact can be opened', () => {
+  test('opens canonical reports for both partial and completed Advanced Vocabulary work', () => {
     assert.deepEqual(studentWorkAction({ artifact_kind: 'session', artifact_id: 'a/b' }), { kind: 'external', label: 'Nghe bài', href: '/admin/speaking/sessions?session=a%2Fb' });
     assert.deepEqual(studentWorkAction({ has_writing: true }), { kind: 'writing', label: 'Xem tự luận' });
     assert.deepEqual(studentWorkAction({ bank_id: 'bank', artifact_id: 'attempt' }), { kind: 'report', label: 'Xem từng câu' });
+    const runtime = { kind: 'advanced_vocab' };
+    assert.deepEqual(studentWorkAction({ bank_id: 'bank', artifact_id: null, content_config: { runtime } }), { kind: 'report', label: 'Xem từng câu' });
+    assert.deepEqual(studentWorkAction({ bank_id: 'bank', artifact_id: 'item', content_config: { runtime } }), { kind: 'report', label: 'Xem từng câu' });
     assert.equal(studentWorkAction({ bank_id: 'bank', artifact_id: null }), null);
   });
 });
@@ -63,6 +67,7 @@ describe('admin class student work integration', () => {
     assert.match(UI, /studentWorkAction\(item\)/);
     assert.match(UI, /target="_blank" rel="noopener noreferrer"/);
     assert.match(UI, /onOpenAssignment\(assignmentFrom\(item\)/);
+    assert.match(UI, /content_config: item\.content_config/);
     assert.match(DETAIL, /initialStudent=\{markingStudent\}/);
     assert.match(SUBMISSIONS, /initialStudent\) await openStudent\(initialStudent\)/);
     assert.match(DETAIL, /Quay lại bài của/);

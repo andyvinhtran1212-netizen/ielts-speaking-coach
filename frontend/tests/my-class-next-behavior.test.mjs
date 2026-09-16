@@ -191,6 +191,16 @@ describe('assignment start contract', () => {
     });
   });
 
+  test('advanced vocabulary course items keep their dedicated renderer identity', () => {
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'item-adv', assignment_id: 'asg-adv', skill: 'course',
+      bank_id: 'bank-adv', runtime: 'advanced_vocab',
+    }, 'item-adv'), {
+      kind: 'course', bankId: 'bank-adv', itemId: 'item-adv',
+      reviewOnly: false, advancedVocabulary: true, expiryPending: false,
+    });
+  });
+
   test('pending expiry remains distinct from a persisted course review', () => {
     const normalized = normalizeMyClassResponse(payload({
       assignments: [assignment({ course_action: 'expired_pending' })],
@@ -221,7 +231,6 @@ describe('assignment start contract', () => {
     assert.deepEqual(normalized.warnings, []);
     assert.deepEqual(assignmentAction(row), { kind: 'review', label: 'Đang thu bài' });
   });
-
   test('an incomplete submitted course item stays in the work queue after extension', () => {
     const normalized = normalizeMyClassResponse(payload({
       assignments: [assignment({

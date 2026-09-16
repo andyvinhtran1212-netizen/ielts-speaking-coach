@@ -105,6 +105,48 @@ def test_get_bank_for_play_published():
     assert out["questions"] == [{"qid": "a1"}]
 
 
+def test_legacy_player_never_fetches_advanced_vocabulary_answer_rows():
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "skill_area": "course", "is_published": False,
+            "meta": {"runtime": {"kind": "advanced_vocab"}},
+        }],
+        ("quiz_questions", "select"): [{"qid": "secret", "answer": 2}],
+    })
+    item = {"id": "item-1", "assignment_id": "asg-1"}
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for_review", return_value=item):
+        with pytest.raises(HTTPException) as exc:
+            quiz_service.get_bank_for_play(
+                _BANK, user_id=_USER, assignment_item_id="item-1",
+            )
+
+    assert exc.value.status_code == 409
+    assert not any(call["table"] == "quiz_questions" for call in fake.calls)
+
+
+def test_legacy_session_guard_rejects_advanced_vocabulary_runtime():
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "code": "C4-ADV-T01", "skill_area": "course",
+            "is_published": False,
+            "meta": {"runtime": {"kind": "advanced_vocab"}},
+        }],
+    })
+    item = {"id": "item-1", "assignment_id": "asg-1"}
+
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for", return_value=item):
+        with pytest.raises(HTTPException) as exc:
+            quiz_service.start_session(
+                user_id=_USER, bank_id=_BANK, assignment_item_id="item-1",
+            )
+
+    assert exc.value.status_code == 409
+    assert not any(call["table"] == "quiz_sessions" for call in fake.calls)
+
+
 def test_get_bank_for_play_attaches_grammar_article_url(monkeypatch):
     """Grammar questions get a resolved article_url so the player can link 'review'."""
     fake = _FakeSupabase(responses={
