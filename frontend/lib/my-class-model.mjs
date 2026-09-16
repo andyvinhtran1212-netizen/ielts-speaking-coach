@@ -249,7 +249,8 @@ export function awaitingWriting(row) {
 
 export function courseNeedsAction(row) {
   return row?.assignment?.skill === 'course'
-    && ['start', 'continue', 'retake', 'retry_full'].includes(row.courseAction);
+    && ['start', 'continue', 'retake', 'retry_full', 'expired_pending']
+      .includes(row.courseAction);
 }
 
 /** One canonical action decision for both current and history groups. */

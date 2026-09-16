@@ -163,7 +163,7 @@ def test_answers_to_questions_that_no_longer_exist_do_not_inflate_the_stage():
 # lọt hai lỗi thật: coi phiên tạm dừng là đã chốt, và trả câu sai thứ tự. Chốt
 # dưới đây gọi thẳng `get_course_resume` với một cơ sở dữ liệu giả.
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 BANK = "bank-1"
 USER = "u1"
@@ -282,6 +282,33 @@ def test_lightweight_timer_sample_is_independent_of_session_history():
     assert 'table("quiz_sessions")' not in src
     for bad in (".update(", ".insert(", ".upsert(", ".delete("):
         assert bad not in src
+
+
+def test_lightweight_timer_sample_survives_the_assignment_cutoff():
+    opened = datetime.now(timezone.utc) - timedelta(minutes=31)
+    expired = {
+        "id": ITEM, "opened_at": opened.isoformat(),
+        "due_at": (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat(),
+        "content_config": {"time_limit_minutes": 30},
+    }
+    bank_gate = MagicMock(return_value={"skill_area": qs.COURSE_AREA})
+    review_gate = MagicMock(return_value=expired)
+    with patch.object(qs, "_bank_meta_or_404", bank_gate), \
+            patch.object(qs, "_assignment_item_for_review", review_gate), \
+            patch.object(qs, "_assignment_item_for") as live_gate:
+        sample = qs.get_course_timer(user_id=USER, bank_id=BANK,
+                                     assignment_item_id=ITEM)
+
+    bank_gate.assert_called_once_with(
+        BANK, USER, assignment_item_id=ITEM,
+        allow_expired_timed_review=True,
+    )
+    review_gate.assert_called_once_with(BANK, USER, assignment_item_id=ITEM)
+    live_gate.assert_not_called()
+    assert sample["item_id"] == ITEM
+    assert sample["timer"]["is_timed"] is True
+    assert sample["timer"]["is_expired"] is True
+    assert sample["timer"]["time_remaining_seconds"] == 0
 
 
 def test_a_PAUSED_session_is_not_a_finished_stage():

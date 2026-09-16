@@ -207,6 +207,21 @@ describe('assignment start contract', () => {
     });
   });
 
+  test('submitted expired-pending work stays outstanding without hiding progress', () => {
+    const normalized = normalizeMyClassResponse(payload({
+      assignments: [assignment({
+        state: 'submitted', submitted_at: '2026-08-19T18:23:55Z',
+        course_action: 'expired_pending',
+      })],
+      progress: { total: 1, submitted: 0, todo: 1, missing: 0, late: 0, on_time_pct: null },
+    }));
+    const row = normalized.assignments[0];
+    assert.equal(courseNeedsAction(row), true);
+    assert.equal(normalized.progress.todo, 1);
+    assert.deepEqual(normalized.warnings, []);
+    assert.deepEqual(assignmentAction(row), { kind: 'review', label: 'Đang thu bài' });
+  });
+
   test('an incomplete submitted course item stays in the work queue after extension', () => {
     const normalized = normalizeMyClassResponse(payload({
       assignments: [assignment({
