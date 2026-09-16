@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -268,12 +269,30 @@ def _prepare_lesson(source: Path, course_source: Path | None,
                 _PUBLIC / lesson_id / "vocab" / Path(ref).name,
                 checksum,
             ))
-    listening = source / "lessons" / lesson_id / "assets" / "audio" / "full_test.mp3"
-    listening_meta = next(
-        (row for row in (lesson.get("media") or {}).get("audio") or []
-         if row.get("role") == "listening_full_test"), {}
-    )
-    _verify_source_asset(listening, listening_meta.get("checksum"))
+    audio_rows = (lesson.get("media") or {}).get("audio") or []
+    listening_rows = [
+        row for row in audio_rows
+        if isinstance(row, dict) and row.get("role") == "listening_full_test"
+    ]
+    if len(listening_rows) != 1:
+        raise SystemExit(
+            f"{lesson_id}: cần đúng một media row listening_full_test."
+        )
+    listening_meta = listening_rows[0]
+    expected_audio_path = str(
+        listening_meta.get("expected_audio_path") or ""
+    ).strip()
+    listening_checksum = str(listening_meta.get("checksum") or "").strip()
+    if expected_audio_path != "assets/audio/full_test.mp3":
+        raise SystemExit(
+            f"{lesson_id}: listening_full_test thiếu expected_audio_path chuẩn."
+        )
+    if not re.fullmatch(r"[0-9a-f]{64}", listening_checksum, re.IGNORECASE):
+        raise SystemExit(
+            f"{lesson_id}: listening_full_test thiếu SHA-256 hợp lệ."
+        )
+    listening = source / "lessons" / lesson_id / expected_audio_path
+    _verify_source_asset(listening, listening_checksum)
     asset_plan.append((
         listening,
         _PUBLIC / lesson_id / "listening" / "full_test.mp3",
@@ -300,6 +319,23 @@ def _prepare_lesson(source: Path, course_source: Path | None,
     writing_refs = [
         str(ref) for ref in (lesson.get("media") or {}).get("wt1_illustrations") or []
     ]
+    writing = next(
+        (row for row in lesson.get("activities") or []
+         if isinstance(row, dict) and row.get("activity_type") == "writing_reference"),
+        {},
+    )
+    tasks = (writing.get("content") or {}).get("tasks") or {}
+    task_1_refs = [
+        str(ref) for ref in (tasks.get("task_1") or {}).get("illustrations") or []
+    ]
+    if task_1_refs != writing_refs:
+        raise SystemExit(
+            f"{lesson_id}: Task 1 illustrations không khớp media deploy inventory."
+        )
+    if {Path(ref).suffix.lower() for ref in writing_refs} != {".svg", ".png"}:
+        raise SystemExit(
+            f"{lesson_id}: cần đúng cặp SVG/PNG cho Writing Task 1."
+        )
     for ref in writing_refs:
         source_asset = source / "lessons" / lesson_id / ref
         checksum = _writing_asset_checksum(lesson, ref)

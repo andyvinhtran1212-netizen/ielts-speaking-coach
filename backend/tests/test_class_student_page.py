@@ -425,6 +425,24 @@ async def test_a_listening_task_opens_by_the_row_id():
 
 
 @pytest.mark.asyncio
+async def test_advanced_vocabulary_course_task_keeps_dedicated_runtime_identity():
+    assignment = {
+        "id": "a1", "cohort_id": "c1", "skill": "course",
+        "status": "published", "content_id": "bank-adv", "due_at": None,
+        "content_config": {"runtime": {"kind": "advanced_vocab"}},
+    }
+
+    out = await _start(_start_db(
+        skill="course", content_id="bank-adv",
+        tables={"class_assignments": [assignment]},
+    ))
+
+    assert out["bank_id"] == "bank-adv"
+    assert out["item_id"] == "item-1"
+    assert out["runtime"] == "advanced_vocab"
+
+
+@pytest.mark.asyncio
 async def test_expired_course_timer_without_verdict_opens_pending_lane():
     tables = {
         "class_assignment_items": [{

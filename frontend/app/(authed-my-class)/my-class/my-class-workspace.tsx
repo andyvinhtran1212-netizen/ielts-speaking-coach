@@ -80,6 +80,7 @@ type StartTarget =
   | {
       kind: 'course'; bankId: string; itemId: string;
       reviewOnly: boolean; expiryPending: boolean;
+      advancedVocabulary?: boolean;
     }
   | { kind: 'player'; surface: string; query: Record<string, string> }
   | { kind: 'stable-player'; url: string }
@@ -555,6 +556,10 @@ export function MyClassWorkspace() {
       const target = normalizeClassStartResponse(raw, row.itemId) as StartTarget | null;
       if (!target) throw new Error('Máy chủ không trả điểm đến hợp lệ cho bài này.');
       if (target.kind === 'course') {
+        if (target.advancedVocabulary) {
+          window.location.assign(`/advanced-vocabulary?bank=${encodeURIComponent(target.bankId)}&item=${encodeURIComponent(target.itemId)}`);
+          return;
+        }
         const view = target.reviewOnly ? '&view=writing' : '';
         const item = `&class_item=${encodeURIComponent(target.itemId)}`;
         window.location.assign(`/course-exercises?bank=${encodeURIComponent(target.bankId)}${view}${item}`);

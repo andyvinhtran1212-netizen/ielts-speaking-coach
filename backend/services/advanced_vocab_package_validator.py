@@ -44,6 +44,10 @@ SPEAKING_ACTIVITY_TYPE = "speaking_practice"
 LISTENING_ACTIVITY_TYPE = "listening_lab"
 READING_ACTIVITY_TYPE = "reading_lab"
 CONTROLLED_REWRITE_ACTIVITY_TYPE = "controlled_rewrite"
+CONTROLLED_REWRITE_AUTHORED_FIELDS = frozenset({
+    "activity_id", "activity_type", "completion_policy", "content",
+    "grading_policy", "interaction_policy", "reveal_policy", "submittable",
+})
 READING_AUTHORED_CONTENT_FIELDS = frozenset({
     "module", "passages", "question_material", "questions", "solutions",
     "solutions_visibility", "target_band", "test_id", "title",
@@ -218,6 +222,16 @@ def _grading_identity(value: object) -> str:
         "NFKC", str(value if value is not None else "")
     ).casefold().strip()
     return re.sub(r"[^\w+]+", " ", text, flags=re.UNICODE).strip()
+
+
+def _fixed_choice_answers(question_type: object) -> set[str] | None:
+    """Return the canonical identities for IELTS truth-value question types."""
+    normalized = str(question_type or "").strip().casefold()
+    if re.search(r"\bt\s*/\s*f\s*/\s*ng\b", normalized):
+        return {"true", "false", "not given"}
+    if re.search(r"\by\s*/\s*n\s*/\s*ng\b", normalized):
+        return {"yes", "no", "not given"}
+    return None
 
 
 def _practice_choice(item: dict[str, Any]) -> bool:
@@ -893,6 +907,15 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
             f"found {len(controlled_rewrite)}.",
         )
     for activity in controlled_rewrite:
+        unexpected_fields = sorted(
+            set(activity) - CONTROLLED_REWRITE_AUTHORED_FIELDS
+        )
+        if unexpected_fields:
+            report.add(
+                "error", "CONTROLLED_REWRITE_PRIVATE_FIELD", path,
+                "Controlled rewrite has unexpected activity-level fields: "
+                + ", ".join(unexpected_fields),
+            )
         valid_policy = (
             activity.get("interaction_policy") == "self_check"
             and activity.get("grading_policy") == "self_check"
@@ -1686,6 +1709,29 @@ def _validate_lesson(
                 item.get("answer") if "answer" in item
                 else item.get("answer_index")
             )
+            fixed_answers = _fixed_choice_answers(item.get("question_type"))
+            if fixed_answers is not None:
+                authored_options = item.get("options")
+                option_identities = (
+                    [
+                        _grading_identity(_option_identity(option, index))
+                        for index, option in enumerate(authored_options)
+                    ]
+                    if isinstance(authored_options, list)
+                    else []
+                )
+                if (
+                    input_type != "choice"
+                    or len(option_identities) != len(fixed_answers)
+                    or set(option_identities) != fixed_answers
+                    or _grading_identity(expected) not in fixed_answers
+                ):
+                    report.add(
+                        "error", "QUIZ_FIXED_CHOICE_CONTRACT_MISMATCH", path,
+                        f"Item {item.get('item_id') or '?'} declares "
+                        f"{item.get('question_type')!r} but its selectable "
+                        "options/answer do not use the matching canonical values.",
+                    )
             grading_valid = True
             if input_type == "choice":
                 options = item.get("options")
