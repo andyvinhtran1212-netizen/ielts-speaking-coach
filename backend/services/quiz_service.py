@@ -1503,6 +1503,7 @@ def course_listening_audio(
 def _bank_meta_or_404(
     bank_id: str, user_id: str | None = None, *, allow_submitted_review: bool = False,
     assignment_item_id: str | None = None,
+    allow_expired_timed_review: bool = False,
 ) -> dict:
     """Lightweight published-bank guard: fetch ONLY the bank's own row (id, code,
     is_published) — no questions, no word_cards. Used by start_session, which just
@@ -1528,6 +1529,7 @@ def _bank_meta_or_404(
         item = (_assignment_item_for(
             bank_id, user_id, allow_submitted_review=allow_submitted_review,
             assignment_item_id=assignment_item_id,
+            allow_expired_timed_review=allow_expired_timed_review,
         ) if user_id else None)
         if not item:
             raise HTTPException(404, "Không tìm thấy bank")
@@ -2208,11 +2210,12 @@ def get_course_timer(
     timer_sampled_at = datetime.now(timezone.utc)
     bank = _bank_meta_or_404(
         bank_id, user_id, assignment_item_id=assignment_item_id,
+        allow_expired_timed_review=bool(assignment_item_id),
     )
     if bank.get("skill_area") != COURSE_AREA:
         return {"item_id": None, "timer": None}
 
-    item = (_assignment_item_for(
+    item = (_assignment_item_for_review(
         bank_id, user_id, assignment_item_id=assignment_item_id,
     ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
     return {
