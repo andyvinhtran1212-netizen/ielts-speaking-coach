@@ -219,10 +219,10 @@ def authored_input_map_revision(manifest: dict[str, Any]) -> str:
     """Bind the authored lock to the original path-to-checksum source map.
 
     The owner-approved ``498a…`` revision predates the richer manifest rows and is
-    the canonical digest of the 394 authored course paths plus the repository-owned
-    common-error overlay.  Roles and lesson mappings remain integrity-bound by the
-    enclosing ``source_revision``; they are deliberately not part of this content
-    identity lock.
+    the canonical digest of the 394 lesson-embedded authored paths plus the
+    repository-owned common-error overlay.  Checkpoint review sources, roles, and
+    lesson mappings remain integrity-bound by the enclosing ``source_revision`` and
+    review provenance; they are deliberately not part of this original content lock.
     """
     inputs: dict[str, str] = {}
     for raw in manifest.get("inputs") or []:
@@ -232,6 +232,9 @@ def authored_input_map_revision(manifest: dict[str, Any]) -> str:
         relative = Path(
             str(raw.get("path") or "").replace("\\", "/")
         ).as_posix()
+        if (root_name == "source"
+                and relative.startswith("Vocab_Quiz/Advanced_banks/review/")):
+            continue
         if root_name == "source":
             canonical_path = relative
         elif root_name == "common_error_overrides":

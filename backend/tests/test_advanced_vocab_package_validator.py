@@ -562,6 +562,16 @@ def test_authored_input_lock_uses_owner_approved_path_checksum_map():
                 "lesson_ids": ["ADV-T01"],
             },
             {
+                "root": "source",
+                "path": (
+                    "Vocab_Quiz/Advanced_banks/review/"
+                    "R01_InterleavedReview_T01-T05.md"
+                ),
+                "sha256": "d" * 64,
+                "role": "checkpoint_review",
+                "lesson_ids": ["ADV-T01"],
+            },
+            {
                 "root": "common_error_overrides",
                 "path": "advanced_vocab_common_error_overrides.json",
                 "sha256": override_checksum,
