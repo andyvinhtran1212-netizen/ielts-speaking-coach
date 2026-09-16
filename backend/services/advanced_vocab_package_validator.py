@@ -88,17 +88,109 @@ SOURCE_MANIFEST_NAME = "source-inputs-manifest.json"
 SOURCE_MANIFEST_ROOTS = frozenset({
     "source", "common_error_overrides", "vocab_audio_bundle",
 })
+APPROVED_AUTHORED_INPUT_MAP_SHA256 = (
+    "498a80407e6580c6f04fef6a4a0d34471a3a90eb2bd3ed38d06906e4aa8983b2"
+)
 FIRST_RELEASE_LOCKED_REVISIONS = {
-    "authored_input_map_sha256": (
-        "498a80407e6580c6f04fef6a4a0d34471a3a90eb2bd3ed38d06906e4aa8983b2"
-    ),
+    "authored_input_map_sha256": APPROVED_AUTHORED_INPUT_MAP_SHA256,
     "kokoro_bundle_sha256": (
         "c0495ddac3a1c865d6f07963f11534693f024ba9042eea0ab4b737511fb4c166"
     ),
     "generated_package_sha256": (
-        "968a9dbf37a97f0f403ad5e00dcf3d8ac6406665b3dedcd3cf4392df46d071b3"
+        "c0b8548487e6ea3dcf15456bcc9a47114cd1a4442c73fb57bbd2c51a44fdb5fd"
     ),
 }
+
+_ALL_CORE_LESSONS = tuple(CORE_LESSON_IDS)
+_COMMON_ERROR_LESSONS = (
+    "ADV-T02", "ADV-T03", "ADV-T04", "ADV-T05", "ADV-T08",
+    "ADV-T10", "ADV-T11", "ADV-T14", "ADV-T20",
+)
+
+
+def _topic_lesson_id(relative: str) -> str | None:
+    match = re.search(r"(?:^|[/_-])(T(?:0[1-9]|[12]\d|30))(?:[/_.-]|$)", relative)
+    return f"ADV-{match.group(1)}" if match else None
+
+
+def _expected_input_metadata(
+    root_name: str,
+    relative: str,
+) -> tuple[str, tuple[str, ...] | None] | None:
+    """Return the deterministic first-release role and lesson ownership."""
+    if root_name == "common_error_overrides":
+        if relative == "advanced_vocab_common_error_overrides.json":
+            return "common_error_overrides", _COMMON_ERROR_LESSONS
+        return None
+    if root_name == "vocab_audio_bundle":
+        if relative == "manifest.json":
+            return "vocab_audio_manifest", _ALL_CORE_LESSONS
+        if re.fullmatch(r"clips/[0-9a-f]{64}\.mp3", relative):
+            return "vocab_audio_clip", None
+        return None
+    if root_name != "source":
+        return None
+
+    if relative in {
+        "Advanced/03_Writing/WT1_Question_Bank_Advanced.docx",
+        "Advanced/03_Writing/WT2_Question_Bank_Advanced.docx",
+    }:
+        return "writing_question_bank", _ALL_CORE_LESSONS
+    if relative == "Advanced/03_Writing/WT2_Idea_Bank_Advanced.docx":
+        return "writing_task_2_idea_bank", _ALL_CORE_LESSONS
+
+    review_match = re.fullmatch(
+        r"Vocab_Quiz/Advanced_banks/review/R(0[1-6])_InterleavedReview_"
+        r"T(\d{2})-T(\d{2})\.md",
+        relative,
+    )
+    if review_match:
+        review_number = int(review_match.group(1))
+        expected_start = (review_number - 1) * 5 + 1
+        expected_end = review_number * 5
+        if (int(review_match.group(2)), int(review_match.group(3))) != (
+            expected_start, expected_end,
+        ):
+            return None
+        return "checkpoint_review", tuple(
+            f"ADV-T{number:02d}" for number in range(1, review_number * 5 + 1)
+        )
+
+    lesson_id = _topic_lesson_id(relative)
+    if lesson_id is None:
+        return None
+    lesson_scope = (lesson_id,)
+    if (relative.startswith("_CORRECTED/Advanced/01_Topics_Upgraded/Cluster_C")
+            and relative.endswith("_Advanced_Upgraded.docx")):
+        return "topic_docx", lesson_scope
+    if (relative.startswith("Advanced/05_Assessments/")
+            and relative.endswith("_Assessment_Rewrite_Advanced.docx")):
+        return "controlled_rewrite_assessment", lesson_scope
+    if (relative.startswith("Advanced/06_WT1_Illustrations/")
+            and Path(relative).suffix.lower() in {".png", ".svg"}):
+        return "writing_task_1_illustration", lesson_scope
+    if (relative.startswith("Vocab_Quiz/Advanced_Markdown_Upload/")
+            and re.search(r"_Group[A-C]\.md$", relative)):
+        return "vocabulary_cards", lesson_scope
+    if (relative.startswith("Vocab_Quiz/Advanced_banks/")
+            and relative.endswith("_QuickCheck.md")):
+        return "lesson_quickcheck", lesson_scope
+    if ("/Reading_Lessons_Web/Source_JSON/" in relative
+            and relative.endswith(".json")):
+        return "reading_source", lesson_scope
+    if ("/Listening_Lessons_Web/Source_JSON/" in relative
+            and relative.endswith(".json")):
+        return "listening_source", lesson_scope
+    if "/Listening_Lessons_Web/Figures/" in relative:
+        return "listening_figure", lesson_scope
+    if "/Listening_Lessons_Web/audio_output/" in relative:
+        if relative.endswith("/full_test.mp3"):
+            return "listening_audio", lesson_scope
+        if relative.endswith("/manifest.json"):
+            return "listening_audio_manifest", lesson_scope
+        if relative.endswith("/timings.json"):
+            return "listening_audio_timings", lesson_scope
+    return None
 
 
 def _option_identity(option: object, index: int) -> object:
@@ -216,20 +308,33 @@ def source_manifest_revision(manifest: dict[str, Any]) -> str:
 
 
 def authored_input_map_revision(manifest: dict[str, Any]) -> str:
-    """Bind the authored lock to the normalized non-Kokoro input inventory."""
-    rows: list[dict[str, Any]] = []
+    """Bind the authored lock to the original path-to-checksum source map.
+
+    The owner-approved ``498a…`` revision predates the richer manifest rows and is
+    the canonical digest of the 394 lesson-embedded authored paths plus the
+    repository-owned common-error overlay.  Checkpoint review sources, roles, and
+    lesson mappings remain integrity-bound by the enclosing ``source_revision`` and
+    review provenance; they are deliberately not part of this original content lock.
+    """
+    inputs: dict[str, str] = {}
     for raw in manifest.get("inputs") or []:
         if not isinstance(raw, dict) or raw.get("root") == "vocab_audio_bundle":
             continue
-        rows.append({
-            "root": str(raw.get("root") or ""),
-            "path": Path(str(raw.get("path") or "").replace("\\", "/")).as_posix(),
-            "sha256": str(raw.get("sha256") or "").lower(),
-            "role": str(raw.get("role") or ""),
-            "lesson_ids": sorted(str(item) for item in raw.get("lesson_ids") or []),
-        })
-    rows.sort(key=lambda row: (row["root"], row["path"]))
-    return _canonical_checksum({"inputs": rows})
+        root_name = str(raw.get("root") or "")
+        relative = Path(
+            str(raw.get("path") or "").replace("\\", "/")
+        ).as_posix()
+        if (root_name == "source"
+                and relative.startswith("Vocab_Quiz/Advanced_banks/review/")):
+            continue
+        if root_name == "source":
+            canonical_path = relative
+        elif root_name == "common_error_overrides":
+            canonical_path = f"repo://backend/data/{relative}"
+        else:
+            canonical_path = f"{root_name}://{relative}"
+        inputs[canonical_path] = str(raw.get("sha256") or "").lower()
+    return _canonical_checksum(inputs)
 
 
 def generated_package_revision(manifest: dict[str, Any]) -> str:
@@ -288,6 +393,12 @@ def validate_source_inputs_manifest(
                    "inputs must be a non-empty array.")
         inputs = []
 
+    strict_metadata = (
+        isinstance(locked, dict)
+        and locked.get("authored_input_map_sha256")
+        == APPROVED_AUTHORED_INPUT_MAP_SHA256
+    )
+
     declared: dict[tuple[str, str], str] = {}
     for index, row in enumerate(inputs):
         if not isinstance(row, dict):
@@ -313,7 +424,8 @@ def validate_source_inputs_manifest(
         if not SHA256_RE.fullmatch(checksum):
             report.add("error", "SOURCE_INPUT_CHECKSUM_INVALID", path,
                        f"Invalid SHA-256 for {root_name}:{relative}.")
-        if not str(row.get("role") or "").strip():
+        role = str(row.get("role") or "").strip()
+        if not role:
             report.add("error", "SOURCE_INPUT_ROLE_MISSING", path,
                        f"Missing role for {root_name}:{relative}.")
         lesson_ids = row.get("lesson_ids")
@@ -321,6 +433,36 @@ def validate_source_inputs_manifest(
                 or any(str(item) not in CORE_LESSON_SET for item in lesson_ids)):
             report.add("error", "SOURCE_INPUT_LESSONS_INVALID", path,
                        f"lesson_ids for {root_name}:{relative} must use ADV-T01..ADV-T30.")
+        if strict_metadata:
+            expected_metadata = _expected_input_metadata(root_name, relative)
+            if expected_metadata is None:
+                report.add(
+                    "error", "SOURCE_INPUT_METADATA_UNSUPPORTED", path,
+                    f"No first-release metadata mapping exists for {root_name}:{relative}.",
+                )
+            else:
+                expected_role, expected_lessons = expected_metadata
+                if role != expected_role:
+                    report.add(
+                        "error", "SOURCE_INPUT_ROLE_MISMATCH", path,
+                        f"{root_name}:{relative} role must be {expected_role!r}.",
+                    )
+                normalized_lessons = (
+                    tuple(sorted(str(item) for item in lesson_ids))
+                    if isinstance(lesson_ids, list) else ()
+                )
+                if (len(normalized_lessons) != len(set(normalized_lessons))
+                        or (expected_lessons is None and not normalized_lessons)):
+                    report.add(
+                        "error", "SOURCE_INPUT_LESSONS_MISMATCH", path,
+                        f"{root_name}:{relative} needs unique non-empty lesson ownership.",
+                    )
+                elif (expected_lessons is not None
+                        and normalized_lessons != expected_lessons):
+                    report.add(
+                        "error", "SOURCE_INPUT_LESSONS_MISMATCH", path,
+                        f"{root_name}:{relative} lesson_ids do not match its canonical scope.",
+                    )
         declared[key] = checksum
 
     authored_lock = (
@@ -350,6 +492,45 @@ def validate_source_inputs_manifest(
     resolved_roots = {
         name: Path(value).expanduser().resolve() for name, value in roots.items()
     }
+    if strict_metadata:
+        audio_root = resolved_roots.get("vocab_audio_bundle")
+        audio_manifest_path = audio_root / "manifest.json" if audio_root else None
+        if audio_manifest_path is not None and audio_manifest_path.is_file():
+            audio_manifest = _read_json(audio_manifest_path, report) or {}
+            expected_clip_lessons: dict[str, set[str]] = {}
+            cards = audio_manifest.get("cards")
+            if not isinstance(cards, dict):
+                report.add(
+                    "error", "VOCAB_AUDIO_CARDS_INVALID", audio_manifest_path,
+                    "Kokoro manifest cards must be an object keyed by lesson_lexeme_id.",
+                )
+                cards = {}
+            for card_id, card in cards.items():
+                if not isinstance(card, dict):
+                    continue
+                lesson_id = str(card_id).split("__", 1)[0]
+                for clip in (card.get("headword"), card.get("example")):
+                    if not isinstance(clip, dict):
+                        continue
+                    clip_id = str(clip.get("clip_id") or "")
+                    if clip_id:
+                        expected_clip_lessons.setdefault(
+                            f"clips/{clip_id}.mp3", set()
+                        ).add(lesson_id)
+            for row in inputs:
+                if (not isinstance(row, dict)
+                        or row.get("root") != "vocab_audio_bundle"
+                        or not str(row.get("path") or "").startswith("clips/")):
+                    continue
+                relative = str(row.get("path") or "")
+                actual_lessons = sorted(str(item) for item in row.get("lesson_ids") or [])
+                expected_lessons = sorted(expected_clip_lessons.get(relative, set()))
+                if actual_lessons != expected_lessons:
+                    report.add(
+                        "error", "SOURCE_INPUT_LESSONS_MISMATCH", path,
+                        f"vocab_audio_bundle:{relative} lesson_ids do not match "
+                        "the locked Kokoro card map.",
+                    )
     actual: set[tuple[str, str]] = set()
     for root_name, root_patterns in patterns.items():
         root = resolved_roots.get(root_name)
@@ -1195,6 +1376,11 @@ def _validate_package_source_provenance(
                    root / "course-manifest.json",
                    "Package source_revision must match source-inputs-manifest.json.")
     declared = _source_input_map(source_manifest)
+    source_rows = {
+        (str(row.get("root") or ""), str(row.get("path") or "")): row
+        for row in source_manifest.get("inputs") or [] if isinstance(row, dict)
+    }
+    used_vocab_clip_lessons: dict[str, set[str]] = {}
     supplements = package_manifest.get("content_supplements")
     supplements = supplements if isinstance(supplements, dict) else {}
     common_errors = supplements.get("common_errors")
@@ -1261,6 +1447,29 @@ def _validate_package_source_provenance(
                         f"{vocab.get('lesson_lexeme_id')} {ref_field} is absent or "
                         "mismatched in the Kokoro input manifest.",
                     )
+                elif lesson.get("lesson_id") in CORE_LESSON_SET:
+                    used_vocab_clip_lessons.setdefault(
+                        f"clips/{clip_name}", set()
+                    ).add(str(lesson["lesson_id"]))
+    locked = source_manifest.get("locked_revisions") or {}
+    if (isinstance(locked, dict)
+            and locked.get("authored_input_map_sha256")
+            == APPROVED_AUTHORED_INPUT_MAP_SHA256):
+        declared_clips = {
+            relative: row
+            for (root_name, relative), row in source_rows.items()
+            if root_name == "vocab_audio_bundle" and relative.startswith("clips/")
+        }
+        for relative, row in declared_clips.items():
+            actual_lessons = sorted(str(item) for item in row.get("lesson_ids") or [])
+            expected_lessons = sorted(used_vocab_clip_lessons.get(relative, set()))
+            if actual_lessons != expected_lessons:
+                report.add(
+                    "error", "VOCAB_AUDIO_INPUT_LESSONS_MISMATCH",
+                    root / SOURCE_MANIFEST_NAME,
+                    f"vocab_audio_bundle:{relative} lesson_ids do not match "
+                    "the lessons that reference the clip.",
+                )
     for review_path, review in reviews:
         provenance = review.get("provenance") or {}
         relative = str(provenance.get("source_path") or "")
