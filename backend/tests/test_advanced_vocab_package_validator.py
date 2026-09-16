@@ -1437,6 +1437,40 @@ def test_selectable_items_require_compatible_grading_contracts(tmp_path: Path):
     )
 
 
+def test_selectable_fixed_choice_metadata_requires_matching_contract(
+        tmp_path: Path):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    lexeme = lesson["vocabulary"][0]["lexeme_id"]
+    item = {
+        "item_id": "ADV-T01-fixed-choice", "lexeme_id": lexeme,
+        "type": "mcq", "input": "choice", "question_type": "Y/N/NG",
+        "answer": "A", "prompt": "Is the claim supported?",
+        "options": [
+            {"key": "A", "text": "YES"},
+            {"key": "B", "text": "NO"},
+        ],
+    }
+    lesson["adaptive_quiz"]["items"].append(item)
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    report = validate_package(tmp_path)
+
+    assert report.publish_ready is False
+    assert "QUIZ_FIXED_CHOICE_CONTRACT_MISMATCH" in _codes(report)
+
+    item["answer"] = "YES"
+    item["options"] = [
+        {"key": "YES", "text": "YES"},
+        {"key": "NO", "text": "NO"},
+        {"key": "NOT GIVEN", "text": "NOT GIVEN"},
+    ]
+    _rewrite_lesson_with_checksums(tmp_path, lesson)
+
+    assert validate_package(tmp_path).publish_ready is True
+
+
 def test_selectable_prompts_and_non_choice_options_fail_closed(tmp_path: Path):
     _write_package(tmp_path)
     path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"

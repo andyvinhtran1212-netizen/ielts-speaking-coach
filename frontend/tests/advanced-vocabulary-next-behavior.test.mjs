@@ -51,12 +51,18 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.match(UI, /disabled=\{busy \|\| answerMissing\}/);
   });
 
-  test('canonical IELTS truth-value controls win over stray authored options', () => {
+  test('canonical IELTS truth-value controls are scoped to section questions', () => {
     const truthBranch = UI.indexOf("/T\\/F\\/NG/i.test");
     const opinionBranch = UI.indexOf("/Y\\/N\\/NG/i.test");
     const genericOptions = UI.indexOf('question.options?.length');
     assert.ok(truthBranch >= 0 && truthBranch < genericOptions);
     assert.ok(opinionBranch >= 0 && opinionBranch < genericOptions);
+    assert.match(UI, /fixedChoiceMode = false/);
+    assert.match(UI, /fixedChoiceMode && \/T\\\/F\\\/NG\/i\.test/);
+    assert.match(UI, /fixedChoiceMode && \/Y\\\/N\\\/NG\/i\.test/);
+    assert.match(UI, /disabled=\{!!result\} fixedChoiceMode/);
+    assert.match(UI, /disabled=\{Boolean\(result\) && !needsRetry\} fixedChoiceMode/);
+    assert.match(UI, /value=\{answer\} onChange=\{setAnswer\} disabled=\{!!feedback \|\| busy\} \/>/);
     assert.match(UI, /\['YES', 'NO', 'NOT GIVEN'\]/);
   });
 
