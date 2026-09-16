@@ -30,6 +30,7 @@ import pytest
 
 from services.class_assignment_service import (
     CLASS_TZ,
+    CourseBankChangedError,
     EmptyRosterError,
     TaskMismatchError,
     attach_session_to_class_item,
@@ -366,6 +367,21 @@ def test_empty_roster_creates_nothing_at_all():
         create_class_assignment(db, cohort_id=COHORT, skill="speaking", title="x")
     assert db.store.get("class_assignments") is None, "an orphan give was inserted"
     assert db.store.get("class_assignment_items") is None
+
+
+def test_course_bank_revision_mismatch_is_a_typed_retryable_error():
+    class _ChangedRPC:
+        def execute(self):
+            raise RuntimeError("course_bank_revision_mismatch")
+
+    db = type("ChangedDB", (), {
+        "rpc": lambda self, _name, _params: _ChangedRPC(),
+    })()
+    with pytest.raises(CourseBankChangedError):
+        create_class_assignment(
+            db, cohort_id=COHORT, skill="course", title="Midterm",
+            content_id="bank-1", content_config={"bank_revision": "rev-old"},
+        )
 
 
 def test_exam_scope_and_assignment_succeed_together():

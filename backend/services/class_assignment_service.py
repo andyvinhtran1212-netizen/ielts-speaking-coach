@@ -43,7 +43,7 @@ failure mode the project rules forbid.
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -68,6 +68,11 @@ _PAGE = 1000   # PostgREST's implicit ceiling — see services/class_service.py
 # front of it) rejects the request before pagination ever runs. Same split, same
 # reason, as _ID_CHUNK in services/mock_exam_service.py.
 _ID_CHUNK = 100
+
+# Course assessments may use a per-student elapsed-time limit.  Keep this in
+# step with the quiz session duration ceiling so every allowed limit can be
+# represented by the evidence ledger.
+MAX_COURSE_TIME_LIMIT_MINUTES = 12 * 60
 
 
 def parse_due_time(raw: Optional[str]) -> time:
@@ -210,6 +215,10 @@ def create_class_assignment(
     except Exception as exc:
         if "empty_roster" in str(exc):
             raise EmptyRosterError("Lớp này chưa có học viên nào để giao bài.")
+        if "course_bank_revision_mismatch" in str(exc):
+            raise CourseBankChangedError(
+                "Bộ bài tập vừa được cập nhật. Hãy tải lại và giao bản mới nhất."
+            ) from exc
         if "web_explanation_paper_requires_q01_q40" in str(exc):
             raise ExplanationApprovalError(
                 "Chỉ bật web explanation khi đề có đủ đúng 40 objects từ Q1 đến Q40."
@@ -557,7 +566,7 @@ def change_assignment_due_at(
     Cho tới nay không có đường nào trong sản phẩm làm việc này: ngày 07/08 muốn
     dời hạn Grammar 1 phải viết SQL rồi chạy tay trên máy chủ thật.
 
-    Hai chốt, và cả hai đều học từ chính lần chạy tay ấy:
+    Ba chốt, và cả ba đều học từ các đường ghi thật:
 
     · SO SÁNH RỒI ĐỔI. Người gọi phải nêu hạn mà MÀN HÌNH ĐANG HIỆN. Lệnh
       `UPDATE` chỉ nêu id thì nó ghi đè bất kể giá trị đang có — và giữa lúc mở
@@ -569,9 +578,15 @@ def change_assignment_due_at(
       cho tới khi người gọi xác nhận tường minh. Kịch bản chạy tay hôm 07/08
       cũng có đúng chốt này, và nó xanh vì lớp ấy không có ai nộp trễ — chốt
       đúng không phải vì nó im, mà vì nó đã đếm.
+
+    · ĐỒNG HỒ ĐÃ CHẠY THÌ HẠN ĐỨNG YÊN. Với Course có giới hạn thời gian,
+      `due_at` là một nửa của cutoff cá nhân (nửa kia là `opened_at + limit`).
+      Đổi nó sau lúc mở bài làm browser và server có thể kết luận khác nhau.
+      Migration 272 còn giữ chốt này trong database để lần bắt đầu đồng thời
+      với lần đổi hạn không lọt qua khe giữa hai request.
     """
     rows = (db.table("class_assignments")
-            .select("id, cohort_id, due_at, status, title")
+            .select("id, cohort_id, due_at, status, title, skill, content_config")
             .eq("id", assignment_id).limit(1).execute().data) or []
     if not rows or rows[0].get("cohort_id") != cohort_id:
         raise DueChangeRefused("Không tìm thấy bài giao của lớp này.")
@@ -591,10 +606,27 @@ def change_assignment_due_at(
         raise DueChangeRefused("Hạn mới giống hệt hạn đang có — không có gì để đổi.")
 
     submitted: List[str] = []
-    for chunk in _paged(db, "class_assignment_items", "id, submitted_at",
+    opened_count = 0
+    for chunk in _paged(db, "class_assignment_items", "id, submitted_at, opened_at",
                         lambda q: q.eq("assignment_id", assignment_id)):
         if chunk.get("submitted_at"):
             submitted.append(chunk["submitted_at"])
+        if chunk.get("opened_at"):
+            opened_count += 1
+
+    cfg = asg.get("content_config") or {}
+    timed_course = bool(
+        asg.get("skill") == "course"
+        and isinstance(cfg, dict)
+        and cfg.get("time_limit_minutes") is not None
+    )
+    if timed_course and opened_count:
+        raise DueChangeRefused(
+            "Không thể đổi hạn của bài kiểm tra có giới hạn thời gian sau khi "
+            "học viên đã bắt đầu.",
+            {"timed_started": True, "opened_count": opened_count,
+             "current_due_at": old_raw},
+        )
 
     flips = _flips(submitted, old_due, new_due)
     if flips["to_ontime"] or flips["to_late"]:
@@ -628,7 +660,19 @@ def change_assignment_due_at(
     # Nêu hạn CŨ trong điều kiện — 0 dòng nghĩa là tiền đề sai, và đúng lúc ấy
     # phải dừng chứ không ghi tiếp.
     q = q.is_("due_at", "null") if old_raw is None else q.eq("due_at", old_raw)
-    res = q.execute()
+    try:
+        res = q.execute()
+    except Exception as exc:
+        # Preflight phía trên cho thông báo sớm; trigger migration 272 là chốt
+        # chống race nếu một em mở bài ngay sau lần đọc ấy.
+        if "timed_course_due_locked_after_start" in str(exc):
+            raise DueChangeRefused(
+                "Không thể đổi hạn của bài kiểm tra có giới hạn thời gian sau "
+                "khi học viên đã bắt đầu.",
+                {"timed_started": True, "current_due_at": old_raw,
+                 "conflict": True},
+            ) from exc
+        raise
     if not (res.data or []):
         raise DueChangeRefused(
             "Hạn vừa đổi ở nơi khác. Tải lại bảng rồi thử lại.",
@@ -843,6 +887,10 @@ class AssignmentNotFoundError(Exception):
 
 class EmptyRosterError(Exception):
     """The class has no students, so the give would reach nobody."""
+
+
+class CourseBankChangedError(Exception):
+    """The Course bank changed between admin preflight and atomic creation."""
 
 
 class ExplanationApprovalError(Exception):
@@ -1120,6 +1168,71 @@ def _at(value: Optional[str]) -> Optional[datetime]:
         logger.warning("[class] unparseable timestamp %r", value)
         return None
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def assignment_timer_state(
+    item: Optional[Dict[str, Any]], assignment: Optional[Dict[str, Any]],
+    *, now: Optional[datetime] = None,
+) -> Dict[str, Any]:
+    """Derive a Course timer from the assignment snapshot and ``opened_at``.
+
+    The browser never supplies either boundary: the admin's limit is stored in
+    ``content_config`` and the per-student start is the existing ledger fact.
+    """
+    cfg = (assignment or {}).get("content_config") or {}
+    started = _at((item or {}).get("opened_at"))
+    snapshot_limit = (item or {}).get("timed_limit_minutes")
+    snapshot_expires = _at((item or {}).get("timed_expires_at"))
+    # Migration 280 snapshots the duration and effective cutoff in the same
+    # row transition that sets opened_at. Prefer those immutable values once
+    # the clock has started; the config fallback keeps rolling deploys and
+    # pre-migration fixtures readable until the backfill is visible everywhere.
+    raw = (snapshot_limit if started is not None and snapshot_limit is not None
+           else cfg.get("time_limit_minutes"))
+    if raw is None:
+        return {
+            "is_timed": False, "time_limit_minutes": None,
+            "started_at": None, "expires_at": None,
+            "time_remaining_seconds": None, "is_expired": False,
+        }
+    if isinstance(raw, bool):
+        limit = 0
+    else:
+        try:
+            limit = int(raw)
+        except (TypeError, ValueError):
+            limit = 0
+    if not 1 <= limit <= MAX_COURSE_TIME_LIMIT_MINUTES:
+        current = now or datetime.now(timezone.utc)
+        return {
+            "is_timed": True, "time_limit_minutes": limit or None,
+            "started_at": None, "expires_at": None,
+            "time_remaining_seconds": 0, "is_expired": True,
+            "sampled_at": current.isoformat(), "invalid": True,
+        }
+
+    current = now or datetime.now(timezone.utc)
+    if started is None:
+        return {
+            "is_timed": True, "time_limit_minutes": limit,
+            "started_at": None, "expires_at": None,
+            "time_remaining_seconds": limit * 60, "is_expired": False,
+            "sampled_at": current.isoformat(),
+        }
+    configured_expires = started + timedelta(minutes=limit)
+    # A class deadline is an equally canonical boundary.  When a learner opens
+    # a 60-minute assessment ten minutes before ``due_at``, the effective clock
+    # is ten minutes — never an hour that silently extends the assignment.
+    due = _at((assignment or {}).get("due_at"))
+    expires = snapshot_expires or (
+        min(configured_expires, due) if due is not None else configured_expires
+    )
+    return {
+        "is_timed": True, "time_limit_minutes": limit,
+        "started_at": started.isoformat(), "expires_at": expires.isoformat(),
+        "time_remaining_seconds": max(0, int((expires - current).total_seconds())),
+        "is_expired": expires <= current, "sampled_at": current.isoformat(),
+    }
 
 
 def reconcile_test_attempts(db, assignments: List[Dict[str, Any]]) -> int:

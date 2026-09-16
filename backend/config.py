@@ -1,4 +1,6 @@
 from functools import lru_cache
+
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -240,6 +242,13 @@ class Settings(BaseSettings):
     RETAKE_REAPER_ENABLED: bool = True
     RETAKE_REAPER_INTERVAL_SECONDS: int = 60
     RETAKE_REAPER_GRACE_SECONDS: int = 30
+    # Timed Course quiz backstop: closes and grades an expired assessment even
+    # when the learner's browser disappears before its countdown callback runs.
+    COURSE_TIMER_REAPER_ENABLED: bool = True
+    COURSE_TIMER_REAPER_INTERVAL_SECONDS: int = 60
+    # Migration 274/275 accepts browser final batches for exactly 15 seconds.
+    # Never let the background reaper take ownership before that DB window.
+    COURSE_TIMER_REAPER_GRACE_SECONDS: int = Field(default=15, ge=15)
     WRITING_STUCK_JOB_TIMEOUT_SECONDS: int = 360        # standard tier
     WRITING_STUCK_JOB_TIMEOUT_DEEP_SECONDS: int = 600   # deep tier (3 passes)
     WRITING_GRADING_MAX_ATTEMPTS: int = 3

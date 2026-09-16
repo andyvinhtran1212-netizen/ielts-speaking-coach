@@ -38,6 +38,14 @@ class _Table:
         self._rows = [r for r in self._rows if str(r.get(f)) == str(v)]
         return self
 
+    def is_(self, f, v):
+        # Supabase ``is_(col, "null")`` is the compare-and-set predicate used
+        # when a session is finalized.  Keep this fake honest: a terminal row
+        # must no longer match a second finalization attempt.
+        if v == "null":
+            self._rows = [r for r in self._rows if r.get(f) is None]
+        return self
+
     @property
     def not_(self):
         # `not_.is_(col, "null")` = cột KHÁC NULL. Thiếu nó thì lượt đếm chặng
@@ -72,7 +80,11 @@ class _Table:
         row.setdefault("id", "sess-1")
         self._db.inserted.append(row)
         return _Op(_Resp([row]))
-    def execute(self): return _Resp(self._rows)
+    def execute(self):
+        if hasattr(self, "_patch"):
+            for row in self._rows:
+                row.update(self._patch)
+        return _Resp(self._rows)
 
 
 class _Op:
@@ -83,7 +95,8 @@ class _Op:
 def _db(**tables):
     db = type("DB", (), {})()
     db.inserted = []
-    db.table = lambda n: _Table(tables.get(n, []), db)
+    db._tables = {name: list(rows) for name, rows in tables.items()}
+    db.table = lambda n: _Table(db._tables.get(n, []), db)
     return db
 
 
@@ -205,6 +218,64 @@ def test_submitted_expired_item_is_pinned_and_exposes_only_completed_snapshot_se
     assert out["mastery"]["item_id"] == "it-old"
     assert out["mastery"]["completed_sections"] == ["quiz"]
     assert out["mastery"]["section_counts"] == {"quiz": 1}
+
+
+def test_expired_timed_item_without_verdict_exposes_truthful_pending_state():
+    expired = {
+        **_LIVE_ASG,
+        "due_at": "2999-01-01T00:00:00Z",
+        "content_config": {"time_limit_minutes": 30},
+    }
+    db = _db(
+        quiz_banks=[_COURSE_BANK],
+        quiz_questions=[{"id": "q1", "bank_id": "bank-course", "order": 0,
+                         "type": "mcq", "item_key": "x"}],
+        class_assignments=[expired], students=[_STUDENT],
+        class_assignment_items=[{
+            "id": "it-pending", "assignment_id": "asg-1", "student_id": "st-1",
+            "opened_at": "2020-01-01T00:00:00Z", "submitted_at": None,
+            "passed_at": None, "mastery": None,
+        }],
+    )
+    with patch.object(mod, "supabase_admin", db), \
+         patch.object(mod, "_word_cards_for", lambda *_a, **_k: []), \
+         patch.object(mod, "_attach_article_urls", lambda *_a, **_k: None), \
+         patch.object(mod, "_resolve_question_audio", lambda *_a, **_k: None):
+        out = mod.get_bank_for_play(
+            "bank-course", user_id="u1", assignment_item_id="it-pending")
+    assert out["mastery"]["review_only"] is True
+    assert out["mastery"]["expiry_pending"] is True
+    assert out["mastery"]["course_action"] == "expired_pending"
+
+
+def test_expired_timed_item_at_assignment_deadline_still_shows_pending_state():
+    """When due_at is the cutoff, reload must not turn pending into a 404."""
+    expired = {
+        **_LIVE_ASG,
+        "due_at": "2020-01-01T00:30:00Z",
+        "content_config": {"time_limit_minutes": 60},
+    }
+    db = _db(
+        quiz_banks=[_COURSE_BANK],
+        quiz_questions=[{"id": "q1", "bank_id": "bank-course", "order": 0,
+                         "type": "mcq", "item_key": "x"}],
+        class_assignments=[expired], students=[_STUDENT],
+        class_assignment_items=[{
+            "id": "it-due-pending", "assignment_id": "asg-1", "student_id": "st-1",
+            "opened_at": "2020-01-01T00:00:00Z", "submitted_at": None,
+            "passed_at": None, "mastery": None,
+        }],
+    )
+    with patch.object(mod, "supabase_admin", db), \
+         patch.object(mod, "_word_cards_for", lambda *_a, **_k: []), \
+         patch.object(mod, "_attach_article_urls", lambda *_a, **_k: None), \
+         patch.object(mod, "_resolve_question_audio", lambda *_a, **_k: None):
+        out = mod.get_bank_for_play(
+            "bank-course", user_id="u1", assignment_item_id="it-due-pending")
+    assert out["mastery"]["review_only"] is True
+    assert out["mastery"]["expiry_pending"] is True
+    assert out["mastery"]["course_action"] == "expired_pending"
+    assert out["mastery"]["expires_at"] == "2020-01-01T00:30:00+00:00"
 
 
 def test_submitted_incomplete_item_is_writable_again_while_deadline_accepts():
@@ -354,6 +425,33 @@ def test_an_ARCHIVED_assignment_closes_the_door():
     assert exc.value.status_code == 404
 
 
+@pytest.mark.parametrize("status", ["published", "archived"])
+def test_detached_timed_item_is_visible_only_to_internal_expiry_finalizer(status):
+    assignment = {
+        **_LIVE_ASG, "status": status,
+        "content_config": {"time_limit_minutes": 30},
+    }
+    db = _db(
+        class_assignments=[assignment], students=[_STUDENT],
+        class_assignment_items=[{
+            "id": "it-1", "assignment_id": "asg-1", "student_id": "st-1",
+            "opened_at": "2020-01-01T00:00:00+00:00",
+        }],
+    )
+    with patch.object(mod, "supabase_admin", db), \
+         patch.object(mod, "active_cohort_ids_for_student", return_value=set()):
+        assert mod._assignment_item_for(
+            "bank-course", "u1", assignment_item_id="it-1",
+            allow_expired_timed_finalize=True,
+        ) is None
+        item = mod._assignment_item_for(
+            "bank-course", "u1", assignment_item_id="it-1",
+            allow_expired_timed_finalize=True,
+            allow_reaper_finalize=True,
+        )
+    assert item and item["id"] == "it-1"
+
+
 def test_an_assignment_PAST_ITS_DEADLINE_closes_the_door():
     """Đề kèm đáp án. Để mở sau hạn nghĩa là phát đáp án cho bài vừa chốt sổ."""
     with pytest.raises(HTTPException) as exc:
@@ -383,6 +481,28 @@ def test_a_LIVE_assignment_still_opens():
          patch.object(mod, "_attach_article_urls", lambda *_a, **_k: None), \
          patch.object(mod, "_resolve_question_audio", lambda *_a, **_k: None):
         assert _play(_assigned())["bank"]["code"] == "C1-B01"
+
+
+def test_timed_bank_read_anchors_clock_and_session_before_releasing_questions():
+    db = _assigned({"content_config": {"time_limit_minutes": 30}})
+    started = "2026-09-15T10:00:00+00:00"
+    with patch.object(mod, "_ensure_timed_course_session",
+                      return_value=({
+                          "id": "it-1", "assignment_id": "asg-1",
+                          "student_id": "st-1", "opened_at": started,
+                          "content_config": {"time_limit_minutes": 30},
+                      }, "sess-first")) as anchor, \
+         patch.object(mod, "_word_cards_for", lambda *_a, **_k: []), \
+         patch.object(mod, "_attach_article_urls", lambda *_a, **_k: None), \
+         patch.object(mod, "_resolve_question_audio", lambda *_a, **_k: None):
+        out = _play(db)
+    anchor.assert_called_once_with(
+        anchor.call_args.args[0], user_id="u1", bank_id="bank-course",
+        code="C1-B01", kind="run", allow_expired_existing=True,
+    )
+    assert out["questions"], "không được phát đề nếu bước anchor không hoàn tất"
+    assert out["mastery"]["started_at"] == started
+    assert out["mastery"]["initial_session_id"] == "sess-first"
 
 
 # ── Hai cổng cho cùng một bank phải nói CÙNG MỘT CÂU ─────────────────────────
@@ -477,6 +597,9 @@ def _end(db, *, item_id="it-1", ended_by="completed", total=10, correct=8):
     marked = []
     sess = {"id": "sess-1", "user_id": "u1", "bank_id": "bank-course",
             "class_assignment_item_id": item_id}
+    # `_owned_session` below represents a real database read; keep the backing
+    # table in sync so the atomic terminal update can match the same row.
+    db._tables.setdefault("quiz_sessions", []).append(sess)
     with patch.object(mod, "supabase_admin", db), \
          patch.object(mod, "_owned_session", lambda *_a, **_k: sess), \
          patch.object(mod, "mark_item_submitted",
@@ -518,7 +641,7 @@ def test_a_failure_while_marking_does_NOT_break_ending_the_session():
     sess = {"id": "sess-1", "user_id": "u1", "bank_id": "bank-course",
             "class_assignment_item_id": "it-1"}
     db = _db(
-        quiz_sessions=[],
+        quiz_sessions=[sess],
         class_assignment_items=[{"id": "it-1", "assignment_id": "asg-1"}],
         class_assignments=[_LIVE_ASG],
     )
