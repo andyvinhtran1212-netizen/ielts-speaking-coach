@@ -33,9 +33,12 @@
             "source_index": 2,
             "text": "ASSESSMENT REWRITE — T07 LANGUAGE & LINGUISTICS",
             "type": "paragraph"
-          }
-        ],
-        "solutions": [
+          },
+          {
+            "source_index": 3,
+            "text": "Phần A: viết lại câu (12 câu) · Phần B: nâng cấp câu Band 6 → 7 → 8 (8 câu) · kèm đáp án tham khảo",
+            "type": "paragraph"
+          },
           {
             "level": 1,
             "source_index": 4,
@@ -297,7 +300,9 @@
             "source_index": 56,
             "text": "Band 8:",
             "type": "paragraph"
-          },
+          }
+        ],
+        "solutions": [
           {
             "level": 2,
             "source_index": 59,
@@ -8182,9 +8187,12 @@
           "source_index": 2,
           "text": "ASSESSMENT REWRITE — T07 LANGUAGE & LINGUISTICS",
           "type": "paragraph"
-        }
-      ],
-      "solutions": [
+        },
+        {
+          "source_index": 3,
+          "text": "Phần A: viết lại câu (12 câu) · Phần B: nâng cấp câu Band 6 → 7 → 8 (8 câu) · kèm đáp án tham khảo",
+          "type": "paragraph"
+        },
         {
           "level": 1,
           "source_index": 4,
@@ -8446,7 +8454,9 @@
           "source_index": 56,
           "text": "Band 8:",
           "type": "paragraph"
-        },
+        }
+      ],
+      "solutions": [
         {
           "level": 2,
           "source_index": 59,
@@ -10912,7 +10922,7 @@
   "package_type": "advanced_vocabulary_lesson",
   "package_version": "2.3.0",
   "provenance": {
-    "content_checksum": "e7a20a2c5cf8bb517b52d7629dcd18113092b4d23d5be6006d2291127b18048b",
+    "content_checksum": "a804b364c6d4f77e8e2ce171d1656ff5ddb26c7115de874f935a2688c39e30bd",
     "content_supplements": {
       "common_errors": {
         "checksum": "1991740467ad9569f7c9c236e281a442a8bce8896cdd63b9497e36314747fad6",

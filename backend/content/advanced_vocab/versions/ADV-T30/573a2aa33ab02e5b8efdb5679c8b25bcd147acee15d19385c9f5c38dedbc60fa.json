@@ -33,9 +33,12 @@
             "source_index": 2,
             "text": "ASSESSMENT REWRITE — T30 FASHION & DESIGN",
             "type": "paragraph"
-          }
-        ],
-        "solutions": [
+          },
+          {
+            "source_index": 3,
+            "text": "Phần A: viết lại câu (12 câu) · Phần B: nâng cấp câu Band 6 → 7 → 8 (8 câu) · kèm đáp án tham khảo",
+            "type": "paragraph"
+          },
           {
             "level": 1,
             "source_index": 4,
@@ -297,7 +300,9 @@
             "source_index": 56,
             "text": "Band 8:",
             "type": "paragraph"
-          },
+          }
+        ],
+        "solutions": [
           {
             "level": 2,
             "source_index": 59,
@@ -8186,9 +8191,12 @@
           "source_index": 2,
           "text": "ASSESSMENT REWRITE — T30 FASHION & DESIGN",
           "type": "paragraph"
-        }
-      ],
-      "solutions": [
+        },
+        {
+          "source_index": 3,
+          "text": "Phần A: viết lại câu (12 câu) · Phần B: nâng cấp câu Band 6 → 7 → 8 (8 câu) · kèm đáp án tham khảo",
+          "type": "paragraph"
+        },
         {
           "level": 1,
           "source_index": 4,
@@ -8450,7 +8458,9 @@
           "source_index": 56,
           "text": "Band 8:",
           "type": "paragraph"
-        },
+        }
+      ],
+      "solutions": [
         {
           "level": 2,
           "source_index": 59,
@@ -10625,7 +10635,7 @@
   "package_type": "advanced_vocabulary_lesson",
   "package_version": "2.3.0",
   "provenance": {
-    "content_checksum": "4ef49a572154085952912aa55019ebd374e7d2e2c568b261120e0f99285cd635",
+    "content_checksum": "573a2aa33ab02e5b8efdb5679c8b25bcd147acee15d19385c9f5c38dedbc60fa",
     "content_supplements": {
       "common_errors": {
         "checksum": "1991740467ad9569f7c9c236e281a442a8bce8896cdd63b9497e36314747fad6",

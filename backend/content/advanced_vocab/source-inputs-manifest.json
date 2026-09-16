@@ -16397,7 +16397,7 @@
   ],
   "locked_revisions": {
     "authored_input_map_sha256": "498a80407e6580c6f04fef6a4a0d34471a3a90eb2bd3ed38d06906e4aa8983b2",
-    "generated_package_sha256": "c0b8548487e6ea3dcf15456bcc9a47114cd1a4442c73fb57bbd2c51a44fdb5fd",
+    "generated_package_sha256": "d1acfdf50fe1741d9156c9e62cbd4084bbd44b57a524909c45d6301503f7fd7b",
     "kokoro_bundle_sha256": "c0495ddac3a1c865d6f07963f11534693f024ba9042eea0ab4b737511fb4c166"
   },
   "origin": "Product-owner-provided Advanced Vocabulary course export",
@@ -16815,5 +16815,5 @@
   "rights": "Product-owned course material for Aver Learning product use",
   "schema_version": "1.0.0",
   "source_id": "aver-learning-advanced-vocabulary-core30-2026-09-14",
-  "source_revision": "3454bd0ec5db7a040e264ed5a8bb2f3a8e25f168ca588b3cb92ce82884c0826d"
+  "source_revision": "7a5d9a5331cf011367162543e4a40ef3e89e079682607804bfa3d3522df72fff"
 }
