@@ -216,20 +216,30 @@ def source_manifest_revision(manifest: dict[str, Any]) -> str:
 
 
 def authored_input_map_revision(manifest: dict[str, Any]) -> str:
-    """Bind the authored lock to the normalized non-Kokoro input inventory."""
-    rows: list[dict[str, Any]] = []
+    """Bind the authored lock to the original path-to-checksum source map.
+
+    The owner-approved ``498a…`` revision predates the richer manifest rows and is
+    the canonical digest of the 394 authored course paths plus the repository-owned
+    common-error overlay.  Roles and lesson mappings remain integrity-bound by the
+    enclosing ``source_revision``; they are deliberately not part of this content
+    identity lock.
+    """
+    inputs: dict[str, str] = {}
     for raw in manifest.get("inputs") or []:
         if not isinstance(raw, dict) or raw.get("root") == "vocab_audio_bundle":
             continue
-        rows.append({
-            "root": str(raw.get("root") or ""),
-            "path": Path(str(raw.get("path") or "").replace("\\", "/")).as_posix(),
-            "sha256": str(raw.get("sha256") or "").lower(),
-            "role": str(raw.get("role") or ""),
-            "lesson_ids": sorted(str(item) for item in raw.get("lesson_ids") or []),
-        })
-    rows.sort(key=lambda row: (row["root"], row["path"]))
-    return _canonical_checksum({"inputs": rows})
+        root_name = str(raw.get("root") or "")
+        relative = Path(
+            str(raw.get("path") or "").replace("\\", "/")
+        ).as_posix()
+        if root_name == "source":
+            canonical_path = relative
+        elif root_name == "common_error_overrides":
+            canonical_path = f"repo://backend/data/{relative}"
+        else:
+            canonical_path = f"{root_name}://{relative}"
+        inputs[canonical_path] = str(raw.get("sha256") or "").lower()
+    return _canonical_checksum(inputs)
 
 
 def generated_package_revision(manifest: dict[str, Any]) -> str:

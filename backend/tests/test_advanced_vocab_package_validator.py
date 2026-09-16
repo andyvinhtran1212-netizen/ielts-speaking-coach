@@ -549,6 +549,53 @@ def test_source_manifest_lock_rejects_recomputed_substituted_input(tmp_path: Pat
     assert "AUTHORED_INPUT_MAP_REVISION_MISMATCH" in _codes(report)
 
 
+def test_authored_input_lock_uses_owner_approved_path_checksum_map():
+    authored_checksum = "a" * 64
+    override_checksum = "b" * 64
+    manifest = {
+        "inputs": [
+            {
+                "root": "source",
+                "path": "Advanced/lesson.docx",
+                "sha256": authored_checksum,
+                "role": "topic_docx",
+                "lesson_ids": ["ADV-T01"],
+            },
+            {
+                "root": "common_error_overrides",
+                "path": "advanced_vocab_common_error_overrides.json",
+                "sha256": override_checksum,
+                "role": "common_error_overrides",
+                "lesson_ids": ["ADV-T01"],
+            },
+            {
+                "root": "vocab_audio_bundle",
+                "path": "manifest.json",
+                "sha256": "c" * 64,
+                "role": "vocab_audio_manifest",
+                "lesson_ids": ["ADV-T01"],
+            },
+        ],
+    }
+    expected = hashlib.sha256(json.dumps(
+        {
+            "Advanced/lesson.docx": authored_checksum,
+            "repo://backend/data/advanced_vocab_common_error_overrides.json": (
+                override_checksum
+            ),
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")).hexdigest()
+
+    assert authored_input_map_revision(manifest) == expected
+
+    manifest["inputs"][0]["role"] = "renamed_metadata_role"
+    manifest["inputs"][0]["lesson_ids"] = ["ADV-T02"]
+    assert authored_input_map_revision(manifest) == expected
+
+
 def test_source_manifest_rejects_undeclared_release_input(tmp_path: Path):
     manifest, source = _write_source_manifest_fixture(tmp_path)
     (source / "T02.docx").write_bytes(b"undeclared")
