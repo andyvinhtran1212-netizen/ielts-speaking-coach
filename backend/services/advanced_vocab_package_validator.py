@@ -51,6 +51,15 @@ READING_AUTHORED_CONTENT_FIELDS = frozenset({
 READING_LEARNER_PASSAGE_FIELDS = frozenset({
     "paragraph", "passage_number", "text", "title",
 })
+READING_LEARNER_QUESTION_FIELDS = frozenset({
+    "options", "question_number", "question_type", "source_question_number", "stem",
+})
+READING_PRIVATE_QUESTION_FIELDS = frozenset({
+    "accepted_variants", "answer", "answer_code", "answer_label", "correction",
+    "correction_reason", "distractor_analysis", "evidence",
+    "evidence_correction_reason", "evidence_kind", "explanation", "solution",
+    "source_answer", "source_evidence", "source_stem", "trap_analysis",
+})
 LISTENING_LEARNER_QUESTION_FIELDS = frozenset({
     "question_number", "question_type", "stem", "options",
 })
@@ -195,6 +204,31 @@ def source_manifest_revision(manifest: dict[str, Any]) -> str:
     return _canonical_checksum(clone)
 
 
+def authored_input_map_revision(manifest: dict[str, Any]) -> str:
+    """Bind the authored lock to the normalized non-Kokoro input inventory."""
+    rows: list[dict[str, Any]] = []
+    for raw in manifest.get("inputs") or []:
+        if not isinstance(raw, dict) or raw.get("root") == "vocab_audio_bundle":
+            continue
+        rows.append({
+            "root": str(raw.get("root") or ""),
+            "path": Path(str(raw.get("path") or "").replace("\\", "/")).as_posix(),
+            "sha256": str(raw.get("sha256") or "").lower(),
+            "role": str(raw.get("role") or ""),
+            "lesson_ids": sorted(str(item) for item in raw.get("lesson_ids") or []),
+        })
+    rows.sort(key=lambda row: (row["root"], row["path"]))
+    return _canonical_checksum({"inputs": rows})
+
+
+def generated_package_revision(manifest: dict[str, Any]) -> str:
+    """Hash generated identity without the source-lock dependency cycle."""
+    clone = json.loads(json.dumps(manifest, ensure_ascii=False))
+    clone.pop("package_checksum", None)
+    clone.pop("source_revision", None)
+    return _canonical_checksum(clone)
+
+
 def validate_source_inputs_manifest(
     manifest_path: str | Path,
     *,
@@ -277,6 +311,16 @@ def validate_source_inputs_manifest(
             report.add("error", "SOURCE_INPUT_LESSONS_INVALID", path,
                        f"lesson_ids for {root_name}:{relative} must use ADV-T01..ADV-T30.")
         declared[key] = checksum
+
+    authored_lock = (
+        str(locked.get("authored_input_map_sha256") or "")
+        if isinstance(locked, dict) else ""
+    )
+    if authored_lock and authored_lock != authored_input_map_revision(manifest):
+        report.add(
+            "error", "AUTHORED_INPUT_MAP_REVISION_MISMATCH", path,
+            "The authored-input-map lock does not match the declared authored inputs.",
+        )
 
     for root_name, root_patterns in patterns.items():
         if root_name not in SOURCE_MANIFEST_ROOTS or not isinstance(root_patterns, list):
@@ -758,12 +802,22 @@ def _validate_activity_policies(lesson: dict[str, Any], path: Path,
                 if not isinstance(question, dict):
                     continue
                 qnum = str(question.get("question_number") or "")
-                leaked = {"answer", "answer_code", "answer_label", "evidence",
-                          "distractor_analysis", "trap_analysis"} & set(question)
+                unexpected_question = sorted(
+                    set(question) - READING_LEARNER_QUESTION_FIELDS
+                )
+                if unexpected_question:
+                    report.add(
+                        "error", "READING_QUESTION_FIELD_UNEXPECTED", path,
+                        "Reading learner question exposes non-public fields: "
+                        + ", ".join(unexpected_question),
+                    )
+                leaked = READING_PRIVATE_QUESTION_FIELDS & set(question)
                 if leaked:
-                    report.add("error", "READING_ANSWER_LEAK", path,
-                               "Reading learner question exposes private fields: "
-                               + ", ".join(sorted(leaked)))
+                    report.add(
+                        "error", "READING_ANSWER_LEAK", path,
+                        "Reading learner question exposes private fields: "
+                        + ", ".join(sorted(leaked)),
+                    )
                 options = question.get("options") or []
                 if not isinstance(options, list) or any(
                     not isinstance(option, dict) for option in options
@@ -1538,6 +1592,17 @@ def validate_package(package_path: str | Path) -> ValidationReport:
     report.errors.extend(source_report.errors)
     report.warnings.extend(source_report.warnings)
     source_manifest = _read_json(source_manifest_path, ValidationReport(str(root))) or {}
+    locked = source_manifest.get("locked_revisions")
+    generated_lock = (
+        str(locked.get("generated_package_sha256") or "")
+        if isinstance(locked, dict) else ""
+    )
+    if generated_lock and generated_lock != generated_package_revision(manifest):
+        report.add(
+            "error", "GENERATED_PACKAGE_REVISION_MISMATCH",
+            root / "course-manifest.json",
+            "The generated-package lock does not match the package manifest identity.",
+        )
 
     ids = _manifest_lesson_ids(manifest)
     manifest_lessons = manifest.get("lessons") or []

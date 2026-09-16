@@ -299,11 +299,17 @@ def _preflight_destinations(prepared_lessons: list[dict]) -> None:
         path.name for path in _CONTENT.glob("*.json")
         if path.name not in {"core30-manifest.json", SOURCE_MANIFEST_NAME}
     }
-    unexpected_content = sorted(actual_content - expected_content)
-    if unexpected_content:
+    deployment_exists = bool(
+        actual_content
+        or (_CONTENT / "core30-manifest.json").is_file()
+        or (_CONTENT / SOURCE_MANIFEST_NAME).is_file()
+        or any(path.is_file() for path in _PUBLIC.rglob("*"))
+    )
+    if deployment_exists and actual_content != expected_content:
         raise SystemExit(
-            "Snapshot content có file thừa trước khi sync: "
-            f"{unexpected_content}"
+            "Snapshot content không đầy đủ trước khi sync: "
+            f"thiếu={sorted(expected_content - actual_content)}, "
+            f"thừa={sorted(actual_content - expected_content)}"
         )
 
     for prepared in prepared_lessons:
@@ -337,13 +343,13 @@ def _preflight_destinations(prepared_lessons: list[dict]) -> None:
         actual_targets = {
             path for path in canonical_root.rglob("*") if path.is_file()
         }
-        unexpected_assets = sorted(
-            str(path.relative_to(_REPO)) for path in actual_targets - expected_targets
-        )
-        if unexpected_assets:
+        if deployment_exists and actual_targets != expected_targets:
             raise SystemExit(
-                f"{lesson_id}: snapshot asset có file thừa trước khi sync: "
-                f"{unexpected_assets}"
+                f"{lesson_id}: snapshot asset không đầy đủ trước khi sync; "
+                "thiếu="
+                f"{sorted(str(path.relative_to(_REPO)) for path in expected_targets - actual_targets)}, "
+                "thừa="
+                f"{sorted(str(path.relative_to(_REPO)) for path in actual_targets - expected_targets)}"
             )
 
         next_version_root = _PUBLIC / "versions" / lesson_id / new_checksum

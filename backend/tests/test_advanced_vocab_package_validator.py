@@ -4,18 +4,22 @@ import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
 from scripts import sync_advanced_vocab_core30 as sync_module
 from scripts.sync_advanced_vocab_core30 import sync
+from services import advanced_vocab_package_validator as validator_module
 from services.advanced_vocab_package_validator import (
     CORE_LESSON_IDS,
     FIRST_RELEASE_LOCKED_REVISIONS,
+    authored_input_map_revision,
+    generated_package_revision,
     source_manifest_revision,
-    validate_source_inputs_manifest,
+    validate_source_inputs_manifest as _validate_source_inputs_manifest,
     validate_listening_source_directory,
-    validate_package,
+    validate_package as _validate_package,
 )
 
 
@@ -29,6 +33,28 @@ EXAMPLE_AUDIO_SHA = hashlib.sha256(EXAMPLE_AUDIO_BYTES).hexdigest()
 LISTENING_AUDIO_SHA = hashlib.sha256(LISTENING_AUDIO_BYTES).hexdigest()
 WRITING_SVG_SHA = hashlib.sha256(WRITING_SVG_BYTES).hexdigest()
 WRITING_PNG_SHA = hashlib.sha256(WRITING_PNG_BYTES).hexdigest()
+
+
+def validate_package(package_path: Path):
+    source = json.loads(
+        (package_path / "source-inputs-manifest.json").read_text()
+    )
+    with patch.dict(
+        validator_module.FIRST_RELEASE_LOCKED_REVISIONS,
+        source["locked_revisions"],
+        clear=True,
+    ):
+        return _validate_package(package_path)
+
+
+def validate_source_inputs_manifest(manifest_path: Path, **kwargs):
+    source = json.loads(manifest_path.read_text())
+    with patch.dict(
+        validator_module.FIRST_RELEASE_LOCKED_REVISIONS,
+        source["locked_revisions"],
+        clear=True,
+    ):
+        return _validate_source_inputs_manifest(manifest_path, **kwargs)
 
 
 def _activity(aid: str, activity_type: str, **extra):
@@ -325,9 +351,8 @@ def _write_package(root: Path, ids=CORE_LESSON_IDS) -> None:
             },
         ],
     }
-    source_manifest["source_revision"] = source_manifest_revision(source_manifest)
-    (root / "source-inputs-manifest.json").write_text(
-        json.dumps(source_manifest), encoding="utf-8"
+    source_manifest["locked_revisions"]["authored_input_map_sha256"] = (
+        authored_input_map_revision(source_manifest)
     )
     audio_root = root / "assets" / "vocab-audio"
     audio_root.mkdir(parents=True)
@@ -383,7 +408,7 @@ def _write_package(root: Path, ids=CORE_LESSON_IDS) -> None:
     manifest = {
         "course_id": "ADV-VOCAB",
         "audience": "assigned_only",
-        "source_revision": source_manifest["source_revision"],
+        "source_revision": "",
         "content_supplements": {
             "common_errors": {
                 "checksum": "c" * 64,
@@ -403,8 +428,34 @@ def _write_package(root: Path, ids=CORE_LESSON_IDS) -> None:
         "lessons": lesson_rows,
         "reviews": review_rows,
     }
+    source_manifest["locked_revisions"]["generated_package_sha256"] = (
+        generated_package_revision(manifest)
+    )
+    source_manifest["source_revision"] = source_manifest_revision(source_manifest)
+    manifest["source_revision"] = source_manifest["source_revision"]
     manifest["package_checksum"] = _checksum_without(manifest, "package_checksum")
+    (root / "source-inputs-manifest.json").write_text(
+        json.dumps(source_manifest), encoding="utf-8"
+    )
     (root / "course-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+
+def _refresh_fixture_locks(root: Path) -> None:
+    source_path = root / "source-inputs-manifest.json"
+    manifest_path = root / "course-manifest.json"
+    source = json.loads(source_path.read_text())
+    manifest = json.loads(manifest_path.read_text())
+    source["locked_revisions"]["authored_input_map_sha256"] = (
+        authored_input_map_revision(source)
+    )
+    source["locked_revisions"]["generated_package_sha256"] = (
+        generated_package_revision(manifest)
+    )
+    source["source_revision"] = source_manifest_revision(source)
+    manifest["source_revision"] = source["source_revision"]
+    manifest["package_checksum"] = _checksum_without(manifest, "package_checksum")
+    source_path.write_text(json.dumps(source), encoding="utf-8")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
 
 def _rewrite_lesson_with_checksums(root: Path, lesson: dict) -> None:
@@ -422,6 +473,7 @@ def _rewrite_lesson_with_checksums(root: Path, lesson: dict) -> None:
     manifest_lesson["content_checksum"] = lesson["provenance"]["content_checksum"]
     manifest["package_checksum"] = _checksum_without(manifest, "package_checksum")
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    _refresh_fixture_locks(root)
 
 
 def _codes(report) -> set[str]:
@@ -455,6 +507,9 @@ def _write_source_manifest_fixture(root: Path) -> tuple[Path, Path]:
             "lesson_ids": ["ADV-T01"],
         }],
     }
+    manifest["locked_revisions"]["authored_input_map_sha256"] = (
+        authored_input_map_revision(manifest)
+    )
     manifest["source_revision"] = source_manifest_revision(manifest)
     path = root / "source-inputs-manifest.json"
     path.write_text(json.dumps(manifest), encoding="utf-8")
@@ -479,6 +534,21 @@ def test_source_manifest_rejects_substituted_input(tmp_path: Path):
     assert "SOURCE_INPUT_CHECKSUM_MISMATCH" in _codes(report)
 
 
+def test_source_manifest_lock_rejects_recomputed_substituted_input(tmp_path: Path):
+    manifest_path, source = _write_source_manifest_fixture(tmp_path)
+    substituted = b"substituted and re-certified"
+    (source / "T01.docx").write_bytes(substituted)
+    manifest = json.loads(manifest_path.read_text())
+    manifest["inputs"][0]["sha256"] = hashlib.sha256(substituted).hexdigest()
+    manifest["source_revision"] = source_manifest_revision(manifest)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = validate_source_inputs_manifest(manifest_path, roots={"source": source})
+
+    assert "SOURCE_INPUT_CHECKSUM_MISMATCH" not in _codes(report)
+    assert "AUTHORED_INPUT_MAP_REVISION_MISMATCH" in _codes(report)
+
+
 def test_source_manifest_rejects_undeclared_release_input(tmp_path: Path):
     manifest, source = _write_source_manifest_fixture(tmp_path)
     (source / "T02.docx").write_bytes(b"undeclared")
@@ -495,7 +565,7 @@ def test_source_manifest_rejects_wrong_avoc_locked_revision(tmp_path: Path):
     manifest["source_revision"] = source_manifest_revision(manifest)
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
-    report = validate_source_inputs_manifest(manifest_path, roots={"source": source})
+    report = _validate_source_inputs_manifest(manifest_path, roots={"source": source})
 
     assert "LOCKED_REVISION_MISMATCH" in _codes(report)
 
@@ -518,6 +588,20 @@ def test_package_requires_locked_supplements(tmp_path: Path):
     assert "COMMON_ERROR_SUPPLEMENT_MISSING" in _codes(report)
     assert "VOCAB_AUDIO_SUPPLEMENT_MISSING" in _codes(report)
     assert "VOCAB_AUDIO_MISSING" in _codes(report)
+
+
+def test_package_lock_rejects_recomputed_generated_artifact(tmp_path: Path):
+    _write_package(tmp_path)
+    manifest_path = tmp_path / "course-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["title"] = "Substituted generated package"
+    manifest["package_checksum"] = _checksum_without(manifest, "package_checksum")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+
+    assert "PACKAGE_CHECKSUM_MISMATCH" not in _codes(report)
+    assert "GENERATED_PACKAGE_REVISION_MISMATCH" in _codes(report)
 
 
 def test_package_rejects_review_source_outside_manifest(tmp_path: Path):
@@ -1252,7 +1336,8 @@ def test_listening_rejects_private_fields_in_both_question_representations(
     assert "LISTENING_ANSWER_LEAK" in _codes(report)
 
 
-def test_sync_revalidates_current_source_instead_of_trusting_stale_qa(tmp_path: Path):
+def test_sync_revalidates_current_source_instead_of_trusting_stale_qa(
+        tmp_path: Path, monkeypatch):
     _write_package(tmp_path)
     (tmp_path / "QA_REPORT.json").write_text(json.dumps({
         "publish_ready": True,
@@ -1272,6 +1357,7 @@ def test_sync_revalidates_current_source_instead_of_trusting_stale_qa(tmp_path: 
     manifest["package_checksum"] = _checksum_without(manifest, "package_checksum")
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
+    monkeypatch.setattr(sync_module, "validate_package", validate_package)
     with pytest.raises(SystemExit, match="hiện tại không đạt publish-ready"):
         sync(tmp_path, write=False)
 
@@ -1478,6 +1564,13 @@ def test_sync_preflights_assets_before_replacing_lesson_snapshot(
         versioned = public / "versions" / lesson_id / checksum / "writing" / Path(ref).name
         assert versioned.read_bytes() == payload
 
+    canonical_asset_root = public / lesson_id
+    hidden_asset_root = public / f".{lesson_id}.missing"
+    canonical_asset_root.rename(hidden_asset_root)
+    with pytest.raises(SystemExit, match="snapshot asset không đầy đủ"):
+        sync_module.sync(package, write=False)
+    hidden_asset_root.rename(canonical_asset_root)
+
     canonical_lesson = content / f"{lesson_id}.json"
     before = canonical_lesson.read_bytes()
     lesson["title"] = "A newer source revision"
@@ -1485,7 +1578,7 @@ def test_sync_preflights_assets_before_replacing_lesson_snapshot(
     stale_asset = public / lesson_id / "listening" / "obsolete.mp3"
     stale_asset.write_bytes(b"stale")
 
-    with pytest.raises(SystemExit, match="file thừa trước khi sync"):
+    with pytest.raises(SystemExit, match="snapshot asset không đầy đủ"):
         sync_module.sync(package, write=True)
 
     assert canonical_lesson.read_bytes() == before
@@ -1505,6 +1598,29 @@ def test_reading_requires_thirteen_questions_and_no_answer_leak(tmp_path: Path):
 
     report = validate_package(tmp_path)
     assert {"READING_QUESTION_COUNT", "READING_ANSWER_LEAK"} <= _codes(report)
+
+
+@pytest.mark.parametrize(
+    "private_field",
+    ["accepted_variants", "explanation", "correction", "solution"],
+)
+def test_reading_rejects_every_answer_bearing_learner_field(
+        tmp_path: Path, private_field: str):
+    _write_package(tmp_path)
+    path = tmp_path / "lessons" / "ADV-T01" / "lesson.json"
+    lesson = json.loads(path.read_text())
+    reading = next(
+        activity for activity in lesson["activities"]
+        if activity["activity_type"] == "reading_lab"
+    )
+    reading["content"]["questions"][0][private_field] = "private"
+    path.write_text(json.dumps(lesson), encoding="utf-8")
+
+    report = validate_package(tmp_path)
+
+    assert {
+        "READING_ANSWER_LEAK", "READING_QUESTION_FIELD_UNEXPECTED",
+    } <= _codes(report)
 
 
 def test_reading_question_ids_must_be_unique_and_non_empty(tmp_path: Path):
@@ -1677,15 +1793,8 @@ def test_listening_figure_requires_packaged_checksum_matched_bytes(tmp_path: Pat
         "role": "listening_figure",
         "lesson_ids": ["ADV-T01"],
     })
-    source_manifest["source_revision"] = source_manifest_revision(source_manifest)
     source_manifest_path.write_text(json.dumps(source_manifest), encoding="utf-8")
-    course_manifest_path = tmp_path / "course-manifest.json"
-    course_manifest = json.loads(course_manifest_path.read_text())
-    course_manifest["source_revision"] = source_manifest["source_revision"]
-    course_manifest["package_checksum"] = _checksum_without(
-        course_manifest, "package_checksum"
-    )
-    course_manifest_path.write_text(json.dumps(course_manifest), encoding="utf-8")
+    _refresh_fixture_locks(tmp_path)
     assert validate_package(tmp_path).publish_ready is True
 
     figure_path.unlink()
@@ -1715,6 +1824,7 @@ def test_warning_prevents_publish_ready_without_invalidating_schema(tmp_path: Pa
     manifest_lesson["content_checksum"] = lesson["provenance"]["content_checksum"]
     manifest["package_checksum"] = _checksum_without(manifest, "package_checksum")
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    _refresh_fixture_locks(tmp_path)
 
     report = validate_package(tmp_path)
     assert report.schema_valid is True
@@ -1736,6 +1846,7 @@ def test_nonapproved_source_needs_auditable_owner_approval(tmp_path: Path):
     manifest["lessons"][0]["content_checksum"] = lesson["provenance"]["content_checksum"]
     manifest["package_checksum"] = _checksum_without(manifest, "package_checksum")
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    _refresh_fixture_locks(tmp_path)
 
     report = validate_package(tmp_path)
 

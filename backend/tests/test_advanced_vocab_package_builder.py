@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from services import advanced_vocab_package_builder as builder_module
+from services import advanced_vocab_package_validator as validator_module
 from services.advanced_vocab_package_builder import (
     _extract_objectives,
     build_package,
@@ -19,8 +20,27 @@ from services.advanced_vocab_package_builder import (
 )
 from services.advanced_vocab_package_validator import (
     FIRST_RELEASE_LOCKED_REVISIONS,
+    authored_input_map_revision,
     source_manifest_revision,
 )
+
+
+@pytest.fixture(autouse=True)
+def _use_fixture_locks(monkeypatch: pytest.MonkeyPatch):
+    def validate_fixture(path, roots=None):
+        manifest = json.loads(Path(path).read_text())
+        monkeypatch.setattr(
+            validator_module,
+            "FIRST_RELEASE_LOCKED_REVISIONS",
+            dict(manifest["locked_revisions"]),
+        )
+        return validator_module.validate_source_inputs_manifest(path, roots=roots)
+
+    monkeypatch.setattr(
+        builder_module,
+        "validate_source_inputs_manifest",
+        validate_fixture,
+    )
 
 
 def _source_manifest(root: Path, overrides: Path | None = None) -> Path:
@@ -50,6 +70,9 @@ def _source_manifest(root: Path, overrides: Path | None = None) -> Path:
             "role": "common_error_overrides",
             "lesson_ids": [],
         })
+    manifest["locked_revisions"]["authored_input_map_sha256"] = (
+        authored_input_map_revision(manifest)
+    )
     manifest["source_revision"] = source_manifest_revision(manifest)
     path = root.parent / "source-inputs-manifest.json"
     path.write_text(json.dumps(manifest), encoding="utf-8")
@@ -81,6 +104,56 @@ def test_reading_sanitizer_keeps_passage_and_hides_answers():
     assert content["solutions"]["1"] == {
         "answer": "B", "evidence": "Private evidence", "trap_analysis": "Private trap",
     }
+
+
+def test_reading_sanitizer_allowlists_public_fields_and_moves_private_fields():
+    private_fields = {
+        "accepted_variants": ["B"],
+        "explanation": "Private explanation",
+        "correction": "Private correction",
+        "solution": "Private solution",
+    }
+    source = {
+        "test_id": "VOC-ADV-RDG-LSN-T01",
+        "title": "Reading lesson",
+        "passages": [{"paragraph": "A", "text": "Learner passage"}],
+        "question_material": ["Choose the correct answer."],
+        "items": [{
+            "question_number": 1,
+            "question_type": "MCQ",
+            "stem": "What is the purpose?",
+            "options": [{"letter": "A", "text": "One"},
+                        {"letter": "B", "text": "Two"}],
+            "answer": "B",
+            **private_fields,
+        }],
+    }
+
+    content = sanitize_reading_source(source)
+
+    assert not (set(private_fields) & set(content["questions"][0]))
+    assert all(
+        content["solutions"]["1"][key] == value
+        for key, value in private_fields.items()
+    )
+
+
+def test_reading_sanitizer_rejects_unknown_item_fields():
+    source = {
+        "passages": [{"paragraph": "A", "text": "Learner passage"}],
+        "items": [{
+            "question_number": 1,
+            "question_type": "MCQ",
+            "stem": "What is the purpose?",
+            "options": [{"letter": "A", "text": "One"},
+                        {"letter": "B", "text": "Two"}],
+            "answer": "B",
+            "unreviewed_editorial_payload": "must not reach learners",
+        }],
+    }
+
+    with pytest.raises(ValueError, match="unknown fields"):
+        sanitize_reading_source(source)
 
 
 def test_writing_objectives_are_normalized_to_reference_only():

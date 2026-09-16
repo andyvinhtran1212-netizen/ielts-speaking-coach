@@ -26,6 +26,8 @@ from docx.text.paragraph import Paragraph
 
 from services.advanced_vocab_package_validator import (
     FIRST_RELEASE_LOCKED_REVISIONS,
+    READING_LEARNER_QUESTION_FIELDS,
+    READING_PRIVATE_QUESTION_FIELDS,
     SOURCE_MANIFEST_NAME,
     validate_package,
     validate_source_inputs_manifest,
@@ -473,21 +475,23 @@ def sanitize_reading_source(source: dict[str, Any]) -> dict[str, Any]:
         if not qnum or qnum in seen:
             raise ValueError(f"Reading item has missing/duplicate question_number={qnum!r}")
         seen.add(qnum)
+        unexpected = sorted(
+            set(source_item)
+            - READING_LEARNER_QUESTION_FIELDS
+            - READING_PRIVATE_QUESTION_FIELDS
+        )
+        if unexpected:
+            raise ValueError(
+                "Reading item contains unknown fields: " + ", ".join(unexpected)
+            )
         question = {
-            key: value
-            for key, value in source_item.items()
-            if key not in {
-                "answer", "answer_code", "answer_label", "evidence",
-                "distractor_analysis", "trap_analysis",
-            }
+            key: source_item[key]
+            for key in READING_LEARNER_QUESTION_FIELDS if key in source_item
         }
         questions.append(question)
         solutions[qnum] = {
-            key: source_item.get(key)
-            for key in (
-                "answer", "answer_code", "answer_label", "evidence",
-                "distractor_analysis", "trap_analysis",
-            )
+            key: source_item[key]
+            for key in READING_PRIVATE_QUESTION_FIELDS
             if source_item.get(key) is not None
         }
 
