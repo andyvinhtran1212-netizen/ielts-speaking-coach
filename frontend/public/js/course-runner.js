@@ -448,19 +448,23 @@ export function createRunner({
     return false;
   }
 
-  async function refreshCourseTimer() {
+  async function refreshCourseTimer(maxAttempts = 1) {
     if (!mastery || !mastery.is_timed) return false;
-    const timerRequestStartedAt = now();
-    let snapshot = null;
-    try {
-      snapshot = await api.get('/api/quiz/banks/' + encodeURIComponent(bank.id)
-        + '/course-timer' + (itemId ? '?class_item=' + encodeURIComponent(itemId) : ''));
-    } catch (e) { return false; }
-    if (!snapshot || (snapshot.item_id || null) !== itemId
-        || !snapshot.timer || !snapshot.timer.is_timed) return false;
-    Object.assign(mastery, snapshot.timer);
-    syncTimer(timerRequestStartedAt);
-    return true;
+    const attempts = Math.max(1, Number(maxAttempts) || 1);
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const timerRequestStartedAt = now();
+      let snapshot = null;
+      try {
+        snapshot = await api.get('/api/quiz/banks/' + encodeURIComponent(bank.id)
+          + '/course-timer' + (itemId ? '?class_item=' + encodeURIComponent(itemId) : ''));
+      } catch (e) { continue; }
+      if (!snapshot || (snapshot.item_id || null) !== itemId
+          || !snapshot.timer || !snapshot.timer.is_timed) continue;
+      Object.assign(mastery, snapshot.timer);
+      syncTimer(timerRequestStartedAt);
+      return true;
+    }
+    return false;
   }
 
   function stageQuestions() {
@@ -753,7 +757,15 @@ export function createRunner({
       // been assembled. Re-sample it with an independent, lightweight read:
       // stale local state intentionally skips session adoption, and a failed
       // resume-history read must not make payload latency end the test early.
-      await refreshCourseTimer();
+      const timerReady = await refreshCourseTimer(2);
+      if (mastery && mastery.is_timed && !timerReady) {
+        // The bank request may spend seconds assembling 120/200 questions
+        // before the locked RPC starts the clock.  Its initial sample is
+        // therefore anchored too early on the client.  Never enable controls
+        // from that stale anchor when both lightweight resamples fail: the
+        // learner can retry the load, while answers cannot be rejected early.
+        throw new Error('Chưa đồng bộ được đồng hồ làm bài. Hãy tải lại.');
+      }
       const local = restore();
       // Máy chủ là nguồn thật — TRỪ khi chính máy này biết bộ đề vừa bị soạn
       // lại (hoặc bài giao đã đổi mục). Máy chủ không giữ vân tay bộ đề, nên

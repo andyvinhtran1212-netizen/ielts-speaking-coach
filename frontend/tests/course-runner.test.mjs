@@ -719,6 +719,71 @@ test('stale local state still gets a post-payload authoritative timer sample', a
   assert.equal(runner.timeRemainingSeconds(), 1);
 });
 
+test('stale local state retries a failed post-payload timer sample', async () => {
+  let clock = 0;
+  let timerCalls = 0;
+  const storage = memStore();
+  storage.setItem('cx:b1', JSON.stringify({
+    stage: 0, at: 0, marks: [], done: false,
+    runSessions: [], rev: 'old-bank-revision', item: 'item-old',
+  }));
+  const api = fakeApi({
+    questions: [mcq(1)],
+    mastery: {
+      item_id: 'item-new', is_timed: true,
+      sampled_at: '1970-01-01T00:00:05.000Z',
+      expires_at: '1970-01-01T00:01:05.000Z',
+      time_remaining_seconds: 60,
+      initial_session_id: 'atomic-current',
+    },
+  });
+  const get = api.get.bind(api);
+  api.get = async (path) => {
+    if (path.includes('/course-timer')) {
+      timerCalls += 1;
+      if (timerCalls === 1) throw new Error('transient timer 5xx');
+      const response = await get(path);
+      clock = 7000;
+      return { ...response, timer: {
+        is_timed: true,
+        sampled_at: '1970-01-01T00:00:06.000Z',
+        expires_at: '1970-01-01T00:01:05.000Z',
+        time_remaining_seconds: 59,
+      } };
+    }
+    clock = 5000; // slow bank assembly finishes before the locked clock starts
+    const response = await get(path);
+    clock = 6000;
+    return response;
+  };
+  const runner = createRunner({ api, storage, now: () => clock });
+  await runner.load('b1', { assignmentItemId: 'item-new' });
+  assert.equal(timerCalls, 2);
+  assert.equal(api.calls.get.filter((path) => path.includes('/course-resume')).length, 0);
+  assert.equal(runner.timeRemainingSeconds(), 58);
+  assert.ok(runner.answer(0), 'controls stay active before the canonical cutoff');
+  clock = 65000;
+  assert.equal(runner.isTimedOut(), true);
+});
+
+test('timed load fails closed when no post-payload timer sample is available', async () => {
+  const api = fakeApi({
+    questions: [mcq(1)], failTimer: true,
+    mastery: {
+      item_id: 'item-timed', is_timed: true,
+      time_remaining_seconds: 60,
+      initial_session_id: 'atomic-current',
+    },
+  });
+  const runner = createRunner({ api, storage: null, now: () => 1000 });
+  await assert.rejects(
+    runner.load('b1', { assignmentItemId: 'item-timed' }),
+    /Chưa đồng bộ được đồng hồ/,
+  );
+  assert.equal(api.calls.get.filter((path) => path.includes('/course-timer')).length, 2);
+  assert.equal(api.calls.post.filter((call) => call.path === '/api/quiz/sessions').length, 0);
+});
+
 test('failed resume history read retains the independent post-payload timer sample', async () => {
   let clock = 0;
   const api = fakeApi({
