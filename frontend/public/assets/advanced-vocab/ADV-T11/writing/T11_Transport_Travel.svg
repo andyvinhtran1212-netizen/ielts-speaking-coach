@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="620" viewBox="0 0 1240 620" font-family="'Segoe UI','Helvetica Neue',Arial,sans-serif">
+<rect width="1240" height="620" fill="#ffffff"/>
+<text x="620" y="34" text-anchor="middle" font-size="22" font-weight="800" fill="#1f2937">Manufacturing an Electric Vehicle (EV)</text>
+<text x="620" y="56" text-anchor="middle" font-size="13.5" fill="#4b5563">A man-made process &#183; 8 stages, from raw-material extraction to dealership dispatch</text>
+<rect x="28" y="74" width="1184" height="510" rx="14" fill="#f4f5f7" stroke="#d1d5db" stroke-width="1.5"/>
+<defs>
+<marker id="ah11" markerWidth="13" markerHeight="13" refX="7" refY="4.5" orient="auto">
+<path d="M0,0 L11,4.5 L0,9 Z" fill="#374151"/>
+</marker>
+</defs>
+
+<!-- Row 1: stage 1 -->
+<!-- Stage 1 box -->
+<g>
+<rect x="60" y="110" width="190" height="150" rx="10" fill="#ffffff" stroke="#9ca3af" stroke-width="2"/>
+<circle cx="80" cy="128" r="15" fill="#374151" stroke="#fff" stroke-width="2.5"/>
+<text x="80" y="133" text-anchor="middle" font-size="14" font-weight="800" fill="#fff">1</text>
+<text x="155" y="163" text-anchor="middle" font-size="14" font-weight="800" fill="#1f2937">Raw-material</text>
+<text x="155" y="180" text-anchor="middle" font-size="14" font-weight="800" fill="#1f2937">extraction</text>
+<text x="155" y="205" text-anchor="middle" font-size="11" fill="#4b5563">Lithium, cobalt and nickel</text>
+<text x="155" y="219" text-anchor="middle" font-size="11" fill="#4b5563">are mined and sent to a</text>
+<text x="155" y="233" text-anchor="middle" font-size="11" fill="#4b5563">refining plant</text>
+</g>
+
+<!-- Arrow 1->2 -->
+<line x1="250" y1="185" x2="300" y2="185" stroke="#374151" stroke-width="4" marker-end="url(#ah11)"/>
+
+<!-- Stage 2 -->
+<g>
+<rect x="302" y="110" width="190" height="150" rx="10" fill="#ffffff" stroke="#9ca3af" stroke-width="2"/>
+<circle cx="322" cy="128" r="15" fill="#374151" stroke="#fff" stroke-width="2.5"/>
+<text x="322" y="133" text-anchor="middle" font-size="14" font-weight="800" fill="#fff">2</text>
+<text x="397" y="163" text-anchor="middle" font-size="14" font-weight="800" fill="#1f2937">Cell</text>
+<text x="397" y="180" text-anchor="middle" font-size="14" font-weight="800" fill="#1f2937">production</text>
+<text x="397" y="205" text-anchor="middle" font-size="11" fill="#4b5563">Metals become cathode</text>
+<text x="397" y="219" text-anchor="middle" font-size="11" fill="#4b5563">and anode materials,</text>
+<text x="397" y="233" text-anchor="middle" font-size="11" fill="#4b5563">assembled into cells</text>
+</g>
+
+<!-- Arrow 2->3 -->
+<line x1="492" y1="185" x2="542" y2="185" stroke="#374151" stroke-width="4" marker-end="url(#ah11)"/>
+
+<!-- Stage 3 -->
+<g>
+<rect x="544" y="110" width="190" height="150" rx="10" fill="#ffffff" stroke="#9ca3af" stroke-width="2"/>
+<circle cx="564" cy="128" r="15" fill="#374151" stroke="#fff" stroke-width="2.5"/>
+<text x="564" y="133" text-anchor="middle" font-size="14" font-weight="800" fill="#fff">3</text>
+<text x="639" y="163" text-anchor="middle" font-size="14" font-weight="800" fill="#1f2937">Module &amp; pack</text>
+<text x="639" y="180" text-anchor="middle" font-size="14" font-weight="800" fill="#1f2937">assembly</text>
+<text x="639" y="205" text-anchor="middle" font-size="11" fill="#4b5563">Cells are grouped into</text>
+<text x="639" y="219" text-anchor="middle" font-size="11" fill="#4b5563">modules, then into</text>
+<text x="639" y="233" text-anchor="middle" font-size="11" fill="#4b5563">complete battery packs</text>
+</g>
+
+<!-- Parallel line: Stage 4 sits below, feeding into stage 5 alongside stage 3 -->
+<g>
+<rect x="544" y="360" width="190" height="150" rx="10" fill="#eef0f2" stroke="#9ca3af" stroke-width="2"/>
+<circle cx="564" cy="378" r="15" fill="#6b7280" stroke="#fff" stroke-width="2.5"/>
+<text x="564" y="383" text-anchor="middle" font-size="14" font-weight="800" fill="#fff">4</text>
+<text x="639" y="413" text-anchor="middle" font-size="13.5" font-weight="800" fill="#1f2937">Motor &amp; chassis</text>
+<text x="639" y="430" text-anchor="middle" font-size="13.5" font-weight="800" fill="#1f2937">fabrication</text>
+<text x="639" y="455" text-anchor="middle" font-size="11" fill="#4b5563">Built in parallel, on a</text>
+<text x="639" y="469" text-anchor="middle" font-size="11" fill="#4b5563">separate production</text>
+<text x="639" y="483" text-anchor="middle" font-size="11" fill="#4b5563">line</text>
+</g>
+<text x="435" y="404" text-anchor="middle" font-size="11" font-style="italic" fill="#6b7280">(parallel line)</text>
+
+<!-- Arrow 3 -> 5 (down-right) -->
+<path d="M734,160 Q820,160 820,235 L780,235" fill="none" stroke="#374151" stroke-width="4" marker-end="url(#ah11)"/>
+<!-- Arrow 4 -> 5 (up-right) -->
+<path d="M734,410 Q820,410 820,335 L780,335" fill="none" stroke="#374151" stroke-width="4" marker-end="url(#ah11)"/>
+
+<!-- Stage 5: convergence, center-right, spanning vertically -->
+<g>
+<rect x="786" y="235" width="190" height="150" rx="10" fill="#ffffff" stroke="#374151" stroke-width="2.5"/>
+<circle cx="806" cy="253" r="15" fill="#374151" stroke="#fff" stroke-width="2.5"/>
+<text x="806" y="258" text-anchor="middle" font-size="14" font-weight="800" fill="#fff">5</text>
+<text x="881" y="288" text-anchor="middle" font-size="13.5" font-weight="800" fill="#1f2937">Robotic final</text>
+<text x="881" y="305" text-anchor="middle" font-size="13.5" font-weight="800" fill="#1f2937">assembly</text>
+<text x="881" y="330" text-anchor="middle" font-size="11" fill="#4b5563">Battery, motor and</text>
+<text x="881" y="344" text-anchor="middle" font-size="11" fill="#4b5563">chassis converge and</text>
+<text x="881" y="358" text-anchor="middle" font-size="11" fill="#4b5563">are integrated</text>
+</g>
+
+<!-- Arrow 5 -> 6 -->
+<line x1="976" y1="310" x2="1026" y2="310" stroke="#374151" stroke-width="4" marker-end="url(#ah11)"/>
+
+<!-- Stage 6 -->
+<g>
+<rect x="1028" y="235" width="152" height="150" rx="10" fill="#ffffff" stroke="#9ca3af" stroke-width="2"/>
+<circle cx="1048" cy="253" r="15" fill="#374151" stroke="#fff" stroke-width="2.5"/>
+<text x="1048" y="258" text-anchor="middle" font-size="14" font-weight="800" fill="#fff">6</text>
+<text x="1104" y="288" text-anchor="middle" font-size="12.5" font-weight="800" fill="#1f2937">Quality testing</text>
+<text x="1104" y="305" text-anchor="middle" font-size="12.5" font-weight="800" fill="#1f2937">&amp; calibration</text>
+<text x="1104" y="330" text-anchor="middle" font-size="10.5" fill="#4b5563">Vehicle undergoes</text>
+<text x="1104" y="344" text-anchor="middle" font-size="10.5" fill="#4b5563">testing and software</text>
+<text x="1104" y="358" text-anchor="middle" font-size="10.5" fill="#4b5563">calibration</text>
+</g>
+
+<!-- Arrow 6 -> 7 (down and left, wrap to row 2) -->
+<path d="M1104,385 L1104,470 L155,470 L155,393" fill="none" stroke="#374151" stroke-width="4" marker-end="url(#ah11)"/>
+
+<g>
+<rect x="60" y="395" width="190" height="150" rx="10" fill="#ffffff" stroke="#9ca3af" stroke-width="2"/>
+<circle cx="80" cy="413" r="15" fill="#374151" stroke="#fff" stroke-width="2.5"/>
+<text x="80" y="418" text-anchor="middle" font-size="14" font-weight="800" fill="#fff">7</text>
+<text x="155" y="448" text-anchor="middle" font-size="13.5" font-weight="800" fill="#1f2937">Storage at</text>
+<text x="155" y="465" text-anchor="middle" font-size="13.5" font-weight="800" fill="#1f2937">logistics hub</text>
+<text x="155" y="490" text-anchor="middle" font-size="11" fill="#4b5563">Approved units are</text>
+<text x="155" y="504" text-anchor="middle" font-size="11" fill="#4b5563">transferred to and stored</text>
+<text x="155" y="518" text-anchor="middle" font-size="11" fill="#4b5563">at a central hub</text>
+</g>
+
+<!-- Re-route arrow 6->7 to land at stage 7 top -->
+<!-- Arrow 7 -> 8 -->
+<line x1="250" y1="470" x2="300" y2="470" stroke="#374151" stroke-width="4" marker-end="url(#ah11)"/>
+
+<!-- Stage 8 -->
+<g>
+<rect x="302" y="395" width="190" height="150" rx="10" fill="#ffffff" stroke="#374151" stroke-width="2.5"/>
+<circle cx="322" cy="413" r="15" fill="#374151" stroke="#fff" stroke-width="2.5"/>
+<text x="322" y="418" text-anchor="middle" font-size="14" font-weight="800" fill="#fff">8</text>
+<text x="397" y="448" text-anchor="middle" font-size="13.5" font-weight="800" fill="#1f2937">Dispatch to</text>
+<text x="397" y="465" text-anchor="middle" font-size="13.5" font-weight="800" fill="#1f2937">dealerships</text>
+<text x="397" y="490" text-anchor="middle" font-size="11" fill="#4b5563">Finished vehicles are sent</text>
+<text x="397" y="504" text-anchor="middle" font-size="11" fill="#4b5563">to dealerships for sale to</text>
+<text x="397" y="518" text-anchor="middle" font-size="11" fill="#4b5563">customers</text>
+</g>
+
+<text x="1224" y="606" text-anchor="end" font-size="10.5" font-style="italic" fill="#4b5563">Illustrative data for teaching &#183; IELTS Advanced</text>
+</svg>
