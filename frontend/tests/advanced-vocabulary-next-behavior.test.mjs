@@ -49,6 +49,18 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.match(UI, /function InlineText/);
     assert.match(UI, /typeof answer === 'string' && answer\.trim\(\) === ''/);
     assert.match(UI, /disabled=\{busy \|\| answerMissing\}/);
+    assert.match(UI, /<fieldset className="avx-options/);
+    assert.match(UI, /<legend className="sr-only">\{legend\}<\/legend>/);
+    assert.match(UI, /name=\{groupName\}/);
+  });
+
+  test('matches the existing keyboard card contract and keeps hidden audio out of tab order', () => {
+    assert.match(UI, /role="button" tabIndex=\{0\}/);
+    assert.match(UI, /event\.key !== 'Enter' && event\.key !== ' '/);
+    assert.match(UI, /aria-hidden=\{flipped\}/);
+    assert.match(UI, /tabIndex=\{flipped \? -1 : 0\}/);
+    assert.match(UI, /Chạm hoặc nhấn Space để xem nghĩa/);
+    assert.match(CSS, /\.avx-vocab-stage \.fcs-audio \{[^}]*min-width:\s*44px[^}]*min-height:\s*44px/s);
   });
 
   test('canonical IELTS truth-value controls are scoped to section questions', () => {

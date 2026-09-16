@@ -206,6 +206,7 @@ describe('admin class submissions integration contracts', () => {
     assert.match(UI, /Mẫu nhỏ · chỉ tham khảo/);
     assert.match(UI, /Chưa xác định được các phần bắt buộc/);
     assert.match(UI, /Không chấm/);
+    assert.match(UI, /isAdvancedVocabulary \? \{ \.\.\.EFFORT_BASE, done: 'Đã hoàn tất' \} : EFFORT_BASE/);
     assert.match(UI, /Writing và Speaking chỉ là nội dung tham khảo/);
   });
 
