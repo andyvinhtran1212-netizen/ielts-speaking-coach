@@ -284,6 +284,10 @@ def test_answer_practice_grades_authored_answer_index(monkeypatch):
     monkeypatch.setattr(service, "practice_selection", lambda _lesson: {
         "practice_1": practice_items, "practice_2": [],
     })
+    monkeypatch.setattr(
+        service, "_selection_qids",
+        lambda _item_id, _stage: [row["item_id"] for row in practice_items],
+    )
     monkeypatch.setattr(service, "_upsert_stage", lambda **_kwargs: None)
     monkeypatch.setattr(service, "_progress", lambda _item_id: {
         "completed_stages": ["practice_1"], "required_completed": False,
@@ -348,6 +352,69 @@ def test_answer_practice_grades_authored_answer_index(monkeypatch):
         user_id="user-1", bank_id="bank-1", item_id="item-1",
         stage="practice_1", qid="syllable-zero", answer=0,
     )["is_correct"] is True
+
+
+def test_practice_start_persists_and_returns_the_database_selection(monkeypatch):
+    lesson = _lesson()
+    authored = service.practice_selection(lesson)["practice_1"]
+    canonical_qids = [row["item_id"] for row in authored]
+    calls = []
+
+    class _Rpc:
+        def execute(self):
+            return SimpleNamespace(data=[{
+                "stage": "practice_1", "qids": list(reversed(canonical_qids)),
+            }])
+
+    class _StartAdmin:
+        def rpc(self, name, params):
+            calls.append((name, params))
+            return _Rpc()
+
+    monkeypatch.setattr(service, "_assigned_lesson", lambda **_kwargs: (
+        {"id": "bank-1"}, {"id": "item-1"}, lesson,
+    ))
+    monkeypatch.setattr(service, "_require_stage", lambda *_args: None)
+    monkeypatch.setattr(service, "_admin", lambda: _StartAdmin())
+    monkeypatch.setattr(service, "_progress", lambda _item_id: {
+        "completed_stages": ["vocabulary"], "required_completed": False,
+    })
+
+    result = service.start_practice(
+        user_id="user-1", bank_id="bank-1", item_id="item-1",
+        stage="practice_1",
+    )
+
+    assert calls == [("start_advanced_vocab_practice", {
+        "p_item_id": "item-1", "p_user_id": "user-1", "p_bank_id": "bank-1",
+        "p_stage": "practice_1", "p_qids": canonical_qids,
+    })]
+    assert [row["item_id"] for row in result["questions"]] == list(
+        reversed(canonical_qids)
+    )
+    assert all("answer" not in row and "accept" not in row
+               for row in result["questions"])
+
+
+def test_persistence_gate_migration_locks_and_guards_every_evidence_store():
+    migration = (Path(__file__).resolve().parents[1]
+                 / "migrations" / "282_advanced_vocab_persistence_gate.sql").read_text()
+
+    assert "advanced_vocab_practice_selections" in migration
+    assert "start_advanced_vocab_practice" in migration
+    assert "advanced_vocab_lock_open_item" in migration
+    assert migration.index("student_cohort_memberships") < migration.index(
+        "SELECT a.* INTO v_assignment"
+    ) < migration.index("SELECT i.* INTO v_item")
+    assert "AS RESTRICTIVE" in migration
+    assert "advanced_vocab_attempt_must_be_one" in migration
+    assert "advanced_vocab_section_already_submitted" in migration
+    assert "trg_protect_advanced_vocab_bank" in migration
+    assert "advanced_vocab_bank_unpublished" in migration
+    assert "advanced_vocab_assignment_snapshot_mismatch" in migration
+    assert "attempt_no = 1" in migration
+    assert "state = 'submitted'" in migration
+    assert "score = NULL" in migration
 
 
 def test_learner_question_projection_never_contains_answer_material():

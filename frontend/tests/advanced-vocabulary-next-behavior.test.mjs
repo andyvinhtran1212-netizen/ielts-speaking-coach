@@ -54,6 +54,15 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.match(UI, /name=\{groupName\}/);
   });
 
+  test('starts each Practice stage through the immutable persisted-selection boundary', () => {
+    assert.match(UI, /function PracticeStart/);
+    assert.match(UI, /\/api\/advanced-vocab\/practice\/start/);
+    assert.match(UI, /response\.questions \|\| \[\]/);
+    assert.match(UI, /Tải lại hoặc đổi thiết bị vẫn tiếp tục đúng bộ câu đó/);
+    assert.match(UI, /data\.lesson\.practice\.practice_1\?\.length/);
+    assert.match(UI, /data\.lesson\.practice\.practice_2\?\.length/);
+  });
+
   test('matches the existing keyboard card contract and keeps hidden audio out of tab order', () => {
     assert.match(UI, /role="button" tabIndex=\{0\}/);
     assert.match(UI, /event\.key !== 'Enter' && event\.key !== ' '/);

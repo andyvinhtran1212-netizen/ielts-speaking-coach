@@ -199,6 +199,21 @@ function PracticeStage({ stage, data, onAnswer, onDone }: { stage: 'practice_1' 
   </div>;
 }
 
+function PracticeStart({ stage, onStart, readOnly }: { stage: 'practice_1' | 'practice_2'; onStart: () => Promise<void>; readOnly: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const start = async () => {
+    setBusy(true);
+    try { await onStart(); } finally { setBusy(false); }
+  };
+  return <div className="avx-question-card">
+    <div className="avx-complete-callout">
+      <strong>{stage === 'practice_1' ? 'Luyện nhận diện' : 'Luyện vận dụng'}</strong>
+      <p>Khi bắt đầu, hệ thống sẽ lưu một bộ câu cố định cho bài giao này. Tải lại hoặc đổi thiết bị vẫn tiếp tục đúng bộ câu đó.</p>
+    </div>
+    <button className="av-button av-button-primary avx-wide" type="button" disabled={busy || readOnly} onClick={() => void start()}>{readOnly ? 'Bài đang ở chế độ xem lại' : busy ? 'Đang chuẩn bị…' : 'Bắt đầu luyện tập'}</button>
+  </div>;
+}
+
 function ReadingStage({ content, completed, saved, onSubmit, onContinue }: { content: Json; completed: boolean; saved?: Json; onSubmit: (answers: Json, seconds: number) => Promise<Json>; onContinue: () => void }) {
   const [answers, setAnswers] = useState<Json>(() => Object.fromEntries((saved?.review?.answer_results || []).map((row: Json) => [String(row.id), row.submitted_answer])));
   const [result, setResult] = useState<Json | null>(() => saved?.review || null);
@@ -377,6 +392,21 @@ export function AdvancedVocabularyLesson() {
     return completed.has('listening');
   };
   const mergeProgress = (progress: Json) => setData((current) => current ? ({ ...current, progress }) : current);
+  const startPractice = async (practiceStage: 'practice_1' | 'practice_2') => {
+    const response = await post('/api/advanced-vocab/practice/start', {
+      bank_id: data?.bank?.id,
+      item_id: data?.assignment?.item_id,
+      stage: practiceStage,
+    });
+    setData((current) => current ? ({
+      ...current,
+      lesson: {
+        ...current.lesson,
+        practice: { ...current.lesson.practice, [practiceStage]: response.questions || [] },
+      },
+      progress: response.progress || current.progress,
+    }) : current);
+  };
 
   if (phase === 'loading') return <main id="aver-main-content" className="shell avx-shell"><div className="avx-state is-loading" role="status" aria-live="polite"><span aria-hidden="true" /> <p>Đang mở bài học…</p></div></main>;
   if (phase === 'error' || !data) return <main id="aver-main-content" className="shell avx-shell"><div className="avx-state"><h1 ref={errorHeadingRef} tabIndex={-1}>Chưa mở được bài học</h1><p>{error}</p><div className="avx-state-actions"><button className="av-button av-button-primary" type="button" onClick={() => void load()}>Thử lại</button><a className="av-button av-button-secondary" href="/my-class">Quay lại lớp học</a></div></div></main>;
@@ -389,8 +419,12 @@ export function AdvancedVocabularyLesson() {
     {data.assignment.accepting === false && <div className="avx-boundary-note" role="status"><strong>Chế độ xem lại</strong><p>Bài đã đóng nhận tương tác mới. Tiến độ đã lưu và nội dung tham khảo vẫn được giữ nguyên.</p></div>}
     <div className="avx-section-head"><p>{STAGES.find((item) => item.id === stage)?.short}</p><div><span>Lesson stage</span><h2>{STAGES.find((item) => item.id === stage)?.label}</h2></div></div>
     {stage === 'vocabulary' && <VocabularyStage data={data} readOnly={data.assignment.accepting === false} onDone={async (ids) => { const progress = await post('/api/advanced-vocab/vocabulary/complete', { ...base, seen_lexeme_ids: ids }); mergeProgress(progress); setStage('practice_1'); }} />}
-    {stage === 'practice_1' && <PracticeStage stage="practice_1" data={data} onAnswer={async (qid, answer, response_time_ms) => { const response = await post('/api/advanced-vocab/practice/answer', { ...base, stage: 'practice_1', qid, answer, response_time_ms }); mergeProgress(response.progress); return response; }} onDone={() => setStage('practice_2')} />}
-    {stage === 'practice_2' && <PracticeStage stage="practice_2" data={data} onAnswer={async (qid, answer, response_time_ms) => { const response = await post('/api/advanced-vocab/practice/answer', { ...base, stage: 'practice_2', qid, answer, response_time_ms }); mergeProgress(response.progress); return response; }} onDone={() => setStage('reading')} />}
+    {stage === 'practice_1' && (data.lesson.practice.practice_1?.length
+      ? <PracticeStage stage="practice_1" data={data} onAnswer={async (qid, answer, response_time_ms) => { const response = await post('/api/advanced-vocab/practice/answer', { ...base, stage: 'practice_1', qid, answer, response_time_ms }); mergeProgress(response.progress); return response; }} onDone={() => setStage('practice_2')} />
+      : <PracticeStart stage="practice_1" readOnly={data.assignment.accepting === false} onStart={() => startPractice('practice_1')} />)}
+    {stage === 'practice_2' && (data.lesson.practice.practice_2?.length
+      ? <PracticeStage stage="practice_2" data={data} onAnswer={async (qid, answer, response_time_ms) => { const response = await post('/api/advanced-vocab/practice/answer', { ...base, stage: 'practice_2', qid, answer, response_time_ms }); mergeProgress(response.progress); return response; }} onDone={() => setStage('reading')} />
+      : <PracticeStart stage="practice_2" readOnly={data.assignment.accepting === false} onStart={() => startPractice('practice_2')} />)}
     {stage === 'reading' && <ReadingStage content={data.lesson.activities.reading} completed={completed.has('reading')} saved={(data.progress.sections || []).find((row: Json) => row.section === 'reading')} onSubmit={async (answers, duration_sec) => { const response = await post('/api/advanced-vocab/reading', { ...base, answers, duration_sec }); setData((current) => current ? preserveReadingResult(current, response) : current); return response; }} onContinue={() => setStage('controlled_rewrite')} />}
     {stage === 'controlled_rewrite' && <ControlledRewriteStage activity={data.lesson.activities.controlled_rewrite} completed={completed.has('controlled_rewrite')} onReveal={async (attempted_item_ids) => { const response = await post('/api/advanced-vocab/controlled-rewrite/complete', { ...base, attempted_item_ids }); setData((current) => current ? preserveControlledRewriteResult(current, response) : current); return response; }} onContinue={() => setStage('listening')} />}
     {stage === 'listening' && <ListeningStage content={data.lesson.activities.listening} completed={completed.has('listening')} saved={(data.progress.sections || []).find((row: Json) => row.section === 'listening')} onSubmit={async (answers, duration_sec) => { const response = await post('/api/advanced-vocab/listening', { ...base, answers, duration_sec }); setData((current) => current ? preserveInitialListeningResult(current, response) : current); return response; }} onRetry={async (answers) => { const response = await post('/api/advanced-vocab/listening/guided-retry', { ...base, answers }); if (response.progress) mergeProgress(response.progress); return response; }} onContinue={() => setStage('writing')} />}

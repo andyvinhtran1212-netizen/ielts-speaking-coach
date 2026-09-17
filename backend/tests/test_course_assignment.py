@@ -105,7 +105,7 @@ def test_a_valid_bank_freezes_weight_shape_without_copying_questions():
 
 def test_advanced_vocabulary_freezes_runtime_and_ignores_grade_controls():
     runtime = {"kind": "advanced_vocab", "lesson_id": "ADV-T01", "score_policy": "none"}
-    bank = {**_BANK, "meta": {"runtime": runtime}}
+    bank = {**_BANK, "is_published": True, "meta": {"runtime": runtime}}
     _, cfg = _resolve(
         _full(quiz_banks=[bank]),
         _body(pass_pct=75, retake_size=20),
@@ -117,7 +117,8 @@ def test_advanced_vocabulary_freezes_runtime_and_ignores_grade_controls():
 
 def test_advanced_vocabulary_syllable_segments_do_not_break_audio_readiness():
     runtime = {"kind": "advanced_vocab", "lesson_id": "ADV-T01"}
-    bank = {**_BANK, "lesson_no": None, "meta": {"runtime": runtime}}
+    bank = {**_BANK, "lesson_no": None, "is_published": True,
+            "meta": {"runtime": runtime}}
     question = {
         "id": "syllable-1", "bank_id": "bank-1", "type": "syllable",
         "segments": ["re", "sil", "ience"], "audio_url": None,
@@ -127,6 +128,17 @@ def test_advanced_vocabulary_syllable_segments_do_not_break_audio_readiness():
 
     assert bank_id == "bank-1"
     assert cfg["runtime"] == runtime
+
+
+def test_advanced_vocabulary_must_be_published_before_assignment():
+    runtime = {"kind": "advanced_vocab", "lesson_id": "ADV-T01"}
+    bank = {**_BANK, "is_published": False, "meta": {"runtime": runtime}}
+
+    with pytest.raises(HTTPException) as exc:
+        _resolve(_full(quiz_banks=[bank]))
+
+    assert exc.value.status_code == 409
+    assert "xuất bản" in exc.value.detail
 
 
 def test_advanced_vocabulary_tally_uses_six_part_evidence_not_generic_quiz(monkeypatch):
