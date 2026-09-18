@@ -46,7 +46,9 @@ beta release.
 ## Required smoke assertions
 
 - No pre-submit response contains `correct_index`, explanations, misconception codes, or correctness.
-- A duplicate response returns conflict and does not move exposure history.
+- Retrying the same immutable answer returns canonical progress; only a retry
+  with a different option or assistance flag returns conflict. Neither path
+  creates another response or moves exposure history.
 - A completed class assignment has `artifact_kind=grammar_diagnostic`, `score=NULL`, and an educator report accessible to admin.
 - General mode never serves Academic-only items.
 - A second session excludes prior item IDs, stimulus families, and parallel sets; unreadable exposure history fails closed.
