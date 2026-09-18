@@ -132,6 +132,51 @@ def test_single_attempt_freezes_terminal_policy_without_mastery_controls():
     assert "retake_size" not in cfg
 
 
+@pytest.mark.parametrize(
+    ("bank", "questions", "pronunciation_sets"),
+    [
+        (
+            _BANK,
+            [
+                {"id": "q1", "bank_id": "bank-1", "type": "mcq"},
+                {"id": "w1", "bank_id": "bank-1", "type": "writing"},
+            ],
+            [],
+        ),
+        (
+            {**_BANK, "meta": {"short_reading": {"answers": ["A"]}}},
+            [{"id": "q1", "bank_id": "bank-1", "type": "mcq"}],
+            [],
+        ),
+        (
+            {**_BANK, "meta": {"short_listening": {"solution": {"answers": ["A"]}}}},
+            [{"id": "q1", "bank_id": "bank-1", "type": "mcq"}],
+            [],
+        ),
+        (
+            _BANK,
+            [{"id": "q1", "bank_id": "bank-1", "type": "mcq"}],
+            [_PRON_SET],
+        ),
+    ],
+    ids=["writing", "reading", "listening", "pronunciation"],
+)
+def test_single_attempt_rejects_every_hybrid_course_section(
+    bank, questions, pronunciation_sets,
+):
+    with pytest.raises(HTTPException) as caught:
+        _resolve(
+            _full(
+                quiz_banks=[bank],
+                quiz_questions=questions,
+                course_pronunciation_sets=pronunciation_sets,
+            ),
+            _body(completion_mode="single_attempt"),
+        )
+    assert caught.value.status_code == 400
+    assert "trắc nghiệm thuần" in str(caught.value.detail)
+
+
 def test_advanced_vocabulary_rejects_generic_single_attempt_mode():
     bank = {**_BANK, "meta": {"runtime": {"kind": "advanced_vocab"}}}
     with pytest.raises(HTTPException) as caught:
@@ -438,8 +483,27 @@ async def test_the_library_separates_ALREADY_GIVEN_from_NOT_YET_LOADED():
         out = await adm.list_course_banks("co-1", authorization="Bearer x")
     by = {b["lesson_no"]: b for b in out["items"]}
     assert by[1]["ready"] is True and by[1]["already_given"] is False
+    assert by[1]["single_attempt_ready"] is True
     assert by[2]["already_given"] is True
     assert by[3]["ready"] is False and by[3]["question_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_the_library_marks_hybrid_banks_ineligible_for_single_attempt():
+    hybrid = {**_BANK, "meta": {"short_reading": {"answers": ["A"]}}}
+    db = _db(
+        cohorts=[_COHORT], quiz_banks=[hybrid],
+        quiz_questions=[{
+            "id": "q1", "bank_id": "bank-1", "type": "mcq",
+            "counts_toward_mastery": True,
+        }],
+        class_assignments=[],
+    )
+    with patch.object(adm, "supabase_admin", db), \
+         patch.object(adm, "require_admin", new=lambda *_a, **_k: _async({"id": "ad"})):
+        out = await adm.list_course_banks("co-1", authorization="Bearer x")
+    assert out["items"][0]["ready"] is True
+    assert out["items"][0]["single_attempt_ready"] is False
 
 
 @pytest.mark.asyncio

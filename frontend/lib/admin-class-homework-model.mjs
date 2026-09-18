@@ -149,6 +149,7 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
     const pass = draft.passPct === '' ? null : Number(draft.passPct);
     const retake = draft.retakeSize === '' ? null : Number(draft.retakeSize);
     const timeLimit = draft.timeLimitMinutes === '' ? null : Number(draft.timeLimitMinutes);
+    if (completionMode === 'single_attempt' && selected.single_attempt_ready !== true) return { ok: false, error: 'Chế độ một lượt chỉ dùng cho bộ trắc nghiệm thuần.' };
     if (completionMode === 'mastery' && pass != null && (!Number.isInteger(pass) || pass < 50 || pass > 100)) return { ok: false, error: 'Ngưỡng đạt phải trong khoảng 50–100%.' };
     if (completionMode === 'mastery' && retake != null && (!Number.isInteger(retake) || retake < 5 || retake > 100)) return { ok: false, error: 'Số câu kiểm tra lại phải trong khoảng 5–100.' };
     if (timeLimit != null && (!Number.isInteger(timeLimit) || timeLimit < 1 || timeLimit > 720)) return { ok: false, error: 'Thời gian tối đa phải từ 1 đến 720 phút.' };
@@ -240,6 +241,7 @@ export function normalizeCatalog(value, kind, requestedSkill = '', requestedCoho
       explanation_count: row.web_explanation_count == null ? null : count(row.web_explanation_count),
       explanation_ready_count: row.web_explanation_ready_count == null ? null : count(row.web_explanation_ready_count),
       runtime: nullableText(row.runtime),
+      single_attempt_ready: row.single_attempt_ready === true,
     };
   }).filter(Boolean);
 }
