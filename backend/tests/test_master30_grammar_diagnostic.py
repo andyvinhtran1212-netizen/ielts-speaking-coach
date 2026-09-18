@@ -80,6 +80,19 @@ def test_importer_rejects_nonapproved_manifest_and_fixed_count_drift():
         )
 
 
+def test_runtime_rejects_release_outside_approved_manifest(monkeypatch):
+    monkeypatch.setattr(service, "supabase_admin", _RowsDb({
+        "grammar_content_releases": [{
+            "id": "release-1", "status": "active",
+            "manifest_sha256": "0" * 64,
+            "validation": {"passed": True},
+        }],
+    }))
+    with pytest.raises(service.HTTPException) as caught:
+        service._active_release()
+    assert caught.value.status_code == 503
+
+
 def test_learner_item_payload_never_contains_answer_material():
     source = {
         "item_id": "Q-1", "prompt": "Choose.", "options": ["A", "B"],
@@ -343,6 +356,10 @@ def test_migration_guards_evidence_and_finalization_under_assignment_lock():
     assert "grammar diagnostic session identity is immutable" in migration
     assert "OLD.status = 'completed'" in migration
     assert "invalid grammar diagnostic completion transition" in migration
+    assert "grammar_evidence_session_mismatch" in migration
+    assert "grammar_session_incomplete" in migration
+    assert "diagnostic_status = 'DIAGNOSTIC_APPROVED'" in migration
+    assert service.APPROVED_MANIFEST_SHA256 in migration
 
 
 def test_diagnostic_routes_publish_concrete_response_models():

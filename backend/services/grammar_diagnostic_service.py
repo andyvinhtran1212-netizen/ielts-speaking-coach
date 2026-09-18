@@ -39,6 +39,7 @@ PREREQUISITES = {
 LIMITS = {"QUICK": (18, 28), "FULL": (34, 54)}
 MAX_PER_ATTRIBUTE = 6
 ENTRY_EXCLUDED_LEVELS = {"ENTRY_EXCLUDE", "REQUIRED", "REMEDIATION_ONLY_LANGUAGE"}
+APPROVED_MANIFEST_SHA256 = "86a55dc1c3a8e5221eef9daa4772404f358ebb8f87c1284224e5197f58dbe531"
 
 _content_cache: dict[str, Any] = {}
 
@@ -59,7 +60,8 @@ def _active_release() -> dict[str, Any]:
             "message": "Nội dung Grammar Check-up chưa sẵn sàng.",
         })
     release = rows[0]
-    if not bool((release.get("validation") or {}).get("passed")):
+    if (release.get("manifest_sha256") != APPROVED_MANIFEST_SHA256
+            or not bool((release.get("validation") or {}).get("passed"))):
         raise HTTPException(503, detail={
             "error_code": "grammar_content_unvalidated",
             "message": "Nội dung Grammar Check-up đang được kiểm tra.",
@@ -73,7 +75,9 @@ def _release_by_id(release_id: str) -> dict[str, Any]:
         .select("id, release_key, manifest_sha256, validation, live_calibrated_ready, status")
         .eq("id", release_id).in_("status", ["active", "retired"]).limit(1).execute().data
     ) or []
-    if not rows or not bool((rows[0].get("validation") or {}).get("passed")):
+    if (not rows
+            or rows[0].get("manifest_sha256") != APPROVED_MANIFEST_SHA256
+            or not bool((rows[0].get("validation") or {}).get("passed"))):
         raise HTTPException(409, "Release Grammar của bài được giao không còn khả dụng")
     return rows[0]
 
@@ -176,7 +180,9 @@ def _require_session_accepting(user_id: str, session: dict[str, Any]) -> None:
 
 
 def _translate_assignment_write_error(exc: Exception) -> None:
-    if "grammar_assignment_not_accepting" in str(exc).lower():
+    message = str(exc).lower()
+    if ("grammar_assignment_not_accepting" in message
+            or "grammar_session_not_accepting" in message):
         raise HTTPException(
             409,
             "Bài Grammar đã đóng hoặc quá hạn; không có dữ liệu mới được lưu.",

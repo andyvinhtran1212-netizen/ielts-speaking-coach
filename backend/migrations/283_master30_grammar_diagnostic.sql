@@ -285,16 +285,20 @@ RETURNS VOID
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
     v_item_id UUID;
+    v_session_status TEXT;
     v_status TEXT;
     v_publish_at TIMESTAMPTZ;
     v_due_at TIMESTAMPTZ;
     v_now TIMESTAMPTZ;
 BEGIN
-    SELECT class_assignment_item_id INTO v_item_id
+    SELECT class_assignment_item_id, status INTO v_item_id, v_session_status
       FROM grammar_diagnostic_sessions WHERE id = p_session_id
       FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION 'grammar_session_not_found' USING ERRCODE = 'P0002';
+    END IF;
+    IF v_session_status <> 'in_progress' THEN
+        RAISE EXCEPTION 'grammar_session_not_accepting' USING ERRCODE = '55000';
     END IF;
     IF v_item_id IS NULL THEN
         RETURN;
@@ -323,8 +327,21 @@ GRANT EXECUTE ON FUNCTION assert_grammar_assignment_accepting(UUID) TO service_r
 
 CREATE OR REPLACE FUNCTION guard_grammar_assignment_evidence_write()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+    v_user_id UUID;
+    v_release_id UUID;
+    v_status TEXT;
 BEGIN
     PERFORM assert_grammar_assignment_accepting(NEW.session_id);
+    SELECT user_id, release_id, status
+      INTO v_user_id, v_release_id, v_status
+      FROM grammar_diagnostic_sessions
+     WHERE id = NEW.session_id;
+    IF v_status <> 'in_progress'
+       OR NEW.user_id IS DISTINCT FROM v_user_id
+       OR NEW.release_id IS DISTINCT FROM v_release_id THEN
+        RAISE EXCEPTION 'grammar_evidence_session_mismatch' USING ERRCODE = '55000';
+    END IF;
     RETURN NEW;
 END;
 $$;
@@ -350,7 +367,22 @@ BEGIN
         RAISE EXCEPTION 'grammar_release_not_found' USING ERRCODE = 'P0002';
     END IF;
     IF v_release.status NOT IN ('validated', 'retired')
-       OR COALESCE((v_release.validation ->> 'passed')::boolean, false) IS NOT TRUE THEN
+       OR v_release.manifest_sha256 <> '86a55dc1c3a8e5221eef9daa4772404f358ebb8f87c1284224e5197f58dbe531'
+       OR COALESCE((v_release.validation ->> 'passed')::boolean, false) IS NOT TRUE
+       OR (SELECT COUNT(*) FROM grammar_lessons WHERE release_id = v_release.id) <> 30
+       OR (SELECT COUNT(*) FROM grammar_items WHERE release_id = v_release.id) <> 733
+       OR (SELECT COUNT(*) FROM grammar_item_qmatrix WHERE release_id = v_release.id) <> 3338
+       OR (SELECT COUNT(*) FROM grammar_productive_tasks WHERE release_id = v_release.id) <> 19
+       OR (SELECT COUNT(*) FROM grammar_remediation_routes WHERE release_id = v_release.id) <> 16
+       OR (SELECT COUNT(*) FROM grammar_misconceptions WHERE release_id = v_release.id) <> 14
+       OR (SELECT COUNT(*) FROM grammar_items
+            WHERE release_id = v_release.id AND diagnostic_status = 'DIAGNOSTIC_APPROVED') <> 280
+       OR (SELECT COUNT(*) FROM grammar_items
+            WHERE release_id = v_release.id AND entry_safe IS TRUE) <> 213
+       OR (SELECT COUNT(*) FROM grammar_items
+            WHERE release_id = v_release.id AND diagnostic_status = 'CONFIRMATION_RESERVED') <> 231
+       OR (SELECT COUNT(*) FROM grammar_items
+            WHERE release_id = v_release.id AND diagnostic_status = 'HOLDOUT_RESERVED') <> 222 THEN
         RAISE EXCEPTION 'grammar_release_not_validated' USING ERRCODE = '55000';
     END IF;
     UPDATE grammar_content_releases
@@ -387,6 +419,12 @@ BEGIN
     -- Recheck under the assignment/item lock in the same transaction that
     -- writes the immutable report and class ledger terminal state.
     PERFORM assert_grammar_assignment_accepting(v_session.id);
+
+    IF (SELECT COUNT(*) FROM grammar_diagnostic_responses
+         WHERE session_id = v_session.id AND user_id = v_session.user_id)
+       <> v_session.objective_limit THEN
+        RAISE EXCEPTION 'grammar_session_incomplete' USING ERRCODE = '55000';
+    END IF;
 
     INSERT INTO grammar_diagnostic_reports (
         session_id, user_id, release_id, evidence_sha256,
