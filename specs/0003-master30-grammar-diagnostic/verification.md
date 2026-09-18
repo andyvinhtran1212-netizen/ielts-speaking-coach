@@ -34,7 +34,7 @@ verified.
 
 ## Contract and data evidence
 
-- Current local release suite: 24 passed; class assignment, My Class, and runtime
+- Current local release suite: 25 passed; class assignment, My Class, and runtime
   flag regressions: 163 passed; frontend/My Class contracts: 39 passed;
   TypeScript strict and OpenAPI drift: PASS.
 - Approved release key: `master30-86a55dc1c3a8e522`.

@@ -129,6 +129,7 @@ class LearnerReportSnapshotResponse(BaseModel):
 class LearnerReportResponse(LearnerReportSnapshotResponse):
     session_id: str
     created_at: Optional[str] = None
+    assigned: bool = False
 
 
 class AttributeEvidenceResponse(BaseModel):

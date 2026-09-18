@@ -749,7 +749,12 @@ def learner_report(user_id: str, session_id: str) -> dict[str, Any]:
     ) or []
     if not rows:
         raise HTTPException(409, "Báo cáo chưa sẵn sàng")
-    return {**rows[0]["learner_report"], "session_id": session_id, "created_at": rows[0].get("created_at")}
+    return {
+        **rows[0]["learner_report"],
+        "session_id": session_id,
+        "created_at": rows[0].get("created_at"),
+        "assigned": bool(session.get("class_assignment_item_id")),
+    }
 
 
 def educator_report(session_id: str) -> dict[str, Any]:
@@ -760,7 +765,18 @@ def educator_report(session_id: str) -> dict[str, Any]:
     ) or []
     if not rows:
         raise HTTPException(404, "Không tìm thấy báo cáo Grammar")
-    return {**rows[0]["educator_report"], "session_id": session_id, "created_at": rows[0].get("created_at")}
+    sessions = (
+        supabase_admin.table("grammar_diagnostic_sessions")
+        .select("class_assignment_item_id").eq("id", session_id).limit(1).execute().data
+    ) or []
+    if not sessions:
+        raise HTTPException(404, "Không tìm thấy phiên Grammar Check-up")
+    return {
+        **rows[0]["educator_report"],
+        "session_id": session_id,
+        "created_at": rows[0].get("created_at"),
+        "assigned": bool(sessions[0].get("class_assignment_item_id")),
+    }
 
 
 def learner_history(user_id: str) -> list[dict[str, Any]]:

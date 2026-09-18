@@ -286,6 +286,24 @@ def test_completed_report_full_reload_succeeds_after_deadline(monkeypatch):
     report = service.learner_report("u-1", "session-1")
     assert report["profile_kind"] == "Grammar Readiness Profile"
     assert report["session_id"] == "session-1"
+    assert report["assigned"] is True
+
+
+def test_self_serve_report_preserves_retake_identity(monkeypatch):
+    session = {
+        "id": "session-1", "user_id": "u-1", "status": "completed",
+        "class_assignment_item_id": None,
+    }
+    monkeypatch.setattr(service, "supabase_admin", _RowsDb({
+        "grammar_diagnostic_sessions": [session],
+        "grammar_diagnostic_reports": [{
+            "learner_report": {"profile_kind": "Grammar Readiness Profile"},
+            "created_at": "2026-09-18T00:00:00+00:00",
+        }],
+    }))
+
+    report = service.learner_report("u-1", "session-1")
+    assert report["assigned"] is False
 
 
 def test_closed_assignment_blocks_next_response_and_complete_before_writes(monkeypatch):
