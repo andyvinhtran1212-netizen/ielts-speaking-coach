@@ -32,12 +32,14 @@ Fail-soft contract:
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
 
 import requests
 
 from config import settings
 from database import supabase_admin
+from services import ai_usage_logger
 from services.d1_question_generator import _call_with_retry
 
 logger = logging.getLogger(__name__)
@@ -54,14 +56,13 @@ _DEFAULT_VOICE_SETTINGS = {
     "stability": 0.5,
     "similarity_boost": 0.5,
 }
-# Sprint 11.0 §3C — credit cost model: 1 char ≈ 2 credits for
-# Multilingual v2, ≈ 1 credit for Flash v2.5. Used for the
-# generation_cost_credits column estimate (true cost lands when
-# ElevenLabs returns it in response headers; this is the fallback
-# when the header is absent).
+# Fallback credit estimate only. Public API pricing uses 1 credit/char for
+# Multilingual v2 and 1 credit/2 chars for Flash. The persisted column is an
+# integer, so fractional Flash totals round up to the next whole credit.
+# Raw characters and a USD catalog estimate also land in ai_usage_logs.
 _CREDITS_PER_CHAR_BY_MODEL = {
-    "eleven_multilingual_v2": 2,
-    "eleven_flash_v2_5": 1,
+    "eleven_multilingual_v2": 1.0,
+    "eleven_flash_v2_5": 0.5,
 }
 
 
@@ -101,6 +102,16 @@ def render_via_elevenlabs(
     }
     resp = requests.post(url, headers=headers, json=payload, timeout=timeout_seconds)
     resp.raise_for_status()
+    ai_usage_logger.log_tts(
+        user_id=None,
+        session_id=None,
+        service="elevenlabs",
+        model=model,
+        text_chars=len(script_text),
+        feature="listening_tts",
+        operation="render",
+        metadata={"voice_id": voice_id, "with_timestamps": False},
+    )
     return resp.content
 
 
@@ -148,6 +159,16 @@ def render_via_elevenlabs_with_timestamps(
     }
     resp = requests.post(url, headers=headers, json=payload, timeout=timeout_seconds)
     resp.raise_for_status()
+    ai_usage_logger.log_tts(
+        user_id=None,
+        session_id=None,
+        service="elevenlabs",
+        model=model,
+        text_chars=len(script_text),
+        feature="listening_tts",
+        operation="render",
+        metadata={"voice_id": voice_id, "with_timestamps": True},
+    )
 
     data = resp.json()
     audio_b64 = data.get("audio_base64") or ""
@@ -167,8 +188,8 @@ def render_via_elevenlabs_with_timestamps(
 def _estimate_credit_cost(script_text: str, model: str) -> int:
     """Sprint 11.0 §3C — char-count × per-model multiplier. Used when
     ElevenLabs response doesn't carry a precise credit-cost header."""
-    per_char = _CREDITS_PER_CHAR_BY_MODEL.get(model, 2)
-    return len(script_text) * per_char
+    per_char = _CREDITS_PER_CHAR_BY_MODEL.get(model, 1.0)
+    return math.ceil(len(script_text) * per_char)
 
 
 # ── BackgroundTask entry point ────────────────────────────────────────────────

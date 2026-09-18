@@ -1086,6 +1086,7 @@ def _grade_and_save_gist(
         user_response=body.user_transcript,
         model_answer=model_answer,
         rubric_keywords=rubric_keywords,
+        usage_user_id=user_id,
     )
 
     is_first_attempt = _check_first_attempt(
@@ -3359,7 +3360,13 @@ def _audit_provider():
     anthropic_key = getattr(settings, "ANTHROPIC_API_KEY", "") or ""
     gemini_key = getattr(settings, "GEMINI_API_KEY", "") or ""
     try:
-        return _build_grading_primary(settings.LISTENING_AUDIT_MODEL, anthropic_key, gemini_key)
+        return _build_grading_primary(
+            settings.LISTENING_AUDIT_MODEL,
+            anthropic_key,
+            gemini_key,
+            feature="listening_audit",
+            operation="content_audit",
+        )
     except Exception:
         return None
 

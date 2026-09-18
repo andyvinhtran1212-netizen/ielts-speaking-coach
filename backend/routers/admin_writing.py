@@ -63,7 +63,7 @@ class CreateEssayRequest(BaseModel):
     form_of_address: str  = Field(default="em", pattern=r"^(bạn|em|anh|chị)$")
     selected_model:  str  = Field(
         default="gemini-2.5-pro",
-        pattern=r"^(gemini-2\.5-pro|gemini-2\.5-flash|gemini-3\.5-flash)$",
+        pattern=r"^(gemini-2\.5-pro|gemini-2\.5-flash|gemini-3\.5-flash|gemini-3\.8-flash)$",
     )
 
     # Sprint 2.7a — grading depth tier. Default 'standard' so clients
@@ -300,7 +300,7 @@ class StartGradingRequest(BaseModel):
     analysis_level: int = Field(default=3, ge=1, le=5)
     selected_model: str = Field(
         default="gemini-2.5-pro",
-        pattern=r"^(gemini-2\.5-pro|gemini-2\.5-flash|gemini-3\.5-flash)$",
+        pattern=r"^(gemini-2\.5-pro|gemini-2\.5-flash|gemini-3\.5-flash|gemini-3\.8-flash)$",
     )
 
 

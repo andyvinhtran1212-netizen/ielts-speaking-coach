@@ -308,7 +308,9 @@ def get_judge() -> OffTopicJudge:
     if _judge is None:
         from config import settings as _settings
         from .grading_orchestrator import build_default
-        _judge = OffTopicJudge(build_default(_settings))
+        _judge = OffTopicJudge(build_default(
+            _settings, feature="off_topic_judge", operation="judge",
+        ))
     return _judge
 
 

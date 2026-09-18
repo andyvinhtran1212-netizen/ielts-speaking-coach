@@ -167,7 +167,7 @@ class BulkGradeBody(BaseModel):
     analysis_level: int = Field(default=3, ge=1, le=5)
     selected_model: str = Field(
         default="gemini-2.5-pro",
-        pattern=r"^(gemini-2\.5-pro|gemini-2\.5-flash|gemini-3\.5-flash)$",
+        pattern=r"^(gemini-2\.5-pro|gemini-2\.5-flash|gemini-3\.5-flash|gemini-3\.8-flash)$",
     )
 
 

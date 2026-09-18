@@ -152,7 +152,9 @@ def render_question_audio(
         return {"audio_path": path, "audio_url": tts_audio.public_url(path),
                 "script": script, "synthesized": False}
 
-    data = tts_audio.synth_sync(script, engine=engine, voice=voice)
+    data = tts_audio.synth_sync(
+        script, engine=engine, voice=voice, feature="speaking_question_tts",
+    )
     data = tts_audio.pad_silence_mp3(data)
     tts_audio.upload_mp3(path, data)
     return {"audio_path": path, "audio_url": tts_audio.public_url(path),

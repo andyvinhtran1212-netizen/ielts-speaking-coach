@@ -320,6 +320,11 @@ async def assess_full_test_pronunciation(
                 content_type=content_type,
                 locale="en-US",
                 reference_text="",
+                usage_user_id=user_id,
+                usage_session_id=session_id,
+                usage_resource_type="response",
+                usage_resource_id=sample.response_id,
+                audio_seconds=sample.duration_seconds,
             )
         except (ValueError, RuntimeError) as e:
             logger.warning("[pronunciation/full] %s Azure error: %s", part_key, e)

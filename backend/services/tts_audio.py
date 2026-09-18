@@ -23,6 +23,7 @@ import logging
 
 from config import settings
 from database import supabase_admin
+from services import ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -258,13 +259,39 @@ def _kokoro_pipeline(lang: str):
     return _KOKORO_PIPELINES[lang]
 
 
-def synth_sync(text: str, engine: str = "openai", voice: str = DEFAULT_VOICE) -> bytes:
+def synth_sync(
+    text: str,
+    engine: str = "openai",
+    voice: str = DEFAULT_VOICE,
+    *,
+    feature: str = "vocab_tts",
+) -> bytes:
     """Engine-dispatch (sync). engine='openai' (default) | 'elevenlabs' | 'kokoro'."""
     if engine == "elevenlabs":
-        return _synth_elevenlabs_sync(text)
+        data = _synth_elevenlabs_sync(text)
+        ai_usage_logger.log_tts(
+            user_id=None,
+            session_id=None,
+            service="elevenlabs",
+            model=settings.VOCAB_TTS_ELEVENLABS_MODEL or ELEVENLABS_MODEL_DEFAULT,
+            text_chars=len(text),
+            feature=feature,
+            operation="synthesize",
+            metadata={"voice_id": settings.VOCAB_TTS_ELEVENLABS_VOICE_ID},
+        )
+        return data
     if engine == "kokoro":
         return _synth_kokoro_sync(text, voice)
-    return _synth_openai_sync(text, voice)
+    data = _synth_openai_sync(text, voice)
+    ai_usage_logger.log_tts(
+        user_id=None,
+        session_id=None,
+        model=_MODEL,
+        text_chars=len(text),
+        feature=feature,
+        operation="synthesize",
+    )
+    return data
 
 
 def get_or_create_audio_sync(

@@ -201,6 +201,7 @@ def test_pricing_table_has_all_selectable_models(grader):
     assert "gemini-2.5-pro" in MODEL_PRICING
     assert "gemini-2.5-flash" in MODEL_PRICING
     assert "gemini-3.5-flash" in MODEL_PRICING  # W-MM step 0 — observation option
+    assert "gemini-3.8-flash" in MODEL_PRICING
     for model, prices in MODEL_PRICING.items():
         assert "input" in prices and "output" in prices
         assert prices["input"] > 0 and prices["output"] > 0
@@ -244,6 +245,14 @@ def test_grader_config_accepts_gemini_3_5_flash():
         selected_model="gemini-3.5-flash",
     )
     assert cfg.selected_model == "gemini-3.5-flash"
+
+
+def test_grader_config_accepts_gemini_3_8_flash():
+    cfg = GraderConfig(
+        task_type="task2", prompt_text="p", essay_text="e", analysis_level=3,
+        selected_model="gemini-3.8-flash",
+    )
+    assert cfg.selected_model == "gemini-3.8-flash"
 
 
 # ── Phase 1.5a: history injection in user prompt ─────────────────────

@@ -41,19 +41,31 @@ from models.writing_feedback import (
 )
 from services.writing_history import format_history_for_prompt
 from services.writing_prompt_loader import get_prompt_loader
+from services.ai_pricing import estimate_token_cost, token_rate
+from services import ai_usage_logger
+from services.gemini_compat import generation_config_kwargs
 
 logger = logging.getLogger(__name__)
 
 
 # ── Pricing (USD per 1M tokens) — verified by Andy 2026-05-04 ────────
 
+_WRITING_MODELS = (
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemini-3.5-flash",
+    "gemini-3.8-flash",
+)
+# Compatibility export for tests/admin diagnostics. Values come from the same
+# effective-dated catalog used by every other AI call; it is no longer a second
+# hand-maintained source of truth.
 MODEL_PRICING: dict[str, dict[str, float]] = {
-    "gemini-2.5-pro":   {"input": 1.25, "output": 10.00},
-    "gemini-2.5-flash": {"input": 0.30, "output":  2.50},
-    # Sprint W-MM step 0 — Gemini 3.5 Flash (GA) added as a SELECTABLE model
-    # for observation before any default switch. Newer generation, output
-    # cheaper than 2.5 Pro ($9 vs $10). ≤200k-context rates, June 2026.
-    "gemini-3.5-flash": {"input": 1.50, "output":  9.00},
+    model: {
+        "input": rate.input_per_million,
+        "output": rate.output_per_million,
+    }
+    for model in _WRITING_MODELS
+    if (rate := token_rate("google", model)) is not None
 }
 
 MAX_RETRIES = 3
@@ -316,6 +328,7 @@ class GeminiWritingGrader:
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             parse_schema=WritingFeedback,   # retry on truncated/malformed body
+            usage_context=self._usage_context(config, "pass1"),
             **extra,
         )
 
@@ -339,6 +352,7 @@ class GeminiWritingGrader:
             model_used=model_name,
             tokens_input=usage.get("input_tokens"),
             tokens_output=usage.get("output_tokens"),
+            thinking_tokens=usage.get("thinking_tokens"),
             cost_usd=cost,
             grading_duration_ms=duration_ms,
             prompt_version=stamp,
@@ -389,6 +403,7 @@ class GeminiWritingGrader:
             "duration_ms":   pass1.grading_duration_ms,
             "tokens_input":  pass1.tokens_input,
             "tokens_output": pass1.tokens_output,
+            "thinking_tokens": pass1.thinking_tokens,
             "cost_usd":      pass1.cost_usd,
         }
 
@@ -436,6 +451,7 @@ class GeminiWritingGrader:
             "duration_ms":       int((time.time() - pass2_start) * 1000),
             "tokens_input":      pass2_usage.get("input_tokens"),
             "tokens_output":     pass2_usage.get("output_tokens"),
+            "thinking_tokens":   pass2_usage.get("thinking_tokens"),
             "cost_usd":          pass2_cost,
             "added_mistakes":    len(pass2_output.added_mistakes),
             "removed_mistakes":  len(pass2_output.removed_mistake_indexes),
@@ -492,6 +508,7 @@ class GeminiWritingGrader:
             "duration_ms":    int((time.time() - pass3_start) * 1000),
             "tokens_input":   pass3_usage.get("input_tokens"),
             "tokens_output":  pass3_usage.get("output_tokens"),
+            "thinking_tokens": pass3_usage.get("thinking_tokens"),
             "cost_usd":       pass3_cost,
             "rewrites_count": len(pass3_output.sentence_rewrites),
         }
@@ -533,6 +550,7 @@ class GeminiWritingGrader:
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             parse_schema=Pass2Refinement,   # retry on truncated/malformed body
+            usage_context=self._usage_context(config, "pass2"),
         )
         return self._parse_response(response_text, schema=Pass2Refinement), usage
 
@@ -556,6 +574,7 @@ class GeminiWritingGrader:
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             parse_schema=Pass3Rewrites,   # retry on truncated/malformed body
+            usage_context=self._usage_context(config, "pass3"),
         )
         return self._parse_response(response_text, schema=Pass3Rewrites), usage
 
@@ -623,6 +642,7 @@ class GeminiWritingGrader:
         """
         total_tokens_in  = pass1.tokens_input or 0
         total_tokens_out = pass1.tokens_output or 0
+        total_thinking_tokens = pass1.thinking_tokens or 0
         total_cost = (pass1.cost_usd or 0.0)
         total_duration_ms = pass1.grading_duration_ms
 
@@ -630,6 +650,7 @@ class GeminiWritingGrader:
             meta = tier_metadata.get(pass_key, {})
             total_tokens_in  += meta.get("tokens_input") or 0
             total_tokens_out += meta.get("tokens_output") or 0
+            total_thinking_tokens += meta.get("thinking_tokens") or 0
             total_cost       += meta.get("cost_usd") or 0.0
             total_duration_ms += meta.get("duration_ms") or 0
 
@@ -638,6 +659,7 @@ class GeminiWritingGrader:
             model_used=settings.GEMINI_PRO_MODEL,
             tokens_input=total_tokens_in,
             tokens_output=total_tokens_out,
+            thinking_tokens=total_thinking_tokens,
             cost_usd=round(total_cost, 6),
             grading_duration_ms=total_duration_ms,
             prompt_version=stamp,
@@ -791,6 +813,7 @@ class GeminiWritingGrader:
         image: Optional[tuple[bytes, str]] = None,
         *,
         parse_schema=None,
+        usage_context: dict | None = None,
     ) -> tuple[str, dict]:
         """Call Gemini with exponential backoff retry.
 
@@ -813,15 +836,17 @@ class GeminiWritingGrader:
             model_name=model_name,
             system_instruction=system_prompt,
         )
-        generation_config = GenerationConfig(
+        config_kwargs = generation_config_kwargs(
+            model_name,
             response_mime_type="application/json",
-            temperature=0.3,
             # Robustness: long L4/L5 feedback (~16KB+) was truncated at the
             # model's default output cap → unterminated JSON → InvalidJSONError
             # (prod char-16107 cut). Gemini 2.5 supports 64K+ output; a high cap
             # only ALLOWS longer responses — cost still tracks the real length.
             max_output_tokens=32768,
+            temperature=0.3,
         )
+        generation_config = GenerationConfig(**config_kwargs)
 
         # Single string for text-only; [text, image-part] for multimodal.
         contents = user_prompt
@@ -831,39 +856,81 @@ class GeminiWritingGrader:
 
         last_error: Optional[Exception] = None
         for attempt in range(MAX_RETRIES):
+            attempt_started = time.monotonic()
+            attempt_logged = False
             try:
                 response = await asyncio.to_thread(
                     model.generate_content,
                     contents,
                     generation_config=generation_config,
                 )
+                usage = self._usage_from_metadata(
+                    getattr(response, "usage_metadata", None))
 
                 # Safety block detection (no retry)
                 if not response.candidates:
+                    await self._log_writing_usage(
+                        model_name, usage, usage_context, attempt,
+                        attempt_started, status="safety_block",
+                    )
+                    attempt_logged = True
                     raise AISafetyBlockError("Gemini blocked response (no candidates)")
                 finish_reason = response.candidates[0].finish_reason
                 if finish_reason and getattr(finish_reason, "name", "") == "SAFETY":
+                    await self._log_writing_usage(
+                        model_name, usage, usage_context, attempt,
+                        attempt_started, status="safety_block",
+                    )
+                    attempt_logged = True
                     raise AISafetyBlockError("Gemini safety filter triggered")
 
                 response_text = response.text or ""
                 if len(response_text.strip()) < 10:
+                    await self._log_writing_usage(
+                        model_name, usage, usage_context, attempt,
+                        attempt_started, status="invalid_response",
+                    )
+                    attempt_logged = True
                     raise InvalidJSONError("Empty/near-empty response from Gemini")
 
                 # Validate inside the loop so a truncated/malformed body is a
                 # RETRYABLE failure (re-roll with backoff), not a hard fail.
                 if parse_schema is not None:
-                    self._parse_response(response_text, schema=parse_schema)
+                    try:
+                        self._parse_response(response_text, schema=parse_schema)
+                    except Exception:
+                        await self._log_writing_usage(
+                            model_name, usage, usage_context, attempt,
+                            attempt_started, status="invalid_response",
+                        )
+                        attempt_logged = True
+                        raise
 
-                usage = self._usage_from_metadata(
-                    getattr(response, "usage_metadata", None))
+                await self._log_writing_usage(
+                    model_name, usage, usage_context, attempt,
+                    attempt_started, status="success",
+                )
+                attempt_logged = True
 
                 return response_text, usage
 
+            except asyncio.CancelledError:
+                if not attempt_logged:
+                    await self._log_writing_usage(
+                        model_name, {}, usage_context, attempt,
+                        attempt_started, status="cancelled",
+                    )
+                raise
             except AISafetyBlockError:
                 # Don't retry safety blocks
                 raise
             except Exception as e:
                 last_error = e
+                if not attempt_logged:
+                    await self._log_writing_usage(
+                        model_name, {}, usage_context, attempt,
+                        attempt_started, status="error",
+                    )
                 logger.warning(
                     "Gemini grading attempt %d/%d failed: %s",
                     attempt + 1, MAX_RETRIES, e,
@@ -879,6 +946,71 @@ class GeminiWritingGrader:
         if isinstance(last_error, InvalidJSONError):
             raise last_error
         raise APIRetryFailedError(f"All {MAX_RETRIES} retries failed: {last_error}")
+
+    @staticmethod
+    def _usage_context(config: GraderConfig, operation: str) -> dict:
+        return {
+            "user_id": config.usage_user_id,
+            "session_id": None,
+            "feature": "writing_grading",
+            "operation": operation,
+            "resource_type": "writing_essay",
+            "resource_id": config.usage_resource_id,
+            "usage_event_prefix": config.usage_event_prefix,
+            "metadata": {
+                "student_id": config.usage_student_id,
+                "task_type": config.task_type,
+                "analysis_level": config.analysis_level,
+                "grading_tier": str(config.grading_tier),
+            },
+        }
+
+    @staticmethod
+    async def _log_writing_usage(
+        model_name: str,
+        usage: dict,
+        usage_context: dict | None,
+        attempt: int,
+        attempt_started: float,
+        *,
+        status: str,
+    ) -> None:
+        context = dict(usage_context or {})
+        event_prefix = context.pop("usage_event_prefix", None)
+        if event_prefix:
+            context["usage_event_id"] = (
+                f"{event_prefix}:{context.get('operation', 'call')}:api:{attempt + 1}"
+            )
+        if not usage:
+            error_code = (
+                status if status in {"error", "cancelled"} else "missing_usage"
+            )
+            ai_usage_logger.schedule_usage_log(ai_usage_logger.log_unpriced_usage_async(
+                service="gemini",
+                model=model_name,
+                user_id=context.pop("user_id", None),
+                session_id=context.pop("session_id", None),
+                status=status,
+                error_code=error_code,
+                latency_ms=int((time.monotonic() - attempt_started) * 1000),
+                **context,
+            ))
+            return
+        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_gemini_async(
+            user_id=context.pop("user_id", None),
+            session_id=context.pop("session_id", None),
+            model=model_name,
+            input_tokens=usage.get("input_tokens") or 0,
+            output_tokens=max(
+                0,
+                (usage.get("output_tokens") or 0)
+                - (usage.get("thinking_tokens") or 0),
+            ),
+            thinking_tokens=usage.get("thinking_tokens") or 0,
+            status=status,
+            latency_ms=int((time.monotonic() - attempt_started) * 1000),
+            **context,
+        ))
 
     def _parse_response(self, response_text: str, schema=WritingFeedback):
         """Parse Gemini JSON response → schema instance.
@@ -923,10 +1055,13 @@ class GeminiWritingGrader:
         Returns {} when metadata is absent (cost then degrades to None)."""
         if um is None:
             return {}
-        candidates = um.candidates_token_count if um.candidates_token_count is not None else 0
-        thoughts = getattr(um, "thoughts_token_count", None) or 0
+
+        tokens = ai_usage_logger.gemini_usage_tokens(um)
+        prompt = tokens["input_tokens"]
+        candidates = tokens["output_tokens"]
+        thoughts = tokens["thinking_tokens"]
         return {
-            "input_tokens": um.prompt_token_count,
+            "input_tokens": prompt,
             "output_tokens": candidates + thoughts,
             "thinking_tokens": thoughts,
         }
@@ -962,13 +1097,13 @@ class GeminiWritingGrader:
         if tokens_in is None or tokens_out is None:
             return None
 
-        pricing = MODEL_PRICING.get(model)
-        if not pricing:
-            return None
-
-        cost = (tokens_in / 1_000_000) * pricing["input"]
-        cost += (tokens_out / 1_000_000) * pricing["output"]
-        return round(cost, 6)
+        cost, _ = estimate_token_cost(
+            "google", model,
+            input_tokens=tokens_in,
+            # Historical writing output already includes thinking tokens.
+            output_tokens=tokens_out,
+        )
+        return round(cost, 6) if cost is not None else None
 
 
 # ── Singleton accessor ───────────────────────────────────────────────

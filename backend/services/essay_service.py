@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Iterable, Optional
 
@@ -66,6 +67,9 @@ _ETA_TABLE: dict[tuple[int, str], int] = {
     (1, "gemini-3.5-flash"): 15,
     (3, "gemini-3.5-flash"): 30,
     (5, "gemini-3.5-flash"): 55,
+    (1, "gemini-3.8-flash"): 15,
+    (3, "gemini-3.8-flash"): 30,
+    (5, "gemini-3.8-flash"): 55,
 }
 _ETA_DEFAULT_SECONDS = 60
 
@@ -832,6 +836,7 @@ async def _bg_grade_essay(
     # passes None for the param — still restores a prior good grade on terminal
     # failure instead of stranding it in 'failed'.
     restore_status = restore_status_on_fail
+    usage_run_id = str(uuid.uuid4())
 
     try:
         jrow = (
@@ -889,6 +894,26 @@ async def _bg_grade_essay(
         band_trajectory     = get_band_trajectory(essay["student_id"])
         sentence_structure  = get_sentence_structure_history(essay["student_id"])
 
+        # ai_usage_logs.user_id references users.id, while writing_essays owns
+        # a students.id. Resolve the FK explicitly; telemetry lookup failure
+        # must not block grading, and the student id remains in metadata.
+        usage_user_id = None
+        try:
+            student_rows = (
+                supabase_admin.table("students")
+                .select("user_id")
+                .eq("id", essay["student_id"])
+                .limit(1)
+                .execute()
+            ).data or []
+            if student_rows:
+                usage_user_id = student_rows[0].get("user_id")
+        except Exception as exc:
+            logger.warning(
+                "[grade %s] could not resolve usage user for student %s: %s",
+                essay_id, essay["student_id"], exc,
+            )
+
         # Sprint W-MM — on the FINAL attempt switch to the fallback model
         # (the primary has failed at job level on every prior attempt). The
         # actual model used is persisted via result.model_used, so the grade
@@ -939,6 +964,12 @@ async def _bg_grade_essay(
             # accuracy. Gated on the feature flag; snapshot-first, prompt
             # fallback. None → grade as before (image-only).
             prompt_image_facts=resolve_prompt_facts_for_grading(essay_id, essay),
+            usage_user_id=usage_user_id,
+            usage_student_id=essay.get("student_id"),
+            usage_resource_id=essay_id,
+            usage_event_prefix=(
+                f"writing:{job_id}:attempt:{attempt_no}:run:{usage_run_id}"
+            ),
         )
 
         result = await get_grader().grade_essay(config)

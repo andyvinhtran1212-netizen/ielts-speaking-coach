@@ -52,11 +52,15 @@ def _stt_model() -> str:
 
 
 def _response_format_for(model: str) -> str:
-    """whisper-* returns verbose_json (segments + duration + avg_logprob), which
-    the reliability classifier + duration guards need. Newer models
-    (gpt-4o-transcribe, gpt-4o-mini-transcribe) don't support verbose_json — use
-    plain json and recover duration via ffprobe (see _probe_duration_seconds)."""
-    return "verbose_json" if model.lower().startswith("whisper") else "json"
+    """Choose the richest supported transcription response contract.
+
+    ``gpt-transcribe`` supports verbose JSON; the old prefix check incorrectly
+    downgraded every non-Whisper model to plain JSON. OpenAI documents explicit
+    word/segment ``timestamp_granularities`` only for ``whisper-1``, so the A/B
+    gate must still verify segment/confidence parity before promotion.
+    """
+    verbose_json_models = {"whisper-1", "gpt-transcribe"}
+    return "verbose_json" if model.lower() in verbose_json_models else "json"
 
 
 def _probe_duration_seconds(*, audio_bytes: bytes | None = None, path: str | None = None) -> float:

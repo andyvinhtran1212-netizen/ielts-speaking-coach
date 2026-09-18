@@ -84,7 +84,7 @@ def _submit(*, grade_oks, prior_items=None):
         "class_assignment_items": [{"id": ITEM}],
     })
 
-    async def fake_grade(items):
+    async def fake_grade(items, **_context):
         return ([{**it, "ok": ok, "corrected": "x", "issues": []}
                  for it, ok in zip(items, grade_oks)], "model-thử")
 

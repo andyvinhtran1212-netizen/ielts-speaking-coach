@@ -1,4 +1,4 @@
-const TASKS=new Set(['task1_academic','task1_general','task2']);const LEVELS=new Set([1,2,3,4,5]);const MODELS=new Set(['gemini-2.5-pro','gemini-2.5-flash','gemini-3.5-flash']);const FOA=new Set(['bạn','em','anh','chị']);const TIERS=new Set(['standard','deep','instructor']);
+const TASKS=new Set(['task1_academic','task1_general','task2']);const LEVELS=new Set([1,2,3,4,5]);const MODELS=new Set(['gemini-2.5-pro','gemini-2.5-flash','gemini-3.5-flash','gemini-3.8-flash']);const FOA=new Set(['bạn','em','anh','chị']);const TIERS=new Set(['standard','deep','instructor']);
 const obj=v=>v&&typeof v==='object'&&!Array.isArray(v)?v:null;const text=v=>typeof v==='string'?v.trim():'';
 export function writingNewQuery(raw={}){return{studentId:text(raw.student_id??raw.studentId)}}
 export function normalizeWritingStudent(raw){const row=obj(raw),id=text(row?.id);return id?{id,code:text(row.student_code),name:text(row.full_name)}:null}

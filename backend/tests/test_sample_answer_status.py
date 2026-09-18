@@ -20,7 +20,10 @@ _QUESTION = "Do you enjoy playing sports?"
 
 
 def test_practice_removed_sample_sets_status(monkeypatch):
+    seen = {}
+
     async def _no_regen(*_a, **_k):
+        seen.update(_k)
         return None  # regen can't ground it → sample dropped
     monkeypatch.setattr(claude_grader, "_regen_grounded_answer", _no_regen)
 
@@ -30,9 +33,11 @@ def test_practice_removed_sample_sets_status(monkeypatch):
     }
     asyncio.run(claude_grader._post_process_practice_result(
         result, transcript=_TRANSCRIPT, question=_QUESTION, client=object(),
+        user_id="u1", session_id="s1",
     ))
     assert "sample_answer" not in result
     assert result.get("sample_answer_status") == "removed_low_relevance"
+    assert seen == {"user_id": "u1", "session_id": "s1"}
 
 
 def test_test_mode_removed_improved_sets_status(monkeypatch):

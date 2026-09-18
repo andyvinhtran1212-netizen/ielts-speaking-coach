@@ -52,6 +52,18 @@ def test_gemini_prefix_routes_to_gemini_provider():
     assert p.provider_name == "grading_primary"
 
 
+def test_primary_provider_keeps_call_site_usage_dimensions():
+    p = _build_grading_primary(
+        "gemini-3-flash-preview",
+        anthropic_key="a",
+        gemini_key="g",
+        feature="listening_audit",
+        operation="content_audit",
+    )
+    assert p._usage_feature == "listening_audit"
+    assert p._usage_operation == "content_audit"
+
+
 def test_claude_prefix_routes_to_claude_provider():
     p = _build_grading_primary("claude-sonnet-5", anthropic_key="a", gemini_key="g")
     assert isinstance(p, ClaudeProvider)

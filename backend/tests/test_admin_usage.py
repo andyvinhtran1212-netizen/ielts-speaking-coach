@@ -23,8 +23,9 @@ def _run(coro):
 
 
 class _Exec:
-    def __init__(self, data):
+    def __init__(self, data, count=None):
         self.data = data
+        self.count = count
 
 
 class _B:
@@ -34,11 +35,12 @@ class _B:
     def __init__(self, name, tables, calls):
         self._name, self._t, self._calls, self._eqs, self._ins = name, tables, calls, [], []
         self._gtes, self._gts, self._ltes = [], [], []
-        self._order_col, self._limit = None, None
+        self._order_col, self._order_desc, self._limit = None, False, None
 
     def select(self, *a, **k): return self
     def order(self, col, *a, **k):
         self._order_col = col
+        self._order_desc = bool(k.get("desc"))
         return self
     def limit(self, value):
         self._limit = value
@@ -77,10 +79,14 @@ class _B:
         for col, val in self._ltes:
             rows = [r for r in rows if r.get(col) is None or r.get(col) <= val]
         if self._order_col:
-            rows.sort(key=lambda row: row.get(self._order_col) or "")
+            rows.sort(
+                key=lambda row: row.get(self._order_col) or "",
+                reverse=self._order_desc,
+            )
+        total = len(rows)
         if self._limit is not None:
             rows = rows[:self._limit]
-        return _Exec(rows)
+        return _Exec(rows, count=total)
 
 
 class _Stub:
@@ -244,6 +250,215 @@ def test_usage_by_user_graceful_on_sessions_failure(monkeypatch):
     # sessions degrades to None; cost still computed (Pattern #29).
     assert out[0]["sessions"] is None and out[0]["last_active"] is None
     assert out[0]["ai_cost_usd"] == 0.03
+
+
+def test_usage_by_user_merges_historical_writing_without_double_count(monkeypatch):
+    _install(monkeypatch, {
+        "users": [{"id": "u1", "email": "a@x"}],
+        "sessions": [],
+        "ai_usage_logs": [
+            {"id": "l1", "user_id": "u1", "service": "gemini",
+             "model": "gemini-2.5-pro", "cost_usd_est": 0.02,
+             "pricing_version": "stored:test", "feature": "writing_grading",
+             "resource_id": "e1",
+             "usage_event_id": "writing:j1:attempt:1:run:r1:pass1:api:1",
+             "created_at": "2026-01-01T00:00:01Z"},
+            {"id": "l2", "user_id": "u1", "service": "openai_tts",
+             "model": "gpt-4o-mini-tts", "cost_usd_est": 0.01,
+             "pricing_version": "stored:test", "created_at": "2026-01-01T00:00:00Z"},
+        ],
+        "writing_essays": [
+            {"id": "e1", "student_id": "student-1"},
+            {"id": "e2", "student_id": "student-1"},
+        ],
+        "students": [{"id": "student-1", "user_id": "u1"}],
+        "writing_feedback": [
+            {"id": "f0", "essay_id": "e1", "model_used": "gemini-2.5-pro",
+             "tokens_input": 10, "tokens_output": 10, "cost_usd": 0.04,
+             "created_at": "2025-12-01T00:00:00Z"},
+            {"id": "f1", "essay_id": "e1", "model_used": "gemini-2.5-pro",
+             "tokens_input": 10, "tokens_output": 10, "cost_usd": 0.02,
+             "provenance": {"job_id": "j1"},
+             "created_at": "2026-01-01T00:00:00Z"},
+            {"id": "f2", "essay_id": "e2", "model_used": "gemini-2.5-pro",
+             "tokens_input": 10, "tokens_output": 10, "cost_usd": 0.03,
+             "created_at": "2026-01-01T00:00:00Z"},
+        ],
+    })
+
+    out = _run(admin_module.usage_by_user(authorization="x"))
+
+    # Historical feedback before the first canonical ledger row remains spend;
+    # only overlapping feedback at/after that first row is suppressed.
+    assert out[0]["ai_cost_usd"] == 0.1
+
+
+def test_usage_by_user_dedupes_writing_across_report_boundary(monkeypatch):
+    _install(monkeypatch, {
+        "users": [{"id": "u1", "email": "a@x"}],
+        "sessions": [],
+        "ai_usage_logs": [{
+            "id": "l1", "user_id": "u1", "service": "gemini",
+            "model": "gemini-2.5-pro", "cost_usd_est": 0.02,
+            "pricing_version": "stored:test", "feature": "writing_grading",
+            "resource_id": "e1",
+            "usage_event_id": "writing:j1:attempt:1:run:r1:pass1:api:1",
+            "created_at": "2026-09-17T23:59:59Z",
+        }],
+        "writing_essays": [{"id": "e1", "student_id": "student-1"}],
+        "students": [{"id": "student-1", "user_id": "u1"}],
+        "writing_feedback": [{
+            "id": "f1", "essay_id": "e1", "model_used": "gemini-2.5-pro",
+            "tokens_input": 100, "tokens_output": 50, "cost_usd": 0.02,
+            "provenance": {"job_id": "j1"},
+            "created_at": "2026-09-18T00:00:01Z",
+        }],
+    })
+
+    out = _run(admin_module.usage_by_user(
+        authorization="x", date_from="2026-09-18T00:00:00Z",
+    ))
+
+    assert out[0]["ai_cost_usd"] == 0.0
+
+
+# ── GET /admin/ai-usage ──────────────────────────────────────────────────────
+
+def test_ai_usage_merges_writing_and_reports_source_metadata(monkeypatch):
+    _install(monkeypatch, {
+        "ai_usage_logs": [
+            {"user_id": "u1", "service": "gemini", "model": "gemini-2.5-pro",
+             "input_tokens": 100, "output_tokens": 50, "cost_usd_est": 0.02,
+             "pricing_version": "stored:test", "status": "success",
+             "feature": "writing_grading", "resource_id": "e1",
+             "usage_event_id": "writing:j1:attempt:1:run:r1:pass1:api:1",
+             "created_at": "2026-01-01T00:00:01Z"},
+        ],
+        "writing_feedback": [
+            {"id": "f1", "essay_id": "e1", "model_used": "gemini-2.5-pro",
+             "tokens_input": 100, "tokens_output": 50, "cost_usd": 0.02,
+             "provenance": {"job_id": "j1"},
+             "created_at": "2026-01-01T00:00:00Z"},
+            {"id": "f2", "essay_id": "e2", "model_used": "gemini-2.5-pro",
+             "tokens_input": 100, "tokens_output": 50, "cost_usd": 0.03,
+             "created_at": "2026-01-01T00:00:00Z"},
+        ],
+        "writing_essays": [
+            {"id": "e1", "student_id": "student-1"},
+            {"id": "e2", "student_id": "student-1"},
+        ],
+        "students": [{"id": "student-1", "user_id": "u1"}],
+        "users": [{"id": "u1", "email": "a@x", "display_name": "A"}],
+    })
+
+    out = _run(admin_module.get_ai_usage(authorization="x"))
+
+    assert out["overall"]["calls"] == 2
+    assert out["overall"]["cost_usd"] == 0.05
+    assert out["per_user"][0]["cost_usd"] == 0.05
+    assert out["meta"]["ledger_returned_rows"] == 1
+    assert out["meta"]["supplemental_writing_rows"] == 1
+    assert out["meta"]["writing_source_total_rows"] == 2
+    assert out["meta"]["total_matching_rows"] == 2
+
+
+def test_ai_usage_falls_back_to_legacy_ledger_schema(monkeypatch):
+    class LegacyColumnError(RuntimeError):
+        code = "PGRST204"
+
+    attempts = {"count": 0}
+
+    def ledger_source():
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            raise LegacyColumnError("pricing_version missing from schema cache")
+        return [{
+            "user_id": "u1", "service": "legacy-provider", "model": "old-model",
+            "cost_usd_est": 0.04, "created_at": "2026-01-01T00:00:00Z",
+        }]
+
+    _install(monkeypatch, {
+        "ai_usage_logs": ledger_source,
+        "writing_feedback": [],
+        "users": [{"id": "u1", "email": "a@x"}],
+    })
+
+    out = _run(admin_module.get_ai_usage(authorization="x"))
+
+    assert attempts["count"] == 2
+    assert out["overall"]["cost_usd"] == 0.04
+    assert out["meta"]["ledger_schema_legacy"] is True
+
+
+def test_ai_usage_marks_each_truncated_source(monkeypatch):
+    logs = [
+        {"user_id": "u1", "service": "azure_speech",
+         "model": "pronunciation-assessment", "created_at": f"2026-01-01T00:{i % 60:02}:00Z"}
+        for i in range(10_001)
+    ]
+    writing = [
+        {"id": f"f{i}", "essay_id": f"e{i}", "model_used": "legacy-non-gemini",
+         "created_at": f"2026-01-01T00:{i % 60:02}:00Z"}
+        for i in range(10_001)
+    ]
+    _install(monkeypatch, {
+        "ai_usage_logs": logs,
+        "writing_feedback": writing,
+        "users": [{"id": "u1", "email": "a@x"}],
+    })
+
+    out = _run(admin_module.get_ai_usage(authorization="x"))
+
+    assert out["meta"]["ledger_truncated"] is True
+    assert out["meta"]["writing_source_truncated"] is True
+    assert out["meta"]["truncated"] is True
+    assert out["meta"]["total_matching_rows"] is None
+
+
+def test_ai_usage_dedupes_writing_against_ledger_rows_outside_display_cap(monkeypatch):
+    logs = [
+        {
+            "id": f"new-{i:05}",
+            "user_id": "u1",
+            "service": "azure_speech",
+            "model": "pronunciation-assessment",
+            "created_at": f"2026-01-{1 + (i % 28):02}T00:00:00Z",
+        }
+        for i in range(10_000)
+    ]
+    # This canonical row is older than every displayed row, so the capped
+    # newest-first list omits it. The dedicated dedupe query must still find it.
+    logs.append({
+        "id": "ledger-old",
+        "user_id": "u1",
+        "service": "gemini",
+        "model": "gemini-2.5-pro",
+        "feature": "writing_grading",
+        "resource_id": "e-old",
+        "cost_usd_est": 0.02,
+        "pricing_version": "stored:test",
+        "status": "success",
+        "usage_event_id": "writing:j-old:attempt:1:run:r1:pass1:api:1",
+        "created_at": "2025-01-01T00:00:00Z",
+    })
+    _install(monkeypatch, {
+        "ai_usage_logs": logs,
+        "writing_feedback": [{
+            "id": "f-old", "essay_id": "e-old",
+            "model_used": "gemini-2.5-pro",
+            "tokens_input": 100, "tokens_output": 50, "cost_usd": 0.02,
+            "provenance": {"job_id": "j-old"},
+            "created_at": "2025-02-01T00:00:00Z",
+        }],
+        "writing_essays": [{"id": "e-old", "student_id": "student-1"}],
+        "students": [{"id": "student-1", "user_id": "u1"}],
+        "users": [{"id": "u1", "email": "a@x"}],
+    })
+
+    out = _run(admin_module.get_ai_usage(authorization="x"))
+
+    assert out["meta"]["ledger_truncated"] is True
+    assert out["meta"]["supplemental_writing_rows"] == 0
 
 
 # ── GET /admin/access-codes/{id}/usage ───────────────────────────────────────────

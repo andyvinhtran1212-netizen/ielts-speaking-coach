@@ -257,6 +257,10 @@ async def _assess_pronunciation_safe(
     *,
     part: int,
     duration_sec: float,
+    user_id: str | None = None,
+    session_id: str | None = None,
+    resource_type: str | None = None,
+    resource_id: str | None = None,
 ) -> dict | None:
     """Run Azure pronunciation assessment with a hard timeout, never raising.
 
@@ -276,6 +280,7 @@ async def _assess_pronunciation_safe(
 
     send_bytes = audio_bytes
     send_ct = content_type or "audio/webm; codecs=opus"
+    assessment_duration = duration_sec
     if part == 2 and duration_sec and duration_sec >= 25:
         try:
             start_s, end_s, _ = _part2_segment(duration_sec)
@@ -286,16 +291,27 @@ async def _assess_pronunciation_safe(
             # audio/wav and Azure's own fallback would misparse them.
             if seg is not None and seg is not audio_bytes:
                 send_bytes, send_ct = seg, "audio/wav"
+                assessment_duration = max(0.0, end_s - start_s)
         except Exception as seg_exc:  # noqa: BLE001 — fall back to full audio
             logger.info("[grading] Part 2 segment extract failed, sending full clip: %s", seg_exc)
 
     try:
+        usage_kwargs = {}
+        if user_id is not None or session_id is not None or resource_id is not None:
+            usage_kwargs = {
+                "usage_user_id": user_id,
+                "usage_session_id": session_id,
+                "usage_resource_type": resource_type,
+                "usage_resource_id": resource_id,
+                "audio_seconds": assessment_duration,
+            }
         return await asyncio.wait_for(
             azure_pronunciation.assess_pronunciation(
                 audio_bytes=send_bytes,
                 content_type=send_ct,
                 locale="en-US",
                 reference_text="",
+                **usage_kwargs,
             ),
             timeout=_PRON_TIMEOUT_SECONDS,
         )
@@ -603,12 +619,19 @@ async def grade_response_endpoint(
         )
 
         # Log Whisper usage (best-effort)
-        ai_usage_logger.log_whisper(
+        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_whisper_async(
             user_id=user_id,
             session_id=session_id,
             model=transcript_model,
             audio_seconds=duration_sec,
-        )
+            feature="speaking_stt",
+            operation="transcribe_response",
+            # The response row is created only after the duration/reliability
+            # gates below.  At STT time the question is the stable resource
+            # available for correlation; session_id keeps the attempt context.
+            resource_type="question",
+            resource_id=question_id,
+        ))
 
         # ── Reliability classification ─────────────────────────────────────────
         reliability = classify_reliability(transcript, stt_segments, duration_sec)
@@ -761,6 +784,8 @@ async def grade_response_endpoint(
         pron_task = asyncio.create_task(
             _assess_pronunciation_safe(
                 audio_bytes, audio_file.content_type, part=part, duration_sec=duration_sec,
+                user_id=user_id, session_id=session_id,
+                resource_type="question", resource_id=question_id,
             )
         )
 

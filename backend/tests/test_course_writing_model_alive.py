@@ -161,7 +161,7 @@ def test_fifteen_items_use_three_bounded_initial_batches():
 
     calls = []
 
-    async def fake(batch):
+    async def fake(batch, *, usage_user_id=None):
         calls.append(len(batch))
         return _ok(batch), "m", None
 
@@ -177,7 +177,7 @@ def test_an_unreadable_six_item_response_is_split_and_recovered():
 
     calls = []
 
-    async def fake(batch):
+    async def fake(batch, *, usage_user_id=None):
         calls.append([row["qid"] for row in batch])
         if len(batch) == 6 and batch[0]["qid"] == "w0":
             return (g._fallback(batch, "JSON hỏng"), "m",
@@ -196,7 +196,7 @@ def test_a_provider_wide_failure_is_NOT_split_into_per_item_calls():
 
     calls = []
 
-    async def fake(batch):
+    async def fake(batch, *, usage_user_id=None):
         calls.append(len(batch))
         return (g._fallback(batch, "provider hỏng"), "m",
                 g._BATCH_PROVIDER_FAILURE)
@@ -213,7 +213,7 @@ def test_one_missing_qid_is_retried_alone():
 
     calls = []
 
-    async def fake(batch):
+    async def fake(batch, *, usage_user_id=None):
         calls.append([row["qid"] for row in batch])
         rows = _ok(batch)
         if len(batch) == 6:

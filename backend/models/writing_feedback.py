@@ -422,7 +422,10 @@ class GraderConfig(BaseModel):
 
     analysis_level: conint(ge=1, le=5)
     form_of_address: Literal['bạn', 'em', 'anh', 'chị'] = 'em'
-    selected_model: Literal['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-3.5-flash'] = 'gemini-2.5-pro'
+    selected_model: Literal[
+        'gemini-2.5-pro', 'gemini-2.5-flash',
+        'gemini-3.5-flash', 'gemini-3.8-flash',
+    ] = 'gemini-2.5-pro'
 
     # Sprint 2.7a — grading depth tier. Default 'standard' so historical
     # callers and existing tests keep their pre-2.7a behaviour. Quick
@@ -486,6 +489,13 @@ class GraderConfig(BaseModel):
     # is still sent alongside (augment, not replace). None = grade as before.
     prompt_image_facts: Optional[dict] = None
 
+    # Telemetry-only context. Excluded from serialization so it can never leak
+    # into a prompt or persisted grading payload.
+    usage_user_id: Optional[str] = Field(default=None, exclude=True)
+    usage_student_id: Optional[str] = Field(default=None, exclude=True)
+    usage_resource_id: Optional[str] = Field(default=None, exclude=True)
+    usage_event_prefix: Optional[str] = Field(default=None, exclude=True)
+
 
 class GradingResult(BaseModel):
     """Wrapper around feedback + metadata.
@@ -503,6 +513,9 @@ class GradingResult(BaseModel):
     model_used: str
     tokens_input: Optional[int] = None
     tokens_output: Optional[int] = None
+    # Included in tokens_output for the historical writing_feedback contract;
+    # retained separately so the canonical usage ledger can avoid double count.
+    thinking_tokens: Optional[int] = None
     cost_usd: Optional[float] = None
     grading_duration_ms: int
     prompt_version: str
