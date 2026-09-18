@@ -20,6 +20,12 @@ remain open past an intended deadline or report stale completion state.
 - Import two private, quiz-only Course 1 banks as separate assignable sets.
 - Require exactly five answer choices per question and preserve the reviewed key.
 - Let an admin optionally set a maximum duration when assigning an eligible bank.
+- Let an admin choose whether a Course assignment uses mastery retries or one
+  terminal sitting with results released only after hand-in.
+- Let an admin preview the canonical bank questions, choices, answer key, and
+  explanations before creating the assignment.
+- Keep the assignment dialog usable at every supported viewport by fixing its
+  header and actions while only the body scrolls.
 - Enforce timed start, progress, expiry, retry, and finalization on the server.
 - Show answer choice E, the remaining time, and canonical timeout state.
 - Preserve immutable attempt history and prevent unsafe replacement of a bank
@@ -50,6 +56,10 @@ remain open past an intended deadline or report stale completion state.
 - **FR-005:** The learner runner renders answer choice E and an accessible countdown, disables mutation after the canonical cutoff, and shows the server-authoritative pass, fail, or timed-out result; admin submissions expose timed-out state.
 - **FR-006:** Re-import replaces an unused bank's questions and metadata atomically, but refuses replacement once assignments or quiz sessions exist so historical attempts cannot mix bank versions.
 - **FR-007:** Timer and result persistence remain backward compatible for existing untimed assignments, existing retries, and already-passed attempts, including stale browser requests that arrive after a canonical pass.
+- **FR-008:** A Course assignment stores `completion_mode=mastery|single_attempt`; missing or legacy values resolve to `mastery`, while Advanced Vocabulary keeps its dedicated completion contract and rejects the generic single-attempt option.
+- **FR-009:** A `single_attempt` assignment admits exactly one canonical full attempt, withholds correctness, answer keys, explanations, and answer-bearing reports while that attempt is active, then persists a terminal completed result and immediately releases the percentage, per-question answer comparison, and explanation after hand-in or canonical timeout. Direct API calls, refreshes, stale tabs, and concurrent starts cannot create a second attempt.
+- **FR-010:** Before assignment creation, an admin can open a read-only preview sourced from the canonical selected Course bank. The preview shows bank identity and counts, ordered questions and choices, answer keys and explanations, and available audio without creating an assignment, session, progress row, or learner-visible entitlement.
+- **FR-011:** The assignment dialog keeps its header and primary actions visible while its body scrolls independently, uses the shared design tokens in light and dark themes, supports keyboard focus and Escape, and does not overflow horizontally at 390, 768, 1366, or 1920 CSS pixels.
 
 ## Acceptance scenarios
 
@@ -83,6 +93,29 @@ remain open past an intended deadline or report stale completion state.
 - **Then** the pass remains authoritative and no contradictory timeout result is
   persisted.
 
+### Complete a one-sitting assessment
+
+- **Given** an admin assigned an eligible Course bank as `single_attempt`
+- **When** the learner completes or times out that first full attempt
+- **Then** the server persists one terminal result, the learner immediately sees
+  the percentage and per-question explanations, and every later start or retry
+  request resolves to read-only review without creating another session.
+
+### Keep answers sealed during a one-sitting assessment
+
+- **Given** a learner has an active `single_attempt` assignment
+- **When** the learner answers a question, refreshes, or requests the report API
+- **Then** no correctness, answer key, or explanation is returned until the
+  canonical terminal verdict has been stored.
+
+### Preview before assigning
+
+- **Given** an admin selected a Course bank in the assignment dialog
+- **When** the admin opens preview
+- **Then** the UI renders the canonical ordered content and admin-only answers
+  without creating any assignment or learner attempt, and returning to the form
+  preserves the draft.
+
 ### Guard bank history
 
 - **Given** a bank has at least one assignment or quiz session
@@ -95,6 +128,13 @@ remain open past an intended deadline or report stale completion state.
 - The assignment due date may be earlier than the duration cutoff.
 - Multiple worker sweeps or browser requests may race at the cutoff.
 - A retry may begin after a previous timed generation has finalized.
+- Existing assignments have no `completion_mode` key.
+- A stale or forged client requests a retry for a completed single-attempt item.
+- Preview content is long, contains audio, or changes before the final create
+  request; assignment creation still uses the existing revision guard.
+- Preview fails while the draft is otherwise valid; assignment creation remains
+  available and the failure is shown without inventing cached content.
+- The dialog body exceeds the viewport on desktop or mobile.
 - A timeout ledger may exist before a submission receipt is repaired.
 - Server and browser clocks may disagree; the server timestamp is authoritative.
 - An unused bank import may fail midway; neither questions nor metadata change.
@@ -107,6 +147,9 @@ remain open past an intended deadline or report stale completion state.
   checks pass.
 - Staging verifies timer creation, countdown/resume, canonical expiry, retry,
   and bank replacement guards before production promotion.
+- Staging verifies unchanged mastery, a terminal one-sitting result with answers
+  sealed until hand-in, mutation-free preview, and visible dialog actions across
+  the required viewport, theme, and keyboard matrix.
 - Production imports occur only after migrations and application deployment.
 
 ## Open questions

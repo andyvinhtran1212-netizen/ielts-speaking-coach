@@ -21,6 +21,8 @@ import type {
   ActionLogPayload,
   CatalogOption,
   ClassAssignment,
+  CourseBankPreview,
+  CourseBankPreviewQuestion,
   DueDraft,
   HomeworkDraft,
   QuestionOption,
@@ -33,6 +35,23 @@ type ConfirmState =
 type BackfillState = { assignment: ClassAssignment; studentIds: string[]; error: string } | null;
 
 const SKILL_LABEL = { speaking: 'Speaking', reading: 'Reading', listening: 'Listening', course: 'Bài tập theo buổi', grammar: 'Grammar Diagnostic' };
+const OPTION_KEYS = ['A', 'B', 'C', 'D', 'E'];
+
+function previewOptionIsCorrect(question: CourseBankPreviewQuestion, option: string, index: number) {
+  const answers = Array.isArray(question.answer) ? question.answer : [question.answer];
+  return answers.some((answer) => answer === index || answer === option || answer === OPTION_KEYS[index]);
+}
+
+function previewAnswer(question: CourseBankPreviewQuestion) {
+  const answers = Array.isArray(question.answer) ? question.answer : [question.answer];
+  const options = question.options || [];
+  return answers.filter((answer) => answer != null).map((answer) => {
+    if (typeof answer === 'number' && options[answer] != null) {
+      return `${OPTION_KEYS[answer] || answer + 1}. ${options[answer]}`;
+    }
+    return String(answer);
+  }).join(' · ') || 'Chưa có đáp án chuẩn';
+}
 
 function formatDue(value: string | null) {
   if (!value) return 'Không hạn';
@@ -65,7 +84,9 @@ function assignmentSub(row: ClassAssignment) {
     : [SKILL_LABEL[row.skill], String(config.test_title || '')].filter(Boolean).join(' · ');
   const timed = row.skill === 'course' && Number(config.time_limit_minutes) > 0
     ? ` · tối đa ${Number(config.time_limit_minutes)} phút` : '';
-  return (label || SKILL_LABEL[row.skill]) + timed;
+  const completion = row.skill === 'course' && config.completion_mode === 'single_attempt'
+    ? ' · một lượt, hiện kết quả sau khi nộp' : '';
+  return (label || SKILL_LABEL[row.skill]) + completion + timed;
 }
 
 function errorDetail(caught: unknown) {
@@ -112,6 +133,10 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
   const [questions, setQuestions] = useState<QuestionOption[]>([]);
   const [questionsPerGive, setQuestionsPerGive] = useState(1);
   const [questionsLoading, setQuestionsLoading] = useState(false);
+  const [coursePreview, setCoursePreview] = useState<CourseBankPreview | null>(null);
+  const [coursePreviewIndex, setCoursePreviewIndex] = useState(0);
+  const [coursePreviewLoading, setCoursePreviewLoading] = useState(false);
+  const [coursePreviewError, setCoursePreviewError] = useState('');
   const [dueEditor, setDueEditor] = useState<DueDraft | null>(null);
   const [backfill, setBackfill] = useState<BackfillState>(null);
   const [confirm, setConfirm] = useState<ConfirmState>(null);
@@ -123,6 +148,7 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
   const catalogSequence = useRef(0);
   const questionSequence = useRef(0);
   const logSequence = useRef(0);
+  const coursePreviewSequence = useRef(0);
   const previewAudio = useRef<HTMLAudioElement | null>(null);
   const [previewingQuestion, setPreviewingQuestion] = useState<string | null>(null);
 
@@ -239,6 +265,12 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
     setPreviewingQuestion(null);
   }, [editor?.questionMode, editor?.contentId, editor?.kind, editor?.skill, editor?.part]);
 
+  useEffect(() => {
+    coursePreviewSequence.current += 1;
+    setCoursePreview(null); setCoursePreviewIndex(0); setCoursePreviewError('');
+    setCoursePreviewLoading(false);
+  }, [editor?.contentId, editor?.skill]);
+
   const summary = useMemo(() => assignmentSummary(assignments || []), [assignments]);
   const visible = useMemo(() => selectAssignments(assignments || [], { search, status }) as ClassAssignment[], [assignments, search, status]);
   const pendingExplanationAssignments = useMemo(() => (assignments || []).filter((assignment) => {
@@ -249,6 +281,7 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
     () => catalog.find((item) => item.id === editor?.contentId) || null,
     [catalog, editor?.contentId],
   );
+  const previewQuestion = coursePreview?.questions[coursePreviewIndex] || null;
 
   useEffect(() => {
     if (!openAssignmentId || !assignments || !onOpenSubmissions) return;
@@ -393,7 +426,27 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
     }
     setPreviewingQuestion(null);
   };
-  const closeEditor = () => { stopQuestionPreview(); setEditor(null); };
+  const loadCoursePreview = async () => {
+    if (!editor?.contentId || coursePreviewLoading) return;
+    const selectedContentId = editor.contentId;
+    const requestId = ++coursePreviewSequence.current;
+    setCoursePreviewLoading(true); setCoursePreviewError('');
+    try {
+      const value = await window.api.get<CourseBankPreview>(`/admin/cohorts/${encodeURIComponent(cohortId)}/course-banks/${encodeURIComponent(selectedContentId)}/preview`);
+      if (requestId !== coursePreviewSequence.current) return;
+      if (!value || !Array.isArray(value.questions) || value.bank_id !== selectedContentId) {
+        throw new Error('Dữ liệu xem trước không đúng bộ bài tập đã chọn.');
+      }
+      setCoursePreview(value); setCoursePreviewIndex(0);
+    } catch (caught) {
+      if (requestId === coursePreviewSequence.current) setCoursePreviewError(messageOf(caught));
+    } finally {
+      if (requestId === coursePreviewSequence.current) setCoursePreviewLoading(false);
+    }
+  };
+  const closeEditor = () => {
+    stopQuestionPreview(); setCoursePreview(null); setCoursePreviewError(''); setEditor(null);
+  };
   const toggleQuestion = (id: string) => setEditor((current) => current ? { ...current, questionIds: current.questionIds.includes(id) ? current.questionIds.filter((item) => item !== id) : [...current.questionIds, id], error: '' } : current);
   const toggleQuestionPreview = (question: QuestionOption) => {
     if (!question.audio_url) return;
@@ -423,12 +476,20 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
 
       <details className="ach-log" open={logOpen} onToggle={(event) => { const open = event.currentTarget.open; setLogOpen(open); if (open && !actionLog && !logLoading) void loadLog(); }}><summary>Nhật ký thao tác — đổi hạn và trả bài</summary><div>{logLoading && !actionLog ? <p className="acd-muted">Đang tải…</p> : logError ? <div className="acd-inline-error" role="alert">Không đọc được nhật ký: {logError}</div> : actionLog && !actionLog.actions.length ? <p className="acd-muted">Chưa có thao tác nào được ghi.</p> : actionLog ? <>{actionLog.actions.map((row) => { const detail = actionDetail(row); return <article className="ach-log-row" key={row.id}><time>{formatLogWhen(row.created_at)}</time><div><strong>{row.action === 'due_change' ? 'Đổi hạn nộp' : row.action === 'return_work' ? 'Trả bài cho học viên' : row.action}</strong><span>{[row.assignment_title, row.student_name].filter(Boolean).join(' · ') || 'Không rõ đối tượng'} · {row.actor_email || 'không rõ ai'}</span>{detail && <small>{detail}</small>}</div></article>; })}{actionLog.has_more && actionLog.next_before && <button className="adm-btn-secondary" type="button" onClick={() => void loadLog(actionLog.next_before)} disabled={logLoading}>Xem thao tác cũ hơn</button>}</> : null}</div></details>
 
-      <Dialog open={Boolean(editor)} title="Giao bài mới" description="Chọn nội dung, người nhận và hạn trước khi ghi vào sổ bài giao." busy={busy} onClose={closeEditor} actions={<><button className="adm-btn-secondary" type="button" onClick={closeEditor} disabled={busy}>Hủy</button><button className="adm-btn-primary" type="submit" form="ach-homework-form" disabled={busy || catalogLoading}>{busy ? 'Đang giao…' : editor?.recipientScope === 'subset' ? `Giao cho ${editor.studentIds.length} học viên` : 'Giao cho cả lớp'}</button></>}>
+      <Dialog open={Boolean(editor)} title="Giao bài mới" description="Chọn nội dung, kiểm tra đề, người nhận và hạn trước khi ghi vào sổ bài giao." busy={busy} onClose={closeEditor} panelClassName="ach-assignment-dialog" actions={<><button className="adm-btn-secondary" type="button" onClick={closeEditor} disabled={busy}>Hủy</button><button className="adm-btn-primary" type="submit" form="ach-homework-form" disabled={busy || catalogLoading}>{busy ? 'Đang giao…' : editor?.recipientScope === 'subset' ? `Giao cho ${editor.studentIds.length} học viên` : 'Giao cho cả lớp'}</button></>}>
         <form id="ach-homework-form" className="acd-form ach-form" onSubmit={submitHomework}>
           <div className="ach-kind" role="radiogroup" aria-label="Loại bài"><label><input type="radio" name="ach-homework-kind" checked={editor?.kind === 'daily'} onChange={() => editor && setEditor({ ...editor, kind: 'daily', contentId: '', questionIds: [], error: '' })} />Bài hằng ngày</label><label><input type="radio" name="ach-homework-kind" checked={editor?.kind === 'lesson'} onChange={() => editor && setEditor({ ...editor, kind: 'lesson', skill: 'speaking', contentId: '', questionIds: [], error: '' })} />Bài sau buổi học</label></div>
           {editor?.kind === 'daily' && <Field label="Kỹ năng"><select value={editor.skill} onChange={(event) => setEditor({ ...editor, skill: event.target.value as HomeworkDraft['skill'], contentId: '', questionIds: [], error: '' })}><option value="speaking">Speaking</option><option value="reading">Reading</option><option value="listening">Listening</option><option value="course">Bài tập theo buổi</option><option value="grammar">Grammar Diagnostic</option></select></Field>}
           {editor?.skill === 'speaking' && editor.kind === 'daily' && <div className="acx-form-row"><Field label="Kiểu luyện"><select value={editor.mode} onChange={(event) => setEditor({ ...editor, mode: event.target.value as HomeworkDraft['mode'], error: '' })}><option value="practice">Luyện tập</option><option value="test_part">Luyện từng Part</option></select></Field><Field label="Part"><select value={editor.part} onChange={(event) => setEditor({ ...editor, part: event.target.value as HomeworkDraft['part'], contentId: '', questionIds: [], error: '' })}><option value="1">Part 1</option><option value="2">Part 2</option><option value="3">Part 3</option></select></Field></div>}
-          <Field label={editor?.kind === 'lesson' ? 'Bộ đề của buổi' : editor?.skill === 'course' ? 'Bộ bài tập' : editor?.skill === 'speaking' ? 'Chủ đề' : 'Đề'} hint={catalogError || undefined}><select value={editor?.contentId || ''} onChange={(event) => editor && setEditor({ ...editor, contentId: event.target.value, questionIds: [], passPct: '', retakeSize: '', error: '' })} disabled={catalogLoading || Boolean(catalogError)}><option value="">{catalogLoading ? 'Đang tải…' : 'Chọn nội dung'}</option>{catalog.map((item) => <option key={item.id} value={item.id} disabled={!item.ready || item.already_given}>{item.lesson_no != null ? `Buổi ${item.lesson_no} · ` : ''}{item.code ? `${item.code} · ` : ''}{item.title}{item.reason ? ` · ${item.reason}` : ''}</option>)}</select></Field>
+          <Field label={editor?.kind === 'lesson' ? 'Bộ đề của buổi' : editor?.skill === 'course' ? 'Bộ bài tập' : editor?.skill === 'speaking' ? 'Chủ đề' : 'Đề'} hint={catalogError || undefined}><select value={editor?.contentId || ''} onChange={(event) => { if (!editor) return; coursePreviewSequence.current += 1; setCoursePreviewLoading(false); setEditor({ ...editor, contentId: event.target.value, questionIds: [], passPct: '', retakeSize: '', completionMode: 'mastery', error: '' }); }} disabled={catalogLoading || Boolean(catalogError)}><option value="">{catalogLoading ? 'Đang tải…' : 'Chọn nội dung'}</option>{catalog.map((item) => <option key={item.id} value={item.id} disabled={!item.ready || item.already_given}>{item.lesson_no != null ? `Buổi ${item.lesson_no} · ` : ''}{item.code ? `${item.code} · ` : ''}{item.title}{item.reason ? ` · ${item.reason}` : ''}</option>)}</select></Field>
+          {editor?.skill === 'course' && editor.contentId && selectedCatalogItem?.runtime !== 'advanced_vocab' && <section className="ach-course-preview" aria-label="Xem trước bộ bài tập">
+            <div className="ach-course-preview__head"><div><strong>Kiểm tra nội dung trước khi giao</strong><span>{coursePreview ? `${coursePreview.summary.question_count} câu · phiên bản ${coursePreview.revision.slice(0, 8)}` : 'Xem đúng đề, đáp án và giải thích đang lưu trên hệ thống.'}</span></div><button className="adm-btn-secondary" type="button" onClick={() => void loadCoursePreview()} disabled={coursePreviewLoading}>{coursePreviewLoading ? 'Đang tải…' : coursePreview ? 'Tải lại đề' : 'Xem trước đề'}</button></div>
+            {coursePreviewError && <div className="acd-inline-error" role="alert">{coursePreviewError}</div>}
+            {coursePreview && previewQuestion && <div className="ach-course-preview__workspace">
+              <nav aria-label="Danh sách câu hỏi xem trước">{coursePreview.questions.map((question, index) => <button type="button" key={question.qid} className={index === coursePreviewIndex ? 'is-active' : ''} aria-current={index === coursePreviewIndex ? 'true' : undefined} onClick={() => setCoursePreviewIndex(index)}><b>{index + 1}</b><span>{question.item_key || question.subtype || question.type}</span></button>)}</nav>
+              <article className="ach-course-preview__question"><div className="ach-course-preview__meta"><span>Câu {coursePreviewIndex + 1}/{coursePreview.questions.length}</span><span>{previewQuestion.item_key || previewQuestion.type}</span>{previewQuestion.counts_toward_mastery && <span>Được tính điểm</span>}</div><p>{previewQuestion.prompt}</p>{previewQuestion.audio_url && <audio controls preload="none" src={previewQuestion.audio_url}>Trình duyệt không phát được audio.</audio>}<div className="ach-course-preview__options">{(previewQuestion.options || []).map((option, index) => <div key={`${previewQuestion.qid}-${index}`} className={previewOptionIsCorrect(previewQuestion, option, index) ? 'is-correct' : ''}><b>{OPTION_KEYS[index] || index + 1}</b><span>{option}</span>{previewOptionIsCorrect(previewQuestion, option, index) && <em>Đáp án</em>}</div>)}</div><div className="ach-course-preview__solution"><strong>Đáp án chuẩn</strong><span>{previewAnswer(previewQuestion)}</span>{previewQuestion.explanation && <p>{previewQuestion.explanation}</p>}</div>{Object.keys(previewQuestion.why_wrong || {}).length > 0 && <details className="ach-course-preview__distractors"><summary>Giải thích các phương án sai</summary>{Object.entries(previewQuestion.why_wrong || {}).map(([key, value]) => <p key={key}><b>{OPTION_KEYS[Number(key)] || key}</b><span>{value}</span></p>)}</details>}</article>
+            </div>}
+          </section>}
           {(editor?.skill === 'reading' || editor?.skill === 'listening') && <p className="acd-muted">Đề draft hoặc chưa sẵn sàng được giữ khóa tại đây. <a href="/admin/mock-exams#test-library">Mở kho đề tập trung để xem lý do, thi thử, publish và giao bài</a>.</p>}
           {editor?.skill === 'grammar' && <div className="acd-warning"><strong>Tự chấm phần trắc nghiệm.</strong> Báo cáo Grammar Readiness xuất hiện ngay khi hoàn tất; không quy đổi thành band IELTS. Bài tạo câu được giao và chấm riêng bởi giáo viên.</div>}
           {(editor?.skill === 'reading' || editor?.skill === 'listening') && <div className="ach-correction-policy">
@@ -461,7 +522,16 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
             </div>;
           })}</div>}
           {editor?.kind === 'lesson' ? <div className="acx-form-row"><Field label="Số ngày được nộp"><input type="number" min="1" max="90" value={editor.dueDays} onChange={(event) => setEditor({ ...editor, dueDays: event.target.value, error: '' })} /></Field><Field label="Giờ hạn · Việt Nam"><input type="time" value={editor.dueTime} onChange={(event) => setEditor({ ...editor, dueTime: event.target.value, error: '' })} /></Field></div> : <div className="acx-form-row"><Field label="Ngày hạn · Việt Nam"><input type="date" value={editor?.dueDate || ''} onChange={(event) => editor && setEditor({ ...editor, dueDate: event.target.value, error: '' })} /></Field><Field label="Giờ hạn · Việt Nam"><input type="time" value={editor?.dueTime || ''} onChange={(event) => editor && setEditor({ ...editor, dueTime: event.target.value, error: '' })} /></Field></div>}
-          {editor?.skill === 'course' && selectedCatalogItem?.runtime === 'advanced_vocab' ? <div className="acd-warning"><strong>Bài self-paced không chấm điểm mặc định.</strong> Hệ thống xác nhận hoàn tất khi học viên xong 6 phần bắt buộc. Writing và Speaking chỉ để tham khảo; muốn chấm Writing, giáo viên giao bài Writing riêng.</div> : editor?.skill === 'course' && <><div className="acx-form-row"><Field label="Ngưỡng đạt (%)" hint="Trống = mặc định 80"><input type="number" min="50" max="100" step="5" value={editor.passPct} onChange={(event) => setEditor({ ...editor, passPct: event.target.value, error: '' })} /></Field><Field label="Số câu kiểm tra lại" hint="Trống = mặc định 20"><input type="number" min="5" max="100" step="5" value={editor.retakeSize} onChange={(event) => setEditor({ ...editor, retakeSize: event.target.value, error: '' })} /></Field></div><Field label="Thời gian tối đa (phút)" hint="Trống = không giới hạn; đồng hồ bắt đầu khi từng học viên mở bài"><input type="number" min="1" max="720" step="1" value={editor.timeLimitMinutes} onChange={(event) => setEditor({ ...editor, timeLimitMinutes: event.target.value, error: '' })} /></Field><div className="acd-warning">Vùng gần đạt bằng ngưỡng đạt trừ 10 điểm. Ví dụ đặt 75%: từ 65–74,9% làm bài kiểm tra lại; dưới 65% làm lại toàn bài.</div></>}
+          {editor?.skill === 'course' && selectedCatalogItem?.runtime === 'advanced_vocab' ? <div className="acd-warning"><strong>Bài self-paced không chấm điểm mặc định.</strong> Hệ thống xác nhận hoàn tất khi học viên xong 6 phần bắt buộc. Writing và Speaking chỉ để tham khảo; muốn chấm Writing, giáo viên giao bài Writing riêng.</div> : editor?.skill === 'course' && <>
+            <fieldset className="ach-policy-group">
+              <legend>Cách học viên hoàn thành bài</legend>
+              <label className="ach-policy-card"><input type="radio" name="ach-completion-mode" checked={editor.completionMode === 'mastery'} onChange={() => setEditor({ ...editor, completionMode: 'mastery', error: '' })} /><span><b>Làm lại đến khi đạt</b><small>Giữ cách vận hành hiện tại: hiện phản hồi từng câu, dùng ngưỡng đạt và mở lượt ôn/kiểm tra lại khi cần.</small></span></label>
+              <label className={`ach-policy-card${selectedCatalogItem?.single_attempt_ready === true ? '' : ' is-disabled'}`}><input type="radio" name="ach-completion-mode" checked={editor.completionMode === 'single_attempt'} disabled={selectedCatalogItem?.single_attempt_ready !== true} onChange={() => setEditor({ ...editor, completionMode: 'single_attempt', error: '' })} /><span><b>Một lượt — hiện kết quả sau khi nộp</b><small>{selectedCatalogItem?.single_attempt_ready === true ? 'Trong lúc làm không lộ đúng/sai hay giải thích. Nộp xong hiện điểm %, đáp án và lời giải; không có nút làm lại.' : 'Chỉ dùng cho bộ trắc nghiệm thuần. Bộ có Đọc, Nghe, Viết hoặc Phát âm tiếp tục dùng chế độ làm lại đến khi đạt.'}</small></span></label>
+            </fieldset>
+            {editor.completionMode === 'mastery' && <><div className="acx-form-row"><Field label="Ngưỡng đạt (%)" hint="Trống = mặc định 80"><input type="number" min="50" max="100" step="5" value={editor.passPct} onChange={(event) => setEditor({ ...editor, passPct: event.target.value, error: '' })} /></Field><Field label="Số câu kiểm tra lại" hint="Trống = mặc định 20"><input type="number" min="5" max="100" step="5" value={editor.retakeSize} onChange={(event) => setEditor({ ...editor, retakeSize: event.target.value, error: '' })} /></Field></div><div className="acd-warning">Vùng gần đạt bằng ngưỡng đạt trừ 10 điểm. Ví dụ đặt 75%: từ 65–74,9% làm bài kiểm tra lại; dưới 65% làm lại toàn bài.</div></>}
+            <Field label="Thời gian tối đa (phút)" hint="Trống = không giới hạn; đồng hồ bắt đầu khi từng học viên mở bài"><input type="number" min="1" max="720" step="1" value={editor.timeLimitMinutes} onChange={(event) => setEditor({ ...editor, timeLimitMinutes: event.target.value, error: '' })} /></Field>
+            <div className="ach-policy-summary" role="status"><b>Học viên sẽ trải qua:</b> {editor.completionMode === 'single_attempt' ? 'Làm toàn bộ đề → nộp một lần → xem điểm %, đáp án và giải thích.' : 'Làm bài có phản hồi → ôn hoặc kiểm tra lại theo kết quả → hoàn tất khi đạt ngưỡng.'}</div>
+          </>}
           <Field label="Dặn dò"><textarea rows={3} maxLength={2000} value={editor?.instructions || ''} onChange={(event) => editor && setEditor({ ...editor, instructions: event.target.value, error: '' })} /></Field>
           <Field label="Giao cho"><select aria-label="Giao cho" value={editor?.recipientScope || 'class'} onChange={(event) => editor && setEditor({ ...editor, recipientScope: event.target.value as HomeworkDraft['recipientScope'], studentIds: [], error: '' })}><option value="class">Cả lớp</option><option value="subset">Một nhóm học viên</option></select></Field>
           {editor?.recipientScope === 'subset' && <div className="ach-recipient-list">{members.map((member) => <label key={member.student_id}><input type="checkbox" checked={editor.studentIds.includes(member.student_id)} onChange={() => toggleRecipient(member.student_id)} /><span>{member.name}</span>{!member.user_id && <small>chưa kích hoạt</small>}</label>)}</div>}

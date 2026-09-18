@@ -46,7 +46,13 @@ def _build_provider():
     ak = getattr(settings, "ANTHROPIC_API_KEY", "") or ""
     gk = getattr(settings, "GEMINI_API_KEY", "") or ""
     try:
-        return _build_grading_primary(settings.LISTENING_AUDIT_MODEL, ak, gk)
+        return _build_grading_primary(
+            settings.LISTENING_AUDIT_MODEL,
+            ak,
+            gk,
+            feature="listening_audit",
+            operation="content_audit",
+        )
     except Exception as exc:
         print(f"  ! provider build failed: {exc}", file=sys.stderr)
         return None

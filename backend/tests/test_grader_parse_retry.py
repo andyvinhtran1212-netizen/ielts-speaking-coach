@@ -10,8 +10,9 @@ generate_content mocked (existing tier tests mock _call_with_retry itself).
 from __future__ import annotations
 
 import json
+import threading
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -93,6 +94,103 @@ def test_parse_fail_then_valid_retries(grader):
             grader._call_with_retry("p", "sys", "usr", parse_schema=WritingFeedback))
     # second attempt's valid body is returned (re-roll worked)
     assert json.loads(text)["overallBandScore"] == 6.5
+
+
+def test_parse_retry_logs_each_billed_attempt_with_distinct_status(grader):
+    import asyncio
+    usage_log = AsyncMock()
+    context = {
+        "feature": "writing_grading",
+        "operation": "pass1",
+        "resource_type": "writing_essay",
+        "resource_id": "e1",
+        "usage_event_prefix": "writing:j1:attempt:1",
+    }
+    with _patch_model(grader, [_resp(TRUNCATED_JSON), _resp(VALID_JSON)]), \
+         patch("services.gemini_writing_grader.asyncio.sleep", new=_async_noop), \
+         patch("services.gemini_writing_grader.ai_usage_logger.log_gemini_async", usage_log):
+        asyncio.run(grader._call_with_retry(
+            "p", "sys", "usr", parse_schema=WritingFeedback,
+            usage_context=context,
+        ))
+
+    assert [call.kwargs["status"] for call in usage_log.await_args_list] == [
+        "invalid_response", "success",
+    ]
+    assert [call.kwargs["usage_event_id"] for call in usage_log.await_args_list] == [
+        "writing:j1:attempt:1:pass1:api:1",
+        "writing:j1:attempt:1:pass1:api:2",
+    ]
+
+
+def test_provider_errors_log_each_unpriced_retry(grader):
+    import asyncio
+    unpriced_log = AsyncMock()
+    fake_model = SimpleNamespace(generate_content=lambda *a, **k: (_ for _ in ()).throw(RuntimeError("offline")))
+    context = {
+        "feature": "writing_grading", "operation": "pass1",
+        "usage_event_prefix": "writing:j1:attempt:1",
+    }
+    with patch("services.gemini_writing_grader.genai.GenerativeModel", lambda **kw: fake_model), \
+         patch("services.gemini_writing_grader.asyncio.sleep", new=_async_noop), \
+         patch("services.gemini_writing_grader.ai_usage_logger.log_unpriced_usage_async", unpriced_log):
+        with pytest.raises(Exception):
+            asyncio.run(grader._call_with_retry(
+                "p", "sys", "usr", usage_context=context,
+            ))
+
+    assert unpriced_log.await_count == 3
+    assert all(call.kwargs["status"] == "error" for call in unpriced_log.await_args_list)
+    assert [call.kwargs["usage_event_id"] for call in unpriced_log.await_args_list] == [
+        "writing:j1:attempt:1:pass1:api:1",
+        "writing:j1:attempt:1:pass1:api:2",
+        "writing:j1:attempt:1:pass1:api:3",
+    ]
+
+
+def test_cancelled_provider_attempt_is_logged_and_reraised(grader):
+    import asyncio
+
+    started = threading.Event()
+    release = threading.Event()
+    unpriced_log = AsyncMock()
+
+    def blocked_call(*_args, **_kwargs):
+        started.set()
+        release.wait(timeout=2)
+        return _resp(VALID_JSON)
+
+    fake_model = SimpleNamespace(generate_content=blocked_call)
+    context = {
+        "feature": "writing_grading",
+        "operation": "pass1",
+        "usage_event_prefix": "writing:j1:attempt:1",
+    }
+
+    async def run():
+        task = asyncio.create_task(grader._call_with_retry(
+            "p", "sys", "usr", usage_context=context,
+        ))
+        while not started.is_set():
+            await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        await asyncio.sleep(0)
+        release.set()
+
+    with patch(
+        "services.gemini_writing_grader.genai.GenerativeModel",
+        lambda **kw: fake_model,
+    ), patch(
+        "services.gemini_writing_grader.ai_usage_logger.log_unpriced_usage_async",
+        unpriced_log,
+    ):
+        asyncio.run(run())
+
+    assert unpriced_log.await_count == 1
+    assert unpriced_log.await_args.kwargs["status"] == "cancelled"
+    assert unpriced_log.await_args.kwargs["error_code"] == "cancelled"
 
 
 def test_all_parse_fail_raises_invalidjson(grader):

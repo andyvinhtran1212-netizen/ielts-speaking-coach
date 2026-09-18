@@ -31,6 +31,7 @@ import anthropic
 
 from config import settings
 from services.d1_question_generator import _call_with_retry
+from services import ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +150,7 @@ def grade_gist_response(
     user_response: str,
     model_answer: str,
     rubric_keywords: list[str] | None = None,
+    usage_user_id: str | None = None,
 ) -> dict[str, Any]:
     """Grade one gist response. Returns dict ready for INSERT into
     listening_attempts.user_answer + verbatim return to the client.
@@ -184,12 +186,31 @@ def grade_gist_response(
             model_answer=model_answer,
             rubric_keywords=rubric_keywords,
         )
-        resp = client.messages.create(
+        try:
+            resp = client.messages.create(
+                model=_MODEL,
+                max_tokens=_MAX_TOKENS,
+                temperature=_TEMPERATURE,
+                system=_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_msg}],
+            )
+        except Exception as exc:
+            ai_usage_logger.log_unpriced_usage(
+                service="claude",
+                model=_MODEL,
+                user_id=usage_user_id,
+                feature="listening_gist",
+                operation="grade_gist",
+                status="error",
+                error_code=type(exc).__name__,
+            )
+            raise
+        ai_usage_logger.log_claude_response(
+            resp,
             model=_MODEL,
-            max_tokens=_MAX_TOKENS,
-            temperature=_TEMPERATURE,
-            system=_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_msg}],
+            user_id=usage_user_id,
+            feature="listening_gist",
+            operation="grade_gist",
         )
         # Anthropic SDK returns a Message with .content[0].text (Mục 31/B4: .text
         # can be None even when content is present — coerce to "").

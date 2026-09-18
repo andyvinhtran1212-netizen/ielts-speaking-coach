@@ -15,7 +15,7 @@ báo nhưng KHÔNG tính vào ô đúng/sai — xem `_classify`. Đây là bài 
 một câu dựng đúng khung mà bị chấm sai vì chữ "t" thường ở đầu dòng thì con số
 trả về nói sai về học viên.
 
-Model: `COURSE_WRITING_MODEL` (mặc định gemini-2.5-flash-lite — rẻ, và việc này
+Model: `COURSE_WRITING_MODEL` (mặc định gemini-3.5-flash-lite — stable, và việc này
 không cần suy luận sâu). Nhiệt độ 0: cùng một câu sai phải cho cùng một bản sửa,
 vì hai học viên viết giống nhau mà nhận hai lời khác nhau là mất tin.
 """
@@ -31,6 +31,7 @@ from typing import Any, Dict, List
 import google.generativeai as genai
 
 from config import settings
+from services import ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +89,7 @@ def _model():
     # Mặc định THẬT nằm ở `config.py`; chuỗi dưới đây chỉ là lưới đỡ cho lúc
     # trường ấy vắng mặt. Giữ hai nơi cùng một giá trị — bản trước để lệch nhau
     # và bản vá vào chỗ này không bao giờ tới lượt (06/08).
-    name = getattr(settings, "COURSE_WRITING_MODEL", None) or "gemini-3.1-flash-lite"
+    name = getattr(settings, "COURSE_WRITING_MODEL", None) or "gemini-3.5-flash-lite"
     return name, genai.GenerativeModel(
         model_name=name,
         generation_config=genai.types.GenerationConfig(
@@ -233,6 +234,8 @@ def _keeps_all_answer_lines(answer: Any, corrected: Any) -> bool:
 
 async def _grade_batch(
     batch: List[Dict[str, Any]],
+    *,
+    usage_user_id: str | None = None,
 ) -> tuple[List[Dict[str, Any]], str | None, str | None]:
     # Dựng client TRONG lớp bảo vệ: thiếu khoá API / tên model sai là lỗi cấu
     # hình, và nó phải thành một lời nhắn đọc được như mọi đường hỏng khác —
@@ -254,10 +257,30 @@ async def _grade_batch(
         resp = await asyncio.wait_for(
             model.generate_content_async(prompt), timeout=_TIMEOUT_SECONDS)
     except asyncio.TimeoutError:
+        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_unpriced_usage_async(
+            service="gemini",
+            model=name,
+            user_id=usage_user_id,
+            feature="course_writing",
+            operation="grade_batch",
+            status="error",
+            error_code="timeout",
+            metadata={"item_count": len(batch)},
+        ))
         logger.error("[course-writing] model quá hạn %ss", _TIMEOUT_SECONDS)
         return (_fallback(batch, "Bộ chấm không phản hồi kịp."), name,
                 _BATCH_PROVIDER_FAILURE)
     except Exception as exc:  # noqa: BLE001
+        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_unpriced_usage_async(
+            service="gemini",
+            model=name,
+            user_id=usage_user_id,
+            feature="course_writing",
+            operation="grade_batch",
+            status="error",
+            error_code=type(exc).__name__,
+            metadata={"item_count": len(batch)},
+        ))
         # Lỗi thô của SDK ở lại log; học viên nhận một câu đọc được.
         #
         # PHÂN BIỆT HỎNG TẠM VỚI HỎNG HẲN. Model bị ngừng cấp trả 404 và sẽ trả
@@ -274,11 +297,24 @@ async def _grade_batch(
         return (_fallback(batch, "Bộ chấm tạm thời không dùng được."), name,
                 _BATCH_PROVIDER_FAILURE)
 
+    def log_response(*, status: str, error_code: str | None = None) -> None:
+        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_gemini_response_async(
+            resp,
+            model=name,
+            user_id=usage_user_id,
+            feature="course_writing",
+            operation="grade_batch",
+            status=status,
+            error_code=error_code,
+            metadata={"item_count": len(batch)},
+        ))
+
     try:
         data = json.loads(_strip_fences(resp.text))
         results = data.get("results") if isinstance(data, dict) else data
         by_qid = {r.get("qid"): r for r in (results or []) if isinstance(r, dict)}
     except Exception as exc:  # noqa: BLE001
+        log_response(status="invalid_response", error_code="invalid_json")
         logger.error("[course-writing] không đọc được JSON: %s", exc)
         return (_fallback(batch, "Bộ chấm trả về kết quả không đọc được."), name,
                 _BATCH_RESPONSE_FAILURE)
@@ -317,10 +353,16 @@ async def _grade_batch(
             # tập này dạy.
             "ok":        not any(x["type"] in _COUNTED_TYPES for x in issues),
         })
+    log_response(
+        status="invalid_response" if failure_kind else "success",
+        error_code="missing_or_invalid_result" if failure_kind else None,
+    )
     return out, name, failure_kind
 
 
-async def grade(items: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], str | None]:
+async def grade(
+    items: List[Dict[str, Any]], *, usage_user_id: str | None = None,
+) -> tuple[List[Dict[str, Any]], str | None]:
     """Chấm cả cụm câu tự luận. Trả (kết quả theo đúng thứ tự đầu vào, tên model).
 
     `items`: [{qid, prompt, answer}]. Không ném ra ngoài — mọi đường hỏng đều
@@ -335,7 +377,9 @@ async def grade(items: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], str 
         Không lặp vô hạn: mẻ một câu là lá. Nếu lá vẫn hỏng, tầng nộp sẽ trả
         503 và giữ nguyên nháp thay vì ghi một kết quả một phần.
         """
-        first, first_model, failure_kind = await _grade_batch(batch)
+        first, first_model, failure_kind = await _grade_batch(
+            batch, usage_user_id=usage_user_id,
+        )
         failed = [item for item, result in zip(batch, first)
                   if result.get("ok") is None]
         # Timeout/429/5xx/config sẽ lặp lại cho mọi kích thước mẻ. Không chẻ

@@ -114,7 +114,7 @@ export function homeworkDraft(at = new Date()) {
   return {
     kind: 'daily', skill: 'speaking', title: '', contentId: '', mode: 'practice', part: '1',
     questionMode: 'random', questionIds: [], dueDate: defaultVietnamDueDate(at), dueTime: '19:00',
-    dueDays: '7', instructions: '', recipientScope: 'class', studentIds: [], passPct: '', retakeSize: '', timeLimitMinutes: '', error: '',
+    dueDays: '7', instructions: '', recipientScope: 'class', studentIds: [], passPct: '', retakeSize: '', completionMode: 'mastery', timeLimitMinutes: '', error: '',
     deliveryMode: 'standard', webExplanationMode: 'disabled', postTestCaptureRequired: true,
   };
 }
@@ -145,11 +145,13 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
   }
   const advancedVocabulary = selected.runtime === 'advanced_vocab';
   if (draft.skill === 'course' && !advancedVocabulary) {
+    const completionMode = draft.completionMode === 'single_attempt' ? 'single_attempt' : 'mastery';
     const pass = draft.passPct === '' ? null : Number(draft.passPct);
     const retake = draft.retakeSize === '' ? null : Number(draft.retakeSize);
     const timeLimit = draft.timeLimitMinutes === '' ? null : Number(draft.timeLimitMinutes);
-    if (pass != null && (!Number.isInteger(pass) || pass < 50 || pass > 100)) return { ok: false, error: 'Ngưỡng đạt phải trong khoảng 50–100%.' };
-    if (retake != null && (!Number.isInteger(retake) || retake < 5 || retake > 100)) return { ok: false, error: 'Số câu kiểm tra lại phải trong khoảng 5–100.' };
+    if (completionMode === 'single_attempt' && selected.single_attempt_ready !== true) return { ok: false, error: 'Chế độ một lượt chỉ dùng cho bộ trắc nghiệm thuần.' };
+    if (completionMode === 'mastery' && pass != null && (!Number.isInteger(pass) || pass < 50 || pass > 100)) return { ok: false, error: 'Ngưỡng đạt phải trong khoảng 50–100%.' };
+    if (completionMode === 'mastery' && retake != null && (!Number.isInteger(retake) || retake < 5 || retake > 100)) return { ok: false, error: 'Số câu kiểm tra lại phải trong khoảng 5–100.' };
     if (timeLimit != null && (!Number.isInteger(timeLimit) || timeLimit < 1 || timeLimit > 720)) return { ok: false, error: 'Thời gian tối đa phải từ 1 đến 720 phút.' };
   }
   if (draft.questionMode === 'manual' && draft.skill === 'speaking' && draft.kind === 'daily') {
@@ -192,8 +194,9 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
       body.question_ids = draft.questionMode === 'manual' ? [...draft.questionIds] : null;
     }
     if (draft.skill === 'course' && !advancedVocabulary) {
-      if (draft.passPct !== '') body.pass_pct = Number(draft.passPct);
-      if (draft.retakeSize !== '') body.retake_size = Number(draft.retakeSize);
+      body.completion_mode = draft.completionMode === 'single_attempt' ? 'single_attempt' : 'mastery';
+      if (body.completion_mode === 'mastery' && draft.passPct !== '') body.pass_pct = Number(draft.passPct);
+      if (body.completion_mode === 'mastery' && draft.retakeSize !== '') body.retake_size = Number(draft.retakeSize);
       if (draft.timeLimitMinutes !== '') body.time_limit_minutes = Number(draft.timeLimitMinutes);
     }
     if (draft.skill === 'reading' || draft.skill === 'listening') {
@@ -238,6 +241,7 @@ export function normalizeCatalog(value, kind, requestedSkill = '', requestedCoho
       explanation_count: row.web_explanation_count == null ? null : count(row.web_explanation_count),
       explanation_ready_count: row.web_explanation_ready_count == null ? null : count(row.web_explanation_ready_count),
       runtime: nullableText(row.runtime),
+      single_attempt_ready: row.single_attempt_ready === true,
     };
   }).filter(Boolean);
 }

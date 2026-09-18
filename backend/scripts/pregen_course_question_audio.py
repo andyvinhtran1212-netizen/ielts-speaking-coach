@@ -170,7 +170,10 @@ def main() -> int:
                 tts_audio.upload_mp3(storage_path, archive.read(storage_path))
                 action = "PACK"
             else:
-                data = tts_audio.synth_sync(row["text"], engine=ENGINE, voice=row["voice"])
+                data = tts_audio.synth_sync(
+                    row["text"], engine=ENGINE, voice=row["voice"],
+                    feature="course_question_tts",
+                )
                 tts_audio.upload_mp3(storage_path, tts_audio.pad_silence_mp3(data))
                 action = "RENDER"
             url = tts_audio.public_url(storage_path)

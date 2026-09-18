@@ -43,6 +43,7 @@ from typing import Any, Callable
 import anthropic
 
 from config import settings
+from services import ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -480,6 +481,14 @@ def _try_haiku(vocab_row: dict) -> dict | None:
             system=[{"type": "text", "text": _SYSTEM_PROMPT}],
             messages=[{"role": "user", "content": _build_user_prompt(vocab_row)}],
         )
+        ai_usage_logger.log_claude_response(
+            msg,
+            model=model,
+            feature="d1_question_generation",
+            operation="generate_question",
+            resource_type="vocabulary",
+            resource_id=(str(vocab_row["id"]) if vocab_row.get("id") else None),
+        )
         raw = msg.content[0].text if msg.content else ""
         # JSON parse runs inside the retry loop — malformed output is a
         # retryable failure (the model sometimes truncates; a fresh
@@ -538,6 +547,14 @@ def _try_gemini(vocab_row: dict) -> dict | None:
             system_instruction=_SYSTEM_PROMPT,
         )
         resp = model.generate_content(_build_user_prompt(vocab_row), request_options={"timeout": 60})  # Mục 11 (B4): bound the sync Gemini call
+        ai_usage_logger.log_gemini_response(
+            resp,
+            model=model_name,
+            feature="d1_question_generation",
+            operation="generate_question_fallback",
+            resource_type="vocabulary",
+            resource_id=(str(vocab_row["id"]) if vocab_row.get("id") else None),
+        )
         raw = resp.text or ""
         payload = json.loads(_strip_json_fences(raw))
         if not isinstance(payload, dict):

@@ -1,9 +1,9 @@
 """backend/tests/test_whisper_model_config.py — audit 2026-07-02 (finding #5)
 
 The STT model is configurable (settings.WHISPER_STT_MODEL, default whisper-1).
-whisper.py picks verbose_json for whisper-* (segments + duration the reliability
-classifier needs) and plain json for newer models, with an ffprobe duration
-fallback so the pipeline degrades gracefully. These tests pin the routing +
+whisper.py picks verbose_json for models that support the segment/timestamp
+contract and plain json for JSON-only models, with an ffprobe duration fallback.
+These tests pin the routing +
 graceful ffprobe failure (no API calls).
 """
 
@@ -33,6 +33,10 @@ def test_whisper_uses_verbose_json():
 def test_gpt4o_transcribe_uses_plain_json():
     assert _response_format_for("gpt-4o-transcribe") == "json"
     assert _response_format_for("gpt-4o-mini-transcribe") == "json"
+
+
+def test_gpt_transcribe_keeps_verbose_json_contract():
+    assert _response_format_for("gpt-transcribe") == "verbose_json"
 
 
 def test_probe_duration_graceful_on_garbage_bytes():

@@ -219,7 +219,12 @@ class GradingOrchestrator:
         raise AllProvidersFailedError(events=events)
 
 
-def build_default(settings_obj) -> GradingOrchestrator:
+def build_default(
+    settings_obj,
+    *,
+    feature: str = "speaking_grading",
+    operation: str = "grade_response",
+) -> GradingOrchestrator:
     """Construct the production orchestrator from a settings-like object.
 
     Tolerant of missing keys: if `GEMINI_API_KEY` is empty, the Gemini
@@ -239,16 +244,25 @@ def build_default(settings_obj) -> GradingOrchestrator:
     gemini_key    = getattr(settings_obj, "GEMINI_API_KEY", "")    or ""
 
     if anthropic_key:
-        providers["claude_haiku"]  = ClaudeHaikuProvider(api_key=anthropic_key)
-        providers["claude_sonnet"] = ClaudeSonnetProvider(api_key=anthropic_key)
+        providers["claude_haiku"] = ClaudeHaikuProvider(
+            api_key=anthropic_key, usage_feature=feature, usage_operation=operation,
+        )
+        providers["claude_sonnet"] = ClaudeSonnetProvider(
+            api_key=anthropic_key, usage_feature=feature, usage_operation=operation,
+        )
     if gemini_key:
-        providers["gemini"] = GeminiProvider(api_key=gemini_key)
+        providers["gemini"] = GeminiProvider(
+            api_key=gemini_key, usage_feature=feature, usage_operation=operation,
+        )
 
     # Audit 2026-07-02 — register the configurable grader primary. Routed by
     # model-id prefix so a single env knob (SPEAKING_GRADING_MODEL) can select a
     # Gemini or Claude model for the grader without touching provider wiring.
     grading_model = (getattr(settings_obj, "SPEAKING_GRADING_MODEL", "") or "").strip()
-    primary = _build_grading_primary(grading_model, anthropic_key, gemini_key)
+    primary = _build_grading_primary(
+        grading_model, anthropic_key, gemini_key,
+        feature=feature, operation=operation,
+    )
     if primary is not None:
         providers["grading_primary"] = primary
 
@@ -259,6 +273,9 @@ def _build_grading_primary(
     model_id: str,
     anthropic_key: str,
     gemini_key: str,
+    *,
+    feature: str = "speaking_grading",
+    operation: str = "grade_response",
 ) -> AbstractGradingProvider | None:
     """Construct the grader's primary provider from a model id.
 
@@ -281,7 +298,11 @@ def _build_grading_primary(
                 "— falling back to Haiku chain", model_id,
             )
             return None
-        provider = ClaudeProvider(api_key=anthropic_key)
+        provider = ClaudeProvider(
+            api_key=anthropic_key,
+            usage_feature=feature,
+            usage_operation=operation,
+        )
         provider.model = model_id
         provider.provider_name = "grading_primary"
         return provider
@@ -293,7 +314,12 @@ def _build_grading_primary(
                 "— falling back to Haiku chain", model_id,
             )
             return None
-        provider = GeminiProvider(api_key=gemini_key, model_name=model_id)
+        provider = GeminiProvider(
+            api_key=gemini_key,
+            model_name=model_id,
+            usage_feature=feature,
+            usage_operation=operation,
+        )
         provider.provider_name = "grading_primary"
         return provider
 

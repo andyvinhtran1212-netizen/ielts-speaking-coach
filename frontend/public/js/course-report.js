@@ -143,6 +143,7 @@ const NEXT_LABEL = {
   timed_out: 'Đã hết giờ',
   retake: 'Revision ngắn',
   retry_full: 'Làm lại toàn bộ',
+  completed: 'Đã hoàn thành một lượt',
 };
 
 function historyDate(value) {
@@ -180,7 +181,8 @@ export function renderAttemptHistory(history) {
           const phase = row.phase === 'retake' ? 'Revision' : 'Full session';
           const completed = row.completed !== false;
           const next = completed ? (NEXT_LABEL[row.next_action] || 'Đã ghi nhận') : 'Làm nốt các phần';
-          const state = !completed ? 'progress' : row.next_action === 'passed' ? 'pass'
+          const state = !completed ? 'progress'
+            : ['passed', 'completed'].includes(row.next_action) ? 'pass'
             : row.next_action === 'retry_full' ? 'retry' : 'revise';
           return `<tr${i === rows.length - 1 ? ' data-current="true"' : ''}>
             <td data-label="Lượt"><b>#${esc(row.number || i + 1)}</b></td>
@@ -212,6 +214,8 @@ export function renderReport(data, opts = {}) {
   const locked = !!(data && data.locked);
   const t = (data && data.totals) || {};
   const summary = (data && data.summary) || {};
+  const resultOnly = summary.completion_mode === 'single_attempt'
+    || !!(opts.verdict && opts.verdict.result_only);
   // Máy chủ nói nó ĐỌC THIẾU. Vẽ như thường là đưa ra một bản tổng kết trông
   // đầy đủ mà sai — và khi thiếu SẠCH thì "chưa có câu nào được chấm" là một
   // khẳng định lượt đọc hỏng không chứng minh được (codex cục bộ 06/08).
@@ -224,7 +228,8 @@ export function renderReport(data, opts = {}) {
   const decision = hasDecision ? `<section class="cr-decision">
       <div><p>Kết luận gần nhất</p><strong>${esc(NEXT_LABEL[summary.latest_action] || 'Chưa có kết luận')}</strong>
       <span>${summary.latest_pct == null ? 'Chưa có lượt hoàn thành đủ phần.'
-        : `${esc(summary.latest_pct)}% · ngưỡng đạt ${esc(summary.pass_pct)}%`}</span></div>
+        : resultOnly ? `${esc(summary.latest_pct)}% · kết quả một lượt`
+          : `${esc(summary.latest_pct)}% · ngưỡng đạt ${esc(summary.pass_pct)}%`}</span></div>
       <b>${summary.latest_pct == null ? '—' : `${esc(Math.round(summary.latest_pct))}%`}</b>
     </section>` : '';
   if (!qs.length) {
@@ -243,10 +248,14 @@ export function renderReport(data, opts = {}) {
   const learnerPassed = hasCurrentVerdict
     ? opts.verdict.passed === true
     : summary.latest_action === 'passed';
+  const learnerCompleted = resultOnly && (
+    (opts.verdict && opts.verdict.next_action === 'completed')
+    || summary.latest_action === 'completed'
+  );
 
   // Học viên đã đạt cần chữa từng câu theo đúng thứ tự bài. Giáo viên và trạng
   // thái chưa đạt vẫn dùng bản theo trục hiện hành.
-  if (opts.learner && !locked && learnerPassed) {
+  if (opts.learner && !locked && (learnerPassed || learnerCompleted)) {
     const correct = Number(t.correct) || 0;
     const answered = Number(t.answered) || qs.length;
     const wrong = Math.max(0, answered - correct);
@@ -265,12 +274,16 @@ export function renderReport(data, opts = {}) {
       <section class="cr-review-hero" aria-labelledby="cr-review-result-title">
         <div class="cr-review-hero__copy">
           <p class="cr-review-eyebrow">Kết quả bài làm</p>
-          <h2 id="cr-review-result-title">Đã đạt — giờ hãy hiểu rõ từng câu</h2>
+          <h2 id="cr-review-result-title">${resultOnly
+            ? 'Đã hoàn thành — xem lại từng câu'
+            : 'Đã đạt — giờ hãy hiểu rõ từng câu'}</h2>
           ${bankTitle}
-          <p>Điểm số cho biết bạn đã qua bài. Phần bên dưới giúp bạn biết mình đã
-            chọn gì, đáp án nào đúng và vì sao.</p>
+          <p>${resultOnly
+            ? 'Bài chỉ có một lượt làm. Phần bên dưới cho biết kết quả, lựa chọn của bạn, đáp án đúng và lời giải.'
+            : 'Điểm số cho biết bạn đã qua bài. Phần bên dưới giúp bạn biết mình đã chọn gì, đáp án nào đúng và vì sao.'}</p>
         </div>
-        <div class="cr-review-hero__score"><b>${esc(pct)}%</b><span>Kết quả đạt</span></div>
+        <div class="cr-review-hero__score"><b>${esc(pct)}%</b><span>${resultOnly
+          ? 'Kết quả một lượt' : 'Kết quả đạt'}</span></div>
         <ul class="cr-review-summary" aria-label="Tóm tắt bài làm">
           <li><b>${esc(answered)}</b><span>Câu đã làm</span></li>
           <li data-tone="correct"><b>${esc(correct)}</b><span>Trả lời đúng</span></li>

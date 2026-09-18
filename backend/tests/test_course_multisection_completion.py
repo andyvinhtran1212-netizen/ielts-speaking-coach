@@ -375,6 +375,88 @@ def test_all_sections_are_weighted_then_passed_and_hand_in_once():
     assert marked[0]["artifact_kind"] == "quiz_session"
 
 
+def test_single_attempt_multisection_hands_in_result_without_mastery_retry():
+    attempt = _attempt()
+    state = {
+        "class_assignment_items": [{
+            "id": "item-1", "assignment_id": "asg-1", "passed_at": None,
+            "submitted_at": None, "score": None,
+            "mastery": {"attempts": [attempt]}, "updated_at": "t0",
+        }],
+        "class_assignments": [{"id": "asg-1", "content_config": {
+            "completion_mode": "single_attempt", "pass_pct": 80,
+            "section_weights": {"quiz": 50, "writing": 50},
+        }}],
+    }
+    evidence = {
+        "quiz": attempt["sections"]["quiz"],
+        "writing": {"completed": True, "pct": 20, "correct": 2, "total": 10,
+                    "duration_sec": 500},
+    }
+    marked = []
+    with patch.object(qs, "supabase_admin", _db(state)), \
+         patch.object(qs, "_course_completion_evidence", return_value=(
+             ["quiz", "writing"], evidence,
+             {"quiz": "session-1", "writing": "writing-1"},
+         )), \
+         patch.object(qs, "mark_item_submitted",
+                      side_effect=lambda *a, **k: marked.append(k) or True):
+        out = qs.refresh_course_completion(
+            user_id="user-1", bank_id="bank-1", item_id="item-1",
+        )
+
+    assert out["completed"] is True and out["pct"] == 50.0
+    assert out["passed"] is None and out["next_action"] == "completed"
+    assert out["result_only"] is True
+    assert state["class_assignment_items"][0]["passed_at"] is None
+    assert state["class_assignment_items"][0]["score"] == 50.0
+    assert marked and marked[0]["score"] == 50.0
+
+
+def test_single_attempt_completed_refresh_repairs_missing_receipt():
+    attempt = _attempt()
+    attempt["sections"]["quiz"]["weight"] = 50.0
+    attempt["sections"]["writing"] = {
+        "completed": True, "pct": 20, "correct": 2, "total": 10,
+        "duration_sec": 500, "weight": 50.0,
+    }
+    attempt.update({"completed": True, "pct": 50.0,
+                    "next_action": "completed"})
+    state = {
+        "class_assignment_items": [{
+            "id": "item-1", "assignment_id": "asg-1", "passed_at": None,
+            "submitted_at": None, "score": 50.0,
+            "mastery": {"attempts": [attempt]}, "updated_at": "t0",
+        }],
+        "class_assignments": [{"id": "asg-1", "content_config": {
+            "completion_mode": "single_attempt", "pass_pct": 80,
+            "section_weights": {"quiz": 50, "writing": 50},
+        }}],
+    }
+    evidence = {
+        "quiz": attempt["sections"]["quiz"],
+        "writing": {"completed": True, "pct": 20, "correct": 2,
+                    "total": 10, "duration_sec": 500},
+    }
+    marked = []
+    with patch.object(qs, "supabase_admin", _db(state)), \
+         patch.object(qs, "_course_completion_evidence", return_value=(
+             ["quiz", "writing"], evidence,
+             {"quiz": "session-1", "writing": "writing-1"},
+         )), \
+         patch.object(qs, "mark_item_submitted",
+                      side_effect=lambda *a, **k: marked.append(k) or True):
+        out = qs.refresh_course_completion(
+            user_id="user-1", bank_id="bank-1", item_id="item-1",
+        )
+
+    assert out["next_action"] == "completed" and out["result_only"] is True
+    assert marked == [{
+        "item_id": "item-1", "artifact_kind": "quiz_session",
+        "artifact_id": "session-1", "score": 50.0,
+    }]
+
+
 def test_migration_is_additive_rls_protected_and_keeps_answer_snapshot():
     sql = (Path(__file__).parents[1] / "migrations" /
            "226_course_multisection_results.sql").read_text(encoding="utf-8")

@@ -136,20 +136,18 @@ async def extract_vocab(
             upgrade_suggested=[VocabItem(**i) for i in (data.get("upgrade_suggested") or [])[:3]],
         )
 
-        # Log usage (best-effort)
-        try:
-            from services import ai_usage_logger
-            ai_usage_logger.log_claude(
-                user_id=user_id,
-                session_id=session_id,
-                model=model,
-                input_tokens=msg.usage.input_tokens,
-                output_tokens=msg.usage.output_tokens,
-                cache_read_tokens=getattr(msg.usage, "cache_read_input_tokens", 0) or 0,
-                cache_write_tokens=getattr(msg.usage, "cache_creation_input_tokens", 0) or 0,
-            )
-        except Exception as log_err:
-            logger.debug("[vocab_extractor] usage log failed (non-fatal): %s", log_err)
+        # Log usage (best-effort; the ledger helper owns failure isolation).
+        from services import ai_usage_logger
+        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_claude_response_async(
+            msg,
+            user_id=user_id,
+            session_id=session_id,
+            model=model,
+            feature="vocabulary_feedback",
+            operation="extract_response_vocab",
+            resource_type="response",
+            resource_id=response_id,
+        ))
 
         total = len(result.used_well) + len(result.needs_review) + len(result.upgrade_suggested)
         logger.info(

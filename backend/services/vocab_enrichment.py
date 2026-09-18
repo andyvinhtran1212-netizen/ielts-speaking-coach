@@ -29,6 +29,7 @@ from typing import Any
 import google.generativeai as genai
 
 from config import settings
+from services import ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -223,6 +224,13 @@ def _enrich_single_chunk(
             system_instruction=chosen_prompt,
         )
         resp = model.generate_content(user_prompt)
+        ai_usage_logger.log_gemini_response(
+            resp,
+            model=chosen_model,
+            feature="vocab_enrichment",
+            operation="enrich_chunk",
+            metadata={"word_count": len(words)},
+        )
         raw = resp.text or ""
     except Exception as e:
         logger.error("[vocab_enrich] Gemini call failed (model=%s): %s", chosen_model, e)

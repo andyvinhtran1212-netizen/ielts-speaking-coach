@@ -13,6 +13,7 @@ import json
 import logging
 import re
 import unicodedata
+from uuid import uuid4
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
@@ -340,8 +341,12 @@ def _weighted(providers: list[dict], batches: list[list[DecodedRecording]], key:
 
 async def _grade_batches(
     batches: list[list[DecodedRecording]], *, locale: str,
+    usage_user_id: str | None = None,
+    usage_resource_id: str | None = None,
+    usage_attempt_no: int = 1,
+    usage_run_id: str | None = None,
 ) -> list[dict]:
-    async def one(batch: list[DecodedRecording]) -> dict:
+    async def one(batch_index: int, batch: list[DecodedRecording]) -> dict:
         reference = " ".join(_reference_text(str(item.sentence["text"])) for item in batch)
         return await azure_pronunciation.assess_pronunciation(
             audio_bytes=await asyncio.to_thread(_batch_wav, batch),
@@ -351,9 +356,19 @@ async def _grade_batches(
             enable_miscue=True,
             # bf_emma/en-GB must not silently request the paid, en-US-only add-on.
             enable_prosody=False,
+            usage_user_id=usage_user_id,
+            usage_resource_type="course_pronunciation_submission",
+            usage_resource_id=usage_resource_id,
+            usage_event_id=(
+                f"course-pronunciation:{usage_resource_id}:attempt:{usage_attempt_no}:run:{usage_run_id}:batch:{batch_index}"
+                if usage_resource_id else None
+            ),
+            audio_seconds=sum(len(item.audio) for item in batch) / 1000.0,
         )
 
-    return list(await asyncio.gather(*(one(batch) for batch in batches)))
+    return list(await asyncio.gather(*(
+        one(batch_index, batch) for batch_index, batch in enumerate(batches, start=1)
+    )))
 
 
 def _provider_detected_speech(provider: dict) -> bool:
@@ -494,7 +509,15 @@ async def submit(
         raise CoursePronunciationError(500, "Không khởi tạo được lượt chấm") from exc
 
     try:
-        providers = await _grade_batches(batches, locale=str(exercise["locale"]))
+        usage_run_id = uuid4().hex
+        providers = await _grade_batches(
+            batches,
+            locale=str(exercise["locale"]),
+            usage_user_id=user_id,
+            usage_resource_id=str(saved["id"]),
+            usage_attempt_no=attempt_no,
+            usage_run_id=usage_run_id,
+        )
         _require_detected_speech(providers)
         sentence_results = []
         for batch, provider in zip(batches, providers):

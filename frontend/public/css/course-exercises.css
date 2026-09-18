@@ -233,6 +233,8 @@
 }
 
 .cx-opt[data-r='off'] { opacity: 0.5; }
+.cx-opt[data-r='selected'] { border-color: var(--av-primary-border); background: var(--av-primary-soft); }
+.cx-opt[data-r='selected'] .cx-opt__key { border-color: var(--av-primary-border); color: var(--av-primary); }
 
 /* ── CÁI BẪY — nở ra bên trong ô vừa chọn ────────────────────────────── */
 .cx-trap {
@@ -1138,6 +1140,7 @@
 .cx-answer-summary span { display: block; }
 .cx-answer-summary strong { margin-bottom: 2px; color: var(--av-text-primary); }
 .cx-answer-summary span { color: var(--av-text-secondary); font-size: var(--av-fs-sm); }
+.cx-answer-summary.is-sealed::before { background: var(--av-primary-soft); color: var(--av-primary); content: '✓'; }
 
 .cx-why {
   margin-top: var(--av-space-3);

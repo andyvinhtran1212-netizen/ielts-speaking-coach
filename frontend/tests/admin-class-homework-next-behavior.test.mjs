@@ -19,15 +19,22 @@ import {
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
 const UI = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx');
+const TYPES = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework-types.ts');
 const SUBMISSIONS = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx');
 const CSS = read('public', 'css', 'admin-class-homework-next.css');
 const LAYOUT = read('app', '(authed-admin-classes)', 'layout.tsx');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
-const catalog = [{ id: 'bank-1', title: 'Grammar 2', ready: true, already_given: false }];
+const catalog = [{ id: 'bank-1', title: 'Grammar 2', ready: true, already_given: false, single_attempt_ready: true }];
 
 describe('admin class homework model — canonical truth', () => {
+  test('preview uses generated API types and drops stale bank responses', () => {
+    assert.match(TYPES, /components\['schemas'\]\['CourseBankPreviewResponse'\]/);
+    assert.match(UI, /coursePreviewSequence/);
+    assert.match(UI, /requestId !== coursePreviewSequence\.current/);
+    assert.match(UI, /selectedContentId = editor\.contentId/);
+  });
   test('keeps unreadable progress unknown and exposes ledger reconciliation failure', () => {
     const payload = normalizeAssignmentsPayload({ reconcile_failed: true, assignments: [
       { id: 'a1', title: 'Bài một', skill: 'course', due_at: null, progress: null },
@@ -73,6 +80,7 @@ describe('admin class homework model — canonical truth', () => {
     assert.deepEqual(valid.body.student_ids, ['s1']);
     assert.equal(valid.body.pass_pct, 75);
     assert.equal(valid.body.retake_size, 20);
+    assert.equal(valid.body.completion_mode, 'mastery');
     assert.equal(valid.body.time_limit_minutes, 135);
     assert.equal(validateHomeworkDraft({ ...draft, studentIds: [] }, catalog).ok, false);
     assert.equal(validateHomeworkDraft({ ...draft, passPct: '49' }, catalog).ok, false);
@@ -82,6 +90,35 @@ describe('admin class homework model — canonical truth', () => {
     assert.equal(validateHomeworkDraft({ ...draft, dueTime: '25:90' }, catalog).ok, false);
     const whole = validateHomeworkDraft({ ...draft, recipientScope: 'class', studentIds: [] }, catalog);
     assert.equal(whole.body.student_ids, null);
+  });
+
+  test('builds one-sitting course assignments without mastery retry controls', () => {
+    const draft = {
+      ...homeworkDraft(), skill: 'course', title: 'Midterm', contentId: 'bank-1',
+      completionMode: 'single_attempt', passPct: 'not-a-score', retakeSize: '0',
+      timeLimitMinutes: '60',
+    };
+    const result = validateHomeworkDraft(draft, catalog);
+    assert.equal(result.ok, true);
+    assert.equal(result.body.completion_mode, 'single_attempt');
+    assert.equal(result.body.time_limit_minutes, 60);
+    assert.equal(Object.hasOwn(result.body, 'pass_pct'), false);
+    assert.equal(Object.hasOwn(result.body, 'retake_size'), false);
+  });
+
+  test('rejects one-sitting mode for hybrid course banks before submit', () => {
+    const hybridCatalog = [{
+      id: 'hybrid-1', title: 'Hybrid lesson', ready: true, already_given: false,
+      single_attempt_ready: false,
+    }];
+    const result = validateHomeworkDraft({
+      ...homeworkDraft(), skill: 'course', title: 'Hybrid', contentId: 'hybrid-1',
+      completionMode: 'single_attempt',
+    }, hybridCatalog);
+    assert.equal(result.ok, false);
+    assert.match(result.error, /trắc nghiệm thuần/);
+    assert.match(UI, /single_attempt_ready === true \? '' : ' is-disabled'/);
+    assert.match(UI, /disabled=\{selectedCatalogItem\?\.single_attempt_ready !== true\}/);
   });
 
   test('builds Grammar Diagnostic assignments without a fake score contract', () => {
@@ -223,6 +260,15 @@ describe('admin class homework — integration contracts', () => {
     assert.match(UI, /selectedCatalogItem\?\.runtime === 'advanced_vocab'/);
     assert.match(UI, /Bài self-paced không chấm điểm mặc định/);
     assert.match(UI, /giáo viên giao bài Writing riêng/);
+  });
+
+  test('keeps assignment actions visible and previews canonical course content', () => {
+    assert.match(UI, /panelClassName="ach-assignment-dialog"/);
+    assert.match(UI, /course-banks\/\$\{encodeURIComponent\(selectedContentId\)\}\/preview/);
+    assert.match(UI, /Một lượt — hiện kết quả sau khi nộp/);
+    assert.match(UI, /Trong lúc làm không lộ đúng\/sai hay giải thích/);
+    assert.match(CSS, /\.ach-assignment-dialog \{[^}]*max-height:/);
+    assert.match(CSS, /\.ach-course-preview__workspace/);
   });
 
   test('never exposes destructive delete when progress is unknown', () => {

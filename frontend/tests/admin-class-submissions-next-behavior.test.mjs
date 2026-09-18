@@ -44,6 +44,20 @@ describe('admin class submissions model', () => {
     assert.equal(out.counts.near_pass, 1);
   });
 
+  test('keeps one-sitting completion and score separate from mastery thresholds', () => {
+    const out = normalizeTally({ assignment: { id: 'a1', title: 'Midterm', skill: 'course' }, students: [{
+      student_id: 's1', status: 'submitted', score: 42,
+      course_state: 'completed', next_action: 'completed',
+      completion_mode: 'single_attempt', pass_pct: null, flags: [],
+    }], counts: { total: 1, submitted: 1, completed: 1 } });
+    assert.equal(out.students[0].course_state, 'completed');
+    assert.equal(out.students[0].completion_mode, 'single_attempt');
+    assert.equal(out.students[0].pass_pct, null);
+    assert.equal(out.counts.completed, 1);
+    assert.match(UI, /Kết quả một lượt/);
+    assert.match(UI, /Đã hoàn thành/);
+  });
+
   test('normalizes effort without dropping unactivated or untouched students', () => {
     const out = normalizeEffort({ advanced_vocab: true, score_policy: 'none', students: [{ student_id: 's1', user_id: null, state: 'no_account', stages_done: 0 }, { student_id: 's2', user_id: 'u2', state: 'stalled', stages_done: 2, questions: 4, correct: 2, accuracy: .5 }, { student_id: null, user_id: 'u-gone', state: 'done', stages_done: 8 }], axes: [{ axis: 'Nouns', wrong: 3 }] });
     assert.deepEqual(out.students.map((row) => row.state), ['no_account', 'stalled', 'done']);
@@ -151,6 +165,19 @@ describe('admin class submissions model', () => {
     assert.equal(report.history[0].next_action, 'retake');
     assert.equal(report.summary.latest_pct, 70);
     assert.equal(report.summary.baseline_quiz_pct, 50);
+  });
+
+  test('preserves one-sitting report semantics for the shared report renderer', () => {
+    const report = normalizeStudentReport({
+      questions: [{ qid: 'q1', item_key: 'Articles', is_correct: false }],
+      history: [{ number: 1, phase: 'run', pct: 42, next_action: 'completed' }],
+      totals: { answered: 1, correct: 0 },
+      summary: { completion_mode: 'single_attempt', pass_pct: null,
+        latest_pct: 42, latest_action: 'completed' },
+    });
+    assert.equal(report.summary.completion_mode, 'single_attempt');
+    assert.equal(report.summary.pass_pct, null);
+    assert.equal(report.summary.latest_action, 'completed');
   });
 
   test('preserves incomplete attempts and their section timing in student history', () => {
