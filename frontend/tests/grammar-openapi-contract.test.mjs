@@ -89,3 +89,8 @@ test('MASTER30 diagnostic success bodies are modeled and consumed from OpenAPI',
   assert.match(MY_CLASS, /ApiPostJson<'\/api\/class\/assignments\/\{item_id\}\/start'>/);
   assert.match(MY_CLASS, /window\.api\.post<ClassStartWire>/);
 });
+
+test('report action follows server-owned assigned versus self-serve identity', () => {
+  assert.match(DIAGNOSTIC, /requestedView === 'report'\) await showReport\(requestedSession\)/);
+  assert.match(DIAGNOSTIC, /report\.assigned \? <a[^>]+href="\/my-class">Quay lại My Class<\/a> : <a[^>]+href="\/grammar-checkup">Làm lượt mới<\/a>/);
+});

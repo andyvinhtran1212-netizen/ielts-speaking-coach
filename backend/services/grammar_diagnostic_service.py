@@ -166,15 +166,28 @@ def _assignment_config(user_id: str, item_id: str) -> dict[str, Any]:
     return {**entitled, "existing": existing[0] if existing else None}
 
 
+def _require_session_readable(
+    user_id: str, session: dict[str, Any],
+) -> Optional[dict[str, Any]]:
+    """Recheck ownership, membership, and publication for an assigned session."""
+    item_id = session.get("class_assignment_item_id")
+    if not item_id:
+        return None
+    entitled = _assignment_entitlement(user_id, str(item_id))
+    assignment = entitled["assignment"]
+    if not is_assignment_open(assignment):
+        raise HTTPException(404, "Bài tập không còn mở")
+    return assignment
+
+
 def _require_session_accepting(user_id: str, session: dict[str, Any]) -> None:
     """Recheck the canonical assignment cutoff immediately before a mutation."""
     item_id = session.get("class_assignment_item_id")
     if not item_id:
         return
-    entitled = _assignment_entitlement(user_id, str(item_id))
-    assignment = entitled["assignment"]
-    if not is_assignment_open(assignment):
-        raise HTTPException(404, "Bài tập không còn mở")
+    assignment = _require_session_readable(user_id, session)
+    if assignment is None:
+        return
     if not is_accepting_submissions(assignment):
         raise HTTPException(409, "Đã quá hạn nộp — bài tập này không còn nhận bài.")
 
@@ -277,9 +290,9 @@ def _session(user_id: str, session_id: str) -> dict[str, Any]:
     if not rows:
         raise HTTPException(404, "Không tìm thấy phiên Grammar Check-up")
     row = rows[0]
-    # FR-001 applies the canonical assignment gate to reads as well as writes.
-    # A bookmarked session/report must not bypass archive, scheduled publish,
-    # deadline, ownership, or current cohort membership.
+    # Session reads remain subject to the complete assignment gate, including
+    # the deadline. The immutable report endpoint has its own completed-only
+    # read gate so a canonical report can remain available after the cutoff.
     _require_session_accepting(user_id, row)
     return row
 
@@ -718,16 +731,30 @@ def finalize_session(user_id: str, session_id: str) -> dict[str, Any]:
 
 
 def learner_report(user_id: str, session_id: str) -> dict[str, Any]:
-    session = _session(user_id, session_id)
+    sessions = (
+        supabase_admin.table("grammar_diagnostic_sessions").select("*")
+        .eq("id", session_id).eq("user_id", user_id).limit(1).execute().data
+    ) or []
+    if not sessions:
+        raise HTTPException(404, "Không tìm thấy phiên Grammar Check-up")
+    session = sessions[0]
     if session["status"] != "completed":
         raise HTTPException(409, "Phiên chưa hoàn tất")
+    # A report is an immutable snapshot, not a new submission. Keep it readable
+    # after due_at while retaining ownership, membership, and publication gates.
+    _require_session_readable(user_id, session)
     rows = (
         supabase_admin.table("grammar_diagnostic_reports").select("learner_report, created_at")
         .eq("session_id", session_id).eq("user_id", user_id).limit(1).execute().data
     ) or []
     if not rows:
         raise HTTPException(409, "Báo cáo chưa sẵn sàng")
-    return {**rows[0]["learner_report"], "session_id": session_id, "created_at": rows[0].get("created_at")}
+    return {
+        **rows[0]["learner_report"],
+        "session_id": session_id,
+        "created_at": rows[0].get("created_at"),
+        "assigned": bool(session.get("class_assignment_item_id")),
+    }
 
 
 def educator_report(session_id: str) -> dict[str, Any]:
@@ -738,7 +765,18 @@ def educator_report(session_id: str) -> dict[str, Any]:
     ) or []
     if not rows:
         raise HTTPException(404, "Không tìm thấy báo cáo Grammar")
-    return {**rows[0]["educator_report"], "session_id": session_id, "created_at": rows[0].get("created_at")}
+    sessions = (
+        supabase_admin.table("grammar_diagnostic_sessions")
+        .select("class_assignment_item_id").eq("id", session_id).limit(1).execute().data
+    ) or []
+    if not sessions:
+        raise HTTPException(404, "Không tìm thấy phiên Grammar Check-up")
+    return {
+        **rows[0]["educator_report"],
+        "session_id": session_id,
+        "created_at": rows[0].get("created_at"),
+        "assigned": bool(sessions[0].get("class_assignment_item_id")),
+    }
 
 
 def learner_history(user_id: str) -> list[dict[str, Any]]:

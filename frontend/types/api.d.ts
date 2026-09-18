@@ -13968,6 +13968,11 @@ export interface components {
             session_id: string;
             /** Created At */
             created_at?: string | null;
+            /**
+             * Assigned
+             * @default false
+             */
+            assigned: boolean;
             /** Attribute Evidence */
             attribute_evidence: {
                 [key: string]: components["schemas"]["AttributeEvidenceResponse"];
@@ -15120,6 +15125,11 @@ export interface components {
             session_id: string;
             /** Created At */
             created_at?: string | null;
+            /**
+             * Assigned
+             * @default false
+             */
+            assigned: boolean;
         };
         /** LearnerReportSnapshotResponse */
         LearnerReportSnapshotResponse: {
