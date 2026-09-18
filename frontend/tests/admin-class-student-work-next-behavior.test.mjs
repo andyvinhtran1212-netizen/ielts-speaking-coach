@@ -49,6 +49,9 @@ describe('admin class student work model', () => {
     assert.deepEqual(studentWorkAction({ bank_id: 'bank', artifact_id: null, content_config: { runtime } }), { kind: 'report', label: 'Xem từng câu' });
     assert.deepEqual(studentWorkAction({ bank_id: 'bank', artifact_id: 'item', content_config: { runtime } }), { kind: 'report', label: 'Xem từng câu' });
     assert.equal(studentWorkAction({ bank_id: 'bank', artifact_id: null }), null);
+    assert.deepEqual(studentWorkAction({ artifact_kind: 'grammar_diagnostic', artifact_id: 'grammar/1' }), {
+      kind: 'external', label: 'Xem hồ sơ Grammar', href: '/admin/grammar-diagnostic?session=grammar%2F1',
+    });
   });
 });
 

@@ -25,6 +25,7 @@ function openArtifact(row: TallyStudent) {
   if (row.artifact_kind === 'session' && row.artifact_id) return `/admin/speaking/sessions?session=${encodeURIComponent(row.artifact_id)}`;
   if (row.artifact_kind === 'reading_attempt' && row.artifact_id) return `/reading/review?attempt_id=${encodeURIComponent(row.artifact_id)}&from=admin`;
   if (row.artifact_kind === 'listening_attempt' && row.artifact_id) return `/listening/review?attempt_id=${encodeURIComponent(row.artifact_id)}&from=admin`;
+  if (row.artifact_kind === 'grammar_diagnostic' && row.artifact_id) return `/admin/grammar-diagnostic?session=${encodeURIComponent(row.artifact_id)}`;
   return null;
 }
 

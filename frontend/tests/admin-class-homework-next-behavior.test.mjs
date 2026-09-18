@@ -84,6 +84,19 @@ describe('admin class homework model — canonical truth', () => {
     assert.equal(whole.body.student_ids, null);
   });
 
+  test('builds Grammar Diagnostic assignments without a fake score contract', () => {
+    const grammarCatalog = [{ id: 'master30-full', title: 'Full Grammar Diagnostic', ready: true, already_given: false }];
+    const result = validateHomeworkDraft({
+      ...homeworkDraft(), skill: 'grammar', title: 'Grammar diagnostic', contentId: 'master30-full',
+    }, grammarCatalog);
+    assert.equal(result.ok, true);
+    assert.equal(result.body.skill, 'grammar');
+    assert.equal(result.body.content_id, null);
+    assert.equal(result.body.grammar_length, 'FULL');
+    assert.equal(result.body.grammar_mode, 'REVIEW');
+    assert.equal(Object.hasOwn(result.body, 'pass_pct'), false);
+  });
+
   test('manual Speaking selection must use the exact ready count', () => {
     const draft = { ...homeworkDraft(), title: 'Speaking', contentId: 'topic-1', questionMode: 'manual', questionIds: ['q1', 'q2'] };
     const topics = [{ id: 'topic-1', title: 'Home', ready: true, already_given: false }];

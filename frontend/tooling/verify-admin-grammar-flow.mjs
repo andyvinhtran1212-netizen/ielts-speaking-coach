@@ -37,10 +37,11 @@ await page.goto(`${BASE}/admin/grammar`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Grammar workspace', exact: true }).waitFor({ state: 'visible' });
 check('backend-owned admin gate chạy trước surface', requests.some((item) => item.path === '/auth/me'));
 check('hiển thị đúng file-based source of truth', await page.getByText('backend/content/<category>/<slug>.md', { exact: true }).count() === 1);
-check('có đủ bốn workspace vận hành', await page.locator('.grh-card').count() === 4);
+check('có đủ năm workspace vận hành', await page.locator('.grh-card').count() === 5);
 check('có learner preview canonical', await page.getByRole('link', { name: /Xem phía học viên/ }).getAttribute('href') === '/grammar');
+check('MASTER30 đi qua lớp để giữ assignment-first', await page.getByRole('link', { name: /Diagnostic reports/ }).getAttribute('href') === '/admin/classes');
 check('mobile xếp một cột và không tràn ngang', await page.evaluate(() => getComputedStyle(document.querySelector('.grh-grid')).gridTemplateColumns.split(' ').length === 1 && document.documentElement.scrollWidth <= window.innerWidth));
-check('toàn bộ card có focus target bằng anchor', await page.locator('a.grh-card[href]').count() === 4);
+check('toàn bộ card có focus target bằng anchor', await page.locator('a.grh-card[href]').count() === 5);
 
 await page.setViewportSize({ width: 1440, height: 900 });
 await page.reload({ waitUntil: 'domcontentloaded' });

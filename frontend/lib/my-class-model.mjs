@@ -4,7 +4,7 @@ import {
   corePlayerUrl,
 } from './core-player-affinity.mjs';
 
-const SKILLS = new Set(['speaking', 'writing', 'reading', 'listening', 'course']);
+const SKILLS = new Set(['speaking', 'writing', 'reading', 'listening', 'course', 'grammar']);
 const PLAYER_SURFACES = new Set(['speaking', 'reading_exam', 'listening_test']);
 const COURSE_ACTIONS = new Set([
   'start', 'continue', 'retake', 'retry_full', 'review', 'expired_pending',
@@ -367,6 +367,18 @@ export function normalizeClassStartResponse(value, expectedItemId) {
   const resultSessionId = textOf(row.result_session_id);
   if (resultSessionId && skill === 'speaking') {
     return { kind: 'result', url: `/result?id=${encodeURIComponent(resultSessionId)}` };
+  }
+
+  const grammarReportSessionId = textOf(row.grammar_report_session_id);
+  if (grammarReportSessionId && skill === 'grammar') {
+    return { kind: 'grammar-report', url: `/grammar-checkup?session=${encodeURIComponent(grammarReportSessionId)}&view=report` };
+  }
+
+  const grammarPath = textOf(row.grammar_path);
+  if (grammarPath && skill === 'grammar') {
+    const expected = `/grammar-checkup?assignment_item=${encodeURIComponent(expectedItemId)}`;
+    if (grammarPath !== expected) return null;
+    return { kind: 'grammar', url: expected };
   }
 
   const sessionId = textOf(row.session_id);
