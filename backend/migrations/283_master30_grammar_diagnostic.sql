@@ -240,7 +240,7 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION 'grammar_release_not_found' USING ERRCODE = 'P0002';
     END IF;
-    IF v_release.status <> 'validated'
+    IF v_release.status NOT IN ('validated', 'retired')
        OR COALESCE((v_release.validation ->> 'passed')::boolean, false) IS NOT TRUE THEN
         RAISE EXCEPTION 'grammar_release_not_validated' USING ERRCODE = '55000';
     END IF;

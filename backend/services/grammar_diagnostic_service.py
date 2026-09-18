@@ -16,6 +16,7 @@ from fastapi import HTTPException
 
 from database import supabase_admin
 from services.class_assignment_service import is_accepting_submissions, is_assignment_open
+from services.class_membership_service import student_is_active_in_cohort
 from services import runtime_flags
 
 
@@ -114,13 +115,13 @@ def _content(release: dict[str, Any]) -> dict[str, Any]:
 
 def _student_for_user(user_id: str) -> Optional[dict[str, Any]]:
     rows = (
-        supabase_admin.table("students").select("id")
+        supabase_admin.table("students").select("id, cohort_id")
         .eq("user_id", user_id).limit(1).execute().data
     ) or []
     return rows[0] if rows else None
 
 
-def _assignment_config(user_id: str, item_id: str) -> dict[str, Any]:
+def _assignment_entitlement(user_id: str, item_id: str) -> dict[str, Any]:
     student = _student_for_user(user_id)
     if not student:
         raise HTTPException(404, "Không tìm thấy hồ sơ học viên")
@@ -137,6 +138,19 @@ def _assignment_config(user_id: str, item_id: str) -> dict[str, Any]:
     if not assignments or assignments[0].get("skill") != "grammar":
         raise HTTPException(404, "Không tìm thấy bài Grammar được giao")
     assignment = assignments[0]
+    if not student_is_active_in_cohort(
+        supabase_admin, str(student["id"]), str(assignment["cohort_id"]),
+        legacy_cohort_id=student.get("cohort_id"),
+    ):
+        # Match the canonical My Class contract: ended membership must not
+        # disclose whether a bookmarked assignment/session still exists.
+        raise HTTPException(404, "Không tìm thấy bài Grammar được giao")
+    return {"item": items[0], "assignment": assignment}
+
+
+def _assignment_config(user_id: str, item_id: str) -> dict[str, Any]:
+    entitled = _assignment_entitlement(user_id, item_id)
+    assignment = entitled["assignment"]
     if not is_assignment_open(assignment):
         raise HTTPException(404, "Bài tập không còn mở")
     existing = (
@@ -145,7 +159,7 @@ def _assignment_config(user_id: str, item_id: str) -> dict[str, Any]:
     ) or []
     if not existing and not is_accepting_submissions(assignment):
         raise HTTPException(409, "Đã quá hạn nộp — bài tập này không còn nhận bài.")
-    return {"item": items[0], "assignment": assignment, "existing": existing[0] if existing else None}
+    return {**entitled, "existing": existing[0] if existing else None}
 
 
 def create_session(
@@ -195,7 +209,22 @@ def create_session(
         "test_length": test_length,
         "objective_limit": LIMITS[test_length][1],
     }
-    rows = supabase_admin.table("grammar_diagnostic_sessions").insert(row).execute().data or []
+    try:
+        rows = supabase_admin.table("grammar_diagnostic_sessions").insert(row).execute().data or []
+    except Exception as exc:
+        if (not class_assignment_item_id
+                or ("duplicate" not in str(exc).lower() and "unique" not in str(exc).lower())):
+            raise
+        # Concurrent opens of one assigned item are idempotent. The database
+        # unique constraint chooses the winner; both tabs resume that session.
+        winner = (
+            supabase_admin.table("grammar_diagnostic_sessions").select("*")
+            .eq("class_assignment_item_id", class_assignment_item_id)
+            .eq("user_id", user_id).limit(1).execute().data
+        ) or []
+        if not winner:
+            raise
+        return session_summary(user_id, winner[0])
     if not rows:
         raise HTTPException(500, "Không tạo được phiên Grammar Check-up")
     if assignment and assignment["item"].get("state") == "assigned":
@@ -212,7 +241,10 @@ def _session(user_id: str, session_id: str) -> dict[str, Any]:
     ) or []
     if not rows:
         raise HTTPException(404, "Không tìm thấy phiên Grammar Check-up")
-    return rows[0]
+    row = rows[0]
+    if row.get("class_assignment_item_id"):
+        _assignment_entitlement(user_id, str(row["class_assignment_item_id"]))
+    return row
 
 
 def _responses(session_id: str) -> list[dict[str, Any]]:

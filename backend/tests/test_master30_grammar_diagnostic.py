@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import os
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -102,6 +103,7 @@ def test_migration_keeps_productive_scoring_outside_objective_session():
     assert "artifact_kind = 'grammar_diagnostic'" in migration
     assert "subdomain TEXT NOT NULL" in migration
     assert "master30_grammar_self_serve" in migration
+    assert "status NOT IN ('validated', 'retired')" in migration
 
 
 def test_self_serve_is_closed_during_assigned_only_beta(monkeypatch):
@@ -113,6 +115,70 @@ def test_self_serve_is_closed_during_assigned_only_beta(monkeypatch):
         )
     assert caught.value.status_code == 403
     assert caught.value.detail["error_code"] == "grammar_assignment_required"
+
+
+class _RowsQuery:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def select(self, *args, **kwargs): return self
+    def eq(self, *args, **kwargs): return self
+    def limit(self, *args, **kwargs): return self
+    def execute(self): return SimpleNamespace(data=self.rows)
+
+
+class _RowsDb:
+    def __init__(self, tables):
+        self.tables = tables
+
+    def table(self, name): return _RowsQuery(self.tables.get(name, []))
+
+
+def test_assigned_session_requires_current_class_membership(monkeypatch):
+    db = _RowsDb({
+        "class_assignment_items": [{"id": "item-1", "assignment_id": "a-1", "student_id": "s-1"}],
+        "class_assignments": [{"id": "a-1", "cohort_id": "c-1", "skill": "grammar"}],
+    })
+    monkeypatch.setattr(service, "supabase_admin", db)
+    monkeypatch.setattr(service, "_student_for_user", lambda _: {"id": "s-1", "cohort_id": "c-1"})
+    monkeypatch.setattr(service, "student_is_active_in_cohort", lambda *args, **kwargs: False)
+    with pytest.raises(service.HTTPException) as caught:
+        service._assignment_entitlement("u-1", "item-1")
+    assert caught.value.status_code == 404
+
+    monkeypatch.setattr(service, "student_is_active_in_cohort", lambda *args, **kwargs: True)
+    assert service._assignment_entitlement("u-1", "item-1")["assignment"]["id"] == "a-1"
+
+
+def test_assigned_session_creation_returns_concurrent_winner(monkeypatch):
+    winner = {
+        "id": "session-winner", "user_id": "u-1", "release_id": "release-1",
+        "class_assignment_item_id": "item-1", "status": "in_progress",
+    }
+
+    class _RaceQuery(_RowsQuery):
+        def insert(self, *args, **kwargs):
+            raise RuntimeError("duplicate key value violates unique constraint")
+
+    class _RaceDb:
+        def table(self, name): return _RaceQuery([winner])
+
+    monkeypatch.setattr(service, "supabase_admin", _RaceDb())
+    monkeypatch.setattr(service, "_active_release", lambda: {"id": "release-active"})
+    monkeypatch.setattr(service, "_release_by_id", lambda _: {"id": "release-1"})
+    monkeypatch.setattr(service, "_assignment_config", lambda *args: {
+        "item": {"state": "opened"}, "existing": None,
+        "assignment": {"content_config": {
+            "release_id": "release-1", "mode": "REVIEW",
+            "module": "GENERAL", "test_length": "QUICK",
+        }},
+    })
+    monkeypatch.setattr(service, "session_summary", lambda _user, row: row)
+    result = service.create_session(
+        "u-1", mode="ENTRY", module="ACADEMIC", test_length="FULL",
+        class_assignment_item_id="item-1",
+    )
+    assert result["id"] == "session-winner"
 
 
 def test_m14_route_uses_observed_subdomain():
