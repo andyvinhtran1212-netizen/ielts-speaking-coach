@@ -23,9 +23,10 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 from urllib.parse import quote
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional, Union
 
 from fastapi import APIRouter, Header, HTTPException
+from pydantic import BaseModel
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
@@ -55,6 +56,62 @@ _PAGE = 1000
 _COURSE_WORK_ACTIONS = {
     "start", "continue", "retake", "retry_full", "expired_pending",
 }
+
+
+class SpeakingSessionParams(BaseModel):
+    mode: str
+    part: int
+    topic: str
+    class_assignment_item_id: str
+
+
+class SpeakingStartResponse(BaseModel):
+    item_id: str
+    assignment_id: str
+    skill: Literal["speaking"]
+    accepting: Optional[bool] = None
+    result_session_id: Optional[str] = None
+    session_id: Optional[str] = None
+    renderer_affinity: Optional[str] = None
+    session_params: Optional[SpeakingSessionParams] = None
+
+
+class GrammarStartResponse(BaseModel):
+    item_id: str
+    assignment_id: str
+    skill: Literal["grammar"]
+    grammar_path: Optional[str] = None
+    grammar_report_session_id: Optional[str] = None
+
+
+class CourseStartResponse(BaseModel):
+    item_id: str
+    assignment_id: str
+    skill: Literal["course"]
+    bank_id: Optional[str] = None
+    review_only: Optional[bool] = None
+    expiry_pending: Optional[bool] = None
+    runtime: Optional[Literal["advanced_vocab"]] = None
+    course_action: Optional[str] = None
+    timer: Optional[Dict[str, Any]] = None
+
+
+class TestStartResponse(BaseModel):
+    item_id: str
+    assignment_id: str
+    skill: Literal["reading", "listening"]
+    review_attempt_id: Optional[str] = None
+    player_surface: Optional[str] = None
+    player_query: Optional[Dict[str, str]] = None
+    open_url: Optional[str] = None
+
+
+ClassStartResponse = Union[
+    SpeakingStartResponse,
+    GrammarStartResponse,
+    CourseStartResponse,
+    TestStartResponse,
+]
 
 
 def _paged_items(apply_filters) -> list:
@@ -166,7 +223,10 @@ def _student_for_user(user_id: str) -> Optional[Dict[str, Any]]:
 # Cố ý KHÔNG có `questions` (bản chụp đề) và `question_ids`: cái đầu chứa nguyên
 # văn câu hỏi, cái sau đủ để tra ra chúng.
 # `lesson_no` an toàn để hiện: nó là "Buổi 3", không phải nội dung đề.
-_DISPLAY_CONFIG_FIELDS = ("topic", "mode", "part", "test_title", "lesson_no")
+_DISPLAY_CONFIG_FIELDS = (
+    "topic", "mode", "part", "test_title", "lesson_no",
+    "test_length", "module",
+)
 
 
 def _display_config(cfg: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -415,11 +475,15 @@ async def my_assignments(authorization: str | None = Header(default=None)):
         raise HTTPException(500, f"Lỗi khi tải bài tập: {exc}")
 
 
-@router.post("/assignments/{item_id}/start")
+@router.post(
+    "/assignments/{item_id}/start",
+    response_model=ClassStartResponse,
+    response_model_exclude_unset=True,
+)
 async def start_assignment(
     item_id: str,
     authorization: str | None = Header(default=None),
-):
+) -> ClassStartResponse:
     """Mở một bài Speaking được giao — trả về tham số để tạo session.
 
     Deliberately does NOT create the session itself. POST /sessions owns quota,
@@ -541,6 +605,16 @@ async def start_assignment(
     # sau khi admin phát explanation ở chế độ `admin_release`. Đặt trước cổng
     # deadline và trước kiểm tra trạng thái đề: hết hạn hoặc hạ đề khỏi kho chỉ
     # chặn lượt MỚI, không được xoá quyền đọc kết quả đã lưu.
+    if skill == "grammar" and item.get("submitted_at"):
+        if item.get("artifact_kind") != "grammar_diagnostic" or not item.get("artifact_id"):
+            raise HTTPException(409, "Bài đã hoàn tất nhưng chưa đối chiếu được báo cáo.")
+        return {
+            "item_id": item_id,
+            "assignment_id": assignment["id"],
+            "skill": "grammar",
+            "grammar_report_session_id": str(item["artifact_id"]),
+        }
+
     if skill in ("reading", "listening") and item.get("submitted_at"):
         expected_kind = f"{skill}_attempt"
         attempt_id = item.get("artifact_id")
@@ -561,7 +635,7 @@ async def start_assignment(
     if not is_accepting_submissions(assignment):
         raise HTTPException(409, "Đã quá hạn nộp — bài tập này không còn nhận bài.")
 
-    if skill not in ("speaking", "reading", "listening", "course"):
+    if skill not in ("speaking", "reading", "listening", "course", "grammar"):
         raise HTTPException(400, "Bài tập này chưa hỗ trợ mở trực tiếp.")
 
     # A timed Course clock starts together with the first canonical quiz
@@ -611,6 +685,14 @@ async def start_assignment(
                 "topic": cfg.get("topic") or "",
                 "class_assignment_item_id": item_id,
             },
+        }
+
+    if skill == "grammar":
+        return {
+            "item_id": item_id,
+            "assignment_id": assignment["id"],
+            "skill": "grammar",
+            "grammar_path": f"/grammar-checkup?assignment_item={quote(item_id)}",
         }
 
     # Reading/Listening enter through the runtime admission route. No attempt is

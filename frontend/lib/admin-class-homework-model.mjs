@@ -32,7 +32,7 @@ export function normalizeAssignmentsPayload(value) {
     const row = object(item);
     const id = text(row.id);
     const skill = text(row.skill);
-    if (!id || !['speaking', 'reading', 'listening', 'course'].includes(skill)) return null;
+    if (!id || !['speaking', 'reading', 'listening', 'course', 'grammar'].includes(skill)) return null;
     const candidateProgress = row.progress == null ? null : object(row.progress);
     const rawProgress = candidateProgress
       && ['assigned', 'submitted', 'late', 'missing'].every((key) => finite(candidateProgress[key]) != null)
@@ -179,6 +179,12 @@ export function validateHomeworkDraft(draft, catalog = [], questions = [], quest
     body.question_ids = draft.questionMode === 'manual' ? [...draft.questionIds] : null;
   } else {
     body.due_date = draft.dueDate || null;
+    if (draft.skill === 'grammar') {
+      body.content_id = null;
+      body.grammar_length = contentId === 'master30-full' ? 'FULL' : 'QUICK';
+      body.grammar_mode = 'REVIEW';
+      body.grammar_module = 'GENERAL';
+    }
     if (draft.skill === 'speaking') {
       body.topic = selected.title;
       body.mode = draft.mode;

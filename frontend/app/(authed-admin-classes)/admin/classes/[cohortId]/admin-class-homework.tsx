@@ -32,7 +32,7 @@ type ConfirmState =
   | null;
 type BackfillState = { assignment: ClassAssignment; studentIds: string[]; error: string } | null;
 
-const SKILL_LABEL = { speaking: 'Speaking', reading: 'Reading', listening: 'Listening', course: 'Bài tập theo buổi' };
+const SKILL_LABEL = { speaking: 'Speaking', reading: 'Reading', listening: 'Listening', course: 'Bài tập theo buổi', grammar: 'Grammar Diagnostic' };
 
 function formatDue(value: string | null) {
   if (!value) return 'Không hạn';
@@ -166,6 +166,17 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
   const loadCatalog = useCallback(async (draft: HomeworkDraft) => {
     const requestId = ++catalogSequence.current;
     setCatalog([]); setCatalogError(''); setCatalogLoading(true);
+    if (draft.kind === 'daily' && draft.skill === 'grammar') {
+      try {
+        const value = await window.api.get<CatalogOption[]>('/admin/grammar-diagnostic/catalog');
+        if (requestId === catalogSequence.current) setCatalog(value);
+      } catch (caught) {
+        if (requestId === catalogSequence.current) setCatalogError(messageOf(caught));
+      } finally {
+        if (requestId === catalogSequence.current) setCatalogLoading(false);
+      }
+      return;
+    }
     let path = '';
     let kind = '';
     if (draft.kind === 'lesson') {
@@ -415,10 +426,11 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
       <Dialog open={Boolean(editor)} title="Giao bài mới" description="Chọn nội dung, người nhận và hạn trước khi ghi vào sổ bài giao." busy={busy} onClose={closeEditor} actions={<><button className="adm-btn-secondary" type="button" onClick={closeEditor} disabled={busy}>Hủy</button><button className="adm-btn-primary" type="submit" form="ach-homework-form" disabled={busy || catalogLoading}>{busy ? 'Đang giao…' : editor?.recipientScope === 'subset' ? `Giao cho ${editor.studentIds.length} học viên` : 'Giao cho cả lớp'}</button></>}>
         <form id="ach-homework-form" className="acd-form ach-form" onSubmit={submitHomework}>
           <div className="ach-kind" role="radiogroup" aria-label="Loại bài"><label><input type="radio" name="ach-homework-kind" checked={editor?.kind === 'daily'} onChange={() => editor && setEditor({ ...editor, kind: 'daily', contentId: '', questionIds: [], error: '' })} />Bài hằng ngày</label><label><input type="radio" name="ach-homework-kind" checked={editor?.kind === 'lesson'} onChange={() => editor && setEditor({ ...editor, kind: 'lesson', skill: 'speaking', contentId: '', questionIds: [], error: '' })} />Bài sau buổi học</label></div>
-          {editor?.kind === 'daily' && <Field label="Kỹ năng"><select value={editor.skill} onChange={(event) => setEditor({ ...editor, skill: event.target.value as HomeworkDraft['skill'], contentId: '', questionIds: [], error: '' })}><option value="speaking">Speaking</option><option value="reading">Reading</option><option value="listening">Listening</option><option value="course">Bài tập theo buổi</option></select></Field>}
+          {editor?.kind === 'daily' && <Field label="Kỹ năng"><select value={editor.skill} onChange={(event) => setEditor({ ...editor, skill: event.target.value as HomeworkDraft['skill'], contentId: '', questionIds: [], error: '' })}><option value="speaking">Speaking</option><option value="reading">Reading</option><option value="listening">Listening</option><option value="course">Bài tập theo buổi</option><option value="grammar">Grammar Diagnostic</option></select></Field>}
           {editor?.skill === 'speaking' && editor.kind === 'daily' && <div className="acx-form-row"><Field label="Kiểu luyện"><select value={editor.mode} onChange={(event) => setEditor({ ...editor, mode: event.target.value as HomeworkDraft['mode'], error: '' })}><option value="practice">Luyện tập</option><option value="test_part">Luyện từng Part</option></select></Field><Field label="Part"><select value={editor.part} onChange={(event) => setEditor({ ...editor, part: event.target.value as HomeworkDraft['part'], contentId: '', questionIds: [], error: '' })}><option value="1">Part 1</option><option value="2">Part 2</option><option value="3">Part 3</option></select></Field></div>}
           <Field label={editor?.kind === 'lesson' ? 'Bộ đề của buổi' : editor?.skill === 'course' ? 'Bộ bài tập' : editor?.skill === 'speaking' ? 'Chủ đề' : 'Đề'} hint={catalogError || undefined}><select value={editor?.contentId || ''} onChange={(event) => editor && setEditor({ ...editor, contentId: event.target.value, questionIds: [], passPct: '', retakeSize: '', error: '' })} disabled={catalogLoading || Boolean(catalogError)}><option value="">{catalogLoading ? 'Đang tải…' : 'Chọn nội dung'}</option>{catalog.map((item) => <option key={item.id} value={item.id} disabled={!item.ready || item.already_given}>{item.lesson_no != null ? `Buổi ${item.lesson_no} · ` : ''}{item.code ? `${item.code} · ` : ''}{item.title}{item.reason ? ` · ${item.reason}` : ''}</option>)}</select></Field>
           {(editor?.skill === 'reading' || editor?.skill === 'listening') && <p className="acd-muted">Đề draft hoặc chưa sẵn sàng được giữ khóa tại đây. <a href="/admin/mock-exams#test-library">Mở kho đề tập trung để xem lý do, thi thử, publish và giao bài</a>.</p>}
+          {editor?.skill === 'grammar' && <div className="acd-warning"><strong>Tự chấm phần trắc nghiệm.</strong> Báo cáo Grammar Readiness xuất hiện ngay khi hoàn tất; không quy đổi thành band IELTS. Bài tạo câu được giao và chấm riêng bởi giáo viên.</div>}
           {(editor?.skill === 'reading' || editor?.skill === 'listening') && <div className="ach-correction-policy">
             <fieldset className="ach-policy-group">
               <legend>Ai được mở đề?</legend>

@@ -5410,6 +5410,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/grammar/diagnostics/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Availability */
+        get: operations["availability_api_grammar_diagnostics_availability_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/grammar/diagnostics/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sessions */
+        get: operations["list_sessions_api_grammar_diagnostics_sessions_get"];
+        put?: never;
+        /** Create Session */
+        post: operations["create_session_api_grammar_diagnostics_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/grammar/diagnostics/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Session */
+        get: operations["get_session_api_grammar_diagnostics_sessions__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/grammar/diagnostics/sessions/{session_id}/next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Next Item */
+        post: operations["next_item_api_grammar_diagnostics_sessions__session_id__next_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/grammar/diagnostics/sessions/{session_id}/responses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Response */
+        post: operations["submit_response_api_grammar_diagnostics_sessions__session_id__responses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/grammar/diagnostics/sessions/{session_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete Session */
+        post: operations["complete_session_api_grammar_diagnostics_sessions__session_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/grammar/diagnostics/sessions/{session_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Report */
+        get: operations["get_report_api_grammar_diagnostics_sessions__session_id__report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/grammar-diagnostic/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalog */
+        get: operations["catalog_admin_grammar_diagnostic_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/grammar-diagnostic/sessions/{session_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Report */
+        get: operations["report_admin_grammar_diagnostic_sessions__session_id__report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sessions/{session_id}/pronunciation/full": {
         parameters: {
             query?: never;
@@ -12152,7 +12306,7 @@ export interface components {
             /** Questions */
             questions: components["schemas"]["SessionQuestion"][];
             /** Responses */
-            responses: components["schemas"]["SessionResponse"][];
+            responses: components["schemas"]["models__session_contracts__SessionResponse"][];
         } & {
             [key: string]: unknown;
         };
@@ -12589,6 +12743,25 @@ export interface components {
             attempt_id: string;
             response: components["schemas"]["LearnerAnswer"];
         };
+        /** AttributeEvidenceResponse */
+        AttributeEvidenceResponse: {
+            /** State */
+            state: string;
+            /** Independent Items */
+            independent_items: number;
+            /** Correct */
+            correct: number;
+            /** Incorrect */
+            incorrect: number;
+            /** Process Facets */
+            process_facets: string[];
+            /** Dominant Process Facets */
+            dominant_process_facets: string[];
+            /** Assisted Evidence Excluded */
+            assisted_evidence_excluded: number;
+            /** Item Ids */
+            item_ids: string[];
+        };
         /**
          * AuditRunRequest
          * @description Optional client identity for a paid/non-idempotent full audit run.
@@ -12737,6 +12910,11 @@ export interface components {
             weekly_goal: number;
             /** Notification Email */
             notification_email: boolean;
+        };
+        /** AvailabilityResponse */
+        AvailabilityResponse: {
+            /** Assigned Only */
+            assigned_only: boolean;
         };
         /**
          * BackfillBody
@@ -13331,6 +13509,32 @@ export interface components {
              */
             duration_sec: number;
         };
+        /** CourseStartResponse */
+        CourseStartResponse: {
+            /** Item Id */
+            item_id: string;
+            /** Assignment Id */
+            assignment_id: string;
+            /**
+             * Skill
+             * @constant
+             */
+            skill: "course";
+            /** Bank Id */
+            bank_id?: string | null;
+            /** Review Only */
+            review_only?: boolean | null;
+            /** Expiry Pending */
+            expiry_pending?: boolean | null;
+            /** Runtime */
+            runtime?: "advanced_vocab" | null;
+            /** Course Action */
+            course_action?: string | null;
+            /** Timer */
+            timer?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** CourseVerdictBody */
         CourseVerdictBody: {
             /** Bank Id */
@@ -13729,6 +13933,52 @@ export interface components {
                 [key: string]: number;
             } | null;
         };
+        /** EducatorReportResponse */
+        EducatorReportResponse: {
+            /** Profile Kind */
+            profile_kind: string;
+            /** Calibration */
+            calibration: string;
+            /** Calibration Note */
+            calibration_note: string;
+            /**
+             * Test Length
+             * @enum {string}
+             */
+            test_length: "QUICK" | "FULL";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "ENTRY" | "REVIEW";
+            /**
+             * Module
+             * @enum {string}
+             */
+            module: "GENERAL" | "ACADEMIC";
+            /** Priorities */
+            priorities: components["schemas"]["PriorityResponse"][];
+            /** Strengths */
+            strengths: components["schemas"]["StrengthResponse"][];
+            /** Insufficient Evidence */
+            insufficient_evidence: components["schemas"]["InsufficientEvidenceResponse"][];
+            /** Productive Note */
+            productive_note: string;
+            /** Session Id */
+            session_id: string;
+            /** Created At */
+            created_at?: string | null;
+            /** Attribute Evidence */
+            attribute_evidence: {
+                [key: string]: components["schemas"]["AttributeEvidenceResponse"];
+            };
+            /** Objective Items */
+            objective_items: number;
+            /** Correct Items */
+            correct_items: number;
+            /** Release Id */
+            release_id: string;
+        };
         /** EndSessionBody */
         EndSessionBody: {
             /** Duration Sec */
@@ -13794,6 +14044,13 @@ export interface components {
             extra?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** EvidenceStatus */
+        EvidenceStatus: {
+            /** Independent Items */
+            independent_items: number;
+            /** Assisted Excluded */
+            assisted_excluded: number;
         };
         /** ExamAnswer */
         ExamAnswer: {
@@ -14373,6 +14630,39 @@ export interface components {
             left: components["schemas"]["GrammarSourceArticleDocument"];
             right: components["schemas"]["GrammarSourceArticleDocument"];
         };
+        /** GrammarDiagnosticCatalogEntry */
+        GrammarDiagnosticCatalogEntry: {
+            /** Id */
+            id: string;
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /** Part */
+            part?: null;
+            /** Lesson No */
+            lesson_no?: null;
+            /** Ready */
+            ready: boolean;
+            /** Already Given */
+            already_given: boolean;
+            /** Reason */
+            reason?: string | null;
+            /** Exam Only */
+            exam_only: boolean;
+            /** Cohort Ids */
+            cohort_ids: string[];
+            /** Explanation Ready */
+            explanation_ready: boolean;
+            /** Explanation State */
+            explanation_state: string;
+            /** Explanation Count */
+            explanation_count?: number | null;
+            /** Explanation Ready Count */
+            explanation_ready_count?: number | null;
+            /** Runtime */
+            runtime: string;
+        };
         /** GrammarGroup */
         GrammarGroup: {
             /** Slug */
@@ -14515,6 +14805,22 @@ export interface components {
             related_pages: string[];
             /** Next Articles */
             next_articles: string[];
+        };
+        /** GrammarStartResponse */
+        GrammarStartResponse: {
+            /** Item Id */
+            item_id: string;
+            /** Assignment Id */
+            assignment_id: string;
+            /**
+             * Skill
+             * @constant
+             */
+            skill: "grammar";
+            /** Grammar Path */
+            grammar_path?: string | null;
+            /** Grammar Report Session Id */
+            grammar_report_session_id?: string | null;
         };
         /** GrammarTocItem */
         GrammarTocItem: {
@@ -14718,6 +15024,13 @@ export interface components {
          * @enum {string}
          */
         InstructorReviewStatus: "queued" | "claimed" | "edited" | "delivered" | "released";
+        /** InsufficientEvidenceResponse */
+        InsufficientEvidenceResponse: {
+            /** Attribute Id */
+            attribute_id: string;
+            /** Title */
+            title: string;
+        };
         /**
          * IntegrityBody
          * @description Absolute running totals from the runner, not deltas — the client keeps
@@ -14741,6 +15054,23 @@ export interface components {
             /** Offline Events */
             offline_events?: unknown | null;
         };
+        /** ItemResponse */
+        ItemResponse: {
+            /** Item Id */
+            item_id: string;
+            /** Prompt */
+            prompt: string;
+            /** Options */
+            options: string[];
+            /** Phase */
+            phase: string;
+            /** Ordinal */
+            ordinal: number;
+            /** Total */
+            total: number;
+            /** Translation Available */
+            translation_available: boolean;
+        };
         /** KpRef */
         KpRef: {
             /** Type */
@@ -14754,6 +15084,74 @@ export interface components {
         LearnerAnswer: {
             /** Answer */
             answer: string;
+        };
+        /** LearnerReportResponse */
+        LearnerReportResponse: {
+            /** Profile Kind */
+            profile_kind: string;
+            /** Calibration */
+            calibration: string;
+            /** Calibration Note */
+            calibration_note: string;
+            /**
+             * Test Length
+             * @enum {string}
+             */
+            test_length: "QUICK" | "FULL";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "ENTRY" | "REVIEW";
+            /**
+             * Module
+             * @enum {string}
+             */
+            module: "GENERAL" | "ACADEMIC";
+            /** Priorities */
+            priorities: components["schemas"]["PriorityResponse"][];
+            /** Strengths */
+            strengths: components["schemas"]["StrengthResponse"][];
+            /** Insufficient Evidence */
+            insufficient_evidence: components["schemas"]["InsufficientEvidenceResponse"][];
+            /** Productive Note */
+            productive_note: string;
+            /** Session Id */
+            session_id: string;
+            /** Created At */
+            created_at?: string | null;
+        };
+        /** LearnerReportSnapshotResponse */
+        LearnerReportSnapshotResponse: {
+            /** Profile Kind */
+            profile_kind: string;
+            /** Calibration */
+            calibration: string;
+            /** Calibration Note */
+            calibration_note: string;
+            /**
+             * Test Length
+             * @enum {string}
+             */
+            test_length: "QUICK" | "FULL";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "ENTRY" | "REVIEW";
+            /**
+             * Module
+             * @enum {string}
+             */
+            module: "GENERAL" | "ACADEMIC";
+            /** Priorities */
+            priorities: components["schemas"]["PriorityResponse"][];
+            /** Strengths */
+            strengths: components["schemas"]["StrengthResponse"][];
+            /** Insufficient Evidence */
+            insufficient_evidence: components["schemas"]["InsufficientEvidenceResponse"][];
+            /** Productive Note */
+            productive_note: string;
         };
         /** LemmaOverridePayload */
         LemmaOverridePayload: {
@@ -15053,6 +15451,13 @@ export interface components {
              */
             release_now: boolean;
         };
+        /** NextItemResponse */
+        NextItemResponse: {
+            /** Complete */
+            complete: boolean;
+            item?: components["schemas"]["ItemResponse"] | null;
+            session?: components["schemas"]["routers__grammar_diagnostic__SessionResponse"] | null;
+        };
         /** ObservationCounts */
         ObservationCounts: {
             /**
@@ -15323,6 +15728,32 @@ export interface components {
             filter_config?: {
                 [key: string]: unknown;
             };
+        };
+        /** PriorityResponse */
+        PriorityResponse: {
+            /** Attribute Id */
+            attribute_id: string;
+            /** Title */
+            title: string;
+            /** State */
+            state: string;
+            /** Confidence Label */
+            confidence_label: string;
+            /** Observed Pattern */
+            observed_pattern: string;
+            /** Risk */
+            risk: string;
+            /** Next Action */
+            next_action: string;
+            /** Contrast Example */
+            contrast_example: string;
+            /** Route Id */
+            route_id?: string | null;
+            /** Lesson Sources */
+            lesson_sources: string;
+            /** Exit Condition */
+            exit_condition: string;
+            evidence_status: components["schemas"]["EvidenceStatus"];
         };
         /** ProfileUpdate */
         ProfileUpdate: {
@@ -15731,6 +16162,33 @@ export interface components {
              */
             channel: string;
         };
+        /** ResponseAccepted */
+        ResponseAccepted: {
+            /** Accepted */
+            accepted: boolean;
+            /** Complete */
+            complete: boolean;
+            /** Answered */
+            answered: number;
+            /** Remaining */
+            remaining: number;
+            /** Feedback Available */
+            feedback_available: boolean;
+        };
+        /** ResponseCreate */
+        ResponseCreate: {
+            /** Item Id */
+            item_id: string;
+            /** Selected Option */
+            selected_option: number;
+            /** Response Time Ms */
+            response_time_ms?: number | null;
+            /**
+             * Assistance Used
+             * @default false
+             */
+            assistance_used: boolean;
+        };
         /** RetestBody */
         RetestBody: {
             /** Needs Retest */
@@ -15793,6 +16251,29 @@ export interface components {
             /** Accepting */
             accepting: boolean;
         };
+        /** SessionCreate */
+        SessionCreate: {
+            /**
+             * Mode
+             * @default ENTRY
+             * @enum {string}
+             */
+            mode: "ENTRY" | "REVIEW";
+            /**
+             * Module
+             * @default GENERAL
+             * @enum {string}
+             */
+            module: "GENERAL" | "ACADEMIC";
+            /**
+             * Test Length
+             * @default QUICK
+             * @enum {string}
+             */
+            test_length: "QUICK" | "FULL";
+            /** Class Assignment Item Id */
+            class_assignment_item_id?: string | null;
+        };
         /** SessionDetailResponse */
         SessionDetailResponse: {
             /** Id */
@@ -15839,7 +16320,7 @@ export interface components {
             /** Questions */
             questions: components["schemas"]["SessionQuestion"][];
             /** Responses */
-            responses: components["schemas"]["SessionResponse"][];
+            responses: components["schemas"]["models__session_contracts__SessionResponse"][];
             /** Response Receipts */
             response_receipts: components["schemas"]["SessionResponseReceipt"][];
             /** Question Lookup Failed */
@@ -15851,6 +16332,11 @@ export interface components {
             class_task?: components["schemas"]["SessionClassTask"] | null;
         } & {
             [key: string]: unknown;
+        };
+        /** SessionListResponse */
+        SessionListResponse: {
+            /** Sessions */
+            sessions: components["schemas"]["routers__grammar_diagnostic__SessionResponse"][];
         };
         /** SessionPageResponse */
         SessionPageResponse: {
@@ -15890,51 +16376,6 @@ export interface components {
             listen_only?: boolean | null;
             /** Audio Url */
             audio_url?: string | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /** SessionResponse */
-        SessionResponse: {
-            /** Id */
-            id: string;
-            /** Session Id */
-            session_id?: string | null;
-            /** Question Id */
-            question_id: string;
-            /** Transcript */
-            transcript?: string | null;
-            /** Feedback */
-            feedback?: {
-                [key: string]: unknown;
-            } | string | null;
-            /** Overall Band */
-            overall_band?: number | null;
-            /** Final Band P */
-            final_band_p?: number | null;
-            /** Final Overall Band */
-            final_overall_band?: number | null;
-            /** Grading Status */
-            grading_status?: string | null;
-            /** Stt Status */
-            stt_status?: string | null;
-            /** Persisted At */
-            persisted_at?: string | null;
-            /** Duration Seconds */
-            duration_seconds?: number | null;
-            /** Audio Url */
-            audio_url?: string | null;
-            /** Audio Playback Url */
-            audio_playback_url?: string | null;
-            /**
-             * Audio Available
-             * @default false
-             */
-            audio_available: boolean;
-            /**
-             * Audio Lookup Failed
-             * @default false
-             */
-            audio_lookup_failed: boolean;
         } & {
             [key: string]: unknown;
         };
@@ -16087,6 +16528,38 @@ export interface components {
             /** Avg Band 7D */
             avg_band_7d?: number | null;
         };
+        /** SpeakingSessionParams */
+        SpeakingSessionParams: {
+            /** Mode */
+            mode: string;
+            /** Part */
+            part: number;
+            /** Topic */
+            topic: string;
+            /** Class Assignment Item Id */
+            class_assignment_item_id: string;
+        };
+        /** SpeakingStartResponse */
+        SpeakingStartResponse: {
+            /** Item Id */
+            item_id: string;
+            /** Assignment Id */
+            assignment_id: string;
+            /**
+             * Skill
+             * @constant
+             */
+            skill: "speaking";
+            /** Accepting */
+            accepting?: boolean | null;
+            /** Result Session Id */
+            result_session_id?: string | null;
+            /** Session Id */
+            session_id?: string | null;
+            /** Renderer Affinity */
+            renderer_affinity?: string | null;
+            session_params?: components["schemas"]["SpeakingSessionParams"] | null;
+        };
         /** StartGradingRequest */
         StartGradingRequest: {
             /**
@@ -16134,6 +16607,17 @@ export interface components {
         StatusIn: {
             /** Status */
             status: string;
+        };
+        /** StrengthResponse */
+        StrengthResponse: {
+            /** Attribute Id */
+            attribute_id: string;
+            /** Title */
+            title: string;
+            /** State */
+            state: string;
+            /** Independent Items */
+            independent_items: number;
         };
         /** SubmitBody */
         SubmitBody: {
@@ -16205,6 +16689,28 @@ export interface components {
         TestAudioModePatchRequest: {
             /** Mode */
             mode: string;
+        };
+        /** TestStartResponse */
+        TestStartResponse: {
+            /** Item Id */
+            item_id: string;
+            /** Assignment Id */
+            assignment_id: string;
+            /**
+             * Skill
+             * @enum {string}
+             */
+            skill: "reading" | "listening";
+            /** Review Attempt Id */
+            review_attempt_id?: string | null;
+            /** Player Surface */
+            player_surface?: string | null;
+            /** Player Query */
+            player_query?: {
+                [key: string]: string;
+            } | null;
+            /** Open Url */
+            open_url?: string | null;
         };
         /** TipCreate */
         TipCreate: {
@@ -16832,6 +17338,51 @@ export interface components {
             /** Answers */
             answers?: components["schemas"]["_SubmitAnswerItem"][];
         };
+        /** SessionResponse */
+        models__session_contracts__SessionResponse: {
+            /** Id */
+            id: string;
+            /** Session Id */
+            session_id?: string | null;
+            /** Question Id */
+            question_id: string;
+            /** Transcript */
+            transcript?: string | null;
+            /** Feedback */
+            feedback?: {
+                [key: string]: unknown;
+            } | string | null;
+            /** Overall Band */
+            overall_band?: number | null;
+            /** Final Band P */
+            final_band_p?: number | null;
+            /** Final Overall Band */
+            final_overall_band?: number | null;
+            /** Grading Status */
+            grading_status?: string | null;
+            /** Stt Status */
+            stt_status?: string | null;
+            /** Persisted At */
+            persisted_at?: string | null;
+            /** Duration Seconds */
+            duration_seconds?: number | null;
+            /** Audio Url */
+            audio_url?: string | null;
+            /** Audio Playback Url */
+            audio_playback_url?: string | null;
+            /**
+             * Audio Available
+             * @default false
+             */
+            audio_available: boolean;
+            /**
+             * Audio Lookup Failed
+             * @default false
+             */
+            audio_lookup_failed: boolean;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * AssignmentCreate
          * @description Speaking (a topic + mode) or Reading/Listening (a published paper).
@@ -16845,7 +17396,7 @@ export interface components {
              * @default speaking
              * @enum {string}
              */
-            skill: "speaking" | "reading" | "listening" | "course";
+            skill: "speaking" | "reading" | "listening" | "course" | "grammar";
             /**
              * Kind
              * @default daily
@@ -16907,6 +17458,24 @@ export interface components {
             post_test_capture_required: boolean;
             /** Web Explanation Content Version */
             web_explanation_content_version?: string | null;
+            /**
+             * Grammar Length
+             * @default QUICK
+             * @enum {string}
+             */
+            grammar_length: "QUICK" | "FULL";
+            /**
+             * Grammar Mode
+             * @default REVIEW
+             * @enum {string}
+             */
+            grammar_mode: "ENTRY" | "REVIEW";
+            /**
+             * Grammar Module
+             * @default GENERAL
+             * @enum {string}
+             */
+            grammar_module: "GENERAL" | "ACADEMIC";
         };
         /** AssignBody */
         routers__admin_mock_exams__AssignBody: {
@@ -16974,6 +17543,42 @@ export interface components {
             rating: string;
             /** Client Review Id */
             client_review_id?: string | null;
+        };
+        /** SessionResponse */
+        routers__grammar_diagnostic__SessionResponse: {
+            /** Id */
+            id: string;
+            /** Status */
+            status: string;
+            /** Phase */
+            phase: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "ENTRY" | "REVIEW";
+            /**
+             * Module
+             * @enum {string}
+             */
+            module: "GENERAL" | "ACADEMIC";
+            /**
+             * Test Length
+             * @enum {string}
+             */
+            test_length: "QUICK" | "FULL";
+            /** Objective Limit */
+            objective_limit: number;
+            /** Answered */
+            answered: number;
+            /** Remaining */
+            remaining: number;
+            /** Class Assignment Item Id */
+            class_assignment_item_id?: string | null;
+            /** Calibration */
+            calibration: string;
+            /** Live Calibrated Ready */
+            live_calibrated_ready: boolean;
         };
         /**
          * AssignBody
@@ -21089,7 +21694,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SpeakingStartResponse"] | components["schemas"]["GrammarStartResponse"] | components["schemas"]["CourseStartResponse"] | components["schemas"]["TestStartResponse"];
                 };
             };
             /** @description Validation Error */
@@ -26311,6 +26916,336 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    availability_api_grammar_diagnostics_availability_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilityResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_sessions_api_grammar_diagnostics_sessions_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_session_api_grammar_diagnostics_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["routers__grammar_diagnostic__SessionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_session_api_grammar_diagnostics_sessions__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["routers__grammar_diagnostic__SessionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    next_item_api_grammar_diagnostics_sessions__session_id__next_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NextItemResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_response_api_grammar_diagnostics_sessions__session_id__responses_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResponseCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResponseAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_session_api_grammar_diagnostics_sessions__session_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerReportSnapshotResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_report_api_grammar_diagnostics_sessions__session_id__report_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearnerReportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    catalog_admin_grammar_diagnostic_catalog_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrammarDiagnosticCatalogEntry"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_admin_grammar_diagnostic_sessions__session_id__report_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EducatorReportResponse"];
                 };
             };
             /** @description Validation Error */

@@ -113,7 +113,7 @@ class AssignmentCreate(BaseModel):
     The two shapes share one payload because they share one ledger; which fields
     matter is decided by `skill`.
     """
-    skill:        Literal["speaking", "reading", "listening", "course"] = "speaking"
+    skill:        Literal["speaking", "reading", "listening", "course", "grammar"] = "speaking"
     # 'daily'  — bài hằng ngày: đề từ kho chung, hạn là một mốc trong ngày.
     # 'lesson' — bài sau buổi học: đề từ kho theo buổi, hạn tính bằng số ngày.
     kind:         Literal["daily", "lesson"] = "daily"
@@ -166,6 +166,9 @@ class AssignmentCreate(BaseModel):
     ] = "disabled"
     post_test_capture_required: bool = True
     web_explanation_content_version: Optional[str] = None
+    grammar_length: Literal["QUICK", "FULL"] = "QUICK"
+    grammar_mode: Literal["ENTRY", "REVIEW"] = "REVIEW"
+    grammar_module: Literal["GENERAL", "ACADEMIC"] = "GENERAL"
 
     @model_validator(mode="after")
     def _check_kind(self):
@@ -181,6 +184,10 @@ class AssignmentCreate(BaseModel):
             # Không có mode/part — bộ đề của buổi quyết định tất cả.
             if not (self.content_id or "").strip():
                 raise ValueError("Bài tập theo buổi cần chọn một bộ bài tập.")
+            return self
+        if self.skill == "grammar":
+            if self.kind != "daily":
+                raise ValueError("Grammar Diagnostic được giao như bài hằng ngày.")
             return self
         if self.time_limit_minutes is not None:
             raise ValueError("Giới hạn thời gian hiện chỉ dùng cho bài Course.")
@@ -226,7 +233,7 @@ class AssignmentCreate(BaseModel):
                 raise ValueError(f"mode phải là một trong: {sorted(_SPEAKING_MODES)}")
             if not (self.content_id or "").strip():
                 raise ValueError("Bài Speaking cần chọn một chủ đề từ kho đề.")
-        else:
+        elif self.skill != "grammar":
             if not (self.content_id or "").strip():
                 raise ValueError("Bài Reading/Listening cần chọn một đề.")
         return self
@@ -2329,6 +2336,28 @@ async def create_assignment(
         content_id, content_config = _resolve_course_bank(cohort_id, body)
     elif body.skill == "speaking":
         content_id, content_config = _resolve_speaking_topic(cohort_id, body)
+    elif body.skill == "grammar":
+        from services import runtime_flags
+        if not runtime_flags.is_enabled("master30_grammar_diagnostic", default=False):
+            raise HTTPException(503, "MASTER30 Grammar Diagnostic đang tạm khóa.")
+        active = (
+            supabase_admin.table("grammar_content_releases")
+            .select("id, validation").eq("status", "active").limit(1).execute().data
+        ) or []
+        if not active or not bool((active[0].get("validation") or {}).get("passed")):
+            raise HTTPException(503, "Nội dung Grammar Diagnostic chưa sẵn sàng.")
+        content_config = {
+            "test_title": (
+                "Quick Grammar Check-up · 28 câu" if body.grammar_length == "QUICK"
+                else "Full Grammar Diagnostic · tối đa 54 câu"
+            ),
+            "test_length": body.grammar_length,
+            "mode": body.grammar_mode,
+            "module": body.grammar_module,
+            "release_id": active[0]["id"],
+            "scoring": "objective_rules_based",
+            "productive_scoring": "teacher_assignment_only",
+        }
     else:
         # The paper must exist and be published before it is given: assigning an
         # unpublished or deleted test hands students a task that opens to an

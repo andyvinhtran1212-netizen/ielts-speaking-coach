@@ -11,7 +11,7 @@ import type { StudentWorkItem, StudentWorkPayload, StudentWorkSubject } from './
 const STATUS = {
   submitted: 'Đã nộp', late: 'Nộp trễ', missing: 'Không nộp', pending: 'Chưa nộp', 'no-account': 'Chưa kích hoạt',
 } as Record<string, string>;
-const SKILL = { speaking: 'Speaking', reading: 'Reading', listening: 'Listening', course: 'Theo khóa' } as Record<string, string>;
+const SKILL = { speaking: 'Speaking', reading: 'Reading', listening: 'Listening', course: 'Theo khóa', grammar: 'Grammar Diagnostic' } as Record<string, string>;
 
 function formatVietnam(value: string | null) {
   if (!value) return 'Không đặt hạn';

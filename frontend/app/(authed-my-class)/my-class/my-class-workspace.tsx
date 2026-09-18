@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import type { ApiPostJson } from '@/lib/openapi-contract';
 import {
   admitCorePlayer,
   resolveCorePlayerAdmissionForNavigation,
@@ -76,6 +77,8 @@ type ClassSnapshot = {
 
 type Snapshot = { hasClass: false } | ClassSnapshot | null;
 
+type ClassStartWire = ApiPostJson<'/api/class/assignments/{item_id}/start'>;
+
 type StartTarget =
   | {
       kind: 'course'; bankId: string; itemId: string;
@@ -87,6 +90,8 @@ type StartTarget =
   | { kind: 'admission'; url: string }
   | { kind: 'result'; url: string }
   | { kind: 'review'; url: string }
+  | { kind: 'grammar'; url: string }
+  | { kind: 'grammar-report'; url: string }
   | { kind: 'create-speaking'; body: {
       mode: string; part: number; topic: string; class_assignment_item_id: string;
     } };
@@ -94,6 +99,7 @@ type StartTarget =
 const SKILL_LABEL: Record<string, string> = {
   speaking: 'Speaking', writing: 'Writing', reading: 'Reading',
   listening: 'Listening', course: 'Bài tập theo buổi',
+  grammar: 'Grammar Diagnostic',
 };
 
 const WARNING_COPY: Record<string, string> = {
@@ -549,7 +555,7 @@ export function MyClassWorkspace() {
     startingItemRef.current = row.itemId;
     setStartingItem(row.itemId);
     try {
-      const raw = await window.api.post<unknown>(
+      const raw = await window.api.post<ClassStartWire>(
         `/api/class/assignments/${encodeURIComponent(row.itemId)}/start`,
       );
       if (accountRef.current !== owner) return;
@@ -593,7 +599,8 @@ export function MyClassWorkspace() {
         window.location.assign(target.url);
         return;
       }
-      if (target.kind === 'result' || target.kind === 'review') {
+      if (target.kind === 'result' || target.kind === 'review'
+          || target.kind === 'grammar' || target.kind === 'grammar-report') {
         router.push(target.url);
         return;
       }

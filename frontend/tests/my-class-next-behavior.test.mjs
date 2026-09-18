@@ -169,6 +169,21 @@ describe('deadline helpers', () => {
 });
 
 describe('assignment start contract', () => {
+  test('Grammar assignments open the authenticated diagnostic and completed reports', () => {
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'grammar-item', assignment_id: 'a', skill: 'grammar',
+      grammar_path: '/grammar-checkup?assignment_item=grammar-item',
+    }, 'grammar-item'), {
+      kind: 'grammar', url: '/grammar-checkup?assignment_item=grammar-item',
+    });
+    assert.deepEqual(normalizeClassStartResponse({
+      item_id: 'grammar-item', assignment_id: 'a', skill: 'grammar',
+      grammar_report_session_id: 'session/1',
+    }, 'grammar-item'), {
+      kind: 'grammar-report', url: '/grammar-checkup?session=session%2F1&view=report',
+    });
+  });
+
   test('a submitted course item remains actionable as a result, not a new attempt', () => {
     const normalized = normalizeMyClassResponse(payload({
       assignments: [assignment({

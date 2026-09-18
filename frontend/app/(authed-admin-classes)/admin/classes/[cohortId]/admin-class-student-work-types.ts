@@ -8,7 +8,7 @@ export type StudentWorkSubject = {
 export type StudentWorkItem = {
   assignment_id: string;
   title: string;
-  skill: 'speaking' | 'reading' | 'listening' | 'course';
+  skill: 'speaking' | 'reading' | 'listening' | 'course' | 'grammar';
   due_at: string | null;
   created_at: string | null;
   archived: boolean;

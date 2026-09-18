@@ -11,6 +11,18 @@ const SHELL = readFileSync(
   path.join(FRONTEND, 'app', '(public-content)', 'grammar', '[category]', '[slug]', 'page-shell.tsx'),
   'utf8',
 );
+const DIAGNOSTIC = readFileSync(
+  path.join(FRONTEND, 'app', '(authed)', 'grammar-checkup', 'grammar-checkup.tsx'),
+  'utf8',
+);
+const EDUCATOR = readFileSync(
+  path.join(FRONTEND, 'app', '(authed-admin-grammar)', 'admin', 'grammar-diagnostic', 'report.tsx'),
+  'utf8',
+);
+const MY_CLASS = readFileSync(
+  path.join(FRONTEND, 'app', '(authed-my-class)', 'my-class', 'my-class-workspace.tsx'),
+  'utf8',
+);
 
 const operations = [
   ['get_home_api_grammar_home_get', 'GrammarHomeResponse'],
@@ -47,4 +59,33 @@ test('Grammar Server Components consume generated wire types without loose artic
   }
   assert.match(SHELL, /export type GrammarArticle = GrammarArticleWire/);
   assert.doesNotMatch(SHELL, /\[key: string\]: any|Loose typing/);
+});
+
+test('MASTER30 diagnostic success bodies are modeled and consumed from OpenAPI', () => {
+  for (const [operation, schema] of [
+    ['availability_api_grammar_diagnostics_availability_get', 'AvailabilityResponse'],
+    ['create_session_api_grammar_diagnostics_sessions_post', 'routers__grammar_diagnostic__SessionResponse'],
+    ['next_item_api_grammar_diagnostics_sessions__session_id__next_post', 'NextItemResponse'],
+    ['submit_response_api_grammar_diagnostics_sessions__session_id__responses_post', 'ResponseAccepted'],
+    ['get_report_api_grammar_diagnostics_sessions__session_id__report_get', 'LearnerReportResponse'],
+    ['report_admin_grammar_diagnostic_sessions__session_id__report_get', 'EducatorReportResponse'],
+  ]) {
+    const start = TYPES.indexOf(`${operation}: {`);
+    const next = TYPES.indexOf('\n    };', start);
+    const source = TYPES.slice(start, next);
+    assert.ok(start >= 0, operation);
+    assert.match(source, new RegExp(`"application/json": components\\["schemas"\\]\\["${schema}"\\]`));
+    assert.doesNotMatch(source, /"application\/json": unknown/);
+  }
+  assert.match(DIAGNOSTIC, /ApiGetJson<'\/api\/grammar\/diagnostics\/sessions\/\{session_id\}'>/);
+  assert.match(DIAGNOSTIC, /ApiPostJson<'\/api\/grammar\/diagnostics\/sessions\/\{session_id\}\/responses'>/);
+  assert.match(EDUCATOR, /ApiGetJson<'\/admin\/grammar-diagnostic\/sessions\/\{session_id\}\/report'>/);
+  const start = TYPES.indexOf('start_assignment_api_class_assignments__item_id__start_post: {');
+  const next = TYPES.indexOf('\n    };', start);
+  const source = TYPES.slice(start, next);
+  assert.ok(start >= 0, 'class assignment start operation');
+  assert.doesNotMatch(source, /"application\/json": unknown/);
+  assert.match(source, /SpeakingStartResponse|GrammarStartResponse|CourseStartResponse|TestStartResponse/);
+  assert.match(MY_CLASS, /ApiPostJson<'\/api\/class\/assignments\/\{item_id\}\/start'>/);
+  assert.match(MY_CLASS, /window\.api\.post<ClassStartWire>/);
 });
