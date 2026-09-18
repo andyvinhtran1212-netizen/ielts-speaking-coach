@@ -358,6 +358,8 @@ def test_migration_guards_evidence_and_finalization_under_assignment_lock():
     assert "invalid grammar diagnostic completion transition" in migration
     assert "grammar_evidence_session_mismatch" in migration
     assert "grammar_session_incomplete" in migration
+    assert "IF v_session.status = 'completed'" in migration
+    assert "completed grammar session has no report" in migration
     assert "diagnostic_status = 'DIAGNOSTIC_APPROVED'" in migration
     assert service.APPROVED_MANIFEST_SHA256 in migration
 
@@ -374,16 +376,65 @@ def test_diagnostic_routes_publish_concrete_response_models():
     assert all(getattr(route, "response_model", None) is not None for route in diagnostic)
 
 
+def test_finalize_returns_persisted_canonical_winner(monkeypatch):
+    session = {
+        "id": "session-1", "user_id": "u-1", "release_id": "r1",
+        "status": "in_progress", "objective_limit": 1,
+        "class_assignment_item_id": "item-1",
+    }
+
+    class _ReportQuery(_RowsQuery):
+        calls = 0
+
+        def execute(self):
+            type(self).calls += 1
+            rows = [] if type(self).calls == 1 else [{"learner_report": {"winner": True}}]
+            return SimpleNamespace(data=rows)
+
+    class _FinalizeDb:
+        def table(self, name):
+            assert name == "grammar_diagnostic_reports"
+            return _ReportQuery([])
+
+        def rpc(self, name, payload):
+            assert name == "finalize_grammar_diagnostic_session"
+            return _RowsQuery([session])
+
+    _ReportQuery.calls = 0
+    monkeypatch.setattr(service, "supabase_admin", _FinalizeDb())
+    monkeypatch.setattr(service, "_session", lambda *_: session)
+    monkeypatch.setattr(service, "_require_session_accepting", lambda *_: None)
+    monkeypatch.setattr(service, "_responses", lambda *_: [{"item_id": "q1"}])
+    monkeypatch.setattr(service, "_content", lambda *_: {})
+    monkeypatch.setattr(
+        service, "_build_reports",
+        lambda *_: ({"winner": False}, {"educator": True}, "evidence-sha"),
+    )
+
+    assert service.finalize_session("u-1", "session-1") == {"winner": True}
+
+
 def test_m14_route_uses_observed_subdomain():
     session = {"test_length": "QUICK", "mode": "REVIEW", "module": "GENERAL", "release_id": "r1"}
     responses = [
         {
-            "item_id": f"q{index}", "attribute_id": "M14",
-            "process_facet": facet, "subdomain": "punctuation",
+            "item_id": "q0", "attribute_id": "M14",
+            "process_facet": "P1", "subdomain": "spelling",
             "phase": "BASELINE", "selected_option": 0,
-            "is_correct": index == 0, "assistance_used": False,
-        }
-        for index, facet in enumerate(("P1", "P2", "P3"))
+            "is_correct": True, "assistance_used": False,
+        },
+        {
+            "item_id": "q1", "attribute_id": "M14",
+            "process_facet": "P2", "subdomain": "punctuation",
+            "phase": "BASELINE", "selected_option": 0,
+            "is_correct": False, "assistance_used": False,
+        },
+        {
+            "item_id": "q2", "attribute_id": "M14",
+            "process_facet": "P3", "subdomain": "punctuation",
+            "phase": "BASELINE", "selected_option": 0,
+            "is_correct": False, "assistance_used": False,
+        },
     ]
     content = {
         "learner_copy": {"M14": {"learner_title_vi": "Cơ chế viết"}},

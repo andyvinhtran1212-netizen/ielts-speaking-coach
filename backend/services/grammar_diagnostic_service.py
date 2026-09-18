@@ -579,9 +579,16 @@ def _build_reports(session: dict[str, Any], responses: list[dict[str, Any]], con
         routes = content["route_by_attribute"].get(attribute, [])
         route = routes[0] if routes else None
         if attribute == "M14" and routes:
-            route = next((row for row in routes if str((row.get("route") or {}).get("subdomain")) in {
-                str(value) for value in {r.get("subdomain") for r in grouped.get(attribute, [])}
-            }), routes[0])
+            observed_error_subdomains = {
+                str(row.get("subdomain"))
+                for row in grouped.get(attribute, [])
+                if row.get("subdomain")
+                and not row.get("assistance_used")
+                and not row.get("is_correct")
+            }
+            route = next((row for row in routes if str(
+                (row.get("route") or {}).get("subdomain")
+            ) in observed_error_subdomains), routes[0])
         dominant = [PROCESS_LABELS.get(value, value) for value in data["dominant_process_facets"]]
         priorities.append({
             "attribute_id": attribute,
@@ -659,7 +666,16 @@ def finalize_session(user_id: str, session_id: str) -> dict[str, Any]:
     except Exception as exc:
         _translate_assignment_write_error(exc)
         raise
-    return learner
+    # Always return the immutable database winner. This makes two concurrent
+    # finalizers converge even when this request waited behind the transaction
+    # that inserted the report first.
+    canonical = (
+        supabase_admin.table("grammar_diagnostic_reports").select("learner_report")
+        .eq("session_id", session_id).eq("user_id", user_id).limit(1).execute().data
+    ) or []
+    if not canonical:
+        raise HTTPException(500, "Báo cáo Grammar chưa được lưu sau khi hoàn tất")
+    return canonical[0]["learner_report"]
 
 
 def learner_report(user_id: str, session_id: str) -> dict[str, Any]:

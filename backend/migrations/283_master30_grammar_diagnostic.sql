@@ -416,6 +416,21 @@ BEGIN
         RAISE EXCEPTION 'grammar_session_not_found' USING ERRCODE = 'P0002';
     END IF;
 
+    -- A second completion request may have waited behind the request that
+    -- committed the immutable report. Treat that canonical completed state as
+    -- success instead of passing it to the write gate, which correctly rejects
+    -- any further mutations of a completed session.
+    IF v_session.status = 'completed' THEN
+        IF EXISTS (
+            SELECT 1 FROM grammar_diagnostic_reports
+             WHERE session_id = v_session.id AND user_id = v_session.user_id
+        ) THEN
+            RETURN v_session;
+        END IF;
+        RAISE EXCEPTION 'completed grammar session has no report'
+            USING ERRCODE = '55000';
+    END IF;
+
     -- Recheck under the assignment/item lock in the same transaction that
     -- writes the immutable report and class ledger terminal state.
     PERFORM assert_grammar_assignment_accepting(v_session.id);
