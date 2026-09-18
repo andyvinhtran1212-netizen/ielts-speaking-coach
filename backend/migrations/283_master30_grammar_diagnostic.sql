@@ -230,6 +230,53 @@ CREATE TRIGGER grammar_report_immutable
     BEFORE UPDATE OR DELETE ON grammar_diagnostic_reports
     FOR EACH ROW EXECUTE FUNCTION prevent_grammar_evidence_mutation();
 
+DROP TRIGGER IF EXISTS grammar_response_immutable ON grammar_diagnostic_responses;
+CREATE TRIGGER grammar_response_immutable
+    BEFORE UPDATE OR DELETE ON grammar_diagnostic_responses
+    FOR EACH ROW EXECUTE FUNCTION prevent_grammar_evidence_mutation();
+
+-- In-progress sessions may advance phase or become exhausted/abandoned. Once
+-- finalization marks a session completed, its persisted state is evidence and
+-- cannot be reopened, rewritten, or deleted.
+CREATE OR REPLACE FUNCTION prevent_completed_grammar_session_mutation()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'UPDATE' AND (
+        NEW.user_id IS DISTINCT FROM OLD.user_id
+        OR NEW.release_id IS DISTINCT FROM OLD.release_id
+        OR NEW.class_assignment_item_id IS DISTINCT FROM OLD.class_assignment_item_id
+        OR NEW.mode IS DISTINCT FROM OLD.mode
+        OR NEW.module IS DISTINCT FROM OLD.module
+        OR NEW.test_length IS DISTINCT FROM OLD.test_length
+        OR NEW.objective_limit IS DISTINCT FROM OLD.objective_limit
+        OR NEW.started_at IS DISTINCT FROM OLD.started_at
+    ) THEN
+        RAISE EXCEPTION 'grammar diagnostic session identity is immutable';
+    END IF;
+    IF OLD.status = 'completed' THEN
+        RAISE EXCEPTION 'completed grammar diagnostic session is immutable';
+    END IF;
+    IF TG_OP = 'UPDATE' AND NEW.status = 'completed' THEN
+        IF OLD.status <> 'in_progress'
+           OR NEW.current_phase <> 'COMPLETED'
+           OR NEW.completed_at IS NULL
+           OR NOT EXISTS (
+               SELECT 1 FROM grammar_diagnostic_reports
+                WHERE session_id = OLD.id
+           ) THEN
+            RAISE EXCEPTION 'invalid grammar diagnostic completion transition';
+        END IF;
+    END IF;
+    RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS grammar_completed_session_immutable
+    ON grammar_diagnostic_sessions;
+CREATE TRIGGER grammar_completed_session_immutable
+    BEFORE UPDATE OR DELETE ON grammar_diagnostic_sessions
+    FOR EACH ROW EXECUTE FUNCTION prevent_completed_grammar_session_mutation();
+
 -- The application rechecks assignment state before each mutation, and this
 -- database guard closes the race between that read and the evidence insert.
 -- Locking the parent assignment also serializes against archive/deadline edits.

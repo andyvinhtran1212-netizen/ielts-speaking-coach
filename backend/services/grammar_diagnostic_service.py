@@ -263,8 +263,10 @@ def _session(user_id: str, session_id: str) -> dict[str, Any]:
     if not rows:
         raise HTTPException(404, "Không tìm thấy phiên Grammar Check-up")
     row = rows[0]
-    if row.get("class_assignment_item_id"):
-        _assignment_entitlement(user_id, str(row["class_assignment_item_id"]))
+    # FR-001 applies the canonical assignment gate to reads as well as writes.
+    # A bookmarked session/report must not bypass archive, scheduled publish,
+    # deadline, ownership, or current cohort membership.
+    _require_session_accepting(user_id, row)
     return row
 
 
@@ -683,4 +685,13 @@ def learner_history(user_id: str) -> list[dict[str, Any]]:
         supabase_admin.table("grammar_diagnostic_sessions").select("*")
         .eq("user_id", user_id).order("started_at", desc=True).limit(20).execute().data
     ) or []
-    return [session_summary(user_id, row) for row in rows]
+    visible = []
+    for row in rows:
+        try:
+            _require_session_accepting(user_id, row)
+        except HTTPException as exc:
+            if row.get("class_assignment_item_id") and exc.status_code in {404, 409}:
+                continue
+            raise
+        visible.append(session_summary(user_id, row))
+    return visible

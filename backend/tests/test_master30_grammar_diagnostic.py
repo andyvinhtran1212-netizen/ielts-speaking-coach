@@ -163,6 +163,7 @@ class _RowsQuery:
     def select(self, *args, **kwargs): return self
     def eq(self, *args, **kwargs): return self
     def limit(self, *args, **kwargs): return self
+    def order(self, *args, **kwargs): return self
     def execute(self): return SimpleNamespace(data=self.rows)
 
 
@@ -233,6 +234,32 @@ def test_closed_assignment_blocks_next_response_and_complete_before_writes(monke
         with pytest.raises(service.HTTPException) as caught:
             operation()
         assert caught.value.status_code == 409
+
+
+def test_session_reads_and_history_apply_assignment_gate(monkeypatch):
+    assigned = {
+        "id": "assigned-session", "user_id": "u-1",
+        "class_assignment_item_id": "item-1",
+    }
+    self_serve = {
+        "id": "self-serve-session", "user_id": "u-1",
+        "class_assignment_item_id": None,
+    }
+    monkeypatch.setattr(service, "supabase_admin", _RowsDb({
+        "grammar_diagnostic_sessions": [assigned, self_serve],
+    }))
+
+    def gate(_user_id, row):
+        if row.get("class_assignment_item_id"):
+            raise service.HTTPException(409, "assignment closed")
+
+    monkeypatch.setattr(service, "_require_session_accepting", gate)
+    monkeypatch.setattr(service, "session_summary", lambda _user_id, row: {"id": row["id"]})
+
+    with pytest.raises(service.HTTPException) as caught:
+        service._session("u-1", "assigned-session")
+    assert caught.value.status_code == 409
+    assert service.learner_history("u-1") == [{"id": "self-serve-session"}]
 
 
 def test_identical_response_retry_returns_canonical_progress(monkeypatch):
@@ -311,6 +338,11 @@ def test_migration_guards_evidence_and_finalization_under_assignment_lock():
     assert "grammar_assignment_not_accepting" in migration
     assert "FROM grammar_diagnostic_sessions WHERE id = p_session_id\n      FOR UPDATE" in migration
     assert "v_now := clock_timestamp()" in migration
+    assert "grammar_response_immutable" in migration
+    assert "grammar_completed_session_immutable" in migration
+    assert "grammar diagnostic session identity is immutable" in migration
+    assert "OLD.status = 'completed'" in migration
+    assert "invalid grammar diagnostic completion transition" in migration
 
 
 def test_diagnostic_routes_publish_concrete_response_models():
