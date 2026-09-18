@@ -9,14 +9,14 @@ verified.
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-001 | `backend/tests/test_master30_grammar_diagnostic.py`; class-assignment and membership regression suites | PASS |
-| FR-002 | fixed Quick/Full limits, history-aware selection, and cap tests in `backend/tests/test_master30_grammar_diagnostic.py` | PASS |
-| FR-003 | answer secrecy, retry/conflict, and atomic final-answer tests in `backend/tests/test_master30_grammar_diagnostic.py` | PASS |
-| FR-004 | concurrent finalization, immutable report, reload, and class-ledger regression tests | PASS |
-| FR-005 | importer/migration boundary tests; production query proves 19 productive tasks and zero with automatic scoring enabled | PASS |
-| FR-006 | package dry-run and staging/production queries prove the approved checksum and exact canonical counts | PASS |
-| FR-007 | migration applied twice on staging; release/content mutation probes and transactional RPC probes passed | PASS |
-| FR-008 | `frontend/tests/grammar-openapi-contract.test.mjs`, `frontend/tests/my-class-next-behavior.test.mjs`, TypeScript, and browser regression | PASS |
+| FR-001 | kind=test; ref=backend/tests/test_master30_grammar_diagnostic.py::test_completed_report_full_reload_succeeds_after_deadline | PASS |
+| FR-002 | kind=test; ref=backend/tests/test_master30_grammar_diagnostic.py::test_quick_and_full_have_fixed_objective_caps_and_two_phases | PASS |
+| FR-003 | kind=test; ref=backend/tests/test_master30_grammar_diagnostic.py::test_identical_response_retry_returns_canonical_progress | PASS |
+| FR-004 | kind=test; ref=backend/tests/test_master30_grammar_diagnostic.py::test_last_response_uses_atomic_finalize_rpc | PASS |
+| FR-005 | kind=test; ref=backend/tests/test_master30_grammar_diagnostic.py::test_migration_keeps_productive_scoring_outside_objective_session | PASS |
+| FR-006 | kind=test; ref=backend/tests/test_master30_grammar_diagnostic.py::test_approved_package_passes_manifest_and_pool_validation | PASS |
+| FR-007 | kind=test; ref=backend/tests/test_master30_grammar_diagnostic.py::test_migration_guards_evidence_and_finalization_under_assignment_lock | PASS |
+| FR-008 | kind=test; ref=frontend/tests/grammar-openapi-contract.test.mjs | PASS |
 
 ## Exact revision and CI evidence
 
