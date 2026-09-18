@@ -191,8 +191,8 @@ def test_render_job_uploads_then_updates_placeholder_on_success(monkeypatch):
     assert ("id", "job-1") in filters
     assert payload["audio_storage_path"] == "ai/job-1.mp3"
     assert payload["audio_size_bytes"] == 32_000
-    # Cost estimate: 34 chars × 2 (multilingual_v2) = 68 credits.
-    assert payload["generation_cost_credits"] == 34 * 2
+    # Cost estimate: Multilingual v2 uses one credit per character.
+    assert payload["generation_cost_credits"] == 34
     # Sprint 11.4 — alignment_data persisted.
     assert isinstance(payload["alignment_data"], dict)
     assert "character_start_times_seconds" in payload["alignment_data"]
@@ -331,9 +331,9 @@ def test_render_with_timestamps_raises_when_audio_missing(monkeypatch):
 
 def test_credit_cost_estimate_per_model():
     """Sprint 11.0 §3C — credit cost differs by model."""
-    # Multilingual v2 = 2 credits/char
-    assert listening_renderer._estimate_credit_cost("hello", "eleven_multilingual_v2") == 10
-    # Flash v2.5 = 1 credit/char
-    assert listening_renderer._estimate_credit_cost("hello", "eleven_flash_v2_5") == 5
-    # Unknown model → defensive default to multilingual_v2 (2 credits/char).
-    assert listening_renderer._estimate_credit_cost("hello", "unknown-model") == 10
+    # Multilingual v2 = 1 credit/char.
+    assert listening_renderer._estimate_credit_cost("hello", "eleven_multilingual_v2") == 5
+    # Flash v2.5 = 1 credit/2 chars; odd totals round up for INTEGER storage.
+    assert listening_renderer._estimate_credit_cost("hello", "eleven_flash_v2_5") == 3
+    # Unknown model → defensive default to Multilingual v2.
+    assert listening_renderer._estimate_credit_cost("hello", "unknown-model") == 5

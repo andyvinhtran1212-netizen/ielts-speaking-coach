@@ -2114,7 +2114,9 @@ async def regrade_failed_course_writing(
         batch = [{"qid": i.get("qid"), "prompt": i.get("prompt") or "",
                   "explain": i.get("explain") or "", "answer": i.get("answer") or ""}
                  for i in items]
-        graded, model_name = await course_writing_grader.grade(batch)
+        graded, model_name = await course_writing_grader.grade(
+            batch, usage_user_id=r.get("user_id"),
+        )
         clean = sum(1 for g in graded if g.get("ok") is True)
         still_broken = any(g.get("ok") is None for g in graded)
         plan = {"id": r["id"], "user_id": r.get("user_id"), "total": len(graded),
@@ -3768,7 +3770,9 @@ async def submit_course_writing(*, user_id: str, bank_id: str,
     items = [{"qid": q["qid"], "prompt": q.get("prompt") or "",
               "explain": q.get("explain") or "",
               "answer": str(answers.get(q["qid"]) or "").strip()} for q in qs]
-    graded, model_name = await course_writing_grader.grade(items)
+    graded, model_name = await course_writing_grader.grade(
+        items, usage_user_id=user_id,
+    )
 
     # ── CHƯA CHẤM ĐỦ THÌ KHÔNG TIÊU LƯỢT NỘP ────────────────────────────────
     #

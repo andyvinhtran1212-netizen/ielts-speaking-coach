@@ -24,6 +24,7 @@ from services.gemini_writing_grader import (
 
 _ADMIN_ID = "00000000-0000-0000-0000-00000000aaaa"
 _STUDENT_ID = "00000000-0000-0000-0000-000000000001"
+_USER_ID = "00000000-0000-0000-0000-000000000010"
 _ESSAY_ID = "00000000-0000-0000-0000-000000000002"
 _JOB_ID = "00000000-0000-0000-0000-000000000003"
 
@@ -252,6 +253,7 @@ def _bg_essay_responses() -> dict:
     # student_id added in Phase 1.5a so _bg_grade_essay can fetch
     # recurring-patterns history before constructing GraderConfig.
     return {
+        ("students", "select"): [{"user_id": _USER_ID}],
         ("writing_essays", "select"): [{
             "task_type":       "task2",
             "prompt_text":     "P",
@@ -550,6 +552,8 @@ async def test_bg_grade_essay_passes_recurring_patterns_to_grader():
     # GraderConfig carries the patterns dict on its `history` field, so
     # the grader's prompt builder can format it into the user message.
     assert captured["config"].history == patterns
+    assert captured["config"].usage_user_id == _USER_ID
+    assert captured["config"].usage_student_id == _STUDENT_ID
 
 
 @pytest.mark.asyncio

@@ -58,17 +58,20 @@ class Settings(BaseSettings):
     # (Haiku → Sonnet) and the off-topic judge + grammar-check stay on Haiku.
     #   * "gemini-*"                  → routed to the Gemini provider
     #   * "claude-*" / "anthropic-*"  → routed to the Claude provider
-    # Default: Gemini 3.5 Flash (GA) — stronger reasoning than Haiku for IELTS
-    # calibration, ~$1.50/$9.00 per 1M. Chosen over the cheaper gemini-3-flash-
-    # preview for stability (GA, not a preview that Google may change/deprecate).
+    # Default: Gemini 3.8 Flash (GA). The rollout is intentionally reversible:
+    # set SPEAKING_GRADING_MODEL=gemini-3.5-flash to flip the primary grader
+    # back without a code deploy. Gemini 3.8 rejects legacy sampling controls;
+    # GeminiProvider applies the shared request-shape compatibility guard.
     # Empty string → fall back to the legacy Haiku-first chain. Needs GEMINI_API_KEY.
-    SPEAKING_GRADING_MODEL: str = "gemini-3.5-flash"
+    SPEAKING_GRADING_MODEL: str = "gemini-3.8-flash"
 
     # LISTENING_AUDIT_MODEL — the LLM used by the listening content-audit pass
     # (answer-in-script / solution-consistency / prompt-clarity). Routes by the
     # same "gemini-*"/"claude-*" prefix convention as SPEAKING_GRADING_MODEL. A
     # cheap flash model is plenty for a per-question sanity check.
-    LISTENING_AUDIT_MODEL: str = "gemini-3.5-flash"
+    # Low-risk structured content audit. Gemini 3.8 Flash is the current stable
+    # Flash line; unlike learner scoring, this path can roll back by env var.
+    LISTENING_AUDIT_MODEL: str = "gemini-3.8-flash"
 
     # COURSE_WRITING_MODEL — soát ngữ pháp + chính tả cho phần tự luận của bài
     # tập theo buổi. Việc hẹp (sửa lỗi, KHÔNG nâng cấp câu) nên chọn hạng rẻ
@@ -78,24 +81,23 @@ class Settings(BaseSettings):
     # available to new users", trong khi `list_models()` VẪN liệt kê nó — nhìn
     # danh sách không thấy gì bất thường. Học viên nhận "Bộ chấm tạm thời không
     # dùng được" và mất lượt nộp DUY NHẤT (em Lê Chinh).
-    COURSE_WRITING_MODEL: str = "gemini-3.1-flash-lite"
+    COURSE_WRITING_MODEL: str = "gemini-3.5-flash-lite"
 
     # Speech-to-text model (audit 2026-07-02, finding #5). Default whisper-1 —
-    # the only OpenAI STT that returns verbose_json (per-segment avg_logprob +
-    # duration), which the transcript-reliability classifier and duration guards
-    # depend on. Configurable so ops can trial a newer model (e.g.
-    # gpt-4o-transcribe) for accented-English accuracy; whisper.py detects a
-    # non-"whisper*" model, requests plain json, and probes duration with ffprobe
-    # so the pipeline degrades gracefully (reliability → neutral when no
-    # segments). Keep whisper-1 unless a newer model is verified end-to-end.
+    # the only production-verified option here for per-segment avg_logprob and
+    # timestamp behavior, which the transcript-reliability classifier and
+    # duration guards depend on. Configurable so ops can trial a newer model (e.g.
+    # gpt-transcribe) for accented-English accuracy; whisper.py chooses the
+    # richest response format supported by each model and probes duration with
+    # ffprobe when metadata is unavailable. Keep whisper-1 until A/B verification.
     WHISPER_STT_MODEL: str = "whisper-1"
 
     # audit #8 — request Whisper WORD-level timestamps and feed measured pause/
     # articulation-rate into the FC prompt (services.fluency_signals) instead of
     # the coarse total-words/total-duration heuristic. Default OFF: turning it on
     # changes Speaking grading, so it must be A/B'd against the gold set first
-    # (docs/TECH_DEBT_gold_set_A1.md). Only effective with a whisper-* model
-    # (word timestamps need verbose_json).
+    # (docs/TECH_DEBT_gold_set_A1.md). Effective only when the selected model
+    # supports verbose_json word timestamps.
     SPEAKING_WORD_TIMESTAMPS_ENABLED: bool = False
 
     # FE migration plan Phase 0 (B2) — deterministic provider fixture mode.

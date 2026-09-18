@@ -12,6 +12,8 @@ classification logic is the contract we want to pin.
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -141,14 +143,15 @@ async def test_claude_unknown_status_defaults_to_retryable():
 @pytest.mark.asyncio
 async def test_claude_success_returns_text_and_logs_usage(monkeypatch):
     """Happy path: response.content[0].text comes back unchanged, and
-    ai_usage_logger.log_claude is called with the per-attempt token
+    ai_usage_logger.log_claude_async is called with the per-attempt token
     counts so cost attribution survives the orchestrator handoff."""
     from services.grading_providers.claude import ClaudeHaikuProvider
     import services.ai_usage_logger as usage_logger
 
     logged = []
-    monkeypatch.setattr(usage_logger, "log_claude",
-                        lambda **kw: logged.append(kw))
+    async def _log(**kw):
+        logged.append(kw)
+    monkeypatch.setattr(usage_logger, "log_claude_async", _log)
 
     fake_client = MagicMock()
     fake_client.beta.prompt_caching.messages.create = AsyncMock(
@@ -158,6 +161,7 @@ async def test_claude_success_returns_text_and_logs_usage(monkeypatch):
 
     text = await provider.invoke("sys", "user",
                                  user_id="u1", session_id="s1")
+    await asyncio.sleep(0)
     assert text == '{"band": 6.5}'
     assert len(logged) == 1
     assert logged[0]["user_id"] == "u1"
@@ -165,6 +169,30 @@ async def test_claude_success_returns_text_and_logs_usage(monkeypatch):
     assert logged[0]["model"] == "claude-haiku-4-5-20251001"
     assert logged[0]["input_tokens"] == 10
     assert logged[0]["output_tokens"] == 20
+    assert logged[0]["status"] == "success"
+
+
+@pytest.mark.asyncio
+async def test_claude_failed_attempt_is_logged_unpriced(monkeypatch):
+    from services.grading_providers import RetryableError
+    import services.ai_usage_logger as usage_logger
+
+    logged = []
+    async def _log(**kw):
+        logged.append(kw)
+    monkeypatch.setattr(usage_logger, "log_unpriced_usage_async", _log)
+    provider, _ = _build_claude_provider(
+        side_effect=_fake_anthropic_status_error(503),
+    )
+
+    with pytest.raises(RetryableError):
+        await provider.invoke("sys", "user", user_id="u1", session_id="s1")
+    await asyncio.sleep(0)
+
+    assert len(logged) == 1
+    assert logged[0]["service"] == "claude"
+    assert logged[0]["status"] == "error"
+    assert logged[0]["error_code"] == "503"
 
 
 def test_claude_factory_sets_deadline_and_disables_hidden_retries(monkeypatch):
@@ -208,7 +236,36 @@ def test_haiku_and_sonnet_share_class_but_differ_in_model():
     assert ClaudeHaikuProvider.provider_name  == "claude_haiku"
     assert ClaudeSonnetProvider.provider_name == "claude_sonnet"
     assert ClaudeHaikuProvider.model  == "claude-haiku-4-5-20251001"
-    assert ClaudeSonnetProvider.model == "claude-sonnet-4-6"
+    assert ClaudeSonnetProvider.model == "claude-sonnet-5"
+
+
+@pytest.mark.asyncio
+async def test_sonnet_5_disables_thinking_and_omits_temperature(monkeypatch):
+    from services.grading_providers.claude import ClaudeSonnetProvider
+    import services.ai_usage_logger as usage_logger
+
+    monkeypatch.setattr(usage_logger, "log_claude_async", AsyncMock())
+    response = _fake_anthropic_response('{"band": 7}')
+    response.content = [
+        SimpleNamespace(type="thinking", text=None),
+        SimpleNamespace(type="text", text='{"band": 7}'),
+    ]
+    client = MagicMock()
+    client.beta.prompt_caching.messages.create = AsyncMock(return_value=response)
+
+    text = await ClaudeSonnetProvider(client=client).invoke("sys", "user")
+
+    kwargs = client.beta.prompt_caching.messages.create.call_args.kwargs
+    assert "temperature" not in kwargs
+    assert kwargs["extra_body"] == {"thinking": {"type": "disabled"}}
+    # Bind against the actually installed anthropic 0.39.0 method signature,
+    # not a permissive mock, so unsupported kwargs fail this test.
+    import anthropic
+    real_create = anthropic.AsyncAnthropic(
+        api_key="test-key",
+    ).beta.prompt_caching.messages.create
+    inspect.signature(real_create).bind(**kwargs)
+    assert text == '{"band": 7}'
 
 
 # ── Gemini provider — error classification ───────────────────────────────────
@@ -298,8 +355,9 @@ async def test_gemini_blocked_response_is_non_retryable():
 async def test_gemini_success_logs_usage(monkeypatch):
     import services.ai_usage_logger as usage_logger
     logged = []
-    monkeypatch.setattr(usage_logger, "log_gemini",
-                        lambda **kw: logged.append(kw))
+    async def _log(**kw):
+        logged.append(kw)
+    monkeypatch.setattr(usage_logger, "log_gemini_async", _log)
 
     response = SimpleNamespace(
         text='{"band": 7.0}',
@@ -310,7 +368,33 @@ async def test_gemini_success_logs_usage(monkeypatch):
     provider = _build_gemini_provider(response=response)
     text = await provider.invoke("sys", "user",
                                  user_id="u2", session_id="s2")
+    await asyncio.sleep(0)
     assert text == '{"band": 7.0}'
     assert logged and logged[0]["model"] == "gemini-2.5-flash"
     assert logged[0]["input_tokens"] == 15
     assert logged[0]["output_tokens"] == 25
+    assert logged[0]["status"] == "success"
+
+
+@pytest.mark.asyncio
+async def test_gemini_failed_attempt_is_logged_unpriced(monkeypatch):
+    from google.api_core import exceptions as gexc
+    from services.grading_providers import RetryableError
+    import services.ai_usage_logger as usage_logger
+
+    logged = []
+    async def _log(**kw):
+        logged.append(kw)
+    monkeypatch.setattr(usage_logger, "log_unpriced_usage_async", _log)
+    provider = _build_gemini_provider(
+        side_effect=gexc.ServiceUnavailable("503"),
+    )
+
+    with pytest.raises(RetryableError):
+        await provider.invoke("sys", "user", user_id="u2", session_id="s2")
+    await asyncio.sleep(0)
+
+    assert len(logged) == 1
+    assert logged[0]["service"] == "gemini"
+    assert logged[0]["status"] == "error"
+    assert logged[0]["error_code"] == "ServiceUnavailable"

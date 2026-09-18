@@ -26,6 +26,7 @@ output through the same validator that already eats Claude's output.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import google.generativeai as genai
@@ -36,6 +37,7 @@ import google.generativeai as genai
 from google.api_core import exceptions as google_exceptions
 
 from services import ai_usage_logger
+from services.gemini_compat import generation_config_kwargs
 
 from .base import AbstractGradingProvider
 from .errors import NonRetryableError, RetryableError
@@ -84,8 +86,12 @@ class GeminiProvider(AbstractGradingProvider):
         model: object | None = None,  # injectable for tests
         max_output_tokens: int = 4096,
         temperature: float = 0.2,
+        usage_feature: str = "speaking_grading",
+        usage_operation: str = "grade_response",
     ):
         self.model_name = model_name
+        self._usage_feature = usage_feature
+        self._usage_operation = usage_operation
         if model is not None:
             self._model = model
             return
@@ -94,13 +100,15 @@ class GeminiProvider(AbstractGradingProvider):
                 f"{self.provider_name}: GEMINI_API_KEY chưa được cấu hình."
             )
         genai.configure(api_key=api_key)
+        generation_config = generation_config_kwargs(
+            model_name,
+            response_mime_type="application/json",
+            max_output_tokens=max_output_tokens,
+            temperature=temperature,
+        )
         self._model = genai.GenerativeModel(
             model_name=model_name,
-            generation_config=genai.types.GenerationConfig(
-                response_mime_type="application/json",
-                temperature=temperature,
-                max_output_tokens=max_output_tokens,
-            ),
+            generation_config=genai.types.GenerationConfig(**generation_config),
         )
 
     async def invoke(
@@ -126,19 +134,36 @@ class GeminiProvider(AbstractGradingProvider):
             response = await self._model.generate_content_async(
                 prompt, request_options={"timeout": _SDK_TIMEOUT_SECONDS},
             )
+        except asyncio.CancelledError:
+            await self._log_failure(
+                user_id=user_id, session_id=session_id, error_code="cancelled",
+            )
+            raise
         except _NON_RETRYABLE_EXCEPTIONS as exc:
+            await self._log_failure(
+                user_id=user_id, session_id=session_id,
+                error_code=type(exc).__name__,
+            )
             raise NonRetryableError(
                 provider=self.provider_name,
                 status=type(exc).__name__,
                 original=exc,
             )
         except _RETRYABLE_EXCEPTIONS as exc:
+            await self._log_failure(
+                user_id=user_id, session_id=session_id,
+                error_code=type(exc).__name__,
+            )
             raise RetryableError(
                 provider=self.provider_name,
                 status=type(exc).__name__,
                 original=exc,
             )
         except google_exceptions.GoogleAPIError as exc:
+            await self._log_failure(
+                user_id=user_id, session_id=session_id,
+                error_code=type(exc).__name__,
+            )
             # Unknown Google API error → treat as retryable; orchestrator
             # will exhaust its budget and fall through if truly broken.
             raise RetryableError(
@@ -146,8 +171,16 @@ class GeminiProvider(AbstractGradingProvider):
                 status=type(exc).__name__,
                 original=exc,
             )
-
-        self._log_usage(response, user_id=user_id, session_id=session_id)
+        except Exception as exc:
+            await self._log_failure(
+                user_id=user_id, session_id=session_id,
+                error_code=type(exc).__name__,
+            )
+            raise NonRetryableError(
+                provider=self.provider_name,
+                status=type(exc).__name__,
+                original=exc,
+            )
 
         # Gemini sometimes blocks the response for safety; `.text`
         # raises in that case. Treat as a non-retryable per-provider
@@ -156,6 +189,10 @@ class GeminiProvider(AbstractGradingProvider):
         try:
             text = response.text
         except Exception as exc:
+            await self._log_usage(
+                response, user_id=user_id, session_id=session_id,
+                status="invalid_response",
+            )
             raise NonRetryableError(
                 provider=self.provider_name,
                 status="blocked_or_empty",
@@ -163,37 +200,81 @@ class GeminiProvider(AbstractGradingProvider):
             )
 
         if not text or not text.strip():
+            await self._log_usage(
+                response, user_id=user_id, session_id=session_id,
+                status="invalid_response",
+            )
             raise NonRetryableError(
                 provider=self.provider_name,
                 status="empty_body",
                 original=None,
             )
+        await self._log_usage(
+            response, user_id=user_id, session_id=session_id, status="success",
+        )
         return text
 
-    def _log_usage(
+    async def _log_usage(
         self,
         response: object,
         *,
         user_id: str | None,
         session_id: str | None,
+        status: str,
     ) -> None:
         usage = getattr(response, "usage_metadata", None)
         if not usage:
+            ai_usage_logger.schedule_usage_log(ai_usage_logger.log_unpriced_usage_async(
+                service="gemini",
+                model=self.model_name,
+                user_id=user_id,
+                session_id=session_id,
+                feature=self._usage_feature,
+                operation=self._usage_operation,
+                status=status,
+                error_code=("missing_usage" if status != "success" else None),
+                metadata={"provider": self.provider_name},
+            ))
             return
-        in_tok  = getattr(usage, "prompt_token_count",     0) or 0
-        out_tok = getattr(usage, "candidates_token_count", 0) or 0
+        tokens = ai_usage_logger.gemini_usage_tokens(usage)
+        in_tok = tokens["input_tokens"]
+        out_tok = tokens["output_tokens"]
+        thinking_tok = tokens["thinking_tokens"]
         logger.debug(
             "[%s] tokens — prompt=%s candidates=%s",
             self.provider_name, in_tok, out_tok,
         )
         try:
-            ai_usage_logger.log_gemini(
+            ai_usage_logger.schedule_usage_log(ai_usage_logger.log_gemini_async(
                 user_id=user_id,
                 session_id=session_id,
                 model=self.model_name,
                 input_tokens=in_tok,
                 output_tokens=out_tok,
-            )
+                thinking_tokens=thinking_tok,
+                feature=self._usage_feature,
+                operation=self._usage_operation,
+                status=status,
+            ))
         except Exception as exc:
             logger.warning("[%s] ai_usage_logger.log_gemini failed: %s",
                            self.provider_name, exc)
+
+    async def _log_failure(
+        self,
+        *,
+        user_id: str | None,
+        session_id: str | None,
+        error_code: str,
+    ) -> None:
+        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_unpriced_usage_async(
+            service="gemini",
+            model=self.model_name,
+            user_id=user_id,
+            session_id=session_id,
+            feature=self._usage_feature,
+            operation=self._usage_operation,
+            status="error",
+            error_code=error_code,
+            metadata={"provider": self.provider_name},
+        ))

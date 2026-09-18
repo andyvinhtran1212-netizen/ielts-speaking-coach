@@ -81,3 +81,42 @@ def test_full_pron_requires_auth(monkeypatch):
     with pytest.raises(HTTPException) as ei:
         _run(pron.assess_full_test_pronunciation("s1", authorization=None))
     assert ei.value.status_code == 401
+
+
+def test_part2_segment_reports_only_the_audio_sent_to_azure(monkeypatch):
+    source = b"source-webm"
+    converted = b"converted-wav"
+    sample = pron.SelectedSample(
+        response_id="r1", part=2, duration_seconds=90.0,
+        selection_reason="segment", audio_start_s=10.0, audio_end_s=45.0,
+    )
+    monkeypatch.setattr(
+        pron, "extract_audio_segment", lambda *_args: converted,
+    )
+
+    audio, content_type, seconds = pron._prepare_assessment_audio(
+        source, "audio/webm; codecs=opus", sample,
+    )
+
+    assert audio is converted
+    assert content_type == "audio/wav"
+    assert seconds == 35.0
+
+
+def test_part2_extraction_fallback_keeps_original_metadata(monkeypatch):
+    source = b"source-webm"
+    sample = pron.SelectedSample(
+        response_id="r1", part=2, duration_seconds=90.0,
+        selection_reason="segment", audio_start_s=10.0, audio_end_s=45.0,
+    )
+    monkeypatch.setattr(
+        pron, "extract_audio_segment", lambda audio, *_args: audio,
+    )
+
+    audio, content_type, seconds = pron._prepare_assessment_audio(
+        source, "audio/webm; codecs=opus", sample,
+    )
+
+    assert audio is source
+    assert content_type == "audio/webm; codecs=opus"
+    assert seconds == 90.0

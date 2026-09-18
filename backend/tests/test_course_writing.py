@@ -60,7 +60,7 @@ _QS = [_q("E1", 90), _q("E2", 91)]
 async def _submit(answers, *, existing=(), graded=None, log=None):
     log = [] if log is None else log
     db = _db(log, quiz_questions=_QS, course_writing_submissions=list(existing))
-    async def fake_grade(items):
+    async def fake_grade(items, **_context):
         return (graded if graded is not None else
                 [{"qid": i["qid"], "prompt": i["prompt"], "answer": i["answer"],
                   "corrected": i["answer"], "issues": [], "ok": True}
@@ -116,7 +116,7 @@ async def test_a_race_that_hits_the_unique_index_reads_as_already_submitted():
     tables = {"quiz_questions": _QS, "course_writing_submissions": []}
     db = type("DB", (), {})()
     db.table = lambda n: _Boom(n, tables.get(n, []), log)
-    async def g(items): return [], "m"
+    async def g(items, **_context): return [], "m"
     with patch.object(qs, "supabase_admin", db), \
          patch.object(qs, "_bank_meta_or_404", lambda b, u=None: {"id": b, "skill_area": "course"}), \
          patch.object(qs, "_assignment_item_for", lambda b, u: {"id": "it1"}), \
@@ -154,7 +154,7 @@ async def test_the_losing_retry_cas_keeps_its_actionable_409():
     db = type("DB", (), {})()
     db.table = lambda n: _CasLoser(n, tables.get(n, []), log)
 
-    async def g(items):
+    async def g(items, **_context):
         return ([{"qid": i["qid"], "prompt": i["prompt"],
                   "answer": i["answer"], "corrected": i["answer"],
                   "issues": [], "ok": True} for i in items], "m")
@@ -460,7 +460,7 @@ async def test_submitting_without_an_assignment_item_is_refused():
     """Một mục NULL lọt qua UNIQUE của Postgres (NULL không va nhau) — tức là
     nộp không giới hạn. Đòi có mục tường minh."""
     db = _db([], quiz_questions=_QS, course_writing_submissions=[])
-    async def g(items): return [], "m"
+    async def g(items, **_context): return [], "m"
     with patch.object(qs, "supabase_admin", db), \
          patch.object(qs, "_bank_meta_or_404", lambda b, u=None: {"id": b, "skill_area": "course"}), \
          patch.object(qs, "_assignment_item_for", lambda b, u: None), \

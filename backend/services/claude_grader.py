@@ -531,10 +531,16 @@ async def grade_response(
     if result is not None:
         logger.info("Claude grader: thành công lần 1 — overall_band=%.1f", result["overall_band"])
         if is_practice:
-            await _post_process_practice_result(result, transcript, question, client)
+            await _post_process_practice_result(
+                result, transcript, question, client,
+                user_id=user_id, session_id=session_id,
+            )
             _attach_grammar_recommendations(result)
         else:
-            await _post_process_test_result(result, transcript, question, client)
+            await _post_process_test_result(
+                result, transcript, question, client,
+                user_id=user_id, session_id=session_id,
+            )
         return result
 
     # ── Attempt 2 (retry with explicit correction nudge) ──────────────────────
@@ -579,10 +585,16 @@ async def grade_response(
     if result2 is not None:
         logger.info("Claude grader: thành công lần 2 — overall_band=%.1f", result2["overall_band"])
         if is_practice:
-            await _post_process_practice_result(result2, transcript, question, client)
+            await _post_process_practice_result(
+                result2, transcript, question, client,
+                user_id=user_id, session_id=session_id,
+            )
             _attach_grammar_recommendations(result2)
         else:
-            await _post_process_test_result(result2, transcript, question, client)
+            await _post_process_test_result(
+                result2, transcript, question, client,
+                user_id=user_id, session_id=session_id,
+            )
         return result2
 
     # Log a safe preview (first 300 chars, newlines escaped) — no PII in the snippet
@@ -983,7 +995,7 @@ async def _call_claude(
             "Claude usage — input: %s, output: %s, cache_read: %s, cache_created: %s",
             in_tok, out_tok, cr_tok, cw_tok,
         )
-        ai_usage_logger.log_claude(
+        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_claude_async(
             user_id=user_id,
             session_id=session_id,
             model=_MODEL,
@@ -991,7 +1003,9 @@ async def _call_claude(
             output_tokens=out_tok,
             cache_read_tokens=cr_tok,
             cache_write_tokens=cw_tok,
-        )
+            feature="speaking_grading",
+            operation="grade_response_legacy",
+        ))
 
     if not response.content:
         return ""
@@ -1404,6 +1418,9 @@ async def _regen_grounded_answer(
     client: "anthropic.AsyncAnthropic",
     transcript: str,
     question: str,
+    *,
+    user_id: str | None = None,
+    session_id: str | None = None,
 ) -> str | None:
     """
     Regenerate a sample answer that stays grounded in the candidate's own response.
@@ -1437,6 +1454,14 @@ async def _regen_grounded_answer(
             ),
             timeout=_REGEN_TIMEOUT_SECONDS,
         )
+        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_claude_response_async(
+            msg,
+            model="claude-haiku-4-5-20251001",
+            user_id=user_id,
+            session_id=session_id,
+            feature="speaking_grading",
+            operation="regenerate_grounded_answer",
+        ))
         text = msg.content[0].text.strip() if msg.content else ""
         return text or None
     except Exception as exc:  # noqa: BLE001
@@ -1449,6 +1474,9 @@ async def _post_process_practice_result(
     transcript: str,
     question: str,
     client: "anthropic.AsyncAnthropic",
+    *,
+    user_id: str | None = None,
+    session_id: str | None = None,
 ) -> None:
     """
     Apply code-level feedback quality guards to a practice result in-place.
@@ -1477,7 +1505,10 @@ async def _post_process_practice_result(
                 "sample_answer relevance low (%.2f < %.2f) — regenerating grounded answer",
                 overlap, _RELEVANCE_THRESHOLD,
             )
-            new_sample = await _regen_grounded_answer(client, transcript, question)
+            new_sample = await _regen_grounded_answer(
+                client, transcript, question,
+                user_id=user_id, session_id=session_id,
+            )
             if new_sample:
                 new_overlap = _validate_sample_relevance(transcript, new_sample, question)
                 if new_overlap >= _RELEVANCE_THRESHOLD:
@@ -1500,6 +1531,9 @@ async def _post_process_test_result(
     transcript: str,
     question: str,
     client: "anthropic.AsyncAnthropic",
+    *,
+    user_id: str | None = None,
+    session_id: str | None = None,
 ) -> None:
     """Apply code-level guards to a test-mode grading result in-place."""
     improved = result.get("improved_response") or ""
@@ -1510,7 +1544,10 @@ async def _post_process_test_result(
                 "improved_response relevance low (%.2f < %.2f) — regenerating",
                 overlap, _RELEVANCE_THRESHOLD,
             )
-            new_improved = await _regen_grounded_answer(client, transcript, question)
+            new_improved = await _regen_grounded_answer(
+                client, transcript, question,
+                user_id=user_id, session_id=session_id,
+            )
             if new_improved:
                 new_overlap = _validate_sample_relevance(transcript, new_improved, question)
                 if new_overlap >= _RELEVANCE_THRESHOLD:

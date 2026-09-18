@@ -220,7 +220,7 @@ def test_full_response_route_saves_failed_grade_then_records_soft_failure(monkey
     monkeypatch.setattr(grading, "aexecute", execute)
     monkeypatch.setattr(grading, "enforce_grading_rate_limit", lambda *args: None)
     monkeypatch.setattr(grading, "record_grading_attempt", lambda *args: None)
-    monkeypatch.setattr(grading.ai_usage_logger, "log_whisper", lambda **kwargs: None)
+    monkeypatch.setattr(grading.ai_usage_logger, "log_whisper_async", AsyncMock())
     monkeypatch.setattr(grading, "_record_progress_mark", lambda *args: None)
     transcript = "This is a private synthetic answer about visiting a library with my friends to read books every weekend."
     monkeypatch.setattr(grading, "transcribe_from_bytes", AsyncMock(return_value={

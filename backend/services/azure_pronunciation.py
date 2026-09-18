@@ -30,11 +30,13 @@ import base64
 import json
 import logging
 import subprocess
+import time
 from typing import Optional
 
 import httpx
 
 from config import settings
+from services import ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -289,6 +291,12 @@ async def assess_pronunciation(
     reference_text: str = "",
     enable_miscue:  bool = False,
     enable_prosody: bool = True,
+    usage_user_id: str | None = None,
+    usage_session_id: str | None = None,
+    usage_resource_type: str | None = None,
+    usage_resource_id: str | None = None,
+    usage_event_id: str | None = None,
+    audio_seconds: float | None = None,
 ) -> dict:
     """
     Call Azure Pronunciation Assessment REST API.
@@ -356,8 +364,72 @@ async def assess_pronunciation(
 
     logger.debug(f"[PRON] → Azure POST {len(send_bytes)}B  content_type={send_content_type}  locale={locale}")
 
-    async with httpx.AsyncClient(timeout=_API_TIMEOUT) as client:
-        resp = await client.post(url, headers=headers, content=send_bytes)
+    request_started = time.monotonic()
+    try:
+        async with httpx.AsyncClient(timeout=_API_TIMEOUT) as client:
+            resp = await client.post(url, headers=headers, content=send_bytes)
+    except asyncio.CancelledError:
+        # wait_for cancellation may arrive after Azure accepted the request, so
+        # keep an explicit reconciliation row even though no response exists.
+        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_unpriced_usage_async(
+            service="azure_speech",
+            model="pronunciation-assessment",
+            user_id=usage_user_id,
+            session_id=usage_session_id,
+            audio_seconds=audio_seconds,
+            feature="pronunciation",
+            operation="assess",
+            status="cancelled",
+            error_code="cancelled",
+            latency_ms=int((time.monotonic() - request_started) * 1000),
+            resource_type=(usage_resource_type or "response") if usage_resource_id else None,
+            resource_id=usage_resource_id,
+            usage_event_id=usage_event_id,
+            metadata={"locale": locale, "prosody": enable_prosody},
+        ))
+        raise
+    except Exception as exc:
+        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_unpriced_usage_async(
+            service="azure_speech",
+            model="pronunciation-assessment",
+            user_id=usage_user_id,
+            session_id=usage_session_id,
+            audio_seconds=audio_seconds,
+            feature="pronunciation",
+            operation="assess",
+            status="error",
+            error_code=type(exc).__name__,
+            latency_ms=int((time.monotonic() - request_started) * 1000),
+            resource_type=(usage_resource_type or "response") if usage_resource_id else None,
+            resource_id=usage_resource_id,
+            usage_event_id=usage_event_id,
+            metadata={"locale": locale, "prosody": enable_prosody},
+        ))
+        raise
+
+    ai_usage_logger.schedule_usage_log(ai_usage_logger.log_unpriced_usage_async(
+        service="azure_speech",
+        model="pronunciation-assessment",
+        user_id=usage_user_id,
+        session_id=usage_session_id,
+        audio_seconds=audio_seconds,
+        feature="pronunciation",
+        operation="assess",
+        status="success" if resp.status_code == 200 else "error",
+        error_code=(str(resp.status_code) if resp.status_code != 200 else None),
+        latency_ms=int((time.monotonic() - request_started) * 1000),
+        provider_request_id=(
+            resp.headers.get("apim-request-id") or resp.headers.get("x-requestid")
+        ),
+        resource_type=(usage_resource_type or "response") if usage_resource_id else None,
+        resource_id=usage_resource_id,
+        usage_event_id=usage_event_id,
+        metadata={
+            "locale": locale,
+            "prosody": enable_prosody,
+            "http_status": resp.status_code,
+        },
+    ))
 
     logger.debug(f"[PRON] ← Azure HTTP {resp.status_code}  response_size={len(resp.content)}B")
 

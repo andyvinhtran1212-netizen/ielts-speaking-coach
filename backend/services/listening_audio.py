@@ -87,8 +87,9 @@ _DEFAULT_INTRO_TEMPLATE = (
 )
 END_ANNOUNCEMENT_TEXT = "That is the end of the listening test."
 
-# ElevenLabs multilingual_v2 = 2 credits/char (Sprint 11.0 cost table).
-_CREDITS_PER_CHAR_MULTILINGUAL = 2
+# Public API pricing for eleven_multilingual_v2 is 1 credit/character. This is
+# still an estimate; the provider subscription ledger remains authoritative.
+_CREDITS_PER_CHAR_MULTILINGUAL = 1
 
 # MP3 magic-byte prefixes (mirrors services/listening_validator.py).
 _MP3_MAGIC_PREFIXES = (

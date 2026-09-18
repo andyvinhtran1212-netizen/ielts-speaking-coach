@@ -2,8 +2,8 @@
 services.grading_providers.claude — Sprint 14.3
 
 Claude (Anthropic) provider adapter. One class drives both Haiku 4.5
-(primary) and Sonnet 4.6 (final fallback) — the only difference is
-the model id, so factoring two classes would be churn.
+(primary) and Sonnet 5 (final fallback). Sonnet 5 needs a slightly different
+request shape because adaptive thinking replaces temperature controls.
 
 Locks honored:
   - L2  retry on  500 / 503 / 504 / 429 / 529 / timeout / connection
@@ -16,6 +16,7 @@ Locks honored:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import anthropic
@@ -53,6 +54,8 @@ class ClaudeProvider(AbstractGradingProvider):
         client: anthropic.AsyncAnthropic | None = None,
         max_tokens: int = 2048,
         temperature: float = 0.2,
+        usage_feature: str = "speaking_grading",
+        usage_operation: str = "grade_response",
     ):
         if client is None:
             if not api_key:
@@ -67,6 +70,8 @@ class ClaudeProvider(AbstractGradingProvider):
         self._client = client
         self._max_tokens = max_tokens
         self._temperature = temperature
+        self._usage_feature = usage_feature
+        self._usage_operation = usage_operation
 
     async def invoke(
         self,
@@ -76,22 +81,41 @@ class ClaudeProvider(AbstractGradingProvider):
         user_id: str | None = None,
         session_id: str | None = None,
     ) -> str:
+        request = {
+            "model": self.model,
+            "max_tokens": self._max_tokens,
+            "system": [
+                {
+                    "type": "text",
+                    "text": system_prompt,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
+            "messages": [{"role": "user", "content": user_message}],
+        }
+        if self.model.startswith("claude-sonnet-5"):
+            # Sonnet 5 uses adaptive thinking by default and rejects sampling
+            # controls. Disable thinking for this deterministic JSON fallback.
+            # anthropic 0.39.0's prompt-caching beta method does not expose a
+            # named `thinking` kwarg; extra_body safely forwards new API fields.
+            request["extra_body"] = {"thinking": {"type": "disabled"}}
+        else:
+            request["temperature"] = self._temperature
         try:
             response = await self._client.beta.prompt_caching.messages.create(
-                model=self.model,
-                max_tokens=self._max_tokens,
-                system=[
-                    {
-                        "type":          "text",
-                        "text":          system_prompt,
-                        "cache_control": {"type": "ephemeral"},
-                    }
-                ],
-                messages=[{"role": "user", "content": user_message}],
-                temperature=self._temperature,
+                **request,
             )
+        except asyncio.CancelledError:
+            await self._log_failure(
+                user_id=user_id, session_id=session_id, error_code="cancelled",
+            )
+            raise
         except anthropic.APIStatusError as exc:
             status = getattr(exc, "status_code", None)
+            await self._log_failure(
+                user_id=user_id, session_id=session_id,
+                error_code=str(status or "api_status"),
+            )
             if status in _RETRYABLE_STATUS_CODES:
                 raise RetryableError(
                     provider=self.provider_name, status=status, original=exc,
@@ -107,37 +131,75 @@ class ClaudeProvider(AbstractGradingProvider):
                 provider=self.provider_name, status=status, original=exc,
             )
         except anthropic.APITimeoutError as exc:
+            await self._log_failure(
+                user_id=user_id, session_id=session_id, error_code="timeout",
+            )
             raise RetryableError(
                 provider=self.provider_name, status="timeout", original=exc,
             )
         except anthropic.APIConnectionError as exc:
+            await self._log_failure(
+                user_id=user_id, session_id=session_id, error_code="network",
+            )
             raise RetryableError(
                 provider=self.provider_name, status="network", original=exc,
             )
+        except Exception as exc:
+            await self._log_failure(
+                user_id=user_id, session_id=session_id,
+                error_code=type(exc).__name__,
+            )
+            raise NonRetryableError(
+                provider=self.provider_name,
+                status=type(exc).__name__,
+                original=exc,
+            )
 
-        self._log_usage(
-            response, user_id=user_id, session_id=session_id,
-        )
-        if not response.content:
+        text_blocks = [
+            block for block in (response.content or [])
+            if getattr(block, "type", "text") == "text"
+            and isinstance(getattr(block, "text", None), str)
+            and getattr(block, "text").strip()
+        ]
+        if not text_blocks:
+            await self._log_usage(
+                response, user_id=user_id, session_id=session_id,
+                status="invalid_response",
+            )
             # Empty body where one is expected is a permanent failure
             # for THIS request shape — a different provider may produce
             # output, so escalate (do not retry the same provider).
             raise NonRetryableError(
                 provider=self.provider_name, status="empty_body", original=None,
             )
-        return response.content[0].text
+        await self._log_usage(
+            response, user_id=user_id, session_id=session_id, status="success",
+        )
+        return text_blocks[0].text
 
-    def _log_usage(
+    async def _log_usage(
         self,
         response: object,
         *,
         user_id: str | None,
         session_id: str | None,
+        status: str,
     ) -> None:
         """Best-effort AI usage logging. Mirrors legacy `_call_claude`
         behavior so cost attribution stays intact under the new stack."""
         usage = getattr(response, "usage", None)
         if not usage:
+            ai_usage_logger.schedule_usage_log(ai_usage_logger.log_unpriced_usage_async(
+                service="claude",
+                model=self.model,
+                user_id=user_id,
+                session_id=session_id,
+                feature=self._usage_feature,
+                operation=self._usage_operation,
+                status=status,
+                error_code=("missing_usage" if status != "success" else None),
+                metadata={"provider": self.provider_name},
+            ))
             return
         in_tok  = getattr(usage, "input_tokens",                0) or 0
         out_tok = getattr(usage, "output_tokens",               0) or 0
@@ -148,7 +210,7 @@ class ClaudeProvider(AbstractGradingProvider):
             self.provider_name, in_tok, out_tok, cr_tok, cw_tok,
         )
         try:
-            ai_usage_logger.log_claude(
+            ai_usage_logger.schedule_usage_log(ai_usage_logger.log_claude_async(
                 user_id=user_id,
                 session_id=session_id,
                 model=self.model,
@@ -156,10 +218,32 @@ class ClaudeProvider(AbstractGradingProvider):
                 output_tokens=out_tok,
                 cache_read_tokens=cr_tok,
                 cache_write_tokens=cw_tok,
-            )
+                feature=self._usage_feature,
+                operation=self._usage_operation,
+                status=status,
+            ))
         except Exception as exc:
             logger.warning("[%s] ai_usage_logger.log_claude failed: %s",
                            self.provider_name, exc)
+
+    async def _log_failure(
+        self,
+        *,
+        user_id: str | None,
+        session_id: str | None,
+        error_code: str,
+    ) -> None:
+        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_unpriced_usage_async(
+            service="claude",
+            model=self.model,
+            user_id=user_id,
+            session_id=session_id,
+            feature=self._usage_feature,
+            operation=self._usage_operation,
+            status="error",
+            error_code=error_code,
+            metadata={"provider": self.provider_name},
+        ))
 
 
 class ClaudeHaikuProvider(ClaudeProvider):
@@ -171,9 +255,9 @@ class ClaudeHaikuProvider(ClaudeProvider):
 
 
 class ClaudeSonnetProvider(ClaudeProvider):
-    """Final fallback (L1). Claude Sonnet 4.6 — same Anthropic account,
+    """Final fallback (L1). Claude Sonnet 5 — same Anthropic account,
     different model id. ~1.5–2× the Haiku latency, so positioned at the
     end of the chain where freshness has already been sacrificed."""
 
     provider_name = "claude_sonnet"
-    model = "claude-sonnet-4-6"
+    model = "claude-sonnet-5"

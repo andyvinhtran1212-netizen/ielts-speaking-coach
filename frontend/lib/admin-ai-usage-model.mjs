@@ -1,4 +1,4 @@
-const KNOWN_SERVICES = ['claude', 'gemini', 'whisper', 'tts'];
+const KNOWN_SERVICES = ['claude', 'gemini', 'whisper', 'tts', 'azure_speech', 'elevenlabs'];
 
 function finite(value) {
   if (value == null || value === '') return null;
@@ -15,7 +15,9 @@ function normalizeService(value) {
   const calls = finite(value.calls);
   const cost = finite(value.cost_usd);
   if (calls == null || cost == null) return null;
-  return { calls, cost };
+  const pricedCalls = finite(value.priced_calls);
+  const unpricedCalls = finite(value.unpriced_calls);
+  return { calls, cost, pricedCalls, unpricedCalls };
 }
 
 function normalizeServices(value) {
@@ -34,6 +36,10 @@ export function normalizeAiUsagePayload(value) {
   if (!value || typeof value !== 'object' || !value.overall || !Array.isArray(value.per_user) || !value.meta) return null;
   const calls = finite(value.overall.calls);
   const cost = finite(value.overall.cost_usd);
+  const pricedCalls = finite(value.overall.priced_calls);
+  const unpricedCalls = finite(value.overall.unpriced_calls);
+  const failedCalls = finite(value.overall.failed_calls);
+  const legacyRepricedCalls = finite(value.overall.legacy_repriced_calls);
   const overallServices = normalizeServices(value.overall.by_service);
   if (calls == null || cost == null || !overallServices) return null;
 
@@ -60,11 +66,30 @@ export function normalizeAiUsagePayload(value) {
   const queryLimit = finite(value.meta.query_limit);
   const returnedRows = finite(value.meta.returned_rows);
   const totalMatchingRows = finite(value.meta.total_matching_rows);
+  const supplementalWritingRows = finite(value.meta.supplemental_writing_rows);
+  const ledgerReturnedRows = finite(value.meta.ledger_returned_rows);
+  const ledgerTotalMatchingRows = finite(value.meta.ledger_total_matching_rows);
+  const writingSourceReturnedRows = finite(value.meta.writing_source_returned_rows);
+  const writingSourceTotalRows = finite(value.meta.writing_source_total_rows);
   if (queryLimit == null || returnedRows == null) return null;
   return {
-    overall: { calls, cost, services: overallServices.services },
+    overall: { calls, cost, pricedCalls, unpricedCalls, failedCalls, legacyRepricedCalls, services: overallServices.services },
     users,
-    meta: { queryLimit, returnedRows, totalMatchingRows, truncated: value.meta.truncated === true },
+    meta: {
+      queryLimit,
+      returnedRows,
+      totalMatchingRows,
+      truncated: value.meta.truncated === true,
+      supplementalWritingRows,
+      writingLookupFailed: value.meta.writing_lookup_failed === true,
+      ledgerReturnedRows,
+      ledgerTotalMatchingRows,
+      ledgerTruncated: value.meta.ledger_truncated === true,
+      ledgerSchemaLegacy: value.meta.ledger_schema_legacy === true,
+      writingSourceReturnedRows,
+      writingSourceTotalRows,
+      writingSourceTruncated: value.meta.writing_source_truncated === true,
+    },
     malformedCount,
   };
 }
@@ -92,7 +117,7 @@ export function formatCount(value) {
 }
 
 export function serviceLabel(value) {
-  return ({ claude: 'Claude', gemini: 'Gemini', whisper: 'Whisper', tts: 'TTS' })[value] || value || 'Không rõ';
+  return ({ claude: 'Claude', gemini: 'Gemini', whisper: 'Whisper', tts: 'TTS', azure_speech: 'Azure Speech', elevenlabs: 'ElevenLabs' })[value] || value || 'Không rõ';
 }
 
 export function coverageMessage(meta) {

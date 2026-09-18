@@ -24,6 +24,7 @@ import google.generativeai as genai
 
 from config import settings
 from services.d1_quality import validate_d1_quality
+from services import ai_usage_logger
 
 logger = logging.getLogger(__name__)
 
@@ -167,8 +168,24 @@ def _generate_single_chunk(
             system_instruction=_SYSTEM_PROMPT,
         )
         resp = model.generate_content(user_prompt, request_options={"timeout": 60})  # Mục 10 (B4): bound the sync Gemini call
+        ai_usage_logger.log_gemini_response(
+            resp,
+            model=chosen_model,
+            feature="d1_content_generation",
+            operation="generate_chunk",
+            metadata={"word_count": len(words)},
+        )
         raw = resp.text or ""
     except Exception as e:
+        ai_usage_logger.log_unpriced_usage(
+            service="gemini",
+            model=chosen_model,
+            feature="d1_content_generation",
+            operation="generate_chunk",
+            status="error",
+            error_code=type(e).__name__,
+            metadata={"word_count": len(words)},
+        )
         logger.error("[d1_content_gen] Gemini call failed (model=%s): %s", chosen_model, e)
         raise GeminiBatchError(f"Gemini call failed (model={chosen_model}): {e}") from e
 

@@ -133,22 +133,27 @@ async def _call_gemini(prompt: str, *, _retry: bool = True,
     # Log token usage and persist to ai_usage_logs
     try:
         usage = response.usage_metadata
-        in_tok  = getattr(usage, "prompt_token_count",     0) or 0
-        out_tok = getattr(usage, "candidates_token_count", 0) or 0
+        tokens = ai_usage_logger.gemini_usage_tokens(usage)
+        in_tok = tokens["input_tokens"]
+        out_tok = tokens["output_tokens"]
+        thinking_tok = tokens["thinking_tokens"]
         logger.debug(
             "[gemini] tokens — prompt=%s candidates=%s total=%s",
             in_tok, out_tok,
             getattr(usage, "total_token_count", "?"),
         )
-        ai_usage_logger.log_gemini(
+        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_gemini_async(
             user_id=user_id,
             session_id=session_id,
             model=_MODEL_NAME,
             input_tokens=in_tok,
             output_tokens=out_tok,
-        )
-    except Exception:
-        pass  # usage_metadata not always present; never block on logging
+            thinking_tokens=thinking_tok,
+            feature="question_generation",
+            operation="generate_questions",
+        ))
+    except Exception as exc:
+        logger.warning("[gemini] usage extraction failed: %s", exc)
 
     text = response.text.strip()
 

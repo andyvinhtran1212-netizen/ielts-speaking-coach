@@ -125,6 +125,27 @@ def test_haiku_happy_path(monkeypatch):
     assert out["options"] == expected_shuffle
 
 
+def test_missing_vocab_id_does_not_log_empty_resource_id(monkeypatch):
+    _patch_anthropic(monkeypatch, texts=[json.dumps({
+        "context_sentence": "I love the serendipity of meeting old friends in unexpected places.",
+        "target_answer": "serendipity",
+        "distractors": ["misfortune", "obligation", "routine"],
+        "acceptable_variants": [],
+        "hint": "happy coincidence",
+    })])
+    logged = {}
+
+    def capture(_response, **kwargs):
+        logged.update(kwargs)
+
+    monkeypatch.setattr(dqg.ai_usage_logger, "log_claude_response", capture)
+
+    out = dqg._try_haiku({"headword": "serendipity"})
+
+    assert out is not None
+    assert logged["resource_id"] is None
+
+
 def test_validation_rejects_target_missing_from_sentence(monkeypatch):
     """If the AI returns a sentence that doesn't contain the target
     word at all, _validate_ai_payload returns None → fall through to

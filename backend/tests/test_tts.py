@@ -42,7 +42,9 @@ def _patch(monkeypatch, *, key="sk-test", synth=b"MP3", raises=None):
     monkeypatch.setattr(tts_module.settings, "OPENAI_API_KEY", key)
     monkeypatch.setattr(tts_module, "synthesize_mp3", _synth)
     logged = {}
-    monkeypatch.setattr(tts_module.ai_usage_logger, "log_tts", lambda **k: logged.update(k))
+    async def _log(**kwargs):
+        logged.update(kwargs)
+    monkeypatch.setattr(tts_module.ai_usage_logger, "log_tts_async", _log)
     return _synth, logged
 
 

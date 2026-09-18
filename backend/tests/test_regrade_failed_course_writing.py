@@ -55,7 +55,7 @@ def _sub(sid, oks):
 
 def _run(rows, *, grade_result, commit=False):
     db = _DB(rows)
-    async def fake_grade(batch):
+    async def fake_grade(batch, *, usage_user_id=None):
         return ([{**b, "ok": grade_result, "corrected": "x", "issues": []} for b in batch],
                 "model-mới")
     with patch.object(qs.course_writing_grader, "grade", fake_grade):
@@ -85,7 +85,7 @@ def test_a_regrade_that_ALSO_fails_writes_nothing():
 def test_a_regrade_with_even_ONE_unresolved_item_writes_nothing():
     db = _DB([_sub("s1", [True] + [None] * 2)])
 
-    async def partial(batch):
+    async def partial(batch, *, usage_user_id=None):
         rows = [{**b, "ok": True, "corrected": "x", "issues": []} for b in batch]
         rows[-1]["ok"] = None
         return rows, "model-mới"
@@ -105,12 +105,14 @@ def test_it_regrades_the_SAVED_answers_not_new_input():
     """Đây là sửa một lượt CHẤM hỏng, không phải mở lại một lượt NỘP."""
     seen = {}
     db = _DB([_sub("s1", [None] * 2)])
-    async def fake_grade(batch):
+    async def fake_grade(batch, *, usage_user_id=None):
         seen["answers"] = [b["answer"] for b in batch]
+        seen["usage_user_id"] = usage_user_id
         return ([{**b, "ok": True} for b in batch], "m")
     with patch.object(qs.course_writing_grader, "grade", fake_grade):
         asyncio.run(qs.regrade_failed_course_writing(db, commit=True))
     assert seen["answers"] == ["câu em viết", "câu em viết"]
+    assert seen["usage_user_id"] == "u1"
 
 
 def test_an_empty_items_list_is_skipped():
@@ -122,7 +124,7 @@ def test_an_empty_items_list_is_skipped():
 def test_targeted_regrade_only_reads_the_requested_submission():
     db = _DB([_sub("s1", [None]), _sub("s2", [None])])
 
-    async def grade(batch):
+    async def grade(batch, *, usage_user_id=None):
         return [{**b, "ok": True} for b in batch], "m"
 
     with patch.object(qs.course_writing_grader, "grade", grade):
@@ -195,7 +197,7 @@ def test_a_failed_submission_write_does_NOT_sync_the_score():
     row = _sub("s1", [None] * 10)
     row["class_assignment_item_id"] = "it-1"
     db = _Boom([row])
-    async def fake_grade(batch):
+    async def fake_grade(batch, *, usage_user_id=None):
         return ([{**b, "ok": True} for b in batch], "m")
     with patch.object(qs.course_writing_grader, "grade", fake_grade):
         plan = asyncio.run(qs.regrade_failed_course_writing(db, commit=True))

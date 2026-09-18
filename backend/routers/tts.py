@@ -59,12 +59,14 @@ async def text_to_speech(
         audio_bytes = await synthesize_mp3(body.text, voice)
         logger.info("[tts] generated %d bytes for %d chars (voice=%s)", len(audio_bytes), len(body.text), voice)
 
-        ai_usage_logger.log_tts(
+        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_tts_async(
             user_id=auth_user["id"],
             session_id=None,
             model="tts-1",
             text_chars=len(body.text),
-        )
+            feature="question_tts",
+            operation="synthesize",
+        ))
 
         return Response(
             content=audio_bytes,

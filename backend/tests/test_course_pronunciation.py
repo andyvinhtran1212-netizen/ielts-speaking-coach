@@ -188,7 +188,14 @@ async def test_course_batches_use_strict_british_reading_without_prosody_addon(m
         _decoded(1, duration_ms=500, text="The air is cleaner."),
         _decoded(2, duration_ms=500, text="The metro is reliable."),
     ]]
-    assert await cp._grade_batches(batches, locale="en-GB") == [
+    assert await cp._grade_batches(
+        batches,
+        locale="en-GB",
+        usage_user_id="user-1",
+        usage_resource_id="submission-1",
+        usage_attempt_no=2,
+        usage_run_id="run-a",
+    ) == [
         {"pronunciation_score": 80},
     ]
     assert calls[0]["locale"] == "en-GB"
@@ -198,6 +205,36 @@ async def test_course_batches_use_strict_british_reading_without_prosody_addon(m
     assert calls[0]["reference_text"] == (
         "The air is cleaner. The metro is reliable."
     )
+    assert calls[0]["usage_user_id"] == "user-1"
+    assert calls[0]["usage_resource_id"] == "submission-1"
+    assert calls[0]["usage_event_id"] == (
+        "course-pronunciation:submission-1:attempt:2:run:run-a:batch:1"
+    )
+    assert calls[0]["audio_seconds"] == 1.0
+
+
+@pytest.mark.asyncio
+async def test_retry_runs_get_distinct_azure_usage_event_ids(monkeypatch):
+    calls = []
+
+    async def assess(**kwargs):
+        calls.append(kwargs)
+        return {"pronunciation_score": 80}
+
+    monkeypatch.setattr(cp.azure_pronunciation, "assess_pronunciation", assess)
+    batches = [[_decoded(1, duration_ms=500, text="The air is cleaner.")]]
+    for run_id in ("run-first", "run-retry"):
+        await cp._grade_batches(
+            batches,
+            locale="en-GB",
+            usage_resource_id="submission-1",
+            usage_attempt_no=1,
+            usage_run_id=run_id,
+        )
+
+    assert calls[0]["usage_event_id"] != calls[1]["usage_event_id"]
+    assert ":run:run-first:" in calls[0]["usage_event_id"]
+    assert ":run:run-retry:" in calls[1]["usage_event_id"]
 
 
 def test_all_empty_azure_batches_are_rejected_instead_of_saved_as_zero():
