@@ -19,6 +19,7 @@ import {
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...parts) => readFileSync(join(ROOT, ...parts), 'utf8');
 const UI = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework.tsx');
+const TYPES = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-homework-types.ts');
 const SUBMISSIONS = read('app', '(authed-admin-classes)', 'admin', 'classes', '[cohortId]', 'admin-class-submissions.tsx');
 const CSS = read('public', 'css', 'admin-class-homework-next.css');
 const LAYOUT = read('app', '(authed-admin-classes)', 'layout.tsx');
@@ -28,6 +29,12 @@ const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 const catalog = [{ id: 'bank-1', title: 'Grammar 2', ready: true, already_given: false }];
 
 describe('admin class homework model — canonical truth', () => {
+  test('preview uses generated API types and drops stale bank responses', () => {
+    assert.match(TYPES, /components\['schemas'\]\['CourseBankPreviewResponse'\]/);
+    assert.match(UI, /coursePreviewSequence/);
+    assert.match(UI, /requestId !== coursePreviewSequence\.current/);
+    assert.match(UI, /selectedContentId = editor\.contentId/);
+  });
   test('keeps unreadable progress unknown and exposes ledger reconciliation failure', () => {
     const payload = normalizeAssignmentsPayload({ reconcile_failed: true, assignments: [
       { id: 'a1', title: 'Bài một', skill: 'course', due_at: null, progress: null },
@@ -242,7 +249,7 @@ describe('admin class homework — integration contracts', () => {
 
   test('keeps assignment actions visible and previews canonical course content', () => {
     assert.match(UI, /panelClassName="ach-assignment-dialog"/);
-    assert.match(UI, /course-banks\/\$\{encodeURIComponent\(editor\.contentId\)\}\/preview/);
+    assert.match(UI, /course-banks\/\$\{encodeURIComponent\(selectedContentId\)\}\/preview/);
     assert.match(UI, /Một lượt — hiện kết quả sau khi nộp/);
     assert.match(UI, /Trong lúc làm không lộ đúng\/sai hay giải thích/);
     assert.match(CSS, /\.ach-assignment-dialog \{[^}]*max-height:/);

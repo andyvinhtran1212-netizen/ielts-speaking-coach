@@ -44,9 +44,10 @@ function previewOptionIsCorrect(question: CourseBankPreviewQuestion, option: str
 
 function previewAnswer(question: CourseBankPreviewQuestion) {
   const answers = Array.isArray(question.answer) ? question.answer : [question.answer];
+  const options = question.options || [];
   return answers.filter((answer) => answer != null).map((answer) => {
-    if (typeof answer === 'number' && question.options[answer] != null) {
-      return `${OPTION_KEYS[answer] || answer + 1}. ${question.options[answer]}`;
+    if (typeof answer === 'number' && options[answer] != null) {
+      return `${OPTION_KEYS[answer] || answer + 1}. ${options[answer]}`;
     }
     return String(answer);
   }).join(' · ') || 'Chưa có đáp án chuẩn';
@@ -147,6 +148,7 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
   const catalogSequence = useRef(0);
   const questionSequence = useRef(0);
   const logSequence = useRef(0);
+  const coursePreviewSequence = useRef(0);
   const previewAudio = useRef<HTMLAudioElement | null>(null);
   const [previewingQuestion, setPreviewingQuestion] = useState<string | null>(null);
 
@@ -264,7 +266,9 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
   }, [editor?.questionMode, editor?.contentId, editor?.kind, editor?.skill, editor?.part]);
 
   useEffect(() => {
+    coursePreviewSequence.current += 1;
     setCoursePreview(null); setCoursePreviewIndex(0); setCoursePreviewError('');
+    setCoursePreviewLoading(false);
   }, [editor?.contentId, editor?.skill]);
 
   const summary = useMemo(() => assignmentSummary(assignments || []), [assignments]);
@@ -424,15 +428,21 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
   };
   const loadCoursePreview = async () => {
     if (!editor?.contentId || coursePreviewLoading) return;
+    const selectedContentId = editor.contentId;
+    const requestId = ++coursePreviewSequence.current;
     setCoursePreviewLoading(true); setCoursePreviewError('');
     try {
-      const value = await window.api.get<CourseBankPreview>(`/admin/cohorts/${encodeURIComponent(cohortId)}/course-banks/${encodeURIComponent(editor.contentId)}/preview`);
-      if (!value || !Array.isArray(value.questions) || value.bank_id !== editor.contentId) {
+      const value = await window.api.get<CourseBankPreview>(`/admin/cohorts/${encodeURIComponent(cohortId)}/course-banks/${encodeURIComponent(selectedContentId)}/preview`);
+      if (requestId !== coursePreviewSequence.current) return;
+      if (!value || !Array.isArray(value.questions) || value.bank_id !== selectedContentId) {
         throw new Error('Dữ liệu xem trước không đúng bộ bài tập đã chọn.');
       }
       setCoursePreview(value); setCoursePreviewIndex(0);
-    } catch (caught) { setCoursePreviewError(messageOf(caught)); }
-    finally { setCoursePreviewLoading(false); }
+    } catch (caught) {
+      if (requestId === coursePreviewSequence.current) setCoursePreviewError(messageOf(caught));
+    } finally {
+      if (requestId === coursePreviewSequence.current) setCoursePreviewLoading(false);
+    }
   };
   const closeEditor = () => {
     stopQuestionPreview(); setCoursePreview(null); setCoursePreviewError(''); setEditor(null);
@@ -471,13 +481,13 @@ export function AdminClassHomework({ cohortId, members, refreshKey, onMutation, 
           <div className="ach-kind" role="radiogroup" aria-label="Loại bài"><label><input type="radio" name="ach-homework-kind" checked={editor?.kind === 'daily'} onChange={() => editor && setEditor({ ...editor, kind: 'daily', contentId: '', questionIds: [], error: '' })} />Bài hằng ngày</label><label><input type="radio" name="ach-homework-kind" checked={editor?.kind === 'lesson'} onChange={() => editor && setEditor({ ...editor, kind: 'lesson', skill: 'speaking', contentId: '', questionIds: [], error: '' })} />Bài sau buổi học</label></div>
           {editor?.kind === 'daily' && <Field label="Kỹ năng"><select value={editor.skill} onChange={(event) => setEditor({ ...editor, skill: event.target.value as HomeworkDraft['skill'], contentId: '', questionIds: [], error: '' })}><option value="speaking">Speaking</option><option value="reading">Reading</option><option value="listening">Listening</option><option value="course">Bài tập theo buổi</option><option value="grammar">Grammar Diagnostic</option></select></Field>}
           {editor?.skill === 'speaking' && editor.kind === 'daily' && <div className="acx-form-row"><Field label="Kiểu luyện"><select value={editor.mode} onChange={(event) => setEditor({ ...editor, mode: event.target.value as HomeworkDraft['mode'], error: '' })}><option value="practice">Luyện tập</option><option value="test_part">Luyện từng Part</option></select></Field><Field label="Part"><select value={editor.part} onChange={(event) => setEditor({ ...editor, part: event.target.value as HomeworkDraft['part'], contentId: '', questionIds: [], error: '' })}><option value="1">Part 1</option><option value="2">Part 2</option><option value="3">Part 3</option></select></Field></div>}
-          <Field label={editor?.kind === 'lesson' ? 'Bộ đề của buổi' : editor?.skill === 'course' ? 'Bộ bài tập' : editor?.skill === 'speaking' ? 'Chủ đề' : 'Đề'} hint={catalogError || undefined}><select value={editor?.contentId || ''} onChange={(event) => editor && setEditor({ ...editor, contentId: event.target.value, questionIds: [], passPct: '', retakeSize: '', completionMode: 'mastery', error: '' })} disabled={catalogLoading || Boolean(catalogError)}><option value="">{catalogLoading ? 'Đang tải…' : 'Chọn nội dung'}</option>{catalog.map((item) => <option key={item.id} value={item.id} disabled={!item.ready || item.already_given}>{item.lesson_no != null ? `Buổi ${item.lesson_no} · ` : ''}{item.code ? `${item.code} · ` : ''}{item.title}{item.reason ? ` · ${item.reason}` : ''}</option>)}</select></Field>
+          <Field label={editor?.kind === 'lesson' ? 'Bộ đề của buổi' : editor?.skill === 'course' ? 'Bộ bài tập' : editor?.skill === 'speaking' ? 'Chủ đề' : 'Đề'} hint={catalogError || undefined}><select value={editor?.contentId || ''} onChange={(event) => { if (!editor) return; coursePreviewSequence.current += 1; setCoursePreviewLoading(false); setEditor({ ...editor, contentId: event.target.value, questionIds: [], passPct: '', retakeSize: '', completionMode: 'mastery', error: '' }); }} disabled={catalogLoading || Boolean(catalogError)}><option value="">{catalogLoading ? 'Đang tải…' : 'Chọn nội dung'}</option>{catalog.map((item) => <option key={item.id} value={item.id} disabled={!item.ready || item.already_given}>{item.lesson_no != null ? `Buổi ${item.lesson_no} · ` : ''}{item.code ? `${item.code} · ` : ''}{item.title}{item.reason ? ` · ${item.reason}` : ''}</option>)}</select></Field>
           {editor?.skill === 'course' && editor.contentId && selectedCatalogItem?.runtime !== 'advanced_vocab' && <section className="ach-course-preview" aria-label="Xem trước bộ bài tập">
             <div className="ach-course-preview__head"><div><strong>Kiểm tra nội dung trước khi giao</strong><span>{coursePreview ? `${coursePreview.summary.question_count} câu · phiên bản ${coursePreview.revision.slice(0, 8)}` : 'Xem đúng đề, đáp án và giải thích đang lưu trên hệ thống.'}</span></div><button className="adm-btn-secondary" type="button" onClick={() => void loadCoursePreview()} disabled={coursePreviewLoading}>{coursePreviewLoading ? 'Đang tải…' : coursePreview ? 'Tải lại đề' : 'Xem trước đề'}</button></div>
             {coursePreviewError && <div className="acd-inline-error" role="alert">{coursePreviewError}</div>}
             {coursePreview && previewQuestion && <div className="ach-course-preview__workspace">
               <nav aria-label="Danh sách câu hỏi xem trước">{coursePreview.questions.map((question, index) => <button type="button" key={question.qid} className={index === coursePreviewIndex ? 'is-active' : ''} aria-current={index === coursePreviewIndex ? 'true' : undefined} onClick={() => setCoursePreviewIndex(index)}><b>{index + 1}</b><span>{question.item_key || question.subtype || question.type}</span></button>)}</nav>
-              <article className="ach-course-preview__question"><div className="ach-course-preview__meta"><span>Câu {coursePreviewIndex + 1}/{coursePreview.questions.length}</span><span>{previewQuestion.item_key || previewQuestion.type}</span>{previewQuestion.counts_toward_mastery && <span>Được tính điểm</span>}</div><p>{previewQuestion.prompt}</p>{previewQuestion.audio_url && <audio controls preload="none" src={previewQuestion.audio_url}>Trình duyệt không phát được audio.</audio>}<div className="ach-course-preview__options">{previewQuestion.options.map((option, index) => <div key={`${previewQuestion.qid}-${index}`} className={previewOptionIsCorrect(previewQuestion, option, index) ? 'is-correct' : ''}><b>{OPTION_KEYS[index] || index + 1}</b><span>{option}</span>{previewOptionIsCorrect(previewQuestion, option, index) && <em>Đáp án</em>}</div>)}</div><div className="ach-course-preview__solution"><strong>Đáp án chuẩn</strong><span>{previewAnswer(previewQuestion)}</span>{previewQuestion.explanation && <p>{previewQuestion.explanation}</p>}</div>{Object.keys(previewQuestion.why_wrong).length > 0 && <details className="ach-course-preview__distractors"><summary>Giải thích các phương án sai</summary>{Object.entries(previewQuestion.why_wrong).map(([key, value]) => <p key={key}><b>{OPTION_KEYS[Number(key)] || key}</b><span>{value}</span></p>)}</details>}</article>
+              <article className="ach-course-preview__question"><div className="ach-course-preview__meta"><span>Câu {coursePreviewIndex + 1}/{coursePreview.questions.length}</span><span>{previewQuestion.item_key || previewQuestion.type}</span>{previewQuestion.counts_toward_mastery && <span>Được tính điểm</span>}</div><p>{previewQuestion.prompt}</p>{previewQuestion.audio_url && <audio controls preload="none" src={previewQuestion.audio_url}>Trình duyệt không phát được audio.</audio>}<div className="ach-course-preview__options">{(previewQuestion.options || []).map((option, index) => <div key={`${previewQuestion.qid}-${index}`} className={previewOptionIsCorrect(previewQuestion, option, index) ? 'is-correct' : ''}><b>{OPTION_KEYS[index] || index + 1}</b><span>{option}</span>{previewOptionIsCorrect(previewQuestion, option, index) && <em>Đáp án</em>}</div>)}</div><div className="ach-course-preview__solution"><strong>Đáp án chuẩn</strong><span>{previewAnswer(previewQuestion)}</span>{previewQuestion.explanation && <p>{previewQuestion.explanation}</p>}</div>{Object.keys(previewQuestion.why_wrong || {}).length > 0 && <details className="ach-course-preview__distractors"><summary>Giải thích các phương án sai</summary>{Object.entries(previewQuestion.why_wrong || {}).map(([key, value]) => <p key={key}><b>{OPTION_KEYS[Number(key)] || key}</b><span>{value}</span></p>)}</details>}</article>
             </div>}
           </section>}
           {(editor?.skill === 'reading' || editor?.skill === 'listening') && <p className="acd-muted">Đề draft hoặc chưa sẵn sàng được giữ khóa tại đây. <a href="/admin/mock-exams#test-library">Mở kho đề tập trung để xem lý do, thi thử, publish và giao bài</a>.</p>}

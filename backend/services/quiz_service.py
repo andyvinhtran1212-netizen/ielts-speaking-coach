@@ -1021,43 +1021,51 @@ def get_bank_for_play(
         # optional badge.  Build it from the item/assignment already authorized
         # above before the best-effort refresh below.  If that refresh fails,
         # the browser must still enforce the same canonical cutoff as writes.
-        if preflight_timer.get("is_timed"):
-            preflight_cfg = mastery_config(preflight_assignment)
-            preflight_attempts = ((item.get("mastery") or {}).get("attempts") or [])
-            mastery_state = {
-                "item_id": item["id"],
-                "passed_at": item.get("passed_at"),
-                "threshold": preflight_cfg["pass_pct"],
-                "near_threshold": near_pass_pct(preflight_cfg["pass_pct"]),
-                "retake_size": preflight_cfg["retake_size"],
-                "retakes": sum(
-                    1 for attempt in preflight_attempts
-                    if isinstance(attempt, dict) and attempt.get("phase") == "retake"
-                ),
-                "completed_sections": [],
-                "due_at": item.get("due_at"),
-                "review_only": preflight_action in {"review", "expired_pending"},
-                "expiry_pending": preflight_action == "expired_pending",
-                "accepting": bool(item.get("accepting")),
-                "course_action": preflight_action,
-                "completion_mode": course_completion_mode(preflight_assignment),
-                "answers_sealed": single_attempt_answers_sealed(
-                    item, preflight_assignment,
-                ),
-                **preflight_timer,
-            }
+        # Build the restrictive state from the assignment item that already
+        # passed the ownership gate. This is mandatory for untimed
+        # single-attempt banks too: the optional refresh below may fail, but a
+        # read failure must never turn answer sealing off.
+        preflight_cfg = mastery_config(preflight_assignment)
+        preflight_attempts = ((item.get("mastery") or {}).get("attempts") or [])
+        mastery_state = {
+            "item_id": item["id"],
+            "passed_at": item.get("passed_at"),
+            "threshold": preflight_cfg["pass_pct"],
+            "near_threshold": near_pass_pct(preflight_cfg["pass_pct"]),
+            "retake_size": preflight_cfg["retake_size"],
+            "retakes": sum(
+                1 for attempt in preflight_attempts
+                if isinstance(attempt, dict) and attempt.get("phase") == "retake"
+            ),
+            "completed_sections": [],
+            "due_at": item.get("due_at"),
+            "review_only": preflight_action in {"review", "expired_pending"},
+            "expiry_pending": preflight_action == "expired_pending",
+            "accepting": bool(item.get("accepting")),
+            "course_action": preflight_action,
+            "completion_mode": course_completion_mode(preflight_assignment),
+            "answers_sealed": single_attempt_answers_sealed(
+                item, preflight_assignment,
+            ),
+            **preflight_timer,
+        }
         # Trạng thái cổng thuộc-bài, để trang nói được "đã đạt" ngay khi mở lại
         # thay vì bắt làm lại từ đầu mới biết. Best-effort: đọc hỏng thì trang
         # vẫn chạy, chỉ thiếu tấm huy hiệu.
         try:
             row = (supabase_admin.table("class_assignment_items")
-                   .select("passed_at, mastery")
+                   .select("passed_at, submitted_at, score, mastery")
                    .eq("id", item["id"]).limit(1).execute().data) or []
             asg = (supabase_admin.table("class_assignments")
                    .select("id, status, publish_at, due_at, content_config")
                    .eq("id", item["assignment_id"]).limit(1).execute().data) or []
-            if preflight_timer.get("is_timed") and (not row or not asg):
-                raise RuntimeError("timed mastery refresh returned no canonical row")
+            preflight_single_attempt = (
+                course_completion_mode(preflight_assignment)
+                == COURSE_COMPLETION_SINGLE_ATTEMPT
+            )
+            if ((preflight_timer.get("is_timed") or preflight_single_attempt)
+                    and (not row or not asg)):
+                raise RuntimeError("protected mastery refresh returned no canonical row")
             assignment = asg[0] if asg else {}
             cfg = mastery_config(assignment)
             content_config = assignment.get("content_config") or {}

@@ -1,3 +1,5 @@
+import type { components } from '@/types/api';
+
 export type AssignmentProgress = {
   assigned: number;
   submitted: number;
@@ -76,36 +78,8 @@ export type HomeworkDraft = {
   error: string;
 };
 
-export type CourseBankPreviewQuestion = {
-  qid: string;
-  order: number;
-  type: string;
-  subtype: string | null;
-  item_key: string | null;
-  prompt: string;
-  options: string[];
-  answer: number | string | string[] | null;
-  explanation: string | null;
-  why_wrong: Record<string, string>;
-  audio_url: string | null;
-  counts_toward_mastery: boolean;
-};
-
-export type CourseBankPreview = {
-  bank_id: string;
-  code: string | null;
-  title: string;
-  lesson_no: number | null;
-  runtime: string | null;
-  revision: string;
-  summary: {
-    question_count: number;
-    assessable_count: number;
-    audio_count: number;
-    type_counts: Record<string, number>;
-  };
-  questions: CourseBankPreviewQuestion[];
-};
+export type CourseBankPreviewQuestion = components['schemas']['CourseBankPreviewQuestion'];
+export type CourseBankPreview = components['schemas']['CourseBankPreviewResponse'];
 
 export type DueDraft = {
   assignment: ClassAssignment;

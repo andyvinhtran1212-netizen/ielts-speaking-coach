@@ -299,6 +299,47 @@ def test_timed_bank_keeps_timer_when_optional_mastery_refresh_fails(refresh_resp
     assert out["mastery"]["expires_at"] == "2026-09-15T01:30:00+00:00"
 
 
+@pytest.mark.parametrize("refresh_response", [Exception("refresh failed"), []])
+def test_untimed_single_attempt_keeps_answers_sealed_when_refresh_fails(
+    refresh_response,
+):
+    anchored = {
+        "id": "item-single", "assignment_id": "asg-single",
+        "opened_at": None, "due_at": None, "accepting": True,
+        "passed_at": None, "submitted_at": None, "mastery": None,
+        "content_config": {"completion_mode": "single_attempt"},
+    }
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": _BANK, "code": "C1-MIDTERM", "skill_area": "course",
+            "meta": {},
+        }],
+        ("class_assignment_items", "select"): refresh_response,
+        ("quiz_questions", "select"): [{
+            "qid": "q-1", "type": "mcq", "answer": 2, "accept": ["C"],
+            "explain": "Because C is correct.", "why_wrong": {"0": "No"},
+        }],
+    })
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_assignment_item_for_review",
+                      return_value=anchored), \
+         patch.object(quiz_service, "course_assignment_action_with_session_truth",
+                      return_value="continue"), \
+         patch.object(quiz_service, "_word_cards_for", return_value=[]), \
+         patch.object(quiz_service, "_attach_article_urls"), \
+         patch.object(quiz_service, "_resolve_question_audio"):
+        out = quiz_service.get_bank_for_play(
+            _BANK, user_id=_USER, assignment_item_id="item-single",
+        )
+
+    assert out["mastery"]["answers_sealed"] is True
+    question = out["questions"][0]
+    assert question["answer"] is None
+    assert question["accept"] is None
+    assert question["explain"] is None
+    assert question["why_wrong"] is None
+
+
 def test_timed_near_pass_bank_read_adopts_retake_phase_not_run():
     mastery = {"attempts": [{
         "phase": "run", "pct": 70, "completed": True,
