@@ -1038,14 +1038,17 @@ export function CourseBehavior() {
         stageAdvance = Promise.resolve()
           .then(() => runner.nextStage())
           .then(() => { renderQuestion(); })
-          .catch(() => {
-            // Runner tự xử lý lỗi mạng dự kiến. Nhánh này giữ đường lui cho lỗi
-            // bất ngờ: không để nút bị khoá vĩnh viễn và không dùng alert().
+          .catch((err) => {
+            // Giữ nguyên màn kết quả và mở lại nút để học viên thử tiếp. Hiện
+            // lý do thật từ API/runner thay vì biến 409 thành một cú bấm im lặng.
             if (button?.isConnected) {
               button.removeAttribute('disabled');
               button.removeAttribute('aria-busy');
             }
-            setSaveState('error', 'Chưa chuyển được chặng — hãy thử lại');
+            const reason = runner.persistError || err?.message;
+            setSaveState('error', reason
+              ? `Chưa chuyển được chặng: ${reason}`
+              : 'Chưa chuyển được chặng — hãy thử lại');
           })
           .finally(() => { stageAdvance = null; });
         return stageAdvance;
