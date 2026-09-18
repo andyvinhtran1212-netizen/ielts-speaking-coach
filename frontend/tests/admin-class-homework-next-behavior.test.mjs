@@ -117,6 +117,7 @@ describe('admin class homework model — canonical truth', () => {
     }, hybridCatalog);
     assert.equal(result.ok, false);
     assert.match(result.error, /trắc nghiệm thuần/);
+    assert.match(UI, /single_attempt_ready === true \? '' : ' is-disabled'/);
     assert.match(UI, /disabled=\{selectedCatalogItem\?\.single_attempt_ready !== true\}/);
   });
 
