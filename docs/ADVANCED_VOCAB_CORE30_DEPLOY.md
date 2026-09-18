@@ -31,13 +31,24 @@ replace the content or media needed to reopen work already in progress.
 
 ## Pre-deploy verification
 
-From the repository root:
+The deployable source of truth is the checksum-versioned snapshot already
+committed under `backend/content/advanced_vocab/` and
+`frontend/public/assets/advanced-vocab/`. Do not rebuild it from an earlier
+Downloads export during deployment. The first release is the corrected v6
+T11-map build locked by these SHA-256 identities:
+
+- authored input map: `2d2750cd7dbe55c19adaf2c8b102a653627f494437546740ea2c4ebbad7591fc`
+- Kokoro bundle: `c0495ddac3a1c865d6f07963f11534693f024ba9042eea0ab4b737511fb4c166`
+- generated package: `176344b624eaf2edcd8b7407b60338ff3a7b3d4fd3a76be268022a6ba1f85e2e`
+
+The earlier `v5-writing-reference` export is not publish-ready and must never
+be passed to the sync command. Rebuilding content is a separate authoring
+operation: it must first reproduce all three locked identities and pass the
+package validator before `--write` is permitted.
+
+From the repository root, validate the committed deploy snapshot:
 
 ```bash
-backend/venv/bin/python backend/scripts/sync_advanced_vocab_core30.py \
-  --source "/absolute/path/to/advanced_vocab_core30_package_v5_writing_reference" \
-  --course-source "/absolute/path/to/Vocab course"
-
 backend/venv/bin/python backend/scripts/import_advanced_vocab_core30.py
 
 cd backend

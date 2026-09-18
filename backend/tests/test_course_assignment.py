@@ -105,7 +105,7 @@ def test_a_valid_bank_freezes_weight_shape_without_copying_questions():
 
 def test_advanced_vocabulary_freezes_runtime_and_ignores_grade_controls():
     runtime = {"kind": "advanced_vocab", "lesson_id": "ADV-T01", "score_policy": "none"}
-    bank = {**_BANK, "meta": {"runtime": runtime}}
+    bank = {**_BANK, "is_published": True, "meta": {"runtime": runtime}}
     _, cfg = _resolve(
         _full(quiz_banks=[bank]),
         _body(pass_pct=75, retake_size=20),
@@ -117,7 +117,8 @@ def test_advanced_vocabulary_freezes_runtime_and_ignores_grade_controls():
 
 def test_advanced_vocabulary_syllable_segments_do_not_break_audio_readiness():
     runtime = {"kind": "advanced_vocab", "lesson_id": "ADV-T01"}
-    bank = {**_BANK, "lesson_no": None, "meta": {"runtime": runtime}}
+    bank = {**_BANK, "lesson_no": None, "is_published": True,
+            "meta": {"runtime": runtime}}
     question = {
         "id": "syllable-1", "bank_id": "bank-1", "type": "syllable",
         "segments": ["re", "sil", "ience"], "audio_url": None,
@@ -127,6 +128,17 @@ def test_advanced_vocabulary_syllable_segments_do_not_break_audio_readiness():
 
     assert bank_id == "bank-1"
     assert cfg["runtime"] == runtime
+
+
+def test_advanced_vocabulary_must_be_published_before_assignment():
+    runtime = {"kind": "advanced_vocab", "lesson_id": "ADV-T01"}
+    bank = {**_BANK, "is_published": False, "meta": {"runtime": runtime}}
+
+    with pytest.raises(HTTPException) as exc:
+        _resolve(_full(quiz_banks=[bank]))
+
+    assert exc.value.status_code == 409
+    assert "xuất bản" in exc.value.detail
 
 
 def test_advanced_vocabulary_tally_uses_six_part_evidence_not_generic_quiz(monkeypatch):
@@ -189,6 +201,40 @@ def test_advanced_vocabulary_tally_keeps_no_account_separate_from_untouched(monk
     assert out["students"][0]["course_state"] == "no_account"
     assert out["counts"]["no_account"] == 1
     assert out["counts"]["untouched"] == 0
+
+
+def test_advanced_vocabulary_tally_reports_neutral_completion_not_pass(monkeypatch):
+    from services import advanced_vocab_service
+
+    monkeypatch.setattr(advanced_vocab_service, "assignment_results", lambda **_kwargs: {
+        "students": [{
+            "item": {
+                "student_id": "student-1", "opened_at": "2026-09-15T01:00:00Z",
+                "submitted_at": "2026-09-15T02:00:00Z",
+                "passed_at": "2026-09-15T02:00:00Z",
+                "artifact_kind": "advanced_vocab_progress", "artifact_id": "item-1",
+            },
+            "student": {
+                "user_id": "user-1", "full_name": "Học viên A", "student_code": "HV01",
+            },
+            "stages": [
+                {"stage": stage, "status": "completed"}
+                for stage in ("vocabulary", "practice_1", "practice_2", "controlled_rewrite")
+            ],
+            "sections": [{"section": "reading"}, {"section": "listening"}],
+            "practice_attempts": [],
+        }],
+    })
+
+    out = adm._advanced_vocab_assignment_tally({
+        "id": "assignment-1", "skill": "course", "title": "Advanced T01",
+        "due_at": None,
+    })
+
+    assert out["students"][0]["course_state"] == "completed"
+    assert out["counts"]["completed"] == 1
+    assert "passed" not in out["counts"]
+    assert out["students"][0]["score"] is None
 
 
 def test_a_timed_course_assignment_freezes_the_limit_in_its_snapshot():

@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-16 the highest is `280`, so the next new
-migration is `281`.
+sequence is dense. As of 2026-09-17 the highest is `282`, so the next new
+migration is `283`.
 
 ## Conventions
 
@@ -148,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–280
+## Forward scope 230–282
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -236,6 +236,13 @@ ledger, protected initial Listening attempts, immutable stage/section writes,
 and atomic finalization. Anonymous and authenticated PostgREST roles receive no
 direct bank, solution, or learner-evidence access; the backend service role owns
 all runtime reads and writes. Apply it before importing the 30 core banks.
+
+Migration 282 adds the immutable Practice-selection ledger and enforces the
+Advanced persistence boundary under membership → assignment → item row locks.
+It also restricts every direct client bank policy, guards attempt-1 section
+evidence and terminal finalization, blocks hard deletion of immutable Advanced
+banks, and revalidates publication plus the frozen runtime snapshot when an
+assignment is issued.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

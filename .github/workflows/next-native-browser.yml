@@ -799,6 +799,9 @@ jobs:
       - name: Kiểm luồng D1 Exercise native
         run: node tooling/verify-d1-exercise-flow.mjs "http://localhost:$TEST_PORT"
 
+      - name: Kiểm luồng Advanced Vocabulary self-paced
+        run: node tooling/verify-advanced-vocabulary-flow.mjs "http://localhost:$TEST_PORT"
+
       # `/reading/skill` cũng sở hữu request/filter/state bằng React. Chạy độc
       # lập để bắt canonical total, nhóm kỹ năng, response filter cũ và reset.
       - name: Kiểm luồng Reading Skill native

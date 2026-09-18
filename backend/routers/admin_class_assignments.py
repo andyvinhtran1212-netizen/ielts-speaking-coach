@@ -737,15 +737,17 @@ def _course_bank_assignment_revision(bank_id: str) -> str:
 def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str, dict]:
     """Chọn một bộ bài tập theo buổi từ kho của khoá mà lớp thuộc về.
 
-    Bank giáo trình KHÔNG được xuất bản và không nằm trong danh sách tự chọn —
-    bài giao này là cửa DUY NHẤT mở nó ra (services/quiz_service). Nên mọi điều
-    kiện phải kiểm ở đây; không có lớp bảo vệ nào phía sau.
+    Bank giáo trình thường không nằm trong danh sách tự chọn và bài giao là cửa
+    duy nhất mở nó ra (services/quiz_service). Riêng Advanced Vocabulary dùng
+    `is_published` như chốt sẵn-sàng-để-giao; learner vẫn chỉ mở qua assignment.
+    Nên mọi điều kiện phải kiểm ở đây; không có lớp bảo vệ nào phía sau.
     """
     course_id = _cohort_course_id(cohort_id)
     revision_before = _course_bank_assignment_revision(body.content_id)
 
     rows = (supabase_admin.table("quiz_banks")
-            .select("id, code, title, skill_area, course_id, lesson_no, words_count, meta")
+            .select("id, code, title, skill_area, course_id, lesson_no, words_count, "
+                    "is_published, meta")
             .eq("id", body.content_id).limit(1).execute().data) or []
     if not rows:
         raise HTTPException(404, "Không tìm thấy bộ bài tập này.")
@@ -796,6 +798,11 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
     if advanced_runtime:
         # The dedicated evidence ledger has no overall grade and therefore no
         # generic quiz/writing weight contract to freeze into the assignment.
+        if bank.get("is_published") is not True:
+            raise HTTPException(
+                409,
+                "Hãy xuất bản bank Advanced Vocabulary trước khi giao bài.",
+            )
         if body.time_limit_minutes is not None:
             raise HTTPException(
                 400,
@@ -1309,7 +1316,7 @@ def _advanced_vocab_assignment_tally(assignment: dict) -> dict:
         started = bool(completed or evidence["practice_attempts"]
                        or evidence.get("listening_attempts") or item.get("opened_at"))
         course_state = ("no_account" if not student.get("user_id") else
-                        "passed" if item.get("submitted_at") else
+                        "completed" if item.get("submitted_at") else
                         "in_progress" if started else "untouched")
         rows.append({
             "student_id": item.get("student_id"),
@@ -1321,7 +1328,7 @@ def _advanced_vocab_assignment_tally(assignment: dict) -> dict:
             "flags": [],
             "flag_level": None,
             "course_state": course_state,
-            "next_action": (None if course_state in ("passed", "no_account") else
+            "next_action": (None if course_state in ("completed", "no_account") else
                             "Tiếp tục bài self-paced" if started else "Mở bài"),
             "pass_pct": None,
             "near_pass_pct": None,
@@ -1359,7 +1366,7 @@ def _advanced_vocab_assignment_tally(assignment: dict) -> dict:
             "missing": sum(row["status"] == "missing" for row in rows),
             "no_account": sum(row["status"] == "no-account" for row in rows),
             "flagged": 0,
-            "passed": sum(row["course_state"] == "passed" for row in rows),
+            "completed": sum(row["course_state"] == "completed" for row in rows),
             "near_pass": 0,
             "retry_full": 0,
             "in_progress": sum(row["course_state"] == "in_progress" for row in rows),
