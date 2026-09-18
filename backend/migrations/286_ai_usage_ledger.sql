@@ -1,4 +1,4 @@
--- Migration 284: make ai_usage_logs a model-aware, idempotent usage ledger.
+-- Migration 286: make ai_usage_logs a model-aware, idempotent usage ledger.
 -- Provider invoices remain authoritative; cost_usd_est is a reproducible
 -- estimate tied to pricing_version.
 

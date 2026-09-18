@@ -322,6 +322,34 @@ def test_usage_by_user_dedupes_writing_across_report_boundary(monkeypatch):
     assert out[0]["ai_cost_usd"] == 0.0
 
 
+def test_usage_by_user_reconciles_partially_logged_writing_job(monkeypatch):
+    _install(monkeypatch, {
+        "users": [{"id": "u1", "email": "a@x"}],
+        "sessions": [],
+        "ai_usage_logs": [{
+            "id": "l1", "user_id": "u1", "service": "gemini",
+            "model": "gemini-2.5-pro", "cost_usd_est": 0.02,
+            "pricing_version": "stored:test", "feature": "writing_grading",
+            "resource_id": "e1",
+            "usage_event_id": "writing:j1:attempt:1:run:r1:pass1:api:1",
+            "created_at": "2026-01-01T00:00:01Z",
+        }],
+        "writing_essays": [{"id": "e1", "student_id": "student-1"}],
+        "students": [{"id": "student-1", "user_id": "u1"}],
+        "writing_feedback": [{
+            "id": "f1", "essay_id": "e1", "model_used": "gemini-2.5-pro",
+            "tokens_input": 100, "tokens_output": 50, "cost_usd": 0.06,
+            "provenance": {"job_id": "j1"},
+            "created_at": "2026-01-01T00:00:02Z",
+        }],
+    })
+
+    out = _run(admin_module.usage_by_user(authorization="x"))
+
+    # One 0.02 pass reached the ledger; feedback preserves the 0.06 job total.
+    assert out[0]["ai_cost_usd"] == 0.06
+
+
 # ── GET /admin/ai-usage ──────────────────────────────────────────────────────
 
 def test_ai_usage_merges_writing_and_reports_source_metadata(monkeypatch):
@@ -388,6 +416,35 @@ def test_ai_usage_falls_back_to_legacy_ledger_schema(monkeypatch):
     assert attempts["count"] == 2
     assert out["overall"]["cost_usd"] == 0.04
     assert out["meta"]["ledger_schema_legacy"] is True
+
+
+def test_ai_usage_reconciles_partially_logged_writing_job(monkeypatch):
+    _install(monkeypatch, {
+        "ai_usage_logs": [{
+            "id": "l1", "user_id": "u1", "service": "gemini",
+            "model": "gemini-2.5-pro", "input_tokens": 100,
+            "output_tokens": 50, "cost_usd_est": 0.02,
+            "pricing_version": "stored:test", "status": "success",
+            "feature": "writing_grading", "resource_id": "e1",
+            "usage_event_id": "writing:j1:attempt:1:run:r1:pass1:api:1",
+            "created_at": "2026-01-01T00:00:01Z",
+        }],
+        "writing_feedback": [{
+            "id": "f1", "essay_id": "e1", "model_used": "gemini-2.5-pro",
+            "tokens_input": 300, "tokens_output": 150, "cost_usd": 0.06,
+            "provenance": {"job_id": "j1"},
+            "created_at": "2026-01-01T00:00:02Z",
+        }],
+        "writing_essays": [{"id": "e1", "student_id": "student-1"}],
+        "students": [{"id": "student-1", "user_id": "u1"}],
+        "users": [{"id": "u1", "email": "a@x", "display_name": "A"}],
+    })
+
+    out = _run(admin_module.get_ai_usage(authorization="x"))
+
+    assert out["overall"]["cost_usd"] == 0.06
+    assert out["per_user"][0]["cost_usd"] == 0.06
+    assert out["meta"]["supplemental_writing_rows"] == 1
 
 
 def test_ai_usage_marks_each_truncated_source(monkeypatch):

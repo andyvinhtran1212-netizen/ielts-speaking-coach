@@ -95,6 +95,45 @@ async def _download_audio_bytes(
     raise HTTPException(502, f"Không thể tải file audio cho response {response_id}.")
 
 
+def _assessed_audio_seconds(
+    sample: SelectedSample, *, extraction_succeeded: bool,
+) -> Optional[float]:
+    """Return the duration Azure actually received, not the source recording."""
+    if not extraction_succeeded:
+        return sample.duration_seconds
+    start_s = sample.audio_start_s or 0.0
+    if sample.audio_end_s is not None:
+        return max(float(sample.audio_end_s) - float(start_s), 0.0)
+    if sample.audio_start_s is not None and sample.duration_seconds is not None:
+        return max(float(sample.duration_seconds) - float(start_s), 0.0)
+    return sample.duration_seconds
+
+
+def _prepare_assessment_audio(
+    audio_bytes: bytes, content_type: str, sample: SelectedSample,
+) -> tuple[bytes, str, Optional[float]]:
+    """Trim/convert Part 2 audio while preserving truthful fallback metadata."""
+    should_extract = (
+        sample.audio_start_s is not None
+        or sample.audio_end_s is not None
+        or sample.part == 2
+    )
+    if not should_extract:
+        return audio_bytes, content_type, sample.duration_seconds
+
+    converted_audio = extract_audio_segment(
+        audio_bytes, sample.audio_start_s, sample.audio_end_s,
+    )
+    extraction_succeeded = converted_audio is not audio_bytes
+    if not extraction_succeeded:
+        return audio_bytes, content_type, sample.duration_seconds
+    return (
+        converted_audio,
+        "audio/wav",
+        _assessed_audio_seconds(sample, extraction_succeeded=True),
+    )
+
+
 # ── Band adjustment helpers ───────────────────────────────────────────────────
 
 def _round_band(value: float) -> float:
@@ -304,14 +343,12 @@ async def assess_full_test_pronunciation(
             results[part_key] = None
             continue
 
-        # Extract segment for Part 2 (also converts to WAV)
-        if sample.audio_start_s is not None or sample.audio_end_s is not None:
-            audio_bytes = extract_audio_segment(audio_bytes, sample.audio_start_s, sample.audio_end_s)
-            content_type = "audio/wav"
-        elif sample.part == 2:
-            # Full Part 2 audio — still extract (converts to WAV for consistency)
-            audio_bytes = extract_audio_segment(audio_bytes, None, None)
-            content_type = "audio/wav"
+        # Extract segment for Part 2 (also converts to WAV). The extractor's
+        # documented fallback is the original bytes, so the helper preserves
+        # the original MIME type and full duration when conversion fails.
+        audio_bytes, content_type, assessed_audio_seconds = _prepare_assessment_audio(
+            audio_bytes, content_type, sample,
+        )
 
         # Azure assessment
         try:
@@ -324,7 +361,7 @@ async def assess_full_test_pronunciation(
                 usage_session_id=session_id,
                 usage_resource_type="response",
                 usage_resource_id=sample.response_id,
-                audio_seconds=sample.duration_seconds,
+                audio_seconds=assessed_audio_seconds,
             )
         except (ValueError, RuntimeError) as e:
             logger.warning("[pronunciation/full] %s Azure error: %s", part_key, e)

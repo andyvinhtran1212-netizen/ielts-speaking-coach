@@ -28,7 +28,7 @@ giữ cấu hình sampling hiện tại cho đến khi có A/B riêng.
 
 ## Thứ tự triển khai bắt buộc
 
-1. Áp dụng `backend/migrations/284_ai_usage_ledger.sql` trên staging.
+1. Áp dụng `backend/migrations/286_ai_usage_ledger.sql` trên staging.
 2. Xác nhận index `idx_ai_usage_event_id` là unique **không có WHERE**; PostgREST
    không thể suy luận partial index cho `ON CONFLICT`.
 3. Deploy backend lên staging. Schema cũ có fallback tạm thời nhưng không phải

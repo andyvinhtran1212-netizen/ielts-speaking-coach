@@ -86,7 +86,7 @@ def test_usage_event_id_uses_idempotent_upsert(monkeypatch):
 
 def test_usage_event_unique_index_is_postgrest_compatible():
     sql = (
-        Path(__file__).parent.parent / "migrations" / "284_ai_usage_ledger.sql"
+        Path(__file__).parent.parent / "migrations" / "286_ai_usage_ledger.sql"
     ).read_text(encoding="utf-8")
     index_sql = sql.split(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_usage_event_id", 1,

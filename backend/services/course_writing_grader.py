@@ -256,14 +256,6 @@ async def _grade_batch(
     try:
         resp = await asyncio.wait_for(
             model.generate_content_async(prompt), timeout=_TIMEOUT_SECONDS)
-        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_gemini_response_async(
-            resp,
-            model=name,
-            user_id=usage_user_id,
-            feature="course_writing",
-            operation="grade_batch",
-            metadata={"item_count": len(batch)},
-        ))
     except asyncio.TimeoutError:
         ai_usage_logger.schedule_usage_log(ai_usage_logger.log_unpriced_usage_async(
             service="gemini",
@@ -305,11 +297,24 @@ async def _grade_batch(
         return (_fallback(batch, "Bộ chấm tạm thời không dùng được."), name,
                 _BATCH_PROVIDER_FAILURE)
 
+    def log_response(*, status: str, error_code: str | None = None) -> None:
+        ai_usage_logger.schedule_usage_log(ai_usage_logger.log_gemini_response_async(
+            resp,
+            model=name,
+            user_id=usage_user_id,
+            feature="course_writing",
+            operation="grade_batch",
+            status=status,
+            error_code=error_code,
+            metadata={"item_count": len(batch)},
+        ))
+
     try:
         data = json.loads(_strip_fences(resp.text))
         results = data.get("results") if isinstance(data, dict) else data
         by_qid = {r.get("qid"): r for r in (results or []) if isinstance(r, dict)}
     except Exception as exc:  # noqa: BLE001
+        log_response(status="invalid_response", error_code="invalid_json")
         logger.error("[course-writing] không đọc được JSON: %s", exc)
         return (_fallback(batch, "Bộ chấm trả về kết quả không đọc được."), name,
                 _BATCH_RESPONSE_FAILURE)
@@ -348,6 +353,10 @@ async def _grade_batch(
             # tập này dạy.
             "ok":        not any(x["type"] in _COUNTED_TYPES for x in issues),
         })
+    log_response(
+        status="invalid_response" if failure_kind else "success",
+        error_code="missing_or_invalid_result" if failure_kind else None,
+    )
     return out, name, failure_kind
 
 

@@ -429,14 +429,14 @@ def _insert(row: dict[str, Any]) -> None:
         if is_legacy_schema_error(exc):
             if not _can_write_legacy_row(row):
                 logger.warning(
-                    "[ai_usage] skipped legacy fallback for %s row; apply migration 284",
+                    "[ai_usage] skipped legacy fallback for %s row; apply migration 286",
                     row.get("status") or row.get("cost_source") or "unpriced",
                 )
                 return
             try:
                 supabase_admin.table("ai_usage_logs").insert(_legacy_row(row)).execute()
                 logger.warning(
-                    "[ai_usage] wrote legacy-compatible row; apply migration 284"
+                    "[ai_usage] wrote legacy-compatible row; apply migration 286"
                 )
                 return
             except Exception as fallback_exc:
@@ -461,7 +461,7 @@ async def _insert_async(row: dict[str, Any]) -> None:
         if is_legacy_schema_error(exc):
             if not _can_write_legacy_row(row):
                 logger.warning(
-                    "[ai_usage] skipped legacy fallback for %s row; apply migration 284",
+                    "[ai_usage] skipped legacy fallback for %s row; apply migration 286",
                     row.get("status") or row.get("cost_source") or "unpriced",
                 )
                 return
@@ -469,7 +469,7 @@ async def _insert_async(row: dict[str, Any]) -> None:
                 client = await get_supabase_async()
                 await client.table("ai_usage_logs").insert(_legacy_row(row)).execute()
                 logger.warning(
-                    "[ai_usage] wrote legacy-compatible row; apply migration 284"
+                    "[ai_usage] wrote legacy-compatible row; apply migration 286"
                 )
                 return
             except Exception as fallback_exc:

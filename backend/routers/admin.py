@@ -1401,18 +1401,42 @@ def _writing_job_id(usage_event_id: str | None) -> str | None:
     return parts[1] or None if len(parts) == 3 else None
 
 
-def _writing_feedback_is_ledger_backed(
+def _writing_feedback_cost(row: dict) -> float:
+    cost, _ = effective_logged_cost({
+        "service": "gemini",
+        "model": row.get("model_used"),
+        "input_tokens": row.get("tokens_input"),
+        "output_tokens": row.get("tokens_output"),
+        "cost_usd_est": row.get("cost_usd"),
+        "pricing_version": (
+            "writing_feedback:legacy" if row.get("cost_usd") is not None else None
+        ),
+        "created_at": row.get("created_at"),
+    })
+    return float(cost or 0)
+
+
+def _writing_feedback_supplemental_cost(
     row: dict,
     *,
-    ledger_job_ids: set[str],
+    ledger_cost_by_job: dict[str, float],
     ledger_first_seen: str | None,
-) -> bool:
-    """Prefer exact job provenance; timestamps only support legacy rows."""
+) -> float:
+    """Return only feedback spend not already represented by call-level rows.
+
+    A multi-pass Writing job can persist its aggregate feedback even if one of
+    the individual ledger writes fails. Exact job provenance therefore needs a
+    cost reconciliation, not an all-or-nothing suppression. Rows from before
+    job provenance existed retain the timestamp-based legacy rule.
+    """
+    feedback_cost = _writing_feedback_cost(row)
     provenance = row.get("provenance")
     job_id = provenance.get("job_id") if isinstance(provenance, dict) else None
     if job_id:
-        return str(job_id) in ledger_job_ids
-    return _usage_at_or_after(row.get("created_at"), ledger_first_seen)
+        return max(feedback_cost - ledger_cost_by_job.get(str(job_id), 0.0), 0.0)
+    if _usage_at_or_after(row.get("created_at"), ledger_first_seen):
+        return 0.0
+    return feedback_cost
 
 def _aggregate_usage_for_users(
     user_ids: list[str], date_from: str | None = None, date_to: str | None = None
@@ -1465,7 +1489,7 @@ def _aggregate_usage_for_users(
 
     try:
         ledger_writing_first_seen: dict[str, str] = {}
-        ledger_writing_job_ids: set[str] = set()
+        ledger_writing_cost_by_job: dict[str, float] = {}
         ledger_schema_legacy = False
         for id_chunk in _usage_id_chunks(user_ids):
             def costs_query_detailed():
@@ -1513,8 +1537,6 @@ def _aggregate_usage_for_users(
                     effective_cost, _ = effective_logged_cost(row)
                     out[uid]["ai_cost_usd"] += float(effective_cost or 0)
                 if row.get("feature") == "writing_grading" and row.get("resource_id"):
-                    if job_id := _writing_job_id(row.get("usage_event_id")):
-                        ledger_writing_job_ids.add(job_id)
                     essay_id = str(row["resource_id"])
                     created_at = row.get("created_at")
                     current = ledger_writing_first_seen.get(essay_id)
@@ -1554,13 +1576,20 @@ def _aggregate_usage_for_users(
             for essay_chunk in _usage_id_chunks(essay_ids):
                 ledger_rows = _usage_paged(
                     lambda essay_chunk=essay_chunk: supabase_admin.table("ai_usage_logs")
-                    .select("id, resource_id, usage_event_id, created_at")
+                    .select("id, service, model, input_tokens, output_tokens, "
+                            "thinking_tokens, cache_read_tokens, cache_write_tokens, "
+                            "audio_seconds, text_chars, cost_usd_est, pricing_version, "
+                            "resource_id, usage_event_id, created_at")
                     .eq("feature", "writing_grading")
                     .in_("resource_id", essay_chunk)
                 )
                 for ledger_row in ledger_rows:
                     if job_id := _writing_job_id(ledger_row.get("usage_event_id")):
-                        ledger_writing_job_ids.add(job_id)
+                        ledger_cost, _ = effective_logged_cost(ledger_row)
+                        ledger_writing_cost_by_job[job_id] = (
+                            ledger_writing_cost_by_job.get(job_id, 0.0)
+                            + float(ledger_cost or 0)
+                        )
                     essay_id = str(ledger_row.get("resource_id") or "")
                     created_at = ledger_row.get("created_at")
                     current = ledger_writing_first_seen.get(essay_id)
@@ -1588,31 +1617,21 @@ def _aggregate_usage_for_users(
                 essay_id = str(row.get("essay_id") or "")
                 if (
                     not essay_id
-                    or _writing_feedback_is_ledger_backed(
-                        row,
-                        ledger_job_ids=ledger_writing_job_ids,
-                        ledger_first_seen=ledger_writing_first_seen.get(essay_id),
-                    )
                     or not str(row.get("model_used") or "").startswith("gemini-")
                     or not ((row.get("tokens_input") or 0) > 0
                             or (row.get("tokens_output") or 0) > 0)
                 ):
                     continue
+                supplemental_cost = _writing_feedback_supplemental_cost(
+                    row,
+                    ledger_cost_by_job=ledger_writing_cost_by_job,
+                    ledger_first_seen=ledger_writing_first_seen.get(essay_id),
+                )
+                if supplemental_cost <= 0:
+                    continue
                 uid = essay_user.get(essay_id)
                 if uid in out and out[uid]["ai_cost_usd"] is not None:
-                    writing_cost, _ = effective_logged_cost({
-                        "service": "gemini",
-                        "model": row.get("model_used"),
-                        "input_tokens": row.get("tokens_input"),
-                        "output_tokens": row.get("tokens_output"),
-                        "cost_usd_est": row.get("cost_usd"),
-                        "pricing_version": (
-                            "writing_feedback:legacy"
-                            if row.get("cost_usd") is not None else None
-                        ),
-                        "created_at": row.get("created_at"),
-                    })
-                    out[uid]["ai_cost_usd"] += float(writing_cost or 0)
+                    out[uid]["ai_cost_usd"] += supplemental_cost
     except Exception as exc:
         logger.warning("usage: ai cost aggregate failed: %s", exc)
         for uid in out:
@@ -3323,12 +3342,10 @@ async def get_ai_usage(
     writing_source_total_rows: int | None = None
     writing_source_truncated = False
     ledger_writing_first_seen: dict[str, str] = {}
-    ledger_writing_job_ids: set[str] = set()
+    ledger_writing_cost_by_job: dict[str, float] = {}
     for row in logs:
         if row.get("feature") != "writing_grading" or not row.get("resource_id"):
             continue
-        if job_id := _writing_job_id(row.get("usage_event_id")):
-            ledger_writing_job_ids.add(job_id)
         essay_id = str(row["resource_id"])
         created_at = row.get("created_at")
         current = ledger_writing_first_seen.get(essay_id)
@@ -3367,30 +3384,42 @@ async def get_ai_usage(
             for essay_chunk in _usage_id_chunks(candidate_essay_ids):
                 ledger_rows = _usage_paged(
                     lambda essay_chunk=essay_chunk: supabase_admin.table("ai_usage_logs")
-                    .select("id, resource_id, usage_event_id, created_at")
+                    .select("id, service, model, input_tokens, output_tokens, "
+                            "thinking_tokens, cache_read_tokens, cache_write_tokens, "
+                            "audio_seconds, text_chars, cost_usd_est, pricing_version, "
+                            "resource_id, usage_event_id, created_at")
                     .eq("feature", "writing_grading")
                     .in_("resource_id", essay_chunk)
                 )
                 for ledger_row in ledger_rows:
                     if job_id := _writing_job_id(ledger_row.get("usage_event_id")):
-                        ledger_writing_job_ids.add(job_id)
+                        ledger_cost, _ = effective_logged_cost(ledger_row)
+                        ledger_writing_cost_by_job[job_id] = (
+                            ledger_writing_cost_by_job.get(job_id, 0.0)
+                            + float(ledger_cost or 0)
+                        )
                     essay_id = str(ledger_row.get("resource_id") or "")
                     created_at = ledger_row.get("created_at")
                     current = ledger_writing_first_seen.get(essay_id)
                     if essay_id and created_at and (current is None or created_at < current):
                         ledger_writing_first_seen[essay_id] = created_at
-        writing_rows = [
-            row for row in writing_rows
-            if str(row.get("model_used") or "").startswith("gemini-")
-            and not _writing_feedback_is_ledger_backed(
+        reconciled_writing_rows: list[tuple[dict, float]] = []
+        for row in writing_rows:
+            essay_id = str(row.get("essay_id") or "")
+            if (
+                not str(row.get("model_used") or "").startswith("gemini-")
+                or not ((row.get("tokens_input") or 0) > 0
+                        or (row.get("tokens_output") or 0) > 0)
+            ):
+                continue
+            supplemental_cost = _writing_feedback_supplemental_cost(
                 row,
-                ledger_job_ids=ledger_writing_job_ids,
-                ledger_first_seen=ledger_writing_first_seen.get(
-                    str(row.get("essay_id") or "")
-                ),
+                ledger_cost_by_job=ledger_writing_cost_by_job,
+                ledger_first_seen=ledger_writing_first_seen.get(essay_id),
             )
-            and ((row.get("tokens_input") or 0) > 0 or (row.get("tokens_output") or 0) > 0)
-        ]
+            if supplemental_cost > 0:
+                reconciled_writing_rows.append((row, supplemental_cost))
+        writing_rows = [row for row, _ in reconciled_writing_rows]
         essay_ids = list({str(row["essay_id"]) for row in writing_rows if row.get("essay_id")})
         essay_student_map: dict[str, str] = {}
         for essay_chunk in _usage_id_chunks(essay_ids):
@@ -3417,9 +3446,11 @@ async def get_ai_usage(
                 str(row["id"]): row.get("user_id") for row in (sr.data or [])
                 if row.get("id")
             })
-        for row in writing_rows:
+        for row, supplemental_cost in reconciled_writing_rows:
             essay_id = str(row.get("essay_id") or "")
             student_id = essay_student_map.get(essay_id)
+            provenance = row.get("provenance")
+            job_id = provenance.get("job_id") if isinstance(provenance, dict) else None
             logs.append({
                 "user_id": student_user_map.get(student_id or ""),
                 "service": "gemini",
@@ -3427,8 +3458,12 @@ async def get_ai_usage(
                 "input_tokens": row.get("tokens_input"),
                 "output_tokens": row.get("tokens_output"),
                 "thinking_tokens": None,
-                "cost_usd_est": row.get("cost_usd"),
-                "cost_source": "writing_feedback_legacy",
+                "cost_usd_est": supplemental_cost,
+                "cost_source": (
+                    "writing_feedback_reconciliation"
+                    if job_id and ledger_writing_cost_by_job.get(str(job_id), 0) > 0
+                    else "writing_feedback_legacy"
+                ),
                 "pricing_version": (
                     "writing_feedback:legacy"
                     if row.get("cost_usd") is not None else None
@@ -3439,7 +3474,7 @@ async def get_ai_usage(
                 "resource_id": essay_id,
                 "created_at": row.get("created_at"),
             })
-        supplemental_writing_rows = len(writing_rows)
+        supplemental_writing_rows = len(reconciled_writing_rows)
     except Exception as exc:
         writing_lookup_failed = True
         logger.warning("[admin ai-usage] historical Writing merge failed: %s", exc)
