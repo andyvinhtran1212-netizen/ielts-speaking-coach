@@ -1088,6 +1088,44 @@ def test_timed_retake_is_created_by_the_locked_rpc_without_plain_insert():
                    for call in fake.calls)
 
 
+def test_live_single_attempt_can_open_the_next_timed_stage():
+    """A reduced assignment snapshot must preserve the live published state.
+
+    The first timed session is created while serving the bank.  Every later
+    10-question stage calls ``start_session``; omitting ``status`` from its
+    snapshot made ``course_assignment_action`` classify the live assignment as
+    review-only and reject all later stages with 409.
+    """
+    item = {
+        "id": "item-single", "assignment_id": "asg-single",
+        "opened_at": "2026-09-18T11:08:00+00:00",
+        "submitted_at": None, "passed_at": None, "mastery": None,
+        "due_at": "2999-09-19T12:00:00+00:00",
+        "content_config": {
+            "completion_mode": "single_attempt",
+            "time_limit_minutes": 75,
+        },
+    }
+    fake = _FakeSupabase(responses={("quiz_word_stats", "select"): []})
+    with patch.object(quiz_service, "supabase_admin", fake), \
+         patch.object(quiz_service, "_bank_meta_or_404", return_value={
+             "id": _BANK, "code": "C1-MIDTERM", "skill_area": "course",
+         }), \
+         patch.object(quiz_service, "_assignment_item_for", return_value=item), \
+         patch.object(quiz_service, "_ensure_timed_course_session",
+                      return_value=(item, _SESS)) as ensure:
+        out = quiz_service.start_session(
+            user_id=_USER, bank_id=_BANK,
+            assignment_item_id="item-single",
+        )
+
+    assert out["session_id"] == _SESS
+    ensure.assert_called_once_with(
+        item, user_id=_USER, bank_id=_BANK, code="C1-MIDTERM",
+        kind="run", create_if_missing=True,
+    )
+
+
 def test_session_timer_response_preserves_the_earlier_due_at_boundary():
     fake = _FakeSupabase(responses={
         ("quiz_banks", "select"): [{
