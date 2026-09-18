@@ -42,10 +42,9 @@ be trusted to automatic scoring yet and must not delay the objective release.
 ## Requirements
 
 - **FR-001:** Only an actively assigned learner can create, resume, answer, or
-  read a diagnostic session. Every operation rechecks active cohort membership,
-  assignment ownership, and publication state; in-progress reads and writes also
-  enforce the deadline, while an immutable completed report remains readable after
-  the cutoff. Public self-serve remains controlled by a separate default-off flag.
+  read a diagnostic session; every operation rechecks active cohort membership,
+  assignment ownership, publication state, and deadline, while public self-serve
+  remains controlled by a separate default-off runtime flag.
 - **FR-002:** Quick mode serves exactly 18 baseline plus 10 focused objective
   questions, and Full mode serves exactly 34 baseline plus 20 focused objective
   questions; selection is server-owned, history-aware, and capped at six exposed

@@ -91,6 +91,7 @@ test('MASTER30 diagnostic success bodies are modeled and consumed from OpenAPI',
 });
 
 test('assigned-only report returns learners to My Class instead of disabled self-serve', () => {
+  assert.match(DIAGNOSTIC, /requestedView === 'report'\) await showReport\(requestedSession\)/);
   assert.match(DIAGNOSTIC, /href="\/my-class">Quay lại My Class<\/a>/);
   assert.doesNotMatch(DIAGNOSTIC, /href="\/grammar-checkup">Làm lượt mới<\/a>/);
 });

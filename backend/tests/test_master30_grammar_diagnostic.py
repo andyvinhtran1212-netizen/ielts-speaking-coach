@@ -249,16 +249,16 @@ def test_completed_report_remains_readable_after_deadline(monkeypatch):
     })
 
     completed = {"status": "completed", "class_assignment_item_id": "item-1"}
-    service._require_session_access("u-1", completed)
+    service._require_session_readable("u-1", completed)
 
     in_progress = {"status": "in_progress", "class_assignment_item_id": "item-1"}
     with pytest.raises(service.HTTPException) as expired:
-        service._require_session_access("u-1", in_progress)
+        service._require_session_accepting("u-1", in_progress)
     assert expired.value.status_code == 409
 
     assignment["status"] = "archived"
     with pytest.raises(service.HTTPException) as archived:
-        service._require_session_access("u-1", completed)
+        service._require_session_readable("u-1", completed)
     assert archived.value.status_code == 404
 
 

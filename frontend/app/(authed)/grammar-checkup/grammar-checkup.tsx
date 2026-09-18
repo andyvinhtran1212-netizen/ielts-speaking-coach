@@ -21,6 +21,7 @@ export function GrammarCheckup() {
   const search = useSearchParams();
   const assignmentItem = search?.get('assignment_item') || '';
   const requestedSession = search?.get('session') || '';
+  const requestedView = search?.get('view') || '';
   const [phase, setPhase] = useState<'loading' | 'assigned-only' | 'setup' | 'question' | 'report' | 'error'>('loading');
   const [session, setSession] = useState<Session | null>(null);
   const [item, setItem] = useState<Item | null>(null);
@@ -60,7 +61,11 @@ export function GrammarCheckup() {
     booted.current = true;
     void (async () => {
       try {
-        if (requestedSession) { await enterSession(requestedSession); return; }
+        if (requestedSession) {
+          if (requestedView === 'report') await showReport(requestedSession);
+          else await enterSession(requestedSession);
+          return;
+        }
         if (assignmentItem) {
           const created = await window.api.post<Session>('/api/grammar/diagnostics/sessions', {
             mode: 'REVIEW', module: 'GENERAL', test_length: 'QUICK',
@@ -74,7 +79,7 @@ export function GrammarCheckup() {
         setPhase(availability.assigned_only ? 'assigned-only' : 'setup');
       } catch (caught) { setError(messageOf(caught)); setPhase('error'); }
     })();
-  }, [assignmentItem, enterSession, requestedSession, router]);
+  }, [assignmentItem, enterSession, requestedSession, requestedView, router, showReport]);
 
   const start = async () => {
     if (busy) return;
