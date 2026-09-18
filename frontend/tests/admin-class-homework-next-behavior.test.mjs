@@ -26,7 +26,7 @@ const LAYOUT = read('app', '(authed-admin-classes)', 'layout.tsx');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
 
-const catalog = [{ id: 'bank-1', title: 'Grammar 2', ready: true, already_given: false }];
+const catalog = [{ id: 'bank-1', title: 'Grammar 2', ready: true, already_given: false, single_attempt_ready: true }];
 
 describe('admin class homework model — canonical truth', () => {
   test('preview uses generated API types and drops stale bank responses', () => {
@@ -104,6 +104,21 @@ describe('admin class homework model — canonical truth', () => {
     assert.equal(result.body.time_limit_minutes, 60);
     assert.equal(Object.hasOwn(result.body, 'pass_pct'), false);
     assert.equal(Object.hasOwn(result.body, 'retake_size'), false);
+  });
+
+  test('rejects one-sitting mode for hybrid course banks before submit', () => {
+    const hybridCatalog = [{
+      id: 'hybrid-1', title: 'Hybrid lesson', ready: true, already_given: false,
+      single_attempt_ready: false,
+    }];
+    const result = validateHomeworkDraft({
+      ...homeworkDraft(), skill: 'course', title: 'Hybrid', contentId: 'hybrid-1',
+      completionMode: 'single_attempt',
+    }, hybridCatalog);
+    assert.equal(result.ok, false);
+    assert.match(result.error, /trắc nghiệm thuần/);
+    assert.match(UI, /single_attempt_ready === true \? '' : ' is-disabled'/);
+    assert.match(UI, /disabled=\{selectedCatalogItem\?\.single_attempt_ready !== true\}/);
   });
 
   test('builds Grammar Diagnostic assignments without a fake score contract', () => {

@@ -857,6 +857,13 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
             )
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
+        if (body.completion_mode == "single_attempt"
+                and set(weight_snapshot.get("section_counts") or {}) != {"quiz"}):
+            raise HTTPException(
+                400,
+                "Chế độ một lượt hiện chỉ dùng cho bộ trắc nghiệm thuần. "
+                "Bộ có phần Đọc, Nghe, Viết hoặc Phát âm phải dùng chế độ làm lại đến khi đạt.",
+            )
         if (body.time_limit_minutes is not None
                 and set(weight_snapshot.get("section_counts") or {}) != {"quiz"}):
             raise HTTPException(
@@ -948,14 +955,16 @@ async def list_course_banks(
         ) if r.get("content_id")
     }
     counts: dict = {}
+    questions_by_bank: dict[str, list[dict]] = {}
     audio_required: dict = {}
     missing_audio: dict = {}
     ids = [b["id"] for b in banks]
     for chunk in (ids[i:i + _ID_CHUNK] for i in range(0, len(ids), _ID_CHUNK)):
         for q in _paged(supabase_admin, "quiz_questions",
-                        "id, bank_id, segments, audio_url",
+                        "id, bank_id, type, counts_toward_mastery, segments, audio_url",
                         lambda q2, c=chunk: q2.in_("bank_id", c)):
             bank_id = q["bank_id"]
+            questions_by_bank.setdefault(bank_id, []).append(q)
             counts[bank_id] = counts.get(bank_id, 0) + 1
             text = _question_audio_text(q)
             if text:
@@ -980,6 +989,23 @@ async def list_course_banks(
             (bank.get("meta") or {}).get("pronunciation_requirement"),
             [pronunciation_sets[bank_id]] if bank_id in pronunciation_sets else [],
         )
+        runtime = ((bank.get("meta") or {}).get("runtime") or {}).get("kind")
+        single_attempt_ready = False
+        if runtime != "advanced_vocab":
+            try:
+                snapshot = course_section_weight_snapshot(
+                    questions=questions_by_bank.get(bank_id, []),
+                    meta=bank.get("meta"),
+                    pronunciation_sets=(
+                        [pronunciation_sets[bank_id]]
+                        if bank_id in pronunciation_sets else []
+                    ),
+                )
+                single_attempt_ready = (
+                    set(snapshot.get("section_counts") or {}) == {"quiz"}
+                )
+            except ValueError:
+                single_attempt_ready = False
         items.append({
             "id":                    bank_id,
             "code":                  bank.get("code"),
@@ -991,7 +1017,8 @@ async def list_course_banks(
             "pronunciation_required": pronunciation_required,
             "pronunciation_ready":   pronunciation_is_ready,
             "already_given":         bank_id in given,
-            "runtime": ((bank.get("meta") or {}).get("runtime") or {}).get("kind"),
+            "runtime": runtime,
+            "single_attempt_ready": single_attempt_ready,
             "ready": (
                 counts.get(bank_id, 0) > 0
                 and missing_audio.get(bank_id, 0) == 0
