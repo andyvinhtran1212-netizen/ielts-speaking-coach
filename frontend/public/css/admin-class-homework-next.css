@@ -66,7 +66,7 @@
 .ach-course-preview__workspace nav b { font-size: var(--av-fs-sm); text-align: center; }
 .ach-course-preview__workspace nav span { min-width: 0; font-size: var(--av-fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ach-course-preview__question { min-width: 0; max-height: 520px; padding: var(--av-space-4); display: flex; flex-direction: column; gap: var(--av-space-3); overflow-y: auto; }
-.ach-course-preview__question > p { margin: 0; color: var(--av-text-primary); font-size: var(--av-fs-md); line-height: var(--av-lh-relaxed); white-space: pre-line; }
+.ach-course-preview__question > p { margin: 0; color: var(--av-text-primary); font-size: var(--av-fs-base); line-height: var(--av-lh-relaxed); white-space: pre-line; }
 .ach-course-preview__question audio { width: min(100%, 480px); }
 .ach-course-preview__meta { display: flex; flex-wrap: wrap; gap: var(--av-space-2); }
 .ach-course-preview__meta span { padding: var(--av-space-1) var(--av-space-2); border-radius: var(--av-radius-pill); background: var(--av-surface-sunken); color: var(--av-text-secondary); font-size: var(--av-fs-xs); font-weight: var(--av-fw-semibold); }
