@@ -166,17 +166,38 @@ def _assignment_config(user_id: str, item_id: str) -> dict[str, Any]:
     return {**entitled, "existing": existing[0] if existing else None}
 
 
+def _require_session_readable(
+    user_id: str, session: dict[str, Any],
+) -> Optional[dict[str, Any]]:
+    """Recheck ownership, membership, and publication for an assigned session."""
+    item_id = session.get("class_assignment_item_id")
+    if not item_id:
+        return None
+    entitled = _assignment_entitlement(user_id, str(item_id))
+    assignment = entitled["assignment"]
+    if not is_assignment_open(assignment):
+        raise HTTPException(404, "Bài tập không còn mở")
+    return assignment
+
+
 def _require_session_accepting(user_id: str, session: dict[str, Any]) -> None:
     """Recheck the canonical assignment cutoff immediately before a mutation."""
     item_id = session.get("class_assignment_item_id")
     if not item_id:
         return
-    entitled = _assignment_entitlement(user_id, str(item_id))
-    assignment = entitled["assignment"]
-    if not is_assignment_open(assignment):
-        raise HTTPException(404, "Bài tập không còn mở")
+    assignment = _require_session_readable(user_id, session)
+    if assignment is None:
+        return
     if not is_accepting_submissions(assignment):
         raise HTTPException(409, "Đã quá hạn nộp — bài tập này không còn nhận bài.")
+
+
+def _require_session_access(user_id: str, session: dict[str, Any]) -> None:
+    """Keep immutable completed reports readable after the submission cutoff."""
+    if session.get("status") == "completed":
+        _require_session_readable(user_id, session)
+    else:
+        _require_session_accepting(user_id, session)
 
 
 def _translate_assignment_write_error(exc: Exception) -> None:
@@ -277,10 +298,10 @@ def _session(user_id: str, session_id: str) -> dict[str, Any]:
     if not rows:
         raise HTTPException(404, "Không tìm thấy phiên Grammar Check-up")
     row = rows[0]
-    # FR-001 applies the canonical assignment gate to reads as well as writes.
-    # A bookmarked session/report must not bypass archive, scheduled publish,
-    # deadline, ownership, or current cohort membership.
-    _require_session_accepting(user_id, row)
+    # In-progress reads and every write respect the deadline. Completed reports
+    # are immutable evidence, so they remain readable after the cutoff while
+    # still rechecking ownership, membership, and publication state.
+    _require_session_access(user_id, row)
     return row
 
 
@@ -749,7 +770,7 @@ def learner_history(user_id: str) -> list[dict[str, Any]]:
     visible = []
     for row in rows:
         try:
-            _require_session_accepting(user_id, row)
+            _require_session_access(user_id, row)
         except HTTPException as exc:
             if row.get("class_assignment_item_id") and exc.status_code in {404, 409}:
                 continue

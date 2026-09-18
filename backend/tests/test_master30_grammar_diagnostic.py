@@ -238,6 +238,56 @@ def test_in_progress_mutation_rechecks_archive_and_deadline(monkeypatch):
     assert expired.value.status_code == 409
 
 
+def test_completed_report_remains_readable_after_deadline(monkeypatch):
+    assignment = {
+        "id": "a-1", "status": "published",
+        "publish_at": "2000-01-01T00:00:00+00:00",
+        "due_at": "2000-01-02T00:00:00+00:00",
+    }
+    monkeypatch.setattr(service, "_assignment_entitlement", lambda *args: {
+        "item": {"id": "item-1"}, "assignment": assignment,
+    })
+
+    completed = {"status": "completed", "class_assignment_item_id": "item-1"}
+    service._require_session_access("u-1", completed)
+
+    in_progress = {"status": "in_progress", "class_assignment_item_id": "item-1"}
+    with pytest.raises(service.HTTPException) as expired:
+        service._require_session_access("u-1", in_progress)
+    assert expired.value.status_code == 409
+
+    assignment["status"] = "archived"
+    with pytest.raises(service.HTTPException) as archived:
+        service._require_session_access("u-1", completed)
+    assert archived.value.status_code == 404
+
+
+def test_completed_report_full_reload_succeeds_after_deadline(monkeypatch):
+    session = {
+        "id": "session-1", "user_id": "u-1", "status": "completed",
+        "class_assignment_item_id": "item-1",
+    }
+    monkeypatch.setattr(service, "supabase_admin", _RowsDb({
+        "grammar_diagnostic_sessions": [session],
+        "grammar_diagnostic_reports": [{
+            "learner_report": {"profile_kind": "Grammar Readiness Profile"},
+            "created_at": "2026-09-18T00:00:00+00:00",
+        }],
+    }))
+    monkeypatch.setattr(service, "_assignment_entitlement", lambda *args: {
+        "item": {"id": "item-1"},
+        "assignment": {
+            "id": "a-1", "status": "published",
+            "publish_at": "2000-01-01T00:00:00+00:00",
+            "due_at": "2000-01-02T00:00:00+00:00",
+        },
+    })
+
+    report = service.learner_report("u-1", "session-1")
+    assert report["profile_kind"] == "Grammar Readiness Profile"
+    assert report["session_id"] == "session-1"
+
+
 def test_closed_assignment_blocks_next_response_and_complete_before_writes(monkeypatch):
     session = {
         "id": "session-1", "release_id": "release-1",
