@@ -230,6 +230,68 @@ CREATE TRIGGER grammar_report_immutable
     BEFORE UPDATE OR DELETE ON grammar_diagnostic_reports
     FOR EACH ROW EXECUTE FUNCTION prevent_grammar_evidence_mutation();
 
+-- The application rechecks assignment state before each mutation, and this
+-- database guard closes the race between that read and the evidence insert.
+-- Locking the parent assignment also serializes against archive/deadline edits.
+CREATE OR REPLACE FUNCTION assert_grammar_assignment_accepting(p_session_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE
+    v_item_id UUID;
+    v_status TEXT;
+    v_publish_at TIMESTAMPTZ;
+    v_due_at TIMESTAMPTZ;
+    v_now TIMESTAMPTZ;
+BEGIN
+    SELECT class_assignment_item_id INTO v_item_id
+      FROM grammar_diagnostic_sessions WHERE id = p_session_id
+      FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'grammar_session_not_found' USING ERRCODE = 'P0002';
+    END IF;
+    IF v_item_id IS NULL THEN
+        RETURN;
+    END IF;
+
+    SELECT assignment.status, assignment.publish_at, assignment.due_at
+      INTO v_status, v_publish_at, v_due_at
+      FROM class_assignment_items AS item
+      JOIN class_assignments AS assignment ON assignment.id = item.assignment_id
+     WHERE item.id = v_item_id
+     FOR UPDATE OF assignment, item;
+    -- Read the clock only after both locks are held. If this transaction waited
+    -- behind an admin archive/deadline edit, the comparison must use fresh time.
+    v_now := clock_timestamp();
+    IF NOT FOUND
+       OR v_status <> 'published'
+       OR (v_publish_at IS NOT NULL AND v_publish_at > v_now)
+       OR (v_due_at IS NOT NULL AND v_due_at <= v_now) THEN
+        RAISE EXCEPTION 'grammar_assignment_not_accepting' USING ERRCODE = '55000';
+    END IF;
+END;
+$$;
+REVOKE ALL ON FUNCTION assert_grammar_assignment_accepting(UUID)
+    FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION assert_grammar_assignment_accepting(UUID) TO service_role;
+
+CREATE OR REPLACE FUNCTION guard_grammar_assignment_evidence_write()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+    PERFORM assert_grammar_assignment_accepting(NEW.session_id);
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS grammar_exposure_assignment_gate ON grammar_exposure_events;
+CREATE TRIGGER grammar_exposure_assignment_gate
+    BEFORE INSERT ON grammar_exposure_events
+    FOR EACH ROW EXECUTE FUNCTION guard_grammar_assignment_evidence_write();
+
+DROP TRIGGER IF EXISTS grammar_response_assignment_gate ON grammar_diagnostic_responses;
+CREATE TRIGGER grammar_response_assignment_gate
+    BEFORE INSERT ON grammar_diagnostic_responses
+    FOR EACH ROW EXECUTE FUNCTION guard_grammar_assignment_evidence_write();
+
 CREATE OR REPLACE FUNCTION promote_grammar_content_release(p_release_id UUID)
 RETURNS grammar_content_releases
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
@@ -274,6 +336,10 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION 'grammar_session_not_found' USING ERRCODE = 'P0002';
     END IF;
+
+    -- Recheck under the assignment/item lock in the same transaction that
+    -- writes the immutable report and class ledger terminal state.
+    PERFORM assert_grammar_assignment_accepting(v_session.id);
 
     INSERT INTO grammar_diagnostic_reports (
         session_id, user_id, release_id, evidence_sha256,

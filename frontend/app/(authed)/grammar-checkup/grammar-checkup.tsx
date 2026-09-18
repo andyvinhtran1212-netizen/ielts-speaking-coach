@@ -2,29 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import type { ApiGetJson, ApiPostJson } from '@/lib/openapi-contract';
 
-type Session = {
-  id: string; status: string; phase: string; mode: 'ENTRY' | 'REVIEW';
-  module: 'GENERAL' | 'ACADEMIC'; test_length: 'QUICK' | 'FULL';
-  objective_limit: number; answered: number; remaining: number;
-};
-type Item = {
-  item_id: string; prompt: string; options: string[]; phase: string;
-  ordinal: number; total: number; translation_available: boolean;
-};
-type Priority = {
-  attribute_id: string; title: string; state: string; confidence_label: string;
-  observed_pattern: string; risk: string; next_action: string;
-  contrast_example: string; route_id: string | null; lesson_sources: string;
-  evidence_status: { independent_items: number; assisted_excluded: number };
-};
-type Report = {
-  session_id: string; profile_kind: string; calibration_note: string;
-  priorities: Priority[];
-  strengths: Array<{ attribute_id: string; title: string; state: string; independent_items: number }>;
-  insufficient_evidence: Array<{ attribute_id: string; title: string }>;
-  productive_note: string;
-};
+type Session = ApiGetJson<'/api/grammar/diagnostics/sessions/{session_id}'>;
+type NextResponse = ApiPostJson<'/api/grammar/diagnostics/sessions/{session_id}/next'>;
+type Item = NonNullable<NextResponse['item']>;
+type AnswerResponse = ApiPostJson<'/api/grammar/diagnostics/sessions/{session_id}/responses'>;
+type Report = ApiGetJson<'/api/grammar/diagnostics/sessions/{session_id}/report'>;
+type Availability = ApiGetJson<'/api/grammar/diagnostics/availability'>;
 
 function messageOf(caught: unknown) {
   if (caught instanceof Error) return caught.message;
@@ -55,7 +40,7 @@ export function GrammarCheckup() {
   }, []);
 
   const loadNext = useCallback(async (sessionId: string) => {
-    const value = await window.api.post<{ complete: boolean; item?: Item; session?: Session }>(
+    const value = await window.api.post<NextResponse>(
       `/api/grammar/diagnostics/sessions/${encodeURIComponent(sessionId)}/next`,
     );
     if (value.complete) { await showReport(sessionId); return; }
@@ -85,7 +70,7 @@ export function GrammarCheckup() {
           await enterSession(created.id);
           return;
         }
-        const availability = await window.api.get<{ assigned_only: boolean }>('/api/grammar/diagnostics/availability');
+        const availability = await window.api.get<Availability>('/api/grammar/diagnostics/availability');
         setPhase(availability.assigned_only ? 'assigned-only' : 'setup');
       } catch (caught) { setError(messageOf(caught)); setPhase('error'); }
     })();
@@ -108,7 +93,7 @@ export function GrammarCheckup() {
     if (busy || selected == null || !session || !item) return;
     setBusy(true); setError('');
     try {
-      const result = await window.api.post<{ complete: boolean; answered: number; remaining: number }>(
+      const result = await window.api.post<AnswerResponse>(
         `/api/grammar/diagnostics/sessions/${encodeURIComponent(session.id)}/responses`,
         {
           item_id: item.item_id, selected_option: selected,

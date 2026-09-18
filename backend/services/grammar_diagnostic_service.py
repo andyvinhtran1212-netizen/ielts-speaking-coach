@@ -162,6 +162,27 @@ def _assignment_config(user_id: str, item_id: str) -> dict[str, Any]:
     return {**entitled, "existing": existing[0] if existing else None}
 
 
+def _require_session_accepting(user_id: str, session: dict[str, Any]) -> None:
+    """Recheck the canonical assignment cutoff immediately before a mutation."""
+    item_id = session.get("class_assignment_item_id")
+    if not item_id:
+        return
+    entitled = _assignment_entitlement(user_id, str(item_id))
+    assignment = entitled["assignment"]
+    if not is_assignment_open(assignment):
+        raise HTTPException(404, "Bài tập không còn mở")
+    if not is_accepting_submissions(assignment):
+        raise HTTPException(409, "Đã quá hạn nộp — bài tập này không còn nhận bài.")
+
+
+def _translate_assignment_write_error(exc: Exception) -> None:
+    if "grammar_assignment_not_accepting" in str(exc).lower():
+        raise HTTPException(
+            409,
+            "Bài Grammar đã đóng hoặc quá hạn; không có dữ liệu mới được lưu.",
+        ) from exc
+
+
 def create_session(
     user_id: str,
     *,
@@ -324,6 +345,7 @@ def next_item(user_id: str, session_id: str) -> dict[str, Any]:
         return {"complete": True, "session": session_summary(user_id, session)}
     if session["status"] != "in_progress":
         raise HTTPException(409, detail={"error_code": "diagnostic_exhausted", "message": "Phiên này không còn câu độc lập phù hợp."})
+    _require_session_accepting(user_id, session)
     content = _content({"id": session["release_id"]})
     responses = _responses(session_id)
     exposures = _exposures(session_id)
@@ -395,6 +417,7 @@ def next_item(user_id: str, session_id: str) -> dict[str, Any]:
         # Two browser requests can race after a reconnect.  The unique session
         # exposure is the winner; return that same pending item instead of
         # turning a harmless duplicate request into a learner-facing 500.
+        _translate_assignment_write_error(exc)
         if "duplicate" not in str(exc).lower() and "unique" not in str(exc).lower():
             raise
         raced = next((row for row in _exposures(session_id)
@@ -424,14 +447,38 @@ def record_response(
     assistance_used: bool,
 ) -> dict[str, Any]:
     session = _session(user_id, session_id)
-    if session["status"] != "in_progress":
-        raise HTTPException(409, "Phiên này đã đóng")
     content = _content({"id": session["release_id"]})
     item = content["by_id"].get(item_id)
     if not item:
         raise HTTPException(404, "Không tìm thấy câu hỏi trong release của phiên")
     if not isinstance(selected_option, int) or not 0 <= selected_option < len(item["options"]):
         raise HTTPException(422, "Lựa chọn không hợp lệ")
+    persisted = (
+        supabase_admin.table("grammar_diagnostic_responses").select("*")
+        .eq("session_id", session_id).eq("user_id", user_id)
+        .eq("item_id", item_id).limit(1).execute().data
+    ) or []
+    if persisted:
+        previous = persisted[0]
+        same_payload = (
+            int(previous.get("selected_option")) == selected_option
+            and bool(previous.get("assistance_used")) == bool(assistance_used)
+        )
+        if not same_payload:
+            raise HTTPException(409, "Câu này đã được trả lời với dữ liệu khác")
+        answered = len(_responses(session_id))
+        complete = session["status"] == "completed" or answered >= int(session["objective_limit"])
+        if complete and session["status"] != "completed":
+            _require_session_accepting(user_id, session)
+            finalize_session(user_id, session_id)
+        return {
+            "accepted": True, "complete": complete, "answered": answered,
+            "remaining": max(0, int(session["objective_limit"]) - answered),
+            "feedback_available": complete,
+        }
+    if session["status"] != "in_progress":
+        raise HTTPException(409, "Phiên này đã đóng")
+    _require_session_accepting(user_id, session)
     exposures = (
         supabase_admin.table("grammar_exposure_events").select("*")
         .eq("session_id", session_id).eq("user_id", user_id)
@@ -452,9 +499,23 @@ def record_response(
     try:
         supabase_admin.table("grammar_diagnostic_responses").insert(row).execute()
     except Exception as exc:
+        _translate_assignment_write_error(exc)
         if "duplicate" in str(exc).lower() or "unique" in str(exc).lower():
-            raise HTTPException(409, "Câu này đã được trả lời") from exc
-        raise
+            # A concurrent or lost-response retry may have committed the same
+            # immutable payload. Re-read canonical truth and accept only an
+            # exact replay; a changed answer remains a conflict.
+            raced = (
+                supabase_admin.table("grammar_diagnostic_responses").select("*")
+                .eq("session_id", session_id).eq("user_id", user_id)
+                .eq("item_id", item_id).limit(1).execute().data
+            ) or []
+            if not raced or not (
+                int(raced[0].get("selected_option")) == selected_option
+                and bool(raced[0].get("assistance_used")) == bool(assistance_used)
+            ):
+                raise HTTPException(409, "Câu này đã được trả lời với dữ liệu khác") from exc
+        else:
+            raise
     answered = len(_responses(session_id))
     complete = answered >= int(session["objective_limit"])
     if complete:
@@ -575,16 +636,21 @@ def finalize_session(user_id: str, session_id: str) -> dict[str, Any]:
     ) or []
     if existing:
         return existing[0]["learner_report"]
+    _require_session_accepting(user_id, session)
     responses = _responses(session_id)
     if len(responses) < int(session["objective_limit"]):
         raise HTTPException(409, "Chưa đủ số câu để hoàn tất phiên")
     content = _content({"id": session["release_id"]})
     learner, educator, evidence_sha = _build_reports(session, responses, content)
-    supabase_admin.rpc("finalize_grammar_diagnostic_session", {
-        "p_session_id": session_id, "p_user_id": user_id,
-        "p_evidence_sha256": evidence_sha,
-        "p_learner_report": learner, "p_educator_report": educator,
-    }).execute()
+    try:
+        supabase_admin.rpc("finalize_grammar_diagnostic_session", {
+            "p_session_id": session_id, "p_user_id": user_id,
+            "p_evidence_sha256": evidence_sha,
+            "p_learner_report": learner, "p_educator_report": educator,
+        }).execute()
+    except Exception as exc:
+        _translate_assignment_write_error(exc)
+        raise
     return learner
 
 

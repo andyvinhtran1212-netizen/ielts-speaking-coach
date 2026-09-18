@@ -41,6 +41,45 @@ def test_approved_package_passes_manifest_and_pool_validation():
     )
 
 
+def test_importer_rejects_nonapproved_manifest_and_fixed_count_drift():
+    importer = _importer_module()
+    checks = {
+        "lessons": 30,
+        "combined_inventory": 3338,
+        "unique_runtime_items": 733,
+        "productive_tasks": 19,
+    }
+    pools = {
+        "pool_operational": 280,
+        "pool_entry": 213,
+        "pool_confirmation": 231,
+        "pool_holdout": 222,
+    }
+    importer._enforce_approved_release(
+        manifest_sha256=importer.APPROVED_MANIFEST_SHA256,
+        checks=checks,
+        route_count=16,
+        misconception_count=14,
+        pool_counts=pools,
+    )
+    with pytest.raises(ValueError, match="unapproved MASTER30 manifest"):
+        importer._enforce_approved_release(
+            manifest_sha256="0" * 64,
+            checks=checks,
+            route_count=16,
+            misconception_count=14,
+            pool_counts=pools,
+        )
+    with pytest.raises(ValueError, match="approved MASTER30 count mismatch"):
+        importer._enforce_approved_release(
+            manifest_sha256=importer.APPROVED_MANIFEST_SHA256,
+            checks=checks,
+            route_count=15,
+            misconception_count=14,
+            pool_counts=pools,
+        )
+
+
 def test_learner_item_payload_never_contains_answer_material():
     source = {
         "item_id": "Q-1", "prompt": "Choose.", "options": ["A", "B"],
@@ -150,6 +189,85 @@ def test_assigned_session_requires_current_class_membership(monkeypatch):
     assert service._assignment_entitlement("u-1", "item-1")["assignment"]["id"] == "a-1"
 
 
+def test_in_progress_mutation_rechecks_archive_and_deadline(monkeypatch):
+    session = {"class_assignment_item_id": "item-1"}
+    assignment = {"id": "a-1", "status": "archived", "due_at": None}
+    monkeypatch.setattr(service, "_assignment_entitlement", lambda *args: {
+        "item": {"id": "item-1"}, "assignment": assignment,
+    })
+    with pytest.raises(service.HTTPException) as archived:
+        service._require_session_accepting("u-1", session)
+    assert archived.value.status_code == 404
+
+    assignment.update({"status": "published", "due_at": "2000-01-01T00:00:00+00:00"})
+    with pytest.raises(service.HTTPException) as expired:
+        service._require_session_accepting("u-1", session)
+    assert expired.value.status_code == 409
+
+
+def test_closed_assignment_blocks_next_response_and_complete_before_writes(monkeypatch):
+    session = {
+        "id": "session-1", "release_id": "release-1",
+        "status": "in_progress", "objective_limit": 1,
+        "class_assignment_item_id": "item-1",
+    }
+    blocked = service.HTTPException(409, "assignment closed")
+    monkeypatch.setattr(service, "_session", lambda *_: session)
+    monkeypatch.setattr(service, "_require_session_accepting", lambda *_: (_ for _ in ()).throw(blocked))
+    monkeypatch.setattr(service, "supabase_admin", _RowsDb({
+        "grammar_diagnostic_responses": [],
+        "grammar_diagnostic_reports": [],
+    }))
+    monkeypatch.setattr(service, "_content", lambda *_: {
+        "by_id": {"Q-1": {"options": ["A", "B"]}},
+    })
+
+    for operation in (
+        lambda: service.next_item("u-1", "session-1"),
+        lambda: service.record_response(
+            "u-1", "session-1", item_id="Q-1", selected_option=0,
+            response_time_ms=100, assistance_used=False,
+        ),
+        lambda: service.finalize_session("u-1", "session-1"),
+    ):
+        with pytest.raises(service.HTTPException) as caught:
+            operation()
+        assert caught.value.status_code == 409
+
+
+def test_identical_response_retry_returns_canonical_progress(monkeypatch):
+    persisted = {
+        "item_id": "Q-1", "selected_option": 1,
+        "assistance_used": False, "response_time_ms": 1200,
+    }
+    monkeypatch.setattr(service, "supabase_admin", _RowsDb({
+        "grammar_diagnostic_responses": [persisted],
+    }))
+    monkeypatch.setattr(service, "_session", lambda *_: {
+        "id": "session-1", "release_id": "release-1",
+        "status": "completed", "objective_limit": 1,
+    })
+    monkeypatch.setattr(service, "_content", lambda *_: {
+        "by_id": {"Q-1": {"options": ["A", "B"]}},
+    })
+    monkeypatch.setattr(service, "_responses", lambda *_: [persisted])
+
+    result = service.record_response(
+        "u-1", "session-1", item_id="Q-1", selected_option=1,
+        response_time_ms=2400, assistance_used=False,
+    )
+    assert result == {
+        "accepted": True, "complete": True, "answered": 1,
+        "remaining": 0, "feedback_available": True,
+    }
+    with pytest.raises(service.HTTPException) as conflict:
+        service.record_response(
+            "u-1", "session-1", item_id="Q-1", selected_option=0,
+            response_time_ms=2400, assistance_used=False,
+        )
+    assert conflict.value.status_code == 409
+
+
 def test_assigned_session_creation_returns_concurrent_winner(monkeypatch):
     winner = {
         "id": "session-winner", "user_id": "u-1", "release_id": "release-1",
@@ -179,6 +297,32 @@ def test_assigned_session_creation_returns_concurrent_winner(monkeypatch):
         class_assignment_item_id="item-1",
     )
     assert result["id"] == "session-winner"
+
+
+def test_migration_guards_evidence_and_finalization_under_assignment_lock():
+    migration = (
+        Path(__file__).parents[1]
+        / "migrations"
+        / "283_master30_grammar_diagnostic.sql"
+    ).read_text()
+    assert "grammar_exposure_assignment_gate" in migration
+    assert "grammar_response_assignment_gate" in migration
+    assert migration.count("PERFORM assert_grammar_assignment_accepting") >= 2
+    assert "grammar_assignment_not_accepting" in migration
+    assert "FROM grammar_diagnostic_sessions WHERE id = p_session_id\n      FOR UPDATE" in migration
+    assert "v_now := clock_timestamp()" in migration
+
+
+def test_diagnostic_routes_publish_concrete_response_models():
+    from routers import admin_grammar_diagnostic, grammar_diagnostic
+
+    routes = [
+        *grammar_diagnostic.router.routes,
+        *admin_grammar_diagnostic.router.routes,
+    ]
+    diagnostic = [route for route in routes if "grammar" in route.path]
+    assert diagnostic
+    assert all(getattr(route, "response_model", None) is not None for route in diagnostic)
 
 
 def test_m14_route_uses_observed_subdomain():

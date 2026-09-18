@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
+import type { ApiGetJson } from '@/lib/openapi-contract';
 
-type Priority = { route_id: string | null; attribute_id: string; title: string; observed_pattern: string; risk: string; next_action: string; contrast_example: string; lesson_sources: string; exit_condition: string };
-type Report = { session_id: string; priorities: Priority[]; productive_note: string };
+type Report = ApiGetJson<'/api/grammar/diagnostics/sessions/{session_id}/report'>;
+type Priority = Report['priorities'][number];
 
 export function ReviewRoute() {
   const routeId = String(useParams()?.routeId || '');

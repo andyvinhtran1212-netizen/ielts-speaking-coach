@@ -12306,7 +12306,7 @@ export interface components {
             /** Questions */
             questions: components["schemas"]["SessionQuestion"][];
             /** Responses */
-            responses: components["schemas"]["SessionResponse"][];
+            responses: components["schemas"]["models__session_contracts__SessionResponse"][];
         } & {
             [key: string]: unknown;
         };
@@ -12743,6 +12743,25 @@ export interface components {
             attempt_id: string;
             response: components["schemas"]["LearnerAnswer"];
         };
+        /** AttributeEvidenceResponse */
+        AttributeEvidenceResponse: {
+            /** State */
+            state: string;
+            /** Independent Items */
+            independent_items: number;
+            /** Correct */
+            correct: number;
+            /** Incorrect */
+            incorrect: number;
+            /** Process Facets */
+            process_facets: string[];
+            /** Dominant Process Facets */
+            dominant_process_facets: string[];
+            /** Assisted Evidence Excluded */
+            assisted_evidence_excluded: number;
+            /** Item Ids */
+            item_ids: string[];
+        };
         /**
          * AuditRunRequest
          * @description Optional client identity for a paid/non-idempotent full audit run.
@@ -12891,6 +12910,11 @@ export interface components {
             weekly_goal: number;
             /** Notification Email */
             notification_email: boolean;
+        };
+        /** AvailabilityResponse */
+        AvailabilityResponse: {
+            /** Assigned Only */
+            assigned_only: boolean;
         };
         /**
          * BackfillBody
@@ -13883,6 +13907,52 @@ export interface components {
                 [key: string]: number;
             } | null;
         };
+        /** EducatorReportResponse */
+        EducatorReportResponse: {
+            /** Profile Kind */
+            profile_kind: string;
+            /** Calibration */
+            calibration: string;
+            /** Calibration Note */
+            calibration_note: string;
+            /**
+             * Test Length
+             * @enum {string}
+             */
+            test_length: "QUICK" | "FULL";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "ENTRY" | "REVIEW";
+            /**
+             * Module
+             * @enum {string}
+             */
+            module: "GENERAL" | "ACADEMIC";
+            /** Priorities */
+            priorities: components["schemas"]["PriorityResponse"][];
+            /** Strengths */
+            strengths: components["schemas"]["StrengthResponse"][];
+            /** Insufficient Evidence */
+            insufficient_evidence: components["schemas"]["InsufficientEvidenceResponse"][];
+            /** Productive Note */
+            productive_note: string;
+            /** Session Id */
+            session_id: string;
+            /** Created At */
+            created_at?: string | null;
+            /** Attribute Evidence */
+            attribute_evidence: {
+                [key: string]: components["schemas"]["AttributeEvidenceResponse"];
+            };
+            /** Objective Items */
+            objective_items: number;
+            /** Correct Items */
+            correct_items: number;
+            /** Release Id */
+            release_id: string;
+        };
         /** EndSessionBody */
         EndSessionBody: {
             /** Duration Sec */
@@ -13948,6 +14018,13 @@ export interface components {
             extra?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** EvidenceStatus */
+        EvidenceStatus: {
+            /** Independent Items */
+            independent_items: number;
+            /** Assisted Excluded */
+            assisted_excluded: number;
         };
         /** ExamAnswer */
         ExamAnswer: {
@@ -14527,6 +14604,39 @@ export interface components {
             left: components["schemas"]["GrammarSourceArticleDocument"];
             right: components["schemas"]["GrammarSourceArticleDocument"];
         };
+        /** GrammarDiagnosticCatalogEntry */
+        GrammarDiagnosticCatalogEntry: {
+            /** Id */
+            id: string;
+            /** Code */
+            code: string;
+            /** Title */
+            title: string;
+            /** Part */
+            part?: null;
+            /** Lesson No */
+            lesson_no?: null;
+            /** Ready */
+            ready: boolean;
+            /** Already Given */
+            already_given: boolean;
+            /** Reason */
+            reason?: string | null;
+            /** Exam Only */
+            exam_only: boolean;
+            /** Cohort Ids */
+            cohort_ids: string[];
+            /** Explanation Ready */
+            explanation_ready: boolean;
+            /** Explanation State */
+            explanation_state: string;
+            /** Explanation Count */
+            explanation_count?: number | null;
+            /** Explanation Ready Count */
+            explanation_ready_count?: number | null;
+            /** Runtime */
+            runtime: string;
+        };
         /** GrammarGroup */
         GrammarGroup: {
             /** Slug */
@@ -14872,6 +14982,13 @@ export interface components {
          * @enum {string}
          */
         InstructorReviewStatus: "queued" | "claimed" | "edited" | "delivered" | "released";
+        /** InsufficientEvidenceResponse */
+        InsufficientEvidenceResponse: {
+            /** Attribute Id */
+            attribute_id: string;
+            /** Title */
+            title: string;
+        };
         /**
          * IntegrityBody
          * @description Absolute running totals from the runner, not deltas — the client keeps
@@ -14895,6 +15012,23 @@ export interface components {
             /** Offline Events */
             offline_events?: unknown | null;
         };
+        /** ItemResponse */
+        ItemResponse: {
+            /** Item Id */
+            item_id: string;
+            /** Prompt */
+            prompt: string;
+            /** Options */
+            options: string[];
+            /** Phase */
+            phase: string;
+            /** Ordinal */
+            ordinal: number;
+            /** Total */
+            total: number;
+            /** Translation Available */
+            translation_available: boolean;
+        };
         /** KpRef */
         KpRef: {
             /** Type */
@@ -14908,6 +15042,74 @@ export interface components {
         LearnerAnswer: {
             /** Answer */
             answer: string;
+        };
+        /** LearnerReportResponse */
+        LearnerReportResponse: {
+            /** Profile Kind */
+            profile_kind: string;
+            /** Calibration */
+            calibration: string;
+            /** Calibration Note */
+            calibration_note: string;
+            /**
+             * Test Length
+             * @enum {string}
+             */
+            test_length: "QUICK" | "FULL";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "ENTRY" | "REVIEW";
+            /**
+             * Module
+             * @enum {string}
+             */
+            module: "GENERAL" | "ACADEMIC";
+            /** Priorities */
+            priorities: components["schemas"]["PriorityResponse"][];
+            /** Strengths */
+            strengths: components["schemas"]["StrengthResponse"][];
+            /** Insufficient Evidence */
+            insufficient_evidence: components["schemas"]["InsufficientEvidenceResponse"][];
+            /** Productive Note */
+            productive_note: string;
+            /** Session Id */
+            session_id: string;
+            /** Created At */
+            created_at?: string | null;
+        };
+        /** LearnerReportSnapshotResponse */
+        LearnerReportSnapshotResponse: {
+            /** Profile Kind */
+            profile_kind: string;
+            /** Calibration */
+            calibration: string;
+            /** Calibration Note */
+            calibration_note: string;
+            /**
+             * Test Length
+             * @enum {string}
+             */
+            test_length: "QUICK" | "FULL";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "ENTRY" | "REVIEW";
+            /**
+             * Module
+             * @enum {string}
+             */
+            module: "GENERAL" | "ACADEMIC";
+            /** Priorities */
+            priorities: components["schemas"]["PriorityResponse"][];
+            /** Strengths */
+            strengths: components["schemas"]["StrengthResponse"][];
+            /** Insufficient Evidence */
+            insufficient_evidence: components["schemas"]["InsufficientEvidenceResponse"][];
+            /** Productive Note */
+            productive_note: string;
         };
         /** LemmaOverridePayload */
         LemmaOverridePayload: {
@@ -15207,6 +15409,13 @@ export interface components {
              */
             release_now: boolean;
         };
+        /** NextItemResponse */
+        NextItemResponse: {
+            /** Complete */
+            complete: boolean;
+            item?: components["schemas"]["ItemResponse"] | null;
+            session?: components["schemas"]["routers__grammar_diagnostic__SessionResponse"] | null;
+        };
         /** ObservationCounts */
         ObservationCounts: {
             /**
@@ -15477,6 +15686,32 @@ export interface components {
             filter_config?: {
                 [key: string]: unknown;
             };
+        };
+        /** PriorityResponse */
+        PriorityResponse: {
+            /** Attribute Id */
+            attribute_id: string;
+            /** Title */
+            title: string;
+            /** State */
+            state: string;
+            /** Confidence Label */
+            confidence_label: string;
+            /** Observed Pattern */
+            observed_pattern: string;
+            /** Risk */
+            risk: string;
+            /** Next Action */
+            next_action: string;
+            /** Contrast Example */
+            contrast_example: string;
+            /** Route Id */
+            route_id?: string | null;
+            /** Lesson Sources */
+            lesson_sources: string;
+            /** Exit Condition */
+            exit_condition: string;
+            evidence_status: components["schemas"]["EvidenceStatus"];
         };
         /** ProfileUpdate */
         ProfileUpdate: {
@@ -15885,6 +16120,19 @@ export interface components {
              */
             channel: string;
         };
+        /** ResponseAccepted */
+        ResponseAccepted: {
+            /** Accepted */
+            accepted: boolean;
+            /** Complete */
+            complete: boolean;
+            /** Answered */
+            answered: number;
+            /** Remaining */
+            remaining: number;
+            /** Feedback Available */
+            feedback_available: boolean;
+        };
         /** ResponseCreate */
         ResponseCreate: {
             /** Item Id */
@@ -16030,7 +16278,7 @@ export interface components {
             /** Questions */
             questions: components["schemas"]["SessionQuestion"][];
             /** Responses */
-            responses: components["schemas"]["SessionResponse"][];
+            responses: components["schemas"]["models__session_contracts__SessionResponse"][];
             /** Response Receipts */
             response_receipts: components["schemas"]["SessionResponseReceipt"][];
             /** Question Lookup Failed */
@@ -16042,6 +16290,11 @@ export interface components {
             class_task?: components["schemas"]["SessionClassTask"] | null;
         } & {
             [key: string]: unknown;
+        };
+        /** SessionListResponse */
+        SessionListResponse: {
+            /** Sessions */
+            sessions: components["schemas"]["routers__grammar_diagnostic__SessionResponse"][];
         };
         /** SessionPageResponse */
         SessionPageResponse: {
@@ -16081,51 +16334,6 @@ export interface components {
             listen_only?: boolean | null;
             /** Audio Url */
             audio_url?: string | null;
-        } & {
-            [key: string]: unknown;
-        };
-        /** SessionResponse */
-        SessionResponse: {
-            /** Id */
-            id: string;
-            /** Session Id */
-            session_id?: string | null;
-            /** Question Id */
-            question_id: string;
-            /** Transcript */
-            transcript?: string | null;
-            /** Feedback */
-            feedback?: {
-                [key: string]: unknown;
-            } | string | null;
-            /** Overall Band */
-            overall_band?: number | null;
-            /** Final Band P */
-            final_band_p?: number | null;
-            /** Final Overall Band */
-            final_overall_band?: number | null;
-            /** Grading Status */
-            grading_status?: string | null;
-            /** Stt Status */
-            stt_status?: string | null;
-            /** Persisted At */
-            persisted_at?: string | null;
-            /** Duration Seconds */
-            duration_seconds?: number | null;
-            /** Audio Url */
-            audio_url?: string | null;
-            /** Audio Playback Url */
-            audio_playback_url?: string | null;
-            /**
-             * Audio Available
-             * @default false
-             */
-            audio_available: boolean;
-            /**
-             * Audio Lookup Failed
-             * @default false
-             */
-            audio_lookup_failed: boolean;
         } & {
             [key: string]: unknown;
         };
@@ -16325,6 +16533,17 @@ export interface components {
         StatusIn: {
             /** Status */
             status: string;
+        };
+        /** StrengthResponse */
+        StrengthResponse: {
+            /** Attribute Id */
+            attribute_id: string;
+            /** Title */
+            title: string;
+            /** State */
+            state: string;
+            /** Independent Items */
+            independent_items: number;
         };
         /** SubmitBody */
         SubmitBody: {
@@ -17023,6 +17242,51 @@ export interface components {
             /** Answers */
             answers?: components["schemas"]["_SubmitAnswerItem"][];
         };
+        /** SessionResponse */
+        models__session_contracts__SessionResponse: {
+            /** Id */
+            id: string;
+            /** Session Id */
+            session_id?: string | null;
+            /** Question Id */
+            question_id: string;
+            /** Transcript */
+            transcript?: string | null;
+            /** Feedback */
+            feedback?: {
+                [key: string]: unknown;
+            } | string | null;
+            /** Overall Band */
+            overall_band?: number | null;
+            /** Final Band P */
+            final_band_p?: number | null;
+            /** Final Overall Band */
+            final_overall_band?: number | null;
+            /** Grading Status */
+            grading_status?: string | null;
+            /** Stt Status */
+            stt_status?: string | null;
+            /** Persisted At */
+            persisted_at?: string | null;
+            /** Duration Seconds */
+            duration_seconds?: number | null;
+            /** Audio Url */
+            audio_url?: string | null;
+            /** Audio Playback Url */
+            audio_playback_url?: string | null;
+            /**
+             * Audio Available
+             * @default false
+             */
+            audio_available: boolean;
+            /**
+             * Audio Lookup Failed
+             * @default false
+             */
+            audio_lookup_failed: boolean;
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * AssignmentCreate
          * @description Speaking (a topic + mode) or Reading/Listening (a published paper).
@@ -17183,6 +17447,42 @@ export interface components {
             rating: string;
             /** Client Review Id */
             client_review_id?: string | null;
+        };
+        /** SessionResponse */
+        routers__grammar_diagnostic__SessionResponse: {
+            /** Id */
+            id: string;
+            /** Status */
+            status: string;
+            /** Phase */
+            phase: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "ENTRY" | "REVIEW";
+            /**
+             * Module
+             * @enum {string}
+             */
+            module: "GENERAL" | "ACADEMIC";
+            /**
+             * Test Length
+             * @enum {string}
+             */
+            test_length: "QUICK" | "FULL";
+            /** Objective Limit */
+            objective_limit: number;
+            /** Answered */
+            answered: number;
+            /** Remaining */
+            remaining: number;
+            /** Class Assignment Item Id */
+            class_assignment_item_id?: string | null;
+            /** Calibration */
+            calibration: string;
+            /** Live Calibrated Ready */
+            live_calibrated_ready: boolean;
         };
         /**
          * AssignBody
@@ -26550,7 +26850,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AvailabilityResponse"];
                 };
             };
             /** @description Validation Error */
@@ -26581,7 +26881,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SessionListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -26616,7 +26916,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["routers__grammar_diagnostic__SessionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -26649,7 +26949,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["routers__grammar_diagnostic__SessionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -26682,7 +26982,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NextItemResponse"];
                 };
             };
             /** @description Validation Error */
@@ -26719,7 +27019,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ResponseAccepted"];
                 };
             };
             /** @description Validation Error */
@@ -26752,7 +27052,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LearnerReportSnapshotResponse"];
                 };
             };
             /** @description Validation Error */
@@ -26785,7 +27085,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LearnerReportResponse"];
                 };
             };
             /** @description Validation Error */
@@ -26816,7 +27116,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["GrammarDiagnosticCatalogEntry"][];
                 };
             };
             /** @description Validation Error */
@@ -26849,7 +27149,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["EducatorReportResponse"];
                 };
             };
             /** @description Validation Error */

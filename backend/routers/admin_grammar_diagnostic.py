@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Header
+from pydantic import BaseModel
 
 from routers.admin import require_admin
+from routers.grammar_diagnostic import EducatorReportResponse
 from services import grammar_diagnostic_service as service
 from services import runtime_flags
 from database import supabase_admin
@@ -13,8 +15,28 @@ from database import supabase_admin
 router = APIRouter(prefix="/admin/grammar-diagnostic", tags=["admin", "grammar-diagnostic"])
 
 
-@router.get("/catalog")
-async def catalog(authorization: str | None = Header(default=None)):
+class GrammarDiagnosticCatalogEntry(BaseModel):
+    id: str
+    code: str
+    title: str
+    part: None = None
+    lesson_no: None = None
+    ready: bool
+    already_given: bool
+    reason: str | None = None
+    exam_only: bool
+    cohort_ids: list[str]
+    explanation_ready: bool
+    explanation_state: str
+    explanation_count: int | None = None
+    explanation_ready_count: int | None = None
+    runtime: str
+
+
+@router.get("/catalog", response_model=list[GrammarDiagnosticCatalogEntry])
+async def catalog(
+    authorization: str | None = Header(default=None),
+) -> list[GrammarDiagnosticCatalogEntry]:
     await require_admin(authorization)
     enabled = runtime_flags.is_enabled("master30_grammar_diagnostic", default=False)
     releases = (
@@ -46,7 +68,10 @@ async def catalog(authorization: str | None = Header(default=None)):
     ]
 
 
-@router.get("/sessions/{session_id}/report")
-async def report(session_id: str, authorization: str | None = Header(default=None)):
+@router.get("/sessions/{session_id}/report", response_model=EducatorReportResponse)
+async def report(
+    session_id: str,
+    authorization: str | None = Header(default=None),
+) -> EducatorReportResponse:
     await require_admin(authorization)
     return service.educator_report(session_id)

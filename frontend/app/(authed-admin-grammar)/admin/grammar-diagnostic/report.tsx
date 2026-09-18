@@ -2,15 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import type { ApiGetJson } from '@/lib/openapi-contract';
 
-type Evidence = { state: string; independent_items: number; correct: number; incorrect: number; process_facets: string[]; assisted_evidence_excluded: number };
-type Report = {
-  session_id: string; test_length: string; mode: string; module: string;
-  objective_items: number; correct_items: number; calibration_note: string;
-  priorities: Array<{ attribute_id: string; title: string; state: string; observed_pattern: string; next_action: string; route_id: string | null }>;
-  strengths: Array<{ attribute_id: string; title: string; state: string }>;
-  attribute_evidence: Record<string, Evidence>;
-};
+type Report = ApiGetJson<'/admin/grammar-diagnostic/sessions/{session_id}/report'>;
 
 export function GrammarDiagnosticReport() {
   const session = useSearchParams()?.get('session') || '';

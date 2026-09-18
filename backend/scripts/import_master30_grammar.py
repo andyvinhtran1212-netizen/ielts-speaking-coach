@@ -23,6 +23,20 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 supabase_admin = None
 
+APPROVED_MANIFEST_SHA256 = "86a55dc1c3a8e5221eef9daa4772404f358ebb8f87c1284224e5197f58dbe531"
+APPROVED_COUNTS = {
+    "lessons": 30,
+    "combined_inventory": 3338,
+    "unique_runtime_items": 733,
+    "productive_tasks": 19,
+    "remediation_routes": 16,
+    "misconceptions": 14,
+    "pool_operational": 280,
+    "pool_entry": 213,
+    "pool_confirmation": 231,
+    "pool_holdout": 222,
+}
+
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -53,6 +67,35 @@ def _lesson_refs(item: dict[str, Any], qrow: dict[str, Any]) -> list[str]:
     """
     raw = str(item.get("lesson_id") or qrow.get("bank_id") or "")
     return [value.strip() for value in raw.replace(",", ";").split(";") if value.strip()]
+
+
+def _enforce_approved_release(
+    *,
+    manifest_sha256: str,
+    checks: dict[str, int],
+    route_count: int,
+    misconception_count: int,
+    pool_counts: dict[str, int],
+) -> None:
+    """Reject any self-consistent package that is not the owner-approved release."""
+    if manifest_sha256 != APPROVED_MANIFEST_SHA256:
+        raise ValueError(
+            "unapproved MASTER30 manifest: "
+            f"{manifest_sha256} != {APPROVED_MANIFEST_SHA256}"
+        )
+    observed = {
+        **checks,
+        "remediation_routes": route_count,
+        "misconceptions": misconception_count,
+        **pool_counts,
+    }
+    mismatches = {
+        key: (observed.get(key), expected)
+        for key, expected in APPROVED_COUNTS.items()
+        if observed.get(key) != expected
+    }
+    if mismatches:
+        raise ValueError(f"approved MASTER30 count mismatch: {mismatches}")
 
 
 def validate_package(root: Path) -> dict[str, Any]:
@@ -167,6 +210,15 @@ def validate_package(root: Path) -> dict[str, Any]:
             raise ValueError(f"count mismatch for {role}")
 
     manifest_sha = _sha256(manifest_path)
+    _enforce_approved_release(
+        manifest_sha256=manifest_sha,
+        checks=checks,
+        route_count=len(routes.get("items") or []),
+        misconception_count=len(misconceptions.get("items") or []),
+        pool_counts={
+            f"pool_{role}": len(values) for role, values in role_sets.items()
+        },
+    )
     return {
         "manifest": manifest,
         "manifest_sha256": manifest_sha,
