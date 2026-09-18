@@ -11,7 +11,7 @@ từng lần gọi. Hóa đơn của nhà cung cấp vẫn là nguồn sự th�
 
 | Luồng | Chốt sau audit | Lý do |
 |---|---|---|
-| Speaking grading chính | `gemini-3.5-flash` | Giữ nguyên hành vi chấm hiện tại |
+| Speaking grading chính | `gemini-3.8-flash` | Rollout theo quyết định 2026-09-18; flip lại `gemini-3.5-flash` bằng biến môi trường nếu feedback xấu |
 | Speaking fallback nhanh | `claude-haiku-4-5-20251001` | Giữ nguyên |
 | Speaking fallback cuối | `claude-sonnet-5` | Nâng cùng dòng; request không gửi temperature và tắt thinking cho JSON xác định |
 | Writing grading | `gemini-2.5-pro` mặc định | Chưa thay baseline chấm; 3.8 Flash chỉ thêm lựa chọn để A/B |
@@ -57,6 +57,16 @@ giữ cấu hình sampling hiện tại cho đến khi có A/B riêng.
   giảm và tiêu chí chi phí/độ trễ đạt ngưỡng đã chốt.
 - **STT:** `gpt-transcribe` phải qua A/B cho accent IELTS và kiểm chứng duration,
   reliability, word timestamp. Nếu thiếu signal, giữ `whisper-1`.
+
+## Theo dõi rollout Speaking 3.8
+
+- Nguồn feedback: rating/note của người dùng, report/regrade của admin và
+  `grading_events`/AI usage ledger theo model thực tế.
+- Theo dõi hằng ngày: tỷ lệ JSON/schema fail, retry/fallback, latency p50/p95,
+  chi phí/câu trả lời, rating trung bình và tỷ lệ yêu cầu regrade.
+- Flip lại ngay khi có lỗi hệ thống lặp lại, schema success suy giảm rõ rệt,
+  hoặc feedback cho thấy chấm sai band/false-positive tăng. Cách rollback:
+  `SPEAKING_GRADING_MODEL=gemini-3.5-flash`, restart backend; không rollback ledger.
 
 ## Kiểm chứng và rollback
 

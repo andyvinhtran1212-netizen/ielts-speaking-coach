@@ -58,11 +58,12 @@ class Settings(BaseSettings):
     # (Haiku → Sonnet) and the off-topic judge + grammar-check stay on Haiku.
     #   * "gemini-*"                  → routed to the Gemini provider
     #   * "claude-*" / "anthropic-*"  → routed to the Claude provider
-    # Default: Gemini 3.5 Flash (GA) — stronger reasoning than Haiku for IELTS
-    # calibration, ~$1.50/$9.00 per 1M. Chosen over the cheaper gemini-3-flash-
-    # preview for stability (GA, not a preview that Google may change/deprecate).
+    # Default: Gemini 3.8 Flash (GA). The rollout is intentionally reversible:
+    # set SPEAKING_GRADING_MODEL=gemini-3.5-flash to flip the primary grader
+    # back without a code deploy. Gemini 3.8 rejects legacy sampling controls;
+    # GeminiProvider applies the shared request-shape compatibility guard.
     # Empty string → fall back to the legacy Haiku-first chain. Needs GEMINI_API_KEY.
-    SPEAKING_GRADING_MODEL: str = "gemini-3.5-flash"
+    SPEAKING_GRADING_MODEL: str = "gemini-3.8-flash"
 
     # LISTENING_AUDIT_MODEL — the LLM used by the listening content-audit pass
     # (answer-in-script / solution-consistency / prompt-clarity). Routes by the
