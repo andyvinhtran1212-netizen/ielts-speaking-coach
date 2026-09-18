@@ -68,11 +68,43 @@ export type HomeworkDraft = {
   studentIds: string[];
   passPct: string;
   retakeSize: string;
+  completionMode: 'mastery' | 'single_attempt';
   timeLimitMinutes: string;
   deliveryMode: 'standard' | 'assigned_practice';
   webExplanationMode: 'disabled' | 'immediate_after_capture' | 'admin_release';
   postTestCaptureRequired: boolean;
   error: string;
+};
+
+export type CourseBankPreviewQuestion = {
+  qid: string;
+  order: number;
+  type: string;
+  subtype: string | null;
+  item_key: string | null;
+  prompt: string;
+  options: string[];
+  answer: number | string | string[] | null;
+  explanation: string | null;
+  why_wrong: Record<string, string>;
+  audio_url: string | null;
+  counts_toward_mastery: boolean;
+};
+
+export type CourseBankPreview = {
+  bank_id: string;
+  code: string | null;
+  title: string;
+  lesson_no: number | null;
+  runtime: string | null;
+  revision: string;
+  summary: {
+    question_count: number;
+    assessable_count: number;
+    audio_count: number;
+    type_counts: Record<string, number>;
+  };
+  questions: CourseBankPreviewQuestion[];
 };
 
 export type DueDraft = {

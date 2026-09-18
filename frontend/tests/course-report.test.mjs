@@ -250,6 +250,23 @@ describe('bảng session & revision', () => {
     assert.match(html, /80% · ngưỡng đạt 75%/);
   });
 
+  test('bài một lượt hiện phần trăm và lời giải nhưng không bịa ngưỡng đạt', () => {
+    const payload = data([Q({ is_correct: false })], { answered: 1, correct: 0 });
+    payload.summary = {
+      completion_mode: 'single_attempt', latest_pct: 42,
+      latest_action: 'completed', pass_pct: null,
+    };
+    const html = renderReport(payload, {
+      learner: true,
+      verdict: { result_only: true, next_action: 'completed', pct: 42, passed: null },
+    });
+    assert.match(html, /Đã hoàn thành — xem lại từng câu/);
+    assert.match(html, /Kết quả một lượt/);
+    assert.match(html, /cr-review-list/);
+    assert.doesNotMatch(html, /ngưỡng đạt/);
+    assert.doesNotMatch(html, /Đã đạt —/);
+  });
+
   test('lượt chưa đủ phần không bịa phần trăm hay kết luận đã ghi nhận', () => {
     const html = renderAttemptHistory([{
       number: 1, phase: 'run', completed: false, pct: null,

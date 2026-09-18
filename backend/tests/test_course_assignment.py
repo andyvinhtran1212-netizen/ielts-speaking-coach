@@ -98,6 +98,7 @@ def test_a_valid_bank_freezes_weight_shape_without_copying_questions():
         "weight_policy": "hybrid_question_count_v1",
         "section_counts": {"quiz": 1},
         "section_weights": {"quiz": 100.0},
+        "completion_mode": "mastery",
         "bank_revision": "rev-1",
     }
     assert "questions" not in cfg and "question_ids" not in cfg
@@ -113,6 +114,33 @@ def test_advanced_vocabulary_freezes_runtime_and_ignores_grade_controls():
     assert cfg["runtime"] == runtime
     assert "pass_pct" not in cfg
     assert "retake_size" not in cfg
+
+
+def test_single_attempt_freezes_terminal_policy_without_mastery_controls():
+    _, cfg = _resolve(
+        _full(),
+        _body(
+            completion_mode="single_attempt",
+            pass_pct=75,
+            retake_size=20,
+            time_limit_minutes=45,
+        ),
+    )
+    assert cfg["completion_mode"] == "single_attempt"
+    assert cfg["time_limit_minutes"] == 45
+    assert "pass_pct" not in cfg
+    assert "retake_size" not in cfg
+
+
+def test_advanced_vocabulary_rejects_generic_single_attempt_mode():
+    bank = {**_BANK, "meta": {"runtime": {"kind": "advanced_vocab"}}}
+    with pytest.raises(HTTPException) as caught:
+        _resolve(
+            _full(quiz_banks=[bank]),
+            _body(completion_mode="single_attempt"),
+        )
+    assert caught.value.status_code == 400
+    assert "self-paced" in str(caught.value.detail)
 
 
 def test_advanced_vocabulary_syllable_segments_do_not_break_audio_readiness():
@@ -427,6 +455,49 @@ async def test_the_library_exposes_the_advanced_vocabulary_runtime():
          patch.object(adm, "require_admin", new=lambda *_a, **_k: _async({"id": "ad"})):
         out = await adm.list_course_banks("co-1", authorization="Bearer x")
     assert out["items"][0]["runtime"] == "advanced_vocab"
+
+
+@pytest.mark.asyncio
+async def test_admin_preview_reads_canonical_course_questions_in_order():
+    db = _db(
+        cohorts=[_COHORT],
+        quiz_banks=[{**_BANK, "meta": {}}],
+        quiz_questions=[
+            {
+                "bank_id": "bank-1", "qid": "q-2", "order": 2,
+                "type": "mcq", "subtype": "B1", "item_key": "verbs",
+                "prompt": "Choose two", "options": ["x", "y"],
+                "answer": 1, "explain": "Because two.",
+                "why_wrong": {"0": "Not x"}, "audio_url": None,
+                "counts_toward_mastery": True,
+            },
+            {
+                "bank_id": "bank-1", "qid": "q-1", "order": 1,
+                "type": "mcq", "subtype": "A1", "item_key": "nouns",
+                "prompt": "Choose one", "options": ["a", "b"],
+                "answer": 0, "explain": "Because one.",
+                "why_wrong": {}, "audio_url": "https://audio.invalid/q1.mp3",
+                "counts_toward_mastery": True,
+            },
+        ],
+    )
+    with patch.object(adm, "supabase_admin", db), \
+         patch.object(adm, "_course_bank_assignment_revision", return_value="rev-preview"), \
+         patch.object(adm, "require_admin", new=lambda *_a, **_k: _async({"id": "ad"})):
+        out = await adm.preview_course_bank(
+            "co-1", "bank-1", authorization="Bearer x",
+        )
+
+    assert out["revision"] == "rev-preview"
+    assert out["summary"] == {
+        "question_count": 2,
+        "assessable_count": 2,
+        "audio_count": 1,
+        "type_counts": {"mcq": 2},
+    }
+    assert [row["qid"] for row in out["questions"]] == ["q-1", "q-2"]
+    assert out["questions"][0]["answer"] == 0
+    assert out["questions"][0]["explanation"] == "Because one."
 
 
 @pytest.mark.asyncio

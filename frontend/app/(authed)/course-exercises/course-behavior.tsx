@@ -323,6 +323,22 @@ export function CourseBehavior() {
         const res = runner.answer(picked);
         if (!res) return;
         setSaveState(runner.sessionFailed ? 'error' : 'saving');
+        if (res.sealed) {
+          document.querySelectorAll('.cx-opt').forEach((node) => {
+            const el = node as HTMLButtonElement;
+            el.disabled = true;
+            const selected = Number(el.dataset.i) === picked;
+            el.dataset.r = selected ? 'selected' : 'off';
+            if (selected) el.insertAdjacentHTML('beforeend', '<span class="cx-opt__state">Đã chọn</span>');
+          });
+          $('cx-why')!.innerHTML = '<div class="cx-answer-summary is-sealed">'
+            + '<div><strong>Đã ghi nhận lựa chọn</strong>'
+            + '<span>Đáp án và giải thích sẽ mở sau khi bạn nộp toàn bộ bài.</span></div></div>';
+          $('cx-next')!.innerHTML =
+            '<button class="av-button av-button-primary" id="cx-go" type="button">Câu tiếp</button>';
+          renderStage();
+          return;
+        }
         document.querySelectorAll('.cx-opt').forEach((node) => {
           const el = node as HTMLButtonElement;
           el.disabled = true;
@@ -387,7 +403,22 @@ export function CourseBehavior() {
         const accuracy = res.graded ? Math.round((res.right / res.graded) * 100) : 0;
         const sessionName = runner.mode === 'retake'
           ? `Revision · lần ${runner.retakeNo}` : `Chặng ${runner.stage + 1}`;
-        $('cx-done')!.innerHTML =
+        $('cx-done')!.innerHTML = res.sealed
+          ? '<section class="cx-session-summary is-sealed">'
+            + '<header class="cx-session-summary__head"><div>'
+            + '<p class="cx-eyebrow">Đã lưu tiến độ</p>'
+            + `<h2>${esc(sessionName)} đã hoàn thành</h2>`
+            + `<p>${res.persisted ? 'Các lựa chọn đã được lưu. Kết quả chỉ mở sau khi bạn nộp toàn bộ bài.' : 'Các lựa chọn chưa được lưu lên hệ thống.'}</p>`
+            + `</div><div class="cx-done__score">${res.graded}<small> câu</small></div></header></section>`
+            + (res.persisted ? ''
+              : '<p class="cx-empty">Chưa gửi được kết quả chặng này lên hệ thống — bài làm vẫn còn nguyên ở đây. '
+                + esc(res.error || 'Kiểm tra kết nối rồi gửi lại.') + '</p>'
+                + '<div class="cx-next cx-next--inline"><button class="av-button av-button-primary" id="cx-resend" type="button">Gửi lại kết quả chặng</button></div>')
+            + (!res.persisted ? '' : res.hasMore
+              ? '<div class="cx-next cx-next--inline">'
+                + `<button class="av-button av-button-primary" id="cx-more" type="button">Làm chặng ${runner.stage + 2}</button></div>`
+              : '<div id="cx-verdict"></div>')
+          :
           '<section class="cx-session-summary">'
           + '<header class="cx-session-summary__head"><div>'
           + '<p class="cx-eyebrow">Tổng kết session</p>'
@@ -522,7 +553,7 @@ export function CourseBehavior() {
         // mới là em cần biết mình yếu chỗ nào nhất; khoá cả hai mức là sai
         // chiều (bản #964 khoá cả hai).
         const seeReport = '<button class="av-button av-button-secondary" id="cx-see-report" type="button">'
-          + (v.passed ? 'Tự review từng câu' : 'Xem mình yếu trục nào')
+          + (v.passed || v.result_only ? 'Tự review từng câu' : 'Xem mình yếu trục nào')
           + '</button>';
         const history = CR.renderAttemptHistory(v.history || []);
         const sectionCeiling = v.retry_reason === 'section_ceiling';
@@ -555,7 +586,18 @@ export function CourseBehavior() {
             + '</div>' + history + '</div></div>';
           return;
         }
-        if (v.passed) {
+        if (v.result_only && v.next_action === 'completed') {
+          box.innerHTML = '<div class="cx-verdict" data-v="completed">'
+            + '<div class="cx-verdict__hero"><div>'
+            + '<p class="cx-verdict__eyebrow">Đã hoàn thành</p>'
+            + '<p class="cx-verdict__title">Kết quả một lượt của bạn đã được ghi nhận</p>'
+            + '<p class="cx-verdict__sub">Bài này không có lượt làm lại. Bạn có thể xem đáp án và giải thích ngay bên dưới.</p>'
+            + `</div><div class="cx-verdict__score">${v.pct}%</div></div>`
+            + '<div class="cx-verdict__body"><div class="cx-verdict__actions">'
+            + seeReport + more + readMore + listenMore + pronunciationMore
+            + '</div>' + history + '</div></div>';
+          void showReport({ scroll: false });
+        } else if (v.passed) {
           box.innerHTML = '<div class="cx-verdict" data-v="pass">'
             + '<div class="cx-verdict__hero"><div>'
             + '<p class="cx-verdict__eyebrow">Kết quả cuối</p>'

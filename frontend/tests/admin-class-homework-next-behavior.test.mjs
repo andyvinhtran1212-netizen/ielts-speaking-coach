@@ -73,6 +73,7 @@ describe('admin class homework model — canonical truth', () => {
     assert.deepEqual(valid.body.student_ids, ['s1']);
     assert.equal(valid.body.pass_pct, 75);
     assert.equal(valid.body.retake_size, 20);
+    assert.equal(valid.body.completion_mode, 'mastery');
     assert.equal(valid.body.time_limit_minutes, 135);
     assert.equal(validateHomeworkDraft({ ...draft, studentIds: [] }, catalog).ok, false);
     assert.equal(validateHomeworkDraft({ ...draft, passPct: '49' }, catalog).ok, false);
@@ -82,6 +83,20 @@ describe('admin class homework model — canonical truth', () => {
     assert.equal(validateHomeworkDraft({ ...draft, dueTime: '25:90' }, catalog).ok, false);
     const whole = validateHomeworkDraft({ ...draft, recipientScope: 'class', studentIds: [] }, catalog);
     assert.equal(whole.body.student_ids, null);
+  });
+
+  test('builds one-sitting course assignments without mastery retry controls', () => {
+    const draft = {
+      ...homeworkDraft(), skill: 'course', title: 'Midterm', contentId: 'bank-1',
+      completionMode: 'single_attempt', passPct: 'not-a-score', retakeSize: '0',
+      timeLimitMinutes: '60',
+    };
+    const result = validateHomeworkDraft(draft, catalog);
+    assert.equal(result.ok, true);
+    assert.equal(result.body.completion_mode, 'single_attempt');
+    assert.equal(result.body.time_limit_minutes, 60);
+    assert.equal(Object.hasOwn(result.body, 'pass_pct'), false);
+    assert.equal(Object.hasOwn(result.body, 'retake_size'), false);
   });
 
   test('builds Grammar Diagnostic assignments without a fake score contract', () => {
@@ -223,6 +238,15 @@ describe('admin class homework — integration contracts', () => {
     assert.match(UI, /selectedCatalogItem\?\.runtime === 'advanced_vocab'/);
     assert.match(UI, /Bài self-paced không chấm điểm mặc định/);
     assert.match(UI, /giáo viên giao bài Writing riêng/);
+  });
+
+  test('keeps assignment actions visible and previews canonical course content', () => {
+    assert.match(UI, /panelClassName="ach-assignment-dialog"/);
+    assert.match(UI, /course-banks\/\$\{encodeURIComponent\(editor\.contentId\)\}\/preview/);
+    assert.match(UI, /Một lượt — hiện kết quả sau khi nộp/);
+    assert.match(UI, /Trong lúc làm không lộ đúng\/sai hay giải thích/);
+    assert.match(CSS, /\.ach-assignment-dialog \{[^}]*max-height:/);
+    assert.match(CSS, /\.ach-course-preview__workspace/);
   });
 
   test('never exposes destructive delete when progress is unknown', () => {

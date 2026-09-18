@@ -492,6 +492,22 @@ def test_get_bank_for_play_unpublished_404():
     assert e.value.status_code == 404
 
 
+def test_single_attempt_progress_is_graded_from_server_key():
+    fake = _FakeSupabase(responses={
+        ("quiz_questions", "select"): [
+            {"qid": "q-1", "answer": 2},
+            {"qid": "q-2", "answer": 0},
+        ],
+    })
+    rows = [
+        {"qid": "q-1", "answer_given": "2", "is_correct": False},
+        {"qid": "q-2", "answer_given": "1", "is_correct": True},
+    ]
+    with patch.object(quiz_service, "supabase_admin", fake):
+        quiz_service._grade_single_attempt_rows(_BANK, rows)
+    assert [row["is_correct"] for row in rows] == [True, False]
+
+
 def test_get_bank_for_play_hides_short_reading_solution():
     reading = {
         "title": "Library", "passage": "Mai reads.",
@@ -1563,19 +1579,26 @@ def test_server_reaper_seals_pre_verdict_run_orphan_without_replacing_near_pass(
     verdict.assert_not_called()
 
 
-def test_server_reaper_skips_settled_timeout_before_session_sweep():
-    """A terminal timeout with its receipt leaves no recurring session work."""
+@pytest.mark.parametrize(("next_action", "mode"), [
+    ("timed_out", "mastery"),
+    ("completed", "single_attempt"),
+])
+def test_server_reaper_skips_settled_terminal_result_before_session_sweep(
+    next_action, mode,
+):
+    """A terminal result with its receipt leaves no recurring session work."""
     fake = _FakeSupabase()
     mastery = {"attempts": [{
         "phase": "run", "pct": 40,
-        "next_action": "timed_out", "at": "2026-09-15T01:30:00+00:00",
+        "next_action": next_action, "at": "2026-09-15T01:30:00+00:00",
         "sessions": ["timeout-winner"],
     }]}
     rows = {
         "class_assignments": [{
             "id": "asg-timed", "content_id": _BANK, "skill": "course",
             "status": "published", "publish_at": None, "due_at": None,
-            "content_config": {"time_limit_minutes": 30, "pass_pct": 75},
+            "content_config": {"time_limit_minutes": 30, "pass_pct": 75,
+                               "completion_mode": mode},
         }],
         "class_assignment_items": [{
             "id": "item-timed", "assignment_id": "asg-timed",
@@ -1622,7 +1645,7 @@ def test_server_reaper_skips_settled_timeout_before_session_sweep():
         "class_assignments", "class_assignment_items",
     ]
     assert not any(call["table"] == "quiz_sessions" for call in fake.calls)
-    assert mastery["attempts"][-1]["next_action"] == "timed_out"
+    assert mastery["attempts"][-1]["next_action"] == next_action
     verdict.assert_not_called()
 
 

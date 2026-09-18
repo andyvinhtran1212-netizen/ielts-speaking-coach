@@ -258,6 +258,64 @@ def test_admin_summary_separates_near_pass_from_hand_in_receipt():
     assert out["flags"] == [], "gần đạt là outcome, không phải cảnh báo admin"
 
 
+def test_single_attempt_summary_is_completed_without_failure_or_retry():
+    assignment = _summary_assignment()
+    assignment["content_config"]["completion_mode"] = "single_attempt"
+    item = {"submitted_at": "2026-09-18T01:00:00+00:00", "mastery": {"attempts": [{
+        "completed": True, "pct": 42, "next_action": "completed",
+        "sections": {"quiz": {"pct": 42}, "writing": {"pct": 42}},
+    }]}}
+    out = qs.course_admin_summary(item, assignment)
+    assert out["state"] == "completed"
+    assert out["next_action"] == "completed"
+    assert out["completion_mode"] == "single_attempt"
+    assert out["pass_pct"] is None and out["near_pass_pct"] is None
+    assert not any(flag["code"] == "course_repeated_failure" for flag in out["flags"])
+
+
+def test_single_attempt_terminal_action_never_reopens_a_retry():
+    assignment = {
+        "status": "published", "publish_at": None,
+        "due_at": "2999-01-01T00:00:00+00:00",
+        "content_config": {"completion_mode": "single_attempt"},
+    }
+    item = {"mastery": {"attempts": [{
+        "completed": True, "pct": 42, "next_action": "completed",
+    }]}}
+    assert qs.course_assignment_action(item, assignment) == "review"
+
+
+def test_single_attempt_keys_unlock_only_after_terminal_receipt():
+    assignment = {"content_config": {"completion_mode": "single_attempt"}}
+    terminal = {"completed": True, "pct": 42, "next_action": "completed"}
+    assert qs.single_attempt_answers_sealed(
+        {"submitted_at": None, "mastery": {"attempts": [terminal]}}, assignment,
+    ) is True
+    assert qs.single_attempt_answers_sealed(
+        {"submitted_at": "2026-09-18T01:00:00Z",
+         "mastery": {"attempts": [terminal]}}, assignment,
+    ) is False
+    assert qs.single_attempt_answers_sealed(
+        {"submitted_at": "2026-09-18T01:00:00Z", "mastery": None}, assignment,
+    ) is True
+
+
+def test_single_attempt_payload_has_result_only_contract():
+    attempt = {"phase": "run", "completed": True, "pct": 42,
+               "next_action": "completed", "duration_sec": 60}
+    out = qs._course_completion_payload(
+        attempt=attempt, attempts=[attempt],
+        cfg={"pass_pct": 80, "retake_size": 20}, required=["quiz"],
+        results={"quiz": {"pct": 42, "correct": 4, "total": 10}},
+        weights={"quiz": 100},
+        completion_mode=qs.COURSE_COMPLETION_SINGLE_ATTEMPT,
+    )
+    assert out["result_only"] is True
+    assert out["passed"] is None
+    assert out["threshold"] is None and out["retake_size"] is None
+    assert out["next_action"] == "completed"
+
+
 def test_course_assignment_action_fails_safe_for_a_malformed_legacy_ledger():
     assignment = {
         "status": "published",
@@ -440,6 +498,49 @@ def test_run_fail_offers_retake_and_keeps_not_passed():
     patch_ = [e for e in log if e[1] == "update"][0][2]
     assert "passed_at" not in patch_          # chưa đạt thì KHÔNG có mốc đạt
     assert patch_["mastery"]["attempts"][0]["pct"] == 70.0
+
+
+def test_single_attempt_returns_score_and_hands_in_without_retry():
+    ss = _sessions(2)
+    item = {"id": "it-1", "passed_at": None, "submitted_at": None,
+            "mastery": None, "score": None}
+    with patch.object(qs, "mark_item_submitted", return_value=True) as mark:
+        out, log = _verdict(
+            sessions=ss, attempts=_attempts(ss, _given(10, wrong=6)),
+            item_row=item,
+            config={"completion_mode": "single_attempt", "pass_pct": 80},
+        )
+    assert out["pct"] == 40.0
+    assert out["next_action"] == "completed"
+    assert out["result_only"] is True and out["passed"] is None
+    assert out["threshold"] is None and out["retake_size"] is None
+    saved = next(entry[2] for entry in log
+                 if entry[1] == "update" and "mastery" in entry[2])
+    assert saved["mastery"]["attempts"][-1]["next_action"] == "completed"
+    assert "passed_at" not in saved
+    mark.assert_called_once()
+
+
+def test_single_attempt_retry_repairs_receipt_from_canonical_session():
+    ss = _sessions(1)
+    terminal = {
+        "phase": "run", "completed": True, "pct": 40,
+        "next_action": "completed", "sessions": [ss[0]["id"]],
+        "at": "2026-09-18T01:00:00+00:00",
+    }
+    item = {"id": "it-1", "passed_at": None, "submitted_at": None,
+            "mastery": {"attempts": [terminal]}, "score": 40}
+    with patch.object(qs, "mark_item_submitted", return_value=True) as mark:
+        out, _ = _verdict(
+            sessions=ss, item_row=item,
+            config={"completion_mode": "single_attempt", "pass_pct": 80},
+        )
+    assert out["already_completed"] is True
+    mark.assert_called_once()
+    assert mark.call_args.kwargs == {
+        "item_id": "it-1", "artifact_kind": "quiz_session",
+        "artifact_id": ss[0]["id"], "score": 40.0,
+    }
 
 
 def test_timed_out_run_counts_unanswered_questions_as_wrong_and_closes_item():
