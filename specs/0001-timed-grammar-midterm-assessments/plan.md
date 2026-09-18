@@ -4,6 +4,10 @@
 
 - Extend the existing Course assignment API and admin UI with an optional
   duration; keep the Course bank and quiz-session services canonical.
+- Extend the assignment snapshot with a backward-compatible completion mode;
+  keep verdict, report release, retry admission, and terminal state server-owned.
+- Add an admin-only, read-only Course bank preview contract and reuse the
+  canonical bank/question stores rather than serializing content into the form.
 - Add atomic PostgreSQL functions for timed start, boundary-aware session and
   progress writes, retry creation, and safe bank replacement.
 - Run a small periodic backend reconciliation worker for expired attempts.
@@ -17,6 +21,11 @@
 - Return server time, cutoff, remaining time, and timed-out state through the
   existing Course quiz contracts; generated frontend types must stay in sync.
 - Treat the earliest of duration cutoff and assignment due date as canonical.
+- Treat missing/unknown completion mode as mastery. A single-attempt terminal
+  result uses the existing immutable mastery attempt ledger, stores `completed`
+  as its next action, and rejects all later session generations.
+- Keep answer-bearing report endpoints sealed for active single-attempt items;
+  terminal hand-in or timeout opens the existing report from persisted evidence.
 - Use compare-and-set/row-lock semantics so pass, fail, timeout, retry, and
   background finalization converge on one terminal result.
 - Replace an unused assessment bank's question rows and bank metadata in one
@@ -26,19 +35,26 @@
 
 - Admin homework creation exposes a 1–720 minute optional numeric field only
   for eligible quiz-only Course banks and surfaces backend validation errors.
+- Admin homework creation exposes two completion-policy cards, conditionally
+  shows mastery-only inputs, and opens a canonical read-only bank preview.
+- The shared dialog becomes a fixed shell with an independently scrolling body;
+  the assignment variant is wider on desktop and full-width on small screens.
 - Learners see A–E choices and an accessible countdown derived from server
   timestamps; expiry disables answer mutation and resolves through the server.
 - Admin submissions display timeout status from canonical persisted state.
 
 ## Work decomposition
 
-- Database migrations establish atomic contracts before services depend on them.
+- Database migrations establish atomic timed single-attempt admission before
+  services depend on it.
 - Backend service/router changes validate assignment and assessment state, run
   the expiry reconciliation loop, and expose the new response fields.
 - Frontend changes consume the generated contract and implement admin/learner
   states.
 - Focused import, service, migration, frontend model, and browser tests cover
   each boundary before staging verification.
+- Accessibility verification covers visible actions, focus containment, Escape,
+  themes, reduced motion, and narrow viewports for form and preview states.
 
 ## Rollout and rollback
 

@@ -15,6 +15,11 @@
 - Deploy the exact PR SHA through the normal staging branch workflow.
 - Verify one untimed assignment and one timed assignment through start, progress,
   reload, manual submit, natural expiry, worker reconciliation, and retry.
+- Verify one legacy/mastery assignment and one single-attempt assignment through
+  active answer sealing, terminal result release, reload, and rejected second start.
+- Preview both assessment banks and verify question count, ordering, choices,
+  keys, explanations, audio state, and zero assignment/session mutations.
+- Record the assignment-dialog viewport, theme, keyboard, and focus evidence.
 - Run transactional probes for unused-bank replacement and assigned-bank refusal.
 
 ## Production
@@ -35,6 +40,8 @@
   finalization paths.
 - Re-run the idempotent reconciliation worker to repair missing submission
   receipts from existing timeout ledgers; never rewrite a canonical pass.
+- A single-attempt terminal ledger is immutable. Repair may restore a missing
+  submission receipt from that ledger but must never reopen retry entitlement.
 - Do not delete or replace a bank after assignments/sessions exist. Correct bad
   production content through a new versioned bank and reassignment plan.
 
@@ -42,6 +49,9 @@
 
 - Backend logs identify reaper batches, per-attempt failures, cutoff decisions,
   and import refusal without exposing learner answers.
+- Log rejected second-start attempts and preview-read failures without logging
+  answer content. Monitor single-attempt items whose terminal ledger exists but
+  submission receipt or score is absent.
 - Assignment/session/submission rows and migration ledger are the operational
   source of truth for verification.
 - Any contradictory terminal state, repeated worker failure, or unexpected bank
