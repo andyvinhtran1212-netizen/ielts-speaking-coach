@@ -1895,6 +1895,13 @@ def start_session(
     first_session_id = None
     if bank.get("skill_area") == COURSE_AREA:
         course_assignment = {
+            # `_assignment_item_for` already admitted only a currently
+            # published assignment.  Keep that truth in the reduced snapshot:
+            # `course_assignment_action()` treats a snapshot without `status`
+            # as closed, which made every single-attempt stage after the first
+            # return 409 even though the timed-session RPC still allowed it.
+            "status": "published",
+            "publish_at": None,
             "content_config": (item or {}).get("content_config") or {},
             "due_at": (item or {}).get("due_at"),
         }

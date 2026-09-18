@@ -2021,12 +2021,12 @@ describe('không mở hai phiên cùng lúc', () => {
     const { r } = await run({ questions, api });
     const before = api.calls.post.filter((c) => c.path === '/api/quiz/sessions').length;
     const first = r.nextStage();
-    await openStarted;                 // stage đã là 1, phiên chặng 2 còn bay
+    await openStarted;                 // phiên chặng 2 còn bay, stage chưa commit
     const second = r.nextStage();      // mô phỏng double-tap tới trễ
 
     assert.strictEqual(second, first, 'mọi kích hoạt trong cùng lượt phải dùng chung promise');
     await Promise.resolve();
-    assert.equal(r.stage, 1, 'không được tăng tiếp sang chặng 3');
+    assert.equal(r.stage, 0, 'chưa có session mới thì chưa được rời màn kết quả');
 
     releaseOpen();
     await Promise.all([first, second]);
@@ -2044,6 +2044,28 @@ describe('không mở hai phiên cùng lúc', () => {
 // một là quay lại đúng bệnh "đếm thay vì suy từ độ phủ".
 
 describe('sang chặng sau', () => {
+  test('mở phiên lỗi thì giữ nguyên chặng và cho phép thử lại', async () => {
+    const qsn = Array.from({ length: 30 }, (_, i) => mcq(i));
+    const api = fakeApi({ questions: qsn });
+    const originalPost = api.post.bind(api);
+    let starts = 0;
+    api.post = async (path, body) => {
+      if (path === '/api/quiz/sessions' && ++starts === 2) {
+        throw new Error('409 Conflict');
+      }
+      return originalPost(path, body);
+    };
+    const { r } = await run({ questions: qsn, api });
+
+    await assert.rejects(r.nextStage(), /409 Conflict/);
+    assert.equal(r.stage, 0, 'không được bỏ màn kết quả khi chưa có session mới');
+    assert.deepEqual(r.stageQuestions().map((q) => q.qid),
+      qsn.slice(0, 10).map((q) => q.qid));
+
+    await r.nextStage();
+    assert.equal(r.stage, 1, 'thử lại thành công mới chuyển sang câu 11–20');
+  });
+
   test('nhảy tới chặng máy chủ nói, không phải chặng liền sau', async () => {
     const qsn = Array.from({ length: 90 }, (_, i) => mcq(i));
     // Bộ giả trả lại CHÍNH đối tượng này, nên đổi trên nó là đổi câu trả lời

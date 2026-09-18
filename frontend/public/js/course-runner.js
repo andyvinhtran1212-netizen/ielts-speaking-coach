@@ -570,9 +570,17 @@ export function createRunner({
       save(false);
       return;
     }
+    // Open the durable session before moving local progress to the next
+    // stage.  `_openSession` intentionally converts an API failure to `false`
+    // so finish/retry flows can reuse it; advancing must restore rejection
+    // semantics or a 409 silently removes the "next stage" button while no
+    // writable session exists.
+    const opened = await openSession();
+    if (!opened) {
+      throw new Error(persistError || 'Không mở được chặng tiếp theo.');
+    }
     stage = next; at = 0; marks = []; restored = null;
     save(false);
-    await openSession();
     shownAt = now();
   }
 
