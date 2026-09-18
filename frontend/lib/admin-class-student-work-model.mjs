@@ -3,7 +3,7 @@ const text = (value) => typeof value === 'string' ? value : '';
 const nullableText = (value) => text(value).trim() || null;
 const finite = (value) => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value) : null;
 
-const SKILLS = new Set(['speaking', 'reading', 'listening', 'course']);
+const SKILLS = new Set(['speaking', 'reading', 'listening', 'course', 'grammar']);
 
 export function normalizeStudentWork(value, expectedStudentId) {
   const payload = object(value);
@@ -46,6 +46,9 @@ export function normalizeStudentWork(value, expectedStudentId) {
 export function studentWorkAction(item) {
   if (item?.artifact_kind === 'session' && item.artifact_id) {
     return { kind: 'external', label: 'Nghe bài', href: `/admin/speaking/sessions?session=${encodeURIComponent(item.artifact_id)}` };
+  }
+  if (item?.artifact_kind === 'grammar_diagnostic' && item.artifact_id) {
+    return { kind: 'external', label: 'Xem hồ sơ Grammar', href: `/admin/grammar-diagnostic?session=${encodeURIComponent(item.artifact_id)}` };
   }
   if (item?.has_writing) return { kind: 'writing', label: 'Xem tự luận' };
   const runtime = object(object(item?.content_config).runtime);

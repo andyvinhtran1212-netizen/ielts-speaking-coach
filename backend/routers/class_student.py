@@ -166,7 +166,10 @@ def _student_for_user(user_id: str) -> Optional[Dict[str, Any]]:
 # Cố ý KHÔNG có `questions` (bản chụp đề) và `question_ids`: cái đầu chứa nguyên
 # văn câu hỏi, cái sau đủ để tra ra chúng.
 # `lesson_no` an toàn để hiện: nó là "Buổi 3", không phải nội dung đề.
-_DISPLAY_CONFIG_FIELDS = ("topic", "mode", "part", "test_title", "lesson_no")
+_DISPLAY_CONFIG_FIELDS = (
+    "topic", "mode", "part", "test_title", "lesson_no",
+    "test_length", "module",
+)
 
 
 def _display_config(cfg: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -541,6 +544,16 @@ async def start_assignment(
     # sau khi admin phát explanation ở chế độ `admin_release`. Đặt trước cổng
     # deadline và trước kiểm tra trạng thái đề: hết hạn hoặc hạ đề khỏi kho chỉ
     # chặn lượt MỚI, không được xoá quyền đọc kết quả đã lưu.
+    if skill == "grammar" and item.get("submitted_at"):
+        if item.get("artifact_kind") != "grammar_diagnostic" or not item.get("artifact_id"):
+            raise HTTPException(409, "Bài đã hoàn tất nhưng chưa đối chiếu được báo cáo.")
+        return {
+            "item_id": item_id,
+            "assignment_id": assignment["id"],
+            "skill": "grammar",
+            "grammar_report_session_id": str(item["artifact_id"]),
+        }
+
     if skill in ("reading", "listening") and item.get("submitted_at"):
         expected_kind = f"{skill}_attempt"
         attempt_id = item.get("artifact_id")
@@ -561,7 +574,7 @@ async def start_assignment(
     if not is_accepting_submissions(assignment):
         raise HTTPException(409, "Đã quá hạn nộp — bài tập này không còn nhận bài.")
 
-    if skill not in ("speaking", "reading", "listening", "course"):
+    if skill not in ("speaking", "reading", "listening", "course", "grammar"):
         raise HTTPException(400, "Bài tập này chưa hỗ trợ mở trực tiếp.")
 
     # A timed Course clock starts together with the first canonical quiz
@@ -611,6 +624,14 @@ async def start_assignment(
                 "topic": cfg.get("topic") or "",
                 "class_assignment_item_id": item_id,
             },
+        }
+
+    if skill == "grammar":
+        return {
+            "item_id": item_id,
+            "assignment_id": assignment["id"],
+            "skill": "grammar",
+            "grammar_path": f"/grammar-checkup?assignment_item={quote(item_id)}",
         }
 
     # Reading/Listening enter through the runtime admission route. No attempt is

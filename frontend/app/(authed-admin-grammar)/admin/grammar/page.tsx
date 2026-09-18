@@ -53,6 +53,17 @@ const destinations = [
     statusClass: 'is-new',
     featured: false,
   },
+  {
+    number: '05',
+    eyebrow: 'MASTER30 beta',
+    title: 'Diagnostic reports',
+    description: 'Mở báo cáo từ bài nộp trong từng lớp để xem bằng chứng theo 14 năng lực và tuyến ôn ưu tiên.',
+    detail: 'Objective evidence · No band conversion',
+    href: '/admin/classes',
+    status: 'BETA',
+    statusClass: 'is-new',
+    featured: false,
+  },
 ] as const;
 
 export default function AdminGrammarPage() {

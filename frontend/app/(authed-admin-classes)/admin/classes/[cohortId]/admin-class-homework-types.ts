@@ -9,7 +9,7 @@ export type AssignmentProgress = {
 export type ClassAssignment = {
   id: string;
   title: string;
-  skill: 'speaking' | 'reading' | 'listening' | 'course';
+  skill: 'speaking' | 'reading' | 'listening' | 'course' | 'grammar';
   kind: 'daily' | 'lesson';
   status: 'published' | 'archived';
   due_at: string | null;
@@ -53,7 +53,7 @@ export type QuestionOption = {
 
 export type HomeworkDraft = {
   kind: 'daily' | 'lesson';
-  skill: 'speaking' | 'reading' | 'listening' | 'course';
+  skill: 'speaking' | 'reading' | 'listening' | 'course' | 'grammar';
   title: string;
   contentId: string;
   mode: 'practice' | 'test_part';
