@@ -19,6 +19,10 @@ const EDUCATOR = readFileSync(
   path.join(FRONTEND, 'app', '(authed-admin-grammar)', 'admin', 'grammar-diagnostic', 'report.tsx'),
   'utf8',
 );
+const MY_CLASS = readFileSync(
+  path.join(FRONTEND, 'app', '(authed-my-class)', 'my-class', 'my-class-workspace.tsx'),
+  'utf8',
+);
 
 const operations = [
   ['get_home_api_grammar_home_get', 'GrammarHomeResponse'],
@@ -76,4 +80,12 @@ test('MASTER30 diagnostic success bodies are modeled and consumed from OpenAPI',
   assert.match(DIAGNOSTIC, /ApiGetJson<'\/api\/grammar\/diagnostics\/sessions\/\{session_id\}'>/);
   assert.match(DIAGNOSTIC, /ApiPostJson<'\/api\/grammar\/diagnostics\/sessions\/\{session_id\}\/responses'>/);
   assert.match(EDUCATOR, /ApiGetJson<'\/admin\/grammar-diagnostic\/sessions\/\{session_id\}\/report'>/);
+  const start = TYPES.indexOf('start_assignment_api_class_assignments__item_id__start_post: {');
+  const next = TYPES.indexOf('\n    };', start);
+  const source = TYPES.slice(start, next);
+  assert.ok(start >= 0, 'class assignment start operation');
+  assert.doesNotMatch(source, /"application\/json": unknown/);
+  assert.match(source, /SpeakingStartResponse|GrammarStartResponse|CourseStartResponse|TestStartResponse/);
+  assert.match(MY_CLASS, /ApiPostJson<'\/api\/class\/assignments\/\{item_id\}\/start'>/);
+  assert.match(MY_CLASS, /window\.api\.post<ClassStartWire>/);
 });

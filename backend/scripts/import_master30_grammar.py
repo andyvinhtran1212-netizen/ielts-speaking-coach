@@ -253,11 +253,11 @@ def import_package(payload: dict[str, Any], promote: bool) -> dict[str, Any]:
         supabase_admin.table("grammar_content_releases").select("*")
         .eq("manifest_sha256", payload["manifest_sha256"]).limit(1).execute().data
     ) or []
-    if existing and existing[0].get("status") in {"active", "retired"}:
+    if existing and existing[0].get("status") in {"validated", "active", "retired"}:
         stored = existing[0]
-        # A retired immutable release is a valid rollback target.  Re-importing
-        # its bytes is unnecessary, but --promote must still reactivate it.
-        if promote and stored.get("status") == "retired":
+        # Validated content is already immutable. Re-importing its bytes is
+        # unnecessary; validated and retired releases are both promotable.
+        if promote and stored.get("status") in {"validated", "retired"}:
             promoted = supabase_admin.rpc(
                 "promote_grammar_content_release", {"p_release_id": stored["id"]}
             ).execute().data

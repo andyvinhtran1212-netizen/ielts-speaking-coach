@@ -80,6 +80,25 @@ def test_importer_rejects_nonapproved_manifest_and_fixed_count_drift():
         )
 
 
+def test_importer_treats_validated_release_as_immutable_idempotent():
+    importer = _importer_module()
+
+    class _Db:
+        def table(self, name):
+            assert name == "grammar_content_releases"
+            return _RowsQuery([{
+                "id": "release-1", "status": "validated",
+                "manifest_sha256": importer.APPROVED_MANIFEST_SHA256,
+            }])
+
+    importer.supabase_admin = _Db()
+    result = importer.import_package({
+        "manifest_sha256": importer.APPROVED_MANIFEST_SHA256,
+    }, promote=False)
+    assert result["idempotent"] is True
+    assert result["release"]["status"] == "validated"
+
+
 def test_runtime_rejects_release_outside_approved_manifest(monkeypatch):
     monkeypatch.setattr(service, "supabase_admin", _RowsDb({
         "grammar_content_releases": [{
@@ -314,14 +333,15 @@ def test_assigned_session_creation_returns_concurrent_winner(monkeypatch):
         "class_assignment_item_id": "item-1", "status": "in_progress",
     }
 
-    class _RaceQuery(_RowsQuery):
-        def insert(self, *args, **kwargs):
-            raise RuntimeError("duplicate key value violates unique constraint")
+    class _AtomicDb:
+        called = None
 
-    class _RaceDb:
-        def table(self, name): return _RaceQuery([winner])
+        def rpc(self, name, payload):
+            self.called = (name, payload)
+            return _RowsQuery([winner])
 
-    monkeypatch.setattr(service, "supabase_admin", _RaceDb())
+    db = _AtomicDb()
+    monkeypatch.setattr(service, "supabase_admin", db)
     monkeypatch.setattr(service, "_active_release", lambda: {"id": "release-active"})
     monkeypatch.setattr(service, "_release_by_id", lambda _: {"id": "release-1"})
     monkeypatch.setattr(service, "_assignment_config", lambda *args: {
@@ -337,6 +357,8 @@ def test_assigned_session_creation_returns_concurrent_winner(monkeypatch):
         class_assignment_item_id="item-1",
     )
     assert result["id"] == "session-winner"
+    assert db.called[0] == "create_assigned_grammar_diagnostic_session"
+    assert db.called[1]["p_item_id"] == "item-1"
 
 
 def test_migration_guards_evidence_and_finalization_under_assignment_lock():
@@ -360,12 +382,18 @@ def test_migration_guards_evidence_and_finalization_under_assignment_lock():
     assert "grammar_session_incomplete" in migration
     assert "IF v_session.status = 'completed'" in migration
     assert "completed grammar session has no report" in migration
+    assert "create_assigned_grammar_diagnostic_session" in migration
+    assert "record_and_finalize_grammar_diagnostic_session" in migration
+    assert "ON DELETE RESTRICT" in migration
+    assert "prevent_grammar_release_content_mutation" in migration
+    assert "validated grammar release content is immutable" in migration
+    assert "grammar_diagnostic_sessions g" in migration
     assert "diagnostic_status = 'DIAGNOSTIC_APPROVED'" in migration
     assert service.APPROVED_MANIFEST_SHA256 in migration
 
 
 def test_diagnostic_routes_publish_concrete_response_models():
-    from routers import admin_grammar_diagnostic, grammar_diagnostic
+    from routers import admin_grammar_diagnostic, class_student, grammar_diagnostic
 
     routes = [
         *grammar_diagnostic.router.routes,
@@ -374,6 +402,62 @@ def test_diagnostic_routes_publish_concrete_response_models():
     diagnostic = [route for route in routes if "grammar" in route.path]
     assert diagnostic
     assert all(getattr(route, "response_model", None) is not None for route in diagnostic)
+    start = next(
+        route for route in class_student.router.routes
+        if route.path == "/api/class/assignments/{item_id}/start"
+    )
+    assert start.response_model is not None
+
+
+def test_last_response_uses_atomic_finalize_rpc(monkeypatch):
+    session = {
+        "id": "session-1", "release_id": "release-1",
+        "status": "in_progress", "objective_limit": 2,
+        "class_assignment_item_id": "item-1",
+    }
+    prior = {
+        "item_id": "Q-0", "attribute_id": "M01", "process_facet": "P1",
+        "subdomain": "forms", "phase": "BASELINE", "selected_option": 0,
+        "is_correct": True, "assistance_used": False,
+    }
+
+    class _AtomicFinalizeDb(_RowsDb):
+        called = None
+
+        def rpc(self, name, payload):
+            self.called = (name, payload)
+            return _RowsQuery([session])
+
+    db = _AtomicFinalizeDb({
+        "grammar_diagnostic_responses": [],
+        "grammar_exposure_events": [{"phase": "BASELINE"}],
+        "grammar_diagnostic_reports": [{"learner_report": {"winner": True}}],
+    })
+    monkeypatch.setattr(service, "supabase_admin", db)
+    monkeypatch.setattr(service, "_session", lambda *_: session)
+    monkeypatch.setattr(service, "_require_session_accepting", lambda *_: None)
+    monkeypatch.setattr(service, "_responses", lambda *_: [prior])
+    monkeypatch.setattr(service, "_content", lambda *_: {
+        "by_id": {"Q-1": {
+            "item_id": "Q-1", "options": ["A", "B"], "correct_index": 1,
+            "attribute_id": "M02", "process_facet": "P2", "subdomain": "syntax",
+        }},
+    })
+    monkeypatch.setattr(
+        service, "_build_reports",
+        lambda *_: ({"winner": False}, {"educator": True}, "evidence-sha"),
+    )
+
+    result = service.record_response(
+        "u-1", "session-1", item_id="Q-1", selected_option=1,
+        response_time_ms=900, assistance_used=False,
+    )
+    assert result == {
+        "accepted": True, "complete": True, "answered": 2,
+        "remaining": 0, "feedback_available": True,
+    }
+    assert db.called[0] == "record_and_finalize_grammar_diagnostic_session"
+    assert db.called[1]["p_item_id"] == "Q-1"
 
 
 def test_finalize_returns_persisted_canonical_winner(monkeypatch):

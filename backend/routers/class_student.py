@@ -23,9 +23,10 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 from urllib.parse import quote
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional, Union
 
 from fastapi import APIRouter, Header, HTTPException
+from pydantic import BaseModel
 
 from database import supabase_admin
 from routers.auth import get_supabase_user
@@ -55,6 +56,62 @@ _PAGE = 1000
 _COURSE_WORK_ACTIONS = {
     "start", "continue", "retake", "retry_full", "expired_pending",
 }
+
+
+class SpeakingSessionParams(BaseModel):
+    mode: str
+    part: int
+    topic: str
+    class_assignment_item_id: str
+
+
+class SpeakingStartResponse(BaseModel):
+    item_id: str
+    assignment_id: str
+    skill: Literal["speaking"]
+    accepting: Optional[bool] = None
+    result_session_id: Optional[str] = None
+    session_id: Optional[str] = None
+    renderer_affinity: Optional[str] = None
+    session_params: Optional[SpeakingSessionParams] = None
+
+
+class GrammarStartResponse(BaseModel):
+    item_id: str
+    assignment_id: str
+    skill: Literal["grammar"]
+    grammar_path: Optional[str] = None
+    grammar_report_session_id: Optional[str] = None
+
+
+class CourseStartResponse(BaseModel):
+    item_id: str
+    assignment_id: str
+    skill: Literal["course"]
+    bank_id: Optional[str] = None
+    review_only: Optional[bool] = None
+    expiry_pending: Optional[bool] = None
+    runtime: Optional[Literal["advanced_vocab"]] = None
+    course_action: Optional[str] = None
+    timer: Optional[Dict[str, Any]] = None
+
+
+class TestStartResponse(BaseModel):
+    item_id: str
+    assignment_id: str
+    skill: Literal["reading", "listening"]
+    review_attempt_id: Optional[str] = None
+    player_surface: Optional[str] = None
+    player_query: Optional[Dict[str, str]] = None
+    open_url: Optional[str] = None
+
+
+ClassStartResponse = Union[
+    SpeakingStartResponse,
+    GrammarStartResponse,
+    CourseStartResponse,
+    TestStartResponse,
+]
 
 
 def _paged_items(apply_filters) -> list:
@@ -418,11 +475,15 @@ async def my_assignments(authorization: str | None = Header(default=None)):
         raise HTTPException(500, f"Lỗi khi tải bài tập: {exc}")
 
 
-@router.post("/assignments/{item_id}/start")
+@router.post(
+    "/assignments/{item_id}/start",
+    response_model=ClassStartResponse,
+    response_model_exclude_unset=True,
+)
 async def start_assignment(
     item_id: str,
     authorization: str | None = Header(default=None),
-):
+) -> ClassStartResponse:
     """Mở một bài Speaking được giao — trả về tham số để tạo session.
 
     Deliberately does NOT create the session itself. POST /sessions owns quota,

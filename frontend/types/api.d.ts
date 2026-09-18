@@ -13509,6 +13509,32 @@ export interface components {
              */
             duration_sec: number;
         };
+        /** CourseStartResponse */
+        CourseStartResponse: {
+            /** Item Id */
+            item_id: string;
+            /** Assignment Id */
+            assignment_id: string;
+            /**
+             * Skill
+             * @constant
+             */
+            skill: "course";
+            /** Bank Id */
+            bank_id?: string | null;
+            /** Review Only */
+            review_only?: boolean | null;
+            /** Expiry Pending */
+            expiry_pending?: boolean | null;
+            /** Runtime */
+            runtime?: "advanced_vocab" | null;
+            /** Course Action */
+            course_action?: string | null;
+            /** Timer */
+            timer?: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** CourseVerdictBody */
         CourseVerdictBody: {
             /** Bank Id */
@@ -14779,6 +14805,22 @@ export interface components {
             related_pages: string[];
             /** Next Articles */
             next_articles: string[];
+        };
+        /** GrammarStartResponse */
+        GrammarStartResponse: {
+            /** Item Id */
+            item_id: string;
+            /** Assignment Id */
+            assignment_id: string;
+            /**
+             * Skill
+             * @constant
+             */
+            skill: "grammar";
+            /** Grammar Path */
+            grammar_path?: string | null;
+            /** Grammar Report Session Id */
+            grammar_report_session_id?: string | null;
         };
         /** GrammarTocItem */
         GrammarTocItem: {
@@ -16486,6 +16528,38 @@ export interface components {
             /** Avg Band 7D */
             avg_band_7d?: number | null;
         };
+        /** SpeakingSessionParams */
+        SpeakingSessionParams: {
+            /** Mode */
+            mode: string;
+            /** Part */
+            part: number;
+            /** Topic */
+            topic: string;
+            /** Class Assignment Item Id */
+            class_assignment_item_id: string;
+        };
+        /** SpeakingStartResponse */
+        SpeakingStartResponse: {
+            /** Item Id */
+            item_id: string;
+            /** Assignment Id */
+            assignment_id: string;
+            /**
+             * Skill
+             * @constant
+             */
+            skill: "speaking";
+            /** Accepting */
+            accepting?: boolean | null;
+            /** Result Session Id */
+            result_session_id?: string | null;
+            /** Session Id */
+            session_id?: string | null;
+            /** Renderer Affinity */
+            renderer_affinity?: string | null;
+            session_params?: components["schemas"]["SpeakingSessionParams"] | null;
+        };
         /** StartGradingRequest */
         StartGradingRequest: {
             /**
@@ -16615,6 +16689,28 @@ export interface components {
         TestAudioModePatchRequest: {
             /** Mode */
             mode: string;
+        };
+        /** TestStartResponse */
+        TestStartResponse: {
+            /** Item Id */
+            item_id: string;
+            /** Assignment Id */
+            assignment_id: string;
+            /**
+             * Skill
+             * @enum {string}
+             */
+            skill: "reading" | "listening";
+            /** Review Attempt Id */
+            review_attempt_id?: string | null;
+            /** Player Surface */
+            player_surface?: string | null;
+            /** Player Query */
+            player_query?: {
+                [key: string]: string;
+            } | null;
+            /** Open Url */
+            open_url?: string | null;
         };
         /** TipCreate */
         TipCreate: {
@@ -21598,7 +21694,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SpeakingStartResponse"] | components["schemas"]["GrammarStartResponse"] | components["schemas"]["CourseStartResponse"] | components["schemas"]["TestStartResponse"];
                 };
             };
             /** @description Validation Error */

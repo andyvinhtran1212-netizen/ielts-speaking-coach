@@ -181,6 +181,10 @@ def _require_session_accepting(user_id: str, session: dict[str, Any]) -> None:
 
 def _translate_assignment_write_error(exc: Exception) -> None:
     message = str(exc).lower()
+    if "grammar_assignment_not_accessible" in message:
+        raise HTTPException(404, "Không tìm thấy bài Grammar được giao") from exc
+    if "grammar_response_conflict" in message:
+        raise HTTPException(409, "Câu này đã được trả lời với dữ liệu khác") from exc
     if ("grammar_assignment_not_accepting" in message
             or "grammar_session_not_accepting" in message):
         raise HTTPException(
@@ -215,7 +219,9 @@ def create_session(
     if class_assignment_item_id:
         assignment = _assignment_config(user_id, class_assignment_item_id)
         if assignment["existing"]:
-            return session_summary(user_id, assignment["existing"])
+            # Route resumes through the canonical session read gate as well;
+            # passing the row directly would skip the deadline recheck.
+            return session_summary(user_id, str(assignment["existing"]["id"]))
         config = assignment["assignment"].get("content_config") or {}
         assigned_release_id = str(config.get("release_id") or "")
         if not assigned_release_id:
@@ -228,36 +234,38 @@ def create_session(
             raise HTTPException(409, "Cấu hình bài Grammar được giao không còn hợp lệ")
 
     row = {
-        "user_id": user_id,
-        "release_id": release["id"],
+        "user_id": user_id, "release_id": release["id"],
         "class_assignment_item_id": class_assignment_item_id,
-        "mode": mode,
-        "module": module,
-        "test_length": test_length,
+        "mode": mode, "module": module, "test_length": test_length,
         "objective_limit": LIMITS[test_length][1],
     }
-    try:
+    if class_assignment_item_id:
+        try:
+            stored = supabase_admin.rpc(
+                "create_assigned_grammar_diagnostic_session",
+                {
+                    "p_user_id": user_id,
+                    "p_release_id": release["id"],
+                    "p_item_id": class_assignment_item_id,
+                    "p_mode": mode,
+                    "p_module": module,
+                    "p_test_length": test_length,
+                    "p_objective_limit": LIMITS[test_length][1],
+                },
+            ).execute().data
+        except Exception as exc:
+            _translate_assignment_write_error(exc)
+            raise
+        if isinstance(stored, list):
+            rows = stored
+        elif isinstance(stored, dict):
+            rows = [stored]
+        else:
+            rows = []
+    else:
         rows = supabase_admin.table("grammar_diagnostic_sessions").insert(row).execute().data or []
-    except Exception as exc:
-        if (not class_assignment_item_id
-                or ("duplicate" not in str(exc).lower() and "unique" not in str(exc).lower())):
-            raise
-        # Concurrent opens of one assigned item are idempotent. The database
-        # unique constraint chooses the winner; both tabs resume that session.
-        winner = (
-            supabase_admin.table("grammar_diagnostic_sessions").select("*")
-            .eq("class_assignment_item_id", class_assignment_item_id)
-            .eq("user_id", user_id).limit(1).execute().data
-        ) or []
-        if not winner:
-            raise
-        return session_summary(user_id, winner[0])
     if not rows:
         raise HTTPException(500, "Không tạo được phiên Grammar Check-up")
-    if assignment and assignment["item"].get("state") == "assigned":
-        supabase_admin.table("class_assignment_items").update({
-            "state": "opened", "opened_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("id", class_assignment_item_id).eq("state", "assigned").execute()
     return session_summary(user_id, rows[0])
 
 
@@ -504,6 +512,37 @@ def record_response(
         "assistance_used": bool(assistance_used),
         "response_time_ms": response_time_ms,
     }
+    responses_before = _responses(session_id)
+    if len(responses_before) == int(session["objective_limit"]) - 1:
+        learner, educator, evidence_sha = _build_reports(
+            session, [*responses_before, row], content,
+        )
+        try:
+            supabase_admin.rpc("record_and_finalize_grammar_diagnostic_session", {
+                "p_session_id": session_id,
+                "p_user_id": user_id,
+                "p_item_id": item_id,
+                "p_selected_option": selected_option,
+                "p_assistance_used": bool(assistance_used),
+                "p_response_time_ms": response_time_ms,
+                "p_evidence_sha256": evidence_sha,
+                "p_learner_report": learner,
+                "p_educator_report": educator,
+            }).execute()
+        except Exception as exc:
+            _translate_assignment_write_error(exc)
+            raise
+        canonical = (
+            supabase_admin.table("grammar_diagnostic_reports").select("learner_report")
+            .eq("session_id", session_id).eq("user_id", user_id).limit(1).execute().data
+        ) or []
+        if not canonical:
+            raise HTTPException(500, "Báo cáo Grammar chưa được lưu sau câu cuối")
+        return {
+            "accepted": True, "complete": True,
+            "answered": int(session["objective_limit"]), "remaining": 0,
+            "feedback_available": True,
+        }
     try:
         supabase_admin.table("grammar_diagnostic_responses").insert(row).execute()
     except Exception as exc:

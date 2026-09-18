@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import type { ApiPostJson } from '@/lib/openapi-contract';
 import {
   admitCorePlayer,
   resolveCorePlayerAdmissionForNavigation,
@@ -75,6 +76,8 @@ type ClassSnapshot = {
 };
 
 type Snapshot = { hasClass: false } | ClassSnapshot | null;
+
+type ClassStartWire = ApiPostJson<'/api/class/assignments/{item_id}/start'>;
 
 type StartTarget =
   | {
@@ -552,7 +555,7 @@ export function MyClassWorkspace() {
     startingItemRef.current = row.itemId;
     setStartingItem(row.itemId);
     try {
-      const raw = await window.api.post<unknown>(
+      const raw = await window.api.post<ClassStartWire>(
         `/api/class/assignments/${encodeURIComponent(row.itemId)}/start`,
       );
       if (accountRef.current !== owner) return;
