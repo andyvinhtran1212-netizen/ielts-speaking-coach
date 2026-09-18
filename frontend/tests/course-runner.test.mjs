@@ -878,6 +878,40 @@ describe('dựng nội dung đề', () => {
   });
 });
 
+describe('bài một lượt giữ kín đáp án đến khi nộp', () => {
+  test('câu trả lời chỉ có trạng thái trung tính và payload không tự nhận đúng', async () => {
+    const question = mcq(1, { answer: null, explain: null, why_wrong: null });
+    const { r, api } = await run({
+      questions: [question],
+      mastery: { item_id: 'single-1', answers_sealed: true, completion_mode: 'single_attempt' },
+    });
+    r.show();
+    const result = r.answer(0);
+    assert.deepEqual(result, { sealed: true, correct: null, trap: null, explain: '' });
+    assert.equal(r.marks[0], 'answered');
+    r.next();
+    await r.finishStage();
+    const progress = api.calls.post.find((call) => call.path.endsWith('/progress'));
+    assert.equal(progress.body.attempts[0].answer_given, '0');
+    assert.equal(progress.body.attempts[0].is_correct, false,
+      'server owns grading; the placeholder must not reveal a key');
+  });
+
+  test('resume giữ câu đã trả lời ở trạng thái trung tính dù dữ liệu cũ có correctness', async () => {
+    const questions = [mcq(1, { answer: null, explain: null, why_wrong: null })];
+    const { r } = await run({
+      questions,
+      mastery: { item_id: 'single-1', answers_sealed: true, completion_mode: 'single_attempt' },
+      resume: {
+        item_id: 'single-1', session_id: 'session-1', completed: [], stage: 0,
+        answered: [{ qid: 'Q1', is_correct: true }], answers_sealed: true,
+      },
+    });
+    assert.equal(r.at, 1);
+    assert.deepEqual(r.marks, ['answered']);
+  });
+});
+
 // ── Bẫy tới đúng ô đã chọn ────────────────────────────────────────────────
 
 describe('cái bẫy', () => {

@@ -1925,6 +1925,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/cohorts/{cohort_id}/course-banks/{bank_id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Course Bank
+         * @description Read the canonical Course bank before assignment without mutating it.
+         */
+        get: operations["preview_course_bank_admin_cohorts__cohort_id__course_banks__bank_id__preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/cohorts/{cohort_id}/speaking-lesson-sets": {
         parameters: {
             query?: never;
@@ -13436,6 +13456,69 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** CourseBankPreviewQuestion */
+        CourseBankPreviewQuestion: {
+            /** Qid */
+            qid: string;
+            /** Order */
+            order: number;
+            /** Type */
+            type: string;
+            /** Subtype */
+            subtype?: string | null;
+            /** Item Key */
+            item_key?: string | null;
+            /** Prompt */
+            prompt: string;
+            /** Options */
+            options?: string[];
+            /** Answer */
+            answer?: number | string | string[] | null;
+            /** Explanation */
+            explanation?: string | null;
+            /** Why Wrong */
+            why_wrong?: {
+                [key: string]: string;
+            };
+            /** Audio Url */
+            audio_url?: string | null;
+            /**
+             * Counts Toward Mastery
+             * @default false
+             */
+            counts_toward_mastery: boolean;
+        };
+        /** CourseBankPreviewResponse */
+        CourseBankPreviewResponse: {
+            /** Bank Id */
+            bank_id: string;
+            /** Code */
+            code?: string | null;
+            /** Title */
+            title: string;
+            /** Lesson No */
+            lesson_no?: number | null;
+            /** Runtime */
+            runtime?: string | null;
+            /** Revision */
+            revision: string;
+            summary: components["schemas"]["CourseBankPreviewSummary"];
+            /** Questions */
+            questions: components["schemas"]["CourseBankPreviewQuestion"][];
+        };
+        /** CourseBankPreviewSummary */
+        CourseBankPreviewSummary: {
+            /** Question Count */
+            question_count: number;
+            /** Assessable Count */
+            assessable_count: number;
+            /** Audio Count */
+            audio_count: number;
+            /** Type Counts */
+            type_counts: {
+                [key: string]: number;
+            };
+        };
         /** CourseCreate */
         CourseCreate: {
             /** Code */
@@ -17447,6 +17530,12 @@ export interface components {
             student_ids?: string[] | null;
             /** Retake Size */
             retake_size?: number | null;
+            /**
+             * Completion Mode
+             * @default mastery
+             * @enum {string}
+             */
+            completion_mode: "mastery" | "single_attempt";
             /** Time Limit Minutes */
             time_limit_minutes?: number | null;
             /**
@@ -21115,6 +21204,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_course_bank_admin_cohorts__cohort_id__course_banks__bank_id__preview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                cohort_id: string;
+                bank_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseBankPreviewResponse"];
                 };
             };
             /** @description Validation Error */

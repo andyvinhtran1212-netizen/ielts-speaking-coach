@@ -285,7 +285,8 @@ aver-admin-chrome[data-collapsed="1"] > .acd-shell {
 .acd-dialog {
   width: min(560px, 100%);
   max-height: min(88vh, 760px);
-  overflow-y: auto;
+  box-sizing: border-box;
+  overflow: hidden;
   padding: var(--av-space-6);
   border: 1px solid var(--av-border-default);
   border-radius: var(--av-radius-xl);
@@ -296,14 +297,14 @@ aver-admin-chrome[data-collapsed="1"] > .acd-shell {
   gap: var(--av-space-4);
 }
 .acd-dialog:focus { outline: none; }
-.acd-dialog__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--av-space-3); }
+.acd-dialog__head { display: flex; flex: 0 0 auto; align-items: flex-start; justify-content: space-between; gap: var(--av-space-3); }
 .acd-dialog__head h2 { margin: 0; color: var(--av-text-primary); font-size: var(--av-fs-lg); }
 .acd-dialog__description { margin-top: var(--av-space-2); color: var(--av-text-secondary); font-size: var(--av-fs-sm); line-height: 1.55; }
-.acd-dialog__body { display: flex; flex-direction: column; gap: var(--av-space-4); }
-.acd-dialog__actions { padding-top: var(--av-space-2); border-top: 1px solid var(--av-border-subtle); display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--av-space-2); }
+.acd-dialog__body { min-height: 0; padding-inline-end: var(--av-space-1); display: flex; flex: 1 1 auto; flex-direction: column; gap: var(--av-space-4); overflow-y: auto; overscroll-behavior: contain; }
+.acd-dialog__actions { flex: 0 0 auto; padding-top: var(--av-space-2); border-top: 1px solid var(--av-border-subtle); display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--av-space-2); }
 .acd-icon-button {
-  inline-size: 34px;
-  block-size: 34px;
+  inline-size: 44px;
+  block-size: 44px;
   flex: 0 0 auto;
   border: 1px solid var(--av-border-default);
   border-radius: var(--av-radius-md);

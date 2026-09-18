@@ -227,6 +227,7 @@ export function createRunner({
   // Bài đã nộp chỉ được đọc. Cờ này do backend suy từ submitted_at; URL hay
   // localStorage không thể tự bật quyền review.
   let reviewOnly = false;
+  let answersSealed = false;
   let expiryPending = false;
   let omittedTimedAnswers = false;
 
@@ -351,6 +352,11 @@ export function createRunner({
     if (!sv) return false;
     // Mục bài giao khác = lượt của một bài giao khác (chuyển lớp, giao lại).
     if ((sv.item_id || null) !== itemId) return false;
+    // Resume is also a learner-facing API.  In one-sitting mode the server
+    // returns only which questions were answered, never their correctness.
+    // Keep the neutral mark through reload/device changes instead of turning
+    // a redacted `null` into a visible wrong answer.
+    if (sv.answers_sealed === true) answersSealed = true;
     // This request starts only after the bank payload has arrived.  Its server
     // sample is taken at route entry; anchoring it at the local request start
     // charges the complete sync round trip, but not the pre-start bank build.
@@ -384,7 +390,8 @@ export function createRunner({
         if (!firstByQid.has(q.qid)) break;
         aligned.push(firstByQid.get(q.qid));
       }
-      marks = aligned.map((a) => a.is_correct ? 'right' : 'wrong');
+      marks = aligned.map((a) => answersSealed
+        ? 'answered' : (a.is_correct ? 'right' : 'wrong'));
       at = aligned.length;
       resumedRetakeFinal = Boolean(rr.completed);
       if (resumedRetakeFinal) {
@@ -440,7 +447,9 @@ export function createRunner({
       sessionEnded = false;
       sessionFailed = false;
       at = ans.length;
-      marks = ans.map(function (a) { return a.is_correct ? 'right' : 'wrong'; });
+      marks = ans.map(function (a) {
+        return answersSealed ? 'answered' : (a.is_correct ? 'right' : 'wrong');
+      });
       stageStartedAt = now();
       return true;
     }
@@ -690,6 +699,7 @@ export function createRunner({
     get runSessionCount() { return runSessions.length; },
     get hasOpenSession() { return Boolean(sessionId) && !sessionEnded; },
     get reviewOnly() { return reviewOnly; },
+    get answersSealed() { return answersSealed; },
     get expiryPending() { return expiryPending; },
     get superseded() { return superseded; },
     get isTimed() { return Boolean(mastery && mastery.is_timed); },
@@ -720,6 +730,7 @@ export function createRunner({
       // `options.reviewOnly` chỉ làm flow ít quyền hơn (không ghi); quyền đọc
       // vẫn do các endpoint backend kiểm bằng assignment item.
       reviewOnly = Boolean(options.reviewOnly || (r.mastery && r.mastery.review_only));
+      answersSealed = Boolean(r.mastery && r.mastery.answers_sealed);
       expiryPending = Boolean(r.mastery && r.mastery.expiry_pending);
       omittedTimedAnswers = false;
       retakeNo = Math.max(0, Number((r.mastery && r.mastery.retakes) || 0));
@@ -816,6 +827,16 @@ export function createRunner({
       if (answered || this.isTimedOut()) return null;
       answered = true;
       const q = this.current();
+      if (answersSealed) {
+        marks[at] = 'answered';
+        // The backend replaces this placeholder with server-owned correctness
+        // before persistence.  Nothing in this response reveals the key.
+        queue(q, false, String(q._perm ? q._perm[picked] : picked));
+        if (pending.length >= BATCH || (mastery && mastery.is_timed)) {
+          inflight = inflight.then(() => flush()).catch(() => {});
+        }
+        return { sealed: true, correct: null, trap: null, explain: '' };
+      }
       const ok = picked === q.answer;
       marks[at] = ok ? 'right' : 'wrong';
       // Gửi vị trí GỐC của phương án, không phải vị trí hiển thị: ở bài kiểm
@@ -924,7 +945,7 @@ export function createRunner({
       // được, và verdict phủ-đủ-đề sẽ bác cả lượt ở phút chót (codex R3).
       save(persisted);
       return {
-        right, graded, persisted,
+        right, graded, persisted, sealed: answersSealed,
         retryable: !persisted && !!sessionId && !expiryPending,
         expiryPending: endedBy === 'time_cap' && expiryPending,
         answersOmitted: endedBy === 'time_cap' && omittedTimedAnswers,

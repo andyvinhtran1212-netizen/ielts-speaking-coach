@@ -237,6 +237,15 @@ and atomic finalization. Anonymous and authenticated PostgREST roles receive no
 direct bank, solution, or learner-evidence access; the backend service role owns
 all runtime reads and writes. Apply it before importing the 30 core banks.
 
+Migration 284 adds the database boundary for one-sitting Course assignments.
+It rejects retake sessions for that mode and prevents stale or internal paths
+from creating sessions or answers after the canonical result has been handed
+in. The normal mastery mode remains unchanged.
+
+Migration 285 removes any explicit `anon` or `authenticated` EXECUTE grants
+left by an existing Supabase environment on migration 284's trigger-only guard
+functions. Runtime use remains internal to their table triggers.
+
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence
 hosted drift. A pending feature group requires its explicit

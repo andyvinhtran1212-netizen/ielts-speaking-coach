@@ -54,6 +54,7 @@ on:
       - 'frontend/tooling/legacy-url-paths.mjs'
       - 'frontend/tooling/legacy-url-mapping.mjs'
       - 'frontend/tsconfig.json'
+      - 'frontend/types/**'
       - 'frontend/tooling/route-ownership-check.mjs'
       - 'frontend/tooling/legacy-browser-scan.mjs'
       - 'frontend/package.json'

@@ -338,7 +338,8 @@ def test_the_redaction_lists_the_kept_fields_INSTEAD_of_deleting_the_rest():
 # là sai chiều. Nhưng chi tiết từng câu thì phải chờ: kỳ kiểm tra lại bốc mẫu
 # từ chính bộ câu ấy.
 
-def _report(*, passed, assignment_id=None, with_quiz=True):
+def _report(*, passed, assignment_id=None, with_quiz=True,
+            completion_mode="mastery"):
     """Chạy trọn `course_answer_report` với một cơ sở dữ liệu giả."""
     QS = [{"qid": "q0", "type": "mcq", "subtype": "gap", "item_key": "chia động từ",
            "prompt": "She ___ to school.", "options": ["go", "goes"], "answer": 1,
@@ -384,14 +385,21 @@ def _report(*, passed, assignment_id=None, with_quiz=True):
                 "quiz_questions": [{**q, "bank_id": "b1"} for q in QS],
                 "class_assignment_items": [{"id": "i1", "assignment_id": "a1",
                                             "student_id": "st1",
+                                            "submitted_at": ("2026-08-06T02:00:00+00:00"
+                                                             if completion_mode == "single_attempt"
+                                                             else None),
                                             "passed_at": "2026-08-06T02:00:00+00:00" if passed else None,
                                             "mastery": {"threshold": 75, "attempts": [
                                                 {"phase": "run", "pct": 70,
                                                  "at": "2026-08-06T01:10:00+00:00",
                                                  "sessions": ["s1"],
-                                                 "next_action": "retake"},
+                                                 "next_action": ("completed"
+                                                                 if completion_mode == "single_attempt"
+                                                                 else "retake")},
                                             ]}}],
-                "class_assignments": [{"id": "a1", "content_config": {"pass_pct": 75}}],
+                "class_assignments": [{"id": "a1", "content_config": {
+                    "pass_pct": 75, "completion_mode": completion_mode,
+                }}],
                 "students": [{"id": "st1", "user_id": "u1"}],
                 "quiz_banks": [{"id": "b1", "title": "Buổi 1"}],
             }.get(name, [])
@@ -403,7 +411,11 @@ def _report(*, passed, assignment_id=None, with_quiz=True):
     with patch.object(qs, "supabase_admin", _DB()), \
             patch.object(qs, "_bank_meta_or_404", lambda *_a, **_k: {"id": "b1", "title": "Buổi 1"}), \
             patch.object(qs, "_assignment_item_for",
-                         lambda *_a, **_k: {"id": "i1", "assignment_id": "a1"}):
+                         lambda *_a, **_k: {
+                             "id": "i1", "assignment_id": "a1",
+                             "content_config": {"pass_pct": 75,
+                                                "completion_mode": completion_mode},
+                         }):
         return qs.course_answer_report(
             user_id="u1", bank_id="b1", assignment_id=assignment_id)
 
@@ -459,6 +471,16 @@ def test_the_learner_report_uses_the_canonical_mastery_history():
     assert d["summary"]["baseline_answered"] == d["totals"]["answered"]
 
 
+def test_single_attempt_report_has_result_only_summary_and_unlocked_answers():
+    d = _report(passed=False, completion_mode="single_attempt")
+    assert not d.get("locked")
+    assert d["summary"]["completion_mode"] == "single_attempt"
+    assert d["summary"]["latest_action"] == "completed"
+    assert d["summary"]["pass_pct"] is None
+    assert d["summary"]["near_pass_pct"] is None
+    assert d["questions"][0]["answer"] is not None
+
+
 def test_a_writing_only_teacher_report_keeps_the_mastery_summary_without_quiz_sessions():
     d = _report(passed=True, assignment_id="a1", with_quiz=False)
     assert d["questions"] == [] and d["totals"] == {}
@@ -490,16 +512,15 @@ def test_a_read_failure_in_the_gate_still_hides_the_answers():
                        "Đổi nó là đổi một đánh đổi có chủ ý, không phải sửa lỗi")
 
 
-def test_the_BANK_payload_still_ships_every_mcq_answer():
-    """LỖ ĐÃ BIẾT, ghim lại để nó không âm thầm biến mất khỏi trí nhớ.
+def test_the_mastery_BANK_payload_still_ships_every_mcq_answer():
+    """Ranh giới còn lại của chế độ mastery, không áp dụng cho single-attempt.
 
     `/api/quiz/banks/{id}` gửi `select("*")`, nên `answer` + `explain` +
-    `why_wrong` của mọi câu TRẮC NGHIỆM đã nằm trong tab Network từ lúc học viên
-    mở bài — cái giá của việc chấm ngay tại trang để phản hồi từng câu.
+    `why_wrong` của câu trắc nghiệm mastery nằm trong phản hồi để trang phản hồi
+    ngay. Single-attempt cắt các trường này ở nhánh kế tiếp và chấm server-side.
 
-    Nghĩa là cổng hai mức bỏ đi con đường TIỆN, không bỏ được con đường CÓ.
-    Chốt này sẽ ĐỎ vào ngày ai đó chấm phía máy chủ và cắt đáp án khỏi payload —
-    và đó là ngày nên sửa lại lời hứa trong chú thích, chứ không phải xoá chốt.
+    Chốt này giữ rõ hành vi legacy để thay đổi single-attempt không vô tình làm
+    hỏng phản hồi tức thì của mastery.
     """
     src = inspect.getsource(qs)
     i = src.index('if q.get("type") == "writing":')

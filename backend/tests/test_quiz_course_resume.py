@@ -261,6 +261,34 @@ def test_resume_returns_a_post_payload_authoritative_timer_sample():
     assert sv["timer"]["sampled_at"] is not None
 
 
+def test_single_attempt_resume_redacts_correctness_before_hand_in():
+    item = {
+        "id": ITEM, "submitted_at": None, "due_at": None,
+        "content_config": {"completion_mode": "single_attempt"},
+    }
+    session = _sess("single-open")
+    db = _DB({
+        "quiz_sessions": [session],
+        "quiz_attempts": [{
+            "session_id": "single-open", "qid": "q00",
+            "is_correct": True, "created_at": "2026-09-18T01:00:00+00:00",
+        }],
+        "quiz_questions": [
+            {"bank_id": BANK, "qid": "q00", "type": "mcq", "order": 0},
+        ],
+        "class_assignment_items": [],
+    })
+    with patch.object(qs, "supabase_admin", db), \
+            patch.object(qs, "_bank_meta_or_404",
+                         lambda *_a, **_k: {"skill_area": qs.COURSE_AREA}), \
+            patch.object(qs, "_assignment_item_for", lambda *_a, **_k: item):
+        sv = qs.get_course_resume(user_id=USER, bank_id=BANK)
+
+    assert sv["answers_sealed"] is True
+    assert sv["answered"] == [{"qid": "q00", "is_correct": None}]
+    assert sv["last_stage"] is None
+
+
 def test_lightweight_timer_sample_is_independent_of_session_history():
     opened = datetime.now(timezone.utc) - timedelta(seconds=5)
     item = {

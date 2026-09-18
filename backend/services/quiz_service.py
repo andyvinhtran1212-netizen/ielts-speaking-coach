@@ -255,6 +255,35 @@ _SESSION_KINDS = {"run", "retake"}
 # rác ở cả hai phía (`STAGE` trong course-runner.js, phép `chia 10` trong
 # `_course_stage_count`); nêu tên nó ở đây để chỗ mới khỏi thành bản sao thứ ba.
 COURSE_STAGE_SIZE = 10
+COURSE_COMPLETION_MASTERY = "mastery"
+COURSE_COMPLETION_SINGLE_ATTEMPT = "single_attempt"
+
+
+def course_completion_mode(assignment: dict | None) -> str:
+    """Return the safe completion policy for an assignment snapshot.
+
+    Legacy rows and unknown hand-edited JSON stay on the long-running mastery
+    contract.  Only the exact, server-issued value opts into terminal one-sitting
+    behavior.
+    """
+    cfg = (assignment or {}).get("content_config") or {}
+    return (COURSE_COMPLETION_SINGLE_ATTEMPT
+            if cfg.get("completion_mode") == COURSE_COMPLETION_SINGLE_ATTEMPT
+            else COURSE_COMPLETION_MASTERY)
+
+
+def single_attempt_answers_sealed(item: dict | None, assignment: dict | None) -> bool:
+    """Keep keys hidden until a canonical one-sitting result is handed in."""
+    if course_completion_mode(assignment) != COURSE_COMPLETION_SINGLE_ATTEMPT:
+        return False
+    item = item or {}
+    attempts = ((item.get("mastery") or {}).get("attempts") or [])
+    latest = (attempts[-1] if isinstance(attempts, list) and attempts
+              and isinstance(attempts[-1], dict) else None)
+    action = _recorded_next_action(
+        latest, mastery_config(assignment)["pass_pct"],
+    ) if latest else None
+    return not bool(item.get("submitted_at") and action == "completed")
 
 
 def mastery_config(assignment: dict | None) -> dict:
@@ -355,7 +384,7 @@ def _recorded_next_action(attempt: dict | None, pass_pct: int) -> str | None:
     if attempt.get("completed") is False or attempt.get("pct") is None:
         return None
     action = attempt.get("next_action")
-    if action in {"passed", "retake", "retry_full", "timed_out"}:
+    if action in {"passed", "retake", "retry_full", "timed_out", "completed"}:
         return action
     return course_mastery_next_action(
         float(attempt.get("pct") or 0), pass_pct, attempt.get("sections"),
@@ -380,6 +409,9 @@ def course_assignment_action(
     """
     item = item or {}
     assignment = assignment or {}
+    single_attempt = (
+        course_completion_mode(assignment) == COURSE_COMPLETION_SINGLE_ATTEMPT
+    )
     # Legacy mixed banks could stamp ``passed_at`` after the quiz while the
     # separate writing hand-in was still absent. The class page already names
     # that state as awaiting Writing; do not turn the same row read-only here.
@@ -397,6 +429,8 @@ def course_assignment_action(
     latest_action = _recorded_next_action(
         latest, mastery_config(assignment)["pass_pct"],
     ) if latest else None
+    if single_attempt and latest_action in {"completed", "passed", "timed_out"}:
+        return "review"
     # A timed Course assignment has a second canonical boundary independent of
     # the class due date.  Once it passes, a previously recorded retake/retry
     # entitlement is read-only: advertising it would offer a button whose
@@ -423,9 +457,9 @@ def course_assignment_action(
         return "continue"
 
     action = latest_action
-    if action in {"retake", "retry_full"}:
+    if action in {"retake", "retry_full"} and not single_attempt:
         return action
-    return "review" if action in {"passed", "timed_out"} else "continue"
+    return "review" if action in {"passed", "timed_out", "completed"} else "continue"
 
 
 def _expired_course_session_is_pending(
@@ -655,6 +689,8 @@ def course_admin_summary(
         state = "near_pass"
     elif action == "retry_full":
         state = "retry_full"
+    elif action == "completed":
+        state = "completed"
     elif attempts:
         state = "in_progress"
     else:
@@ -673,7 +709,8 @@ def course_admin_summary(
     # đợi "Cần admin xem" đầy gần như cả lớp và chôn mất lỗi ledger/bỏ dở thật.
     # Chúng vẫn hiện rõ trong outcome funnel; chỉ thất bại LẶP LẠI mới thành cờ.
     failed = [row for row in completed
-              if _recorded_next_action(row, cfg["pass_pct"]) != "passed"]
+              if _recorded_next_action(row, cfg["pass_pct"])
+              not in {"passed", "completed"}]
     if len(failed) >= 2:
         scores = ", ".join(f"{float(row['pct']):.1f}%" for row in failed[-3:])
         flags.append({
@@ -691,12 +728,16 @@ def course_admin_summary(
             "action": "Kiểm tra tiến độ và nhắc học viên hoàn tất đúng phần còn thiếu.",
         })
 
+    completion_mode = course_completion_mode(assignment)
     return {
         "state": state,
-        "pass_pct": cfg["pass_pct"],
-        "near_pass_pct": near_pass_pct(cfg["pass_pct"]),
+        "pass_pct": (None if completion_mode == COURSE_COMPLETION_SINGLE_ATTEMPT
+                     else cfg["pass_pct"]),
+        "near_pass_pct": (None if completion_mode == COURSE_COMPLETION_SINGLE_ATTEMPT
+                          else near_pass_pct(cfg["pass_pct"])),
         "latest_pct": (float(latest_completed["pct"]) if latest_completed else None),
         "next_action": action,
+        "completion_mode": completion_mode,
         "attempts": len(completed),
         "retakes": sum(1 for row in completed if row.get("phase") == "retake"),
         "attempt_minutes": round(sum(int(row.get("duration_sec") or 0)
@@ -980,39 +1021,51 @@ def get_bank_for_play(
         # optional badge.  Build it from the item/assignment already authorized
         # above before the best-effort refresh below.  If that refresh fails,
         # the browser must still enforce the same canonical cutoff as writes.
-        if preflight_timer.get("is_timed"):
-            preflight_cfg = mastery_config(preflight_assignment)
-            preflight_attempts = ((item.get("mastery") or {}).get("attempts") or [])
-            mastery_state = {
-                "item_id": item["id"],
-                "passed_at": item.get("passed_at"),
-                "threshold": preflight_cfg["pass_pct"],
-                "near_threshold": near_pass_pct(preflight_cfg["pass_pct"]),
-                "retake_size": preflight_cfg["retake_size"],
-                "retakes": sum(
-                    1 for attempt in preflight_attempts
-                    if isinstance(attempt, dict) and attempt.get("phase") == "retake"
-                ),
-                "completed_sections": [],
-                "due_at": item.get("due_at"),
-                "review_only": preflight_action in {"review", "expired_pending"},
-                "expiry_pending": preflight_action == "expired_pending",
-                "accepting": bool(item.get("accepting")),
-                "course_action": preflight_action,
-                **preflight_timer,
-            }
+        # Build the restrictive state from the assignment item that already
+        # passed the ownership gate. This is mandatory for untimed
+        # single-attempt banks too: the optional refresh below may fail, but a
+        # read failure must never turn answer sealing off.
+        preflight_cfg = mastery_config(preflight_assignment)
+        preflight_attempts = ((item.get("mastery") or {}).get("attempts") or [])
+        mastery_state = {
+            "item_id": item["id"],
+            "passed_at": item.get("passed_at"),
+            "threshold": preflight_cfg["pass_pct"],
+            "near_threshold": near_pass_pct(preflight_cfg["pass_pct"]),
+            "retake_size": preflight_cfg["retake_size"],
+            "retakes": sum(
+                1 for attempt in preflight_attempts
+                if isinstance(attempt, dict) and attempt.get("phase") == "retake"
+            ),
+            "completed_sections": [],
+            "due_at": item.get("due_at"),
+            "review_only": preflight_action in {"review", "expired_pending"},
+            "expiry_pending": preflight_action == "expired_pending",
+            "accepting": bool(item.get("accepting")),
+            "course_action": preflight_action,
+            "completion_mode": course_completion_mode(preflight_assignment),
+            "answers_sealed": single_attempt_answers_sealed(
+                item, preflight_assignment,
+            ),
+            **preflight_timer,
+        }
         # Trạng thái cổng thuộc-bài, để trang nói được "đã đạt" ngay khi mở lại
         # thay vì bắt làm lại từ đầu mới biết. Best-effort: đọc hỏng thì trang
         # vẫn chạy, chỉ thiếu tấm huy hiệu.
         try:
             row = (supabase_admin.table("class_assignment_items")
-                   .select("passed_at, mastery")
+                   .select("passed_at, submitted_at, score, mastery")
                    .eq("id", item["id"]).limit(1).execute().data) or []
             asg = (supabase_admin.table("class_assignments")
                    .select("id, status, publish_at, due_at, content_config")
                    .eq("id", item["assignment_id"]).limit(1).execute().data) or []
-            if preflight_timer.get("is_timed") and (not row or not asg):
-                raise RuntimeError("timed mastery refresh returned no canonical row")
+            preflight_single_attempt = (
+                course_completion_mode(preflight_assignment)
+                == COURSE_COMPLETION_SINGLE_ATTEMPT
+            )
+            if ((preflight_timer.get("is_timed") or preflight_single_attempt)
+                    and (not row or not asg)):
+                raise RuntimeError("protected mastery refresh returned no canonical row")
             assignment = asg[0] if asg else {}
             cfg = mastery_config(assignment)
             content_config = assignment.get("content_config") or {}
@@ -1075,6 +1128,10 @@ def get_bank_for_play(
                 "expiry_pending": learner_action == "expired_pending",
                 "accepting": bool(is_accepting_submissions(assignment)),
                 "course_action": learner_action,
+                "completion_mode": course_completion_mode(assignment),
+                "answers_sealed": single_attempt_answers_sealed(
+                    effective_item, assignment,
+                ),
                 **effective_timer,
             }
         except Exception as exc:  # noqa: BLE001
@@ -1100,6 +1157,17 @@ def get_bank_for_play(
             q["explain"] = None
             q["accept"] = None
             q["answer"] = None
+
+    # One-sitting assessments are genuinely sealed, not merely hidden in CSS.
+    # The browser receives the prompt and choices but no key or explanation
+    # until the canonical verdict moves the assignment to read-only review.
+    if mastery_state and mastery_state.get("answers_sealed"):
+        for q in questions:
+            if _is_course_quiz_question(q):
+                q["answer"] = None
+                q["accept"] = None
+                q["explain"] = None
+                q["why_wrong"] = None
 
     # BÀI ĐỌC THÊM: passage, từ vựng và câu hỏi đi cùng đề; bản dịch + đáp án
     # chỉ tới sau khi học viên chủ động đối chiếu. Lọc ở máy chủ — xoá bằng JS
@@ -1826,10 +1894,16 @@ def start_session(
             if bank.get("skill_area") == COURSE_AREA else None)
     first_session_id = None
     if bank.get("skill_area") == COURSE_AREA:
-        timer = assignment_timer_state(item, {
+        course_assignment = {
             "content_config": (item or {}).get("content_config") or {},
             "due_at": (item or {}).get("due_at"),
-        })
+        }
+        if course_completion_mode(course_assignment) == COURSE_COMPLETION_SINGLE_ATTEMPT:
+            if kind != "run":
+                raise HTTPException(422, "Bài một lượt không mở revision hoặc lượt làm lại.")
+            if course_assignment_action(item, course_assignment) == "review":
+                raise HTTPException(409, "Bài một lượt đã được thu và chỉ còn chế độ xem kết quả.")
+        timer = assignment_timer_state(item, course_assignment)
         timed_course = bool(timer.get("is_timed"))
         item, first_session_id = _ensure_timed_course_session(
             item, user_id=user_id, bank_id=bank_id, code=bank.get("code"),
@@ -2276,7 +2350,8 @@ def get_course_resume(
     # assembly that deliberately happened before the first timer start.
     timer_sampled_at = datetime.now(timezone.utc)
     empty = {"session_id": None, "answered": [], "completed": [], "item_id": None,
-             "last_stage": None, "stage": 0, "retake": None, "timer": None}
+             "last_stage": None, "stage": 0, "retake": None, "timer": None,
+             "answers_sealed": False}
     bank = _bank_meta_or_404(bank_id, user_id)
     if bank.get("skill_area") != COURSE_AREA:
         return empty
@@ -2285,7 +2360,12 @@ def get_course_resume(
         bank_id, user_id, assignment_item_id=assignment_item_id,
     ) if assignment_item_id else _assignment_item_for(bank_id, user_id))
     item_id = (item or {}).get("id")
+    item_assignment = {"content_config": (item or {}).get("content_config") or {}}
+    answers_sealed = bool(item and single_attempt_answers_sealed(
+        item, item_assignment,
+    ))
     empty["item_id"] = item_id
+    empty["answers_sealed"] = answers_sealed
     empty["timer"] = assignment_timer_state(item, {
         "content_config": (item or {}).get("content_config") or {},
         "due_at": (item or {}).get("due_at"),
@@ -2387,7 +2467,7 @@ def get_course_resume(
             last = r
     result_last = ({"right": int(last.get("total_correct") or 0),
                     "graded": int(last.get("total_questions") or 0)}
-                   if last else None)
+                   if last and not answers_sealed else None)
     open_rows = [r for r in rows if not r.get("ended_at")]
     # Nhiều phiên rỗng do tải lại trang: lấy phiên CÓ BÀI gần nhất, không phải
     # phiên mới nhất — bản ghi của học viên nằm ở phiên có bài.
@@ -2424,7 +2504,7 @@ def get_course_resume(
               "item_id": item_id, "last_stage": result_last,
               "stage": (_course_stage_reached(order, answered_all)
                         if usable else len(completed)), "retake": None,
-              "timer": empty["timer"]}
+              "timer": empty["timer"], "answers_sealed": answers_sealed}
     ids = [r["id"] for r in open_rows]
     if pending_retake:
         ids.append(pending_retake["id"])
@@ -2460,7 +2540,9 @@ def get_course_resume(
                 continue
             seen_retake.add(a["qid"])
             retake_answers.append({
-                "qid": a["qid"], "is_correct": bool(a.get("is_correct")),
+                "qid": a["qid"],
+                "is_correct": (None if answers_sealed
+                               else bool(a.get("is_correct"))),
             })
         result["retake"] = {
             "session_id": pending_retake["id"],
@@ -2506,7 +2588,9 @@ def get_course_resume(
             continue          # trả lời lại cùng một câu: giữ lượt ĐẦU
         seen_q.add(a["qid"])
         result["answered"].append(
-            {"qid": a["qid"], "is_correct": bool(a.get("is_correct"))})
+            {"qid": a["qid"],
+             "is_correct": (None if answers_sealed
+                            else bool(a.get("is_correct")))})
     # Có câu đang dở thì chính vị trí của nó nói chỗ đứng.
     if usable and result["answered"]:
         result["stage"] = _course_stage_reached(
@@ -2571,14 +2655,14 @@ def _timed_course_progress_phase_conflict() -> HTTPException:
     )
 
 
-def _assert_quiz_progress_writable(session: dict) -> bool:
-    """Reject closed/expired writes; return True for a timed Course session."""
+def _assert_quiz_progress_writable(session: dict) -> dict:
+    """Reject closed/expired writes and return the canonical write policy."""
     ended = bool(session.get("ended_at") or session.get("ended_by"))
     item_id = session.get("class_assignment_item_id")
     if not item_id:
         if ended:
             raise HTTPException(409, "Phiên này đã kết thúc — không thể ghi thêm đáp án.")
-        return False
+        return {"timed": False, "completion_mode": COURSE_COMPLETION_MASTERY}
     try:
         items = (supabase_admin.table("class_assignment_items")
                  .select("id, assignment_id, opened_at, timed_limit_minutes, "
@@ -2600,7 +2684,7 @@ def _assert_quiz_progress_writable(session: dict) -> bool:
     if assignment.get("skill") != COURSE_AREA:
         if ended:
             raise HTTPException(409, "Phiên này đã kết thúc — không thể ghi thêm đáp án.")
-        return False
+        return {"timed": False, "completion_mode": COURSE_COMPLETION_MASTERY}
     timer = assignment_timer_state(items[0], assignment)
     action = course_assignment_action(items[0], assignment)
     # A passed timed attempt is a terminal entitlement change, even when its
@@ -2616,14 +2700,41 @@ def _assert_quiz_progress_writable(session: dict) -> bool:
         raise HTTPException(409, "Đã hết thời gian làm bài — đáp án này không được ghi.")
     if action == "review":
         raise HTTPException(409, "Bài đã được thu — không thể ghi thêm đáp án.")
-    return bool(timer.get("is_timed"))
+    return {
+        "timed": bool(timer.get("is_timed")),
+        "completion_mode": course_completion_mode(assignment),
+    }
+
+
+def _grade_single_attempt_rows(bank_id: str, rows: list[dict]) -> None:
+    """Stamp server-owned correctness without returning the key to the browser."""
+    qids = sorted({str(row.get("qid")) for row in rows if row.get("qid")})
+    if not qids:
+        return
+    try:
+        questions = (supabase_admin.table("quiz_questions")
+                     .select("qid, answer")
+                     .eq("bank_id", bank_id).in_("qid", qids)
+                     .execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, "Chưa chấm được đáp án để lưu tiến độ.") from exc
+    keys = {str(row.get("qid")): row.get("answer") for row in questions}
+    if set(qids) != set(keys):
+        raise HTTPException(422, "Có câu trả lời không thuộc bộ đề hiện tại.")
+    for row in rows:
+        qid = str(row.get("qid") or "")
+        graded = grade_attempt(row.get("answer_given"), keys.get(qid))
+        if graded is None:
+            raise HTTPException(422, "Có câu trả lời không chấm được.")
+        row["is_correct"] = graded
 
 
 def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_stats: list[dict]) -> dict:
     """Batch-persist attempts (append) + word_stats (upsert by user+bank+item).
     The client owns the mastery decision; we store its snapshots."""
     session = _owned_session(session_id, user_id)
-    timed_course = _assert_quiz_progress_writable(session)
+    write_policy = _assert_quiz_progress_writable(session)
+    timed_course = bool(write_policy.get("timed"))
     bank_id = session["bank_id"]
 
     attempts = attempts or []
@@ -2643,6 +2754,9 @@ def log_progress(*, user_id: str, session_id: str, attempts: list[dict], word_st
         row["attempt_no"] = _coerce_int(row.get("attempt_no"))
         row.update({"user_id": user_id, "session_id": session_id, "bank_id": bank_id})
         attempt_rows.append(row)
+    if (attempt_rows and write_policy.get("completion_mode")
+            == COURSE_COMPLETION_SINGLE_ATTEMPT):
+        _grade_single_attempt_rows(bank_id, attempt_rows)
     if attempt_rows:
         try:
             if timed_course:
@@ -4089,6 +4203,7 @@ def _course_completion_evidence(
 def _course_completion_payload(
     *, attempt: dict, attempts: list[dict], cfg: dict, required: list[str],
     results: dict[str, dict], weights: dict[str, float], passed_before: bool = False,
+    completion_mode: str = COURSE_COMPLETION_MASTERY,
 ) -> dict:
     sections = [{
         "key": name,
@@ -4107,18 +4222,21 @@ def _course_completion_payload(
     action = ("passed" if passed_before else _recorded_next_action(
         attempt, cfg["pass_pct"],
     )) if complete else None
-    passed = bool(complete and action == "passed")
+    result_only = completion_mode == COURSE_COMPLETION_SINGLE_ATTEMPT
+    passed = None if result_only else bool(complete and action == "passed")
     return {
         "completed": complete,
         "passed": passed if complete else None,
         "pct": float(pct) if pct is not None else None,
-        "threshold": cfg["pass_pct"],
-        "near_threshold": near_pass_pct(cfg["pass_pct"]),
+        "threshold": None if result_only else cfg["pass_pct"],
+        "near_threshold": None if result_only else near_pass_pct(cfg["pass_pct"]),
         "next_action": action,
+        "completion_mode": completion_mode,
+        "result_only": result_only,
         "retry_reason": (_course_retry_reason(attempt, cfg["pass_pct"])
                          if action == "retry_full" else None),
         "phase": attempt.get("phase") or "run",
-        "retake_size": cfg["retake_size"],
+        "retake_size": None if result_only else cfg["retake_size"],
         "retakes": sum(1 for row in attempts if row.get("phase") == "retake"),
         "remaining": [row["key"] for row in sections if not row["completed"]],
         "sections": sections,
@@ -4164,6 +4282,68 @@ def _course_terminal_pass_payload(item: dict, cfg: dict) -> dict:
     payload["already_passed"] = True
     payload["timed_out"] = False
     return payload
+
+
+def _course_terminal_completed_payload(item: dict, cfg: dict) -> dict:
+    """Return the immutable result of a one-sitting assignment."""
+    attempts = [row for row in ((item.get("mastery") or {}).get("attempts") or [])
+                if isinstance(row, dict)]
+    attempt = next((row for row in reversed(attempts)
+                    if _recorded_next_action(row, cfg["pass_pct"]) == "completed"), None)
+    if attempt is None:
+        raise HTTPException(409, "Kết quả một lượt chưa được chốt đầy đủ.")
+    sections = {
+        name: value for name, value in (attempt.get("sections") or {}).items()
+        if name in _COURSE_SECTION_LABELS and isinstance(value, dict)
+    }
+    if sections:
+        required = list(sections)
+        results = sections
+        weights = {name: float((value or {}).get("weight") or 0)
+                   for name, value in sections.items()}
+    else:
+        required = ["quiz"]
+        results = {"quiz": {
+            "completed": True, "pct": attempt.get("pct", item.get("score")),
+            "correct": attempt.get("correct"), "total": attempt.get("total"),
+            "duration_sec": int(attempt.get("duration_sec") or 0),
+        }}
+        weights = {"quiz": 100.0}
+    payload = _course_completion_payload(
+        attempt=attempt, attempts=attempts, cfg=cfg, required=required,
+        results=results, weights=weights,
+        completion_mode=COURSE_COMPLETION_SINGLE_ATTEMPT,
+    )
+    payload["already_completed"] = True
+    return payload
+
+
+def _ensure_course_result_receipt(
+    item: dict, *, artifact_kind: str, artifact_id: str | None,
+    score: float | int | None, error_message: str,
+) -> None:
+    """Repair the durable hand-in receipt after a terminal ledger write.
+
+    The mastery/result ledger and ``submitted_at`` are necessarily two writes.
+    A network or database interruption between them must not leave a completed
+    one-sitting assignment permanently sealed.  Replays use the canonical
+    artifact already stored in the ledger/evidence, never a client-provided id.
+    """
+    if item.get("submitted_at"):
+        return
+    if artifact_id and mark_item_submitted(
+        supabase_admin, item_id=item["id"], artifact_kind=artifact_kind,
+        artifact_id=artifact_id, score=score,
+    ):
+        return
+    try:
+        check = (supabase_admin.table("class_assignment_items")
+                 .select("submitted_at").eq("id", item["id"])
+                 .limit(1).execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"{error_message}: {exc}") from exc
+    if not check or not check[0].get("submitted_at"):
+        raise HTTPException(500, error_message)
 
 
 def _course_terminal_timeout_payload(item: dict, cfg: dict) -> dict:
@@ -4229,6 +4409,7 @@ def refresh_course_completion(
 
         assignment = assignment_rows[0] if assignment_rows else {}
         cfg = mastery_config(assignment)
+        completion_mode = course_completion_mode(assignment)
         mastery = dict(item.get("mastery") or {})
         attempts = list(mastery.get("attempts") or [])
         attempt_no = course_section_attempt_no(item)
@@ -4250,6 +4431,7 @@ def refresh_course_completion(
                 return _course_completion_payload(
                     attempt=attempt, attempts=attempts, cfg=cfg, required=required,
                     results=results, weights=_course_section_weights(assignment, required),
+                    completion_mode=completion_mode,
                 )
             attempt = {"phase": "run", "sessions": [], "sections": {},
                        "attempt_no": attempt_no, "completed": False,
@@ -4260,12 +4442,24 @@ def refresh_course_completion(
         # kết quả ấy, không thay điểm bằng submission phát âm mới hơn.
         if attempt.get("completed") is True and attempt.get("pct") is not None:
             snap = attempt.get("sections") or {}
-            return _course_completion_payload(
+            payload = _course_completion_payload(
                 attempt=attempt, attempts=attempts, cfg=cfg, required=required,
                 results=snap, weights={k: float((v or {}).get("weight") or 0)
                                        for k, v in snap.items()},
                 passed_before=bool(item.get("passed_at")),
+                completion_mode=completion_mode,
             )
+            if (completion_mode == COURSE_COMPLETION_SINGLE_ATTEMPT
+                    and _recorded_next_action(attempt, cfg["pass_pct"]) == "completed"):
+                artifact_id = artifacts.get("quiz") or artifacts.get("writing")
+                _ensure_course_result_receipt(
+                    item,
+                    artifact_kind=("quiz_session" if artifacts.get("quiz")
+                                   else "course_writing"),
+                    artifact_id=artifact_id, score=payload.get("pct"),
+                    error_message="Kết quả đã chấm nhưng chưa thu được bài; hãy thử lại",
+                )
+            return payload
 
         weights = _course_section_weights(assignment, required)
         snapshot: dict[str, dict] = {}
@@ -4282,8 +4476,10 @@ def refresh_course_completion(
             attempt["at"] = _now()
             attempt["duration_sec"] = sum(int(snapshot[name].get("duration_sec") or 0)
                                           for name in required)
-            attempt["next_action"] = course_mastery_next_action(
-                pct, cfg["pass_pct"], snapshot,
+            attempt["next_action"] = (
+                "completed"
+                if completion_mode == COURSE_COMPLETION_SINGLE_ATTEMPT
+                else course_mastery_next_action(pct, cfg["pass_pct"], snapshot)
             )
         else:
             attempt["pct"] = None
@@ -4316,7 +4512,12 @@ def refresh_course_completion(
             continue
 
         passed = already_passed or (complete and attempt.get("next_action") == "passed")
-        if passed and not item.get("submitted_at"):
+        terminal_single_attempt = bool(
+            complete
+            and completion_mode == COURSE_COMPLETION_SINGLE_ATTEMPT
+            and attempt.get("next_action") == "completed"
+        )
+        if (passed or terminal_single_attempt) and not item.get("submitted_at"):
             artifact_id = artifacts.get("quiz") or artifacts.get("writing")
             artifact_kind = "quiz_session" if artifacts.get("quiz") else "course_writing"
             if not artifact_id or not mark_item_submitted(
@@ -4332,6 +4533,7 @@ def refresh_course_completion(
         return _course_completion_payload(
             attempt=attempt, attempts=attempts, cfg=cfg, required=required,
             results=snapshot, weights=weights, passed_before=already_passed,
+            completion_mode=completion_mode,
         )
     raise HTTPException(500, "Sổ hoàn thành đang bị ghi tranh chấp — thử lại")
 
@@ -4351,14 +4553,11 @@ def course_verdict(
     Kết luận GHI THẲNG vào class_assignment_items (passed_at + sổ mastery):
     giáo viên đọc một cột, không đoán từ bảng phiên.
 
-    RANH GIỚI TIN CẬY (ghi nhận từ codex #928, chưa xử trong tầng này): toàn bộ
-    hệ quiz phát ĐỀ KÈM ĐÁP ÁN xuống client — phản hồi tức thì từng câu là yêu
-    cầu sản phẩm, nên một client script có thể nộp answer_given chép từ chính
-    payload đề và qua cổng này. Cổng thuộc bài vì thế chặn được khai-man-tổng-số
-    và mọi đường gian lận "rẻ", KHÔNG chặn được client tự động hoá có chủ đích;
-    muốn chặn nốt phải đổi hợp đồng phát đề (giấu đáp án + chấm từng câu phía
-    server) cho cả engine quiz — một thay đổi sản phẩm, không phải một bản vá.
-    Giáo viên vẫn thấy tín hiệu bất thường qua duration_sec/response_time_ms.
+    RANH GIỚI TIN CẬY: bài ``single_attempt`` giấu đáp án và được chấm lại ở
+    server. Chế độ mastery cũ vẫn phát đáp án để phản hồi tức thì từng câu, nên
+    ở chế độ ấy một client tự động hoá có thể chép từ payload đề. Cổng này luôn
+    tự cộng lại điểm từ bằng chứng đã lưu, nhưng chỉ hợp đồng một-lượt mới chặn
+    được cả đường gian lận đó.
 
     Mỗi lần ghi sổ kèm `bank_rev` (vân tay qid:answer của đề TẠI THỜI ĐIỂM xét):
     pass là sự kiện lịch sử — re-import đề không thu hồi pass cũ, nhưng vân tay
@@ -4382,6 +4581,7 @@ def course_verdict(
                .eq("id", item["assignment_id"]).limit(1).execute().data) or []
         assignment = asg[0] if asg else {}
         cfg = mastery_config(assignment)
+        completion_mode = course_completion_mode(assignment)
 
         rows = (supabase_admin.table("quiz_sessions")
                 .select("id, user_id, bank_id, class_assignment_item_id, kind, ended_by, "
@@ -4427,6 +4627,22 @@ def course_verdict(
         # still post a lower completed session set after the winning pass; it
         # must not append history or replace the admin's latest percentage.
         return _course_terminal_pass_payload(cur, cfg)
+    canonical_attempts = [row for row in ((cur.get("mastery") or {}).get("attempts") or [])
+                          if isinstance(row, dict)]
+    if (completion_mode == COURSE_COMPLETION_SINGLE_ATTEMPT
+            and canonical_attempts
+            and _recorded_next_action(canonical_attempts[-1], cfg["pass_pct"])
+            == "completed"):
+        payload = _course_terminal_completed_payload(cur, cfg)
+        terminal = canonical_attempts[-1]
+        canonical_session = next((str(value) for value in reversed(
+            terminal.get("sessions") or []) if value), None)
+        _ensure_course_result_receipt(
+            cur, artifact_kind="quiz_session", artifact_id=canonical_session,
+            score=payload.get("pct"),
+            error_message="Kết quả đã chấm nhưng chưa thu được bài; hãy thử lại",
+        )
+        return payload
     clock_expired = bool(timer.get("is_timed") and timer.get("is_expired"))
     if timed_out and not clock_expired:
         raise HTTPException(422, "Đồng hồ máy chủ chưa hết thời gian.")
@@ -4463,6 +4679,8 @@ def course_verdict(
     if len(kinds) > 1:
         raise HTTPException(422, "Không trộn phiên chặng với phiên kiểm tra lại")
     phase = kinds.pop()
+    if completion_mode == COURSE_COMPLETION_SINGLE_ATTEMPT and phase != "run":
+        raise HTTPException(422, "Bài một lượt không nhận phiên revision.")
     if phase == "retake" and len(rows) != 1:
         # Một bài kiểm tra lại là MỘT phiên. Cho ghép nhiều phiên dở dang thì
         # hợp-các-mảnh vẫn đủ cỡ mẫu và vượt được rào "đủ N câu" (codex R3).
@@ -4572,6 +4790,9 @@ def course_verdict(
         prior_action = _recorded_next_action(
             attempts[-1] if attempts else None, cfg["pass_pct"],
         )
+        if (completion_mode == COURSE_COMPLETION_SINGLE_ATTEMPT
+                and existing_attempt is None and prior_action == "completed"):
+            return _course_terminal_completed_payload(cur, cfg)
         if existing_attempt is None and prior_action == "timed_out":
             # A timeout is terminal. If another browser/reaper wins the CAS
             # with a different expired session set, return that canonical
@@ -4724,8 +4945,12 @@ def course_verdict(
             candidate["duration_sec"] = sum(int(v.get("duration_sec") or 0)
                                             for v in snapshot.values())
             if complete:
-                candidate["next_action"] = course_mastery_next_action(
-                    combined_pct, cfg["pass_pct"], snapshot,
+                candidate["next_action"] = (
+                    "completed"
+                    if completion_mode == COURSE_COMPLETION_SINGLE_ATTEMPT
+                    else course_mastery_next_action(
+                        combined_pct, cfg["pass_pct"], snapshot,
+                    )
                 )
             else:
                 candidate.pop("next_action", None)
@@ -4733,8 +4958,12 @@ def course_verdict(
             candidate = {
                 "phase": phase, "pct": pct, "at": (existing_attempt or {}).get("at") or _now(),
                 "sessions": sess_key,
-                "next_action": ("timed_out" if timed_out
-                                else mastery_next_action(pct, cfg["pass_pct"])),
+                "next_action": (
+                    "completed"
+                    if completion_mode == COURSE_COMPLETION_SINGLE_ATTEMPT
+                    else ("timed_out" if timed_out
+                          else mastery_next_action(pct, cfg["pass_pct"]))
+                ),
             }
         if timed_out:
             candidate["timed_out"] = True
@@ -4793,6 +5022,7 @@ def course_verdict(
         attempt=final_attempt, attempts=attempts, cfg=cfg,
         required=required, results=(final_attempt.get("sections") or evidence),
         weights=weights, passed_before=bool(cur.get("passed_at")),
+        completion_mode=completion_mode,
     )
     if (clock_expired and not payload.get("passed")
             and payload.get("next_action") in {"retake", "retry_full"}):
@@ -4814,6 +5044,20 @@ def course_verdict(
                      .limit(1).execute().data) or []
             if not check or not check[0].get("submitted_at"):
                 raise HTTPException(500, "Hết giờ nhưng chưa thu được bài; hãy thử lại")
+    if (completion_mode == COURSE_COMPLETION_SINGLE_ATTEMPT
+            and payload.get("completed") and not timed_out
+            and not cur.get("submitted_at")):
+        latest = max(rows, key=lambda row: row.get("created_at") or "")
+        marked = mark_item_submitted(
+            supabase_admin, item_id=item["id"], artifact_kind="quiz_session",
+            artifact_id=latest["id"], score=payload.get("pct"),
+        )
+        if not marked:
+            check = (supabase_admin.table("class_assignment_items")
+                     .select("submitted_at").eq("id", item["id"])
+                     .limit(1).execute().data) or []
+            if not check or not check[0].get("submitted_at"):
+                raise HTTPException(500, "Kết quả đã chấm nhưng chưa thu được bài; hãy thử lại")
     # Bank nhiều phần chỉ được thu khi điểm gộp đã đạt. Bank quiz-only giữ
     # nguyên đường chốt cũ để tránh thay đổi contract ngoài phạm vi task.
     if multi_section and payload.get("passed") and not cur.get("submitted_at"):
@@ -4934,15 +5178,14 @@ def reap_expired_course_assessments(
                 and latest_action in {"retake", "retry_full"}
                 and (item.get("mastery") or {}).get("timed_retry_closed_at")):
             continue
-        # A timeout ledger plus its submission receipt is terminal. `passed_at`
-        # intentionally remains NULL for a failed timed assessment, so filtering
-        # only on that column makes every future sweep fetch all historical
-        # sessions again. Stop before the student/session batches. A missing
-        # receipt remains eligible for the repair path below, and a later
-        # retake/full-retry generation has a different latest action.
+        # A timeout or one-sitting result plus its submission receipt is
+        # terminal. `passed_at` intentionally remains NULL for both, so
+        # filtering only on that column makes every future sweep fetch all
+        # historical sessions again. A missing receipt stays eligible for the
+        # repair path below.
         if item.get("submitted_at") and latest_attempt and (
             latest_attempt.get("timed_out") is True
-            or latest_action == "timed_out"
+            or latest_action in {"timed_out", "completed"}
         ):
             continue
         timer = assignment_timer_state(item, assignment, now=current)
@@ -5020,10 +5263,14 @@ def reap_expired_course_assessments(
             }
             repair_ids: set[str] = set()
             if not item.get("submitted_at"):
+                repair_actions = {"timed_out"}
+                if (course_completion_mode(assignment)
+                        == COURSE_COMPLETION_SINGLE_ATTEMPT):
+                    repair_actions.add("completed")
                 repair_attempt = next((
                     attempt for attempt in reversed(mastery_attempts)
                     if _recorded_next_action(attempt, mastery_config(
-                        assignment)["pass_pct"]) == "timed_out"
+                        assignment)["pass_pct"]) in repair_actions
                 ), None)
                 if repair_attempt:
                     repair_ids = {
@@ -5271,18 +5518,33 @@ def _course_review_gate(
     item = _assignment_item_for_review(bank_id, user_id, assignment_item_id)
     if not item:
         return None          # không phải bài giao theo lớp: giữ nguyên như cũ
+    item_assignment = {"content_config": item.get("content_config") or {}}
+    single_attempt = (
+        course_completion_mode(item_assignment) == COURSE_COMPLETION_SINGLE_ATTEMPT
+    )
     try:
         row = (supabase_admin.table("class_assignment_items")
-               .select("passed_at").eq("id", item["id"]).limit(1).execute().data) or []
+               .select("passed_at, submitted_at, mastery")
+               .eq("id", item["id"]).limit(1).execute().data) or []
         if row and row[0].get("passed_at"):
             return None
         asg = (supabase_admin.table("class_assignments")
                .select("id, content_config")
                .eq("id", item["assignment_id"]).limit(1).execute().data) or []
-        threshold = mastery_config(asg[0] if asg else None)["pass_pct"]
+        assignment = asg[0] if asg else item_assignment
+        threshold = mastery_config(assignment)["pass_pct"]
+        if course_completion_mode(assignment) == COURSE_COMPLETION_SINGLE_ATTEMPT:
+            attempts = ((row[0].get("mastery") or {}).get("attempts") or []) if row else []
+            action = _recorded_next_action(
+                attempts[-1] if attempts else None, threshold,
+            )
+            if row and row[0].get("submitted_at") and action == "completed":
+                return None
+            return {"locked": True, "sealed": True, "threshold": None}
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] review gate read failed bank=%s: %s", bank_id, exc)
-        return None
+        return ({"locked": True, "sealed": True, "threshold": None}
+                if single_attempt else None)
     return {"locked": True, "threshold": threshold}
 
 
@@ -5307,6 +5569,7 @@ def course_answer_report(*, user_id: str, bank_id: str,
     out: dict = {"questions": [], "totals": {}, "history": [], "summary": {},
                  "stale": False}
     threshold = PASS_PCT_DEFAULT
+    completion_mode = COURSE_COMPLETION_MASTERY
 
     # ── CỔNG HAI MỨC ────────────────────────────────────────────────────────
     #
@@ -5317,12 +5580,10 @@ def course_answer_report(*, user_id: str, bank_id: str,
     #   · TỪNG CÂU  — đề bài, em chọn gì, ĐÁP ÁN ĐÚNG là gì, lời giải, dọn sẵn
     #     thành một bảng đọc trong ba giây.
     #
-    # ĐỪNG NHẦM ĐÂY LÀ MỘT CỔNG BẢO MẬT. Đường phát đề (`/api/quiz/banks/{id}`)
-    # gửi `select("*")`, nên `answer` + `explain` + `why_wrong` của MỌI câu trắc
-    # nghiệm đã nằm trong tab Network TỪ LÚC em ấy mở bài — đó là cái giá của
-    # việc chấm ngay tại trang để phản hồi từng câu. Chỗ này chỉ bỏ đi con đường
-    # TIỆN, không bỏ được con đường CÓ. Muốn chặn thật thì phải chấm phía máy
-    # chủ và chỉ phát đáp án của đúng câu vừa trả lời (việc riêng, lớn hơn).
+    # ĐỪNG NHẦM ĐÂY LÀ MỘT CỔNG BẢO MẬT CHO CHẾ ĐỘ MASTERY. Đường phát đề ở
+    # chế độ ấy vẫn gửi đáp án để phản hồi tức thì từng câu. Riêng bài
+    # ``single_attempt`` đã cắt key khỏi payload và chấm phía server, rồi chỉ mở
+    # báo cáo này sau khi biên nhận nộp bài đã được ghi.
     #
     # Nên chưa đạt thì mở mức một, khoá mức hai. Bản trước khoá cả hai, và đánh
     # đổi ấy sai chiều: em CHƯA đạt mới là em cần biết mình yếu chỗ nào nhất.
@@ -5334,6 +5595,14 @@ def course_answer_report(*, user_id: str, bank_id: str,
     # Chỉ áp cho đường của HỌC VIÊN — giáo viên chấm bài, không làm bài.
     locked = (_course_review_gate(bank_id, user_id, assignment_item_id)
               if not assignment_id else None)
+    if locked and locked.get("sealed"):
+        out["locked"] = True
+        out["sealed"] = True
+        out["summary"] = {
+            "completion_mode": COURSE_COMPLETION_SINGLE_ATTEMPT,
+            "latest_action": None,
+        }
+        return out
 
     # Phiên thuộc đúng bài giao. Không nêu bài giao thì lấy mục còn hiệu lực của
     # chính em ấy — đường của học viên tự xem lại bài mình.
@@ -5352,6 +5621,7 @@ def course_answer_report(*, user_id: str, bank_id: str,
                                .limit(1).execute().data) or []
             if assignment_rows:
                 threshold = mastery_config(assignment_rows[0])["pass_pct"]
+                completion_mode = course_completion_mode(assignment_rows[0])
         except Exception as exc:  # noqa: BLE001
             # Chỉ mất TÊN bộ đề, không mất bài làm — nhưng vẫn phải nói ra:
             # mọi lượt đọc hỏng đều bật cờ, không có ngoại lệ "lỗi nhẹ".
@@ -5373,6 +5643,9 @@ def course_answer_report(*, user_id: str, bank_id: str,
             item_ids = {it["id"]} if it else set()
             if item_ids:
                 item_rows = [{"id": next(iter(item_ids)), "student_id": None}]
+                completion_mode = course_completion_mode({
+                    "content_config": it.get("content_config") or {},
+                })
     except Exception as exc:  # noqa: BLE001
         logger.warning("[quiz] answer-report items failed: %s", exc)
         out["stale"] = True
@@ -5439,8 +5712,11 @@ def course_answer_report(*, user_id: str, bank_id: str,
     # Dựng kết luận TRƯỚC các return của đường quiz. Writing-only vẫn có mastery
     # history và quyết định đạt/fail dù hoàn toàn không có quiz_session.
     out["summary"] = {
-        "pass_pct": threshold,
-        "near_pass_pct": near_pass_pct(threshold),
+        "completion_mode": completion_mode,
+        "pass_pct": (None if completion_mode == COURSE_COMPLETION_SINGLE_ATTEMPT
+                     else threshold),
+        "near_pass_pct": (None if completion_mode == COURSE_COMPLETION_SINGLE_ATTEMPT
+                          else near_pass_pct(threshold)),
         "latest_pct": latest.get("pct") if latest else None,
         "latest_action": latest.get("next_action") if latest else None,
         "latest_attempt_number": latest.get("number") if latest else None,
@@ -5917,7 +6193,8 @@ def course_attempt_report(*, bank_id: str, assignment_id: str) -> dict:
         if item_row.get("passed_at"):
             state = "done"
         elif latest_complete:
-            state = "needs_retry"
+            state = ("done" if summary.get("state") == "completed"
+                     else "needs_retry")
         elif total_stages and len(done) >= total_stages:
             # XONG CHẶNG CHƯA PHẢI XONG BÀI. Phần tự luận nằm ngoài vòng chặng,
             # nên gộp hai chuyện lại là báo với giáo viên rằng một em đã hoàn

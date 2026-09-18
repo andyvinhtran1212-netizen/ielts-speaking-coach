@@ -12,7 +12,7 @@
 .acs-summary em { color: var(--av-error); font-size: var(--av-fs-xs); font-style: normal; font-weight: var(--av-fw-semibold); }
 .acs-summary strong { font-family: var(--av-font-mono); font-size: var(--av-fs-2xl); color: var(--av-text-primary); }
 .acs-summary span { color: var(--av-text-muted); font-size: var(--av-fs-sm); }
-.acs-outcomes { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border: 1px solid var(--av-border-default); border-radius: var(--av-radius-xl); background: var(--av-surface-card); overflow: hidden; }
+.acs-outcomes { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); border: 1px solid var(--av-border-default); border-radius: var(--av-radius-xl); background: var(--av-surface-card); overflow: hidden; }
 .acs-outcomes article { min-height: 104px; padding: var(--av-space-4); border-inline-start: 3px solid var(--av-border-subtle); display: flex; flex-direction: column; justify-content: center; gap: var(--av-space-1); }
 .acs-outcomes article + article { border-left-width: 1px; }
 .acs-outcomes article[data-kind='passed'] { border-inline-start-color: var(--av-success); }

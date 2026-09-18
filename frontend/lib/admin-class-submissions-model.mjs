@@ -20,6 +20,7 @@ export function normalizeTally(value) {
         return { code: text(f.code), severity: text(f.severity), label: text(f.label), why: text(f.why), action: text(f.action) };
       }) : [], flag_level: nullableText(row.flag_level), passed_at: nullableText(row.passed_at),
       course_state: nullableText(row.course_state), next_action: nullableText(row.next_action),
+      completion_mode: nullableText(row.completion_mode),
       pass_pct: finite(row.pass_pct), near_pass_pct: finite(row.near_pass_pct),
       sections_done: Math.max(0, finite(row.sections_done) || 0), sections_total: Math.max(0, finite(row.sections_total) || 0),
       missing_sections: Array.isArray(row.missing_sections) ? row.missing_sections.map((value) => { const section = object(value); return { key: text(section.key), label: text(section.label) || text(section.key) }; }).filter((section) => section.key) : [],
@@ -38,6 +39,7 @@ export function normalizeTally(value) {
       late: Math.max(0, finite(counts.late) || 0), missing: Math.max(0, finite(counts.missing) || 0),
       no_account: Math.max(0, finite(counts.no_account) || 0), flagged: Math.max(0, finite(counts.flagged) || 0),
       passed: Math.max(0, finite(counts.passed) || 0), timed_out: Math.max(0, finite(counts.timed_out) || 0),
+      completed: Math.max(0, finite(counts.completed) || 0),
       near_pass: Math.max(0, finite(counts.near_pass) || 0),
       retry_full: Math.max(0, finite(counts.retry_full) || 0), in_progress: Math.max(0, finite(counts.in_progress) || 0),
       untouched: Math.max(0, finite(counts.untouched) || 0),
@@ -183,7 +185,7 @@ export function normalizeStudentReport(value) {
   return {
     stale: payload.stale === true, locked: payload.locked === true, threshold: finite(payload.threshold),
     totals: { answered: finite(totals.answered) || 0, correct: finite(totals.correct) || 0, median_sec: finite(totals.median_sec), active_sec: finite(totals.active_sec), idle_sec: finite(totals.idle_sec), bank_title: nullableText(totals.bank_title), scope: text(totals.scope) },
-    summary: { pass_pct: finite(summary.pass_pct), near_pass_pct: finite(summary.near_pass_pct), latest_pct: finite(summary.latest_pct), latest_action: nullableText(summary.latest_action), latest_attempt_number: finite(summary.latest_attempt_number), baseline_quiz_pct: finite(summary.baseline_quiz_pct), baseline_correct: Math.max(0, finite(summary.baseline_correct) || 0), baseline_answered: Math.max(0, finite(summary.baseline_answered) || 0), latest_sections: Array.isArray(summary.latest_sections) ? summary.latest_sections.map((value) => { const section = object(value); return { key: text(section.key), label: text(section.label) || text(section.key), pct: finite(section.pct), duration_sec: Math.max(0, finite(section.duration_sec) || 0), carried: section.carried === true }; }).filter((section) => section.key) : [] },
+    summary: { completion_mode: nullableText(summary.completion_mode), pass_pct: finite(summary.pass_pct), near_pass_pct: finite(summary.near_pass_pct), latest_pct: finite(summary.latest_pct), latest_action: nullableText(summary.latest_action), latest_attempt_number: finite(summary.latest_attempt_number), baseline_quiz_pct: finite(summary.baseline_quiz_pct), baseline_correct: Math.max(0, finite(summary.baseline_correct) || 0), baseline_answered: Math.max(0, finite(summary.baseline_answered) || 0), latest_sections: Array.isArray(summary.latest_sections) ? summary.latest_sections.map((value) => { const section = object(value); return { key: text(section.key), label: text(section.label) || text(section.key), pct: finite(section.pct), duration_sec: Math.max(0, finite(section.duration_sec) || 0), carried: section.carried === true }; }).filter((section) => section.key) : [] },
     history: payload.history.map((item, index) => {
       const row = object(item);
       return { number: finite(row.number) || index + 1, phase: text(row.phase), session_count: finite(row.session_count) || 0, pct: finite(row.pct), next_action: text(row.next_action), at: nullableText(row.at), completed: row.completed !== false, duration_sec: Math.max(0, finite(row.duration_sec) || 0), sections: Array.isArray(row.sections) ? row.sections.map((value) => { const section = object(value); return { key: text(section.key), label: text(section.label) || text(section.key), pct: finite(section.pct), duration_sec: Math.max(0, finite(section.duration_sec) || 0), carried: section.carried === true }; }).filter((section) => section.key) : [] };

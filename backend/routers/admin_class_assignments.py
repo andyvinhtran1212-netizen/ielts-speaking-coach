@@ -152,6 +152,10 @@ class AssignmentCreate(BaseModel):
     # vào sẽ bị bỏ — chốt nằm trong giao dịch, không phải ở tầng này.
     student_ids:  Optional[list[str]] = None
     retake_size:  Optional[int] = Field(default=None, ge=5, le=100)
+    # `mastery` preserves the existing retry-until-pass behavior.  A
+    # `single_attempt` assignment is terminal after the first full verdict and
+    # releases answers only after that verdict is persisted.
+    completion_mode: Literal["mastery", "single_attempt"] = "mastery"
     # Optional elapsed-time cap for a Course bank.  The clock starts from each
     # learner's canonical ``class_assignment_items.opened_at``.
     time_limit_minutes: Optional[int] = Field(
@@ -188,7 +192,11 @@ class AssignmentCreate(BaseModel):
         if self.skill == "grammar":
             if self.kind != "daily":
                 raise ValueError("Grammar Diagnostic được giao như bài hằng ngày.")
+            if self.completion_mode != "mastery":
+                raise ValueError("Cách hoàn thành này chỉ dùng cho bài tập theo buổi.")
             return self
+        if self.completion_mode != "mastery":
+            raise ValueError("Cách hoàn thành này chỉ dùng cho bài tập theo buổi.")
         if self.time_limit_minutes is not None:
             raise ValueError("Giới hạn thời gian hiện chỉ dùng cho bài Course.")
         if self.kind == "lesson":
@@ -245,6 +253,39 @@ class AssignmentCreate(BaseModel):
         if not self.due_date:
             self.due_date = None
         return self
+
+
+class CourseBankPreviewQuestion(BaseModel):
+    qid: str
+    order: int
+    type: str
+    subtype: Optional[str] = None
+    item_key: Optional[str] = None
+    prompt: str
+    options: list[str] = Field(default_factory=list)
+    answer: int | str | list[str] | None = None
+    explanation: Optional[str] = None
+    why_wrong: dict[str, str] = Field(default_factory=dict)
+    audio_url: Optional[str] = None
+    counts_toward_mastery: bool = False
+
+
+class CourseBankPreviewSummary(BaseModel):
+    question_count: int
+    assessable_count: int
+    audio_count: int
+    type_counts: dict[str, int]
+
+
+class CourseBankPreviewResponse(BaseModel):
+    bank_id: str
+    code: Optional[str] = None
+    title: str
+    lesson_no: Optional[int] = None
+    runtime: Optional[str] = None
+    revision: str
+    summary: CourseBankPreviewSummary
+    questions: list[CourseBankPreviewQuestion]
 
 
 def _require_cohort(cohort_id: str) -> None:
@@ -801,6 +842,11 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
                 400,
                 "Bài Advanced Vocabulary self-paced không dùng giới hạn thời gian.",
             )
+        if body.completion_mode != "mastery":
+            raise HTTPException(
+                400,
+                "Bài Advanced Vocabulary dùng tiến độ self-paced riêng, không dùng chế độ một lượt.",
+            )
         weight_snapshot = {}
     else:
         try:
@@ -840,12 +886,15 @@ def _resolve_course_bank(cohort_id: str, body: "AssignmentCreate") -> tuple[str,
         **({"runtime": (bank.get("meta") or {}).get("runtime")}
            if (bank.get("meta") or {}).get("runtime") else {}),
         **weight_snapshot,
+        "completion_mode": body.completion_mode,
     }
     # Cổng thuộc-bài: pass/revision chỉ ghi khi admin đặt. Riêng trọng số luôn
     # chụp ở trên vì luật chấm không được tiến hoá giữa một bài đã giao.
-    if body.pass_pct is not None and not advanced_runtime:
+    if (body.pass_pct is not None and not advanced_runtime
+            and body.completion_mode == "mastery"):
         cfg["pass_pct"] = body.pass_pct
-    if body.retake_size is not None and not advanced_runtime:
+    if (body.retake_size is not None and not advanced_runtime
+            and body.completion_mode == "mastery"):
         cfg["retake_size"] = body.retake_size
     if body.time_limit_minutes is not None:
         cfg["time_limit_minutes"] = body.time_limit_minutes
@@ -950,6 +999,91 @@ async def list_course_banks(
             ),
         })
     return {"items": items}
+
+
+@router.get(
+    "/{cohort_id}/course-banks/{bank_id}/preview",
+    response_model=CourseBankPreviewResponse,
+)
+async def preview_course_bank(
+    cohort_id: str,
+    bank_id: str,
+    authorization: str | None = Header(default=None),
+):
+    """Read the canonical Course bank before assignment without mutating it."""
+    await require_admin(authorization)
+    _require_cohort(cohort_id)
+    course_id = _cohort_course_id(cohort_id)
+    banks = (
+        supabase_admin.table("quiz_banks")
+        .select("id, code, title, lesson_no, skill_area, course_id, meta")
+        .eq("id", bank_id).limit(1).execute().data
+    ) or []
+    if not banks:
+        raise HTTPException(404, "Không tìm thấy bộ bài tập này.")
+    bank = banks[0]
+    if bank.get("skill_area") != "course" or bank.get("course_id") != course_id:
+        raise HTTPException(404, "Không tìm thấy bộ bài tập này trong khoá của lớp.")
+
+    rows = _paged(
+        supabase_admin,
+        "quiz_questions",
+        "qid, order, type, subtype, item_key, prompt, options, answer, explain, "
+        "why_wrong, audio_url, counts_toward_mastery",
+        lambda query: query.eq("bank_id", bank_id),
+    )
+    rows.sort(key=lambda row: (int(row.get("order") or 0), str(row.get("qid") or "")))
+    if not rows:
+        raise HTTPException(409, "Bộ bài tập này chưa có nội dung để xem trước.")
+
+    questions = []
+    type_counts: dict[str, int] = {}
+    assessable_count = 0
+    audio_count = 0
+    for index, row in enumerate(rows):
+        question_type = str(row.get("type") or "unknown")
+        type_counts[question_type] = type_counts.get(question_type, 0) + 1
+        counts_toward_mastery = row.get("counts_toward_mastery") is not False
+        if counts_toward_mastery:
+            assessable_count += 1
+        audio_url = str(row.get("audio_url") or "").strip() or None
+        if audio_url:
+            audio_count += 1
+        raw_options = row.get("options") or []
+        options = [str(value) for value in raw_options] if isinstance(raw_options, list) else []
+        raw_why_wrong = row.get("why_wrong") or {}
+        why_wrong = ({str(key): str(value) for key, value in raw_why_wrong.items()}
+                     if isinstance(raw_why_wrong, dict) else {})
+        questions.append({
+            "qid": str(row.get("qid") or f"question-{index + 1}"),
+            "order": int(row.get("order") or index + 1),
+            "type": question_type,
+            "subtype": str(row.get("subtype") or "").strip() or None,
+            "item_key": str(row.get("item_key") or "").strip() or None,
+            "prompt": str(row.get("prompt") or ""),
+            "options": options,
+            "answer": row.get("answer"),
+            "explanation": str(row.get("explain") or "").strip() or None,
+            "why_wrong": why_wrong,
+            "audio_url": audio_url,
+            "counts_toward_mastery": counts_toward_mastery,
+        })
+
+    return {
+        "bank_id": str(bank["id"]),
+        "code": bank.get("code"),
+        "title": str(bank.get("title") or "Bộ bài tập"),
+        "lesson_no": bank.get("lesson_no"),
+        "runtime": (((bank.get("meta") or {}).get("runtime") or {}).get("kind")),
+        "revision": _course_bank_assignment_revision(bank_id),
+        "summary": {
+            "question_count": len(questions),
+            "assessable_count": assessable_count,
+            "audio_count": audio_count,
+            "type_counts": type_counts,
+        },
+        "questions": questions,
+    }
 
 
 @router.get("/{cohort_id}/speaking-lesson-sets")
@@ -1619,6 +1753,7 @@ async def assignment_tally(
             "flag_level":   speaking_flags.worst(flags),
             "course_state": (course_summary or {}).get("state"),
             "next_action":  (course_summary or {}).get("next_action"),
+            "completion_mode": (course_summary or {}).get("completion_mode"),
             "pass_pct":     (course_summary or {}).get("pass_pct"),
             "near_pass_pct": (course_summary or {}).get("near_pass_pct"),
             "sections_done": (course_summary or {}).get("sections_done", 0),
@@ -1675,6 +1810,7 @@ async def assignment_tally(
             # làm bài, trong khi lỗi nằm ở phía hệ thống.
             "flagged":   sum(1 for r in out if r["flags"]),
             "passed": sum(1 for r in out if r.get("course_state") == "passed"),
+            "completed": sum(1 for r in out if r.get("course_state") == "completed"),
             "timed_out": sum(1 for r in out if r.get("course_state") == "timed_out"),
             "near_pass": sum(1 for r in out if r.get("course_state") == "near_pass"),
             "retry_full": sum(1 for r in out if r.get("course_state") == "retry_full"),

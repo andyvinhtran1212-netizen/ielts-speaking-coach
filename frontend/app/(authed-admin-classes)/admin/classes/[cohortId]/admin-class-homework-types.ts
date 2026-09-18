@@ -1,3 +1,5 @@
+import type { components } from '@/types/api';
+
 export type AssignmentProgress = {
   assigned: number;
   submitted: number;
@@ -68,12 +70,16 @@ export type HomeworkDraft = {
   studentIds: string[];
   passPct: string;
   retakeSize: string;
+  completionMode: 'mastery' | 'single_attempt';
   timeLimitMinutes: string;
   deliveryMode: 'standard' | 'assigned_practice';
   webExplanationMode: 'disabled' | 'immediate_after_capture' | 'admin_release';
   postTestCaptureRequired: boolean;
   error: string;
 };
+
+export type CourseBankPreviewQuestion = components['schemas']['CourseBankPreviewQuestion'];
+export type CourseBankPreview = components['schemas']['CourseBankPreviewResponse'];
 
 export type DueDraft = {
   assignment: ClassAssignment;
