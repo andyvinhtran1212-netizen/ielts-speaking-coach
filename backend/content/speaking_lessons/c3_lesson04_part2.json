@@ -1,0 +1,60 @@
+{
+  "_note": [
+    "Bộ đề Speaking Part 2 cho Speaking 4, Khóa C3.",
+    "Nạp bằng: python -m scripts.import_speaking_lesson_sets --file content/speaking_lessons/c3_lesson04_part2.json --commit",
+    "",
+    "Mỗi cue card lưu ba gợi ý đầu trong cue_card_bullets và câu cuối bắt đầu",
+    "bằng 'and explain' trong cue_card_reflection, đúng hình dạng phiếu Part 2."
+  ],
+  "course_code": "C3",
+  "lesson_no": 4,
+  "part": 2,
+  "title": "Speaking 4 — Trải nghiệm và tin vui",
+  "description": "4 cue card Part 2 về giúp đỡ người khác, kế hoạch không như dự kiến, trải nghiệm lần đầu và một tin vui.",
+  "questions": [
+    {
+      "order_num": 1,
+      "question_text": "Describe a time when you helped someone.",
+      "question_type": "cuecard",
+      "cue_card_bullets": [
+        "Who you helped",
+        "When and where it happened",
+        "What you did to help"
+      ],
+      "cue_card_reflection": "and explain how you felt about helping this person."
+    },
+    {
+      "order_num": 2,
+      "question_text": "Describe a time when a plan did not go as expected.",
+      "question_type": "cuecard",
+      "cue_card_bullets": [
+        "What the plan was",
+        "When and where it happened",
+        "What went wrong"
+      ],
+      "cue_card_reflection": "and explain what you did about it."
+    },
+    {
+      "order_num": 3,
+      "question_text": "Describe a time when you tried something for the first time.",
+      "question_type": "cuecard",
+      "cue_card_bullets": [
+        "What you tried",
+        "When and where you tried it",
+        "Who was with you"
+      ],
+      "cue_card_reflection": "and explain how you felt about the experience."
+    },
+    {
+      "order_num": 4,
+      "question_text": "Describe a time when you received some good news.",
+      "question_type": "cuecard",
+      "cue_card_bullets": [
+        "What the news was",
+        "When and where you received it",
+        "Who told you the news"
+      ],
+      "cue_card_reflection": "and explain why you were happy about it."
+    }
+  ]
+}
