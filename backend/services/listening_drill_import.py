@@ -78,7 +78,7 @@ _STRESS_RE = re.compile(r"\[stress:\s*([^\]]+?)\s*\]", re.IGNORECASE)
 # learner who typed the number correctly as having typed extra words.
 _DIGITS_RE = re.compile(r"\[digits:\s*([^\]]+?)\s*\]", re.IGNORECASE)
 _BRACKET_CUE_RE = re.compile(
-    r"\[(?:emotion|pause|sfx|emphasis|tone|hesitate|breath|sigh|chuckle)[^\]]*\]",
+    r"\[(?:emotion|pace|pause|sfx|emphasis|tone|hesitate|breath|sigh|chuckle)[^\]]*\]",
     re.IGNORECASE)
 _QMARK_RE = re.compile(r"\(Q\d+\)", re.IGNORECASE)
 

@@ -163,6 +163,20 @@ def test_digits_cue_unwrapped_into_transcript():
     assert " ." not in turn, turn
 
 
+def test_pace_cue_removed_from_transcript_and_dictation():
+    """`[pace:slow]` controls TTS delivery and must never reach learner text."""
+    source = _load("MCQ")
+    first_turn = source["sections"][0]["audio_script"][0]
+    first_turn["text"] = "[pace:slow] " + first_turn["text"]
+
+    res = imp.parse_drill(source, _timings("MCQ"))
+
+    assert "[pace:" not in res.content_row["transcript"]
+    segments = res.content_row["metadata"]["dictation_segments"]
+    assert segments
+    assert all("[pace:" not in segment["text"] for segment in segments)
+
+
 def test_map_keeps_inline_svg():
     res = imp.parse_drill(_load("MAP"), None)
     svgs = [ex["payload"].get("map_svg") for ex in res.exercise_rows]
