@@ -154,7 +154,7 @@ def _upsert_set(course: dict, doc: dict, commit: bool) -> str | None:
     key = {"course_id": course["id"], "lesson_no": int(doc["lesson_no"]),
            "part": int(doc["part"])}
     existing = (supabase_admin.table("speaking_lesson_sets")
-                .select("id, title, description, part, is_active")
+                .select("id, course_id, lesson_no, title, description, part, is_active")
                 .eq("course_id", key["course_id"])
                 .eq("lesson_no", key["lesson_no"])
                 .eq("part", key["part"]).limit(1).execute().data) or []

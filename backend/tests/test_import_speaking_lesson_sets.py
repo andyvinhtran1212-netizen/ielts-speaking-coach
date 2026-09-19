@@ -27,7 +27,9 @@ class _Table:
         self._db, self._name = db, name
         self._rows = list(db.tables.get(name, []))
 
-    def select(self, *_a, **_k): return self
+    def select(self, *fields, **_k):
+        self._db.selects.append((self._name, fields))
+        return self
 
     def eq(self, f, v):
         # TÍCH LUỸ, không ghi đè: chuỗi .eq(a).eq(b) mà chỉ giữ cái cuối thì một
@@ -102,6 +104,7 @@ class _DB:
     def __init__(self, **tables):
         self.tables = {k: [dict(r) for r in v] for k, v in tables.items()}
         self.writes: list = []
+        self.selects: list = []
 
     def table(self, name):
         return _Table(self, name)
@@ -392,6 +395,19 @@ def test_course_3_lesson_3_source_has_four_part1_and_two_complete_part2_cards():
     assert all(q["cue_card_reflection"] for q in cards)
 
 
+def test_course_3_lesson_4_source_preserves_the_live_part2_set():
+    content = mod.Path(mod.__file__).parents[1] / "content" / "speaking_lessons"
+    part2 = mod._load(content / "c3_lesson04_part2.json")
+
+    assert (part2["course_code"], part2["lesson_no"], part2["part"]) == ("C3", 4, 2)
+    cards = mod._normalise_questions(part2)
+    assert len(cards) == 4
+    assert [q["order_num"] for q in cards] == [1, 2, 3, 4]
+    assert all(q["question_type"] == "cuecard" for q in cards)
+    assert all(len(q["cue_card_bullets"]) == 3 for q in cards)
+    assert all(q["cue_card_reflection"].startswith("and explain") for q in cards)
+
+
 # ── Vòng review 2 (inline PR #921) ───────────────────────────────────────────
 
 def _touched(db, table):
@@ -411,6 +427,17 @@ def test_re_importing_an_unchanged_file_does_not_touch_the_parent_row(tmp_path):
     assert _touched(db, "speaking_lesson_sets")[len(_touched(db, "speaking_lesson_sets")):] == []
     later = [w for w in db.writes[before:] if w[1] == "speaking_lesson_sets" and w[-1] > 0]
     assert later == [], f"lần chạy thứ hai vẫn ghi vào bộ đề: {later}"
+
+
+def test_parent_projection_contains_every_field_used_for_change_detection(tmp_path):
+    db = _DB(courses=[_COURSE])
+    _run(tmp_path, db, _doc())
+
+    projections = [fields for table, fields in db.selects
+                   if table == "speaking_lesson_sets"]
+    selected = ",".join(projections[0])
+    assert "course_id" in selected
+    assert "lesson_no" in selected
 
 
 def test_a_real_change_to_the_parent_IS_written(tmp_path):
