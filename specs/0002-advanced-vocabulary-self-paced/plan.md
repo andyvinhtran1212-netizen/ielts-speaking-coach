@@ -43,9 +43,29 @@
   Listening fields. Practice answers, accepted variants, explanations, correction
   notes, and other answer-bearing fields remain absent until that individual
   immutable answer is accepted. Controlled rewrite initially exposes prompt IDs and
-  prompts only; its reference solutions are attached only after persisted completion.
+  prompts only; its reference solutions are attached only after the exact 20-ID,
+  non-empty answer map is atomically persisted as the immutable submission. That
+  accepted write owns the one allowed batch feedback request. Provider failure is
+  persisted beside the answers and solutions and does not create a retry path or
+  prevent stage completion.
   Reading/Listening keys are attached only to persisted post-submission review
   evidence. The generic quiz-player route cannot serve these banks.
+- The importer resolves the unique `courses.code = 'C5'` row before mutation, writes
+  its UUID to every one of the 30 Advanced banks, and rejects missing, duplicate,
+  `C4`, other-course, or null associations. Assignment discovery remains course-
+  scoped, and assignment issuance snapshots the `C5` association with the runtime so
+  immediate and reloaded admin state cannot drift from persisted bank truth.
+- Controlled Rewrite feedback uses a versioned prompt/model pair and one request per
+  immutable submission. Before release, an evaluation harness runs 60 synthetic or
+  de-identified batch submissions (two per lesson, 1,200 answers: 600 acceptable and
+  600 error-bearing) against dual-human annotations with adjudication. It freezes the
+  first candidate as the comparison baseline and separately records the solutions-
+  only fallback baseline. The report records dataset checksum, prompt/model versions,
+  schema validity, claim precision, error coverage, acceptable-answer false-positive
+  rate, invented quotations, meaning-changing corrections, p95 latency, token usage,
+  and estimated cost. The absolute thresholds in FR-011 are mandatory; provider
+  failure returns the persisted solutions-only fallback and never causes a second
+  model call.
 - Writing and Speaking contracts explicitly disable default grading/submission.
 - Advanced Vocabulary adds a database guard independent of the generic course-section
   retry key `(class_assignment_item_id, attempt_no, section)`. Before a Reading or
@@ -193,6 +213,13 @@ map to `/course-exercises` without behavioral change.
   their service/API, migration/RLS, replay/concurrency, and backend regression tests;
   generate the OpenAPI declaration and do not merge that layer until its exact SHA and
   API drift check pass.
+- Implement and verify the `C5` lookup/import/assignment contract, including database
+  queries proving exactly 30 Advanced banks own the resolved `C5` UUID and none own
+  `C4`, another course, or `NULL` before any bank is published.
+- Build the Controlled Rewrite gold-cohort harness and versioned evaluation report;
+  freeze first-candidate and solutions-only baselines, exercise the provider-failure
+  fallback, and block runtime merge until every FR-011 threshold passes within the
+  stated 60-call cost budget.
 - Implement learner/admin UI integration together with model, behavior, browser,
   accessibility, responsive, interruption/resume, and reveal-boundary tests; do not
   merge that layer until its exact SHA passes.
@@ -224,7 +251,11 @@ map to `/course-exercises` without behavioral change.
 
 - Run focused Advanced Vocabulary backend and frontend suites plus full repository CI.
 - Validate the source-input manifest/revision, package checksums, immutable version
-  assets, 88 supplements, 720 cards, 30 banks, and 1,440 imported practice rows.
+  assets, 88 supplements, 720 cards, 30 `C5` banks, zero Advanced banks outside `C5`,
+  and 1,440 imported practice rows.
+- Run the versioned 60-submission Controlled Rewrite evaluation, compare the release
+  candidate with both frozen baselines, and attach the threshold/cost report to the
+  exact implementation SHA.
 - Query staging/production schema and RLS policy truth before import.
 - Record exact staging SHA, learner completion journey, admin result reload, and
   production health/smoke outcomes.

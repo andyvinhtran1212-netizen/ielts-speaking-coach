@@ -177,6 +177,20 @@ that prevents answer leakage and gives admins canonical completion evidence.
   selected question set for that assignment item/stage. Repeated starts, response-
   loss recovery, and reload return the original persisted selection rather than
   conflict or select again; answers and completion accept only IDs from that set.
+- **FR-010:** Every imported Advanced Vocabulary core bank belongs to the persisted
+  course row whose stable code is `C5`. The importer must resolve `C5` before any
+  write, reject a missing or ambiguous course, write that `course_id` on all 30 banks,
+  and verify that no released Advanced bank is attached to `C4`, another course, or
+  `NULL`. Admin assignment discovery must expose the banks only to a cohort whose
+  canonical `course_id` is the resolved `C5` row, and the frozen assignment snapshot
+  must preserve that association after reload.
+- **FR-011:** Controlled Rewrite AI feedback is release-gated by the versioned gold-
+  cohort evaluation defined below. A release candidate must meet every absolute
+  quality, grounding, false-positive, latency, and cost threshold; retain reference
+  solutions as the no-AI baseline/fallback; and persist the provider-failure state
+  without retrying or blocking learner progress. Prompt version, model, evaluation-
+  dataset checksum, token usage, latency, and estimated cost must be recorded in the
+  release evidence so the result is reproducible and comparable across revisions.
 
 ### Required-stage completion evidence
 
@@ -196,11 +210,17 @@ that prevents answer leakage and gives admins canonical completion evidence.
   question after Practice 2; the server creates exactly one canonical
   `course_section_submissions` Reading row containing answers, frozen answer key,
   frozen content, result counts, and duration.
-- **Controlled rewrite:** after Reading, the learner confirms an attempt for all 20
-  server-issued prompt IDs; only then does the server persist the canonical attempted
-  ID set and server completion timestamp and reveal reference solutions. This is an
-  untimed completion marker, not a graded Writing submission; no client-derived
-  duration is stored.
+- **Controlled rewrite:** after Reading, the learner submits exactly one non-empty
+  answer for every one of the 20 server-issued prompt IDs. The server validates the
+  exact ID set, atomically persists the normalized answer map as the first immutable
+  submission with its completion timestamp, and only then reveals reference
+  solutions. That accepted submission triggers at most one batch model request for
+  grammar/style feedback. The feedback result or sanitized provider-failure state is
+  persisted with model and prompt-version provenance; identical replay and reload
+  return the same record, while a changed replay conflicts and never invokes the
+  model again. Provider failure does not roll back the answers, hide the solutions,
+  or block progression. This is an untimed learning interaction, not a graded Writing
+  submission; no client-derived duration or score is stored.
 - **Listening:** after controlled rewrite, the learner submits a non-empty first
   answer for every authored Listening question. When guided retry is required, the
   first attempt alone is not completion: the learner must submit every initially
@@ -241,7 +261,8 @@ that prevents answer leakage and gives admins canonical completion evidence.
   evidence, transcripts, rewrite solutions, and answer-bearing editorial fields are
   absent while public prompts and option identifiers remain usable; an accepted
   Practice answer reveals feedback only for that immutable attempt, and controlled-
-  rewrite solutions appear only after all 20 prompt IDs are persisted
+  rewrite solutions appear only after the immutable answer map for all 20 prompt IDs
+  is accepted
 
 ### Frozen assignment reopens safely
 
@@ -283,7 +304,19 @@ that prevents answer leakage and gives admins canonical completion evidence.
 - Package validation reports 30/30 publish-ready lessons, 720 words, all required
   activities, and no unapproved or checksum-mismatched media.
 - Import verification reports 30 assignment-only banks with 48 practice questions
-  per bank and no default score policy.
+  per bank, no default score policy, and the resolved `C5` `course_id` on all 30 with
+  zero Advanced banks attached to `C4`, another course, or `NULL`.
+- The Controlled Rewrite quality report evaluates 60 immutable batch submissions
+  (two per lesson; 1,200 answer-level items split evenly between acceptable and
+  error-bearing answers) against dual-human labels with adjudication. The release
+  candidate must produce schema-valid, one-call persisted output for 100% of cases;
+  keep false-positive feedback at or below 5% of acceptable answers; achieve at least
+  90% precision across individual feedback claims and at least 85% coverage of
+  error-bearing answers; make zero invented quotations and no more than 1% meaning-
+  changing or harmful corrections; keep p95 feedback latency at or below 20 seconds;
+  and keep p95 estimated model cost at or below USD 0.10 per 20-answer submission and
+  the full 60-call release evaluation at or below USD 6.00. Any failed absolute
+  threshold blocks release even if it improves on the frozen first-candidate baseline.
 - Backend, frontend, browser, migration/RLS, staging smoke, and production smoke
   gates pass on the exact promoted SHA.
 - Admin and learner views agree after immediate actions and full reload.
@@ -294,3 +327,6 @@ that prevents answer leakage and gives admins canonical completion evidence.
   after assignment-only production evidence is stable.
 - Approval record: the product owner confirmed the core-30, assignment-only,
   no-default-grading scope on 2026-09-15 before replacement implementation work.
+- Approval amendment: on 2026-09-20 the product owner approved the Controlled Rewrite
+  immutable-answer/AI-quality contract and the executable `C5` association requirement
+  before implementation of those amended requirements.

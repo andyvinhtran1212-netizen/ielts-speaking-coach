@@ -19,8 +19,14 @@
 - Merge the runtime PR and confirm all integrated workflows pass on the exact
   resulting staging SHA.
 - Import exactly 30 assignment-only banks under the Advanced unpublished default,
-  verify 48 rows per bank, then explicitly publish all 30 through the guarded
-  publish-state transaction and confirm the picker/list immediately and after reload.
+  verify 48 rows per bank and the resolved `C5` UUID on all 30 with zero Advanced
+  banks attached to `C4`, another course, or `NULL`, then explicitly publish all 30
+  through the guarded publish-state transaction and confirm the `C5` cohort picker/
+  list immediately and after reload.
+- Run the versioned 60-submission Controlled Rewrite gold-cohort evaluation on the
+  exact candidate, require every FR-011 quality/grounding/false-positive/latency/cost
+  threshold to pass, force the solutions-only provider-failure fallback, and attach
+  the reviewed report before recording staging as promotable.
 - Complete one learner journey, reload progress, and compare admin results before
   and after reload; confirm Writing/Speaking produce no default grading.
 - Record the exact staging SHA that owns both integrated CI and live Staging E2E.
@@ -34,8 +40,10 @@
   E2E evidence. Any intervening staging commit invalidates the evidence and restarts
   the exact-SHA checks.
 - Monitor production deploy/health checks, then import and verify the same 30 banks;
-  explicitly publish them through the guarded transaction and confirm the picker/list
-  immediately and after reload before any assignment journey.
+  confirm their persisted course association equals the production `C5` UUID and none
+  resolve to `C4`, another course, or `NULL`; explicitly publish them through the
+  guarded transaction and confirm the `C5` cohort picker/list immediately and after
+  reload before any assignment journey.
 - Smoke login, assignment open/resume, versioned audio/figure delivery, learner
   completion, and admin result visibility on the stable production domain.
 
@@ -60,7 +68,8 @@
 ## Observability
 
 - Watch CI/deploy conclusions, backend errors by Advanced Vocabulary route, missing
-  asset responses, submission conflicts, and admin-result lookup failures.
+  asset responses, submission conflicts, Controlled Rewrite provider-failure rate,
+  latency/token/cost budget, and admin-result lookup failures.
 - Treat any cross-user RLS visibility, answer leakage, checksum mismatch, or
   divergence between immediate and reload state as a release blocker.
 - Product owner and platform operator own go/no-go and rollback decisions.

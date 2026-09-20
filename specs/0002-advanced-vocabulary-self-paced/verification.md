@@ -29,6 +29,8 @@ those gates remain explicitly pending.
 | FR-007 | kind=missing; ref=none; gap=database-backed RLS, trigger, replay, rollback, and concurrency suite | PENDING |
 | FR-008 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, backend/tests/test_course_assignment.py, backend/tests/test_advanced_vocab_importer.py, backend/tests/test_quiz_import.py, frontend/tests/admin-class-homework-next-behavior.test.mjs, frontend/tests/admin-vocab-topics-quiz-next-behavior.test.mjs; gap=bank-lock/delete-guard and v1-assignment/v2-bank database journey | PENDING |
 | FR-009 | kind=test; ref=backend/tests/test_advanced_vocab_service.py, frontend/tests/advanced-vocabulary-next-behavior.test.mjs; gap=persisted Practice-selection schema and lost-response database proof | PENDING |
+| FR-010 | kind=test; ref=backend/tests/test_advanced_vocab_importer.py, backend/tests/test_course_assignment.py, frontend/tests/admin-class-homework-next-behavior.test.mjs | PENDING |
+| FR-011 | kind=check; ref=specs/0002-advanced-vocabulary-self-paced/evidence/controlled-rewrite-feedback-eval.md | PENDING |
 
 ## Contract evidence
 
@@ -75,6 +77,12 @@ those gates remain explicitly pending.
   observe no Advanced rows/meta, retain ordinary bank reads, and inventory policies to
   prove no permissive alternate SELECT path; service-role assignment/admin reads must
   still resolve the Advanced banks.
+- Course association: pending a database query that resolves the unique `C5` course
+  UUID and proves exactly 30 Advanced banks use it, with zero Advanced banks attached
+  to `C4`, another course, or `NULL`; importer tests must reject missing/ambiguous `C5`
+  and wrong/null associations. Assignment API/UI evidence must prove only a `C5`
+  cohort can discover and issue these banks and that bank, frozen snapshot, immediate
+  admin state, and full reload retain the same persisted `C5` UUID.
 - Access cutoff races: pending removal and transfer both before first open and between
   partial stages, direct requests before/at/after `publish_at`, plus deadline crossing
   between page load and every mutation. Each case must reject at persistence time
@@ -124,6 +132,34 @@ those gates remain explicitly pending.
   Listening duration persistence, idempotent retry totals, untimed Vocabulary/rewrite
   completion timestamps, and matching learner/admin reload projections without
   fabricated wall-clock values.
+- Controlled Rewrite persistence: pending exact-20-ID/non-empty validation, atomic
+  immutable answer-map storage before reveal, exactly one model request, persisted
+  feedback/model/prompt provenance, identical replay/reload, changed-replay conflict,
+  and provider-failure evidence that answers and solutions remain available, learner
+  progress continues, and no second request is made.
+
+## Controlled Rewrite quality evidence
+
+- Gold cohort: pending 60 synthetic or de-identified immutable submissions, two for
+  each T01-T30 lesson, containing 1,200 answer-level items split evenly between 600
+  acceptable answers and 600 human-labeled grammar/style errors. Two qualified
+  reviewers label expected findings independently and adjudicate disagreements; the
+  versioned dataset checksum and rubric are recorded with the exact implementation
+  SHA in `evidence/controlled-rewrite-feedback-eval.md`.
+- Baselines: pending the solutions-only fallback baseline (100% solution availability,
+  zero generated-feedback coverage) and the frozen first prompt/model candidate. The
+  release report compares both, but absolute FR-011 thresholds remain mandatory and
+  cannot be waived by relative improvement.
+- Release metrics: pending 100% schema-valid one-call persistence; false-positive rate
+  at or below 5% of acceptable answers; claim precision at or above 90%; coverage at
+  or above 85% of error-bearing answers; zero invented quotations; meaning-changing
+  or harmful corrections at or below 1%; p95 feedback latency at or below 20 seconds;
+  p95 estimated model cost at or below USD 0.10 per 20-answer submission; and total
+  estimated cost at or below USD 6.00 for the 60-call evaluation.
+- Failure/fallback: pending forced timeout, provider error, malformed response, and
+  persistence-reload cases proving the immutable answers and reference solutions
+  survive, status/error code are sanitized and stable, progression remains available,
+  and no automatic or replay-triggered second model call occurs.
 
 ## UI evidence
 
@@ -146,4 +182,7 @@ those gates remain explicitly pending.
 - Staging SHA and checks: pending implementation merge, exact-SHA integrated CI/live
   Staging E2E evidence, and an immediately pre-promotion `Staging promotion gate`
   proving staging HEAD is still that SHA.
+- Quality gate: pending the versioned Controlled Rewrite evaluation report on that
+  exact staging SHA with every FR-011 threshold passing and reviewer sign-off; a
+  missing report, threshold failure, dataset drift, or cost overrun blocks promotion.
 - Production verification: pending staging-to-main promotion.
