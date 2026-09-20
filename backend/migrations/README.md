@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-20 the highest is `292`, so the next new
-migration is `293`.
+sequence is dense. As of 2026-09-20 the highest is `293`, so the next new
+migration is `294`.
 
 ## Conventions
 
@@ -148,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–292
+## Forward scope 230–293
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -264,6 +264,9 @@ stage, question, Listening, and Controlled Rewrite evidence stores. Migration
 canonical 28/20 selections from imported questions, backfills legacy attempt
 evidence, and lets a pre-selection backend atomically create only that canonical
 selection on its first answer.
+Migration 293 gives the Advanced importer one database transaction for the
+bank metadata, canonical 48 questions, and explicit publication decision, so
+neither failure nor concurrent assignment can observe a mixed revision.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

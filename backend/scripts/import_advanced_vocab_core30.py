@@ -2,7 +2,7 @@
 """Validate or import all 30 assignment-only Advanced Vocabulary banks.
 
 Dry-run is the default. Add ``--commit`` only after the Advanced Vocabulary
-migration set (281, 282, and 287–291) is applied.
+migration set (281, 282, and 287–293) is applied.
 The import is idempotent for unchanged content. A content revision is rejected
 once an assignment references that bank so its frozen lesson checksum cannot be
 orphaned; revised lessons require a separately versioned bank/content release.
@@ -128,45 +128,33 @@ def _course() -> dict:
 
 def _upsert_bank(spec: dict, *, publish: bool = False) -> tuple[str, str, int]:
     payload = {**spec["payload"]}
-    existing = (_admin().table("quiz_banks").select("id,meta,is_published")
-                .eq("course_id", payload["course_id"])
-                .eq("code", payload["code"]).limit(1).execute().data) or []
-    if existing:
-        bank_id = existing[0]["id"]
-        current_runtime = (existing[0].get("meta") or {}).get("runtime") or {}
-        requested_runtime = (payload.get("meta") or {}).get("runtime") or {}
-        if (current_runtime.get("content_checksum")
-                != requested_runtime.get("content_checksum")):
-            assignments = (_admin().table("class_assignments").select("id")
-                           .eq("content_id", bank_id).limit(1).execute().data) or []
-            if assignments:
-                raise SystemExit(
-                    f"{payload['code']}: không thể cập nhật nội dung tại chỗ vì "
-                    "đã có assignment; hãy phát hành bank/content version mới."
-                )
-        # Importing content must never silently retire a bank that an admin
-        # already released. Publication is changed only by the explicit
-        # --publish operation below (or the canonical admin control).
-        payload["is_published"] = (
-            True if publish else existing[0].get("is_published") is True
-        )
-        _admin().table("quiz_banks").update(payload).eq("id", bank_id).execute()
-        action = "updated"
-    else:
-        payload["is_published"] = publish
-        created = _admin().table("quiz_banks").insert(payload).execute().data or []
-        if not created:
-            raise SystemExit(f"{payload['code']}: tạo bank không trả về id.")
-        bank_id = created[0]["id"]
-        action = "created"
-    count = _admin().rpc(
-        "quiz_replace_questions", {"p_bank_id": bank_id, "p_rows": spec["rows"]},
-    ).execute().data
-    if int(count or 0) != len(spec["rows"]):
+    try:
+        response = _admin().rpc("upsert_advanced_vocab_bank", {
+            "p_payload": payload,
+            "p_rows": spec["rows"],
+            "p_publish": publish,
+        }).execute().data or []
+    except Exception as exc:  # noqa: BLE001
+        if "advanced_vocab_bank_revision_in_use" in str(exc):
+            raise SystemExit(
+                f"{payload['code']}: không thể cập nhật nội dung tại chỗ vì "
+                "đã có assignment; hãy phát hành bank/content version mới."
+            ) from exc
+        raise
+    row = response[0] if isinstance(response, list) and response else response
+    if not isinstance(row, dict) or not row.get("bank_id"):
+        raise SystemExit(f"{payload['code']}: import atomically không trả về bank.")
+    count = int(row.get("written") or 0)
+    if count != len(spec["rows"]):
         raise SystemExit(
             f"{payload['code']}: chỉ ghi được {count}/{len(spec['rows'])} câu."
         )
-    return action, str(bank_id), int(count)
+    if publish and row.get("is_published") is not True:
+        raise SystemExit(f"{payload['code']}: trạng thái xuất bản không khớp.")
+    action = str(row.get("action") or "")
+    if action not in {"created", "updated"}:
+        raise SystemExit(f"{payload['code']}: kết quả import không hợp lệ.")
+    return action, str(row["bank_id"]), count
 
 
 def _verify_banks(specs: list[dict], course_id: str, *, require_published: bool) -> None:

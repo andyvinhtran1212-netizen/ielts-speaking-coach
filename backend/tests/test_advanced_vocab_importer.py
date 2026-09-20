@@ -63,67 +63,43 @@ class _Result:
 
 
 class _Query:
-    def __init__(self, admin, table):
-        self.admin = admin
-        self.table = table
-
-    def select(self, *_args, **_kwargs):
-        return self
-
-    def update(self, payload):
-        self.admin.writes.append(("update", self.table, payload))
-        self.admin.updated_payload = payload
-        return self
-
-    def eq(self, _key, _value):
-        return self
-
-    def limit(self, _value):
-        return self
+    def __init__(self, data):
+        self.data = data
 
     def execute(self):
-        if self.table == "quiz_banks":
-            return _Result([self.admin.bank])
-        if self.table == "class_assignments":
-            return _Result([{"id": "assignment-v1"}])
-        if self.table == "rpc":
-            return _Result(0)
-        return _Result([])
+        if isinstance(self.data, Exception):
+            raise self.data
+        return _Result(self.data)
 
 
 class _Admin:
-    def __init__(self):
-        self.bank = {
-            "id": "bank-v1",
-            "is_published": True,
-            "meta": {"runtime": {"content_checksum": "checksum-v1"}},
-        }
+    def __init__(self, result=None):
+        self.result = result or [{
+            "bank_id": "bank-v1", "written": 48,
+            "is_published": True, "action": "updated",
+        }]
         self.writes = []
-        self.updated_payload = None
 
-    def table(self, name):
-        return _Query(self, name)
-
-    def rpc(self, *_args, **_kwargs):
-        self.writes.append(("rpc", "quiz_replace_questions"))
-        return _Query(self, "rpc")
+    def rpc(self, name, params):
+        self.writes.append((name, params))
+        return _Query(self.result)
 
 
 def test_importer_rejects_revision_that_would_orphan_frozen_assignment(monkeypatch):
-    admin = _Admin()
+    admin = _Admin(Exception("advanced_vocab_bank_revision_in_use"))
     monkeypatch.setattr(importer, "_admin", lambda: admin)
     spec = {
         "payload": {
             "course_id": "course-c5", "code": "C5-ADV-T01",
             "meta": {"runtime": {"content_checksum": "checksum-v2"}},
         },
-        "rows": [{"qid": "q1"}],
+        "rows": [{"qid": f"q{number}"} for number in range(48)],
     }
 
     with pytest.raises(SystemExit, match="bank/content version mới"):
         importer._upsert_bank(spec)
 
-    assert admin.writes == []
+    assert admin.writes[0][0] == "upsert_advanced_vocab_bank"
 
 
 def test_importer_preserves_published_bank_unless_publish_is_explicit(monkeypatch):
@@ -135,12 +111,57 @@ def test_importer_preserves_published_bank_unless_publish_is_explicit(monkeypatc
             "is_published": False,
             "meta": {"runtime": {"content_checksum": "checksum-v1"}},
         },
-        "rows": [],
+        "rows": [{"qid": f"q{number}"} for number in range(48)],
     }
 
     importer._upsert_bank(spec)
-    assert admin.updated_payload["is_published"] is True
+    assert admin.writes[-1][0] == "upsert_advanced_vocab_bank"
+    assert admin.writes[-1][1]["p_publish"] is False
 
-    admin.bank["is_published"] = False
     importer._upsert_bank(spec, publish=True)
-    assert admin.updated_payload["is_published"] is True
+    assert admin.writes[-1][1]["p_publish"] is True
+
+
+def test_importer_has_one_atomic_write_boundary_for_metadata_questions_and_publish(
+        monkeypatch):
+    admin = _Admin()
+    monkeypatch.setattr(importer, "_admin", lambda: admin)
+    spec = importer.lesson_spec("ADV-T01", course_id="course-c5")
+
+    importer._upsert_bank(spec, publish=True)
+
+    assert len(admin.writes) == 1
+    name, params = admin.writes[0]
+    assert name == "upsert_advanced_vocab_bank"
+    assert params["p_payload"]["is_published"] is False
+    assert params["p_publish"] is True
+    assert len(params["p_rows"]) == 48
+
+
+def test_atomic_import_migration_orders_replace_before_publish_in_one_function():
+    migration = (Path(__file__).resolve().parents[1] / "migrations"
+                 / "293_atomic_advanced_vocab_bank_release.sql").read_text()
+
+    replace_at = migration.index("public.quiz_replace_questions")
+    publish_at = migration.index("is_published = v_publish")
+    assert "FOR UPDATE" in migration
+    assert replace_at < publish_at
+    assert "advanced_vocab_bank_revision_in_use" in migration
+    assert "advanced_vocab_bank_question_set_mismatch" in migration
+    assert "REVOKE ALL ON FUNCTION" in migration
+
+
+def test_atomic_import_and_assignment_share_the_same_bank_row_lock():
+    migrations = Path(__file__).resolve().parents[1] / "migrations"
+    atomic_import = (
+        migrations / "293_atomic_advanced_vocab_bank_release.sql"
+    ).read_text()
+    atomic_assignment = (
+        migrations / "269_serialize_course_assignment_bank_revision.sql"
+    ).read_text()
+
+    assert "FROM public.quiz_banks AS qb" in atomic_import
+    assert "FOR UPDATE" in atomic_import
+    assert "FROM public.quiz_banks AS qb" in atomic_assignment
+    assert "FOR UPDATE" in atomic_assignment
+    assert "quiz_course_bank_assignment_revision" in atomic_assignment

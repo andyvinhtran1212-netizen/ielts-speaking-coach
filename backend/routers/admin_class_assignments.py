@@ -939,7 +939,7 @@ async def list_course_banks(
     course_id = _cohort_course_id(cohort_id)
 
     banks = (supabase_admin.table("quiz_banks")
-             .select("id, code, title, lesson_no, words_count, meta")
+             .select("id, code, title, lesson_no, words_count, is_published, meta")
              .eq("skill_area", "course").eq("course_id", course_id)
              .order("lesson_no").execute().data) or []
     if not banks:
@@ -997,6 +997,9 @@ async def list_course_banks(
             [pronunciation_sets[bank_id]] if bank_id in pronunciation_sets else [],
         )
         runtime = ((bank.get("meta") or {}).get("runtime") or {}).get("kind")
+        publication_ready = (
+            runtime != "advanced_vocab" or bank.get("is_published") is True
+        )
         single_attempt_ready = False
         if runtime != "advanced_vocab":
             try:
@@ -1025,11 +1028,13 @@ async def list_course_banks(
             "pronunciation_ready":   pronunciation_is_ready,
             "already_given":         bank_id in given,
             "runtime": runtime,
+            "is_published": bank.get("is_published") is True,
             "single_attempt_ready": single_attempt_ready,
             "ready": (
                 counts.get(bank_id, 0) > 0
                 and missing_audio.get(bank_id, 0) == 0
                 and (not pronunciation_required or pronunciation_is_ready)
+                and publication_ready
             ),
         })
     return {"items": items}

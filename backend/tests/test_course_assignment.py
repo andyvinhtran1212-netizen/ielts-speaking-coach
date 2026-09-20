@@ -555,7 +555,10 @@ async def test_the_library_marks_hybrid_banks_ineligible_for_single_attempt():
 
 @pytest.mark.asyncio
 async def test_the_library_exposes_the_advanced_vocabulary_runtime():
-    bank = {**_BANK, "meta": {"runtime": {"kind": "advanced_vocab"}}}
+    bank = {
+        **_BANK, "is_published": True,
+        "meta": {"runtime": {"kind": "advanced_vocab"}},
+    }
     db = _db(
         cohorts=[_COHORT], quiz_banks=[bank],
         quiz_questions=[{"id": "q1", "bank_id": "bank-1",
@@ -566,6 +569,38 @@ async def test_the_library_exposes_the_advanced_vocabulary_runtime():
          patch.object(adm, "require_admin", new=lambda *_a, **_k: _async({"id": "ad"})):
         out = await adm.list_course_banks("co-1", authorization="Bearer x")
     assert out["items"][0]["runtime"] == "advanced_vocab"
+
+
+@pytest.mark.asyncio
+async def test_advanced_bank_picker_tracks_publish_unpublish_truth_on_reload():
+    async def load(published):
+        bank = {
+            **_BANK, "is_published": published,
+            "meta": {"runtime": {"kind": "advanced_vocab"}},
+        }
+        db = _db(
+            cohorts=[_COHORT], quiz_banks=[bank],
+            quiz_questions=[{"id": "q1", "bank_id": "bank-1"}],
+            class_assignments=[],
+        )
+        with patch.object(adm, "supabase_admin", db), \
+             patch.object(
+                 adm, "require_admin",
+                 new=lambda *_a, **_k: _async({"id": "ad"}),
+             ):
+            return (await adm.list_course_banks(
+                "co-1", authorization="Bearer x",
+            ))["items"][0]
+
+    before_publish = await load(False)
+    after_publish = await load(True)
+    after_unpublish = await load(False)
+
+    assert before_publish["is_published"] is False
+    assert before_publish["ready"] is False
+    assert after_publish["is_published"] is True
+    assert after_publish["ready"] is True
+    assert after_unpublish == before_publish
 
 
 @pytest.mark.asyncio

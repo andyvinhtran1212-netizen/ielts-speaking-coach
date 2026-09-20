@@ -73,14 +73,17 @@ snapshots must already be committed and match the manifest.
 
 ## Deployment order
 
-1. Run the advisory-locked forward migration runner through migration 292.
-   The required Advanced Vocabulary set is 281, 282, and 287–292; migration
+1. Run the advisory-locked forward migration runner through migration 293.
+   The required Advanced Vocabulary set is 281, 282, and 287–293; migration
    286 is also required for AI usage logging. Verify the migration ledger,
    the `claim_advanced_vocab_rewrite_submission` RPC, the complete evidence
    deletion guard, and `/health/ready` before deploying application code.
    Migration 292 is the compatibility bridge for migration-first rollout: an
    old backend writer can continue answering while the new application is
    deploying, and historical Practice attempts receive canonical selections.
+   Migration 293 makes each bank import/publication atomic with its canonical
+   48 questions; a failed replacement leaves the previous bank revision and
+   publication state unchanged.
 2. Deploy backend and frontend from the same revision.
 3. Load the target backend environment and run:
 
