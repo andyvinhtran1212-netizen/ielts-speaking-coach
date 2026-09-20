@@ -148,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–282
+## Forward scope 230–291
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -252,6 +252,14 @@ in. The normal mastery mode remains unchanged.
 Migration 285 removes any explicit `anon` or `authenticated` EXECUTE grants
 left by an existing Supabase environment on migration 284's trigger-only guard
 functions. Runtime use remains internal to their table triggers.
+
+Migration 286 adds the append-only AI usage ledger. Migration 287 safely remaps
+an existing complete Advanced Vocabulary core-30 package to Course 5 and is a
+no-op on a clean database before content import. Migrations 288–290 add the
+single batch-graded Controlled Rewrite submission, repair its portable JSONB
+count, and align its immutable completion evidence. Migration 291 reinstalls
+the assignment-item deletion guard with the complete union of Practice,
+stage, question, Listening, and Controlled Rewrite evidence stores.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

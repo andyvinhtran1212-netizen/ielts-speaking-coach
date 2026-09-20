@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Validate or import all 30 assignment-only Advanced Vocabulary banks.
 
-Dry-run is the default. Add ``--commit`` only after migration 281 is applied.
+Dry-run is the default. Add ``--commit`` only after the Advanced Vocabulary
+migration set (281, 282, and 287–291) is applied.
 The import is idempotent for unchanged content. A content revision is rejected
 once an assignment references that bank so its frozen lesson checksum cannot be
 orphaned; revised lessons require a separately versioned bank/content release.

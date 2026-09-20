@@ -148,7 +148,9 @@ LANGUAGE plpgsql
 SET search_path = public, pg_temp
 AS $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM advanced_vocab_stage_progress
+    IF EXISTS (SELECT 1 FROM advanced_vocab_practice_selections
+                WHERE class_assignment_item_id = OLD.id)
+       OR EXISTS (SELECT 1 FROM advanced_vocab_stage_progress
                 WHERE class_assignment_item_id = OLD.id)
        OR EXISTS (SELECT 1 FROM advanced_vocab_question_attempts
                    WHERE class_assignment_item_id = OLD.id)

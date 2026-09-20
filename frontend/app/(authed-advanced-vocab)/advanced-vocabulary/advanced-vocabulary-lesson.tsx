@@ -393,7 +393,10 @@ export function AdvancedVocabularyLesson() {
       const payload = await window.api.get<Json>(`/api/advanced-vocab/lessons/${encodeURIComponent(bank)}?item=${encodeURIComponent(item)}`);
       setData(payload);
       const done = new Set(payload.progress.completed_stages || []);
-      setStage((STAGES.find((candidate) => !done.has(candidate.id) && !['writing', 'speaking'].includes(candidate.id))?.id || 'writing') as Stage);
+      const rewriteStatus = payload.progress.controlled_rewrite_submission?.status;
+      setStage((rewriteStatus === 'processing'
+        ? 'controlled_rewrite'
+        : STAGES.find((candidate) => !done.has(candidate.id) && !['writing', 'speaking'].includes(candidate.id))?.id || 'writing') as Stage);
       setPhase('ready');
     } catch (cause) { setError(errorText(cause)); setPhase('error'); }
   }, []);

@@ -143,6 +143,32 @@ def test_controlled_rewrite_claim_migrations_use_supported_jsonb_count():
     assert "response_count" in gate
 
 
+def test_course5_remap_is_safe_before_import_and_rejects_partial_packages():
+    migration = (Path(__file__).resolve().parents[1] / "migrations"
+                 / "287_move_advanced_vocab_core30_to_course5.sql").read_text()
+
+    assert "v_count NOT IN (0, 30)" in migration
+    assert "IF v_count = 0 THEN" in migration
+    assert migration.index("IF v_count = 0 THEN") < migration.index("UPDATE quiz_banks")
+    assert "expected 0 or 30 Advanced Vocabulary core banks" in migration
+
+
+def test_every_rewrite_evidence_guard_keeps_practice_selections():
+    migrations = Path(__file__).resolve().parents[1] / "migrations"
+    initial = (migrations / "288_advanced_vocab_rewrite_feedback.sql").read_text()
+    repair = (migrations / "291_repair_advanced_vocab_evidence_guard.sql").read_text()
+
+    evidence_tables = {
+        "advanced_vocab_practice_selections",
+        "advanced_vocab_stage_progress",
+        "advanced_vocab_question_attempts",
+        "advanced_vocab_listening_attempts",
+        "advanced_vocab_rewrite_submissions",
+    }
+    for sql in (initial, repair):
+        assert evidence_tables <= {table for table in evidence_tables if table in sql}
+
+
 @pytest.mark.asyncio
 async def test_controlled_rewrite_saves_all_answers_and_calls_grader_once(monkeypatch):
     from services import advanced_vocab_rewrite_grader

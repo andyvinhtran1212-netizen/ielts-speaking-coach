@@ -73,8 +73,11 @@ snapshots must already be committed and match the manifest.
 
 ## Deployment order
 
-1. Apply `backend/migrations/281_advanced_vocab_stage_progress.sql` to the
-   target Supabase database with `ON_ERROR_STOP=1`.
+1. Run the advisory-locked forward migration runner through migration 291.
+   The required Advanced Vocabulary set is 281, 282, and 287–291; migration
+   286 is also required for AI usage logging. Verify the migration ledger,
+   the `claim_advanced_vocab_rewrite_submission` RPC, the complete evidence
+   deletion guard, and `/health/ready` before deploying application code.
 2. Deploy backend and frontend from the same revision.
 3. Load the target backend environment and run:
 

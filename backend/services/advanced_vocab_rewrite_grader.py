@@ -76,6 +76,69 @@ def _failed(items: list[dict[str, str]], message: str) -> dict[str, Any]:
     }
 
 
+def _bounded_strings(value: Any, *, field: str, limit: int = 3) -> list[str]:
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise ValueError(f"{field} must be a list of strings")
+    return [item[:300] for item in value[:limit]]
+
+
+def _normalize_feedback(
+    data: Any, items: list[dict[str, str]],
+) -> dict[str, Any]:
+    """Validate provider JSON without truthiness/type coercion."""
+    if not isinstance(data, dict) or not isinstance(data.get("results"), list):
+        raise ValueError("provider results must be a list")
+
+    raw_results = data["results"]
+    if any(not isinstance(row, dict) for row in raw_results):
+        raise ValueError("each provider result must be an object")
+    item_ids = [row.get("item_id") for row in raw_results]
+    expected = [item["item_id"] for item in items]
+    if len(item_ids) != len(set(item_ids)) or set(item_ids) != set(expected):
+        raise ValueError("provider result IDs do not match request")
+    by_id = {row["item_id"]: row for row in raw_results}
+
+    results = []
+    for item_id in expected:
+        row = by_id[item_id]
+        corrected = row.get("corrected")
+        if not isinstance(corrected, str) or not corrected.strip():
+            raise ValueError(f"missing corrected value for {item_id}")
+        grammar_notes = _bounded_strings(
+            row.get("grammar_notes"), field=f"{item_id}.grammar_notes",
+        )
+        style_note = row.get("style_note")
+        target_usage_note = row.get("target_usage_note")
+        ok = row.get("ok")
+        if not isinstance(style_note, str) or not isinstance(target_usage_note, str):
+            raise ValueError(f"{item_id} notes must be strings")
+        if not isinstance(ok, bool):
+            raise ValueError(f"{item_id}.ok must be a boolean")
+        results.append({
+            "item_id": item_id,
+            "corrected": corrected.strip()[:MAX_ANSWER_CHARS],
+            "grammar_notes": grammar_notes,
+            "style_note": style_note[:500],
+            "target_usage_note": target_usage_note[:500],
+            "ok": ok,
+        })
+
+    overall = data.get("overall", {})
+    if not isinstance(overall, dict):
+        raise ValueError("overall must be an object")
+    return {
+        "results": results,
+        "overall": {
+            "strengths": _bounded_strings(
+                overall.get("strengths", []), field="overall.strengths",
+            ),
+            "focus": _bounded_strings(
+                overall.get("focus", []), field="overall.focus",
+            ),
+        },
+    }
+
+
 async def grade_rewrites(
     items: list[dict[str, str]], *, user_id: str | None = None,
 ) -> tuple[dict[str, Any], str | None, str | None]:
@@ -116,37 +179,7 @@ async def grade_rewrites(
 
     try:
         data = json.loads(_strip_fences(response.text))
-        raw_results = data.get("results") if isinstance(data, dict) else None
-        by_id = {
-            str(row.get("item_id")): row
-            for row in (raw_results or []) if isinstance(row, dict)
-        }
-        expected = {item["item_id"] for item in items}
-        if set(by_id) != expected:
-            raise ValueError("provider result IDs do not match request")
-        results = []
-        for item in items:
-            row = by_id[item["item_id"]]
-            corrected = str(row.get("corrected") or "").strip()
-            if not corrected:
-                raise ValueError(f"missing corrected value for {item['item_id']}")
-            results.append({
-                "item_id": item["item_id"],
-                "corrected": corrected[:MAX_ANSWER_CHARS],
-                "grammar_notes": [str(note)[:300] for note in
-                                  (row.get("grammar_notes") or [])[:3]],
-                "style_note": str(row.get("style_note") or "")[:500],
-                "target_usage_note": str(row.get("target_usage_note") or "")[:500],
-                "ok": bool(row.get("ok")),
-            })
-        overall = data.get("overall") if isinstance(data.get("overall"), dict) else {}
-        feedback = {
-            "results": results,
-            "overall": {
-                "strengths": [str(value)[:300] for value in (overall.get("strengths") or [])[:3]],
-                "focus": [str(value)[:300] for value in (overall.get("focus") or [])[:3]],
-            },
-        }
+        feedback = _normalize_feedback(data, items)
     except Exception as exc:  # noqa: BLE001
         logger.error("[advanced-vocab-rewrite] invalid response: %s", exc)
         ai_usage_logger.schedule_usage_log(ai_usage_logger.log_gemini_response_async(

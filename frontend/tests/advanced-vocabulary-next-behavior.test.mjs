@@ -226,6 +226,10 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.match(UI, /setInterval\(\(\) => \{ void refresh\(\); \}, 3000\)/);
     assert.match(UI, /onRefresh=\{refreshCanonicalLesson\}/);
     assert.match(UI, /submission\?\.status !== 'processing'/);
+    const processingResume = UI.indexOf("rewriteStatus === 'processing'");
+    const firstIncomplete = UI.indexOf('STAGES.find((candidate) => !done.has(candidate.id)');
+    assert.ok(processingResume >= 0 && processingResume < firstIncomplete,
+      'a reload must reopen the in-flight rewrite before normal stage selection');
     assert.doesNotMatch(UI, /attempted_item_ids/);
   });
 

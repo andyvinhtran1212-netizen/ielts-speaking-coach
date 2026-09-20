@@ -16,8 +16,11 @@ BEGIN
      WHERE meta -> 'runtime' ->> 'kind' = 'advanced_vocab'
        AND meta -> 'runtime' ->> 'lesson_id'
            ~ '^ADV-T(0[1-9]|[12][0-9]|30)$';
-    IF v_count <> 30 THEN
-        RAISE EXCEPTION 'expected 30 Advanced Vocabulary core banks, found %', v_count;
+    -- A clean database applies schema migrations before the content import, so
+    -- zero rows is a valid no-op.  Any partially imported package is unsafe to
+    -- remap and must still fail closed.
+    IF v_count NOT IN (0, 30) THEN
+        RAISE EXCEPTION 'expected 0 or 30 Advanced Vocabulary core banks, found %', v_count;
     END IF;
 
     IF EXISTS (
@@ -27,6 +30,11 @@ BEGIN
            AND COALESCE(q.meta -> 'runtime' ->> 'kind', '') <> 'advanced_vocab'
     ) THEN
         RAISE EXCEPTION 'C5 Advanced Vocabulary bank code collision';
+    END IF;
+
+    IF v_count = 0 THEN
+        RAISE NOTICE 'Advanced Vocabulary core banks not imported yet; Course 5 remap skipped';
+        RETURN;
     END IF;
 
     UPDATE quiz_banks
