@@ -114,6 +114,8 @@ describe('/admin/writing/assignments native ownership and safety', () => {
     for (const token of ['assign_student', 'allow_soft_check', 'time_limit_minutes', 'analysis_level', '/fan-out']) assert.ok(COMPONENT.includes(token), token);
     assert.match(COMPONENT, /Đề × học viên = số bài/); assert.match(COMPONENT, /Danh sách bị giới hạn/); assert.match(COMPONENT, /Dữ liệu bị loại/);
     assert.match(CSS, /min-height:44px/); assert.match(CSS, /@media\(max-width:720px\)/); assert.match(CSS, /@media\(max-width:430px\)/); assert.match(CSS, /:focus-visible/); assert.match(CSS, /@media\(prefers-reduced-motion:reduce\)/);
+    assert.match(CSS, /\.acd-dialog-backdrop\{position:fixed/); assert.match(CSS, /\.acd-dialog__body\{[^}]*overflow-y:auto/);
+    assert.match(CSS, /max-height:calc\(100vh - var\(--av-space-8\)\)/); assert.match(CSS, /max-height:94vh/);
     for (const style of ['admin-components.css', 'admin-buttons.css', 'admin-status.css', 'admin-writing-assignments-next.css']) assert.ok(LAYOUT.includes(style));
   });
 });
