@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { Dialog, Field, messageOf, StatusBanner } from '@/components/admin-directory-ui';
@@ -24,6 +24,8 @@ const TASK_LABELS: Record<TaskType, string> = { task1_academic: 'Task 1 Academic
 const DIFFICULTY_LABELS: Record<Difficulty, string> = { beginner: 'Cơ bản', intermediate: 'Trung cấp', advanced: 'Nâng cao' };
 const EMPTY_DRAFT: PromptDraft = { title: '', taskType: 'task2', promptText: '', difficulty: '', tags: '', imageUrl: '', imagePublicId: '' };
 const EMPTY_ANALYSIS: AnalysisDraft = { chartType: 'mixed', overview: '', keyFeatures: '', notableData: '', axesOrCategories: '', gradingNote: '' };
+const PROMPT_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+const PROMPT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 type Filters = { taskType: string; difficulty: string; lifecycle: 'active' | 'archived'; visibility: 'all' | 'student' | 'exam'; q: string };
 type Snapshot = { key: string; active: WritingPrompt[]; archived: WritingPrompt[]; malformed: number; capped: boolean; readAt: string };
@@ -98,6 +100,7 @@ export function AdminWritingPrompts() {
   const [editor, setEditor] = useState<WritingPrompt | 'new' | null>(null);
   const [draft, setDraft] = useState<PromptDraft>(EMPTY_DRAFT);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageDragActive, setImageDragActive] = useState(false);
   const [removeImage, setRemoveImage] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [analysisEditor, setAnalysisEditor] = useState<WritingPrompt | null>(null);
@@ -107,6 +110,7 @@ export function AdminWritingPrompts() {
   const [busy, setBusy] = useState(false);
   const sequence = useRef(0);
   const mutationLock = useRef(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const pendingCreate = useRef<PendingCreate | null>(null);
   const profileRef = useRef(profile.id); profileRef.current = profile.id;
   const filterKey = `${profile.id}|${filters.taskType}|${filters.difficulty}`;
@@ -190,7 +194,25 @@ export function AdminWritingPrompts() {
 
   const openEditor = (prompt: WritingPrompt | null) => {
     pendingCreate.current = null;
-    setEditor(prompt || 'new'); setDraft(draftOf(prompt)); setImageFile(null); setRemoveImage(false); setFormError(null);
+    setEditor(prompt || 'new'); setDraft(draftOf(prompt)); setImageFile(null); setImageDragActive(false); setRemoveImage(false); setFormError(null);
+  };
+
+  const selectImage = (file: File | null) => {
+    if (!file) return;
+    if (!PROMPT_IMAGE_TYPES.has(file.type)) {
+      setFormError('Ảnh phải ở định dạng PNG, JPG hoặc WebP.');
+      return;
+    }
+    if (file.size > PROMPT_IMAGE_MAX_BYTES) {
+      setFormError('Ảnh vượt quá giới hạn 5 MB.');
+      return;
+    }
+    setImageFile(file); setRemoveImage(false); setFormError(null);
+  };
+
+  const dropImage = (event: DragEvent<HTMLLabelElement>) => {
+    event.preventDefault(); setImageDragActive(false);
+    selectImage(event.dataTransfer.files?.[0] || null);
   };
 
   const savePrompt = async () => {
@@ -365,7 +387,7 @@ export function AdminWritingPrompts() {
 
     <Dialog open={editor !== null} title={editor === 'new' ? 'Tạo đề mới' : 'Sửa đề'} description="Nội dung đề và hình nguồn. Đáp án được duyệt ở không gian riêng." onClose={() => !busy && setEditor(null)} busy={busy} panelClassName="awp-dialog-wide" actions={<><button className="adm-btn-secondary" type="button" onClick={() => setEditor(null)} disabled={busy}>Huỷ</button><button className="adm-btn-primary" type="button" onClick={() => void savePrompt()} disabled={busy}>{busy ? 'Đang lưu…' : pendingCreate.current ? 'Thử đối chiếu lại' : 'Lưu đề'}</button></>}>
       <div className="awp-form"><Field label="Tiêu đề"><input value={draft.title} maxLength={200} onChange={(event) => setDraft({ ...draft, title: event.target.value })}/></Field><div className="awp-form-grid"><Field label="Loại bài"><select value={draft.taskType} onChange={(event) => { const taskType = event.target.value as TaskType; setDraft({ ...draft, taskType }); if (taskType !== 'task1_academic') { setImageFile(null); setRemoveImage(true); } }}><option value="task2">Task 2</option><option value="task1_academic">Task 1 Academic</option><option value="task1_general">Task 1 General</option></select></Field><Field label="Độ khó"><select value={draft.difficulty} onChange={(event) => setDraft({ ...draft, difficulty: event.target.value as PromptDraft['difficulty'] })}><option value="">Chưa phân loại</option><option value="beginner">Cơ bản</option><option value="intermediate">Trung cấp</option><option value="advanced">Nâng cao</option></select></Field></div><Field label="Đề bài" hint={`${draft.promptText.length}/5000`}><textarea rows={8} maxLength={5000} value={draft.promptText} onChange={(event) => setDraft({ ...draft, promptText: event.target.value })}/></Field><Field label="Thẻ nội dung" hint="Phân cách bằng dấu phẩy; tối đa 20 thẻ."><input value={draft.tags} onChange={(event) => setDraft({ ...draft, tags: event.target.value })}/></Field>
-        {draft.taskType === 'task1_academic' ? <section className="awp-image-field"><div><strong>Hình Task 1 Academic</strong><span>PNG, JPG hoặc WebP · tối đa 5 MB. File chỉ upload khi bạn bấm Lưu.</span></div>{!removeImage && (localImagePreview || draft.imageUrl) ? <div className="awp-image-preview">{localImagePreview ? <img src={localImagePreview} alt="Xem trước hình mới"/> : <img src={draft.imageUrl} alt="Hình hiện tại"/>}<button className="adm-btn-secondary" type="button" onClick={() => { setImageFile(null); setRemoveImage(true); }}>Bỏ hình</button></div> : <label className="awp-upload"><span>Chọn hình từ máy</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { setImageFile(event.target.files?.[0] || null); setRemoveImage(false); }}/></label>}</section> : null}
+        {draft.taskType === 'task1_academic' ? <section className="awp-image-field"><div><strong>Hình Task 1 Academic</strong><span id="awp-image-help">PNG, JPG hoặc WebP · tối đa 5 MB. File chỉ upload khi bạn bấm Lưu.</span></div>{!removeImage && (localImagePreview || draft.imageUrl) ? <div className="awp-image-preview">{localImagePreview ? <img src={localImagePreview} alt="Xem trước hình mới"/> : <img src={draft.imageUrl} alt="Hình hiện tại"/>}<div><strong>{imageFile?.name || 'Hình đang sử dụng'}</strong>{imageFile && <span>{(imageFile.size / 1024 / 1024).toFixed(2)} MB</span>}<button className="adm-btn-secondary" type="button" onClick={() => { setImageFile(null); setRemoveImage(true); if (imageInputRef.current) imageInputRef.current.value = ''; }}>Bỏ hình</button></div></div> : null}<label className={`awp-upload${imageDragActive ? ' is-dragging' : ''}`} onDragEnter={(event) => { event.preventDefault(); if (!busy) setImageDragActive(true); }} onDragOver={(event) => { event.preventDefault(); if (!busy) { event.dataTransfer.dropEffect = 'copy'; setImageDragActive(true); } }} onDragLeave={(event) => { if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) setImageDragActive(false); }} onDrop={(event) => { if (busy) { event.preventDefault(); return; } dropImage(event); }}><span className="awp-upload__icon" aria-hidden="true">↑</span><strong>{localImagePreview || (!removeImage && draft.imageUrl) ? 'Kéo thả ảnh khác để thay' : 'Kéo thả ảnh vào đây'}</strong><span>hoặc bấm để chọn từ máy</span><input ref={imageInputRef} className="awp-upload__input" type="file" accept="image/png,image/jpeg,image/webp" aria-describedby="awp-image-help" disabled={busy} onChange={(event) => selectImage(event.target.files?.[0] || null)}/></label></section> : null}
         {formError && <div className="acd-form-error" role="alert">{formError}</div>}
       </div>
     </Dialog>

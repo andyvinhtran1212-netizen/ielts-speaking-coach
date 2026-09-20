@@ -4,9 +4,11 @@ import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
+const FIXTURE_API_PREFIX = '/__fixture_api';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
 const adminId = '00000000-0000-0000-0000-000000000123';
-const session = JSON.stringify({ access_token: 'admin-writing-prompts-not-real', refresh_token: 'x', expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-writing-prompts@local' } });
+const authSession = { access_token: 'admin-writing-prompts-not-real', refresh_token: 'x', expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-writing-prompts@local' } };
+const session = JSON.stringify(authSession);
 const results = [];
 const check = (name, ok, detail = '') => { results.push({ name, ok, detail }); console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`); };
 async function launch() { try { return await chromium.launch(); } catch (error) { const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; if (process.platform === 'darwin' && existsSync(chrome)) return chromium.launch({ executablePath: chrome }); throw error; } }
@@ -32,14 +34,25 @@ const requests = []; const mutationBodies = []; const pageErrors = [];
 
 const browser = await launch();
 const context = await browser.newContext({ viewport: { width: 1440, height: 980 } });
-await context.addInitScript(([key, value]) => localStorage.setItem(key, value), [storageKey(SB), session]);
+await context.addInitScript(([key, value, injectedSession]) => {
+  localStorage.setItem(key, value);
+  window.__AVER_SUPABASE_CLIENT__ = { auth: {
+    getSession: async () => ({ data: { session: injectedSession }, error: null }),
+    onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+    signOut: async () => ({ error: null }),
+  } };
+}, [storageKey(SB), session, authSession]);
 const page = await context.newPage();
 page.on('pageerror', (error) => pageErrors.push(String(error)));
 await page.route('**/*', async (route) => {
   const request = route.request(); const url = request.url();
-  if (url.startsWith(BASE) || url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('about:')) return route.continue();
+  const parsed = new URL(url); const method = request.method(); const routedPath = parsed.pathname;
+  const fixtureApi = routedPath.startsWith(FIXTURE_API_PREFIX);
+  const path = fixtureApi ? routedPath.slice(FIXTURE_API_PREFIX.length) || '/' : routedPath;
+  if (url.startsWith(BASE) && routedPath === '/js/runtime-config.js') return route.fulfill({ status: 200, contentType: 'application/javascript', body: `window.__AVER_RUNTIME_CONFIG__=Object.freeze({environment:'local-test',apiBase:${JSON.stringify(`${BASE}${FIXTURE_API_PREFIX}`)},supabaseUrl:null,supabaseAnonKey:null,release:null,gitRef:null,coreOperationCorrelationEnabled:false,writingAdmissionEnabled:false});` });
+  if (url.startsWith(BASE) && !fixtureApi) return route.continue();
+  if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('about:')) return route.continue();
   if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(url)) return route.continue();
-  const parsed = new URL(url); const method = request.method(); const path = parsed.pathname;
   requests.push({ method, path, query: parsed.search });
   const json = (body, code = 200) => route.fulfill({ status: code, contentType: 'application/json', body: JSON.stringify(body) });
   if (path === '/auth/me') return json({ id: adminId, email: 'admin-writing-prompts@local', role: 'admin' });
@@ -90,7 +103,13 @@ await page.route('**/*', async (route) => {
 });
 
 await page.goto(`${BASE}/admin/writing/prompts`, { waitUntil: 'domcontentloaded' });
-await page.getByRole('heading', { name: 'Kho đề Writing', exact: true }).waitFor();
+try {
+  await page.getByRole('heading', { name: 'Kho đề Writing', exact: true }).waitFor();
+} catch (error) {
+  console.error('Prompt verifier bootstrap failed:', { url: page.url(), body: (await page.locator('body').innerText()).slice(0, 1200), pageErrors });
+  await browser.close();
+  throw error;
+}
 await page.getByRole('heading', { name: 'Climate policy' }).waitFor();
 check('admin gate và hai lifecycle query canonical được dùng', requests.some((item) => item.path === '/auth/me') && requests.filter((item) => item.path === '/admin/writing/prompts' && item.method === 'GET').some((item) => item.query.includes('is_active=true')) && requests.filter((item) => item.path === '/admin/writing/prompts' && item.method === 'GET').some((item) => item.query.includes('is_active=false')));
 check('hostile prompt data được React escape', await page.locator('.awp-card img[src="x"]').count() === 0 && await page.evaluate(() => !window.__promptsXss));
@@ -113,6 +132,26 @@ await page.getByText(/Đã áp dụng thay đổi/).waitFor();
 check('student → exam mutation được đọc lại canonical', active.find((row) => row.id === 'p2')?.exam_only === true && await climateCard.getByText('Chỉ kỳ thi', { exact: true }).count() === 1);
 
 await page.getByRole('button', { name: 'Tạo đề' }).click();
+const dialogLayout = await page.getByRole('dialog').evaluate((element) => {
+  const panel = element.getBoundingClientRect();
+  const backdrop = element.parentElement ? getComputedStyle(element.parentElement) : null;
+  const body = element.querySelector('.acd-dialog__body');
+  return {
+    backdropPosition: backdrop?.position,
+    fullyVisible: panel.top >= 0 && panel.bottom <= innerHeight,
+    bodyOverflow: body ? getComputedStyle(body).overflowY : '',
+  };
+});
+check('editor mở thành dialog cố định trong viewport', dialogLayout.backdropPosition === 'fixed' && dialogLayout.fullyVisible && dialogLayout.bodyOverflow === 'auto', JSON.stringify(dialogLayout));
+await page.getByLabel('Loại bài').selectOption('task1_academic');
+await page.locator('.awp-upload').evaluate((element) => {
+  const transfer = new DataTransfer();
+  transfer.items.add(new File([new Uint8Array(256)], 'task-1-chart.png', { type: 'image/png' }));
+  element.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+  element.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+});
+await page.getByAltText('Xem trước hình mới').waitFor();
+check('drop ảnh Task 1 tạo preview và giữ đúng tên file', await page.getByText('task-1-chart.png', { exact: true }).count() === 1);
 await page.getByLabel('Tiêu đề').fill('New education prompt');
 await page.getByLabel('Đề bài').fill('Discuss whether universities should require every student to study environmental science.');
 await page.getByLabel('Thẻ nội dung').fill('education, environment');
@@ -123,6 +162,7 @@ check('create ACK nhưng readback lỗi không được phép POST lần hai', r
 await page.getByRole('button', { name: 'Thử đối chiếu lại' }).click();
 await page.getByText(/Đã đối chiếu prompt/).waitFor();
 check('retry chỉ đối chiếu prompt đã ACK rồi đóng editor', requests.filter((item) => item.path === '/admin/writing/prompts' && item.method === 'POST').length === 1 && active.some((row) => row.id === 'p-new') && await page.getByRole('heading', { name: 'New education prompt' }).count() === 1);
+check('ảnh drop được upload rồi gắn vào prompt canonical', requests.some((item) => item.path === '/admin/writing/prompts/upload-image' && item.method === 'POST') && active.find((row) => row.id === 'p-new')?.prompt_image_public_id === 'prompts/new.png');
 
 const newCard = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'New education prompt' }) });
 await newCard.getByRole('button', { name: 'Lưu trữ' }).click();
