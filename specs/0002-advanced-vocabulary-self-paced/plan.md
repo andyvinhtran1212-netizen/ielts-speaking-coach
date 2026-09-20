@@ -62,8 +62,11 @@
   first candidate as the comparison baseline and separately records the solutions-
   only fallback baseline. The report records dataset checksum, prompt/model versions,
   schema validity, claim precision, error coverage, acceptable-answer false-positive
-  rate, invented quotations, meaning-changing corrections, p95 latency, token usage,
-  and estimated cost. The absolute thresholds in FR-011 are mandatory; provider
+  rate, invented quotations, and the answer-level harmful-correction rate (answers
+  with one or more adjudicated harmful/meaning-changing corrections divided by all
+  answers receiving at least one generated correction, counting each answer once),
+  plus p95 latency, token usage, and estimated cost. The absolute thresholds in
+  FR-011 are mandatory; provider
   failure returns the persisted solutions-only fallback and never causes a second
   model call.
 - Writing and Speaking contracts explicitly disable default grading/submission.
@@ -209,17 +212,21 @@ map to `/course-exercises` without behavioral change.
 - Validate and land the exact inert content snapshot against those checks.
 - Review the runtime candidate, then apply and verify its backward-compatible
   schema/RLS migration on staging before merging code that depends on it.
-- Implement backend canonical persistence and admin result projection together with
+- Implement a reviewable backend runtime candidate for canonical persistence and
+  admin result projection together with
   their service/API, migration/RLS, replay/concurrency, and backend regression tests;
-  generate the OpenAPI declaration and do not merge that layer until its exact SHA and
-  API drift check pass.
+  generate the OpenAPI declaration, and keep the candidate unmerged while its exact
+  SHA passes API drift and the later Course-5 and feedback-quality gates.
 - Implement and verify the `C5` lookup/import/assignment contract, including database
   queries proving exactly 30 Advanced banks own the resolved `C5` UUID and none own
   `C4`, another course, or `NULL` before any bank is published.
 - Build the Controlled Rewrite gold-cohort harness and versioned evaluation report;
   freeze first-candidate and solutions-only baselines, exercise the provider-failure
-  fallback, and block runtime merge until every FR-011 threshold passes within the
-  stated 60-call cost budget.
+  fallback, and run it against that exact unmerged runtime candidate. Block runtime
+  merge until every FR-011 threshold passes within the stated 60-call cost budget.
+- Merge the runtime only after the candidate SHA, `C5` association evidence, and
+  FR-011 evaluation report have all passed review; publication/import remains a later
+  staging operation.
 - Implement learner/admin UI integration together with model, behavior, browser,
   accessibility, responsive, interruption/resume, and reveal-boundary tests; do not
   merge that layer until its exact SHA passes.
@@ -230,7 +237,9 @@ map to `/course-exercises` without behavioral change.
 
 - Merge approved spec, validation foundation, then inert authored content.
 - Apply the reviewed runtime migration to staging before merging dependent code;
-  then run exact-SHA integrated checks, import 30 banks, and
+  run the 60-submission evaluation against the exact unmerged candidate in the scoped
+  evaluation environment and require every FR-011 threshold to pass; only then merge
+  the runtime, run exact-SHA integrated checks, import 30 banks, and
   execute learner/admin smoke before staging-to-main promotion.
 - Immediately before staging-to-main merge, run the repository `Staging promotion
   gate` and record that staging HEAD is unchanged from the SHA owning both the exact-

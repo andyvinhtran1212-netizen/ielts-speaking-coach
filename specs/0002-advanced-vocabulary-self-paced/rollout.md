@@ -16,17 +16,17 @@
 - Complete review of the high-risk runtime candidate, apply migration 281 from
   that exact candidate to staging, and verify policies, triggers, indexes, and
   constraints before merging any dependent runtime code.
-- Merge the runtime PR and confirm all integrated workflows pass on the exact
-  resulting staging SHA.
+- Run the versioned 60-submission Controlled Rewrite gold-cohort evaluation against
+  the exact unmerged runtime candidate in the scoped evaluation environment, require
+  every FR-011 quality/grounding/false-positive/latency/cost threshold to pass, force
+  the solutions-only provider-failure fallback, and attach the reviewed report.
+- Only after that report and the `C5` association evidence pass, merge the runtime PR
+  and confirm all integrated workflows pass on the exact resulting staging SHA.
 - Import exactly 30 assignment-only banks under the Advanced unpublished default,
   verify 48 rows per bank and the resolved `C5` UUID on all 30 with zero Advanced
   banks attached to `C4`, another course, or `NULL`, then explicitly publish all 30
   through the guarded publish-state transaction and confirm the `C5` cohort picker/
   list immediately and after reload.
-- Run the versioned 60-submission Controlled Rewrite gold-cohort evaluation on the
-  exact candidate, require every FR-011 quality/grounding/false-positive/latency/cost
-  threshold to pass, force the solutions-only provider-failure fallback, and attach
-  the reviewed report before recording staging as promotable.
 - Complete one learner journey, reload progress, and compare admin results before
   and after reload; confirm Writing/Speaking produce no default grading.
 - Record the exact staging SHA that owns both integrated CI and live Staging E2E.

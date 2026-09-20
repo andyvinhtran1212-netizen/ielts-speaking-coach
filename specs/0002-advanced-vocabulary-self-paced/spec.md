@@ -313,7 +313,11 @@ that prevents answer leakage and gives admins canonical completion evidence.
   keep false-positive feedback at or below 5% of acceptable answers; achieve at least
   90% precision across individual feedback claims and at least 85% coverage of
   error-bearing answers; make zero invented quotations and no more than 1% meaning-
-  changing or harmful corrections; keep p95 feedback latency at or below 20 seconds;
+  changing or harmful correction answers, where the denominator is every answer item
+  receiving at least one generated correction and the numerator is an answer item for
+  which adjudicators mark one or more of those corrections meaning-changing or
+  harmful. Each answer contributes at most one numerator event even when it contains
+  multiple harmful corrections; keep p95 feedback latency at or below 20 seconds;
   and keep p95 estimated model cost at or below USD 0.10 per 20-answer submission and
   the full 60-call release evaluation at or below USD 6.00. Any failed absolute
   threshold blocks release even if it improves on the frozen first-candidate baseline.

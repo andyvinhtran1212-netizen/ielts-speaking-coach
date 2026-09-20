@@ -153,7 +153,12 @@ those gates remain explicitly pending.
 - Release metrics: pending 100% schema-valid one-call persistence; false-positive rate
   at or below 5% of acceptable answers; claim precision at or above 90%; coverage at
   or above 85% of error-bearing answers; zero invented quotations; meaning-changing
-  or harmful corrections at or below 1%; p95 feedback latency at or below 20 seconds;
+  or harmful correction answer rate at or below 1%. That rate is the number of answer
+  items with one or more adjudicated meaning-changing/harmful generated corrections
+  divided by all answer items receiving at least one generated correction; each answer
+  counts at most once in the numerator regardless of how many harmful corrections it
+  contains. The report records both counts and the computed rate. Pending p95 feedback
+  latency at or below 20 seconds;
   p95 estimated model cost at or below USD 0.10 per 20-answer submission; and total
   estimated cost at or below USD 6.00 for the 60-call evaluation.
 - Failure/fallback: pending forced timeout, provider error, malformed response, and
