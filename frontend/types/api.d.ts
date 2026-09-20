@@ -12593,6 +12593,38 @@ export interface components {
              */
             from_section: string;
         };
+        /** AdvancedVocabProgressResponse */
+        AdvancedVocabProgressResponse: {
+            /** Completed Stages */
+            completed_stages?: string[];
+            /** Stages */
+            stages?: {
+                [key: string]: unknown;
+            }[];
+            /** Practice Selections */
+            practice_selections?: {
+                [key: string]: unknown;
+            }[];
+            /** Answers */
+            answers?: {
+                [key: string]: unknown;
+            }[];
+            /** Sections */
+            sections?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Listening Submitted
+             * @default false
+             */
+            listening_submitted: boolean;
+            controlled_rewrite_submission?: components["schemas"]["ControlledRewriteSubmissionResponse"] | null;
+            /**
+             * Required Completed
+             * @default false
+             */
+            required_completed: boolean;
+        };
         /** AdvancedVocabSectionSubmitBody */
         AdvancedVocabSectionSubmitBody: {
             /** Bank Id */
@@ -13436,6 +13468,69 @@ export interface components {
             answers: {
                 [key: string]: string;
             };
+        };
+        /** ControlledRewriteCompleteResponse */
+        ControlledRewriteCompleteResponse: {
+            /** Solutions */
+            solutions?: {
+                [key: string]: unknown;
+            }[];
+            submission?: components["schemas"]["ControlledRewriteSubmissionResponse"] | null;
+            progress: components["schemas"]["AdvancedVocabProgressResponse"];
+        };
+        /** ControlledRewriteFeedback */
+        ControlledRewriteFeedback: {
+            /** Results */
+            results?: components["schemas"]["ControlledRewriteFeedbackItem"][];
+            overall: components["schemas"]["ControlledRewriteFeedbackOverall"];
+        };
+        /** ControlledRewriteFeedbackItem */
+        ControlledRewriteFeedbackItem: {
+            /** Item Id */
+            item_id: string;
+            /** Corrected */
+            corrected?: string | null;
+            /** Grammar Notes */
+            grammar_notes?: string[];
+            /**
+             * Style Note
+             * @default
+             */
+            style_note: string;
+            /**
+             * Target Usage Note
+             * @default
+             */
+            target_usage_note: string;
+            /** Ok */
+            ok?: boolean | null;
+        };
+        /** ControlledRewriteFeedbackOverall */
+        ControlledRewriteFeedbackOverall: {
+            /** Strengths */
+            strengths?: string[];
+            /** Focus */
+            focus?: string[];
+        };
+        /** ControlledRewriteSubmissionResponse */
+        ControlledRewriteSubmissionResponse: {
+            /** Answers */
+            answers?: {
+                [key: string]: string;
+            };
+            feedback?: components["schemas"]["ControlledRewriteFeedback"] | null;
+            /** Status */
+            status?: string | null;
+            /** Model */
+            model?: string | null;
+            /** Prompt Version */
+            prompt_version?: string | null;
+            /** Error Code */
+            error_code?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Completed At */
+            completed_at?: string | null;
         };
         /** CorrectionEventBody */
         CorrectionEventBody: {
@@ -22072,7 +22167,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ControlledRewriteCompleteResponse"];
                 };
             };
             /** @description Validation Error */

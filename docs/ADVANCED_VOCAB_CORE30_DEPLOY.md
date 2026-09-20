@@ -73,11 +73,14 @@ snapshots must already be committed and match the manifest.
 
 ## Deployment order
 
-1. Run the advisory-locked forward migration runner through migration 291.
-   The required Advanced Vocabulary set is 281, 282, and 287–291; migration
+1. Run the advisory-locked forward migration runner through migration 292.
+   The required Advanced Vocabulary set is 281, 282, and 287–292; migration
    286 is also required for AI usage logging. Verify the migration ledger,
    the `claim_advanced_vocab_rewrite_submission` RPC, the complete evidence
    deletion guard, and `/health/ready` before deploying application code.
+   Migration 292 is the compatibility bridge for migration-first rollout: an
+   old backend writer can continue answering while the new application is
+   deploying, and historical Practice attempts receive canonical selections.
 2. Deploy backend and frontend from the same revision.
 3. Load the target backend environment and run:
 
@@ -91,7 +94,8 @@ snapshots must already be committed and match the manifest.
    detected after that bank has been assigned, the importer fails closed:
    publish the revision under a versioned bank/content path so existing frozen
    assignments remain reopenable.
-4. Preview the imported lessons, then explicitly open them for assignment:
+4. After the new backend and frontend are healthy, preview the imported
+   lessons, then explicitly open them for assignment:
 
    ```bash
    backend/venv/bin/python backend/scripts/import_advanced_vocab_core30.py \

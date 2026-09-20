@@ -592,6 +592,65 @@ def test_persistence_gate_migration_locks_and_guards_every_evidence_store():
     assert "score = NULL" in migration
 
 
+def test_practice_rollout_migration_backfills_and_supports_old_writers():
+    migrations = Path(__file__).resolve().parents[1] / "migrations"
+    initial = (migrations / "282_advanced_vocab_persistence_gate.sql").read_text()
+    repair = (
+        migrations / "292_advanced_vocab_practice_rollout_compatibility.sql"
+    ).read_text()
+
+    for sql in (initial, repair):
+        assert "advanced_vocab_canonical_practice_qids" in sql
+        assert "advanced_vocab_selection_not_canonical" in sql
+        assert "ON CONFLICT (class_assignment_item_id, stage) DO NOTHING" in sql
+        assert sql.index("IF NOT FOUND THEN") < sql.index(
+            "advanced_vocab_question_not_selected"
+        )
+    assert "advanced_vocab_legacy_attempt_not_canonical" in repair
+    assert "DISABLE TRIGGER USER" in repair
+    assert "ENABLE TRIGGER USER" in repair
+    assert "FROM public.advanced_vocab_question_attempts" in repair
+
+
+def test_legacy_practice_review_reconstructs_only_stages_with_evidence():
+    lesson = _lesson()
+    authored = service.practice_selection(lesson)
+    progress = {
+        "completed_stages": ["practice_1"],
+        "practice_selections": [],
+        "answers": [{"stage": "practice_1", "qid": authored["practice_1"][0]["item_id"]}],
+    }
+
+    recovered = service._learner_practice_qids(
+        practice_stage="practice_1",
+        authored_rows=authored["practice_1"],
+        progress=progress,
+    )
+    untouched = service._learner_practice_qids(
+        practice_stage="practice_2",
+        authored_rows=authored["practice_2"],
+        progress=progress,
+    )
+
+    assert recovered == [row["item_id"] for row in authored["practice_1"]]
+    assert untouched is None
+
+
+def test_controlled_rewrite_route_has_concrete_openapi_response():
+    from routers.advanced_vocab import ControlledRewriteCompleteResponse, router
+
+    route = next(
+        route for route in router.routes
+        if route.path == "/api/advanced-vocab/controlled-rewrite/complete"
+    )
+    schema = ControlledRewriteCompleteResponse.model_json_schema()
+
+    assert route.response_model is ControlledRewriteCompleteResponse
+    assert set(schema["properties"]) == {"solutions", "submission", "progress"}
+    assert "AdvancedVocabProgressResponse" in schema["$defs"]
+    assert "ControlledRewriteFeedback" in schema["$defs"]
+
+
 def test_learner_question_projection_never_contains_answer_material():
     source = {
         "item_id": "q1", "prompt": "Question", "answer": 2,

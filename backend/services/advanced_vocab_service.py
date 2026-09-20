@@ -576,27 +576,57 @@ def _progress(item_id: str) -> dict:
     }
 
 
+def _learner_practice_qids(
+    *, practice_stage: str, authored_rows: list[dict], progress: dict,
+) -> list[str] | None:
+    """Resolve the immutable selection, reconstructing only legacy evidence.
+
+    Migration 292 backfills persisted selections for legacy attempts.  This
+    application fallback also keeps already-completed/read-only assignments
+    reviewable if a historical row was missed.  An untouched stage remains
+    hidden until `/practice/start` persists its selection.
+    """
+    persisted = next((
+        row.get("qids")
+        for row in progress.get("practice_selections") or []
+        if row.get("stage") == practice_stage
+    ), None)
+    if persisted is None:
+        has_evidence = (
+            practice_stage in set(progress.get("completed_stages") or [])
+            or any(
+                row.get("stage") == practice_stage
+                for row in progress.get("answers") or []
+            )
+        )
+        if not has_evidence:
+            return None
+        persisted = [str(row.get("item_id")) for row in authored_rows]
+
+    if (not isinstance(persisted, list)
+            or not all(isinstance(qid, str) for qid in persisted)
+            or len(persisted) != _PRACTICE_COUNTS[practice_stage]
+            or len(set(persisted)) != len(persisted)):
+        raise HTTPException(500, "Bộ câu luyện tập đã lưu không hợp lệ")
+    return persisted
+
+
 def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
     bank, item, lesson = _assigned_lesson(
         bank_id=bank_id, user_id=user_id, item_id=item_id, review=True,
     )
     progress = _progress(item_id)
     authored_selection = practice_selection(lesson)
-    persisted_selections = {
-        row.get("stage"): row.get("qids")
-        for row in progress.get("practice_selections") or []
-    }
     selected: dict[str, list[dict]] = {}
     for practice_stage, authored_rows in authored_selection.items():
-        qids = persisted_selections.get(practice_stage)
+        qids = _learner_practice_qids(
+            practice_stage=practice_stage,
+            authored_rows=authored_rows,
+            progress=progress,
+        )
         if qids is None:
             selected[practice_stage] = []
             continue
-        if (not isinstance(qids, list)
-                or not all(isinstance(qid, str) for qid in qids)
-                or len(qids) != _PRACTICE_COUNTS[practice_stage]
-                or len(set(qids)) != len(qids)):
-            raise HTTPException(500, "Bộ câu luyện tập đã lưu không hợp lệ")
         by_id = {row.get("item_id"): row for row in authored_rows}
         try:
             selected[practice_stage] = [by_id[qid] for qid in qids]

@@ -174,6 +174,45 @@ REVOKE ALL ON FUNCTION public.advanced_vocab_validate_selection(TEXT, JSONB)
 GRANT EXECUTE ON FUNCTION public.advanced_vocab_validate_selection(TEXT, JSONB)
     TO service_role;
 
+-- quiz_questions is the database-side canonical copy of the deterministic
+-- 48-question practice set written by the content importer.  Deriving the two
+-- stage selections here lets both the current RPC and the pre-selection
+-- backend safely use the same immutable set during a migration-first rollout.
+CREATE OR REPLACE FUNCTION public.advanced_vocab_canonical_practice_qids(
+    p_bank_id UUID,
+    p_stage TEXT
+) RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_qids JSONB;
+BEGIN
+    SELECT COALESCE(jsonb_agg(q.qid ORDER BY q.position), '[]'::JSONB)
+      INTO v_qids
+      FROM (
+          SELECT qq.qid,
+                 row_number() OVER (
+                     ORDER BY qq."order", qq.qid, qq.id
+                 ) AS position
+            FROM public.quiz_questions AS qq
+           WHERE qq.bank_id = p_bank_id
+      ) AS q
+     WHERE (p_stage = 'practice_1' AND q.position BETWEEN 1 AND 28)
+        OR (p_stage = 'practice_2' AND q.position BETWEEN 29 AND 48);
+
+    PERFORM public.advanced_vocab_validate_selection(p_stage, v_qids);
+    RETURN v_qids;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.advanced_vocab_canonical_practice_qids(UUID, TEXT)
+    FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.advanced_vocab_canonical_practice_qids(UUID, TEXT)
+    TO service_role;
+
 CREATE OR REPLACE FUNCTION public.advanced_vocab_guard_selection()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -201,6 +240,11 @@ BEGIN
         NEW.class_assignment_item_id, NEW.user_id, NEW.bank_id
     );
     PERFORM public.advanced_vocab_validate_selection(NEW.stage, NEW.qids);
+    IF NEW.qids IS DISTINCT FROM
+       public.advanced_vocab_canonical_practice_qids(NEW.bank_id, NEW.stage) THEN
+        RAISE EXCEPTION 'advanced_vocab_selection_not_canonical'
+            USING ERRCODE = '22023';
+    END IF;
 
     IF NEW.stage = 'practice_1' AND NOT EXISTS (
         SELECT 1 FROM public.advanced_vocab_stage_progress AS p
@@ -241,6 +285,7 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_existing public.advanced_vocab_practice_selections%ROWTYPE;
+    v_canonical_qids JSONB;
 BEGIN
     PERFORM public.advanced_vocab_lock_open_item(p_item_id, p_user_id, p_bank_id);
 
@@ -253,9 +298,16 @@ BEGIN
     END IF;
 
     PERFORM public.advanced_vocab_validate_selection(p_stage, p_qids);
+    v_canonical_qids := public.advanced_vocab_canonical_practice_qids(
+        p_bank_id, p_stage
+    );
+    IF p_qids IS DISTINCT FROM v_canonical_qids THEN
+        RAISE EXCEPTION 'advanced_vocab_selection_not_canonical'
+            USING ERRCODE = '22023';
+    END IF;
     INSERT INTO public.advanced_vocab_practice_selections (
         bank_id, user_id, class_assignment_item_id, stage, qids
-    ) VALUES (p_bank_id, p_user_id, p_item_id, p_stage, p_qids)
+    ) VALUES (p_bank_id, p_user_id, p_item_id, p_stage, v_canonical_qids)
     RETURNING * INTO v_existing;
     RETURN v_existing;
 END;
@@ -352,6 +404,8 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
+DECLARE
+    v_qids JSONB;
 BEGIN
     IF TG_OP <> 'INSERT' THEN
         RAISE EXCEPTION 'advanced_vocab_attempt_immutable'
@@ -360,11 +414,27 @@ BEGIN
     PERFORM public.advanced_vocab_lock_open_item(
         NEW.class_assignment_item_id, NEW.user_id, NEW.bank_id
     );
-    IF NOT EXISTS (
-        SELECT 1 FROM public.advanced_vocab_practice_selections AS s
+    SELECT s.qids INTO v_qids
+      FROM public.advanced_vocab_practice_selections AS s
+     WHERE s.class_assignment_item_id = NEW.class_assignment_item_id
+       AND s.stage = NEW.stage;
+    IF NOT FOUND THEN
+        v_qids := public.advanced_vocab_canonical_practice_qids(
+            NEW.bank_id, NEW.stage
+        );
+        INSERT INTO public.advanced_vocab_practice_selections (
+            bank_id, user_id, class_assignment_item_id, stage, qids
+        ) VALUES (
+            NEW.bank_id, NEW.user_id, NEW.class_assignment_item_id,
+            NEW.stage, v_qids
+        ) ON CONFLICT (class_assignment_item_id, stage) DO NOTHING;
+        SELECT s.qids INTO v_qids
+          FROM public.advanced_vocab_practice_selections AS s
          WHERE s.class_assignment_item_id = NEW.class_assignment_item_id
-           AND s.stage = NEW.stage
-           AND s.qids @> jsonb_build_array(NEW.qid)
+           AND s.stage = NEW.stage;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 WHERE v_qids @> jsonb_build_array(NEW.qid)
     ) THEN
         RAISE EXCEPTION 'advanced_vocab_question_not_selected'
             USING ERRCODE = '22023';

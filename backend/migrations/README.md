@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-20 the highest is `291`, so the next new
-migration is `292`.
+sequence is dense. As of 2026-09-20 the highest is `292`, so the next new
+migration is `293`.
 
 ## Conventions
 
@@ -148,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–291
+## Forward scope 230–292
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -259,7 +259,11 @@ no-op on a clean database before content import. Migrations 288–290 add the
 single batch-graded Controlled Rewrite submission, repair its portable JSONB
 count, and align its immutable completion evidence. Migration 291 reinstalls
 the assignment-item deletion guard with the complete union of Practice,
-stage, question, Listening, and Controlled Rewrite evidence stores.
+stage, question, Listening, and Controlled Rewrite evidence stores. Migration
+292 makes the Practice gate migration-first compatible: it derives the
+canonical 28/20 selections from imported questions, backfills legacy attempt
+evidence, and lets a pre-selection backend atomically create only that canonical
+selection on its first answer.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence
