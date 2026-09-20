@@ -119,7 +119,105 @@ def test_core30_controlled_rewrite_has_20_prompts_and_delayed_solutions():
         assert all(row["prompt"] for row in parts["prompts"])
         assert parts["solutions"]
         assert parts["activity"]["completion_policy"] == "required"
-        assert parts["activity"]["grading_policy"] == "self_check"
+        assert parts["activity"]["grading_policy"] == "ai_feedback_once"
+        assert parts["activity"]["submittable"] is True
+
+
+@pytest.mark.asyncio
+async def test_controlled_rewrite_saves_all_answers_and_calls_grader_once(monkeypatch):
+    from services import advanced_vocab_rewrite_grader
+
+    prompts = [{"item_id": f"rewrite-{number:02d}", "prompt": f"Prompt {number}"}
+               for number in range(1, 21)]
+    answers = {row["item_id"]: f"Answer {index}"
+               for index, row in enumerate(prompts, 1)}
+    rows: list[dict] = []
+    calls: list[list[dict]] = []
+
+    class Query:
+        def __init__(self, data=None):
+            self.patch = None
+            self.data = data
+
+        def insert(self, payload):
+            rows.append({"id": "rewrite-sub-1", **payload})
+            return self
+
+        def update(self, payload):
+            self.patch = payload
+            return self
+
+        def eq(self, *_args):
+            return self
+
+        def execute(self):
+            if self.data is not None:
+                return SimpleNamespace(data=self.data)
+            if self.patch:
+                rows[0].update(self.patch)
+            return SimpleNamespace(data=rows[:1])
+
+    class Admin:
+        def table(self, name):
+            assert name == "advanced_vocab_rewrite_submissions"
+            return Query()
+
+        def rpc(self, name, params):
+            assert name == "claim_advanced_vocab_rewrite_submission"
+            if rows:
+                if rows[0]["answers"] != params["p_answers"]:
+                    raise RuntimeError("23505 advanced_vocab_rewrite_already_submitted")
+                return Query({"should_grade": False, "submission": rows[0]})
+            submission = {
+                "id": "rewrite-sub-1", "bank_id": params["p_bank_id"],
+                "user_id": params["p_user_id"],
+                "class_assignment_item_id": params["p_item_id"],
+                "answers": params["p_answers"], "status": "processing",
+                "content_snapshot": params["p_content_snapshot"],
+                "prompt_version": params["p_prompt_version"],
+            }
+            rows.append(submission)
+            return Query({"should_grade": True, "submission": submission})
+
+    async def fake_grade(items, *, user_id=None):
+        calls.append(items)
+        return ({"results": [{"item_id": row["item_id"], "corrected": row["answer"],
+                               "grammar_notes": [], "style_note": "Ổn",
+                               "target_usage_note": "Đúng", "ok": True}
+                              for row in items],
+                 "overall": {"strengths": ["Đủ 20 câu"], "focus": []}},
+                "gemini-test", None)
+
+    monkeypatch.setattr(service, "_assigned_lesson",
+                        lambda **_kwargs: ({}, {}, {"lesson_id": "ADV-T01", "provenance": {"content_checksum": "sum"}}))
+    monkeypatch.setattr(service, "_require_section", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(service, "controlled_rewrite_parts",
+                        lambda _lesson: {"prompts": prompts, "solutions": [{"text": "Key"}]})
+    monkeypatch.setattr(service, "_rewrite_submission",
+                        lambda _item_id: rows[0] if rows else None)
+    monkeypatch.setattr(service, "_upsert_stage", lambda **_kwargs: {})
+    monkeypatch.setattr(service, "_progress", lambda _item_id: {"completed_stages": ["controlled_rewrite"]})
+    monkeypatch.setattr(service, "_admin", lambda: Admin())
+    monkeypatch.setattr(advanced_vocab_rewrite_grader, "grade_rewrites", fake_grade)
+
+    first = await service.complete_controlled_rewrite(
+        user_id="user-1", bank_id="bank-1", item_id="item-1", answers=answers,
+    )
+    replay = await service.complete_controlled_rewrite(
+        user_id="user-1", bank_id="bank-1", item_id="item-1", answers=answers,
+    )
+
+    assert len(calls) == 1
+    assert len(calls[0]) == 20
+    assert first["submission"]["status"] == "completed"
+    assert replay["submission"]["answers"] == answers
+
+    with pytest.raises(HTTPException) as exc:
+        await service.complete_controlled_rewrite(
+            user_id="user-1", bank_id="bank-1", item_id="item-1",
+            answers={**answers, "rewrite-01": "Changed"},
+        )
+    assert exc.value.status_code == 409
 
 
 def test_controlled_rewrite_projection_whitelists_activity_metadata():

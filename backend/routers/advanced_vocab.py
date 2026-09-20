@@ -44,7 +44,7 @@ class AdvancedVocabSectionSubmitBody(BaseModel):
 class ControlledRewriteCompleteBody(BaseModel):
     bank_id: str
     item_id: str
-    attempted_item_ids: list[str] = Field(default_factory=list, max_length=30)
+    answers: dict[str, str] = Field(..., max_length=20)
 
 
 @router.get("/lessons/{bank_id}")
@@ -100,9 +100,9 @@ async def complete_controlled_rewrite(
     authorization: str | None = Header(None),
 ):
     user = await get_supabase_user(authorization)
-    return advanced_vocab_service.complete_controlled_rewrite(
+    return await advanced_vocab_service.complete_controlled_rewrite(
         user_id=user["id"], bank_id=body.bank_id, item_id=body.item_id,
-        attempted_item_ids=body.attempted_item_ids,
+        answers=body.answers,
     )
 
 

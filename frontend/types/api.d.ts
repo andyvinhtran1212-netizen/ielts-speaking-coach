@@ -13432,8 +13432,10 @@ export interface components {
             bank_id: string;
             /** Item Id */
             item_id: string;
-            /** Attempted Item Ids */
-            attempted_item_ids?: string[];
+            /** Answers */
+            answers: {
+                [key: string]: string;
+            };
         };
         /** CorrectionEventBody */
         CorrectionEventBody: {

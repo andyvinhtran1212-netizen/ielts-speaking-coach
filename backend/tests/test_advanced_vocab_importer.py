@@ -22,7 +22,7 @@ def test_core30_import_payloads_are_complete_assignment_only_banks():
     for lesson_id, spec in zip(importer.LESSON_IDS, specs, strict=True):
         payload = spec["payload"]
         runtime = payload["meta"]["runtime"]
-        assert payload["code"] == f"C4-{lesson_id}"
+        assert payload["code"] == f"C5-{lesson_id}"
         assert payload["lesson_no"] is None
         assert payload["is_published"] is False
         assert payload["words_count"] == 24
@@ -108,7 +108,7 @@ def test_importer_rejects_revision_that_would_orphan_frozen_assignment(monkeypat
     monkeypatch.setattr(importer, "_admin", lambda: admin)
     spec = {
         "payload": {
-            "course_id": "course-c4", "code": "C4-ADV-T01",
+            "course_id": "course-c5", "code": "C5-ADV-T01",
             "meta": {"runtime": {"content_checksum": "checksum-v2"}},
         },
         "rows": [{"qid": "q1"}],

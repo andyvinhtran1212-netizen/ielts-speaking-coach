@@ -65,13 +65,13 @@ def lesson_spec(lesson_id: str, *, course_id: str | None = None) -> dict:
             "listening": len(listening["content"]["questions"]),
         },
         "payload": {
-            "code": f"C4-{lesson_id}",
+            "code": f"C5-{lesson_id}",
             "title": f"Advanced Vocabulary T{number:02d} — {lesson['title']}",
             "skill_area": "course",
             "course_id": course_id,
             # Advanced Vocabulary is supplementary content, not the class's
             # canonical numbered lesson. Keeping this NULL avoids the unique
-            # (course_id, lesson_no) slot owned by the scheduled C4 bank.
+            # (course_id, lesson_no) slot owned by the scheduled C5 bank.
             "lesson_no": None,
             "words_count": len(lesson["vocabulary"]),
             "source": "advanced-vocab-core30-v5",
@@ -119,9 +119,9 @@ def _validate_spec(spec: dict) -> None:
 
 def _course() -> dict:
     courses = (_admin().table("courses").select("id,code,name")
-               .eq("code", "C4").limit(1).execute().data) or []
+               .eq("code", "C5").limit(1).execute().data) or []
     if not courses:
-        raise SystemExit("Không tìm thấy khóa học C4.")
+        raise SystemExit("Không tìm thấy khóa học C5.")
     return courses[0]
 
 
@@ -213,7 +213,7 @@ def main() -> int:
     if not args.commit:
         print(
             f"THỬ KHÔ: {len(specs)}/{len(LESSON_IDS)} lesson hợp lệ; "
-            "thêm --commit để ghi các bank C4-ADV-T01…C4-ADV-T30."
+            "thêm --commit để ghi các bank C5-ADV-T01…C5-ADV-T30."
         )
         return 0
 

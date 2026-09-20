@@ -182,11 +182,14 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.match(UI, /Nghe đoạn evidence/);
   });
 
-  test('requires controlled rewrite self-check without creating a writing submission', () => {
+  test('submits all controlled rewrite answers once for batch grammar and style feedback', () => {
     assert.match(UI, /ControlledRewriteStage/);
     assert.match(UI, /controlled-rewrite\/complete/);
-    assert.match(UI, /Câu trả lời chỉ nằm trên thiết bị này/);
-    assert.match(UI, /attempted_item_ids/);
+    assert.match(UI, /Một lượt gửi chấm cho mỗi unit/);
+    assert.match(UI, /Gửi chấm một lần/);
+    assert.match(UI, /\.\.\.base, answers/);
+    assert.match(UI, /submission\?\.feedback/);
+    assert.doesNotMatch(UI, /attempted_item_ids/);
   });
 
   test('keeps Writing and Speaking reference-only with no submission control', () => {

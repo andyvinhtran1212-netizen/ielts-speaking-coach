@@ -262,23 +262,29 @@ function ListeningStage({ content, completed, saved, onSubmit, onRetry, onContin
   </div>;
 }
 
-function ControlledRewriteStage({ activity, completed, onReveal, onContinue }: { activity: Json; completed: boolean; onReveal: (ids: string[]) => Promise<Json>; onContinue: () => void }) {
+function ControlledRewriteStage({ activity, completed, onReveal, onContinue }: { activity: Json; completed: boolean; onReveal: (answers: Record<string, string>) => Promise<Json>; onContinue: () => void }) {
   const prompts = (activity.content?.prompts || []) as Json[];
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const savedSubmission = activity.content?.submission || null;
+  const [drafts, setDrafts] = useState<Record<string, string>>(savedSubmission?.answers || {});
   const [solutions, setSolutions] = useState<Json[] | null>(activity.content?.solutions || null);
+  const [submission, setSubmission] = useState<Json | null>(savedSubmission);
   const [busy, setBusy] = useState(false);
   const attempted = prompts.filter((row) => drafts[row.item_id]?.trim()).map((row) => row.item_id);
   const reveal = async () => {
     setBusy(true);
     try {
-      const result = await onReveal(attempted);
+      const result = await onReveal(drafts);
       setSolutions(result.solutions || []);
+      setSubmission(result.submission || null);
     } finally { setBusy(false); }
   };
+  const feedbackById = new Map((submission?.feedback?.results || []).map((row: Json) => [row.item_id, row]));
   return <div className="avx-reference-card avx-rewrite-card">
-    <div className="avx-boundary-note"><strong>Self-check — không nộp bài viết</strong><p>Câu trả lời chỉ nằm trên thiết bị này. Hệ thống chỉ lưu việc bạn đã thử đủ 20 câu trước khi mở đáp án tham khảo.</p></div>
-    <div className="avx-rewrite-list">{prompts.map((row, index) => <label className="avx-rewrite-item" key={row.item_id}><span>{index + 1}/{prompts.length}</span><strong>{row.prompt.replace(/^\d+\.\s*/, '')}</strong>{!completed && !solutions && <input className="av-input" value={drafts[row.item_id] || ''} onChange={(event) => setDrafts((current) => ({ ...current, [row.item_id]: event.target.value }))} placeholder="Viết lại câu bằng từ/cấu trúc gợi ý" />}</label>)}</div>
-    {!solutions && <button className="av-button av-button-primary avx-wide" type="button" disabled={busy || attempted.length < prompts.length} onClick={() => void reveal()}>{busy ? 'Đang mở đáp án…' : `Đối chiếu đáp án (${attempted.length}/${prompts.length})`}</button>}
+    <div className="avx-boundary-note"><strong>Một lượt gửi chấm cho mỗi unit</strong><p>Hệ thống gửi cả 20 câu trong một lượt để nhận nhận xét ngữ pháp và văn phong. Sau khi gửi, câu trả lời được khóa và không thể gửi lại.</p></div>
+    {submission?.feedback?.overall && <div className="avx-rewrite-overall"><strong>Nhận xét chung</strong>{(submission.feedback.overall.strengths || []).map((text: string) => <p key={`s-${text}`}>✓ {text}</p>)}{(submission.feedback.overall.focus || []).map((text: string) => <p key={`f-${text}`}>→ {text}</p>)}</div>}
+    {submission?.status === 'failed' && <div className="avx-inline-error" role="status">Bài đã được lưu và lượt gửi đã được ghi nhận, nhưng bộ chấm chưa trả được phản hồi. Bạn vẫn có thể xem đáp án tham khảo và tiếp tục.</div>}
+    <div className="avx-rewrite-list">{prompts.map((row, index) => { const feedback = feedbackById.get(row.item_id) as Json | undefined; return <label className="avx-rewrite-item" key={row.item_id}><span>{index + 1}/{prompts.length}</span><strong>{row.prompt.replace(/^\d+\.\s*/, '')}</strong><input className="av-input" value={drafts[row.item_id] || ''} disabled={completed || Boolean(submission)} maxLength={600} onChange={(event) => setDrafts((current) => ({ ...current, [row.item_id]: event.target.value }))} placeholder="Viết lại câu bằng từ/cấu trúc gợi ý" />{feedback && <div className={`avx-rewrite-feedback ${feedback.ok ? 'is-correct' : ''}`}><b>{feedback.ok ? 'Ngữ pháp ổn' : 'Gợi ý sửa'}</b>{feedback.corrected && feedback.corrected !== drafts[row.item_id] && <p><strong>Câu sửa:</strong> {feedback.corrected}</p>}{(feedback.grammar_notes || []).map((note: string) => <p key={note}>{note}</p>)}{feedback.style_note && <p><strong>Văn phong:</strong> {feedback.style_note}</p>}{feedback.target_usage_note && <p><strong>Từ/cấu trúc:</strong> {feedback.target_usage_note}</p>}</div>}</label>; })}</div>
+    {!submission && !solutions && <button className="av-button av-button-primary avx-wide" type="button" disabled={busy || attempted.length < prompts.length} onClick={() => void reveal()}>{busy ? 'Đang gửi và chấm 20 câu…' : `Gửi chấm một lần (${attempted.length}/${prompts.length})`}</button>}
     {solutions && <><details open><summary>Đáp án và phân tích tham khảo</summary><Blocks blocks={solutions} /></details><button className="av-button av-button-primary avx-wide" type="button" onClick={onContinue}>Tiếp tục sang Listening →</button></>}
   </div>;
 }
@@ -362,7 +368,7 @@ export function AdvancedVocabularyLesson() {
     {stage === 'practice_1' && <PracticeStage stage="practice_1" data={data} onAnswer={async (qid, answer, response_time_ms) => { const response = await post('/api/advanced-vocab/practice/answer', { ...base, stage: 'practice_1', qid, answer, response_time_ms }); mergeProgress(response.progress); return response; }} onDone={() => setStage('practice_2')} />}
     {stage === 'practice_2' && <PracticeStage stage="practice_2" data={data} onAnswer={async (qid, answer, response_time_ms) => { const response = await post('/api/advanced-vocab/practice/answer', { ...base, stage: 'practice_2', qid, answer, response_time_ms }); mergeProgress(response.progress); return response; }} onDone={() => setStage('reading')} />}
     {stage === 'reading' && <ReadingStage content={data.lesson.activities.reading} completed={completed.has('reading')} saved={(data.progress.sections || []).find((row: Json) => row.section === 'reading')} onSubmit={async (answers, duration_sec) => { const response = await post('/api/advanced-vocab/reading', { ...base, answers, duration_sec }); setData((current) => current ? preserveReadingResult(current, response) : current); return response; }} onContinue={() => setStage('controlled_rewrite')} />}
-    {stage === 'controlled_rewrite' && <ControlledRewriteStage activity={data.lesson.activities.controlled_rewrite} completed={completed.has('controlled_rewrite')} onReveal={async (attempted_item_ids) => { const response = await post('/api/advanced-vocab/controlled-rewrite/complete', { ...base, attempted_item_ids }); setData((current) => current ? preserveControlledRewriteResult(current, response) : current); return response; }} onContinue={() => setStage('listening')} />}
+    {stage === 'controlled_rewrite' && <ControlledRewriteStage activity={data.lesson.activities.controlled_rewrite} completed={completed.has('controlled_rewrite')} onReveal={async (answers) => { const response = await post('/api/advanced-vocab/controlled-rewrite/complete', { ...base, answers }); setData((current) => current ? preserveControlledRewriteResult(current, response) : current); return response; }} onContinue={() => setStage('listening')} />}
     {stage === 'listening' && <ListeningStage content={data.lesson.activities.listening} completed={completed.has('listening')} saved={(data.progress.sections || []).find((row: Json) => row.section === 'listening')} onSubmit={async (answers, duration_sec) => { const response = await post('/api/advanced-vocab/listening', { ...base, answers, duration_sec }); setData((current) => current ? preserveInitialListeningResult(current, response) : current); return response; }} onRetry={async (answers) => { const response = await post('/api/advanced-vocab/listening/guided-retry', { ...base, answers }); if (response.progress) mergeProgress(response.progress); return response; }} onContinue={() => setStage('writing')} />}
     {stage === 'writing' && <WritingStage activity={data.lesson.activities.writing} />}
     {stage === 'speaking' && <SpeakingStage activity={data.lesson.activities.speaking} />}
