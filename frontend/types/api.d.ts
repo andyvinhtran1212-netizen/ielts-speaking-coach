@@ -15903,6 +15903,37 @@ export interface components {
              */
             release_now: boolean;
         };
+        /** PracticeQuestionResponse */
+        PracticeQuestionResponse: {
+            /** Item Id */
+            item_id: string;
+            /** Prompt */
+            prompt: string;
+            /** Headword */
+            headword?: string | null;
+            /** Hint */
+            hint?: string | null;
+            /** Input */
+            input?: string | null;
+            /** Lexeme Id */
+            lexeme_id?: string | null;
+            /** Options */
+            options?: unknown[] | null;
+            /** Segments */
+            segments?: string[] | null;
+            /** Skill */
+            skill?: string | null;
+            /** Subtype */
+            subtype?: string | null;
+            /** Type */
+            type?: string | null;
+            /** Question Type */
+            question_type?: string | null;
+            /** Audio Url */
+            audio_url?: string | null;
+            /** Locked */
+            locked?: boolean | null;
+        };
         /** PracticeStartBody */
         PracticeStartBody: {
             /** Bank Id */
@@ -15911,6 +15942,17 @@ export interface components {
             item_id: string;
             /** Stage */
             stage: string;
+        };
+        /** PracticeStartResponse */
+        PracticeStartResponse: {
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "practice_1" | "practice_2";
+            /** Questions */
+            questions: components["schemas"]["PracticeQuestionResponse"][];
+            progress: components["schemas"]["AdvancedVocabProgressResponse"];
         };
         /** PreviewRequest */
         PreviewRequest: {
@@ -22062,7 +22104,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PracticeStartResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33076,6 +33118,7 @@ export interface operations {
             query?: {
                 topic_id?: string | null;
                 dry_run?: boolean;
+                publish_state?: "preserve" | "published" | "unpublished";
             };
             header?: {
                 authorization?: string | null;

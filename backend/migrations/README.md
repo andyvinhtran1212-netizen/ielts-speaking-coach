@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-20 the highest is `293`, so the next new
-migration is `294`.
+sequence is dense. As of 2026-09-20 the highest is `294`, so the next new
+migration is `295`.
 
 ## Conventions
 
@@ -148,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–293
+## Forward scope 230–294
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -267,6 +267,10 @@ selection on its first answer.
 Migration 293 gives the Advanced importer one database transaction for the
 bank metadata, canonical 48 questions, and explicit publication decision, so
 neither failure nor concurrent assignment can observe a mixed revision.
+Migration 294 makes that lock-and-transaction boundary canonical for the
+existing admin quiz import route and adds the explicit
+`preserve|published|unpublished` publication contract without changing the
+new-bank default for ordinary quiz banks.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

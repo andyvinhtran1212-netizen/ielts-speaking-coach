@@ -651,6 +651,22 @@ def test_controlled_rewrite_route_has_concrete_openapi_response():
     assert "ControlledRewriteFeedback" in schema["$defs"]
 
 
+def test_practice_start_route_has_safe_concrete_openapi_response():
+    from routers.advanced_vocab import PracticeStartResponse, router
+
+    route = next(
+        route for route in router.routes
+        if route.path == "/api/advanced-vocab/practice/start"
+    )
+    schema = PracticeStartResponse.model_json_schema()
+    question = schema["$defs"]["PracticeQuestionResponse"]["properties"]
+
+    assert route.response_model is PracticeStartResponse
+    assert set(schema["properties"]) == {"stage", "questions", "progress"}
+    assert {"answer", "accept", "explain", "why_wrong"}.isdisjoint(question)
+    assert {"item_id", "prompt", "options", "audio_url"} <= set(question)
+
+
 def test_learner_question_projection_never_contains_answer_material():
     source = {
         "item_id": "q1", "prompt": "Question", "answer": 2,

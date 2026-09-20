@@ -2,7 +2,7 @@
 """Validate or import all 30 assignment-only Advanced Vocabulary banks.
 
 Dry-run is the default. Add ``--commit`` only after the Advanced Vocabulary
-migration set (281, 282, and 287–293) is applied.
+migration set (281, 282, and 287–294) is applied.
 The import is idempotent for unchanged content. A content revision is rejected
 once an assignment references that bank so its frozen lesson checksum cannot be
 orphaned; revised lessons require a separately versioned bank/content release.
@@ -129,10 +129,10 @@ def _course() -> dict:
 def _upsert_bank(spec: dict, *, publish: bool = False) -> tuple[str, str, int]:
     payload = {**spec["payload"]}
     try:
-        response = _admin().rpc("upsert_advanced_vocab_bank", {
+        response = _admin().rpc("import_quiz_bank_atomic", {
             "p_payload": payload,
             "p_rows": spec["rows"],
-            "p_publish": publish,
+            "p_publish_state": "published" if publish else "preserve",
         }).execute().data or []
     except Exception as exc:  # noqa: BLE001
         if "advanced_vocab_bank_revision_in_use" in str(exc):

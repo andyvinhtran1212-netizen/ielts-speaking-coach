@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Header
@@ -88,6 +88,29 @@ class AdvancedVocabProgressResponse(BaseModel):
     required_completed: bool = False
 
 
+class PracticeQuestionResponse(BaseModel):
+    item_id: str
+    prompt: str
+    headword: str | None = None
+    hint: str | None = None
+    input: str | None = None
+    lexeme_id: str | None = None
+    options: list[Any] | None = None
+    segments: list[str] | None = None
+    skill: str | None = None
+    subtype: str | None = None
+    type: str | None = None
+    question_type: str | None = None
+    audio_url: str | None = None
+    locked: bool | None = None
+
+
+class PracticeStartResponse(BaseModel):
+    stage: Literal["practice_1", "practice_2"]
+    questions: list[PracticeQuestionResponse]
+    progress: AdvancedVocabProgressResponse
+
+
 class ControlledRewriteCompleteResponse(BaseModel):
     solutions: list[dict[str, Any]] = Field(default_factory=list)
     submission: ControlledRewriteSubmissionResponse | None = None
@@ -113,13 +136,17 @@ async def complete_vocabulary(
     )
 
 
-@router.post("/practice/start")
-async def start_practice(body: PracticeStartBody, authorization: str | None = Header(None)):
+@router.post("/practice/start", response_model=PracticeStartResponse)
+async def start_practice(
+    body: PracticeStartBody,
+    authorization: str | None = Header(None),
+) -> PracticeStartResponse:
     user = await get_supabase_user(authorization)
-    return advanced_vocab_service.start_practice(
+    result = advanced_vocab_service.start_practice(
         user_id=user["id"], bank_id=body.bank_id,
         item_id=body.item_id, stage=body.stage,
     )
+    return PracticeStartResponse.model_validate(result)
 
 
 @router.post("/practice/answer")

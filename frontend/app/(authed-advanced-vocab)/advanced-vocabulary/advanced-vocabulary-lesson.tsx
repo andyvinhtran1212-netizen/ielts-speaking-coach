@@ -9,9 +9,11 @@ import {
   questionOptionIdentity,
   readingSupportLines,
 } from '@/lib/advanced-vocabulary-model.mjs';
+import type { ApiPostJson } from '@/lib/openapi-contract';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 type Json = Record<string, any>;
+type PracticeStartWire = ApiPostJson<'/api/advanced-vocab/practice/start'>;
 type Stage = 'vocabulary' | 'practice_1' | 'practice_2' | 'reading' | 'controlled_rewrite' | 'listening' | 'writing' | 'speaking';
 
 const STAGES: { id: Stage; short: string; label: string }[] = [
@@ -414,8 +416,8 @@ export function AdvancedVocabularyLesson() {
     setData(payload);
   }, []);
 
-  const post = async (path: string, body: Json) => {
-    try { setError(''); return await window.api.post<Json>(path, body); }
+  const post = async <Response = Json>(path: string, body: Json): Promise<Response> => {
+    try { setError(''); return await window.api.post<Response>(path, body); }
     catch (cause) { setError(errorText(cause)); throw cause; }
   };
   const completed = useMemo(() => new Set(data?.progress?.completed_stages || []), [data]);
@@ -430,7 +432,7 @@ export function AdvancedVocabularyLesson() {
   };
   const mergeProgress = (progress: Json) => setData((current) => current ? ({ ...current, progress }) : current);
   const startPractice = async (practiceStage: 'practice_1' | 'practice_2') => {
-    const response = await post('/api/advanced-vocab/practice/start', {
+    const response = await post<PracticeStartWire>('/api/advanced-vocab/practice/start', {
       bank_id: data?.bank?.id,
       item_id: data?.assignment?.item_id,
       stage: practiceStage,

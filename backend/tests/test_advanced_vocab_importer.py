@@ -99,7 +99,7 @@ def test_importer_rejects_revision_that_would_orphan_frozen_assignment(monkeypat
     with pytest.raises(SystemExit, match="bank/content version mới"):
         importer._upsert_bank(spec)
 
-    assert admin.writes[0][0] == "upsert_advanced_vocab_bank"
+    assert admin.writes[0][0] == "import_quiz_bank_atomic"
 
 
 def test_importer_preserves_published_bank_unless_publish_is_explicit(monkeypatch):
@@ -115,11 +115,11 @@ def test_importer_preserves_published_bank_unless_publish_is_explicit(monkeypatc
     }
 
     importer._upsert_bank(spec)
-    assert admin.writes[-1][0] == "upsert_advanced_vocab_bank"
-    assert admin.writes[-1][1]["p_publish"] is False
+    assert admin.writes[-1][0] == "import_quiz_bank_atomic"
+    assert admin.writes[-1][1]["p_publish_state"] == "preserve"
 
     importer._upsert_bank(spec, publish=True)
-    assert admin.writes[-1][1]["p_publish"] is True
+    assert admin.writes[-1][1]["p_publish_state"] == "published"
 
 
 def test_importer_has_one_atomic_write_boundary_for_metadata_questions_and_publish(
@@ -132,15 +132,15 @@ def test_importer_has_one_atomic_write_boundary_for_metadata_questions_and_publi
 
     assert len(admin.writes) == 1
     name, params = admin.writes[0]
-    assert name == "upsert_advanced_vocab_bank"
+    assert name == "import_quiz_bank_atomic"
     assert params["p_payload"]["is_published"] is False
-    assert params["p_publish"] is True
+    assert params["p_publish_state"] == "published"
     assert len(params["p_rows"]) == 48
 
 
 def test_atomic_import_migration_orders_replace_before_publish_in_one_function():
     migration = (Path(__file__).resolve().parents[1] / "migrations"
-                 / "293_atomic_advanced_vocab_bank_release.sql").read_text()
+                 / "294_atomic_quiz_import_publish_state.sql").read_text()
 
     replace_at = migration.index("public.quiz_replace_questions")
     publish_at = migration.index("is_published = v_publish")
@@ -154,7 +154,7 @@ def test_atomic_import_migration_orders_replace_before_publish_in_one_function()
 def test_atomic_import_and_assignment_share_the_same_bank_row_lock():
     migrations = Path(__file__).resolve().parents[1] / "migrations"
     atomic_import = (
-        migrations / "293_atomic_advanced_vocab_bank_release.sql"
+        migrations / "294_atomic_quiz_import_publish_state.sql"
     ).read_text()
     atomic_assignment = (
         migrations / "269_serialize_course_assignment_bank_revision.sql"
