@@ -189,6 +189,10 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.match(UI, /Gửi chấm một lần/);
     assert.match(UI, /\.\.\.base, answers/);
     assert.match(UI, /submission\?\.feedback/);
+    assert.match(UI, /submission\?\.status === 'processing'/);
+    assert.match(UI, /setInterval\(\(\) => \{ void refresh\(\); \}, 3000\)/);
+    assert.match(UI, /onRefresh=\{refreshCanonicalLesson\}/);
+    assert.match(UI, /submission\?\.status !== 'processing'/);
     assert.doesNotMatch(UI, /attempted_item_ids/);
   });
 

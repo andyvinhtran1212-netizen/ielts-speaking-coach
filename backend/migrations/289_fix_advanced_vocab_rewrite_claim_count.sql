@@ -1,35 +1,8 @@
--- One immutable, batch-graded Controlled Rewrite submission per learner/unit.
+-- Migration 288 used a non-existent JSONB length helper. Replace the
+-- claim RPC so first-time submissions can atomically persist their 20-answer
+-- evidence on databases where 288 has already been applied.
 
 BEGIN;
-
-CREATE TABLE IF NOT EXISTS advanced_vocab_rewrite_submissions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    bank_id UUID NOT NULL REFERENCES quiz_banks(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    class_assignment_item_id UUID NOT NULL
-        REFERENCES class_assignment_items(id) ON DELETE CASCADE,
-    answers JSONB NOT NULL CHECK (jsonb_typeof(answers) = 'object'),
-    content_snapshot JSONB NOT NULL CHECK (jsonb_typeof(content_snapshot) = 'object'),
-    feedback JSONB CHECK (feedback IS NULL OR jsonb_typeof(feedback) = 'object'),
-    status TEXT NOT NULL DEFAULT 'processing'
-        CHECK (status IN ('processing', 'completed', 'failed')),
-    model TEXT,
-    prompt_version TEXT NOT NULL DEFAULT 'advanced-vocab-rewrite-v1',
-    error_code TEXT,
-    provider_started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    completed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (class_assignment_item_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_advanced_vocab_rewrite_user_bank
-    ON advanced_vocab_rewrite_submissions (user_id, bank_id, created_at DESC);
-
-ALTER TABLE advanced_vocab_rewrite_submissions ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE public.advanced_vocab_rewrite_submissions
-    FROM PUBLIC, anon, authenticated;
-GRANT ALL ON TABLE public.advanced_vocab_rewrite_submissions TO service_role;
 
 CREATE OR REPLACE FUNCTION claim_advanced_vocab_rewrite_submission(
     p_item_id UUID,
@@ -139,28 +112,5 @@ REVOKE ALL ON FUNCTION claim_advanced_vocab_rewrite_submission(
 GRANT EXECUTE ON FUNCTION claim_advanced_vocab_rewrite_submission(
     UUID, UUID, UUID, JSONB, JSONB, TEXT
 ) TO service_role;
-
--- Partial work is evidence too and must not disappear through assignment
--- deletion. Extend the guard introduced by migration 281.
-CREATE OR REPLACE FUNCTION protect_advanced_vocab_item_evidence()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SET search_path = public, pg_temp
-AS $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM advanced_vocab_stage_progress
-                WHERE class_assignment_item_id = OLD.id)
-       OR EXISTS (SELECT 1 FROM advanced_vocab_question_attempts
-                   WHERE class_assignment_item_id = OLD.id)
-       OR EXISTS (SELECT 1 FROM advanced_vocab_listening_attempts
-                   WHERE class_assignment_item_id = OLD.id)
-       OR EXISTS (SELECT 1 FROM advanced_vocab_rewrite_submissions
-                   WHERE class_assignment_item_id = OLD.id) THEN
-        RAISE EXCEPTION 'cannot delete assignment item with advanced vocabulary evidence'
-            USING ERRCODE = '23503';
-    END IF;
-    RETURN OLD;
-END;
-$$;
 
 COMMIT;

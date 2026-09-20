@@ -123,6 +123,17 @@ def test_core30_controlled_rewrite_has_20_prompts_and_delayed_solutions():
         assert parts["activity"]["submittable"] is True
 
 
+def test_controlled_rewrite_claim_migrations_use_supported_jsonb_count():
+    migrations = Path(__file__).resolve().parents[1] / "migrations"
+    initial = (migrations / "288_advanced_vocab_rewrite_feedback.sql").read_text()
+    repair = (migrations / "289_fix_advanced_vocab_rewrite_claim_count.sql").read_text()
+
+    for sql in (initial, repair):
+        assert "jsonb_object_length" not in sql
+        assert "SELECT count(*) FROM jsonb_object_keys(p_answers)" in sql
+        assert "'response_count'" in sql
+
+
 @pytest.mark.asyncio
 async def test_controlled_rewrite_saves_all_answers_and_calls_grader_once(monkeypatch):
     from services import advanced_vocab_rewrite_grader
