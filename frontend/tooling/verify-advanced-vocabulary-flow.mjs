@@ -26,8 +26,8 @@ const vocabulary = Array.from({ length: 24 }, (_, index) => ({
   collocations: ['fixture collocation'],
   memory_hook: 'A stable browser fixture.',
   common_error: 'Do not use this word with the wrong preposition.',
-  audio_headword: null,
-  audio_example: null,
+  audio_headword: '/fixture-audio/headword.mp3',
+  audio_example: '/fixture-audio/example.mp3',
 }));
 const questions = Array.from({ length: 14 }, (_, index) => ({
   question_number: index + 1,
@@ -122,7 +122,7 @@ const page = await context.newPage();
 page.on('pageerror', (error) => pageErrors.push(error.message));
 const url = `${BASE}/advanced-vocabulary?bank=${BANK}&item=${ITEM}`;
 
-// Vocabulary card parity: click plus Enter/Space, hidden face tab order, 44px audio.
+// Vocabulary card parity: click plus Enter/Space, active-face hit testing, 44px audio.
 await page.goto(url);
 const card = page.locator('.fcs-card');
 try {
@@ -134,6 +134,20 @@ try {
 await card.focus();
 await page.keyboard.press('Space');
 if (!(await card.getAttribute('class')).includes('is-flipped')) throw new Error('Space did not flip the vocabulary card');
+const frontFacePointerEvents = await page.locator('.fcs-face--front').evaluate((node) => getComputedStyle(node).pointerEvents);
+if (frontFacePointerEvents !== 'none') throw new Error('Hidden vocabulary face can intercept active-face controls');
+await page.evaluate(() => {
+  window.__playedFixtureAudio = '';
+  window.Audio = class FixtureAudio {
+    constructor(src) { window.__playedFixtureAudio = String(src); }
+    play() { return Promise.resolve(); }
+  };
+});
+await page.getByRole('button', { name: 'Nghe ví dụ' }).click();
+if (!(await card.getAttribute('class')).includes('is-flipped')) throw new Error('Example audio click flipped the vocabulary card');
+const playedFixtureAudio = await page.evaluate(() => window.__playedFixtureAudio);
+if (!playedFixtureAudio.endsWith('/fixture-audio/example.mp3')) throw new Error('Example audio control did not play the example recording');
+await card.focus();
 await page.keyboard.press('Enter');
 if ((await card.getAttribute('class')).includes('is-flipped')) throw new Error('Enter did not flip the vocabulary card back');
 const audioBox = await page.locator('.fcs-audio').first().boundingBox();

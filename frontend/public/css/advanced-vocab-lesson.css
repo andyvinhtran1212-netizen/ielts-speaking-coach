@@ -30,6 +30,7 @@ body.fcs-page { background: var(--av-surface-page); color: var(--av-text-primary
 .avx-card-actions > :last-child { justify-self: stretch; }
 .fcs-card { min-height: 590px; }
 .fcs-face { overflow-y: auto; }
+.avx-vocab-stage .fcs-face[aria-hidden="true"] { pointer-events: none; }
 .avx-question-card, .avx-reference-card { padding: clamp(22px, 4vw, 42px); border: 1px solid var(--av-border-default); border-radius: var(--av-radius-2xl); background: var(--av-surface-card); box-shadow: var(--av-shadow-sm); }
 .avx-question-card { width: min(100%, 780px); margin-inline: auto; }
 .avx-question-card--compact { width: 100%; margin: 0; }
