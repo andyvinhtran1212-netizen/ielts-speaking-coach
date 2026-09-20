@@ -227,8 +227,11 @@ export function normalizeCatalog(value, kind, requestedSkill = '', requestedCoho
     // the canonical /cohorts endpoint instead of forcing a second screen first.
     const ready = kind === 'exam' ? row.status === 'published' : row.ready === true;
     const already = row.already_given === true;
+    const runtime = nullableText(row.runtime);
+    const published = row.is_published !== false;
     let reason = null;
     if (already) reason = 'Đã giao cho lớp này';
+    else if (runtime === 'advanced_vocab' && !published) reason = 'Chưa xuất bản để giao';
     else if (!ready) reason = row.missing_audio ? `Thiếu audio cho ${count(row.missing_audio)} câu` : 'Đề đang draft hoặc chưa sẵn sàng';
     else if (scopeBlocked) reason = 'Sẽ gán phạm vi lớp khi giao';
     else if (kind === 'exam' && privatePaper) reason = 'Kho đề admin';
@@ -240,7 +243,8 @@ export function normalizeCatalog(value, kind, requestedSkill = '', requestedCoho
       explanation_state: text(row.web_explanation_state) || 'unknown',
       explanation_count: row.web_explanation_count == null ? null : count(row.web_explanation_count),
       explanation_ready_count: row.web_explanation_ready_count == null ? null : count(row.web_explanation_ready_count),
-      runtime: nullableText(row.runtime),
+      runtime,
+      is_published: published,
       single_attempt_ready: row.single_attempt_ready === true,
     };
   }).filter(Boolean);

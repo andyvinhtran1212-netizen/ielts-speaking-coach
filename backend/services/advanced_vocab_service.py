@@ -11,6 +11,7 @@ import hashlib
 import json
 import re
 import unicodedata
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +41,8 @@ _CONTROLLED_REWRITE_PUBLIC_FIELDS = {
 }
 _PAGE = 1000
 _ID_CHUNK = 200
+_MAX_REWRITE_ANSWER_CHARS = 600
+_REWRITE_PROCESSING_TIMEOUT = timedelta(minutes=5)
 
 
 def _admin():
@@ -124,9 +127,9 @@ def _owned_item(bank_id: str, user_id: str, item_id: str, *, review: bool = Fals
 def _assigned_lesson(*, bank_id: str, user_id: str, item_id: str,
                      review: bool = False) -> tuple[dict, dict, dict]:
     """Resolve content only from the immutable runtime snapshot issued to the learner."""
-    bank, _ = _runtime(bank_id)
     item = _owned_item(bank_id, user_id, item_id, review=review)
-    frozen = ((item.get("content_config") or {}).get("runtime") or {})
+    config = item.get("content_config") or {}
+    frozen = (config.get("runtime") or {})
     lesson_id = str(frozen.get("lesson_id") or "")
     expected_checksum = str(frozen.get("content_checksum") or "")
     if frozen.get("kind") != "advanced_vocab" or not lesson_id or not expected_checksum:
@@ -138,6 +141,14 @@ def _assigned_lesson(*, bank_id: str, user_id: str, item_id: str,
     actual_checksum = lesson_content_checksum(lesson)
     if declared_checksum != actual_checksum or actual_checksum != expected_checksum:
         raise HTTPException(409, "Phiên bản bài giao không khớp nội dung đã triển khai")
+    # The assignment snapshot is the canonical identity after issuance.  A
+    # later bank retirement/version switch must not orphan an existing learner
+    # review, so no mutable quiz_banks read participates in content resolution.
+    bank = {
+        "id": bank_id,
+        "code": config.get("bank_code"),
+        "title": config.get("test_title") or lesson.get("title"),
+    }
     return bank, item, lesson
 
 
@@ -306,11 +317,15 @@ def controlled_rewrite_parts(lesson: dict) -> dict:
             500,
             f"{lesson.get('lesson_id')}: controlled rewrite cần đúng 20 câu",
         )
-    return {
-        "activity": {
+    public_activity = {
             key: activity.get(key)
             for key in _CONTROLLED_REWRITE_PUBLIC_FIELDS if key in activity
-        },
+        }
+    # Runtime policy supersedes the historical authored self-check metadata.
+    public_activity["grading_policy"] = "ai_feedback_once"
+    public_activity["submittable"] = True
+    return {
+        "activity": public_activity,
         "prompts": prompts,
         "solutions": solution_blocks,
     }
@@ -425,6 +440,24 @@ def _attempt_rows(item_id: str) -> list[dict]:
             .eq("class_assignment_item_id", item_id).order("created_at").execute().data) or []
 
 
+def _selection_rows(item_id: str) -> list[dict]:
+    return (_admin().table("advanced_vocab_practice_selections")
+            .select("stage,qids,created_at")
+            .eq("class_assignment_item_id", item_id).execute().data) or []
+
+
+def _selection_qids(item_id: str, stage: str) -> list[str] | None:
+    rows = (_admin().table("advanced_vocab_practice_selections")
+            .select("qids").eq("class_assignment_item_id", item_id)
+            .eq("stage", stage).limit(1).execute().data) or []
+    if not rows:
+        return None
+    qids = rows[0].get("qids")
+    if not isinstance(qids, list) or not all(isinstance(qid, str) for qid in qids):
+        raise HTTPException(500, "Bộ câu luyện tập đã lưu không hợp lệ")
+    return qids
+
+
 def _section_rows(item_id: str) -> list[dict]:
     return (_admin().table("course_section_submissions")
             .select("section,total,correct,score,duration_sec,submitted_at,"
@@ -438,11 +471,67 @@ def _listening_attempt(item_id: str) -> dict | None:
     return rows[0] if rows else None
 
 
+def _rewrite_submission_raw(item_id: str) -> dict | None:
+    rows = (_admin().table("advanced_vocab_rewrite_submissions").select("*")
+            .eq("class_assignment_item_id", item_id).limit(1).execute().data) or []
+    return rows[0] if rows else None
+
+
+def _expire_stale_rewrite_submission(row: dict | None) -> dict | None:
+    """Terminate abandoned provider work without reclaiming its model call.
+
+    A provider request has a 60-second application timeout. Five minutes gives
+    an in-flight worker ample headroom while ensuring a process crash cannot
+    leave the learner polling forever. The guarded update never reclaims the
+    one-shot model call; it only records a terminal failure.
+    """
+    if not row or row.get("status") != "processing":
+        return row
+    started_value = row.get("provider_started_at") or row.get("created_at")
+    try:
+        started_at = datetime.fromisoformat(str(started_value).replace("Z", "+00:00"))
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return row
+    cutoff = datetime.now(timezone.utc) - _REWRITE_PROCESSING_TIMEOUT
+    if started_at > cutoff:
+        return row
+    now = datetime.now(timezone.utc).isoformat()
+    saved = (_admin().table("advanced_vocab_rewrite_submissions")
+             .update({
+                 "status": "failed", "error_code": "worker_interrupted",
+                 "completed_at": now, "updated_at": now,
+             })
+             .eq("id", row["id"]).eq("status", "processing")
+             .lte("provider_started_at", cutoff.isoformat())
+             .execute().data) or []
+    # A live worker may have completed between the read and guarded update.
+    return saved[0] if saved else _rewrite_submission_raw(
+        str(row["class_assignment_item_id"]),
+    )
+
+
+def _rewrite_submission(item_id: str) -> dict | None:
+    return _expire_stale_rewrite_submission(_rewrite_submission_raw(item_id))
+
+
+def _safe_rewrite_submission(row: dict | None) -> dict | None:
+    if not row:
+        return None
+    return {key: row.get(key) for key in (
+        "answers", "feedback", "status", "model", "prompt_version",
+        "error_code", "created_at", "completed_at",
+    )}
+
+
 def _progress(item_id: str) -> dict:
     stages = _stage_rows(item_id)
+    selections = _selection_rows(item_id)
     attempts = _attempt_rows(item_id)
     sections = _section_rows(item_id)
     listening_attempt = _listening_attempt(item_id)
+    rewrite_submission = _rewrite_submission(item_id)
     complete = {row["stage"] for row in stages if row.get("status") == "completed"}
     complete.update(row["section"] for row in sections)
     safe_sections = []
@@ -472,6 +561,7 @@ def _progress(item_id: str) -> dict:
     return {
         "completed_stages": sorted(complete),
         "stages": stages,
+        "practice_selections": selections,
         "answers": [{
             "stage": row.get("stage"), "qid": row.get("qid"),
             "answer": row.get("answer_given"), "is_correct": row.get("is_correct"),
@@ -481,16 +571,69 @@ def _progress(item_id: str) -> dict:
         # never from the current live lesson (which could have changed).
         "sections": safe_sections,
         "listening_submitted": listening_attempt is not None,
+        "controlled_rewrite_submission": _safe_rewrite_submission(rewrite_submission),
         "required_completed": all(stage in complete for stage in _REQUIRED_STAGES),
     }
+
+
+def _learner_practice_qids(
+    *, practice_stage: str, authored_rows: list[dict], progress: dict,
+) -> list[str] | None:
+    """Resolve the immutable selection, reconstructing only legacy evidence.
+
+    Migration 292 backfills persisted selections for legacy attempts.  This
+    application fallback also keeps already-completed/read-only assignments
+    reviewable if a historical row was missed.  An untouched stage remains
+    hidden until `/practice/start` persists its selection.
+    """
+    persisted = next((
+        row.get("qids")
+        for row in progress.get("practice_selections") or []
+        if row.get("stage") == practice_stage
+    ), None)
+    if persisted is None:
+        has_evidence = (
+            practice_stage in set(progress.get("completed_stages") or [])
+            or any(
+                row.get("stage") == practice_stage
+                for row in progress.get("answers") or []
+            )
+        )
+        if not has_evidence:
+            return None
+        persisted = [str(row.get("item_id")) for row in authored_rows]
+
+    if (not isinstance(persisted, list)
+            or not all(isinstance(qid, str) for qid in persisted)
+            or len(persisted) != _PRACTICE_COUNTS[practice_stage]
+            or len(set(persisted)) != len(persisted)):
+        raise HTTPException(500, "Bộ câu luyện tập đã lưu không hợp lệ")
+    return persisted
 
 
 def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
     bank, item, lesson = _assigned_lesson(
         bank_id=bank_id, user_id=user_id, item_id=item_id, review=True,
     )
-    selected = practice_selection(lesson)
     progress = _progress(item_id)
+    authored_selection = practice_selection(lesson)
+    selected: dict[str, list[dict]] = {}
+    for practice_stage, authored_rows in authored_selection.items():
+        qids = _learner_practice_qids(
+            practice_stage=practice_stage,
+            authored_rows=authored_rows,
+            progress=progress,
+        )
+        if qids is None:
+            selected[practice_stage] = []
+            continue
+        by_id = {row.get("item_id"): row for row in authored_rows}
+        try:
+            selected[practice_stage] = [by_id[qid] for qid in qids]
+        except KeyError as exc:
+            raise HTTPException(
+                409, "Bộ câu luyện tập không khớp phiên bản bài đã giao",
+            ) from exc
     answered = {row["qid"] for row in progress["answers"]}
     content_checksum = str(
         (lesson.get("provenance") or {}).get("content_checksum") or ""
@@ -535,6 +678,8 @@ def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
         "content": {
             "prompts": rewrite["prompts"],
             **({"solutions": rewrite["solutions"]} if rewrite_completed else {}),
+            **({"submission": progress.get("controlled_rewrite_submission")}
+               if progress.get("controlled_rewrite_submission") else {}),
         },
     }
     authored_listening = _activity(lesson, "listening_lab").get("content") or {}
@@ -683,9 +828,59 @@ def complete_vocabulary(*, user_id: str, bank_id: str, item_id: str,
 def start_practice(*, user_id: str, bank_id: str, item_id: str, stage: str) -> dict:
     if stage not in _PRACTICE_COUNTS:
         raise HTTPException(404, "Không tìm thấy phần luyện tập")
-    _assigned_lesson(bank_id=bank_id, user_id=user_id, item_id=item_id)
+    _, _, lesson = _assigned_lesson(
+        bank_id=bank_id, user_id=user_id, item_id=item_id,
+    )
     _require_stage(item_id, "vocabulary" if stage == "practice_1" else "practice_1")
-    return _progress(item_id)
+    authored = practice_selection(lesson)[stage]
+    proposed_qids = [str(row["item_id"]) for row in authored]
+    try:
+        response = _admin().rpc("start_advanced_vocab_practice", {
+            "p_item_id": item_id,
+            "p_user_id": user_id,
+            "p_bank_id": bank_id,
+            "p_stage": stage,
+            "p_qids": proposed_qids,
+        }).execute().data
+    except Exception as exc:  # noqa: BLE001
+        message = str(exc)
+        if any(token in message for token in (
+            "advanced_vocab_assignment_closed",
+            "advanced_vocab_assignment_expired",
+            "advanced_vocab_membership_inactive",
+            "advanced_vocab_prerequisite_incomplete",
+        )):
+            raise HTTPException(
+                409, "Bài giao không còn nhận tương tác mới. Hãy tải lại tiến độ.",
+            ) from exc
+        raise HTTPException(500, "Không bắt đầu được phần luyện tập") from exc
+    saved = response[0] if isinstance(response, list) and response else response
+    saved_qids = (saved or {}).get("qids") if isinstance(saved, dict) else None
+    if (not isinstance(saved_qids, list)
+            or not all(isinstance(qid, str) for qid in saved_qids)
+            or len(saved_qids) != _PRACTICE_COUNTS[stage]
+            or len(set(saved_qids)) != len(saved_qids)):
+        raise HTTPException(500, "Bộ câu luyện tập đã lưu không hợp lệ")
+    by_id = {str(row.get("item_id")): row for row in authored}
+    if any(qid not in by_id for qid in saved_qids):
+        raise HTTPException(409, "Bộ câu luyện tập không khớp phiên bản bài đã giao")
+    content_checksum = str(
+        (lesson.get("provenance") or {}).get("content_checksum") or ""
+    ) or None
+    questions = [
+        _safe_question(
+            by_id[qid],
+            audio_url=_asset_url(
+                lesson["lesson_id"],
+                next((word.get("audio_headword")
+                      for word in lesson.get("vocabulary") or []
+                      if word.get("lexeme_id") == by_id[qid].get("lexeme_id")), None),
+                content_checksum,
+            ),
+        )
+        for qid in saved_qids
+    ]
+    return {"stage": stage, "questions": questions, "progress": _progress(item_id)}
 
 
 def _normal(value: Any, *, case_sensitive: bool = False) -> str:
@@ -739,7 +934,14 @@ def answer_practice(*, user_id: str, bank_id: str, item_id: str, stage: str,
     if stage not in _PRACTICE_COUNTS:
         raise HTTPException(404, "Không tìm thấy phần luyện tập")
     _require_stage(item_id, prerequisite)
-    selected = practice_selection(lesson)[stage]
+    authored = practice_selection(lesson)[stage]
+    persisted_qids = _selection_qids(item_id, stage)
+    if persisted_qids is None:
+        raise HTTPException(409, "Hãy bắt đầu phần luyện tập trước")
+    authored_by_id = {str(row.get("item_id")): row for row in authored}
+    if any(selected_qid not in authored_by_id for selected_qid in persisted_qids):
+        raise HTTPException(409, "Bộ câu luyện tập không khớp phiên bản bài đã giao")
+    selected = [authored_by_id[selected_qid] for selected_qid in persisted_qids]
     item = next((row for row in selected if row.get("item_id") == qid), None)
     if not item:
         raise HTTPException(404, "Câu hỏi không thuộc phần luyện tập này")
@@ -794,27 +996,89 @@ def answer_practice(*, user_id: str, bank_id: str, item_id: str, stage: str,
     }
 
 
-def complete_controlled_rewrite(*, user_id: str, bank_id: str, item_id: str,
-                                attempted_item_ids: list[str]) -> dict:
+async def complete_controlled_rewrite(*, user_id: str, bank_id: str, item_id: str,
+                                      answers: dict[str, str]) -> dict:
     _, _, lesson = _assigned_lesson(
         bank_id=bank_id, user_id=user_id, item_id=item_id,
     )
     _require_section(item_id, "reading")
     parts = controlled_rewrite_parts(lesson)
     expected = {row["item_id"] for row in parts["prompts"]}
-    attempted = {str(value) for value in attempted_item_ids}
-    missing = sorted(expected - attempted)
-    if missing or attempted - expected:
+    normalized = {
+        str(key): str(value).strip() for key, value in answers.items()
+        if str(value).strip()
+    }
+    missing = sorted(expected - set(normalized))
+    if missing or set(normalized) - expected:
         raise HTTPException(422, {
-            "message": "Hãy tự làm đủ các câu controlled rewrite trước khi xem đáp án",
+            "message": "Hãy hoàn thành đủ 20 câu trước khi gửi chấm",
             "missing": missing,
         })
-    _upsert_stage(
-        bank_id=bank_id, user_id=user_id, item_id=item_id,
-        stage="controlled_rewrite",
-        evidence={"attempted_item_ids": sorted(expected), "response_count": len(expected)},
+    if any(len(value) > _MAX_REWRITE_ANSWER_CHARS
+           for value in normalized.values()):
+        raise HTTPException(422, "Mỗi câu trả lời tối đa 600 ký tự")
+
+    prompt_by_id = {row["item_id"]: row["prompt"] for row in parts["prompts"]}
+    snapshot = {
+        "lesson_id": lesson["lesson_id"],
+        "content_checksum": (lesson.get("provenance") or {}).get("content_checksum"),
+        "prompts": parts["prompts"],
+    }
+    try:
+        claim = _admin().rpc("claim_advanced_vocab_rewrite_submission", {
+            "p_item_id": item_id, "p_user_id": user_id, "p_bank_id": bank_id,
+            "p_answers": normalized, "p_content_snapshot": snapshot,
+            "p_prompt_version": "advanced-vocab-rewrite-v1",
+        }).execute().data or {}
+    except Exception as exc:  # noqa: BLE001
+        if "23505" in str(exc) or "already_submitted" in str(exc):
+            raise HTTPException(
+                409, "Phần Controlled Rewrite này đã được gửi chấm một lần",
+            ) from exc
+        raise HTTPException(500, "Không lưu được bài Controlled Rewrite") from exc
+    if isinstance(claim, list):
+        claim = claim[0] if claim else {}
+    submission = claim.get("submission") or {}
+    if not claim.get("should_grade"):
+        submission = _rewrite_submission(item_id) or submission
+        return {
+            "solutions": parts["solutions"],
+            "submission": _safe_rewrite_submission(submission),
+            "progress": _progress(item_id),
+        }
+    grading_items = [{
+        "item_id": item_id_value,
+        "prompt": prompt_by_id[item_id_value],
+        "answer": normalized[item_id_value],
+    } for item_id_value in sorted(expected)]
+    from services import advanced_vocab_rewrite_grader
+
+    feedback, model, error_code = await advanced_vocab_rewrite_grader.grade_rewrites(
+        grading_items, user_id=user_id,
     )
-    return {"solutions": parts["solutions"], "progress": _progress(item_id)}
+    now = datetime.now(timezone.utc).isoformat()
+    status = "failed" if error_code else "completed"
+    update = {
+        "feedback": feedback, "model": model, "status": status,
+        "error_code": error_code, "completed_at": now, "updated_at": now,
+    }
+    try:
+        saved = (_admin().table("advanced_vocab_rewrite_submissions")
+                 .update(update).eq("class_assignment_item_id", item_id)
+                 .eq("status", "processing").execute().data) or []
+        if saved:
+            submission = saved[0]
+        else:
+            submission = _rewrite_submission(item_id) or {**submission, **update}
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            503, "Bài đã được lưu nhưng chưa lưu được phản hồi chấm; vui lòng tải lại",
+        ) from exc
+    return {
+        "solutions": parts["solutions"],
+        "submission": _safe_rewrite_submission(submission),
+        "progress": _progress(item_id),
+    }
 
 
 def _answer_rows(content: dict) -> list[dict]:
@@ -1108,7 +1372,15 @@ def assignment_results(*, assignment_id: str) -> dict:
     if assignment.get("skill") != "course":
         raise HTTPException(404, "Không tìm thấy bài giao Advanced Vocabulary")
     bank_id = str(assignment.get("content_id") or "")
-    bank, runtime = _runtime(bank_id)
+    config = assignment.get("content_config") or {}
+    runtime = config.get("runtime") or {}
+    if runtime.get("kind") != "advanced_vocab":
+        raise HTTPException(404, "Không tìm thấy bài giao Advanced Vocabulary")
+    bank = {
+        "id": bank_id,
+        "code": config.get("bank_code"),
+        "title": config.get("test_title") or assignment.get("title"),
+    }
     items = _paged(
         "class_assignment_items",
         "id,student_id,state,opened_at,submitted_at,passed_at,score,mastery",
@@ -1126,6 +1398,7 @@ def assignment_results(*, assignment_id: str) -> dict:
     attempts: list[dict] = []
     sections: list[dict] = []
     listening_attempts: list[dict] = []
+    rewrite_submissions: list[dict] = []
     for offset in range(0, len(item_ids), _ID_CHUNK):
         chunk = item_ids[offset:offset + _ID_CHUNK]
         stages += _paged("advanced_vocab_stage_progress", "*",
@@ -1139,10 +1412,15 @@ def assignment_results(*, assignment_id: str) -> dict:
             "advanced_vocab_listening_attempts", "*",
             lambda q, ids=chunk: q.in_("class_assignment_item_id", ids),
         )
+        rewrite_submissions += _paged(
+            "advanced_vocab_rewrite_submissions", "*",
+            lambda q, ids=chunk: q.in_("class_assignment_item_id", ids),
+        )
     by_stage: dict[str, list] = {}
     by_attempt: dict[str, list] = {}
     by_section: dict[str, list] = {}
     by_listening_attempt: dict[str, list] = {}
+    by_rewrite_submission: dict[str, list] = {}
     for row in stages:
         by_stage.setdefault(row["class_assignment_item_id"], []).append(row)
     for row in attempts:
@@ -1151,6 +1429,9 @@ def assignment_results(*, assignment_id: str) -> dict:
         by_section.setdefault(row["class_assignment_item_id"], []).append(row)
     for row in listening_attempts:
         by_listening_attempt.setdefault(row["class_assignment_item_id"], []).append(row)
+    for row in rewrite_submissions:
+        row = _expire_stale_rewrite_submission(row) or row
+        by_rewrite_submission.setdefault(row["class_assignment_item_id"], []).append(row)
     result_rows = []
     for item in items:
         iid = item["id"]
@@ -1167,6 +1448,7 @@ def assignment_results(*, assignment_id: str) -> dict:
                 _admin_answer_evidence(row)
                 for row in by_listening_attempt.get(iid, [])
             ],
+            "controlled_rewrite_submissions": by_rewrite_submission.get(iid, []),
         })
     return {
         "kind": "advanced_vocab", "assignment": assignment,

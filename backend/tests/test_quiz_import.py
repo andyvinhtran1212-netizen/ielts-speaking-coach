@@ -5,11 +5,16 @@ Parser tests run offline (dry_run, no DB). Commit tests mock supabase_admin.
 
 from __future__ import annotations
 
+from io import BytesIO
+from pathlib import Path
 from typing import Optional
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import UUID
 
 import pytest
+from fastapi import HTTPException, UploadFile
 
+from routers import admin_quiz
 from services import quiz_import
 
 # A small but representative bank: 2 pools (Alpha, Beta), mixed input types,
@@ -410,8 +415,10 @@ _TOPIC_VOCAB = {("content_topics", "select"): [{"skill_area": "vocab"}]}
 
 def test_commit_inserts_bank_and_questions_via_rpc_with_audio():
     fake = _FakeSupabase(responses={
-        ("quiz_banks", "select"): [],                       # new bank
-        ("quiz_banks", "insert"): [{"id": "bank-1"}],
+        ("rpc", "import_quiz_bank_atomic"): [{
+            "bank_id": "bank-1", "written": 5,
+            "is_published": True, "action": "created",
+        }],
         ("vocab_cards", "select"): [{"headword": "Alpha", "audio_headword": "https://a.mp3"}],
         **_TOPIC_VOCAB,
     })
@@ -419,9 +426,10 @@ def test_commit_inserts_bank_and_questions_via_rpc_with_audio():
         r = quiz_import.import_quiz_file(_BANK, topic_id="topic-1", dry_run=False)
 
     assert r["committed_bank_id"] == "bank-1"
-    # Questions written atomically via the RPC (delete-all + insert-all in one txn).
+    # Metadata, questions, and publication are one database transaction.
     rpc = next(c for c in fake.calls if c["op"] == "rpc")
-    assert rpc["payload"]["p_bank_id"] == "bank-1"
+    assert rpc["table"] == "rpc:import_quiz_bank_atomic"
+    assert rpc["payload"]["p_publish_state"] == "preserve"
     rows = rpc["payload"]["p_rows"]
     assert len(rows) == 5
     assert "bank_id" not in rows[0]                      # rpc supplies p_bank_id
@@ -436,8 +444,10 @@ def test_hint_field_parses_and_commits():
     player can render it as its own line; a question without hint commits None."""
     bank = _BANK.replace('accept: ["alpha"]', 'accept: ["alpha"]\nhint: "gợi ý mẫu"')
     fake = _FakeSupabase(responses={
-        ("quiz_banks", "select"): [],
-        ("quiz_banks", "insert"): [{"id": "bank-1"}],
+        ("rpc", "import_quiz_bank_atomic"): [{
+            "bank_id": "bank-1", "written": 5,
+            "is_published": True, "action": "created",
+        }],
         ("vocab_cards", "select"): [],
         **_TOPIC_VOCAB,
     })
@@ -449,9 +459,12 @@ def test_hint_field_parses_and_commits():
     assert next(row for row in rows if row["qid"] == "alpha_v1")["hint"] is None
 
 
-def test_commit_replaces_existing_bank_via_rpc_then_updates_meta():
+def test_commit_replaces_existing_bank_and_metadata_in_one_rpc():
     fake = _FakeSupabase(responses={
-        ("quiz_banks", "select"): [{"id": "bank-existing"}],   # already exists
+        ("rpc", "import_quiz_bank_atomic"): [{
+            "bank_id": "bank-existing", "written": 5,
+            "is_published": False, "action": "updated",
+        }],
         ("vocab_cards", "select"): [],
         **_TOPIC_VOCAB,
     })
@@ -459,12 +472,27 @@ def test_commit_replaces_existing_bank_via_rpc_then_updates_meta():
         r = quiz_import.import_quiz_file(_BANK, topic_id="topic-1", dry_run=False)
 
     assert r["committed_bank_id"] == "bank-existing"
-    ops = [(c["table"], c["op"]) for c in fake.calls]
-    assert ("rpc:quiz_replace_questions", "rpc") in ops    # atomic replace
-    assert ("quiz_banks", "update") in ops                 # metadata updated AFTER
-    # the rpc replace runs BEFORE the metadata update.
-    seq = [t for (t, o) in ops if t in ("rpc:quiz_replace_questions", "quiz_banks") and o in ("rpc", "update")]
-    assert seq.index("rpc:quiz_replace_questions") < seq.index("quiz_banks")
+    writes = [c for c in fake.calls if c["op"] in ("rpc", "insert", "update", "delete")]
+    assert len(writes) == 1
+    assert writes[0]["table"] == "rpc:import_quiz_bank_atomic"
+
+
+@pytest.mark.parametrize("state", ["preserve", "published", "unpublished"])
+def test_commit_forwards_explicit_publication_state(state):
+    fake = _FakeSupabase(responses={
+        ("rpc", "import_quiz_bank_atomic"): [{
+            "bank_id": "bank-1", "written": 5,
+            "is_published": state == "published", "action": "updated",
+        }],
+        ("vocab_cards", "select"): [],
+        **_TOPIC_VOCAB,
+    })
+    with patch.object(quiz_import, "supabase_admin", fake):
+        quiz_import.import_quiz_file(
+            _BANK, topic_id="topic-1", dry_run=False, publish_state=state,
+        )
+    rpc = next(c for c in fake.calls if c["op"] == "rpc")
+    assert rpc["payload"]["p_publish_state"] == state
 
 
 def test_commit_rejects_skill_area_mismatch_with_topic():
@@ -480,30 +508,22 @@ def test_commit_rejects_skill_area_mismatch_with_topic():
     assert not any(c["op"] in ("insert", "rpc", "update") for c in fake.calls)
 
 
-def test_commit_rolls_back_new_bank_when_question_write_fails():
-    """P2: a new bank whose question write fails must NOT be left orphaned (a
-    published bank with no questions) — the bank row is rolled back."""
+def test_commit_failure_needs_no_compensating_delete():
     fake = _FakeSupabase(responses={
-        ("quiz_banks", "select"): [],                       # new bank
-        ("quiz_banks", "insert"): [{"id": "bank-x"}],
         ("vocab_cards", "select"): [],
-        ("rpc", "quiz_replace_questions"): Exception("boom: replace failed"),
+        ("rpc", "import_quiz_bank_atomic"): Exception("boom: replace failed"),
         **_TOPIC_VOCAB,
     })
     with patch.object(quiz_import, "supabase_admin", fake):
         with pytest.raises(Exception):
             quiz_import.import_quiz_file(_BANK, topic_id="topic-1", dry_run=False)
-    # The orphan bank row was deleted (rolled back).
-    assert any(c["table"] == "quiz_banks" and c["op"] == "delete" for c in fake.calls)
+    assert not any(c["table"] == "quiz_banks" and c["op"] == "delete" for c in fake.calls)
 
 
-def test_commit_preserves_existing_bank_metadata_on_question_failure():
-    """P2: a failed replace on an EXISTING bank must not change its metadata
-    (the bank update happens only after the replace succeeds) and must not delete it."""
+def test_commit_preserves_existing_bank_on_atomic_rpc_failure():
     fake = _FakeSupabase(responses={
-        ("quiz_banks", "select"): [{"id": "bank-ex"}],          # existing bank
         ("vocab_cards", "select"): [],
-        ("rpc", "quiz_replace_questions"): Exception("boom"),
+        ("rpc", "import_quiz_bank_atomic"): Exception("boom"),
         **_TOPIC_VOCAB,
     })
     with patch.object(quiz_import, "supabase_admin", fake):
@@ -512,6 +532,31 @@ def test_commit_preserves_existing_bank_metadata_on_question_failure():
     ops = [(c["table"], c["op"]) for c in fake.calls]
     assert ("quiz_banks", "update") not in ops    # metadata untouched
     assert ("quiz_banks", "delete") not in ops    # existing bank not rolled back
+
+
+def test_unknown_publish_state_fails_before_any_write():
+    fake = _FakeSupabase()
+    with patch.object(quiz_import, "supabase_admin", fake):
+        with pytest.raises(ValueError, match="publish_state"):
+            quiz_import.import_quiz_file(
+                _BANK, topic_id="topic-1", dry_run=False,
+                publish_state="retired",  # type: ignore[arg-type]
+            )
+    assert fake.calls == []
+
+
+def test_atomic_import_migration_preserves_defaults_and_shares_bank_lock():
+    migration = (Path(__file__).resolve().parents[1]
+                 / "migrations" / "294_atomic_quiz_import_publish_state.sql")
+    sql = migration.read_text()
+
+    assert "p_publish_state NOT IN ('preserve', 'published', 'unpublished')" in sql
+    assert "ELSE NOT v_advanced" in sql
+    assert "FOR UPDATE" in sql
+    assert "public.quiz_replace_questions" in sql
+    assert sql.index("public.quiz_replace_questions") < sql.index(
+        "is_published = v_publish"
+    )
 
 
 def test_commit_requires_topic_id():
@@ -530,3 +575,76 @@ def test_commit_blocked_when_validation_errors():
         r = quiz_import.import_quiz_file(bad, topic_id="topic-1", dry_run=False)
     assert r["committed_bank_id"] is None
     assert not any(c["op"] in ("insert", "upsert", "delete", "update") for c in fake.calls)  # all-or-nothing
+
+
+@pytest.mark.asyncio
+async def test_admin_import_route_forwards_publish_state():
+    received = {}
+
+    def fake_import(text, **kwargs):
+        received.update({"text": text, **kwargs})
+        return {"committed_bank_id": "bank-1"}
+
+    upload = UploadFile(filename="bank.md", file=BytesIO(_BANK.encode()))
+    with patch.object(admin_quiz, "require_admin", AsyncMock(return_value={"id": "a"})), \
+         patch.object(admin_quiz, "import_quiz_file", fake_import):
+        result = await admin_quiz.import_bank(
+            upload, topic_id="topic-1", dry_run=False,
+            publish_state="unpublished", authorization="Bearer x",
+        )
+
+    assert result == {"committed_bank_id": "bank-1"}
+    assert received["publish_state"] == "unpublished"
+    assert received["topic_id"] == "topic-1"
+    assert received["dry_run"] is False
+
+
+def test_admin_import_openapi_declares_publish_state_enum():
+    route = next(route for route in admin_quiz.router.routes
+                 if route.path == "/admin/quiz/import")
+    parameter = next(field for field in route.dependant.query_params
+                     if field.name == "publish_state")
+    schema = parameter.type_.__args__
+    assert schema == ("preserve", "published", "unpublished")
+
+
+@pytest.mark.asyncio
+async def test_delete_advanced_bank_returns_stable_conflict_without_mutation():
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": "00000000-0000-4000-8000-000000000001",
+            "meta": {"runtime": {"kind": "advanced_vocab"}},
+        }],
+    })
+    with patch.object(admin_quiz, "require_admin", AsyncMock(return_value={"id": "a"})), \
+         patch.object(admin_quiz, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as exc:
+            await admin_quiz.delete_bank(
+                UUID("00000000-0000-4000-8000-000000000001"),
+                authorization="Bearer x",
+            )
+
+    assert exc.value.status_code == 409
+    assert "bỏ xuất bản" in str(exc.value.detail)
+    assert not any(call["op"] == "delete" for call in fake.calls)
+
+
+@pytest.mark.asyncio
+async def test_delete_maps_database_immutability_guard_to_conflict():
+    fake = _FakeSupabase(responses={
+        ("quiz_banks", "select"): [{
+            "id": "00000000-0000-4000-8000-000000000001", "meta": {},
+        }],
+        ("quiz_banks", "delete"): Exception(
+            "cannot delete immutable advanced vocabulary bank; unpublish it instead"
+        ),
+    })
+    with patch.object(admin_quiz, "require_admin", AsyncMock(return_value={"id": "a"})), \
+         patch.object(admin_quiz, "supabase_admin", fake):
+        with pytest.raises(HTTPException) as exc:
+            await admin_quiz.delete_bank(
+                UUID("00000000-0000-4000-8000-000000000001"),
+                authorization="Bearer x",
+            )
+
+    assert exc.value.status_code == 409

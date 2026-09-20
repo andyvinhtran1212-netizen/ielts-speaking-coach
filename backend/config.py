@@ -83,6 +83,10 @@ class Settings(BaseSettings):
     # dùng được" và mất lượt nộp DUY NHẤT (em Lê Chinh).
     COURSE_WRITING_MODEL: str = "gemini-3.5-flash-lite"
 
+    # Controlled Rewrite in Advanced Vocabulary: all 20 answers are reviewed
+    # in one low-cost structured request, once per learner/unit.
+    ADVANCED_VOCAB_REWRITE_MODEL: str = "gemini-3.5-flash-lite"
+
     # Speech-to-text model (audit 2026-07-02, finding #5). Default whisper-1 —
     # the only production-verified option here for per-segment avg_logprob and
     # timestamp behavior, which the transcript-reliability classifier and

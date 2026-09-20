@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-16 the highest is `280`, so the next new
-migration is `281`.
+sequence is dense. As of 2026-09-20 the highest is `294`, so the next new
+migration is `295`.
 
 ## Conventions
 
@@ -148,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–280
+## Forward scope 230–294
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -237,6 +237,13 @@ and atomic finalization. Anonymous and authenticated PostgREST roles receive no
 direct bank, solution, or learner-evidence access; the backend service role owns
 all runtime reads and writes. Apply it before importing the 30 core banks.
 
+Migration 282 adds the immutable Practice-selection ledger and enforces the
+Advanced persistence boundary under membership → assignment → item row locks.
+It also restricts every direct client bank policy, guards attempt-1 section
+evidence and terminal finalization, blocks hard deletion of immutable Advanced
+banks, and revalidates publication plus the frozen runtime snapshot when an
+assignment is issued.
+
 Migration 284 adds the database boundary for one-sitting Course assignments.
 It rejects retake sessions for that mode and prevents stale or internal paths
 from creating sessions or answers after the canonical result has been handed
@@ -245,6 +252,25 @@ in. The normal mastery mode remains unchanged.
 Migration 285 removes any explicit `anon` or `authenticated` EXECUTE grants
 left by an existing Supabase environment on migration 284's trigger-only guard
 functions. Runtime use remains internal to their table triggers.
+
+Migration 286 adds the append-only AI usage ledger. Migration 287 safely remaps
+an existing complete Advanced Vocabulary core-30 package to Course 5 and is a
+no-op on a clean database before content import. Migrations 288–290 add the
+single batch-graded Controlled Rewrite submission, repair its portable JSONB
+count, and align its immutable completion evidence. Migration 291 reinstalls
+the assignment-item deletion guard with the complete union of Practice,
+stage, question, Listening, and Controlled Rewrite evidence stores. Migration
+292 makes the Practice gate migration-first compatible: it derives the
+canonical 28/20 selections from imported questions, backfills legacy attempt
+evidence, and lets a pre-selection backend atomically create only that canonical
+selection on its first answer.
+Migration 293 gives the Advanced importer one database transaction for the
+bank metadata, canonical 48 questions, and explicit publication decision, so
+neither failure nor concurrent assignment can observe a mixed revision.
+Migration 294 makes that lock-and-transaction boundary canonical for the
+existing admin quiz import route and adds the explicit
+`preserve|published|unpublished` publication contract without changing the
+new-bank default for ordinary quiz banks.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

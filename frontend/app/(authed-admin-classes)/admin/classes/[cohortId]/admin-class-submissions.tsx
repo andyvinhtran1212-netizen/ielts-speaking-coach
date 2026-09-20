@@ -6,11 +6,11 @@ import { Dialog, messageOf, StatusBanner } from '@/components/admin-directory-ui
 import { advancedVocabularyStudentState, canReturnSubmission, findAdvancedVocabularyEvidence, groupReportQuestions, normalizeAdvancedVocabularyResult, normalizeEffort, normalizeStudentReport, normalizeTally, normalizeWriting } from '@/lib/admin-class-submissions-model.mjs';
 
 import type { Banner } from './admin-class-detail-types';
-import type { AdvancedVocabularyResult, AdvancedVocabularyStudentResult, EffortPayload, StudentReport, SubmissionWorkspaceProps, TallyPayload, TallyStudent, WritingPayload } from './admin-class-submissions-types';
+import type { AdvancedVocabularyResult, AdvancedVocabularyRewriteSubmission, AdvancedVocabularyStudentResult, EffortPayload, StudentReport, SubmissionWorkspaceProps, TallyPayload, TallyStudent, WritingPayload } from './admin-class-submissions-types';
 
 type View = 'tally' | 'effort' | 'student';
 const STATUS = { 'no-account': 'Chưa kích hoạt', missing: 'Không nộp', pending: 'Chưa nộp', late: 'Nộp trễ', submitted: 'Đã nộp' } as Record<string, string>;
-const EFFORT = { stalled: 'Bỏ dở', completing_sections: 'Còn phần chưa xong', needs_retry: 'Chưa đạt · cần làm lại', doing: 'Đang làm', done: 'Đã đạt', untouched: 'Chưa mở', no_account: 'Chưa kích hoạt' } as Record<string, string>;
+const EFFORT_BASE = { stalled: 'Bỏ dở', completing_sections: 'Còn phần chưa xong', needs_retry: 'Chưa đạt · cần làm lại', doing: 'Đang làm', done: 'Đã đạt', untouched: 'Chưa mở', no_account: 'Chưa kích hoạt' } as Record<string, string>;
 const NEXT = { passed: 'Đã đạt', completed: 'Đã hoàn thành một lượt', retake: 'Revision ngắn', retry_full: 'Làm lại toàn bộ' } as Record<string, string>;
 const COURSE_STATE = { passed: 'Đã đạt', completed: 'Đã hoàn thành', timed_out: 'Đã hết giờ', near_pass: 'Gần đạt · Revision', retry_full: 'Làm lại toàn bài', in_progress: 'Đang hoàn thành', untouched: 'Chưa mở', no_account: 'Chưa kích hoạt' } as Record<string, string>;
 const ISSUE_KIND = { grammar: 'ngữ pháp', spelling: 'chính tả', mechanics: 'hình thức' } as Record<string, string>;
@@ -72,6 +72,13 @@ function AdvancedAnswerEvidence({ rows, label }: { rows: { id: string; submitted
   return <details><summary>{label}</summary><ol>{rows.map((answer) => <li key={answer.id}><strong>Câu {answer.id}:</strong> {evidenceText(answer.submitted_answer)} · {answer.is_correct ? 'Đúng' : 'Sai'}</li>)}</ol></details>;
 }
 
+function ControlledRewriteEvidence({ submission }: { submission: AdvancedVocabularyRewriteSubmission }) {
+  const feedbackById = new Map((submission.feedback?.results || []).map((row) => [row.item_id, row]));
+  const statusLabel = submission.status === 'completed' ? 'Đã nhận xét' : submission.status === 'failed' ? 'Không chấm được' : 'Đang chấm';
+  const overall = submission.feedback?.overall;
+  return <section className="acs-history"><div><p className="acd-eyebrow">Controlled Rewrite · một lượt</p><h4>{statusLabel}</h4><span>Nộp {formatVietnam(submission.created_at)}{submission.completed_at ? ` · hoàn tất ${formatVietnam(submission.completed_at)}` : ''}{submission.model ? ` · ${submission.model}` : ''}</span>{submission.error_code && <p className="acd-warning">Mã trạng thái: {submission.error_code}. Bài làm vẫn được lưu và không gọi chấm lần hai.</p>}{overall && (overall.strengths.length > 0 || overall.focus.length > 0) && <div><p><strong>Điểm tốt:</strong> {overall.strengths.join(' · ') || '—'}</p><p><strong>Cần chú ý:</strong> {overall.focus.join(' · ') || '—'}</p></div>}</div><div className="acd-table-scroll" tabIndex={0}><table className="acd-table"><thead><tr><th>Câu</th><th>Bài làm</th><th>Bản sửa</th><th>Nhận xét ngữ pháp & văn phong</th></tr></thead><tbody>{Object.entries(submission.answers).map(([itemId, answer]) => { const feedback = feedbackById.get(itemId); const notes = [feedback?.grammar_notes.join(' · '), feedback?.style_note, feedback?.target_usage_note].filter(Boolean).join(' · '); return <tr key={itemId}><td>{itemId}</td><td>{evidenceText(answer)}</td><td>{feedback?.corrected || '—'}</td><td>{feedback ? (feedback.ok === true && !notes ? 'Không phát hiện lỗi.' : notes || 'Không có nhận xét.') : 'Chưa có phản hồi.'}</td></tr>; })}</tbody></table></div></section>;
+}
+
 function AdvancedVocabularyReport({ data }: { data: AdvancedVocabularyStudentResult }) {
   const labels = { vocabulary: 'Từ vựng', practice_1: 'Luyện nhận diện', practice_2: 'Luyện vận dụng', reading: 'Reading', controlled_rewrite: 'Controlled rewrite', listening: 'Listening' } as Record<string, string>;
   const requiredStages = data.required_stages.length ? data.required_stages : Object.keys(labels);
@@ -92,6 +99,7 @@ function AdvancedVocabularyReport({ data }: { data: AdvancedVocabularyStudentRes
     })}</section>
     <section className="acs-history"><div><p className="acd-eyebrow">Bằng chứng đã lưu</p><h4>Reading và Listening</h4><span>Kết quả của hai phần bắt buộc được giữ riêng, không gộp thành điểm khóa học.</span></div><div className="acd-table-scroll" tabIndex={0}><table className="acd-table"><thead><tr><th>Phần</th><th>Kết quả</th><th>Thời lượng</th><th>Nộp lúc</th></tr></thead><tbody>{data.sections.map((row) => <tr key={row.section}><td>{labels[row.section] || row.section}</td><td>{row.correct}/{row.total} câu{row.initial_answer_results.length > 0 && <AdvancedAnswerEvidence rows={row.initial_answer_results} label="Xem đáp án lượt đầu" />}<AdvancedAnswerEvidence rows={row.answer_results} label={row.initial_answer_results.length ? 'Xem đáp án sau self-check' : 'Xem từng câu'} /></td><td>{Math.round(row.duration_sec / 60)} phút</td><td>{formatVietnam(row.submitted_at)}</td></tr>)}{initialListening.map((row, index) => <tr key={`listening-initial-${index}`}><td>Listening · lượt đầu (đang sửa)</td><td>{row.correct}/{row.total} câu<AdvancedAnswerEvidence rows={row.answer_results} label="Xem từng câu" /></td><td>{Math.round(row.duration_sec / 60)} phút</td><td>{formatVietnam(row.submitted_at)}</td></tr>)}{!data.sections.length && !initialListening.length && <tr><td colSpan={4}>Chưa hoàn tất Reading hoặc Listening.</td></tr>}</tbody></table></div></section>
     <section className="acs-history"><div><p className="acd-eyebrow">Inspect từng câu</p><h4>Luyện nhận diện và vận dụng</h4><span>Hiển thị đúng câu trả lời đã lưu trong sổ bằng chứng bất biến.</span></div><div className="acd-table-scroll" tabIndex={0}><table className="acd-table"><thead><tr><th>Phần</th><th>Mã câu</th><th>Học viên trả lời</th><th>Kết quả</th><th>Thời gian</th></tr></thead><tbody>{data.practice_attempts.length ? data.practice_attempts.map((row) => <tr key={`${row.stage}-${row.qid}`}><td>{labels[row.stage] || row.stage}</td><td>{row.qid}</td><td>{evidenceText(row.answer_given)}</td><td>{row.is_correct ? 'Đúng' : 'Sai'}</td><td>{row.response_time_ms == null ? '—' : `${Math.round(row.response_time_ms / 100) / 10}s`}</td></tr>) : <tr><td colSpan={5}>Chưa có lượt trả lời luyện tập.</td></tr>}</tbody></table></div></section>
+    {data.controlled_rewrite_submissions.map((submission, index) => <ControlledRewriteEvidence key={`${submission.created_at || 'rewrite'}-${index}`} submission={submission} />)}
   </div>;
 }
 
@@ -112,6 +120,7 @@ export function AdminClassSubmissions({ cohortId, assignment, initialStudent = n
   const runtime = assignment.content_config?.runtime;
   const isAdvancedVocabulary = Boolean(runtime && typeof runtime === 'object' && !Array.isArray(runtime) && (runtime as { kind?: unknown }).kind === 'advanced_vocab');
   const resultOnly = assignment.content_config?.completion_mode === 'single_attempt';
+  const EFFORT = isAdvancedVocabulary ? { ...EFFORT_BASE, done: 'Đã hoàn tất' } : EFFORT_BASE;
   const canReturnWork = canReturnSubmission(assignment.status, tally?.sealed);
 
   const loadTally = useCallback(async (silent = false) => {

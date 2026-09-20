@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Header
@@ -44,7 +44,77 @@ class AdvancedVocabSectionSubmitBody(BaseModel):
 class ControlledRewriteCompleteBody(BaseModel):
     bank_id: str
     item_id: str
-    attempted_item_ids: list[str] = Field(default_factory=list, max_length=30)
+    answers: dict[str, str] = Field(..., max_length=20)
+
+
+class ControlledRewriteFeedbackItem(BaseModel):
+    item_id: str
+    corrected: str | None = None
+    grammar_notes: list[str] = Field(default_factory=list)
+    style_note: str = ""
+    target_usage_note: str = ""
+    ok: bool | None = None
+
+
+class ControlledRewriteFeedbackOverall(BaseModel):
+    strengths: list[str] = Field(default_factory=list)
+    focus: list[str] = Field(default_factory=list)
+
+
+class ControlledRewriteFeedback(BaseModel):
+    results: list[ControlledRewriteFeedbackItem] = Field(default_factory=list)
+    overall: ControlledRewriteFeedbackOverall
+
+
+class ControlledRewriteSubmissionResponse(BaseModel):
+    answers: dict[str, str] = Field(default_factory=dict)
+    feedback: ControlledRewriteFeedback | None = None
+    status: str | None = None
+    model: str | None = None
+    prompt_version: str | None = None
+    error_code: str | None = None
+    created_at: str | None = None
+    completed_at: str | None = None
+
+
+class AdvancedVocabProgressResponse(BaseModel):
+    completed_stages: list[str] = Field(default_factory=list)
+    stages: list[dict[str, Any]] = Field(default_factory=list)
+    practice_selections: list[dict[str, Any]] = Field(default_factory=list)
+    answers: list[dict[str, Any]] = Field(default_factory=list)
+    sections: list[dict[str, Any]] = Field(default_factory=list)
+    listening_submitted: bool = False
+    controlled_rewrite_submission: ControlledRewriteSubmissionResponse | None = None
+    required_completed: bool = False
+
+
+class PracticeQuestionResponse(BaseModel):
+    item_id: str
+    prompt: str
+    headword: str | None = None
+    hint: str | None = None
+    input: str | None = None
+    lexeme_id: str | None = None
+    options: list[Any] | None = None
+    segments: list[str] | None = None
+    skill: str | None = None
+    subtype: str | None = None
+    type: str | None = None
+    question_type: str | None = None
+    audio_url: str | None = None
+    locked: bool | None = None
+
+
+class PracticeStartResponse(BaseModel):
+    stage: Literal["practice_1", "practice_2"]
+    questions: list[PracticeQuestionResponse]
+    progress: AdvancedVocabProgressResponse
+
+
+class ControlledRewriteCompleteResponse(BaseModel):
+    solutions: list[dict[str, Any]] = Field(default_factory=list)
+    submission: ControlledRewriteSubmissionResponse | None = None
+    progress: AdvancedVocabProgressResponse
 
 
 @router.get("/lessons/{bank_id}")
@@ -66,13 +136,17 @@ async def complete_vocabulary(
     )
 
 
-@router.post("/practice/start")
-async def start_practice(body: PracticeStartBody, authorization: str | None = Header(None)):
+@router.post("/practice/start", response_model=PracticeStartResponse)
+async def start_practice(
+    body: PracticeStartBody,
+    authorization: str | None = Header(None),
+) -> PracticeStartResponse:
     user = await get_supabase_user(authorization)
-    return advanced_vocab_service.start_practice(
+    result = advanced_vocab_service.start_practice(
         user_id=user["id"], bank_id=body.bank_id,
         item_id=body.item_id, stage=body.stage,
     )
+    return PracticeStartResponse.model_validate(result)
 
 
 @router.post("/practice/answer")
@@ -94,16 +168,20 @@ async def submit_reading(body: AdvancedVocabSectionSubmitBody, authorization: st
     )
 
 
-@router.post("/controlled-rewrite/complete")
+@router.post(
+    "/controlled-rewrite/complete",
+    response_model=ControlledRewriteCompleteResponse,
+)
 async def complete_controlled_rewrite(
     body: ControlledRewriteCompleteBody,
     authorization: str | None = Header(None),
-):
+) -> ControlledRewriteCompleteResponse:
     user = await get_supabase_user(authorization)
-    return advanced_vocab_service.complete_controlled_rewrite(
+    result = await advanced_vocab_service.complete_controlled_rewrite(
         user_id=user["id"], bank_id=body.bank_id, item_id=body.item_id,
-        attempted_item_ids=body.attempted_item_ids,
+        answers=body.answers,
     )
+    return ControlledRewriteCompleteResponse.model_validate(result)
 
 
 @router.post("/listening")

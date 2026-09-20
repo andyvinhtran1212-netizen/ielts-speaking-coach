@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Optional
+from typing import Literal, Optional
 
 from database import supabase_admin
 from services.content_import_service import _split_frontmatter, FrontmatterError
@@ -34,7 +34,10 @@ _META_KEYS = (
     "rotate_on", "rotate_variant_on_wrong", "cooldown", "max_attempts_per_word",
     "target_session_min", "soft_cap_min", "avg_sec_per_item", "carry_over_unmastered",
     "log_per_question", "log_per_word", "log_accuracy", "shuffle_options",
+    "runtime",
 )
+
+PublishState = Literal["preserve", "published", "unpublished"]
 
 # Question types / inputs / skills accepted (spec §1). Validation flags unknowns.
 _VALID_TYPES = (
@@ -67,6 +70,10 @@ def parse_quiz_meta(fm: dict) -> dict:
         "skill_area": skill_area,
         "source": (str(fm.get("source")).strip() if fm.get("source") else None),
         "words_count": words_count,
+        "course_id": (str(fm.get("course_id")).strip()
+                      if fm.get("course_id") else None),
+        "lesson_no": _coerce_int(fm.get("lesson_no"), default=None),
+        "version": _coerce_int(fm.get("version"), default=1),
         "meta": meta,
     }
 
@@ -305,6 +312,7 @@ def _resolve_audio_map(topic_id: Optional[str]) -> dict:
 def import_quiz_file(
     text: str, *, topic_id: Optional[str] = None, dry_run: bool = True,
     import_batch_id: Optional[str] = None,
+    publish_state: PublishState = "preserve",
 ) -> dict:
     """Parse + validate + (commit) a quiz bank file.
 
@@ -312,6 +320,8 @@ def import_quiz_file(
     validation_errors}], validation_errors:[{block, qid, field, message}],
     summary:{words, questions, errors, pools}, committed_bank_id}.
     Commit is all-or-nothing (any block error → nothing written)."""
+    if publish_state not in {"preserve", "published", "unpublished"}:
+        raise ValueError("publish_state must be preserve, published, or unpublished")
     chunks = split_word_blocks(text)
 
     meta_info: Optional[dict] = None
@@ -386,13 +396,23 @@ def import_quiz_file(
         meta_errors.extend(validate_pool_mastery_contract(meta_info["meta"], q_entries))
 
     # A commit MUST target a topic (FK + per-topic uniqueness). dry-run may omit it.
-    if not dry_run and not topic_id:
+    advanced_runtime = bool(
+        meta_info
+        and ((meta_info.get("meta") or {}).get("runtime") or {}).get("kind")
+            == "advanced_vocab"
+    )
+    if not dry_run and not topic_id and not advanced_runtime:
         meta_errors.append({"field": "topic_id", "message": "Chọn topic trước khi lưu."})
+    if not dry_run and advanced_runtime and not meta_info.get("course_id"):
+        meta_errors.append({
+            "field": "course_id",
+            "message": "Bank Advanced Vocabulary cần course_id canonical.",
+        })
 
     # The bank's skill_area must match the SELECTED topic's — otherwise a file
     # with skill_area: grammar (or a typo) would commit under a vocab topic and
     # then vanish from the vocab bank list. The topic is authoritative.
-    if not dry_run and topic_id and meta_info is not None:
+    if not dry_run and topic_id and meta_info is not None and not advanced_runtime:
         topic_skill = _topic_skill_area(topic_id)
         if topic_skill and meta_info["skill_area"] != topic_skill:
             meta_errors.append({
@@ -408,6 +428,7 @@ def import_quiz_file(
         committed_bank_id = _commit_bank(
             meta_info, q_entries, topic_id=topic_id,
             pools=pools, import_batch_id=import_batch_id,
+            publish_state=publish_state,
         )
 
     flat_errors = [{"block": -1, "qid": "", **e} for e in meta_errors] + [
@@ -435,13 +456,9 @@ def import_quiz_file(
     }
 
 
-def _commit_bank(meta_info, q_entries, *, topic_id, pools, import_batch_id) -> str:
-    """Upsert the bank by (skill_area, topic_id, code) and replace its questions
-    ATOMICALLY via the quiz_replace_questions RPC (delete-all + insert-all run in
-    ONE transaction — no empty-bank window, no new/stale mix on a partial failure).
-    For a NEW bank a failed replace rolls the bank row back; for an EXISTING bank
-    the metadata UPDATE runs only AFTER the replace succeeds, so a failure leaves
-    the old bank fully intact. Resolves {{audio}} from the topic's vocab cards."""
+def _commit_bank(meta_info, q_entries, *, topic_id, pools, import_batch_id,
+                 publish_state: PublishState = "preserve") -> str:
+    """Import metadata, questions and publication through one locked DB RPC."""
     skill_area = meta_info["skill_area"]
     code = meta_info["code"]
     audio_map = _resolve_audio_map(topic_id)
@@ -454,23 +471,11 @@ def _commit_bank(meta_info, q_entries, *, topic_id, pools, import_batch_id) -> s
         "meta": meta_info["meta"],
         "words_count": meta_info["words_count"] or len(pools),
         "source": meta_info["source"],
+        "course_id": meta_info.get("course_id"),
+        "lesson_no": meta_info.get("lesson_no"),
+        "version": meta_info.get("version") or 1,
         "import_batch_id": import_batch_id,
     }
-
-    # Lookup scoped by topic too — same code under a different topic is a DIFFERENT
-    # bank (matches the UNIQUE(skill_area, topic_id, code) constraint).
-    existing = (
-        supabase_admin.table("quiz_banks").select("id")
-        .eq("skill_area", skill_area).eq("topic_id", topic_id).eq("code", code)
-        .limit(1).execute()
-    ).data
-    if existing:
-        bank_id = existing[0]["id"]
-        created_new = False
-    else:
-        res = supabase_admin.table("quiz_banks").insert(bank_payload).execute()
-        bank_id = res.data[0]["id"]
-        created_new = True
 
     # rows for the RPC — NO bank_id (the function supplies p_bank_id).
     rows = []
@@ -493,20 +498,14 @@ def _commit_bank(meta_info, q_entries, *, topic_id, pools, import_batch_id) -> s
             "order": o,
         })
 
-    try:
-        supabase_admin.rpc(
-            "quiz_replace_questions", {"p_bank_id": bank_id, "p_rows": rows}
-        ).execute()
-    except Exception:
-        if created_new:                     # roll back the orphan bank row
-            try:
-                supabase_admin.table("quiz_banks").delete().eq("id", bank_id).execute()
-            except Exception as cleanup_exc:  # noqa: BLE001
-                logger.error("[quiz] rollback of orphan bank %s failed: %s", bank_id, cleanup_exc)
-        raise
-
-    # Existing bank: apply new metadata only NOW (questions already replaced), so a
-    # failed replace above never leaves stale-questions + new-metadata.
-    if not created_new:
-        supabase_admin.table("quiz_banks").update(bank_payload).eq("id", bank_id).execute()
-    return bank_id
+    response = supabase_admin.rpc("import_quiz_bank_atomic", {
+        "p_payload": bank_payload,
+        "p_rows": rows,
+        "p_publish_state": publish_state,
+    }).execute().data or []
+    result = response[0] if isinstance(response, list) and response else response
+    if not isinstance(result, dict) or not result.get("bank_id"):
+        raise RuntimeError("atomic quiz import returned no bank")
+    if int(result.get("written") or 0) != len(rows):
+        raise RuntimeError("atomic quiz import wrote an incomplete question set")
+    return str(result["bank_id"])

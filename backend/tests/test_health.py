@@ -126,6 +126,11 @@ def test_health_ready_all_ok(monkeypatch):
     assert set(out["checks"]["migrations"]["verified"]) == set(health_module._CRITICAL_TABLES)
     assert out["checks"]["gemini_api"]["status"] == "ok"
     assert out["checks"]["feature_flags"]["status"] == "ok"
+    assert health_module._CRITICAL_COLUMNS["advanced_vocab_rewrite_submissions"] == (
+        "id,bank_id,user_id,class_assignment_item_id,answers,content_snapshot,"
+        "feedback,status,model,prompt_version,error_code,provider_started_at,"
+        "completed_at,created_at,updated_at"
+    )
 
 
 def test_health_ready_degrades_on_db_failure(monkeypatch):
