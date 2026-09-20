@@ -19,6 +19,7 @@ that prevents answer leakage and gives admins canonical completion evidence.
 ## Scope
 
 - Ship the first 30 core lessons as admin-assigned, self-paced content.
+- Attach all 30 assignment-only banks to Course 5 (`C5`), never Course 4.
 - Preserve authored content while enriching the 720 vocabulary cards with
   common-error guidance and headword/example audio.
 - Persist required-stage evidence and expose canonical learner results to admins.
@@ -106,8 +107,11 @@ that prevents answer leakage and gives admins canonical completion evidence.
 - **FR-004:** Reading and Listening are automatically checked without leaking
   solutions before submission; both Practice stages omit answers, accepted variants,
   explanations, and correction fields until the corresponding immutable attempt is
-  accepted; controlled rewrite exposes only its prompt IDs/prompts until all 20 are
-  accepted, then returns reference solutions from persisted completion evidence;
+  accepted; Controlled Rewrite exposes only its prompt IDs/prompts before submission,
+  then persists all 20 answers as one immutable submission, makes exactly one batch
+  model request for grammar/style feedback per learner/unit, and returns feedback plus
+  reference solutions. Provider failure must preserve the answers and consume no
+  second model call; reload returns the same persisted state;
   Reading text and questions scroll independently, and fixed-choice/MCQ option
   identities grade consistently.
 - **FR-005:** Writing Task 1/2 and Speaking remain reference or practice content,
