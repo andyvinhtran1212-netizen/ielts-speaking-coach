@@ -21,7 +21,7 @@ from pydantic import BaseModel
 
 from database import supabase_admin
 from routers.admin import require_admin
-from services.quiz_import import import_quiz_file
+from services.quiz_import import PublishState, import_quiz_file
 
 logger = logging.getLogger(__name__)
 
@@ -39,11 +39,15 @@ async def import_bank(
     file: UploadFile = File(...),
     topic_id: str | None = Query(default=None),
     dry_run: bool = Query(default=True),
+    publish_state: PublishState = Query(default="preserve"),
     authorization: str | None = Header(None),
 ):
     await require_admin(authorization)
     text = (await file.read()).decode("utf-8", errors="replace")
-    return import_quiz_file(text, topic_id=topic_id, dry_run=dry_run)
+    return import_quiz_file(
+        text, topic_id=topic_id, dry_run=dry_run,
+        publish_state=publish_state,
+    )
 
 
 @router.get("/banks")
@@ -180,7 +184,26 @@ async def update_bank(
 async def delete_bank(bank_id: UUID, authorization: str | None = Header(None)):
     await require_admin(authorization)
     try:
+        rows = (supabase_admin.table("quiz_banks").select("id,meta")
+                .eq("id", str(bank_id)).limit(1).execute().data) or []
+        if not rows:
+            raise HTTPException(404, "Không tìm thấy bank")
+        runtime = ((rows[0].get("meta") or {}).get("runtime") or {}).get("kind")
+        if runtime == "advanced_vocab":
+            raise HTTPException(
+                409,
+                "Bank Advanced Vocabulary là nội dung bất biến; hãy bỏ xuất bản "
+                "để ngăn giao bài mới.",
+            )
         supabase_admin.table("quiz_banks").delete().eq("id", str(bank_id)).execute()
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
+        if "cannot delete immutable advanced vocabulary bank" in str(exc):
+            raise HTTPException(
+                409,
+                "Bank Advanced Vocabulary là nội dung bất biến; hãy bỏ xuất bản "
+                "để ngăn giao bài mới.",
+            ) from exc
         raise HTTPException(500, f"Lỗi xoá bank: {exc}")
     return {"id": str(bank_id), "deleted": True}

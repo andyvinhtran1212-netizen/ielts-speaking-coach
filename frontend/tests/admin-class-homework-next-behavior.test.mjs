@@ -149,7 +149,7 @@ describe('admin class homework model — canonical truth', () => {
   });
 
   test('keeps self-paced score policy out of the assignment payload', () => {
-    const options = normalizeCatalog({ items: [{ id: 'adv-1', title: 'Advanced T01', ready: true, runtime: 'advanced_vocab' }] }, 'course');
+    const options = normalizeCatalog({ items: [{ id: 'adv-1', title: 'Advanced T01', ready: true, runtime: 'advanced_vocab', is_published: true }] }, 'course');
     assert.equal(options[0].runtime, 'advanced_vocab');
     const result = validateHomeworkDraft({
       ...homeworkDraft(), skill: 'course', title: 'T01', contentId: 'adv-1',
@@ -158,6 +158,27 @@ describe('admin class homework model — canonical truth', () => {
     assert.equal(result.ok, true);
     assert.equal(Object.hasOwn(result.body, 'pass_pct'), false);
     assert.equal(Object.hasOwn(result.body, 'retake_size'), false);
+  });
+
+  test('Advanced Vocabulary publication truth disables the picker after every reload', () => {
+    const draft = normalizeCatalog({ items: [{
+      id: 'adv-1', title: 'Advanced T01', ready: false,
+      runtime: 'advanced_vocab', is_published: false,
+    }] }, 'course')[0];
+    const published = normalizeCatalog({ items: [{
+      id: 'adv-1', title: 'Advanced T01', ready: true,
+      runtime: 'advanced_vocab', is_published: true,
+    }] }, 'course')[0];
+    const unpublishedAgain = normalizeCatalog({ items: [{
+      id: 'adv-1', title: 'Advanced T01', ready: false,
+      runtime: 'advanced_vocab', is_published: false,
+    }] }, 'course')[0];
+
+    assert.equal(draft.ready, false);
+    assert.equal(draft.reason, 'Chưa xuất bản để giao');
+    assert.equal(published.ready, true);
+    assert.equal(published.reason, null);
+    assert.deepEqual(unpublishedAgain, draft);
   });
 
   test('keeps protected Cambridge papers assignable only through controlled practice', () => {

@@ -12593,6 +12593,38 @@ export interface components {
              */
             from_section: string;
         };
+        /** AdvancedVocabProgressResponse */
+        AdvancedVocabProgressResponse: {
+            /** Completed Stages */
+            completed_stages?: string[];
+            /** Stages */
+            stages?: {
+                [key: string]: unknown;
+            }[];
+            /** Practice Selections */
+            practice_selections?: {
+                [key: string]: unknown;
+            }[];
+            /** Answers */
+            answers?: {
+                [key: string]: unknown;
+            }[];
+            /** Sections */
+            sections?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Listening Submitted
+             * @default false
+             */
+            listening_submitted: boolean;
+            controlled_rewrite_submission?: components["schemas"]["ControlledRewriteSubmissionResponse"] | null;
+            /**
+             * Required Completed
+             * @default false
+             */
+            required_completed: boolean;
+        };
         /** AdvancedVocabSectionSubmitBody */
         AdvancedVocabSectionSubmitBody: {
             /** Bank Id */
@@ -13432,8 +13464,73 @@ export interface components {
             bank_id: string;
             /** Item Id */
             item_id: string;
-            /** Attempted Item Ids */
-            attempted_item_ids?: string[];
+            /** Answers */
+            answers: {
+                [key: string]: string;
+            };
+        };
+        /** ControlledRewriteCompleteResponse */
+        ControlledRewriteCompleteResponse: {
+            /** Solutions */
+            solutions?: {
+                [key: string]: unknown;
+            }[];
+            submission?: components["schemas"]["ControlledRewriteSubmissionResponse"] | null;
+            progress: components["schemas"]["AdvancedVocabProgressResponse"];
+        };
+        /** ControlledRewriteFeedback */
+        ControlledRewriteFeedback: {
+            /** Results */
+            results?: components["schemas"]["ControlledRewriteFeedbackItem"][];
+            overall: components["schemas"]["ControlledRewriteFeedbackOverall"];
+        };
+        /** ControlledRewriteFeedbackItem */
+        ControlledRewriteFeedbackItem: {
+            /** Item Id */
+            item_id: string;
+            /** Corrected */
+            corrected?: string | null;
+            /** Grammar Notes */
+            grammar_notes?: string[];
+            /**
+             * Style Note
+             * @default
+             */
+            style_note: string;
+            /**
+             * Target Usage Note
+             * @default
+             */
+            target_usage_note: string;
+            /** Ok */
+            ok?: boolean | null;
+        };
+        /** ControlledRewriteFeedbackOverall */
+        ControlledRewriteFeedbackOverall: {
+            /** Strengths */
+            strengths?: string[];
+            /** Focus */
+            focus?: string[];
+        };
+        /** ControlledRewriteSubmissionResponse */
+        ControlledRewriteSubmissionResponse: {
+            /** Answers */
+            answers?: {
+                [key: string]: string;
+            };
+            feedback?: components["schemas"]["ControlledRewriteFeedback"] | null;
+            /** Status */
+            status?: string | null;
+            /** Model */
+            model?: string | null;
+            /** Prompt Version */
+            prompt_version?: string | null;
+            /** Error Code */
+            error_code?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Completed At */
+            completed_at?: string | null;
         };
         /** CorrectionEventBody */
         CorrectionEventBody: {
@@ -15806,6 +15903,37 @@ export interface components {
              */
             release_now: boolean;
         };
+        /** PracticeQuestionResponse */
+        PracticeQuestionResponse: {
+            /** Item Id */
+            item_id: string;
+            /** Prompt */
+            prompt: string;
+            /** Headword */
+            headword?: string | null;
+            /** Hint */
+            hint?: string | null;
+            /** Input */
+            input?: string | null;
+            /** Lexeme Id */
+            lexeme_id?: string | null;
+            /** Options */
+            options?: unknown[] | null;
+            /** Segments */
+            segments?: string[] | null;
+            /** Skill */
+            skill?: string | null;
+            /** Subtype */
+            subtype?: string | null;
+            /** Type */
+            type?: string | null;
+            /** Question Type */
+            question_type?: string | null;
+            /** Audio Url */
+            audio_url?: string | null;
+            /** Locked */
+            locked?: boolean | null;
+        };
         /** PracticeStartBody */
         PracticeStartBody: {
             /** Bank Id */
@@ -15814,6 +15942,17 @@ export interface components {
             item_id: string;
             /** Stage */
             stage: string;
+        };
+        /** PracticeStartResponse */
+        PracticeStartResponse: {
+            /**
+             * Stage
+             * @enum {string}
+             */
+            stage: "practice_1" | "practice_2";
+            /** Questions */
+            questions: components["schemas"]["PracticeQuestionResponse"][];
+            progress: components["schemas"]["AdvancedVocabProgressResponse"];
         };
         /** PreviewRequest */
         PreviewRequest: {
@@ -21965,7 +22104,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PracticeStartResponse"];
                 };
             };
             /** @description Validation Error */
@@ -22070,7 +22209,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ControlledRewriteCompleteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32979,6 +33118,7 @@ export interface operations {
             query?: {
                 topic_id?: string | null;
                 dry_run?: boolean;
+                publish_state?: "preserve" | "published" | "unpublished";
             };
             header?: {
                 authorization?: string | null;

@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 
@@ -22,6 +23,20 @@ def _policy() -> dict[str, tuple[str, str]]:
         assert (BACKEND / "migrations" / filename).is_file()
         rows[filename] = (state, group)
     return rows
+
+
+def test_readme_next_migration_number_matches_directory_maximum():
+    migrations = BACKEND / "migrations"
+    prefixes = [
+        int(match.group(1))
+        for path in migrations.glob("*.sql")
+        if (match := re.match(r"^(\d+)_", path.name))
+    ]
+    highest = max(prefixes)
+    readme = (migrations / "README.md").read_text(encoding="utf-8")
+
+    assert f"the highest is `{highest}`" in readme
+    assert f"migration is `{highest + 1}`" in readme
 
 
 def test_gate_f_only_schema_is_retired_from_the_forward_queue():

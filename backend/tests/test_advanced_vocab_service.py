@@ -62,7 +62,11 @@ def _lesson() -> dict:
 
 def test_core30_catalog_has_complete_authored_sections_and_reference_boundaries():
     lessons = [service.load_lesson(lesson_id) for lesson_id in LESSON_IDS]
+    manifest = json.loads(
+        (service._CONTENT_ROOT / "core30-manifest.json").read_text(encoding="utf-8")
+    )
 
+    assert manifest["source_package_version"] == "v6-t11-map-locked"
     assert [lesson["lesson_id"] for lesson in lessons] == list(LESSON_IDS)
     assert sum(len(lesson["vocabulary"]) for lesson in lessons) == 720
     assert sum(len(lesson["adaptive_quiz"]["items"]) for lesson in lessons) == 8090
@@ -119,7 +123,182 @@ def test_core30_controlled_rewrite_has_20_prompts_and_delayed_solutions():
         assert all(row["prompt"] for row in parts["prompts"])
         assert parts["solutions"]
         assert parts["activity"]["completion_policy"] == "required"
-        assert parts["activity"]["grading_policy"] == "self_check"
+        assert parts["activity"]["grading_policy"] == "ai_feedback_once"
+        assert parts["activity"]["submittable"] is True
+
+
+def test_controlled_rewrite_claim_migrations_use_supported_jsonb_count():
+    migrations = Path(__file__).resolve().parents[1] / "migrations"
+    initial = (migrations / "288_advanced_vocab_rewrite_feedback.sql").read_text()
+    repair = (migrations / "289_fix_advanced_vocab_rewrite_claim_count.sql").read_text()
+
+    for sql in (initial, repair):
+        assert "jsonb_object_length" not in sql
+        assert "SELECT count(*) FROM jsonb_object_keys(p_answers)" in sql
+        assert "'response_count'" in sql
+
+    gate = (migrations / "290_align_advanced_vocab_rewrite_evidence.sql").read_text()
+    assert "submitted_item_ids" in gate
+    assert "attempted_item_ids" not in gate
+    assert "response_count" in gate
+
+
+def test_course5_remap_is_safe_before_import_and_rejects_partial_packages():
+    migration = (Path(__file__).resolve().parents[1] / "migrations"
+                 / "287_move_advanced_vocab_core30_to_course5.sql").read_text()
+
+    assert "v_count NOT IN (0, 30)" in migration
+    assert "IF v_count = 0 THEN" in migration
+    assert migration.index("IF v_count = 0 THEN") < migration.index("UPDATE quiz_banks")
+    assert "expected 0 or 30 Advanced Vocabulary core banks" in migration
+
+
+def test_every_rewrite_evidence_guard_keeps_practice_selections():
+    migrations = Path(__file__).resolve().parents[1] / "migrations"
+    initial = (migrations / "288_advanced_vocab_rewrite_feedback.sql").read_text()
+    repair = (migrations / "291_repair_advanced_vocab_evidence_guard.sql").read_text()
+
+    evidence_tables = {
+        "advanced_vocab_practice_selections",
+        "advanced_vocab_stage_progress",
+        "advanced_vocab_question_attempts",
+        "advanced_vocab_listening_attempts",
+        "advanced_vocab_rewrite_submissions",
+    }
+    for sql in (initial, repair):
+        assert evidence_tables <= {table for table in evidence_tables if table in sql}
+
+
+@pytest.mark.asyncio
+async def test_controlled_rewrite_saves_all_answers_and_calls_grader_once(monkeypatch):
+    from services import advanced_vocab_rewrite_grader
+
+    prompts = [{"item_id": f"rewrite-{number:02d}", "prompt": f"Prompt {number}"}
+               for number in range(1, 21)]
+    answers = {row["item_id"]: f"Answer {index}"
+               for index, row in enumerate(prompts, 1)}
+    rows: list[dict] = []
+    calls: list[list[dict]] = []
+
+    class Query:
+        def __init__(self, data=None):
+            self.patch = None
+            self.data = data
+
+        def insert(self, payload):
+            rows.append({"id": "rewrite-sub-1", **payload})
+            return self
+
+        def update(self, payload):
+            self.patch = payload
+            return self
+
+        def eq(self, *_args):
+            return self
+
+        def execute(self):
+            if self.data is not None:
+                return SimpleNamespace(data=self.data)
+            if self.patch:
+                rows[0].update(self.patch)
+            return SimpleNamespace(data=rows[:1])
+
+    class Admin:
+        def table(self, name):
+            assert name == "advanced_vocab_rewrite_submissions"
+            return Query()
+
+        def rpc(self, name, params):
+            assert name == "claim_advanced_vocab_rewrite_submission"
+            if rows:
+                if rows[0]["answers"] != params["p_answers"]:
+                    raise RuntimeError("23505 advanced_vocab_rewrite_already_submitted")
+                return Query({"should_grade": False, "submission": rows[0]})
+            submission = {
+                "id": "rewrite-sub-1", "bank_id": params["p_bank_id"],
+                "user_id": params["p_user_id"],
+                "class_assignment_item_id": params["p_item_id"],
+                "answers": params["p_answers"], "status": "processing",
+                "content_snapshot": params["p_content_snapshot"],
+                "prompt_version": params["p_prompt_version"],
+            }
+            rows.append(submission)
+            return Query({"should_grade": True, "submission": submission})
+
+    async def fake_grade(items, *, user_id=None):
+        calls.append(items)
+        return ({"results": [{"item_id": row["item_id"], "corrected": row["answer"],
+                               "grammar_notes": [], "style_note": "Ổn",
+                               "target_usage_note": "Đúng", "ok": True}
+                              for row in items],
+                 "overall": {"strengths": ["Đủ 20 câu"], "focus": []}},
+                "gemini-test", None)
+
+    monkeypatch.setattr(service, "_assigned_lesson",
+                        lambda **_kwargs: ({}, {}, {"lesson_id": "ADV-T01", "provenance": {"content_checksum": "sum"}}))
+    monkeypatch.setattr(service, "_require_section", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(service, "controlled_rewrite_parts",
+                        lambda _lesson: {"prompts": prompts, "solutions": [{"text": "Key"}]})
+    monkeypatch.setattr(service, "_rewrite_submission",
+                        lambda _item_id: rows[0] if rows else None)
+    monkeypatch.setattr(service, "_upsert_stage", lambda **_kwargs: {})
+    monkeypatch.setattr(service, "_progress", lambda _item_id: {"completed_stages": ["controlled_rewrite"]})
+    monkeypatch.setattr(service, "_admin", lambda: Admin())
+    monkeypatch.setattr(advanced_vocab_rewrite_grader, "grade_rewrites", fake_grade)
+
+    first = await service.complete_controlled_rewrite(
+        user_id="user-1", bank_id="bank-1", item_id="item-1", answers=answers,
+    )
+    replay = await service.complete_controlled_rewrite(
+        user_id="user-1", bank_id="bank-1", item_id="item-1", answers=answers,
+    )
+
+    assert len(calls) == 1
+    assert len(calls[0]) == 20
+    assert first["submission"]["status"] == "completed"
+    assert replay["submission"]["answers"] == answers
+
+    with pytest.raises(HTTPException) as exc:
+        await service.complete_controlled_rewrite(
+            user_id="user-1", bank_id="bank-1", item_id="item-1",
+            answers={**answers, "rewrite-01": "Changed"},
+        )
+    assert exc.value.status_code == 409
+
+
+def test_abandoned_controlled_rewrite_becomes_terminal_without_regrading(monkeypatch):
+    stale = {
+        "id": "rewrite-sub-1", "class_assignment_item_id": "item-1",
+        "status": "processing",
+        "provider_started_at": "2026-09-20T00:00:00+00:00",
+        "created_at": "2026-09-20T00:00:00+00:00",
+    }
+
+    class Query:
+        def __init__(self):
+            self.patch = None
+
+        def select(self, *_args): return self
+        def update(self, payload): self.patch = payload; return self
+        def eq(self, *_args): return self
+        def lte(self, *_args): return self
+        def limit(self, *_args): return self
+        def execute(self):
+            if self.patch:
+                stale.update(self.patch)
+            return SimpleNamespace(data=[stale])
+
+    class Admin:
+        def table(self, name):
+            assert name == "advanced_vocab_rewrite_submissions"
+            return Query()
+
+    monkeypatch.setattr(service, "_admin", lambda: Admin())
+    row = service._rewrite_submission("item-1")
+
+    assert row["status"] == "failed"
+    assert row["error_code"] == "worker_interrupted"
+    assert row["completed_at"]
 
 
 def test_controlled_rewrite_projection_whitelists_activity_metadata():
@@ -280,6 +459,10 @@ def test_answer_practice_grades_authored_answer_index(monkeypatch):
     monkeypatch.setattr(service, "practice_selection", lambda _lesson: {
         "practice_1": practice_items, "practice_2": [],
     })
+    monkeypatch.setattr(
+        service, "_selection_qids",
+        lambda _item_id, _stage: [row["item_id"] for row in practice_items],
+    )
     monkeypatch.setattr(service, "_upsert_stage", lambda **_kwargs: None)
     monkeypatch.setattr(service, "_progress", lambda _item_id: {
         "completed_stages": ["practice_1"], "required_completed": False,
@@ -344,6 +527,144 @@ def test_answer_practice_grades_authored_answer_index(monkeypatch):
         user_id="user-1", bank_id="bank-1", item_id="item-1",
         stage="practice_1", qid="syllable-zero", answer=0,
     )["is_correct"] is True
+
+
+def test_practice_start_persists_and_returns_the_database_selection(monkeypatch):
+    lesson = _lesson()
+    authored = service.practice_selection(lesson)["practice_1"]
+    canonical_qids = [row["item_id"] for row in authored]
+    calls = []
+
+    class _Rpc:
+        def execute(self):
+            return SimpleNamespace(data=[{
+                "stage": "practice_1", "qids": list(reversed(canonical_qids)),
+            }])
+
+    class _StartAdmin:
+        def rpc(self, name, params):
+            calls.append((name, params))
+            return _Rpc()
+
+    monkeypatch.setattr(service, "_assigned_lesson", lambda **_kwargs: (
+        {"id": "bank-1"}, {"id": "item-1"}, lesson,
+    ))
+    monkeypatch.setattr(service, "_require_stage", lambda *_args: None)
+    monkeypatch.setattr(service, "_admin", lambda: _StartAdmin())
+    monkeypatch.setattr(service, "_progress", lambda _item_id: {
+        "completed_stages": ["vocabulary"], "required_completed": False,
+    })
+
+    result = service.start_practice(
+        user_id="user-1", bank_id="bank-1", item_id="item-1",
+        stage="practice_1",
+    )
+
+    assert calls == [("start_advanced_vocab_practice", {
+        "p_item_id": "item-1", "p_user_id": "user-1", "p_bank_id": "bank-1",
+        "p_stage": "practice_1", "p_qids": canonical_qids,
+    })]
+    assert [row["item_id"] for row in result["questions"]] == list(
+        reversed(canonical_qids)
+    )
+    assert all("answer" not in row and "accept" not in row
+               for row in result["questions"])
+
+
+def test_persistence_gate_migration_locks_and_guards_every_evidence_store():
+    migration = (Path(__file__).resolve().parents[1]
+                 / "migrations" / "282_advanced_vocab_persistence_gate.sql").read_text()
+
+    assert "advanced_vocab_practice_selections" in migration
+    assert "start_advanced_vocab_practice" in migration
+    assert "advanced_vocab_lock_open_item" in migration
+    assert migration.index("student_cohort_memberships") < migration.index(
+        "SELECT a.* INTO v_assignment"
+    ) < migration.index("SELECT i.* INTO v_item")
+    assert "AS RESTRICTIVE" in migration
+    assert "advanced_vocab_attempt_must_be_one" in migration
+    assert "advanced_vocab_section_already_submitted" in migration
+    assert "trg_protect_advanced_vocab_bank" in migration
+    assert "advanced_vocab_bank_unpublished" in migration
+    assert "advanced_vocab_assignment_snapshot_mismatch" in migration
+    assert "attempt_no = 1" in migration
+    assert "state = 'submitted'" in migration
+    assert "score = NULL" in migration
+
+
+def test_practice_rollout_migration_backfills_and_supports_old_writers():
+    migrations = Path(__file__).resolve().parents[1] / "migrations"
+    initial = (migrations / "282_advanced_vocab_persistence_gate.sql").read_text()
+    repair = (
+        migrations / "292_advanced_vocab_practice_rollout_compatibility.sql"
+    ).read_text()
+
+    for sql in (initial, repair):
+        assert "advanced_vocab_canonical_practice_qids" in sql
+        assert "advanced_vocab_selection_not_canonical" in sql
+        assert "ON CONFLICT (class_assignment_item_id, stage) DO NOTHING" in sql
+        assert sql.index("IF NOT FOUND THEN") < sql.index(
+            "advanced_vocab_question_not_selected"
+        )
+    assert "advanced_vocab_legacy_attempt_not_canonical" in repair
+    assert "DISABLE TRIGGER USER" in repair
+    assert "ENABLE TRIGGER USER" in repair
+    assert "FROM public.advanced_vocab_question_attempts" in repair
+
+
+def test_legacy_practice_review_reconstructs_only_stages_with_evidence():
+    lesson = _lesson()
+    authored = service.practice_selection(lesson)
+    progress = {
+        "completed_stages": ["practice_1"],
+        "practice_selections": [],
+        "answers": [{"stage": "practice_1", "qid": authored["practice_1"][0]["item_id"]}],
+    }
+
+    recovered = service._learner_practice_qids(
+        practice_stage="practice_1",
+        authored_rows=authored["practice_1"],
+        progress=progress,
+    )
+    untouched = service._learner_practice_qids(
+        practice_stage="practice_2",
+        authored_rows=authored["practice_2"],
+        progress=progress,
+    )
+
+    assert recovered == [row["item_id"] for row in authored["practice_1"]]
+    assert untouched is None
+
+
+def test_controlled_rewrite_route_has_concrete_openapi_response():
+    from routers.advanced_vocab import ControlledRewriteCompleteResponse, router
+
+    route = next(
+        route for route in router.routes
+        if route.path == "/api/advanced-vocab/controlled-rewrite/complete"
+    )
+    schema = ControlledRewriteCompleteResponse.model_json_schema()
+
+    assert route.response_model is ControlledRewriteCompleteResponse
+    assert set(schema["properties"]) == {"solutions", "submission", "progress"}
+    assert "AdvancedVocabProgressResponse" in schema["$defs"]
+    assert "ControlledRewriteFeedback" in schema["$defs"]
+
+
+def test_practice_start_route_has_safe_concrete_openapi_response():
+    from routers.advanced_vocab import PracticeStartResponse, router
+
+    route = next(
+        route for route in router.routes
+        if route.path == "/api/advanced-vocab/practice/start"
+    )
+    schema = PracticeStartResponse.model_json_schema()
+    question = schema["$defs"]["PracticeQuestionResponse"]["properties"]
+
+    assert route.response_model is PracticeStartResponse
+    assert set(schema["properties"]) == {"stage", "questions", "progress"}
+    assert {"answer", "accept", "explain", "why_wrong"}.isdisjoint(question)
+    assert {"item_id", "prompt", "options", "audio_url"} <= set(question)
 
 
 def test_learner_question_projection_never_contains_answer_material():
@@ -455,7 +776,10 @@ def test_assigned_lesson_reopens_frozen_version_after_canonical_revision(
     (root / f"{v1['lesson_id']}.json").write_text(json.dumps(v2), encoding="utf-8")
     (version / f"{checksum_v1}.json").write_text(json.dumps(v1), encoding="utf-8")
     monkeypatch.setattr(service, "_CONTENT_ROOT", root)
-    monkeypatch.setattr(service, "_runtime", lambda _bank: ({"id": "bank-1"}, {}))
+    monkeypatch.setattr(
+        service, "_runtime",
+        lambda _bank: (_ for _ in ()).throw(AssertionError("mutable bank read")),
+    )
     monkeypatch.setattr(service, "_owned_item", lambda *_args, **_kwargs: {
         "id": "item-1", "content_config": {"runtime": {
             "kind": "advanced_vocab", "lesson_id": v1["lesson_id"],
@@ -555,7 +879,7 @@ def test_learner_reading_projection_strips_source_and_correction_evidence(
         "listening_submitted": False, "required_completed": False,
     })
     monkeypatch.setattr(service, "_assigned_lesson", lambda **_kwargs: (
-        {"id": "bank-1", "code": "C4-ADV-T22", "title": "Advanced T22"},
+        {"id": "bank-1", "code": "C5-ADV-T22", "title": "Advanced T22"},
         {"id": "item-1"}, lesson,
     ))
 
@@ -604,7 +928,7 @@ def test_learner_listening_projection_whitelists_top_and_nested_questions(
         "listening_submitted": False, "required_completed": False,
     })
     monkeypatch.setattr(service, "_assigned_lesson", lambda **_kwargs: (
-        {"id": "bank-1", "code": "C4-ADV-T11", "title": "Advanced T11"},
+        {"id": "bank-1", "code": "C5-ADV-T11", "title": "Advanced T11"},
         {"id": "item-1"}, lesson,
     ))
 
@@ -918,10 +1242,13 @@ def test_admin_results_collects_each_learner_evidence_without_an_overall_score(m
     fake = _Admin({
         "class_assignments": [{
             "id": "assignment-1", "skill": "course", "content_id": "bank-1",
-            "title": "Advanced T01", "content_config": {},
+            "title": "Advanced T01", "content_config": {
+                "test_title": "Advanced T01", "bank_code": "C5-ADV-T01",
+                "runtime": {"kind": "advanced_vocab", "lesson_id": "ADV-T01"},
+            },
         }],
         "quiz_banks": [{
-            "id": "bank-1", "code": "C4-ADV-T01", "title": "Advanced T01",
+            "id": "bank-1", "code": "C5-ADV-T01", "title": "Advanced T01",
             "skill_area": "course", "meta": {
                 "runtime": {"kind": "advanced_vocab", "lesson_id": "ADV-T01"},
             },

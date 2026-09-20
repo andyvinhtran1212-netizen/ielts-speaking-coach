@@ -61,6 +61,7 @@ export function preserveControlledRewriteResult(data, response) {
           content: {
             ...data.lesson.activities.controlled_rewrite.content,
             solutions: response.solutions || [],
+            submission: response.submission || null,
           },
         },
       },

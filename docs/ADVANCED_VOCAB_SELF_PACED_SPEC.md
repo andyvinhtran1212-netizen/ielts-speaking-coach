@@ -2,7 +2,7 @@
 
 Status: approved product contract, implementation foundation
 Scope: first release of the Advanced Vocabulary course
-Canonical course: `C4` — Khóa nâng cao từ vựng cho bài thi
+Canonical course: `C5` — Course 5
 
 ## 1. Locked product decisions
 
