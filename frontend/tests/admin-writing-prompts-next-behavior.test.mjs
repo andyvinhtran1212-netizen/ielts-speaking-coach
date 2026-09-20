@@ -123,6 +123,10 @@ describe('/admin/writing/prompts native ownership and safety contract', () => {
     assert.match(COMPONENT, /pendingCreate\.current/);
     assert.match(COMPONENT, /Thử đối chiếu lại/);
     assert.match(COMPONENT, /image\/png,image\/jpeg,image\/webp/);
+    assert.match(COMPONENT, /onDragOver=/);
+    assert.match(COMPONENT, /onDrop=/);
+    assert.match(COMPONENT, /dataTransfer\.files/);
+    assert.match(COMPONENT, /PROMPT_IMAGE_MAX_BYTES/);
     assert.match(COMPONENT, /document\.hidden/);
     assert.doesNotMatch(COMPONENT, /setInterval\(/);
   });
@@ -133,6 +137,11 @@ describe('/admin/writing/prompts native ownership and safety contract', () => {
     assert.match(CSS, /@media\(max-width:520px\)/);
     assert.match(CSS, /:focus-visible/);
     assert.match(CSS, /@media\(prefers-reduced-motion:reduce\)/);
+    assert.match(CSS, /\.acd-dialog-backdrop\{position:fixed/);
+    assert.match(CSS, /\.acd-dialog__body\{[^}]*overflow-y:auto/);
+    assert.match(CSS, /\.awp-upload\.is-dragging/);
+    assert.match(CSS, /max-height:calc\(100vh - var\(--av-space-8\)\)/);
+    assert.match(CSS, /max-height:94vh/);
     assert.match(WORKFLOW, /authed-admin-writing-prompts/);
     assert.match(WORKFLOW, /verify-admin-writing-prompts-flow\.mjs/);
   });

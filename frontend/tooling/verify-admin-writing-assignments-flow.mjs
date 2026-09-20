@@ -4,9 +4,11 @@ import { chromium } from 'playwright';
 import { storageKey } from './supabase-session.mjs';
 
 const BASE = process.argv[2] || 'http://localhost:3011';
+const FIXTURE_API_PREFIX = '/__fixture_api';
 const SB = process.env.SUPABASE_URL || 'https://huwsmtubwulikhlmcirx.supabase.co';
 const adminId = '00000000-0000-0000-0000-000000000123';
-const session = JSON.stringify({ access_token: 'admin-writing-assignments-not-real', refresh_token: 'x', expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-writing-assignments@local' } });
+const authSession = { access_token: 'admin-writing-assignments-not-real', refresh_token: 'x', expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: adminId, email: 'admin-writing-assignments@local' } };
+const session = JSON.stringify(authSession);
 const requests = []; const results = []; const pageErrors = [];
 const check = (name, ok, detail = '') => { results.push({ name, ok, detail }); console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`); };
 async function launch() { try { return await chromium.launch(); } catch (error) { const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; if (process.platform === 'darwin' && existsSync(chrome)) return chromium.launch({ executablePath: chrome }); throw error; } }
@@ -16,13 +18,24 @@ const assignment = (overrides = {}) => ({ id: 'a-old', status: 'pending', prompt
 let rows = [assignment()]; let cohortSourceFails = true; const committedRequests = new Map();
 
 const browser = await launch(); const context = await browser.newContext({ viewport: { width: 1440, height: 980 } });
-await context.addInitScript(([key, value]) => localStorage.setItem(key, value), [storageKey(SB), session]);
+await context.addInitScript(([key, value, injectedSession]) => {
+  localStorage.setItem(key, value);
+  window.__AVER_SUPABASE_CLIENT__ = { auth: {
+    getSession: async () => ({ data: { session: injectedSession }, error: null }),
+    onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+    signOut: async () => ({ error: null }),
+  } };
+}, [storageKey(SB), session, authSession]);
 const page = await context.newPage(); page.on('pageerror', (error) => pageErrors.push(String(error)));
 await page.route('**/*', async (route) => {
   const request = route.request(); const url = request.url();
-  if (url.startsWith(BASE) || url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('about:')) return route.continue();
+  const parsed = new URL(url); const method = request.method(); const routedPath = parsed.pathname;
+  const fixtureApi = routedPath.startsWith(FIXTURE_API_PREFIX);
+  const path = fixtureApi ? routedPath.slice(FIXTURE_API_PREFIX.length) || '/' : routedPath;
+  if (url.startsWith(BASE) && routedPath === '/js/runtime-config.js') return route.fulfill({ status: 200, contentType: 'application/javascript', body: `window.__AVER_RUNTIME_CONFIG__=Object.freeze({environment:'local-test',apiBase:${JSON.stringify(`${BASE}${FIXTURE_API_PREFIX}`)},supabaseUrl:null,supabaseAnonKey:null,release:null,gitRef:null,coreOperationCorrelationEnabled:false,writingAdmissionEnabled:false});` });
+  if (url.startsWith(BASE) && !fixtureApi) return route.continue();
+  if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('about:')) return route.continue();
   if (/unpkg\.com|jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(url)) return route.continue();
-  const parsed = new URL(url); const method = request.method(); const path = parsed.pathname;
   requests.push({ method, path, query: parsed.search, body: request.postDataJSON?.() });
   const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   if (path === '/auth/me') return json({ id: adminId, email: 'admin-writing-assignments@local', role: 'admin' });
@@ -56,6 +69,13 @@ check('admin gate và list dùng canonical endpoints', requests.some((item) => i
 check('hostile group name hiển thị như text', await page.evaluate(() => window.__assignmentXss !== 1));
 
 await page.getByRole('button', { name: 'Giao bài mới' }).click(); await page.getByRole('dialog').waitFor();
+const dialogLayout = await page.getByRole('dialog').evaluate((element) => {
+  const panel = element.getBoundingClientRect();
+  const backdrop = element.parentElement ? getComputedStyle(element.parentElement) : null;
+  const body = element.querySelector('.acd-dialog__body');
+  return { backdropPosition: backdrop?.position, fullyVisible: panel.top >= 0 && panel.bottom <= innerHeight, bodyOverflow: body ? getComputedStyle(body).overflowY : '' };
+});
+check('dialog giao bài cố định trong viewport và cuộn phần thân', dialogLayout.backdropPosition === 'fixed' && dialogLayout.fullyVisible && dialogLayout.bodyOverflow === 'auto', JSON.stringify(dialogLayout));
 await page.getByText('Nguồn dữ liệu chưa sẵn sàng', { exact: true }).waitFor();
 await page.getByText(/fixture cohort source unavailable/).waitFor();
 check('lỗi cohort hiện riêng, prompt và student vẫn dùng được', await page.getByText('Discuss public transport', { exact: true }).count() > 0 && await page.getByText('Lan', { exact: true }).count() > 0);
