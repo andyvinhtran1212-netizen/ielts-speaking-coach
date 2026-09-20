@@ -139,14 +139,15 @@ from those generated operations rather than maintain a parallel wire schema.
 | `POST /api/advanced-vocab/practice/start` | `{bank_id,item_id,stage: practice_1|practice_2}` | canonical `Progress` containing the persisted immutable selection and public question projection; identical replay returns the same selection |
 | `POST /api/advanced-vocab/practice/answer` | `{bank_id,item_id,stage,qid,answer,response_time_ms?}` | `{qid,answer,is_correct,explanation?,note?,completed,progress}` for that accepted immutable answer |
 | `POST /api/advanced-vocab/reading` | `{bank_id,item_id,answers:{qid:value},duration_sec}` | `SectionReview` `{section,total,correct,pct,submitted_at,answer_results,answers}` |
-| `POST /api/advanced-vocab/controlled-rewrite/complete` | `{bank_id,item_id,attempted_item_ids[]}` | `{solutions,progress}` only after canonical completion |
+| `POST /api/advanced-vocab/controlled-rewrite/complete` | `{bank_id,item_id,answers:{rewrite_id:text}}` (exactly 20) | `{solutions,submission:{answers,feedback,status,model,prompt_version,error_code},progress}`; the first immutable submission makes one batch model call, identical replay returns persisted truth, and changed replay conflicts |
 | `POST /api/advanced-vocab/listening` | `{bank_id,item_id,answers:{qid:value},duration_sec}` | first-attempt review with `requires_guided_retry`, incomplete assignment state, and canonical `Progress`; a non-retry activity may return final `SectionReview` |
 | `POST /api/advanced-vocab/listening/guided-retry` | `{bank_id,item_id,answers:{wrong_qid:value}}` | final review with initial and retry evidence, `{completed,pct:null}`, and canonical `Progress` |
 | `GET /admin/advanced-vocab/assignments/{assignment_id}/results` | UUID path | `AdminResults`: assignment/bank snapshot, `lesson_id`, `score_policy:none`, six required stages, reference-only markers, and per-student item/stage/practice/section/Listening evidence |
 | `POST /admin/quiz/import?topic_id=&dry_run=&publish_state=` | multipart `{file}`; existing query parameters remain unchanged and optional `publish_state` is `preserve|published|unpublished` | import summary; omission preserves an existing bank, leaves a new Advanced bank unpublished, and preserves the existing published default for a new ordinary bank; invalid `publish_state` returns 422 with no mutation |
 
 `Progress` contains `completed_stages`, persisted stage rows, immutable Practice
-answers, submitted section reviews, `listening_submitted`, and `required_completed`.
+answers, the immutable Controlled Rewrite submission/feedback, submitted section
+reviews, `listening_submitted`, and `required_completed`.
 After the immutable first Listening attempt but before guided retry, it also contains
 `listening_pending_retry: {initial_answer_results, required_retry_ids}` reconstructed
 from `advanced_vocab_listening_attempts`; this lets a lost response or reload render
