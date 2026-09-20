@@ -70,8 +70,9 @@ class _Query:
     def select(self, *_args, **_kwargs):
         return self
 
-    def update(self, _payload):
-        self.admin.writes.append(("update", self.table))
+    def update(self, payload):
+        self.admin.writes.append(("update", self.table, payload))
+        self.admin.updated_payload = payload
         return self
 
     def eq(self, _key, _value):
@@ -85,6 +86,8 @@ class _Query:
             return _Result([self.admin.bank])
         if self.table == "class_assignments":
             return _Result([{"id": "assignment-v1"}])
+        if self.table == "rpc":
+            return _Result(0)
         return _Result([])
 
 
@@ -92,9 +95,11 @@ class _Admin:
     def __init__(self):
         self.bank = {
             "id": "bank-v1",
+            "is_published": True,
             "meta": {"runtime": {"content_checksum": "checksum-v1"}},
         }
         self.writes = []
+        self.updated_payload = None
 
     def table(self, name):
         return _Query(self, name)
@@ -119,3 +124,23 @@ def test_importer_rejects_revision_that_would_orphan_frozen_assignment(monkeypat
         importer._upsert_bank(spec)
 
     assert admin.writes == []
+
+
+def test_importer_preserves_published_bank_unless_publish_is_explicit(monkeypatch):
+    admin = _Admin()
+    monkeypatch.setattr(importer, "_admin", lambda: admin)
+    spec = {
+        "payload": {
+            "course_id": "course-c5", "code": "C5-ADV-T01",
+            "is_published": False,
+            "meta": {"runtime": {"content_checksum": "checksum-v1"}},
+        },
+        "rows": [],
+    }
+
+    importer._upsert_bank(spec)
+    assert admin.updated_payload["is_published"] is True
+
+    admin.bank["is_published"] = False
+    importer._upsert_bank(spec, publish=True)
+    assert admin.updated_payload["is_published"] is True

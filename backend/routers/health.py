@@ -84,6 +84,7 @@ _CRITICAL_TABLES = (
     "advanced_vocab_practice_selections",
     "advanced_vocab_question_attempts",
     "advanced_vocab_listening_attempts",
+    "advanced_vocab_rewrite_submissions",
 )
 
 # Projection failures catch missing columns, not merely missing tables. This
@@ -102,6 +103,10 @@ _CRITICAL_COLUMNS = {
     'advanced_vocab_practice_selections': 'id,class_assignment_item_id,stage,qids',
     'advanced_vocab_question_attempts': 'id,class_assignment_item_id,stage,qid,is_correct',
     'advanced_vocab_listening_attempts': 'id,class_assignment_item_id,answers,answer_key,submitted_at',
+    'advanced_vocab_rewrite_submissions': (
+        'id,class_assignment_item_id,answers,feedback,status,model,'
+        'prompt_version,error_code,provider_started_at,completed_at'
+    ),
 }
 
 

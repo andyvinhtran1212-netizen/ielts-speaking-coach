@@ -11,7 +11,7 @@ import hashlib
 import json
 import re
 import unicodedata
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +42,7 @@ _CONTROLLED_REWRITE_PUBLIC_FIELDS = {
 _PAGE = 1000
 _ID_CHUNK = 200
 _MAX_REWRITE_ANSWER_CHARS = 600
+_REWRITE_PROCESSING_TIMEOUT = timedelta(minutes=5)
 
 
 def _admin():
@@ -470,10 +471,49 @@ def _listening_attempt(item_id: str) -> dict | None:
     return rows[0] if rows else None
 
 
-def _rewrite_submission(item_id: str) -> dict | None:
+def _rewrite_submission_raw(item_id: str) -> dict | None:
     rows = (_admin().table("advanced_vocab_rewrite_submissions").select("*")
             .eq("class_assignment_item_id", item_id).limit(1).execute().data) or []
     return rows[0] if rows else None
+
+
+def _expire_stale_rewrite_submission(row: dict | None) -> dict | None:
+    """Terminate abandoned provider work without reclaiming its model call.
+
+    A provider request has a 60-second application timeout. Five minutes gives
+    an in-flight worker ample headroom while ensuring a process crash cannot
+    leave the learner polling forever. The guarded update never reclaims the
+    one-shot model call; it only records a terminal failure.
+    """
+    if not row or row.get("status") != "processing":
+        return row
+    started_value = row.get("provider_started_at") or row.get("created_at")
+    try:
+        started_at = datetime.fromisoformat(str(started_value).replace("Z", "+00:00"))
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return row
+    cutoff = datetime.now(timezone.utc) - _REWRITE_PROCESSING_TIMEOUT
+    if started_at > cutoff:
+        return row
+    now = datetime.now(timezone.utc).isoformat()
+    saved = (_admin().table("advanced_vocab_rewrite_submissions")
+             .update({
+                 "status": "failed", "error_code": "worker_interrupted",
+                 "completed_at": now, "updated_at": now,
+             })
+             .eq("id", row["id"]).eq("status", "processing")
+             .lte("provider_started_at", cutoff.isoformat())
+             .execute().data) or []
+    # A live worker may have completed between the read and guarded update.
+    return saved[0] if saved else _rewrite_submission_raw(
+        str(row["class_assignment_item_id"]),
+    )
+
+
+def _rewrite_submission(item_id: str) -> dict | None:
+    return _expire_stale_rewrite_submission(_rewrite_submission_raw(item_id))
 
 
 def _safe_rewrite_submission(row: dict | None) -> dict | None:
@@ -970,6 +1010,7 @@ async def complete_controlled_rewrite(*, user_id: str, bank_id: str, item_id: st
         claim = claim[0] if claim else {}
     submission = claim.get("submission") or {}
     if not claim.get("should_grade"):
+        submission = _rewrite_submission(item_id) or submission
         return {
             "solutions": parts["solutions"],
             "submission": _safe_rewrite_submission(submission),
@@ -1359,6 +1400,7 @@ def assignment_results(*, assignment_id: str) -> dict:
     for row in listening_attempts:
         by_listening_attempt.setdefault(row["class_assignment_item_id"], []).append(row)
     for row in rewrite_submissions:
+        row = _expire_stale_rewrite_submission(row) or row
         by_rewrite_submission.setdefault(row["class_assignment_item_id"], []).append(row)
     result_rows = []
     for item in items:

@@ -125,9 +125,9 @@ def _course() -> dict:
     return courses[0]
 
 
-def _upsert_bank(spec: dict) -> tuple[str, str, int]:
-    payload = spec["payload"]
-    existing = (_admin().table("quiz_banks").select("id,meta")
+def _upsert_bank(spec: dict, *, publish: bool = False) -> tuple[str, str, int]:
+    payload = {**spec["payload"]}
+    existing = (_admin().table("quiz_banks").select("id,meta,is_published")
                 .eq("course_id", payload["course_id"])
                 .eq("code", payload["code"]).limit(1).execute().data) or []
     if existing:
@@ -143,9 +143,16 @@ def _upsert_bank(spec: dict) -> tuple[str, str, int]:
                     f"{payload['code']}: không thể cập nhật nội dung tại chỗ vì "
                     "đã có assignment; hãy phát hành bank/content version mới."
                 )
+        # Importing content must never silently retire a bank that an admin
+        # already released. Publication is changed only by the explicit
+        # --publish operation below (or the canonical admin control).
+        payload["is_published"] = (
+            True if publish else existing[0].get("is_published") is True
+        )
         _admin().table("quiz_banks").update(payload).eq("id", bank_id).execute()
         action = "updated"
     else:
+        payload["is_published"] = publish
         created = _admin().table("quiz_banks").insert(payload).execute().data or []
         if not created:
             raise SystemExit(f"{payload['code']}: tạo bank không trả về id.")
@@ -161,7 +168,7 @@ def _upsert_bank(spec: dict) -> tuple[str, str, int]:
     return action, str(bank_id), int(count)
 
 
-def _verify_banks(specs: list[dict], course_id: str) -> None:
+def _verify_banks(specs: list[dict], course_id: str, *, require_published: bool) -> None:
     for spec in specs:
         expected = spec["payload"]
         banks = (_admin().table("quiz_banks")
@@ -175,7 +182,8 @@ def _verify_banks(specs: list[dict], course_id: str) -> None:
         bank = banks[0]
         runtime = (bank.get("meta") or {}).get("runtime") or {}
         if (bank.get("lesson_no") is not None
-                or bank.get("is_published") is not False
+                or not isinstance(bank.get("is_published"), bool)
+                or (require_published and bank.get("is_published") is not True)
                 or int(bank.get("words_count") or 0) != 24
                 or runtime.get("lesson_id") != spec["lesson"]["lesson_id"]
                 or runtime.get("content_checksum") != spec["checksum"]
@@ -194,10 +202,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--commit", action="store_true")
     parser.add_argument(
+        "--publish", action="store_true",
+        help=("Đánh dấu các bank sẵn sàng để admin giao. Chỉ dùng cùng "
+              "--commit sau khi đã preview/verify nội dung."),
+    )
+    parser.add_argument(
         "--lesson", action="append", choices=LESSON_IDS,
         help="Chỉ kiểm tra/import lesson này; có thể lặp lại. Mặc định là đủ 30 lesson.",
     )
     args = parser.parse_args()
+    if args.publish and not args.commit:
+        parser.error("--publish chỉ được dùng cùng --commit")
     lesson_ids = tuple(dict.fromkeys(args.lesson or LESSON_IDS))
     course = _course() if args.commit else None
     specs = [lesson_spec(lesson_id, course_id=course["id"] if course else None)
@@ -218,9 +233,9 @@ def main() -> int:
         return 0
 
     for spec in specs:
-        action, bank_id, count = _upsert_bank(spec)
+        action, bank_id, count = _upsert_bank(spec, publish=args.publish)
         print(f"{action} {spec['payload']['code']} ({bank_id}); đã ghi {count} câu.")
-    _verify_banks(specs, str(course["id"]))
+    _verify_banks(specs, str(course["id"]), require_published=args.publish)
     print(
         f"HOÀN TẤT + VERIFY: {len(specs)} bank assignment-only, "
         "mỗi bank 48 câu, không có điểm tổng mặc định."

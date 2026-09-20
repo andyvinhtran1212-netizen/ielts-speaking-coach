@@ -44,7 +44,7 @@ function payload(mode) {
   const completed = mode === 'review' ? required : mode === 'reading'
     ? ['vocabulary', 'practice_1', 'practice_2'] : [];
   return {
-    bank: { id: BANK, code: 'C4-ADV-T01', title: 'Advanced Vocabulary T01' },
+    bank: { id: BANK, code: 'C5-ADV-T01', title: 'Advanced Vocabulary T01' },
     assignment: { item_id: ITEM, due_at: null, accepting: mode !== 'review', submitted_at: mode === 'review' ? '2026-09-16T02:00:00Z' : null, passed_at: mode === 'review' ? '2026-09-16T02:00:00Z' : null },
     lesson: {
       lesson_id: 'ADV-T01', title: 'Family and Upbringing', objectives: [], vocabulary,

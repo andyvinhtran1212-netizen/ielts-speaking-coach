@@ -129,7 +129,7 @@ def test_legacy_player_never_fetches_advanced_vocabulary_answer_rows():
 def test_legacy_session_guard_rejects_advanced_vocabulary_runtime():
     fake = _FakeSupabase(responses={
         ("quiz_banks", "select"): [{
-            "id": _BANK, "code": "C4-ADV-T01", "skill_area": "course",
+            "id": _BANK, "code": "C5-ADV-T01", "skill_area": "course",
             "is_published": False,
             "meta": {"runtime": {"kind": "advanced_vocab"}},
         }],

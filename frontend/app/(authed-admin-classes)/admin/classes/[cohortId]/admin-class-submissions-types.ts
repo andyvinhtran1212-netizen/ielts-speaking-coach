@@ -14,6 +14,13 @@ export type ReportQuestion = { qid: string | null; item_key: string; prompt: str
 export type StudentReport = { stale: boolean; locked: boolean; threshold: number | null; totals: { answered: number; correct: number; median_sec: number | null; active_sec: number | null; idle_sec: number | null; bank_title: string | null; scope: string }; summary: { completion_mode: string | null; pass_pct: number | null; near_pass_pct: number | null; latest_pct: number | null; latest_action: string | null; latest_attempt_number: number | null; baseline_quiz_pct: number | null; baseline_correct: number; baseline_answered: number; latest_sections: SectionResult[] }; history: { number: number; phase: string; session_count: number; pct: number | null; next_action: string; at: string | null; completed: boolean; duration_sec: number; sections: SectionResult[] }[]; questions: ReportQuestion[] };
 export type WritingPayload = { student: { id: string; name: string; code: string | null }; assignment: { id: string; title: string }; submission: null | { clean: number; total: number; model: string | null; graded_at: string | null; items: Record<string, unknown>[] } };
 export type AdvancedVocabularyAnswerResult = { id: string; submitted_answer: unknown; is_correct: boolean };
+export type AdvancedVocabularyRewriteResult = { item_id: string; corrected: string | null; grammar_notes: string[]; style_note: string | null; target_usage_note: string | null; ok: boolean | null };
+export type AdvancedVocabularyRewriteSubmission = {
+  answers: Record<string, unknown>;
+  feedback: null | { results: AdvancedVocabularyRewriteResult[]; overall: { strengths: string[]; focus: string[] } };
+  status: string; model: string | null; prompt_version: string | null; error_code: string | null;
+  created_at: string | null; completed_at: string | null;
+};
 export type AdvancedVocabularyStudentResult = {
   required_stages: string[];
   item: { id: string; student_id: string | null; state: string; opened_at: string | null; submitted_at: string | null; passed_at: string | null };
@@ -22,6 +29,7 @@ export type AdvancedVocabularyStudentResult = {
   practice_attempts: { stage: string; qid: string; answer_given: unknown; is_correct: boolean; response_time_ms: number | null; created_at: string | null }[];
   sections: { section: string; total: number; correct: number; score: number | null; duration_sec: number; submitted_at: string | null; answer_results: AdvancedVocabularyAnswerResult[]; initial_answer_results: AdvancedVocabularyAnswerResult[] }[];
   listening_attempts: { total: number; correct: number; score: number | null; duration_sec: number; submitted_at: string | null; answers: Record<string, unknown>; answer_results: AdvancedVocabularyAnswerResult[] }[];
+  controlled_rewrite_submissions: AdvancedVocabularyRewriteSubmission[];
 };
 export type AdvancedVocabularyResult = {
   kind: 'advanced_vocab'; score_policy: 'none'; lesson_id: string | null;

@@ -99,6 +99,12 @@ describe('admin class submissions model', () => {
           submitted_at: '2026-09-15T01:00:00Z', answers: { 1: 'Sandhu' },
           answer_results: [{ id: '1', submitted_answer: 'Sandhu', is_correct: false }],
         }],
+        controlled_rewrite_submissions: [{
+          status: 'completed', model: 'gemini-flash-lite',
+          created_at: '2026-09-15T00:30:00Z', completed_at: '2026-09-15T00:31:00Z',
+          answers: { 'rewrite-01': 'Learner answer' },
+          feedback: { results: [{ item_id: 'rewrite-01', corrected: 'Corrected answer', grammar_notes: ['Sửa thì'], style_note: 'Tự nhiên hơn', target_usage_note: 'Đúng từ', ok: false }], overall: { strengths: ['Đủ ý'], focus: ['Thì'] } },
+        }],
       }],
     });
     assert.equal(out.students[0].practice_attempts[0].answer_given, 'kinship');
@@ -111,6 +117,8 @@ describe('admin class submissions model', () => {
     assert.deepEqual(out.students[0].listening_attempts[0].answer_results, [
       { id: '1', submitted_answer: 'Sandhu', is_correct: false },
     ]);
+    assert.equal(out.students[0].controlled_rewrite_submissions[0].answers['rewrite-01'], 'Learner answer');
+    assert.equal(out.students[0].controlled_rewrite_submissions[0].feedback.results[0].style_note, 'Tự nhiên hơn');
     assert.equal(out.students[0].required_stages.length, 6);
     assert.equal(findAdvancedVocabularyEvidence(out, 's1', null), out.students[0]);
     assert.deepEqual(out.reference_only, ['writing', 'speaking']);
@@ -123,6 +131,8 @@ describe('admin class submissions model', () => {
     assert.match(UI, /Xem đáp án sau self-check/);
     assert.match(UI, /Xem từng câu/);
     assert.match(UI, /stateLabel/);
+    assert.match(UI, /Controlled Rewrite · một lượt/);
+    assert.match(UI, /Bài làm vẫn được lưu và không gọi chấm lần hai/);
   });
 
   test('opens advanced evidence for a learner who left the cohort', () => {

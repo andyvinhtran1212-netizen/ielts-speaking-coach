@@ -240,6 +240,41 @@ async def test_controlled_rewrite_saves_all_answers_and_calls_grader_once(monkey
     assert exc.value.status_code == 409
 
 
+def test_abandoned_controlled_rewrite_becomes_terminal_without_regrading(monkeypatch):
+    stale = {
+        "id": "rewrite-sub-1", "class_assignment_item_id": "item-1",
+        "status": "processing",
+        "provider_started_at": "2026-09-20T00:00:00+00:00",
+        "created_at": "2026-09-20T00:00:00+00:00",
+    }
+
+    class Query:
+        def __init__(self):
+            self.patch = None
+
+        def select(self, *_args): return self
+        def update(self, payload): self.patch = payload; return self
+        def eq(self, *_args): return self
+        def lte(self, *_args): return self
+        def limit(self, *_args): return self
+        def execute(self):
+            if self.patch:
+                stale.update(self.patch)
+            return SimpleNamespace(data=[stale])
+
+    class Admin:
+        def table(self, name):
+            assert name == "advanced_vocab_rewrite_submissions"
+            return Query()
+
+    monkeypatch.setattr(service, "_admin", lambda: Admin())
+    row = service._rewrite_submission("item-1")
+
+    assert row["status"] == "failed"
+    assert row["error_code"] == "worker_interrupted"
+    assert row["completed_at"]
+
+
 def test_controlled_rewrite_projection_whitelists_activity_metadata():
     lesson = deepcopy(_lesson())
     rewrite = service._activity(lesson, "controlled_rewrite")
@@ -743,7 +778,7 @@ def test_learner_reading_projection_strips_source_and_correction_evidence(
         "listening_submitted": False, "required_completed": False,
     })
     monkeypatch.setattr(service, "_assigned_lesson", lambda **_kwargs: (
-        {"id": "bank-1", "code": "C4-ADV-T22", "title": "Advanced T22"},
+        {"id": "bank-1", "code": "C5-ADV-T22", "title": "Advanced T22"},
         {"id": "item-1"}, lesson,
     ))
 
@@ -792,7 +827,7 @@ def test_learner_listening_projection_whitelists_top_and_nested_questions(
         "listening_submitted": False, "required_completed": False,
     })
     monkeypatch.setattr(service, "_assigned_lesson", lambda **_kwargs: (
-        {"id": "bank-1", "code": "C4-ADV-T11", "title": "Advanced T11"},
+        {"id": "bank-1", "code": "C5-ADV-T11", "title": "Advanced T11"},
         {"id": "item-1"}, lesson,
     ))
 
@@ -1107,12 +1142,12 @@ def test_admin_results_collects_each_learner_evidence_without_an_overall_score(m
         "class_assignments": [{
             "id": "assignment-1", "skill": "course", "content_id": "bank-1",
             "title": "Advanced T01", "content_config": {
-                "test_title": "Advanced T01", "bank_code": "C4-ADV-T01",
+                "test_title": "Advanced T01", "bank_code": "C5-ADV-T01",
                 "runtime": {"kind": "advanced_vocab", "lesson_id": "ADV-T01"},
             },
         }],
         "quiz_banks": [{
-            "id": "bank-1", "code": "C4-ADV-T01", "title": "Advanced T01",
+            "id": "bank-1", "code": "C5-ADV-T01", "title": "Advanced T01",
             "skill_area": "course", "meta": {
                 "runtime": {"kind": "advanced_vocab", "lesson_id": "ADV-T01"},
             },

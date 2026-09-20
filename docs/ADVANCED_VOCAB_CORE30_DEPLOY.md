@@ -88,7 +88,17 @@ snapshots must already be committed and match the manifest.
    detected after that bank has been assigned, the importer fails closed:
    publish the revision under a versioned bank/content path so existing frozen
    assignments remain reopenable.
-4. In Admin → Classes → Bài tập, verify that `C5-ADV-T01` through
+4. Preview the imported lessons, then explicitly open them for assignment:
+
+   ```bash
+   backend/venv/bin/python backend/scripts/import_advanced_vocab_core30.py \
+     --commit --publish
+   ```
+
+   `--commit` by itself preserves an existing bank's publication state and
+   never silently hides a released bank. `--publish` is the deliberate release
+   control required before Admin can assign the banks.
+5. In Admin → Classes → Bài tập, verify that `C5-ADV-T01` through
    `C5-ADV-T30` appear after the numbered course-session banks. They must show
    the self-paced/no-grade notice and must not show pass-threshold controls.
 
@@ -116,8 +126,9 @@ cover the first and last bank boundaries.
 
 - Do not set `lesson_no` on these banks. Numbered lesson slots belong to the
   canonical C5 course banks and are protected by a unique index.
-- Do not publish these banks into the generic quiz browser. They are entered
-  only through an active class assignment.
+- Although `is_published` marks these banks ready for assignment, they remain
+  course content and are entered by learners only through an active class
+  assignment; do not add them to a public catalog.
 - Do not add Writing submission or Speaking grading to this runtime. A graded
   Writing task must continue to originate from a teacher assignment.
 - Do not delete an assignment item after it has Advanced Vocabulary evidence;

@@ -140,6 +140,7 @@ export function normalizeAdvancedVocabularyResult(value) {
           answer_results: normalizeAdvancedAnswerResults(attempt.answer_results),
         };
       }) : [],
+      controlled_rewrite_submissions: Array.isArray(row.controlled_rewrite_submissions) ? row.controlled_rewrite_submissions.map(normalizeAdvancedRewriteSubmission).filter(Boolean) : [],
     };
   }).filter(Boolean);
   return {
@@ -147,6 +148,34 @@ export function normalizeAdvancedVocabularyResult(value) {
     required_stages: requiredStages,
     reference_only: Array.isArray(payload.reference_only) ? payload.reference_only.map(text).filter(Boolean) : [],
     students,
+  };
+}
+
+function normalizeAdvancedRewriteSubmission(value) {
+  const row = object(value);
+  if (!text(row.status)) return null;
+  const feedbackValue = row.feedback && typeof row.feedback === 'object' && !Array.isArray(row.feedback) ? row.feedback : null;
+  const overall = object(feedbackValue?.overall);
+  const feedback = feedbackValue ? {
+    results: Array.isArray(feedbackValue.results) ? feedbackValue.results.map((value) => {
+      const result = object(value);
+      return {
+        item_id: text(result.item_id), corrected: nullableText(result.corrected),
+        grammar_notes: Array.isArray(result.grammar_notes) ? result.grammar_notes.map(text).filter(Boolean) : [],
+        style_note: nullableText(result.style_note), target_usage_note: nullableText(result.target_usage_note),
+        ok: typeof result.ok === 'boolean' ? result.ok : null,
+      };
+    }).filter((result) => result.item_id) : [],
+    overall: {
+      strengths: Array.isArray(overall.strengths) ? overall.strengths.map(text).filter(Boolean) : [],
+      focus: Array.isArray(overall.focus) ? overall.focus.map(text).filter(Boolean) : [],
+    },
+  } : null;
+  return {
+    answers: object(row.answers), feedback, status: text(row.status),
+    model: nullableText(row.model), prompt_version: nullableText(row.prompt_version),
+    error_code: nullableText(row.error_code), created_at: nullableText(row.created_at),
+    completed_at: nullableText(row.completed_at),
   };
 }
 
@@ -165,7 +194,7 @@ export function advancedVocabularyStudentState(data) {
   if (data?.item?.submitted_at) return 'done';
   const hasEvidence = Boolean(
     data?.item?.opened_at || data?.stages?.length || data?.practice_attempts?.length ||
-    data?.sections?.length || data?.listening_attempts?.length
+    data?.sections?.length || data?.listening_attempts?.length || data?.controlled_rewrite_submissions?.length
   );
   return hasEvidence ? 'doing' : 'untouched';
 }
