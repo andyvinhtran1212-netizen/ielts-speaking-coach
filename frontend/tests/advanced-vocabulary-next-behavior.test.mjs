@@ -72,6 +72,7 @@ describe('Advanced Vocabulary core-30 content and interaction contract', () => {
     assert.match(UI, /tabIndex=\{flipped \? -1 : 0\}/);
     assert.match(UI, /Chạm hoặc nhấn Space để xem nghĩa/);
     assert.match(CSS, /\.avx-vocab-stage \.fcs-audio \{[^}]*min-width:\s*44px[^}]*min-height:\s*44px/s);
+    assert.match(CSS, /\.avx-vocab-stage \.fcs-face\[aria-hidden="true"\] \{\s*pointer-events:\s*none;\s*\}/);
   });
 
   test('canonical IELTS truth-value controls are scoped to section questions', () => {
