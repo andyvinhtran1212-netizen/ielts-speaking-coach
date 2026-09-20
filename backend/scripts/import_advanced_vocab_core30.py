@@ -74,7 +74,7 @@ def lesson_spec(lesson_id: str, *, course_id: str | None = None) -> dict:
             # (course_id, lesson_no) slot owned by the scheduled C5 bank.
             "lesson_no": None,
             "words_count": len(lesson["vocabulary"]),
-            "source": "advanced-vocab-core30-v5",
+            "source": "advanced-vocab-core30-v6-t11-map-locked",
             "version": 1,
             # Course banks are opened by an assignment, never public listing.
             "is_published": False,

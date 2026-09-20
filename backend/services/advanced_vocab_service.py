@@ -126,9 +126,9 @@ def _owned_item(bank_id: str, user_id: str, item_id: str, *, review: bool = Fals
 def _assigned_lesson(*, bank_id: str, user_id: str, item_id: str,
                      review: bool = False) -> tuple[dict, dict, dict]:
     """Resolve content only from the immutable runtime snapshot issued to the learner."""
-    bank, _ = _runtime(bank_id)
     item = _owned_item(bank_id, user_id, item_id, review=review)
-    frozen = ((item.get("content_config") or {}).get("runtime") or {})
+    config = item.get("content_config") or {}
+    frozen = (config.get("runtime") or {})
     lesson_id = str(frozen.get("lesson_id") or "")
     expected_checksum = str(frozen.get("content_checksum") or "")
     if frozen.get("kind") != "advanced_vocab" or not lesson_id or not expected_checksum:
@@ -140,6 +140,14 @@ def _assigned_lesson(*, bank_id: str, user_id: str, item_id: str,
     actual_checksum = lesson_content_checksum(lesson)
     if declared_checksum != actual_checksum or actual_checksum != expected_checksum:
         raise HTTPException(409, "Phiên bản bài giao không khớp nội dung đã triển khai")
+    # The assignment snapshot is the canonical identity after issuance.  A
+    # later bank retirement/version switch must not orphan an existing learner
+    # review, so no mutable quiz_banks read participates in content resolution.
+    bank = {
+        "id": bank_id,
+        "code": config.get("bank_code"),
+        "title": config.get("test_title") or lesson.get("title"),
+    }
     return bank, item, lesson
 
 
@@ -431,6 +439,24 @@ def _attempt_rows(item_id: str) -> list[dict]:
             .eq("class_assignment_item_id", item_id).order("created_at").execute().data) or []
 
 
+def _selection_rows(item_id: str) -> list[dict]:
+    return (_admin().table("advanced_vocab_practice_selections")
+            .select("stage,qids,created_at")
+            .eq("class_assignment_item_id", item_id).execute().data) or []
+
+
+def _selection_qids(item_id: str, stage: str) -> list[str] | None:
+    rows = (_admin().table("advanced_vocab_practice_selections")
+            .select("qids").eq("class_assignment_item_id", item_id)
+            .eq("stage", stage).limit(1).execute().data) or []
+    if not rows:
+        return None
+    qids = rows[0].get("qids")
+    if not isinstance(qids, list) or not all(isinstance(qid, str) for qid in qids):
+        raise HTTPException(500, "Bộ câu luyện tập đã lưu không hợp lệ")
+    return qids
+
+
 def _section_rows(item_id: str) -> list[dict]:
     return (_admin().table("course_section_submissions")
             .select("section,total,correct,score,duration_sec,submitted_at,"
@@ -461,6 +487,7 @@ def _safe_rewrite_submission(row: dict | None) -> dict | None:
 
 def _progress(item_id: str) -> dict:
     stages = _stage_rows(item_id)
+    selections = _selection_rows(item_id)
     attempts = _attempt_rows(item_id)
     sections = _section_rows(item_id)
     listening_attempt = _listening_attempt(item_id)
@@ -494,6 +521,7 @@ def _progress(item_id: str) -> dict:
     return {
         "completed_stages": sorted(complete),
         "stages": stages,
+        "practice_selections": selections,
         "answers": [{
             "stage": row.get("stage"), "qid": row.get("qid"),
             "answer": row.get("answer_given"), "is_correct": row.get("is_correct"),
@@ -512,8 +540,30 @@ def learner_lesson(*, user_id: str, bank_id: str, item_id: str) -> dict:
     bank, item, lesson = _assigned_lesson(
         bank_id=bank_id, user_id=user_id, item_id=item_id, review=True,
     )
-    selected = practice_selection(lesson)
     progress = _progress(item_id)
+    authored_selection = practice_selection(lesson)
+    persisted_selections = {
+        row.get("stage"): row.get("qids")
+        for row in progress.get("practice_selections") or []
+    }
+    selected: dict[str, list[dict]] = {}
+    for practice_stage, authored_rows in authored_selection.items():
+        qids = persisted_selections.get(practice_stage)
+        if qids is None:
+            selected[practice_stage] = []
+            continue
+        if (not isinstance(qids, list)
+                or not all(isinstance(qid, str) for qid in qids)
+                or len(qids) != _PRACTICE_COUNTS[practice_stage]
+                or len(set(qids)) != len(qids)):
+            raise HTTPException(500, "Bộ câu luyện tập đã lưu không hợp lệ")
+        by_id = {row.get("item_id"): row for row in authored_rows}
+        try:
+            selected[practice_stage] = [by_id[qid] for qid in qids]
+        except KeyError as exc:
+            raise HTTPException(
+                409, "Bộ câu luyện tập không khớp phiên bản bài đã giao",
+            ) from exc
     answered = {row["qid"] for row in progress["answers"]}
     content_checksum = str(
         (lesson.get("provenance") or {}).get("content_checksum") or ""
@@ -708,9 +758,59 @@ def complete_vocabulary(*, user_id: str, bank_id: str, item_id: str,
 def start_practice(*, user_id: str, bank_id: str, item_id: str, stage: str) -> dict:
     if stage not in _PRACTICE_COUNTS:
         raise HTTPException(404, "Không tìm thấy phần luyện tập")
-    _assigned_lesson(bank_id=bank_id, user_id=user_id, item_id=item_id)
+    _, _, lesson = _assigned_lesson(
+        bank_id=bank_id, user_id=user_id, item_id=item_id,
+    )
     _require_stage(item_id, "vocabulary" if stage == "practice_1" else "practice_1")
-    return _progress(item_id)
+    authored = practice_selection(lesson)[stage]
+    proposed_qids = [str(row["item_id"]) for row in authored]
+    try:
+        response = _admin().rpc("start_advanced_vocab_practice", {
+            "p_item_id": item_id,
+            "p_user_id": user_id,
+            "p_bank_id": bank_id,
+            "p_stage": stage,
+            "p_qids": proposed_qids,
+        }).execute().data
+    except Exception as exc:  # noqa: BLE001
+        message = str(exc)
+        if any(token in message for token in (
+            "advanced_vocab_assignment_closed",
+            "advanced_vocab_assignment_expired",
+            "advanced_vocab_membership_inactive",
+            "advanced_vocab_prerequisite_incomplete",
+        )):
+            raise HTTPException(
+                409, "Bài giao không còn nhận tương tác mới. Hãy tải lại tiến độ.",
+            ) from exc
+        raise HTTPException(500, "Không bắt đầu được phần luyện tập") from exc
+    saved = response[0] if isinstance(response, list) and response else response
+    saved_qids = (saved or {}).get("qids") if isinstance(saved, dict) else None
+    if (not isinstance(saved_qids, list)
+            or not all(isinstance(qid, str) for qid in saved_qids)
+            or len(saved_qids) != _PRACTICE_COUNTS[stage]
+            or len(set(saved_qids)) != len(saved_qids)):
+        raise HTTPException(500, "Bộ câu luyện tập đã lưu không hợp lệ")
+    by_id = {str(row.get("item_id")): row for row in authored}
+    if any(qid not in by_id for qid in saved_qids):
+        raise HTTPException(409, "Bộ câu luyện tập không khớp phiên bản bài đã giao")
+    content_checksum = str(
+        (lesson.get("provenance") or {}).get("content_checksum") or ""
+    ) or None
+    questions = [
+        _safe_question(
+            by_id[qid],
+            audio_url=_asset_url(
+                lesson["lesson_id"],
+                next((word.get("audio_headword")
+                      for word in lesson.get("vocabulary") or []
+                      if word.get("lexeme_id") == by_id[qid].get("lexeme_id")), None),
+                content_checksum,
+            ),
+        )
+        for qid in saved_qids
+    ]
+    return {"stage": stage, "questions": questions, "progress": _progress(item_id)}
 
 
 def _normal(value: Any, *, case_sensitive: bool = False) -> str:
@@ -764,7 +864,14 @@ def answer_practice(*, user_id: str, bank_id: str, item_id: str, stage: str,
     if stage not in _PRACTICE_COUNTS:
         raise HTTPException(404, "Không tìm thấy phần luyện tập")
     _require_stage(item_id, prerequisite)
-    selected = practice_selection(lesson)[stage]
+    authored = practice_selection(lesson)[stage]
+    persisted_qids = _selection_qids(item_id, stage)
+    if persisted_qids is None:
+        raise HTTPException(409, "Hãy bắt đầu phần luyện tập trước")
+    authored_by_id = {str(row.get("item_id")): row for row in authored}
+    if any(selected_qid not in authored_by_id for selected_qid in persisted_qids):
+        raise HTTPException(409, "Bộ câu luyện tập không khớp phiên bản bài đã giao")
+    selected = [authored_by_id[selected_qid] for selected_qid in persisted_qids]
     item = next((row for row in selected if row.get("item_id") == qid), None)
     if not item:
         raise HTTPException(404, "Câu hỏi không thuộc phần luyện tập này")
@@ -1194,7 +1301,15 @@ def assignment_results(*, assignment_id: str) -> dict:
     if assignment.get("skill") != "course":
         raise HTTPException(404, "Không tìm thấy bài giao Advanced Vocabulary")
     bank_id = str(assignment.get("content_id") or "")
-    bank, runtime = _runtime(bank_id)
+    config = assignment.get("content_config") or {}
+    runtime = config.get("runtime") or {}
+    if runtime.get("kind") != "advanced_vocab":
+        raise HTTPException(404, "Không tìm thấy bài giao Advanced Vocabulary")
+    bank = {
+        "id": bank_id,
+        "code": config.get("bank_code"),
+        "title": config.get("test_title") or assignment.get("title"),
+    }
     items = _paged(
         "class_assignment_items",
         "id,student_id,state,opened_at,submitted_at,passed_at,score,mastery",

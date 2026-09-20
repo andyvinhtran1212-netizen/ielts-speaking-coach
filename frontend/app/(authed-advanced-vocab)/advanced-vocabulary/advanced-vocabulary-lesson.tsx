@@ -9,6 +9,7 @@ import {
   questionOptionIdentity,
   readingSupportLines,
 } from '@/lib/advanced-vocabulary-model.mjs';
+import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 type Json = Record<string, any>;
 type Stage = 'vocabulary' | 'practice_1' | 'practice_2' | 'reading' | 'controlled_rewrite' | 'listening' | 'writing' | 'speaking';
@@ -25,8 +26,14 @@ const STAGES: { id: Stage; short: string; label: string }[] = [
 ];
 
 function errorText(error: unknown) {
-  if (error instanceof Error) return error.message;
-  return 'Có lỗi xảy ra. Hãy thử lại.';
+  const status = Number((error as { status?: unknown } | null)?.status || 0);
+  if (status === 401) return 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.';
+  if (status === 403 || status === 404) return 'Bài học này hiện không khả dụng cho tài khoản của bạn.';
+  if (status === 409) return 'Trạng thái bài học vừa thay đổi. Hãy tải lại để tiếp tục từ dữ liệu đã lưu.';
+  const message = error instanceof Error ? error.message.trim() : '';
+  if (/^(Không|Chưa|Hãy|Bài|Câu|Liên kết)\b/u.test(message)
+      && !/(supabase|postgrest|postgres|provider|stack|https?:\/\/)/i.test(message)) return message;
+  return 'Không hoàn tất được thao tác. Hãy thử lại hoặc tải lại bài học.';
 }
 
 function Blocks({ blocks }: { blocks: Json[] | undefined }) {
@@ -56,12 +63,12 @@ function BlockSections({ sections }: { sections: Json[] | undefined }) {
   ))}</>;
 }
 
-function AudioButton({ src, label }: { src?: string | null; label: string }) {
+function AudioButton({ src, label, tabIndex }: { src?: string | null; label: string; tabIndex?: number }) {
   const play = (event: React.MouseEvent) => {
     event.stopPropagation();
     if (src) void new Audio(src).play();
   };
-  return <button type="button" className="fcs-audio" onClick={play} disabled={!src} aria-label={label}>▶<span>{label}</span></button>;
+  return <button type="button" className="fcs-audio" onClick={play} disabled={!src} aria-label={label} tabIndex={tabIndex}><span aria-hidden="true">▶</span></button>;
 }
 
 function InlineText({ text }: { text: string }) {
@@ -82,7 +89,7 @@ function ReadingSupportMaterial({ content }: { content: Json }) {
     : <p key={index}>{row.lines[0]}</p>)}</div>;
 }
 
-function VocabularyStage({ data, onDone }: { data: Json; onDone: (ids: string[]) => Promise<void> }) {
+function VocabularyStage({ data, onDone, readOnly = false }: { data: Json; onDone: (ids: string[]) => Promise<void>; readOnly?: boolean }) {
   const words = data.lesson.vocabulary as Json[];
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -112,17 +119,20 @@ function VocabularyStage({ data, onDone }: { data: Json; onDone: (ids: string[])
       <div className="fcs-progress__track"><span style={{ width: `${((index + 1) / words.length) * 100}%` }} /></div>
     </div>
     <div className="fcs-stage">
-      <div className={`fcs-card ${flipped ? 'is-flipped' : ''}`}>
-        <article className="fcs-face fcs-face--front">
+      <div className={`fcs-card ${flipped ? 'is-flipped' : ''}`} role="button" tabIndex={0} aria-label={flipped ? 'Lật về mặt từ vựng' : 'Lật thẻ để xem nghĩa'} onClick={() => setFlipped((value) => !value)} onKeyDown={(event) => {
+        if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return;
+        event.preventDefault(); setFlipped((value) => !value);
+      }}>
+        <article className="fcs-face fcs-face--front" aria-hidden={flipped}>
           <div className="fcs-card__topline"><span className="fcs-pill">{word.level}</span><span className="fcs-memory">{word.part_of_speech}</span></div>
-          <div className="fcs-word"><p>{word.headword}</p><span>{word.pronunciation}</span><AudioButton src={word.audio_headword} label="Nghe từ" /></div>
-          <p className="fcs-flip-hint"><span>↻</span> Nhấn vào thẻ để xem nghĩa và cách dùng</p>
+          <div className="fcs-word"><p>{word.headword}</p><span>{word.pronunciation}</span><AudioButton src={word.audio_headword} label="Nghe từ" tabIndex={flipped ? -1 : 0} /></div>
+          <p className="fcs-flip-hint"><span aria-hidden="true">↻</span> Chạm hoặc nhấn Space để xem nghĩa</p>
         </article>
-        <article className="fcs-face fcs-face--back">
-          <div className="fcs-back-head"><div><h2>{word.headword}</h2><span>{word.pronunciation}</span></div><AudioButton src={word.audio_headword} label="Nghe" /></div>
+        <article className="fcs-face fcs-face--back" aria-hidden={!flipped}>
+          <div className="fcs-back-head"><div><h2>{word.headword}</h2><span>{word.pronunciation}</span></div><AudioButton src={word.audio_headword} label="Nghe" tabIndex={flipped ? 0 : -1} /></div>
           <p className="fcs-definition fcs-definition--primary">{word.definition_vi}</p>
           <p className="fcs-definition">{word.definition_en}</p>
-          <div className="fcs-example"><div><span>Ví dụ trong ngữ cảnh</span><AudioButton src={word.audio_example} label="Nghe ví dụ" /></div><p>{word.example}</p></div>
+          <div className="fcs-example"><div><span>Ví dụ trong ngữ cảnh</span><AudioButton src={word.audio_example} label="Nghe ví dụ" tabIndex={flipped ? 0 : -1} /></div><p>{word.example}</p></div>
           <div className="fcs-relation"><span>Collocations</span><div>{(word.collocations || []).map((value: string) => <span className="fcs-chip" key={value}>{value}</span>)}</div></div>
           <div className="fcs-callout fcs-callout--memory"><span>↗</span><p>{word.memory_hook}</p></div>
           {word.common_error && <div className="fcs-callout fcs-callout--warning"><span>!</span><p>{word.common_error}</p></div>}
@@ -134,21 +144,23 @@ function VocabularyStage({ data, onDone }: { data: Json; onDone: (ids: string[])
       <button className="av-button av-button-secondary" type="button" onClick={() => setFlipped((value) => !value)}>↻ Lật thẻ</button>
       {index < words.length - 1
         ? <button className="av-button av-button-primary" type="button" onClick={() => move(1)}>Tiếp →</button>
-        : <button className="av-button av-button-primary" type="button" disabled={seen.size < words.length || busy} onClick={() => void finish()}>{busy ? 'Đang lưu…' : 'Hoàn tất thẻ từ'}</button>}
+        : <button className="av-button av-button-primary" type="button" disabled={readOnly || seen.size < words.length || busy} onClick={() => void finish()}>{readOnly ? 'Đã lưu tiến độ' : busy ? 'Đang lưu…' : 'Hoàn tất thẻ từ'}</button>}
     </div>
   </div>;
 }
 
 function QuestionInput({ question, value, onChange, disabled, fixedChoiceMode = false }: { question: Json; value: any; onChange: (value: any) => void; disabled?: boolean; fixedChoiceMode?: boolean }) {
-  if (question.input === 'syllable' && question.segments?.length) return <div className="avx-options avx-options--inline">{question.segments.map((segment: string, index: number) => <label key={`${index}-${segment}`}><input type="radio" disabled={disabled} checked={value === index} onChange={() => onChange(index)} /> <span>{segment}</span></label>)}</div>;
-  if (fixedChoiceMode && /T\/F\/NG/i.test(question.question_type || '')) return <div className="avx-options avx-options--inline">{['TRUE', 'FALSE', 'NOT GIVEN'].map((option) => <label key={option}><input type="radio" disabled={disabled} checked={value === option} onChange={() => onChange(option)} /> <span>{option}</span></label>)}</div>;
-  if (fixedChoiceMode && /Y\/N\/NG/i.test(question.question_type || '')) return <div className="avx-options avx-options--inline">{['YES', 'NO', 'NOT GIVEN'].map((option) => <label key={option}><input type="radio" disabled={disabled} checked={value === option} onChange={() => onChange(option)} /> <span>{option}</span></label>)}</div>;
-  if (question.options?.length) return <div className="avx-options">{question.options.map((option: any, index: number) => {
+  const groupName = `answer-${String(question.item_id || question.question_number || question.id || 'question')}`;
+  const legend = String(question.prompt || question.stem || `Câu ${question.question_number || ''}`).trim();
+  if (question.input === 'syllable' && question.segments?.length) return <fieldset className="avx-options avx-options--inline"><legend className="sr-only">{legend}</legend>{question.segments.map((segment: string, index: number) => <label key={`${index}-${segment}`}><input type="radio" name={groupName} disabled={disabled} checked={value === index} onChange={() => onChange(index)} /> <span>{segment}</span></label>)}</fieldset>;
+  if (fixedChoiceMode && /T\/F\/NG/i.test(question.question_type || '')) return <fieldset className="avx-options avx-options--inline"><legend className="sr-only">{legend}</legend>{['TRUE', 'FALSE', 'NOT GIVEN'].map((option) => <label key={option}><input type="radio" name={groupName} disabled={disabled} checked={value === option} onChange={() => onChange(option)} /> <span>{option}</span></label>)}</fieldset>;
+  if (fixedChoiceMode && /Y\/N\/NG/i.test(question.question_type || '')) return <fieldset className="avx-options avx-options--inline"><legend className="sr-only">{legend}</legend>{['YES', 'NO', 'NOT GIVEN'].map((option) => <label key={option}><input type="radio" name={groupName} disabled={disabled} checked={value === option} onChange={() => onChange(option)} /> <span>{option}</span></label>)}</fieldset>;
+  if (question.options?.length) return <fieldset className="avx-options"><legend className="sr-only">{legend}</legend>{question.options.map((option: any, index: number) => {
     const identity = questionOptionIdentity(option, index);
-    return <label key={`${identity.answer}-${identity.label}`}><input type="radio" disabled={disabled} checked={String(value) === String(identity.answer)} onChange={() => onChange(identity.answer)} /> <span>{identity.label}</span></label>;
-  })}</div>;
-  if (question.input === 'boolean' || question.type === 'boolean') return <div className="avx-options avx-options--inline">{[[true, 'Đúng'], [false, 'Sai']].map(([answer, label]) => <label key={String(answer)}><input type="radio" disabled={disabled} checked={value === answer} onChange={() => onChange(answer)} /> <span>{label as string}</span></label>)}</div>;
-  return <input className="av-input" disabled={disabled} value={value ?? ''} onChange={(event) => onChange(event.target.value)} placeholder="Nhập câu trả lời" />;
+    return <label key={`${identity.answer}-${identity.label}`}><input type="radio" name={groupName} disabled={disabled} checked={String(value) === String(identity.answer)} onChange={() => onChange(identity.answer)} /> <span>{identity.label}</span></label>;
+  })}</fieldset>;
+  if (question.input === 'boolean' || question.type === 'boolean') return <fieldset className="avx-options avx-options--inline"><legend className="sr-only">{legend}</legend>{[[true, 'Đúng'], [false, 'Sai']].map(([answer, label]) => <label key={String(answer)}><input type="radio" name={groupName} disabled={disabled} checked={value === answer} onChange={() => onChange(answer)} /> <span>{label as string}</span></label>)}</fieldset>;
+  return <input className="av-input" aria-label={legend || 'Câu trả lời'} disabled={disabled} value={value ?? ''} onChange={(event) => onChange(event.target.value)} placeholder="Nhập câu trả lời" />;
 }
 
 function PracticeStage({ stage, data, onAnswer, onDone }: { stage: 'practice_1' | 'practice_2'; data: Json; onAnswer: (qid: string, answer: any, responseTimeMs: number) => Promise<Json>; onDone: () => void }) {
@@ -187,6 +199,21 @@ function PracticeStage({ stage, data, onAnswer, onDone }: { stage: 'practice_1' 
   </div>;
 }
 
+function PracticeStart({ stage, onStart, readOnly }: { stage: 'practice_1' | 'practice_2'; onStart: () => Promise<void>; readOnly: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const start = async () => {
+    setBusy(true);
+    try { await onStart(); } finally { setBusy(false); }
+  };
+  return <div className="avx-question-card">
+    <div className="avx-complete-callout">
+      <strong>{stage === 'practice_1' ? 'Luyện nhận diện' : 'Luyện vận dụng'}</strong>
+      <p>Khi bắt đầu, hệ thống sẽ lưu một bộ câu cố định cho bài giao này. Tải lại hoặc đổi thiết bị vẫn tiếp tục đúng bộ câu đó.</p>
+    </div>
+    <button className="av-button av-button-primary avx-wide" type="button" disabled={busy || readOnly} onClick={() => void start()}>{readOnly ? 'Bài đang ở chế độ xem lại' : busy ? 'Đang chuẩn bị…' : 'Bắt đầu luyện tập'}</button>
+  </div>;
+}
+
 function ReadingStage({ content, completed, saved, onSubmit, onContinue }: { content: Json; completed: boolean; saved?: Json; onSubmit: (answers: Json, seconds: number) => Promise<Json>; onContinue: () => void }) {
   const [answers, setAnswers] = useState<Json>(() => Object.fromEntries((saved?.review?.answer_results || []).map((row: Json) => [String(row.id), row.submitted_answer])));
   const [result, setResult] = useState<Json | null>(() => saved?.review || null);
@@ -203,8 +230,17 @@ function ReadingStage({ content, completed, saved, onSubmit, onContinue }: { con
     }
     return output;
   }, [content.questions]);
+  const moveMobilePane = (event: React.KeyboardEvent<HTMLButtonElement>, current: 'passage' | 'questions') => {
+    let next: 'passage' | 'questions' | null = null;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') next = current === 'passage' ? 'questions' : 'passage';
+    if (event.key === 'Home') next = 'passage';
+    if (event.key === 'End') next = 'questions';
+    if (!next) return;
+    event.preventDefault(); setMobilePane(next);
+    window.requestAnimationFrame(() => document.getElementById(`avx-reading-tab-${next}`)?.focus());
+  };
   const submit = async () => { setBusy(true); try { setResult(await onSubmit(answers, Math.round((Date.now() - started.current) / 1000))); } finally { setBusy(false); } };
-  return <><div className="avx-reading-mobile-tabs" role="tablist" aria-label="Chọn vùng Reading"><button id="avx-reading-tab-passage" role="tab" aria-controls="avx-reading-panel-passage" aria-selected={mobilePane === 'passage'} className={mobilePane === 'passage' ? 'is-active' : ''} type="button" onClick={() => setMobilePane('passage')}>Bài đọc</button><button id="avx-reading-tab-questions" role="tab" aria-controls="avx-reading-panel-questions" aria-selected={mobilePane === 'questions'} className={mobilePane === 'questions' ? 'is-active' : ''} type="button" onClick={() => setMobilePane('questions')}>Câu hỏi · {Object.keys(answers).length}/{content.questions?.length || 0}</button></div><div className="avx-reading-workspace">
+  return <><div className="avx-reading-mobile-tabs" role="tablist" aria-label="Chọn vùng Reading"><button id="avx-reading-tab-passage" role="tab" aria-controls="avx-reading-panel-passage" aria-selected={mobilePane === 'passage'} tabIndex={mobilePane === 'passage' ? 0 : -1} className={mobilePane === 'passage' ? 'is-active' : ''} type="button" onKeyDown={(event) => moveMobilePane(event, 'passage')} onClick={() => setMobilePane('passage')}>Bài đọc</button><button id="avx-reading-tab-questions" role="tab" aria-controls="avx-reading-panel-questions" aria-selected={mobilePane === 'questions'} tabIndex={mobilePane === 'questions' ? 0 : -1} className={mobilePane === 'questions' ? 'is-active' : ''} type="button" onKeyDown={(event) => moveMobilePane(event, 'questions')} onClick={() => setMobilePane('questions')}>Câu hỏi · {Object.keys(answers).length}/{content.questions?.length || 0}</button></div><div className="avx-reading-workspace">
     <article id="avx-reading-panel-passage" role="tabpanel" aria-labelledby="avx-reading-tab-passage" className={`avx-reading-pane avx-reading-passage ${mobilePane === 'passage' ? 'is-mobile-active' : ''}`}><div className="avx-pane-head"><span>Passage</span><strong>{content.title}</strong></div>{(content.passages || []).map((paragraph: Json) => <section key={paragraph.paragraph}><b>{paragraph.paragraph}</b><p>{paragraph.text}</p></section>)}</article>
     <aside id="avx-reading-panel-questions" role="tabpanel" aria-labelledby="avx-reading-tab-questions" className={`avx-reading-pane avx-reading-questions ${mobilePane === 'questions' ? 'is-mobile-active' : ''}`}><div className="avx-pane-head"><span>Questions</span><strong>{Object.keys(answers).length}/{content.questions?.length || 0}</strong></div>
       {completed && !result ? <div className="avx-complete-callout"><strong>Reading đã được lưu</strong><p>{saved ? `${saved.correct}/${saved.total} câu đúng. ` : ''}Bài đã nộp được giữ nguyên; bạn không cần làm lại khi mở xem.</p></div> : <><ReadingSupportMaterial content={content} />
@@ -344,12 +380,16 @@ export function AdvancedVocabularyLesson() {
   const [stage, setStage] = useState<Stage>('vocabulary');
   const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading');
   const [error, setError] = useState('');
+  const errorHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const inlineErrorRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams(window.location.search);
     const bank = params.get('bank'); const item = params.get('item');
     if (!bank || !item) { setError('Liên kết bài học thiếu bank hoặc item.'); setPhase('error'); return; }
     try {
+      const ready = await whenGlobalReady(() => !!window.api?.get, 'window.api (Advanced Vocabulary)');
+      if (!ready) throw new Error('Chưa thể khởi tạo bài học. Hãy tải lại trang.');
       const payload = await window.api.get<Json>(`/api/advanced-vocab/lessons/${encodeURIComponent(bank)}?item=${encodeURIComponent(item)}`);
       setData(payload);
       const done = new Set(payload.progress.completed_stages || []);
@@ -358,6 +398,10 @@ export function AdvancedVocabularyLesson() {
     } catch (cause) { setError(errorText(cause)); setPhase('error'); }
   }, []);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (phase === 'error') errorHeadingRef.current?.focus();
+    else if (error) inlineErrorRef.current?.focus();
+  }, [error, phase]);
 
   const refreshCanonicalLesson = useCallback(async () => {
     const params = new URLSearchParams(window.location.search);
@@ -382,19 +426,39 @@ export function AdvancedVocabularyLesson() {
     return completed.has('listening');
   };
   const mergeProgress = (progress: Json) => setData((current) => current ? ({ ...current, progress }) : current);
+  const startPractice = async (practiceStage: 'practice_1' | 'practice_2') => {
+    const response = await post('/api/advanced-vocab/practice/start', {
+      bank_id: data?.bank?.id,
+      item_id: data?.assignment?.item_id,
+      stage: practiceStage,
+    });
+    setData((current) => current ? ({
+      ...current,
+      lesson: {
+        ...current.lesson,
+        practice: { ...current.lesson.practice, [practiceStage]: response.questions || [] },
+      },
+      progress: response.progress || current.progress,
+    }) : current);
+  };
 
   if (phase === 'loading') return <main id="aver-main-content" className="shell avx-shell"><div className="avx-state is-loading" role="status" aria-live="polite"><span aria-hidden="true" /> <p>Đang mở bài học…</p></div></main>;
-  if (phase === 'error' || !data) return <main id="aver-main-content" className="shell avx-shell"><div className="avx-state"><h1>Chưa mở được bài học</h1><p>{error}</p><a className="av-button av-button-secondary" href="/my-class">Quay lại lớp học</a></div></main>;
+  if (phase === 'error' || !data) return <main id="aver-main-content" className="shell avx-shell"><div className="avx-state"><h1 ref={errorHeadingRef} tabIndex={-1}>Chưa mở được bài học</h1><p>{error}</p><div className="avx-state-actions"><button className="av-button av-button-primary" type="button" onClick={() => void load()}>Thử lại</button><a className="av-button av-button-secondary" href="/my-class">Quay lại lớp học</a></div></div></main>;
 
   const base = { bank_id: data.bank.id, item_id: data.assignment.item_id };
   return <main id="aver-main-content" className="shell avx-shell">
     <header className="avx-hero"><div><p className="avx-eyebrow">{data.lesson.lesson_id} · Self-paced lesson</p><h1>{data.lesson.title}</h1><p>Hoàn tất từng hoạt động theo thứ tự. Reading và Listening được lưu riêng; không có điểm tổng mặc định.</p></div><a href="/my-class" className="av-button av-button-tertiary">← Lớp của tôi</a></header>
     <nav className="avx-stage-nav" aria-label="Các phần của bài học">{STAGES.map((item) => { const unlocked = isUnlocked(item.id); return <button key={item.id} type="button" aria-current={stage === item.id ? 'step' : undefined} className={`${stage === item.id ? 'is-active' : ''} ${completed.has(item.id) ? 'is-done' : ''}`} disabled={!unlocked} onClick={() => setStage(item.id)}><span>{completed.has(item.id) ? '✓' : item.short}</span><b>{item.label}</b></button>; })}</nav>
-    {error && <div className="avx-inline-error" role="alert">{error}</div>}
+    {error && <div className="avx-inline-error" role="alert" ref={inlineErrorRef} tabIndex={-1}>{error}<button className="av-button av-button-secondary" type="button" onClick={() => void load()}>Tải lại dữ liệu đã lưu</button></div>}
+    {data.assignment.accepting === false && <div className="avx-boundary-note" role="status"><strong>Chế độ xem lại</strong><p>Bài đã đóng nhận tương tác mới. Tiến độ đã lưu và nội dung tham khảo vẫn được giữ nguyên.</p></div>}
     <div className="avx-section-head"><p>{STAGES.find((item) => item.id === stage)?.short}</p><div><span>Lesson stage</span><h2>{STAGES.find((item) => item.id === stage)?.label}</h2></div></div>
-    {stage === 'vocabulary' && <VocabularyStage data={data} onDone={async (ids) => { const progress = await post('/api/advanced-vocab/vocabulary/complete', { ...base, seen_lexeme_ids: ids }); mergeProgress(progress); setStage('practice_1'); }} />}
-    {stage === 'practice_1' && <PracticeStage stage="practice_1" data={data} onAnswer={async (qid, answer, response_time_ms) => { const response = await post('/api/advanced-vocab/practice/answer', { ...base, stage: 'practice_1', qid, answer, response_time_ms }); mergeProgress(response.progress); return response; }} onDone={() => setStage('practice_2')} />}
-    {stage === 'practice_2' && <PracticeStage stage="practice_2" data={data} onAnswer={async (qid, answer, response_time_ms) => { const response = await post('/api/advanced-vocab/practice/answer', { ...base, stage: 'practice_2', qid, answer, response_time_ms }); mergeProgress(response.progress); return response; }} onDone={() => setStage('reading')} />}
+    {stage === 'vocabulary' && <VocabularyStage data={data} readOnly={data.assignment.accepting === false} onDone={async (ids) => { const progress = await post('/api/advanced-vocab/vocabulary/complete', { ...base, seen_lexeme_ids: ids }); mergeProgress(progress); setStage('practice_1'); }} />}
+    {stage === 'practice_1' && (data.lesson.practice.practice_1?.length
+      ? <PracticeStage stage="practice_1" data={data} onAnswer={async (qid, answer, response_time_ms) => { const response = await post('/api/advanced-vocab/practice/answer', { ...base, stage: 'practice_1', qid, answer, response_time_ms }); mergeProgress(response.progress); return response; }} onDone={() => setStage('practice_2')} />
+      : <PracticeStart stage="practice_1" readOnly={data.assignment.accepting === false} onStart={() => startPractice('practice_1')} />)}
+    {stage === 'practice_2' && (data.lesson.practice.practice_2?.length
+      ? <PracticeStage stage="practice_2" data={data} onAnswer={async (qid, answer, response_time_ms) => { const response = await post('/api/advanced-vocab/practice/answer', { ...base, stage: 'practice_2', qid, answer, response_time_ms }); mergeProgress(response.progress); return response; }} onDone={() => setStage('reading')} />
+      : <PracticeStart stage="practice_2" readOnly={data.assignment.accepting === false} onStart={() => startPractice('practice_2')} />)}
     {stage === 'reading' && <ReadingStage content={data.lesson.activities.reading} completed={completed.has('reading')} saved={(data.progress.sections || []).find((row: Json) => row.section === 'reading')} onSubmit={async (answers, duration_sec) => { const response = await post('/api/advanced-vocab/reading', { ...base, answers, duration_sec }); setData((current) => current ? preserveReadingResult(current, response) : current); return response; }} onContinue={() => setStage('controlled_rewrite')} />}
     {stage === 'controlled_rewrite' && <ControlledRewriteStage activity={data.lesson.activities.controlled_rewrite} completed={completed.has('controlled_rewrite')} onReveal={async (answers) => { const response = await post('/api/advanced-vocab/controlled-rewrite/complete', { ...base, answers }); setData((current) => current ? preserveControlledRewriteResult(current, response) : current); return response; }} onRefresh={refreshCanonicalLesson} onContinue={() => setStage('listening')} />}
     {stage === 'listening' && <ListeningStage content={data.lesson.activities.listening} completed={completed.has('listening')} saved={(data.progress.sections || []).find((row: Json) => row.section === 'listening')} onSubmit={async (answers, duration_sec) => { const response = await post('/api/advanced-vocab/listening', { ...base, answers, duration_sec }); setData((current) => current ? preserveInitialListeningResult(current, response) : current); return response; }} onRetry={async (answers) => { const response = await post('/api/advanced-vocab/listening/guided-retry', { ...base, answers }); if (response.progress) mergeProgress(response.progress); return response; }} onContinue={() => setStage('writing')} />}

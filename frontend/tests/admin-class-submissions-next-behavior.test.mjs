@@ -58,6 +58,17 @@ describe('admin class submissions model', () => {
     assert.match(UI, /Đã hoàn thành/);
   });
 
+  test('adapts neutral Advanced completion without exposing a pass verdict', () => {
+    const out = normalizeTally({
+      advanced_vocab: true,
+      assignment: { id: 'a1', title: 'Advanced T01', skill: 'course' },
+      counts: { completed: 3, passed: 99 },
+      students: [],
+    });
+    assert.equal(out.counts.passed, 3);
+    assert.match(UI, /done: 'Đã hoàn tất'/);
+  });
+
   test('normalizes effort without dropping unactivated or untouched students', () => {
     const out = normalizeEffort({ advanced_vocab: true, score_policy: 'none', students: [{ student_id: 's1', user_id: null, state: 'no_account', stages_done: 0 }, { student_id: 's2', user_id: 'u2', state: 'stalled', stages_done: 2, questions: 4, correct: 2, accuracy: .5 }, { student_id: null, user_id: 'u-gone', state: 'done', stages_done: 8 }], axes: [{ axis: 'Nouns', wrong: 3 }] });
     assert.deepEqual(out.students.map((row) => row.state), ['no_account', 'stalled', 'done']);
@@ -233,6 +244,7 @@ describe('admin class submissions integration contracts', () => {
     assert.match(UI, /Mẫu nhỏ · chỉ tham khảo/);
     assert.match(UI, /Chưa xác định được các phần bắt buộc/);
     assert.match(UI, /Không chấm/);
+    assert.match(UI, /isAdvancedVocabulary \? \{ \.\.\.EFFORT_BASE, done: 'Đã hoàn tất' \} : EFFORT_BASE/);
     assert.match(UI, /Writing và Speaking chỉ là nội dung tham khảo/);
   });
 
