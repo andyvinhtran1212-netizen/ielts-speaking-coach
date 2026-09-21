@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
+from services.listening_test_grader import normalize_answer
+
 
 TRANSFORM_VERSION = "wav-pcm16-mono-24khz-gap500ms-v1"
 GAP_SECONDS = 0.5
@@ -468,7 +470,7 @@ def _validated_segments(
         except (TypeError, ValueError) as exc:
             raise PackageValidationError(f"{label} bounds không hợp lệ: {stimulus_id}") from exc
         if (not math.isfinite(start) or not math.isfinite(end)
-                or start < 0 or end <= start or end > duration + 0.05):
+                or start < 0 or end <= start or end > duration):
             raise PackageValidationError(f"{label} bounds không hợp lệ: {stimulus_id}")
         if require_text and (
             not isinstance(segment.get("text"), str) or not segment["text"].strip()
@@ -491,7 +493,17 @@ def _validate_objective_options(
                    or not isinstance(value, str) or not value.strip()
                    for key, value in raw.items())):
         raise PackageValidationError(f"Objective options không hợp lệ: {item_id}")
-    if len(set(expected)) != len(expected) or any(answer not in raw for answer in expected):
+    normalized_options = [normalize_answer(key) for key in raw]
+    normalized_option_set = set(normalized_options)
+    if (any(not key for key in normalized_options)
+            or len(normalized_option_set) != len(normalized_options)):
+        raise PackageValidationError(
+            f"Objective option ids trùng sau chuẩn hoá: {item_id}"
+        )
+    normalized_expected = [normalize_answer(answer) for answer in expected]
+    if (any(not answer for answer in normalized_expected)
+            or len(set(normalized_expected)) != len(normalized_expected)
+            or any(answer not in normalized_option_set for answer in normalized_expected)):
         raise PackageValidationError(f"Objective key không selectable: {item_id}")
     if response_type == "multiple_choice":
         if len(expected) < 2:

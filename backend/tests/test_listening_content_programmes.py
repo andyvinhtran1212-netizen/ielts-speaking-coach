@@ -310,6 +310,24 @@ def test_controlled_transcript_must_match_canonical_timing(
         importer.build_import_plan(location)
 
 
+def test_timing_and_transcript_cannot_exceed_wav_by_sub_50ms(tmp_path: Path):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    package_root = release_root / "general" / "fixture"
+    for relative in (
+        "controlled-access/timing/stimulus-1.json",
+        "controlled-access/transcripts/stimulus-1.json",
+    ):
+        path = package_root / relative
+        document = json.loads(path.read_text(encoding="utf-8"))
+        document["segments"][0]["end"] = 1.04
+        _write_json(path, document)
+    _rebind_manifest(release_root)
+
+    location = importer.discover_packages(release_root)[0]
+    with pytest.raises(importer.PackageValidationError, match="Timing bounds"):
+        importer.build_import_plan(location)
+
+
 def test_replay_window_rejects_unknown_declared_evidence_turn(tmp_path: Path):
     release_root = _minimal_publish_ready_package(tmp_path)
     protected_path = (
@@ -390,6 +408,44 @@ def test_objective_key_must_be_selectable_with_valid_cardinality(
 
     location = importer.discover_packages(release_root)[0]
     with pytest.raises(importer.PackageValidationError, match=message):
+        importer.build_import_plan(location)
+
+
+def test_single_choice_option_ids_must_be_unique_after_grading_normalization(
+    tmp_path: Path,
+):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    lesson_path = (
+        release_root / "general" / "fixture" / "learner" / "content"
+        / "lessons" / "lesson-1.json"
+    )
+    lesson = json.loads(lesson_path.read_text(encoding="utf-8"))
+    lesson["items"][0]["options"] = {"A": "One", "a": "Two"}
+    _write_json(lesson_path, lesson)
+    _rebind_manifest(release_root)
+
+    location = importer.discover_packages(release_root)[0]
+    with pytest.raises(importer.PackageValidationError, match="trùng sau chuẩn hoá"):
+        importer.build_import_plan(location)
+
+
+def test_multiple_choice_key_must_be_unique_after_grading_normalization(
+    tmp_path: Path,
+):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    package_root = release_root / "general" / "fixture"
+    lesson_path = package_root / "learner" / "content" / "lessons" / "lesson-1.json"
+    lesson = json.loads(lesson_path.read_text(encoding="utf-8"))
+    lesson["items"][0]["response_type"] = "multiple_choice"
+    _write_json(lesson_path, lesson)
+    protected_path = package_root / "protected" / "source-lessons" / "lesson-1.json"
+    protected = json.loads(protected_path.read_text(encoding="utf-8"))
+    protected["items"][0]["key"]["answers"] = ["A", "a"]
+    _write_json(protected_path, protected)
+    _rebind_manifest(release_root)
+
+    location = importer.discover_packages(release_root)[0]
+    with pytest.raises(importer.PackageValidationError, match="Objective key không selectable"):
         importer.build_import_plan(location)
 
 
