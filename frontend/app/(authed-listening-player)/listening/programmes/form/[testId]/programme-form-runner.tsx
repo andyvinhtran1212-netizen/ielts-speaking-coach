@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { createProgrammeAnswerWriteQueue } from '@/lib/listening-programme-answer-queue.mjs';
 import type { ListeningProgrammePlayerWire } from '@/lib/listening-programmes-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -18,6 +19,9 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [submitting, setSubmitting] = useState(false);
   const pending = useRef<Record<number, number>>({});
+  const saveGeneration = useRef(0);
+  const saveQueue = useRef<ReturnType<typeof createProgrammeAnswerWriteQueue> | null>(null);
+  const submitLock = useRef(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [onceState, setOnceState] = useState<'ready' | 'playing' | 'paused' | 'done'>('ready');
 
@@ -48,24 +52,31 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
       if (!active) return;
       setAnswers(restored);
       const attemptId = String(attempt.attempt_id || '');
+      saveQueue.current = createProgrammeAnswerWriteQueue((qNum, value) =>
+        window.api.patchWith(`/api/listening/tests/attempts/${attemptId}/answers`, { q_num: qNum, user_answer: value }),
+      );
       setOnceState(localStorage.getItem(`listening-once:${attemptId}`) ? 'done' : 'ready');
       setState({ status: 'ready', attemptId, form: { title: String(test.title || 'Bài luyện nghe'), programmeId: String(test.programme_id || ''), lessonId: String(test.listening_lesson_id || ''), replayPolicy: String(test.replay_policy || 'allowed'), audioUrl: String(test.audio_url || ''), questions } });
     })().catch((error: unknown) => { if (active && !(error instanceof DOMException && error.name === 'AbortError')) setState({ status: 'error', message: error instanceof Error ? error.message : 'Không tải được bài nghe.' }); });
-    return () => { active = false; controller.abort(); Object.values(pending.current).forEach(window.clearTimeout); };
+    return () => { active = false; controller.abort(); Object.values(pending.current).forEach(window.clearTimeout); pending.current = {}; saveQueue.current = null; submitLock.current = false; };
   }, [status, testId, user?.id]);
 
   const answeredCount = useMemo(() => Object.values(answers).filter((value) => value.trim()).length, [answers]);
-  async function save(qNum: number, value: string, failSubmit = false) {
-    if (state.status !== 'ready') return;
+  async function save(qNum: number, value: string) {
+    const queue = saveQueue.current;
+    if (state.status !== 'ready' || !queue) return;
+    const generation = ++saveGeneration.current;
     setSaveState('saving');
-    try { await window.api.patchWith(`/api/listening/tests/attempts/${state.attemptId}/answers`, { q_num: qNum, user_answer: value }); setSaveState('saved'); }
-    catch (error) { setSaveState('error'); if (failSubmit) throw error; }
+    try { await queue.enqueue(qNum, value); if (generation === saveGeneration.current) setSaveState('saved'); }
+    catch { if (generation === saveGeneration.current) setSaveState('error'); }
   }
   function update(qNum: number, value: string, immediate = false) {
+    if (submitLock.current) return;
     setAnswers((current) => ({ ...current, [qNum]: value }));
     if (pending.current[qNum]) window.clearTimeout(pending.current[qNum]);
+    delete pending.current[qNum];
     if (immediate) void save(qNum, value);
-    else pending.current[qNum] = window.setTimeout(() => void save(qNum, value), 650);
+    else pending.current[qNum] = window.setTimeout(() => { delete pending.current[qNum]; void save(qNum, value); }, 650);
   }
   function toggleMultiple(question: Question, key: string) {
     const selected = new Set((answers[question.q_num] || '').split(',').map((value) => value.trim()).filter(Boolean));
@@ -73,15 +84,20 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
     update(question.q_num, [...selected].sort().join(', '), true);
   }
   async function submit() {
-    if (state.status !== 'ready' || submitting) return;
+    const queue = saveQueue.current;
+    if (state.status !== 'ready' || submitLock.current || !queue) return;
+    submitLock.current = true;
     setSubmitting(true);
     try {
       Object.values(pending.current).forEach(window.clearTimeout);
       pending.current = {};
-      await Promise.all(state.form.questions.map((question) => save(question.q_num, answers[question.q_num] || '', true)));
+      const generation = ++saveGeneration.current;
+      setSaveState('saving');
+      await queue.flush(state.form.questions.map((question) => ({ qNum: question.q_num, value: answers[question.q_num] || '' })));
+      if (generation === saveGeneration.current) setSaveState('saved');
       await window.api.postWith(`/api/listening/tests/attempts/${state.attemptId}/submit`, {});
       window.location.assign(`/listening/programmes/result/${state.attemptId}`);
-    } catch { setSaveState('error'); setSubmitting(false); }
+    } catch { setSaveState('error'); submitLock.current = false; setSubmitting(false); }
   }
   function controlOnce() {
     if (state.status !== 'ready' || onceState === 'done' || !audioRef.current) return;
@@ -108,9 +124,9 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
       {state.form.questions.map((question) => <article className="programme-question" key={question.q_num}>
         <span className="programme-question__number">{question.q_num}</span><div className="programme-question__body"><p>{question.prompt}</p>
         {question.visual_url ? <img src={question.visual_url} alt={question.visual_accessibility || 'Sơ đồ cho câu hỏi'} /> : null}
-        {['single_choice', 'map_label'].includes(question.response_type) ? <div className="programme-options">{Object.entries(question.options).map(([key, label]) => <label key={key}><input type="radio" name={`q-${question.q_num}`} checked={answers[question.q_num] === key} onChange={() => update(question.q_num, key, true)} /><span><strong>{key}</strong>{label}</span></label>)}</div> : null}
-        {question.response_type === 'multiple_choice' ? <div className="programme-options">{Object.entries(question.options).map(([key, label]) => <label key={key}><input type="checkbox" checked={(answers[question.q_num] || '').split(',').map((value) => value.trim()).includes(key)} onChange={() => toggleMultiple(question, key)} /><span><strong>{key}</strong>{label}</span></label>)}</div> : null}
-        {['short_answer', 'written', 'open_rubric'].includes(question.response_type) ? <textarea rows={question.response_type === 'open_rubric' ? 5 : 2} value={answers[question.q_num] || ''} onChange={(event) => update(question.q_num, event.target.value)} onBlur={(event) => void save(question.q_num, event.target.value)} placeholder="Nhập câu trả lời của bạn" /> : null}
+        {['single_choice', 'map_label'].includes(question.response_type) ? <div className="programme-options">{Object.entries(question.options).map(([key, label]) => <label key={key}><input type="radio" name={`q-${question.q_num}`} checked={answers[question.q_num] === key} disabled={submitting} onChange={() => update(question.q_num, key, true)} /><span><strong>{key}</strong>{label}</span></label>)}</div> : null}
+        {question.response_type === 'multiple_choice' ? <div className="programme-options">{Object.entries(question.options).map(([key, label]) => <label key={key}><input type="checkbox" checked={(answers[question.q_num] || '').split(',').map((value) => value.trim()).includes(key)} disabled={submitting} onChange={() => toggleMultiple(question, key)} /><span><strong>{key}</strong>{label}</span></label>)}</div> : null}
+        {['short_answer', 'written', 'open_rubric'].includes(question.response_type) ? <textarea rows={question.response_type === 'open_rubric' ? 5 : 2} value={answers[question.q_num] || ''} disabled={submitting} onChange={(event) => update(question.q_num, event.target.value)} onBlur={(event) => { if (pending.current[question.q_num]) window.clearTimeout(pending.current[question.q_num]); delete pending.current[question.q_num]; void save(question.q_num, event.target.value); }} placeholder="Nhập câu trả lời của bạn" /> : null}
         </div>
       </article>)}
     </section>

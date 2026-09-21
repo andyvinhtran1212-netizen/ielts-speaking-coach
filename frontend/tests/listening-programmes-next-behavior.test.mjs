@@ -22,12 +22,14 @@ test('listening hub is programme-first and uses the truthful title', () => {
 
 test('programme runner autosaves and routes to self-review', () => {
   const runner = read('app', '(authed-listening-player)', 'listening', 'programmes', 'form', '[testId]', 'programme-form-runner.tsx');
-  assert.match(runner, /patchWith\(`\/api\/listening\/tests\/attempts\/\$\{state\.attemptId\}\/answers`/);
+  assert.match(runner, /patchWith\(`\/api\/listening\/tests\/attempts\/\$\{attemptId\}\/answers`/);
   assert.match(runner, /scoring_policy !== 'report_only'/);
   assert.match(runner, /Nộp và tự đối chiếu/);
   assert.match(runner, /\/listening\/programmes\/result\/\$\{state\.attemptId\}/);
-  assert.match(runner, /failSubmit/);
-  assert.match(runner, /save\(question\.q_num, answers\[question\.q_num\] \|\| '', true\)/);
+  assert.match(runner, /createProgrammeAnswerWriteQueue/);
+  assert.match(runner, /queue\.flush\(state\.form\.questions\.map/);
+  assert.match(runner, /submitLock\.current = true/);
+  assert.match(runner, /disabled=\{submitting\}/);
   assert.match(runner, /onceState === 'playing'/);
   assert.match(runner, /Tạm dừng/);
   assert.match(runner, /onEnded=\{\(\) => setOnceState\('done'\)\}/);
