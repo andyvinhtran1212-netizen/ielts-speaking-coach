@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import {
   buildExamCreatePayload,
   configuredSections,
+  examContentStatusLabel,
   filterContentByLevel,
   localDateTimeIn,
   localToIso,
@@ -27,6 +28,7 @@ const PAGE = read('app', '(authed-admin-mock-exams)', 'admin', 'mock-exams', 'pa
 const COMPONENT = read('app', '(authed-admin-mock-exams)', 'admin', 'mock-exams', 'admin-mock-exams.tsx');
 const ASSIGN = read('app', '(authed-admin-mock-exams)', 'admin', 'mock-exams', 'retake-assignment-dialog.tsx');
 const CONTENT = read('app', '(authed-admin-mock-exams)', 'admin', 'mock-exams', 'exam-content-library.tsx');
+const CREATE = read('app', '(authed-admin-mock-exams)', 'admin', 'mock-exams', 'exam-create-form.tsx');
 const CSS = read('public', 'css', 'admin-mock-exams-next.css');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
@@ -83,7 +85,7 @@ describe('Admin Mock Exams native model', () => {
         { id: 'w1', kind: 'writing', title: 'Task', course_level: '', cohort_ids: [], exam_only: false },
         { id: '', kind: 'listening' },
       ],
-      levels: ['C1'], failed_kinds: ['listening', 'bad'],
+      levels: ['C1'], failed_kinds: ['listening', 'bad'], total: 12,
     });
     assert.equal(result.rows.length, 2);
     assert.deepEqual(result.failedKinds, ['listening']);
@@ -92,8 +94,16 @@ describe('Admin Mock Exams native model', () => {
     assert.equal(result.rows[0].publishReady, true);
     assert.equal(result.rows[0].webExplanationReady, true);
     assert.equal(result.rows[0].webExplanationReadyCount, 40);
+    assert.equal(result.total, 12);
     assert.deepEqual(filterContentByLevel(result.rows, '').map((row) => row.id), ['w1']);
     assert.equal(filterContentByLevel(result.rows, null).length, 2);
+  });
+
+  test('localizes every canonical content status and fails closed on unknown values', () => {
+    assert.equal(examContentStatusLabel('draft'), 'Bản nháp');
+    assert.equal(examContentStatusLabel('published'), 'Đã publish');
+    assert.equal(examContentStatusLabel('archived'), 'Đã lưu trữ');
+    assert.equal(examContentStatusLabel('future-state'), 'Không rõ trạng thái');
   });
 
   test('converts retake windows deterministically', () => {
@@ -119,7 +129,9 @@ describe('/admin/mock-exams native ownership and mutation truth', () => {
   test('forces canonical reconciliation and preserves irreversible guards', () => {
     for (const token of ['loadExams(false, true)', 'loadExams(true, true)', 'chưa xác nhận được trạng thái backend', 'from_section: current', 'active === \'not_started\'', 'Thu bài và chuyển phần tại Phòng thi trực tiếp', 'document.visibilityState', '15_000', 'Không có snapshot tiến độ; thao tác chuyển phần đã bị khóa']) assert.ok(COMPONENT.includes(token), token);
     for (const token of ['open_until: until', 'retakeServableSkills', 'mergeRetestCandidates', 'refresh_failed', 'assignmentRequestRef', 'assignmentError', 'Không xác nhận được assignment sau khi ghi']) assert.ok(ASSIGN.includes(token), token);
-    for (const token of ['/admin/exam-content', 'failedKinds', 'cohort_ids: cohortDraft', 'is_public: true', 'admin_preview=1', 'Xem chữa bài', 'Giao cho lớp', 'input.value = row.courseLevel', 'assignmentWebExplanationMode', 'public_practice_enabled', 'post_test_capture_required']) assert.ok(CONTENT.includes(token), token);
+    for (const token of ['getAdminExamContent(query)', "query.set('limit'", "query.set('offset'", "query.set('q'", 'deferredQuery', 'if (page > pageCount) setPage(pageCount)', 'failedKinds', 'cohort_ids: cohortDraft', 'is_public: true', 'admin_preview=1', 'Xem chữa bài', 'Giao cho lớp', 'levelEditor', 'Lưu cấp khóa', 'mex-pagination', 'mex-quick-filters', 'assignmentWebExplanationMode', 'public_practice_enabled', 'post_test_capture_required', 'examContentStatusLabel(row.status)']) assert.ok(CONTENT.includes(token), token);
+    for (const token of ['SearchablePicker', 'type="search"', 'Không có nội dung phù hợp']) assert.ok(CREATE.includes(token), token);
+    assert.doesNotMatch(CONTENT, /onBlur=.*saveLevel/);
     assert.doesNotMatch(CONTENT, /web_explanation_mode:\s*'disabled'/);
     assert.doesNotMatch(CONTENT, /row\.cohortIds\.includes\(assignmentCohort\)/);
     assert.doesNotMatch(`${COMPONENT}\n${ASSIGN}\n${CONTENT}`, /dangerouslySetInnerHTML|http:\/\/localhost:8000|railway\.app/);

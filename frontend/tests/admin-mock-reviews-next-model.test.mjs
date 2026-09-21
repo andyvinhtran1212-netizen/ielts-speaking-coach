@@ -16,7 +16,7 @@ import {
 } from '../lib/admin-mock-reviews-model.mjs';
 
 const rosterRow = {
-  sitting_id: 's1', review_id: 'r1', student_name: 'An', sitting_status: 'submitted',
+  sitting_id: 's1', review_id: 'r1', student_name: 'An', sitting_status: 'all_submitted',
   listening: { score: 30, max: 40, band: 7 }, reading: { score: 28, max: 40, band: 6.5 },
   writing: { task1_wc: 160, task2_wc: 270, task1_essay_id: 'e1', task2_essay_id: 'e2', band: 6.5, band_is_final: false },
   speaking: { count: 1, band: 7, band_is_final: true }, review_status: 'claimed', claimed: true,
@@ -29,7 +29,7 @@ const rawDetail = {
     ai_draft: { listening: { band: 7 }, reading: { band: 6.5 }, writing: { band: 6.5 }, speaking: { band: 7 } },
     final_bands: {}, per_skill_notes: { speaking: { bands: { fc: 7 } } }, retest_flags: { reading: true }, examiner_comment_vi: 'Tiến bộ tốt.',
   },
-  sitting: { id: 's1', student_name: 'An', status: 'submitted', listening_attempt_id: 'la1', reading_attempt_id: 'ra1', essay_task1_id: 'e1', essay_task2_id: 'e2', speaking_session_ids: ['sp1'], writing_submission: {} },
+  sitting: { id: 's1', student_name: 'An', status: 'all_submitted', listening_attempt_id: 'la1', reading_attempt_id: 'ra1', essay_task1_id: 'e1', essay_task2_id: 'e2', speaking_session_ids: ['sp1'], writing_submission: {} },
   required_skills: ['listening', 'reading', 'writing'], blankable_skills: [],
 };
 

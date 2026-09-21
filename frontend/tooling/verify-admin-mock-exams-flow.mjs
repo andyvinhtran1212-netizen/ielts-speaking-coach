@@ -11,7 +11,7 @@ const errors = [];
 const results = [];
 let assignments = [];
 let failAssignmentLookup = true;
-let contentCourseLevel = 'C1';
+let contentCourseLevel = '';
 let contentCohortIds = ['class-1'];
 let contentIsPublic = false;
 let contentPublicPracticeEnabled = false;
@@ -32,7 +32,7 @@ async function launch() {
 }
 
 const browser = await launch();
-const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, bypassCSP: true });
 await context.addInitScript(([key, value]) => localStorage.setItem(key, value), [storageKey(SB), session]);
 const page = await context.newPage();
 page.on('pageerror', (error) => errors.push(String(error)));
@@ -58,7 +58,7 @@ await page.route('**/*', async (route) => {
   if (path === '/admin/mock-exams' && method === 'POST') {
     const created = { id: body.code === 'AMBIG-1' ? 'ambiguous-1' : 'created-1', ...body, status: 'draft', is_open: false, active_section: 'not_started' };
     exams = [created, ...exams];
-    if (body.code === 'AMBIG-1') return route.abort('connectionfailed');
+    if (body.code === 'AMBIG-1') return json({ detail: 'fixture response interrupted after write' }, 503);
     return json(created);
   }
   const progressMatch = path.match(/^\/admin\/mock-exams\/([^/]+)\/section-progress$/);
@@ -90,7 +90,17 @@ await page.route('**/*', async (route) => {
     assignments = body.assignments.map((row) => ({ ...row, student_name: 'Nguyễn An' }));
     return json({ assigned: ['student-1'], skipped: [], locked: [], refresh_failed: [] });
   }
-  if (path === '/admin/exam-content') return json({ items: [{ id: 'reading-uuid', kind: 'reading', code: 'READ-PAPER', title: 'Reading paper', status: 'published', course_level: contentCourseLevel, cohort_ids: contentCohortIds, exam_only: true, is_public: contentIsPublic, public_practice_enabled: contentPublicPracticeEnabled, web_explanation_mode: contentWebExplanationMode, web_explanation_ready: false, web_explanation_state: 'blocked', web_explanation_count: 40, web_explanation_ready_count: 0, publish_ready: true, readiness_reason: null, mock_exams: [{ id: 'source-1', code: 'SOURCE-1', title: 'Đề gốc lớp C1', status: 'published' }] }], levels: ['C1', 'C2'], failed_kinds: [] });
+  if (path === '/admin/exam-content') {
+    const primary = { id: 'reading-uuid', kind: 'reading', code: 'READ-PAPER', title: 'Reading paper', status: 'published', course_level: contentCourseLevel, cohort_ids: contentCohortIds, exam_only: true, is_public: contentIsPublic, public_practice_enabled: contentPublicPracticeEnabled, web_explanation_mode: contentWebExplanationMode, web_explanation_ready: false, web_explanation_state: 'blocked', web_explanation_count: 40, web_explanation_ready_count: 0, publish_ready: true, readiness_reason: null, mock_exams: [{ id: 'source-1', code: 'SOURCE-1', title: 'Đề gốc lớp C1', status: 'published' }] };
+    if (parsed.searchParams.get('attention') === 'no-level') {
+      const fillers = Array.from({ length: 25 }, (_, index) => ({ ...primary, id: `missing-${index + 1}`, code: `MISSING-${String(index + 1).padStart(2, '0')}`, title: `Đề thiếu cấp ${index + 1}`, course_level: '', mock_exams: [] }));
+      const candidates = contentCourseLevel ? fillers : [...fillers, primary];
+      const offset = Number(parsed.searchParams.get('offset') || 0);
+      const limit = Number(parsed.searchParams.get('limit') || 25);
+      return json({ items: candidates.slice(offset, offset + limit), total: candidates.length, levels: ['C1', 'C2'], failed_kinds: [] });
+    }
+    return json({ items: [primary], total: 1, levels: ['C1', 'C2'], failed_kinds: [] });
+  }
   if (path === '/admin/exam-content/reading/reading-uuid/level' && method === 'PATCH') { contentCourseLevel = body.course_level; return json({ ok: true }); }
   if (path === '/admin/exam-content/reading/reading-uuid/cohorts' && method === 'PATCH') { contentCohortIds = body.cohort_ids; return json({ ok: true }); }
   if (path === '/admin/mock-corrections/public-tests/reading/reading-uuid' && method === 'PATCH') {
@@ -113,17 +123,21 @@ check('backend-owned admin gate và toàn bộ picker canonical chạy', initial
 await page.locator('.mex-progress-row').first().waitFor();
 if (process.env.CAPTURE_UI) await page.screenshot({ path: '/tmp/admin-mock-exams-redesign.png', fullPage: true });
 check('progress published hiển thị trạng thái thật', await page.locator('.mex-progress-row').filter({ hasText: '2/3 đã nộp' }).count() >= 1);
+check('mặc định hiện danh sách đề và tách form cùng kho nội dung khỏi luồng dài', await page.getByRole('heading', { name: 'Đề Mock Test', exact: true }).count() === 1 && await page.getByLabel('Mã đề *').count() === 0 && await page.locator('#test-library').count() === 0);
 
+await page.getByRole('button', { name: 'Tạo đề mới' }).click();
 await page.getByLabel('Mã đề *').fill('NEW-1');
 await page.getByLabel('Tiêu đề *').fill('Đề mới');
 await page.getByLabel('Hình thức giao').selectOption('retake');
 await page.getByRole('button', { name: 'Lưu đề nháp' }).click();
 await page.getByText('Đã tạo đề nháp từ dữ liệu backend.').waitFor();
+await page.getByRole('button', { name: 'Tạo đề mới' }).click();
 const createRequest = requests.find((item) => item.method === 'POST' && item.path === '/admin/mock-exams');
 check('create retake gửi cohort null và reconcile bằng GET', createRequest?.body?.exam_mode === 'retake' && createRequest?.body?.cohort_id === null && requests.filter((item) => item.method === 'GET' && item.path === '/admin/mock-exams').length >= 2);
 
 await page.getByLabel('Mã đề *').fill('AMBIG-1');
 await page.getByLabel('Tiêu đề *').fill('Đề phản hồi gián đoạn');
+await page.getByLabel('Hình thức giao').selectOption('retake');
 await page.getByRole('button', { name: 'Lưu đề nháp' }).click();
 await page.getByText('Đã xác nhận AMBIG-1 được tạo dù phản hồi ban đầu bị gián đoạn.').waitFor();
 check('create mơ hồ không được retry và chỉ báo thành công sau canonical refetch', requests.filter((item) => item.method === 'POST' && item.path === '/admin/mock-exams' && item.body?.code === 'AMBIG-1').length === 1 && exams.filter((row) => row.code === 'AMBIG-1').length === 1);
@@ -160,13 +174,52 @@ const assignmentRequest = requests.find((item) => item.method === 'POST' && item
 check('retake gộp kỹ năng trùng, gửi deadline và chỉ kỹ năng servable', Boolean(assignmentRequest?.body?.assignments?.[0]?.open_until) && JSON.stringify(assignmentRequest?.body?.assignments?.[0]?.skills) === '["reading","writing"]');
 await page.getByRole('dialog').getByRole('button', { name: 'Đóng', exact: true }).click();
 
-const levelInput = page.getByLabel('Cấp khóa READ-PAPER');
+const contentRead = page.waitForResponse((response) => new URL(response.url()).pathname === '/admin/exam-content');
+await page.getByRole('tab', { name: /Kho đề nội dung/ }).click();
+await contentRead;
+check('kho đề nội dung chỉ tải khi mở không gian riêng', await page.locator('#test-library').count() === 1 && await page.getByRole('button', { name: 'Tạo đề mới' }).count() === 0);
+check('kho đề có tìm kiếm, bộ lọc nhanh và phân trang server', await page.getByLabel('Tìm đề').count() === 1 && await page.getByRole('button', { name: 'Cần xử lý' }).count() === 1 && await page.getByText('Hiển thị 1–1 / 1 đề').count() === 1 && requests.some((item) => item.path === '/admin/exam-content'));
+const missingLevelRead = page.waitForResponse((response) => {
+  const url = new URL(response.url());
+  return url.pathname === '/admin/exam-content' && url.searchParams.get('attention') === 'no-level' && url.searchParams.get('offset') === '0';
+});
+await page.locator('.mex-quick-filters').getByRole('button', { name: 'Thiếu cấp khóa' }).click();
+await missingLevelRead;
+await page.getByText('Hiển thị 1–25 / 26 đề').waitFor();
+const secondPageRead = page.waitForResponse((response) => {
+  const url = new URL(response.url());
+  return url.pathname === '/admin/exam-content' && url.searchParams.get('attention') === 'no-level' && url.searchParams.get('offset') === '25';
+});
+await page.getByRole('button', { name: 'Trang sau' }).click();
+await secondPageRead;
+await page.getByRole('button', { name: 'Sửa cấp khóa READ-PAPER' }).click();
+const levelDialog = page.getByRole('dialog');
+const levelInput = levelDialog.getByLabel('Cấp khóa');
 const levelMutation = page.waitForResponse((response) => response.request().method() === 'PATCH' && new URL(response.url()).pathname === '/admin/exam-content/reading/reading-uuid/level');
-const levelReload = page.waitForResponse((response) => response.request().method() === 'GET' && new URL(response.url()).pathname === '/admin/exam-content');
+const levelReload = page.waitForResponse((response) => {
+  const url = new URL(response.url());
+  return response.request().method() === 'GET' && url.pathname === '/admin/exam-content' && url.searchParams.get('offset') === '25';
+});
+const clampedReload = page.waitForResponse((response) => {
+  const url = new URL(response.url());
+  return response.request().method() === 'GET' && url.pathname === '/admin/exam-content' && url.searchParams.get('attention') === 'no-level' && url.searchParams.get('offset') === '0';
+});
 await levelInput.fill('C2');
-await levelInput.blur();
+await levelDialog.getByRole('button', { name: 'Lưu cấp khóa' }).click();
 const levelResponse = await levelMutation;
 await levelReload;
+await clampedReload;
+await page.getByText('Hiển thị 1–25 / 25 đề').waitFor();
+check('khi trang cuối co lại sau mutation, offset tự lùi và refetch trang hợp lệ', await page.getByText('Trang 1/1').count() === 1 && await page.getByText('MISSING-01', { exact: true }).count() === 1);
+const allContentRead = page.waitForResponse((response) => {
+  const url = new URL(response.url());
+  return url.pathname === '/admin/exam-content' && !url.searchParams.has('attention');
+});
+await page.locator('.mex-quick-filters').getByRole('button', { name: 'Tất cả', exact: true }).click();
+await allContentRead;
+await page.getByRole('table').getByText('C2', { exact: true }).waitFor();
+const rowMenu = page.locator('.mex-row-menu').first();
+if ((await rowMenu.getAttribute('open')) == null) await rowMenu.getByText('Thao tác', { exact: true }).click();
 await page.getByRole('button', { name: 'Phạm vi lớp' }).click();
 await page.getByText('Lựa chọn này thay thế toàn bộ tập lớp hiện tại.').waitFor();
 await page.getByRole('dialog').getByRole('checkbox', { name: 'IELTS C2', exact: true }).check();
@@ -197,7 +250,7 @@ const classAssignmentRequest = requests.find((item) => item.method === 'POST' &&
 check('exam-content cập nhật level, phạm vi, visibility và giao lớp độc lập', levelResponse.ok() && cohortsResponse.ok() && explanationPolicyResponse.ok() && classAssignmentResponse.ok() && requests.some((item) => item.path.endsWith('/level') && item.body?.course_level === 'C2') && requests.some((item) => item.path.endsWith('/cohorts') && item.body?.cohort_ids?.includes('class-2')) && requests.some((item) => item.path.endsWith('/public-tests/reading/reading-uuid') && item.body?.is_public === true && item.body?.web_explanation_mode === 'immediate_after_capture' && item.body?.public_practice_enabled === true) && !requests.some((item) => item.path.endsWith('/visibility') && item.method === 'PATCH') && classAssignmentRequest?.body?.content_id === 'reading-uuid' && classAssignmentRequest?.body?.delivery_mode === 'assigned_practice');
 
 await page.setViewportSize({ width: 390, height: 844 });
-const mobile = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth, control: parseFloat(getComputedStyle(document.querySelector('.mex-form-grid input')).minHeight) }));
+const mobile = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth, control: parseFloat(getComputedStyle(document.querySelector('.mex-toolbar input')).minHeight) }));
 check('mobile không tràn trang và control đạt 44px', mobile.width <= mobile.viewport && mobile.control >= 44, `${mobile.width}/${mobile.viewport}, ${mobile.control}px`);
 check('không có lỗi JavaScript', errors.length === 0, errors.join(' | '));
 

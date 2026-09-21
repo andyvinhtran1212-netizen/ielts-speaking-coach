@@ -24,6 +24,7 @@ import {
   readAdminGradeQueue,
   selectKeyedAdminState,
 } from '@/lib/admin-writing-grade-model.mjs';
+import { normalizeWritingQueueFilters } from '@/lib/admin-writing-queue-model.mjs';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
 type TabKey = 'tongquan' | 'loi' | 'nangcao' | 'baimau';
@@ -74,12 +75,12 @@ export function AdminWritingGradeLoading() {
   return <div className="flex items-center justify-center py-32" role="status"><p className="aw-state-loading__text text-sm">Đang tải bài viết…</p></div>;
 }
 
-function ErrorState({ message }: { message: string }) {
+function ErrorState({ message, returnHref }: { message: string; returnHref: string }) {
   return (
     <div className="max-w-xl mx-auto px-6 py-20 text-center" role="alert">
       <h2 className="aw-state-denied__title text-xl font-bold">Không tải được bài viết</h2>
       <p>{message}</p>
-      <a className="btn mt-4" href="/admin/writing/queue">← Quay lại queue</a>
+      <a className="btn mt-4" href={returnHref}>← Quay lại queue</a>
     </div>
   );
 }
@@ -343,6 +344,24 @@ export function AdminWritingGradeBehavior() {
 
   const view = selectKeyedAdminState(gradeState, requestKey) as GradeView;
   const workspace = view.phase === 'ready' ? view.workspace : null;
+  const embed = params?.get('embed') === '1';
+  const queueContext = normalizeWritingQueueFilters({
+    mocklane: params?.get('mocklane') || '',
+    queue_status: params?.get('queue_status') || '',
+    cohort_id: params?.get('cohort_id') || '',
+    overdue: params?.get('overdue') || '',
+  });
+  const mocklane = queueContext.lane === 'mock';
+  const withEmbed = (url: string) => {
+    const extra = [
+      embed ? 'embed=1' : '',
+      mocklane ? 'mocklane=1' : '',
+      queueContext.queueStatus ? `queue_status=${encodeURIComponent(queueContext.queueStatus)}` : '',
+      queueContext.cohortId ? `cohort_id=${encodeURIComponent(queueContext.cohortId)}` : '',
+      queueContext.overdue ? 'overdue=1' : '',
+    ].filter(Boolean).join('&');
+    return extra ? `${url}${url.includes('?') ? '&' : '?'}${extra}` : url;
+  };
 
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
@@ -381,7 +400,7 @@ export function AdminWritingGradeBehavior() {
   }, [essayId, runMutation, setMessage, updateWorkspace, workspace]);
 
   if (!requestKey || view.phase === 'loading') return <AdminWritingGradeLoading />;
-  if (view.phase === 'error') return <ErrorState message={view.message} />;
+  if (view.phase === 'error') return <ErrorState message={view.message} returnHref={withEmbed('/admin/writing/queue')} />;
 
   const { detail, feedback, dirty, instructor, instructorWarning } = view.workspace;
   const baseActions = adminGradeActionState(detail.status);
@@ -389,12 +408,6 @@ export function AdminWritingGradeBehavior() {
   const actions = { ...baseActions, canSave: baseActions.canSave && instructorWritable };
   const sectionKeyMap = window.WritingRenderers?.SECTION_KEYS || {};
   const queue = readAdminGradeQueue(sessionStorage.getItem(QUEUE_KEY), essayId);
-  const embed = params?.get('embed') === '1';
-  const mocklane = params?.get('mocklane') === '1';
-  const withEmbed = (url: string) => {
-    const extra = [embed ? 'embed=1' : '', mocklane ? 'mocklane=1' : ''].filter(Boolean).join('&');
-    return extra ? `${url}${url.includes('?') ? '&' : '?'}${extra}` : url;
-  };
 
   const openEditor = (section: any) => {
     const value = feedback[sectionKeyMap[section.key]];

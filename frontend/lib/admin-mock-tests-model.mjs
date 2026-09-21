@@ -60,6 +60,55 @@ export function filterMockExams(exams, stage) {
   return canonical === 'all' ? exams : exams.filter((exam) => mockExamStage(exam) === canonical);
 }
 
+export function mockTestsStageForTab(tab) {
+  const canonical = mockTestsTab(tab);
+  if (canonical === 'live') return 'live';
+  if (canonical === 'review') return 'closed';
+  return 'all';
+}
+
+export function mockTestsExamForTab(exams, tab, currentId = '', requestedId = '') {
+  const rows = Array.isArray(exams) ? exams : [];
+  const canonical = mockTestsTab(tab);
+  const requested = TEXT(requestedId);
+  const current = TEXT(currentId);
+  if (requested && rows.some((exam) => exam.id === requested)) return requested;
+  if (canonical === 'writing') return '';
+  const allowed = canonical === 'live'
+    ? rows.filter((exam) => mockExamStage(exam) === 'live')
+    : canonical === 'review'
+      ? rows.filter((exam) => mockExamStage(exam) === 'closed')
+      : rows;
+  return allowed.some((exam) => exam.id === current) ? current : allowed[0]?.id || '';
+}
+
+export function mockSectionLabel(value) {
+  const key = TEXT(value);
+  return ({
+    not_started: 'Chưa bắt đầu',
+    listening: 'Listening',
+    reading: 'Reading',
+    writing: 'Writing',
+    done: 'Đã xong',
+  })[key] || 'Không rõ trạng thái';
+}
+
+export function mockSittingStatusLabel(value) {
+  const key = TEXT(value);
+  return ({
+    'chưa vào': 'Chưa vào phòng',
+    registered: 'Đã đăng ký',
+    lrw_in_progress: 'Đang làm LRW',
+    lrw_submitted: 'Đã nộp LRW',
+    speaking_pending: 'Chờ thi Speaking',
+    all_submitted: 'Đã nộp đủ',
+    under_review: 'Đang chấm',
+    reviewed: 'Đã chấm',
+    released: 'Đã trả kết quả',
+    void: 'Đã huỷ lượt',
+  })[key] || 'Không rõ trạng thái';
+}
+
 export function mockTestsHref(tab, examId = '') {
   const canonical = mockTestsTab(tab);
   if (canonical === 'manage') return '/admin/mock-tests';

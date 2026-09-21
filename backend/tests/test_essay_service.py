@@ -124,9 +124,10 @@ class _FakeQuery:
         self._op = "delete"
         return self
 
-    def select(self, cols):
+    def select(self, cols, **kwargs):
         self._op = "select"
         self._select = cols
+        self._select_options = kwargs
         return self
 
     # Filters & ordering (no-ops for assertions, recorded only)
@@ -146,6 +147,10 @@ class _FakeQuery:
         self._filters.append(("lt", col, val))
         return self
 
+    def ilike(self, col, val):
+        self._filters.append(("ilike", col, val))
+        return self
+
     def order(self, *a, **kw):
         return self
 
@@ -153,6 +158,7 @@ class _FakeQuery:
         return self
 
     def range(self, *a, **kw):
+        self._range = a
         return self
 
     def execute(self):
@@ -165,7 +171,7 @@ class _FakeQuery:
             "filters":  list(self._filters),
             "select":   self._select,
         })
-        return MagicMock(data=data)
+        return MagicMock(data=data, count=len(data))
 
 
 # ── create_essay_with_job ────────────────────────────────────────────
@@ -1542,6 +1548,34 @@ def test_list_essays_flag_handles_json_string_feedback():
     with patch.object(essay_service, "supabase_admin", fake):
         rows = essay_service.list_essays()
     assert rows[0]["task1_image_missing"] is True
+
+
+def test_paginated_queue_search_filters_before_first_page_and_returns_exact_total():
+    """A student outside the former newest-200 window remains searchable."""
+    old_id = "essay-older-than-200"
+    fake = _FakeSupabase(responses={
+        ("writing_essays", "select"): [{
+            "id": old_id, "student_id": "student-old", "task_type": "task2",
+            "status": "graded", "analysis_level": 3, "selected_model": "model",
+            "word_count": 260, "created_at": "2025-01-01T00:00:00Z",
+            "delivered_at": None, "error_message": None, "sitting_id": None,
+            "grading_skipped_at": None,
+        }],
+        ("students", "select"): [{"id": "student-old", "full_name": "Older Student", "student_code": "OLD-201"}],
+        ("writing_feedback", "select"): [],
+        ("writing_assignments", "select"): [],
+    })
+    with patch.object(essay_service, "supabase_admin", fake), patch.object(
+        essay_service, "_student_ids_matching_queue_query", return_value={"student-old"},
+    ):
+        result = essay_service.list_essays_page(
+            status="graded", mock=False, query="OLD-201", limit=25, offset=0,
+        )
+
+    assert result["total"] == 1
+    assert [row["id"] for row in result["items"]] == [old_id]
+    essay_call = next(call for call in fake.calls if call["table"] == "writing_essays")
+    assert ("in_", "student_id", ["student-old"]) in essay_call["filters"]
 
 
 def test_feedback_flags_missing_image_degrades_on_bad_json():

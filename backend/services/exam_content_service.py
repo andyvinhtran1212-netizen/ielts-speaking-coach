@@ -313,28 +313,66 @@ def _mock_refs_for(kind: str, content_ids: Iterable[str]) -> dict:
     """content_id -> mock exams currently referencing it (batched)."""
     ids = [str(value) for value in (content_ids or []) if value]
     out: dict[str, list[dict]] = {value: [] for value in ids}
-    column = {
-        "reading": "reading_test_id",
-        "listening": "listening_test_id",
+    columns = {
+        "reading": ("reading_test_id",),
+        "listening": ("listening_test_id",),
+        "writing": ("writing_task1_prompt_id", "writing_task2_prompt_id"),
     }.get(kind)
-    if not ids or not column:
+    if not ids or not columns:
         return out
+    seen_by_content: dict[str, set[str]] = {value: set() for value in ids}
     for index in range(0, len(ids), _ID_CHUNK):
         chunk = ids[index:index + _ID_CHUNK]
-        rows = _paged(
-            lambda c=chunk: supabase_admin.table("mock_exams")
-            .select(f"id,code,title,status,{column}")
-            .in_(column, c).order("created_at", desc=True)
+        for column in columns:
+            rows = _paged(
+                lambda c=chunk, col=column: supabase_admin.table("mock_exams")
+                .select(f"id,code,title,status,{col}")
+                .in_(col, c).order("created_at", desc=True)
+            )
+            for row in rows:
+                content_id = str(row.get(column) or "")
+                exam_id = str(row.get("id") or "")
+                if content_id in out and exam_id not in seen_by_content[content_id]:
+                    seen_by_content[content_id].add(exam_id)
+                    out[content_id].append({
+                        "id": row.get("id"),
+                        "code": row.get("code"),
+                        "title": row.get("title"),
+                        "status": row.get("status"),
+                    })
+    return out
+
+
+def _cohort_content_ids(kind: str, cohort_id: Optional[str] = None) -> set[str]:
+    """Lightweight relation set used to filter before page enrichment."""
+    _assert_kind(kind)
+    def build():
+        query = (
+            supabase_admin.table("exam_content_cohorts")
+            .select("content_id").eq("content_kind", kind)
         )
-        for row in rows:
-            content_id = str(row.get(column) or "")
-            if content_id in out:
-                out[content_id].append({
-                    "id": row.get("id"),
-                    "code": row.get("code"),
-                    "title": row.get("title"),
-                    "status": row.get("status"),
-                })
+        if cohort_id:
+            query = query.eq("cohort_id", str(cohort_id))
+        return query.order("content_id")
+
+    rows = _paged(build)
+    return {str(row["content_id"]) for row in rows if row.get("content_id")}
+
+
+def _mock_referenced_content_ids(kind: str) -> set[str]:
+    """Lightweight set of content IDs referenced by any Mock exam."""
+    columns = {
+        "reading": ("reading_test_id",),
+        "listening": ("listening_test_id",),
+        "writing": ("writing_task1_prompt_id", "writing_task2_prompt_id"),
+    }[kind]
+    out: set[str] = set()
+    for column in columns:
+        rows = _paged(
+            lambda c=column: supabase_admin.table("mock_exams")
+            .select(c).order(c)
+        )
+        out.update(str(row[column]) for row in rows if row.get(column))
     return out
 
 
@@ -342,7 +380,11 @@ def list_exam_content(kind: Optional[str] = None,
                       course_level: Optional[str] = None,
                       cohort_id: Optional[str] = None,
                       exam_only: Optional[bool] = None,
-                      is_public: Optional[bool] = None) -> dict:
+                      is_public: Optional[bool] = None,
+                      *, q: Optional[str] = None,
+                      attention: Optional[str] = None,
+                      limit: Optional[int] = None,
+                      offset: int = 0) -> dict:
     """The admin "Đề kỳ thi" screen: papers across all three libraries, with
     their level and classes, filterable.
 
@@ -352,8 +394,16 @@ def list_exam_content(kind: Optional[str] = None,
     kinds = [kind] if kind else list(_KINDS)
     for k in kinds:
         _assert_kind(k)
+    attention_key = (attention or "all").strip().lower()
+    if attention_key not in {"all", "action", "unassigned", "no-level", "draft"}:
+        raise ValueError("attention không hợp lệ.")
+    if limit is not None and not 1 <= int(limit) <= 100:
+        raise ValueError("limit phải từ 1 đến 100.")
+    if int(offset) < 0:
+        raise ValueError("offset không được âm.")
+    needle = (q or "").strip().casefold()
 
-    out: list[dict] = []
+    candidates: list[dict] = []
     failed: list[str] = []
     for k in kinds:
         table, code_col = _KINDS[k]
@@ -390,39 +440,98 @@ def list_exam_content(kind: Optional[str] = None,
                 if k in ("reading", "listening")
                 and bool(r.get("is_public", not bool(r.get("exam_only")))) is is_public
             ]
-        by_content = cohorts_for(k, [r["id"] for r in rows])
-        explanation_by_content = explanation_readiness_for(k, [r["id"] for r in rows])
-        mock_refs = _mock_refs_for(k, [r["id"] for r in rows])
+        if needle:
+            rows = [
+                r for r in rows
+                if needle in " ".join(str(value or "") for value in (
+                    r.get("id"), r.get(code_col) if code_col else None,
+                    r.get("title"), r.get("course_level"),
+                )).casefold()
+            ]
         for r in rows:
-            cids = by_content.get(str(r["id"]), [])
-            if cohort_id and str(cohort_id) not in cids:
+            status = r.get("status") or ("published" if r.get("is_active") else "archived")
+            # Cheap filters are applied before any cross-table enrichment.
+            if attention_key == "no-level" and r.get("course_level"):
                 continue
-            explanation = explanation_by_content.get(str(r["id"]), {})
+            if attention_key == "draft" and status != "draft":
+                continue
+            candidates.append({
+                "kind": k, "row": r, "code_col": code_col, "status": status,
+            })
+
+    candidates.sort(key=lambda item: (
+        item["kind"],
+        ((item["row"].get(item["code_col"]) if item["code_col"] else None)
+         or item["row"].get("title") or "").lower(),
+    ))
+
+    # Filters that depend on another table need a lightweight membership map
+    # for the candidate set. Other enrichment is deliberately deferred until
+    # after the requested page is known.
+    cohort_filter_ids: dict[str, set[str]] = {}
+    assigned_ids: dict[str, set[str]] = {}
+    referenced_ids: dict[str, set[str]] = {}
+    for k in kinds:
+        if cohort_id:
+            cohort_filter_ids[k] = _cohort_content_ids(k, cohort_id)
+        if attention_key == "action":
+            assigned_ids[k] = _cohort_content_ids(k)
+        if attention_key == "unassigned":
+            referenced_ids[k] = _mock_referenced_content_ids(k)
+
+    filtered: list[dict] = []
+    for item in candidates:
+        k, row = item["kind"], item["row"]
+        content_id = str(row["id"])
+        if cohort_id and content_id not in cohort_filter_ids.get(k, set()):
+            continue
+        if attention_key == "unassigned" and content_id in referenced_ids.get(k, set()):
+            continue
+        if attention_key == "action":
+            publish_ready, _ = publication_readiness(k, row)
+            if item["status"] == "archived" or not (
+                (k != "writing" and (item["status"] != "published" or not publish_ready))
+                or not row.get("course_level") or content_id not in assigned_ids.get(k, set())
+            ):
+                continue
+        filtered.append(item)
+
+    total = len(filtered)
+    if limit is not None:
+        start = int(offset)
+        filtered = filtered[start:start + int(limit)]
+
+    out: list[dict] = []
+    for k in kinds:
+        page = [item for item in filtered if item["kind"] == k]
+        ids = [str(item["row"]["id"]) for item in page]
+        by_content = cohorts_for(k, ids)
+        explanation_by_content = explanation_readiness_for(k, ids)
+        mock_refs = _mock_refs_for(k, ids)
+        for item in page:
+            r, code_col = item["row"], item["code_col"]
+            content_id = str(r["id"])
             publish_ready, readiness_reason = publication_readiness(k, r)
             out.append({
-                "kind":         k,
-                "id":           r["id"],
-                "code":         r.get(code_col) if code_col else None,
-                "title":        r.get("title"),
-                # Writing prompts are soft-deleted with is_active rather than a
-                # status enum; normalise so the screen has one column.
-                "status":       r.get("status") or
-                                ("published" if r.get("is_active") else "archived"),
-                "exam_only":    bool(r.get("exam_only")),
-                "is_public":    (bool(r.get("is_public"))
-                                 if "is_public" in r
-                                 else not bool(r.get("exam_only"))),
+                "kind": k,
+                "id": r["id"],
+                "code": r.get(code_col) if code_col else None,
+                "title": r.get("title"),
+                "status": item["status"],
+                "exam_only": bool(r.get("exam_only")),
+                "is_public": (bool(r.get("is_public")) if "is_public" in r
+                              else not bool(r.get("exam_only"))),
                 "public_practice_enabled": bool(r.get("public_practice_enabled")),
                 "web_explanation_mode": r.get("web_explanation_mode"),
                 "course_level": r.get("course_level"),
-                "cohort_ids":   cids,
-                "mock_exams":   mock_refs.get(str(r["id"]), []),
+                "cohort_ids": by_content.get(content_id, []),
+                "mock_exams": mock_refs.get(content_id, []),
                 "publish_ready": publish_ready,
                 "readiness_reason": readiness_reason,
-                **explanation,
+                **explanation_by_content.get(content_id, {}),
             })
-    out.sort(key=lambda r: (r["kind"], (r["code"] or r["title"] or "").lower()))
-    return {"items": out, "failed_kinds": failed}
+    out.sort(key=lambda row: (row["kind"], (row["code"] or row["title"] or "").lower()))
+    return {"items": out, "failed_kinds": failed, "total": total}
 
 
 def known_course_levels() -> list[str]:

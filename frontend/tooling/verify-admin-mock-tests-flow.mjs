@@ -9,6 +9,7 @@ const session = JSON.stringify({ access_token: 'admin-mock-tests-not-real', refr
 const results = [];
 const requests = [];
 const errors = [];
+let liveOpen = true;
 const exams = [
   { id: 'draft-1', code: 'MOCK-DRAFT', title: 'Đề đang soạn', status: 'draft', is_open: false, active_section: 'not_started', exam_mode: 'sequential' },
   { id: 'live-1', code: 'MOCK-LIVE', title: 'Đề đang thi', status: 'published', is_open: true, active_section: 'reading', exam_mode: 'sequential' },
@@ -30,7 +31,7 @@ async function launch() {
 }
 
 const browser = await launch();
-const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, bypassCSP: true });
 await context.addInitScript(([key, value]) => localStorage.setItem(key, value), [storageKey(SB), session]);
 const page = await context.newPage();
 page.on('pageerror', (error) => errors.push(String(error)));
@@ -48,7 +49,7 @@ await page.route('**/*', async (route) => {
   requests.push(`${request.method()} ${parsed.pathname}`);
   const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   if (parsed.pathname === '/auth/me') return json({ id: adminId, email: 'admin-mock-tests@local', role: 'admin' });
-  if (parsed.pathname === '/admin/mock-exams') return json({ exams });
+  if (parsed.pathname === '/admin/mock-exams') return json({ exams: exams.map((exam) => exam.id === 'live-1' ? { ...exam, is_open: liveOpen } : exam) });
   if (parsed.pathname === '/admin/mock-exams/live-1/live') return json({
     exam: { id: 'live-1', code: 'MOCK-LIVE', title: 'Đề đang thi', exam_mode: 'sequential', status: 'published', is_open: true, active_section: 'reading', collected_section: null, section_started_at: null, section_duration_seconds: 3600, section_time_left_seconds: 1200, configured_sections: ['listening', 'reading', 'writing'], cohort_id: null },
     roster: { expected: null, started: 0, not_started: [], off_roster: [] },
@@ -65,11 +66,8 @@ await page.getByRole('heading', { name: 'Trung tâm vận hành Mock Test' }).wa
 await page.getByText('2 đề sai contract đã bị loại').waitFor();
 if (process.env.CAPTURE_UI) await page.screenshot({ path: '/tmp/admin-mock-tests-redesign.png', fullPage: true });
 check('backend-owned admin gate và canonical exam list chạy', requests.includes('GET /auth/me') && requests.includes('GET /admin/mock-exams'));
-check('deep-link live fail-closed khi đề mặc định còn draft', await page.getByText('Đề chưa được publish').count() === 1 && await page.locator('iframe').count() === 0);
-
-await page.getByRole('button', { name: /MOCK-LIVE/ }).click();
 await page.locator('iframe').waitFor();
-check('live frame giữ đúng selected exam identity và dùng route native', (await page.locator('iframe').getAttribute('src')) === '/admin/mock-live?exam_id=live-1&embed=1');
+check('deep-link Live tự chọn đúng phòng đang mở', (await page.locator('iframe').getAttribute('src')) === '/admin/mock-live?exam_id=live-1&embed=1' && await page.getByRole('button', { name: /MOCK-DRAFT/ }).count() === 0);
 await page.waitForFunction(() => {
   const frame = document.querySelector('iframe');
   return frame?.contentWindow?.location.pathname === '/admin/mock-live'
@@ -86,10 +84,16 @@ check('lọc không tự đổi đề đang thao tác', await page.getByText('Đ
 
 await page.getByRole('tab', { name: /Nhận & chấm bài/ }).click();
 await page.waitForFunction(() => document.querySelector('iframe')?.contentWindow?.location.pathname === '/admin/mock-reviews');
-check('tab query shareable và review frame giữ exact identity native', new URL(page.url()).searchParams.get('tab') === 'review' && (await page.locator('iframe').getAttribute('src')) === '/admin/mock-reviews?mock_exam_id=live-1&embed=1' && await page.getByText('MODULE ROLLBACK').count() === 0);
+check('Review tự chuyển sang đề đã đóng phù hợp ngữ cảnh', new URL(page.url()).searchParams.get('tab') === 'review' && (await page.locator('iframe').getAttribute('src')) === '/admin/mock-reviews?mock_exam_id=closed-1&embed=1' && await page.getByText('MODULE ROLLBACK').count() === 0);
+await page.getByRole('tab', { name: /Phòng thi live/ }).click();
+await page.waitForFunction(() => document.querySelector('iframe')?.contentWindow?.location.pathname === '/admin/mock-live');
+check('đổi Review sang Live loại đề đã đóng khỏi selection', new URL(page.url()).searchParams.get('exam_id') === 'live-1' && (await page.locator('iframe').getAttribute('src')) === '/admin/mock-live?exam_id=live-1&embed=1');
+await page.getByRole('tab', { name: /Nhận & chấm bài/ }).click();
+await page.waitForFunction(() => document.querySelector('iframe')?.contentWindow?.location.pathname === '/admin/mock-reviews');
+check('đổi Live sang Review loại phòng đang mở khỏi selection', new URL(page.url()).searchParams.get('exam_id') === 'closed-1' && (await page.locator('iframe').getAttribute('src')) === '/admin/mock-reviews?mock_exam_id=closed-1&embed=1');
 
 await page.getByRole('tab', { name: 'Chấm Writing' }).click();
-check('Writing dùng native queue thay vì legacy file', (await page.locator('iframe').getAttribute('src')) === '/admin/writing/queue?embed=1&mocklane=1');
+check('Writing dùng native queue và bỏ rail đề không liên quan', (await page.locator('iframe').getAttribute('src')) === '/admin/writing/queue?embed=1&mocklane=1' && await page.locator('.mts-rail').count() === 0);
 await page.waitForFunction(() => document.querySelector('iframe')?.contentWindow?.location.pathname === '/admin/writing/queue');
 await page.locator('iframe').evaluate((node) => node.contentWindow.history.pushState({}, '', '/admin/writing/grade?essay_id=fixture-child'));
 check('fixture đã đi sâu khỏi Writing queue', await page.locator('iframe').evaluate((node) => node.contentWindow.location.pathname === '/admin/writing/grade'));
@@ -103,6 +107,14 @@ check('tablist hỗ trợ Home/End/arrow mà không tự kích hoạt iframe', a
 await page.getByRole('tab', { name: /Quản lý & giao đề/ }).click();
 await page.locator('iframe[src="/admin/mock-exams?embed=1"]').waitFor();
 check('Manage đã nhúng route Next.js native, không còn rollback HTML', (await page.locator('iframe').getAttribute('src')) === '/admin/mock-exams?embed=1' && await page.getByText('MODULE ROLLBACK').count() === 0);
+
+liveOpen = false;
+await page.goto(`${BASE}/admin/mock-tests`, { waitUntil: 'domcontentloaded' });
+await page.getByRole('heading', { name: 'Trung tâm vận hành Mock Test' }).waitFor();
+await page.getByRole('tab', { name: /Phòng thi live/ }).click();
+await page.getByText('Không có phòng thi đang mở').waitFor();
+await page.waitForTimeout(15_500);
+check('polling giữ scope Live rỗng thay vì phục hồi đề đầu tiên từ tab Manage', await page.getByText('Không có phòng thi đang mở').count() === 1 && await page.locator('iframe').count() === 0);
 
 await page.setViewportSize({ width: 390, height: 844 });
 const mobile = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth, tabHeight: parseFloat(getComputedStyle(document.querySelector('.mts-tabs button')).minHeight) }));

@@ -22,7 +22,7 @@ async function launch() {
   }
 }
 const roster = () => ({ roster: [{
-  sitting_id: 'sitting-1', review_id: 'review-1', student_name: 'Nguyễn An', sitting_status: 'submitted',
+  sitting_id: 'sitting-1', review_id: 'review-1', student_name: 'Nguyễn An', sitting_status: 'all_submitted',
   listening: { score: 30, max: 40, band: 7 }, reading: { score: 28, max: 40, band: 6.5 },
   writing: { task1_wc: 170, task2_wc: 280, task1_essay_id: 'essay-1', task2_essay_id: 'essay-2', band: review.final_bands.writing ?? review.ai_draft.writing?.band ?? null, band_is_final: review.final_bands.writing != null },
   speaking: { count: 1, band: review.final_bands.speaking ?? review.ai_draft.speaking?.band ?? null, band_is_final: review.final_bands.speaking != null },
@@ -30,13 +30,13 @@ const roster = () => ({ roster: [{
 }] });
 const detail = () => ({
   review,
-  sitting: { id: 'sitting-1', student_name: 'Nguyễn An', status: 'submitted', listening_attempt_id: 'listen-1', reading_attempt_id: 'read-1', essay_task1_id: 'essay-1', essay_task2_id: 'essay-2', speaking_session_ids: ['session-1'], writing_submission: {} },
+  sitting: { id: 'sitting-1', student_name: 'Nguyễn An', status: 'all_submitted', listening_attempt_id: 'listen-1', reading_attempt_id: 'read-1', essay_task1_id: 'essay-1', essay_task2_id: 'essay-2', speaking_session_ids: ['session-1'], writing_submission: {} },
   required_skills: ['listening', 'reading', 'writing'], blankable_skills: [],
 });
 const summary = () => ({ total_sittings: 1, reviewed_sittings: ['reviewed', 'released'].includes(review.status) ? 1 : 0, needs_retest_count: Object.values(review.retest_flags).some(Boolean) ? 1 : 0, per_skill: { listening: review.retest_flags.listening ? 1 : 0, reading: review.retest_flags.reading ? 1 : 0, writing: review.retest_flags.writing ? 1 : 0, speaking: review.retest_flags.speaking ? 1 : 0 }, students: Object.values(review.retest_flags).some(Boolean) ? [{ sitting_id: 'sitting-1', user_id: 'student-1', student_name: 'Nguyễn An', skills: Object.keys(review.retest_flags).filter((key) => review.retest_flags[key]) }] : [] });
 
 const browser = await launch();
-const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, bypassCSP: true });
 await context.addInitScript(([key, value]) => localStorage.setItem(key, value), [storageKey(SB), session]);
 const page = await context.newPage();
 page.on('pageerror', (error) => errors.push(String(error)));
@@ -83,6 +83,7 @@ await page.getByRole('button', { name: 'Thử lại bảng lớp' }).click();
 await page.getByRole('button', { name: 'Nguyễn An' }).waitFor();
 if (process.env.CAPTURE_UI) await page.screenshot({ path: '/tmp/admin-mock-reviews-redesign.png', fullPage: true });
 check('retry đọc lại roster canonical và mở pipeline thật', await page.getByText('MOCK-1 — Kỳ thi tháng 8').count() === 1 && await page.locator('.mrr-pipeline').count() === 1 && requests.filter((item) => item.path === '/admin/mock-exams/exam-1/roster').length >= 2);
+check('trạng thái sitting review dùng đúng enum canonical', await page.getByText('Đã nộp đủ', { exact: true }).count() === 1);
 
 const readingRetest = page.locator('.mrr-flags label[title="Reading"] input');
 await readingRetest.click();

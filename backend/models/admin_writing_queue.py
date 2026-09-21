@@ -28,3 +28,10 @@ class AdminWritingQueueRowOut(_StrictOut):
     band: float | None = Field(default=None, ge=0, le=9)
     deadline: datetime | None = None
     task1_image_missing: bool
+
+
+class AdminWritingQueuePageOut(_StrictOut):
+    items: list[AdminWritingQueueRowOut]
+    total: int = Field(ge=0)
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)

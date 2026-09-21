@@ -12,6 +12,8 @@ import {
   normalizeWritingQueueCohorts,
   normalizeWritingQueueFilters,
   normalizeWritingQueueList,
+  normalizeWritingQueuePage,
+  shouldPollWritingQueue,
   writingMockMinimum,
   writingQueueApiPath,
   writingQueueDestination,
@@ -35,11 +37,13 @@ const row = { id: 'e1', student_id: 's1', student_full_name: '<img onerror=x>', 
 
 describe('Admin Writing Queue native model', () => {
   test('normalizes restorable filters and canonical API scope', () => {
-    assert.deepEqual(normalizeWritingQueueFilters({ status: 'reviewed', cohort_id: ' c1 ', overdue: '1', embed: '1' }), { lane: 'reviewed', cohortId: 'c1', overdue: true, embed: true });
+    assert.deepEqual(normalizeWritingQueueFilters({ status: 'reviewed', cohort_id: ' c1 ', overdue: '1', embed: '1' }), { lane: 'reviewed', cohortId: 'c1', overdue: true, embed: true, queueStatus: '' });
     assert.equal(writingQueueSearch({ lane: 'reviewed', cohortId: 'c1', overdue: true, embed: false }), 'status=reviewed&cohort_id=c1&overdue=1');
     assert.equal(writingQueueSearch({ lane: 'mock', cohortId: '', overdue: false, embed: true }), 'mocklane=1&embed=1');
-    assert.equal(writingQueueApiPath({ lane: 'all', cohortId: 'c/1' }), '/admin/writing/essays?limit=200&mock=false&cohort_id=c%2F1');
-    assert.equal(writingQueueApiPath({ lane: 'mock', cohortId: '' }), '/admin/writing/essays?limit=200&mock=true');
+    assert.equal(writingQueueSearch({ lane: 'mock', cohortId: '', overdue: false, embed: true, queueStatus: 'failed' }), 'mocklane=1&embed=1&queue_status=failed');
+    assert.equal(writingQueueApiPath({ lane: 'all', cohortId: 'c/1' }), '/admin/writing/essays/queue?limit=25&offset=0&mock=false&cohort_id=c%2F1');
+    assert.equal(writingQueueApiPath({ lane: 'mock', cohortId: '' }), '/admin/writing/essays/queue?limit=25&offset=0&mock=true');
+    assert.equal(writingQueueApiPath({ lane: 'mock', cohortId: '', queueStatus: 'pending' }), '/admin/writing/essays/queue?limit=25&offset=0&mock=true&status=pending');
     assert.equal(normalizeWritingQueueFilters({ status: 'evil' }).lane, 'graded');
   });
 
@@ -50,6 +54,11 @@ describe('Admin Writing Queue native model', () => {
     assert.equal(result.returnedCount, 4);
     assert.equal(result.rows[0].studentName, '<img onerror=x>');
     assert.equal(normalizeWritingQueueList({ rows: [] }), null);
+    assert.deepEqual(normalizeWritingQueuePage({ items: [row], total: 301, limit: 25, offset: 200 }), {
+      rows: [normalizeWritingQueueList([row]).rows[0]], malformedCount: 0, returnedCount: 1,
+      total: 301, limit: 25, offset: 200,
+    });
+    assert.equal(normalizeWritingQueuePage({ items: [], total: -1, limit: 25, offset: 0 }), null);
     assert.deepEqual(normalizeWritingQueueCohorts({ cohorts: [{ id: 'c1', name: 'Lớp 1' }, { id: '', name: 'bad' }] }), { rows: [{ id: 'c1', name: 'Lớp 1' }], malformedCount: 1 });
   });
 
@@ -60,6 +69,13 @@ describe('Admin Writing Queue native model', () => {
     assert.equal(writingQueueDestination({ ...row, status: 'grading' }, { lane: 'graded', embed: false }), '/admin/writing/status?essay_id=e1');
     assert.equal(writingQueueDestination({ ...row, status: 'pending', grading_skipped_at: '2026-08-13T00:00:00Z', gradingSkippedAt: '2026-08-13T00:00:00Z' }, { lane: 'mock', embed: false }), '/admin/writing/grade?essay_id=e1&mocklane=1');
     assert.equal(writingQueueDestination(row, { lane: 'mock', embed: true }), '/admin/writing/grade?essay_id=e1&embed=1&mocklane=1');
+    assert.equal(writingQueueDestination({ ...row, status: 'pending', gradingSkippedAt: null }, { lane: 'mock', embed: true, queueStatus: 'pending' }), '/admin/writing/status?essay_id=e1&embed=1&mocklane=1&queue_status=pending');
+    assert.equal(writingQueueDestination({ ...row, status: 'failed' }, { lane: 'mock', embed: true, queueStatus: 'failed' }), '/admin/writing/grade?essay_id=e1&embed=1&mocklane=1&queue_status=failed');
+    assert.equal(writingQueueDestination({ ...row, status: 'failed' }, { lane: 'mock', embed: true, queueStatus: 'failed', cohortId: 'c/1', overdue: true }), '/admin/writing/grade?essay_id=e1&embed=1&mocklane=1&queue_status=failed&cohort_id=c%2F1&overdue=1');
+    assert.equal(writingQueueDestination(row, { lane: 'mock', embed: true, queueStatus: 'hostile' }).includes('queue_status'), false);
+    assert.equal(shouldPollWritingQueue({ lane: 'grading' }), true);
+    assert.equal(shouldPollWritingQueue({ lane: 'mock', queueStatus: 'grading' }), true);
+    assert.equal(shouldPollWritingQueue({ lane: 'mock', queueStatus: 'graded' }), false);
   });
 
   test('requires exact, fully-accounted mutation acknowledgements', () => {
@@ -92,10 +108,12 @@ describe('/admin/writing/queue native ownership and UX contract', () => {
     assert.match(COMPONENT, /profileId\.current !== account/);
     assert.match(COMPONENT, /currentViewKey\.current === key/);
     assert.match(COMPONENT, /mutationSequence\.current !== operationId/);
-    assert.match(COMPONENT, /snapshot\?\.key === keyedFetch/);
+    assert.match(COMPONENT, /snapshot\?\.key === viewKey/);
+    assert.match(COMPONENT, /setTimeout\(\(\) => setDebouncedQuery/);
     assert.match(COMPONENT, /normalizeBulkDelivery/);
     assert.match(COMPONENT, /await loadQueue\(filters, true\)/);
     assert.match(COMPONENT, /<Dialog open=/);
+    for (const token of ['Tìm học viên', 'queueStatus', 'pageRows', 'awq-pagination', 'Số dòng']) assert.ok(COMPONENT.includes(token), token);
     assert.doesNotMatch(COMPONENT, /\balert\(|\bconfirm\(|dangerouslySetInnerHTML/);
   });
 

@@ -12,14 +12,15 @@ const MODEL = read('lib', 'admin-writing-queue-model.mjs');
 
 describe('admin Writing queue read contract', () => {
   test('derives the list wire shape from generated OpenAPI', () => {
-    assert.match(API, /ApiGetJson<'\/admin\/writing\/essays'>/);
-    assert.match(API, /getBrowserJson\('\/admin\/writing\/essays', query\)/);
+    assert.match(API, /ApiGetJson<'\/admin\/writing\/essays\/queue'>/);
+    assert.match(API, /getBrowserJson\('\/admin\/writing\/essays\/queue', query\)/);
     assert.match(OPENAPI, /"application\/json": components\["schemas"\]\["AdminWritingQueueRowOut"\]\[\]/);
+    assert.match(OPENAPI, /components\["schemas"\]\["AdminWritingQueuePageOut"\]/);
     assert.match(OPENAPI, /task1_image_missing: boolean/);
   });
 
   test('the queue uses the adapter while mutations stay on the bridge', () => {
-    assert.match(QUEUE, /getAdminWritingQueue\(writingQueueApiQuery\(target\)\)/);
+    assert.match(QUEUE, /getAdminWritingQueuePage\(writingQueueApiQuery\(target,/);
     assert.doesNotMatch(QUEUE, /window\.api\.get<unknown>\(writingQueueApiPath\(target\)\)/);
     assert.match(QUEUE, /window\.api\.post<unknown>/);
   });
