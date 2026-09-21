@@ -185,6 +185,7 @@ def answer_matches(user: str | None, expected: str, alternatives: list[str]) -> 
     Hyphenated forms count as single words (no special handling required —
     normalisation keeps the hyphen).
     """
+    raw_user = str(user or "").strip()
     norm_user = normalize_answer(user)
     if not norm_user:
         return False
@@ -204,6 +205,12 @@ def answer_matches(user: str | None, expected: str, alternatives: list[str]) -> 
                 if part.strip()
             ]
         for part in slash_parts:
+            # Preserve byte-exact canonical round trips without sending the
+            # authored parentheses through punctuation-stripping
+            # normalisation, which would also accept malformed unmatched
+            # parentheses such as ``an) apron``.
+            if raw_user == part:
+                return True
             variants = [part]
             if re.search(r"\([^()]+\)", part):
                 without_optional = re.sub(r"\s*\([^()]+\)\s*", " ", part)

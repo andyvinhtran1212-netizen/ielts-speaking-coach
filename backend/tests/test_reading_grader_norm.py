@@ -86,6 +86,13 @@ def test_answer_matches_diacritic_only_in_alternatives():
 def test_answer_matches_cambridge_optional_word_convention():
     assert answer_matches("consumption", "(food) consumption", [])
     assert answer_matches("food consumption", "(food) consumption", [])
+
+
+def test_answer_matches_authored_optional_shorthand_itself():
+    assert answer_matches("(an) apron", "(an) apron", [])
+    assert not answer_matches("an) apron", "(an) apron", [])
+    assert not answer_matches("((an) apron", "(an) apron", [])
+    assert not answer_matches("food) consumption", "(food) consumption", [])
     assert answer_matches("antlers", "(deer) antlers", [])
     assert answer_matches("deer antlers", "(deer) antlers", [])
     assert answer_matches("string", "string(s)", [])
