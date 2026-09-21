@@ -17,6 +17,8 @@ test('listening hub is programme-first and uses the truthful title', () => {
   assert.match(behavior, /Chọn chương trình luyện tập/);
   assert.match(behavior, /\/listening\/general/);
   assert.match(behavior, /\/listening\/ielts/);
+  assert.match(behavior, /needsPermanentIeltsNavigation\(ready\.programmes\)/);
+  assert.match(behavior, /Quick · Skills · Mini · Full Test/);
   assert.match(behavior, /slice\(0, 3\)/);
 });
 
@@ -56,6 +58,8 @@ test('report-only result never presents an IELTS band', () => {
   assert.match(result, /Đây không phải điểm IELTS/);
   assert.match(result, /Câu tự đối chiếu/);
   assert.doesNotMatch(result, /band_estimate|Band [0-9]/);
+  assert.match(result, /createProgrammeReplayController/);
+  assert.match(result, /replayController\.current\?\.dispose\(\)/);
 });
 
 test('programme UI has complete loading error empty and partial-data states', () => {

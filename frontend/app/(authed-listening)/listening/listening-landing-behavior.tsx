@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { needsPermanentIeltsNavigation } from '@/lib/listening-programme-navigation.mjs';
 import type { ListeningOverviewWire } from '@/lib/listening-programmes-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -196,6 +197,20 @@ function ProgrammeCard({ programme }: { programme: Programme }) {
   );
 }
 
+function IeltsNavigationCard() {
+  return (
+    <a className="listening-programme-card" href="/listening/ielts">
+      <span className="listening-programme-card__eyebrow">IELTS Listening</span>
+      <h3>Luyện tập và mô phỏng đề</h3>
+      <p>Quick Practice, Skills, Mini và Full Test luôn sẵn sàng; bài report-only xuất hiện tại đây sau khi được phát hành.</p>
+      <div className="listening-programme-card__foot">
+        <span>Quick · Skills · Mini · Full Test</span>
+        <strong>Khám phá →</strong>
+      </div>
+    </a>
+  );
+}
+
 function ProgrammeFallbackLinks() {
   return (
     <section className="listening-programmes" aria-labelledby="programme-fallback-heading">
@@ -282,14 +297,15 @@ function ListeningLandingSurface({ state }: { state: LoadState }) {
       {ready?.resume ? <ResumePanel resume={ready.resume} /> : null}
       {ready && !ready.resume ? <NextActionPanel overview={ready} /> : null}
 
-      {ready?.programmes.length ? (
+      {ready ? (
         <section className="listening-programmes" aria-labelledby="programme-heading">
           <div className="listening-section-heading">
-            <div><p className="listening-kicker">Thư viện mới</p><h2 id="programme-heading">Chọn chương trình luyện tập</h2></div>
-            <span>Nội dung report-only · không quy đổi band</span>
+            <div><p className="listening-kicker">Chương trình</p><h2 id="programme-heading">Chọn chương trình luyện tập</h2></div>
+            <span>Chọn lộ trình phù hợp với mục tiêu luyện nghe</span>
           </div>
           <div className="listening-programmes__grid">
             {ready.programmes.map((programme) => <ProgrammeCard programme={programme} key={programme.id} />)}
+            {needsPermanentIeltsNavigation(ready.programmes) ? <IeltsNavigationCard /> : null}
           </div>
         </section>
       ) : null}

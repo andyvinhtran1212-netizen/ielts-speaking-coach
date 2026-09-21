@@ -1481,6 +1481,34 @@ def test_get_test_detail_strips_solutions_and_windows(monkeypatch):
     assert "nineteen" not in json.dumps(out), "the answer is still reachable somewhere"
 
 
+def test_programme_visual_signing_failure_fails_the_whole_player(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake, scoring_policy="report_only")
+    fake.tables["listening_content"].append({
+        "id": "content-visual", "test_id": test["id"], "section_num": 1,
+        "title": "Map form", "transcript": "stub", "metadata": {},
+    })
+    fake.tables["listening_exercises"].append({
+        "id": "exercise-visual", "content_id": "content-visual",
+        "exercise_type": "mcq", "order_num": 1,
+        "payload": {
+            "variant": "programme_form_v1",
+            "questions": [{
+                "q_num": 1, "prompt": "Label the map",
+                "visual_storage_path": "packages/pkg/visuals/map.svg",
+            }],
+        },
+    })
+    monkeypatch.setattr(listening_router, "_sign_programme_visual_url", lambda _path: None)
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.get_published_listening_test(
+            test["id"], authorization=authz,
+        ))
+    assert exc.value.status_code == 503
+    assert "sơ đồ" in str(exc.value.detail)
+
+
 def test_patch_fails_closed_when_the_test_type_cannot_be_resolved(monkeypatch):
     """An unresolvable test row must refuse the save, not fall through.
 

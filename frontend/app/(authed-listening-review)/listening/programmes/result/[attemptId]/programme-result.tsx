@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
+import { createProgrammeReplayController } from '@/lib/listening-programme-replay.mjs';
 import type { ListeningProgrammeReviewWire } from '@/lib/listening-programmes-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -14,6 +15,9 @@ function list(value: unknown): string[] { return Array.isArray(value) ? value.ma
 
 export function ProgrammeResult({ attemptId }: { attemptId: string }) {
   const { status, user } = useAuth(); const [state, setState] = useState<State>({ status: 'loading' }); const audio = useRef<HTMLAudioElement>(null);
+  const replayController = useRef<ReturnType<typeof createProgrammeReplayController> | null>(null);
+  if (!replayController.current) replayController.current = createProgrammeReplayController(() => audio.current);
+  useEffect(() => () => replayController.current?.dispose(), []);
   useEffect(() => {
     if (status === 'signed-out') window.location.replace('/login');
     if (status !== 'signed-in' || !user?.id) return;
@@ -28,7 +32,7 @@ export function ProgrammeResult({ attemptId }: { attemptId: string }) {
     })().catch(() => { if (active) setState({ status: 'error' }); });
     return () => { active = false; controller.abort(); };
   }, [attemptId, status, user?.id]);
-  function replay(item: ReviewItem) { if (!audio.current || item.audioWindow?.start == null) return; audio.current.currentTime = Number(item.audioWindow.start); void audio.current.play(); if (item.audioWindow.end != null) { const stop = () => { if (audio.current && audio.current.currentTime >= Number(item.audioWindow?.end)) { audio.current.pause(); audio.current.removeEventListener('timeupdate', stop); } }; audio.current.addEventListener('timeupdate', stop); } }
+  function replay(item: ReviewItem) { replayController.current?.replay(item.audioWindow); }
   if (state.status === 'loading') return <main className="programme-result programme-result-state" role="status">Đang tải phần tự đối chiếu…</main>;
   if (state.status === 'error') return <main className="programme-result programme-result-state is-error" role="alert"><p>Không tải được kết quả.</p><a href="/listening">Về trang Luyện nghe</a></main>;
   const { result } = state; const summary = result.summary; const lessonProgrammePath = result.programmeId === 'general-listening-practice' ? 'general' : 'ielts';

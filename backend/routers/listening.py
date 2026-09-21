@@ -5292,7 +5292,13 @@ def _assemble_listening_player_payload(test: dict) -> dict:
                 question = dict(raw_question) if isinstance(raw_question, dict) else {}
                 storage_path = question.pop("visual_storage_path", None)
                 if storage_path:
-                    question["visual_url"] = _sign_programme_visual_url(storage_path)
+                    visual_url = _sign_programme_visual_url(storage_path)
+                    if not visual_url:
+                        raise HTTPException(
+                            503,
+                            "Không thể tải sơ đồ của bài nghe — vui lòng thử lại sau.",
+                        )
+                    question["visual_url"] = visual_url
                 questions.append(question)
             payload["questions"] = questions
             exercise["payload"] = payload

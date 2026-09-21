@@ -77,6 +77,8 @@ describe('/listening — native React behavior', () => {
     assert.match(BEHAVIOR, /ready\.content > 0 && ready\.modeLabels\.length > 0/);
     assert.match(BEHAVIOR, /ready\.modeLabels\.join\(' · '\)/);
     assert.match(PROGRAMME_LIBRARY, /Điểm và band chỉ xuất hiện ở chế độ đủ điều kiện/);
+    assert.match(BEHAVIOR, /needsPermanentIeltsNavigation\(ready\.programmes\)/);
+    assert.match(BEHAVIOR, /Quick · Skills · Mini · Full Test/);
   });
 
   test('keeps truthful loading, empty and API-fallback surfaces', () => {
