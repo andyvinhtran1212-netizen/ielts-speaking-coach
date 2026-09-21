@@ -404,6 +404,25 @@ def test_list_essays_no_filters_passes_none():
     assert kwargs["student_id"] is None
 
 
+def test_paginated_queue_passes_server_search_and_pagination():
+    payload = {"items": [_queue_row()], "total": 251, "limit": 25, "offset": 200}
+    with patch("routers.admin_writing.require_admin",
+               new=AsyncMock(return_value=_ADMIN_USER)), patch(
+        "routers.admin_writing.essay_service.list_essays_page",
+        return_value=payload,
+    ) as mock_page:
+        r = _client().get(
+            "/admin/writing/essays/queue?status=graded&q=Nguyen&limit=25&offset=200&overdue=true",
+            headers=_ADMIN_AUTH,
+        )
+    assert r.status_code == 200, r.text
+    assert r.json()["total"] == 251
+    assert mock_page.call_args.kwargs == {
+        "status": "graded", "cohort_id": None, "mock": None,
+        "query": "Nguyen", "overdue": True, "limit": 25, "offset": 200,
+    }
+
+
 def test_get_essay_returns_detail():
     detail = {"id": _ESSAY_ID, "status": "graded", "feedback": {"overall_band_score": 7.0}}
     with patch("routers.admin_writing.require_admin",

@@ -6,8 +6,12 @@ import { fileURLToPath } from 'node:url';
 import {
   filterMockExams,
   mockExamStage,
+  mockSectionLabel,
+  mockSittingStatusLabel,
+  mockTestsExamForTab,
   mockTestsFrame,
   mockTestsHref,
+  mockTestsStageForTab,
   mockTestsTab,
   normalizeMockExamList,
 } from '../lib/admin-mock-tests-model.mjs';
@@ -56,6 +60,33 @@ describe('Admin Mock Tests native model', () => {
     assert.equal(mockTestsFrame('review', ''), null);
     assert.equal(mockTestsFrame('writing'), '/admin/writing/queue?embed=1&mocklane=1');
   });
+
+  test('chooses task-relevant defaults while preserving explicit deep links', () => {
+    const exams = normalizeMockExamList(rows).rows;
+    assert.equal(mockTestsStageForTab('live'), 'live');
+    assert.equal(mockTestsStageForTab('review'), 'closed');
+    assert.equal(mockTestsStageForTab('writing'), 'all');
+    assert.equal(mockTestsExamForTab(exams, 'live', 'd1'), 'l1');
+    assert.equal(mockTestsExamForTab(exams, 'live', 'c1'), 'l1');
+    assert.equal(mockTestsExamForTab(exams, 'review', 'l1'), 'c1');
+    assert.equal(mockTestsExamForTab(exams, 'writing', 'l1'), '');
+    assert.equal(mockTestsExamForTab(exams, 'live', '', 'd1'), 'd1');
+    assert.equal(mockTestsExamForTab([{ ...exams[0] }], 'live', 'd1'), '');
+  });
+
+  test('localizes canonical operational statuses and fails closed on unknown values', () => {
+    assert.equal(mockSectionLabel('not_started'), 'Chưa bắt đầu');
+    assert.equal(mockSectionLabel('done'), 'Đã xong');
+    assert.equal(mockSectionLabel('future-state'), 'Không rõ trạng thái');
+    assert.deepEqual([
+      'chưa vào', 'registered', 'lrw_in_progress', 'lrw_submitted', 'speaking_pending',
+      'all_submitted', 'under_review', 'reviewed', 'released', 'void',
+    ].map(mockSittingStatusLabel), [
+      'Chưa vào phòng', 'Đã đăng ký', 'Đang làm LRW', 'Đã nộp LRW', 'Chờ thi Speaking',
+      'Đã nộp đủ', 'Đang chấm', 'Đã chấm', 'Đã trả kết quả', 'Đã huỷ lượt',
+    ]);
+    assert.equal(mockSittingStatusLabel('future-state'), 'Không rõ trạng thái');
+  });
 });
 
 describe('/admin/mock-tests native ownership and UX', () => {
@@ -70,7 +101,7 @@ describe('/admin/mock-tests native ownership and UX', () => {
   });
 
   test('keeps canonical selection truth, live safety and account-scoped refresh', () => {
-    for (const token of ['/admin/mock-exams', 'requestedExam', 'mockTestsHref(tab, id)', 'frameEpoch', 'next === tab', 'key={`${frame}:${frameEpoch}`}', 'accountRef.current !== account', 'request !== requestRef.current', 'request === requestRef.current', 'document.visibilityState', '15_000', 'normalizeMockExamList', 'liveDraftBlocked', 'Publish đề trong tab Quản lý', 'snapshot cũ', 'MutationObserver', "event.key !== 'av-theme'", 'Đề đang thao tác bị ẩn bởi bộ lọc']) assert.ok(COMPONENT.includes(token), token);
+    for (const token of ['/admin/mock-exams', 'requestedExam', 'mockTestsHref(tab, id)', 'frameEpoch', 'next === tab', 'key={`${frame}:${frameEpoch}`}', 'accountRef.current !== account', 'request !== requestRef.current', 'request === requestRef.current', 'document.visibilityState', '15_000', 'new URL(window.location.href)', 'activeTask', 'activeRequestedExam', 'normalizeMockExamList', 'liveDraftBlocked', 'Boolean(selected)', 'Không có phòng thi đang mở', 'Publish đề trong tab Quản lý', 'snapshot cũ', 'MutationObserver', "event.key !== 'av-theme'", 'Đề đang thao tác bị ẩn bởi bộ lọc', 'mockTestsExamForTab', 'mockTestsStageForTab', 'mockSectionLabel', "tab !== 'writing'", 'destination task']) assert.ok(COMPONENT.includes(token), token);
     assert.doesNotMatch(COMPONENT, /id: 'review'[^\n]+legacy: true/);
     assert.doesNotMatch(COMPONENT, /dangerouslySetInnerHTML|window\.api\.(post|patch|delete)/);
   });

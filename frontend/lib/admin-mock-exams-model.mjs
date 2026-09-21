@@ -3,6 +3,11 @@ const STATUS = new Set(['draft', 'published', 'archived']);
 const MODE = new Set(['sequential', 'retake']);
 const SECTION = new Set(['not_started', 'listening', 'reading', 'writing', 'done']);
 const KIND = new Set(['reading', 'listening', 'writing']);
+const CONTENT_STATUS_LABEL = Object.freeze({
+  draft: 'Bản nháp',
+  published: 'Đã publish',
+  archived: 'Đã lưu trữ',
+});
 
 function sourceList(raw, keys) {
   if (Array.isArray(raw)) return raw;
@@ -226,9 +231,14 @@ export function normalizeExamContent(raw) {
   });
   return {
     rows,
+    total: Number.isInteger(raw.total) && raw.total >= rows.length ? raw.total : rows.length,
     levels: Array.isArray(raw.levels) ? raw.levels.map(TEXT).filter(Boolean) : [],
     failedKinds: Array.isArray(raw.failed_kinds) ? raw.failed_kinds.map(TEXT).filter((kind) => KIND.has(kind)) : [],
   };
+}
+
+export function examContentStatusLabel(value) {
+  return CONTENT_STATUS_LABEL[TEXT(value)] || 'Không rõ trạng thái';
 }
 
 export function filterContentByLevel(rows, level) {

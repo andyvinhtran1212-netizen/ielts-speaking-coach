@@ -14,6 +14,285 @@ Local remediation (not deployed): `docs/audits/POST_FLIP_REMEDIATION_2026-09-09.
 - Positive observations to preserve:94fixture assertions passed across five workflows, including canonical reload, lost-ACK handling, keyboard tabs, mock Writing backup and narrow/dark layouts. Public sampled pages had no page-level overflow or uncaught JS errors.
 - Coverage still open: authenticated production/admin visual variants, Safari/audio behavior, complete keyboard/screen-reader matrix. Do not mark all132page surfaces audited from the public browser sample.
 
+## Admin Mock Test end-to-end UX audit — 2026-09-21
+
+### Local remediation delivered — 2026-09-21
+
+The focused remediation is implemented in the isolated
+`codex/mock-test-admin-split` worktree. It does not change grading, exam
+finalization, or result persistence contracts.
+
+- Manage now opens on the canonical Mock Test list. Creation is a separate
+  explicit workspace, and the large Reading/Listening/Writing catalog is a
+  separate lazy-mounted workspace.
+- The catalog API now accepts bounded `q`, `attention`, `limit`, and `offset`
+  filters and returns `total`. The UI debounces search, renders only 25/50 rows,
+  provides action/missing-level/unassigned/draft filters, groups secondary row
+  actions, and replaces save-on-blur level edits with explicit Lưu/Huỷ readback.
+  Cross-table cohort, explanation, and Mock-reference enrichment now runs only
+  for the requested page; relationship-dependent filters use lightweight ID
+  sets before pagination.
+- Create-exam content selectors now have keyboard-accessible search and a
+  visible no-result state without changing the create payload.
+- Live defaults to an actually open room and shows a purposeful no-open-room
+  CTA. Review defaults to a closed exam. Writing no longer displays the
+  unrelated exam rail.
+- Embedded Manage removes its duplicate hero, metrics, and lifecycle rail.
+  Embedded Mock Writing retains search, class, backend status, overdue, reload,
+  and 25/50-row server paging controls with an exact total. Student search is
+  resolved by the backend before essay pagination, so it can find a learner
+  outside the former 200-newest snapshot. Status, class, and overdue scope survive essay
+  detail/error/save-return navigation; the Mock “Đang chấm” subset polls until
+  the canonical row leaves that status.
+- Canonical section/sitting enums are translated for operators; unknown values
+  fail visibly as “Không rõ trạng thái”. Touched filter controls meet the 44px
+  target and retain focus-visible/reduced-motion behavior.
+
+Verification evidence: 214 affected backend tests and the complete 9,216-test
+frontend contract suite passed; TypeScript and the 152-route production build
+passed. Fixture-backed browser journeys passed 13/13 (Mock cockpit), 16/16
+(create/manage/catalog), 15/15 (Writing queue), 17/17 (Writing status), and 1/1
+(Writing save-return), including 390px responsive checks, canonical Mock
+grading polling, full filter round-trips, and JavaScript-error checks.
+
+Operational follow-ups intentionally remain outside this code patch: assigning
+real course levels to the existing production records is a data-quality change;
+adding exam identity to Writing essays needs a new canonical backend contract;
+and removing same-origin iframe composition entirely is a larger route-
+ownership migration. The patch does not guess or mutate those truths.
+
+### Scope and evidence
+
+- Authenticated production walkthrough of `/admin/mock-tests` across Quản lý &
+  giao đề, Phòng thi live, Nhận & chấm bài, and Chấm Writing.
+- Production sample at audit time: 13 mock exams, 0 open rooms, 345 content
+  records, and 94 Mock Writing essays.
+- Desktop dark/light review plus a 390×844 responsive pass. The outer page did
+  not overflow horizontally at 390px, but the operational workspace still uses
+  nested page/iframe scrolling.
+- Source and contract review covered the Next cockpits, embedded workspaces,
+  exam-content service, and Writing queue API. This is an audit/backlog entry;
+  no additional business mutation or API change is included here.
+
+### Summary
+
+The six-stage operations language, canonical readback after mutations, visible
+stale/error states, and task-specific live/review workspaces are strong. The
+main usability risk is scale: the UI treats an operational catalog like a
+small list. Production currently mounts hundreds of rows and more than one
+thousand repeated actions at once. A second problem is scope: the persistent
+exam rail does not adapt to the selected task, so Live can default to a closed
+exam and the Writing queue retains an exam selector that does not scope its
+data.
+
+The already-started local split between **Đề Mock Test** and **Kho đề nội dung**
+is the correct first step for the original long-page problem. It should be kept
+as a focused change and followed by the scale and context improvements below.
+
+### Critical issue
+
+#### Unbounded catalogs and queues are not manageable at current production scale
+
+- **Root cause:** the content library fetches every matching record and renders
+  `visible.map(...)`; the backend `list_exam_content()` also pages through the
+  full source tables and exposes no `limit`, `offset`, or search contract. The
+  Writing queue asks for as many as 200 rows and renders all returned rows. In
+  embedded Mock Writing mode, the lane and toolbar are hidden, leaving no
+  search or status/class filter.
+- **Severity:** Critical for operational UX and accessibility; no persistence
+  defect was found.
+- **Observed impact:** the production content library mounted 345 rows, 1,097
+  buttons, 564 links, and 347 text inputs with no search control. The Mock
+  Writing iframe mounted 94 rows and 102 buttons with no search/select filter.
+  Repeated labels such as “Publish”, “Mở bài”, and “Giao cho lớp” also make
+  screen-reader navigation ambiguous without row context.
+- **Impacted files/functions:**
+  `exam-content-library.tsx` (`load`, `visible`, full table render around
+  lines 47–76 and 221–227), `admin_exam_content.py:list_exam_content`,
+  `exam_content_service.py:list_exam_content`,
+  `admin-writing-queue.tsx` (`visibleRows`, embedded toolbar guards, full table
+  render around lines 182–189 and 295–345),
+  `admin-writing-queue-model.mjs:writingQueueApiQuery`, and
+  `admin_writing.py:list_essays`.
+- **Suggested minimal fix:** immediately render only a 25/50-row client page,
+  add debounced search and quick filters, and give every repeated row action an
+  accessible name containing the exam/student identity. Then add server-side
+  `q`, `page`/`limit`, sort, status/readiness/unassigned filters and total counts
+  for the content API; reuse the existing Writing `status`, `limit`, and
+  `offset` contract instead of loading the whole Mock lane.
+- **Verification:** with at least 500 content rows and 200 Writing rows, confirm
+  only the active page is mounted; keyboard and screen-reader users can locate
+  one row by identity; changing filters preserves truthful total/visible counts;
+  full reload returns the same canonical results; 390/768/1440px have no page-
+  level overflow or nested focus loss.
+
+### Medium priority improvements
+
+#### Task tabs keep one global exam selection even when the task needs another scope
+
+- **Root cause:** `AdminMockTests` initializes `stage` to `all`, falls back to
+  the first API row for `selectedId`, and `activateTab()` preserves that same
+  selection. Live only blocks draft exams; it does not require an open/live
+  exam. Writing intentionally has no `exam_id` in `mockTestsFrame()`, but the
+  unrelated exam rail remains visible.
+- **Severity:** Medium.
+- **Impact:** with 0 open rooms, selecting “Phòng thi live” displayed the first
+  closed exam and its ended room rather than a purposeful “no room is open”
+  state. In Chấm Writing, the left rail visually implies the selected exam
+  scopes the 94-row queue even though the iframe URL contains no exam ID.
+- **Impacted files/functions:** `admin-mock-tests.tsx` state initialization and
+  selection (`stage`, `selectedId`, `activateTab`, `frame` around lines 52–59,
+  89–93, 124–138, 167–176); `admin-mock-tests-model.mjs:mockTestsFrame`.
+- **Suggested minimal fix:** derive the rail scope from the task: Manage = all,
+  Live = open first and a no-open-room CTA, Review = completed/actionable,
+  Writing = hide the exam rail and show compact queue filters. Preserve an
+  explicit valid `exam_id` deep link even when it is outside the default scope.
+- **Verification:** test 0/1/multiple open rooms, a deep link to a closed room,
+  switching among all four tabs, browser back/forward, and full reload. The
+  heading, selected rail item, URL, and iframe must always describe the same
+  scope.
+
+#### Embedded workspaces repeat lifecycle context before the actual task
+
+- **Root cause:** the outer cockpit always renders hero, metrics, and the
+  six-stage rail. The embedded Manage module still renders its own hero,
+  metrics, and six-stage rail; Live and Review add another identity/progress
+  block immediately below the outer lifecycle context.
+- **Severity:** Medium.
+- **Impact:** the operator spends substantial vertical space re-reading context
+  before reaching creation, room commands, or the roster. This is most visible
+  on mobile, where the outer page measured 1,730px high before the long iframe
+  content and the iframe itself became a second scroll region.
+- **Impacted files/functions:** `admin-mock-tests.tsx` outer header/overview/
+  workflow (lines 190–216), `admin-mock-exams.tsx` header/overview/workflow
+  (lines 238–242), `admin-mock-live.tsx` identity/section flow, and
+  `admin-mock-reviews.tsx` context/pipeline.
+- **Suggested minimal fix:** make `embed=1` a compact contract: remove the inner
+  global hero/overview/workflow and begin with one task header plus selected
+  exam identity. On mobile, replace the full rail with a compact picker/drawer
+  so task content appears in the first viewport after the page title.
+- **Verification:** compare embedded and standalone routes in both themes at
+  390/768/1440px; every task retains its identity, warnings, and next action,
+  while only one global lifecycle rail is visible.
+
+#### Create-exam pickers do not scale with the content bank
+
+- **Root cause:** Listening, Reading, and Writing sources are rendered as native
+  `<select>` lists. Listening requests up to 100 published exam records and the
+  Writing picker loads the full prompt list, but the controls have no search,
+  grouping, readiness summary, or recent-use signal.
+- **Severity:** Medium.
+- **Impact:** similarly named content is difficult to distinguish and operators
+  must scan long lists while composing a high-stakes exam.
+- **Impacted files/functions:** `admin-mock-exams.tsx` picker loading around
+  lines 99–121; `exam-create-form.tsx:ExamCreateForm` content controls around
+  lines 63–74.
+- **Suggested minimal fix:** use an accessible searchable combobox grouped by
+  skill/type and show code, title, status/readiness, course level, and recent
+  use. Keep the selected item visible in the draft summary and do not change
+  `buildExamCreatePayload()`.
+- **Verification:** keyboard-only selection from 100+ items, duplicate-title
+  disambiguation, empty/no-result states, correct task-type admission, and an
+  unchanged create payload/reload result.
+
+#### The content catalog exposes too many row actions and unsafe-looking inline metadata edits
+
+- **Root cause:** each Reading/Listening row can expose preview, correction,
+  readiness, publish/draft, visibility, assignment, and class-scope controls at
+  once. `course_level` is an unrestricted text input that saves on blur; the
+  backend deliberately derives suggestions from existing free-text values.
+- **Severity:** Medium.
+- **Impact:** the primary next action is unclear, accidental blur can mutate a
+  level, and production showed all 345 records under “Chưa đặt”, making the
+  current level filter operationally ineffective.
+- **Impacted files/functions:** `exam-content-library.tsx` level edit and row
+  actions around lines 217–227; `admin_exam_content.py:LevelBody`;
+  `exam_content_service.py:known_course_levels`.
+- **Suggested minimal fix:** keep Preview plus one state-dependent primary
+  action visible and move secondary actions into a row menu. Replace save-on-
+  blur with an editable combobox/datalist plus explicit Lưu/Huỷ feedback; add
+  quick filters for Cần xử lý, Chưa đặt cấp, Chưa gán lớp, Draft, and Public.
+  Remediate the existing 345 missing levels as a data-quality batch rather than
+  hiding it in UI copy.
+- **Verification:** Escape cancels an edit, blur alone does not save, successful
+  save is read back canonically, failure restores the prior value, row menus
+  have contextual accessible names, and each quick-filter count matches a full
+  reload.
+
+#### Embedded Mock Writing removes the controls needed to manage a historical queue
+
+- **Root cause:** both lane navigation and the class/overdue toolbar are guarded
+  by `!filters.embed`. The Mock lane therefore displays every returned status
+  together and cannot be narrowed in the cockpit.
+- **Severity:** Medium.
+- **Impact:** actionable pending/failed essays are mixed with a long history of
+  delivered essays; at audit time only a few pending decisions were buried in
+  94 rows.
+- **Impacted files/functions:** `admin-writing-queue.tsx` embedded guards around
+  lines 295–309 and table render around lines 317–345;
+  `admin-writing-queue-model.mjs:normalizeWritingQueueFilters` and
+  `writingQueueApiQuery`.
+- **Suggested minimal fix:** keep a compact embedded toolbar with status,
+  student search, class, and “Cần xử lý / Lịch sử”. Status can reuse the
+  existing API immediately; exam-level filtering should be a separate contract
+  change that exposes canonical mock-exam identity for each essay.
+- **Verification:** pending/failed/delivered filters, query persistence, exact
+  visible/total counts, and queue navigation back from an essay without losing
+  the selected filter.
+
+#### Canonical enum values leak into Vietnamese operational copy
+
+- **Root cause:** the outer rail prints `activeSection` directly and Live/Review
+  roster rows print sitting status directly, while only some status fields use
+  label maps.
+- **Severity:** Medium.
+- **Impact:** operators see mixed copy such as `Sequential theo lớp · done`,
+  `Retake theo học viên · not_started`, and `released` inside otherwise
+  Vietnamese screens.
+- **Impacted files/functions:** `admin-mock-tests.tsx` exam row around line 238,
+  `admin-mock-live.tsx` student status around line 326, and
+  `admin-mock-reviews.tsx` sitting status around line 314.
+- **Suggested minimal fix:** use one exhaustive display-label map for section,
+  sitting, and review status. Keep raw enums only in payloads, CSS hooks, logs,
+  and diagnostic details.
+- **Verification:** fixture every known and unknown enum; known values are
+  Vietnamese, unknown values produce a visible “Không rõ trạng thái” warning
+  rather than silently exposing or hiding state.
+
+### Low priority improvements
+
+- **Design-token drift:** `admin-mock-tests-next.css` still contains many raw
+  spacing/radius values and 36px filter controls. Convert touched rules to
+  semantic `--av-*` spacing/radius tokens and keep interactive targets at least
+  44px. Verify focus-visible, reduced motion, and both themes.
+- **Navigation duplication:** the sidebar omits a direct “Phòng thi live” child
+  while the cockpit tabs include it, and “Tạo & quản lý đề” routes to the whole
+  cockpit. After task-aware scoping lands, align sidebar labels with the four
+  cockpit spaces without creating duplicate destinations.
+
+### Positive observations to preserve
+
+- Mutation flows reconcile with canonical backend state and keep stale/error
+  warnings visible; do not replace this with optimistic-only updates.
+- Live controls respect collect/sweep readiness and retain an explicit
+  emergency-close path when the snapshot is stale.
+- Review separates queue counts, grading tools, and irreversible result release;
+  release remains backend-gated.
+- Light and dark themes remained coherent in the audited desktop sample, and
+  the 390px outer page had no horizontal overflow. Writing rows already switch
+  to a readable card layout at narrow widths.
+
+### Recommended implementation order
+
+1. Ship and verify the local **Đề Mock Test / Kho đề nội dung** split.
+2. Add client paging/search and contextual accessible names to the 345-row
+   catalog; retain only visible DOM rows.
+3. Make exam selection task-aware and add the Live empty state.
+4. Restore compact embedded filters for Mock Writing and paginate the queue.
+5. Add server-side catalog paging/search/counts, then the richer exam filter for
+   Writing.
+6. Compact embedded headers, localize enums, and finish token/44px cleanup.
+
 ## Historical admin redesign packet — 2026-08-07
 
 > Audit date: 2026-08-07

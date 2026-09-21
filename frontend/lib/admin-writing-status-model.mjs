@@ -17,10 +17,15 @@ const validDate = (value) => {
 
 export function normalizeWritingStatusQuery(raw = {}) {
   const source = objectOf(raw) || {};
+  const mocklane = source.mocklane === true || source.mocklane === '1';
+  const queueStatus = stringOf(source.queueStatus || source.queue_status);
   return {
     essayId: stringOf(source.essayId || source.essay_id || source.id),
     embed: source.embed === true || source.embed === '1',
-    mocklane: source.mocklane === true || source.mocklane === '1',
+    mocklane,
+    queueStatus: mocklane && STATUSES.has(queueStatus) ? queueStatus : '',
+    cohortId: stringOf(source.cohortId || source.cohort_id),
+    overdue: source.overdue === true || source.overdue === '1',
   };
 }
 
@@ -104,6 +109,9 @@ export function writingStatusHref(kind, query) {
   if (kind === 'queue' && !normalized.mocklane) params.set('status', 'grading');
   if (normalized.embed) params.set('embed', '1');
   if (normalized.mocklane) params.set('mocklane', '1');
+  if (normalized.queueStatus) params.set('queue_status', normalized.queueStatus);
+  if (normalized.cohortId) params.set('cohort_id', normalized.cohortId);
+  if (normalized.overdue) params.set('overdue', '1');
   const base = kind === 'grade' ? '/admin/writing/grade' : '/admin/writing/queue';
   const search = params.toString();
   return `${base}${search ? `?${search}` : ''}`;

@@ -12,11 +12,13 @@ const check = (name, ok, detail = '') => { results.push({ name, ok, detail }); c
 async function launch() { try { return await chromium.launch(); } catch (error) { const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; if (process.platform === 'darwin' && existsSync(chrome)) return chromium.launch({ executablePath: chrome }); throw error; } }
 
 const dangerous = '<img src=x onerror="window.__queueXss=1">';
+const QUEUE_PATH = '/admin/writing/essays/queue';
 const now = new Date();
 const past = new Date(now.getTime() - 86400000).toISOString();
 const recent = new Date(now.getTime() - 3600000).toISOString();
 const base = (id, name, status, extra = {}) => ({ id, student_id: `s-${id}`, student_full_name: name, student_code: id.toUpperCase(), task_type: 'task2', status, analysis_level: 3, selected_model: 'gemini-2.5-pro', word_count: 280, created_at: recent, delivered_at: null, error_message: null, sitting_id: null, grading_skipped_at: null, band: status === 'pending' || status === 'grading' ? null : 6.5, deadline: past, task1_image_missing: false, ...extra });
 let regular = [base('e1', dangerous, 'reviewed'), base('e2', 'Learner Two', 'reviewed')];
+const olderSearchRow = base('older-201', 'Older Search Student', 'reviewed', { student_code: 'OLD-201', created_at: '2025-01-01T00:00:00Z' });
 let mockRows = [
   base('m1', 'Mock Short Grade', 'pending', { sitting_id: 'sit1', task_type: 'task1_academic', word_count: 120 }),
   base('m2', 'Mock Short Skip', 'pending', { sitting_id: 'sit2', task_type: 'task2', word_count: 180 }),
@@ -27,7 +29,7 @@ let listReads = 0;
 const requests = []; const unexpectedWrites = []; const pageErrors = [];
 
 const browser = await launch();
-const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, bypassCSP: true });
 await context.addInitScript(([key, value]) => localStorage.setItem(key, value), [storageKey(SB), session]);
 const page = await context.newPage();
 page.on('pageerror', (error) => pageErrors.push(String(error)));
@@ -42,13 +44,16 @@ await page.route('**/*', async (route) => {
   const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   if (parsed.pathname === '/auth/me') return json({ id: adminId, email: 'admin-writing-queue@local', role: 'admin' });
   if (method === 'GET' && parsed.pathname === '/admin/cohorts') return json({ cohorts: [{ id: 'c1', name: 'Khoá 1' }, { id: 'c2', name: dangerous }, { id: '', name: 'malformed' }] });
-  if (method === 'GET' && parsed.pathname === '/admin/writing/essays') {
+  if (method === 'GET' && parsed.pathname === QUEUE_PATH) {
     listReads += 1;
     const mock = parsed.searchParams.get('mock') === 'true';
     if (!mock && failNextRegularRead) { failNextRegularRead = false; return json({ detail: 'fixture refresh failed' }, 503); }
     const status = parsed.searchParams.get('status');
-    const rows = (mock ? mockRows : regular).filter((row) => !status || row.status === status);
-    return json(rows);
+    const needle = (parsed.searchParams.get('q') || '').toLocaleLowerCase('vi');
+    const source = mock ? mockRows : needle ? [...regular, olderSearchRow] : regular;
+    const rows = source.filter((row) => (!status || row.status === status) && (!needle || `${row.student_full_name} ${row.student_code} ${row.student_id}`.toLocaleLowerCase('vi').includes(needle)));
+    const limit = Number(parsed.searchParams.get('limit') || 25); const offset = Number(parsed.searchParams.get('offset') || 0);
+    return json({ items: rows.slice(offset, offset + limit), total: rows.length, limit, offset });
   }
   if (method === 'POST' && parsed.pathname === '/admin/writing/essays/bulk-mark-delivered') {
     const body = request.postDataJSON(); const ids = body.essay_ids || [];
@@ -71,9 +76,17 @@ await page.route('**/*', async (route) => {
 await page.goto(`${BASE}/admin/writing/queue?status=reviewed`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Hàng chờ chấm', exact: true }).waitFor();
 await page.getByText('Learner Two', { exact: true }).waitFor();
-check('admin gate và reviewed lane dùng đúng canonical scope', requests.some((item) => item.path === '/auth/me') && requests.some((item) => item.path === '/admin/writing/essays' && item.search.includes('status=reviewed') && item.search.includes('mock=false')));
+check('admin gate và reviewed lane dùng đúng canonical scope', requests.some((item) => item.path === '/auth/me') && requests.some((item) => item.path === QUEUE_PATH && item.search.includes('status=reviewed') && item.search.includes('mock=false')));
 check('hostile API text được escape trong bảng và lớp', await page.locator('.awq-table img').count() === 0 && await page.locator('.awq-toolbar img').count() === 0 && await page.evaluate(() => !window.__queueXss));
-check('malformed cohort không biến thành option và có cảnh báo', await page.getByRole('option').count() === 3 && await page.getByText(/1 lớp sai định dạng/).count() === 1);
+check('malformed cohort không biến thành option và có cảnh báo', await page.getByLabel('Lớp học').locator('option').count() === 3 && await page.getByText(/1 lớp sai định dạng/).count() === 1);
+
+const completeSearchRead = page.waitForResponse((response) => new URL(response.url()).pathname === QUEUE_PATH && new URL(response.url()).searchParams.get('q') === 'OLD-201');
+await page.getByLabel('Tìm học viên').fill('OLD-201');
+await completeSearchRead;
+await page.getByText('Older Search Student', { exact: true }).waitFor();
+check('search chạy ở backend và tìm được học viên ngoài snapshot đầu', requests.some((item) => item.path === QUEUE_PATH && item.search.includes('q=OLD-201')));
+await page.getByLabel('Tìm học viên').fill('');
+await page.getByText('Learner Two', { exact: true }).waitFor();
 
 await page.getByLabel('Chọn tất cả bài đang hiển thị').check();
 await page.getByRole('button', { name: 'Trả bài đã chọn' }).click();
@@ -94,6 +107,14 @@ check('refresh lỗi giữ snapshot đúng filter và báo dữ liệu cũ', awa
 await page.getByRole('button', { name: /^Mock Writing/ }).click();
 await page.waitForURL((url) => url.searchParams.get('mocklane') === '1');
 await page.getByText('Mock Short Grade', { exact: true }).waitFor();
+const pendingRead = page.waitForResponse((response) => new URL(response.url()).pathname === QUEUE_PATH && new URL(response.url()).searchParams.get('status') === 'pending');
+const mockStatusFilter = page.locator('.awq-toolbar label').filter({ hasText: 'Trạng thái' }).locator('select');
+await mockStatusFilter.selectOption('pending');
+await pendingRead;
+check('lọc trạng thái Mock dùng contract backend và giữ trong URL', new URL(page.url()).searchParams.get('queue_status') === 'pending' && requests.some((item) => item.path === QUEUE_PATH && item.search.includes('status=pending')));
+const allMockRead = page.waitForResponse((response) => new URL(response.url()).pathname === QUEUE_PATH && !new URL(response.url()).searchParams.has('status'));
+await mockStatusFilter.selectOption('all');
+await allMockRead;
 const gradeRow = page.locator('tr', { hasText: 'Mock Short Grade' });
 await gradeRow.getByRole('button', { name: 'Chấm dù ngắn' }).click();
 await page.getByRole('button', { name: 'Bắt đầu chấm' }).click();
@@ -105,6 +126,19 @@ await skipRow.getByRole('button', { name: 'Bỏ qua' }).click();
 await page.getByRole('button', { name: 'Bỏ qua chấm' }).click();
 await page.getByText('Đã bỏ qua chấm bài ngắn và đồng bộ lại từ máy chủ.', { exact: true }).waitFor();
 check('skip chỉ báo xong khi canonical skip stamp xuất hiện', await skipRow.getByText('Đã bỏ qua chấm', { exact: true }).count() === 1);
+
+const gradingRead = page.waitForResponse((response) => new URL(response.url()).pathname === QUEUE_PATH && new URL(response.url()).searchParams.get('status') === 'grading');
+await mockStatusFilter.selectOption('grading');
+await gradingRead;
+await page.getByText('Mock Short Grade', { exact: true }).waitFor();
+const gradingReadsBeforePoll = requests.filter((item) => item.path === QUEUE_PATH && item.search.includes('status=grading')).length;
+mockRows = mockRows.map((row) => row.id === 'm1' ? { ...row, status: 'graded' } : row);
+await page.getByText('Lane này đang trống', { exact: true }).waitFor({ timeout: 12000 });
+check('nhóm Mock đang chấm tự poll và loại bài đã chuyển sang graded', requests.filter((item) => item.path === QUEUE_PATH && item.search.includes('status=grading')).length > gradingReadsBeforePoll);
+const restoredMockRead = page.waitForResponse((response) => new URL(response.url()).pathname === QUEUE_PATH && !new URL(response.url()).searchParams.has('status'));
+await mockStatusFilter.selectOption('all');
+await restoredMockRead;
+await page.getByText('Mock Reviewed', { exact: true }).waitFor();
 
 await page.setViewportSize({ width: 1440, height: 900 });
 const desktop = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth, lanes: getComputedStyle(document.querySelector('.awq-lanes')).gridTemplateColumns.split(' ').length, table: getComputedStyle(document.querySelector('.awq-table')).display }));
