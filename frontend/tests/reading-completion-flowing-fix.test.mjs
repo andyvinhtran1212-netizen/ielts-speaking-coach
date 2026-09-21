@@ -148,7 +148,9 @@ describe('reading-completion-flowing-fix — layout split (mono vs notes vs pros
     assert.match(js, /table\.className = 'exam-summary-table'/);
     assert.match(next, /type === 'table_completion' && tableHeaders\.length && tableRows\.length/);
     assert.match(next, /<table className="exam-summary-table">/);
+    assert.match(css, /\.exam-summary-table-wrap \{[^}]*width:\s*100%/);
     assert.match(css, /\.exam-summary-table-wrap \{[^}]*overflow-x:\s*auto/);
+    assert.match(css, /\.exam-questions__group \{[^}]*min-width:\s*0/);
   });
 
   test('Legacy resume restores persisted answers inside a structured table', () => {

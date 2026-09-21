@@ -1005,7 +1005,9 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
   line-height: 1.7;
 }
 .exam-chrome .exam-summary-table-wrap {
+  width: 100%;
   max-width: 100%;
+  box-sizing: border-box;
   overflow-x: auto;
 }
 .exam-chrome .exam-summary-table {
@@ -1082,6 +1084,7 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
    * a future change can target per-run treatment (e.g. extra spacing
    * before a non-first group) without a JS render edit. */
   display: block;
+  min-width: 0;
 }
 .exam-chrome .exam-questions__group + .exam-questions__group {
   /* §2A.15 — q-groups ≥22px apart. Targeted at the group boundary
