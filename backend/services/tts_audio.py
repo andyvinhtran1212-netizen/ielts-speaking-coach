@@ -38,7 +38,7 @@ _ACCENT_TAG = "openai-tts-1"
 # land at different keys → existing clips are regenerated, never reused. "pad1" =
 # leading/trailing silence wrapped around each clip (fixes short-word edge clipping).
 _POST_TAG = "pad1"
-_ALLOWED_VOICES = {"alloy", "echo", "fable", "onyx", "nova", "shimmer"}
+OPENAI_VOICES = frozenset({"alloy", "echo", "fable", "onyx", "nova", "shimmer"})
 
 # Leading/trailing silence (ms) wrapped around every PREGENERATED clip. OpenAI
 # tts-1 renders short single-word headwords with almost no edge silence, so audio
@@ -55,7 +55,7 @@ async def synthesize_mp3(text: str, voice: str = DEFAULT_VOICE) -> bytes:
     This is the SINGLE synth path — /tts awaits it too (no behaviour change)."""
     if not settings.OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY not configured — TTS unavailable")
-    safe_voice = voice if voice in _ALLOWED_VOICES else DEFAULT_VOICE
+    safe_voice = voice if voice in OPENAI_VOICES else DEFAULT_VOICE
     import openai
     client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY, timeout=30.0)  # Mục 12 (B4): bound a hung TTS call
     response = await client.audio.speech.create(
@@ -165,7 +165,7 @@ def _synth_openai_sync(text: str, voice: str = DEFAULT_VOICE) -> bytes:
     client = openai.OpenAI(api_key=settings.OPENAI_API_KEY, timeout=30.0)  # Mục 12 (B4): bound a hung TTS call
     resp = client.audio.speech.create(
         model=_MODEL,
-        voice=(voice if voice in _ALLOWED_VOICES else DEFAULT_VOICE),  # type: ignore[arg-type]
+        voice=(voice if voice in OPENAI_VOICES else DEFAULT_VOICE),  # type: ignore[arg-type]
         input=text,
         response_format="mp3",
     )
@@ -197,6 +197,9 @@ def _synth_elevenlabs_sync(text: str) -> bytes:
 
 KOKORO_MODEL_TAG = "v1.0"
 KOKORO_DEFAULT_VOICE = "bf_emma"      # British female — IELTS examiner register
+# Keep the operational allow-list explicit. A voice must be verified with the
+# pinned Kokoro model before batch jobs may select it.
+KOKORO_VOICES = frozenset({KOKORO_DEFAULT_VOICE})
 _KOKORO_SAMPLE_RATE = 24000
 # Kokoro voice ids are `<lang><gender>_<name>`; the first letter picks the
 # grapheme-to-phoneme language. 'b' = British English, which is what an IELTS

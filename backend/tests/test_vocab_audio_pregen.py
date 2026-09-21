@@ -13,6 +13,7 @@ import asyncio
 import io
 import re
 import shutil
+import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -128,6 +129,91 @@ def test_dry_run_writes_nothing_and_calls_no_tts():
     goc.assert_not_called()             # no synth
 
 
+@pytest.mark.parametrize("existing", [
+    {"audio_headword": "https://x/openai-headword.mp3", "audio_example": None,
+     "audio_status": "pending"},
+    {"audio_headword": "https://x/openai-headword.mp3",
+     "audio_example": "https://x/openai-example.mp3", "audio_status": "final"},
+])
+def test_kokoro_regen_replaces_all_existing_audio_with_british_voice(existing):
+    db = MagicMock()
+    goc = MagicMock(return_value=("https://x/kokoro.mp3", True))
+    row = dict(_ROW, **existing)
+    with patch("scripts.pregen_vocab_audio.supabase_admin", db), \
+         patch("scripts.pregen_vocab_audio.tts_audio.get_or_create_audio_sync", goc), \
+         patch("scripts.pregen_vocab_audio.vocab_service.reload"), \
+         patch("scripts.pregen_vocab_audio.ai_usage_logger.log_tts") as usage:
+        asyncio.run(pg._commit([row], headword_only=False,
+                               regen=True, engine="kokoro"))
+    assert goc.call_count == 2
+    assert all(call.args[1:] == ("kokoro", ta.KOKORO_DEFAULT_VOICE)
+               for call in goc.call_args_list)
+    usage.assert_not_called()  # local Kokoro is not billed as OpenAI tts-1
+    payload = db.table.return_value.update.call_args.args[0]
+    assert payload["audio_headword"] == "https://x/kokoro.mp3"
+    assert payload["audio_example"] == "https://x/kokoro.mp3"
+    assert payload["audio_status"] == "final"
+
+
+@pytest.mark.parametrize("extra_args", [
+    ["--engine", "kokoro"],
+    ["--engine", "kokoro", "--headword-only", "--regen"],
+    ["--engine", "openai", "--headword-only", "--regen"],
+    ["--engine", "openai", "--voice", "onyx"],
+])
+def test_cli_rejects_partial_engine_or_voice_switches(extra_args):
+    argv = ["pregen_vocab_audio", *extra_args]
+    with patch.object(sys, "argv", argv), \
+         patch("scripts.pregen_vocab_audio._rows_needing_audio") as rows, \
+         pytest.raises(SystemExit, match="2"):
+        pg.main()
+    rows.assert_not_called()
+
+
+@pytest.mark.parametrize(("extra_args", "headword_only", "regen", "engine", "voice"), [
+    (["--headword-only"], True, False, "openai", None),
+    (["--regen"], False, True, "openai", None),
+    (["--engine", "openai", "--voice", "onyx", "--regen"],
+     False, True, "openai", "onyx"),
+    (["--engine", "kokoro", "--regen"], False, True, "kokoro", None),
+])
+def test_cli_accepts_only_consistent_generation_modes(
+    extra_args, headword_only, regen, engine, voice,
+):
+    argv = ["pregen_vocab_audio", *extra_args]
+    with patch.object(sys, "argv", argv), \
+         patch("scripts.pregen_vocab_audio._rows_needing_audio", return_value=[]) as rows, \
+         patch("scripts.pregen_vocab_audio._dry_run") as dry_run:
+        pg.main()
+    rows.assert_called_once_with(regen=regen, topic_cards_only=False)
+    dry_run.assert_called_once_with([], headword_only=headword_only, regen=regen,
+                                    engine=engine, voice=voice)
+
+
+def test_openai_cli_rejects_unsupported_voice_before_db_or_tts():
+    argv = ["pregen_vocab_audio", "--commit", "--engine", "openai",
+            "--voice", ta.KOKORO_DEFAULT_VOICE]
+    with patch.object(sys, "argv", argv), \
+         patch("scripts.pregen_vocab_audio._rows_needing_audio") as rows, \
+         patch("scripts.pregen_vocab_audio.tts_audio.get_or_create_audio") as synth, \
+         pytest.raises(SystemExit, match="2"):
+        pg.main()
+    rows.assert_not_called()
+    synth.assert_not_called()
+
+
+def test_kokoro_cli_rejects_unsupported_voice_before_db_or_tts():
+    argv = ["pregen_vocab_audio", "--commit", "--regen", "--engine", "kokoro",
+            "--voice", "bf_typo"]
+    with patch.object(sys, "argv", argv), \
+         patch("scripts.pregen_vocab_audio._rows_needing_audio") as rows, \
+         patch("scripts.pregen_vocab_audio.tts_audio.get_or_create_audio_sync") as synth, \
+         pytest.raises(SystemExit, match="2"):
+        pg.main()
+    rows.assert_not_called()
+    synth.assert_not_called()
+
+
 def _paged_db(rows, page=1000):
     """Fake Supabase that serves `rows` in PostgREST-style pages via
     select().order().range(a, b).execute() — so a reader that DOESN'T page sees
@@ -199,6 +285,17 @@ def test_rows_needing_audio_orders_by_pk_for_stable_paging():
     with patch("scripts.pregen_vocab_audio.supabase_admin", db):
         pg._rows_needing_audio()
     db.table.return_value.select.return_value.order.assert_called_with("id")
+
+
+def test_topic_cards_only_excludes_pure_exam_imports():
+    db = _paged_db([
+        {"slug": "curated", "headword": "Curated", "lists": [], "source": ""},
+        {"slug": "lesson", "headword": "Lesson", "lists": ["awl"], "source": "L01 Group A"},
+        {"slug": "exam", "headword": "Exam", "lists": ["awl"], "source": "AWL import"},
+    ])
+    with patch("scripts.pregen_vocab_audio.supabase_admin", db):
+        rows = pg._rows_needing_audio(regen=True, topic_cards_only=True)
+    assert {row["slug"] for row in rows} == {"curated", "lesson"}
 
 
 # ── schema-aware col-match (#538) — stamp keys ⊆ migration 110 columns ───
