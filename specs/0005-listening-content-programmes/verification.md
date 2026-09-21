@@ -37,8 +37,11 @@
   1,314 artifact hashes, 458 public JSON files, 390 audio files, 390 timing files,
   1,474 timing segments, and 2 visuals with zero failures. This is pre-
   implementation evidence, not final staging import evidence.
-- Working hub: on 2026-09-21 the broader validator reported 34 broken symlinks and
-  zero reachable candidate manifests. Resolution evidence is pending T001.
+- Working hub: on 2026-09-21 all 34 unavailable historical symlinks were
+  registered as `archived_unavailable`; the revised fail-closed validator
+  reported zero unregistered broken links and zero registry failures. Candidate
+  manifests remain outside active scope, and import reads only immutable
+  publish-ready packages.
 - Migration/schema query: pending package, lesson, source-form uniqueness,
   programme/scoring defaults, RLS/grants, and immutable-state checks.
 - Reconciliation: pending exact 2/66/159/1,045/390/390/2 source-to-database/object
