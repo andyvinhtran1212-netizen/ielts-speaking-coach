@@ -202,6 +202,18 @@ def test_openai_cli_rejects_unsupported_voice_before_db_or_tts():
     synth.assert_not_called()
 
 
+def test_kokoro_cli_rejects_unsupported_voice_before_db_or_tts():
+    argv = ["pregen_vocab_audio", "--commit", "--regen", "--engine", "kokoro",
+            "--voice", "bf_typo"]
+    with patch.object(sys, "argv", argv), \
+         patch("scripts.pregen_vocab_audio._rows_needing_audio") as rows, \
+         patch("scripts.pregen_vocab_audio.tts_audio.get_or_create_audio_sync") as synth, \
+         pytest.raises(SystemExit, match="2"):
+        pg.main()
+    rows.assert_not_called()
+    synth.assert_not_called()
+
+
 def _paged_db(rows, page=1000):
     """Fake Supabase that serves `rows` in PostgREST-style pages via
     select().order().range(a, b).execute() — so a reader that DOESN'T page sees
