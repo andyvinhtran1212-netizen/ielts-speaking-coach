@@ -7537,7 +7537,8 @@ export interface paths {
          *     attempt open on a test later reused by a mock exam would have the embed
          *     auto-resume that practice attempt and attach_attempt bind it to the sealed
          *     sitting — pulling practice answers into a real exam and corrupting both.
-         *     Standalone practice keeps the unscoped lookup.
+         *     Legacy callers keep the unscoped class lookup. New free-practice runners
+         *     send `standalone=true`, which excludes both class and mock attempts.
          *
          *     Deliberately a separate endpoint rather than a field on the shared test
          *     bundle: that bundle is served to several callers and is cacheable, while
@@ -31245,6 +31246,7 @@ export interface operations {
             query?: {
                 sitting_id?: string | null;
                 class_item?: string | null;
+                standalone?: boolean;
             };
             header?: {
                 authorization?: string | null;
@@ -31280,6 +31282,7 @@ export interface operations {
         parameters: {
             query?: {
                 class_item?: string | null;
+                standalone?: boolean;
             };
             header?: {
                 authorization?: string | null;
