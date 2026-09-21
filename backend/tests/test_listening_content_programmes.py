@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
+import sys
 import wave
 from pathlib import Path
 
@@ -9,15 +11,272 @@ import pytest
 
 from services import listening_package_import as importer
 from services import listening_test_grader as grader
+from scripts import import_listening_content_package as import_command
 
 
 def _wav(path: Path, *, seconds: float, rate: int = 24_000) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     frames = int(seconds * rate)
     with wave.open(str(path), "wb") as handle:
         handle.setnchannels(1)
         handle.setsampwidth(2)
         handle.setframerate(rate)
         handle.writeframes(b"\x01\x00" * frames)
+
+
+def _write_json(path: Path, payload: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
+    )
+
+
+def _rebind_manifest(release_root: Path) -> None:
+    package_root = release_root / "general" / "fixture"
+    manifest_path = package_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for relative in list(manifest["artifact_hashes"]):
+        manifest["artifact_hashes"][relative] = hashlib.sha256(
+            (package_root / relative).read_bytes()
+        ).hexdigest()
+    _write_json(manifest_path, manifest)
+    manifest_sha = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    release_index_path = release_root / "release-index.json"
+    release_index = json.loads(release_index_path.read_text(encoding="utf-8"))
+    release_index["programmes"][0]["packages"][0]["manifest_sha256"] = manifest_sha
+    _write_json(release_index_path, release_index)
+
+
+def _minimal_publish_ready_package(tmp_path: Path) -> Path:
+    release_root = tmp_path / "02_PUBLISH_READY"
+    package_root = release_root / "general" / "fixture"
+    lesson_path = package_root / "learner" / "content" / "lessons" / "lesson-1.json"
+    audio_path = package_root / "learner" / "audio" / "stimulus-1.wav"
+    timing_path = package_root / "controlled-access" / "timing" / "stimulus-1.json"
+    transcript_path = (
+        package_root / "controlled-access" / "transcripts" / "stimulus-1.json"
+    )
+    protected_path = package_root / "protected" / "source-lessons" / "lesson-1.json"
+
+    _write_json(package_root / "learner" / "index.json", {
+        "title": "Fixture programme",
+        "lesson_ids": ["lesson-1"],
+    })
+    _write_json(lesson_path, {
+        "id": "lesson-1",
+        "source_id": "lesson-1",
+        "programme_id": "general-listening-practice",
+        "title": "Lesson 1",
+        "version": "1.0",
+        "instructions": "Listen and choose.",
+        "claim_policy": "report_only_no_band_cefr_mastery_or_full_progression_claim",
+        "stimuli": [{
+            "id": "stimulus-1",
+            "audio": "learner/audio/stimulus-1.wav",
+            "timing": "controlled-access/timing/stimulus-1.json",
+            "controlled_transcript": "controlled-access/transcripts/stimulus-1.json",
+            "kind": "dialogue",
+            "purpose": "practice",
+        }],
+        "items": [{
+            "id": "item-1",
+            "response_type": "single_choice",
+            "stimulus_id": "stimulus-1",
+            "prompt": "Choose the answer.",
+            "options": {"A": "One", "B": "Two"},
+            "max_score": 1,
+        }],
+        "forms": [{
+            "id": "form-1",
+            "scoring_policy": "report_only",
+            "item_ids": ["item-1"],
+            "item_count": 1,
+            "purpose": "practice",
+            "replay_policy": "allowed",
+            "support_policy": "available",
+            "max_score": 1,
+        }],
+    })
+    _wav(audio_path, seconds=1.0)
+    _write_json(timing_path, {
+        "stimulus_id": "stimulus-1",
+        "segments": [{"id": "turn-1", "start": 0.0, "end": 0.5}],
+    })
+    _write_json(transcript_path, {
+        "stimulus_id": "stimulus-1",
+        "segments": [{"id": "turn-1", "start": 0.0, "end": 0.5, "text": "One"}],
+    })
+    _write_json(protected_path, {
+        "forms": [{"id": "form-1", "stimulus_ids": ["stimulus-1"]}],
+        "items": [{
+            "id": "item-1",
+            "evidence_turn_ids": ["turn-1"],
+            "key": {"answers": ["A"], "rationale": "The speaker says one."},
+        }],
+    })
+
+    artifact_paths = [
+        "learner/index.json",
+        "learner/content/lessons/lesson-1.json",
+        "learner/audio/stimulus-1.wav",
+        "controlled-access/timing/stimulus-1.json",
+        "controlled-access/transcripts/stimulus-1.json",
+        "protected/source-lessons/lesson-1.json",
+    ]
+    _write_json(package_root / "manifest.json", {
+        "package_id": "fixture-general-v1",
+        "programme_id": "general-listening-practice",
+        "learner_ready": True,
+        "date": "2026-09-21",
+        "payload_boundaries": {
+            "public": "learner/",
+            "conditional_accessibility": "controlled-access/",
+            "server_or_audit_only": "protected/",
+        },
+        "counts": {
+            "lessons": 1,
+            "forms": 1,
+            "items": 1,
+            "stimuli": 1,
+            "audio": 1,
+            "timing": 1,
+            "visuals": 0,
+        },
+        "artifact_hashes": {
+            relative: hashlib.sha256((package_root / relative).read_bytes()).hexdigest()
+            for relative in artifact_paths
+        },
+    })
+    manifest_sha = hashlib.sha256((package_root / "manifest.json").read_bytes()).hexdigest()
+    _write_json(release_root / "release-index.json", {
+        "learner_ready_packages": 1,
+        "programmes": [{
+            "id": "general-listening-practice",
+            "path": "general",
+            "packages": [{
+                "package_id": "fixture-general-v1",
+                "path": "fixture",
+                "learner_ready": True,
+                "manifest_sha256": manifest_sha,
+            }],
+        }],
+    })
+    return release_root
+
+
+def _tree_hashes(root: Path) -> dict[str, str]:
+    return {
+        path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in root.rglob("*")
+        if path.is_file()
+    }
+
+
+def test_publish_ready_package_passes_all_fr001_gates_and_dry_run_is_pure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    unlisted = release_root / "general" / "not-in-release-index"
+    unlisted.mkdir()
+    (unlisted / "manifest.json").write_text("{}", encoding="utf-8")
+    before = _tree_hashes(release_root)
+
+    locations = importer.discover_packages(release_root)
+    assert [location.package_id for location in locations] == ["fixture-general-v1"]
+    plan = importer.build_import_plan(locations[0])
+
+    assert plan.package["validation_summary"] == {
+        "manifest_bound": True,
+        "inventory_verified": True,
+        "hashes_verified": 6,
+        "learner_protected_boundary_verified": True,
+    }
+    assert plan.report["counts"] == {
+        "lessons": 1,
+        "forms": 1,
+        "items": 1,
+        "stimuli": 1,
+        "audio": 1,
+        "timing": 1,
+        "visuals": 0,
+        "timing_segments": 1,
+    }
+    assert plan.report["dry_run_mutations"] == 0
+    assert _tree_hashes(release_root) == before
+
+    monkeypatch.setattr(
+        import_command, "_admin",
+        lambda: pytest.fail("dry run must not initialize database or Storage"),
+    )
+    monkeypatch.setattr(
+        sys, "argv",
+        ["import-listening", "--release-root", str(release_root)],
+    )
+    assert import_command.main() == 0
+    assert "DRY RUN PASS" in capsys.readouterr().out
+    assert _tree_hashes(release_root) == before
+
+
+@pytest.mark.parametrize(
+    ("gate", "message"),
+    [
+        ("manifest_binding", "Manifest SHA-256"),
+        ("inventory", "Inventory"),
+        ("artifact_hash", "Artifact SHA-256"),
+        ("boundary", "payload_boundaries"),
+        ("protected_leak", "protected keys"),
+        ("media_format", "PCM16 mono 24kHz"),
+        ("timing_bounds", "Timing bounds"),
+        ("declared_counts", "Manifest counts mismatch"),
+    ],
+)
+def test_publish_ready_package_fails_closed_for_every_fr001_gate(
+    tmp_path: Path, gate: str, message: str,
+):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    package_root = release_root / "general" / "fixture"
+    manifest_path = package_root / "manifest.json"
+
+    if gate == "manifest_binding":
+        index_path = release_root / "release-index.json"
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+        index["programmes"][0]["packages"][0]["manifest_sha256"] = "f" * 64
+        _write_json(index_path, index)
+    elif gate == "inventory":
+        (package_root / "learner" / "undeclared.txt").write_text("undeclared")
+    elif gate == "artifact_hash":
+        transcript_path = package_root / "controlled-access" / "transcripts" / "stimulus-1.json"
+        transcript_path.write_text("{}", encoding="utf-8")
+    elif gate == "boundary":
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["payload_boundaries"]["public"] = "protected/"
+        _write_json(manifest_path, manifest)
+        _rebind_manifest(release_root)
+    elif gate == "protected_leak":
+        lesson_path = package_root / "learner" / "content" / "lessons" / "lesson-1.json"
+        lesson = json.loads(lesson_path.read_text(encoding="utf-8"))
+        lesson["script"] = "must never be public"
+        _write_json(lesson_path, lesson)
+        _rebind_manifest(release_root)
+    elif gate == "media_format":
+        _wav(package_root / "learner" / "audio" / "stimulus-1.wav", seconds=1, rate=16_000)
+        _rebind_manifest(release_root)
+    elif gate == "timing_bounds":
+        timing_path = package_root / "controlled-access" / "timing" / "stimulus-1.json"
+        timing = json.loads(timing_path.read_text(encoding="utf-8"))
+        timing["segments"][0]["end"] = 2.0
+        _write_json(timing_path, timing)
+        _rebind_manifest(release_root)
+    elif gate == "declared_counts":
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["counts"]["forms"] = 2
+        _write_json(manifest_path, manifest)
+        _rebind_manifest(release_root)
+
+    location = importer.discover_packages(release_root)[0]
+    with pytest.raises(importer.PackageValidationError, match=message):
+        importer.build_import_plan(location)
 
 
 @pytest.mark.parametrize("stimulus_count", [1, 3, 4, 10, 15])

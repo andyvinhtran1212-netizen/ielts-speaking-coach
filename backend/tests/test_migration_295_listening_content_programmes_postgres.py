@@ -103,6 +103,8 @@ def programme_probe():
                 band_estimate NUMERIC,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+            INSERT INTO {schema}.listening_tests (test_id, title)
+            VALUES ('legacy-ielts-fixture', 'Legacy IELTS fixture');
             """
         )
         psql(migrated)
@@ -163,15 +165,195 @@ def programme_probe():
             _literal(json.dumps(value, separators=(",", ":"))) + "::JSONB"
             for value in (package, lessons, stimuli, forms)
         )
-        assert psql(
+        created_action = psql(
             f"SELECT action FROM {schema}.import_listening_content_package_atomic({args})"
-        ) == "created"
-        assert psql(
+        )
+        reused_action = psql(
             f"SELECT action FROM {schema}.import_listening_content_package_atomic({args})"
-        ) == "reused"
-        yield schema
+        )
+        yield {
+            "schema": schema,
+            "args": args,
+            "created_action": created_action,
+            "reused_action": reused_action,
+            "package": package,
+            "lessons": lessons,
+            "stimuli": stimuli,
+            "forms": forms,
+        }
     finally:
         psql(f"DROP SCHEMA {schema} CASCADE")
+
+
+def test_atomic_import_retry_is_idempotent_and_identity_conflicts_fail_closed(
+    programme_probe: dict[str, object],
+):
+    schema = str(programme_probe["schema"])
+    assert programme_probe["created_action"] == "created"
+    assert programme_probe["reused_action"] == "reused"
+    assert psql(
+        f"SELECT action FROM {schema}.import_listening_content_package_atomic("
+        f"{programme_probe['args']})"
+    ) == "reused"
+
+    counts = psql(
+        f"""
+        SELECT concat_ws(',',
+          (SELECT count(*) FROM {schema}.listening_content_packages WHERE package_id='fixture-general-v1'),
+          (SELECT count(*) FROM {schema}.listening_lessons l JOIN {schema}.listening_content_packages p ON p.id=l.package_id WHERE p.package_id='fixture-general-v1'),
+          (SELECT count(*) FROM {schema}.listening_tests t JOIN {schema}.listening_content_packages p ON p.id=t.content_package_id WHERE p.package_id='fixture-general-v1'),
+          (SELECT count(*) FROM {schema}.listening_content c JOIN {schema}.listening_tests t ON t.id=c.test_id JOIN {schema}.listening_content_packages p ON p.id=t.content_package_id WHERE p.package_id='fixture-general-v1'),
+          (SELECT count(*) FROM {schema}.listening_exercises e JOIN {schema}.listening_content c ON c.id=e.content_id JOIN {schema}.listening_tests t ON t.id=c.test_id JOIN {schema}.listening_content_packages p ON p.id=t.content_package_id WHERE p.package_id='fixture-general-v1'),
+          (SELECT count(*) FROM {schema}.listening_package_stimuli s JOIN {schema}.listening_content_packages p ON p.id=s.package_id WHERE p.package_id='fixture-general-v1'),
+          (SELECT count(*) FROM {schema}.listening_form_stimuli fs JOIN {schema}.listening_content_packages p ON p.id=fs.package_id WHERE p.package_id='fixture-general-v1'))
+        """
+    )
+    assert counts == "1,1,1,1,1,1,1"
+
+    conflicting_package = {
+        **dict(programme_probe["package"]),
+        "manifest_sha256": "f" * 64,
+    }
+    conflicting_args = ",".join(
+        _literal(json.dumps(value, separators=(",", ":"))) + "::JSONB"
+        for value in (
+            conflicting_package,
+            programme_probe["lessons"],
+            programme_probe["stimuli"],
+            programme_probe["forms"],
+        )
+    )
+    with pytest.raises(RuntimeError, match="listening_package_identity_conflict"):
+        psql(
+            f"SELECT action FROM {schema}.import_listening_content_package_atomic("
+            f"{conflicting_args})"
+        )
+    assert psql(
+        f"SELECT manifest_sha256 FROM {schema}.listening_content_packages "
+        "WHERE package_id='fixture-general-v1'"
+    ) == "a" * 64
+
+
+def test_import_persists_complete_canonical_projection_and_legacy_defaults(
+    programme_probe: dict[str, object],
+):
+    schema = str(programme_probe["schema"])
+    assert psql(
+        f"SELECT programme_id || '|' || scoring_policy FROM {schema}.listening_tests "
+        "WHERE test_id='legacy-ielts-fixture'"
+    ) == "ielts|diagnostic"
+
+    projection = json.loads(psql(
+        f"""
+        SELECT jsonb_build_object(
+          'package', (SELECT jsonb_build_object(
+            'package_id', p.package_id, 'programme_id', p.programme_id,
+            'manifest_sha256', p.manifest_sha256, 'status', p.status,
+            'lessons', p.source_counts->>'lessons', 'forms', p.source_counts->>'forms',
+            'items', p.source_counts->>'items', 'stimuli', p.source_counts->>'stimuli')
+            FROM {schema}.listening_content_packages p WHERE p.package_id='fixture-general-v1'),
+          'lesson', (SELECT jsonb_build_object(
+            'source_lesson_id', l.source_lesson_id, 'programme_id', l.programme_id,
+            'sequence_num', l.sequence_num, 'status', l.status)
+            FROM {schema}.listening_lessons l JOIN {schema}.listening_content_packages p ON p.id=l.package_id
+            WHERE p.package_id='fixture-general-v1'),
+          'form', (SELECT jsonb_build_object(
+            'test_id', t.test_id, 'programme_id', t.programme_id,
+            'scoring_policy', t.scoring_policy, 'source_lesson_id', t.source_lesson_id,
+            'source_form_id', t.source_form_id, 'source_manifest_sha256', t.source_manifest_sha256,
+            'purpose', t.form_purpose, 'replay', t.replay_policy, 'support', t.support_policy,
+            'claim', t.claim_policy, 'items', t.source_item_count,
+            'audio_path', t.full_audio_storage_path, 'audio_duration', t.full_audio_duration_seconds,
+            'audio_bytes', t.full_audio_size_bytes, 'assembly', t.audio_assembly_mode,
+            'status', t.status, 'is_public', t.is_public)
+            FROM {schema}.listening_tests t JOIN {schema}.listening_content_packages p ON p.id=t.content_package_id
+            WHERE p.package_id='fixture-general-v1'),
+          'content', (SELECT jsonb_build_object(
+            'source_type', c.source_type, 'audio_path', c.audio_storage_path,
+            'audio_duration', c.audio_duration_seconds, 'audio_bytes', c.audio_size_bytes,
+            'status', c.status, 'section_num', c.section_num)
+            FROM {schema}.listening_content c JOIN {schema}.listening_tests t ON t.id=c.test_id
+            JOIN {schema}.listening_content_packages p ON p.id=t.content_package_id
+            WHERE p.package_id='fixture-general-v1'),
+          'exercise', (SELECT jsonb_build_object(
+            'type', e.exercise_type, 'variant', e.payload->>'variant', 'status', e.status)
+            FROM {schema}.listening_exercises e JOIN {schema}.listening_content c ON c.id=e.content_id
+            JOIN {schema}.listening_tests t ON t.id=c.test_id JOIN {schema}.listening_content_packages p ON p.id=t.content_package_id
+            WHERE p.package_id='fixture-general-v1'),
+          'stimulus', (SELECT jsonb_build_object(
+            'id', s.source_stimulus_id, 'audio_path', s.source_audio_path,
+            'timing_path', s.source_timing_path, 'audio_sha', s.source_audio_sha256,
+            'timing_sha', s.source_timing_sha256, 'transcript_sha', s.controlled_transcript_sha256,
+            'duration', s.duration_seconds, 'timing_segments', s.metadata->>'timing_segment_count')
+            FROM {schema}.listening_package_stimuli s JOIN {schema}.listening_content_packages p ON p.id=s.package_id
+            WHERE p.package_id='fixture-general-v1'),
+          'mapping', (SELECT jsonb_build_object(
+            'sequence_num', fs.sequence_num, 'offset', fs.derived_offset_seconds,
+            'end', fs.derived_end_seconds)
+            FROM {schema}.listening_form_stimuli fs JOIN {schema}.listening_content_packages p ON p.id=fs.package_id
+            WHERE p.package_id='fixture-general-v1')
+        )::TEXT
+        """
+    ))
+    assert projection["package"] == {
+        "package_id": "fixture-general-v1",
+        "programme_id": "general-listening-practice",
+        "manifest_sha256": "a" * 64,
+        "status": "validated",
+        "lessons": "1",
+        "forms": "1",
+        "items": "1",
+        "stimuli": "1",
+    }
+    assert projection["lesson"] == {
+        "source_lesson_id": "lesson-1",
+        "programme_id": "general-listening-practice",
+        "sequence_num": 1,
+        "status": "draft",
+    }
+    assert projection["form"] == {
+        "test_id": "pkg-fixture-form-1",
+        "programme_id": "general-listening-practice",
+        "scoring_policy": "report_only",
+        "source_lesson_id": "lesson-1",
+        "source_form_id": "form-1",
+        "source_manifest_sha256": "a" * 64,
+        "purpose": "practice",
+        "replay": "allowed",
+        "support": "available",
+        "claim": "report_only",
+        "items": 1,
+        "audio_path": "packages/form-1.wav",
+        "audio_duration": 2,
+        "audio_bytes": 64,
+        "assembly": "full_premixed",
+        "status": "draft",
+        "is_public": False,
+    }
+    assert projection["content"] == {
+        "source_type": "programme_form",
+        "audio_path": "packages/form-1.wav",
+        "audio_duration": 2,
+        "audio_bytes": 64,
+        "status": "draft",
+        "section_num": 1,
+    }
+    assert projection["exercise"] == {
+        "type": "programme_form",
+        "variant": "programme_form_v1",
+        "status": "draft",
+    }
+    assert projection["stimulus"] == {
+        "id": "stimulus-1",
+        "audio_path": "audio/one.wav",
+        "timing_path": "timing/one.json",
+        "audio_sha": "b" * 64,
+        "timing_sha": "c" * 64,
+        "transcript_sha": "d" * 64,
+        "duration": 2.0,
+        "timing_segments": "1",
+    }
+    assert projection["mapping"] == {"sequence_num": 1, "offset": 0.0, "end": 2.0}
 
 
 @pytest.mark.parametrize(
@@ -189,33 +371,42 @@ def programme_probe():
         "DELETE FROM {schema}.listening_tests WHERE source_form_id='form-1'",
     ],
 )
-def test_package_rows_reject_generic_mutations(programme_probe: str, mutation: str):
+def test_package_rows_reject_generic_mutations(
+    programme_probe: dict[str, object], mutation: str,
+):
+    schema = str(programme_probe["schema"])
     with pytest.raises(RuntimeError, match="listening_package_(child_)?immutable"):
-        psql(mutation.format(schema=programme_probe))
+        psql(mutation.format(schema=schema))
 
 
-def test_manifest_bound_publish_and_archive_remain_atomic(programme_probe: str):
+def test_manifest_bound_publish_and_archive_remain_atomic(
+    programme_probe: dict[str, object],
+):
+    schema = str(programme_probe["schema"])
     manifest = "a" * 64
     publish = psql(
-        f"SELECT status FROM {programme_probe}.set_listening_content_package_status("
+        f"SELECT status FROM {schema}.set_listening_content_package_status("
         f"'fixture-general-v1','{manifest}','publish',NULL)"
     )
     assert publish == "published"
     assert psql(
-        f"SELECT string_agg(DISTINCT status, ',') FROM {programme_probe}.listening_tests"
+        f"SELECT string_agg(DISTINCT status, ',') FROM {schema}.listening_tests "
+        "WHERE content_package_id IS NOT NULL"
     ) == "published"
     assert psql(
-        f"SELECT bool_and(is_public) FROM {programme_probe}.listening_tests"
+        f"SELECT bool_and(is_public) FROM {schema}.listening_tests "
+        "WHERE content_package_id IS NOT NULL"
     ) == "t"
 
     archive = psql(
-        f"SELECT status FROM {programme_probe}.set_listening_content_package_status("
+        f"SELECT status FROM {schema}.set_listening_content_package_status("
         f"'fixture-general-v1','{manifest}','archive',NULL)"
     )
     assert archive == "archived"
     assert psql(
-        f"SELECT string_agg(DISTINCT status, ',') FROM {programme_probe}.listening_exercises"
+        f"SELECT string_agg(DISTINCT status, ',') FROM {schema}.listening_exercises"
     ) == "archived"
     assert psql(
-        f"SELECT bool_or(is_public) FROM {programme_probe}.listening_tests"
+        f"SELECT bool_or(is_public) FROM {schema}.listening_tests "
+        "WHERE content_package_id IS NOT NULL"
     ) == "f"

@@ -4,9 +4,9 @@
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-001 | kind=test; ref=backend/tests/test_listening_content_programmes.py::test_generated_test_id_is_idempotent_within_package_and_namespaced_across_revisions | PASS |
-| FR-002 | kind=test; ref=backend/tests/test_migration_295_listening_content_programmes_postgres.py::test_package_rows_reject_generic_mutations | PASS |
-| FR-003 | kind=test; ref=backend/tests/test_migration_295_listening_content_programmes_postgres.py::test_manifest_bound_publish_and_archive_remain_atomic | PASS |
+| FR-001 | kind=test; ref=backend/tests/test_listening_content_programmes.py::test_publish_ready_package_passes_all_fr001_gates_and_dry_run_is_pure; companion=backend/tests/test_listening_content_programmes.py::test_publish_ready_package_fails_closed_for_every_fr001_gate | PASS |
+| FR-002 | kind=test; ref=backend/tests/test_migration_295_listening_content_programmes_postgres.py::test_atomic_import_retry_is_idempotent_and_identity_conflicts_fail_closed | PASS |
+| FR-003 | kind=test; ref=backend/tests/test_migration_295_listening_content_programmes_postgres.py::test_import_persists_complete_canonical_projection_and_legacy_defaults | PASS |
 | FR-004 | kind=test; ref=backend/tests/test_listening_content_programmes.py::test_student_payload_strips_all_programme_review_material | PASS |
 | FR-005 | kind=test; ref=frontend/tests/listening-programmes-next-behavior.test.mjs | PASS |
 | FR-006 | kind=test; ref=backend/tests/test_listening_content_programmes.py::test_report_only_grading_separates_checked_unscored_and_blank | PASS |
@@ -21,8 +21,8 @@
 
 ## Contract evidence
 
-- Final reset baseline on 2026-09-21: the full backend suite passed 8,953 tests
-  (30 optional fixtures skipped), including 11 migration-295 tests forced onto
+- Final reset baseline on 2026-09-21: the full backend suite passed 8,964 tests
+  (30 optional fixtures skipped), including 13 migration-295 tests forced onto
   disposable PostgreSQL 16 with `REQUIRE_PG=1`. The full frontend contract
   suite passed 9,193 tests; React interaction passed 3/3; strict and legacy
   TypeScript passed. Next 16 production build compiled and generated all 152
