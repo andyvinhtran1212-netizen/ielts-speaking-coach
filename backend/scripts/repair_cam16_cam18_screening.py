@@ -16,7 +16,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 BACKEND = Path(__file__).resolve().parents[1]
 if str(BACKEND) not in sys.path:
@@ -151,6 +151,28 @@ def _guard_project(config: dict, confirmed_ref: str) -> None:
         )
 
 
+def _validated_database_dsn(config: dict) -> str:
+    raw = (settings.DATABASE_URL or "").strip()
+    if not raw:
+        raise RuntimeError("DATABASE_URL is required for atomic Reading repair")
+    dsn = raw.replace("postgresql+asyncpg://", "postgresql://", 1)
+    parsed = urlparse(dsn)
+    host = (parsed.hostname or "").lower()
+    username = unquote(parsed.username or "")
+    refs: set[str] = set()
+    if host.startswith("db.") and host.endswith(".supabase.co"):
+        refs.add(host.removeprefix("db.").removesuffix(".supabase.co"))
+    if host.endswith(".pooler.supabase.com") and username.startswith("postgres."):
+        refs.add(username.split(".", 1)[1])
+    expected = config["project_ref"]
+    if refs != {expected}:
+        raise RuntimeError(
+            "DATABASE_URL project ref mismatch: "
+            f"detected={sorted(refs)!r}, expected={expected!r}"
+        )
+    return dsn
+
+
 def _update(table: str, old: dict, patch: dict, *, apply: bool) -> dict:
     merged = {**old, **patch}
     if not apply or all(old.get(key) == value for key, value in patch.items()):
@@ -269,15 +291,12 @@ def _build_c16_reading_q7_plan(config: dict) -> list[tuple[dict, dict]]:
     return [] if row.get("prompt") == prompt else [(row, {"prompt": prompt})]
 
 
-async def _atomic_reading_updates_async(plan: list[tuple[dict, dict]]) -> None:
+async def _atomic_reading_updates_async(
+    plan: list[tuple[dict, dict]], database_dsn: str,
+) -> None:
     import asyncpg
 
-    dsn = (settings.DATABASE_URL or "").strip().replace(
-        "postgresql+asyncpg://", "postgresql://", 1
-    )
-    if not dsn:
-        raise RuntimeError("DATABASE_URL is required for atomic Reading repair")
-    connection = await asyncpg.connect(dsn)
+    connection = await asyncpg.connect(database_dsn)
     try:
         async with connection.transaction():
             for old, patch in plan:
@@ -308,9 +327,11 @@ async def _atomic_reading_updates_async(plan: list[tuple[dict, dict]]) -> None:
         await connection.close()
 
 
-def _atomic_reading_updates(plan: list[tuple[dict, dict]], *, apply: bool) -> None:
+def _atomic_reading_updates(
+    plan: list[tuple[dict, dict]], *, database_dsn: str, apply: bool,
+) -> None:
     if apply and plan:
-        asyncio.run(_atomic_reading_updates_async(plan))
+        asyncio.run(_atomic_reading_updates_async(plan, database_dsn))
 
 
 def _repair_c16_q23(config: dict, *, apply: bool) -> None:
@@ -521,6 +542,7 @@ def main() -> None:
         *_build_c18_reading_plan(config, target=args.target),
         *_build_c16_reading_q7_plan(config),
     ]
+    database_dsn = _validated_database_dsn(config)
     _repair_c16_q23(config, apply=False)
     _repair_c16_part1(config, apply=False)
     _ensure_flow_asset(config, args.flowchart, apply=False)
@@ -528,7 +550,7 @@ def main() -> None:
     if args.apply:
         # Exercise the transactional DB connection before any REST/storage
         # mutation. If it cannot commit, production remains untouched.
-        _atomic_reading_updates(reading_plan, apply=True)
+        _atomic_reading_updates(reading_plan, database_dsn=database_dsn, apply=True)
         _repair_c18_listening(config, apply=True)
         _repair_c16_q23(config, apply=True)
         _repair_c16_part1(config, apply=True)

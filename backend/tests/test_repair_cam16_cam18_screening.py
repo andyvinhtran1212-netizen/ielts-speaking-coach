@@ -61,7 +61,6 @@ def test_atomic_reading_repair_rolls_back_when_any_predicate_drifts(monkeypatch)
         return connection
 
     monkeypatch.setitem(sys.modules, "asyncpg", SimpleNamespace(connect=connect))
-    monkeypatch.setattr(repair.settings, "DATABASE_URL", "postgresql://example.invalid/db")
     plan = [
         ({"id": "00000000-0000-0000-0000-000000000001", "prompt": "a",
           "payload": {}, "answer": {}}, {"prompt": "A"}),
@@ -70,9 +69,63 @@ def test_atomic_reading_repair_rolls_back_when_any_predicate_drifts(monkeypatch)
     ]
 
     with pytest.raises(RuntimeError, match="atomic precondition drift"):
-        asyncio.run(repair._atomic_reading_updates_async(plan))
+        asyncio.run(repair._atomic_reading_updates_async(
+            plan, "postgresql://example.invalid/db"
+        ))
 
     assert transaction.exit_error is RuntimeError
+
+
+def test_database_destination_mismatch_fails_before_connect_or_update(monkeypatch):
+    called = False
+
+    async def connect(_dsn):
+        nonlocal called
+        called = True
+        raise AssertionError("mismatched destination must not connect")
+
+    monkeypatch.setitem(sys.modules, "asyncpg", SimpleNamespace(connect=connect))
+    monkeypatch.setattr(
+        repair.settings, "DATABASE_URL",
+        "postgresql://postgres.wrongproject:secret@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres",
+    )
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL project ref mismatch"):
+        repair._validated_database_dsn({"project_ref": "expectedproject"})
+
+    assert called is False
+
+
+def test_database_destination_rejects_supabase_username_on_external_host(monkeypatch):
+    called = False
+
+    async def connect(_dsn):
+        nonlocal called
+        called = True
+        raise AssertionError("external destination must not connect")
+
+    monkeypatch.setitem(sys.modules, "asyncpg", SimpleNamespace(connect=connect))
+    monkeypatch.setattr(
+        repair.settings, "DATABASE_URL",
+        "postgresql://postgres.expectedproject:secret@evil.example:5432/postgres",
+    )
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL project ref mismatch"):
+        repair._validated_database_dsn({"project_ref": "expectedproject"})
+
+    assert called is False
+
+
+@pytest.mark.parametrize("database_url", [
+    "postgresql://postgres:secret@db.expectedproject.supabase.co:5432/postgres",
+    "postgresql+asyncpg://postgres.expectedproject:secret@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres",
+])
+def test_database_destination_accepts_direct_and_pooler_urls(monkeypatch, database_url):
+    monkeypatch.setattr(repair.settings, "DATABASE_URL", database_url)
+
+    dsn = repair._validated_database_dsn({"project_ref": "expectedproject"})
+
+    assert dsn.startswith("postgresql://")
 
 
 def test_flow_verification_rejects_missing_storage_object(monkeypatch):
