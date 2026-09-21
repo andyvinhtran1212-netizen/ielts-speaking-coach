@@ -4615,7 +4615,12 @@ _PROGRAMME_ORDER = {
 
 
 def _programme_attempt_state(user_id: str, test_rows: list[dict]) -> tuple[dict, bool]:
-    """Canonical per-test progress for programme rows; fail visible, never invented."""
+    """Canonical completion and resumable state per programme form.
+
+    A current retake must not erase the learner's earlier completion. Keep the
+    newest submitted attempt and the newest active free-practice attempt as
+    independent facts so progress/history and resume actions can coexist.
+    """
     test_ids = [str(row["id"]) for row in test_rows if row.get("id")]
     if not test_ids:
         return {}, False
@@ -4634,7 +4639,7 @@ def _programme_attempt_state(user_id: str, test_rows: list[dict]) -> tuple[dict,
     except Exception as exc:  # deploy-order/partial-data state
         logger.warning("[listening-programmes] attempt progress unavailable: %s", exc)
         return {}, True
-    latest: dict[str, dict] = {}
+    states: dict[str, dict[str, dict]] = {}
     for attempt in response.data or []:
         # The programme hub is a free-practice surface. A class assignment or
         # mock sitting owns its own resume/navigation contract and must never
@@ -4644,9 +4649,13 @@ def _programme_attempt_state(user_id: str, test_rows: list[dict]) -> tuple[dict,
         if attempt.get("status") == "in_progress" and not is_resume_active(attempt):
             continue
         test_id = str(attempt.get("test_id") or "")
-        if test_id and test_id not in latest:
-            latest[test_id] = attempt
-    return latest, False
+        if not test_id:
+            continue
+        status = str(attempt.get("status") or "")
+        slot = "completed" if status == "submitted" else "in_progress" if status == "in_progress" else ""
+        if slot and slot not in states.setdefault(test_id, {}):
+            states[test_id][slot] = attempt
+    return states, False
 
 
 def _programme_attempt_time(attempt: dict, preferred_field: str) -> float:
@@ -4693,7 +4702,7 @@ def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, lis
     except Exception as exc:  # migration may deploy after code; old overview remains usable
         logger.warning("[listening-programmes] canonical overview unavailable: %s", exc)
         return [], None, [], True
-    attempt_by_test, partial = _programme_attempt_state(user_id, tests)
+    attempt_states, partial = _programme_attempt_state(user_id, tests)
     lesson_counts: dict[str, int] = {}
     for lesson in lessons:
         pid = str(lesson.get("programme_id") or "")
@@ -4705,10 +4714,10 @@ def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, lis
     for test in tests:
         pid = str(test.get("programme_id") or "")
         form_counts[pid] = form_counts.get(pid, 0) + 1
-        attempt = attempt_by_test.get(str(test["id"]))
-        if attempt and attempt.get("status") == "submitted":
+        state = attempt_states.get(str(test["id"]), {})
+        if state.get("completed"):
             completed[pid] = completed.get(pid, 0) + 1
-        elif attempt and attempt.get("status") == "in_progress":
+        if state.get("in_progress"):
             in_progress[pid] = in_progress.get(pid, 0) + 1
     cards = []
     for package in packages:
@@ -4726,15 +4735,19 @@ def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, lis
     resume = None
     recent: list[dict] = []
     ordered_attempts = sorted(
-        attempt_by_test.items(),
+        (
+            (test_id, state["completed"])
+            for test_id, state in attempt_states.items()
+            if state.get("completed")
+        ),
         key=lambda item: _programme_attempt_time(item[1], "submitted_at"),
         reverse=True,
     )
     resume_attempts = sorted(
         (
             (test_id, attempt)
-            for test_id, attempt in attempt_by_test.items()
-            if attempt.get("status") == "in_progress"
+            for test_id, state in attempt_states.items()
+            if (attempt := state.get("in_progress"))
         ),
         key=lambda item: _programme_attempt_time(item[1], "created_at"),
         reverse=True,
@@ -4910,7 +4923,7 @@ async def list_listening_programme_lessons(
         .eq("scoring_policy", "report_only")
         .execute().data or []
     )
-    attempts, partial = _programme_attempt_state(user["id"], forms)
+    attempt_states, partial = _programme_attempt_state(user["id"], forms)
     by_lesson: dict[str, list[dict]] = {lesson_id: [] for lesson_id in lesson_ids}
     for form in forms:
         lesson_id = str(form.get("listening_lesson_id") or "")
@@ -4921,11 +4934,11 @@ async def list_listening_programme_lessons(
     for lesson in all_lessons:
         lesson_forms = by_lesson.get(str(lesson["id"]), [])
         completed_count = sum(
-            attempts.get(str(form["id"]), {}).get("status") == "submitted"
+            bool(attempt_states.get(str(form["id"]), {}).get("completed"))
             for form in lesson_forms
         )
         in_progress_count = sum(
-            attempts.get(str(form["id"]), {}).get("status") == "in_progress"
+            bool(attempt_states.get(str(form["id"]), {}).get("in_progress"))
             for form in lesson_forms
         )
         state = (
@@ -4985,15 +4998,16 @@ async def get_listening_programme_lesson(
         .order("created_at")
         .execute().data or []
     )
-    attempts, partial = _programme_attempt_state(user["id"], forms)
+    attempt_states, partial = _programme_attempt_state(user["id"], forms)
     form_cards = []
     for form in forms:
-        attempt = attempts.get(str(form["id"]))
+        attempt_state = attempt_states.get(str(form["id"]), {})
+        attempt = attempt_state.get("in_progress") or attempt_state.get("completed")
         status = "new"
-        if attempt and attempt.get("status") == "submitted":
-            status = "completed"
-        elif attempt and attempt.get("status") == "in_progress":
+        if attempt_state.get("in_progress"):
             status = "in_progress"
+        elif attempt_state.get("completed"):
+            status = "completed"
         form_cards.append({
             "id": str(form["id"]),
             "test_id": str(form.get("test_id") or ""),
@@ -7492,6 +7506,12 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     )
     test_row = (test_res.data or [{}])[0]
     audio_url, _, audio_duration = _student_audio_url_for_test(test_row)
+    scoring_policy = attempt.get("scoring_policy") or test_row.get("scoring_policy") or "diagnostic"
+    if scoring_policy == "report_only" and not audio_url:
+        raise HTTPException(
+            503,
+            "Chưa tải được audio để tự đối chiếu. Hãy thử lại sau.",
+        )
     meta = test_row.get("metadata") or {}
 
     # Per-section transcripts (content rows).
@@ -7574,7 +7594,7 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
             "self_review":   self_review_by_q.get(q) or g.get("self_review") or {},
         })
 
-    if (attempt.get("scoring_policy") or test_row.get("scoring_policy")) == "report_only":
+    if scoring_policy == "report_only":
         web_access = {"available": False, "reason": "report_only"}
     else:
         from services import mock_correction_service
@@ -7590,7 +7610,7 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
         "score":           attempt.get("score"),
         "max_score":       len(review),
         "band_estimate":   attempt.get("band_estimate"),
-        "scoring_policy":  attempt.get("scoring_policy") or test_row.get("scoring_policy") or "diagnostic",
+        "scoring_policy":  scoring_policy,
         "result_summary":  attempt.get("result_summary") or {},
         "programme_id":    test_row.get("programme_id") or "ielts",
         "listening_lesson_id": test_row.get("listening_lesson_id"),

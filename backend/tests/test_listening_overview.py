@@ -282,11 +282,12 @@ def test_programme_progress_ignores_expired_resume_and_keeps_submitted_history()
         },
     ]
     with patch.object(mod, "supabase_admin", _FakeSB({"listening_test_attempts": rows})):
-        latest, partial = mod._programme_attempt_state(
+        states, partial = mod._programme_attempt_state(
             "u", [{"id": "t-programme"}],
         )
     assert partial is False
-    assert latest["t-programme"]["id"] == "submitted"
+    assert states["t-programme"]["completed"]["id"] == "submitted"
+    assert "in_progress" not in states["t-programme"]
 
 
 def test_programme_progress_excludes_class_and_mock_attempts_from_free_hub():
@@ -314,11 +315,68 @@ def test_programme_progress_excludes_class_and_mock_attempts_from_free_hub():
         },
     ]
     with patch.object(mod, "supabase_admin", _FakeSB({"listening_test_attempts": rows})):
-        latest, partial = mod._programme_attempt_state(
+        states, partial = mod._programme_attempt_state(
             "u", [{"id": "t-programme"}, {"id": "t-mock"}],
         )
     assert partial is False
-    assert latest == {"t-programme": rows[2]}
+    assert states == {"t-programme": {"completed": rows[2]}}
+
+
+def test_programme_retake_preserves_completion_history_and_resume():
+    from routers import listening as mod
+
+    now = datetime.now(timezone.utc)
+    tables = {
+        "listening_content_packages": [{
+            "id": "pkg", "programme_id": "general-listening-practice",
+            "title": "General", "status": "published",
+        }],
+        "listening_lessons": [{
+            "id": "lesson", "programme_id": "general-listening-practice",
+            "status": "published",
+        }],
+        "listening_tests": [{
+            "id": "form", "title": "Form 1",
+            "programme_id": "general-listening-practice",
+            "listening_lesson_id": "lesson", "source_item_count": 4,
+            "created_at": now.isoformat(), "status": "published",
+            "is_public": True, "scoring_policy": "report_only",
+        }],
+        "listening_test_attempts": [{
+            "id": "retake", "user_id": "u", "test_id": "form",
+            "status": "in_progress", "answers": [{"user_answer": "A"}],
+            "created_at": now.isoformat(),
+            "resume_expires_at": (now + timedelta(hours=1)).isoformat(),
+            "class_assignment_item_id": None, "sitting_id": None,
+        }, {
+            "id": "completed", "user_id": "u", "test_id": "form",
+            "status": "submitted", "answers": [],
+            "result_summary": {"checked_count": 2, "correct_count": 1},
+            "created_at": (now - timedelta(hours=1)).isoformat(),
+            "submitted_at": (now - timedelta(hours=1)).isoformat(),
+            "resume_expires_at": None,
+            "class_assignment_item_id": None, "sitting_id": None,
+        }],
+    }
+    with patch.object(mod, "supabase_admin", _FakeSB(tables)), \
+         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})):
+        cards, resume, recent, partial = mod._load_programme_overview("u")
+        completed_lessons = _run(mod.list_listening_programme_lessons(
+            "general-listening-practice",
+            progress="completed",
+            limit=24,
+            offset=0,
+            authorization="Bearer x",
+        ))
+
+    assert partial is False
+    assert cards[0]["completed_form_count"] == 1
+    assert cards[0]["in_progress_form_count"] == 1
+    assert resume["attempt_id"] == "retake"
+    assert recent[0]["attempt_id"] == "completed"
+    assert completed_lessons["total"] == 1
+    assert completed_lessons["items"][0]["completed_form_count"] == 1
+    assert completed_lessons["items"][0]["in_progress_form_count"] == 1
 
 
 def test_programme_activity_time_orders_valid_iso_and_sends_malformed_last():

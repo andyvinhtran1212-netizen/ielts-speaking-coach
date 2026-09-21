@@ -66,6 +66,10 @@ class _Signer:
     def create_signed_url(self, path, ttl): return {"signedURL": f"https://signed/{path}?t={ttl}"}
 
 
+class _MissingSigner(_Signer):
+    def create_signed_url(self, path, ttl): return {}
+
+
 class _DB:
     def __init__(self, attempt):
         self._d = {
@@ -114,6 +118,24 @@ def test_review_409_when_not_submitted(monkeypatch):
     with pytest.raises(HTTPException) as e:
         _run(L.get_listening_test_attempt_review("att-1", authorization="x"))
     assert e.value.status_code == 409
+
+
+def test_report_only_review_503_when_required_audio_cannot_be_signed(monkeypatch):
+    attempt = dict(_ATTEMPT_SUBMITTED, scoring_policy="report_only")
+    _patch(monkeypatch, attempt)
+    db = _DB(attempt)
+    db._d["listening_tests"] = [dict(
+        _TEST_ROW,
+        scoring_policy="report_only",
+        programme_id="general-listening-practice",
+    )]
+    db.storage = _MissingSigner()
+    monkeypatch.setattr(L, "supabase_admin", db)
+
+    with pytest.raises(HTTPException) as exc:
+        _run(L.get_listening_test_attempt_review("att-1", authorization="x"))
+    assert exc.value.status_code == 503
+    assert "audio" in str(exc.value.detail).lower()
 
 
 def test_review_admin_bypasses_ownership(monkeypatch):

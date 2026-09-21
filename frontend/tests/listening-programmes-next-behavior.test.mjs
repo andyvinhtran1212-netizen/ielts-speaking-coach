@@ -78,3 +78,9 @@ test('programme UI has complete loading error empty and partial-data states', ()
   assert.match(detail, /self_review_item_count/);
   assert.match(detail, /support_policy/);
 });
+
+test('General programme copy never hard-codes a canonical lesson count', () => {
+  const page = read('app', '(authed-listening)', 'listening', 'general', 'page.tsx');
+  assert.match(page, /Các bài học theo tình huống/);
+  assert.doesNotMatch(page, /56 bài học/);
+});
