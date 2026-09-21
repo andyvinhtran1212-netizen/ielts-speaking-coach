@@ -114,7 +114,7 @@ describe('Sprint 20.14e #2 — summary_completion flowing block', () => {
     // renderer building .exam-summary__prose for the summary branch.)
     assert.match(
       js,
-      /function _renderFlowingSummaryBlock[\s\S]{0,5000}exam-summary__prose/,
+      /function _renderFlowingSummaryBlock[\s\S]{0,8000}exam-summary__prose/,
     );
   });
 

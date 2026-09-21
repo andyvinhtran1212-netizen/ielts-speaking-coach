@@ -1123,6 +1123,38 @@ def test_mm_wholeset_rows_in_different_order_still_agree():
     assert res["score"] == 2
 
 
+def test_mm_parenthesized_wholeset_rows_still_grade_in_any_order():
+    rows = [{
+        "payload": {
+            "template_kind": "mcq_multi",
+            "answers": [
+                {"q_num": 17, "answer": "(B, E)"},
+                {"q_num": 18, "answer": "(E, B)"},
+            ],
+        },
+    }]
+    ak = grader.collect_answer_key(rows)
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "E"}, {"q_num": 18, "user_answer": "B"}], ak)
+    assert res["score"] == 2
+
+
+def test_mm_parenthesized_slash_is_not_guessed_as_a_letter_set():
+    rows = [{
+        "payload": {
+            "template_kind": "mcq_multi",
+            "answers": [
+                {"q_num": 17, "answer": "(B / E)"},
+                {"q_num": 18, "answer": "(B / E)"},
+            ],
+        },
+    }]
+    ak = grader.collect_answer_key(rows)
+    res = grader.grade_attempt(
+        [{"q_num": 17, "user_answer": "B"}, {"q_num": 18, "user_answer": "E"}], ak)
+    assert res["score"] == 0
+
+
 def test_mm_wholeset_reordered_rows_still_consume_once():
     rows = [{
         "payload": {

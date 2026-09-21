@@ -33,6 +33,7 @@ EXPECTED_SKILL_QUESTIONS = 40
 NAMESPACE = uuid.UUID("b9cd8947-b47b-43bb-a031-c742155c69d7")
 ASSET_RE = re.compile(r"assets/([^\s)\"]+)")
 MARKER_RE = re.compile(r"\{\{(\d+)\}\}")
+BLANK_RE = re.compile(r"_{2,}|…+|\.{4,}")
 
 READING_SKILL = {
     "matching_headings": "main_idea",
@@ -122,7 +123,121 @@ def _answer(value: Any, *, whole_set: bool = False) -> dict[str, Any]:
     text = str(value or "").strip()
     if not text:
         raise ValidationError("Answer rỗng")
-    return {"answer": text, "alternatives": []}
+    if whole_set:
+        if re.fullmatch(r"\([A-H](?:\s*,\s*[A-H])+\)", text, re.I):
+            text = text[1:-1].strip()
+        return {"answer": text, "alternatives": []}
+    chunks = re.split(r"\s+/\s+", text)
+    forms: list[str] = []
+    for chunk in chunks:
+        chunk = chunk.strip()
+        optional = re.search(r"\([^()]+\)", chunk)
+        candidates = [chunk]
+        if optional:
+            without = re.sub(r"\s*\([^()]+\)\s*", " ", chunk)
+            with_optional = chunk.replace("(", "").replace(")", "")
+            candidates = [without, with_optional]
+        for candidate in candidates:
+            normalized = re.sub(r"\s+", " ", candidate).strip()
+            if normalized and normalized not in forms:
+                forms.append(normalized)
+    return {"answer": forms[0], "alternatives": forms[1:]}
+
+
+def _reading_word_limit(raw_text: str) -> str | None:
+    match = re.search(r"\bLimit:\s*([^\n.]+)", raw_text or "", re.I)
+    return re.sub(r"\s+", " ", match.group(1)).strip().upper() if match else None
+
+
+def _completion_template(raw_text: str) -> str:
+    """Remove generated instructions and place gap markers at printed blanks."""
+    lines = [line.rstrip() for line in (raw_text or "").splitlines()]
+    if lines and re.match(r"^Complete\b", lines[0], re.I):
+        lines.pop(0)
+    while lines and lines[0].strip().lower() == "each answer.":
+        lines.pop(0)
+    text = "\n".join(lines).strip()
+
+    # Canonical OCR prefixes each numbered sentence with ``{{n}}`` even when
+    # the printed answer line occurs later (often after a wrapped newline).
+    # Move each marker to the first blank in its own block, bounded by the next
+    # marker, so it cannot steal a later question's blank.
+    marker_block = re.compile(r"\{\{(\d+)\}\}(.*?)(?=\{\{\d+\}\}|\Z)", re.S)
+
+    def place_at_blank(match: re.Match[str]) -> str:
+        marker = "{{" + match.group(1) + "}}"
+        original_block = match.group(2)
+        blank = BLANK_RE.search(original_block)
+        if not blank:
+            return marker + original_block
+        block = re.sub(r"^[ \t]+", "", original_block)
+        blank = BLANK_RE.search(block)
+        if not blank:  # pragma: no cover - stripping spaces cannot remove a blank
+            return marker + original_block
+        return block[:blank.start()] + marker + block[blank.end():]
+
+    return marker_block.sub(place_at_blank, text).strip()
+
+
+CAM18_T1_READING_TABLE = {
+    "heading": "Intensive farming versus aeroponic urban farming",
+    "headers": ["", "Growth", "Selection", "Sale"],
+    "rows": [
+        [
+            "Intensive farming",
+            ["wide range of {{4}} used", "techniques pollute air"],
+            ["quality not good", "varieties of fruit and vegetables chosen that can survive long {{5}}"],
+            ["{{6}} receive very little of overall income"],
+        ],
+        [
+            "Aeroponic urban farming",
+            ["no soil used", "nutrients added to water, which is recycled"],
+            ["produce chosen because of its {{7}}"],
+            [],
+        ],
+    ],
+}
+
+CAM16_T2_PART1_TEMPLATE = {
+    "heading": "Copying photos to digital format",
+    "groups": [
+        {"heading": "Name of company: Picturerep", "items": []},
+        {"heading": "Requirements", "items": [
+            {"text": "Maximum size of photos is 30 cm, minimum size 4 cm."},
+            {"q_num": 1, "prefix": "Photos must not be in a", "suffix": "or an album."},
+        ]},
+        {"heading": "Cost", "items": [
+            {"q_num": 2, "prefix": "The cost for 360 photos is £", "suffix": "(including one disk)."},
+            {"q_num": 3, "prefix": "Before the completed order is sent,", "suffix": "is required."},
+        ]},
+        {"heading": "Services included in the price", "items": [
+            {"q_num": 4, "prefix": "Photos can be placed in a folder, e.g. with the name", "suffix": ""},
+            {"q_num": 5, "prefix": "The", "suffix": "and contrast can be improved if necessary."},
+            {"q_num": 6, "prefix": "Photos which are very fragile will be scanned by", "suffix": ""},
+        ]},
+        {"heading": "Special restore service (costs extra)", "items": [
+            {"q_num": 7, "prefix": "It may be possible to remove an object from a photo, or change the", "suffix": ""},
+            {"q_num": 8, "prefix": "A photo which is not correctly in", "suffix": "cannot be fixed."},
+        ]},
+        {"heading": "Other information", "items": [
+            {"q_num": 9, "prefix": "Orders are completed within", "suffix": ""},
+            {"q_num": 10, "prefix": "Send the photos in a box (not", "suffix": ")."},
+        ]},
+    ],
+}
+
+CAM16_T2_PART1_PROMPTS = {
+    1: "Photos must not be in a ___ or an album.",
+    2: "The cost for 360 photos is £ ___ (including one disk).",
+    3: "Before the completed order is sent, ___ is required.",
+    4: "Photos can be placed in a folder, e.g. with the name ___",
+    5: "The ___ and contrast can be improved if necessary.",
+    6: "Photos which are very fragile will be scanned by ___",
+    7: "It may be possible to remove an object from a photo, or change the ___",
+    8: "A photo which is not correctly in ___ cannot be fixed.",
+    9: "Orders are completed within ___",
+    10: "Send the photos in a box (not ___).",
+}
 
 
 def _question_numbers(rows: Iterable[dict[str, Any]]) -> list[int]:
@@ -210,10 +325,15 @@ def _reading_rows(source_id: str, package: dict[str, Any]) -> tuple[dict, list, 
             qtype = str(question.get("question_type") or "")
             raw_text = str(question.get("text") or "").strip()
             payload: dict[str, Any] = {"options": _options(question.get("options"))}
+            word_limit = _reading_word_limit(raw_text)
+            if word_limit:
+                payload["word_limit"] = word_limit
             markers = tuple(sorted({int(n) for n in MARKER_RE.findall(raw_text)}))
             shared_key = (qtype, markers)
             if len(markers) > 1 and shared_key not in seen_shared:
-                payload["template"] = {"summary_text": _strip_asset_markdown(raw_text)}
+                payload["template"] = {
+                    "summary_text": _completion_template(_strip_asset_markdown(raw_text))
+                }
                 seen_shared.add(shared_key)
             names = _asset_names(raw_text)
             if names:
@@ -221,6 +341,17 @@ def _reading_rows(source_id: str, package: dict[str, Any]) -> tuple[dict, list, 
                     f"cambridge-internal-qa/{source_id}/reading/{names[0]}"
                 )
             ans = _answer(answer_by_q[qnum])
+            prompt = "(see summary above)" if len(markers) > 1 else raw_text
+            if source_id == "cambridge-18-test-1" and qnum == 4:
+                payload["template"] = {
+                    "summary_text": _completion_template(_strip_asset_markdown(raw_text)),
+                    **CAM18_T1_READING_TABLE,
+                }
+            if source_id == "cambridge-16-test-1" and qnum == 7:
+                prompt = (
+                    "The polar bear's mechanism for increasing bone density "
+                    "could also be used by people one day."
+                )
             # Adjudicated source repair: printed Q7 contains two sub-blanks.
             if source_id == "cambridge-15-test-4" and qnum == 7:
                 ans = {
@@ -250,7 +381,7 @@ def _reading_rows(source_id: str, package: dict[str, Any]) -> tuple[dict, list, 
                 "passage_id": passage_uuid,
                 "q_num": qnum,
                 "question_type": qtype,
-                "prompt": raw_text or f"Question {qnum}",
+                "prompt": prompt or f"Question {qnum}",
                 "payload": payload,
                 "answer": ans,
                 "skill_tag": READING_SKILL.get(qtype, "detail"),
@@ -436,6 +567,27 @@ def _listening_rows(source_id: str, package: dict[str, Any], timings: dict[str, 
                 "transcript_anchors": {str(q["q_num"]): 0 for q in q_payload},
                 "source_question_type": qtype,
             }
+            first_q = int(first["number"])
+            if source_id == "cambridge-18-test-1" and first_q == 12:
+                payload["instruction"] = "Choose the correct letter, A, B or C."
+                payload["questions"][0]["prompt"] = (
+                    "What does the speaker say about the age of volunteers?"
+                )
+            if source_id == "cambridge-16-test-1" and first_q == 23:
+                stem = (
+                    "In which TWO ways do both Jess and Tom decide to change "
+                    "their proposals?"
+                )
+                payload["instruction"] = f"Choose **TWO** letters, A-E. {stem}"
+                for item in payload["questions"]:
+                    item["prompt"] = stem
+            if source_id == "cambridge-16-test-2" and first_q == 1:
+                payload["template_kind"] = "notes_completion"
+                payload["template"] = CAM16_T2_PART1_TEMPLATE
+                for item in payload["questions"]:
+                    q_num = int(item["q_num"])
+                    item["prompt"] = CAM16_T2_PART1_PROMPTS[q_num]
+                    item["variant"] = "sentence_inline"
             if template_kind in {"matching", "mcq_multi"}:
                 payload["metadata"] = {"match_options": _options(first.get("options"))}
             if asset_names:

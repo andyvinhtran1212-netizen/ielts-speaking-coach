@@ -55,6 +55,95 @@ def test_answer_arrays_are_alternatives_unless_authored_as_whole_set():
     }
 
 
+def test_answer_shorthand_is_expanded_at_import_boundary():
+    assert importer._answer("(food) consumption") == {
+        "answer": "consumption",
+        "alternatives": ["food consumption"],
+    }
+    assert importer._answer("flavour / flavor") == {
+        "answer": "flavour",
+        "alternatives": ["flavor"],
+    }
+    assert importer._answer("24/04") == {
+        "answer": "24/04",
+        "alternatives": [],
+    }
+    assert importer._answer("(B, E)", whole_set=True) == {
+        "answer": "B, E",
+        "alternatives": [],
+    }
+
+
+def test_completion_template_moves_markers_to_printed_blanks():
+    raw = (
+        "Complete the sentences using words from the passage. "
+        "Limit: ONE WORD ONLY.\n"
+        "each answer.\n"
+        "{{22}} Some dead wood may cause ________ .\n"
+        "{{23}} The ________ improves soil quality."
+    )
+    assert importer._reading_word_limit(raw) == "ONE WORD ONLY"
+    assert importer._completion_template(raw) == (
+        "Some dead wood may cause {{22}} .\n"
+        "The {{23}} improves soil quality."
+    )
+
+
+def test_completion_template_moves_marker_across_wrapped_line():
+    raw = (
+        "Complete the sentences using words from the passage. "
+        "Limit: NO MORE THAN TWO WORDS AND/OR A NUMBER.\n"
+        "each answer.\n"
+        "{{3}} It may account for 10% of\n"
+        "the city's ________ overall."
+    )
+
+    result = importer._completion_template(raw)
+
+    assert result == "It may account for 10% of\nthe city's {{3}} overall."
+    assert not importer.BLANK_RE.search(result)
+
+
+def test_completion_template_handles_bullets_and_inline_markers():
+    raw = (
+        "Complete the notes using words from the passage. Limit: TWO WORDS.\n"
+        "- {{1}} ________ may have been arranged\n"
+        "- builders used {{2}} to make sledges\n"
+        "{{3}} ________ It is therefore important"
+    )
+
+    result = importer._completion_template(raw)
+
+    assert result == (
+        "- {{1}} may have been arranged\n"
+        "- builders used {{2}} to make sledges\n"
+        "{{3}} It is therefore important"
+    )
+    assert not importer.BLANK_RE.search(result)
+
+
+def test_completion_template_preserves_spacing_for_already_placed_markers():
+    raw = (
+        "Complete the summary using words from the passage.\n"
+        "Advice on the {{32}} of space and unused {{33}} material."
+    )
+
+    assert importer._completion_template(raw) == (
+        "Advice on the {{32}} of space and unused {{33}} material."
+    )
+
+
+def test_cam16_t2_part1_template_owns_each_gap_exactly_once():
+    q_nums = [
+        item["q_num"]
+        for group in importer.CAM16_T2_PART1_TEMPLATE["groups"]
+        for item in group["items"]
+        if "q_num" in item
+    ]
+    assert q_nums == list(range(1, 11))
+    assert sorted(importer.CAM16_T2_PART1_PROMPTS) == list(range(1, 11))
+
+
 def test_deterministic_ids_are_stable_and_domain_separated():
     assert importer._uuid("cambridge-13-test-1:reading:test") == importer._uuid(
         "cambridge-13-test-1:reading:test"
