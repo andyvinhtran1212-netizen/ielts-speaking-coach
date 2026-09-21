@@ -1475,6 +1475,18 @@ def test_practice_windows_refused_for_a_real_test(monkeypatch):
         assert ei.value.status_code == 422
 
 
+def test_practice_windows_refused_for_report_only_programme_form(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    t, _aid = _seed_practice(fake)
+    fake.tables["listening_tests"][0].update({
+        "scoring_policy": "report_only",
+        "programme_id": "general-listening-practice",
+    })
+    with pytest.raises(HTTPException) as ei:
+        _run(listening_router.get_practice_audio_windows(t["id"], authorization=authz))
+    assert ei.value.status_code == 422
+
+
 def test_practice_windows_requires_a_published_test(monkeypatch):
     fake, authz = _patch(monkeypatch)
     t, _aid = _seed_practice(fake)

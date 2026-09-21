@@ -191,6 +191,10 @@ class _FakeTableQuery:
         self._filters.append(("eq", col, val))
         return self
 
+    def neq(self, col, val):
+        self._filters.append(("neq", col, val))
+        return self
+
     def gte(self, col, val):
         self._filters.append(("gte", col, val))
         return self
@@ -218,6 +222,8 @@ class _FakeTableQuery:
         for op, col, val in self._filters:
             if op == "eq":
                 rows = [r for r in rows if r.get(col) == val]
+            elif op == "neq":
+                rows = [r for r in rows if r.get(col) != val]
             elif op == "gte":
                 rows = [r for r in rows if str(r.get(col, "")) >= str(val)]
             elif op == "in":
@@ -396,6 +402,31 @@ def test_browse_excludes_drafts(monkeypatch):
         limit=20, offset=0, authorization=authz,
     ))
     assert len(out["items"]) == 0
+
+
+def test_browse_excludes_published_programme_forms_before_pagination(monkeypatch):
+    canned = {
+        "listening_content": [
+            {
+                "id": "programme-newest", "status": "published",
+                "source_type": "programme_form", "title": "Programme form",
+                "created_at": "2026-09-21T00:00:00Z",
+            },
+            {
+                "id": "standalone", "status": "published",
+                "source_type": "curated_external", "title": "Standalone",
+                "created_at": "2026-09-20T00:00:00Z",
+            },
+        ],
+    }
+    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
+    authz = _patch_user(monkeypatch)
+    out = _run(listening_router.list_listening_content(
+        accent_tag=None, cefr_level=None, ielts_section=None,
+        limit=1, offset=0, authorization=authz,
+    ))
+    assert out["total"] == 1
+    assert [row["id"] for row in out["items"]] == ["standalone"]
 
 
 def test_browse_rejects_bad_accent(monkeypatch):

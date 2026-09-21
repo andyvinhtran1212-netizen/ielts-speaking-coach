@@ -69,6 +69,10 @@ class _Query:
             self._preds.append(lambda r, c=col, v=val: r.get(c) == v)
         return self
 
+    def neq(self, col, val):
+        self._preds.append(lambda r, c=col, v=val: r.get(c) != v)
+        return self
+
     def in_(self, col, vals):
         s = set(vals)
         self._preds.append(lambda r, c=col: r.get(c) in s)
@@ -157,6 +161,7 @@ def _dataset():
         {"id": "c1", "status": "published"},
         {"id": "c2", "status": "published"},
         {"id": "c3", "status": "draft"},
+        {"id": "c4", "status": "published", "source_type": "programme_form"},
     ]
     seg = [{"idx": 0, "start_sec": 0, "end_sec": 3, "transcript": "hi"}]
     exercises = [
@@ -282,6 +287,38 @@ def test_programme_progress_ignores_expired_resume_and_keeps_submitted_history()
         )
     assert partial is False
     assert latest["t-programme"]["id"] == "submitted"
+
+
+def test_programme_progress_excludes_class_and_mock_attempts_from_free_hub():
+    from routers import listening as mod
+
+    now = datetime.now(timezone.utc).isoformat()
+    rows = [
+        {
+            "id": "assigned", "user_id": "u", "test_id": "t-programme",
+            "status": "in_progress", "resume_expires_at": now,
+            "created_at": now, "class_assignment_item_id": "item-1",
+            "sitting_id": None,
+        },
+        {
+            "id": "mock", "user_id": "u", "test_id": "t-mock",
+            "status": "in_progress", "resume_expires_at": now,
+            "created_at": now, "class_assignment_item_id": None,
+            "sitting_id": "sitting-1",
+        },
+        {
+            "id": "free", "user_id": "u", "test_id": "t-programme",
+            "status": "submitted", "resume_expires_at": None,
+            "created_at": now, "class_assignment_item_id": None,
+            "sitting_id": None,
+        },
+    ]
+    with patch.object(mod, "supabase_admin", _FakeSB({"listening_test_attempts": rows})):
+        latest, partial = mod._programme_attempt_state(
+            "u", [{"id": "t-programme"}, {"id": "t-mock"}],
+        )
+    assert partial is False
+    assert latest == {"t-programme": rows[2]}
 
 
 def test_programme_activity_time_orders_valid_iso_and_sends_malformed_last():

@@ -83,12 +83,15 @@ def main() -> int:
 
     action = "publish" if args.publish else "archive"
     plan = plans[0]
+    from config import settings
+
     result = set_package_status(
         db,
         package_id=plan.location.package_id,
         manifest_sha256=plan.location.manifest_sha256,
         action=action,
         actor=args.actor,
+        bucket_name=settings.LISTENING_AUDIO_BUCKET,
     )
     print(json.dumps({"package_id": plan.location.package_id, **result}, ensure_ascii=False))
     return 0

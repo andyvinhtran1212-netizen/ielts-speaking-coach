@@ -535,6 +535,7 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
                 }
                 stimuli[-1]["metadata"].update({
                     "visual_source_path": str(visual),
+                    "visual_storage_path": visuals[str(visual)]["storage_path"],
                     "visual_sha256": visuals[str(visual)]["sha256"],
                 })
 
@@ -878,6 +879,92 @@ def commit_import_plan(plan: ImportPlan, db: Any, *, bucket_name: str) -> dict[s
     return {**row, "storage_created": created, "storage_reused": reused}
 
 
+def _verify_package_storage_assets(
+    db: Any,
+    *,
+    package_id: str,
+    manifest_sha256: str,
+    bucket_name: str,
+) -> int:
+    """Re-download every immutable learner asset immediately before publish.
+
+    Database reconciliation alone can succeed after an operator deletes or
+    corrupts a private Storage object.  The package therefore stays unpublished
+    unless its current bytes still match the hashes persisted at import time.
+    """
+    package_rows = (
+        db.table("listening_content_packages")
+        .select("id,manifest_sha256")
+        .eq("package_id", package_id)
+        .limit(1)
+        .execute().data or []
+    )
+    if not package_rows:
+        raise PackageValidationError("Listening package không tồn tại")
+    package = package_rows[0]
+    if package.get("manifest_sha256") != manifest_sha256:
+        raise PackageValidationError("Package manifest không khớp")
+    package_uuid = package.get("id")
+    if not package_uuid:
+        raise PackageValidationError("Package thiếu canonical id")
+
+    expected: dict[str, tuple[str, int | None]] = {}
+
+    def add(path: Any, digest: Any, size: Any = None) -> None:
+        storage_path = str(path or "").strip()
+        sha256 = str(digest or "").strip()
+        try:
+            expected_size = int(size) if size is not None else None
+        except (TypeError, ValueError) as exc:
+            raise PackageValidationError("Package thiếu storage attestation hợp lệ") from exc
+        if (not storage_path or not re.fullmatch(r"[0-9a-f]{64}", sha256)
+                or expected_size is not None and expected_size < 1):
+            raise PackageValidationError("Package thiếu storage attestation hợp lệ")
+        previous = expected.get(storage_path)
+        attestation = (sha256, expected_size)
+        if previous is not None and previous != attestation:
+            raise PackageValidationError(f"Storage attestation conflict: {storage_path}")
+        expected[storage_path] = attestation
+
+    tests = (
+        db.table("listening_tests")
+        .select("full_audio_storage_path,full_audio_size_bytes,metadata")
+        .eq("content_package_id", package_uuid)
+        .execute().data or []
+    )
+    if not tests:
+        raise PackageValidationError("Package không có form audio để publish")
+    for row in tests:
+        add(
+            row.get("full_audio_storage_path"),
+            (row.get("metadata") or {}).get("derived_audio_sha256"),
+            row.get("full_audio_size_bytes"),
+        )
+
+    stimuli = (
+        db.table("listening_package_stimuli")
+        .select("metadata")
+        .eq("package_id", package_uuid)
+        .execute().data or []
+    )
+    for row in stimuli:
+        metadata = row.get("metadata") or {}
+        if metadata.get("visual_source_path"):
+            add(metadata.get("visual_storage_path"), metadata.get("visual_sha256"))
+
+    bucket = db.storage.from_(bucket_name)
+    for storage_path, (sha256, expected_size) in expected.items():
+        try:
+            data = bytes(bucket.download(storage_path))
+        except Exception as exc:
+            raise PackageValidationError(f"Storage object bị thiếu: {storage_path}") from exc
+        if expected_size is not None and len(data) != expected_size:
+            raise PackageValidationError(f"Storage object sai kích thước: {storage_path}")
+        if _sha256_bytes(data) != sha256:
+            raise PackageValidationError(f"Storage object sai hash: {storage_path}")
+    return len(expected)
+
+
 def set_package_status(
     db: Any,
     *,
@@ -885,9 +972,17 @@ def set_package_status(
     manifest_sha256: str,
     action: str,
     actor: str | None,
+    bucket_name: str,
 ) -> dict[str, Any]:
     if action not in {"publish", "archive"}:
         raise PackageValidationError("Action phải là publish hoặc archive")
+    if action == "publish":
+        _verify_package_storage_assets(
+            db,
+            package_id=package_id,
+            manifest_sha256=manifest_sha256,
+            bucket_name=bucket_name,
+        )
     response = db.rpc("set_listening_content_package_status", {
         "p_package_id": package_id,
         "p_manifest_sha256": manifest_sha256,

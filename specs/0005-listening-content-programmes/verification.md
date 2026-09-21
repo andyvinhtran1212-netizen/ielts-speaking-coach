@@ -21,8 +21,9 @@
 
 ## Contract evidence
 
-- Final post-rebase local baseline on 2026-09-21: backend Listening 658/658 passed;
-  frontend Listening 1,303/1,303 passed; TypeScript passed; Next 16 production
+- Final post-review local baseline on 2026-09-21: backend Listening 664/664 passed;
+  frontend Listening 1,303/1,303 and the full frontend contract suite passed;
+  TypeScript passed; Next 16 production
   build compiled and generated all 152 routes. The generic prerender fallback
   logged an expected local `ECONNREFUSED`, but build exit status was zero.
 - OpenAPI/type drift: `frontend/types/api.d.ts` regenerated from the in-process
@@ -47,6 +48,9 @@
   mutations: 66 lessons/groups, 159 forms, 1,045 items, 390 stimuli/audio/timing
   files, 1,474 timing segments, and 2 visuals. All 159 forms have positive
   duration and `checked_item_count + self_review_item_count == item_count`.
+- Publication now re-downloads and verifies the persisted SHA-256 attestation
+  for every derived form WAV and visual before invoking the transactional
+  status RPC; missing, wrong-size, or corrupt objects fail closed.
 - Migration/schema query: pending staging package, lesson, source-form uniqueness,
   programme/scoring defaults, RLS/grants, and immutable-state checks.
 - Reconciliation: pending exact 2/66/159/1,045/390/390/2 source-to-database/object

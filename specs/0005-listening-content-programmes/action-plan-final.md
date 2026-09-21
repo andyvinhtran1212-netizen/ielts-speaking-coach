@@ -31,7 +31,10 @@ part of this import.
 3. Import both packages as draft/non-public. Upload immutable derived WAV/SVG
    objects under package + manifest prefixes; run the same commit twice and
    require the second run to reconcile as reused with no duplicate rows.
-4. Reconcile exact persisted counts: 2 packages, 66 lessons/groups, 159 forms,
+4. Immediately before publication, re-download every derived WAV/SVG and
+   require its persisted size/hash attestation to match; a missing or changed
+   object blocks the package status transaction.
+5. Reconcile exact persisted counts: 2 packages, 66 lessons/groups, 159 forms,
    1,045 items, 390 stimuli/media/timing sources, 1,474 timing segments, 2
    visuals, 408 form-stimulus references, and zero orphan/undeclared entities.
 

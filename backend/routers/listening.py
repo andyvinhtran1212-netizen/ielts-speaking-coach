@@ -1942,6 +1942,7 @@ async def list_listening_content(
             count="exact",
         )
         .eq("status", "published")
+        .neq("source_type", "programme_form")
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
     )
@@ -4582,6 +4583,7 @@ def _published_content_ids() -> list[str]:
             supabase_admin.table("listening_content")
             .select("id")
             .eq("status", "published")
+            .neq("source_type", "programme_form")
             # LIMIT/OFFSET without ORDER BY has no defined row order in
             # Postgres, so successive pages could repeat or skip rows and the
             # count would drift. `id` is unique, which makes the walk stable.
@@ -4622,7 +4624,7 @@ def _programme_attempt_state(user_id: str, test_rows: list[dict]) -> tuple[dict,
             supabase_admin.table("listening_test_attempts")
             .select(
                 "id,test_id,status,answers,result_summary,started_at,submitted_at,"
-                "resume_expires_at,created_at"
+                "resume_expires_at,created_at,class_assignment_item_id,sitting_id"
             )
             .eq("user_id", user_id)
             .in_("test_id", test_ids)
@@ -4634,6 +4636,11 @@ def _programme_attempt_state(user_id: str, test_rows: list[dict]) -> tuple[dict,
         return {}, True
     latest: dict[str, dict] = {}
     for attempt in response.data or []:
+        # The programme hub is a free-practice surface. A class assignment or
+        # mock sitting owns its own resume/navigation contract and must never
+        # become the dominant hub CTA or recent free-practice activity.
+        if attempt.get("class_assignment_item_id") or attempt.get("sitting_id"):
+            continue
         if attempt.get("status") == "in_progress" and not is_resume_active(attempt):
             continue
         test_id = str(attempt.get("test_id") or "")
@@ -5025,6 +5032,7 @@ async def _change_listening_package_status(
             manifest_sha256=body.manifest_sha256,
             action=action,
             actor=str(actor.get("id")) if isinstance(actor, dict) and actor.get("id") else None,
+            bucket_name=settings.LISTENING_AUDIO_BUCKET,
         )
     except PackageValidationError as exc:
         raise HTTPException(409, str(exc)) from exc
@@ -7016,13 +7024,14 @@ async def get_practice_audio_windows(
 
     res = (
         supabase_admin.table("listening_tests")
-        .select("id,test_type,status,metadata")
+        .select("id,test_type,status,scoring_policy,metadata")
         .eq("id", test_id).limit(1).execute()
     )
     if not res.data or res.data[0].get("status") != "published":
         raise HTTPException(404, "Test bundle not found or not published")
     test_row = res.data[0]
-    if test_row.get("test_type") != "practice":
+    if (test_row.get("test_type") != "practice"
+            or test_row.get("scoring_policy") != "diagnostic"):
         raise HTTPException(422, "Chỉ bài Luyện nhanh mới có cửa sổ audio theo câu.")
 
     windows: dict[str, dict] = {}
