@@ -80,6 +80,10 @@ await page.route('**/*', async (route) => {
     }
     const body = scenario === 'malformed'
       ? { tests: 'bad', content: '5', exercise_modes: null }
+      : scenario === 'no-programmes'
+        ? { ...validOverview, programmes: [], resume: null, recent: [], partial_data: false }
+        : scenario === 'general-only'
+          ? { ...validOverview, programmes: [validOverview.programmes[0]], resume: null, recent: [], partial_data: false }
       : scenario === 'no-modes'
         ? { ...validOverview, content: 5, exercise_modes: {}, resume: null, recent: [], partial_data: false }
         : validOverview;
@@ -94,10 +98,26 @@ await page.locator('#listening-next-title').waitFor({ state: 'visible' });
 check('payload lỗi hình dạng trở thành gợi ý an toàn',
   (await page.locator('#listening-next-title').innerText()).includes('Chọn một bài nghe')
     && (await page.locator('.listening-resume a').getAttribute('href')) === '/listening/analytics'
-    && await page.locator('.listening-programme-card').count() === 0);
+    && await page.locator('.listening-programme-card').count() === 1
+    && (await page.locator('.listening-programme-card').getAttribute('href')) === '/listening/ielts');
 check('content không đúng kiểu số không mở library',
   await page.locator('#section-library').count() === 0);
 check('analytics luôn còn lối vào', await page.locator('[data-mode="analytics"]').isVisible());
+
+scenario = 'no-programmes';
+await page.reload({ waitUntil: 'domcontentloaded' });
+await page.locator('.listening-programme-card').waitFor({ state: 'visible' });
+check('IELTS hub vẫn hiện khi chưa package nào được publish',
+  await page.locator('.listening-programme-card').count() === 1
+    && (await page.locator('.listening-programme-card').getAttribute('href')) === '/listening/ielts');
+
+scenario = 'general-only';
+await page.reload({ waitUntil: 'domcontentloaded' });
+await page.locator('.listening-programme-card').nth(1).waitFor({ state: 'visible' });
+check('IELTS hub vẫn hiện khi chỉ General được publish',
+  await page.locator('.listening-programme-card').count() === 2
+    && (await page.locator('.listening-programme-card').nth(0).getAttribute('href')) === '/listening/general'
+    && (await page.locator('.listening-programme-card').nth(1).getAttribute('href')) === '/listening/ielts');
 
 scenario = 'valid';
 await page.reload({ waitUntil: 'domcontentloaded' });
@@ -146,7 +166,7 @@ check('API lỗi không mở content library chưa xác minh',
 check('thông báo lỗi chung không lộ chi tiết backend',
   !(await page.locator('#landing-error').innerText()).includes('secret-listening-detail'));
 check('request dùng đúng canonical overview endpoint',
-  overviewRequests.length === 4
+  overviewRequests.length === 6
     && overviewRequests.every((url) => new URL(url).pathname === '/api/listening/overview'));
 check('không có lỗi JS chưa bắt', pageErrors.length === 0, pageErrors[0] || '');
 
