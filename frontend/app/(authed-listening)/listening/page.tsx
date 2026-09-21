@@ -11,7 +11,7 @@ import { ListeningLandingShell } from './page-shell';
 import { ListeningLandingBehavior } from './listening-landing-behavior';
 
 export const metadata: Metadata = {
-  title: 'Luyện nghe — Aver Learning',
+  title: 'Listening — Aver Learning',
   robots: { index: false, follow: false },
 };
 
