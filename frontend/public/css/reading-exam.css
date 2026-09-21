@@ -1004,6 +1004,35 @@ body.exam-chrome[data-exam-theme="yellow-on-blue"] .exam-highlight {
   white-space: pre-wrap;
   line-height: 1.7;
 }
+.exam-chrome .exam-summary-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.exam-chrome .exam-summary-table {
+  width: 100%;
+  min-width: 100%;
+  border-collapse: collapse;
+  color: var(--exam-text-primary);
+}
+.exam-chrome .exam-summary-table caption {
+  padding: var(--av-space-3);
+  font-weight: 700;
+  text-align: center;
+}
+.exam-chrome .exam-summary-table th,
+.exam-chrome .exam-summary-table td {
+  border: 1px solid var(--exam-border-default);
+  padding: var(--av-space-3);
+  text-align: left;
+  vertical-align: top;
+}
+.exam-chrome .exam-summary-table thead th {
+  background: var(--exam-surface-card);
+}
+.exam-chrome .exam-summary-table td > div + div,
+.exam-chrome .exam-summary-table th > div + div {
+  margin-top: var(--av-space-2);
+}
 .exam-chrome .exam-summary__gnum {
   display: inline-block;
   min-width: 22px;

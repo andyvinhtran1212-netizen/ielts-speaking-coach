@@ -83,6 +83,24 @@ def test_answer_matches_diacritic_only_in_alternatives():
     assert answer_matches("Nino", "Nino", ["Niño"])
 
 
+def test_answer_matches_cambridge_optional_word_convention():
+    assert answer_matches("consumption", "(food) consumption", [])
+    assert answer_matches("food consumption", "(food) consumption", [])
+    assert answer_matches("antlers", "(deer) antlers", [])
+    assert answer_matches("deer antlers", "(deer) antlers", [])
+    assert answer_matches("string", "string(s)", [])
+    assert answer_matches("strings", "string(s)", [])
+
+
+def test_answer_matches_cambridge_slash_alternatives_but_preserves_fractions():
+    assert answer_matches("flavour", "flavour / flavor", [])
+    assert answer_matches("flavor", "flavour / flavor", [])
+    assert answer_matches("5/6", "5/6", [])
+    assert not answer_matches("5", "5/6", [])
+    assert answer_matches("and/or", "and/or", [])
+    assert not answer_matches("and", "and/or", [])
+
+
 # ── Backward-compat: ASCII answers (the entire AVR-READ-001 universe) ──
 
 

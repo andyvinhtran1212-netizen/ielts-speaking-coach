@@ -986,7 +986,47 @@
       if (last < text.length) container.appendChild(document.createTextNode(text.slice(last)));
     }
 
-    if (isMono) {
+    var tableHeaders = first.payload && first.payload.template
+      && Array.isArray(first.payload.template.headers) ? first.payload.template.headers : [];
+    var tableRows = first.payload && first.payload.template
+      && Array.isArray(first.payload.template.rows) ? first.payload.template.rows : [];
+    if (qType === 'table_completion' && tableHeaders.length && tableRows.length) {
+      box.className = 'exam-summary-table-wrap';
+      var table = document.createElement('table');
+      table.className = 'exam-summary-table';
+      if (first.payload.template.heading) {
+        var caption = document.createElement('caption');
+        caption.textContent = String(first.payload.template.heading);
+        table.appendChild(caption);
+      }
+      var thead = document.createElement('thead');
+      var headRow = document.createElement('tr');
+      tableHeaders.forEach(function (header) {
+        var th = document.createElement('th');
+        th.scope = 'col';
+        th.textContent = String(header == null ? '' : header);
+        headRow.appendChild(th);
+      });
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+      var tbody = document.createElement('tbody');
+      tableRows.forEach(function (row) {
+        var tr = document.createElement('tr');
+        row.forEach(function (cell, cellIndex) {
+          var cellEl = document.createElement(cellIndex === 0 ? 'th' : 'td');
+          if (cellIndex === 0) cellEl.scope = 'row';
+          (Array.isArray(cell) ? cell : [cell]).forEach(function (line) {
+            var lineEl = document.createElement('div');
+            _fillTemplate(lineEl, String(line == null ? '' : line));
+            cellEl.appendChild(lineEl);
+          });
+          tr.appendChild(cellEl);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      box.appendChild(table);
+    } else if (isMono) {
       // reading-completion-mono-fix — table/flow/diagram convey structure via
       // spacing; render summary_text in ONE pre-wrap mono block so columns survive.
       var mono = document.createElement('div');

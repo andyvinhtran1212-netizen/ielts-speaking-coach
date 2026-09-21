@@ -738,6 +738,11 @@ describe('Sprint 13.5.5 — audio cue auto-advance + parser cleanup expectations
     assert.match(JS, /tmpl\.paragraph/);
   });
 
+  it('renders a supporting flow-chart image outside plan-label exercises', () => {
+    assert.match(JS, /&& payload\.map_image_url/);
+    assert.match(JS, /supportingVisual \+ body/);
+  });
+
   it('summary renderer tokenises {{QN}} into circled num + gap input', () => {
     // Regression guard for Sprint 13.5.2 contract — Sprint 13.5.5
     // parser bounds the paragraph; the tokeniser is unchanged but must

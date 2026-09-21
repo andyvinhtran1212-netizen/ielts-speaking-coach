@@ -47,7 +47,10 @@ type Question = {
     word_limit?: string;
     template?: {
       choose?: number;
+      heading?: string;
+      headers?: unknown[];
       paragraph_labels?: string[];
+      rows?: unknown[][];
       summary_text?: string;
     };
   };
@@ -419,6 +422,26 @@ function FlowingCompletionRun({ run, answers, saveStates, flagged, currentQuesti
     if (last < source.length) nodes.push(source.slice(last));
     return nodes;
   };
+
+  const tableHeaders = Array.isArray(first.payload?.template?.headers)
+    ? first.payload.template.headers : [];
+  const tableRows = Array.isArray(first.payload?.template?.rows)
+    ? first.payload.template.rows : [];
+  if (type === 'table_completion' && tableHeaders.length && tableRows.length) {
+    return <div className="exam-summary-table-wrap" data-question-type={type}>
+      <table className="exam-summary-table">
+        {first.payload?.template?.heading ? <caption>{String(first.payload.template.heading)}</caption> : null}
+        <thead><tr>{tableHeaders.map((header: any, index: number) => <th scope="col" key={index}>{String(header ?? '')}</th>)}</tr></thead>
+        <tbody>{tableRows.map((row: any[], rowIndex: number) => <tr key={rowIndex}>{row.map((cell: any, cellIndex: number) => {
+          const lines = Array.isArray(cell) ? cell : [cell];
+          const Cell = cellIndex === 0 ? 'th' : 'td';
+          return <Cell scope={cellIndex === 0 ? 'row' : undefined} key={cellIndex}>
+            {lines.map((line: any, lineIndex: number) => <div key={lineIndex}>{renderTemplate(String(line ?? ''), `table-${rowIndex}-${cellIndex}-${lineIndex}`)}</div>)}
+          </Cell>;
+        })}</tr>)}</tbody>
+      </table>
+    </div>;
+  }
 
   if (MONO_COMPLETION_TYPES.has(type)) {
     return <div className="exam-gap-box exam-gap-box--summary" data-question-type={type}>

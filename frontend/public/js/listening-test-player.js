@@ -805,7 +805,14 @@ function renderExercise(ex) {
       default:                    return renderFallback(questions);
     }
   })();
-  return header + body + `</div>`;
+  const supportingVisual = !['mcq_letter_label', 'plan_label'].includes(kind)
+    && payload.map_image_url
+    ? `<figure class="listening-next-supporting-visual">
+         <img class="ielts-map-rendered" src="${esc(payload.map_image_url)}"
+              alt="${kind === 'flow_chart_completion' ? 'Flow chart' : 'Visual'} for questions ${esc(range ? range.join(' to ') : '')}" />
+       </figure>`
+    : '';
+  return header + supportingVisual + body + `</div>`;
 }
 
 function formatInstruction(raw) {

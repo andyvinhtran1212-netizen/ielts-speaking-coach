@@ -86,6 +86,7 @@ describe('reading-completion-flowing-fix — diagram/flow image wins (ordering)'
 describe('reading-completion-flowing-fix — layout split (mono vs notes vs prose)', () => {
   const js = read('frontend/js/reading-exam.js');
   const css = read('frontend/css/reading-exam.css');
+  const next = read('frontend/app/(authed-reading-player)/reading/exam/session/reading-exam-session.tsx');
 
   test('MONO_LAYOUT covers table / flow-chart / diagram (whitespace-preserving types)', () => {
     // reading-completion-mono-fix (Codex #811 P2) — these convey columns/steps
@@ -126,6 +127,14 @@ describe('reading-completion-flowing-fix — layout split (mono vs notes vs pros
     assert.ok(m, '.exam-summary__mono rule not found');
     assert.match(m[1], /white-space:\s*pre-wrap/);
     assert.match(m[1], /font-family:\s*var\(--exam-font-mono\)/);
+  });
+
+  test('structured table payload renders as a semantic responsive table', () => {
+    assert.match(js, /qType === 'table_completion' && tableHeaders\.length && tableRows\.length/);
+    assert.match(js, /table\.className = 'exam-summary-table'/);
+    assert.match(next, /type === 'table_completion' && tableHeaders\.length && tableRows\.length/);
+    assert.match(next, /<table className="exam-summary-table">/);
+    assert.match(css, /\.exam-summary-table-wrap \{[^}]*overflow-x:\s*auto/);
   });
 });
 
