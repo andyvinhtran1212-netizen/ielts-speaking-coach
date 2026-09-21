@@ -991,7 +991,9 @@
     var tableRows = first.payload && first.payload.template
       && Array.isArray(first.payload.template.rows) ? first.payload.template.rows : [];
     if (qType === 'table_completion' && tableHeaders.length && tableRows.length) {
-      box.className = 'exam-summary-table-wrap';
+      // Keep the shared summary hook: restoreAnswers() uses it to find
+      // persisted out-of-card inputs when a Legacy attempt resumes.
+      box.className = 'exam-gap-box exam-gap-box--summary exam-summary-table-wrap';
       var table = document.createElement('table');
       table.className = 'exam-summary-table';
       if (first.payload.template.heading) {

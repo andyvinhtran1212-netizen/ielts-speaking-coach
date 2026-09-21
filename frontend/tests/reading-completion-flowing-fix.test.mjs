@@ -22,10 +22,24 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { JSDOM } from 'jsdom';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const read = (rel) => readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+
+function functionSource(source, name) {
+  const start = source.indexOf(`function ${name}(`);
+  assert.notEqual(start, -1, `${name} not found`);
+  const bodyStart = source.indexOf('{', start);
+  let depth = 0;
+  for (let index = bodyStart; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1;
+    if (source[index] === '}') depth -= 1;
+    if (depth === 0) return source.slice(start, index + 1);
+  }
+  throw new Error(`${name} has no closing brace`);
+}
 
 describe('reading-completion-flowing-fix — broadened flowing gate', () => {
   const js = read('frontend/js/reading-exam.js');
@@ -135,6 +149,33 @@ describe('reading-completion-flowing-fix — layout split (mono vs notes vs pros
     assert.match(next, /type === 'table_completion' && tableHeaders\.length && tableRows\.length/);
     assert.match(next, /<table className="exam-summary-table">/);
     assert.match(css, /\.exam-summary-table-wrap \{[^}]*overflow-x:\s*auto/);
+  });
+
+  test('Legacy resume restores persisted answers inside a structured table', () => {
+    const tableClass = js.match(
+      /qType === 'table_completion'[\s\S]{0,300}box\.className = '([^']+)'/,
+    );
+    assert.ok(tableClass, 'structured table wrapper class assignment not found');
+    assert.match(tableClass[1], /\bexam-gap-box--summary\b/);
+
+    const dom = new JSDOM(
+      `<div class="${tableClass[1]}"><table><tr><td>`
+      + '<input name="q-4" value=""></td></tr></table></div>',
+    );
+    const answered = [];
+    const restoreAnswers = new Function(
+      'SESSION', 'document', 'markAnswered',
+      `return (${functionSource(js, 'restoreAnswers')});`,
+    )(
+      { answers: new Map([[4, 'special oils']]) },
+      dom.window.document,
+      (qNum) => answered.push(qNum),
+    );
+
+    restoreAnswers();
+
+    assert.equal(dom.window.document.querySelector('[name="q-4"]').value, 'special oils');
+    assert.deepEqual(answered, [4]);
   });
 });
 
