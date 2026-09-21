@@ -456,6 +456,35 @@ def test_analytics_by_type_aggregation(monkeypatch):
                                       "avg_score": None, "completion": None}
 
 
+def test_analytics_separates_report_only_completion_from_diagnostic_scores(monkeypatch):
+    programme = {
+        **_att(2, "t-programme", score=None, total=4, days_ago=1),
+        "scoring_policy": "report_only",
+        "result_summary": {"unscored_count": 3},
+    }
+    canned = {
+        "listening_test_attempts": [
+            _att(1, "t-mini", score=8, days_ago=2),
+            programme,
+        ],
+        "listening_tests": _tests_canned() + [
+            {"id": "t-programme", "test_id": "PKG-1", "title": "Practice 1", "test_type": "practice"},
+        ],
+    }
+    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
+    authz = _patch_user(monkeypatch)
+    out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
+    assert out["total_attempts"] == 2
+    assert out["by_mode"]["practice"]["attempts_count"] == 0
+    assert out["by_mode"]["mini"]["avg_score"] == 0.8
+    assert out["report_only"] == {
+        "attempts_count": 1,
+        "completed_count": 1,
+        "review_needed_count": 3,
+    }
+    assert out["recent_attempts"][0]["type"] == "programme"
+
+
 def test_analytics_first_attempt_rule_per_test(monkeypatch):
     """Retry không được kéo avg: lượt đầu 1.0, retry 0.0 → avg = 1.0; nhưng
     total_attempts + recent vẫn đếm mọi lượt (engagement/timeline)."""

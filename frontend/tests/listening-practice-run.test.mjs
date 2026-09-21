@@ -26,7 +26,7 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const read = (...p) => readFileSync(join(__dirname, '..', 'public', ...p), 'utf8');
 
-const HTML = read('pages', 'listening-practice-run.html');
+const HTML = readFileSync(join(__dirname, '..', 'pages', 'listening-practice-run.html'), 'utf8');
 const JS   = read('js', 'listening-practice-run.js');
 
 

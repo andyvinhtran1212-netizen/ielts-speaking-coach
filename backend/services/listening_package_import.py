@@ -1,0 +1,902 @@
+"""Fail-closed importer for LISTENING-0005 immutable content packages.
+
+The package directory remains the source of truth.  This module verifies the
+release-index binding and every declared artifact before projecting learner
+content into the existing Listening test/attempt model.  Dry-run is pure local
+work; commit uploads immutable derived assets and finishes through one database
+RPC.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import io
+import json
+import math
+import re
+import wave
+import xml.etree.ElementTree as ET
+from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
+from typing import Any, Iterable
+
+
+TRANSFORM_VERSION = "wav-pcm16-mono-24khz-gap500ms-v1"
+GAP_SECONDS = 0.5
+SAMPLE_RATE = 24_000
+SAMPLE_WIDTH = 2
+CHANNELS = 1
+OBJECTIVE_TYPES = frozenset({"single_choice", "multiple_choice", "map_label"})
+SELF_REVIEW_TYPES = frozenset({"short_answer", "written", "open_rubric"})
+ALLOWED_RESPONSE_TYPES = OBJECTIVE_TYPES | SELF_REVIEW_TYPES
+FORBIDDEN_LEARNER_KEYS = frozenset({
+    "answerLetter", "acceptedAnswers", "accepted_answers", "displayAnswer",
+    "evidence_quotes", "protected_teacher", "rubric", "script",
+})
+MAX_FORM_STIMULI = 15
+MAX_FORM_ITEMS = 40
+MAX_PACKAGE_FILES = 5_000
+MAX_PACKAGE_BYTES = 1_073_741_824  # expanded directory size, 1 GiB
+MAX_ARTIFACT_BYTES = 33_554_432
+MAX_JSON_BYTES = 10_485_760
+MAX_VISUAL_BYTES = 5_242_880
+ALLOWED_ARTIFACT_SUFFIXES = frozenset({".json", ".wav", ".svg", ".md", ".txt"})
+
+
+class PackageValidationError(ValueError):
+    """The package is not safe or internally consistent enough to import."""
+
+
+@dataclass(frozen=True)
+class PackageLocation:
+    release_root: Path
+    package_root: Path
+    programme_id: str
+    package_id: str
+    manifest_sha256: str
+
+
+@dataclass
+class ImportPlan:
+    location: PackageLocation
+    package: dict[str, Any]
+    lessons: list[dict[str, Any]]
+    stimuli: list[dict[str, Any]]
+    forms: list[dict[str, Any]]
+    visual_assets: list[dict[str, Any]]
+    report: dict[str, Any]
+
+
+def _sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _load_json(path: Path) -> Any:
+    try:
+        if path.stat().st_size > MAX_JSON_BYTES:
+            raise PackageValidationError(f"JSON vượt giới hạn {MAX_JSON_BYTES} bytes: {path}")
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise PackageValidationError(f"JSON không hợp lệ: {path}") from exc
+
+
+def _safe_relative_path(raw: object, *, label: str) -> PurePosixPath:
+    if not isinstance(raw, str) or not raw.strip() or "\\" in raw:
+        raise PackageValidationError(f"{label}: path không hợp lệ")
+    raw_parts = raw.split("/")
+    if any(part in {"", ".", ".."} for part in raw_parts):
+        raise PackageValidationError(f"{label}: path traversal bị từ chối: {raw}")
+    path = PurePosixPath(raw)
+    if path.is_absolute() or ".." in path.parts or "." in path.parts:
+        raise PackageValidationError(f"{label}: path traversal bị từ chối: {raw}")
+    return path
+
+
+def _resolve_declared(package_root: Path, raw: object, *, label: str) -> Path:
+    relative = _safe_relative_path(raw, label=label)
+    candidate = package_root.joinpath(*relative.parts)
+    if candidate.is_symlink() or not candidate.is_file():
+        raise PackageValidationError(f"{label}: file không tồn tại hoặc là symlink: {relative}")
+    try:
+        candidate.resolve(strict=True).relative_to(package_root.resolve(strict=True))
+    except (OSError, ValueError) as exc:
+        raise PackageValidationError(f"{label}: file vượt ngoài package: {relative}") from exc
+    return candidate
+
+
+def discover_packages(release_root: Path) -> list[PackageLocation]:
+    """Return exactly the learner-ready packages bound by release-index.json."""
+    release_root = release_root.resolve(strict=True)
+    index = _load_json(release_root / "release-index.json")
+    if not isinstance(index, dict) or not isinstance(index.get("programmes"), list):
+        raise PackageValidationError("release-index.json thiếu programmes[]")
+    locations: list[PackageLocation] = []
+    seen: set[str] = set()
+    for programme in index["programmes"]:
+        if not isinstance(programme, dict):
+            raise PackageValidationError("release-index programme phải là object")
+        programme_id = str(programme.get("id") or "")
+        programme_path = _safe_relative_path(programme.get("path"), label=programme_id)
+        for entry in programme.get("packages") or []:
+            if not isinstance(entry, dict) or entry.get("learner_ready") is not True:
+                continue
+            package_id = str(entry.get("package_id") or "")
+            manifest_sha = str(entry.get("manifest_sha256") or "")
+            if not package_id or not re.fullmatch(r"[0-9a-f]{64}", manifest_sha):
+                raise PackageValidationError("release-index package identity không hợp lệ")
+            if package_id in seen:
+                raise PackageValidationError(f"release-index trùng package_id: {package_id}")
+            seen.add(package_id)
+            package_path = _safe_relative_path(entry.get("path"), label=package_id)
+            root = release_root.joinpath(*programme_path.parts, *package_path.parts)
+            try:
+                root.resolve(strict=True).relative_to(release_root)
+            except (OSError, ValueError) as exc:
+                raise PackageValidationError(f"Package path không hợp lệ: {package_id}") from exc
+            if root.is_symlink() or not root.is_dir():
+                raise PackageValidationError(f"Package không tồn tại hoặc là symlink: {package_id}")
+            locations.append(PackageLocation(
+                release_root=release_root,
+                package_root=root,
+                programme_id=programme_id,
+                package_id=package_id,
+                manifest_sha256=manifest_sha,
+            ))
+    if len(locations) != int(index.get("learner_ready_packages") or -1):
+        raise PackageValidationError("Số package learner-ready không khớp release-index")
+    return locations
+
+
+def select_package(release_root: Path, package_id: str) -> PackageLocation:
+    matches = [p for p in discover_packages(release_root) if p.package_id == package_id]
+    if len(matches) != 1:
+        raise PackageValidationError(f"Không tìm thấy đúng một package: {package_id}")
+    return matches[0]
+
+
+def _walk_json_keys(value: Any) -> Iterable[str]:
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            yield str(key)
+            yield from _walk_json_keys(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            yield from _walk_json_keys(nested)
+
+
+def _verify_manifest(location: PackageLocation) -> dict[str, Any]:
+    root = location.package_root
+    for path in root.rglob("*"):
+        if path.is_symlink():
+            raise PackageValidationError(f"Package chứa symlink: {path.relative_to(root)}")
+    manifest_path = root / "manifest.json"
+    actual_manifest_sha = _sha256_file(manifest_path)
+    if actual_manifest_sha != location.manifest_sha256:
+        raise PackageValidationError("Manifest SHA-256 không khớp release-index")
+    manifest = _load_json(manifest_path)
+    if not isinstance(manifest, dict):
+        raise PackageValidationError("manifest.json phải là object")
+    if (manifest.get("package_id") != location.package_id
+            or manifest.get("programme_id") != location.programme_id
+            or manifest.get("learner_ready") is not True):
+        raise PackageValidationError("Manifest identity/learner_ready không khớp")
+    hashes = manifest.get("artifact_hashes")
+    if not isinstance(hashes, dict) or not hashes:
+        raise PackageValidationError("Manifest thiếu artifact_hashes")
+    declared: set[str] = set()
+    declared_bytes = 0
+    for raw_path, expected in hashes.items():
+        relative = _safe_relative_path(raw_path, label="artifact_hashes")
+        normalized = relative.as_posix()
+        if normalized in declared or not re.fullmatch(r"[0-9a-f]{64}", str(expected)):
+            raise PackageValidationError(f"Artifact declaration không hợp lệ: {raw_path}")
+        declared.add(normalized)
+        artifact = _resolve_declared(root, normalized, label="artifact")
+        size = artifact.stat().st_size
+        if artifact.suffix.casefold() not in ALLOWED_ARTIFACT_SUFFIXES:
+            raise PackageValidationError(f"Artifact type không được phép: {normalized}")
+        if size > MAX_ARTIFACT_BYTES:
+            raise PackageValidationError(f"Artifact vượt giới hạn: {normalized}")
+        declared_bytes += size
+        if len(declared) > MAX_PACKAGE_FILES or declared_bytes > MAX_PACKAGE_BYTES:
+            raise PackageValidationError("Package vượt giới hạn file/expanded bytes")
+        if _sha256_file(artifact) != expected:
+            raise PackageValidationError(f"Artifact SHA-256 không khớp: {normalized}")
+    actual = {
+        path.relative_to(root).as_posix()
+        for path in root.rglob("*")
+        if path.is_file() and path.name != "manifest.json"
+    }
+    if actual != declared:
+        missing = sorted(declared - actual)[:5]
+        undeclared = sorted(actual - declared)[:5]
+        raise PackageValidationError(
+            f"Inventory không khớp; missing={missing}, undeclared={undeclared}"
+        )
+    boundaries = manifest.get("payload_boundaries") or {}
+    expected_boundaries = {
+        "public": "learner/",
+        "conditional_accessibility": "controlled-access/",
+        "server_or_audit_only": "protected/",
+    }
+    if boundaries != expected_boundaries:
+        raise PackageValidationError("payload_boundaries không đúng contract v1")
+    for relative in sorted(declared):
+        if relative.startswith("learner/") and relative.endswith(".json"):
+            keys = set(_walk_json_keys(_load_json(root / relative)))
+            leaked = sorted(keys & FORBIDDEN_LEARNER_KEYS)
+            if leaked:
+                raise PackageValidationError(f"Learner JSON lộ protected keys {leaked}: {relative}")
+    return manifest
+
+
+def _validate_svg(path: Path) -> None:
+    """Accept static SVG only; active/remote content fails closed."""
+    if path.suffix.casefold() != ".svg" or path.stat().st_size > MAX_VISUAL_BYTES:
+        raise PackageValidationError(f"Visual không phải SVG an toàn: {path}")
+    try:
+        raw = path.read_bytes()
+        text = raw.decode("utf-8")
+        lowered = text.casefold()
+        if "<!doctype" in lowered or "<!entity" in lowered:
+            raise PackageValidationError(f"SVG có DTD/entity bị cấm: {path}")
+        root = ET.fromstring(text)
+    except (OSError, UnicodeDecodeError, ET.ParseError) as exc:
+        raise PackageValidationError(f"SVG hỏng: {path}") from exc
+    local_name = lambda value: value.rsplit("}", 1)[-1].casefold()
+    if local_name(root.tag) != "svg":
+        raise PackageValidationError(f"Visual signature không phải SVG: {path}")
+    forbidden_tags = {"script", "foreignobject", "iframe", "object", "embed"}
+    for element in root.iter():
+        if local_name(element.tag) in forbidden_tags:
+            raise PackageValidationError(f"SVG chứa active content: {path}")
+        for key, value in element.attrib.items():
+            attr = local_name(key)
+            if attr.startswith("on"):
+                raise PackageValidationError(f"SVG chứa event handler: {path}")
+            if attr == "href" and value and not value.startswith("#"):
+                raise PackageValidationError(f"SVG chứa external reference: {path}")
+
+
+def _protected_indexes(root: Path) -> tuple[dict[str, dict], dict[str, dict]]:
+    items: dict[str, dict] = {}
+    forms: dict[str, dict] = {}
+    protected_root = root / "protected" / "source-lessons"
+    for path in sorted(protected_root.glob("*.json")):
+        document = _load_json(path)
+        if isinstance(document, list):
+            for record in document:
+                if not isinstance(record, dict) or not record.get("id"):
+                    continue
+                items[str(record["id"])] = {
+                    "id": record["id"],
+                    "key": {
+                        "answers": ([record.get("answerLetter")]
+                                    if record.get("answerLetter") else []),
+                        "accepted_answers": record.get("acceptedAnswers") or [],
+                    },
+                    "rationale": record.get("lesson"),
+                    "core_info": record.get("coreInfo"),
+                    "answer_sentence": record.get("answerSentence"),
+                }
+            continue
+        if not isinstance(document, dict):
+            raise PackageValidationError(f"Protected source không hợp lệ: {path.name}")
+        for form in document.get("forms") or []:
+            if isinstance(form, dict) and form.get("id"):
+                forms[str(form["id"])] = form
+        for item in document.get("items") or []:
+            if isinstance(item, dict) and item.get("id"):
+                items[str(item["id"])] = item
+        teacher = document.get("protected_teacher") or {}
+        if isinstance(teacher, dict):
+            for item in teacher.get("items") or []:
+                if isinstance(item, dict) and item.get("item_id"):
+                    items[str(item["item_id"])] = {**item, "id": item["item_id"]}
+    return items, forms
+
+
+def _read_wave(path: Path) -> tuple[bytes, int]:
+    try:
+        with wave.open(str(path), "rb") as source:
+            params = (
+                source.getnchannels(), source.getsampwidth(), source.getframerate(),
+                source.getcomptype(),
+            )
+            if params != (CHANNELS, SAMPLE_WIDTH, SAMPLE_RATE, "NONE"):
+                raise PackageValidationError(f"WAV không phải PCM16 mono 24kHz: {path}")
+            frames = source.readframes(source.getnframes())
+            return frames, source.getnframes()
+    except (wave.Error, EOFError) as exc:
+        raise PackageValidationError(f"WAV hỏng: {path}") from exc
+
+
+def assemble_form_audio(paths: list[Path]) -> tuple[bytes, list[dict[str, float]]]:
+    """Deterministically concatenate PCM WAVs with a 500ms silence gap."""
+    if not 1 <= len(paths) <= MAX_FORM_STIMULI:
+        raise PackageValidationError("Form phải có 1..15 stimuli")
+    gap_frames = int(SAMPLE_RATE * GAP_SECONDS)
+    silence = b"\x00" * gap_frames * SAMPLE_WIDTH * CHANNELS
+    frame_groups: list[bytes] = []
+    offsets: list[dict[str, float]] = []
+    cursor = 0
+    for index, path in enumerate(paths):
+        frames, frame_count = _read_wave(path)
+        start = cursor / SAMPLE_RATE
+        cursor += frame_count
+        offsets.append({"start": round(start, 6), "end": round(cursor / SAMPLE_RATE, 6)})
+        frame_groups.append(frames)
+        if index < len(paths) - 1:
+            frame_groups.append(silence)
+            cursor += gap_frames
+    output = io.BytesIO()
+    with wave.open(output, "wb") as target:
+        target.setnchannels(CHANNELS)
+        target.setsampwidth(SAMPLE_WIDTH)
+        target.setframerate(SAMPLE_RATE)
+        target.setcomptype("NONE", "not compressed")
+        target.writeframes(b"".join(frame_groups))
+    return output.getvalue(), offsets
+
+
+def _normalise_answers(raw: object) -> list[str]:
+    if isinstance(raw, list):
+        return [str(value).strip() for value in raw if str(value).strip()]
+    if raw is None:
+        return []
+    value = str(raw).strip()
+    return [value] if value else []
+
+
+def _key_for_item(protected: dict[str, Any]) -> tuple[list[str], list[str]]:
+    key = protected.get("key") or {}
+    if not isinstance(key, dict):
+        return [], []
+    answers = _normalise_answers(key.get("answers"))
+    alternatives = _normalise_answers(
+        key.get("accepted_answers") or key.get("acceptedAnswers")
+    )
+    return answers, [value for value in alternatives if value not in answers]
+
+
+def _evidence_turn_ids(protected: dict[str, Any]) -> list[str]:
+    values = _normalise_answers(protected.get("evidence_turn_ids"))
+    for key in ("evidence", "evidence_quotes"):
+        rows = protected.get(key) or []
+        if isinstance(rows, list):
+            values.extend(
+                str(row.get("turn_id")) for row in rows
+                if isinstance(row, dict) and row.get("turn_id")
+            )
+    return list(dict.fromkeys(values))
+
+
+def _self_review(protected: dict[str, Any]) -> dict[str, Any]:
+    key = protected.get("key") if isinstance(protected.get("key"), dict) else {}
+    answers, alternatives = _key_for_item(protected)
+    return {
+        "reference_answers": answers + alternatives,
+        "required_facts": key.get("required_facts") or [],
+        "optional_facts": key.get("optional_facts") or [],
+        "scoring_rule": key.get("scoring_rule"),
+        "rationale": key.get("rationale") or protected.get("rationale"),
+        "core_info": protected.get("core_info"),
+        "answer_sentence": protected.get("answer_sentence"),
+        "word_limit": key.get("word_limit"),
+    }
+
+
+def _stable_test_id(package_id: str, form_id: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", form_id.casefold()).strip("-")[:36] or "form"
+    suffix = hashlib.sha256(form_id.encode("utf-8")).hexdigest()[:12]
+    return f"pkg-{slug}-{suffix}"
+
+
+def _form_storage_prefix(package_id: str, manifest_sha: str, form_id: str) -> str:
+    form_key = hashlib.sha256(form_id.encode("utf-8")).hexdigest()[:24]
+    return f"packages/{package_id}/{manifest_sha}/forms/{form_key}"
+
+
+def _visual_storage_path(package_id: str, manifest_sha: str, source_path: str) -> str:
+    name = PurePosixPath(source_path).name
+    suffix = hashlib.sha256(source_path.encode("utf-8")).hexdigest()[:12]
+    return f"packages/{package_id}/{manifest_sha}/visuals/{suffix}-{name}"
+
+
+def build_import_plan(location: PackageLocation, *, imported_by: str | None = None) -> ImportPlan:
+    root = location.package_root
+    manifest = _verify_manifest(location)
+    learner_index = _load_json(root / "learner" / "index.json")
+    if not isinstance(learner_index, dict):
+        raise PackageValidationError("learner/index.json phải là object")
+    lesson_ids = learner_index.get("lesson_ids")
+    counts = manifest.get("counts") or {}
+    if not isinstance(lesson_ids, list) or len(lesson_ids) != int(counts.get("lessons") or -1):
+        raise PackageValidationError("learner index/manifest lesson count không khớp")
+    protected_items, protected_forms = _protected_indexes(root)
+
+    lesson_documents: list[dict[str, Any]] = []
+    by_lesson_id: dict[str, dict[str, Any]] = {}
+    for path in sorted((root / "learner" / "content" / "lessons").glob("*.json")):
+        document = _load_json(path)
+        if not isinstance(document, dict) or not document.get("id"):
+            raise PackageValidationError(f"Learner lesson không hợp lệ: {path.name}")
+        lesson_id = str(document["id"])
+        if lesson_id in by_lesson_id:
+            raise PackageValidationError(f"Trùng lesson id: {lesson_id}")
+        by_lesson_id[lesson_id] = document
+    if set(by_lesson_id) != set(map(str, lesson_ids)):
+        raise PackageValidationError("Lesson files không khớp learner/index.json")
+    lesson_documents = [by_lesson_id[str(lesson_id)] for lesson_id in lesson_ids]
+
+    lessons: list[dict[str, Any]] = []
+    stimuli: list[dict[str, Any]] = []
+    forms: list[dict[str, Any]] = []
+    visuals: dict[str, dict[str, Any]] = {}
+    seen_stimuli: set[str] = set()
+    seen_items: set[str] = set()
+    seen_forms: set[str] = set()
+    timing_segment_count = 0
+
+    for lesson_sequence, lesson in enumerate(lesson_documents, start=1):
+        lesson_id = str(lesson["id"])
+        source_id = str(lesson.get("source_id") or lesson_id)
+        if lesson.get("programme_id") != location.programme_id:
+            raise PackageValidationError(f"Programme mismatch: {lesson_id}")
+        if lesson.get("claim_policy") != "report_only_no_band_cefr_mastery_or_full_progression_claim":
+            raise PackageValidationError(f"Claim policy không hợp lệ: {lesson_id}")
+        lessons.append({
+            "source_lesson_id": source_id,
+            "title": str(lesson.get("title") or source_id),
+            "instructions": str(lesson.get("instructions") or ""),
+            "outcomes": lesson.get("outcomes") or [],
+            "sequence_num": lesson_sequence,
+            "metadata": {
+                "learner_lesson_id": lesson_id,
+                "version": lesson.get("version"),
+                "scope": lesson.get("scope"),
+            },
+        })
+        stimulus_map: dict[str, dict[str, Any]] = {}
+        controlled_map: dict[str, dict[str, Any]] = {}
+        timing_map: dict[str, dict[str, Any]] = {}
+        audio_map: dict[str, Path] = {}
+        for stimulus in lesson.get("stimuli") or []:
+            if not isinstance(stimulus, dict) or not stimulus.get("id"):
+                raise PackageValidationError(f"Stimulus không hợp lệ: {lesson_id}")
+            stimulus_id = str(stimulus["id"])
+            if stimulus_id in seen_stimuli:
+                raise PackageValidationError(f"Trùng stimulus id: {stimulus_id}")
+            seen_stimuli.add(stimulus_id)
+            stimulus_map[stimulus_id] = stimulus
+            audio_path = _resolve_declared(root, stimulus.get("audio"), label=stimulus_id)
+            timing_path = _resolve_declared(root, stimulus.get("timing"), label=stimulus_id)
+            transcript_path = _resolve_declared(
+                root, stimulus.get("controlled_transcript"), label=stimulus_id,
+            )
+            frames, frame_count = _read_wave(audio_path)
+            del frames
+            duration = frame_count / SAMPLE_RATE
+            timing = _load_json(timing_path)
+            controlled = _load_json(transcript_path)
+            if not isinstance(timing, dict) or not isinstance(controlled, dict):
+                raise PackageValidationError(f"Timing/transcript không hợp lệ: {stimulus_id}")
+            if timing.get("stimulus_id") != stimulus_id or controlled.get("stimulus_id") != stimulus_id:
+                raise PackageValidationError(f"Timing/transcript identity mismatch: {stimulus_id}")
+            timing_segment_count += len(timing.get("segments") or [])
+            for segment in timing.get("segments") or []:
+                if (not isinstance(segment, dict)
+                        or float(segment.get("start", -1)) < 0
+                        or float(segment.get("end", 0)) <= float(segment.get("start", -1))
+                        or float(segment.get("end", 0)) > duration + 0.05):
+                    raise PackageValidationError(f"Timing bounds không hợp lệ: {stimulus_id}")
+            audio_map[stimulus_id] = audio_path
+            timing_map[stimulus_id] = timing
+            controlled_map[stimulus_id] = controlled
+            stimuli.append({
+                "source_stimulus_id": stimulus_id,
+                "source_audio_path": str(stimulus["audio"]),
+                "source_timing_path": str(stimulus["timing"]),
+                "controlled_transcript_path": str(stimulus["controlled_transcript"]),
+                "source_audio_sha256": _sha256_file(audio_path),
+                "source_timing_sha256": _sha256_file(timing_path),
+                "controlled_transcript_sha256": _sha256_file(transcript_path),
+                "duration_seconds": round(duration, 6),
+                "metadata": {
+                    "source_lesson_id": source_id,
+                    "kind": stimulus.get("kind"),
+                    "purpose": stimulus.get("purpose"),
+                    "visual": stimulus.get("visual"),
+                    "visual_accessibility": stimulus.get("visual_accessibility"),
+                    "timing_segment_count": len(timing.get("segments") or []),
+                },
+            })
+            visual = stimulus.get("visual")
+            if visual:
+                visual_path = _resolve_declared(root, visual, label=f"visual:{stimulus_id}")
+                _validate_svg(visual_path)
+                storage_path = _visual_storage_path(
+                    location.package_id, location.manifest_sha256, str(visual),
+                )
+                visuals[str(visual)] = {
+                    "source_path": str(visual),
+                    "local_path": str(visual_path),
+                    "storage_path": storage_path,
+                    "sha256": _sha256_file(visual_path),
+                    "content_type": "image/svg+xml",
+                }
+                stimuli[-1]["metadata"].update({
+                    "visual_source_path": str(visual),
+                    "visual_sha256": visuals[str(visual)]["sha256"],
+                })
+
+        item_map: dict[str, dict[str, Any]] = {}
+        for item in lesson.get("items") or []:
+            if not isinstance(item, dict) or not item.get("id"):
+                raise PackageValidationError(f"Item không hợp lệ: {lesson_id}")
+            item_id = str(item["id"])
+            if item_id in seen_items:
+                raise PackageValidationError(f"Trùng item id: {item_id}")
+            seen_items.add(item_id)
+            response_type = str(item.get("response_type") or "")
+            if response_type not in ALLOWED_RESPONSE_TYPES:
+                raise PackageValidationError(f"Response type không hỗ trợ: {response_type}")
+            stimulus_ids = item.get("stimulus_ids") or [item.get("stimulus_id")]
+            if not all(str(value) in stimulus_map for value in stimulus_ids if value):
+                raise PackageValidationError(f"Item trỏ stimulus ngoài lesson: {item_id}")
+            item_map[item_id] = item
+
+        for form_sequence, form in enumerate(lesson.get("forms") or [], start=1):
+            if not isinstance(form, dict) or not form.get("id"):
+                raise PackageValidationError(f"Form không hợp lệ: {lesson_id}")
+            form_id = str(form["id"])
+            if form_id in seen_forms:
+                raise PackageValidationError(f"Trùng form id: {form_id}")
+            seen_forms.add(form_id)
+            if form.get("scoring_policy") != "report_only":
+                raise PackageValidationError(f"Form không phải report_only: {form_id}")
+            item_ids = list(map(str, form.get("item_ids") or []))
+            if not 1 <= len(item_ids) <= MAX_FORM_ITEMS or len(item_ids) != int(form.get("item_count") or -1):
+                raise PackageValidationError(f"Item count không hợp lệ: {form_id}")
+            if any(item_id not in item_map for item_id in item_ids):
+                raise PackageValidationError(f"Form trỏ item ngoài lesson: {form_id}")
+            protected_form = protected_forms.get(form_id) or {}
+            form_stimulus_ids = protected_form.get("stimulus_ids")
+            if not form_stimulus_ids:
+                form_stimulus_ids = []
+                for item_id in item_ids:
+                    item = item_map[item_id]
+                    candidates = item.get("stimulus_ids") or [item.get("stimulus_id")]
+                    for candidate in candidates:
+                        if candidate and candidate not in form_stimulus_ids:
+                            form_stimulus_ids.append(candidate)
+            form_stimulus_ids = list(map(str, form_stimulus_ids or []))
+            if (not 1 <= len(form_stimulus_ids) <= MAX_FORM_STIMULI
+                    or any(value not in stimulus_map for value in form_stimulus_ids)):
+                raise PackageValidationError(f"Stimulus order không hợp lệ: {form_id}")
+            derived_audio, offsets = assemble_form_audio(
+                [audio_map[value] for value in form_stimulus_ids]
+            )
+            offset_by_stimulus = dict(zip(form_stimulus_ids, offsets, strict=True))
+            questions: list[dict[str, Any]] = []
+            answers: list[dict[str, Any]] = []
+            solutions: dict[str, Any] = {}
+            self_review: dict[str, Any] = {}
+            audio_windows: dict[str, Any] = {}
+            controlled_transcripts: dict[str, Any] = {}
+            for q_num, item_id in enumerate(item_ids, start=1):
+                item = item_map[item_id]
+                response_type = str(item["response_type"])
+                protected = protected_items.get(item_id)
+                if not protected:
+                    raise PackageValidationError(f"Thiếu protected answer/rubric: {item_id}")
+                item_stimuli = list(map(str, item.get("stimulus_ids") or [item.get("stimulus_id")]))
+                source_windows: list[dict[str, Any]] = []
+                evidence_ids = set(_evidence_turn_ids(protected))
+                for stimulus_id in item_stimuli:
+                    if stimulus_id not in offset_by_stimulus:
+                        raise PackageValidationError(f"Item không được form audio bao phủ: {item_id}")
+                    offset = offset_by_stimulus[stimulus_id]["start"]
+                    segments = controlled_map[stimulus_id].get("segments") or []
+                    evidence = [s for s in segments if isinstance(s, dict) and s.get("id") in evidence_ids]
+                    selected = evidence or [s for s in segments if isinstance(s, dict)]
+                    if selected:
+                        start = max(0.0, min(float(s["start"]) for s in selected) - 0.25)
+                        end = min(
+                            offset_by_stimulus[stimulus_id]["end"] - offset,
+                            max(float(s["end"]) for s in selected) + 0.5,
+                        )
+                    else:
+                        start = 0.0
+                        end = offset_by_stimulus[stimulus_id]["end"] - offset
+                    source_windows.append({
+                        "source_stimulus_id": stimulus_id,
+                        "start": round(offset + start, 3),
+                        "end": round(offset + end, 3),
+                    })
+                merged_window = {
+                    "start": min(w["start"] for w in source_windows),
+                    "end": max(w["end"] for w in source_windows),
+                    "source_windows": source_windows,
+                }
+                audio_windows[str(q_num)] = merged_window
+                question = {
+                    "q_num": q_num,
+                    "source_item_id": item_id,
+                    "prompt": str(item.get("prompt") or ""),
+                    "response_type": response_type,
+                    "options": item.get("options") or {},
+                    "max_score": item.get("max_score"),
+                    "evaluation_mode": ("objective_exact" if response_type in OBJECTIVE_TYPES
+                                        else "self_review"),
+                    "source_stimulus_ids": item_stimuli,
+                    "skills": item.get("skills") or [],
+                }
+                visual = next((stimulus_map[s].get("visual") for s in item_stimuli
+                               if stimulus_map[s].get("visual")), None)
+                if visual:
+                    question["visual_storage_path"] = visuals[str(visual)]["storage_path"]
+                    question["visual_accessibility"] = next(
+                        (stimulus_map[s].get("visual_accessibility") for s in item_stimuli
+                         if stimulus_map[s].get("visual")), None,
+                    )
+                questions.append(question)
+                expected, alternatives = _key_for_item(protected)
+                if response_type in OBJECTIVE_TYPES:
+                    if not expected:
+                        raise PackageValidationError(f"Objective item thiếu exact key: {item_id}")
+                    answers.append({
+                        "q_num": q_num,
+                        "answer": ", ".join(expected),
+                        "answers": expected,
+                        "alternatives": alternatives,
+                        "response_type": response_type,
+                    })
+                    solutions[str(q_num)] = {
+                        "expected": expected,
+                        "alternatives": alternatives,
+                        "rationale": ((protected.get("key") or {}).get("rationale")
+                                      if isinstance(protected.get("key"), dict) else None),
+                    }
+                else:
+                    review = _self_review(protected)
+                    if not any(value for value in review.values()):
+                        raise PackageValidationError(f"Self-review item thiếu rubric/key: {item_id}")
+                    self_review[str(q_num)] = review
+                for stimulus_id in item_stimuli:
+                    if stimulus_id not in controlled_transcripts:
+                        shifted = []
+                        shift = offset_by_stimulus[stimulus_id]["start"]
+                        for segment in controlled_map[stimulus_id].get("segments") or []:
+                            if isinstance(segment, dict):
+                                shifted.append({
+                                    **segment,
+                                    "start": round(float(segment["start"]) + shift, 3),
+                                    "end": round(float(segment["end"]) + shift, 3),
+                                })
+                        controlled_transcripts[stimulus_id] = shifted
+            prefix = _form_storage_prefix(
+                location.package_id, location.manifest_sha256, form_id,
+            )
+            purpose_labels = {"practice": "Luyện tập", "transfer": "Vận dụng", "checkpoint": "Kiểm tra"}
+            title = f"{lesson.get('title') or source_id} — {purpose_labels.get(str(form.get('purpose')), 'Bài nghe')}"
+            exercise_payload = {
+                "variant": "programme_form_v1",
+                "questions": questions,
+                "answers": answers,
+                "solutions": solutions,
+                "self_review": self_review,
+                "audio_windows": audio_windows,
+                "controlled_transcripts": controlled_transcripts,
+                "source_max_score": form.get("max_score"),
+                "scoring_policy": "report_only",
+                "claim_policy": lesson.get("claim_policy"),
+            }
+            forms.append({
+                "test_id": _stable_test_id(location.package_id, form_id),
+                "source_form_id": form_id,
+                "source_lesson_id": source_id,
+                "title": title,
+                "description": str(lesson.get("instructions") or ""),
+                "version": str(lesson.get("version") or "1.0"),
+                "purpose": form.get("purpose"),
+                "replay_policy": form.get("replay_policy"),
+                "support_policy": form.get("support_policy"),
+                "claim_policy": lesson.get("claim_policy"),
+                "item_count": len(item_ids),
+                "accent_tag": "other",
+                "audio_storage_path": f"{prefix}/audio.wav",
+                "audio_duration_seconds": math.ceil(offsets[-1]["end"]),
+                "audio_size_bytes": len(derived_audio),
+                "metadata": {
+                    "source_form_id": form_id,
+                    "source_max_score": form.get("max_score"),
+                    "checked_item_count": sum(
+                        question["evaluation_mode"] == "objective_exact"
+                        for question in questions
+                    ),
+                    "self_review_item_count": sum(
+                        question["evaluation_mode"] == "self_review"
+                        for question in questions
+                    ),
+                    "derived_audio_sha256": _sha256_bytes(derived_audio),
+                    "transform_version": TRANSFORM_VERSION,
+                    "form_sequence": form_sequence,
+                },
+                "content_metadata": {
+                    "source_form_id": form_id,
+                    "derived_audio_sha256": _sha256_bytes(derived_audio),
+                    "transform_version": TRANSFORM_VERSION,
+                },
+                "exercise_payload": exercise_payload,
+                "stimuli": [
+                    {
+                        "source_stimulus_id": stimulus_id,
+                        "sequence_num": sequence,
+                        "derived_offset_seconds": offsets[sequence - 1]["start"],
+                        "derived_end_seconds": offsets[sequence - 1]["end"],
+                        "metadata": {"gap_after_seconds": (GAP_SECONDS if sequence < len(offsets) else 0)},
+                    }
+                    for sequence, stimulus_id in enumerate(form_stimulus_ids, start=1)
+                ],
+            })
+
+    actual_counts = {
+        "lessons": len(lessons),
+        "forms": len(forms),
+        "items": len(seen_items),
+        "stimuli": len(stimuli),
+        "audio": len(stimuli),
+        "timing": len(stimuli),
+        "visuals": len(visuals),
+    }
+    if any(int(counts.get(key, -1)) != value for key, value in actual_counts.items()):
+        raise PackageValidationError(f"Manifest counts mismatch: {actual_counts} != {counts}")
+    source_counts = {**actual_counts, "timing_segments": timing_segment_count}
+    package = {
+        "package_id": location.package_id,
+        "programme_id": location.programme_id,
+        "title": str(learner_index.get("title") or location.programme_id),
+        "manifest_sha256": location.manifest_sha256,
+        "source_date": manifest.get("date"),
+        "source_counts": source_counts,
+        "validation_summary": {
+            "manifest_bound": True,
+            "inventory_verified": True,
+            "hashes_verified": len(manifest["artifact_hashes"]),
+            "learner_protected_boundary_verified": True,
+        },
+        "transform_version": TRANSFORM_VERSION,
+        "imported_by": imported_by,
+    }
+    report = {
+        "package_id": location.package_id,
+        "programme_id": location.programme_id,
+        "manifest_sha256": location.manifest_sha256,
+        "counts": source_counts,
+        "form_stimulus_references": sum(len(form["stimuli"]) for form in forms),
+        "objective_items": sum(
+            1 for form in forms for question in form["exercise_payload"]["questions"]
+            if question["evaluation_mode"] == "objective_exact"
+        ),
+        "self_review_items": sum(
+            1 for form in forms for question in form["exercise_payload"]["questions"]
+            if question["evaluation_mode"] == "self_review"
+        ),
+        "derived_audio_bytes": sum(form["audio_size_bytes"] for form in forms),
+        "transform_version": TRANSFORM_VERSION,
+        "dry_run_mutations": 0,
+    }
+    return ImportPlan(location, package, lessons, stimuli, forms, list(visuals.values()), report)
+
+
+def _form_audio_bytes(plan: ImportPlan, form: dict[str, Any]) -> bytes:
+    source_by_id = {row["source_stimulus_id"]: row for row in plan.stimuli}
+    paths = [
+        _resolve_declared(
+            plan.location.package_root,
+            source_by_id[row["source_stimulus_id"]]["source_audio_path"],
+            label=str(row["source_stimulus_id"]),
+        )
+        for row in form["stimuli"]
+    ]
+    data, _ = assemble_form_audio(paths)
+    expected = form["metadata"]["derived_audio_sha256"]
+    if _sha256_bytes(data) != expected or len(data) != form["audio_size_bytes"]:
+        raise PackageValidationError(f"Derived audio không deterministic: {form['source_form_id']}")
+    return data
+
+
+def _ensure_immutable_object(bucket: Any, path: str, data: bytes, content_type: str) -> str:
+    expected = _sha256_bytes(data)
+    try:
+        existing = bucket.download(path)
+    except Exception:  # storage SDK exposes provider-specific not-found errors
+        existing = None
+    if existing is not None:
+        if _sha256_bytes(bytes(existing)) != expected:
+            raise PackageValidationError(f"Storage object conflict: {path}")
+        return "reused"
+    try:
+        bucket.upload(path, data, {"content-type": content_type, "x-upsert": "false"})
+    except Exception as exc:
+        try:
+            existing = bucket.download(path)
+        except Exception:
+            raise PackageValidationError(f"Upload thất bại: {path}") from exc
+        if _sha256_bytes(bytes(existing)) != expected:
+            raise PackageValidationError(f"Storage object conflict: {path}") from exc
+        return "reused"
+    stored = bucket.download(path)
+    if _sha256_bytes(bytes(stored)) != expected:
+        raise PackageValidationError(f"Upload verification thất bại: {path}")
+    return "created"
+
+
+def commit_import_plan(plan: ImportPlan, db: Any, *, bucket_name: str) -> dict[str, Any]:
+    """Upload immutable assets, then transactionally persist the whole package."""
+    bucket = db.storage.from_(bucket_name)
+    created = 0
+    reused = 0
+    for asset in plan.visual_assets:
+        data = Path(asset["local_path"]).read_bytes()
+        action = _ensure_immutable_object(
+            bucket, asset["storage_path"], data, asset["content_type"],
+        )
+        created += action == "created"
+        reused += action == "reused"
+    for form in plan.forms:
+        action = _ensure_immutable_object(
+            bucket, form["audio_storage_path"], _form_audio_bytes(plan, form), "audio/wav",
+        )
+        created += action == "created"
+        reused += action == "reused"
+    response = db.rpc("import_listening_content_package_atomic", {
+        "p_package": plan.package,
+        "p_lessons": plan.lessons,
+        "p_stimuli": plan.stimuli,
+        "p_forms": plan.forms,
+    }).execute()
+    rows = response.data or []
+    row = rows[0] if isinstance(rows, list) and rows else rows
+    if not isinstance(row, dict) or row.get("action") not in {"created", "reused"}:
+        raise PackageValidationError("Import RPC không trả reconciliation hợp lệ")
+    expected = plan.package["source_counts"]
+    if (int(row.get("lessons_written") or -1) != expected["lessons"]
+            or int(row.get("forms_written") or -1) != expected["forms"]
+            or int(row.get("items_written") or -1) != expected["items"]
+            or int(row.get("stimuli_written") or -1) != expected["stimuli"]):
+        raise PackageValidationError("Import RPC counts không khớp package")
+    return {**row, "storage_created": created, "storage_reused": reused}
+
+
+def set_package_status(
+    db: Any,
+    *,
+    package_id: str,
+    manifest_sha256: str,
+    action: str,
+    actor: str | None,
+) -> dict[str, Any]:
+    if action not in {"publish", "archive"}:
+        raise PackageValidationError("Action phải là publish hoặc archive")
+    response = db.rpc("set_listening_content_package_status", {
+        "p_package_id": package_id,
+        "p_manifest_sha256": manifest_sha256,
+        "p_action": action,
+        "p_actor": actor,
+    }).execute()
+    rows = response.data or []
+    row = rows[0] if isinstance(rows, list) and rows else rows
+    expected = "published" if action == "publish" else "archived"
+    if not isinstance(row, dict) or row.get("status") != expected:
+        raise PackageValidationError("Package status RPC không trả canonical state")
+    return row

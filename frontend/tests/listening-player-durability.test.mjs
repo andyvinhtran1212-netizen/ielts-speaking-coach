@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const JS = readFileSync(join(__dirname, '..', 'public', 'js', 'listening-test-player.js'), 'utf8');
 const HOOK = readFileSync(join(__dirname, '..', 'public', 'js', 'mock-exam-hook.js'), 'utf8');
-const HTML = readFileSync(join(__dirname, '..', 'public', 'pages', 'listening-test.html'), 'utf8');
+const HTML = readFileSync(join(__dirname, '..', 'pages', 'listening-test.html'), 'utf8');
 
 describe('A1 — an interrupted Listening attempt can be resumed', () => {
   test('pre-start asks the server for an open attempt', () => {

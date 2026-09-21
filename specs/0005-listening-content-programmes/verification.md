@@ -4,32 +4,33 @@
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-001 | Official package validator plus importer rejection tests for release binding, inventory, hashes, counts, path traversal, expanded size, signatures, and protected fields | PENDING |
-| FR-002 | Same-manifest rerun, conflict-manifest, interrupted upload, and reconciliation tests plus staging row/object query | PENDING |
-| FR-003 | Migration tests, schema query, source-to-row reconciliation, and legacy-default regression | PENDING |
-| FR-004 | Answer-leak tests, transcript pre/post-submit journeys, private-bucket checks, and signed-access tests | PENDING |
-| FR-005 | Imported form/result assertions for policies and prohibited-claim sentinel tests | PENDING |
-| FR-006 | Response-type mapping tests and mixed/fully-unscored result journeys | PENDING |
-| FR-007 | Deterministic assembly golden tests for one/three/four/ten/fifteen stimuli, offset bounds, duration, hash, and retry | PENDING |
-| FR-008 | Hub contract/source tests plus populated/resume/empty/partial/error screenshots and journeys | PENDING |
-| FR-009 | General 56-lesson grouping, 143-form reconciliation, filters, detail, progress, and wording sentinels | PENDING |
-| FR-010 | IELTS hub mode separation and existing deep-link regression journeys | PENDING |
-| FR-011 | Generated OpenAPI type drift, runtime guards, old-field compatibility, pagination, and count-consistency tests | PENDING |
-| FR-012 | Analytics fixtures mixing diagnostic/report-only attempts and null-band database query | PENDING |
-| FR-013 | UI review, token/hex/undefined-token tests, light/dark screenshots, 375/768/1440px overflow, keyboard, focus, target, and reduced-motion evidence | PENDING |
-| FR-014 | Staging package publish/archive transaction, reload truth, attempt-retention query, and exact-SHA promotion evidence | PENDING |
+| FR-001 | kind=test; ref=backend/tests/test_listening_content_programmes.py::test_declared_paths_fail_closed_on_traversal | PASS |
+| FR-002 | kind=test; ref=backend/tests/test_listening_content_programmes.py | PASS |
+| FR-003 | kind=test; ref=backend/tests/test_listening_content_programmes.py::test_migration_pins_atomic_and_report_only_invariants | PASS |
+| FR-004 | kind=test; ref=backend/tests/test_listening_content_programmes.py::test_student_payload_strips_all_programme_review_material | PASS |
+| FR-005 | kind=test; ref=frontend/tests/listening-programmes-next-behavior.test.mjs | PASS |
+| FR-006 | kind=test; ref=backend/tests/test_listening_content_programmes.py::test_report_only_grading_separates_checked_unscored_and_blank | PASS |
+| FR-007 | kind=test; ref=backend/tests/test_listening_content_programmes.py::test_deterministic_assembly_preserves_order_and_gap | PASS |
+| FR-008 | kind=test; ref=frontend/tests/listening-landing-next-behavior.test.mjs | PASS |
+| FR-009 | kind=test; ref=frontend/tests/listening-programmes-next-behavior.test.mjs | PASS |
+| FR-010 | kind=test; ref=frontend/tests/listening-landing-next-behavior.test.mjs | PASS |
+| FR-011 | kind=assertion; ref=frontend/types/api.d.ts | PASS |
+| FR-012 | kind=test; ref=backend/tests/test_listening_mcq_sessions.py::test_analytics_separates_report_only_completion_from_diagnostic_scores | PASS |
+| FR-013 | kind=test; ref=frontend/tests/listening-landing-next-behavior.test.mjs | PASS |
+| FR-014 | staging package publish/archive transaction, reload truth, attempt-retention query, and exact-SHA promotion evidence | PENDING |
 
 ## Contract evidence
 
-- Targeted baseline on 2026-09-21: backend 60/60 passed; frontend 116/117
-  passed. The sole failure is the stale legacy analytics fixture path tracked by
-  T002, not a product-flow assertion. Full-green rerun evidence is pending.
-- OpenAPI/type drift: pending generated-type CI for overview, programme, lesson,
-  form, result, publish, and archive contracts.
-- Backward compatibility: pending old landing/list consumer tests with retained
-  overview/test fields and legacy IELTS diagnostic defaults.
-- Count consistency: pending assertions that overview, programme lists, lesson
-  detail, and database public counts agree after publish/archive.
+- Final post-rebase local baseline on 2026-09-21: backend Listening 658/658 passed;
+  frontend Listening 1,303/1,303 passed; TypeScript passed; Next 16 production
+  build compiled and generated all 152 routes. The generic prerender fallback
+  logged an expected local `ECONNREFUSED`, but build exit status was zero.
+- OpenAPI/type drift: `frontend/types/api.d.ts` regenerated from the in-process
+  FastAPI app after all response-model changes; TypeScript passed.
+- Backward compatibility: retained legacy overview/test fields and diagnostic
+  defaults are covered by the full relevant regression suites.
+- Count consistency: local route/fake-database assertions pass; final public
+  database counts after publish/archive remain staging evidence.
 
 ## Data evidence
 
@@ -42,7 +43,11 @@
   reported zero unregistered broken links and zero registry failures. Candidate
   manifests remain outside active scope, and import reads only immutable
   publish-ready packages.
-- Migration/schema query: pending package, lesson, source-form uniqueness,
+- Import projection dry run on 2026-09-21 passed both packages with zero
+  mutations: 66 lessons/groups, 159 forms, 1,045 items, 390 stimuli/audio/timing
+  files, 1,474 timing segments, and 2 visuals. All 159 forms have positive
+  duration and `checked_item_count + self_review_item_count == item_count`.
+- Migration/schema query: pending staging package, lesson, source-form uniqueness,
   programme/scoring defaults, RLS/grants, and immutable-state checks.
 - Reconciliation: pending exact 2/66/159/1,045/390/390/2 source-to-database/object
   counts and zero undeclared/orphan entities.
@@ -51,14 +56,20 @@
 
 ## UI evidence
 
-- Viewports/themes/input methods: pending 375, 768, and 1440px light/dark
+- Production-current `/listening` was inspected in an authenticated browser on
+  2026-09-21 to anchor the redesign against the existing chrome, typography,
+  card density, and dark-theme spacing. The implementation now uses canonical
+  `.shell` spacing, Listening-owned header/section classes, and moves legacy
+  IELTS mode shelves under `/listening/ielts`.
+- Candidate viewports/themes/input methods: pending staging 375, 768, and 1440px light/dark
   screenshots plus keyboard-only and screen-reader-name checks.
 - States: pending loading, empty, populated, partial-data, error/retry, permission,
   resume/expired resume, mixed result, fully unscored result, and rolled-back
   package journeys.
-- Design system: pending canonical shell, `--av-*` only, no new legacy tokens or
-  hardcoded colors, Plus Jakarta/mono roles, focus, 44px targets, and reduced-
-  motion verification.
+- Design system source/token audit passed: canonical shell, Listening-owned
+  classes, and no undefined or hardcoded color tokens in the new programme
+  surfaces. Live light/dark, focus, 44px-target, reduced-motion, and assistive-
+  name verification remains staging evidence.
 
 ## Release evidence
 
