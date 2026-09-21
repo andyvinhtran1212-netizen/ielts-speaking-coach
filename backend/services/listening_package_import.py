@@ -394,6 +394,64 @@ def _self_review(protected: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _validated_segments(
+    document: dict[str, Any],
+    *,
+    stimulus_id: str,
+    duration: float,
+    label: str,
+    require_text: bool = False,
+) -> dict[str, tuple[float, float]]:
+    """Validate a timestamped segment document before it can drive replay."""
+    segments = document.get("segments")
+    if not isinstance(segments, list) or not segments:
+        raise PackageValidationError(f"{label} segments không hợp lệ: {stimulus_id}")
+    validated: dict[str, tuple[float, float]] = {}
+    for segment in segments:
+        if not isinstance(segment, dict):
+            raise PackageValidationError(f"{label} segment không hợp lệ: {stimulus_id}")
+        segment_id = segment.get("id")
+        if not isinstance(segment_id, str) or not segment_id.strip() or segment_id in validated:
+            raise PackageValidationError(f"{label} segment id không hợp lệ: {stimulus_id}")
+        try:
+            start = float(segment.get("start"))
+            end = float(segment.get("end"))
+        except (TypeError, ValueError) as exc:
+            raise PackageValidationError(f"{label} bounds không hợp lệ: {stimulus_id}") from exc
+        if (not math.isfinite(start) or not math.isfinite(end)
+                or start < 0 or end <= start or end > duration + 0.05):
+            raise PackageValidationError(f"{label} bounds không hợp lệ: {stimulus_id}")
+        if require_text and (
+            not isinstance(segment.get("text"), str) or not segment["text"].strip()
+        ):
+            raise PackageValidationError(f"{label} text không hợp lệ: {stimulus_id}")
+        validated[segment_id] = (start, end)
+    return validated
+
+
+def _validate_objective_options(
+    item: dict[str, Any],
+    response_type: str,
+    expected: list[str],
+) -> dict[str, str]:
+    """Return learner-selectable options or reject an impossible exact key."""
+    item_id = str(item.get("id") or "")
+    raw = item.get("options")
+    if (not isinstance(raw, dict) or len(raw) < 2
+            or any(not isinstance(key, str) or not key.strip()
+                   or not isinstance(value, str) or not value.strip()
+                   for key, value in raw.items())):
+        raise PackageValidationError(f"Objective options không hợp lệ: {item_id}")
+    if len(set(expected)) != len(expected) or any(answer not in raw for answer in expected):
+        raise PackageValidationError(f"Objective key không selectable: {item_id}")
+    if response_type == "multiple_choice":
+        if len(expected) < 2:
+            raise PackageValidationError(f"Multiple-choice cardinality không hợp lệ: {item_id}")
+    elif len(expected) != 1:
+        raise PackageValidationError(f"Objective cardinality không hợp lệ: {item_id}")
+    return raw
+
+
 def _stable_test_id(package_id: str, form_id: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", form_id.casefold()).strip("-")[:36] or "form"
     identity = f"{package_id}\0{form_id}".encode("utf-8")
@@ -492,13 +550,33 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
                 raise PackageValidationError(f"Timing/transcript không hợp lệ: {stimulus_id}")
             if timing.get("stimulus_id") != stimulus_id or controlled.get("stimulus_id") != stimulus_id:
                 raise PackageValidationError(f"Timing/transcript identity mismatch: {stimulus_id}")
-            timing_segment_count += len(timing.get("segments") or [])
-            for segment in timing.get("segments") or []:
-                if (not isinstance(segment, dict)
-                        or float(segment.get("start", -1)) < 0
-                        or float(segment.get("end", 0)) <= float(segment.get("start", -1))
-                        or float(segment.get("end", 0)) > duration + 0.05):
-                    raise PackageValidationError(f"Timing bounds không hợp lệ: {stimulus_id}")
+            timing_segments = _validated_segments(
+                timing,
+                stimulus_id=stimulus_id,
+                duration=duration,
+                label="Timing",
+            )
+            transcript_segments = _validated_segments(
+                controlled,
+                stimulus_id=stimulus_id,
+                duration=duration,
+                label="Transcript",
+                require_text=True,
+            )
+            if set(timing_segments) != set(transcript_segments):
+                raise PackageValidationError(
+                    f"Transcript/timing segment mismatch: {stimulus_id}"
+                )
+            for segment_id, timing_bounds in timing_segments.items():
+                transcript_bounds = transcript_segments[segment_id]
+                if not all(
+                    math.isclose(left, right, abs_tol=0.001)
+                    for left, right in zip(timing_bounds, transcript_bounds, strict=True)
+                ):
+                    raise PackageValidationError(
+                        f"Transcript/timing bounds mismatch: {stimulus_id}:{segment_id}"
+                    )
+            timing_segment_count += len(timing_segments)
             audio_map[stimulus_id] = audio_path
             timing_map[stimulus_id] = timing
             controlled_map[stimulus_id] = controlled
@@ -600,15 +678,32 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
                 protected = protected_items.get(item_id)
                 if not protected:
                     raise PackageValidationError(f"Thiếu protected answer/rubric: {item_id}")
-                item_stimuli = list(map(str, item.get("stimulus_ids") or [item.get("stimulus_id")]))
+                item_stimuli = list(map(
+                    str,
+                    item.get("stimulus_ids")
+                    or protected.get("stimulus_ids")
+                    or [item.get("stimulus_id")],
+                ))
+                if any(stimulus_id not in stimulus_map for stimulus_id in item_stimuli):
+                    raise PackageValidationError(f"Protected item trỏ stimulus ngoài lesson: {item_id}")
                 source_windows: list[dict[str, Any]] = []
                 evidence_ids = set(_evidence_turn_ids(protected))
+                available_segment_ids = {
+                    str(segment.get("id"))
+                    for stimulus_id in item_stimuli
+                    for segment in controlled_map[stimulus_id].get("segments") or []
+                    if isinstance(segment, dict) and segment.get("id")
+                }
+                if evidence_ids - available_segment_ids:
+                    raise PackageValidationError(f"Evidence turn không tồn tại: {item_id}")
                 for stimulus_id in item_stimuli:
                     if stimulus_id not in offset_by_stimulus:
                         raise PackageValidationError(f"Item không được form audio bao phủ: {item_id}")
                     offset = offset_by_stimulus[stimulus_id]["start"]
                     segments = controlled_map[stimulus_id].get("segments") or []
                     evidence = [s for s in segments if isinstance(s, dict) and s.get("id") in evidence_ids]
+                    if evidence_ids and not evidence:
+                        continue
                     selected = evidence or [s for s in segments if isinstance(s, dict)]
                     if selected:
                         start = max(0.0, min(float(s["start"]) for s in selected) - 0.25)
@@ -624,18 +719,26 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
                         "start": round(offset + start, 3),
                         "end": round(offset + end, 3),
                     })
+                if not source_windows:
+                    raise PackageValidationError(f"Không dựng được replay window: {item_id}")
                 merged_window = {
                     "start": min(w["start"] for w in source_windows),
                     "end": max(w["end"] for w in source_windows),
                     "source_windows": source_windows,
                 }
                 audio_windows[str(q_num)] = merged_window
+                expected, alternatives = _key_for_item(protected)
+                options = item.get("options") or {}
+                if response_type in OBJECTIVE_TYPES:
+                    if not expected:
+                        raise PackageValidationError(f"Objective item thiếu exact key: {item_id}")
+                    options = _validate_objective_options(item, response_type, expected)
                 question = {
                     "q_num": q_num,
                     "source_item_id": item_id,
                     "prompt": str(item.get("prompt") or ""),
                     "response_type": response_type,
-                    "options": item.get("options") or {},
+                    "options": options,
                     "max_score": item.get("max_score"),
                     "evaluation_mode": ("objective_exact" if response_type in OBJECTIVE_TYPES
                                         else "self_review"),
@@ -651,10 +754,7 @@ def build_import_plan(location: PackageLocation, *, imported_by: str | None = No
                          if stimulus_map[s].get("visual")), None,
                     )
                 questions.append(question)
-                expected, alternatives = _key_for_item(protected)
                 if response_type in OBJECTIVE_TYPES:
-                    if not expected:
-                        raise PackageValidationError(f"Objective item thiếu exact key: {item_id}")
                     answers.append({
                         "q_num": q_num,
                         "answer": ", ".join(expected),

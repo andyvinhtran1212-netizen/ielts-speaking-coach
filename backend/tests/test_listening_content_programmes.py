@@ -279,6 +279,82 @@ def test_publish_ready_package_fails_closed_for_every_fr001_gate(
         importer.build_import_plan(location)
 
 
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ("beyond_audio", "Transcript bounds"),
+        ("mismatched_id", "Transcript/timing segment mismatch"),
+        ("mismatched_bounds", "Transcript/timing bounds mismatch"),
+    ],
+)
+def test_controlled_transcript_must_match_canonical_timing(
+    tmp_path: Path, mutation: str, message: str,
+):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    transcript_path = (
+        release_root / "general" / "fixture" / "controlled-access"
+        / "transcripts" / "stimulus-1.json"
+    )
+    transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
+    if mutation == "beyond_audio":
+        transcript["segments"][0]["end"] = 2.0
+    elif mutation == "mismatched_id":
+        transcript["segments"][0]["id"] = "turn-other"
+    else:
+        transcript["segments"][0]["start"] = 0.1
+    _write_json(transcript_path, transcript)
+    _rebind_manifest(release_root)
+
+    location = importer.discover_packages(release_root)[0]
+    with pytest.raises(importer.PackageValidationError, match=message):
+        importer.build_import_plan(location)
+
+
+def test_replay_window_rejects_unknown_declared_evidence_turn(tmp_path: Path):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    protected_path = (
+        release_root / "general" / "fixture" / "protected"
+        / "source-lessons" / "lesson-1.json"
+    )
+    protected = json.loads(protected_path.read_text(encoding="utf-8"))
+    protected["items"][0]["evidence_turn_ids"] = ["turn-missing"]
+    _write_json(protected_path, protected)
+    _rebind_manifest(release_root)
+
+    location = importer.discover_packages(release_root)[0]
+    with pytest.raises(importer.PackageValidationError, match="Evidence turn không tồn tại"):
+        importer.build_import_plan(location)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ("missing_expected_option", "Objective key không selectable"),
+        ("invalid_option_shape", "Objective options không hợp lệ"),
+        ("invalid_multiple_cardinality", "Multiple-choice cardinality"),
+    ],
+)
+def test_objective_key_must_be_selectable_with_valid_cardinality(
+    tmp_path: Path, mutation: str, message: str,
+):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    package_root = release_root / "general" / "fixture"
+    lesson_path = package_root / "learner" / "content" / "lessons" / "lesson-1.json"
+    lesson = json.loads(lesson_path.read_text(encoding="utf-8"))
+    if mutation == "missing_expected_option":
+        lesson["items"][0]["options"] = {"B": "Two", "C": "Three"}
+    elif mutation == "invalid_option_shape":
+        lesson["items"][0]["options"] = ["One", "Two"]
+    else:
+        lesson["items"][0]["response_type"] = "multiple_choice"
+    _write_json(lesson_path, lesson)
+    _rebind_manifest(release_root)
+
+    location = importer.discover_packages(release_root)[0]
+    with pytest.raises(importer.PackageValidationError, match=message):
+        importer.build_import_plan(location)
+
+
 @pytest.mark.parametrize("stimulus_count", [1, 3, 4, 10, 15])
 def test_deterministic_assembly_preserves_order_and_gap(
     tmp_path: Path, stimulus_count: int,
