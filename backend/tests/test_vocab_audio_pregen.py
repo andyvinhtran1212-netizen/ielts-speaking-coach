@@ -155,14 +155,39 @@ def test_kokoro_regen_replaces_all_existing_audio_with_british_voice(existing):
     assert payload["audio_status"] == "final"
 
 
-@pytest.mark.parametrize("extra_args", [[], ["--headword-only", "--regen"]])
-def test_kokoro_cli_rejects_partial_engine_switches(extra_args):
-    argv = ["pregen_vocab_audio", "--engine", "kokoro", *extra_args]
+@pytest.mark.parametrize("extra_args", [
+    ["--engine", "kokoro"],
+    ["--engine", "kokoro", "--headword-only", "--regen"],
+    ["--engine", "openai", "--headword-only", "--regen"],
+    ["--engine", "openai", "--voice", "onyx"],
+])
+def test_cli_rejects_partial_engine_or_voice_switches(extra_args):
+    argv = ["pregen_vocab_audio", *extra_args]
     with patch.object(sys, "argv", argv), \
          patch("scripts.pregen_vocab_audio._rows_needing_audio") as rows, \
          pytest.raises(SystemExit, match="2"):
         pg.main()
     rows.assert_not_called()
+
+
+@pytest.mark.parametrize(("extra_args", "headword_only", "regen", "engine", "voice"), [
+    (["--headword-only"], True, False, "openai", None),
+    (["--regen"], False, True, "openai", None),
+    (["--engine", "openai", "--voice", "onyx", "--regen"],
+     False, True, "openai", "onyx"),
+    (["--engine", "kokoro", "--regen"], False, True, "kokoro", None),
+])
+def test_cli_accepts_only_consistent_generation_modes(
+    extra_args, headword_only, regen, engine, voice,
+):
+    argv = ["pregen_vocab_audio", *extra_args]
+    with patch.object(sys, "argv", argv), \
+         patch("scripts.pregen_vocab_audio._rows_needing_audio", return_value=[]) as rows, \
+         patch("scripts.pregen_vocab_audio._dry_run") as dry_run:
+        pg.main()
+    rows.assert_called_once_with(regen=regen, topic_cards_only=False)
+    dry_run.assert_called_once_with([], headword_only=headword_only, regen=regen,
+                                    engine=engine, voice=voice)
 
 
 def test_openai_cli_rejects_unsupported_voice_before_db_or_tts():
