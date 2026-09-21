@@ -128,6 +128,25 @@ def test_dry_run_writes_nothing_and_calls_no_tts():
     goc.assert_not_called()             # no synth
 
 
+def test_kokoro_commit_uses_british_voice_and_sync_engine_path():
+    db = MagicMock()
+    goc = MagicMock(return_value=("https://x/kokoro.mp3", True))
+    with patch("scripts.pregen_vocab_audio.supabase_admin", db), \
+         patch("scripts.pregen_vocab_audio.tts_audio.get_or_create_audio_sync", goc), \
+         patch("scripts.pregen_vocab_audio.vocab_service.reload"), \
+         patch("scripts.pregen_vocab_audio.ai_usage_logger.log_tts") as usage:
+        asyncio.run(pg._commit([dict(_ROW)], headword_only=False,
+                               regen=True, engine="kokoro"))
+    assert goc.call_count == 2
+    assert all(call.args[1:] == ("kokoro", ta.KOKORO_DEFAULT_VOICE)
+               for call in goc.call_args_list)
+    usage.assert_not_called()  # local Kokoro is not billed as OpenAI tts-1
+    payload = db.table.return_value.update.call_args.args[0]
+    assert payload["audio_headword"] == "https://x/kokoro.mp3"
+    assert payload["audio_example"] == "https://x/kokoro.mp3"
+    assert payload["audio_status"] == "final"
+
+
 def _paged_db(rows, page=1000):
     """Fake Supabase that serves `rows` in PostgREST-style pages via
     select().order().range(a, b).execute() — so a reader that DOESN'T page sees
@@ -199,6 +218,17 @@ def test_rows_needing_audio_orders_by_pk_for_stable_paging():
     with patch("scripts.pregen_vocab_audio.supabase_admin", db):
         pg._rows_needing_audio()
     db.table.return_value.select.return_value.order.assert_called_with("id")
+
+
+def test_topic_cards_only_excludes_pure_exam_imports():
+    db = _paged_db([
+        {"slug": "curated", "headword": "Curated", "lists": [], "source": ""},
+        {"slug": "lesson", "headword": "Lesson", "lists": ["awl"], "source": "L01 Group A"},
+        {"slug": "exam", "headword": "Exam", "lists": ["awl"], "source": "AWL import"},
+    ])
+    with patch("scripts.pregen_vocab_audio.supabase_admin", db):
+        rows = pg._rows_needing_audio(regen=True, topic_cards_only=True)
+    assert {row["slug"] for row in rows} == {"curated", "lesson"}
 
 
 # ── schema-aware col-match (#538) — stamp keys ⊆ migration 110 columns ───
