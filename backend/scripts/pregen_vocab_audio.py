@@ -232,11 +232,16 @@ def main() -> None:
         allowed = ", ".join(sorted(tts_audio.OPENAI_VOICES))
         ap.error(f"unsupported OpenAI voice {args.voice!r}; choose one of: {allowed}")
 
-    # A partial engine switch can leave one OpenAI clip and one Kokoro clip on
-    # the same card because the persisted URLs do not record their engine. Keep
-    # Kokoro an all-audio replacement so every card has a consistent voice.
-    if args.engine == "kokoro" and (not args.regen or args.headword_only):
-        ap.error("--engine kokoro requires --regen and cannot use --headword-only")
+    # Persisted URLs do not record engine/voice provenance. Any partial
+    # regeneration could therefore replace one clip while retaining another
+    # engine or voice on the same card. Keep every regeneration and every
+    # explicit voice change an all-audio replacement.
+    if args.regen and args.headword_only:
+        ap.error("--regen cannot use --headword-only; regenerate both clips")
+    if args.voice and not args.regen:
+        ap.error("--voice requires --regen so both clips use the selected voice")
+    if args.engine == "kokoro" and not args.regen:
+        ap.error("--engine kokoro requires --regen so both clips switch engines")
 
     rows = _rows_needing_audio(
         regen=args.regen,
