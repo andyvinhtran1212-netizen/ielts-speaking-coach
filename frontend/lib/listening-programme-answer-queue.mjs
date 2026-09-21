@@ -32,3 +32,66 @@ export function createProgrammeAnswerWriteQueue(write) {
 
   return { enqueue, flush };
 }
+
+/**
+ * Track every in-flight answer write instead of treating the newest write
+ * anywhere in the form as authoritative. This keeps a failed write for one
+ * question visible even when another question finishes successfully.
+ */
+export function createProgrammeSaveStatusTracker() {
+  let nextToken = 0;
+  /** @type {Map<number, number | 'flush'>} */
+  const pending = new Map();
+  /** @type {Set<number | 'flush'>} */
+  const failures = new Set();
+
+  /** @returns {'error' | 'saving' | 'saved'} */
+  function status() {
+    if (failures.size) return 'error';
+    if (pending.size) return 'saving';
+    return 'saved';
+  }
+
+  function begin(qNum) {
+    const token = ++nextToken;
+    failures.delete(qNum);
+    pending.set(token, qNum);
+    return { token, status: status() };
+  }
+
+  function beginFlush() {
+    const token = ++nextToken;
+    failures.clear();
+    pending.set(token, 'flush');
+    return { token, status: status() };
+  }
+
+  function succeed(token) {
+    const key = pending.get(token);
+    if (key === undefined) return status();
+    pending.delete(token);
+    failures.delete(key);
+    return status();
+  }
+
+  function fail(token) {
+    const key = pending.get(token);
+    if (key === undefined) return status();
+    pending.delete(token);
+    failures.add(key);
+    return status();
+  }
+
+  function finishFlush(token) {
+    pending.delete(token);
+    failures.clear();
+    return status();
+  }
+
+  function reset() {
+    pending.clear();
+    failures.clear();
+  }
+
+  return { begin, beginFlush, succeed, fail, finishFlush, reset, status };
+}

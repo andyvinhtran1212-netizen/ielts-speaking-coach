@@ -396,7 +396,8 @@ def _self_review(protected: dict[str, Any]) -> dict[str, Any]:
 
 def _stable_test_id(package_id: str, form_id: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", form_id.casefold()).strip("-")[:36] or "form"
-    suffix = hashlib.sha256(form_id.encode("utf-8")).hexdigest()[:12]
+    identity = f"{package_id}\0{form_id}".encode("utf-8")
+    suffix = hashlib.sha256(identity).hexdigest()[:12]
     return f"pkg-{slug}-{suffix}"
 
 

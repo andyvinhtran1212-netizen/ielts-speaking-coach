@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createProgrammeAnswerWriteQueue } from '../lib/listening-programme-answer-queue.mjs';
+import { createProgrammeAnswerWriteQueue, createProgrammeSaveStatusTracker } from '../lib/listening-programme-answer-queue.mjs';
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -51,4 +51,25 @@ test('a failed autosave does not prevent the final flush retry', async () => {
   await assert.rejects(queue.enqueue(2, 'old'), /transient/);
   await queue.flush([{ qNum: 2, value: 'latest' }]);
   assert.deepEqual(calls, ['old', 'latest']);
+});
+
+test('keeps one failed question visible after a later question saves first', () => {
+  const tracker = createProgrammeSaveStatusTracker();
+  const first = tracker.begin(1);
+  const second = tracker.begin(2);
+
+  assert.equal(second.status, 'saving');
+  assert.equal(tracker.succeed(second.token), 'saving');
+  assert.equal(tracker.fail(first.token), 'error');
+  assert.equal(tracker.status(), 'error');
+});
+
+test('a successful final flush clears earlier per-question failures', () => {
+  const tracker = createProgrammeSaveStatusTracker();
+  const autosave = tracker.begin(1);
+  assert.equal(tracker.fail(autosave.token), 'error');
+
+  const flush = tracker.beginFlush();
+  assert.equal(flush.status, 'saving');
+  assert.equal(tracker.finishFlush(flush.token), 'saved');
 });

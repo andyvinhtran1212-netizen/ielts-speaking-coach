@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
-import { createProgrammeAnswerWriteQueue } from '@/lib/listening-programme-answer-queue.mjs';
+import { createProgrammeAnswerWriteQueue, createProgrammeSaveStatusTracker } from '@/lib/listening-programme-answer-queue.mjs';
 import type { ListeningProgrammePlayerWire } from '@/lib/listening-programmes-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -19,8 +19,8 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [submitting, setSubmitting] = useState(false);
   const pending = useRef<Record<number, number>>({});
-  const saveGeneration = useRef(0);
   const saveQueue = useRef<ReturnType<typeof createProgrammeAnswerWriteQueue> | null>(null);
+  const saveStatusTracker = useRef(createProgrammeSaveStatusTracker());
   const submitLock = useRef(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [onceState, setOnceState] = useState<'ready' | 'playing' | 'paused' | 'done'>('ready');
@@ -51,6 +51,8 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
       for (const value of (Array.isArray(attempt.answers) ? attempt.answers : [])) { const answer = row(value); restored[Number(answer.q_num)] = String(answer.user_answer || ''); }
       if (!active) return;
       setAnswers(restored);
+      saveStatusTracker.current.reset();
+      setSaveState('idle');
       const attemptId = String(attempt.attempt_id || '');
       saveQueue.current = createProgrammeAnswerWriteQueue((qNum, value) =>
         window.api.patchWith(`/api/listening/tests/attempts/${attemptId}/answers`, { q_num: qNum, user_answer: value }),
@@ -65,10 +67,11 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
   async function save(qNum: number, value: string) {
     const queue = saveQueue.current;
     if (state.status !== 'ready' || !queue) return;
-    const generation = ++saveGeneration.current;
-    setSaveState('saving');
-    try { await queue.enqueue(qNum, value); if (generation === saveGeneration.current) setSaveState('saved'); }
-    catch { if (generation === saveGeneration.current) setSaveState('error'); }
+    const tracker = saveStatusTracker.current;
+    const operation = tracker.begin(qNum);
+    setSaveState(operation.status);
+    try { await queue.enqueue(qNum, value); setSaveState(tracker.succeed(operation.token)); }
+    catch { setSaveState(tracker.fail(operation.token)); }
   }
   function update(qNum: number, value: string, immediate = false) {
     if (submitLock.current) return;
@@ -88,16 +91,22 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
     if (state.status !== 'ready' || submitLock.current || !queue) return;
     submitLock.current = true;
     setSubmitting(true);
+    const tracker = saveStatusTracker.current;
+    const operation = tracker.beginFlush();
+    setSaveState(operation.status);
     try {
       Object.values(pending.current).forEach(window.clearTimeout);
       pending.current = {};
-      const generation = ++saveGeneration.current;
-      setSaveState('saving');
       await queue.flush(state.form.questions.map((question) => ({ qNum: question.q_num, value: answers[question.q_num] || '' })));
-      if (generation === saveGeneration.current) setSaveState('saved');
+      setSaveState(tracker.finishFlush(operation.token));
       await window.api.postWith(`/api/listening/tests/attempts/${state.attemptId}/submit`, {});
       window.location.assign(`/listening/programmes/result/${state.attemptId}`);
-    } catch { setSaveState('error'); submitLock.current = false; setSubmitting(false); }
+    } catch {
+      tracker.fail(operation.token);
+      setSaveState('error');
+      submitLock.current = false;
+      setSubmitting(false);
+    }
   }
   function controlOnce() {
     if (state.status !== 'ready' || onceState === 'done' || !audioRef.current) return;

@@ -289,11 +289,30 @@ LANGUAGE plpgsql
 SET search_path = public, pg_temp
 AS $$
 BEGIN
-    IF NEW.package_id IS DISTINCT FROM OLD.package_id
-       OR NEW.programme_id IS DISTINCT FROM OLD.programme_id
-       OR NEW.manifest_sha256 IS DISTINCT FROM OLD.manifest_sha256
-       OR NEW.transform_version IS DISTINCT FROM OLD.transform_version THEN
-        RAISE EXCEPTION 'listening_package_identity_immutable'
+    IF TG_OP = 'INSERT' THEN
+        IF current_setting('app.listening_package_import', TRUE)
+               IS DISTINCT FROM NEW.package_id THEN
+            RAISE EXCEPTION 'listening_package_immutable'
+                USING ERRCODE = '55000';
+        END IF;
+        RETURN NEW;
+    END IF;
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION 'listening_package_immutable'
+            USING ERRCODE = '55000';
+    END IF;
+
+    IF current_setting('app.listening_package_status_transition', TRUE)
+           IS DISTINCT FROM OLD.id::TEXT
+       OR (to_jsonb(NEW) - ARRAY[
+              'status', 'status_changed_by', 'published_at', 'archived_at',
+              'updated_at'
+          ]) IS DISTINCT FROM
+          (to_jsonb(OLD) - ARRAY[
+              'status', 'status_changed_by', 'published_at', 'archived_at',
+              'updated_at'
+          ]) THEN
+        RAISE EXCEPTION 'listening_package_immutable'
             USING ERRCODE = '55000';
     END IF;
     RETURN NEW;
@@ -303,8 +322,152 @@ $$;
 DROP TRIGGER IF EXISTS trg_protect_listening_package_identity
     ON public.listening_content_packages;
 CREATE TRIGGER trg_protect_listening_package_identity
-    BEFORE UPDATE ON public.listening_content_packages
+    BEFORE INSERT OR UPDATE OR DELETE ON public.listening_content_packages
     FOR EACH ROW EXECUTE FUNCTION public.fn_protect_listening_package_identity();
+
+CREATE OR REPLACE FUNCTION public.fn_protect_listening_package_child()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_package_id UUID;
+    v_new_package_id UUID;
+    v_allowed_columns TEXT[];
+BEGIN
+    IF TG_TABLE_NAME = 'listening_lessons' THEN
+        IF TG_OP = 'INSERT' THEN
+            v_package_id := NEW.package_id;
+        ELSE
+            v_package_id := OLD.package_id;
+        END IF;
+        IF TG_OP = 'UPDATE' THEN v_new_package_id := NEW.package_id; END IF;
+        v_allowed_columns := ARRAY['status', 'updated_at'];
+    ELSIF TG_TABLE_NAME = 'listening_package_stimuli' THEN
+        IF TG_OP = 'INSERT' THEN
+            v_package_id := NEW.package_id;
+        ELSE
+            v_package_id := OLD.package_id;
+        END IF;
+        IF TG_OP = 'UPDATE' THEN v_new_package_id := NEW.package_id; END IF;
+        v_allowed_columns := ARRAY[]::TEXT[];
+    ELSIF TG_TABLE_NAME = 'listening_form_stimuli' THEN
+        IF TG_OP = 'INSERT' THEN
+            v_package_id := NEW.package_id;
+        ELSE
+            v_package_id := OLD.package_id;
+        END IF;
+        IF TG_OP = 'UPDATE' THEN v_new_package_id := NEW.package_id; END IF;
+        v_allowed_columns := ARRAY[]::TEXT[];
+    ELSIF TG_TABLE_NAME = 'listening_tests' THEN
+        IF TG_OP = 'INSERT' THEN
+            v_package_id := NEW.content_package_id;
+        ELSE
+            v_package_id := OLD.content_package_id;
+        END IF;
+        IF TG_OP = 'UPDATE' THEN v_new_package_id := NEW.content_package_id; END IF;
+        v_allowed_columns := ARRAY['status', 'is_public', 'updated_at'];
+    ELSIF TG_TABLE_NAME = 'listening_content' THEN
+        IF TG_OP = 'INSERT' THEN
+            SELECT t.content_package_id INTO v_package_id
+              FROM public.listening_tests AS t WHERE t.id = NEW.test_id;
+        ELSE
+            SELECT t.content_package_id INTO v_package_id
+              FROM public.listening_tests AS t WHERE t.id = OLD.test_id;
+        END IF;
+        IF TG_OP = 'UPDATE' THEN
+            SELECT t.content_package_id INTO v_new_package_id
+              FROM public.listening_tests AS t WHERE t.id = NEW.test_id;
+        END IF;
+        v_allowed_columns := ARRAY['status', 'updated_at'];
+    ELSIF TG_TABLE_NAME = 'listening_exercises' THEN
+        IF TG_OP = 'INSERT' THEN
+            SELECT t.content_package_id INTO v_package_id
+              FROM public.listening_content AS c
+              JOIN public.listening_tests AS t ON t.id = c.test_id
+             WHERE c.id = NEW.content_id;
+        ELSE
+            SELECT t.content_package_id INTO v_package_id
+              FROM public.listening_content AS c
+              JOIN public.listening_tests AS t ON t.id = c.test_id
+             WHERE c.id = OLD.content_id;
+        END IF;
+        IF TG_OP = 'UPDATE' THEN
+            SELECT t.content_package_id INTO v_new_package_id
+              FROM public.listening_content AS c
+              JOIN public.listening_tests AS t ON t.id = c.test_id
+             WHERE c.id = NEW.content_id;
+        END IF;
+        v_allowed_columns := ARRAY['status', 'updated_at'];
+    ELSE
+        RAISE EXCEPTION 'listening_package_guard_table_unsupported'
+            USING ERRCODE = '55000';
+    END IF;
+
+    v_package_id := COALESCE(v_package_id, v_new_package_id);
+    IF v_package_id IS NULL THEN
+        IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+        RETURN NEW;
+    END IF;
+
+    IF TG_OP = 'INSERT' THEN
+        IF current_setting('app.listening_package_import', TRUE)
+               IS DISTINCT FROM v_package_id::TEXT THEN
+            RAISE EXCEPTION 'listening_package_child_immutable'
+                USING ERRCODE = '55000';
+        END IF;
+        RETURN NEW;
+    END IF;
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION 'listening_package_child_immutable'
+            USING ERRCODE = '55000';
+    END IF;
+    IF current_setting('app.listening_package_status_transition', TRUE)
+           IS DISTINCT FROM v_package_id::TEXT
+       OR (to_jsonb(NEW) - v_allowed_columns) IS DISTINCT FROM
+          (to_jsonb(OLD) - v_allowed_columns) THEN
+        RAISE EXCEPTION 'listening_package_child_immutable'
+            USING ERRCODE = '55000';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_protect_listening_package_child
+    ON public.listening_lessons;
+CREATE TRIGGER trg_protect_listening_package_child
+    BEFORE INSERT OR UPDATE OR DELETE ON public.listening_lessons
+    FOR EACH ROW EXECUTE FUNCTION public.fn_protect_listening_package_child();
+
+DROP TRIGGER IF EXISTS trg_protect_listening_package_child
+    ON public.listening_package_stimuli;
+CREATE TRIGGER trg_protect_listening_package_child
+    BEFORE INSERT OR UPDATE OR DELETE ON public.listening_package_stimuli
+    FOR EACH ROW EXECUTE FUNCTION public.fn_protect_listening_package_child();
+
+DROP TRIGGER IF EXISTS trg_protect_listening_package_child
+    ON public.listening_form_stimuli;
+CREATE TRIGGER trg_protect_listening_package_child
+    BEFORE INSERT OR UPDATE OR DELETE ON public.listening_form_stimuli
+    FOR EACH ROW EXECUTE FUNCTION public.fn_protect_listening_package_child();
+
+DROP TRIGGER IF EXISTS trg_protect_listening_package_child
+    ON public.listening_tests;
+CREATE TRIGGER trg_protect_listening_package_child
+    BEFORE INSERT OR UPDATE OR DELETE ON public.listening_tests
+    FOR EACH ROW EXECUTE FUNCTION public.fn_protect_listening_package_child();
+
+DROP TRIGGER IF EXISTS trg_protect_listening_package_child
+    ON public.listening_content;
+CREATE TRIGGER trg_protect_listening_package_child
+    BEFORE INSERT OR UPDATE OR DELETE ON public.listening_content
+    FOR EACH ROW EXECUTE FUNCTION public.fn_protect_listening_package_child();
+
+DROP TRIGGER IF EXISTS trg_protect_listening_package_child
+    ON public.listening_exercises;
+CREATE TRIGGER trg_protect_listening_package_child
+    BEFORE INSERT OR UPDATE OR DELETE ON public.listening_exercises
+    FOR EACH ROW EXECUTE FUNCTION public.fn_protect_listening_package_child();
 
 CREATE OR REPLACE FUNCTION public.import_listening_content_package_atomic(
     p_package JSONB,
@@ -456,6 +619,10 @@ BEGIN
         RETURN;
     END IF;
 
+    -- Only this SECURITY DEFINER import may create package-owned rows.
+    PERFORM set_config(
+        'app.listening_package_import', p_package ->> 'package_id', TRUE
+    );
     INSERT INTO public.listening_content_packages (
         package_id, programme_id, title, manifest_sha256, source_date,
         source_counts, validation_summary, transform_version, imported_by
@@ -470,6 +637,9 @@ BEGIN
         p_package ->> 'transform_version',
         NULLIF(p_package ->> 'imported_by', '')::UUID
     ) RETURNING * INTO v_package;
+    PERFORM set_config(
+        'app.listening_package_import', v_package.id::TEXT, TRUE
+    );
 
     FOR v_lesson IN SELECT value FROM jsonb_array_elements(p_lessons)
     LOOP
@@ -613,6 +783,8 @@ BEGIN
             USING ERRCODE = '22023';
     END IF;
 
+    PERFORM set_config('app.listening_package_import', '', TRUE);
+
     RETURN QUERY SELECT v_package.id, 'created'::TEXT,
         jsonb_array_length(p_lessons), jsonb_array_length(p_forms),
         v_items, v_stimuli;
@@ -697,6 +869,11 @@ BEGIN
 
     v_status := CASE p_action WHEN 'publish' THEN 'published' ELSE 'archived' END;
 
+    -- Scope the immutable-child guard to this exact manifest-bound package.
+    PERFORM set_config(
+        'app.listening_package_status_transition', v_package.id::TEXT, TRUE
+    );
+
     UPDATE public.listening_tests
        SET status = v_status,
            is_public = (p_action = 'publish'),
@@ -740,6 +917,8 @@ BEGIN
            updated_at = NOW()
      WHERE id = v_package.id
      RETURNING * INTO v_package;
+
+    PERFORM set_config('app.listening_package_status_transition', '', TRUE);
 
     RETURN QUERY SELECT v_package.id, v_package.status, v_forms;
 END;

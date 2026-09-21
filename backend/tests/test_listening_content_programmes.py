@@ -52,6 +52,16 @@ def test_assembly_rejects_noncanonical_audio(tmp_path: Path):
         importer.assemble_form_audio([invalid])
 
 
+def test_generated_test_id_is_idempotent_within_package_and_namespaced_across_revisions():
+    first = importer._stable_test_id("general-listening-v1", "lesson-1-form-a")
+    retry = importer._stable_test_id("general-listening-v1", "lesson-1-form-a")
+    revision = importer._stable_test_id("general-listening-v2", "lesson-1-form-a")
+
+    assert first == retry
+    assert first != revision
+    assert len(first) <= 53
+
+
 @pytest.mark.parametrize("raw", ["../secret.json", "/absolute.json", "a\\b.json", "./a.json"])
 def test_declared_paths_fail_closed_on_traversal(raw: str):
     with pytest.raises(importer.PackageValidationError):

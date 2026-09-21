@@ -4,9 +4,9 @@
 
 | Requirement | Evidence | Result |
 | --- | --- | --- |
-| FR-001 | kind=test; ref=backend/tests/test_listening_content_programmes.py::test_declared_paths_fail_closed_on_traversal | PASS |
-| FR-002 | kind=test; ref=backend/tests/test_listening_content_programmes.py | PASS |
-| FR-003 | kind=test; ref=backend/tests/test_listening_content_programmes.py::test_migration_pins_atomic_and_report_only_invariants | PASS |
+| FR-001 | kind=test; ref=backend/tests/test_listening_content_programmes.py::test_generated_test_id_is_idempotent_within_package_and_namespaced_across_revisions | PASS |
+| FR-002 | kind=test; ref=backend/tests/test_migration_295_listening_content_programmes_postgres.py::test_package_rows_reject_generic_mutations | PASS |
+| FR-003 | kind=test; ref=backend/tests/test_migration_295_listening_content_programmes_postgres.py::test_manifest_bound_publish_and_archive_remain_atomic | PASS |
 | FR-004 | kind=test; ref=backend/tests/test_listening_content_programmes.py::test_student_payload_strips_all_programme_review_material | PASS |
 | FR-005 | kind=test; ref=frontend/tests/listening-programmes-next-behavior.test.mjs | PASS |
 | FR-006 | kind=test; ref=backend/tests/test_listening_content_programmes.py::test_report_only_grading_separates_checked_unscored_and_blank | PASS |
@@ -21,11 +21,13 @@
 
 ## Contract evidence
 
-- Final post-review local baseline on 2026-09-21: backend Listening 664/664 passed;
-  frontend Listening 1,303/1,303 and the full frontend contract suite passed;
-  TypeScript passed; Next 16 production
-  build compiled and generated all 152 routes. The generic prerender fallback
-  logged an expected local `ECONNREFUSED`, but build exit status was zero.
+- Final reset baseline on 2026-09-21: the full backend suite passed 8,953 tests
+  (30 optional fixtures skipped), including 11 migration-295 tests forced onto
+  disposable PostgreSQL 16 with `REQUIRE_PG=1`. The full frontend contract
+  suite passed 9,193 tests; React interaction passed 3/3; strict and legacy
+  TypeScript passed. Next 16 production build compiled and generated all 152
+  routes. The generic prerender fallback logged an expected local
+  `ECONNREFUSED`, but build exit status was zero.
 - OpenAPI/type drift: `frontend/types/api.d.ts` regenerated from the in-process
   FastAPI app after all response-model changes; TypeScript passed.
 - Backward compatibility: retained legacy overview/test fields and diagnostic
@@ -51,8 +53,10 @@
 - Publication now re-downloads and verifies the persisted SHA-256 attestation
   for every derived form WAV and visual before invoking the transactional
   status RPC; missing, wrong-size, or corrupt objects fail closed.
-- Migration/schema query: pending staging package, lesson, source-form uniqueness,
-  programme/scoring defaults, RLS/grants, and immutable-state checks.
+- Migration/schema contract: disposable PostgreSQL 16 ran migration 295 twice,
+  imported and reconciled a fixture package, rejected generic package/child
+  INSERT, UPDATE, and DELETE mutations, then passed manifest-bound publish and
+  archive transitions. Staging application and live-schema query remain pending.
 - Reconciliation: pending exact 2/66/159/1,045/390/390/2 source-to-database/object
   counts and zero undeclared/orphan entities.
 - Immediate state versus full reload: pending start, save, submit, package publish,
