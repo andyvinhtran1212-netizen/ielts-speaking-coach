@@ -197,6 +197,9 @@ def _synth_elevenlabs_sync(text: str) -> bytes:
 
 KOKORO_MODEL_TAG = "v1.0"
 KOKORO_DEFAULT_VOICE = "bf_emma"      # British female — IELTS examiner register
+# Keep the operational allow-list explicit. A voice must be verified with the
+# pinned Kokoro model before batch jobs may select it.
+KOKORO_VOICES = frozenset({KOKORO_DEFAULT_VOICE})
 _KOKORO_SAMPLE_RATE = 24000
 # Kokoro voice ids are `<lang><gender>_<name>`; the first letter picks the
 # grapheme-to-phoneme language. 'b' = British English, which is what an IELTS

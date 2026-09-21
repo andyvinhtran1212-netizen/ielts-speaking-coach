@@ -231,6 +231,10 @@ def main() -> None:
             and args.voice not in tts_audio.OPENAI_VOICES):
         allowed = ", ".join(sorted(tts_audio.OPENAI_VOICES))
         ap.error(f"unsupported OpenAI voice {args.voice!r}; choose one of: {allowed}")
+    if (args.engine == "kokoro" and args.voice
+            and args.voice not in tts_audio.KOKORO_VOICES):
+        allowed = ", ".join(sorted(tts_audio.KOKORO_VOICES))
+        ap.error(f"unsupported Kokoro voice {args.voice!r}; choose one of: {allowed}")
 
     # Persisted URLs do not record engine/voice provenance. Any partial
     # regeneration could therefore replace one clip while retaining another
