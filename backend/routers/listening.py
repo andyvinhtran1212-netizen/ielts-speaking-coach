@@ -6773,13 +6773,16 @@ async def start_listening_test_attempt(
     authorization: str | None = Header(default=None),
     standalone: bool = False,
 ):
-    """Open a new student attempt session. Marks any previously open
-    in-progress attempt for the same (user, test) as abandoned so the
-    1-active-attempt invariant holds.
+    """Open a student attempt session.
 
-    NOTE: this is the "start over" path and it is destructive by design. A
-    caller that wants to CONTINUE must first check
-    GET /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
+    Standalone report-only programme forms atomically resume-or-create their
+    canonical active attempt in Postgres. Other Listening surfaces retain the
+    explicit start-over contract: any previous open attempt for the same
+    (user, test) is abandoned before a replacement is created.
+
+    NOTE: outside the standalone report-only path this remains destructive by
+    design. A caller that wants to CONTINUE must first check GET
+    /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
     """
     user = await _require_auth(authorization)
     if standalone and class_item:
@@ -6818,6 +6821,59 @@ async def start_listening_test_attempt(
             raise HTTPException(400, str(exc))
 
     admit_start()
+    affinity_aware = body is not None and body.renderer_affinity_protocol == "claim-v1"
+    if standalone and test_row.get("scoring_policy") == "report_only":
+        try:
+            acquired = supabase_admin.rpc(
+                "fn_acquire_listening_programme_attempt",
+                {
+                    "p_test_id": test_id,
+                    "p_user_id": user["id"],
+                    "p_renderer_affinity_protocol": (
+                        "claim-v1" if affinity_aware else "legacy"
+                    ),
+                },
+            ).execute()
+        except Exception as exc:
+            logger.error(
+                "[listening-programme-attempt] acquire failed test=%s user=%s: %s",
+                test_id,
+                user["id"],
+                exc,
+            )
+            raise HTTPException(
+                500, "Không thể mở lượt luyện nghe. Hãy thử lại."
+            ) from exc
+
+        rows = acquired.data or []
+        if len(rows) != 1:
+            raise HTTPException(500, "Không thể xác định lượt luyện nghe.")
+        acquired_row = rows[0]
+        created = acquired_row.get("created") is True
+        attempt_id = str(acquired_row.get("attempt_id") or "")
+        if not attempt_id:
+            raise HTTPException(500, "Lượt luyện nghe không có định danh hợp lệ.")
+        observation_row = {
+            "id": attempt_id,
+            "test_id": test_id,
+            "user_id": user["id"],
+            "status": acquired_row.get("attempt_status") or "in_progress",
+            "renderer_affinity": acquired_row.get("attempt_renderer_affinity"),
+        }
+        bind_owned_attempt(observation_row, started=created)
+        return {
+            "attempt_id": attempt_id,
+            "status": observation_row["status"],
+            "started_at": acquired_row.get("attempt_started_at"),
+            "resume_expires_at": acquired_row.get("attempt_resume_expires_at"),
+            "answers": acquired_row.get("attempt_answers") or [],
+            "renderer_affinity": acquired_row.get("attempt_renderer_affinity"),
+            "playback_started_at": acquired_row.get(
+                "attempt_playback_started_at"
+            ),
+            "acquired_existing": not created,
+        }
+
     # Abandon any open attempts for this (user, test).
     abandon_query = (
         supabase_admin.table("listening_test_attempts")
@@ -6848,7 +6904,6 @@ async def start_listening_test_attempt(
         "started_at": started_at,
         "resume_expires_at": expires_at,
     }
-    affinity_aware = body is not None and body.renderer_affinity_protocol == "claim-v1"
     if affinity_aware:
         payload["renderer_affinity"] = None
     # Class homework: stamp WHICH task this is being done for, so the ledger

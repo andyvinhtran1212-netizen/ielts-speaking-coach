@@ -328,6 +328,26 @@ def test_timing_and_transcript_cannot_exceed_wav_by_sub_50ms(tmp_path: Path):
         importer.build_import_plan(location)
 
 
+def test_truncated_pcm_cannot_trust_the_header_declared_duration(tmp_path: Path):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    package_root = release_root / "general" / "fixture"
+    audio_path = package_root / "learner" / "audio" / "stimulus-1.wav"
+    audio_path.write_bytes(audio_path.read_bytes()[:-24_000])
+    for relative in (
+        "controlled-access/timing/stimulus-1.json",
+        "controlled-access/transcripts/stimulus-1.json",
+    ):
+        path = package_root / relative
+        document = json.loads(path.read_text(encoding="utf-8"))
+        document["segments"][0]["end"] = 0.75
+        _write_json(path, document)
+    _rebind_manifest(release_root)
+
+    location = importer.discover_packages(release_root)[0]
+    with pytest.raises(importer.PackageValidationError, match="PCM data bị cắt cụt"):
+        importer.build_import_plan(location)
+
+
 def test_replay_window_rejects_unknown_declared_evidence_turn(tmp_path: Path):
     release_root = _minimal_publish_ready_package(tmp_path)
     protected_path = (
@@ -446,6 +466,29 @@ def test_multiple_choice_key_must_be_unique_after_grading_normalization(
 
     location = importer.discover_packages(release_root)[0]
     with pytest.raises(importer.PackageValidationError, match="Objective key không selectable"):
+        importer.build_import_plan(location)
+
+
+@pytest.mark.parametrize("delimiter", [",", ";", "|"])
+def test_multiple_choice_option_ids_reject_wire_delimiters(
+    tmp_path: Path, delimiter: str,
+):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    package_root = release_root / "general" / "fixture"
+    composite = f"A{delimiter}B"
+    lesson_path = package_root / "learner" / "content" / "lessons" / "lesson-1.json"
+    lesson = json.loads(lesson_path.read_text(encoding="utf-8"))
+    lesson["items"][0]["response_type"] = "multiple_choice"
+    lesson["items"][0]["options"] = {composite: "Composite", "C": "Other"}
+    _write_json(lesson_path, lesson)
+    protected_path = package_root / "protected" / "source-lessons" / "lesson-1.json"
+    protected = json.loads(protected_path.read_text(encoding="utf-8"))
+    protected["items"][0]["key"]["answers"] = [composite, "C"]
+    _write_json(protected_path, protected)
+    _rebind_manifest(release_root)
+
+    location = importer.discover_packages(release_root)[0]
+    with pytest.raises(importer.PackageValidationError, match="chứa delimiter"):
         importer.build_import_plan(location)
 
 

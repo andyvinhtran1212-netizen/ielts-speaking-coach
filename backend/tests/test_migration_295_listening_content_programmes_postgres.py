@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import shutil
 from pathlib import Path
 from uuid import uuid4
 
+import asyncpg
 import pytest
 
 from test_migration_240_core_attempt_evidence import psql
@@ -18,6 +20,7 @@ SQL = (
     / "migrations"
     / "295_listening_content_programmes.sql"
 ).read_text(encoding="utf-8")
+DB = os.environ.get("TEST_PG_URL", "")
 
 
 def _literal(value: object) -> str:
@@ -98,10 +101,21 @@ def programme_probe():
             );
             CREATE TABLE {schema}.listening_test_attempts (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                user_id UUID NOT NULL,
+                test_id UUID NOT NULL REFERENCES {schema}.listening_tests(id),
+                user_id UUID NOT NULL REFERENCES {schema}.users(id),
+                status TEXT NOT NULL DEFAULT 'in_progress',
+                answers JSONB NOT NULL DEFAULT '[]'::JSONB,
                 score NUMERIC,
                 band_estimate NUMERIC,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                submitted_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                resume_expires_at TIMESTAMPTZ NOT NULL
+                    DEFAULT (NOW() + INTERVAL '24 hours'),
+                renderer_affinity TEXT DEFAULT 'legacy',
+                class_assignment_item_id UUID,
+                sitting_id UUID
             );
             INSERT INTO {schema}.listening_tests (test_id, title)
             VALUES ('legacy-ielts-fixture', 'Legacy IELTS fixture');
@@ -354,6 +368,79 @@ def test_import_persists_complete_canonical_projection_and_legacy_defaults(
         "timing_segments": "1",
     }
     assert projection["mapping"] == {"sequence_num": 1, "offset": 0.0, "end": 2.0}
+
+
+def test_programme_attempt_acquire_serializes_two_browser_starts(
+    programme_probe: dict[str, object],
+):
+    schema = str(programme_probe["schema"])
+    user_id = uuid4()
+    test_id = uuid4()
+    psql(
+        f"INSERT INTO {schema}.users (id) VALUES ('{user_id}'); "
+        f"INSERT INTO {schema}.listening_tests "
+        "(id,test_id,title,status,scoring_policy) VALUES "
+        f"('{test_id}','atomic-programme-{test_id}','Atomic programme',"
+        "'published','report_only')"
+    )
+
+    async def overlap():
+        first = await asyncpg.connect(DB)
+        second = await asyncpg.connect(DB)
+        task = None
+        query = (
+            f"SELECT * FROM {schema}.fn_acquire_listening_programme_attempt("
+            "$1,$2,'legacy')"
+        )
+        try:
+            transaction = first.transaction()
+            await transaction.start()
+            first_row = await first.fetchrow(query, test_id, user_id)
+            task = asyncio.create_task(second.fetchrow(query, test_id, user_id))
+
+            blocked = False
+            for _ in range(100):
+                await first.execute("SELECT pg_stat_clear_snapshot()")
+                blocked = await first.fetchval(
+                    "SELECT wait_event_type = 'Lock' "
+                    "FROM pg_stat_activity WHERE pid=$1",
+                    second.get_server_pid(),
+                )
+                if blocked:
+                    break
+                await asyncio.sleep(0.01)
+            assert blocked, "second programme acquire did not wait on the advisory lock"
+
+            await transaction.commit()
+            second_row = await asyncio.wait_for(task, timeout=5)
+            return first_row, second_row
+        finally:
+            if task is not None and not task.done():
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+            await first.close()
+            await second.close()
+
+    first_row, second_row = asyncio.run(overlap())
+    assert first_row["attempt_id"] == second_row["attempt_id"]
+    assert [first_row["created"], second_row["created"]] == [True, False]
+    assert psql(
+        f"SELECT count(*) FROM {schema}.listening_test_attempts "
+        f"WHERE test_id='{test_id}' AND user_id='{user_id}' "
+        "AND status='in_progress' AND class_assignment_item_id IS NULL "
+        "AND sitting_id IS NULL"
+    ) == "1"
+    for role in ("anon", "authenticated"):
+        assert psql(
+            f"SELECT has_function_privilege('{role}', "
+            f"'{schema}.fn_acquire_listening_programme_attempt(uuid,uuid,text)', "
+            "'EXECUTE')"
+        ) == "f"
+    assert psql(
+        "SELECT has_function_privilege('service_role', "
+        f"'{schema}.fn_acquire_listening_programme_attempt(uuid,uuid,text)', "
+        "'EXECUTE')"
+    ) == "t"
 
 
 @pytest.mark.parametrize(

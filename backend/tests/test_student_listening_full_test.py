@@ -324,6 +324,48 @@ class _Fake:
     # asserting against a stub: replace-by-q_num, keep sorted, only touch an
     # in_progress attempt, return the new count (None when nothing matched).
     def rpc(self, name, params):
+        if name == "fn_acquire_listening_programme_attempt":
+            rows = self.tables["listening_test_attempts"]
+            active = [
+                row for row in rows
+                if row.get("test_id") == params["p_test_id"]
+                and row.get("user_id") == params["p_user_id"]
+                and row.get("status") == "in_progress"
+                and (row.get("scoring_policy") or "diagnostic") == "report_only"
+                and row.get("class_assignment_item_id") is None
+                and row.get("sitting_id") is None
+            ]
+            if active:
+                attempt = active[-1]
+                created = False
+            else:
+                attempt = {
+                    "id": str(uuid4()),
+                    "test_id": params["p_test_id"],
+                    "user_id": params["p_user_id"],
+                    "status": "in_progress",
+                    "answers": [],
+                    "scoring_policy": "report_only",
+                    "started_at": "2026-01-01T00:00:00+00:00",
+                    "renderer_affinity": (
+                        None
+                        if params["p_renderer_affinity_protocol"] == "claim-v1"
+                        else "legacy"
+                    ),
+                    "playback_started_at": None,
+                }
+                rows.append(attempt)
+                created = True
+            return _RpcResult([{
+                "attempt_id": attempt["id"],
+                "attempt_status": attempt["status"],
+                "attempt_started_at": attempt.get("started_at"),
+                "attempt_resume_expires_at": attempt.get("resume_expires_at"),
+                "attempt_answers": attempt.get("answers") or [],
+                "attempt_renderer_affinity": attempt.get("renderer_affinity"),
+                "attempt_playback_started_at": attempt.get("playback_started_at"),
+                "created": created,
+            }])
         if name not in ("fn_upsert_listening_answer", "fn_insert_listening_answer_once"):
             raise AssertionError(f"unexpected rpc: {name}")
         rows = self.tables["listening_test_attempts"]
@@ -731,6 +773,26 @@ def test_explicit_standalone_start_never_abandons_class_or_mock_work(monkeypatch
     assert by_id["free"]["status"] == "abandoned"
     assert by_id["homework"]["status"] == "in_progress"
     assert by_id["mock"]["status"] == "in_progress"
+
+
+def test_report_only_standalone_start_atomically_reuses_the_active_attempt(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake, scoring_policy="report_only")
+
+    first = _run(listening_router.start_listening_test_attempt(
+        test_id=test["id"], authorization=authz, standalone=True,
+    ))
+    fake.tables["listening_test_attempts"][0]["answers"] = [
+        {"q_num": 1, "user_answer": "kept"},
+    ]
+    second = _run(listening_router.start_listening_test_attempt(
+        test_id=test["id"], authorization=authz, standalone=True,
+    ))
+
+    assert second["attempt_id"] == first["attempt_id"]
+    assert second["acquired_existing"] is True
+    assert second["answers"] == [{"q_num": 1, "user_answer": "kept"}]
+    assert len(fake.tables["listening_test_attempts"]) == 1
 
 
 def test_standalone_start_rejects_a_class_scope(monkeypatch):

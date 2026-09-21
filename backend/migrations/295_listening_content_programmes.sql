@@ -298,6 +298,132 @@ ALTER TABLE public.listening_test_attempts
 CREATE INDEX IF NOT EXISTS idx_listening_attempts_scoring_policy
     ON public.listening_test_attempts (user_id, scoring_policy, created_at DESC);
 
+CREATE OR REPLACE FUNCTION public.fn_acquire_listening_programme_attempt(
+    p_test_id UUID,
+    p_user_id UUID,
+    p_renderer_affinity_protocol TEXT
+)
+RETURNS TABLE(
+    attempt_id UUID,
+    attempt_status TEXT,
+    attempt_started_at TIMESTAMP WITH TIME ZONE,
+    attempt_resume_expires_at TIMESTAMP WITH TIME ZONE,
+    attempt_answers JSONB,
+    attempt_renderer_affinity TEXT,
+    attempt_playback_started_at TIMESTAMP WITH TIME ZONE,
+    created BOOLEAN
+)
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_attempt public.listening_test_attempts%ROWTYPE;
+    v_keep_id UUID;
+    v_created BOOLEAN := FALSE;
+    v_acquired_at TIMESTAMP WITH TIME ZONE;
+BEGIN
+    IF p_test_id IS NULL OR p_user_id IS NULL THEN
+        RAISE EXCEPTION 'listening_programme_attempt_invalid_scope'
+            USING ERRCODE = '22023';
+    END IF;
+    IF p_renderer_affinity_protocol IS NULL
+       OR p_renderer_affinity_protocol NOT IN ('legacy', 'claim-v1') THEN
+        RAISE EXCEPTION 'listening_programme_attempt_invalid_renderer_protocol'
+            USING ERRCODE = '22023';
+    END IF;
+
+    -- Serialize exactly one standalone programme attempt per learner/test.
+    -- This is deliberately a transaction lock instead of a UI convention:
+    -- two browsers can otherwise both observe "no attempt" and insert their
+    -- own once-play state before either response reaches the client.
+    PERFORM pg_advisory_xact_lock(
+        hashtextextended(p_user_id::TEXT || ':' || p_test_id::TEXT, 0)
+    );
+    v_acquired_at := clock_timestamp();
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM public.listening_tests AS target_test
+         WHERE target_test.id = p_test_id
+           AND target_test.status = 'published'
+           AND target_test.scoring_policy = 'report_only'
+    ) THEN
+        RAISE EXCEPTION 'listening_programme_attempt_not_available'
+            USING ERRCODE = '55000';
+    END IF;
+
+    SELECT target.id
+      INTO v_keep_id
+      FROM public.listening_test_attempts AS target
+     WHERE target.test_id = p_test_id
+       AND target.user_id = p_user_id
+       AND target.status = 'in_progress'
+       AND target.scoring_policy = 'report_only'
+       AND target.class_assignment_item_id IS NULL
+       AND target.sitting_id IS NULL
+       AND target.resume_expires_at > v_acquired_at
+     ORDER BY target.created_at DESC, target.id DESC
+     LIMIT 1;
+
+    -- Preserve the newest resumable row and close any expired or historical
+    -- duplicate rows left by callers that predate this atomic acquire path.
+    UPDATE public.listening_test_attempts AS target
+       SET status = 'abandoned', updated_at = v_acquired_at
+     WHERE target.test_id = p_test_id
+       AND target.user_id = p_user_id
+       AND target.status = 'in_progress'
+       AND target.scoring_policy = 'report_only'
+       AND target.class_assignment_item_id IS NULL
+       AND target.sitting_id IS NULL
+       AND (
+            target.resume_expires_at <= v_acquired_at
+            OR (v_keep_id IS NOT NULL AND target.id <> v_keep_id)
+       );
+
+    IF v_keep_id IS NULL THEN
+        INSERT INTO public.listening_test_attempts (
+            test_id,
+            user_id,
+            status,
+            answers,
+            scoring_policy,
+            started_at,
+            resume_expires_at,
+            renderer_affinity
+        ) VALUES (
+            p_test_id,
+            p_user_id,
+            'in_progress',
+            '[]'::JSONB,
+            'report_only',
+            v_acquired_at,
+            v_acquired_at + INTERVAL '24 hours',
+            CASE
+                WHEN p_renderer_affinity_protocol = 'claim-v1' THEN NULL
+                ELSE 'legacy'
+            END
+        )
+        RETURNING * INTO v_attempt;
+        v_created := TRUE;
+    ELSE
+        SELECT target.*
+          INTO v_attempt
+          FROM public.listening_test_attempts AS target
+         WHERE target.id = v_keep_id;
+    END IF;
+
+    RETURN QUERY SELECT
+        v_attempt.id,
+        v_attempt.status,
+        v_attempt.started_at,
+        v_attempt.resume_expires_at,
+        v_attempt.answers,
+        v_attempt.renderer_affinity,
+        v_attempt.playback_started_at,
+        v_created;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.fn_protect_listening_package_identity()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -976,6 +1102,12 @@ REVOKE ALL ON FUNCTION public.set_listening_content_package_status(
 GRANT EXECUTE ON FUNCTION public.set_listening_content_package_status(
     TEXT, TEXT, TEXT, UUID
 ) TO service_role;
+REVOKE ALL ON FUNCTION public.fn_acquire_listening_programme_attempt(
+    UUID, UUID, TEXT
+) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_acquire_listening_programme_attempt(
+    UUID, UUID, TEXT
+) TO service_role;
 
 COMMENT ON TABLE public.listening_content_packages IS
 'Immutable LISTENING-0005 release identity and package-scoped publication state.';
@@ -993,6 +1125,8 @@ COMMENT ON FUNCTION public.import_listening_content_package_atomic(JSONB, JSONB,
 'Validates and atomically inserts one complete immutable Listening package; identical reruns reconcile as reused and conflicting bytes fail closed.';
 COMMENT ON FUNCTION public.set_listening_content_package_status(TEXT, TEXT, TEXT, UUID) IS
 'Atomically publishes or archives all rows for one manifest-bound Listening package without deleting attempts.';
+COMMENT ON FUNCTION public.fn_acquire_listening_programme_attempt(UUID, UUID, TEXT) IS
+'Atomically resumes or creates the one active standalone report-only Listening programme attempt for a learner and test.';
 
 NOTIFY pgrst, 'reload schema';
 

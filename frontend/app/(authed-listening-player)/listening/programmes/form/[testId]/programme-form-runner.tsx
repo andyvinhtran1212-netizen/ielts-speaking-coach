@@ -36,9 +36,7 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
     (async () => {
       const ready = await whenGlobalReady(() => !!window.api?.getWith && !!window.api?.postWith, 'window.api (programme form)');
       if (!ready || !active) throw new Error('API chưa sẵn sàng');
-      const progress = row(await window.api.getWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts/in-progress?standalone=true`, undefined, { signal: controller.signal }));
-      let attempt = row(progress.attempt);
-      if (!attempt.attempt_id) attempt = row(await window.api.postWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts?standalone=true`, {}));
+      const attempt = row(await window.api.postWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts?standalone=true`, {}));
       const attemptId = String(attempt.attempt_id || '');
       const test = row(await window.api.getWith<ListeningProgrammePlayerWire>(`/api/listening/tests/${encodeURIComponent(testId)}?attempt_id=${encodeURIComponent(attemptId)}`, undefined, { signal: controller.signal }));
       if (test.scoring_policy !== 'report_only') throw new Error('Bài này không thuộc chương trình report-only.');

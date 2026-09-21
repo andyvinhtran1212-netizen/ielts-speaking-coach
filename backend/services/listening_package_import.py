@@ -364,8 +364,12 @@ def _read_wave(path: Path) -> tuple[bytes, int]:
             )
             if params != (CHANNELS, SAMPLE_WIDTH, SAMPLE_RATE, "NONE"):
                 raise PackageValidationError(f"WAV không phải PCM16 mono 24kHz: {path}")
-            frames = source.readframes(source.getnframes())
-            return frames, source.getnframes()
+            declared_frame_count = source.getnframes()
+            frames = source.readframes(declared_frame_count)
+            expected_bytes = declared_frame_count * SAMPLE_WIDTH * CHANNELS
+            if len(frames) != expected_bytes:
+                raise PackageValidationError(f"WAV PCM data bị cắt cụt: {path}")
+            return frames, declared_frame_count
     except (wave.Error, EOFError) as exc:
         raise PackageValidationError(f"WAV hỏng: {path}") from exc
 
@@ -499,6 +503,12 @@ def _validate_objective_options(
             or len(normalized_option_set) != len(normalized_options)):
         raise PackageValidationError(
             f"Objective option ids trùng sau chuẩn hoá: {item_id}"
+        )
+    if response_type == "multiple_choice" and any(
+        re.search(r"[,;|]", key) for key in raw
+    ):
+        raise PackageValidationError(
+            f"Multiple-choice option id chứa delimiter: {item_id}"
         )
     normalized_expected = [normalize_answer(answer) for answer in expected]
     if (any(not answer for answer in normalized_expected)

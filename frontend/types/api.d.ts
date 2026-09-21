@@ -7565,13 +7565,16 @@ export interface paths {
         put?: never;
         /**
          * Start Listening Test Attempt
-         * @description Open a new student attempt session. Marks any previously open
-         *     in-progress attempt for the same (user, test) as abandoned so the
-         *     1-active-attempt invariant holds.
+         * @description Open a student attempt session.
          *
-         *     NOTE: this is the "start over" path and it is destructive by design. A
-         *     caller that wants to CONTINUE must first check
-         *     GET /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
+         *     Standalone report-only programme forms atomically resume-or-create their
+         *     canonical active attempt in Postgres. Other Listening surfaces retain the
+         *     explicit start-over contract: any previous open attempt for the same
+         *     (user, test) is abandoned before a replacement is created.
+         *
+         *     NOTE: outside the standalone report-only path this remains destructive by
+         *     design. A caller that wants to CONTINUE must first check GET
+         *     /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
          */
         post: operations["start_listening_test_attempt_api_listening_tests__test_id__attempts_post"];
         delete?: never;

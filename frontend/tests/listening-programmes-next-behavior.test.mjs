@@ -34,7 +34,7 @@ test('programme runner autosaves and routes to self-review', () => {
   assert.match(runner, /setAnswers\(\{ \.\.\.restored, \.\.\.recovered \}\)/);
   assert.match(runner, /store\.clearIfCurrent\(qNum, value\)/);
   assert.match(runner, /draftStore\.current\?\.clear\(\)/);
-  assert.match(runner, /attempts\/in-progress\?standalone=true/);
+  assert.doesNotMatch(runner, /attempts\/in-progress\?standalone=true/);
   assert.match(runner, /attempts\?standalone=true/);
   assert.match(runner, /\?attempt_id=\$\{encodeURIComponent\(attemptId\)\}/);
   assert.match(runner, /\/playback-started/);
