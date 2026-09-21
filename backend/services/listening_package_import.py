@@ -270,13 +270,30 @@ def _protected_indexes(root: Path) -> tuple[dict[str, dict], dict[str, dict]]:
     items: dict[str, dict] = {}
     forms: dict[str, dict] = {}
     protected_root = root / "protected" / "source-lessons"
+
+    def register(
+        index: dict[str, dict], identity: str, record: dict, *, kind: str, path: Path,
+    ) -> None:
+        if identity in index:
+            raise PackageValidationError(
+                f"Trùng protected {kind} id: {identity} ({path.name})"
+            )
+        index[identity] = record
+
     for path in sorted(protected_root.glob("*.json")):
         document = _load_json(path)
         if isinstance(document, list):
+            local_items: set[str] = set()
             for record in document:
                 if not isinstance(record, dict) or not record.get("id"):
                     continue
-                items[str(record["id"])] = {
+                item_id = str(record["id"])
+                if item_id in local_items:
+                    raise PackageValidationError(
+                        f"Trùng protected item id: {item_id} ({path.name})"
+                    )
+                local_items.add(item_id)
+                register(items, item_id, {
                     "id": record["id"],
                     "key": {
                         "answers": ([record.get("answerLetter")]
@@ -286,21 +303,53 @@ def _protected_indexes(root: Path) -> tuple[dict[str, dict], dict[str, dict]]:
                     "rationale": record.get("lesson"),
                     "core_info": record.get("coreInfo"),
                     "answer_sentence": record.get("answerSentence"),
-                }
+                }, kind="item", path=path)
             continue
         if not isinstance(document, dict):
             raise PackageValidationError(f"Protected source không hợp lệ: {path.name}")
+        local_forms: set[str] = set()
         for form in document.get("forms") or []:
             if isinstance(form, dict) and form.get("id"):
-                forms[str(form["id"])] = form
+                form_id = str(form["id"])
+                if form_id in local_forms:
+                    raise PackageValidationError(
+                        f"Trùng protected form id: {form_id} ({path.name})"
+                    )
+                local_forms.add(form_id)
+                register(forms, form_id, form, kind="form", path=path)
+        local_items: set[str] = set()
         for item in document.get("items") or []:
             if isinstance(item, dict) and item.get("id"):
-                items[str(item["id"])] = item
+                item_id = str(item["id"])
+                if item_id in local_items:
+                    raise PackageValidationError(
+                        f"Trùng protected item id: {item_id} ({path.name})"
+                    )
+                local_items.add(item_id)
+                register(items, item_id, item, kind="item", path=path)
         teacher = document.get("protected_teacher") or {}
         if isinstance(teacher, dict):
+            local_teacher_items: set[str] = set()
             for item in teacher.get("items") or []:
                 if isinstance(item, dict) and item.get("item_id"):
-                    items[str(item["item_id"])] = {**item, "id": item["item_id"]}
+                    item_id = str(item["item_id"])
+                    if item_id in local_teacher_items:
+                        raise PackageValidationError(
+                            f"Trùng protected teacher item id: {item_id} ({path.name})"
+                        )
+                    local_teacher_items.add(item_id)
+                    teacher_record = {**item, "id": item_id}
+                    if item_id in local_items:
+                        # The official compatibility documents split one item
+                        # deliberately: the top-level record carries the safe
+                        # prompt/options and protected_teacher carries the key,
+                        # evidence and rubric. Merge that same-document pair
+                        # once, but never let a later file overwrite it.
+                        items[item_id] = {**items[item_id], **teacher_record}
+                    else:
+                        register(
+                            items, item_id, teacher_record, kind="teacher item", path=path,
+                        )
     return items, forms
 
 

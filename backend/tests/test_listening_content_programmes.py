@@ -326,6 +326,44 @@ def test_replay_window_rejects_unknown_declared_evidence_turn(tmp_path: Path):
         importer.build_import_plan(location)
 
 
+def test_protected_index_rejects_duplicate_item_within_one_file(tmp_path: Path):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    protected_path = (
+        release_root / "general" / "fixture" / "protected"
+        / "source-lessons" / "lesson-1.json"
+    )
+    protected = json.loads(protected_path.read_text(encoding="utf-8"))
+    protected["items"].append(dict(protected["items"][0]))
+    _write_json(protected_path, protected)
+    _rebind_manifest(release_root)
+
+    location = importer.discover_packages(release_root)[0]
+    with pytest.raises(importer.PackageValidationError, match="Trùng protected item id"):
+        importer.build_import_plan(location)
+
+
+def test_protected_index_rejects_duplicate_item_across_files(tmp_path: Path):
+    release_root = _minimal_publish_ready_package(tmp_path)
+    package_root = release_root / "general" / "fixture"
+    duplicate_path = package_root / "protected" / "source-lessons" / "lesson-2.json"
+    _write_json(duplicate_path, {
+        "forms": [],
+        "items": [{
+            "id": "item-1",
+            "key": {"answers": ["B"]},
+        }],
+    })
+    manifest_path = package_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifact_hashes"]["protected/source-lessons/lesson-2.json"] = "0" * 64
+    _write_json(manifest_path, manifest)
+    _rebind_manifest(release_root)
+
+    location = importer.discover_packages(release_root)[0]
+    with pytest.raises(importer.PackageValidationError, match="Trùng protected item id"):
+        importer.build_import_plan(location)
+
+
 @pytest.mark.parametrize(
     ("mutation", "message"),
     [
@@ -505,6 +543,9 @@ def test_migration_pins_atomic_and_report_only_invariants():
     assert "import_listening_content_package_atomic" in sql
     assert "pg_advisory_xact_lock" in sql
     assert "listening_attempts_report_only_result_check" in sql
+    assert "listening_attempts_playback_claim_check" in sql
+    assert "playback_started_at" in sql
+    assert "playback_claim_id" in sql
     assert "score IS NULL AND band_estimate IS NULL" in sql
     assert "ENABLE ROW LEVEL SECURITY" in sql
     assert "FROM PUBLIC, anon, authenticated" in sql

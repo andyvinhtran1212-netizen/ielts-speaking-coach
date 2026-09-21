@@ -36,6 +36,11 @@ test('programme runner autosaves and routes to self-review', () => {
   assert.match(runner, /draftStore\.current\?\.clear\(\)/);
   assert.match(runner, /attempts\/in-progress\?standalone=true/);
   assert.match(runner, /attempts\?standalone=true/);
+  assert.match(runner, /\?attempt_id=\$\{encodeURIComponent\(attemptId\)\}/);
+  assert.match(runner, /\/playback-started/);
+  assert.match(runner, /startProgrammeOncePlayback/);
+  assert.match(runner, /attempt\.playback_started_at \|\| \(replayPolicy === 'once' && !audioUrl\) \? 'done' : 'ready'/);
+  assert.doesNotMatch(runner, /listening-once:/);
   assert.match(runner, /queue\.flush\(state\.form\.questions\.map/);
   assert.match(runner, /submitLock\.current = true/);
   assert.match(runner, /disabled=\{submitting\}/);

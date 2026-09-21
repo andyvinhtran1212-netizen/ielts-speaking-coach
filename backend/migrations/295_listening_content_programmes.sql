@@ -254,7 +254,9 @@ CREATE INDEX IF NOT EXISTS idx_listening_form_stimuli_package_stimulus
 
 ALTER TABLE public.listening_test_attempts
     ADD COLUMN IF NOT EXISTS scoring_policy TEXT NOT NULL DEFAULT 'diagnostic',
-    ADD COLUMN IF NOT EXISTS result_summary JSONB NOT NULL DEFAULT '{}'::JSONB;
+    ADD COLUMN IF NOT EXISTS result_summary JSONB NOT NULL DEFAULT '{}'::JSONB,
+    ADD COLUMN IF NOT EXISTS playback_started_at TIMESTAMP WITH TIME ZONE,
+    ADD COLUMN IF NOT EXISTS playback_claim_id UUID;
 
 DO $$
 BEGIN
@@ -275,10 +277,23 @@ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END;
 $$;
+DO $$
+BEGIN
+    ALTER TABLE public.listening_test_attempts
+        ADD CONSTRAINT listening_attempts_playback_claim_check
+        CHECK (
+            (playback_started_at IS NULL AND playback_claim_id IS NULL)
+            OR (playback_started_at IS NOT NULL AND playback_claim_id IS NOT NULL)
+        ) NOT VALID;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END;
+$$;
 ALTER TABLE public.listening_test_attempts
     VALIDATE CONSTRAINT listening_attempts_scoring_policy_check;
 ALTER TABLE public.listening_test_attempts
     VALIDATE CONSTRAINT listening_attempts_report_only_result_check;
+ALTER TABLE public.listening_test_attempts
+    VALIDATE CONSTRAINT listening_attempts_playback_claim_check;
 
 CREATE INDEX IF NOT EXISTS idx_listening_attempts_scoring_policy
     ON public.listening_test_attempts (user_id, scoring_policy, created_at DESC);

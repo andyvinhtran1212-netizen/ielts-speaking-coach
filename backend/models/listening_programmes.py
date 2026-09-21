@@ -118,7 +118,7 @@ class ListeningPlayerResponse(BaseModel):
     support_policy: str | None = None
     claim_policy: str | None = None
     source_item_count: int | None = None
-    audio_url: str
+    audio_url: str | None = None
     audio_storage_path: str | None = None
     audio_duration_seconds: int | float | None = None
     cue_points: list[Any] = Field(default_factory=list)

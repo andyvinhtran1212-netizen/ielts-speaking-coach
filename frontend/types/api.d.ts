@@ -7288,10 +7288,11 @@ export interface paths {
          * Get Published Listening Test
          * @description Fetch a published test bundle for the student player.
          *
-         *     Includes a signed audio URL (2h TTL — covers test duration with
-         *     buffer), 4 section rows with narrator intros, and the test's
-         *     exercises **with answer keys stripped** (security: students must
-         *     never see the answer key on this endpoint).
+         *     Includes a signed audio URL (2h TTL — covers test duration with buffer),
+         *     section rows with narrator intros, and exercises **with answer keys
+         *     stripped**. A ``replay_policy=once`` form additionally requires its owned
+         *     active ``attempt_id``; after playback has started, the same safe bundle is
+         *     returned without another audio URL.
          */
         get: operations["get_published_listening_test_api_listening_tests__test_id__get"];
         put?: never;
@@ -7573,6 +7574,32 @@ export interface paths {
          *     GET /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
          */
         post: operations["start_listening_test_attempt_api_listening_tests__test_id__attempts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/attempts/{attempt_id}/playback-started": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Acknowledge Listening Attempt Playback Started
+         * @description Atomically persist the single-play start for a report-only attempt.
+         *
+         *     The browser calls this only after ``HTMLMediaElement.play()`` resolves.
+         *     ``playback_claim_id`` makes a lost response safely retryable from the same
+         *     page, while a second browser/device receives ``accepted=false`` and must
+         *     stop its player. Once persisted, the player bundle no longer contains a
+         *     signed audio URL for this attempt.
+         */
+        post: operations["acknowledge_listening_attempt_playback_started_api_listening_tests_attempts__attempt_id__playback_started_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15899,7 +15926,7 @@ export interface components {
             /** Source Item Count */
             source_item_count?: number | null;
             /** Audio Url */
-            audio_url: string;
+            audio_url?: string | null;
             /** Audio Storage Path */
             audio_storage_path?: string | null;
             /** Audio Duration Seconds */
@@ -18075,6 +18102,14 @@ export interface components {
         _GenerateCueCardBody: {
             /** Trigger */
             trigger: string;
+        };
+        /** _ListeningAttemptPlaybackStartedRequest */
+        _ListeningAttemptPlaybackStartedRequest: {
+            /**
+             * Playback Claim Id
+             * Format: uuid
+             */
+            playback_claim_id: string;
         };
         /** _ListeningAttemptRendererAffinityRequest */
         _ListeningAttemptRendererAffinityRequest: {
@@ -30857,6 +30892,7 @@ export interface operations {
         parameters: {
             query?: {
                 class_item?: string | null;
+                attempt_id?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -31295,6 +31331,43 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": components["schemas"]["_ListeningAttemptStartRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    acknowledge_listening_attempt_playback_started_api_listening_tests_attempts__attempt_id__playback_started_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["_ListeningAttemptPlaybackStartedRequest"];
             };
         };
         responses: {

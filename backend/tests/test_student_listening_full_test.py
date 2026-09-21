@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi import HTTPException
@@ -1507,6 +1507,83 @@ def test_programme_visual_signing_failure_fails_the_whole_player(monkeypatch):
         ))
     assert exc.value.status_code == 503
     assert "sơ đồ" in str(exc.value.detail)
+
+
+def test_once_playback_is_attempt_scoped_and_blocks_a_second_browser(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test_row = _seed_test(
+        fake,
+        scoring_policy="report_only",
+        replay_policy="once",
+        programme_id="ielts-listening-practice",
+        test_type="practice",
+    )
+    started = _run(listening_router.start_listening_test_attempt(
+        test_row["id"], authorization=authz, standalone=True,
+    ))
+    attempt_id = started["attempt_id"]
+
+    before = _run(listening_router.get_published_listening_test(
+        test_row["id"], attempt_id=UUID(attempt_id), authorization=authz,
+    ))
+    assert before["audio_url"].startswith("https://storage.test/")
+
+    first_claim = uuid4()
+    first = _run(listening_router.acknowledge_listening_attempt_playback_started(
+        UUID(attempt_id),
+        listening_router._ListeningAttemptPlaybackStartedRequest(
+            playback_claim_id=first_claim,
+        ),
+        authorization=authz,
+    ))
+    assert first["accepted"] is True
+
+    same_browser_retry = _run(
+        listening_router.acknowledge_listening_attempt_playback_started(
+            UUID(attempt_id),
+            listening_router._ListeningAttemptPlaybackStartedRequest(
+                playback_claim_id=first_claim,
+            ),
+            authorization=authz,
+        )
+    )
+    assert same_browser_retry["accepted"] is True
+
+    second_browser = _run(
+        listening_router.acknowledge_listening_attempt_playback_started(
+            UUID(attempt_id),
+            listening_router._ListeningAttemptPlaybackStartedRequest(
+                playback_claim_id=uuid4(),
+            ),
+            authorization=authz,
+        )
+    )
+    assert second_browser["accepted"] is False
+
+    resumed = _run(listening_router.get_in_progress_listening_attempt(
+        test_row["id"], authorization=authz, standalone=True,
+    ))
+    assert resumed["attempt"]["playback_started_at"]
+    after = _run(listening_router.get_published_listening_test(
+        test_row["id"], attempt_id=UUID(attempt_id), authorization=authz,
+    ))
+    assert after["audio_url"] is None
+
+
+def test_once_player_refuses_to_issue_audio_without_owned_attempt(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test_row = _seed_test(
+        fake,
+        scoring_policy="report_only",
+        replay_policy="once",
+        programme_id="general-listening-practice",
+        test_type="practice",
+    )
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.get_published_listening_test(
+            test_row["id"], authorization=authz,
+        ))
+    assert exc.value.status_code == 409
 
 
 def test_patch_fails_closed_when_the_test_type_cannot_be_resolved(monkeypatch):

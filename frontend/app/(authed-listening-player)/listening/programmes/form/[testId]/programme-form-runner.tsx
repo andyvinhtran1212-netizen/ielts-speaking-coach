@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
 import { createProgrammeAnswerDraftStore, createProgrammeAnswerWriteQueue, createProgrammeSaveStatusTracker } from '@/lib/listening-programme-answer-queue.mjs';
+import { confirmProgrammeOncePlayback, startProgrammeOncePlayback } from '@/lib/listening-programme-once-playback.mjs';
 import type { ListeningProgrammePlayerWire } from '@/lib/listening-programmes-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -24,7 +25,9 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
   const saveStatusTracker = useRef(createProgrammeSaveStatusTracker());
   const submitLock = useRef(false);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [onceState, setOnceState] = useState<'ready' | 'playing' | 'paused' | 'done'>('ready');
+  const onceClaimId = useRef('');
+  const [onceState, setOnceState] = useState<'ready' | 'starting' | 'playing' | 'paused' | 'unconfirmed' | 'done'>('ready');
+  const [onceMessage, setOnceMessage] = useState('');
 
   useEffect(() => {
     if (status === 'signed-out') window.location.replace('/login');
@@ -33,7 +36,11 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
     (async () => {
       const ready = await whenGlobalReady(() => !!window.api?.getWith && !!window.api?.postWith, 'window.api (programme form)');
       if (!ready || !active) throw new Error('API chưa sẵn sàng');
-      const test = row(await window.api.getWith<ListeningProgrammePlayerWire>(`/api/listening/tests/${encodeURIComponent(testId)}`, undefined, { signal: controller.signal }));
+      const progress = row(await window.api.getWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts/in-progress?standalone=true`, undefined, { signal: controller.signal }));
+      let attempt = row(progress.attempt);
+      if (!attempt.attempt_id) attempt = row(await window.api.postWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts?standalone=true`, {}));
+      const attemptId = String(attempt.attempt_id || '');
+      const test = row(await window.api.getWith<ListeningProgrammePlayerWire>(`/api/listening/tests/${encodeURIComponent(testId)}?attempt_id=${encodeURIComponent(attemptId)}`, undefined, { signal: controller.signal }));
       if (test.scoring_policy !== 'report_only') throw new Error('Bài này không thuộc chương trình report-only.');
       const sections = Array.isArray(test.sections) ? test.sections : [];
       const exercises = sections.flatMap((value) => {
@@ -45,15 +52,11 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
         const question = row(value); const options = row(question.options);
         return { q_num: Number(question.q_num), prompt: String(question.prompt || ''), response_type: String(question.response_type || ''), options: Object.fromEntries(Object.entries(options).map(([key, option]) => [key, String(option)])), visual_url: question.visual_url ? String(question.visual_url) : undefined, visual_accessibility: question.visual_accessibility ? String(question.visual_accessibility) : undefined };
       }).filter((question) => question.q_num > 0);
-      const progress = row(await window.api.getWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts/in-progress?standalone=true`, undefined, { signal: controller.signal }));
-      let attempt = row(progress.attempt);
-      if (!attempt.attempt_id) attempt = row(await window.api.postWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts?standalone=true`, {}));
       const restored: Record<number, string> = {};
       for (const value of (Array.isArray(attempt.answers) ? attempt.answers : [])) { const answer = row(value); restored[Number(answer.q_num)] = String(answer.user_answer || ''); }
       if (!active) return;
       saveStatusTracker.current.reset();
       setSaveState('idle');
-      const attemptId = String(attempt.attempt_id || '');
       const store = createProgrammeAnswerDraftStore(localStorage, attemptId);
       const recovered = store.load();
       const queue = createProgrammeAnswerWriteQueue(async (qNum, value) => {
@@ -73,8 +76,12 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
           if (active) setSaveState(saveStatusTracker.current.fail(operation.token));
         });
       }
-      setOnceState(localStorage.getItem(`listening-once:${attemptId}`) ? 'done' : 'ready');
-      setState({ status: 'ready', attemptId, form: { title: String(test.title || 'Bài luyện nghe'), programmeId: String(test.programme_id || ''), lessonId: String(test.listening_lesson_id || ''), replayPolicy: String(test.replay_policy || 'allowed'), audioUrl: String(test.audio_url || ''), questions } });
+      onceClaimId.current = crypto.randomUUID();
+      setOnceMessage('');
+      const replayPolicy = String(test.replay_policy || 'allowed');
+      const audioUrl = String(test.audio_url || '');
+      setOnceState(attempt.playback_started_at || (replayPolicy === 'once' && !audioUrl) ? 'done' : 'ready');
+      setState({ status: 'ready', attemptId, form: { title: String(test.title || 'Bài luyện nghe'), programmeId: String(test.programme_id || ''), lessonId: String(test.listening_lesson_id || ''), replayPolicy, audioUrl, questions } });
     })().catch((error: unknown) => { if (active && !(error instanceof DOMException && error.name === 'AbortError')) setState({ status: 'error', message: error instanceof Error ? error.message : 'Không tải được bài nghe.' }); });
     return () => { active = false; controller.abort(); Object.values(pending.current).forEach(window.clearTimeout); pending.current = {}; saveQueue.current = null; draftStore.current = null; submitLock.current = false; };
   }, [status, testId, user?.id]);
@@ -126,16 +133,38 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
       setSubmitting(false);
     }
   }
-  function controlOnce() {
-    if (state.status !== 'ready' || onceState === 'done' || !audioRef.current) return;
+  async function acknowledgeOncePlayback() {
+    if (state.status !== 'ready') return false;
+    const result = row(await window.api.postWith<unknown>(`/api/listening/tests/attempts/${state.attemptId}/playback-started`, { playback_claim_id: onceClaimId.current }));
+    return result.accepted === true;
+  }
+  async function controlOnce() {
+    if (state.status !== 'ready' || ['starting', 'done'].includes(onceState) || !audioRef.current) return;
     if (onceState === 'playing') {
       audioRef.current.pause();
       setOnceState('paused');
       return;
     }
-    if (onceState === 'ready') localStorage.setItem(`listening-once:${state.attemptId}`, 'used');
-    setOnceState('playing');
-    void audioRef.current.play();
+    if (onceState === 'unconfirmed') {
+      const result = await confirmProgrammeOncePlayback(audioRef.current, acknowledgeOncePlayback);
+      setOnceState(result.state);
+      setOnceMessage(result.message);
+      return;
+    }
+    if (onceState === 'paused') {
+      try {
+        await audioRef.current.play();
+        setOnceMessage('');
+        setOnceState('playing');
+      } catch {
+        setOnceMessage('Trình duyệt chưa phát được audio. Hãy thử lại.');
+      }
+      return;
+    }
+    setOnceState('starting');
+    const result = await startProgrammeOncePlayback(audioRef.current, acknowledgeOncePlayback);
+    setOnceState(result.state);
+    setOnceMessage(result.message);
   }
 
   if (state.status === 'loading') return <main className="programme-runner programme-state" role="status">Đang chuẩn bị bài nghe…</main>;
@@ -144,7 +173,7 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
   return <main className="programme-runner">
     <header className="programme-runner__header"><a href={`/listening/${lessonProgrammePath}/${state.form.lessonId}`}>← Bài học</a><div><p>Report-only · Không quy đổi band</p><h1>{state.form.title}</h1></div><span>{answeredCount}/{state.form.questions.length} câu</span></header>
     <section className="programme-audio" aria-label="Audio bài nghe">
-      {state.form.replayPolicy === 'once' ? <><audio ref={audioRef} src={state.form.audioUrl} preload="metadata" onEnded={() => setOnceState('done')} /><button type="button" onClick={controlOnce} disabled={onceState === 'done'}>{onceState === 'ready' ? '▶ Bắt đầu lượt nghe duy nhất' : onceState === 'playing' ? 'Tạm dừng' : onceState === 'paused' ? 'Tiếp tục nghe' : 'Đã sử dụng lượt nghe'}</button></> : <audio src={state.form.audioUrl} controls preload="metadata" />}
+      {state.form.replayPolicy === 'once' ? <><audio ref={audioRef} src={state.form.audioUrl || undefined} preload="metadata" onEnded={() => setOnceState('done')} /><button type="button" onClick={() => void controlOnce()} disabled={onceState === 'starting' || onceState === 'done'}>{onceState === 'ready' ? '▶ Bắt đầu lượt nghe duy nhất' : onceState === 'starting' ? 'Đang bắt đầu…' : onceState === 'playing' ? 'Tạm dừng' : onceState === 'paused' ? 'Tiếp tục nghe' : onceState === 'unconfirmed' ? 'Xác nhận lượt nghe' : 'Đã sử dụng lượt nghe'}</button>{onceMessage ? <p role="status">{onceMessage}</p> : null}</> : <audio src={state.form.audioUrl} controls preload="metadata" />}
       <p>{state.form.replayPolicy === 'once' ? 'Bài này chỉ cho phép bắt đầu audio một lần trong lượt làm hiện tại.' : 'Bạn có thể nghe lại để luyện tập.'}</p>
     </section>
     <section className="programme-questions">

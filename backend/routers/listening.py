@@ -4485,6 +4485,11 @@ class _ListeningAttemptRendererAffinityRequest(BaseModel):
     renderer_affinity: Literal["legacy", "next"]
 
 
+class _ListeningAttemptPlaybackStartedRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    playback_claim_id: uuid.UUID
+
+
 def _student_audio_url_for_test(test_row: dict) -> tuple[str | None, str | None, int | None]:
     """Pick the right audio for a student player.
 
@@ -5272,14 +5277,18 @@ def _assert_listening_exam_content_allowed(
         raise HTTPException(404, "Test bundle not found or not published")
 
 
-def _assemble_listening_player_payload(test: dict) -> dict:
+def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True) -> dict:
     """Build the student-safe player contract for public and admin preview."""
     from services import listening_test_grader as grader
 
     test_id = str(test["id"])
-    audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
-    if not audio_url:
-        raise HTTPException(422, "Test chưa có audio sẵn sàng — vui lòng quay lại sau.")
+    audio_duration = test.get("full_audio_duration_seconds")
+    audio_url = None
+    audio_path = None
+    if include_audio:
+        audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
+        if not audio_url:
+            raise HTTPException(422, "Test chưa có audio sẵn sàng — vui lòng quay lại sau.")
 
     section_rows = (
         supabase_admin.table("listening_content")
@@ -5391,14 +5400,16 @@ async def admin_listening_player_preview(
 async def get_published_listening_test(
     test_id: uuid.UUID,
     class_item: str | None = None,
+    attempt_id: uuid.UUID | None = None,
     authorization: str | None = Header(default=None),
 ):
     """Fetch a published test bundle for the student player.
 
-    Includes a signed audio URL (2h TTL — covers test duration with
-    buffer), 4 section rows with narrator intros, and the test's
-    exercises **with answer keys stripped** (security: students must
-    never see the answer key on this endpoint).
+    Includes a signed audio URL (2h TTL — covers test duration with buffer),
+    section rows with narrator intros, and exercises **with answer keys
+    stripped**. A ``replay_policy=once`` form additionally requires its owned
+    active ``attempt_id``; after playback has started, the same safe bundle is
+    returned without another audio URL.
     """
     _user = await _require_auth(authorization)
     test_id = str(test_id)
@@ -5415,7 +5426,18 @@ async def get_published_listening_test(
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
     _assert_listening_exam_content_allowed(test, _user.get("id"), class_item)
-    return _assemble_listening_player_payload(test)
+    include_audio = True
+    if test.get("replay_policy") == "once":
+        if attempt_id is None:
+            raise HTTPException(409, "Bài nghe một lượt cần một attempt đang hoạt động.")
+        attempt = _fetch_attempt_or_404(str(attempt_id), _user["id"])
+        if str(attempt.get("test_id")) != test_id:
+            raise HTTPException(422, "Attempt không thuộc bài nghe này.")
+        if attempt.get("status") != "in_progress":
+            raise HTTPException(422, "Attempt không còn hoạt động.")
+        require_resume_active(attempt)
+        include_audio = not bool(attempt.get("playback_started_at"))
+    return _assemble_listening_player_payload(test, include_audio=include_audio)
 
 
 # ── Test-linked dictation (chép chính tả) ────────────────────────────
@@ -6689,7 +6711,7 @@ async def get_in_progress_listening_attempt(
         supabase_admin.table("listening_test_attempts")
         .select(
             "id, started_at, created_at, answers, renderer_affinity, "
-            "resume_expires_at, status"
+            "resume_expires_at, status, playback_started_at"
         )
         .eq("user_id", user["id"])
         .eq("test_id", test_id)
@@ -6737,6 +6759,7 @@ async def get_in_progress_listening_attempt(
             ],
             "renderer_affinity": row.get("renderer_affinity"),
             "resume_expires_at": row.get("resume_expires_at"),
+            "playback_started_at": row.get("playback_started_at"),
         }
     }
 
@@ -6844,6 +6867,7 @@ async def start_listening_test_attempt(
         "started_at": started_at,
         "resume_expires_at": expires_at,
         "renderer_affinity": None if affinity_aware else "legacy",
+        "playback_started_at": None,
     }
 
 
@@ -6861,6 +6885,73 @@ def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
     if row.get("user_id") != user_id:
         raise HTTPException(403, "Attempt belongs to another user")
     return row
+
+
+@user_router.post("/tests/attempts/{attempt_id}/playback-started")
+async def acknowledge_listening_attempt_playback_started(
+    attempt_id: uuid.UUID,
+    body: _ListeningAttemptPlaybackStartedRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Atomically persist the single-play start for a report-only attempt.
+
+    The browser calls this only after ``HTMLMediaElement.play()`` resolves.
+    ``playback_claim_id`` makes a lost response safely retryable from the same
+    page, while a second browser/device receives ``accepted=false`` and must
+    stop its player. Once persisted, the player bundle no longer contains a
+    signed audio URL for this attempt.
+    """
+    user = await _require_auth(authorization)
+    attempt = _fetch_attempt_or_404(str(attempt_id), user["id"])
+    if attempt.get("status") != "in_progress":
+        raise HTTPException(422, "Attempt không còn hoạt động.")
+    require_resume_active(attempt)
+    test_rows = (
+        supabase_admin.table("listening_tests")
+        .select("id,replay_policy,scoring_policy")
+        .eq("id", attempt.get("test_id"))
+        .limit(1)
+        .execute().data or []
+    )
+    if not test_rows:
+        raise HTTPException(404, "Test bundle not found")
+    test = test_rows[0]
+    if test.get("replay_policy") != "once" or test.get("scoring_policy") != "report_only":
+        raise HTTPException(422, "Attempt này không dùng chính sách nghe một lượt.")
+
+    claim_id = str(body.playback_claim_id)
+    started_at = datetime.now(timezone.utc).isoformat()
+    claimed = (
+        supabase_admin.table("listening_test_attempts")
+        .update({
+            "playback_started_at": started_at,
+            "playback_claim_id": claim_id,
+        })
+        .eq("id", str(attempt_id))
+        .eq("user_id", user["id"])
+        .eq("status", "in_progress")
+        .is_("playback_started_at", "null")
+        .execute().data or []
+    )
+    if claimed:
+        return {
+            "attempt_id": str(attempt_id),
+            "accepted": True,
+            "playback_started_at": claimed[0].get("playback_started_at") or started_at,
+        }
+
+    canonical = _fetch_attempt_or_404(str(attempt_id), user["id"])
+    if canonical.get("status") != "in_progress":
+        raise HTTPException(422, "Attempt không còn hoạt động.")
+    require_resume_active(canonical)
+    canonical_started_at = canonical.get("playback_started_at")
+    if not canonical_started_at:
+        raise HTTPException(503, "Không thể xác nhận lượt nghe — hãy thử lại.")
+    return {
+        "attempt_id": str(attempt_id),
+        "accepted": canonical.get("playback_claim_id") == claim_id,
+        "playback_started_at": canonical_started_at,
+    }
 
 
 @user_router.post("/tests/attempts/{attempt_id}/renderer-affinity")
