@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '@/lib/auth/auth-provider';
-import { createProgrammeAnswerWriteQueue, createProgrammeSaveStatusTracker } from '@/lib/listening-programme-answer-queue.mjs';
+import { createProgrammeAnswerDraftStore, createProgrammeAnswerWriteQueue, createProgrammeSaveStatusTracker } from '@/lib/listening-programme-answer-queue.mjs';
 import type { ListeningProgrammePlayerWire } from '@/lib/listening-programmes-api';
 import { whenGlobalReady } from '@/lib/when-global-ready.mjs';
 
@@ -20,6 +20,7 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
   const [submitting, setSubmitting] = useState(false);
   const pending = useRef<Record<number, number>>({});
   const saveQueue = useRef<ReturnType<typeof createProgrammeAnswerWriteQueue> | null>(null);
+  const draftStore = useRef<ReturnType<typeof createProgrammeAnswerDraftStore> | null>(null);
   const saveStatusTracker = useRef(createProgrammeSaveStatusTracker());
   const submitLock = useRef(false);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -44,23 +45,38 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
         const question = row(value); const options = row(question.options);
         return { q_num: Number(question.q_num), prompt: String(question.prompt || ''), response_type: String(question.response_type || ''), options: Object.fromEntries(Object.entries(options).map(([key, option]) => [key, String(option)])), visual_url: question.visual_url ? String(question.visual_url) : undefined, visual_accessibility: question.visual_accessibility ? String(question.visual_accessibility) : undefined };
       }).filter((question) => question.q_num > 0);
-      const progress = row(await window.api.getWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts/in-progress`, undefined, { signal: controller.signal }));
+      const progress = row(await window.api.getWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts/in-progress?standalone=true`, undefined, { signal: controller.signal }));
       let attempt = row(progress.attempt);
-      if (!attempt.attempt_id) attempt = row(await window.api.postWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts`, {}));
+      if (!attempt.attempt_id) attempt = row(await window.api.postWith<unknown>(`/api/listening/tests/${encodeURIComponent(testId)}/attempts?standalone=true`, {}));
       const restored: Record<number, string> = {};
       for (const value of (Array.isArray(attempt.answers) ? attempt.answers : [])) { const answer = row(value); restored[Number(answer.q_num)] = String(answer.user_answer || ''); }
       if (!active) return;
-      setAnswers(restored);
       saveStatusTracker.current.reset();
       setSaveState('idle');
       const attemptId = String(attempt.attempt_id || '');
-      saveQueue.current = createProgrammeAnswerWriteQueue((qNum, value) =>
-        window.api.patchWith(`/api/listening/tests/attempts/${attemptId}/answers`, { q_num: qNum, user_answer: value }),
-      );
+      const store = createProgrammeAnswerDraftStore(localStorage, attemptId);
+      const recovered = store.load();
+      const queue = createProgrammeAnswerWriteQueue(async (qNum, value) => {
+        await window.api.patchWith(`/api/listening/tests/attempts/${attemptId}/answers`, { q_num: qNum, user_answer: value });
+        store.clearIfCurrent(qNum, value);
+      });
+      draftStore.current = store;
+      saveQueue.current = queue;
+      setAnswers({ ...restored, ...recovered });
+      for (const [rawQNum, value] of Object.entries(recovered)) {
+        const qNum = Number(rawQNum);
+        const operation = saveStatusTracker.current.begin(qNum);
+        setSaveState(operation.status);
+        void queue.enqueue(qNum, value).then(() => {
+          if (active) setSaveState(saveStatusTracker.current.succeed(operation.token));
+        }).catch(() => {
+          if (active) setSaveState(saveStatusTracker.current.fail(operation.token));
+        });
+      }
       setOnceState(localStorage.getItem(`listening-once:${attemptId}`) ? 'done' : 'ready');
       setState({ status: 'ready', attemptId, form: { title: String(test.title || 'Bài luyện nghe'), programmeId: String(test.programme_id || ''), lessonId: String(test.listening_lesson_id || ''), replayPolicy: String(test.replay_policy || 'allowed'), audioUrl: String(test.audio_url || ''), questions } });
     })().catch((error: unknown) => { if (active && !(error instanceof DOMException && error.name === 'AbortError')) setState({ status: 'error', message: error instanceof Error ? error.message : 'Không tải được bài nghe.' }); });
-    return () => { active = false; controller.abort(); Object.values(pending.current).forEach(window.clearTimeout); pending.current = {}; saveQueue.current = null; submitLock.current = false; };
+    return () => { active = false; controller.abort(); Object.values(pending.current).forEach(window.clearTimeout); pending.current = {}; saveQueue.current = null; draftStore.current = null; submitLock.current = false; };
   }, [status, testId, user?.id]);
 
   const answeredCount = useMemo(() => Object.values(answers).filter((value) => value.trim()).length, [answers]);
@@ -75,6 +91,7 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
   }
   function update(qNum: number, value: string, immediate = false) {
     if (submitLock.current) return;
+    draftStore.current?.remember(qNum, value);
     setAnswers((current) => ({ ...current, [qNum]: value }));
     if (pending.current[qNum]) window.clearTimeout(pending.current[qNum]);
     delete pending.current[qNum];
@@ -100,6 +117,7 @@ export function ProgrammeFormRunner({ testId }: { testId: string }) {
       await queue.flush(state.form.questions.map((question) => ({ qNum: question.q_num, value: answers[question.q_num] || '' })));
       setSaveState(tracker.finishFlush(operation.token));
       await window.api.postWith(`/api/listening/tests/attempts/${state.attemptId}/submit`, {});
+      draftStore.current?.clear();
       window.location.assign(`/listening/programmes/result/${state.attemptId}`);
     } catch {
       tracker.fail(operation.token);

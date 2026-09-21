@@ -6639,6 +6639,7 @@ async def get_in_progress_listening_attempt(
     sitting_id: str | None = None,
     class_item: str | None = None,
     authorization: str | None = Header(default=None),
+    standalone: bool = False,
 ):
     """The caller's still-open attempt at this test, or null.
 
@@ -6654,13 +6655,16 @@ async def get_in_progress_listening_attempt(
     attempt open on a test later reused by a mock exam would have the embed
     auto-resume that practice attempt and attach_attempt bind it to the sealed
     sitting — pulling practice answers into a real exam and corrupting both.
-    Standalone practice keeps the unscoped lookup.
+    Legacy callers keep the unscoped class lookup. New free-practice runners
+    send `standalone=true`, which excludes both class and mock attempts.
 
     Deliberately a separate endpoint rather than a field on the shared test
     bundle: that bundle is served to several callers and is cacheable, while
     this is per-user and must never be cached.
     """
     user = await _require_auth(authorization)
+    if standalone and (class_item or sitting_id):
+        raise HTTPException(422, "standalone cannot be combined with class_item or sitting_id")
     query = (
         supabase_admin.table("listening_test_attempts")
         .select(
@@ -6681,7 +6685,9 @@ async def get_in_progress_listening_attempt(
     # ONE-WAY, like nothing else here: opening the test from the library
     # (no class_item) may still resume a LINKED homework attempt. The student is
     # finishing work they started, and the link they already earned stands.
-    if class_item:
+    if standalone:
+        query = query.is_("class_assignment_item_id", "null")
+    elif class_item:
         query = query.eq("class_assignment_item_id", class_item)
 
     if sitting_id:
@@ -6722,6 +6728,7 @@ async def start_listening_test_attempt(
     body: _ListeningAttemptStartRequest | None = None,
     class_item: str | None = None,
     authorization: str | None = Header(default=None),
+    standalone: bool = False,
 ):
     """Open a new student attempt session. Marks any previously open
     in-progress attempt for the same (user, test) as abandoned so the
@@ -6732,6 +6739,8 @@ async def start_listening_test_attempt(
     GET /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
     """
     user = await _require_auth(authorization)
+    if standalone and class_item:
+        raise HTTPException(422, "standalone cannot be combined with class_item")
 
     # Verify the test is published + has audio.
     test_res = (
@@ -6767,14 +6776,20 @@ async def start_listening_test_attempt(
 
     admit_start()
     # Abandon any open attempts for this (user, test).
-    abandoned_result = (
+    abandon_query = (
         supabase_admin.table("listening_test_attempts")
         .update({"status": "abandoned"})
         .eq("user_id", user["id"])
         .eq("test_id", test_id)
         .eq("status", "in_progress")
-        .execute()
     )
+    if standalone:
+        abandon_query = (
+            abandon_query
+            .is_("class_assignment_item_id", "null")
+            .is_("sitting_id", "null")
+        )
+    abandoned_result = abandon_query.execute()
     note_abandoned_exam_attempts(abandoned_result, test_id=test_id, user_id=user["id"])
 
     attempt_id = str(uuid.uuid4())

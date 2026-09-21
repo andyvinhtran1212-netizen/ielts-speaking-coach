@@ -1,9 +1,56 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createProgrammeAnswerWriteQueue, createProgrammeSaveStatusTracker } from '../lib/listening-programme-answer-queue.mjs';
+import { createProgrammeAnswerDraftStore, createProgrammeAnswerWriteQueue, createProgrammeSaveStatusTracker } from '../lib/listening-programme-answer-queue.mjs';
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
+
+function memoryStorage() {
+  const values = new Map();
+  return {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: (key) => values.delete(key),
+  };
+}
+
+test('restores a textarea draft before its debounce can fire', () => {
+  const storage = memoryStorage();
+  createProgrammeAnswerDraftStore(storage, 'attempt-1').remember(7, 'draft response');
+
+  assert.deepEqual(createProgrammeAnswerDraftStore(storage, 'attempt-1').load(), {
+    7: 'draft response',
+  });
+});
+
+test('keeps an immediate checkbox draft until its delayed PATCH succeeds', async () => {
+  const storage = memoryStorage();
+  const drafts = createProgrammeAnswerDraftStore(storage, 'attempt-2');
+  let release;
+  const queue = createProgrammeAnswerWriteQueue(async (qNum, value) => {
+    await new Promise((resolve) => { release = resolve; });
+    drafts.clearIfCurrent(qNum, value);
+  });
+
+  drafts.remember(9, 'A, C');
+  const saving = queue.enqueue(9, 'A, C');
+  await tick();
+  assert.deepEqual(createProgrammeAnswerDraftStore(storage, 'attempt-2').load(), { 9: 'A, C' });
+
+  release();
+  await saving;
+  assert.deepEqual(drafts.load(), {});
+});
+
+test('an older PATCH completion cannot clear a newer local edit', () => {
+  const storage = memoryStorage();
+  const drafts = createProgrammeAnswerDraftStore(storage, 'attempt-3');
+  drafts.remember(4, 'older');
+  drafts.remember(4, 'newer');
+
+  drafts.clearIfCurrent(4, 'older');
+  assert.deepEqual(drafts.load(), { 4: 'newer' });
+});
 
 test('serializes one question and flushes the latest answer before submit', async () => {
   const calls = [];

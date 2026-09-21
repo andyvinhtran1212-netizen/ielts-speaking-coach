@@ -9,6 +9,7 @@ Bucket ↔ nguồn tham chiếu:
   listening-audio   ← listening_content.audio_storage_path
                       + listening_tests.full_audio_storage_path
                       + listening_tests.assembled_audio_storage_path
+                      + listening_package_stimuli.metadata->>visual_storage_path
   listening-images  ← listening_exercises.payload->>map_image_storage_path
   reading-images    ← reading_questions.payload->template->>image_storage_path
 
@@ -77,6 +78,11 @@ def _referenced_paths(sb) -> dict[str, set[str]]:
     for r in _fetch_all(sb, "listening_tests", "full_audio_storage_path,assembled_audio_storage_path"):
         refs["listening-audio"].add(r.get("full_audio_storage_path"))
         refs["listening-audio"].add(r.get("assembled_audio_storage_path"))
+    for r in _fetch_all(
+        sb, "listening_package_stimuli", "id,p:metadata->>visual_storage_path",
+        extra=lambda q: q.filter("metadata->>visual_storage_path", "not.is", "null"),
+    ):
+        refs["listening-audio"].add(r.get("p"))
     for r in _fetch_all(
         sb, "listening_exercises", "id,p:payload->>map_image_storage_path",
         extra=lambda q: q.filter("payload->>map_image_storage_path", "not.is", "null"),

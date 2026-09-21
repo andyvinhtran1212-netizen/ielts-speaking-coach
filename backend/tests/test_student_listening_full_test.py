@@ -710,6 +710,39 @@ def test_start_attempt_abandons_previous_in_progress(monkeypatch):
     assert any(a["status"] == "in_progress" for a in fake.tables["listening_test_attempts"])
 
 
+def test_explicit_standalone_start_never_abandons_class_or_mock_work(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    for row in (
+        {"id": "free", "class_assignment_item_id": None, "sitting_id": None},
+        {"id": "homework", "class_assignment_item_id": "item-1", "sitting_id": None},
+        {"id": "mock", "class_assignment_item_id": None, "sitting_id": "sitting-1"},
+    ):
+        fake.tables["listening_test_attempts"].append({
+            **row, "test_id": test["id"], "user_id": "user-1",
+            "status": "in_progress", "answers": [],
+        })
+
+    _run(listening_router.start_listening_test_attempt(
+        test_id=test["id"], authorization=authz, standalone=True,
+    ))
+
+    by_id = {a["id"]: a for a in fake.tables["listening_test_attempts"]}
+    assert by_id["free"]["status"] == "abandoned"
+    assert by_id["homework"]["status"] == "in_progress"
+    assert by_id["mock"]["status"] == "in_progress"
+
+
+def test_standalone_start_rejects_a_class_scope(monkeypatch):
+    _fake, authz = _patch(monkeypatch)
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.start_listening_test_attempt(
+            test_id="test-1", class_item="item-1", authorization=authz,
+            standalone=True,
+        ))
+    assert exc.value.status_code == 422
+
+
 # ── PATCH answers ──────────────────────────────────────────────────────────
 
 
@@ -747,6 +780,31 @@ def test_standalone_resume_still_finds_a_practice_attempt(monkeypatch):
         test_id=test["id"], sitting_id=None, authorization=authz,
     ))
     assert out["attempt"]["attempt_id"] == "solo"
+
+
+def test_explicit_standalone_resume_excludes_a_homework_attempt(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    fake.tables["listening_test_attempts"].append({
+        "id": "homework", "test_id": test["id"], "user_id": "user-1",
+        "status": "in_progress", "sitting_id": None,
+        "class_assignment_item_id": "item-1", "answers": [],
+    })
+
+    out = _run(listening_router.get_in_progress_listening_attempt(
+        test_id=test["id"], authorization=authz, standalone=True,
+    ))
+    assert out["attempt"] is None
+
+
+def test_standalone_resume_rejects_assignment_or_sitting_scope(monkeypatch):
+    _fake, authz = _patch(monkeypatch)
+    for scope in ({"class_item": "item-1"}, {"sitting_id": "sitting-1"}):
+        with pytest.raises(HTTPException) as exc:
+            _run(listening_router.get_in_progress_listening_attempt(
+                test_id="test-1", authorization=authz, standalone=True, **scope,
+            ))
+        assert exc.value.status_code == 422
 
 
 def test_patch_answer_upserts_by_q_num(monkeypatch):

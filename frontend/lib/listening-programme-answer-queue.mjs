@@ -34,6 +34,64 @@ export function createProgrammeAnswerWriteQueue(write) {
 }
 
 /**
+ * Keep the latest visible answer in synchronous browser storage until the
+ * server confirms that exact value. This is the page-exit safety net for the
+ * programme runner: a debounce timer or an in-flight PATCH may be interrupted
+ * by navigation, but the next load can still restore and retry the answer.
+ *
+ * `clearIfCurrent` deliberately compares values before deleting. An older
+ * PATCH finishing after a newer edit must never erase the newer local draft.
+ * Storage failures are fail-soft because private browsing or a full quota
+ * must not make the exercise unusable.
+ *
+ * @param {{getItem(key: string): string | null, setItem(key: string, value: string): void, removeItem(key: string): void}} storage
+ * @param {string} attemptId
+ */
+export function createProgrammeAnswerDraftStore(storage, attemptId) {
+  const key = `listening-programme-draft:${attemptId}`;
+
+  function load() {
+    try {
+      const raw = storage.getItem(key);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+      return Object.fromEntries(Object.entries(parsed)
+        .filter(([qNum, value]) => Number(qNum) > 0 && typeof value === 'string')
+        .map(([qNum, value]) => [Number(qNum), value]));
+    } catch {
+      return {};
+    }
+  }
+
+  function write(values) {
+    try {
+      if (Object.keys(values).length) storage.setItem(key, JSON.stringify(values));
+      else storage.removeItem(key);
+    } catch {
+      // Fail-soft: the network autosave remains available.
+    }
+  }
+
+  function remember(qNum, value) {
+    write({ ...load(), [qNum]: value });
+  }
+
+  function clearIfCurrent(qNum, value) {
+    const values = load();
+    if (values[qNum] !== value) return;
+    delete values[qNum];
+    write(values);
+  }
+
+  function clear() {
+    try { storage.removeItem(key); } catch { /* fail-soft */ }
+  }
+
+  return { key, load, remember, clearIfCurrent, clear };
+}
+
+/**
  * Track every in-flight answer write instead of treating the newest write
  * anywhere in the form as authoritative. This keeps a failed write for one
  * question visible even when another question finishes successfully.

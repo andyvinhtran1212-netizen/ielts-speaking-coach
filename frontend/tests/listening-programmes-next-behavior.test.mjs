@@ -27,6 +27,13 @@ test('programme runner autosaves and routes to self-review', () => {
   assert.match(runner, /Nộp và tự đối chiếu/);
   assert.match(runner, /\/listening\/programmes\/result\/\$\{state\.attemptId\}/);
   assert.match(runner, /createProgrammeAnswerWriteQueue/);
+  assert.match(runner, /createProgrammeAnswerDraftStore/);
+  assert.match(runner, /draftStore\.current\?\.remember\(qNum, value\)/);
+  assert.match(runner, /setAnswers\(\{ \.\.\.restored, \.\.\.recovered \}\)/);
+  assert.match(runner, /store\.clearIfCurrent\(qNum, value\)/);
+  assert.match(runner, /draftStore\.current\?\.clear\(\)/);
+  assert.match(runner, /attempts\/in-progress\?standalone=true/);
+  assert.match(runner, /attempts\?standalone=true/);
   assert.match(runner, /queue\.flush\(state\.form\.questions\.map/);
   assert.match(runner, /submitLock\.current = true/);
   assert.match(runner, /disabled=\{submitting\}/);
