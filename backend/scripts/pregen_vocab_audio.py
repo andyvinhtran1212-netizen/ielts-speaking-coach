@@ -227,6 +227,12 @@ def main() -> None:
                          "exclude pure exam-list imports.")
     args = ap.parse_args()
 
+    # A partial engine switch can leave one OpenAI clip and one Kokoro clip on
+    # the same card because the persisted URLs do not record their engine. Keep
+    # Kokoro an all-audio replacement so every card has a consistent voice.
+    if args.engine == "kokoro" and (not args.regen or args.headword_only):
+        ap.error("--engine kokoro requires --regen and cannot use --headword-only")
+
     rows = _rows_needing_audio(
         regen=args.regen,
         topic_cards_only=args.topic_cards_only,
