@@ -227,6 +227,11 @@ def main() -> None:
                          "exclude pure exam-list imports.")
     args = ap.parse_args()
 
+    if (args.engine == "openai" and args.voice
+            and args.voice not in tts_audio.OPENAI_VOICES):
+        allowed = ", ".join(sorted(tts_audio.OPENAI_VOICES))
+        ap.error(f"unsupported OpenAI voice {args.voice!r}; choose one of: {allowed}")
+
     # A partial engine switch can leave one OpenAI clip and one Kokoro clip on
     # the same card because the persisted URLs do not record their engine. Keep
     # Kokoro an all-audio replacement so every card has a consistent voice.
