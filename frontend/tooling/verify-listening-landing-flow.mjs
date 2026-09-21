@@ -17,6 +17,30 @@ const validOverview = {
   tests: { full: 2, mini: 0, drill: 4, practice: 3 },
   content: 5,
   exercise_modes: { dictation: 1, gist: 0, true_false: 0, mcq: '2', mini_test: 99, unknown: 7 },
+  programmes: [
+    {
+      id: 'general-listening-practice', title: 'General Listening', description: 'General programme',
+      lesson_count: 56, form_count: 143, completed_form_count: 7, in_progress_form_count: 1,
+    },
+    {
+      id: 'ielts-listening-practice', title: 'IELTS Listening', description: 'IELTS programme',
+      lesson_count: 10, form_count: 16, completed_form_count: 2, in_progress_form_count: 0,
+    },
+  ],
+  resume: {
+    attempt_id: 'attempt-resume', test_id: 'test-resume', title: 'General 01 — Form A',
+    programme_id: 'general-listening-practice', answered_count: 3, item_count: 10,
+    resume_expires_at: '2026-09-22T10:00:00Z',
+    href: '/listening/programmes/form/test-resume?attempt=attempt-resume',
+  },
+  recent: [
+    {
+      attempt_id: 'attempt-recent', title: 'IELTS Practice 01', programme_id: 'ielts-listening-practice',
+      checked_count: 4, correct_count: 3, unscored_count: 6,
+      href: '/listening/programmes/result/attempt-recent',
+    },
+  ],
+  partial_data: true,
 };
 const results = [];
 const check = (name, ok, detail = '') => {
@@ -57,7 +81,7 @@ await page.route('**/*', async (route) => {
     const body = scenario === 'malformed'
       ? { tests: 'bad', content: '5', exercise_modes: null }
       : scenario === 'no-modes'
-        ? { tests: {}, content: 5, exercise_modes: {} }
+        ? { ...validOverview, content: 5, exercise_modes: {}, resume: null, recent: [], partial_data: false }
         : validOverview;
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   }
@@ -66,26 +90,29 @@ await page.route('**/*', async (route) => {
 });
 
 await page.goto(BASE + ROUTE, { waitUntil: 'domcontentloaded' });
-await page.locator('#exam-empty').waitFor({ state: 'visible' });
-check('payload lỗi hình dạng trở thành empty state trung thực',
-  await page.locator('#exam-empty').isVisible()
-    && await page.locator('[data-mode="full-test"]').count() === 0);
+await page.locator('#listening-next-title').waitFor({ state: 'visible' });
+check('payload lỗi hình dạng trở thành gợi ý an toàn',
+  (await page.locator('#listening-next-title').innerText()).includes('Chọn một bài nghe')
+    && (await page.locator('.listening-resume a').getAttribute('href')) === '/listening/analytics'
+    && await page.locator('.listening-programme-card').count() === 0);
 check('content không đúng kiểu số không mở library',
   await page.locator('#section-library').count() === 0);
 check('analytics luôn còn lối vào', await page.locator('[data-mode="analytics"]').isVisible());
 
 scenario = 'valid';
 await page.reload({ waitUntil: 'domcontentloaded' });
-await page.locator('[data-mode="full-test"]').waitFor({ state: 'visible' });
-check('chỉ render exam cards có count dương',
-  await page.locator('[data-mode="full-test"]').count() === 1
-    && await page.locator('[data-mode="mini-test"]').count() === 0
-    && await page.locator('[data-mode="skills-practice"]').count() === 1
-    && await page.locator('[data-mode="practice"]').count() === 1);
-check('badge phản ánh đúng canonical overview counts',
-  (await page.locator('[data-mode="full-test"] .mode-card__badge').textContent())?.trim() === '2 bài'
-    && (await page.locator('[data-mode="skills-practice"] .mode-card__badge').textContent())?.trim() === '4 bài'
-    && (await page.locator('[data-mode="practice"] .mode-card__badge').textContent())?.trim() === '3 bài');
+await page.locator('#listening-resume-title').waitFor({ state: 'visible' });
+check('ưu tiên đúng bài programme đang làm dở',
+  (await page.locator('#listening-resume-title').innerText()) === 'General 01 — Form A'
+    && (await page.locator('.listening-resume a').getAttribute('href')) === '/listening/programmes/form/test-resume?attempt=attempt-resume');
+check('render đủ hai chương trình cùng tiến độ canonical',
+  await page.locator('.listening-programme-card').count() === 2
+    && (await page.locator('.listening-programme-card').nth(0).getAttribute('href')) === '/listening/general'
+    && (await page.locator('.listening-programme-card').nth(1).getAttribute('href')) === '/listening/ielts'
+    && (await page.locator('.listening-programme-card').nth(0).locator('[role="progressbar"]').getAttribute('aria-valuenow')) === '5');
+check('hoạt động gần đây trỏ tới kết quả report-only',
+  (await page.locator('.listening-recent__list a').getAttribute('href')) === '/listening/programmes/result/attempt-recent'
+    && (await page.locator('.listening-recent__result').innerText()).includes('3/4 câu tự động kiểm tra'));
 check('library chỉ mở khi có content và runnable mode',
   await page.locator('#section-library').isVisible()
     && (await page.locator('[data-mode="browse"] .mode-card__badge').textContent())?.trim() === '5 bài');
@@ -94,27 +121,26 @@ check('mode labels dùng allowlist đúng thứ tự, bỏ mini_test và unknown
   browseLede.includes('Chép chính tả · Trắc nghiệm')
     && !browseLede.includes('mini_test') && !browseLede.includes('unknown'));
 check('mọi card giữ đúng destination',
-  (await page.locator('[data-mode="full-test"]').getAttribute('href')) === '/listening/tests'
-    && (await page.locator('[data-mode="skills-practice"]').getAttribute('href')) === '/listening/skills'
-    && (await page.locator('[data-mode="practice"]').getAttribute('href')) === '/listening/practice'
-    && (await page.locator('[data-mode="browse"]').getAttribute('href')) === '/listening/browse'
+  (await page.locator('[data-mode="browse"]').getAttribute('href')) === '/listening/browse'
     && (await page.locator('[data-mode="analytics"]').getAttribute('href')) === '/listening/analytics');
+check('partial-data warning không che giấu trạng thái tiến độ',
+  (await page.locator('.error-banner[role="status"]').innerText()).includes('Một phần tiến độ'));
 
 scenario = 'no-modes';
 await page.reload({ waitUntil: 'domcontentloaded' });
-await page.locator('#exam-empty').waitFor({ state: 'visible' });
+await page.locator('#listening-next-title').waitFor({ state: 'visible' });
 check('content rows đơn lẻ không tạo dead-end library card',
-  await page.locator('#section-library').count() === 0);
+  await page.locator('#section-library').count() === 0
+    && await page.locator('.listening-programme-card').count() === 2);
 
 scenario = 'error';
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.locator('#landing-error').waitFor({ state: 'visible' });
-check('API lỗi vẫn mở bốn thư viện đề mà không bịa count',
-  await page.locator('[data-mode="full-test"]').count() === 1
-    && await page.locator('[data-mode="mini-test"]').count() === 1
-    && await page.locator('[data-mode="skills-practice"]').count() === 1
-    && await page.locator('[data-mode="practice"]').count() === 1
-    && await page.locator('.mode-card__badge').count() === 0);
+check('API lỗi vẫn mở hai thư viện programme mà không bịa count',
+  await page.locator('.listening-programme-card').count() === 2
+    && (await page.locator('.listening-programme-card').nth(0).getAttribute('href')) === '/listening/general'
+    && (await page.locator('.listening-programme-card').nth(1).getAttribute('href')) === '/listening/ielts'
+    && await page.locator('.listening-programme-card__progress').count() === 0);
 check('API lỗi không mở content library chưa xác minh',
   await page.locator('#section-library').count() === 0);
 check('thông báo lỗi chung không lộ chi tiết backend',
