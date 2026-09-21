@@ -113,6 +113,27 @@ export function listeningTableCellLines(segments) {
   return lines;
 }
 
+/**
+ * Split an authored instruction into semantic paragraphs without injecting
+ * HTML. Matching blocks commonly contain a question followed by a directive;
+ * keeping both in one paragraph makes the task difficult to scan.
+ */
+export function listeningInstructionParts(raw) {
+  const text = String(raw ?? '').trim();
+  if (!text) return [];
+  const parts = text
+    .replace(/([.?!])\s+(?=[A-Z])/g, '$1\u0000')
+    .replace(/\r?\n+/g, '\u0000')
+    .split('\u0000')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const directive = /^(Choose|Write|Complete|Label|Match|Answer|Select)\b/i;
+  return parts.map((part) => Object.freeze({
+    text: part,
+    role: directive.test(part) ? 'directive' : (/\?$/.test(part) ? 'question' : null),
+  }));
+}
+
 export function listeningTestParams(search) {
   const params = new URLSearchParams(search || '');
   const testId = (params.get('id') || '').trim();

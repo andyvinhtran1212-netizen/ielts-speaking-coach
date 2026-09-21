@@ -27,6 +27,7 @@ const read = (rel) => readFileSync(path.join(REPO_ROOT, rel), 'utf8');
 
 const JS = read('frontend/js/listening-test-player.js');
 const CSS = read('frontend/css/ielts-test-paper.css');
+const NEXT_CSS = read('frontend/css/listening-test-next.css');
 
 /** Lấy chính hàm cellLines trong file nguồn ra chạy — test hành vi, không so chuỗi. */
 function loadCellLines() {
@@ -104,6 +105,11 @@ describe('ô bảng — ngắt dòng theo dữ liệu, không ngắt bừa', () 
     const line = CSS.indexOf('.ielts-table-line {');
     assert.ok(shared > -1 && line > shared,
       '.ielts-table-line phải nằm SAU khối th/td đã đóng');
+  });
+
+  test('bảng rộng cuộn trong container thay vì làm tràn toàn trang', () => {
+    assert.match(NEXT_CSS, /\.listening-next-shell \.ielts-table-container \{[^}]*max-width:\s*100%/);
+    assert.match(NEXT_CSS, /\.listening-next-shell \.ielts-table-container \{[^}]*overflow-x:\s*auto/);
   });
 });
 

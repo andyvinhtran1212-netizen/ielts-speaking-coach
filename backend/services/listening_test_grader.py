@@ -136,6 +136,8 @@ _LETTER_SET_RE = re.compile(r"^[A-H](\s*,\s*[A-H])+$", re.IGNORECASE)
 def _letter_set(raw: str | None) -> list[str] | None:
     """"A, D" → ["a", "d"]. Anything else → None."""
     s = str(raw or "").strip()
+    if s.startswith("(") and s.endswith(")") and s.count("(") == s.count(")") == 1:
+        s = s[1:-1].strip()
     if not _LETTER_SET_RE.match(s):
         return None
     return [p.strip().lower() for p in s.split(",")]
@@ -173,9 +175,17 @@ def _expected_letters(grp: list[dict[str, Any]]) -> list[str]:
 
 def answer_matches(user: str | None, expected: str, alternatives: list[str]) -> bool:
     """Compare a user answer against the canonical answer + its
-    alternatives. Hyphenated forms count as single words (no special
-    handling required — normalisation keeps the hyphen).
+    alternatives. Cambridge answer keys sometimes retain their printed
+    shorthand in persisted rows: "(food) consumption" means both
+    "consumption" and "food consumption", while "flavour / flavor" means
+    either side of the slash. Expand those authored conventions at comparison
+    time as a compatibility guard; importers should still store the explicit
+    primary/alternatives shape.
+
+    Hyphenated forms count as single words (no special handling required —
+    normalisation keeps the hyphen).
     """
+    raw_user = str(user or "").strip()
     norm_user = normalize_answer(user)
     if not norm_user:
         return False
@@ -183,8 +193,31 @@ def answer_matches(user: str | None, expected: str, alternatives: list[str]) -> 
     for cand in candidates:
         if not cand:
             continue
-        if normalize_answer(cand) == norm_user:
-            return True
+        text = str(cand).strip()
+        # Only a slash surrounded by whitespace is Cambridge answer-key
+        # shorthand. Compact forms such as 24/04, and/or and input/output are
+        # literal text and must remain intact.
+        slash_parts = [text]
+        if re.search(r"\s/\s", text):
+            slash_parts = [
+                part.strip()
+                for part in re.split(r"\s+/\s+", text)
+                if part.strip()
+            ]
+        for part in slash_parts:
+            # Preserve byte-exact canonical round trips without sending the
+            # authored parentheses through punctuation-stripping
+            # normalisation, which would also accept malformed unmatched
+            # parentheses such as ``an) apron``.
+            if raw_user == part:
+                return True
+            variants = [part]
+            if re.search(r"\([^()]+\)", part):
+                without_optional = re.sub(r"\s*\([^()]+\)\s*", " ", part)
+                with_optional = part.replace("(", "").replace(")", "")
+                variants = [without_optional, with_optional]
+            if any(normalize_answer(variant) == norm_user for variant in variants):
+                return True
     return False
 
 

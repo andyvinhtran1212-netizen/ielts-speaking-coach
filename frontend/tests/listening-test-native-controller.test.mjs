@@ -11,6 +11,7 @@ import {
   listeningAnswersFromRows,
   listeningDictationHref,
   listeningInlineTokens,
+  listeningInstructionParts,
   listeningLibraryHref,
   listeningQuestions,
   listeningRendererHref,
@@ -145,6 +146,18 @@ describe('native Listening test controller', () => {
     ]);
   });
 
+  test('splits matching questions from directives by semantic role', () => {
+    assert.deepEqual(listeningInstructionParts(
+      'What comment do the students make? Choose FOUR answers from the box.',
+    ), [
+      { text: 'What comment do the students make?', role: 'question' },
+      { text: 'Choose FOUR answers from the box.', role: 'directive' },
+    ]);
+    assert.deepEqual(listeningInstructionParts('Write ONE WORD ONLY.'), [
+      { text: 'Write ONE WORD ONLY.', role: 'directive' },
+    ]);
+  });
+
   test('retries transient errors but fails validation errors immediately', () => {
     for (const status of [408, 425, 429, 500, 503]) assert.equal(isRetriableListeningSave({ status }), true);
     assert.equal(isRetriableListeningSave(new TypeError('network')), true);
@@ -243,6 +256,7 @@ describe('native Listening test route contract', () => {
     assert.match(page, /\['mcq_letter_label', 'plan_label'\].*SelectTemplate/);
     assert.match(page, /supportingVisual.*payload\.map_image_url/s);
     assert.match(page, /listening-next-supporting-visual/);
+    assert.match(page, /listeningInstructionParts/);
     assert.match(page, /FormTemplate/);
     assert.match(page, /TableTemplate/);
     assert.match(page, /NotesTemplate/);
