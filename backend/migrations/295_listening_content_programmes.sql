@@ -321,6 +321,10 @@ DECLARE
     v_keep_id UUID;
     v_created BOOLEAN := FALSE;
     v_acquired_at TIMESTAMP WITH TIME ZONE;
+    v_merged_answers JSONB := '[]'::JSONB;
+    v_playback_started_at TIMESTAMP WITH TIME ZONE;
+    v_playback_claim_id UUID;
+    v_renderer_affinity TEXT;
 BEGIN
     IF p_test_id IS NULL OR p_user_id IS NULL THEN
         RAISE EXCEPTION 'listening_programme_attempt_invalid_scope'
@@ -339,7 +343,6 @@ BEGIN
     PERFORM pg_advisory_xact_lock(
         hashtextextended(p_user_id::TEXT || ':' || p_test_id::TEXT, 0)
     );
-    v_acquired_at := clock_timestamp();
 
     IF NOT EXISTS (
         SELECT 1
@@ -351,6 +354,21 @@ BEGIN
         RAISE EXCEPTION 'listening_programme_attempt_not_available'
             USING ERRCODE = '55000';
     END IF;
+
+    -- Answer saves do not take the advisory lock. Lock every candidate row
+    -- before reading state so a concurrent save either lands before this
+    -- merge or rechecks the post-merge status after this transaction commits.
+    PERFORM target.id
+      FROM public.listening_test_attempts AS target
+     WHERE target.test_id = p_test_id
+       AND target.user_id = p_user_id
+       AND target.status = 'in_progress'
+       AND target.scoring_policy = 'report_only'
+       AND target.class_assignment_item_id IS NULL
+       AND target.sitting_id IS NULL
+     ORDER BY target.id
+     FOR UPDATE;
+    v_acquired_at := clock_timestamp();
 
     SELECT target.id
       INTO v_keep_id
@@ -365,8 +383,110 @@ BEGIN
      ORDER BY target.created_at DESC, target.id DESC
      LIMIT 1;
 
-    -- Preserve the newest resumable row and close any expired or historical
-    -- duplicate rows left by callers that predate this atomic acquire path.
+    IF v_keep_id IS NOT NULL THEN
+        -- A pre-fix two-browser race may have split answers across multiple
+        -- resumable rows. Keep the newest answer for each q_num, using stable
+        -- attempt/array ordering as deterministic tie-breakers.
+        SELECT COALESCE(
+                   jsonb_agg(chosen.answer ORDER BY
+                       CASE
+                           WHEN chosen.q_num ~ '^[0-9]{1,9}$'
+                               THEN LPAD(chosen.q_num, 10, '0')
+                           ELSE 'z' || chosen.q_num
+                       END
+                   ),
+                   '[]'::JSONB
+               )
+          INTO v_merged_answers
+          FROM (
+              SELECT DISTINCT ON (item.answer ->> 'q_num')
+                     item.answer,
+                     item.answer ->> 'q_num' AS q_num
+                FROM public.listening_test_attempts AS target
+                CROSS JOIN LATERAL jsonb_array_elements(
+                    CASE
+                        WHEN jsonb_typeof(target.answers) = 'array'
+                            THEN target.answers
+                        ELSE '[]'::JSONB
+                    END
+                ) WITH ORDINALITY AS item(answer, position)
+               WHERE target.test_id = p_test_id
+                 AND target.user_id = p_user_id
+                 AND target.status = 'in_progress'
+                 AND target.scoring_policy = 'report_only'
+                 AND target.class_assignment_item_id IS NULL
+                 AND target.sitting_id IS NULL
+                 AND target.resume_expires_at > v_acquired_at
+                 AND jsonb_typeof(item.answer) = 'object'
+                 AND COALESCE(item.answer ->> 'q_num', '') <> ''
+               ORDER BY item.answer ->> 'q_num',
+                        NULLIF(item.answer ->> 'answered_at', '') DESC NULLS LAST,
+                        target.updated_at DESC,
+                        target.created_at DESC,
+                        target.id DESC,
+                        item.position DESC
+          ) AS chosen;
+
+        -- Once-play is consumed if ANY resumable duplicate has claimed it.
+        -- Preserve the earliest real claim and its matching UUID as one pair.
+        SELECT target.playback_started_at, target.playback_claim_id
+          INTO v_playback_started_at, v_playback_claim_id
+          FROM public.listening_test_attempts AS target
+         WHERE target.test_id = p_test_id
+           AND target.user_id = p_user_id
+           AND target.status = 'in_progress'
+           AND target.scoring_policy = 'report_only'
+           AND target.class_assignment_item_id IS NULL
+           AND target.sitting_id IS NULL
+           AND target.resume_expires_at > v_acquired_at
+           AND target.playback_started_at IS NOT NULL
+           AND target.playback_claim_id IS NOT NULL
+         ORDER BY target.playback_started_at, target.created_at, target.id
+         LIMIT 1;
+
+        -- Preserve the canonical renderer when it is already claimed; only
+        -- inherit another row's claim when the newest row is still unclaimed.
+        SELECT target.renderer_affinity
+          INTO v_renderer_affinity
+          FROM public.listening_test_attempts AS target
+         WHERE target.test_id = p_test_id
+           AND target.user_id = p_user_id
+           AND target.status = 'in_progress'
+           AND target.scoring_policy = 'report_only'
+           AND target.class_assignment_item_id IS NULL
+           AND target.sitting_id IS NULL
+           AND target.resume_expires_at > v_acquired_at
+           AND target.renderer_affinity IS NOT NULL
+         ORDER BY (target.id = v_keep_id) DESC,
+                  target.created_at DESC,
+                  target.id DESC
+         LIMIT 1;
+
+        UPDATE public.listening_test_attempts AS target
+           SET answers = v_merged_answers,
+               playback_started_at = v_playback_started_at,
+               playback_claim_id = v_playback_claim_id,
+               renderer_affinity = COALESCE(
+                   target.renderer_affinity, v_renderer_affinity
+               ),
+               updated_at = CASE
+                   WHEN target.answers IS DISTINCT FROM v_merged_answers
+                     OR target.playback_started_at IS DISTINCT FROM
+                        v_playback_started_at
+                     OR target.playback_claim_id IS DISTINCT FROM
+                        v_playback_claim_id
+                     OR target.renderer_affinity IS DISTINCT FROM COALESCE(
+                        target.renderer_affinity, v_renderer_affinity
+                     )
+                       THEN v_acquired_at
+                   ELSE target.updated_at
+               END
+         WHERE target.id = v_keep_id
+        RETURNING * INTO v_attempt;
+    END IF;
+
+    -- Only after the canonical row holds every resumable state fragment may
+    -- expired or duplicate rows be closed.
     UPDATE public.listening_test_attempts AS target
        SET status = 'abandoned', updated_at = v_acquired_at
      WHERE target.test_id = p_test_id
@@ -405,11 +525,6 @@ BEGIN
         )
         RETURNING * INTO v_attempt;
         v_created := TRUE;
-    ELSE
-        SELECT target.*
-          INTO v_attempt
-          FROM public.listening_test_attempts AS target
-         WHERE target.id = v_keep_id;
     END IF;
 
     RETURN QUERY SELECT

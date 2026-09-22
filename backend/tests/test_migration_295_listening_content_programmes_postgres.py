@@ -443,6 +443,135 @@ def test_programme_attempt_acquire_serializes_two_browser_starts(
     ) == "t"
 
 
+def test_programme_attempt_acquire_merges_duplicate_resumable_state(
+    programme_probe: dict[str, object],
+):
+    schema = str(programme_probe["schema"])
+    user_id = uuid4()
+    test_id = uuid4()
+    older_id = uuid4()
+    middle_id = uuid4()
+    newest_id = uuid4()
+    expired_id = uuid4()
+    playback_claim_id = uuid4()
+    older_answers = [
+        {
+            "q_num": 1,
+            "user_answer": "older answer",
+            "answered_at": "2026-09-22T01:00:00+00:00",
+        },
+        {
+            "q_num": 2,
+            "user_answer": "preserved answer",
+            "answered_at": "2026-09-22T01:01:00+00:00",
+        },
+    ]
+    middle_answers = [{
+        "q_num": 1,
+        "user_answer": "newer answer",
+        "answered_at": "2026-09-22T02:00:00+00:00",
+    }]
+    expired_answers = [{
+        "q_num": 3,
+        "user_answer": "expired answer",
+        "answered_at": "2026-09-22T03:00:00+00:00",
+    }]
+    psql(
+        f"""
+        INSERT INTO {schema}.users (id) VALUES ('{user_id}');
+        INSERT INTO {schema}.listening_tests
+            (id,test_id,title,status,scoring_policy)
+        VALUES
+            ('{test_id}','merge-programme-{test_id}',
+             'Duplicate-state programme','published','report_only');
+        INSERT INTO {schema}.listening_test_attempts (
+            id,test_id,user_id,status,answers,scoring_policy,
+            started_at,created_at,updated_at,resume_expires_at,
+            renderer_affinity,playback_started_at,playback_claim_id
+        ) VALUES
+            ('{older_id}','{test_id}','{user_id}','in_progress',
+             {_literal(json.dumps(older_answers))}::JSONB,'report_only',
+             NOW() - INTERVAL '3 hours',NOW() - INTERVAL '3 hours',
+             NOW() - INTERVAL '3 hours',NOW() + INTERVAL '21 hours',
+             'next',NOW() - INTERVAL '150 minutes','{playback_claim_id}'),
+            ('{middle_id}','{test_id}','{user_id}','in_progress',
+             {_literal(json.dumps(middle_answers))}::JSONB,'report_only',
+             NOW() - INTERVAL '2 hours',NOW() - INTERVAL '2 hours',
+             NOW() - INTERVAL '2 hours',NOW() + INTERVAL '22 hours',
+             NULL,NULL,NULL),
+            ('{newest_id}','{test_id}','{user_id}','in_progress',
+             '[]'::JSONB,'report_only',
+             NOW() - INTERVAL '1 hour',NOW() - INTERVAL '1 hour',
+             NOW() - INTERVAL '1 hour',NOW() + INTERVAL '23 hours',
+             NULL,NULL,NULL),
+            ('{expired_id}','{test_id}','{user_id}','in_progress',
+             {_literal(json.dumps(expired_answers))}::JSONB,'report_only',
+             NOW() - INTERVAL '26 hours',NOW() - INTERVAL '26 hours',
+             NOW() - INTERVAL '1 minute',NOW() - INTERVAL '2 hours',
+             'legacy',NULL,NULL);
+        """
+    )
+
+    acquired = json.loads(psql(
+        f"""
+        SELECT jsonb_build_object(
+            'attempt_id', attempt_id,
+            'created', created,
+            'answers', attempt_answers,
+            'renderer_affinity', attempt_renderer_affinity,
+            'playback_started_at', attempt_playback_started_at
+        )::TEXT
+          FROM {schema}.fn_acquire_listening_programme_attempt(
+              '{test_id}','{user_id}','claim-v1'
+          )
+        """
+    ))
+
+    assert acquired["attempt_id"] == str(newest_id)
+    assert acquired["created"] is False
+    assert acquired["renderer_affinity"] == "next"
+    assert acquired["playback_started_at"] is not None
+    assert acquired["answers"] == [
+        {
+            "q_num": 1,
+            "user_answer": "newer answer",
+            "answered_at": "2026-09-22T02:00:00+00:00",
+        },
+        {
+            "q_num": 2,
+            "user_answer": "preserved answer",
+            "answered_at": "2026-09-22T01:01:00+00:00",
+        },
+    ]
+
+    canonical = json.loads(psql(
+        f"""
+        SELECT jsonb_build_object(
+            'playback_claim_id', playback_claim_id,
+            'playback_started_at', playback_started_at,
+            'answers', answers
+        )::TEXT
+          FROM {schema}.listening_test_attempts
+         WHERE id='{newest_id}'
+        """
+    ))
+    assert canonical["playback_claim_id"] == str(playback_claim_id)
+    assert canonical["playback_started_at"] == acquired["playback_started_at"]
+    assert canonical["answers"] == acquired["answers"]
+    assert psql(
+        f"SELECT string_agg(status, ',' ORDER BY id) "
+        f"FROM {schema}.listening_test_attempts "
+        f"WHERE id IN ('{older_id}','{middle_id}','{expired_id}')"
+    ) == "abandoned,abandoned,abandoned"
+    assert psql(
+        f"SELECT count(*) FROM {schema}.listening_test_attempts "
+        f"WHERE test_id='{test_id}' AND user_id='{user_id}' "
+        "AND status='in_progress' AND class_assignment_item_id IS NULL "
+        "AND sitting_id IS NULL"
+    ) == "1"
+    assert all(answer["q_num"] != 3 for answer in acquired["answers"])
+
+
 @pytest.mark.parametrize(
     "mutation",
     [
