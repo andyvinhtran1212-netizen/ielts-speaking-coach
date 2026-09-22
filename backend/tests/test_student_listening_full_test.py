@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi import HTTPException
@@ -324,6 +324,48 @@ class _Fake:
     # asserting against a stub: replace-by-q_num, keep sorted, only touch an
     # in_progress attempt, return the new count (None when nothing matched).
     def rpc(self, name, params):
+        if name == "fn_acquire_listening_programme_attempt":
+            rows = self.tables["listening_test_attempts"]
+            active = [
+                row for row in rows
+                if row.get("test_id") == params["p_test_id"]
+                and row.get("user_id") == params["p_user_id"]
+                and row.get("status") == "in_progress"
+                and (row.get("scoring_policy") or "diagnostic") == "report_only"
+                and row.get("class_assignment_item_id") is None
+                and row.get("sitting_id") is None
+            ]
+            if active:
+                attempt = active[-1]
+                created = False
+            else:
+                attempt = {
+                    "id": str(uuid4()),
+                    "test_id": params["p_test_id"],
+                    "user_id": params["p_user_id"],
+                    "status": "in_progress",
+                    "answers": [],
+                    "scoring_policy": "report_only",
+                    "started_at": "2026-01-01T00:00:00+00:00",
+                    "renderer_affinity": (
+                        None
+                        if params["p_renderer_affinity_protocol"] == "claim-v1"
+                        else "legacy"
+                    ),
+                    "playback_started_at": None,
+                }
+                rows.append(attempt)
+                created = True
+            return _RpcResult([{
+                "attempt_id": attempt["id"],
+                "attempt_status": attempt["status"],
+                "attempt_started_at": attempt.get("started_at"),
+                "attempt_resume_expires_at": attempt.get("resume_expires_at"),
+                "attempt_answers": attempt.get("answers") or [],
+                "attempt_renderer_affinity": attempt.get("renderer_affinity"),
+                "attempt_playback_started_at": attempt.get("playback_started_at"),
+                "created": created,
+            }])
         if name not in ("fn_upsert_listening_answer", "fn_insert_listening_answer_once"):
             raise AssertionError(f"unexpected rpc: {name}")
         rows = self.tables["listening_test_attempts"]
@@ -397,6 +439,7 @@ def _seed_test(fake, **overrides):
         "assembled_audio_storage_path": None,
         "cue_points":                   [],
         "test_type":                    "full",   # mig 157 — cột thật
+        "scoring_policy":               "diagnostic",
         # Mig 170 — NOT NULL DEFAULT false trong prod, nên seed phải có mặt:
         # thiếu khoá thì .eq("exam_only", False) không khớp và bài test xanh/đỏ
         # vì lý do sai, không phải vì hành vi.
@@ -709,6 +752,59 @@ def test_start_attempt_abandons_previous_in_progress(monkeypatch):
     assert any(a["status"] == "in_progress" for a in fake.tables["listening_test_attempts"])
 
 
+def test_explicit_standalone_start_never_abandons_class_or_mock_work(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    for row in (
+        {"id": "free", "class_assignment_item_id": None, "sitting_id": None},
+        {"id": "homework", "class_assignment_item_id": "item-1", "sitting_id": None},
+        {"id": "mock", "class_assignment_item_id": None, "sitting_id": "sitting-1"},
+    ):
+        fake.tables["listening_test_attempts"].append({
+            **row, "test_id": test["id"], "user_id": "user-1",
+            "status": "in_progress", "answers": [],
+        })
+
+    _run(listening_router.start_listening_test_attempt(
+        test_id=test["id"], authorization=authz, standalone=True,
+    ))
+
+    by_id = {a["id"]: a for a in fake.tables["listening_test_attempts"]}
+    assert by_id["free"]["status"] == "abandoned"
+    assert by_id["homework"]["status"] == "in_progress"
+    assert by_id["mock"]["status"] == "in_progress"
+
+
+def test_report_only_standalone_start_atomically_reuses_the_active_attempt(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake, scoring_policy="report_only")
+
+    first = _run(listening_router.start_listening_test_attempt(
+        test_id=test["id"], authorization=authz, standalone=True,
+    ))
+    fake.tables["listening_test_attempts"][0]["answers"] = [
+        {"q_num": 1, "user_answer": "kept"},
+    ]
+    second = _run(listening_router.start_listening_test_attempt(
+        test_id=test["id"], authorization=authz, standalone=True,
+    ))
+
+    assert second["attempt_id"] == first["attempt_id"]
+    assert second["acquired_existing"] is True
+    assert second["answers"] == [{"q_num": 1, "user_answer": "kept"}]
+    assert len(fake.tables["listening_test_attempts"]) == 1
+
+
+def test_standalone_start_rejects_a_class_scope(monkeypatch):
+    _fake, authz = _patch(monkeypatch)
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.start_listening_test_attempt(
+            test_id="test-1", class_item="item-1", authorization=authz,
+            standalone=True,
+        ))
+    assert exc.value.status_code == 422
+
+
 # ── PATCH answers ──────────────────────────────────────────────────────────
 
 
@@ -746,6 +842,31 @@ def test_standalone_resume_still_finds_a_practice_attempt(monkeypatch):
         test_id=test["id"], sitting_id=None, authorization=authz,
     ))
     assert out["attempt"]["attempt_id"] == "solo"
+
+
+def test_explicit_standalone_resume_excludes_a_homework_attempt(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake)
+    fake.tables["listening_test_attempts"].append({
+        "id": "homework", "test_id": test["id"], "user_id": "user-1",
+        "status": "in_progress", "sitting_id": None,
+        "class_assignment_item_id": "item-1", "answers": [],
+    })
+
+    out = _run(listening_router.get_in_progress_listening_attempt(
+        test_id=test["id"], authorization=authz, standalone=True,
+    ))
+    assert out["attempt"] is None
+
+
+def test_standalone_resume_rejects_assignment_or_sitting_scope(monkeypatch):
+    _fake, authz = _patch(monkeypatch)
+    for scope in ({"class_item": "item-1"}, {"sitting_id": "sitting-1"}):
+        with pytest.raises(HTTPException) as exc:
+            _run(listening_router.get_in_progress_listening_attempt(
+                test_id="test-1", authorization=authz, standalone=True, **scope,
+            ))
+        assert exc.value.status_code == 422
 
 
 def test_patch_answer_upserts_by_q_num(monkeypatch):
@@ -1454,6 +1575,111 @@ def test_get_test_detail_strips_solutions_and_windows(monkeypatch):
     assert "nineteen" not in json.dumps(out), "the answer is still reachable somewhere"
 
 
+def test_programme_visual_signing_failure_fails_the_whole_player(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test = _seed_test(fake, scoring_policy="report_only")
+    fake.tables["listening_content"].append({
+        "id": "content-visual", "test_id": test["id"], "section_num": 1,
+        "title": "Map form", "transcript": "stub", "metadata": {},
+    })
+    fake.tables["listening_exercises"].append({
+        "id": "exercise-visual", "content_id": "content-visual",
+        "exercise_type": "mcq", "order_num": 1,
+        "payload": {
+            "variant": "programme_form_v1",
+            "questions": [{
+                "q_num": 1, "prompt": "Label the map",
+                "visual_storage_path": "packages/pkg/visuals/map.svg",
+            }],
+        },
+    })
+    monkeypatch.setattr(listening_router, "_sign_programme_visual_url", lambda _path: None)
+
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.get_published_listening_test(
+            test["id"], authorization=authz,
+        ))
+    assert exc.value.status_code == 503
+    assert "sơ đồ" in str(exc.value.detail)
+
+
+def test_once_playback_is_attempt_scoped_and_blocks_a_second_browser(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test_row = _seed_test(
+        fake,
+        scoring_policy="report_only",
+        replay_policy="once",
+        programme_id="ielts-listening-practice",
+        test_type="practice",
+    )
+    started = _run(listening_router.start_listening_test_attempt(
+        test_row["id"], authorization=authz, standalone=True,
+    ))
+    attempt_id = started["attempt_id"]
+
+    before = _run(listening_router.get_published_listening_test(
+        test_row["id"], attempt_id=UUID(attempt_id), authorization=authz,
+    ))
+    assert before["audio_url"].startswith("https://storage.test/")
+
+    first_claim = uuid4()
+    first = _run(listening_router.acknowledge_listening_attempt_playback_started(
+        UUID(attempt_id),
+        listening_router._ListeningAttemptPlaybackStartedRequest(
+            playback_claim_id=first_claim,
+        ),
+        authorization=authz,
+    ))
+    assert first["accepted"] is True
+
+    same_browser_retry = _run(
+        listening_router.acknowledge_listening_attempt_playback_started(
+            UUID(attempt_id),
+            listening_router._ListeningAttemptPlaybackStartedRequest(
+                playback_claim_id=first_claim,
+            ),
+            authorization=authz,
+        )
+    )
+    assert same_browser_retry["accepted"] is True
+
+    second_browser = _run(
+        listening_router.acknowledge_listening_attempt_playback_started(
+            UUID(attempt_id),
+            listening_router._ListeningAttemptPlaybackStartedRequest(
+                playback_claim_id=uuid4(),
+            ),
+            authorization=authz,
+        )
+    )
+    assert second_browser["accepted"] is False
+
+    resumed = _run(listening_router.get_in_progress_listening_attempt(
+        test_row["id"], authorization=authz, standalone=True,
+    ))
+    assert resumed["attempt"]["playback_started_at"]
+    after = _run(listening_router.get_published_listening_test(
+        test_row["id"], attempt_id=UUID(attempt_id), authorization=authz,
+    ))
+    assert after["audio_url"] is None
+
+
+def test_once_player_refuses_to_issue_audio_without_owned_attempt(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    test_row = _seed_test(
+        fake,
+        scoring_policy="report_only",
+        replay_policy="once",
+        programme_id="general-listening-practice",
+        test_type="practice",
+    )
+    with pytest.raises(HTTPException) as exc:
+        _run(listening_router.get_published_listening_test(
+            test_row["id"], authorization=authz,
+        ))
+    assert exc.value.status_code == 409
+
+
 def test_patch_fails_closed_when_the_test_type_cannot_be_resolved(monkeypatch):
     """An unresolvable test row must refuse the save, not fall through.
 
@@ -1504,6 +1730,18 @@ def test_practice_windows_refused_for_a_real_test(monkeypatch):
         with pytest.raises(HTTPException) as ei:
             _run(listening_router.get_practice_audio_windows(t["id"], authorization=authz))
         assert ei.value.status_code == 422
+
+
+def test_practice_windows_refused_for_report_only_programme_form(monkeypatch):
+    fake, authz = _patch(monkeypatch)
+    t, _aid = _seed_practice(fake)
+    fake.tables["listening_tests"][0].update({
+        "scoring_policy": "report_only",
+        "programme_id": "general-listening-practice",
+    })
+    with pytest.raises(HTTPException) as ei:
+        _run(listening_router.get_practice_audio_windows(t["id"], authorization=authz))
+    assert ei.value.status_code == 422
 
 
 def test_practice_windows_requires_a_published_test(monkeypatch):

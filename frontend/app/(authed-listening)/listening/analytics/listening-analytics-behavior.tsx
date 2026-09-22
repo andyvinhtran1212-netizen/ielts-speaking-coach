@@ -49,6 +49,13 @@ interface RecentAttempt {
   date: string;
   scoreText: string;
   perfect: boolean;
+  reportOnly: boolean;
+}
+
+interface ReportOnlyMetric {
+  attemptsCount: number;
+  completedCount: number;
+  reviewNeededCount: number;
 }
 
 interface AnalyticsData {
@@ -57,6 +64,7 @@ interface AnalyticsData {
   byDay: DayMetric[];
   recentAttempts: RecentAttempt[];
   weakestMode: ModeKey | null;
+  reportOnly: ReportOnlyMetric;
 }
 
 type LoadState =
@@ -123,24 +131,34 @@ function normalizeAnalytics(payload: unknown): AnalyticsData {
     const type = textValue(raw.type);
     const accuracy = finiteNumber(raw.accuracy);
     const status = textValue(raw.status);
+    const reportOnly = textValue(raw.scoring_policy) === 'report_only' || type === 'programme';
     return {
       key: `${textValue(raw.id) || textValue(raw.test_id) || 'attempt'}-${index}`,
       title: textValue(raw.title) || (isModeKey(type) ? MODE_LABELS[type] : type),
       date: textValue(raw.created_at).slice(0, 10),
-      scoreText: accuracy === null
+      scoreText: reportOnly
+        ? status === 'submitted' ? 'đã hoàn thành' : status === 'abandoned' ? 'bỏ dở' : 'đang làm'
+        : accuracy === null
         ? status === 'abandoned' ? 'bỏ dở' : 'đang làm'
         : `${Math.round(accuracy * 100)}%`,
       perfect: accuracy === 1,
+      reportOnly,
     };
   });
 
   const weakest = textValue(root.weakest_mode);
+  const reportOnly = objectValue(root.report_only);
   return {
     totalAttempts: nonNegativeNumber(root.total_attempts),
     byMode,
     byDay,
     recentAttempts,
     weakestMode: isModeKey(weakest) ? weakest : null,
+    reportOnly: {
+      attemptsCount: nonNegativeNumber(reportOnly.attempts_count),
+      completedCount: nonNegativeNumber(reportOnly.completed_count),
+      reviewNeededCount: nonNegativeNumber(reportOnly.review_needed_count),
+    },
   };
 }
 
@@ -221,6 +239,15 @@ function AnalyticsSurface({ data }: { data: AnalyticsData }) {
         <div className="stat-card">
           <span className="stat-label">Tỷ lệ hoàn thành</span>
           <span className="stat-value" id="stat-acc">{percent(summary.completion)}</span>
+        </div>
+      </section>
+
+      <section className="section-card report-only-panel" aria-labelledby="report-only-heading">
+        <div className="analytics-section-head"><div><p>Luyện tập</p><h2 id="report-only-heading">Hoạt động report-only</h2></div><span>Không cộng vào điểm trung bình hoặc dạng yếu nhất</span></div>
+        <div className="report-only-grid">
+          <div><strong>{data.reportOnly.attemptsCount}</strong><span>Lượt bắt đầu</span></div>
+          <div><strong>{data.reportOnly.completedCount}</strong><span>Lượt hoàn thành</span></div>
+          <div><strong>{data.reportOnly.reviewNeededCount}</strong><span>Câu cần tự đối chiếu</span></div>
         </div>
       </section>
 

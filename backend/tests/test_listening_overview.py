@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import re
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -66,6 +67,10 @@ class _Query:
                 lambda r, o=outer, k=key, v=val: (r.get(o) or {}).get(k) == v)
         else:
             self._preds.append(lambda r, c=col, v=val: r.get(c) == v)
+        return self
+
+    def neq(self, col, val):
+        self._preds.append(lambda r, c=col, v=val: r.get(c) != v)
         return self
 
     def in_(self, col, vals):
@@ -132,6 +137,7 @@ def _test_row(i, kind, **over):
         "created_at": f"2026-01-{i:02d}", "metadata": {},
         "band_target": None, "themes": {}, "accent_profile": [],
         "audio_assembly_mode": None,
+        "scoring_policy": "diagnostic",
     }
     row.update(over)
     return row
@@ -155,6 +161,7 @@ def _dataset():
         {"id": "c1", "status": "published"},
         {"id": "c2", "status": "published"},
         {"id": "c3", "status": "draft"},
+        {"id": "c4", "status": "published", "source_type": "programme_form"},
     ]
     seg = [{"idx": 0, "start_sec": 0, "end_sec": 3, "transcript": "hi"}]
     exercises = [
@@ -209,6 +216,181 @@ def test_overview_counts_published_audio_ready_tests():
     assert out["tests"] == {"full": 6, "mini": 4, "drill": 2, "practice": 0}
 
 
+def test_explicit_programme_filter_returns_only_report_only_practice_forms():
+    from routers import listening as mod
+    import services.mock_exam_service as mes
+
+    tables = _dataset()
+    tables["listening_tests"].extend([
+        _test_row(
+            30,
+            "practice",
+            programme_id="general-listening-practice",
+            scoring_policy="report_only",
+            listening_lesson_id="lesson-1",
+            source_form_id="form-1",
+            form_purpose="practice",
+            replay_policy="allowed",
+            support_policy="separate_mode",
+            claim_policy="report_only_no_band_cefr_mastery_or_full_progression_claim",
+            source_item_count=6,
+        ),
+        _test_row(
+            31,
+            "practice",
+            programme_id="ielts",
+            scoring_policy="diagnostic",
+        ),
+    ])
+    with patch.object(mod, "supabase_admin", _FakeSB(tables)), \
+         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})), \
+         patch.object(mes, "reserved_test_ids", lambda _skill: set()):
+        result = _run(mod.list_published_listening_tests(
+            programme_id="general-listening-practice",
+            test_type=None,
+            practice_group=None,
+            limit=20,
+            offset=0,
+            authorization="Bearer x",
+        ))
+
+    assert result["total"] == 1
+    assert result["items"][0]["scoring_policy"] == "report_only"
+    assert result["items"][0]["source_form_id"] == "form-1"
+
+
+def test_programme_progress_ignores_expired_resume_and_keeps_submitted_history():
+    from routers import listening as mod
+
+    now = datetime.now(timezone.utc)
+    rows = [
+        {
+            "id": "expired",
+            "user_id": "u",
+            "test_id": "t-programme",
+            "status": "in_progress",
+            "resume_expires_at": (now - timedelta(minutes=1)).isoformat(),
+            "created_at": now.isoformat(),
+        },
+        {
+            "id": "submitted",
+            "user_id": "u",
+            "test_id": "t-programme",
+            "status": "submitted",
+            "resume_expires_at": (now - timedelta(days=1)).isoformat(),
+            "created_at": (now - timedelta(hours=2)).isoformat(),
+        },
+    ]
+    with patch.object(mod, "supabase_admin", _FakeSB({"listening_test_attempts": rows})):
+        states, partial = mod._programme_attempt_state(
+            "u", [{"id": "t-programme"}],
+        )
+    assert partial is False
+    assert states["t-programme"]["completed"]["id"] == "submitted"
+    assert "in_progress" not in states["t-programme"]
+
+
+def test_programme_progress_excludes_class_and_mock_attempts_from_free_hub():
+    from routers import listening as mod
+
+    now = datetime.now(timezone.utc).isoformat()
+    rows = [
+        {
+            "id": "assigned", "user_id": "u", "test_id": "t-programme",
+            "status": "in_progress", "resume_expires_at": now,
+            "created_at": now, "class_assignment_item_id": "item-1",
+            "sitting_id": None,
+        },
+        {
+            "id": "mock", "user_id": "u", "test_id": "t-mock",
+            "status": "in_progress", "resume_expires_at": now,
+            "created_at": now, "class_assignment_item_id": None,
+            "sitting_id": "sitting-1",
+        },
+        {
+            "id": "free", "user_id": "u", "test_id": "t-programme",
+            "status": "submitted", "resume_expires_at": None,
+            "created_at": now, "class_assignment_item_id": None,
+            "sitting_id": None,
+        },
+    ]
+    with patch.object(mod, "supabase_admin", _FakeSB({"listening_test_attempts": rows})):
+        states, partial = mod._programme_attempt_state(
+            "u", [{"id": "t-programme"}, {"id": "t-mock"}],
+        )
+    assert partial is False
+    assert states == {"t-programme": {"completed": rows[2]}}
+
+
+def test_programme_retake_preserves_completion_history_and_resume():
+    from routers import listening as mod
+
+    now = datetime.now(timezone.utc)
+    tables = {
+        "listening_content_packages": [{
+            "id": "pkg", "programme_id": "general-listening-practice",
+            "title": "General", "status": "published",
+        }],
+        "listening_lessons": [{
+            "id": "lesson", "programme_id": "general-listening-practice",
+            "status": "published",
+        }],
+        "listening_tests": [{
+            "id": "form", "title": "Form 1",
+            "programme_id": "general-listening-practice",
+            "listening_lesson_id": "lesson", "source_item_count": 4,
+            "created_at": now.isoformat(), "status": "published",
+            "is_public": True, "scoring_policy": "report_only",
+        }],
+        "listening_test_attempts": [{
+            "id": "retake", "user_id": "u", "test_id": "form",
+            "status": "in_progress", "answers": [{"user_answer": "A"}],
+            "created_at": now.isoformat(),
+            "resume_expires_at": (now + timedelta(hours=1)).isoformat(),
+            "class_assignment_item_id": None, "sitting_id": None,
+        }, {
+            "id": "completed", "user_id": "u", "test_id": "form",
+            "status": "submitted", "answers": [],
+            "result_summary": {"checked_count": 2, "correct_count": 1},
+            "created_at": (now - timedelta(hours=1)).isoformat(),
+            "submitted_at": (now - timedelta(hours=1)).isoformat(),
+            "resume_expires_at": None,
+            "class_assignment_item_id": None, "sitting_id": None,
+        }],
+    }
+    with patch.object(mod, "supabase_admin", _FakeSB(tables)), \
+         patch.object(mod, "_require_auth", AsyncMock(return_value={"id": "u"})):
+        cards, resume, recent, partial = mod._load_programme_overview("u")
+        completed_lessons = _run(mod.list_listening_programme_lessons(
+            "general-listening-practice",
+            progress="completed",
+            limit=24,
+            offset=0,
+            authorization="Bearer x",
+        ))
+
+    assert partial is False
+    assert cards[0]["completed_form_count"] == 1
+    assert cards[0]["in_progress_form_count"] == 1
+    assert resume["attempt_id"] == "retake"
+    assert recent[0]["attempt_id"] == "completed"
+    assert completed_lessons["total"] == 1
+    assert completed_lessons["items"][0]["completed_form_count"] == 1
+    assert completed_lessons["items"][0]["in_progress_form_count"] == 1
+
+
+def test_programme_activity_time_orders_valid_iso_and_sends_malformed_last():
+    from routers import listening as mod
+
+    recent = {"submitted_at": "2026-09-21T08:00:00Z"}
+    older = {"submitted_at": "2026-09-20T08:00:00+00:00"}
+    malformed = {"submitted_at": "not-a-date"}
+    assert mod._programme_attempt_time(recent, "submitted_at") > mod._programme_attempt_time(
+        older, "submitted_at",
+    )
+    assert mod._programme_attempt_time(malformed, "submitted_at") == 0.0
+
+
 def test_overview_counts_only_published_exercises_on_published_content():
     out = _patched(lambda m: _run(m.listening_overview(authorization="Bearer x")))
     modes = out["exercise_modes"]
@@ -217,7 +399,9 @@ def test_overview_counts_only_published_exercises_on_published_content():
     assert modes["gist"] == 0, "a published exercise on DRAFT content must not be counted"
     assert modes["true_false"] == 0, "published but uncurated (empty payload) is not runnable"
     # Every known mode is reported, so the client can rely on the key existing.
-    assert set(modes) == {"dictation", "gist", "true_false", "mcq", "mini_test"}
+    assert set(modes) == {
+        "dictation", "gist", "true_false", "mcq", "mini_test", "programme_form",
+    }
 
 
 @pytest.mark.parametrize("row,ready", [
@@ -228,6 +412,9 @@ def test_overview_counts_only_published_exercises_on_published_content():
     ({"exercise_type": "true_false", "segments": [], "payload": {"statements": []}}, False),
     ({"exercise_type": "true_false", "segments": [], "payload": {}}, False),
     ({"exercise_type": "mcq", "segments": [], "payload": {"questions": [1]}}, True),
+    ({"exercise_type": "programme_form", "segments": [], "payload": {
+        "variant": "programme_form_v1", "questions": [{"q_num": 1}],
+    }}, True),
     ({"exercise_type": "mcq", "segments": [], "payload": {}}, False),
     # Gist renders without a rubric but 422s at SUBMIT, after the learner has
     # written their summary — readiness follows the grader, not the page.

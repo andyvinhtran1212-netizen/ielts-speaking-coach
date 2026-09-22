@@ -348,7 +348,8 @@ describe('v1.2 item C — compact bottom chrome (player redesign)', () => {
 
 describe('Phase B — backend review endpoint cross-ref', () => {
   test('review endpoint is submitted-gated + joins audio_window + solution per q', () => {
-    assert.match(router, /@user_router\.get\("\/tests\/attempts\/\{attempt_id\}\/review"\)/);
+    assert.match(router, /"\/tests\/attempts\/\{attempt_id\}\/review",/);
+    assert.match(router, /response_model=ListeningAttemptReviewResponse/);
     assert.match(router, /Chưa có chữa bài — attempt chưa submit/);   // 409 gate
     assert.match(router, /"audio_window":\s*win/);
     assert.match(router, /"solution":\s*solutions_by_q\.get\(q\)/);

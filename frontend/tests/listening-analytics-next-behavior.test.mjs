@@ -13,7 +13,7 @@ const SHELL = read('app', '(authed-listening)', 'listening', 'analytics', 'page-
 const BEHAVIOR = read(
   'app', '(authed-listening)', 'listening', 'analytics', 'listening-analytics-behavior.tsx',
 );
-const LEGACY_HTML = read('public', 'pages', 'listening-analytics.html');
+const LEGACY_HTML = read('pages', 'listening-analytics.html');
 const LEGACY_JS = read('public', 'js', 'listening-analytics.js');
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
 const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
@@ -81,9 +81,13 @@ describe('/listening/analytics — native React behavior', () => {
     assert.match(BEHAVIOR, /Math\.max\(4, Math\.round\(\(day\.count \/ maxCount\) \* 100\)\)/);
     assert.match(BEHAVIOR, /data-has-data=\{day\.count > 0 \? '1' : '0'\}/);
     assert.match(BEHAVIOR, /id="recent-list"/);
+    assert.match(BEHAVIOR, /Hoạt động report-only/);
+    assert.match(BEHAVIOR, /Không cộng vào điểm trung bình hoặc dạng yếu nhất/);
+    assert.match(BEHAVIOR, /reportOnly\.reviewNeededCount/);
   });
 
   test('preserves abandoned/in-progress/perfect labels and React-escapes authored text', () => {
+    assert.match(BEHAVIOR, /status === 'submitted' \? 'đã hoàn thành'/);
     assert.match(BEHAVIOR, /status === 'abandoned' \? 'bỏ dở' : 'đang làm'/);
     assert.match(BEHAVIOR, /perfect: accuracy === 1/);
     assert.match(BEHAVIOR, /recent-score\$\{attempt\.perfect \? ' is-perfect' : ''\}/);

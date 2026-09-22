@@ -191,6 +191,10 @@ class _FakeTableQuery:
         self._filters.append(("eq", col, val))
         return self
 
+    def neq(self, col, val):
+        self._filters.append(("neq", col, val))
+        return self
+
     def gte(self, col, val):
         self._filters.append(("gte", col, val))
         return self
@@ -218,6 +222,8 @@ class _FakeTableQuery:
         for op, col, val in self._filters:
             if op == "eq":
                 rows = [r for r in rows if r.get(col) == val]
+            elif op == "neq":
+                rows = [r for r in rows if r.get(col) != val]
             elif op == "gte":
                 rows = [r for r in rows if str(r.get(col, "")) >= str(val)]
             elif op == "in":
@@ -398,6 +404,31 @@ def test_browse_excludes_drafts(monkeypatch):
     assert len(out["items"]) == 0
 
 
+def test_browse_excludes_published_programme_forms_before_pagination(monkeypatch):
+    canned = {
+        "listening_content": [
+            {
+                "id": "programme-newest", "status": "published",
+                "source_type": "programme_form", "title": "Programme form",
+                "created_at": "2026-09-21T00:00:00Z",
+            },
+            {
+                "id": "standalone", "status": "published",
+                "source_type": "curated_external", "title": "Standalone",
+                "created_at": "2026-09-20T00:00:00Z",
+            },
+        ],
+    }
+    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
+    authz = _patch_user(monkeypatch)
+    out = _run(listening_router.list_listening_content(
+        accent_tag=None, cefr_level=None, ielts_section=None,
+        limit=1, offset=0, authorization=authz,
+    ))
+    assert out["total"] == 1
+    assert [row["id"] for row in out["items"]] == ["standalone"]
+
+
 def test_browse_rejects_bad_accent(monkeypatch):
     _patch_admin_client(monkeypatch, _FakeAdminClient({}))
     authz = _patch_user(monkeypatch)
@@ -454,6 +485,35 @@ def test_analytics_by_type_aggregation(monkeypatch):
     assert out["by_mode"]["drill"]["avg_score"] == 0.5
     assert out["by_mode"]["full"] == {"count": 0, "scored_count": 0, "attempts_count": 0,
                                       "avg_score": None, "completion": None}
+
+
+def test_analytics_separates_report_only_completion_from_diagnostic_scores(monkeypatch):
+    programme = {
+        **_att(2, "t-programme", score=None, total=4, days_ago=1),
+        "scoring_policy": "report_only",
+        "result_summary": {"unscored_count": 3},
+    }
+    canned = {
+        "listening_test_attempts": [
+            _att(1, "t-mini", score=8, days_ago=2),
+            programme,
+        ],
+        "listening_tests": _tests_canned() + [
+            {"id": "t-programme", "test_id": "PKG-1", "title": "Practice 1", "test_type": "practice"},
+        ],
+    }
+    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
+    authz = _patch_user(monkeypatch)
+    out = _run(listening_router.get_listening_analytics(time_range="30d", authorization=authz))
+    assert out["total_attempts"] == 2
+    assert out["by_mode"]["practice"]["attempts_count"] == 0
+    assert out["by_mode"]["mini"]["avg_score"] == 0.8
+    assert out["report_only"] == {
+        "attempts_count": 1,
+        "completed_count": 1,
+        "review_needed_count": 3,
+    }
+    assert out["recent_attempts"][0]["type"] == "programme"
 
 
 def test_analytics_first_attempt_rule_per_test(monkeypatch):

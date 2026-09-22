@@ -437,6 +437,105 @@ def collect_answer_key(exercise_rows: list[dict[str, Any]]) -> list[dict[str, An
     return out
 
 
+def grade_report_only_attempt(
+    user_answers: list[dict[str, Any]],
+    exercise_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Classify programme-form answers without producing a score or band.
+
+    Only single/multiple choice and map labels are machine checked. Textual
+    answers are preserved as ``unscored`` and paired with protected self-review
+    material after submission. A malformed objective key is a technical error,
+    never silently converted to an incorrect learner answer.
+    """
+    user_by_q = {
+        row.get("q_num"): str(row.get("user_answer") or "")
+        for row in user_answers if isinstance(row, dict) and row.get("q_num")
+    }
+    questions: dict[int, dict[str, Any]] = {}
+    keys: dict[int, dict[str, Any]] = {}
+    review = {
+        "solutions": {},
+        "self_review": {},
+        "audio_windows": {},
+        "controlled_transcripts": {},
+    }
+    for row in exercise_rows:
+        payload = row.get("payload") if isinstance(row, dict) else None
+        if not isinstance(payload, dict) or payload.get("variant") != "programme_form_v1":
+            continue
+        for question in payload.get("questions") or []:
+            if isinstance(question, dict) and isinstance(question.get("q_num"), int):
+                questions[question["q_num"]] = question
+        for answer in payload.get("answers") or []:
+            if isinstance(answer, dict) and isinstance(answer.get("q_num"), int):
+                keys[answer["q_num"]] = answer
+        for name in review:
+            value = payload.get(name)
+            if isinstance(value, dict):
+                review[name].update(value)
+
+    counts = {
+        "checked_count": 0,
+        "correct_count": 0,
+        "unscored_count": 0,
+        "blank_count": 0,
+        "technical_error_count": 0,
+        "completion_count": 0,
+        "item_count": len(questions),
+    }
+    per_question: list[dict[str, Any]] = []
+    objective_types = {"single_choice", "multiple_choice", "map_label"}
+    self_review_types = {"short_answer", "written", "open_rubric"}
+    for q_num in sorted(questions):
+        question = questions[q_num]
+        response_type = str(question.get("response_type") or "")
+        raw = user_by_q.get(q_num, "")
+        result: dict[str, Any] = {
+            "q_num": q_num,
+            "source_item_id": question.get("source_item_id"),
+            "response_type": response_type,
+            "user_answer": raw,
+            "correct": None,
+        }
+        if not raw.strip():
+            result["state"] = "blank"
+            counts["blank_count"] += 1
+        elif response_type in objective_types:
+            key = keys.get(q_num) or {}
+            expected = [str(value).strip() for value in (key.get("answers") or [])
+                        if str(value).strip()]
+            if not expected:
+                result["state"] = "technical_error"
+                counts["technical_error_count"] += 1
+            else:
+                if response_type == "multiple_choice":
+                    submitted = {
+                        normalize_answer(value)
+                        for value in re.split(r"\s*[,;|]\s*", raw)
+                        if value.strip()
+                    }
+                    correct = submitted == {normalize_answer(value) for value in expected}
+                else:
+                    correct = normalize_answer(raw) in {
+                        normalize_answer(value) for value in expected
+                    }
+                result.update({"state": "checked", "correct": correct, "expected": expected})
+                counts["checked_count"] += 1
+                counts["correct_count"] += int(correct)
+                counts["completion_count"] += 1
+        elif response_type in self_review_types:
+            result["state"] = "unscored"
+            result["self_review"] = review["self_review"].get(str(q_num)) or {}
+            counts["unscored_count"] += 1
+            counts["completion_count"] += 1
+        else:
+            result["state"] = "technical_error"
+            counts["technical_error_count"] += 1
+        per_question.append(result)
+    return {**counts, "per_question": per_question, "review": review}
+
+
 # Payload keys that must never reach a student before they have submitted.
 #
 # `answers` was the original Sprint 13.5 guard. It was not enough: the importer
@@ -452,6 +551,10 @@ def collect_answer_key(exercise_rows: list[dict[str, Any]]) -> list[dict[str, An
 # its own endpoint. Removing them costs no feature.
 _STUDENT_FORBIDDEN_PAYLOAD_KEYS = ("answers", "solutions", "audio_windows",
                                    "transcript_anchors",
+                                   # LISTENING-0005: both contain protected
+                                   # answers/evidence or controlled transcript
+                                   # text and become available only after submit.
+                                   "self_review", "controlled_transcripts",
                                    # Gist: `model_answer` LÀ đáp án, `rubric_keywords`
                                    # là bộ từ khoá chấm điểm — biết trước là biết phải
                                    # viết gì. Không mặt học viên nào đọc hai trường này
