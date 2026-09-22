@@ -896,9 +896,19 @@ export function ReadingExamSession() {
   }, [attempt?.attempt_id, phase === 'results' || phase === 'sealed', saveAnswer]);
 
   const enterAttempt = useCallback(async (nextAttempt: Attempt, restored: AnswerMap) => {
-    const hook = (window as any).MockHook;
-    if (params?.sittingId && typeof hook?.attach === 'function') {
-      await hook.attach('reading', nextAttempt.attempt_id);
+    if (params?.sittingId) {
+      // RouteScriptChain loads the legacy bridge independently from React
+      // hydration.  A one-shot lookup here used to let the native player win
+      // that race: the learner could answer every question, but the attempt was
+      // never linked to the mock sitting and the collection sweep treated the
+      // Reading paper as missing.  A mock attempt is not usable until the
+      // fail-closed attach has completed.
+      const hookReady = await whenGlobalReady(
+        () => typeof (window as any).MockHook?.attach === 'function',
+        'window.MockHook.attach (Reading mock)',
+      );
+      if (!hookReady) throw new Error('Không thể liên kết bài Reading với kỳ thi.');
+      await (window as any).MockHook.attach('reading', nextAttempt.attempt_id);
     }
     answersRef.current = restored;
     setAnswers(new Map(restored));

@@ -875,6 +875,63 @@ def test_force_collect_grades_the_straggler_reading_attempt(fake_db, svc):
     assert attempt["grading_details"]  # per-question breakdown populated
 
 
+def test_force_collect_refuses_to_orphan_an_unlinked_active_reading_attempt(fake_db, svc):
+    """A missed client attach must not become a terminal blank Reading paper.
+
+    Autosaves belong to the domain attempt, so the sitting link can still be
+    NULL even though the learner has a complete recoverable answer set.  Keep
+    the sitting claimable and surface the anomaly instead of stamping it in.
+    """
+    exam = _seed_exam(fake_db, listening=False)
+    u = uuid4()
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+    _advance_and_sweep(svc, exam["id"], "admin-1")  # → reading
+    # Historical rows may precede the current one in storage.  Detection must
+    # inspect the newest candidate, not truncate insertion order first.
+    for days_old in (3, 2):
+        fake_db.seed("reading_test_attempts", {
+            "id": str(uuid4()), "user_id": str(u), "test_id": exam["reading_test_id"],
+            "status": "in_progress", "sitting_id": None,
+            "started_at": (datetime.now(timezone.utc) - timedelta(days=days_old)).isoformat(),
+        })
+    attempt_id = str(uuid4())
+    fake_db.seed("reading_test_attempts", {
+        "id": attempt_id, "user_id": str(u), "test_id": exam["reading_test_id"],
+        "status": "in_progress", "sitting_id": None,
+        "started_at": _now_iso_for_test(),
+    })
+    fake_db.seed("reading_attempt_answers", {
+        "attempt_id": attempt_id, "q_num": 1, "user_answer": "TRUE",
+    })
+
+    assert svc._collect_section_for_sitting(
+        svc.get_sitting(sitting["id"]), "reading", exam,
+    ) is False
+    assert svc.get_sitting(sitting["id"]).get("reading_submitted_at") is None
+    current_attempt = next(
+        row for row in fake_db.rows("reading_test_attempts") if row["id"] == attempt_id
+    )
+    assert current_attempt["status"] == "in_progress"
+
+
+def test_force_collect_still_accepts_a_genuinely_blank_reading_paper(fake_db, svc):
+    """An old standalone attempt is not work from this mock section."""
+    exam = _seed_exam(fake_db, listening=False)
+    u = uuid4()
+    sitting = svc.create_sitting(u, "MOCK-TEST-A")
+    _advance_and_sweep(svc, exam["id"], "admin-1")  # → reading
+    fake_db.seed("reading_test_attempts", {
+        "id": str(uuid4()), "user_id": str(u), "test_id": exam["reading_test_id"],
+        "status": "in_progress", "sitting_id": None,
+        "started_at": (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(),
+    })
+
+    assert svc._collect_section_for_sitting(
+        svc.get_sitting(sitting["id"]), "reading", exam,
+    ) is True
+    assert svc.get_sitting(sitting["id"])["reading_submitted_at"] is not None
+
+
 def test_force_collect_skips_already_submitted_attempt(fake_db, svc):
     """The client's own submit beat the sweep — force-collect must not
     re-grade (idempotent, no wasted work / no risk of overwriting)."""

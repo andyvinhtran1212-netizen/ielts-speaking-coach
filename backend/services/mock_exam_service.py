@@ -2650,6 +2650,57 @@ def _grade_and_finalize_reading(attempt_id: str) -> None:
     ).execute()
 
 
+def _unlinked_active_attempt_ids(sitting: dict, section: str, exam: dict) -> list[str]:
+    """Return active domain attempts that should have been bound to ``sitting``.
+
+    A learner who never opened a section legitimately has no attempt and is
+    collected as a blank paper.  That is different from an in-progress attempt
+    for this exact learner + configured test whose ``sitting_id`` is still
+    NULL: the latter is evidence that the client attach handshake was skipped.
+    The sweep must fail closed on that evidence instead of stamping the sitting
+    submitted and orphaning saved answers behind a terminal review.
+
+    This is detection only.  Binding two rows is a cross-table mutation and is
+    deliberately left to the normal attach path (or an audited repair) rather
+    than guessed inside a timer-driven sweep.
+    """
+    binding = _SECTION_ATTEMPT.get(section)
+    if not binding:
+        return []
+    link_col, domain_table, exam_test_col = binding
+    if sitting.get(link_col):
+        return []
+    expected_test = exam.get(exam_test_col)
+    if not expected_test:
+        return []
+    # Scope the candidate to this section window.  A learner may have an old
+    # standalone in-progress attempt for the same reusable test; that historical
+    # row is not proof that the current mock attach failed and must not prevent a
+    # genuinely blank paper from being collected.
+    anchor_source = sitting if is_retake(exam) else exam
+    section_started = _parse_ts(anchor_source.get(f"{section}_started_at"))
+    if section_started is None:
+        return []
+    rows = (
+        supabase_admin.table(domain_table)
+        .select("id,started_at")
+        .eq("user_id", str(sitting["user_id"]))
+        .eq("test_id", str(expected_test))
+        .eq("status", "in_progress")
+        .is_("sitting_id", "null")
+        .order("started_at", desc=True)
+        .limit(1)
+        .execute().data or []
+    )
+    return [
+        str(row["id"])
+        for row in rows
+        if row.get("id")
+        and (started_at := _parse_ts(row.get("started_at"))) is not None
+        and started_at >= section_started
+    ]
+
+
 def _force_collect_section(exam_id: str, section: str, *, strict: bool = False) -> int:
     """Straggler safety net: sweep up every paper for `section` as-is.
 
@@ -2988,8 +3039,16 @@ def _collect_section_for_sitting(sitting: dict, section: str,
                 sitting["id"], section,
             )
             return False
+        orphan_ids = _unlinked_active_attempt_ids(sitting, section, exam_for_scope)
+        if orphan_ids:
+            logger.error(
+                "[mock-exam] sitting=%s section=%s has unlinked active attempt(s)=%s "
+                "— not stamping submitted",
+                sitting["id"], section, orphan_ids,
+            )
+            return False
     except Exception:  # noqa: BLE001 — scope lookup must not break the sweep
-        logger.exception("[mock-exam] sweep scope check failed sitting=%s", sitting["id"])
+        logger.exception("[mock-exam] sweep preflight failed sitting=%s", sitting["id"])
         return False
     claimed_at = None
     terminal_started = False
