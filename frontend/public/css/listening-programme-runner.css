@@ -5,3 +5,47 @@
 .programme-submit{position:fixed;z-index:8;right:0;bottom:0;left:0;min-height:78px;padding:14px max(24px,calc((100vw - 940px)/2));display:flex;align-items:center;justify-content:space-between;gap:18px;border-top:1px solid var(--av-border-default);background:color-mix(in srgb,var(--av-surface-card) 94%,transparent);backdrop-filter:blur(12px)}.programme-submit span{color:var(--av-text-muted);font-size:var(--av-fs-xs)}.programme-submit button{min-height:48px;padding:0 22px;border:0;border-radius:var(--av-radius-lg);background:var(--av-primary);color:var(--av-text-on-primary);font:700 var(--av-fs-sm) var(--av-font-sans);cursor:pointer}.programme-submit button:disabled{opacity:.55;cursor:wait}.programme-state{min-height:70vh;display:grid;place-items:center;text-align:center;color:var(--av-text-muted)}.programme-state.is-error{align-content:center;gap:12px;color:var(--av-error)}.programme-state a{min-height:44px;display:inline-flex;align-items:center;color:var(--av-primary)}
 @media(max-width:680px){.programme-runner__header{grid-template-columns:1fr}.programme-runner__header>span{width:max-content}.programme-question{grid-template-columns:1fr}.programme-submit{padding:12px 16px}.programme-submit span{max-width:45%}.programme-submit button{padding-inline:15px}}
 @media(prefers-reduced-motion:reduce){.programme-audio{scroll-behavior:auto}}
+
+/* Programme practice is a learning workspace, not the fixed light exam shell. */
+body.exam-chrome:has(.programme-runner){display:block;height:auto;min-height:100vh;background:var(--av-surface-page);color:var(--av-text-primary);font-family:var(--av-font-sans)}
+.programme-runner{width:100%;max-width:var(--av-width-page);padding:var(--av-space-8) var(--av-space-8) 120px}
+.programme-runner__header{grid-template-columns:minmax(0,1fr) auto;gap:10px 24px;margin-bottom:28px}
+.programme-runner__header>a{grid-column:1/-1;width:max-content;color:var(--av-primary)}
+.programme-runner__header p{font:700 var(--av-fs-sm) var(--av-font-sans);letter-spacing:0;text-transform:none}
+.programme-runner__header h1{max-width:760px}
+.programme-runner__header div>span{display:block;margin-top:9px;color:var(--av-text-muted);font-size:var(--av-fs-sm);line-height:1.55}
+.programme-runner__header>span{align-self:center}
+.programme-learning-controls{display:flex;flex-wrap:wrap;gap:18px 36px;align-items:end;padding:18px 22px;margin-bottom:20px;border:1px solid var(--av-border-subtle);border-radius:var(--av-radius-xl);background:var(--av-surface-card)}
+.programme-learning-controls>div{display:grid;gap:9px}
+.programme-learning-controls>div>span{color:var(--av-text-secondary);font-size:var(--av-fs-sm);font-weight:700}
+.programme-segmented{display:flex;flex-wrap:wrap;gap:5px;padding:4px;border:1px solid var(--av-border-default);border-radius:var(--av-radius-lg);background:var(--av-surface-sunken)}
+.programme-segmented button{min-height:44px;padding:8px 14px;border:0;border-radius:var(--av-radius-md);background:transparent;color:var(--av-text-secondary);font:700 var(--av-fs-sm) var(--av-font-sans);cursor:pointer}
+.programme-segmented button[aria-pressed=true]{background:var(--av-surface-card);color:var(--av-primary);box-shadow:var(--av-shadow-sm)}
+.programme-language-note{max-width:360px;margin:0;color:var(--av-text-muted);font-size:var(--av-fs-xs);line-height:1.5}
+.programme-learning-workspace{display:grid;grid-template-columns:minmax(270px,320px) minmax(0,1fr);align-items:start;gap:22px}
+.programme-audio{top:18px;margin:0;background:var(--av-surface-card);box-shadow:var(--av-shadow-sm)}
+.programme-audio h2{margin:0 0 16px;font-size:var(--av-fs-lg)}
+.programme-audio audio{margin-bottom:12px}
+:root[data-theme=light] .programme-audio audio{color-scheme:light}
+:root[data-theme=dark] .programme-audio audio{color-scheme:dark}
+.programme-audio p{font-size:var(--av-fs-xs);line-height:1.55}
+.programme-learning-progress{padding-top:20px;margin-top:20px;border-top:1px solid var(--av-border-subtle)}
+.programme-learning-progress>strong,.programme-learning-progress>span{display:block}
+.programme-learning-progress>strong{font-size:var(--av-fs-sm)}
+.programme-learning-progress>span{margin-top:4px;color:var(--av-text-muted);font-size:var(--av-fs-xs)}
+.programme-learning-progress ol{display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:15px 0 0;list-style:none}
+.programme-learning-progress li button{width:44px;min-height:44px;padding:0;border:1px solid var(--av-border-default);border-radius:50%;background:var(--av-surface-card);color:var(--av-text-secondary);font:700 var(--av-fs-xs) var(--av-font-sans);cursor:pointer}
+.programme-learning-progress li[data-answered=true] button{border-color:var(--av-primary);color:var(--av-primary)}
+.programme-learning-progress li[data-current=true] button{background:var(--av-primary);color:var(--av-text-on-primary)}
+.programme-learning-stage{min-width:0}
+.programme-learning-stage__header{display:flex;align-items:end;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;margin:2px 0 16px}
+.programme-learning-stage__header h2{margin:0;font-size:var(--av-fs-xl);letter-spacing:-.025em}
+.programme-learning-stage__header p{margin:0;color:var(--av-text-muted);font-size:var(--av-fs-xs)}
+.programme-question{box-shadow:none}
+.programme-step-actions{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:18px}
+.programme-step-actions button{min-height:44px;padding:0 15px;border:1px solid var(--av-border-default);border-radius:var(--av-radius-md);background:var(--av-surface-card);color:var(--av-primary);font:700 var(--av-fs-sm) var(--av-font-sans);cursor:pointer}
+.programme-step-actions button:disabled{opacity:.4;cursor:not-allowed}
+.programme-step-actions span{color:var(--av-text-muted);font-size:var(--av-fs-xs)}
+.programme-runner :is(button,a,[tabindex='-1']):focus-visible{outline:2px solid var(--av-primary);outline-offset:2px}
+@media(max-width:820px){.programme-learning-workspace{grid-template-columns:1fr}.programme-audio{position:static}.programme-learning-progress ol{margin-top:10px}}
+@media(max-width:680px){.programme-runner{padding:var(--av-space-4) var(--av-space-4) var(--av-space-16)}.programme-runner__header{grid-template-columns:1fr}.programme-runner__header>a{grid-column:auto}.programme-learning-controls{padding:var(--av-space-4)}.programme-learning-stage__header{display:block}.programme-learning-stage__header p{margin-top:5px}.programme-step-actions span{order:3;flex-basis:100%}}
