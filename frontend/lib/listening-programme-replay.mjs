@@ -20,11 +20,14 @@ export function createProgrammeReplayController(getAudio) {
 
   function replay(window) {
     const element = getAudio();
-    if (!element || window?.start == null) return;
+    if (!element || window?.start == null) return Promise.resolve(false);
     clear();
     element.currentTime = Number(window.start);
-    void element.play();
-    if (window.end == null) return;
+    const started = Promise.resolve(element.play()).then(() => true, () => {
+      clear();
+      return false;
+    });
+    if (window.end == null) return started;
 
     const end = Number(window.end);
     const stop = () => {
@@ -35,6 +38,7 @@ export function createProgrammeReplayController(getAudio) {
     activeAudio = element;
     activeStop = stop;
     element.addEventListener('timeupdate', stop);
+    return started;
   }
 
   return { replay, dispose: clear };

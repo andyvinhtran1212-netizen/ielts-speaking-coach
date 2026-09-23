@@ -511,9 +511,37 @@ def test_analytics_separates_report_only_completion_from_diagnostic_scores(monke
     assert out["report_only"] == {
         "attempts_count": 1,
         "completed_count": 1,
+        "assisted_completed_count": 0,
+        "independent_completed_count": 1,
         "review_needed_count": 3,
     }
     assert out["recent_attempts"][0]["type"] == "programme"
+
+
+def test_analytics_keeps_assisted_completion_out_of_independent_count(monkeypatch):
+    programme = {
+        **_att(2, "t-programme", score=None, total=1, days_ago=1),
+        "scoring_policy": "report_only",
+        "result_summary": {"unscored_count": 1},
+    }
+    canned = {
+        "listening_test_attempts": [programme],
+        "listening_tests": [{"id": "t-programme", "test_id": "PKG-1",
+                             "title": "Practice 1", "test_type": "practice"}],
+        "listening_programme_feedback_reveals": [
+            {"id": "reveal-1", "attempt_id": programme["id"]},
+        ],
+    }
+    _patch_admin_client(monkeypatch, _FakeAdminClient(canned))
+    authz = _patch_user(monkeypatch)
+    out = _run(listening_router.get_listening_analytics(
+        time_range="30d", authorization=authz,
+    ))
+    assert out["report_only"]["completed_count"] == 1
+    assert out["report_only"]["assisted_completed_count"] == 1
+    assert out["report_only"]["independent_completed_count"] == 0
+    assert out["recent_attempts"][0]["assisted"] is True
+    assert out["recent_attempts"][0]["accuracy"] is None
 
 
 def test_analytics_first_attempt_rule_per_test(monkeypatch):

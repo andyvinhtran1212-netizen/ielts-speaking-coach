@@ -12,7 +12,7 @@ async function ProgrammeResultRoute({ params }: { params: Promise<{ attemptId: s
 
 export default function ProgrammeResultPage({ params }: { params: Promise<{ attemptId: string }> }) {
   return (
-    <Suspense fallback={<main className="lrr-shell"><div className="lrr-state" role="status">Đang mở phần tự đối chiếu…</div></main>}>
+    <Suspense fallback={<main className="programme-result programme-result-state" role="status">Đang mở phần tự đối chiếu…</main>}>
       <ProgrammeResultRoute params={params} />
     </Suspense>
   );

@@ -20,23 +20,23 @@ const validOverview = {
   programmes: [
     {
       id: 'general-listening-practice', title: 'General Listening', description: 'General programme',
-      lesson_count: 56, form_count: 143, completed_form_count: 7, in_progress_form_count: 1,
+      lesson_count: 56, form_count: 143, completed_form_count: 7, independent_completed_form_count: 5, in_progress_form_count: 1,
     },
     {
       id: 'ielts-listening-practice', title: 'IELTS Listening', description: 'IELTS programme',
-      lesson_count: 10, form_count: 16, completed_form_count: 2, in_progress_form_count: 0,
+      lesson_count: 10, form_count: 16, completed_form_count: 2, independent_completed_form_count: 2, in_progress_form_count: 0,
     },
   ],
   resume: {
     attempt_id: 'attempt-resume', test_id: 'test-resume', title: 'General 01 — Form A',
-    programme_id: 'general-listening-practice', answered_count: 3, item_count: 10,
+    programme_id: 'general-listening-practice', answered_count: 3, item_count: 10, assisted: true,
     resume_expires_at: '2026-09-22T10:00:00Z',
     href: '/listening/programmes/form/test-resume?attempt=attempt-resume',
   },
   recent: [
     {
       attempt_id: 'attempt-recent', title: 'IELTS Practice 01', programme_id: 'ielts-listening-practice',
-      checked_count: 4, correct_count: 3, unscored_count: 6,
+      checked_count: 4, correct_count: 3, unscored_count: 6, assisted: true,
       href: '/listening/programmes/result/attempt-recent',
     },
   ],
@@ -124,7 +124,8 @@ await page.reload({ waitUntil: 'domcontentloaded' });
 await page.locator('#listening-resume-title').waitFor({ state: 'visible' });
 check('ưu tiên đúng bài programme đang làm dở',
   (await page.locator('#listening-resume-title').innerText()) === 'General 01 — Form A'
-    && (await page.locator('.listening-resume a').getAttribute('href')) === '/listening/programmes/form/test-resume?attempt=attempt-resume');
+    && (await page.locator('.listening-resume a').getAttribute('href')) === '/listening/programmes/form/test-resume?attempt=attempt-resume'
+    && (await page.locator('.listening-resume').innerText()).includes('lượt học có hỗ trợ'));
 check('render đủ hai chương trình cùng tiến độ canonical',
   await page.locator('.listening-programme-card').count() === 2
     && (await page.locator('.listening-programme-card').nth(0).getAttribute('href')) === '/listening/general'
@@ -132,7 +133,8 @@ check('render đủ hai chương trình cùng tiến độ canonical',
     && (await page.locator('.listening-programme-card').nth(0).locator('[role="progressbar"]').getAttribute('aria-valuenow')) === '5');
 check('hoạt động gần đây trỏ tới kết quả report-only',
   (await page.locator('.listening-recent__list a').getAttribute('href')) === '/listening/programmes/result/attempt-recent'
-    && (await page.locator('.listening-recent__result').innerText()).includes('3/4 câu tự động kiểm tra'));
+    && (await page.locator('.listening-recent__result').innerText()).includes('3/4 câu tự động kiểm tra')
+    && (await page.locator('.listening-recent__list small').innerText()).includes('có hỗ trợ'));
 check('library chỉ mở khi có content và runnable mode',
   await page.locator('#section-library').isVisible()
     && (await page.locator('[data-mode="browse"] .mode-card__badge').textContent())?.trim() === '5 bài');

@@ -87,7 +87,7 @@ describe('/listening/analytics — native React behavior', () => {
   });
 
   test('preserves abandoned/in-progress/perfect labels and React-escapes authored text', () => {
-    assert.match(BEHAVIOR, /status === 'submitted' \? 'đã hoàn thành'/);
+    assert.match(BEHAVIOR, /status === 'submitted' \? raw\.assisted === true \? 'đã hoàn thành · có hỗ trợ' : 'đã hoàn thành · độc lập'/);
     assert.match(BEHAVIOR, /status === 'abandoned' \? 'bỏ dở' : 'đang làm'/);
     assert.match(BEHAVIOR, /perfect: accuracy === 1/);
     assert.match(BEHAVIOR, /recent-score\$\{attempt\.perfect \? ' is-perfect' : ''\}/);

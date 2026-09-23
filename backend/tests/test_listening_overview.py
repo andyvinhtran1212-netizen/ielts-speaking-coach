@@ -319,7 +319,36 @@ def test_programme_progress_excludes_class_and_mock_attempts_from_free_hub():
             "u", [{"id": "t-programme"}, {"id": "t-mock"}],
         )
     assert partial is False
-    assert states == {"t-programme": {"completed": rows[2]}}
+    assert states == {"t-programme": {
+        "completed": {**rows[2], "assisted": False},
+        "independent_completed": {**rows[2], "assisted": False},
+    }}
+
+
+def test_programme_progress_keeps_independent_completion_after_assisted_retake():
+    from routers import listening as mod
+
+    now = datetime.now(timezone.utc).isoformat()
+    rows = [
+        {"id": "assisted-retake", "user_id": "u", "test_id": "t-programme",
+         "status": "submitted", "created_at": now,
+         "class_assignment_item_id": None, "sitting_id": None},
+        {"id": "independent-first", "user_id": "u", "test_id": "t-programme",
+         "status": "submitted", "created_at": now,
+         "class_assignment_item_id": None, "sitting_id": None},
+    ]
+    tables = {
+        "listening_test_attempts": rows,
+        "listening_programme_feedback_reveals": [
+            {"id": "reveal-1", "attempt_id": "assisted-retake", "q_num": 1},
+        ],
+    }
+    with patch.object(mod, "supabase_admin", _FakeSB(tables)):
+        states, partial = mod._programme_attempt_state("u", [{"id": "t-programme"}])
+    assert partial is False
+    assert states["t-programme"]["completed"]["id"] == "assisted-retake"
+    assert states["t-programme"]["completed"]["assisted"] is True
+    assert states["t-programme"]["independent_completed"]["id"] == "independent-first"
 
 
 def test_programme_retake_preserves_completion_history_and_resume():
