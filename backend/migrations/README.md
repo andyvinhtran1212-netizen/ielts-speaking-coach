@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-23 the highest is `301`, so the next new
-migration is `302`.
+sequence is dense. As of 2026-09-23 the highest is `302`, so the next new
+migration is `303`.
 
 ## Conventions
 
@@ -148,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–301
+## Forward scope 230–302
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -288,6 +288,9 @@ remains immutable after staging application.
 Migration 301 replaces the catalog page routine so each filtered page includes
 base content, cohort links, Mock references and exact total from one statement;
 migration 299 remains immutable after staging application.
+Migration 302 adds a separate backend-only Mock exam list routine that snapshots
+each persisted exam row together with its actionable Review decision; migration
+298 remains immutable for already deployed callers.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

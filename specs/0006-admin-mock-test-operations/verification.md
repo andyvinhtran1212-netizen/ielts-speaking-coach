@@ -39,11 +39,13 @@
 
 ## Data evidence
 
-- Migration/schema query: staging applied 297–301; the atomic content-catalog
+- Migration/schema query: staging applied 297–302. The atomic content-catalog
   page snapshot in 301 returned 39 Reading, 199 Listening, and 1 Writing row;
   Reading draft returned 36 total with a filtered 25-row page, and every
   sampled row matched the draft/unassigned predicate.
-  A second locked-runner dry run confirmed zero pending. Owner,
+  The new Mock list receipt returned an empty `exams` array on staging (which
+  currently has no Mock exams); populated mixed-mode eligibility is covered by
+  local fixtures. A second locked-runner dry run confirmed zero pending. Owner,
   service-role-only ACL, and fixed search path are verified. Production
   application remains pending. Staging currently has no Writing essays or Mock
   exams, so populated exact-total and actionable/released-only cases are
@@ -74,7 +76,7 @@
 ## Release evidence
 
 - Staging SHA and checks: amended spec merged at `0aad1f0f`, implementation
-  based there, and staging migrations 297–301 applied. Exact-SHA staging deployment,
+  based there, and staging migrations 297–302 applied. Exact-SHA staging deployment,
   integrated CI, live Staging E2E, and exact-SHA browser smoke remain pending.
-- Production verification: pending advisory-locked migrations 297–301, staging-to-main
+- Production verification: pending advisory-locked migrations 297–302, staging-to-main
   promotion, production SHA match, health checks, and admin journey smoke.

@@ -5,19 +5,19 @@
 - Approved spec is merged to `staging` before any implementation commit in the
   release branch.
 - Affected local backend, contract, browser, TypeScript, and build suites pass.
-- Migrations 297–301 remain additive and compatible with currently deployed code.
+- Migrations 297–302 remain additive and compatible with currently deployed code.
 - The legacy exam-content and Writing array routes stay unchanged; new page
   routes do not collide with parameterized legacy paths. Deployment-order tests
   cover old frontend/new backend and new frontend/old backend fallback behavior.
-- Staging and production service roles exist; none of the four routines is executable by
+- Staging and production service roles exist; none of the five routines is executable by
   public, anon, or authenticated roles.
-- All four `SECURITY DEFINER` routines have fixed `pg_catalog, public` search paths and
+- All five `SECURITY DEFINER` routines have fixed `pg_catalog, public` search paths and
   schema-qualified relations/built-ins; Security Advisor reports no mutable
   search-path finding.
 
 ## Staging
 
-- Dry-run and then apply migrations 297–301 with the advisory-locked repository runner.
+- Dry-run and then apply migrations 297–302 with the advisory-locked repository runner.
 - Re-run the runner to prove ledger/idempotent behavior; inspect all routines'
   owners, ACLs, `pg_proc.proconfig`, schema-qualified bodies and indexes. Check
   Writing exact total/order/zero-result and Review eligibility against direct
@@ -50,7 +50,7 @@
 ## Production
 
 - Confirm `staging` has not moved since the green exact-SHA evidence.
-- Dry-run and apply migrations 297–301 with `ALLOW_PROD=1` through the
+- Dry-run and apply migrations 297–302 with `ALLOW_PROD=1` through the
   advisory-locked runner before dependent code promotion. Verify the retake
   eligibility routine's owner, service-role-only ACL, fixed search path, and
   representative actionable/archived-actionable/released-only results in production.

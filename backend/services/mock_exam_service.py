@@ -2025,41 +2025,21 @@ _EXAM_WRITABLE = {
 
 
 def admin_list_exams() -> list[dict]:
-    resp = supabase_admin.table("mock_exams").select("*").order(
-        "created_at", desc=True,
-    ).order(
-        "id", desc=True,
-    ).execute()
-    rows = resp.data or []
-    if not rows:
-        return rows
-    # A completed exam clock does not prove review work remains. Query every
-    # mode from persisted sitting/review state; published sequential exams
-    # additionally need their shared clock to be closed and complete.
-    requested = {str(row["id"]) for row in rows}
-    if requested:
-        receipt = supabase_admin.rpc("fn_admin_mock_actionable_review_exam_ids", {
-            "p_exam_ids": sorted(requested),
-        }).execute().data
-        if isinstance(receipt, list) and len(receipt) == 1:
-            receipt = receipt[0]
-        if isinstance(receipt, dict) and set(receipt) == {"fn_admin_mock_actionable_review_exam_ids"}:
-            receipt = receipt["fn_admin_mock_actionable_review_exam_ids"]
-        if not isinstance(receipt, dict) or not isinstance(receipt.get("exam_ids"), list):
-            raise RuntimeError("Review eligibility receipt is unavailable.")
-        result_ids = receipt["exam_ids"]
-        if (any(not isinstance(value, str) or value not in requested for value in result_ids)
-                or len(result_ids) != len(set(result_ids))):
-            raise RuntimeError("Review eligibility receipt is malformed.")
-        actionable_ids = set(result_ids)
-    else:
-        actionable_ids = set()
-    for row in rows:
-        has_work = str(row.get("id")) in actionable_ids
-        sequential_gate = (
-            row.get("is_open") is False and row.get("active_section") == "done"
-        ) if row.get("status") == "published" and row.get("exam_mode") != "retake" else True
-        row["review_eligible"] = has_work and sequential_gate
+    """Read persisted exam rows and Review scope from one database snapshot."""
+    receipt = supabase_admin.rpc("fn_admin_mock_exams_with_review_eligibility", {}).execute().data
+    if isinstance(receipt, list) and len(receipt) == 1:
+        receipt = receipt[0]
+    if isinstance(receipt, dict) and set(receipt) == {"fn_admin_mock_exams_with_review_eligibility"}:
+        receipt = receipt["fn_admin_mock_exams_with_review_eligibility"]
+    if not isinstance(receipt, dict) or not isinstance(receipt.get("exams"), list):
+        raise RuntimeError("Review eligibility receipt is unavailable.")
+    rows = receipt["exams"]
+    ids = [row.get("id") for row in rows if isinstance(row, dict)]
+    if (len(ids) != len(rows)
+            or any(not isinstance(row.get("id"), str) or not row["id"]
+                   or not isinstance(row.get("review_eligible"), bool) for row in rows)
+            or len(ids) != len(set(ids))):
+        raise RuntimeError("Review eligibility receipt is malformed.")
     return rows
 
 

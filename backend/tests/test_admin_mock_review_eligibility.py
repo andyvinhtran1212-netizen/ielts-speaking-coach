@@ -1,5 +1,6 @@
 """Canonical admin Review eligibility, including per-sitting retakes."""
 
+import copy
 from pathlib import Path
 
 import pytest
@@ -19,40 +20,33 @@ class _Response:
         return self
 
 
-class _ExamQuery:
-    def __init__(self, rows):
-        self.rows = rows
-        self.orders = []
-
-    def select(self, columns):
-        assert columns == "*"
-        return self
-
-    def order(self, key, desc=False):
-        self.orders.append((key, desc))
-        return self
-
-    def execute(self):
-        rows = sorted(self.rows, key=lambda row: (row["created_at"], row["id"]), reverse=True)
-        return _Response(rows)
-
-
 class _Database:
-    def __init__(self, rows, actionable=(), failure=None):
-        self.query = _ExamQuery(rows)
-        self.actionable = actionable
+    def __init__(self, rows, actionable=(), failure=None, receipt=None):
+        self.rows = rows
+        self.actionable = set(actionable)
         self.failure = failure
+        self.receipt = receipt
         self.rpc_calls = []
 
     def table(self, name):
-        assert name == "mock_exams"
-        return self.query
+        pytest.fail(f"post-snapshot table read: {name}")
 
     def rpc(self, name, params):
         self.rpc_calls.append((name, params))
         if self.failure:
             raise self.failure
-        return _Response({"exam_ids": list(self.actionable)})
+        if self.receipt is not None:
+            return _Response(self.receipt)
+        assert name == "fn_admin_mock_exams_with_review_eligibility"
+        assert params == {}
+        rows = sorted(self.rows, key=lambda row: (row["created_at"], row["id"]), reverse=True)
+        return _Response({"exams": [{
+            **copy.deepcopy(row),
+            "review_eligible": bool(row["id"] in self.actionable and (
+                row["status"] != "published" or row["exam_mode"] == "retake"
+                or (row["is_open"] is False and row["active_section"] == "done")
+            )),
+        } for row in rows]})
 
 
 def _exam(id, mode, *, status="published", open=False, section="not_started", created="2026-09-01"):
@@ -77,10 +71,7 @@ def test_admin_exam_list_requires_persisted_work_for_every_mode_and_stable_order
 
     rows = svc.admin_list_exams()
 
-    assert db.query.orders == [("created_at", True), ("id", True)]
-    assert db.rpc_calls == [("fn_admin_mock_actionable_review_exam_ids", {
-        "p_exam_ids": ["a-released", "a-retake", "a-sequential", "draft", "r-open", "r-released", "s-done", "s-empty", "s-open", "s-released"],
-    })]
+    assert db.rpc_calls == [("fn_admin_mock_exams_with_review_eligibility", {})]
     assert [row["id"] for row in rows] == ["s-released", "s-open", "s-empty", "s-done", "r-released", "r-open", "draft", "a-sequential", "a-retake", "a-released"]
     assert {row["id"]: row["review_eligible"] for row in rows} == {
         "s-done": True, "r-open": True, "r-released": False,
@@ -103,17 +94,59 @@ def test_admin_exam_list_fails_closed_when_sequential_lookup_fails(monkeypatch):
     monkeypatch.setattr(svc, "supabase_admin", db)
     with pytest.raises(RuntimeError, match="lookup unavailable"):
         svc.admin_list_exams()
-    assert db.rpc_calls[0][1]["p_exam_ids"] == ["s-done"]
+    assert db.rpc_calls == [("fn_admin_mock_exams_with_review_eligibility", {})]
 
 
-def test_admin_exam_list_rejects_foreign_or_duplicate_eligibility_ids(monkeypatch):
-    db = _Database([_exam("r-open", "retake", open=True)], actionable=["foreign"])
+def test_admin_exam_list_rejects_malformed_or_duplicate_snapshot_rows(monkeypatch):
+    db = _Database([], receipt={"exams": [
+        {**_exam("r-open", "retake"), "review_eligible": True},
+        {**_exam("r-open", "retake"), "review_eligible": True},
+    ]})
     monkeypatch.setattr(svc, "supabase_admin", db)
     with pytest.raises(RuntimeError, match="malformed"):
         svc.admin_list_exams()
-    db.actionable = ["r-open", "r-open"]
+    db.receipt = {"exams": [{**_exam("r-open", "retake"), "review_eligible": None}]}
     with pytest.raises(RuntimeError, match="malformed"):
         svc.admin_list_exams()
+    db.receipt = {"exams": ["not a row"]}
+    with pytest.raises(RuntimeError, match="malformed"):
+        svc.admin_list_exams()
+
+
+@pytest.mark.parametrize("change,expected", [
+    ("status", {"status": "published", "review_eligible": True}),
+    ("archived", {"status": "published", "review_eligible": True}),
+    ("is_open", {"is_open": False, "review_eligible": True}),
+    ("active_section", {"active_section": "done", "review_eligible": True}),
+    ("delete", {"id": "s-done", "review_eligible": True}),
+    ("review", {"review_eligible": True}),
+])
+def test_admin_exam_list_uses_one_snapshot_when_gate_changes(monkeypatch, change, expected):
+    row = _exam("s-done", "sequential", section="done")
+    db = _Database([row], actionable=["s-done"])
+    original_rpc = db.rpc
+
+    def mutate_after_snapshot(name, params):
+        response = original_rpc(name, params)
+        if change == "status":
+            row["status"] = "draft"
+        elif change == "archived":
+            row["status"] = "archived"
+        elif change == "is_open":
+            row["is_open"] = True
+        elif change == "active_section":
+            row["active_section"] = "writing"
+        elif change == "delete":
+            db.rows.clear()
+        elif change == "review":
+            db.actionable.clear()
+        return response
+
+    monkeypatch.setattr(db, "rpc", mutate_after_snapshot)
+    monkeypatch.setattr(svc, "supabase_admin", db)
+    result = svc.admin_list_exams()
+    assert len(result) == 1
+    assert all(result[0][key] == value for key, value in expected.items())
 
 
 def test_admin_exam_list_response_schema_pins_new_flag_without_hiding_old_fields():
