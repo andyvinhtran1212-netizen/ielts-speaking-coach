@@ -126,10 +126,14 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
   const attemptSuffix = () => attemptNo > 1 ? `:a${attemptNo}` : '';
   const cacheKey = (id) => `${userId}:${bankId}${attemptSuffix()}:${id}`;
   const attemptKey = (name) => `${userId}:${bankId}${attemptSuffix()}:attempt:${name}`;
-  const attemptCacheKeys = () => [
-    ...sentences().map((sentence) => cacheKey(sentence.id)),
-    attemptKey('active'), attemptKey('client-id'),
-  ];
+  const attemptCacheKeys = () => {
+    const migration = draftMigration();
+    return [
+      ...sentences().map((sentence) => cacheKey(sentence.id)),
+      attemptKey('active'), attemptKey('client-id'),
+      ...(migration ? [migration.clientIdKey] : []),
+    ];
+  };
 
   function draftMigration() {
     const parsed = sentences().map((sentence) =>
@@ -149,6 +153,7 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
     }
     return {
       marker: attemptKey(`migration:${prefix}-V${version}:explicit-v1-cleanup`),
+      clientIdKey: attemptKey(`client-id:${prefix}-V${version}`),
       obsoleteKeys: legacyIds.map(cacheKey),
     };
   }
@@ -176,7 +181,7 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
       value instanceof Blob && value.size > 0);
     const keys = [...migration.obsoleteKeys];
     if (!hasCurrentRecording) {
-      keys.push(attemptKey('active'), attemptKey('client-id'));
+      keys.push(attemptKey('active'), attemptKey('client-id'), migration.clientIdKey);
     }
     await draftStore.delete(keys);
     await draftStore.put(migration.marker, true);
@@ -204,9 +209,11 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
 
   async function persistActiveAttempt() {
     clientId = clientId || uuid();
+    const migration = draftMigration();
     await Promise.all([
       draftStore.put(attemptKey('active'), true),
       draftStore.put(attemptKey('client-id'), clientId),
+      ...(migration ? [draftStore.put(migration.clientIdKey, clientId)] : []),
     ]);
   }
 
@@ -436,17 +443,20 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
       activeTimer.reset();
       speed = Number(exercise?.playback_rates?.[0] || 0.85);
       if (exercise) {
-        const requiresSentenceCompatibility = !!draftMigration();
+        const migration = draftMigration();
+        const requiresSentenceCompatibility = !!migration;
         await migrateDraftCache();
         const latestUsesCurrentSentences = attemptUsesCurrentSentences(latest);
         const latestIsIncompatible = requiresSentenceCompatibility && !!latest
           && !latestUsesCurrentSentences;
         if (requiresSentenceCompatibility && latest?.status !== 'completed'
             && !latestUsesCurrentSentences) latest = null;
-        const [cachedActive, cachedClientId] = await Promise.all([
+        const [cachedActive, legacyClientId, versionClientId] = await Promise.all([
           draftStore.get(attemptKey('active')),
           draftStore.get(attemptKey('client-id')),
+          migration ? draftStore.get(migration.clientIdKey) : null,
         ]);
+        const cachedClientId = versionClientId || legacyClientId;
         await restore();
         const hasDraft = recordings.size > 0;
         if (cachedActive === true || hasDraft) {
@@ -459,8 +469,10 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
             await clearAttemptCache();
             clientId = null;
           } else {
-            // A different cached ID may be a V2 upload still decoding on the server.
-            clientId = latestIsIncompatible && cachedClientId === state?.latest_attempt?.client_id
+            // Only a version-bound ID can be an in-flight V2 upload here; V1 tabs
+            // can still overwrite the unversioned key after draft migration.
+            clientId = latestIsIncompatible && (!versionClientId
+                || versionClientId === state?.latest_attempt?.client_id)
               ? uuid() : cachedClientId || uuid();
             await persistActiveAttempt();
             if (latest?.status === 'completed') latest = null;
