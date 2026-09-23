@@ -91,8 +91,8 @@ not reliably describe the canonical dataset.
 - **Then** the page shows a purposeful no-open-room state and does not silently
   select a closed exam; a valid explicit closed-exam deep link is still honored.
 
-- **Given** Review has several closed exams, including one not at `done` and two
-  completed exams
+- **Given** Review has several closed sequential exams, including one not at
+  `done` and two completed exams, with no actionable retake
 - **When** the operator opens Review without an exam deep link
 - **Then** the first published, closed, `done` exam in canonical newest-first
   order is selected; if no eligible exam exists the purposeful empty state is

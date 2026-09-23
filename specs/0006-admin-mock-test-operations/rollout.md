@@ -5,22 +5,23 @@
 - Approved spec is merged to `staging` before any implementation commit in the
   release branch.
 - Affected local backend, contract, browser, TypeScript, and build suites pass.
-- Migration 296 remains additive and compatible with currently deployed code.
+- Migrations 296 and 297 remain additive and compatible with currently deployed code.
 - The legacy exam-content and Writing array routes stay unchanged; new page
   routes do not collide with parameterized legacy paths. Deployment-order tests
   cover old frontend/new backend and new frontend/old backend fallback behavior.
-- Staging and production service roles exist; the routine is not executable by
+- Staging and production service roles exist; neither routine is executable by
   public, anon, or authenticated roles.
-- The `SECURITY DEFINER` routine has fixed `pg_catalog, public` search path and
+- Both `SECURITY DEFINER` routines have fixed `pg_catalog, public` search paths and
   schema-qualified relations/built-ins; Security Advisor reports no mutable
   search-path finding.
 
 ## Staging
 
-- Dry-run and then apply migrations with the advisory-locked repository runner.
-- Re-run the runner to prove ledger/idempotent behavior; inspect routine owner,
-  ACL, `pg_proc.proconfig`, schema-qualified body, index, exact filtered total,
-  ordering, and a zero-result query.
+- Dry-run and then apply migrations 296 and 297 with the advisory-locked repository runner.
+- Re-run the runner to prove ledger/idempotent behavior; inspect both routines'
+  owners, ACLs, `pg_proc.proconfig`, schema-qualified bodies and indexes. Check
+  Writing exact total/order/zero-result and retake eligibility against direct
+  sitting/review rows, including open actionable and released-only exams.
 - Verify a forced content-source failure marks its subtotal incomplete, and a
   forced page-route 404 activates the visible legacy compatibility warning.
   The content fallback must preserve `kind`, `course_level`, `cohort_id`,
@@ -37,25 +38,29 @@
   an exact complete total still corrects an invalid page.
 - Merge the implementation PR to `staging`, record its exact SHA, require
   integrated CI and live Staging E2E on that SHA, then exercise Manage/Create/
-  Content, Live empty/open, Review newest-first completed/empty/explicit-link,
+  Content, Live empty/open, Review newest-first sequential/open-retake/empty/
+  old-backend-unknown/explicit-link,
   and Writing page-2 save-return journeys.
 
 ## Production
 
 - Confirm `staging` has not moved since the green exact-SHA evidence.
-- Dry-run and apply migration 296 with `ALLOW_PROD=1` through the advisory-locked
-  runner before dependent code promotion.
+- Dry-run and apply both migrations 296 and 297 with `ALLOW_PROD=1` through the
+  advisory-locked runner before dependent code promotion. Verify the retake
+  eligibility routine's owner, service-role-only ACL, fixed search path, and
+  representative actionable/released-only results in production.
 - Open only the `staging` to `main` promotion PR, require the Staging promotion
   gate, merge without diverging feature commits, and verify deployed backend and
   frontend revisions equal the promoted SHA.
-- Smoke the admin Mock Test landing, bounded content-bank query, and a read-only
-  Writing queue filter without mutating exam or grading state.
+- Smoke the admin Mock Test landing, Review retake selection, bounded
+  content-bank query, and a read-only Writing queue filter without mutating
+  exam or grading state.
 
 ## Rollback and repair
 
 - Revert application code to the previous production SHA if a UI or service
-  regression occurs; the additive routine/index may remain safely installed.
-- Do not drop the routine or index in the same rollback. A later migration may
+  regression occurs; both additive routines/indexes may remain safely installed.
+- Do not drop either routine or index in the same rollback. A later migration may
   remove them only after every deployed caller is absent.
 - If routine results disagree with direct canonical queries, block promotion,
   capture filter parameters plus ordered IDs/counts, fix the routine, rerun
@@ -65,7 +70,7 @@
 
 ## Observability
 
-- Monitor backend 4xx/5xx and latency for exam-content and Writing queue routes,
+- Monitor backend 4xx/5xx and latency for exam list, exam-content, and Writing queue routes,
   PostgreSQL routine errors, Vercel page errors, and Railway health after each
   environment deployment.
 - Treat a count/page mismatch, unauthorized routine execution, missing filtered

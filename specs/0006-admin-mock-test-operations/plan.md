@@ -118,17 +118,18 @@
 - T003 separates management workspaces and task-aware cockpit scope.
 - T004 implements bounded content and Writing queue interactions.
 - T005 adds contract, unit, browser, accessibility, and build evidence.
-- T006 stages the migration, verifies exact SHA, reviews, and promotes.
+- T006 stages both migrations, verifies exact SHA, reviews, and promotes.
 
 ## Rollout and rollback
 
-- Apply the additive migration to staging before merging dependent code, verify
-  routine ownership/ACL and representative filtered totals, then merge to
+- Apply both additive migrations to staging before merging dependent code,
+  verify both routines' ownership/ACL plus representative Writing totals and
+  retake eligibility, then merge to
   staging and run exact-SHA integrated plus live browser checks.
-- Apply the same advisory-locked migration to production before promoting the
+- Apply both advisory-locked migrations to production before promoting the
   exact staging SHA to main.
-- Code rollback is safe because the routine and index are additive. Retain the
-  routine during rollback; remove it only in a later migration after no deployed
+- Code rollback is safe because both routines and indexes are additive. Retain the
+  routines during rollback; remove them only in a later migration after no deployed
   code references it.
 - If totals disagree, block promotion, compare routine IDs to direct canonical
   queries, and repair query semantics rather than patching the UI total.

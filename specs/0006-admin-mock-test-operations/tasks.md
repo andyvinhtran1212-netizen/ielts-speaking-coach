@@ -8,4 +8,4 @@ approved specification is present on the implementation branch base.
 - [ ] T003 Separate Manage, Create, and Content Bank workspaces and make Live, Review, and Writing task scope truthful. `depends: T001; owns: frontend/app/(authed-admin-mock-*)/admin/`
 - [ ] T004 Implement bounded content/queue controls, canonical readback, and query-context round trips. `depends: T001,T002,T003; owns: frontend/lib/admin-*-model.mjs, frontend/public/css/admin-*-next.css`
 - [ ] T005 Add requirement-linked backend, frontend contract, and fixture-backed browser coverage; run TypeScript and production build. `depends: T002,T004`
-- [ ] T006 Apply and verify the migration on staging, complete independent review and exact-SHA staging evidence, then promote through the staging-first flow. `depends: T005`
+- [ ] T006 Apply and verify migrations 296 and 297 on staging and production, complete independent review and exact-SHA staging evidence, then promote through the staging-first flow. `depends: T005`

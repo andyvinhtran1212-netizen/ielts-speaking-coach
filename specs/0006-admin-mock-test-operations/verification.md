@@ -35,9 +35,11 @@
 
 ## Data evidence
 
-- Migration/schema query: pending staging application, second idempotent runner
-  pass, routine owner/ACL inspection, `pg_proc.proconfig` fixed-search-path
-  assertion, schema-qualified SQL audit, and representative exact-total query.
+- Migration/schema query: pending staging and production application of 296 and
+  297, second idempotent runner pass, both routine owners/ACL inspection,
+  `pg_proc.proconfig` fixed-search-path assertions, schema-qualified SQL audit,
+  representative Writing exact-total query, and retake actionable/released-only
+  eligibility query.
 - Immediate state versus full reload: pending content level save/cancel,
   queue/status/grade navigation, canonical grading readback, and Review default
   selection evidence covering newest-first completed sequential and actionable
@@ -60,6 +62,6 @@
 ## Release evidence
 
 - Staging SHA and checks: pending spec merge, rebased implementation, staging
-  migration, integrated CI, live Staging E2E, and exact-SHA browser smoke.
-- Production verification: pending advisory-locked migration, staging-to-main
+  migrations 296 and 297, integrated CI, live Staging E2E, and exact-SHA browser smoke.
+- Production verification: pending advisory-locked migrations 296 and 297, staging-to-main
   promotion, production SHA match, health checks, and admin journey smoke.
