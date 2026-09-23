@@ -1354,7 +1354,6 @@ async def reap_stuck_grading_jobs(*, now: datetime | None = None) -> dict:
 # ── Read paths ───────────────────────────────────────────────────────
 
 _ALLOWED_STATUSES = {"pending", "grading", "graded", "reviewed", "delivered", "failed"}
-_QUEUE_PAGE_SIZE = 1000
 _QUEUE_SELECT = (
     "id, student_id, task_type, status, analysis_level, selected_model, "
     "word_count, created_at, delivered_at, error_message, sitting_id, "
@@ -1442,65 +1441,6 @@ def list_essays(
     return _enrich_essay_queue_rows(rows)
 
 
-def _paged_queue_ids(build) -> set[str]:
-    """Read all IDs for a queue pre-filter despite PostgREST's row cap."""
-    out: set[str] = set()
-    start = 0
-    while True:
-        page = build().range(start, start + _QUEUE_PAGE_SIZE - 1).execute().data or []
-        out.update(str(row["id"]) for row in page if row.get("id"))
-        if len(page) < _QUEUE_PAGE_SIZE:
-            return out
-        start += _QUEUE_PAGE_SIZE
-
-
-def _student_ids_matching_queue_query(query: str) -> set[str]:
-    """Resolve the complete student match set before essay pagination."""
-    needle = (query or "").strip()
-    if not needle:
-        return set()
-    # Treat SQL wildcard characters as text: the admin search is substring
-    # search, not an undocumented pattern language.
-    pattern = "%" + needle.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
-    matched: set[str] = set()
-    for column in ("full_name", "student_code"):
-        matched.update(_paged_queue_ids(
-            lambda c=column: supabase_admin.table("students")
-            .select("id").ilike(c, pattern).order("id")
-        ))
-    try:
-        exact_id = str(uuid.UUID(needle))
-    except (ValueError, AttributeError):
-        exact_id = ""
-    if exact_id:
-        matched.update(_paged_queue_ids(
-            lambda: supabase_admin.table("students")
-            .select("id").eq("id", exact_id).order("id")
-        ))
-    return matched
-
-
-def _overdue_queue_essay_ids() -> set[str]:
-    """Canonical essay IDs whose earliest assignment deadline has passed."""
-    now = datetime.now(timezone.utc).isoformat()
-    out: set[str] = set()
-    start = 0
-    while True:
-        page = (
-            supabase_admin.table("writing_assignments")
-            .select("essay_id")
-            .not_.is_("essay_id", "null")
-            .lt("deadline", now)
-            .order("essay_id")
-            .range(start, start + _QUEUE_PAGE_SIZE - 1)
-            .execute().data or []
-        )
-        out.update(str(row["essay_id"]) for row in page if row.get("essay_id"))
-        if len(page) < _QUEUE_PAGE_SIZE:
-            return out
-        start += _QUEUE_PAGE_SIZE
-
-
 def list_essays_page(
     *,
     status: Optional[str] = None,
@@ -1511,56 +1451,58 @@ def list_essays_page(
     limit: int = 25,
     offset: int = 0,
 ) -> dict:
-    """Server-paginated admin queue with a truthful exact match count."""
+    """Server-paginated admin queue with a truthful exact match count.
+
+    PostgreSQL composes every filter and returns at most one page of IDs.  The
+    follow-up REST reads therefore stay bounded by ``limit`` even when the
+    queue contains thousands of matching students or overdue assignments.
+    """
     if status and status not in _ALLOWED_STATUSES:
         raise HTTPException(400, f"Invalid status: {status!r}")
 
-    student_ids: set[str] | None = None
-    if (query or "").strip():
-        student_ids = _student_ids_matching_queue_query(query or "")
-        if not student_ids:
-            return {"items": [], "total": 0, "limit": limit, "offset": offset}
+    receipt = supabase_admin.rpc("fn_admin_writing_queue_page", {
+        "p_status": status,
+        "p_cohort_id": cohort_id,
+        "p_mock": mock,
+        "p_query": (query or "").strip() or None,
+        "p_overdue": bool(overdue),
+        "p_limit": limit,
+        "p_offset": offset,
+    }).execute().data
+    if isinstance(receipt, list) and len(receipt) == 1:
+        receipt = receipt[0]
+    if (isinstance(receipt, dict)
+            and set(receipt) == {"fn_admin_writing_queue_page"}):
+        receipt = receipt["fn_admin_writing_queue_page"]
+    if not isinstance(receipt, dict):
+        raise RuntimeError("Writing queue page receipt is unavailable.")
+    essay_ids = receipt.get("essay_ids")
+    total = receipt.get("total")
+    if (not isinstance(essay_ids, list)
+            or isinstance(total, bool) or not isinstance(total, int)
+            or total < 0 or len(essay_ids) > limit
+            or any(not isinstance(value, str) or not value for value in essay_ids)
+            or len(set(essay_ids)) != len(essay_ids)
+            or total < len(essay_ids)):
+        raise RuntimeError("Writing queue page receipt is malformed.")
 
-    cohort_student_ids: set[str] | None = None
-    if cohort_id:
-        cohort_student_ids = set(active_student_ids_for_cohort(supabase_admin, cohort_id))
-        if student_ids is not None:
-            cohort_student_ids &= student_ids
-        if not cohort_student_ids:
-            return {"items": [], "total": 0, "limit": limit, "offset": offset}
-    elif student_ids is not None:
-        cohort_student_ids = student_ids
-
-    overdue_ids: set[str] | None = None
-    if overdue:
-        overdue_ids = _overdue_queue_essay_ids()
-        if not overdue_ids:
-            return {"items": [], "total": 0, "limit": limit, "offset": offset}
-
-    q = (
-        supabase_admin.table("writing_essays")
-        .select(_QUEUE_SELECT, count="exact")
-        .is_("deleted_at", "null")
-        .order("created_at", desc=True)
-    )
-    if mock is True:
-        q = q.not_.is_("sitting_id", "null")
-    elif mock is False:
-        q = q.is_("sitting_id", "null")
-    if status:
-        q = q.eq("status", status)
-    if cohort_student_ids is not None:
-        q = q.in_("student_id", sorted(cohort_student_ids))
-    if overdue_ids is not None:
-        q = q.in_("id", sorted(overdue_ids)).neq("status", "delivered")
-
-    response = q.range(offset, offset + limit - 1).execute()
-    if response.count is None:
-        raise RuntimeError("Writing queue exact count is unavailable.")
-    rows = response.data or []
+    rows: list[dict] = []
+    if essay_ids:
+        response = (
+            supabase_admin.table("writing_essays")
+            .select(_QUEUE_SELECT)
+            .in_("id", essay_ids)
+            .is_("deleted_at", "null")
+            .execute()
+        )
+        by_id = {
+            str(row["id"]): row for row in (response.data or [])
+            if isinstance(row, dict) and row.get("id")
+        }
+        rows = [by_id[essay_id] for essay_id in essay_ids if essay_id in by_id]
     return {
         "items": _enrich_essay_queue_rows(rows) if rows else [],
-        "total": int(response.count),
+        "total": total,
         "limit": limit,
         "offset": offset,
     }

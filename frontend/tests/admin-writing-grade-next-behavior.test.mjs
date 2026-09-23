@@ -108,6 +108,8 @@ describe('/admin/writing/grade — state + persistence contract', () => {
     assert.match(BEHAVIOR, /queueContext\.queueStatus/);
     assert.match(BEHAVIOR, /queueContext\.cohortId/);
     assert.match(BEHAVIOR, /queueContext\.overdue/);
+    assert.match(BEHAVIOR, /queueContext\.query/);
+    assert.match(BEHAVIOR, /params\?\.get\('q'\)/);
     assert.match(BEHAVIOR, /<ErrorState message=\{view\.message\} returnHref=\{withEmbed\('\/admin\/writing\/queue'\)\}/);
     assert.ok(BEHAVIOR.indexOf('const queueContext') < BEHAVIOR.indexOf("view.phase === 'error'"));
     assert.match(BEHAVIOR, /instructor-context-warning/);

@@ -350,6 +350,7 @@ export function AdminWritingGradeBehavior() {
     queue_status: params?.get('queue_status') || '',
     cohort_id: params?.get('cohort_id') || '',
     overdue: params?.get('overdue') || '',
+    q: params?.get('q') || '',
   });
   const mocklane = queueContext.lane === 'mock';
   const withEmbed = (url: string) => {
@@ -359,6 +360,7 @@ export function AdminWritingGradeBehavior() {
       queueContext.queueStatus ? `queue_status=${encodeURIComponent(queueContext.queueStatus)}` : '',
       queueContext.cohortId ? `cohort_id=${encodeURIComponent(queueContext.cohortId)}` : '',
       queueContext.overdue ? 'overdue=1' : '',
+      queueContext.query ? `q=${encodeURIComponent(queueContext.query)}` : '',
     ].filter(Boolean).join('&');
     return extra ? `${url}${url.includes('?') ? '&' : '?'}${extra}` : url;
   };

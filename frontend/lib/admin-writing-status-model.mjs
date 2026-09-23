@@ -26,6 +26,7 @@ export function normalizeWritingStatusQuery(raw = {}) {
     queueStatus: mocklane && STATUSES.has(queueStatus) ? queueStatus : '',
     cohortId: stringOf(source.cohortId || source.cohort_id),
     overdue: source.overdue === true || source.overdue === '1',
+    query: stringOf(source.query || source.q).slice(0, 100),
   };
 }
 
@@ -112,6 +113,7 @@ export function writingStatusHref(kind, query) {
   if (normalized.queueStatus) params.set('queue_status', normalized.queueStatus);
   if (normalized.cohortId) params.set('cohort_id', normalized.cohortId);
   if (normalized.overdue) params.set('overdue', '1');
+  if (normalized.query) params.set('q', normalized.query);
   const base = kind === 'grade' ? '/admin/writing/grade' : '/admin/writing/queue';
   const search = params.toString();
   return `${base}${search ? `?${search}` : ''}`;

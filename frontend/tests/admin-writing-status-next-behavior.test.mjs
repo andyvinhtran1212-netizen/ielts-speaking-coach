@@ -35,13 +35,14 @@ const raw = {
 
 describe('Admin Writing Status native model', () => {
   test('normalizes query flags and preserves clean native hops', () => {
-    assert.deepEqual(normalizeWritingStatusQuery({ id: ' e1 ', embed: '1', mocklane: true, queue_status: 'failed', cohort_id: ' c1 ', overdue: '1' }), { essayId: 'e1', embed: true, mocklane: true, queueStatus: 'failed', cohortId: 'c1', overdue: true });
+    assert.deepEqual(normalizeWritingStatusQuery({ id: ' e1 ', embed: '1', mocklane: true, queue_status: 'failed', cohort_id: ' c1 ', overdue: '1', q: ' Lan ' }), { essayId: 'e1', embed: true, mocklane: true, queueStatus: 'failed', cohortId: 'c1', overdue: true, query: 'Lan' });
     assert.equal(normalizeWritingStatusQuery({ id: 'e1', mocklane: true, queue_status: 'hostile' }).queueStatus, '');
     assert.equal(writingStatusHref('grade', { essayId: 'e/1', embed: true, mocklane: true }), '/admin/writing/grade?essay_id=e%2F1&embed=1&mocklane=1');
     assert.equal(writingStatusHref('grade', { essayId: 'e/1', embed: true, mocklane: true, queueStatus: 'pending' }), '/admin/writing/grade?essay_id=e%2F1&embed=1&mocklane=1&queue_status=pending');
     assert.equal(writingStatusHref('queue', { essayId: 'e1', embed: false, mocklane: false }), '/admin/writing/queue?status=grading');
     assert.equal(writingStatusHref('queue', { essayId: 'e1', embed: true, mocklane: true, queueStatus: 'failed' }), '/admin/writing/queue?embed=1&mocklane=1&queue_status=failed');
     assert.equal(writingStatusHref('queue', { essayId: 'e1', embed: true, mocklane: true, queueStatus: 'failed', cohortId: 'c/1', overdue: true }), '/admin/writing/queue?embed=1&mocklane=1&queue_status=failed&cohort_id=c%2F1&overdue=1');
+    assert.equal(writingStatusHref('queue', { essayId: 'e1', embed: true, mocklane: true, query: 'Lan Anh' }), '/admin/writing/queue?embed=1&mocklane=1&q=Lan+Anh');
   });
 
   test('requires exact canonical identity and bounded required fields', () => {

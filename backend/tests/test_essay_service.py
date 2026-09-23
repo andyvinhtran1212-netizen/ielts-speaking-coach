@@ -99,6 +99,24 @@ class _FakeSupabase:
             name = "writing_feedback"
         return _FakeQuery(self, name)
 
+    def rpc(self, name: str, params: dict) -> "_FakeRpc":
+        return _FakeRpc(self, name, params)
+
+
+class _FakeRpc:
+    def __init__(self, parent: _FakeSupabase, name: str, params: dict) -> None:
+        self._parent = parent
+        self._name = name
+        self._params = params
+
+    def execute(self):
+        data = self._parent.responses.get((self._name, "rpc"))
+        self._parent.calls.append({
+            "table": self._name, "op": "rpc", "payload": self._params,
+            "filters": [], "select": None,
+        })
+        return MagicMock(data=data)
+
 
 class _FakeQuery:
     def __init__(self, parent: _FakeSupabase, table: str) -> None:
@@ -1550,32 +1568,63 @@ def test_list_essays_flag_handles_json_string_feedback():
     assert rows[0]["task1_image_missing"] is True
 
 
-def test_paginated_queue_search_filters_before_first_page_and_returns_exact_total():
-    """A student outside the former newest-200 window remains searchable."""
-    old_id = "essay-older-than-200"
+def test_paginated_queue_keeps_composed_large_filters_inside_bounded_rpc():
+    """>1000 matches never become an unbounded PostgREST ``in`` payload."""
+    essay_ids = [f"essay-{index:02d}" for index in range(25)]
     fake = _FakeSupabase(responses={
+        ("fn_admin_writing_queue_page", "rpc"): {
+            "essay_ids": essay_ids, "total": 1501,
+        },
         ("writing_essays", "select"): [{
-            "id": old_id, "student_id": "student-old", "task_type": "task2",
+            "id": essay_id, "student_id": f"student-{index:02d}", "task_type": "task2",
             "status": "graded", "analysis_level": 3, "selected_model": "model",
             "word_count": 260, "created_at": "2025-01-01T00:00:00Z",
-            "delivered_at": None, "error_message": None, "sitting_id": None,
+            "delivered_at": None, "error_message": None, "sitting_id": "sitting-1",
             "grading_skipped_at": None,
-        }],
-        ("students", "select"): [{"id": "student-old", "full_name": "Older Student", "student_code": "OLD-201"}],
+        } for index, essay_id in enumerate(essay_ids)],
+        ("students", "select"): [
+            {"id": f"student-{index:02d}", "full_name": f"Nguyen {index}", "student_code": f"OLD-{index}"}
+            for index in range(25)
+        ],
         ("writing_feedback", "select"): [],
         ("writing_assignments", "select"): [],
     })
-    with patch.object(essay_service, "supabase_admin", fake), patch.object(
-        essay_service, "_student_ids_matching_queue_query", return_value={"student-old"},
-    ):
+    with patch.object(essay_service, "supabase_admin", fake):
         result = essay_service.list_essays_page(
-            status="graded", mock=False, query="OLD-201", limit=25, offset=0,
+            status="graded", cohort_id="00000000-0000-0000-0000-0000000000c0",
+            mock=True, query="Nguyen", overdue=True, limit=25, offset=1000,
         )
 
-    assert result["total"] == 1
-    assert [row["id"] for row in result["items"]] == [old_id]
+    assert result["total"] == 1501
+    assert [row["id"] for row in result["items"]] == essay_ids
+    rpc_call = next(call for call in fake.calls if call["op"] == "rpc")
+    assert rpc_call["payload"] == {
+        "p_status": "graded",
+        "p_cohort_id": "00000000-0000-0000-0000-0000000000c0",
+        "p_mock": True,
+        "p_query": "Nguyen",
+        "p_overdue": True,
+        "p_limit": 25,
+        "p_offset": 1000,
+    }
     essay_call = next(call for call in fake.calls if call["table"] == "writing_essays")
-    assert ("in_", "student_id", ["student-old"]) in essay_call["filters"]
+    assert ("in_", "id", essay_ids) in essay_call["filters"]
+    for call in fake.calls:
+        for operation, _column, values in call["filters"]:
+            if operation == "in_":
+                assert len(values) <= 25
+
+
+def test_paginated_queue_rejects_unbounded_or_malformed_rpc_receipt():
+    fake = _FakeSupabase(responses={
+        ("fn_admin_writing_queue_page", "rpc"): {
+            "essay_ids": [f"essay-{index}" for index in range(26)], "total": 2000,
+        },
+    })
+    with patch.object(essay_service, "supabase_admin", fake), pytest.raises(
+        RuntimeError, match="receipt is malformed",
+    ):
+        essay_service.list_essays_page(limit=25)
 
 
 def test_feedback_flags_missing_image_degrades_on_bad_json():

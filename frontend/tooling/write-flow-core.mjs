@@ -444,7 +444,7 @@ export function formatFindings(findings) {
  * Trả về mảng thông báo lỗi; rỗng nghĩa là hợp lệ.
  */
 const FLOW_KEYS = new Set(['name', 'route', 'legacyRoute', 'nextPending', 'canned', 'steps',
-  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous', 'fakeMedia', 'initStorage', 'initSessionStorage', 'randomUUID']);
+  'writes', 'ignoreWrites', 'settleMs', 'drainMs', 'expectFinalUrl', 'fakeClock', 'anonymous', 'fakeMedia', 'bypassCSP', 'initStorage', 'initSessionStorage', 'randomUUID']);
 const WRITE_KEYS = new Set(['method', 'path', 'body', 'bodyAll', 'headers', 'query', 'times', 'atLeast', 'unordered']);
 
 // Mỗi hành động kèm HÌNH DẠNG của nó. `null` = giá trị vô hướng có bộ kiểm riêng.
@@ -512,7 +512,7 @@ export function validateFlow(flow) {
   for (const k of ['legacyRoute', 'nextPending']) {
     if (k in flow && !isStr(flow[k])) bad(`\`${k}\` phải là chuỗi khác rỗng`);
   }
-  for (const k of ['fakeClock', 'anonymous', 'fakeMedia']) {
+  for (const k of ['fakeClock', 'anonymous', 'fakeMedia', 'bypassCSP']) {
     if (k in flow && typeof flow[k] !== 'boolean') bad(`\`${k}\` phải là boolean`);
   }
   if ('randomUUID' in flow && !isUuid(flow.randomUUID)) {

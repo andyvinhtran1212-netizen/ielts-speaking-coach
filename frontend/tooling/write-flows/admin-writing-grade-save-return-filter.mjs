@@ -5,8 +5,9 @@ const UPDATED = 'Bản sửa dùng để xác minh quay lại đúng phạm vi F
 
 export default {
   name: 'admin Writing Grade — save-return giữ phạm vi Mock Failed/lớp/quá hạn',
-  route: `/admin/writing/grade?essay_id=${ESSAY}&embed=1&mocklane=1&queue_status=failed&cohort_id=c1&overdue=1`,
-  expectFinalUrl: '/admin/writing/queue?embed=1&mocklane=1&queue_status=failed&cohort_id=c1&overdue=1',
+  bypassCSP: true,
+  route: `/admin/writing/grade?essay_id=${ESSAY}&embed=1&mocklane=1&queue_status=failed&cohort_id=c1&overdue=1&q=Lan%20Anh`,
+  expectFinalUrl: '/admin/writing/queue?embed=1&mocklane=1&queue_status=failed&cohort_id=c1&overdue=1&q=Lan%20Anh',
   initSessionStorage: {
     gradeQueue: JSON.stringify({ ids: [ESSAY], i: 0 }),
   },

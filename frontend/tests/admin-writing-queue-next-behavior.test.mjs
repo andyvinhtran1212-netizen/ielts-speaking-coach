@@ -9,6 +9,7 @@ import {
   normalizeBulkDelivery,
   normalizeSkipGrading,
   normalizeStartGrading,
+  normalizeWritingQueueStatusReadback,
   normalizeWritingQueueCohorts,
   normalizeWritingQueueFilters,
   normalizeWritingQueueList,
@@ -37,8 +38,9 @@ const row = { id: 'e1', student_id: 's1', student_full_name: '<img onerror=x>', 
 
 describe('Admin Writing Queue native model', () => {
   test('normalizes restorable filters and canonical API scope', () => {
-    assert.deepEqual(normalizeWritingQueueFilters({ status: 'reviewed', cohort_id: ' c1 ', overdue: '1', embed: '1' }), { lane: 'reviewed', cohortId: 'c1', overdue: true, embed: true, queueStatus: '' });
+    assert.deepEqual(normalizeWritingQueueFilters({ status: 'reviewed', cohort_id: ' c1 ', overdue: '1', embed: '1', q: ' Lan ' }), { lane: 'reviewed', cohortId: 'c1', overdue: true, embed: true, queueStatus: '', query: 'Lan' });
     assert.equal(writingQueueSearch({ lane: 'reviewed', cohortId: 'c1', overdue: true, embed: false }), 'status=reviewed&cohort_id=c1&overdue=1');
+    assert.equal(writingQueueSearch({ lane: 'reviewed', cohortId: 'c1', overdue: true, embed: false, query: 'Lan Anh' }), 'status=reviewed&cohort_id=c1&overdue=1&q=Lan+Anh');
     assert.equal(writingQueueSearch({ lane: 'mock', cohortId: '', overdue: false, embed: true }), 'mocklane=1&embed=1');
     assert.equal(writingQueueSearch({ lane: 'mock', cohortId: '', overdue: false, embed: true, queueStatus: 'failed' }), 'mocklane=1&embed=1&queue_status=failed');
     assert.equal(writingQueueApiPath({ lane: 'all', cohortId: 'c/1' }), '/admin/writing/essays/queue?limit=25&offset=0&mock=false&cohort_id=c%2F1');
@@ -72,6 +74,7 @@ describe('Admin Writing Queue native model', () => {
     assert.equal(writingQueueDestination({ ...row, status: 'pending', gradingSkippedAt: null }, { lane: 'mock', embed: true, queueStatus: 'pending' }), '/admin/writing/status?essay_id=e1&embed=1&mocklane=1&queue_status=pending');
     assert.equal(writingQueueDestination({ ...row, status: 'failed' }, { lane: 'mock', embed: true, queueStatus: 'failed' }), '/admin/writing/grade?essay_id=e1&embed=1&mocklane=1&queue_status=failed');
     assert.equal(writingQueueDestination({ ...row, status: 'failed' }, { lane: 'mock', embed: true, queueStatus: 'failed', cohortId: 'c/1', overdue: true }), '/admin/writing/grade?essay_id=e1&embed=1&mocklane=1&queue_status=failed&cohort_id=c%2F1&overdue=1');
+    assert.equal(writingQueueDestination({ ...row, status: 'failed' }, { lane: 'mock', embed: true, query: 'Lan Anh' }), '/admin/writing/grade?essay_id=e1&embed=1&mocklane=1&q=Lan+Anh');
     assert.equal(writingQueueDestination(row, { lane: 'mock', embed: true, queueStatus: 'hostile' }).includes('queue_status'), false);
     assert.equal(shouldPollWritingQueue({ lane: 'grading' }), true);
     assert.equal(shouldPollWritingQueue({ lane: 'mock', queueStatus: 'grading' }), true);
@@ -83,6 +86,9 @@ describe('Admin Writing Queue native model', () => {
     assert.equal(normalizeBulkDelivery({ delivered: ['e1'], skipped: [], delivered_count: 1, skipped_count: 0 }, ['e1', 'e2']), null);
     assert.ok(normalizeStartGrading({ essay_id: 'e1', status: 'queued', job_id: 'j1' }, 'e1'));
     assert.equal(normalizeStartGrading({ essay_id: 'other', status: 'queued', job_id: 'j1' }, 'e1'), null);
+    assert.deepEqual(normalizeWritingQueueStatusReadback({ essay_id: 'e1', status: 'grading' }, 'e1'), { essayId: 'e1', status: 'grading' });
+    assert.equal(normalizeWritingQueueStatusReadback({ essay_id: 'other', status: 'grading' }, 'e1'), null);
+    assert.equal(normalizeWritingQueueStatusReadback({ essay_id: 'e1', status: 'hostile' }, 'e1'), null);
     assert.ok(normalizeSkipGrading({ ok: true, essay_id: 'e1', grading_skipped: true }, 'e1'));
     assert.equal(normalizeSkipGrading({ ok: true, essay_id: 'e1' }, 'e1'), null);
   });
@@ -109,9 +115,11 @@ describe('/admin/writing/queue native ownership and UX contract', () => {
     assert.match(COMPONENT, /currentViewKey\.current === key/);
     assert.match(COMPONENT, /mutationSequence\.current !== operationId/);
     assert.match(COMPONENT, /snapshot\?\.key === viewKey/);
-    assert.match(COMPONENT, /setTimeout\(\(\) => setDebouncedQuery/);
+    assert.match(COMPONENT, /setTimeout\(\(\) => \{[\s\S]*?router\.replace/);
     assert.match(COMPONENT, /normalizeBulkDelivery/);
     assert.match(COMPONENT, /await loadQueue\(filters, true\)/);
+    assert.match(COMPONENT, /\/admin\/writing\/essays\/\$\{encodeURIComponent\(action\.row\.id\)\}\/status/);
+    assert.match(COMPONENT, /params\?\.get\('q'\)/);
     assert.match(COMPONENT, /<Dialog open=/);
     for (const token of ['Tìm học viên', 'queueStatus', 'pageRows', 'awq-pagination', 'Số dòng']) assert.ok(COMPONENT.includes(token), token);
     assert.doesNotMatch(COMPONENT, /\balert\(|\bconfirm\(|dangerouslySetInnerHTML/);

@@ -13,6 +13,7 @@ import {
   normalizeBulkDelivery,
   normalizeSkipGrading,
   normalizeStartGrading,
+  normalizeWritingQueueStatusReadback,
   normalizeWritingQueueCohorts,
   normalizeWritingQueueFilters,
   normalizeWritingQueuePage,
@@ -88,6 +89,7 @@ export function AdminWritingQueue() {
     mocklane: params?.get('mocklane') || '',
     embed: params?.get('embed') || '',
     queue_status: params?.get('queue_status') || '',
+    q: params?.get('q') || '',
   }) as QueueFilters, [params]);
   const fetchKey = writingQueueFetchKey(filters);
   const keyedFetch = `${profile.id}\u0000${fetchKey}`;
@@ -101,8 +103,7 @@ export function AdminWritingQueue() {
   const [banner, setBanner] = useState<QueueBanner>(null);
   const [confirm, setConfirm] = useState<QueueConfirm>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [query, setQuery] = useState(filters.query);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const queueSequences = useRef(new Map<string, number>());
@@ -110,15 +111,15 @@ export function AdminWritingQueue() {
   const mutationAccount = useRef('');
   const mutationSequence = useRef(0);
   const profileId = useRef(profile.id); profileId.current = profile.id;
-  const viewKey = `${keyedFetch}\u0000${debouncedQuery}\u0000${page}\u0000${pageSize}`;
+  const viewKey = `${keyedFetch}\u0000${page}\u0000${pageSize}`;
   currentViewKey.current = viewKey;
   const rows = snapshot?.key === viewKey ? snapshot.rows : [];
   const cohorts = cohortSnapshot?.account === profile.id ? cohortSnapshot.rows : [];
   const hasSnapshot = snapshot?.key === viewKey;
 
-  const loadQueue = useCallback(async (target: QueueFilters, silent = false, search = debouncedQuery, targetPage = page, targetPageSize = pageSize): Promise<QueueRow[] | null> => {
+  const loadQueue = useCallback(async (target: QueueFilters, silent = false, targetPage = page, targetPageSize = pageSize): Promise<QueueRow[] | null> => {
     const account = profile.id;
-    const key = `${account}\u0000${writingQueueFetchKey(target)}\u0000${search}\u0000${targetPage}\u0000${targetPageSize}`;
+    const key = `${account}\u0000${writingQueueFetchKey(target)}\u0000${targetPage}\u0000${targetPageSize}`;
     const requestId = (queueSequences.current.get(key) || 0) + 1;
     queueSequences.current.set(key, requestId);
     const isCurrentView = () => currentViewKey.current === key && profileId.current === account;
@@ -126,7 +127,6 @@ export function AdminWritingQueue() {
     if (isCurrentView()) setLoadError(null);
     try {
       const normalized = normalizeWritingQueuePage(await getAdminWritingQueuePage(writingQueueApiQuery(target, {
-        query: search,
         limit: targetPageSize,
         offset: (targetPage - 1) * targetPageSize,
       }))) as { rows: QueueRow[]; malformedCount: number; returnedCount: number; total: number; limit: number; offset: number } | null;
@@ -143,7 +143,7 @@ export function AdminWritingQueue() {
     } finally {
       if (requestId === queueSequences.current.get(key) && isCurrentView()) setLoading(false);
     }
-  }, [debouncedQuery, page, pageSize, profile.id]);
+  }, [page, pageSize, profile.id]);
 
   const loadCohorts = useCallback(async () => {
     const account = profile.id;
@@ -170,15 +170,22 @@ export function AdminWritingQueue() {
 
   useEffect(() => {
     setConfirm(null);
-    setBanner(null);
     setSelected(new Set());
     void loadQueue(filters);
   }, [viewKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    const nextQuery = query.trim().slice(0, 100);
+    if (nextQuery === filters.query) return;
+    const timer = window.setTimeout(() => {
+      setBanner(null);
+      const search = writingQueueSearch({ ...filters, query: nextQuery });
+      router.replace(`/admin/writing/queue${search ? `?${search}` : ''}`, { scroll: false });
+    }, 300);
     return () => window.clearTimeout(timer);
-  }, [query]);
+  }, [filters, query, router]);
+
+  useEffect(() => { setQuery(filters.query); }, [filters.query]);
 
   useEffect(() => {
     setCohortSnapshot(null);
@@ -209,11 +216,12 @@ export function AdminWritingQueue() {
   const activeLane = LANES.find((lane) => lane.id === filters.lane)!;
   const selectedCohortKnown = !filters.cohortId || cohorts.some((cohort) => cohort.id === filters.cohortId);
 
-  useEffect(() => { setPage(1); setSelected(new Set()); }, [filters.cohortId, filters.lane, filters.overdue, filters.queueStatus, query]);
+  useEffect(() => { setPage(1); setSelected(new Set()); }, [filters.cohortId, filters.lane, filters.overdue, filters.queueStatus, filters.query]);
   useEffect(() => { if (hasSnapshot && page > pageCount) setPage(pageCount); }, [hasSnapshot, page, pageCount]);
 
   const navigate = (next: QueueFilters) => {
     if (busyId) return;
+    setBanner(null);
     const search = writingQueueSearch(next);
     router.replace(`/admin/writing/queue${search ? `?${search}` : ''}`, { scroll: false });
   };
@@ -278,10 +286,12 @@ export function AdminWritingQueue() {
           action.row.id,
         );
         if (!acknowledged) throw new Error('Máy chủ không xác nhận đúng bài đã đưa vào hàng chấm.');
-        const canonical = await loadQueue({ ...filters, queueStatus: '' }, true);
-        const current = canonical?.find((row) => row.id === action.row.id);
-        if (!canonical || !current || !['grading', 'graded', 'reviewed', 'delivered'].includes(current.status)) throw new Error('Đã gửi yêu cầu nhưng chưa xác minh được bài đã rời trạng thái Chờ chấm.');
-        if (filters.queueStatus && !await loadQueue(filters, true)) throw new Error('Đã xác minh bài chuyển trạng thái nhưng chưa làm mới được bộ lọc hiện tại. Hãy tải lại trước khi thao tác tiếp.');
+        const canonical = normalizeWritingQueueStatusReadback(
+          await window.api.get<unknown>(`/admin/writing/essays/${encodeURIComponent(action.row.id)}/status`),
+          action.row.id,
+        );
+        if (!canonical || !['grading', 'graded', 'reviewed', 'delivered'].includes(canonical.status)) throw new Error('Đã gửi yêu cầu nhưng chưa xác minh được bài đã rời trạng thái Chờ chấm.');
+        if (!await loadQueue(filters, true)) throw new Error('Đã xác minh bài chuyển trạng thái nhưng chưa làm mới được bộ lọc hiện tại. Hãy tải lại trước khi thao tác tiếp.');
         if (currentViewKey.current === view) setBanner({ kind: 'success', text: 'Đã đưa bài vào hàng chấm và đồng bộ lại từ máy chủ.' });
       } else {
         const acknowledged = normalizeSkipGrading(
@@ -332,7 +342,7 @@ export function AdminWritingQueue() {
       </header>
 
       <div className={`awq-toolbar${filters.embed ? ' is-embedded' : ''}`}>
-        <label className="awq-search"><span>Tìm học viên</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tên hoặc mã học viên…" /></label>
+        <label className="awq-search"><span>Tìm học viên</span><input type="search" maxLength={100} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tên hoặc mã học viên…" /></label>
         <label><span>Lớp học</span><select value={filters.cohortId} onChange={(event) => setCohort(event.target.value)} disabled={Boolean(busyId || (cohortError && !cohorts.length))}><option value="">Tất cả lớp</option>{!selectedCohortKnown && <option value={filters.cohortId}>Lớp không còn trong danh mục · {filters.cohortId}</option>}{cohorts.map((cohort) => <option key={cohort.id} value={cohort.id}>{cohort.name}</option>)}</select></label>
         {filters.lane === 'mock' && <label><span>Trạng thái</span><select value={filters.queueStatus || 'all'} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">Tất cả</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>}
         <label className="awq-overdue"><input type="checkbox" checked={filters.overdue} disabled={Boolean(busyId)} onChange={(event) => setOverdue(event.target.checked)} /><span><strong>Chỉ bài quá hạn</strong><small>Deadline đã qua, chưa trả</small></span></label>
@@ -373,7 +383,7 @@ export function AdminWritingQueue() {
           })}</tbody>
         </table>
       </div>}
-      {hasSnapshot && visibleRows.length > 0 && <div className="awq-pagination" aria-label="Phân trang hàng chờ"><span>Hiển thị {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, total)} / {total} bài</span><label><span>Số dòng</span><select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}><option value={25}>25</option><option value={50}>50</option></select></label><div><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1}>Trang trước</button><span>Trang {currentPage}/{pageCount}</span><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => setPage((value) => Math.min(pageCount, value + 1))} disabled={currentPage === pageCount}>Trang sau</button></div></div>}
+      {hasSnapshot && visibleRows.length > 0 && <div className="awq-pagination" aria-label="Phân trang hàng chờ"><span>Hiển thị {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, total)} / {total} bài</span><label><span>Số dòng</span><select value={pageSize} onChange={(event) => { setBanner(null); setPageSize(Number(event.target.value)); setPage(1); }}><option value={25}>25</option><option value={50}>50</option></select></label><div><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => { setBanner(null); setPage((value) => Math.max(1, value - 1)); }} disabled={currentPage === 1}>Trang trước</button><span>Trang {currentPage}/{pageCount}</span><button className="adm-btn-secondary adm-btn-sm" type="button" onClick={() => { setBanner(null); setPage((value) => Math.min(pageCount, value + 1)); }} disabled={currentPage === pageCount}>Trang sau</button></div></div>}
     </section>
 
     <Dialog open={Boolean(confirm && hasSnapshot)} title={confirmCopy.title} description={confirmCopy.description} busy={Boolean(busyId)} onClose={() => setConfirm(null)} actions={<>

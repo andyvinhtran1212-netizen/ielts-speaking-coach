@@ -65,6 +65,11 @@ await page.route('**/*', async (route) => {
     mockRows = mockRows.map((row) => row.id === grade[1] ? { ...row, status: 'grading' } : row);
     return json({ essay_id: grade[1], job_id: `job-${grade[1]}`, status: 'queued' }, 202);
   }
+  const statusRead = parsed.pathname.match(/^\/admin\/writing\/essays\/([^/]+)\/status$/);
+  if (method === 'GET' && statusRead) {
+    const row = [...regular, ...mockRows].find((item) => item.id === statusRead[1]);
+    return row ? json({ essay_id: row.id, status: row.status }) : json({ detail: 'not found' }, 404);
+  }
   const skip = parsed.pathname.match(/^\/admin\/mock-exams\/writing\/essays\/([^/]+)\/skip-grading$/);
   if (method === 'POST' && skip) {
     mockRows = mockRows.map((row) => row.id === skip[1] ? { ...row, grading_skipped_at: now.toISOString() } : row);
@@ -84,7 +89,7 @@ const completeSearchRead = page.waitForResponse((response) => new URL(response.u
 await page.getByLabel('Tìm học viên').fill('OLD-201');
 await completeSearchRead;
 await page.getByText('Older Search Student', { exact: true }).waitFor();
-check('search chạy ở backend và tìm được học viên ngoài snapshot đầu', requests.some((item) => item.path === QUEUE_PATH && item.search.includes('q=OLD-201')));
+check('search chạy ở backend, nằm trong URL và tìm được học viên ngoài snapshot đầu', new URL(page.url()).searchParams.get('q') === 'OLD-201' && requests.some((item) => item.path === QUEUE_PATH && item.search.includes('q=OLD-201')));
 await page.getByLabel('Tìm học viên').fill('');
 await page.getByText('Learner Two', { exact: true }).waitFor();
 
@@ -120,6 +125,7 @@ await gradeRow.getByRole('button', { name: 'Chấm dù ngắn' }).click();
 await page.getByRole('button', { name: 'Bắt đầu chấm' }).click();
 await page.getByText('Đã đưa bài vào hàng chấm và đồng bộ lại từ máy chủ.', { exact: true }).waitFor();
 check('grade-anyway được xác minh thành canonical grading', await gradeRow.getByText('Đang chấm', { exact: true }).count() === 1);
+check('grade-anyway đọc lại đúng essay thay vì tìm trong trang hiện tại', requests.some((item) => item.method === 'GET' && item.path === '/admin/writing/essays/m1/status'));
 
 const skipRow = page.locator('tr', { hasText: 'Mock Short Skip' });
 await skipRow.getByRole('button', { name: 'Bỏ qua' }).click();
@@ -139,6 +145,30 @@ const restoredMockRead = page.waitForResponse((response) => new URL(response.url
 await mockStatusFilter.selectOption('all');
 await restoredMockRead;
 await page.getByText('Mock Reviewed', { exact: true }).waitFor();
+
+mockRows = [
+  base('newer-graded', 'Newer Non-pending', 'graded', { sitting_id: 'sit-newer' }),
+  ...Array.from({ length: 26 }, (_, index) => base(
+    `page-${index + 1}`,
+    index === 25 ? 'Pending Page 2' : `Pending Page 1 ${index + 1}`,
+    'pending',
+    { sitting_id: `sit-page-${index + 1}`, word_count: 280 },
+  )),
+];
+const pendingPageOneRead = page.waitForResponse((response) => {
+  const url = new URL(response.url());
+  return url.pathname === QUEUE_PATH && url.searchParams.get('status') === 'pending' && url.searchParams.get('offset') === '0';
+});
+await mockStatusFilter.selectOption('pending');
+await pendingPageOneRead;
+await page.getByRole('button', { name: 'Trang sau' }).click();
+await page.getByText('Pending Page 2', { exact: true }).waitFor();
+const pageTwoRow = page.locator('tr', { hasText: 'Pending Page 2' });
+await pageTwoRow.getByRole('button', { name: 'Bắt đầu chấm' }).click();
+await page.getByRole('button', { name: 'Bắt đầu chấm' }).last().click();
+await page.getByText('Đã đưa bài vào hàng chấm và đồng bộ lại từ máy chủ.', { exact: true }).waitFor();
+await page.getByText('Trang 1/1', { exact: true }).waitFor();
+check('bài Pending trang 2 được xác minh bằng essay ID rồi làm mới đúng trang lọc', requests.some((item) => item.method === 'GET' && item.path === '/admin/writing/essays/page-26/status') && await page.getByText('Đã gửi yêu cầu nhưng chưa xác minh', { exact: false }).count() === 0);
 
 await page.setViewportSize({ width: 1440, height: 900 });
 const desktop = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth, lanes: getComputedStyle(document.querySelector('.awq-lanes')).gridTemplateColumns.split(' ').length, table: getComputedStyle(document.querySelector('.awq-table')).display }));
