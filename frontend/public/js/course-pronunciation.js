@@ -143,12 +143,12 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
     for (let oldVersion = 1; oldVersion < version; oldVersion += 1) {
       for (let order = 1; order <= MAX_VERSIONED_SENTENCES; order += 1) {
         const suffix = String(order).padStart(2, '0');
-        legacyIds.push(oldVersion === 1
-          ? `${prefix}-${suffix}` : `${prefix}-V${oldVersion}-${suffix}`);
+        if (oldVersion === 1) legacyIds.push(`${prefix}-${suffix}`);
+        legacyIds.push(`${prefix}-V${oldVersion}-${suffix}`);
       }
     }
     return {
-      marker: attemptKey(`migration:${prefix}-V${version}`),
+      marker: attemptKey(`migration:${prefix}-V${version}:explicit-v1-cleanup`),
       obsoleteKeys: legacyIds.map(cacheKey),
     };
   }
