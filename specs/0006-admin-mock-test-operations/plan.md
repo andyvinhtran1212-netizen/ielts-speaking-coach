@@ -86,17 +86,19 @@
   existing exam fields for older consumers; regenerate `api.d.ts` and use the
   typed GET contract in the new cockpit. Order the canonical admin exam list by
   `created_at DESC, id DESC` before both Live and Review selection.
-  Published sequential eligibility uses closed/`active_section=done`;
-  row-backed eligibility uses a set-based, backend-only query joining persisted review
+  Published sequential eligibility uses closed/`active_section=done` AND
+  actionable persisted review work. Row-backed eligibility for every mode uses
+  a set-based, backend-only query joining persisted review
   statuses `queued`, `claimed`, `edited`, or `reviewed` to sittings in
   `all_submitted`, `under_review`, or `reviewed` state. Published retakes need
   not be closed; archived/draft exams with actionable rows qualify regardless
-  of mode or exam-level clock. Query failures fail the exam-list read instead of silently
+  of mode or exam-level clock. A completed clock with no review row or only
+  released results never qualifies. Query failures fail the exam-list read instead of silently
   returning false; the frontend
   preserves a stale snapshot with an error. New frontend against an old backend
-  may retain the published sequential predicate, but must mark retake and
-  archived/draft row-backed eligibility as unknown and must not claim that
-  Review has no actionable work.
+  must mark row-backed eligibility as unknown for every mode, including
+  published sequential exams, and must not claim that Review has no actionable
+  work from a clock-only fallback.
 - Keep the currently deployed backend compatible with the additive routine and
   index before dependent code is deployed. Verify both deployment orders for
   both domains: old frontends use the unchanged exam-content and Writing array
@@ -163,10 +165,11 @@
   fixed `search_path`, and schema qualification.
 - Review tests cover queued/claimed/edited/reviewed versus released or
   void sittings, open versus closed retakes, archived/draft sequential and
-  retake exams with actionable rows, sequential `done` behavior,
+  retake exams with actionable rows, sequential `done` plus actionable rows,
+  sequential no-review and released-only exclusions,
   equal-timestamp ordering for both Live and Review, typed exam-list response
   and older field preservation, backend lookup failure, and the routine's ACL and
-  fixed search path. Frontend tests cover unknown old-backend retake
+  fixed search path. Frontend tests cover unknown old-backend
   eligibility, explicit deep links, and visible open-retake rail selection.
 - Frontend contracts cover workspace separation, query serialization, task
   defaults, enum fallback, accessible controls, no-result/error states,
