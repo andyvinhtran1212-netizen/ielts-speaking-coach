@@ -459,8 +459,9 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
             await clearAttemptCache();
             clientId = null;
           } else {
-            // A newer local retry must win over an older completed result.
-            clientId = latestIsIncompatible ? uuid() : cachedClientId || uuid();
+            // A different cached ID may be a V2 upload still decoding on the server.
+            clientId = latestIsIncompatible && cachedClientId === state?.latest_attempt?.client_id
+              ? uuid() : cachedClientId || uuid();
             await persistActiveAttempt();
             if (latest?.status === 'completed') latest = null;
           }
