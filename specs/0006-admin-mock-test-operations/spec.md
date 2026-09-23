@@ -56,10 +56,10 @@ not reliably describe the canonical dataset.
 ## Requirements
 
 - **FR-001:** Mock Test management opens on the canonical exam list; exam creation and the Reading/Listening/Writing content bank are explicit separate workspaces, and embedded management removes duplicated global hero and lifecycle content.
-- **FR-002:** The content-bank API and UI provide bounded search, attention/status metadata filters, limit/offset pagination, and an exact canonical total; only the requested page is enriched and rendered, repeated row actions have contextual accessible names, and level edits require explicit save or cancel with canonical readback.
+- **FR-002:** The content-bank API and UI provide bounded search, attention/status metadata filters, limit/offset pagination, and an exact canonical total when every requested source succeeds; a partial source read carries an explicit incomplete-total signal and the UI never labels its surviving subtotal as canonical. Only the requested page is enriched and rendered, repeated row actions have contextual accessible names, and level edits require explicit save or cancel with canonical readback.
 - **FR-003:** Exam creation retains its existing payload contract while its large content selectors support keyboard search, selected-item visibility, and a clear no-result state.
 - **FR-004:** Live defaults to an actually open exam or a purposeful no-open-room action, Review defaults to a completed/actionable exam, explicit valid deep links remain honored, and the Writing workspace does not display an exam rail that does not scope its data.
-- **FR-005:** The Mock Writing queue applies student query, backend status, cohort, Mock scope, and overdue filters in PostgreSQL before limit/offset pagination, returns an exact total, fetches and enriches only the page IDs, and fails visibly rather than substituting a partial client-side result.
+- **FR-005:** A new additive Mock Writing page endpoint applies student query, backend status, cohort, Mock scope, and overdue filters in PostgreSQL before limit/offset pagination, returns an exact total, and fetches and enriches only the page IDs; the existing array endpoint remains unchanged, and a new-frontend/old-backend compatibility fallback is visibly incomplete rather than presented as canonical truth.
 - **FR-006:** Writing queue query context is preserved through status, grading, save-and-return, browser navigation, and automatic page correction; grading starts from an exact canonical status read and refreshes the active filtered page until a processing row leaves that status.
 - **FR-007:** Touched Mock Test surfaces expose truthful loading, empty, partial/error/retry, stale-readback, and permission states, localize canonical enums with a visible unknown fallback, work at 390/768/1440 widths in both themes, retain visible keyboard focus and 44px targets, and respect reduced motion.
 
@@ -94,6 +94,23 @@ not reliably describe the canonical dataset.
 - **When** the operator applies student/status/cohort/overdue filters
 - **Then** PostgreSQL filters before pagination, the exact total includes that
   essay, and only the requested ordered page is fetched and enriched.
+
+### Partial content source
+
+- **Given** one Reading, Listening, or Writing source fails while the others
+  return records
+- **When** the content bank renders the surviving page
+- **Then** it displays the failed source and retry action, marks the count as
+  incomplete, and does not describe the surviving subtotal as the exact total.
+
+### Independent deployment order
+
+- **Given** Railway and Vercel may deploy the same release at different times
+- **When** either the old frontend meets the new backend or the new frontend
+  temporarily meets the old backend
+- **Then** the old array endpoint still works, while the new frontend falls back
+  to a visibly incomplete compatibility page until the paginated endpoint is
+  available; neither order renders an invalid response as an empty queue.
 
 ### Writing round trip
 

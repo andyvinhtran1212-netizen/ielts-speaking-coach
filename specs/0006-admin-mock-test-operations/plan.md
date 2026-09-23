@@ -14,9 +14,17 @@
 ## Data and contracts
 
 - Extend the exam-content list contract with bounded `q`, attention, limit, and
-  offset inputs plus `total`; relationship enrichment runs only for page rows.
-- Extend the Writing queue contract with bounded `q` and `total` while retaining
-  existing status, cohort, overdue, Mock, limit, and offset semantics.
+  offset inputs plus `total` and `total_complete`. Relationship enrichment runs
+  only for page rows. `total` is exact only when `total_complete=true`; if any
+  source is named in `failed_kinds`, `total_complete=false`, `total` is the
+  surviving-source subtotal, and the UI must label it as incomplete.
+- Preserve `/admin/writing/essays` as the existing array contract. Add
+  `/admin/writing/essays/queue` as a separate paginated envelope with bounded
+  `q`, exact `total`, and existing status, cohort, overdue, Mock, limit, and
+  offset semantics. The old frontend continues using the array endpoint. The
+  new frontend uses the page endpoint and, only when that route returns 404
+  during deployment skew, falls back to the array endpoint with an explicit
+  `total_complete=false` compatibility warning and no exact-count claim.
 - Add an idempotent migration defining a `SECURITY DEFINER`, backend-only
   Writing queue page routine. It applies all filters before deterministic
   pagination and returns ordered IDs plus exact count. Revoke public, anon, and
@@ -24,7 +32,9 @@
 - Treat `writing_essays`, assignments, canonical student/cohort membership, and
   persisted grading status as truth. Do not infer missing exam identity.
 - Keep the currently deployed backend compatible with the additive routine and
-  index before dependent code is deployed.
+  index before dependent code is deployed. Verify both deployment orders: old
+  frontend/new backend uses the unchanged array route; new frontend/old backend
+  uses the visible incomplete fallback until the page route becomes available.
 
 ## UI and interaction
 
@@ -66,7 +76,8 @@
 - Backend tests cover request validation, exact totals, ordering, filtering,
   canonical student/cohort resolution, bounded enrichment, and migration ACL.
 - Frontend contracts cover workspace separation, query serialization, task
-  defaults, enum fallback, accessible controls, and no-result/error states.
+  defaults, enum fallback, accessible controls, no-result/error states,
+  partial-source totals, and both independent deployment orders.
 - Fixture-backed browser journeys cover Manage/Create/Content, Live, Review,
   Writing page 2 grading, polling, save-return, reload, and 390px layout.
 - Run the affected backend suite, full frontend contract suite, strict

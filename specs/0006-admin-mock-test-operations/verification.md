@@ -16,8 +16,10 @@
 
 - OpenAPI/type drift: pending regenerated `frontend/types/api.d.ts`, response
   model tests, strict TypeScript, and full frontend contract suite.
-- Backward compatibility: additive filters, totals, index, and routine; current
-  create, mutation, grading, and release payloads remain unchanged.
+- Backward compatibility: pending tests that the old array consumer works
+  against the new backend and the new page consumer turns an old-backend 404
+  into a visibly incomplete compatibility result. Create, mutation, grading,
+  and release payloads remain unchanged.
 
 ## Data evidence
 
@@ -32,7 +34,9 @@
   light/dark source contract, keyboard search/menu navigation, focus-visible,
   44px targets, and reduced-motion evidence.
 - States: pending loading, empty, no-result, no-open-room, partial/stale,
-  contract error/retry, unknown-enum, and permission evidence.
+  contract error/retry, unknown-enum, and permission evidence. A failed content
+  source and a Writing compatibility fallback must not display an exact-total
+  claim.
 
 ## Release evidence
 

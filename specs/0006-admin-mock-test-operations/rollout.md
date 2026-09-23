@@ -6,6 +6,8 @@
   release branch.
 - Affected local backend, contract, browser, TypeScript, and build suites pass.
 - Migration 296 remains additive and compatible with currently deployed code.
+- The legacy Writing array route stays unchanged; deployment-order tests cover
+  old frontend/new backend and new frontend/old backend fallback behavior.
 - Staging and production service roles exist; the routine is not executable by
   public, anon, or authenticated roles.
 
@@ -14,6 +16,8 @@
 - Dry-run and then apply migrations with the advisory-locked repository runner.
 - Re-run the runner to prove ledger/idempotent behavior; inspect routine owner,
   ACL, index, exact filtered total, ordering, and a zero-result query.
+- Verify a forced content-source failure marks its subtotal incomplete, and a
+  forced page-route 404 activates the visible legacy compatibility warning.
 - Merge the implementation PR to `staging`, record its exact SHA, require
   integrated CI and live Staging E2E on that SHA, then exercise Manage/Create/
   Content, Live empty/open, Review, and Writing page-2 save-return journeys.
