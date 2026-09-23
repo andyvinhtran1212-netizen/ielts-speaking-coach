@@ -548,7 +548,7 @@ def _list_exam_content_db_page(
     exam_only: Optional[bool], is_public: Optional[bool], query: str,
     attention: str, limit: int, offset: int,
 ) -> dict:
-    """Count/filter in SQL, then fetch and enrich only page IDs per source.
+    """Count/filter and hydrate each kind in one PostgreSQL statement.
 
     Kinds already sort alphabetically, so each exact per-kind count gives the
     next kind's local offset without loading a full source snapshot in Python.
@@ -559,7 +559,6 @@ def _list_exam_content_db_page(
     total = 0
     remaining = limit
     for kind in sorted(kinds):
-        table, code_col = _KINDS[kind]
         local_offset = max(0, offset - total)
         try:
             receipt = supabase_admin.rpc("fn_admin_exam_content_page_ids", {
@@ -579,48 +578,41 @@ def _list_exam_content_db_page(
                 receipt = receipt["fn_admin_exam_content_page_ids"]
             if not isinstance(receipt, dict):
                 raise ValueError("content page receipt unavailable")
-            ids, count = receipt.get("ids"), receipt.get("total")
+            ids, rows, count = receipt.get("ids"), receipt.get("rows"), receipt.get("total")
             if (not isinstance(ids, list) or isinstance(count, bool)
                     or not isinstance(count, int) or count < 0
-                    or len(ids) > remaining or len(set(ids)) != len(ids)
+                    or not isinstance(rows, list) or len(rows) != len(ids)
+                    or len(ids) != min(remaining, max(0, count - local_offset))
+                    or len(set(ids)) != len(ids)
                     or any(not isinstance(value, str) or not value for value in ids)):
                 raise ValueError("content page receipt malformed")
 
             page: list[dict] = []
             if ids:
-                cols = "id,title,course_level,exam_only"
-                cols += ",is_public" if kind != "writing" else ""
-                cols += f",{code_col}" if code_col else ""
-                cols += ",status" if kind != "writing" else ",is_active"
-                if kind != "writing":
-                    cols += ",public_practice_enabled,web_explanation_mode"
-                if kind == "reading":
-                    cols += ",test_type,passage_count,total_questions"
-                if kind == "listening":
-                    cols += ",audio_assembly_mode,full_audio_storage_path,assembled_audio_storage_path"
-                rows = supabase_admin.table(table).select(cols).in_("id", ids).execute().data or []
-                by_id = {str(row["id"]): row for row in rows if isinstance(row, dict) and row.get("id")}
-                if len(by_id) != len(ids) or any(value not in by_id for value in ids):
-                    raise ValueError("content page changed during read")
-                cohort_map = cohorts_for(kind, ids)
+                if any(
+                    not isinstance(row, dict) or row.get("id") != content_id
+                    or row.get("kind") != kind
+                    or not isinstance(row.get("cohort_ids"), list)
+                    or not isinstance(row.get("mock_exams"), list)
+                    for content_id, row in zip(ids, rows)
+                ):
+                    raise ValueError("content page snapshot malformed")
                 explanation_map = explanation_readiness_for(kind, ids)
-                mock_refs = _mock_refs_for(kind, ids)
-                for content_id in ids:
-                    row = by_id[content_id]
+                for content_id, row in zip(ids, rows):
                     ready, reason = publication_readiness(kind, row)
                     page.append({
                         "kind": kind, "id": row["id"],
-                        "code": row.get(code_col) if code_col else None,
+                        "code": row.get("code"),
                         "title": row.get("title"),
-                        "status": row.get("status") or ("published" if row.get("is_active") else "archived"),
+                        "status": row.get("status"),
                         "exam_only": bool(row.get("exam_only")),
-                        "is_public": (bool(row.get("is_public")) if "is_public" in row
-                                      else not bool(row.get("exam_only"))),
+                        "is_public": (not bool(row.get("exam_only")) if kind == "writing"
+                                      else bool(row.get("is_public"))),
                         "public_practice_enabled": bool(row.get("public_practice_enabled")),
                         "web_explanation_mode": row.get("web_explanation_mode"),
                         "course_level": row.get("course_level"),
-                        "cohort_ids": cohort_map.get(content_id, []),
-                        "mock_exams": mock_refs.get(content_id, []),
+                        "cohort_ids": row["cohort_ids"],
+                        "mock_exams": row["mock_exams"],
                         "publish_ready": ready,
                         "readiness_reason": reason,
                         **explanation_map.get(content_id, {}),
