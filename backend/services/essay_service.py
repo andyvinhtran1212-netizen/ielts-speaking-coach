@@ -1453,9 +1453,9 @@ def list_essays_page(
 ) -> dict:
     """Server-paginated admin queue with a truthful exact match count.
 
-    PostgreSQL composes every filter and returns at most one page of IDs.  The
-    follow-up REST reads therefore stay bounded by ``limit`` even when the
-    queue contains thousands of matching students or overdue assignments.
+    PostgreSQL composes every filter, exact total, and page-row snapshot in
+    one statement. Later feedback enrichment stays bounded by ``limit`` without
+    re-reading essay membership after statuses or soft deletes may change.
     """
     if status and status not in _ALLOWED_STATUSES:
         raise HTTPException(400, f"Invalid status: {status!r}")
@@ -1477,31 +1477,21 @@ def list_essays_page(
     if not isinstance(receipt, dict):
         raise RuntimeError("Writing queue page receipt is unavailable.")
     essay_ids = receipt.get("essay_ids")
+    essay_rows = receipt.get("essay_rows")
     total = receipt.get("total")
     if (not isinstance(essay_ids, list)
+            or not isinstance(essay_rows, list)
             or isinstance(total, bool) or not isinstance(total, int)
             or total < 0 or len(essay_ids) > limit
             or any(not isinstance(value, str) or not value for value in essay_ids)
             or len(set(essay_ids)) != len(essay_ids)
+            or len(essay_rows) != len(essay_ids)
+            or any(not isinstance(row, dict) or row.get("id") != essay_id
+                   for row, essay_id in zip(essay_rows, essay_ids))
             or total < len(essay_ids)):
         raise RuntimeError("Writing queue page receipt is malformed.")
-
-    rows: list[dict] = []
-    if essay_ids:
-        response = (
-            supabase_admin.table("writing_essays")
-            .select(_QUEUE_SELECT)
-            .in_("id", essay_ids)
-            .is_("deleted_at", "null")
-            .execute()
-        )
-        by_id = {
-            str(row["id"]): row for row in (response.data or [])
-            if isinstance(row, dict) and row.get("id")
-        }
-        rows = [by_id[essay_id] for essay_id in essay_ids if essay_id in by_id]
     return {
-        "items": _enrich_essay_queue_rows(rows) if rows else [],
+        "items": _enrich_essay_queue_rows(essay_rows, scope_snapshot=True) if essay_rows else [],
         "total": total,
         "limit": limit,
         "offset": offset,
@@ -1509,15 +1499,19 @@ def list_essays_page(
     }
 
 
-def _enrich_essay_queue_rows(rows: list[dict]) -> list[dict]:
-    """Batch-enrich only the rows that belong to the requested page."""
+def _enrich_essay_queue_rows(rows: list[dict], *, scope_snapshot: bool = False) -> list[dict]:
+    """Batch-enrich only the rows that belong to the requested page.
+
+    A page RPC already snapshots student identity and earliest deadline with
+    the matching predicate. Do not overwrite that truth with a later read.
+    """
 
     essay_ids   = [e["id"] for e in rows]
     student_ids = list({e["student_id"] for e in rows if e.get("student_id")})
 
     # Batch 1 — student name + code.
     students_map: dict = {}
-    if student_ids:
+    if student_ids and not scope_snapshot:
         sr = (
             supabase_admin.table("students")
             .select("id, full_name, student_code")
@@ -1551,24 +1545,27 @@ def _enrich_essay_queue_rows(rows: list[dict]) -> list[dict]:
     # Batch 3 — deadline (writing_assignments.essay_id → writing_essays.id;
     # assignment points to the essay). Earliest non-null deadline wins.
     deadline_map: dict = {}
-    ar = (
-        supabase_admin.table("writing_assignments")
-        .select("essay_id, deadline")
-        .in_("essay_id", essay_ids).execute()
-    )
-    for a in (ar.data or []):
-        eid, dl = a.get("essay_id"), a.get("deadline")
-        if not eid or dl is None:
-            continue
-        if eid not in deadline_map or dl < deadline_map[eid]:
-            deadline_map[eid] = dl
+    if not scope_snapshot:
+        ar = (
+            supabase_admin.table("writing_assignments")
+            .select("essay_id, deadline")
+            .in_("essay_id", essay_ids).execute()
+        )
+        for a in (ar.data or []):
+            eid, dl = a.get("essay_id"), a.get("deadline")
+            if not eid or dl is None:
+                continue
+            if eid not in deadline_map or dl < deadline_map[eid]:
+                deadline_map[eid] = dl
 
     for e in rows:
         stu = students_map.get(e["student_id"]) or {}
-        e["student_full_name"] = stu.get("full_name")
-        e["student_code"]      = stu.get("student_code")
+        if not scope_snapshot:
+            e["student_full_name"] = stu.get("full_name")
+            e["student_code"]      = stu.get("student_code")
         e["band"]              = band_map.get(e["id"])
-        e["deadline"]          = deadline_map.get(e["id"])
+        if not scope_snapshot:
+            e["deadline"] = deadline_map.get(e["id"])
         # True only for a task1_academic essay whose current grade carries the
         # D7 "graded without image" caveat. Absent/False everywhere else.
         e["task1_image_missing"] = bool(image_missing_map.get(e["id"], False))
