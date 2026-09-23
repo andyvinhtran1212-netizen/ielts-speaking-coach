@@ -56,10 +56,10 @@ not reliably describe the canonical dataset.
 ## Requirements
 
 - **FR-001:** Mock Test management opens on the canonical exam list; exam creation and the Reading/Listening/Writing content bank are explicit separate workspaces, and embedded management removes duplicated global hero and lifecycle content.
-- **FR-002:** The content-bank API and UI provide bounded search, defined dataset-wide attention filters, limit/offset pagination, and an exact canonical total when every requested source succeeds; every filter predicate is applied before counting and offsetting. A partial source read carries an explicit incomplete-total signal and the UI never labels its surviving subtotal as canonical. Only the requested page is enriched and rendered, repeated row actions have contextual accessible names, and level edits require explicit save or cancel with canonical readback.
+- **FR-002:** The content-bank API and UI provide bounded search, preserve the existing `kind`, `course_level`, `cohort_id`, `exam_only`, and `is_public` filters, add defined dataset-wide attention filters, and support limit/offset pagination with an exact canonical total when every requested source succeeds. Every existing and new filter predicate is applied before counting and offsetting, including in compatibility mode. A partial source read carries an explicit incomplete-total signal and the UI never labels its surviving subtotal as canonical. Only the requested page is enriched and rendered, repeated row actions have contextual accessible names, and level edits require explicit save or cancel with canonical readback.
 - **FR-003:** Exam creation retains its existing payload contract while its large content selectors support keyboard search, selected-item visibility, and a clear no-result state.
-- **FR-004:** Live defaults to an actually open exam or a purposeful no-open-room action, Review defaults to a completed/actionable exam, explicit valid deep links remain honored, and the Writing workspace does not display an exam rail that does not scope its data.
-- **FR-005:** A new additive Mock Writing page endpoint applies student query, backend status, cohort, Mock scope, and overdue filters in PostgreSQL before limit/offset pagination, returns an exact total, and fetches and enriches only the page IDs; the existing array endpoint remains unchanged. A new-frontend/old-backend compatibility fallback applies unsupported active query and overdue predicates locally to the bounded legacy snapshot and is visibly incomplete rather than presented as canonical truth.
+- **FR-004:** Live defaults to the first published, open exam in canonical newest-first order or a purposeful no-open-room action. Review defaults to the first published, closed exam whose canonical `active_section` is `done`, in the same newest-first order, or a purposeful no-completed-exam state. A valid explicit deep link is always honored even when that exam is not the default candidate, and the Writing workspace does not display an exam rail that does not scope its data.
+- **FR-005:** A new additive Mock Writing page endpoint applies student query, backend status, cohort, Mock scope, and overdue filters in PostgreSQL before limit/offset pagination, returns an exact total, and fetches and enriches only the page IDs; the existing array endpoint remains unchanged. Student query is trimmed to 100 characters, matches a case-insensitive literal substring of canonical student full name or student code, or a case-insensitive exact UUID; `%`, `_`, and punctuation are literal characters. `overdue=true` means status is not `delivered` and the earliest non-null deadline across duplicate/historical assignment rows is strictly earlier than PostgreSQL `now()`; the displayed deadline, database predicate, enrichment, and fallback use that same earliest-deadline rule without duplicating essays. A new-frontend/old-backend compatibility fallback applies unsupported active query and overdue predicates locally to the bounded legacy snapshot and is visibly incomplete rather than presented as canonical truth.
 - **FR-006:** Writing queue query context is preserved through status, grading, save-and-return, browser navigation, and automatic page correction; grading starts from an exact canonical status read and refreshes the active filtered page until a processing row leaves that status.
 - **FR-007:** Touched Mock Test surfaces expose truthful loading, empty, partial/error/retry, stale-readback, and permission states, localize canonical enums with a visible unknown fallback, work at 390/768/1440 widths in both themes, retain visible keyboard focus and 44px targets, and respect reduced motion.
 
@@ -79,7 +79,8 @@ not reliably describe the canonical dataset.
 - **When** the operator searches, applies an attention filter, and changes page
 - **Then** the API total covers the complete matching dataset while the browser
   mounts only the selected 25/50-row page and a reload returns the same results;
-  a matching record beyond page 1 changes both the total and returned page.
+  a record matching the active existing filters plus search/attention beyond
+  page 1 changes both the total and the returned page.
 
 ### Task-aware workspaces
 
@@ -88,13 +89,23 @@ not reliably describe the canonical dataset.
 - **Then** the page shows a purposeful no-open-room state and does not silently
   select a closed exam; a valid explicit closed-exam deep link is still honored.
 
+- **Given** Review has several closed exams, including one not at `done` and two
+  completed exams
+- **When** the operator opens Review without an exam deep link
+- **Then** the first published, closed, `done` exam in canonical newest-first
+  order is selected; if no eligible exam exists the purposeful empty state is
+  shown, while any valid explicit exam deep link remains selected.
+
 ### Canonical Writing pagination
 
 - **Given** a matching learner or pending essay exists beyond the newest 200
   rows
 - **When** the operator applies student/status/cohort/overdue filters
 - **Then** PostgreSQL filters before pagination, the exact total includes that
-  essay, and only the requested ordered page is fetched and enriched.
+  essay, and only the requested ordered page is fetched and enriched. Mixed-case
+  queries and literal `%`, `_`, or punctuation follow the defined query rule;
+  duplicate assignments neither duplicate the essay nor change the displayed
+  earliest deadline, and overdue uses that same earliest non-null deadline.
 
 ### Partial content source
 

@@ -23,11 +23,16 @@
   ordering, and a zero-result query.
 - Verify a forced content-source failure marks its subtotal incomplete, and a
   forced page-route 404 activates the visible legacy compatibility warning.
-  With Writing `q` and overdue active together, every fallback row must satisfy
-  both predicates while the total remains explicitly incomplete.
+  The content fallback must preserve `kind`, `course_level`, `cohort_id`,
+  `exam_only`, and `is_public`, then apply `q` plus attention before local
+  paging, including a matching record beyond page 1. With Writing `q` and
+  overdue active together, every fallback row must satisfy both predicates
+  using literal query matching and the earliest non-null assignment deadline,
+  while the total remains explicitly incomplete.
 - Merge the implementation PR to `staging`, record its exact SHA, require
   integrated CI and live Staging E2E on that SHA, then exercise Manage/Create/
-  Content, Live empty/open, Review, and Writing page-2 save-return journeys.
+  Content, Live empty/open, Review newest-first completed/empty/explicit-link,
+  and Writing page-2 save-return journeys.
 
 ## Production
 
