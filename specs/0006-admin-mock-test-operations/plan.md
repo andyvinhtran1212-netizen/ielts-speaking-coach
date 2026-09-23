@@ -18,6 +18,10 @@
   `q`, attention, limit, and offset inputs plus `total` and `total_complete`.
   It must retain `kind`, `course_level`, `cohort_id`, `exam_only`, and
   `is_public`; every existing and new predicate runs before count and offset.
+  Normalize `q` by trimming and bounding to 100 characters, then match a
+  case-insensitive literal substring of ID, code, title, or course level;
+  `%`, `_`, and punctuation are literal. The compatibility path must use the
+  same fields and normalization before local count and offset.
   Relationship enrichment runs only for page rows. `total` is exact only when
   `total_complete=true`; if any source is named in `failed_kinds`,
   `total_complete=false`, `total` is the surviving-source subtotal, and the UI
@@ -55,7 +59,9 @@
   duplicate essays, and the displayed deadline is that same earliest value.
 - Add an idempotent migration defining a `SECURITY DEFINER`, backend-only
   Writing queue page routine. It applies all filters before deterministic
-  pagination and returns ordered IDs plus exact count. Revoke public, anon, and
+  `created_at DESC, id DESC` pagination and returns ordered IDs plus exact
+  count. The service reconstructs rows in that ID order after its `IN` fetch
+  and enrichment, irrespective of the fetch order. Revoke public, anon, and
   authenticated execution; grant only `service_role`. Pin
   `search_path = pg_catalog, public` and schema-qualify every relation plus
   callable built-in so the function-owner context cannot resolve a shadow
@@ -82,7 +88,9 @@
   purposeful empty state when none exists, and never replaces a valid explicit
   exam deep link merely because it is not the default candidate.
 - Serialize Writing filters, including `q`, through queue/status/grade links and
-  save-return. Preserve outcome notices through automatic page correction.
+  save-return. Correct an invalid page only when `total_complete=true`, while
+  preserving outcome notices. If a 404 fallback reports an incomplete bounded
+  snapshot, retain the requested offset even when the local page is empty.
 - Cover loading, empty, partial/stale, error/retry, permission, narrow layout,
   light/dark, focus, target size, and reduced motion states.
 
@@ -114,14 +122,17 @@
   dataset-wide attention predicate, every preserved `kind`, `course_level`,
   `cohort_id`, `exam_only`, and `is_public` filter, and a matching record beyond
   page 1 under combined existing/new filters. They also cover canonical
-  student/cohort resolution, literal query symbols, mixed case, duplicate
-  assignments with the earliest deadline, bounded enrichment, migration ACL,
+  student/cohort resolution, literal query symbols and mixed case in both
+  content paths, duplicate assignments with the earliest deadline, tied essay
+  timestamps, deliberately shuffled enrichment rows across adjacent pages,
+  bounded enrichment, migration ACL,
   fixed `search_path`, and schema qualification.
 - Frontend contracts cover workspace separation, query serialization, task
   defaults, enum fallback, accessible controls, no-result/error states,
   partial-source totals, locally filtered `q`/overdue fallback, literal query
   symbols, earliest-deadline fallback behavior, Review candidate ordering,
-  Review empty/deep-link behavior, and both independent deployment orders.
+  Review empty/deep-link behavior, incomplete-total offset preservation versus
+  complete-total correction, and both independent deployment orders.
 - Fixture-backed browser journeys cover Manage/Create/Content, Live, Review,
   Writing page 2 grading, polling, save-return, reload, and 390px layout.
 - Run the affected backend suite, full frontend contract suite, strict

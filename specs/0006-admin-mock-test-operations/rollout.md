@@ -25,10 +25,16 @@
   forced page-route 404 activates the visible legacy compatibility warning.
   The content fallback must preserve `kind`, `course_level`, `cohort_id`,
   `exam_only`, and `is_public`, then apply `q` plus attention before local
-  paging, including a matching record beyond page 1. With Writing `q` and
+  paging, including a matching record beyond page 1. Both paths must search
+  ID, code, title, and course level with trimmed, 100-character, case-insensitive
+  literal matching, including `%`, `_`, and punctuation. With Writing `q` and
   overdue active together, every fallback row must satisfy both predicates
   using literal query matching and the earliest non-null assignment deadline,
   while the total remains explicitly incomplete.
+- Verify tied Writing timestamps sort by `id DESC` after shuffled enrichment,
+  with stable adjacent pages. Force a Writing page-route 404 beyond the bounded
+  legacy snapshot and confirm the requested offset remains in the URL; verify
+  an exact complete total still corrects an invalid page.
 - Merge the implementation PR to `staging`, record its exact SHA, require
   integrated CI and live Staging E2E on that SHA, then exercise Manage/Create/
   Content, Live empty/open, Review newest-first completed/empty/explicit-link,

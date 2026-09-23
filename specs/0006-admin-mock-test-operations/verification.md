@@ -24,6 +24,10 @@
   local paging, including a match beyond page 1. The Writing case must activate
   both `q` and overdue and prove every rendered fallback row matches both using
   literal query characters and the earliest non-null assignment deadline.
+  Content search must match ID, code, title, and course level with identical
+  trimmed 100-character case-insensitive literal semantics in both paths.
+  Writing page evidence must cover tied `created_at` values, `id DESC` order,
+  deliberately shuffled enrichment results, and adjacent-page stability.
   Create, mutation, grading, and release payloads remain unchanged.
 
 ## Data evidence
@@ -34,7 +38,9 @@
 - Immediate state versus full reload: pending content level save/cancel,
   queue/status/grade navigation, canonical grading readback, and Review default
   selection evidence covering newest-first completed eligibility, no eligible
-  exam, and a valid explicit deep link.
+  exam, and a valid explicit deep link. Page correction requires a complete
+  total; a forced 404 with an offset beyond the bounded legacy snapshot must
+  keep that offset and its query context.
 
 ## UI evidence
 

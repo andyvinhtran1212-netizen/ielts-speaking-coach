@@ -56,11 +56,11 @@ not reliably describe the canonical dataset.
 ## Requirements
 
 - **FR-001:** Mock Test management opens on the canonical exam list; exam creation and the Reading/Listening/Writing content bank are explicit separate workspaces, and embedded management removes duplicated global hero and lifecycle content.
-- **FR-002:** The content-bank API and UI provide bounded search, preserve the existing `kind`, `course_level`, `cohort_id`, `exam_only`, and `is_public` filters, add defined dataset-wide attention filters, and support limit/offset pagination with an exact canonical total when every requested source succeeds. Every existing and new filter predicate is applied before counting and offsetting, including in compatibility mode. A partial source read carries an explicit incomplete-total signal and the UI never labels its surviving subtotal as canonical. Only the requested page is enriched and rendered, repeated row actions have contextual accessible names, and level edits require explicit save or cancel with canonical readback.
+- **FR-002:** The content-bank API and UI provide bounded search, preserve the existing `kind`, `course_level`, `cohort_id`, `exam_only`, and `is_public` filters, add defined dataset-wide attention filters, and support limit/offset pagination with an exact canonical total when every requested source succeeds. Search trims `q` to at most 100 characters and matches a case-insensitive literal substring of content ID, code, title, or course level; `%`, `_`, and punctuation have no wildcard meaning. The page endpoint and compatibility fallback use identical search fields and normalization. Every existing and new filter predicate is applied before counting and offsetting, including in compatibility mode. A partial source read carries an explicit incomplete-total signal and the UI never labels its surviving subtotal as canonical. Only the requested page is enriched and rendered, repeated row actions have contextual accessible names, and level edits require explicit save or cancel with canonical readback.
 - **FR-003:** Exam creation retains its existing payload contract while its large content selectors support keyboard search, selected-item visibility, and a clear no-result state.
 - **FR-004:** Live defaults to the first published, open exam in canonical newest-first order or a purposeful no-open-room action. Review defaults to the first published, closed exam whose canonical `active_section` is `done`, in the same newest-first order, or a purposeful no-completed-exam state. A valid explicit deep link is always honored even when that exam is not the default candidate, and the Writing workspace does not display an exam rail that does not scope its data.
-- **FR-005:** A new additive Mock Writing page endpoint applies student query, backend status, cohort, Mock scope, and overdue filters in PostgreSQL before limit/offset pagination, returns an exact total, and fetches and enriches only the page IDs; the existing array endpoint remains unchanged. Student query is trimmed to 100 characters, matches a case-insensitive literal substring of canonical student full name or student code, or a case-insensitive exact UUID; `%`, `_`, and punctuation are literal characters. `overdue=true` means status is not `delivered` and the earliest non-null deadline across duplicate/historical assignment rows is strictly earlier than PostgreSQL `now()`; the displayed deadline, database predicate, enrichment, and fallback use that same earliest-deadline rule without duplicating essays. A new-frontend/old-backend compatibility fallback applies unsupported active query and overdue predicates locally to the bounded legacy snapshot and is visibly incomplete rather than presented as canonical truth.
-- **FR-006:** Writing queue query context is preserved through status, grading, save-and-return, browser navigation, and automatic page correction; grading starts from an exact canonical status read and refreshes the active filtered page until a processing row leaves that status.
+- **FR-005:** A new additive Mock Writing page endpoint applies student query, backend status, cohort, Mock scope, and overdue filters in PostgreSQL before limit/offset pagination, returns an exact total, and fetches and enriches only the page IDs in stable `created_at DESC, id DESC` order; service enrichment preserves the returned ID order. The existing array endpoint remains unchanged. Student query is trimmed to 100 characters, matches a case-insensitive literal substring of canonical student full name or student code, or a case-insensitive exact UUID; `%`, `_`, and punctuation are literal characters. `overdue=true` means status is not `delivered` and the earliest non-null deadline across duplicate/historical assignment rows is strictly earlier than PostgreSQL `now()`; the displayed deadline, database predicate, enrichment, and fallback use that same earliest-deadline rule without duplicating essays. A new-frontend/old-backend compatibility fallback applies unsupported active query and overdue predicates locally to the bounded legacy snapshot and is visibly incomplete rather than presented as canonical truth.
+- **FR-006:** Writing queue query context is preserved through status, grading, save-and-return, and browser navigation. Automatic page correction occurs only with `total_complete=true`; an incomplete compatibility snapshot preserves the requested offset even if its local page is empty. Grading starts from an exact canonical status read and refreshes the active filtered page until a processing row leaves that status.
 - **FR-007:** Touched Mock Test surfaces expose truthful loading, empty, partial/error/retry, stale-readback, and permission states, localize canonical enums with a visible unknown fallback, work at 390/768/1440 widths in both themes, retain visible keyboard focus and 44px targets, and respect reduced motion.
 
 ## Acceptance scenarios
@@ -80,7 +80,9 @@ not reliably describe the canonical dataset.
 - **Then** the API total covers the complete matching dataset while the browser
   mounts only the selected 25/50-row page and a reload returns the same results;
   a record matching the active existing filters plus search/attention beyond
-  page 1 changes both the total and the returned page.
+  page 1 changes both the total and the returned page. Mixed case and literal
+  `%`, `_`, or punctuation yield the same matches in the page endpoint and
+  compatibility fallback.
 
 ### Task-aware workspaces
 
@@ -106,6 +108,8 @@ not reliably describe the canonical dataset.
   queries and literal `%`, `_`, or punctuation follow the defined query rule;
   duplicate assignments neither duplicate the essay nor change the displayed
   earliest deadline, and overdue uses that same earliest non-null deadline.
+  Essays tied on `created_at` remain in `id DESC` order after enrichment and
+  across adjacent pages and reloads.
 
 ### Partial content source
 
@@ -131,8 +135,10 @@ not reliably describe the canonical dataset.
 - **Given** a marker is on page 2 with active query filters
 - **When** the marker grades an essay and saves or returns
 - **Then** the queue restores the same query context, reconciles canonical
-  status, and corrects an invalid page without discarding the user-visible
-  outcome notice.
+  status, and corrects an invalid page only when the total is complete, without
+  discarding the user-visible outcome notice. If a compatibility fallback has
+  only a bounded snapshot, an empty local page beyond that snapshot retains
+  the requested offset.
 
 ## Edge cases
 
