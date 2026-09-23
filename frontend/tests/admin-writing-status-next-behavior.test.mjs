@@ -35,7 +35,7 @@ const raw = {
 
 describe('Admin Writing Status native model', () => {
   test('normalizes query flags and preserves clean native hops', () => {
-    assert.deepEqual(normalizeWritingStatusQuery({ id: ' e1 ', embed: '1', mocklane: true, queue_status: 'failed', cohort_id: ' c1 ', overdue: '1', q: ' Lan ' }), { essayId: 'e1', embed: true, mocklane: true, queueStatus: 'failed', cohortId: 'c1', overdue: true, query: 'Lan' });
+    assert.deepEqual(normalizeWritingStatusQuery({ id: ' e1 ', embed: '1', mocklane: true, queue_status: 'failed', cohort_id: ' c1 ', overdue: '1', q: ' Lan ' }), { essayId: 'e1', embed: true, mocklane: true, lane: '', page: 1, queueStatus: 'failed', cohortId: 'c1', overdue: true, query: 'Lan' });
     assert.equal(normalizeWritingStatusQuery({ id: 'e1', mocklane: true, queue_status: 'hostile' }).queueStatus, '');
     assert.equal(writingStatusHref('grade', { essayId: 'e/1', embed: true, mocklane: true }), '/admin/writing/grade?essay_id=e%2F1&embed=1&mocklane=1');
     assert.equal(writingStatusHref('grade', { essayId: 'e/1', embed: true, mocklane: true, queueStatus: 'pending' }), '/admin/writing/grade?essay_id=e%2F1&embed=1&mocklane=1&queue_status=pending');

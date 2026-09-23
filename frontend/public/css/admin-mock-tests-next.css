@@ -28,6 +28,7 @@
 .mts-stage{flex:none;border:1px solid var(--av-border-subtle);border-radius:999px;padding:4px 7px;color:var(--av-text-muted);font:600 9px/1 var(--av-font-mono);letter-spacing:.04em;text-transform:uppercase}
 .mts-stage.is-live{border-color:color-mix(in srgb,var(--av-success) 35%,transparent);background:var(--av-success-soft);color:var(--av-success)}
 .mts-stage.is-closed{border-color:color-mix(in srgb,var(--av-warning) 35%,transparent);background:var(--av-warning-soft);color:var(--av-warning)}
+.mts-stage.is-archived{background:var(--av-surface-sunken);color:var(--av-text-muted)}
 .mts-exam__title{overflow:hidden;width:100%;color:var(--av-text-primary);font-size:13px;font-weight:600;line-height:1.35;text-overflow:ellipsis;white-space:nowrap}
 .mts-list small{color:var(--av-text-faint);font-size:11px}
 .mts-rail__state{padding:24px 18px;border-top:1px solid var(--av-border-subtle);color:var(--av-text-muted);font-size:13px}

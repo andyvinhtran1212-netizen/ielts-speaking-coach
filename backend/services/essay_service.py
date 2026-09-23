@@ -1505,6 +1505,7 @@ def list_essays_page(
         "total": total,
         "limit": limit,
         "offset": offset,
+        "total_complete": True,
     }
 
 

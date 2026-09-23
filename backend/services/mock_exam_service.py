@@ -2027,8 +2027,43 @@ _EXAM_WRITABLE = {
 def admin_list_exams() -> list[dict]:
     resp = supabase_admin.table("mock_exams").select("*").order(
         "created_at", desc=True,
+    ).order(
+        "id", desc=True,
     ).execute()
-    return resp.data or []
+    rows = resp.data or []
+    if not rows:
+        return rows
+    # Retakes have no shared active_section, and archived/draft exams can still
+    # have pending reviews. Fail closed if row-backed scope is unavailable.
+    actionable_ids = set()
+    requested = {
+        str(row["id"])
+        for row in rows
+        if row.get("exam_mode") == "retake" or row.get("status") != "published"
+    }
+    if requested:
+        receipt = supabase_admin.rpc("fn_admin_mock_actionable_review_exam_ids", {
+            "p_exam_ids": sorted(requested),
+        }).execute().data
+        if isinstance(receipt, list) and len(receipt) == 1:
+            receipt = receipt[0]
+        if isinstance(receipt, dict) and set(receipt) == {"fn_admin_mock_actionable_review_exam_ids"}:
+            receipt = receipt["fn_admin_mock_actionable_review_exam_ids"]
+        if not isinstance(receipt, dict) or not isinstance(receipt.get("exam_ids"), list):
+            raise RuntimeError("Review eligibility receipt is unavailable.")
+        result_ids = receipt["exam_ids"]
+        if (any(not isinstance(value, str) or value not in requested for value in result_ids)
+                or len(result_ids) != len(set(result_ids))):
+            raise RuntimeError("Review eligibility receipt is malformed.")
+        actionable_ids = set(result_ids)
+    for row in rows:
+        if row.get("exam_mode") == "retake" or row.get("status") != "published":
+            row["review_eligible"] = str(row.get("id")) in actionable_ids
+        else:
+            row["review_eligible"] = (
+                row.get("is_open") is False and row.get("active_section") == "done"
+            )
+    return rows
 
 
 # Writing prompts retain the sealed-paper behavior from migration 170. Reading

@@ -5,6 +5,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   filterMockExams,
+  mockReviewEligible,
+  mockReviewEligibilityUnknown,
   mockExamStage,
   mockSectionLabel,
   mockSittingStatusLabel,
@@ -26,11 +28,12 @@ const CHROME = read('public', 'js', 'components', 'aver-admin-chrome.js');
 const OVERVIEW = read('app', '(authed-admin-overview)', 'admin', 'admin-overview.tsx');
 const LEDGER = read('..', 'docs', 'ROUTE_LEDGER.md');
 const WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
+const OPENAPI = read('types', 'api.d.ts');
 
 const rows = [
   { id: 'd1', code: 'DRAFT', title: 'Đề nháp', status: 'draft', is_open: false, active_section: 'not_started', exam_mode: 'sequential' },
   { id: 'l1', code: 'LIVE', title: 'Đang thi', status: 'published', is_open: true, active_section: 'reading', exam_mode: 'sequential' },
-  { id: 'c1', code: 'CLOSED', title: 'Đã đóng', status: 'published', is_open: false, active_section: 'done', exam_mode: 'retake' },
+  { id: 'c1', code: 'CLOSED', title: 'Đã đóng', status: 'published', is_open: false, active_section: 'done', exam_mode: 'retake', review_eligible: true },
 ];
 
 describe('Admin Mock Tests native model', () => {
@@ -39,12 +42,14 @@ describe('Admin Mock Tests native model', () => {
     assert.equal(result.rows.length, 3);
     assert.equal(result.malformedCount, 2);
     assert.equal(result.rows[2].examMode, 'retake');
+    assert.equal(result.rows[2].reviewEligible, true);
     assert.equal(normalizeMockExamList({ items: rows }), null);
   });
 
   test('derives operational stages without inventing backend status', () => {
     const exams = normalizeMockExamList(rows).rows;
     assert.deepEqual(exams.map(mockExamStage), ['draft', 'live', 'closed']);
+    assert.equal(mockExamStage(normalizeMockExamList([{ id: 'archived', status: 'archived' }]).rows[0]), 'archived');
     assert.deepEqual(filterMockExams(exams, 'live').map((row) => row.id), ['l1']);
     assert.deepEqual(filterMockExams(exams, 'unknown').map((row) => row.id), ['d1', 'l1', 'c1']);
   });
@@ -61,10 +66,17 @@ describe('Admin Mock Tests native model', () => {
     assert.equal(mockTestsFrame('writing'), '/admin/writing/queue?embed=1&mocklane=1');
   });
 
+  test('uses the typed additive exam-list contract', () => {
+    assert.match(COMPONENT, /ApiGetJson<'\/admin\/mock-exams'>/);
+    assert.match(OPENAPI, /AdminMockExamListRow: \{/);
+    assert.match(OPENAPI, /review_eligible: boolean/);
+    assert.match(OPENAPI, /"application\/json": components\["schemas"\]\["AdminMockExamListResponse"\]/);
+  });
+
   test('chooses task-relevant defaults while preserving explicit deep links', () => {
     const exams = normalizeMockExamList(rows).rows;
     assert.equal(mockTestsStageForTab('live'), 'live');
-    assert.equal(mockTestsStageForTab('review'), 'closed');
+    assert.equal(mockTestsStageForTab('review'), 'all');
     assert.equal(mockTestsStageForTab('writing'), 'all');
     assert.equal(mockTestsExamForTab(exams, 'live', 'd1'), 'l1');
     assert.equal(mockTestsExamForTab(exams, 'live', 'c1'), 'l1');
@@ -72,6 +84,52 @@ describe('Admin Mock Tests native model', () => {
     assert.equal(mockTestsExamForTab(exams, 'writing', 'l1'), '');
     assert.equal(mockTestsExamForTab(exams, 'live', '', 'd1'), 'd1');
     assert.equal(mockTestsExamForTab([{ ...exams[0] }], 'live', 'd1'), '');
+  });
+
+  test('Review includes actionable open retakes but excludes released-only and unknown retakes', () => {
+    const exams = normalizeMockExamList([
+      { id: 'released', status: 'published', exam_mode: 'retake', is_open: false, review_eligible: false },
+      { id: 'open-retake', status: 'published', exam_mode: 'retake', is_open: true, active_section: 'not_started', review_eligible: true },
+      { id: 'not-done', status: 'published', exam_mode: 'sequential', is_open: false, active_section: 'writing', review_eligible: false },
+      { id: 'done', status: 'published', exam_mode: 'sequential', is_open: false, active_section: 'done', review_eligible: true },
+      { id: 'archived-queued', status: 'archived', exam_mode: 'sequential', is_open: false, active_section: 'writing', review_eligible: true },
+    ]).rows;
+    assert.equal(mockTestsExamForTab(exams, 'review'), 'open-retake');
+    assert.equal(mockTestsExamForTab(exams, 'review', '', 'released'), 'released');
+    assert.equal(mockReviewEligible(exams[0]), false);
+    assert.equal(mockReviewEligible(exams[1]), true);
+    assert.equal(mockReviewEligibilityUnknown(exams[1]), false);
+
+    const oldBackend = normalizeMockExamList([
+      { id: 'old-retake', status: 'published', exam_mode: 'retake', is_open: true },
+      { id: 'old-sequential', status: 'published', exam_mode: 'sequential', is_open: false, active_section: 'done' },
+    ]).rows;
+    assert.equal(mockReviewEligibilityUnknown(oldBackend[0]), true);
+    assert.equal(mockReviewEligible(oldBackend[0]), false);
+    assert.equal(mockTestsExamForTab(oldBackend, 'review'), 'old-sequential');
+    assert.equal(mockTestsExamForTab([oldBackend[0]], 'review'), '');
+    const archived = normalizeMockExamList([
+      { id: 'archived-queued', status: 'archived', exam_mode: 'sequential', active_section: 'writing', review_eligible: true },
+      { id: 'archived-released', status: 'archived', exam_mode: 'retake', review_eligible: false },
+      { id: 'old-archived', status: 'archived', exam_mode: 'sequential' },
+    ]).rows;
+    assert.equal(mockTestsExamForTab(archived, 'review'), 'archived-queued');
+    assert.equal(mockReviewEligible(archived[0]), true);
+    assert.equal(mockReviewEligible(archived[1]), false);
+    assert.equal(mockReviewEligibilityUnknown(archived[2]), true);
+    assert.deepEqual(filterMockExams(archived, 'archived').map((row) => row.id), archived.map((row) => row.id));
+  });
+
+  test('Live default retains backend created-at and ID tie-break order across reloads', () => {
+    const tiedOpen = normalizeMockExamList([
+      { id: 'b', status: 'published', exam_mode: 'sequential', is_open: true, active_section: 'reading' },
+      { id: 'a', status: 'published', exam_mode: 'sequential', is_open: true, active_section: 'reading' },
+    ]).rows;
+    assert.equal(mockTestsExamForTab(tiedOpen, 'live'), 'b');
+    assert.equal(mockTestsExamForTab(normalizeMockExamList([
+      { id: 'b', status: 'published', exam_mode: 'sequential', is_open: true, active_section: 'reading' },
+      { id: 'a', status: 'published', exam_mode: 'sequential', is_open: true, active_section: 'reading' },
+    ]).rows, 'live'), 'b');
   });
 
   test('localizes canonical operational statuses and fails closed on unknown values', () => {
@@ -101,7 +159,7 @@ describe('/admin/mock-tests native ownership and UX', () => {
   });
 
   test('keeps canonical selection truth, live safety and account-scoped refresh', () => {
-    for (const token of ['/admin/mock-exams', 'requestedExam', 'mockTestsHref(tab, id)', 'frameEpoch', 'next === tab', 'key={`${frame}:${frameEpoch}`}', 'accountRef.current !== account', 'request !== requestRef.current', 'request === requestRef.current', 'document.visibilityState', '15_000', 'new URL(window.location.href)', 'activeTask', 'activeRequestedExam', 'normalizeMockExamList', 'liveDraftBlocked', 'Boolean(selected)', 'Không có phòng thi đang mở', 'Publish đề trong tab Quản lý', 'snapshot cũ', 'MutationObserver', "event.key !== 'av-theme'", 'Đề đang thao tác bị ẩn bởi bộ lọc', 'mockTestsExamForTab', 'mockTestsStageForTab', 'mockSectionLabel', "tab !== 'writing'", 'destination task']) assert.ok(COMPONENT.includes(token), token);
+    for (const token of ['/admin/mock-exams', 'requestedExam', 'mockTestsHref(tab, id)', 'frameEpoch', 'next === tab', 'key={`${frame}:${frameEpoch}`}', 'accountRef.current !== account', 'request !== requestRef.current', 'request === requestRef.current', 'document.visibilityState', '15_000', 'new URL(window.location.href)', 'activeTask', 'activeRequestedExam', 'normalizeMockExamList', 'liveDraftBlocked', 'Boolean(selected)', 'Không có phòng thi đang mở', 'Publish đề trong tab Quản lý', 'snapshot cũ', 'MutationObserver', "event.key !== 'av-theme'", 'Đề đang thao tác bị ẩn bởi bộ lọc', 'mockTestsExamForTab', 'mockTestsStageForTab', 'mockSectionLabel', 'mockReviewEligible', 'mockReviewEligibilityUnknown', 'Chưa xác định được đề thi lại hoặc đề chưa publish nào có bài cần duyệt', "tab !== 'writing'", 'destination task']) assert.ok(COMPONENT.includes(token), token);
     assert.doesNotMatch(COMPONENT, /id: 'review'[^\n]+legacy: true/);
     assert.doesNotMatch(COMPONENT, /dangerouslySetInnerHTML|window\.api\.(post|patch|delete)/);
   });

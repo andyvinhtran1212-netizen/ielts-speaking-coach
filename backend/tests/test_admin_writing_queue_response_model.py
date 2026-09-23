@@ -44,7 +44,7 @@ def test_writing_essay_list_publishes_concrete_response_model():
     page_route = next(
         item for item in router.routes
         if isinstance(item, APIRoute)
-        and item.path == "/admin/writing/essays/queue"
+        and item.path == "/admin/writing/essay-queue"
         and "GET" in item.methods
     )
     assert page_route.response_model == AdminWritingQueuePageOut

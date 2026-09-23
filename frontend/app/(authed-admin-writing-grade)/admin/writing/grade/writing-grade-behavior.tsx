@@ -346,21 +346,25 @@ export function AdminWritingGradeBehavior() {
   const workspace = view.phase === 'ready' ? view.workspace : null;
   const embed = params?.get('embed') === '1';
   const queueContext = normalizeWritingQueueFilters({
+    status: params?.get('status') ?? undefined,
     mocklane: params?.get('mocklane') || '',
     queue_status: params?.get('queue_status') || '',
     cohort_id: params?.get('cohort_id') || '',
     overdue: params?.get('overdue') || '',
     q: params?.get('q') || '',
+    page: params?.get('page') || '',
   });
   const mocklane = queueContext.lane === 'mock';
   const withEmbed = (url: string) => {
     const extra = [
       embed ? 'embed=1' : '',
       mocklane ? 'mocklane=1' : '',
+      !mocklane && queueContext.lane !== 'graded' ? `status=${encodeURIComponent(queueContext.lane)}` : '',
       queueContext.queueStatus ? `queue_status=${encodeURIComponent(queueContext.queueStatus)}` : '',
       queueContext.cohortId ? `cohort_id=${encodeURIComponent(queueContext.cohortId)}` : '',
       queueContext.overdue ? 'overdue=1' : '',
       queueContext.query ? `q=${encodeURIComponent(queueContext.query)}` : '',
+      queueContext.page > 1 ? `page=${queueContext.page}` : '',
     ].filter(Boolean).join('&');
     return extra ? `${url}${url.includes('?') ? '&' : '?'}${extra}` : url;
   };

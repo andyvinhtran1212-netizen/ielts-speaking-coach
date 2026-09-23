@@ -16,6 +16,7 @@ let contentCohortIds = ['class-1'];
 let contentIsPublic = false;
 let contentPublicPracticeEnabled = false;
 let contentWebExplanationMode = 'disabled';
+let levelCatalogFailed = false;
 let exams = [
   { id: 'source-1', code: 'SOURCE-1', title: 'Đề gốc lớp C1', status: 'published', exam_mode: 'sequential', is_open: false, active_section: 'not_started', cohort_id: 'class-1', listening_test_id: 'lis-1', reading_test_id: 'read-1', writing_task1_prompt_id: 'w1', writing_task2_prompt_id: 'w2' },
   { id: 'draft-1', code: 'DRAFT-1', title: 'Đề nháp', status: 'draft', exam_mode: 'sequential', is_open: false, active_section: 'not_started', cohort_id: 'class-1', listening_test_id: 'lis-1', reading_test_id: 'read-1' },
@@ -90,16 +91,16 @@ await page.route('**/*', async (route) => {
     assignments = body.assignments.map((row) => ({ ...row, student_name: 'Nguyễn An' }));
     return json({ assigned: ['student-1'], skipped: [], locked: [], refresh_failed: [] });
   }
-  if (path === '/admin/exam-content') {
+  if (path === '/admin/exam-content/page') {
     const primary = { id: 'reading-uuid', kind: 'reading', code: 'READ-PAPER', title: 'Reading paper', status: 'published', course_level: contentCourseLevel, cohort_ids: contentCohortIds, exam_only: true, is_public: contentIsPublic, public_practice_enabled: contentPublicPracticeEnabled, web_explanation_mode: contentWebExplanationMode, web_explanation_ready: false, web_explanation_state: 'blocked', web_explanation_count: 40, web_explanation_ready_count: 0, publish_ready: true, readiness_reason: null, mock_exams: [{ id: 'source-1', code: 'SOURCE-1', title: 'Đề gốc lớp C1', status: 'published' }] };
     if (parsed.searchParams.get('attention') === 'no-level') {
       const fillers = Array.from({ length: 25 }, (_, index) => ({ ...primary, id: `missing-${index + 1}`, code: `MISSING-${String(index + 1).padStart(2, '0')}`, title: `Đề thiếu cấp ${index + 1}`, course_level: '', mock_exams: [] }));
       const candidates = contentCourseLevel ? fillers : [...fillers, primary];
       const offset = Number(parsed.searchParams.get('offset') || 0);
       const limit = Number(parsed.searchParams.get('limit') || 25);
-      return json({ items: candidates.slice(offset, offset + limit), total: candidates.length, levels: ['C1', 'C2'], failed_kinds: [] });
+      return json({ items: candidates.slice(offset, offset + limit), total: candidates.length, total_complete: true, levels: levelCatalogFailed ? ['C2'] : ['C1', 'C2', 'C9'], levels_complete: !levelCatalogFailed, failed_level_kinds: levelCatalogFailed ? ['listening'] : [], failed_kinds: [] });
     }
-    return json({ items: [primary], total: 1, levels: ['C1', 'C2'], failed_kinds: [] });
+    return json({ items: [primary], total: 1, total_complete: true, levels: levelCatalogFailed ? ['C2'] : ['C1', 'C2', 'C9'], levels_complete: !levelCatalogFailed, failed_level_kinds: levelCatalogFailed ? ['listening'] : [], failed_kinds: [] });
   }
   if (path === '/admin/exam-content/reading/reading-uuid/level' && method === 'PATCH') { contentCourseLevel = body.course_level; return json({ ok: true }); }
   if (path === '/admin/exam-content/reading/reading-uuid/cohorts' && method === 'PATCH') { contentCohortIds = body.cohort_ids; return json({ ok: true }); }
@@ -174,21 +175,22 @@ const assignmentRequest = requests.find((item) => item.method === 'POST' && item
 check('retake gộp kỹ năng trùng, gửi deadline và chỉ kỹ năng servable', Boolean(assignmentRequest?.body?.assignments?.[0]?.open_until) && JSON.stringify(assignmentRequest?.body?.assignments?.[0]?.skills) === '["reading","writing"]');
 await page.getByRole('dialog').getByRole('button', { name: 'Đóng', exact: true }).click();
 
-const contentRead = page.waitForResponse((response) => new URL(response.url()).pathname === '/admin/exam-content');
+const contentRead = page.waitForResponse((response) => new URL(response.url()).pathname === '/admin/exam-content/page');
 await page.getByRole('tab', { name: /Kho đề nội dung/ }).click();
 await contentRead;
 check('kho đề nội dung chỉ tải khi mở không gian riêng', await page.locator('#test-library').count() === 1 && await page.getByRole('button', { name: 'Tạo đề mới' }).count() === 0);
-check('kho đề có tìm kiếm, bộ lọc nhanh và phân trang server', await page.getByLabel('Tìm đề').count() === 1 && await page.getByRole('button', { name: 'Cần xử lý' }).count() === 1 && await page.getByText('Hiển thị 1–1 / 1 đề').count() === 1 && requests.some((item) => item.path === '/admin/exam-content'));
+check('kho đề có tìm kiếm, bộ lọc nhanh và phân trang server', await page.getByLabel('Tìm đề').count() === 1 && await page.getByRole('button', { name: 'Cần xử lý' }).count() === 1 && await page.getByText('Hiển thị 1–1 / 1 đề').count() === 1 && requests.some((item) => item.path === '/admin/exam-content/page'));
+check('cấp khóa ngoài trang hiện tại vẫn có trong bộ lọc', await page.getByRole('option', { name: 'C9', exact: true }).count() >= 1);
 const missingLevelRead = page.waitForResponse((response) => {
   const url = new URL(response.url());
-  return url.pathname === '/admin/exam-content' && url.searchParams.get('attention') === 'no-level' && url.searchParams.get('offset') === '0';
+  return url.pathname === '/admin/exam-content/page' && url.searchParams.get('attention') === 'no-level' && url.searchParams.get('offset') === '0';
 });
 await page.locator('.mex-quick-filters').getByRole('button', { name: 'Thiếu cấp khóa' }).click();
 await missingLevelRead;
 await page.getByText('Hiển thị 1–25 / 26 đề').waitFor();
 const secondPageRead = page.waitForResponse((response) => {
   const url = new URL(response.url());
-  return url.pathname === '/admin/exam-content' && url.searchParams.get('attention') === 'no-level' && url.searchParams.get('offset') === '25';
+  return url.pathname === '/admin/exam-content/page' && url.searchParams.get('attention') === 'no-level' && url.searchParams.get('offset') === '25';
 });
 await page.getByRole('button', { name: 'Trang sau' }).click();
 await secondPageRead;
@@ -198,11 +200,11 @@ const levelInput = levelDialog.getByLabel('Cấp khóa');
 const levelMutation = page.waitForResponse((response) => response.request().method() === 'PATCH' && new URL(response.url()).pathname === '/admin/exam-content/reading/reading-uuid/level');
 const levelReload = page.waitForResponse((response) => {
   const url = new URL(response.url());
-  return response.request().method() === 'GET' && url.pathname === '/admin/exam-content' && url.searchParams.get('offset') === '25';
+  return response.request().method() === 'GET' && url.pathname === '/admin/exam-content/page' && url.searchParams.get('offset') === '25';
 });
 const clampedReload = page.waitForResponse((response) => {
   const url = new URL(response.url());
-  return response.request().method() === 'GET' && url.pathname === '/admin/exam-content' && url.searchParams.get('attention') === 'no-level' && url.searchParams.get('offset') === '0';
+  return response.request().method() === 'GET' && url.pathname === '/admin/exam-content/page' && url.searchParams.get('attention') === 'no-level' && url.searchParams.get('offset') === '0';
 });
 await levelInput.fill('C2');
 await levelDialog.getByRole('button', { name: 'Lưu cấp khóa' }).click();
@@ -213,7 +215,7 @@ await page.getByText('Hiển thị 1–25 / 25 đề').waitFor();
 check('khi trang cuối co lại sau mutation, offset tự lùi và refetch trang hợp lệ', await page.getByText('Trang 1/1').count() === 1 && await page.getByText('MISSING-01', { exact: true }).count() === 1);
 const allContentRead = page.waitForResponse((response) => {
   const url = new URL(response.url());
-  return url.pathname === '/admin/exam-content' && !url.searchParams.has('attention');
+  return url.pathname === '/admin/exam-content/page' && !url.searchParams.has('attention');
 });
 await page.locator('.mex-quick-filters').getByRole('button', { name: 'Tất cả', exact: true }).click();
 await allContentRead;
@@ -224,13 +226,13 @@ await page.getByRole('button', { name: 'Phạm vi lớp' }).click();
 await page.getByText('Lựa chọn này thay thế toàn bộ tập lớp hiện tại.').waitFor();
 await page.getByRole('dialog').getByRole('checkbox', { name: 'IELTS C2', exact: true }).check();
 const cohortsMutation = page.waitForResponse((response) => response.request().method() === 'PATCH' && new URL(response.url()).pathname === '/admin/exam-content/reading/reading-uuid/cohorts');
-const cohortsReload = page.waitForResponse((response) => response.request().method() === 'GET' && new URL(response.url()).pathname === '/admin/exam-content');
+const cohortsReload = page.waitForResponse((response) => response.request().method() === 'GET' && new URL(response.url()).pathname === '/admin/exam-content/page');
 await page.getByRole('button', { name: 'Lưu toàn bộ lớp' }).click();
 const cohortsResponse = await cohortsMutation;
 await cohortsReload;
 await page.getByRole('dialog').waitFor({ state: 'hidden' });
 const explanationPolicyMutation = page.waitForResponse((response) => response.request().method() === 'PATCH' && new URL(response.url()).pathname === '/admin/mock-corrections/public-tests/reading/reading-uuid');
-const visibilityReload = page.waitForResponse((response) => response.request().method() === 'GET' && new URL(response.url()).pathname === '/admin/exam-content');
+const visibilityReload = page.waitForResponse((response) => response.request().method() === 'GET' && new URL(response.url()).pathname === '/admin/exam-content/page');
 await page.getByRole('button', { name: 'Mở công khai' }).click();
 const visibilityDialog = page.getByRole('dialog');
 await visibilityDialog.getByLabel('Web explanation').selectOption('immediate_after_capture');
@@ -242,13 +244,21 @@ await page.getByRole('button', { name: 'Giao cho lớp' }).click();
 const assignmentDialog = page.getByRole('dialog');
 await assignmentDialog.getByLabel('Lớp').selectOption('class-2');
 const classAssignmentMutation = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === '/admin/cohorts/class-2/assignments');
-const assignmentReload = page.waitForResponse((response) => response.request().method() === 'GET' && new URL(response.url()).pathname === '/admin/exam-content');
+const assignmentReload = page.waitForResponse((response) => response.request().method() === 'GET' && new URL(response.url()).pathname === '/admin/exam-content/page');
 await assignmentDialog.getByRole('button', { name: 'Giao cho cả lớp' }).click();
 const classAssignmentResponse = await classAssignmentMutation;
 await assignmentReload;
 const classAssignmentRequest = requests.find((item) => item.method === 'POST' && item.path === '/admin/cohorts/class-2/assignments');
 check('exam-content cập nhật level, phạm vi, visibility và giao lớp độc lập', levelResponse.ok() && cohortsResponse.ok() && explanationPolicyResponse.ok() && classAssignmentResponse.ok() && requests.some((item) => item.path.endsWith('/level') && item.body?.course_level === 'C2') && requests.some((item) => item.path.endsWith('/cohorts') && item.body?.cohort_ids?.includes('class-2')) && requests.some((item) => item.path.endsWith('/public-tests/reading/reading-uuid') && item.body?.is_public === true && item.body?.web_explanation_mode === 'immediate_after_capture' && item.body?.public_practice_enabled === true) && !requests.some((item) => item.path.endsWith('/visibility') && item.method === 'PATCH') && classAssignmentRequest?.body?.content_id === 'reading-uuid' && classAssignmentRequest?.body?.delivery_mode === 'assigned_practice');
 
+levelCatalogFailed = true;
+const partialLevelsRead = page.waitForResponse((response) => new URL(response.url()).pathname === '/admin/exam-content/page');
+await page.getByRole('button', { name: 'Tải lại' }).click();
+await partialLevelsRead;
+check('level catalog lỗi được báo riêng, tổng nội dung vẫn chính xác', await page.getByText(/Danh sách cấp khóa có thể chưa đầy đủ: Listening/).count() === 1 && await page.getByText('Hiển thị 1–1 / 1 đề').count() === 1);
+
+await page.setViewportSize({ width: 768, height: 900 });
+check('tablet kho đề không tràn viewport', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 await page.setViewportSize({ width: 390, height: 844 });
 const mobile = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth, control: parseFloat(getComputedStyle(document.querySelector('.mex-toolbar input')).minHeight) }));
 check('mobile không tràn trang và control đạt 44px', mobile.width <= mobile.viewport && mobile.control >= 44, `${mobile.width}/${mobile.viewport}, ${mobile.control}px`);

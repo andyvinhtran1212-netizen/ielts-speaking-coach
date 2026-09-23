@@ -387,7 +387,7 @@ async def list_essays(
     )
 
 
-@router.get("/essays/queue", response_model=AdminWritingQueuePageOut)
+@router.get("/essay-queue", response_model=AdminWritingQueuePageOut)
 async def list_essay_queue(
     status: Optional[str]      = Query(default=None, max_length=32),
     cohort_id: Optional[UUID]  = Query(default=None),

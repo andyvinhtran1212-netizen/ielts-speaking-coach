@@ -13,7 +13,7 @@ let liveOpen = true;
 const exams = [
   { id: 'draft-1', code: 'MOCK-DRAFT', title: 'Đề đang soạn', status: 'draft', is_open: false, active_section: 'not_started', exam_mode: 'sequential' },
   { id: 'live-1', code: 'MOCK-LIVE', title: 'Đề đang thi', status: 'published', is_open: true, active_section: 'reading', exam_mode: 'sequential' },
-  { id: 'closed-1', code: 'MOCK-CLOSED', title: 'Đề đã đóng', status: 'published', is_open: false, active_section: 'done', exam_mode: 'retake' },
+  { id: 'closed-1', code: 'MOCK-CLOSED', title: 'Đề đã đóng', status: 'published', is_open: false, active_section: 'done', exam_mode: 'retake', review_eligible: true },
   { id: 'draft-1', code: 'DUPLICATE', status: 'draft' },
   { title: 'missing identity' },
 ];
@@ -95,8 +95,10 @@ check('đổi Live sang Review loại phòng đang mở khỏi selection', new U
 await page.getByRole('tab', { name: 'Chấm Writing' }).click();
 check('Writing dùng native queue và bỏ rail đề không liên quan', (await page.locator('iframe').getAttribute('src')) === '/admin/writing/queue?embed=1&mocklane=1' && await page.locator('.mts-rail').count() === 0);
 await page.waitForFunction(() => document.querySelector('iframe')?.contentWindow?.location.pathname === '/admin/writing/queue');
-await page.locator('iframe').evaluate((node) => node.contentWindow.history.pushState({}, '', '/admin/writing/grade?essay_id=fixture-child'));
-check('fixture đã đi sâu khỏi Writing queue', await page.locator('iframe').evaluate((node) => node.contentWindow.location.pathname === '/admin/writing/grade'));
+check('fixture đã đi sâu khỏi Writing queue', await page.locator('iframe').evaluate((node) => {
+  node.contentWindow.history.pushState({}, '', '/admin/writing/grade?essay_id=fixture-child');
+  return node.contentWindow.location.pathname === '/admin/writing/grade';
+}));
 await page.getByRole('tab', { name: 'Chấm Writing' }).click();
 await page.waitForFunction(() => document.querySelector('iframe')?.contentWindow?.location.pathname === '/admin/writing/queue');
 check('bấm lại tab hiện tại trả iframe về workspace gốc', await page.locator('iframe').evaluate((node) => node.contentWindow.location.pathname === '/admin/writing/queue'));
@@ -108,6 +110,27 @@ await page.getByRole('tab', { name: /Quản lý & giao đề/ }).click();
 await page.locator('iframe[src="/admin/mock-exams?embed=1"]').waitFor();
 check('Manage đã nhúng route Next.js native, không còn rollback HTML', (await page.locator('iframe').getAttribute('src')) === '/admin/mock-exams?embed=1' && await page.getByText('MODULE ROLLBACK').count() === 0);
 
+const openRetake = { id: 'retake-open', code: 'RETAKE-OPEN', title: 'Bài thi lại chờ duyệt', status: 'published', is_open: true, active_section: 'not_started', exam_mode: 'retake', review_eligible: true };
+exams.unshift(openRetake);
+await page.goto(`${BASE}/admin/mock-tests?tab=review`, { waitUntil: 'domcontentloaded' });
+await page.locator('iframe[src="/admin/mock-reviews?mock_exam_id=retake-open&embed=1"]').waitFor();
+check('Review chọn retake còn mở có bài chờ duyệt và giữ đề trong rail', await page.getByRole('button', { name: /RETAKE-OPEN.*Có bài cần duyệt/ }).count() === 1);
+const archivedQueued = { id: 'archived-queued', code: 'ARCHIVED-QUEUED', title: 'Đề đã lưu trữ còn bài chờ', status: 'archived', is_open: false, active_section: 'writing', exam_mode: 'sequential', review_eligible: true };
+exams.unshift(archivedQueued);
+await page.goto(`${BASE}/admin/mock-tests?tab=review`, { waitUntil: 'domcontentloaded' });
+await page.locator('iframe[src="/admin/mock-reviews?mock_exam_id=archived-queued&embed=1"]').waitFor();
+check('Review vẫn chọn đề lưu trữ còn bài chờ sau reload', await page.getByRole('button', { name: /ARCHIVED-QUEUED.*Lưu trữ.*Có bài cần duyệt/ }).count() === 1);
+await page.getByRole('button', { name: 'Lưu trữ', exact: true }).click();
+check('lọc Lưu trữ giữ đề có bài chờ hiển thị', await page.getByRole('button', { name: /ARCHIVED-QUEUED.*Có bài cần duyệt/ }).count() === 1);
+exams.shift();
+delete openRetake.review_eligible;
+exams.find((exam) => exam.id === 'closed-1').review_eligible = false;
+await page.goto(`${BASE}/admin/mock-tests?tab=review`, { waitUntil: 'domcontentloaded' });
+await page.getByText('Chưa xác định bài thi cần duyệt').waitFor();
+check('backend cũ không biến retake chưa xác định thành trạng thái hết bài', await page.getByText('Chưa xác định được đề thi lại hoặc đề chưa publish nào có bài cần duyệt').count() === 1 && await page.getByText('Chưa có bài thi cần duyệt').count() === 0);
+exams.shift();
+exams.find((exam) => exam.id === 'closed-1').review_eligible = true;
+
 liveOpen = false;
 await page.goto(`${BASE}/admin/mock-tests`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Trung tâm vận hành Mock Test' }).waitFor();
@@ -116,6 +139,9 @@ await page.getByText('Không có phòng thi đang mở').waitFor();
 await page.waitForTimeout(15_500);
 check('polling giữ scope Live rỗng thay vì phục hồi đề đầu tiên từ tab Manage', await page.getByText('Không có phòng thi đang mở').count() === 1 && await page.locator('iframe').count() === 0);
 
+await page.setViewportSize({ width: 768, height: 900 });
+const tablet = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth, columns: getComputedStyle(document.querySelector('.mts-cockpit')).gridTemplateColumns.split(' ').length }));
+check('tablet xếp rail và workspace một cột, không tràn ngang', tablet.width <= tablet.viewport && tablet.columns === 1, JSON.stringify(tablet));
 await page.setViewportSize({ width: 390, height: 844 });
 const mobile = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth, tabHeight: parseFloat(getComputedStyle(document.querySelector('.mts-tabs button')).minHeight) }));
 check('mobile không tràn ngang và tab đạt 44px', mobile.width <= mobile.viewport && mobile.tabHeight >= 44, `${mobile.width}/${mobile.viewport}, ${mobile.tabHeight}px`);

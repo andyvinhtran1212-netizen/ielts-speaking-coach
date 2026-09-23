@@ -28,8 +28,10 @@ console lives in admin_mock_reviews.py.
 """
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from routers.admin import require_admin
 from services import essay_service
@@ -38,6 +40,26 @@ from services import mock_exam_service as svc
 from services import mock_review_workflow as wf
 
 router = APIRouter(prefix="/admin/mock-exams", tags=["admin-mock-exams"])
+
+
+class AdminMockExamListRow(BaseModel):
+    # The admin list returns the full persisted exam definition for existing
+    # consumers. Pin the operational fields while retaining additive columns.
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    code: str
+    title: str
+    status: Literal["draft", "published", "archived"]
+    exam_mode: Literal["sequential", "retake"]
+    is_open: bool
+    active_section: Literal["not_started", "listening", "reading", "writing", "done"]
+    created_at: str
+    review_eligible: bool
+
+
+class AdminMockExamListResponse(BaseModel):
+    exams: list[AdminMockExamListRow]
 
 
 class ExamCreate(BaseModel):
@@ -171,7 +193,7 @@ class BulkGradeBody(BaseModel):
     )
 
 
-@router.get("")
+@router.get("", response_model=AdminMockExamListResponse)
 async def list_exams(authorization: str | None = Header(default=None)):
     await require_admin(authorization)
     return {"exams": svc.admin_list_exams()}

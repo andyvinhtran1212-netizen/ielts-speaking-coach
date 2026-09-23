@@ -5,8 +5,11 @@ import { useSearchParams } from 'next/navigation';
 
 import { useAdminProfile } from '@/components/admin-access-gate';
 import { messageOf } from '@/components/admin-directory-ui';
+import type { ApiGetJson } from '@/lib/openapi-contract';
 import {
   filterMockExams,
+  mockReviewEligible,
+  mockReviewEligibilityUnknown,
   mockSectionLabel,
   mockExamStage,
   mockTestsExamForTab,
@@ -25,9 +28,11 @@ type Exam = {
   isOpen: boolean;
   activeSection: string;
   examMode: string;
+  reviewEligible: boolean | null;
 };
 type Tab = 'manage' | 'live' | 'review' | 'writing';
-type Stage = 'all' | 'draft' | 'live' | 'closed';
+type Stage = 'all' | 'draft' | 'live' | 'closed' | 'archived';
+type AdminMockExamListWire = ApiGetJson<'/admin/mock-exams'>;
 
 const TABS: { id: Tab; label: string; description: string; needsExam: boolean; legacy: boolean }[] = [
   { id: 'manage', label: 'Quản lý & giao đề', description: 'Soạn, publish, gán lớp', needsExam: false, legacy: false },
@@ -40,8 +45,9 @@ const STAGES: { id: Stage; label: string }[] = [
   { id: 'draft', label: 'Nháp' },
   { id: 'live', label: 'Đang thi' },
   { id: 'closed', label: 'Đã đóng' },
+  { id: 'archived', label: 'Lưu trữ' },
 ];
-const STAGE_LABEL: Record<string, string> = { draft: 'Nháp', live: 'Đang thi', closed: 'Đã đóng' };
+const STAGE_LABEL: Record<string, string> = { draft: 'Nháp', live: 'Đang thi', closed: 'Đã đóng', archived: 'Lưu trữ' };
 const FRAME_TITLE: Record<Tab, string> = {
   manage: 'Quản lý đề Mock Test',
   live: 'Phòng thi Mock Test trực tiếp',
@@ -89,7 +95,7 @@ export function AdminMockTests() {
       const request = ++requestRef.current;
       if (!silent) setLoading(true);
       try {
-        const normalized = normalizeMockExamList(await window.api.get<unknown>('/admin/mock-exams'));
+        const normalized = normalizeMockExamList(await window.api.get<AdminMockExamListWire>('/admin/mock-exams'));
         if (dead || accountRef.current !== account || request !== requestRef.current) return;
         if (!normalized) throw new Error('Danh sách đề thi sai contract.');
         setExams(normalized.rows);
@@ -144,6 +150,8 @@ export function AdminMockTests() {
   const frame = liveDraftBlocked ? null : mockTestsFrame(tab, selectedId);
   const railVisible = tab !== 'writing';
   const noOpenRoom = tab === 'live' && !selected && counts.live === 0;
+  const unknownReviewEligibility = exams.some(mockReviewEligibilityUnknown);
+  const noActionableReview = tab === 'review' && !selected && !unknownReviewEligibility && !exams.some(mockReviewEligible);
 
   useEffect(() => {
     const node = frameRef.current;
@@ -232,6 +240,7 @@ export function AdminMockTests() {
 
       {error && <div className="mts-alert is-error" role="alert"><strong>{exams.length ? 'Không làm mới được; đang giữ snapshot cũ.' : 'Không tải được danh sách đề.'}</strong><span>{error}</span></div>}
       {notice && <div className="mts-alert is-warning" role="alert">{notice}</div>}
+      {tab === 'review' && unknownReviewEligibility && <div className="mts-alert is-warning" role="status">Chưa xác định được đề thi lại hoặc đề chưa publish nào có bài cần duyệt. Bạn vẫn có thể chọn đề trong danh sách; hãy tải lại sau khi hệ thống cập nhật.</div>}
 
       <div className={`mts-cockpit${railVisible ? '' : ' is-wide'}`}>
         {railVisible && <aside className="mts-rail" aria-label="Danh sách đề thi">
@@ -250,7 +259,10 @@ export function AdminMockTests() {
               ? <div className="mts-rail__state">{exams.length ? 'Không có đề khớp bộ lọc.' : 'Chưa có đề nào.'}</div>
               : <ul className="mts-list">{shown.map((exam) => {
                 const examStage = mockExamStage(exam);
-                return <li key={exam.id}><button type="button" className={exam.id === selectedId ? 'is-active' : ''} aria-current={exam.id === selectedId ? 'true' : undefined} onClick={() => selectExam(exam.id)}><span className="mts-exam__top"><strong>{exam.code || 'Chưa có mã'}</strong><span className={`mts-stage is-${examStage}`}>{STAGE_LABEL[examStage]}</span></span><span className="mts-exam__title">{exam.title || 'Chưa có tiêu đề'}</span><small>{exam.examMode === 'retake' ? 'Thi lại theo học viên' : 'Thi tuần tự theo lớp'} · {mockSectionLabel(exam.activeSection)}</small></button></li>;
+                const reviewNote = tab === 'review'
+                  ? mockReviewEligibilityUnknown(exam) ? 'Chưa xác định bài cần duyệt' : mockReviewEligible(exam) ? 'Có bài cần duyệt' : 'Chưa có bài cần duyệt'
+                  : mockSectionLabel(exam.activeSection);
+                return <li key={exam.id}><button type="button" className={exam.id === selectedId ? 'is-active' : ''} aria-current={exam.id === selectedId ? 'true' : undefined} onClick={() => selectExam(exam.id)}><span className="mts-exam__top"><strong>{exam.code || 'Chưa có mã'}</strong><span className={`mts-stage is-${examStage}`}>{STAGE_LABEL[examStage]}</span></span><span className="mts-exam__title">{exam.title || 'Chưa có tiêu đề'}</span><small>{exam.examMode === 'retake' ? 'Thi lại theo học viên' : 'Thi tuần tự theo lớp'} · {reviewNote}</small></button></li>;
               })}</ul>}
         </aside>}
 
@@ -262,7 +274,7 @@ export function AdminMockTests() {
           {activeTab.needsExam && selected && <div className="mts-context"><span>Đang thao tác trên</span><strong>{selected.code || selected.id}</strong><span>{selected.title}</span></div>}
           <div id="mts-panel" className="mts-frame-wrap" role="tabpanel" aria-labelledby={`mts-tab-${tab}`} tabIndex={0}>
             {!frame
-              ? <div className="mts-need-exam"><strong>{liveDraftBlocked ? 'Đề chưa được publish' : noOpenRoom ? 'Không có phòng thi đang mở' : 'Chưa chọn đề thi'}</strong><span>{liveDraftBlocked ? 'Publish đề trong tab Quản lý trước khi mở phòng thi trực tiếp.' : noOpenRoom ? 'Mở một kỳ thi từ không gian Quản lý & giao đề, sau đó quay lại đây để điều hành.' : `Chọn một đề ở danh sách bên trái để ${tab === 'live' ? 'mở phòng thi trực tiếp' : 'duyệt bài thi'}.`}</span>{noOpenRoom && <button className="adm-btn-primary" type="button" onClick={() => activateTab('manage')}>Đến Quản lý & giao đề</button>}</div>
+              ? <div className="mts-need-exam"><strong>{liveDraftBlocked ? 'Đề chưa được publish' : noOpenRoom ? 'Không có phòng thi đang mở' : noActionableReview ? 'Chưa có bài thi cần duyệt' : unknownReviewEligibility && tab === 'review' ? 'Chưa xác định bài thi cần duyệt' : 'Chưa chọn đề thi'}</strong><span>{liveDraftBlocked ? 'Publish đề trong tab Quản lý trước khi mở phòng thi trực tiếp.' : noOpenRoom ? 'Mở một kỳ thi từ không gian Quản lý & giao đề, sau đó quay lại đây để điều hành.' : noActionableReview ? 'Khi có bài thi hoàn tất cần chấm hoặc trả kết quả, đề sẽ xuất hiện tại đây.' : unknownReviewEligibility && tab === 'review' ? 'Hãy chọn đề trong danh sách hoặc tải lại sau khi hệ thống cập nhật.' : `Chọn một đề ở danh sách bên trái để ${tab === 'live' ? 'mở phòng thi trực tiếp' : 'duyệt bài thi'}.`}</span>{(noOpenRoom || noActionableReview) && <button className="adm-btn-primary" type="button" onClick={() => activateTab('manage')}>Đến Quản lý & giao đề</button>}</div>
               : <iframe ref={frameRef} key={`${frame}:${frameEpoch}`} className="mts-frame" src={frame} title={FRAME_TITLE[tab]} />}
           </div>
         </section>

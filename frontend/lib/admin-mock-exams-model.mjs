@@ -232,8 +232,51 @@ export function normalizeExamContent(raw) {
   return {
     rows,
     total: Number.isInteger(raw.total) && raw.total >= rows.length ? raw.total : rows.length,
+    totalComplete: raw.total_complete === true,
     levels: Array.isArray(raw.levels) ? raw.levels.map(TEXT).filter(Boolean) : [],
+    levelsComplete: raw.levels_complete === true,
+    failedLevelKinds: Array.isArray(raw.failed_level_kinds) ? raw.failed_level_kinds.map(TEXT).filter((kind) => KIND.has(kind)) : [],
     failedKinds: Array.isArray(raw.failed_kinds) ? raw.failed_kinds.map(TEXT).filter((kind) => KIND.has(kind)) : [],
+  };
+}
+
+export function legacyExamContentPage(raw, query) {
+  if (!raw || typeof raw !== 'object' || !Array.isArray(raw.items)) return null;
+  const needle = TEXT(query?.get('q')).slice(0, 100).toLocaleLowerCase();
+  const attention = TEXT(query?.get('attention')) || 'all';
+  const limit = Math.min(100, Math.max(1, Number(query?.get('limit')) || 25));
+  const offset = Math.max(0, Number(query?.get('offset')) || 0);
+  if (!['all', 'action', 'unassigned', 'no-level', 'draft'].includes(attention)) return null;
+  const matches = raw.items.filter((row) => {
+    if (!row || typeof row !== 'object') return false;
+    if (needle && ![row.id, row.code, row.title, row.course_level]
+      .some((field) => String(field || '').toLocaleLowerCase().includes(needle))) return false;
+    const level = TEXT(row.course_level);
+    const status = TEXT(row.status);
+    if (attention === 'no-level') return !level;
+    if (attention === 'draft') return status === 'draft';
+    if (attention === 'unassigned') return Array.isArray(row.mock_exams) && row.mock_exams.length === 0;
+    if (attention === 'action') return status !== 'archived' && (
+      (row.kind !== 'writing' && (status !== 'published' || row.publish_ready !== true))
+      || !level || (Array.isArray(row.cohort_ids) && row.cohort_ids.length === 0)
+    );
+    return true;
+  }).sort((left, right) => {
+    const first = String(left.kind || '').localeCompare(String(right.kind || ''));
+    if (first) return first;
+    const leftKey = String(left.code || left.title || '').toLocaleLowerCase();
+    const rightKey = String(right.code || right.title || '').toLocaleLowerCase();
+    return leftKey < rightKey ? -1 : leftKey > rightKey ? 1
+      : String(left.id || '') < String(right.id || '') ? -1
+        : String(left.id || '') > String(right.id || '') ? 1 : 0;
+  });
+  return {
+    ...raw,
+    items: matches.slice(offset, offset + limit),
+    total: matches.length,
+    total_complete: false,
+    levels_complete: false,
+    failed_level_kinds: [],
   };
 }
 

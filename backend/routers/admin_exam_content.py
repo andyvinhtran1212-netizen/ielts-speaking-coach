@@ -84,6 +84,12 @@ class ExamContentListResponse(BaseModel):
     levels: list[str]
 
 
+class ExamContentPageResponse(ExamContentListResponse):
+    total_complete: bool
+    levels_complete: bool
+    failed_level_kinds: list[ExamContentKind]
+
+
 @router.get("", response_model=ExamContentListResponse)
 async def list_exam_content(
     kind: Optional[str] = Query(default=None),
@@ -91,10 +97,6 @@ async def list_exam_content(
     cohort_id: Optional[str] = Query(default=None),
     exam_only: Optional[bool] = Query(default=None),
     is_public: Optional[bool] = Query(default=None),
-    q: Optional[str] = Query(default=None, max_length=100),
-    attention: Optional[str] = Query(default=None),
-    limit: Optional[int] = Query(default=None, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
     authorization: str | None = Header(default=None),
 ):
     """Papers across all three libraries with level + classes, filterable."""
@@ -102,7 +104,7 @@ async def list_exam_content(
     try:
         res = svc.list_exam_content(
             kind, course_level, cohort_id, exam_only, is_public,
-            q=q, attention=attention, limit=limit, offset=offset,
+            q=None, attention=None, limit=None, offset=0,
         )
         return {
             "items":  res["items"],
@@ -115,6 +117,38 @@ async def list_exam_content(
     except svc.UnknownKindError as e:
         raise HTTPException(422, str(e))
     except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
+@router.get("/page", response_model=ExamContentPageResponse)
+async def list_exam_content_page(
+    kind: Optional[str] = Query(default=None),
+    course_level: Optional[str] = Query(default=None),
+    cohort_id: Optional[str] = Query(default=None),
+    exam_only: Optional[bool] = Query(default=None),
+    is_public: Optional[bool] = Query(default=None),
+    q: Optional[str] = Query(default=None, max_length=100),
+    attention: Optional[str] = Query(default=None),
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    authorization: str | None = Header(default=None),
+):
+    """Bounded catalog page. Legacy list callers retain the full response."""
+    await require_admin(authorization)
+    try:
+        res = svc.list_exam_content(
+            kind, course_level, cohort_id, exam_only, is_public,
+            q=q, attention=attention, limit=limit, offset=offset,
+        )
+        levels, failed_level_kinds = svc.known_course_levels_with_failures()
+        return {
+            **res,
+            "total_complete": not bool(res["failed_kinds"]),
+            "levels": levels,
+            "levels_complete": not bool(failed_level_kinds),
+            "failed_level_kinds": failed_level_kinds,
+        }
+    except (svc.UnknownKindError, ValueError) as e:
         raise HTTPException(422, str(e))
 
 

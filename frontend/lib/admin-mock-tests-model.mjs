@@ -1,7 +1,7 @@
 const TEXT = (value) => typeof value === 'string' ? value.trim() : '';
 
 export const MOCK_TEST_TABS = Object.freeze(['manage', 'live', 'review', 'writing']);
-export const MOCK_TEST_STAGES = Object.freeze(['all', 'draft', 'live', 'closed']);
+export const MOCK_TEST_STAGES = Object.freeze(['all', 'draft', 'live', 'closed', 'archived']);
 
 export function mockTestsTab(value) {
   const tab = TEXT(value);
@@ -25,6 +25,7 @@ export function normalizeMockExam(raw) {
     isOpen: raw.is_open === true,
     activeSection: TEXT(raw.active_section) || 'not_started',
     examMode: TEXT(raw.exam_mode) || 'sequential',
+    reviewEligible: typeof raw.review_eligible === 'boolean' ? raw.review_eligible : null,
   };
 }
 
@@ -51,7 +52,9 @@ export function normalizeMockExamList(raw) {
 }
 
 export function mockExamStage(exam) {
-  if (!exam || exam.status !== 'published') return 'draft';
+  if (!exam) return 'draft';
+  if (exam.status === 'archived') return 'archived';
+  if (exam.status !== 'published') return 'draft';
   return exam.isOpen ? 'live' : 'closed';
 }
 
@@ -63,8 +66,24 @@ export function filterMockExams(exams, stage) {
 export function mockTestsStageForTab(tab) {
   const canonical = mockTestsTab(tab);
   if (canonical === 'live') return 'live';
-  if (canonical === 'review') return 'closed';
   return 'all';
+}
+
+export function mockReviewEligibilityUnknown(exam) {
+  return exam != null
+    && (exam.examMode === 'retake' || exam.status !== 'published')
+    && exam.reviewEligible === null;
+}
+
+export function mockReviewEligible(exam) {
+  if (!exam) return false;
+  if (typeof exam.reviewEligible === 'boolean') return exam.reviewEligible;
+  // Old-backend compatibility: the sequential exam clock is still canonical,
+  // but an old response cannot tell us whether row-backed work remains.
+  return exam.status === 'published'
+    && exam.examMode !== 'retake'
+    && exam.isOpen === false
+    && exam.activeSection === 'done';
 }
 
 export function mockTestsExamForTab(exams, tab, currentId = '', requestedId = '') {
@@ -77,7 +96,7 @@ export function mockTestsExamForTab(exams, tab, currentId = '', requestedId = ''
   const allowed = canonical === 'live'
     ? rows.filter((exam) => mockExamStage(exam) === 'live')
     : canonical === 'review'
-      ? rows.filter((exam) => mockExamStage(exam) === 'closed')
+      ? rows.filter(mockReviewEligible)
       : rows;
   return allowed.some((exam) => exam.id === current) ? current : allowed[0]?.id || '';
 }

@@ -35,3 +35,4 @@ class AdminWritingQueuePageOut(_StrictOut):
     total: int = Field(ge=0)
     limit: int = Field(ge=1, le=100)
     offset: int = Field(ge=0)
+    total_complete: bool

@@ -9,11 +9,16 @@ class is a mistake nobody notices until the exam is under way.
 from __future__ import annotations
 
 import re
+import inspect
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi.testclient import TestClient
+from fastapi.routing import APIRoute
 
 import services.exam_content_service as svc
+from routers.admin_exam_content import router as content_router
 from services import mock_exam_service
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -289,6 +294,7 @@ def test_known_levels_are_derived_from_the_data(db):
     db.t["listening_tests"] = [{"id": "l1", "course_level": "C4"}]
     db.t["writing_prompts"] = [{"id": "w1", "course_level": "C2"}]
     assert svc.known_course_levels() == ["C2", "C4"]
+    assert svc.known_course_levels_with_failures() == (["C2", "C4"], [])
 
 
 # ── Cohort assignment ─────────────────────────────────────────────────
@@ -442,6 +448,88 @@ def test_catalog_search_attention_and_pagination_return_truthful_total(db):
 
     with pytest.raises(ValueError, match="attention"):
         svc.list_exam_content(attention="invented")
+
+
+def test_catalog_tied_display_keys_have_stable_page_order(db):
+    db.t["writing_prompts"] = [
+        {"id": "w-b", "title": "Shared title", "is_active": True,
+         "exam_only": True, "course_level": "C2"},
+        {"id": "w-a", "title": "Shared title", "is_active": True,
+         "exam_only": True, "course_level": "C2"},
+    ]
+    first = svc.list_exam_content(kind="writing", limit=1, offset=0)
+    second = svc.list_exam_content(kind="writing", limit=1, offset=1)
+    assert first["total"] == second["total"] == 2
+    assert [first["items"][0]["id"], second["items"][0]["id"]] == ["w-a", "w-b"]
+    db.t["writing_prompts"].reverse()
+    assert [row["id"] for row in svc.list_exam_content(kind="writing")["items"]] == ["w-a", "w-b"]
+
+
+@pytest.mark.parametrize("suffix, expected_limit, expected_status", [
+    ("", 25, 200), ("?limit=100", 100, 200), ("?limit=101", None, 422),
+])
+def test_catalog_page_enforces_bounded_page_size(suffix, expected_limit, expected_status):
+    from main import app
+
+    with patch("routers.admin_exam_content.require_admin",
+               new=AsyncMock(return_value={"id": "admin"})), patch(
+        "routers.admin_exam_content.svc.list_exam_content",
+        return_value={"items": [], "total": 0, "failed_kinds": [],
+                      "limit": expected_limit or 25, "offset": 0},
+    ) as mock_page, patch(
+        "routers.admin_exam_content.svc.known_course_levels_with_failures", return_value=([], []),
+    ):
+        response = TestClient(app).get(
+            f"/admin/exam-content/page{suffix}",
+            headers={"Authorization": "Bearer fake.admin.jwt"},
+        )
+    assert response.status_code == expected_status
+    if expected_limit is None:
+        mock_page.assert_not_called()
+    else:
+        assert mock_page.call_args.kwargs["limit"] == expected_limit
+
+
+def test_catalog_page_keeps_levels_found_only_beyond_first_page(db):
+    from main import app
+
+    db.t["writing_prompts"] = [{
+        "id": f"w-{index:03d}", "title": f"Prompt {index:03d}",
+        "is_active": True, "exam_only": True,
+        "course_level": "C9" if index == 30 else "C2",
+    } for index in range(31)]
+    with patch("routers.admin_exam_content.require_admin",
+               new=AsyncMock(return_value={"id": "admin"})):
+        response = TestClient(app).get(
+            "/admin/exam-content/page?kind=writing&limit=25",
+            headers={"Authorization": "Bearer fake.admin.jwt"},
+        )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert len(payload["items"]) == 25
+    assert "C9" not in {row["course_level"] for row in payload["items"]}
+    assert payload["levels"] == ["C2", "C9"]
+    assert payload["levels_complete"] is True
+    assert payload["failed_level_kinds"] == []
+
+
+def test_catalog_page_marks_level_scan_failure_separately_from_exact_total(db):
+    from main import app
+
+    db.t["writing_prompts"] = [{"id": "w-1", "title": "Prompt", "is_active": True}]
+    with patch("routers.admin_exam_content.require_admin",
+               new=AsyncMock(return_value={"id": "admin"})), patch(
+        "routers.admin_exam_content.svc.known_course_levels_with_failures",
+        return_value=(["C2"], ["listening"]),
+    ):
+        response = TestClient(app).get(
+            "/admin/exam-content/page?kind=writing",
+            headers={"Authorization": "Bearer fake.admin.jwt"},
+        )
+    assert response.status_code == 200, response.text
+    assert response.json()["total_complete"] is True
+    assert response.json()["levels_complete"] is False
+    assert response.json()["failed_level_kinds"] == ["listening"]
 
 
 def test_catalog_enriches_only_the_requested_page(db, monkeypatch):
@@ -657,8 +745,10 @@ def test_the_reverse_is_written_down():
 
 
 def test_every_route_is_admin_only():
-    src = (BACKEND / "routers" / "admin_exam_content.py").read_text(encoding="utf-8")
-    assert src.count("require_admin(authorization)") == 5
+    routes = [route for route in content_router.routes if isinstance(route, APIRoute)]
+    assert routes
+    assert all("await require_admin(authorization)" in inspect.getsource(route.endpoint)
+               for route in routes)
 
 
 def test_the_router_is_registered():

@@ -12,10 +12,11 @@ const MODEL = read('lib', 'admin-writing-queue-model.mjs');
 
 describe('admin Writing queue read contract', () => {
   test('derives the list wire shape from generated OpenAPI', () => {
-    assert.match(API, /ApiGetJson<'\/admin\/writing\/essays\/queue'>/);
-    assert.match(API, /getBrowserJson\('\/admin\/writing\/essays\/queue', query\)/);
+    assert.match(API, /ApiGetJson<'\/admin\/writing\/essay-queue'>/);
+    assert.match(API, /getBrowserJson\('\/admin\/writing\/essay-queue', query\)/);
     assert.match(OPENAPI, /"application\/json": components\["schemas"\]\["AdminWritingQueueRowOut"\]\[\]/);
     assert.match(OPENAPI, /components\["schemas"\]\["AdminWritingQueuePageOut"\]/);
+    assert.match(OPENAPI, /total_complete: boolean/);
     assert.match(OPENAPI, /task1_image_missing: boolean/);
   });
 

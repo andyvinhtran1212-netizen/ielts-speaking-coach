@@ -12,7 +12,7 @@ const check = (name, ok, detail = '') => { results.push({ name, ok, detail }); c
 async function launch() { try { return await chromium.launch(); } catch (error) { const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'; if (process.platform === 'darwin' && existsSync(chrome)) return chromium.launch({ executablePath: chrome }); throw error; } }
 
 const dangerous = '<img src=x onerror="window.__queueXss=1">';
-const QUEUE_PATH = '/admin/writing/essays/queue';
+const QUEUE_PATH = '/admin/writing/essay-queue';
 const now = new Date();
 const past = new Date(now.getTime() - 86400000).toISOString();
 const recent = new Date(now.getTime() - 3600000).toISOString();
@@ -53,7 +53,7 @@ await page.route('**/*', async (route) => {
     const source = mock ? mockRows : needle ? [...regular, olderSearchRow] : regular;
     const rows = source.filter((row) => (!status || row.status === status) && (!needle || `${row.student_full_name} ${row.student_code} ${row.student_id}`.toLocaleLowerCase('vi').includes(needle)));
     const limit = Number(parsed.searchParams.get('limit') || 25); const offset = Number(parsed.searchParams.get('offset') || 0);
-    return json({ items: rows.slice(offset, offset + limit), total: rows.length, limit, offset });
+    return json({ items: rows.slice(offset, offset + limit), total: rows.length, total_complete: true, limit, offset });
   }
   if (method === 'POST' && parsed.pathname === '/admin/writing/essays/bulk-mark-delivered') {
     const body = request.postDataJSON(); const ids = body.essay_ids || [];
@@ -173,6 +173,8 @@ check('bài Pending trang 2 được xác minh bằng essay ID rồi làm mới 
 await page.setViewportSize({ width: 1440, height: 900 });
 const desktop = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth, lanes: getComputedStyle(document.querySelector('.awq-lanes')).gridTemplateColumns.split(' ').length, table: getComputedStyle(document.querySelector('.awq-table')).display }));
 check('desktop giữ sáu lane, bảng và không tràn ngang', !desktop.overflow && desktop.lanes === 6 && desktop.table === 'table', JSON.stringify(desktop));
+await page.setViewportSize({ width: 768, height: 900 });
+check('tablet hàng chờ không tràn viewport', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 await page.setViewportSize({ width: 390, height: 844 });
 const mobile = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth, row: getComputedStyle(document.querySelector('.awq-table tr')).display }));
 check('mobile chuyển row thành card và không tràn viewport', !mobile.overflow && mobile.row === 'grid', JSON.stringify(mobile));

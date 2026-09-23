@@ -463,6 +463,7 @@ def list_exam_content(kind: Optional[str] = None,
         item["kind"],
         ((item["row"].get(item["code_col"]) if item["code_col"] else None)
          or item["row"].get("title") or "").lower(),
+        str(item["row"].get("id") or ""),
     ))
 
     # Filters that depend on another table need a lightweight membership map
@@ -530,22 +531,32 @@ def list_exam_content(kind: Optional[str] = None,
                 "readiness_reason": readiness_reason,
                 **explanation_by_content.get(content_id, {}),
             })
-    out.sort(key=lambda row: (row["kind"], (row["code"] or row["title"] or "").lower()))
+    out.sort(key=lambda row: (
+        row["kind"], (row["code"] or row["title"] or "").lower(), str(row["id"]),
+    ))
     return {"items": out, "failed_kinds": failed, "total": total}
 
 
-def known_course_levels() -> list[str]:
+def known_course_levels_with_failures() -> tuple[list[str], list[str]]:
     """Levels already in use, for the admin input's suggestions. The column is
     free text on purpose (a CHECK would need a migration per new course), so the
-    suggestion list is derived, never enumerated in code."""
+    suggestion list is derived, never enumerated in code. Report partial reads
+    separately from the content-page total, which may still be exact."""
     seen: set = set()
-    for table, _ in _KINDS.values():
+    failed: list[str] = []
+    for kind, (table, _) in _KINDS.items():
         try:
             rows = _paged(
                 lambda t=table: supabase_admin.table(t).select("course_level").order("id")
             )
         except Exception:  # noqa: BLE001
             logger.warning("[exam-content] level scan failed for %s", table)
+            failed.append(kind)
             continue
         seen.update((r.get("course_level") or "").strip() for r in rows)
-    return sorted(x for x in seen if x)
+    return sorted(x for x in seen if x), failed
+
+
+def known_course_levels() -> list[str]:
+    """Legacy list contract: retain its list-shaped course-level catalog."""
+    return known_course_levels_with_failures()[0]
