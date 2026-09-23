@@ -3,7 +3,7 @@
 Tasks are dependency ordered. Implementation remains unchecked until the
 approved specification is present on the implementation branch base.
 
-- [ ] T001 Establish additive exam-content and Writing queue contracts plus generated frontend types. `owns: backend/models/admin_writing_queue.py, backend/routers/admin_exam_content.py, backend/routers/admin_writing.py, frontend/types/api.d.ts`
+- [ ] T001 Establish additive exam-content, Mock exam-list, and Writing queue response contracts plus generated frontend types. `owns: backend/models/admin_writing_queue.py, backend/routers/admin_exam_content.py, backend/routers/admin_mock_exams.py, backend/routers/admin_writing.py, frontend/types/api.d.ts`
 - [ ] T002 Add backend-only Writing pagination and retake-review eligibility routines plus bounded canonical service queries. `depends: T001; owns: backend/migrations/296_admin_writing_queue_page.sql, backend/migrations/297_admin_mock_review_eligibility.sql, backend/services/essay_service.py, backend/services/exam_content_service.py, backend/services/mock_exam_service.py`
 - [ ] T003 Separate Manage, Create, and Content Bank workspaces and make Live, Review, and Writing task scope truthful. `depends: T001; owns: frontend/app/(authed-admin-mock-*)/admin/`
 - [ ] T004 Implement bounded content/queue controls, canonical readback, and query-context round trips. `depends: T001,T002,T003; owns: frontend/lib/admin-*-model.mjs, frontend/public/css/admin-*-next.css`

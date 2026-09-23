@@ -28,7 +28,10 @@
   `exam_only`, and `is_public`, then apply `q` plus attention before local
   paging, including a matching record beyond page 1. Both paths must search
   ID, code, title, and course level with trimmed, 100-character, case-insensitive
-  literal matching, including `%`, `_`, and punctuation. With Writing `q` and
+  literal matching, including `%`, `_`, and punctuation. A level appearing only
+  beyond the first content page must be offered in the
+  selector; a failed level scan must name its source and mark `levels_complete`
+  false independently of the exact content total. With Writing `q` and
   overdue active together, every fallback row must satisfy both predicates
   using literal query matching and the earliest non-null assignment deadline,
   while the total remains explicitly incomplete.

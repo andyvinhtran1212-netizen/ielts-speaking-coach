@@ -43,6 +43,13 @@
   cohort/Mock-reference membership sets are computed before count and offset.
   Page-only cohort display, explanation readiness, and Mock-reference detail
   enrichment run afterward and never determine an attention total.
+- Keep the existing `levels` field on the paginated content response. Populate
+  it from a level-column-only scan across all three sources, not the selected
+  page or an extra legacy full-catalog request. Report scan failures separately
+  as `levels_complete=false` plus `failed_level_kinds`; the level selector stays
+  usable for known values, warns when options may be missing, and does not
+  mislabel the independent content `total_complete` flag. A compatibility
+  fallback labels level completeness unknown.
 - Preserve `/admin/writing/essays` as the existing array contract. Add
   `/admin/writing/essay-queue` as a separate, non-colliding paginated envelope
   with bounded `q`, exact `total`, and existing status, cohort, overdue, Mock,
@@ -74,7 +81,11 @@
   object.
 - Treat `writing_essays`, assignments, canonical student/cohort membership, and
   persisted grading status as truth. Do not infer missing exam identity.
-- Add a backend-derived `review_eligible` boolean to each admin exam-list row.
+- Declare a concrete additive response model for `/admin/mock-exams` with a
+  required backend-derived `review_eligible` boolean on each row. Preserve all
+  existing exam fields for older consumers; regenerate `api.d.ts` and use the
+  typed GET contract in the new cockpit. Order the canonical admin exam list by
+  `created_at DESC, id DESC` before both Live and Review selection.
   Sequential eligibility uses published/closed/`active_section=done`; retake
   eligibility uses a set-based, backend-only query joining persisted review
   statuses `queued`, `claimed`, `edited`, or `reviewed` to sittings in
@@ -99,7 +110,7 @@
   actions, and explicit save/cancel for content metadata.
 - Select Live and Review context by task while honoring valid explicit deep
   links; hide the irrelevant exam rail for Writing. Live chooses the first
-  published/open exam in canonical newest-first order. Review uses the
+  published/open exam in stable `created_at DESC, id DESC` order. Review uses the
   backend-derived `review_eligible` flag in stable `created_at DESC, id DESC`
   order; its rail includes open retakes, and its empty state distinguishes no
   actionable review from unknown eligibility during deployment skew. A valid
@@ -144,12 +155,14 @@
   content paths, duplicate assignments with the earliest deadline, tied essay
   timestamps, deliberately shuffled enrichment rows across adjacent pages,
   tied content display keys across shuffled source rows and adjacent pages,
+  levels represented only beyond page 1 and partial level-scan failures,
   default/maximum/oversized page limit validation in both routes, bounded
   enrichment, migration ACL,
   fixed `search_path`, and schema qualification.
 - Retake review tests cover queued/claimed/edited/reviewed versus released or
   void sittings, open versus closed retakes, sequential `done` behavior,
-  equal-timestamp ordering, backend lookup failure, and the routine's ACL and
+  equal-timestamp ordering for both Live and Review, typed exam-list response
+  and older field preservation, backend lookup failure, and the routine's ACL and
   fixed search path. Frontend tests cover unknown old-backend retake
   eligibility, explicit deep links, and visible open-retake rail selection.
 - Frontend contracts cover workspace separation, query serialization, task

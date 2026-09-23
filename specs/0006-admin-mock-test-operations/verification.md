@@ -28,7 +28,10 @@
   trimmed 100-character case-insensitive literal semantics in both paths.
   Content order must include ID after kind and display key, with tied display
   keys stable across shuffled reads, adjacent pages, and reloads. Both page
-  routes must test default 25, accepted 100, and rejected 101 limits.
+  routes must test default 25, accepted 100, and rejected 101 limits. A level
+  present only beyond page 1 must remain selectable; a failed level scan must
+  mark `levels_complete=false` and name its source without changing an exact
+  content total.
   Writing page evidence must cover tied `created_at` values, `id DESC` order,
   deliberately shuffled enrichment results, and adjacent-page stability.
   Create, mutation, grading, and release payloads remain unchanged.
@@ -44,7 +47,9 @@
   queue/status/grade navigation, canonical grading readback, and Review default
   selection evidence covering newest-first completed sequential and actionable
   open-retake eligibility, released-only/void exclusions, no eligible exam,
-  old-backend unknown eligibility, and a valid explicit deep link. Page
+  old-backend unknown eligibility, tied-timestamp Live/Review ordering, typed
+  `review_eligible` OpenAPI, older exam-field preservation, and a valid explicit
+  deep link. Page
   correction requires a complete total; a forced 404 with an offset beyond
   the bounded legacy snapshot must
   keep that offset and its query context.
