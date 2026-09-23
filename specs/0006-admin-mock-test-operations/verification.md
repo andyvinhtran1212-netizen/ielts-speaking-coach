@@ -45,7 +45,8 @@
   eligibility query.
 - Immediate state versus full reload: pending content level save/cancel,
   queue/status/grade navigation, canonical grading readback, and Review default
-  selection evidence covering newest-first completed sequential and actionable
+  selection evidence covering completed sequential with actionable rows,
+  newer completed sequential with only released or no review rows,
   open-retake and archived/draft row-backed eligibility across both exam modes,
   released-only/void exclusions, no eligible exam, old-backend unknown
   eligibility, tied-timestamp Live/Review ordering, typed

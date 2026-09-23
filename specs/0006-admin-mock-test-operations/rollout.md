@@ -42,7 +42,7 @@
   an exact complete total still corrects an invalid page.
 - Merge the implementation PR to `staging`, record its exact SHA, require
   integrated CI and live Staging E2E on that SHA, then exercise Manage/Create/
-  Content, Live empty/open, Review newest-first sequential/open-retake/
+  Content, Live empty/open, Review sequential-actionable versus released-only/open-retake/
   archived-actionable/empty/
   old-backend-unknown/explicit-link,
   and Writing page-2 save-return journeys.
