@@ -117,6 +117,10 @@ def test_reveal_snapshots_first_answer_and_retries_are_idempotent(reveal_probe):
         f"SELECT first_answer FROM {schema}.fn_record_listening_programme_feedback_reveal("
         f"'{attempt}','{reveal_probe['owner']}',1)"
     ) == "A"
+    assert psql(
+        "SELECT has_function_privilege('authenticated', "
+        f"'{schema}.fn_guard_listening_programme_feedback_reveal()', 'EXECUTE')"
+    ) == "f"
     with pytest.raises(RuntimeError, match="permission denied"):
         psql(f"SET ROLE authenticated; SELECT * FROM {schema}."
              "listening_programme_feedback_reveals")
@@ -156,6 +160,24 @@ def test_concurrent_reveals_create_one_immutable_first_answer(reveal_probe):
     assert len({row["revealed_at"] for row in results}) == 1
     assert psql(f"SELECT count(*) FROM {schema}.listening_programme_feedback_reveals "
                 f"WHERE attempt_id='{attempt}'") == "1"
+
+
+def test_reveal_rejects_direct_delete_but_cascades_with_attempt(reveal_probe):
+    schema = reveal_probe["schema"]
+    attempt = str(uuid4())
+    psql(f"INSERT INTO {schema}.listening_test_attempts VALUES ("
+         f"'{attempt}','{reveal_probe['test']}','{reveal_probe['owner']}',"
+         "'in_progress','report_only',NULL,NULL,NOW() + INTERVAL '1 hour',"
+         "'[{\"q_num\":1,\"user_answer\":\"first\"}]'::JSONB)")
+    _record({**reveal_probe, "attempt": attempt})
+
+    with pytest.raises(RuntimeError, match="listening_programme_feedback_reveal_immutable"):
+        psql(f"DELETE FROM {schema}.listening_programme_feedback_reveals "
+             f"WHERE attempt_id='{attempt}'")
+
+    psql(f"DELETE FROM {schema}.listening_test_attempts WHERE id='{attempt}'")
+    assert psql(f"SELECT count(*) FROM {schema}.listening_programme_feedback_reveals "
+                f"WHERE attempt_id='{attempt}'") == "0"
 
 
 def test_reveal_fails_closed_for_assigned_expired_unpublished_and_unsaved_attempts(reveal_probe):

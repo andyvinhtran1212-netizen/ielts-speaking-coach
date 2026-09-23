@@ -3,6 +3,8 @@
 ## Preconditions
 
 - Product owner has resolved assisted-completion policy; approved spec is on base.
+- Product owner confirmed reveal evidence is deleted with its parent attempt,
+  preserving the existing user/test deletion cascade.
 - Separate player UI rollout is reviewed and reconciled without duplicate state.
 - Migration and code pass local affected suites and protected-field review.
 
@@ -30,7 +32,8 @@ Disable the reveal UI if backend or content checks fail. Backend rollback leaves
 the additive ledger intact so historical assisted attempts stay truthful.
 Reconcile ledger rows against attempt ownership, status, and saved answers;
 repair only through an audited operator procedure, never by clearing assistance
-to make an attempt appear independent.
+to make an attempt appear independent. Direct ledger deletion remains blocked;
+deleting the parent attempt also deletes its dependent reveal rows.
 
 ## Observability
 

@@ -24,14 +24,26 @@ GRANT SELECT ON public.listening_programme_feedback_reveals TO service_role;
 
 CREATE OR REPLACE FUNCTION public.fn_guard_listening_programme_feedback_reveal()
 RETURNS TRIGGER
-LANGUAGE plpgsql
+LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
+    -- A parent attempt is deleted by the existing user/test cascade contract.
+    -- Let its FK cascade remove this dependent evidence, but reject a direct
+    -- DELETE while the parent attempt still exists.
+    IF TG_OP = 'DELETE' AND NOT EXISTS (
+        SELECT 1 FROM public.listening_test_attempts AS attempt
+         WHERE attempt.id = OLD.attempt_id
+    ) THEN
+        RETURN OLD;
+    END IF;
     RAISE EXCEPTION 'listening_programme_feedback_reveal_immutable'
         USING ERRCODE = '55000';
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.fn_guard_listening_programme_feedback_reveal()
+    FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS trg_guard_listening_programme_feedback_reveal
     ON public.listening_programme_feedback_reveals;

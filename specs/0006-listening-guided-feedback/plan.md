@@ -21,6 +21,8 @@ return protected feedback only for ledger rows. Existing student test payload
 and answer-save response remain unchanged. New FastAPI schemas generate the
 frontend types. Reuse the report-only grader's objective comparison logic;
 never use the diagnostic `/check` write path.
+Direct ledger updates/deletes remain blocked; when an attempt is deleted,
+its ledger rows follow the existing attempt `ON DELETE CASCADE` lifecycle.
 
 ## Rollout and rollback
 
