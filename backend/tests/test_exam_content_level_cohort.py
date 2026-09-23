@@ -8,6 +8,7 @@ class is a mistake nobody notices until the exam is under way.
 
 from __future__ import annotations
 
+import copy
 import re
 import inspect
 from pathlib import Path
@@ -195,8 +196,29 @@ class _DB:
                 str(row["id"]),
             ))
             start = params["p_offset"]
-            return _Deferred({"ids": [str(row["id"]) for row in rows[start:start + params["p_limit"]]],
-                              "total": len(rows)})
+            selected = rows[start:start + params["p_limit"]]
+            snapshot = []
+            for row in selected:
+                cid = str(row["id"])
+                links = [link for link in self.t.get("exam_content_cohorts", [])
+                         if link["content_kind"] == kind and str(link["content_id"]) == cid]
+                exams = [exam for exam in self.t.get("mock_exams", []) if (
+                    (kind == "reading" and exam.get("reading_test_id") == cid)
+                    or (kind == "listening" and exam.get("listening_test_id") == cid)
+                    or (kind == "writing" and cid in (
+                        exam.get("writing_task1_prompt_id"), exam.get("writing_task2_prompt_id")))
+                )]
+                snapshot.append({
+                    **copy.deepcopy(row),
+                    "kind": kind,
+                    "code": row.get(code_col) if code_col else None,
+                    "status": row.get("status") or ("published" if row.get("is_active") else "archived"),
+                    "cohort_ids": sorted(link["cohort_id"] for link in links),
+                    "mock_exams": [{key: exam.get(key) for key in ("id", "code", "title", "status")}
+                                   for exam in exams],
+                })
+            return _Deferred({"ids": [str(row["id"]) for row in selected],
+                              "rows": snapshot, "total": len(rows)})
         assert name == "fn_set_exam_content_cohorts", name
         kind, cid = params["p_kind"], str(params["p_content_id"])
         wanted = sorted({str(c) for c in (params.get("p_cohort_ids") or [])})
@@ -529,9 +551,9 @@ def test_catalog_tied_display_keys_have_stable_page_order(db):
 
 def test_catalog_page_crosses_kind_boundaries_without_scanning_source_rows(db, monkeypatch):
     _seed_three(db)
-    monkeypatch.setattr(svc, "cohorts_for", lambda _kind, _ids: {})
     monkeypatch.setattr(svc, "explanation_readiness_for", lambda _kind, _ids: {})
-    monkeypatch.setattr(svc, "_mock_refs_for", lambda _kind, _ids: {})
+    monkeypatch.setattr(svc, "cohorts_for", lambda *_args: pytest.fail("post-page cohort read"))
+    monkeypatch.setattr(svc, "_mock_refs_for", lambda *_args: pytest.fail("post-page mock read"))
     monkeypatch.setattr(svc, "_paged", lambda *_args, **_kwargs: pytest.fail("unbounded scan"))
     first = svc.list_exam_content(limit=2, offset=0)
     second = svc.list_exam_content(limit=2, offset=2)
@@ -616,16 +638,16 @@ def test_catalog_enriches_only_the_requested_page(db, monkeypatch):
         "course_level": "C2", "exam_only": False, "is_public": True,
         "status": "published", "passage_count": 3, "total_questions": 40,
     } for index in range(240)]
-    seen: dict[str, list[list[str]]] = {"cohorts": [], "explanations": [], "mocks": []}
+    seen: dict[str, list[list[str]]] = {"explanations": []}
 
     def capture(name, value):
         ids = [str(item) for item in value]
         seen[name].append(ids)
         return {item: ({} if name == "explanations" else []) for item in ids}
 
-    monkeypatch.setattr(svc, "cohorts_for", lambda _kind, ids: capture("cohorts", ids))
+    monkeypatch.setattr(svc, "cohorts_for", lambda *_args: pytest.fail("post-page cohort read"))
     monkeypatch.setattr(svc, "explanation_readiness_for", lambda _kind, ids: capture("explanations", ids))
-    monkeypatch.setattr(svc, "_mock_refs_for", lambda _kind, ids: capture("mocks", ids))
+    monkeypatch.setattr(svc, "_mock_refs_for", lambda *_args: pytest.fail("post-page mock read"))
 
     result = svc.list_exam_content(kind="reading", q="reading", limit=25, offset=100)
 
@@ -635,6 +657,63 @@ def test_catalog_enriches_only_the_requested_page(db, monkeypatch):
     assert {item for batches in seen.values() for batch in batches for item in batch} == {
         f"r-{index:03d}" for index in range(100, 125)
     }
+
+
+@pytest.mark.parametrize("params,change,expected", [
+    ({"attention": "draft"}, "status", {"status": "draft"}),
+    ({"course_level": "C2"}, "course_level", {"course_level": "C2"}),
+    ({"is_public": True}, "visibility", {"is_public": True}),
+    ({"exam_only": False}, "exam_only", {"exam_only": False}),
+    ({"q": "Original"}, "title", {"title": "Original paper"}),
+    ({"cohort_id": "c1"}, "cohort", {"cohort_ids": ["c1"]}),
+    ({"attention": "unassigned"}, "mock", {"mock_exams": []}),
+])
+def test_catalog_page_uses_filter_snapshot_when_content_changes_after_rpc(
+    db, monkeypatch, params, change, expected,
+):
+    row = {
+        "id": "r1", "test_id": "R-1", "title": "Original paper",
+        "course_level": "C2", "exam_only": False, "is_public": True,
+        "status": "draft", "test_type": "full", "passage_count": 3,
+        "total_questions": 40,
+    }
+    db.t["reading_tests"] = [row]
+    db.t["exam_content_cohorts"] = [{
+        "content_kind": "reading", "content_id": "r1", "cohort_id": "c1",
+    }]
+    original_rpc = db.rpc
+
+    def mutate_after_snapshot(name, rpc_params):
+        receipt = original_rpc(name, rpc_params)
+        if name == "fn_admin_exam_content_page_ids":
+            if change == "status":
+                row["status"] = "published"
+            elif change == "course_level":
+                row["course_level"] = "C9"
+            elif change == "visibility":
+                row["is_public"] = False
+            elif change == "exam_only":
+                row["exam_only"] = True
+            elif change == "title":
+                row["title"] = "Renamed paper"
+            elif change == "cohort":
+                db.t["exam_content_cohorts"] = []
+            elif change == "mock":
+                db.t["mock_exams"] = [{
+                    "id": "m1", "code": "MOCK-1", "title": "New exam",
+                    "status": "draft", "reading_test_id": "r1",
+                }]
+        return receipt
+
+    monkeypatch.setattr(db, "rpc", mutate_after_snapshot)
+    monkeypatch.setattr(svc, "cohorts_for", lambda *_args: pytest.fail("post-page cohort read"))
+    monkeypatch.setattr(svc, "_mock_refs_for", lambda *_args: pytest.fail("post-page mock read"))
+
+    result = svc.list_exam_content(kind="reading", limit=25, offset=0, **params)
+
+    assert result["total"] == 1
+    assert len(result["items"]) == 1
+    assert all(result["items"][0][key] == value for key, value in expected.items())
 
 
 def test_draft_attention_excludes_published_and_archived_content(db):
