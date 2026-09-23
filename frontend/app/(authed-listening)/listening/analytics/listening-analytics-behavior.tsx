@@ -55,6 +55,8 @@ interface RecentAttempt {
 interface ReportOnlyMetric {
   attemptsCount: number;
   completedCount: number;
+  assistedCompletedCount: number;
+  independentCompletedCount: number;
   reviewNeededCount: number;
 }
 
@@ -137,7 +139,7 @@ function normalizeAnalytics(payload: unknown): AnalyticsData {
       title: textValue(raw.title) || (isModeKey(type) ? MODE_LABELS[type] : type),
       date: textValue(raw.created_at).slice(0, 10),
       scoreText: reportOnly
-        ? status === 'submitted' ? 'đã hoàn thành' : status === 'abandoned' ? 'bỏ dở' : 'đang làm'
+        ? status === 'submitted' ? raw.assisted === true ? 'đã hoàn thành · có hỗ trợ' : 'đã hoàn thành · độc lập' : status === 'abandoned' ? 'bỏ dở' : 'đang làm'
         : accuracy === null
         ? status === 'abandoned' ? 'bỏ dở' : 'đang làm'
         : `${Math.round(accuracy * 100)}%`,
@@ -157,6 +159,8 @@ function normalizeAnalytics(payload: unknown): AnalyticsData {
     reportOnly: {
       attemptsCount: nonNegativeNumber(reportOnly.attempts_count),
       completedCount: nonNegativeNumber(reportOnly.completed_count),
+      assistedCompletedCount: nonNegativeNumber(reportOnly.assisted_completed_count),
+      independentCompletedCount: nonNegativeNumber(reportOnly.independent_completed_count),
       reviewNeededCount: nonNegativeNumber(reportOnly.review_needed_count),
     },
   };
@@ -246,7 +250,9 @@ function AnalyticsSurface({ data }: { data: AnalyticsData }) {
         <div className="analytics-section-head"><div><p>Luyện tập</p><h2 id="report-only-heading">Hoạt động report-only</h2></div><span>Không cộng vào điểm trung bình hoặc dạng yếu nhất</span></div>
         <div className="report-only-grid">
           <div><strong>{data.reportOnly.attemptsCount}</strong><span>Lượt bắt đầu</span></div>
-          <div><strong>{data.reportOnly.completedCount}</strong><span>Lượt hoàn thành</span></div>
+          <div><strong>{data.reportOnly.completedCount}</strong><span>Lượt hoàn thành (tất cả)</span></div>
+          <div><strong>{data.reportOnly.independentCompletedCount}</strong><span>Hoàn thành độc lập</span></div>
+          <div><strong>{data.reportOnly.assistedCompletedCount}</strong><span>Hoàn thành có hỗ trợ</span></div>
           <div><strong>{data.reportOnly.reviewNeededCount}</strong><span>Câu cần tự đối chiếu</span></div>
         </div>
       </section>

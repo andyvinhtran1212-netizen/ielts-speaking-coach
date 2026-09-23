@@ -69,6 +69,7 @@ from services.active_player_lifecycle import (
 )
 from models.listening_programmes import (
     ListeningAttemptReviewResponse,
+    ListeningGuidedStateResponse,
     ListeningLessonDetailResponse,
     ListeningLessonListResponse,
     ListeningOverviewResponse,
@@ -2061,6 +2062,10 @@ async def get_listening_analytics(
     if cutoff is not None:
         q = q.gte("created_at", cutoff.isoformat())
     attempts_raw = q.execute().data or []
+    assisted_attempt_ids = _assisted_programme_attempt_ids([
+        str(row["id"]) for row in attempts_raw
+        if row.get("scoring_policy") == "report_only"
+    ])
 
     # Resolve test_type + title theo lô (không dùng relational select).
     tests = _rows_by_id(
@@ -2084,6 +2089,7 @@ async def get_listening_analytics(
             "type":       ("programme" if r.get("scoring_policy") == "report_only"
                            else tinfo.get("test_type") or "unknown"),
             "scoring_policy": r.get("scoring_policy") or "diagnostic",
+            "assisted": str(r["id"]) in assisted_attempt_ids,
             "result_summary": r.get("result_summary") or {},
             "title":      tinfo.get("title") or tinfo.get("test_id"),
             "status":     r.get("status"),
@@ -2172,6 +2178,12 @@ async def get_listening_analytics(
         "report_only": {
             "attempts_count": len(report_only_rows),
             "completed_count": len(report_only_submitted),
+            "assisted_completed_count": sum(
+                bool(row["assisted"]) for row in report_only_submitted
+            ),
+            "independent_completed_count": sum(
+                not row["assisted"] for row in report_only_submitted
+            ),
             "review_needed_count": sum(
                 int((r.get("result_summary") or {}).get("unscored_count") or 0)
                 for r in report_only_submitted
@@ -4619,6 +4631,31 @@ _PROGRAMME_ORDER = {
 }
 
 
+def _assisted_programme_attempt_ids(attempt_ids: list[str]) -> set[str]:
+    """Read persisted reveal evidence with deterministic pagination.
+
+    Do not infer assistance from a client flag or from a result-summary copy.
+    The query is scoped to attempt IDs already owned by the authenticated
+    learner at its caller; this service-role lookup never accepts raw client
+    IDs on its own.
+    """
+    assisted: set[str] = set()
+    for batch_start in range(0, len(attempt_ids), 100):
+        batch = attempt_ids[batch_start:batch_start + 100]
+        offset = 0
+        while True:
+            rows = (
+                supabase_admin.table("listening_programme_feedback_reveals")
+                .select("id,attempt_id").in_("attempt_id", batch)
+                .order("id").range(offset, offset + 999).execute().data or []
+            )
+            assisted.update(str(row["attempt_id"]) for row in rows)
+            if len(rows) < 1000:
+                break
+            offset += 1000
+    return assisted
+
+
 def _programme_attempt_state(user_id: str, test_rows: list[dict]) -> tuple[dict, bool]:
     """Canonical completion and resumable state per programme form.
 
@@ -4644,8 +4681,19 @@ def _programme_attempt_state(user_id: str, test_rows: list[dict]) -> tuple[dict,
     except Exception as exc:  # deploy-order/partial-data state
         logger.warning("[listening-programmes] attempt progress unavailable: %s", exc)
         return {}, True
+    try:
+        assisted_ids = _assisted_programme_attempt_ids([
+            str(row["id"]) for row in (response.data or [])
+            if row.get("scoring_policy", "report_only") == "report_only"
+            and not row.get("class_assignment_item_id")
+            and not row.get("sitting_id")
+        ])
+    except Exception as exc:
+        logger.warning("[listening-programmes] assistance lookup unavailable: %s", exc)
+        return {}, True
     states: dict[str, dict[str, dict]] = {}
     for attempt in response.data or []:
+        attempt = {**attempt, "assisted": str(attempt["id"]) in assisted_ids}
         # The programme hub is a free-practice surface. A class assignment or
         # mock sitting owns its own resume/navigation contract and must never
         # become the dominant hub CTA or recent free-practice activity.
@@ -4660,6 +4708,8 @@ def _programme_attempt_state(user_id: str, test_rows: list[dict]) -> tuple[dict,
         slot = "completed" if status == "submitted" else "in_progress" if status == "in_progress" else ""
         if slot and slot not in states.setdefault(test_id, {}):
             states[test_id][slot] = attempt
+        if status == "submitted" and not attempt["assisted"]:
+            states.setdefault(test_id, {}).setdefault("independent_completed", attempt)
     return states, False
 
 
@@ -4714,6 +4764,7 @@ def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, lis
         lesson_counts[pid] = lesson_counts.get(pid, 0) + 1
     form_counts: dict[str, int] = {}
     completed: dict[str, int] = {}
+    independent_completed: dict[str, int] = {}
     in_progress: dict[str, int] = {}
     test_by_id = {str(test["id"]): test for test in tests}
     for test in tests:
@@ -4722,6 +4773,8 @@ def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, lis
         state = attempt_states.get(str(test["id"]), {})
         if state.get("completed"):
             completed[pid] = completed.get(pid, 0) + 1
+        if state.get("independent_completed"):
+            independent_completed[pid] = independent_completed.get(pid, 0) + 1
         if state.get("in_progress"):
             in_progress[pid] = in_progress.get(pid, 0) + 1
     cards = []
@@ -4735,6 +4788,7 @@ def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, lis
             "lesson_count": lesson_counts.get(pid, 0),
             "form_count": form_counts.get(pid, 0),
             "completed_form_count": completed.get(pid, 0),
+            "independent_completed_form_count": independent_completed.get(pid, 0),
             "in_progress_form_count": in_progress.get(pid, 0),
         })
     resume = None
@@ -4773,6 +4827,7 @@ def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, lis
                 "programme_id": pid,
                 "lesson_id": str(test.get("listening_lesson_id") or ""),
                 "answered_count": len(answers),
+                "assisted": bool(attempt.get("assisted")),
                 "item_count": int(test.get("source_item_count") or 0),
                 "resume_expires_at": attempt.get("resume_expires_at"),
                 "href": f"/listening/programmes/form/{test_id}",
@@ -4794,6 +4849,7 @@ def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, lis
                 "checked_count": int(summary.get("checked_count") or 0),
                 "correct_count": int(summary.get("correct_count") or 0),
                 "unscored_count": int(summary.get("unscored_count") or 0),
+                "assisted": bool(attempt.get("assisted")),
                 "href": f"/listening/programmes/result/{attempt['id']}",
             })
     return cards, resume, recent, partial
@@ -4942,6 +4998,10 @@ async def list_listening_programme_lessons(
             bool(attempt_states.get(str(form["id"]), {}).get("completed"))
             for form in lesson_forms
         )
+        independent_completed_count = sum(
+            bool(attempt_states.get(str(form["id"]), {}).get("independent_completed"))
+            for form in lesson_forms
+        )
         in_progress_count = sum(
             bool(attempt_states.get(str(form["id"]), {}).get("in_progress"))
             for form in lesson_forms
@@ -4957,6 +5017,7 @@ async def list_listening_programme_lessons(
             **lesson,
             "form_count": len(lesson_forms),
             "completed_form_count": completed_count,
+            "independent_completed_form_count": independent_completed_count,
             "in_progress_form_count": in_progress_count,
         })
     paged = items[offset:offset + limit]
@@ -5027,6 +5088,7 @@ async def get_listening_programme_lesson(
             "checked_item_count": int((form.get("metadata") or {}).get("checked_item_count") or 0),
             "self_review_item_count": int((form.get("metadata") or {}).get("self_review_item_count") or 0),
             "status": status,
+            "assisted": bool(attempt.get("assisted")) if attempt else False,
             "attempt_id": str(attempt["id"]) if attempt else None,
         })
     return {**lesson, "forms": form_cards, "partial_data": partial}
@@ -7163,20 +7225,153 @@ def _attempt_test_type(attempt: dict) -> str:
     return kind
 
 
-def _practice_exercise_payloads(test_id: str) -> list[dict]:
+def _practice_exercise_payloads(test_id: str, *, published_only: bool = False) -> list[dict]:
     """Every exercise payload belonging to a test, via its section rows."""
-    sec_res = (
-        supabase_admin.table("listening_content")
-        .select("id").eq("test_id", test_id).execute()
-    )
+    sections = supabase_admin.table("listening_content").select("id").eq("test_id", test_id)
+    if published_only:
+        sections = sections.eq("status", "published")
+    sec_res = sections.execute()
     section_ids = [r["id"] for r in (sec_res.data or [])]
     if not section_ids:
         raise HTTPException(500, "Test bundle thiếu section rows.")
-    ex_res = (
-        supabase_admin.table("listening_exercises")
-        .select("payload").in_("content_id", section_ids).execute()
-    )
+    exercises = supabase_admin.table("listening_exercises").select("payload").in_("content_id", section_ids)
+    if published_only:
+        exercises = exercises.eq("status", "published")
+    ex_res = exercises.execute()
     return ex_res.data or []
+
+
+def _programme_guided_context(attempt: dict) -> tuple[dict, list[dict]]:
+    """Check the report-only programme boundary before reading protected keys."""
+    if attempt.get("status") != "in_progress":
+        raise HTTPException(409, "Bài luyện đã kết thúc; hãy mở phần đối chiếu sau bài.")
+    require_resume_active(attempt)
+    if (attempt.get("scoring_policy") != "report_only"
+            or attempt.get("class_assignment_item_id")
+            or attempt.get("sitting_id")):
+        raise HTTPException(422, "Đối chiếu từng câu không áp dụng cho bài này.")
+    result = (
+        supabase_admin.table("listening_tests")
+        .select("id,status,is_public,scoring_policy,programme_id,replay_policy,content_package_id")
+        .eq("id", attempt["test_id"]).limit(1).execute()
+    )
+    test = result.data[0] if result.data else None
+    if (not test or test.get("status") != "published"
+            or not test.get("is_public")
+            or test.get("scoring_policy") != "report_only"
+            or test.get("programme_id") not in {
+                "general-listening-practice", "ielts-listening-practice",
+            }
+            or not test.get("content_package_id")):
+        raise HTTPException(422, "Bài luyện này chưa hỗ trợ đối chiếu từng câu.")
+    package = (
+        supabase_admin.table("listening_content_packages")
+        .select("status").eq("id", test["content_package_id"])
+        .limit(1).execute()
+    )
+    if not package.data or package.data[0].get("status") != "published":
+        raise HTTPException(422, "Nội dung bài luyện hiện không khả dụng.")
+    return test, _practice_exercise_payloads(attempt["test_id"], published_only=True)
+
+
+def _programme_guided_item(
+    reveal: dict, exercise_rows: list[dict], replay_policy: str,
+) -> dict:
+    from services.listening_programme_feedback import (
+        FeedbackUnavailable, build_guided_feedback,
+    )
+
+    try:
+        feedback = build_guided_feedback(
+            int(reveal["q_num"]), str(reveal["first_answer"]),
+            exercise_rows, replay_policy,
+        )
+    except FeedbackUnavailable:
+        logger.error("[listening-programmes] revealed item has no review material")
+        raise HTTPException(503, "Chưa tải được nội dung đối chiếu. Hãy thử lại.") from None
+    return {**feedback, "revealed_at": str(reveal["revealed_at"])}
+
+
+@user_router.get(
+    "/tests/attempts/{attempt_id}/guided-state",
+    response_model=ListeningGuidedStateResponse,
+)
+async def get_listening_programme_guided_state(
+    attempt_id: uuid.UUID,
+    authorization: str | None = Header(default=None),
+):
+    """Resume only the questions whose keys this learner already revealed."""
+    user = await _require_auth(authorization)
+    attempt_id_str = str(attempt_id)
+    attempt = _fetch_attempt_or_404(attempt_id_str, user["id"])
+    test, exercise_rows = _programme_guided_context(attempt)
+    result = (
+        supabase_admin.table("listening_programme_feedback_reveals")
+        .select("q_num,first_answer,revealed_at")
+        .eq("attempt_id", attempt_id_str).order("q_num").execute()
+    )
+    items = [
+        _programme_guided_item(row, exercise_rows, test.get("replay_policy") or "allowed")
+        for row in (result.data or [])
+    ]
+    return {"attempt_id": attempt_id_str, "assisted": bool(items), "items": items}
+
+
+@user_router.post(
+    "/tests/attempts/{attempt_id}/questions/{q_num}/reveal",
+    response_model=ListeningGuidedStateResponse,
+)
+async def reveal_listening_programme_question(
+    attempt_id: uuid.UUID,
+    q_num: int,
+    authorization: str | None = Header(default=None),
+):
+    """Atomically snapshot a saved first answer, then reveal that question."""
+    from services.listening_programme_feedback import (
+        FeedbackUnavailable, build_guided_feedback,
+    )
+
+    user = await _require_auth(authorization)
+    attempt_id_str = str(attempt_id)
+    attempt = _fetch_attempt_or_404(attempt_id_str, user["id"])
+    test, exercise_rows = _programme_guided_context(attempt)
+    if q_num <= 0:
+        raise HTTPException(422, "Câu hỏi không hợp lệ.")
+    # Reject broken/missing authored keys before recording any reveal. The RPC
+    # performs the membership and persisted-answer checks again under row lock.
+    try:
+        build_guided_feedback(
+            q_num, "content-check", exercise_rows,
+            test.get("replay_policy") or "allowed",
+        )
+    except FeedbackUnavailable:
+        raise HTTPException(503, "Câu này chưa có nội dung đối chiếu hợp lệ.") from None
+    try:
+        result = supabase_admin.rpc(
+            "fn_record_listening_programme_feedback_reveal",
+            {"p_attempt_id": attempt_id_str, "p_user_id": user["id"], "p_q_num": q_num},
+        ).execute()
+    except Exception as exc:
+        signal = str(exc)
+        if "listening_programme_feedback_answer_required" in signal:
+            raise HTTPException(422, "Hãy lưu câu trả lời trước khi đối chiếu.") from None
+        if "listening_programme_feedback_question_not_found" in signal:
+            raise HTTPException(404, "Không tìm thấy câu hỏi trong bài này.") from None
+        if "listening_programme_feedback_attempt_closed" in signal:
+            raise HTTPException(409, "Bài luyện đã kết thúc; hãy tải lại trạng thái.") from None
+        if "listening_programme_feedback_not_available" in signal:
+            raise HTTPException(422, "Bài này không hỗ trợ đối chiếu từng câu.") from None
+        logger.warning("[listening-programmes] guided reveal unavailable: %s", type(exc).__name__)
+        raise HTTPException(503, "Chưa đối chiếu được câu này. Hãy thử lại.") from None
+    rows = result.data if isinstance(result.data, list) else [result.data]
+    reveal = rows[0] if rows and isinstance(rows[0], dict) else None
+    if not reveal or not reveal.get("first_answer") or not reveal.get("revealed_at"):
+        raise HTTPException(503, "Chưa xác minh được câu trả lời đã lưu. Hãy thử lại.")
+    item = _programme_guided_item(
+        {"q_num": q_num, **reveal}, exercise_rows,
+        test.get("replay_policy") or "allowed",
+    )
+    return {"attempt_id": attempt_id_str, "assisted": True, "items": [item]}
 
 
 @user_router.get("/tests/{test_id}/practice-windows")
@@ -7720,6 +7915,20 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     is_mini = test_row.get("test_type") == "mini"
     sec_offsets = meta.get("section_offsets") or {}
 
+    # Assisted provenance is one immutable row per revealed question. Never
+    # infer it from a client flag or from a mutable result-summary snapshot.
+    first_answers_by_q: dict[int, str] = {}
+    if scoring_policy == "report_only" and attempt_id is not None:
+        revealed = (
+            supabase_admin.table("listening_programme_feedback_reveals")
+            .select("q_num,first_answer").eq("attempt_id", str(attempt_id))
+            .execute().data or []
+        )
+        first_answers_by_q = {
+            int(value["q_num"]): str(value["first_answer"])
+            for value in revealed if value.get("q_num") is not None
+        }
+
     # Join grading_details with the per-question solution + window.
     review = []
     for g in (attempt.get("grading_details") or []):
@@ -7738,6 +7947,7 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
             "transcript_anchor": anchors_by_q.get(q),   # paragraph index in the section's display transcript (v1.2)
             "solution":      solutions_by_q.get(q) or {},
             "self_review":   self_review_by_q.get(q) or g.get("self_review") or {},
+            "first_answer":  first_answers_by_q.get(q),
         })
 
     if scoring_policy == "report_only":
@@ -7757,6 +7967,7 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
         "max_score":       len(review),
         "band_estimate":   attempt.get("band_estimate"),
         "scoring_policy":  scoring_policy,
+        "assisted":        bool(first_answers_by_q),
         "result_summary":  attempt.get("result_summary") or {},
         "programme_id":    test_row.get("programme_id") or "ielts",
         "listening_lesson_id": test_row.get("listening_lesson_id"),

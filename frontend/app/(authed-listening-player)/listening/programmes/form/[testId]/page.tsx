@@ -12,7 +12,7 @@ async function ProgrammeFormRoute({ params }: { params: Promise<{ testId: string
 
 export default function ProgrammeFormPage({ params }: { params: Promise<{ testId: string }> }) {
   return (
-    <Suspense fallback={<main className="lpr-shell"><div className="lpr-state" role="status">Đang mở bài luyện…</div></main>}>
+    <Suspense fallback={<main className="programme-runner programme-state shell" role="status">Đang mở bài luyện…</main>}>
       <ProgrammeFormRoute params={params} />
     </Suspense>
   );

@@ -211,8 +211,11 @@ test('a versioned sentence set removes V1 drafts once without deleting V2 drafts
   const draftStore = memoryDraftStore([
     ['u1:bank-06:attempt:active', true],
     ['u1:bank-06:attempt:client-id', 'v1-client-id'],
+    ['u1:bank-06:attempt:migration:C1-B06-PRON-V2', true],
     ['u1:bank-06:C1-B06-PRON-01', oldBlob],
+    ['u1:bank-06:C1-B06-PRON-V1-01', oldBlob],
     ['u1:bank-06:C1-B06-PRON-12', oldBlob],
+    ['u1:bank-06:C1-B06-PRON-V1-12', oldBlob],
   ]);
   const api = { get: async () => ({ exercise: versionedExercise, latest_attempt: null }) };
 
@@ -220,9 +223,13 @@ test('a versioned sentence set removes V1 drafts once without deleting V2 drafts
   await firstV2Page.load('bank-06');
   assert.match(firstV2Page.render(), /0<small>\/15 đã thu/);
   assert.equal(draftStore.values.has('u1:bank-06:C1-B06-PRON-01'), false);
+  assert.equal(draftStore.values.has('u1:bank-06:C1-B06-PRON-V1-01'), false);
   assert.equal(draftStore.values.has('u1:bank-06:C1-B06-PRON-12'), false);
+  assert.equal(draftStore.values.has('u1:bank-06:C1-B06-PRON-V1-12'), false);
   assert.equal(draftStore.values.get('u1:bank-06:attempt:client-id'),
     '11111111-1111-4111-8111-111111111111');
+  assert.equal(draftStore.values.get(
+    'u1:bank-06:attempt:migration:C1-B06-PRON-V2:explicit-v1-cleanup'), true);
 
   const v2Key = 'u1:bank-06:C1-B06-PRON-V2-01';
   await draftStore.put(v2Key, new Blob(['new-v2'], { type: 'audio/webm' }));
@@ -230,6 +237,145 @@ test('a versioned sentence set removes V1 drafts once without deleting V2 drafts
   await reloadedV2Page.load('bank-06');
   assert.match(reloadedV2Page.render(), /1<small>\/15 đã thu/);
   assert.equal(draftStore.values.has(v2Key), true);
+});
+
+
+test('V2 recordings keep their audio but not a processing V1 client id', async () => {
+  browserShell();
+  const versionedExercise = {
+    ...exercise,
+    bank_id: 'bank-12',
+    sentences: exercise.sentences.map((sentence, index) => ({
+      ...sentence, id: `C1-B12-PRON-V2-${String(index + 1).padStart(2, '0')}`,
+    })),
+  };
+  const staleClientId = '22222222-2222-4222-8222-222222222222';
+  const freshClientId = '11111111-1111-4111-8111-111111111111';
+  const latest_attempt = {
+    client_id: staleClientId,
+    status: 'processing',
+    results: { sentences: exercise.sentences.map((sentence, index) => ({
+      ...sentence, id: `C1-B12-PRON-V1-${String(index + 1).padStart(2, '0')}`,
+    })) },
+  };
+  const draftStore = memoryDraftStore([
+    ['u1:bank-12:attempt:active', true],
+    ['u1:bank-12:attempt:client-id', staleClientId],
+    ['u1:bank-12:attempt:migration:C1-B12-PRON-V2:explicit-v1-cleanup', true],
+    ...versionedExercise.sentences.map((sentence) => [
+      `u1:bank-12:${sentence.id}`, new Blob([sentence.id], { type: 'audio/webm' }),
+    ]),
+  ]);
+  let submittedClientId = null;
+  const api = {
+    get: async () => ({ exercise: versionedExercise, latest_attempt }),
+    upload: async (_path, form) => {
+      submittedClientId = form.get('client_id');
+      return { status: 'completed', client_id: submittedClientId, results: { sentences: [] } };
+    },
+  };
+
+  const firstV2Page = createPronunciation({ api, userId: 'u1', draftStore });
+  await firstV2Page.load('bank-12');
+  assert.match(firstV2Page.render(), /2<small>\/2 đã thu/);
+  assert.equal(draftStore.values.get('u1:bank-12:attempt:client-id'), freshClientId);
+  assert.equal(draftStore.values.get('u1:bank-12:attempt:client-id:C1-B12-PRON-V2'),
+    freshClientId);
+  versionedExercise.sentences.forEach((sentence) => assert.equal(
+    draftStore.values.has(`u1:bank-12:${sentence.id}`), true));
+  assert.equal(await firstV2Page.submit(), true);
+  assert.equal(submittedClientId, freshClientId);
+  assert.notEqual(submittedClientId, staleClientId);
+});
+
+
+test('reload during a V2 upload preserves its client id while V1 is still latest', async () => {
+  browserShell();
+  const versionedExercise = {
+    ...exercise,
+    bank_id: 'bank-12',
+    sentences: exercise.sentences.map((sentence, index) => ({
+      ...sentence, id: `C1-B12-PRON-V2-${String(index + 1).padStart(2, '0')}`,
+    })),
+  };
+  const v1ClientId = '22222222-2222-4222-8222-222222222222';
+  const uploadingV2ClientId = '33333333-3333-4333-8333-333333333333';
+  const draftStore = memoryDraftStore([
+    ['u1:bank-12:attempt:active', true],
+    // An old V1 tab can overwrite the shared legacy key during this upload.
+    ['u1:bank-12:attempt:client-id', '44444444-4444-4444-8444-444444444444'],
+    ['u1:bank-12:attempt:client-id:C1-B12-PRON-V2', uploadingV2ClientId],
+    ['u1:bank-12:attempt:migration:C1-B12-PRON-V2:explicit-v1-cleanup', true],
+    ...versionedExercise.sentences.map((sentence) => [
+      `u1:bank-12:${sentence.id}`, new Blob([sentence.id], { type: 'audio/webm' }),
+    ]),
+  ]);
+  let submittedClientId = null;
+  const api = {
+    get: async () => ({ exercise: versionedExercise, latest_attempt: {
+      client_id: v1ClientId,
+      status: 'processing',
+      results: { sentences: exercise.sentences.map((sentence, index) => ({
+        ...sentence, id: `C1-B12-PRON-V1-${String(index + 1).padStart(2, '0')}`,
+      })) },
+    } }),
+    upload: async (_path, form) => {
+      submittedClientId = form.get('client_id');
+      return { status: 'completed', client_id: submittedClientId, results: { sentences: [] } };
+    },
+  };
+
+  const reloadedPage = createPronunciation({ api, userId: 'u1', draftStore });
+  await reloadedPage.load('bank-12');
+  assert.equal(draftStore.values.get('u1:bank-12:attempt:client-id'), uploadingV2ClientId);
+  assert.equal(await reloadedPage.submit(), true);
+  assert.equal(submittedClientId, uploadingV2ClientId);
+});
+
+
+test('two distinct V1 client ids cannot be mistaken for an in-flight V2 upload', async () => {
+  browserShell();
+  const versionedExercise = {
+    ...exercise,
+    bank_id: 'bank-12',
+    sentences: exercise.sentences.map((sentence, index) => ({
+      ...sentence, id: `C1-B12-PRON-V2-${String(index + 1).padStart(2, '0')}`,
+    })),
+  };
+  const oldTabV1ClientId = '44444444-4444-4444-8444-444444444444';
+  const latestV1ClientId = '22222222-2222-4222-8222-222222222222';
+  const freshV2ClientId = '11111111-1111-4111-8111-111111111111';
+  const draftStore = memoryDraftStore([
+    ['u1:bank-12:attempt:active', true],
+    ['u1:bank-12:attempt:client-id', oldTabV1ClientId],
+    ['u1:bank-12:attempt:migration:C1-B12-PRON-V2:explicit-v1-cleanup', true],
+    ...versionedExercise.sentences.map((sentence) => [
+      `u1:bank-12:${sentence.id}`, new Blob([sentence.id], { type: 'audio/webm' }),
+    ]),
+  ]);
+  let submittedClientId = null;
+  const api = {
+    get: async () => ({ exercise: versionedExercise, latest_attempt: {
+      client_id: latestV1ClientId,
+      status: 'completed',
+      results: { sentences: exercise.sentences.map((sentence, index) => ({
+        ...sentence, id: `C1-B12-PRON-V1-${String(index + 1).padStart(2, '0')}`,
+      })) },
+    } }),
+    upload: async (_path, form) => {
+      submittedClientId = form.get('client_id');
+      return { status: 'completed', client_id: submittedClientId, results: { sentences: [] } };
+    },
+  };
+
+  const reloadedPage = createPronunciation({ api, userId: 'u1', draftStore });
+  await reloadedPage.load('bank-12');
+  assert.equal(draftStore.values.get('u1:bank-12:attempt:client-id'), freshV2ClientId);
+  assert.equal(draftStore.values.get('u1:bank-12:attempt:client-id:C1-B12-PRON-V2'),
+    freshV2ClientId);
+  assert.equal(await reloadedPage.submit(), true);
+  assert.equal(submittedClientId, freshV2ClientId);
+  assert.notEqual(submittedClientId, oldTabV1ClientId);
 });
 
 
@@ -250,7 +396,7 @@ test('a V2 migration preserves client id when reconciling a completed V2 draft',
   ]);
   const api = { get: async () => ({ exercise: versionedExercise, latest_attempt: {
     client_id: clientId, status: 'completed', pronunciation_score: 88,
-    results: { sentences: [] },
+    results: { sentences: versionedExercise.sentences },
   } }) };
 
   const pronunciation = createPronunciation({ api, userId: 'u1', draftStore });
@@ -283,7 +429,7 @@ test('completed V2 reconciliation wins when V1 and V2 recordings coexist', async
   ]);
   const api = { get: async () => ({ exercise: versionedExercise, latest_attempt: {
     client_id: clientId, status: 'completed', pronunciation_score: 91,
-    results: { sentences: [] },
+    results: { sentences: versionedExercise.sentences },
   } }) };
 
   const pronunciation = createPronunciation({ api, userId: 'u1', draftStore });

@@ -26,7 +26,10 @@ test('programme runner autosaves and routes to self-review', () => {
   const runner = read('app', '(authed-listening-player)', 'listening', 'programmes', 'form', '[testId]', 'programme-form-runner.tsx');
   assert.match(runner, /patchWith\(`\/api\/listening\/tests\/attempts\/\$\{attemptId\}\/answers`/);
   assert.match(runner, /scoring_policy !== 'report_only'/);
-  assert.match(runner, /Nộp và tự đối chiếu/);
+  assert.match(runner, /Hoàn thành và xem lại/);
+  assert.ok(runner.includes('/guided-state'));
+  assert.ok(runner.includes('/reveal'));
+  assert.match(runner, /await queue\.flush\(\[\{ qNum, value \}\]\)/);
   assert.match(runner, /\/listening\/programmes\/result\/\$\{state\.attemptId\}/);
   assert.match(runner, /createProgrammeAnswerWriteQueue/);
   assert.match(runner, /createProgrammeAnswerDraftStore/);
@@ -43,7 +46,7 @@ test('programme runner autosaves and routes to self-review', () => {
   assert.doesNotMatch(runner, /listening-once:/);
   assert.match(runner, /queue\.flush\(state\.form\.questions\.map/);
   assert.match(runner, /submitLock\.current = true/);
-  assert.match(runner, /disabled=\{submitting\}/);
+  assert.match(runner, /disabled=\{submitting \|\| revealing\}/);
   assert.match(runner, /onceState === 'playing'/);
   assert.match(runner, /Tạm dừng/);
   assert.match(runner, /onEnded=\{\(\) => setOnceState\('done'\)\}/);

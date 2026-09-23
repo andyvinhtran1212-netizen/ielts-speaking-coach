@@ -126,10 +126,14 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
   const attemptSuffix = () => attemptNo > 1 ? `:a${attemptNo}` : '';
   const cacheKey = (id) => `${userId}:${bankId}${attemptSuffix()}:${id}`;
   const attemptKey = (name) => `${userId}:${bankId}${attemptSuffix()}:attempt:${name}`;
-  const attemptCacheKeys = () => [
-    ...sentences().map((sentence) => cacheKey(sentence.id)),
-    attemptKey('active'), attemptKey('client-id'),
-  ];
+  const attemptCacheKeys = () => {
+    const migration = draftMigration();
+    return [
+      ...sentences().map((sentence) => cacheKey(sentence.id)),
+      attemptKey('active'), attemptKey('client-id'),
+      ...(migration ? [migration.clientIdKey] : []),
+    ];
+  };
 
   function draftMigration() {
     const parsed = sentences().map((sentence) =>
@@ -143,14 +147,23 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
     for (let oldVersion = 1; oldVersion < version; oldVersion += 1) {
       for (let order = 1; order <= MAX_VERSIONED_SENTENCES; order += 1) {
         const suffix = String(order).padStart(2, '0');
-        legacyIds.push(oldVersion === 1
-          ? `${prefix}-${suffix}` : `${prefix}-V${oldVersion}-${suffix}`);
+        if (oldVersion === 1) legacyIds.push(`${prefix}-${suffix}`);
+        legacyIds.push(`${prefix}-V${oldVersion}-${suffix}`);
       }
     }
     return {
-      marker: attemptKey(`migration:${prefix}-V${version}`),
+      marker: attemptKey(`migration:${prefix}-V${version}:explicit-v1-cleanup`),
+      clientIdKey: attemptKey(`client-id:${prefix}-V${version}`),
       obsoleteKeys: legacyIds.map(cacheKey),
     };
+  }
+
+  function attemptUsesCurrentSentences(attempt) {
+    const attempted = attempt?.results?.sentences;
+    const current = sentences();
+    return Array.isArray(attempted) && attempted.length === current.length
+      && attempted.every((row, index) =>
+        String(row?.id || '') === String(current[index]?.id || ''));
   }
 
   async function migrateDraftCache() {
@@ -167,8 +180,8 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
     const hasCurrentRecording = currentValues.some((value) =>
       value instanceof Blob && value.size > 0);
     const keys = [...migration.obsoleteKeys];
-    if (hasObsoleteRecording && !hasCurrentRecording) {
-      keys.push(attemptKey('active'), attemptKey('client-id'));
+    if (!hasCurrentRecording) {
+      keys.push(attemptKey('active'), attemptKey('client-id'), migration.clientIdKey);
     }
     await draftStore.delete(keys);
     await draftStore.put(migration.marker, true);
@@ -196,9 +209,11 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
 
   async function persistActiveAttempt() {
     clientId = clientId || uuid();
+    const migration = draftMigration();
     await Promise.all([
       draftStore.put(attemptKey('active'), true),
       draftStore.put(attemptKey('client-id'), clientId),
+      ...(migration ? [draftStore.put(migration.clientIdKey, clientId)] : []),
     ]);
   }
 
@@ -428,15 +443,25 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
       activeTimer.reset();
       speed = Number(exercise?.playback_rates?.[0] || 0.85);
       if (exercise) {
+        const migration = draftMigration();
+        const requiresSentenceCompatibility = !!migration;
         await migrateDraftCache();
-        const [cachedActive, cachedClientId] = await Promise.all([
+        const latestUsesCurrentSentences = attemptUsesCurrentSentences(latest);
+        const latestIsIncompatible = requiresSentenceCompatibility && !!latest
+          && !latestUsesCurrentSentences;
+        if (requiresSentenceCompatibility && latest?.status !== 'completed'
+            && !latestUsesCurrentSentences) latest = null;
+        const [cachedActive, legacyClientId, versionClientId] = await Promise.all([
           draftStore.get(attemptKey('active')),
           draftStore.get(attemptKey('client-id')),
+          migration ? draftStore.get(migration.clientIdKey) : null,
         ]);
+        const cachedClientId = versionClientId || legacyClientId;
         await restore();
         const hasDraft = recordings.size > 0;
         if (cachedActive === true || hasDraft) {
           if (latest?.status === 'completed'
+              && (!requiresSentenceCompatibility || latestUsesCurrentSentences)
               && cachedClientId && latest.client_id === cachedClientId) {
             // The same request finished while this tab was away. Its server
             // result is canonical; the cached upload is no longer a new draft.
@@ -444,8 +469,11 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
             await clearAttemptCache();
             clientId = null;
           } else {
-            // A newer local retry must win over an older completed result.
-            clientId = cachedClientId || uuid();
+            // Only a version-bound ID can be an in-flight V2 upload here; V1 tabs
+            // can still overwrite the unversioned key after draft migration.
+            clientId = latestIsIncompatible && (!versionClientId
+                || versionClientId === state?.latest_attempt?.client_id)
+              ? uuid() : cachedClientId || uuid();
             await persistActiveAttempt();
             if (latest?.status === 'completed') latest = null;
           }
