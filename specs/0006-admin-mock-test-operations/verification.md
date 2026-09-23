@@ -40,9 +40,11 @@
   assertion, schema-qualified SQL audit, and representative exact-total query.
 - Immediate state versus full reload: pending content level save/cancel,
   queue/status/grade navigation, canonical grading readback, and Review default
-  selection evidence covering newest-first completed eligibility, no eligible
-  exam, and a valid explicit deep link. Page correction requires a complete
-  total; a forced 404 with an offset beyond the bounded legacy snapshot must
+  selection evidence covering newest-first completed sequential and actionable
+  open-retake eligibility, released-only/void exclusions, no eligible exam,
+  old-backend unknown eligibility, and a valid explicit deep link. Page
+  correction requires a complete total; a forced 404 with an offset beyond
+  the bounded legacy snapshot must
   keep that offset and its query context.
 
 ## UI evidence

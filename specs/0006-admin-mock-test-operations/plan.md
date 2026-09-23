@@ -6,8 +6,9 @@
   restructure only the affected Mock Test workspaces and supporting view models.
 - Keep current exam, live, review, assignment, grading, and release mutation
   contracts unchanged.
-- Add one backend-only PostgreSQL routine for canonical filtered Writing queue
-  IDs and total, while the service retains response enrichment and schemas.
+- Add backend-only PostgreSQL routines for canonical filtered Writing queue
+  IDs/total and actionable retake exam IDs, while services retain response
+  enrichment and schemas.
 - Keep embedded workspace composition for this release and make its compact
   contract explicit rather than introducing new route ownership.
 
@@ -73,6 +74,16 @@
   object.
 - Treat `writing_essays`, assignments, canonical student/cohort membership, and
   persisted grading status as truth. Do not infer missing exam identity.
+- Add a backend-derived `review_eligible` boolean to each admin exam-list row.
+  Sequential eligibility uses published/closed/`active_section=done`; retake
+  eligibility uses a set-based, backend-only query joining persisted review
+  statuses `queued`, `claimed`, `edited`, or `reviewed` to sittings in
+  `all_submitted`, `under_review`, or `reviewed` state. Published retakes need
+  not be closed. Query failures fail the exam-list read instead of silently
+  returning false; the frontend
+  preserves a stale snapshot with an error. New frontend against an old backend
+  may retain the sequential predicate, but must mark retake eligibility as
+  unknown and must not claim that Review has no actionable work.
 - Keep the currently deployed backend compatible with the additive routine and
   index before dependent code is deployed. Verify both deployment orders for
   both domains: old frontends use the unchanged exam-content and Writing array
@@ -88,10 +99,11 @@
   actions, and explicit save/cancel for content metadata.
 - Select Live and Review context by task while honoring valid explicit deep
   links; hide the irrelevant exam rail for Writing. Live chooses the first
-  published/open exam in canonical newest-first order. Review chooses the first
-  published/closed exam with `active_section=done` in that order, renders a
-  purposeful empty state when none exists, and never replaces a valid explicit
-  exam deep link merely because it is not the default candidate.
+  published/open exam in canonical newest-first order. Review uses the
+  backend-derived `review_eligible` flag in stable `created_at DESC, id DESC`
+  order; its rail includes open retakes, and its empty state distinguishes no
+  actionable review from unknown eligibility during deployment skew. A valid
+  explicit deep link is never replaced merely because it is not the default.
 - Serialize Writing filters, including `q`, through queue/status/grade links and
   save-return. Correct an invalid page only when `total_complete=true`, while
   preserving outcome notices. If a 404 fallback reports an incomplete bounded
@@ -134,6 +146,11 @@
   default/maximum/oversized page limit validation in both routes, bounded
   enrichment, migration ACL,
   fixed `search_path`, and schema qualification.
+- Retake review tests cover queued/claimed/edited/reviewed versus released or
+  void sittings, open versus closed retakes, sequential `done` behavior,
+  equal-timestamp ordering, backend lookup failure, and the routine's ACL and
+  fixed search path. Frontend tests cover unknown old-backend retake
+  eligibility, explicit deep links, and visible open-retake rail selection.
 - Frontend contracts cover workspace separation, query serialization, task
   defaults, enum fallback, accessible controls, no-result/error states,
   partial-source totals, locally filtered `q`/overdue fallback, literal query
