@@ -95,14 +95,14 @@
     {
       "id": "C1-B12-PRON-V1-14",
       "order": 14,
-      "source_section": "even if",
-      "text": "Even if the policy were introduced tomorrow, the effects would not appear for a decade."
+      "source_section": "third conditional",
+      "text": "If I had been told earlier, I would have done something."
     },
     {
       "id": "C1-B12-PRON-V1-15",
       "order": 15,
-      "source_section": "even though",
-      "text": "Even though the policy was introduced last year, the effects have not appeared."
+      "source_section": "mixed conditional",
+      "text": "If she had studied harder, she would feel more confident today."
     }
   ]
 }
