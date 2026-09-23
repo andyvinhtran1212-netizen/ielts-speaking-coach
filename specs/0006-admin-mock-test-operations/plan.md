@@ -18,6 +18,10 @@
   `q`, attention, limit, and offset inputs plus `total` and `total_complete`.
   It must retain `kind`, `course_level`, `cohort_id`, `exam_only`, and
   `is_public`; every existing and new predicate runs before count and offset.
+  Default `limit` to 25, accept 1–100, and reject larger requests. Order by
+  kind, case-insensitive code falling back to title, and ID as a final
+  tie-breaker in both the page endpoint and compatibility fallback before
+  slicing.
   Normalize `q` by trimming and bounding to 100 characters, then match a
   case-insensitive literal substring of ID, code, title, or course level;
   `%`, `_`, and punctuation are literal. The compatibility path must use the
@@ -41,7 +45,8 @@
 - Preserve `/admin/writing/essays` as the existing array contract. Add
   `/admin/writing/essay-queue` as a separate, non-colliding paginated envelope
   with bounded `q`, exact `total`, and existing status, cohort, overdue, Mock,
-  limit, and offset semantics. The old frontend continues using the array endpoint. The
+  limit, and offset semantics. Default `limit` to 25, accept 1–100, and reject
+  larger requests. The old frontend continues using the array endpoint. The
   new frontend uses the page endpoint and, only when that route returns 404
   during deployment skew, falls back to the array endpoint with an explicit
   `total_complete=false` compatibility warning and no exact-count claim. The
@@ -125,7 +130,9 @@
   student/cohort resolution, literal query symbols and mixed case in both
   content paths, duplicate assignments with the earliest deadline, tied essay
   timestamps, deliberately shuffled enrichment rows across adjacent pages,
-  bounded enrichment, migration ACL,
+  tied content display keys across shuffled source rows and adjacent pages,
+  default/maximum/oversized page limit validation in both routes, bounded
+  enrichment, migration ACL,
   fixed `search_path`, and schema qualification.
 - Frontend contracts cover workspace separation, query serialization, task
   defaults, enum fallback, accessible controls, no-result/error states,

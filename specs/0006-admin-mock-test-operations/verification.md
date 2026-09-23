@@ -26,6 +26,9 @@
   literal query characters and the earliest non-null assignment deadline.
   Content search must match ID, code, title, and course level with identical
   trimmed 100-character case-insensitive literal semantics in both paths.
+  Content order must include ID after kind and display key, with tied display
+  keys stable across shuffled reads, adjacent pages, and reloads. Both page
+  routes must test default 25, accepted 100, and rejected 101 limits.
   Writing page evidence must cover tied `created_at` values, `id DESC` order,
   deliberately shuffled enrichment results, and adjacent-page stability.
   Create, mutation, grading, and release payloads remain unchanged.
