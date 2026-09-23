@@ -1571,23 +1571,19 @@ def test_list_essays_flag_handles_json_string_feedback():
 def test_paginated_queue_keeps_composed_large_filters_inside_bounded_rpc():
     """>1000 matches never become an unbounded PostgREST ``in`` payload."""
     essay_ids = [f"essay-{index:02d}" for index in range(25)]
+    page_rows = [{
+        "id": essay_id, "student_id": f"student-{index:02d}", "task_type": "task2",
+        "status": "graded", "analysis_level": 3, "selected_model": "model",
+        "word_count": 260, "created_at": "2025-01-01T00:00:00Z",
+        "delivered_at": None, "error_message": None, "sitting_id": "sitting-1",
+        "grading_skipped_at": None, "student_full_name": f"Nguyen {index}",
+        "student_code": f"OLD-{index}", "deadline": "2025-01-02T00:00:00Z",
+    } for index, essay_id in enumerate(essay_ids)]
     fake = _FakeSupabase(responses={
         ("fn_admin_writing_queue_page", "rpc"): {
-            "essay_ids": essay_ids, "total": 1501,
+            "essay_ids": essay_ids, "essay_rows": page_rows, "total": 1501,
         },
-        ("writing_essays", "select"): [{
-            "id": essay_id, "student_id": f"student-{index:02d}", "task_type": "task2",
-            "status": "graded", "analysis_level": 3, "selected_model": "model",
-            "word_count": 260, "created_at": "2025-01-01T00:00:00Z",
-            "delivered_at": None, "error_message": None, "sitting_id": "sitting-1",
-            "grading_skipped_at": None,
-        } for index, essay_id in enumerate(essay_ids)],
-        ("students", "select"): [
-            {"id": f"student-{index:02d}", "full_name": f"Nguyen {index}", "student_code": f"OLD-{index}"}
-            for index in range(25)
-        ],
         ("writing_feedback", "select"): [],
-        ("writing_assignments", "select"): [],
     })
     with patch.object(essay_service, "supabase_admin", fake):
         result = essay_service.list_essays_page(
@@ -1607,8 +1603,10 @@ def test_paginated_queue_keeps_composed_large_filters_inside_bounded_rpc():
         "p_limit": 25,
         "p_offset": 1000,
     }
-    essay_call = next(call for call in fake.calls if call["table"] == "writing_essays")
-    assert ("in_", "id", essay_ids) in essay_call["filters"]
+    assert not any(call["table"] in {"writing_essays", "students", "writing_assignments"}
+                   for call in fake.calls)
+    assert result["items"][0]["deadline"] == "2025-01-02T00:00:00Z"
+    assert result["items"][0]["student_full_name"] == "Nguyen 0"
     for call in fake.calls:
         for operation, _column, values in call["filters"]:
             if operation == "in_":
@@ -1625,6 +1623,52 @@ def test_paginated_queue_rejects_unbounded_or_malformed_rpc_receipt():
         RuntimeError, match="receipt is malformed",
     ):
         essay_service.list_essays_page(limit=25)
+
+
+@pytest.mark.parametrize("later_rows", [
+    [{"id": "essay-1", "status": "graded"}],
+    [],  # soft-deleted after the RPC snapshot
+])
+def test_paginated_queue_keeps_atomic_scope_when_essay_changes_after_rpc(later_rows):
+    snapshot = {
+        "id": "essay-1", "student_id": _STUDENT_ID, "task_type": "task2",
+        "status": "grading", "analysis_level": 3, "selected_model": "model",
+        "word_count": 260, "created_at": "2025-01-01T00:00:00Z",
+        "delivered_at": None, "error_message": None, "sitting_id": None,
+        "grading_skipped_at": None, "student_full_name": "Snapshot Student",
+        "student_code": "S-1", "deadline": "2025-01-02T00:00:00Z",
+    }
+    fake = _FakeSupabase(responses={
+        ("fn_admin_writing_queue_page", "rpc"): {
+            "essay_ids": ["essay-1"], "essay_rows": [snapshot], "total": 1,
+        },
+        ("writing_essays", "select"): later_rows,
+        ("students", "select"): [{"id": _STUDENT_ID, "full_name": "Changed Student"}],
+        ("writing_assignments", "select"): [],
+        ("writing_feedback", "select"): [],
+    })
+    with patch.object(essay_service, "supabase_admin", fake):
+        result = essay_service.list_essays_page(status="grading", limit=25)
+
+    assert result["total_complete"] is True
+    assert result["total"] == 1
+    assert [row["status"] for row in result["items"]] == ["grading"]
+    assert result["items"][0]["student_full_name"] == "Snapshot Student"
+    assert result["items"][0]["deadline"] == "2025-01-02T00:00:00Z"
+    assert not any(call["table"] in {"writing_essays", "students", "writing_assignments"}
+                   for call in fake.calls)
+
+
+def test_paginated_queue_rejects_mismatched_row_snapshot():
+    fake = _FakeSupabase(responses={
+        ("fn_admin_writing_queue_page", "rpc"): {
+            "essay_ids": ["essay-1"], "essay_rows": [{"id": "essay-2"}], "total": 1,
+        },
+    })
+    with patch.object(essay_service, "supabase_admin", fake), pytest.raises(
+        RuntimeError, match="receipt is malformed",
+    ):
+        essay_service.list_essays_page()
 
 
 def test_feedback_flags_missing_image_degrades_on_bad_json():

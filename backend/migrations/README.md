@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-23 the highest is `299`, so the next new
-migration is `300`.
+sequence is dense. As of 2026-09-23 the highest is `300`, so the next new
+migration is `301`.
 
 ## Conventions
 
@@ -148,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–299
+## Forward scope 230–300
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -282,6 +282,9 @@ persisted sitting/review work in every exam mode, including published sequential
 exams, open retakes, and archived exams. Migration 299 adds service-role-only,
 database-bounded catalog pagination and
 distinct course-level suggestions for the admin content library.
+Migration 300 replaces the Writing page routine so filtered IDs, base rows,
+deadline and exact total are read in one PostgreSQL statement; migration 297
+remains immutable after staging application.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

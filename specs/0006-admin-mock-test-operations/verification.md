@@ -39,12 +39,12 @@
 
 ## Data evidence
 
-- Migration/schema query: staging applied 297–299 and a second locked-runner dry
-  run found zero pending files; production application remains pending. Pending
-  second idempotent runner pass, all routine owners/ACL inspection,
-  `pg_proc.proconfig` fixed-search-path assertions, schema-qualified SQL audit,
-  representative Writing exact-total query, and retake actionable/released-only
-  eligibility query.
+- Migration/schema query: staging applied 297–300, including the atomic Writing
+  page snapshot; second locked-runner dry run reports zero pending, and owner,
+  service-role-only ACL, and fixed search path are verified. Production
+  application remains pending. Staging currently has no Writing essays or Mock
+  exams, so populated exact-total and actionable/released-only cases are
+  covered by local backend fixtures rather than asserted from empty live data.
 - Immediate state versus full reload: pending content level save/cancel,
   queue/status/grade navigation, canonical grading readback, and Review default
   selection evidence covering completed sequential with actionable rows,
@@ -71,7 +71,7 @@
 ## Release evidence
 
 - Staging SHA and checks: amended spec merged at `0aad1f0f`, implementation
-  based there, and staging migrations 297–299 applied; implementation PR,
+  based there, and staging migrations 297–300 applied; exact-SHA staging deployment,
   integrated CI, live Staging E2E, and exact-SHA browser smoke remain pending.
-- Production verification: pending advisory-locked migrations 297–299, staging-to-main
+- Production verification: pending advisory-locked migrations 297–300, staging-to-main
   promotion, production SHA match, health checks, and admin journey smoke.
