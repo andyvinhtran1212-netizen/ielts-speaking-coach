@@ -178,6 +178,17 @@ check('tablet hàng chờ không tràn viewport', await page.evaluate(() => docu
 await page.setViewportSize({ width: 390, height: 844 });
 const mobile = await page.evaluate(() => ({ overflow: document.documentElement.scrollWidth > innerWidth, row: getComputedStyle(document.querySelector('.awq-table tr')).display }));
 check('mobile chuyển row thành card và không tràn viewport', !mobile.overflow && mobile.row === 'grid', JSON.stringify(mobile));
+await page.evaluate(() => { Date.now = () => Date.parse('2000-01-01T00:00:00Z'); });
+const skewedOverdueRead = page.waitForResponse((response) => {
+  const url = new URL(response.url());
+  return url.pathname === QUEUE_PATH && url.searchParams.get('status') === 'pending' && url.searchParams.get('overdue') === 'true';
+});
+await page.locator('.awq-overdue input').click();
+await skewedOverdueRead;
+await page.getByText('Pending Page 1 1', { exact: true }).waitFor();
+const skewedRow = page.getByText('Pending Page 1 1', { exact: true }).locator('xpath=ancestor::tr');
+const skewedState = { total: await page.locator('.awq-count strong').innerText(), badge: await skewedRow.locator('.awq-deadline').count(), row: await skewedRow.innerText(), url: page.url() };
+check('đồng hồ thiết bị chậm không ẩn bài quá hạn do server trả về', skewedState.total === '25' && skewedState.badge === 1 && skewedState.row.includes('Quá hạn'), JSON.stringify(skewedState));
 check('không có write ngoài contract', unexpectedWrites.length === 0, unexpectedWrites.join(', '));
 check('không có lỗi JS', pageErrors.length === 0, pageErrors.join(' | '));
 
