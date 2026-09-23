@@ -17,11 +17,21 @@ let contentIsPublic = false;
 let contentPublicPracticeEnabled = false;
 let contentWebExplanationMode = 'disabled';
 let levelCatalogFailed = false;
+let failPicker = false;
 let exams = [
   { id: 'source-1', code: 'SOURCE-1', title: 'Đề gốc lớp C1', status: 'published', exam_mode: 'sequential', is_open: false, active_section: 'not_started', cohort_id: 'class-1', listening_test_id: 'lis-1', reading_test_id: 'read-1', writing_task1_prompt_id: 'w1', writing_task2_prompt_id: 'w2' },
   { id: 'draft-1', code: 'DRAFT-1', title: 'Đề nháp', status: 'draft', exam_mode: 'sequential', is_open: false, active_section: 'not_started', cohort_id: 'class-1', listening_test_id: 'lis-1', reading_test_id: 'read-1' },
   { id: 'retake-1', code: 'RETAKE-1', title: 'Đề test lại', status: 'published', exam_mode: 'retake', is_open: false, active_section: 'not_started', cohort_id: null, listening_test_id: null, reading_test_id: 'read-1' },
 ];
+const pickerRows = {
+  reading: [{ id: 'read-1', title: 'Reading paper', test_id: 'READ-PAPER', is_public: false }],
+  listening: [{ id: 'lis-1', title: 'Listening paper', test_id: 'LISTEN-PAPER', is_public: false }],
+  'writing-task1': [{ id: 'w1', title: 'Chart', task_type: 'task1_academic' }],
+  'writing-task2': [{ id: 'w2', title: 'Essay', task_type: 'task2' }],
+};
+for (const kind of Object.keys(pickerRows)) {
+  pickerRows[kind].push(...Array.from({ length: 230 }, (_, index) => ({ id: `${kind}-deep-${index + 1}`, title: `${kind} deep item ${index + 1}`, test_id: `${kind.toUpperCase()}-${index + 1}`, task_type: kind.replace('writing-', '') })));
+}
 
 const check = (name, ok, detail = '') => { results.push({ name, ok, detail }); console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`); };
 async function launch() {
@@ -52,9 +62,15 @@ await page.route('**/*', async (route) => {
   const json = (value, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
   if (path === '/auth/me') return json({ id: adminId, email: 'admin-mock-exams@local', role: 'admin' });
   if (path === '/admin/cohorts') return json({ cohorts: [{ id: 'class-1', name: 'IELTS C1' }, { id: 'class-2', name: 'IELTS C2' }] });
-  if (path === '/admin/mock-exams/reading-tests') return json({ items: [{ id: 'read-1', title: 'Reading paper', test_id: 'READ-PAPER' }] });
-  if (path === '/admin/listening/tests') return json({ items: [{ id: 'lis-1', title: 'Listening paper', test_id: 'LISTEN-PAPER' }] });
-  if (path === '/admin/writing/prompts') return json({ prompts: [{ id: 'w1', title: 'Chart', task_type: 'task1_academic' }, { id: 'w2', title: 'Essay', task_type: 'task2' }] });
+  if (path === '/admin/mock-exams/picker') {
+    const kind = parsed.searchParams.get('kind');
+    if (failPicker && kind === 'reading') return json({ detail: 'picker unavailable' }, 503);
+    const query = (parsed.searchParams.get('q') || '').toLowerCase();
+    const offset = Number(parsed.searchParams.get('offset') || 0);
+    const limit = Number(parsed.searchParams.get('limit') || 25);
+    const rows = (pickerRows[kind] || []).filter((row) => `${row.title} ${row.test_id || ''}`.toLowerCase().includes(query));
+    return json({ items: rows.slice(offset, offset + limit), total: rows.length, limit, offset });
+  }
   if (path === '/admin/mock-exams' && method === 'GET') return json({ exams });
   if (path === '/admin/mock-exams' && method === 'POST') {
     const created = { id: body.code === 'AMBIG-1' ? 'ambiguous-1' : 'created-1', ...body, status: 'draft', is_open: false, active_section: 'not_started' };
@@ -115,18 +131,50 @@ await page.route('**/*', async (route) => {
   return json({ detail: `unhandled fixture ${method} ${path}` }, 500);
 });
 
-const initialPaths = ['/auth/me', '/admin/mock-exams', '/admin/cohorts', '/admin/mock-exams/reading-tests', '/admin/listening/tests', '/admin/writing/prompts'];
+const initialPaths = ['/auth/me', '/admin/mock-exams', '/admin/cohorts'];
 const initialReads = Promise.all(initialPaths.map((path) => page.waitForResponse((response) => new URL(response.url()).pathname === path)));
 await page.goto(`${BASE}/admin/mock-exams`, { waitUntil: 'domcontentloaded' });
 await page.getByRole('heading', { name: 'Quản lý đề thi' }).waitFor();
 await initialReads;
-check('backend-owned admin gate và toàn bộ picker canonical chạy', initialPaths.every((path) => requests.some((item) => item.path === path)));
+check('backend-owned admin gate và lớp canonical chạy', initialPaths.every((path) => requests.some((item) => item.path === path)));
 await page.locator('.mex-progress-row').first().waitFor();
 if (process.env.CAPTURE_UI) await page.screenshot({ path: '/tmp/admin-mock-exams-redesign.png', fullPage: true });
 check('progress published hiển thị trạng thái thật', await page.locator('.mex-progress-row').filter({ hasText: '2/3 đã nộp' }).count() >= 1);
 check('mặc định hiện danh sách đề và tách form cùng kho nội dung khỏi luồng dài', await page.getByRole('heading', { name: 'Đề Mock Test', exact: true }).count() === 1 && await page.getByLabel('Mã đề *').count() === 0 && await page.locator('#test-library').count() === 0);
 
 await page.getByRole('button', { name: 'Tạo đề mới' }).click();
+await page.locator('.mex-picker-field').first().getByText('1–25 / 231').waitFor();
+check('picker phân trang theo backend thay vì preload danh sách giới hạn', requests.filter((item) => item.path === '/admin/mock-exams/picker').length === 4 && !requests.some((item) => ['/admin/mock-exams/reading-tests', '/admin/listening/tests', '/admin/writing/prompts'].includes(item.path)));
+const readingPicker = page.locator('.mex-picker-field').filter({ has: page.getByLabel('Reading · tìm toàn bộ kho') });
+await readingPicker.getByRole('button', { name: 'Tiếp' }).click();
+await readingPicker.getByText('26–50 / 231').waitFor();
+await readingPicker.getByLabel('Reading · tìm toàn bộ kho').fill('READING-220');
+await readingPicker.getByText('1–1 / 1').waitFor();
+await readingPicker.locator('select').selectOption('reading-deep-220');
+check('Reading ngoài giới hạn cũ vẫn tìm và chọn được', await readingPicker.locator('select').inputValue() === 'reading-deep-220');
+const listeningPicker = page.locator('.mex-picker-field').filter({ has: page.getByLabel('Listening · tìm toàn bộ kho') });
+await listeningPicker.getByLabel('Listening · tìm toàn bộ kho').fill('LISTENING-220');
+await listeningPicker.getByText('1–1 / 1').waitFor();
+await listeningPicker.locator('select').selectOption('listening-deep-220');
+const writingPicker = page.locator('.mex-picker-field').filter({ has: page.getByLabel('Writing Task 2 · tìm toàn bộ kho') });
+await writingPicker.getByLabel('Writing Task 2 · tìm toàn bộ kho').fill('writing-task2 deep item 220');
+await writingPicker.getByText('1–1 / 1').waitFor();
+await writingPicker.locator('select').selectOption('writing-task2-deep-220');
+check('Listening và Writing ngoài giới hạn cũ tìm và chọn được', await listeningPicker.locator('select').inputValue() === 'listening-deep-220' && await writingPicker.locator('select').inputValue() === 'writing-task2-deep-220');
+await readingPicker.getByLabel('Reading · tìm toàn bộ kho').fill('không có đề');
+await readingPicker.getByText('Không có nội dung phù hợp.').waitFor();
+check('đề đã chọn không biến mất khi tìm kiếm không có kết quả', await readingPicker.locator('select').inputValue() === 'reading-deep-220');
+await readingPicker.locator('select').selectOption('');
+await listeningPicker.locator('select').selectOption('');
+await writingPicker.locator('select').selectOption('');
+failPicker = true;
+await readingPicker.getByLabel('Reading · tìm toàn bộ kho').fill('retry');
+await readingPicker.getByText('Không tải được kho đề.').waitFor();
+check('picker lỗi hiện rõ và khóa tạo thay vì giả danh sách rỗng', await page.getByRole('button', { name: 'Kho đề chưa sẵn sàng' }).isDisabled());
+failPicker = false;
+await readingPicker.getByLabel('Reading · tìm toàn bộ kho').fill('');
+await readingPicker.getByText('1–25 / 231').waitFor();
+await page.getByRole('button', { name: 'Lưu đề nháp' }).waitFor();
 await page.getByLabel('Mã đề *').fill('NEW-1');
 await page.getByLabel('Tiêu đề *').fill('Đề mới');
 await page.getByLabel('Hình thức giao').selectOption('retake');

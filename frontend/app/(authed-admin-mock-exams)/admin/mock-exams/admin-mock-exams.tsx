@@ -10,7 +10,6 @@ import {
   nextExamSection,
   normalizeExam,
   normalizeExamList,
-  normalizePickerList,
   normalizeProgress,
 } from '@/lib/admin-mock-exams-model.mjs';
 import { ExamContentLibrary } from './exam-content-library';
@@ -38,14 +37,12 @@ export function AdminMockExams() {
   const embedded = searchParams?.get('embed') === '1';
   const [exams, setExams] = useState<Exam[]>([]);
   const [progress, setProgress] = useState<Record<string, Progress>>({});
-  const [readings, setReadings] = useState<Picker[]>([]);
-  const [listenings, setListenings] = useState<Picker[]>([]);
-  const [prompts, setPrompts] = useState<Picker[]>([]);
   const [cohorts, setCohorts] = useState<Picker[]>([]);
+  const [cohortsReady, setCohortsReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [examContractWarning, setExamContractWarning] = useState<string | null>(null);
-  const [pickerWarning, setPickerWarning] = useState<string | null>(null);
+  const [cohortWarning, setCohortWarning] = useState<string | null>(null);
   const [progressWarning, setProgressWarning] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState('');
   const [assignmentExam, setAssignmentExam] = useState<Exam | null>(null);
@@ -102,26 +99,21 @@ export function AdminMockExams() {
   useEffect(() => {
     let dead = false;
     const account = profile.id;
-    setExams([]); setProgress({}); setNotice(null); setExamContractWarning(null); setPickerWarning(null); setAssignmentExam(null);
+    setExams([]); setProgress({}); setCohorts([]); setCohortsReady(false); setNotice(null); setExamContractWarning(null); setCohortWarning(null); setAssignmentExam(null);
     (async () => {
-      const specs = [
-        ['Reading', () => window.api.get<unknown>('/admin/mock-exams/reading-tests'), ['items', 'tests'], setReadings],
-        ['Listening', () => window.api.get<unknown>('/admin/listening/tests?limit=100&status=published&test_type=exam'), ['items', 'tests'], setListenings],
-        ['Writing', () => window.api.get<unknown>('/admin/writing/prompts'), ['items', 'prompts'], setPrompts],
-        ['Lớp', () => getAdminCohorts({ isActive: true }), ['items', 'cohorts'], setCohorts],
-      ] as const;
-      const results = await Promise.allSettled(specs.map(async ([label, load, keys, setter]) => {
-        const rows = normalizePickerList(await load(), [...keys]);
-        if (!rows) throw new Error(`${label} sai contract`);
-        return { label, rows: rows as Picker[], setter };
-      }));
-      if (dead || accountRef.current !== account) return;
-      const failed: string[] = [];
-      for (const result of results) {
-        if (result.status === 'fulfilled') result.value.setter(result.value.rows);
-        else failed.push(messageOf(result.reason).replace(' sai contract', ''));
+      let rows: Picker[];
+      try {
+        const data = await getAdminCohorts({ isActive: true });
+        const source = (data as { cohorts?: unknown }).cohorts;
+        if (!Array.isArray(source) || !source.every((row) => row && typeof row.id === 'string')) throw new Error('Danh sách lớp sai contract');
+        rows = source as Picker[];
+      } catch (caught) {
+        if (!dead && accountRef.current === account) setCohortWarning(`Không tải được lớp: ${messageOf(caught)}. Không tạo đề cho tới khi tải lại đủ.`);
+        return;
       }
-      setPickerWarning(failed.length ? `Không tải được picker: ${failed.join(', ')}. Không tạo đề cho tới khi tải lại đủ.` : null);
+      if (dead || accountRef.current !== account) return;
+      setCohorts(rows);
+      setCohortsReady(true);
     })();
     void loadExams();
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void loadExams(true); }, 15_000);
@@ -170,7 +162,7 @@ export function AdminMockExams() {
   };
 
   const create = async (payload: Record<string, unknown>) => {
-    if (pickerWarning) { setNotice({ kind: 'error', message: 'Picker đang thiếu dữ liệu; tải lại trang trước khi tạo đề.' }); return false; }
+    if (!cohortsReady || cohortWarning) { setNotice({ kind: 'error', message: 'Danh sách lớp đang thiếu dữ liệu; tải lại trang trước khi tạo đề.' }); return false; }
     const before = new Set(examsRef.current.map((row) => row.id));
     const code = String(payload.code || '').trim();
     setBusyKey('create'); setNotice(null);
@@ -247,7 +239,7 @@ export function AdminMockExams() {
       </>}
       {notice && <div className={`mex-alert is-${notice.kind}`} role={notice.kind === 'success' ? 'status' : 'alert'}>{notice.message}</div>}
       {examContractWarning && <div className="mex-alert is-warning" role="alert">{examContractWarning}</div>}
-      {pickerWarning && <div className="mex-alert is-error" role="alert">{pickerWarning}</div>}
+      {cohortWarning && <div className="mex-alert is-error" role="alert">{cohortWarning}</div>}
       {progressWarning && <div className="mex-alert is-warning" role="alert">{progressWarning}</div>}
       <nav className="mex-workspaces" role="tablist" aria-label="Không gian quản lý đề">
         <button id="mex-exams-tab" className={workspace === 'exams' ? 'is-active' : ''} type="button" role="tab" aria-selected={workspace === 'exams'} aria-controls="mex-exams-workspace" onClick={() => selectWorkspace('exams')}>
@@ -261,7 +253,7 @@ export function AdminMockExams() {
       {workspace === 'exams' && <section className="mex-workspace-panel" id="mex-exams-workspace" role="tabpanel" aria-labelledby="mex-exams-tab">
         {creating ? <>
           <div className="mex-workspace-toolbar"><button className="adm-btn-secondary" type="button" onClick={() => setCreating(false)}>← Về danh sách đề</button></div>
-          <ExamCreateForm readings={readings} listenings={listenings} prompts={prompts} cohorts={cohorts} disabled={busyKey === 'create' || Boolean(pickerWarning)} onCreate={async (payload) => { const created = await create(payload); if (created) setCreating(false); return created; }} onError={(message) => setNotice({ kind: 'error', message })} />
+          <ExamCreateForm key={profile.id} cohorts={cohorts} disabled={busyKey === 'create' || !cohortsReady || Boolean(cohortWarning)} onCreate={async (payload) => { const created = await create(payload); if (created) setCreating(false); return created; }} onError={(message) => setNotice({ kind: 'error', message })} />
         </> : <section className="mex-list-section">
         <div className="mex-section-head"><div><p className="mex-kicker">Đề đã tạo</p><h2>Đề Mock Test</h2><p className="mex-section-copy">Publish, giao lớp và chuyển đề sang phòng thi từ danh sách canonical.</p></div><div className="mex-card-actions"><button className="adm-btn-secondary" type="button" onClick={() => void loadExams()} disabled={loading}>Tải lại</button><button className="adm-btn-primary" type="button" onClick={() => setCreating(true)}>Tạo đề mới</button></div></div>
         {loading && !exams.length ? <div className="mex-empty" role="status">Đang tải danh sách đề…</div> : !exams.length ? <div className="mex-empty">Chưa có đề nào.</div> : <div className="mex-exam-grid">{exams.map((exam) => {

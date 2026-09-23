@@ -4398,3 +4398,39 @@ def admin_available_reading_tests() -> list[dict]:
         .execute()
     )
     return res.data or []
+
+
+def admin_exam_picker_page(kind: str, search: str, limit: int, offset: int) -> dict:
+    """Page the canonical published/active source, before the UI selects it."""
+    from services.pg_search import ilike_or_filter
+
+    if kind == "reading":
+        table, columns = "reading_tests", "id,test_id,title,is_public"
+        search_columns = ["test_id", "title"]
+    elif kind == "listening":
+        table, columns = "listening_tests", "id,test_id,title,is_public"
+        search_columns = ["test_id", "title"]
+    else:
+        table, columns = "writing_prompts", "id,title,task_type"
+        search_columns = ["title"]
+
+    query = supabase_admin.table(table).select(columns, count="exact")
+    if kind == "reading":
+        query = query.eq("status", "published").eq("test_type", "full")
+    elif kind == "listening":
+        query = query.eq("status", "published").in_("test_type", ["full", "mini", "drill"])
+    else:
+        query = query.eq("is_active", True)
+        if kind == "writing-task1":
+            query = query.in_("task_type", ["task1_academic", "task1_general"])
+        else:
+            query = query.eq("task_type", "task2")
+    if search:
+        query = query.or_(ilike_or_filter(search_columns, search))
+    response = (
+        query.order("created_at", desc=True).order("id", desc=True)
+        .range(offset, offset + limit - 1).execute()
+    )
+    if response.count is None:
+        raise ValueError("Picker count is unavailable")
+    return {"items": response.data or [], "total": response.count, "limit": limit, "offset": offset}

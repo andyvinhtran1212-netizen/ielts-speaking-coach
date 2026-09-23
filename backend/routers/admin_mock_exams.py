@@ -16,6 +16,7 @@ console lives in admin_mock_reviews.py.
   GET   /admin/mock-exams/reading-tests          — published reading tests for the
                                                     create-exam picker (a test may be
                                                     reused across several mock exams)
+  GET   /admin/mock-exams/picker                 — bounded cross-skill create picker
   GET   /admin/mock-exams/{id}/retest-summary    — per-skill "cần test lại" counts
   GET   /admin/mock-exams/{id}/roster            — class roster grid (per-skill snapshot)
   POST  /admin/mock-exams/{id}/writing/bulk-grade — queue many sittings' Writing at once
@@ -60,6 +61,21 @@ class AdminMockExamListRow(BaseModel):
 
 class AdminMockExamListResponse(BaseModel):
     exams: list[AdminMockExamListRow]
+
+
+class AdminExamPickerRow(BaseModel):
+    id: str
+    title: str
+    test_id: str | None = None
+    task_type: str | None = None
+    is_public: bool | None = None
+
+
+class AdminExamPickerPage(BaseModel):
+    items: list[AdminExamPickerRow]
+    total: int
+    limit: int
+    offset: int
 
 
 class ExamCreate(BaseModel):
@@ -206,6 +222,18 @@ async def available_reading_tests(authorization: str | None = Header(default=Non
     practice list, a reading test may be reused across several mock exams."""
     await require_admin(authorization)
     return {"items": svc.admin_available_reading_tests()}
+
+
+@router.get("/picker", response_model=AdminExamPickerPage)
+async def exam_picker_page(
+    kind: Literal["reading", "listening", "writing-task1", "writing-task2"],
+    q: str = Query(default="", max_length=100),
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    authorization: str | None = Header(default=None),
+):
+    await require_admin(authorization)
+    return svc.admin_exam_picker_page(kind, q.strip(), limit, offset)
 
 
 @router.post("")

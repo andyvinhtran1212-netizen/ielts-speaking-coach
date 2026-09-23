@@ -10955,6 +10955,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/mock-exams/picker": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exam Picker Page */
+        get: operations["exam_picker_page_admin_mock_exams_picker_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/mock-exams/{exam_id}": {
         parameters: {
             query?: never;
@@ -12218,6 +12235,30 @@ export interface components {
             last_24h: number;
             /** Last 7D */
             last_7d: number;
+        };
+        /** AdminExamPickerPage */
+        AdminExamPickerPage: {
+            /** Items */
+            items: components["schemas"]["AdminExamPickerRow"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /** AdminExamPickerRow */
+        AdminExamPickerRow: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Test Id */
+            test_id?: string | null;
+            /** Task Type */
+            task_type?: string | null;
+            /** Is Public */
+            is_public?: boolean | null;
         };
         /** AdminFeedbackGroupOut */
         AdminFeedbackGroupOut: {
@@ -37057,6 +37098,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exam_picker_page_admin_mock_exams_picker_get: {
+        parameters: {
+            query: {
+                kind: "reading" | "listening" | "writing-task1" | "writing-task2";
+                q?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminExamPickerPage"];
                 };
             };
             /** @description Validation Error */
