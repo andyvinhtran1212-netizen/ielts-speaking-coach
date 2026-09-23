@@ -7211,6 +7211,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/listening/programmes/{programme_id}/lessons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Listening Programme Lessons */
+        get: operations["list_listening_programme_lessons_api_listening_programmes__programme_id__lessons_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/lessons/{lesson_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Listening Programme Lesson */
+        get: operations["get_listening_programme_lesson_api_listening_lessons__lesson_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/listening/tests": {
         parameters: {
             query?: never;
@@ -7254,10 +7288,11 @@ export interface paths {
          * Get Published Listening Test
          * @description Fetch a published test bundle for the student player.
          *
-         *     Includes a signed audio URL (2h TTL — covers test duration with
-         *     buffer), 4 section rows with narrator intros, and the test's
-         *     exercises **with answer keys stripped** (security: students must
-         *     never see the answer key on this endpoint).
+         *     Includes a signed audio URL (2h TTL — covers test duration with buffer),
+         *     section rows with narrator intros, and exercises **with answer keys
+         *     stripped**. A ``replay_policy=once`` form additionally requires its owned
+         *     active ``attempt_id``; after playback has started, the same safe bundle is
+         *     returned without another audio URL.
          */
         get: operations["get_published_listening_test_api_listening_tests__test_id__get"];
         put?: never;
@@ -7503,7 +7538,8 @@ export interface paths {
          *     attempt open on a test later reused by a mock exam would have the embed
          *     auto-resume that practice attempt and attach_attempt bind it to the sealed
          *     sitting — pulling practice answers into a real exam and corrupting both.
-         *     Standalone practice keeps the unscoped lookup.
+         *     Legacy callers keep the unscoped class lookup. New free-practice runners
+         *     send `standalone=true`, which excludes both class and mock attempts.
          *
          *     Deliberately a separate endpoint rather than a field on the shared test
          *     bundle: that bundle is served to several callers and is cacheable, while
@@ -7529,15 +7565,44 @@ export interface paths {
         put?: never;
         /**
          * Start Listening Test Attempt
-         * @description Open a new student attempt session. Marks any previously open
-         *     in-progress attempt for the same (user, test) as abandoned so the
-         *     1-active-attempt invariant holds.
+         * @description Open a student attempt session.
          *
-         *     NOTE: this is the "start over" path and it is destructive by design. A
-         *     caller that wants to CONTINUE must first check
-         *     GET /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
+         *     Standalone report-only programme forms atomically resume-or-create their
+         *     canonical active attempt in Postgres. Other Listening surfaces retain the
+         *     explicit start-over contract: any previous open attempt for the same
+         *     (user, test) is abandoned before a replacement is created.
+         *
+         *     NOTE: outside the standalone report-only path this remains destructive by
+         *     design. A caller that wants to CONTINUE must first check GET
+         *     /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
          */
         post: operations["start_listening_test_attempt_api_listening_tests__test_id__attempts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/attempts/{attempt_id}/playback-started": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Acknowledge Listening Attempt Playback Started
+         * @description Atomically persist the single-play start for a report-only attempt.
+         *
+         *     The browser calls this only after ``HTMLMediaElement.play()`` resolves.
+         *     ``playback_claim_id`` makes a lost response safely retryable from the same
+         *     page, while a second browser/device receives ``accepted=false`` and must
+         *     stop its player. Once persisted, the player bundle no longer contains a
+         *     signed audio URL for this attempt.
+         */
+        post: operations["acknowledge_listening_attempt_playback_started_api_listening_tests_attempts__attempt_id__playback_started_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8457,6 +8522,40 @@ export interface paths {
         get: operations["admin_get_map_image_signed_url_admin_listening_exercises__exercise_id__map_image_signed_url_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/listening/packages/{package_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish Listening Package */
+        post: operations["publish_listening_package_admin_listening_packages__package_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/listening/packages/{package_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive Listening Package */
+        post: operations["archive_listening_package_admin_listening_packages__package_id__archive_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15442,6 +15541,91 @@ export interface components {
             listen_count: number;
         };
         /**
+         * ListeningAttemptReviewResponse
+         * @description Shared diagnostic/report-only review contract.
+         *
+         *     Known fields are explicit for generated clients. ``extra='allow'`` keeps the
+         *     existing diagnostic compatibility window open while programme-only fields
+         *     become canonical.
+         */
+        ListeningAttemptReviewResponse: {
+            /** Attempt Id */
+            attempt_id?: string | null;
+            /** Test Id */
+            test_id?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Score */
+            score?: number | null;
+            /**
+             * Max Score
+             * @default 0
+             */
+            max_score: number;
+            /** Band Estimate */
+            band_estimate?: number | null;
+            /**
+             * Scoring Policy
+             * @default diagnostic
+             */
+            scoring_policy: string;
+            /** Result Summary */
+            result_summary?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Programme Id
+             * @default ielts
+             */
+            programme_id: string;
+            /** Listening Lesson Id */
+            listening_lesson_id?: string | null;
+            /** Form Purpose */
+            form_purpose?: string | null;
+            /** Replay Policy */
+            replay_policy?: string | null;
+            /** Support Policy */
+            support_policy?: string | null;
+            /** Claim Policy */
+            claim_policy?: string | null;
+            /** Trap Analytics */
+            trap_analytics?: {
+                [key: string]: unknown;
+            };
+            /** Audio Url */
+            audio_url?: string | null;
+            /** Audio Duration */
+            audio_duration?: number | null;
+            /** Section Offsets */
+            section_offsets?: {
+                [key: string]: unknown;
+            };
+            /** Cue Points */
+            cue_points?: unknown[];
+            /** Band Conversion */
+            band_conversion?: unknown[];
+            /** Sections */
+            sections?: {
+                [key: string]: unknown;
+            }[];
+            /** Review */
+            review?: components["schemas"]["ListeningReviewItem"][];
+            /** Controlled Transcripts */
+            controlled_transcripts?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                }[];
+            };
+            /** Web Explanation Access */
+            web_explanation_access?: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
+        /**
          * ListeningContentMetadataPatchRequest
          * @description Admin PATCH /admin/listening/content/{id} body — Sprint 13.1.
          *
@@ -15538,6 +15722,119 @@ export interface components {
              */
             expected_absent: boolean;
         };
+        /** ListeningFormCard */
+        ListeningFormCard: {
+            /** Id */
+            id: string;
+            /** Test Id */
+            test_id: string;
+            /** Source Form Id */
+            source_form_id: string;
+            /** Title */
+            title: string;
+            /** Purpose */
+            purpose: string;
+            /** Replay Policy */
+            replay_policy: string;
+            /** Support Policy */
+            support_policy: string;
+            /** Scoring Policy */
+            scoring_policy: string;
+            /** Item Count */
+            item_count: number;
+            /**
+             * Duration Seconds
+             * @default 0
+             */
+            duration_seconds: number;
+            /**
+             * Checked Item Count
+             * @default 0
+             */
+            checked_item_count: number;
+            /**
+             * Self Review Item Count
+             * @default 0
+             */
+            self_review_item_count: number;
+            /**
+             * Status
+             * @default new
+             */
+            status: string;
+            /** Attempt Id */
+            attempt_id?: string | null;
+        };
+        /** ListeningLessonCard */
+        ListeningLessonCard: {
+            /** Id */
+            id: string;
+            /** Source Lesson Id */
+            source_lesson_id: string;
+            /** Title */
+            title: string;
+            /** Instructions */
+            instructions?: string | null;
+            /** Outcomes */
+            outcomes?: unknown[];
+            /** Sequence Num */
+            sequence_num: number;
+            /**
+             * Form Count
+             * @default 0
+             */
+            form_count: number;
+            /**
+             * Completed Form Count
+             * @default 0
+             */
+            completed_form_count: number;
+            /**
+             * In Progress Form Count
+             * @default 0
+             */
+            in_progress_form_count: number;
+        };
+        /** ListeningLessonDetailResponse */
+        ListeningLessonDetailResponse: {
+            /** Id */
+            id: string;
+            /** Programme Id */
+            programme_id: string;
+            /** Source Lesson Id */
+            source_lesson_id: string;
+            /** Title */
+            title: string;
+            /** Instructions */
+            instructions?: string | null;
+            /** Outcomes */
+            outcomes?: unknown[];
+            /** Forms */
+            forms?: components["schemas"]["ListeningFormCard"][];
+            /**
+             * Partial Data
+             * @default false
+             */
+            partial_data: boolean;
+        };
+        /** ListeningLessonListResponse */
+        ListeningLessonListResponse: {
+            /** Programme Id */
+            programme_id: string;
+            /** Items */
+            items: components["schemas"]["ListeningLessonCard"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /**
+             * Partial Data
+             * @default false
+             */
+            partial_data: boolean;
+        };
         /** ListeningOverviewOut */
         ListeningOverviewOut: {
             /** Attempts Total */
@@ -15553,6 +15850,228 @@ export interface components {
             /** Dictation 7D */
             dictation_7d: number;
         };
+        /** ListeningOverviewResponse */
+        ListeningOverviewResponse: {
+            /** Tests */
+            tests?: {
+                [key: string]: number;
+            };
+            /** Practice Groups */
+            practice_groups?: {
+                [key: string]: number;
+            };
+            /**
+             * Content
+             * @default 0
+             */
+            content: number;
+            /** Exercise Modes */
+            exercise_modes?: {
+                [key: string]: number;
+            };
+            /** Programmes */
+            programmes?: components["schemas"]["ListeningProgrammeCard"][];
+            resume?: components["schemas"]["ListeningResumeCard"] | null;
+            /** Recent */
+            recent?: components["schemas"]["ListeningRecentActivity"][];
+            /**
+             * Partial Data
+             * @default false
+             */
+            partial_data: boolean;
+        };
+        /** ListeningPackageStatusRequest */
+        ListeningPackageStatusRequest: {
+            /** Manifest Sha256 */
+            manifest_sha256: string;
+        };
+        /** ListeningPackageStatusResponse */
+        ListeningPackageStatusResponse: {
+            /** Package Uuid */
+            package_uuid: string;
+            /** Status */
+            status: string;
+            /** Forms Changed */
+            forms_changed: number;
+        };
+        /** ListeningPlayerResponse */
+        ListeningPlayerResponse: {
+            /** Id */
+            id: string;
+            /** Test Id */
+            test_id?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Test Type */
+            test_type?: string | null;
+            /**
+             * Programme Id
+             * @default ielts
+             */
+            programme_id: string;
+            /** Listening Lesson Id */
+            listening_lesson_id?: string | null;
+            /** Source Form Id */
+            source_form_id?: string | null;
+            /** Form Purpose */
+            form_purpose?: string | null;
+            /**
+             * Scoring Policy
+             * @default diagnostic
+             */
+            scoring_policy: string;
+            /** Replay Policy */
+            replay_policy?: string | null;
+            /** Support Policy */
+            support_policy?: string | null;
+            /** Claim Policy */
+            claim_policy?: string | null;
+            /** Source Item Count */
+            source_item_count?: number | null;
+            /** Audio Url */
+            audio_url?: string | null;
+            /** Audio Storage Path */
+            audio_storage_path?: string | null;
+            /** Audio Duration Seconds */
+            audio_duration_seconds?: number | null;
+            /** Cue Points */
+            cue_points?: unknown[];
+            /** Sections */
+            sections?: {
+                [key: string]: unknown;
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** ListeningProgrammeCard */
+        ListeningProgrammeCard: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /**
+             * Lesson Count
+             * @default 0
+             */
+            lesson_count: number;
+            /**
+             * Form Count
+             * @default 0
+             */
+            form_count: number;
+            /**
+             * Completed Form Count
+             * @default 0
+             */
+            completed_form_count: number;
+            /**
+             * In Progress Form Count
+             * @default 0
+             */
+            in_progress_form_count: number;
+        };
+        /** ListeningRecentActivity */
+        ListeningRecentActivity: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Test Id */
+            test_id: string;
+            /** Title */
+            title: string;
+            /** Programme Id */
+            programme_id: string;
+            /** Status */
+            status: string;
+            /** Submitted At */
+            submitted_at?: string | null;
+            /**
+             * Checked Count
+             * @default 0
+             */
+            checked_count: number;
+            /**
+             * Correct Count
+             * @default 0
+             */
+            correct_count: number;
+            /**
+             * Unscored Count
+             * @default 0
+             */
+            unscored_count: number;
+            /** Href */
+            href: string;
+        };
+        /** ListeningResumeCard */
+        ListeningResumeCard: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Test Id */
+            test_id: string;
+            /** Title */
+            title: string;
+            /** Programme Id */
+            programme_id: string;
+            /** Lesson Id */
+            lesson_id: string;
+            /**
+             * Answered Count
+             * @default 0
+             */
+            answered_count: number;
+            /**
+             * Item Count
+             * @default 0
+             */
+            item_count: number;
+            /** Resume Expires At */
+            resume_expires_at?: string | null;
+            /** Href */
+            href: string;
+        };
+        /** ListeningReviewItem */
+        ListeningReviewItem: {
+            /** Q Num */
+            q_num: number;
+            /** State */
+            state?: string | null;
+            /** Correct */
+            correct?: boolean | null;
+            /**
+             * User Answer
+             * @default
+             */
+            user_answer: string;
+            /**
+             * Expected
+             * @default
+             */
+            expected: unknown;
+            /** Question Type */
+            question_type?: string | null;
+            /** Prompt */
+            prompt?: string | null;
+            /** Audio Window */
+            audio_window?: {
+                [key: string]: unknown;
+            } | null;
+            /** Section */
+            section?: number | null;
+            /** Transcript Anchor */
+            transcript_anchor?: number | null;
+            /** Solution */
+            solution?: {
+                [key: string]: unknown;
+            };
+            /** Self Review */
+            self_review?: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
         /** ListeningTestDictationGradeRequest */
         ListeningTestDictationGradeRequest: {
             /** Test Id */
@@ -15566,6 +16085,84 @@ export interface components {
              * @default
              */
             user_transcript: string;
+        };
+        /** ListeningTestListItem */
+        ListeningTestListItem: {
+            /** Id */
+            id: string;
+            /** Test Id */
+            test_id?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Band Target */
+            band_target?: number | null;
+            /** Themes */
+            themes?: {
+                [key: string]: unknown;
+            };
+            /** Accent Profile */
+            accent_profile?: string[];
+            /** Audio Assembly Mode */
+            audio_assembly_mode?: string | null;
+            /** Drill Type */
+            drill_type?: string | null;
+            /** Practice Group */
+            practice_group?: string | null;
+            /** Trap */
+            trap?: string | null;
+            /** Level */
+            level?: string | null;
+            /** Task */
+            task?: string | null;
+            /**
+             * Programme Id
+             * @default ielts
+             */
+            programme_id: string;
+            /** Listening Lesson Id */
+            listening_lesson_id?: string | null;
+            /** Source Form Id */
+            source_form_id?: string | null;
+            /** Form Purpose */
+            form_purpose?: string | null;
+            /**
+             * Scoring Policy
+             * @default diagnostic
+             */
+            scoring_policy: string;
+            /** Replay Policy */
+            replay_policy?: string | null;
+            /** Support Policy */
+            support_policy?: string | null;
+            /** Claim Policy */
+            claim_policy?: string | null;
+            /** Source Item Count */
+            source_item_count?: number | null;
+            /** User Best Score */
+            user_best_score?: number | null;
+            /**
+             * User Attempt Count
+             * @default 0
+             */
+            user_attempt_count: number;
+            /**
+             * User Submitted Attempt Count
+             * @default 0
+             */
+            user_submitted_attempt_count: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** ListeningTestListResponse */
+        ListeningTestListResponse: {
+            /** Items */
+            items?: components["schemas"]["ListeningTestListItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
         };
         /**
          * ListeningTestPatchRequest
@@ -17508,6 +18105,14 @@ export interface components {
         _GenerateCueCardBody: {
             /** Trigger */
             trigger: string;
+        };
+        /** _ListeningAttemptPlaybackStartedRequest */
+        _ListeningAttemptPlaybackStartedRequest: {
+            /**
+             * Playback Claim Id
+             * Format: uuid
+             */
+            playback_claim_id: string;
         };
         /** _ListeningAttemptRendererAffinityRequest */
         _ListeningAttemptRendererAffinityRequest: {
@@ -30165,7 +30770,77 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ListeningOverviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_listening_programme_lessons_api_listening_programmes__programme_id__lessons_get: {
+        parameters: {
+            query?: {
+                progress?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                programme_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListeningLessonListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_listening_programme_lesson_api_listening_lessons__lesson_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                lesson_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListeningLessonDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -30183,6 +30858,7 @@ export interface operations {
         parameters: {
             query?: {
                 test_type?: string | null;
+                programme_id?: string | null;
                 practice_group?: string | null;
                 limit?: number;
                 offset?: number;
@@ -30201,7 +30877,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ListeningTestListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -30219,6 +30895,7 @@ export interface operations {
         parameters: {
             query?: {
                 class_item?: string | null;
+                attempt_id?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -30236,7 +30913,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ListeningPlayerResponse"];
                 };
             };
             /** @description Validation Error */
@@ -30608,6 +31285,7 @@ export interface operations {
             query?: {
                 sitting_id?: string | null;
                 class_item?: string | null;
+                standalone?: boolean;
             };
             header?: {
                 authorization?: string | null;
@@ -30643,6 +31321,7 @@ export interface operations {
         parameters: {
             query?: {
                 class_item?: string | null;
+                standalone?: boolean;
             };
             header?: {
                 authorization?: string | null;
@@ -30655,6 +31334,43 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": components["schemas"]["_ListeningAttemptStartRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    acknowledge_listening_attempt_playback_started_api_listening_tests_attempts__attempt_id__playback_started_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["_ListeningAttemptPlaybackStartedRequest"];
             };
         };
         responses: {
@@ -30907,7 +31623,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ListeningAttemptReviewResponse"];
                 };
             };
             /** @description Validation Error */
@@ -31971,6 +32687,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_listening_package_admin_listening_packages__package_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                package_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListeningPackageStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListeningPackageStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_listening_package_admin_listening_packages__package_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                package_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListeningPackageStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListeningPackageStatusResponse"];
                 };
             };
             /** @description Validation Error */

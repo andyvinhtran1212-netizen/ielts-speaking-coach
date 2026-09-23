@@ -67,6 +67,16 @@ from services.active_player_lifecycle import (
     require_resume_active,
     resume_expires_at,
 )
+from models.listening_programmes import (
+    ListeningAttemptReviewResponse,
+    ListeningLessonDetailResponse,
+    ListeningLessonListResponse,
+    ListeningOverviewResponse,
+    ListeningPackageStatusRequest,
+    ListeningPackageStatusResponse,
+    ListeningPlayerResponse,
+    ListeningTestListResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +104,9 @@ async def _require_auth(authorization: str | None) -> dict:
 _ACCENT_VALUES = {"us_general", "uk_rp", "au", "ca", "other"}
 _CEFR_VALUES = {"A2", "B1", "B2", "C1", "C2"}
 _STATUS_VALUES = {"draft", "published", "archived"}
-_EXERCISE_TYPES = {"dictation", "gist", "true_false", "mcq", "mini_test"}
+_EXERCISE_TYPES = {
+    "dictation", "gist", "true_false", "mcq", "mini_test", "programme_form",
+}
 
 
 _TF_VALID = {"T", "F", "NG"}
@@ -1930,6 +1942,7 @@ async def list_listening_content(
             count="exact",
         )
         .eq("status", "published")
+        .neq("source_type", "programme_form")
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
     )
@@ -2038,7 +2051,10 @@ async def get_listening_analytics(
 
     q = (
         supabase_admin.table("listening_test_attempts")
-        .select("id,test_id,status,score,grading_details,created_at,submitted_at")
+        .select(
+            "id,test_id,status,score,grading_details,created_at,submitted_at,"
+            "scoring_policy,result_summary"
+        )
         .eq("user_id", user_id)
         .order("created_at", desc=True)
     )
@@ -2065,7 +2081,10 @@ async def get_listening_analytics(
         flat.append({
             "id":         r["id"],
             "test_id":    r.get("test_id"),
-            "type":       tinfo.get("test_type") or "unknown",
+            "type":       ("programme" if r.get("scoring_policy") == "report_only"
+                           else tinfo.get("test_type") or "unknown"),
+            "scoring_policy": r.get("scoring_policy") or "diagnostic",
+            "result_summary": r.get("result_summary") or {},
             "title":      tinfo.get("title") or tinfo.get("test_id"),
             "status":     r.get("status"),
             "accuracy":   acc,
@@ -2079,7 +2098,8 @@ async def get_listening_analytics(
     # slot — không có điểm để đại diện); mọi lượt vẫn đếm engagement/by_day.
     first_by_test: dict[str, dict] = {}       # lượt đầu (mọi status) — đếm bài đã đụng
     first_submitted: dict[str, dict] = {}     # lượt NỘP đầu — nguồn điểm canonical
-    for r in reversed(flat):                  # flat đang newest-first
+    diagnostic_flat = [r for r in flat if r["scoring_policy"] == "diagnostic"]
+    for r in reversed(diagnostic_flat):       # flat đang newest-first
         tid = r["test_id"]
         if not tid:
             continue
@@ -2099,7 +2119,7 @@ async def get_listening_analytics(
     by_mode: dict[str, dict] = {}
     for m in types:
         firsts = [r for r in flat_first if r["type"] == m]
-        alls = [r for r in flat if r["type"] == m]
+        alls = [r for r in diagnostic_flat if r["type"] == m]
         accs = [r["accuracy"] for r in flat_first_submitted if r["type"] == m]
         by_mode[m] = {
             "count":      len(firsts),
@@ -2140,6 +2160,8 @@ async def get_listening_analytics(
         })
     by_day.reverse()  # oldest first for chart rendering
 
+    report_only_rows = [r for r in flat if r["scoring_policy"] == "report_only"]
+    report_only_submitted = [r for r in report_only_rows if r["status"] == "submitted"]
     return {
         "range":           time_range,
         "total_attempts":  len(flat),
@@ -2147,6 +2169,14 @@ async def get_listening_analytics(
         "by_day":          by_day,
         "recent_attempts": flat[:10],
         "weakest_mode":    weakest_mode,
+        "report_only": {
+            "attempts_count": len(report_only_rows),
+            "completed_count": len(report_only_submitted),
+            "review_needed_count": sum(
+                int((r.get("result_summary") or {}).get("unscored_count") or 0)
+                for r in report_only_submitted
+            ),
+        },
     }
 
 
@@ -4155,6 +4185,20 @@ def _sign_map_image_url(storage_path: str | None, expires_in: int = 3600) -> str
     return (signed or {}).get("signedURL") or (signed or {}).get("signed_url")
 
 
+def _sign_programme_visual_url(storage_path: str | None, expires_in: int = 7200) -> str | None:
+    """Sign an immutable package visual stored beside its private form audio."""
+    if not storage_path:
+        return None
+    try:
+        signed = supabase_admin.storage.from_(
+            settings.LISTENING_AUDIO_BUCKET
+        ).create_signed_url(storage_path, expires_in)
+    except Exception as exc:  # pragma: no cover - provider-specific failure
+        logger.warning("[listening-programme] visual signed URL failed: %s", exc)
+        return None
+    return (signed or {}).get("signedURL") or (signed or {}).get("signed_url")
+
+
 # ── Sprint 13.5.9.3 — manual upload escape hatch ──────────────────────────
 
 
@@ -4441,6 +4485,11 @@ class _ListeningAttemptRendererAffinityRequest(BaseModel):
     renderer_affinity: Literal["legacy", "next"]
 
 
+class _ListeningAttemptPlaybackStartedRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    playback_claim_id: uuid.UUID
+
+
 def _student_audio_url_for_test(test_row: dict) -> tuple[str | None, str | None, int | None]:
     """Pick the right audio for a student player.
 
@@ -4518,6 +4567,9 @@ def _exercise_is_ready(row: dict) -> bool:
         return _filled_list(payload.get("statements"))
     if etype == "mcq":
         return _filled_list(payload.get("questions"))
+    if etype == "programme_form":
+        return (payload.get("variant") == "programme_form_v1"
+                and _filled_list(payload.get("questions")))
     if etype == "gist":
         return bool(str(payload.get("model_answer") or "").strip())
     return False
@@ -4536,6 +4588,7 @@ def _published_content_ids() -> list[str]:
             supabase_admin.table("listening_content")
             .select("id")
             .eq("status", "published")
+            .neq("source_type", "programme_form")
             # LIMIT/OFFSET without ORDER BY has no defined row order in
             # Postgres, so successive pages could repeat or skip rows and the
             # count would drift. `id` is unique, which makes the walk stable.
@@ -4550,7 +4603,203 @@ def _published_content_ids() -> list[str]:
         start += step
 
 
-@user_router.get("/overview")
+_PROGRAMME_COPY = {
+    "general-listening-practice": {
+        "title": "General Listening",
+        "description": "Luyện nghe theo bài học, tình huống và mục tiêu cụ thể.",
+    },
+    "ielts-listening-practice": {
+        "title": "IELTS Listening Practice",
+        "description": "Bài luyện IELTS report-only, tách biệt với Full Test có chấm band.",
+    },
+}
+_PROGRAMME_ORDER = {
+    "general-listening-practice": 0,
+    "ielts-listening-practice": 1,
+}
+
+
+def _programme_attempt_state(user_id: str, test_rows: list[dict]) -> tuple[dict, bool]:
+    """Canonical completion and resumable state per programme form.
+
+    A current retake must not erase the learner's earlier completion. Keep the
+    newest submitted attempt and the newest active free-practice attempt as
+    independent facts so progress/history and resume actions can coexist.
+    """
+    test_ids = [str(row["id"]) for row in test_rows if row.get("id")]
+    if not test_ids:
+        return {}, False
+    try:
+        response = (
+            supabase_admin.table("listening_test_attempts")
+            .select(
+                "id,test_id,status,answers,result_summary,started_at,submitted_at,"
+                "resume_expires_at,created_at,class_assignment_item_id,sitting_id"
+            )
+            .eq("user_id", user_id)
+            .in_("test_id", test_ids)
+            .order("created_at", desc=True)
+            .execute()
+        )
+    except Exception as exc:  # deploy-order/partial-data state
+        logger.warning("[listening-programmes] attempt progress unavailable: %s", exc)
+        return {}, True
+    states: dict[str, dict[str, dict]] = {}
+    for attempt in response.data or []:
+        # The programme hub is a free-practice surface. A class assignment or
+        # mock sitting owns its own resume/navigation contract and must never
+        # become the dominant hub CTA or recent free-practice activity.
+        if attempt.get("class_assignment_item_id") or attempt.get("sitting_id"):
+            continue
+        if attempt.get("status") == "in_progress" and not is_resume_active(attempt):
+            continue
+        test_id = str(attempt.get("test_id") or "")
+        if not test_id:
+            continue
+        status = str(attempt.get("status") or "")
+        slot = "completed" if status == "submitted" else "in_progress" if status == "in_progress" else ""
+        if slot and slot not in states.setdefault(test_id, {}):
+            states[test_id][slot] = attempt
+    return states, False
+
+
+def _programme_attempt_time(attempt: dict, preferred_field: str) -> float:
+    """Comparable timestamp for programme activity; malformed legacy rows sort last."""
+    raw = attempt.get(preferred_field) or attempt.get("created_at") or attempt.get("started_at")
+    if not raw:
+        return 0.0
+    try:
+        return datetime.fromisoformat(str(raw).replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+
+
+def _load_programme_overview(user_id: str) -> tuple[list[dict], dict | None, list[dict], bool]:
+    try:
+        packages = (
+            supabase_admin.table("listening_content_packages")
+            .select("id,programme_id,title")
+            .eq("status", "published")
+            .execute().data or []
+        )
+        packages.sort(key=lambda row: _PROGRAMME_ORDER.get(str(row.get("programme_id")), 99))
+        programme_ids = [str(row["programme_id"]) for row in packages]
+        if not programme_ids:
+            return [], None, [], False
+        lessons = (
+            supabase_admin.table("listening_lessons")
+            .select("id,programme_id")
+            .eq("status", "published")
+            .in_("programme_id", programme_ids)
+            .execute().data or []
+        )
+        tests = (
+            supabase_admin.table("listening_tests")
+            .select(
+                "id,title,programme_id,listening_lesson_id,source_item_count,created_at"
+            )
+            .eq("status", "published")
+            .eq("is_public", True)
+            .eq("scoring_policy", "report_only")
+            .in_("programme_id", programme_ids)
+            .execute().data or []
+        )
+    except Exception as exc:  # migration may deploy after code; old overview remains usable
+        logger.warning("[listening-programmes] canonical overview unavailable: %s", exc)
+        return [], None, [], True
+    attempt_states, partial = _programme_attempt_state(user_id, tests)
+    lesson_counts: dict[str, int] = {}
+    for lesson in lessons:
+        pid = str(lesson.get("programme_id") or "")
+        lesson_counts[pid] = lesson_counts.get(pid, 0) + 1
+    form_counts: dict[str, int] = {}
+    completed: dict[str, int] = {}
+    in_progress: dict[str, int] = {}
+    test_by_id = {str(test["id"]): test for test in tests}
+    for test in tests:
+        pid = str(test.get("programme_id") or "")
+        form_counts[pid] = form_counts.get(pid, 0) + 1
+        state = attempt_states.get(str(test["id"]), {})
+        if state.get("completed"):
+            completed[pid] = completed.get(pid, 0) + 1
+        if state.get("in_progress"):
+            in_progress[pid] = in_progress.get(pid, 0) + 1
+    cards = []
+    for package in packages:
+        pid = str(package["programme_id"])
+        copy = _PROGRAMME_COPY.get(pid, {})
+        cards.append({
+            "id": pid,
+            "title": copy.get("title") or package.get("title") or pid,
+            "description": copy.get("description") or "Thư viện luyện nghe.",
+            "lesson_count": lesson_counts.get(pid, 0),
+            "form_count": form_counts.get(pid, 0),
+            "completed_form_count": completed.get(pid, 0),
+            "in_progress_form_count": in_progress.get(pid, 0),
+        })
+    resume = None
+    recent: list[dict] = []
+    ordered_attempts = sorted(
+        (
+            (test_id, state["completed"])
+            for test_id, state in attempt_states.items()
+            if state.get("completed")
+        ),
+        key=lambda item: _programme_attempt_time(item[1], "submitted_at"),
+        reverse=True,
+    )
+    resume_attempts = sorted(
+        (
+            (test_id, attempt)
+            for test_id, state in attempt_states.items()
+            if (attempt := state.get("in_progress"))
+        ),
+        key=lambda item: _programme_attempt_time(item[1], "created_at"),
+        reverse=True,
+    )
+    if resume_attempts:
+        test_id, attempt = resume_attempts[0]
+        test = test_by_id.get(test_id)
+        if test:
+            pid = str(test.get("programme_id") or "")
+            answers = [
+                value for value in (attempt.get("answers") or [])
+                if str(value.get("user_answer") or "").strip()
+            ]
+            resume = {
+                "attempt_id": str(attempt["id"]),
+                "test_id": test_id,
+                "title": str(test.get("title") or "Bài nghe đang làm"),
+                "programme_id": pid,
+                "lesson_id": str(test.get("listening_lesson_id") or ""),
+                "answered_count": len(answers),
+                "item_count": int(test.get("source_item_count") or 0),
+                "resume_expires_at": attempt.get("resume_expires_at"),
+                "href": f"/listening/programmes/form/{test_id}",
+            }
+    for test_id, attempt in ordered_attempts:
+        test = test_by_id.get(test_id)
+        if not test:
+            continue
+        pid = str(test.get("programme_id") or "")
+        summary = attempt.get("result_summary") or {}
+        if attempt.get("status") == "submitted" and len(recent) < 3:
+            recent.append({
+                "attempt_id": str(attempt["id"]),
+                "test_id": test_id,
+                "title": str(test.get("title") or "Bài nghe"),
+                "programme_id": pid,
+                "status": "submitted",
+                "submitted_at": attempt.get("submitted_at"),
+                "checked_count": int(summary.get("checked_count") or 0),
+                "correct_count": int(summary.get("correct_count") or 0),
+                "unscored_count": int(summary.get("unscored_count") or 0),
+                "href": f"/listening/programmes/result/{attempt['id']}",
+            })
+    return cards, resume, recent, partial
+
+
+@user_router.get("/overview", response_model=ListeningOverviewResponse)
 async def listening_overview(authorization: str | None = Header(default=None)):
     """How much practice material each Listening surface actually holds.
 
@@ -4567,7 +4816,7 @@ async def listening_overview(authorization: str | None = Header(default=None)):
     exercise counts only when BOTH it and its content row are published.
     ``test_counts_consistent_with_list`` in the test suite pins that.
     """
-    await _require_auth(authorization)
+    user = await _require_auth(authorization)
 
     tests: dict[str, int] = {}
     for kind in ("full", "mini", "drill", "practice"):
@@ -4576,6 +4825,7 @@ async def listening_overview(authorization: str | None = Header(default=None)):
             .select("id", count="exact")
             .eq("status", "published")
             .eq("test_type", kind)
+            .eq("scoring_policy", "diagnostic")
             .eq("is_public", True)
             .or_(_AUDIO_READY_OR)
             .limit(1)
@@ -4618,6 +4868,7 @@ async def listening_overview(authorization: str | None = Header(default=None)):
             .select("metadata")
             .eq("status", "published")
             .eq("test_type", "practice")
+            .eq("scoring_policy", "diagnostic")
             .eq("is_public", True)
             .or_(_AUDIO_READY_OR)
             .order("id")
@@ -4629,17 +4880,219 @@ async def listening_overview(authorization: str | None = Header(default=None)):
             if g:
                 practice_groups[g] = practice_groups.get(g, 0) + 1
 
+    programmes, resume, recent, partial_data = _load_programme_overview(user["id"])
     return {
         "tests":           tests,
         "practice_groups": practice_groups,
         "content":         len(content_ids),
         "exercise_modes":  modes,
+        "programmes":      programmes,
+        "resume":          resume,
+        "recent":          recent,
+        "partial_data":    partial_data,
     }
 
 
-@user_router.get("/tests")
+@user_router.get(
+    "/programmes/{programme_id}/lessons",
+    response_model=ListeningLessonListResponse,
+)
+async def list_listening_programme_lessons(
+    programme_id: str,
+    progress: str = Query(default="all"),
+    limit: int = Query(default=24, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    authorization: str | None = Header(default=None),
+):
+    user = await _require_auth(authorization)
+    if programme_id not in _PROGRAMME_COPY:
+        raise HTTPException(404, "Listening programme not found")
+    if progress not in {"all", "new", "in_progress", "completed"}:
+        raise HTTPException(422, "progress must be all, new, in_progress or completed")
+    lessons_response = (
+        supabase_admin.table("listening_lessons")
+        .select("id,source_lesson_id,title,instructions,outcomes,sequence_num", count="exact")
+        .eq("programme_id", programme_id)
+        .eq("status", "published")
+        .order("sequence_num")
+        .execute()
+    )
+    all_lessons = lessons_response.data or []
+    lesson_ids = [str(row["id"]) for row in all_lessons]
+    forms = (
+        supabase_admin.table("listening_tests")
+        .select("id,listening_lesson_id")
+        .eq("programme_id", programme_id)
+        .eq("status", "published")
+        .eq("is_public", True)
+        .eq("scoring_policy", "report_only")
+        .execute().data or []
+    )
+    attempt_states, partial = _programme_attempt_state(user["id"], forms)
+    by_lesson: dict[str, list[dict]] = {lesson_id: [] for lesson_id in lesson_ids}
+    for form in forms:
+        lesson_id = str(form.get("listening_lesson_id") or "")
+        if lesson_id in by_lesson:
+            by_lesson[lesson_id].append(form)
+
+    items: list[dict] = []
+    for lesson in all_lessons:
+        lesson_forms = by_lesson.get(str(lesson["id"]), [])
+        completed_count = sum(
+            bool(attempt_states.get(str(form["id"]), {}).get("completed"))
+            for form in lesson_forms
+        )
+        in_progress_count = sum(
+            bool(attempt_states.get(str(form["id"]), {}).get("in_progress"))
+            for form in lesson_forms
+        )
+        state = (
+            "completed" if lesson_forms and completed_count == len(lesson_forms)
+            else "in_progress" if completed_count or in_progress_count
+            else "new"
+        )
+        if progress != "all" and state != progress:
+            continue
+        items.append({
+            **lesson,
+            "form_count": len(lesson_forms),
+            "completed_form_count": completed_count,
+            "in_progress_form_count": in_progress_count,
+        })
+    paged = items[offset:offset + limit]
+    return {
+        "programme_id": programme_id,
+        "items": paged,
+        "total": len(items),
+        "limit": limit,
+        "offset": offset,
+        "partial_data": partial,
+    }
+
+
+@user_router.get(
+    "/lessons/{lesson_id}",
+    response_model=ListeningLessonDetailResponse,
+)
+async def get_listening_programme_lesson(
+    lesson_id: uuid.UUID,
+    authorization: str | None = Header(default=None),
+):
+    user = await _require_auth(authorization)
+    rows = (
+        supabase_admin.table("listening_lessons")
+        .select("id,programme_id,source_lesson_id,title,instructions,outcomes")
+        .eq("id", str(lesson_id))
+        .eq("status", "published")
+        .limit(1)
+        .execute().data or []
+    )
+    if not rows:
+        raise HTTPException(404, "Listening lesson not found")
+    lesson = rows[0]
+    forms = (
+        supabase_admin.table("listening_tests")
+        .select(
+            "id,test_id,source_form_id,title,form_purpose,replay_policy,"
+            "support_policy,scoring_policy,source_item_count,"
+            "full_audio_duration_seconds,metadata,created_at"
+        )
+        .eq("listening_lesson_id", str(lesson_id))
+        .eq("status", "published")
+        .eq("is_public", True)
+        .order("created_at")
+        .execute().data or []
+    )
+    attempt_states, partial = _programme_attempt_state(user["id"], forms)
+    form_cards = []
+    for form in forms:
+        attempt_state = attempt_states.get(str(form["id"]), {})
+        attempt = attempt_state.get("in_progress") or attempt_state.get("completed")
+        status = "new"
+        if attempt_state.get("in_progress"):
+            status = "in_progress"
+        elif attempt_state.get("completed"):
+            status = "completed"
+        form_cards.append({
+            "id": str(form["id"]),
+            "test_id": str(form.get("test_id") or ""),
+            "source_form_id": str(form.get("source_form_id") or ""),
+            "title": str(form.get("title") or "Bài nghe"),
+            "purpose": str(form.get("form_purpose") or "practice"),
+            "replay_policy": str(form.get("replay_policy") or "allowed"),
+            "support_policy": str(form.get("support_policy") or "separate_mode"),
+            "scoring_policy": str(form.get("scoring_policy") or "report_only"),
+            "item_count": int(form.get("source_item_count") or 0),
+            "duration_seconds": int(form.get("full_audio_duration_seconds") or 0),
+            "checked_item_count": int((form.get("metadata") or {}).get("checked_item_count") or 0),
+            "self_review_item_count": int((form.get("metadata") or {}).get("self_review_item_count") or 0),
+            "status": status,
+            "attempt_id": str(attempt["id"]) if attempt else None,
+        })
+    return {**lesson, "forms": form_cards, "partial_data": partial}
+
+
+async def _change_listening_package_status(
+    package_id: str,
+    action: str,
+    body: ListeningPackageStatusRequest,
+    authorization: str | None,
+) -> dict:
+    actor = await require_admin(authorization)
+    from services.listening_package_import import (
+        PackageValidationError,
+        set_package_status,
+    )
+
+    try:
+        return set_package_status(
+            supabase_admin,
+            package_id=package_id,
+            manifest_sha256=body.manifest_sha256,
+            action=action,
+            actor=str(actor.get("id")) if isinstance(actor, dict) and actor.get("id") else None,
+            bucket_name=settings.LISTENING_AUDIO_BUCKET,
+        )
+    except PackageValidationError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except Exception as exc:
+        message = str(exc)
+        if "not_found" in message:
+            raise HTTPException(404, "Listening package not found") from exc
+        if "manifest_mismatch" in message:
+            raise HTTPException(409, "Package manifest does not match") from exc
+        logger.error("[listening-package] %s failed for %s: %s", action, package_id, exc)
+        raise HTTPException(503, "Không thể đổi trạng thái package; hãy thử lại.") from exc
+
+
+@admin_router.post(
+    "/packages/{package_id}/publish",
+    response_model=ListeningPackageStatusResponse,
+)
+async def publish_listening_package(
+    package_id: str,
+    body: ListeningPackageStatusRequest,
+    authorization: str | None = Header(default=None),
+):
+    return await _change_listening_package_status(package_id, "publish", body, authorization)
+
+
+@admin_router.post(
+    "/packages/{package_id}/archive",
+    response_model=ListeningPackageStatusResponse,
+)
+async def archive_listening_package(
+    package_id: str,
+    body: ListeningPackageStatusRequest,
+    authorization: str | None = Header(default=None),
+):
+    return await _change_listening_package_status(package_id, "archive", body, authorization)
+
+
+@user_router.get("/tests", response_model=ListeningTestListResponse)
 async def list_published_listening_tests(
     test_type: str | None = Query(default=None),
+    programme_id: str | None = Query(default=None),
     practice_group: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -4665,6 +5118,9 @@ async def list_published_listening_tests(
     # not None — `isinstance str` keeps that from tripping a false 422.
     if isinstance(test_type, str) and test_type not in ("mini", "full", "drill", "practice"):
         raise HTTPException(422, "test_type must be 'mini', 'full', 'drill' or 'practice'")
+    explicit_programme = programme_id if isinstance(programme_id, str) else None
+    if explicit_programme not in {None, "ielts", *_PROGRAMME_COPY}:
+        raise HTTPException(422, "programme_id is not supported")
 
     q = (
         supabase_admin.table("listening_tests")
@@ -4682,14 +5138,29 @@ async def list_published_listening_tests(
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
     )
-    if test_type in ("mini", "drill", "practice"):
-        q = q.eq("test_type", test_type)
+    if explicit_programme in _PROGRAMME_COPY:
+        q = q.eq("programme_id", explicit_programme).eq("scoring_policy", "report_only")
+    else:
+        # Omitted programme_id (and the legacy `ielts` value) keep the deployed
+        # scored-library behavior exactly as before.
+        q = q.eq("scoring_policy", "diagnostic")
+        if explicit_programme:
+            q = q.eq("programme_id", explicit_programme)
+
+    selected_type = test_type if isinstance(test_type, str) else None
+    if selected_type in ("mini", "drill", "practice"):
+        q = q.eq("test_type", selected_type)
+    elif explicit_programme in _PROGRAMME_COPY:
+        # Imported programme forms are practice units. This default applies
+        # only when the caller explicitly requests a programme, so the legacy
+        # omitted-test_type contract remains the Full Test list.
+        q = q.eq("test_type", "practice")
     else:
         q = q.eq("test_type", "full")
     # Practice is one library with three tabs; `group` narrows to a tab. Applied
     # in SQL so paging stays correct per tab (a Python filter over an already
     # paged result would shed rows and shorten pages).
-    if test_type == "practice" and isinstance(practice_group, str) and practice_group:
+    if selected_type == "practice" and isinstance(practice_group, str) and practice_group:
         q = q.eq("metadata->>practice_group", practice_group)
     res = q.execute()
     # Audio-readiness is already applied in SQL above; this repeat is a cheap
@@ -4746,6 +5217,15 @@ async def list_published_listening_tests(
             "trap":                 md.get("trap"),
             "level":                md.get("level"),
             "task":                 md.get("task"),
+            "programme_id":         r.get("programme_id") or "ielts",
+            "listening_lesson_id":  r.get("listening_lesson_id"),
+            "source_form_id":       r.get("source_form_id"),
+            "form_purpose":         r.get("form_purpose"),
+            "scoring_policy":       r.get("scoring_policy") or "diagnostic",
+            "replay_policy":        r.get("replay_policy"),
+            "support_policy":       r.get("support_policy"),
+            "claim_policy":         r.get("claim_policy"),
+            "source_item_count":    r.get("source_item_count"),
             "user_best_score":              user_best.get(r["id"]),
             "user_attempt_count":           user_count.get(r["id"], 0),
             "user_submitted_attempt_count": user_submitted_count.get(r["id"], 0),
@@ -4753,7 +5233,7 @@ async def list_published_listening_tests(
 
     return {
         "items":  out_items,
-        "total":  len(out_items),
+        "total":  res.count if res.count is not None else len(out_items),
         "limit":  limit,
         "offset": offset,
     }
@@ -4797,14 +5277,18 @@ def _assert_listening_exam_content_allowed(
         raise HTTPException(404, "Test bundle not found or not published")
 
 
-def _assemble_listening_player_payload(test: dict) -> dict:
+def _assemble_listening_player_payload(test: dict, *, include_audio: bool = True) -> dict:
     """Build the student-safe player contract for public and admin preview."""
     from services import listening_test_grader as grader
 
     test_id = str(test["id"])
-    audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
-    if not audio_url:
-        raise HTTPException(422, "Test chưa có audio sẵn sàng — vui lòng quay lại sau.")
+    audio_duration = test.get("full_audio_duration_seconds")
+    audio_url = None
+    audio_path = None
+    if include_audio:
+        audio_url, audio_path, audio_duration = _student_audio_url_for_test(test)
+        if not audio_url:
+            raise HTTPException(422, "Test chưa có audio sẵn sàng — vui lòng quay lại sau.")
 
     section_rows = (
         supabase_admin.table("listening_content")
@@ -4824,6 +5308,23 @@ def _assemble_listening_player_payload(test: dict) -> dict:
     ])
     for exercise in exercises:
         payload = exercise.get("payload") or {}
+        if payload.get("variant") == "programme_form_v1":
+            payload = dict(payload)
+            questions = []
+            for raw_question in payload.get("questions") or []:
+                question = dict(raw_question) if isinstance(raw_question, dict) else {}
+                storage_path = question.pop("visual_storage_path", None)
+                if storage_path:
+                    visual_url = _sign_programme_visual_url(storage_path)
+                    if not visual_url:
+                        raise HTTPException(
+                            503,
+                            "Không thể tải sơ đồ của bài nghe — vui lòng thử lại sau.",
+                        )
+                    question["visual_url"] = visual_url
+                questions.append(question)
+            payload["questions"] = questions
+            exercise["payload"] = payload
         is_plan = (
             payload.get("variant") == "mcq_letter_label"
             or payload.get("template_kind") == "plan_label"
@@ -4861,6 +5362,15 @@ def _assemble_listening_player_payload(test: dict) -> dict:
         "test_id": test.get("test_id"),
         "title": test.get("title"),
         "test_type": test.get("test_type"),
+        "programme_id": test.get("programme_id") or "ielts",
+        "listening_lesson_id": test.get("listening_lesson_id"),
+        "source_form_id": test.get("source_form_id"),
+        "form_purpose": test.get("form_purpose"),
+        "scoring_policy": test.get("scoring_policy") or "diagnostic",
+        "replay_policy": test.get("replay_policy"),
+        "support_policy": test.get("support_policy"),
+        "claim_policy": test.get("claim_policy"),
+        "source_item_count": test.get("source_item_count"),
         "themes": test.get("themes") or {},
         "audio_url": audio_url,
         "audio_storage_path": audio_path,
@@ -4886,18 +5396,20 @@ async def admin_listening_player_preview(
     return _assemble_listening_player_payload(rows[0])
 
 
-@user_router.get("/tests/{test_id}")
+@user_router.get("/tests/{test_id}", response_model=ListeningPlayerResponse)
 async def get_published_listening_test(
     test_id: uuid.UUID,
     class_item: str | None = None,
+    attempt_id: uuid.UUID | None = None,
     authorization: str | None = Header(default=None),
 ):
     """Fetch a published test bundle for the student player.
 
-    Includes a signed audio URL (2h TTL — covers test duration with
-    buffer), 4 section rows with narrator intros, and the test's
-    exercises **with answer keys stripped** (security: students must
-    never see the answer key on this endpoint).
+    Includes a signed audio URL (2h TTL — covers test duration with buffer),
+    section rows with narrator intros, and exercises **with answer keys
+    stripped**. A ``replay_policy=once`` form additionally requires its owned
+    active ``attempt_id``; after playback has started, the same safe bundle is
+    returned without another audio URL.
     """
     _user = await _require_auth(authorization)
     test_id = str(test_id)
@@ -4914,7 +5426,18 @@ async def get_published_listening_test(
         raise HTTPException(404, "Test bundle not found or not published")
     test = res.data[0]
     _assert_listening_exam_content_allowed(test, _user.get("id"), class_item)
-    return _assemble_listening_player_payload(test)
+    include_audio = True
+    if test.get("replay_policy") == "once":
+        if attempt_id is None:
+            raise HTTPException(409, "Bài nghe một lượt cần một attempt đang hoạt động.")
+        attempt = _fetch_attempt_or_404(str(attempt_id), _user["id"])
+        if str(attempt.get("test_id")) != test_id:
+            raise HTTPException(422, "Attempt không thuộc bài nghe này.")
+        if attempt.get("status") != "in_progress":
+            raise HTTPException(422, "Attempt không còn hoạt động.")
+        require_resume_active(attempt)
+        include_audio = not bool(attempt.get("playback_started_at"))
+    return _assemble_listening_player_payload(test, include_audio=include_audio)
 
 
 # ── Test-linked dictation (chép chính tả) ────────────────────────────
@@ -6158,6 +6681,7 @@ async def get_in_progress_listening_attempt(
     sitting_id: str | None = None,
     class_item: str | None = None,
     authorization: str | None = Header(default=None),
+    standalone: bool = False,
 ):
     """The caller's still-open attempt at this test, or null.
 
@@ -6173,18 +6697,21 @@ async def get_in_progress_listening_attempt(
     attempt open on a test later reused by a mock exam would have the embed
     auto-resume that practice attempt and attach_attempt bind it to the sealed
     sitting — pulling practice answers into a real exam and corrupting both.
-    Standalone practice keeps the unscoped lookup.
+    Legacy callers keep the unscoped class lookup. New free-practice runners
+    send `standalone=true`, which excludes both class and mock attempts.
 
     Deliberately a separate endpoint rather than a field on the shared test
     bundle: that bundle is served to several callers and is cacheable, while
     this is per-user and must never be cached.
     """
     user = await _require_auth(authorization)
+    if standalone and (class_item or sitting_id):
+        raise HTTPException(422, "standalone cannot be combined with class_item or sitting_id")
     query = (
         supabase_admin.table("listening_test_attempts")
         .select(
             "id, started_at, created_at, answers, renderer_affinity, "
-            "resume_expires_at, status"
+            "resume_expires_at, status, playback_started_at"
         )
         .eq("user_id", user["id"])
         .eq("test_id", test_id)
@@ -6200,7 +6727,9 @@ async def get_in_progress_listening_attempt(
     # ONE-WAY, like nothing else here: opening the test from the library
     # (no class_item) may still resume a LINKED homework attempt. The student is
     # finishing work they started, and the link they already earned stands.
-    if class_item:
+    if standalone:
+        query = query.is_("class_assignment_item_id", "null")
+    elif class_item:
         query = query.eq("class_assignment_item_id", class_item)
 
     if sitting_id:
@@ -6230,6 +6759,7 @@ async def get_in_progress_listening_attempt(
             ],
             "renderer_affinity": row.get("renderer_affinity"),
             "resume_expires_at": row.get("resume_expires_at"),
+            "playback_started_at": row.get("playback_started_at"),
         }
     }
 
@@ -6241,22 +6771,28 @@ async def start_listening_test_attempt(
     body: _ListeningAttemptStartRequest | None = None,
     class_item: str | None = None,
     authorization: str | None = Header(default=None),
+    standalone: bool = False,
 ):
-    """Open a new student attempt session. Marks any previously open
-    in-progress attempt for the same (user, test) as abandoned so the
-    1-active-attempt invariant holds.
+    """Open a student attempt session.
 
-    NOTE: this is the "start over" path and it is destructive by design. A
-    caller that wants to CONTINUE must first check
-    GET /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
+    Standalone report-only programme forms atomically resume-or-create their
+    canonical active attempt in Postgres. Other Listening surfaces retain the
+    explicit start-over contract: any previous open attempt for the same
+    (user, test) is abandoned before a replacement is created.
+
+    NOTE: outside the standalone report-only path this remains destructive by
+    design. A caller that wants to CONTINUE must first check GET
+    /tests/{test_id}/attempts/in-progress — see that endpoint's docstring.
     """
     user = await _require_auth(authorization)
+    if standalone and class_item:
+        raise HTTPException(422, "standalone cannot be combined with class_item")
 
     # Verify the test is published + has audio.
     test_res = (
         supabase_admin.table("listening_tests")
         .select("id,status,exam_only,is_public,public_practice_enabled,full_audio_storage_path,"
-                "assembled_audio_storage_path")
+                "assembled_audio_storage_path,scoring_policy")
         .eq("id", test_id)
         .limit(1)
         .execute()
@@ -6285,15 +6821,74 @@ async def start_listening_test_attempt(
             raise HTTPException(400, str(exc))
 
     admit_start()
+    affinity_aware = body is not None and body.renderer_affinity_protocol == "claim-v1"
+    if standalone and test_row.get("scoring_policy") == "report_only":
+        try:
+            acquired = supabase_admin.rpc(
+                "fn_acquire_listening_programme_attempt",
+                {
+                    "p_test_id": test_id,
+                    "p_user_id": user["id"],
+                    "p_renderer_affinity_protocol": (
+                        "claim-v1" if affinity_aware else "legacy"
+                    ),
+                },
+            ).execute()
+        except Exception as exc:
+            logger.error(
+                "[listening-programme-attempt] acquire failed test=%s user=%s: %s",
+                test_id,
+                user["id"],
+                exc,
+            )
+            raise HTTPException(
+                500, "Không thể mở lượt luyện nghe. Hãy thử lại."
+            ) from exc
+
+        rows = acquired.data or []
+        if len(rows) != 1:
+            raise HTTPException(500, "Không thể xác định lượt luyện nghe.")
+        acquired_row = rows[0]
+        created = acquired_row.get("created") is True
+        attempt_id = str(acquired_row.get("attempt_id") or "")
+        if not attempt_id:
+            raise HTTPException(500, "Lượt luyện nghe không có định danh hợp lệ.")
+        observation_row = {
+            "id": attempt_id,
+            "test_id": test_id,
+            "user_id": user["id"],
+            "status": acquired_row.get("attempt_status") or "in_progress",
+            "renderer_affinity": acquired_row.get("attempt_renderer_affinity"),
+        }
+        bind_owned_attempt(observation_row, started=created)
+        return {
+            "attempt_id": attempt_id,
+            "status": observation_row["status"],
+            "started_at": acquired_row.get("attempt_started_at"),
+            "resume_expires_at": acquired_row.get("attempt_resume_expires_at"),
+            "answers": acquired_row.get("attempt_answers") or [],
+            "renderer_affinity": acquired_row.get("attempt_renderer_affinity"),
+            "playback_started_at": acquired_row.get(
+                "attempt_playback_started_at"
+            ),
+            "acquired_existing": not created,
+        }
+
     # Abandon any open attempts for this (user, test).
-    abandoned_result = (
+    abandon_query = (
         supabase_admin.table("listening_test_attempts")
         .update({"status": "abandoned"})
         .eq("user_id", user["id"])
         .eq("test_id", test_id)
         .eq("status", "in_progress")
-        .execute()
     )
+    if standalone:
+        abandon_query = (
+            abandon_query
+            .is_("class_assignment_item_id", "null")
+            .is_("sitting_id", "null")
+        )
+    abandoned_result = abandon_query.execute()
     note_abandoned_exam_attempts(abandoned_result, test_id=test_id, user_id=user["id"])
 
     attempt_id = str(uuid.uuid4())
@@ -6305,10 +6900,10 @@ async def start_listening_test_attempt(
         "user_id": user["id"],
         "status":  "in_progress",
         "answers": [],
+        "scoring_policy": test_row.get("scoring_policy") or "diagnostic",
         "started_at": started_at,
         "resume_expires_at": expires_at,
     }
-    affinity_aware = body is not None and body.renderer_affinity_protocol == "claim-v1"
     if affinity_aware:
         payload["renderer_affinity"] = None
     # Class homework: stamp WHICH task this is being done for, so the ledger
@@ -6327,6 +6922,7 @@ async def start_listening_test_attempt(
         "started_at": started_at,
         "resume_expires_at": expires_at,
         "renderer_affinity": None if affinity_aware else "legacy",
+        "playback_started_at": None,
     }
 
 
@@ -6344,6 +6940,73 @@ def _fetch_attempt_or_404(attempt_id: str, user_id: str) -> dict:
     if row.get("user_id") != user_id:
         raise HTTPException(403, "Attempt belongs to another user")
     return row
+
+
+@user_router.post("/tests/attempts/{attempt_id}/playback-started")
+async def acknowledge_listening_attempt_playback_started(
+    attempt_id: uuid.UUID,
+    body: _ListeningAttemptPlaybackStartedRequest,
+    authorization: str | None = Header(default=None),
+):
+    """Atomically persist the single-play start for a report-only attempt.
+
+    The browser calls this only after ``HTMLMediaElement.play()`` resolves.
+    ``playback_claim_id`` makes a lost response safely retryable from the same
+    page, while a second browser/device receives ``accepted=false`` and must
+    stop its player. Once persisted, the player bundle no longer contains a
+    signed audio URL for this attempt.
+    """
+    user = await _require_auth(authorization)
+    attempt = _fetch_attempt_or_404(str(attempt_id), user["id"])
+    if attempt.get("status") != "in_progress":
+        raise HTTPException(422, "Attempt không còn hoạt động.")
+    require_resume_active(attempt)
+    test_rows = (
+        supabase_admin.table("listening_tests")
+        .select("id,replay_policy,scoring_policy")
+        .eq("id", attempt.get("test_id"))
+        .limit(1)
+        .execute().data or []
+    )
+    if not test_rows:
+        raise HTTPException(404, "Test bundle not found")
+    test = test_rows[0]
+    if test.get("replay_policy") != "once" or test.get("scoring_policy") != "report_only":
+        raise HTTPException(422, "Attempt này không dùng chính sách nghe một lượt.")
+
+    claim_id = str(body.playback_claim_id)
+    started_at = datetime.now(timezone.utc).isoformat()
+    claimed = (
+        supabase_admin.table("listening_test_attempts")
+        .update({
+            "playback_started_at": started_at,
+            "playback_claim_id": claim_id,
+        })
+        .eq("id", str(attempt_id))
+        .eq("user_id", user["id"])
+        .eq("status", "in_progress")
+        .is_("playback_started_at", "null")
+        .execute().data or []
+    )
+    if claimed:
+        return {
+            "attempt_id": str(attempt_id),
+            "accepted": True,
+            "playback_started_at": claimed[0].get("playback_started_at") or started_at,
+        }
+
+    canonical = _fetch_attempt_or_404(str(attempt_id), user["id"])
+    if canonical.get("status") != "in_progress":
+        raise HTTPException(422, "Attempt không còn hoạt động.")
+    require_resume_active(canonical)
+    canonical_started_at = canonical.get("playback_started_at")
+    if not canonical_started_at:
+        raise HTTPException(503, "Không thể xác nhận lượt nghe — hãy thử lại.")
+    return {
+        "attempt_id": str(attempt_id),
+        "accepted": canonical.get("playback_claim_id") == claim_id,
+        "playback_started_at": canonical_started_at,
+    }
 
 
 @user_router.post("/tests/attempts/{attempt_id}/renderer-affinity")
@@ -6444,7 +7107,8 @@ async def patch_listening_test_attempt_answer(
     # Left open, it is a way around the whole rule — answer wrong through
     # /check, PATCH the right answer, submit, score inflated. The Luyện nhanh
     # runner never calls this; refuse rather than quietly overwrite.
-    if _attempt_test_type(attempt) == "practice":
+    if ((attempt.get("scoring_policy") or "diagnostic") == "diagnostic"
+            and _attempt_test_type(attempt) == "practice"):
         raise HTTPException(
             422,
             "Luyện nhanh chấm từng câu theo lần trả lời đầu — dùng POST .../check.",
@@ -6541,13 +7205,14 @@ async def get_practice_audio_windows(
 
     res = (
         supabase_admin.table("listening_tests")
-        .select("id,test_type,status,metadata")
+        .select("id,test_type,status,scoring_policy,metadata")
         .eq("id", test_id).limit(1).execute()
     )
     if not res.data or res.data[0].get("status") != "published":
         raise HTTPException(404, "Test bundle not found or not published")
     test_row = res.data[0]
-    if test_row.get("test_type") != "practice":
+    if (test_row.get("test_type") != "practice"
+            or test_row.get("scoring_policy") != "diagnostic"):
         raise HTTPException(422, "Chỉ bài Luyện nhanh mới có cửa sổ audio theo câu.")
 
     windows: dict[str, dict] = {}
@@ -6619,6 +7284,11 @@ async def check_listening_practice_answer(
     if not test_res.data:
         raise HTTPException(404, "Test bundle not found")
     test_row = test_res.data[0]
+    if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
+        raise HTTPException(
+            422,
+            "Bài report-only lưu toàn bộ câu trả lời và tự đối chiếu sau khi nộp.",
+        )
     if test_row.get("test_type") != "practice":
         raise HTTPException(
             422,
@@ -6742,6 +7412,23 @@ async def submit_listening_test_attempt(
     attempt = _fetch_attempt_or_404(attempt_id, user["id"])
     bind_owned_attempt(attempt)
     if attempt.get("status") == "submitted":
+        if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
+            exercise_rows = _practice_exercise_payloads(attempt["test_id"])
+            report = grader.grade_report_only_attempt(
+                attempt.get("answers") or [], exercise_rows,
+            )
+            stored_summary = attempt.get("result_summary") or {}
+            stored_details = attempt.get("grading_details") or []
+            if stored_summary:
+                report.update(stored_summary)
+            if stored_details:
+                report["per_question"] = stored_details
+            return {
+                "attempt_id": attempt_id,
+                "scoring_policy": "report_only",
+                "status": "submitted",
+                **report,
+            }
         # Lost-ACK reconciliation for the 4-skill mock parent. Retrying a
         # committed sealed submit must return the same opaque receipt; normal
         # attempts keep the historical 422 and never expose a second result.
@@ -6779,6 +7466,45 @@ async def submit_listening_test_attempt(
         .in_("content_id", section_ids)
         .execute()
     )
+    if (attempt.get("scoring_policy") or "diagnostic") == "report_only":
+        report = grader.grade_report_only_attempt(
+            attempt.get("answers") or [], ex_res.data or [],
+        )
+        summary = {
+            key: report[key] for key in (
+                "checked_count", "correct_count", "unscored_count",
+                "blank_count", "technical_error_count", "completion_count",
+                "item_count",
+            )
+        }
+        now_iso = datetime.now(timezone.utc).isoformat()
+        finalized = (
+            supabase_admin.table("listening_test_attempts")
+            .update({
+                "status": "submitted",
+                "score": None,
+                "band_estimate": None,
+                "grading_details": report["per_question"],
+                "trap_analytics": {},
+                "result_summary": summary,
+                "submitted_at": now_iso,
+            })
+            .eq("id", attempt_id)
+            .eq("status", "in_progress")
+            .gt("resume_expires_at", now_iso)
+            .execute()
+        )
+        if not finalized.data:
+            fresh = _fetch_attempt_or_404(attempt_id, user["id"])
+            if fresh.get("status") == "in_progress":
+                require_resume_active(fresh)
+            raise HTTPException(409, "Attempt đã thay đổi; hãy tải lại trạng thái.")
+        return {
+            "attempt_id": attempt_id,
+            "scoring_policy": "report_only",
+            "status": "submitted",
+            **report,
+        }
     answer_key = grader.collect_answer_key(ex_res.data or [])
     from services import mock_correction_service
     answer_key = mock_correction_service.apply_scoring_overrides(
@@ -6874,6 +7600,8 @@ async def get_listening_test_attempt(
         "answers":         attempt.get("answers") or [],
         "grading_details": attempt.get("grading_details") or [],
         "trap_analytics":  attempt.get("trap_analytics") or {},
+        "scoring_policy":  attempt.get("scoring_policy") or "diagnostic",
+        "result_summary":  attempt.get("result_summary") or {},
         "started_at":      attempt.get("started_at"),
         "submitted_at":    attempt.get("submitted_at"),
     }
@@ -6917,11 +7645,19 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
         supabase_admin.table("listening_tests")
         .select("id,test_id,title,band_target,cue_points,metadata,test_type,"
                 "full_audio_storage_path,assembled_audio_storage_path,"
-                "full_audio_duration_seconds,themes")
+                "full_audio_duration_seconds,themes,programme_id,scoring_policy,"
+                "form_purpose,replay_policy,support_policy,claim_policy,"
+                "listening_lesson_id")
         .eq("id", test_id).limit(1).execute()
     )
     test_row = (test_res.data or [{}])[0]
     audio_url, _, audio_duration = _student_audio_url_for_test(test_row)
+    scoring_policy = attempt.get("scoring_policy") or test_row.get("scoring_policy") or "diagnostic"
+    if scoring_policy == "report_only" and not audio_url:
+        raise HTTPException(
+            503,
+            "Chưa tải được audio để tự đối chiếu. Hãy thử lại sau.",
+        )
     meta = test_row.get("metadata") or {}
 
     # Per-section transcripts (content rows).
@@ -6948,6 +7684,8 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
     anchors_by_q: dict[int, int] = {}
     prompt_by_q: dict[int, str] = {}
     type_by_q: dict[int, str] = {}
+    self_review_by_q: dict[int, dict] = {}
+    controlled_transcripts: dict[str, list] = {}
     if section_ids:
         ex_res = (
             supabase_admin.table("listening_exercises")
@@ -6961,11 +7699,16 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
                 windows_by_q[int(q)] = w
             for q, idx in (p.get("transcript_anchors") or {}).items():
                 anchors_by_q[int(q)] = idx
+            for q, value in (p.get("self_review") or {}).items():
+                self_review_by_q[int(q)] = value
+            for stimulus_id, value in (p.get("controlled_transcripts") or {}).items():
+                if isinstance(value, list):
+                    controlled_transcripts[str(stimulus_id)] = value
             variant = p.get("variant")
             for qq in (p.get("questions") or []):
                 if qq.get("q_num") is not None:
                     prompt_by_q[qq["q_num"]] = qq.get("prompt")
-                    type_by_q[qq["q_num"]] = variant
+                    type_by_q[qq["q_num"]] = qq.get("response_type") or variant
 
     # A mini test's audio is its SINGLE section premixed alone (the mp3 starts at
     # ~0), but the stored audio_window is full-test-ABSOLUTE (= section-relative +
@@ -6984,7 +7727,8 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
         win = _rebase_audio_window(windows_by_q.get(q), is_mini, sec_offsets)
         review.append({
             "q_num":         q,
-            "correct":       bool(g.get("correct")),
+            "state":         g.get("state"),
+            "correct":       g.get("correct"),
             "user_answer":   g.get("user_answer") or "",
             "expected":      g.get("expected") or "",
             "question_type": type_by_q.get(q),
@@ -6993,12 +7737,16 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
             "section":       (win or {}).get("section"),
             "transcript_anchor": anchors_by_q.get(q),   # paragraph index in the section's display transcript (v1.2)
             "solution":      solutions_by_q.get(q) or {},
+            "self_review":   self_review_by_q.get(q) or g.get("self_review") or {},
         })
 
-    from services import mock_correction_service
-    web_access = mock_correction_service.attach_web_explanations(
-        "listening", attempt, review, admin_preview=bool(attempt.get("_admin_preview"))
-    )
+    if scoring_policy == "report_only":
+        web_access = {"available": False, "reason": "report_only"}
+    else:
+        from services import mock_correction_service
+        web_access = mock_correction_service.attach_web_explanations(
+            "listening", attempt, review, admin_preview=bool(attempt.get("_admin_preview"))
+        )
 
     return {
         "attempt_id":      attempt_id,
@@ -7008,6 +7756,14 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
         "score":           attempt.get("score"),
         "max_score":       len(review),
         "band_estimate":   attempt.get("band_estimate"),
+        "scoring_policy":  scoring_policy,
+        "result_summary":  attempt.get("result_summary") or {},
+        "programme_id":    test_row.get("programme_id") or "ielts",
+        "listening_lesson_id": test_row.get("listening_lesson_id"),
+        "form_purpose":    test_row.get("form_purpose"),
+        "replay_policy":   test_row.get("replay_policy"),
+        "support_policy":  test_row.get("support_policy"),
+        "claim_policy":    test_row.get("claim_policy"),
         "trap_analytics":  attempt.get("trap_analytics") or {},
         "audio_url":       audio_url,
         "audio_duration":  audio_duration,
@@ -7016,10 +7772,14 @@ def _assemble_listening_review(attempt: dict, attempt_id) -> dict:
         "band_conversion": meta.get("band_conversion") or [],
         "sections":        sections,
         "review":          review,
+        "controlled_transcripts": controlled_transcripts,
         "web_explanation_access": web_access,
     }
 
-@user_router.get("/tests/attempts/{attempt_id}/review")
+@user_router.get(
+    "/tests/attempts/{attempt_id}/review",
+    response_model=ListeningAttemptReviewResponse,
+)
 async def get_listening_test_attempt_review(
     attempt_id: uuid.UUID,
     authorization: str | None = Header(default=None),

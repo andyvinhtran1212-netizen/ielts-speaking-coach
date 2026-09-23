@@ -5,13 +5,12 @@ export function ListeningLandingShell({ children }: { children: ReactNode }) {
     <div className="shell">
 
       {/* ── Header ────────────────────────────────────────────────── */}
-      <header className="vocab-header">
-        <p className="eyebrow">Listening</p>
-        <h1>Luyện nghe <span className="accent">IELTS</span></h1>
+      <header className="listening-header">
+        <p className="eyebrow">Listening practice</p>
+        <h1>Luyện nghe</h1>
         <p className="subtitle">
-          Làm đề đầy đủ, luyện 1 section, hoặc khoan sâu vào đúng dạng câu hỏi
-          bạn hay sai. Mỗi thẻ hiển thị số bài đang có — thẻ chưa có bài sẽ
-          không xuất hiện.
+          Tiếp tục bài đang làm, khám phá General Listening hoặc IELTS Listening,
+          rồi chọn đúng hình thức luyện phù hợp với thời gian của bạn.
         </p>
       </header>
 

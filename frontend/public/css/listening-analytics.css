@@ -84,3 +84,14 @@
   .range-tab { padding-inline: var(--av-space-2); }
   .day-labels div:nth-child(even) { visibility: hidden; }
 }
+/* LISTENING-0005 — keep report-only completion separate from diagnostic score. */
+.report-only-panel { margin-bottom: var(--av-space-6); }
+.report-only-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--av-space-3); }
+.report-only-grid > div { padding: var(--av-space-4); border: 1px solid var(--av-border-subtle); border-radius: var(--av-radius-lg); background: var(--av-surface-sunken); }
+.report-only-grid strong, .report-only-grid span { display: block; }
+.report-only-grid strong { color: var(--av-primary); font: var(--av-fw-bold) var(--av-fs-2xl) var(--av-font-mono); }
+.report-only-grid span { margin-top: var(--av-space-1); color: var(--av-text-muted); font-size: var(--av-fs-xs); }
+
+@media (max-width: 720px) {
+  .report-only-grid { grid-template-columns: 1fr; }
+}

@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-20 the highest is `294`, so the next new
-migration is `295`.
+sequence is dense. As of 2026-09-21 the highest is `295`, so the next new
+migration is `296`.
 
 ## Conventions
 
@@ -271,6 +271,9 @@ Migration 294 makes that lock-and-transaction boundary canonical for the
 existing admin quiz import route and adds the explicit
 `preserve|published|unpublished` publication contract without changing the
 new-bank default for ordinary quiz banks.
+Migration 295 adds immutable General/IELTS Listening content packages,
+report-only attempt truth, and service-role-only atomic import and publication
+contracts without changing existing diagnostic Listening rows.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

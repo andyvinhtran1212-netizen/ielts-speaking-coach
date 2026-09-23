@@ -12,6 +12,10 @@ const SHELL = read('app', '(authed-listening)', 'listening', 'page-shell.tsx');
 const BEHAVIOR = read(
   'app', '(authed-listening)', 'listening', 'listening-landing-behavior.tsx',
 );
+const PROGRAMME_LIBRARY = read(
+  'app', '(authed-listening)', 'listening', 'programme-library.tsx',
+);
+const LISTENING_CSS = read('public', 'css', 'listening.css');
 const HARD_NAV_GATE = read('tests', 'legacy-module-routes-need-hard-nav.test.mjs');
 const LEGACY = read('public', 'js', 'listening-landing.js');
 const PARITY_WORKFLOW = read('..', '.github', 'workflows', 'next-native-browser.yml');
@@ -35,7 +39,7 @@ describe('/listening — native React behavior', () => {
   test('fetches canonical overview and aborts stale account requests', () => {
     assert.match(BEHAVIOR, /whenGlobalReady\(/);
     assert.match(BEHAVIOR, /'\/api\/listening\/overview'/);
-    assert.match(BEHAVIOR, /window\.api\.getWith<unknown>/);
+    assert.match(BEHAVIOR, /window\.api\.getWith<ListeningOverviewWire>/);
     assert.match(BEHAVIOR, /signal: controller\.signal/);
     assert.match(BEHAVIOR, /disposed = true/);
     assert.match(BEHAVIOR, /controller\.abort\(\)/);
@@ -52,12 +56,17 @@ describe('/listening — native React behavior', () => {
     assert.doesNotMatch(BEHAVIOR, /\['mini_test'/);
   });
 
-  test('keeps count-driven cards and exact destinations', () => {
+  test('keeps the hub programme-first and moves exam shelves under IELTS', () => {
     for (const href of [
       '/listening/tests',
       '/listening/mini-test',
       '/listening/skills',
       '/listening/practice',
+    ]) {
+      assert.doesNotMatch(BEHAVIOR, new RegExp(`href=["']${href.replaceAll('/', '\\/')}["']`));
+      assert.match(PROGRAMME_LIBRARY, new RegExp(`href: ["']${href.replaceAll('/', '\\/')}["']`));
+    }
+    for (const href of [
       '/listening/browse',
       '/listening/analytics',
     ]) {
@@ -67,15 +76,16 @@ describe('/listening — native React behavior', () => {
     assert.match(BEHAVIOR, /\{count\} bài/);
     assert.match(BEHAVIOR, /ready\.content > 0 && ready\.modeLabels\.length > 0/);
     assert.match(BEHAVIOR, /ready\.modeLabels\.join\(' · '\)/);
+    assert.match(PROGRAMME_LIBRARY, /Điểm và band chỉ xuất hiện ở chế độ đủ điều kiện/);
+    assert.match(BEHAVIOR, /needsPermanentIeltsNavigation\(ready\.programmes\)/);
+    assert.match(BEHAVIOR, /Quick · Skills · Mini · Full Test/);
   });
 
   test('keeps truthful loading, empty and API-fallback surfaces', () => {
     assert.match(BEHAVIOR, /id="landing-loading" role="status"/);
     assert.match(BEHAVIOR, /Đang tải thư viện Listening…/);
-    assert.match(BEHAVIOR, /state\.status === 'ready' && examCount === 0/);
-    assert.match(BEHAVIOR, /Chưa có đề nào được xuất bản/);
-    assert.match(BEHAVIOR, /id="exam-empty" role="status"/);
-    assert.match(BEHAVIOR, /unverified=\{state\.status === 'error'\}/);
+    assert.match(BEHAVIOR, /ProgrammeFallbackLinks/);
+    assert.match(BEHAVIOR, /Số bài tạm thời chưa tải được/);
     assert.match(BEHAVIOR, /Không tải được số lượng bài\. Danh sách bên dưới vẫn mở được\./);
     assert.match(BEHAVIOR, /id="landing-error" role="alert"/);
     assert.doesNotMatch(BEHAVIOR, /caught instanceof Error[\s\S]*caught\.message|String\(caught\)/);
@@ -97,6 +107,12 @@ describe('/listening — native React behavior', () => {
   test('uses static SVG icons without a post-hydration lucide mutation', () => {
     assert.match(BEHAVIOR, /<svg/);
     assert.doesNotMatch(BEHAVIOR, /data-lucide|createIcons\(/);
+  });
+
+  test('uses Listening-owned presentation and canonical shell spacing', () => {
+    assert.doesNotMatch(PAGE + SHELL + BEHAVIOR, /className="vocab-(?:header|modes)"/);
+    assert.doesNotMatch(LISTENING_CSS, /^\.shell\s*\{/m);
+    assert.match(SHELL, /className="listening-header"/);
   });
 
   test('is no longer hard-navigation-only', () => {
