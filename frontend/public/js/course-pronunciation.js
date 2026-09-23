@@ -439,6 +439,8 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
         const requiresSentenceCompatibility = !!draftMigration();
         await migrateDraftCache();
         const latestUsesCurrentSentences = attemptUsesCurrentSentences(latest);
+        const latestIsIncompatible = requiresSentenceCompatibility && !!latest
+          && !latestUsesCurrentSentences;
         if (requiresSentenceCompatibility && latest?.status !== 'completed'
             && !latestUsesCurrentSentences) latest = null;
         const [cachedActive, cachedClientId] = await Promise.all([
@@ -458,7 +460,7 @@ export function createPronunciation({ api, userId, assignmentItemId = null,
             clientId = null;
           } else {
             // A newer local retry must win over an older completed result.
-            clientId = cachedClientId || uuid();
+            clientId = latestIsIncompatible ? uuid() : cachedClientId || uuid();
             await persistActiveAttempt();
             if (latest?.status === 'completed') latest = null;
           }

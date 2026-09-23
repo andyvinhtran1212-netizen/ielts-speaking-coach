@@ -240,7 +240,7 @@ test('a versioned sentence set removes V1 drafts once without deleting V2 drafts
 });
 
 
-test('a processing V1 snapshot cannot lend its client id to a V2 submission', async () => {
+test('V2 recordings keep their audio but not a processing V1 client id', async () => {
   browserShell();
   const versionedExercise = {
     ...exercise,
@@ -261,6 +261,10 @@ test('a processing V1 snapshot cannot lend its client id to a V2 submission', as
   const draftStore = memoryDraftStore([
     ['u1:bank-12:attempt:active', true],
     ['u1:bank-12:attempt:client-id', staleClientId],
+    ['u1:bank-12:attempt:migration:C1-B12-PRON-V2:explicit-v1-cleanup', true],
+    ...versionedExercise.sentences.map((sentence) => [
+      `u1:bank-12:${sentence.id}`, new Blob([sentence.id], { type: 'audio/webm' }),
+    ]),
   ]);
   let submittedClientId = null;
   const api = {
@@ -273,16 +277,11 @@ test('a processing V1 snapshot cannot lend its client id to a V2 submission', as
 
   const firstV2Page = createPronunciation({ api, userId: 'u1', draftStore });
   await firstV2Page.load('bank-12');
+  assert.match(firstV2Page.render(), /2<small>\/2 đã thu/);
   assert.equal(draftStore.values.get('u1:bank-12:attempt:client-id'), freshClientId);
-  for (const sentence of versionedExercise.sentences) {
-    await draftStore.put(`u1:bank-12:${sentence.id}`,
-      new Blob([sentence.id], { type: 'audio/webm' }));
-  }
-
-  const reloadedV2Page = createPronunciation({ api, userId: 'u1', draftStore });
-  await reloadedV2Page.load('bank-12');
-  assert.match(reloadedV2Page.render(), /2<small>\/2 đã thu/);
-  assert.equal(await reloadedV2Page.submit(), true);
+  versionedExercise.sentences.forEach((sentence) => assert.equal(
+    draftStore.values.has(`u1:bank-12:${sentence.id}`), true));
+  assert.equal(await firstV2Page.submit(), true);
   assert.equal(submittedClientId, freshClientId);
   assert.notEqual(submittedClientId, staleClientId);
 });
