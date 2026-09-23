@@ -1,6 +1,7 @@
 # Tasks
 
-- [ ] Resolve assisted-completion product decision and approve spec on `staging`.
+- [x] Resolve assisted-completion product decision in the 2026-09-23 task.
+- [ ] Land the approved spec on `staging` before implementation.
 - [ ] Audit existing player, report-only grader, answer RPC, and protected-field
   boundaries against FR-001–FR-009.
 - [ ] Add backward-compatible reveal ledger migration and disposable-PostgreSQL

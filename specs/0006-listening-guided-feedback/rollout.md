@@ -2,7 +2,7 @@
 
 ## Preconditions
 
-- Product owner resolves assisted-completion policy; spec is approved on base.
+- Product owner has resolved assisted-completion policy; approved spec is on base.
 - Separate player UI rollout is reviewed and reconciled without duplicate state.
 - Migration and code pass local affected suites and protected-field review.
 

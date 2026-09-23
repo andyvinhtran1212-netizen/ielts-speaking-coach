@@ -1,7 +1,7 @@
 ---
 id: LISTENING-0006
 title: Guided per-question Listening feedback
-status: draft
+status: approved
 risk: high
 owner: product
 ---
@@ -67,10 +67,9 @@ or misrepresent assisted completion as an independent result.
   comparison and final revised answer remain distinguishable in review.
 - **FR-006:** Assisted activity is displayed separately from independent
   report-only completion in history/analytics; no assisted result contributes
-  to diagnostic accuracy, band, CEFR, weakness, or mastery signals. Product
-  decision pending: whether it also satisfies the existing form-completion
-  milestone; this draft recommends recording completion but displaying its
-  assisted provenance and excluding it from independent-completion counts.
+  to diagnostic accuracy, band, CEFR, weakness, or mastery signals. It
+  satisfies the existing form-completion milestone, but carries visible
+  assisted provenance and is excluded from independent-completion counts.
 - **FR-007:** The player presents the learning sequence in place: save answer,
   reveal immediately, show first answer and reference, offer replay when
   allowed, and allow revision. Learners can continue across questions or work
@@ -113,5 +112,6 @@ or misrepresent assisted completion as an independent result.
   loop; failed save never yields a key.
 - Assisted provenance survives retries, duplicate requests, refresh, and
   submission; existing Quick Practice and exam flows pass regression checks.
-- Product review approves the assisted-completion rule before this spec is
-  marked approved and implementation begins.
+- Product approval of the assisted-completion rule is recorded in the
+  2026-09-23 task conversation; implementation still waits until this approved
+  spec is present on the `staging` base branch.
