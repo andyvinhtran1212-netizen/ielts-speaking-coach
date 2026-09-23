@@ -193,10 +193,8 @@ class ListeningGuidedFeedbackItem(BaseModel):
     required_facts: list[str] = Field(default_factory=list)
     optional_facts: list[str] = Field(default_factory=list)
     self_review_rationale: str = ""
-    scoring_rule: str = ""
     core_info: str = ""
     answer_sentence: str = ""
-    word_limit: str = ""
     audio_window: dict[str, float] | None = None
 
 

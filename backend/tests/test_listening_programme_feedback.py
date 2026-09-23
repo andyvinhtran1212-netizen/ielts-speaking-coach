@@ -34,7 +34,8 @@ ROWS = [{"payload": {
     "self_review": {
         "2": {"reference_answers": ["The train is late."],
               "required_facts": ["train", "late"],
-              "rationale": "Compare the two key facts."},
+              "rationale": "Compare the two key facts.",
+              "scoring_rule": "SECRET_TEACHER_RUBRIC"},
     },
     "audio_windows": {
         "1": {"start": 2, "end": 5},
@@ -63,6 +64,7 @@ def test_text_reveal_is_unscored_and_once_policy_hides_window():
     assert item["reference_answers"] == ["The train is late."]
     assert item["required_facts"] == ["train", "late"]
     assert item["audio_window"] is None
+    assert "SECRET_TEACHER_RUBRIC" not in str(item)
 
 
 def test_missing_key_or_self_review_fails_without_feedback():
@@ -162,3 +164,23 @@ def test_failed_answer_save_cannot_reveal_key(monkeypatch):
         ))
     assert error.value.status_code == 422
     assert "SECRET_THREE" not in str(error.value.detail)
+
+
+def test_guided_payload_lookup_excludes_unpublished_children(monkeypatch):
+    calls = []
+
+    class Query:
+        def __init__(self, table): self.table = table
+        def select(self, *_args): return self
+        def eq(self, name, value): calls.append((self.table, name, value)); return self
+        def in_(self, name, value): calls.append((self.table, name, value)); return self
+        def execute(self):
+            return SimpleNamespace(data=[{"id": "section-1"}] if self.table == "listening_content" else ROWS)
+
+    class Admin:
+        def table(self, name): return Query(name)
+
+    monkeypatch.setattr(listening_router, "supabase_admin", Admin())
+    assert listening_router._practice_exercise_payloads("test-id", published_only=True) == ROWS
+    assert ("listening_content", "status", "published") in calls
+    assert ("listening_exercises", "status", "published") in calls

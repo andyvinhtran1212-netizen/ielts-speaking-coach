@@ -7225,19 +7225,19 @@ def _attempt_test_type(attempt: dict) -> str:
     return kind
 
 
-def _practice_exercise_payloads(test_id: str) -> list[dict]:
+def _practice_exercise_payloads(test_id: str, *, published_only: bool = False) -> list[dict]:
     """Every exercise payload belonging to a test, via its section rows."""
-    sec_res = (
-        supabase_admin.table("listening_content")
-        .select("id").eq("test_id", test_id).execute()
-    )
+    sections = supabase_admin.table("listening_content").select("id").eq("test_id", test_id)
+    if published_only:
+        sections = sections.eq("status", "published")
+    sec_res = sections.execute()
     section_ids = [r["id"] for r in (sec_res.data or [])]
     if not section_ids:
         raise HTTPException(500, "Test bundle thiếu section rows.")
-    ex_res = (
-        supabase_admin.table("listening_exercises")
-        .select("payload").in_("content_id", section_ids).execute()
-    )
+    exercises = supabase_admin.table("listening_exercises").select("payload").in_("content_id", section_ids)
+    if published_only:
+        exercises = exercises.eq("status", "published")
+    ex_res = exercises.execute()
     return ex_res.data or []
 
 
@@ -7271,7 +7271,7 @@ def _programme_guided_context(attempt: dict) -> tuple[dict, list[dict]]:
     )
     if not package.data or package.data[0].get("status") != "published":
         raise HTTPException(422, "Nội dung bài luyện hiện không khả dụng.")
-    return test, _practice_exercise_payloads(attempt["test_id"])
+    return test, _practice_exercise_payloads(attempt["test_id"], published_only=True)
 
 
 def _programme_guided_item(

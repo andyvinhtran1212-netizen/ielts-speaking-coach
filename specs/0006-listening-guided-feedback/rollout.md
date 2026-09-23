@@ -9,9 +9,12 @@
 ## Staging
 
 1. Apply backward-compatible migration through the staging runner.
-2. Deploy backend; exercise owner/non-owner, save/reveal/revise/reload, mixed
-   forms, and replay-policy cases on the exact staging SHA.
-3. Enable player affordance only after endpoint health and OpenAPI checks.
+2. Deploy the consolidated backend/frontend SHA. The player only enables
+   per-question reveal when its guided-state read succeeds; an unavailable
+   endpoint leaves the existing answer-and-submit path usable.
+3. Exercise owner/non-owner, save/reveal/revise/reload, mixed forms, and
+   replay-policy cases on that exact staging SHA. Verify endpoint health and
+   OpenAPI before any production promotion.
 4. Run integrated CI and live Staging E2E on that SHA, including both themes.
 
 ## Production

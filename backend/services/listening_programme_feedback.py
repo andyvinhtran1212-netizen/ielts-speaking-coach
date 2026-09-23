@@ -53,13 +53,11 @@ def build_guided_feedback(
         raw_optional_facts if isinstance(raw_optional_facts, list) else []
     ) if isinstance(value, str) and value.strip()]
     rationale = str(self_review.get("rationale") or "").strip()
-    scoring_rule = str(self_review.get("scoring_rule") or "").strip()
     core_info = str(self_review.get("core_info") or "").strip()
     answer_sentence = str(self_review.get("answer_sentence") or "").strip()
-    word_limit = str(self_review.get("word_limit") or "").strip()
     if item["state"] == "unscored" and not (
-        references or facts or optional_facts or rationale or scoring_rule
-        or core_info or answer_sentence or word_limit
+        references or facts or optional_facts or rationale
+        or core_info or answer_sentence
     ):
         raise FeedbackUnavailable("self-review reference is unavailable")
 
@@ -82,9 +80,7 @@ def build_guided_feedback(
         "required_facts": facts,
         "optional_facts": optional_facts,
         "self_review_rationale": rationale,
-        "scoring_rule": scoring_rule,
         "core_info": core_info,
         "answer_sentence": answer_sentence,
-        "word_limit": word_limit,
         "audio_window": window,
     }

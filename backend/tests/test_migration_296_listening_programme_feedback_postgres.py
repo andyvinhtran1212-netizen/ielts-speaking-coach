@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from uuid import uuid4
 
@@ -138,3 +139,55 @@ def test_reveal_rejects_other_owner_invalid_question_and_closed_attempt(reveal_p
          f"WHERE id='{attempt}'")
     with pytest.raises(RuntimeError, match="listening_programme_feedback_attempt_closed"):
         _record(reveal_probe)
+
+
+def test_concurrent_reveals_create_one_immutable_first_answer(reveal_probe):
+    schema = reveal_probe["schema"]
+    attempt = str(uuid4())
+    psql(f"INSERT INTO {schema}.listening_test_attempts VALUES ("
+         f"'{attempt}','{reveal_probe['test']}','{reveal_probe['owner']}',"
+         "'in_progress','report_only',NULL,NULL,NOW() + INTERVAL '1 hour',"
+         "'[{\"q_num\":1,\"user_answer\":\"first\"}]'::JSONB)")
+    probe = {**reveal_probe, "attempt": attempt}
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: json.loads(_record(probe)), range(2)))
+    assert [row["was_created"] for row in results].count(True) == 1
+    assert {row["first_answer"] for row in results} == {"first"}
+    assert len({row["revealed_at"] for row in results}) == 1
+    assert psql(f"SELECT count(*) FROM {schema}.listening_programme_feedback_reveals "
+                f"WHERE attempt_id='{attempt}'") == "1"
+
+
+def test_reveal_fails_closed_for_assigned_expired_unpublished_and_unsaved_attempts(reveal_probe):
+    schema = reveal_probe["schema"]
+    unpublished_package, unpublished_test, archived_package, archived_test = [
+        str(uuid4()) for _ in range(4)
+    ]
+    psql(f"INSERT INTO {schema}.listening_content_packages VALUES "
+         f"('{unpublished_package}','published'),('{archived_package}','archived')")
+    psql(f"INSERT INTO {schema}.listening_tests VALUES "
+         f"('{unpublished_test}','{unpublished_package}','report_only',"
+         "'general-listening-practice','draft',TRUE),"
+         f"('{archived_test}','{archived_package}','report_only',"
+         "'general-listening-practice','published',TRUE)")
+    cases = [
+        ("class-assigned", reveal_probe["test"], str(uuid4()), "NULL", "1 hour", "A", "not_available"),
+        ("sitting", reveal_probe["test"], "NULL", str(uuid4()), "1 hour", "A", "not_available"),
+        ("expired", reveal_probe["test"], "NULL", "NULL", "-1 hour", "A", "attempt_closed"),
+        ("draft-test", unpublished_test, "NULL", "NULL", "1 hour", "A", "not_available"),
+        ("archived-package", archived_test, "NULL", "NULL", "1 hour", "A", "not_available"),
+        ("blank-answer", reveal_probe["test"], "NULL", "NULL", "1 hour", "", "answer_required"),
+    ]
+    for _name, test, class_id, sitting_id, ttl, answer, error in cases:
+        attempt = str(uuid4())
+        class_sql = f"'{class_id}'" if class_id != "NULL" else "NULL"
+        sitting_sql = f"'{sitting_id}'" if sitting_id != "NULL" else "NULL"
+        psql(f"INSERT INTO {schema}.listening_test_attempts VALUES ("
+             f"'{attempt}','{test}','{reveal_probe['owner']}',"
+             f"'in_progress','report_only',{class_sql},{sitting_sql},"
+             f"NOW() + INTERVAL '{ttl}',"
+             f"'[{{\"q_num\":1,\"user_answer\":\"{answer}\"}}]'::JSONB)")
+        with pytest.raises(RuntimeError, match=f"listening_programme_feedback_{error}"):
+            _record({**reveal_probe, "attempt": attempt})
+        assert psql(f"SELECT count(*) FROM {schema}.listening_programme_feedback_reveals "
+                    f"WHERE attempt_id='{attempt}'") == "0"

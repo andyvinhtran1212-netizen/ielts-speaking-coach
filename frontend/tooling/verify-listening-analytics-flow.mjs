@@ -32,8 +32,10 @@ const validPayload = {
     { id: 'recent-two', type: 'drill', title: '', created_at: '2026-07-13T10:00:00Z', accuracy: null, status: 'abandoned' },
     { id: 'recent-three', type: 'full', title: '', created_at: '2026-07-12T10:00:00Z', accuracy: null, status: 'in_progress' },
     { id: 'recent-four', type: 'practice', title: '', created_at: '2026-07-11T10:00:00Z', accuracy: 1, status: 'submitted' },
+    { id: 'recent-five', type: 'programme', scoring_policy: 'report_only', assisted: true, title: 'Guided form', created_at: '2026-07-10T10:00:00Z', accuracy: null, status: 'submitted' },
   ],
   weakest_mode: 'drill',
+  report_only: { attempts_count: 2, completed_count: 2, independent_completed_count: 1, assisted_completed_count: 1, review_needed_count: 3 },
 };
 const results = [];
 const check = (name, ok, detail = '') => {
@@ -98,8 +100,11 @@ check('biểu đồ giữ đủ 14 ngày và metadata điểm',
     && (await page.locator('#day-chart .day-bar').last().getAttribute('title'))?.includes('TB 75%'));
 const recentScores = await page.locator('#recent-list .recent-score').allInnerTexts();
 check('recent phân biệt điểm, bỏ dở, đang làm và perfect',
-  recentScores.join(',') === '80%,bỏ dở,đang làm,100%'
+  recentScores.join(',') === '80%,bỏ dở,đang làm,100%,đã hoàn thành · có hỗ trợ'
     && await page.locator('#recent-list .recent-score.is-perfect').count() === 1);
+check('report-only tách hoàn thành độc lập và có hỗ trợ',
+  (await page.locator('.report-only-grid').innerText()).includes('Hoàn thành độc lập')
+    && (await page.locator('.report-only-grid').innerText()).includes('Hoàn thành có hỗ trợ'));
 check('authored title được React escape',
   (await page.locator('#recent-list .recent-mode').first().innerText()) === 'Lesson <script>'
     && await page.locator('#recent-list script').count() === 0);

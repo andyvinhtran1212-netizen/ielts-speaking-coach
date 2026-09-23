@@ -36,6 +36,7 @@ interface Programme {
   lessonCount: number;
   formCount: number;
   completedCount: number;
+  independentCompletedCount: number;
   inProgressCount: number;
 }
 
@@ -46,6 +47,7 @@ interface ResumeCard {
   programmeId: string;
   answeredCount: number;
   itemCount: number;
+  assisted: boolean;
   resumeExpiresAt: string;
   href: string;
 }
@@ -57,6 +59,7 @@ interface RecentActivity {
   checkedCount: number;
   correctCount: number;
   unscoredCount: number;
+  assisted: boolean;
   href: string;
 }
 
@@ -110,6 +113,7 @@ function normalizeOverview(payload: unknown): Overview {
         lessonCount: strictPositiveCount(row.lesson_count),
         formCount: strictPositiveCount(row.form_count),
         completedCount: strictPositiveCount(row.completed_form_count),
+        independentCompletedCount: strictPositiveCount(row.independent_completed_form_count),
         inProgressCount: strictPositiveCount(row.in_progress_form_count),
       };
     }).filter((row) => row.id && row.formCount > 0),
@@ -120,6 +124,7 @@ function normalizeOverview(payload: unknown): Overview {
       programmeId: String(resume.programme_id || ''),
       answeredCount: strictPositiveCount(resume.answered_count),
       itemCount: strictPositiveCount(resume.item_count),
+      assisted: resume.assisted === true,
       resumeExpiresAt: safeDateTime(resume.resume_expires_at),
       href: String(resume.href || ''),
     } : null,
@@ -132,6 +137,7 @@ function normalizeOverview(payload: unknown): Overview {
         checkedCount: strictPositiveCount(row.checked_count),
         correctCount: strictPositiveCount(row.correct_count),
         unscoredCount: strictPositiveCount(row.unscored_count),
+        assisted: row.assisted === true,
         href: String(row.href || ''),
       };
     }).filter((row) => row.attemptId && row.href).slice(0, 3),
@@ -190,7 +196,7 @@ function ProgrammeCard({ programme }: { programme: Programme }) {
         <span style={{ width: `${progress}%` }} />
       </div>
       <div className="listening-programme-card__foot">
-        <span>{programme.completedCount} đã xong{programme.inProgressCount ? ` · ${programme.inProgressCount} đang làm` : ''}</span>
+        <span>{programme.completedCount} đã xong · {programme.independentCompletedCount} độc lập{programme.inProgressCount ? ` · ${programme.inProgressCount} đang làm` : ''}</span>
         <strong>Khám phá →</strong>
       </div>
     </a>
@@ -232,7 +238,7 @@ function ResumePanel({ resume }: { resume: ResumeCard }) {
       <div>
         <p className="listening-kicker">Tiếp tục từ lần trước</p>
         <h2 id="listening-resume-title">{resume.title}</h2>
-        <p>{resume.answeredCount}/{resume.itemCount} câu đã lưu · {progress}%{resume.resumeExpiresAt ? ` · tiếp tục trước ${new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }).format(new Date(resume.resumeExpiresAt))}` : ''}</p>
+        <p>{resume.answeredCount}/{resume.itemCount} câu đã lưu · {progress}%{resume.assisted ? ' · lượt học có hỗ trợ' : ''}{resume.resumeExpiresAt ? ` · tiếp tục trước ${new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }).format(new Date(resume.resumeExpiresAt))}` : ''}</p>
       </div>
       <a href={resume.href}>Tiếp tục luyện <span aria-hidden="true">→</span></a>
     </section>
@@ -272,7 +278,7 @@ function RecentList({ items }: { items: RecentActivity[] }) {
       <div className="listening-recent__list">
         {items.map((item) => (
           <a href={item.href} key={item.attemptId}>
-            <span><strong>{item.title}</strong><small>Đã hoàn thành</small></span>
+            <span><strong>{item.title}</strong><small>{item.assisted ? 'Đã hoàn thành · có hỗ trợ' : 'Đã hoàn thành · độc lập'}</small></span>
             <span className="listening-recent__result">
               {item.checkedCount > 0 ? `${item.correctCount}/${item.checkedCount} câu tự động kiểm tra` : `${item.unscoredCount} câu tự đối chiếu`}
             </span>

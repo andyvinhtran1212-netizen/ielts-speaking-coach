@@ -15,6 +15,7 @@ interface Lesson {
   sequence: number;
   formCount: number;
   completed: number;
+  independentCompleted: number;
   inProgress: number;
 }
 interface IeltsModeCounts { practice: number; drill: number; mini: number; full: number }
@@ -80,6 +81,7 @@ export function ListeningProgrammeLibrary({ programmeId, title, description, sho
           sequence: Number(row.sequence_num || 0),
           formCount: Number(row.form_count || 0),
           completed: Number(row.completed_form_count || 0),
+          independentCompleted: Number(row.independent_completed_form_count || 0),
           inProgress: Number(row.in_progress_form_count || 0),
         };
       }).filter((lesson) => lesson.id && lesson.formCount > 0);
@@ -130,7 +132,7 @@ export function ListeningProgrammeLibrary({ programmeId, title, description, sho
             <h2>{lesson.title}</h2>
             <p>{lesson.instructions || lesson.outcomes[0] || 'Luyện nghe theo nội dung và mục tiêu của bài.'}</p>
             <div className="listening-programme-card__progress" role="progressbar" aria-label={`Tiến độ ${lesson.title}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><span style={{ width: `${percent}%` }} /></div>
-            <footer><span>{lesson.completed}/{lesson.formCount} bài nghe</span><strong>Mở bài →</strong></footer>
+            <footer><span>{lesson.completed}/{lesson.formCount} bài nghe · {lesson.independentCompleted} độc lập</span><strong>Mở bài →</strong></footer>
           </a>;
         })}
       </div> : null}

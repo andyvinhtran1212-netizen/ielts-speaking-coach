@@ -15846,11 +15846,6 @@ export interface components {
              */
             self_review_rationale: string;
             /**
-             * Scoring Rule
-             * @default
-             */
-            scoring_rule: string;
-            /**
              * Core Info
              * @default
              */
@@ -15860,11 +15855,6 @@ export interface components {
              * @default
              */
             answer_sentence: string;
-            /**
-             * Word Limit
-             * @default
-             */
-            word_limit: string;
             /** Audio Window */
             audio_window?: {
                 [key: string]: number;

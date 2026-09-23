@@ -35,3 +35,11 @@ test('switching to a later clip removes the earlier stop boundary', () => {
   assert.equal(audio.pauses, 1);
   assert.equal(audio.listenerCount(), 0);
 });
+
+test('audio rejection is returned as a retryable failure without a stale clip listener', async () => {
+  const audio = fakeAudio();
+  audio.play = () => Promise.reject(new Error('autoplay blocked'));
+  const controller = createProgrammeReplayController(() => audio);
+  assert.equal(await controller.replay({ start: 2, end: 8 }), false);
+  assert.equal(audio.listenerCount(), 0);
+});

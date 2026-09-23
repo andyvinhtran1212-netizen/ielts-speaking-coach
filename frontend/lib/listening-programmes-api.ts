@@ -9,3 +9,5 @@ export type ListeningProgrammePlayerWire =
   ApiGetJson<'/api/listening/tests/{test_id}'>;
 export type ListeningProgrammeReviewWire =
   ApiGetJson<'/api/listening/tests/attempts/{attempt_id}/review'>;
+export type ListeningGuidedStateWire =
+  ApiGetJson<'/api/listening/tests/attempts/{attempt_id}/guided-state'>;
