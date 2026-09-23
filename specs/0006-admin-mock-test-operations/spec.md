@@ -56,10 +56,10 @@ not reliably describe the canonical dataset.
 ## Requirements
 
 - **FR-001:** Mock Test management opens on the canonical exam list; exam creation and the Reading/Listening/Writing content bank are explicit separate workspaces, and embedded management removes duplicated global hero and lifecycle content.
-- **FR-002:** The content-bank API and UI provide bounded search, attention/status metadata filters, limit/offset pagination, and an exact canonical total when every requested source succeeds; a partial source read carries an explicit incomplete-total signal and the UI never labels its surviving subtotal as canonical. Only the requested page is enriched and rendered, repeated row actions have contextual accessible names, and level edits require explicit save or cancel with canonical readback.
+- **FR-002:** The content-bank API and UI provide bounded search, defined dataset-wide attention filters, limit/offset pagination, and an exact canonical total when every requested source succeeds; every filter predicate is applied before counting and offsetting. A partial source read carries an explicit incomplete-total signal and the UI never labels its surviving subtotal as canonical. Only the requested page is enriched and rendered, repeated row actions have contextual accessible names, and level edits require explicit save or cancel with canonical readback.
 - **FR-003:** Exam creation retains its existing payload contract while its large content selectors support keyboard search, selected-item visibility, and a clear no-result state.
 - **FR-004:** Live defaults to an actually open exam or a purposeful no-open-room action, Review defaults to a completed/actionable exam, explicit valid deep links remain honored, and the Writing workspace does not display an exam rail that does not scope its data.
-- **FR-005:** A new additive Mock Writing page endpoint applies student query, backend status, cohort, Mock scope, and overdue filters in PostgreSQL before limit/offset pagination, returns an exact total, and fetches and enriches only the page IDs; the existing array endpoint remains unchanged, and a new-frontend/old-backend compatibility fallback is visibly incomplete rather than presented as canonical truth.
+- **FR-005:** A new additive Mock Writing page endpoint applies student query, backend status, cohort, Mock scope, and overdue filters in PostgreSQL before limit/offset pagination, returns an exact total, and fetches and enriches only the page IDs; the existing array endpoint remains unchanged. A new-frontend/old-backend compatibility fallback applies unsupported active query and overdue predicates locally to the bounded legacy snapshot and is visibly incomplete rather than presented as canonical truth.
 - **FR-006:** Writing queue query context is preserved through status, grading, save-and-return, browser navigation, and automatic page correction; grading starts from an exact canonical status read and refreshes the active filtered page until a processing row leaves that status.
 - **FR-007:** Touched Mock Test surfaces expose truthful loading, empty, partial/error/retry, stale-readback, and permission states, localize canonical enums with a visible unknown fallback, work at 390/768/1440 widths in both themes, retain visible keyboard focus and 44px targets, and respect reduced motion.
 
@@ -78,7 +78,8 @@ not reliably describe the canonical dataset.
 - **Given** at least 500 mixed content records
 - **When** the operator searches, applies an attention filter, and changes page
 - **Then** the API total covers the complete matching dataset while the browser
-  mounts only the selected 25/50-row page and a reload returns the same results.
+  mounts only the selected 25/50-row page and a reload returns the same results;
+  a matching record beyond page 1 changes both the total and returned page.
 
 ### Task-aware workspaces
 
@@ -111,7 +112,8 @@ not reliably describe the canonical dataset.
 - **Then** the old exam-content and Writing array endpoints still work, while
   the new frontend falls back to visibly incomplete legacy results until the
   non-colliding paginated endpoints are available; neither order renders an
-  invalid response as an empty catalog or queue.
+  invalid response as an empty catalog or queue, and active Writing `q` plus
+  overdue filters never show a nonmatching fallback row.
 
 ### Writing round trip
 

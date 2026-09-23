@@ -22,18 +22,33 @@
   must label it as incomplete. When the page route is absent, the new frontend
   may fetch the legacy full response, apply the supported filters and paging
   locally, and label that compatibility result incomplete.
+- Accepted `attention` values and dataset-wide predicates are fixed: `all` adds
+  no predicate; `no-level` means blank `course_level`; `draft` means canonical
+  status `draft`; `unassigned` means the content ID is absent from every Mock
+  exam reference; and `action` excludes archived rows then matches any
+  non-Writing unpublished/not-publication-ready row, blank course level, or
+  content ID with no cohort association. Base-column predicates plus lightweight
+  cohort/Mock-reference membership sets are computed before count and offset.
+  Page-only cohort display, explanation readiness, and Mock-reference detail
+  enrichment run afterward and never determine an attention total.
 - Preserve `/admin/writing/essays` as the existing array contract. Add
   `/admin/writing/essay-queue` as a separate, non-colliding paginated envelope
-  with bounded
-  `q`, exact `total`, and existing status, cohort, overdue, Mock, limit, and
-  offset semantics. The old frontend continues using the array endpoint. The
+  with bounded `q`, exact `total`, and existing status, cohort, overdue, Mock,
+  limit, and offset semantics. The old frontend continues using the array endpoint. The
   new frontend uses the page endpoint and, only when that route returns 404
   during deployment skew, falls back to the array endpoint with an explicit
-  `total_complete=false` compatibility warning and no exact-count claim.
+  `total_complete=false` compatibility warning and no exact-count claim. The
+  fallback asks the legacy route for its bounded maximum snapshot, retains its
+  server-side status/cohort/Mock scope, applies unsupported active `q` and
+  overdue predicates locally before local offset/limit, and never shows a row
+  that contradicts those active filters.
 - Add an idempotent migration defining a `SECURITY DEFINER`, backend-only
   Writing queue page routine. It applies all filters before deterministic
   pagination and returns ordered IDs plus exact count. Revoke public, anon, and
-  authenticated execution; grant only `service_role`.
+  authenticated execution; grant only `service_role`. Pin
+  `search_path = pg_catalog, public` and schema-qualify every relation plus
+  callable built-in so the function-owner context cannot resolve a shadow
+  object.
 - Treat `writing_essays`, assignments, canonical student/cohort membership, and
   persisted grading status as truth. Do not infer missing exam identity.
 - Keep the currently deployed backend compatible with the additive routine and
@@ -80,11 +95,14 @@
 
 ## Verification strategy
 
-- Backend tests cover request validation, exact totals, ordering, filtering,
-  canonical student/cohort resolution, bounded enrichment, and migration ACL.
+- Backend tests cover request validation, exact totals, ordering, every
+  dataset-wide attention predicate, matching records beyond page 1, canonical
+  student/cohort resolution, bounded enrichment, migration ACL, fixed
+  `search_path`, and schema qualification.
 - Frontend contracts cover workspace separation, query serialization, task
   defaults, enum fallback, accessible controls, no-result/error states,
-  partial-source totals, and both independent deployment orders.
+  partial-source totals, locally filtered `q`/overdue fallback, and both
+  independent deployment orders.
 - Fixture-backed browser journeys cover Manage/Create/Content, Live, Review,
   Writing page 2 grading, polling, save-return, reload, and 390px layout.
 - Run the affected backend suite, full frontend contract suite, strict

@@ -11,14 +11,20 @@
   cover old frontend/new backend and new frontend/old backend fallback behavior.
 - Staging and production service roles exist; the routine is not executable by
   public, anon, or authenticated roles.
+- The `SECURITY DEFINER` routine has fixed `pg_catalog, public` search path and
+  schema-qualified relations/built-ins; Security Advisor reports no mutable
+  search-path finding.
 
 ## Staging
 
 - Dry-run and then apply migrations with the advisory-locked repository runner.
 - Re-run the runner to prove ledger/idempotent behavior; inspect routine owner,
-  ACL, index, exact filtered total, ordering, and a zero-result query.
+  ACL, `pg_proc.proconfig`, schema-qualified body, index, exact filtered total,
+  ordering, and a zero-result query.
 - Verify a forced content-source failure marks its subtotal incomplete, and a
   forced page-route 404 activates the visible legacy compatibility warning.
+  With Writing `q` and overdue active together, every fallback row must satisfy
+  both predicates while the total remains explicitly incomplete.
 - Merge the implementation PR to `staging`, record its exact SHA, require
   integrated CI and live Staging E2E on that SHA, then exercise Manage/Create/
   Content, Live empty/open, Review, and Writing page-2 save-return journeys.

@@ -19,12 +19,15 @@
 - Backward compatibility: pending tests that old exam-content and Writing array
   consumers work against the new backend, and both new page consumers turn an
   old-backend 404 into visibly incomplete locally filtered compatibility
-  results. Create, mutation, grading, and release payloads remain unchanged.
+  results. The Writing case must activate both `q` and overdue and prove every
+  rendered fallback row matches both. Create, mutation, grading, and release
+  payloads remain unchanged.
 
 ## Data evidence
 
 - Migration/schema query: pending staging application, second idempotent runner
-  pass, routine owner/ACL inspection, and representative exact-total query.
+  pass, routine owner/ACL inspection, `pg_proc.proconfig` fixed-search-path
+  assertion, schema-qualified SQL audit, and representative exact-total query.
 - Immediate state versus full reload: pending content level save/cancel,
   queue/status/grade navigation, and canonical grading readback journeys.
 
