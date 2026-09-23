@@ -20,8 +20,8 @@ and must not be "filled in" by tooling:
 ## Finding the next number
 
 Take the max numeric prefix across `*.sql` and add 1 — do **not** assume the
-sequence is dense. As of 2026-09-23 the highest is `297`, so the next new
-migration is `298`.
+sequence is dense. As of 2026-09-23 the highest is `298`, so the next new
+migration is `299`.
 
 ## Conventions
 
@@ -148,7 +148,7 @@ additive or idempotent so a hosted database that already has some durable
 effects outside the ledger converges safely and records the unambiguous new
 prefixes.
 
-## Forward scope 230–297
+## Forward scope 230–298
 
 - 230 versions writing drafts/submissions, reading/listening results and
   pronunciation grading by the canonical full-course attempt. Existing rows
@@ -277,6 +277,8 @@ contracts without changing existing diagnostic Listening rows.
 Migration 296 adds backend-only bounded Writing queue pagination with exact
 filtered totals. Migration 297 adds backend-only Review eligibility based on
 persisted sitting/review work, including open retakes and archived exams.
+Migration 298 adds service-role-only, database-bounded catalog pagination and
+distinct course-level suggestions for the admin content library.
 
 Apply any genuinely pending active file only through the advisory-locked
 forward runner. Do not run a data-deleting reset or use `--baseline` to silence

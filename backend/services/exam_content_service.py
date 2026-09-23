@@ -403,6 +403,12 @@ def list_exam_content(kind: Optional[str] = None,
         raise ValueError("offset không được âm.")
     needle = (q or "").strip().casefold()
 
+    if limit is not None:
+        return _list_exam_content_db_page(
+            kinds, course_level, cohort_id, exam_only, is_public,
+            (q or "").strip(), attention_key, int(limit), int(offset),
+        )
+
     candidates: list[dict] = []
     failed: list[str] = []
     for k in kinds:
@@ -535,6 +541,117 @@ def list_exam_content(kind: Optional[str] = None,
         row["kind"], (row["code"] or row["title"] or "").lower(), str(row["id"]),
     ))
     return {"items": out, "failed_kinds": failed, "total": total}
+
+
+def _list_exam_content_db_page(
+    kinds: list[str], course_level: Optional[str], cohort_id: Optional[str],
+    exam_only: Optional[bool], is_public: Optional[bool], query: str,
+    attention: str, limit: int, offset: int,
+) -> dict:
+    """Count/filter in SQL, then fetch and enrich only page IDs per source.
+
+    Kinds already sort alphabetically, so each exact per-kind count gives the
+    next kind's local offset without loading a full source snapshot in Python.
+    A failed kind contributes neither rows nor a falsely canonical count.
+    """
+    items: list[dict] = []
+    failed: list[str] = []
+    total = 0
+    remaining = limit
+    for kind in sorted(kinds):
+        table, code_col = _KINDS[kind]
+        local_offset = max(0, offset - total)
+        try:
+            receipt = supabase_admin.rpc("fn_admin_exam_content_page_ids", {
+                "p_kind": kind,
+                "p_course_level": course_level,
+                "p_cohort_id": cohort_id,
+                "p_exam_only": exam_only,
+                "p_is_public": is_public,
+                "p_query": query or None,
+                "p_attention": attention,
+                "p_limit": remaining,
+                "p_offset": local_offset,
+            }).execute().data
+            if isinstance(receipt, list) and len(receipt) == 1:
+                receipt = receipt[0]
+            if isinstance(receipt, dict) and set(receipt) == {"fn_admin_exam_content_page_ids"}:
+                receipt = receipt["fn_admin_exam_content_page_ids"]
+            if not isinstance(receipt, dict):
+                raise ValueError("content page receipt unavailable")
+            ids, count = receipt.get("ids"), receipt.get("total")
+            if (not isinstance(ids, list) or isinstance(count, bool)
+                    or not isinstance(count, int) or count < 0
+                    or len(ids) > remaining or len(set(ids)) != len(ids)
+                    or any(not isinstance(value, str) or not value for value in ids)):
+                raise ValueError("content page receipt malformed")
+
+            page: list[dict] = []
+            if ids:
+                cols = "id,title,course_level,exam_only"
+                cols += ",is_public" if kind != "writing" else ""
+                cols += f",{code_col}" if code_col else ""
+                cols += ",status" if kind != "writing" else ",is_active"
+                if kind != "writing":
+                    cols += ",public_practice_enabled,web_explanation_mode"
+                if kind == "reading":
+                    cols += ",test_type,passage_count,total_questions"
+                if kind == "listening":
+                    cols += ",audio_assembly_mode,full_audio_storage_path,assembled_audio_storage_path"
+                rows = supabase_admin.table(table).select(cols).in_("id", ids).execute().data or []
+                by_id = {str(row["id"]): row for row in rows if isinstance(row, dict) and row.get("id")}
+                if len(by_id) != len(ids) or any(value not in by_id for value in ids):
+                    raise ValueError("content page changed during read")
+                cohort_map = cohorts_for(kind, ids)
+                explanation_map = explanation_readiness_for(kind, ids)
+                mock_refs = _mock_refs_for(kind, ids)
+                for content_id in ids:
+                    row = by_id[content_id]
+                    ready, reason = publication_readiness(kind, row)
+                    page.append({
+                        "kind": kind, "id": row["id"],
+                        "code": row.get(code_col) if code_col else None,
+                        "title": row.get("title"),
+                        "status": row.get("status") or ("published" if row.get("is_active") else "archived"),
+                        "exam_only": bool(row.get("exam_only")),
+                        "is_public": (bool(row.get("is_public")) if "is_public" in row
+                                      else not bool(row.get("exam_only"))),
+                        "public_practice_enabled": bool(row.get("public_practice_enabled")),
+                        "web_explanation_mode": row.get("web_explanation_mode"),
+                        "course_level": row.get("course_level"),
+                        "cohort_ids": cohort_map.get(content_id, []),
+                        "mock_exams": mock_refs.get(content_id, []),
+                        "publish_ready": ready,
+                        "readiness_reason": reason,
+                        **explanation_map.get(content_id, {}),
+                    })
+            items.extend(page)
+            total += count
+            remaining -= len(page)
+        except Exception:  # noqa: BLE001
+            logger.exception("[exam-content] bounded page failed for %s", kind)
+            failed.append(kind)
+    return {"items": items, "total": total, "failed_kinds": failed}
+
+
+def known_course_levels_bounded_with_failures() -> tuple[list[str], list[str]]:
+    """Distinct level values are computed per source in SQL, never transported row by row."""
+    seen: set[str] = set()
+    failed: list[str] = []
+    for kind in _KINDS:
+        try:
+            receipt = supabase_admin.rpc("fn_admin_exam_content_levels", {
+                "p_kind": kind,
+            }).execute().data
+            if isinstance(receipt, dict) and set(receipt) == {"fn_admin_exam_content_levels"}:
+                receipt = receipt["fn_admin_exam_content_levels"]
+            if not isinstance(receipt, list) or any(not isinstance(value, str) for value in receipt):
+                raise ValueError("content level receipt malformed")
+            seen.update(value.strip() for value in receipt if value.strip())
+        except Exception:  # noqa: BLE001
+            logger.exception("[exam-content] bounded level scan failed for %s", kind)
+            failed.append(kind)
+    return sorted(seen), failed
 
 
 def known_course_levels_with_failures() -> tuple[list[str], list[str]]:

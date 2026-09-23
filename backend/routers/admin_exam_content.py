@@ -140,7 +140,7 @@ async def list_exam_content_page(
             kind, course_level, cohort_id, exam_only, is_public,
             q=q, attention=attention, limit=limit, offset=offset,
         )
-        levels, failed_level_kinds = svc.known_course_levels_with_failures()
+        levels, failed_level_kinds = svc.known_course_levels_bounded_with_failures()
         return {
             **res,
             "total_complete": not bool(res["failed_kinds"]),

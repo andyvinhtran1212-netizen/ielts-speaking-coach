@@ -18,6 +18,7 @@ let contentPublicPracticeEnabled = false;
 let contentWebExplanationMode = 'disabled';
 let levelCatalogFailed = false;
 let failPicker = false;
+let failContentPage = false;
 let exams = [
   { id: 'source-1', code: 'SOURCE-1', title: 'Đề gốc lớp C1', status: 'published', exam_mode: 'sequential', is_open: false, active_section: 'not_started', cohort_id: 'class-1', listening_test_id: 'lis-1', reading_test_id: 'read-1', writing_task1_prompt_id: 'w1', writing_task2_prompt_id: 'w2' },
   { id: 'draft-1', code: 'DRAFT-1', title: 'Đề nháp', status: 'draft', exam_mode: 'sequential', is_open: false, active_section: 'not_started', cohort_id: 'class-1', listening_test_id: 'lis-1', reading_test_id: 'read-1' },
@@ -108,6 +109,10 @@ await page.route('**/*', async (route) => {
     return json({ assigned: ['student-1'], skipped: [], locked: [], refresh_failed: [] });
   }
   if (path === '/admin/exam-content/page') {
+    if (parsed.searchParams.get('kind') === 'listening') {
+      if (failContentPage) return json({ detail: 'content page unavailable' }, 503);
+      return json({ items: [{ id: 'listening-uuid', kind: 'listening', code: 'LIS-PAPER', title: 'Listening paper', status: 'published', course_level: 'C2', cohort_ids: [], exam_only: true, is_public: false, public_practice_enabled: false, web_explanation_mode: 'disabled', web_explanation_ready: false, web_explanation_state: 'none', web_explanation_count: 0, web_explanation_ready_count: 0, publish_ready: true, readiness_reason: null, mock_exams: [] }], total: 1, total_complete: true, levels: ['C1', 'C2'], levels_complete: true, failed_level_kinds: [], failed_kinds: [] });
+    }
     const primary = { id: 'reading-uuid', kind: 'reading', code: 'READ-PAPER', title: 'Reading paper', status: 'published', course_level: contentCourseLevel, cohort_ids: contentCohortIds, exam_only: true, is_public: contentIsPublic, public_practice_enabled: contentPublicPracticeEnabled, web_explanation_mode: contentWebExplanationMode, web_explanation_ready: false, web_explanation_state: 'blocked', web_explanation_count: 40, web_explanation_ready_count: 0, publish_ready: true, readiness_reason: null, mock_exams: [{ id: 'source-1', code: 'SOURCE-1', title: 'Đề gốc lớp C1', status: 'published' }] };
     if (parsed.searchParams.get('attention') === 'no-level') {
       const fillers = Array.from({ length: 25 }, (_, index) => ({ ...primary, id: `missing-${index + 1}`, code: `MISSING-${String(index + 1).padStart(2, '0')}`, title: `Đề thiếu cấp ${index + 1}`, course_level: '', mock_exams: [] }));
@@ -304,6 +309,17 @@ const partialLevelsRead = page.waitForResponse((response) => new URL(response.ur
 await page.getByRole('button', { name: 'Tải lại' }).click();
 await partialLevelsRead;
 check('level catalog lỗi được báo riêng, tổng nội dung vẫn chính xác', await page.getByText(/Danh sách cấp khóa có thể chưa đầy đủ: Listening/).count() === 1 && await page.getByText('Hiển thị 1–1 / 1 đề').count() === 1);
+
+failContentPage = true;
+await page.getByRole('button', { name: 'Sửa cấp khóa READ-PAPER' }).click();
+await page.getByRole('dialog').waitFor();
+await page.getByLabel('Kỹ năng').selectOption('listening');
+await page.getByText('content page unavailable').waitFor();
+check('lỗi khi đổi bộ lọc ẩn snapshot cũ và toàn bộ thao tác của đề sai phạm vi', await page.getByText('READ-PAPER', { exact: true }).count() === 0 && await page.locator('.mex-row-menu').count() === 0 && await page.getByRole('dialog').count() === 0);
+failContentPage = false;
+await page.getByRole('button', { name: 'Tải lại' }).click();
+await page.getByText('LIS-PAPER', { exact: true }).waitFor();
+check('thử lại bộ lọc giữ đúng nội dung mới', await page.getByText('READ-PAPER', { exact: true }).count() === 0);
 
 await page.setViewportSize({ width: 768, height: 900 });
 check('tablet kho đề không tràn viewport', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));

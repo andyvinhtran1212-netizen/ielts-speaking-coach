@@ -29,13 +29,14 @@ export function ExamContentLibrary({ accountId, cohorts }: Props) {
   const [attention, setAttention] = useState('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const [rows, setRows] = useState<ContentRow[]>([]);
-  const [total, setTotal] = useState(0);
-  const [totalComplete, setTotalComplete] = useState(false);
-  const [levels, setLevels] = useState<string[]>([]);
-  const [levelsComplete, setLevelsComplete] = useState(false);
-  const [failedLevelKinds, setFailedLevelKinds] = useState<string[]>([]);
-  const [failedKinds, setFailedKinds] = useState<string[]>([]);
+  const [storedRows, setRows] = useState<ContentRow[]>([]);
+  const [storedTotal, setTotal] = useState(0);
+  const [storedTotalComplete, setTotalComplete] = useState(false);
+  const [storedLevels, setLevels] = useState<string[]>([]);
+  const [storedLevelsComplete, setLevelsComplete] = useState(false);
+  const [storedFailedLevelKinds, setFailedLevelKinds] = useState<string[]>([]);
+  const [storedFailedKinds, setFailedKinds] = useState<string[]>([]);
+  const [snapshotKey, setSnapshotKey] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState('');
@@ -54,11 +55,21 @@ export function ExamContentLibrary({ accountId, cohorts }: Props) {
   const requestRef = useRef(0);
   const accountRef = useRef(accountId);
   accountRef.current = accountId;
+  const viewKey = JSON.stringify([accountId, kind, levelTab, cohortFilter, visibility, deferredQuery, attention, page, pageSize]);
+  const hasSnapshot = snapshotKey === viewKey;
+  const rows = hasSnapshot ? storedRows : [];
+  const total = hasSnapshot ? storedTotal : 0;
+  const totalComplete = hasSnapshot && storedTotalComplete;
+  const levels = hasSnapshot ? storedLevels : [];
+  const levelsComplete = hasSnapshot && storedLevelsComplete;
+  const failedLevelKinds = hasSnapshot ? storedFailedLevelKinds : [];
+  const failedKinds = hasSnapshot ? storedFailedKinds : [];
 
   const load = useCallback(async () => {
     const request = ++requestRef.current;
     const account = accountId;
     setLoading(true);
+    setError(null);
     try {
       const query = new URLSearchParams();
       if (kind) query.set('kind', kind);
@@ -79,6 +90,7 @@ export function ExamContentLibrary({ accountId, cohorts }: Props) {
       setLevelsComplete(normalized.levelsComplete);
       setFailedLevelKinds(normalized.failedLevelKinds);
       setFailedKinds(normalized.failedKinds);
+      setSnapshotKey(viewKey);
       setError(null);
       return true;
     } catch (caught) {
@@ -87,9 +99,17 @@ export function ExamContentLibrary({ accountId, cohorts }: Props) {
     } finally {
       if (request === requestRef.current && accountRef.current === account) setLoading(false);
     }
-  }, [accountId, attention, cohortFilter, deferredQuery, kind, levelTab, page, pageSize, visibility]);
+  }, [accountId, attention, cohortFilter, deferredQuery, kind, levelTab, page, pageSize, viewKey, visibility]);
 
   useEffect(() => { void load(); return () => { requestRef.current += 1; }; }, [load]);
+
+  useEffect(() => {
+    setVisibilityEditor(null);
+    setCohortEditor(null);
+    setAssignmentEditor(null);
+    setStatusEditor(null);
+    setLevelEditor(null);
+  }, [viewKey]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDeferredQuery(query.trim().slice(0, 100)), 250);
@@ -257,7 +277,7 @@ export function ExamContentLibrary({ accountId, cohorts }: Props) {
         {tabLevels.map((level) => <button type="button" key={level || '__empty__'} className={levelTab === level ? 'is-active' : ''} onClick={() => setLevelTab(level)}>{level || 'Chưa đặt'}</button>)}
       </div>
       <div className="mex-table-wrap">
-        {loading && !rows.length ? <p role="status">Đang tải kho đề…</p> : !visible.length ? <p>{totalComplete ? 'Không có đề khớp bộ lọc.' : 'Chưa thấy đề trong phần dữ liệu đã đọc. Giữ nguyên trang và thử tải lại.'}</p> : <table className="mex-table"><thead><tr><th>Kỹ năng</th><th>Mã / tiêu đề</th><th>Sẵn sàng</th><th>Hiển thị web</th><th>Mock test</th><th>Cấp khóa</th><th>Lớp</th><th>Thao tác</th></tr></thead><tbody>{pageRows.map((row) => {
+        {loading && !hasSnapshot ? <p role="status">Đang tải kho đề…</p> : !visible.length ? <p>{totalComplete ? 'Không có đề khớp bộ lọc.' : 'Chưa có snapshot cho bộ lọc này. Giữ nguyên bộ lọc và thử tải lại.'}</p> : <table className="mex-table"><thead><tr><th>Kỹ năng</th><th>Mã / tiêu đề</th><th>Sẵn sàng</th><th>Hiển thị web</th><th>Mock test</th><th>Cấp khóa</th><th>Lớp</th><th>Thao tác</th></tr></thead><tbody>{pageRows.map((row) => {
           const prefix = `${row.kind}:${row.id}`;
           const assignBlocked = row.status !== 'published' || !row.publishReady;
           const assignReason = row.status !== 'published' ? 'Publish đề trước khi giao lớp.' : row.readinessReason;
