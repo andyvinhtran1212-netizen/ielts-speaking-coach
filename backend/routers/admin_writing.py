@@ -22,7 +22,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from database import supabase_admin
-from models.admin_writing_queue import AdminWritingQueueRowOut
+from models.admin_writing_queue import AdminWritingQueuePageOut, AdminWritingQueueRowOut
 from models.writing_feedback import WritingFeedback
 from routers.admin import require_admin
 from services import essay_service, instructor_workflow
@@ -382,6 +382,34 @@ async def list_essays(
         student_id=str(student_id) if student_id else None,
         cohort_id=str(cohort_id) if cohort_id else None,
         mock=mock,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get("/essay-queue", response_model=AdminWritingQueuePageOut)
+async def list_essay_queue(
+    status: Optional[str]      = Query(default=None, max_length=32),
+    cohort_id: Optional[UUID]  = Query(default=None),
+    mock: Optional[bool]       = Query(default=None),
+    q: Optional[str]           = Query(default=None, max_length=100),
+    overdue: bool              = Query(default=False),
+    limit: int                 = Query(default=25, ge=1, le=100),
+    offset: int                = Query(default=0, ge=0),
+    authorization: str | None  = Header(None),
+):
+    """Paginated operational queue with server-side student search.
+
+    Kept separate from the legacy list response so existing API consumers keep
+    their array contract while the admin queue gets a truthful total.
+    """
+    await require_admin(authorization)
+    return essay_service.list_essays_page(
+        status=status,
+        cohort_id=str(cohort_id) if cohort_id else None,
+        mock=mock,
+        query=q,
+        overdue=overdue,
         limit=limit,
         offset=offset,
     )

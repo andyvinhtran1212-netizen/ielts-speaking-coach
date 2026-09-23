@@ -9,7 +9,7 @@ Admin-only throughout — nothing here is ever student-facing.
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -41,7 +41,56 @@ class StatusBody(BaseModel):
     status: str = Field(min_length=1, max_length=20)
 
 
-@router.get("")
+ExamContentKind = Literal["reading", "listening", "writing"]
+ExamContentStatus = Literal["draft", "published", "archived"]
+
+
+class ExamContentMockReference(BaseModel):
+    id: str
+    code: str | None
+    title: str | None
+    status: ExamContentStatus | None
+
+
+class ExamContentItem(BaseModel):
+    """Canonical cross-library row returned to the admin catalog."""
+
+    kind: ExamContentKind
+    id: str
+    code: str | None
+    title: str | None
+    status: ExamContentStatus
+    exam_only: bool
+    is_public: bool
+    public_practice_enabled: bool
+    web_explanation_mode: str | None
+    course_level: str | None
+    cohort_ids: list[str]
+    mock_exams: list[ExamContentMockReference]
+    publish_ready: bool
+    readiness_reason: str | None
+    web_explanation_count: int | None = Field(default=None, ge=0)
+    web_explanation_ready_count: int | None = Field(default=None, ge=0)
+    web_explanation_ready: bool | None = None
+    web_explanation_state: Literal[
+        "none", "incomplete", "blocked", "ready", "unknown"
+    ] | None = None
+
+
+class ExamContentListResponse(BaseModel):
+    items: list[ExamContentItem]
+    total: int = Field(ge=0)
+    failed_kinds: list[ExamContentKind]
+    levels: list[str]
+
+
+class ExamContentPageResponse(ExamContentListResponse):
+    total_complete: bool
+    levels_complete: bool
+    failed_level_kinds: list[ExamContentKind]
+
+
+@router.get("", response_model=ExamContentListResponse)
 async def list_exam_content(
     kind: Optional[str] = Query(default=None),
     course_level: Optional[str] = Query(default=None),
@@ -55,15 +104,51 @@ async def list_exam_content(
     try:
         res = svc.list_exam_content(
             kind, course_level, cohort_id, exam_only, is_public,
+            q=None, attention=None, limit=None, offset=0,
         )
         return {
             "items":  res["items"],
+            "total": res["total"],
             # Named so the screen can say "Listening không tải được" instead of
             # rendering an empty library as if it were genuinely empty.
             "failed_kinds": res["failed_kinds"],
             "levels": svc.known_course_levels(),
         }
     except svc.UnknownKindError as e:
+        raise HTTPException(422, str(e))
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
+@router.get("/page", response_model=ExamContentPageResponse)
+async def list_exam_content_page(
+    kind: Optional[str] = Query(default=None),
+    course_level: Optional[str] = Query(default=None),
+    cohort_id: Optional[str] = Query(default=None),
+    exam_only: Optional[bool] = Query(default=None),
+    is_public: Optional[bool] = Query(default=None),
+    q: Optional[str] = Query(default=None, max_length=100),
+    attention: Optional[str] = Query(default=None),
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    authorization: str | None = Header(default=None),
+):
+    """Bounded catalog page. Legacy list callers retain the full response."""
+    await require_admin(authorization)
+    try:
+        res = svc.list_exam_content(
+            kind, course_level, cohort_id, exam_only, is_public,
+            q=q, attention=attention, limit=limit, offset=offset,
+        )
+        levels, failed_level_kinds = svc.known_course_levels_bounded_with_failures()
+        return {
+            **res,
+            "total_complete": not bool(res["failed_kinds"]),
+            "levels": levels,
+            "levels_complete": not bool(failed_level_kinds),
+            "failed_level_kinds": failed_level_kinds,
+        }
+    except (svc.UnknownKindError, ValueError) as e:
         raise HTTPException(422, str(e))
 
 

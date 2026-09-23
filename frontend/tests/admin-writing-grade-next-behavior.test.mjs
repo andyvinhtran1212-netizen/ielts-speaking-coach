@@ -104,6 +104,14 @@ describe('/admin/writing/grade — state + persistence contract', () => {
     assert.match(BEHAVIOR, /\/admin\/instructor\/reviews\/\$\{encodeURIComponent\(review\.id\)\}\/release/);
     assert.match(BEHAVIOR, /if \(!await saveAll\(\)\) return/);
     assert.match(BEHAVIOR, /queue\?\.nextId/);
+    assert.match(BEHAVIOR, /queue_status/);
+    assert.match(BEHAVIOR, /queueContext\.queueStatus/);
+    assert.match(BEHAVIOR, /queueContext\.cohortId/);
+    assert.match(BEHAVIOR, /queueContext\.overdue/);
+    assert.match(BEHAVIOR, /queueContext\.query/);
+    assert.match(BEHAVIOR, /params\?\.get\('q'\)/);
+    assert.match(BEHAVIOR, /<ErrorState message=\{view\.message\} returnHref=\{withEmbed\('\/admin\/writing\/queue'\)\}/);
+    assert.ok(BEHAVIOR.indexOf('const queueContext') < BEHAVIOR.indexOf("view.phase === 'error'"));
     assert.match(BEHAVIOR, /instructor-context-warning/);
     assert.match(BEHAVIOR, /Không tải được trạng thái instructor/);
     assert.match(BEHAVIOR, /Lỗi deliver: \$\{messageOf\(caught\)\}/);

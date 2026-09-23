@@ -5,7 +5,7 @@
 - Approved spec is merged to `staging` before any implementation commit in the
   release branch.
 - Affected local backend, contract, browser, TypeScript, and build suites pass.
-- Migrations 296 and 297 remain additive and compatible with currently deployed code.
+- Migrations 297–299 remain additive and compatible with currently deployed code.
 - The legacy exam-content and Writing array routes stay unchanged; new page
   routes do not collide with parameterized legacy paths. Deployment-order tests
   cover old frontend/new backend and new frontend/old backend fallback behavior.
@@ -17,7 +17,7 @@
 
 ## Staging
 
-- Dry-run and then apply migrations 296 and 297 with the advisory-locked repository runner.
+- Dry-run and then apply migrations 297–299 with the advisory-locked repository runner.
 - Re-run the runner to prove ledger/idempotent behavior; inspect both routines'
   owners, ACLs, `pg_proc.proconfig`, schema-qualified bodies and indexes. Check
   Writing exact total/order/zero-result and Review eligibility against direct
@@ -50,7 +50,7 @@
 ## Production
 
 - Confirm `staging` has not moved since the green exact-SHA evidence.
-- Dry-run and apply both migrations 296 and 297 with `ALLOW_PROD=1` through the
+- Dry-run and apply migrations 297–299 with `ALLOW_PROD=1` through the
   advisory-locked runner before dependent code promotion. Verify the retake
   eligibility routine's owner, service-role-only ACL, fixed search path, and
   representative actionable/archived-actionable/released-only results in production.
