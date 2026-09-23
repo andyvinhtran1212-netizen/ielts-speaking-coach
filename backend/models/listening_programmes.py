@@ -14,6 +14,7 @@ class ListeningProgrammeCard(BaseModel):
     lesson_count: int = 0
     form_count: int = 0
     completed_form_count: int = 0
+    independent_completed_form_count: int = 0
     in_progress_form_count: int = 0
 
 
@@ -25,6 +26,7 @@ class ListeningResumeCard(BaseModel):
     lesson_id: str
     answered_count: int = 0
     item_count: int = 0
+    assisted: bool = False
     resume_expires_at: str | None = None
     href: str
 
@@ -39,6 +41,7 @@ class ListeningRecentActivity(BaseModel):
     checked_count: int = 0
     correct_count: int = 0
     unscored_count: int = 0
+    assisted: bool = False
     href: str
 
 
@@ -62,6 +65,7 @@ class ListeningLessonCard(BaseModel):
     sequence_num: int
     form_count: int = 0
     completed_form_count: int = 0
+    independent_completed_form_count: int = 0
     in_progress_form_count: int = 0
 
 
@@ -88,6 +92,7 @@ class ListeningFormCard(BaseModel):
     checked_item_count: int = 0
     self_review_item_count: int = 0
     status: str = "new"
+    assisted: bool = False
     attempt_id: str | None = None
 
 
@@ -176,6 +181,31 @@ class ListeningReportOnlyResult(BaseModel):
     review: dict[str, Any] = Field(default_factory=dict)
 
 
+class ListeningGuidedFeedbackItem(BaseModel):
+    q_num: int
+    first_answer: str
+    revealed_at: str
+    state: str
+    correct: bool | None = None
+    expected: list[str] = Field(default_factory=list)
+    rationale: str = ""
+    reference_answers: list[str] = Field(default_factory=list)
+    required_facts: list[str] = Field(default_factory=list)
+    optional_facts: list[str] = Field(default_factory=list)
+    self_review_rationale: str = ""
+    scoring_rule: str = ""
+    core_info: str = ""
+    answer_sentence: str = ""
+    word_limit: str = ""
+    audio_window: dict[str, float] | None = None
+
+
+class ListeningGuidedStateResponse(BaseModel):
+    attempt_id: str
+    assisted: bool
+    items: list[ListeningGuidedFeedbackItem] = Field(default_factory=list)
+
+
 class ListeningReviewItem(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -191,6 +221,7 @@ class ListeningReviewItem(BaseModel):
     transcript_anchor: int | None = None
     solution: dict[str, Any] = Field(default_factory=dict)
     self_review: dict[str, Any] = Field(default_factory=dict)
+    first_answer: str | None = None
 
 
 class ListeningAttemptReviewResponse(BaseModel):
@@ -211,6 +242,7 @@ class ListeningAttemptReviewResponse(BaseModel):
     max_score: int = 0
     band_estimate: float | None = None
     scoring_policy: str = "diagnostic"
+    assisted: bool = False
     result_summary: dict[str, Any] = Field(default_factory=dict)
     programme_id: str = "ielts"
     listening_lesson_id: str | None = None

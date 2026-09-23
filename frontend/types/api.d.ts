@@ -7658,6 +7658,46 @@ export interface paths {
         patch: operations["patch_listening_test_attempt_answer_api_listening_tests_attempts__attempt_id__answers_patch"];
         trace?: never;
     };
+    "/api/listening/tests/attempts/{attempt_id}/guided-state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Listening Programme Guided State
+         * @description Resume only the questions whose keys this learner already revealed.
+         */
+        get: operations["get_listening_programme_guided_state_api_listening_tests_attempts__attempt_id__guided_state_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/listening/tests/attempts/{attempt_id}/questions/{q_num}/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reveal Listening Programme Question
+         * @description Atomically snapshot a saved first answer, then reveal that question.
+         */
+        post: operations["reveal_listening_programme_question_api_listening_tests_attempts__attempt_id__questions__q_num__reveal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/listening/tests/{test_id}/practice-windows": {
         parameters: {
             query?: never;
@@ -15571,6 +15611,11 @@ export interface components {
              * @default diagnostic
              */
             scoring_policy: string;
+            /**
+             * Assisted
+             * @default false
+             */
+            assisted: boolean;
             /** Result Summary */
             result_summary?: {
                 [key: string]: unknown;
@@ -15762,8 +15807,77 @@ export interface components {
              * @default new
              */
             status: string;
+            /**
+             * Assisted
+             * @default false
+             */
+            assisted: boolean;
             /** Attempt Id */
             attempt_id?: string | null;
+        };
+        /** ListeningGuidedFeedbackItem */
+        ListeningGuidedFeedbackItem: {
+            /** Q Num */
+            q_num: number;
+            /** First Answer */
+            first_answer: string;
+            /** Revealed At */
+            revealed_at: string;
+            /** State */
+            state: string;
+            /** Correct */
+            correct?: boolean | null;
+            /** Expected */
+            expected?: string[];
+            /**
+             * Rationale
+             * @default
+             */
+            rationale: string;
+            /** Reference Answers */
+            reference_answers?: string[];
+            /** Required Facts */
+            required_facts?: string[];
+            /** Optional Facts */
+            optional_facts?: string[];
+            /**
+             * Self Review Rationale
+             * @default
+             */
+            self_review_rationale: string;
+            /**
+             * Scoring Rule
+             * @default
+             */
+            scoring_rule: string;
+            /**
+             * Core Info
+             * @default
+             */
+            core_info: string;
+            /**
+             * Answer Sentence
+             * @default
+             */
+            answer_sentence: string;
+            /**
+             * Word Limit
+             * @default
+             */
+            word_limit: string;
+            /** Audio Window */
+            audio_window?: {
+                [key: string]: number;
+            } | null;
+        };
+        /** ListeningGuidedStateResponse */
+        ListeningGuidedStateResponse: {
+            /** Attempt Id */
+            attempt_id: string;
+            /** Assisted */
+            assisted: boolean;
+            /** Items */
+            items?: components["schemas"]["ListeningGuidedFeedbackItem"][];
         };
         /** ListeningLessonCard */
         ListeningLessonCard: {
@@ -15789,6 +15903,11 @@ export interface components {
              * @default 0
              */
             completed_form_count: number;
+            /**
+             * Independent Completed Form Count
+             * @default 0
+             */
+            independent_completed_form_count: number;
             /**
              * In Progress Form Count
              * @default 0
@@ -15967,6 +16086,11 @@ export interface components {
              */
             completed_form_count: number;
             /**
+             * Independent Completed Form Count
+             * @default 0
+             */
+            independent_completed_form_count: number;
+            /**
              * In Progress Form Count
              * @default 0
              */
@@ -16001,6 +16125,11 @@ export interface components {
              * @default 0
              */
             unscored_count: number;
+            /**
+             * Assisted
+             * @default false
+             */
+            assisted: boolean;
             /** Href */
             href: string;
         };
@@ -16026,6 +16155,11 @@ export interface components {
              * @default 0
              */
             item_count: number;
+            /**
+             * Assisted
+             * @default false
+             */
+            assisted: boolean;
             /** Resume Expires At */
             resume_expires_at?: string | null;
             /** Href */
@@ -16069,6 +16203,8 @@ export interface components {
             self_review?: {
                 [key: string]: unknown;
             };
+            /** First Answer */
+            first_answer?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -31455,6 +31591,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_listening_programme_guided_state_api_listening_tests_attempts__attempt_id__guided_state_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListeningGuidedStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reveal_listening_programme_question_api_listening_tests_attempts__attempt_id__questions__q_num__reveal_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attempt_id: string;
+                q_num: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListeningGuidedStateResponse"];
                 };
             };
             /** @description Validation Error */
