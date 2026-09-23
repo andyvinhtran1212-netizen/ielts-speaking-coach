@@ -135,6 +135,9 @@ describe('/admin/writing/queue native ownership and UX contract', () => {
     assert.match(COMPONENT, /await loadQueue\(filters, true\)/);
     assert.match(COMPONENT, /\/admin\/writing\/essays\/\$\{encodeURIComponent\(action\.row\.id\)\}\/status/);
     assert.match(COMPONENT, /params\?\.get\('q'\)/);
+    assert.match(COMPONENT, /const visibleRows = rows;/);
+    assert.match(COMPONENT, /const overdue = filters\.overdue \|\| isWritingEssayOverdue\(row\);/);
+    assert.doesNotMatch(COMPONENT, /rows\.filter\(\(row\) => !filters\.overdue \|\| isWritingEssayOverdue\(row\)\)/);
     assert.match(COMPONENT, /<Dialog open=/);
     for (const token of ['Tìm học viên', 'queueStatus', 'pageRows', 'awq-pagination', 'Số dòng']) assert.ok(COMPONENT.includes(token), token);
     assert.doesNotMatch(COMPONENT, /\balert\(|\bconfirm\(|dangerouslySetInnerHTML/);

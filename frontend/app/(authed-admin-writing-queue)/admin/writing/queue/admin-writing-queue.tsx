@@ -207,7 +207,10 @@ export function AdminWritingQueue() {
     return () => window.clearInterval(timer);
   }, [filters, loadQueue]);
 
-  const visibleRows = useMemo(() => rows.filter((row) => !filters.overdue || isWritingEssayOverdue(row)), [filters.overdue, rows]);
+  // The page endpoint (or the bounded legacy adapter) already applied overdue
+  // before pagination. Re-filtering with the device clock can contradict the
+  // server's exact total and hide a valid row when that clock is behind.
+  const visibleRows = rows;
   const total = hasSnapshot ? snapshot?.total || 0 : 0;
   const totalComplete = hasSnapshot && snapshot?.totalComplete === true;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
@@ -374,7 +377,7 @@ export function AdminWritingQueue() {
             <th>Học viên</th><th>Task</th><th>Trạng thái</th><th>Band</th><th>Đã nộp</th><th>Hạn trả</th><th>Thao tác</th>
           </tr></thead>
           <tbody>{pageRows.map((row) => {
-            const overdue = isWritingEssayOverdue(row);
+            const overdue = filters.overdue || isWritingEssayOverdue(row);
             const minimum = writingMockMinimum(row.taskType);
             const short = row.wordCount < minimum;
             return <tr key={row.id} className={overdue ? 'is-overdue' : ''}>
