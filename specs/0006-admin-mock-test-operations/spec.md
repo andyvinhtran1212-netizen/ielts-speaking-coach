@@ -108,9 +108,10 @@ not reliably describe the canonical dataset.
 - **Given** Railway and Vercel may deploy the same release at different times
 - **When** either the old frontend meets the new backend or the new frontend
   temporarily meets the old backend
-- **Then** the old array endpoint still works, while the new frontend falls back
-  to a visibly incomplete compatibility page until the paginated endpoint is
-  available; neither order renders an invalid response as an empty queue.
+- **Then** the old exam-content and Writing array endpoints still work, while
+  the new frontend falls back to visibly incomplete legacy results until the
+  non-colliding paginated endpoints are available; neither order renders an
+  invalid response as an empty catalog or queue.
 
 ### Writing round trip
 

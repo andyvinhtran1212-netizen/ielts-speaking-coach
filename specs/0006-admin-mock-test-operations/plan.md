@@ -13,13 +13,18 @@
 
 ## Data and contracts
 
-- Extend the exam-content list contract with bounded `q`, attention, limit, and
-  offset inputs plus `total` and `total_complete`. Relationship enrichment runs
-  only for page rows. `total` is exact only when `total_complete=true`; if any
-  source is named in `failed_kinds`, `total_complete=false`, `total` is the
-  surviving-source subtotal, and the UI must label it as incomplete.
+- Preserve `/admin/exam-content` as the existing unpaged response for deployed
+  consumers. Add `/admin/exam-content/page` as a separate contract with bounded
+  `q`, attention, limit, and offset inputs plus `total` and `total_complete`.
+  Relationship enrichment runs only for page rows. `total` is exact only when
+  `total_complete=true`; if any source is named in `failed_kinds`,
+  `total_complete=false`, `total` is the surviving-source subtotal, and the UI
+  must label it as incomplete. When the page route is absent, the new frontend
+  may fetch the legacy full response, apply the supported filters and paging
+  locally, and label that compatibility result incomplete.
 - Preserve `/admin/writing/essays` as the existing array contract. Add
-  `/admin/writing/essays/queue` as a separate paginated envelope with bounded
+  `/admin/writing/essay-queue` as a separate, non-colliding paginated envelope
+  with bounded
   `q`, exact `total`, and existing status, cohort, overdue, Mock, limit, and
   offset semantics. The old frontend continues using the array endpoint. The
   new frontend uses the page endpoint and, only when that route returns 404
@@ -32,9 +37,11 @@
 - Treat `writing_essays`, assignments, canonical student/cohort membership, and
   persisted grading status as truth. Do not infer missing exam identity.
 - Keep the currently deployed backend compatible with the additive routine and
-  index before dependent code is deployed. Verify both deployment orders: old
-  frontend/new backend uses the unchanged array route; new frontend/old backend
-  uses the visible incomplete fallback until the page route becomes available.
+  index before dependent code is deployed. Verify both deployment orders for
+  both domains: old frontends use the unchanged exam-content and Writing array
+  routes against the new backend; new frontends use visible incomplete legacy
+  fallbacks until `/admin/exam-content/page` and
+  `/admin/writing/essay-queue` become available.
 
 ## UI and interaction
 

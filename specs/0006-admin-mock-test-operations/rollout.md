@@ -6,8 +6,9 @@
   release branch.
 - Affected local backend, contract, browser, TypeScript, and build suites pass.
 - Migration 296 remains additive and compatible with currently deployed code.
-- The legacy Writing array route stays unchanged; deployment-order tests cover
-  old frontend/new backend and new frontend/old backend fallback behavior.
+- The legacy exam-content and Writing array routes stay unchanged; new page
+  routes do not collide with parameterized legacy paths. Deployment-order tests
+  cover old frontend/new backend and new frontend/old backend fallback behavior.
 - Staging and production service roles exist; the routine is not executable by
   public, anon, or authenticated roles.
 

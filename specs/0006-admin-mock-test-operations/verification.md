@@ -16,10 +16,10 @@
 
 - OpenAPI/type drift: pending regenerated `frontend/types/api.d.ts`, response
   model tests, strict TypeScript, and full frontend contract suite.
-- Backward compatibility: pending tests that the old array consumer works
-  against the new backend and the new page consumer turns an old-backend 404
-  into a visibly incomplete compatibility result. Create, mutation, grading,
-  and release payloads remain unchanged.
+- Backward compatibility: pending tests that old exam-content and Writing array
+  consumers work against the new backend, and both new page consumers turn an
+  old-backend 404 into visibly incomplete locally filtered compatibility
+  results. Create, mutation, grading, and release payloads remain unchanged.
 
 ## Data evidence
 
